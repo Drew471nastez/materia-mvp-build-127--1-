@@ -112,6 +112,8 @@ read:   { "columns": { "desktop": 4, "tablet": 4, "mobile": 1 } }
 
 The builder stores a single value while all three are the same and the object the moment they differ. Read one breakpoint in the template as `{{ settings.columns.desktop }}`, or pass all three to CSS as custom properties and choose with container queries.
 
+**A colour may name a scheme colour as its default**, `"default": "scheme.accent"`, and then follows the section's scheme until somebody picks a colour. See [Styling](/developers/styling#colours-of-the-sections-own).
+
 **Every value is held to its type.** A saved value the control does not allow is drawn as the default, as if it had never been set: a word in a `range`, an option a `select` does not list, a `color` that is not a colour, a link to `javascript:`, a date that is not a date. The stored value is left as it was, so nothing a creator typed is thrown away, and a schema change that makes an old value valid again brings it back.
 
 ## Settings that name the shop's own things
@@ -173,6 +175,8 @@ An `image_picker`, `video_picker` or `file_picker` setting holds the file's **pu
   <img src="{{ settings.image }}" alt="{{ settings.image_alt }}" width="1200" height="800" loading="lazy">
 {% endif %}
 ```
+
+In the builder a `video_picker` uploads an MP4, WebM or MOV of up to 200 MB, or takes a link to a video file, and shows the video itself. A YouTube or Vimeo address is a page, not a file, so it belongs in a `video_url` setting, printed through the `embed` filter.
 
 An empty value means nothing is chosen yet, so put the element behind `{% if %}`. Give every image a width and height, or an `aspect-ratio`, so nothing moves as it loads.
 

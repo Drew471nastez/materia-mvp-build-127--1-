@@ -67,6 +67,12 @@ SETTING TYPES:
   ${CONTROL_TYPES.join(" ")}`
 
 const TOPICS: Topic[] = [
+  /* First, so a request about the header never loses it to the cap: writing a header file is the mistake this exists to stop. */
+  {
+    id: "site-chrome",
+    triggers: /header|navbar|nav ?bar|navigation|menu ?bar|top ?bar|footer|sticky|mega ?menu/i,
+    text: `THE SITE HAS ONE HEADER AND ONE FOOTER, built in, of type "header" and "footer", on every page. NEVER write a section file that is a header, a navigation bar or a footer, and never put one in a page: it is refused on save. Change the real one instead. The header's settings: header_layout, mobile_header_layout, mobile_menu_style (left, right, full), header_sticky_enabled, header_sticky_on_scroll_up, header_transparent with header_transparent_scope (all, home), show_search_icon with search_behaviour (header, page), show_account_icon, show_wishlist_icon, show_cart_icon (opens the cart drawer), show_cta_button with cta_text and cta_url, logo_url, logo_height, header_width, color_scheme, menu (a menu's handle, or empty for its own links). Its links are nav_link blocks {label, url, link_type: "custom"}, a sub-link naming its parent in parent_id. The footer: logo_url, tagline, copyright, menu and menu_2 (menu handles), footer_column and footer_link blocks, show_policies, show_newsletter, show_social, show_payment_icons, layout, color_scheme.`,
+  },
   {
     id: "blocks",
     triggers: /block|repeat|item|entry|question|tier|testimonial|logo|slide|card|list|faq|accordion|gallery/i,
@@ -75,7 +81,7 @@ const TOPICS: Topic[] = [
   {
     id: "color-scheme",
     triggers: /colou?r|scheme|background|dark|light|contrast|palette|brand|theme/i,
-    text: `COLOUR COMES FROM THE SCHEME. Declare a color_scheme setting and read the scheme in the template and CSS. Its keys: ${SCHEME_COLOR_KEYS.join(", ")}. The aliases bg, paragraph, primary_btn_bg and primary_btn_text still resolve. Paint a button's hover from its hover keys, never with opacity. Built-in schemes: white, light, dark, black and highlight (Light, Soft, Dark, Brand, Accent); a creator can add more. Never hardcode a hex value the scheme answers: it stops responding to the creator's theme.`,
+    text: `COLOUR COMES FROM THE SCHEME. Declare a color_scheme setting and read the scheme in the template and CSS. Its keys: ${SCHEME_COLOR_KEYS.join(", ")}. The aliases bg, paragraph, primary_btn_bg and primary_btn_text still resolve. Paint a button's hover from its hover keys, never with opacity. Built-in schemes: white, light, dark, black and highlight (Light, Soft, Dark, Brand, Accent); a creator can add more. Never hardcode a hex value the scheme answers: it stops responding to the creator's theme. A colour that belongs to this section alone (stars, a badge, a scrim) is a color setting whose default NAMES a scheme colour, "default": "scheme.accent": it follows the scheme until the creator picks a colour in the section's panel, and the template reads it as {{ settings.star_color }}.`,
   },
   {
     id: "typography",

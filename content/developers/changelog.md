@@ -12,6 +12,20 @@ A file written for a newer version is **refused, not misread**: a schema declari
 
 Every change since 1.0 has been additive. Nothing a section could do on 11 September 2026 has stopped working since, which is why every version above is still 1.
 
+## 3 October 2026
+
+**Added**
+
+- A `color` setting's default may name a scheme colour, `"default": "scheme.accent"`. The setting follows the section's scheme until the creator picks a colour, and a section's own colour settings are now rows in its panel. See [Styling](/developers/styling#colours-of-the-sections-own).
+- [The header and footer](/developers/header-and-footer): what the one header and one footer do, and every setting they take, generated from the files the builder draws them with.
+- A `video_picker` uploads a video file or takes a link to one, and shows it.
+- Website settings › Navigation: the header's links, the footer's menu columns and every menu, in one place.
+
+**Changed**
+
+- A section file that is a header, a navigation bar or a footer is refused when it is saved, by the code editor, Ask AI, an agent or a GitHub push, and left out of an imported theme. Recognised by `"group"`, by Shopify's `enabled_on.groups`, by its name, or by an outermost `<header>` holding a `<nav>`. A site has one of each, and they are changed through their settings.
+- The YouTube and Vimeo video section's link is a `video_url` setting, which checks the link as it is pasted.
+
 ## 25 September 2026
 
 **Added**
@@ -68,7 +82,7 @@ Every change since 1.0 has been additive. Nothing a section could do on 11 Septe
 **Added**
 
 - [Rules before you ship](/developers/rules): what every agent follows before writing code on a Storelib site, and the `storelib_rules` tool that returns them. `storelib_guide` now starts with them.
-- A navigation bar [example](/developers/examples#navigation-bar), with menu links as blocks and a phone menu that opens with `popover`.
+- A navigation bar example, with menu links as blocks and a phone menu that opens with `popover`. Replaced on 3 October 2026 by [Page links](/developers/examples#page-links), because a site's navigation is its built-in header.
 
 **Changed**
 

@@ -37,7 +37,7 @@ export function PanelBack({
   className?: string
 }) {
   return (
-    <div data-panel-back="" className={cn("relative flex min-h-[52px] shrink-0 items-center gap-1.5 border-b border-border px-2 md:min-h-[44px] md:gap-1 md:px-2.5", className)}>
+    <div data-panel-back="" className={cn("relative flex min-h-[52px] shrink-0 items-center gap-1.5 border-b border-border px-2 md:min-h-[40px] md:gap-1 md:px-2.5", className)}>
       <button
         type="button"
         onClick={onBack}

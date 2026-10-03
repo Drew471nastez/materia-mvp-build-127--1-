@@ -340,9 +340,14 @@ async function createConnectedAccount(
   }
   const merchant = { ...shared, capabilities: full }
 
+  /* The recipient ToS agreement only exists for cross-border payouts: Stripe
+     refuses it when the platform and the creator are in the same country
+     ("recipient ToS is not supported for platforms in RO creating accounts in
+     RO"). Same country, then, is merchant accounts only, so a same-country
+     refusal is never dressed up as "that country is not available". */
   const storelibAttempts: Stripe.AccountCreateParams[] = crossBorder
     ? [{ ...recipient, controller: inStorelib }]
-    : [{ ...merchant, controller: inStorelib }, { ...recipient, controller: inStorelib }]
+    : [{ ...merchant, controller: inStorelib }]
   const expressAttempts: Stripe.AccountCreateParams[] = crossBorder
     ? [
         { ...recipient, controller: acknowledged },
@@ -352,12 +357,14 @@ async function createConnectedAccount(
     : [
         { ...merchant, controller: acknowledged },
         { ...merchant, type: "express" },
-        { ...recipient, controller: acknowledged },
-        { ...recipient, type: "express" },
       ]
   const attempts = options.storelibOnly ? storelibAttempts : [...storelibAttempts, ...expressAttempts]
 
   let last: unknown
+  /* A platform-level block (Stripe paused or is holding the platform) is the
+     real reason none of the attempts can land; a later attempt's own refusal
+     is noise, so this is thrown ahead of `last`. */
+  let blocker: unknown
   for (const params of attempts) {
     try {
       return await stripe.accounts.create(params)
@@ -366,9 +373,10 @@ async function createConnectedAccount(
       const msg = stripeErrorMessage(error)
       console.error("[stripe connect] create attempt", msg.replace(/\s+/g, " ").slice(0, 180))
       if (/account has been rejected|invalid email/i.test(msg)) throw error
+      if (!blocker && /temporarily restricted your ability to create|suspicious activity|confirm that you intended/i.test(msg)) blocker = error
     }
   }
-  throw last
+  throw blocker ?? last
 }
 
 export async function syncStripeAccount(creatorId: string, actor: "webhook" | "creator" | "system"): Promise<StripeCreatorSnapshot> {

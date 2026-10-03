@@ -100,6 +100,15 @@ export const DEV_PAGES: readonly DevPage[] = [
     group: "Themes",
   },
   {
+    slug: "header-and-footer",
+    title: "The header and footer",
+    nav: "Header and footer",
+    summary: "One of each on every site: what they do and every setting.",
+    description:
+      "The one header and one footer every Storelib website has: the cart drawer, search, menus, sticky and transparent modes, every setting they take, how to change them from the editor, Ask AI or an agent, and why a section file can never be another one.",
+    group: "Themes",
+  },
+  {
     slug: "sharing-themes",
     title: "Sharing themes",
     nav: "Sharing themes",

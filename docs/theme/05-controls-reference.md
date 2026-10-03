@@ -264,7 +264,7 @@ These Shopify types have nothing to point at on Storelib and are refused with th
 
 ## color
 
-**Colour.** A hex colour.
+**Colour.** A hex colour. The default may name a scheme colour, "scheme.accent", which the setting follows until somebody picks one.
 
 - Value: color
 - Default when the schema gives none: `""`

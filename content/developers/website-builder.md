@@ -40,13 +40,13 @@ The three tabs at the top of the sidebar, and at the top of the sheet on a phone
 
 ### Sections
 
-The page's sections, top to bottom.
+The page's sections, in three groups, the way a shop's theme editor shows them:
 
-- **The header and footer** sit in their own boxes at the top and bottom. They are the same on every page: change them on one and every page changes. They can be hidden with the eye, but not moved, copied or deleted.
-- **Every other section** has a grip to drag it up or down: press and hold on a phone, or use the arrow keys. Its **…** menu, or a right click on the row, has **Duplicate**, **Hide** or **Show**, and **Delete**.
-- A hidden section is drawn faded in the list and is left out of the page. Delete takes effect at once; Undo brings it back.
-- A thin line between two rows shows a **+** under the pointer: press it to add a section at exactly that point.
-- **Add section**, at the end of the list on a computer and the start on a phone, adds a section above the footer.
+- **Header** holds the site's header and nothing else, with **Add section** under it, which adds at the top of the page.
+- **Template** holds the page's own sections, top to bottom, with **Add section** at the end, which adds at the bottom. A thin line between two rows shows a **+** under the pointer: press it to add a section at exactly that point.
+- **Footer** holds the site's footer.
+
+Each row is one line: a grip to drag it (press and hold on a phone, or the arrow keys), its name, and under the pointer **Hide**, **Delete** and a **…** menu with **Duplicate**, **Move up**, **Move down**, **Hide** or **Show**, and **Delete**. A right click on the row opens the same menu. The header and footer have an icon in place of the grip and only the eye: they are the same on every page, so they can be hidden but not moved, copied or deleted, and nothing can be dropped into their groups. A hidden section is faded in the list, always shows its eye, and is left out of the page. Delete takes effect at once; Undo brings it back. See [The header and footer](/developers/header-and-footer).
 
 ### Adding a section
 
@@ -64,7 +64,8 @@ Every website comes with a Refund Policy, a Privacy Policy and Terms of Service 
 
 Click a section, in the canvas or the list, and its settings open in the sidebar.
 
-- **Colour scheme** comes first: pick one of the website's schemes and every colour in the section follows it. **Advanced colors** overrides single colours (background, text, heading, accent, border, and the two buttons with their hover colours) for this section only. **Reset to scheme** undoes that.
+- **Colour scheme** comes first: pick one of the website's schemes and every colour in the section follows it. **Advanced colors** overrides single colours (background, text, heading, accent, border, and each button's fill, text, hover fill and hover text) for this section only. A hover colour says Auto until you pick one. **Reset all to scheme** undoes that.
+- **The section's own colours**, when its file declares any (stars, a timeline's dot, the scrim over a photo), are rows among its settings. Each says Scheme, Default or Auto until you pick a colour for this section alone, and the arrow beside it puts it back. See [Styling](/developers/styling#colours-of-the-sections-own).
 - **Text** picks the heading style and the body style from the theme's text styles, or **Custom** to set font, weight, size per screen, line height, letter spacing and case for this section.
 - **The section's own settings** follow, in the order its file declares them, each with its help text. A setting marked responsive has a Desktop, Tablet, Phone switch above it.
 - **Blocks**, if it has any. Each block has a grip to drag it up or down with a mouse or a finger, or with the arrow keys. It can also be duplicated, deleted, and opened to edit its own settings. **Add** adds another, until the section's `limit` for that kind of block or its `max_blocks`. Clicking a block in the canvas opens it in the list.
@@ -83,7 +84,7 @@ A section declares its settings in its schema, and each type is drawn as one con
 The header has a panel of its own, in three parts.
 
 - **Store Logo**: the logo, its height, a nudge left or right, a separate logo for phones if you want one, and the logo's height on phones, which applies to whichever logo the phone shows.
-- **Navigation Links**: up to eight links, each with a label, where it goes, and whether it opens in a new tab. Drag to reorder. Each link can hold one level of sub-links. Once the site has menus of its own (General Settings, Menus), **Links** at the top can show one of them instead; the links here are kept for when you switch back.
+- **Navigation Links**: up to eight links, each with a label, where it goes, and whether it opens in a new tab. Drag to reorder. Each link can hold one level of sub-links. Once the site has menus of its own, **Links** at the top can show one of them instead; the links here are kept for when you switch back. The same links and menus are in Website settings › Navigation.
 - **Header Settings**: the layout on a computer (logo left, nav inline, nav centred, or logo centred) and on a phone; **Menu on phones**, which slides in from the left or the right or covers the screen; the colour scheme; how menu links react to the pointer; width and spacing; sticky behaviour (always, or only when scrolling up); a transparent header, on every page or on the home page only; a bottom border and shadow; which icons show (search, account, wishlist, cart); and an optional button with its own text and link.
 
 The header and the announcement bar are the same on every page. The announcement bar is set in General Settings.
@@ -229,7 +230,7 @@ Only `sections/*.storelib` changes what the site draws. The other files in the t
 
 ## Website settings
 
-**Website Settings**, in the top bar, is a page of its own, with eight subjects about the website down the left and Connections under its own heading, Code. On a phone they are a list, and each opens with its own Back. On the Websites page, **Settings** beside the live website opens it, and a draft's own is in that draft's **More** menu.
+**Website Settings**, in the top bar, is a page of its own, with nine subjects about the website down the left and Connections under its own heading, Code. On a phone they are a list, and each opens with its own Back. On the Websites page, **Settings** beside the live website opens it, and a draft's own is in that draft's **More** menu.
 
 Every website has its own settings. Anything marked below as part of the draft is saved with the website's other changes, can be undone, and reaches visitors when you publish.
 
@@ -238,7 +239,8 @@ Every website has its own settings. Anything marked below as part of the draft i
 | General | The website's name, which only you see. Its address, set by your username. Whether it is live. Its favicon and its language (both part of the draft); the language sets the page's `lang` and the share card's locale. |
 | Domains | The Storelib address, which starts as your username and can be given its own name with **Change address** (your username stays as it is, and the old address keeps working), and a custom domain if one is connected, with its status: waiting for DNS, securing, or connected. The `www.` address is the main one and the bare domain redirects to it. HTTPS is set up for both. A domain is added right here. Until it is connected, the three DNS records to set are listed, each with a copy button, and **Check DNS** looks them up. A site has one domain. Adding another asks first, then the old one sends its visitors to the new one for 30 days. Removing a domain is in Settings › Domains. |
 | SEO & Social | A preview of the search result. Site title, meta description, social image, share card size, and whether search engines may list the website (all part of the draft). |
-| Pages & Navigation | Every page with **Edit**, which opens it in the builder, and **Add page**. **Search** opens the page's own search result: its title, its description, and **Show in search engines**. Off gives the page `noindex` and leaves it out of the sitemap. These are stored in the theme settings as `page_seo`, keyed by page, so they are saved with the draft and go live on publish. The home page's search result is the site's own, in SEO & Social. **Edit menu** selects the header, where the menu is. |
+| Pages | Every page with **Edit**, which opens it in the builder, and **Add page**. **Search** opens the page's own search result: its title, its description, and **Show in search engines**. Off gives the page `noindex` and leaves it out of the sitemap. These are stored in the theme settings as `page_seo`, keyed by page, so they are saved with the draft and go live on publish. The home page's search result is the site's own, in SEO & Social. |
+| Navigation | The header's links, edited in place: add, rename, point anywhere with the link picker, drag to reorder, and one level of sub-links. **Links come from** switches the header to one of the site's menus. The footer's two menu columns. **Menus**, the named lists of links a header, a footer column or any section can show. All of it is the header's, the footer's and the theme's own settings, so it is part of the draft, saved with Undo, and live on publish. |
 | Commerce | How many published products the website can show, and **Manage products**. Checkout is Storelib's, paid by card or Google Pay through Stripe, in US dollars. **Payments settings** is where payouts go. |
 | Policies | The refund, privacy and terms pages, each with **Edit**. The cookie banner: **Show the cookie banner** (off means no banner, and nothing optional is stored for visitors), its message and its two buttons, which start with the site's default words, and **Use my own colours**. All part of the draft, and the same settings as the builder's Cookie & privacy. |
 | Publishing | Live or draft, the published address, when it was last published, **Publish**, and **Take offline**, which asks first and deletes nothing. |

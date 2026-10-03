@@ -1,0 +1,93 @@
+<template>
+<section class="pl" data-scheme="{{ settings.color_scheme }}" style="--pl-pt: {{ settings.padding_top }}px; --pl-pb: {{ settings.padding_bottom }}px;">
+  <div class="pl__in">
+    {% if settings.heading != "" %}<h2 class="pl__h">{{ settings.heading }}</h2>{% endif %}
+    <nav class="pl__links" aria-label="{{ settings.heading | default: 'Links' }}">
+      {% for block in blocks %}
+        <a class="pl__link" href="{{ block.settings.url | default: '#' | url }}" data-block-id="{{ block.id }}">{{ block.settings.label }}</a>
+      {% else %}
+        {% if page.in_editor %}<span class="pl__empty">Add a link from the panel.</span>{% endif %}
+      {% endfor %}
+    </nav>
+    <button class="pl__open" type="button" popovertarget="{{ section.id }}-links">{{ settings.phone_label }}</button>
+    <div class="pl__sheet" id="{{ section.id }}-links" popover>
+      <div class="pl__sheet-top">
+        <span class="pl__sheet-title">{{ settings.heading | default: settings.phone_label }}</span>
+        <button class="pl__close" type="button" popovertarget="{{ section.id }}-links" popovertargetaction="hide" aria-label="Close">&times;</button>
+      </div>
+      <nav class="pl__sheet-links" aria-label="{{ settings.phone_label }}">
+        {% for block in blocks %}
+          <a class="pl__sheet-link" href="{{ block.settings.url | default: '#' | url }}">{{ block.settings.label }}</a>
+        {% endfor %}
+      </nav>
+    </div>
+  </div>
+</section>
+</template>
+
+<style>
+.pl { container-type: inline-size; background: var(--scheme-background); color: var(--scheme-text); }
+.pl__in { max-width: var(--theme-page-width, 1200px); margin: 0 auto; padding: var(--pl-pt) var(--theme-padding-x, 20px) var(--pl-pb); }
+.pl__h { margin: 0 0 12px; color: var(--scheme-heading); font-size: var(--section-heading-size, 20px); font-weight: var(--section-heading-weight, 700); }
+.pl__links { display: none; }
+.pl__link { display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; border: 1px solid var(--scheme-border); border-radius: var(--theme-button-radius, 999px); color: var(--scheme-heading); text-decoration: none; font-size: 15px; transition: background-color 150ms ease; }
+.pl__link:hover { background: var(--scheme-background-secondary); }
+.pl__open { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 44px; border: 1px solid var(--scheme-border); border-radius: var(--theme-button-radius, 10px); background: var(--scheme-background); color: var(--scheme-heading); font-size: 16px; cursor: pointer; }
+.pl__empty { color: var(--scheme-text-muted); font-size: 14px; }
+
+/* On a phone the links open as a sheet from the bottom, with no script. */
+.pl__sheet { inset: auto 0 0 0; width: 100%; max-height: 80vh; margin: 0; padding: 12px 20px calc(24px + env(safe-area-inset-bottom, 0px)); border: 0; border-radius: 16px 16px 0 0; background: var(--scheme-background); color: var(--scheme-text); box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.18); overflow-y: auto; overscroll-behavior: contain; }
+.pl__sheet:popover-open { display: flex; flex-direction: column; gap: 4px; animation: pl-in 260ms cubic-bezier(0.32, 0.72, 0, 1); }
+.pl__sheet::backdrop { background: rgba(0, 0, 0, 0.35); }
+.pl__sheet-top { display: flex; align-items: center; justify-content: space-between; min-height: 44px; }
+.pl__sheet-title { color: var(--scheme-heading); font-weight: 700; }
+.pl__close { width: 44px; height: 44px; border: 0; background: transparent; color: var(--scheme-heading); font-size: 26px; cursor: pointer; }
+.pl__sheet-links { display: flex; flex-direction: column; }
+.pl__sheet-link { display: flex; align-items: center; min-height: 48px; color: var(--scheme-heading); text-decoration: none; font-size: 17px; border-bottom: 1px solid var(--scheme-border); }
+@keyframes pl-in { from { transform: translateY(24px); opacity: 0; } }
+
+@container (min-width: 640px) {
+  .pl__links { display: flex; flex-wrap: wrap; gap: 8px; }
+  .pl__open, .pl__sheet { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pl__sheet:popover-open { animation: none; }
+}
+</style>
+
+<schema>
+{
+  "type": "page_links",
+  "name": "Page links",
+  "category": "Content",
+  "settings": [
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Browse by topic" },
+    { "type": "text", "id": "phone_label", "label": "Button on phones", "default": "Choose a topic" },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "white" },
+    { "type": "range", "id": "padding_top", "label": "Space above", "default": 24, "min": 0, "max": 160, "step": 4, "unit": "px" },
+    { "type": "range", "id": "padding_bottom", "label": "Space below", "default": 24, "min": 0, "max": 160, "step": 4, "unit": "px" }
+  ],
+  "blocks": [
+    {
+      "type": "link",
+      "name": "Link",
+      "limit": 12,
+      "settings": [
+        { "type": "text", "id": "label", "label": "Label", "default": "Guides" },
+        { "type": "url", "id": "url", "label": "Link", "default": "/products" }
+      ]
+    }
+  ],
+  "max_blocks": 12,
+  "presets": [
+    {
+      "name": "Page links",
+      "blocks": [
+        { "type": "link", "settings": { "label": "Guides", "url": "/products" } },
+        { "type": "link", "settings": { "label": "Templates", "url": "/products" } },
+        { "type": "link", "settings": { "label": "Courses", "url": "/products" } }
+      ]
+    }
+  ]
+}
+</schema>

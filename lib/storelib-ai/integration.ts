@@ -25,6 +25,7 @@
  */
 
 import { parseStorelib } from "@/lib/storelib-theme/storelib/parse"
+import { chromeRefusal, chromeRoleOf } from "@/lib/storelib-theme/chrome"
 import type { QualityFinding } from "./quality"
 
 type SchemaSetting = { id?: string; type?: string }
@@ -131,6 +132,11 @@ export function checkSectionIntegration(source: string): QualityFinding[] {
   const frame = FRAME.test(schema.category ?? "")
   const out: QualityFinding[] = []
   const err = (id: string, message: string) => out.push({ id, severity: "error", message })
+
+  /* ── the site's header and footer are not section files ─────────── */
+  /* Alone, and first: nothing else about the file matters if it should not exist (lib/storelib-theme/chrome.ts). */
+  const chrome = chromeRoleOf({ schema: schema as Record<string, unknown>, template: parsed.value.template.text })
+  if (chrome) return [{ id: "integration-chrome", severity: "error", message: chromeRefusal(chrome) }]
 
   /* ── colour scheme ─────────────────────────────────────────────── */
   /* Whatever the scheme setting is called, the root must name it. */

@@ -652,3 +652,43 @@ export function stripSchemeDefaults(s: ColorScheme, base: ColorScheme): Record<s
   }
   return out
 }
+
+/**
+ * ===========================================================================
+ *  A SECTION'S OWN COLOUR, FOLLOWING THE SCHEME UNTIL SOMEBODY PICKS ONE
+ * ===========================================================================
+ * A section may declare colours of its own beside its scheme: the stars on a
+ * review, the dot on a timeline, the scrim over a photo. A creator sets them
+ * in the section's sidebar, and they win over the scheme for that section
+ * alone, which is what "a colour just for this section" means.
+ *
+ * Their default may NAME a scheme colour instead of holding one:
+ *
+ *     { "type": "color", "id": "star_color", "label": "Stars", "default": "scheme.accent" }
+ *
+ * Until the creator picks a colour, `settings.star_color` is the section's
+ * accent, and it changes when the scheme or the theme does. Picking one
+ * stores the hex; clearing it goes back to following the scheme. Any name
+ * `scheme` has works: the semantic names in SCHEME_COLOR_KEYS and the older
+ * ones in LEGACY_TO_SEMANTIC (`scheme.bg`, `scheme.primary_btn_bg`).
+ */
+export const SCHEME_TOKEN = /^scheme\.([a-z][a-z0-9_]{1,40})$/
+
+/** Every name a `scheme.<name>` default may use. */
+export function isSchemeColorName(name: string): boolean {
+  return (SCHEME_COLOR_KEYS as readonly string[]).includes(name) || name in LEGACY_TO_SEMANTIC || name in LEGACY_FIXED
+}
+
+/** The scheme colour a value names, or null when it is not `scheme.<name>`. */
+export function schemeTokenName(value: unknown): string | null {
+  if (typeof value !== "string") return null
+  const m = value.trim().match(SCHEME_TOKEN)
+  return m && isSchemeColorName(m[1]) ? m[1] : null
+}
+
+/** A colour setting's value with a `scheme.<name>` replaced by that colour of `scheme`. */
+export function followScheme(value: unknown, scheme: Record<string, string>): unknown {
+  const name = schemeTokenName(value)
+  if (name === null) return typeof value === "string" && SCHEME_TOKEN.test(value.trim()) ? "" : value
+  return scheme[name] ?? ""
+}
