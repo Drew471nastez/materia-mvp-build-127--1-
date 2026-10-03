@@ -53,8 +53,8 @@ Blocks as tabs, switched with radio inputs and `:checked`, keyboard reachable, w
 
 @[example:tabs_panel]
 
-## Navigation bar
+## Page links
 
-A header whose every link is editable: menu links as blocks with a label and a `url` each, a logo from an `image_picker`, a button with its own link, and on a phone a menu that opens as a sheet with `popover`, with no script. See [Rules before you ship](/developers/rules).
+A row of links inside a page, to a shop's topics or a course's parts: each link a block with a label and a `url`, chips on a computer, and on a phone a button that opens them as a sheet with `popover`, with no script. It is a band on a page, not the site's navigation: the site's header and its menu are built in, and changed through their settings. See [The header and footer](/developers/header-and-footer).
 
-@[example:nav_bar]
+@[example:page_links]

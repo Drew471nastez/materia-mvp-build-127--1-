@@ -14,6 +14,7 @@
  * validator, the AI's reference and the panel all describe one control.
  */
 import { DESIGN_SUPPORT_KEYS } from "./design-support"
+import { chromeRoleOf } from "@/lib/storelib-theme/chrome"
 import { COMPILE_CACHE_LIMIT, createLru } from "@/lib/storelib-theme/storelib/compile"
 import { parseStorelib, parseSchemaJson } from "@/lib/storelib-theme/storelib/parse"
 import { validateSectionSchema } from "@/lib/storelib-theme/schema/validate"
@@ -226,6 +227,10 @@ export function schemasFromSources(sources: Record<string, string> | undefined):
 
 /** Their types, offered only when the file says how the section first appears. */
 export function customAddableSections(custom: Record<string, SectionSchema>): string[] {
-  return Object.keys(custom).filter((t) => (custom[t].presets?.length ?? 0) > 0).sort()
+  return Object.keys(custom)
+    .filter((t) => (custom[t].presets?.length ?? 0) > 0)
+    /* A header or footer written as a section, saved before that was refused, is not offered for a page body. */
+    .filter((t) => !chromeRoleOf({ schema: custom[t] as unknown as Record<string, unknown>, type: t }))
+    .sort()
 }
 

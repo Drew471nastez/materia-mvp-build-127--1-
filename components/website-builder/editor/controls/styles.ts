@@ -8,11 +8,11 @@
 
 /** A one-line field, as the text and number settings draw one. */
 export const INPUT =
-  "w-full h-9 px-3 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-colors"
+  "w-full h-8 px-2.5 text-[13px] border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-colors"
 
 /** A select, drawn the way the sidebar's other selects are. */
 export const SELECT =
-  "w-full h-9 px-3 pr-8 text-sm border border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 appearance-none cursor-pointer transition-colors"
+  "w-full h-8 px-2.5 pr-8 text-[13px] border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 appearance-none cursor-pointer transition-colors"
 
 /** The grey track a segmented choice sits in. */
 export const SEGMENTS = "flex gap-1 p-1 bg-neutral-100 rounded-lg"
@@ -20,7 +20,7 @@ export const SEGMENTS = "flex gap-1 p-1 bg-neutral-100 rounded-lg"
 /** One segment. */
 export function segment(selected: boolean): string {
   return [
-    "flex-1 h-8 max-sm:h-11 px-3 text-sm font-medium rounded-md border text-center transition-[background-color,color,border-color,box-shadow] duration-200 ease-out",
+    "flex-1 h-7 max-sm:h-11 px-2.5 text-[12.5px] max-sm:text-sm font-medium rounded-md border text-center transition-[background-color,color,border-color,box-shadow] duration-200 ease-out",
     selected
       ? "bg-white text-foreground border-neutral-200/80 shadow-[0_1px_2px_rgba(0,0,0,0.06),0_0_0_0.5px_rgba(0,0,0,0.04)]"
       : "bg-transparent text-neutral-500 border-transparent hover:text-foreground hover:bg-white/40",
@@ -29,11 +29,11 @@ export function segment(selected: boolean): string {
 
 /** A small square action beside a row: up, down, remove. 44px under a thumb. */
 export const ICON_BUTTON =
-  "inline-flex h-7 w-7 max-sm:h-11 max-sm:w-11 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:hover:bg-transparent"
+  "inline-flex h-6 w-6 max-sm:h-11 max-sm:w-11 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-30 disabled:hover:bg-transparent"
 
 /** The dashed "Add …" button the block lists use. */
 export const ADD_BUTTON =
-  "w-full flex items-center justify-center gap-1.5 py-2.5 max-sm:min-h-11 text-sm text-muted-foreground hover:text-foreground border border-dashed border-border hover:border-neutral-400 rounded-lg transition-colors"
+  "w-full flex items-center justify-center gap-1.5 py-2 max-sm:min-h-11 text-[13px] text-muted-foreground hover:text-foreground border border-dashed border-border hover:border-neutral-400 rounded-lg transition-colors"
 
 /** A quiet text action under a field. */
 export const TEXT_BUTTON =

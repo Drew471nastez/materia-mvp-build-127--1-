@@ -325,7 +325,7 @@
             "price": "$0/mo",
             "description": "For individuals",
             "cta_text": "Get started free",
-            "cta_url": "/signup",
+            "cta_url": "/products",
             "is_highlighted": false
           }
         },

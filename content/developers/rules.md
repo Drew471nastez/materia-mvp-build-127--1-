@@ -28,7 +28,7 @@ The creator edits a section in the builder's sidebar, as they would in Shopify. 
 - **Menus and link lists** are blocks, one block per link, each with its own `label` and `url`. The creator adds, removes and reorders links in the sidebar, and the section draws whatever is there.
 - **Colour** comes from the colour scheme. Declare a `color_scheme` setting and use `var(--scheme-*)`. Don't use hex codes for anything the scheme covers.
 
-The [navigation bar example](#a-header-done-properly) below does all of this.
+The [page links example](/developers/examples#page-links) does all of this.
 
 ## Native, not pasted in
 
@@ -50,7 +50,7 @@ When you are given a screenshot or a URL to copy:
 1. **Split it into sections**, top to bottom: header, hero, features, testimonials, pricing, FAQ, footer, whatever is there. Each becomes its own file with its own schema. Never write a whole page as one section.
 2. **Look for a built-in section first.** If the site already has a section that does the job (a hero, an FAQ, product cards), its settings are the change, not a new file.
 3. **Give each new section a full schema.** Every heading, paragraph, image, button and link from section 3 above, with defaults taken from the screenshot so it looks right the moment it is added.
-4. **Build the header and footer the same way.** The site's navigation is menu-link blocks, the logo is an `image_picker`, and the call-to-action is a label and a `url`. A header whose links are typed into the markup is one the creator can never change.
+4. **Do not build the header or footer.** The site has one of each, built in, with the cart drawer, search, account, phone menu and sticky behaviour already working. Copy the screenshot's header into the real one: its layout, sticky and transparent settings, its icons, its button, and its links as `nav_link` blocks. A section file that is a header, a navigation bar or a footer is refused. See [Changing the header](#changing-the-header).
 5. **Use the site's own words and products**, from `storelib_site`. Never invent a product, a price, a review or a statistic.
 
 ## 5. Menus, dropdowns, modals and bottom sheets
@@ -104,8 +104,19 @@ Storelib sites should look like they were made by a person with taste, not produ
 
 Then say what you changed in one or two plain sentences, and remind the creator it is a draft until they publish.
 
-## A header done properly
+## Changing the header
 
-A navigation bar with a logo, menu links as blocks, a button with its own link, and a phone menu that opens as a sheet with no script. Every word and link in it is editable in the sidebar.
+The header and the footer are the site's own sections, of type `header` and `footer`. They are changed, never rewritten. Over MCP, one `storelib_create_safe_patch` makes the header sticky on scroll up, gives it a button, and adds a link with a sub-link:
 
-@[example:nav_bar]
+```json
+{
+  "page": "home",
+  "label": "Header like the screenshot",
+  "ops": [
+    { "op": "update_section", "section_id": "<the header's id>", "settings": { "header_sticky_enabled": true, "header_sticky_on_scroll_up": true, "show_cta_button": true, "cta_text": "Shop now", "cta_url": "/products" } },
+    { "op": "add_block", "section_id": "<the header's id>", "block_type": "nav_link", "settings": { "label": "Courses", "url": "/products" } }
+  ]
+}
+```
+
+A sub-link is a `nav_link` whose `parent_id` is its parent link's block id. Read the header first with `storelib_read_page` for its id and its links. Every setting the header and footer take is in [The header and footer](/developers/header-and-footer).

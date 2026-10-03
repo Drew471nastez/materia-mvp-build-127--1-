@@ -200,7 +200,7 @@
         "heading": "Ready to get started?",
         "subheading": "Try free for 14 days. No credit card required.",
         "btn_primary_text": "Get started free",
-        "btn_primary_url": "/signup",
+        "btn_primary_url": "/products",
         "btn_secondary_text": "See pricing",
         "btn_secondary_url": "/pricing",
         "layout": "centered",

@@ -27,6 +27,8 @@ export {
 } from "./dynamic"
 export type { DynamicSource, DynamicContext, SourceKind, SourceTarget } from "./dynamic"
 export { renderSection } from "./render"
+export { chromeRoleOf, chromeRefusal, CHROME_TYPES } from "./chrome"
+export type { ChromeRole } from "./chrome"
 export {
   SCHEME_COLOR_KEYS, SCHEME_COLOR_LABELS, SCHEME_COLOR_GROUPS, SECTION_OVERRIDE_KEYS, SCHEME_CSS_VARS, SCHEME_GRADIENT_VAR,
   BUILT_IN_SCHEME_KEYS, DEFAULT_COLOR_SCHEMES, FALLBACK_SCHEME_KEY, LEGACY_TO_SEMANTIC, LEGACY_FIXED,
