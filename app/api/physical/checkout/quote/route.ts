@@ -6,14 +6,16 @@ import { physicalJson, readBody } from "@/lib/physical/auth"
 import { COUNTRY_CODES } from "@/lib/checkout/countries"
 import { priceCheckout, quoteCheckout, readItems } from "@/lib/physical/checkout-pricing-server"
 import { deliveryEstimate } from "@/lib/physical/rates"
+import { PICKUP_READY_LABEL } from "@/lib/physical/pickup"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
 /**
  * What the physical checkout page shows: the cart priced by the server,
- * what was left out, what is short on stock, the delivery options for the
- * buyer's country and the totals with the chosen one. A code that does not
+ * what was left out, what is short on stock, the shipping options for the
+ * buyer's address, the local pickup points that can hand over this cart,
+ * and the totals with the chosen one. A code that does not
  * apply is said, and the cart is priced without it. Nothing is held here.
  */
 export async function POST(request: Request) {
@@ -72,7 +74,14 @@ export async function POST(request: Request) {
           selectedId: q.option?.id ?? null,
           needsCountry: priced.requiresShipping && !country,
         }
-      : { ok: false, error: q.quote.error, options: [], selectedId: null, needsCountry: false },
+      : { ok: false, error: q.quote.error, options: [], selectedId: q.option?.kind === "pickup" ? q.option.id : null, needsCountry: false },
+    pickups: q.pickups.map((o) => ({
+      id: o.id,
+      name: o.pickup?.name ?? o.name,
+      address: o.pickup?.address ?? [],
+      instructions: o.pickup?.instructions ?? null,
+      ready: o.pickup ? PICKUP_READY_LABEL[o.pickup.ready] : null,
+    })),
     totals: q.totals,
   })
 }

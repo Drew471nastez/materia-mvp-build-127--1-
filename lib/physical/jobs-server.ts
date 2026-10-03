@@ -20,11 +20,14 @@ import type net from "node:net"
 import { after } from "next/server"
 import { publicLookup, publicUrlProblem } from "@/lib/api/public-fetch"
 import { sendEmail, buildFromHeader } from "@/lib/mail"
-import { resolveCreatorIdentity } from "@/lib/email"
+import { resolveCreatorIdentity, resolveSellerEmail } from "@/lib/email"
 import { getMainDomain } from "@/lib/url-helpers"
 import type { Db } from "./auth"
 import { addOrderEvent } from "./events-server"
-import { orderConfirmationEmail, returnEmail, shipmentEmail, supplierOrderEmail, type EmailLine } from "./email-templates"
+import { lowStockEmail, orderConfirmationEmail, pickupEmail, returnEmail, shipmentEmail, supplierOrderEmail, type EmailLine } from "./email-templates"
+import { METHODS, readMethod } from "./fulfillment"
+import { PICKUP_READY_LABEL } from "./pickup"
+import type { PickupReady } from "./types"
 import { deliveryEstimate } from "./rates"
 import { orderNumber } from "./status"
 import { openSecret } from "./secrets"
@@ -66,12 +69,38 @@ export async function queueReturnEmail(db: Db, checkoutId: string, creatorId: st
  * said on the timeline instead of pretending it was sent.
  */
 export async function queueForwarding(db: Db, checkoutId: string, creatorId: string): Promise<void> {
-  const { data: co } = await db.from("commerce_checkouts").select("lines").eq("id", checkoutId).maybeSingle()
-  const lines = (co?.lines ?? []) as { location_id: string | null; requires_shipping: boolean }[]
+  const { data: co } = await db.from("commerce_checkouts").select("lines, delivery_method").eq("id", checkoutId).maybeSingle()
+  /* Picked up: the seller hands it over, nobody else is sent anything. */
+  if (co?.delivery_method === "pickup") return
+  const lines = (co?.lines ?? []) as { location_id: string | null; requires_shipping: boolean; fulfillment_method?: string | null; title?: string }[]
   const ids = [...new Set(lines.filter((l) => l.requires_shipping && l.location_id).map((l) => l.location_id as string))]
-  if (ids.length === 0) return
+  /* An item a partner fulfils, with nowhere to send it: said on the order, never silently dropped. */
+  const partnerLines = lines.filter((l) => l.requires_shipping && (readMethod(l.fulfillment_method) ?? "self") !== "self")
+  if (ids.length === 0) {
+    for (const l of partnerLines) {
+      await addOrderEvent(db, {
+        checkoutId,
+        creatorId,
+        kind: "fulfillment.manual_needed",
+        message: `${l.title ?? "An item"} is set to ${METHODS[readMethod(l.fulfillment_method) ?? "self"].title.toLowerCase()} but has no partner location. Send it to them yourself.`,
+        key: `partner_missing:${checkoutId}:${l.title ?? ""}`.slice(0, 200),
+      })
+    }
+    return
+  }
   const { data: locs } = await db.from("inventory_locations").select("id, name, forwarding, email, integration_id").eq("creator_id", creatorId).in("id", ids)
   for (const loc of (locs ?? []) as { id: string; name: string; forwarding: string; email: string | null; integration_id: string | null }[]) {
+    const partnerHere = partnerLines.some((l) => l.location_id === loc.id)
+    if (loc.forwarding === "none" && partnerHere) {
+      await addOrderEvent(db, {
+        checkoutId,
+        creatorId,
+        kind: "fulfillment.manual_needed",
+        message: `${loc.name} fulfils part of this order but doesn't receive orders automatically. Send it to them, then add their tracking.`,
+        key: `partner_manual:${checkoutId}:${loc.id}`,
+      })
+      continue
+    }
     if (loc.forwarding === "email" && loc.email) {
       await enqueueJob(db, { creatorId, kind: "supplier_email", key: `supplier_email:${checkoutId}:${loc.id}`, payload: { checkoutId, locationId: loc.id } })
     } else if (loc.forwarding === "webhook") {
@@ -86,6 +115,39 @@ export async function queueForwarding(db: Db, checkoutId: string, creatorId: str
       })
     }
   }
+}
+
+/**
+ * After a sale: each variant that sold down to its low stock line (the
+ * product's own, else the shop's) is emailed to the seller, at most once a
+ * day per variant, when the shop has low stock emails on.
+ */
+export async function queueLowStockAlerts(db: Db, creatorId: string, variantIds: string[]): Promise<void> {
+  const ids = [...new Set(variantIds)].slice(0, 100)
+  if (ids.length === 0) return
+  const { data: settings } = await db.from("commerce_settings").select("low_stock_alerts, low_stock_default").eq("creator_id", creatorId).maybeSingle()
+  if (settings && settings.low_stock_alerts === false) return
+  const fallback = Number(settings?.low_stock_default ?? 5)
+  const [{ data: variants }, { data: levels }] = await Promise.all([
+    db.from("product_variants").select("id, name, product_id, track_inventory, inventory_policy, products!inner(title, creator_id, low_stock_threshold, track_inventory, type)").in("id", ids),
+    db.from("inventory_levels").select("variant_id, available").eq("creator_id", creatorId).in("variant_id", ids),
+  ])
+  const sum = new Map<string, number>()
+  for (const l of (levels ?? []) as { variant_id: string; available: number }[]) sum.set(l.variant_id, (sum.get(l.variant_id) ?? 0) + Number(l.available ?? 0))
+  const low: { variantId: string; title: string; variantName: string | null; available: number; threshold: number }[] = []
+  for (const v of (variants ?? []) as Record<string, any>[]) {
+    const p = Array.isArray(v.products) ? v.products[0] : v.products
+    if (!p || p.creator_id !== creatorId || p.type !== "physical") continue
+    if ((v.track_inventory ?? p.track_inventory ?? true) === false) continue
+    const threshold = p.low_stock_threshold ?? fallback
+    const available = sum.get(v.id) ?? 0
+    if (available > threshold) continue
+    low.push({ variantId: v.id, title: p.title, variantName: v.name && v.name !== "Default" ? v.name : null, available, threshold })
+  }
+  if (low.length === 0) return
+  const day = new Date().toISOString().slice(0, 10)
+  const key = `email:low_stock:${creatorId}:${day}:${low.map((l) => l.variantId.slice(0, 8)).sort().join(",")}`.slice(0, 200)
+  await enqueueJob(db, { creatorId, kind: "send_email", key, payload: { template: "low_stock", creatorId, items: low } })
 }
 
 function backoffSeconds(attempts: number): number {
@@ -137,7 +199,7 @@ export async function runJobs(db: Db, limit = 20): Promise<{ done: number; faile
 async function handle(db: Db, job: { kind: JobKind; payload: Record<string, any> }): Promise<void> {
   switch (job.kind) {
     case "send_email":
-      return sendBuyerEmail(db, job.payload)
+      return job.payload?.template === "low_stock" ? sendLowStockEmail(db, job.payload) : sendBuyerEmail(db, job.payload)
     case "supplier_email":
       return sendSupplierEmail(db, job.payload)
     case "webhook_delivery":
@@ -164,6 +226,18 @@ interface CheckoutForEmail {
   lines: Record<string, any>[]
   receipt_token: string
   buyer_note: string | null
+  delivery_method?: string | null
+  pickup?: { name: string; address: string[]; instructions: string | null; ready: string } | null
+}
+
+function pickupOf(co: CheckoutForEmail) {
+  if (co.delivery_method !== "pickup" || !co.pickup) return null
+  return {
+    name: co.pickup.name,
+    address: Array.isArray(co.pickup.address) ? co.pickup.address : [],
+    ready: PICKUP_READY_LABEL[co.pickup.ready as PickupReady] ?? null,
+    instructions: co.pickup.instructions ?? null,
+  }
 }
 
 async function loadCheckout(db: Db, id: string): Promise<CheckoutForEmail> {
@@ -221,6 +295,7 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>): Promise<void> {
       deliveryEstimate: co.shipping_rate ? deliveryEstimate({ minDays: co.shipping_rate.min_days ?? null, maxDays: co.shipping_rate.max_days ?? null }) || null : null,
       statusUrl: statusUrl(co.receipt_token),
       hasDownloads: co.lines.some((l) => l.type !== "physical"),
+      pickup: pickupOf(co),
     })
   } else if (p.template === "shipment") {
     const { data: f } = await db.from("fulfillments").select("id, carrier, tracking_number, tracking_url, notify_buyer").eq("id", p.fulfillmentId).maybeSingle()
@@ -228,14 +303,20 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>): Promise<void> {
     const { data: items } = await db.from("fulfillment_items").select("order_id, quantity").eq("fulfillment_id", f.id)
     const { data: orders } = await db.from("orders").select("id, product_snapshot").eq("checkout_id", co.id)
     const snap = new Map(((orders ?? []) as { id: string; product_snapshot: Record<string, any> | null }[]).map((o) => [o.id, o.product_snapshot ?? {}]))
-    mail = shipmentEmail({
+    const pickup = pickupOf(co)
+    const shipped = ((items ?? []) as { order_id: string; quantity: number }[]).map((i) => {
+      const s = snap.get(i.order_id) ?? {}
+      return { title: s.title ?? "Item", variantName: s.variant_name ?? null, quantity: i.quantity, cents: 0, imageUrl: s.image_url ?? null }
+    })
+    if (pickup) {
+      if (p.kind === "out_for_delivery") return
+      mail = pickupEmail({ shopName, orderNumber: number, buyerFirstName: firstName, lines: shipped, kind: p.kind === "delivered" ? "picked_up" : "ready", pickup, statusUrl: statusUrl(co.receipt_token) })
+    } else
+      mail = shipmentEmail({
       shopName,
       orderNumber: number,
       buyerFirstName: firstName,
-      lines: ((items ?? []) as { order_id: string; quantity: number }[]).map((i) => {
-        const s = snap.get(i.order_id) ?? {}
-        return { title: s.title ?? "Item", variantName: s.variant_name ?? null, quantity: i.quantity, cents: 0, imageUrl: s.image_url ?? null }
-      }),
+      lines: shipped,
       carrier: f.carrier,
       trackingNumber: f.tracking_number,
       trackingUrl: f.tracking_url,
@@ -262,9 +343,32 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>): Promise<void> {
     checkoutId: co.id,
     creatorId: co.creator_id,
     kind: "email.sent",
-    message: p.template === "confirmation" ? "Order confirmation emailed to the buyer" : p.template === "shipment" ? (p.kind === "delivered" ? "Delivery email sent to the buyer" : "Shipping email sent to the buyer") : "Return update emailed to the buyer",
+    message:
+      p.template === "confirmation"
+        ? "Order confirmation emailed to the buyer"
+        : p.template === "shipment"
+          ? co.delivery_method === "pickup"
+            ? p.kind === "delivered"
+              ? "Pickup confirmation emailed to the buyer"
+              : "Ready for pickup email sent to the buyer"
+            : p.kind === "delivered"
+              ? "Delivery email sent to the buyer"
+              : "Shipping email sent to the buyer"
+          : "Return update emailed to the buyer",
     key: `email_sent:${p.template}:${p.fulfillmentId ?? p.returnId ?? co.id}:${p.kind ?? p.status ?? ""}`,
   })
+}
+
+async function sendLowStockEmail(db: Db, p: Record<string, any>): Promise<void> {
+  const creatorId = String(p.creatorId ?? "")
+  const items = (Array.isArray(p.items) ? p.items : []).slice(0, 50) as { title: string; variantName: string | null; available: number; threshold: number }[]
+  if (!creatorId || items.length === 0) return
+  const to = await resolveSellerEmail(db, creatorId)
+  if (!to) return
+  const identity = await resolveCreatorIdentity(db, creatorId)
+  const mail = lowStockEmail({ shopName: identity.fromName || "Storelib", items, inventoryUrl: `https://${getMainDomain()}/app/inventory?filter=low` })
+  const sent = await sendEmail({ from: buildFromHeader("Storelib"), to, subject: mail.subject, html: mail.html, text: mail.text })
+  if (!sent.success) throw new Error(sent.error || "Email not sent")
 }
 
 async function sendSupplierEmail(db: Db, p: Record<string, any>): Promise<void> {

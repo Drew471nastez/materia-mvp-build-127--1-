@@ -92,14 +92,14 @@ check("each category and article page has its own title, description and canonic
   /generateMetadata/.test(article) && /description: article\.summary/.test(article) && /alternates: \{ canonical: path \}/.test(article))
 check("pages are built ahead of time and unknown ones 404", /dynamicParams = false/.test(category) && /dynamicParams = false/.test(article))
 check("the search is a form that works without script", /action="\/help\/search" method="get" role="search"/.test(read("components/help/help-search.tsx")))
-check("and the results page runs the same search, unindexed", /searchHelp\(q, 30\)/.test(read("app/help/search/page.tsx")) && /index: false/.test(read("app/help/search/page.tsx")))
+check("and the results page runs the same search, unindexed", /searchHelp\(q, 30, \{ physical: await isPhysicalCommerceEnabled\(\) \}\)/.test(read("app/help/search/page.tsx")) && /index: false/.test(read("app/help/search/page.tsx")))
 check("support is the real address", /SUPPORT_EMAIL = "support@storelib\.com"/.test(read("lib/help/articles.ts")))
 check("no \"Was this helpful\" that records nothing", ![index, category, article].some((s) => /helpful/i.test(s)))
 
 console.log("\nThe sitemap")
 const sitemap = read("lib/seo/sitemaps.ts")
 check("the Help Center is in the pages sitemap, from the same list",
-  /\{ url: `\$\{BASE\}\/help` \}/.test(sitemap) && /HELP_CATEGORIES\.map/.test(sitemap) && /HELP_ARTICLES\.map\(\(a\) => \(\{ url: `\$\{BASE\}\$\{helpArticlePath\(a\)\}` \}\)\)/.test(sitemap))
+  /\{ url: `\$\{BASE\}\/help` \}/.test(sitemap) && /helpCategoriesFor\(physicalGuide\)\.map/.test(sitemap) && /helpArticlesFor\(physicalGuide\)\.map\(\(a\) => \(\{ url: `\$\{BASE\}\$\{helpArticlePath\(a\)\}` \}\)\)/.test(sitemap))
 check("article addresses are /help/<category>/<article>", helpArticlePath({ category: "products", slug: "coupons" }) === "/help/products/coupons")
 
 console.log(`\n${passed} passed, ${failed} failed`)

@@ -21,10 +21,12 @@ import { baseFor } from "@/lib/checkout/pricing"
 import { couponCovers, couponLabel, couponStanding, findCoupon, lineDiscounts, normaliseCode, type CouponRow } from "@/lib/checkout/coupons"
 import type { Db } from "./auth"
 import { inSmartCollection, readRules, type RuleProduct } from "./collections"
-import { loadProfiles, loadSettings, loadTaxSettings, type CommerceSettings } from "./config-server"
+import { loadLocations, loadProfiles, loadSettings, loadTaxSettings, type CommerceSettings } from "./config-server"
+import { methodOf, readMethod } from "./fulfillment"
+import { isPickupOptionId, pickupOptions } from "./pickup"
 import { quoteDelivery, pickOption, type Quote } from "./rates"
 import { physicalTotals, type PhysicalTotals, type TaxSettings } from "./totals"
-import type { Address, DeliveryOption, PricedLine } from "./types"
+import type { Address, DeliveryOption, Location, PricedLine } from "./types"
 
 export const MAX_CHECKOUT_LINES = 50
 export const MAX_LINE_QUANTITY = 999
@@ -70,6 +72,10 @@ export type PricedCheckout =
       settings: CommerceSettings
       tax: TaxSettings
       requiresShipping: boolean
+      /** The shop's locations, for pickup. */
+      locations: Location[]
+      /** Stock available at a fulfilling location, as read for this cart. */
+      available: (variantId: string, locationId: string) => number
     }
   | { ok: false; status: number; error: string }
 
@@ -93,6 +99,7 @@ interface ProductRow {
   track_inventory?: boolean | null
   continue_selling?: boolean | null
   fulfillment_location_id?: string | null
+  fulfillment_method?: string | null
   shipping_profile_id?: string | null
   tags?: string[] | null
   vendor?: string | null
@@ -108,7 +115,7 @@ export async function priceCheckout(
   const { data: products, error } = await db
     .from("products")
     .select(
-      "id, title, slug, type, status, creator_id, price_cents, compare_at_price_cents, pay_what_you_want, pwyw_min_price_cents, thumbnail_url, requires_shipping, weight_grams, taxable, track_inventory, continue_selling, fulfillment_location_id, shipping_profile_id, tags, vendor, created_at",
+      "id, title, slug, type, status, creator_id, price_cents, compare_at_price_cents, pay_what_you_want, pwyw_min_price_cents, thumbnail_url, requires_shipping, weight_grams, taxable, track_inventory, continue_selling, fulfillment_location_id, fulfillment_method, shipping_profile_id, tags, vendor, created_at",
     )
     .in("id", productIds)
     .eq("status", "published")
@@ -135,7 +142,7 @@ export async function priceCheckout(
   if (physicalIds.length) {
     const { data: vs } = await db
       .from("product_variants")
-      .select("id, product_id, name, price_cents, sku, weight_grams, image_url, track_inventory, inventory_policy, requires_shipping, taxable, active, fulfillment_location_id, pay_what_you_want, pwyw_min_price_cents")
+      .select("id, product_id, name, price_cents, sku, weight_grams, image_url, track_inventory, inventory_policy, requires_shipping, taxable, active, fulfillment_location_id, fulfillment_method, pay_what_you_want, pwyw_min_price_cents")
       .in("product_id", physicalIds)
     for (const v of (vs ?? []) as Record<string, any>[]) {
       const list = variantsByProduct.get(v.product_id) ?? []
@@ -150,11 +157,8 @@ export async function priceCheckout(
     for (const v of (vs ?? []) as Record<string, any>[]) digitalVariants.set(v.id, v)
   }
 
-  const [settings, { data: locations }] = await Promise.all([
-    loadSettings(db, creatorId),
-    db.from("inventory_locations").select("id, active, fulfills_orders, priority").eq("creator_id", creatorId).order("priority").limit(100),
-  ])
-  const fulfilling = ((locations ?? []) as { id: string; active: boolean; fulfills_orders: boolean }[]).filter((l) => l.active !== false && l.fulfills_orders !== false).map((l) => l.id)
+  const [settings, locations] = await Promise.all([loadSettings(db, creatorId), loadLocations(db, creatorId)])
+  const fulfilling = locations.filter((l) => l.active && l.fulfillsOrders).map((l) => l.id)
   const defaultLocation = settings.defaultLocationId && fulfilling.includes(settings.defaultLocationId) ? settings.defaultLocationId : (fulfilling[0] ?? null)
 
   /* Stock of the variants in play, at the locations that fulfil. */
@@ -212,6 +216,7 @@ export async function priceCheckout(
         trackInventory: false,
         inventoryPolicy: "continue",
         shippingProfileId: null,
+        fulfillmentMethod: null,
       })
       continue
     }
@@ -262,11 +267,13 @@ export async function priceCheckout(
       trackInventory: tracked,
       inventoryPolicy: policy,
       shippingProfileId: p.shipping_profile_id ?? null,
+      fulfillmentMethod: methodOf(readMethod(v.fulfillment_method), readMethod(p.fulfillment_method)),
     })
   }
 
   const tax = await loadTaxSettings(db, creatorId, settings)
-  const base = { ok: true as const, creatorId, lines, dropped, stockIssues, settings, tax, requiresShipping: lines.some((l) => l.requiresShipping) }
+  const available = (variantId: string, locationId: string) => levelOf.get(`${variantId}:${locationId}`) ?? 0
+  const base = { ok: true as const, creatorId, lines, dropped, stockIssues, settings, tax, requiresShipping: lines.some((l) => l.requiresShipping), locations, available }
 
   const typed = typeof req.couponCode === "string" && req.couponCode.trim() ? req.couponCode : null
   if (!typed || lines.length === 0) return { ...base, coupon: null, couponLabel: null, freeShipping: false }
@@ -322,15 +329,27 @@ export async function priceCheckout(
 }
 
 export interface CheckoutQuote {
+  /** Shipping to the address: its options, or why there are none. */
   quote: Quote
+  /** Local pickup points that can hand over this whole cart. */
+  pickups: DeliveryOption[]
   option: DeliveryOption | null
   totals: PhysicalTotals
+  /** The lines as they will be held: a pickup takes the stock from the pickup location. */
+  lines: PricedLine[]
 }
 
-/** Delivery options for the address and the totals with the chosen one (or the cheapest). */
+/**
+ * Delivery for the address and the totals with the chosen option (or the
+ * cheapest shipping rate). A pickup option needs no address: tax is then
+ * worked out for the pickup location, and the shipped lines' stock is held
+ * there.
+ */
 export async function quoteCheckout(db: Db, priced: Extract<PricedCheckout, { ok: true }>, address: Pick<Address, "country" | "region"> | null, optionId?: unknown): Promise<CheckoutQuote> {
   let quote: Quote = { ok: true, required: false, options: [] }
+  let pickups: DeliveryOption[] = []
   if (priced.requiresShipping) {
+    pickups = pickupOptions(priced.locations, priced.lines, priced.available)
     if (!address?.country) {
       quote = { ok: true, required: true, options: [] }
     } else {
@@ -344,14 +363,20 @@ export async function quoteCheckout(db: Db, priced: Extract<PricedCheckout, { ok
           weightGrams: l.weightGrams,
           requiresShipping: l.requiresShipping,
         })),
-        address.country,
+        { country: address.country, region: address.region ?? null },
       )
     }
   }
-  const option = quote.ok && quote.required ? (pickOption(quote, optionId) ?? quote.options[0] ?? null) : null
+  const pickup = isPickupOptionId(optionId) ? (pickups.find((o) => o.id === optionId) ?? null) : null
+  const option = pickup ?? (quote.ok && quote.required ? (pickOption(quote, optionId) ?? quote.options[0] ?? null) : null)
+  const pickupLocation = pickup ? priced.locations.find((l) => l.id === pickup.pickup?.locationId) ?? null : null
+  const lines = pickupLocation
+    ? priced.lines.map((l) => (l.type === "physical" && l.requiresShipping ? { ...l, locationId: pickupLocation.id } : l))
+    : priced.lines
+  const taxPlace = pickupLocation ? { country: pickupLocation.country, region: pickupLocation.region } : { country: address?.country ?? null, region: address?.region ?? null }
   const totals = physicalTotals(
-    priced.lines.map((l) => ({ unitCents: l.unitCents, quantity: l.quantity, discountCents: l.discountCents, taxable: l.taxable })),
-    { shippingCents: option?.priceCents ?? 0, freeShipping: priced.freeShipping, tax: priced.tax, country: address?.country ?? null, region: address?.region ?? null },
+    lines.map((l) => ({ unitCents: l.unitCents, quantity: l.quantity, discountCents: l.discountCents, taxable: l.taxable })),
+    { shippingCents: option?.priceCents ?? 0, freeShipping: priced.freeShipping, tax: priced.tax, country: taxPlace.country ?? null, region: taxPlace.region ?? null },
   )
-  return { quote, option, totals }
+  return { quote, pickups, option, totals, lines }
 }

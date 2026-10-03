@@ -8,18 +8,23 @@
  * order on the right (on a phone, a summary that opens at the top). Every
  * number shown comes from /api/physical/checkout/quote, asked again when the
  * cart, the country, the region, the code or the delivery option changes.
+ * When the shop offers local pickup for everything in the cart, the buyer
+ * picks Ship or Pick up first; picking up needs no address. Where nothing
+ * ships to the address, the page says so and Pay stays off.
  * Pay sends ids, the address and the chosen option; the server prices it
  * all again, holds the stock and opens Stripe's page for the payment. A
  * failed attempt makes a new key, so the next one is a new checkout.
  */
 
 import * as React from "react"
-import { ChevronDown, Lock, Minus, Plus, ShoppingBag, Tag, Trash2 } from "lucide-react"
+import { ChevronDown, Lock, MapPin, Minus, Plus, ShoppingBag, Tag, Trash2, Truck } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { COUNTRIES } from "@/lib/checkout/countries"
 import { cartStorageKey, parseCart, serializeCart, type CartLine } from "@/lib/website-builder/cart"
 import { decodeItems, type LinkItem } from "@/lib/physical/cart-link"
 import { postalCodeRequired } from "@/lib/physical/address"
+import { regionsOf } from "@/lib/physical/regions"
+import { countryName } from "@/lib/checkout/countries"
 import { actionKey } from "@/components/physical/ui"
 
 interface QuoteLine {
@@ -43,6 +48,7 @@ interface Quote {
   coupon: { code: string; label: string | null; freeShipping: boolean } | null
   couponError: string | null
   delivery: { ok: boolean; error?: string; options: { id: string; name: string; priceCents: number; estimate: string }[]; selectedId: string | null; needsCountry: boolean }
+  pickups?: { id: string; name: string; address: string[]; instructions: string | null; ready: string | null }[]
   totals: { itemsSubtotalCents: number; discountCents: number; shippingCents: number; shippingDiscountCents: number; taxCents: number; taxIncluded: boolean; totalCents: number }
 }
 
@@ -73,6 +79,7 @@ export function PhysicalCheckout({ shopId, shopName, shopAvatar }: { shopId: str
   const [email, setEmail] = React.useState("")
   const [address, setAddress] = React.useState({ name: "", line1: "", line2: "", city: "", region: "", postalCode: "", country: "", phone: "" })
   const [optionId, setOptionId] = React.useState<string | null>(null)
+  const [mode, setMode] = React.useState<"ship" | "pickup">("ship")
   const [codeOpen, setCodeOpen] = React.useState(false)
   const [code, setCode] = React.useState("")
   const [appliedCode, setAppliedCode] = React.useState<string | null>(null)
@@ -137,7 +144,16 @@ export function PhysicalCheckout({ shopId, shopName, shopAvatar }: { shopId: str
           setQuoteError(null)
           setQuote(data as Quote)
           if ((data as Quote).couponError) setAppliedCode(null)
-          if ((data as Quote).delivery.selectedId !== optionId) setOptionId((data as Quote).delivery.selectedId)
+          const got = data as Quote
+          /* Picking up, and that point can no longer hand everything over: back to shipping. */
+          if (mode === "pickup" && !(got.pickups ?? []).some((p) => p.id === optionId)) {
+            const first = got.pickups?.[0]?.id ?? null
+            if (first) setOptionId(first)
+            else {
+              setMode("ship")
+              setOptionId(null)
+            }
+          } else if (mode === "ship" && got.delivery.selectedId !== optionId) setOptionId(got.delivery.selectedId)
         }
       } catch {
         if (n === ask.current) setQuoteError("Check your connection and try again.")
@@ -192,7 +208,7 @@ export function PhysicalCheckout({ shopId, shopName, shopAvatar }: { shopId: str
           email,
           name: address.name,
           phone: address.phone,
-          address: quote.requiresShipping ? address : null,
+          address: quote.requiresShipping && mode === "ship" ? address : null,
           deliveryOptionId: optionId,
           buyerNote: note,
           clientKey: clientKey.current,
@@ -225,6 +241,7 @@ export function PhysicalCheckout({ shopId, shopName, shopAvatar }: { shopId: str
   const missing = (() => {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return "email"
     if (!quote?.requiresShipping) return null
+    if (mode === "pickup") return !address.name.trim() ? "name" : !optionId ? "delivery" : null
     if (!address.country) return "country"
     if (!address.name.trim()) return "name"
     if (!address.line1.trim()) return "line1"
@@ -325,8 +342,8 @@ export function PhysicalCheckout({ shopId, shopName, shopAvatar }: { shopId: str
           ) : null}
           {quote.requiresShipping ? (
             <div className="flex justify-between">
-              <dt className="text-[#4b5563]">Shipping</dt>
-              <dd className="tabular-nums text-[#1a1a2e]">{!optionId ? (address.country ? "None for this country" : "Enter your address") : t.shippingCents - t.shippingDiscountCents === 0 ? "Free" : money(t.shippingCents - t.shippingDiscountCents)}</dd>
+              <dt className="text-[#4b5563]">{mode === "pickup" ? "Pickup" : "Shipping"}</dt>
+              <dd className="tabular-nums text-[#1a1a2e]">{mode === "pickup" ? "Free" : !optionId ? (address.country ? "Not available" : "Enter your address") : t.shippingCents - t.shippingDiscountCents === 0 ? "Free" : money(t.shippingCents - t.shippingDiscountCents)}</dd>
             </div>
           ) : null}
           {t.taxCents > 0 ? (
@@ -428,13 +445,65 @@ export function PhysicalCheckout({ shopId, shopName, shopAvatar }: { shopId: str
               <p className="text-[12.5px] text-[#6b7280]">Your receipt and shipping updates go here.</p>
             </div>
 
-            {quote?.requiresShipping !== false ? (
+            {quote?.requiresShipping && (quote.pickups?.length ?? 0) > 0 ? (
+              <div className="space-y-3">
+                <h2 className="text-[19px] font-semibold text-[#1a1a2e]">How do you want it?</h2>
+                <div role="radiogroup" aria-label="Delivery or pickup" className="grid grid-cols-2 gap-2">
+                  {(
+                    [
+                      { id: "ship", label: "Ship", icon: Truck },
+                      { id: "pickup", label: "Pick up", icon: MapPin },
+                    ] as const
+                  ).map((o) => (
+                    <button
+                      key={o.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={mode === o.id}
+                      onClick={() => {
+                        setMode(o.id)
+                        setOptionId(o.id === "pickup" ? (quote.pickups?.[0]?.id ?? null) : null)
+                      }}
+                      className={cn("flex h-12 items-center justify-center gap-2 rounded-[10px] border text-[15px] font-medium transition-colors", mode === o.id ? "border-[#1a1a2e] bg-[#f8f9fa] text-[#1a1a2e] shadow-[0_0_0_1px_#1a1a2e]" : "border-[#d9dce1] text-[#4b5563] hover:bg-[#f8f9fa]")}
+                    >
+                      <o.icon className="h-4 w-4" />
+                      {o.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {quote?.requiresShipping && mode === "pickup" ? (
+              <div className="space-y-3" data-pickup="">
+                <h2 className="text-[19px] font-semibold text-[#1a1a2e]">Pickup point</h2>
+                <div className="overflow-hidden rounded-xl border border-[#d9dce1]">
+                  {(quote.pickups ?? []).map((p) => (
+                    <label key={p.id} className={cn("flex cursor-pointer items-start gap-3 border-b border-[#e5e7eb] px-3.5 py-3.5 last:border-b-0", optionId === p.id && "bg-[#f8f9fa]")}>
+                      <input type="radio" name="pickup" checked={optionId === p.id} onChange={() => setOptionId(p.id)} className="mt-1 h-4 w-4 accent-[#1a1a2e]" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-[14px] font-medium text-[#1a1a2e]">{p.name}</span>
+                        <span className="block text-[13px] leading-[19px] text-[#6b7280]">{p.address.join(", ")}</span>
+                        {p.ready ? <span className="mt-0.5 block text-[13px] text-[#166534]">{p.ready}</span> : null}
+                        {optionId === p.id && p.instructions ? <span className="mt-1.5 block whitespace-pre-line rounded-lg bg-white px-2.5 py-2 text-[13px] leading-[19px] text-[#4b5563]">{p.instructions}</span> : null}
+                      </span>
+                      <span className="text-[14px] font-medium text-[#1a1a2e]">Free</span>
+                    </label>
+                  ))}
+                </div>
+                {field("name", "Full name, for the pickup", { autoComplete: "name" })}
+                {field("phone", "Phone (optional)", { autoComplete: "tel", inputMode: "tel" })}
+                <p className="text-[12.5px] text-[#6b7280]">We'll email you when your order is ready to pick up.</p>
+              </div>
+            ) : null}
+
+            {quote?.requiresShipping !== false && mode === "ship" ? (
               <div className="space-y-3">
                 <h2 className="text-[19px] font-semibold text-[#1a1a2e]">Delivery</h2>
                 <label className="block">
                   <span className="sr-only">Country</span>
                   <div className="relative">
-                    <select value={address.country} onChange={(e) => setAddress((a) => ({ ...a, country: e.target.value }))} autoComplete="country" aria-invalid={payError?.field === "country" || undefined} className={cn(INPUT, "appearance-none pr-10")}>
+                    <select value={address.country} onChange={(e) => setAddress((a) => ({ ...a, country: e.target.value, region: "" }))} autoComplete="country" aria-invalid={payError?.field === "country" || undefined} className={cn(INPUT, "appearance-none pr-10")}>
                       <option value="">Country</option>
                       {COUNTRIES.map((c) => (
                         <option key={c.code} value={c.code}>
@@ -450,22 +519,40 @@ export function PhysicalCheckout({ shopId, shopName, shopAvatar }: { shopId: str
                 {field("line2", "Apartment, suite (optional)", { autoComplete: "address-line2" })}
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 [&>*:first-child]:col-span-2 sm:[&>*:first-child]:col-span-1">
                   {field("city", "City", { autoComplete: "address-level2" })}
-                  {field("region", "State or region", { autoComplete: "address-level1" })}
+                  {regionsOf(address.country).length ? (
+                    <label className="block">
+                      <span className="sr-only">State</span>
+                      <div className="relative">
+                        <select value={address.region} onChange={(e) => setAddress((a) => ({ ...a, region: e.target.value }))} autoComplete="address-level1" className={cn(INPUT, "appearance-none pr-9")}>
+                          <option value="">{address.country === "CA" ? "Province" : "State"}</option>
+                          {regionsOf(address.country).map((r) => (
+                            <option key={r.code} value={r.code}>
+                              {r.name}
+                            </option>
+                          ))}
+                        </select>
+                        <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6b7280]" />
+                      </div>
+                    </label>
+                  ) : (
+                    field("region", "State or region", { autoComplete: "address-level1" })
+                  )}
                   {field("postalCode", postalCodeRequired(address.country || "US") ? "Postal code" : "Postal code (optional)", { autoComplete: "postal-code" })}
                 </div>
                 {field("phone", "Phone (optional, for the courier)", { autoComplete: "tel", inputMode: "tel" })}
               </div>
             ) : null}
 
-            {quote?.requiresShipping ? (
+            {quote?.requiresShipping && mode === "ship" ? (
               <div className="space-y-3">
                 <h2 className="text-[19px] font-semibold text-[#1a1a2e]">Shipping method</h2>
                 {quote.delivery.needsCountry ? (
                   <p className="rounded-xl bg-[#f3f4f6] px-3.5 py-3 text-[14px] text-[#6b7280]">Choose your country to see delivery options.</p>
-                ) : !quote.delivery.ok ? (
-                  <p className="rounded-xl border border-[#fecaca] bg-[#fef2f2] px-3.5 py-3 text-[14px] text-[#991b1b]">{quote.delivery.error}</p>
-                ) : quote.delivery.options.length === 0 ? (
-                  <p className="rounded-xl border border-[#fecaca] bg-[#fef2f2] px-3.5 py-3 text-[14px] text-[#991b1b]">This shop doesn't deliver to that country yet.</p>
+                ) : !quote.delivery.ok || quote.delivery.options.length === 0 ? (
+                  <div className="rounded-xl border border-[#fecaca] bg-[#fef2f2] px-3.5 py-3 text-[14px] text-[#991b1b]" data-no-shipping="">
+                    <p className="font-medium">Shipping isn't available to {address.country ? countryName(address.country) : "this address"}.</p>
+                    <p className="mt-0.5 text-[13.5px]">{quote.delivery.ok ? "This shop doesn't ship there yet." : quote.delivery.error} {(quote.pickups?.length ?? 0) > 0 ? "You can choose Pick up above instead." : "Try another address, or contact the shop."}</p>
+                  </div>
                 ) : (
                   <div className="overflow-hidden rounded-xl border border-[#d9dce1]">
                     {quote.delivery.options.map((o) => (
@@ -495,7 +582,7 @@ export function PhysicalCheckout({ shopId, shopName, shopAvatar }: { shopId: str
               {paying ? "Opening secure payment" : t && t.totalCents === 0 ? "Place order" : t ? `Pay ${money(t.totalCents)}` : "Pay"}
             </button>
             <p className="text-center text-[12.5px] leading-[18px] text-[#6b7280]">
-              {missing === "delivery" && quote?.requiresShipping ? "Choose a shipping method to continue. " : ""}
+              {missing === "delivery" && quote?.requiresShipping ? (mode === "pickup" ? "Choose a pickup point to continue. " : "Choose a shipping method to continue. ") : ""}
               Payment is taken securely by Stripe. Stock is held for you while you pay.
             </p>
           </div>

@@ -50,7 +50,8 @@ import { CATEGORIES } from "@/lib/marketplace/categories"
 import { getMainDomain, getProductShareUrl } from "@/lib/url-helpers"
 import { onePageUrl } from "@/lib/onepage/address"
 import { DEV_PAGES, devPath } from "@/lib/developers/pages"
-import { HELP_ARTICLES, HELP_CATEGORIES, helpArticlePath } from "@/lib/help/articles"
+import { helpArticlePath, helpArticlesFor, helpCategoriesFor } from "@/lib/help/articles"
+import { isPhysicalCommerceEnabled } from "@/lib/platform/physical-commerce"
 import { isMissingColumn, isMissingTable } from "@/lib/custom-domains/store"
 import { communitiesEnabled } from "@/lib/communities/flag"
 import { missingColumnError } from "@/lib/communities/listing"
@@ -252,6 +253,8 @@ const STATIC_BLOG_SLUGS = [
  * Google learns to ignore. Blog posts carry theirs.
  */
 export async function pagesSitemap(): Promise<SitemapEntry[]> {
+  /* The physical products guide is listed only while physical commerce is on. */
+  const physicalGuide = await isPhysicalCommerceEnabled()
   // "/" is the digital-products landing and the primary URL. /pricing,
   // /features and /faq are the pages somebody comparing platforms lands on.
   const routes: SitemapEntry[] = [
@@ -278,8 +281,8 @@ export async function pagesSitemap(): Promise<SitemapEntry[]> {
       here too. /help/search is left out on purpose; it is not indexed.
     */
     { url: `${BASE}/help` },
-    ...HELP_CATEGORIES.map((c) => ({ url: `${BASE}/help/${c.slug}` })),
-    ...HELP_ARTICLES.map((a) => ({ url: `${BASE}${helpArticlePath(a)}` })),
+    ...helpCategoriesFor(physicalGuide).map((c) => ({ url: `${BASE}/help/${c.slug}` })),
+    ...helpArticlesFor(physicalGuide).map((a) => ({ url: `${BASE}${helpArticlePath(a)}` })),
   ]
 
   /**

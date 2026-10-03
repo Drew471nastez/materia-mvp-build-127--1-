@@ -1707,9 +1707,31 @@ DO $do$ BEGIN IF to_regprocedure('public.storelib_share_public_columns()') IS NO
 INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('77', '77_payments_status.sql', '32c90d1654fc73a5e1c1358ffc60f1d8a41d5ee2b513a4649ba0ab38c08e5c7f') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
 -- part 78_physical_commerce.sql
-/* Physical commerce, additive and switched off until /admin turns it on (platform_settings physical_commerce_enabled, seeded false). Products keep their table: a physical product is products.type 'physical' with shipping fields (weight, size, origin, HS code, shipping profile, tax), and its variants are the existing product_variants with up to three options (product_options: Size, Color...), SKU, barcode, weight and image; a variant's cost sits apart in product_variant_costs because published variants are public. Stock is per variant and location (inventory_locations: home, warehouse, print on demand, dropshipper, supplier, 3PL, retail) in inventory_levels (on hand, committed, incoming, available), and every change is a row in inventory_movements written by physical_inventory_apply, physical_reserve, physical_release, physical_mark_sold and physical_fulfill, each locking the rows it changes and keyed so a retry changes nothing. A physical or mixed checkout is a commerce_checkouts row (address, delivery, totals, payment, fulfilment and return status) whose lines become ordinary orders rows (orders.checkout_id, quantity, unit price, shipping share, snapshot); fulfillments with their items and tracking events, returns with their items, inventory transfers, shipping packages, profiles, zones and rates, tax rates, collections, integrations (secrets encrypted by the app), a job queue and an append only order timeline complete it. Coupons gain free shipping, a per customer limit, collections and a physical only switch. Row level security is on everywhere: creators read their own rows, buyers read published options and collections, and only the server writes. Nothing existing is changed or removed. Needs part 63 for nothing and runs on its own. Safe to run again. */
-DO $do$ BEGIN IF to_regclass('public.platform_settings') IS NULL THEN RAISE NOTICE 'physical commerce: no platform_settings table, the flag reads as off until it exists.'; RETURN; END IF; INSERT INTO public.platform_settings (key, value) VALUES ('physical_commerce_enabled', 'false'::jsonb) ON CONFLICT (key) DO NOTHING; END $do$;
-DO $do$ DECLARE def text; BEGIN SELECT pg_get_constraintdef(oid) INTO def FROM pg_constraint WHERE conname = 'products_type_check' AND conrelid = 'public.products'::regclass; IF def IS NOT NULL AND def LIKE '%''physical''%' THEN RETURN; END IF; ALTER TABLE public.products DROP CONSTRAINT IF EXISTS products_type_check; ALTER TABLE public.products ADD CONSTRAINT products_type_check CHECK (type IN ('membership', 'digital', 'course', 'community', 'physical', 'service')) NOT VALID; END $do$;
+/* Storelib physical commerce, complete. Paste all of it into the Supabase SQL editor and press Run. Safe to run again and safe on a database that ran an earlier version of this part: every step checks before it changes anything, nothing existing is dropped or rewritten, and a second run changes nothing. Off until an admin turns it on in /admin (platform_settings physical_commerce_enabled, seeded false). What it adds: physical products (products.type 'physical') with shipping weight and size, units, tax, how each product or variant is fulfilled (shipped by the seller, a warehouse or 3PL, a dropshipping supplier, print on demand), up to three options (Size, Color, Material) whose combinations are the existing product_variants with their own price, stock, SKU (optional), weight and image; stock per variant and location with a history of every change and holds that can never oversell; locations that can offer local pickup with instructions and a preparation time; shipping profiles (one general, any number of custom) with zones of countries or states and rates that are flat, free, by order price, by order weight or by item weight, each with a delivery estimate; tax rates; physical checkouts (shipped or picked up) whose lines become ordinary orders; orders that move Unfulfilled, Processing, Shipped, Delivered with several shipments each carrying carrier and tracking; returns, transfers, collections, integrations (secrets encrypted by the app), a job queue for emails and low stock alerts, and an append only order timeline. Row level security is on for every table: creators read their own rows, buyers read published options and collections, and only the server writes. */
+/* 1. The switch, off until /admin turns it on */
+CREATE TABLE IF NOT EXISTS public.platform_settings (
+  key text PRIMARY KEY,
+  value jsonb NOT NULL,
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  updated_by text
+);
+ALTER TABLE public.platform_settings ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.platform_settings FROM anon, authenticated;
+INSERT INTO public.platform_settings (key, value) VALUES ('physical_commerce_enabled', 'false'::jsonb) ON CONFLICT (key) DO NOTHING;
+/* 2. Products: the physical type and its shipping, stock, tax and fulfilment fields */
+DO $do$
+DECLARE def text;
+BEGIN
+  SELECT pg_get_constraintdef(oid) INTO def FROM pg_constraint WHERE conname = 'products_type_check' AND conrelid = 'public.products'::regclass;
+  IF def IS NULL OR def LIKE '%''physical''%' THEN RETURN; END IF;
+  def := regexp_replace(def, '\s+NOT VALID\s*$', '');
+  ALTER TABLE public.products DROP CONSTRAINT products_type_check;
+  IF def LIKE '%ARRAY[%' THEN
+    EXECUTE 'ALTER TABLE public.products ADD CONSTRAINT products_type_check ' || replace(def, 'ARRAY[', 'ARRAY[''physical''::text, ') || ' NOT VALID';
+  ELSE
+    ALTER TABLE public.products ADD CONSTRAINT products_type_check CHECK (type IN ('membership', 'digital', 'course', 'community', 'physical', 'service')) NOT VALID;
+  END IF;
+END $do$;
 ALTER TABLE public.products ADD COLUMN IF NOT EXISTS vendor text CHECK (vendor IS NULL OR length(vendor) <= 120);
 ALTER TABLE public.products ADD COLUMN IF NOT EXISTS tags text[] NOT NULL DEFAULT '{}'::text[] CHECK (cardinality(tags) <= 50);
 ALTER TABLE public.products ADD COLUMN IF NOT EXISTS requires_shipping boolean NOT NULL DEFAULT false;
@@ -1726,28 +1748,175 @@ ALTER TABLE public.products ADD COLUMN IF NOT EXISTS tax_category text CHECK (ta
 ALTER TABLE public.products ADD COLUMN IF NOT EXISTS track_inventory boolean NOT NULL DEFAULT true;
 ALTER TABLE public.products ADD COLUMN IF NOT EXISTS continue_selling boolean NOT NULL DEFAULT false;
 ALTER TABLE public.products ADD COLUMN IF NOT EXISTS low_stock_threshold integer CHECK (low_stock_threshold IS NULL OR low_stock_threshold BETWEEN 0 AND 1000000);
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS fulfillment_method text NOT NULL DEFAULT 'self' CHECK (fulfillment_method IN ('self', 'warehouse', 'dropship', 'print_on_demand'));
 CREATE INDEX IF NOT EXISTS products_physical_creator_idx ON public.products (creator_id, created_at DESC) WHERE type = 'physical';
-CREATE INDEX IF NOT EXISTS products_tags_idx ON public.products USING gin (tags);
-CREATE TABLE IF NOT EXISTS public.commerce_integrations (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), creator_id uuid NOT NULL REFERENCES public.creators(id) ON DELETE CASCADE, provider text NOT NULL CHECK (provider IN ('manual', 'supplier_email', 'custom_webhook', 'csv', 'printful', 'printify', 'gelato', 'cj_dropshipping', 'shipstation', 'shippo', 'easypost')), category text NOT NULL CHECK (category IN ('fulfillment', 'print_on_demand', 'dropshipping', 'supplier', 'shipping')), status text NOT NULL DEFAULT 'disconnected' CHECK (status IN ('connected', 'disconnected', 'error', 'needs_setup')), account_label text CHECK (account_label IS NULL OR length(account_label) <= 120), config jsonb NOT NULL DEFAULT '{}'::jsonb CHECK (jsonb_typeof(config) = 'object' AND pg_column_size(config) <= 8192), secret_ciphertext text CHECK (secret_ciphertext IS NULL OR length(secret_ciphertext) <= 4096), webhook_secret_ciphertext text CHECK (webhook_secret_ciphertext IS NULL OR length(webhook_secret_ciphertext) <= 4096), last_sync_at timestamptz, last_error text CHECK (last_error IS NULL OR length(last_error) <= 500), created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), UNIQUE (creator_id, provider));
-CREATE TABLE IF NOT EXISTS public.inventory_locations (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), creator_id uuid NOT NULL REFERENCES public.creators(id) ON DELETE CASCADE, name text NOT NULL CHECK (length(btrim(name)) BETWEEN 1 AND 80), kind text NOT NULL DEFAULT 'home' CHECK (kind IN ('home', 'warehouse', 'print_on_demand', 'dropshipper', 'supplier', 'third_party_logistics', 'retail', 'custom')), address_line1 text CHECK (address_line1 IS NULL OR length(address_line1) <= 200), address_line2 text CHECK (address_line2 IS NULL OR length(address_line2) <= 200), city text CHECK (city IS NULL OR length(city) <= 120), region text CHECK (region IS NULL OR length(region) <= 120), postal_code text CHECK (postal_code IS NULL OR length(postal_code) <= 20), country text CHECK (country IS NULL OR country ~ '^[A-Z]{2}$'), phone text CHECK (phone IS NULL OR length(phone) <= 40), email text CHECK (email IS NULL OR length(email) <= 254), active boolean NOT NULL DEFAULT true, fulfills_orders boolean NOT NULL DEFAULT true, holds_inventory boolean NOT NULL DEFAULT true, priority integer NOT NULL DEFAULT 0, forwarding text NOT NULL DEFAULT 'none' CHECK (forwarding IN ('none', 'email', 'webhook', 'provider')), integration_id uuid REFERENCES public.commerce_integrations(id) ON DELETE SET NULL, notes text CHECK (notes IS NULL OR length(notes) <= 1000), created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now());
+DO $do$
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'products' AND column_name = 'tags' AND data_type = 'ARRAY') THEN
+    CREATE INDEX IF NOT EXISTS products_tags_idx ON public.products USING gin (tags);
+  END IF;
+END $do$;
+/* 3. Integrations: the services that can fulfil or ship, secrets encrypted by the app before they are stored */
+CREATE TABLE IF NOT EXISTS public.commerce_integrations (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  creator_id uuid NOT NULL REFERENCES public.creators(id) ON DELETE CASCADE,
+  provider text NOT NULL CHECK (provider IN ('manual', 'supplier_email', 'custom_webhook', 'csv', 'printful', 'printify', 'gelato', 'cj_dropshipping', 'shipstation', 'shippo', 'easypost')),
+  category text NOT NULL CHECK (category IN ('fulfillment', 'print_on_demand', 'dropshipping', 'supplier', 'shipping')),
+  status text NOT NULL DEFAULT 'disconnected' CHECK (status IN ('connected', 'disconnected', 'error', 'needs_setup')),
+  account_label text CHECK (account_label IS NULL OR length(account_label) <= 120),
+  config jsonb NOT NULL DEFAULT '{}'::jsonb CHECK (jsonb_typeof(config) = 'object' AND pg_column_size(config) <= 8192),
+  secret_ciphertext text CHECK (secret_ciphertext IS NULL OR length(secret_ciphertext) <= 4096),
+  webhook_secret_ciphertext text CHECK (webhook_secret_ciphertext IS NULL OR length(webhook_secret_ciphertext) <= 4096),
+  last_sync_at timestamptz,
+  last_error text CHECK (last_error IS NULL OR length(last_error) <= 500),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (creator_id, provider)
+);
+/* 4. Locations: where stock is kept, where orders ship from, and where buyers can pick up */
+CREATE TABLE IF NOT EXISTS public.inventory_locations (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  creator_id uuid NOT NULL REFERENCES public.creators(id) ON DELETE CASCADE,
+  name text NOT NULL CHECK (length(btrim(name)) BETWEEN 1 AND 80),
+  kind text NOT NULL DEFAULT 'home' CHECK (kind IN ('home', 'warehouse', 'print_on_demand', 'dropshipper', 'supplier', 'third_party_logistics', 'retail', 'custom')),
+  address_line1 text CHECK (address_line1 IS NULL OR length(address_line1) <= 200),
+  address_line2 text CHECK (address_line2 IS NULL OR length(address_line2) <= 200),
+  city text CHECK (city IS NULL OR length(city) <= 120),
+  region text CHECK (region IS NULL OR length(region) <= 120),
+  postal_code text CHECK (postal_code IS NULL OR length(postal_code) <= 20),
+  country text CHECK (country IS NULL OR country ~ '^[A-Z]{2}$'),
+  phone text CHECK (phone IS NULL OR length(phone) <= 40),
+  email text CHECK (email IS NULL OR length(email) <= 254),
+  active boolean NOT NULL DEFAULT true,
+  fulfills_orders boolean NOT NULL DEFAULT true,
+  holds_inventory boolean NOT NULL DEFAULT true,
+  priority integer NOT NULL DEFAULT 0,
+  forwarding text NOT NULL DEFAULT 'none' CHECK (forwarding IN ('none', 'email', 'webhook', 'provider')),
+  integration_id uuid REFERENCES public.commerce_integrations(id) ON DELETE SET NULL,
+  notes text CHECK (notes IS NULL OR length(notes) <= 1000),
+  pickup_enabled boolean NOT NULL DEFAULT false,
+  pickup_instructions text CHECK (pickup_instructions IS NULL OR length(pickup_instructions) <= 1000),
+  pickup_ready text NOT NULL DEFAULT '24h' CHECK (pickup_ready IN ('1h', '2h', '4h', '24h', '2_4d', '5d')),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE public.inventory_locations ADD COLUMN IF NOT EXISTS pickup_enabled boolean NOT NULL DEFAULT false;
+ALTER TABLE public.inventory_locations ADD COLUMN IF NOT EXISTS pickup_instructions text CHECK (pickup_instructions IS NULL OR length(pickup_instructions) <= 1000);
+ALTER TABLE public.inventory_locations ADD COLUMN IF NOT EXISTS pickup_ready text NOT NULL DEFAULT '24h' CHECK (pickup_ready IN ('1h', '2h', '4h', '24h', '2_4d', '5d'));
 CREATE UNIQUE INDEX IF NOT EXISTS inventory_locations_name_key ON public.inventory_locations (creator_id, lower(name));
 CREATE INDEX IF NOT EXISTS inventory_locations_creator_idx ON public.inventory_locations (creator_id, priority DESC, created_at);
+CREATE INDEX IF NOT EXISTS inventory_locations_pickup_idx ON public.inventory_locations (creator_id) WHERE pickup_enabled AND active;
 ALTER TABLE public.products ADD COLUMN IF NOT EXISTS fulfillment_location_id uuid REFERENCES public.inventory_locations(id) ON DELETE SET NULL;
-CREATE TABLE IF NOT EXISTS public.shipping_profiles (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), creator_id uuid NOT NULL REFERENCES public.creators(id) ON DELETE CASCADE, name text NOT NULL CHECK (length(btrim(name)) BETWEEN 1 AND 80), is_default boolean NOT NULL DEFAULT false, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now());
+/* 5. Shipping profiles, zones and rates */
+CREATE TABLE IF NOT EXISTS public.shipping_profiles (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  creator_id uuid NOT NULL REFERENCES public.creators(id) ON DELETE CASCADE,
+  name text NOT NULL CHECK (length(btrim(name)) BETWEEN 1 AND 80),
+  is_default boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
 CREATE UNIQUE INDEX IF NOT EXISTS shipping_profiles_one_default ON public.shipping_profiles (creator_id) WHERE is_default;
 CREATE INDEX IF NOT EXISTS shipping_profiles_creator_idx ON public.shipping_profiles (creator_id, created_at);
 ALTER TABLE public.products ADD COLUMN IF NOT EXISTS shipping_profile_id uuid REFERENCES public.shipping_profiles(id) ON DELETE SET NULL;
-CREATE TABLE IF NOT EXISTS public.shipping_zones (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), profile_id uuid NOT NULL REFERENCES public.shipping_profiles(id) ON DELETE CASCADE, creator_id uuid NOT NULL REFERENCES public.creators(id) ON DELETE CASCADE, name text NOT NULL CHECK (length(btrim(name)) BETWEEN 1 AND 80), countries text[] NOT NULL DEFAULT '{}'::text[] CHECK (cardinality(countries) <= 250), rest_of_world boolean NOT NULL DEFAULT false, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), CONSTRAINT shipping_zones_has_destination CHECK (rest_of_world OR cardinality(countries) > 0));
+CREATE TABLE IF NOT EXISTS public.shipping_zones (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  profile_id uuid NOT NULL REFERENCES public.shipping_profiles(id) ON DELETE CASCADE,
+  creator_id uuid NOT NULL REFERENCES public.creators(id) ON DELETE CASCADE,
+  name text NOT NULL CHECK (length(btrim(name)) BETWEEN 1 AND 80),
+  countries text[] NOT NULL DEFAULT '{}'::text[] CHECK (cardinality(countries) <= 250),
+  regions text[] NOT NULL DEFAULT '{}'::text[] CHECK (cardinality(regions) <= 500),
+  rest_of_world boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE public.shipping_zones ADD COLUMN IF NOT EXISTS regions text[] NOT NULL DEFAULT '{}'::text[] CHECK (cardinality(regions) <= 500);
+ALTER TABLE public.shipping_zones DROP CONSTRAINT IF EXISTS shipping_zones_has_destination;
+ALTER TABLE public.shipping_zones ADD CONSTRAINT shipping_zones_has_destination CHECK (rest_of_world OR cardinality(countries) > 0 OR cardinality(regions) > 0);
 CREATE INDEX IF NOT EXISTS shipping_zones_profile_idx ON public.shipping_zones (profile_id);
 CREATE INDEX IF NOT EXISTS shipping_zones_countries_idx ON public.shipping_zones USING gin (countries);
-CREATE TABLE IF NOT EXISTS public.shipping_rates (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), zone_id uuid NOT NULL REFERENCES public.shipping_zones(id) ON DELETE CASCADE, creator_id uuid NOT NULL REFERENCES public.creators(id) ON DELETE CASCADE, name text NOT NULL CHECK (length(btrim(name)) BETWEEN 1 AND 80), kind text NOT NULL DEFAULT 'flat' CHECK (kind IN ('flat', 'free', 'weight', 'price', 'quantity', 'carrier')), price_cents integer NOT NULL DEFAULT 0 CHECK (price_cents BETWEEN 0 AND 10000000), min_value integer CHECK (min_value IS NULL OR min_value >= 0), max_value integer CHECK (max_value IS NULL OR max_value >= 0), free_over_cents integer CHECK (free_over_cents IS NULL OR free_over_cents >= 0), min_days smallint CHECK (min_days IS NULL OR min_days BETWEEN 0 AND 365), max_days smallint CHECK (max_days IS NULL OR max_days BETWEEN 0 AND 365), carrier text CHECK (carrier IS NULL OR length(carrier) <= 60), service_code text CHECK (service_code IS NULL OR length(service_code) <= 60), active boolean NOT NULL DEFAULT true, position integer NOT NULL DEFAULT 0, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), CONSTRAINT shipping_rates_days CHECK (min_days IS NULL OR max_days IS NULL OR min_days <= max_days), CONSTRAINT shipping_rates_range CHECK (min_value IS NULL OR max_value IS NULL OR min_value <= max_value));
+CREATE TABLE IF NOT EXISTS public.shipping_rates (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  zone_id uuid NOT NULL REFERENCES public.shipping_zones(id) ON DELETE CASCADE,
+  creator_id uuid NOT NULL REFERENCES public.creators(id) ON DELETE CASCADE,
+  name text NOT NULL CHECK (length(btrim(name)) BETWEEN 1 AND 80),
+  kind text NOT NULL DEFAULT 'flat',
+  price_cents integer NOT NULL DEFAULT 0 CHECK (price_cents BETWEEN 0 AND 10000000),
+  min_value integer CHECK (min_value IS NULL OR min_value >= 0),
+  max_value integer CHECK (max_value IS NULL OR max_value >= 0),
+  tiers jsonb NOT NULL DEFAULT '[]'::jsonb CHECK (jsonb_typeof(tiers) = 'array' AND jsonb_array_length(tiers) <= 20),
+  free_over_cents integer CHECK (free_over_cents IS NULL OR free_over_cents >= 0),
+  min_days smallint CHECK (min_days IS NULL OR min_days BETWEEN 0 AND 365),
+  max_days smallint CHECK (max_days IS NULL OR max_days BETWEEN 0 AND 365),
+  carrier text CHECK (carrier IS NULL OR length(carrier) <= 60),
+  service_code text CHECK (service_code IS NULL OR length(service_code) <= 60),
+  active boolean NOT NULL DEFAULT true,
+  position integer NOT NULL DEFAULT 0,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT shipping_rates_days CHECK (min_days IS NULL OR max_days IS NULL OR min_days <= max_days),
+  CONSTRAINT shipping_rates_range CHECK (min_value IS NULL OR max_value IS NULL OR min_value <= max_value)
+);
+ALTER TABLE public.shipping_rates ADD COLUMN IF NOT EXISTS tiers jsonb NOT NULL DEFAULT '[]'::jsonb CHECK (jsonb_typeof(tiers) = 'array' AND jsonb_array_length(tiers) <= 20);
+ALTER TABLE public.shipping_rates DROP CONSTRAINT IF EXISTS shipping_rates_kind_check;
+ALTER TABLE public.shipping_rates ADD CONSTRAINT shipping_rates_kind_check CHECK (kind IN ('flat', 'free', 'price', 'weight', 'item_weight', 'quantity', 'carrier'));
 CREATE INDEX IF NOT EXISTS shipping_rates_zone_idx ON public.shipping_rates (zone_id, position);
-CREATE TABLE IF NOT EXISTS public.shipping_packages (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), creator_id uuid NOT NULL REFERENCES public.creators(id) ON DELETE CASCADE, name text NOT NULL CHECK (length(btrim(name)) BETWEEN 1 AND 80), kind text NOT NULL DEFAULT 'box' CHECK (kind IN ('box', 'envelope', 'soft_package')), length_mm integer NOT NULL CHECK (length_mm BETWEEN 1 AND 10000), width_mm integer NOT NULL CHECK (width_mm BETWEEN 1 AND 10000), height_mm integer NOT NULL CHECK (height_mm BETWEEN 0 AND 10000), weight_grams integer NOT NULL DEFAULT 0 CHECK (weight_grams BETWEEN 0 AND 1000000), is_default boolean NOT NULL DEFAULT false, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now());
+/* 6. Packages, the shop's commerce settings and its tax rates */
+CREATE TABLE IF NOT EXISTS public.shipping_packages (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  creator_id uuid NOT NULL REFERENCES public.creators(id) ON DELETE CASCADE,
+  name text NOT NULL CHECK (length(btrim(name)) BETWEEN 1 AND 80),
+  kind text NOT NULL DEFAULT 'box' CHECK (kind IN ('box', 'envelope', 'soft_package')),
+  length_mm integer NOT NULL CHECK (length_mm BETWEEN 1 AND 10000),
+  width_mm integer NOT NULL CHECK (width_mm BETWEEN 1 AND 10000),
+  height_mm integer NOT NULL CHECK (height_mm BETWEEN 0 AND 10000),
+  weight_grams integer NOT NULL DEFAULT 0 CHECK (weight_grams BETWEEN 0 AND 1000000),
+  is_default boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
 CREATE UNIQUE INDEX IF NOT EXISTS shipping_packages_one_default ON public.shipping_packages (creator_id) WHERE is_default;
-CREATE TABLE IF NOT EXISTS public.commerce_settings (creator_id uuid PRIMARY KEY REFERENCES public.creators(id) ON DELETE CASCADE, fulfillment_model text CHECK (fulfillment_model IS NULL OR fulfillment_model IN ('self', 'warehouse', 'print_on_demand', 'dropshipping', 'supplier', 'third_party_logistics', 'hybrid')), default_location_id uuid REFERENCES public.inventory_locations(id) ON DELETE SET NULL, default_package_id uuid REFERENCES public.shipping_packages(id) ON DELETE SET NULL, returns_enabled boolean NOT NULL DEFAULT true, return_window_days integer NOT NULL DEFAULT 30 CHECK (return_window_days BETWEEN 0 AND 365), tax_mode text NOT NULL DEFAULT 'none' CHECK (tax_mode IN ('none', 'manual', 'provider')), prices_include_tax boolean NOT NULL DEFAULT false, tax_on_shipping boolean NOT NULL DEFAULT false, low_stock_default integer NOT NULL DEFAULT 5 CHECK (low_stock_default BETWEEN 0 AND 1000000), onboarded_at timestamptz, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now());
-CREATE TABLE IF NOT EXISTS public.commerce_tax_rates (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), creator_id uuid NOT NULL REFERENCES public.creators(id) ON DELETE CASCADE, country text NOT NULL CHECK (country ~ '^[A-Z]{2}$'), region text CHECK (region IS NULL OR length(region) <= 120), name text NOT NULL DEFAULT 'Tax' CHECK (length(btrim(name)) BETWEEN 1 AND 60), rate_bps integer NOT NULL CHECK (rate_bps BETWEEN 0 AND 10000), created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS public.commerce_settings (
+  creator_id uuid PRIMARY KEY REFERENCES public.creators(id) ON DELETE CASCADE,
+  fulfillment_model text CHECK (fulfillment_model IS NULL OR fulfillment_model IN ('self', 'warehouse', 'print_on_demand', 'dropshipping', 'supplier', 'third_party_logistics', 'hybrid')),
+  default_location_id uuid REFERENCES public.inventory_locations(id) ON DELETE SET NULL,
+  default_package_id uuid REFERENCES public.shipping_packages(id) ON DELETE SET NULL,
+  unit_system text NOT NULL DEFAULT 'metric' CHECK (unit_system IN ('metric', 'imperial')),
+  returns_enabled boolean NOT NULL DEFAULT true,
+  return_window_days integer NOT NULL DEFAULT 30 CHECK (return_window_days BETWEEN 0 AND 365),
+  tax_mode text NOT NULL DEFAULT 'none' CHECK (tax_mode IN ('none', 'manual', 'provider')),
+  prices_include_tax boolean NOT NULL DEFAULT false,
+  tax_on_shipping boolean NOT NULL DEFAULT false,
+  low_stock_default integer NOT NULL DEFAULT 5 CHECK (low_stock_default BETWEEN 0 AND 1000000),
+  low_stock_alerts boolean NOT NULL DEFAULT true,
+  onboarded_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE public.commerce_settings ADD COLUMN IF NOT EXISTS unit_system text NOT NULL DEFAULT 'metric' CHECK (unit_system IN ('metric', 'imperial'));
+ALTER TABLE public.commerce_settings ADD COLUMN IF NOT EXISTS low_stock_alerts boolean NOT NULL DEFAULT true;
+CREATE TABLE IF NOT EXISTS public.commerce_tax_rates (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  creator_id uuid NOT NULL REFERENCES public.creators(id) ON DELETE CASCADE,
+  country text NOT NULL CHECK (country ~ '^[A-Z]{2}$'),
+  region text CHECK (region IS NULL OR length(region) <= 120),
+  name text NOT NULL DEFAULT 'Tax' CHECK (length(btrim(name)) BETWEEN 1 AND 60),
+  rate_bps integer NOT NULL CHECK (rate_bps BETWEEN 0 AND 10000),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
 CREATE UNIQUE INDEX IF NOT EXISTS commerce_tax_rates_place_key ON public.commerce_tax_rates (creator_id, country, coalesce(lower(region), ''));
-CREATE TABLE IF NOT EXISTS public.product_options (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), product_id uuid NOT NULL REFERENCES public.products(id) ON DELETE CASCADE, position smallint NOT NULL CHECK (position BETWEEN 1 AND 3), name text NOT NULL CHECK (length(btrim(name)) BETWEEN 1 AND 40), "values" text[] NOT NULL DEFAULT '{}'::text[] CHECK (cardinality("values") BETWEEN 1 AND 100), created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), UNIQUE (product_id, position));
+/* 7. Options and variants: the existing product_variants, each one combination of up to three options */
+CREATE TABLE IF NOT EXISTS public.product_options (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  product_id uuid NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
+  position smallint NOT NULL CHECK (position BETWEEN 1 AND 3),
+  name text NOT NULL CHECK (length(btrim(name)) BETWEEN 1 AND 40),
+  "values" text[] NOT NULL DEFAULT '{}'::text[] CHECK (cardinality("values") BETWEEN 1 AND 100),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (product_id, position)
+);
 CREATE UNIQUE INDEX IF NOT EXISTS product_options_name_key ON public.product_options (product_id, lower(name));
 ALTER TABLE public.product_variants ADD COLUMN IF NOT EXISTS option1 text CHECK (option1 IS NULL OR length(option1) BETWEEN 1 AND 100);
 ALTER TABLE public.product_variants ADD COLUMN IF NOT EXISTS option2 text CHECK (option2 IS NULL OR length(option2) BETWEEN 1 AND 100);
@@ -1765,71 +1934,499 @@ ALTER TABLE public.product_variants ADD COLUMN IF NOT EXISTS requires_shipping b
 ALTER TABLE public.product_variants ADD COLUMN IF NOT EXISTS taxable boolean;
 ALTER TABLE public.product_variants ADD COLUMN IF NOT EXISTS active boolean NOT NULL DEFAULT true;
 ALTER TABLE public.product_variants ADD COLUMN IF NOT EXISTS fulfillment_location_id uuid REFERENCES public.inventory_locations(id) ON DELETE SET NULL;
+ALTER TABLE public.product_variants ADD COLUMN IF NOT EXISTS fulfillment_method text CHECK (fulfillment_method IS NULL OR fulfillment_method IN ('self', 'warehouse', 'dropship', 'print_on_demand'));
 CREATE UNIQUE INDEX IF NOT EXISTS product_variants_options_key ON public.product_variants (product_id, coalesce(option1, ''), coalesce(option2, ''), coalesce(option3, '')) WHERE option1 IS NOT NULL;
 CREATE INDEX IF NOT EXISTS product_variants_sku_idx ON public.product_variants (lower(sku)) WHERE sku IS NOT NULL;
-CREATE TABLE IF NOT EXISTS public.product_variant_costs (variant_id uuid PRIMARY KEY REFERENCES public.product_variants(id) ON DELETE CASCADE, creator_id uuid NOT NULL REFERENCES public.creators(id) ON DELETE CASCADE, cost_cents integer NOT NULL CHECK (cost_cents BETWEEN 0 AND 100000000), updated_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS public.product_variant_costs (
+  variant_id uuid PRIMARY KEY REFERENCES public.product_variants(id) ON DELETE CASCADE,
+  creator_id uuid NOT NULL REFERENCES public.creators(id) ON DELETE CASCADE,
+  cost_cents integer NOT NULL CHECK (cost_cents BETWEEN 0 AND 100000000),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
 CREATE INDEX IF NOT EXISTS product_variant_costs_creator_idx ON public.product_variant_costs (creator_id);
-CREATE TABLE IF NOT EXISTS public.inventory_levels (variant_id uuid NOT NULL REFERENCES public.product_variants(id) ON DELETE CASCADE, location_id uuid NOT NULL REFERENCES public.inventory_locations(id) ON DELETE CASCADE, creator_id uuid NOT NULL REFERENCES public.creators(id) ON DELETE CASCADE, on_hand integer NOT NULL DEFAULT 0 CHECK (on_hand BETWEEN -1000000000 AND 1000000000), committed integer NOT NULL DEFAULT 0 CHECK (committed BETWEEN 0 AND 1000000000), incoming integer NOT NULL DEFAULT 0 CHECK (incoming BETWEEN 0 AND 1000000000), available integer GENERATED ALWAYS AS (on_hand - committed) STORED, updated_at timestamptz NOT NULL DEFAULT now(), PRIMARY KEY (variant_id, location_id));
+/* 8. Stock: per variant and location, and every change written down */
+CREATE TABLE IF NOT EXISTS public.inventory_levels (
+  variant_id uuid NOT NULL REFERENCES public.product_variants(id) ON DELETE CASCADE,
+  location_id uuid NOT NULL REFERENCES public.inventory_locations(id) ON DELETE CASCADE,
+  creator_id uuid NOT NULL REFERENCES public.creators(id) ON DELETE CASCADE,
+  on_hand integer NOT NULL DEFAULT 0 CHECK (on_hand BETWEEN -1000000000 AND 1000000000),
+  committed integer NOT NULL DEFAULT 0 CHECK (committed BETWEEN 0 AND 1000000000),
+  incoming integer NOT NULL DEFAULT 0 CHECK (incoming BETWEEN 0 AND 1000000000),
+  available integer GENERATED ALWAYS AS (on_hand - committed) STORED,
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (variant_id, location_id)
+);
 CREATE INDEX IF NOT EXISTS inventory_levels_creator_idx ON public.inventory_levels (creator_id, available);
 CREATE INDEX IF NOT EXISTS inventory_levels_location_idx ON public.inventory_levels (location_id);
-CREATE TABLE IF NOT EXISTS public.inventory_movements (id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY, creator_id uuid REFERENCES public.creators(id) ON DELETE SET NULL, variant_id uuid REFERENCES public.product_variants(id) ON DELETE SET NULL, location_id uuid REFERENCES public.inventory_locations(id) ON DELETE SET NULL, delta_on_hand integer NOT NULL DEFAULT 0, delta_committed integer NOT NULL DEFAULT 0, delta_incoming integer NOT NULL DEFAULT 0, on_hand_after integer, committed_after integer, incoming_after integer, reason text NOT NULL CHECK (reason IN ('initial', 'received', 'correction', 'count', 'damaged', 'theft_or_loss', 'promotion_or_donation', 'returned_restock', 'sale_fulfilled', 'order_reserved', 'reservation_released', 'order_cancelled', 'transfer_out', 'transfer_in', 'incoming_added', 'incoming_cancelled', 'provider_sync')), ref_type text CHECK (ref_type IS NULL OR length(ref_type) <= 40), ref_id text CHECK (ref_id IS NULL OR length(ref_id) <= 120), note text CHECK (note IS NULL OR length(note) <= 500), actor text NOT NULL DEFAULT 'system' CHECK (actor IN ('creator', 'buyer', 'system', 'webhook', 'admin')), idempotency_key text UNIQUE CHECK (idempotency_key IS NULL OR length(idempotency_key) <= 200), created_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS public.inventory_movements (
+  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  creator_id uuid REFERENCES public.creators(id) ON DELETE SET NULL,
+  variant_id uuid REFERENCES public.product_variants(id) ON DELETE SET NULL,
+  location_id uuid REFERENCES public.inventory_locations(id) ON DELETE SET NULL,
+  delta_on_hand integer NOT NULL DEFAULT 0,
+  delta_committed integer NOT NULL DEFAULT 0,
+  delta_incoming integer NOT NULL DEFAULT 0,
+  on_hand_after integer,
+  committed_after integer,
+  incoming_after integer,
+  reason text NOT NULL CHECK (reason IN ('initial', 'received', 'correction', 'count', 'damaged', 'theft_or_loss', 'promotion_or_donation', 'returned_restock', 'sale_fulfilled', 'order_reserved', 'reservation_released', 'order_cancelled', 'transfer_out', 'transfer_in', 'incoming_added', 'incoming_cancelled', 'provider_sync')),
+  ref_type text CHECK (ref_type IS NULL OR length(ref_type) <= 40),
+  ref_id text CHECK (ref_id IS NULL OR length(ref_id) <= 120),
+  note text CHECK (note IS NULL OR length(note) <= 500),
+  actor text NOT NULL DEFAULT 'system' CHECK (actor IN ('creator', 'buyer', 'system', 'webhook', 'admin')),
+  idempotency_key text UNIQUE CHECK (idempotency_key IS NULL OR length(idempotency_key) <= 200),
+  created_at timestamptz NOT NULL DEFAULT now()
+);
 CREATE INDEX IF NOT EXISTS inventory_movements_creator_idx ON public.inventory_movements (creator_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS inventory_movements_variant_idx ON public.inventory_movements (variant_id, created_at DESC);
-CREATE TABLE IF NOT EXISTS public.commerce_checkouts (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), creator_id uuid REFERENCES public.creators(id) ON DELETE SET NULL, buyer_id uuid, buyer_email text CHECK (buyer_email IS NULL OR length(buyer_email) <= 254), buyer_name text CHECK (buyer_name IS NULL OR length(buyer_name) <= 200), buyer_phone text CHECK (buyer_phone IS NULL OR length(buyer_phone) <= 40), status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'paid', 'failed', 'expired', 'cancelled', 'refunded', 'partially_refunded')), fulfillment_status text NOT NULL DEFAULT 'unfulfilled' CHECK (fulfillment_status IN ('unfulfilled', 'partially_fulfilled', 'fulfilled', 'cancelled', 'not_required')), return_status text NOT NULL DEFAULT 'none' CHECK (return_status IN ('none', 'requested', 'in_progress', 'partially_returned', 'returned')), currency text NOT NULL DEFAULT 'USD' CHECK (currency ~ '^[A-Z]{3}$'), items_subtotal_cents integer NOT NULL DEFAULT 0 CHECK (items_subtotal_cents >= 0), discount_cents integer NOT NULL DEFAULT 0 CHECK (discount_cents >= 0), shipping_cents integer NOT NULL DEFAULT 0 CHECK (shipping_cents >= 0), shipping_discount_cents integer NOT NULL DEFAULT 0 CHECK (shipping_discount_cents >= 0), tax_cents integer NOT NULL DEFAULT 0 CHECK (tax_cents >= 0), total_cents integer NOT NULL DEFAULT 0 CHECK (total_cents >= 0), platform_fee_cents integer NOT NULL DEFAULT 0 CHECK (platform_fee_cents >= 0), refunded_cents integer NOT NULL DEFAULT 0 CHECK (refunded_cents >= 0), shipping_address jsonb CHECK (shipping_address IS NULL OR (jsonb_typeof(shipping_address) = 'object' AND pg_column_size(shipping_address) <= 4096)), shipping_rate jsonb CHECK (shipping_rate IS NULL OR (jsonb_typeof(shipping_rate) = 'object' AND pg_column_size(shipping_rate) <= 4096)), lines jsonb NOT NULL DEFAULT '[]'::jsonb CHECK (jsonb_typeof(lines) = 'array' AND jsonb_array_length(lines) <= 50 AND pg_column_size(lines) <= 65536), coupon_id uuid, coupon_code text CHECK (coupon_code IS NULL OR length(coupon_code) <= 64), coupon_holder text CHECK (coupon_holder IS NULL OR length(coupon_holder) <= 200), provider text NOT NULL DEFAULT 'stripe' CHECK (provider IN ('stripe', 'free')), stripe_payment_intent_id text UNIQUE CHECK (stripe_payment_intent_id IS NULL OR stripe_payment_intent_id ~ '^pi_[A-Za-z0-9_]+$'), stripe_session_id text UNIQUE CHECK (stripe_session_id IS NULL OR stripe_session_id ~ '^cs_[A-Za-z0-9_]+$'), client_key text CHECK (client_key IS NULL OR length(client_key) BETWEEN 8 AND 120), receipt_token text, session_fingerprint text, origin jsonb CHECK (origin IS NULL OR (jsonb_typeof(origin) = 'object' AND pg_column_size(origin) <= 4096)), attribution jsonb CHECK (attribution IS NULL OR (jsonb_typeof(attribution) = 'object' AND pg_column_size(attribution) <= 4096)), buyer_note text CHECK (buyer_note IS NULL OR length(buyer_note) <= 1000), merchant_note text CHECK (merchant_note IS NULL OR length(merchant_note) <= 4000), cancel_reason text CHECK (cancel_reason IS NULL OR length(cancel_reason) <= 300), expires_at timestamptz, paid_at timestamptz, cancelled_at timestamptz, fulfilled_at timestamptz, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), UNIQUE (creator_id, client_key));
+/* 9. Physical checkouts: shipped or picked up, and their stock holds */
+CREATE TABLE IF NOT EXISTS public.commerce_checkouts (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  creator_id uuid REFERENCES public.creators(id) ON DELETE SET NULL,
+  buyer_id uuid,
+  buyer_email text CHECK (buyer_email IS NULL OR length(buyer_email) <= 254),
+  buyer_name text CHECK (buyer_name IS NULL OR length(buyer_name) <= 200),
+  buyer_phone text CHECK (buyer_phone IS NULL OR length(buyer_phone) <= 40),
+  status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'paid', 'failed', 'expired', 'cancelled', 'refunded', 'partially_refunded')),
+  fulfillment_status text NOT NULL DEFAULT 'unfulfilled',
+  return_status text NOT NULL DEFAULT 'none' CHECK (return_status IN ('none', 'requested', 'in_progress', 'partially_returned', 'returned')),
+  delivery_method text NOT NULL DEFAULT 'ship' CHECK (delivery_method IN ('ship', 'pickup', 'none')),
+  pickup_location_id uuid REFERENCES public.inventory_locations(id) ON DELETE SET NULL,
+  pickup jsonb CHECK (pickup IS NULL OR (jsonb_typeof(pickup) = 'object' AND pg_column_size(pickup) <= 4096)),
+  currency text NOT NULL DEFAULT 'USD' CHECK (currency ~ '^[A-Z]{3}$'),
+  items_subtotal_cents integer NOT NULL DEFAULT 0 CHECK (items_subtotal_cents >= 0),
+  discount_cents integer NOT NULL DEFAULT 0 CHECK (discount_cents >= 0),
+  shipping_cents integer NOT NULL DEFAULT 0 CHECK (shipping_cents >= 0),
+  shipping_discount_cents integer NOT NULL DEFAULT 0 CHECK (shipping_discount_cents >= 0),
+  tax_cents integer NOT NULL DEFAULT 0 CHECK (tax_cents >= 0),
+  total_cents integer NOT NULL DEFAULT 0 CHECK (total_cents >= 0),
+  platform_fee_cents integer NOT NULL DEFAULT 0 CHECK (platform_fee_cents >= 0),
+  refunded_cents integer NOT NULL DEFAULT 0 CHECK (refunded_cents >= 0),
+  shipping_address jsonb CHECK (shipping_address IS NULL OR (jsonb_typeof(shipping_address) = 'object' AND pg_column_size(shipping_address) <= 4096)),
+  shipping_rate jsonb CHECK (shipping_rate IS NULL OR (jsonb_typeof(shipping_rate) = 'object' AND pg_column_size(shipping_rate) <= 4096)),
+  lines jsonb NOT NULL DEFAULT '[]'::jsonb CHECK (jsonb_typeof(lines) = 'array' AND jsonb_array_length(lines) <= 50 AND pg_column_size(lines) <= 65536),
+  coupon_id uuid,
+  coupon_code text CHECK (coupon_code IS NULL OR length(coupon_code) <= 64),
+  coupon_holder text CHECK (coupon_holder IS NULL OR length(coupon_holder) <= 200),
+  provider text NOT NULL DEFAULT 'stripe' CHECK (provider IN ('stripe', 'free')),
+  stripe_payment_intent_id text UNIQUE CHECK (stripe_payment_intent_id IS NULL OR stripe_payment_intent_id ~ '^pi_[A-Za-z0-9_]+$'),
+  stripe_session_id text UNIQUE CHECK (stripe_session_id IS NULL OR stripe_session_id ~ '^cs_[A-Za-z0-9_]+$'),
+  client_key text CHECK (client_key IS NULL OR length(client_key) BETWEEN 8 AND 120),
+  receipt_token text,
+  session_fingerprint text,
+  origin jsonb CHECK (origin IS NULL OR (jsonb_typeof(origin) = 'object' AND pg_column_size(origin) <= 4096)),
+  attribution jsonb CHECK (attribution IS NULL OR (jsonb_typeof(attribution) = 'object' AND pg_column_size(attribution) <= 4096)),
+  buyer_note text CHECK (buyer_note IS NULL OR length(buyer_note) <= 1000),
+  merchant_note text CHECK (merchant_note IS NULL OR length(merchant_note) <= 4000),
+  cancel_reason text CHECK (cancel_reason IS NULL OR length(cancel_reason) <= 300),
+  expires_at timestamptz,
+  paid_at timestamptz,
+  processing_at timestamptz,
+  cancelled_at timestamptz,
+  fulfilled_at timestamptz,
+  delivered_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (creator_id, client_key)
+);
+ALTER TABLE public.commerce_checkouts ADD COLUMN IF NOT EXISTS delivery_method text NOT NULL DEFAULT 'ship' CHECK (delivery_method IN ('ship', 'pickup', 'none'));
+ALTER TABLE public.commerce_checkouts ADD COLUMN IF NOT EXISTS pickup_location_id uuid REFERENCES public.inventory_locations(id) ON DELETE SET NULL;
+ALTER TABLE public.commerce_checkouts ADD COLUMN IF NOT EXISTS pickup jsonb CHECK (pickup IS NULL OR (jsonb_typeof(pickup) = 'object' AND pg_column_size(pickup) <= 4096));
+ALTER TABLE public.commerce_checkouts ADD COLUMN IF NOT EXISTS processing_at timestamptz;
+ALTER TABLE public.commerce_checkouts ADD COLUMN IF NOT EXISTS delivered_at timestamptz;
+ALTER TABLE public.commerce_checkouts DROP CONSTRAINT IF EXISTS commerce_checkouts_fulfillment_status_check;
+ALTER TABLE public.commerce_checkouts ADD CONSTRAINT commerce_checkouts_fulfillment_status_check CHECK (fulfillment_status IN ('unfulfilled', 'processing', 'partially_fulfilled', 'fulfilled', 'delivered', 'cancelled', 'not_required'));
 CREATE INDEX IF NOT EXISTS commerce_checkouts_creator_idx ON public.commerce_checkouts (creator_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS commerce_checkouts_open_idx ON public.commerce_checkouts (creator_id, fulfillment_status, paid_at) WHERE status = 'paid';
 CREATE INDEX IF NOT EXISTS commerce_checkouts_pending_idx ON public.commerce_checkouts (expires_at) WHERE status = 'pending';
 CREATE INDEX IF NOT EXISTS commerce_checkouts_buyer_idx ON public.commerce_checkouts (creator_id, lower(buyer_email)) WHERE buyer_email IS NOT NULL;
-CREATE TABLE IF NOT EXISTS public.inventory_reservations (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), checkout_id uuid NOT NULL REFERENCES public.commerce_checkouts(id) ON DELETE CASCADE, creator_id uuid REFERENCES public.creators(id) ON DELETE SET NULL, variant_id uuid REFERENCES public.product_variants(id) ON DELETE SET NULL, location_id uuid REFERENCES public.inventory_locations(id) ON DELETE SET NULL, quantity integer NOT NULL CHECK (quantity BETWEEN 1 AND 100000), status text NOT NULL DEFAULT 'held' CHECK (status IN ('held', 'sold', 'released', 'fulfilled')), fulfilled_quantity integer NOT NULL DEFAULT 0 CHECK (fulfilled_quantity >= 0), expires_at timestamptz, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), UNIQUE (checkout_id, variant_id, location_id));
+CREATE TABLE IF NOT EXISTS public.inventory_reservations (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  checkout_id uuid NOT NULL REFERENCES public.commerce_checkouts(id) ON DELETE CASCADE,
+  creator_id uuid REFERENCES public.creators(id) ON DELETE SET NULL,
+  variant_id uuid REFERENCES public.product_variants(id) ON DELETE SET NULL,
+  location_id uuid REFERENCES public.inventory_locations(id) ON DELETE SET NULL,
+  quantity integer NOT NULL CHECK (quantity BETWEEN 1 AND 100000),
+  status text NOT NULL DEFAULT 'held' CHECK (status IN ('held', 'sold', 'released', 'fulfilled')),
+  fulfilled_quantity integer NOT NULL DEFAULT 0 CHECK (fulfilled_quantity >= 0),
+  expires_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (checkout_id, variant_id, location_id)
+);
 CREATE INDEX IF NOT EXISTS inventory_reservations_expiry_idx ON public.inventory_reservations (expires_at) WHERE status = 'held';
+/* 10. Orders: each line of a physical checkout is an ordinary orders row */
 ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS checkout_id uuid REFERENCES public.commerce_checkouts(id) ON DELETE SET NULL;
 ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS quantity integer CHECK (quantity IS NULL OR quantity BETWEEN 1 AND 100000);
 ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS unit_price_cents integer CHECK (unit_price_cents IS NULL OR unit_price_cents >= 0);
 ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS shipping_cents integer CHECK (shipping_cents IS NULL OR shipping_cents >= 0);
 ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS requires_shipping boolean;
 ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS fulfillment_location_id uuid REFERENCES public.inventory_locations(id) ON DELETE SET NULL;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS fulfillment_method text CHECK (fulfillment_method IS NULL OR fulfillment_method IN ('self', 'warehouse', 'dropship', 'print_on_demand'));
 ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS product_snapshot jsonb CHECK (product_snapshot IS NULL OR (jsonb_typeof(product_snapshot) = 'object' AND pg_column_size(product_snapshot) <= 8192));
 CREATE INDEX IF NOT EXISTS orders_checkout_idx ON public.orders (checkout_id) WHERE checkout_id IS NOT NULL;
-CREATE TABLE IF NOT EXISTS public.fulfillments (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), checkout_id uuid NOT NULL REFERENCES public.commerce_checkouts(id) ON DELETE CASCADE, creator_id uuid REFERENCES public.creators(id) ON DELETE SET NULL, location_id uuid REFERENCES public.inventory_locations(id) ON DELETE SET NULL, status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'submitted', 'shipped', 'in_transit', 'out_for_delivery', 'delivered', 'failed', 'cancelled')), provider text NOT NULL DEFAULT 'manual' CHECK (length(provider) BETWEEN 1 AND 40), provider_ref text CHECK (provider_ref IS NULL OR length(provider_ref) <= 200), carrier text CHECK (carrier IS NULL OR length(carrier) <= 60), service text CHECK (service IS NULL OR length(service) <= 80), tracking_number text CHECK (tracking_number IS NULL OR length(tracking_number) <= 120), tracking_url text CHECK (tracking_url IS NULL OR length(tracking_url) <= 2048), label_url text CHECK (label_url IS NULL OR length(label_url) <= 2048), package_id uuid REFERENCES public.shipping_packages(id) ON DELETE SET NULL, notify_buyer boolean NOT NULL DEFAULT true, error text CHECK (error IS NULL OR length(error) <= 500), idempotency_key text UNIQUE CHECK (idempotency_key IS NULL OR length(idempotency_key) <= 200), shipped_at timestamptz, delivered_at timestamptz, cancelled_at timestamptz, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now());
+/* 11. Shipments (fulfillments): one order can have several, each with its items, carrier, tracking and history */
+CREATE TABLE IF NOT EXISTS public.fulfillments (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  checkout_id uuid NOT NULL REFERENCES public.commerce_checkouts(id) ON DELETE CASCADE,
+  creator_id uuid REFERENCES public.creators(id) ON DELETE SET NULL,
+  location_id uuid REFERENCES public.inventory_locations(id) ON DELETE SET NULL,
+  status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'submitted', 'shipped', 'in_transit', 'out_for_delivery', 'delivered', 'failed', 'cancelled')),
+  provider text NOT NULL DEFAULT 'manual' CHECK (length(provider) BETWEEN 1 AND 40),
+  provider_ref text CHECK (provider_ref IS NULL OR length(provider_ref) <= 200),
+  carrier text CHECK (carrier IS NULL OR length(carrier) <= 60),
+  service text CHECK (service IS NULL OR length(service) <= 80),
+  tracking_number text CHECK (tracking_number IS NULL OR length(tracking_number) <= 120),
+  tracking_url text CHECK (tracking_url IS NULL OR length(tracking_url) <= 2048),
+  label_url text CHECK (label_url IS NULL OR length(label_url) <= 2048),
+  package_id uuid REFERENCES public.shipping_packages(id) ON DELETE SET NULL,
+  notify_buyer boolean NOT NULL DEFAULT true,
+  error text CHECK (error IS NULL OR length(error) <= 500),
+  idempotency_key text UNIQUE CHECK (idempotency_key IS NULL OR length(idempotency_key) <= 200),
+  shipped_at timestamptz,
+  delivered_at timestamptz,
+  cancelled_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
 CREATE INDEX IF NOT EXISTS fulfillments_checkout_idx ON public.fulfillments (checkout_id, created_at);
 CREATE INDEX IF NOT EXISTS fulfillments_creator_idx ON public.fulfillments (creator_id, created_at DESC);
 CREATE UNIQUE INDEX IF NOT EXISTS fulfillments_provider_ref_key ON public.fulfillments (provider, provider_ref) WHERE provider_ref IS NOT NULL;
-CREATE TABLE IF NOT EXISTS public.fulfillment_items (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), fulfillment_id uuid NOT NULL REFERENCES public.fulfillments(id) ON DELETE CASCADE, order_id uuid NOT NULL REFERENCES public.orders(id) ON DELETE CASCADE, quantity integer NOT NULL CHECK (quantity BETWEEN 1 AND 100000), UNIQUE (fulfillment_id, order_id));
+CREATE TABLE IF NOT EXISTS public.fulfillment_items (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  fulfillment_id uuid NOT NULL REFERENCES public.fulfillments(id) ON DELETE CASCADE,
+  order_id uuid NOT NULL REFERENCES public.orders(id) ON DELETE CASCADE,
+  quantity integer NOT NULL CHECK (quantity BETWEEN 1 AND 100000),
+  UNIQUE (fulfillment_id, order_id)
+);
 CREATE INDEX IF NOT EXISTS fulfillment_items_order_idx ON public.fulfillment_items (order_id);
-CREATE TABLE IF NOT EXISTS public.fulfillment_events (id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY, fulfillment_id uuid NOT NULL REFERENCES public.fulfillments(id) ON DELETE CASCADE, status text NOT NULL CHECK (length(status) BETWEEN 1 AND 40), message text CHECK (message IS NULL OR length(message) <= 300), location text CHECK (location IS NULL OR length(location) <= 200), source text NOT NULL DEFAULT 'manual' CHECK (source IN ('manual', 'provider', 'webhook', 'system')), external_id text CHECK (external_id IS NULL OR length(external_id) <= 200), occurred_at timestamptz NOT NULL DEFAULT now(), created_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS public.fulfillment_events (
+  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  fulfillment_id uuid NOT NULL REFERENCES public.fulfillments(id) ON DELETE CASCADE,
+  status text NOT NULL CHECK (length(status) BETWEEN 1 AND 40),
+  message text CHECK (message IS NULL OR length(message) <= 300),
+  location text CHECK (location IS NULL OR length(location) <= 200),
+  source text NOT NULL DEFAULT 'manual' CHECK (source IN ('manual', 'provider', 'webhook', 'system')),
+  external_id text CHECK (external_id IS NULL OR length(external_id) <= 200),
+  occurred_at timestamptz NOT NULL DEFAULT now(),
+  created_at timestamptz NOT NULL DEFAULT now()
+);
 CREATE UNIQUE INDEX IF NOT EXISTS fulfillment_events_external_key ON public.fulfillment_events (fulfillment_id, external_id) WHERE external_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS fulfillment_events_fulfillment_idx ON public.fulfillment_events (fulfillment_id, occurred_at);
-CREATE TABLE IF NOT EXISTS public.commerce_returns (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), checkout_id uuid NOT NULL REFERENCES public.commerce_checkouts(id) ON DELETE CASCADE, creator_id uuid REFERENCES public.creators(id) ON DELETE SET NULL, status text NOT NULL DEFAULT 'requested' CHECK (status IN ('requested', 'approved', 'rejected', 'in_transit', 'received', 'completed', 'cancelled')), reason text NOT NULL DEFAULT 'other' CHECK (reason IN ('size', 'damaged', 'defective', 'not_as_described', 'wrong_item', 'changed_mind', 'other')), method text NOT NULL DEFAULT 'ship_back' CHECK (method IN ('ship_back', 'drop_off', 'no_return_needed')), requested_by text NOT NULL DEFAULT 'creator' CHECK (requested_by IN ('creator', 'buyer')), customer_note text CHECK (customer_note IS NULL OR length(customer_note) <= 1000), merchant_note text CHECK (merchant_note IS NULL OR length(merchant_note) <= 1000), carrier text CHECK (carrier IS NULL OR length(carrier) <= 60), tracking_number text CHECK (tracking_number IS NULL OR length(tracking_number) <= 120), tracking_url text CHECK (tracking_url IS NULL OR length(tracking_url) <= 2048), refunded_cents integer NOT NULL DEFAULT 0 CHECK (refunded_cents >= 0), received_at timestamptz, closed_at timestamptz, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now());
+/* 12. Returns and stock transfers */
+CREATE TABLE IF NOT EXISTS public.commerce_returns (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  checkout_id uuid NOT NULL REFERENCES public.commerce_checkouts(id) ON DELETE CASCADE,
+  creator_id uuid REFERENCES public.creators(id) ON DELETE SET NULL,
+  status text NOT NULL DEFAULT 'requested' CHECK (status IN ('requested', 'approved', 'rejected', 'in_transit', 'received', 'completed', 'cancelled')),
+  reason text NOT NULL DEFAULT 'other' CHECK (reason IN ('size', 'damaged', 'defective', 'not_as_described', 'wrong_item', 'changed_mind', 'other')),
+  method text NOT NULL DEFAULT 'ship_back' CHECK (method IN ('ship_back', 'drop_off', 'no_return_needed')),
+  requested_by text NOT NULL DEFAULT 'creator' CHECK (requested_by IN ('creator', 'buyer')),
+  customer_note text CHECK (customer_note IS NULL OR length(customer_note) <= 1000),
+  merchant_note text CHECK (merchant_note IS NULL OR length(merchant_note) <= 1000),
+  carrier text CHECK (carrier IS NULL OR length(carrier) <= 60),
+  tracking_number text CHECK (tracking_number IS NULL OR length(tracking_number) <= 120),
+  tracking_url text CHECK (tracking_url IS NULL OR length(tracking_url) <= 2048),
+  refunded_cents integer NOT NULL DEFAULT 0 CHECK (refunded_cents >= 0),
+  received_at timestamptz,
+  closed_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
 CREATE INDEX IF NOT EXISTS commerce_returns_checkout_idx ON public.commerce_returns (checkout_id);
 CREATE INDEX IF NOT EXISTS commerce_returns_creator_idx ON public.commerce_returns (creator_id, created_at DESC);
-CREATE TABLE IF NOT EXISTS public.commerce_return_items (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), return_id uuid NOT NULL REFERENCES public.commerce_returns(id) ON DELETE CASCADE, order_id uuid NOT NULL REFERENCES public.orders(id) ON DELETE CASCADE, quantity integer NOT NULL CHECK (quantity BETWEEN 1 AND 100000), restock boolean NOT NULL DEFAULT true, restock_location_id uuid REFERENCES public.inventory_locations(id) ON DELETE SET NULL, restocked_quantity integer NOT NULL DEFAULT 0 CHECK (restocked_quantity >= 0), condition text CHECK (condition IS NULL OR condition IN ('new', 'opened', 'damaged')), UNIQUE (return_id, order_id), CONSTRAINT commerce_return_items_restocked CHECK (restocked_quantity <= quantity));
+CREATE TABLE IF NOT EXISTS public.commerce_return_items (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  return_id uuid NOT NULL REFERENCES public.commerce_returns(id) ON DELETE CASCADE,
+  order_id uuid NOT NULL REFERENCES public.orders(id) ON DELETE CASCADE,
+  quantity integer NOT NULL CHECK (quantity BETWEEN 1 AND 100000),
+  restock boolean NOT NULL DEFAULT true,
+  restock_location_id uuid REFERENCES public.inventory_locations(id) ON DELETE SET NULL,
+  restocked_quantity integer NOT NULL DEFAULT 0 CHECK (restocked_quantity >= 0),
+  condition text CHECK (condition IS NULL OR condition IN ('new', 'opened', 'damaged')),
+  UNIQUE (return_id, order_id),
+  CONSTRAINT commerce_return_items_restocked CHECK (restocked_quantity <= quantity)
+);
 CREATE INDEX IF NOT EXISTS commerce_return_items_order_idx ON public.commerce_return_items (order_id);
-CREATE TABLE IF NOT EXISTS public.inventory_transfers (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), creator_id uuid NOT NULL REFERENCES public.creators(id) ON DELETE CASCADE, origin_location_id uuid REFERENCES public.inventory_locations(id) ON DELETE SET NULL, destination_location_id uuid REFERENCES public.inventory_locations(id) ON DELETE SET NULL, status text NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'in_transit', 'partially_received', 'received', 'cancelled')), reference text CHECK (reference IS NULL OR length(reference) <= 120), note text CHECK (note IS NULL OR length(note) <= 1000), expected_at date, shipped_at timestamptz, received_at timestamptz, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), CONSTRAINT inventory_transfers_two_places CHECK (origin_location_id IS NULL OR destination_location_id IS NULL OR origin_location_id <> destination_location_id));
+CREATE TABLE IF NOT EXISTS public.inventory_transfers (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  creator_id uuid NOT NULL REFERENCES public.creators(id) ON DELETE CASCADE,
+  origin_location_id uuid REFERENCES public.inventory_locations(id) ON DELETE SET NULL,
+  destination_location_id uuid REFERENCES public.inventory_locations(id) ON DELETE SET NULL,
+  status text NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'in_transit', 'partially_received', 'received', 'cancelled')),
+  reference text CHECK (reference IS NULL OR length(reference) <= 120),
+  note text CHECK (note IS NULL OR length(note) <= 1000),
+  expected_at date,
+  shipped_at timestamptz,
+  received_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT inventory_transfers_two_places CHECK (origin_location_id IS NULL OR destination_location_id IS NULL OR origin_location_id <> destination_location_id)
+);
 CREATE INDEX IF NOT EXISTS inventory_transfers_creator_idx ON public.inventory_transfers (creator_id, created_at DESC);
-CREATE TABLE IF NOT EXISTS public.inventory_transfer_items (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), transfer_id uuid NOT NULL REFERENCES public.inventory_transfers(id) ON DELETE CASCADE, variant_id uuid REFERENCES public.product_variants(id) ON DELETE SET NULL, quantity integer NOT NULL CHECK (quantity BETWEEN 1 AND 1000000), received_quantity integer NOT NULL DEFAULT 0 CHECK (received_quantity >= 0), UNIQUE (transfer_id, variant_id), CONSTRAINT inventory_transfer_items_received CHECK (received_quantity <= quantity));
-CREATE TABLE IF NOT EXISTS public.product_collections (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), creator_id uuid NOT NULL REFERENCES public.creators(id) ON DELETE CASCADE, title text NOT NULL CHECK (length(btrim(title)) BETWEEN 1 AND 120), slug text NOT NULL CHECK (slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$' AND length(slug) <= 80), description text CHECK (description IS NULL OR length(description) <= 5000), image_url text CHECK (image_url IS NULL OR length(image_url) <= 2048), kind text NOT NULL DEFAULT 'manual' CHECK (kind IN ('manual', 'smart')), rules jsonb NOT NULL DEFAULT '[]'::jsonb CHECK (jsonb_typeof(rules) = 'array' AND jsonb_array_length(rules) <= 20), match text NOT NULL DEFAULT 'all' CHECK (match IN ('all', 'any')), sort text NOT NULL DEFAULT 'manual' CHECK (sort IN ('manual', 'newest', 'price_asc', 'price_desc', 'title', 'best_selling')), published boolean NOT NULL DEFAULT true, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), UNIQUE (creator_id, slug));
-CREATE TABLE IF NOT EXISTS public.product_collection_items (collection_id uuid NOT NULL REFERENCES public.product_collections(id) ON DELETE CASCADE, product_id uuid NOT NULL REFERENCES public.products(id) ON DELETE CASCADE, position integer NOT NULL DEFAULT 0, created_at timestamptz NOT NULL DEFAULT now(), PRIMARY KEY (collection_id, product_id));
+CREATE TABLE IF NOT EXISTS public.inventory_transfer_items (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  transfer_id uuid NOT NULL REFERENCES public.inventory_transfers(id) ON DELETE CASCADE,
+  variant_id uuid REFERENCES public.product_variants(id) ON DELETE SET NULL,
+  quantity integer NOT NULL CHECK (quantity BETWEEN 1 AND 1000000),
+  received_quantity integer NOT NULL DEFAULT 0 CHECK (received_quantity >= 0),
+  UNIQUE (transfer_id, variant_id),
+  CONSTRAINT inventory_transfer_items_received CHECK (received_quantity <= quantity)
+);
+/* 13. Collections */
+CREATE TABLE IF NOT EXISTS public.product_collections (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  creator_id uuid NOT NULL REFERENCES public.creators(id) ON DELETE CASCADE,
+  title text NOT NULL CHECK (length(btrim(title)) BETWEEN 1 AND 120),
+  slug text NOT NULL CHECK (slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$' AND length(slug) <= 80),
+  description text CHECK (description IS NULL OR length(description) <= 5000),
+  image_url text CHECK (image_url IS NULL OR length(image_url) <= 2048),
+  kind text NOT NULL DEFAULT 'manual' CHECK (kind IN ('manual', 'smart')),
+  rules jsonb NOT NULL DEFAULT '[]'::jsonb CHECK (jsonb_typeof(rules) = 'array' AND jsonb_array_length(rules) <= 20),
+  match text NOT NULL DEFAULT 'all' CHECK (match IN ('all', 'any')),
+  sort text NOT NULL DEFAULT 'manual' CHECK (sort IN ('manual', 'newest', 'price_asc', 'price_desc', 'title', 'best_selling')),
+  published boolean NOT NULL DEFAULT true,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (creator_id, slug)
+);
+CREATE TABLE IF NOT EXISTS public.product_collection_items (
+  collection_id uuid NOT NULL REFERENCES public.product_collections(id) ON DELETE CASCADE,
+  product_id uuid NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
+  position integer NOT NULL DEFAULT 0,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (collection_id, product_id)
+);
 CREATE INDEX IF NOT EXISTS product_collection_items_product_idx ON public.product_collection_items (product_id);
-CREATE TABLE IF NOT EXISTS public.commerce_order_events (id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY, checkout_id uuid NOT NULL REFERENCES public.commerce_checkouts(id) ON DELETE CASCADE, creator_id uuid REFERENCES public.creators(id) ON DELETE SET NULL, kind text NOT NULL CHECK (kind ~ '^[a-z_.]{2,60}$'), message text CHECK (message IS NULL OR length(message) <= 300), detail jsonb CHECK (detail IS NULL OR (jsonb_typeof(detail) = 'object' AND pg_column_size(detail) <= 4096)), actor text NOT NULL DEFAULT 'system' CHECK (actor IN ('creator', 'buyer', 'system', 'webhook', 'admin')), idempotency_key text UNIQUE CHECK (idempotency_key IS NULL OR length(idempotency_key) <= 200), created_at timestamptz NOT NULL DEFAULT now());
+/* 14. The order timeline (append only) and the job queue (emails, supplier emails, webhooks, low stock alerts) */
+CREATE TABLE IF NOT EXISTS public.commerce_order_events (
+  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  checkout_id uuid NOT NULL REFERENCES public.commerce_checkouts(id) ON DELETE CASCADE,
+  creator_id uuid REFERENCES public.creators(id) ON DELETE SET NULL,
+  kind text NOT NULL CHECK (kind ~ '^[a-z_.]{2,60}$'),
+  message text CHECK (message IS NULL OR length(message) <= 300),
+  detail jsonb CHECK (detail IS NULL OR (jsonb_typeof(detail) = 'object' AND pg_column_size(detail) <= 4096)),
+  actor text NOT NULL DEFAULT 'system' CHECK (actor IN ('creator', 'buyer', 'system', 'webhook', 'admin')),
+  idempotency_key text UNIQUE CHECK (idempotency_key IS NULL OR length(idempotency_key) <= 200),
+  created_at timestamptz NOT NULL DEFAULT now()
+);
 CREATE INDEX IF NOT EXISTS commerce_order_events_checkout_idx ON public.commerce_order_events (checkout_id, created_at);
-CREATE OR REPLACE FUNCTION public.commerce_order_events_append_only() RETURNS trigger LANGUAGE plpgsql AS $f$ BEGIN RAISE EXCEPTION 'commerce_order_events is append only'; END $f$;
+CREATE OR REPLACE FUNCTION public.commerce_order_events_append_only() RETURNS trigger LANGUAGE plpgsql AS $f$
+BEGIN
+  RAISE EXCEPTION 'commerce_order_events is append only';
+END $f$;
 DROP TRIGGER IF EXISTS commerce_order_events_no_update ON public.commerce_order_events;
 CREATE TRIGGER commerce_order_events_no_update BEFORE UPDATE ON public.commerce_order_events FOR EACH ROW EXECUTE FUNCTION public.commerce_order_events_append_only();
-CREATE TABLE IF NOT EXISTS public.commerce_jobs (id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY, creator_id uuid REFERENCES public.creators(id) ON DELETE SET NULL, kind text NOT NULL CHECK (kind IN ('forward_fulfillment', 'supplier_email', 'webhook_delivery', 'tracking_sync', 'inventory_sync', 'send_email')), payload jsonb NOT NULL DEFAULT '{}'::jsonb CHECK (jsonb_typeof(payload) = 'object' AND pg_column_size(payload) <= 32768), status text NOT NULL DEFAULT 'queued' CHECK (status IN ('queued', 'running', 'done', 'failed', 'dead')), attempts integer NOT NULL DEFAULT 0, max_attempts integer NOT NULL DEFAULT 6 CHECK (max_attempts BETWEEN 1 AND 50), run_after timestamptz NOT NULL DEFAULT now(), locked_until timestamptz, last_error text CHECK (last_error IS NULL OR length(last_error) <= 500), idempotency_key text UNIQUE CHECK (idempotency_key IS NULL OR length(idempotency_key) <= 200), created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), finished_at timestamptz);
+CREATE TABLE IF NOT EXISTS public.commerce_jobs (
+  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  creator_id uuid REFERENCES public.creators(id) ON DELETE SET NULL,
+  kind text NOT NULL CHECK (kind IN ('forward_fulfillment', 'supplier_email', 'webhook_delivery', 'tracking_sync', 'inventory_sync', 'send_email')),
+  payload jsonb NOT NULL DEFAULT '{}'::jsonb CHECK (jsonb_typeof(payload) = 'object' AND pg_column_size(payload) <= 32768),
+  status text NOT NULL DEFAULT 'queued' CHECK (status IN ('queued', 'running', 'done', 'failed', 'dead')),
+  attempts integer NOT NULL DEFAULT 0,
+  max_attempts integer NOT NULL DEFAULT 6 CHECK (max_attempts BETWEEN 1 AND 50),
+  run_after timestamptz NOT NULL DEFAULT now(),
+  locked_until timestamptz,
+  last_error text CHECK (last_error IS NULL OR length(last_error) <= 500),
+  idempotency_key text UNIQUE CHECK (idempotency_key IS NULL OR length(idempotency_key) <= 200),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  finished_at timestamptz
+);
 CREATE INDEX IF NOT EXISTS commerce_jobs_due_idx ON public.commerce_jobs (run_after) WHERE status IN ('queued', 'failed');
 CREATE INDEX IF NOT EXISTS commerce_jobs_creator_idx ON public.commerce_jobs (creator_id, created_at DESC);
-DO $do$ BEGIN IF to_regclass('public.coupons') IS NULL THEN RETURN; END IF; ALTER TABLE public.coupons ADD COLUMN IF NOT EXISTS free_shipping boolean NOT NULL DEFAULT false; END $do$;
-DO $do$ BEGIN IF to_regclass('public.coupons') IS NULL THEN RETURN; END IF; ALTER TABLE public.coupons ADD COLUMN IF NOT EXISTS per_customer_limit integer CHECK (per_customer_limit IS NULL OR per_customer_limit BETWEEN 1 AND 1000); END $do$;
-DO $do$ BEGIN IF to_regclass('public.coupons') IS NULL THEN RETURN; END IF; ALTER TABLE public.coupons ADD COLUMN IF NOT EXISTS collection_ids uuid[]; END $do$;
-DO $do$ BEGIN IF to_regclass('public.coupons') IS NULL THEN RETURN; END IF; ALTER TABLE public.coupons ADD COLUMN IF NOT EXISTS physical_only boolean NOT NULL DEFAULT false; END $do$;
-CREATE OR REPLACE FUNCTION public.physical_inventory_apply(p_creator uuid, p_variant uuid, p_location uuid, p_on_hand integer, p_committed integer, p_incoming integer, p_reason text, p_ref_type text, p_ref_id text, p_key text, p_actor text, p_note text, p_guard boolean) RETURNS jsonb LANGUAGE plpgsql SET search_path = public AS $f$ DECLARE lvl public.inventory_levels%ROWTYPE; owner uuid; loc_owner uuid; new_on_hand integer; new_committed integer; new_incoming integer; BEGIN IF p_key IS NOT NULL AND EXISTS (SELECT 1 FROM public.inventory_movements WHERE idempotency_key = p_key) THEN SELECT * INTO lvl FROM public.inventory_levels WHERE variant_id = p_variant AND location_id = p_location; RETURN jsonb_build_object('applied', false, 'repeat', true, 'on_hand', lvl.on_hand, 'committed', lvl.committed, 'incoming', lvl.incoming, 'available', lvl.available); END IF; SELECT p.creator_id INTO owner FROM public.product_variants v JOIN public.products p ON p.id = v.product_id WHERE v.id = p_variant; SELECT creator_id INTO loc_owner FROM public.inventory_locations WHERE id = p_location; IF owner IS NULL OR owner <> p_creator OR loc_owner IS NULL OR loc_owner <> p_creator THEN RETURN jsonb_build_object('applied', false, 'error', 'not_found'); END IF; INSERT INTO public.inventory_levels (variant_id, location_id, creator_id) VALUES (p_variant, p_location, p_creator) ON CONFLICT (variant_id, location_id) DO NOTHING; SELECT * INTO lvl FROM public.inventory_levels WHERE variant_id = p_variant AND location_id = p_location FOR UPDATE; new_on_hand := lvl.on_hand + coalesce(p_on_hand, 0); new_committed := lvl.committed + coalesce(p_committed, 0); new_incoming := lvl.incoming + coalesce(p_incoming, 0); IF new_committed < 0 THEN new_committed := 0; END IF; IF new_incoming < 0 THEN new_incoming := 0; END IF; IF p_guard AND (new_on_hand - new_committed) < 0 AND (coalesce(p_on_hand, 0) < 0 OR coalesce(p_committed, 0) > 0) THEN RETURN jsonb_build_object('applied', false, 'error', 'insufficient', 'available', lvl.available); END IF; UPDATE public.inventory_levels SET on_hand = new_on_hand, committed = new_committed, incoming = new_incoming, updated_at = now() WHERE variant_id = p_variant AND location_id = p_location; INSERT INTO public.inventory_movements (creator_id, variant_id, location_id, delta_on_hand, delta_committed, delta_incoming, on_hand_after, committed_after, incoming_after, reason, ref_type, ref_id, note, actor, idempotency_key) VALUES (p_creator, p_variant, p_location, new_on_hand - lvl.on_hand, new_committed - lvl.committed, new_incoming - lvl.incoming, new_on_hand, new_committed, new_incoming, p_reason, p_ref_type, p_ref_id, left(p_note, 500), coalesce(p_actor, 'system'), p_key); RETURN jsonb_build_object('applied', true, 'on_hand', new_on_hand, 'committed', new_committed, 'incoming', new_incoming, 'available', new_on_hand - new_committed); END $f$;
-CREATE OR REPLACE FUNCTION public.physical_reserve(p_checkout uuid, p_lines jsonb, p_expires timestamptz) RETURNS jsonb LANGUAGE plpgsql SET search_path = public AS $f$ DECLARE co public.commerce_checkouts%ROWTYPE; ln record; lvl public.inventory_levels%ROWTYPE; held integer := 0; BEGIN SELECT * INTO co FROM public.commerce_checkouts WHERE id = p_checkout FOR UPDATE; IF NOT FOUND THEN RETURN jsonb_build_object('applied', false, 'error', 'not_found'); END IF; IF EXISTS (SELECT 1 FROM public.inventory_reservations WHERE checkout_id = p_checkout) THEN RETURN jsonb_build_object('applied', false, 'repeat', true); END IF; FOR ln IN SELECT (e->>'variant_id')::uuid AS variant_id, (e->>'location_id')::uuid AS location_id, (e->>'quantity')::integer AS quantity, coalesce((e->>'oversell')::boolean, false) AS oversell FROM jsonb_array_elements(p_lines) e ORDER BY 1, 2 LOOP IF ln.quantity IS NULL OR ln.quantity < 1 THEN RAISE EXCEPTION 'physical_reserve: bad quantity'; END IF; INSERT INTO public.inventory_levels (variant_id, location_id, creator_id) VALUES (ln.variant_id, ln.location_id, co.creator_id) ON CONFLICT (variant_id, location_id) DO NOTHING; SELECT * INTO lvl FROM public.inventory_levels WHERE variant_id = ln.variant_id AND location_id = ln.location_id FOR UPDATE; IF lvl.creator_id <> co.creator_id THEN RAISE EXCEPTION 'physical_reserve: not this shop'; END IF; IF NOT ln.oversell AND lvl.available < ln.quantity THEN RAISE EXCEPTION 'out_of_stock:%:%', ln.variant_id, greatest(lvl.available, 0) USING ERRCODE = 'P0001'; END IF; UPDATE public.inventory_levels SET committed = committed + ln.quantity, updated_at = now() WHERE variant_id = ln.variant_id AND location_id = ln.location_id; INSERT INTO public.inventory_movements (creator_id, variant_id, location_id, delta_committed, on_hand_after, committed_after, incoming_after, reason, ref_type, ref_id, actor, idempotency_key) VALUES (co.creator_id, ln.variant_id, ln.location_id, ln.quantity, lvl.on_hand, lvl.committed + ln.quantity, lvl.incoming, 'order_reserved', 'checkout', p_checkout::text, 'buyer', 'reserve:' || p_checkout || ':' || ln.variant_id || ':' || ln.location_id); INSERT INTO public.inventory_reservations (checkout_id, creator_id, variant_id, location_id, quantity, status, expires_at) VALUES (p_checkout, co.creator_id, ln.variant_id, ln.location_id, ln.quantity, 'held', p_expires); held := held + 1; END LOOP; RETURN jsonb_build_object('applied', true, 'held', held); END $f$;
-CREATE OR REPLACE FUNCTION public.physical_release(p_checkout uuid, p_reason text) RETURNS integer LANGUAGE plpgsql SET search_path = public AS $f$ DECLARE r record; released integer := 0; BEGIN FOR r IN SELECT * FROM public.inventory_reservations WHERE checkout_id = p_checkout AND status = 'held' ORDER BY variant_id, location_id FOR UPDATE LOOP IF r.variant_id IS NOT NULL AND r.location_id IS NOT NULL THEN UPDATE public.inventory_levels SET committed = greatest(committed - r.quantity, 0), updated_at = now() WHERE variant_id = r.variant_id AND location_id = r.location_id; INSERT INTO public.inventory_movements (creator_id, variant_id, location_id, delta_committed, reason, ref_type, ref_id, actor, idempotency_key) VALUES (r.creator_id, r.variant_id, r.location_id, -r.quantity, 'reservation_released', 'checkout', p_checkout::text, 'system', 'release:' || r.id) ON CONFLICT (idempotency_key) DO NOTHING; END IF; UPDATE public.inventory_reservations SET status = 'released', updated_at = now() WHERE id = r.id; released := released + 1; END LOOP; RETURN released; END $f$;
-CREATE OR REPLACE FUNCTION public.physical_mark_sold(p_checkout uuid) RETURNS jsonb LANGUAGE plpgsql SET search_path = public AS $f$ DECLARE r record; again integer := 0; BEGIN FOR r IN SELECT * FROM public.inventory_reservations WHERE checkout_id = p_checkout ORDER BY variant_id, location_id FOR UPDATE LOOP IF r.status = 'held' THEN UPDATE public.inventory_reservations SET status = 'sold', expires_at = NULL, updated_at = now() WHERE id = r.id; ELSIF r.status = 'released' AND r.variant_id IS NOT NULL AND r.location_id IS NOT NULL THEN UPDATE public.inventory_levels SET committed = committed + r.quantity, updated_at = now() WHERE variant_id = r.variant_id AND location_id = r.location_id; INSERT INTO public.inventory_movements (creator_id, variant_id, location_id, delta_committed, reason, ref_type, ref_id, note, actor, idempotency_key) VALUES (r.creator_id, r.variant_id, r.location_id, r.quantity, 'order_reserved', 'checkout', p_checkout::text, 'Paid after the hold expired', 'system', 'resold:' || r.id) ON CONFLICT (idempotency_key) DO NOTHING; UPDATE public.inventory_reservations SET status = 'sold', expires_at = NULL, updated_at = now() WHERE id = r.id; again := again + 1; END IF; END LOOP; RETURN jsonb_build_object('applied', true, 'recommitted', again); END $f$;
-CREATE OR REPLACE FUNCTION public.physical_fulfill(p_fulfillment uuid) RETURNS integer LANGUAGE plpgsql SET search_path = public AS $f$ DECLARE f public.fulfillments%ROWTYPE; it record; lvl public.inventory_levels%ROWTYPE; moved integer := 0; loc uuid; tracked boolean; BEGIN SELECT * INTO f FROM public.fulfillments WHERE id = p_fulfillment FOR UPDATE; IF NOT FOUND THEN RETURN 0; END IF; FOR it IN SELECT fi.quantity, o.id AS order_id, o.variant_id, coalesce(o.fulfillment_location_id, f.location_id) AS location_id, coalesce(v.track_inventory, p.track_inventory, true) AS tracked FROM public.fulfillment_items fi JOIN public.orders o ON o.id = fi.order_id LEFT JOIN public.product_variants v ON v.id = o.variant_id LEFT JOIN public.products p ON p.id = o.product_id WHERE fi.fulfillment_id = p_fulfillment ORDER BY o.variant_id LOOP IF it.variant_id IS NULL OR it.location_id IS NULL OR NOT it.tracked THEN CONTINUE; END IF; IF EXISTS (SELECT 1 FROM public.inventory_movements WHERE idempotency_key = 'fulfill:' || p_fulfillment || ':' || it.order_id) THEN CONTINUE; END IF; INSERT INTO public.inventory_levels (variant_id, location_id, creator_id) VALUES (it.variant_id, it.location_id, f.creator_id) ON CONFLICT (variant_id, location_id) DO NOTHING; SELECT * INTO lvl FROM public.inventory_levels WHERE variant_id = it.variant_id AND location_id = it.location_id FOR UPDATE; UPDATE public.inventory_levels SET on_hand = on_hand - it.quantity, committed = greatest(committed - it.quantity, 0), updated_at = now() WHERE variant_id = it.variant_id AND location_id = it.location_id; INSERT INTO public.inventory_movements (creator_id, variant_id, location_id, delta_on_hand, delta_committed, on_hand_after, committed_after, incoming_after, reason, ref_type, ref_id, actor, idempotency_key) VALUES (f.creator_id, it.variant_id, it.location_id, -it.quantity, -least(it.quantity, lvl.committed), lvl.on_hand - it.quantity, greatest(lvl.committed - it.quantity, 0), lvl.incoming, 'sale_fulfilled', 'fulfillment', p_fulfillment::text, 'creator', 'fulfill:' || p_fulfillment || ':' || it.order_id); UPDATE public.inventory_reservations SET fulfilled_quantity = least(quantity, fulfilled_quantity + it.quantity), status = CASE WHEN fulfilled_quantity + it.quantity >= quantity THEN 'fulfilled' ELSE status END, updated_at = now() WHERE checkout_id = f.checkout_id AND variant_id = it.variant_id AND location_id = it.location_id AND status IN ('held', 'sold'); moved := moved + 1; END LOOP; RETURN moved; END $f$;
-CREATE OR REPLACE FUNCTION public.physical_cancel_unfulfilled(p_checkout uuid) RETURNS integer LANGUAGE plpgsql SET search_path = public AS $f$ DECLARE r record; left_qty integer; done integer := 0; BEGIN FOR r IN SELECT * FROM public.inventory_reservations WHERE checkout_id = p_checkout AND status IN ('held', 'sold') ORDER BY variant_id, location_id FOR UPDATE LOOP left_qty := r.quantity - r.fulfilled_quantity; IF left_qty > 0 AND r.variant_id IS NOT NULL AND r.location_id IS NOT NULL THEN UPDATE public.inventory_levels SET committed = greatest(committed - left_qty, 0), updated_at = now() WHERE variant_id = r.variant_id AND location_id = r.location_id; INSERT INTO public.inventory_movements (creator_id, variant_id, location_id, delta_committed, reason, ref_type, ref_id, actor, idempotency_key) VALUES (r.creator_id, r.variant_id, r.location_id, -left_qty, 'order_cancelled', 'checkout', p_checkout::text, 'creator', 'cancel:' || r.id) ON CONFLICT (idempotency_key) DO NOTHING; END IF; UPDATE public.inventory_reservations SET status = 'released', updated_at = now() WHERE id = r.id; done := done + 1; END LOOP; RETURN done; END $f$;
-CREATE OR REPLACE FUNCTION public.physical_expire_holds(p_limit integer) RETURNS integer LANGUAGE plpgsql SET search_path = public AS $f$ DECLARE c record; n integer := 0; BEGIN FOR c IN SELECT DISTINCT r.checkout_id FROM public.inventory_reservations r JOIN public.commerce_checkouts k ON k.id = r.checkout_id WHERE r.status = 'held' AND r.expires_at < now() AND k.status <> 'paid' LIMIT greatest(coalesce(p_limit, 100), 1) LOOP PERFORM public.physical_release(c.checkout_id, 'expired'); UPDATE public.commerce_checkouts SET status = 'expired', updated_at = now() WHERE id = c.checkout_id AND status = 'pending'; n := n + 1; END LOOP; RETURN n; END $f$;
-CREATE OR REPLACE FUNCTION public.commerce_claim_jobs(p_limit integer, p_lease_seconds integer) RETURNS SETOF public.commerce_jobs LANGUAGE plpgsql SET search_path = public AS $f$ BEGIN RETURN QUERY UPDATE public.commerce_jobs j SET status = 'running', attempts = j.attempts + 1, locked_until = now() + make_interval(secs => greatest(coalesce(p_lease_seconds, 120), 30)), updated_at = now() WHERE j.id IN (SELECT id FROM public.commerce_jobs WHERE (status IN ('queued', 'failed') AND run_after <= now()) OR (status = 'running' AND locked_until < now()) ORDER BY run_after LIMIT greatest(coalesce(p_limit, 20), 1) FOR UPDATE SKIP LOCKED) RETURNING j.*; END $f$;
+/* 15. Discount codes: free shipping, a limit per customer, collections, physical only */
+DO $do$
+BEGIN
+  IF to_regclass('public.coupons') IS NULL THEN RETURN; END IF;
+  ALTER TABLE public.coupons ADD COLUMN IF NOT EXISTS free_shipping boolean NOT NULL DEFAULT false;
+  ALTER TABLE public.coupons ADD COLUMN IF NOT EXISTS per_customer_limit integer CHECK (per_customer_limit IS NULL OR per_customer_limit BETWEEN 1 AND 1000);
+  ALTER TABLE public.coupons ADD COLUMN IF NOT EXISTS collection_ids uuid[];
+  ALTER TABLE public.coupons ADD COLUMN IF NOT EXISTS physical_only boolean NOT NULL DEFAULT false;
+END $do$;
+/* 16. The stock engine: every change locks the rows it touches, is written down, and is keyed so a retry changes nothing */
+CREATE OR REPLACE FUNCTION public.physical_inventory_apply(p_creator uuid, p_variant uuid, p_location uuid, p_on_hand integer, p_committed integer, p_incoming integer, p_reason text, p_ref_type text, p_ref_id text, p_key text, p_actor text, p_note text, p_guard boolean) RETURNS jsonb LANGUAGE plpgsql SET search_path = public AS $f$
+DECLARE
+  lvl public.inventory_levels%ROWTYPE;
+  owner uuid;
+  loc_owner uuid;
+  new_on_hand integer;
+  new_committed integer;
+  new_incoming integer;
+BEGIN
+  IF p_key IS NOT NULL AND EXISTS (SELECT 1 FROM public.inventory_movements WHERE idempotency_key = p_key) THEN
+    SELECT * INTO lvl FROM public.inventory_levels WHERE variant_id = p_variant AND location_id = p_location;
+    RETURN jsonb_build_object('applied', false, 'repeat', true, 'on_hand', lvl.on_hand, 'committed', lvl.committed, 'incoming', lvl.incoming, 'available', lvl.available);
+  END IF;
+  SELECT p.creator_id INTO owner FROM public.product_variants v JOIN public.products p ON p.id = v.product_id WHERE v.id = p_variant;
+  SELECT creator_id INTO loc_owner FROM public.inventory_locations WHERE id = p_location;
+  IF owner IS NULL OR owner <> p_creator OR loc_owner IS NULL OR loc_owner <> p_creator THEN
+    RETURN jsonb_build_object('applied', false, 'error', 'not_found');
+  END IF;
+  INSERT INTO public.inventory_levels (variant_id, location_id, creator_id) VALUES (p_variant, p_location, p_creator) ON CONFLICT (variant_id, location_id) DO NOTHING;
+  SELECT * INTO lvl FROM public.inventory_levels WHERE variant_id = p_variant AND location_id = p_location FOR UPDATE;
+  new_on_hand := lvl.on_hand + coalesce(p_on_hand, 0);
+  new_committed := lvl.committed + coalesce(p_committed, 0);
+  new_incoming := lvl.incoming + coalesce(p_incoming, 0);
+  IF new_committed < 0 THEN new_committed := 0; END IF;
+  IF new_incoming < 0 THEN new_incoming := 0; END IF;
+  IF p_guard AND (new_on_hand - new_committed) < 0 AND (coalesce(p_on_hand, 0) < 0 OR coalesce(p_committed, 0) > 0) THEN
+    RETURN jsonb_build_object('applied', false, 'error', 'insufficient', 'available', lvl.available);
+  END IF;
+  UPDATE public.inventory_levels SET on_hand = new_on_hand, committed = new_committed, incoming = new_incoming, updated_at = now() WHERE variant_id = p_variant AND location_id = p_location;
+  INSERT INTO public.inventory_movements (creator_id, variant_id, location_id, delta_on_hand, delta_committed, delta_incoming, on_hand_after, committed_after, incoming_after, reason, ref_type, ref_id, note, actor, idempotency_key)
+  VALUES (p_creator, p_variant, p_location, new_on_hand - lvl.on_hand, new_committed - lvl.committed, new_incoming - lvl.incoming, new_on_hand, new_committed, new_incoming, p_reason, p_ref_type, p_ref_id, left(p_note, 500), coalesce(p_actor, 'system'), p_key);
+  RETURN jsonb_build_object('applied', true, 'on_hand', new_on_hand, 'committed', new_committed, 'incoming', new_incoming, 'available', new_on_hand - new_committed);
+END $f$;
+CREATE OR REPLACE FUNCTION public.physical_reserve(p_checkout uuid, p_lines jsonb, p_expires timestamptz) RETURNS jsonb LANGUAGE plpgsql SET search_path = public AS $f$
+DECLARE
+  co public.commerce_checkouts%ROWTYPE;
+  ln record;
+  lvl public.inventory_levels%ROWTYPE;
+  held integer := 0;
+BEGIN
+  SELECT * INTO co FROM public.commerce_checkouts WHERE id = p_checkout FOR UPDATE;
+  IF NOT FOUND THEN RETURN jsonb_build_object('applied', false, 'error', 'not_found'); END IF;
+  IF EXISTS (SELECT 1 FROM public.inventory_reservations WHERE checkout_id = p_checkout) THEN RETURN jsonb_build_object('applied', false, 'repeat', true); END IF;
+  FOR ln IN
+    SELECT (e->>'variant_id')::uuid AS variant_id, (e->>'location_id')::uuid AS location_id, (e->>'quantity')::integer AS quantity, coalesce((e->>'oversell')::boolean, false) AS oversell
+    FROM jsonb_array_elements(p_lines) e
+    ORDER BY 1, 2
+  LOOP
+    IF ln.quantity IS NULL OR ln.quantity < 1 THEN RAISE EXCEPTION 'physical_reserve: bad quantity'; END IF;
+    INSERT INTO public.inventory_levels (variant_id, location_id, creator_id) VALUES (ln.variant_id, ln.location_id, co.creator_id) ON CONFLICT (variant_id, location_id) DO NOTHING;
+    SELECT * INTO lvl FROM public.inventory_levels WHERE variant_id = ln.variant_id AND location_id = ln.location_id FOR UPDATE;
+    IF lvl.creator_id <> co.creator_id THEN RAISE EXCEPTION 'physical_reserve: not this shop'; END IF;
+    IF NOT ln.oversell AND lvl.available < ln.quantity THEN
+      RAISE EXCEPTION 'out_of_stock:%:%', ln.variant_id, greatest(lvl.available, 0) USING ERRCODE = 'P0001';
+    END IF;
+    UPDATE public.inventory_levels SET committed = committed + ln.quantity, updated_at = now() WHERE variant_id = ln.variant_id AND location_id = ln.location_id;
+    INSERT INTO public.inventory_movements (creator_id, variant_id, location_id, delta_committed, on_hand_after, committed_after, incoming_after, reason, ref_type, ref_id, actor, idempotency_key)
+    VALUES (co.creator_id, ln.variant_id, ln.location_id, ln.quantity, lvl.on_hand, lvl.committed + ln.quantity, lvl.incoming, 'order_reserved', 'checkout', p_checkout::text, 'buyer', 'reserve:' || p_checkout || ':' || ln.variant_id || ':' || ln.location_id);
+    INSERT INTO public.inventory_reservations (checkout_id, creator_id, variant_id, location_id, quantity, status, expires_at) VALUES (p_checkout, co.creator_id, ln.variant_id, ln.location_id, ln.quantity, 'held', p_expires);
+    held := held + 1;
+  END LOOP;
+  RETURN jsonb_build_object('applied', true, 'held', held);
+END $f$;
+CREATE OR REPLACE FUNCTION public.physical_release(p_checkout uuid, p_reason text) RETURNS integer LANGUAGE plpgsql SET search_path = public AS $f$
+DECLARE
+  r record;
+  released integer := 0;
+BEGIN
+  FOR r IN SELECT * FROM public.inventory_reservations WHERE checkout_id = p_checkout AND status = 'held' ORDER BY variant_id, location_id FOR UPDATE LOOP
+    IF r.variant_id IS NOT NULL AND r.location_id IS NOT NULL THEN
+      UPDATE public.inventory_levels SET committed = greatest(committed - r.quantity, 0), updated_at = now() WHERE variant_id = r.variant_id AND location_id = r.location_id;
+      INSERT INTO public.inventory_movements (creator_id, variant_id, location_id, delta_committed, reason, ref_type, ref_id, actor, idempotency_key)
+      VALUES (r.creator_id, r.variant_id, r.location_id, -r.quantity, 'reservation_released', 'checkout', p_checkout::text, 'system', 'release:' || r.id)
+      ON CONFLICT (idempotency_key) DO NOTHING;
+    END IF;
+    UPDATE public.inventory_reservations SET status = 'released', updated_at = now() WHERE id = r.id;
+    released := released + 1;
+  END LOOP;
+  RETURN released;
+END $f$;
+CREATE OR REPLACE FUNCTION public.physical_mark_sold(p_checkout uuid) RETURNS jsonb LANGUAGE plpgsql SET search_path = public AS $f$
+DECLARE
+  r record;
+  again integer := 0;
+BEGIN
+  FOR r IN SELECT * FROM public.inventory_reservations WHERE checkout_id = p_checkout ORDER BY variant_id, location_id FOR UPDATE LOOP
+    IF r.status = 'held' THEN
+      UPDATE public.inventory_reservations SET status = 'sold', expires_at = NULL, updated_at = now() WHERE id = r.id;
+    ELSIF r.status = 'released' AND r.variant_id IS NOT NULL AND r.location_id IS NOT NULL THEN
+      UPDATE public.inventory_levels SET committed = committed + r.quantity, updated_at = now() WHERE variant_id = r.variant_id AND location_id = r.location_id;
+      INSERT INTO public.inventory_movements (creator_id, variant_id, location_id, delta_committed, reason, ref_type, ref_id, note, actor, idempotency_key)
+      VALUES (r.creator_id, r.variant_id, r.location_id, r.quantity, 'order_reserved', 'checkout', p_checkout::text, 'Paid after the hold expired', 'system', 'resold:' || r.id)
+      ON CONFLICT (idempotency_key) DO NOTHING;
+      UPDATE public.inventory_reservations SET status = 'sold', expires_at = NULL, updated_at = now() WHERE id = r.id;
+      again := again + 1;
+    END IF;
+  END LOOP;
+  RETURN jsonb_build_object('applied', true, 'recommitted', again);
+END $f$;
+CREATE OR REPLACE FUNCTION public.physical_fulfill(p_fulfillment uuid) RETURNS integer LANGUAGE plpgsql SET search_path = public AS $f$
+DECLARE
+  f public.fulfillments%ROWTYPE;
+  it record;
+  lvl public.inventory_levels%ROWTYPE;
+  moved integer := 0;
+BEGIN
+  SELECT * INTO f FROM public.fulfillments WHERE id = p_fulfillment FOR UPDATE;
+  IF NOT FOUND THEN RETURN 0; END IF;
+  FOR it IN
+    SELECT fi.quantity, o.id AS order_id, o.variant_id, coalesce(o.fulfillment_location_id, f.location_id) AS location_id, coalesce(v.track_inventory, p.track_inventory, true) AS tracked
+    FROM public.fulfillment_items fi
+    JOIN public.orders o ON o.id = fi.order_id
+    LEFT JOIN public.product_variants v ON v.id = o.variant_id
+    LEFT JOIN public.products p ON p.id = o.product_id
+    WHERE fi.fulfillment_id = p_fulfillment
+    ORDER BY o.variant_id
+  LOOP
+    IF it.variant_id IS NULL OR it.location_id IS NULL OR NOT it.tracked THEN CONTINUE; END IF;
+    IF EXISTS (SELECT 1 FROM public.inventory_movements WHERE idempotency_key = 'fulfill:' || p_fulfillment || ':' || it.order_id) THEN CONTINUE; END IF;
+    INSERT INTO public.inventory_levels (variant_id, location_id, creator_id) VALUES (it.variant_id, it.location_id, f.creator_id) ON CONFLICT (variant_id, location_id) DO NOTHING;
+    SELECT * INTO lvl FROM public.inventory_levels WHERE variant_id = it.variant_id AND location_id = it.location_id FOR UPDATE;
+    UPDATE public.inventory_levels SET on_hand = on_hand - it.quantity, committed = greatest(committed - it.quantity, 0), updated_at = now() WHERE variant_id = it.variant_id AND location_id = it.location_id;
+    INSERT INTO public.inventory_movements (creator_id, variant_id, location_id, delta_on_hand, delta_committed, on_hand_after, committed_after, incoming_after, reason, ref_type, ref_id, actor, idempotency_key)
+    VALUES (f.creator_id, it.variant_id, it.location_id, -it.quantity, -least(it.quantity, lvl.committed), lvl.on_hand - it.quantity, greatest(lvl.committed - it.quantity, 0), lvl.incoming, 'sale_fulfilled', 'fulfillment', p_fulfillment::text, 'creator', 'fulfill:' || p_fulfillment || ':' || it.order_id);
+    UPDATE public.inventory_reservations
+    SET fulfilled_quantity = least(quantity, fulfilled_quantity + it.quantity), status = CASE WHEN fulfilled_quantity + it.quantity >= quantity THEN 'fulfilled' ELSE status END, updated_at = now()
+    WHERE checkout_id = f.checkout_id AND variant_id = it.variant_id AND location_id = it.location_id AND status IN ('held', 'sold');
+    moved := moved + 1;
+  END LOOP;
+  RETURN moved;
+END $f$;
+CREATE OR REPLACE FUNCTION public.physical_cancel_unfulfilled(p_checkout uuid) RETURNS integer LANGUAGE plpgsql SET search_path = public AS $f$
+DECLARE
+  r record;
+  left_qty integer;
+  done integer := 0;
+BEGIN
+  FOR r IN SELECT * FROM public.inventory_reservations WHERE checkout_id = p_checkout AND status IN ('held', 'sold') ORDER BY variant_id, location_id FOR UPDATE LOOP
+    left_qty := r.quantity - r.fulfilled_quantity;
+    IF left_qty > 0 AND r.variant_id IS NOT NULL AND r.location_id IS NOT NULL THEN
+      UPDATE public.inventory_levels SET committed = greatest(committed - left_qty, 0), updated_at = now() WHERE variant_id = r.variant_id AND location_id = r.location_id;
+      INSERT INTO public.inventory_movements (creator_id, variant_id, location_id, delta_committed, reason, ref_type, ref_id, actor, idempotency_key)
+      VALUES (r.creator_id, r.variant_id, r.location_id, -left_qty, 'order_cancelled', 'checkout', p_checkout::text, 'creator', 'cancel:' || r.id)
+      ON CONFLICT (idempotency_key) DO NOTHING;
+    END IF;
+    UPDATE public.inventory_reservations SET status = 'released', updated_at = now() WHERE id = r.id;
+    done := done + 1;
+  END LOOP;
+  RETURN done;
+END $f$;
+CREATE OR REPLACE FUNCTION public.physical_expire_holds(p_limit integer) RETURNS integer LANGUAGE plpgsql SET search_path = public AS $f$
+DECLARE
+  c record;
+  n integer := 0;
+BEGIN
+  FOR c IN
+    SELECT DISTINCT r.checkout_id
+    FROM public.inventory_reservations r
+    JOIN public.commerce_checkouts k ON k.id = r.checkout_id
+    WHERE r.status = 'held' AND r.expires_at < now() AND k.status <> 'paid'
+    LIMIT greatest(coalesce(p_limit, 100), 1)
+  LOOP
+    PERFORM public.physical_release(c.checkout_id, 'expired');
+    UPDATE public.commerce_checkouts SET status = 'expired', updated_at = now() WHERE id = c.checkout_id AND status = 'pending';
+    n := n + 1;
+  END LOOP;
+  RETURN n;
+END $f$;
+CREATE OR REPLACE FUNCTION public.commerce_claim_jobs(p_limit integer, p_lease_seconds integer) RETURNS SETOF public.commerce_jobs LANGUAGE plpgsql SET search_path = public AS $f$
+BEGIN
+  RETURN QUERY
+  UPDATE public.commerce_jobs j
+  SET status = 'running', attempts = j.attempts + 1, locked_until = now() + make_interval(secs => greatest(coalesce(p_lease_seconds, 120), 30)), updated_at = now()
+  WHERE j.id IN (
+    SELECT id FROM public.commerce_jobs
+    WHERE (status IN ('queued', 'failed') AND run_after <= now()) OR (status = 'running' AND locked_until < now())
+    ORDER BY run_after
+    LIMIT greatest(coalesce(p_limit, 20), 1)
+    FOR UPDATE SKIP LOCKED
+  )
+  RETURNING j.*;
+END $f$;
 REVOKE ALL ON FUNCTION public.physical_inventory_apply(uuid, uuid, uuid, integer, integer, integer, text, text, text, text, text, text, boolean) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.physical_inventory_apply(uuid, uuid, uuid, integer, integer, integer, text, text, text, text, text, text, boolean) TO service_role;
 REVOKE ALL ON FUNCTION public.physical_reserve(uuid, jsonb, timestamptz) FROM PUBLIC, anon, authenticated;
@@ -1846,7 +2443,19 @@ REVOKE ALL ON FUNCTION public.physical_expire_holds(integer) FROM PUBLIC, anon, 
 GRANT EXECUTE ON FUNCTION public.physical_expire_holds(integer) TO service_role;
 REVOKE ALL ON FUNCTION public.commerce_claim_jobs(integer, integer) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.commerce_claim_jobs(integer, integer) TO service_role;
-DO $do$ DECLARE t text; BEGIN IF to_regprocedure('public.update_updated_at_column()') IS NULL THEN CREATE FUNCTION public.update_updated_at_column() RETURNS trigger LANGUAGE plpgsql AS $fn$ BEGIN NEW.updated_at = now(); RETURN NEW; END $fn$; END IF; FOREACH t IN ARRAY ARRAY['commerce_integrations', 'inventory_locations', 'shipping_profiles', 'shipping_zones', 'shipping_rates', 'shipping_packages', 'commerce_settings', 'commerce_tax_rates', 'product_options', 'product_variant_costs', 'commerce_checkouts', 'inventory_reservations', 'fulfillments', 'commerce_returns', 'inventory_transfers', 'product_collections', 'commerce_jobs'] LOOP EXECUTE format('DROP TRIGGER IF EXISTS %I ON public.%I', t || '_touch', t); EXECUTE format('CREATE TRIGGER %I BEFORE UPDATE ON public.%I FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column()', t || '_touch', t); END LOOP; END $do$;
+/* 17. updated_at kept current on every table that has it */
+DO $do$
+DECLARE t text;
+BEGIN
+  IF to_regprocedure('public.update_updated_at_column()') IS NULL THEN
+    CREATE FUNCTION public.update_updated_at_column() RETURNS trigger LANGUAGE plpgsql AS $fn$ BEGIN NEW.updated_at = now(); RETURN NEW; END $fn$;
+  END IF;
+  FOREACH t IN ARRAY ARRAY['commerce_integrations', 'inventory_locations', 'shipping_profiles', 'shipping_zones', 'shipping_rates', 'shipping_packages', 'commerce_settings', 'commerce_tax_rates', 'product_options', 'product_variant_costs', 'commerce_checkouts', 'inventory_reservations', 'fulfillments', 'commerce_returns', 'inventory_transfers', 'product_collections', 'commerce_jobs'] LOOP
+    EXECUTE format('DROP TRIGGER IF EXISTS %I ON public.%I', t || '_touch', t);
+    EXECUTE format('CREATE TRIGGER %I BEFORE UPDATE ON public.%I FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column()', t || '_touch', t);
+  END LOOP;
+END $do$;
+/* 18. Row level security: on everywhere, creators read their own rows, buyers read published options and collections, only the server writes */
 ALTER TABLE public.commerce_integrations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.inventory_locations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.shipping_profiles ENABLE ROW LEVEL SECURITY;
@@ -1900,7 +2509,7 @@ DO $do$ BEGIN DROP POLICY IF EXISTS "storelib owner reads inventory_transfer_ite
 DO $do$ BEGIN DROP POLICY IF EXISTS "storelib reads options" ON public.product_options; CREATE POLICY "storelib reads options" ON public.product_options FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.products p WHERE p.id = product_options.product_id AND (p.status = 'published' OR EXISTS (SELECT 1 FROM public.creators c WHERE c.id = p.creator_id AND c.user_id = (SELECT auth.uid()))))); END $do$;
 DO $do$ BEGIN DROP POLICY IF EXISTS "storelib reads published collection items" ON public.product_collection_items; CREATE POLICY "storelib reads published collection items" ON public.product_collection_items FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.product_collections pc WHERE pc.id = product_collection_items.collection_id AND (pc.published OR EXISTS (SELECT 1 FROM public.creators c WHERE c.id = pc.creator_id AND c.user_id = (SELECT auth.uid()))))); END $do$;
 DO $do$ BEGIN DROP POLICY IF EXISTS "storelib reads published collections" ON public.product_collections; CREATE POLICY "storelib reads published collections" ON public.product_collections FOR SELECT TO authenticated USING (published); END $do$;
-INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('78', '78_physical_commerce.sql', '31c63bad50047cbfee24cb6bf362590770584796bbfcfa80a630fe15c2ae9729') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('78', '78_physical_commerce.sql', 'd1e07fc004eaec6dc45c5c5279cce50fef9c5942112a12687c980333b99e252f') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
 -- part 79_stripe_account_reset.sql
 /* A creator's payments connection can be reset without losing what it was: stripe_previous_account_id (the connected account Storelib was linked to before), stripe_account_reset_at (when that link was let go) and stripe_account_reset_reason (legacy_platform when Stripe says the account is not reachable from the current platform, which is what happens to every creator linked before Storelib moved to its new Stripe Connect platform; creator_disconnect when the creator chose Start over; incomplete_replaced when an unfinished account was swapped for one that stays inside Storelib). The live link stays stripe_account_id, which is cleared so the creator can set up a fresh account under the current platform instead of being stuck on one Storelib can no longer read. Orders, payouts, refunds and the ledger are never touched: each keeps the Stripe ids it was written with. Only the server writes these three, and they are private like the other Stripe columns (parts 63 and 77): the private list and the guard trigger are restated in full with them added. Safe to run more than once. Until it runs, a reset still happens and the old account id is written to the server log instead. */

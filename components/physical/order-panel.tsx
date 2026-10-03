@@ -8,10 +8,14 @@
  * (app/app/orders/order-detail.tsx). Payment, the customer and the refund
  * dialog stay the Orders page's own; this is what happens to the goods:
  *
- *   Unfulfilled   what is still to ship, and Fulfill items (all or some,
- *                 with carrier, tracking and an email to the buyer)
- *   Shipments     each with its tracking, moved on to in transit, out for
- *                 delivery or delivered, or cancelled (stock back)
+ *   Progress      Unfulfilled, Processing, Shipped, Delivered (Ready for
+ *                 pickup and Picked up when the buyer collects it)
+ *   To ship       what is still to send, grouped by who sends it (you, a
+ *                 warehouse, a supplier, a print partner), each group shipped
+ *                 on its own with carrier, tracking and an email to the buyer,
+ *                 so one order can leave in several shipments
+ *   Shipments     each with its tracking, moved on to in transit or
+ *                 delivered (picked up), or cancelled (stock back)
  *   Returns       opened here or asked for by the buyer, approved,
  *                 received (back in stock where chosen) and closed
  *   Timeline      everything that happened, newest first
@@ -21,12 +25,14 @@
  */
 
 import * as React from "react"
-import { Package, PackageCheck, Printer, Truck, Undo2, X } from "lucide-react"
+import { Check, Clock, MapPin, Package, PackageCheck, Printer, Truck, Undo2, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { addressLines } from "@/lib/physical/address"
 import { deliveryEstimate } from "@/lib/physical/rates"
-import { CARRIERS, FULFILLMENT_LABEL, RETURN_LABEL, SHIPMENT_LABEL, orderNumber } from "@/lib/physical/status"
-import type { FulfillmentStatus, ReturnStatus, ShipmentStatus } from "@/lib/physical/types"
+import { CARRIERS, ORDER_STEPS, RETURN_LABEL, fulfillmentLabel, orderNumber, orderStep, shipmentLabel } from "@/lib/physical/status"
+import { METHODS, shippedByLabel } from "@/lib/physical/fulfillment"
+import { PICKUP_READY_LABEL } from "@/lib/physical/pickup"
+import type { DeliveryMethod, FulfillmentMethod, FulfillmentStatus, PickupReady, ReturnStatus, ShipmentStatus } from "@/lib/physical/types"
 import { BTN_DANGER, BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, Field, Modal, Notice, NumberInput, Pill, SelectInput, TextInput, Toggle, actionKey, api, dateTime, money } from "./ui"
 
 interface Line {
@@ -39,6 +45,7 @@ interface Line {
   quantity: number
   requiresShipping: boolean
   locationId: string | null
+  fulfillmentMethod: FulfillmentMethod | null
   fulfilled: number
   returned: number
   amountCents: number
@@ -78,6 +85,9 @@ interface Order {
   shippingDiscountCents: number
   address: Record<string, any> | null
   delivery: { name: string; priceCents: number; minDays: number | null; maxDays: number | null } | null
+  deliveryMethod: DeliveryMethod
+  pickup: { locationId: string | null; name: string; address: string[]; instructions: string | null; ready: PickupReady } | null
+  processingAt: string | null
   buyerNote: string | null
   merchantNote: string | null
   cancelledAt: string | null
@@ -107,7 +117,7 @@ export function PhysicalOrderPanel({ orderRowId, revision = 0, className }: { or
   const [order, setOrder] = React.useState<Order | null>(null)
   const [locations, setLocations] = React.useState<Loc[]>([])
   const [error, setError] = React.useState<string | null>(null)
-  const [dialog, setDialog] = React.useState<"fulfil" | "return" | "cancel" | { tracking: Shipment } | null>(null)
+  const [dialog, setDialog] = React.useState<{ fulfil: string[] } | "return" | "cancel" | { tracking: Shipment } | null>(null)
   const [busy, setBusy] = React.useState(false)
 
   const load = React.useCallback(async () => {
@@ -141,53 +151,104 @@ export function PhysicalOrderPanel({ orderRowId, revision = 0, className }: { or
   if (!order) return <div className={cn(CARD, "h-[220px] animate-pulse", className)} aria-busy="true" />
 
   const unfulfilled = order.lines.filter((l) => l.requiresShipping && l.quantity - l.fulfilled > 0)
-  const fs = FULFILLMENT_LABEL[order.fulfillmentStatus]
+  const pickup = order.deliveryMethod === "pickup"
+  const fs = fulfillmentLabel(order.fulfillmentStatus, order.deliveryMethod)
   const nameOfLine = (id: string) => {
     const l = order.lines.find((x) => x.orderId === id)
     return l ? `${l.title}${l.variantName ? `, ${l.variantName}` : ""}` : "Item"
   }
   const locName = (id: string | null) => locations.find((l) => l.id === id)?.name ?? null
+  /* Who sends what: one group per method and place, each shipped on its own. */
+  const groups = new Map<string, { method: FulfillmentMethod; locationId: string | null; lines: Line[] }>()
+  for (const l of unfulfilled) {
+    const method = pickup ? "self" : (l.fulfillmentMethod ?? "self")
+    const key = `${method}:${pickup ? "pickup" : (l.locationId ?? "")}`
+    const g = groups.get(key) ?? { method, locationId: pickup ? (order.pickup?.locationId ?? null) : l.locationId, lines: [] }
+    g.lines.push(l)
+    groups.set(key, g)
+  }
+  const step = orderStep(order.fulfillmentStatus)
 
   return (
     <div className={cn("grid min-w-0 gap-4", className)} data-physical-order="">
-      {/* ── To ship ── */}
-      {unfulfilled.length > 0 && !order.cancelledAt ? (
-        <section className={cn(CARD, "min-w-0")}>
-          <div className="flex min-h-[48px] items-center justify-between gap-3 px-4 pt-3">
-            <div className="flex items-center gap-2">
-              <Pill tone={fs.tone}>{fs.label}</Pill>
-              <span className="text-[12px] text-[#6b7280]">{unfulfilled.reduce((n, l) => n + l.quantity - l.fulfilled, 0)} to ship</span>
-            </div>
-            {locName(unfulfilled[0]?.locationId) ? <span className="truncate text-[12px] text-[#6b7280]">From {locName(unfulfilled[0].locationId)}</span> : null}
-          </div>
-          <ul className="mx-4 mt-2 divide-y divide-[#f0f1f3] border-y border-[#f0f1f3]">
-            {unfulfilled.map((l) => (
-              <LineRow key={l.orderId} line={l} quantity={l.quantity - l.fulfilled} />
-            ))}
-          </ul>
-          <div className="flex flex-wrap justify-end gap-2 px-4 py-3">
-            {order.shipments.length === 0 ? (
-              <button type="button" className={BTN_SECONDARY} onClick={() => setDialog("cancel")} disabled={busy}>
-                Cancel order
-              </button>
-            ) : null}
-            <button type="button" className={BTN_SECONDARY} onClick={() => printSlip(order)}>
-              <Printer className="h-4 w-4" />
-              Packing slip
-            </button>
-            <button type="button" className={BTN_PRIMARY} onClick={() => setDialog("fulfil")} disabled={busy || order.status === "refunded"}>
-              <PackageCheck className="h-4 w-4" />
-              Fulfill items
-            </button>
-          </div>
+      {/* ── Progress ── */}
+      {step >= 0 && !order.cancelledAt ? (
+        <section className={cn(CARD, "min-w-0 px-4 py-3.5")} aria-label="Order progress" data-order-steps="">
+          <ol className="flex items-center gap-1.5">
+            {ORDER_STEPS.map((st, i) => {
+              const done = i < step || (i === step && i === ORDER_STEPS.length - 1)
+              const here = i === step
+              return (
+                <li key={st.id} className="flex min-w-0 flex-1 items-center gap-1.5">
+                  <span className={cn("grid h-5 w-5 shrink-0 place-items-center rounded-full text-[10px] font-semibold", done ? "bg-[#1a1a2e] text-white" : here ? "border-2 border-[#1a1a2e] text-[#1a1a2e]" : "border border-[#d1d5db] text-[#9ca3af]")}>
+                    {done ? <Check className="h-3 w-3" strokeWidth={3} /> : i + 1}
+                  </span>
+                  <span className={cn("truncate text-[12px] font-medium sm:text-[12.5px]", here || done ? "text-[#1a1a2e]" : "text-[#9ca3af]")}>{pickup ? st.pickup : st.ship}</span>
+                  {i < ORDER_STEPS.length - 1 ? <span className={cn("hidden h-px flex-1 sm:block", i < step ? "bg-[#1a1a2e]" : "bg-[#e5e7eb]")} /> : null}
+                </li>
+              )
+            })}
+          </ol>
+          {order.fulfillmentStatus === "partially_fulfilled" ? <p className="mt-2 text-[12.5px] text-[#6b7280]">Part of this order has {pickup ? "been made ready" : "shipped"}. The rest is below.</p> : null}
         </section>
+      ) : null}
+
+      {/* ── To ship, one group per sender ── */}
+      {[...groups.values()].map((g, gi) =>
+        !order.cancelledAt ? (
+          <section key={`${g.method}:${g.locationId}`} className={cn(CARD, "min-w-0")} data-ship-group={g.method}>
+            <div className="flex min-h-[48px] flex-wrap items-center justify-between gap-2 px-4 pt-3">
+              <div className="flex items-center gap-2">
+                <Pill tone={fs.tone}>{gi === 0 ? fs.label : "Unfulfilled"}</Pill>
+                <span className="text-[12px] text-[#6b7280]">
+                  {g.lines.reduce((n, l) => n + l.quantity - l.fulfilled, 0)} {pickup ? "to get ready" : "to ship"}
+                </span>
+              </div>
+              <span className="truncate text-[12px] text-[#6b7280]">{pickup ? `Pickup at ${order.pickup?.name ?? "your location"}` : g.method === "self" ? (locName(g.locationId) ? `Shipped by you from ${locName(g.locationId)}` : "Shipped by you") : shippedByLabel(g.method, locName(g.locationId))}</span>
+            </div>
+            <ul className="mx-4 mt-2 divide-y divide-[#f0f1f3] border-y border-[#f0f1f3]">
+              {g.lines.map((l) => (
+                <LineRow key={l.orderId} line={l} quantity={l.quantity - l.fulfilled} />
+              ))}
+            </ul>
+            {g.method !== "self" && !pickup ? <p className="mx-4 mt-2 rounded-lg bg-[#f7f7f8] px-3 py-2 text-[12.5px] text-[#4b5563]">{METHODS[g.method].afterSale}</p> : null}
+            <div className="flex flex-wrap justify-end gap-2 px-4 py-3">
+              {gi === 0 && order.shipments.length === 0 ? (
+                <button type="button" className={BTN_SECONDARY} onClick={() => setDialog("cancel")} disabled={busy}>
+                  Cancel order
+                </button>
+              ) : null}
+              {gi === 0 ? (
+                <button type="button" className={BTN_SECONDARY} onClick={() => printSlip(order)}>
+                  <Printer className="h-4 w-4" />
+                  Packing slip
+                </button>
+              ) : null}
+              {gi === 0 && order.fulfillmentStatus === "unfulfilled" ? (
+                <button type="button" className={BTN_SECONDARY} disabled={busy || order.status === "refunded"} onClick={async () => setError(await act({ action: "processing", on: true }))}>
+                  <Clock className="h-4 w-4" />
+                  Mark as processing
+                </button>
+              ) : null}
+              <button type="button" className={BTN_PRIMARY} onClick={() => setDialog({ fulfil: g.lines.map((l) => l.orderId) })} disabled={busy || order.status === "refunded"}>
+                {pickup ? <MapPin className="h-4 w-4" /> : <PackageCheck className="h-4 w-4" />}
+                {pickup ? "Mark ready for pickup" : "Mark as shipped"}
+              </button>
+            </div>
+          </section>
+        ) : null,
+      )}
+      {order.fulfillmentStatus === "processing" && !order.cancelledAt ? (
+        <button type="button" className={cn(BTN_GHOST, "justify-self-end")} disabled={busy} onClick={async () => setError(await act({ action: "processing", on: false }))}>
+          Move back to unfulfilled
+        </button>
       ) : null}
 
       {order.cancelledAt ? <Notice tone="gray">This order was cancelled and its stock released. Refund the payment with Refund if you haven't.</Notice> : null}
 
       {/* ── Shipments ── */}
       {order.shipments.map((s) => {
-        const st = SHIPMENT_LABEL[s.status]
+        const st = shipmentLabel(s.status, pickup)
         return (
           <section key={s.id} className={cn(CARD, "min-w-0", s.status === "cancelled" && "opacity-60")}>
             <div className="flex min-h-[48px] flex-wrap items-center justify-between gap-2 px-4 pt-3">
@@ -195,7 +256,9 @@ export function PhysicalOrderPanel({ orderRowId, revision = 0, className }: { or
                 <Pill tone={st.tone}>{st.label}</Pill>
                 <span className="text-[12px] text-[#6b7280]">{dateTime(s.shippedAt)}</span>
               </div>
-              {s.trackingNumber ? (
+              {pickup ? (
+                <span className="truncate text-[12.5px] text-[#6b7280]">{order.pickup?.name ?? "Pickup"}</span>
+              ) : s.trackingNumber ? (
                 s.trackingUrl ? (
                   <a href={s.trackingUrl} target="_blank" rel="noreferrer" className="truncate text-[13px] font-medium text-[#1a1a2e] underline underline-offset-2">
                     {[s.carrier, s.trackingNumber].filter(Boolean).join(" ")}
@@ -213,7 +276,25 @@ export function PhysicalOrderPanel({ orderRowId, revision = 0, className }: { or
                 return l ? <LineRow key={i.orderId} line={l} quantity={i.quantity} /> : null
               })}
             </ul>
-            {s.status !== "cancelled" && s.status !== "delivered" ? (
+            {s.status !== "cancelled" && s.status !== "delivered" && pickup ? (
+              <div className="flex flex-wrap justify-end gap-2 px-4 py-3">
+                <button
+                  type="button"
+                  className={BTN_GHOST}
+                  disabled={busy}
+                  onClick={async () => {
+                    if (!window.confirm("Undo ready for pickup? The items go back to unfulfilled.")) return
+                    setError(await act({ action: "shipment", fulfillmentId: s.id, status: "cancelled", notifyBuyer: false }))
+                  }}
+                >
+                  Not ready after all
+                </button>
+                <button type="button" className={BTN_PRIMARY} disabled={busy} onClick={async () => setError(await act({ action: "shipment", fulfillmentId: s.id, status: "delivered" }))}>
+                  <Check className="h-4 w-4" />
+                  Mark picked up
+                </button>
+              </div>
+            ) : s.status !== "cancelled" && s.status !== "delivered" ? (
               <div className="flex flex-wrap justify-end gap-2 px-4 py-3">
                 <button type="button" className={BTN_GHOST} onClick={() => setDialog({ tracking: s })}>
                   {s.trackingNumber ? "Edit tracking" : "Add tracking"}
@@ -251,22 +332,36 @@ export function PhysicalOrderPanel({ orderRowId, revision = 0, className }: { or
       {/* ── Delivery and returns ── */}
       <section className={cn(CARD, "min-w-0 px-4 py-4")}>
         <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <h3 className="text-[13px] font-semibold text-[#1a1a2e]">Ship to</h3>
-            <p className="mt-1 text-[13px] leading-[19px] text-[#4b5563]">
-              {addressLines(order.address as any).map((l) => (
-                <span key={l} className="block">
-                  {l}
-                </span>
-              ))}
-            </p>
-          </div>
+          {pickup && order.pickup ? (
+            <div>
+              <h3 className="text-[13px] font-semibold text-[#1a1a2e]">Picked up at</h3>
+              <p className="mt-1 text-[13px] leading-[19px] text-[#4b5563]">
+                {[order.pickup.name, ...order.pickup.address].map((l) => (
+                  <span key={l} className="block">
+                    {l}
+                  </span>
+                ))}
+              </p>
+              <p className="mt-1 text-[12.5px] text-[#6b7280]">{PICKUP_READY_LABEL[order.pickup.ready]}</p>
+            </div>
+          ) : (
+            <div>
+              <h3 className="text-[13px] font-semibold text-[#1a1a2e]">Ship to</h3>
+              <p className="mt-1 text-[13px] leading-[19px] text-[#4b5563]">
+                {addressLines(order.address as any).map((l) => (
+                  <span key={l} className="block">
+                    {l}
+                  </span>
+                ))}
+              </p>
+            </div>
+          )}
           <div>
             <h3 className="text-[13px] font-semibold text-[#1a1a2e]">Delivery</h3>
             <p className="mt-1 text-[13px] text-[#4b5563]">
-              {order.delivery ? `${order.delivery.name}, ${order.shippingCents - order.shippingDiscountCents === 0 ? "free" : money(order.shippingCents - order.shippingDiscountCents)}` : "Not chosen"}
+              {pickup ? "Local pickup, free" : order.delivery ? `${order.delivery.name}, ${order.shippingCents - order.shippingDiscountCents === 0 ? "free" : money(order.shippingCents - order.shippingDiscountCents)}` : "Not chosen"}
             </p>
-            {order.delivery && deliveryEstimate(order.delivery) ? <p className="text-[12.5px] text-[#6b7280]">{deliveryEstimate(order.delivery)}</p> : null}
+            {!pickup && order.delivery && deliveryEstimate(order.delivery) ? <p className="text-[12.5px] text-[#6b7280]">{deliveryEstimate(order.delivery)}</p> : null}
             {order.buyerNote ? (
               <>
                 <h3 className="mt-3 text-[13px] font-semibold text-[#1a1a2e]">Buyer's note</h3>
@@ -316,10 +411,10 @@ export function PhysicalOrderPanel({ orderRowId, revision = 0, className }: { or
         </ol>
       </section>
 
-      {dialog === "fulfil" ? <FulfilDialog order={order} onClose={() => setDialog(null)} onSubmit={async (body) => { const e = await act({ action: "fulfil", ...body }); if (!e) setDialog(null); return e }} /> : null}
+      {dialog && typeof dialog === "object" && "fulfil" in dialog ? <FulfilDialog order={order} only={dialog.fulfil} onClose={() => setDialog(null)} onSubmit={async (body) => { const e = await act({ action: "fulfil", ...body }); if (!e) setDialog(null); return e }} /> : null}
       {dialog === "return" ? <ReturnDialog order={order} onClose={() => setDialog(null)} onSubmit={async (body) => { const e = await act({ action: "return", ...body }); if (!e) setDialog(null); return e }} /> : null}
       {dialog === "cancel" ? <CancelDialog onClose={() => setDialog(null)} onSubmit={async (reason) => { const e = await act({ action: "cancel", reason }); if (!e) setDialog(null); return e }} /> : null}
-      {dialog && typeof dialog === "object" ? <TrackingDialog shipment={dialog.tracking} onClose={() => setDialog(null)} onSubmit={async (body) => { const e = await act({ action: "shipment", fulfillmentId: dialog.tracking.id, ...body }); if (!e) setDialog(null); return e }} /> : null}
+      {dialog && typeof dialog === "object" && "tracking" in dialog ? <TrackingDialog shipment={dialog.tracking} onClose={() => setDialog(null)} onSubmit={async (body) => { const e = await act({ action: "shipment", fulfillmentId: dialog.tracking.id, ...body }); if (!e) setDialog(null); return e }} /> : null}
     </div>
   )
 }
@@ -346,8 +441,9 @@ function LineRow({ line, quantity }: { line: Line; quantity: number }) {
   )
 }
 
-function FulfilDialog({ order, onClose, onSubmit }: { order: Order; onClose: () => void; onSubmit: (b: Record<string, unknown>) => Promise<string | null> }) {
-  const open = order.lines.filter((l) => l.requiresShipping && l.quantity - l.fulfilled > 0)
+function FulfilDialog({ order, only, onClose, onSubmit }: { order: Order; only?: string[]; onClose: () => void; onSubmit: (b: Record<string, unknown>) => Promise<string | null> }) {
+  const pickup = order.deliveryMethod === "pickup"
+  const open = order.lines.filter((l) => l.requiresShipping && l.quantity - l.fulfilled > 0 && (!only || only.includes(l.orderId)))
   const [qty, setQty] = React.useState<Record<string, string>>(Object.fromEntries(open.map((l) => [l.orderId, String(l.quantity - l.fulfilled)])))
   const [carrier, setCarrier] = React.useState("")
   const [otherCarrier, setOtherCarrier] = React.useState("")
@@ -362,7 +458,7 @@ function FulfilDialog({ order, onClose, onSubmit }: { order: Order; onClose: () 
     <Modal
       open
       onClose={onClose}
-      title="Fulfill items"
+      title={pickup ? "Ready for pickup" : "Mark as shipped"}
       footer={
         <>
           <button type="button" className={BTN_SECONDARY} onClick={onClose}>
@@ -386,7 +482,7 @@ function FulfilDialog({ order, onClose, onSubmit }: { order: Order; onClose: () 
               setError(e)
             }}
           >
-            {busy ? "Saving" : "Fulfill items"}
+            {busy ? "Saving" : pickup ? "Mark ready" : "Mark as shipped"}
           </button>
         </>
       }
@@ -397,12 +493,13 @@ function FulfilDialog({ order, onClose, onSubmit }: { order: Order; onClose: () 
             <li key={l.orderId} className="flex items-center justify-between gap-3 px-3 py-2.5">
               <div className="min-w-0">
                 <p className="truncate text-[14px] text-[#1a1a2e]">{l.title}</p>
-                <p className="text-[12px] text-[#6b7280]">{[l.variantName, `${l.quantity - l.fulfilled} to ship`].filter(Boolean).join(" · ")}</p>
+                <p className="text-[12px] text-[#6b7280]">{[l.variantName, `${l.quantity - l.fulfilled} ${pickup ? "to get ready" : "to ship"}`].filter(Boolean).join(" · ")}</p>
               </div>
               <NumberInput value={qty[l.orderId] ?? ""} onChange={(v) => setQty((q) => ({ ...q, [l.orderId]: v }))} className="w-[80px] text-right" aria-label={`Units of ${l.title}`} />
             </li>
           ))}
         </ul>
+        {pickup ? null : (
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Carrier">
             <SelectInput value={carrier} onChange={setCarrier}>
@@ -430,7 +527,13 @@ function FulfilDialog({ order, onClose, onSubmit }: { order: Order; onClose: () 
             </>
           ) : null}
         </div>
-        <Toggle label="Email the buyer" description="Sends the shipping confirmation with the tracking link." checked={notify} onChange={setNotify} />
+        )}
+        <Toggle
+          label="Email the buyer"
+          description={pickup ? "Tells them it's ready, with your pickup address and instructions." : "Sends the shipping confirmation with the tracking link."}
+          checked={notify}
+          onChange={setNotify}
+        />
         {error ? <Notice>{error}</Notice> : null}
       </div>
     </Modal>
@@ -701,6 +804,6 @@ function printSlip(order: Order) {
     .filter((l) => l.requiresShipping && l.quantity - l.fulfilled > 0)
     .map((l) => `<tr><td>${esc(l.title)}${l.variantName ? `<br><small>${esc(l.variantName)}</small>` : ""}</td><td>${esc(l.sku ?? "")}</td><td style="text-align:right">${l.quantity - l.fulfilled}</td></tr>`)
     .join("")
-  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Packing slip ${esc(orderNumber(order.id))}</title><style>body{font-family:Inter,Arial,sans-serif;color:#1a1a2e;padding:32px}h1{font-size:20px;margin:0 0 4px}table{width:100%;border-collapse:collapse;margin-top:24px}td,th{border-bottom:1px solid #e5e7eb;padding:8px 4px;text-align:left;font-size:14px}small{color:#6b7280}.addr{margin-top:16px;font-size:14px;line-height:1.5}</style></head><body><h1>Packing slip</h1><div>Order ${esc(orderNumber(order.id))}</div><div class="addr"><strong>Ship to</strong><br>${addressLines(order.address as any).map(esc).join("<br>")}</div><table><thead><tr><th>Item</th><th>SKU</th><th style="text-align:right">Qty</th></tr></thead><tbody>${rows}</tbody></table>${order.buyerNote ? `<p class="addr"><strong>Note</strong><br>${esc(order.buyerNote)}</p>` : ""}<script>window.onload=function(){window.print()}</script></body></html>`)
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Packing slip ${esc(orderNumber(order.id))}</title><style>body{font-family:Inter,Arial,sans-serif;color:#1a1a2e;padding:32px}h1{font-size:20px;margin:0 0 4px}table{width:100%;border-collapse:collapse;margin-top:24px}td,th{border-bottom:1px solid #e5e7eb;padding:8px 4px;text-align:left;font-size:14px}small{color:#6b7280}.addr{margin-top:16px;font-size:14px;line-height:1.5}</style></head><body><h1>Packing slip</h1><div>Order ${esc(orderNumber(order.id))}</div><div class="addr">${order.deliveryMethod === "pickup" ? `<strong>Pickup by</strong><br>${esc((order as { buyerName?: string | null }).buyerName ?? "The buyer")}<br>at ${esc(order.pickup?.name ?? "your location")}` : `<strong>Ship to</strong><br>${addressLines(order.address as any).map(esc).join("<br>")}`}</div><table><thead><tr><th>Item</th><th>SKU</th><th style="text-align:right">Qty</th></tr></thead><tbody>${rows}</tbody></table>${order.buyerNote ? `<p class="addr"><strong>Note</strong><br>${esc(order.buyerNote)}</p>` : ""}<script>window.onload=function(){window.print()}</script></body></html>`)
   w.document.close()
 }

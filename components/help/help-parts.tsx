@@ -8,6 +8,7 @@
 import Link from "next/link"
 import type { ReactNode } from "react"
 import { SUPPORT_EMAIL, type HelpBlock } from "@/lib/help/articles"
+import { HelpFigure } from "./help-figures"
 
 /** The page container every /app page uses, so help sits in the same frame. */
 export const HELP_CONTAINER = "mx-auto w-full max-w-[1200px] px-4 sm:px-6 lg:px-8"
@@ -115,6 +116,12 @@ export function ArticleBody({ blocks }: { blocks: HelpBlock[] }) {
                   </li>
                 ))}
               </ul>
+            )
+          case "figure":
+            return (
+              <div key={i} className={`${gap} -mx-1 sm:mx-0`}>
+                <HelpFigure figure={b.figure} caption={b.caption} />
+              </div>
             )
           case "note":
             return (

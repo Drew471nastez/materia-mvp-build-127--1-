@@ -16,6 +16,7 @@ import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 
 import { useRouter } from "next/navigation"
 import { helpArticlePath, helpCategory } from "@/lib/help/articles"
 import { searchHelp } from "@/lib/help/search"
+import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 import { cn } from "@/lib/utils"
 
 export function HelpSearch({ size = "large", defaultQuery = "", autoFocus = false }: { size?: "large" | "compact"; defaultQuery?: string; autoFocus?: boolean }) {
@@ -26,7 +27,8 @@ export function HelpSearch({ size = "large", defaultQuery = "", autoFocus = fals
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState(-1)
   const box = useRef<HTMLFormElement>(null)
-  const results = useMemo(() => searchHelp(query, 8), [query])
+  const physical = usePhysicalCommerceEnabled()
+  const results = useMemo(() => searchHelp(query, 8, { physical }), [query, physical])
   const showing = open && query.trim().length > 0
 
   useEffect(() => {

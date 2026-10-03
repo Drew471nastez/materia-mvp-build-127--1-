@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server"
-import { revalidateTag } from "next/cache"
+import { revalidatePath, revalidateTag } from "next/cache"
 
 import { requireAdmin, adminFailure } from "@/lib/admin/gate"
 import { recordAdminAction } from "@/lib/admin/audit"
@@ -94,6 +94,8 @@ export async function POST(request: NextRequest) {
     if (setPhysical) {
       await setPhysicalCommerceEnabled(body.physicalCommerceEnabled as boolean)
       revalidateTag(PHYSICAL_COMMERCE_CACHE_TAG)
+      /* The help centre's physical products guide follows the switch at once. */
+      revalidatePath("/help", "layout")
       await recordAdminAction(admin, {
         action: "set_physical_commerce",
         targetType: "platform",
