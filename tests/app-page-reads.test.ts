@@ -95,9 +95,19 @@ section("Who is signed in: asked once per request")
     /const current = await currentUserForRequest\(\)/.test(code("lib/auth/page-user.ts")) && /if \(shouldSendToLogin\(current\)\) redirect\(loginPath\)/.test(code("lib/auth/page-user.ts")))
   const scope = code("lib/auth/request-scope.ts")
   check("the cache is React's, per request", /export const currentUserForRequest = cache\(/.test(scope) && /export const creatorForRequest = cache\(/.test(scope) && /export const profileForRequest = cache\(/.test(scope))
-  check("the creator row it shares is read on the caller's own client, by their own user id, never on the service role",
+  /* Changed with run-now part 63: a visitor's client may not name a private column at all (the
+     select errors and the row came back empty, so /app sent every creator to /sell). The row is
+     still found on the caller's own client; the service role reads only the private columns of
+     the row that client returned, by its id. */
+  check("the creator row it shares is read on the caller's own client, by their own user id; the service role only adds its private columns",
     /creatorForRequest = cache\(async \(userId: string\)[\s\S]{0,200}const supabase = await createClient\(\)[\s\S]{0,200}\.from\("creators"\)\.select\(SHELL_CREATOR_COLUMNS\)\.eq\("user_id", userId\)/.test(scope)
-      && !/createAdminClient|service_role|SERVICE_ROLE/.test(scope))
+      && /if \(!data\) return null[\s\S]{0,120}createAdminClient\(\)[\s\S]{0,60}\.select\(SHELL_PRIVATE_CREATOR_COLUMNS\)[\s\S]{0,40}\.eq\("id", \(data as \{ id: string \}\)\.id\)/.test(scope)
+      && (scope.match(/createAdminClient\(\)/g) || []).length === 1)
+  {
+    const cols = (name: string) => (scope.match(new RegExp(`const ${name} =\\s*"([^"]+)"`)) || [])[1]?.split(",").map((c) => c.trim()) ?? []
+    const privateList = code("lib/security/public-columns.ts")
+    check("the columns asked on the caller's client are none of part 63's private ones", cols("SHELL_CREATOR_COLUMNS").length > 5 && cols("SHELL_CREATOR_COLUMNS").every((c) => !new RegExp(`["']${c}["']`).test(privateList.slice(privateList.indexOf("PRIVATE_CREATOR_COLUMNS"), privateList.indexOf("PRIVATE_PROFILE_COLUMNS")))))
+  }
 }
 
 section("The layout: everything that needs only the user, together")

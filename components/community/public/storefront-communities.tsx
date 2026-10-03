@@ -16,14 +16,24 @@ import type { CommunityCard } from "@/lib/communities/types"
 import { cn } from "@/lib/utils"
 import { CommunityCardTile } from "./community-card"
 
+/*
+  THE PAGE'S OWN COLUMN, as the Products tab draws it (components/storefront/
+  all-products-grid.tsx): the tab panels come without a container, so a bare
+  grid ran from the window's left edge to its right, wider than the tabs above
+  it (found end to end on a real storefront at 1440px).
+*/
+const COLUMN = "mx-auto w-full max-w-[1180px] px-3 py-8 sm:px-4 sm:py-10 lg:px-6"
+
 export function StorefrontCommunities({ cards, phone = false }: { cards: CommunityCard[]; phone?: boolean }) {
   return (
-    <ul data-storefront-communities="" className={cn("grid grid-cols-1 gap-4 py-2", !phone && "sm:grid-cols-2 sm:gap-5 lg:grid-cols-3")}>
-      {cards.map((c, i) => (
-        <li key={c.id} className="min-w-0">
-          <CommunityCardTile card={c} surface="storefront" priority={i < 2} />
-        </li>
-      ))}
-    </ul>
+    <div className={COLUMN}>
+      <ul data-storefront-communities="" className={cn("grid grid-cols-1 gap-4", !phone && "sm:grid-cols-2 sm:gap-5 lg:grid-cols-3")}>
+        {cards.map((c, i) => (
+          <li key={c.id} className="min-w-0">
+            <CommunityCardTile card={c} surface="storefront" priority={i < 2} />
+          </li>
+        ))}
+      </ul>
+    </div>
   )
 }

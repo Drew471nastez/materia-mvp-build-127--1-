@@ -449,6 +449,13 @@ async function main() {
     const store = code("app/(marketing)/u/[username]/page.tsx")
     check("the storefront's Communities tab is real cards, and only when there are some", (store.match(/if \(communityCards\.length > 0\) \{\s*tabs\.push\(\{\s*id: "communities",\s*label: "Communities",\s*panel: <StorefrontCommunities cards=\{communityCards\} \/>/g) ?? []).length === 2)
     check("and only while communities are on", /communitiesEnabled\(\)\s*\.then\(\(on\) => \(on \? creatorCommunityCards\(creator\.id\) : \[\]\)\)/.test(store))
+    /* Found end to end (QA): the bare grid ran edge to edge at 1440px, wider than the tabs above it. */
+    {
+      const panel = code("components/community/public/storefront-communities.tsx")
+      const products = code("components/storefront/all-products-grid.tsx")
+      const column = (panel.match(/const COLUMN = "([^"]+)"/) || [])[1]
+      check("the Communities panel sits in the page column the Products tab uses", !!column && products.includes(`className="${column}"`) && /<div className=\{COLUMN\}>\s*<ul data-storefront-communities/.test(panel))
+    }
     check("the builder canvas draws the same tab the same way", /if \(communities\.length > 0\) \{[\s\S]*?<StorefrontCommunities cards=\{communities\} phone=\{isMobile\} \/>/.test(code("components/store-builder/preview-canvas.tsx")))
     check("the storefront's Products tab and Home grid still read the product list", /productsData\.length > 0/.test(store) && /<AllProductsGrid/.test(store))
   }
@@ -530,6 +537,13 @@ async function main() {
     check("onboarding is for an active member (requireMember)", /const gate = await requireMember\(db, communityId, user\?\.id \?\? null, "view"\)\s*if \(gate instanceof NextResponse\) return gate/.test(code("app/api/community/[communityId]/onboarding/route.ts")))
     check("the join bucket is community-join, with a ten minute and a daily window", JOIN_BUCKET === "community-join" && JOIN_WINDOWS.length === 2)
     const server = ["lib/communities/server/public.ts", "lib/communities/server/join.ts", "lib/communities/server/explore.ts"].map(code).join("\n")
+    /* Found end to end (QA): COMMUNITY_WELCOME was drawn by the notify engine and raised by nothing. */
+    {
+      const join = code("lib/communities/server/join.ts")
+      check("a free join and an invite that lets someone in raise the welcome email, once per member row",
+        /sendCommunityEmail\(db, "welcome", \{ userId, communityId: c\.id, data: [\s\S]{0,60}, key: `member:\$\{memberId\}` \}\)/.test(join)
+          && (join.match(/await welcome\(db, community, userId, row\.id\)/g) ?? []).length === 2)
+    }
     check("no role string comparisons in the new server code (meetsRole and can decide)", !/role (===|!==) "(owner|admin|moderator|member)"/.test(server))
     check("the public page never reads communities with select(*)", !/from\("communities"\)\.select\("\*"\)/.test(server))
   }

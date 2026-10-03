@@ -17,7 +17,7 @@ import type { NotifyLevel } from "@/lib/communities/types"
 import { createClient } from "@/lib/supabase/client"
 import { api, apiBase } from "./api"
 import { PageTitle } from "./headers"
-import { announceUnread } from "./realtime"
+import { announceUnread, realtimeAuth } from "./realtime"
 import { toast } from "./toast"
 import { BTN_GHOST, BTN_SECONDARY, CARD } from "./ui"
 import type { NotificationView } from "./view-types"
@@ -52,24 +52,31 @@ export function NotificationsList({
 
   /* New ones, live. */
   useEffect(() => {
+    let gone = false
     let supabase: ReturnType<typeof createClient> | null = null
     let channel: ReturnType<ReturnType<typeof createClient>["channel"]> | null = null
-    try {
-      supabase = createClient()
-      channel = supabase
-        .channel(`community-inbox-page:${communityId}:${userId}`)
-        .on("postgres_changes", { event: "INSERT", schema: "public", table: "community_notifications", filter: `user_id=eq.${userId}` }, async (payload: { new?: { community_id?: string } }) => {
-          if (payload.new?.community_id !== communityId) return
-          const r = await api<{ notifications: NotificationView[]; unread: number }>(`${base}/notifications`)
-          if (!r.ok) return
-          setItems((cur) => [...r.data.notifications.filter((n) => !cur.some((c) => c.id === n.id)), ...cur])
-          setUnread(r.data.unread)
-        })
-        .subscribe()
-    } catch {
-      /* No realtime: the list is the one the page arrived with. */
-    }
+    void (async () => {
+      try {
+        supabase = createClient()
+        /* Signed in before the join (./realtime realtimeAuth), or the inbox is read as a visitor and stays still. */
+        await realtimeAuth(supabase)
+        if (gone) return
+        channel = supabase
+          .channel(`community-inbox-page:${communityId}:${userId}`)
+          .on("postgres_changes", { event: "INSERT", schema: "public", table: "community_notifications", filter: `user_id=eq.${userId}` }, async (payload: { new?: { community_id?: string } }) => {
+            if (payload.new?.community_id !== communityId) return
+            const r = await api<{ notifications: NotificationView[]; unread: number }>(`${base}/notifications`)
+            if (!r.ok) return
+            setItems((cur) => [...r.data.notifications.filter((n) => !cur.some((c) => c.id === n.id)), ...cur])
+            setUnread(r.data.unread)
+          })
+          .subscribe()
+      } catch {
+        /* No realtime: the list is the one the page arrived with. */
+      }
+    })()
     return () => {
+      gone = true
       if (supabase && channel) supabase.removeChannel(channel)
     }
   }, [base, communityId, userId])

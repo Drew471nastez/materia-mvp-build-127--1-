@@ -17,6 +17,25 @@ import { createClient } from "@/lib/supabase/client"
 
 export const INBOX_EVENT = "storelib:community-inbox"
 
+/**
+ * SIGNED IN BEFORE THE JOIN. A channel's join carries the access token the
+ * realtime client holds at the moment subscribe() runs, and right after the
+ * page loads it holds none yet: the client asks auth for the session on its
+ * own, a moment later, and the join has already gone as the visitor (anon).
+ * Postgres changes then fail, because only a signed in member may read
+ * community_notifications and community_messages (part 81), and the bell and
+ * the chat never moved. Awaited first, the join carries the member's token.
+ * Asked through the client's own token callback (no argument), so the token
+ * is still refreshed with the session afterwards. Never throws.
+ */
+export async function realtimeAuth(supabase: ReturnType<typeof createClient>): Promise<void> {
+  try {
+    await supabase.realtime.setAuth()
+  } catch {
+    /* The join goes as it would have; the reads stay refused, nothing breaks. */
+  }
+}
+
 /** Tells the shell the unread count changed (the notifications page marked some read). */
 export function announceUnread(communityId: string, unread: number) {
   if (typeof window === "undefined") return
@@ -36,20 +55,26 @@ export function useUnreadNotifications(communityId: string, userId: string | nul
   }, [communityId])
   useEffect(() => {
     if (!userId) return
+    let gone = false
     let supabase: ReturnType<typeof createClient> | null = null
     let channel: ReturnType<ReturnType<typeof createClient>["channel"]> | null = null
-    try {
-      supabase = createClient()
-      channel = supabase
-        .channel(`community-inbox:${communityId}:${userId}`)
-        .on("postgres_changes", { event: "INSERT", schema: "public", table: "community_notifications", filter: `user_id=eq.${userId}` }, (payload: { new?: { community_id?: string; read_at?: string | null } }) => {
-          if (payload.new?.community_id === communityId && !payload.new.read_at) setCount((c) => c + 1)
-        })
-        .subscribe()
-    } catch {
-      /* No realtime here: the count is the one the page arrived with. */
-    }
+    void (async () => {
+      try {
+        supabase = createClient()
+        await realtimeAuth(supabase)
+        if (gone) return
+        channel = supabase
+          .channel(`community-inbox:${communityId}:${userId}`)
+          .on("postgres_changes", { event: "INSERT", schema: "public", table: "community_notifications", filter: `user_id=eq.${userId}` }, (payload: { new?: { community_id?: string; read_at?: string | null } }) => {
+            if (payload.new?.community_id === communityId && !payload.new.read_at) setCount((c) => c + 1)
+          })
+          .subscribe()
+      } catch {
+        /* No realtime here: the count is the one the page arrived with. */
+      }
+    })()
     return () => {
+      gone = true
       if (supabase && channel) supabase.removeChannel(channel)
     }
   }, [communityId, userId])
@@ -78,6 +103,8 @@ export function useOnlineCount(communityId: string, userId: string | null): numb
       if (gone) return
       try {
         supabase = createClient()
+        await realtimeAuth(supabase)
+        if (gone) return
         const ch = supabase.channel(`community-presence:${communityId}`, { config: { presence: { key } } })
         channel = ch
         ch.on("presence", { event: "sync" }, () => {
