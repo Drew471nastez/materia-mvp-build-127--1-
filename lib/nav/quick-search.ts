@@ -1,26 +1,25 @@
 /**
  * ===========================================================================
- *  WHAT THE SEARCH SCREEN FINDS AS YOU TYPE
+ *  WHAT THE SEARCHES FIND AS YOU TYPE
  * ===========================================================================
- * The phone's full screen search (components/search/search-screen.tsx) asks
- * three questions of every word, and answers them in the order a person
- * reads them:
+ * The header's search (components/platform/platform-header-client.tsx) and
+ * the phone's full screen search (components/search/search-screen.tsx) ask
+ * the same questions of every word, and draw the answers with the same rows
+ * (components/platform/header-search-results.tsx, ranked by topHits below):
  *
  *   PRODUCTS     published products whose title or description says it, then
  *                published products by a creator whose name or handle says
- *                it. The header's live search has asked exactly these two
- *                questions for a year (components/platform/platform-header-
- *                client.tsx, "ONE LETTER IS A SEARCH"), on the browser's own
- *                Supabase client, which reads only what row level security
- *                lets anybody read.
- *   CREATORS     the creators those second answers belong to. Taken from
- *                products rather than asked of the creators table, so a
- *                creator is only ever offered when they have something on
- *                sale: a name that leads to an empty page is not a result.
+ *                it, on the browser's own Supabase client, which reads only
+ *                what row level security lets anybody read.
+ *   COMMUNITIES  while they are switched on, the public communities that say
+ *                it, from Storelib's own server (quickCommunities below).
+ *   CREATORS     the creators those second answers belong to, for a caller
+ *                that lists them (neither search does today: `creators:
+ *                false` skips their photos).
  *   CATEGORIES   matched here, from the catalogue's own list, without a
- *                round trip, so they are on screen on the first letter.
+ *                round trip.
  *
- * Enter, or "See all results", is Explore's own results (`/explore?q=`),
+ * Enter, or "View all results", is Explore's own results (`/explore?q=`),
  * which is the page search engines index and the one this never replaces.
  *
  * AND WHAT WAS SEARCHED BEFORE, on this device only (localStorage), and only
