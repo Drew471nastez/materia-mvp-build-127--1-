@@ -292,9 +292,8 @@ async function buildSite(creatorId: string, displayName: string): Promise<BuiltL
    * `raw` filter. An imported theme brings both with it.
    */
   /* The store's menus over the theme's own, when the store has them (lib/website-builder/store-menus-server.ts). */
-  const themeSettings = withStoreMenus(
-    sanitizeThemeSettings((themeSettingsOf(settingsRow as never, false) ?? {}) as ThemeSettingsValues),
-    await storeMenusOrNull(admin, creatorId),
+  const themeSettings = sanitizeThemeSettings(
+    withStoreMenus((themeSettingsOf(settingsRow as never, false) ?? {}) as ThemeSettingsValues, await storeMenusOrNull(admin, creatorId)),
   )
 
   /* The saved section files first: a creator's own section is cleaned by

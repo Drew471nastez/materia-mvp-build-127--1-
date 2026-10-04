@@ -3,6 +3,25 @@
 import { useEffect, useState } from "react"
 import { cn } from "@/lib/utils"
 import { sectionColors, str, bool, parseInZone, SectionWrapper, type SectionProps } from "../_shared"
+import { contrastRatio, parseColor } from "@/lib/storelib-theme/contrast"
+
+/**
+ * The first of `candidates` that reads on `bg` (4.5:1), else whichever of
+ * near-black and white reads better. A scheme whose heading colour is meant
+ * for a light page was drawing a dark heading on this section's dark ground,
+ * and white digits on a box the scheme had made white.
+ */
+function readableOn(bg: string, candidates: (string | undefined)[]): string {
+  const ground = parseColor(bg)
+  if (!ground) return candidates.find(Boolean) ?? "#ffffff"
+  for (const c of candidates) {
+    const rgb = c ? parseColor(c) : null
+    if (rgb && contrastRatio(rgb, ground) >= 4.5) return c as string
+  }
+  const dark = parseColor("#111827")!
+  const light = parseColor("#ffffff")!
+  return contrastRatio(dark, ground) >= contrastRatio(light, ground) ? "#111827" : "#ffffff"
+}
 
 // ── Countdown timer ──────────────────────────────────────────
 export function CountdownTimerSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
@@ -15,8 +34,10 @@ export function CountdownTimerSection({ section, theme, isEditing, isSelected, o
   const alignment = str(s.alignment, "center")
   const showLabels = bool(s.show_labels, true)
   const bg = str(s.bg_color) || c.bg
-  const text = str(s.text_color) || c.image_overlay_text || c.heading
+  /* A colour the creator picked is theirs; one taken from the scheme has to read on this ground. */
+  const text = str(s.text_color) || readableOn(bg, [c.image_overlay_text, c.heading, c.text])
   const accent = str(s.accent_color) || c.primary_btn_bg
+  const digit = readableOn(accent, ["#ffffff", c.primary_btn_text])
 
   const showDays = bool(s.show_days, true)
   const showHours = bool(s.show_hours, true)
@@ -88,7 +109,7 @@ export function CountdownTimerSection({ section, theme, isEditing, isSelected, o
       <div className="flex flex-col items-center">
         <div
           className="w-20 h-20 rounded-xl flex items-center justify-center text-3xl font-bold tabular-nums shadow-sm"
-          style={{ background: accent, color: "#ffffff", fontFamily: theme.font_heading }}
+          style={{ background: accent, color: digit, fontFamily: theme.font_heading }}
         >
           {padded}
         </div>

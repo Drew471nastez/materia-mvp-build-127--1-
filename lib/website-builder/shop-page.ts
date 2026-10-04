@@ -114,6 +114,7 @@ export function searchSections(homeSections: SectionInstance[]): SectionInstance
       button_text: "Search",
       empty_text: "Check the spelling, or try a shorter word.",
       all_label: "See all products",
+      all_url: "/products",
       show_price: true,
       columns: { desktop: 4, tablet: 3, mobile: 2 },
       shape: "1 / 1",

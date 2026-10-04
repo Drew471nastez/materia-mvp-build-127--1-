@@ -88,27 +88,8 @@
       "id": "show_trust_logos",
       "label": "Show trust logos",
       "type": "toggle",
-      "default": false
-    },
-    {
-      "id": "trust_logo_1",
-      "label": "Trust logo 1",
-      "type": "image"
-    },
-    {
-      "id": "trust_logo_2",
-      "label": "Trust logo 2",
-      "type": "image"
-    },
-    {
-      "id": "trust_logo_3",
-      "label": "Trust logo 3",
-      "type": "image"
-    },
-    {
-      "id": "trust_logo_4",
-      "label": "Trust logo 4",
-      "type": "image"
+      "default": false,
+      "info": "Add each logo as a Trust logo block under this section."
     },
     {
       "id": "hdr_style",
@@ -297,5 +278,33 @@
         "color_scheme": "white"
       }
     }
-  ]
+  ],
+  "blocks": [
+    {
+      "type": "trust_logo",
+      "name": "Trust logo",
+      "fields": [
+        {
+          "id": "image",
+          "label": "Logo",
+          "type": "image",
+          "default": ""
+        },
+        {
+          "id": "alt",
+          "label": "Name",
+          "type": "text",
+          "default": "",
+          "placeholder": "Visa, PayPal, Trustpilot"
+        },
+        {
+          "id": "url",
+          "label": "Link",
+          "type": "link",
+          "default": ""
+        }
+      ]
+    }
+  ],
+  "max_blocks": 8
 }
