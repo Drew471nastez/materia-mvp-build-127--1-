@@ -271,7 +271,7 @@ async function main() {
     check("safe to run again (IF NOT EXISTS, OR REPLACE, DROP ... IF EXISTS)", !/CREATE TABLE public|CREATE INDEX public|CREATE FUNCTION/.test(part) && /CREATE INDEX IF NOT EXISTS community_view_days_day_idx/.test(part))
     check("the migration copy is the part", existsSync("supabase/migrations/20261107_community_views.sql") && read("supabase/migrations/20261107_community_views.sql") === part)
     check("the README lists it", /\| `87_community_views\.sql` \|/.test(read("supabase/sql/run-now/README.md")))
-    check("the check after has its column", /as p87_community_views;/.test(read("supabase/sql/run-now/99_check_after.sql")) && /not has_function_privilege\('anon', 'public\.community_record_view\(uuid,text\)', 'EXECUTE'\) as p87_community_views/.test(read("supabase/sql/run-now/99_check_after.sql")))
+    check("the check after has its column", /as p87_community_views[,;]/.test(read("supabase/sql/run-now/99_check_after.sql")) && /not has_function_privilege\('anon', 'public\.community_record_view\(uuid,text\)', 'EXECUTE'\) as p87_community_views/.test(read("supabase/sql/run-now/99_check_after.sql")))
     check("and the run-four files carry it", /-- part 87_community_views\.sql/.test(read("supabase/sql/run-four/3_of_4_latest.sql")))
   }
 
