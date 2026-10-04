@@ -5,11 +5,13 @@
  *  THE MEMBER AREA'S FRAME
  * ===========================================================================
  * Somebody's community, not a dashboard, and not under Storelib's bar. At
- * the top the community's own bar (top-bar.tsx: the navigator, its picture,
- * its name, whose it is, Messages, Storelib's bell and the member's own
- * menu), and under it ONE row of section tabs, plain words with a line under
- * the chosen one: Community, Classroom, Calendar, Members, Leaderboards,
- * About, each only when the community has it on. Spaces are not in the frame
+ * the top the community's own bar (top-bar.tsx: its picture, its name, whose
+ * it is, the navigator, Messages, Storelib's bell and the member's own menu)
+ * with ONE row of section tabs, plain words with a line under the chosen
+ * one: Community, Classroom, Calendar, Members, Leaderboards, About, each
+ * only when the community has it on. From 1024px the tabs sit in the bar
+ * itself, so the header is one 56px row; on a phone they are a 40px row
+ * under it. Spaces are not in the frame
  * at all: they are chips at the top of the Community feed (space-chips.tsx).
  * Everything below is the community's content.
  *
@@ -139,8 +141,8 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, a
   }, [dm, canMessage, viewer.userId])
 
   return (
-    /* The header's real heights until it is measured: no jump on the first frame. */
-    <div data-community-shell="" className="min-h-svh bg-[#f8f9fa] [--community-top:101px] sm:[--community-top:109px]">
+    /* The header's real heights until it is measured (44 + 40 + its hairline on a phone, 48 + 40 + 1 from 640px, one 56px row + 1 from 1024px): no jump on the first frame. */
+    <div data-community-shell="" className="min-h-svh bg-[#f8f9fa] [--community-top:85px] sm:[--community-top:89px] lg:[--community-top:57px]">
       <CommunityTopBar
         data={topBar}
         messages={canMessage ? messages : null}
@@ -183,7 +185,9 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, a
  * muted until hovered. The line grows in from its middle (scale and opacity,
  * nothing that moves the layout). On a phone the row scrolls sideways when
  * it does not fit, keeps the chosen tab in view, and fades at an edge only
- * while there is more that way.
+ * while there is more that way. From 1024px the same row sits inside the
+ * bar, between the name and the icons, and scrolls the same way if a long
+ * name leaves it too little room.
  */
 export function SectionTabs({ entries, current }: { entries: NavEntry[]; current: TabKey }) {
   const trackRef = useRef<HTMLDivElement>(null)
@@ -209,9 +213,9 @@ export function SectionTabs({ entries, current }: { entries: NavEntry[]; current
     return () => ro.disconnect()
   }, [current])
   return (
-    <nav aria-label="Community" data-community-tabs="" className="relative mx-auto w-full max-w-[1080px]">
-      <div ref={trackRef} onScroll={measure} className="overflow-x-auto overscroll-x-contain px-4 scrollbar-hide sm:px-6 lg:px-8">
-        <div className="flex w-max items-end gap-6 sm:gap-7">
+    <nav aria-label="Community" data-community-tabs="" className="relative w-full lg:h-full">
+      <div ref={trackRef} onScroll={measure} className="overflow-x-auto overscroll-x-contain px-4 scrollbar-hide sm:px-6 lg:h-full lg:px-0">
+        <div className="flex w-max items-end gap-6 sm:gap-7 lg:h-full lg:gap-6">
           {entries.map((e) => {
             const on = current === e.key
             return (

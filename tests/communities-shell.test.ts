@@ -7,11 +7,15 @@
  *                      members (with the pills) and for everybody else (alone),
  *                      and never around a draft or suspended community for
  *                      somebody who may not see it.
- *   THE TOP BAR        the hamburger (Storelib's one navigator) before the
- *                      logo and name, By <creator> to their page, no chevron
- *                      switcher, Messages wired to the existing panel, the
- *                      bell, my menu (profile, library, settings, explore),
- *                      a hairline and a soft shadow under it.
+ *   THE TOP BAR        the logo and name, then the hamburger (Storelib's
+ *                      one navigator) right of them (round 4), By <creator>
+ *                      to their page, no chevron switcher, Messages wired to
+ *                      the existing panel, the bell, my menu (profile,
+ *                      library, settings, explore), a hairline and a soft
+ *                      shadow under it. Round 4: slimmer, one compact bar
+ *                      (the tabs inside it from 1024px), and nothing in it
+ *                      pill shaped: plain icon buttons, Log in as a word,
+ *                      squared counts.
  *   TABS AND CHIPS     one row of plain text tabs with a line under the
  *                      chosen one (not pills): Community, Classroom, Calendar,
  *                      Members, Leaderboards, About, only those on; spaces as
@@ -91,7 +95,14 @@ async function main() {
     check("logo and name go to the community's home", /<Link href=\{base\} aria-label=\{`\$\{community\.name\}, home`\}/.test(bar) && /<Link href=\{base\} className="block truncate/.test(bar))
     check("By <creator> opens the creator's page", /By\{" "\}[\s\S]{0,80}<Link href=\{creator\.href\}/.test(bar))
     check("no chevron switcher any more", !/ChevronsUpDown|Switch community|data-community-switcher/.test(bar))
-    check("the hamburger first: Storelib's navigator, marked as this community, before the picture and the name", /<PlaceNavigator current=\{\{ kind: "community", id: community\.id \}\}/.test(bar) && bar.indexOf("<PlaceNavigator") < bar.indexOf("<CommunityMark") && bar.indexOf("<PlaceNavigator") < bar.indexOf("data-community-identity"))
+    const render = bar.slice(bar.indexOf("<header"))
+    check("the hamburger RIGHT of the picture and the name: Storelib's navigator, marked as this community", /<PlaceNavigator current=\{\{ kind: "community", id: community\.id \}\}/.test(render) && render.indexOf("<CommunityMark") < render.indexOf("<PlaceNavigator") && render.indexOf("data-community-identity") < render.indexOf("<PlaceNavigator") && render.indexOf("<PlaceNavigator") < render.indexOf("data-community-top-actions"))
+    check("slimmer: a 44px row on a phone (48px from 640px), one 56px row with the tabs in it from 1024px", /data-community-top-lead=""/.test(bar) && /flex h-11 min-w-0 flex-1 items-center gap-2\.5 sm:h-12 lg:h-14/.test(bar) && /flex h-11 shrink-0 items-center[^"]*sm:h-12[^"]*lg:h-14/.test(bar) && /order-last -mx-4 min-w-0 basis-\[calc\(100%\+2rem\)\] sm:-mx-6 sm:basis-\[calc\(100%\+3rem\)\] lg:order-none lg:mx-0 lg:flex-1 lg:basis-auto lg:self-stretch/.test(bar) && !/h-14 w-full max-w-\[1080px\] items-center gap-2 px-3 sm:h-16/.test(bar))
+    const ui = code("components/community/member/ui.ts")
+    const plain = /export const PLAIN_ICON_BTN =\s*"([^"]+)"/.exec(ui)?.[1] ?? ""
+    check("nothing pill shaped: the icons are plain 40px icon buttons with no disc, squared at 10px", !!plain && /h-10 w-10/.test(plain) && /rounded-\[10px\] bg-transparent/.test(plain) && /hover:bg-transparent hover:text-\[#1a1a2e\]/.test(plain) && !/rounded-full/.test(plain), plain)
+    check("the navigator, Messages and the bell all use it; the counts are squared, not round", /className=\{`-ml-1 \$\{PLAIN_ICON_BTN\}/.test(bar) && /className=\{cn\(PLAIN_ICON_BTN, "relative"/.test(bar) && /const BELL = `\$\{PLAIN_ICON_BTN\} \[&_\[data-bell-badge\]\]:rounded-\[5px\]`/.test(bar) && /<NotificationBell className=\{BELL\} \/>/.test(bar) && /const COUNT = "rounded-\[5px\]"/.test(bar) && !/\bICON_BTN\b/.test(bar))
+    check("Log in is a word, not an outlined pill", /data-community-login=""/.test(bar) && !/border border-\[#e3e4e8\][^"]*\n?[^"]*data-community-login/.test(bar) && /inline-flex h-10 shrink-0 items-center px-2 text-\[14px\] font-semibold/.test(bar))
     check("the navigator comes from one import, which is Storelib's one navigator", /import \{ PlaceNavigator \} from "\.\/place-navigator"/.test(bar) && /export \{ PlaceNavigator \} from "@\/components\/nav\/place-navigator"/.test(code("components/community/member/place-navigator.tsx")))
     const stand = code("components/nav/place-navigator.tsx")
     check("it has the navigator's props: a community by id or Storelib", /export function PlaceNavigator\(\{ current, className, onNavigate \}: PlaceNavigatorProps\)/.test(stand) && /export type NavigatorCurrent = \{ kind: "community"; id: string \} \| \{ kind: "storelib" \}/.test(code("lib/nav/places-shared.ts")))
@@ -127,8 +138,10 @@ async function main() {
     check("the tabs are plain words, not pills", /<SectionTabs entries=\{entries\} current=\{tabFor\(current\)\} \/>/.test(frameCode) && /className=\{`\$\{TAB\} \$\{on \? TAB_ON : TAB_OFF\}`\}/.test(frameCode) && !/PillRow|PILL_ON|PILL_OFF/.test(frameCode))
     const ui = code("components/community/member/ui.ts")
     const tab = /export const TAB =\s*"([^"]+)"/.exec(ui)?.[1] ?? ""
-    check("a tab has no box: no border, no fill, no pill rounding", !!tab && !/(^|\s)(border|bg-\[)|rounded-full/.test(tab) && /h-11/.test(tab), tab)
+    check("a tab has no box: no border, no fill, no rounding; 40px on a phone, the bar's 56px from 1024px", !!tab && !/(^|\s)(border|bg-\[|rounded)/.test(tab) && /(^|\s)h-10(\s|$)/.test(tab) && /lg:h-14/.test(tab), tab)
     check("the chosen one has a 2px ink line on the bar's edge that grows in by scale and opacity", /data-tab-line=""[\s\S]{0,80}absolute inset-x-0 bottom-0 h-\[2px\] rounded-full bg-\[#1a1a2e\] transition-\[opacity,scale\]/.test(frameCode) && /on \? "scale-x-100 opacity-100" : "scale-x-50 opacity-0"/.test(frameCode))
+    check("the tabs fill the bar's height from 1024px, so the line lands on its edge", /data-community-tabs="" className="relative w-full lg:h-full"/.test(frameCode) && /lg:h-full lg:px-0/.test(frameCode))
+    check("the frame's first guess at the header's height is the new one (85, 89, then 57 from 1024px)", /\[--community-top:85px\] sm:\[--community-top:89px\] lg:\[--community-top:57px\]/.test(frameCode) && /\[--community-top:45px\] sm:\[--community-top:49px\] lg:\[--community-top:57px\]/.test(code("components/community/public/public-frame.tsx")))
     const chips = code("components/community/member/space-chips.tsx")
     check("chips: All, then every space the member may see, then Saved", /data-space-chip="all"/.test(chips) && /spaces\.map\(\(s\) =>/.test(chips) && /href=\{`\$\{base\}\/space\/\$\{s\.slug\}`\}/.test(chips) && /href=\{`\$\{base\}\/saved`\}/.test(chips))
     check("chips are on the feed, a space and Saved", /<SpaceChips slug=\{community\.slug\} spaces=\{shell\.spaces\} active=\{null\} \/>/.test(code("components/community/member/feed-page.tsx")) && /<SpaceChips slug=\{community\.slug\} spaces=\{shell\.spaces\} active=\{space\.slug\} \/>/.test(code("app/(marketing)/community/[slug]/(member)/space/[space]/page.tsx")) && /savedOn/.test(code("app/(marketing)/community/[slug]/(member)/saved/page.tsx")))

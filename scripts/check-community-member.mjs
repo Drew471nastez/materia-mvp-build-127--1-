@@ -213,6 +213,7 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
           feed: rect("[data-feed]"),
           pills: rect("[data-community-tabs]"),
           bar: rect("[data-community-top-row]"),
+          lead: rect("[data-community-top-lead]"),
           chips: document.querySelectorAll("[data-space-chip]").length,
           firstPinned: cards[0]?.getAttribute("data-pinned") === "true",
           posts: cards.length,
@@ -227,9 +228,10 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
       expect(geo.firstPinned && geo.posts === 5, "pinned first, then the rest", { firstPinned: geo.firstPinned, posts: geo.posts })
       expect(geo.composer === "closed", "the composer arrives closed: one line", geo.composer)
       expect(geo.feed && geo.feed.w <= 720, "the feed is at most 720px wide", geo.feed)
-      /* Round 2: no left column; the community's own bar with one row of tabs under it, at every width. */
+      /* Round 2: no left column. Round 4: one compact bar, the tabs inside it on a computer and a row under its first line on a phone. */
       expect(!geo.rail, "no left column any more", geo.rail)
-      expect(geo.bar && geo.pills && geo.pills.y >= geo.bar.y + geo.bar.h - 1, "the community's bar, then the tabs", { bar: geo.bar, pills: geo.pills })
+      if (phone) expect(geo.lead && geo.pills && geo.pills.y >= geo.lead.y + geo.lead.h - 1, "the community's bar, then the tabs under it", { lead: geo.lead, pills: geo.pills })
+      else expect(geo.bar && geo.lead && geo.pills && geo.pills.y === geo.bar.y && geo.pills.h === geo.bar.h && geo.pills.x >= geo.lead.x + geo.lead.w, "the tabs sit in the community's bar, after its name", { bar: geo.bar, lead: geo.lead, pills: geo.pills })
       expect(geo.chips > 0, "the spaces are chips at the top of the feed", geo.chips)
       if (!phone) {
         expect(geo.online === "5Online", "ONLINE: the side card's figure is the heartbeat count it is handed", geo.online)

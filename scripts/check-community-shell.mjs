@@ -6,10 +6,21 @@
  * 1440x900 and on a 390x844 phone, each photographed:
  *
  *   TOP BAR     the community's bar is the only bar (no Storelib header):
- *               the hamburger first, then logo, name, By <creator> to their
- *               page, Messages with its count, the bell, my picture; no
- *               chevron switcher; a hairline and a soft shadow under it; it
- *               stays at the top while the page scrolls
+ *               logo, name, By <creator> to their page, then the hamburger
+ *               RIGHT of them (round 4), Messages with its count, the bell,
+ *               my picture; no chevron switcher; a hairline and a soft shadow
+ *               under it; it stays at the top while the page scrolls
+ *   SLIMMER     round 4: the header's height measured against what it was
+ *               on the base commit (109px on a computer, 101px on a phone,
+ *               65px and 57px for a visitor): one 56px row with the tabs in
+ *               it from 1024px, 44px + 40px of tabs on a phone, still 40px
+ *               targets. Also at 1024 and 768.
+ *   NO PILLS    round 4: every element of the bar, at rest, hovered and with
+ *               the navigator open, is checked: none may have a corner
+ *               radius of half its height or more AND a visible fill, border
+ *               or shadow, except the pictures of people and communities
+ *               (AppAvatar). Lines under 8px tall (the hamburger's three
+ *               strokes, the tab's underline) are strokes, not shapes.
  *   NAVIGATOR   the hamburger opens the navigator (a menu on a computer, a
  *               sheet on a phone) with my communities, Discover communities
  *               and Explore Storelib
@@ -157,7 +168,7 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
   const smallTargets = (p) =>
     p.evaluate(() => {
       const out = []
-      for (const el of document.querySelectorAll("button, a[data-community-nav], a[data-space-chip], [data-notification-bell], [data-community-me], [data-place-navigator], [data-gallery-thumb], [data-join-bar] a, [data-join-bar] button, [role=radio]")) {
+      for (const el of document.querySelectorAll("button, a[data-community-nav], a[data-space-chip], [data-notification-bell], [data-community-me], [data-place-navigator], [data-community-login], [data-gallery-thumb], [data-join-bar] a, [data-join-bar] button, [role=radio]")) {
         const r = el.getBoundingClientRect()
         if (!r.width || !r.height) continue
         const cs = getComputedStyle(el)
@@ -166,6 +177,70 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
       }
       return out
     })
+  /*
+    THE PILL TEST. A shape is a pill (or a disc) when its smallest corner
+    radius is at least half its height; it only reads as one when something
+    draws it: a fill, a border or a shadow. Menus and panels that drop out
+    of the bar are not the bar.
+  */
+  const pillsInBar = (p) =>
+    p.evaluate(() => {
+      const bar = document.querySelector("[data-community-top]")
+      const alpha = (c) => {
+        if (!c || c === "transparent") return 0
+        const m = c.match(/^rgba?\(([^)]+)\)$/)
+        if (!m) return 1
+        const parts = m[1].split(/[\s,/]+/).filter(Boolean)
+        return parts.length > 3 ? parseFloat(parts[3]) : 1
+      }
+      const shadowShows = (v) => v !== "none" && (v.match(/rgba?\([^)]*\)/g) ?? ["x"]).some((c) => alpha(c) > 0.01)
+      const out = []
+      let seen = 0
+      for (const el of [bar, ...bar.querySelectorAll("*")]) {
+        if (el.closest("[data-app-avatar]")) continue
+        if (el.closest("[data-place-navigator-panel], [data-notification-panel], [role=dialog], [role=menu], [data-action-list]")) continue
+        if (!el.checkVisibility({ opacityProperty: true, visibilityProperty: true })) continue
+        const r = el.getBoundingClientRect()
+        if (r.width < 1 || r.height < 8) continue
+        seen++
+        const cs = getComputedStyle(el)
+        const rad = (v) => (v.endsWith("%") ? (parseFloat(v) / 100) * Math.min(r.width, r.height) : parseFloat(v) || 0)
+        const radius = Math.min(rad(cs.borderTopLeftRadius), rad(cs.borderTopRightRadius), rad(cs.borderBottomLeftRadius), rad(cs.borderBottomRightRadius))
+        if (radius < r.height / 2 - 0.5) continue
+        const fill = alpha(cs.backgroundColor) > 0.01 || cs.backgroundImage !== "none"
+        const border = ["Top", "Right", "Bottom", "Left"].some((k) => parseFloat(cs[`border${k}Width`]) > 0 && alpha(cs[`border${k}Color`]) > 0.01)
+        const shadow = shadowShows(cs.boxShadow)
+        if (fill || border || shadow) {
+          const tag = [...el.attributes].filter((a) => a.name.startsWith("data-") || a.name === "aria-label").map((a) => `${a.name}${a.value ? `=${a.value}` : ""}`).join(" ")
+          out.push({ el: `${el.tagName.toLowerCase()} ${tag}`.trim(), h: Math.round(r.height), radius: Math.round(radius), fill, border, shadow })
+        }
+      }
+      return { pills: out, seen }
+    })
+  /* The bar's own measurements: its height, its first row, where the hamburger is against the name, whether the tabs share the row. */
+  const barGeometry = (p) =>
+    p.evaluate(() => {
+      const top = document.querySelector("[data-community-top]").getBoundingClientRect()
+      const lead = document.querySelector("[data-community-top-lead]").getBoundingClientRect()
+      const trig = document.querySelector("[data-community-top] [data-place-navigator-trigger]").getBoundingClientRect()
+      const name = document.querySelector("[data-community-identity]").getBoundingClientRect()
+      const mark = document.querySelector("[data-community-top-lead] > a").getBoundingClientRect()
+      const tabs = document.querySelector("[data-community-tabs]")?.getBoundingClientRect() ?? null
+      const actions = document.querySelector("[data-community-top-actions]").getBoundingClientRect()
+      return {
+        height: Math.round(top.height),
+        lead: Math.round(lead.height),
+        trigger: { x: Math.round(trig.left), right: Math.round(trig.right), cy: Math.round(trig.top + trig.height / 2), h: Math.round(trig.height) },
+        nameRight: Math.round(name.right),
+        markRight: Math.round(mark.right),
+        leadCy: Math.round(lead.top + lead.height / 2),
+        tabs: tabs && { top: Math.round(tabs.top), bottom: Math.round(tabs.bottom), x: Math.round(tabs.left), right: Math.round(tabs.right) },
+        actionsX: Math.round(actions.left),
+        vw: innerWidth,
+      }
+    })
+  /* What the header measured on the base commit (57924054), before round 4. */
+  const BEFORE = { desktop: 109, phone: 101, visitorDesktop: 65, visitorPhone: 57 }
   const violet = (p) => p.evaluate(() => [...document.querySelectorAll("body *")].filter((e) => /139, 92, 246|124, 58, 237/.test(getComputedStyle(e).backgroundColor)).length)
   const rect = (p, sel) =>
     p.evaluate((s) => {
@@ -188,7 +263,7 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
           platformHeader: !!document.getElementById("platform-header-root"),
           top: Math.round(r.top),
           height: Math.round(r.height),
-          rowHeight: Math.round(document.querySelector("[data-community-top-row]").getBoundingClientRect().height),
+          rowHeight: Math.round(document.querySelector("[data-community-top-lead]").getBoundingClientRect().height),
           name: document.querySelector("[data-community-identity] a")?.textContent,
           by: document.querySelector("[data-community-creator]")?.getAttribute("href"),
           byText: document.querySelector("[data-community-identity] p")?.textContent,
@@ -215,7 +290,7 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
           hairline: getComputedStyle(top).borderBottomWidth + " " + getComputedStyle(top).borderBottomColor,
           rowOrder: (() => {
             const x = (s) => Math.round(document.querySelector(s)?.getBoundingClientRect().left ?? -1)
-            return { nav: x("[data-community-top-row] [data-place-navigator]"), logo: x("[data-community-top-row] > a"), name: x("[data-community-identity]") }
+            return { nav: x("[data-community-top-row] [data-place-navigator]"), logo: x("[data-community-top-lead] > a"), name: x("[data-community-identity]") }
           })(),
           switcher: !!document.querySelector("[data-community-switcher]"),
           chips: [...document.querySelectorAll("[data-space-chip]")].map((a) => a.textContent.trim()),
@@ -230,7 +305,29 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
         }
       })
       expect(!g.platformHeader, "no Storelib header, only the community's bar", g.platformHeader)
-      expect(g.top === 0 && g.rowHeight === (phone ? 56 : 64), "the bar sits at the top, 64px on a computer and 56px on a phone", { top: g.top, row: g.rowHeight })
+      expect(g.top === 0 && g.rowHeight === (phone ? 44 : 56), "the bar sits at the top: one 56px row on a computer, a 44px row over the tabs on a phone", { top: g.top, row: g.rowHeight })
+      const geo = await barGeometry(p)
+      const was = phone ? BEFORE.phone : BEFORE.desktop
+      console.log(`        header height: ${was}px before, ${geo.height}px now (${Math.round((1 - geo.height / was) * 100)}% shorter)`)
+      expect(geo.height === (phone ? 85 : 57) && geo.height <= was * 0.9, `slimmer: ${phone ? "44 + 40 + the hairline" : "one 56px row + the hairline"}, where it was ${was}px`, { before: was, now: geo.height })
+      if (!phone) expect(!!geo.tabs && geo.tabs.top >= 0 && geo.tabs.bottom === geo.height - 1 && geo.tabs.x > geo.trigger.right && geo.tabs.right <= geo.actionsX, "the tabs sit in the bar itself, between the hamburger and the icons", { tabs: geo.tabs, trigger: geo.trigger.right, actions: geo.actionsX })
+      else expect(!!geo.tabs && geo.tabs.top >= geo.lead && geo.tabs.bottom === geo.height - 1 && geo.tabs.bottom - geo.tabs.top === 40 && geo.tabs.x === 0 && geo.tabs.right === geo.vw, "on a phone the tabs are a 40px row under the first one, edge to edge so they scroll from the screen's edge", geo.tabs)
+      expect(geo.trigger.x >= geo.nameRight && geo.nameRight > geo.markRight && Math.abs(geo.trigger.cy - geo.leadCy) <= 1 && geo.trigger.h === 40, "the hamburger sits right of the picture and the name, centred in the row, a 40px target", geo)
+      const pills = await pillsInBar(p)
+      expect(pills.pills.length === 0 && pills.seen > 10, `nothing in the bar is pill shaped at rest (${pills.seen} elements looked at)`, pills.pills)
+      if (!phone) {
+        /* Headless Chromium answers (hover: none), so Tailwind's hover rules (inside @media (hover: hover)) never apply; this page is a computer, so they are let out of that guard for what follows. */
+        const lifted = await p.evaluate(() => { let n = 0; for (const st of document.querySelectorAll("style")) { const t = st.textContent; if (t.includes("@media (hover: hover)")) { st.textContent = t.replaceAll("@media (hover: hover)", "@media all"); n++ } } return n && matchMedia("(hover: hover)").matches === false })
+        expect(lifted, "the hover rules are live for the hover checks (the browser itself reports no hover)", lifted)
+        const hovered = []
+        for (const sel of ["[data-place-navigator-trigger]", "[data-community-messages-button]", "[data-community-top] [data-notification-bell]", "[data-community-me]", "[data-community-tabs] a:not([aria-current])"]) {
+          await p.hover(sel)
+          await sleep(220)
+          hovered.push(...(await pillsInBar(p)).pills.map((x) => ({ ...x, hover: sel })))
+        }
+        await p.mouse.move(700, 600)
+        expect(hovered.length === 0, "nor when any of its controls is hovered (no disc appears behind an icon)", hovered)
+      }
       expect(g.name === "Clay Studio" && g.by === "/mara" && /By Mara Lindqvist/.test(g.byText || ""), "the name, and By <creator> to their page", { name: g.name, by: g.by })
       expect(g.tabs.join() === "Community,Classroom,Calendar,Members,Leaderboards,About" && g.current === "Community", "one row of section tabs, Community marked", g.tabs)
       const t = g.tabLook
@@ -238,7 +335,7 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
       expect(t.color === "rgb(26, 26, 46)" && t.offColor !== t.color, "the chosen tab is ink, the rest muted", { on: t.color, off: t.offColor })
       expect(t.line.h === 2 && t.line.w === t.line.tabW && t.line.opacity === "1" && t.line.bg === "rgb(26, 26, 46)" && t.offLine === "0", "a 2px ink line under the chosen tab only, as wide as its word", t.line)
       expect(t.line.bottom === t.barBottom - 1, "the line sits on the bar's bottom edge (just above its hairline)", { line: t.line.bottom, bar: t.barBottom })
-      expect(!g.switcher && g.rowOrder.nav >= 0 && g.rowOrder.nav < g.rowOrder.logo && g.rowOrder.logo < g.rowOrder.name, "no chevron switcher; the hamburger comes before the picture and the name", g.rowOrder)
+      expect(!g.switcher && g.rowOrder.logo >= 0 && g.rowOrder.logo < g.rowOrder.name && g.rowOrder.name < g.rowOrder.nav, "no chevron switcher; the picture, the name, then the hamburger", g.rowOrder)
       expect(g.shadow !== "none" && /^1px /.test(g.hairline), "the bar has a hairline and a soft shadow under it", { shadow: g.shadow, hairline: g.hairline })
       expect(g.chips.join() === "All,General,Announcements,🏺Critique,Glaze lab,Kiln room,Saved" && g.chipOn === "all", "the spaces as chips, All chosen, Saved at the end", g.chips)
       expect(g.messages === "2" && g.bell === "4" && g.me, "Messages and Storelib's bell with their counts, and my picture", { messages: g.messages, bell: g.bell })
@@ -286,6 +383,10 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
       expect(!!sw && sw.kind === (phone ? "sheet" : "popover"), `the hamburger opens the navigator as a ${phone ? "sheet" : "popover"}`, sw?.kind)
       expect(!!sw && /Your communities/.test(sw.text) && sw.links.join() === "/community/clay-studio,/community/night-runners,/community/film-photo-club,/explore/communities,/explore,/sell" && sw.current === "/community/clay-studio", "my communities (this one marked), Discover communities, Explore, Start creating", sw && { links: sw.links, current: sw.current })
       await shot(p, `${label}-navigator`)
+      if (!phone) {
+        const open = await pillsInBar(p)
+        expect(open.pills.length === 0, "with the navigator open, its button shows no disc either", open.pills)
+      }
       await p.keyboard.press("Escape")
       await sleep(phone ? 650 : 250)
 
@@ -293,7 +394,7 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
       await p.click("[data-community-me]")
       await sleep(phone ? 650 : 250)
       const menu = await p.evaluate(() => [...(document.querySelector("[data-action-sheet]") || document.querySelector("[data-action-list]"))?.querySelectorAll("a") ?? []].map((a) => a.getAttribute("href")))
-      expect(menu.join() === "/@samc,/library,/account/settings,/explore", "my menu: profile, library, settings, explore", menu)
+      expect(menu.join() === "/@samc,/account/library,/account/settings,/explore", "my menu: profile, library (/account/library), settings, explore", menu)
       await shot(p, `${label}-me-menu`)
       await p.keyboard.press("Escape")
       await sleep(phone ? 650 : 250)
@@ -418,6 +519,14 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
         creator: document.querySelector("[data-info=creator] a")?.getAttribute("href"),
       }))
       expect(/^\/login\?next=/.test(v.login || "") && !v.messages && !v.bell, "signed out: Log in, no Messages, no bell", v)
+      const vgeo = await barGeometry(p)
+      const vwas = phone ? BEFORE.visitorPhone : BEFORE.visitorDesktop
+      console.log(`        a visitor's bar: ${vwas}px before, ${vgeo.height}px now`)
+      expect(vgeo.height === (phone ? 45 : 57) && vgeo.height < vwas, "a visitor's bar is slimmer too (one row, no tabs)", { before: vwas, now: vgeo.height })
+      expect(vgeo.trigger.x >= vgeo.nameRight, "the hamburger right of the name for a visitor too", vgeo)
+      const vp2 = await pillsInBar(p)
+      const login = await p.evaluate(() => { const l = document.querySelector("[data-community-login]"); const cs = getComputedStyle(l); return { h: Math.round(l.getBoundingClientRect().height), bg: cs.backgroundColor, border: cs.borderTopWidth } })
+      expect(vp2.pills.length === 0 && login.bg === "rgba(0, 0, 0, 0)" && login.border === "0px" && login.h === 40, "Log in is a word in a 40px target, not an outlined pill; nothing else in the bar is a pill", { pills: vp2.pills, login })
       expect(!v.gallery, "no gallery and no cover: no empty media box", v.gallery)
       expect(v.stats.join() === "members,admins", "Online is left out when it cannot be known", v.stats)
       expect(v.creator === "/@dev", "a creator without a storefront opens at /@handle", v.creator)
@@ -613,6 +722,25 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
       await sleep(700)
       const t = await p.evaluate(() => ({ card: !!document.querySelector("[data-person-card]"), nav: (window.__router || []).filter((x) => x[0] === "link").map((x) => x[1]) }))
       expect(!t.card && !calls.some((c) => c.url.includes("/people/")) && t.nav.join() === "/community/clay-studio/members/u-leo", "on a phone a tap on a name goes to the person, and no card opens", t)
+      expect(errors.length === 0, "no page errors", errors)
+      await p.close()
+    }
+  }
+  /* ── 1024 and 768: where the tabs move into the bar, and the tablet ─── */
+  if (!process.env.ONLY) {
+    for (const [label, vp, want] of [["laptop-1024", { width: 1024, height: 768, deviceScaleFactor: 1 }, 57], ["tablet-768", { width: 768, height: 1024, deviceScaleFactor: 1 }, 89]]) {
+      console.log(`\n${label}`)
+      const { p, errors } = await open("feed", "/community/clay-studio", vp)
+      await shot(p, `${label}-feed`)
+      const geo = await barGeometry(p)
+      expect(geo.height === want, `the header is ${want}px (${want === 57 ? "one row with the tabs in it" : "48 + 40 + the hairline"})`, geo.height)
+      expect(geo.trigger.x >= geo.nameRight, "the hamburger right of the name", geo)
+      const pills = await pillsInBar(p)
+      expect(pills.pills.length === 0, "nothing pill shaped", pills.pills)
+      const s = await sideScroll(p)
+      expect(s.scroll <= s.width, "nothing scrolls sideways", s)
+      const tabs = await p.evaluate(() => [...document.querySelectorAll("[data-community-tabs] a")].map((a) => { const r = a.getBoundingClientRect(); return Math.round(r.right) }))
+      console.log(`        tabs end at ${Math.max(...tabs)}px; the row scrolls inside itself if it must`)
       expect(errors.length === 0, "no page errors", errors)
       await p.close()
     }
