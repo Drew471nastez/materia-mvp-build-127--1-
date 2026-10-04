@@ -8,11 +8,19 @@
  *
  *   BADGE      the unread count from /api/notifications/inbox?summary=1, 99+
  *              past 99, and +1 the moment realtime delivers a row
+ *   FIRST PAINT (round 9) every frame from the document's first: the frame
+ *              that first paints the bell already has its badge (the last
+ *              count this device saw for the person), the server's count
+ *              replaces it when it answers, and a bell drawn again (a new
+ *              header after a move between pages) has its badge on every
+ *              frame; with nothing kept, the bell is still there at once
  *   POPOVER    on a computer: under the bell, its right edge on the bell's,
  *              inside the window, 420px wide; it fades and drops in over
  *              about 200ms (sampled frame by frame at 4x CPU throttle)
- *   SHEET      on a phone: the whole screen, Close in reach, the page behind
- *              does not scroll, every control at least 40px tall
+ *   SHEET      on a phone: the shared bottom sheet, as tall as its rows, the
+ *              rows drawn on its first moving frame (no placeholders), up
+ *              and down frame by frame at 4x CPU throttle, every control at
+ *              least 40px tall
  *   ROWS       photo, the actor in bold, what happened, when, a preview, a
  *              dot while unread; more load at the end of the list
  *   FILTER     All, Communities, Following, Purchases: the menu, and the
@@ -153,14 +161,33 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
           else if (Array.isArray(sent.ids)) unread = Math.max(0, unread - sent.ids.length)
           body = { ok: true, unread }
         }
-        return void setTimeout(() => r.respond({ status: 200, contentType: "application/json", body: JSON.stringify(body) }), opts.slow ?? 60)
+        const late = q.get("summary") === "1" && opts.slowCount ? opts.slowCount : opts.slow ?? 60
+        return void setTimeout(() => r.respond({ status: 200, contentType: "application/json", body: JSON.stringify(body) }), late)
       }
       if (url.startsWith(`${ORIGIN}/`)) return r.respond({ status: 200, contentType: "text/html", body: html })
       if (url.startsWith("data:")) return r.continue()
       return r.respond({ status: 204, body: "" })
     })
+    /* Signed in on this device, as the header's snapshot says (lib/auth/auth-snapshot), and what the bell kept from a visit before. */
+    await p.evaluateOnNewDocument((user, kept) => {
+      try {
+        localStorage.clear()
+        localStorage.setItem("_sl_auth_v1", JSON.stringify({ signedIn: true, userId: user, avatarUrl: null, displayName: "Ava", username: "ava", isSeller: false }))
+        if (kept != null) localStorage.setItem("_sl_bell_v1", JSON.stringify({ u: user, n: kept }))
+      } catch {}
+      /* Every frame from the first: is the bell drawn, and with which badge. */
+      window.__paint = []
+      const t0 = performance.now()
+      const tick = () => {
+        const bell = document.querySelector("[data-notification-bell]")
+        const badge = document.querySelector("[data-bell-badge]")
+        window.__paint.push({ t: Math.round(performance.now() - t0), bell: !!bell, badge: badge ? badge.textContent : null })
+        if (performance.now() - t0 < 2500) requestAnimationFrame(tick)
+      }
+      requestAnimationFrame(tick)
+    }, USER, opts.kept ?? null)
     await p.goto(`${ORIGIN}/explore${opts.dark ? "?tone=dark" : ""}`, { waitUntil: "load" })
-    await sleep(350)
+    await sleep(opts.wait ?? 350)
     return { p, errors, calls }
   }
   const shot = (p, name) => p.screenshot({ path: join(shots, `${name}.png`) })
@@ -282,7 +309,7 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
     expect(posted.some((b) => b.seen === true), "opening the bell records that it was seen", posted)
     expect(posted.some((b) => Array.isArray(b.ids) && b.ids[0] === FIRST[0].id), "READ: the row is marked read", posted)
     expect(nav.some(([k, h]) => k === "link" && h === FIRST[0].url), "and its page opens", nav)
-    expect((await p.$("[data-notification-panel]")) === null, "the list closes behind it")
+    expect((await p.$eval("[data-notification-panel]", (e) => e.getAttribute("data-state") + ":" + getComputedStyle(e).visibility)) === "closed:hidden", "the list closes behind it (kept in the page, hidden and inert)")
     /* Opening the list read the server's count again (12: the realtime row was the stub's, never the server's), so one less is 11. */
     expect((await p.$eval("[data-bell-badge]", (e) => e.textContent)) === "11", "the badge is one less than the server's count", await p.$eval("[data-bell-badge]", (e) => e.textContent))
 
@@ -299,9 +326,75 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
     /* Escape closes and gives the bell its focus back. */
     await p.keyboard.press("Escape")
     await sleep(300)
-    const focus = await p.evaluate(() => ({ open: !!document.querySelector("[data-notification-panel]"), focused: document.activeElement?.hasAttribute("data-notification-bell") }))
+    const focus = await p.evaluate(() => ({ open: document.querySelector("[data-notification-panel]")?.getAttribute("data-state") === "open", focused: document.activeElement?.hasAttribute("data-notification-bell") }))
     expect(!focus.open && focus.focused, "Escape closes it and the bell has the focus again", focus)
+
+    /* Open and close again, frame by frame at 4x CPU throttle: each starts on the first frame or two and only moves one way. */
+    const film = async (act) => {
+      await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 })
+      await p.evaluate((act) => {
+        window.__film = []
+        const el = document.querySelector("[data-notification-panel]")
+        const t0 = performance.now()
+        const tick = () => { const cs = getComputedStyle(el); window.__film.push({ t: Math.round(performance.now() - t0), o: +(+cs.opacity).toFixed(3), vis: cs.visibility }); if (performance.now() - t0 < 600) requestAnimationFrame(tick) }
+        requestAnimationFrame(tick)
+        if (act === "open") document.querySelector("[data-notification-bell]").click()
+        else window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }))
+      }, act)
+      await sleep(800)
+      await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
+      return p.evaluate(() => window.__film)
+    }
+    const inFilm = await film("open")
+    const outFilm = await film("close")
+    const firstMove = (f, target) => f.findIndex((x) => x.o !== f[0].o || x.o === target)
+    const inMono = inFilm.every((f, i) => i === 0 || f.o >= inFilm[i - 1].o - 0.001)
+    const outMono = outFilm.every((f, i) => i === 0 || f.o <= outFilm[i - 1].o + 0.001)
+    const inEnd = inFilm.find((f) => f.o >= 0.999)
+    const outEnd = outFilm.find((f) => f.o <= 0.001)
+    expect(firstMove(inFilm, 1) <= 3 && inMono && inFilm.filter((f) => f.o > 0 && f.o < 1).length >= 3 && !!inEnd && inEnd.t <= 400, "OPEN at 4x: moving within three frames, only rising, over several frames, settled within 400ms", { first: inFilm.slice(0, 4), end: inEnd, frames: inFilm.length })
+    expect(firstMove(outFilm, 0) <= 3 && outMono && outFilm.filter((f) => f.o > 0 && f.o < 1).length >= 2 && !!outEnd && outEnd.t <= 350 && outFilm[outFilm.length - 1].vis === "hidden", "CLOSE at 4x: moving within three frames, only fading, then hidden", { first: outFilm.slice(0, 4), end: outEnd })
     expect(errors.length === 0, "no page error", errors)
+    await p.close()
+  }
+
+  /* ── The badge on the bell's first frame ─────────────────────────────── */
+  console.log("\nfirst paint")
+  {
+    /* A visit before left 7; the server says 12 and answers late. */
+    const { p, errors } = await open({ width: 1440, height: 900, deviceScaleFactor: 1 }, { kept: 7, slowCount: 500, wait: 1200 })
+    const paint = await p.evaluate(() => window.__paint)
+    const first = paint.findIndex((f) => f.bell)
+    const bare = paint.filter((f) => f.bell && !f.badge)
+    expect(first >= 0 && paint[first].badge === "7" && bare.length === 0, "FIRST PAINT: the frame that first paints the bell already has its badge (the count kept for this person), and no frame has the bell without it", { first: paint[first], bare: bare.slice(0, 3) })
+    expect(paint[paint.length - 1].badge === "12", "and the server's count replaces it when it answers", paint[paint.length - 1])
+    /* A new header (a move between pages that draws another): the bell is drawn again, and the badge is on every frame. */
+    await p.evaluate(() => {
+      window.__again = []
+      const t0 = performance.now()
+      const tick = () => {
+        window.__again.push({ t: Math.round(performance.now() - t0), bell: !!document.querySelector("[data-notification-bell]"), badge: document.querySelector("[data-bell-badge]")?.textContent ?? null })
+        if (performance.now() - t0 < 600) requestAnimationFrame(tick)
+      }
+      requestAnimationFrame(tick)
+      window.__bellRemount()
+    })
+    await sleep(800)
+    const again = await p.evaluate(() => window.__again)
+    expect(again.length > 10 && again.every((f) => f.bell && f.badge === "12"), "REMOUNT: a bell drawn again has the bell and its badge on every frame (no late pop)", { frames: again.length, gaps: again.filter((f) => !f.bell || f.badge !== "12").slice(0, 3) })
+    await shot(p, "first-paint")
+    expect(errors.length === 0, "no page error", errors)
+    await p.close()
+  }
+  {
+    /* Nothing kept on this device yet: the bell is there at once, the badge comes with the server's count. */
+    const { p } = await open({ width: 1440, height: 900, deviceScaleFactor: 1 }, { slowCount: 300, wait: 900 })
+    const paint = await p.evaluate(() => window.__paint)
+    const first = paint.findIndex((f) => f.bell)
+    const badgeAt = paint.find((f) => f.badge)
+    expect(first >= 0 && first <= 3 && !!badgeAt, "with nothing kept, the bell is drawn on the first frames and the badge with the server's count", { bellFrame: first, bellAt: paint[first]?.t, badgeAt: badgeAt?.t })
+    const kept = await p.evaluate(() => JSON.parse(localStorage.getItem("_sl_bell_v1") || "null"))
+    expect(kept && kept.n === 12, "and the count is kept for the next page", kept)
     await p.close()
   }
 
@@ -339,25 +432,51 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
     const bell = await rect(p, "[data-notification-bell]")
     expect(!!bell && bell.h >= 40 && bell.w >= 40, "the bell is a 42px target", bell)
     await shot(p, "phone-bell-closed")
-    await p.tap("[data-notification-bell]")
-    await sleep(500)
-    const sheet = await rect(p, "[data-notification-panel=sheet]")
-    expect(!!sheet && sheet.x === 0 && sheet.y === 0 && sheet.w === 390 && sheet.h === 844, "SHEET: the whole screen", sheet)
-    const lock = await p.evaluate(() => document.body.style.overflow)
-    expect(lock === "hidden", "the page behind it does not scroll", lock)
+    /* Up, frame by frame at 4x CPU throttle, from the tap: the rows are already in it. */
+    const cdp = await p.target().createCDPSession()
+    const sheetFilm = async (act) => {
+      await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 })
+      await p.evaluate((act) => {
+        window.__sf = []
+        const panel = () => document.querySelector("[data-notification-panel=sheet]")?.closest("[data-sheet-panel]")
+        const t0 = performance.now()
+        window.__tapAt = null
+        /* When the tap (or the key) landed, by this film's clock; the last film's listener is taken off first. */
+        if (window.__mark) { document.removeEventListener("click", window.__mark, true); window.removeEventListener("keydown", window.__mark, true) }
+        const mark = (window.__mark = () => { if (window.__tapAt === null) window.__tapAt = Math.round(performance.now() - t0) })
+        document.addEventListener("click", mark, true)
+        window.addEventListener("keydown", mark, true)
+        const tick = () => { const el = panel(); const r = el?.getBoundingClientRect(); window.__sf.push({ t: Math.round(performance.now() - t0), top: r ? Math.round(r.top) : null, rows: document.querySelectorAll("[data-notification-panel=sheet] [data-notification-row]").length, skeleton: !!document.querySelector("[data-notification-panel=sheet] [data-bell-loading]") }); if (performance.now() - t0 < 900) requestAnimationFrame(tick) }
+        requestAnimationFrame(tick)
+      }, act)
+      if (act === "open") await p.tap("[data-notification-bell]")
+      else await p.keyboard.press("Escape")
+      await sleep(1100)
+      await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
+      return p.evaluate(() => (window.__sf || []).filter((f) => window.__tapAt === null || f.t >= window.__tapAt))
+    }
+    const up = await sheetFilm("open")
+    const upMoving = up.filter((f) => f.top !== null && f.top < 844 && f.top > up[up.length - 1].top + 1)
+    const upMono = up.every((f, i) => i === 0 || f.top === null || up[i - 1].top === null || f.top <= up[i - 1].top + 1)
+    const firstUp = up.findIndex((f) => f.top !== null && f.top < 843)
+    expect(firstUp >= 0 && firstUp <= 3 && upMono && upMoving.length >= 4, "SHEET at 4x: it starts rising within three frames of the tap and only rises, over several frames", { firstUp, at: up[firstUp], moving: upMoving.length })
+    expect(up.filter((f) => f.top !== null && f.top < 843).every((f) => f.rows > 0 && !f.skeleton), "its rows are in it on every frame it is on screen: no placeholders, nothing drawn in the middle of the slide", up.filter((f) => f.top !== null && f.top < 843 && (!f.rows || f.skeleton)).slice(0, 3))
+    const sheet = await rect(p, "[data-sheet-panel]")
+    expect(!!sheet && sheet.x === 0 && sheet.w === 390 && sheet.bottom >= 832 && sheet.h <= Math.min(844 * 0.78, 640) + 1, "SHEET: the shared bottom sheet, full width at the foot of the screen, no taller than 78% of it", sheet)
+    const lock = await p.evaluate(() => document.documentElement.getAttribute("data-app-sheet-up"))
+    expect(lock === "open", "the page knows a sheet is up (it holds still under the dim)", lock)
     const small = await smallTargets(p, "[data-notification-panel]")
     expect(small.length === 0, "every control at least 40px tall", small)
     expect((await sideScroll(p)).scroll <= 390, "nothing scrolls sideways")
     const head = await p.evaluate(() => {
-      const panel = document.querySelector("[data-notification-panel]")
-      const r = (s) => { const b = panel.querySelector(s)?.getBoundingClientRect(); return b ? { left: b.left, right: b.right, top: b.top, bottom: b.bottom } : null }
-      return { title: r("h2"), mark: r("[data-mark-all-read]"), filter: r("[data-bell-filter]"), close: r("button[aria-label=Close]") }
+      const root = document.querySelector("[data-bell-sheet-header]")
+      const r = (s) => { const b = root.querySelector(s)?.getBoundingClientRect(); return b ? { left: b.left, right: b.right, top: b.top, bottom: b.bottom } : null }
+      return { title: r("h2"), mark: r("[data-mark-all-read]"), filter: r("[data-bell-filter]") }
     })
     const inside = Object.values(head).every((r) => r && r.right <= 390 && r.left >= 0)
-    const rowOne = Math.abs(head.title.top + head.title.bottom - head.close.top - head.close.bottom) < 4 && head.title.right <= head.close.left + 1
-    const rowTwo = head.filter.top >= head.close.bottom - 1 && Math.abs(head.filter.top - head.mark.top) < 2 && head.filter.right <= head.mark.left + 1
-    expect(inside && rowOne && rowTwo, "the title and Close on one row, the filter and Mark all as read under them, nothing cut", head)
-    const title = await p.$eval("[data-notification-panel] h2", (e) => ({ full: e.scrollWidth <= e.clientWidth, text: e.textContent }))
+    const rowTwo = head.filter.top >= head.title.bottom - 1 && Math.abs(head.filter.top - head.mark.top) < 2 && head.filter.right <= head.mark.left + 1
+    expect(inside && rowTwo, "the title on its row, the filter and Mark all as read under it, nothing cut", head)
+    const title = await p.$eval("[data-bell-sheet-header] h2", (e) => ({ full: e.scrollWidth <= e.clientWidth, text: e.textContent }))
     expect(title.full, "the title is whole", title)
     await shot(p, "phone-sheet")
     await p.tap("[data-bell-filter]")
@@ -365,20 +484,23 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
     await shot(p, "phone-filter-menu")
     await (await p.$$("[data-bell-filter-menu] [role=option]"))[3].tap()
     await sleep(350)
-    const rows = await p.$$eval("[data-notification-row]", (r) => r.length)
+    const rows = await p.$$eval("[data-notification-panel=sheet] [data-notification-row]", (r) => r.length)
     expect(rows === FIRST.filter((i) => i.source === "purchases").length, "Purchases on a phone", rows)
     await shot(p, "phone-purchases")
-    await p.tap("button[aria-label=Close]")
-    await sleep(400)
-    const closed = await p.evaluate(() => ({ open: !!document.querySelector("[data-notification-panel]"), lock: document.body.style.overflow }))
-    expect(!closed.open && closed.lock !== "hidden", "Close: gone, and the page scrolls again", closed)
+    const down = await sheetFilm("close")
+    const downMono = down.every((f, i) => i === 0 || f.top === null || down[i - 1].top === null || f.top >= down[i - 1].top - 1)
+    const firstDown = down.findIndex((f) => f.top !== null && f.top > down[0].top + 1)
+    const downMoving = down.filter((f) => f.top !== null && f.top > down[0].top + 1 && f.top < 843)
+    expect(firstDown >= 0 && firstDown <= 3 && downMono && downMoving.length >= 3, "CLOSE at 4x: it starts falling within three frames and only falls, over several frames", { firstDown, moving: downMoving.length, last: down[down.length - 1] })
+    const closed = await p.evaluate(() => ({ up: document.documentElement.getAttribute("data-app-sheet-up") }))
+    expect(!closed.up, "closed: the page is the page again", closed)
     expect(errors.length === 0, "no page error", errors)
     await p.close()
   }
   {
     const { p } = await open({ width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }, { unread: 0, empty: true })
     await p.tap("[data-notification-bell]")
-    await sleep(500)
+    await sleep(700)
     await shot(p, "phone-empty")
     expect((await p.$eval("[data-bell-empty]", (e) => e.textContent)) === "Nothing new", "EMPTY on a phone")
     await p.close()
