@@ -223,7 +223,7 @@ async function main() {
     check("anybody else is /@handle", personHref({ username: "sam", hasStorefront: false }) === "/@sam")
     check("no username, no page", personHref({ username: null, hasStorefront: false }) === "/" && personHref({ username: "  ", hasStorefront: true }) === "/")
     check("inside a community, no handle yet goes through the old address, which only redirects", memberHref("club", { id: "u1", username: null }) === "/community/club/members/u1" && memberHref("club", { id: "u1", username: "sam" }) === "/@sam")
-    for (const f of ["post-card.tsx", "post-page.tsx", "chat.tsx", "leaderboard.tsx", "members.tsx"]) {
+    for (const f of ["post-card.tsx", "comments.tsx", "chat.tsx", "leaderboard.tsx", "members.tsx"]) {
       const src = code(`components/community/member/${f}`)
       check(`${f}: names link through memberHref and say who they are, for the card`, /memberHref\(/.test(src) && /data-person-id=\{/.test(src) && !/href=\{`\$\{base\}\/members\/\$\{author\.id\}`\}|href=\{`\/community\/\$\{slug\}\/members\/\$\{(c\.author|m\.author|r|m)\.(id|userId)\}`\}/.test(src))
     }
@@ -628,9 +628,10 @@ async function main() {
     check("my picture with a chevron from 768px, opening my menu", /<ChevronDown className="hidden h-4 w-4[^"]*md:block"/.test(bar) && /data-community-me=""/.test(bar))
     check("the frame hands the bar the search; the visitor's frame does not", /search=\{\{ communityId: community\.id \}\}/.test(code("components/community/member/shell-frame.tsx")) && !/search=/.test(code("components/community/public/public-frame.tsx")))
     const composer = code("components/community/member/composer.tsx")
-    check("the composer: Photo, Video, Poll, Event for staff only, and More", /data-composer-action="photo"/.test(composer) && /data-composer-action="video"/.test(composer) && /data-composer-action="poll"/.test(composer) && /\{eventHref \? \(\s*<Link href=\{eventHref\}[^>]*data-composer-action="event"/.test(composer) && /data-composer-action="more"/.test(composer))
-    check("Photo and Video open the file picker inside the same press, from pickers that stay mounted", /imageInput\.current\?\.click\(\)/.test(composer) && /videoInput\.current\?\.click\(\)/.test(composer) && (composer.match(/\{pickers\}/g) || []).length === 2)
-    check("More: post in a chosen space, a file for the creator; nothing to offer, no button", /label: `Post in \$\{s\.name\}`/.test(composer) && /label: "Attach a file"/.test(composer) && /\{more\.length \?/.test(composer))
+    /* Round 7 (the owner's ask 12): closed, only "Share something..."; the toolbar lives in the editor. */
+    check("the composer closed is only the field: no Photo, Video, Poll or More row", /data-composer-open=""/.test(composer) && !/data-composer-action=/.test(composer))
+    check("the editor's toolbar: files, link, video, poll, emoji, GIF, then the space, Cancel and Post", ["file", "link", "video", "poll", "emoji"].every((t) => new RegExp(`data-composer-tool="${t}"`).test(composer)) && /<GifButton /.test(composer) && /"Select a space"/.test(composer) && /data-composer-cancel=""/.test(composer) && /data-composer-post=""/.test(composer))
+    check("the file pickers stay mounted in both states", (composer.match(/\{pickers\}/g) || []).length >= 2 && /fileInput\.current\?\.click\(\)/.test(composer) && /videoInput\.current\?\.click\(\)/.test(composer))
     check("the pages hand the composer the event form only through the server's rule", /eventHref: eventHrefFor\(community, viewer\)/.test(code("components/community/member/feed-page.tsx")) && /eventHref: eventHrefFor\(community, viewer\)/.test(code("app/(marketing)/community/[slug]/(member)/space/[space]/page.tsx")))
     const post = code("components/community/member/post-card.tsx")
     check("a post: its space as a chip, Like and Comment, Save as a word at the far end", /data-post-space=""/.test(post) && /\{post\.bookmarked \? "Saved" : "Save"\}/.test(post) && /data-like=""/.test(post) && /data-comment-button=""/.test(post))
