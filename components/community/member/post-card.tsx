@@ -322,7 +322,7 @@ export function PostCard({ post, slug, viewer, update, full = false, readOnly = 
       aria-label={full ? undefined : post.reacted ? `Unlike, ${post.reactionCount} likes` : `Like, ${post.reactionCount} likes`}
       disabled={readOnly || !viewer.can.react}
       data-like=""
-      className={`${BTN_GHOST} -ml-2 gap-2 ${full ? "" : "px-2.5"} ${post.reacted ? "text-[#c4290c] hover:text-[#c4290c]" : ""}`}
+      className={`${BTN_GHOST} -ml-2 gap-2 ${full ? "" : "px-2 sm:px-2.5"} ${post.reacted ? "text-[#c4290c] hover:text-[#c4290c]" : ""}`}
     >
       <Heart className={`h-[18px] w-[18px] transition-[scale] ${post.reacted ? "fill-current" : ""}`} strokeWidth={1.75} aria-hidden />
       <span className="tabular-nums" data-like-count="">
@@ -385,19 +385,20 @@ export function PostCard({ post, slug, viewer, update, full = false, readOnly = 
         )}
         <footer className="mt-2 flex min-h-11 items-center gap-1 sm:mt-2.5">
           {likeButton}
-          <button type="button" data-post-open="" aria-label={`Comments, ${post.commentCount}`} className={`${BTN_GHOST} gap-2 px-2.5`} data-comment-button="">
+          <button type="button" data-post-open="" aria-label={`Comments, ${post.commentCount}`} className={`${BTN_GHOST} gap-2 px-2 sm:px-2.5`} data-comment-button="">
             <MessageCircle className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden />
             <span className="tabular-nums">{post.commentCount}</span>
           </button>
           {post.recentCommenters?.length ? (
             <span className="ml-1 flex shrink-0 -space-x-1.5" data-commenters="">
-              {post.recentCommenters.slice(0, 3).map((c) => (
-                <AppAvatar key={c.id} src={c.avatarUrl} name={c.name} alt="" size={26} markWhileLoading className="ring-2 ring-white" />
+              {/* Three faces; two on a narrow phone, so "New comment 2d ago" keeps its words. */}
+              {post.recentCommenters.slice(0, 3).map((c, i) => (
+                <AppAvatar key={c.id} src={c.avatarUrl} name={c.name} alt="" size={24} markWhileLoading className={`ring-2 ring-white ${i === 2 ? "max-[399px]:hidden" : ""}`} />
               ))}
             </span>
           ) : null}
           {fresh ? (
-            <span className="ml-2 min-w-0 truncate text-[13px] font-medium text-[#1a1a2e]/80" suppressHydrationWarning data-new-comment="">
+            <span className="ml-1.5 min-w-0 truncate text-[12.5px] font-medium text-[#1a1a2e]/80 sm:ml-2 sm:text-[13px]" suppressHydrationWarning data-new-comment="">
               {newCommentLabel(fresh)}
             </span>
           ) : null}

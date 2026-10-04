@@ -18,6 +18,7 @@ import { FeedColumns } from "@/components/community/member/columns"
 import { FeedView } from "@/components/community/member/feed"
 import { SpaceChips } from "@/components/community/member/space-chips"
 import { PostPage } from "@/components/community/member/post-page"
+import { LocaleProvider } from "@/components/locale-provider"
 import { allowedActions } from "@/lib/communities/permissions"
 import type { FeedPostView, ViewerView } from "@/lib/communities/types"
 import type { ShellCommunity, SpaceView, TopBarData } from "@/components/community/member/view-types"
@@ -229,9 +230,14 @@ function Screen() {
 
 try {
   if (!params.get("keep")) window.localStorage.clear()
-  /* Seen: a visit three days ago, the video post opened since its last comment; the rest are new. */
+  /* Seen: a first visit a month ago, and the GIF post opened since its last activity; the rest are new. */
   window.localStorage.setItem(`storelib:community-seen:${CID}:${self.id}`, JSON.stringify({ since: iso(NOW - 30 * DAY), seen: { "p-gif": iso(NOW) } }))
 } catch {
   /* fine */
 }
-createRoot(document.getElementById("app")!).render(<Screen />)
+/* The root layout's LocaleProvider: the community bar's account menu reads its words from it. */
+createRoot(document.getElementById("app")!).render(
+  <LocaleProvider>
+    <Screen />
+  </LocaleProvider>,
+)

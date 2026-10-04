@@ -204,6 +204,8 @@ interface Hydration {
   community: Pick<CommunityRow, "id"> & Partial<Pick<CommunityRow, "gamification_enabled">>
   viewer: Viewer
   spaces: SpaceRow[]
+  /** A list of cards: the html copy of the words stays out (cards and an opened post draw from bodyText), so a page is smaller. */
+  lean?: boolean
 }
 
 /** The most comments read for one page of cards, whatever its size: enough for the faces of every post on it. */
@@ -319,7 +321,7 @@ export async function hydratePosts(db: Db, rows: PostRow[], h: Hydration): Promi
       space: space ? { id: space.id, slug: space.slug, name: space.name } : null,
       kind: r.kind,
       title: r.title,
-      body: r.status === "published" ? r.body : "",
+      body: r.status === "published" && !h.lean ? r.body : "",
       bodyText: r.status === "published" ? r.body_text : "",
       media: r.status === "published" ? (Array.isArray(r.media) ? r.media : []) : [],
       pinned: !!r.pinned,
@@ -442,7 +444,7 @@ export async function listFeed(db: Db, community: CommunityRow, viewer: Viewer, 
     const page = rows.slice(0, limit)
     const last = page[page.length - 1]
     const h = { community, viewer, spaces }
-    const [pinned, posts] = await Promise.all([hydratePosts(db, pinnedRows, h), hydratePosts(db, page, h)])
+    const [pinned, posts] = await Promise.all([hydratePosts(db, pinnedRows, { ...h, lean: true }), hydratePosts(db, page, { ...h, lean: true })])
     return { pinned, posts, nextCursor: rows.length > limit && last ? cursorAfter(order, last) : null }
   } catch (e) {
     console.error(`[communities] feed read: ${reasonOf(e)}`)
@@ -946,7 +948,7 @@ export async function listSaved(db: Db, community: CommunityRow, viewer: Viewer,
     const ordered = page.map((m) => byId.get(m.post_id)).filter((r): r is PostRow => !!r)
     const last = page[page.length - 1]
     return {
-      posts: await hydratePosts(db, ordered, { community, viewer, spaces }),
+      posts: await hydratePosts(db, ordered, { community, viewer, spaces, lean: true }),
       nextCursor: marks.length > FEED_PAGE ? encodeCursor({ c: last.created_at, i: last.post_id }) : null,
     }
   } catch (e) {

@@ -50,7 +50,7 @@ import { GifButton } from "./media-gif"
 import { uploadCommunityFile, uploadKindOf, uploadPicture, uploadVideoPoster } from "./media-upload"
 import { MentionTextarea, type MentionTextareaHandle } from "./mention-input"
 import { toast } from "./toast"
-import { BTN_GHOST, BTN_PRIMARY, CARD, FIELD, ICON_BTN } from "./ui"
+import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, CARD, DEPTH, DEPTH_PRESS, FIELD, ICON_BTN } from "./ui"
 import type { ComposerSpace, LinkPreview } from "./view-types"
 
 export interface ComposerProps {
@@ -572,7 +572,7 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
         trigger={
           <button
             type="button"
-            className={`inline-flex h-10 max-w-[200px] shrink-0 items-center gap-1 rounded-[10px] px-2.5 text-[14px] font-medium outline-none transition-colors hover:bg-[#f1f2f4] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 ${space ? "text-[#1a1a2e]" : "text-[#6b7280]"}`}
+            className={`inline-flex h-10 max-w-[200px] shrink-0 items-center gap-1 rounded-full ${DEPTH} ${DEPTH_PRESS} px-3 text-[14px] font-medium outline-none transition-colors hover:bg-[#f6f7f8] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 sm:h-9 ${space ? "text-[#1a1a2e]" : "text-[#6b7280]"}`}
             data-composer-space={space ? space.id : ""}
           >
             <span className="truncate">{space ? space.name : "Select a space"}</span>
@@ -654,7 +654,7 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
           </button>
           {linkField === "video" ? (
             /* The file picker opens inside this press: a browser only opens one from a press it is still handling. */
-            <button type="button" className={`${BTN_GHOST} gap-1.5 border border-[#e3e4e8] px-3`} onClick={() => videoInput.current?.click()} data-composer-video-upload="">
+            <button type="button" className={`${BTN_SECONDARY} gap-1.5 px-3`} onClick={() => videoInput.current?.click()} data-composer-video-upload="">
               <Upload className="h-4 w-4" aria-hidden />
               <span className="max-sm:sr-only">Upload</span>
             </button>
@@ -721,7 +721,7 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
               <div className="mb-3 flex min-w-0 items-center gap-2">
                 <AppAvatar src={me.avatarUrl} name={me.name} alt="" size={32} markWhileLoading />
                 <span className="shrink-0 text-[14px] text-[#6b7280]">Posting in</span>
-                <span className="-ml-1.5 min-w-0">{spacePicker}</span>
+                <span className="min-w-0">{spacePicker}</span>
               </div>
               {fields}
             </div>

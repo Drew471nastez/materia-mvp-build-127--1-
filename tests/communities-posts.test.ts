@@ -224,7 +224,7 @@ async function main() {
   check("closed it is one field, Share something...", /data-composer="closed"/.test(composer) && /"Share something\.\.\."/.test(composer) && !/data-composer-action=/.test(composer))
   check("a computer edits in place, a phone in a screen of its own", /data-composer="open"/.test(composer) && /data-composer="sheet"/.test(composer))
   check("Post waits for a title, words, a space and every upload", /const ready = !!title\.trim\(\) && !!body\.trim\(\) && !!spaceId && !uploading && !!pollReady/.test(composer) && /disabled=\{busy \|\| !ready\}/.test(composer))
-  check("the space list is only where the member may post", /composerSpaces\(/.test(code("components/community/member/feed-page.tsx")) && /s\.canPost && s\.kind !== "chat"/.test(code("components/community/member/data.ts")))
+  check("the space list is only where the member may post", /composerSpacesOf\(spaces\)/.test(code("components/community/member/feed.tsx")) && /s\.canPost && s\.kind !== "chat"/.test(code("components/community/member/feed.tsx")))
   check("the emoji picker is the app's own", /from "@\/components\/app\/rich-text\/emoji-picker"/.test(composer) && /<EmojiControl /.test(composer))
   check("files go through the community's file route, for every member", /uploadCommunityFile\(\{ communityId, file/.test(composer) && !/DirectUploader/.test(composer))
   check("the leave question, word for word, in Storelib's dialog", /"You haven't finished your post yet\. Leave without posting\?"/.test(read("components/community/member/composer.tsx")) && /Keep writing/.test(composer) && /Leave\s*<\/button>/.test(composer) && /<DialogPrimitive\.Root open=\{!!asking\}/.test(composer) && /z-\[151\]/.test(composer))
