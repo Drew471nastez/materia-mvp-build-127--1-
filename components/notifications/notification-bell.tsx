@@ -575,6 +575,11 @@ function Row({ n, onOpen }: { n: InboxItem; onOpen: (n: InboxItem) => void }) {
  * reply from one community reads apart from a reply in another without a
  * line of its own.
  */
+/* A picture that will not load leaves its grey box, never the browser's broken image mark. */
+const hideBroken = (e: React.SyntheticEvent<HTMLImageElement>) => {
+  e.currentTarget.style.visibility = "hidden"
+}
+
 function Face({ n }: { n: InboxItem }) {
   if (n.actor) {
     return (
@@ -584,7 +589,7 @@ function Face({ n }: { n: InboxItem }) {
           <span title={n.community.name} data-community-mark="" className="absolute -bottom-1 -right-1 flex h-[18px] w-[18px] items-center justify-center overflow-hidden rounded-[6px] bg-[#1a1a2e] text-[9.5px] font-semibold uppercase leading-none text-white ring-2 ring-white">
             {n.image ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={optimizedImageUrl(n.image, 18)} alt="" width={18} height={18} className="h-full w-full object-cover" loading="lazy" decoding="async" />
+              <img src={optimizedImageUrl(n.image, 18)} alt="" width={18} height={18} className="h-full w-full object-cover" loading="lazy" decoding="async" onError={hideBroken} />
             ) : (
               n.community.name.trim().charAt(0)
             )}
@@ -598,7 +603,7 @@ function Face({ n }: { n: InboxItem }) {
       /* A fixed 40px box with the grey under it, so a picture still on its way holds its place. */
       <span className="block h-10 w-10 shrink-0 overflow-hidden rounded-full border border-[#eef0f3] bg-[#eef0f3]">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={optimizedImageUrl(n.image, 40)} alt="" width={40} height={40} className="h-full w-full object-cover" loading="lazy" decoding="async" />
+        <img src={optimizedImageUrl(n.image, 40)} alt="" width={40} height={40} className="h-full w-full object-cover" loading="lazy" decoding="async" onError={hideBroken} />
       </span>
     )
   }

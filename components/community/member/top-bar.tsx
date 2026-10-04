@@ -29,7 +29,7 @@ import { ChatRoundDotsIcon as ChatBold } from "@solar-icons/react/bold/chat-roun
 import { AppAvatar } from "@/components/app/app-avatar"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { NotificationBell } from "@/components/notifications/notification-bell"
-import { PlaceFallbackContext, PlaceNavigator } from "./place-navigator"
+import { PlaceNavigator } from "./place-navigator"
 import { BTN, ICON_BTN } from "./ui"
 import type { TopBarCommunity, TopBarData } from "./view-types"
 
@@ -107,9 +107,7 @@ export function CommunityTopBar({ data, messages = null, messagesOpen = false, o
       className="sticky top-0 z-40 border-b border-[#e6e8ec] bg-white pt-[env(safe-area-inset-top)] shadow-[0_1px_2px_rgba(17,24,39,0.04),0_8px_20px_-14px_rgba(17,24,39,0.16)]"
     >
       <div className="mx-auto flex h-14 w-full max-w-[1080px] items-center gap-2 px-3 sm:h-16 sm:gap-3 sm:px-6 lg:px-8" data-community-top-row="">
-        <PlaceFallbackContext.Provider value={data.communities}>
-          <PlaceNavigator current={{ kind: "community", id: community.id }} className="-ml-1.5 text-[#1a1a2e] sm:-ml-2.5" />
-        </PlaceFallbackContext.Provider>
+        <PlaceNavigator current={{ kind: "community", id: community.id }} className="-ml-1.5 text-[#1a1a2e] sm:-ml-2.5" />
         <Link href={base} aria-label={`${community.name}, home`} className="shrink-0 rounded-[10px] outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15">
           <span className="sm:hidden">
             <CommunityMark community={community} size={34} />
