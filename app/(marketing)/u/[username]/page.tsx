@@ -1537,7 +1537,13 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
            * made none. No tab while communities are switched off.
            */
           const communitiesPanel = creatorCommunitiesPanel(communityCards)
-          if (communitiesPanel) tabs.push({ id: "communities", label: "Communities", panel: communitiesPanel })
+          if (communitiesPanel) {
+            tabs.push({
+              id: "communities",
+              label: "Communities",
+              panel: communitiesPanel,
+            })
+          }
 
           /**
            * THREE TABS: Home, Products, Communities. Reviews and About are
@@ -1749,7 +1755,13 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         }
         /* The communities they made, or "No communities yet" (components/profile/creator-communities-tab.tsx); no Activity tab on a creator page. */
         const communitiesPanel = creatorCommunitiesPanel(communityCards)
-        if (communitiesPanel) tabs.push({ id: "communities", label: "Communities", panel: communitiesPanel })
+        if (communitiesPanel) {
+          tabs.push({
+            id: "communities",
+            label: "Communities",
+            panel: communitiesPanel,
+          })
+        }
         return <StorefrontTabs tabs={tabs} />
       })()}
 

@@ -25,7 +25,7 @@ import { EmptyTabPanel } from "@/components/storefront/storefront-tabs"
 import { StorefrontCommunities } from "@/components/community/public/storefront-communities"
 import type { CommunityCard } from "@/lib/communities/types"
 
-export function creatorCommunitiesPanel(owned: CommunityCard[] | null): ReactNode | null {
-  if (owned === null) return null
-  return owned.length ? <StorefrontCommunities cards={owned} /> : <EmptyTabPanel icon="communities" title="No communities yet" detail="This creator hasn't opened any yet." />
+export function creatorCommunitiesPanel(cards: CommunityCard[] | null): ReactNode | null {
+  if (cards === null) return null
+  return cards.length ? <StorefrontCommunities cards={cards} /> : <EmptyTabPanel icon="communities" title="No communities yet" detail="This creator hasn't opened any yet." />
 }

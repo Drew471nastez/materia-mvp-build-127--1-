@@ -335,12 +335,12 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       await p.evaluate(() => document.querySelector("[role=tablist]")?.scrollIntoView())
       await p.screenshot({ path: join(shots, `${label}-${which}-communities.png`) })
       const panel = await p.evaluate(() => ({
-        cards: document.querySelectorAll("[data-storefront-communities] > li").length,
-        names: [...document.querySelectorAll("[data-storefront-communities] > li")].map((li) => (li.textContent || "").slice(0, 40)),
+        cards: document.querySelectorAll("[data-storefront-communities] [data-community-card]").length,
+        names: [...document.querySelectorAll("[data-storefront-communities] [data-community-card]")].map((c) => c.getAttribute("data-community-card")),
         empty: [...document.querySelectorAll("[data-panel-spacing]")].map((e) => e.innerText.replace(/\s+/g, " ").trim()).find((t) => /No communities yet/.test(t)) ?? null,
         side: document.documentElement.scrollWidth - innerWidth,
       }))
-      if (which === "creator") expect(panel.cards === 1 && /Clay Studio/.test(panel.names[0] || "") && !panel.empty, "Communities lists only the one they made, not the one they joined", panel)
+      if (which === "creator") expect(panel.cards === 1 && panel.names[0] === "clay-studio" && !panel.empty, "Communities lists only the one they made, not the one they joined", panel)
       else expect(panel.cards === 0 && panel.empty === "No communities yet This creator hasn't opened any yet.", "none made: the No communities yet panel", panel)
       expect(panel.side <= 0, "nothing sideways", panel.side)
       await p.close()

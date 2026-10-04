@@ -86,7 +86,8 @@ async function main() {
       return /\bCommunityCard\b/.test(src) && /\b(card|c)\.(memberCount|priceLine|coverUrl|viewCount|launchedAt)\b/.test(src)
     })
     check("no other component draws a community card by hand", ownCards.length === 0, ownCards)
-    check("the storefront and the builder's canvas both go through the tab panel", /<StorefrontCommunities cards=\{cards\} \/>/.test(code("app/(marketing)/u/[username]/page.tsx")) && /<StorefrontCommunities cards=\{communities\} phone=\{isMobile\} \/>/.test(code("components/store-builder/preview-canvas.tsx")))
+    /* The creator page's Communities panel is built by components/profile/creator-communities-tab.tsx (round 5: only the communities they made, or No communities yet). */
+    check("the storefront and the builder's canvas both go through the tab panel", /<StorefrontCommunities cards=\{cards\} \/>/.test(code("components/profile/creator-communities-tab.tsx")) && /creatorCommunitiesPanel\(communityCards\)/.test(code("app/(marketing)/u/[username]/page.tsx")) && /<StorefrontCommunities cards=\{communities\} phone=\{isMobile\} \/>/.test(code("components/store-builder/preview-canvas.tsx")))
     check("/explore/communities, which drew the old card, only redirects now", /NextResponse\.redirect\(new URL\(target, request\.url\), 308\)/.test(code("app/(marketing)/explore/communities/route.ts")) && /legacyCommunitiesTarget\(/.test(code("app/(marketing)/explore/communities/route.ts")) && !/<\w+Grid|<\w+Card/.test(code("app/(marketing)/explore/communities/route.ts")))
     const card = code(SHARED)
     check("one card, two shapes: the grid and the compact row, with the same title, stats and creator line", /layout === "row"/.test(card) && (card.match(/<Stats card=\{card\}/g) ?? []).length === 2 && (card.match(/<Creator card=\{card\} \/>/g) ?? []).length === 2 && (card.match(/COMMUNITY_TITLE\)/g) ?? []).length === 2)

@@ -23,7 +23,7 @@
  *                   without one copies it and says "Link copied". On a
  *                   computer the bar keeps its heart, bell and photo.
  *   LIBRARY         /account/library: a page of its own, no profile header,
- *                   its own "Library" title over the six sub pills (Products
+ *                   its own "Library" title over the five sub pills (Products
  *                   lit); the phone's bar is the usual one there; a sub pill
  *                   lights on the press, before the page answers
  *   SETTINGS        the header steps aside: one face on the screen
@@ -286,7 +286,7 @@ try {
       expect(m.sideways <= 0 && errors.length === 0, "nothing sideways, no errors", { sideways: m.sideways, errors })
       expect(!m.hero && !m.cover && m.owner.length === 0, "no profile header and no owner pills above it", { hero: m.hero, owner: m.owner })
       expect(m.title?.text === "Library" && m.title.tag === "H1" && m.title.size === (phone ? "24px" : "28px"), "its own title, Library", m.title)
-      expect(m.sub.map((x) => x[0]).join() === "Products,Courses,Memberships,Wishlist,Reviews,Receipts" && m.sub[0][1] === "true", "the six sub pills under it, Products lit", m.sub)
+      expect(m.sub.map((x) => x[0]).join() === "Products,Courses,Wishlist,Reviews,Receipts" && m.sub[0][1] === "true", "the five sub pills under it, Products lit (memberships are communities now)", m.sub)
       expect(!!m.title && m.subTop > m.title.bottom && !!m.header && m.title.top - m.header.bottom >= 12, "  title first, the pills under it, with room under the site header", { header: m.header?.bottom, title: m.title, sub: m.subTop })
       if (phone) {
         expect(m.small.length === 0, "every pill and control is at least 40px", m.small)

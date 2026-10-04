@@ -2485,6 +2485,54 @@ export function PlatformHeaderClient({
       </MobileBottomSheet>
 
       {/*
+        THE PROFILE BAR'S SHEET (PROFILE BAR above): Share profile, Settings,
+        Language, Help, and Log out last under a rule, in the account sheet's
+        own rows. Only on the pages that draw the bar, on a phone.
+      */}
+      {profileBar ? (
+        <MobileBottomSheet isOpen={profileBarOpen} onClose={() => setProfileBarOpen(false)}>
+          <div className="px-4 pb-6">
+            <div className="space-y-0.5" data-profile-bar-sheet="">
+              <SheetRow onDone={onShareProfile} item="share-profile" icon={Share2} label="Share profile" />
+              <SheetRow {...headerLink("/account/settings?section=account")} onDone={() => setProfileBarOpen(false)} item="settings" icon={Settings} label="Settings" />
+              <SheetRow onDone={() => { setProfileBarOpen(false); setLanguageOpen(true) }} item="language" icon={Globe} label={t("settings.language")} />
+              <SheetRow {...headerLink("/help")} onDone={() => setProfileBarOpen(false)} item="help" icon={LifeBuoy} label="Help" />
+            </div>
+            {user ? (
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => { setProfileBarOpen(false); void handleLogout() }}
+                  data-account-item="log-out"
+                  className="flex items-center justify-between w-full px-4 py-3.5 rounded-xl text-base font-medium text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                >
+                  <div className="flex items-center gap-3">
+                    <LogOut className="h-5 w-5" />
+                    <span>Log out</span>
+                  </div>
+                </button>
+              </div>
+            ) : null}
+          </div>
+        </MobileBottomSheet>
+      ) : null}
+      {/* What Share profile did when it was not the phone's own sheet: a short line over the tab bar, gone by itself. Portalled to the body, so it is placed against the window and not the header. */}
+      {profileBar && shareNote && typeof document !== "undefined" ? createPortal(
+        <div
+          role="status"
+          data-profile-share-note={shareNote}
+          className="md:hidden fixed inset-x-0 z-[60] flex justify-center px-4 pointer-events-none transition-[opacity,translate] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] starting:opacity-0 starting:translate-y-1 motion-reduce:transition-none"
+          style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 84px)" }}
+        >
+          <span className="inline-flex items-center gap-2 rounded-full bg-[#1a1a2e] px-4 py-2.5 text-[14px] font-medium text-white shadow-[0_8px_24px_-8px_rgba(15,23,42,0.45)]">
+            {shareNote === "copied" ? <Check className="h-4 w-4" aria-hidden /> : null}
+            {shareNote === "copied" ? "Link copied" : "Could not copy the link"}
+          </span>
+        </div>,
+        document.body,
+      ) : null}
+
+      {/*
         The account sheet, the one a signed in visitor opens from their photo.
         It is a menu with nothing typed into it and nothing that changes
         between opens, so it is built while the page is idle and kept, as the
@@ -2541,54 +2589,6 @@ export function PlatformHeaderClient({
           </div>
         </div>
       </MobileBottomSheet>
-
-      {/*
-        THE PROFILE BAR'S SHEET (PROFILE BAR above): Share profile, Settings,
-        Language, Help, and Log out last under a rule, in the account sheet's
-        own rows. Only on the pages that draw the bar, on a phone.
-      */}
-      {profileBar ? (
-        <MobileBottomSheet isOpen={profileBarOpen} onClose={() => setProfileBarOpen(false)}>
-          <div className="px-4 pb-6">
-            <div className="space-y-0.5" data-profile-bar-sheet="">
-              <SheetRow onDone={onShareProfile} item="share-profile" icon={Share2} label="Share profile" />
-              <SheetRow {...headerLink("/account/settings?section=account")} onDone={() => setProfileBarOpen(false)} item="settings" icon={Settings} label="Settings" />
-              <SheetRow onDone={() => { setProfileBarOpen(false); setLanguageOpen(true) }} item="language" icon={Globe} label={t("settings.language")} />
-              <SheetRow {...headerLink("/help")} onDone={() => setProfileBarOpen(false)} item="help" icon={LifeBuoy} label="Help" />
-            </div>
-            {user ? (
-              <div className="mt-4 pt-4 border-t border-gray-200">
-                <button
-                  type="button"
-                  onClick={() => { setProfileBarOpen(false); void handleLogout() }}
-                  data-account-item="log-out"
-                  className="flex items-center justify-between w-full px-4 py-3.5 rounded-xl text-base font-medium text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
-                >
-                  <div className="flex items-center gap-3">
-                    <LogOut className="h-5 w-5" />
-                    <span>Log out</span>
-                  </div>
-                </button>
-              </div>
-            ) : null}
-          </div>
-        </MobileBottomSheet>
-      ) : null}
-      {/* What Share profile did when it was not the phone's own sheet: a short line over the tab bar, gone by itself. Portalled to the body, so it is placed against the window and not the header. */}
-      {profileBar && shareNote && typeof document !== "undefined" ? createPortal(
-        <div
-          role="status"
-          data-profile-share-note={shareNote}
-          className="md:hidden fixed inset-x-0 z-[60] flex justify-center px-4 pointer-events-none transition-[opacity,translate] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] starting:opacity-0 starting:translate-y-1 motion-reduce:transition-none"
-          style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 84px)" }}
-        >
-          <span className="inline-flex items-center gap-2 rounded-full bg-[#1a1a2e] px-4 py-2.5 text-[14px] font-medium text-white shadow-[0_8px_24px_-8px_rgba(15,23,42,0.45)]">
-            {shareNote === "copied" ? <Check className="h-4 w-4" aria-hidden /> : null}
-            {shareNote === "copied" ? "Link copied" : "Could not copy the link"}
-          </span>
-        </div>,
-        document.body,
-      ) : null}
 
       {/* Rendered outside both menus on purpose: each closes itself on the
           click that opens this, so it cannot be a child of either. */}
