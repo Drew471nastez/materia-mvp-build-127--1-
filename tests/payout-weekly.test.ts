@@ -62,8 +62,15 @@ check("begin keeps the full business profile, so Stripe never asks what the busi
 console.log("\nStorelib's own form asks only what Stripe lists")
 const ro = needsOf({ currently_due: ["individual.dob.day", "individual.address.line1", "individual.id_number", "tos_acceptance.date", "external_account", "business_profile.url", "individual.email"], eventually_due: ["individual.verification.document"] })
 /* The owner, October 2026: "i want only with kyc national id or passport or whatever verification live camera thing". */
-check("like Gumroad, the form asks only date of birth, address, agreement, bank", JSON.stringify(ro.fields) === JSON.stringify(["dob", "address"]) && ro.tos && ro.bank, ro)
-check("  and the national ID number it will not draw goes to Stripe's own form", JSON.stringify(ro.handover) === JSON.stringify(["idNumber"]), ro)
+check("like Gumroad, the form asks date of birth, address, agreement, bank", ro.fields.includes("dob") && ro.fields.includes("address") && ro.tos && ro.bank, ro)
+/*
+  Where Stripe insists on the number and offers no other way, Storelib draws
+  it rather than handing the step to Stripe. The handover existed for one
+  round and the owner threw it out, October 2026: Stripe's embedded form
+  never loaded in the phone app, it hung and then took the creator out to
+  js.stripe.com in a browser. So there is nowhere else for a field to go.
+*/
+check("  nothing is ever handed to a Stripe form: Storelib draws what Stripe insists on", ro.handover.length === 0 && ro.fields.includes("idNumber"), ro)
 check("  the ID photo Stripe will want later is not asked yet", !ro.fields.includes("document") && needsOf({ eventually_due: ["individual.verification.document"] }, "all").fields.includes("document"))
 const later = needsOf({ currently_due: ["individual.verification.document"], errors: [{ code: "verification_document_not_readable", requirement: "individual.verification.document" }] })
 check("when Stripe asks for it later, it is asked with Stripe's reason in plain words", later.fields[0] === "document" && /clearer photo/.test(later.problems[0] ?? ""), later)
@@ -71,7 +78,7 @@ const reg = needsOf({ currently_due: ["individual.registered_address.line1", "in
 check("a registered address is the same address, and nationality is asked when listed", reg.registeredAddress && reg.fields.includes("address") && reg.fields.includes("nationality"))
 check("  never the business profile or the email, which are Storelib's", ro.other.length === 0 && !ro.fields.some((f) => String(f).startsWith("business")))
 const us = needsOf({ currently_due: ["individual.ssn_last_4", "individual.phone", "individual.address.state", "individual.address.city"] })
-check("a US account: phone and an address with a state, the SSN handed to Stripe's form", JSON.stringify(us.fields) === JSON.stringify(["address", "state", "phone"]) && JSON.stringify(us.handover) === JSON.stringify(["ssnLast4"]), us)
+check("a US account: phone, an address with a state, and the last four of the SSN, all on this form", JSON.stringify(us.fields) === JSON.stringify(["address", "state", "phone", "ssnLast4"]) && us.handover.length === 0, us)
 const waiting = needsOf({ currently_due: [], pending_verification: ["individual.verification.document"] })
 check("something Stripe is checking is not asked again", waiting.fields.length === 0 && waiting.checking)
 check("an unknown requirement is not hidden", needsOf({ currently_due: ["individual.full_name_aliases"] }).other[0] === "individual.full_name_aliases")
@@ -101,13 +108,13 @@ check("with the photo given, no CNP is needed", !detailIssues({ dob }, alt.field
 check("the number is not demanded before the ID step has had its turn", !detailIssues({ dob }, alt.fields, { tos: false, either: alt.either, given: new Set() }).idNumber)
 check("  and a number typed without the photo is still checked", !!detailIssues({ dob, idNumber: "12" }, alt.fields, { tos: false, either: alt.either, given: new Set() }).idNumber)
 check("a CNP typed with the photo is still checked", !!detailIssues({ dob, idNumber: "12" }, alt.fields, { tos: false, either: alt.either, given: new Set(["document"]) }).idNumber)
-/* No alternative from Stripe: the number is still needed, and still not drawn here. Stripe's own form collects it. */
-check("no alternative from Stripe: the number is handed over, not quietly asked for here", (() => {
+/* No alternative from Stripe: the number is needed, so this form asks for it. Asking nowhere would be a dead end. */
+check("no alternative from Stripe: the number is asked for here, by us", (() => {
   const n = needsOf({ currently_due: ["individual.id_number"] })
-  return n.fields.length === 0 && JSON.stringify(n.handover) === JSON.stringify(["idNumber"])
+  return n.fields.includes("idNumber") && n.handover.length === 0
 })())
-/* Where Stripe DOES take the document instead, the ID check answers it, so it stays on this form as the opt-in. */
-check("  where the ID settles it, it stays here as the other way, never a handover", (() => {
+/* Where Stripe DOES take the document instead, the ID check answers it, so the number is only the other way. */
+check("  where the ID settles it, the photo is offered as the other way", (() => {
   const n = needsOf({ currently_due: ["individual.id_number"], alternatives: [{ original_fields_due: ["individual.id_number"], alternative_fields_due: ["individual.verification.document"] }] })
   return n.handover.length === 0 && n.fields.includes("idNumber") && n.fields.includes("document")
 })())

@@ -44,7 +44,6 @@ import { setupStepOf, type StorelibPaymentsStatus } from "@/lib/payments/stripe/
 import type { Overview } from "@/components/app/settings/payments-hub-shared"
 import { isNativeApp, openInApp } from "@/lib/native-bridge"
 import { IdCamera, armCameraSounds, type IdSide } from "@/components/app/settings/id-camera"
-import { StripeConnectEmbedded } from "@/components/app/settings/stripe-connect-embedded"
 import { openIdentity } from "@/lib/payments/identity-client"
 import { playAskSound } from "@/lib/website-builder/ask-sounds"
 import { cn } from "@/lib/utils"
@@ -558,7 +557,7 @@ export function PaymentsSetupFlow({
     const stepFor = (form: DetailsForm | null): Step | null => {
       if (!form) return null
       const needs = form.needs
-      const detailsLeft = needs.fields.some((f) => f !== "document") || needs.tos || needs.bank || (needs.handover?.length ?? 0) > 0
+      const detailsLeft = needs.fields.some((f) => f !== "document") || needs.tos || needs.bank
       if (detailsLeft) return 1
       if (needs.fields.includes("document")) return 2
       return null
@@ -590,9 +589,8 @@ export function PaymentsSetupFlow({
   const title = mode === "bank" ? (data.payoutDestination ? "Payout account" : "Add bank account") : mode === "details" ? "Account details" : "Set up payouts"
   const onBack = mode === "setup" && step > 0 && !ending ? () => go((step - 1) as Step) : onClose
   const slide = back ? "slide-in-from-left-4" : "slide-in-from-right-4"
-  /* A business is Account, then Stripe's embedded form for its details; an individual has the ID step only when Stripe asks. */
-  const business = data.kind === "business"
-  const labels = !business && idNeeded ? STEP_LABELS : STEP_LABELS_NO_ID
+  /* The ID step is only a step once Stripe has asked for a document. */
+  const labels = idNeeded ? STEP_LABELS : STEP_LABELS_NO_ID
   const last = labels.length - 1
   const shownStep = ending === "done" || ending === "checking" ? last : labels === STEP_LABELS ? step : Math.min(step, 1)
 
@@ -618,8 +616,6 @@ export function PaymentsSetupFlow({
   } else if (mode === "bank") {
     const failed = data.paymentsStatus?.status === "PAYOUT_FAILED"
     body = <BankForm key={`bank-${openCount}`} failed={failed} onBack={onClose} backLabel="Cancel" onDone={(sent) => void settle(sent, null)} onData={onData} />
-  } else if (mode === "details" && data.kind === "business") {
-    body = <BusinessDetailsStep key={`business-more-${openCount}`} onBack={onClose} onDone={(sent) => void settle(sent, null)} />
   } else if (mode === "details") {
     body = <DetailsStep key={`details-${openCount}`} withBank onBack={onClose} onNext={(left, sent) => void settle(sent ?? data, left)} onData={onData} />
   } else if (step === 0) {
@@ -633,8 +629,6 @@ export function PaymentsSetupFlow({
         }}
       />
     )
-  } else if (business) {
-    body = <BusinessDetailsStep key={`business-${openCount}`} onBack={() => go(0)} onDone={(sent) => void settle(sent, null)} />
   } else if (step === 1) {
     body = (
       <DetailsStep
@@ -896,6 +890,8 @@ function coveredByEither(form: DetailsForm): DetailField[] {
  */
 interface DetailsDraft {
   dob: { day: string; month: string; year: string }
+  ssnLast4: string
+  pep: boolean
   address: { line1: string; line2: string; city: string; postalCode: string; state: string }
   phone: string
   nationality: string
@@ -909,6 +905,8 @@ interface DetailsDraft {
 
 const EMPTY_DRAFT: DetailsDraft = {
   dob: { day: "", month: "", year: "" },
+  ssnLast4: "",
+  pep: false,
   address: { line1: "", line2: "", city: "", postalCode: "", state: "" },
   phone: "",
   nationality: "",
@@ -1057,6 +1055,8 @@ function DetailsStep({
   const [phone, setPhone] = useDraft("phone")
   const [nationality, setNationality] = useDraft("nationality")
   const [idNumber, setIdNumber] = useDraft("idNumber")
+  const [ssnLast4, setSsnLast4] = useDraft("ssnLast4")
+  const [pep, setPep] = useDraft("pep")
   const [agree, setAgree] = useDraft("agree")
   const [uploaded, setUploaded] = React.useState<Record<string, boolean>>({})
   const [uploading, setUploading] = React.useState<string | null>(null)
@@ -1064,6 +1064,7 @@ function DetailsStep({
   const [error, setError] = React.useState<string | null>(null)
   const [tried, setTried] = React.useState(false)
   const [camera, setCamera] = React.useState<{ side: IdSide } | null>(null)
+  const proofPicker = React.useRef<HTMLInputElement>(null)
   /* Stripe asked for the ID again after this page was sent. */
   const [idAgain, setIdAgain] = React.useState(false)
   /* The bank, on this page during setup. */
@@ -1179,21 +1180,11 @@ function DetailsStep({
   }, [form])
   const docGivenAtOpen = givenAtOpen.current ?? docGiven
   const sectionFields = form ? form.needs.fields.filter(inSection) : []
-  /*
-   * STRIPE WANTS SOMETHING THIS FORM DOES NOT ASK FOR. Verification here is
-   * the live ID check and nothing else: no national ID number typed off a
-   * card, no photograph of a utility bill. Where Stripe insists anyway and
-   * no document settles it (own-form-rules handover), this step becomes
-   * Stripe's own form, drawn inside this page, which collects everything
-   * due in that country in one go. Storelib's short form stays short, and
-   * nobody is stuck because Storelib would not ask.
-   */
-  const handover = only === "id" ? [] : form?.needs.handover ?? []
   const bankHere = withBank && !!form && form.needs.bank
   const idAsked = !!form && form.needs.fields.includes("document") && !docGivenAtOpen
 
   /* Nothing left to ask here: straight on. */
-  const empty = !form || handover.length > 0
+  const empty = !form
     ? false
     : only === "id"
       ? !idAsked
@@ -1210,16 +1201,6 @@ function DetailsStep({
   }, [form, empty])
 
   if (!form) return <FormWaiting error={loadError} onRetry={load} />
-  if (handover.length > 0) {
-    return (
-      <BusinessDetailsStep
-        onBack={onBack}
-        onDone={(sent) => onNext(form, sent)}
-        title="A few more details"
-        line="Stripe needs a little more to verify you in your country. It stays on this page."
-      />
-    )
-  }
   /* Nothing to ask: this step is on its way out, so it waits quietly rather than drawing fields it will never show. */
   if (empty) {
     return (
@@ -1233,7 +1214,7 @@ function DetailsStep({
   const issue = (key: string, bad: boolean, text: string) => (tried && bad ? text : undefined)
   const dobBad = !dob.day || !dob.month || !/^\d{4}$/.test(dob.year)
 
-  const upload = async (which: "document", side: "front" | "back", file: File) => {
+  const upload = async (which: "document" | "proofOfAddress", side: "front" | "back", file: File) => {
     const key = `${which}-${side}`
     setUploading(key)
     setError(null)
@@ -1279,6 +1260,7 @@ function DetailsStep({
    * the document is not asked for at all (the step after it settles that),
    * so demanding it there stopped Continue on a page with no way to answer.
    */
+  const missingProof = has("proofOfAddress") && !uploaded["proofOfAddress-front"]
   const missingDoc = typeIdInstead || !has("document") ? false : (docDue && !front) || (idEither && !front && !idNumber.trim())
   const openCamera = (side: IdSide) => {
     armCameraSounds()
@@ -1329,17 +1311,18 @@ function DetailsStep({
       onNext(form, null)
       return
     }
-    if ((has("dob") && dobBad) || (has("address") && (!address.line1.trim() || !address.city.trim() || !address.postalCode.trim())) || (has("state") && !address.state.trim()) || (has("phone") && phone.replace(/\D/g, "").length < 7) || (has("nationality") && !countryOf(nationality)) || idBad || (form.needs.tos && !agree) || bankBad) {
+    if ((has("dob") && dobBad) || (has("address") && (!address.line1.trim() || !address.city.trim() || !address.postalCode.trim())) || (has("state") && !address.state.trim()) || (has("phone") && phone.replace(/\D/g, "").length < 7) || (has("nationality") && !countryOf(nationality)) || idBad || (has("ssnLast4") && !/^\d{4}$/.test(ssnLast4)) || (form.needs.tos && !agree) || bankBad) {
       setError("Check the fields marked in red.")
       return
     }
     if (idState === "waiting") return setError("Finish the check with Stripe first, or add a photo of your ID instead.")
+    if (missingProof) return setError("Add a document that shows your address.")
     if (missingDoc) return setError(idEither ? (only === "details" ? `Enter your ${form.idNumber.label.split(" (")[0]}.` : `Take a photo of your ID, or enter your ${form.idNumber.label.split(" (")[0]} instead.`) : "Add a photo of the front of your ID.")
     setBusy(true)
     setError(null)
     try {
       /* Only the details Stripe asked for: a page that is only the bank sends only the bank. */
-      const sendDetails = sectionFields.some((f) => f !== "document") || form.needs.tos
+      const sendDetails = sectionFields.some((f) => f !== "document" && f !== "proofOfAddress") || form.needs.tos
       let latest = form
       if (!sendDetails && bankHere) {
         const paid = await post<{ form: DetailsForm; overview: Overview }>("bank", bankBody())
@@ -1352,6 +1335,8 @@ function DetailsStep({
         phone: has("phone") ? phone : undefined,
         nationality: has("nationality") ? countryOf(nationality) ?? undefined : undefined,
         idNumber: has("idNumber") && idNumber.trim() ? idNumber : undefined,
+        ssnLast4: has("ssnLast4") ? ssnLast4 : undefined,
+        politicalExposure: has("politicalExposure") ? (pep ? "existing" : "none") : undefined,
         acceptTos: form.needs.tos ? agree : undefined,
       })
       onData(res.overview)
@@ -1364,7 +1349,9 @@ function DetailsStep({
        * it and the same empty page came back, for good.
        */
       const settled = new Set(coveredByEither(res.form))
-      const left = res.form.needs.fields.filter((f) => !settled.has(f) && (f !== "document" || !front) && inSection(f))
+      const left = res.form.needs.fields.filter(
+        (f) => !settled.has(f) && (f !== "document" || !front) && (f !== "proofOfAddress" || !uploaded["proofOfAddress-front"]) && inSection(f),
+      )
       if (left.length || res.form.needs.tos) {
         setTried(false)
         if (left.includes("document")) setIdAgain(true)
@@ -1716,6 +1703,61 @@ function DetailsStep({
           </button>
         ) : null}
 
+        {has("ssnLast4") ? (
+          <Field label="Last 4 digits of your SSN" hint="Stripe asks for these four digits to confirm who you are." error={issue("ssnLast4", !/^\d{4}$/.test(ssnLast4), "Enter the last four digits of your SSN.")}>
+            <input className={FIELD} inputMode="numeric" maxLength={4} autoComplete="off" value={ssnLast4} onChange={(e) => setSsnLast4(e.target.value.replace(/\D/g, ""))} />
+          </Field>
+        ) : null}
+
+        {has("proofOfAddress") ? (
+          <div className="space-y-2">
+            <span className="block text-[13px] font-medium text-[#1a1a2e]">Proof of your address</span>
+            <span className="block text-[12px] leading-[18px] text-[#6b7280]">
+              Stripe asks for this only when it cannot confirm your address from your ID, and never to set payments up. A bill, bank statement or rental agreement from the last three months showing your name and this address.
+            </span>
+            <button
+              type="button"
+              onClick={() => proofPicker.current?.click()}
+              disabled={!!uploading}
+              data-proof-add=""
+              className={cn(
+                "flex w-full cursor-pointer items-center gap-3.5 rounded-2xl border px-4 py-4 text-left outline-none transition-[border-color,background-color,transform] duration-150 active:scale-[0.99] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15",
+                uploaded["proofOfAddress-front"] ? "border-[#abefc6] bg-[#f6fef9]" : tried && missingProof ? "border-[#f3b8ab] bg-[#fff8f6]" : "border-[#e3e5e8] bg-white hover:border-[#c9ccd3] hover:bg-[#fafafb]",
+              )}
+            >
+              <span className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-xl", uploaded["proofOfAddress-front"] ? "bg-[#dcfae6] text-[#067647]" : "bg-[#1a1a2e] text-white")}>
+                {uploading === "proofOfAddress-front" ? <Spinner dark={!!uploaded["proofOfAddress-front"]} /> : uploaded["proofOfAddress-front"] ? <Check className="h-5 w-5" strokeWidth={3} /> : <Camera className="h-5 w-5" />}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[15px] font-semibold text-[#1a1a2e]">
+                  {uploading === "proofOfAddress-front" ? "Sending to Stripe" : uploaded["proofOfAddress-front"] ? "Added" : "Add your document"}
+                </span>
+                <span className="mt-0.5 block text-[12.5px] leading-[17px] text-[#6b7280]">
+                  {uploaded["proofOfAddress-front"] ? "Tap to replace it." : "A photo or a PDF. It goes straight to Stripe."}
+                </span>
+              </span>
+            </button>
+            <input
+              ref={proofPicker}
+              type="file"
+              accept="image/jpeg,image/png,image/heic,application/pdf"
+              hidden
+              onChange={(e) => {
+                const f = e.target.files?.[0]
+                e.target.value = ""
+                if (f) void upload("proofOfAddress", "front", f)
+              }}
+            />
+          </div>
+        ) : null}
+
+        {has("politicalExposure") ? (
+          <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[#eceef1] px-3.5 py-3">
+            <input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0 accent-[#1a1a2e]" checked={pep} onChange={(e) => setPep(e.target.checked)} />
+            <span className="text-[13px] leading-[19px] text-[#4b5563]">I hold, or have held in the last year, a prominent public role. Leave it unticked if not.</span>
+          </label>
+        ) : null}
+
         {bankHere ? (
           <div className="space-y-4 border-t border-[#f1f2f4] pt-5" data-details-bank="">
             <div>
@@ -1771,48 +1813,6 @@ function DetailsStep({
         </button>
       </Footer>
     </form>
-  )
-}
-
-/* ── a business: Stripe's own embedded form, inside Storelib ──────────── */
-
-/**
- * A BUSINESS IS ASKED FOR WHAT STRIPE NEEDS TODAY, IN STRIPE'S EMBEDDED FORM.
- * A company has things an individual never does (its registration number,
- * the people who own and run it, a representative), and they differ by
- * country. Storelib's own form is written for an individual; rather than ask
- * a business to email support, its details are collected by Stripe's embedded
- * onboarding drawn inside this page (an Account Session made on the server for
- * the signed in seller only), set to what is due now and nothing Stripe may
- * want later (StripeConnectEmbedded's default: currently_due, future omitted).
- * The bank is collected in the same form. No Stripe login, no new tab.
- */
-function BusinessDetailsStep({ onBack, onDone, title = "Business details", line = "Only what's needed to verify your business today." }: { onBack: () => void; onDone: (sent: Overview) => void; title?: string; line?: string }) {
-  const [busy, setBusy] = React.useState(false)
-  const finish = async () => {
-    if (busy) return
-    setBusy(true)
-    try {
-      onDone(await post<Overview>("refresh", {}))
-    } finally {
-      /* The parent may keep this step on screen, so the button has to stop spinning either way. */
-      setBusy(false)
-    }
-  }
-  return (
-    <div className="flex min-h-full flex-1 flex-col">
-      <div className="flex-1 px-5 sm:px-7">
-        <StepIntro title={title} line={line} />
-        <StripeConnectEmbedded purpose="stripe_onboarding" onExit={finish} className="min-h-[320px]" />
-      </div>
-      <Footer>
-        <button type="button" className={SECONDARY} onClick={onBack}>Back</button>
-        <button type="button" className={PRIMARY} onClick={() => void finish()} disabled={busy}>
-          {busy ? <Spinner /> : null}
-          {busy ? "Checking" : "Done"}
-        </button>
-      </Footer>
-    </div>
   )
 }
 

@@ -68,6 +68,12 @@ check("payout currency is not hardcoded", !/\b(EUR|RON|USD|GBP)\b/.test(steps))
 
 const ui = readFileSync("components/app/settings/storelib-payments-settings.tsx", "utf8")
 const flow = readFileSync("components/app/settings/payments-setup-flow.tsx", "utf8")
+/*
+  Setup does not render this any more (see below), and nothing else does
+  either. It is kept, with its rules, because Stripe can still force an
+  embedded form on the web one day, and a half-remembered one would be worse
+  than this. Nothing in the phone app may reach it.
+*/
 const embedded = readFileSync("components/app/settings/stripe-connect-embedded.tsx", "utf8")
 const connect = readFileSync("lib/payments/stripe/connect.ts", "utf8")
 const route = readFileSync("app/api/payments/[action]/route.ts", "utf8")
@@ -76,8 +82,16 @@ check("the card holds no bank or identity fields", !/iban|routing|accountNumber|
 /* The owner, October 2026: "like Gumroad, our own component, don't embed Stripe's setup". Storelib's own form, asking only what Stripe lists for the account. */
 const own = readFileSync("lib/payments/stripe/own-form.ts", "utf8")
 const rules = readFileSync("lib/payments/stripe/own-form-rules.ts", "utf8")
-/* An individual's setup is Storelib's own form. A business is asked in Stripe's embedded form (inside the page, an Account Session made on the server): its fields differ by country and an individual's form has none of them. */
-check("an individual's setup is Storelib's own form, no Stripe screen inside it", /function DetailsStep/.test(flow) && /function BankForm/.test(flow) && (flow.match(/<StripeConnectEmbedded/g) ?? []).length === 1 && /function BusinessDetailsStep[\s\S]*?<StripeConnectEmbedded purpose="stripe_onboarding"/.test(flow))
+/*
+  Setup is Storelib's own form from end to end, for an individual and for a
+  business alike. There was a step that handed the rarer fields to Stripe's
+  embedded form; the owner, October 2026: "it never loads inside the app
+  capacitor ios android, it loads infinitely and takes me outside of the app
+  to js.stripe to browser ... i don't want stripe connect branding things, i
+  want storelib's own, very simple, clean, not so many steps". So it is gone,
+  and the fields it took are drawn here.
+*/
+check("setup is Storelib's own form, with no Stripe screen inside it at all", /function DetailsStep/.test(flow) && /function BankForm/.test(flow) && !/StripeConnectEmbedded|BusinessDetailsStep/.test(flow))
 check("the server keeps none of it: no table write and no value in a log", !/createAdminClient|\.from\("|\.insert\(|\.upsert\(/.test(own) && /replace\(\/\\d\{2,\}\/g, "#"\)/.test(own) && !/console\.(log|error)\([^)]*(iban|idNumber|id_number|account_number|dob)\b/i.test(own))
 check("the account is always the signed-in creator's own, never one from the browser", /readCreatorStripe\(creator\.id\)/.test(own) && !/body\.(account|stripeAccount|accountId)/.test(route))
 /* The owner, October 2026: identity verification is part of setup, required to continue, not left for later. */
@@ -149,7 +163,7 @@ check("the keyboard fix hooks stay", /data-setup-footer=""/.test(flow) && /data-
 }
 check(
   "nothing in an individual's setup needs a Stripe frame, and nothing opens a browser",
-  !/OpenInBrowser|openExternal\(/.test(flow) && /business \? STEP_LABELS_NO_ID|const business = data\.kind === "business"/.test(flow),
+  !/OpenInBrowser|openExternal\(/.test(flow) && !/<iframe|loadConnectAndInitialize/.test(flow) && /const labels = idNeeded \? STEP_LABELS : STEP_LABELS_NO_ID/.test(flow),
 )
 {
   /* The app gets its own, much narrower frame-src: Stripe's embedded forms

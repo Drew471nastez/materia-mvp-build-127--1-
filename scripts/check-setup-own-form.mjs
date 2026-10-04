@@ -56,7 +56,7 @@ const css = await appCss(root)
 const inter = interFaces(root).replace(/url\(file:\/\//g, "url(http://probe.test/__file")
 const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${inter}</style><style>${css}</style><style>body{margin:0;font-family:Inter,system-ui,sans-serif}</style></head><body><div id="app"></div><script>${js.replace(/<\/script/gi, "<\\/script")}</script></body></html>`
 
-/* What own-form-rules hands the page: a national ID number it will not draw has already gone to `handover`. */
+/* What own-form-rules hands the page. `handover` is always empty now: Storelib's own form draws everything. */
 const needsNow = { fields: ["dob", "address"], tos: true, bank: true, name: false, other: [], checking: false, registeredAddress: false, problems: [], either: [], offered: [], given: [], handover: [] }
 const form = (needs) => ({
   needs,
@@ -289,16 +289,17 @@ try {
   }
   {
     /*
-      Stripe wants a thing this form does not draw (a number off a card, a
-      proof of address). It is not quietly added back: Stripe's own form
-      takes the step, inside the page.
+      Stripe asks for one of the rarer things (the last four of an SSN, a
+      proof of address). Storelib draws it too. There is no second form and
+      no handover: Stripe's own embedded form never loaded in the phone app,
+      it hung and then took the creator out to js.stripe.com in a browser.
     */
-    console.log("\nStripe asks for something the form will not draw (390px)")
+    console.log("\nStripe asks for one of the rarer details (390px)")
     const p = await browser.newPage()
     const errors = []
     p.on("pageerror", (e) => errors.push(e.message))
     await p.setRequestInterception(true)
-    const handed = { ...needsNow, fields: ["dob", "address"], handover: ["ssnLast4"] }
+    const handed = { ...needsNow, fields: ["dob", "address", "ssnLast4", "proofOfAddress"] }
     p.on("request", (r) => {
       const u = r.url()
       const json = (body) => r.respond({ status: 200, contentType: "application/json", body: JSON.stringify(body) })
@@ -316,19 +317,22 @@ try {
     await p.setViewport({ width: 390, height: 844, deviceScaleFactor: 1, isMobile: true, hasTouch: true })
     await p.goto("http://probe.test/app/payouts")
     await new Promise((r) => setTimeout(r, 1200))
-    const handedOver = await p.evaluate(() => {
+    const drawn = await p.evaluate(() => {
       const t = document.querySelector("[data-payments-setup-panel]")?.textContent ?? ""
       return {
-        stripeForm: /A few more details/.test(t),
-        noOwnFields: !document.querySelector('[autocomplete="bday-day"]'),
-        noSsnField: !/Last 4 digits/.test(t),
+        ownFields: !!document.querySelector('[autocomplete="bday-day"]'),
+        ssnField: /Last 4 digits/.test(t),
+        proofField: /Add your document/.test(t),
+        noStripeForm: !/A few more details/.test(t),
+        noStripeFrame: !document.querySelector("iframe"),
         stillInStorelib: !!document.querySelector("[data-payments-setup-panel]"),
       }
     })
-    expect(handedOver.stripeForm, "Stripe's own form takes the step", handedOver)
-    expect(handedOver.noOwnFields && handedOver.noSsnField, "and this form draws none of it itself", handedOver)
-    expect(handedOver.stillInStorelib, "still inside the Storelib page, with no browser sent anywhere", handedOver)
-    await p.screenshot({ path: join(out, "handover-390.png") })
+    expect(drawn.ssnField && drawn.proofField, "Storelib's own form draws them, beside the rest", drawn)
+    expect(drawn.ownFields, "and the ordinary fields are still on the same step", drawn)
+    expect(drawn.noStripeForm && drawn.noStripeFrame, "nothing is handed to a Stripe form, and no Stripe frame is loaded", drawn)
+    expect(drawn.stillInStorelib, "still inside the Storelib page, with no browser sent anywhere", drawn)
+    await p.screenshot({ path: join(out, "rarer-details-390.png") })
     expect(errors.length === 0, "nothing threw", errors.slice(0, 1))
     await p.close()
   }
