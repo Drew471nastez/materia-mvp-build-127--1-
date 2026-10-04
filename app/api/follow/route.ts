@@ -18,11 +18,18 @@
  * unfollowing in a loop would otherwise be a way to send somebody a stream
  * of "followed you" notices. The notice itself is written once per pair
  * (lib/profile/notify-follow.ts), and only on a follow.
+ *
+ * IT ANSWERS FIRST. The button changes on the press and only syncs here in
+ * the background, but a slow answer still held the next press's request
+ * back by that long (one request at a time). The follower's handle and the
+ * "followed you" notice took up to a dozen more round trips to the database
+ * before the answer went, so they run after it now (after()), where they
+ * cannot slow the person down and still cannot undo the follow.
  */
 import { createClient } from "@/lib/supabase/server"
 import { rateLimit } from "@/lib/api/rate-limit"
 import { afterFollow } from "@/lib/profile/follow-effects"
-import { type NextRequest, NextResponse } from "next/server"
+import { after, type NextRequest, NextResponse } from "next/server"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -95,8 +102,14 @@ export async function POST(request: NextRequest) {
       console.error("[follow] insert failed", error.code, error.message)
       return NextResponse.json({ error: "Could not follow" }, { status: 500 })
     }
-    /* The follower's handle and the "followed you" notice; neither can undo the follow. */
-    await afterFollow(user.id, target)
+    /* The follower's handle and the "followed you" notice, once the answer has gone; neither can undo the follow. */
+    const followerId = user.id
+    try {
+      after(() => afterFollow(followerId, target))
+    } catch {
+      /* Outside a request (a script, a test) there is no after(): now, then. */
+      await afterFollow(followerId, target)
+    }
   } else {
     const { error } = await supabase
       .from("follows")
