@@ -391,6 +391,19 @@ try {
     const pt = await centre(p)
     await p.evaluate(RAPID)
     await frames(p, 3)
+    /*
+      THE PAGE'S FIRST TAP is also the first update React makes on this test
+      page at all (on Storelib the page has hydrated and updated long before
+      anyone taps), so its code is cold: a late frame or two is allowed there,
+      never over 50ms, and it is measured on its own. Two taps, back where it began: nothing sent.
+    */
+    await tapAt(cdp, pt, 40, 160)
+    await tapAt(cdp, pt, 40, 600)
+    const cold = await p.evaluate(() => ({ taps: window.__rapid.taps.splice(0), samples: window.__rapid.samples.splice(0), sent: window.__followLog.length }))
+    const coldEach = readTaps(cold)
+    const coldLf = longest(cold.samples, cold.taps[0].t - 20, cold.taps[cold.taps.length - 1].t + 220)
+    console.log(`  info  first two taps on a cold page: ${coldEach.map((e) => `${e.shown} after ${e.ms}ms`).join(", ")}; longest frame ${coldLf.max}ms`)
+    expect(coldEach.length === 2 && coldEach.every((e) => e.after === e.want && e.shown === e.want && e.moving) && coldLf.over20 <= 2 && coldLf.max <= 51 && cold.sent === 0, "the first taps on a cold page show on the next frame too (its first frame may be late, never by more than two), and a double tap sends nothing", { coldEach, coldLf, sent: cold.sent })
     if (process.env.FOLLOW_PROFILE) { await cdp.send("Profiler.enable"); await cdp.send("Profiler.setSamplingInterval", { interval: 100 }); await cdp.send("Profiler.start") }
     const t0 = Date.now()
     for (let i = 0; i < 5; i++) {
@@ -419,8 +432,8 @@ try {
     expect(each.length === 5 && tapsMs <= 1100, "five taps landed inside about a second", { taps: each.length, tapsMs })
     expect(each.every((e) => e.after === e.want && e.shown === e.want && e.moving), "every tap flips the button in its own event and shows on the next frame, the new label already on its way in", each)
     expect(each.every((e, i) => e.want === (i % 2 === 0 ? "following" : "follow")), "the taps alternate Following, Follow, Following, Follow, Following", each.map((e) => e.want))
-    /* This machine runs other probes and builds at the same time (its load is printed): two late frames are let through, none longer than three. */
-    expect(lf.over20 <= 2 && lf.max <= 51, `no frame over 20ms while they land (at most two late ones, for a busy machine: load ${loadavg()[0].toFixed(1)} on ${cpus().length} cores)`, lf)
+    /* This machine runs other probes and builds at the same time (its load is printed): one late frame is let through, never two in a row. */
+    expect(lf.over20 <= 1 && lf.max <= 34, `no frame over 20ms while they land (at most one late one, for a busy machine: load ${loadavg()[0].toFixed(1)} on ${cpus().length} cores)`, lf)
     const tapping = r.longTasks.filter((t) => t.at >= r.taps[0].t - 60 && t.at <= r.taps[r.taps.length - 1].t + 250)
     expect(tapping.every((t) => t.ms <= 50), "no long task (over 50ms) on the main thread while they land", tapping)
     expect(r.samples.every((s) => !s.disabled && s.pe !== "none"), "the button is never disabled and never stops taking taps", null)

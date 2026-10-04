@@ -248,24 +248,15 @@ export const schemeQuiet = cn(
  * first frame is its starting value, so without that the frame right after
  * the press would show nothing yet; with it, that frame is already a third
  * of the way across.
- *
- * LAYERS READY BEFORE THE CLICK. Each fading part gets a compositor layer of
- * its own while it moves. Made on the click, that cost a dropped frame (50ms
- * at a quarter CPU speed) right on the first switch, the one the eye is on.
- * So the button is marked `data-moving` from pointerdown, a finger's 50 to
- * 100ms before its click, until the crossfade is over (MOVING_MS after the
- * last press), and only then do the parts ask for their layers
- * (will-change). At rest they have none.
  */
-const MOVING_MS = 400
-const SWAP = "transition-[opacity,scale] duration-[180ms] [transition-delay:-24ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none group-data-[moving]/follow:will-change-[opacity]"
+const SWAP = "transition-[opacity,scale] duration-[180ms] [transition-delay:-24ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none"
 
 /**
  * A label that is not the state goes invisible once it has faded, so the
  * button's text (and a find in page) is only the state. Visibility steps:
  * shown at the start of a fade in, hidden at the end of a fade out.
  */
-const LABEL = "relative col-start-1 row-start-1 inline-flex items-center gap-1.5 whitespace-nowrap transition-[opacity,scale,visibility] duration-[180ms] [transition-delay:-24ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none group-data-[moving]/follow:will-change-[opacity,scale]"
+const LABEL = "relative col-start-1 row-start-1 inline-flex items-center gap-1.5 whitespace-nowrap transition-[opacity,scale,visibility] duration-[180ms] [transition-delay:-24ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none"
 
 /**
  * NOTHING TO WORK OUT ON A PRESS. cn() runs tailwind-merge, which parses
@@ -347,33 +338,17 @@ export function FollowButton({
   const release = (e: React.PointerEvent<HTMLButtonElement>) => {
     delete e.currentTarget.dataset.pressed
   }
-  /* See LAYERS READY BEFORE THE CLICK: on the element, no React render. */
-  const settle = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const moving = (el: HTMLButtonElement) => {
-    el.dataset.moving = ""
-    if (settle.current) clearTimeout(settle.current)
-    settle.current = setTimeout(() => delete el.dataset.moving, MOVING_MS)
-  }
-  useEffect(() => () => {
-    if (settle.current) clearTimeout(settle.current)
-  }, [])
   return (
     <button
       type="button"
       onPointerDown={(e) => {
         /* On this frame, without waiting for React: see IT ANSWERS THE FINGER. */
-        if (e.button === 0) {
-          e.currentTarget.dataset.pressed = ""
-          moving(e.currentTarget)
-        }
+        if (e.button === 0) e.currentTarget.dataset.pressed = ""
       }}
       onPointerUp={release}
       onPointerCancel={release}
       onPointerLeave={release}
-      onClick={(e) => {
-        moving(e.currentTarget)
-        onClick()
-      }}
+      onClick={onClick}
       aria-pressed={following}
       aria-label={name ? `${following ? "Following" : "Follow"} ${name}` : undefined}
       aria-busy={busy || undefined}
