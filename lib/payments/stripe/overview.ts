@@ -19,7 +19,7 @@ import {
 } from "./connect"
 import { countryCode } from "@/lib/checkout/countries"
 import { badgeFromUxState, BADGE_COPY } from "./creator-badge"
-import { beatOfStatus, getStorelibPaymentsStatus, STATUS_PILL, statusFactsOf } from "./status"
+import { beatOfStatus, getStorelibPaymentsStatus, idOutstanding, STATUS_PILL, statusFactsOf } from "./status"
 import {
   paymentUxStateOf,
   snapshotFromCreatorRow,
@@ -95,7 +95,7 @@ export async function stripeOverview(creator: CreatorRef, options?: { sync?: boo
   /* The ID check is still ahead in setup: Stripe lists the document (now or eventually) and none is on file or being looked at. */
   const req = live?.requirements
   const listed = [...(req?.currently_due ?? snapshot.currentlyDue), ...(req?.eventually_due ?? row?.stripe_eventually_due ?? [])]
-  const idAhead = !!row?.stripe_account_id && listed.includes("individual.verification.document") && !(req?.pending_verification ?? snapshot.pendingVerification).includes("individual.verification.document")
+  const idAhead = !!row?.stripe_account_id && (live ? idOutstanding(live) : listed.includes("individual.verification.document") && !snapshot.pendingVerification.includes("individual.verification.document"))
 
   const stage = stripeStageOf(snapshot)
   const uxState = paymentUxStateOf(snapshot)

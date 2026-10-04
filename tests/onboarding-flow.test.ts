@@ -108,8 +108,11 @@ check("Your details is headed, and no lock-and-promise line under it", flow.incl
   setup bounce: details, "checking", back to the form for the ID. So the
   document is the one thing taken from eventually_due, asked last, once.
 */
-check("the ID check is the last step of setup however Stripe lists the document", /eventually\.includes\("individual\.verification\.document"\)/.test(own) && /needs\.fields = \[\.\.\.needs\.fields, "document"\]/.test(own))
-check("  and nothing else is ever asked from eventually_due", !/eventually\.(some|filter|map)\(/.test(own) && /scope === "all" \? \(req\?\.eventually_due \?\? \[\]\) : \[\]/.test(rules))
+/* The owner, October 2026: "the steps forever should be simple: personal info, KYC with ID only, with camera, bank details". Verify ID is step two for every seller until Stripe holds an ID, whatever Stripe lists. */
+check("Verify ID is always step two until Stripe holds an ID", /if \(!needs\.fields\.includes\("document"\) && idOutstanding\(account\)\) needs\.fields = \[\.\.\.needs\.fields, "document"\]/.test(own))
+check("  and nothing from eventually_due is ever asked", !/eventually_due/.test(own.replace(/\/\*[\s\S]*?\*\//g, "").split("export async function detailsForm")[0] ?? "") && /scope === "all" \? \(req\?\.eventually_due \?\? \[\]\) : \[\]/.test(rules))
+check("no 'How are you selling', no Business option, no 'contact support' line in setup", !/How are you selling/.test(flow) && !/data-account-kind/.test(flow) && !/Stripe also needs something this form does not cover/.test(flow))
+check("'Checking your ID' only after an ID really went in this setup", /idSent\.current \? "id" : "details"/.test(flow) && /left\?\.needs\.given\?\.includes\("document"\) && step === 2\) idSent\.current = true/.test(flow))
 check("  and Stripe's identity check may start as soon as the document is listed", /eventually_due/.test(readFileSync("lib/payments/stripe/identity.ts", "utf8").split("function documentDue")[1]?.split("\n}\n")[0] ?? ""))
 check("the stepper shows Verify ID from the start when it is ahead, and the end screen says what it is checking", /useState\(!!data\.idAhead\)/.test(flow) && /what === "id" \? "Checking your ID" : "Checking your details"/.test(flow))
 check("  and a Stripe ask that arrives on the checking screen goes to the step, not to a 'not finished' wall", /if \(mode === "setup" && now === "more"\) \{\s*\n\s*setEnding\(null\)\s*\n\s*go\(1\)/.test(flow))
@@ -143,7 +146,7 @@ check("the phone app never leaves for the ID check", /if \(isNativeApp\(\)\) ret
 check("  and does not even make a Stripe session it could not open", /if \(isNativeApp\(\)\) \{\s*\n\s*setIdWay\("camera"\)/.test(flow))
 check("  verifying is never shown while Stripe is still asking for something", /const stepFor = \(form: DetailsForm \| null\): Step \| null/.test(flow) && /if \(target !== null && target !== step\)/.test(flow))
 /* The owner, October 2026: finish it properly. Every way out of settle has to land somewhere. */
-check("  what is still owed decides the step, so no Continue leads nowhere", /if \(detailsLeft\) return 1/.test(flow) && /if \(needs\.fields\.includes\("document"\) && !needs\.given\?\.includes\("document"\)\) return 2/.test(flow) && /if \(needs\.bank\) return 3/.test(flow))
+check("  what is still owed decides the step, so no Continue leads nowhere", /if \(detailsLeft\) return 1/.test(flow) && /if \(idLeft\) return 2/.test(flow) && /if \(needs\.bank\) return 3/.test(flow))
 check("  and a step is never sent to itself, which was an endless remount", /target !== step/.test(flow) && /outcome === "bank" && step !== 3/.test(flow))
 check("a failed load has a way on", embedded.includes("Couldn't load verification") && embedded.includes("Try again in a moment.") && embedded.includes(">\n          Try again"))
 check("one loader, then Stripe's form fades in", /setOnLoaderStart/.test(embedded) && (embedded.match(/<WaitingArea/g) ?? []).length === 1)

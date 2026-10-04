@@ -106,7 +106,7 @@ const ownForm = readFileSync("lib/payments/stripe/own-form.ts", "utf8")
 const identity = readFileSync("lib/payments/stripe/identity.ts", "utf8")
 const rules = readFileSync("lib/payments/stripe/own-form-rules.ts", "utf8")
 /* The owner, October 2026: details sent, "checking", then straight back to the form for the ID was a bounce. The ID check is asked once, at the end, whatever list Stripe keeps it on. */
-check("the form reads one thing from eventually_due: the document, as the ID step", /eventually\.includes\("individual\.verification\.document"\)/.test(ownForm) && !/eventually\.(some|filter|map)\(/.test(ownForm))
+check("the form asks nothing from eventually_due; Verify ID is a fixed step until Stripe holds an ID", /idOutstanding\(account\)/.test(ownForm) && !/eventually_due/.test(ownForm.replace(/\/\*[\s\S]*?\*\//g, "").split("export async function detailsForm")[0] ?? ""))
 check("  needsOf's \"now\" is past_due and currently_due only", /scope === "all" \? \(req\?\.eventually_due \?\? \[\]\) : \[\]/.test(rules))
 check("Stripe's ID check may start as soon as Stripe lists the document, so the last step of setup is never refused", /eventually_due/.test(identity.split("function documentDue")[1]?.split("\n}")[0] ?? ""))
 

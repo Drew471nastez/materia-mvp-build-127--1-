@@ -188,24 +188,17 @@ export function needsOf(
     either.push({ original, alternative })
   }
   /*
-   * ONLY THE ID ITSELF. The owner, October 2026: "it should not ask for a
-   * rental bill, bank statement, whatever, just ID or passport, back and
-   * forth, like Skool, that's all, nothing more", and no CNP. So a proof of
-   * address and a typed national ID number are never fields on this form.
-   * Where Stripe takes the ID photo for the number (its alternatives, which
-   * is how Romania and most of Europe work) the ID step answers it. Where
-   * Stripe insists on either with no other way, it is listed under `other`,
-   * which Payouts shows as a support case rather than a field.
+   * THE ID ANSWERS FOR THE NUMBER. The owner, October 2026: "just ID or
+   * passport, back and forth, like Skool", and no CNP. Where Stripe takes
+   * the ID photo for the national ID number (its alternatives: Romania and
+   * most of Europe), the number is never a field: the Verify ID step answers
+   * it. Only where a country's rules leave Stripe no other way (a US
+   * Social Security number, a Brazilian CPF) is the number asked, under the
+   * name that country gives it. That is the form being dynamic by country,
+   * not a CNP coming back.
    */
   const coveredByDoc = new Set(either.filter((e) => e.alternative.includes("document")).flatMap((e) => e.original))
-  if (fields.has("idNumber")) {
-    fields.delete("idNumber")
-    if (!coveredByDoc.has("idNumber")) other.push("individual.id_number")
-  }
-  if (fields.has("proofOfAddress")) {
-    fields.delete("proofOfAddress")
-    other.push("individual.verification.additional_document")
-  }
+  if (coveredByDoc.has("idNumber")) fields.delete("idNumber")
   const problems = [...new Set((req?.errors ?? []).filter((e) => !e.requirement || due.has(e.requirement)).map((e) => problemWords(e.code)))]
   const ours = (f: DetailField) => fields.has(f)
   return {
