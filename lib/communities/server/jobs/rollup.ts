@@ -10,9 +10,14 @@ import "server-only"
  * finished, and the next run carries on from there. A community counted
  * twice (a retry) writes the same row again, never a second one. Deleted
  * communities are skipped.
+ *
+ * The first run of the day also deletes view day rows older than three days
+ * (part 87, ../views.ts): they only exist to tell a repeat view from a new
+ * one, and the all time count lives on the community.
  */
 import type { JobRow } from "../../types"
 import { rollupDay } from "../analytics"
+import { purgeOldViewDays } from "../views"
 import { reasonOf, type Db } from "../db"
 import type { JobContext, JobOutcome } from "./index"
 
@@ -24,6 +29,7 @@ export async function rollup(db: Db, job: JobRow, ctx: JobContext): Promise<JobO
   const day = typeof job.payload?.day === "string" && DAY.test(job.payload.day) ? job.payload.day : null
   if (!day) throw new Error("rollup needs payload.day")
   let after = typeof job.payload?.after === "string" && UUID.test(job.payload.after) ? job.payload.after : null
+  if (!after) await purgeOldViewDays(db)
   while (Date.now() < ctx.deadline - 8_000) {
     let q = db.from("communities").select("id").is("deleted_at", null)
     if (after) q = q.gt("id", after)

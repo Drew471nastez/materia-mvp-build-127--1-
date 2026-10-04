@@ -4,6 +4,7 @@ import { connection } from "next/server"
 import { currentUserForRequest } from "@/lib/auth/request-scope"
 import { communitiesEnabled } from "@/lib/communities/flag"
 import { communityBySlug, communityIndexable, loadSalesPage, seoFacts } from "@/lib/communities/server/public"
+import { scheduleCommunityView } from "@/lib/communities/server/record-view"
 import { jsonLdScript } from "@/lib/seo/json-ld"
 import { CommunityFeedPage } from "@/components/community/member/feed-page"
 import { CommunitySalesPage } from "@/components/community/public/sales-page"
@@ -43,6 +44,8 @@ export default async function CommunityPage({ params }: { params: Promise<{ slug
   if (!load) notFound()
   /* One address per community: /community/MyClub is /community/myclub. */
   if (load.community.slug !== slug) permanentRedirect(`/community/${load.community.slug}`)
+  /* One view a visitor a day, the feed and the sales page alike, written after the response (lib/communities/server/views.ts). */
+  await scheduleCommunityView({ communityId: load.community.id, status: load.community.status, userId: user?.id ?? null, isOwner: load.viewer.isOwner })
 
   /* A member's home is the member area's (components/community/member/feed-page.tsx): it draws the shell and the feed. */
   if (load.viewer.active) return <CommunityFeedPage slug={load.community.slug} />
