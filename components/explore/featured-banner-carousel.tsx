@@ -6,6 +6,7 @@ import Link from "next/link"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { getProductUrl, getStoreUrl } from "@/lib/url-helpers"
 import { SmartLink } from "@/components/smart-link"
+import { AppAvatar } from "@/components/app/app-avatar"
 import { intervalOf, perInterval } from "@/lib/pricing/list-price"
 
 interface FeaturedProduct {
@@ -29,31 +30,6 @@ interface FeaturedProduct {
 interface FeaturedBannerCarouselProps {
   products: FeaturedProduct[]
   overlay?: React.ReactNode  // Custom overlay replaces default product info
-}
-
-function BannerCreatorAvatar({ url, name }: { url?: string | null; name: string }) {
-  const [failed, setFailed] = useState(false)
-  const initial = name.charAt(0).toUpperCase()
-
-  if (!url || failed) {
-    return (
-      <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-[10px] font-medium text-white shrink-0">
-        {initial}
-      </div>
-    )
-  }
-
-  return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={url}
-      alt={name}
-      width={24}
-      height={24}
-      className="w-6 h-6 rounded-full object-cover shrink-0"
-      onError={() => setFailed(true)}
-    />
-  )
 }
 
 const AUTOPLAY_INTERVAL = 5000 // 5 seconds
@@ -264,7 +240,8 @@ export function FeaturedBannerCarousel({ products, overlay }: FeaturedBannerCaro
               href={creatorStoreUrl}
               className="inline-flex items-center gap-2.5 mb-4 group"
             >
-              <BannerCreatorAvatar url={creatorAvatar} name={creatorName} />
+              {/* The shared avatar on the picture's dark ground: a photo, or the default face, never initials. */}
+              <AppAvatar src={creatorAvatar} name={creatorName} alt="" size={24} kind="person" tone="dark" />
               <span className="text-sm text-white/80 group-hover:text-white transition-colors">
                 {creatorName}
               </span>

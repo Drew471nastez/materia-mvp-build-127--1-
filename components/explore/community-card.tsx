@@ -116,7 +116,8 @@ function Mark({ card, size, cover = false, eager = false, className }: { card: C
       />
     )
   }
-  return <AppAvatar src={null} name={card.name} alt="" size={size} sizedByClass className={className} />
+  /* A community is a mark, not a person: its initials, never the default face. */
+  return <AppAvatar src={null} name={card.name} alt="" size={size} sizedByClass className={className} kind="mark" />
 }
 
 /** What the card says it is about: the tagline, else the start of the description, as plain text. */

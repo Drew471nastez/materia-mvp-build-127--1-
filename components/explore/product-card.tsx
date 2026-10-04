@@ -1,7 +1,7 @@
 "use client"
 
 import { listPrice } from "@/lib/pricing/list-price"
-import { memo, useState, useRef, useCallback } from "react"
+import { memo, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { Badge } from "@/components/ui/badge"
@@ -9,36 +9,7 @@ import { getProductUrl, getStoreUrl } from "@/lib/url-helpers"
 import { SmartLink } from "@/components/smart-link"
 import { saveExploreScrollNow } from "@/lib/explore/use-explore-scroll"
 import { Star } from "lucide-react"
-
-function CreatorAvatar({ url, name, size = 20 }: { url?: string | null; name: string; size?: number }) {
-  const [failed, setFailed] = useState(false)
-  const initial = name.charAt(0).toUpperCase()
-
-  if (!url || failed) {
-    return (
-      <div
-        className="rounded-full bg-muted flex items-center justify-center font-medium text-muted-foreground shrink-0 aspect-square"
-        style={{ width: size, height: size, fontSize: size * 0.5 }}
-      >
-        {initial}
-      </div>
-    )
-  }
-
-  return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={url}
-      alt={name}
-      width={size}
-      height={size}
-      className="rounded-full object-cover shrink-0 aspect-square"
-      loading="lazy"
-      onError={() => setFailed(true)}
-      style={{ width: size, height: size }}
-    />
-  )
-}
+import { AppAvatar } from "@/components/app/app-avatar"
 
 interface ProductCardProps {
   product: {
@@ -332,7 +303,8 @@ export const ProductCard = memo(function ProductCard({
                 className="group/seller flex items-center gap-1.5 transition-opacity duration-100 active:opacity-70"
                 onClick={(e) => e.stopPropagation()}
               >
-                <CreatorAvatar url={creatorAvatarUrl} name={creatorName} size={20} />
+                {/* The shared avatar (components/app/app-avatar): a photo, or the default face, never initials. Its name is written beside it. */}
+                <AppAvatar src={creatorAvatarUrl} name={creatorName} alt="" size={20} kind="person" tone={surface ? "theme" : "light"} lazy />
                 <span
                   className="text-[13px] text-muted-foreground truncate max-w-[120px] group-hover/seller:underline"
                   style={surface?.mutedColor ? { color: surface.mutedColor } : undefined}

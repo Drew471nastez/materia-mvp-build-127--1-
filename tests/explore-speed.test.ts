@@ -190,6 +190,16 @@ async function main() {
     check("an even subtler depth: nothing over 5%", drops.length >= 3 && drops.every((d) => parseFloat(d.split(",")[3]) <= 0.05), drops)
   }
 
+  console.log("\nCreator faces (round 10, with P3's shared avatar)")
+  {
+    const productCard = code("components/explore/product-card.tsx")
+    const banner = code("components/explore/featured-banner-carousel.tsx")
+    const card = code("components/explore/community-card.tsx")
+    check("the product card's seller face is the shared avatar: a photo or the default face, never initials", /<AppAvatar src=\{creatorAvatarUrl\} name=\{creatorName\} alt="" size=\{20\} kind="person"/.test(productCard) && !/function CreatorAvatar|charAt\(0\)/.test(productCard))
+    check("and so is the featured banner's", /<AppAvatar src=\{creatorAvatar\} name=\{creatorName\} alt="" size=\{24\} kind="person" tone="dark" \/>/.test(banner) && !/function BannerCreatorAvatar|charAt\(0\)/.test(banner))
+    check("a community without a logo keeps its initials (a mark, not a face)", /<AppAvatar src=\{null\} name=\{card\.name\} alt="" size=\{size\} sizedByClass className=\{className\} kind="mark" \/>/.test(card))
+  }
+
   console.log("\nHouse rules")
   {
     const mine = [
