@@ -55,9 +55,10 @@ import {
 } from "@dnd-kit/core"
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
-import { ArrowDown, ArrowUp, ChevronRight, Copy, Eye, EyeOff, GripVertical, Megaphone, MoreHorizontal, PanelBottom, PanelTop, Plus, RectangleHorizontal, Trash2 } from "lucide-react"
+import { ArrowDown, ArrowUp, Copy, Eye, EyeOff, GripVertical, Megaphone, MoreHorizontal, PanelBottom, PanelTop, Plus, RectangleHorizontal, Trash2 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { ROW_PAD, TREE_NAME, TREE_ROW, TreeAddRow, TreeSpacer, TreeTwisty } from "./tree-parts"
 import type { SectionInstance } from "@/lib/website-builder/types"
 import { GROUP_LABELS, isKind, splitGroups, type KindOfType, type SectionGroup } from "@/lib/storelib-theme/section-groups"
 import {
@@ -110,32 +111,16 @@ export interface SectionsListProps {
 
 /* ── The parts ───────────────────────────────────────────────────────────── */
 
-const GROUP_LABEL = "px-2 pb-1 pt-2 text-[12px] font-semibold text-[#1a1a2e]"
+/* A heading over its rows, on their left edge, quiet enough that a group called Header is not read as a row called Header. */
+const GROUP_LABEL = "pb-1 pl-1 pr-2 pt-3 text-[11px] font-semibold uppercase tracking-[0.06em] text-[#6b7280]"
 
 function GroupLabel({ children }: { children: React.ReactNode }) {
   return <p className={GROUP_LABEL}>{children}</p>
 }
 
-/**
- * "Add section", as a line of violet text with its plus, like the theme editors
- * it is modelled on. The disc is Storelib's violet, #8b5cf6; the words are its
- * darker step, #7c3aed, which reads at 13px on white (5.7:1, where #8b5cf6
- * is 4.2:1).
- */
+/** "Add section": the tree's own Add line (tree-parts.tsx), so it sits on the grid every row sits on. */
 export function AddSectionButton({ onClick, label = "Add section" }: { onClick: () => void; label?: string }) {
-  return (
-    <button
-      type="button"
-      data-add-section=""
-      onClick={onClick}
-      className="flex h-8 max-sm:h-11 w-full items-center gap-2 rounded-md px-2 text-left text-[13px] font-medium text-[#7c3aed] transition-colors hover:bg-[#f5f3ff] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/15 [-webkit-tap-highlight-color:transparent]"
-    >
-      <span aria-hidden className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#8b5cf6] text-white">
-        <Plus className="h-2.5 w-2.5" strokeWidth={3} />
-      </span>
-      {label}
-    </button>
-  )
+  return <TreeAddRow data-add-section="" label={label} onClick={onClick} />
 }
 
 /**
@@ -151,10 +136,10 @@ function InsertSectionDivider({ onClick }: { onClick: () => void }) {
       role="button"
       tabIndex={-1}
       aria-label="Add a section here"
-      className="group/ins relative flex h-2 cursor-pointer select-none items-center justify-center"
+      className="group/ins relative flex h-1.5 cursor-pointer select-none items-center justify-center"
       onClick={onClick}
     >
-      <div className="pointer-events-none absolute inset-x-2 h-px bg-transparent transition-colors duration-150 group-hover/ins:bg-[#8b5cf6]/60" />
+      <div className="pointer-events-none absolute inset-x-1 h-px bg-transparent transition-colors duration-150 group-hover/ins:bg-[#8b5cf6]/60" />
       <div className="pointer-events-none relative z-10 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[#8b5cf6] text-white opacity-0 transition-opacity duration-150 group-hover/ins:opacity-100">
         <Plus className="h-2 w-2" strokeWidth={3} />
       </div>
@@ -246,8 +231,9 @@ export function SectionRow({
       tabIndex={0}
       aria-label={displayName}
       aria-current={isSelected || undefined}
+      style={{ paddingLeft: ROW_PAD }}
       className={cn(
-        "group/row flex h-8 max-sm:h-11 cursor-pointer items-center gap-1 rounded-md pl-1 pr-1 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/15",
+        TREE_ROW,
         /* The builder is a light surface by decision: explicit colours, not tokens a dark root would flip. */
         isSelected ? "bg-[#ebecef] text-[#111827]" : "text-[#1a1a2e] hover:bg-[#f3f4f6]",
       )}
@@ -264,33 +250,26 @@ export function SectionRow({
     >
       {/* The section's blocks, shown and hidden under it, as Shopify's tree does. */}
       {expandable ? (
-        <button
-          type="button"
-          aria-label={expanded ? `Hide the blocks in ${displayName}` : `Show the blocks in ${displayName}`}
-          aria-expanded={!!expanded}
+        <TreeTwisty
+          expanded={!!expanded}
+          onToggle={() => onToggleExpand?.()}
+          label={expanded ? `Hide the blocks in ${displayName}` : `Show the blocks in ${displayName}`}
           data-section-expand={section.id}
-          onClick={(e) => {
-            e.stopPropagation()
-            onToggleExpand?.()
-          }}
-          className={cn("-mx-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded transition-colors", "text-[#6b7280] hover:bg-black/[0.06] hover:text-[#1a1a2e]")}
-        >
-          <ChevronRight className={cn("h-3.5 w-3.5 transition-transform duration-150", expanded && "rotate-90")} strokeWidth={2} />
-        </button>
+        />
       ) : (
-        <span aria-hidden className="-mx-0.5 h-5 w-5 shrink-0" />
+        <TreeSpacer />
       )}
 
       {chrome ? (
         /* The dark grey badge the owner chose for the header and the footer, at the row's new size. */
-        <span aria-hidden className="flex h-6 w-6 shrink-0 items-center justify-center">
+        <span aria-hidden className="flex h-6 w-5 shrink-0 items-center justify-center max-sm:h-8">
           <span className={cn("flex h-5 w-5 items-center justify-center rounded-[5px]", "bg-[#4d5058] text-white")}>
             {chrome === "header" ? <PanelTop className="h-3 w-3" strokeWidth={2} /> : <PanelBottom className="h-3 w-3" strokeWidth={2} />}
           </span>
         </span>
       ) : fixed ? (
         /* Not dragged: a quiet icon of what it is where the grip would be, so the names line up and the row is not a gap. */
-        <span aria-hidden className="flex h-6 w-6 shrink-0 items-center justify-center text-[#6b7280]">
+        <span aria-hidden className="flex h-6 w-5 shrink-0 items-center justify-center text-[#6b7280] max-sm:h-8">
           {/announce|promo|marquee|ticker/i.test(section.type) ? <Megaphone className="h-3.5 w-3.5" strokeWidth={1.75} /> : <RectangleHorizontal className="h-3.5 w-3.5" strokeWidth={1.75} />}
         </span>
       ) : (
@@ -299,7 +278,9 @@ export function SectionRow({
           {...(dragHandleProps ?? {})}
           aria-label={`Drag ${displayName} to reorder`}
           className={cn(
-            "flex h-6 w-6 shrink-0 touch-none items-center justify-center rounded-md cursor-grab active:cursor-grabbing transition-colors",
+            "relative flex h-6 w-5 shrink-0 touch-none cursor-grab items-center justify-center rounded transition-colors active:cursor-grabbing max-sm:h-8",
+            /* A thumb's grab area without a thumb's column: the box grows, the grid does not. */
+            "after:absolute after:-inset-x-1.5 after:-inset-y-1 after:content-[''] max-sm:after:-inset-x-2",
             "hover:bg-black/[0.06]",
           )}
           onClick={(e) => e.stopPropagation()}
@@ -308,70 +289,72 @@ export function SectionRow({
         </span>
       )}
 
-      <span className={cn("min-w-0 flex-1 truncate text-[13px] max-sm:text-[15px] font-medium", hidden && "opacity-50")}>{displayName}</span>
+      <span className={cn(TREE_NAME, hidden && "opacity-50")}>{displayName}</span>
 
-      {/* The eye: always shown on a hidden row, which needs a way back; under the pointer otherwise. */}
-      <RowAction label={hidden ? `Show ${displayName}` : `Hide ${displayName}`} onClick={onToggleHide} selected={isSelected} shown={hidden || isSelected}>
-        {hidden ? <EyeOff className="h-3.5 w-3.5" strokeWidth={1.75} /> : <Eye className="h-3.5 w-3.5" strokeWidth={1.75} />}
-      </RowAction>
-
-      {!chrome && onRemove && (
-        <RowAction label={`Delete ${displayName}`} onClick={onRemove} selected={isSelected} shown={isSelected}>
-          <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
+      <span className="flex shrink-0 items-center gap-0.5">
+        {/* The eye: always shown on a hidden row, which needs a way back; under the pointer otherwise. */}
+        <RowAction label={hidden ? `Show ${displayName}` : `Hide ${displayName}`} onClick={onToggleHide} selected={isSelected} shown={hidden || isSelected}>
+          {hidden ? <EyeOff className="h-3.5 w-3.5" strokeWidth={1.75} /> : <Eye className="h-3.5 w-3.5" strokeWidth={1.75} />}
         </RowAction>
-      )}
 
-      {/* `modal={false}`: a modal dropdown locks touch scrolling on the whole document, canvas included,
-          and on iOS the lock was seen to outlive the menu (scripts/check-editor-scroll.mjs). */}
-      <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen} modal={false}>
-        <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            aria-label={`More for ${displayName}`}
-            onClick={(e) => e.stopPropagation()}
-            className={cn(
-              "h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors duration-150",
-              isSelected || menuOpen ? "flex" : "hidden group-hover/row:flex group-focus-within/row:flex",
-              "text-[#4b5563] hover:bg-black/[0.06] hover:text-[#1a1a2e]",
-            )}
-          >
-            <MoreHorizontal className="h-3.5 w-3.5" strokeWidth={1.75} />
-          </button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" sideOffset={4} className="w-44" onClick={(e) => e.stopPropagation()}>
-          {onDuplicate && (
-            <DropdownMenuItem className={ItemClass} onClick={onDuplicate}>
-              <Copy className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.75} />
-              Duplicate
-            </DropdownMenuItem>
-          )}
-          {onMoveUp && (
-            <DropdownMenuItem className={ItemClass} onClick={onMoveUp}>
-              <ArrowUp className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.75} />
-              Move up
-            </DropdownMenuItem>
-          )}
-          {onMoveDown && (
-            <DropdownMenuItem className={ItemClass} onClick={onMoveDown}>
-              <ArrowDown className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.75} />
-              Move down
-            </DropdownMenuItem>
-          )}
-          <DropdownMenuItem className={ItemClass} onClick={onToggleHide}>
-            {hidden ? <Eye className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.75} /> : <EyeOff className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.75} />}
-            {hidden ? "Show" : "Hide"}
-          </DropdownMenuItem>
-          {onRemove && (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem className={ItemClass} onClick={onRemove}>
-                <Trash2 className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.75} />
-                Delete
+        {!chrome && onRemove && (
+          <RowAction label={`Delete ${displayName}`} onClick={onRemove} selected={isSelected} shown={isSelected}>
+            <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
+          </RowAction>
+        )}
+
+        {/* `modal={false}`: a modal dropdown locks touch scrolling on the whole document, canvas included,
+            and on iOS the lock was seen to outlive the menu (scripts/check-editor-scroll.mjs). */}
+        <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen} modal={false}>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              aria-label={`More for ${displayName}`}
+              onClick={(e) => e.stopPropagation()}
+              className={cn(
+                "h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors duration-150",
+                isSelected || menuOpen ? "flex" : "hidden group-hover/row:flex group-focus-within/row:flex",
+                "text-[#4b5563] hover:bg-black/[0.06] hover:text-[#1a1a2e]",
+              )}
+            >
+              <MoreHorizontal className="h-3.5 w-3.5" strokeWidth={1.75} />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" sideOffset={4} className="w-44" onClick={(e) => e.stopPropagation()}>
+            {onDuplicate && (
+              <DropdownMenuItem className={ItemClass} onClick={onDuplicate}>
+                <Copy className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.75} />
+                Duplicate
               </DropdownMenuItem>
-            </>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
+            )}
+            {onMoveUp && (
+              <DropdownMenuItem className={ItemClass} onClick={onMoveUp}>
+                <ArrowUp className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.75} />
+                Move up
+              </DropdownMenuItem>
+            )}
+            {onMoveDown && (
+              <DropdownMenuItem className={ItemClass} onClick={onMoveDown}>
+                <ArrowDown className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.75} />
+                Move down
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem className={ItemClass} onClick={onToggleHide}>
+              {hidden ? <Eye className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.75} /> : <EyeOff className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.75} />}
+              {hidden ? "Show" : "Hide"}
+            </DropdownMenuItem>
+            {onRemove && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem className={ItemClass} onClick={onRemove}>
+                  <Trash2 className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.75} />
+                  Delete
+                </DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </span>
     </div>
   )
 }
@@ -471,7 +454,7 @@ export function SectionsList({
         <AddSectionButton onClick={() => onAdd(null, "header")} />
       </div>
 
-      <div className="mx-2 my-2 h-px bg-[#e5e7eb]" aria-hidden />
+      <div className="mx-1 my-2 h-px bg-[#eceef1]" aria-hidden />
 
       <div data-section-group="template">
         <GroupLabel>{GROUP_LABELS.template}</GroupLabel>
@@ -488,7 +471,7 @@ export function SectionsList({
         >
           <SortableContext items={body.map((s) => s.id)} strategy={verticalListSortingStrategy}>
             {body.length === 0 ? (
-              <p className="px-2 py-1.5 text-[12px] text-[#6b7280]">No sections on this page yet.</p>
+              <p className="px-1 py-1.5 pl-[50px] text-[12px] text-[#6b7280]">No sections on this page yet.</p>
             ) : (
               <div>
                 <InsertSectionDivider onClick={() => onAdd(0, "template")} />
@@ -530,7 +513,7 @@ export function SectionsList({
         <AddSectionButton onClick={() => onAdd(null, "template")} />
       </div>
 
-      <div className="mx-2 my-2 h-px bg-[#e5e7eb]" aria-hidden />
+      <div className="mx-1 my-2 h-px bg-[#eceef1]" aria-hidden />
 
       <div data-section-group="footer">
         <GroupLabel>{GROUP_LABELS.footer}</GroupLabel>

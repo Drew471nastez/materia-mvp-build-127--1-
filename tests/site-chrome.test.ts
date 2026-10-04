@@ -220,7 +220,8 @@ async function main() {
   const groups = [...html.matchAll(/data-section-group="([a-z]+)"/g)].map((m) => m[1])
   check("three groups, in order", groups.join(",") === "header,template,footer", groups)
   /* "Template" was the theme editors' word; the owner asked for a better one. The group's data name stays. */
-  const groupLabels = [...html.matchAll(/<p class="px-2 pb-1 pt-2[^"]*">([^<]+)<\/p>/g)].map((m) => m[1])
+  /* The heading over each group: quiet, uppercase, on the rows' own left edge (tree-parts.tsx). */
+  const groupLabels = [...html.matchAll(/<p class="[^"]*uppercase[^"]*">([^<]+)<\/p>/g)].map((m) => m[1])
   check("the groups read Header, Page and Footer, and nothing says Template", groupLabels.join(",") === "Header,Page,Footer" && !/>Template</.test(html), groupLabels)
   check("Add section in the Header group, at the end of the page and in the Footer group", (html.match(/data-add-section=""/g) ?? []).length === 3)
   const headerGroup = html.slice(html.indexOf('data-section-group="header"'), html.indexOf('data-section-group="template"'))
