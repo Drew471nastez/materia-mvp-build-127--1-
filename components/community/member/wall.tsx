@@ -42,6 +42,7 @@ import { FULL_ON_HOVER, type NavEntry, type TabKey } from "./nav"
 import { memberHref } from "./person-href"
 import { EventWhen } from "./time"
 import { CommunityMark } from "./community-mark"
+import { InviteGlyph } from "./invite-glyph"
 import { CARD, DEPTH, DEPTH_PRESS } from "./ui"
 import type { ShellCommunity, WallCardData, WallContributors, WallEvent } from "./view-types"
 
@@ -59,7 +60,10 @@ function Stat({ value, label, dot = false, kind }: { value: string; label: strin
   )
 }
 
-export function WallCommunityCard({ community, card, membersHref }: { community: ShellCommunity; card: WallCardData; membersHref: string | null }) {
+/** The card's actions: a white button with a hairline and a one pixel shadow, Invite for everybody, Settings beside it for staff. */
+const CARD_ACTION = `flex h-10 min-w-0 flex-1 items-center justify-center gap-2 rounded-xl ${DEPTH} ${DEPTH_PRESS} text-[14px] font-medium text-[#1a1a2e] outline-none transition-[background-color,box-shadow] hover:bg-[#f6f7f8] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15`
+
+export function WallCommunityCard({ community, card, membersHref, onInvite }: { community: ShellCommunity; card: WallCardData; membersHref: string | null; onInvite?: () => void }) {
   const base = `/community/${community.slug}`
   const { stats, faces, more } = card
   const cells = [<Stat key="members" kind="members" value={compactCount(stats.members)} label={stats.members === 1 ? "Member" : "Members"} />]
@@ -111,11 +115,22 @@ export function WallCommunityCard({ community, card, membersHref }: { community:
           </div>
         ) : null}
 
-        {card.settingsHref ? (
-          <Link href={card.settingsHref} className={`mt-3.5 flex h-10 w-full items-center justify-center gap-2 rounded-xl ${DEPTH} ${DEPTH_PRESS} text-[14px] font-medium text-[#1a1a2e] transition-[background-color,box-shadow] hover:bg-[#f6f7f8]`} data-wall-settings="">
-            <Settings className="h-[17px] w-[17px] text-[#4b5563]" strokeWidth={1.8} aria-hidden />
-            Settings
-          </Link>
+        {onInvite || card.settingsHref ? (
+          /* Round 8: Invite for every member (invite-sheet.tsx), Settings beside it for whoever may change them. */
+          <div className="mt-3.5 flex gap-2" data-wall-actions="">
+            {onInvite ? (
+              <button type="button" onClick={onInvite} className={CARD_ACTION} aria-haspopup="dialog" data-community-invite="card">
+                <InviteGlyph size={18} className="text-[#4b5563]" />
+                Invite
+              </button>
+            ) : null}
+            {card.settingsHref ? (
+              <Link href={card.settingsHref} className={CARD_ACTION} data-wall-settings="">
+                <Settings className="h-[17px] w-[17px] text-[#4b5563]" strokeWidth={1.8} aria-hidden />
+                Settings
+              </Link>
+            ) : null}
+          </div>
         ) : null}
       </div>
     </section>
