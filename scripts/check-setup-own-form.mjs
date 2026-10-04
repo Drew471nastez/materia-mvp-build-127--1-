@@ -573,8 +573,14 @@ try {
         if (action === "details") sent.detailsBody = r.postData()
         if (action === "document") sent.documentType = r.headers()["content-type"] ?? ""
         if (action === "identity") return json({ ok: false, reason: "not_enabled" })
-        /* Once the document is on file Stripe says so, and the page after the ID step reads that. */
-        const withDoc = { ...eitherNeeds, given: sent.document ? ["document"] : [] }
+        /*
+          Stripe as it really answers: the details stop being due once they
+          are sent, and the document reads as given once it is on file. A
+          fixture that keeps naming fields it already has makes the ID step
+          hand back a list of things nobody still owes.
+        */
+        const left = sent.details ? ["document"] : ["dob", "address", "idNumber", "document"]
+        const withDoc = { ...eitherNeeds, fields: left, tos: sent.details ? false : eitherNeeds.tos, bank: sent.bank ? false : eitherNeeds.bank, given: sent.document ? ["document"] : [] }
         if (action === "details-form" || action === "document") return json(action === "document" ? { form: form(withDoc) } : form(withDoc))
         if (action === "details") return json({ form: form({ ...needsNow, fields: [], tos: false }), overview: { ...doneOverview, beat: "bank", paymentsStatus: { status: "BANK_REQUIRED", action: "bank" }, payoutDestination: null } })
         if (action === "bank") return json({ form: form({ ...needsNow, fields: [], tos: false, bank: false }), overview: doneOverview })

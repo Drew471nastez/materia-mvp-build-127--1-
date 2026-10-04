@@ -7,7 +7,7 @@
  * same page seen by its owner (components/account/account-hub.tsx). The
  * creator page's own order: a band (their cover when they have one) with
  * the photo across its lower edge, the name, @handle and when they joined,
- * the bio, then followers / following and the buttons.
+ * the bio, then one quiet followers / following line and the buttons.
  *
  * The owner sees their own page with nothing to follow; they get a quiet
  * "Add cover" or "Change cover" on the band instead, which opens Settings
@@ -39,6 +39,18 @@ export interface ProfileHeroPerson {
   followers: number
   following: number
 }
+
+/**
+ * THE PHOTO'S SIZE AND RING, shared with /account's live copy of it
+ * (components/account/account-hub.tsx) so the two never drift. 118px on a
+ * phone and 134px wider up: five percent over the 112 / 128 it was, as the
+ * owner asked of every creator page and profile. The ring is the page's own
+ * ground (#f8f9fa, the Storelib page every profile sits on), so the photo
+ * reads as cut out of the page where it crosses the cover.
+ */
+export const PROFILE_AVATAR_PX = { phone: 118, wide: 134 } as const
+export const PROFILE_AVATAR_CLASS =
+  "h-[118px] w-[118px] cursor-zoom-in shadow-[0_1px_2px_rgba(16,24,40,0.08),0_8px_20px_-10px_rgba(16,24,40,0.32)] ring-4 ring-[#f8f9fa] sm:h-[134px] sm:w-[134px]"
 
 /** Where the owner's cover control goes: Settings, at the cover. */
 export const COVER_SETTINGS_HREF = "/account/settings?section=profile#cover"
@@ -96,15 +108,16 @@ export function ProfileHero({
         </div>
       </div>
 
-      <header className="relative -mt-[56px] flex flex-col items-center px-2 text-center sm:-mt-[64px]" data-profile-header="">
+      {/* Half the photo over the band's lower edge, at both sizes. */}
+      <header className="relative -mt-[59px] flex flex-col items-center px-2 text-center sm:-mt-[67px]" data-profile-header="">
         {avatar ?? (
           <AvatarLightbox src={person.avatarUrl} name={person.name}>
             <AppAvatar
               src={person.avatarUrl}
               name={person.name}
-              size={128}
+              size={PROFILE_AVATAR_PX.wide}
               sizedByClass
-              className="h-[112px] w-[112px] cursor-zoom-in shadow-[0_1px_2px_rgba(16,24,40,0.08),0_8px_20px_-10px_rgba(16,24,40,0.32)] ring-4 ring-[#f8f9fa] sm:h-[128px] sm:w-[128px]"
+              className={PROFILE_AVATAR_CLASS}
             />
           </AvatarLightbox>
         )}
@@ -131,7 +144,7 @@ export function ProfileHero({
         ) : null}
 
         <ProfileSocial
-          className="mt-2 w-full"
+          className="mt-3 w-full"
           userId={person.userId}
           name={person.name}
           followers={person.followers}

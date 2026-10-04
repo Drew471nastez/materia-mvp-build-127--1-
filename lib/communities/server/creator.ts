@@ -29,6 +29,7 @@ import { creatorForRequest } from "@/lib/auth/request-scope"
 import { rateLimit } from "@/lib/api/rate-limit"
 import { monthlyValue } from "@/lib/memberships/state"
 import { sanitizeDescription } from "@/lib/rich-text/sanitize"
+import { communityCategoryId } from "@/lib/explore/communities-mode"
 import { queueCommunityFanout } from "@/lib/notifications/fanout"
 import { parseAccessRule } from "../access"
 import { priceLine } from "../format"
@@ -528,7 +529,8 @@ export async function updateSettings(db: Db, a: { community: CommunityRow; role:
       patch[key === "logoUrl" ? "logo_url" : "cover_url"] = url
     }
   }
-  if (b.category !== undefined) patch.category = typeof b.category === "string" && b.category.trim() ? b.category.trim().slice(0, 60) : null
+  /* One of the ids Explore's pills use (lib/explore/communities-mode), so the community is found under its pill. */
+  if (b.category !== undefined) patch.category = communityCategoryId(b.category)
   if (b.rules !== undefined) {
     const r = checkRules(b.rules)
     if (!r.ok) return no(400, r.error, r.field)

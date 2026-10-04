@@ -66,7 +66,7 @@ export function LibraryCommunitiesList({ rows }: { rows: LibraryCommunityRow[] }
   if (rows.length === 0) {
     return (
       <div data-communities-empty="">
-        <LibraryEmptyState title="No communities yet" description="Communities you join show up here, with the ones you've asked to join." ctaLabel="Find a community" ctaHref="/explore/communities" />
+        <LibraryEmptyState title="No communities yet" description="Communities you join show up here, with the ones you've asked to join." ctaLabel="Find a community" ctaHref="/explore?type=communities" />
       </div>
     )
   }

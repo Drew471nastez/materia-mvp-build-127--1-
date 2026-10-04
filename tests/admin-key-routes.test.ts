@@ -148,7 +148,6 @@ const PUBLIC_BY_DESIGN: Record<string, string> = {
   "domains/resolve/route.ts": "maps a public hostname to the site it serves",
   "v2/search/route.ts": "public search over published products",
   "website-builder/search/route.ts": "public search inside a published site",
-  "follow/list/route.ts": "a person's followers or following: the follow graph is public by its own read policy, and each row is a name, a photo and a profile address, never an email; keyset paged and limited per address",
   "profile/activity/route.ts": "a person's public activity on their profile (lib/profile/activity.ts reads only public communities, open spaces, published reviews and products), nothing when they hid it unless the session is theirs; limited per address",
 }
 

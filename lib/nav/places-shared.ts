@@ -173,7 +173,7 @@ export function navigatorModel(places: PlacesResponse, current?: NavigatorCurren
         .slice(0, PRODUCTS_LIMIT)
         .map((p) => ({ kind: "product" as const, product: p, href: productHref(p) }))
     : []
-  const discover: NavigatorRow = { kind: "link", key: "discover-communities", label: "Discover communities", href: "/explore/communities" }
+  const discover: NavigatorRow = { kind: "link", key: "discover-communities", label: "Discover communities", href: "/explore?type=communities" }
   const explore: NavigatorRow = { kind: "link", key: "explore", label: "Explore", href: "/explore" }
   const links = places.signedIn ? [...(on ? [discover] : []), explore] : [explore, ...(on ? [discover] : [])]
   const actions: NavigatorModel["actions"] = places.signedIn

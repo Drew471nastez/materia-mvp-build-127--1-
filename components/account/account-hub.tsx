@@ -36,7 +36,7 @@ import { useShellAvatar } from "@/lib/account/avatar-store"
 import { showsProfileHeader } from "@/lib/profile/owner-pills"
 import { AccountAvatar } from "@/components/account/account-photo"
 import { AvatarLightbox } from "@/components/storefront/avatar-lightbox"
-import { ProfileHero } from "@/components/profile/profile-hero"
+import { PROFILE_AVATAR_CLASS, PROFILE_AVATAR_PX, ProfileHero } from "@/components/profile/profile-hero"
 import { ProfileOwnerPills } from "@/components/profile/profile-owner-pills"
 
 export interface AccountIdentity {
@@ -83,8 +83,8 @@ export function AccountHub({ identity, communities = false, children }: { identi
             <AccountAvatar
               src={shown}
               name={name}
-              size={128}
-              className="h-[112px] w-[112px] cursor-zoom-in shadow-[0_1px_2px_rgba(16,24,40,0.08),0_8px_20px_-10px_rgba(16,24,40,0.32)] ring-4 ring-[#f8f9fa] sm:h-[128px] sm:w-[128px]"
+              size={PROFILE_AVATAR_PX.wide}
+              className={PROFILE_AVATAR_CLASS}
             />
           </AvatarLightbox>
         }

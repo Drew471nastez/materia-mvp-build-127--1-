@@ -122,9 +122,9 @@ console.log("\n2. What the panel lists")
   const unsafe = keys(navigatorModel(me({ communities: [community("ok", "good-club"), community("bad", "../admin"), community("caps", "Club")] })))
   check("a slug that would not make a safe path is left out", unsafe[0] === "c:ok" && !unsafe.includes("c:bad") && !unsafe.includes("c:caps"), unsafe)
   const m = navigatorModel(me(), { kind: "community", id: "a" })
-  check("rows link to /community/<slug>, Discover communities to /explore/communities, Explore to /explore",
+  check("rows link to /community/<slug>, Discover communities to /explore?type=communities (Explore in communities mode), Explore to /explore",
     m.communities[0].kind === "community" && m.communities[0].href === "/community/a" &&
-    m.links.some((r) => r.kind === "link" && r.key === "discover-communities" && r.href === "/explore/communities") &&
+    m.links.some((r) => r.kind === "link" && r.key === "discover-communities" && r.href === "/explore?type=communities") &&
     m.links.some((r) => r.kind === "link" && r.key === "explore" && r.href === "/explore"))
   check("only the signed out foot has two buttons; the primary is Start creating or Dashboard", navigatorModel(SIGNED_OUT_PLACES).actions.filter((a) => a.primary).map((a) => a.key).join() === "start-creating" && m.actions.length === 1 && m.actions[0].primary)
 }

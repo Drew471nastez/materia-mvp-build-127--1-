@@ -14,12 +14,18 @@
  *
  * Signed out, the press goes to sign in and comes back here.
  *
- * THE LOOK FOLLOWS THE PAGE. On Storelib's own pages ("platform") Follow is
- * the near black primary and Following the white secondary, the pair the
- * rest of the app uses. On a creator's page ("storefront") Follow is drawn
- * in the creator's own button colours, the scheme they picked in the page
- * editor (lib/store-builder/storefront-chrome.ts `action`), and Following
- * settles back to a hairline in the page's text colour (currentColor).
+ * ONE BUTTON LANGUAGE, THE PAGE'S COLOURS. Everywhere it is Storelib's
+ * pair from components/ui/depth-button.ts: Follow a solid primary with a
+ * line of light on top and a darker foot, Following (and Message beside it)
+ * the quiet secondary with a hairline and a soft foot, both going flat with
+ * the shade inside when pressed, at the same height and rounding. On
+ * Storelib's own pages ("platform") that is the near black and the white.
+ * On a creator's page ("storefront") the same shapes are painted in the
+ * scheme the creator picked (lib/store-builder/storefront-chrome.ts
+ * `action`): Follow in their buy button colour, Following and Message a
+ * surface a step off their page with their page's ink, Unfollow in a red
+ * that reads on it. The colours travel as CSS variables, so hover and press
+ * are plain CSS and answer on the first frame.
  *
  * NO UNFOLLOW UNDER A POINTER THAT JUST FOLLOWED. The pointer that pressed
  * Follow is still over the button, so it would at once offer to undo what
@@ -32,12 +38,16 @@ import { cn } from "@/lib/utils"
 
 export type FollowTone = "platform" | "storefront"
 
-/** A page's primary button colours: the creator's scheme, resolved on the server. */
+/** A page's button colours: the creator's scheme, resolved on the server (storefront-chrome `schemeAction`). */
 export interface ActionScheme {
   background: string
   text: string
-  /** The scheme's button rounding in px. */
+  /** The scheme's button rounding in px (not used by the follow buttons, which keep Storelib's shape). */
   radius?: number | null
+  hover?: string
+  press?: string
+  quiet?: { background: string; hover: string; press: string; border: string; text: string; danger: string }
+  dark?: boolean
 }
 
 export function useFollow(input: { targetUserId: string; initialFollowing: boolean; signedIn: boolean; onFollowers?: (n: number) => void; onChange?: (following: boolean) => void }) {
@@ -81,13 +91,49 @@ export function useFollow(input: { targetUserId: string; initialFollowing: boole
   return { following, busy, error, toggle }
 }
 
-/** The inline style of a storefront Follow: the scheme's own fill, text and rounding. */
-export function schemeFill(scheme: ActionScheme | null | undefined, following: boolean): React.CSSProperties | undefined {
+/**
+ * The scheme's colours as the variables the classes below read. Follow's
+ * fill (`--sf-*`) and the quiet secondary (`--sq-*`) are both set, so one
+ * button can turn from one into the other without a style change. Without
+ * a scheme a creator page's text colour draws the quiet one.
+ */
+export function schemeVars(scheme: ActionScheme | null | undefined): React.CSSProperties | undefined {
   if (!scheme) return undefined
-  const radius = typeof scheme.radius === "number" && scheme.radius >= 0 ? { borderRadius: `${Math.min(scheme.radius, 999)}px` } : {}
-  if (following) return radius
-  return { ...radius, backgroundColor: scheme.background, color: scheme.text, borderColor: scheme.background }
+  const q = scheme.quiet
+  return {
+    "--sf-bg": scheme.background,
+    "--sf-ink": scheme.text,
+    "--sf-hover": scheme.hover || scheme.background,
+    "--sf-press": scheme.press || scheme.hover || scheme.background,
+    ...(q
+      ? { "--sq-bg": q.background, "--sq-hover": q.hover, "--sq-press": q.press, "--sq-line": q.border, "--sq-ink": q.text, "--sq-danger": q.danger }
+      : {}),
+  } as React.CSSProperties
 }
+
+/** Storelib's solid primary (primaryDepth), in the scheme's fill. */
+export const schemePrimary = cn(
+  "inline-flex shrink-0 cursor-pointer select-none items-center justify-center whitespace-nowrap border border-transparent font-semibold outline-none",
+  "bg-[var(--sf-bg)] text-[var(--sf-ink)] shadow-[inset_0_1px_0_rgba(255,255,255,0.16),inset_0_-1px_0_rgba(0,0,0,0.3),0_1px_2px_rgba(16,24,40,0.22)]",
+  "transition-[background-color,box-shadow,color] duration-100",
+  "hover:bg-[var(--sf-hover)] active:bg-[var(--sf-press)] active:shadow-[inset_0_1px_2px_rgba(0,0,0,0.38)]",
+  "focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-[var(--sf-bg)]",
+  "[-webkit-tap-highlight-color:transparent]",
+)
+
+/**
+ * Storelib's quiet secondary (secondaryDepth), in the scheme's surface,
+ * hairline and ink. Falls back to the page's text colour when there is no
+ * scheme, so it is never a white box on a dark page.
+ */
+export const schemeQuiet = cn(
+  "inline-flex shrink-0 cursor-pointer select-none items-center justify-center gap-1.5 whitespace-nowrap border font-semibold outline-none",
+  "border-[var(--sq-line,color-mix(in_srgb,currentColor_22%,transparent))] bg-[var(--sq-bg,transparent)] text-[var(--sq-ink,currentColor)]",
+  "shadow-[inset_0_-1px_0_rgba(0,0,0,0.08),0_1px_0_rgba(0,0,0,0.05)] transition-[background-color,box-shadow,color] duration-100",
+  "hover:bg-[var(--sq-hover,color-mix(in_srgb,currentColor_5%,transparent))] active:bg-[var(--sq-press,color-mix(in_srgb,currentColor_9%,transparent))] active:shadow-[inset_0_1px_1px_rgba(0,0,0,0.12)]",
+  "focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-current",
+  "[-webkit-tap-highlight-color:transparent]",
+)
 
 export function FollowButton({
   following,
@@ -114,20 +160,17 @@ export function FollowButton({
   const [fresh, setFresh] = useState(false)
   const box = size === "sm" ? "h-9 min-w-[104px] rounded-[10px] px-3.5 text-[13px]" : "h-10 min-w-[128px] rounded-xl px-5 text-[14px]"
   const storefront = tone === "storefront"
-  const look = storefront
-    ? cn(
-        "inline-flex shrink-0 cursor-pointer select-none items-center justify-center whitespace-nowrap border font-semibold outline-none transition-[background-color,border-color,color,filter] duration-100",
-        "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current [-webkit-tap-highlight-color:transparent]",
-        following
-          ? "border-current/30 bg-transparent hover:border-current/50 hover:bg-current/[0.05]"
-          : scheme
-            ? "hover:brightness-[0.94] active:brightness-[0.88]"
-            : "border-[1.5px] border-current bg-transparent hover:bg-current/[0.06]",
-      )
-    : following
-      ? cn(secondaryDepth, "hover:text-[#b42318] active:text-[#b42318]")
-      : primaryDepth
   const unfollowable = following && !fresh
+  /* Red only while a press would unfollow: not under the pointer that has just followed. */
+  const look = storefront
+    ? following
+      ? cn(schemeQuiet, unfollowable && "hover:text-[var(--sq-danger,currentColor)] active:text-[var(--sq-danger,currentColor)]")
+      : scheme
+        ? schemePrimary
+        : schemeQuiet
+    : following
+      ? cn(secondaryDepth, unfollowable && "hover:text-[#b42318] active:text-[#b42318]")
+      : primaryDepth
   return (
     <button
       type="button"
@@ -143,7 +186,7 @@ export function FollowButton({
       data-follow-button={following ? "following" : "follow"}
       data-follow-tone={storefront ? (scheme ? "scheme" : "storefront") : "platform"}
       className={cn("group/follow", look, box, className)}
-      style={storefront ? schemeFill(scheme, following) : undefined}
+      style={storefront ? schemeVars(scheme) : undefined}
     >
       {following ? (
         /* Following and Unfollow share one cell, so the button never changes width between them. */

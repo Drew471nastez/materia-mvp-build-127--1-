@@ -9,12 +9,14 @@
  *   ?self           your own profile: the owner's pills, no Follow, your
  *                   activity hidden from others with the "only you" line
  *   ?creator        a creator's page on the Sage scheme: the newsletter bar
- *                   with the way back before the photo, and Follow in the
- *                   scheme's own green
+ *                   with the way back before the photo (one row on a
+ *                   phone), Follow in the scheme's own green, sales on
+ *                   the products but only in About, never in the hero
  *   ?creator-dark   the same on a dark scheme (Astrid), drawn in its colours
+ *   ?creator-noback the Sage page opened cold: no way back in the bar
  *   ?creator-nobar  a creator page with no newsletter bar: the slim top bar
  *
- * fetch is answered here (the follow, the list, the next activity page),
+ * fetch is answered here (the follow, a subscribe, the next activity page),
  * so the probe needs no server and no network.
  */
 import { createRoot } from "react-dom/client"
@@ -26,7 +28,8 @@ import { resolveStorefrontChrome } from "@/lib/store-builder/storefront-chrome"
 import type { SharedPostsPage, SharedPostView } from "@/lib/profile/shared-view"
 import { StorefrontTabs } from "@/components/storefront/storefront-tabs"
 import { UnifiedShopHeader } from "@/components/store-builder/unified-section-renderer"
-import { defaultShopHeaderSettings, defaultGlobalStoreSettings } from "@/lib/store-builder/defaults"
+import { UnifiedSectionRenderer } from "@/components/store-builder/unified-section-renderer"
+import { defaultAboutSettings, defaultShopHeaderSettings, defaultGlobalStoreSettings } from "@/lib/store-builder/defaults"
 import type { MemberProfileData } from "@/lib/profile/member-profile-data"
 import type { CommunityCard } from "@/lib/communities/types"
 import type { ActivityItemView } from "@/components/profile/profile-activity"
@@ -92,16 +95,6 @@ const base: MemberProfileData = {
   privacy: { showActivity: true, showCommunities: true, supported: true },
 }
 
-const people = Array.from({ length: 30 }, (_, i) => ({
-  id: `00000000-0000-4000-8000-0000000001${String(i).padStart(2, "0")}`,
-  name: ["Ana Lucia Perez", "Jo Smith", "Kwame Mensah", "Lena Fischer", "Ravi Shah"][i % 5],
-  username: `person-${i}`,
-  avatarUrl: i % 3 === 0 ? FACE2 : null,
-  href: `/@person-${i}`,
-  followedByViewer: i % 4 === 0,
-  isViewer: false,
-}))
-
 const post = (i: number): SharedPostView => ({
   id: `00000000-0000-4000-8000-0000000002${String(i).padStart(2, "0")}`,
   title: ["Cone 6 glaze that finally stopped crawling", "Is a banding wheel worth it?", "Trimming feet without chatter", "Studio photos from Saturday", "Best clay for a first wheel?", "Bisque at 04 or 06?", "Throwing off the hump, notes", "A shelf of mugs, finally", "Reclaiming slop the lazy way"][i % 9],
@@ -124,10 +117,7 @@ window.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   ;(window as unknown as { __fetches: string[] }).__fetches ||= []
   ;(window as unknown as { __fetches: string[] }).__fetches.push(url)
   const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } })
-  if (url.startsWith("/api/follow/list")) {
-    const cursor = new URL(url, "https://x").searchParams.get("cursor")
-    return json(cursor ? { people: people.slice(20), next: null } : { people: people.slice(0, 20), next: "c2" })
-  }
+  if (url.startsWith("/api/subscribers")) return new Promise<Response>((r) => setTimeout(() => r(json({ ok: true })), 60))
   if (url.startsWith("/api/follow")) {
     const body = JSON.parse(String(init?.body || "{}"))
     followers += body.follow === false ? -1 : 1
@@ -187,11 +177,13 @@ if (which === "other") {
       />
     </ProfileFrame>
   )
-} else if (which === "creator" || which === "creator-dark" || which === "creator-nobar") {
+} else if (which === "creator" || which === "creator-dark" || which === "creator-nobar" || which === "creator-noback") {
   const dark = which === "creator-dark"
+  /* Sales on the products, and both sales switches on: the hero must still not print them. */
+  const products = [{ id: "p1", sales_count: 9 }, { id: "p2", sales_count: 5 }] as never
   const chrome = resolveStorefrontChrome(dark ? "astrid" : "sage")
   const surface = { textColor: chrome.text, mutedColor: chrome.muted, avatarBorderColor: chrome.avatarBorder }
-  const settings = { ...defaultShopHeaderSettings, showBio: true, bio: "Ceramics, glaze recipes and a weekly studio community.", showStats: true, coverImageUrl: COVER } as never
+  const settings = { ...defaultShopHeaderSettings, showBio: true, bio: "Ceramics, glaze recipes and a weekly studio community.", showStats: true, showTotalSalesBadge: true, coverImageUrl: COVER } as never
   app = (
     <div data-storefront-root="" style={{ background: chrome.pageBackground, minHeight: "100vh", color: chrome.text, ...(chrome.tokens as React.CSSProperties) }}>
       {which === "creator-nobar" ? (
@@ -200,14 +192,14 @@ if (which === "other") {
         <SubscribeBar
           settings={{ visible: true, text: "Join Maya's newsletter!", showAvatar: true, avatarUrl: FACE2, creatorName: "Maya Ortiz", backgroundColor: chrome.bar.backgroundColor, textColor: chrome.bar.textColor, buttonColor: chrome.bar.buttonColor, buttonTextColor: chrome.bar.buttonTextColor } as never}
           creatorId="cr"
-          leading={<TopBarBack initiallyShown />}
+          leading={<TopBarBack initiallyShown={which !== "creator-noback"} />}
         />
       )}
       <UnifiedShopHeader
         settings={settings}
-        creator={{ cover_url: COVER, bio: null, show_total_sales_badge: false } as never}
+        creator={{ cover_url: COVER, bio: null, show_total_sales_badge: true } as never}
         profile={{ display_name: "Maya Ortiz", avatar_url: FACE2, username: "maya", created_at: "2024-01-01" } as never}
-        products={[]}
+        products={products}
         globalSettings={defaultGlobalStoreSettings as never}
         reviewCount={42}
         reviewAverage={4.8}
@@ -220,7 +212,24 @@ if (which === "other") {
       <StorefrontTabs
         surface={{ textColor: chrome.text, mutedColor: chrome.muted, borderColor: chrome.border }}
         tabs={[
-          { id: "home", label: "Home", panel: <div style={{ height: 400 }} /> },
+          {
+            id: "home",
+            label: "Home",
+            panel: (
+              <div data-probe-about="">
+                <div style={{ height: 120 }} />
+                {/* The About block every creator page ends with: Sales, Joined and Products, then the payment methods. */}
+                <UnifiedSectionRenderer
+                  section={{ id: "about", type: "about", order: 0, settings: { ...defaultAboutSettings, colors: { textColor: chrome.text } } } as never}
+                  creatorName="Maya Ortiz"
+                  sellerMemberSince="2024-01-01T00:00:00Z"
+                  sellerTotalSales={14}
+                  sellerProductsCount={2}
+                  globalSettings={defaultGlobalStoreSettings as never}
+                />
+              </div>
+            ),
+          },
           { id: "activity", label: "Activity", panel: <div /> },
           { id: "about", label: "About", panel: <div /> },
         ]}

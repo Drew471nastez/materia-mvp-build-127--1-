@@ -43,7 +43,7 @@ import { ProfileTopBar, TopBarBack } from "@/components/profile/profile-top-bar"
 import { ProfileActivity } from "@/components/profile/profile-activity"
 import { SharedCommunityPosts } from "@/components/profile/shared-community-posts"
 import { messageTarget, profileCommunities } from "@/lib/profile/profile-communities"
-import { cameFromBrowsing, refererPath } from "@/lib/profile/back"
+import { cameFromElsewhere, refererPath } from "@/lib/profile/back"
 import { activityFor } from "@/lib/profile/activity-page"
 import { readPrivacy } from "@/lib/profile/privacy"
 import { sharedCommunities, sharedPostsPage } from "@/lib/profile/shared-posts"
@@ -623,8 +623,16 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
           }
         })(),
   ])
-  /* Reached from a community, Explore or search: the way back in the top bar, next to the creator (components/profile/profile-top-bar). */
-  const backShown = from === "community" || from === "explore" || cameFromBrowsing(refererPath(requestHeaders.get("referer"), requestHeaders.get("host")))
+  /*
+    Arrived from somewhere (any other page of ours): the way back in the top
+    bar, next to the creator (components/profile/profile-top-bar). The
+    addresses this page answers to do not count, so a reload shows none; on
+    the creator's own domain or subdomain that includes its root.
+  */
+  const requestHost = (requestHeaders.get("host") || "").toLowerCase()
+  const ownPaths = [`/${username}`, `/u/${username}`, ...(profile.username ? [`/${profile.username}`, `/u/${profile.username}`, `/@${profile.username}`] : [])]
+  if (requestHost && !/^(www\.)?storelib\.com$|^localhost(:\d+)?$|^127\.0\.0\.1(:\d+)?$/.test(requestHost)) ownPaths.push("/")
+  const backShown = from === "community" || from === "explore" || cameFromElsewhere(refererPath(requestHeaders.get("referer"), requestHeaders.get("host")), ownPaths)
   /* A product that sells a community tier is on the Communities tab, not in the grid (lib/communities/listing). */
   const products = catalogue ? withoutCommunityProducts(catalogue) : catalogue
   const communityCards = await communitiesPromise
@@ -1142,6 +1150,13 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
     const headerAvatarPreload = headerAvatar(headerSettings, profile.avatar_url)
     // Calculate total sales for About section
     const totalSales = products?.reduce((acc, p) => acc + (p.sales_count || 0), 0) || 0
+    /*
+      SALES LIVE IN ABOUT ONLY, beside Joined and Products, above the payment
+      methods; the header no longer prints them. The creator's Sales count
+      switch (both flags, as the profile dialog shows it) decides whether the
+      About figure is there at all.
+    */
+    const salesShown = (headerSettings?.showTotalSalesBadge ?? true) && (creator.show_total_sales_badge ?? true)
     // Calculate products count for About section
     const productsCount = products?.length || 0
 
@@ -1512,7 +1527,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
               creatorAvatarUrl={profile.avatar_url}
               viewerIsOwner={viewerIsOwner}
               sellerMemberSince={profile.created_at}
-              sellerTotalSales={totalSales}
+              sellerTotalSales={salesShown ? totalSales : 0}
               sellerProductsCount={productsCount}
               sellerContactEmail={publicContactEmail}
               /**
@@ -1856,7 +1871,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         creatorAvatarUrl={profile.avatar_url}
         viewerIsOwner={viewerIsOwner}
         sellerMemberSince={profile.created_at}
-        sellerTotalSales={fallbackTotalSales}
+        sellerTotalSales={(creator.show_total_sales_badge ?? true) ? fallbackTotalSales : 0}
         sellerProductsCount={productsData.length}
         aboutOwnerActions={
           viewerIsOwner ? (

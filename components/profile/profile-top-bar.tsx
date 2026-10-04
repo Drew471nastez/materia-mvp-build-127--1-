@@ -22,12 +22,19 @@
  * scrolled, and when there is nothing behind (a reload, a link opened in a
  * new tab) it lands on Explore instead (lib/navigation/go-back backThen).
  *
- * WHEN IT SHOWS. The server says so when the request came from one of those
- * pages (the Referer, or ?from=community|explore on the link); the browser
+ * WHEN IT SHOWS: only when the visitor arrived from somewhere, any other
+ * page of ours (lib/profile/back cameFromElsewhere). The server says so
+ * from the Referer (or ?from=community|explore on the link); the browser
  * also checks the page it actually came from (the app's own trail, else
  * document.referrer), because a client side move does not always carry a
- * Referer the server can trust. Arrived any other way: no chevron, and no
- * bar of its own.
+ * Referer the server can trust. Opened cold (a shared link, a reload): no
+ * chevron, and no bar of its own.
+ *
+ * IT ANSWERS THE FINGER AT ONCE. The press shows on pointerdown, before the
+ * click and before any navigation, as a tint and a slight shrink with no
+ * transition on the way in (globals.css strips transitions inside a .group
+ * on touch screens, and iOS only paints :active with a touch listener, so
+ * the state is the component's own), and eases back out when released.
  */
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
@@ -35,11 +42,11 @@ import { ChevronLeft } from "lucide-react"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { backThen } from "@/lib/navigation/go-back"
 import { previousPath } from "@/lib/navigation/in-app-history"
-import { cameFromBrowsing } from "@/lib/profile/back"
+import { cameFromElsewhere } from "@/lib/profile/back"
 import { cn } from "@/lib/utils"
 
-/** Whether this page was reached from a community, Explore or search. */
-export function useCameFromBrowsing(initiallyShown: boolean): boolean {
+/** Whether this page was reached from another page of ours. */
+export function useCameFromSomewhere(initiallyShown: boolean): boolean {
   const [shown, setShown] = useState(initiallyShown)
   useEffect(() => {
     if (initiallyShown) return
@@ -52,23 +59,34 @@ export function useCameFromBrowsing(initiallyShown: boolean): boolean {
         from = null
       }
     }
-    if (cameFromBrowsing(from)) setShown(true)
+    if (cameFromElsewhere(from, window.location.pathname)) setShown(true)
   }, [initiallyShown])
   return shown
 }
 
-/** The chevron itself: 40px to a thumb, drawn in the bar's own text colour. */
+/** The chevron itself: 40px to a thumb, drawn in the bar's own text colour, nothing but the icon. */
 export function BackChevron({ fallback = "/explore", className }: { fallback?: string; className?: string }) {
   const router = useRouter()
+  const [pressed, setPressed] = useState(false)
+  const release = () => setPressed(false)
   return (
     <button
       type="button"
-      onClick={() => backThen(() => router.push(fallback))}
+      onPointerDown={() => setPressed(true)}
+      onPointerUp={release}
+      onPointerCancel={release}
+      onPointerLeave={release}
+      onClick={() => {
+        setPressed(false)
+        backThen(() => router.push(fallback))
+      }}
       aria-label="Back"
       data-profile-back-button=""
+      data-pressed={pressed ? "true" : undefined}
       className={cn(
-        "-ml-1.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-current outline-none transition-[background-color,scale] duration-150",
-        "hover:bg-current/[0.08] active:scale-[0.94] focus-visible:ring-2 focus-visible:ring-current/30 motion-reduce:active:scale-100 [-webkit-tap-highlight-color:transparent]",
+        "-ml-1.5 inline-flex h-10 w-10 shrink-0 touch-manipulation items-center justify-center rounded-full text-current outline-none",
+        "transition-[background-color,scale] duration-150 ease-out data-[pressed=true]:scale-[0.9] data-[pressed=true]:bg-current/[0.12] data-[pressed=true]:duration-0",
+        "pointer-fine:hover:bg-current/[0.08] focus-visible:ring-2 focus-visible:ring-current/30 motion-reduce:data-[pressed=true]:scale-100 [-webkit-tap-highlight-color:transparent]",
         className,
       )}
     >
@@ -79,7 +97,7 @@ export function BackChevron({ fallback = "/explore", className }: { fallback?: s
 
 /** For a bar that already exists (the creator's newsletter bar): the chevron, or nothing. */
 export function TopBarBack({ initiallyShown, fallback }: { initiallyShown: boolean; fallback?: string }) {
-  const shown = useCameFromBrowsing(initiallyShown)
+  const shown = useCameFromSomewhere(initiallyShown)
   if (!shown) return null
   return (
     <span data-profile-back="" className="inline-flex">
@@ -109,7 +127,7 @@ export function ProfileTopBar({
   /** The row's width: the page's own column, so the chevron lines up with what is under it. */
   width?: string
 }) {
-  const shown = useCameFromBrowsing(initiallyShown)
+  const shown = useCameFromSomewhere(initiallyShown)
   if (!shown) return null
   return (
     <div

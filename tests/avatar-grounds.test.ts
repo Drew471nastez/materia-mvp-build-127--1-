@@ -124,8 +124,11 @@ function main() {
   )
   /* 24px and 32px circles, so the request must match, not be one number
      copied to all three. */
-  check("the 24px circles ask for 24", (subscribe.match(/optimizedImageUrl\(settings\.avatarUrl, 24\)/g) ?? []).length === 3)
-  check("and the 32px ones ask for 32", (subscribe.match(/optimizedImageUrl\(settings\.avatarUrl, 32\)/g) ?? []).length === 2)
+  /* Round 4: the phone bar is one row (42.webp) and its photo grew to 32px
+     beside a 40px field, so every circle in the file is 32 now, and asks
+     for 32. None is left at 24. */
+  check("no circle asks for 24 any more", (subscribe.match(/optimizedImageUrl\(settings\.avatarUrl, 24\)/g) ?? []).length === 0)
+  check("and all five 32px ones ask for 32", (subscribe.match(/optimizedImageUrl\(settings\.avatarUrl, 32\)/g) ?? []).length === 5 && (subscribe.match(/<Avatar className=\{cn\("h-8 w-8 shrink-0"/g) ?? []).length === 5)
 
   /* ---------------------------------------------------------------------
      AND THE PRODUCT PAGE'S BAR, WHICH WAS THE ROUND BEFORE

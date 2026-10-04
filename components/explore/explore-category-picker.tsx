@@ -97,6 +97,9 @@ export function ExploreCategoryPicker({
   allRow,
   triggerClassName,
   children,
+  align = "start",
+  marker = "more-pill",
+  triggerLabel,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -108,6 +111,12 @@ export function ExploreCategoryPicker({
   triggerClassName: string
   /** What the pill says. */
   children: React.ReactNode
+  /** Which edge of the trigger the panel lines up with: the More pill opens from its left, the search field's Categories control from its right. */
+  align?: "start" | "end"
+  /** The trigger's data attribute, data-<marker>: the pill row finds its own More pill by it. */
+  marker?: "more-pill" | "search-categories"
+  /** The trigger's accessible name, when its text alone does not say it. */
+  triggerLabel?: string
 }) {
   const desktop = useDesktop()
   const [query, setQuery] = useState("")
@@ -158,14 +167,14 @@ export function ExploreCategoryPicker({
     return (
       <PopoverPrimitive.Root open={open} onOpenChange={show}>
         <PopoverPrimitive.Trigger asChild>
-          <button ref={pillRef} type="button" data-more-pill="" className={triggerClassName}>
+          <button ref={pillRef} type="button" {...{ [`data-${marker}`]: "" }} aria-label={triggerLabel} className={triggerClassName}>
             {children}
           </button>
         </PopoverPrimitive.Trigger>
         <PopoverPrimitive.Portal>
           <PopoverPrimitive.Content
             data-category-panel=""
-            align="start"
+            align={align}
             side={placement.side}
             sideOffset={GAP}
             /* The header is a wall: the panel is kept below it, and its height counts from there. */
@@ -183,7 +192,7 @@ export function ExploreCategoryPicker({
 
   return (
     <>
-      <button type="button" data-more-pill="" aria-haspopup="dialog" aria-expanded={open} onClick={() => show(true)} className={triggerClassName}>
+      <button type="button" {...{ [`data-${marker}`]: "" }} aria-label={triggerLabel} aria-haspopup="dialog" aria-expanded={open} onClick={() => show(true)} className={triggerClassName}>
         {children}
       </button>
       <BottomSheet

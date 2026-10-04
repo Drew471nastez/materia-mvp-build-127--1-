@@ -169,7 +169,7 @@ export default function PrivacyPolicyPage() {
                   "Username and password (encrypted)",
                   "Store name, OnePage URL, and custom domain settings",
                   "Address and business information (required for Stripe verification)",
-                  "Identity documents and a selfie, collected and held by Stripe, never by Storelib (see section 6.3)",
+                  "Identity documents, and in a web browser a selfie, collected and held by Stripe, never by Storelib (see section 6.3)",
                   "Financial and banking information provided to Stripe for payout purposes",
                   "Product listings, descriptions, pricing, images, and digital files uploaded for sale",
                   "Email content created through the Storelib email system (newsletters, broadcast emails)",
@@ -311,19 +311,25 @@ export default function PrivacyPolicyPage() {
               </SubSection>
               <SubSection title="6.3 Identity Verification and Biometric Data">
                 <p>
-                  Verification is required by law and by the card networks before a Seller can be paid. The
-                  Seller enters what Stripe requires for their country in Storelib&apos;s payout form: typically a
-                  date of birth, a home address, a phone number and a national identification number, and, when
-                  Stripe asks for it, a proof of address.
+                  Verification is required by law and by the card networks before a Seller can be paid.
+                  Storelib&apos;s own payout form collects only what Stripe requires of an individual in their
+                  country, typically a date of birth, a home address and a phone number, together with the bank
+                  account payouts are sent to. Where Stripe additionally requires information Storelib&apos;s form
+                  does not collect, such as a national identification number or a proof of address, that
+                  information is collected by Stripe on Stripe&apos;s own form, which is embedded in the Storelib
+                  page; Storelib does not receive it.
                 </p>
                 <p>
-                  Where Stripe requires an identity document, the check is run by Stripe Identity on Stripe&apos;s
+                  Where Stripe requires an identity document, the Seller presents a passport, national identity
+                  card or driving licence. In a web browser the check is run by Stripe Identity on Stripe&apos;s
                   own screens: Stripe scans the document with the device camera and takes a photograph of the
                   Seller&apos;s face, and processes both with automated and biometric technology to confirm that
                   the document is genuine and belongs to the person presenting it. That document image, that
                   facial image and the biometric comparison between them are collected by Stripe directly and
-                  never pass through Storelib. Where Stripe Identity is not available, a Seller may instead add a
-                  photograph of their document, which Storelib transmits to Stripe without storing it.
+                  never pass through Storelib. In the Storelib mobile application, and anywhere Stripe Identity
+                  is unavailable, the Seller instead photographs the document with the camera in the Storelib
+                  application; Storelib transmits that photograph to Stripe over an encrypted connection and
+                  does not store it, and no facial image or biometric comparison is collected on that path.
                 </p>
                 <p>
                   Storelib passes the details a Seller types to Stripe over an encrypted connection as they are

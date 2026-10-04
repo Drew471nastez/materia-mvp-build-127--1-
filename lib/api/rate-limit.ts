@@ -206,8 +206,17 @@ export const LIMITS = {
    * of stolen keys would use this as a free checker.
    */
   aiKey: [{ limit: 6, seconds: 600 }, { limit: 20, seconds: 86400 }],
-  /** Setting up payments on Airwallex: starting, verifying, a payout account. Nobody needs dozens. */
+  /** Setting up payments: starting, sending details, a payout account. Each one writes, and nobody needs dozens. */
   paymentsSetup: [{ limit: 20, seconds: 600 }, { limit: 100, seconds: 86400 }],
+  /*
+   * READING WHERE SETUP HAS GOT TO. Setup asks this itself, often: the ID
+   * step watches for Stripe's answer every couple of seconds while somebody
+   * is holding up a document, and the last screen waits with them. Sharing
+   * the write budget above, the flow spent all twenty on its own polling in
+   * about fifty seconds and then quietly stopped updating, which read as
+   * Stripe never answering. These only read, so they get room to.
+   */
+  paymentsRead: [{ limit: 240, seconds: 600 }, { limit: 2000, seconds: 86400 }],
   /** Asking for a payout. A handful a day is plenty, and each moves money. */
   payout: [{ limit: 5, seconds: 600 }, { limit: 20, seconds: 86400 }],
 

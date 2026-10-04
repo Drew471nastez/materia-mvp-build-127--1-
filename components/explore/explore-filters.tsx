@@ -62,10 +62,12 @@ const CHIP_ON = "bg-[#e2e4e8] text-neutral-900 border-[#d7dadf] shadow-[inset_0_
 const CHIP_OFF = "bg-white text-neutral-600 border-neutral-200 hover:border-neutral-300 hover:text-neutral-900"
 
 type SortOption = { readonly id: string; readonly label: string }
+type PriceOption = { readonly id: string; readonly label: string }
 
 function FilterChoices({
   phone,
   sortOptions,
+  priceOptions,
   sortBy,
   setSortBy,
   priceFilter,
@@ -73,6 +75,7 @@ function FilterChoices({
 }: {
   phone: boolean
   sortOptions: readonly SortOption[]
+  priceOptions: readonly PriceOption[]
   sortBy: string
   setSortBy: (v: string) => void
   priceFilter: string
@@ -107,7 +110,7 @@ function FilterChoices({
       <div role="radiogroup" aria-label="Price" className={phone ? "mt-2" : "mt-1 border-t border-[#eef0f2] pt-1"}>
         <p className={label}>Price</p>
         <div className={cn("flex flex-wrap", phone ? "gap-2 px-4 pb-1 pt-1.5" : "gap-1.5 px-2.5 pb-1.5 pt-1")}>
-          {PRICE_FILTERS.map((f) => {
+          {priceOptions.map((f) => {
             const on = priceFilter === f.id
             return (
               <button
@@ -133,6 +136,8 @@ export function ExploreFilters({
   open,
   onOpenChange,
   sortOptions = SORT_OPTIONS,
+  priceOptions = PRICE_FILTERS,
+  resultLabel,
   sortBy,
   setSortBy,
   priceFilter,
@@ -147,6 +152,10 @@ export function ExploreFilters({
   onOpenChange: (open: boolean) => void
   /** The orders on offer. A category page has no ranking of its own, so it leaves Recommended out. */
   sortOptions?: readonly SortOption[]
+  /** The prices on offer: a product's bands, or a community's Free and Paid. */
+  priceOptions?: readonly PriceOption[]
+  /** The phone button's words, when a count is not known (communities come a page at a time). */
+  resultLabel?: string
   sortBy: string
   setSortBy: (v: string) => void
   priceFilter: string
@@ -160,7 +169,7 @@ export function ExploreFilters({
 }) {
   const desktop = useDesktop()
   const choices = (phone: boolean) => (
-    <FilterChoices phone={phone} sortOptions={sortOptions} sortBy={sortBy} setSortBy={setSortBy} priceFilter={priceFilter} setPriceFilter={setPriceFilter} />
+    <FilterChoices phone={phone} sortOptions={sortOptions} priceOptions={priceOptions} sortBy={sortBy} setSortBy={setSortBy} priceFilter={priceFilter} setPriceFilter={setPriceFilter} />
   )
   /*
     CLEAR ALL COMES AND GOES, IT DOES NOT BLINK. It used to be added when a
@@ -219,7 +228,7 @@ export function ExploreFilters({
     )
   }
 
-  const results = resultCount === 0 ? "No results" : `Show ${resultCount} ${resultCount === 1 ? "result" : "results"}`
+  const results = resultLabel ?? (resultCount === 0 ? "No results" : `Show ${resultCount} ${resultCount === 1 ? "result" : "results"}`)
   return (
     <>
       <button type="button" data-filters-button="" aria-haspopup="dialog" aria-expanded={open} onClick={() => onOpenChange(true)} className={triggerClassName}>

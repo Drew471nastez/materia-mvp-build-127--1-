@@ -4,6 +4,7 @@ import { connection } from "next/server"
 import { currentUserForRequest } from "@/lib/auth/request-scope"
 import { communitiesEnabled } from "@/lib/communities/flag"
 import { communityBySlug, loadSalesPage, seoFacts } from "@/lib/communities/server/public"
+import { scheduleCommunityView } from "@/lib/communities/server/record-view"
 import { CommunitySalesPage } from "@/components/community/public/sales-page"
 import { communityMetadata } from "@/components/community/public/seo"
 
@@ -30,5 +31,6 @@ export default async function CommunityAboutPage({ params }: { params: Promise<{
   const load = await loadSalesPage(slug, user?.id ?? null)
   if (!load) notFound()
   if (load.community.slug !== slug) permanentRedirect(`/community/${load.community.slug}/about`)
+  await scheduleCommunityView({ communityId: load.community.id, status: load.community.status, userId: user?.id ?? null, isOwner: load.viewer.isOwner })
   return <CommunitySalesPage data={load.data} />
 }
