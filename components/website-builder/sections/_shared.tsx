@@ -512,18 +512,20 @@ export function SectionWrapper({
         <span
           aria-hidden
           className="wb-ring absolute inset-0 pointer-events-none z-[9997] opacity-0 group-hover/section:opacity-100 transition-opacity"
-          style={{ boxShadow: "inset 0 0 0 2px rgba(59, 130, 246, 0.5)", ...ringRadiusStyle }}
+          style={{ boxShadow: "inset 0 0 0 1.5px rgba(59, 130, 246, 0.5)", ...ringRadiusStyle }}
         />
       )}
       {/* Selected ring: solid blue (#3b82f6), the canvas selection colour the
           owner asked to keep, as Shopify marks a selection. The builder chrome
           stays violet. Above all children so opaque child backgrounds (header
-          inner div, footer, etc.) can't hide it. */}
+          inner div, footer, etc.) can't hide it. 1.5px, not 2: at 2 it read as
+          a heavy frame round the section rather than a mark that it is chosen
+          ("reduce it just a little bit"), and the hover ring follows it. */}
       {isEditing && isSelected && (
         <span
           aria-hidden
           className="wb-ring absolute inset-0 pointer-events-none z-[9998]"
-          style={{ boxShadow: "inset 0 0 0 2px #3b82f6", ...ringRadiusStyle }}
+          style={{ boxShadow: "inset 0 0 0 1.5px #3b82f6", ...ringRadiusStyle }}
         />
       )}
       {/* "Selected" badge — anchored to bottom-right so it never overlaps

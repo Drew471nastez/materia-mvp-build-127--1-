@@ -221,15 +221,20 @@ check(
     !/DEVICE_WIDTH[\s\S]{0,120}tablet/.test(editor) &&
     !/DeviceMode = [^\n]*tablet/.test(editor) &&
     !/"desktop" \| "tablet" \| "mobile"/.test(editor) &&
-    // the switch itself is still two devices, one toggling control
-    /setDevice\(device === "desktop" \? "mobile" : "desktop"\)/.test(editor),
+    // the switch offers phone, desktop and Large, and no tablet
+    /\{ key: "mobile", label: "Phone"/.test(editor) && /\{ key: "desktop", label: "Desktop"/.test(editor) && !/key: "tablet"/.test(editor),
 )
 
 check(
-  "and the two that remain are one toggling control, not a segmented group",
-  // Two opposites are a toggle. The icon shows where you are; the tooltip says
-  // what pressing it does.
-  /setDevice\(device === "desktop" \? "mobile" : "desktop"\)/.test(editor),
+  "phone, desktop and Large are one segmented switch",
+  /**
+   * It was a toggle between two devices, with full screen as a separate
+   * button parked beside it. The owner asked for full screen to be the
+   * third place on the same switch ("it should be the 3rd thing of that
+   * switching phone, desktop, large, not a separate icon"), because all
+   * three answer one question: how am I looking at the page.
+   */
+  /role="radiogroup"\s+aria-label="Preview size"/.test(editor) && /setDevice\(key\)/.test(editor) && /key: "full", label: "Large"/.test(editor),
 )
 
 /**
@@ -279,7 +284,7 @@ check(
    * of context to answer "which page am I on". The page being edited is the
    * most important fact in an editor, so it is in the middle, named.
    */
-  /<div className="flex flex-1 items-center justify-center gap-1\.5 min-w-0">[\s\S]{0,3200}<PageSwitcher/.test(editor),
+  /<div className="flex flex-1 items-center justify-center gap-1\.5 min-w-0">[\s\S]{0,6000}<PageSwitcher/.test(editor),
 )
 
 check(
@@ -289,7 +294,7 @@ check(
       editor.indexOf("CENTRE: WHICH PAGE, AND HOW YOU ARE LOOKING AT IT"),
       editor.indexOf("RIGHT: where the site is"),
     )
-    const fmt = centre.indexOf("Switch to phone preview")
+    const fmt = centre.indexOf('aria-label="Preview size"')
     const sw = centre.indexOf("<PageSwitcher")
     const open = centre.indexOf("Open the live page")
     // Reload is INSIDE the pill now, asserted on the switcher below.

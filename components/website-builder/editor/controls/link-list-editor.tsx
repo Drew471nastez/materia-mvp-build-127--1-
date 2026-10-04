@@ -161,7 +161,7 @@ function LinkRow({
             title="Drag to move. Arrow keys work too."
             className={cn(
               GRIP_COL,
-              "flex h-full shrink-0 cursor-grab items-center justify-center text-muted-foreground/70 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#8b5cf6]/30 active:cursor-grabbing",
+              "flex h-full shrink-0 cursor-grab items-center justify-center text-muted-foreground/70 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-neutral-900/15 active:cursor-grabbing",
             )}
             data-link-grip=""
             {...grip}
@@ -201,7 +201,7 @@ function LinkRow({
                 type="button"
                 aria-label={`Actions for ${name || "link"}`}
                 data-link-actions=""
-                className="mr-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8b5cf6]/30 max-sm:h-11 max-sm:w-11 dark:hover:bg-white/[0.06]"
+                className="mr-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/15 max-sm:h-11 max-sm:w-11 dark:hover:bg-white/[0.06]"
               >
                 <MoreHorizontal className="h-4 w-4" strokeWidth={1.75} />
               </button>

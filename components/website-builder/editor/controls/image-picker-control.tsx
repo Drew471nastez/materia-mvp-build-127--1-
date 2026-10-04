@@ -53,7 +53,7 @@ export function ImagePickerControl({
 
   return (
     <div className="space-y-1.5" data-image-setting="">
-      <WbImagePicker value={shown || undefined} onChange={(next) => commit(next ?? "")} aspectRatio="video" folder="sections" />
+      <WbImagePicker value={shown || undefined} onChange={(next) => commit(next ?? "")} aspectRatio="video" folder="sections" layout="row" />
       <input
         type="url"
         inputMode="url"

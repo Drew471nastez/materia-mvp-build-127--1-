@@ -46,7 +46,7 @@ export function PanelBack({
           "group/back flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-xl outline-none md:h-9 md:w-9",
           /* The press area: the whole row, the name included. */
           "after:absolute after:inset-0 after:content-['']",
-          "focus-visible:ring-2 focus-visible:ring-[#8b5cf6]/40 [-webkit-tap-highlight-color:transparent]",
+          "focus-visible:ring-2 focus-visible:ring-neutral-900/15 [-webkit-tap-highlight-color:transparent]",
         )}
       >
         <span

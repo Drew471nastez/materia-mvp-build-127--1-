@@ -5,7 +5,7 @@ import { ownOpen, useOwnMarker } from "@/lib/analytics/own-site"
 import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import {
-  ArrowLeft, Plug, Monitor, Smartphone, Maximize2, Minimize2, Loader2, Code2, ChevronDown, Plus, Eye, EyeOff, Trash2, Copy, Settings, Check, Layers, X, RotateCcw, Layout, AlignLeft, Image, MessageSquare, HelpCircle, Megaphone, BarChart2, Grid, Award, LayoutGrid, DollarSign, LayoutTemplate, Video, Users, MapPin, Mail, Clock, BookOpen, Shirt, Columns, Play, Star, Timer, Shield, Rss, SlidersHorizontal, Code, Bell, ChevronRight, Package, Undo2, Redo2, ExternalLink, Search, FileText, ArrowRight, FolderOpen, MoreHorizontal, Upload, Info, Crop, CheckCircle, Type, Square, Rows3, Grid3x3, MousePointerClick, MoveHorizontal, Hash, Columns2, LayoutDashboard, Badge as BadgeIcon, ArrowUp, ArrowDown,
+  ArrowLeft, Plug, Monitor, Smartphone, Maximize2, Loader2, Code2, ChevronDown, Plus, Eye, EyeOff, Trash2, Copy, Settings, Check, Layers, X, RotateCcw, Layout, AlignLeft, Image, MessageSquare, HelpCircle, Megaphone, BarChart2, Grid, Award, LayoutGrid, DollarSign, LayoutTemplate, Video, Users, MapPin, Mail, Clock, BookOpen, Shirt, Columns, Play, Star, Timer, Shield, Rss, SlidersHorizontal, Code, Bell, ChevronRight, Package, Undo2, Redo2, ExternalLink, Search, FileText, ArrowRight, FolderOpen, MoreHorizontal, Upload, Info, Crop, CheckCircle, Type, Square, Rows3, Grid3x3, MousePointerClick, MoveHorizontal, Hash, Columns2, LayoutDashboard, Badge as BadgeIcon, ArrowUp, ArrowDown,
 } from "lucide-react"
 import {
   KeyboardSensor,
@@ -721,6 +721,7 @@ function FieldControl({
         onChange={url => onChange(url ?? "")}
         aspectRatio="video"
         folder="sections"
+        layout="row"
       />
     )
   }
@@ -815,9 +816,10 @@ function FieldControl({
             onChange={next => onChange(next ? list.map((u, j) => (j === i ? next : u)) : list.filter((_, j) => j !== i))}
             aspectRatio="video"
             folder="sections"
+            layout="row"
           />
         ))}
-        <WbImagePicker value={undefined} onChange={next => { if (next) onChange([...list, next]) }} aspectRatio="video" folder="sections" />
+        <WbImagePicker value={undefined} onChange={next => { if (next) onChange([...list, next]) }} aspectRatio="video" folder="sections" layout="row" />
       </div>
     )
   }
@@ -2030,7 +2032,7 @@ function HeaderSectionSettings({
                 }}
                 className={cn(
                   "w-full text-left border rounded-xl overflow-hidden bg-white transition-all",
-                  active ? "border-[#8b5cf6] ring-2 ring-[#8b5cf6]/30" : "border-border hover:border-[#c4b5fd]",
+                  active ? "border-neutral-900 ring-1 ring-neutral-900" : "border-border hover:border-neutral-300",
                 )}
               >
                 <div className="h-20 bg-gray-50 border-b border-border flex items-center">
@@ -2147,7 +2149,7 @@ function HeaderSectionSettings({
                 }}
                 className={cn(
                   "w-full text-left border rounded-xl overflow-hidden bg-white transition-all",
-                  active ? "border-[#8b5cf6] ring-2 ring-[#8b5cf6]/30" : "border-border hover:border-[#c4b5fd]",
+                  active ? "border-neutral-900 ring-1 ring-neutral-900" : "border-border hover:border-neutral-300",
                 )}
               >
                 <div className="h-20 bg-gray-50 border-b border-border flex items-center">
@@ -7460,53 +7462,63 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           on the right — and everything about the PROJECT stays on the edges.
         */}
         <div className="flex flex-1 items-center justify-center gap-1.5 min-w-0">
-          {/* Format, to the left of the page it applies to. */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                className="hidden sm:flex h-8 w-8 items-center justify-center rounded-lg text-[var(--wb-chrome-fg-3)] transition-colors hover:bg-[var(--wb-chrome-hover)] hover:text-[var(--wb-chrome-fg)] shrink-0"
-                onClick={() => {
-                  /* Phone is its own way of looking: it leaves full screen. */
-                  if (fullView) setFullScreen(false)
-                  setDevice(device === "desktop" ? "mobile" : "desktop")
-                }}
-                aria-label={device === "desktop" ? "Switch to phone preview" : "Switch to desktop preview"}
-                aria-pressed={device === "mobile"}
-                data-wb-device-switch=""
-              >
-                {device === "desktop" ? (
-                  <Monitor className="h-4 w-4" strokeWidth={1.75} />
-                ) : (
-                  <Smartphone className="h-4 w-4" strokeWidth={1.75} />
-                )}
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">
-              {device === "desktop" ? "Switch to phone" : `Switch to desktop (phone is ${DEVICE_WIDTH.mobile}px)`}
-            </TooltipContent>
-          </Tooltip>
-          {/* Full screen, the third way of looking, beside desktop and phone. A computer only. */}
+          {/*
+            HOW YOU ARE LOOKING: PHONE, DESKTOP, LARGE. One switch with three
+            places, not a device toggle with a full screen button parked
+            beside it. Full screen is a way of looking at the page, the same
+            kind of choice as phone or desktop, so it is the third place on
+            the same control: Large is desktop with the sidebar folded away.
+            A phone has no room for it, and its canvas is already the screen.
+          */}
           {!isMobileView && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <button
-                  className={cn(
-                    "hidden sm:flex h-8 w-8 items-center justify-center rounded-lg transition-colors hover:bg-[var(--wb-chrome-hover)] hover:text-[var(--wb-chrome-fg)] shrink-0",
-                    fullView ? "bg-[var(--wb-chrome-active)] text-[var(--wb-chrome-fg)]" : "text-[var(--wb-chrome-fg-3)]",
-                  )}
-                  onClick={() => {
-                    if (!fullView && previewMode !== "preview") setPreviewMode("preview")
-                    setFullScreen(!fullView)
-                  }}
-                  aria-label={fullView ? "Leave full screen" : "Full screen preview"}
-                  aria-pressed={fullView}
-                  data-wb-full-screen-switch=""
-                >
-                  {fullView ? <Minimize2 className="h-4 w-4" strokeWidth={1.75} /> : <Maximize2 className="h-4 w-4" strokeWidth={1.75} />}
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">{fullView ? "Leave full screen (Esc)" : "Full screen"}</TooltipContent>
-            </Tooltip>
+            <div
+              role="radiogroup"
+              aria-label="Preview size"
+              data-wb-device-switch=""
+              className="hidden sm:flex shrink-0 items-center gap-0.5 rounded-full border border-white/10 bg-white/[0.05] p-0.5"
+            >
+              {([
+                { key: "mobile", label: "Phone", tip: `Phone (${DEVICE_WIDTH.mobile}px)`, Icon: Smartphone },
+                { key: "desktop", label: "Desktop", tip: "Desktop", Icon: Monitor },
+                { key: "full", label: "Large", tip: fullView ? "Large (Esc to leave)" : "Large: the page, full screen", Icon: Maximize2 },
+              ] as const).map(({ key, label, tip, Icon }) => {
+                const on = key === "full" ? fullView : !fullView && device === key
+                return (
+                  <Tooltip key={key}>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        role="radio"
+                        aria-checked={on}
+                        aria-label={label}
+                        data-wb-device={key}
+                        /* The probe and the tests still find Large by its old name. */
+                        {...(key === "full" ? { "data-wb-full-screen-switch": "", "aria-pressed": fullView } : {})}
+                        onClick={() => {
+                          if (key === "full") {
+                            if (!fullView && previewMode !== "preview") setPreviewMode("preview")
+                            setFullScreen(!fullView)
+                            return
+                          }
+                          /* Phone or desktop is its own way of looking: it leaves Large. */
+                          if (fullView) setFullScreen(false)
+                          setDevice(key)
+                        }}
+                        className={cn(
+                          "flex h-7 w-8 items-center justify-center rounded-full transition-[background-color,color] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/25",
+                          on
+                            ? "bg-white/[0.14] text-[var(--wb-chrome-fg)]"
+                            : "text-[var(--wb-chrome-fg-3)] hover:bg-white/[0.07] hover:text-[var(--wb-chrome-fg)]",
+                        )}
+                      >
+                        <Icon className="h-[15px] w-[15px]" strokeWidth={1.75} />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">{tip}</TooltipContent>
+                  </Tooltip>
+                )
+              })}
+            </div>
           )}
 
           {!isMobileView && (
