@@ -4,15 +4,17 @@
  * ===========================================================================
  *  THE NAVIGATOR: ONE HAMBURGER, EVERYWHERE YOU CAN GO
  * ===========================================================================
- * The three lines right of the Storelib logo, and the same three lines right
- * of a community's picture and name in its own top bar, open this one panel:
+ * The three lines beside the Storelib logo (left of it on a phone, right of
+ * it on a computer), and the same three lines right of a community's
+ * picture and name in its own top bar, open this one panel:
  *
- *   signed in    Recently opened (my own digital products and courses, newest
- *                first, at most five, each with its cover; the section is
- *                not drawn when there are none), my communities, most
- *                recently visited first (the one I am looking at marked),
- *                Discover communities, Explore, then Dashboard for a seller
- *                or Start creating for anybody else
+ *   signed in    one recent list with no heading: the courses and digital
+ *                products I used and the communities I am in, the last one
+ *                touched first, each with its cover or logo and a small
+ *                word for what it is (the community I am looking at
+ *                marked); a faint short rule; Discover communities,
+ *                Explore, then Dashboard for a seller or Start creating
+ *                for anybody else
  *   signed out   Explore, Discover communities, Log in and Start creating
  *
  * With communities switched off nothing about communities is in it. It no
@@ -351,77 +353,64 @@ function NavigatorBody({
     "hover:bg-[#f4f5f7] focus-visible:bg-[#f1f2f4] active:bg-[#eef0f2]",
   )
   const pad = phone ? "px-3" : "p-1.5"
-  const heading = cn("font-medium text-[#6b7280]", phone ? "px-3 pb-1 pt-2 text-[13px]" : "px-2.5 pb-1 pt-1.5 text-[12.5px]")
+  const pic = phone ? 36 : 32
+  const hasRecent = model.recent.length > 0
   return (
     <div className={cn("flex min-h-0 flex-col", phone ? "pb-[max(16px,env(safe-area-inset-bottom))] pt-1" : "max-h-[min(560px,calc(100dvh-120px))]")}>
       {loading ? (
         /* The one wait there can be: a first open in a fresh tab before the list arrived. One row's height, so little moves. */
-        <div className={pad} data-navigator-loading="">
-          <div className={cn("flex items-center gap-3", phone ? "h-[52px] px-3" : "h-[44px] px-2.5")} aria-hidden>
-            <span className="h-8 w-8 shrink-0 rounded-[9px] bg-[#f1f2f4]" />
+        <div className={cn(pad, !phone && "pb-0")} data-navigator-loading="">
+          <div className={cn("flex items-center gap-3", phone ? "h-[56px] px-3" : "h-[48px] px-2.5")} aria-hidden>
+            <span className="shrink-0 rounded-[9px] bg-[#f1f2f4]" style={{ width: pic, height: pic }} />
             <span className="h-3 w-32 rounded bg-[#f1f2f4]" />
           </div>
         </div>
-      ) : model.products.length || model.communities.length ? (
-        /* One scrolling part for both lists, so the links and the action at the foot stay put. */
-        <div className={cn("min-h-0 overflow-y-auto overscroll-contain", pad)} data-navigator-lists="">
-          {model.products.length ? (
-            <div data-navigator-products="">
-              <p className={heading}>Recently opened</p>
-              <ul>
-                {model.products.map((r) =>
-                  r.kind === "product" ? (
-                    <li key={r.product.id}>
-                      <Link href={r.href} onClick={go(r.href)} data-navigator-row="" data-navigator-product={r.product.kind} className={row}>
-                        <AppAvatar src={r.product.coverUrl} name={r.product.title} alt="" size={32} className="shrink-0 rounded-[8px]" markWhileLoading />
-                        <span className="min-w-0 flex-1 truncate font-medium text-[#1a1a2e]">{r.product.title}</span>
-                      </Link>
-                    </li>
-                  ) : null,
-                )}
-              </ul>
-            </div>
-          ) : null}
-          {model.communities.length ? (
-            <div className={cn(model.products.length > 0 && "mt-1 border-t border-[#f0f1f3] pt-1")} data-navigator-communities="">
-              <p className={heading}>Your communities</p>
-              <ul>
-                {model.communities.map((r) =>
-                  r.kind === "community" ? (
-                    <li key={r.community.id}>
-                      <Link
-                        href={r.href}
-                        onClick={go(r.href)}
-                        aria-current={r.current ? "page" : undefined}
-                        data-navigator-row=""
-                        data-navigator-community={r.community.slug}
-                        data-current={r.current ? "" : undefined}
-                        className={cn(row, r.current && "bg-[#f4f5f7] text-[#6b7280]")}
-                      >
-                        <AppAvatar src={r.community.logoUrl} name={r.community.name} alt="" size={32} className="shrink-0 rounded-[9px]" markWhileLoading />
-                        <span className={cn("min-w-0 flex-1 truncate", r.current ? "font-medium" : "font-medium text-[#1a1a2e]")}>{r.community.name}</span>
-                        {r.current ? <Check aria-label="You are here" className="h-4 w-4 shrink-0 text-[#9ca3af]" strokeWidth={2.25} /> : null}
-                      </Link>
-                    </li>
-                  ) : null,
-                )}
-              </ul>
-            </div>
-          ) : null}
-        </div>
+      ) : hasRecent ? (
+        /*
+          ONE RECENT LIST, NO HEADING. Courses, digital products and
+          communities together, the last one touched first (lib/nav/
+          places-shared.ts mergeRecent). Each says what it is in a small grey
+          word under its name, so a course and a community with similar names
+          read apart. It scrolls on its own, so the links and the action at
+          the foot stay put.
+        */
+        <ul className={cn("min-h-0 overflow-y-auto overscroll-contain", pad, !phone && "pb-0")} data-navigator-lists="" data-navigator-recent="">
+          {model.recent.map((r) => (
+            <li key={`${r.item.kind}:${r.item.id}`}>
+              <Link
+                href={r.href}
+                onClick={go(r.href)}
+                aria-current={r.current ? "page" : undefined}
+                data-navigator-row=""
+                data-navigator-kind={r.item.kind}
+                data-navigator-community={r.item.kind === "community" ? r.item.slug : undefined}
+                data-current={r.current ? "" : undefined}
+                className={cn(row, phone ? "min-h-[56px] py-1.5" : "min-h-[48px] py-1", r.current && "bg-[#f4f5f7]")}
+              >
+                <AppAvatar src={r.item.imageUrl} name={r.item.title} alt="" size={pic} className={cn("shrink-0", r.item.kind === "community" ? "rounded-[9px]" : "rounded-[8px]")} markWhileLoading />
+                <span className="min-w-0 flex-1">
+                  <span className={cn("block truncate font-medium leading-[1.3]", r.current ? "text-[#6b7280]" : "text-[#1a1a2e]")} data-navigator-title="">{r.item.title}</span>
+                  <span className={cn("block truncate leading-[1.35] text-[#9ca3af]", phone ? "text-[13px]" : "text-[12px]")} data-navigator-hint="">{r.hint}</span>
+                </span>
+                {r.current ? <Check aria-label="You are here" className="h-4 w-4 shrink-0 text-[#9ca3af]" strokeWidth={2.25} /> : null}
+              </Link>
+            </li>
+          ))}
+        </ul>
       ) : null}
 
-      <div className={cn("shrink-0", pad, (loading || model.products.length > 0 || model.communities.length > 0) && "border-t border-[#f0f1f3]")} data-navigator-links="">
-        {model.links.map((r) =>
-          r.kind === "link" ? (
-            <Link key={r.key} href={r.href} onClick={go(r.href)} data-navigator-row="" data-navigator-link={r.key} className={cn(row, "font-medium text-[#1a1a2e]")}>
-              {r.label}
-            </Link>
-          ) : null,
-        )}
+      {/* A faint, short rule between what is mine and the ways out: inset from both edges, one pixel of the lightest grey. Only under a list. */}
+      {loading || hasRecent ? <div aria-hidden data-navigator-divider="" className={cn("h-px shrink-0 bg-[#f0f1f3]", phone ? "mx-6 my-2" : "mx-4 my-1.5")} /> : null}
+
+      <div className={cn("shrink-0", pad, !phone && (loading || hasRecent) && "pt-0")} data-navigator-links="">
+        {model.links.map((r) => (
+          <Link key={r.key} href={r.href} onClick={go(r.href)} data-navigator-row="" data-navigator-link={r.key} className={cn(row, "font-medium text-[#1a1a2e]")}>
+            {r.label}
+          </Link>
+        ))}
       </div>
 
-      <div className={cn("flex shrink-0 gap-2 border-t border-[#f0f1f3]", phone ? "px-3 pt-3" : "p-2.5")} data-navigator-actions="">
+      <div className={cn("flex shrink-0 gap-2", phone ? "px-3 pt-2" : "p-2.5 pt-1")} data-navigator-actions="">
         {model.actions.map((a) => (
           <Link
             key={a.key}

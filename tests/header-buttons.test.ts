@@ -130,8 +130,18 @@ console.log("\n6. signed in")
   /* Round 3 follow up: the phone's account sheet has the computer menu's rows, in the same order; no My Library (the library lives inside /account). */
   {
     const sheet = header.slice(header.indexOf('data-account-sheet=""'), header.indexOf("<LanguageModal"))
-    const order = [...sheet.matchAll(/item="([a-z-]+)"|data-account-item="([a-z-]+)"/g)].map((m) => m[1] || m[2])
+    const order = [...sheet.matchAll(/item="([a-z-]+)"|data-account-item="([a-z-]+)"|<(SheetLogOut) /g)].map((m) => m[1] || m[2] || (m[3] && "log-out"))
     check("the phone's account sheet: Dashboard or Start creating, Profile, Settings, Language, Help, Discover, Log out", order.join(",") === "dashboard,start-creating,profile,settings,language,help,discover,log-out", order)
+    /*
+      ROUND 6, ask 2: "The phone account bottom sheet must never hide the Log
+      out row at the bottom (safe area, sheet height, scroll) ... Its top area
+      with the avatar and name inherits the look of the /app phone menu's
+      account block." Measured at four phone sizes in
+      scripts/check-place-navigator.mjs.
+    */
+    check("Log out is pinned at the foot: the rows scroll on their own above it, and the foot never shrinks", /fill\s+maxHeight="min\(88dvh, 720px\)"/.test(sheet.length ? header.slice(header.indexOf("isOpen={mobileProfileOpen}"), header.indexOf('data-account-sheet=""')) : "") && /className="min-h-0 flex-1 overflow-y-auto overscroll-contain" data-account-sheet=""/.test(header) && /<div className="shrink-0" data-account-sheet-foot="">\s*<SheetLogOut onPress=\{handleLogout\} \/>/.test(header))
+    check("the top is /app's: a rounded row with a 32px photo in a hairline ring, the name and the @handle, a one pixel rule under it", /className="flex min-h-\[52px\] shrink-0 items-center gap-3 rounded-xl px-3 py-2" data-account-who="">\s*<AppAvatar src=\{avatarUrl\}[^>]*size=\{32\} className="shrink-0 ring-1 ring-neutral-200" \/>/.test(header) && /data-account-who=""[\s\S]{0,700}<div aria-hidden className="my-1\.5 h-px shrink-0 bg-neutral-100" \/>/.test(header) && /@\{profile\.username\}/.test(header))
+    check("and the rows are /app's rows: 18px icons, 15px words, no chevrons", /const SHEET_ROW =\s*"flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-\[15px\] font-medium text-neutral-800/.test(header) && !/<ChevronRight/.test(fn(header, "SheetRow")))
     check("its links: /app or /sell, /account, /account/settings, /help, /explore; Language is the picker", /headerLink\("\/app"\)\} onDone=[\s\S]{0,80}item="dashboard"/.test(sheet) && /headerLink\("\/sell"\)\} onDone=[\s\S]{0,80}item="start-creating"/.test(sheet) && /headerLink\("\/account"\)\} onDone=[\s\S]{0,80}item="profile"/.test(sheet) && /headerLink\("\/account\/settings"\)/.test(sheet) && /headerLink\("\/help"\)/.test(sheet) && /headerLink\("\/explore"\)\} onDone=[\s\S]{0,80}item="discover"/.test(sheet) && /setLanguageOpen\(true\) \}\} item="language"/.test(sheet))
     check("and no My Library row in it", !/My Library|"\/library"/.test(sheet))
   }

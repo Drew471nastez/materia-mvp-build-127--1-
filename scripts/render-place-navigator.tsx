@@ -6,11 +6,12 @@
  * bell's inbox and read, the wishlist) and reads which page and visitor
  * from the hash:
  *
- *   #path=/explore&who=buyer       signed in, no seller access, in three communities, two things recently opened
- *   #path=/explore&who=seller      a seller, in the same communities, nothing bought (no Recently opened)
+ *   #path=/explore&who=buyer       signed in, no seller access: a course, a download and three communities in one recent list
+ *   #path=/explore&who=seller      a seller, in the same communities, nothing bought (communities alone)
  *   #path=/help&who=seller         a seller, on a page where the header's own search field shows
  *   #path=/help&who=guest          nobody signed in
  *   #mode=community&who=buyer      a community's own bar with the same navigator right of its name, "Mara Club" current
+ *   #mode=app-account&who=buyer    /app's own phone account sheet (components/app/mobile-account-menu.tsx), the look the header's account sheet takes after
  */
 import React from "react"
 import { createRoot } from "react-dom/client"
@@ -19,6 +20,7 @@ import { PlatformSettingsProvider } from "@/components/platform/platform-setting
 import { PlatformHeaderClient } from "@/components/platform/platform-header-client"
 import { PlaceNavigator } from "@/components/nav/place-navigator"
 import { NotificationBell } from "@/components/notifications/notification-bell"
+import { MobileAccountMenu } from "@/components/app/mobile-account-menu"
 
 const params = new URLSearchParams(location.hash.slice(1))
 const w = window as any
@@ -36,23 +38,26 @@ const PIC = "https://abc.supabase.co/storage/v1/object/public/avatars/p.jpg"
 const COVER = "https://abc.supabase.co/storage/v1/object/public/products/cover.jpg"
 const places = () => {
   const who = w.__who
-  if (who === "guest") return { signedIn: false, communitiesOn: true, isCreator: false, hasSellerAccess: false, communities: [], products: [] }
+  if (who === "guest") return { signedIn: false, communitiesOn: true, isCreator: false, hasSellerAccess: false, recent: [] }
+  const clubs = {
+    mara: { kind: "community", id: "c-mara", slug: "mara-club", title: "Mara Club", imageUrl: null },
+    film: { kind: "community", id: "c-film", slug: "film-school", title: "Film School Collective", imageUrl: PIC },
+    run: { kind: "community", id: "c-run", slug: "morning-runners", title: "Morning Runners", imageUrl: null },
+  }
   return {
     signedIn: true,
     communitiesOn: true,
     isCreator: who === "seller",
     hasSellerAccess: who === "seller",
-    communities: [
-      { id: "c-mara", slug: "mara-club", name: "Mara Club", logoUrl: null },
-      { id: "c-film", slug: "film-school", name: "Film School Collective", logoUrl: PIC },
-      { id: "c-run", slug: "morning-runners", name: "Morning Runners", logoUrl: null },
-    ],
-    /* Recently opened: a course and a download for the buyer; a seller who bought nothing has none, and the section is not drawn. */
-    products: who === "seller"
-      ? []
+    /* One recent list, the last touched first: for the buyer a course opened today, a community visited yesterday, a download, then the rest; a seller who bought nothing has communities only. */
+    recent: who === "seller"
+      ? [clubs.mara, clubs.film, clubs.run]
       : [
-          { id: "k-grade", kind: "course", title: "Color Grading for Film: the complete course", coverUrl: COVER },
-          { id: "p-amb", kind: "product", title: "Ambience Kit Vol. 1", coverUrl: null },
+          { kind: "course", id: "k-grade", slug: "", title: "Color Grading for Film: the complete course", imageUrl: COVER },
+          clubs.mara,
+          { kind: "product", id: "p-amb", slug: "", title: "Ambience Kit Vol. 1", imageUrl: null },
+          clubs.film,
+          clubs.run,
         ],
   }
 }
@@ -99,10 +104,29 @@ function CommunityBar() {
   )
 }
 
+function AppAccountBar() {
+  /* /app's phone bar with its own account sheet, one business: the reference the Storelib header's account sheet is compared with. */
+  return (
+    <header className="sticky top-0 z-40 flex h-14 items-center bg-[#0b0b0f] px-3">
+      <MobileAccountMenu
+        businesses={[{ userId: "u1", name: "Ava Stone", handle: "ava", avatarUrl: null, ready: true, current: true, role: "owner" }]}
+        avatarSrc={undefined}
+        userDisplayName="Ava Stone"
+        settingsLabel="Settings"
+        billingLabel="Billing"
+        languageLabel="Language"
+        onOpening={() => {}}
+        onLanguage={() => {}}
+        onSignOut={() => {}}
+      />
+    </header>
+  )
+}
+
 createRoot(document.getElementById("app")!).render(
   <LocaleProvider>
     <PlatformSettingsProvider exploreMarketplace buyerHeaderLight>
-      {mode === "community" ? <CommunityBar /> : <PlatformHeaderClient buyerHeaderLight />}
+      {mode === "community" ? <CommunityBar /> : mode === "app-account" ? <AppAccountBar /> : <PlatformHeaderClient buyerHeaderLight />}
       <main className="min-h-[1600px] bg-[#f8f9fa] p-8 text-[15px] text-neutral-500" data-page="">
         <div className="mx-auto max-w-[900px] space-y-4">
           {Array.from({ length: 6 }, (_, i) => (
