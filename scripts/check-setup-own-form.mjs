@@ -213,24 +213,23 @@ try {
     await p.bringToFront()
     await p.setViewport({ width: 390, height: 844, deviceScaleFactor: 1, isMobile: true, hasTouch: true })
     await p.goto("http://probe.test/app/payouts?fresh=1")
-    await p.waitForSelector("[data-account-kind]", { timeout: 8000 }).catch(() => {})
+    await p.waitForSelector('[autocomplete="given-name"]', { timeout: 8000 }).catch(() => {})
     const start = await p.evaluate(() => {
       const t = document.querySelector("[data-payments-setup-panel]")?.textContent ?? ""
-      const radios = [...document.querySelectorAll("[data-account-kind] [role=radio]")]
       return {
         where: /Where are you based\?/.test(t),
-        how: /How are you selling\?/.test(t),
-        individual: radios.find((b) => b.textContent === "Individual")?.getAttribute("aria-checked") === "true",
-        noCompany: !/Legal business name/.test(t),
+        name: !!document.querySelector('[autocomplete="given-name"]') && !!document.querySelector('[autocomplete="family-name"]'),
+        noHow: !/How are you selling\?/.test(t) && !document.querySelector("[data-account-kind]"),
+        noBusiness: !/Business|Legal business name/.test(t),
+        noSupport: !/support@storelib\.com/.test(t),
         steps: [...document.querySelectorAll('[aria-label="Setup steps"] li:not([aria-hidden])')].map((li) => li.textContent?.trim()),
       }
     })
-    expect(start.where && start.how, "it asks where they are based and how they sell", start)
-    expect(start.individual && start.noCompany, "Individual is picked and no company field shows", start)
-    expect(!start.steps.some((s) => /ID check/.test(s ?? "")), "and no ID check step is promised before Stripe asks for one", start.steps)
-    await p.evaluate(() => [...document.querySelectorAll("[data-account-kind] [role=radio]")].find((b) => b.textContent === "Business")?.click())
-    await new Promise((r) => setTimeout(r, 200))
-    expect(await p.evaluate(() => /Legal business name/.test(document.querySelector("[data-payments-setup-panel]")?.textContent ?? "")), "Business asks for the legal business name")
+    /* Like Gumroad and Skool: who you are, nothing about a company, and no question that cannot be answered. */
+    expect(start.where && start.name, "personal info: where they are based and their name", start)
+    expect(start.noHow && start.noBusiness, "no 'How are you selling', no Business option", start)
+    expect(start.noSupport, "and no 'contact support' anywhere", start)
+    expect(/Personal info/.test(start.steps[0] ?? ""), "the stepper starts at Personal info", start.steps)
     await p.screenshot({ path: join(out, "account-step-390.png") })
     expect(errors.length === 0, "nothing threw", errors.slice(0, 1))
     await p.close()
@@ -434,8 +433,10 @@ try {
     await p.bringToFront()
     await p.setViewport({ width: 390, height: 844, deviceScaleFactor: 1, isMobile: true, hasTouch: true })
     await p.goto("http://probe.test/app/payouts?checking=1")
-    await p.waitForFunction(() => /Checking your ID/.test(document.querySelector("[data-payments-setup-panel]")?.textContent ?? ""), { timeout: 8000 })
+    /* No ID went in on this run (Stripe already had everything): it is the details being checked, never "your ID". */
+    await p.waitForFunction(() => /Checking your/.test(document.querySelector("[data-payments-setup-panel]")?.textContent ?? ""), { timeout: 8000 })
     const waiting = await p.evaluate(() => document.querySelector("[data-payments-setup-panel]")?.textContent ?? "")
+    expect(/Checking your details/.test(waiting) && !/Checking your ID/.test(waiting), "it never says 'Checking your ID' when no ID was taken", waiting.slice(0, 80))
     expect(!/business days|two days/i.test(waiting), "it never promises days", waiting.slice(0, 160))
     await p.screenshot({ path: join(out, "checking-390.png") })
     await p.waitForFunction(() => /Payments active/.test(document.querySelector("[data-payments-setup-panel]")?.textContent ?? ""), { timeout: 15000 }).catch(() => {})

@@ -34,6 +34,7 @@ import { stripe } from "@/lib/stripe"
 import { PaymentsProblem } from "../errors"
 import { publishableKeyForSession, readCreatorStripe, runsInStorelib, syncStripeAccount, type PaymentsCreatorRef } from "./connect"
 import { stripeErrorMessage } from "./setup-errors"
+import { idOutstanding } from "./status"
 
 /** Why there is no Stripe Identity for this creator; the form falls back to its own camera. */
 export type IdentityUnavailable = "not_enabled" | "no_account" | "not_ours" | "no_person" | "nothing_to_verify" | "failed"
@@ -116,6 +117,8 @@ function documentDue(account: Stripe.Account): boolean {
   const pending = new Set(req?.pending_verification ?? [])
   const isDoc = (k: string) => /^individual\.verification\.(document|additional_document)$/.test(k) && !pending.has(k)
   if ([...due].some(isDoc)) return true
+  /* Verify ID is always step two of setup, until Stripe holds an ID (lib/payments/stripe/status.ts idOutstanding). */
+  if (idOutstanding(account)) return true
   return (req?.alternatives ?? []).some((alt) => alt.alternative_fields_due.some(isDoc) && alt.original_fields_due.some((k) => due.has(k) && !pending.has(k)))
 }
 
