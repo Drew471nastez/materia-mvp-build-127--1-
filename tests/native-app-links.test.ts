@@ -69,8 +69,10 @@ const cases: Array<[string, string, ReturnType<typeof nativeLinkFor>]> = [
 ]
 for (const [label, href, want] of cases) check(`${label}: ${href}`, same(link(href), want), link(href))
 check("our hosts, and only ours", isStorelibHost("storelib.com", H) && isStorelibHost("www.storelib.com", H) && isStorelibHost("maria.storelib.com", H) && isStorelibHost("storelib.me", H) && !isStorelibHost("storelib.com.evil.example", H) && !isStorelibHost("notstorelib.com", H))
-check("the dashboard, the library and the builders load as a document; Discover and products on the client",
-  needsDocumentLoad("/app/products") && needsDocumentLoad("/account/library/x") && needsDocumentLoad("/store-builder") && !needsDocumentLoad("/explore") && !needsDocumentLoad("/maria/preset-pack") && !needsDocumentLoad("/community/club"))
+check("the dashboard and the builders load as a document; Discover, products and the library on the client",
+  needsDocumentLoad("/app/products") && !needsDocumentLoad("/account/library/x") && !needsDocumentLoad("/account/library/products/abc") && needsDocumentLoad("/store-builder") && !needsDocumentLoad("/explore") && !needsDocumentLoad("/maria/preset-pack") && !needsDocumentLoad("/community/club"))
+check("the header and SmartLink ask the same list, so the navigator opens a library product on the client in the app",
+  /const isCrossLayoutPath = needsDocumentLoad/.test(read("components/platform/platform-header-client.tsx")) && /needsDocumentLoad\(internalPath\)/.test(read("components/smart-link.tsx")))
 
 console.log("\nThe places that sent it to Safari")
 const bridge = code("lib/native-bridge.ts")
@@ -134,7 +136,7 @@ check("the start asks startTarget with the kept place, at every layer that knows
   (start.match(/safeRedirect\(go\(/g) ?? []).length === 3 && /safeRedirect\(cached \? go\(cached\) : "\/app"\)/.test(start) && /startTarget\(\{ last: kept \? readLastPlace\(\) : null, home, exploreOn \}\)/.test(start))
 check("the community start it replaces is gone", !/communityStart|\/api\/native\/start|isCommunityStart|isLibraryHome/.test(start))
 check("a kept place passes the redirect's own check, anything else is a home or /app", /const target = isHandoff \|\| isResumablePlace\(url\) \? url : sanitizeNativeHome\(url\)/.test(start) && /target === "\/native-start"/.test(start))
-check("only a start opens the kept page: the logo's '/' from inside the app goes home", /function documentOpenedHere\(\)/.test(start) && /new URL\(nav\.name\)\.pathname === "\/native-start"/.test(start) && /const kept = documentOpenedHere\(\) && !startedJustNow\(\)/.test(start))
+check("only a start opens the kept page: the logo's '/' from inside the app goes home", /function documentOpenedHere\(\)/.test(start) && /new URL\(nav\.name\)\.pathname === "\/native-start"/.test(start) && /const kept = !startUsed && documentOpenedHere\(\) && !startedJustNow\(\)/.test(start) && /startUsed = true/.test(start))
 check("and a start that comes straight back is not tried twice", /const RETRY_MS = 8000/.test(start) && /startedAgain = Date\.now\(\) - at < RETRY_MS/.test(start))
 const keeper = code("components/platform/native-place-keeper.tsx")
 check("the place is kept on every navigation, in the app only", /if \(!pathname \|\| !isNativeApp\(\)\) return/.test(keeper) && /const place = resumablePlace\(pathname, window\.location\.search\)/.test(keeper) && /\}, \[pathname\]\)/.test(keeper) && /<NativePlaceKeeper \/>/.test(read("app/layout.tsx")))

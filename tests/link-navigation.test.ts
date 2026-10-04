@@ -91,7 +91,7 @@ check("a routable link renders next/link", /if \(internalPath && !needsHardNav\)
 /* The builders and /app are a different layout and auth context. */
 check(
   "the builders and the app still reload",
-  /internalPath\.startsWith\("\/app"\)/.test(source) && /internalPath\.startsWith\("\/account\/library"\)/.test(source),
+  /needsDocumentLoad\(internalPath\)/.test(source) && /DOCUMENT_LOAD_PREFIXES = \["\/app", "\/creator-page", "\/store-builder", "\/website-builder"\]/.test(readFileSync(join(process.cwd(), "lib/native-links.ts"), "utf8")),
 )
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

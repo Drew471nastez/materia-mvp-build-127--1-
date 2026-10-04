@@ -40,7 +40,7 @@
  * the panel opens already drawn instead of filling in under the pointer.
  */
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { memo, useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react"
 import { Check } from "lucide-react"
 /* Solar's line icons, the family the tab bar and the app's sidebar draw in. */
@@ -50,6 +50,7 @@ import { UsersGroupRoundedIcon } from "@solar-icons/react/linear/users-group-rou
 import { AppAvatar } from "@/components/app/app-avatar"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { cn } from "@/lib/utils"
+import { prefetchHref } from "@/lib/nav/prefetch-policy"
 import { navigatorModel, parsePlaces, PLACES_URL, SIGNED_OUT_PLACES, type NavigatorCurrent, type NavigatorModel, type PlacesResponse } from "@/lib/nav/places-shared"
 
 export interface PlaceNavigatorProps {
@@ -317,6 +318,22 @@ export function PlaceNavigator({ current, className, onNavigate }: PlaceNavigato
   )
   const navigateRef = useRef(onNavigate)
   navigateRef.current = onNavigate
+
+  /*
+    THE ROWS ARE READ AHEAD WHILE THE PANEL OPENS. A recent product, course
+    or community is what this panel is for, and the finger is on its way to
+    one of them: their pages are read whole now (as far as the device and
+    the network allow, lib/nav/prefetch-policy.ts), so the press lands on a
+    page the router already has instead of waiting for the server.
+  */
+  const router = useRouter()
+  useEffect(() => {
+    if (!open) return
+    const t = window.setTimeout(() => {
+      for (const r of model.recent.slice(0, 4)) prefetchHref(router, r.href, "hover")
+    }, 60)
+    return () => window.clearTimeout(t)
+  }, [open, model, router])
   const go = useCallback(
     (href: string) => (e: React.MouseEvent<HTMLElement>) => {
       navigateRef.current?.(e, href)

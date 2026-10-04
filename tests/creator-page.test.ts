@@ -2333,7 +2333,7 @@ function main() {
     check("an internal link on the web is a link Next knows about", /<Link\s+href=\{internalPath\}/.test(link))
     check("and it is the origin that decides, not a leading slash",
       /const internalPath = toSameOriginPath\(href\)/.test(link))
-    check("and the routes that must reload still do", /useClientNav === false \|\|/.test(link) && /startsWith\("\/account\/library"\)/.test(link))
+    check("and the routes that must reload still do (the one list in lib/native-links.ts; the library is a client page since round 10)", /useClientNav === false \|\|/.test(link) && /needsDocumentLoad\(internalPath\)/.test(link))
     /*
       AND THE PRODUCT PAGE HAS NO SKELETON, WHICH IS THE OPPOSITE OF WHAT THIS
       LINE USED TO ASSERT.
