@@ -181,6 +181,37 @@ export async function listComments(db: Db, community: CommunityRow, viewer: View
   }
 }
 
+/**
+ * ONE COMMENT, FOR A POST OPEN ON SOMEBODY ELSE'S SCREEN (round 10). The
+ * live channel only says a comment's id (realtime.ts); the browser reads the
+ * comment here, through the same gate as a page of them: it must be this
+ * community's, under a post the member may see, and still published. A
+ * reply comes with parentId set to its top level comment, no replies of its
+ * own, and the viewer's like read for it.
+ */
+export async function getCommentView(db: Db, community: CommunityRow, viewer: Viewer, commentId: string): Promise<CommentView | null> {
+  if (!UUID.test(commentId)) return null
+  const { data } = await db.from("community_feed_comments").select(COMMENT_COLUMNS).eq("id", commentId).eq("community_id", community.id).maybeSingle()
+  const row = (data as CommentRow | null) ?? null
+  if (!row || row.status !== "published") return null
+  const found = await visiblePostRow(db, community, viewer, row.post_id)
+  if (!found || found.row.status !== "published") return null
+  const [authors, reacted] = await Promise.all([
+    authorViews(db, community.id, row.author_id ? [row.author_id] : []),
+    viewer.userId
+      ? db
+          .from("community_reactions")
+          .select("target_id")
+          .eq("target_type", "comment")
+          .eq("user_id", viewer.userId)
+          .eq("target_id", row.id)
+          .then((r: { data: { target_id: string }[] | null }) => new Set((r.data ?? []).map((x) => x.target_id)), () => new Set<string>())
+      : new Set<string>(),
+  ])
+  const [view] = buildThread([{ ...row, parent_id: null }], [], { viewerId: viewer.userId, moderator: can(viewer.role, "moderate_content"), authors, reacted: reacted as Set<string> })
+  return view ? { ...view, parentId: row.parent_id } : null
+}
+
 /** Whether a new comment may go under this post: published, comments on in its space, not locked (moderators may still). */
 export function commentsOpen(post: Pick<PostRow, "status" | "locked">, spaceCommentsEnabled: boolean, viewer: Pick<Viewer, "role">): string | null {
   if (post.status !== "published") return "That post is gone."
