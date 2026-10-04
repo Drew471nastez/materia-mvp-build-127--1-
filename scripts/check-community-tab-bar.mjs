@@ -71,6 +71,8 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     from() { const q = { select: () => q, eq: () => q, in: () => q, order: () => q, limit: () => q, maybeSingle: async () => ({ data: null }), single: async () => ({ data: null }), then: (f) => f({ data: [] }) }; return q },
   }
 }
+/* The Storelib account menu behind the community bar's "..." (round 7) reads it too. */
+export const isNativePlatform = () => false
 `)
   const { build } = await import("esbuild")
   await build({
