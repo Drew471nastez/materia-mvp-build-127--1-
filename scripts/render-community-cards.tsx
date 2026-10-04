@@ -40,7 +40,16 @@ const communities: CommunityCard[] = NAMES.map((name, i) => ({
   id: `00000000-0000-4000-8000-00000000000${i}`,
   slug: name.toLowerCase().split(":")[0].replace(/[^a-z0-9]+/g, "-"),
   name,
-  tagline: "A calm place to share work and get honest feedback.",
+  /* Round 6's sneak peek: a tagline, a long tagline that must stop at two lines, and cards with none that show the description's start. */
+  tagline: [
+    "A calm place to share work and get honest feedback.",
+    null,
+    "Film photographers sharing scans, swapping lab tips and running a monthly theme with a roll of the month, plus a long tail of gear talk that never ends, a darkroom night every other Thursday, a swap shelf for expired stock and a guide to the labs that still develop slide film by hand.",
+    "Weekly calls for founders.",
+    null,
+    "",
+  ][i],
+  excerpt: [null, "We meet after dark for easy runs.", null, null, "Tokens, components and the people who maintain them: a working group for design system teams of every size, from one person to a hundred, with office hours.", null][i],
   logoUrl: i === 3 ? null : logo(i),
   coverUrl: i === 4 ? null : picture(i + 2),
   category: "design",
@@ -51,7 +60,7 @@ const communities: CommunityCard[] = NAMES.map((name, i) => ({
   creator: { id: `cr${i}`, name: ["AndrewRullz", "Leo Park", "Ines Duarte", "Sam Reyes", "Noor Ali", "Ava Stone"][i], username: `maker${i}`, avatarUrl: i % 2 ? null : logo(i + 3) },
   url: `/community/c${i}`,
   viewCount: [57, 40, 5_210, 128_000, 0, 1_200_000][i],
-  rating: i === 3 ? { average: 4.6, count: 12 } : null,
+  rating: i === 3 ? { average: 4.6, count: 12 } : i === 2 ? { average: 4.9, count: 37 } : null,
   launchedAt: new Date(NOW - [0.2, 3, 20, 70, 800, 1][i] * DAY).toISOString(),
 }))
 

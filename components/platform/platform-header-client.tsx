@@ -10,8 +10,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback } fr
 import { createPortal } from "react-dom"
 import type { User } from "@supabase/supabase-js"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
-import { extractUsernameFromHost, getCanonicalSiteUrl, isCustomDomain, isSellerPage, isProductPage, getProductInternalPath } from "@/lib/url-helpers"
-import { isDiscoverMode } from "@/lib/isDiscoverMode"
+import { extractUsernameFromHost, getCanonicalSiteUrl, isCustomDomain, isSellerPage, getProductInternalPath } from "@/lib/url-helpers"
 import { useBuyerHeaderLight, useExploreMarketplaceEnabled } from "@/components/platform/explore-marketplace-context"
 import { headerChrome, type HeaderChrome } from "@/lib/platform/header-chrome"
 import { cn } from "@/lib/utils"
@@ -35,6 +34,9 @@ import { useShellAvatar } from "@/lib/account/avatar-store"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { useSearchHandoff, useSearchHandoffState, WINDOW_SLACK } from "@/lib/explore/use-search-handoff"
+import { useSearchCategories } from "@/lib/explore/search-categories"
+import { SEARCH_FIELD_FOCUS, SEARCH_FIELD_SURFACE } from "@/lib/explore/search-field-look"
+import { SearchCategoriesButton } from "@/components/explore/search-categories-button"
 import { useBuyerTabsHere } from "@/lib/nav/use-buyer-tabs-where"
 import { PlaceNavigator, forgetPlaces } from "@/components/nav/place-navigator"
 import { listPrice } from "@/lib/pricing/list-price"
@@ -1562,6 +1564,8 @@ export function PlatformHeaderClient({
     than popping. Until the bar is measured the old line stands in.
   */
   const deskHandoff = useSearchHandoffState(isExploreSurface, headerH || WINDOW_SLACK)
+  /* Explore's hero menu, published while the hero is on the page; null everywhere else (lib/explore/search-categories). */
+  const deskCategories = useSearchCategories()
   /*
     ═══════════════════════════════════════════════════════════════════════
      THE BAR DOES NOT GO ANYWHERE ANY MORE
@@ -1578,9 +1582,6 @@ export function PlatformHeaderClient({
     the bar is on screen.
   */
 
-  /* Both spellings of a product: `/p/<slug>` still resolves and redirects,
-     and `/<handle>/<slug>` is what everything hands out now. */
-  const isDiscoverProductContext = isProductPage(pathname) && isDiscoverMode(pathname, searchParams)
   const isSellerOrProductPage = isSellerPage(pathname) || pathname.startsWith("/s/")
 
   /**
@@ -2040,8 +2041,18 @@ export function PlatformHeaderClient({
             }`}
             style={deskHandoff.animate ? undefined : { transitionDuration: "0ms" }}
           >
+            {/*
+              THE HERO'S FIELD, IN THE BAR. Not a pill any more: the same
+              10px corner, hairline, depth and focus as Explore's own field
+              (lib/explore/search-field-look), on white whatever the bar's
+              colour, 44px tall so the bar keeps its height. Where the page
+              offers a categories menu (Explore, once its field has gone),
+              the same grid icon sits at the right end and opens the same
+              menu; pressing it closes the search results first, so the two
+              never stack. The phone's header keeps its search icon.
+            */}
             <div className="relative w-full" data-header-search-field="">
-              <Search className={cn("absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 pointer-events-none z-10", chrome.deskSearchIcon)} />
+              <Search className="absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 pointer-events-none z-10 text-neutral-400" />
               <Input
                 ref={searchInputRef}
                 value={query}
@@ -2051,24 +2062,41 @@ export function PlatformHeaderClient({
                 onKeyDown={markSearchIntent}
                 placeholder={t("search_placeholder")}
                 className={cn(
-                  "h-[42px] w-full pl-11 pr-4 text-[15px] focus-visible:ring-0 focus-visible:ring-offset-0",
-                  chrome.deskSearchField,
-                  isDiscoverProductContext ? "rounded-[8px]" : "rounded-full",
+                  "h-11 w-full pl-11 text-[15px] md:text-[15px] text-neutral-900 placeholder:text-neutral-400",
+                  SEARCH_FIELD_SURFACE,
+                  SEARCH_FIELD_FOCUS,
+                  "focus-visible:border-neutral-300 focus-visible:ring-0 focus-visible:ring-offset-0",
+                  deskCategories ? (query ? "pr-[92px]" : "pr-[52px]") : query ? "pr-12" : "pr-4",
                 )}
               />
-              {query && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setQuery("")
-                    setSearchResults([])
-                    searchInputRef.current?.focus()
-                  }}
-                  className={cn("absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer", chrome.deskSearchClear)}
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              )}
+              <div className="absolute inset-y-0 right-1 z-10 flex items-center gap-1" data-header-search-tail="">
+                {query && (
+                  <button
+                    type="button"
+                    aria-label="Clear search"
+                    onClick={() => {
+                      setQuery("")
+                      setSearchResults([])
+                      searchInputRef.current?.focus()
+                    }}
+                    className="flex h-9 w-9 items-center justify-center rounded-[8px] cursor-pointer text-neutral-400 hover:text-neutral-700 outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+                {deskCategories ? (
+                  <div
+                    className="flex items-center gap-1"
+                    onPointerDownCapture={() => {
+                      if (searchModalOpen) closeSearchModal()
+                    }}
+                  >
+                    <span aria-hidden className="h-5 w-px shrink-0 bg-neutral-200" />
+                    {/* Drawn again when the field leaves, so a menu open from it closes with it. */}
+                    <SearchCategoriesButton key={shown ? "shown" : "hidden"} categories={deskCategories} size="header" />
+                  </div>
+                ) : null}
+              </div>
             </div>
 
             {/* Search Modal Dropdown */}
@@ -2086,8 +2114,8 @@ export function PlatformHeaderClient({
                   focus (measured on storelib.com). It is portalled to the body
                   now, under the bar (z 35 against the bar's 40), so it is the
                   window, and the field keeps only its own soft focus state:
-                  a slightly darker hairline and a 4px halo (lib/platform/
-                  header-chrome deskSearchField).
+                  a slightly darker hairline and a deeper shadow (lib/explore/
+                  search-field-look, the hero field's own).
                 */}
                 {typeof document !== "undefined"
                   ? createPortal(

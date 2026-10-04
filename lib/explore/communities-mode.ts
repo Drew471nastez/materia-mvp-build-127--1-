@@ -102,24 +102,11 @@ export function legacyCommunitiesTarget(params: { q?: string | null; sort?: stri
 /** The address of Explore's communities, for every link that used to say /explore/communities. */
 export const EXPLORE_COMMUNITIES_HREF = "/explore?type=communities"
 
-const DAY = 86_400_000
-
-/**
- * "Launched 3d ago", "Launched 5mo ago", "Launched 1y ago". The unit is the
- * largest one that fits, rounded down, so a community a year and a half old
- * still says 1y: never older than it is.
- */
-export function launchedLabel(iso: string | null | undefined, now: number = Date.now()): string | null {
-  if (!iso) return null
-  const t = Date.parse(iso)
-  if (!Number.isFinite(t)) return null
-  const days = Math.floor(Math.max(0, now - t) / DAY)
-  if (days < 1) return "Launched today"
-  if (days < 7) return `Launched ${days}d ago`
-  if (days < 30) return `Launched ${Math.floor(days / 7)}w ago`
-  if (days < 365) return `Launched ${Math.max(1, Math.floor(days / 30))}mo ago`
-  return `Launched ${Math.floor(days / 365)}y ago`
-}
+/*
+  NO "LAUNCHED" LINE. The card said "Launched 1y ago" from round 4; the owner
+  took it off in round 6 (the foot row is the price, a hairline, then
+  members, views and the stars), so the label that wrote it is gone too.
+*/
 
 /** "4.9", only from real reviews; no count beside it, as asked. */
 export function ratingLabel(rating: { average: number; count: number } | null | undefined): string | null {

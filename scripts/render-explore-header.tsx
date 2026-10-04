@@ -12,6 +12,11 @@
  *   loading     ExploreSkeleton on /explore (loading.tsx), before the page
  *   category    CategoryPageClient on /explore/design
  *   product     a plain page on /maker0/product-1, which has no hero
+ *
+ * `?live=1` wraps both in the platform settings storelib.com runs with
+ * (Explore on, so the header hands its search to the hero; the light bar),
+ * and `&dark=1` the dark bar instead. Without it the settings are the
+ * context's defaults, as before.
  */
 import React, { useSyncExternalStore } from "react"
 import { createRoot } from "react-dom/client"
@@ -21,6 +26,7 @@ import { PlatformHeaderClient } from "@/components/platform/platform-header-clie
 import { ExplorePageClient } from "@/components/explore/explore-page-client"
 import { ExploreSkeleton } from "@/components/explore/explore-skeleton"
 import { CategoryPageClient } from "@/components/explore/category-page-client"
+import { PlatformSettingsProvider } from "@/components/platform/platform-settings-context"
 
 const CATS = ["design", "development", "business", "marketing", "ai", "education", "productivity", "video", "photography", "audio-music"]
 const picture = (i: number) =>
@@ -91,9 +97,19 @@ function Page() {
   )
 }
 
-createRoot(document.getElementById("app")!).render(
+const live = new URLSearchParams(location.search)
+const tree = (
   <LocaleProvider>
     <PlatformHeaderClient />
     <Page />
-  </LocaleProvider>,
+  </LocaleProvider>
+)
+createRoot(document.getElementById("app")!).render(
+  live.get("live") ? (
+    <PlatformSettingsProvider exploreMarketplace buyerHeaderLight={!live.get("dark")}>
+      {tree}
+    </PlatformSettingsProvider>
+  ) : (
+    tree
+  ),
 )

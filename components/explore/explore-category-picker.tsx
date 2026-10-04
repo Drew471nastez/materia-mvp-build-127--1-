@@ -45,6 +45,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import * as PopoverPrimitive from "@radix-ui/react-popover"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { hapticTap } from "@/lib/native-bridge"
 import { BrowseSearch, CategoryBrowser, findInGroups, useDesktop, type BrowseGroup } from "./category-browser"
 
@@ -100,6 +101,7 @@ export function ExploreCategoryPicker({
   align = "start",
   marker = "more-pill",
   triggerLabel,
+  tooltip,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -114,14 +116,25 @@ export function ExploreCategoryPicker({
   /** Which edge of the trigger the panel lines up with: the More pill opens from its left, the search field's Categories control from its right. */
   align?: "start" | "end"
   /** The trigger's data attribute, data-<marker>: the pill row finds its own More pill by it. */
-  marker?: "more-pill" | "search-categories"
+  marker?: "more-pill" | "search-categories" | "header-search-categories"
   /** The trigger's accessible name, when its text alone does not say it. */
   triggerLabel?: string
+  /** A word shown on hover and keyboard focus, for a trigger that is an icon alone. A computer only: a touch screen has no hover, and the label already names it. */
+  tooltip?: string
 }) {
   const desktop = useDesktop()
   const [query, setQuery] = useState("")
   const pillRef = useRef<HTMLButtonElement>(null)
   const [placement, setPlacement] = useState<Placement>({ side: "bottom", height: PANEL_MAX, top: EDGE })
+  /*
+    THE TOOLTIP STAYS AWAY WHILE THE PANEL IS OPEN, AND AS IT CLOSES. Closing
+    hands focus back to the trigger (right for a keyboard), and a tooltip
+    opens on focus, so a pick with the mouse would leave "Categories"
+    floating over the field. For a moment after a close, a focus does not
+    open it; a hover after that does.
+  */
+  const [tipOpen, setTipOpen] = useState(false)
+  const closedAt = useRef(0)
   const measure = useCallback(() => {
     if (pillRef.current) setPlacement(place(pillRef.current))
   }, [])
@@ -136,13 +149,15 @@ export function ExploreCategoryPicker({
   const show = (next: boolean) => {
     if (next) {
       setQuery("")
+      setTipOpen(false)
       /* Placed before the first frame it is drawn in, so it never opens in the wrong place. */
       if (desktop) measure()
-    }
+    } else closedAt.current = performance.now()
     onOpenChange(next)
   }
   const pick = (groupId: string, itemId: string | null) => {
     if (!desktop) hapticTap("soft")
+    closedAt.current = performance.now()
     onOpenChange(false)
     onPick(groupId, itemId)
   }
@@ -166,11 +181,30 @@ export function ExploreCategoryPicker({
   if (desktop) {
     return (
       <PopoverPrimitive.Root open={open} onOpenChange={show}>
-        <PopoverPrimitive.Trigger asChild>
-          <button ref={pillRef} type="button" {...{ [`data-${marker}`]: "" }} aria-label={triggerLabel} className={triggerClassName}>
-            {children}
-          </button>
-        </PopoverPrimitive.Trigger>
+        {tooltip ? (
+          <Tooltip
+            open={tipOpen && !open}
+            delayDuration={250}
+            onOpenChange={(next) => setTipOpen(next && !open && performance.now() - closedAt.current > 400)}
+          >
+            <TooltipTrigger asChild>
+              <PopoverPrimitive.Trigger asChild>
+                <button ref={pillRef} type="button" {...{ [`data-${marker}`]: "" }} aria-label={triggerLabel} className={triggerClassName}>
+                  {children}
+                </button>
+              </PopoverPrimitive.Trigger>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" data-categories-tooltip="">
+              {tooltip}
+            </TooltipContent>
+          </Tooltip>
+        ) : (
+          <PopoverPrimitive.Trigger asChild>
+            <button ref={pillRef} type="button" {...{ [`data-${marker}`]: "" }} aria-label={triggerLabel} className={triggerClassName}>
+              {children}
+            </button>
+          </PopoverPrimitive.Trigger>
+        )}
         <PopoverPrimitive.Portal>
           <PopoverPrimitive.Content
             data-category-panel=""

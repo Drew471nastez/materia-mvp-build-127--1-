@@ -15,6 +15,12 @@
  *   SAME DATA      every list's cards carry views (cardsFor reads them when
  *                  the rows came without), the library's rows carry the
  *                  card, and a database before part 87 still lists.
+ *   ROUND 6        no "Launched" anywhere; under the name and creator a
+ *                  sneak peek (the tagline, else the description's start as
+ *                  plain text, read only for the cards without a tagline),
+ *                  two lines at most; one foot row: the price first, a slim
+ *                  hairline, then members, views, and the stars only with
+ *                  reviews; the mark ten per cent bigger in every layout.
  *   THE TITLE      Roboto 500, 18px on a 24px line, no tracking, from one
  *                  next/font call with one weight, Latin and Latin
  *                  Extended, swap, a CSS variable used by these titles only;
@@ -90,14 +96,16 @@ async function main() {
     check("the storefront and the builder's canvas both go through the tab panel", /<StorefrontCommunities cards=\{cards\} \/>/.test(code("components/profile/creator-communities-tab.tsx")) && /creatorCommunitiesPanel\(communityCards\)/.test(code("app/(marketing)/u/[username]/page.tsx")) && /<StorefrontCommunities cards=\{communities\} phone=\{isMobile\} \/>/.test(code("components/store-builder/preview-canvas.tsx")))
     check("/explore/communities, which drew the old card, only redirects now", /NextResponse\.redirect\(new URL\(target, request\.url\), 308\)/.test(code("app/(marketing)/explore/communities/route.ts")) && /legacyCommunitiesTarget\(/.test(code("app/(marketing)/explore/communities/route.ts")) && !/<\w+Grid|<\w+Card/.test(code("app/(marketing)/explore/communities/route.ts")))
     const card = code(SHARED)
-    check("one card, two shapes: the grid and the compact row, with the same title, stats and creator line", /layout === "row"/.test(card) && (card.match(/<Stats card=\{card\}/g) ?? []).length === 2 && (card.match(/<Creator card=\{card\} \/>/g) ?? []).length === 2 && (card.match(/COMMUNITY_TITLE\)/g) ?? []).length === 2)
+    check("one card, two shapes: the grid and the compact row, with the same title, sneak peek, foot row and creator line", /layout === "row"/.test(card) && (card.match(/<Facts card=\{card\} \/>/g) ?? []).length === 2 && (card.match(/<Blurb card=\{card\}/g) ?? []).length === 2 && /<Creator card=\{card\} \/>/.test(card) && /<Creator card=\{card\} standing=\{standing\} \/>/.test(card) && (card.match(/COMMUNITY_TITLE\)/g) ?? []).length === 2)
+    check("in a row, where they stand follows the creator, so the foot row still starts with the price", /data-community-standing=""/.test(card.slice(card.indexOf("function Creator("))) && !/data-community-standing/.test(card.slice(card.indexOf("function Facts("), card.indexOf("function Creator("))))
+    check("no Launched line in any layout", !/launched|Launched/i.test(card))
     check("on a storefront the ground is the creator's tokens", /surface === "storefront"/.test(card) && /storefront \? "bg-muted" : "bg-\[#f1f2f4\]"/.test(card) && /bg-card/.test(card) && /text-muted-foreground/.test(card))
     check("the card stays a server-safe module (no hooks, no server code)", !/use(State|Effect|Ref|Memo)\(/.test(card) && !/server-only|lib\/communities\/server|next\/headers/.test(card))
   }
 
   console.log("\nSame data")
   {
-    const row = (id: string, extra: Partial<CardRow> = {}): CardRow => ({ id, slug: id, name: id, tagline: null, logo_url: null, cover_url: null, category: null, access: "free", visibility: "public", status: "published", member_count: 3, creator_id: null, created_at: "2026-09-01T00:00:00Z", trending_score: 0, ...extra }) as CardRow
+    const row = (id: string, extra: Partial<CardRow> = {}): CardRow => ({ id, slug: id, name: id, tagline: "A tagline", logo_url: null, cover_url: null, category: null, access: "free", visibility: "public", status: "published", member_count: 3, creator_id: null, created_at: "2026-09-01T00:00:00Z", trending_score: 0, ...extra }) as CardRow
     const db = fakeDb({ communities: [{ id: "a", view_count: 42 }, { id: "b", view_count: "7" }], community_tiers: [] })
     const cards = await cardsFor(db, [row("a"), row("b")])
     check("a list read without views gets them, in one read for the whole list", cards[0]?.viewCount === 42 && cards[1]?.viewCount === 7 && db.log.filter((l) => l.table === "communities").length === 1, cards.map((c) => c.viewCount))
@@ -107,6 +115,16 @@ async function main() {
     const before87 = fakeDb({ community_tiers: [] }, { failWith: { communities: { code: "42703", message: "column communities.view_count does not exist" } } })
     const old = await cardsFor(before87, [row("a")])
     check("before part 87: still a card, without the eye", old.length === 1 && old[0].viewCount === null && old[0].memberCount === 3)
+    const untagged = fakeDb({ communities: [{ id: "a", view_count: 1, description: "<p>Weekly <b>critiques</b> of your film rolls.</p>" }, { id: "b", view_count: 2, description: "<p>never read</p>" }, { id: "c", view_count: 3, description: "" }], community_tiers: [] })
+    const peeks = await cardsFor(untagged, [row("a", { tagline: null, view_count: 1 }), row("b", { tagline: "Its own line", view_count: 2 }), row("c", { tagline: "  ", view_count: 3 })])
+    const descReads = untagged.log.filter((l) => l.table === "communities")
+    check("no tagline: the description's start, as plain text", peeks[0]?.excerpt === "Weekly critiques of your film rolls." && peeks[0]?.tagline === null, peeks[0]?.excerpt)
+    check("a tagline: no excerpt, and its description is never read", peeks[1]?.excerpt === null && JSON.stringify(descReads[0]?.filters.find(([k]) => k === "in")?.[2]) === JSON.stringify(["a", "c"]))
+    check("a blank tagline and an empty description: nothing to show, nothing made up", peeks[2]?.excerpt === null)
+    check("one read for every untagged card in the list", descReads.length === 1)
+    const allTagged = fakeDb({ communities: [], community_tiers: [] })
+    await cardsFor(allTagged, [row("a", { view_count: 1 })])
+    check("a list where every card has a tagline reads no descriptions", allTagged.log.filter((l) => l.table === "communities").length === 0)
     const pub = code("lib/communities/server/public.ts")
     check("the library's rows are built from the same cards", /const cards = new Map\(\(await cardsFor\(db, communities\)\)/.test(pub) && /url: communityPath\(c\.slug\),\s*card,/.test(pub) && /card: CommunityCard/.test(code("components/community/public/types.ts")))
   }

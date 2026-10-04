@@ -8,8 +8,13 @@
  * against the app's stylesheet at 1440x900 and 390x844, and checks:
  *
  *   ONE CARD     every card there is the shared card (data-explore-community)
- *                with its stats row (members always, views where known,
- *                Launched); nothing says "N members · Free"
+ *                with its foot row; nothing says "N members · Free"
+ *   ROUND 6      no "Launched" anywhere; a sneak peek under the creator
+ *                line, two lines at most with an ellipsis (a long one is
+ *                clipped at exactly two); the foot row in order: the price,
+ *                a slim hairline (1px wide, shorter than the text), members,
+ *                views, and the stars only on a card with reviews, all on
+ *                one line; the mark 44px in the grid and 57 in a row
  *   THE TITLE    computed font-family starts with Roboto, 18px, weight 500,
  *                24px line, letter spacing 0, and the face really loaded
  *                (document.fonts), while the creator line stays Inter
@@ -136,7 +141,27 @@ const MEASURE = `(() => {
     n: cards.length,
     withStats: cards.filter((c) => c.querySelector("[data-community-stats] [data-stat=members]")).length,
     withViews: cards.filter((c) => c.querySelector("[data-stat=views]")).length,
-    withLaunched: cards.filter((c) => c.querySelector("[data-stat=launched]")).length,
+    withLaunched: cards.filter((c) => c.querySelector("[data-stat=launched]")).length + (/Launched/.test(text) ? 1 : 0),
+    foot: cards.map((c) => {
+      const stats = c.querySelector("[data-community-stats]")
+      const kids = [...stats.children].map((k) => k.hasAttribute("data-community-price") ? "price" : k.hasAttribute("data-community-divider") ? "divider" : k.getAttribute("data-stat") || (k.hasAttribute("data-community-standing") ? "standing" : "?"))
+      const d = stats.querySelector("[data-community-divider]")
+      const dr = d?.getBoundingClientRect()
+      const price = stats.querySelector("[data-community-price]")?.getBoundingClientRect()
+      const blurb = c.querySelector("[data-community-blurb]")
+      const bcs = blurb ? getComputedStyle(blurb) : null
+      const mark = c.querySelector("[data-community-title]")?.parentElement?.previousElementSibling
+      const tops = [...stats.children].map((k) => Math.round(k.getBoundingClientRect().top + k.getBoundingClientRect().height / 2))
+      return {
+        name: c.querySelector("[data-community-title]").textContent.slice(0, 14),
+        kids: kids.join(","),
+        rated: !!c.querySelector("[data-stat=rating]"),
+        divider: dr ? { w: Math.round(dr.width * 10) / 10, h: Math.round(dr.height), bg: getComputedStyle(d).backgroundColor, belowPrice: price ? dr.height < price.height : null } : null,
+        oneLine: Math.max(...tops) - Math.min(...tops) <= 2,
+        blurb: blurb ? { lines: Math.round(blurb.getBoundingClientRect().height / parseFloat(bcs.lineHeight)), clipped: blurb.scrollHeight > blurb.clientHeight + 1, clamp: bcs.webkitLineClamp, text: blurb.textContent.slice(0, 24) } : null,
+        mark: mark ? Math.round(mark.getBoundingClientRect().width) : null,
+      }
+    }),
     oldLine: /\\d+ members? · /.test(text),
     titles: [...new Set(cards.map((c) => { const t = getComputedStyle(c.querySelector("[data-community-title]")); return [t.fontFamily, t.fontSize, t.fontWeight, t.lineHeight, t.letterSpacing].join("|") }))],
     font: cs ? { family: cs.fontFamily, size: cs.fontSize, weight: cs.fontWeight, lineHeight: cs.lineHeight, letterSpacing: cs.letterSpacing, tracking: cs.getPropertyValue("--tw-tracking").trim() } : null,
@@ -174,7 +199,18 @@ for (const [label, vp] of SIZES) {
     await p.screenshot({ path: join(shots, `${label}-${mode}.png`) })
     const m = await p.evaluate(MEASURE)
     expect(m.n >= 3 && m.withStats === m.n, "every card is the shared card, with the stats row", { n: m.n, withStats: m.withStats })
-    expect(m.withViews >= m.n - 1 && m.withLaunched === m.n, "views where known, Launched on every card", { views: m.withViews, launched: m.withLaunched })
+    expect(m.withViews >= m.n - 1 && m.withLaunched === 0, "views where known, and no Launched anywhere", { views: m.withViews, launched: m.withLaunched })
+    const ordered = m.foot.every((f) => /^(price,divider,)?members(,views)?(,rating)?$/.test(f.kids))
+    expect(ordered, `the foot row in order: price, hairline, members, views, stars`, m.foot.map((f) => f.kids))
+    expect(m.foot.filter((f) => f.kids.startsWith("price")).every((f) => f.divider && f.divider.w <= 1 && f.divider.h >= 10 && f.divider.h <= 16 && f.divider.belowPrice), "the hairline is 1px wide and shorter than the price beside it", m.foot.map((f) => f.divider))
+    expect(m.foot.every((f) => f.oneLine), "the foot row sits on one line", m.foot.filter((f) => !f.oneLine))
+    expect(m.foot.filter((f) => f.rated).map((f) => f.name).join() === m.foot.filter((f) => /^(Film Photo Clu|Founders Weekl)/.test(f.name)).map((f) => f.name).join(), "stars only on the cards with reviews", m.foot.map((f) => `${f.name}:${f.rated}`))
+    const withBlurb = m.foot.filter((f) => f.blurb)
+    expect(withBlurb.length >= 1 && withBlurb.every((f) => f.blurb.lines <= 2 && f.blurb.clamp === "2"), "every sneak peek is two lines at most, clamped", withBlurb.map((f) => f.blurb))
+    const long = m.foot.find((f) => /^Film Photo Clu/.test(f.name))
+    if (long) expect(long.blurb && long.blurb.lines === 2 && long.blurb.clipped, "a long one stops at two lines with the rest cut", long.blurb)
+    const markSize = mode === "library" ? 57 : 44
+    expect(m.foot.every((f) => f.mark === markSize), `the mark is ${markSize}px (ten per cent over ${mode === "library" ? 52 : 40})`, m.foot.map((f) => f.mark))
     expect(!m.oldLine, `no "N members · Free" line anywhere`)
     expect(m.font && /^Roboto\b/.test(m.font.family.replace(/["']/g, "")), "title family is Roboto", m.font?.family)
     expect(m.font && m.font.size === "18px" && m.font.weight === "500" && m.font.lineHeight === "24px" && m.font.tracking === "0px" && (m.font.letterSpacing === "0px" || m.font.letterSpacing === "normal"), "18px, 500, 24px line, letter spacing 0 (Chrome prints a computed 0 as normal; the 0px is the card's own)", m.font)

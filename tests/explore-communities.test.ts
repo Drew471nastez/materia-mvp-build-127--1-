@@ -12,10 +12,12 @@
  *   THE QUERY      the pill, the word, the order and the price, as one
  *                  string the server and the browser agree on.
  *   FINDING        category and price filter on the server; views, stars
- *                  and the launch date on the card, from real rows only;
+ *                  and the sneak peek on the card, from real rows only;
  *                  a database without part 87 still lists.
- *   THE CARD       the stats row: stars only with reviews (no count),
- *                  members, views, Launched.
+ *   THE CARD       (round 6) the tagline or the description's start under
+ *                  the name, two lines at most; one foot row: the price
+ *                  first, a slim hairline, members, views, and the stars
+ *                  only with reviews (no count); no "Launched" anywhere.
  *   VIEWS          one key per visitor, never the raw id or address; a bot
  *                  is not a view; the database's once a day answer; the
  *                  page records after the response, one call each.
@@ -23,8 +25,10 @@
  *   LINKS          nothing points at /explore/communities any more; it
  *                  redirects, keeping q and the order, and 404s while off.
  *   PRODUCTS       titles clamp to two lines; cards fill their row.
- *   CATEGORIES     the control in the hero's search field; the creator's
- *                  category select uses Explore's list.
+ *   CATEGORIES     an icon alone in the hero's search field (round 6), and
+ *                  the same icon and menu in the header's field once the
+ *                  hero's has gone, which looks like the hero's field; the
+ *                  creator's category select uses Explore's list.
  *   FOOTER         Explore on a computer ends with the creator page footer.
  *
  * Run with:  npm run test:push
@@ -42,7 +46,6 @@ import {
   communityCategoryId,
   communityServerSort,
   discoverModeFor,
-  launchedLabel,
   legacyCommunitiesTarget,
   ratingLabel,
   showsHeadlineSwitch,
@@ -50,7 +53,7 @@ import {
   srtForLegacySort,
 } from "@/lib/explore/communities-mode"
 import { ACCESS_FOR_PRICE, exploreCategory, exploreCommunities, explorePrice } from "@/lib/communities/server/explore"
-import { cardRating } from "@/lib/communities/server/public"
+import { cardExcerpt, cardRating, EXCERPT_MAX } from "@/lib/communities/server/public"
 import { purgeOldViewDays, recordCommunityView, visitorKey } from "@/lib/communities/server/views"
 
 let passed = 0
@@ -79,8 +82,8 @@ const C3 = "33333333-3333-4333-8333-333333333333"
 function world(withViews = true) {
   const base = { status: "published", visibility: "public", discovery_enabled: true, platform_hidden: false, deleted_at: null, suspended_at: null, archived_at: null, tagline: null, logo_url: null, cover_url: null, member_count: 10, trending_score: 1, creator_id: "cr1" }
   const communities = [
-    { ...base, id: C1, slug: "clay", name: "Clay Studio", category: "design", access: "paid", created_at: new Date(NOW - 400 * DAY).toISOString(), member_count: 1700, ...(withViews ? { view_count: 31_700 } : {}) },
-    { ...base, id: C2, slug: "code", name: "Code Club", category: "development", access: "free", created_at: new Date(NOW - 3 * DAY).toISOString(), ...(withViews ? { view_count: 0 } : {}) },
+    { ...base, id: C1, slug: "clay", name: "Clay Studio", tagline: "Glazes, kilns and honest crits.", description: "<p>Never read: the tagline says it.</p>", category: "design", access: "paid", created_at: new Date(NOW - 400 * DAY).toISOString(), member_count: 1700, ...(withViews ? { view_count: 31_700 } : {}) },
+    { ...base, id: C2, slug: "code", name: "Code Club", description: "<h2>Ship&nbsp;weekly</h2><p>A small room of <strong>indie</strong> devs.</p>", category: "development", access: "free", created_at: new Date(NOW - 3 * DAY).toISOString(), ...(withViews ? { view_count: 0 } : {}) },
     { ...base, id: C3, slug: "hidden", name: "Hidden", category: "design", access: "paid", discovery_enabled: false, created_at: new Date(NOW - 10 * DAY).toISOString() },
   ]
   return fakeDb({
@@ -144,7 +147,12 @@ async function main() {
     check("the card carries the real views", clay?.viewCount === 31_700 && all.items.find((c) => c.slug === "code")?.viewCount === 0)
     check("the stars are the tier product's own average, with its count", clay?.rating?.average === 4.9 && clay?.rating?.count === 37)
     check("no reviews, no stars", all.items.find((c) => c.slug === "code")?.rating === null)
-    check("the launch date is the community's", clay?.launchedAt === new Date(NOW - 400 * DAY).toISOString())
+    check("the launch date is still carried (not drawn)", clay?.launchedAt === new Date(NOW - 400 * DAY).toISOString())
+    const code_ = all.items.find((c) => c.slug === "code")
+    check("a tagline is the sneak peek; its description is not even read", clay?.tagline === "Glazes, kilns and honest crits." && clay?.excerpt === null)
+    check("no tagline: the description's start as plain text", code_?.excerpt === "Ship weekly A small room of indie devs.", code_?.excerpt)
+    const reads = db.log.filter((l) => l.table === "communities" && l.filters.some(([k, c]) => k === "in" && c === "id"))
+    check("descriptions in one read, for the untagged cards alone", reads.length === 1 && JSON.stringify(reads[0].filters.find(([k, c]) => k === "in" && c === "id")?.[2]) === JSON.stringify([C2]), reads.map((r) => r.filters))
 
     const design = await exploreCommunities({ category: "design" }, world())
     check("a pill is an equality on communities.category", design.items.map((c) => c.slug).join() === "clay")
@@ -174,7 +182,8 @@ async function main() {
       return b
     }
     const before = await exploreCommunities({}, old)
-    check("before part 87: asked again without the views, and still listed", before.available && before.items.length === 2 && asked.length === 2 && !/view_count/.test(asked[1]))
+    const lists = asked.filter((c) => c !== "id, description")
+    check("before part 87: asked again without the views, and still listed", before.available && before.items.length === 2 && lists.length === 2 && !/view_count/.test(lists[1]))
     check("  with no eye on the card (null, not zero)", before.items.every((c) => c.viewCount === null))
     asked = []
 
@@ -189,15 +198,22 @@ async function main() {
 
   console.log("\nThe card")
   {
-    check("Launched: today, days, weeks, months, years, rounded down", [0.2, 3, 20, 70, 400, 900].map((d) => launchedLabel(new Date(NOW - d * DAY).toISOString(), NOW)).join("|") === "Launched today|Launched 3d ago|Launched 2w ago|Launched 2mo ago|Launched 1y ago|Launched 2y ago")
-    check("no date, no line", launchedLabel(null, NOW) === null && launchedLabel("nonsense", NOW) === null)
+    const mode = code("lib/explore/communities-mode.ts")
+    const card = code("components/explore/community-card.tsx")
+    check("no Launched anywhere: the label is gone and the card draws no date", !/launchedLabel|Launched/.test(mode) && !/launched|Launched/i.test(card))
     check("stars read 4.9, with no count beside them", ratingLabel({ average: 4.86, count: 37 }) === "4.9" && ratingLabel({ average: 5, count: 1 }) === "5.0")
     check("counts read like the reference: 1.7k, 31.7k, never rounded up", [840, 1700, 1749, 31_700, 99_999, 128_000, 1_250_000, -3].map(statCount).join() === "840,1.7k,1.7k,31.7k,99.9k,128k,1.2M,0")
     check("no reviews, no stars", ratingLabel(null) === null && ratingLabel({ average: 0, count: 0 }) === null && ratingLabel({ average: 4, count: 0 }) === null)
-    const card = code("components/explore/community-card.tsx")
-    check("the stats row: stars only with a rating, members, views only when known, Launched", /\{rating \? \(/.test(card) && /data-stat="members"/.test(card) && /\{views !== null \? \(/.test(card) && /data-stat="launched"/.test(card) && !/\(\{?card\.rating\.count/.test(card))
-    check("a bigger mark beside a bigger name, two lines at most, and the creator's face under it", /<Mark card=\{card\} size=\{40\} \/>/.test(card) && /line-clamp-2[^"]*", COMMUNITY_TITLE\)/.test(card) && /COMMUNITY_TITLE = "[^"]*text-\[18px\] font-medium leading-6/.test(card) && /<AppAvatar src=\{card\.creator\.avatarUrl\}/.test(card) && /by \{card\.creator\.name\}/.test(card))
-    check("the product card's frame: 16:9 picture, the border, the price at the foot", /aspect-video/.test(card) && /rounded-lg border border-border\/60 bg-card/.test(card) && /mt-auto pt-4 font-semibold/.test(card))
+    const facts = card.slice(card.indexOf("function Facts("), card.indexOf("function Creator("))
+    const at = (marker: string) => facts.indexOf(marker)
+    check("the foot row: the price first, then the hairline, then members, views, stars", at("data-community-price") > 0 && at("data-community-price") < at("data-community-divider") && at("data-community-divider") < at('data-stat="members"') && at('data-stat="members"') < at('data-stat="views"') && at('data-stat="views"') < at('data-stat="rating"'))
+    check("the hairline is slim and quiet: 1px wide, 14px tall, the border colour, hidden from readers", /<span aria-hidden className="h-3\.5 w-px shrink-0 bg-border" data-community-divider="" \/>/.test(facts))
+    check("stars only with a rating (no count), views only when known, the price and hairline only with a price", /\{rating \? \(/.test(facts) && /\{views !== null \? \(/.test(facts) && /\{card\.priceLine \? \(/.test(facts) && !/\(\{?card\.rating\.count/.test(card))
+    check("the sneak peek: the tagline, else the description's start, two lines at most", /return card\.tagline\?\.trim\(\) \|\| card\.excerpt\?\.trim\(\) \|\| null/.test(card) && /"line-clamp-2 break-words text-\[13\.5px\] leading-5 text-muted-foreground"/.test(card) && (card.match(/<Blurb card=\{card\}/g) ?? []).length === 2)
+    check("the mark ten per cent bigger in every layout: 44 (was 40), 57 in a row (was 52), 70 on an empty cover (was 64)", /<Mark card=\{card\} size=\{44\} \/>/.test(card) && /<Mark card=\{card\} size=\{57\} cover \/>/.test(card) && /<Mark card=\{card\} size=\{70\}/.test(card) && !/size=\{(40|52|64)\}/.test(card))
+    check("a bigger name, two lines at most, and the creator's face under it", /line-clamp-2[^"]*", COMMUNITY_TITLE\)/.test(card) && /COMMUNITY_TITLE = "[^"]*text-\[18px\] font-medium leading-6/.test(card) && /<AppAvatar src=\{card\.creator\.avatarUrl\}/.test(card) && /by \{card\.creator\.name\}/.test(card))
+    check("the product card's frame: 16:9 picture, the border, the foot row at the bottom so a row lines up", /aspect-video/.test(card) && /rounded-lg border border-border\/60 bg-card/.test(card) && /<div className="mt-auto pt-3\.5">\s*<Facts card=\{card\} \/>/.test(card) && /group\/community flex h-full w-full min-w-0 flex-col/.test(card))
+    check("an excerpt is plain text cut at a word near the limit", cardExcerpt("<p>One <em>two</em></p><p>three</p>") === "One two three" && cardExcerpt(null) === null && cardExcerpt("<p> </p>") === null && (() => { const long = cardExcerpt(`<p>${"word ".repeat(80)}</p>`) ?? ""; return long.length <= EXCERPT_MAX + 1 && long.endsWith("word\u2026") })())
     check("the card draws no hooks and imports no server code", !/use(State|Effect|Ref|Memo)\(/.test(card) && !/server-only|lib\/communities\/server|next\/headers/.test(card))
   }
 
@@ -283,8 +299,13 @@ async function main() {
   console.log("\nCategories")
   {
     const hero = code("components/explore/explore-hero.tsx")
-    check("the hero's search field has a Categories control at its right end", /data-search-tail/.test(hero) && /<ExploreCategoryPicker[\s\S]{0,400}align="end"[\s\S]{0,80}marker="search-categories"/.test(hero) && />\s*Categories\s*</.test(hero))
-    check("sized for a thumb on a phone (40px), 44 on a computer", /"inline-flex h-10 sm:h-11 shrink-0/.test(hero))
+    const button = code("components/explore/search-categories-button.tsx")
+    check("the hero's search field has the categories icon at its right end", /data-search-tail/.test(hero) && /<SearchCategoriesButton categories=\{categories\} size="hero" \/>/.test(hero))
+    check("an icon alone: a grid, no word and no chevron, named Categories, with a tooltip", /<LayoutGrid aria-hidden/.test(button) && !/Chevron/.test(button) && !/>\s*Categories\s*</.test(button + hero) && /CATEGORIES_LABEL = "Categories"/.test(button) && /triggerLabel=\{CATEGORIES_LABEL\}/.test(button) && /tooltip=\{CATEGORIES_LABEL\}/.test(button))
+    check("the same menu as before: the picker, from its right edge", /<ExploreCategoryPicker[\s\S]{0,400}align="end"[\s\S]{0,80}marker=\{size === "hero" \? "search-categories" : "header-search-categories"\}/.test(button))
+    check("sized for a thumb on a phone (40px), 44 on a computer, 36 in the header's field", /size === "hero" \? "h-10 w-10 sm:h-11 sm:w-11" : "h-9 w-9"/.test(button))
+    const picker = code("components/explore/explore-category-picker.tsx")
+    check("the tooltip is a computer's, and stays away while the menu is open or just closed", /<Tooltip\s+open=\{tipOpen && !open\}/.test(picker) && /performance\.now\(\) - closedAt\.current > 400/.test(picker) && /<TooltipContent side="bottom" data-categories-tooltip="">/.test(picker))
     check("the field leaves room for it", /categories \? \(draft \? "pr-\[\d+px\] sm:pr-\[\d+px\]" : "pr-\[\d+px\] sm:pr-\[\d+px\]"\) : "pr-12"/.test(hero))
     const client = code("components/explore/explore-page-client.tsx")
     check("the page hands it the same list and the same pick as More", /categories=\{\{\s*groups: communities \? COMMUNITY_PICKER_GROUPS : PICKER_GROUPS/.test(client) && /handleCategoryChange\(groupId, sub\?\.id, sub\?\.label, true\)/.test(client))
@@ -294,6 +315,24 @@ async function main() {
     check("Settings, Page has the category select with that list", /<select id="g-category" value=\{s\.category\}[\s\S]{0,200}COMMUNITY_CATEGORIES\.map/.test(settings) && /category: communityCategoryId\(data\.category\) \?\? ""/.test(settings))
     check("and the free text field is gone from Access", !/id="d-cat"/.test(settings))
     check("the server stores only a pill's id", /if \(b\.category !== undefined\) patch\.category = communityCategoryId\(b\.category\)/.test(code("lib/communities/server/creator.ts")))
+  }
+
+  console.log("\nThe header's search field")
+  {
+    const look = code("lib/explore/search-field-look.ts")
+    const hero = code("components/explore/explore-hero.tsx")
+    const header = code("components/platform/platform-header-client.tsx")
+    check("one look for both fields: the 10px corner, the hairline, the depth, the focus", /SEARCH_FIELD_SURFACE =\s*"appearance-none rounded-\[10px\] bg-white border border-neutral-200\/80 shadow-\[0_1px_3px_rgba\(15,23,42,0\.045\),0_9px_27px_-16px_rgba\(15,23,42,0\.315\)\]"/.test(look) && /SEARCH_FIELD_FOCUS =\s*"outline-none transition-\[box-shadow,border-color\] focus:border-neutral-300 focus:shadow-/.test(look))
+    check("the hero draws from it", /SEARCH_FIELD_SURFACE,/.test(hero) && /SEARCH_FIELD_FOCUS,/.test(hero))
+    const fieldAt = header.indexOf('data-header-search-field=""')
+    const field = header.slice(fieldAt, header.indexOf('data-header-search-modal=""', fieldAt))
+    check("the header's field draws from it too, and is not a pill", /SEARCH_FIELD_SURFACE,\s*SEARCH_FIELD_FOCUS,/.test(field) && !/rounded-full/.test(field.slice(0, field.indexOf("data-header-search-tail"))) && /"h-11 w-full pl-11/.test(field))
+    check("the bar's own colours no longer reach it", !/chrome\.deskSearch/.test(header) && !/deskSearch/.test(code("lib/platform/header-chrome.ts")))
+    check("the same categories icon at its right end, where the page has the menu", /const deskCategories = useSearchCategories\(\)/.test(header) && /\{deskCategories \? \(/.test(field) && /<SearchCategoriesButton key=\{shown \? "shown" : "hidden"\} categories=\{deskCategories\} size="header" \/>/.test(field))
+    check("pressing it closes the search results first", /onPointerDownCapture=\{\(\) => \{\s*if \(searchModalOpen\) closeSearchModal\(\)/.test(field))
+    check("the hero publishes its menu for as long as it is on the page", /usePublishSearchCategories\(categories\)/.test(hero))
+    const store = code("lib/explore/search-categories.ts")
+    check("and takes it back when it leaves, unless something newer took its place", /if \(current === value\) publish\(null\)/.test(store) && /useSyncExternalStore\(subscribe, \(\) => current, \(\) => null\)/.test(store))
   }
 
   console.log("\nFooter")
@@ -311,12 +350,15 @@ async function main() {
       "lib/communities/server/record-view.ts",
       "components/explore/community-card.tsx",
       "components/explore/explore-communities-results.tsx",
+      "components/explore/search-categories-button.tsx",
+      "lib/explore/search-categories.ts",
+      "lib/explore/search-field-look.ts",
       "app/(marketing)/explore/communities/route.ts",
       "supabase/sql/run-now/87_community_views.sql",
     ]
     const offenders = mine.filter((f) => /—/.test(read(f)) || /\b(unlock\w*|elevate|seamless|powerful|effortless(ly)?|supercharge|transform\w*)\b/i.test(read(f)))
     check("no em dash and no banned word", offenders.length === 0, offenders)
-    const clientSide = ["components/explore/community-card.tsx", "components/explore/explore-communities-results.tsx", "components/explore/explore-page-client.tsx", "components/explore/explore-hero.tsx", "lib/explore/communities-mode.ts"]
+    const clientSide = ["components/explore/community-card.tsx", "components/explore/explore-communities-results.tsx", "components/explore/explore-page-client.tsx", "components/explore/explore-hero.tsx", "components/explore/search-categories-button.tsx", "components/explore/explore-category-picker.tsx", "lib/explore/search-categories.ts", "lib/explore/search-field-look.ts", "lib/explore/communities-mode.ts"]
     check("what the browser draws imports no server code", clientSide.every((f) => !/server-only|next\/headers|lib\/communities\/server|lib\/supabase\/(server|admin)/.test(code(f))))
   }
 

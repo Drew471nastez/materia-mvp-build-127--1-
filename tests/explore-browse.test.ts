@@ -125,7 +125,9 @@ function main() {
   check("no Back to Categories link, no Hot badge, no violet icon", !/Back to Categories|<Flame|text-violet-500/.test(header))
   /* ROUND 4: with the hamburger gone to the navigator, the same browser also opens from the hero's search field (tests/explore-communities.test.ts holds the rest). */
   const hero = code("components/explore/explore-hero.tsx")
-  check("the hero's search field opens the same browser, from a Categories control at its right end", /<ExploreCategoryPicker\b/.test(hero) && /marker="search-categories"/.test(hero) && /align="end"/.test(hero))
+  /* ROUND 6: the control is an icon alone (components/explore/search-categories-button.tsx), shared with the header's field. */
+  const iconButton = code("components/explore/search-categories-button.tsx")
+  check("the hero's search field opens the same browser, from the categories icon at its right end", /<SearchCategoriesButton categories=\{categories\} size="hero" \/>/.test(hero) && /<ExploreCategoryPicker\b/.test(iconButton) && /"search-categories"/.test(iconButton) && /align="end"/.test(iconButton))
   check("  the picker the More pill uses, which draws the CategoryBrowser: a popover on a computer, the sheet on a phone", /<CategoryBrowser\b/.test(picker) && /\[`data-\$\{marker\}`\]: ""/.test(picker))
   check("  the More pill keeps its own marker, which the pill row scrolls into view by", /marker = "more-pill"/.test(picker) && /\[data-more-pill\]/.test(page))
 
