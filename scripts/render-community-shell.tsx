@@ -10,6 +10,7 @@
  *
  *   ?case=feed            /community/clay-studio, a member
  *   ?case=space           /community/clay-studio/space/critique
+ *   ?case=saved           /community/clay-studio/saved
  *   ?case=about           /community/clay-studio/about, a signed in visitor (paid, monthly and yearly)
  *   ?case=about-visitor   the same, signed out, a free community with no gallery
  *   ?case=about-member    /about for a member, inside the frame
@@ -23,18 +24,23 @@
  * so no right column at all). ?staff=1 makes the viewer an admin with a
  * creator account (Settings on the card, Event in the composer).
  *
+ * The feed's lists (round 7: chips and the sort menu switch them in place)
+ * are answered here, not by the network: window.fetch is wrapped so
+ * /posts?space=&sort= and /bookmarks answer from the fixture posts after
+ * window.__feedLatency ms (250 by default), each ask recorded in
+ * window.__feedCalls for the probe to count.
+ *
  * The person card on a name is the frame's own (PersonCardLayer); its facts
  * come from the probe's answer to /people/<id>/card. ?dm=<id> on any case
  * opens that conversation, as a profile's Message button does.
  */
 import React from "react"
 import { createRoot } from "react-dom/client"
+import { LocaleProvider } from "@/components/locale-provider"
 import { ShellFrame } from "@/components/community/member/shell-frame"
-import { FeedColumns } from "@/components/community/member/columns"
-import { FeedView } from "@/components/community/member/feed"
+import { CommunityFeed } from "@/components/community/member/feed"
 import { MembersDirectory } from "@/components/community/member/members"
 import { Leaderboard } from "@/components/community/member/leaderboard"
-import { SpaceChips } from "@/components/community/member/space-chips"
 import { CommunityPublicFrame } from "@/components/community/public/public-frame"
 import { CommunitySalesPage } from "@/components/community/public/sales-page"
 import { decideJoin } from "@/components/community/public/join-state"
@@ -115,7 +121,7 @@ const people = {
 const topBar = (signedIn = true): TopBarData => ({
   community: { id: CID, slug: community.slug, name: community.name, logoUrl: LOGO },
   creator: { name: "Mara Lindqvist", href: "/mara" },
-  me: signedIn ? { name: people.me.name, avatarUrl: people.me.avatarUrl, profileHref: "/@samc" } : null,
+  me: signedIn ? { name: people.me.name, avatarUrl: people.me.avatarUrl, profileHref: "/@samc", username: "samc", seller: staff } : null,
   communities: signedIn
     ? [
         { id: CID, slug: "clay-studio", name: "Clay Studio", logoUrl: LOGO },
@@ -165,10 +171,46 @@ const post = (over: Partial<FeedPostView> & { id: string }): FeedPostView => ({
 const POSTS: FeedPostView[] = [
   post({ id: "p-pinned", pinned: true, kind: "announcement", space: { id: "s-ann", slug: "announcements", name: "Announcements" }, author: people.mara, title: "October firing schedule is up", bodyText: "Three slots this month at the shared kiln: the 9th, 16th and 27th. Book in the Kiln room by Friday so I can plan the loads.", reactionCount: 42, commentCount: 18, createdAt: iso(NOW - 3 * DAY) }),
   post({ id: "p-photo", space: { id: "s-crit", slug: "critique", name: "Critique" }, title: "First set of bowls that did not crack", bodyText: "Slower drying under plastic for two days made the difference. Curious whether the foot on the third one reads as too heavy.", media: [{ type: "image", url: SHOTS[4], w: 1600, h: 900 }], reactionCount: 17, commentCount: 6, author: people.leo, createdAt: iso(NOW - 5 * HOUR) }),
-  post({ id: "p-text", author: people.priya, bodyText: "Glaze tip that saved me a whole batch: test tiles on the same shelf height as the real pieces. Same glaze, two shelves apart, two different colours.", reactionCount: 24, commentCount: 9, createdAt: iso(NOW - 2 * DAY) }),
-  post({ id: "p-more", author: people.jonas, bodyText: "Anyone in Lisbon with a kiln to share? Happy to split costs.", reactionCount: 3, commentCount: 2, createdAt: iso(NOW - 3 * DAY) }),
+  post({ id: "p-text", lastActivityAt: iso(NOW - 20 * 60_000), author: people.priya, bodyText: "Glaze tip that saved me a whole batch: test tiles on the same shelf height as the real pieces. Same glaze, two shelves apart, two different colours.", reactionCount: 24, commentCount: 9, createdAt: iso(NOW - 2 * DAY) }),
+  post({ id: "p-more", bookmarked: true, author: people.jonas, bodyText: "Anyone in Lisbon with a kiln to share? Happy to split costs.", reactionCount: 3, commentCount: 2, createdAt: iso(NOW - 3 * DAY) }),
   post({ id: "p-last", author: people.mara, bodyText: "Recording of last week's trimming session is in the Classroom now.", reactionCount: 31, commentCount: 4, createdAt: iso(NOW - 4 * DAY) }),
 ]
+
+/* ── The feed's lists, answered in the page ─────────────────────────────── */
+
+/* Glaze lab's own posts, so a switch to it has something to show. */
+const GLAZE: FeedPostView[] = [
+  post({ id: "p-glaze-1", space: { id: "s-glaze", slug: "glaze-lab", name: "Glaze lab" }, author: people.priya, title: "Celadon over a dark body", bodyText: "Two coats, cone 6, slow cool. The pooling in the rings is what I was after.", reactionCount: 12, commentCount: 3, createdAt: iso(NOW - 7 * HOUR), lastActivityAt: iso(NOW - 30 * 60_000) }),
+  post({ id: "p-glaze-2", space: { id: "s-glaze", slug: "glaze-lab", name: "Glaze lab" }, author: people.jonas, bodyText: "Does anyone sieve their glaze twice? Mine still has lumps after 80 mesh.", reactionCount: 4, commentCount: 7, createdAt: iso(NOW - DAY) }),
+]
+const ALL_POSTS = [...POSTS, ...GLAZE]
+type W = Window & { __feedLatency?: number; __feedCalls?: string[] }
+const w = window as W
+w.__feedCalls = []
+const realFetch = window.fetch.bind(window)
+window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+  const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url
+  const u = new URL(url, location.origin)
+  const feed = /\/api\/community\/[^/]+\/posts$/.test(u.pathname) && (!init?.method || init.method === "GET")
+  const saved = /\/api\/community\/[^/]+\/bookmarks$/.test(u.pathname)
+  if (!feed && !saved) return realFetch(input, init)
+  w.__feedCalls!.push(u.pathname.split("/").pop() + u.search)
+  await new Promise((r) => setTimeout(r, w.__feedLatency ?? 250))
+  let list = saved ? ALL_POSTS.filter((p) => p.bookmarked) : ALL_POSTS
+  const space = u.searchParams.get("space")
+  if (space) list = list.filter((p) => p.space?.id === space)
+  const sort = u.searchParams.get("sort") || "default"
+  let pinned: FeedPostView[] = []
+  if (!saved) {
+    if (sort === "default") {
+      pinned = list.filter((p) => p.pinned)
+      list = list.filter((p) => !p.pinned).sort((a, b) => Date.parse(b.lastActivityAt) - Date.parse(a.lastActivityAt))
+    } else if (sort === "new") list = [...list].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+    else if (sort === "top") list = [...list].sort((a, b) => b.reactionCount - a.reactionCount)
+    else if (sort === "unread") list = list.filter((p) => Date.parse(p.lastActivityAt) > NOW - 45 * 60_000).sort((a, b) => Date.parse(b.lastActivityAt) - Date.parse(a.lastActivityAt))
+  }
+  return new Response(JSON.stringify({ pinned, posts: list, nextCursor: null }), { status: 200, headers: { "Content-Type": "application/json" } })
+}
 
 /* ── Members ──────────────────────────────────────────────────────────── */
 
@@ -319,26 +361,20 @@ function Screen() {
       {children}
     </ShellFrame>
   )
-  const feed = (space: SpaceView | null) => (
-    <FeedColumns
-      header={
-        <>
-          <SpaceChips slug={community.slug} spaces={spaces} active={space?.slug ?? null} />
-          {space?.description ? <p className="-mt-0.5 mb-3 px-1 text-[13.5px] leading-relaxed text-[#6b7280]" data-space-description="">{space.description}</p> : null}
-        </>
-      }
-      main={
-        <FeedView
-          communityId={CID}
-          slug={community.slug}
-          viewer={viewer}
-          initial={space ? { pinned: [], posts: POSTS.filter((p) => p.space?.id === space.id), nextCursor: null } : { pinned: [POSTS[0]], posts: POSTS.slice(1), nextCursor: "c2" }}
-          composer={{ communityId: CID, userId: "u-me", me: { name: people.me.name, avatarUrl: people.me.avatarUrl }, spaces: spaces.filter((s) => s.canPost && s.kind !== "chat").map((s) => ({ id: s.id, name: s.name, kind: s.kind })), fileProductId: null, eventHref: staff ? `/app/community/${CID}/events?new=1` : null }}
-        />
-      }
+  const feed = (space: SpaceView | null, saved = false) => (
+    <CommunityFeed
+      communityId={CID}
+      slug={community.slug}
+      viewer={viewer}
+      spaces={spaces}
+      start={saved ? { kind: "saved" } : space ? { kind: "space", id: space.id } : { kind: "all" }}
+      initial={saved ? { pinned: [], posts: POSTS.filter((p) => p.bookmarked), nextCursor: null } : space ? { pinned: [], posts: POSTS.filter((p) => p.space?.id === space.id), nextCursor: null } : { pinned: [POSTS[0]], posts: POSTS.slice(1), nextCursor: "c2" }}
+      servedAt={Date.now()}
+      compose={{ userId: "u-me", me: { name: people.me.name, avatarUrl: people.me.avatarUrl }, fileProductId: null, eventHref: staff ? `/app/community/${CID}/events?new=1` : null }}
     />
   )
   if (which === "space") return shell(feed(spaces[2]))
+  if (which === "saved") return shell(feed(null, true))
   if (which === "classroom")
     return shell(
       <div data-probe-classroom="">
@@ -378,4 +414,9 @@ try {
 } catch {
   /* fine */
 }
-createRoot(document.getElementById("app")!).render(<Screen />)
+/* The root layout's LocaleProvider, which the Storelib account menu (round 7, behind "...") reads its words from. */
+createRoot(document.getElementById("app")!).render(
+  <LocaleProvider>
+    <Screen />
+  </LocaleProvider>,
+)
