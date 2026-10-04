@@ -1,0 +1,97 @@
+# Continue with Google in the iOS and Android apps
+
+What a person sees when they tap **Continue with Google** inside the Storelib
+app, what ships today, and what the next native release has to carry for the
+best of it to switch on.
+
+## Two steps, best first
+
+The web layer asks for the better one and falls to the other on its own
+(`lib/auth/native-sign-in.ts`). Nothing has to be configured for the fallback,
+and nothing breaks if the first is missing.
+
+**1. The phone's own sheet.** If this build of the app carries a native Google
+plugin, Storelib asks it for an ID token and hands that straight to Supabase
+(`signInWithIdToken`). No browser opens, nothing redirects, no deep link comes
+back.
+
+- **Android** shows Credential Manager's bottom sheet, the one that reads
+  "Continue as <name>" over the app. One tap for anyone signed into the phone.
+- **iOS** shows Google's own sheet over the app.
+
+**2. The Safari sheet.** Otherwise the OAuth address opens in the system
+browser sheet and the deep link brings the session back
+(`lib/native-oauth.ts`):
+
+- **iOS**: `SFSafariViewController` presented as a card over the app
+  (`presentationStyle: "popover"`), which can be swiped away, with a white
+  toolbar.
+- **Android**: a Chrome Custom Tab.
+
+This is what every build before this change did on the login page. The signup
+page did something else, and worse: it sent the app's own WebView to
+`/auth/start`, so Google's page loaded inside the app. Google refuses that in
+plenty of cases (`disallowed_useragent`). Both pages take the same path now.
+
+## What the next native release needs for step 1
+
+A plugin is native code, so the web layer cannot add one: it needs a build and
+a store release. Until then the app uses step 2, and nothing is broken.
+
+1. Install one of the three the code already speaks to. The first is the one
+   to pick for a new build; the others are recognised because a build may
+   already carry them.
+
+   | Plugin | Android | iOS |
+   | --- | --- | --- |
+   | `@capgo/capacitor-social-login` (`SocialLogin`) | Credential Manager, the bottom sheet | Google's sheet |
+   | `@codetrix-studio/capacitor-google-auth` (`GoogleAuth`) | Google Sign-In | Google Sign-In |
+   | `@capacitor-firebase/authentication` (`FirebaseAuthentication`) | Firebase + Google | Firebase + Google |
+
+2. Make the client IDs in Google Cloud (the same project the Supabase Google
+   provider uses):
+   - a **Web** client ID — this is the one the token is minted for, and the
+     one Supabase checks;
+   - an **iOS** client ID for the bundle `com.storelib.app`;
+   - an **Android** client ID for the package `com.storelib.app`, with the
+     release signing certificate's SHA-1.
+
+3. Give the web layer the two public ones, in Vercel's environment:
+
+   ```
+   NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID=…apps.googleusercontent.com
+   NEXT_PUBLIC_GOOGLE_IOS_CLIENT_ID=…apps.googleusercontent.com
+   ```
+
+   Missing or wrong, the plugin cannot start, and the app falls to step 2
+   rather than failing.
+
+4. Native side:
+   - iOS: the reversed iOS client ID as a URL scheme in `Info.plist`;
+   - Android: nothing beyond the plugin, which reads the web client ID handed
+     to it.
+   - `npx cap sync`, then build and release.
+
+5. Supabase: **Authentication → Providers → Google → Authorized Client IDs**
+   must list the web, iOS and Android client IDs, or `signInWithIdToken` is
+   refused.
+
+## What stays true either way
+
+- Supabase's **Redirect URLs** must keep both deep links, because step 2 uses
+  them: `storelib://auth/callback` and `com.storelib.app://auth/callback`.
+- Where somebody lands after signing in is decided in one place for both
+  steps, `lib/auth/native-session.ts`: the home a cold start opens on, where
+  they were going before they signed in, and the hop through
+  `/auth/sync-session` that turns the session into cookies Next.js can read.
+- Sign in with Apple is unchanged, and now opens in the same sheet.
+
+## Checking it on a device
+
+- **Step 2, today**: tap Continue with Google in the app. The browser should
+  arrive as a card over the app, not fill the screen, and swiping it away
+  should leave the form usable rather than stuck on a spinner.
+- **Step 1, after the release**: the same tap should show the bottom sheet on
+  Android with no browser at all. If a browser opens, the plugin is not in the
+  build or the client IDs are not set; `hasNativeGoogle()` in the console says
+  which.
