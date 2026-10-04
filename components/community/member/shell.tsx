@@ -4,9 +4,10 @@ import "server-only"
  * CommunityShell: the member area's frame around every page of a community,
  * drawn once by the community's layout (app/(marketing)/community/[slug]/
  * layout.tsx) so it stays put while the member moves around. It reads the
- * top bar's facts (whose it is, who is looking, their other communities)
- * and the unread messages, then hands plain data to the client
- * frame (shell-frame.tsx).
+ * top bar's facts (whose it is, who is looking, their other communities),
+ * the unread messages and the wall's side columns (the community card, the
+ * next event, the top contributors: lib/communities/server/wall.ts), then
+ * hands plain data to the client frame (shell-frame.tsx).
  *
  * CommunityPublicShell is the same top bar alone, for somebody who is not a
  * member: the sales page, the invite landing, a request waiting.
@@ -18,6 +19,8 @@ import "server-only"
 import type { Viewer } from "@/lib/communities/server/context"
 import { viewerView } from "@/lib/communities/server/context"
 import { topBarData } from "@/lib/communities/server/public"
+import { admin } from "@/lib/communities/server/db"
+import { wallData } from "@/lib/communities/server/wall"
 import type { CommunityRow } from "@/lib/communities/types"
 import { CommunityPublicFrame } from "@/components/community/public/public-frame"
 import { shellData } from "./data"
@@ -25,9 +28,9 @@ import { ShellFrame } from "./shell-frame"
 import type { ShellSection } from "./view-types"
 
 async function CommunityShellAsync({ community, viewer, active, children }: { community: CommunityRow; viewer: Viewer; active?: ShellSection; children: React.ReactNode }) {
-  const [data, topBar] = await Promise.all([shellData(community.id, viewer, community), topBarData(community, viewer)])
+  const [data, topBar, wall] = await Promise.all([shellData(community.id, viewer, community), topBarData(community, viewer), wallData(admin(), community, viewer)])
   return (
-    <ShellFrame community={data.community} viewer={viewerView(viewer)} topBar={topBar} unreadMessages={data.unreadMessages} active={active}>
+    <ShellFrame community={data.community} viewer={viewerView(viewer)} topBar={topBar} unreadMessages={data.unreadMessages} wall={wall} active={active}>
       {children}
     </ShellFrame>
   )

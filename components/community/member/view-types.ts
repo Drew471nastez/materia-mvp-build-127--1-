@@ -68,6 +68,98 @@ export interface TopBarData {
   manageHref: string | null
 }
 
+/* ── The wall: the columns either side of the feed (round 5) ──────────── */
+
+/** A member's face in the stack on the community card. */
+export interface WallFace {
+  id: string
+  name: string
+  username: string | null
+  avatarUrl: string | null
+  hasStorefront?: boolean
+}
+
+/**
+ * The community card at the top of the left column: Members / Online /
+ * Admins (Online and Admins null when they cannot be known, and then left
+ * out), up to seven faces of the most recently active members, how many
+ * more there are, and Settings for the people who run it.
+ */
+export interface WallCardData {
+  stats: { members: number; online: number | null; admins: number | null }
+  faces: WallFace[]
+  /** Active members beyond the faces shown; 0 draws no "+N". */
+  more: number
+  /** /app/community/<id>/settings for its owner and staff with a creator account; null hides the button. */
+  settingsHref: string | null
+}
+
+/** The next event the viewer may see, for the right column. */
+export interface WallEvent {
+  id: string
+  title: string
+  startsAt: string
+  endsAt: string | null
+  /** RSVPs marked going, from the trigger kept count. */
+  going: number
+}
+
+/**
+ * Top contributors: by points over 30 days while the community counts
+ * points, otherwise the members with the most posts and comments over 30
+ * days (or since `since`, when the window had to be cut short to stay
+ * cheap), and the card says which.
+ */
+export interface WallContributors {
+  basis: "points" | "activity"
+  /** When the activity window is shorter than 30 days, where it starts; null for the full 30 days. */
+  since: string | null
+  rows: { rank: number; userId: string; name: string; username: string | null; avatarUrl: string | null; hasStorefront?: boolean; value: number }[]
+}
+
+/** Everything the frame draws beside the page. Null cards are not drawn. */
+export interface WallData {
+  card: WallCardData
+  upcoming: WallEvent | null
+  contributors: WallContributors | null
+}
+
+/* ── Search inside a community ───────────────────────────────────────── */
+
+export interface SearchSpaceHit {
+  id: string
+  slug: string
+  name: string
+  kind: SpaceKind
+  description: string | null
+}
+
+export interface SearchPostHit {
+  id: string
+  title: string | null
+  /** A short piece of the text around the match. */
+  snippet: string
+  createdAt: string
+  space: { slug: string; name: string } | null
+  author: { name: string; avatarUrl: string | null } | null
+}
+
+export interface SearchMemberHit {
+  id: string
+  name: string
+  username: string | null
+  avatarUrl: string | null
+  href: string
+  role: Role | null
+}
+
+export interface SearchResults {
+  q: string
+  spaces: SearchSpaceHit[]
+  posts: SearchPostHit[]
+  members: SearchMemberHit[]
+}
+
 export interface ChatMessageView {
   id: string
   spaceId: string

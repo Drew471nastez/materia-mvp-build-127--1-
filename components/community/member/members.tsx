@@ -81,7 +81,7 @@ export function MembersDirectory({ communityId, slug, memberCount, initial, meId
   ]
 
   return (
-    <div className="max-w-[760px] pb-16 pt-4 lg:pt-6" data-members="">
+    <div className="max-w-[760px]" data-members="">
       <PageTitle title="Members" detail={memberCountLabel(memberCount)} />
       <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
         <label className="relative flex-1">

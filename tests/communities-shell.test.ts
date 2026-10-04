@@ -35,6 +35,18 @@
  *                      heartbeat or not shown, the sticky card, the phone bar.
  *   PRESENCE           POST /presence: switch first, a member, rate limited,
  *                      at most one write a minute, nobody else's row.
+ *   THE WALL (round 5) three columns from 1280px like the owner's reference:
+ *                      the community card and the places on the left, the
+ *                      feed, the next event and the top contributors on the
+ *                      right, each card only when real rows say something
+ *                      (no right column at all when neither does); points
+ *                      or posts and comments, said plainly; Settings and
+ *                      Event only for who may use them.
+ *   SEARCH (round 5)   GET /search: switch first, a member, rate limited,
+ *                      only what the member may see (spaces by their access
+ *                      rule, posts in those spaces, members while the
+ *                      directory is on); the field is a keyboard combobox,
+ *                      a full screen on a phone.
  *
  * Run with:  npm run test:push
  */
@@ -43,7 +55,11 @@ import { existsSync, readFileSync } from "node:fs"
 import { fakeDb } from "./_fake-db"
 import { memberHref } from "@/components/community/member/person-href"
 import { personHref } from "@/lib/profile/person-href"
-import { navEntries, sectionFromPath, tabFor } from "@/components/community/member/nav"
+import { navEntries, rightColumnFor, sectionFromPath, tabFor } from "@/components/community/member/nav"
+import { contributorsDetail } from "@/components/community/member/wall"
+import { SEARCH_DEBOUNCE_MS, SEARCH_MIN_CHARS, searchOptions, stepOption } from "@/components/community/member/search"
+import { ACTIVITY_SCAN, WALL_CONTRIBUTORS, WALL_FACES, eventHrefFor, mostActive, rankRows, recentFaces, settingsHrefFor, topContributors, upcomingEvent } from "@/lib/communities/server/wall"
+import { SEARCH_MAX, SEARCH_MIN, SEARCH_POSTS, cleanSearch, likePattern, searchCommunity, snippetAround } from "@/lib/communities/server/search"
 import { activeLabel, CARD_GRACE_MS, CARD_OPEN_MS, communitiesLine, hoverPointer, ownerLine } from "@/components/community/member/person-card-facts"
 import { personCard } from "@/lib/communities/server/people"
 import { GALLERY_MAX, parseGallery, payingTenure, safeImageUrl } from "@/components/community/public/gallery"
@@ -67,6 +83,59 @@ function check(label: string, ok: boolean, detail?: unknown) {
 const read = (p: string) => readFileSync(p, "utf8")
 /* Code without its comments, so a check reads what runs. */
 const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
+
+/*
+  A database that answers each query from a function and records how it was
+  asked (every method and its arguments), for the reads the shared fakeDb
+  does not speak (or, gt, order, rpc).
+*/
+type Call = { table: string; ops: unknown[][] }
+function scriptedDb(answer: (c: Call) => { data?: unknown; error?: unknown }, rpc?: (name: string, args: unknown) => { data?: unknown; error?: unknown }) {
+  const calls: Call[] = []
+  const db = {
+    from(table: string) {
+      const c: Call = { table, ops: [] }
+      calls.push(c)
+      const b: Record<string, unknown> = new Proxy(
+        {},
+        {
+          get(_t, k) {
+            if (k === "then")
+              return (res: (v: unknown) => unknown, rej: (e: unknown) => unknown) =>
+                Promise.resolve()
+                  .then(() => {
+                    const a = answer(c)
+                    return { data: a.data ?? null, error: a.error ?? null }
+                  })
+                  .then(res, rej)
+            return (...args: unknown[]) => (c.ops.push([String(k), ...args]), b)
+          },
+        },
+      )
+      return b
+    },
+    rpc: async (name: string, args: unknown) => {
+      const a = rpc ? rpc(name, args) : { data: null }
+      return { data: a.data ?? null, error: a.error ?? null }
+    },
+  }
+  return { db, calls }
+}
+const hasOp = (c: Call, ...want: unknown[]) => c.ops.some((o) => JSON.stringify(o) === JSON.stringify(want))
+const orderOf = (c: Call) => c.ops.filter((o) => o[0] === "order").map((o) => o[1])
+/* The rows of a table that an eq / in / is / gt / gte / limit read would return. */
+function rowsFor(c: Call, tables: Record<string, Record<string, unknown>[]>) {
+  let rows = [...(tables[c.table] ?? [])]
+  for (const [op, col, val] of c.ops as [string, string, unknown][]) {
+    if (op === "eq") rows = rows.filter((r) => r[col] === val)
+    else if (op === "in") rows = rows.filter((r) => (val as unknown[]).includes(r[col]))
+    else if (op === "is") rows = rows.filter((r) => (val === null ? r[col] == null : r[col] === val))
+    else if (op === "gt") rows = rows.filter((r) => String(r[col] ?? "") > String(val))
+    else if (op === "gte") rows = rows.filter((r) => String(r[col] ?? "") >= String(val))
+  }
+  const limit = c.ops.find((o) => o[0] === "limit")?.[1]
+  return typeof limit === "number" ? rows.slice(0, limit) : rows
+}
 
 const DAY = 86_400_000
 const NOW = Date.parse("2026-10-03T12:00:00.000Z")
@@ -97,7 +166,7 @@ async function main() {
     check("no chevron switcher any more", !/ChevronsUpDown|Switch community|data-community-switcher/.test(bar))
     const render = bar.slice(bar.indexOf("<header"))
     check("the hamburger RIGHT of the picture and the name: Storelib's navigator, marked as this community", /<PlaceNavigator current=\{\{ kind: "community", id: community\.id \}\}/.test(render) && render.indexOf("<CommunityMark") < render.indexOf("<PlaceNavigator") && render.indexOf("data-community-identity") < render.indexOf("<PlaceNavigator") && render.indexOf("<PlaceNavigator") < render.indexOf("data-community-top-actions"))
-    check("slimmer: a 44px row on a phone (48px from 640px), one 56px row with the tabs in it from 1024px", /data-community-top-lead=""/.test(bar) && /flex h-11 min-w-0 flex-1 items-center gap-2\.5 sm:h-12 lg:h-14/.test(bar) && /flex h-11 shrink-0 items-center[^"]*sm:h-12[^"]*lg:h-14/.test(bar) && /order-last -mx-4 min-w-0 basis-\[calc\(100%\+2rem\)\] sm:-mx-6 sm:basis-\[calc\(100%\+3rem\)\] lg:order-none lg:mx-0 lg:flex-1 lg:basis-auto lg:self-stretch/.test(bar) && !/h-14 w-full max-w-\[1080px\] items-center gap-2 px-3 sm:h-16/.test(bar))
+    check("slimmer: a 44px row on a phone (48px from 640px), one 56px row from 1024px, the tabs a row of their own under it below 1024px", /data-community-top-lead=""/.test(bar) && /"flex h-11 min-w-0 flex-1 items-center gap-2\.5 sm:h-12 lg:h-14"/.test(bar) && /flex h-11 shrink-0 items-center[^"]*sm:h-12[^"]*lg:h-14/.test(bar) && /"order-last -mx-4 min-w-0 basis-\[calc\(100%\+2rem\)\] sm:-mx-6 sm:basis-\[calc\(100%\+3rem\)\] lg:-mx-8 lg:basis-\[calc\(100%\+4rem\)\]", !tabsOnDesktop && "lg:hidden"/.test(bar))
     const ui = code("components/community/member/ui.ts")
     const plain = /export const PLAIN_ICON_BTN =\s*"([^"]+)"/.exec(ui)?.[1] ?? ""
     check("nothing pill shaped: the icons are plain 40px icon buttons with no disc, squared at 10px", !!plain && /h-10 w-10/.test(plain) && /rounded-\[10px\] bg-transparent/.test(plain) && /hover:bg-transparent hover:text-\[#1a1a2e\]/.test(plain) && !/rounded-full/.test(plain), plain)
@@ -135,13 +204,13 @@ async function main() {
     check("a space, a post, Saved and the inbox mark Community", ["/community/s/space/x", "/community/s/post/p", "/community/s/saved", "/community/s/notifications", "/community/s"].every((p) => tabFor(sectionFromPath(p, "s")) === "home"))
     check("About marks About; Calendar marks on an event; an old member address marks Members", tabFor(sectionFromPath("/community/s/about", "s")) === "about" && tabFor(sectionFromPath("/community/s/events/e1", "s")) === "events" && tabFor(sectionFromPath("/community/s/members/u1", "s")) === "members")
     const frameCode = code("components/community/member/shell-frame.tsx")
-    check("the tabs are plain words, not pills", /<SectionTabs entries=\{entries\} current=\{tabFor\(current\)\} \/>/.test(frameCode) && /className=\{`\$\{TAB\} \$\{on \? TAB_ON : TAB_OFF\}`\}/.test(frameCode) && !/PillRow|PILL_ON|PILL_OFF/.test(frameCode))
+    check("the tabs are plain words, not pills", /<SectionTabs entries=\{entries\} current=\{tab\} wide=\{!about\} \/>/.test(frameCode) && /const tab = tabFor\(current\)/.test(frameCode) && /className=\{`\$\{TAB\} \$\{on \? TAB_ON : TAB_OFF\}`\}/.test(frameCode) && !/PillRow|PILL_ON|PILL_OFF/.test(frameCode))
     const ui = code("components/community/member/ui.ts")
     const tab = /export const TAB =\s*"([^"]+)"/.exec(ui)?.[1] ?? ""
-    check("a tab has no box: no border, no fill, no rounding; 40px on a phone, the bar's 56px from 1024px", !!tab && !/(^|\s)(border|bg-\[|rounded)/.test(tab) && /(^|\s)h-10(\s|$)/.test(tab) && /lg:h-14/.test(tab), tab)
+    check("a tab has no box: no border, no fill, no rounding; a 40px row of its own", !!tab && !/(^|\s)(border|bg-\[|rounded)/.test(tab) && /(^|\s)h-10(\s|$)/.test(tab) && !/lg:h-14/.test(tab), tab)
     check("the chosen one has a 2px ink line on the bar's edge that grows in by scale and opacity", /data-tab-line=""[\s\S]{0,80}absolute inset-x-0 bottom-0 h-\[2px\] rounded-full bg-\[#1a1a2e\] transition-\[opacity,scale\]/.test(frameCode) && /on \? "scale-x-100 opacity-100" : "scale-x-50 opacity-0"/.test(frameCode))
-    check("the tabs fill the bar's height from 1024px, so the line lands on its edge", /data-community-tabs="" className="relative w-full lg:h-full"/.test(frameCode) && /lg:h-full lg:px-0/.test(frameCode))
-    check("the frame's first guess at the header's height is the new one (85, 89, then 57 from 1024px)", /\[--community-top:85px\] sm:\[--community-top:89px\] lg:\[--community-top:57px\]/.test(frameCode) && /\[--community-top:45px\] sm:\[--community-top:49px\] lg:\[--community-top:57px\]/.test(code("components/community/public/public-frame.tsx")))
+    check("from 1024px the row is drawn only on About (no left column there); everywhere else the left column has the places", /tabsOnDesktop=\{about\}/.test(frameCode) && /const about = current === "about"/.test(frameCode) && /data-community-tabs="" className="relative w-full"/.test(frameCode))
+    check("the frame's first guess at the header's height is the new one (85, 89, then 57 from 1024px, 97 on About)", /\[--community-top:85px\] sm:\[--community-top:89px\] \$\{about \? "lg:\[--community-top:97px\]" : "lg:\[--community-top:57px\]"\}/.test(frameCode) && /\[--community-top:45px\] sm:\[--community-top:49px\] lg:\[--community-top:57px\]/.test(code("components/community/public/public-frame.tsx")))
     const chips = code("components/community/member/space-chips.tsx")
     check("chips: All, then every space the member may see, then Saved", /data-space-chip="all"/.test(chips) && /spaces\.map\(\(s\) =>/.test(chips) && /href=\{`\$\{base\}\/space\/\$\{s\.slug\}`\}/.test(chips) && /href=\{`\$\{base\}\/saved`\}/.test(chips))
     check("chips are on the feed, a space and Saved", /<SpaceChips slug=\{community\.slug\} spaces=\{shell\.spaces\} active=\{null\} \/>/.test(code("components/community/member/feed-page.tsx")) && /<SpaceChips slug=\{community\.slug\} spaces=\{shell\.spaces\} active=\{space\.slug\} \/>/.test(code("app/(marketing)/community/[slug]/(member)/space/[space]/page.tsx")) && /savedOn/.test(code("app/(marketing)/community/[slug]/(member)/saved/page.tsx")))
@@ -445,6 +514,180 @@ async function main() {
     check("Follow goes through the one follow route", /api<\{ following: boolean \}>\("\/api\/follow", \{ body: \{ userId: person\.id, follow: next \} \}\)/.test(layer))
   }
 
+  /* ── Round 5: the wall ───────────────────────────────────────────────── */
+  console.log("\nThe wall: three columns, the right one fully dynamic")
+  {
+    check("the right column is the feed's: the community feed, a space, a post and Saved", ["home", "saved", "space:general"].every((x) => rightColumnFor(x as never)) && ["classroom", "events", "members", "leaderboard", "notifications", "about"].every((x) => !rightColumnFor(x as never)))
+    check("ranks are shared on a tie", rankRows([{ value: 40 }, { value: 40 }, { value: 12 }]).map((r) => r.rank).join() === "1,1,3")
+    check("the contributors say what they count: points, or posts and comments, and over what", contributorsDetail({ basis: "points", since: null }) === "Points, last 30 days" && contributorsDetail({ basis: "activity", since: null }) === "Posts and comments, last 30 days" && contributorsDetail({ basis: "activity", since: "2026-09-28T10:00:00.000Z" }) === "Posts and comments since Sep 28")
+
+    const frame = code("components/community/member/shell-frame.tsx")
+    check("the frame draws three columns from 1280px: 280px left, the page, 300px right", /xl:grid-cols-\[280px_minmax\(0,1fr\)_300px\]/.test(frame) && /data-community-columns=\{hasRight \? "three" : "two"\}/.test(frame))
+    check("no right column at all when neither card has anything, and the page takes its room", /const hasRight = !!right && !!\(right\.upcoming \|\| right\.contributors\)/.test(frame) && /\{hasRight && right \? \(/.test(frame) && /: "lg:grid-cols-\[260px_minmax\(0,1fr\)\] xl:grid-cols-\[280px_minmax\(0,1fr\)\]"/.test(frame))
+    check("each card only when it has something: the event, the contributors", /\{right\.upcoming \? <WallUpcoming /.test(frame) && /\{right\.contributors \? <WallContributorsCard /.test(frame))
+    check("only on the feed's pages", /const right = wall && rightColumnFor\(current\) \?/.test(frame))
+    check("from 1024px to 1279px the right cards sit under the left column, and from 1280px in their own column, sticking under the bar", /lg:col-start-1 lg:row-start-2 lg:mt-3 lg:block xl:col-start-3 xl:row-start-1/.test(frame) && /xl:sticky xl:top-\[calc\(var\(--community-top,57px\)\+24px\)\]/.test(frame) && /lg:row-span-2 xl:row-span-1/.test(frame))
+    check("the left column: the community card, then the places", frame.indexOf("<WallCommunityCard") < frame.indexOf("<WallPlaces") && /data-community-left=""/.test(frame) && /hidden min-w-0 space-y-3 lg:col-start-1 lg:row-start-1 lg:block/.test(frame))
+    check("About keeps its own sheet, without the columns", /\{about \? \(\s*<div key=\{pathname\}/.test(frame))
+    check("the frame still keeps DMs, ?dm=, the card layer, presence and toasts", /<MessagesPanel /.test(frame) && /searchParams|search\?\.get\("dm"\)/.test(frame) && /<PersonCardLayer /.test(frame) && /usePresenceHeartbeat\(community\.id, viewer\.userId\)/.test(frame) && /<Toasts \/>/.test(frame))
+
+    const wall = code("components/community/member/wall.tsx")
+    check("the card: Members always, Online and Admins only when known, the green dot only when somebody is online", /if \(stats\.online !== null\) cells\.push/.test(wall) && /if \(stats\.admins !== null\) cells\.push/.test(wall) && /dot=\{stats\.online > 0\}/.test(wall))
+    check("up to the faces it is handed, +N only when there are more, Settings only when handed a link", /faces\.length \?/.test(wall) && /\{more > 0 \?/.test(wall) && /\{card\.settingsHref \?/.test(wall))
+    check("a face and a contributor open the person and their card", (wall.match(/data-person-id=\{/g) || []).length >= 2 && /memberHref\(community\.slug, f\)/.test(wall))
+    check("the places: soft tiles of their own tint, a Solar line glyph and the bold one for the open place, a chevron each", /const PLACE_LOOK: Record<TabKey/.test(wall) && /const Icon = on \? look\.bold : look\.line/.test(wall) && /<ChevronRight /.test(wall) && /aria-current=\{on \? "page" : undefined\}/.test(wall))
+    check("Upcoming event: the date tile and time in the viewer's zone, N going only when somebody is, View event and View all", /<DateTile startsAt=\{event\.startsAt\} \/>/.test(wall) && /<EventWhen /.test(wall) && /\{event\.going > 0 \?/.test(wall) && /View event/.test(wall) && /href=\{`\$\{base\}\/events`\}/.test(wall))
+    check("no violet in the wall", !/8b5cf6|7c3aed|violet|purple/i.test(code("components/community/member/wall.tsx")))
+
+    /* The server: real rows, bounded reads. */
+    const C = "c0000000-0000-4000-8000-0000000000d1"
+    const A = "a0000000-0000-4000-8000-0000000000d1"
+    const B = "a0000000-0000-4000-8000-0000000000d2"
+    const X = "a0000000-0000-4000-8000-0000000000d3"
+    const people = [
+      { id: A, username: "ana", display_name: "Ana", avatar_url: null },
+      { id: B, username: "ben", display_name: "Ben", avatar_url: null },
+      { id: X, username: "xan", display_name: "Xan", avatar_url: null },
+    ]
+    const members = [
+      { community_id: C, user_id: A, status: "active", role: "member", level: 2 },
+      { community_id: C, user_id: B, status: "active", role: "admin", level: 3 },
+      { community_id: C, user_id: X, status: "banned", role: "member", level: 1 },
+    ]
+    /* Faces: the heartbeat first; before part 85, the last activity. */
+    {
+      const s = scriptedDb((c) => {
+        if (c.table === "community_members" && orderOf(c)[0] === "last_seen_at") return { error: { code: "42703" } }
+        if (c.table === "community_members" && c.ops.some((o) => o[0] === "limit")) return { data: [{ user_id: B }, { user_id: A }] }
+        if (c.table === "profiles") return { data: people }
+        return { data: rowsFor(c, { community_members: members, creators: [] }) }
+      })
+      const faces = await recentFaces(s.db, C)
+      const reads = s.calls.filter((c) => c.table === "community_members" && c.ops.some((o) => o[0] === "limit"))
+      check("faces: active members only, by last_seen_at, falling back to last_active_at before part 85", reads.length === 2 && orderOf(reads[0])[0] === "last_seen_at" && orderOf(reads[1])[0] === "last_active_at" && reads.every((r) => hasOp(r, "eq", "status", "active") && hasOp(r, "eq", "community_id", C) && hasOp(r, "limit", WALL_FACES)), reads.map((r) => r.ops))
+      check("faces keep that order, with names and handles", faces.map((f) => f.name).join() === "Ben,Ana" && faces[0].username === "ben")
+    }
+    /* Contributors with points on: the leaderboard over 30 days, three at most. */
+    {
+      let asked: unknown = null
+      const s = scriptedDb((c) => (c.table === "profiles" ? { data: people } : { data: rowsFor(c, { community_members: members, creators: [] }) }), (name, args) => ((asked = { name, args }), { data: [{ user_id: B, points: "420" }, { user_id: A, points: 312 }] }))
+      const top = await topContributors(s.db, { id: C, gamification_enabled: true }, NOW)
+      check("points on: the 30 day leaderboard (active members only, in SQL), three at most", JSON.stringify(asked).includes('"name":"community_leaderboard"') && JSON.stringify(asked).includes(`"p_limit":${WALL_CONTRIBUTORS}`) && JSON.stringify(asked).includes(iso(NOW - 30 * DAY)), asked)
+      check("with ranks, names and points", top?.basis === "points" && top.rows.map((r) => `${r.rank}:${r.name}:${r.value}`).join() === "1:Ben:420,2:Ana:312", top)
+      const none = scriptedDb(() => ({ data: [] }), () => ({ data: [] }))
+      check("nobody earned points: no card", (await topContributors(none.db, { id: C, gamification_enabled: true }, NOW)) === null)
+    }
+    /* Contributors with points off: posts and comments, bounded, honest about the window. */
+    {
+      const activity = [
+        ...Array.from({ length: 5 }, (_, i) => ({ community_id: C, user_id: X, kind: "post", created_at: iso(NOW - i * 3600_000) })),
+        ...Array.from({ length: 3 }, (_, i) => ({ community_id: C, user_id: A, kind: "comment", created_at: iso(NOW - (10 + i) * 3600_000) })),
+        { community_id: C, user_id: B, kind: "post", created_at: iso(NOW - 20 * 3600_000) },
+      ]
+      const s = scriptedDb((c) => (c.table === "profiles" ? { data: people } : { data: rowsFor(c, { community_activity: activity, community_members: members, creators: [] }) }))
+      const top = await topContributors(s.db, { id: C, gamification_enabled: false }, NOW)
+      const read = s.calls.find((c) => c.table === "community_activity")
+      check("points off: posts and comments in community_activity, 30 days back, at most ACTIVITY_SCAN rows", !!read && hasOp(read, "in", "kind", ["post", "comment"]) && hasOp(read, "gte", "created_at", iso(NOW - 30 * DAY)) && hasOp(read, "limit", ACTIVITY_SCAN), read?.ops)
+      check("the most active, never somebody banned or gone", top?.basis === "activity" && top.since === null && top.rows.map((r) => `${r.rank}:${r.name}:${r.value}`).join() === "1:Ana:3,2:Ben:1", top)
+      const many = Array.from({ length: ACTIVITY_SCAN }, (_, i) => ({ community_id: C, user_id: A, kind: "post", created_at: iso(NOW - i * 60_000) }))
+      const capped = await mostActive(scriptedDb((c) => ({ data: rowsFor(c, { community_activity: many, community_members: members }) })).db, C, NOW)
+      check("when the scan is full, the window is cut short and says from when", capped.since === many[many.length - 1].created_at && capped.rows[0]?.value === ACTIVITY_SCAN, capped.since)
+    }
+    /* The next event: scheduled, after now, the viewer's access rule checked. */
+    {
+      const events = [
+        { id: "e-locked", community_id: C, title: "Pro call", starts_at: iso(NOW + DAY), ends_at: null, access: { tierIds: ["t-pro"] }, status: "scheduled", going_count: 9 },
+        { id: "e-open", community_id: C, title: "Open Q&A", starts_at: iso(NOW + 2 * DAY), ends_at: null, access: {}, status: "scheduled", going_count: 128 },
+      ]
+      const s = scriptedDb((c) => ({ data: rowsFor(c, { community_events: events }) }))
+      const viewer = { userId: A, role: "member", active: true, tierId: null, ownedProductIds: [], level: 1 } as never
+      const next = await upcomingEvent(s.db, { id: C, events_enabled: true }, viewer, NOW)
+      const read = s.calls[0]
+      check("the next event the viewer may see, with how many are going", next?.id === "e-open" && next.going === 128, next)
+      check("scheduled and still to come, in order, a few looked at", hasOp(read, "eq", "status", "scheduled") && hasOp(read, "gt", "starts_at", iso(NOW)) && orderOf(read)[0] === "starts_at" && hasOp(read, "limit", 5))
+      check("events off: no card and no read", (await upcomingEvent(scriptedDb(() => ({ data: events })).db, { id: C, events_enabled: false }, viewer, NOW)) === null)
+    }
+    /* Settings and Event go to the creator side, only for who may use them. */
+    {
+      const v = (o: Record<string, unknown>) => ({ isOwner: false, isCreatorAccount: false, active: true, role: "member", ...o }) as never
+      const c = { id: C, events_enabled: true }
+      check("the owner: Settings and Event", settingsHrefFor(c, v({ isOwner: true, role: "owner" })) === `/app/community/${C}/settings` && eventHrefFor(c, v({ isOwner: true, role: "owner" })) === `/app/community/${C}/events?new=1`)
+      check("an admin with a creator account: both; without one: neither (/app is a creator's)", !!settingsHrefFor(c, v({ isCreatorAccount: true, role: "admin" })) && !!eventHrefFor(c, v({ isCreatorAccount: true, role: "admin" })) && !settingsHrefFor(c, v({ role: "admin" })) && !eventHrefFor(c, v({ role: "admin" })))
+      check("a moderator or a member: neither; events off: no Event", !settingsHrefFor(c, v({ isCreatorAccount: true, role: "moderator" })) && !eventHrefFor(c, v({ isCreatorAccount: true, role: "moderator" })) && !settingsHrefFor(c, v({})) && !eventHrefFor({ id: C, events_enabled: false }, v({ isOwner: true, role: "owner" })))
+    }
+    const shell = code("components/community/member/shell.tsx")
+    check("the shell reads the wall once per page load, with the bar", /Promise\.all\(\[shellData\(community\.id, viewer, community\), topBarData\(community, viewer\), wallData\(admin\(\), community, viewer\)\]\)/.test(shell) && /wall=\{wall\}/.test(shell))
+  }
+
+  /* ── Round 5: the bar, the composer, a post ──────────────────────────── */
+  console.log("\nThe bar, the composer and a post")
+  {
+    const bar = code("components/community/member/top-bar.tsx")
+    check("the search: a field from 768px, an icon on a phone, only for a member", /\{search \? \(\s*<CommunitySearchField communityId=\{search\.communityId\}[^>]*className="hidden md:block/.test(bar) && /\{search \? <CommunitySearchButton communityId=\{search\.communityId\}[^>]*className="md:hidden" \/> : null\}/.test(bar))
+    check("from 1024px the name takes the left column's width, so the search lines up with the feed", /wide && "lg:w-\[260px\] lg:max-w-none xl:w-\[280px\]"/.test(bar) && /wide \? "max-w-\[1360px\]" : "max-w-\[1080px\]"/.test(bar))
+    check("my picture with a chevron from 768px, opening my menu", /<ChevronDown className="hidden h-4 w-4[^"]*md:block"/.test(bar) && /data-community-me=""/.test(bar))
+    check("the frame hands the bar the search; the visitor's frame does not", /search=\{\{ communityId: community\.id \}\}/.test(code("components/community/member/shell-frame.tsx")) && !/search=/.test(code("components/community/public/public-frame.tsx")))
+    const composer = code("components/community/member/composer.tsx")
+    check("the composer: Photo, Video, Poll, Event for staff only, and More", /data-composer-action="photo"/.test(composer) && /data-composer-action="video"/.test(composer) && /data-composer-action="poll"/.test(composer) && /\{eventHref \? \(\s*<Link href=\{eventHref\}[^>]*data-composer-action="event"/.test(composer) && /data-composer-action="more"/.test(composer))
+    check("Photo and Video open the file picker inside the same press, from pickers that stay mounted", /imageInput\.current\?\.click\(\)/.test(composer) && /videoInput\.current\?\.click\(\)/.test(composer) && (composer.match(/\{pickers\}/g) || []).length === 2)
+    check("More: post in a chosen space, a file for the creator; nothing to offer, no button", /label: `Post in \$\{s\.name\}`/.test(composer) && /label: "Attach a file"/.test(composer) && /\{more\.length \?/.test(composer))
+    check("the pages hand the composer the event form only through the server's rule", /eventHref: eventHrefFor\(community, viewer\)/.test(code("components/community/member/feed-page.tsx")) && /eventHref: eventHrefFor\(community, viewer\)/.test(code("app/(marketing)/community/[slug]/(member)/space/[space]/page.tsx")))
+    const post = code("components/community/member/post-card.tsx")
+    check("a post: its space as a chip, Like and Comment, Save as a word at the far end", /data-post-space=""/.test(post) && /\{post\.bookmarked \? "Saved" : "Save"\}/.test(post) && /data-like=""/.test(post) && /data-comment-button=""/.test(post))
+    const chips = code("components/community/member/space-chips.tsx")
+    check("the chips are one row that scrolls, Saved outside it at the right end", /data-space-chips-track=""/.test(chips) && chips.indexOf("data-space-chips-track") < chips.indexOf('data-space-chip="saved"') && /mask-image:linear-gradient/.test(chips))
+  }
+
+  /* ── Round 5: search ─────────────────────────────────────────────────── */
+  console.log("\nSearch inside a community")
+  {
+    check("what may be searched: letters, digits and a few marks; no filter syntax", cleanSearch('gla,ze (x) "y" %_ \\\\ *') === "gla ze x y" && cleanSearch("  Café  au lait ") === "Café au lait" && cleanSearch("x".repeat(90)).length === SEARCH_MAX && cleanSearch(5) === "")
+    check("the pattern is quoted for the filter", likePattern("glaze tip") === '"%glaze tip%"')
+    check("a snippet around the match, or the start when it is near", snippetAround("short text about glaze", "glaze") === "short text about glaze" && snippetAround(`${"word ".repeat(60)}glaze here`, "glaze").startsWith("...") && snippetAround(`${"word ".repeat(60)}glaze here`, "glaze").includes("glaze"))
+    check("the client steps through results and wraps", stepOption(-1, 3, "ArrowDown") === 0 && stepOption(2, 3, "ArrowDown") === 0 && stepOption(0, 3, "ArrowUp") === 2 && stepOption(-1, 0, "ArrowDown") === -1 && stepOption(1, 3, "End") === 2)
+    check("results in drawn order: posts, members, spaces, each to its page", searchOptions({ q: "x", posts: [{ id: "p1" } as never], members: [{ id: "m1", href: "/@m" } as never], spaces: [{ id: "s1", slug: "gen" } as never] }, "club").map((o) => o.href).join() === "/community/club/post/p1,/@m,/community/club/space/gen")
+
+    const C = "c0000000-0000-4000-8000-0000000000e1"
+    const OPEN = "b0000000-0000-4000-8000-0000000000e1"
+    const LOCKED = "b0000000-0000-4000-8000-0000000000e2"
+    const CHAT = "b0000000-0000-4000-8000-0000000000e3"
+    const spaces = [
+      { id: OPEN, community_id: C, slug: "glaze-lab", name: "Glaze lab", description: null, kind: "feed", view_access: {}, archived_at: null },
+      { id: LOCKED, community_id: C, slug: "pro-glaze", name: "Pro glaze", description: null, kind: "feed", view_access: { tierIds: ["t-pro"] }, archived_at: null },
+      { id: CHAT, community_id: C, slug: "glaze-chat", name: "Glaze chat", description: null, kind: "chat", view_access: {}, archived_at: null },
+    ]
+    const posts = [{ id: "p1", community_id: C, space_id: OPEN, author_id: null, title: "Glaze tip", body_text: "Test tiles first.", created_at: iso(NOW), status: "published" }]
+    const member = { userId: "u1", role: "member", active: true, tierId: null, ownedProductIds: [], level: 1 } as never
+    const run = async (community: Record<string, unknown>, viewer: never, q: unknown) => {
+      const s = scriptedDb((c) => (c.table === "community_feed_posts" ? { data: posts } : { data: rowsFor(c, { community_spaces: spaces, profiles: [], community_members: [], creators: [] }) }))
+      const r = await searchCommunity(s.db, { id: C, slug: "club", chat_enabled: false, directory_enabled: true, ...community } as never, viewer, q)
+      return { r, calls: s.calls }
+    }
+    const short = await run({}, member, "g")
+    check("one letter: nothing read", short.calls.length === 0 && short.r.posts.length === 0)
+    const { r, calls } = await run({}, member, "gla")
+    const postRead = calls.find((c) => c.table === "community_feed_posts")
+    const or = String(postRead?.ops.find((o) => o[0] === "or")?.[1] ?? "")
+    check("spaces: only the ones this member may see, and no chat space while chat is off", r.spaces.map((x) => x.slug).join() === "glaze-lab", r.spaces)
+    check("posts: published, in this community, only in spaces the member may see (or none), by title or text", !!postRead && hasOp(postRead, "eq", "community_id", C) && hasOp(postRead, "eq", "status", "published") && or.includes(`space_id.in.(${OPEN})`) && !or.includes(LOCKED) && !or.includes(CHAT) && or.includes('title.ilike."%gla%"') && or.includes('body_text.ilike."%gla%"') && hasOp(postRead, "limit", SEARCH_POSTS), or)
+    check("a post comes back with its space and a snippet", r.posts[0]?.space?.slug === "glaze-lab" && r.posts[0].snippet === "Test tiles first.")
+    check("members through the directory's own search while it is on", calls.some((c) => c.table === "profiles"))
+    const closed = await run({ directory_enabled: false }, member, "gla")
+    check("directory off: no member search for a member", !closed.calls.some((c) => c.table === "profiles") && closed.r.members.length === 0)
+    const staffView = { ...(member as object), role: "admin" } as never
+    const staffRun = await run({ directory_enabled: false, chat_enabled: true }, staffView, "gla")
+    check("its staff still search members; with chat on a chat space can be found (never its messages)", staffRun.calls.some((c) => c.table === "profiles") && staffRun.r.spaces.map((x) => x.slug).join() === "glaze-lab,pro-glaze,glaze-chat" && !String(staffRun.calls.find((c) => c.table === "community_feed_posts")?.ops.find((o) => o[0] === "or")?.[1]).includes(CHAT))
+
+    const route = code("app/api/community/[communityId]/search/route.ts")
+    check("the route: the switch first, a member from the session, rate limited on its own bucket, no store", /export async function GET\([^)]*\)[^{]*\{\s*const off = await requireCommunitiesOn\(\)\s*if \(off\) return off/.test(route) && /requireMember\(db, communityId, await sessionUserId\(\), "view"\)/.test(route) && /rateLimit\(\{ bucket: rateBucket\("search"\), subjects: \[memberSubject\(/.test(route) && /headers: NO_STORE/.test(route) && rateBucket("search") === "community-search" && RATE_LIMITS.search.length > 0)
+    check("the server reads no email", !/email/.test(code("lib/communities/server/search.ts")))
+    const client = code("components/community/member/search.tsx")
+    check("a combobox: the field says which result is chosen, the list is a listbox of options", /role="combobox"/.test(client) && /aria-activedescendant=/.test(client) && /role="listbox"/.test(client) && /role: "option" as const/.test(client))
+    check("the arrows, Enter, Escape, and / to focus", /e\.key === "ArrowDown" \|\| e\.key === "ArrowUp"/.test(client) && /e\.key === "Enter" && active >= 0/.test(client) && /e\.key === "Escape"/.test(client) && /e\.key !== "\/"/.test(client))
+    check("it asks once typing pauses, never under two letters, and drops a stale answer", SEARCH_DEBOUNCE_MS === 180 && SEARCH_MIN_CHARS === SEARCH_MIN && /if \(ctrl\.signal\.aborted \|\| latest\.current !== term\) return/.test(client))
+    check("on a phone: the whole screen, drawn inside the tap so the keyboard comes up, 16px so iOS does not zoom", /flushSync\(\(\) => setOpen\(true\)\)\s*input\.current\?\.focus\(\)/.test(client) && /fixed inset-0 z-\[80\]/.test(client) && /text-\[16px\]/.test(client) && /createPortal\(/.test(client))
+  }
+
   /* ── Copy and boundaries ─────────────────────────────────────────────── */
   console.log("\nCopy, and no server code in the browser")
   {
@@ -470,13 +713,22 @@ async function main() {
       "lib/communities/server/presence.ts",
       "app/api/community/[communityId]/presence/route.ts",
       "app/(marketing)/community/[slug]/layout.tsx",
+      "components/community/member/wall.tsx",
+      "components/community/member/search.tsx",
+      "components/community/member/composer.tsx",
+      "components/community/member/post-card.tsx",
+      "components/community/member/columns.tsx",
+      "components/community/member/view-types.ts",
+      "lib/communities/server/wall.ts",
+      "lib/communities/server/search.ts",
+      "app/api/community/[communityId]/search/route.ts",
     ]
     const offenders = mine.filter((f) => /—/.test(read(f)) || /\b(unlock\w*|elevate|seamless|powerful|effortless(ly)?|supercharge|transform\w*)\b/i.test(read(f)))
     check("no em dash and no banned word", offenders.length === 0, offenders)
     const clients = mine.filter((f) => /^"use client"/.test(read(f)))
     const leaks = clients.filter((f) => /server-only|next\/headers|lib\/communities\/server|lib\/supabase\/(server|admin)|lib\/admin-blog-auth|\.\/(data|shell|feed-page)"/.test(code(f)))
     check("client parts import nothing from the server", clients.length >= 5 && leaks.length === 0, { clients: clients.length, leaks })
-    check("the presence and people modules say server-only", /^import "server-only"/m.test(read("lib/communities/server/presence.ts")) && /^import "server-only"/m.test(read("lib/communities/server/people.ts")))
+    check("the presence, people, wall and search modules say server-only", ["presence", "people", "wall", "search"].every((m) => /^import "server-only"/m.test(read(`lib/communities/server/${m}.ts`))))
     check("no violet fills on the community's frame", !mine.some((f) => /bg-\[#8b5cf6\]|bg-violet|bg-purple/.test(code(f))))
   }
 

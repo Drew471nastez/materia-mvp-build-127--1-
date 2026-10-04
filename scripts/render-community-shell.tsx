@@ -15,6 +15,13 @@
  *   ?case=about-member    /about for a member, inside the frame
  *   ?case=members         /community/clay-studio/members
  *   ?case=leaderboard     /community/clay-studio/leaderboard
+ *   ?case=classroom       a page that is not a feed: no right column
+ *
+ * The wall's right column on the feed follows ?wall=: both (default), event
+ * (only the next event), contributors (only the top contributors), activity
+ * (contributors counted from posts and comments, points off), none (neither,
+ * so no right column at all). ?staff=1 makes the viewer an admin with a
+ * creator account (Settings on the card, Event in the composer).
  *
  * The person card on a name is the frame's own (PersonCardLayer); its facts
  * come from the probe's answer to /people/<id>/card. ?dm=<id> on any case
@@ -23,7 +30,7 @@
 import React from "react"
 import { createRoot } from "react-dom/client"
 import { ShellFrame } from "@/components/community/member/shell-frame"
-import { FeedAside, FeedColumns } from "@/components/community/member/columns"
+import { FeedColumns } from "@/components/community/member/columns"
 import { FeedView } from "@/components/community/member/feed"
 import { MembersDirectory } from "@/components/community/member/members"
 import { Leaderboard } from "@/components/community/member/leaderboard"
@@ -35,7 +42,7 @@ import { checkoutPath } from "@/components/community/public/paths"
 import type { JoinOption, PublicCommunityView, SalesPageData } from "@/components/community/public/types"
 import { allowedActions } from "@/lib/communities/permissions"
 import type { FeedPostView, MemberView, Role, ViewerView } from "@/lib/communities/types"
-import type { ShellCommunity, SpaceView, TopBarData } from "@/components/community/member/view-types"
+import type { ShellCommunity, SpaceView, TopBarData, WallData } from "@/components/community/member/view-types"
 
 const NOW = Date.now()
 const HOUR = 3_600_000
@@ -60,6 +67,8 @@ const face = (bg: string, fg: string) => svg(96, 96, `<rect width="96" height="9
 
 const params = new URLSearchParams(location.search)
 const which = params.get("case") || "feed"
+const wallCase = params.get("wall") || "both"
+const staff = params.get("staff") === "1"
 
 /* ── The community and who is looking ─────────────────────────────────── */
 
@@ -83,16 +92,16 @@ const community: ShellCommunity = {
 const viewer: ViewerView = {
   userId: "u-me",
   signedIn: true,
-  role: "member",
+  role: staff ? "admin" : "member",
   status: "active",
   active: true,
   tierId: null,
   level: 3,
   points: 84,
   isOwner: false,
-  isCreatorAccount: false,
+  isCreatorAccount: staff,
   mutedUntil: null,
-  can: allowedActions("member"),
+  can: allowedActions(staff ? "admin" : "member"),
 }
 
 const people = {
@@ -189,6 +198,24 @@ const MEMBERS: MemberView[] = [
   member(people.jonas, { bio: "Weekend potter, Lisbon." }),
   member(people.leo),
 ]
+
+/* ── The wall's side columns ──────────────────────────────────────────── */
+
+const wall: WallData = {
+  card: {
+    stats: { members: 8012, online: 191, admins: 2 },
+    faces: [people.mara, people.priya, people.jonas, people.leo, people.me, { ...people.jonas, id: "u-ana", name: "Ana Ruiz", username: "ana", avatarUrl: face("#dfe7ef", "#3f5f7f") }, { ...people.leo, id: "u-tom", name: "Tom Hale", username: "tomh", avatarUrl: face("#efe6dc", "#7a5a3c") }].map((p) => ({ id: p.id, name: p.name, username: p.username, avatarUrl: p.avatarUrl, hasStorefront: p.hasStorefront })),
+    more: 8005,
+    settingsHref: staff ? `/app/community/${CID}/settings` : null,
+  },
+  upcoming: wallCase === "both" || wallCase === "event" ? { id: "e1", title: "Live critique: trimming feet", startsAt: iso(NOW + 4 * DAY), endsAt: iso(NOW + 4 * DAY + 90 * 60_000), going: 128 } : null,
+  contributors:
+    wallCase === "both" || wallCase === "contributors"
+      ? { basis: "points", since: null, rows: [{ rank: 1, userId: people.priya.id, name: people.priya.name, username: people.priya.username, avatarUrl: people.priya.avatarUrl, value: 420 }, { rank: 2, userId: people.jonas.id, name: people.jonas.name, username: people.jonas.username, avatarUrl: people.jonas.avatarUrl, value: 312 }, { rank: 3, userId: people.leo.id, name: people.leo.name, username: people.leo.username, avatarUrl: people.leo.avatarUrl, value: 287 }] }
+      : wallCase === "activity"
+        ? { basis: "activity", since: null, rows: [{ rank: 1, userId: people.jonas.id, name: people.jonas.name, username: people.jonas.username, avatarUrl: people.jonas.avatarUrl, value: 14 }, { rank: 2, userId: people.priya.id, name: people.priya.name, username: people.priya.username, avatarUrl: people.priya.avatarUrl, value: 9 }] }
+        : null,
+}
 
 /* ── The about page ───────────────────────────────────────────────────── */
 
@@ -288,11 +315,10 @@ const facts = (c: PublicCommunityView, v: Record<string, unknown> = {}) =>
 
 function Screen() {
   const shell = (children: React.ReactNode) => (
-    <ShellFrame community={community} viewer={viewer} topBar={topBar()} unreadMessages={2}>
+    <ShellFrame community={community} viewer={viewer} topBar={staff ? { ...topBar(), manageHref: `/app/community/${CID}` } : topBar()} unreadMessages={2} wall={wall}>
       {children}
     </ShellFrame>
   )
-  const aside = <FeedAside community={community} stats={{ members: 8012, online: 191, admins: 2 }} upcoming={{ id: "e1", title: "Live critique: trimming feet", startsAt: iso(NOW + 4 * DAY), endsAt: iso(NOW + 4 * DAY + 90 * 60_000) }} />
   const feed = (space: SpaceView | null) => (
     <FeedColumns
       header={
@@ -307,13 +333,19 @@ function Screen() {
           slug={community.slug}
           viewer={viewer}
           initial={space ? { pinned: [], posts: POSTS.filter((p) => p.space?.id === space.id), nextCursor: null } : { pinned: [POSTS[0]], posts: POSTS.slice(1), nextCursor: "c2" }}
-          composer={{ communityId: CID, userId: "u-me", me: { name: people.me.name, avatarUrl: people.me.avatarUrl }, spaces: spaces.filter((s) => s.canPost && s.kind !== "chat").map((s) => ({ id: s.id, name: s.name, kind: s.kind })), fileProductId: null }}
+          composer={{ communityId: CID, userId: "u-me", me: { name: people.me.name, avatarUrl: people.me.avatarUrl }, spaces: spaces.filter((s) => s.canPost && s.kind !== "chat").map((s) => ({ id: s.id, name: s.name, kind: s.kind })), fileProductId: null, eventHref: staff ? `/app/community/${CID}/events?new=1` : null }}
         />
       }
-      aside={aside}
     />
   )
   if (which === "space") return shell(feed(spaces[2]))
+  if (which === "classroom")
+    return shell(
+      <div data-probe-classroom="">
+        <h1 className="text-[24px] font-bold text-[#1a1a2e]">Classroom</h1>
+        <p className="mt-1 text-[14px] text-[#6b7280]">The classroom's own page draws here.</p>
+      </div>,
+    )
   if (which === "members") return shell(<MembersDirectory communityId={CID} slug={community.slug} memberCount={community.memberCount} initial={{ members: MEMBERS, nextCursor: null }} meId="u-me" canMessage />)
   if (which === "leaderboard")
     return shell(

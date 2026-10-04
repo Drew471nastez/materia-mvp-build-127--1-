@@ -11,10 +11,10 @@
  *               my picture; no chevron switcher; a hairline and a soft shadow
  *               under it; it stays at the top while the page scrolls
  *   SLIMMER     round 4: the header's height measured against what it was
- *               on the base commit (109px on a computer, 101px on a phone,
- *               65px and 57px for a visitor): one 56px row with the tabs in
- *               it from 1024px, 44px + 40px of tabs on a phone, still 40px
- *               targets. Also at 1024 and 768.
+ *               before (109px on a computer, 101px on a phone, 65px and
+ *               57px for a visitor): one 56px row from 1024px (the places
+ *               are in the left column now), 44px + 40px of tabs on a phone,
+ *               still 40px targets. Also at 1024 and 768.
  *   NO PILLS    round 4: every element of the bar, at rest, hovered and with
  *               the navigator open, is checked: none may have a corner
  *               radius of half its height or more AND a visible fill, border
@@ -24,11 +24,26 @@
  *   NAVIGATOR   the hamburger opens the navigator (a menu on a computer, a
  *               sheet on a phone) with my communities, Discover communities
  *               and Explore Storelib
- *   TABS        Community, Classroom, Calendar, Members, Leaderboards, About
- *               as plain words, no pill box; the chosen one ink with a 2px
- *               line on the bar's bottom edge
- *   FEED        spaces as chips (All chosen), the side card with Members /
- *               Online / Admins from 1024px, the heartbeat sent on load
+ *   THE WALL    round 5 (images/45.webp): from 1280px three columns, 280px
+ *               left (the community card: cover, name, address, Members /
+ *               Online with its green dot / Admins, seven faces and +N,
+ *               Settings for staff; under it the places as soft tiles, the
+ *               open one shaded), the feed, 300px right (Upcoming event, Top
+ *               contributors). The right column is fully dynamic: both
+ *               cards, only the event, only the contributors (each then at
+ *               the top), none (no right column, the feed 324px wider);
+ *               points off says "Most active". 1024 to 1279: two columns,
+ *               the right cards under the left column. 768: one column.
+ *   TABS        below 1024px (and on About) the places are a row of plain
+ *               words under the bar; the chosen one ink with a 2px line on
+ *               the bar's bottom edge
+ *   SEARCH      the field in the bar (a phone: an icon, then the whole
+ *               screen): nothing for one letter, one ask once typing
+ *               pauses, posts / members / spaces grouped with the match in
+ *               bold, arrows and Enter, Escape, "/" to focus
+ *   FEED        spaces as chips (All chosen, near black), the composer's
+ *               Photo / Video / Poll / Event (staff) / More, a post's space
+ *               chip and Save, the heartbeat sent on load
  *   ABOUT       title, rating, the gallery with its strip (a thumbnail
  *               changes the picture, a video plays in place), the facts line,
  *               "Still a paying member" only where the fixture says so, the
@@ -145,6 +160,18 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
         else if (/\/dms\/cv-1/.test(short)) body = { messages: [], hasMore: false }
         else if (short.includes("/dms")) body = { ready: true, unread: 2, conversations: [] }
         else if (short.includes("/posts?")) body = { pinned: [], posts: [], nextCursor: null }
+        else if (/\/search\?q=/.test(short)) {
+          /* The fixture community's own words, matched as the server would: posts by title or text, members by name or handle, spaces by name. */
+          const q = decodeURIComponent(short.split("q=")[1] || "").toLowerCase()
+          const has = (v) => (v || "").toLowerCase().includes(q)
+          const posts = [
+            { id: "p-text", title: null, snippet: "Glaze tip that saved me a whole batch: test tiles on the same shelf height as the real pieces.", createdAt: new Date(Date.now() - 2 * 86_400_000).toISOString(), space: { slug: "general", name: "General" }, author: { name: "Priya Raman", avatarUrl: null } },
+            { id: "p-photo", title: "First set of bowls that did not crack", snippet: "Slower drying under plastic for two days made the difference.", createdAt: new Date(Date.now() - 5 * 3_600_000).toISOString(), space: { slug: "critique", name: "Critique" }, author: { name: "Leo Martins", avatarUrl: null } },
+          ].filter((x) => has(x.title) || has(x.snippet))
+          const members = [{ id: "u-jonas", name: "Jonas Berg", username: "jonasb", avatarUrl: null, href: "/@jonasb", role: null, bio: "glaze" }, { id: "u-priya", name: "Priya Raman", username: "priya", avatarUrl: null, href: "/@priya", role: "admin" }].filter((m) => has(m.name) || has(m.username) || (q === "gla" && m.id === "u-jonas"))
+          const spaces = [{ id: "s-glaze", slug: "glaze-lab", name: "Glaze lab", kind: "feed", description: null }, { id: "s-crit", slug: "critique", name: "Critique", kind: "feed", description: "Post a piece, get honest notes." }].filter((x) => has(x.name))
+          body = { results: { q, posts, members: members.map(({ bio, ...m }) => m), spaces } }
+        }
         else if (/\/people\/[^/]+\/card$/.test(short)) {
           const id = short.split("/people/")[1].split("/")[0]
           body = { person: { id, name: id === "u-leo" ? "Leo Martins" : "Jonas Berg", username: id === "u-leo" ? "leom" : "jonasb", avatarUrl: null, href: id === "u-leo" ? "/@leom" : "/@jonasb", bio: "Weekend potter, Lisbon. Mostly bowls and cups, trying to get better at lids.", role: null, level: 2, levelName: "Regular", activeAt: new Date(Date.now() - 2 * 3600_000).toISOString(), communities: { count: 4, inCommon: 1 }, owns: 1, following: false, isSelf: false, canMessage: true } }
@@ -225,7 +252,8 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
       const trig = document.querySelector("[data-community-top] [data-place-navigator-trigger]").getBoundingClientRect()
       const name = document.querySelector("[data-community-identity]").getBoundingClientRect()
       const mark = document.querySelector("[data-community-top-lead] > a").getBoundingClientRect()
-      const tabs = document.querySelector("[data-community-tabs]")?.getBoundingClientRect() ?? null
+      const tabsBox = document.querySelector("[data-community-tabs]")?.getBoundingClientRect() ?? null
+      const tabs = tabsBox && tabsBox.width > 0 ? tabsBox : null
       const actions = document.querySelector("[data-community-top-actions]").getBoundingClientRect()
       return {
         height: Math.round(top.height),
@@ -252,13 +280,14 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
     const phone = label.startsWith("phone")
     console.log(`\n${label}`)
 
-    /* ── FEED: the bar, the pills, the chips, the side card ─────────── */
+    /* ── FEED: the bar, the wall's three columns, the chips, the composer ── */
     {
       const { p, errors, calls } = await open("feed", "/community/clay-studio", vp)
       await shot(p, `${label}-feed`)
       const g = await p.evaluate(() => {
         const top = document.querySelector("[data-community-top]")
         const r = top.getBoundingClientRect()
+        const vis = (el) => !!el && el.getBoundingClientRect().width > 0 && getComputedStyle(el).display !== "none"
         return {
           platformHeader: !!document.getElementById("platform-header-root"),
           top: Math.round(r.top),
@@ -267,24 +296,26 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
           name: document.querySelector("[data-community-identity] a")?.textContent,
           by: document.querySelector("[data-community-creator]")?.getAttribute("href"),
           byText: document.querySelector("[data-community-identity] p")?.textContent,
+          tabsShown: vis(document.querySelector("[data-community-tabs]")),
           tabs: [...document.querySelectorAll("[data-community-tabs] a")].map((a) => a.textContent.trim()),
           current: document.querySelector("[data-community-tabs] [aria-current=page]")?.textContent?.trim(),
+          places: [...document.querySelectorAll("[data-wall-places] a")].filter(vis).map((a) => a.textContent.trim()),
+          placeOn: document.querySelector("[data-wall-places] [aria-current=page]")?.textContent?.trim() ?? null,
+          placeLook: (() => {
+            const on = document.querySelector("[data-wall-places] [aria-current=page]")
+            const off = document.querySelector("[data-wall-places] a:not([aria-current])")
+            if (!vis(on) || !off) return null
+            const tiles = [...document.querySelectorAll("[data-wall-places] [data-place-tile]")].map((t) => getComputedStyle(t).backgroundColor)
+            return { onBg: getComputedStyle(on).backgroundColor, offBg: getComputedStyle(off).backgroundColor, h: Math.round(on.getBoundingClientRect().height), tiles, chevrons: document.querySelectorAll("[data-wall-places] a svg.lucide-chevron-right").length }
+          })(),
           tabLook: (() => {
             const on = document.querySelector("[data-community-tabs] [aria-current=page]")
             const off = document.querySelector("[data-community-tabs] a:not([aria-current])")
-            const line = on?.querySelector("[data-tab-line]")
-            const offLine = off?.querySelector("[data-tab-line]")
+            if (!vis(on)) return null
+            const line = on.querySelector("[data-tab-line]")
             const cs = getComputedStyle(on)
             const lr = line.getBoundingClientRect()
-            return {
-              bg: cs.backgroundColor,
-              border: cs.borderTopWidth,
-              color: cs.color,
-              offColor: getComputedStyle(off).color,
-              line: { h: Math.round(lr.height), w: Math.round(lr.width), tabW: Math.round(on.getBoundingClientRect().width), opacity: getComputedStyle(line).opacity, bg: getComputedStyle(line).backgroundColor, bottom: Math.round(lr.bottom) },
-              offLine: getComputedStyle(offLine).opacity,
-              barBottom: Math.round(top.getBoundingClientRect().bottom),
-            }
+            return { bg: cs.backgroundColor, border: cs.borderTopWidth, color: cs.color, offColor: getComputedStyle(off).color, line: { h: Math.round(lr.height), w: Math.round(lr.width), tabW: Math.round(on.getBoundingClientRect().width), opacity: getComputedStyle(line).opacity, bg: getComputedStyle(line).backgroundColor, bottom: Math.round(lr.bottom) }, offLine: getComputedStyle(off.querySelector("[data-tab-line]")).opacity, barBottom: Math.round(top.getBoundingClientRect().bottom) }
           })(),
           shadow: getComputedStyle(top).boxShadow,
           hairline: getComputedStyle(top).borderBottomWidth + " " + getComputedStyle(top).borderBottomColor,
@@ -295,10 +326,25 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
           switcher: !!document.querySelector("[data-community-switcher]"),
           chips: [...document.querySelectorAll("[data-space-chip]")].map((a) => a.textContent.trim()),
           chipOn: document.querySelector("[data-space-chip][aria-current=page]")?.getAttribute("data-space-chip"),
+          chipAll: (() => { const a = document.querySelector('[data-space-chip="all"]'); return a ? getComputedStyle(a).backgroundColor : null })(),
           messages: document.querySelector("[data-community-messages-button] [data-count-badge]")?.textContent ?? null,
           bell: document.querySelector("[data-community-top] [data-notification-bell] [data-bell-badge]")?.textContent?.trim() ?? null,
           me: !!document.querySelector("[data-community-me]"),
-          stats: [...document.querySelectorAll("[data-community-aside] [data-stat]")].filter((d) => d.getBoundingClientRect().width > 0).map((d) => d.textContent.trim()),
+          chevron: vis(document.querySelector("[data-community-me-chevron]")),
+          searchField: vis(document.querySelector('[data-community-search="field"]')),
+          searchButton: vis(document.querySelector('[data-community-search="button"]')),
+          placeholder: document.querySelector('[data-community-search="field"] input')?.getAttribute("placeholder"),
+          stats: [...document.querySelectorAll("[data-wall-card] [data-wall-stat]")].filter(vis).map((d) => d.textContent.trim()),
+          dot: vis(document.querySelector("[data-wall-card] [data-online-dot]")),
+          faces: document.querySelectorAll("[data-wall-faces] [data-person-id]").length,
+          more: document.querySelector("[data-wall-more]")?.textContent?.trim() ?? null,
+          address: document.querySelector("[data-wall-address]")?.textContent?.trim() ?? null,
+          settings: !!document.querySelector("[data-wall-settings]"),
+          actions: [...document.querySelectorAll("[data-composer-actions] [data-composer-action]")].map((b) => b.getAttribute("data-composer-action")),
+          upcoming: vis(document.querySelector("[data-wall-upcoming]")) ? document.querySelector("[data-wall-upcoming]").innerText.replace(/\s+/g, " ").trim() : null,
+          contributors: vis(document.querySelector("[data-wall-contributors]")) ? [...document.querySelectorAll("[data-wall-contributor]")].map((r) => r.innerText.replace(/\s+/g, " ").trim()) : null,
+          saveLabel: document.querySelector('[data-post="p-text"] [data-save]')?.textContent?.trim(),
+          spaceChip: document.querySelector('[data-post="p-text"] [data-post-space]')?.textContent?.trim(),
           topVar: getComputedStyle(document.documentElement).getPropertyValue("--community-top").trim(),
           theme: document.querySelector('meta[name="theme-color"]')?.getAttribute("content"),
           bg: getComputedStyle(document.querySelector("[data-community-shell]")).backgroundColor,
@@ -308,10 +354,10 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
       expect(g.top === 0 && g.rowHeight === (phone ? 44 : 56), "the bar sits at the top: one 56px row on a computer, a 44px row over the tabs on a phone", { top: g.top, row: g.rowHeight })
       const geo = await barGeometry(p)
       const was = phone ? BEFORE.phone : BEFORE.desktop
-      console.log(`        header height: ${was}px before, ${geo.height}px now (${Math.round((1 - geo.height / was) * 100)}% shorter)`)
-      expect(geo.height === (phone ? 85 : 57) && geo.height <= was * 0.9, `slimmer: ${phone ? "44 + 40 + the hairline" : "one 56px row + the hairline"}, where it was ${was}px`, { before: was, now: geo.height })
-      if (!phone) expect(!!geo.tabs && geo.tabs.top >= 0 && geo.tabs.bottom === geo.height - 1 && geo.tabs.x > geo.trigger.right && geo.tabs.right <= geo.actionsX, "the tabs sit in the bar itself, between the hamburger and the icons", { tabs: geo.tabs, trigger: geo.trigger.right, actions: geo.actionsX })
-      else expect(!!geo.tabs && geo.tabs.top >= geo.lead && geo.tabs.bottom === geo.height - 1 && geo.tabs.bottom - geo.tabs.top === 40 && geo.tabs.x === 0 && geo.tabs.right === geo.vw, "on a phone the tabs are a 40px row under the first one, edge to edge so they scroll from the screen's edge", geo.tabs)
+      console.log(`        header height: ${was}px before round 4, ${geo.height}px now`)
+      expect(geo.height === (phone ? 85 : 57), `still slim: ${phone ? "44 + 40 of tabs + the hairline" : "one 56px row + the hairline, the places now in the left column"}`, { before: was, now: geo.height })
+      if (!phone) expect(!g.tabsShown && !geo.tabs, "no row of tabs on a computer: the left column has the places", { shown: g.tabsShown })
+      else expect(!!geo.tabs && geo.tabs.top >= geo.lead && geo.tabs.bottom === geo.height - 1 && geo.tabs.bottom - geo.tabs.top === 40 && geo.tabs.x === 0 && geo.tabs.right === geo.vw, "on a phone the places are a 40px row of tabs under the bar, edge to edge", geo.tabs)
       expect(geo.trigger.x >= geo.nameRight && geo.nameRight > geo.markRight && Math.abs(geo.trigger.cy - geo.leadCy) <= 1 && geo.trigger.h === 40, "the hamburger sits right of the picture and the name, centred in the row, a 40px target", geo)
       const pills = await pillsInBar(p)
       expect(pills.pills.length === 0 && pills.seen > 10, `nothing in the bar is pill shaped at rest (${pills.seen} elements looked at)`, pills.pills)
@@ -320,7 +366,7 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
         const lifted = await p.evaluate(() => { let n = 0; for (const st of document.querySelectorAll("style")) { const t = st.textContent; if (t.includes("@media (hover: hover)")) { st.textContent = t.replaceAll("@media (hover: hover)", "@media all"); n++ } } return n && matchMedia("(hover: hover)").matches === false })
         expect(lifted, "the hover rules are live for the hover checks (the browser itself reports no hover)", lifted)
         const hovered = []
-        for (const sel of ["[data-place-navigator-trigger]", "[data-community-messages-button]", "[data-community-top] [data-notification-bell]", "[data-community-me]", "[data-community-tabs] a:not([aria-current])"]) {
+        for (const sel of ["[data-place-navigator-trigger]", "[data-community-messages-button]", "[data-community-top] [data-notification-bell]", "[data-community-me]", '[data-community-search="field"] label']) {
           await p.hover(sel)
           await sleep(220)
           hovered.push(...(await pillsInBar(p)).pills.map((x) => ({ ...x, hover: sel })))
@@ -329,26 +375,37 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
         expect(hovered.length === 0, "nor when any of its controls is hovered (no disc appears behind an icon)", hovered)
       }
       expect(g.name === "Clay Studio" && g.by === "/mara" && /By Mara Lindqvist/.test(g.byText || ""), "the name, and By <creator> to their page", { name: g.name, by: g.by })
-      expect(g.tabs.join() === "Community,Classroom,Calendar,Members,Leaderboards,About" && g.current === "Community", "one row of section tabs, Community marked", g.tabs)
-      const t = g.tabLook
-      expect(t.bg === "rgba(0, 0, 0, 0)" && t.border === "0px", "the tabs are plain words: no pill fill, no pill border", { bg: t.bg, border: t.border })
-      expect(t.color === "rgb(26, 26, 46)" && t.offColor !== t.color, "the chosen tab is ink, the rest muted", { on: t.color, off: t.offColor })
-      expect(t.line.h === 2 && t.line.w === t.line.tabW && t.line.opacity === "1" && t.line.bg === "rgb(26, 26, 46)" && t.offLine === "0", "a 2px ink line under the chosen tab only, as wide as its word", t.line)
-      expect(t.line.bottom === t.barBottom - 1, "the line sits on the bar's bottom edge (just above its hairline)", { line: t.line.bottom, bar: t.barBottom })
       expect(!g.switcher && g.rowOrder.logo >= 0 && g.rowOrder.logo < g.rowOrder.name && g.rowOrder.name < g.rowOrder.nav, "no chevron switcher; the picture, the name, then the hamburger", g.rowOrder)
       expect(g.shadow !== "none" && /^1px /.test(g.hairline), "the bar has a hairline and a soft shadow under it", { shadow: g.shadow, hairline: g.hairline })
-      expect(g.chips.join() === "All,General,Announcements,🏺Critique,Glaze lab,Kiln room,Saved" && g.chipOn === "all", "the spaces as chips, All chosen, Saved at the end", g.chips)
+      expect(g.chips.join() === "All,General,Announcements,🏺Critique,Glaze lab,Kiln room,Saved" && g.chipOn === "all" && g.chipAll === "rgb(26, 26, 46)", "the spaces as chips, All chosen in near black, Saved at the end", { chips: g.chips, all: g.chipAll })
       expect(g.messages === "2" && g.bell === "4" && g.me, "Messages and Storelib's bell with their counts, and my picture", { messages: g.messages, bell: g.bell })
+      expect(phone ? !g.chevron : g.chevron, phone ? "on a phone my picture alone" : "my picture with a chevron that opens my menu", g.chevron)
+      expect(phone ? g.searchButton && !g.searchField : g.searchField && !g.searchButton && g.placeholder === "Search discussions, members, or content...", phone ? "on a phone the search is an icon" : "the search field: Search discussions, members, or content...", { field: g.searchField, button: g.searchButton, placeholder: g.placeholder })
       expect(g.topVar === `${g.height}px`, "--community-top is the bar's measured height", { topVar: g.topVar, height: g.height })
       expect(g.theme === "#ffffff", "the browser's bar is white to match", g.theme)
       expect(g.bg === "rgb(248, 249, 250)", "the page is #f8f9fa", g.bg)
-      if (!phone) expect(g.stats.join("|") === "8kMembers|191Online|2Admins", "the side card: Members, Online, Admins", g.stats)
-      else expect(g.stats.length === 0, "no side card on a phone", g.stats)
+      expect(g.actions.join() === "photo,video,poll,more", "the composer: Photo, Video, Poll and More (no Event for a member)", g.actions)
+      expect(g.saveLabel === "Save" && g.spaceChip === "General", "a post: its space as a chip, and Save as a word", { save: g.saveLabel, space: g.spaceChip })
+      if (!phone) {
+        expect(g.places.join() === "Community,Classroom,Calendar,Members,Leaderboards,About" && g.placeOn === "Community", "the left column lists the places, Community marked", { places: g.places, on: g.placeOn })
+        const L = g.placeLook
+        expect(!!L && L.onBg !== L.offBg && L.h >= 44 && L.chevrons === 6 && new Set(L.tiles).size === 6 && L.tiles.every((c) => !/139, 92, 246|124, 58, 237/.test(c)), "each place: a soft tile of its own tint, a word and a chevron; the open one shaded", L)
+        expect(g.stats.join("|") === "8kMembers|191Online|2Admins" && g.dot, "the community card: Members, Online with its green dot, Admins", { stats: g.stats, dot: g.dot })
+        expect(g.faces === 7 && g.more === "+8k" && g.address === "storelib.com/community/clay-studio" && !g.settings, "seven faces and +8k, the address; no Settings for a member", { faces: g.faces, more: g.more, address: g.address, settings: g.settings })
+        expect(/Upcoming event/.test(g.upcoming || "") && /Live critique: trimming feet/.test(g.upcoming || "") && /128 going/.test(g.upcoming || "") && /View event/.test(g.upcoming || ""), "Upcoming event: the date, the title, the time, 128 going, View event", g.upcoming)
+        expect(!!g.contributors && g.contributors.length === 3 && /^1 (PR )?Priya Raman 420$/.test(g.contributors[0]) && /^3 Leo Martins 287$/.test(g.contributors[2]), "Top contributors: rank, name and points", g.contributors)
+      } else {
+        expect(g.tabs.join() === "Community,Classroom,Calendar,Members,Leaderboards,About" && g.current === "Community", "on a phone the places are the row of tabs, Community marked", g.tabs)
+        const t = g.tabLook
+        expect(!!t && t.bg === "rgba(0, 0, 0, 0)" && t.border === "0px" && t.color === "rgb(26, 26, 46)" && t.offColor !== t.color, "the tabs are plain words, the chosen one ink", t)
+        expect(!!t && t.line.h === 2 && t.line.w === t.line.tabW && t.line.opacity === "1" && t.offLine === "0" && t.line.bottom === t.barBottom - 1, "a 2px ink line under the chosen tab, on the bar's bottom edge", t?.line)
+        expect(g.stats.length === 0 && g.upcoming === null && g.contributors === null && g.places.length === 0, "no side columns on a phone", { stats: g.stats, places: g.places })
+      }
       expect(calls.filter((c) => c.url.endsWith("/presence") && c.method === "POST").length === 1, "the heartbeat is sent once on load", calls.filter((c) => c.url.endsWith("/presence")))
       const s = await sideScroll(p)
       expect(s.scroll <= s.width, "nothing scrolls sideways", s)
       expect((await violet(p)) === 0, "no violet fill")
-      /* The bar and the pills stay put while the feed scrolls; the side card sticks under them. */
+      /* The bar stays put while the feed scrolls; the right column sticks under it. */
       const tops = []
       for (const y of [500, 1200]) {
         await p.evaluate((v) => window.scrollTo(0, v), y)
@@ -357,8 +414,8 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
       }
       expect(tops.every((t) => t === 0), "the bar stays at the top while the page scrolls", tops)
       if (!phone) {
-        const card = await p.evaluate(() => Math.round(document.querySelector("[data-community-aside] > div").getBoundingClientRect().top))
-        expect(card === g.height + 24, "the side card sticks 24px under the bar", { card, bar: g.height })
+        const card = await p.evaluate(() => Math.round(document.querySelector("[data-community-right-cards]").getBoundingClientRect().top))
+        expect(card === g.height + 24, "the right column sticks 24px under the bar", { card, bar: g.height })
       }
       await shot(p, `${label}-feed-scrolled`)
       await p.evaluate(() => window.scrollTo(0, 0))
@@ -373,7 +430,6 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
       }
 
       /* NAVIGATOR */
-      /* Storelib's one navigator (components/nav/place-navigator.tsx): a popover on a computer, the app's sheet on a phone. */
       await p.click("[data-place-navigator-trigger]")
       await sleep(phone ? 650 : 400)
       const sw = await p.evaluate(() => {
@@ -411,6 +467,156 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
       await shot(p, `${label}-messages`)
       expect(errors.length === 0, "no page errors", errors)
       await p.close()
+    }
+
+    /* ── SEARCH: real results, grouped, by keyboard; full screen on a phone ── */
+    {
+      const { p, errors, calls } = await open("feed", "/community/clay-studio", vp)
+      if (!phone) {
+        await p.click('[data-community-search="field"] input')
+        await p.keyboard.type("g", { delay: 30 })
+        await sleep(400)
+        const one = await p.evaluate(() => ({ panel: !!document.querySelector("[data-community-search-panel]") }))
+        expect(!one.panel && !calls.some((c) => c.url.includes("/search")), "one letter asks nothing and opens nothing", { one, calls: calls.filter((c) => c.url.includes("/search")) })
+        await p.keyboard.type("la", { delay: 30 })
+        await sleep(650)
+        const asked = calls.filter((c) => c.url.includes("/search"))
+        const r = await p.evaluate(() => {
+          const panel = document.querySelector("[data-community-search-panel]")
+          const pr = panel?.getBoundingClientRect()
+          const field = document.querySelector('[data-community-search="field"]').getBoundingClientRect()
+          return {
+            groups: [...document.querySelectorAll("[data-search-group]")].map((g) => g.getAttribute("data-search-group")),
+            options: [...document.querySelectorAll("[data-search-option]")].map((o) => o.textContent.replace(/\s+/g, " ").trim()),
+            bold: [...document.querySelectorAll("[data-search-results] mark")].map((m) => m.textContent),
+            role: document.querySelector('[data-community-search="field"] input')?.getAttribute("role"),
+            expanded: document.querySelector('[data-community-search="field"] input')?.getAttribute("aria-expanded"),
+            box: pr && { x: Math.round(pr.left), y: Math.round(pr.top), w: Math.round(pr.width), b: Math.round(pr.bottom) },
+            field: { x: Math.round(field.left), b: Math.round(field.bottom), w: Math.round(field.width) },
+          }
+        })
+        expect(asked.length === 1 && /\/search\?q=gla$/.test(asked[0].url), "it asks once the typing pauses, with what was typed", asked.map((c) => c.url))
+        expect(r.groups.join() === "posts,members,spaces" && r.options.length === 3 && r.bold.length >= 2 && r.bold.every((b) => b.toLowerCase() === "gla"), "grouped results: posts, members, spaces, the match in bold", r)
+        expect(r.role === "combobox" && r.expanded === "true" && !!r.box && r.box.y >= r.field.b && Math.abs(r.box.x - r.field.x) <= 1 && r.box.b <= 900, "a combobox with its list right under the field, on screen", { role: r.role, box: r.box, field: r.field })
+        await shot(p, `${label}-search`)
+        await p.keyboard.press("ArrowDown")
+        await p.keyboard.press("ArrowDown")
+        const k = await p.evaluate(() => ({ active: document.querySelector("[data-search-option][data-active]")?.textContent?.replace(/\s+/g, " ").trim(), desc: document.querySelector('[data-community-search="field"] input')?.getAttribute("aria-activedescendant"), selected: document.querySelector("[aria-selected=true]")?.id }))
+        expect(!!k.active && /Jonas Berg/.test(k.active) && !!k.desc && k.desc === k.selected, "the arrows step through the results across the groups, and the field says which (aria-activedescendant)", k)
+        await p.keyboard.press("ArrowUp")
+        await p.keyboard.press("ArrowUp")
+        const wrap = await p.evaluate(() => document.querySelector("[data-search-option][data-active]")?.getAttribute("data-search-option"))
+        expect(wrap === "spaces", "and wrap around at the ends", wrap)
+        await p.keyboard.press("Enter")
+        await sleep(150)
+        const nav = await p.evaluate(() => ({ to: (window.__router || []).filter((x) => x[0] === "push").map((x) => x[1]), panel: !!document.querySelector("[data-community-search-panel]") }))
+        expect(nav.to.join() === "/community/clay-studio/space/glaze-lab" && !nav.panel, "Enter opens the chosen result and closes the list", nav)
+        await p.click('[data-community-search="field"] input')
+        await p.keyboard.type("zzz", { delay: 20 })
+        await sleep(650)
+        const none = await p.evaluate(() => document.querySelector("[data-search-message]")?.textContent)
+        expect(/Nothing here matches "zzz"/.test(none || ""), "no match says so, plainly", none)
+        await p.keyboard.press("Escape")
+        await sleep(100)
+        const esc = await p.evaluate(() => !!document.querySelector("[data-community-search-panel]"))
+        expect(!esc, "Escape closes the list", esc)
+        await p.keyboard.press("Escape")
+        await p.keyboard.press("Escape")
+        await p.evaluate(() => document.activeElement?.blur())
+        await p.keyboard.press("/")
+        const slash = await p.evaluate(() => document.activeElement?.hasAttribute("data-community-search-input"))
+        expect(slash, '"/" puts the cursor in the search', slash)
+      } else {
+        await p.tap('[data-community-search="button"]')
+        await sleep(350)
+        const sc = await p.evaluate(() => {
+          const s = document.querySelector("[data-community-search-screen]")
+          const r = s?.getBoundingClientRect()
+          return { open: !!s, box: r && { x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height) }, focused: document.activeElement?.hasAttribute("data-community-search-input"), font: getComputedStyle(document.querySelector("[data-community-search-screen] input")).fontSize, vh: innerHeight, vw: innerWidth }
+        })
+        expect(sc.open && sc.box.x === 0 && sc.box.y === 0 && sc.box.w === sc.vw && sc.box.h === sc.vh && sc.focused && sc.font === "16px", "on a phone the icon opens the search over the whole screen, the cursor in it (16px, so iOS does not zoom)", sc)
+        await p.keyboard.type("gla", { delay: 30 })
+        await sleep(650)
+        const res = await p.evaluate(() => [...document.querySelectorAll("[data-community-search-screen] [data-search-option]")].map((o) => Math.round(o.getBoundingClientRect().height)))
+        expect(res.length === 3 && res.every((h) => h >= 48), "the same grouped results, each a tall tap target", res)
+        await shot(p, `${label}-search`)
+        const small = await smallTargets(p)
+        expect(small.length === 0, "every control on the search screen is at least 40px tall", small.slice(0, 8))
+        await p.tap('[data-community-search-screen] [data-search-option="members"]')
+        await sleep(200)
+        const nav = await p.evaluate(() => ({ to: (window.__router || []).filter((x) => x[0] === "push").map((x) => x[1]), open: !!document.querySelector("[data-community-search-screen]"), overflow: document.documentElement.style.overflow }))
+        expect(nav.to.join() === "/@jonasb" && !nav.open && nav.overflow === "", "a result opens it and the screen goes, the page scrolls again", nav)
+        await p.tap('[data-community-search="button"]')
+        await sleep(300)
+        await p.tap("[data-community-search-close]")
+        await sleep(200)
+        const closed = await p.evaluate(() => !document.querySelector("[data-community-search-screen]"))
+        expect(closed, "Cancel closes it", closed)
+      }
+      const s = await sideScroll(p)
+      expect(s.scroll <= s.width, "nothing scrolls sideways", s)
+      expect(errors.length === 0, "no page errors", errors)
+      await p.close()
+    }
+
+    /* ── THE RIGHT COLUMN, FULLY DYNAMIC ─────────────────────────────── */
+    if (!phone) {
+      const widths = {}
+      for (const wall of ["both", "event", "contributors", "none"]) {
+        const { p, errors } = await open("feed", `/community/clay-studio?wall=${wall}`, vp)
+        const c = await p.evaluate(() => {
+          const r = (s) => { const e = document.querySelector(s); if (!e) return null; const b = e.getBoundingClientRect(); return b.width ? { x: Math.round(b.left), y: Math.round(b.top), w: Math.round(b.width), right: Math.round(b.right) } : null }
+          const cards = [...document.querySelectorAll("[data-community-right-cards] > section")].map((s) => ({ kind: s.hasAttribute("data-wall-upcoming") ? "event" : "contributors", y: Math.round(s.getBoundingClientRect().top) }))
+          return { columns: document.querySelector("[data-community-columns]")?.getAttribute("data-community-columns"), left: r("[data-community-left]"), main: r("[data-community-main]"), right: r("[data-community-right]"), cards, search: r('[data-community-search="field"]'), lead: r("[data-community-top-lead]"), mark: r("[data-community-top-lead] > a") }
+        })
+        widths[wall] = c.main?.w
+        console.log(`        ?wall=${wall}: left ${c.left?.w}px, feed ${c.main?.w}px, right ${c.right?.w ?? "none"}`)
+        if (wall === "both") {
+          expect(c.columns === "three" && c.left?.w === 280 && c.right?.w === 300 && c.main.x === c.left.right + 24 && c.right.x === c.main.right + 24, "three columns: 280px left, the feed, 300px right, 24px apart", c)
+          expect(c.cards.map((x) => x.kind).join() === "event,contributors", "Upcoming event, then Top contributors", c.cards)
+          expect(!!c.search && c.search.x === c.main.x && c.mark.x === c.left.x, "the search lines up with the feed, the logo with the left column", { search: c.search, main: c.main, mark: c.mark, left: c.left })
+          await shot(p, `${label}-wall-both`)
+        } else if (wall === "none") {
+          expect(c.columns === "two" && !c.right && c.main.right === c.left.x + 280 + 24 + c.main.w && c.main.w > widths.both, "no event and no contributors: no right column, and the feed takes its room", c)
+          await shot(p, `${label}-wall-none`)
+        } else {
+          expect(c.columns === "three" && c.right?.w === 300 && c.cards.length === 1 && c.cards[0].kind === wall && c.cards[0].y === c.left.y, `only ${wall === "event" ? "the event" : "the contributors"}: one card, at the top of the right column`, c)
+          await shot(p, `${label}-wall-${wall}`)
+        }
+        expect(errors.length === 0, "no page errors", errors)
+        await p.close()
+      }
+      expect(widths.none - widths.both === 324, "the feed grows by the right column and its gap (300 + 24) when there is none", widths)
+      /* Not a feed: no right column, the classroom has the room. */
+      {
+        const { p, errors } = await open("classroom", "/community/clay-studio/classroom", vp)
+        const c = await p.evaluate(() => ({ columns: document.querySelector("[data-community-columns]")?.getAttribute("data-community-columns"), right: !!document.querySelector("[data-community-right]"), on: document.querySelector("[data-wall-places] [aria-current=page]")?.textContent?.trim() }))
+        expect(c.columns === "two" && !c.right && c.on === "Classroom", "a page that is not a feed (the classroom): the left column, no right one, Classroom marked", c)
+        expect(errors.length === 0, "no page errors", errors)
+        await p.close()
+      }
+      /* Staff: Settings on the card, Event in the composer, both to the creator side. */
+      {
+        const { p, errors } = await open("feed", "/community/clay-studio?staff=1", vp)
+        const st = await p.evaluate(() => ({ settings: document.querySelector("[data-wall-settings]")?.getAttribute("href"), event: document.querySelector('[data-composer-action="event"]')?.getAttribute("href"), actions: [...document.querySelectorAll("[data-composer-action]")].map((b) => b.getAttribute("data-composer-action")) }))
+        expect(st.settings === "/app/community/c0000000-0000-4000-8000-000000000001/settings" && st.event === "/app/community/c0000000-0000-4000-8000-000000000001/events?new=1" && st.actions.join() === "photo,video,poll,event,more", "staff: Settings opens the community's settings, Event its event form", st)
+        await shot(p, `${label}-wall-staff`)
+        /* Poll and Photo from the closed composer open it already doing that. */
+        await p.click('[data-composer-action="poll"]')
+        await sleep(150)
+        const poll = await p.evaluate(() => ({ open: document.querySelector("[data-composer]")?.getAttribute("data-composer"), editor: !!document.querySelector("[data-composer-poll-editor]") }))
+        expect(poll.open === "open" && poll.editor, "Poll opens the composer with a poll in it", poll)
+        expect(errors.length === 0, "no page errors", errors)
+        await p.close()
+      }
+      {
+        const { p, errors } = await open("feed", "/community/clay-studio?wall=activity", vp)
+        const a = await p.evaluate(() => ({ head: document.querySelector("[data-wall-contributors]")?.innerText.replace(/\s+/g, " ").trim(), basis: document.querySelector("[data-wall-contributors]")?.getAttribute("data-wall-contributors") }))
+        expect(a.basis === "activity" && /^Most active Posts and comments, last 30 days/.test(a.head || "") && /1 Jonas Berg 14/.test(a.head || ""), "points off: Most active, labelled as posts and comments over 30 days", a)
+        await shot(p, `${label}-wall-activity`)
+        expect(errors.length === 0, "no page errors", errors)
+        await p.close()
+      }
     }
 
     /* ── A SPACE ─────────────────────────────────────────────────────── */
@@ -608,9 +814,11 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
       const center = (sel) => p.evaluate((s) => { const r = document.querySelector(s).getBoundingClientRect(); return { x: r.left + Math.min(r.width / 2, 30), y: r.top + r.height / 2 } }, sel)
       const name = '[data-post="p-photo"] header a[data-person-id]:not(.shrink-0)'
       await p.mouse.move(700, 860)
-      await sleep(100)
+      /* The name in the upper part of the window, so the card has room to open under it. */
+      await p.evaluate((sel) => { const el = document.querySelector(sel); window.scrollBy(0, el.getBoundingClientRect().top - 220) }, name)
+      await sleep(150)
       const at = await center(name)
-      const t0 = await p.evaluate(() => {
+      const t0 = await p.evaluate((sel) => {
         /* Every frame for a second: the card's opacity, its scale and shift, and its box, from the frame it appears. */
         window.__frames = []
         const start = performance.now()
@@ -619,13 +827,13 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
           if (c) {
             const cs = getComputedStyle(c)
             const r = c.getBoundingClientRect()
-            window.__frames.push({ t: Math.round(performance.now() - start), o: Number(cs.opacity), tf: cs.transform, x: Math.round(r.left), box: `${c.offsetLeft},${c.offsetTop},${c.offsetWidth},${c.offsetHeight}` })
+            window.__frames.push({ t: Math.round(performance.now() - start), o: Number(cs.opacity), tf: cs.transform, x: Math.round(r.left), box: `${c.offsetLeft},${c.offsetTop},${c.offsetWidth},${c.offsetHeight}`, name: Math.round(document.querySelector(sel).getBoundingClientRect().top) })
           }
           if (performance.now() - start < 1000) requestAnimationFrame(tick)
         }
         requestAnimationFrame(tick)
         return performance.now()
-      })
+      }, name)
       await p.mouse.move(at.x, at.y)
       await sleep(200)
       const early = await p.evaluate(() => !!document.querySelector("[data-person-card]"))
@@ -689,6 +897,8 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
       await sleep(300)
       /* Keyboard: focus on a name opens the card; Tab steps in; Escape closes and hands focus back. */
       await p.mouse.move(1300, 860)
+      await p.evaluate(() => window.scrollTo(0, 0))
+      await sleep(100)
       let focused = null
       for (let i = 0; i < 60 && !focused; i++) {
         await p.keyboard.press("Tab")
@@ -726,21 +936,30 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
       await p.close()
     }
   }
-  /* ── 1024 and 768: where the tabs move into the bar, and the tablet ─── */
+  /* ── 1024 and 768: two columns with the right cards under the left, and the tablet ─── */
   if (!process.env.ONLY) {
     for (const [label, vp, want] of [["laptop-1024", { width: 1024, height: 768, deviceScaleFactor: 1 }, 57], ["tablet-768", { width: 768, height: 1024, deviceScaleFactor: 1 }, 89]]) {
       console.log(`\n${label}`)
       const { p, errors } = await open("feed", "/community/clay-studio", vp)
       await shot(p, `${label}-feed`)
+      await shot(p, `${label}-feed-full`, true)
       const geo = await barGeometry(p)
-      expect(geo.height === want, `the header is ${want}px (${want === 57 ? "one row with the tabs in it" : "48 + 40 + the hairline"})`, geo.height)
+      expect(geo.height === want, `the header is ${want}px (${want === 57 ? "one row, the places in the left column" : "48 + 40 of tabs + the hairline"})`, geo.height)
       expect(geo.trigger.x >= geo.nameRight, "the hamburger right of the name", geo)
       const pills = await pillsInBar(p)
       expect(pills.pills.length === 0, "nothing pill shaped", pills.pills)
       const s = await sideScroll(p)
       expect(s.scroll <= s.width, "nothing scrolls sideways", s)
-      const tabs = await p.evaluate(() => [...document.querySelectorAll("[data-community-tabs] a")].map((a) => { const r = a.getBoundingClientRect(); return Math.round(r.right) }))
-      console.log(`        tabs end at ${Math.max(...tabs)}px; the row scrolls inside itself if it must`)
+      const c = await p.evaluate(() => {
+        const r = (sel) => { const e = document.querySelector(sel); if (!e) return null; const b = e.getBoundingClientRect(); return b.width ? { x: Math.round(b.left), y: Math.round(b.top), w: Math.round(b.width), b: Math.round(b.bottom), right: Math.round(b.right) } : null }
+        return { left: r("[data-community-left]"), main: r("[data-community-main]"), right: r("[data-community-right]"), search: r('[data-community-search="field"]'), tabs: r("[data-community-tabs]") }
+      })
+      if (want === 57) {
+        expect(!!c.left && c.left.w === 260 && !!c.right && c.right.x === c.left.x && c.right.y >= c.left.b && c.main.x === c.left.right + 24, "from 1024px to 1279px: two columns, the event and the contributors under the left column", c)
+        expect(!c.tabs && !!c.search, "the places in the left column (no tabs), the search field in the bar", { tabs: c.tabs, search: c.search })
+      } else {
+        expect(!c.left && !c.right && !!c.main && c.main.w === 768 - 48 && !!c.tabs && !!c.search, "a tablet: one column, the row of tabs, the search field in the bar", c)
+      }
       expect(errors.length === 0, "no page errors", errors)
       await p.close()
     }

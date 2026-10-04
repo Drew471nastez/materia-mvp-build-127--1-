@@ -2,23 +2,35 @@
 
 /**
  * ===========================================================================
- *  THE MEMBER AREA'S FRAME
+ *  THE MEMBER AREA'S FRAME: THE WALL
  * ===========================================================================
  * Somebody's community, not a dashboard, and not under Storelib's bar. At
  * the top the community's own bar (top-bar.tsx: its picture, its name, whose
- * it is, the navigator, Messages, Storelib's bell and the member's own menu)
- * with ONE row of section tabs, plain words with a line under the chosen
- * one: Community, Classroom, Calendar, Members, Leaderboards, About, each
- * only when the community has it on. From 1024px the tabs sit in the bar
- * itself, so the header is one 56px row; on a phone they are a 40px row
- * under it. Spaces are not in the frame
- * at all: they are chips at the top of the Community feed (space-chips.tsx).
- * Everything below is the community's content.
+ * it is, the navigator, the search, Messages, Storelib's bell and the
+ * member's own menu). Under it, from 1024px, three columns (round 5):
  *
- * The bar and the tabs stick together at the top. Their height is measured
- * once (ResizeObserver) and shared as --community-top with everything that
- * sticks under them or sits beside them (the feed's side card, the chat's
- * height, the messages panel), rather than guessed twice.
+ *   LEFT    the community card (cover, name, address, Members / Online /
+ *           Admins, the faces of who was here last, Settings for its staff)
+ *           and the places in the community as a list of soft tiles
+ *           (wall.tsx). It replaces the row of tabs on a computer.
+ *   CENTER  the page: the feed with its space chips and composer, a post,
+ *           Members, the classroom, events...
+ *   RIGHT   on the feed, a space and Saved: the next event and the top
+ *           contributors, each only when there is something real to show.
+ *           One card sits at the top; none, and there is no right column at
+ *           all and the center takes its room. From 1024px to 1279px the two
+ *           cards sit under the left column instead.
+ *
+ * Below 1024px there is one column, and the places are one row of plain
+ * text tabs under the bar (scrolling sideways on a phone). About is the
+ * community's own page, the same sheet a visitor reads with its own card at
+ * the right, so it has no left column and keeps the row of tabs at every
+ * width.
+ *
+ * The bar (and the tabs under it) stick together at the top. Their height
+ * is measured once (ResizeObserver) and shared as --community-top with
+ * everything that sticks under them or sits beside them (the right column,
+ * the chat's height, the messages panel), rather than guessed twice.
  *
  * PEOPLE. A name anywhere in the frame opens that person's own page; resting
  * on it on a computer opens their card (person-card.tsx). Message, from the
@@ -37,12 +49,13 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import type { ViewerView } from "@/lib/communities/types"
 import { useLightChrome } from "@/lib/ui/light-chrome"
 import { MessagesPanel, MESSAGES_EVENT, useUnreadMessages } from "./messages"
-import { navEntries, sectionFromPath, tabFor, type NavEntry, type TabKey } from "./nav"
+import { navEntries, rightColumnFor, sectionFromPath, tabFor, type NavEntry, type TabKey } from "./nav"
 import { PersonCardLayer } from "./person-card"
 import { Toasts } from "./toast"
 import { CommunityTopBar } from "./top-bar"
 import { TAB, TAB_OFF, TAB_ON } from "./ui"
-import type { ShellCommunity, ShellSection, TopBarData } from "./view-types"
+import type { ShellCommunity, ShellSection, TopBarData, WallData } from "./view-types"
+import { WallCommunityCard, WallContributorsCard, WallPlaces, WallUpcoming } from "./wall"
 
 export { CommunityMark } from "./top-bar"
 
@@ -52,6 +65,8 @@ export interface ShellFrameProps {
   topBar: TopBarData
   /** Conversations with something unread; null when member messages are not available here. */
   unreadMessages?: number | null
+  /** The side columns' facts (lib/communities/server/wall.ts); null draws the page alone in the middle. */
+  wall?: WallData | null
   active?: ShellSection
   children: React.ReactNode
 }
@@ -99,7 +114,7 @@ export function usePresenceHeartbeat(communityId: string, userId: string | null)
   }, [communityId, userId])
 }
 
-export function ShellFrame({ community, viewer, topBar, unreadMessages = null, active, children }: ShellFrameProps) {
+export function ShellFrame({ community, viewer, topBar, unreadMessages = null, wall = null, active, children }: ShellFrameProps) {
   const pathname = usePathname()
   const current: ShellSection = active ?? sectionFromPath(pathname, community.slug)
   const staff = !!viewer.can.manage_members
@@ -140,34 +155,60 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, a
     setChat({ userId: dm })
   }, [dm, canMessage, viewer.userId])
 
+  const about = current === "about"
+  const tab = tabFor(current)
+  const membersHref = entries.find((e) => e.key === "members")?.href ?? null
+  const right = wall && rightColumnFor(current) ? { upcoming: wall.upcoming, contributors: wall.contributors } : null
+  const hasRight = !!right && !!(right.upcoming || right.contributors)
+
   return (
     /* The header's real heights until it is measured (44 + 40 + its hairline on a phone, 48 + 40 + 1 from 640px, one 56px row + 1 from 1024px): no jump on the first frame. */
-    <div data-community-shell="" className="min-h-svh bg-[#f8f9fa] [--community-top:85px] sm:[--community-top:89px] lg:[--community-top:57px]">
+    <div data-community-shell="" className={`min-h-svh bg-[#f8f9fa] [--community-top:85px] sm:[--community-top:89px] ${about ? "lg:[--community-top:97px]" : "lg:[--community-top:57px]"}`}>
       <CommunityTopBar
         data={topBar}
         messages={canMessage ? messages : null}
         messagesOpen={!!chat}
         onMessages={() => setChat((c) => (c ? null : {}))}
+        search={{ communityId: community.id }}
+        tabsOnDesktop={about}
       >
-        <SectionTabs entries={entries} current={tabFor(current)} />
+        <SectionTabs entries={entries} current={tab} wide={!about} />
       </CommunityTopBar>
 
       {/*
         EVERY PAGE ARRIVES THE SAME WAY: a short fade, keyed on the address,
         so moving between the feed, a space, Members and the rest reads as
-        one surface changing rather than a blink. Opacity only. About is the
-        community's own page, the same sheet a visitor reads, and brings its
-        own width; the classroom and events pages (their own worker's) draw
-        only their body, so the frame gives it the same room as the feed.
+        one surface changing rather than a blink. Opacity only. About brings
+        its own width and its own card; every other page sits in the middle
+        column, the classroom and events pages (their own worker's) included.
       */}
-      {current === "about" ? (
+      {about ? (
         <div key={pathname} className="animate-in fade-in-0 duration-150 ease-sheet motion-reduce:animate-none">
           {children}
         </div>
       ) : (
-        <div className="mx-auto w-full max-w-[1080px] px-4 sm:px-6 lg:px-8">
-          <div key={pathname} className="animate-in fade-in-0 duration-150 ease-sheet motion-reduce:animate-none">
-            {current === "classroom" || current === "events" ? <div className="pb-16 pt-5 lg:pt-7" data-community-body="">{children}</div> : children}
+        <div className="mx-auto w-full max-w-[1360px] px-4 sm:px-6 lg:px-8">
+          <div
+            data-community-columns={hasRight ? "three" : "two"}
+            className={`pb-16 pt-4 lg:grid lg:items-start lg:gap-x-6 lg:pt-6 ${hasRight ? "lg:grid-cols-[260px_minmax(0,1fr)] lg:grid-rows-[auto_1fr] xl:grid-cols-[280px_minmax(0,1fr)_300px] xl:grid-rows-[auto]" : "lg:grid-cols-[260px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)]"}`}
+          >
+            <aside className="hidden min-w-0 space-y-3 lg:col-start-1 lg:row-start-1 lg:block" data-community-left="">
+              {wall ? <WallCommunityCard community={community} card={wall.card} membersHref={membersHref} /> : null}
+              <WallPlaces entries={entries} current={tab} />
+            </aside>
+            <div className={`min-w-0 lg:col-start-2 lg:row-start-1 ${hasRight ? "lg:row-span-2 xl:row-span-1" : ""}`} data-community-main="">
+              <div key={pathname} className="animate-in fade-in-0 duration-150 ease-sheet motion-reduce:animate-none" data-community-body="">
+                {children}
+              </div>
+            </div>
+            {hasRight && right ? (
+              <aside className="hidden min-w-0 lg:col-start-1 lg:row-start-2 lg:mt-3 lg:block xl:col-start-3 xl:row-start-1 xl:mt-0 xl:self-stretch" data-community-right="">
+                <div className="space-y-3 xl:sticky xl:top-[calc(var(--community-top,57px)+24px)]" data-community-right-cards="">
+                  {right.upcoming ? <WallUpcoming slug={community.slug} event={right.upcoming} /> : null}
+                  {right.contributors ? <WallContributorsCard slug={community.slug} data={right.contributors} viewAllHref={right.contributors.basis === "points" ? (community.gamificationEnabled ? `/community/${community.slug}/leaderboard` : null) : membersHref} /> : null}
+                </div>
+              </aside>
+            ) : null}
           </div>
         </div>
       )}
@@ -180,16 +221,15 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, a
 }
 
 /**
- * THE ONE ROW OF SECTION TABS. Plain words, not pills: the chosen one is ink
- * with a 2px line under it, sitting on the bar's bottom edge; the others are
- * muted until hovered. The line grows in from its middle (scale and opacity,
- * nothing that moves the layout). On a phone the row scrolls sideways when
- * it does not fit, keeps the chosen tab in view, and fades at an edge only
- * while there is more that way. From 1024px the same row sits inside the
- * bar, between the name and the icons, and scrolls the same way if a long
- * name leaves it too little room.
+ * THE ROW OF SECTION TABS under the bar, below 1024px (and on About at every
+ * width). Plain words, not pills: the chosen one is ink with a 2px line
+ * under it, sitting on the row's bottom edge; the others are muted until
+ * hovered. The line grows in from its middle (scale and opacity, nothing
+ * that moves the layout). The row scrolls sideways when it does not fit,
+ * keeps the chosen tab in view, and fades at an edge only while there is
+ * more that way.
  */
-export function SectionTabs({ entries, current }: { entries: NavEntry[]; current: TabKey }) {
+export function SectionTabs({ entries, current, wide = true }: { entries: NavEntry[]; current: TabKey; wide?: boolean }) {
   const trackRef = useRef<HTMLDivElement>(null)
   const [edges, setEdges] = useState({ left: false, right: false })
   const measure = () => {
@@ -213,9 +253,9 @@ export function SectionTabs({ entries, current }: { entries: NavEntry[]; current
     return () => ro.disconnect()
   }, [current])
   return (
-    <nav aria-label="Community" data-community-tabs="" className="relative w-full lg:h-full">
-      <div ref={trackRef} onScroll={measure} className="overflow-x-auto overscroll-x-contain px-4 scrollbar-hide sm:px-6 lg:h-full lg:px-0">
-        <div className="flex w-max items-end gap-6 sm:gap-7 lg:h-full lg:gap-6">
+    <nav aria-label="Community sections" data-community-tabs="" className="relative w-full">
+      <div ref={trackRef} onScroll={measure} className="overflow-x-auto overscroll-x-contain scrollbar-hide">
+        <div className={`mx-auto flex w-max min-w-full items-end gap-6 px-4 sm:gap-7 sm:px-6 lg:px-8 ${wide ? "lg:max-w-[1360px]" : "lg:max-w-[1080px]"}`}>
           {entries.map((e) => {
             const on = current === e.key
             return (

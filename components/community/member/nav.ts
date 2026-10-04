@@ -1,7 +1,8 @@
 /**
  * WHICH SECTION OF THE MEMBER AREA AN ADDRESS IS, so the shell can mark it
  * without each page saying so (a route group's layout is not told the
- * path), and THE ONE ROW OF SECTION TABS under the community's top bar.
+ * path), and THE PLACES IN A COMMUNITY: the list in the left column from
+ * 1024px (wall.tsx WallPlaces) and the row of tabs under the bar below it.
  * Pure and browser safe.
  */
 import type { ShellSection } from "./view-types"
@@ -19,7 +20,7 @@ export function sectionFromPath(pathname: string | null | undefined, slug: strin
   return "home"
 }
 
-/** The tabs: Community, Classroom, Calendar, Members, Leaderboards, About. */
+/** The places: Community, Classroom, Calendar, Members, Leaderboards, About. */
 export type TabKey = "home" | "classroom" | "events" | "members" | "leaderboard" | "about"
 
 export interface NavEntry {
@@ -29,7 +30,7 @@ export interface NavEntry {
 }
 
 /**
- * The places in a community, in the one row of tabs, each only when the
+ * The places in a community, in the left column and the row of tabs, each only when the
  * community has it switched on. Members shows for staff even with the
  * directory off (they run it); the community and About are always there.
  */
@@ -48,4 +49,14 @@ export function navEntries(c: { slug: string; classroomEnabled: boolean; eventsE
 export function tabFor(section: ShellSection): TabKey {
   if (section === "classroom" || section === "events" || section === "members" || section === "leaderboard" || section === "about") return section
   return "home"
+}
+
+/**
+ * Whether a section draws the wall's right column (the next event, the top
+ * contributors): the community's feed, a space, a post and Saved. Members,
+ * the classroom, events, the leaderboard and the inbox use the room for
+ * themselves.
+ */
+export function rightColumnFor(section: ShellSection): boolean {
+  return section === "home" || section === "saved" || section.startsWith("space:")
 }

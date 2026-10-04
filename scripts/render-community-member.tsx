@@ -17,7 +17,7 @@
 import React from "react"
 import { createRoot } from "react-dom/client"
 import { ShellFrame } from "@/components/community/member/shell-frame"
-import { FeedAside, FeedColumns } from "@/components/community/member/columns"
+import { FeedColumns } from "@/components/community/member/columns"
 import { FeedView } from "@/components/community/member/feed"
 import { SpaceChips } from "@/components/community/member/space-chips"
 import { PostPage } from "@/components/community/member/post-page"
@@ -300,7 +300,16 @@ const topBar: TopBarData = {
 
 function Screen() {
   const shell = (children: React.ReactNode) => (
-    <ShellFrame community={community} viewer={viewer} topBar={topBar}>
+    <ShellFrame
+      community={community}
+      viewer={viewer}
+      topBar={topBar}
+      wall={{
+        card: { stats: { members: community.memberCount, online: 5, admins: 2 }, faces: [], more: 0, settingsHref: null },
+        upcoming: { id: "e1", title: "Critique night: portfolios", startsAt: iso(NOW + 11 * DAY), endsAt: iso(NOW + 11 * DAY + 90 * MIN), going: 12 },
+        contributors: null,
+      }}
+    >
       {children}
     </ShellFrame>
   )
@@ -310,7 +319,7 @@ function Screen() {
   if (which === "chat") {
     /* As app/(marketing)/community/[slug]/(member)/space/[space]/page.tsx draws a chat space: under the chips. */
     return shell(
-      <div className="max-w-[760px] pt-4 lg:pt-6">
+      <div className="max-w-[760px]">
         <SpaceChips slug={community.slug} spaces={spaces} active={spaces[4].slug} />
         <ChatView communityId={CID} slug={community.slug} space={spaces[4]} viewer={viewer} initial={{ messages: MESSAGES, hasMore: true }} />
       </div>,
@@ -333,7 +342,6 @@ function Screen() {
           composer={{ communityId: CID, userId: "u-me", me, spaces: spaces.filter((s) => s.canPost && s.kind !== "chat").map((s) => ({ id: s.id, name: s.name, kind: s.kind })), fileProductId: null }}
         />
       }
-      aside={<FeedAside community={community} stats={{ members: community.memberCount, online: 5, admins: 2 }} upcoming={{ id: "e1", title: "Critique night: portfolios", startsAt: iso(NOW + 11 * DAY), endsAt: iso(NOW + 11 * DAY + 90 * MIN) }} />}
     />,
   )
 }

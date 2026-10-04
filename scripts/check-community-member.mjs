@@ -209,7 +209,8 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
         const cards = [...document.querySelectorAll("[data-post]")]
         return {
           rail: rect("[data-community-rail]"),
-          aside: rect("[data-community-aside]"),
+          left: rect("[data-community-left]"),
+          aside: rect("[data-community-right]"),
           feed: rect("[data-feed]"),
           pills: rect("[data-community-tabs]"),
           bar: rect("[data-community-top-row]"),
@@ -217,7 +218,7 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
           chips: document.querySelectorAll("[data-space-chip]").length,
           firstPinned: cards[0]?.getAttribute("data-pinned") === "true",
           posts: cards.length,
-          online: [...document.querySelectorAll("[data-community-aside] [data-stat=online]")].filter((d) => d.getBoundingClientRect().width > 0).map((d) => d.textContent.trim())[0] || null,
+          online: [...document.querySelectorAll("[data-wall-card] [data-wall-stat=online]")].filter((d) => d.getBoundingClientRect().width > 0).map((d) => d.textContent.trim())[0] || null,
           bg: getComputedStyle(document.querySelector("[data-community-shell]")).backgroundColor,
           composer: document.querySelector("[data-composer]")?.getAttribute("data-composer"),
           violet: [...document.querySelectorAll("[data-community-shell] *")].filter((e) => /139, 92, 246|124, 58, 237/.test(getComputedStyle(e).backgroundColor)).length,
@@ -228,25 +229,27 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
       expect(geo.firstPinned && geo.posts === 5, "pinned first, then the rest", { firstPinned: geo.firstPinned, posts: geo.posts })
       expect(geo.composer === "closed", "the composer arrives closed: one line", geo.composer)
       expect(geo.feed && geo.feed.w <= 720, "the feed is at most 720px wide", geo.feed)
-      /* Round 2: no left column. Round 4: one compact bar, the tabs inside it on a computer and a row under its first line on a phone. */
-      expect(!geo.rail, "no left column any more", geo.rail)
-      if (phone) expect(geo.lead && geo.pills && geo.pills.y >= geo.lead.y + geo.lead.h - 1, "the community's bar, then the tabs under it", { lead: geo.lead, pills: geo.pills })
-      else expect(geo.bar && geo.lead && geo.pills && geo.pills.y === geo.bar.y && geo.pills.h === geo.bar.h && geo.pills.x >= geo.lead.x + geo.lead.w, "the tabs sit in the community's bar, after its name", { bar: geo.bar, lead: geo.lead, pills: geo.pills })
+      /* Round 5: the wall. On a computer the places are the left column (no tabs); on a phone a row of tabs under the bar. */
+      expect(!geo.rail, "the old rail is gone", geo.rail)
+      if (phone) expect(geo.lead && geo.pills && geo.pills.y >= geo.lead.y + geo.lead.h - 1 && !geo.left, "the community's bar, then the tabs under it, no left column", { lead: geo.lead, pills: geo.pills, left: geo.left })
+      else expect(geo.left && !geo.pills && geo.feed && geo.left.x + geo.left.w <= geo.feed.x, "the places in the left column beside the feed, no row of tabs", { left: geo.left, pills: geo.pills, feed: geo.feed })
       expect(geo.chips > 0, "the spaces are chips at the top of the feed", geo.chips)
       if (!phone) {
-        expect(geo.online === "5Online", "ONLINE: the side card's figure is the heartbeat count it is handed", geo.online)
-        expect(geo.aside && geo.aside.x >= geo.feed.x + geo.feed.w, "the side column beside the feed, not over it", { aside: geo.aside, feed: geo.feed })
+        expect(geo.online === "5Online", "ONLINE: the community card's figure is the heartbeat count it is handed", geo.online)
+        expect(geo.aside && geo.aside.x >= geo.feed.x + geo.feed.w, "the right column beside the feed, not over it", { aside: geo.aside, feed: geo.feed })
       } else {
         expect(!geo.aside, "no side column on a phone", geo.aside)
       }
-      /* The bar and the tabs stay put while the page scrolls. */
+      /* The bar (and on a phone the tabs under it) stay put while the page scrolls. */
+      const stuck = phone ? "[data-community-tabs]" : "[data-community-top]"
+      const at0 = await p.evaluate((q) => Math.round(document.querySelector(q).getBoundingClientRect().top), stuck)
       const sticky = []
       for (const y of [400, 1200, 2000]) {
         await p.evaluate((v) => window.scrollTo(0, v), y)
         await sleep(60)
-        sticky.push(await p.evaluate(() => Math.round(document.querySelector("[data-community-tabs]").getBoundingClientRect().top)))
+        sticky.push(await p.evaluate((q) => Math.round(document.querySelector(q).getBoundingClientRect().top), stuck))
       }
-      expect(sticky.every((t) => t === geo.pills.y), "the tabs stay under the bar while the page scrolls", { sticky, at: geo.pills.y })
+      expect(sticky.every((t) => t === at0), "the bar stays at the top while the page scrolls", { sticky, at: at0 })
       await shot(p, `${label}-feed-scrolled`, false)
       await p.evaluate(() => window.scrollTo(0, 0))
       if (phone) {
@@ -385,8 +388,8 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
       await shot(p, `${label}-${name}`)
       const n = await p.evaluate((q) => [...document.querySelectorAll(q)].map((li) => Math.round(li.getBoundingClientRect().height)), sel)
       expect(n.length > 0 && n.every((h) => h >= 56), `${name}: rows a thumb can hit`, n)
-      /* A place is its pill; the community's inbox lives under Community (the bar's bell is Storelib's own). */
-      const active = await p.evaluate(() => document.querySelector("[data-community-tabs] [aria-current=page]")?.textContent?.trim() || null)
+      /* A place is marked where the places are (the left column on a computer, the tabs on a phone); the community's inbox lives under Community. */
+      const active = await p.evaluate(() => [...document.querySelectorAll("[data-wall-places] [aria-current=page], [data-community-tabs] [aria-current=page]")].find((a) => a.getBoundingClientRect().width > 0)?.textContent?.trim() || null)
       const want = name === "notifications" ? "community" : name.slice(0, 6)
       expect(active && active.toLowerCase().includes(want), `${name}: the shell marks where you are`, active)
       const s = await sideScroll(p)

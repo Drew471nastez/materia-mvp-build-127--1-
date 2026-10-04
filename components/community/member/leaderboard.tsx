@@ -50,7 +50,7 @@ export function Leaderboard({
   }
   const myLevel = levels.find((l) => l.level === me.level)
   return (
-    <div className="flex gap-6 pb-16 pt-4 lg:pt-6" data-leaderboard="">
+    <div className="flex gap-6" data-leaderboard="">
       <div className="w-full min-w-0 max-w-[680px] flex-1">
         <PageTitle title="Leaderboard" detail="Points come from likes on your posts and comments." />
         <div className="inline-flex rounded-full border border-[#e3e4e8] bg-white p-1" role="tablist" aria-label="Period">

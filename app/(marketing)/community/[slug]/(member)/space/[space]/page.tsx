@@ -4,8 +4,8 @@ import { admin } from "@/lib/communities/server/db"
 import { listFeed } from "@/lib/communities/server/feed"
 import { listMessages } from "@/lib/communities/server/chat"
 import { ChatView } from "@/components/community/member/chat"
-import { FeedAside, FeedColumns } from "@/components/community/member/columns"
-import { composerSpaces, fileProductFor, meOf, memberPage, shellData, statsFor, upcomingEventFor } from "@/components/community/member/data"
+import { FeedColumns } from "@/components/community/member/columns"
+import { composerSpaces, eventHrefFor, fileProductFor, meOf, memberPage, shellData } from "@/components/community/member/data"
 import { FeedView } from "@/components/community/member/feed"
 import { SpaceChips } from "@/components/community/member/space-chips"
 
@@ -31,19 +31,17 @@ export default async function CommunitySpacePage({ params }: { params: Promise<{
   if (space.kind === "chat") {
     const first = await listMessages(admin(), community, viewer, row, {})
     return (
-      <div className="max-w-[760px] pt-4 lg:pt-6">
+      <div className="max-w-[760px]">
         {chips}
         <ChatView communityId={community.id} slug={community.slug} space={space} viewer={view} initial={first} readOnly={readOnly || !space.canPost} />
       </div>
     )
   }
 
-  const [feed, me, fileProductId, upcoming, stats] = await Promise.all([
+  const [feed, me, fileProductId] = await Promise.all([
     listFeed(admin(), community, viewer, { sort: "latest", spaceId: space.id }),
     meOf(community.id, viewer),
     fileProductFor(community, viewer),
-    upcomingEventFor(community, viewer),
-    statsFor(community),
   ])
   const canPost = space.canPost && !readOnly
   return (
@@ -63,10 +61,9 @@ export default async function CommunitySpacePage({ params }: { params: Promise<{
           spaceId={space.id}
           readOnly={readOnly}
           emptyText={canPost ? "Be the first to post here." : "Nothing here yet."}
-          composer={canPost && viewer.userId ? { communityId: community.id, userId: viewer.userId, me, spaces: composerSpaces([space]), fixedSpaceId: space.id, fileProductId } : null}
+          composer={canPost && viewer.userId ? { communityId: community.id, userId: viewer.userId, me, spaces: composerSpaces([space]), fixedSpaceId: space.id, fileProductId, eventHref: eventHrefFor(community, viewer) } : null}
         />
       }
-      aside={<FeedAside community={shell.community} stats={stats} upcoming={upcoming} />}
     />
   )
 }

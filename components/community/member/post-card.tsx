@@ -5,7 +5,8 @@
  *  ONE POST
  * ===========================================================================
  * Who wrote it and when, in which space; the title and the words; what it
- * carries; and one quiet row of things to do: like, comment, save. The rest
+ * carries; and one quiet row of things to do: Like and Comment, and Save at
+ * the far end, each a word with its icon (round 5). The rest
  * (copy the link, edit or delete your own, report somebody else's, and for a
  * moderator pin, lock, remove, mute or ban) is behind the dots, a menu on a
  * computer and a sheet on a phone (ResponsiveActionMenu).
@@ -230,7 +231,7 @@ export function PostCard({ post, slug, viewer, update, full = false, readOnly = 
             {post.space ? (
               <>
                 <span aria-hidden>·</span>
-                <Link href={`${base}/space/${post.space.slug}`} className="truncate hover:underline">
+                <Link href={`${base}/space/${post.space.slug}`} className="ml-0.5 max-w-[180px] truncate rounded-md bg-[#f1f3f5] px-1.5 text-[12px] font-medium leading-5 text-[#4b5563] transition-colors hover:bg-[#e8eaed] hover:text-[#1a1a2e]" data-post-space="">
                   {post.space.name}
                 </Link>
               </>
@@ -267,7 +268,7 @@ export function PostCard({ post, slug, viewer, update, full = false, readOnly = 
             full ? (
               <h1 className="text-[19px] font-semibold leading-snug text-[#1a1a2e] sm:text-[21px]">{post.title}</h1>
             ) : (
-              <h2 className="text-[17px] font-semibold leading-snug text-[#1a1a2e]">
+              <h2 className="text-[18px] font-semibold leading-snug tracking-[-0.005em] text-[#1a1a2e]">
                 <Link href={href} className="hover:underline">
                   {post.title}
                 </Link>
@@ -313,8 +314,9 @@ export function PostCard({ post, slug, viewer, update, full = false, readOnly = 
             Comments closed
           </span>
         ) : null}
-        <button type="button" onClick={save} aria-pressed={post.bookmarked} aria-label={post.bookmarked ? "Remove from Saved" : "Save"} className={`${ICON_BTN} ml-auto -mr-2 ${post.bookmarked ? "text-[#1a1a2e]" : ""}`} data-save="">
-          <Bookmark className={`h-[18px] w-[18px] ${post.bookmarked ? "fill-current" : ""}`} strokeWidth={1.75} />
+        <button type="button" onClick={save} aria-pressed={post.bookmarked} aria-label={post.bookmarked ? "Remove from Saved" : "Save"} className={`${BTN_GHOST} -mr-2 ml-auto gap-2 ${post.bookmarked ? "text-[#1a1a2e]" : ""}`} data-save="">
+          <Bookmark className={`h-[18px] w-[18px] ${post.bookmarked ? "fill-current" : ""}`} strokeWidth={1.75} aria-hidden />
+          <span>{post.bookmarked ? "Saved" : "Save"}</span>
         </button>
       </footer>
 

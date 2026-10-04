@@ -109,7 +109,7 @@ export function NotificationsList({
   }
 
   return (
-    <div className="max-w-[720px] pb-16 pt-4 lg:pt-6" data-notifications="">
+    <div className="max-w-[720px]" data-notifications="">
       <PageTitle title="Notifications" detail={unread ? `${unread} unread` : null}>
         {unread ? (
           <button type="button" className={BTN_GHOST} onClick={() => markRead("all")} data-mark-all="">

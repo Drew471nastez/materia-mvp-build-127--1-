@@ -13,8 +13,8 @@ import { admin } from "@/lib/communities/server/db"
 import { listSpaces, spaceViews } from "@/lib/communities/server/feed"
 import { unreadCounts } from "@/lib/communities/server/chat"
 import { unreadConversations } from "@/lib/communities/server/direct"
-import { communityStats, type CommunityStats } from "@/lib/communities/server/presence"
 import { currentUserForRequest } from "@/lib/auth/request-scope"
+export { eventHrefFor } from "@/lib/communities/server/wall"
 import type { CommunityRow, SpaceRow } from "@/lib/communities/types"
 import type { ShellCommunity, SpaceView } from "./view-types"
 
@@ -84,9 +84,6 @@ export const shellData = cache(async (communityId: string, viewer: Viewer, commu
   return { community: toShellCommunity(community), spaces: spaceViews(rows, viewer, community, unread), rows, unreadMessages: messages }
 })
 
-/** Members, online (a real heartbeat, or null before part 85) and admins, once per request. */
-export const statsFor = cache(async (community: CommunityRow): Promise<CommunityStats> => communityStats(admin(), community))
-
 /** The product a creator's post files are uploaded under: one that sells this community, when it has one. */
 export async function fileProductFor(community: CommunityRow, viewer: Viewer): Promise<string | null> {
   if (!viewer.isCreatorAccount || !community.creator_id) return null
@@ -104,27 +101,6 @@ export async function meOf(communityId: string, viewer: Viewer): Promise<{ name:
   const { authorViews } = await import("@/lib/communities/server/directory")
   const me = (await authorViews(admin(), communityId, [viewer.userId])).get(viewer.userId)
   return { name: me?.name ?? "Member", avatarUrl: me?.avatarUrl ?? null }
-}
-
-/** The next scheduled event the viewer may see, for the side column; null when events are off or none is coming. */
-export async function upcomingEventFor(community: CommunityRow, viewer: Viewer): Promise<{ id: string; title: string; startsAt: string; endsAt: string | null } | null> {
-  if (!community.events_enabled) return null
-  try {
-    const { evaluateAccess } = await import("@/lib/communities/access")
-    const { accessOf } = await import("@/lib/communities/server/feed")
-    const { data } = await admin()
-      .from("community_events")
-      .select("id, title, starts_at, ends_at, access, status")
-      .eq("community_id", community.id)
-      .eq("status", "scheduled")
-      .gt("starts_at", new Date().toISOString())
-      .order("starts_at", { ascending: true })
-      .limit(5)
-    const next = ((data as { id: string; title: string; starts_at: string; ends_at: string | null; access: unknown }[] | null) ?? []).find((e) => evaluateAccess(e.access as never, accessOf(viewer)).ok)
-    return next ? { id: next.id, title: next.title, startsAt: next.starts_at, endsAt: next.ends_at } : null
-  } catch {
-    return null
-  }
 }
 
 /** The welcome a new member sees once, when the creator switched it on and they have not seen it. */

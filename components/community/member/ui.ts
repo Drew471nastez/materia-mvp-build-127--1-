@@ -23,14 +23,14 @@ export const PILL_ON = "border-[#d7dadf] bg-[#e2e4e8] text-[#1a1a2e] shadow-[ins
 export const PILL_OFF = "border-[#e4e7ec] bg-white text-[#6b7280] hover:text-[#1a1a2e]"
 
 /**
- * A section tab in the community's bar: plain words, no box. The chosen one
- * is ink with a 2px underline on the bar's bottom edge; the rest are muted
- * and darken on hover. 40px tall on a phone, where the tabs are their own
- * row, so a thumb finds it; from 1024px the tabs sit in the 56px bar itself
- * and a tab is the bar's full height, so its line lands on the bar's edge.
+ * A section tab in the row under the community's bar: plain words, no box.
+ * The chosen one is ink with a 2px underline on the row's bottom edge; the
+ * rest are muted and darken on hover. 40px tall, so a thumb finds it. The
+ * row is a phone's and a tablet's (and About's, which has no left column):
+ * from 1024px the places are the list in the left column (wall.tsx).
  */
 export const TAB =
-  "group/tab relative inline-flex h-10 shrink-0 cursor-pointer select-none items-center whitespace-nowrap px-0.5 text-[14.5px] font-medium outline-none transition-colors duration-150 focus-visible:text-[#1a1a2e] focus-visible:underline focus-visible:decoration-[#1a1a2e]/30 focus-visible:underline-offset-4 motion-reduce:transition-none [-webkit-tap-highlight-color:transparent] sm:text-[14px] lg:h-14"
+  "group/tab relative inline-flex h-10 shrink-0 cursor-pointer select-none items-center whitespace-nowrap px-0.5 text-[14.5px] font-medium outline-none transition-colors duration-150 focus-visible:text-[#1a1a2e] focus-visible:underline focus-visible:decoration-[#1a1a2e]/30 focus-visible:underline-offset-4 motion-reduce:transition-none [-webkit-tap-highlight-color:transparent] sm:text-[14px]"
 export const TAB_ON = "text-[#1a1a2e]"
 export const TAB_OFF = "text-[#6b7280] hover:text-[#1a1a2e]"
 

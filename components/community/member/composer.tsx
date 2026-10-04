@@ -4,10 +4,13 @@
  * ===========================================================================
  *  "SHARE SOMETHING..."
  * ===========================================================================
- * Closed, the composer is one line with the member's picture: nothing to
- * decide. Pressed, it opens where it is into a title (optional), the text,
- * and one row of extras: pictures, a poll, a file (for the creator, who has
- * somewhere to keep files), and the space it goes to. A link in the text
+ * Closed, the composer is the member's picture and "Share something...",
+ * with one row under it (round 5): Photo, Video, Poll, Event (for staff who
+ * can run events: the creator side's event form) and "..." (post in a
+ * chosen space; a file, for the creator). Each opens the composer already
+ * doing that: Photo and Video open the file picker inside the same press.
+ * Open, it is a title (optional), the text, and one row of extras:
+ * pictures, a poll, a video, a file, and the space it goes to. A link in the text
  * brings its card on its own (fetched by the server), and the card can be
  * taken off. Pictures go straight to Storelib's picture storage under the
  * member's own folder, compressed first, and are checked by the upload
@@ -18,9 +21,10 @@
  * crashed before posting. Posting clears it.
  */
 import { useEffect, useRef, useState } from "react"
-import { BarChart3, ChevronDown, Clapperboard, ImagePlus, Loader2, Paperclip, Plus, X } from "lucide-react"
+import Link from "next/link"
+import { BarChart3, CalendarPlus, ChevronDown, Clapperboard, ImagePlus, Loader2, MoreHorizontal, Paperclip, Plus, X } from "lucide-react"
 import { AppAvatar } from "@/components/app/app-avatar"
-import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
+import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { createClient } from "@/lib/supabase/client"
 import { confirmUpload } from "@/lib/storage/confirm-upload"
 import { COMPRESS_PROFILES, compressImage } from "@/lib/images/compress"
@@ -44,6 +48,8 @@ export interface ComposerProps {
   fixedSpaceId?: string | null
   /** The product a creator's files are kept under; null hides files. */
   fileProductId?: string | null
+  /** The creator side's new event form, for staff who can run events; null hides Event. */
+  eventHref?: string | null
   onPosted: (post: FeedPostView) => void
 }
 
@@ -72,6 +78,10 @@ interface Draft {
   poll: PollDraft | null
   media: PostMedia[]
 }
+
+/** One of the closed composer's actions: a word and its icon, a 40px target, no box until hovered. */
+const ACTION =
+  "inline-flex h-10 shrink-0 select-none items-center gap-2 rounded-xl px-2.5 text-[14px] font-medium text-[#4b5563] outline-none transition-colors duration-150 hover:bg-[#f4f5f7] hover:text-[#1a1a2e] active:opacity-70 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 motion-reduce:transition-none [-webkit-tap-highlight-color:transparent] max-[379px]:px-2"
 
 export function draftKey(communityId: string, spaceId?: string | null): string {
   return `storelib:community-draft:${communityId}${spaceId ? `:${spaceId}` : ""}`
@@ -116,7 +126,7 @@ async function uploadPicture(file: File, userId: string, communityId: string): P
   return { type: "image", url: data.publicUrl, ...(size.w ? { w: size.w, h: size.h } : {}) }
 }
 
-export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null, fileProductId = null, onPosted }: ComposerProps) {
+export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null, fileProductId = null, eventHref = null, onPosted }: ComposerProps) {
   const key = draftKey(communityId, fixedSpaceId)
   const [open, setOpen] = useState(false)
   const [title, setTitle] = useState("")
@@ -276,27 +286,129 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
     toast("Posted")
   }
 
+  /*
+    The file pickers sit at the same place in both states, so Photo and
+    Video on the closed composer open them inside the same press (a browser
+    only opens a file picker from a press it is still handling) and the
+    picked files still arrive after the composer has opened.
+  */
+  const pickers = (
+    <>
+      <input ref={imageInput} type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif" multiple hidden onChange={(e) => (void addPictures(e.target.files), (e.target.value = ""))} data-composer-image-input="" />
+      <input ref={videoInput} type="file" accept="video/mp4,video/quicktime,video/webm" hidden onChange={(e) => (void addVideo(e.target.files), (e.target.value = ""))} data-composer-video-input="" />
+      {fileProductId ? <input ref={fileInput} type="file" multiple hidden onChange={(e) => (void addFiles(e.target.files), (e.target.value = ""))} /> : null}
+    </>
+  )
+
+  const openWriting = () => {
+    setOpen(true)
+    requestAnimationFrame(() => textRef.current?.focus())
+  }
+  const startPoll = () => {
+    setOpen(true)
+    setPoll((p) => p ?? { question: "", options: ["", ""], multiple: false, closesIn: "" })
+  }
+
   if (!open) {
+    const choices = !fixedSpaceId && spaces.length > 1
+    const more: ActionMenuItem[] = [
+      ...(choices
+        ? spaces.map((s, i) => ({
+            label: `Post in ${s.name}`,
+            section: i === 0 ? "Post in a space" : undefined,
+            onClick: () => {
+              setSpaceId(s.id)
+              openWriting()
+            },
+          }))
+        : []),
+      ...(fileProductId
+        ? [
+            {
+              label: "Attach a file",
+              icon: <Paperclip className="h-4 w-4" />,
+              separatorBefore: choices,
+              onClick: () => {
+                setOpen(true)
+                fileInput.current?.click()
+              },
+            },
+          ]
+        : []),
+    ]
     return (
-      <div className={`${CARD} flex items-center gap-3 p-3 sm:p-3.5`} data-composer="closed">
-        <AppAvatar src={me.avatarUrl} name={me.name} alt="" size={36} markWhileLoading />
-        <button
-          type="button"
-          onClick={() => {
-            setOpen(true)
-            requestAnimationFrame(() => textRef.current?.focus())
-          }}
-          className="flex h-10 min-w-0 flex-1 items-center rounded-full bg-[#f4f5f7] px-4 text-left text-[15px] text-[#8a8f98] transition-colors hover:bg-[#eef0f2]"
-          data-composer-open=""
-        >
-          Share something...
-        </button>
-      </div>
+      <>
+        {pickers}
+        <div className={`${CARD} px-3 pb-1.5 pt-3 sm:px-4 sm:pt-4`} data-composer="closed">
+          <div className="flex items-center gap-3">
+            <AppAvatar src={me.avatarUrl} name={me.name} alt="" size={40} markWhileLoading />
+            <button
+              type="button"
+              onClick={openWriting}
+              className="flex h-11 min-w-0 flex-1 items-center rounded-xl bg-[#f4f5f7] px-4 text-left text-[15px] text-[#8a8f98] transition-colors hover:bg-[#eef0f2]"
+              data-composer-open=""
+            >
+              Share something...
+            </button>
+          </div>
+          <div className="mt-3 flex items-center gap-0.5 border-t border-[#f0f1f3] pt-1.5 sm:gap-1" data-composer-actions="">
+            <button
+              type="button"
+              className={ACTION}
+              onClick={() => {
+                setOpen(true)
+                imageInput.current?.click()
+              }}
+              data-composer-action="photo"
+            >
+              <ImagePlus className="h-[19px] w-[19px] text-[#6b7280]" strokeWidth={1.8} aria-hidden />
+              Photo
+            </button>
+            <button
+              type="button"
+              className={ACTION}
+              onClick={() => {
+                setOpen(true)
+                videoInput.current?.click()
+              }}
+              data-composer-action="video"
+            >
+              <Clapperboard className="h-[19px] w-[19px] text-[#6b7280]" strokeWidth={1.8} aria-hidden />
+              Video
+            </button>
+            <button type="button" className={ACTION} onClick={startPoll} data-composer-action="poll">
+              <BarChart3 className="h-[19px] w-[19px] text-[#6b7280]" strokeWidth={1.8} aria-hidden />
+              Poll
+            </button>
+            {eventHref ? (
+              <Link href={eventHref} className={ACTION} data-composer-action="event">
+                <CalendarPlus className="h-[19px] w-[19px] text-[#6b7280]" strokeWidth={1.8} aria-hidden />
+                Event
+              </Link>
+            ) : null}
+            {more.length ? (
+              <span className="ml-auto">
+                <ResponsiveActionMenu
+                  title="More"
+                  items={more}
+                  trigger={
+                    <button type="button" aria-label="More ways to post" className={`${ICON_BTN} rounded-xl`} data-composer-action="more">
+                      <MoreHorizontal className="h-5 w-5" strokeWidth={1.8} />
+                    </button>
+                  }
+                />
+              </span>
+            ) : null}
+          </div>
+        </div>
+      </>
     )
   }
 
   return (
-    <div className={`${CARD} p-3.5 sm:p-4`} data-composer="open">
+    <>
+      {pickers}
+      <div className={`${CARD} p-3.5 sm:p-4`} data-composer="open">
       <div className="flex items-start gap-3">
         <AppAvatar src={me.avatarUrl} name={me.name} alt="" size={36} markWhileLoading />
         <div className="min-w-0 flex-1">
@@ -362,24 +474,19 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
       {poll ? <PollEditor poll={poll} onChange={setPoll} onRemove={() => setPoll(null)} /> : null}
 
       <div className="mt-3 flex flex-wrap items-center gap-1 border-t border-[#f0f1f3] pt-2.5 sm:pl-12">
-        <input ref={imageInput} type="file" accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif" multiple hidden onChange={(e) => (void addPictures(e.target.files), (e.target.value = ""))} />
         <button type="button" aria-label="Add pictures" title="Add pictures" className={ICON_BTN} onClick={() => imageInput.current?.click()} data-composer-image="">
           <ImagePlus className="h-5 w-5" strokeWidth={1.75} />
         </button>
         <button type="button" aria-label="Add a poll" title="Add a poll" aria-pressed={!!poll} className={`${ICON_BTN} ${poll ? "bg-[#f1f2f4] text-[#1a1a2e]" : ""}`} onClick={() => setPoll((p) => p ?? { question: "", options: ["", ""], multiple: false, closesIn: "" })} data-composer-poll="">
           <BarChart3 className="h-5 w-5" strokeWidth={1.75} />
         </button>
-        <input ref={videoInput} type="file" accept="video/mp4,video/quicktime,video/webm" hidden onChange={(e) => (void addVideo(e.target.files), (e.target.value = ""))} />
         <button type="button" aria-label="Add a video" title="Add a video" className={ICON_BTN} onClick={() => videoInput.current?.click()} data-composer-video="">
           <Clapperboard className="h-5 w-5" strokeWidth={1.75} />
         </button>
         {fileProductId ? (
-          <>
-            <input ref={fileInput} type="file" multiple hidden onChange={(e) => (void addFiles(e.target.files), (e.target.value = ""))} />
-            <button type="button" aria-label="Attach a file" title="Attach a file" className={ICON_BTN} onClick={() => fileInput.current?.click()}>
-              <Paperclip className="h-5 w-5" strokeWidth={1.75} />
-            </button>
-          </>
+          <button type="button" aria-label="Attach a file" title="Attach a file" className={ICON_BTN} onClick={() => fileInput.current?.click()}>
+            <Paperclip className="h-5 w-5" strokeWidth={1.75} />
+          </button>
         ) : null}
 
         {!fixedSpaceId && spaces.length > 1 ? (
@@ -407,7 +514,8 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
           </button>
         </div>
       </div>
-    </div>
+      </div>
+    </>
   )
 }
 
