@@ -9,7 +9,7 @@
  * about that person: their photo, with their level here while the community
  * counts points, their name and handle, when they were last here, their bio,
  * how many public communities they are in (and how many of those you share),
- * how many they own, and Profile / Follow / Message. Every figure is counted
+ * how many they own, and Profile / Follow. Every figure is counted
  * on the server from real rows (lib/communities/server/people.ts); what is
  * not known is left out, never guessed.
  *
@@ -24,8 +24,8 @@
  * NEVER ON TOUCH. A finger has no hover: on a phone a tap on a name is a tap
  * and opens the person's page, as it always did. Scrolling closes the card.
  *
- * Message opens the conversation in the messages panel, in place
- * (openMessages), never another page.
+ * No Message button for now: a conversation starts from the messages
+ * panel in the header.
  */
 import Link from "next/link"
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
@@ -34,7 +34,6 @@ import { Check, Clock3 } from "lucide-react"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { useFollow } from "@/components/profile/follow-button"
 import { api, apiBase } from "./api"
-import { openMessages } from "./messages"
 import { activeLabel, CARD_GRACE_MS, CARD_OPEN_MS, CARD_TTL_MS, communitiesLine, hoverPointer, ownerLine } from "./person-card-facts"
 import { toast } from "./toast"
 import { BTN } from "./ui"
@@ -339,21 +338,8 @@ function PersonCard({ anchor, person, leaving, canMessage, onFollowed, onDone, r
         )}
       </button>,
     )
-  if (canMessage)
-    buttons.push(
-      <button
-        key="message"
-        type="button"
-        onClick={() => {
-          onDone()
-          openMessages({ userId: person.id })
-        }}
-        className={`${BTN} h-9 flex-1 bg-[#1a1a2e] px-3 text-[13.5px] text-white hover:bg-[#2b2b42]`}
-        data-person-card-message=""
-      >
-        Message
-      </button>,
-    )
+  /* Message is not drawn for now (the owner asked for Follow alone); a conversation starts from the messages panel. */
+  void canMessage
 
   return (
     <div

@@ -618,9 +618,10 @@ section("Choosing an icon, and choosing where a link goes")
    * header's nav link offered "Collection" as a link type for the same
    * nothing, pointing at /collections/<id>, which is not a route either.
    */
-  check("and not collections, which do not exist", !/kind: "collection"/.test(linkPicker) && !/Collections/.test(linkPicker) && !/collection/i.test(linkMenuSrc))
+  /* Collections exist now, for every shop (Products › Collections), and a link goes to /collections/<handle>. */
+  check("and the store's collections, a kind of their own", /kind: "page" \| "product" \| "collection" \| "section"/.test(linkPicker) && /\{ key: "collections", label: "Collections", single: false \}/.test(linkMenuSrc))
   check("the nav link cannot be pointed at one", !/collections\//.test(read("components/website-builder/sections/renderers/HeaderSection.tsx").replace(/\/\/.*$/gm, "")))
-  check("and Shop in the picker is the address the shop is at", /\{ href: "\/products", label: "Shop", kind: "page" \}/.test(editorSrc) && !/href: "\/shop"/.test(editorSrc))
+  check("and Shop in the picker is the address the shop is at", /\{ href: "\/products", label: "Shop", kind: "page" \}/.test(read("lib/website-builder/link-targets.ts")) && /storeLinkTargets\(/.test(editorSrc) && !/href: "\/shop"/.test(editorSrc))
   /**
    * THE FIELD IS THE ADDRESS. The list used to end in an "Or any address"
    * box, a second place to type a link under the first. Now the field takes
@@ -644,8 +645,8 @@ section("Choosing an icon, and choosing where a link goes")
   check(
     "the targets come from the same lists the page browser shows, so the two cannot disagree",
     /const linkTargets = useMemo<LinkTarget\[\]>/.test(editorSrc) &&
-      /\.\.\.customPages\.map/.test(editorSrc) &&
-      /\.\.\.products\.map/.test(editorSrc) &&
+      /customPages: customPages\.map/.test(editorSrc) &&
+      /storeLinkTargets\(\{[\s\S]{0,200}products,/.test(editorSrc) &&
       (editorSrc.match(/<LinkTargetsProvider targets=\{linkTargets\} sections=\{sectionSource\}>/g) ?? []).length === 2,
   )
 

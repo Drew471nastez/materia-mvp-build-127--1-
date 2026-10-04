@@ -48,6 +48,7 @@ import { resolveStorefrontChrome, ringIsChoice, schemeAction } from "@/lib/store
 import { avatarSizeMap } from "@/lib/store-builder/defaults"
 import { PROFILE_AVATAR_PX } from "@/components/profile/profile-hero"
 import { isValidUsername } from "@/lib/reserved-words"
+import { NEW_PRODUCT_HREF, sectionsWithoutProducts, tabsWithoutProducts } from "@/components/storefront/no-products"
 
 let passed = 0
 let failed = 0
@@ -477,7 +478,9 @@ async function main() {
     const creatorPage = read("app/(marketing)/u/[username]/page.tsx")
     check("  the creator page asks the same rule of the Referer, with every address it answers to", /cameFromElsewhere\(refererPath\(requestHeaders\.get\("referer"\), requestHeaders\.get\("host"\)\), ownPaths\)/.test(creatorPage) && /ownPaths\.push\("\/"\)/.test(creatorPage))
     check("  and so does a profile", /cameFromElsewhere\(refererPath\(head\.get\("referer"\), head\.get\("host"\)\), ownPaths\)/.test(read("app/(marketing)/member/[username]/page.tsx")))
-    check("the chevron answers the press at once, before the click: its own pressed state, no transition in", /onPointerDown=\{\(\) => setPressed\(true\)\}/.test(bar) && /data-\[pressed=true\]:duration-0/.test(bar) && /data-\[pressed=true\]:scale-\[0\.9\]/.test(bar) && /touch-manipulation/.test(bar))
+    /* Round 9: "the back icon next to the avatar in the profile top bar is smooth and works on the first tap". */
+    check("the chevron answers the press at once, set on the element without a React render: a tint, no shrink", /onPointerDown=\{\(e\) => \{[\s\S]{0,80}e\.currentTarget\.dataset\.pressed = ""/.test(bar) && /data-\[pressed\]:duration-0/.test(bar) && !/setPressed|scale-\[/.test(stripComments(bar)) && /touch-manipulation/.test(bar))
+    check("  a double tap goes back once: the press after the first is ignored until the page shows again", /if \(leaving\.current\) return\s*leaving\.current = true/.test(bar) && /addEventListener\("pageshow", again\)/.test(bar) && /const LEAVING_MS = 1500/.test(bar))
     const sub = read("components/store-builder/subscribe-bar.tsx")
     check("  on a creator's newsletter bar it is the row's first thing, before the photo, at both widths", /\{leading\}\s*\{mobileAvatar\}/.test(sub) && /\{leading\}\s*\{desktopAvatar\}/.test(sub))
     /* 42.webp: on a phone the bar is ONE row: back (when there is one), photo, email, Subscribe. */
@@ -524,7 +527,9 @@ async function main() {
     check("no selling UI on a buyer's profile", !/Start selling|Become a seller|Sell on Storelib|\/app\/onboarding/.test(page + pills))
     check("Products only with a live store", /profile\.hasStorefront && profile\.products\.length > 0/.test(page))
     check("memberships only when shown, or to themselves", /showCommunities \|\| isSelf/.test(page) && /showCommunities \|\| isSelf/.test(route))
-    check("Message only where the server found a shared community", /messageTarget\(/.test(route) && /messageHref \?/.test(read("components/profile/profile-social.tsx")))
+    /* Round 9: "Remove the Message button on profiles and creator pages for now: only Follow." */
+    const socialSrc = read("components/profile/profile-social.tsx")
+    check("no Message on a profile or a creator page, and nothing looks for one", !/messageTarget\(|messageHref/.test(route) && !/messageHref|>\s*Message\s*<|MessageCircle/.test(socialSrc) && !/messageHref/.test(read("components/profile/profile-hero.tsx") + read("components/profile/member-profile-page.tsx")) && !/messageTarget|messageHref=/.test(read("app/(marketing)/u/[username]/page.tsx")))
     const shared = stripComments(read("lib/profile/profile-communities.ts"))
     check("Message needs chat on, the directory open, both active and not banned", /chat_enabled", true/.test(shared) && /directory_enabled", true/.test(shared) && (shared.match(/is\("banned_at", null\)/g) ?? []).length === 2)
     check("listed communities are published, public, open, not hidden", /eq\("visibility", "public"\)/.test(shared) && /platform_hidden", false/.test(shared) && /is\("suspended_at", null\)/.test(shared))
@@ -535,7 +540,7 @@ async function main() {
     /* Round 5: "Creator pages (creators with a store): NO Activity tab; the Communities tab lists ONLY communities they created (not ones they joined); none -> the No communities yet panel as before." */
     const creatorCode = stripComments(creator)
     check("the creator page has no Activity tab, and reads no activity or joined communities for one", !/id: "activity"/.test(creatorCode) && !/personalActivityPanel|activityFor\(|profileCommunities\(|includeMemberships|<ProfileActivity|<SharedCommunityPosts/.test(creatorCode))
-    check("  its Communities tab is the communities they made, on both of the page's branches", (creatorCode.match(/const communitiesPanel = creatorCommunitiesPanel\(communityCards\)\s+if \(communitiesPanel\) \{\s+tabs\.push\(\{\s+id: "communities",\s+label: "Communities",\s+panel: communitiesPanel,/g) ?? []).length === 2 && /on \? creatorCommunityCards\(creator\.id\) : null/.test(creatorCode))
+    check("  its Communities tab is the communities they made, on both of the page's branches", /* Round 9: without products the page asks tabsWithoutProducts, which takes the same panel. */ (creatorCode.match(/const communitiesPanel = (noProducts \? null : )?creatorCommunitiesPanel\(communityCards\)\s+if \(communitiesPanel\) \{\s+tabs\.push\(\{\s+id: "communities",\s+label: "Communities",\s+panel: communitiesPanel,/g) ?? []).length === 2 && (creatorCode.match(/communitiesPanel: creatorCommunitiesPanel\(communityCards\), communities: communityCards/g) ?? []).length === 2 && /on \? creatorCommunityCards\(creator\.id\) : null/.test(creatorCode))
     const tabSrc = stripComments(read("components/profile/creator-communities-tab.tsx"))
     check("  none made yet: the tab says No communities yet; switched off: no tab", /if \(cards === null\) return null/.test(tabSrc) && /cards\.length \? <StorefrontCommunities cards=\{cards\} \/> : <EmptyTabPanel icon="communities" title="No communities yet" detail="This creator hasn't opened any yet\." \/>/.test(tabSrc))
     check("  a plain profile (/@handle) keeps its Activity tab and the communities they are in", /id: "activity", label: "Activity"/.test(page) && /CommunityList title=\{both \? "Member of" : null\} cards=\{memberCards\}/.test(page))
@@ -628,8 +633,10 @@ async function main() {
     check("Following carries a check; both labels share one cell so the width holds", /<Check /.test(btn) && /data-follow-label="follow"/.test(btn) && /data-follow-label="following"/.test(btn) && /col-start-1 row-start-1/.test(btn))
     check("no Unfollow anywhere: no label, no hover swap, no red", !/Unfollow/.test(stripComments(btn)) && !/data-follow-label="unfollow"/.test(btn) && !/group-hover\/follow:(visible|invisible)/.test(btn) && !/--sq-danger|#b42318|setFresh|unfollowable/.test(stripComments(btn)))
     check("a pointer over Following only shades it", /group-hover\/follow:bg-\[#f7f7f8\]/.test(btn) && /group-hover\/follow:bg-\[var\(--sq-hover/.test(btn))
-    check("the press shows on pointerdown, set on the element without a React render, let go on up, cancel and leave", /onPointerDown=\{\(e\) => \{[\s\S]{0,160}e\.currentTarget\.dataset\.pressed = ""/.test(btn) && /onPointerUp=\{release\}/.test(btn) && /onPointerCancel=\{release\}/.test(btn) && /onPointerLeave=\{release\}/.test(btn) && /group-data-\[pressed\]\/follow:scale-\[0\.96\]/.test(btn))
-    check("the switch is a crossfade of opacity and scale only, started a frame in, off under reduced motion", /const SWAP = "transition-\[opacity,scale\] duration-\[180ms\] \[transition-delay:-24ms\]/.test(btn) && /transition-\[scale\] duration-\[220ms\]/.test(btn) && /motion-reduce:transition-none/.test(btn) && /motion-reduce:scale-100!/.test(btn) && !/transition-\[[^\]]*(width|background|color)[^\]]*\][^"]*SWAP/.test(btn))
+    check("the press shows on pointerdown, set on the element without a React render, let go on up, cancel and leave", /onPointerDown=\{\(e\) => \{[\s\S]{0,160}e\.currentTarget\.dataset\.pressed = ""/.test(btn) && /onPointerUp=\{release\}/.test(btn) && /onPointerCancel=\{release\}/.test(btn) && /onPointerLeave=\{release\}/.test(btn) && /group-data-\[pressed\]\/follow:bg-/.test(btn))
+    /* Round 9: "Follow/Following: no bump (no scale/bounce/size change, no width jump between the two words)". */
+    check("no bump: nothing in the button scales, springs or changes size; the press is a shade", !/scale|cubic-bezier\(0\.34,1\.56/.test(stripComments(btn)) && /const FACE_BOX = "relative grid w-full place-items-center rounded-\[inherit\] px-5"/.test(btn))
+    check("the switch is a crossfade of opacity only, started a frame in, off under reduced motion", /const SWAP = "transition-opacity duration-\[160ms\] \[transition-delay:-24ms\]/.test(btn) && /transition-\[opacity,visibility\] duration-\[160ms\]/.test(btn) && /motion-reduce:transition-none/.test(btn))
     check("a finger: no double tap zoom, 40px, the native shell's press dim kept off", /touch-manipulation/.test(btn) && /h-10 min-w-\[128px\]/.test(btn) && /opacity: 1 \}/.test(btn))
     check("optimistic, and put back to what the server has when it refuses", /setFollowing\(next\)[\s\S]{0,80}input\.onChange\?\.\(next\)/.test(btn) && /setFollowing\(server\.current\)/.test(btn) && /live\.current\.onChange\?\.\(server\.current\)/.test(btn))
     check("taps settle to the last one: debounced, one request in flight, nothing sent when it ends where it began", /export const DEBOUNCE_MS = 300/.test(btn) && /if \(flying\.current \|\| wanted\.current === server\.current\) return/.test(btn) && /if \(wanted\.current !== server\.current && !timer\.current\) void send\(\)/.test(btn) && /keepalive: leaving/.test(btn) && /addEventListener\("pagehide", flush\)/.test(btn) && /void send\(true\)/.test(btn))
@@ -643,13 +650,41 @@ async function main() {
     const sage = resolveStorefrontChrome("sage").action
     const sageVars = schemeVars(sage) as Record<string, string>
     check("a scheme's Follow is its buy button colour and text, as variables the button reads", sage.background === "#2F5D46" && sageVars["--sf-bg"] === "#2F5D46" && sageVars["--sf-ink"] === sage.text && !!sageVars["--sf-hover"] && !!sageVars["--sf-press"])
-    check("  in Storelib's primary shape: light on top, a darker foot, flat when pressed", /export const schemePrimary/.test(btn) && /bg-\[var\(--sf-bg\)\]/.test(btn) && /inset_0_1px_0_rgba\(255,255,255,0\.16\),inset_0_-1px_0_rgba\(0,0,0,0\.3\)/.test(btn) && /active:bg-\[var\(--sf-press\)\]/.test(btn))
-    check("  Following and Message are the quiet secondary in the scheme's surface, hairline and ink", /export const schemeQuiet/.test(btn) && /bg-\[var\(--sq-bg/.test(btn) && /border-\[var\(--sq-line/.test(btn) && !!sageVars["--sq-bg"] && !!sageVars["--sq-line"] && /storefront \? schemeQuiet : secondaryDepth/.test(read("components/profile/profile-social.tsx")))
+    check("  in Storelib's primary shape: light on top, a darker foot, flat when pressed", /bg-\[var\(--sf-bg\)\]/.test(btn) && /inset_0_1px_0_rgba\(255,255,255,0\.16\),inset_0_-1px_0_rgba\(0,0,0,0\.3\)/.test(btn) && /group-data-\[pressed\]\/follow:bg-\[var\(--sf-press\)\]/.test(btn))
+    check("  Following is the quiet secondary in the scheme's surface, hairline and ink", /bg-\[var\(--sq-bg/.test(btn) && /border-\[var\(--sq-line/.test(btn) && !!sageVars["--sq-bg"] && !!sageVars["--sq-line"] && !/schemeQuiet|schemePrimary/.test(btn))
     const astrid = resolveStorefrontChrome("astrid")
     check("  on a dark scheme the quiet surface is a step lighter than the page, never white", astrid.dark && astrid.action.dark && astrid.action.quiet.background.toLowerCase() !== "#ffffff" && astrid.action.quiet.background.toLowerCase() !== astrid.pageBackground.toLowerCase())
     const sunk = schemeAction({ background: "#111113", text: "#ffffff", radius: 8, page: "#111113", ink: "#fafafa" })
     check("  a buy colour that vanishes into the page gives way to the page's ink", sunk.background === "#fafafa" && sunk.text === "#111113")
     check("plain profiles keep Storelib's own pair (primaryDepth and secondaryDepth, as faces)", /bg-\[#1a1a2e\] shadow-\[inset_0_1px_0_rgba\(255,255,255,0\.14\),inset_0_-1px_0_rgba\(0,0,0,0\.35\)/.test(btn) && /border-\[#d9dbe0\] bg-white shadow-\[inset_0_-1px_0_rgba\(0,0,0,0\.08\)/.test(btn))
+  }
+
+  /* Round 9: "Creator pages with no products: today an ugly empty space ... for the owner viewing their own page, a quiet prompt to add a first product", every scheme. */
+  console.log("\nA creator page with no products")
+  {
+    const secs = [{ type: "featured-products" }, { type: "text-block" }, { type: "more-from-seller" }, { type: "community" }]
+    check("without products the sections that only show products are left out; with them, nothing is", sectionsWithoutProducts(secs, 0).map((x) => x.type).join() === "text-block,community" && sectionsWithoutProducts(secs, 3).length === 4)
+    const cards = [{ id: "c1" }] as never[]
+    const withHome = tabsWithoutProducts({ home: "home", communitiesPanel: "panel", communities: cards })
+    const bare = tabsWithoutProducts({ home: null, communitiesPanel: "panel", communities: cards })
+    const none = tabsWithoutProducts({ home: null, communitiesPanel: "No communities yet", communities: [] })
+    const off = tabsWithoutProducts({ home: null, communitiesPanel: null, communities: null })
+    check("Home is a tab only when something is left in it", withHome.map((t) => t.id).join() === "home,communities" && bare.map((t) => t.id).join() === "communities")
+    check("  nothing in Home: the communities stand alone (one panel, no strip); none made, or switched off: nothing at all", bare.length === 1 && none.length === 0 && off.length === 0)
+    const np = read("components/storefront/no-products.tsx")
+    check("the owner's line: what is true and the one button, to the new product page, in the scheme's tokens and buy colour", NEW_PRODUCT_HREF === "/app/products/new" && /No products on your page yet/.test(np) && />\s*Add a product\s*</.test(np) && /bg-card/.test(np) && /border-border/.test(np) && /bg-\[var\(--sf-bg,var\(--foreground\)\)\]/.test(np) && !/^"use client"/m.test(np) && !/^import \{[^}]*\} from "@\/components\/profile\/follow-button"/m.test(np))
+    const creator = read("app/(marketing)/u/[username]/page.tsx")
+    check("the creator page uses it on both branches, the line for the owner only, never in the editor's frame", (creator.match(/tabsWithoutProducts\(/g) ?? []).length === 2 && /noProducts && viewerIsOwner && !embedded \? <FirstProductPrompt scheme=\{chrome\.action\} \/>/.test(creator) && /viewerIsOwner && !embedded \? <FirstProductPrompt \/>/.test(creator) && /sectionsWithoutProducts\(/.test(creator))
+    check("  no Home tab over nothing on a page never arranged", !/panel: productsData\.length > 0 \? \(/.test(creator))
+  }
+
+  /* Round 9: "Opening a user profile page and going back feels smooth (the page lands cleanly, no jump, the avatar/cover appear without popping)". */
+  console.log("\nOpening a profile")
+  {
+    const skeleton = read("app/(marketing)/member/[username]/loading.tsx")
+    check("the skeleton holds the top bar's 57px, so the profile lands where it stood", /h-\[57px\][^"]*border-b/.test(skeleton) && /"mx-auto flex h-14 w-full items-center/.test(read("components/profile/profile-top-bar.tsx")) && /border-b border-black\/\[0\.06\]/.test(read("components/profile/profile-top-bar.tsx")))
+    const cover = read("components/profile/profile-cover-image.tsx")
+    check("the cover fades in once loaded when opened in the app, is there at once when already loaded or drawn on the server", /"use client"/.test(cover) && /useSyncExternalStore\(never, \(\) => false, \(\) => true\)/.test(cover) && /img\.current\?\.complete/.test(cover) && /transition-opacity duration-200/.test(cover) && /<ProfileCoverImage /.test(read("components/profile/profile-hero.tsx")))
   }
 
   console.log("\nA cover of your own")
@@ -703,6 +738,10 @@ async function main() {
       "components/profile/profile-activity.tsx",
       "components/profile/profile-top-bar.tsx",
       "components/profile/profile-hero.tsx",
+      "components/profile/profile-cover-image.tsx",
+      "components/storefront/no-products.tsx",
+      "scripts/check-creator-no-products.mjs",
+      "scripts/check-profile-nav.mjs",
       "components/profile/shared-community-posts.tsx",
       "components/profile/profile-owner-pills.tsx",
       "lib/profile/owner-pills.ts",

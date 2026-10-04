@@ -1103,14 +1103,11 @@ export const isNativePlatform = () => false
       await sleep(400)
       const closed = await p.evaluate((t) => ({ gone: !document.querySelector("[data-person-card]"), leaving: window.__cardLog.find((x) => x.state === "leaving")?.t - t, at: window.__cardLog.find((x) => x.state === "gone")?.t - t }), t1)
       expect(inGrace && closed.gone && closed.leaving >= 140 && closed.leaving <= 260 && closed.at - closed.leaving >= 90, "after the pointer leaves it waits ~160ms, then fades out over ~120ms", { inGrace, ...closed })
-      /* Message from the card opens the panel, not a page. */
+      /* Round 9: the card has Profile and Follow only. */
       await p.mouse.move(at.x, at.y)
       await sleep(550)
-      await p.click("[data-person-card-message]")
-      await sleep(450)
-      const msg = await p.evaluate(() => ({ panel: document.querySelector("[data-community-messages]")?.getAttribute("data-community-messages") ?? null, card: !!document.querySelector("[data-person-card]"), path: location.pathname, nav: (window.__router || []).filter((x) => x[0] !== "prefetch") }))
-      expect(msg.panel === "panel" && !msg.card && msg.path === "/community/clay-studio" && msg.nav.length === 0, "Message opens the conversation in the panel, in place; the card closes", msg)
-      await shot(p, `${label}-person-card-message`)
+      const noMsg = await p.evaluate(() => ({ card: !!document.querySelector("[data-person-card]"), message: !!document.querySelector("[data-person-card-message]") }))
+      expect(noMsg.card && !noMsg.message, "the card has no Message button", noMsg)
       await p.keyboard.press("Escape")
       await sleep(300)
       /* Keyboard: focus on a name opens the card; Tab steps in; Escape closes and hands focus back. */

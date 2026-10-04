@@ -32,11 +32,12 @@
  *   SEARCH    the tab bar's Search opens a full screen search over the page:
  *             the field has the focus from the press, the header is covered,
  *             the page holds still; it arrives and leaves on opacity and
- *             translate only, frame by frame at 4x CPU throttle; typing shows
- *             products, creators and categories; arrows and Enter open one;
- *             the screen stays until that page is up; Enter searches Explore;
- *             recent searches come back; nothing found says so; Escape and
- *             Back close it.
+ *             translate only, frame by frame at 4x CPU throttle; no
+ *             categories under the field (round 9); typing shows products
+ *             and communities together, then View all; arrows and Enter
+ *             open one; the screen stays until that page is up; Enter
+ *             searches Explore; recent searches come back with nothing
+ *             typed; nothing found says so; Escape and Back close it.
  *
  * Pictures go to SHOTS_DIR (or a temp folder), and are meant to be looked at.
  *
@@ -78,6 +79,11 @@ const only = (part) => !process.env.PROBE_ONLY || process.env.PROBE_ONLY.split("
 const ORIGIN = "https://storelib.com"
 
 const thumb = (hue) => "data:image/svg+xml;utf8," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"><rect width="96" height="96" fill="hsl(${hue},70%,78%)"/><circle cx="48" cy="44" r="20" fill="hsl(${hue},55%,45%)"/></svg>`)
+
+const COMMUNITIES = [
+  { id: "m1", name: "Market Makers Club", url: "/c/market-makers", logoUrl: thumb(320), coverUrl: null, memberCount: 1240, priceLine: "$9/month" },
+  { id: "m2", name: "Drum Circle", url: "/c/drum-circle", logoUrl: null, coverUrl: null, memberCount: 1, priceLine: "Free" },
+]
 
 const STUBS = {
   /* The router: the address changes a moment after a push, with the URL, as Next commits it. */
@@ -159,7 +165,7 @@ function answer(q) {
 function chain(table) {
   const q = { table }
   const b = {
-    select() { return b }, eq() { return b }, limit() { return b }, order() { return b }, single() { return b }, maybeSingle() { return b },
+    select() { return b }, eq() { return b }, is() { return b }, limit() { return b }, order() { return b }, single() { return b }, maybeSingle() { return b },
     or(f, opts) { q.or = f; q.opts = opts; return b },
     in(k, v) { q.in = v; return b },
     then(res) { setTimeout(() => res({ data: answer(q), error: null }), table === "products" ? 220 : 10) },
@@ -237,6 +243,13 @@ async function open(vp, address, who, { consent = false } = {}) {
     if (u.startsWith(ORIGIN + "/")) {
       const file = join(root, "public", decodeURIComponent(new URL(u).pathname))
       if (existsSync(file) && statSync(file).isFile()) return r.respond({ status: 200, contentType: file.endsWith(".svg") ? "image/svg+xml" : file.endsWith(".png") ? "image/png" : file.endsWith(".webp") ? "image/webp" : "application/octet-stream", body: readFileSync(file) })
+    }
+    /* Communities switched on, and what the communities search finds (lib/nav/quick-search quickCommunities). */
+    if (u.startsWith(ORIGIN + "/api/platform/flags")) return r.respond({ status: 200, contentType: "application/json", body: JSON.stringify({ communities: true }) })
+    if (u.startsWith(ORIGIN + "/api/explore/communities")) {
+      const q = (new URL(u).searchParams.get("q") || "").toLowerCase()
+      const items = COMMUNITIES.filter((c) => c.name.toLowerCase().includes(q))
+      return r.respond({ status: 200, contentType: "application/json", body: JSON.stringify({ items }) })
     }
     if (u.startsWith("data:") || u.startsWith("file:")) return r.continue()
     return r.respond({ status: 404, body: "" })
@@ -658,137 +671,63 @@ try {
     expect(open1.overflow === "hidden" && open1.modal === "true", "the page under it holds still, and it is a declared modal", open1)
     expect(open1.title === "Search" && open1.field.font === "16px", "a big Search title and a 16px field (image 27)", open1)
     const fieldLook = await p.evaluate(() => { const cs = getComputedStyle(document.querySelector("[data-search-screen-field]")); return { radius: cs.borderTopLeftRadius, shadow: cs.boxShadow } })
-    expect(fieldLook.radius === "12px" && /inset/.test(fieldLook.shadow) && (fieldLook.shadow.match(/rgba/g) || []).length >= 3, "the field is a 12px rounded rectangle, not a pill, with a little depth (a shade inside, a shadow under)", fieldLook)
+    expect(fieldLook.radius === "12px" && !/inset/.test(fieldLook.shadow) && (fieldLook.shadow.match(/rgba/g) || []).length >= 2, "the field is a 12px rounded rectangle, not a pill, with Storelib's hairline and soft shadow under it", fieldLook)
     await p.screenshot({ path: join(shots, "search-open.png") })
 
-    /* ── A CATEGORY OPENS ITS SUBCATEGORIES, pushed in, frame by frame ── */
-    const browse = await p.evaluate(() => {
-      const rows = [...document.querySelectorAll('[data-search-level="root"] [data-search-section="browse"] [data-search-row="category"]')]
-      const card = document.querySelector('[data-search-level="root"] [data-search-card]')
-      return { weights: [...new Set(rows.map((r) => getComputedStyle(r.querySelector("span")).fontWeight))], opens: rows.filter((r) => r.dataset.searchOpens).length, n: rows.length, card: card ? getComputedStyle(card).boxShadow : null }
-    })
-    expect(browse.weights.join() === "600" && browse.opens >= 3 && /rgba/.test(browse.card || ""), "Browse categories: 600, on a card with a little depth, and the categories with subcategories open them", browse)
-    const opener = await p.evaluate(() => { const a = document.querySelector('[data-search-level="root"] [data-search-row="category"][data-search-opens]'); a.scrollIntoView({ block: "center" }); const r = a.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, id: a.dataset.searchOpens, label: a.textContent.trim() } })
-    await sleep(100)
-    await p.evaluate(() => { window.__router = [] })
-    const pushFilm = (ms) => p.evaluate((ms) => {
-      window.__push = []
-      const root = document.querySelector('[data-search-level="root"]'), sub = document.querySelector('[data-search-level="sub"]'), veil = document.querySelector("[data-search-veil]")
-      const t0 = performance.now()
-      const tick = () => {
-        const r = root.getBoundingClientRect(), s = sub.getBoundingClientRect()
-        window.__push.push({ t: Math.round(performance.now() - t0), root: Math.round(r.left * 10) / 10, sub: Math.round(s.left * 10) / 10, veil: +(+getComputedStyle(veil).opacity).toFixed(3), vis: getComputedStyle(sub).visibility })
-        if (performance.now() - t0 < ms) requestAnimationFrame(tick)
-      }
-      requestAnimationFrame(tick)
-    }, ms)
-    await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 })
-    await pushFilm(900)
-    await sleep(40)
-    await touch("touchStart", opener.x, opener.y)
-    await sleep(30)
-    await touch("touchEnd")
-    await sleep(160)
-    await p.screenshot({ path: join(shots, "search-push-mid.png"), captureBeyondViewport: false })
-    await sleep(900)
-    await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
-    const pushIn = await p.evaluate(() => window.__push)
-    await p.screenshot({ path: join(shots, "search-sub.png") })
-    const inMoving = pushIn.filter((f) => f.sub > 0.5 && f.sub < 389.5)
-    const inMono = pushIn.every((f, i, a) => i === 0 || f.sub <= a[i - 1].sub + 0.5)
-    const sub = await p.evaluate(() => {
-      const rows = [...document.querySelectorAll('[data-search-level="sub"] [data-search-row="category"]')]
-      return { back: document.querySelector("[data-search-back]")?.textContent.trim(), first: rows[0]?.textContent.trim(), n: rows.length, weights: [...new Set(rows.map((r) => getComputedStyle(r.querySelector("span")).fontWeight))], backWeight: getComputedStyle(document.querySelector("[data-search-back]")).fontWeight, rootInert: document.querySelector('[data-search-level="root"]').inert, overlay: document.querySelector("[data-search-overlay]").dataset.searchOverlay, router: window.__router }
-    })
-    if (process.env.PROBE_VERBOSE) console.log(JSON.stringify(pushIn))
-    const endIn = pushIn[pushIn.length - 1]
-    expect(inMoving.length >= 4 && inMono && endIn.sub === 0 && Math.abs(endIn.root - -97.5) < 1 && endIn.veil > 0.05, "SUBCATEGORIES: tapped, the level slides in from the right over several frames (only ever left), the list under it moves a quarter over and dims", { moving: inMoving.length, mono: inMono, end: endIn })
-    expect(sub.back === opener.label && /^All /.test(sub.first || "") && sub.n >= 3 && sub.weights.join() === "500" && sub.backWeight === "600" && sub.rootInert, "a back row named for the category, All first, the subcategories at 500", sub)
-    expect(sub.overlay === "open" && !(sub.router || []).some(([k]) => k === "push" || k === "replace"), "and nothing navigated: it is a level of the search screen", sub.router)
-    /* Back: the same move reversed. */
-    const backAt = await p.evaluate(() => { const r = document.querySelector("[data-search-back]").getBoundingClientRect(); return { x: r.left + 40, y: r.top + r.height / 2 } })
-    await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 })
-    await pushFilm(900)
-    await sleep(40)
-    await touch("touchStart", backAt.x, backAt.y)
-    await sleep(30)
-    await touch("touchEnd")
-    await sleep(1000)
-    await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
-    const pushOut = await p.evaluate(() => window.__push)
-    const outMovingP = pushOut.filter((f) => f.sub > 0.5 && f.sub < 389.5)
-    const outMono = pushOut.every((f, i, a) => i === 0 || f.sub >= a[i - 1].sub - 0.5)
-    const endOut = pushOut[pushOut.length - 1]
-    expect(outMovingP.length >= 4 && outMono && endOut.root === 0 && endOut.veil === 0 && endOut.vis === "hidden", "back: the level slides out over several frames, the list comes back, and the level is no longer painted", { moving: outMovingP.length, mono: outMono, end: endOut })
-    /* Escape in a level goes back, not out of search. */
-    await p.evaluate((x) => document.querySelector(`[data-search-level="root"] [data-search-opens="${x}"]`).click(), opener.id)
-    await sleep(500)
-    await p.focus("[data-search-screen-field]")
-    await p.keyboard.press("Escape")
-    await sleep(500)
-    const esc1 = await p.evaluate(() => ({ overlay: document.querySelector("[data-search-overlay]").dataset.searchOverlay, sub: document.querySelector('[data-search-level="sub"]').getAttribute("aria-hidden") }))
-    expect(esc1.overlay === "open" && esc1.sub === "true", "Escape in a category goes back to the list, and search stays open", esc1)
+    /* ── ROUND 9: NOTHING TYPED, no categories; recent searches only once there are some ── */
+    const idle = await p.evaluate(() => ({
+      state: document.querySelector("[data-search-state]")?.dataset.searchState,
+      text: document.querySelector("[data-search-screen]").innerText,
+      categoryRows: document.querySelectorAll('[data-search-row="category"], [data-search-section="browse"]').length,
+    }))
+    expect(idle.state === "idle" && idle.categoryRows === 0 && !/Browse categories|Design|Marketing/.test(idle.text), "ROUND 9: no Browse categories list under the field (image 58)", idle)
+    expect(open1.placeholder === "Search products and communities", "ROUND 9: the field says Search products and communities", open1.placeholder)
 
-    /* Typing: loading, then results. */
+    /* Typing: the header's rows, products AND communities together, then View all. */
     await p.keyboard.type("mar", { delay: 40 })
     await sleep(120)
-    const loading = await p.evaluate(() => ({
-      state: document.querySelector("[data-search-state]")?.dataset.searchState,
-      sections: [...document.querySelectorAll("[data-search-section]")].map((s) => s.dataset.searchSection),
-      skeleton: [...document.querySelectorAll("[data-search-loading] > div:not(:first-child)")].map((r) => Math.round(r.getBoundingClientRect().height)),
-      thumb: (() => { const t = document.querySelector("[data-search-loading] > div:not(:first-child) > div"); return t ? Math.round(t.getBoundingClientRect().width) : 0 })(),
-    }))
+    const loading = await p.evaluate(() => ({ state: document.querySelector("[data-search-state]")?.dataset.searchState, busy: document.querySelector("[data-header-search-results]")?.getAttribute("aria-busy") }))
     await p.screenshot({ path: join(shots, "search-typing.png") })
-    await sleep(600)
+    await sleep(700)
     const res = await p.evaluate(() => ({
       state: document.querySelector("[data-search-state]")?.dataset.searchState,
-      sections: [...document.querySelectorAll("[data-search-section]")].map((s) => s.dataset.searchSection),
-      products: [...document.querySelectorAll('[data-search-row="product"]')].map((a) => ({ text: a.textContent, href: a.getAttribute("href"), img: !!a.querySelector("img") })),
-      creators: [...document.querySelectorAll('[data-search-row="creator"]')].map((a) => a.getAttribute("href")),
+      hits: [...document.querySelectorAll("[data-search-screen] [data-header-search-hit]")].map((a) => ({ kind: a.dataset.headerSearchHit, text: a.innerText.replace(/\s+/g, " ").trim(), href: a.getAttribute("href"), img: !!a.querySelector("img"), h: Math.round(a.getBoundingClientRect().height) })),
+      last: [...document.querySelectorAll("[data-search-screen] [data-header-search-option]")].pop()?.hasAttribute("data-header-search-all"),
+      all: document.querySelector("[data-search-screen] [data-header-search-all]")?.textContent.trim(),
+      creators: document.querySelectorAll('[data-search-row="creator"]').length,
       searches: window.__searches || [],
     }))
     await p.screenshot({ path: join(shots, "search-results.png") })
     expect(loading.state === "waiting" || loading.state === "results", "while the answer is out it shows it is looking, not an empty screen", loading)
-    expect(res.state === "results" && res.sections.join() === "products,creators,categories", "results: products, then creators, then categories", res.sections)
-    expect(res.products.length >= 2 && res.products.every((x) => x.img && /\?layout=discover$/.test(x.href)) && /Maria Keys/.test(res.products.find((x) => /drum/i.test(x.text))?.text || "") && /\$19\.00/.test(res.products.find((x) => /drum/i.test(x.text))?.text || ""), "each product: picture, title, creator, price, opening in discover mode", res.products)
-    expect(res.creators.includes("/mariakeys?layout=discover"), "creators link to their page", res.creators)
+    const kinds = new Set(res.hits.map((h) => h.kind))
+    expect(res.state === "results" && kinds.has("product") && kinds.has("community") && res.creators === 0, "ROUND 9: results are products AND communities together (the header's topHits), no creators or categories", res.hits.map((h) => `${h.kind}:${h.text.slice(0, 28)}`))
+    expect(res.hits.filter((h) => h.kind === "product").every((h) => h.img && /\?layout=discover$/.test(h.href)) && /Market Makers Club Community · 1,240 members · \$9\/month/.test(res.hits.find((h) => h.kind === "community")?.text || ""), "each product: picture, title, creator and price, opening in discover mode; a community says so, with its members and price", res.hits)
+    expect(res.last && res.all === "View all results for “mar”", "ROUND 9: View all results is the last row", res.all)
+    expect(res.hits.every((h) => h.h >= 44), "rows are a thumb's size", res.hits.map((h) => h.h))
     expect(res.searches.filter((t) => t === "m" || t === "ma").length === 0, "debounced: the word typed at speed was one question, not one per letter", res.searches)
 
-    /* The product rows, bigger and cleaner, and the placeholder in their exact shape. */
-    const rowsLook = await p.evaluate(() => {
-      const a = document.querySelector('[data-search-row="product"]')
-      const img = a.querySelector("span")
-      const f = (sel) => { const cs = getComputedStyle(a.querySelector(sel)); return `${cs.fontSize}/${cs.fontWeight}` }
-      return { h: Math.round(a.getBoundingClientRect().height), thumb: [Math.round(img.getBoundingClientRect().width), Math.round(img.getBoundingClientRect().height)], title: f("[data-search-title]"), creator: f("[data-search-creator]"), price: f("[data-search-price]"), order: [...a.querySelectorAll("[data-search-title],[data-search-creator],[data-search-price]")].map((e) => Math.round(e.getBoundingClientRect().top)) }
-    })
-    expect(rowsLook.thumb.join() === "60,60" && rowsLook.h >= 76 && rowsLook.title === "15px/500" && rowsLook.creator === "13px/400" && rowsLook.price === "14px/600" && rowsLook.order[0] < rowsLook.order[1] && rowsLook.order[1] < rowsLook.order[2], "PRODUCTS: a 60px picture, then the title, the creator and the price, each on its own line", rowsLook)
-    expect(loading.skeleton.length === 3 && loading.skeleton.every((h) => h === rowsLook.h) && loading.thumb === 60, "the wait is three placeholder rows of exactly a result's height and picture", { skeleton: loading.skeleton, row: rowsLook.h, thumb: loading.thumb })
-    await p.screenshot({ path: join(shots, "search-results-rows.png"), clip: { x: 0, y: 150, width: 390, height: 420 }, captureBeyondViewport: false })
-
-    /* NO FLICKER: another letter, every frame until its answer is in: the last products stay, at full strength. */
+    /* NO FLICKER: another letter, every frame until its answer is in: the last rows stay. */
     await p.evaluate(() => {
       window.__flick = []
       const t0 = performance.now()
       const tick = () => {
-        const sec = document.querySelector('[data-search-section="products"]')
-        window.__flick.push({ t: Math.round(performance.now() - t0), products: sec ? sec.querySelectorAll('[data-search-row="product"]').length : 0, opacity: sec ? +getComputedStyle(sec).opacity : null, skeleton: !!document.querySelector("[data-search-loading]") })
+        window.__flick.push({ t: Math.round(performance.now() - t0), hits: document.querySelectorAll("[data-search-screen] [data-header-search-hit]").length })
         if (performance.now() - t0 < 900) requestAnimationFrame(tick)
       }
       requestAnimationFrame(tick)
     })
-    await p.keyboard.type("i")
+    await p.keyboard.type("k")
     await sleep(1000)
     const flick = await p.evaluate(() => window.__flick)
-    expect(flick.length > 20 && flick.every((f) => f.products > 0 && f.opacity === 1 && !f.skeleton), "NO FLICKER: typing on, the last products stay on screen at full strength until the next answer replaces them", { frames: flick.length, gaps: flick.filter((f) => !f.products || f.opacity !== 1 || f.skeleton).slice(0, 3) })
+    expect(flick.length > 20 && flick.every((f) => f.hits > 0), "NO FLICKER: typing on, the last rows stay on screen until the next answer replaces them", { frames: flick.length, gaps: flick.filter((f) => !f.hits).slice(0, 3) })
     await p.keyboard.press("Backspace")
     await sleep(700)
 
-    /* Keyboard: down to the first product and Enter. */
+    /* Keyboard: down to the first row and Enter. */
     await p.evaluate(() => { window.__router = [] })
     await p.keyboard.press("ArrowDown")
-    await p.keyboard.press("ArrowDown")
-    const lit = await p.evaluate(() => { const f = document.querySelector("[data-search-screen-field]"); const id = f.getAttribute("aria-activedescendant"); return { id, kind: id ? document.getElementById(id)?.dataset.searchRow : null, selected: id ? document.getElementById(id)?.getAttribute("aria-selected") : null } })
-    expect(lit.kind === "product" && lit.selected === "true", "arrows walk the rows from the field (aria-activedescendant)", lit)
+    const lit = await p.evaluate(() => { const f = document.querySelector("[data-search-screen-field]"); const id = f.getAttribute("aria-activedescendant"); const el = id ? document.getElementById(id) : null; return { id, kind: el?.dataset.headerSearchHit ?? null, selected: el?.getAttribute("aria-selected"), href: el?.getAttribute("href") } })
+    expect(!!lit.kind && lit.selected === "true", "arrows walk the rows from the field (aria-activedescendant)", lit)
     await p.evaluate(() => {
       window.__leave = []
       const o = document.querySelector("[data-search-overlay]")
@@ -802,27 +741,17 @@ try {
     await sleep(800)
     const after = await p.evaluate(() => ({ state: document.querySelector("[data-search-overlay]").dataset.searchOverlay, path: location.pathname, search: location.search, entry: !!(history.state && history.state.storelibSearch), overflow: document.documentElement.style.overflow, router: window.__router, leave: window.__leave }))
     const firstGone = after.leave.findIndex((f) => f.opacity < 1)
-    const litHref = res.products[0].href
-    const litPath = litHref.split("?")[0]
-    expect(after.router.some(([k, h]) => k === "replace" && h === litHref), "Enter opens the lit product, replacing the screen's own history entry", { lit: litHref, router: after.router })
+    const litPath = lit.href.split("?")[0]
+    expect(after.router.some(([k, h]) => k === "replace" && h === lit.href), "Enter opens the lit row, replacing the screen's own history entry", { lit: lit.href, router: after.router })
     expect(during.state === "open" && during.path === "/explore", "the screen stays while that page loads", during)
     expect(after.state === "closed" && after.path === litPath && !after.entry && after.overflow === "", "and goes once it is up, letting the page scroll again", { state: after.state, path: after.path, entry: after.entry })
     const fade = after.leave.filter((f) => f.opacity > 0 && f.opacity < 1)
     expect(firstGone >= 0 && after.leave[firstGone].path === litPath && fade.length >= 1, "it fades only after the new page is in place (no flash of the old one), over frames", { around: after.leave.slice(Math.max(0, firstGone - 1), firstGone + 3), fading: fade.length })
     await p.screenshot({ path: join(shots, "search-after-result.png") })
 
-    /*
-      The product a result opened is the creator's shop: no tab bar on it
-      (lib/nav/buyer-tabs.ts), and its own buy bar is the thing at its foot.
-      So the rest of the search checks open the screen again from Explore,
-      which is where the bar lives.
-    */
-    const onProduct = await p.evaluate(() => document.querySelectorAll("[data-buyer-tab-bar]").length)
-    expect(onProduct === 0, "the product a result opened has no tab bar: it is the creator's page", onProduct)
-    /* Back to Explore inside this same document (the stub listens for
-       popstate), so what was just searched is still in this page's recents. */
-    await p.evaluate(() => { history.pushState({ __NA: true }, "", "/explore"); window.dispatchEvent(new PopStateEvent("popstate")) })
-    await sleep(300)
+    /* Back to Explore inside this same document, so what was just searched is in this page's recents. */
+    await p.evaluate(() => { history.pushState({ __NA: true }, "", "/explore"); window.__nav.path = "/explore"; window.__nav.search = ""; window.dispatchEvent(new PopStateEvent("popstate")) })
+    await sleep(400)
     const slot2 = await p.evaluate(() => { const r = document.querySelector('[data-buyer-tab="search"]')?.getBoundingClientRect(); return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null })
     expect(!!slot2, "back on Explore, the bar is there to open the screen again", slot2)
     if (slot2) {
@@ -834,13 +763,19 @@ try {
       await p.screenshot({ path: join(shots, "search-open-mid.png") })
       await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
       await sleep(450)
-      const rec = await p.evaluate(() => [...document.querySelectorAll('[data-search-row="recent"]')].map((a) => a.textContent.replace(/Remove.*/, "").trim()))
-      expect(rec[0] === "mar", "what was searched comes back as a recent search", rec)
+      const rec = await p.evaluate(() => ({ state: document.querySelector("[data-search-state]")?.dataset.searchState, rows: [...document.querySelectorAll("[data-search-screen] [data-header-search-recent] [role=option]")].map((a) => a.textContent.trim()) }))
+      expect(rec.state === "recent" && rec.rows[0] === "mar", "ROUND 9: with nothing typed, what was searched comes back as a recent search", rec)
       await p.screenshot({ path: join(shots, "search-recent.png") })
+      /* A recent search is a tap away from its results. */
+      await p.evaluate(() => document.querySelector("[data-search-screen] [data-header-search-recent] [role=option]").click())
+      await sleep(700)
+      const again = await p.evaluate(() => ({ value: document.querySelector("[data-search-screen-field]").value, hits: document.querySelectorAll("[data-search-screen] [data-header-search-hit]").length, focused: document.activeElement?.hasAttribute("data-search-screen-field") }))
+      expect(again.value === "mar" && again.hits > 0 && again.focused, "tapping a recent search searches it again, the field keeping the keyboard", again)
+      await p.evaluate(() => { const f = document.querySelector("[data-search-screen-field]"); f.select() })
       await p.keyboard.type("zzqx", { delay: 30 })
       await sleep(700)
-      const empty = await p.evaluate(() => ({ state: document.querySelector("[data-search-state]")?.dataset.searchState, text: document.querySelector("[data-search-empty]")?.textContent, browse: !!document.querySelector('[data-search-section="browse"]') }))
-      expect(empty.state === "empty" && /No results for/.test(empty.text || "") && empty.browse, "nothing found: says so, and offers the categories", empty)
+      const empty = await p.evaluate(() => ({ state: document.querySelector("[data-search-state]")?.dataset.searchState, text: document.querySelector("[data-search-screen] [data-header-search-empty]")?.textContent, all: !!document.querySelector("[data-search-screen] [data-header-search-all]"), browse: !!document.querySelector('[data-search-section="browse"]') }))
+      expect(empty.state === "empty" && /Nothing found for/.test(empty.text || "") && empty.all && !empty.browse, "nothing found: says so, View all still there, no categories", empty)
       await p.screenshot({ path: join(shots, "search-empty.png") })
       await p.keyboard.press("Escape")
       await sleep(80)

@@ -1,0 +1,79 @@
+import { notFound, permanentRedirect, redirect } from "next/navigation"
+import type { Metadata } from "next"
+import { ThemePage } from "@/components/website-builder/theme/ThemePage"
+import { StorelibSourcesProvider } from "@/components/website-builder/sections/storelib-sources"
+import { renderWithSources } from "@/lib/website-builder/storefront-render"
+import { dressPage, publishedShopByName } from "@/lib/website-builder/published-site"
+import { getMainDomain } from "@/lib/url-helpers"
+import { collectionSections } from "@/lib/website-builder/shop-page"
+import { catalogPage } from "@/lib/products/catalog-filters"
+import { productsInCollection } from "@/lib/physical/collections-server"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { siteMetadata } from "../../render-site"
+import { SiteVitals } from "@/components/website-builder/site-vitals"
+import { TrackView } from "@/components/analytics/track-view"
+
+export const dynamic = "force-dynamic"
+
+interface PageProps {
+  params: Promise<{ username: string; handle: string }>
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}
+
+const HANDLE = /^[a-z0-9]+(-[a-z0-9]+)*$/
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { username } = await params
+  return siteMetadata(username, undefined, "collections")
+}
+
+/**
+ * ===========================================================================
+ *  ONE COLLECTION, IN THE CREATOR'S OWN CHROME
+ * ===========================================================================
+ * Shopify's collection page, at /collections/<handle>: the shop page
+ * (header, one product grid with its filters, footer) showing only the
+ * collection's published products, in the collection's own order. A
+ * collection holds any kind of product: downloads, courses, memberships,
+ * services and physical goods alike.
+ *
+ * Every link to a collection goes here: the Collection list's cards, a
+ * Featured collection's button, a menu link picked from Collections.
+ */
+export default async function SiteCollectionPage({ params, searchParams }: PageProps) {
+  const { username, handle: rawHandle } = await params
+  const handle = decodeURIComponent(rawHandle).toLowerCase()
+  if (!HANDLE.test(handle) || handle.length > 80) notFound()
+  const asked = await searchParams.catch(() => ({}) as Record<string, string | string[] | undefined>)
+
+  const found = await publishedShopByName(username)
+  if (found.kind === "renamed") permanentRedirect(`https://${found.to}.${getMainDomain()}/collections/${handle}`)
+  if (found.kind === "missing") notFound()
+  if (found.kind === "unpublished") redirect(`https://${getMainDomain()}/${username.toLowerCase()}`)
+
+  const { site, products, productCount } = found
+  const inIt = await productsInCollection(createAdminClient(), site.creatorId, handle).catch(() => null)
+  if (!inIt) notFound()
+
+  /* The shop's cards, only the collection's, in its order. */
+  const order = new Map(inIt.productIds.map((id, i) => [id, i]))
+  const cards = (products ?? []).filter((p) => order.has(p.id)).sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0))
+
+  const arranged = collectionSections(site.pages.home ?? site.sections, site.themeSettings, inIt.collection)
+  const { sections, data } = await dressPage(site, arranged, products, productCount, "collection", inIt.collection.title)
+  const { listed, filters } = catalogPage(cards, asked, `/collections/${handle}`)
+  const prerendered = renderWithSources(site.sources, sections, site.themeSettings, "collection", listed, { filters }, data)
+
+  return (
+    <StorelibSourcesProvider prerendered={prerendered} page={{ template: "collection" }}>
+      <ThemePage
+        theme={site.themeSettings}
+        sections={sections}
+        storefront={{ creatorId: site.creatorId, installId: site.installId }}
+        emptyDetail="Nothing in this collection yet."
+      />
+      <TrackView creatorId={site.creatorId} />
+      <SiteVitals installId={site.installId} />
+    </StorelibSourcesProvider>
+  )
+}

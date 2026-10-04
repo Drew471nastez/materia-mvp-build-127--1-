@@ -4,8 +4,8 @@
  * the real ConditionalFooter under it (the marketing layout's), so the
  * footer a computer gets on /explore is measured where it really sits.
  *
- *   #products      the products, communities switched on (the Communities
- *                  pill), one product with a title far too long for its card
+ *   #products      the products, communities switched on (the hero's
+ *                  switcher), one product with a title far too long for its card
  *   #communities   /explore?type=communities: seven real looking community
  *                  cards drawn from a first page, with a next cursor; the
  *                  route's answers come from window.fetch below, filtered

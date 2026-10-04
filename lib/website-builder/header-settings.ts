@@ -26,6 +26,19 @@ type NavBlock = { id: string; type: "nav_link"; settings: Record<string, unknown
  * it. A third level from a menu is left out of the header rather than
  * flattened into the second.
  */
+/**
+ * The menu a header reads: its own `menu` setting, or the Main menu once the
+ * store's Main menu has links. A header's `menu` is empty only because it was
+ * never pointed anywhere (its picker has no "None"), so a Main menu edited in
+ * Navigation, in the builder or on /app/website-builder/navigation, is what
+ * the header shows, the way the editor's Menus already shows it
+ * (lib/website-builder/main-menu.ts, mainMenuView).
+ */
+export function headerMenuHandleOf(own: string, menus: Record<string, Menu>): string {
+  if (own) return own
+  return (menus["main-menu"]?.links.length ?? 0) > 0 ? "main-menu" : ""
+}
+
 export function headerMenuBlocks(handle: string, menus: Record<string, Menu>): NavBlock[] | null {
   const menu = handle ? menus[handle] : undefined
   if (!menu) return null

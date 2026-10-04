@@ -11,6 +11,7 @@ import { createRoot } from "react-dom/client"
 import { usePathname } from "next/navigation"
 
 import { LocaleProvider } from "@/components/locale-provider"
+import { PlatformSettingsProvider } from "@/components/platform/platform-settings-context"
 import { ConditionalHeader } from "@/components/marketing/conditional-header"
 import { ConditionalFooter } from "@/components/marketing/conditional-footer"
 import { BuyerTabBar } from "@/components/nav/buyer-tab-bar"
@@ -86,7 +87,10 @@ function Page() {
 }
 
 createRoot(document.getElementById("app")!).render(
-  <LocaleProvider>
-    <Page />
-  </LocaleProvider>,
+  /* Explore's marketplace is on, as it is on storelib.com: without it there is no tab bar (lib/nav/buyer-tabs). */
+  <PlatformSettingsProvider exploreMarketplace buyerHeaderLight={false}>
+    <LocaleProvider>
+      <Page />
+    </LocaleProvider>
+  </PlatformSettingsProvider>,
 )

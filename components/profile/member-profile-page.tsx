@@ -8,9 +8,8 @@
  *
  *   THE HEADER   a band edge to edge (their cover when they have one), the
  *                photo across its lower edge, the name, @handle, the bio,
- *                then followers / following and the buttons:
- *                Follow, and Message where the two of them share a
- *                community that allows it.
+ *                then followers / following and Follow (only Follow:
+ *                the owner asked for Message to go for now).
  *   YOUR OWN     the same page /account is (components/account/account-
  *                hub.tsx): instead of Follow, the pills to your own places
  *                (Activity, Communities, Library, Edit profile, Settings)
@@ -54,7 +53,6 @@ import { SharedCommunityPosts } from "./shared-community-posts"
 const CARD_SHADOW = "rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
 
 export interface ProfilePageExtras {
-  messageHref: string | null
   activity: { items: ActivityItemView[]; next: string | null; hidden: boolean }
   communities: { enabled: boolean; owned: CommunityCard[]; member: CommunityCard[] }
   /** The communities the viewer shares with them, each with the first page of their posts there. */
@@ -241,7 +239,6 @@ export function MemberProfilePage({ profile, viewerId, viewerFollowing, extras }
         viewerFollowing={viewerFollowing}
         signedIn={!!viewerId}
         isSelf={isSelf}
-        messageHref={extras.messageHref}
       />
 
       <div className="mx-auto w-full max-w-[960px] px-4 sm:px-6 lg:px-0">

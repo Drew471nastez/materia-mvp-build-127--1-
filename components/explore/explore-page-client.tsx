@@ -1,6 +1,6 @@
 "use client"
 
-import { Fragment, useState, useCallback, useTransition, useMemo, useEffect, useRef, useDeferredValue } from "react"
+import { useState, useCallback, useTransition, useMemo, useEffect, useRef, useDeferredValue } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { FeaturedBannerCarousel } from "./featured-banner-carousel"
@@ -13,7 +13,7 @@ import type { CommunityCard } from "@/lib/communities/types"
 import { COMMUNITY_PRICE_FILTERS, COMMUNITY_SORT_OPTIONS, EXPLORE_COMMUNITIES_HREF } from "@/lib/explore/communities-mode"
 import { useEntranceOnChange } from "@/lib/ui/use-entrance-on-change"
 import { ProductCardSkeleton } from "./product-card-skeleton"
-import { Layers, Sparkles, Zap, Share2, Bot, SlidersHorizontal, X, ChevronLeft, ChevronRight, Briefcase, Megaphone, ArrowRight, Music, Camera, Video, ShoppingBag, GraduationCap, Code } from "lucide-react"
+import { Layers, Sparkles, Zap, Share2, Bot, SlidersHorizontal, ChevronLeft, ChevronRight, Briefcase, Megaphone, ArrowRight, Music, Camera, Video, ShoppingBag, GraduationCap, Code } from "lucide-react"
 import { ExploreCategoryPicker } from "./explore-category-picker"
 import { ExploreFilters, DEFAULT_SORT, PRICE_FILTERS, SORT_OPTIONS } from "./explore-filters"
 import { Chevron, type BrowseGroup } from "./category-browser"
@@ -364,7 +364,7 @@ interface ExplorePageClientProps {
   /** Gray pill above “Discover” — admin / Health → Discover headline pill switch. */
   discoverHeadlineSegmentEnabled?: boolean
   initialDiscoverMode?: DiscoverMode
-  /** Communities are switched on: the only gate on communities mode, and the products row gets a Communities pill that switches to it. */
+  /** Communities are switched on: the only gate on communities mode (reached through the hero's Discover switcher). */
   communitiesEnabled?: boolean
   /** On a search, the communities that match (lib/communities/server/explore.ts), drawn above the products. */
   communityResults?: CommunityCard[]
@@ -1202,11 +1202,18 @@ export function ExplorePageClient({
                 {/* "All", or "For you" for an account we know something about.
                     Same position, same globe, same behaviour: it is the pill
                     that clears the category, and it is first. */}
-                {rowPills.map((cat, index) => {
+                {/*
+                  NO COMMUNITIES PILL. It sat second in this row and switched
+                  the page to communities, which made a place read as one more
+                  category. The owner asked for it off: communities are reached
+                  through the hero's Discover switcher only, and this row is
+                  categories in both modes.
+                */}
+                {rowPills.map((cat) => {
                   const isSelected = mainCategory === cat.id
                   return (
-                    <Fragment key={cat.id}>
                     <button
+                      key={cat.id}
                       aria-pressed={isSelected}
                       onClick={() => {
                         setMainCategory(cat.id)
@@ -1236,40 +1243,6 @@ export function ExplorePageClient({
                       <span aria-hidden className="text-[15px] leading-none">{PILL_EMOJI[cat.id]}</span>
                       {cat.label}
                     </button>
-                    {/*
-                      COMMUNITIES, a place rather than a category, second in
-                      the row so a phone sees it without scrolling: the pill
-                      switches this page to communities, the same as the
-                      chip's menu (a real link, so it also opens in a new tab
-                      and reads as one). Drawn only while communities are
-                      switched on. In communities mode it stays where it was,
-                      pressed, with a small cross: pressing it again goes back
-                      to the products, so the row is the same row in both.
-                    */}
-                    {index === 0 && communitiesEnabled ? (
-                      <Link
-                        href={communities ? "/explore?type=products" : EXPLORE_COMMUNITIES_HREF}
-                        onClick={(e) => {
-                          if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return
-                          e.preventDefault()
-                          handleModeChange(communities ? "products" : "communities")
-                          smoothScrollToRecommendedSection(categorySectionRef)
-                        }}
-                        data-communities-pill=""
-                        data-on={communities ? "" : undefined}
-                        aria-label={communities ? "Communities, on. Show products instead" : undefined}
-                        className={`inline-flex items-center gap-1.5 shrink-0 px-3.5 py-2 rounded-full text-sm font-medium cursor-pointer select-none whitespace-nowrap border transition-[background-color,border-color,color,box-shadow] duration-150 ${
-                          communities
-                            ? "bg-[#e2e4e8] text-neutral-900 border-[#d7dadf] shadow-[inset_0_1px_1.5px_rgba(15,23,42,0.07),inset_0_-1px_0_rgba(255,255,255,0.45)] pr-2.5"
-                            : "bg-white text-neutral-500 border-neutral-200 hover:border-neutral-300 hover:text-neutral-800"
-                        }`}
-                      >
-                        <span aria-hidden className="text-[15px] leading-none">{"\u{1F465}"}</span>
-                        Communities
-                        {communities ? <X aria-hidden className="h-3.5 w-3.5 opacity-60" strokeWidth={2.2} /> : null}
-                      </Link>
-                    ) : null}
-                    </Fragment>
                   )
                 })}
                 {/*
@@ -1573,14 +1546,10 @@ export function ExplorePageClient({
       )}
 
       {/*
-        THE SECOND CATEGORY BOARD IS GONE.
-
-        "Browse by Category" sat between the product list and
-        FeaturedCategoriesSection — which is "Explore categories you can build
-        with" — so the page offered two category boards, one under the other,
-        with the same categories in both. The owner asked for the upper one
-        off. The pills at the top of the list are the third way to choose one
-        and the one that does not send you anywhere.
+        NO CATEGORY BOARDS. "Browse by Category" went first, then "Explore
+        categories you can build with" under the page (round 9): both listed
+        the categories the pills at the top of the list already offer. The
+        pills, and their More, are the one way to choose one here.
       */}
 
       {/* Search Results Section */}

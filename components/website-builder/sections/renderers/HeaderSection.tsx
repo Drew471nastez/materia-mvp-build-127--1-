@@ -40,7 +40,7 @@ import {
 } from "../_shared"
 import { useStorelibPage } from "../storelib-sources"
 import { cleanMenus } from "@/lib/storelib-theme/values"
-import { headerBorderHere, headerMenuBlocks, logoFontStack as wordmarkFont, logoParts, mobileMenuStyle, transparentHere, type MobileMenuStyle } from "@/lib/website-builder/header-settings"
+import { headerBorderHere, headerMenuBlocks, headerMenuHandleOf, logoFontStack as wordmarkFont, logoParts, mobileMenuStyle, transparentHere, type MobileMenuStyle } from "@/lib/website-builder/header-settings"
 import { MENU_DRAWER_MAX_WIDTH, menuDrawerExists } from "@/lib/website-builder/header-drawers"
 
 // ── Header color schemes ─────────────────────────────────────
@@ -2165,7 +2165,8 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
     typed twice. `theme.menus` is cleaned (every address made safe) before
     it is turned into links.
   */
-  const fromMenu = headerMenuBlocks(str(s.menu), cleanMenus((theme as Record<string, unknown>).menus))
+  const siteMenus = cleanMenus((theme as Record<string, unknown>).menus)
+  const fromMenu = headerMenuBlocks(headerMenuHandleOf(str(s.menu), siteMenus), siteMenus)
   const navBlocks = fromMenu ?? ((section.blocks && section.blocks.length > 0) ? section.blocks : DEFAULT_NAV_BLOCKS)
 
   const resolveHref = (block: { settings: Record<string, unknown> }): string => {

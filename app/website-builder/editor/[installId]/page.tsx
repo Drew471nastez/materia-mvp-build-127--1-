@@ -68,7 +68,8 @@ import { LEGACY_OVERRIDE_FIELDS } from "@/lib/website-builder/section-overrides"
 import { remapScheme, themeColorSchemes } from "@/lib/storelib-theme/color-schemes"
 import { sameSettingValue } from "@/lib/website-builder/same-setting"
 import { PAGE_META } from "@/lib/website-builder/types"
-import { customPageSections } from "@/lib/website-builder/shop-page"
+import { customPageSections, searchListsTheShop } from "@/lib/website-builder/shop-page"
+import { storeLinkTargets } from "@/lib/website-builder/link-targets"
 import { BUILT_IN_PAGE_KEYS, pageKeyFromSegment, pagePath, pageTitleFromKey, templateForPage } from "@/lib/website-builder/site-pages"
 import { editorPageKeyOf, editorPagePath, resolveEditorHref } from "@/lib/website-builder/editor-navigation"
 import { sectionLinkTargets } from "@/lib/website-builder/link-menu"
@@ -5274,10 +5275,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const crumbsOn = crumbTheme.breadcrumbs_enabled
   const crumbsSep = crumbTheme.breadcrumbs_separator
   const crumbsAlign = crumbTheme.breadcrumbs_align
-  const canvasSections = useMemo(() => {
-    const page = withThemeBreadcrumbs(deferredSections, { breadcrumbs_enabled: crumbsOn, breadcrumbs_separator: crumbsSep, breadcrumbs_align: crumbsAlign }, templateForPage(currentPage))
-    return writingShown && aiWriting ? withWritingPlaceholder(page, aiWriting.anchor, aiWriting.prompt) : page
-  }, [writingShown, aiWriting, deferredSections, crumbsOn, crumbsSep, crumbsAlign, currentPage])
+  const canvasSections = useMemo(
+    () => (writingShown && aiWriting ? withWritingPlaceholder(deferredSections, aiWriting.anchor, aiWriting.prompt) : deferredSections),
+    [writingShown, aiWriting, deferredSections],
+  )
+
   /** Placed and drawn, or placed and left behind on another page: either way, done. */
   useEffect(() => {
     if (!aiWriting?.placedId) return
@@ -5558,35 +5560,22 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       return read
     },
   }), [openPagePath, installId, librarySchemas])
+  /* The published collections, as a link goes to them: /collections/<handle>. None while collections are off. */
+  const siteCollectionTargets = useMemo(
+    () => Object.values(builderCollections?.cards ?? {}).map((c) => ({ handle: c.handle, title: c.title, image: c.image })),
+    [builderCollections],
+  )
   const linkTargets = useMemo<LinkTarget[]>(
+    /* The store's pages, collections and products, the same list Navigation offers (lib/website-builder/link-targets.ts). */
     () => [
       ...sectionTargets,
-      { href: "/", label: "Home", kind: "page" },
-      /**
-       * `/products`, not `/shop`. The picker offered "Shop" pointing at
-       * /shop, which is not a route on any address: the shop index is
-       * /products, which is where the themes' own Shop link goes.
-       */
-      { href: "/products", label: "Shop", kind: "page" },
-      { href: "/about", label: "About", kind: "page" },
-      { href: "/contact", label: "Contact", kind: "page" },
-      /* The page browser lists it, and the header's links used to offer it. */
-      { href: "/search", label: "Search", kind: "page" },
-      /* The visitor's own pages, every site has them (lib/website-builder/account-pages): the picker's Customer accounts. */
-      { href: "/account", label: "Account", kind: "page" },
-      { href: "/account/login", label: "Sign in", kind: "page" },
-      { href: "/wishlist", label: "Wishlist", kind: "page" },
-      ...customPages.map((p) => ({ href: `/${p.key}`, label: p.name, kind: "page" as const })),
-      ...products.map((p) => ({ href: `/products/${p.slug}`, label: p.title, kind: "product" as const, image: p.thumbnail_url || undefined })),
-      /**
-       * NO COLLECTIONS. The picker had a Collections group fed by
-       * `/api/collections`, which is not a route: the fetch 404'd, the list
-       * was always empty, and the group was a heading nobody could ever fill.
-       * There is no collection in this product — a creator has products, and
-       * the sections that say "collection" take hand-typed items.
-       */
+      ...storeLinkTargets({
+        customPages: customPages.map((p) => ({ key: p.key as string, name: p.name })),
+        products,
+        collections: siteCollectionTargets,
+      }),
     ],
-    [customPages, products, sectionTargets],
+    [customPages, products, sectionTargets, siteCollectionTargets],
   )
   baseTargetsRef.current = linkTargets
   /**
@@ -6778,9 +6767,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         })
         if (res.ok) st.synced = menusJson
         else if (res.status === 409) st.available = false
-        else toast.error("Your menus did not save. Change something to try again.")
+        else toast.error("Could not save menus. Try again.")
       } catch {
-        toast.error("Your menus did not save. Check the connection and try again.")
+        toast.error("Could not save menus. Try again.")
       }
     }, 700)
     return () => window.clearTimeout(timer)
@@ -6849,8 +6838,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   )
   /* What the canvas draws: the page with its placeholders filled. Never saved. */
   const drawnSections = useMemo(
-    () => withDynamicSources(canvasSections, (type) => schemaFor(type, storelibSources, librarySchemas), canvasDynamic),
-    [canvasSections, storelibSources, librarySchemas, canvasDynamic],
+    () => withThemeBreadcrumbs(
+      withDynamicSources(searchListsTheShop(canvasSections), (type) => schemaFor(type, storelibSources, librarySchemas), canvasDynamic),
+      { breadcrumbs_enabled: crumbsOn, breadcrumbs_separator: crumbsSep, breadcrumbs_align: crumbsAlign },
+      templateForPage(currentPage),
+    ),
+    [canvasSections, storelibSources, librarySchemas, canvasDynamic, crumbsOn, crumbsSep, crumbsAlign, currentPage],
   )
 
   /**
@@ -7740,63 +7733,53 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         */}
         <div className="flex flex-1 items-center justify-center gap-1.5 min-w-0">
           {/*
-            HOW YOU ARE LOOKING: PHONE, DESKTOP, LARGE. One switch with three
-            places, not a device toggle with a full screen button parked
-            beside it. Full screen is a way of looking at the page, the same
-            kind of choice as phone or desktop, so it is the third place on
-            the same control: Large is desktop with the sidebar folded away.
-            A phone has no room for it, and its canvas is already the screen.
+            HOW YOU ARE LOOKING: ONE ICON, THREE SIZES. It shows the size you
+            are looking at, and each click moves to the next: desktop, then
+            phone, then large (the page full screen, the sidebar folded away),
+            then desktop again. Three buttons side by side read as three
+            different tools; this is one choice, so it is one control, the way
+            it was before. A phone has no room for it, and its canvas is
+            already the screen.
           */}
-          {!isMobileView && (
-            <div
-              role="radiogroup"
-              aria-label="Preview size"
-              data-wb-device-switch=""
-              className="hidden sm:flex shrink-0 items-center gap-0.5 rounded-full border border-white/10 bg-white/[0.05] p-0.5"
-            >
-              {([
-                { key: "mobile", label: "Phone", tip: `Phone (${DEVICE_WIDTH.mobile}px)`, Icon: Smartphone },
-                { key: "desktop", label: "Desktop", tip: "Desktop", Icon: Monitor },
-                { key: "full", label: "Large", tip: fullView ? "Large (Esc to leave)" : "Large: the page, full screen", Icon: Maximize2 },
-              ] as const).map(({ key, label, tip, Icon }) => {
-                const on = key === "full" ? fullView : !fullView && device === key
-                return (
-                  <Tooltip key={key}>
-                    <TooltipTrigger asChild>
-                      <button
-                        type="button"
-                        role="radio"
-                        aria-checked={on}
-                        aria-label={label}
-                        data-wb-device={key}
-                        /* The probe and the tests still find Large by its old name. */
-                        {...(key === "full" ? { "data-wb-full-screen-switch": "", "aria-pressed": fullView } : {})}
-                        onClick={() => {
-                          if (key === "full") {
-                            if (!fullView && previewMode !== "preview") setPreviewMode("preview")
-                            setFullScreen(!fullView)
-                            return
-                          }
-                          /* Phone or desktop is its own way of looking: it leaves Large. */
-                          if (fullView) setFullScreen(false)
-                          setDevice(key)
-                        }}
-                        className={cn(
-                          "flex h-7 w-8 items-center justify-center rounded-full transition-[background-color,color] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/25",
-                          on
-                            ? "bg-white/[0.14] text-[var(--wb-chrome-fg)]"
-                            : "text-[var(--wb-chrome-fg-3)] hover:bg-white/[0.07] hover:text-[var(--wb-chrome-fg)]",
-                        )}
-                      >
-                        <Icon className="h-[15px] w-[15px]" strokeWidth={1.75} />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom">{tip}</TooltipContent>
-                  </Tooltip>
-                )
-              })}
-            </div>
-          )}
+          {!isMobileView && (() => {
+            const SIZES = [
+              { key: "desktop", label: "Desktop", Icon: Monitor },
+              { key: "mobile", label: `Phone (${DEVICE_WIDTH.mobile}px)`, Icon: Smartphone },
+              { key: "full", label: "Large", Icon: Maximize2 },
+            ] as const
+            const at = fullView ? 2 : device === "mobile" ? 1 : 0
+            const now = SIZES[at]
+            const next = SIZES[(at + 1) % SIZES.length]
+            const go = (key: (typeof SIZES)[number]["key"]) => {
+              if (key === "full") {
+                if (previewMode !== "preview") setPreviewMode("preview")
+                setFullScreen(true)
+                return
+              }
+              if (fullView) setFullScreen(false)
+              setDevice(key)
+            }
+            return (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label={`Preview size: ${now.label}. Switch to ${next.label}`}
+                    data-wb-device-switch=""
+                    data-wb-device={now.key}
+                    /* The probes still find Large by its old name. */
+                    data-wb-full-screen-switch=""
+                    aria-pressed={fullView}
+                    onClick={() => go(next.key)}
+                    className="hidden sm:flex h-8 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-[var(--wb-chrome-fg)] transition-[background-color,color] duration-150 hover:bg-white/[0.1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/25"
+                  >
+                    <now.Icon key={now.key} className="h-[15px] w-[15px] animate-in fade-in zoom-in-90 duration-150" strokeWidth={1.75} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">{fullView ? `${now.label} · Esc to leave` : `${now.label} · click for ${next.label}`}</TooltipContent>
+              </Tooltip>
+            )
+          })()}
 
           {!isMobileView && (
           <PageSwitcher
@@ -8062,15 +8045,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         ]}
         productCount={productsLoading || products.length >= 100 ? null : products.length}
         onAddPage={() => setAddPageOpen(true)}
-        onEditMenu={() => {
-          const header = sections.find((sec) => sec.type === "header")
+        /* A menu is edited in Navigation, beside Pages, with the page drawn next to it. */
+        onEditMenu={(handle) => {
           setSidebarMode("sections")
           setPageBrowserOpen(false)
-          if (header) {
-            setSelectedPanel({ type: "section", sectionId: header.id })
-            revealSection(header.id)
-          }
-          if (isMobileView) setMobileSidebarOpen(true)
+          openMenus(handle)
         }}
         onOpenCode={() => void openCode()}
         onPublish={() => setPublishOpen(true)}

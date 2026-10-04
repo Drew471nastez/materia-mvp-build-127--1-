@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server"
+import { toStorageUrl } from "@/lib/storage/media-url"
 import { revalidateTag } from "next/cache"
 import { createClient } from "@/lib/supabase/server"
 import { readCurrentUser } from "@/lib/auth/current-user"
@@ -30,7 +31,8 @@ const NO_STORE = { "Cache-Control": "no-store" }
 function ownPhoto(url: string, userId: string): boolean {
   const base = (process.env.NEXT_PUBLIC_SUPABASE_URL || "").replace(/\/+$/, "")
   if (!base) return false
-  return url.startsWith(`${base}/storage/v1/object/public/avatars/${userId}/`) && url.length < 1024 && !/[\s"'<>]/.test(url)
+  /* Storelib's own address for the same file is the same photo (lib/storage/media-url.ts). */
+  return toStorageUrl(url).startsWith(`${base}/storage/v1/object/public/avatars/${userId}/`) && url.length < 1024 && !/[\s"'<>]/.test(url)
 }
 
 export async function POST(request: NextRequest) {

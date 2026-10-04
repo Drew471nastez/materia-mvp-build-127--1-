@@ -1016,6 +1016,10 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
         */}
         {products.length > 0 ? (
           <div className="flex shrink-0 items-center gap-1.5 md:gap-2 lg:gap-[9px]">
+            {/* Products › Collections, beside the list it groups (on a phone it is under Products in the menu). */}
+            <Link href="/app/collections" data-products-collections="" className={cn(EXPORT_LOOK, "hover:bg-[#f7f7f8] active:bg-[#f1f2f4] max-md:hidden")}>
+              Collections
+            </Link>
             <ResponsiveActionMenu
               title="Export"
               align="end"

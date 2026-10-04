@@ -107,7 +107,8 @@ function main() {
 
   console.log("\nThe Products tab needs one product, not two")
 
-  check("in the configured branch", /if \(productsData\.length > 0\) \{/.test(configured))
+  /* Round 9: the no products page has its own tabs (components/storefront/no-products); one product is enough for the Products tab. */
+  check("in the configured branch", /const noProducts = productsData\.length === 0/.test(configured) && /if \(!noProducts\) \{\s*tabs\.push\(\{\s*id: "products"/.test(configured))
   check("and nothing still asks for two", !/productsData\.length > 1/.test(page))
 
   console.log("\nThe branch with no config has the same three tabs")

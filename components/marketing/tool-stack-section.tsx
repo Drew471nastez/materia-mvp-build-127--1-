@@ -6,7 +6,7 @@ import { optimizedImageUrl } from "@/lib/images/optimized-url"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 
 const COMPARE_IMAGE =
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Visits%20(12).webp"
+  "https://storelib.com/media/platform%20images/Visits%20(12).webp"
 
 /* ── SVG Icon Components ── */
 

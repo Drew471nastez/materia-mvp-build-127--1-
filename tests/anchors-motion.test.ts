@@ -86,7 +86,7 @@ function main() {
   check("that opens onto its list rather than picking", !picksDirectly(menu[0]) && menu[0].targets.length === 5)
   check("a section target sorts there by its kind", linkCategoryOf({ href: "/#section-x", kind: "section" }) === "sections")
   check("a page with no sections has no such category", linkMenu(targets.filter((t) => t.kind !== "section")).every((e) => e.category.key !== "sections"))
-  check("the category list still has no collections or blogs", !LINK_CATEGORIES.some((c) => /collection|blog/i.test(c.label)))
+  check("the category list still has no blogs", !LINK_CATEGORIES.some((c) => /blog/i.test(c.label)))
   check("home and the creator's pages open onto their own sections; the shop and policies do not",
     drillsIntoSections(targets[5]) && drillsIntoSections(targets[7]) && !drillsIntoSections(targets[6]) && !drillsIntoSections(targets[8]))
 

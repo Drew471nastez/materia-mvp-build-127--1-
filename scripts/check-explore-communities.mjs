@@ -15,8 +15,7 @@
  *                   no Launched); a pill asks the server for that category
  *                   and the grid follows; Show more appends.
  *   ROUND 8         communities mode has the products' pill row pill for
- *                   pill (the Communities pill pressed in its place, and
- *                   pressing it goes back) and the products' More picker,
+ *                   pill and the products' More picker,
  *                   whole tree; a subcategory asks for c=<parent>&sub=<id>,
  *                   narrows to the communities that mention it, and when
  *                   none do shows the whole category with a line saying so.
@@ -28,6 +27,10 @@
  *   FOOTER          on a computer Explore ends with the creator page footer
  *                   (Powered by Storelib, Privacy Policy, Terms & Conditions,
  *                   Cookie preferences); on a phone it is not drawn.
+ *   ROUND 9         no Communities pill in the row, in either mode: the
+ *                   hero's Discover switcher is the way in and out, and it
+ *                   still switches; no categories board ("Explore
+ *                   categories you can build with") anywhere on the page.
  *   NOTHING SIDEWAYS, no errors, at both sizes.
  *
  *   PROBE_CSS=source node scripts/check-explore-communities.mjs
@@ -142,6 +145,9 @@ for (const [label, vp] of SIZES) {
     })
     expect(!!title && title.lines === 2 && title.clipped && title.clamp === "2", "the long title stops at two lines, the rest cut with an ellipsis", title)
     productPills[label] = await p.evaluate(PILLS)
+    const noPill = await p.evaluate(() => ({ pill: !!document.querySelector("[data-communities-pill]"), row: [...document.querySelectorAll("[data-category-pills-row] > *")].map((b) => b.textContent.trim()).filter((t) => /communit/i.test(t)), board: /Explore categories|Browse categories|categories you can build/i.test(document.body.innerText) }))
+    expect(!noPill.pill && noPill.row.length === 0, "ROUND 9: no Communities pill in the category row", noPill)
+    expect(!noPill.board, "ROUND 9: no categories board on the page", noPill)
     const row = await p.evaluate(ROW("[data-product-card]"))
     expect(row.perRow === (phone ? 1 : 3) && row.heights.length === 1, `products: ${phone ? "one" : "three"} across, one height a row`, row)
     const rows = await p.evaluate(() => {
@@ -268,8 +274,8 @@ for (const [label, vp] of SIZES) {
     /* A pill asks the server for that category. */
     const pills = await p.evaluate(PILLS)
     expect(JSON.stringify(pills) === JSON.stringify(productPills[label]), "the same pill row as products mode, pill for pill", { communities: pills, products: productPills[label] })
-    const on = await p.evaluate(() => { const c = document.querySelector("[data-communities-pill]"); return c ? { on: c.hasAttribute("data-on"), bg: getComputedStyle(c).backgroundColor, cross: !!c.querySelector("svg") } : null })
-    expect(!!on && on.on && on.bg === "rgb(226, 228, 232)" && on.cross, "the Communities pill stays in its place, pressed, with a cross to go back", on)
+    const on = await p.evaluate(() => ({ pill: !!document.querySelector("[data-communities-pill]"), first: document.querySelector('[data-category-pills-row] > button')?.textContent.trim(), pressed: document.querySelector('[data-category-pills-row] [aria-pressed="true"]')?.textContent.trim() ?? null }))
+    expect(!on.pill && /All$/.test(on.first ?? "") && /All$/.test(on.pressed ?? ""), "ROUND 9: communities mode has no Communities pill either; All is first and pressed", on)
     await p.evaluate(() => [...document.querySelectorAll("[data-category-pills-row] > button")].find((b) => b.textContent.includes("Design")).click())
     await sleep(700)
     const after = await p.evaluate(() => ({ fetched: window.__fetches.slice(-1)[0], n: document.querySelectorAll("[data-explore-community]").length, names: [...document.querySelectorAll("[data-community-title]")].map((t) => t.textContent) }))
@@ -345,10 +351,24 @@ for (const [label, vp] of SIZES) {
     expect(searched.fetched === "/api/explore/communities?q=night&price=free&limit=24" && searched.names.join() === "Night Runner", "the search field asks for the word, with the price still on", searched)
     const side = await sideways(p)
     expect(side.doc <= side.win && errors.length === 0, "communities: nothing sideways, no errors", { side, errors })
-    await p.evaluate(() => document.querySelector("[data-communities-pill]").click())
-    await sleep(700)
-    const leave = await p.evaluate(() => ({ mode: document.querySelector("[data-discover-mode]")?.getAttribute("data-discover-mode") ?? null, products: document.querySelectorAll("[data-product-card]").length, pillOn: document.querySelector("[data-communities-pill]")?.hasAttribute("data-on") }))
-    expect(leave.mode === "products" && leave.pillOn === false, "pressing it again goes back to the products", leave)
+    /* The hero's switcher is the way back to products now, and it still switches. */
+    await p.evaluate(() => window.scrollTo(0, 0))
+    await sleep(200)
+    await p.click('[aria-label="Choose what to discover"]')
+    await sleep(400)
+    await p.screenshot({ path: join(shots, `${label}-switcher-open.png`) })
+    const opts = await p.evaluate(() => [...document.querySelectorAll('[role="menuitemradio"]')].map((b) => ({ t: b.textContent.trim(), on: b.getAttribute("aria-checked") })))
+    await p.evaluate(() => [...document.querySelectorAll('[role="menuitemradio"]')].find((b) => /product/i.test(b.textContent))?.click())
+    await sleep(900)
+    const leave = await p.evaluate(() => ({ mode: document.querySelector("[data-discover-mode]")?.getAttribute("data-discover-mode") ?? null, communities: document.querySelectorAll("[data-explore-community]").length, pill: !!document.querySelector("[data-communities-pill]") }))
+    expect(opts.length === 2 && leave.mode === "products" && leave.communities === 0 && !leave.pill, "the hero's switcher still switches: Digital products from it leaves communities mode, and still no pill", { opts, leave })
+    await p.click('[aria-label="Choose what to discover"]')
+    await sleep(400)
+    await p.evaluate(() => [...document.querySelectorAll('[role="menuitemradio"]')].find((b) => /communit/i.test(b.textContent))?.click())
+    await sleep(900)
+    const back2 = await p.evaluate(() => ({ mode: document.querySelector("[data-discover-mode]")?.getAttribute("data-discover-mode") ?? null, communities: document.querySelectorAll("[data-explore-community]").length, pill: !!document.querySelector("[data-communities-pill]") }))
+    expect(back2.mode === "communities" && back2.communities > 0 && !back2.pill, "and Communities from it draws the communities again", back2)
+    await p.screenshot({ path: join(shots, `${label}-switched-back.png`) })
     await p.close()
   }
 

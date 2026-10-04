@@ -8,13 +8,15 @@
  * mouse at 1440x900 and a finger at 390x844, the CPU slowed four times:
  *
  *   THE PRESS      pointerdown -> the first frame that shows it (the face's
- *                  pressed shade and its scale starting down)
+ *                  pressed shade; round 9: nothing scales, ever)
  *   THE SWITCH     click -> the first frame of the crossfade; no frame over
  *                  20ms while it runs (six switches each way and back; one
  *                  dropped frame in six is let through, because other
- *                  builds share this machine); the button's width and
- *                  Message's place never change; both labels end where
- *                  they should
+ *                  builds share this machine); the button's box (width,
+ *                  height, place) is the same on every frame, and no part
+ *                  of it is scaled or drawn at another size on any frame ("no
+ *                  bump"); there is no Message button; both labels end
+ *                  where they should
  *   NO UNFOLLOW    a pointer over Following leaves it saying Following (a
  *                  shade, nothing else); there is no Unfollow anywhere
  *   TAPS SETTLE    five quick presses are one request (follow), four are
@@ -67,7 +69,7 @@ const SAMPLER = () => {
   const fillFollowing = btn.querySelector("[data-follow-fill=following]")
   const lFollow = btn.querySelector("[data-follow-label=follow]")
   const lFollowing = btn.querySelector("[data-follow-label=following]")
-  const msg = document.querySelector("[data-profile-message]")
+  const parts = [btn, face, lFollow, lFollowing, fillFollow, fillFollowing]
   const events = []
   /* When the page's own handler ran (performance.now in a capture listener), not the event's stamp: a frame's rAF time is when the frame began, which can be before an event that frame still shows. */
   for (const type of ["pointerdown", "pointerup", "click"]) document.addEventListener(type, () => events.push({ type, t: performance.now() }), { capture: true })
@@ -77,11 +79,12 @@ const SAMPLER = () => {
     /* The frame's own time for the gaps between frames; when this callback ran for ordering against the events. */
     const t = performance.now()
     const r = btn.getBoundingClientRect()
-    const m = msg?.getBoundingClientRect()
     samples.push({
       t,
       frame,
       scale: Number(getComputedStyle(face).scale === "none" ? 1 : getComputedStyle(face).scale),
+      /* Any scale on the button or any layer of it, or any drawn size that is not its laid out size: the "no bump" rule. */
+      moved: parts.some((el) => { const cs = getComputedStyle(el); const b = el.getBoundingClientRect(); return (cs.scale !== "none" && cs.scale !== "1") || Math.abs(b.width - el.offsetWidth) > 0.5 || Math.abs(b.height - el.offsetHeight) > 0.5 }),
       fillFollow: Number(getComputedStyle(fillFollow).opacity),
       fillFollowing: Number(getComputedStyle(fillFollowing).opacity),
       bgFollow: getComputedStyle(fillFollow).backgroundColor,
@@ -89,8 +92,9 @@ const SAMPLER = () => {
       lFollow: Number(getComputedStyle(lFollow).opacity),
       lFollowing: Number(getComputedStyle(lFollowing).opacity),
       w: Math.round(r.width * 100) / 100,
+      h: Math.round(r.height * 100) / 100,
       x: Math.round(r.left * 100) / 100,
-      mx: m ? Math.round(m.left * 100) / 100 : null,
+      y: Math.round(r.top * 100) / 100,
       state: btn.getAttribute("data-follow-button"),
     })
     if (on) requestAnimationFrame(tick)
@@ -185,7 +189,9 @@ try {
       frames: gaps.length,
       widths: [...new Set(samples.map((s) => s.w))],
       xs: [...new Set(samples.map((s) => s.x))],
-      mxs: [...new Set(samples.map((s) => s.mx))],
+      hs: [...new Set(samples.map((s) => s.h))],
+      ys: [...new Set(samples.map((s) => s.y))],
+      movedFrames: samples.filter((s) => s.moved).length,
       mid: afterClick.slice(2, 8).map((s) => [Math.round(s.lFollow * 100) / 100, Math.round(s.lFollowing * 100) / 100]),
       end: { state: last.state, lFollow: last.lFollow, lFollowing: last.lFollowing, fillFollow: last.fillFollow, fillFollowing: last.fillFollowing, scale: last.scale },
       clicked: !!click,
@@ -209,9 +215,10 @@ try {
         const b = document.querySelector("[data-follow-button]")
         const cs = getComputedStyle(b)
         const r = b.getBoundingClientRect()
-        return { h: Math.round(r.height), w: Math.round(r.width), touchAction: cs.touchAction, unfollow: !!document.querySelector("[data-follow-label=unfollow]") || /Unfollow/.test(document.body.innerText) }
+        return { h: Math.round(r.height), w: Math.round(r.width), touchAction: cs.touchAction, unfollow: !!document.querySelector("[data-follow-label=unfollow]") || /Unfollow/.test(document.body.innerText), message: !!document.querySelector("[data-profile-message]") || /\bMessage\b/.test(document.body.innerText) }
       })
       expect(shape.h >= 40 && shape.touchAction === "manipulation" && !shape.unfollow, "40px tall, no double tap zoom, no Unfollow anywhere", shape)
+      expect(!shape.message, "only Follow: no Message button", shape.message)
 
       /* Follow -> Following, then back, three times over: the first run of anything is the slowest, so every one counts. */
       const runs = []
@@ -227,10 +234,11 @@ try {
       await p.evaluate(() => { window.__followLog.length = 0 })
       const a = analyse(await pressAndSwitch(p, cdp, finger))
       console.log(`  info  press: frame ${a.pressFrames} (${a.pressMs}ms), switch: frame ${a.switchFrames} (${a.switchMs}ms), longest frame ${a.maxGap}ms (${a.worstAt}ms from the click) over ${a.frames} frames, crossfade ${JSON.stringify(a.mid)}`)
-      expect(a.pressFrames === 1 && a.minScale < 1 && a.minScale >= 0.955, "pointerdown shows on the first frame after it (shade, then the face sinks to 0.96)", { frames: a.pressFrames, ms: a.pressMs, minScale: a.minScale })
+      expect(a.pressFrames === 1 && a.minScale === 1, "pointerdown shows on the first frame after it, as a shade only (nothing sinks)", { frames: a.pressFrames, ms: a.pressMs, minScale: a.minScale })
       expect(a.clicked && a.switchFrames === 1, "the click starts the crossfade on the first frame after it", { frames: a.switchFrames, ms: a.switchMs })
       expect(a.maxGap <= 20 || (late.length === 0 && a.maxGap <= 34), "no frame over 20ms from the press to the end of the switch", a.maxGap)
-      expect(a.widths.length === 1 && a.xs.length === 1 && a.mxs.length === 1, "the button's width and place, and Message's, never change", { w: a.widths, x: a.xs, m: a.mxs })
+      expect(a.widths.length === 1 && a.hs.length === 1 && a.xs.length === 1 && a.ys.length === 1, "no bump: the button's width, height and place are the same on every frame of the press and the switch", { w: a.widths, h: a.hs, x: a.xs, y: a.ys })
+      expect(runs.every((r) => r.movedFrames === 0 && r.hs.length === 1) && a.movedFrames === 0, "  and on no frame of any of the seven switches is any part of it scaled or drawn at another size", runs.map((r) => r.movedFrames).concat(a.movedFrames))
       expect(a.mid.some(([f, g]) => f > 0.02 && f < 0.98 && g > 0.02 && g < 0.98), "the labels crossfade (both part visible mid way), not a cut", a.mid)
       expect(a.end.state === "following" && a.end.lFollow === 0 && a.end.lFollowing === 1 && a.end.fillFollowing === 1 && a.end.fillFollow === 0 && a.end.scale === 1, "it lands on Following, at full size", a.end)
       await p.screenshot({ path: join(shots, `${label}-${which}-2-following.png`), clip })
@@ -253,7 +261,7 @@ try {
       /* Following -> Follow: the same switch the other way. */
       const back = analyse(await pressAndSwitch(p, cdp, finger))
       console.log(`  info  back: press frame ${back.pressFrames} (${back.pressMs}ms), switch frame ${back.switchFrames} (${back.switchMs}ms), longest frame ${back.maxGap}ms`)
-      expect(back.pressFrames === 1 && back.switchFrames === 1 && (back.maxGap <= 20 || (late.length === 0 && back.maxGap <= 34)) && back.widths.length === 1 && back.end.state === "follow" && back.end.lFollow === 1 && back.end.lFollowing === 0, "pressing Following goes straight back to Follow, as smoothly", { press: back.pressFrames, sw: back.switchFrames, gap: back.maxGap, w: back.widths, end: back.end })
+      expect(back.pressFrames === 1 && back.switchFrames === 1 && (back.maxGap <= 20 || (late.length === 0 && back.maxGap <= 34)) && back.widths.length === 1 && back.hs.length === 1 && back.movedFrames === 0 && back.widths[0] === a.widths[0] && back.end.state === "follow" && back.end.lFollow === 1 && back.end.lFollowing === 0, "pressing Following goes straight back to Follow, as smoothly", { press: back.pressFrames, sw: back.switchFrames, gap: back.maxGap, w: back.widths, end: back.end })
       if (finger) {
         const dim = await p.evaluate(() => getComputedStyle(document.querySelector("[data-follow-button]")).opacity)
         expect(dim === "1", "in the native shell the 72% press dim does not reach it", dim)

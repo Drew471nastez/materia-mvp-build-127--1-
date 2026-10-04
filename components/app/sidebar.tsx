@@ -325,10 +325,11 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     { href: "/app/emails", label: t("nav.emails"), icon: NAV_ICONS.emails },
     { href: "/app/payouts", label: t("nav.payouts"), icon: NAV_ICONS.payouts },
   ]
-  /* Stock and collections under Products, first, only while physical commerce is on in /admin. */
-  if (physicalCommerce) {
-    mainNavItems.find((item) => item.href === "/app/products")?.children?.unshift({ href: "/app/inventory", label: "Inventory" }, { href: "/app/collections", label: "Collections" })
-  }
+  /* Collections under Products, first, for every shop (Shopify's Products › Collections); stock beside them only while physical commerce is on in /admin. */
+  mainNavItems.find((item) => item.href === "/app/products")?.children?.unshift(
+    ...(physicalCommerce ? [{ href: "/app/inventory", label: "Inventory" }] : []),
+    { href: "/app/collections", label: "Collections" },
+  )
 
   // Expandable groups (parent nav items with children).
   // Always collapsed on mount — user opens manually via the chevron. No

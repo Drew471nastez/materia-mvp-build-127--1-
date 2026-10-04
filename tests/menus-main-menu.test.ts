@@ -116,9 +116,10 @@ console.log("\nThe editors\n")
   check("Add sub-link and Delete live in the row's menu", /label: "Add sub-link"/.test(list) && /variant: "destructive"/.test(list) && /<ResponsiveActionMenu/.test(list))
   check("no text buttons left in an open row", !/Remove link/.test(list) && !/data-link-add-under/.test(list))
   check("no box round the links themselves: rows and hairlines only", !/rounded-lg border border-border/.test(list))
-  check("one box round the menus in the editor's panel, none inside a settings card", /const BOX = plain \? "" : "rounded-lg border border-border/.test(menus) && /<MenusEditor\s+plain/.test(nav))
+  check("one box round the menus in the editor's panel, none inside a settings card", /const BOX = plain \? "" : "rounded-lg border border-border/.test(menus))
   check("the header's sidebar is a menu picker with Edit, not label and URL fields", /<MenuPickerControl[\s\S]{0,200}noneLabel=\{null\}/.test(page) && !/<HeaderNavLinksEditor/.test(page))
-  check("Website Settings edits the menus and says where each one shows", /<MenusEditor/.test(nav) && /title="Where menus show"/.test(nav) && !/HeaderNavLinksEditor/.test(nav))
+  check("Website Settings lists the menus and says where each one shows; their links are edited in Navigation", !/<MenusEditor/.test(nav) && /onClick=\{\(\) => ctx\.onEditMenu\(c\.handle\)\}/.test(nav) && /title="Where menus show"/.test(nav) && !/HeaderNavLinksEditor/.test(nav))
+  check("  a menu row there opens the builder's Navigation panel at that menu", /onEditMenu=\{\(handle\) => \{[\s\S]{0,160}openMenus\(handle\)/.test(page))
 }
 
 console.log("\nA map from an address, not an embed code\n")

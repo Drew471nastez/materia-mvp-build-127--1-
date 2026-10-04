@@ -51,7 +51,7 @@ import { pageSections, themeSettings as themeSettingsOf } from "@/lib/website-bu
 import { storeMenusOrNull, withStoreMenus } from "@/lib/website-builder/store-menus-server"
 import { withThemeBreadcrumbs } from "@/lib/website-builder/theme-breadcrumbs"
 import { NOT_FOUND_PAGE_KEY, pageTitleFromKey, templateForPage } from "@/lib/website-builder/site-pages"
-import { notFoundSections } from "@/lib/website-builder/shop-page"
+import { notFoundSections, searchListsTheShop } from "@/lib/website-builder/shop-page"
 import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
 import { schemaFor } from "@/lib/website-builder/storelib-schemas"
 import {
@@ -292,9 +292,8 @@ async function buildSite(creatorId: string, displayName: string): Promise<BuiltL
    * `raw` filter. An imported theme brings both with it.
    */
   /* The store's menus over the theme's own, when the store has them (lib/website-builder/store-menus-server.ts). */
-  const themeSettings = withStoreMenus(
-    sanitizeThemeSettings((themeSettingsOf(settingsRow as never, false) ?? {}) as ThemeSettingsValues),
-    await storeMenusOrNull(admin, creatorId),
+  const themeSettings = sanitizeThemeSettings(
+    withStoreMenus((themeSettingsOf(settingsRow as never, false) ?? {}) as ThemeSettingsValues, await storeMenusOrNull(admin, creatorId)),
   )
 
   /* The saved section files first: a creator's own section is cleaned by
@@ -471,7 +470,7 @@ export async function dressPage(
     template,
   })
   /* Theme settings › Breadcrumbs: the bar under the header on every page but home (theme-breadcrumbs.ts). */
-  const filled = withDynamicSources(withThemeBreadcrumbs(sections, site.themeSettings, template), schemaOf, dynamic)
+  const filled = withDynamicSources(withThemeBreadcrumbs(searchListsTheShop(sections), site.themeSettings, template), schemaOf, dynamic)
   /* The communities a community_picker names: the creator's own, published and public, while communities are on. A minute in the cache, like the shop. */
   const communityIds = communityReferences(sections, schemaOf)
   const communities = communityIds.length
@@ -486,14 +485,12 @@ export async function dressPage(
   /*
     The creator's published collections, for a collection picker, a
     collection list and the collections page: read only for a page that
-    uses them, a minute in the cache like the shop, and only while physical
-    commerce (where collections live) is on.
+    uses them, a minute in the cache like the shop. Every shop has them,
+    whatever kind of product it sells.
   */
   const sourceOf = (type: string) => site.sources[`sections/${type}.storelib`] ?? DEFAULT_THEME_SOURCES[`sections/${type}.storelib`]
   const collections = pageWantsCollections(sections, schemaOf, sourceOf)
     ? await (async () => {
-        const { isPhysicalCommerceEnabled } = await import("@/lib/platform/physical-commerce")
-        if (!(await isPhysicalCommerceEnabled())) return undefined
         const { siteCollections } = await import("@/lib/website-builder/storefront-collections-server")
         const read = async () => (await siteCollections(createAdminClient(), site.creatorId)).collections
         return opts.cached

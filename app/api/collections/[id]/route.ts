@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server"
-import { isUuid, physicalCaller, physicalJson, readBody } from "@/lib/physical/auth"
+import { isUuid, shopCaller, physicalJson, readBody } from "@/lib/physical/auth"
 import { deleteCollection, listCollections, saveCollection } from "@/lib/physical/collections-server"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const c = await physicalCaller()
+  const c = await shopCaller()
   if (c instanceof NextResponse) return c
   const { id } = await params
   if (!isUuid(id)) return physicalJson({ error: "Not found." }, 404)
@@ -18,7 +18,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 }
 
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const c = await physicalCaller()
+  const c = await shopCaller()
   if (c instanceof NextResponse) return c
   const { id } = await params
   if (!isUuid(id)) return physicalJson({ error: "Not found." }, 404)

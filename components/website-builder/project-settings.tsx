@@ -120,7 +120,7 @@ export function ProjectSettings({
   pages?: SitePage[]
   productCount?: number | null
   onAddPage?: () => void
-  onEditMenu?: () => void
+  onEditMenu?: (handle?: string) => void
   onOpenCode?: () => void
   onPublish?: () => void
   onAddressChanged?: (handle: string) => void
@@ -259,7 +259,10 @@ export function ProjectSettings({
       onEditPage?.(key)
     },
     onAddPage: thenClose(onAddPage),
-    onEditMenu: thenClose(onEditMenu),
+    onEditMenu: (handle?: string) => {
+      onClose()
+      onEditMenu(handle)
+    },
     onOpenCode: thenClose(onOpenCode),
     onPublish: thenClose(onPublish),
     onUnpublished,
