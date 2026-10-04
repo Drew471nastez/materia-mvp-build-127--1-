@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
+import { oauthQueryFor } from "@/lib/auth/google-oauth-params"
 import { NextResponse } from "next/server"
 import type { Provider } from "@supabase/supabase-js"
 import { classifyOAuthError, describeForLog, loginErrorQuery } from "@/lib/auth/oauth-errors"
@@ -54,12 +55,8 @@ export async function GET(request: Request) {
   // the callback won't find the cookie → "invalid flow state" error.
   const callbackOrigin = origin
 
-  // Google requires offline access + re-consent queryParams.
-  // Apple does NOT accept these params — omit them entirely for Apple.
-  const googleQueryParams =
-    provider === "google"
-      ? { access_type: "offline", prompt: "consent" }
-      : undefined
+  /* Nothing extra for Google any more, so it continues with the account it has: lib/auth/google-oauth-params.ts. Apple refuses Google's parameters either way. */
+  const googleQueryParams = oauthQueryFor(provider)
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider,

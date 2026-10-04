@@ -19,6 +19,7 @@ import { nativeAuthStart, nativeAppReady } from "@/lib/native-bridge"
 import { useNativeScrollLock } from "@/lib/use-native-scroll-lock"
 import { classifyOAuthError, existingAccountHint, messageForCode, type OAuthErrorCode, type OAuthProvider, type SignInMethod } from "@/lib/auth/oauth-errors"
 import { openAuthSheet, signInWithNativeGoogle } from "@/lib/auth/native-sign-in"
+import { GOOGLE_OAUTH_QUERY } from "@/lib/auth/google-oauth-params"
 import { HtmlClass } from "@/components/platform/html-class"
 import { readCarry, withCarry } from "@/lib/auth/continue"
 import { goOnAfterAuth, rememberNativeCarry } from "@/lib/auth/continue-client"
@@ -537,7 +538,8 @@ function LoginFormContent() {
             // Preferences and survives the SFSafariViewController /
             // Chrome Custom Tab round-trip.
             redirectTo: nativeCallbackUrl,
-            queryParams: { access_type: "offline", prompt: "consent" },
+            /* Nothing extra: Google continues with the account it already has (lib/auth/google-oauth-params.ts). */
+            queryParams: GOOGLE_OAUTH_QUERY,
             skipBrowserRedirect: true,
           },
         })

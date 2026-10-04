@@ -31,6 +31,18 @@
  *      (lib/native-oauth.ts). This is what every current build does, and it
  *      is now what BOTH pages do, with the same sheet.
  *
+ * WHY STEP 2 ARRIVES LOGGED OUT, which is the thing that reads as a private
+ * window: since iOS 11, SFSafariViewController keeps its own cookies, apart
+ * from Safari's, so the Google session on the phone is not in it and the
+ * person types an address and a password that the phone already knows.
+ * Android's Custom Tab does share Chrome's cookies, so it usually knows
+ * them, unless the phone's browser is not Chrome. Only step 1 — or
+ * ASWebAuthenticationSession, which the OAuth2Client plugin below uses and
+ * which Apple lets share Safari's cookies — ends that, and all of those are
+ * native code: a build, not a deploy. What the web layer could do about it
+ * is stop asking Google to re-consent on every sign in, which it no longer
+ * does (lib/auth/google-oauth-params.ts).
+ *
  * Step 1 needs a native release (a plugin is native code; the web layer
  * alone cannot add one), so it is found at runtime rather than imported:
  * `window.Capacitor.Plugins.<name>`. No plugin, no error — the app falls to
@@ -100,6 +112,26 @@ async function nativeGoogleIdToken(): Promise<string | null> {
     return user?.authentication?.idToken ?? null
   }
 
+  /*
+   * @byteowls/capacitor-oauth2: no Google SDK, but ASWebAuthenticationSession
+   * on iOS, which SHARES SAFARI'S COOKIES — so the person is already signed
+   * in to Google and taps once. Needs the iOS client id to build the address
+   * Google sends the answer back to.
+   */
+  const oauth2 = p.OAuth2Client as { authenticate: (o: unknown) => Promise<unknown> } | undefined
+  if (oauth2?.authenticate && IOS_CLIENT_ID) {
+    const reversed = IOS_CLIENT_ID.split(".").reverse().join(".")
+    const res = (await oauth2.authenticate({
+      appId: WEB_CLIENT_ID,
+      authorizationBaseUrl: "https://accounts.google.com/o/oauth2/auth",
+      scope: "email profile openid",
+      responseType: "id_token",
+      ios: { appId: IOS_CLIENT_ID, responseType: "id_token", redirectUrl: `${reversed}:/` },
+      android: { appId: WEB_CLIENT_ID, responseType: "id_token", redirectUrl: "com.storelib.app:/" },
+    })) as { id_token?: string | null; authorization_response?: { id_token?: string | null } }
+    return res?.id_token ?? res?.authorization_response?.id_token ?? null
+  }
+
   /* @capacitor-firebase/authentication, for a build that already carries Firebase. */
   const fb = p.FirebaseAuthentication as { signInWithGoogle: (o?: unknown) => Promise<unknown> } | undefined
   if (fb?.signInWithGoogle) {
@@ -113,7 +145,7 @@ async function nativeGoogleIdToken(): Promise<string | null> {
 /** Whether this build can show the phone's own Google sheet at all. */
 export function hasNativeGoogle(): boolean {
   const p = plugins()
-  return !!(p.SocialLogin?.login || p.GoogleAuth?.signIn || p.FirebaseAuthentication?.signInWithGoogle)
+  return !!(p.SocialLogin?.login || p.GoogleAuth?.signIn || (p.OAuth2Client?.authenticate && IOS_CLIENT_ID) || p.FirebaseAuthentication?.signInWithGoogle)
 }
 
 /**

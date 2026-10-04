@@ -28,6 +28,29 @@ browser sheet and the deep link brings the session back
   toolbar.
 - **Android**: a Chrome Custom Tab.
 
+### Why step 2 arrives logged out
+
+This is the "it opens like a private window, it never knows my account" part,
+and it is a platform fact rather than a setting:
+
+- **iOS**: since iOS 11, `SFSafariViewController` keeps its own cookies, apart
+  from Safari's. The Google session on the phone is not in it, so Google asks
+  for an address and a password the phone already knows.
+- **Android**: a Chrome Custom Tab *does* share Chrome's cookies, so it
+  usually knows the person — unless the phone's default browser is not Chrome.
+
+Three things end it, and all three are native code, so all three need a build
+rather than a deploy: Credential Manager and Google's SDK (step 1), or
+`ASWebAuthenticationSession`, which Apple lets share Safari's cookies and
+which the `OAuth2Client` plugin below uses.
+
+What the web layer could do about it, it has done: Storelib no longer sends
+`access_type=offline` and `prompt=consent` with a Google sign in
+(`lib/auth/google-oauth-params.ts`). Those asked Google to show the "Storelib
+wants access to your Google Account" screen on every single sign in and told
+it not to continue quietly with a session it already had. Nothing here ever
+used a Google token, so they bought nothing.
+
 This is what every build before this change did on the login page. The signup
 page did something else, and worse: it sent the app's own WebView to
 `/auth/start`, so Google's page loaded inside the app. Google refuses that in
@@ -46,7 +69,13 @@ a store release. Until then the app uses step 2, and nothing is broken.
    | --- | --- | --- |
    | `@capgo/capacitor-social-login` (`SocialLogin`) | Credential Manager, the bottom sheet | Google's sheet |
    | `@codetrix-studio/capacitor-google-auth` (`GoogleAuth`) | Google Sign-In | Google Sign-In |
+   | `@byteowls/capacitor-oauth2` (`OAuth2Client`) | Custom Tab | ASWebAuthenticationSession, Safari's cookies shared |
    | `@capacitor-firebase/authentication` (`FirebaseAuthentication`) | Firebase + Google | Firebase + Google |
+
+   `OAuth2Client` is the small one: no Google SDK, no Play Services, and on
+   iOS it is the system sheet that already knows the person. It needs the iOS
+   client id, because the answer comes back to that id reversed, as a URL
+   scheme. The others give Android its bottom sheet as well.
 
 2. Make the client IDs in Google Cloud (the same project the Supabase Google
    provider uses):
