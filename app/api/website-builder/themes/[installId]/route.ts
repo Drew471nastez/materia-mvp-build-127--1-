@@ -45,12 +45,11 @@ async function builderStoreMenus(creatorId: string, installId: string) {
  * and the collections page: every one as a choice, saying whether a visitor
  * sees it, and the published ones as a section reads them, so the canvas
  * draws them as the live site will. Read by this signed in creator's id
- * alone. Nothing while physical commerce, where collections live, is off.
+ * alone. Every shop has collections, whatever it sells; null only when
+ * they could not be read.
  */
 async function creatorCollectionsForBuilder(creatorId: string) {
   try {
-    const { isPhysicalCommerceEnabled } = await import("@/lib/platform/physical-commerce")
-    if (!(await isPhysicalCommerceEnabled())) return null
     const { siteCollections } = await import("@/lib/website-builder/storefront-collections-server")
     const { createAdminClient } = await import("@/lib/supabase/admin")
     const { collections, choices } = await siteCollections(createAdminClient(), creatorId, { published: false })

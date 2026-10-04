@@ -216,6 +216,7 @@ const SUITES = [
   "tests/theme-breadcrumbs.test.ts",
   "tests/date-control.test.ts",
   "tests/media-url.test.ts",
+  "tests/navigation-and-collections.test.ts",
   "tests/builder-click-edit.test.ts",
   "tests/policy-editing.test.ts",
   "tests/web-vitals.test.ts",

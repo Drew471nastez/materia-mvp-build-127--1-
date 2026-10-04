@@ -54,7 +54,9 @@ function main() {
   check("and the rest open onto their own list", menu.filter((e) => !picksDirectly(e)).map((e) => e.category.key).join(",") === "products,pages,accounts,policies")
   check("a kind with nothing in it is not there", linkMenu([page("/", "Home"), product("x", "X")]).map((e) => e.category.key).join(",") === "home,products")
   check("nothing is lost or listed twice", menu.reduce((n, e) => n + e.targets.length, 0) === TARGETS.length)
-  check("no collections and no blogs: this product has neither", !LINK_CATEGORIES.some((c) => /collection|blog/i.test(c.label)))
+  check("no blogs: this product has none", !LINK_CATEGORIES.some((c) => /blog/i.test(c.label)))
+  check("collections, after products, only when the store has some", LINK_CATEGORIES.map((c) => c.key).indexOf("collections") === LINK_CATEGORIES.map((c) => c.key).indexOf("products") + 1 && !menu.some((e) => e.category.key === "collections"))
+  check("  a collection and the collections page sort there", linkCategoryOf({ href: "/collections/summer", kind: "collection" }) === "collections" && linkCategoryOf({ href: "/collections", kind: "page" }) === "collections")
 
   console.log("\nWhere each place goes")
   check("a product is a product, whatever its address", linkCategoryOf(product("search", "Search")) === "products")
@@ -80,7 +82,7 @@ function main() {
   check("Back sits above the rows and does not scroll away", /\{back && \(/.test(picker) && picker.indexOf("{back && (") < picker.indexOf("data-float-scroll"))
   check("with the count on its right", /\{resultCount\(back\.count\)\}/.test(picker))
   check("Escape inside a kind goes back before it closes", /onEscape=\{onEscape\}/.test(picker) && /if \(onEscape\?\.\(\)\) return/.test(popover))
-  check("a product row draws its picture", /image=\{t\.kind === "product" \? t\.image : undefined\}/.test(picker))
+  check("a product row draws its picture, and a collection row its own", /image=\{t\.kind === "product" \|\| t\.kind === "collection" \? t\.image : undefined\}/.test(picker))
   check("the list's scrollbar is the drawn thumb, taking no width", /cp-overlay-scroll min-h-0 overflow-y-auto/.test(picker) && /<OverlayRail scrollerRef=\{listRef\} \/>/.test(picker))
   check("the panel opens under the field or over it, and keeps its side while it fits",
     /s = below >= want \? "below" : above >= want \? "above" : below >= above \? "below" : "above"/.test(popover) && /if \(!s \|\| \(s === "below" \? below : above\) < want\)/.test(popover))
@@ -89,7 +91,7 @@ function main() {
   check("it comes and goes by opacity and transform, and not at all under reduced motion",
     /opacity: 0, transform: `translate3d\(0, \$\{dy\}px, 0\) scale\(0\.985\)`/.test(popover) && /prefers-reduced-motion: reduce/.test(popover) && /\.wb-link-level\[data-dir\] \{ animation: none; \}/.test(css))
   check("the editor gives it the account pages and the products' pictures",
-    /href: "\/account\/login", label: "Sign in", kind: "page"/.test(read("app/website-builder/editor/[installId]/page.tsx")) && /image: p\.thumbnail_url \|\| undefined/.test(read("app/website-builder/editor/[installId]/page.tsx")))
+    /href: "\/account\/login", label: "Sign in", kind: "page"/.test(read("lib/website-builder/link-targets.ts")) && /image: p\.thumbnail_url \|\| undefined/.test(read("lib/website-builder/link-targets.ts")) && /storeLinkTargets\(\{/.test(read("app/website-builder/editor/[installId]/page.tsx")))
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }

@@ -48,7 +48,7 @@ export function PhysicalCouponOptions({
 
   React.useEffect(() => {
     if (!enabled) return
-    void api<{ collections: { id: string; title: string }[] }>("/api/physical/collections").then((r) => setAll(r.ok ? r.data.collections : []))
+    void api<{ collections: { id: string; title: string }[] }>("/api/collections").then((r) => setAll(r.ok ? r.data.collections : []))
   }, [enabled])
 
   const now = { freeShipping, physicalOnly, perCustomer: limitOn ? perCustomer : "", collections }

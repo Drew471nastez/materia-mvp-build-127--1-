@@ -18,6 +18,7 @@ import {
   Search,
   Store,
   UserRound,
+  LayoutGrid,
   type LucideIcon,
 } from "lucide-react"
 
@@ -82,7 +83,7 @@ export interface LinkTarget {
   /** What goes in the field. */
   href: string
   label: string
-  kind: "page" | "product" | "section"
+  kind: "page" | "product" | "collection" | "section"
   /** A product's picture, drawn small beside its name. */
   image?: string
   /**
@@ -115,6 +116,7 @@ const CATEGORY_ICON: Record<LinkCategoryKey, LucideIcon> = {
   home: House,
   shop: Store,
   products: Package,
+  collections: LayoutGrid,
   pages: FileText,
   accounts: UserRound,
   policies: ScrollText,
@@ -470,7 +472,7 @@ export function LinkPicker({
         onClick={() => pick(t)}
         className={optionClass(i)}
       >
-        <RowMark icon={row.icon} image={t.kind === "product" ? t.image : undefined} />
+        <RowMark icon={row.icon} image={t.kind === "product" || t.kind === "collection" ? t.image : undefined} />
         {/**
           * THE NAME, NOT THE ADDRESS. Nobody picks a link by its
           * slug; the address is still there as the row's title.
