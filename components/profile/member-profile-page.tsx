@@ -190,7 +190,7 @@ export function MemberProfilePage({ profile, viewerId, viewerFollowing, extras }
           {communities.owned.length === 0 && memberCards.length === 0 ? (
             <p className="rounded-2xl border border-dashed border-[#e5e7eb] px-6 py-10 text-center text-[14px] text-[#6b7280]">
               No communities yet.{" "}
-              <Link href="/explore/communities" className="font-medium text-[#1a1a2e] underline-offset-2 hover:underline">
+              <Link href="/explore?type=communities" className="font-medium text-[#1a1a2e] underline-offset-2 hover:underline">
                 Find one
               </Link>
             </p>

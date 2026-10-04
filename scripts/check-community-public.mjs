@@ -205,15 +205,15 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       const side = await noSideways(p)
       expect(side.doc <= side.win && errors.length === 0, "explore: nothing sideways, no errors", { side, errors })
       const cols = await p.evaluate(() => {
-        const cards = [...document.querySelectorAll("[data-community-card]")].map((c) => c.getBoundingClientRect())
+        const cards = [...document.querySelectorAll("[data-explore-community]")].map((c) => c.getBoundingClientRect())
         const firstRow = cards.filter((r) => Math.abs(r.top - cards[0].top) < 2)
         return { n: cards.length, perRow: firstRow.length, heights: [...new Set(firstRow.map((r) => Math.round(r.height)))] }
       })
       expect(cols.n === 7 && cols.perRow === (phone ? 1 : 3), `explore: ${phone ? "one column" : "three columns"}`, cols)
       expect(cols.heights.length === 1, "explore: the cards in a row are one height", cols.heights)
       if (phone) {
-        const small = await smallTargets(p, "[data-explore-communities] nav, [data-explore-communities] form, [data-show-more]")
-        expect(small.length === 0, "explore: the pills and Show more are at least 40px", small)
+        const small = await smallTargets(p, "[data-show-more]")
+        expect(small.length === 0, "explore: Show more is at least 40px", small)
       }
       await p.close()
     }

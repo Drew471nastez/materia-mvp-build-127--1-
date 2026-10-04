@@ -410,6 +410,10 @@ async function main() {
     }
     check("onboarding is for an active member (requireMember)", /const gate = await requireMember\(db, communityId, user\?\.id \?\? null, "view"\)\s*if \(gate instanceof NextResponse\) return gate/.test(code("app/api/community/[communityId]/onboarding/route.ts")))
     check("the join bucket is community-join, with a ten minute and a daily window", JOIN_BUCKET === "community-join" && JOIN_WINDOWS.length === 2)
+    /* Round 4: communities are found inside Explore (/explore?type=communities); the old page is a redirect and the card counts views (tests/explore-communities.test.ts). */
+    check("/explore/communities is a 404 while off and otherwise a permanent redirect into Explore", /if \(!\(await communitiesEnabled\(\)\)\) notFound\(\)\s*const params = await searchParams[\s\S]*permanentRedirect\(legacyCommunitiesTarget\(/.test(code("app/(marketing)/explore/communities/page.tsx")))
+    check("the explore route takes the pill and the price as well as the word and the order", /category: url\.searchParams\.get\("c"\), price: url\.searchParams\.get\("price"\)/.test(code("app/api/explore/communities/route.ts")))
+    check("a card says what is real: views only when read, stars only from reviews, the launch date", /viewCount: viewsOf\(c\.view_count\)/.test(code("lib/communities/server/public.ts")) && /rating: cardRating\(own\.map\(\(t\) => t\.product_id\), products\)/.test(code("lib/communities/server/public.ts")) && /launchedAt: c\.created_at \?\? null/.test(code("lib/communities/server/public.ts")))
     const server = ["lib/communities/server/public.ts", "lib/communities/server/join.ts", "lib/communities/server/explore.ts"].map(code).join("\n")
     /* Found end to end (QA): COMMUNITY_WELCOME was drawn by the notify engine and raised by nothing. */
     {

@@ -7,13 +7,14 @@
  * Under one tab row (?tab=), the way /app/settings groups its panels:
  *
  *   Page           what people see before they join: name, address,
- *                  tagline, description, logo, cover, the gallery of
- *                  pictures and videos, what members get, questions, links.
+ *                  tagline, category (the Explore pill it is found under),
+ *                  description, logo, cover, the gallery of pictures and
+ *                  videos, what members get, questions, links.
  *   Access         who can join, approval, the tiers with their prices (a
  *                  recurring price is saved through the memberships engine:
  *                  members keep what they joined at), the other products
  *                  that let somebody in; then who can find it: Explore,
- *                  visibility, category, search words.
+ *                  visibility, search words.
  *   Features       which sections are on, and the welcome a new member sees.
  *   Gamification   points, levels, badges.
  *   Notifications  what you hear about in this community.
@@ -34,6 +35,7 @@ import { centsFromInput } from "@/lib/memberships/plan"
 import type { CommunityFaq, CommunityLink, NotifyLevel } from "@/lib/communities/types"
 import type { CommunityHead, SettingsData, TierView } from "./view-types"
 import { typeOf, type CommunityType, type GalleryItem, type PriceInterval, type SettingsTab } from "./logic"
+import { COMMUNITY_CATEGORIES, communityCategoryId } from "@/lib/explore/communities-mode"
 
 export type { SettingsTab }
 import { GamificationPanel } from "./gamification-panel"
@@ -135,6 +137,8 @@ interface PageState {
   name: string
   slug: string
   tagline: string
+  /** One of Explore's category ids, or "" for none. */
+  category: string
   description: string
   logoUrl: string | null
   coverUrl: string | null
@@ -152,6 +156,7 @@ function PageSettings({ head, data }: { head: CommunityHead; data: SettingsData 
       name: head.name,
       slug: head.slug,
       tagline: data.tagline ?? "",
+      category: communityCategoryId(data.category) ?? "",
       description: data.description,
       logoUrl: head.logoUrl,
       coverUrl: head.coverUrl,
@@ -213,6 +218,21 @@ function PageSettings({ head, data }: { head: CommunityHead; data: SettingsData 
               Tagline
             </label>
             <input id="g-tagline" value={s.tagline} onChange={(e) => set("tagline", e.target.value.slice(0, 160))} placeholder="One line on cards and in Explore" className={cn(field, "h-11 sm:h-10")} />
+          </div>
+          <div>
+            <label htmlFor="g-category" className={label}>
+              Category
+            </label>
+            {/* The same list as Explore's category pills: the one picked here is the pill it is found under. */}
+            <select id="g-category" value={s.category} onChange={(e) => set("category", e.target.value)} className={cn(selectField, "sm:max-w-[320px]")} data-category-select="">
+              <option value="">No category</option>
+              {COMMUNITY_CATEGORIES.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-[12px] text-[#6b7280]">Where it shows up in Explore.</p>
           </div>
           <div>
             <label htmlFor="g-desc" className={label}>
@@ -741,7 +761,7 @@ function Discovery({ head, data }: { head: CommunityHead; data: SettingsData }) 
   const toast = useToast()
   const instant = useInstant(head)
   const [discover, setDiscover] = React.useState(data.discoveryEnabled)
-  const start = { visibility: head.visibility, category: data.category ?? "", seoTitle: data.seoTitle ?? "", seoDescription: data.seoDescription ?? "" }
+  const start = { visibility: head.visibility, seoTitle: data.seoTitle ?? "", seoDescription: data.seoDescription ?? "" }
   const [s, setS] = React.useState(start)
   const [saved, setSaved] = React.useState(JSON.stringify(start))
   const [busy, setBusy] = React.useState(false)
@@ -783,12 +803,7 @@ function Discovery({ head, data }: { head: CommunityHead; data: SettingsData }) 
                 <option value="private">Private: members only</option>
               </select>
             </div>
-            <div>
-              <label htmlFor="d-cat" className={label}>
-                Category
-              </label>
-              <input id="d-cat" value={s.category} onChange={(e) => setS({ ...s, category: e.target.value.slice(0, 60) })} placeholder="Writing, fitness, design" className={cn(field, "h-11 sm:h-10")} />
-            </div>
+            {/* The category is chosen in Page, from Explore's own list. */}
           </div>
           <div>
             <label htmlFor="d-seo-t" className={label}>

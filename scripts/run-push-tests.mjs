@@ -152,6 +152,7 @@ const SUITES = [
   "tests/back-no-replay.test.ts",
   "tests/explore-entrance.test.ts",
   "tests/explore-browse.test.ts",
+  "tests/explore-communities.test.ts",
   "tests/route-loading-bar.test.ts",
   "tests/back-plan.test.ts",
   "tests/back-never-stalls.test.ts",

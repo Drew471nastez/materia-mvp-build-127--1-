@@ -4,6 +4,7 @@ import { usePathname, useSearchParams } from "next/navigation"
 import { useEffect, useState, useSyncExternalStore } from "react"
 import { MarketingFooter } from "@/components/marketing/footer"
 import { ShopCompactFooter } from "@/components/marketing/shop-compact-footer"
+import { SellerFooter } from "@/components/storefront/seller-footer"
 import { readAuthSnapshot, subscribeAuthSnapshot } from "@/lib/auth/auth-snapshot"
 import { isExploreBrowsePage, siteFooterFor } from "@/lib/nav/site-footer"
 import { extractUsernameFromHost, isCustomDomain, isSellerPage } from "@/lib/url-helpers"
@@ -18,6 +19,8 @@ export function ConditionalFooter() {
   const searchParams = useSearchParams()
   const signedIn = useSyncExternalStore(subscribeAuthSnapshot, readSignedIn, () => false)
   const [footerMode, setFooterMode] = useState<"none" | "marketing" | "compact">("none")
+  /* Explore on a computer ends the way a creator's page does (see the end of this component). */
+  const [exploreDesktop, setExploreDesktop] = useState(false)
   const [isHydrated, setIsHydrated] = useState(false)
 
   useEffect(() => {
@@ -26,6 +29,7 @@ export function ConditionalFooter() {
 
   useEffect(() => {
     if (!isHydrated) return
+    setExploreDesktop(false)
 
     const host = typeof window !== "undefined" ? window.location.host : ""
     const isSubdomain = extractUsernameFromHost(host) !== null
@@ -75,6 +79,9 @@ export function ConditionalFooter() {
       return
     }
 
+    /* Explore's browse pages, on the web: the creator page's footer from 1024px, whoever is looking (below). */
+    setExploreDesktop(!isNativeApp() && isExploreBrowsePage(pathname))
+
     /* Signed-in Explore only: a thin link row instead of the black footer. */
     if (signedIn && !isNativeApp() && isExploreBrowsePage(pathname)) {
       setFooterMode("compact")
@@ -110,7 +117,24 @@ export function ConditionalFooter() {
     setFooterMode(isPlatformPage && siteFooterFor(pathname, { signedIn }) ? "marketing" : "none")
   }, [pathname, searchParams, isHydrated, signedIn])
 
-  if (footerMode === "marketing") return <MarketingFooter />
-  if (footerMode === "compact") return <ShopCompactFooter />
-  return null
+  const footer = footerMode === "marketing" ? <MarketingFooter /> : footerMode === "compact" ? <ShopCompactFooter /> : null
+  /*
+    EXPLORE ON A COMPUTER ENDS LIKE A CREATOR'S PAGE. The owner asked for
+    the creator page's own footer here on large screens, exactly as it is:
+    "Powered by Storelib" and Privacy Policy, Terms & Conditions, Cookie
+    preferences on one white row (components/storefront/seller-footer.tsx,
+    unthemed). From 1024px it replaces the black footer (signed out) and the
+    link row (signed in); below that, phones and tablets keep what they had.
+  */
+  if (exploreDesktop) {
+    return (
+      <>
+        {footer ? <div className="lg:hidden">{footer}</div> : null}
+        <div className="hidden lg:block" data-explore-desktop-footer="">
+          <SellerFooter />
+        </div>
+      </>
+    )
+  }
+  return footer
 }

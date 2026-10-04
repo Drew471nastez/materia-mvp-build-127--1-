@@ -8,13 +8,13 @@
  *   ?sales-free     a free one, signed out, no cover
  *   ?sales-member   the owner of it, on /about
  *   ?sales-pending  a request waiting
- *   ?explore        /explore/communities
+ *   ?explore        Explore in communities mode (/explore?type=communities), its grid
  *   ?library        /library/communities
  *   ?storefront     a creator page's Communities tab
  */
 import { createRoot } from "react-dom/client"
 import { CommunitySalesPage } from "@/components/community/public/sales-page"
-import { ExploreCommunities } from "@/components/community/public/explore-communities"
+import { ExploreCommunitiesResults } from "@/components/explore/explore-communities-results"
 import { LibraryCommunitiesList } from "@/components/community/public/library-list"
 import { StorefrontCommunities } from "@/components/community/public/storefront-communities"
 import { decideJoin } from "@/components/community/public/join-state"
@@ -197,7 +197,9 @@ if (pages[which]) {
       <Header />
       <main className="explore-ground min-h-screen bg-[#f8f9fa]">
         <div className="mx-auto max-w-[1400px] px-4 pb-10 pt-5 sm:px-6 sm:pb-14 sm:pt-7 lg:px-8">
-          <ExploreCommunities initial={Array.from({ length: 7 }, (_, i) => card(i))} next="cursor" q="" sort="trending" />
+          <div data-explore-communities="">
+            <ExploreCommunitiesResults initial={{ query: "", items: Array.from({ length: 7 }, (_, i) => card(i)), next: "cursor" }} q="" category="all" srt="recommended" price="all" categoryLabel={null} filtersOn={false} onClearFilters={() => {}} />
+          </div>
         </div>
       </main>
     </div>,

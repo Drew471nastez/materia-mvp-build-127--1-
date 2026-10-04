@@ -284,7 +284,7 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
         return box ? { kind: box.getAttribute("data-place-navigator-panel"), text: box.innerText.replace(/\s+/g, " ").trim(), links: [...box.querySelectorAll("a")].map((a) => a.getAttribute("href")), current: box.querySelector("[data-current]")?.getAttribute("href") ?? null } : null
       })
       expect(!!sw && sw.kind === (phone ? "sheet" : "popover"), `the hamburger opens the navigator as a ${phone ? "sheet" : "popover"}`, sw?.kind)
-      expect(!!sw && /Your communities/.test(sw.text) && sw.links.join() === "/community/clay-studio,/community/night-runners,/community/film-photo-club,/explore/communities,/explore,/sell" && sw.current === "/community/clay-studio", "my communities (this one marked), Discover communities, Explore, Start creating", sw && { links: sw.links, current: sw.current })
+      expect(!!sw && /Your communities/.test(sw.text) && sw.links.join() === "/community/clay-studio,/community/night-runners,/community/film-photo-club,/explore?type=communities,/explore,/sell" && sw.current === "/community/clay-studio", "my communities (this one marked), Discover communities, Explore, Start creating", sw && { links: sw.links, current: sw.current })
       await shot(p, `${label}-navigator`)
       await p.keyboard.press("Escape")
       await sleep(phone ? 650 : 250)

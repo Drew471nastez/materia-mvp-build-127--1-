@@ -13,5 +13,5 @@ import { communitiesEnabled } from "@/lib/communities/flag"
 export default async function CommunityIndexPage() {
   await connection()
   if (!(await communitiesEnabled())) notFound()
-  redirect("/explore/communities")
+  redirect("/explore?type=communities")
 }

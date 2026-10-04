@@ -341,7 +341,7 @@ export async function checkoutGate(
   }
   if (!communityId) return { community: null, refusal: null }
   const community = await loadCommunity(db, { id: communityId })
-  if (!community) return { community: null, refusal: { status: 404, code: "unavailable", error: "This community is not available.", url: "/explore/communities" } }
+  if (!community) return { community: null, refusal: { status: 404, code: "unavailable", error: "This community is not available.", url: "/explore?type=communities" } }
   const url = communityPath(community.slug)
   if (!communityOpen(community) || community.status !== "published" || community.archived_at) {
     return { community, refusal: { status: 404, code: "unavailable", error: "This community is not taking new members.", url } }
