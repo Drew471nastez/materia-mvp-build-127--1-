@@ -5,12 +5,32 @@
  *  FOLLOW, ON ANY PROFILE AND ON A CREATOR'S PAGE
  * ===========================================================================
  * One button for following a person, wherever a person is shown: a buyer's
- * profile, a creator's profile, a creator's page, a follower list. It says
- * what will happen (Follow) or what is true (Following, with a check), and
- * a pointer over Following, or a finger pressing it, says what a press will
- * do: Unfollow. It changes the moment it is pressed and goes back if the
- * server refuses, and the server is POST /api/follow, which takes the
- * follower from the session.
+ * profile, a creator's profile, a creator's page. It says what will happen
+ * (Follow) or what is true (Following, with a check). A press on Follow
+ * makes it Following; a press on Following makes it Follow. Nothing else:
+ * the owner asked for the hover "Unfollow" to go, so a pointer over
+ * Following only shades it a little, as any button does.
+ *
+ * IT ANSWERS THE FINGER, NOT THE SERVER.
+ *   pointerdown  the face sinks a touch (scale 0.96) and takes its pressed
+ *                shade on that very frame: set on the element directly, no
+ *                React render in between
+ *   click        the state flips at once: the two faces (the solid Follow
+ *                and the quiet Following) and their labels crossfade over
+ *                180ms, opacity and scale only, so the compositor does all
+ *                of it and the main thread is free
+ *   release      the face springs back with the smallest overshoot
+ * Both labels are always laid out in one grid cell, so the button is as
+ * wide as the wider of them in both states: nothing beside it moves.
+ * Reduced motion: the same switch, without the movement.
+ *
+ * TAPS SETTLE TO THE LAST ONE (useFollow). Each press flips what the button
+ * shows; the server hears the result once the presses stop (DEBOUNCE_MS),
+ * one request at a time, and only when it differs from what the server
+ * already has. Follow, Following, Follow in a quick row is one follow, and
+ * a double tap is nothing. A refusal puts the button and the count back to
+ * what the server has. Leaving the page mid wait still sends it (keepalive).
+ * The server is POST /api/follow, which takes the follower from the session.
  *
  * Signed out, the press goes to sign in and comes back here.
  *
@@ -23,17 +43,16 @@
  * On a creator's page ("storefront") the same shapes are painted in the
  * scheme the creator picked (lib/store-builder/storefront-chrome.ts
  * `action`): Follow in their buy button colour, Following and Message a
- * surface a step off their page with their page's ink, Unfollow in a red
- * that reads on it. The colours travel as CSS variables, so hover and press
- * are plain CSS and answer on the first frame.
+ * surface a step off their page with their page's ink. The colours travel
+ * as CSS variables, so hover and press are plain CSS.
  *
- * NO UNFOLLOW UNDER A POINTER THAT JUST FOLLOWED. The pointer that pressed
- * Follow is still over the button, so it would at once offer to undo what
- * it just did. "Unfollow" only shows again once the pointer has left.
+ * THE NATIVE SHELL. globals.css dims every pressed button to 72% inside the
+ * app; this one has its own press, so it keeps its opacity (inline, which
+ * that rule does not outrank). `touch-action: manipulation` drops the
+ * double tap zoom, and the box is 40px tall.
  */
-import { useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { Check } from "lucide-react"
-import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
 import { cn } from "@/lib/utils"
 
 export type FollowTone = "platform" | "storefront"
@@ -50,42 +69,88 @@ export interface ActionScheme {
   dark?: boolean
 }
 
+/** How long the presses must stop before the server hears the last one. */
+export const DEBOUNCE_MS = 300
+
+type FollowAnswer = { following?: boolean; followers?: number; error?: string }
+
 export function useFollow(input: { targetUserId: string; initialFollowing: boolean; signedIn: boolean; onFollowers?: (n: number) => void; onChange?: (following: boolean) => void }) {
+  /* What the button shows: the last press. */
   const [following, setFollowing] = useState(input.initialFollowing)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  /* What the server has, the last press, the one request allowed in flight, and the wait before it. */
+  const server = useRef(input.initialFollowing)
+  const wanted = useRef(input.initialFollowing)
+  const flying = useRef(false)
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const live = useRef(input)
+  live.current = input
 
-  const toggle = async () => {
+  const send = useCallback(async () => {
+    timer.current = null
+    if (flying.current || wanted.current === server.current) return
+    const next = wanted.current
+    flying.current = true
+    setBusy(true)
+    try {
+      const res = await fetch("/api/follow", {
+        method: "POST",
+        credentials: "include",
+        keepalive: true,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: live.current.targetUserId, follow: next }),
+      })
+      const data = (await res.json().catch(() => ({}))) as FollowAnswer
+      if (!res.ok || typeof data.following !== "boolean") throw new Error(data.error || "That did not go through. Try again.")
+      server.current = data.following
+      /* The server's count only while it is still the count of what the button shows. */
+      if (wanted.current === data.following && typeof data.followers === "number") live.current.onFollowers?.(data.followers)
+    } catch (e) {
+      /* Refused: the button and the count go back to what the server has. */
+      if (wanted.current !== server.current) {
+        wanted.current = server.current
+        setFollowing(server.current)
+        live.current.onChange?.(server.current)
+        setError(e instanceof Error ? e.message : "That did not go through. Try again.")
+      }
+    } finally {
+      flying.current = false
+      setBusy(false)
+      /* Pressed again while that one was out: one more, for the newest press. */
+      if (wanted.current !== server.current && !timer.current) void send()
+    }
+  }, [])
+
+  /* Leaving with a press still waiting: send it now, keepalive carries it past the page. */
+  useEffect(() => {
+    const flush = () => {
+      if (timer.current) {
+        clearTimeout(timer.current)
+        void send()
+      }
+    }
+    window.addEventListener("pagehide", flush)
+    return () => {
+      window.removeEventListener("pagehide", flush)
+      flush()
+    }
+  }, [send])
+
+  const toggle = () => {
     if (!input.signedIn) {
       const back = typeof window !== "undefined" ? window.location.pathname + window.location.search : "/"
       window.location.assign(`/login?next=${encodeURIComponent(back)}`)
       return
     }
-    if (busy) return
-    const next = !following
-    setBusy(true)
+    const next = !wanted.current
+    wanted.current = next
     setError(null)
-    /* Optimistic: the button and the count change on the press, and both go back if the server says no. */
+    /* Optimistic: the button and the count change on the press. */
     setFollowing(next)
     input.onChange?.(next)
-    try {
-      const res = await fetch("/api/follow", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: input.targetUserId, follow: next }),
-      })
-      const data = (await res.json().catch(() => ({}))) as { following?: boolean; followers?: number; error?: string }
-      if (!res.ok || typeof data.following !== "boolean") throw new Error(data.error || "That did not go through. Try again.")
-      setFollowing(data.following)
-      if (typeof data.followers === "number") input.onFollowers?.(data.followers)
-    } catch (e) {
-      setFollowing(!next)
-      input.onChange?.(!next)
-      setError(e instanceof Error ? e.message : "That did not go through. Try again.")
-    } finally {
-      setBusy(false)
-    }
+    if (timer.current) clearTimeout(timer.current)
+    timer.current = setTimeout(() => void send(), DEBOUNCE_MS)
   }
 
   return { following, busy, error, toggle }
@@ -106,7 +171,7 @@ export function schemeVars(scheme: ActionScheme | null | undefined): React.CSSPr
     "--sf-hover": scheme.hover || scheme.background,
     "--sf-press": scheme.press || scheme.hover || scheme.background,
     ...(q
-      ? { "--sq-bg": q.background, "--sq-hover": q.hover, "--sq-press": q.press, "--sq-line": q.border, "--sq-ink": q.text, "--sq-danger": q.danger }
+      ? { "--sq-bg": q.background, "--sq-hover": q.hover, "--sq-press": q.press, "--sq-line": q.border, "--sq-ink": q.text }
       : {}),
   } as React.CSSProperties
 }
@@ -135,13 +200,64 @@ export const schemeQuiet = cn(
   "[-webkit-tap-highlight-color:transparent]",
 )
 
+/**
+ * The state change: a crossfade of the two faces and their labels,
+ * compositor only. It starts 24ms in (a negative delay): a transition's
+ * first frame is its starting value, so without that the frame right after
+ * the press would show nothing yet; with it, that frame is already a third
+ * of the way across.
+ */
+const SWAP = "transition-[opacity,scale] duration-[180ms] [transition-delay:-24ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none"
+
+/**
+ * A label that is not the state goes invisible once it has faded, so the
+ * button's text (and a find in page) is only the state. Visibility steps:
+ * shown at the start of a fade in, hidden at the end of a fade out.
+ */
+const LABEL = "relative col-start-1 row-start-1 inline-flex items-center gap-1.5 whitespace-nowrap transition-[opacity,scale,visibility] duration-[180ms] [transition-delay:-24ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none"
+
+/** Each face is a full layer of the button, at the same box: a 1px edge on both, so neither is a pixel bigger. */
+const FACE = "pointer-events-none absolute inset-0 rounded-[inherit] border"
+
+/** Storelib's own pair (components/ui/depth-button.ts primaryDepth and secondaryDepth), as faces. */
+const PLATFORM = {
+  solid: cn(
+    FACE,
+    "border-transparent bg-[#1a1a2e] shadow-[inset_0_1px_0_rgba(255,255,255,0.14),inset_0_-1px_0_rgba(0,0,0,0.35),0_1px_2px_rgba(16,24,40,0.25)]",
+    "group-hover/follow:bg-[#2a2a40] group-data-[pressed]/follow:bg-[#0f0f1c] group-data-[pressed]/follow:shadow-[inset_0_1px_2px_rgba(0,0,0,0.4)]",
+  ),
+  quiet: cn(
+    FACE,
+    "border-[#d9dbe0] bg-white shadow-[inset_0_-1px_0_rgba(0,0,0,0.08),0_1px_0_rgba(0,0,0,0.05)]",
+    "group-hover/follow:bg-[#f7f7f8] group-data-[pressed]/follow:bg-[#f1f2f4] group-data-[pressed]/follow:shadow-[inset_0_1px_1px_rgba(0,0,0,0.1)]",
+  ),
+  solidInk: "text-white",
+  /* Medium, like Message beside it (secondaryDepth). */
+  quietInk: "text-[#1a1a2e] font-medium",
+}
+
+/** The same pair in the creator's scheme (schemePrimary and schemeQuiet above), as faces. */
+const SCHEME = {
+  solid: cn(
+    FACE,
+    "border-transparent bg-[var(--sf-bg)] shadow-[inset_0_1px_0_rgba(255,255,255,0.16),inset_0_-1px_0_rgba(0,0,0,0.3),0_1px_2px_rgba(16,24,40,0.22)]",
+    "group-hover/follow:bg-[var(--sf-hover)] group-data-[pressed]/follow:bg-[var(--sf-press)] group-data-[pressed]/follow:shadow-[inset_0_1px_2px_rgba(0,0,0,0.38)]",
+  ),
+  quiet: cn(
+    FACE,
+    "border-[var(--sq-line,color-mix(in_srgb,currentColor_22%,transparent))] bg-[var(--sq-bg,transparent)] shadow-[inset_0_-1px_0_rgba(0,0,0,0.08),0_1px_0_rgba(0,0,0,0.05)]",
+    "group-hover/follow:bg-[var(--sq-hover,color-mix(in_srgb,currentColor_5%,transparent))] group-data-[pressed]/follow:bg-[var(--sq-press,color-mix(in_srgb,currentColor_9%,transparent))] group-data-[pressed]/follow:shadow-[inset_0_1px_1px_rgba(0,0,0,0.12)]",
+  ),
+  solidInk: "text-[var(--sf-ink)]",
+  quietInk: "text-[var(--sq-ink,currentColor)]",
+}
+
 export function FollowButton({
   following,
   busy,
   onClick,
   tone = "platform",
   scheme,
-  size = "md",
   name,
   className,
 }: {
@@ -151,64 +267,71 @@ export function FollowButton({
   tone?: FollowTone
   /** On a creator's page: their scheme's button colours. Without one, the page's text colour draws it. */
   scheme?: ActionScheme | null
-  size?: "sm" | "md"
   /** Who, for a screen reader: "Follow Ana". */
   name?: string
   className?: string
 }) {
-  /* Set by a Follow press, cleared when the pointer leaves: see NO UNFOLLOW UNDER A POINTER THAT JUST FOLLOWED. */
-  const [fresh, setFresh] = useState(false)
-  const box = size === "sm" ? "h-9 min-w-[104px] rounded-[10px] px-3.5 text-[13px]" : "h-10 min-w-[128px] rounded-xl px-5 text-[14px]"
   const storefront = tone === "storefront"
-  const unfollowable = following && !fresh
-  /* Red only while a press would unfollow: not under the pointer that has just followed. */
-  const look = storefront
-    ? following
-      ? cn(schemeQuiet, unfollowable && "hover:text-[var(--sq-danger,currentColor)] active:text-[var(--sq-danger,currentColor)]")
-      : scheme
-        ? schemePrimary
-        : schemeQuiet
-    : following
-      ? cn(secondaryDepth, unfollowable && "hover:text-[#b42318] active:text-[#b42318]")
-      : primaryDepth
+  const look = storefront ? SCHEME : PLATFORM
+  /* A creator page without a scheme draws Follow in the quiet face too, in the page's own text colour. */
+  const solid = storefront && !scheme ? SCHEME.quiet : look.solid
+  const solidInk = storefront && !scheme ? SCHEME.quietInk : look.solidInk
+  const release = (e: React.PointerEvent<HTMLButtonElement>) => {
+    delete e.currentTarget.dataset.pressed
+  }
   return (
     <button
       type="button"
-      onClick={() => {
-        if (!following) setFresh(true)
-        onClick()
+      onPointerDown={(e) => {
+        /* On this frame, without waiting for React: see IT ANSWERS THE FINGER. */
+        if (e.button === 0) e.currentTarget.dataset.pressed = ""
       }}
-      onPointerLeave={() => setFresh(false)}
-      onBlur={() => setFresh(false)}
+      onPointerUp={release}
+      onPointerCancel={release}
+      onPointerLeave={release}
+      onClick={onClick}
       aria-pressed={following}
       aria-label={name ? `${following ? "Following" : "Follow"} ${name}` : undefined}
       aria-busy={busy || undefined}
       data-follow-button={following ? "following" : "follow"}
       data-follow-tone={storefront ? (scheme ? "scheme" : "storefront") : "platform"}
-      className={cn("group/follow", look, box, className)}
-      style={storefront ? schemeVars(scheme) : undefined}
-    >
-      {following ? (
-        /* Following and Unfollow share one cell, so the button never changes width between them. */
-        <span className="grid place-items-center">
-          <span
-            className={cn("col-start-1 row-start-1 inline-flex items-center gap-1.5", unfollowable && "group-hover/follow:invisible group-active/follow:invisible")}
-            data-follow-label="following"
-          >
-            <Check className="h-4 w-4" strokeWidth={2.25} aria-hidden />
-            Following
-          </span>
-          <span
-            aria-hidden
-            className={cn("invisible col-start-1 row-start-1", unfollowable && "group-hover/follow:visible group-active/follow:visible")}
-            data-follow-label="unfollow"
-          >
-            Unfollow
-          </span>
-        </span>
-      ) : (
-        <span data-follow-label="follow">Follow</span>
+      className={cn(
+        "group/follow relative inline-flex h-10 min-w-[128px] shrink-0 cursor-pointer touch-manipulation select-none items-stretch justify-center rounded-xl text-[14px] font-semibold outline-none",
+        "focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2",
+        storefront ? "focus-visible:outline-current" : "focus-visible:outline-[#1a1a2e]/40",
+        "[-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]",
+        className,
       )}
+      style={{ ...(storefront ? schemeVars(scheme) : null), opacity: 1 }}
+    >
+      {/* The face: sinks on the press, springs back on release. The button itself never moves, so its target holds still under the finger. */}
+      <span
+        className={cn(
+          "relative grid w-full place-items-center rounded-[inherit] px-5",
+          "transition-[scale] duration-[220ms] ease-[cubic-bezier(0.34,1.56,0.64,1)] group-data-[pressed]/follow:scale-[0.96] group-data-[pressed]/follow:duration-[90ms] group-data-[pressed]/follow:ease-out",
+          "motion-reduce:transition-none motion-reduce:scale-100!",
+        )}
+        data-follow-face=""
+      >
+        <span aria-hidden className={cn(solid, SWAP, following ? "opacity-0" : "opacity-100")} data-follow-fill="follow" />
+        <span aria-hidden className={cn(look.quiet, SWAP, following ? "opacity-100" : "opacity-0")} data-follow-fill="following" />
+        {/* Both labels in one cell, always laid out: the button is the width of the wider one in both states. */}
+        <span
+          className={cn(LABEL, solidInk, following ? "invisible scale-[0.92] opacity-0" : "visible scale-100 opacity-100")}
+          aria-hidden={following || undefined}
+          data-follow-label="follow"
+        >
+          Follow
+        </span>
+        <span
+          className={cn(LABEL, look.quietInk, following ? "visible scale-100 opacity-100" : "invisible scale-[0.92] opacity-0")}
+          aria-hidden={!following || undefined}
+          data-follow-label="following"
+        >
+          <Check className="h-4 w-4" strokeWidth={2.25} aria-hidden />
+          Following
+        </span>
+      </span>
     </button>
   )
 }

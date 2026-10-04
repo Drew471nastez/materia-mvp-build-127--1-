@@ -43,6 +43,7 @@ import { cameFromBrowsing, cameFromElsewhere, refererPath } from "@/lib/profile/
 import { sharedPostView, SHARED_PAGE, SHARED_COMMUNITIES_MAX } from "@/lib/profile/shared-view"
 import { ownCoverUrl } from "@/lib/profile/cover"
 import { schemeVars } from "@/components/profile/follow-button"
+import { ownerPillFor, ownerPillLinks } from "@/lib/profile/owner-pills"
 import { resolveStorefrontChrome, ringIsChoice, schemeAction } from "@/lib/store-builder/storefront-chrome"
 import { avatarSizeMap } from "@/lib/store-builder/defaults"
 import { PROFILE_AVATAR_PX } from "@/components/profile/profile-hero"
@@ -513,7 +514,7 @@ async function main() {
     const page = read("components/profile/member-profile-page.tsx")
     const route = read("app/(marketing)/member/[username]/page.tsx")
     check("the member profile reads follows, not the old table", !/profile_follows/.test(read("lib/profile/member-profile-data.ts")) && !/profile_follows/.test(route))
-    check("owner pills only on your own profile, which is /account's own view", /\{isSelf \? \(/.test(page) && /<ProfileOwnerPills communities=\{communities\.enabled\} active="activity"/.test(page))
+    check("owner pills only on your own profile, which is /account's own view (a creator's own view in round 6 has no Activity)", /(\{|: )isSelf \? \(/.test(page) && /\{isSelf && creator \? \(/.test(page) && /<ProfileOwnerPills communities=\{communities\.enabled\} active="activity"/.test(page))
     const pills = read("lib/profile/owner-pills.ts") + read("components/profile/profile-owner-pills.tsx")
     /* Round 5: Edit profile is a button on the cover (components/profile/profile-hero.tsx), not a pill. */
     check("the pills: Activity, Communities, Library, Settings; Edit profile on the cover instead", ["Activity", "Communities", "Library", "Settings"].every((w) => pills.includes(`label: "${w}"`)) && !pills.includes(`label: "Edit profile"`) && /Edit profile/.test(read("components/profile/profile-hero.tsx")))
@@ -535,6 +536,17 @@ async function main() {
     const tabSrc = stripComments(read("components/profile/creator-communities-tab.tsx"))
     check("  none made yet: the tab says No communities yet; switched off: no tab", /if \(cards === null\) return null/.test(tabSrc) && /cards\.length \? <StorefrontCommunities cards=\{cards\} \/> : <EmptyTabPanel icon="communities" title="No communities yet" detail="This creator hasn't opened any yet\." \/>/.test(tabSrc))
     check("  a plain profile (/@handle) keeps its Activity tab and the communities they are in", /id: "activity", label: "Activity"/.test(page) && /CommunityList title=\{both \? "Member of" : null\} cards=\{memberCards\}/.test(page))
+    /* Round 6: "In creator pages or creator profiles there should be no activity." Their /@handle and their own /account too. */
+    const pageCode = stripComments(page)
+    check("a creator's /@handle (a live store): no Activity tab, no In <community> posts, only the communities they made", /const creator = profile\.hasStorefront/.test(pageCode) && /const tabs: StorefrontTab\[\] = creator \? \[\] : \[\{ id: "activity", label: "Activity", panel: activityPanel \}\]/.test(pageCode) && /const showMemberships = !creator && /.test(pageCode) && /const shared = creator \? \[\] :/.test(pageCode))
+    check("  their own /@handle: the pills without Activity, then what visitors see", /isSelf && creator \? \([\s\S]{0,40}<ProfileOwnerPills communities=\{communities\.enabled\} creator active=\{null\}[\s\S]{0,200}<StorefrontTabs tabs=\{tabs\} \/>/.test(pageCode))
+    const routeCode = stripComments(route)
+    check("  the route reads no activity, no shared posts and no memberships for them", /const creator = profile\.hasStorefront/.test(routeCode) && /creator\s*\?\s*Promise\.resolve\(\{ items: \[\], next: null, hidden: false \}\)\s*:\s*activityFor\(/.test(routeCode) && /includeMemberships: !creator && /.test(routeCode) && /!isSelf && !creator \? sharedSections\(/.test(routeCode))
+    check("  and the activity gate answers nothing for anybody with a store, so Show more or the API cannot bring it back", /if \(creator\) return \{ items: \[\], next: null, hidden: false \}/.test(stripComments(read("lib/profile/activity-page.ts"))))
+    check("a creator's pills: Communities (which is /account), Library, Settings; no Activity", ownerPillLinks(true, true).map((p) => `${p.label} ${p.href}`).join() === "Communities /account,Library /account/library,Settings /account/settings?section=account" && ownerPillLinks(false, true).map((p) => p.key).join() === "library,settings" && ownerPillFor("/account", true) === "communities" && ownerPillFor("/account") === "activity" && ownerPillLinks(true).map((p) => p.key).join() === "activity,communities,library,settings")
+    const account = stripComments(read("app/account/page.tsx"))
+    check("  /account for a creator opens on their Communities, never their activity", /const creator = await accountIsCreator\(user\.id\)/.test(account) && /\{creator \? creatorBody\(user\) : activityBody\(user\)\}/.test(account) && /return accountCommunitiesBody\(user\.id\)/.test(account) && !/ProfileActivity/.test(account.slice(account.indexOf("async function creatorBody"), account.indexOf("export default"))))
+    check("  the layout tells the pills who is a creator, by the creator page's own test", /accountIsCreator\(user\.id\)/.test(read("app/account/layout.tsx")) && /creator,\n/.test(read("app/account/layout.tsx")) && /creator=\{!!identity\.creator\}/.test(read("components/account/account-hub.tsx")) && /hasActiveStorefront\(await loadCreatorForUser\(userId\)\)/.test(read("lib/profile/account-creator.ts")) && /^import "server-only"/.test(read("lib/profile/account-creator.ts")))
     const header = read("components/store-builder/unified-section-renderer.tsx")
     check("the header does not print the follower count twice", /!followRow && \(settings\.showFollowers/.test(header))
     /* Round 4: sales only in About, beside Joined and Products, above the payment methods. */
@@ -606,20 +618,25 @@ async function main() {
   console.log("\nFollow, drawn better and in the page's colours")
   {
     const btn = read("components/profile/follow-button.tsx")
-    check("Following carries a check, and Unfollow shares its cell so the width holds", /<Check /.test(btn) && /data-follow-label="unfollow"/.test(btn) && /col-start-1 row-start-1/.test(btn))
-    check("hover or a press says Unfollow, but not under the pointer that just followed", /group-hover\/follow:visible group-active\/follow:visible/.test(btn) && /onPointerLeave=\{\(\) => setFresh\(false\)\}/.test(btn) && /const unfollowable = following && !fresh/.test(btn))
-    check("optimistic, and put back when the server refuses", /setFollowing\(next\)[\s\S]{0,80}input\.onChange\?\.\(next\)/.test(btn) && /setFollowing\(!next\)/.test(btn))
+    /* Round 6: "Remove the hover Unfollow state entirely ... Clicking Following switches straight back to Follow." */
+    check("Following carries a check; both labels share one cell so the width holds", /<Check /.test(btn) && /data-follow-label="follow"/.test(btn) && /data-follow-label="following"/.test(btn) && /col-start-1 row-start-1/.test(btn))
+    check("no Unfollow anywhere: no label, no hover swap, no red", !/Unfollow/.test(stripComments(btn)) && !/data-follow-label="unfollow"/.test(btn) && !/group-hover\/follow:(visible|invisible)/.test(btn) && !/--sq-danger|#b42318|setFresh|unfollowable/.test(stripComments(btn)))
+    check("a pointer over Following only shades it", /group-hover\/follow:bg-\[#f7f7f8\]/.test(btn) && /group-hover\/follow:bg-\[var\(--sq-hover/.test(btn))
+    check("the press shows on pointerdown, set on the element without a React render, let go on up, cancel and leave", /onPointerDown=\{\(e\) => \{[\s\S]{0,160}e\.currentTarget\.dataset\.pressed = ""/.test(btn) && /onPointerUp=\{release\}/.test(btn) && /onPointerCancel=\{release\}/.test(btn) && /onPointerLeave=\{release\}/.test(btn) && /group-data-\[pressed\]\/follow:scale-\[0\.96\]/.test(btn))
+    check("the switch is a crossfade of opacity and scale only, started a frame in, off under reduced motion", /const SWAP = "transition-\[opacity,scale\] duration-\[180ms\] \[transition-delay:-24ms\]/.test(btn) && /transition-\[scale\] duration-\[220ms\]/.test(btn) && /motion-reduce:transition-none/.test(btn) && /motion-reduce:scale-100!/.test(btn) && !/transition-\[[^\]]*(width|background|color)[^\]]*\][^"]*SWAP/.test(btn))
+    check("a finger: no double tap zoom, 40px, the native shell's press dim kept off", /touch-manipulation/.test(btn) && /h-10 min-w-\[128px\]/.test(btn) && /opacity: 1 \}/.test(btn))
+    check("optimistic, and put back to what the server has when it refuses", /setFollowing\(next\)[\s\S]{0,80}input\.onChange\?\.\(next\)/.test(btn) && /setFollowing\(server\.current\)/.test(btn) && /live\.current\.onChange\?\.\(server\.current\)/.test(btn))
+    check("taps settle to the last one: debounced, one request in flight, nothing sent when it ends where it began", /export const DEBOUNCE_MS = 300/.test(btn) && /if \(flying\.current \|\| wanted\.current === server\.current\) return/.test(btn) && /if \(wanted\.current !== server\.current && !timer\.current\) void send\(\)/.test(btn) && /keepalive: true/.test(btn) && /addEventListener\("pagehide", flush\)/.test(btn))
     const sage = resolveStorefrontChrome("sage").action
     const sageVars = schemeVars(sage) as Record<string, string>
     check("a scheme's Follow is its buy button colour and text, as variables the button reads", sage.background === "#2F5D46" && sageVars["--sf-bg"] === "#2F5D46" && sageVars["--sf-ink"] === sage.text && !!sageVars["--sf-hover"] && !!sageVars["--sf-press"])
     check("  in Storelib's primary shape: light on top, a darker foot, flat when pressed", /export const schemePrimary/.test(btn) && /bg-\[var\(--sf-bg\)\]/.test(btn) && /inset_0_1px_0_rgba\(255,255,255,0\.16\),inset_0_-1px_0_rgba\(0,0,0,0\.3\)/.test(btn) && /active:bg-\[var\(--sf-press\)\]/.test(btn))
     check("  Following and Message are the quiet secondary in the scheme's surface, hairline and ink", /export const schemeQuiet/.test(btn) && /bg-\[var\(--sq-bg/.test(btn) && /border-\[var\(--sq-line/.test(btn) && !!sageVars["--sq-bg"] && !!sageVars["--sq-line"] && /storefront \? schemeQuiet : secondaryDepth/.test(read("components/profile/profile-social.tsx")))
-    check("  Unfollow turns the scheme's own red, only while a press would unfollow", /unfollowable && "hover:text-\[var\(--sq-danger/.test(btn))
     const astrid = resolveStorefrontChrome("astrid")
     check("  on a dark scheme the quiet surface is a step lighter than the page, never white", astrid.dark && astrid.action.dark && astrid.action.quiet.background.toLowerCase() !== "#ffffff" && astrid.action.quiet.background.toLowerCase() !== astrid.pageBackground.toLowerCase())
     const sunk = schemeAction({ background: "#111113", text: "#ffffff", radius: 8, page: "#111113", ink: "#fafafa" })
     check("  a buy colour that vanishes into the page gives way to the page's ink", sunk.background === "#fafafa" && sunk.text === "#111113")
-    check("plain profiles keep Storelib's own pair", /: primaryDepth/.test(btn) && /cn\(secondaryDepth/.test(btn))
+    check("plain profiles keep Storelib's own pair (primaryDepth and secondaryDepth, as faces)", /bg-\[#1a1a2e\] shadow-\[inset_0_1px_0_rgba\(255,255,255,0\.14\),inset_0_-1px_0_rgba\(0,0,0,0\.35\)/.test(btn) && /border-\[#d9dbe0\] bg-white shadow-\[inset_0_-1px_0_rgba\(0,0,0,0\.08\)/.test(btn))
   }
 
   console.log("\nA cover of your own")
@@ -687,6 +704,11 @@ async function main() {
       "app/api/profile/activity/route.ts",
       "scripts/check-profile.mjs",
       "scripts/render-profile.tsx",
+      "scripts/check-follow-button.mjs",
+      "scripts/render-follow-button.tsx",
+      "lib/profile/account-creator.ts",
+      "components/account/account-communities-body.tsx",
+      "app/account/page.tsx",
     ].filter((f) => existsSync(join(root, f)))
     const banned = /\b(unlock|elevate|seamless|powerful|effortless(ly)?|supercharge|transform)\b/i
     for (const f of files) {
