@@ -10,6 +10,7 @@
  *   feed   /community/<slug>               cards: picture, video still, GIF, video by address, link, file, text
  *   post   /community/<slug>/post/<id>     the post page with its media grid
  *   dm     /community/<slug>?as=<user>     the frame with Messages, as one of two members
+ *   long   /community/<slug>               round 9: the feed with more posts, for scroll that must come back
  *   media  /community/<slug>/post/<id>?post=<id>   round 8: one post of MEDIA_POSTS on its
  *          page (one picture, a tall one, two, many, a video alone, a YouTube
  *          address in the words, a picture linked in the words and in a comment)
@@ -26,6 +27,7 @@ import { SpaceChips } from "@/components/community/member/space-chips"
 import { PostPage } from "@/components/community/member/post-page"
 import { MediaLinks } from "@/components/community/member/media-viewer"
 import { LocaleProvider } from "@/components/locale-provider"
+import { ViewportVars } from "@/components/viewport-vars"
 import { allowedActions } from "@/lib/communities/permissions"
 import type { FeedPostView, ViewerView } from "@/lib/communities/types"
 import type { ShellCommunity, SpaceView, TopBarData } from "@/components/community/member/view-types"
@@ -287,6 +289,15 @@ function Screen() {
     const chosen = MEDIA_POSTS.find((p) => p.id === params.get("post")) ?? MEDIA_POSTS[0]
     return shell(<FeedColumns main={<PostPage slug={community.slug} viewer={viewer} post={chosen} comments={{ comments: chosen.id === "m-links" ? MEDIA_COMMENTS : [], nextCursor: null }} me={me} />} />)
   }
+  if (which === "long") {
+    /* Round 9: three times the posts, so there is a feed to scroll away into and come back to. */
+    const many = [0, 1, 2].flatMap((k) => POSTS.filter((p) => !p.pinned).map((p) => ({ ...p, id: k ? `${p.id}-${k}` : p.id })))
+    return shell(
+      <FeedColumns
+        main={<FeedView communityId={CID} slug={community.slug} viewer={viewer} initial={{ pinned: [], posts: many, nextCursor: null }} composer={{ communityId: CID, userId: self.id, me, spaces: spaces.map((s) => ({ id: s.id, name: s.name, kind: s.kind })), fileProductId: null }} />}
+      />,
+    )
+  }
   if (which === "post") {
     return shell(<FeedColumns main={<PostPage slug={community.slug} viewer={viewer} post={POSTS[0]} comments={{ comments: [], nextCursor: null }} me={me} />} />)
   }
@@ -314,8 +325,10 @@ try {
   /* fine */
 }
 /* The root layout's LocaleProvider: the community bar's account menu reads its words from it. */
+/* The root layout's ViewportVars too: the phone editor and the post sheet size themselves from what it publishes (--vv-h, --vv-top, --kb-inset). */
 createRoot(document.getElementById("app")!).render(
   <LocaleProvider>
+    <ViewportVars />
     <Screen />
   </LocaleProvider>,
 )

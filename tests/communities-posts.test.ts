@@ -32,6 +32,19 @@
  *   INSTANT     likes, saves and comments: drawn at once, one request at a
  *               time, the last press wins, put back only on a final refusal
  *
+ * Round 9 (C6):
+ *   ROWS        on a phone a post is a full width row with a thin band under
+ *               it, its pictures under the words; a computer keeps cards
+ *   SHEET       a phone opens a post in the app's own draggable sheet
+ *               (components/ui/bottom-sheet.tsx); a computer's panel moves
+ *               as Web Animations; comments are read ahead into kept room
+ *   EDITOR      the composer opens and closes as Web Animations; on a phone
+ *               it is the visible part of the screen, white under the
+ *               keyboard, the field kept in sight
+ *   SLIDER      the viewer follows the finger, snaps with its speed, grows
+ *               out of its thumbnail; neighbours load at once
+ *   GIFS        Giphy's full reply parses; the picker keeps GIFs on screen
+ *
  * Run with:  npm run test:push
  */
 import { readFileSync } from "node:fs"
@@ -42,6 +55,7 @@ import {
   MAX_GIFS,
   MEMBER_FILE_MAX_BYTES,
   STAFF_FILE_MAX_BYTES,
+  cardPictures,
   cardThumb,
   communityFilePath,
   embedFromUrl,
@@ -221,18 +235,19 @@ async function main() {
   check("unread: activity since the first visit that I have not opened", isUnread(p("fresh", "2026-10-02T00:00:00.000Z"), "me", store) && !isUnread(p("old", "2026-09-20T00:00:00.000Z"), "me", store))
   check("a new comment after I opened it lights it again; my own posts never", !isUnread(p("seenOld", "2026-10-02T00:00:00.000Z"), "me", store) && isUnread(p("seenOld", "2026-10-03T00:00:00.000Z"), "me", store) && !isUnread(p("mine", "2026-10-03T00:00:00.000Z", "me"), "me", store) && !isUnread(p("x", "2026-10-03T00:00:00.000Z"), null, store))
   const card = code("components/community/member/post-card.tsx")
-  check("the card: thumbnail, faces, New comment, level badge, unread dot", /<PostThumb media=\{media\} \/>/.test(card) && /const media = useMemo\(\(\) => withBodyEmbeds\(post\.media, post\.bodyText\)/.test(card) && /data-commenters=""/.test(card) && /\{newCommentLabel\(fresh\)\}/.test(card) && /data-level-badge=""/.test(card) && /data-unread-dot=""/.test(card) && /line-clamp-2/.test(card))
+  check("the card: thumbnail, faces, New comment, level badge, unread dot", /<PostThumb media=\{media\} className="max-sm:hidden" \/>/.test(card) && /const media = useMemo\(\(\) => withBodyEmbeds\(post\.media, post\.bodyText\)/.test(card) && /data-commenters=""/.test(card) && /\{newCommentLabel\(fresh\)\}/.test(card) && /data-level-badge=""/.test(card) && /data-unread-dot=""/.test(card) && /line-clamp-2/.test(card))
   check("the card's props are the ones the feed already passes", /export interface PostCardProps \{\s*post: FeedPostView\s*slug: string\s*viewer: ViewerView\s*update: PostUpdate\s*full\?: boolean\s*readOnly\?: boolean\s*onComment\?: \(\) => void\s*\}/.test(card.replace(/\/\*\*[^]*?\*\//g, "")))
   check("pressing the card opens the post over the feed; links and buttons inside do their own thing", /onClick=\{openPost\}/.test(card) && /closest\("a, button, input, textarea, select, label/.test(card) && /<PostOverlay/.test(card))
   check("a press with a modifier key is a plain link", /e\.metaKey \|\| e\.ctrlKey \|\| e\.shiftKey \|\| e\.altKey/.test(card))
   const overlay = code("components/community/member/post-overlay.tsx")
   check("the opened post takes the post's own address without loading a page; Back closes it", /useHistoryLayer\(true, close, `\/community\/\$\{slug\}\/post\/\$\{given\.id\}`\)/.test(overlay))
-  check("the opened post: a panel on a computer, a sheet that a swipe down closes on a phone", /data-post-overlay="panel"/.test(overlay) && /data-post-overlay="phone"/.test(overlay) && /if \(dy > 110 \|\| \(fast && dy > 30\)\) close\(\)/.test(overlay))
-  check("it reads the comments itself and passes changes to the card underneath", /<CommentsSection post=\{post\} slug=\{slug\} viewer=\{viewer\} initial=\{null\}/.test(overlay) && /update\(id, fn\)/.test(overlay))
+  /* Round 9 changed this on purpose (the owner asked): the phone's sheet is the app's own draggable one. */
+  check("the opened post: a panel on a computer, the app's draggable sheet on a phone", /data-post-overlay="panel"/.test(overlay) && /data-post-overlay="phone"/.test(overlay) && /<BottomSheet\s[\s\S]{0,200}isOpen=\{open\}/.test(overlay))
+  check("it reads the comments itself and passes changes to the card underneath", /<CommentsSection\s+post=\{post\}\s+slug=\{slug\}\s+viewer=\{viewer\}\s+initial=\{null\}/.test(overlay) && /update\(id, fn\)/.test(overlay))
   check("its moves are opacity, translate and scale only", !/transition:[^`"]*\b(top|left|height|width|margin)\b/.test(overlay))
   const lb = code("components/community/member/lightbox.tsx")
   check("history layers: a pushed entry carrying Next's state; Back closes; closing otherwise steps back", /pushState\(\{ \.\.\.\(window\.history\.state \?\? \{\}\), storelibLayer: marker \}/.test(lb) && /window\.addEventListener\("popstate", onPop\)/.test(lb) && /window\.history\.back\(\)/.test(lb))
-  check("the lightbox: Escape, arrow keys, swipe, pinch, double tap", /e\.key === "Escape"/.test(lb) && /e\.key === "ArrowRight"/.test(lb) && /kind: "pinch"/.test(lb) && /lastTap\.current < 280/.test(lb) && /drag\.x < -SWIPE/.test(lb))
+  check("the lightbox: Escape, arrow keys, swipe, pinch, double tap", /e\.key === "Escape"/.test(lb) && /e\.key === "ArrowRight"/.test(lb) && /kind: "pinch"/.test(lb) && /lastTap\.current < 280/.test(lb) && /snapTarget\(\{ offsets: stops\.map/.test(lb))
   check("pictures at the size the screen needs, videos only on press", /optimizedSrcSet\(item\.url, \[640, 828, 1080, 1200, 1920, 2048\]\)/.test(lb) && /<StorelibVideo communityId=\{communityId\} videoId=\{item\.videoId\} poster=\{item\.poster\} key=/.test(lb) && /play \? \(\s*<iframe/.test(lb))
   const media = code("components/community/member/media.tsx")
   /* Round 8 changed this on purpose (the owner asked): one thing is large, two sit side by side, more are a grid. */
@@ -314,7 +329,7 @@ async function main() {
   }
   check("the card's like and save buttons draw from the wish and are never turned off while asking", /function LikeButton\([\s\S]{0,200}useIntent\(`like:\$\{post\.id\}`\)/.test(card) && /function SaveButton\([\s\S]{0,200}useIntent\(`save:\$\{post\.id\}`\)/.test(card) && !/pending\.current/.test(card) && /disabled=\{readOnly \|\| !viewer\.can\.react\}/.test(card))
   check("a card draws again only when its own post changes, not for every like in the feed", /export const PostCard = memo\(PostCardView, \(a, b\) => a\.post === b\.post/.test(card))
-  check("the opened post keeps a pressed like or save over a copy it reads meanwhile, and sets the page's overflow once", /const like = intentOf\(`like:\$\{given\.id\}`\)/.test(overlay) && /html\.style\.overflow = "hidden"[\s\S]{0,200}\}, \[\]\)/.test(overlay) && /\}, \[reduced\]\)/.test(overlay))
+  check("the opened post keeps a pressed like or save over a copy it reads meanwhile, and sets the page's overflow once, before its first frame", /const like = intentOf\(`like:\$\{given\.id\}`\)/.test(overlay) && /useLayoutEffect\(\(\) => \{\s*const html = document\.documentElement[\s\S]{0,300}html\.style\.overflow = "hidden"[\s\S]{0,200}\}, \[\]\)/.test(overlay) && /const close = useCallback\(\(\) => setOpen\(false\), \[\]\)/.test(overlay))
   const comments = code("components/community/member/comments.tsx")
   check("a comment is drawn before the server is asked, the box empties at once, Send is only off while empty", /sending\.start\(\{[\s\S]{0,600}\}\)\s*setBody\(""\)[\s\S]{0,120}await api</.test(comments) && /disabled=\{!body\.trim\(\)\} data-comment-send=""/.test(comments) && /Sending\.\.\./.test(comments))
   check("a refused comment comes out with its words back in an empty box and the count put back", /sending\.drop\(tempId\)\s*if \(!current\.current\.trim\(\)\) setBody\(text\)/.test(comments) && /onCount\?\.\(-1\)/.test(comments))
@@ -342,6 +357,48 @@ async function main() {
   const note = code("components/community/member/messages-setup-note.tsx")
   check("staff are told in /app when only part 83 keeps the Messages button away", /missing\(error\) \? true : null/.test(note) && /<MessagesSetupNote chatEnabled=\{!!ctx\.community\.chat_enabled\} \/>/.test(code("app/app/community/[id]/page.tsx")) && /^import "server-only"/m.test(read("components/community/member/messages-setup-note.tsx")))
 
+  /* ── Round 9 ────────────────────────────────────────────────────────── */
+  console.log("\nRound 9: rows, the sheet, the editor, the slider, GIFs")
+  const IMG = "https://placeholder.supabase.co/storage/v1/object/public/community-media/a.jpg"
+  const pics = cardPictures([{ type: "file", assetId: "x", name: "a.pdf" }, { type: "gif", url: GIF, still: STILL, w: 200, h: 150 }, { type: "image", url: IMG, w: 1200, h: 800 }, { type: "link", url: "https://a.com", image: "https://a.com/i.png" }] as never)
+  check("a phone's card draws every picture in the post's order (a GIF by its still), files and links left out", pics.map((x) => `${x.kind}:${x.local}`).join() === "gif:false,image:true" && pics[0].url === STILL)
+  check("and a link's picture only when there is nothing else", cardPictures([{ type: "link", url: "https://a.com", image: "https://a.com/i.png" }] as never).map((x) => x.kind).join() === "link" && cardPictures([]).length === 0)
+  const card9 = code("components/community/member/post-card.tsx")
+  const media9 = code("components/community/member/media.tsx")
+  check("ROWS: on a phone a post is the screen's full width (worked out from the viewport), no card edge, an 8px #f1f2f4 band under it", /export const PHONE_ROW =\s*"max-sm:mx-\[calc\(50%-50vw\)\] max-sm:mb-0 max-sm:w-screen max-sm:rounded-none max-sm:border-x-0 max-sm:border-t-0 max-sm:border-b-8 max-sm:border-b-\[#f1f2f4\]"/.test(card9) && /\$\{CARD\} \$\{PHONE_ROW\} group\/post/.test(card9))
+  check("the composer above the posts is a row the same way; a computer's hover stays a computer's", /\$\{CARD\} \$\{PHONE_ROW\} px-4 py-3/.test(code("components/community/member/composer.tsx")) && /sm:hover:border-\[#dfe2e6\]/.test(card9) && !/ hover:border-\[#dfe2e6\]/.test(card9))
+  check("on a phone the pictures are under the words, the row's width; a computer keeps the thumbnail", /<CardMedia media=\{media\} className="mt-3 sm:hidden" \/>/.test(card9) && /<PostThumb media=\{media\} className="max-sm:hidden" \/>/.test(card9))
+  check("one picture keeps its shape between square and 2:1 (16:9 unknown), two or more are two squares with how many more, lazy, through the optimizer", /Math\.min\(Math\.max\(p\.w \/ p\.h, 1\), 2\) : 16 \/ 9/.test(media9) && /data-card-media="pair"/.test(media9) && /aspect-square/.test(media9) && /\+\{more\}/.test(media9) && /function CardPictureImg[\s\S]{0,700}loading="lazy"/.test(media9) && /optimizedSrcSet\(p\.url, widths\)/.test(media9) && /rounded-xl/.test(media9))
+  const overlay9 = code("components/community/member/post-overlay.tsx")
+  check("SHEET: the phone's post is the app's BottomSheet, above the page's layers, on the keyboard, nearly the whole screen", /from "@\/components\/ui\/bottom-sheet"/.test(overlay9) && /zIndex=\{130\}/.test(overlay9) && /aboveKeyboard/.test(overlay9) && /height="calc\(var\(--vv-h, 100dvh\) - max\(env\(safe-area-inset-top\), 12px\) - 8px\)"/.test(overlay9) && /data-sheet-close=""/.test(overlay9))
+  check("the computer's panel moves as Web Animations started before its first frame, on the app's curves", /panel\.animate\(\[\{ opacity: 0, translate: "0 16px" \}, \{ opacity: 1, translate: "0 0" \}\], \{ duration: IN_MS, easing: SHEET_EASE \}\)/.test(overlay9) && /SHEET_CLOSE_EASE/.test(overlay9) && !/requestAnimationFrame\(\(\) => \{\s*b = requestAnimationFrame/.test(overlay9))
+  check("Back is one step of history for as long as it is on screen; stepping back waits until it has gone", /useHistoryLayer\(true, close,/.test(overlay9) && /onClosed=\{onGone\}/.test(overlay9))
+  check("closing does not draw the post and its comments again", /const OverlayContent = memo\(function OverlayContent/.test(overlay9))
+  const comments9 = code("components/community/member/comments.tsx")
+  check("comments are asked for when the card is pressed and when the post opens, once", /onPointerDown=\{[\s\S]{0,200}readAheadComments\(post\.communityId, post\.id\)/.test(card9) && /void readAheadComments\(given\.communityId, given\.id\)/.test(overlay9) && /if \(have\?\.promise\) return have\.promise/.test(comments9))
+  check("their room is kept from the post's count, still (no shimmer), and they fade into it", /export function commentsRoom\(expected: number\)/.test(comments9) && /<CommentsPlaceholder expected=\{post\.commentCount\} \/>/.test(overlay9) && /expected=\{post\.commentCount\}\s+fadeIn/.test(overlay9) && /animate-in fade-in-0 duration-200/.test(comments9) && !/animate-pulse/.test(comments9))
+  const composer9 = code("components/community/member/composer.tsx")
+  check("EDITOR: the phone's screen slides as a Web Animation on the app's sheet curves, from its first frame", /el\.animate\(\[\{ translate: "0 100%" \}, \{ translate: "0 0" \}\], \{ duration: SHEET_OPEN_MS, easing: SHEET_EASE \}\)/.test(composer9) && /duration: SHEET_CLOSE_MS, easing: SHEET_CLOSE_EASE/.test(composer9) && !/transition: "translate 280ms/.test(composer9))
+  check("in place, the posts slide to make room and the editor fades (no layout or paint per frame)", /x\.animate\(\[\{ translate: `0 \$\{-d\}px` \}, \{ translate: "0 0" \}\], timing\)/.test(composer9) && !/clipPath/.test(composer9) && /key="closed"/.test(composer9) && /key="open"/.test(composer9))
+  check("the phone's screen is white under the keyboard and its column is the visible part", /className="fixed inset-0 z-\[125\] bg-white"/.test(composer9) && /absolute inset-x-0 top-\[var\(--vv-top,0px\)\] flex h-\[var\(--vv-h,100dvh\)\] flex-col/.test(composer9) && /useKeepFieldInSight\(sheet, \(\) => scrollRef\.current\)/.test(composer9))
+  check("the caret goes in once the screen has arrived, and Cancel keeps it until the screen has gone", /const arrived = \(\) => \{\s*setSheetIn\(true\)\s*focusFirst\(\)/.test(composer9) && /onPointerDown=\{\(e\) => e\.preventDefault\(\)\} onMouseDown=\{\(e\) => e\.preventDefault\(\)\} onClick=\{\(\) => void cancel\(\)\}/.test(composer9))
+  const keep = code("components/community/member/keep-in-sight.ts")
+  check("the field stays in sight on visualViewport's resize and scroll and the keyboard estimate, the post sheet's comment box too", /vv\?\.addEventListener\("resize", keep\)/.test(keep) && /vv\?\.addEventListener\("scroll", keep\)/.test(keep) && /KEYBOARD_CHANGE_EVENT/.test(keep) && /useKeepFieldInSight\(phone,/.test(overlay9) && /data-keep-in-sight=""/.test(comments9))
+  const lb9 = code("components/community/member/lightbox.tsx")
+  check("SLIDER: the finger writes the row's position once a frame, let go with the app's sheet arithmetic", /from "@\/components\/website-builder\/sheet-gestures"/.test(lb9) && /releaseVelocity\(samples\.current/.test(lb9) && /rubberBand\(/.test(lb9) && /snapMotion\(end - from, velocity\)/.test(lb9) && /raf\.current = requestAnimationFrame\(paint\)/.test(lb9) && !/setDrag\(/.test(lb9))
+  check("it grows out of the pressed thumbnail and goes back into it; the neighbours load at once", /originOf\?: \(i: number\) => HTMLElement \| null/.test(lb9) && /coverFrom\(from, laid, 12\)/.test(lb9) && /originOf=\{\(i\) => rootRef\.current\?\.querySelector/.test(media9) && /loading="eager"/.test(lb9) && /Math\.abs\(i - index\) <= 1/.test(lb9))
+  check("Escape is the viewer's first (an opened post's sheet under it stays)", /window\.addEventListener\("keydown", onKey, true\)/.test(lb9) && /e\.stopPropagation\(\)/.test(lb9))
+  const gif9 = code("components/community/member/media-gif.tsx")
+  check("GIFS: what the button's question brought shows at once, a search typed again too; GIFs stay on screen while the next ones come", /const seen = new Map<string, GifPage>\(\)/.test(gif9) && /const stale = loading && shownFor !== term/.test(gif9) && /Trending/.test(gif9) && !/animate-pulse/.test(gif9))
+  check("nothing found names the words; a failure can be tried again; the next page as the end nears", /No GIFs for "\$\{shownFor\}"\. Try other words\./.test(gif9) && /Try again/.test(gif9) && /offset=\$\{page\.next\}/.test(gif9) && /IntersectionObserver/.test(gif9))
+  const full = (id: string, w: number, h: number) => {
+    const u = (f: string) => `https://media3.giphy.com/media/v1.Y2lk/${id}/${f}?cid=x&rid=${f}&ct=g`
+    const r = (f: string, rw: number, rh: number) => ({ url: u(f), width: String(rw), height: String(rh), size: "1000" })
+    return { type: "gif", id, title: "wave", images: { original: r("giphy.gif", w, h), downsized: r("giphy-downsized.gif", w, h), fixed_height: r("200.gif", Math.round((200 * w) / h), 200), fixed_height_still: r("200_s.gif", Math.round((200 * w) / h), 200), fixed_width: { ...r("200w.gif", 200, Math.round((200 * h) / w)), mp4: u("200w.mp4"), webp: u("200w.webp") }, fixed_width_still: r("200w_s.gif", 200, Math.round((200 * h) / w)), original_still: r("giphy_s.gif", w, h), "480w_still": r("480w_s.jpg", 480, Math.round((480 * h) / w)), looping: { mp4: u("giphy-loop.mp4") }, preview: { mp4: u("giphy-preview.mp4") } } }
+  }
+  const parsed9 = parseGiphy({ data: [full("abc123", 480, 270)], pagination: { total_count: 9, count: 1, offset: 0 }, meta: { status: 200 } })
+  check("Giphy's full reply (every rendition, sizes as strings): the 200px moving GIF, its own still, sizes as numbers", parsed9.length === 1 && /\/abc123\/200w\.gif\?/.test(parsed9[0].url) && /\/abc123\/200w_s\.gif\?/.test(parsed9[0].still) && parsed9[0].w === 200 && parsed9[0].h === 113 && parsed9[0].title === "wave")
+
   /* ── Copy and boundaries ────────────────────────────────────────────── */
   console.log("\nCopy and boundaries")
   const mine = [
@@ -362,6 +419,7 @@ async function main() {
     "components/community/member/media-viewer.tsx",
     "components/community/member/post-intent.ts",
     "components/community/member/post-seen.ts",
+    "components/community/member/keep-in-sight.ts",
     "components/community/member/messages.tsx",
     "components/community/member/messages-setup-note.tsx",
     "scripts/check-community-posts.mjs",

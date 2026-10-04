@@ -145,6 +145,81 @@ const VIEWPORTS = [
 
 const GIFS = Array.from({ length: 6 }, (_, i) => ({ id: `g${i}`, url: svg(["#f4d7c8", "#d6e6d2", "#dfe3f3"][i % 3], "#ffffff"), still: svg("#eeeeee", "#cccccc"), w: 200, h: 150 + (i % 2) * 40, title: `gif ${i}` }))
 
+/*
+  ROUND 9: GIPHY'S OWN REPLY. A search answered the way api.giphy.com answers
+  (every rendition key, sizes as strings, addresses on media<n>.giphy.com
+  with Giphy's query string, a pagination block), run through Storelib's real
+  server code (lib/communities/server/gifs.ts searchGifs, with fetch answered
+  here), and what that returns is the route's reply. The pictures themselves
+  are answered by the probe on media*.giphy.com.
+*/
+const giphyItem = (id, w, h, title) => {
+  const base = `https://media${id.length % 5}.giphy.com/media/v1.Y2lkPTc5MGI3NjExcHJvYmU/${id}`
+  const q = (r) => `?cid=790b7611probe&ep=v1_gifs_search&rid=${r}&ct=g`
+  const r = (name, rw, rh, file, extra = {}) => ({ height: String(rh), width: String(rw), size: "184322", url: `${base}/${file}${q(file)}`, ...extra })
+  const fh = Math.round((200 * h) / w)
+  const fw = Math.round((200 * w) / h)
+  const mp4 = (file) => ({ mp4_size: "90211", mp4: `${base}/${file}${q(file)}` })
+  return {
+    type: "gif", id, url: `https://giphy.com/gifs/${id}`, slug: `probe-${id}`, bitly_gif_url: `https://gph.is/g/${id}`, bitly_url: `https://gph.is/g/${id}`, embed_url: `https://giphy.com/embed/${id}`, username: "", source: "", title, rating: "g", content_url: "", source_tld: "", source_post_url: "", is_sticker: 0, import_datetime: "2024-01-01 10:00:00", trending_datetime: "0000-00-00 00:00:00",
+    images: {
+      original: r("original", w, h, "giphy.gif", { ...mp4("giphy.mp4"), webp_size: "120000", webp: `${base}/giphy.webp${q("giphy.webp")}`, frames: "24", hash: "abc" }),
+      downsized: r("downsized", w, h, "giphy-downsized.gif"),
+      downsized_large: r("downsized_large", w, h, "giphy.gif"),
+      downsized_medium: r("downsized_medium", w, h, "giphy.gif"),
+      downsized_small: { height: String(h), width: String(w), ...mp4("giphy-downsized-small.mp4") },
+      downsized_still: r("downsized_still", w, h, "giphy-downsized_s.gif"),
+      fixed_height: r("fixed_height", fw, 200, "200.gif", { ...mp4("200.mp4"), webp_size: "40000", webp: `${base}/200.webp${q("200.webp")}` }),
+      fixed_height_downsampled: r("fixed_height_downsampled", fw, 200, "200_d.gif", { webp_size: "20000", webp: `${base}/200_d.webp${q("200_d.webp")}` }),
+      fixed_height_small: r("fixed_height_small", Math.round(fw / 2), 100, "100.gif", { ...mp4("100.mp4"), webp_size: "9000", webp: `${base}/100.webp${q("100.webp")}` }),
+      fixed_height_small_still: r("fixed_height_small_still", Math.round(fw / 2), 100, "100_s.gif"),
+      fixed_height_still: r("fixed_height_still", fw, 200, "200_s.gif"),
+      fixed_width: r("fixed_width", 200, fh, "200w.gif", { ...mp4("200w.mp4"), webp_size: "40000", webp: `${base}/200w.webp${q("200w.webp")}` }),
+      fixed_width_downsampled: r("fixed_width_downsampled", 200, fh, "200w_d.gif", { webp_size: "20000", webp: `${base}/200w_d.webp${q("200w_d.webp")}` }),
+      fixed_width_small: r("fixed_width_small", 100, Math.round(fh / 2), "100w.gif", { ...mp4("100w.mp4"), webp_size: "9000", webp: `${base}/100w.webp${q("100w.webp")}` }),
+      fixed_width_small_still: r("fixed_width_small_still", 100, Math.round(fh / 2), "100w_s.gif"),
+      fixed_width_still: r("fixed_width_still", 200, fh, "200w_s.gif"),
+      looping: mp4("giphy-loop.mp4"),
+      original_still: r("original_still", w, h, "giphy_s.gif"),
+      original_mp4: { height: String(h), width: String(w), ...mp4("giphy.mp4") },
+      preview: { height: "120", width: "160", ...mp4("giphy-preview.mp4") },
+      preview_gif: r("preview_gif", 120, 90, "giphy-preview.gif"),
+      preview_webp: { height: "120", width: "160", size: "40000", url: `${base}/giphy-preview.webp${q("giphy-preview.webp")}` },
+      "480w_still": r("480w_still", 480, Math.round((480 * h) / w), "480w_s.jpg"),
+    },
+    analytics_response_payload: "e=probe",
+    analytics: { onload: { url: "https://giphy-analytics.giphy.com/v2/pingback_simple?probe" }, onclick: { url: "https://giphy-analytics.giphy.com/v2/pingback_simple?probe" }, onsent: { url: "https://giphy-analytics.giphy.com/v2/pingback_simple?probe" } },
+    alt_text: "",
+  }
+}
+const giphyReply = (words, n, offset = 0) => ({
+  data: Array.from({ length: n }, (_, i) => giphyItem(`${words || "trend"}${offset + i}AbCdEf`, [480, 360, 498, 400][i % 4], [270, 360, 280, 400][i % 4], `${words || "trending"} ${offset + i}`)),
+  pagination: { total_count: words === "nothing" ? 0 : 120, count: n, offset },
+  meta: { status: 200, msg: "OK", response_id: "probe" },
+})
+const serverGifs = await (async () => {
+  const { build: b } = await import("esbuild")
+  const out = join(stubs, "gifs-server.mjs")
+  await b({ entryPoints: [join(root, "lib/communities/server/gifs.ts")], bundle: true, format: "esm", platform: "node", outfile: out, logLevel: "error", plugins: [{ name: "server-only", setup(x) { x.onResolve({ filter: /^server-only$/ }, () => ({ path: "server-only", namespace: "empty" })); x.onLoad({ filter: /.*/, namespace: "empty" }, () => ({ contents: "" })) } }] })
+  return import(out)
+})()
+/** What /api/community/<id>/gifs answers for `words`: Giphy's reply through the real server code. */
+async function giphyRoute(words, offset = 0) {
+  const real = globalThis.fetch
+  let asked = null
+  globalThis.fetch = async (url) => {
+    asked = String(url)
+    const n = words === "nothing" ? 0 : offset ? 12 : 24
+    return new Response(JSON.stringify(giphyReply(words, n, offset)), { status: 200, headers: { "content-type": "application/json" } })
+  }
+  try {
+    const found = await serverGifs.searchGifs(serverGifs.cleanGifQuery(words), offset, "probe-key")
+    return { asked, reply: found.ok ? { connected: true, gifs: found.gifs, next: found.next } : { error: "GIFs did not load. Try again." } }
+  } finally {
+    globalThis.fetch = real
+  }
+}
+
 /* Member messages, shared by every page the probe opens: one conversation store, as the server would keep it. */
 const dmStore = { conversations: new Map(), messages: [], pages: new Map() }
 const NAMES = { "u-me": { id: "u-me", name: "Sam Carter", username: "samc", avatarUrl: null, role: "moderator" }, "u-jonas": { id: "u-jonas", name: "Jonas Berg", username: "jonasb", avatarUrl: null, role: "member" } }
@@ -157,6 +232,7 @@ async function open(name, path, vp, opts = {}) {
   const navs = []
   const live = { now: {}, max: {}, sent: [], comments: 0 }
   p.on("pageerror", (e) => errors.push(String(e).slice(0, 300)))
+  if (process.env.DEBUG) p.on("console", (m) => console.log("    [page]", m.text()))
   await p.setRequestInterception(true)
   const as = new URL(`${ORIGIN}${path}`).searchParams.get("as") || "u-me"
   if (opts.dm) dmStore.pages.set(as, p)
@@ -197,6 +273,13 @@ async function open(name, path, vp, opts = {}) {
         const n = ++live.comments
         return setTimeout(() => r.respond({ status: refuse ? 403 : 201, contentType: "application/json", body: JSON.stringify(refuse ? { error: "muted" } : { comment: { id: `c-new-${n}`, postId: "x", parentId: sent.parentId ?? null, body: sent.body, status: "published", deleted: false, author: { id: "u-me", name: "Sam Carter", username: "samc", avatarUrl: null, role: "moderator", level: 3 }, reactionCount: 0, reacted: false, createdAt: new Date().toISOString(), editedAt: null, replies: [], canEdit: true, canModerate: true } }) }), opts.commentWait ?? 400)
       }
+      if (short.includes("/gifs") && opts.giphy) {
+        const u = new URL(url)
+        return void giphyRoute(u.searchParams.get("q") || "", Number(u.searchParams.get("offset")) || 0).then(({ asked, reply: body }) => {
+          live.giphy = [...(live.giphy || []), asked]
+          reply(body, 200, opts.gifWait ?? 120)
+        })
+      }
       if (short.includes("/gifs")) return reply(opts.gifsOff ? { connected: false, gifs: [], next: null } : { connected: true, gifs: GIFS, next: null })
       if (short.includes("/files")) {
         if (sent.action === "prepare") return reply({ ticket: { fileId: "33333333-0000-4000-8000-000000000001", url: `${ORIGIN}/upload/file`, token: "t", name: sent.fileName, maxBytes: 52428800 } })
@@ -207,8 +290,11 @@ async function open(name, path, vp, opts = {}) {
         return reply({ video: { id: "44444444-0000-4000-8000-000000000001", provider: "storage", status: "ready", durationSeconds: 3, width: 640, height: 360, sizeBytes: 1000, thumbnailUrl: null, hasCaptions: false, error: null, createdAt: new Date().toISOString() } })
       }
       if (short.includes("/link-preview")) return reply({ preview: sent.url?.includes("youtube") ? { url: sent.url, title: "Critique night recording", image: null, site: "youtube.com" } : { url: sent.url, title: "A talk about naming things", image: svg("#f1e9da", "#d9c3a0", 600, 400), site: "example.com" } }, 200, 120)
+      /* Round 9: the pinned post's first page has four comments, so the room kept for them can be measured against them. */
+      if (/\/posts\/p-video\/comments/.test(short)) return reply({ comments: ["Great session, thanks for posting.", "The pricing page part was gold. I rewrote mine the next day and the trial starts went up.", "Saving this one.", "Same here, the empty states bit too."].map((body, i) => ({ id: `c-v${i}`, postId: "p-video", parentId: null, body, status: "published", deleted: false, author: { id: i ? "u-leo" : "u-jonas", name: i ? "Leo Martins" : "Jonas Berg", username: i ? "leom" : "jonasb", avatarUrl: null, role: "member", level: 2 }, reactionCount: i, reacted: false, createdAt: new Date(Date.now() - (3 - i) * 3600e3).toISOString(), editedAt: null, replies: [], canEdit: false, canModerate: true })), nextCursor: null, commentsEnabled: true, me: { name: "Sam Carter", avatarUrl: null } }, 200, opts.commentsWait ?? 150)
       if (/\/posts\/[^/]+\/comments/.test(short)) return reply({ comments: [], nextCursor: null, commentsEnabled: true, me: { name: "Sam Carter", avatarUrl: null } }, 200, 150)
-      if (/\/posts\/p-[a-z]+$/.test(short) && method === "GET") return reply({ error: "not_found" }, 404)
+      if (/\/feed\b|\/posts\?/.test(short) && method === "GET") live.feedReads = (live.feedReads || 0) + 1
+      if (/\/posts\/p-[a-z0-9-]+$/.test(short) && method === "GET") return reply({ error: "not_found" }, 404)
       if (short.endsWith("/posts") && method === "POST") return reply({ post: { id: "p-new", communityId: CID, space: { id: sent.spaceId, slug: "general", name: "General" }, kind: "post", title: sent.title, body: "", bodyText: sent.body, media: sent.media, pinned: false, featured: false, locked: false, status: "published", author: { id: "u-me", name: "Sam Carter", username: "samc", avatarUrl: null, role: "moderator", level: 3 }, reactionCount: 0, commentCount: 0, reacted: false, bookmarked: false, poll: null, createdAt: new Date().toISOString(), editedAt: null, lastActivityAt: new Date().toISOString(), canEdit: true, canModerate: true, recentCommenters: [], lastCommentAt: null, showLevel: true } }, 201)
       if (short.includes("/members?")) return reply({ members: [{ userId: "u-jonas", name: "Jonas Berg", username: "jonasb", avatarUrl: null, role: "member", status: "active", level: 3, points: 0 }], nextCursor: null })
       if (short.includes("/dms")) return dmAnswer(as, short, method, sent, reply)
@@ -220,6 +306,10 @@ async function open(name, path, vp, opts = {}) {
       if (r.isNavigationRequest()) return r.respond({ status: 200, contentType: "text/html", body: html })
       calls.push({ url: url.replace(ORIGIN, ""), method, other: true })
       return r.respond({ status: 404, body: "" })
+    }
+    if (/^https:\/\/(media\d*|i)\.giphy\.com\//.test(url)) {
+      live.giphyImages = (live.giphyImages || 0) + 1
+      return r.respond({ status: 200, contentType: "image/svg+xml", body: decodeURIComponent(svg("#e7dff3", "#9b87c4", 200, 150).split(",")[1]) })
     }
     if (url.startsWith("data:") || url.startsWith("blob:")) return r.continue()
     if (r.isNavigationRequest()) navs.push(url)
@@ -380,9 +470,12 @@ try {
         return out
       })
       if (!card["p-intro"]) throw new Error(`the feed did not draw: ${JSON.stringify(errors)}`)
-      const size = phone ? 72 : 96
-      expect(card["p-intro"].thumb?.w === size && card["p-intro"].thumb?.h === size, `the card's one thumbnail is ${size}px`, card["p-intro"].thumb)
-      expect(card["p-intro"].thumb?.rightOfTitle && card["p-intro"].thumb.right <= 24, "it sits on the right, beside the title and the words", card["p-intro"].thumb)
+      /* Round 9 changed this on purpose (the owner asked): a phone draws the pictures under the words (ROWS below), no thumbnail on the right. */
+      if (phone) expect(card["p-intro"].thumb?.w === 0 && card["p-intro"].thumb?.h === 0, "a phone draws no thumbnail on the right (the pictures go under the words)", card["p-intro"].thumb)
+      else {
+        expect(card["p-intro"].thumb?.w === 96 && card["p-intro"].thumb?.h === 96, "the card's one thumbnail is 96px", card["p-intro"].thumb)
+        expect(card["p-intro"].thumb?.rightOfTitle && card["p-intro"].thumb.right <= 24, "it sits on the right, beside the title and the words", card["p-intro"].thumb)
+      }
       expect(card["p-video"].thumb?.kind === "video" && card["p-gif"].thumb?.kind === "gif" && card["p-link"].thumb?.kind === "link" && card["p-text"].thumb === null, "a video by address shows its picture, a GIF its still, a link its picture, text nothing", Object.fromEntries(Object.entries(card).map(([k, v]) => [k, v.thumb?.kind ?? null])))
       expect(card["p-intro"].level === "2" && card["p-video"].level === "6", "the author's level sits on their picture", [card["p-intro"].level, card["p-video"].level])
       const faces = await p.evaluate(() => [...document.querySelectorAll('[data-post="p-intro"] [data-commenters] > *')].filter((e) => e.getBoundingClientRect().width > 0).length)
@@ -1102,6 +1195,731 @@ try {
         return { pressed: b.getAttribute("aria-pressed"), count: b.querySelector("[data-like-count]").textContent, toast: document.querySelector("[data-community-toast]")?.textContent ?? null }
       })
       expect(mid === "true" && back.pressed === "false" && back.count === "24" && /muted/i.test(back.toast ?? "") && live.sent.length === 1, "a refused like is put back with the reason", { mid, ...back })
+      await p.close()
+    }
+
+    /* ══ ROUND 9 ═════════════════════════════════════════════════════ */
+
+    /* ── ROWS: a phone's feed is full width rows, a computer's cards are as they were ── */
+    if (want("rows")) {
+      const { p, errors } = await open("feed", "/community/studio-notes", vp)
+      const rows = await p.evaluate(() => {
+        const r = (e) => e.getBoundingClientRect()
+        const posts = [...document.querySelectorAll("[data-feed-list] > [data-post]")]
+        const comp = document.querySelector('[data-composer="closed"]')
+        const st = (e) => getComputedStyle(e)
+        const card = (e) => {
+          const b = r(e)
+          const s = st(e)
+          return { x: Math.round(b.left), w: Math.round(b.width), top: Math.round(b.top), bottom: Math.round(b.bottom), radius: s.borderTopLeftRadius, sides: [s.borderLeftWidth, s.borderRightWidth, s.borderTopWidth, s.borderBottomWidth].join(" "), band: s.borderBottomColor }
+        }
+        const media = (id) => {
+          const el = document.querySelector(`[data-post="${id}"] [data-card-media]`)
+          const ex = document.querySelector(`[data-post="${id}"] [data-post-excerpt]`)
+          const thumb = document.querySelector(`[data-post="${id}"] [data-post-thumb]`)
+          if (!el) return { shown: false, thumb: thumb ? st(thumb).display : null }
+          const b = r(el)
+          return { shown: st(el).display !== "none", kind: el.getAttribute("data-card-media"), x: Math.round(b.left), w: Math.round(b.width), h: Math.round(b.height), belowWords: ex ? b.top >= r(ex).bottom - 1 : null, radius: st(el).borderTopLeftRadius, lazy: [...el.querySelectorAll("img")].every((i) => i.loading === "lazy"), thumb: thumb ? st(thumb).display : null }
+        }
+        return { posts: posts.map(card), composer: comp ? card(comp) : null, intro: media("p-intro"), video: media("p-video"), link: media("p-link"), text: media("p-text"), vw: innerWidth }
+      })
+      if (phone) {
+        const all = rows.posts
+        expect(all.length >= 4 && all.every((c) => c.x === 0 && c.w === 390), "ROWS: every post is the phone's full width, no side margin", all.map((c) => [c.x, c.w]))
+        expect(all.every((c) => c.radius === "0px" && c.sides === "0px 0px 0px 8px"), "no card edge or rounding, only an 8px band under each", all.map((c) => [c.radius, c.sides]))
+        expect(all.every((c) => c.band === "rgb(241, 242, 244)"), "the band is #f1f2f4", all.map((c) => c.band))
+        expect(all.slice(1).every((c, i) => c.top === all[i].bottom), "the band is all there is between two posts (no gap)", all.map((c) => [c.top, c.bottom]))
+        expect(rows.composer && rows.composer.x === 0 && rows.composer.w === 390 && rows.composer.bottom === all[0].top, "the composer above is a row the same way", rows.composer)
+        expect(rows.intro.shown && rows.intro.kind === "pair" && rows.intro.x === 16 && rows.intro.w === 358 && rows.intro.belowWords && rows.intro.radius === "12px" && rows.intro.lazy, "MEDIA under the words, the row's width inside its 16px padding, rounded 12px, lazy (two side by side)", rows.intro)
+        expect(rows.video.shown && rows.video.kind === "single" && Math.abs(rows.video.h - (rows.video.w * 9) / 16) <= 1.5, "one video by address: a 16:9 box", rows.video)
+        expect(rows.link.shown && rows.text.shown === false, "a link's picture shows, a post with only words has nothing", { link: rows.link.shown, text: rows.text.shown })
+        expect(rows.intro.thumb === "none" && rows.video.thumb === "none", "and no thumbnail on the right on a phone", [rows.intro.thumb, rows.video.thumb])
+        const small = await smallTargets(p, "[data-feed-list]")
+        expect(small.length === 0, "every control in a row is at least 40px tall", small.slice(0, 6))
+      } else {
+        expect(rows.posts.every((c) => c.radius === "16px" && c.sides === "1px 1px 1px 1px" && c.x > 300 && c.w < 760), "ROWS on a computer: the cards are as they were (1px edge, 16px rounding, in the column)", rows.posts.map((c) => [c.x, c.w, c.radius, c.sides]))
+        expect(rows.posts.slice(1).every((c, i) => c.top - rows.posts[i].bottom === 12), "with the 12px gap between them", rows.posts.map((c) => c.top))
+        expect(!rows.intro.shown && rows.intro.thumb === "block", "and the thumbnail on the right, nothing under the words", rows.intro)
+      }
+      const side = await sideScroll(p)
+      expect(side.scroll <= side.width, "nothing scrolls sideways", side)
+      await shot(p, `${label}-r9-feed`)
+      await shot(p, `${label}-r9-feed-full`, true)
+      expect(errors.length === 0, "no page error", errors)
+      await p.close()
+    }
+
+    /* A finger on a phone, as a phone sends it: a move every 16ms, held still before lifting when asked. */
+    const touchDrag = async (p, cdp, from, to, { steps = 8, stepMs = 16, holdMs = 0, onStep = null } = {}) => {
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: from.x, y: from.y }] })
+      const seen = []
+      for (let i = 1; i <= steps; i++) {
+        const x = from.x + ((to.x - from.x) * i) / steps
+        const y = from.y + ((to.y - from.y) * i) / steps
+        await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x, y }] })
+        if (onStep) seen.push(await onStep({ x: x - from.x, y: y - from.y }))
+        /* A flick lets go right after its last move; a finger that pauses says so with holdMs. */
+        else if (i < steps) await sleep(stepMs)
+      }
+      if (holdMs) await sleep(holdMs)
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] })
+      return seen
+    }
+    /* The next two frames have been drawn. */
+    const twoFrames = (p) => p.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))))
+    /* Frame stamps while something runs: the longest gap, and how many went over two frames. */
+    const startFrames = (p) =>
+      p.evaluate(() => {
+        window.__fs = []
+        const loop = (t) => {
+          window.__fs.push(t)
+          window.__fr = requestAnimationFrame(loop)
+        }
+        window.__fr = requestAnimationFrame(loop)
+      })
+    const stopFrames = (p) =>
+      p.evaluate(() => {
+        cancelAnimationFrame(window.__fr)
+        const st = window.__fs.slice(1)
+        const gaps = st.slice(1).map((t, i) => t - st[i])
+        return { frames: st.length, max: Math.round(Math.max(0, ...gaps)), over34: gaps.filter((g) => g > 34).length }
+      })
+
+    /* ── SHEET: a phone's post is the app's draggable sheet ───────── */
+    if (want("sheet") && phone) {
+      const { p, errors } = await open("feed", "/community/studio-notes", vp)
+      const cdp = await p.target().createCDPSession()
+      const panelY = () => p.evaluate(() => {
+        const el = document.querySelector("[data-post-overlay=phone]")?.closest("[data-sheet-panel]")
+        if (!el) return null
+        /* How far below its resting place it is drawn: its bottom edge rests on the window's. */
+        return Math.round((el.getBoundingClientRect().bottom - innerHeight) * 10) / 10
+      })
+      const openIt = async () => {
+        await p.tap('[data-post="p-text"] [data-post-excerpt]')
+        await p.waitForFunction(() => document.querySelector("[data-post-overlay-phase]")?.getAttribute("data-post-overlay-phase") === "shown", { timeout: 4000 }).catch(() => {})
+        await sleep(250)
+      }
+      await openIt()
+      const look = await p.evaluate(() => {
+        const panel = document.querySelector("[data-post-overlay=phone]").closest("[data-sheet-panel]")
+        const r = panel.getBoundingClientRect()
+        return { top: Math.round(r.top), bottom: Math.round(r.bottom), radius: getComputedStyle(panel).borderTopLeftRadius, title: !!panel.querySelector("[data-post] h1"), handle: !!panel.querySelector("[data-sheet-handle]") }
+      })
+      expect(look.top >= 12 && look.top <= 24 && look.bottom === 844 && look.title && look.handle, "SHEET: the post opens as the app's sheet, a little short of the top, its grab bar on it", look)
+      await shot(p, `${label}-r9-sheet`)
+      await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 })
+
+      /* It follows the finger, from the post's own top (nothing scrolled), each frame. */
+      const head = await p.evaluate(() => {
+        const r = document.querySelector("[data-post-overlay=phone] [data-post] h1").getBoundingClientRect()
+        return { x: Math.round(r.left + 40), y: Math.round(r.top + 8) }
+      })
+      await startFrames(p)
+      const follow = await touchDrag(p, cdp, head, { x: head.x, y: head.y + 160 }, { steps: 8, holdMs: 140, onStep: async (d) => (await twoFrames(p), { finger: Math.round(d.y), sheet: await panelY() }) })
+      await sleep(700)
+      const followFrames = await stopFrames(p)
+      const back = await panelY()
+      const stillOpen = await p.evaluate(() => !!document.querySelector("[data-post-overlay=phone]") && location.pathname.endsWith("/post/p-text"))
+      expect(follow.every((f) => f.sheet !== null && Math.abs(f.sheet - f.finger) <= 1), "at 4x CPU the sheet is under the finger at every step (finger and sheet, px)", follow.map((f) => [f.finger, f.sheet]))
+      expect(back === 0 && stillOpen, "a 160px pull held still before lifting springs back and stays open", { back, stillOpen })
+      expect(followFrames.over34 === 0, "no frame over two frames' time while it follows and springs back", followFrames)
+
+      /* A pull up gives on a rubber band, less than the finger. */
+      const up = await touchDrag(p, cdp, head, { x: head.x, y: head.y - 120 }, { steps: 6, holdMs: 140, onStep: async (d) => (await twoFrames(p), { finger: Math.round(d.y), sheet: await panelY() }) })
+      await sleep(600)
+      const last = up.at(-1)
+      expect(last.sheet < 0 && last.sheet > last.finger / 2 && (await panelY()) === 0, "a pull up gives on a rubber band (less than the finger) and comes back", up.map((f) => [f.finger, f.sheet]))
+
+      /* A short flick down closes it: the speed, not only the distance. */
+      await startFrames(p)
+      await touchDrag(p, cdp, head, { x: head.x, y: head.y + 140 }, { steps: 5, stepMs: 12 })
+      await p.waitForFunction(() => !document.querySelector("[data-post-overlay]"), { timeout: 4000 }).catch(() => {})
+      await sleep(200)
+      const flickFrames = await stopFrames(p)
+      const gone = await p.evaluate(() => ({ overlay: !!document.querySelector("[data-post-overlay]"), path: location.pathname }))
+      expect(!gone.overlay && gone.path === "/community/studio-notes", "a 140px flick closes it, and the address goes back", gone)
+      expect(flickFrames.over34 === 0, "no frame over two frames' time while it leaves", flickFrames)
+
+      /* From the grab bar, a slow pull past half way closes it too. */
+      await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
+      await openIt()
+      const bar = await p.evaluate(() => {
+        const r = document.querySelector("[data-post-overlay-bar]").getBoundingClientRect()
+        return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) }
+      })
+      await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 })
+      await touchDrag(p, cdp, bar, { x: bar.x, y: bar.y + 520 }, { steps: 20, holdMs: 140 })
+      await p.waitForFunction(() => !document.querySelector("[data-post-overlay]"), { timeout: 4000 }).catch(() => {})
+      expect(!(await p.$("[data-post-overlay]")), "a slow pull from the bar past half way closes it")
+      await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
+      /* And the close button. */
+      await openIt()
+      await p.tap("[data-post-overlay-close]")
+      await p.waitForFunction(() => !document.querySelector("[data-post-overlay]"), { timeout: 4000 }).catch(() => {})
+      expect(!(await p.$("[data-post-overlay]")) && (await p.evaluate(() => location.pathname)) === "/community/studio-notes", "the close button closes it and the address goes back")
+      expect(errors.length === 0, "no page error", errors)
+      await p.close()
+    }
+
+    /* ── MODAL: a computer's panel, frame by frame; comments fill the room kept for them ── */
+    if (want("modal")) {
+      const { p, errors } = await open("feed", "/community/studio-notes", vp, { commentsWait: 450 })
+      const cdp = await p.target().createCDPSession()
+      const watchPanel = () =>
+        p.evaluate(() => {
+          window.__pf = []
+          const loop = () => {
+            const panel = document.querySelector("[data-post-overlay=panel]")
+            const sheet = document.querySelector("[data-post-overlay=phone]")?.closest("[data-sheet-panel]")
+            const el = panel || sheet
+            const sec = document.querySelector("[data-post-overlay] [data-comments], [data-post-overlay-scroll] [data-comments]") || document.querySelector("[data-comments]")
+            const title = document.querySelector("[data-post-overlay-post] h1, [data-post-overlay] [data-post] h1")
+            if (el) {
+              const s = getComputedStyle(el)
+              /* The panel's offset is its own translate; the sheet's is how far its bottom edge is below the window's. */
+              const y = panel ? (s.translate === "none" ? 0 : parseFloat(s.translate.split(" ")[1] ?? "0") || 0) : el.getBoundingClientRect().bottom - innerHeight
+              window.__pf.push({ t: performance.now(), o: Number(s.opacity), y, h: Math.round(el.getBoundingClientRect().height), secH: sec ? Math.round(sec.getBoundingClientRect().height) : null, titleY: title ? Math.round(title.getBoundingClientRect().top - el.getBoundingClientRect().top) : null, rows: document.querySelectorAll("[data-comments-rows] > li").length })
+            }
+            window.__pfr = requestAnimationFrame(loop)
+          }
+          window.__pfr = requestAnimationFrame(loop)
+        })
+      const readPanel = () => p.evaluate(() => (cancelAnimationFrame(window.__pfr), window.__pf))
+      await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 })
+      await watchPanel()
+      if (phone) await p.tap('[data-post="p-video"] [data-post-excerpt]')
+      else await p.click('[data-post="p-video"] [data-post-excerpt]')
+      await p.waitForFunction(() => document.querySelectorAll("[data-comments-rows] > li").length === 4, { timeout: 6000 }).catch(() => {})
+      await sleep(500)
+      const opening = await readPanel()
+      await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
+      const first = opening[0]
+      const moving = opening.filter((f) => (phone ? f.y > 0.5 : f.o < 0.999))
+      if (!phone) {
+        expect(first && first.o < 0.6 && first.y > 4, "MODAL: the first frame painted is already the start of the move (no waiting frame)", first)
+        expect(moving.every((f, i) => i === 0 || (f.o >= moving[i - 1].o - 0.001 && f.y <= moving[i - 1].y + 0.01)), "it only ever moves toward open: opacity up, offset down, frame after frame", moving.map((f) => [Math.round(f.o * 100) / 100, Math.round(f.y * 10) / 10]))
+      } else {
+        expect(moving.every((f, i) => i === 0 || f.y <= moving[i - 1].y + 0.01), "the sheet only ever moves up while it opens", moving.map((f) => Math.round(f.y)))
+      }
+      /* The move's own frames: from the first one painted to the one where it arrives. What follows it (the comments drawn) is not the move. */
+      const lastMove = opening.indexOf(moving.at(-1))
+      const gaps = opening.slice(1, lastMove + 2).map((f, i) => f.t - opening[i].t)
+      /* A computer's panel here; a phone's sheet is the app's own, measured over three opens in OPENING and through its drags in SHEET. */
+      if (!phone) expect(Math.max(0, ...gaps) <= 34, "and draws every frame of it at 4x CPU (no gap over two frames)", gaps.map(Math.round))
+      /* The room for four comments was kept; when they arrive nothing above them moves and the panel hardly grows. */
+      const before = opening.find((f) => f.rows === 0 && f.secH !== null && (phone ? f.y < 0.5 : f.o > 0.999))
+      const after = opening.at(-1)
+      const titleMoves = new Set(opening.filter((f) => (phone ? f.y < 0.5 : f.o > 0.999)).map((f) => f.titleY))
+      expect(after.rows === 4 && titleMoves.size === 1, "the comments arrive (4 rows) and the post above them never moves", { rows: after.rows, titleY: [...titleMoves] })
+      expect(before && Math.abs(after.secH - before.secH) <= 40, "they fill the room kept for them: the comments area changes by at most 40px", { kept: before?.secH, filled: after.secH })
+      const faded = await p.evaluate(() => getComputedStyle(document.querySelector("[data-comments-rows]")).animationName)
+      expect(faded !== "none", "and fade in rather than appear", faded)
+      await shot(p, `${label}-r9-post-comments`)
+      if (!phone) {
+        /* Closing, frame by frame. */
+        await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 })
+        await watchPanel()
+        if (process.env.PROF) {
+          await cdp.send("Profiler.enable")
+          await cdp.send("Profiler.setSamplingInterval", { interval: 200 })
+          await cdp.send("Profiler.start")
+        }
+        await p.keyboard.press("Escape")
+        await p.waitForFunction(() => !document.querySelector("[data-post-overlay]"), { timeout: 3000 }).catch(() => {})
+        const closing = await readPanel()
+        await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
+        if (process.env.PROF) {
+          const { profile } = await cdp.send("Profiler.stop")
+          const self = new Map()
+          const byId = new Map(profile.nodes.map((n) => [n.id, n]))
+          profile.samples.forEach((id, i) => {
+            const n = byId.get(id)
+            const k = `${n.callFrame.functionName || "(anon)"} ${n.callFrame.url.split("/").pop()}:${n.callFrame.lineNumber}`
+            self.set(k, (self.get(k) || 0) + (profile.timeDeltas[i] || 0))
+          })
+          console.log("SELF", JSON.stringify([...self].sort((a, b) => b[1] - a[1]).slice(0, 30).map(([k, v]) => [k, Math.round(v / 1000)])))
+        }
+        const out = closing.filter((f) => f.o < 0.999)
+        /* Every frame while it can still be seen (the last, at no opacity, is the one that takes it away). */
+        const seenTill = closing.findIndex((f) => f.o < 0.02)
+        const began = Math.max(0, closing.findIndex((f) => f.o < 0.999) - 1)
+        const cg = closing.slice(began + 1, seenTill < 0 ? undefined : seenTill + 1).map((f, i) => f.t - closing[began + i].t)
+        expect(out.length >= 3 && out.every((f, i) => i === 0 || f.o <= out[i - 1].o + 0.001), "closing fades out frame after frame, never back up", closing.map((f) => Math.round(f.o * 100) / 100))
+        expect(Math.max(0, ...cg) <= 34, "with every frame drawn at 4x CPU while it can be seen", cg.map(Math.round))
+      }
+      expect(errors.length === 0, "no page error", errors)
+      await p.close()
+    }
+
+    /* ── RESTORE: back from a post, the feed is exactly where it was ── */
+    if (want("restore")) {
+      const { p, errors, live, calls } = await open("long", "/community/studio-notes", vp)
+      const cdp = await p.target().createCDPSession()
+      const where = async () => p.evaluate(() => ({ y: Math.round(scrollY), path: location.pathname, waiting: !!document.querySelector("[data-feed-waiting], [data-comments-loading] ~ [data-feed-list]"), posts: document.querySelectorAll("[data-feed-list] > [data-post]").length }))
+      const target = await p.evaluate(() => {
+        const el = document.querySelector('[data-post="p-gif-1"] [data-post-excerpt]')
+        window.scrollTo(0, el.getBoundingClientRect().top + scrollY - 300)
+        return true
+      })
+      await sleep(300)
+      const start = await where()
+      const reads = () => calls.filter((c) => /\/posts\?/.test(c.url)).length
+      const readsBefore = reads()
+      const ways = phone ? ["swipe", "back", "button"] : ["escape", "back", "scrim"]
+      const results = []
+      for (const way of ways) {
+        const tgt = '[data-post="p-gif-1"] [data-post-excerpt]'
+        if (phone) await p.tap(tgt)
+        else await p.click(tgt)
+        await p.waitForFunction(() => document.querySelector("[data-post-overlay-phase]")?.getAttribute("data-post-overlay-phase") === "shown", { timeout: 4000 }).catch(() => {})
+        await sleep(300)
+        const mid = await where()
+        if (way === "escape") await p.keyboard.press("Escape")
+        else if (way === "back") await p.evaluate(() => history.back())
+        else if (way === "scrim") await p.mouse.click(60, 600)
+        else if (way === "button") await p.tap("[data-post-overlay-close]")
+        else if (way === "swipe") {
+          const bar = await p.evaluate(() => {
+            const r = document.querySelector("[data-post-overlay-bar]").getBoundingClientRect()
+            return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) }
+          })
+          await touchDrag(p, cdp, bar, { x: bar.x, y: bar.y + 160 }, { steps: 5, stepMs: 12 })
+        }
+        /* Watch every frame of the way back for the feed moving or a waiting state. */
+        const frames = await p.evaluate(
+          () =>
+            new Promise((done) => {
+              const out = []
+              const t0 = performance.now()
+              const loop = () => {
+                out.push({ y: Math.round(scrollY), waiting: !!document.querySelector("[data-feed-waiting]"), overlay: !!document.querySelector("[data-post-overlay]") })
+                if (performance.now() - t0 < 900) requestAnimationFrame(loop)
+                else done(out)
+              }
+              requestAnimationFrame(loop)
+            }),
+        )
+        const end = await where()
+        results.push({ way, mid: mid.y, end: end.y, path: end.path, ys: [...new Set(frames.map((f) => f.y))], waiting: frames.some((f) => f.waiting), closed: !frames.at(-1).overlay })
+      }
+      expect(results.every((r) => r.closed && r.path === "/community/studio-notes"), `RESTORE: ${ways.join(", ")} each close the post and the address goes back`, results.map((r) => [r.way, r.closed, r.path]))
+      expect(results.every((r) => r.mid === start.y && r.end === start.y && r.ys.length === 1 && r.ys[0] === start.y), "the feed is at exactly the same scroll while open, on the way back and after, every frame", { start: start.y, results: results.map((r) => [r.way, r.mid, r.end, r.ys]) })
+      expect(results.every((r) => !r.waiting) && reads() === readsBefore, "nothing in the feed is read again or waits (no skeleton, no refetch)", { waiting: results.map((r) => r.waiting), feedReads: reads() - readsBefore })
+      expect(errors.length === 0, "no page error", errors)
+      await p.close()
+    }
+
+    /* ── MOTION: the composer opens and closes on the compositor ──── */
+    if (want("motion")) {
+      const { p, errors } = await open("feed", "/community/studio-notes", vp)
+      const cdp = await p.target().createCDPSession()
+      const runs = []
+      for (let i = 0; i < 3; i++) {
+        await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 })
+        await p.evaluate((phone) => {
+          window.__cf = []
+          const loop = () => {
+            const sheet = document.querySelector("[data-composer=sheet]")
+            const ed = document.querySelector("[data-composer=open]")
+            const next = ed?.nextElementSibling
+            const ty = (e) => {
+              if (!e) return null
+              const t = getComputedStyle(e).translate
+              return t === "none" ? 0 : parseFloat(t.split(" ")[1] ?? "0") || 0
+            }
+            /* Style reads (and the editor screen's own box, which nothing lays out again while it slides), so the measuring does not slow what it measures. */
+            window.__cf.push({ t: performance.now(), sheetY: sheet ? Math.round(sheet.getBoundingClientRect().top) : null, op: ed ? Number(getComputedStyle(ed).opacity) : null, nextTop: next ? Math.round(ty(next)) : null, edH: ed ? 1 : null })
+            window.__cfr = requestAnimationFrame(loop)
+          }
+          window.__cfr = requestAnimationFrame(loop)
+        }, phone)
+        const t0 = await p.evaluate(() => performance.now())
+        if (process.env.PROF && i === 1) {
+          await cdp.send("Profiler.enable")
+          await cdp.send("Profiler.setSamplingInterval", { interval: 200 })
+          await cdp.send("Profiler.start")
+          await p.tracing.start({ path: join(shots, "motion-trace.json"), categories: ["devtools.timeline"] })
+        }
+        await (phone ? p.tap("[data-composer-open]") : p.click("[data-composer-open]"))
+        await sleep(900)
+        if (process.env.PROF && i === 1) {
+          await p.tracing.stop()
+          const ev = JSON.parse(readFileSync(join(shots, "motion-trace.json"), "utf8")).traceEvents
+          const sum = new Map()
+          for (const e of ev) if (e.ph === "X" && e.dur) sum.set(e.name, (sum.get(e.name) || [0, 0, 0]).map((v, k) => (k === 0 ? v + e.dur : k === 1 ? v + 1 : Math.max(v, e.dur))))
+          console.log("TRACE", JSON.stringify([...sum].sort((a, b) => b[1][0] - a[1][0]).slice(0, 14).map(([k, [t, n, m]]) => [k, Math.round(t / 1000), n, Math.round(m / 1000)])))
+          const t0e = ev.find((e) => e.name === "EventDispatch")?.ts ?? 0
+          console.log("LONG", JSON.stringify(ev.filter((e) => e.ph === "X" && e.dur > 12000 && /^(FunctionCall|FireAnimationFrame|TimerFire|EventDispatch|UpdateLayoutTree|Layout|Paint|RunTask|v8.callFunction)$/.test(e.name)).map((e) => [e.name, Math.round((e.ts - t0e) / 1000), Math.round(e.dur / 1000), e.args?.data?.functionName || e.args?.data?.type || e.args?.data?.url?.slice(-20) || ""])))
+          const { profile } = await cdp.send("Profiler.stop")
+          const self = new Map()
+          const byId = new Map(profile.nodes.map((n) => [n.id, n]))
+          profile.samples.forEach((id, k) => {
+            const n = byId.get(id)
+            const key = `${n.callFrame.functionName || "(anon)"}:${n.callFrame.lineNumber}`
+            self.set(key, (self.get(key) || 0) + (profile.timeDeltas[k] || 0))
+          })
+          console.log("SELF", JSON.stringify([...self].sort((a, b) => b[1] - a[1]).slice(0, 16).map(([k, v]) => [k, Math.round(v / 1000)])))
+        }
+        const opened = await p.evaluate(() => (cancelAnimationFrame(window.__cfr), window.__cf))
+        await p.evaluate(() => {
+          window.__cf = []
+          const loop = () => {
+            const sheet = document.querySelector("[data-composer=sheet]")
+            const ed = document.querySelector("[data-composer=open]")
+            const closed = document.querySelector("[data-composer=closed]")
+            const ty = (e) => {
+              if (!e) return null
+              const t = getComputedStyle(e).translate
+              return t === "none" ? 0 : parseFloat(t.split(" ")[1] ?? "0") || 0
+            }
+            window.__cf.push({ t: performance.now(), sheetY: sheet ? Math.round(sheet.getBoundingClientRect().top) : null, ed: !!ed, nextTop: Math.round(ty((ed || closed)?.nextElementSibling) ?? 0) })
+            window.__cfr = requestAnimationFrame(loop)
+          }
+          window.__cfr = requestAnimationFrame(loop)
+        })
+        if (process.env.PROF && i === 1) await p.tracing.start({ path: join(shots, "motion-trace2.json"), categories: ["devtools.timeline"] })
+        await (phone ? p.tap("[data-composer-cancel]") : p.click("[data-composer-cancel]"))
+        await sleep(800)
+        if (process.env.PROF && i === 1) {
+          await p.tracing.stop()
+          const ev = JSON.parse(readFileSync(join(shots, "motion-trace2.json"), "utf8")).traceEvents
+          const t0e = ev.find((e) => e.name === "EventDispatch")?.ts ?? 0
+          console.log("LONG-CLOSE", JSON.stringify(ev.filter((e) => e.ph === "X" && e.dur > 12000 && /^(FunctionCall|FireAnimationFrame|TimerFire|EventDispatch|UpdateLayoutTree|Layout|Paint|RunTask|v8.callFunction)$/.test(e.name)).map((e) => [e.name, Math.round((e.ts - t0e) / 1000), Math.round(e.dur / 1000), e.args?.data?.functionName || e.args?.data?.type || e.args?.data?.url?.slice(-20) || ""])))
+        }
+        const closed = await p.evaluate(() => (cancelAnimationFrame(window.__cfr), window.__cf))
+        await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
+        const firstSeen = opened.find((f) => (phone ? f.sheetY !== null : f.edH !== null))
+        const oi = opened.indexOf(firstSeen)
+        /*
+          The move's own frames. Open: from the frame after the first one painted (that one draws the
+          editor's new content for the first time; its cost is `firstFrame`) until it has arrived. Close:
+          from the press until it is out of sight (a phone's screen below the bottom edge, the posts back
+          where they rest); what follows (taking it out of the page) is not seen.
+        */
+        const arrivedAt = opened.findIndex((f, k) => k > oi && (phone ? f.sheetY === 0 : f.op === 1 && f.nextTop === 0))
+        const openGaps = opened.slice(oi + 2, arrivedAt + 1).map((f, k) => f.t - opened[oi + 1 + k].t)
+        /* From the frame of the press (the last one before the move) to the last one with the editor in sight. */
+        const pressAt = Math.max(0, closed.findIndex((f) => (phone ? f.sheetY > 0 : f.nextTop < 0)) - 1)
+        const goneAt = closed.findIndex((f) => (phone ? f.sheetY === null || f.sheetY >= 844 : !f.ed))
+        const closeGaps = closed.slice(pressAt + 1, phone ? goneAt + 1 : goneAt).map((f, k) => f.t - closed[pressAt + k].t)
+        runs.push({ mount: firstSeen ? Math.round(firstSeen.t - t0) : null, firstFrame: Math.round((opened[oi + 1]?.t ?? 0) - (firstSeen?.t ?? 0)), first: firstSeen, openGaps, opened, closed, closeGaps })
+        await sleep(300)
+      }
+      const mid = (k) => [...runs].sort((a, b) => Math.max(0, ...a[k]) - Math.max(0, ...b[k]))[1]
+      const o = mid("openGaps")
+      const c = mid("closeGaps")
+      if (phone) {
+        const ys = o.opened.filter((f) => f.sheetY !== null).map((f) => f.sheetY)
+        expect(ys[0] > 600 && ys.every((y, i) => i === 0 || y <= ys[i - 1]) && ys.at(-1) === 0, "MOTION: the phone's editor is first painted below the screen and only ever rises, to 0", ys)
+        const cys = c.closed.filter((f) => f.sheetY !== null).map((f) => f.sheetY)
+        expect(cys.length >= 4 && cys.every((y, i) => i === 0 || y >= cys[i - 1]) && !c.closed.at(-1).sheetY, "closing it only ever goes down, then it is gone", cys)
+      } else {
+        const fr = o.opened.filter((f) => f.edH !== null)
+        const ops = fr.map((f) => Math.round(f.op * 100) / 100)
+        const tops = fr.map((f) => f.nextTop)
+        expect(ops[0] < 0.5 && ops.every((v, i) => i === 0 || v >= ops[i - 1]) && ops.at(-1) === 1, "MOTION: in place, the editor fades in from its first frame", ops)
+        expect(tops.every((t, i) => i === 0 || t >= tops[i - 1]) && tops[0] < -100 && tops.at(-1) === 0, "while the posts under it slide down to make room (their offset from where they rest, rising to 0), never back up", tops)
+        const ctops = c.closed.filter((f) => f.ed).map((f) => f.nextTop)
+        expect(ctops.at(-1) < -100 && ctops.every((t, i) => i === 0 || t <= ctops[i - 1] + 0.5), "closing, they slide back up over it, never down again", ctops)
+      }
+      expect(runs.map((r) => r.mount).sort((a, b) => a - b)[1] < 300, "the editor is on screen within 300ms of the press at 4x CPU (middle of three)", runs.map((r) => r.mount))
+      expect(Math.max(0, ...o.openGaps) <= 34 && Math.max(0, ...c.closeGaps) <= 34, "every frame of the open and the close is drawn at 4x CPU (no gap over two frames, middle of three)", runs.map((r) => ({ open: Math.round(Math.max(0, ...r.openGaps)), close: Math.round(Math.max(0, ...r.closeGaps)), firstFrame: r.firstFrame, openFrames: r.openGaps.length, closeFrames: r.closeGaps.length })))
+      expect(errors.length === 0, "no page error", errors)
+      await p.close()
+    }
+
+    /* ── KEYBOARD: the phone's editor fits what the keyboard leaves ── */
+    if (want("keyboard") && phone) {
+      const { p, errors } = await open("feed", "/community/studio-notes", vp)
+      /* A keyboard, as a phone reports one: the visual viewport shrinks (and Safari may pan it), and it says so with resize and scroll. */
+      const keyboard = (h, top = 0) =>
+        p.evaluate(
+          (h, top) => {
+            const vv = window.visualViewport
+            Object.defineProperty(vv, "height", { configurable: true, get: () => h })
+            Object.defineProperty(vv, "offsetTop", { configurable: true, get: () => top })
+            vv.dispatchEvent(new Event("resize"))
+            vv.dispatchEvent(new Event("scroll"))
+          },
+          h,
+          top,
+        )
+      const measure = () =>
+        p.evaluate(() => {
+          const r = (e) => {
+            const b = e.getBoundingClientRect()
+            return { top: Math.round(b.top), bottom: Math.round(b.bottom) }
+          }
+          const vis = document.querySelector("[data-composer-visible]")
+          const bar = document.querySelector("[data-composer-toolbar]")
+          const box = document.querySelector("[data-composer-scroll]")
+          const el = document.activeElement
+          const hit = document.elementFromPoint(195, 800)
+          return { vis: r(vis), bar: r(bar), box: r(box), focused: el?.getAttribute("aria-label") ?? el?.tagName, field: el ? r(el) : null, under: !!hit?.closest("[data-composer=sheet]"), vvh: getComputedStyle(document.documentElement).getPropertyValue("--vv-h") }
+        })
+      await p.tap("[data-composer-open]")
+      await sleep(600)
+      await p.tap("[data-composer-title]")
+      await p.keyboard.type("A long post")
+      await p.tap('[aria-label="Post"]')
+      await p.keyboard.type(Array.from({ length: 18 }, (_, i) => `Line ${i + 1} of the words, long enough to wrap.`).join("\n"))
+      await sleep(200)
+      const flat = await measure()
+      /* The keyboard opens: 340px. */
+      await keyboard(504)
+      await sleep(420)
+      const up = await measure()
+      await shot(p, `${label}-r9-keyboard`)
+      expect(up.vis.top === 0 && up.vis.bottom === 504 && up.bar.bottom === 504, "KEYBOARD: up, the editor is exactly the visible part (0 to 504) and the toolbar sits on the keyboard", { vis: up.vis, bar: up.bar, vvh: up.vvh })
+      expect(up.field && up.field.bottom <= up.box.bottom && up.field.top >= up.box.top - 400 && up.focused === "Post", "the field being typed in (its end, where the caret is) is in sight above the toolbar", { field: up.field, box: up.box, focused: up.focused })
+      expect(up.under, "and under the keyboard is the editor's own white, not the page (no gap as it comes and goes)", up.under)
+      /* Safari pans the page under an open keyboard. */
+      await keyboard(504, 120)
+      await sleep(420)
+      const panned = await measure()
+      expect(panned.vis.top === 120 && panned.vis.bottom === 624 && panned.bar.bottom === 624, "panned 120px, the editor moves with what is visible (120 to 624)", panned.vis)
+      /* It closes. */
+      await keyboard(844, 0)
+      await sleep(420)
+      const down = await measure()
+      /* Before the first report the field already had a keyboard's room: ViewportVars stands in an estimate for a webview that reports nothing. */
+      expect(down.vis.top === 0 && down.vis.bottom === 844 && down.bar.bottom === 844, "down again, the editor is the whole screen once more, toolbar at the bottom", { beforeAnyReport: flat.vis, down: down.vis })
+
+      /* The post sheet's comment box too. */
+      await p.tap("[data-composer-cancel]")
+      await sleep(300)
+      await p.click("[data-leave-go]").catch(() => {})
+      await sleep(500)
+      await p.tap('[data-post="p-text"] [data-post-excerpt]')
+      await p.waitForFunction(() => document.querySelector("[data-post-overlay-phase]")?.getAttribute("data-post-overlay-phase") === "shown", { timeout: 4000 }).catch(() => {})
+      await p.waitForSelector("[data-post-overlay] [data-comment-box=comment] textarea", { timeout: 4000 }).catch(() => {})
+      await p.tap("[data-post-overlay] [data-comment-box=comment] textarea")
+      await keyboard(504)
+      await sleep(500)
+      const sheet = await p.evaluate(() => {
+        const panel = document.querySelector("[data-post-overlay=phone]").closest("[data-sheet-panel]")
+        const b = panel.getBoundingClientRect()
+        const f = document.activeElement.closest("[data-comment-box]").getBoundingClientRect()
+        const sc = panel.querySelector("[data-sheet-scroll]").getBoundingClientRect()
+        return { top: Math.round(b.top), bottom: Math.round(b.bottom), box: Math.round(f.bottom), visibleTo: Math.round(sc.bottom) }
+      })
+      expect(sheet.bottom === 504 && sheet.top >= 0 && sheet.box <= sheet.visibleTo, "the post's sheet sits on the keyboard with the whole comment box in sight", sheet)
+      await shot(p, `${label}-r9-sheet-keyboard`)
+      expect(errors.length === 0, "no page error", errors)
+      await p.close()
+    }
+
+    /* ── SLIDER: the viewer follows the finger, snaps with its speed, neighbours ready ── */
+    if (want("slider")) {
+      const { p, errors } = await open("post", "/community/studio-notes/post/p-intro", vp)
+      const cdp = await p.target().createCDPSession()
+      await p.evaluate(() => document.querySelector('[data-media-tile="image"]').scrollIntoView({ block: "center" }))
+      await sleep(200)
+      const tile = await p.evaluate(() => {
+        const b = document.querySelector('[data-media-index="0"]').getBoundingClientRect()
+        return { x: b.left, y: b.top, w: b.width, h: b.height }
+      })
+      /* Every frame of the open: where the picture is drawn. Three opens (the machine is shared): the middle one's frames are judged. */
+      const openOnce = async () => {
+        await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 })
+        await p.evaluate(() => {
+          window.__lf = []
+          const loop = () => {
+            const m = document.querySelector('[data-lightbox-slide="0"] [data-lightbox-media]')
+            if (m) {
+              const b = m.getBoundingClientRect()
+              window.__lf.push({ t: performance.now(), x: b.left, y: b.top, w: b.width, h: b.height })
+            }
+            window.__lfr = requestAnimationFrame(loop)
+          }
+          window.__lfr = requestAnimationFrame(loop)
+        })
+        await (phone ? p.tap('[data-media-index="0"]') : p.click('[data-media-index="0"]'))
+        await p.waitForFunction(() => document.querySelector("[data-lightbox-phase]")?.getAttribute("data-lightbox-phase") === "open", { timeout: 4000 }).catch(() => {})
+        await sleep(200)
+        const lf = await p.evaluate(() => (cancelAnimationFrame(window.__lfr), window.__lf))
+        await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
+        const grows = lf.map((f) => Math.round(f.w))
+        const lgaps = lf.slice(1).map((f, i) => f.t - lf[i].t)
+        /* The move's frames: from the first that changes (the ones before draw the full size picture for the first time: `firstFrames`). */
+        const movedAt = Math.max(1, grows.findIndex((w) => w !== grows[0]))
+        const moveGaps = lgaps.slice(movedAt - 1, grows.findIndex((w, i) => i > movedAt && w === grows.at(-1)) + 1)
+        return { f0: lf[0], grows, moveMax: Math.round(Math.max(0, ...moveGaps)), firstFrames: lgaps.slice(0, movedAt - 1).map(Math.round) }
+      }
+      const opens = []
+      for (let k = 0; k < 3; k++) {
+        if (k) {
+          await p.keyboard.press("Escape")
+          await p.waitForFunction(() => !document.querySelector("[data-lightbox]"), { timeout: 3000 }).catch(() => {})
+          await sleep(300)
+        }
+        opens.push(await openOnce())
+      }
+      const { f0 } = opens[0]
+      const midOpen = [...opens].sort((a, b) => a.moveMax - b.moveMax)[1]
+      /* The picture is scaled to cover the thumbnail and cropped to it (a clip), so its box is centred on the thumbnail, as wide as it here (a wide tile). */
+      const cy = (r) => r.y + r.h / 2
+      expect(f0 && Math.abs(f0.x - tile.x) <= 6 && Math.abs(cy(f0) - cy(tile)) <= 6 && Math.abs(f0.w - tile.w) <= 8, "SLIDER: the viewer opens out of the pressed thumbnail: its first frame is drawn where the thumbnail is (same left, width and centre)", { first: f0 && { x: Math.round(f0.x), cy: Math.round(cy(f0)), w: Math.round(f0.w) }, tile: { x: Math.round(tile.x), cy: Math.round(cy(tile)), w: Math.round(tile.w) } })
+      expect(opens.every((o) => o.grows.every((w, i) => i === 0 || w >= o.grows[i - 1] - 1)) && midOpen.moveMax <= 34, "and only ever grows from there, every frame of the move drawn at 4x CPU (middle of three opens)", opens.map((o) => ({ moveMaxGap: o.moveMax, firstFrames: o.firstFrames, frames: o.grows.length })))
+      const ready = await p.evaluate(() => {
+        const img = document.querySelector('[data-lightbox-slide="1"] img')
+        return img ? { complete: img.complete, w: img.naturalWidth, loading: img.loading } : null
+      })
+      expect(ready && ready.complete && ready.w > 0 && ready.loading === "eager", "the next picture is already loaded before any swipe", ready)
+      await shot(p, `${label}-r9-viewer`)
+      /* The row's offset: its left edge (it rests at the window's left for the first picture). */
+      const trackX = () => p.evaluate(() => Math.round(document.querySelector("[data-lightbox-track]").getBoundingClientRect().left))
+      const count = () => p.$eval("[data-lightbox-count]", (e) => e.textContent)
+      const W = vp.width
+      const mid = { x: Math.round(W / 2), y: Math.round(vp.height / 2) }
+      if (phone) {
+        await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 })
+        await startFrames(p)
+        const follow = await touchDrag(p, cdp, mid, { x: mid.x - 160, y: mid.y }, { steps: 8, holdMs: 140, onStep: async (d) => (await twoFrames(p), { finger: Math.round(d.x), track: await trackX() }) })
+        await sleep(600)
+        const slow = { follow, after: await trackX(), count: await count() }
+        expect(follow.slice(1).every((f) => Math.abs(f.track - f.finger) <= 1), "the row is under the finger at every step at 4x CPU (finger, track px)", follow.map((f) => [f.finger, f.track]))
+        expect(slow.after === 0 && slow.count === "1 / 4", "a slow 160px drag held before lifting goes back to the same picture", slow)
+        await touchDrag(p, cdp, mid, { x: mid.x - 110, y: mid.y }, { steps: 4, stepMs: 12 })
+        await sleep(600)
+        const flick = { x: await trackX(), count: await count() }
+        expect(flick.count === "2 / 4" && flick.x === -W, "a quick 110px flick goes on to the next one, landing exactly on it", flick)
+        const edge = await touchDrag(p, cdp, mid, { x: mid.x + 300, y: mid.y }, { steps: 6, holdMs: 140, onStep: async (d) => (await twoFrames(p), { finger: Math.round(d.x), track: await trackX() }) })
+        await sleep(600)
+        expect((await count()) === "1 / 4", "dragged back, it returns to the first", await count())
+        const edge2 = await touchDrag(p, cdp, mid, { x: mid.x + 200, y: mid.y }, { steps: 6, holdMs: 140, onStep: async (d) => (await twoFrames(p), { finger: Math.round(d.x), track: await trackX() }) })
+        await sleep(600)
+        expect(edge2.at(-1).track > 0 && edge2.at(-1).track < edge2.at(-1).finger * 0.7 && (await trackX()) === 0, "past the first picture the row gives on a rubber band and comes back", edge2.map((f) => [f.finger, f.track]))
+        const sf = await stopFrames(p)
+        expect(sf.over34 === 0, "no frame over two frames' time through the drags and snaps at 4x CPU", sf)
+        /* A pull down closes it, back into the thumbnail. */
+        await p.evaluate(() => {
+          window.__lc = []
+          const loop = () => {
+            const m = document.querySelector('[data-lightbox-slide="0"] [data-lightbox-media]')
+            if (m) {
+              const b = m.getBoundingClientRect()
+              window.__lc.push({ x: b.left, y: b.top, w: b.width, h: b.height })
+            }
+            window.__lcr = requestAnimationFrame(loop)
+          }
+          window.__lcr = requestAnimationFrame(loop)
+        })
+        await touchDrag(p, cdp, mid, { x: mid.x, y: mid.y + 200 }, { steps: 6, stepMs: 14 })
+        await p.waitForFunction(() => !document.querySelector("[data-lightbox]"), { timeout: 3000 }).catch(() => {})
+        const lc = await p.evaluate(() => (cancelAnimationFrame(window.__lcr), window.__lc))
+        await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
+        const lastF = lc.at(-1)
+        expect(!(await p.$("[data-lightbox]")) && lastF && Math.abs(lastF.x - tile.x) <= 10 && Math.abs(lastF.w - tile.w) <= 14 && Math.abs(lastF.y + lastF.h / 2 - cy(tile)) <= 10, "a pull down closes it, and it goes back into its thumbnail", { last: lastF && { x: Math.round(lastF.x), cy: Math.round(lastF.y + lastF.h / 2), w: Math.round(lastF.w) }, tile: { x: Math.round(tile.x), cy: Math.round(cy(tile)), w: Math.round(tile.w) } })
+      } else {
+        /* A mouse drag on a computer works the same way. */
+        await p.mouse.move(mid.x, mid.y)
+        await p.mouse.down()
+        for (let i = 1; i <= 6; i++) {
+          await p.mouse.move(mid.x - i * 40, mid.y)
+          await sleep(16)
+        }
+        await p.mouse.up()
+        await sleep(600)
+        expect((await count()) === "2 / 4" && (await trackX()) === -W, "SLIDER on a computer: a drag moves to the next one too", await count())
+        await p.keyboard.press("ArrowLeft")
+        await sleep(450)
+        expect((await count()) === "1 / 4" && (await trackX()) === 0, "and the arrow keys slide back", await count())
+        await p.keyboard.press("Escape")
+        await sleep(450)
+        expect(!(await p.$("[data-lightbox]")), "Escape closes it")
+      }
+      expect(errors.length === 0, "no page error", errors)
+      await p.close()
+    }
+
+    /* ── GIPHY: the picker with Giphy's own reply, through the server's code ── */
+    if (want("giphy")) {
+      const { p, errors, calls, live } = await open("feed", "/community/studio-notes", vp, { giphy: true, gifWait: 250 })
+      await (phone ? p.tap("[data-composer-open]") : p.click("[data-composer-open]"))
+      await sleep(700)
+      const trending = await giphyRoute("")
+      expect(trending.reply.gifs?.length === 24 && /api\.giphy\.com\/v1\/gifs\/trending\?/.test(trending.asked) && trending.reply.gifs.every((g) => /^https:\/\/media\d\.giphy\.com\/.+\/200w\.gif\?/.test(g.url) && /200w_s\.gif\?/.test(g.still) && g.w === 200 && g.h > 0), "GIPHY: Giphy's reply (every rendition) through the server's code: 24 GIFs, the 200px moving one and its still, sizes as numbers", trending.reply.gifs?.slice(0, 2))
+      await (phone ? p.tap("[data-composer-gif]") : p.click("[data-composer-gif]"))
+      await p.waitForSelector("[data-gif]", { timeout: 3000 }).catch(() => {})
+      const shown = await p.evaluate(() => ({
+        tiles: document.querySelectorAll("[data-gif]").length,
+        spinner: !!document.querySelector("[data-gif-loading]"),
+        label: [...document.querySelectorAll("[data-gif-results], [data-gif-results] ~ *, [data-gif-grid]")].length,
+        trending: /Trending/.test(document.querySelector("[data-gif-results]")?.parentElement?.textContent ?? ""),
+        shapes: ["trending 0", "trending 1", "trending 2", "trending 3"].map((t) => document.querySelector(`[data-gif][aria-label="${t}"]`)?.getBoundingClientRect()).map((b) => (b ? Math.round((b.width / b.height) * 100) / 100 : null)),
+        src: document.querySelector("[data-gif] img")?.getAttribute("src"),
+      }))
+      expect(shown.tiles === 24 && !shown.spinner && shown.trending, "opened, the trending GIFs are there at once (the button's own question brought them), under \"Trending\"", shown)
+      expect(Math.abs(shown.shapes[0] - 480 / 270) < 0.03 && Math.abs(shown.shapes[1] - 1) < 0.03, "each tile in its GIF's own shape from the first frame", shown.shapes)
+      await sleep(400)
+      expect((live.giphyImages || 0) > 0, "the pictures come from Giphy's host", live.giphyImages)
+      await shot(p, `${label}-r9-giphy-trending`)
+      /* A search: the trending ones stay (lighter) until the new ones are here, never an empty grid. */
+      await p.type('[aria-label="Search GIFs"]', "cat")
+      const during = []
+      for (let i = 0; i < 12; i++) {
+        during.push(await p.evaluate(() => ({ tiles: document.querySelectorAll("[data-gif]").length, empty: !!document.querySelector("[data-gif-empty], [data-gif-loading]"), first: document.querySelector("[data-gif]")?.getAttribute("aria-label") })))
+        await sleep(60)
+      }
+      await p.waitForFunction(() => /^cat /.test(document.querySelector("[data-gif]")?.getAttribute("aria-label") ?? ""), { timeout: 4000 }).catch(() => {})
+      const cat = await p.evaluate(() => ({ first: document.querySelector("[data-gif]")?.getAttribute("aria-label"), tiles: document.querySelectorAll("[data-gif]").length }))
+      expect(during.every((d) => d.tiles > 0 && !d.empty) && cat.first === "cat 0" && cat.tiles === 24, "typing a search keeps GIFs on screen the whole time, then shows the cat ones", { during: during.map((d) => d.tiles), cat })
+      /* The next page as the end comes near. */
+      await p.evaluate(() => {
+        const box = document.querySelector("[data-gif-results]")
+        box.scrollTop = box.scrollHeight
+      })
+      const placed = await p.evaluate(() => Object.fromEntries([...document.querySelectorAll("[data-gif]")].map((e) => [e.getAttribute("aria-label"), Math.round(e.getBoundingClientRect().left)])))
+      await p.waitForFunction(() => document.querySelectorAll("[data-gif]").length > 24, { timeout: 4000 }).catch(() => {})
+      const paged = await p.evaluate(() => document.querySelectorAll("[data-gif]").length)
+      const after = await p.evaluate(() => Object.fromEntries([...document.querySelectorAll("[data-gif]")].map((e) => [e.getAttribute("aria-label"), Math.round(e.getBoundingClientRect().left)])))
+      expect(paged === 36 && calls.some((c) => /\/gifs\?q=cat&offset=24/.test(c.url)), "scrolled to the end, the next page comes (24 + 12)", paged)
+      expect(Object.entries(placed).every(([k, x]) => after[k] === x), "and the GIFs already there keep their column (the new ones go under them)", Object.entries(placed).filter(([k, x]) => after[k] !== x).slice(0, 4))
+      /* Nothing found. */
+      await p.evaluate(() => {
+        const i = document.querySelector('[aria-label="Search GIFs"]')
+        const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set
+        set.call(i, "")
+        i.dispatchEvent(new Event("input", { bubbles: true }))
+      })
+      await p.type('[aria-label="Search GIFs"]', "nothing")
+      await p.waitForSelector("[data-gif-empty]", { timeout: 4000 }).catch(() => {})
+      const none = await p.evaluate(() => document.querySelector("[data-gif-empty]")?.textContent ?? null)
+      expect(none === 'No GIFs for "nothing". Try other words.', "nothing found says so, with the words", none)
+      await shot(p, `${label}-r9-giphy-empty`)
+      /* Back to cat (shown at once from what was read), and a pick. */
+      await p.evaluate(() => {
+        const i = document.querySelector('[aria-label="Search GIFs"]')
+        const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set
+        set.call(i, "cat")
+        i.dispatchEvent(new Event("input", { bubbles: true }))
+      })
+      await sleep(80)
+      const again = await p.evaluate(() => document.querySelector("[data-gif]")?.getAttribute("aria-label"))
+      expect(again === "cat 0", "a search typed again shows its GIFs at once", again)
+      await sleep(500)
+      await (phone ? p.tap("[data-gif]") : p.click("[data-gif]"))
+      await sleep(500)
+      const att = await p.evaluate(() => {
+        const a = document.querySelector('[data-attachment="gif"]')
+        return a ? { img: a.querySelector("img")?.getAttribute("src") } : null
+      })
+      expect(!!att && /200w_s\.gif/.test(att.img ?? ""), "picked, it is attached, shown by its still", att)
+      await p.type("[data-composer-title]", "A GIF from Giphy")
+      await p.type('[aria-label="Post"]', "Look at this.")
+      await p.click("[data-composer-space]")
+      await sleep(350)
+      const spaceItem = await p.evaluateHandle(() => [...document.querySelectorAll('[role="menuitem"], [data-sheet] button, button')].find((b) => b.textContent.trim() === "General" && b.closest('[role="menu"], [role="dialog"]')))
+      await spaceItem.asElement()?.click()
+      await sleep(400)
+      await p.click("[data-composer-post]")
+      await sleep(600)
+      const sent = calls.filter((c) => c.url.endsWith("/posts") && c.method === "POST").map((c) => JSON.parse(c.body))[0]
+      const gif = sent?.media?.find((m) => m.type === "gif")
+      expect(!!gif && /^https:\/\/media\d\.giphy\.com\/.+\/200w\.gif\?/.test(gif.url) && /200w_s\.gif/.test(gif.still) && gif.w === 200 && gif.title === "cat 0", "and the post carries Giphy's moving GIF, its still, its size and title", gif)
+      expect(errors.length === 0, "no page error", errors)
       await p.close()
     }
   }
