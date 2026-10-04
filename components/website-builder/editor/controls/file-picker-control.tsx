@@ -21,6 +21,7 @@
  * server checks the bytes afterwards like every public file.
  */
 import * as React from "react"
+import { isOwnMedia } from "@/lib/storage/media-url"
 import { FileText, RefreshCw, Trash2, UploadCloud } from "lucide-react"
 import { toast } from "sonner"
 
@@ -94,12 +95,13 @@ export function FilePickerControl({
   placeholder?: string
 }) {
   const [shown, commit] = useEchoedValue(typeof value === "string" ? value : "", onChange)
-  const [draft, setDraft] = React.useState(shown)
+  /* A file Storelib holds is shown by name in the picker, never as an address here (lib/storage/media-url.ts). */
+  const [draft, setDraft] = React.useState(isOwnMedia(shown) ? "" : shown)
   const [seen, setSeen] = React.useState(shown)
   const [left, setLeft] = React.useState(false)
   if (seen !== shown) {
     setSeen(shown)
-    setDraft(shown)
+    setDraft(isOwnMedia(shown) ? "" : shown)
     setLeft(false)
   }
   const [progress, setProgress] = React.useState<number | null>(null)
@@ -122,7 +124,7 @@ export function FilePickerControl({
     try {
       const url = await upload(file, accept, setProgress)
       setSeen(url)
-      setDraft(url)
+      setDraft("")
       commit(url)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "The upload did not finish. Try again.")

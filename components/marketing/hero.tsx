@@ -88,8 +88,8 @@ const PARTNER_LOGOS = [
   "https://cdn.sanity.io/images/599r6htc/regionalized/a9bfb23cca986ee16b0547274bcd7461ffd373aa-67x18.svg?q=75&fit=max&auto=format",
   "https://cdn.sanity.io/images/599r6htc/regionalized/bbfcc0e04437442a9637cc58efde849dfadb313c-76x48.svg?q=75&fit=max&auto=format",
   "https://cdn.sanity.io/images/599r6htc/regionalized/01d4ea19e824b3596f8f6c701d3b8319e49631b0-146x18.svg?q=75&fit=max&auto=format",
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/popj.svg",
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/eyJidWNrZXQiOiJwYXJ0bmVycGFnZS5wcm9kIiwia2V5IjoibWVkaWEvY29udGFjdF9pbWFnZXMvOWQ0MDVmYmMtNGJkMS00NzEz.svg",
+  "https://storelib.com/media/platform%20images/popj.svg",
+  "https://storelib.com/media/platform%20images/eyJidWNrZXQiOiJwYXJ0bmVycGFnZS5wcm9kIiwia2V5IjoibWVkaWEvY29udGFjdF9pbWFnZXMvOWQ0MDVmYmMtNGJkMS00NzEz.svg",
 ]
 
 /**
@@ -117,7 +117,7 @@ const PARTNER_LOGOS = [
  * Quality 75, not the 88 a creator's own cover gets: this is decoration at
  * 260px behind a white card, and it is the first thing on the site.
  */
-const IMG_BASE = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags"
+const IMG_BASE = "https://storelib.com/media/platform%20images/collage%20imags"
 const IMG_NAMES = [
   "Monetize%20(5)%20(2).webp",
   "Monetize%20(6)%20(1).webp",

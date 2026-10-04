@@ -4973,7 +4973,7 @@ function PublicBlockRenderer({
         if (!downloadLink) return
         const name = data.digital_product_title || 'download'
         let downloadUrl = downloadLink
-        if (downloadUrl.includes('/storage/v1/object/public/')) {
+        if (downloadUrl.includes('/storage/v1/object/public/') || downloadUrl.includes('/media/')) {
           const separator = downloadUrl.includes('?') ? '&' : '?'
           downloadUrl = `${downloadUrl}${separator}download=${encodeURIComponent(name)}`
         }

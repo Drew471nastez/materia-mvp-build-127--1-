@@ -1,4 +1,5 @@
 import { createServerClient } from "@supabase/ssr"
+import { mediaFetch, withMediaAddresses } from "@/lib/storage/media-url"
 import { cookies, headers } from "next/headers"
 
 /**
@@ -44,7 +45,9 @@ export async function createClient() {
   const cookieDomain = getCookieDomain(requestHost, mainDomain)
   const isLocalhost = mainDomain.includes("localhost") || requestHost.includes("localhost")
 
-  return createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+  return withMediaAddresses(createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+    /* Every row read carries Storelib's own file addresses (lib/storage/media-url.ts). */
+    global: { fetch: mediaFetch },
     cookies: {
       getAll() {
         return cookieStore.getAll()
@@ -66,5 +69,5 @@ export async function createClient() {
         }
       },
     },
-  })
+  }))
 }

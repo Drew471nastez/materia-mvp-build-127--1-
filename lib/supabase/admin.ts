@@ -11,6 +11,7 @@
  * instead of shipping.
  */
 import "server-only"
+import { mediaFetch, withMediaAddresses } from "@/lib/storage/media-url"
 
 import { createClient } from "@supabase/supabase-js"
 
@@ -30,11 +31,13 @@ export function createAdminClient() {
     throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY")
   }
 
-  return createClient(url, serviceRoleKey, {
+  return withMediaAddresses(createClient(url, serviceRoleKey, {
+    /* Every row read carries Storelib's own file addresses (lib/storage/media-url.ts). */
+    global: { fetch: mediaFetch },
     auth: {
       persistSession: false,
       autoRefreshToken: false,
       detectSessionInUrl: false,
     },
-  })
+  }))
 }

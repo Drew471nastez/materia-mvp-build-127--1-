@@ -218,7 +218,7 @@ export default function WelcomePage() {
 
 // ── Collage Carousel (vanilla DOM animation for 60fps on iOS) ─────────────────
 const BASE_URL =
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags"
+  "https://storelib.com/media/platform%20images/collage%20imags"
 const IMAGES = [
   "Monetize%20(5)%20(2).webp",
   "Monetize%20(6)%20(1).webp",

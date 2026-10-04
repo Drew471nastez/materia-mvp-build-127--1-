@@ -15,6 +15,7 @@
  * thing, which is whether the address claims an owner.
  */
 import { sanitizeSections } from "@/lib/website-builder/sanitize-sections"
+import { withMediaUrls } from "@/lib/storage/media-url"
 import { cache } from "react"
 import { notFound } from "next/navigation"
 import type { Metadata } from "next"
@@ -95,7 +96,8 @@ const fetchProductBySlug = cache(async function fetchProductBySlug(slug: string)
     .eq("status", "published")
     .maybeSingle()
 
-  if (data) return data as ProductRow
+  /* Storelib's own address for every picture and file, never the storage host's (lib/storage/media-url.ts). */
+  if (data) return withMediaUrls(data) as ProductRow
 
   // Fall back to renamed slugs
   const { data: history } = await supabase
@@ -108,7 +110,7 @@ const fetchProductBySlug = cache(async function fetchProductBySlug(slug: string)
     .maybeSingle()
 
   const p: any = history?.products
-  if (p && p.status === "published") return p as ProductRow
+  if (p && p.status === "published") return withMediaUrls(p) as ProductRow
   return null
 })
 

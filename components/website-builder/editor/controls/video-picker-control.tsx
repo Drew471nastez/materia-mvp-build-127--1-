@@ -19,6 +19,7 @@
  */
 
 import * as React from "react"
+import { isOwnMedia } from "@/lib/storage/media-url"
 import { Film, Loader2, Upload, X } from "lucide-react"
 import { toast } from "sonner"
 
@@ -132,7 +133,8 @@ export function VideoPickerControl({ value, onChange, label }: { value: string; 
         aria-invalid={!!text && !playable}
         className={INPUT}
         placeholder="Or paste a link to an .mp4 or .webm"
-        value={typeof shown === "string" ? shown : ""}
+        /* An uploaded video is the player above, never an address here (lib/storage/media-url.ts). */
+        value={typeof shown === "string" && !isOwnMedia(shown) ? shown : ""}
         onChange={(e) => set(e.target.value)}
       />
       {playable && (

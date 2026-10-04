@@ -9,7 +9,7 @@ const SLIDES = [
     role: "DJ & Music Producer",
     bio: "DJ & Music Producer · 12K followers",
     avatar: "linear-gradient(135deg,#FF6B35,#FFa040)",
-    phoneImage: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/iPhone-13-PRO-negruw.storelib.com.webp",
+    phoneImage: "https://storelib.com/media/platform%20images/iPhone-13-PRO-negruw.storelib.com.webp",
     links: [
       { icon: "🎵", label: "Sample Pack Vol. 3 — $24", bg: "bg-violet-50" },
       { icon: "🎹", label: "Beat Kit (50 beats) — $49", bg: "bg-orange-50" },
@@ -22,7 +22,7 @@ const SLIDES = [
     role: "Creative Studio",
     bio: "Creative Studio · 42K followers",
     avatar: "linear-gradient(135deg,#7C5CFC,#a78bfa)",
-    phoneImage: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/iPhone-13-Mini-satori-studio.storelib.com.webp",
+    phoneImage: "https://storelib.com/media/platform%20images/iPhone-13-Mini-satori-studio.storelib.com.webp",
     links: [
       { icon: "📚", label: "UI Design Masterclass — $49", bg: "bg-violet-50" },
       { icon: "🎨", label: "Icon Pack (200+) — $19", bg: "bg-amber-50" },
