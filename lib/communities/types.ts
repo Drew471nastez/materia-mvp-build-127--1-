@@ -631,6 +631,12 @@ export interface CommunityCard {
   priceLine: string | null
   creator: { id: string | null; name: string | null; username: string | null; avatarUrl: string | null } | null
   url: string
+  /** All time views, one per visitor per day (part 87). Null where it is not known: before the part has run, or a list that did not read it. */
+  viewCount?: number | null
+  /** The published reviews of the products that sell its tiers, averaged by their counts. Null when nobody has reviewed it. */
+  rating?: { average: number; count: number } | null
+  /** When it opened, for "Launched 1y ago". */
+  launchedAt?: string | null
 }
 
 export interface PollView {

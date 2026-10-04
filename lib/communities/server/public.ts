@@ -52,7 +52,10 @@ export const CARD_COLUMNS = "id, slug, name, tagline, logo_url, cover_url, categ
 export type CardRow = Pick<
   CommunityRow,
   "id" | "slug" | "name" | "tagline" | "logo_url" | "cover_url" | "category" | "access" | "visibility" | "status" | "member_count" | "creator_id" | "created_at" | "trending_score"
->
+> & {
+  /** Read by Explore once part 87 has run (lib/communities/server/explore.ts); absent elsewhere. */
+  view_count?: number | string | null
+}
 
 interface ProductLite {
   id: string
@@ -214,6 +217,25 @@ function cardPrice(access: CommunityRow["access"], options: JoinOption[]): strin
   return paid?.priceLine || (free ? "Free" : null)
 }
 
+/**
+ * The stars on a card: the tier products' own review averages, weighted by
+ * their counts, which is what the sales page says too. Null with no reviews,
+ * so a card never shows a rating nobody gave.
+ */
+export function cardRating(productIds: (string | null | undefined)[], products: Map<string, ProductLite>): { average: number; count: number } | null {
+  const rated = uniq(productIds).map((id) => products.get(id)).filter((p): p is ProductLite => !!p && (p.reviews_count ?? 0) > 0 && (p.reviews_average ?? 0) > 0)
+  const count = rated.reduce((n, p) => n + (p.reviews_count ?? 0), 0)
+  if (count === 0) return null
+  const average = rated.reduce((s, p) => s + (p.reviews_average ?? 0) * (p.reviews_count ?? 0), 0) / count
+  return { average: Math.round(average * 10) / 10, count }
+}
+
+function viewsOf(v: CardRow["view_count"]): number | null {
+  if (v === undefined || v === null) return null
+  const n = typeof v === "string" ? Number(v) : v
+  return Number.isFinite(n) && n >= 0 ? Math.floor(n) : null
+}
+
 /** Cards for any number of communities, in the order given, in five queries. */
 export async function cardsFor(db: Db, list: CardRow[]): Promise<CommunityCard[]> {
   if (list.length === 0) return []
@@ -221,7 +243,8 @@ export async function cardsFor(db: Db, list: CardRow[]): Promise<CommunityCard[]
   const productIds = uniq(tiers.map((t) => t.product_id))
   const [products, plans, creators] = await Promise.all([readProducts(db, productIds), readPlans(db, productIds), readCreators(db, list.map((c) => c.creator_id))])
   return list.map((c) => {
-    const options = optionsFor(c.slug, tiers.filter((t) => t.community_id === c.id), products, plans, true)
+    const own = tiers.filter((t) => t.community_id === c.id)
+    const options = optionsFor(c.slug, own, products, plans, true)
     const who = c.creator_id ? creatorView(creators.get(c.creator_id)) : null
     return {
       id: c.id,
@@ -237,6 +260,9 @@ export async function cardsFor(db: Db, list: CardRow[]): Promise<CommunityCard[]
       priceLine: cardPrice(c.access, options),
       creator: who ? { id: c.creator_id, name: who.name, username: who.username, avatarUrl: who.avatarUrl } : null,
       url: communityPath(c.slug),
+      viewCount: viewsOf(c.view_count),
+      rating: cardRating(own.map((t) => t.product_id), products),
+      launchedAt: c.created_at ?? null,
     }
   })
 }

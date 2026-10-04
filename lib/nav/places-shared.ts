@@ -97,7 +97,7 @@ export function navigatorModel(places: PlacesResponse, current?: NavigatorCurren
         .filter((c) => /^[a-z0-9][a-z0-9-]{0,63}$/.test(c.slug))
         .map((c) => ({ kind: "community" as const, community: c, href: `/community/${c.slug}`, current: current?.kind === "community" && current.id === c.id }))
     : []
-  const discover: NavigatorRow = { kind: "link", key: "discover-communities", label: "Discover communities", href: "/explore/communities" }
+  const discover: NavigatorRow = { kind: "link", key: "discover-communities", label: "Discover communities", href: "/explore?type=communities" }
   const explore: NavigatorRow = { kind: "link", key: "explore", label: "Explore", href: "/explore" }
   const links = places.signedIn ? [...(on ? [discover] : []), explore] : [explore, ...(on ? [discover] : [])]
   const actions: NavigatorModel["actions"] = places.signedIn

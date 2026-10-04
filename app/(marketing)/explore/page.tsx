@@ -14,6 +14,8 @@ import { excludingCommunityProducts } from "@/lib/communities/listing"
 import { communitiesEnabled } from "@/lib/communities/flag"
 import { exploreCommunities } from "@/lib/communities/server/explore"
 import type { CommunityCard } from "@/lib/communities/types"
+import { communitiesQuery, communityServerSort, discoverModeFor } from "@/lib/explore/communities-mode"
+import type { CommunitiesFirstPage } from "@/components/explore/explore-communities-results"
 import { cookies } from "next/headers"
 import { DISCOVER_MODE_COOKIE, parseDiscoverModeCookie } from "@/lib/explore/discover-mode-cookie"
 import { isExploreDiscoverModeSwitcherEnabled } from "@/lib/platform/explore-discover-mode-switcher"
@@ -94,10 +96,10 @@ async function personalizationOn(
 export default async function ExplorePage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; category?: string; c?: string; type?: string }>
+  searchParams: Promise<{ q?: string; category?: string; c?: string; type?: string; srt?: string }>
 }) {
   // Safely get search params
-  let params: { q?: string; category?: string; c?: string; type?: string } = {}
+  let params: { q?: string; category?: string; c?: string; type?: string; srt?: string } = {}
   try {
     params = await searchParams
   } catch {
@@ -120,20 +122,26 @@ export default async function ExplorePage({
 
   const discoverModeSwitcherEnabled = await isExploreDiscoverModeSwitcherEnabled()
   /*
-    COMMUNITIES, WHILE THEY ARE SWITCHED ON: a pill in the row that opens
-    /explore/communities, and on a search the communities that match, above
-    the products. Asked beside the catalogue; off, nothing is asked.
+    COMMUNITIES, WHILE THEY ARE SWITCHED ON, and only then: communities mode
+    (?type=communities, the hero's switcher, the Communities pill), and on a
+    product search the communities that match, above the products. The
+    switch is the one gate (lib/explore/communities-mode discoverModeFor):
+    off, an address or a cookie asking for communities gets the products.
+    In communities mode the first page of real communities is drawn here,
+    for the same pill, word and order the page opens on, beside the
+    catalogue rather than after it.
   */
   const communitiesOn = await communitiesEnabled()
-  const communityResultsPromise: Promise<CommunityCard[]> =
-    communitiesOn && searchQuery ? exploreCommunities({ q: searchQuery, limit: 3 }).then((p) => p.items).catch(() => []) : Promise.resolve([])
   const cookieMode = parseDiscoverModeCookie((await cookies()).get(DISCOVER_MODE_COOKIE)?.value)
-  const initialDiscoverMode =
-    params?.type === "communities"
-      ? "communities"
-      : params?.type === "products"
-        ? "products"
-        : cookieMode ?? "products"
+  const initialDiscoverMode = discoverModeFor({ communitiesOn, type: params?.type ?? null, cookie: cookieMode })
+  const communityResultsPromise: Promise<CommunityCard[]> =
+    communitiesOn && searchQuery && initialDiscoverMode === "products" ? exploreCommunities({ q: searchQuery, limit: 3 }).then((p) => p.items).catch(() => []) : Promise.resolve([])
+  const firstCommunitiesPromise: Promise<CommunitiesFirstPage | null> =
+    initialDiscoverMode === "communities"
+      ? exploreCommunities({ q: searchQuery, category, sort: communityServerSort(params?.srt) })
+          .then((p) => ({ query: communitiesQuery({ q: searchQuery, category, srt: params?.srt ?? null }), items: p.items, next: p.next }))
+          .catch(() => null)
+      : Promise.resolve(null)
 
   /*
     ═══════════════════════════════════════════════════════════════════════
@@ -288,6 +296,7 @@ export default async function ExplorePage({
           initialDiscoverMode={initialDiscoverMode}
           communitiesEnabled={communitiesOn}
           communityResults={await communityResultsPromise}
+          initialCommunities={await firstCommunitiesPromise}
         />
 
         {/*

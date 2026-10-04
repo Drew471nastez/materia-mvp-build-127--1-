@@ -7,8 +7,10 @@ import { FeaturedBannerCarousel } from "./featured-banner-carousel"
 import { ExploreHero, type DiscoverMode } from "./explore-hero"
 import { writeDiscoverModeCookie } from "@/lib/explore/discover-mode-cookie"
 import { ProductCard } from "./product-card"
-import { CommunityGrid } from "@/components/community/public/community-card"
+import { ExploreCommunityGrid } from "./community-card"
+import { ExploreCommunitiesResults, type CommunitiesFirstPage } from "./explore-communities-results"
 import type { CommunityCard } from "@/lib/communities/types"
+import { COMMUNITY_PRICE_FILTERS, COMMUNITY_SORT_OPTIONS, EXPLORE_COMMUNITIES_HREF } from "@/lib/explore/communities-mode"
 import { useEntranceOnChange } from "@/lib/ui/use-entrance-on-change"
 import { ProductCardSkeleton } from "./product-card-skeleton"
 import { Layers, Sparkles, Zap, Share2, Bot, SlidersHorizontal, X, ChevronLeft, ChevronRight, Briefcase, Megaphone, ArrowRight, Music, Camera, Video, ShoppingBag, GraduationCap, Code } from "lucide-react"
@@ -268,31 +270,15 @@ export const CATEGORY_PILLS = PILL_IDS
   .filter((c): c is (typeof CATEGORIES)[number] => Boolean(c))
 
 /**
- * THE ROW IN COMMUNITIES MODE. Memberships have no category of their own, so
- * these match through the creator's niche tags (the second test in the
- * filter below); the ids are the shared taxonomy's, picked for what people
- * gather around rather than what they download. No For you and no More:
- * both are built from product signals and product subcategories.
+ * THE ROW IN COMMUNITIES MODE is the products' row without For you (it is
+ * built from what somebody bought, which says nothing about where they would
+ * gather): All, then the same categories with the same faces. A community
+ * carries one of these ids (communities.category, picked by its creator in
+ * Settings, Page), so a pill here is an equality on the server. More lists
+ * the categories alone: a subcategory is a kind of file, and Freebies is a
+ * price, which the Filters panel already asks.
  */
-const COMMUNITY_PILL_IDS = [
-  "all",
-  "business",
-  "education",
-  "ai",
-  "marketing",
-  "development",
-  "design",
-  "social-media",
-  "freebies",
-] as const
-const COMMUNITY_PILL_LABELS: Record<string, string> = { freebies: "Free" }
-const COMMUNITY_PILLS = COMMUNITY_PILL_IDS
-  .map((id) => CATEGORIES.find((c) => c.id === id))
-  .filter((c): c is (typeof CATEGORIES)[number] => Boolean(c))
-  .map((c) => ({ id: c.id, label: COMMUNITY_PILL_LABELS[c.id] ?? c.label }))
-
-/** A community is a product of type membership (lib/memberships/creator). */
-const isCommunity = (p: { type?: string | null }) => p.type === "membership"
+const COMMUNITY_PILLS = CATEGORY_PILLS.map((c) => ({ id: c.id, label: c.label }))
 
 /** The same categories, as the More picker lists them: everything but "All", with their subcategories. */
 const PICKER_GROUPS: BrowseGroup[] = CATEGORIES.filter((c) => c.id !== "all").map((c) => ({
@@ -300,6 +286,8 @@ const PICKER_GROUPS: BrowseGroup[] = CATEGORIES.filter((c) => c.id !== "all").ma
   label: c.label,
   items: c.subcategories,
 }))
+/** And for communities: the categories alone, no Freebies. */
+const COMMUNITY_PICKER_GROUPS: BrowseGroup[] = PICKER_GROUPS.filter((g) => g.id !== "freebies").map((g) => ({ ...g, items: [] }))
 
 /**
  * The row's shape is decided by lib/explore/interests, which is pure and
@@ -363,10 +351,12 @@ interface ExplorePageClientProps {
   /** Gray pill above “Discover” — admin / Health → Discover headline pill switch. */
   discoverHeadlineSegmentEnabled?: boolean
   initialDiscoverMode?: DiscoverMode
-  /** Communities are switched on: the row gets a Communities pill (to /explore/communities). */
+  /** Communities are switched on: the only gate on communities mode, and the products row gets a Communities pill that switches to it. */
   communitiesEnabled?: boolean
   /** On a search, the communities that match (lib/communities/server/explore.ts), drawn above the products. */
   communityResults?: CommunityCard[]
+  /** Communities mode's first page, drawn on the server when the page opens in that mode. */
+  initialCommunities?: CommunitiesFirstPage | null
 }
 
 export function ExplorePageClient({
@@ -378,6 +368,7 @@ export function ExplorePageClient({
   initialDiscoverMode = "products",
   communitiesEnabled = false,
   communityResults = [],
+  initialCommunities = null,
 }: ExplorePageClientProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -385,7 +376,9 @@ export function ExplorePageClient({
 
   /* Set from the switcher in the hero's chip, and written to the address as
      ?type=communities so Back from a community lands on communities. */
+  /* Only while communities are switched on (lib/explore/communities-mode discoverModeFor): off, an old link or cookie asking for them gets the products. */
   const [mode, setMode] = useState<DiscoverMode>(() => {
+    if (!communitiesEnabled) return "products"
     const fromUrl = searchParams.get("type")
     if (fromUrl === "communities") return "communities"
     if (fromUrl === "products") return "products"
@@ -441,7 +434,11 @@ export function ExplorePageClient({
 
   // Filter states
   const [priceFilter, setPriceFilter] = useState<string>("all")
-  const [sortBy, setSortBy] = useState<string>(DEFAULT_SORT)
+  /* From the address on the first render, so communities mode asks the server for the order the page was drawn with rather than the default and then again. */
+  const [sortBy, setSortBy] = useState<string>(() => {
+    const srt = searchParams.get("srt")
+    return srt && SORT_OPTIONS.some((o) => o.id === srt) ? srt : DEFAULT_SORT
+  })
   /*
     THE LIST FOLLOWS THE CHOICE A BEAT BEHIND IT, NOT IN THE SAME FRAME. A
     tap on a price re-ranks the catalogue and redraws twenty-four cards; done
@@ -506,9 +503,8 @@ export function ExplorePageClient({
 
   // Get Recommended section products (based on main category and subcategory)
   const recommendedProducts = useMemo(() => {
-    let products = communities
-      ? initialProducts.filter(isCommunity)
-      : initialProducts.filter((p) => !isCommunity(p))
+    /* Every product, memberships included: communities are their own rows now (ExploreCommunitiesResults), not membership products. */
+    let products = [...initialProducts]
     const searching = localSearchQuery.trim().length > 0
 
     /*
@@ -708,7 +704,7 @@ export function ExplorePageClient({
     }
 
     return products
-  }, [initialProducts, communities, mainCategory, selectedSubcategoryId, recommendationFilter, deferredPrice, deferredSort, localSearchQuery, interests])
+  }, [initialProducts, mainCategory, selectedSubcategoryId, recommendationFilter, deferredPrice, deferredSort, localSearchQuery, interests])
 
   // Paginated products
   const paginatedProducts = useMemo(() => {
@@ -800,6 +796,9 @@ export function ExplorePageClient({
     const firstCategory = next === "products" && interests.enough ? FOR_YOU_ID : "all"
     writeDiscoverModeCookie(next)
     setMode(next)
+    /* The two catalogues order and price differently (lib/explore/communities-mode), so the filters start over too. */
+    setPriceFilter("all")
+    setSortBy(DEFAULT_SORT)
     setMainCategory(firstCategory)
     setBrowseCategory("all")
     setSelectedSubcategoryId(null)
@@ -808,11 +807,11 @@ export function ExplorePageClient({
     chosenCategoryRef.current = firstCategory
     if (categoryChangeTimeoutRef.current) clearTimeout(categoryChangeTimeoutRef.current)
     categoryChangeTimeoutRef.current = setTimeout(() => {
-      let href = exploreHref("all", sortBy, next)
-      if (urlSearchQuery) href += `&q=${urlSearchQuery}`
+      let href = exploreHref("all", DEFAULT_SORT, next)
+      if (urlSearchQuery) href += `&q=${encodeURIComponent(urlSearchQuery)}`
       router.replace(href, { scroll: false })
     }, 250)
-  }, [interests.enough, exploreHref, sortBy, urlSearchQuery, router])
+  }, [interests.enough, exploreHref, urlSearchQuery, router])
 
   const goToPage = useCallback((page: number) => {
     const next = Math.max(1, Math.min(totalPages, page))
@@ -1058,12 +1057,11 @@ export function ExplorePageClient({
   const showSkeletons = (isPending || isLoadingCategory) && !restoringExploreScroll
 
   /* A category chosen from More that has no pill of its own: the More pill holds it. */
+  const rowPills = communities ? COMMUNITY_PILLS : [{ id: pillRow.first.id, label: pillRow.first.label }, ...pillRow.pills]
   const moreHolds =
-    !communities &&
     mainCategory !== "all" &&
     mainCategory !== FOR_YOU_ID &&
-    mainCategory !== pillRow.first.id &&
-    !pillRow.pills.some((p) => p.id === mainCategory)
+    !rowPills.some((p) => p.id === mainCategory)
 
   /*
     THE PILL YOU ARE ON IS SCROLLED INTO VIEW. On a phone the row scrolls, so
@@ -1088,12 +1086,30 @@ export function ExplorePageClient({
 
   return (
     <div className="space-y-8">
+      {/*
+        THE MODE IS THERE WHILE COMMUNITIES ARE. The chip's menu (and the
+        admin's headline control, which only adds a second way to the same
+        choice) is offered only while the communities switch is on; off,
+        Explore is products and the chip is just a word.
+      */}
       <ExploreHero
         query={localSearchQuery}
         onQueryChange={setLocalSearchQuery}
         mode={mode}
-        onModeChange={handleModeChange}
-        discoverHeadlineSegmentEnabled={discoverHeadlineSegmentEnabled}
+        onModeChange={communitiesEnabled ? handleModeChange : undefined}
+        discoverHeadlineSegmentEnabled={communitiesEnabled && discoverHeadlineSegmentEnabled}
+        categories={{
+          groups: communities ? COMMUNITY_PICKER_GROUPS : PICKER_GROUPS,
+          selectedGroup: mainCategory === "all" || mainCategory === FOR_YOU_ID ? null : mainCategory,
+          selectedItem: communities ? null : selectedSubcategoryId,
+          allRow: communities
+            ? { id: "all", label: "All categories" }
+            : { id: pillRow.first.id, label: pillRow.first.id === FOR_YOU_ID ? pillRow.first.label : "All categories" },
+          onPick: (groupId, itemId) => {
+            const sub = !communities && itemId ? PICKER_GROUPS.find((c) => c.id === groupId)?.items.find((x) => x.id === itemId) : undefined
+            handleCategoryChange(groupId, sub?.id, sub?.label, true)
+          },
+        }}
       />
 
       {/*
@@ -1105,8 +1121,8 @@ export function ExplorePageClient({
       */}
 
       {/* Dynamic Category Section (Recommended) */}
-      {!urlSearchQuery && (
-        <section ref={categorySectionRef} className="mt-2 scroll-mt-28">
+      {(!urlSearchQuery || communities) && (
+        <section ref={categorySectionRef} className="mt-2 scroll-mt-28" data-discover-mode={mode}>
           {/* Section Header */}
           <div className="flex flex-col gap-4 mb-6 relative">
             {/*
@@ -1171,10 +1187,7 @@ export function ExplorePageClient({
                 {/* "All", or "For you" for an account we know something about.
                     Same position, same globe, same behaviour: it is the pill
                     that clears the category, and it is first. */}
-                {(communities
-                  ? COMMUNITY_PILLS
-                  : [{ id: pillRow.first.id, label: pillRow.first.label }, ...pillRow.pills]
-                ).map((cat, index) => {
+                {rowPills.map((cat, index) => {
                   const isSelected = mainCategory === cat.id
                   return (
                     <Fragment key={cat.id}>
@@ -1211,13 +1224,21 @@ export function ExplorePageClient({
                     {/*
                       COMMUNITIES, a place rather than a category, second in
                       the row so a phone sees it without scrolling: the pill
-                      opens /explore/communities. Drawn only while communities
-                      are switched on, and not in the older communities mode,
-                      whose whole row is already about them.
+                      switches this page to communities, the same as the
+                      chip's menu (a real link, so it also opens in a new tab
+                      and reads as one). Drawn only while communities are
+                      switched on, and not in communities mode, whose whole
+                      row is already about them.
                     */}
                     {index === 0 && communitiesEnabled && !communities ? (
                       <Link
-                        href="/explore/communities"
+                        href={EXPLORE_COMMUNITIES_HREF}
+                        onClick={(e) => {
+                          if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return
+                          e.preventDefault()
+                          handleModeChange("communities")
+                          smoothScrollToRecommendedSection(categorySectionRef)
+                        }}
                         data-communities-pill=""
                         className="inline-flex items-center gap-1.5 shrink-0 px-3.5 py-2 rounded-full text-sm font-medium cursor-pointer select-none whitespace-nowrap border transition-[background-color,border-color,color,box-shadow] duration-150 bg-white text-neutral-500 border-neutral-200 hover:border-neutral-300 hover:text-neutral-800"
                       >
@@ -1235,15 +1256,15 @@ export function ExplorePageClient({
                   so nothing on screen said what the list was. The More pill
                   carries its name and the pressed look until another is chosen.
                 */}
-                {!communities && <ExploreCategoryPicker
+                <ExploreCategoryPicker
                   open={categorySelectorOpen}
                   onOpenChange={setCategorySelectorOpen}
-                  groups={PICKER_GROUPS}
+                  groups={communities ? COMMUNITY_PICKER_GROUPS : PICKER_GROUPS}
                   selectedGroup={mainCategory === "all" || mainCategory === FOR_YOU_ID ? null : mainCategory}
-                  selectedItem={selectedSubcategoryId}
-                  allRow={{ id: pillRow.first.id, label: pillRow.first.id === FOR_YOU_ID ? pillRow.first.label : "All categories" }}
+                  selectedItem={communities ? null : selectedSubcategoryId}
+                  allRow={communities ? { id: "all", label: "All categories" } : { id: pillRow.first.id, label: pillRow.first.id === FOR_YOU_ID ? pillRow.first.label : "All categories" }}
                   onPick={(groupId, itemId) => {
-                    const sub = itemId ? PICKER_GROUPS.find((c) => c.id === groupId)?.items.find((x) => x.id === itemId) : undefined
+                    const sub = !communities && itemId ? PICKER_GROUPS.find((c) => c.id === groupId)?.items.find((x) => x.id === itemId) : undefined
                     handleCategoryChange(groupId, sub?.id, sub?.label, true)
                   }}
                   triggerClassName={`inline-flex items-center gap-1 shrink-0 pl-3.5 pr-2.5 py-2 rounded-full text-sm font-medium cursor-pointer select-none whitespace-nowrap border outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 transition-[background-color,border-color,color,box-shadow] duration-150 ${
@@ -1254,7 +1275,7 @@ export function ExplorePageClient({
                 >
                   {moreHolds ? CATEGORIES.find((c) => c.id === mainCategory)?.label ?? "More" : "More"}
                   <Chevron dir="down" className="h-3.5 w-3.5 opacity-70" />
-                </ExploreCategoryPicker>}
+                </ExploreCategoryPicker>
               </div>
               </div>
 
@@ -1263,6 +1284,9 @@ export function ExplorePageClient({
                 <ExploreFilters
                   open={filtersOpen}
                   onOpenChange={setFiltersOpen}
+                  sortOptions={communities ? COMMUNITY_SORT_OPTIONS : SORT_OPTIONS}
+                  priceOptions={communities ? COMMUNITY_PRICE_FILTERS : PRICE_FILTERS}
+                  resultLabel={communities ? "Show communities" : undefined}
                   sortBy={sortBy}
                   setSortBy={setSortBy}
                   priceFilter={priceFilter}
@@ -1361,8 +1385,19 @@ export function ExplorePageClient({
             */}
           </div>
 
-          {/* Products Grid - 3 per row */}
-          {showSkeletons ? (
+          {/* Products Grid - 3 per row; in communities mode, the communities the server finds for the same choices. */}
+          {communities ? (
+            <ExploreCommunitiesResults
+              initial={initialCommunities}
+              q={(localSearchQuery.trim() || urlSearchQuery || "").trim()}
+              category={mainCategory}
+              srt={deferredSort}
+              price={deferredPrice}
+              categoryLabel={mainCategory === "all" ? null : CATEGORIES.find((c) => c.id === mainCategory)?.label ?? null}
+              filtersOn={activeFilterCount > 0}
+              onClearFilters={resetFilters}
+            />
+          ) : showSkeletons ? (
             <div className={`grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 ${restoringExploreScroll ? "" : "animate-in fade-in-0 duration-200"}`}>
               {Array.from({ length: 9 }).map((_, i) => (
                 <ProductCardSkeleton key={i} />
@@ -1440,7 +1475,7 @@ export function ExplorePageClient({
               )}
 
               <p className="text-sm text-neutral-500 mt-4 text-center">
-                Showing {(currentPage - 1) * PRODUCTS_PER_PAGE + 1}-{Math.min(currentPage * PRODUCTS_PER_PAGE, recommendedProducts.length)} of {recommendedProducts.length} {communities ? "communities" : "products"}
+                Showing {(currentPage - 1) * PRODUCTS_PER_PAGE + 1}-{Math.min(currentPage * PRODUCTS_PER_PAGE, recommendedProducts.length)} of {recommendedProducts.length} products
               </p>
 
               {/*
@@ -1465,8 +1500,7 @@ export function ExplorePageClient({
                 name when there is one and says "Show All Products" when
                 there is not.
               */}
-              {/* Category pages list products, so a community has nowhere to go. */}
-              {!communities && hasCategoryPage(mainCategory) && (
+              {hasCategoryPage(mainCategory) && (
                 <div className="flex justify-center mt-8">
                   <Link
                     href={selectedSubcategoryId
@@ -1493,14 +1527,10 @@ export function ExplorePageClient({
             <div className="min-h-[60svh] flex flex-col items-center justify-center rounded-2xl border border-dashed border-neutral-300 p-12 text-center">
               <p className="text-neutral-500">
                 {localSearchQuery
-                  ? `No ${communities ? "communities" : "products"} found for "${localSearchQuery}"`
+                  ? `No products found for "${localSearchQuery}"`
                   : priceFilter !== "all"
-                    ? `No ${communities ? "communities" : "products"} match your filters. Try adjusting your price range.`
-                    : communities
-                      ? mainCategory === "all"
-                        ? "No communities yet."
-                        : `No communities found in ${sectionTitle}.`
-                      : `No products found in ${sectionTitle}.`
+                    ? "No products match your filters. Try adjusting your price range."
+                    : `No products found in ${sectionTitle}.`
                 }
               </p>
               {(activeFilterCount > 0 || selectedSubcategoryId) && (
@@ -1532,7 +1562,7 @@ export function ExplorePageClient({
       */}
 
       {/* Search Results Section */}
-      {urlSearchQuery && (
+      {urlSearchQuery && !communities && (
         <section className="mt-6">
           <h2 className="text-xl sm:text-2xl font-semibold text-neutral-900 mb-5">
             Results for "{urlSearchQuery}"
@@ -1542,11 +1572,11 @@ export function ExplorePageClient({
             <div className="mb-8" data-search-communities="">
               <div className="mb-3 flex items-baseline justify-between gap-4">
                 <h3 className="text-[15px] font-semibold text-neutral-900">Communities</h3>
-                <Link href={`/explore/communities?q=${encodeURIComponent(urlSearchQuery)}`} className="text-[14px] font-medium text-neutral-500 hover:text-neutral-900">
+                <Link href={`${EXPLORE_COMMUNITIES_HREF}&q=${encodeURIComponent(urlSearchQuery)}`} className="text-[14px] font-medium text-neutral-500 hover:text-neutral-900">
                   See all
                 </Link>
               </div>
-              <CommunityGrid cards={communityResults} />
+              <ExploreCommunityGrid cards={communityResults} />
             </div>
           ) : null}
           {recommendedProducts.length > 0 ? (
@@ -1563,7 +1593,7 @@ export function ExplorePageClient({
             </div>
           ) : (
             <div className="rounded-2xl border border-dashed border-neutral-300 p-12 text-center">
-              <p className="text-neutral-500">No {communities ? "communities" : "products"} found for "{urlSearchQuery}"</p>
+              <p className="text-neutral-500">No products found for "{urlSearchQuery}"</p>
             </div>
           )}
         </section>

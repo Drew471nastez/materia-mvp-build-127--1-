@@ -263,7 +263,7 @@ export async function pagesSitemap(): Promise<SitemapEntry[]> {
     { url: `${BASE}/features` },
     { url: `${BASE}/explore` },
     /* Explore's communities, while they are switched on. */
-    ...((await communitiesEnabled()) ? [{ url: `${BASE}/explore/communities` }] : []),
+    ...((await communitiesEnabled()) ? [{ url: `${BASE}/explore?type=communities` }] : []),
     { url: `${BASE}/blog` },
     { url: `${BASE}/faq` },
     { url: `${BASE}/signup` },

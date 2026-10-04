@@ -257,7 +257,8 @@ export const ProductCard = memo(function ProductCard({
 
   return (
     <div
-      className="group flex flex-col overflow-hidden rounded-lg border border-border/60 bg-card transition-all duration-300 ease-out [@media(hover:hover)]:hover:border-border [@media(hover:hover)]:hover:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.1)]"
+      data-product-card=""
+      className="group flex h-full flex-col overflow-hidden rounded-lg border border-border/60 bg-card transition-all duration-300 ease-out [@media(hover:hover)]:hover:border-border [@media(hover:hover)]:hover:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.1)]"
       style={
         surface?.backgroundColor || surface?.borderColor || surface?.textColor
           ? { backgroundColor: surface.backgroundColor, borderColor: surface.borderColor, color: surface.textColor }
@@ -382,8 +383,17 @@ export const ProductCard = memo(function ProductCard({
             and ellipsises. A category nobody can read in full is a smaller
             loss than a title nobody can read at all.
           */}
+          {/*
+            TWO LINES, ALWAYS, WITH AN ELLIPSIS. A long title ran to three
+            lines and made its card taller than the two beside it, so a row
+            of cards had a step in it and every row after it sat lower. The
+            title stops at two lines (the whole of it is the tooltip and the
+            product page's heading), and the grid's rows stretch each card
+            to the row's height, with the price held at the foot (mt-auto),
+            so cards in a row are one height.
+          */}
           <div className="flex items-start justify-between gap-2">
-            <h3 className="flex-1 min-w-0 text-[17px] font-medium leading-tight break-words" style={surface?.textColor ? { color: surface.textColor } : undefined}>{product.title}</h3>
+            <h3 className="flex-1 min-w-0 line-clamp-2 text-[17px] font-medium leading-tight break-words" title={product.title} data-product-title="" style={surface?.textColor ? { color: surface.textColor } : undefined}>{product.title}</h3>
             <Badge
               variant="secondary"
               className="shrink min-w-0 max-w-[40%] overflow-hidden text-ellipsis whitespace-nowrap text-xs capitalize"
