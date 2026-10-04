@@ -45,6 +45,7 @@ import { getProductUrl, getStoreInternalPath } from "@/lib/url-helpers"
 import { cn } from "@/lib/utils"
 import type { SharedCommunity, SharedPostsPage } from "@/lib/profile/shared-view"
 import { ProfileActivity, type ActivityItemView } from "./profile-activity"
+import { ProfileCommunityList } from "./profile-community-list"
 import { ProfileHero } from "./profile-hero"
 import { ProfileOwnerPills } from "./profile-owner-pills"
 import { ProfileTopBar } from "./profile-top-bar"
@@ -189,15 +190,18 @@ export function MemberProfilePage({ profile, viewerId, viewerFollowing, extras }
   }
   const memberCards = showMemberships ? communities.member : []
   if (communities.enabled && (communities.owned.length > 0 || memberCards.length > 0 || isSelf || creator)) {
-    const both = communities.owned.length > 0 && memberCards.length > 0
     tabs.push({
       id: "communities",
       label: "Communities",
       panel: (
-        <div className="mx-auto w-full max-w-[960px] space-y-8">
+        <div className="mx-auto w-full max-w-[960px] space-y-4">
           {isSelf && !profile.privacy.showCommunities && memberCards.length > 0 ? <OnlyYouNote>Only you can see the communities you are in.</OnlyYouNote> : null}
-          <CommunityList title={both ? "Runs" : null} cards={communities.owned} />
-          <CommunityList title={both ? "Member of" : null} cards={memberCards} />
+          {creator ? (
+            <CommunityList title={null} cards={communities.owned} />
+          ) : (
+            /* A person's communities are places on their page, a list rather than Explore's cover cards (components/profile/profile-community-list.tsx). */
+            <ProfileCommunityList owned={communities.owned} member={memberCards} />
+          )}
           {communities.owned.length === 0 && memberCards.length === 0 ? (
             <p className="rounded-2xl border border-dashed border-[#e5e7eb] px-6 py-10 text-center text-[14px] text-[#6b7280]">
               No communities yet.

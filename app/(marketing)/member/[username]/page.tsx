@@ -4,6 +4,8 @@ import { notFound, permanentRedirect } from "next/navigation"
 import { isReservedRootSegment } from "@/lib/routes/reserved-segments"
 import { loadMemberProfile } from "@/lib/profile/member-profile-data"
 import { memberProfilePublicPath } from "@/lib/profile/member-url"
+import { profileMetadata } from "@/lib/profile/profile-seo"
+import { scoreSignup } from "@/lib/security/spam-signals"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { currentUserForRequest } from "@/lib/auth/request-scope"
 import { communitiesEnabled } from "@/lib/communities/flag"
@@ -31,11 +33,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!handle) return { title: "Profile not found" }
   const profile = await loadMemberProfile(handle)
   if (!profile) return { title: "Profile not found" }
-  return {
-    title: `${profile.name} (@${profile.username})`,
-    description: profile.bio || `${profile.name} on Storelib`,
-    alternates: { canonical: memberProfilePublicPath(profile.username) },
-  }
+  /* Their own words in search and a picture drawn from their page in a shared link (lib/profile/profile-seo.ts). */
+  return profileMetadata({
+    name: profile.name,
+    username: profile.username,
+    bio: profile.bio,
+    avatarUrl: profile.avatarUrl,
+    coverUrl: profile.coverUrl,
+    followers: profile.followers,
+    indexable: !scoreSignup({ handle: profile.username }).blocked,
+  })
 }
 
 /** A handle somebody changed away from still finds them (the row app/api/profile/username writes). */
@@ -67,6 +74,8 @@ async function sharedSections(db: ReturnType<typeof createAdminClient>, viewerId
 
 /**
  * /@handle: a person's profile (components/profile/member-profile-page.tsx).
+ * Somebody without a store: a creator's /@handle never gets here, its
+ * layout answers a 308 to their creator page (lib/profile/profile-redirect).
  * Everything private is decided here, on the server: whether their activity
  * and their memberships are shown (their switches, except to themselves),
  * which communities the viewer shares

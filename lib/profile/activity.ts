@@ -15,7 +15,9 @@ import "server-only"
  *                 level, product or role rule) and not archived. Private and
  *                 unlisted communities never appear, and neither do
  *                 reactions, comments, RSVPs or leaving.
- *   REVIEWS       their published reviews.
+ *   REVIEWS       their published reviews, on their own page only: a
+ *                 review names something they bought, and a profile shows
+ *                 nothing bought to anybody else.
  *   PRODUCTS      what they published, when their store is live, without
  *                 the products that sell a community tier.
  *
@@ -265,13 +267,14 @@ async function productSource(db: Db, creatorId: string, handle: string | null, a
  */
 export async function readProfileActivity(
   db: Db,
-  input: { userId: string; creatorId: string | null; storeHandle?: string | null; communities: boolean; after?: Position | null; limit?: number },
+  input: { userId: string; creatorId: string | null; storeHandle?: string | null; communities: boolean; after?: Position | null; limit?: number; reviews?: boolean },
 ): Promise<ProfileActivityPage> {
   const limit = Math.max(1, Math.min(30, input.limit ?? ACTIVITY_PAGE))
   const after = input.after ?? null
   const sources = await Promise.all([
     input.communities ? communitySource(db, input.userId, after, limit) : Promise.resolve({ items: [], horizon: null }),
-    reviewSource(db, input.userId, after, limit),
+    /* A review names what they bought: only their own page lists it (lib/profile/activity-page.ts). */
+    input.reviews === false ? Promise.resolve({ items: [], horizon: null }) : reviewSource(db, input.userId, after, limit),
     input.creatorId ? productSource(db, input.creatorId, input.storeHandle ?? null, after, limit) : Promise.resolve({ items: [], horizon: null }),
   ])
   return mergePages<ProfileActivityItem>(sources, limit, after)

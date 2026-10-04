@@ -8,6 +8,7 @@ import { isApexHost } from "@/lib/custom-domains/hostname"
 import { quietAuthRefusals } from "@/lib/auth/quiet-refusals"
 import { onePageRoute } from "@/lib/onepage/host-route"
 import { COMMUNITY_PATH_HEADER } from "@/lib/communities/slug-move"
+import { PROFILE_PATH_HEADER, isProfilePath } from "@/lib/profile/profile-redirect"
 import { oldAddressRedirect, resolveOnePageAddress, type OldAddressRedirect } from "@/lib/onepage/resolve-address"
 import { supabaseOnePageLookup } from "@/lib/onepage/address-lookup"
 import { createSiteGate } from "@/lib/site-password/proxy-gate"
@@ -720,6 +721,8 @@ export async function proxy(request: NextRequest) {
     that name is replaced; no lookup, nothing else reads it.
   */
   if (pathname.startsWith("/community/")) request.headers.set(COMMUNITY_PATH_HEADER, `${pathname}${search}`)
+  /* And a profile, for the same reason: a creator's /@handle answers a 308 to their page with the query kept, from its layout (lib/profile/profile-redirect.ts). */
+  if (isProfilePath(pathname)) request.headers.set(PROFILE_PATH_HEADER, `${pathname}${search}`)
 
   const bareHost = host.split(":")[0].toLowerCase()
 
