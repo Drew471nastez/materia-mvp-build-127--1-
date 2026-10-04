@@ -5,8 +5,9 @@
  * The real components (scripts/render-community-growth.tsx) at 1440x900 and
  * on phones at 375x812 and 390x844:
  *
- *   INVITE       Invite on the community card (a computer) and at the end
- *                of the row of tabs (a phone), each opening the sheet: a
+ *   INVITE       "Invite people" in the bar's "..." menu (round 9; the card
+ *                and the end of the tabs had it in round 8), opening the
+ *                sheet: a
  *                centred dialog on a computer, Storelib's bottom sheet on a
  *                phone, inside the screen; the link is the community's own
  *                address and Copy writes it; Share only where the browser
@@ -22,7 +23,8 @@
  *                request "Request sent"
  *   PHONE FRAME  at 375 and 390: the bar's name gets two lines rather than
  *                "Clay Stu...", the actions stay 40px and on screen, the
- *                tabs scroll under a pinned Invite, nothing scrolls sideways,
+ *                tabs run to the edge (no pinned Invite), no Saved chip
+ *                (the sort button ends the row), nothing scrolls sideways,
  *                nothing overlaps in the bar, every control 40px or taller
  *
  *   PROBE_CSS=source node scripts/check-community-growth.mjs
@@ -161,22 +163,34 @@ export const isNativePlatform = () => false
       return { spills, top: Math.round(box.top), bottom: Math.round(box.bottom), left: Math.round(box.left), right: Math.round(box.right), vw: innerWidth, vh: innerHeight, line: document.querySelector("[data-invite-line]")?.textContent, url: document.querySelector("[data-invite-url]")?.getAttribute("data-invite-url"), share: !!document.querySelector("[data-invite-share]"), mail: document.querySelector("[data-invite-mail]")?.getAttribute("href"), staff: !!document.querySelector("[data-invite-staff]"), manage: document.querySelector("[data-invite-manage]")?.getAttribute("href") ?? null }
     })
 
-  /* ── A computer: the card's Invite, the dialog ─────────────────────── */
+  /*
+    Round 9, ask 19: Invite is a row of the bar's "..." menu, "Invite people" (the card and the end of the tabs no longer carry it).
+    On a phone the account sheet goes down first and the invite sheet rises after it.
+  */
+  const openInvite = async (p, phone) => {
+    await p.evaluate(() => [...document.querySelectorAll("[data-community-top] [data-account-more]")].find((x) => x.getBoundingClientRect().width > 0).click())
+    await sleep(phone ? 650 : 300)
+    const row = await p.evaluate((ph) => {
+      const box = ph ? [...document.querySelectorAll("[data-account-sheet-body]")].find((b) => b.getBoundingClientRect().height > 0) : document.querySelector("[data-community-top] [data-account-menu]")
+      const r = box?.querySelector('[data-account-item="invite"]')
+      if (!r) return null
+      const h = Math.round(r.getBoundingClientRect().height)
+      r.click()
+      return { h, text: r.textContent.trim() }
+    }, phone)
+    await sleep(phone ? 900 : 450)
+    return row
+  }
+
+  /* ── A computer: Invite people from the "..." menu, the dialog ───────── */
   console.log("\nINVITE, a computer")
   {
     const { p, errors } = await open("case=feed&access=paid", DESKTOP)
-    const card = await p.evaluate(() => {
-      const b = document.querySelector('[data-community-invite="card"]')
-      const r = b?.getBoundingClientRect()
-      const settings = document.querySelector("[data-wall-settings]")
-      const tabsInvite = document.querySelector('[data-community-invite="tabs"]')
-      return { h: r ? Math.round(r.height) : 0, w: r ? Math.round(r.width) : 0, text: b?.textContent?.trim(), settings: !!settings, tabsInviteVisible: !!tabsInvite && tabsInvite.getBoundingClientRect().width > 0 && getComputedStyle(tabsInvite.closest("[data-community-top-tabs]")).display !== "none" }
-    })
-    expect(card.text === "Invite" && card.h === 40 && card.w > 200 && !card.settings, "a member: Invite across the card, 40px, no Settings", card)
-    expect(!card.tabsInviteVisible, "from 1024px the tabs (and their Invite) are not drawn: the card has it", card)
+    const card = await p.evaluate(() => ({ invites: document.querySelectorAll("[data-community-invite]").length, settings: !!document.querySelector("[data-wall-settings]") }))
+    expect(card.invites === 0 && !card.settings, "round 9: a member sees no Invite on the card or the tabs, and no Settings", card)
     await shot(p, "desktop-feed")
-    await p.click('[data-community-invite="card"]')
-    await sleep(450)
+    const row = await openInvite(p, false)
+    expect(row?.text === "Invite people" && row.h >= 40, "the \"...\" menu has Invite people, a 40px row", row)
     const box = await sheetBox(p)
     expect(!!box && box.left > 400 && box.right < 1040 && box.top > 60 && box.bottom < 860, "a centred dialog, inside the screen", box)
     expect(box?.url === "storelib.com/community/clay-studio", "the link is the community's own address", box?.url)
@@ -193,10 +207,9 @@ export const isNativePlatform = () => false
   }
   {
     const { p, errors } = await open("case=feed&access=invite_only&staff=1", DESKTOP)
-    const both = await p.evaluate(() => ({ invite: !!document.querySelector('[data-community-invite="card"]'), settings: !!document.querySelector("[data-wall-settings]"), row: (() => { const a = document.querySelector('[data-community-invite="card"]').getBoundingClientRect(); const b = document.querySelector("[data-wall-settings]").getBoundingClientRect(); return { sameRow: Math.abs(a.top - b.top) < 1, aw: Math.round(a.width), bw: Math.round(b.width) } })() }))
-    expect(both.invite && both.settings && both.row.sameRow && Math.abs(both.row.aw - both.row.bw) <= 1, "staff: Invite and Settings side by side, the same width", both)
-    await p.click('[data-community-invite="card"]')
-    await sleep(450)
+    const both = await p.evaluate(() => ({ invite: !!document.querySelector("[data-community-invite]"), settings: !!document.querySelector("[data-wall-settings]"), w: Math.round(document.querySelector("[data-wall-settings]").getBoundingClientRect().width), card: Math.round(document.querySelector("[data-wall-actions]").getBoundingClientRect().width) }))
+    expect(!both.invite && both.settings && both.w === both.card, "staff: Settings alone across the card (Invite is in the \"...\" menu)", both)
+    await openInvite(p, false)
     const box = await sheetBox(p)
     expect(box?.staff && box.manage === "/app/community/c0000000-0000-4000-8000-000000000001/members", "an admin with a creator account: Private invites and Manage invites", box)
     expect(box?.line?.startsWith("This community is invite only"), "invite only: says an admin's invite lets people in", box?.line)
@@ -233,9 +246,8 @@ export const isNativePlatform = () => false
         const nameBox = nameEl.getBoundingClientRect()
         const actions = q("[data-community-top-actions]")
         const lead = q("[data-community-top-lead]")
-        const end = q("[data-community-tabs-end]")
         const track = document.querySelector("[data-community-tabs-track]")
-        const inv = q('[data-community-invite="tabs"]')
+        const sort = q("[data-feed-sort-button]")
         return {
           lines: Math.round(nameBox.height / lh),
           clipped: nameEl.scrollHeight > nameEl.clientHeight + 1,
@@ -243,26 +255,26 @@ export const isNativePlatform = () => false
           overlap: Math.round(lead.right - actions.left),
           actionsRight: Math.round(actions.right),
           barH: Math.round(q("[data-community-top-row]").height),
-          invite: inv ? { h: Math.round(inv.height), right: Math.round(inv.right), top: Math.round(inv.top) } : null,
-          endRight: end ? Math.round(end.right) : null,
+          invites: document.querySelectorAll("[data-community-invite]").length,
           trackScrolls: track.scrollWidth > track.clientWidth,
           trackRight: Math.round(track.getBoundingClientRect().right),
-          saved: (() => { const c = document.querySelector('[data-space-chip="saved"]'); const r = c.getBoundingClientRect(); return { w: Math.round(r.width), h: Math.round(r.height), name: c.textContent.trim() } })(),
+          saved: !!document.querySelector('[data-space-chip="saved"]'),
+          sort: sort ? { w: Math.round(sort.width), right: Math.round(sort.right) } : null,
           chipsTrack: Math.round(document.querySelector("[data-space-chips-track]").getBoundingClientRect().width),
         }
       })
       const tag = `${name}${long ? "-long-name" : ""}`
       expect(bar.lines <= 2 && bar.overlap <= 0 && bar.actionsRight <= vp.width, `${tag}: the name in at most two lines, never under the actions, the actions on screen`, bar)
       if (!long) expect(!bar.clipped, `${tag}: "Clay Studio" whole (one line, or two at 375), not "Clay Stu..."`, bar)
-      expect(bar.invite && bar.invite.h >= 40 && bar.invite.right <= vp.width && bar.trackRight <= (bar.endRight ?? vp.width), `${tag}: Invite pinned at the end of the tabs, 40px, the tabs scrolling before it`, bar)
-      expect(bar.saved.w === 40 && bar.saved.h === 40 && bar.saved.name === "Saved" && bar.chipsTrack >= 200, `${tag}: Saved is its bookmark in a 40px circle (named for a screen reader), the spaces get the row`, { saved: bar.saved, chipsTrack: bar.chipsTrack })
+      expect(bar.invites === 0 && bar.trackRight === vp.width, `${tag}: round 9, no Invite at the end of the tabs: the tabs run to the edge`, bar)
+      expect(!bar.saved && !!bar.sort && bar.sort.w === 40 && bar.sort.right <= vp.width && bar.chipsTrack >= 250, `${tag}: round 9, no Saved chip: the sort button ends the row and the spaces get the rest`, { saved: bar.saved, sort: bar.sort, chipsTrack: bar.chipsTrack })
       expect((await sideScroll(p)) <= 0, `${tag}: nothing scrolls sideways`)
       const small = await smallTargets(p, "[data-community-top]")
       expect(small.length === 0, `${tag}: every control in the bar 40px or taller`, small)
       await shot(p, `${tag}-feed`)
       if (!long) {
-        await p.tap('[data-community-invite="tabs"]')
-        await sleep(700)
+        const row = await openInvite(p, true)
+        expect(row?.text === "Invite people" && row.h >= 40, `${tag}: the "..." sheet has Invite people, 40px or taller`, row)
         const box = await sheetBox(p)
         expect(!!box && box.bottom <= vp.height + 1 && box.top > 40 && box.left >= 0 && box.right <= vp.width, `${tag}: the sheet rises from the bottom, inside the screen`, box)
         expect(box?.share && box.line === "Anyone with the link can join for free.", `${tag}: the phone's share sheet is offered; free says it joins`, box)
@@ -279,8 +291,7 @@ export const isNativePlatform = () => false
     }
     {
       const { p, errors } = await open("case=feed&access=free&staff=1&name=long", vp, { share: true })
-      await p.tap('[data-community-invite="tabs"]')
-      await sleep(700)
+      await openInvite(p, true)
       const box = await sheetBox(p)
       expect(box?.staff && box.bottom <= vp.height + 1 && box.top >= 0 && box.spills === 0, `${name}: an admin's sheet, Private invites included, still inside the screen, nothing spilling`, box)
       expect((await sideScroll(p)) <= 0, `${name}: nothing scrolls sideways with the sheet open`)

@@ -16,7 +16,8 @@
  *   ?case=about-member    /about for a member, inside the frame
  *   ?case=members         /community/clay-studio/members
  *   ?case=leaderboard     /community/clay-studio/leaderboard
- *   ?case=classroom       a page that is not a feed: no right column
+ *   ?case=classroom       a page that is not a feed (the same columns)
+ *   ?case=nav             round 9: the frame drawn ONCE with the places switched inside it, as the app router does (below)
  *
  * The wall's right column on the feed follows ?wall=: both (default), event
  * (only the next event), contributors (only the top contributors), activity
@@ -30,6 +31,17 @@
  * window.__feedLatency ms (250 by default), each ask recorded in
  * window.__feedCalls for the probe to count.
  *
+ * ?case=nav keeps one ShellFrame element for the whole visit and swaps the
+ * page inside it as the app router swaps a layout's children: a link (the
+ * probe's next/link stub) calls window.__navigate, which moves the address
+ * (history.pushState) and tells usePathname (the probe's next/navigation
+ * stub listens). A place is "in the router's cache" once router.prefetch
+ * asked for it (ready 120ms later) or once it has been shown; any other is
+ * fetched on the spot: its loading.tsx (the real PlaceSpinner) for
+ * ?latency= ms (600 by default), then the page. ?cold=leaderboard,members
+ * keeps those out of the cache even when prefetched. ?idle=0 stops the idle
+ * callbacks (no reading ahead), for the probe's uncached measurements.
+ *
  * The person card on a name is the frame's own (PersonCardLayer); its facts
  * come from the probe's answer to /people/<id>/card. ?dm=<id> on any case
  * opens that conversation, as a profile's Message button does.
@@ -38,6 +50,10 @@ import React from "react"
 import { createRoot } from "react-dom/client"
 import { LocaleProvider } from "@/components/locale-provider"
 import { ShellFrame } from "@/components/community/member/shell-frame"
+import { PlaceSpinner } from "@/components/community/member/place-spinner"
+import { sectionFromPath } from "@/components/community/member/nav"
+import { usePathname } from "next/navigation"
+import { openCommunitySearch } from "@/lib/nav/community-search-bridge"
 import { CommunityFeed } from "@/components/community/member/feed"
 import { MembersDirectory } from "@/components/community/member/members"
 import { Leaderboard } from "@/components/community/member/leaderboard"
@@ -184,9 +200,17 @@ const GLAZE: FeedPostView[] = [
   post({ id: "p-glaze-2", space: { id: "s-glaze", slug: "glaze-lab", name: "Glaze lab" }, author: people.jonas, bodyText: "Does anyone sieve their glaze twice? Mine still has lumps after 80 mesh.", reactionCount: 4, commentCount: 7, createdAt: iso(NOW - DAY) }),
 ]
 const ALL_POSTS = [...POSTS, ...GLAZE]
-type W = Window & { __feedLatency?: number; __feedCalls?: string[] }
+type W = Window & { __feedLatency?: number; __feedCalls?: string[]; __feedSpans?: { url: string; start: number; end: number }[]; __navigate?: (href: string) => void; __onPrefetch?: (href: string) => void }
 const w = window as W
 w.__feedCalls = []
+w.__feedSpans = []
+/* The phone's tab bar Search, which opens the community's search screen (round 9: the bar has no icon for it). */
+;(window as unknown as { __openCommunitySearch: typeof openCommunitySearch }).__openCommunitySearch = openCommunitySearch
+/* ?idle=0: no idle callbacks, so nothing is read ahead (the uncached measurements). */
+if (new URLSearchParams(location.search).get("idle") === "0") {
+  ;(window as unknown as { requestIdleCallback: () => number }).requestIdleCallback = () => 0
+  ;(window as unknown as { cancelIdleCallback: () => void }).cancelIdleCallback = () => {}
+}
 const realFetch = window.fetch.bind(window)
 window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url
@@ -195,7 +219,10 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   const saved = /\/api\/community\/[^/]+\/bookmarks$/.test(u.pathname)
   if (!feed && !saved) return realFetch(input, init)
   w.__feedCalls!.push(u.pathname.split("/").pop() + u.search)
+  const span = { url: u.pathname.split("/").pop() + u.search, start: performance.now(), end: 0 }
+  w.__feedSpans!.push(span)
   await new Promise((r) => setTimeout(r, w.__feedLatency ?? 250))
+  span.end = performance.now()
   let list = saved ? ALL_POSTS.filter((p) => p.bookmarked) : ALL_POSTS
   const space = u.searchParams.get("space")
   if (space) list = list.filter((p) => p.space?.id === space)
@@ -353,6 +380,62 @@ const facts = (c: PublicCommunityView, v: Record<string, unknown> = {}) =>
     canTakePayments: true,
   })
 
+/* ── ?case=nav: the places switched inside one frame ─────────────────── */
+
+const latency = Number(params.get("latency") || 600)
+const cold = new Set((params.get("cold") || "").split(",").filter(Boolean).map((k) => `/community/clay-studio/${k}`))
+/* The router's cache: the page the visit started on, and every place prefetched (unless cold) or shown. */
+const ready = new Set<string>([location.pathname])
+if (which === "nav") {
+  w.__onPrefetch = (href) => {
+    if (!cold.has(href)) window.setTimeout(() => ready.add(href), 120)
+  }
+  w.__navigate = (href) => {
+    window.history.pushState(null, "", href)
+    window.dispatchEvent(new Event("probe:path"))
+  }
+}
+
+function placePage(path: string, feed: (space: SpaceView | null) => React.ReactNode) {
+  const section = sectionFromPath(path, community.slug)
+  if (section === "members") return <MembersDirectory communityId={CID} slug={community.slug} memberCount={community.memberCount} initial={{ members: MEMBERS, nextCursor: null }} meId="u-me" canMessage />
+  if (section === "leaderboard")
+    return (
+      <Leaderboard
+        communityId={CID}
+        slug={community.slug}
+        me={{ userId: "u-me", points: 111, level: 3 }}
+        levels={[1, 2, 3, 4, 5, 6].map((level) => ({ level, name: ["", "Newcomer", "Regular", "Contributor", "Insider", "Core", "Pillar"][level] }))}
+        initial={MEMBERS.slice(0, 4).map((m, i) => ({ rank: i + 1, userId: m.userId, points: 400 - i * 90, level: m.level, levelName: m.levelName, name: m.name, username: m.username, avatarUrl: m.avatarUrl, hasStorefront: m.hasStorefront }))}
+      />
+    )
+  if (section === "classroom" || section === "events")
+    return (
+      <div data-probe-place={section}>
+        <h1 className="text-[24px] font-bold text-[#1a1a2e]">{section === "classroom" ? "Classroom" : "Calendar"}</h1>
+        <p className="mt-1 text-[14px] text-[#6b7280]">{section === "classroom" ? "The classroom's own page draws here." : "The calendar's own page draws here."}</p>
+      </div>
+    )
+  return feed(null)
+}
+
+/** What the app router puts in the frame: the page when it is cached, else its loading.tsx until it comes. */
+function PageSlot({ feed }: { feed: (space: SpaceView | null) => React.ReactNode }) {
+  const path = usePathname() || ""
+  const [, redraw] = React.useState(0)
+  const isReady = ready.has(path)
+  React.useEffect(() => {
+    if (isReady) return
+    const t = window.setTimeout(() => {
+      ready.add(path)
+      redraw((n) => n + 1)
+    }, latency)
+    return () => window.clearTimeout(t)
+  }, [path, isReady])
+  if (!isReady) return <PlaceSpinner label="Loading" />
+  return <React.Fragment key={path}>{placePage(path, feed)}</React.Fragment>
+}
+
 /* ── The screens ──────────────────────────────────────────────────────── */
 
 function Screen() {
@@ -373,6 +456,7 @@ function Screen() {
       compose={{ userId: "u-me", me: { name: people.me.name, avatarUrl: people.me.avatarUrl }, fileProductId: null, eventHref: staff ? `/app/community/${CID}/events?new=1` : null }}
     />
   )
+  if (which === "nav") return shell(<PageSlot feed={feed} />)
   if (which === "space") return shell(feed(spaces[2]))
   if (which === "saved") return shell(feed(null, true))
   if (which === "classroom")
