@@ -105,7 +105,8 @@ function main() {
     /const visible = visibleFields\(schema\.fields, section\.settings\)/.test(editor) &&
       /<SiblingSettingsProvider settings=\{section\.settings\}>\s*<div className="px-3\.5 py-3\.5 space-y-3\.5">\s*\{clean\.map\(field => \(/.test(editor))
   check("and a block's the same way, its conditions reading the section's settings as well",
-    /<SiblingSettingsProvider settings=\{block\.settings\}>\s*\{visibleFields\(def\?\.fields \?\? \[\], block\.settings, \{ fields: schema\.fields \?\? \[\], saved: section\.settings \}\)\.map\(\(field\) => \(/.test(editor))
+    /const fields = visibleFields\(def\?\.fields \?\? \[\], block\.settings, \{ fields: schema\.fields \?\? \[\], saved: section\.settings \}\)/.test(editor) &&
+      /<SiblingSettingsProvider settings=\{block\.settings\}>\s*\{fields\.map\(\(field\) => \(/.test(editor))
   check("the newer controls are drawn by the controls folder first, and Insert shop data wraps every field",
     /const registered = renderRegisteredControl\(kind, field, raw, onChange\)/.test(editor) && /<DynamicSourceField field=\{props\.field\}[^>]*label=\{label\}>/.test(editor))
   {
