@@ -214,6 +214,7 @@ const SUITES = [
   "tests/menus-main-menu.test.ts",
   "tests/store-menus.test.ts",
   "tests/theme-breadcrumbs.test.ts",
+  "tests/date-control.test.ts",
   "tests/builder-click-edit.test.ts",
   "tests/policy-editing.test.ts",
   "tests/web-vitals.test.ts",

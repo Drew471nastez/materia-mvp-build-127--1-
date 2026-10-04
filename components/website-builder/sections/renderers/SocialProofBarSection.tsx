@@ -83,16 +83,32 @@ export function SocialProofBarSection({ section, theme, isEditing, isSelected, o
     )
   }
   if (bool(s.show_trust_logos, false)) {
-    const logos = [s.trust_logo_1, s.trust_logo_2, s.trust_logo_3, s.trust_logo_4]
-      .map(v => str(v))
-      .filter(Boolean)
-    if (logos.length > 0) {
+    /*
+      Trust logos are blocks, one per logo, as many as fit (eight), each with
+      its name and an optional link. A bar saved when they were four numbered
+      image settings still shows those until it has blocks of its own.
+    */
+    const own = (section.blocks ?? []).filter((b) => b.type === "trust_logo" && !b.hidden)
+    const logos = own.length > 0
+      ? own.map((b) => ({ id: b.id, src: str(b.settings?.image), alt: str(b.settings?.alt), url: str(b.settings?.url) }))
+      : [s.trust_logo_1, s.trust_logo_2, s.trust_logo_3, s.trust_logo_4].map((v, i) => ({ id: `legacy-${i}`, src: str(v), alt: "", url: "" }))
+    const shown = logos.filter((l) => l.src || (isEditing && own.length > 0))
+    if (shown.length > 0) {
       items.push(
         <div key="logos" className="flex items-center gap-4">
-          {logos.map((src, i) => (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img key={i} src={src} alt="" className="h-6 object-contain opacity-80" />
-          ))}
+          {shown.map((l) => {
+            const img = l.src ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={l.src} alt={l.alt} className="h-6 object-contain opacity-80" loading="lazy" decoding="async" />
+            ) : (
+              <span className="inline-flex h-6 items-center rounded border border-dashed px-2 text-[11px] opacity-60">{l.alt || "Logo"}</span>
+            )
+            return l.url && !isEditing ? (
+              <a key={l.id} href={l.url} data-block-id={l.id} className="inline-flex" target="_blank" rel="noopener noreferrer">{img}</a>
+            ) : (
+              <span key={l.id} data-block-id={l.id} className="inline-flex">{img}</span>
+            )
+          })}
         </div>
       )
     }

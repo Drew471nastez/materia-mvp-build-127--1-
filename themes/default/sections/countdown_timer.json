@@ -20,13 +20,7 @@
       "default": "Don't miss out. Our biggest sale of the year ends soon.",
       "placeholder": "Supporting text"
     },
-    {
-      "id": "end_date",
-      "label": "End date & time",
-      "type": "text",
-      "default": "",
-      "placeholder": "YYYY-MM-DD HH:MM"
-    },
+    {"id": "end_date", "label": "Ends", "type": "datetime", "default": "", "info": "The countdown reaches zero at this time in the time zone below."},
     {
       "id": "timezone",
       "label": "Timezone",
