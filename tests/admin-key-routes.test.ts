@@ -92,6 +92,7 @@ const PUBLIC_BY_DESIGN: Record<string, string> = {
   "auth/unconfirmed-account/route.ts": "the login page's way to /signup/verify: answers an id only when Supabase says the password is right and the address is unconfirmed, rate limited",
   "auth/complete-reset-password/route.ts": "carries the reset token, which is the credential",
   "auth/confirm-email/route.ts": "carries the confirmation token",
+  "payments/handoff/route.ts": "Verify ID on a phone from setup's QR code: carries a signed thirty minute token for one creator that only adds photos of their ID and reads which sides are in (lib/payments/stripe/id-handoff.ts), rate limited",
   "auth/exchange-reset-code/route.ts": "carries the one-time code",
   "auth/request-password-reset/route.ts": "takes an email and sends a link; it tells the caller nothing",
   "auth/signup-guard/route.ts": "runs during sign-up, before an account exists",

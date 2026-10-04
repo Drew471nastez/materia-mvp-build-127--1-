@@ -30,11 +30,64 @@ import type { MemberView } from "@/lib/communities/types"
 import { useLightChrome } from "@/lib/ui/light-chrome"
 import { api, apiBase } from "./api"
 import { inline } from "./body-text"
+import { realtimeAuth } from "./realtime"
 import { memberHref } from "./person-href"
 import { toast } from "./toast"
 import { roleTag } from "./view-types"
 
 export const MESSAGES_EVENT = "storelib:community-messages"
+
+/**
+ * A realtime stream that works for a signed in member, with a net under it.
+ * The join waits for the member's token (./realtime realtimeAuth): joined as
+ * a visitor, part 83's policy sends nothing and messages never arrived
+ * until the panel was opened again (round 7). If the stream is not joined
+ * after a few seconds, or drops, `poll` runs every `everyMs` while the page
+ * is visible, so a message still arrives without a reload.
+ */
+export function liveStream(
+  name: string,
+  table: "community_conversations" | "community_direct_messages",
+  filter: string,
+  onChange: (payload: { eventType: string; new?: Record<string, unknown> }) => void,
+  poll: () => void,
+  everyMs: number,
+): () => void {
+  let supabase: ReturnType<typeof createClient> | null = null
+  let channel: ReturnType<ReturnType<typeof createClient>["channel"]> | null = null
+  let gone = false
+  let joined = false
+  let timer: number | undefined
+  const tick = () => {
+    window.clearTimeout(timer)
+    timer = window.setTimeout(() => {
+      if (gone) return
+      if (!joined && document.visibilityState === "visible") poll()
+      tick()
+    }, everyMs)
+  }
+  void (async () => {
+    try {
+      supabase = createClient()
+      await realtimeAuth(supabase)
+      if (gone) return
+      channel = supabase
+        .channel(name)
+        .on("postgres_changes", { event: "*", schema: "public", table, filter }, onChange)
+        .subscribe((status: string) => {
+          joined = status === "SUBSCRIBED"
+        })
+    } catch {
+      /* No realtime here: the net below carries it. */
+    }
+  })()
+  tick()
+  return () => {
+    gone = true
+    window.clearTimeout(timer)
+    if (supabase && channel) supabase.removeChannel(channel)
+  }
+}
 
 /** Opens the panel, on a member's conversation when `userId` is given. */
 export function openMessages(detail: { userId?: string } = {}) {
@@ -126,27 +179,24 @@ export function useUnreadMessages(communityId: string, userId: string | null, in
   }, [communityId])
   useEffect(() => {
     if (!userId || initial === null) return
-    let supabase: ReturnType<typeof createClient> | null = null
-    let channel: ReturnType<ReturnType<typeof createClient>["channel"]> | null = null
     let timer: number | undefined
-    try {
-      supabase = createClient()
-      channel = supabase
-        .channel(`community-dm-inbox:${communityId}:${userId}`)
-        .on("postgres_changes", { event: "*", schema: "public", table: "community_conversations", filter: `community_id=eq.${communityId}` }, () => {
-          window.clearTimeout(timer)
-          timer = window.setTimeout(() => void refresh(), 250)
-        })
-        .subscribe()
-    } catch {
-      /* No realtime: the number is the one the page arrived with. */
-    }
+    const stop = liveStream(
+      `community-dm-inbox:${communityId}:${userId}`,
+      "community_conversations",
+      `community_id=eq.${communityId}`,
+      () => {
+        window.clearTimeout(timer)
+        timer = window.setTimeout(() => void refresh(), 250)
+      },
+      () => void refresh(),
+      45_000,
+    )
     const onVisible = () => document.visibilityState === "visible" && void refresh()
     document.addEventListener("visibilitychange", onVisible)
     return () => {
       window.clearTimeout(timer)
       document.removeEventListener("visibilitychange", onVisible)
-      if (supabase && channel) supabase.removeChannel(channel)
+      stop()
     }
   }, [communityId, userId, initial, refresh])
   return [count, refresh]
@@ -313,24 +363,21 @@ function Inbox({ communityId, userId, onClose, onNew, onOpen, back, phone }: { c
 
   useEffect(() => {
     if (!userId) return
-    let supabase: ReturnType<typeof createClient> | null = null
-    let channel: ReturnType<ReturnType<typeof createClient>["channel"]> | null = null
     let timer: number | undefined
-    try {
-      supabase = createClient()
-      channel = supabase
-        .channel(`community-dm-list:${communityId}:${userId}`)
-        .on("postgres_changes", { event: "*", schema: "public", table: "community_conversations", filter: `community_id=eq.${communityId}` }, () => {
-          window.clearTimeout(timer)
-          timer = window.setTimeout(() => void load(), 150)
-        })
-        .subscribe()
-    } catch {
-      /* No realtime: the list is the one it opened with. */
-    }
+    const stop = liveStream(
+      `community-dm-list:${communityId}:${userId}`,
+      "community_conversations",
+      `community_id=eq.${communityId}`,
+      () => {
+        window.clearTimeout(timer)
+        timer = window.setTimeout(() => void load(), 150)
+      },
+      () => void load(),
+      15_000,
+    )
     return () => {
       window.clearTimeout(timer)
-      if (supabase && channel) supabase.removeChannel(channel)
+      stop()
     }
   }, [communityId, userId, load])
 
@@ -573,33 +620,30 @@ function Thread({ communityId, slug, userId, id, other, onBack, onClose, onRead,
   }, [base, markRead])
 
   useEffect(() => {
-    let supabase: ReturnType<typeof createClient> | null = null
-    let channel: ReturnType<ReturnType<typeof createClient>["channel"]> | null = null
     let timer: number | undefined
-    try {
-      supabase = createClient()
-      channel = supabase
-        .channel(`community-dm:${id}`)
-        .on("postgres_changes", { event: "*", schema: "public", table: "community_direct_messages", filter: `conversation_id=eq.${id}` }, (payload: { eventType: string; new?: Record<string, unknown> }) => {
-          const row = payload.new ?? {}
-          const mid = typeof row.id === "string" ? row.id : ""
-          if (payload.eventType === "INSERT") {
-            window.clearTimeout(timer)
-            timer = window.setTimeout(() => void catchUp(), 100)
-          } else if (payload.eventType === "UPDATE" && mid && row.status !== "published") {
-            setMessages((cur) => (cur ?? []).filter((m) => m.id !== mid))
-          }
-        })
-        .subscribe()
-    } catch {
-      /* No realtime: new messages show when the conversation is opened again. */
-    }
+    const stop = liveStream(
+      `community-dm:${id}`,
+      "community_direct_messages",
+      `conversation_id=eq.${id}`,
+      (payload) => {
+        const row = payload.new ?? {}
+        const mid = typeof row.id === "string" ? row.id : ""
+        if (payload.eventType === "INSERT") {
+          window.clearTimeout(timer)
+          timer = window.setTimeout(() => void catchUp(), 100)
+        } else if (payload.eventType === "UPDATE" && mid && row.status !== "published") {
+          setMessages((cur) => (cur ?? []).filter((m) => m.id !== mid))
+        }
+      },
+      () => void catchUp(),
+      5_000,
+    )
     const onVisible = () => document.visibilityState === "visible" && void catchUp()
     document.addEventListener("visibilitychange", onVisible)
     return () => {
       window.clearTimeout(timer)
       document.removeEventListener("visibilitychange", onVisible)
-      if (supabase && channel) supabase.removeChannel(channel)
+      stop()
     }
   }, [id, catchUp])
 

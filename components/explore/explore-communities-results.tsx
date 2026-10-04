@@ -16,6 +16,14 @@
  * page; the answer to a question that has since been replaced is dropped
  * (an aborted request), so tapping through the pills quickly never lands on
  * an older list. "Show more" asks for the next page by its cursor.
+ *
+ * A SUBCATEGORY from the More picker travels as `sub` beside its category.
+ * Communities store a category and never a subcategory, so the server
+ * narrows the category by the subcategory's words; when nothing in it has
+ * them it answers with the whole category and `broadened`, and a quiet line
+ * above the grid says so rather than leaving the visitor wondering why
+ * "Notion Templates" shows a cooking club. The next pages of a broadened
+ * list are asked for without the subcategory.
  */
 import * as React from "react"
 import type { CommunityCard } from "@/lib/communities/types"
@@ -28,6 +36,8 @@ export interface CommunitiesFirstPage {
   query: string
   items: CommunityCard[]
   next: string | null
+  /** A subcategory nothing in its category mentions: these are the whole category. */
+  broadened?: boolean
 }
 
 const PAGE = 24
@@ -36,6 +46,8 @@ export function ExploreCommunitiesResults({
   initial,
   q,
   category,
+  sub = null,
+  subLabel = null,
   srt,
   price,
   categoryLabel,
@@ -45,6 +57,9 @@ export function ExploreCommunitiesResults({
   initial: CommunitiesFirstPage | null
   q: string
   category: string
+  /** The subcategory picked in More, inside `category`. */
+  sub?: string | null
+  subLabel?: string | null
   srt: string
   price: string
   /** The pill's name, for "No communities in Design yet". */
@@ -52,10 +67,11 @@ export function ExploreCommunitiesResults({
   onClearFilters: () => void
   filtersOn: boolean
 }) {
-  const query = communitiesQuery({ q, category, srt, price })
+  const query = communitiesQuery({ q, category, sub, srt, price })
   const fresh = initial && initial.query === query ? initial : null
   const [items, setItems] = React.useState<CommunityCard[] | null>(fresh ? fresh.items : null)
   const [next, setNext] = React.useState<string | null>(fresh ? fresh.next : null)
+  const [broadened, setBroadened] = React.useState(fresh?.broadened === true)
   const [loading, setLoading] = React.useState(false)
   const [failed, setFailed] = React.useState(false)
   const [loadedFor, setLoadedFor] = React.useState<string | null>(fresh ? query : null)
@@ -65,6 +81,7 @@ export function ExploreCommunitiesResults({
     if (initial && initial.query === query) {
       setItems(initial.items)
       setNext(initial.next)
+      setBroadened(initial.broadened === true)
       setLoadedFor(query)
       setFailed(false)
       return
@@ -75,15 +92,17 @@ export function ExploreCommunitiesResults({
     fetch(`/api/explore/communities?${query}${query ? "&" : ""}limit=${PAGE}`, { signal: ctrl.signal })
       .then(async (res) => {
         if (!res.ok) throw new Error(String(res.status))
-        const body = (await res.json()) as { items: CommunityCard[]; next: string | null }
+        const body = (await res.json()) as { items: CommunityCard[]; next: string | null; broadened?: boolean }
         setItems(body.items)
         setNext(body.next)
+        setBroadened(body.broadened === true)
         setLoadedFor(query)
       })
       .catch((e: unknown) => {
         if ((e as { name?: string })?.name === "AbortError") return
         setItems([])
         setNext(null)
+        setBroadened(false)
         setFailed(true)
         setLoadedFor(query)
       })
@@ -96,7 +115,9 @@ export function ExploreCommunitiesResults({
     setLoading(true)
     setFailed(false)
     try {
-      const res = await fetch(`/api/explore/communities?${query}${query ? "&" : ""}limit=${PAGE}&cursor=${encodeURIComponent(next)}`)
+      /* A broadened list goes on as the whole category: the next page is asked for without the subcategory. */
+      const pageQuery = broadened ? communitiesQuery({ q, category, srt, price }) : query
+      const res = await fetch(`/api/explore/communities?${pageQuery}${pageQuery ? "&" : ""}limit=${PAGE}&cursor=${encodeURIComponent(next)}`)
       if (!res.ok) throw new Error(String(res.status))
       const body = (await res.json()) as { items: CommunityCard[]; next: string | null }
       setItems((list) => {
@@ -147,6 +168,11 @@ export function ExploreCommunitiesResults({
 
   return (
     <div data-communities-results="">
+      {broadened && subLabel && categoryLabel ? (
+        <p className="-mt-1 mb-4 text-[14px] leading-5 text-neutral-500" data-communities-broadened="">
+          No communities about {subLabel} yet, so here is everything in {categoryLabel}.
+        </p>
+      ) : null}
       <ExploreCommunityGrid cards={items} />
       {next ? (
         <div className="mt-8 flex flex-col items-center gap-2">
