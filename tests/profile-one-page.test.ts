@@ -82,7 +82,7 @@ async function main() {
     /<main className="flex-1">\{children\}<\/main>/.test(marketing) && (marketing.match(/<Suspense/g) ?? []).length === 1 && /<Suspense fallback=\{null\}>\s*<ConditionalFooter \/>/.test(marketing) && !/<Suspense/.test(readCode("app/layout.tsx")))
 
   const header = readCode("components/marketing/conditional-header.tsx")
-  check("a profile has Storelib's header from the first paint on storelib.com", /\(\(pathname === "\/" \|\| isProfilePath\(pathname\)\) && onPlatformDomain\)/.test(header))
+  check("a profile has Storelib's header from the first paint on storelib.com", /\(isProfilePath\(pathname\) && onPlatformDomain\)/.test(header))
   check("  decided before the seller rule, which reads /@name as a creator's address", header.indexOf("if (isProfilePath(pathname))") > 0 && header.indexOf("if (isProfilePath(pathname))") < header.indexOf("const isSellerPath = isSellerPage(pathname)"))
   check("  and never on a creator's own domain", header.indexOf("if (isOnCustomDomain)") < header.indexOf("if (isProfilePath(pathname))"))
 
@@ -111,7 +111,7 @@ async function main() {
   check("a review (which names what they bought) is in their own activity only", /reviews: self,/.test(readCode("lib/profile/activity-page.ts")) && /input\.reviews === false \? Promise\.resolve\(\{ items: \[\], horizon: null \}\) : reviewSource/.test(readCode("lib/profile/activity.ts")))
   const page = readCode("components/profile/member-profile-page.tsx")
   check("the communities a person is in are a list of places, not Explore's cover cards", /<ProfileCommunityList owned=\{communities\.owned\} member=\{memberCards\} \/>/.test(page))
-  check("  each row the whole link, 64px tall, the logo a mark", /min-h-16/.test(readCode("components/profile/profile-community-list.tsx")) && /kind="mark"/.test(readCode("components/profile/profile-community-list.tsx")))
+  check("  each the shared card's compact row (one community card on Storelib), the whole row one link", /<ExploreCommunityCard card=\{c\} layout="row"/.test(readCode("components/profile/profile-community-list.tsx")))
 
   /* ── 16. Empty creator pages ─────────────────────────────────────────── */
   console.log("\nA creator page whose Home would draw nothing has no Home (62.webp)")

@@ -131,7 +131,7 @@ export function ConditionalHeader({
   // "/" is intentionally excluded (ambiguous: could be a custom-domain home).
   // Seller paths (/u/ /p/ /l/) are excluded; host-based check below handles them.
   const [showPlatformHeader, setShowPlatformHeader] = useState(
-    () => !isOwnScreen(pathname) && (isKnownPlatformPath(pathname) || ((pathname === "/" || isProfilePath(pathname)) && onPlatformDomain))
+    () => !isOwnScreen(pathname) && (isKnownPlatformPath(pathname) || (pathname === "/" && onPlatformDomain) || (isProfilePath(pathname) && onPlatformDomain))
   )
 
   useEffect(() => {

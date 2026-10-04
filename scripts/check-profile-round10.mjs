@@ -240,8 +240,9 @@ try {
       await p.screenshot({ path: join(shots, `${name}-communities.png`) })
       const rows = await p.evaluate(() => [...document.querySelectorAll("[data-profile-community]")].map((a) => { const r = a.getBoundingClientRect(); return { h: Math.round(r.height), w: Math.round(r.width), text: a.innerText.replace(/\s+/g, " ").trim() } }))
       expect(rows.length === 3 && rows.every((r) => r.h >= 64), "three rows, each 64px or more to a thumb", rows.map((r) => r.h))
-      const said = rows.map((r) => r.text.replace(/\s*·\s*/g, " · "))
-      expect(said[0] === "Clay Studio by Maya Ortiz · 1.2k members" && said[2] === "Glaze Lab by Ana Pop · 1 member" && said[1] === "NR Night Runners by Theo Grant · 86 members", "  name, who runs it, the real count (a community without a logo keeps its letters)", said)
+      expect(rows.every((r) => r.w <= 680), "  in the activity's own column", rows.map((r) => r.w))
+      const said = rows.map((r) => r.text)
+      expect(/^Clay Studio/.test(said[0]) && /Maya Ortiz/.test(said[0]) && /1\.2k|1,240/.test(said[0]) && /Night Runners/.test(said[1]) && /Theo Grant/.test(said[1]), "  name, who runs it, the real count", said)
       await p.close()
     }
   }

@@ -83,14 +83,15 @@ console.log("\nNo face is a question mark")
 {
   const avatar = readCode("components/app/app-avatar.tsx")
   check(
-    "the shared avatar draws letters, or a person when there are none",
-    /if \(!words\.length\) return ""/.test(avatar) && /export function AvatarMark/.test(avatar) && /viewBox="0 0 24 24"/.test(avatar),
+    /* Round 10: "Without a photo, never bare initials: a clean default avatar". A person is the default face; a mark (a community) keeps its letters. */
+    "the shared avatar draws the default face for a person, and letters only for a mark",
+    /if \(!words\.length\) return ""/.test(avatar) && /export function AvatarMark/.test(avatar) && /export function DefaultAvatarGlyph/.test(avatar) && /viewBox="0 0 64 64"/.test(avatar) && /const initials = kind === "mark" \? initialsOf\(name\) : ""/.test(avatar),
   )
   check(
     "it never waits more than BLANK_LIMIT_MS with the circle blank",
     /const BLANK_LIMIT_MS = 600/.test(avatar)
       && /setTimeout\(\(\) => setWaited\(true\), BLANK_LIMIT_MS\)/.test(avatar)
-      && /\{!photo \|\| \(!loaded && \(markWhileLoading \|\| waited\)\) \? <AvatarMark/.test(avatar),
+      && /\{!photo \|\| \(!loaded && \(markWhileLoading \|\| waited\)\) \? \(\s*who === "person" \|\| !initialsOf\(name\) \? <DefaultAvatarGlyph fill \/> : <AvatarMark/.test(avatar),
     "a host that never answers left a hole where a face goes",
   )
   check(
