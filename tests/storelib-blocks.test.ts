@@ -165,11 +165,13 @@ function main() {
   // ═══════════════════════════════════════════════════════════════════════
   {
     check("clicking a block on the canvas selects that block", /closest\?\.\("\[data-block-id\]"\)/.test(editor) && /onSelectSection\(section\.id, field \? field\.block : path\.length \? pathKey\(path\) : null, field\)/.test(editor))
-    check("the sidebar row opens and takes the ring",
-      /selectedKey=\{selectedBlockId\}/.test(editor) && /selectedId=\{selectedKey\}/.test(editor) &&
-        /data-block-row=\{key\}/.test(blockList) &&
-        /const selected = selectedId === key/.test(blockList) &&
-        /setOpen\(\(prev\) => \(prev\.has\(row\) \? prev : new Set\(prev\)\.add\(row\)\)\)/.test(blockList))
+    /* The blocks are rows of the sidebar's tree now (block-tree-rows.tsx), and a block opens its own panel. */
+    const tree = readFileSync(join(root, "components/website-builder/editor/block-tree-rows.tsx"), "utf8")
+    check("the tree's row is marked when selected, and the rows it sits inside open",
+      /selectedKey=\{selectedBlockId\}/.test(editor) &&
+        /const selected = selectedKey === key/.test(tree) && /aria-current=\{selected \|\| undefined\}/.test(tree) &&
+        /setOpen\(\(prev\) => \(prev\.has\(row\) \? prev : new Set\(prev\)\.add\(row\)\)\)/.test(tree) &&
+        /data-block-row=\{key\}/.test(editor))
     /**
      * By its own container, not by `scrollIntoView`, which walks EVERY
      * scrollable ancestor — so on a phone, where the sidebar is a sheet over
@@ -199,7 +201,7 @@ function main() {
   {
     check("no Move up or Move down on a block row", !/aria-label="Move (up|down)"/.test(blockList) && !/aria-label="Move (up|down)" disabled=\{at/.test(editor))
     check("the grip is the shared drag hook's", /useReorder<HTMLDivElement>\(/.test(blockList) && /\{\.\.\.gripProps\(i\)\}/.test(blockList) && /data-reorder-row=\{still \? undefined : ""\}/.test(blockList))
-    check("a drag commits once, through reorderBlocks", /reorder: \(next, parentKey\) => reorderBlocks\(section\.id, next, parentKey\)/.test(editor) && /onReorder=\{\(next\) => ops\.reorder\(next, parentKey\)\}/.test(editor) && /onReorder\(next\)/.test(blockList))
+    check("a drag commits once, through reorderBlocks", /reorder: \(next, parentKey\) => reorderBlocks\(s\.id, next, parentKey\)/.test(editor) && /onReorder=\{\(next\) => ops\.reorder\(next, parentKey\)\}/.test(editor) && /onReorder\(next\)/.test(readFileSync(join(root, "components/website-builder/editor/block-tree-rows.tsx"), "utf8")))
     check("picking a row up closes the open ones first", /onStart: \(\) => setOpen\(/.test(blockList))
     check("the bin is grey, never red", !/red-/.test(blockList) && /aria-label=\{`Delete \$\{name\}`\}[^>]*className=\{ROW_ACTION\}/.test(blockList))
     check("rows are 40px, 48px on a phone", /h-10 max-sm:h-12/.test(blockList))

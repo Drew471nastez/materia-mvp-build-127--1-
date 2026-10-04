@@ -173,7 +173,7 @@ async function main() {
     check("so does duplicating one from the layer list", /if \(fromCanvas\) return[\s\S]{0,200}revealSection\(copy\.id\)/.test(editor))
     check("but never the canvas toolbar's Duplicate, which is a press in the canvas", /onDuplicate=\{\(\) => selectedSectionId && duplicateSection\(selectedSectionId, true\)\}/.test(editor))
     check("and every sidebar row still does, through the one handler the list is given",
-      /onSelect=\{\(id\) => \{ setSelectedPanel\(\{ type: "section", sectionId: id \}\); revealSection\(id\) \}\}/.test(editor))
+      /onSelect=\{\(id\) => \{ setSelectedBlockId\(null\); setSelectedPanel\(\{ type: "section", sectionId: id \}\); revealSection\(id\) \}\}/.test(editor))
     check("nothing still scrolls a section to the top unconditionally", !/scrollToSection\(/.test(editor))
     /**
      * `scrollIntoView` walks EVERY scrollable ancestor, so bringing a

@@ -55,7 +55,7 @@ import {
 } from "@dnd-kit/core"
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
-import { ArrowDown, ArrowUp, Copy, Eye, EyeOff, GripVertical, MoreHorizontal, PanelBottom, PanelTop, Plus, Trash2 } from "lucide-react"
+import { ArrowDown, ArrowUp, ChevronRight, Copy, Eye, EyeOff, GripVertical, MoreHorizontal, PanelBottom, PanelTop, Plus, Trash2 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import type { SectionInstance } from "@/lib/website-builder/types"
@@ -97,6 +97,15 @@ export interface SectionsListProps {
   /** Which section types are a header or a footer, so a header written as a section file wears the header's badge. */
   kindOfType?: KindOfType
   dnd: SectionsDnd
+  /**
+   * A SECTION'S BLOCKS, UNDER IT IN THE TREE. The rows for this section's
+   * blocks (components/website-builder/editor/block-tree-rows.tsx), or null
+   * for a section that has none, which then has no chevron.
+   */
+  blocksOf?: (section: SectionInstance) => React.ReactNode | null
+  /** Which sections are open in the tree. */
+  expanded?: ReadonlySet<string>
+  onToggleExpand?: (id: string) => void
 }
 
 /* ── The parts ───────────────────────────────────────────────────────────── */
@@ -203,6 +212,10 @@ export interface SectionRowProps {
   dragHandleProps?: Record<string, unknown>
   /** A row that is not dragged (one in the Header or Footer group): no grip, and the menu moves it. */
   fixed?: boolean
+  /** The section has blocks: a chevron shows and hides them in the tree. */
+  expandable?: boolean
+  expanded?: boolean
+  onToggleExpand?: () => void
 }
 
 export function SectionRow({
@@ -218,6 +231,9 @@ export function SectionRow({
   chrome,
   dragHandleProps,
   fixed,
+  expandable,
+  expanded,
+  onToggleExpand,
 }: SectionRowProps) {
   const [menuOpen, setMenuOpen] = React.useState(false)
   const hidden = !!section.hidden
@@ -269,6 +285,25 @@ export function SectionRow({
         >
           <GripVertical className={cn("h-3.5 w-3.5", isSelected ? "opacity-70" : "opacity-40 group-hover/row:opacity-70")} strokeWidth={1.75} />
         </span>
+      )}
+
+      {/* The section's blocks, shown and hidden under it, as Shopify's tree does. */}
+      {expandable ? (
+        <button
+          type="button"
+          aria-label={expanded ? `Hide the blocks in ${displayName}` : `Show the blocks in ${displayName}`}
+          aria-expanded={!!expanded}
+          data-section-expand={section.id}
+          onClick={(e) => {
+            e.stopPropagation()
+            onToggleExpand?.()
+          }}
+          className={cn("-mx-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded transition-colors", isSelected ? "hover:bg-white/20" : "text-[#6b7280] hover:bg-black/[0.06] hover:text-[#1a1a2e]")}
+        >
+          <ChevronRight className={cn("h-3.5 w-3.5 transition-transform duration-150", expanded && "rotate-90")} strokeWidth={2} />
+        </button>
+      ) : (
+        <span aria-hidden className="-mx-0.5 h-5 w-5 shrink-0" />
       )}
 
       <span className={cn("min-w-0 flex-1 truncate text-[13px] max-sm:text-[15px] font-medium", hidden && "opacity-50")}>{displayName}</span>
@@ -339,7 +374,7 @@ export function SectionRow({
   )
 }
 
-function SortableSectionRow(props: SectionRowProps) {
+function SortableSectionRow({ under, ...props }: SectionRowProps & { under?: React.ReactNode }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: props.section.id })
   /* The overlay draws the row in the air; what stays here is the gap it left. */
   const style: React.CSSProperties = {
@@ -351,6 +386,8 @@ function SortableSectionRow(props: SectionRowProps) {
   return (
     <div ref={setNodeRef} style={style}>
       <SectionRow {...props} dragHandleProps={{ ...attributes, ...listeners }} />
+      {/* Its blocks travel with it: they are part of the row being moved. */}
+      {under}
     </div>
   )
 }
@@ -369,8 +406,22 @@ export function SectionsList({
   onAdd,
   kindOfType,
   dnd,
+  blocksOf,
+  expanded,
+  onToggleExpand,
 }: SectionsListProps) {
   const groups = splitGroups(sections)
+  /** A section's block rows when it is open, and whether it has any to open. */
+  const tree = (s: SectionInstance) => {
+    const node = blocksOf?.(s) ?? null
+    const open = !!node && !!expanded?.has(s.id)
+    return {
+      expandable: node !== null,
+      expanded: open,
+      onToggleExpand: () => onToggleExpand?.(s.id),
+      under: open ? <div data-section-blocks={s.id}>{node}</div> : null,
+    }
+  }
   const body = groups.template
   const dragging = dnd.draggingId ? sections.find((s) => s.id === dnd.draggingId) : undefined
 
@@ -384,21 +435,27 @@ export function SectionsList({
     const list = groups[role]
     return list.map((s, i) => {
       const chrome = isKind(s, role, kindOfType) ? role : undefined
+      const t = tree(s)
       return (
-        <SectionRow
-          key={s.id}
-          section={s}
-          displayName={nameOf(s)}
-          isSelected={selectedId === s.id}
-          onSelect={() => onSelect(s.id)}
-          onToggleHide={() => onToggleHide(s.id)}
-          onDuplicate={chrome ? undefined : () => onDuplicate(s.id)}
-          onRemove={() => onRemove(s.id)}
-          onMoveUp={i > 0 ? () => onMove(s.id, -1) : undefined}
-          onMoveDown={i < list.length - 1 ? () => onMove(s.id, 1) : undefined}
-          chrome={chrome}
-          fixed
-        />
+        <div key={s.id}>
+          <SectionRow
+            section={s}
+            displayName={nameOf(s)}
+            isSelected={selectedId === s.id}
+            onSelect={() => onSelect(s.id)}
+            onToggleHide={() => onToggleHide(s.id)}
+            onDuplicate={chrome ? undefined : () => onDuplicate(s.id)}
+            onRemove={() => onRemove(s.id)}
+            onMoveUp={i > 0 ? () => onMove(s.id, -1) : undefined}
+            onMoveDown={i < list.length - 1 ? () => onMove(s.id, 1) : undefined}
+            chrome={chrome}
+            fixed
+            expandable={t.expandable}
+            expanded={t.expanded}
+            onToggleExpand={t.onToggleExpand}
+          />
+          {t.under}
+        </div>
       )
     })
   }
@@ -433,7 +490,9 @@ export function SectionsList({
             ) : (
               <div>
                 <InsertSectionDivider onClick={() => onAdd(0, "template")} />
-                {body.map((s, i) => (
+                {body.map((s, i) => {
+                  const t = tree(s)
+                  return (
                   <div key={s.id}>
                     <SortableSectionRow
                       section={s}
@@ -445,10 +504,15 @@ export function SectionsList({
                       onRemove={() => onRemove(s.id)}
                       onMoveUp={i > 0 ? () => onMove(s.id, -1) : undefined}
                       onMoveDown={i < body.length - 1 ? () => onMove(s.id, 1) : undefined}
+                      expandable={t.expandable}
+                      expanded={t.expanded}
+                      onToggleExpand={t.onToggleExpand}
+                      under={t.under}
                     />
                     <InsertSectionDivider onClick={() => onAdd(i + 1, "template")} />
                   </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </SortableContext>
