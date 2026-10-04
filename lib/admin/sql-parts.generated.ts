@@ -87,5 +87,7 @@ export const SQL_PARTS: ReadonlyArray<{ part: string; file: string; sha256: stri
   { part: "88", file: "88_download_events_buyer_lookup.sql", sha256: "b85c7ac3d7f2c5b02443288615a2226cf21d8bd2eab2f96079d252a0495177a9" },
   { part: "89", file: "89_community_feed_activity_index.sql", sha256: "20154f9dc2140e1956ed20602054d384a54d0b6cc5942f5f6f388d92d72f0f6c" },
   { part: "90", file: "90_storage_policies_needs_owner.sql", sha256: "ddc22cfc130759fbfacb45536938c90e20f1aec09c5d3ee4db92f4450a763149" },
+  { part: "93", file: "93_store_menus.sql", sha256: "ad8e1c333efaa1e56cf9454d26902e7459c952925e4c95f6f8472786361fe183" },
   { part: "94", file: "94_community_slug_history.sql", sha256: "3fe4df47b386491b1448004c812ee04ddf092985bf919113f222a0409943988e" },
+  { part: "95", file: "95_navigation_and_collections.sql", sha256: "fcd5e10c321b98b566430f5df4220205cea24ae2533f8018644e0852129ba163" },
 ]
