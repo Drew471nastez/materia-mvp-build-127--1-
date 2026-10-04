@@ -47,7 +47,7 @@
  * the size it is drawn (lib/images optimizedImageUrl) and loaded lazily.
  */
 import Link from "next/link"
-import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react"
 import { createPortal } from "react-dom"
 import { Bell, Check, ChevronDown, X } from "lucide-react"
 
@@ -94,9 +94,58 @@ function postRead(body: Record<string, unknown>): Promise<{ unread: number } | n
   return getJson<{ unread: number }>(READ, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body), keepalive: true })
 }
 
+/*
+  ═══════════════════════════════════════════════════════════════════════════
+   ONE BELL ON SCREEN DOES THE ASKING; THE COUNT IS SHARED
+  ═══════════════════════════════════════════════════════════════════════════
+  The Storelib header draws a bell in its phone row and another in its
+  computer row, and one of the two is always display: none. Both used to
+  read the unread count and open their own two realtime channels, so every
+  signed in visitor held four channels where two do the job. Now only the
+  bell that is on screen (the same rule that decides which one builds its
+  list) reads the count and listens. The count itself lives here, shared by
+  every bell on the page, so when the window crosses 768px the bell that
+  appears already shows the right badge: the hidden one lets its channels
+  go and the visible one opens its own and reads the count once, at the
+  same moment, never both at rest.
+*/
+let sharedUnread = 0
+const unreadListeners = new Set<() => void>()
+function setSharedUnread(next: number | ((n: number) => number)) {
+  const v = Math.max(0, typeof next === "function" ? next(sharedUnread) : next)
+  if (v === sharedUnread) return
+  sharedUnread = v
+  unreadListeners.forEach((f) => f())
+}
+const subscribeUnread = (f: () => void) => {
+  unreadListeners.add(f)
+  return () => unreadListeners.delete(f)
+}
+
+/** Whether this bell is on screen: not inside something display: none. Kept current as the layout changes. */
+function useOnScreen(ref: React.RefObject<HTMLElement | null>, ready: boolean): boolean {
+  const [on, setOn] = useState(false)
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!ready || !el) return
+    const check = () => setOn(el.getClientRects().length > 0)
+    check()
+    /* A switch to display: none gives the button an empty box, which the observer reports. */
+    const ro = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(check)
+    ro?.observe(el)
+    window.addEventListener("resize", check)
+    return () => {
+      ro?.disconnect()
+      window.removeEventListener("resize", check)
+    }
+  }, [ref, ready])
+  return on
+}
+
 export function NotificationBell({ className }: { className?: string }) {
   const [userId, setUserId] = useState<string | null>(null)
-  const [unread, setUnread] = useState(0)
+  const unread = useSyncExternalStore(subscribeUnread, () => sharedUnread, () => 0)
+  const setUnread = setSharedUnread
   const [open, setOpen] = useState(false)
   /* The list is built once (idle, a pointer near the bell, or the click itself) and kept. */
   const [built, setBuilt] = useState(false)
@@ -107,6 +156,8 @@ export function NotificationBell({ className }: { className?: string }) {
   const [load, setLoad] = useState<Load>("idle")
   const phone = usePhone()
   const triggerRef = useRef<HTMLButtonElement>(null)
+  /* Only the bell on screen reads the count, listens live and builds its list. */
+  const active = useOnScreen(triggerRef, !!userId)
   const openRef = useRef(open)
   const filterRef = useRef(filter)
   openRef.current = open
@@ -156,9 +207,9 @@ export function NotificationBell({ className }: { className?: string }) {
     setLoad("idle")
   }, [cursor, filter, load])
 
-  /* The badge once signed in, and again when the tab comes back or a community's inbox says it changed. */
+  /* The badge once signed in (or once this bell comes on screen), and again when the tab comes back or a community's inbox says it changed. */
   useEffect(() => {
-    if (!userId) return
+    if (!userId || !active) return
     void refreshCount()
     let last = Date.now()
     const again = () => {
@@ -173,11 +224,11 @@ export function NotificationBell({ className }: { className?: string }) {
       document.removeEventListener("visibilitychange", again)
       window.removeEventListener(INBOX_EVENT, fromCommunity)
     }
-  }, [userId, refreshCount])
+  }, [userId, active, refreshCount])
 
-  /* New rows, live, from both tables. One channel each, so a table missing from the publication cannot stop the other. */
+  /* New rows, live, from both tables. One channel each, so a table missing from the publication cannot stop the other. Only while this bell is on screen. */
   useEffect(() => {
-    if (!userId) return
+    if (!userId || !active) return
     let gone = false
     let timer: number | null = null
     let supabase: ReturnType<typeof createClient> | null = null
@@ -210,7 +261,7 @@ export function NotificationBell({ className }: { className?: string }) {
       if (timer) window.clearTimeout(timer)
       if (supabase) for (const ch of channels) supabase.removeChannel(ch)
     }
-  }, [userId, loadFirst])
+  }, [userId, active, loadFirst])
 
   /*
     Built while the page is idle, once somebody is signed in, and only for a
@@ -219,18 +270,16 @@ export function NotificationBell({ className }: { className?: string }) {
     never opened, so it builds nothing.
   */
   useEffect(() => {
-    if (!userId || built) return
+    if (!userId || built || !active) return
     const w = window as Window & { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void }
-    const build = () => {
-      if (triggerRef.current?.getClientRects().length) setBuilt(true)
-    }
+    const build = () => setBuilt(true)
     if (w.requestIdleCallback) {
       const id = w.requestIdleCallback(build, { timeout: 4000 })
       return () => w.cancelIdleCallback?.(id)
     }
     const t = window.setTimeout(build, 1500)
     return () => window.clearTimeout(t)
-  }, [userId, built])
+  }, [userId, built, active])
 
   const openList = () => {
     setOpen(true)
@@ -282,6 +331,7 @@ export function NotificationBell({ className }: { className?: string }) {
         aria-haspopup="dialog"
         aria-expanded={open}
         data-notification-bell=""
+        data-bell-active={active ? "" : undefined}
         className={cn("relative flex h-[42px] w-[42px] shrink-0 cursor-pointer items-center justify-center rounded-full transition", className)}
       >
         <span className="relative inline-flex">
