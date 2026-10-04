@@ -132,10 +132,11 @@ export interface StorefrontChrome {
   /** The bar across the very top. */
   bar: StorefrontBarColors
   /**
-   * The ring around the profile picture. A stored "#e5e7eb" is the platform
-   * default rather than a decision — the same argument as every other colour
-   * here — so a dark scheme gets its own ring instead of a light grey hoop
-   * around the one round thing on a black page.
+   * The ring around the profile picture: the page's own background, so the
+   * photo reads as cut out of the page where it crosses the cover (white on
+   * a white page, near black on a dark one, never a white hoop on black).
+   * Only a ring a creator picked by hand overrides it; see
+   * `ringIsChoice` below.
    */
   avatarBorder: string
   /**
@@ -160,16 +161,35 @@ export interface StorefrontChrome {
    */
   tokens: Record<string, string>
   /**
-   * THE PAGE'S OWN PRIMARY BUTTON: the scheme's buy button colours and its
-   * button rounding. Follow on the page is drawn in these
-   * (components/profile/follow-button.tsx), so a creator on a green scheme
-   * gets a green Follow rather than Storelib's near black.
+   * FOLLOW, FOLLOWING AND MESSAGE ON THE PAGE, in Storelib's own button
+   * language (components/ui/depth-button.ts: a solid primary with a line of
+   * light on top and a darker foot, a quiet secondary with a hairline and a
+   * soft foot, both flat when pressed) painted in this scheme's colours.
+   *
+   * `background` / `text` are the scheme's buy button, so a creator on a
+   * green scheme gets a green Follow; `hover` and `press` are that colour a
+   * step and two steps further from the page. `quiet` is the secondary
+   * (Following, Message): a surface a step off the page, a hairline, the
+   * page's text, and `danger` for the Unfollow a pointer reveals. `radius`
+   * is the scheme's rounding, kept for anything else that wants it; the
+   * follow buttons wear Storelib's own shape.
    */
-  action: { background: string; text: string; radius: number }
+  action: SchemeAction
   /** Is the field dark enough that the design system's own tokens disappear? */
   dark: boolean
   /** The scheme this was resolved from, for anything that needs to say so. */
   preset: ThemePreset
+}
+
+export interface SchemeAction {
+  background: string
+  text: string
+  radius: number
+  hover: string
+  press: string
+  quiet: { background: string; hover: string; press: string; border: string; text: string; danger: string }
+  /** Is the page dark (the depth's shadows and the quiet surface lean the other way). */
+  dark: boolean
 }
 
 export interface StoredChrome {
@@ -312,11 +332,16 @@ export function resolveStorefrontChrome(
         : theme.subscribeBar.buttonTextColor,
   }
 
-  /** The platform default ring, which is what almost every config carries. */
-  const DEFAULT_RING = "#e5e7eb"
+  /**
+   * THE RING IS THE PAGE. The owner: the ring around the photo follows the
+   * scheme, its background, not white on a dark page. Picking a scheme in
+   * the builder writes that scheme's own ring colour into the header, and
+   * almost every older config carries the platform's "#e5e7eb", so neither
+   * is a decision; a white ring is the old default too. Anything else was
+   * picked in the builder's ring control and is left alone.
+   */
   const storedRing = stored.avatarBorder?.trim().toLowerCase()
-  const avatarBorder =
-    storedRing && storedRing !== DEFAULT_RING ? (stored.avatarBorder as string) : theme.profileImageBorderColor
+  const avatarBorder = storedRing && ringIsChoice(storedRing) ? (stored.avatarBorder as string) : pageBackground
 
   const cardBackground = theme.productCard.backgroundColor
   const cardText = theme.productCard.textColor
@@ -353,12 +378,69 @@ export function resolveStorefrontChrome(
     bar,
     avatarBorder,
     tokens,
-    action: {
+    action: schemeAction({
       background: theme.productHeader?.buyButtonColor || theme.colors.primary,
       text: theme.productHeader?.buyButtonTextColor || "#ffffff",
       radius: theme.productHeader?.buttonsBorderRadius ?? theme.buttonBorderRadius ?? 8,
-    },
+      page: pageBackground,
+      ink: text,
+    }),
     dark,
     preset: key,
+  }
+}
+
+/** Ring colours that were written for a creator rather than chosen by one. */
+const UNCHOSEN_RINGS = new Set([
+  "#e5e7eb",
+  "#fff",
+  "#ffffff",
+  "white",
+  ...Object.values(themePresets).map((t) => String(t.profileImageBorderColor || "").trim().toLowerCase()),
+])
+
+/** Did a creator pick this ring colour in the builder, or was it written for them? */
+export function ringIsChoice(ring: string | null | undefined): boolean {
+  const r = ring?.trim().toLowerCase()
+  return !!r && !UNCHOSEN_RINGS.has(r)
+}
+
+/**
+ * The follow buttons' colours for one scheme (see `action` above). Pure, so
+ * the probe and the tests ask it the same question the page does.
+ *
+ * A buy colour that disappears into the page (a black button on a black
+ * page) is not a primary any more, so then the page's own ink fills it
+ * instead, with the page colour as its type: the same move Storelib's near
+ * black primary makes on a white page.
+ */
+export function schemeAction(input: { background: string; text: string; radius: number; page: string; ink: string }): SchemeAction {
+  const dark = lightness(input.page) < 0.5
+  const fill = parseColor(input.background)
+  const ground = parseColor(input.page)
+  const visible = fill && ground ? contrastRatio(fill, ground) >= 1.6 : true
+  const background = visible ? input.background : input.ink
+  const text = visible ? ensureContrast(input.text, background) : input.page
+  /* A step further from the page on hover and two when pressed, as #1a1a2e goes to #2a2a40 and #0f0f1c. */
+  const fillDark = lightness(background) < 0.5
+  const hover = mix(background, fillDark ? "#ffffff" : "#000000", 0.08) || background
+  const press = mix(background, "#000000", fillDark ? 0.18 : 0.12) || background
+  /* The quiet one: white on a light page as Storelib's secondary is, a step lighter than the page on a dark one. */
+  const quietBg = dark ? mix(input.page, input.ink, 0.06) || input.page : mix(input.page, "#ffffff", 0.75) || "#ffffff"
+  return {
+    background,
+    text,
+    radius: input.radius,
+    hover,
+    press,
+    quiet: {
+      background: quietBg,
+      hover: mix(quietBg, input.ink, dark ? 0.06 : 0.03) || quietBg,
+      press: mix(quietBg, input.ink, dark ? 0.1 : 0.055) || quietBg,
+      border: mix(input.ink, quietBg, dark ? 0.8 : 0.82) || "#d9dbe0",
+      text: ensureContrast(input.ink, quietBg),
+      danger: ensureContrast(dark ? "#f97066" : "#b42318", quietBg),
+    },
+    dark,
   }
 }

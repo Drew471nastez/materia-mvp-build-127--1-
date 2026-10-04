@@ -26,7 +26,7 @@ import { AppAvatar, AvatarMark } from "@/components/app/app-avatar"
 import { AvatarLightbox } from "@/components/storefront/avatar-lightbox"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { BadgeCheck, Check, CheckCircle, ChevronDown, ChevronLeft, ChevronRight, Download, Facebook, Files, Heart, Infinity, Link2, Mail, Package, Share2, ShoppingBag, Star, Users, X } from "lucide-react"
+import { BadgeCheck, Check, CheckCircle, ChevronDown, ChevronLeft, ChevronRight, Download, Facebook, Files, Heart, Infinity, Link2, Mail, Package, Share2, Star, Users, X } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
 import { applyManualOrder, pickFeatured } from "@/lib/store-builder/featured-order"
@@ -2687,7 +2687,6 @@ export function UnifiedShopHeader({
   settings,
   creator,
   profile,
-  products,
   productCount = 0,
   isMobile = false,
   isPreviewMode = false,
@@ -2732,8 +2731,6 @@ export function UnifiedShopHeader({
   /** Still needed on its own: whether there IS a picture gates the lightbox. */
   const avatarImageUrl =
     settings.avatarUrl === "" ? undefined : settings.avatarUrl !== undefined ? settings.avatarUrl : profile?.avatar_url
-
-  const totalSales = products?.reduce((acc, p) => acc + (p.sales_count || 0), 0) || 0
 
   // Show placeholder only in editor mode (when we have edit callbacks), never on live published pages
   const showPlaceholder = !coverImageUrl && !isPreviewMode && (!!onCoverEdit || !!onSelect)
@@ -3053,13 +3050,13 @@ export function UnifiedShopHeader({
                   width: `${avatarSize}px`,
                   height: `${avatarSize}px`,
                   borderRadius: "9999px",
-                  borderWidth: "2.5px",
+                  /* A clear band of the page around the photo where it crosses the cover. */
+                  borderWidth: "3px",
                   borderStyle: "solid",
                   /**
-                   * The ring follows the scheme. A stored "#e5e7eb" is the
-                   * platform default rather than a decision, so on a dark page
-                   * it was a light grey hoop around the one round thing on it.
-                   * The page resolves which applies; see storefront-chrome.
+                   * The ring is the page's own background (the scheme's), so
+                   * never a white or grey hoop on a dark page. The page
+                   * resolves it; see storefront-chrome `avatarBorder`.
                    */
                   borderColor: surface?.avatarBorderColor || settings.profileImageBorderColor || "#e5e7eb",
                   /**
@@ -3299,7 +3296,7 @@ export function UnifiedShopHeader({
           )}
 
           {/*
-            ONE META ROW: the product count, the sales count, and the social
+            ONE META ROW: the rating, the followers (when no follow block is given) and the social
             icons, separated by dots.
 
             These were three stacked blocks, each with its own top margin, so a
@@ -3361,17 +3358,14 @@ export function UnifiedShopHeader({
                 )
               }
 
-              // Same rule as the About block: a sales count is only worth
-              // printing once there is one. "0 sales" beside the creator's name
-              // is among the first things a buyer reads about them.
-              if (creator?.show_total_sales_badge && settings.showTotalSalesBadge && Number(totalSales) > 0) {
-                parts.push(
-                  <span key="sales" className="flex items-center gap-1.5">
-                    <ShoppingBag className={cn(isMobile ? "h-3.5 w-3.5" : "h-4 w-4")} />
-                    {totalSales} sales
-                  </span>,
-                )
-              }
+              /*
+                NO SALES COUNT IN THE HEADER. The owner: sales show only in
+                the "About <creator>" block, beside Joined and Products and
+                above the payment methods, where somebody reading about the
+                seller finds it (UnifiedAboutSection). Under the bio it was a
+                number competing with who the person is. The creator's Sales
+                count switch now decides the About figure instead (the page).
+              */
             }
 
             if (settings.socialLinks && (!isMobile || (settings.showSocialIconsOnMobile ?? true))) {

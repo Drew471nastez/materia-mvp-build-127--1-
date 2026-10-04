@@ -317,11 +317,11 @@ export function SubscribeBar({ settings, creatorId, onSubmit, ownerAction, leadi
 
   const mobileAvatar = useMemo(() => (
     settings.showAvatar ? (
-      <Avatar className={cn("h-6 w-6 shrink-0", avatarGround)}>
+      <Avatar className={cn("h-8 w-8 shrink-0", avatarGround)} data-subscribe-avatar="">
         {settings.avatarUrl ? (
-          <AvatarImage src={optimizedImageUrl(settings.avatarUrl, 24)} alt={settings.creatorName || ""} />
+          <AvatarImage src={optimizedImageUrl(settings.avatarUrl, 32)} alt={settings.creatorName || ""} />
         ) : null}
-        <AvatarFallback delayMs={settings.avatarUrl ? undefined : 0} className={cn("text-[10px]", avatarGround)}><AvatarMark name={(settings.creatorName || "").trim()} size={24} /></AvatarFallback>
+        <AvatarFallback delayMs={settings.avatarUrl ? undefined : 0} className={cn("text-xs", avatarGround)}><AvatarMark name={(settings.creatorName || "").trim()} size={32} /></AvatarFallback>
       </Avatar>
     ) : null
   ), [settings.showAvatar, settings.avatarUrl, settings.creatorName, avatarGround])
@@ -451,6 +451,8 @@ export function SubscribeBar({ settings, creatorId, onSubmit, ownerAction, leadi
   }
 
   const displayText = getDisplayText(settings, settings.creatorName)
+  /* The default hint is cut off beside the back chevron on a phone; a creator's own wording is kept. */
+  const phonePlaceholder = !settings.placeholder || settings.placeholder === "Enter your email" ? "Your email" : settings.placeholder
 
   /*
     ═════════════════════════════════════════════════════════════════════════
@@ -520,51 +522,56 @@ export function SubscribeBar({ settings, creatorId, onSubmit, ownerAction, leadi
       {/* Custom placeholder color styles */}
       {placeholderStyleCSS && <style dangerouslySetInnerHTML={{ __html: placeholderStyleCSS }} />}
 
-      {/* MOBILE */}
-      <div className="sm:hidden flex flex-col items-center gap-2">
-        {/* The way back, when there is one, sits right before the photo; it draws nothing otherwise, so the row stays centred. */}
-        <div className="flex items-center gap-1.5 justify-center">
-          {leading}
-          {mobileAvatar}
-          <p className="text-xs font-medium">{displayText}</p>
-          {/* On a phone the row is already the whole width; the pencil is the
-              smallest thing that can still be tapped and sits right after the
-              sentence rather than floating anywhere. */}
-          {ownerAction}
-        </div>
+      {/*
+        PHONE: ONE ROW, like the owner's reference (42.webp): the way back
+        when there is somewhere to go back to, the creator's photo, the email
+        field and Subscribe, and nothing wrapping to a second row from 320 to
+        430px wide. The field takes whatever the row leaves (min-w-0), the
+        button never shrinks, and "Subscribed" fits the same cell, so the
+        done state is the same row too. The sentence is the field's label for
+        a screen reader; a phone shows the photo and the field instead.
 
-        <form onSubmit={handleSubmit} className="flex gap-2 items-center w-full">
-          <Input
-            ref={setSmartInputRef}
-            type="email"
-            placeholder={settings.placeholder || "Enter your email"}
-            value={email}
-            onChange={(e) => handleEmailChange(e.target.value)}
-            onFocus={handleInputFocus}
-            onBlur={handleInputBlur}
-            required
-            disabled={loading}
-            className={cn(adaptiveInputClass, "h-8 flex-1 text-xs", hasCustomInputColors && "subscribe-input-themed")}
-            style={{
-              ...inputStyle,
-              borderRadius: settings.buttonBorderRadius != null ? `${settings.buttonBorderRadius}px` : undefined,
-            }}
-          />
-          <button
-            type="submit"
-            disabled={loading || subscribed}
-            aria-busy={loading || undefined}
-            className={cn(submitClass, "h-8 px-3 text-xs")}
-            style={{
-              backgroundColor: settings.buttonColor || "#2563eb",
-              color: settings.buttonTextColor || "#ffffff",
-              borderRadius: settings.buttonBorderRadius != null ? `${settings.buttonBorderRadius}px` : undefined,
-            }}
-          >
-            {buttonFace}
-          </button>
-        </form>
-      </div>
+        16px in the field: iOS zooms the whole page into any input set
+        smaller, which threw the bar out of the screen on the first tap.
+      */}
+      <form onSubmit={handleSubmit} className="sm:hidden flex min-w-0 flex-nowrap items-center gap-2" data-subscribe-row="phone">
+        {leading}
+        {mobileAvatar}
+        <Input
+          ref={setSmartInputRef}
+          type="email"
+          inputMode="email"
+          autoComplete="email"
+          aria-label={displayText || "Your email"}
+          placeholder={phonePlaceholder}
+          value={email}
+          onChange={(e) => handleEmailChange(e.target.value)}
+          onFocus={handleInputFocus}
+          onBlur={handleInputBlur}
+          required
+          disabled={loading}
+          className={cn(adaptiveInputClass, "h-10 min-w-0 flex-1 px-3 text-[16px] md:text-[16px]", hasCustomInputColors && "subscribe-input-themed")}
+          style={{
+            ...inputStyle,
+            borderRadius: settings.buttonBorderRadius != null ? `${settings.buttonBorderRadius}px` : undefined,
+          }}
+        />
+        <button
+          type="submit"
+          disabled={loading || subscribed}
+          aria-busy={loading || undefined}
+          className={cn(submitClass, "h-10 px-3 text-[14px]")}
+          style={{
+            backgroundColor: settings.buttonColor || "#2563eb",
+            color: settings.buttonTextColor || "#ffffff",
+            borderRadius: settings.buttonBorderRadius != null ? `${settings.buttonBorderRadius}px` : undefined,
+          }}
+        >
+          {buttonFace}
+        </button>
+        {/* The owner's pencil, the smallest thing that can still be tapped, at the row's end. */}
+        {ownerAction}
+      </form>
 
       {/* DESKTOP */}
       <div className="hidden sm:flex items-center justify-between gap-4 max-w-[1150px] mx-auto">
@@ -824,45 +831,40 @@ export function EditorSubscribeBar({ settings, creatorId, isEditorPreview, isMob
   */
   // Mobile layout content
   const mobileContent = (
-    <div className="flex flex-col items-center gap-2">
+    <div className="flex min-w-0 flex-nowrap items-center gap-2" onClick={handleInteractiveClick}>
       {/* Custom placeholder color styles */}
       {placeholderStyleCSS && <style dangerouslySetInnerHTML={{ __html: placeholderStyleCSS }} />}
-
-      <div className="flex items-center gap-2 justify-center">
-        {settings.showAvatar && (
-          <Avatar className={cn("h-6 w-6 shrink-0", avatarGround)}>
-            {settings.avatarUrl ? (
-              <AvatarImage src={optimizedImageUrl(settings.avatarUrl, 24)} alt={settings.creatorName || ""} />
-            ) : null}
-            <AvatarFallback delayMs={settings.avatarUrl ? undefined : 0} className={cn("text-[10px]", avatarGround)}><AvatarMark name={(settings.creatorName || "").trim()} size={24} /></AvatarFallback>
-          </Avatar>
-        )}
-        <p className="text-xs font-medium text-center">{displayText}</p>
-      </div>
-
-      <div className="flex gap-2 items-center w-full" onClick={handleInteractiveClick}>
-        <Input
-          type="email"
-          placeholder={settings.placeholder || "Enter your email"}
-          className={cn(adaptiveInputClass, "h-8 flex-1 text-xs", hasCustomInputColors && "subscribe-input-themed")}
-          style={{
-            ...inputStyle,
-            borderRadius: settings.buttonBorderRadius != null ? `${settings.buttonBorderRadius}px` : undefined,
-          }}
-        />
-        <Button
-          size="sm"
-          type="button"
-          className="shrink-0 h-8 px-3 text-xs"
-          style={{
-            backgroundColor: settings.buttonColor || "#2563eb",
-            color: settings.buttonTextColor || "#ffffff",
-            borderRadius: settings.buttonBorderRadius != null ? `${settings.buttonBorderRadius}px` : undefined,
-          }}
-        >
-          {buttonText}
-        </Button>
-      </div>
+      {/* One row on a phone, as the live bar draws it: photo, field, button. */}
+      {settings.showAvatar && (
+        <Avatar className={cn("h-8 w-8 shrink-0", avatarGround)}>
+          {settings.avatarUrl ? (
+            <AvatarImage src={optimizedImageUrl(settings.avatarUrl, 32)} alt={settings.creatorName || ""} />
+          ) : null}
+          <AvatarFallback delayMs={settings.avatarUrl ? undefined : 0} className={cn("text-xs", avatarGround)}><AvatarMark name={(settings.creatorName || "").trim()} size={32} /></AvatarFallback>
+        </Avatar>
+      )}
+      <Input
+        type="email"
+        aria-label={displayText || "Your email"}
+        placeholder={settings.placeholder || "Enter your email"}
+        className={cn(adaptiveInputClass, "h-10 min-w-0 flex-1 text-[14px] md:text-[14px]", hasCustomInputColors && "subscribe-input-themed")}
+        style={{
+          ...inputStyle,
+          borderRadius: settings.buttonBorderRadius != null ? `${settings.buttonBorderRadius}px` : undefined,
+        }}
+      />
+      <Button
+        size="sm"
+        type="button"
+        className="shrink-0 h-10 px-3 text-[14px]"
+        style={{
+          backgroundColor: settings.buttonColor || "#2563eb",
+          color: settings.buttonTextColor || "#ffffff",
+          borderRadius: settings.buttonBorderRadius != null ? `${settings.buttonBorderRadius}px` : undefined,
+        }}
+      >
+        {buttonText}
+      </Button>
     </div>
   )
 
@@ -872,42 +874,38 @@ export function EditorSubscribeBar({ settings, creatorId, isEditorPreview, isMob
       {/* Custom placeholder color styles */}
       {placeholderStyleCSS && <style dangerouslySetInnerHTML={{ __html: placeholderStyleCSS }} />}
 
-      <div className="flex sm:hidden flex-col items-center gap-2">
-        <div className="flex items-center gap-2 justify-center">
-          {settings.showAvatar && (
-            <Avatar className={cn("h-6 w-6 shrink-0", avatarGround)}>
-              {settings.avatarUrl ? (
-                <AvatarImage src={optimizedImageUrl(settings.avatarUrl, 24)} alt={settings.creatorName || ""} />
-              ) : null}
-              <AvatarFallback delayMs={settings.avatarUrl ? undefined : 0} className={cn("text-[10px]", avatarGround)}><AvatarMark name={(settings.creatorName || "").trim()} size={24} /></AvatarFallback>
-            </Avatar>
-          )}
-          <p className="text-xs font-medium text-center">{displayText}</p>
-        </div>
-
-        <div className="flex gap-2 items-center w-full" onClick={handleInteractiveClick}>
-          <Input
-            type="email"
-            placeholder={settings.placeholder || "Enter your email"}
-            className={cn(adaptiveInputClass, "h-8 flex-1 text-xs", hasCustomInputColors && "subscribe-input-themed")}
-            style={{
-              ...inputStyle,
-              borderRadius: settings.buttonBorderRadius != null ? `${settings.buttonBorderRadius}px` : undefined,
-            }}
-          />
-          <Button
-            size="sm"
-            type="button"
-            className="shrink-0 h-8 px-3 text-xs"
-            style={{
-              backgroundColor: settings.buttonColor || "#2563eb",
-              color: settings.buttonTextColor || "#ffffff",
-              borderRadius: settings.buttonBorderRadius != null ? `${settings.buttonBorderRadius}px` : undefined,
-            }}
-          >
-            {buttonText}
-          </Button>
-        </div>
+      <div className="flex sm:hidden min-w-0 flex-nowrap items-center gap-2" onClick={handleInteractiveClick}>
+        {/* One row on a phone, as the live bar draws it: photo, field, button. */}
+        {settings.showAvatar && (
+          <Avatar className={cn("h-8 w-8 shrink-0", avatarGround)}>
+            {settings.avatarUrl ? (
+              <AvatarImage src={optimizedImageUrl(settings.avatarUrl, 32)} alt={settings.creatorName || ""} />
+            ) : null}
+            <AvatarFallback delayMs={settings.avatarUrl ? undefined : 0} className={cn("text-xs", avatarGround)}><AvatarMark name={(settings.creatorName || "").trim()} size={32} /></AvatarFallback>
+          </Avatar>
+        )}
+        <Input
+          type="email"
+          aria-label={displayText || "Your email"}
+          placeholder={settings.placeholder || "Enter your email"}
+          className={cn(adaptiveInputClass, "h-10 min-w-0 flex-1 text-[14px] md:text-[14px]", hasCustomInputColors && "subscribe-input-themed")}
+          style={{
+            ...inputStyle,
+            borderRadius: settings.buttonBorderRadius != null ? `${settings.buttonBorderRadius}px` : undefined,
+          }}
+        />
+        <Button
+          size="sm"
+          type="button"
+          className="shrink-0 h-10 px-3 text-[14px]"
+          style={{
+            backgroundColor: settings.buttonColor || "#2563eb",
+            color: settings.buttonTextColor || "#ffffff",
+            borderRadius: settings.buttonBorderRadius != null ? `${settings.buttonBorderRadius}px` : undefined,
+          }}
+        >
+          {buttonText}
+        </Button>
       </div>
 
       <div className="hidden sm:flex items-center justify-between gap-4 max-w-4xl mx-auto">

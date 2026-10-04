@@ -2323,8 +2323,13 @@ export const avatarSizeMap: Record<AvatarSizeChoice, number> = {
     without turning the header into a portrait. The overlap with the cover is
     derived from this number rather than hardcoded, so the circle still
     straddles the cover's edge by the same proportion at any size.
+
+    AND FIVE PERCENT MORE, asked for by the owner for every creator page:
+    150 to 158 and 118 to 124, so the photo holds its own against the
+    cover above it. Profiles that share the look (components/profile/
+    profile-hero.tsx) grew by the same five percent.
   */
-  small: 118,
-  medium: 150, // kept for backwards compatibility
-  large: 150, // same as medium
+  small: 124,
+  medium: 158, // kept for backwards compatibility
+  large: 158, // same as medium
 }

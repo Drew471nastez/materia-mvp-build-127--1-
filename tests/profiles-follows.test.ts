@@ -36,14 +36,16 @@ import { baseHandleFrom, emailLocalPart, handleCandidates, normalizeHandle, slug
 import { ensureUsername, ensureUsernames, handleAvailable } from "@/lib/profile/ensure-username"
 import { activityKey, afterFilter, decodeCursor, encodeCursor, mergePages, newerThan, sortableTime, type Position } from "@/lib/profile/activity-cursor"
 import { readProfileActivity, type ProfileActivityItem } from "@/lib/profile/activity"
-import { decodeFollowCursor, encodeFollowCursor, followCounts, isFollowing, listFollows } from "@/lib/profile/follows"
+import { followCounts, isFollowing } from "@/lib/profile/follows"
 import { followDedupeKey, notifyNewFollower } from "@/lib/profile/notify-follow"
 import { privacyPatch, readPrivacy } from "@/lib/profile/privacy"
-import { cameFromBrowsing, refererPath } from "@/lib/profile/back"
+import { cameFromBrowsing, cameFromElsewhere, refererPath } from "@/lib/profile/back"
 import { sharedPostView, SHARED_PAGE, SHARED_COMMUNITIES_MAX } from "@/lib/profile/shared-view"
 import { ownCoverUrl } from "@/lib/profile/cover"
-import { schemeFill } from "@/components/profile/follow-button"
-import { resolveStorefrontChrome } from "@/lib/store-builder/storefront-chrome"
+import { schemeVars } from "@/components/profile/follow-button"
+import { resolveStorefrontChrome, ringIsChoice, schemeAction } from "@/lib/store-builder/storefront-chrome"
+import { avatarSizeMap } from "@/lib/store-builder/defaults"
+import { PROFILE_AVATAR_PX } from "@/components/profile/profile-hero"
 import { isValidUsername } from "@/lib/reserved-words"
 
 let passed = 0
@@ -410,7 +412,7 @@ async function main() {
     check("before the community tables exist: an empty page, not an error", quiet.items.length === 0 && quiet.next === null)
   }
 
-  console.log("\nFollows: counts, the list, the notice")
+  console.log("\nFollows: counts and the notice (no list any more)")
   {
     const at = (m: number) => `2026-09-10T10:${String(m).padStart(2, "0")}:00+00:00`
     const ids = Array.from({ length: 5 }, (_, i) => `00000000-0000-4000-8000-0000000001${String(i).padStart(2, "0")}`)
@@ -426,20 +428,9 @@ async function main() {
     const counts = await followCounts(db, U)
     check("counts on both ends", counts.followers === 5 && counts.following === 1, counts)
     check("is following", (await isFollowing(db, U, V)) && !(await isFollowing(db, V, U)) && !(await isFollowing(db, U, U)))
-    const first = await listFollows(db, { userId: U, list: "followers", viewerId: V, limit: 2 })
-    check("newest follow first, two a page", first.people.map((p) => p.id).join() === [ids[4], ids[3]].join() && !!first.next, first.people.map((p) => p.id))
-    const second = await listFollows(db, { userId: U, list: "followers", viewerId: V, limit: 2, cursor: first.next })
-    const third = await listFollows(db, { userId: U, list: "followers", viewerId: V, limit: 2, cursor: second.next })
-    const all = [...first.people, ...second.people, ...third.people].map((p) => p.id)
-    check("pages cover everybody once", all.length === 5 && new Set(all).size === 5 && third.next === null, all)
-    const p1 = [...second.people, ...third.people].find((p) => p.id === ids[1])!
-    check("a live store links to /<handle>, others to /@handle", p1.href === "/p1" && first.people[0].href === "/@p4")
-    const p2 = second.people.find((p) => p.id === ids[2])!
-    check("somebody with no handle gets one on the way into the list", !!p2.username && p2.href === `/@${p2.username}`, p2)
-    check("whether the viewer follows each", third.people.find((p) => p.id === ids[0])?.followedByViewer === true && p1.followedByViewer === false)
-    check("a tampered follow cursor is ignored", decodeFollowCursor("x") === null && decodeFollowCursor(encodeFollowCursor(at(1), ids[0]))?.id === ids[0])
-    const following = await listFollows(db, { userId: U, list: "following", viewerId: null })
-    check("following lists who they follow", following.people.length === 1 && following.people[0].id === V)
+    /* The owner asked for the followers / following dialog to go; the list it paged went with it. */
+    const lib = read("lib/profile/follows.ts")
+    check("the follow graph library no longer pages a list of people", !/export async function listFollows/.test(lib) && !/FollowCursor/.test(lib) && !/peopleViews/.test(lib))
 
     const inbox = makeDb({ profiles: [{ id: V, display_name: "Vera", username: "vera", avatar_url: "https://x/v.png" }], creators: [], user_notifications: [] }, { unique: { user_notifications: "dedupe_key" } })
     check("a new follower is told once", (await notifyNewFollower(inbox, { followerId: V, targetId: U })) === "sent")
@@ -479,9 +470,20 @@ async function main() {
     /* "The back control lives in the top bar next to the person's avatar ... not as a pill under it." */
     check("the way back is a chevron in a top bar, never a pill", /export function TopBarBack/.test(bar) && /export function ProfileTopBar/.test(bar) && /aria-label="Back"/.test(bar) && !/>\s*Back\s*</.test(bar))
     check("  the slim bar puts it right before the person's photo and name", /<BackChevron[^>]*\/>\s*<AppAvatar/.test(bar) && /data-profile-top-bar-name/.test(bar))
-    check("  only when reached from a community, Explore or search", /if \(!shown\) return null/.test(bar) && /cameFromBrowsing\(from\)/.test(bar))
+    check("  only when arrived from somewhere: another page of ours, not this one, not sign in", /if \(!shown\) return null/.test(bar) && /cameFromElsewhere\(from, window\.location\.pathname\)/.test(bar))
+    check("arrived from another page: shown", cameFromElsewhere("/library", "/maya") && cameFromElsewhere("/community/x", ["/maya", "/u/maya"]) && cameFromElsewhere("/p/glaze", "/maya"))
+    check("a reload of the same page, a sign in, nothing or another site: not shown", !cameFromElsewhere("/maya/", ["/maya", "/u/maya"]) && !cameFromElsewhere("/U/Maya?x=1", ["/maya", "/u/maya"]) && !cameFromElsewhere("/login", "/maya") && !cameFromElsewhere(null, "/maya") && !cameFromElsewhere("//evil.example/x", "/maya"))
+    const creatorPage = read("app/(marketing)/u/[username]/page.tsx")
+    check("  the creator page asks the same rule of the Referer, with every address it answers to", /cameFromElsewhere\(refererPath\(requestHeaders\.get\("referer"\), requestHeaders\.get\("host"\)\), ownPaths\)/.test(creatorPage) && /ownPaths\.push\("\/"\)/.test(creatorPage))
+    check("  and so does a profile", /cameFromElsewhere\(refererPath\(head\.get\("referer"\), head\.get\("host"\)\), ownPaths\)/.test(read("app/(marketing)/member/[username]/page.tsx")))
+    check("the chevron answers the press at once, before the click: its own pressed state, no transition in", /onPointerDown=\{\(\) => setPressed\(true\)\}/.test(bar) && /data-\[pressed=true\]:duration-0/.test(bar) && /data-\[pressed=true\]:scale-\[0\.9\]/.test(bar) && /touch-manipulation/.test(bar))
     const sub = read("components/store-builder/subscribe-bar.tsx")
     check("  on a creator's newsletter bar it is the row's first thing, before the photo, at both widths", /\{leading\}\s*\{mobileAvatar\}/.test(sub) && /\{leading\}\s*\{desktopAvatar\}/.test(sub))
+    /* 42.webp: on a phone the bar is ONE row: back (when there is one), photo, email, Subscribe. */
+    const phoneRow = sub.slice(sub.indexOf('data-subscribe-row="phone"'), sub.indexOf("{/* DESKTOP */}"))
+    check("on a phone the newsletter bar is one row: back, photo, email, Subscribe, never wrapping", /className="sm:hidden flex min-w-0 flex-nowrap items-center gap-2" data-subscribe-row="phone"/.test(sub) && /\{leading\}\s*\{mobileAvatar\}\s*<Input/.test(phoneRow) && /min-w-0 flex-1/.test(phoneRow) && /type="submit"/.test(phoneRow) && !/flex-col/.test(phoneRow))
+    check("  the field is 16px so iOS does not zoom the page on a tap, and labelled by the bar's sentence", /text-\[16px\]/.test(phoneRow) && /aria-label=\{displayText \|\| "Your email"\}/.test(phoneRow))
+    check("  Subscribed holds the same cell as Subscribe, so the done state is the same row", /col-start-1 row-start-1/.test(sub) && /\{buttonFace\}/.test(phoneRow))
   }
 
   console.log("\nRoutes")
@@ -491,8 +493,7 @@ async function main() {
     check("follow: no self follow", /target === user\.id/.test(follow))
     check("follow: rate limited before any write", follow.indexOf("rateLimit(") > 0 && follow.indexOf("rateLimit(") < follow.indexOf(".upsert("))
     check("follow: the notice after a follow, never after an unfollow", /afterFollow\(user\.id, target\)/.test(follow) && follow.indexOf("afterFollow(") < follow.indexOf(".delete()"))
-    const list = stripComments(read("app/api/follow/list/route.ts"))
-    check("list: validated, keyset paged", /isUuid\(userId\)/.test(list) && /listFollows\(/.test(list) && /followers.*following/.test(list))
+    check("the followers / following list route is gone, nothing asks for it", !existsSync(join(root, "app/api/follow/list/route.ts")) && !/\/api\/follow\/list/.test(read("components/profile/profile-social.tsx")))
     const uname = stripComments(read("app/api/profile/username/route.ts"))
     check("username: the session's own row, the shared rule, the shared meaning of taken", /auth\.getUser\(\)/.test(uname) && /isValidUsername/.test(uname) && /handleAvailable/.test(uname) && /\.eq\("id", user\.id\)/.test(uname))
     check("username: a store's handle moves from /app Settings", /creator \|\| page/.test(uname) && /409/.test(uname))
@@ -504,7 +505,7 @@ async function main() {
     check("activity: through the one gate that reads the switch", /activityFor\(/.test(act))
     const gate = stripComments(read("lib/profile/activity-page.ts"))
     check("activity: hidden from everybody but themselves", /!show && !self/.test(gate))
-    check("no route or reader selects every column", ![follow, list, uname, privacy, act].some((s) => /select\("\*"\)/.test(s)))
+    check("no route or reader selects every column", ![follow, uname, privacy, act].some((s) => /select\("\*"\)/.test(s)))
   }
 
   console.log("\nThe pages")
@@ -525,10 +526,25 @@ async function main() {
     const creator = read("app/(marketing)/u/[username]/page.tsx")
     check("the creator page has the same follow block", /<ProfileSocial[\s\S]{0,80}tone="storefront"/.test(creator) && (creator.match(/followRow=\{buildFollowRow\(/g) ?? []).length === 2)
     check("the creator page has the way back on both of its headers: in the newsletter bar, else a slim top bar", (creator.match(/leading=\{!embedded \? <TopBarBack initiallyShown=\{backShown\} \/> : undefined\}/g) ?? []).length === 3 && (creator.match(/<ProfileTopBar\b/g) ?? []).length === 2 && !/ProfileBackBar/.test(creator))
-    check("Follow on the creator page is drawn in the scheme's own button colours", /buildFollowRow\(headerSettings, chrome\.action\)/.test(creator) && /scheme=\{scheme \?\? null\}/.test(creator) && /action: \{/.test(read("lib/store-builder/storefront-chrome.ts")))
+    check("Follow on the creator page is drawn in the scheme's own button colours", /buildFollowRow\(headerSettings, chrome\.action\)/.test(creator) && /scheme=\{scheme \?\? null\}/.test(creator) && /action: schemeAction\(\{/.test(read("lib/store-builder/storefront-chrome.ts")))
     check("the creator page shows their activity and the communities they are in, as a profile does", /id: "activity", label: "Activity"/.test(creator) && /communitiesPanel\(communityCards\)/.test(creator) && /readPrivacy\(admin, profile\.id\)/.test(creator))
     const header = read("components/store-builder/unified-section-renderer.tsx")
     check("the header does not print the follower count twice", /!followRow && \(settings\.showFollowers/.test(header))
+    /* Round 4: sales only in About, beside Joined and Products, above the payment methods. */
+    const headerFn = header.slice(header.indexOf("export function UnifiedShopHeader("), header.indexOf("// ====== PRODUCT PAGE CONTENT"))
+    check("no sales count anywhere in the hero", !/sales<|\} sales|ShoppingBag|totalSales/.test(stripComments(headerFn)))
+    const about = header.slice(header.indexOf("Stats - Sales and Joined"), header.indexOf("Accepted Payment Methods Section"))
+    check("  sales sit in About with Joined and Products, above the payment methods", /Sales/.test(about) && /Joined/.test(about) && /Products/.test(about) && header.indexOf("Stats - Sales and Joined") < header.indexOf("Accepted payment methods"))
+    check("  and the creator's Sales count switch decides the About figure", /sellerTotalSales=\{salesShown \? totalSales : 0\}/.test(creator) && /const salesShown = \(headerSettings\?\.showTotalSalesBadge \?\? true\) && \(creator\.show_total_sales_badge \?\? true\)/.test(creator))
+    check("the creator photo is five percent bigger: 158 and 124", avatarSizeMap.medium === 158 && avatarSizeMap.large === 158 && avatarSizeMap.small === 124)
+    check("  and so is every profile's (118 / 134 from 112 / 128), /account sharing the same class", PROFILE_AVATAR_PX.phone === 118 && PROFILE_AVATAR_PX.wide === 134 && /className=\{PROFILE_AVATAR_CLASS\}/.test(read("components/account/account-hub.tsx")) && /className=\{PROFILE_AVATAR_CLASS\}/.test(read("components/profile/profile-hero.tsx")))
+    for (const key of ["default", "sage", "astrid"] as const) {
+      const c = resolveStorefrontChrome(key)
+      check(`the ring is the page's own background (${key})`, c.avatarBorder === c.pageBackground)
+    }
+    check("  a ring written for the creator is not a choice; one they picked is kept", resolveStorefrontChrome("astrid", { avatarBorder: "#e5e7eb" }).avatarBorder === resolveStorefrontChrome("astrid").pageBackground && resolveStorefrontChrome("astrid", { avatarBorder: "#404040" }).avatarBorder === resolveStorefrontChrome("astrid").pageBackground && resolveStorefrontChrome("sage", { avatarBorder: "#ff0066" }).avatarBorder === "#ff0066" && !ringIsChoice("#FFFFFF") && ringIsChoice("#ff0066"))
+    const social = read("components/profile/profile-social.tsx")
+    check("followers and following are one quiet line of text, no buttons, no dialog", /data-profile-counts=""/.test(social) && !/onClick=\{\(\) => setOpen/.test(social) && !/FollowListSheet|SheetDialog|role="dialog"/.test(social) && !existsSync(join(root, "components/profile/follow-list-sheet.tsx")) && /·/.test(social))
     const settings = read("components/account/account-settings.tsx")
     check("settings: a username field with a live check", /data-account-username-field/.test(settings) && /\/api\/profile\/username\?handle=/.test(settings))
     check("settings: the two privacy switches", /Show my activity/.test(settings) && /Show communities I am in/.test(settings) && /\/api\/profile\/privacy/.test(settings))
@@ -539,7 +555,6 @@ async function main() {
   {
     const clientFiles = [
       "components/profile/follow-button.tsx",
-      "components/profile/follow-list-sheet.tsx",
       "components/profile/profile-social.tsx",
       "components/profile/profile-activity.tsx",
       "components/profile/profile-top-bar.tsx",
@@ -588,8 +603,15 @@ async function main() {
     check("hover or a press says Unfollow, but not under the pointer that just followed", /group-hover\/follow:visible group-active\/follow:visible/.test(btn) && /onPointerLeave=\{\(\) => setFresh\(false\)\}/.test(btn) && /const unfollowable = following && !fresh/.test(btn))
     check("optimistic, and put back when the server refuses", /setFollowing\(next\)[\s\S]{0,80}input\.onChange\?\.\(next\)/.test(btn) && /setFollowing\(!next\)/.test(btn))
     const sage = resolveStorefrontChrome("sage").action
-    check("a scheme's Follow is its buy button colour, text and rounding", sage.background === "#2F5D46" && typeof sage.radius === "number" && schemeFill(sage, false)?.backgroundColor === "#2F5D46" && schemeFill(sage, false)?.color === sage.text)
-    check("  and Following drops the fill, keeping only the rounding", !schemeFill(sage, true)?.backgroundColor && !!schemeFill(sage, true)?.borderRadius)
+    const sageVars = schemeVars(sage) as Record<string, string>
+    check("a scheme's Follow is its buy button colour and text, as variables the button reads", sage.background === "#2F5D46" && sageVars["--sf-bg"] === "#2F5D46" && sageVars["--sf-ink"] === sage.text && !!sageVars["--sf-hover"] && !!sageVars["--sf-press"])
+    check("  in Storelib's primary shape: light on top, a darker foot, flat when pressed", /export const schemePrimary/.test(btn) && /bg-\[var\(--sf-bg\)\]/.test(btn) && /inset_0_1px_0_rgba\(255,255,255,0\.16\),inset_0_-1px_0_rgba\(0,0,0,0\.3\)/.test(btn) && /active:bg-\[var\(--sf-press\)\]/.test(btn))
+    check("  Following and Message are the quiet secondary in the scheme's surface, hairline and ink", /export const schemeQuiet/.test(btn) && /bg-\[var\(--sq-bg/.test(btn) && /border-\[var\(--sq-line/.test(btn) && !!sageVars["--sq-bg"] && !!sageVars["--sq-line"] && /storefront \? schemeQuiet : secondaryDepth/.test(read("components/profile/profile-social.tsx")))
+    check("  Unfollow turns the scheme's own red, only while a press would unfollow", /unfollowable && "hover:text-\[var\(--sq-danger/.test(btn))
+    const astrid = resolveStorefrontChrome("astrid")
+    check("  on a dark scheme the quiet surface is a step lighter than the page, never white", astrid.dark && astrid.action.dark && astrid.action.quiet.background.toLowerCase() !== "#ffffff" && astrid.action.quiet.background.toLowerCase() !== astrid.pageBackground.toLowerCase())
+    const sunk = schemeAction({ background: "#111113", text: "#ffffff", radius: 8, page: "#111113", ink: "#fafafa" })
+    check("  a buy colour that vanishes into the page gives way to the page's ink", sunk.background === "#fafafa" && sunk.text === "#111113")
     check("plain profiles keep Storelib's own pair", /: primaryDepth/.test(btn) && /cn\(secondaryDepth/.test(btn))
   }
 
@@ -638,7 +660,6 @@ async function main() {
       "lib/profile/profile-communities.ts",
       "lib/profile/back.ts",
       "components/profile/follow-button.tsx",
-      "components/profile/follow-list-sheet.tsx",
       "components/profile/profile-social.tsx",
       "components/profile/profile-activity.tsx",
       "components/profile/profile-top-bar.tsx",
@@ -653,7 +674,6 @@ async function main() {
       "app/api/profile/shared-posts/route.ts",
       "components/profile/member-profile-page.tsx",
       "app/(marketing)/member/[username]/page.tsx",
-      "app/api/follow/list/route.ts",
       "app/api/profile/username/route.ts",
       "app/api/profile/privacy/route.ts",
       "app/api/profile/activity/route.ts",

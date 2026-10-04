@@ -10,7 +10,7 @@ import { communitiesEnabled } from "@/lib/communities/flag"
 import { isFollowing } from "@/lib/profile/follows"
 import { activityFor } from "@/lib/profile/activity-page"
 import { messageTarget, profileCommunities } from "@/lib/profile/profile-communities"
-import { cameFromBrowsing, refererPath } from "@/lib/profile/back"
+import { cameFromElsewhere, refererPath } from "@/lib/profile/back"
 import { sharedCommunities, sharedPostsPage } from "@/lib/profile/shared-posts"
 import { MemberProfilePage } from "@/components/profile/member-profile-page"
 import { MemberProfileShell } from "@/components/profile/member-profile-shell"
@@ -109,7 +109,9 @@ export default async function MemberProfileRoute({ params, searchParams }: Props
     communitiesOn && viewerId && !isSelf ? sharedSections(db, viewerId, profile.userId) : Promise.resolve([]),
   ])
 
-  const backShown = from === "community" || from === "explore" || cameFromBrowsing(refererPath(head.get("referer"), head.get("host")))
+  /* Arrived from any other page of ours (not a reload of this one): the way back in the top bar. */
+  const ownPaths = [`/@${handle}`, `/member/${handle}`, ...(profile.username ? [`/@${profile.username}`, `/member/${profile.username}`] : [])]
+  const backShown = from === "community" || from === "explore" || cameFromElsewhere(refererPath(head.get("referer"), head.get("host")), ownPaths)
 
   return (
     <main className="explore-ground min-h-screen bg-[#f8f9fa]" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>

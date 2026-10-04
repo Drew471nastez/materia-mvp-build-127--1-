@@ -94,7 +94,7 @@ function main() {
   )
   check(
     "the branch with no config ends with it too",
-    /id: DEFAULT_ABOUT_SECTION_ID/.test(fallback) && /sellerTotalSales=\{fallbackTotalSales\}/.test(fallback),
+    /id: DEFAULT_ABOUT_SECTION_ID/.test(fallback) && /* Round 4: the Sales count switch decides the About figure. */ /sellerTotalSales=\{\(creator\.show_total_sales_badge \?\? true\) \? fallbackTotalSales : 0\}/.test(fallback),
   )
   check(
     "with the same sum the other branch makes",

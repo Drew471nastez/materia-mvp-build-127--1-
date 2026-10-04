@@ -4,18 +4,22 @@
  * ===========================================================================
  *  THE COUNTS AND THE BUTTONS UNDER A PERSON'S NAME
  * ===========================================================================
- * "12 followers   30 following", each opening that list, then the actions:
- * Follow / Following for somebody else, Message when the two of them share
- * a community where messages are open (the page works that out on the
- * server and passes the address), and the store when they have one. Your
- * own profile has no Follow; it has the owner's pills instead (the page).
+ * One quiet line, "12 followers · 30 following", then the actions: Follow /
+ * Following for somebody else, Message when the two of them share a
+ * community where messages are open (the page works that out on the server
+ * and passes the address). Your own profile has no Follow; it has the
+ * owner's pills instead (the page).
  *
- * The followers count is the server's after every press, so it never
- * drifts from the list it opens. The same block sits on a creator's page
- * (tone "storefront"), drawn in the page's own colours: Follow in the
- * scheme's button colours (`scheme`), Message as an outline in the page's
- * text colour with the scheme's rounding. A plain profile has Storelib's
- * own pair.
+ * THE COUNTS ARE A LINE, NOT A DOOR. They opened a dialog listing every
+ * follower, which the owner asked to remove: a count is a fact about the
+ * person, and a modal of strangers' names under it was a detour nobody
+ * needed. So it is plain text now, quieter than the buttons under it. The
+ * followers number is still the server's after every press.
+ *
+ * Follow and Message are one pair in Storelib's button language
+ * (components/profile/follow-button.tsx): on a creator's page (tone
+ * "storefront") painted in the page's scheme (`scheme`), on a plain profile
+ * Storelib's own near black and white.
  *
  * Message never goes to a member page: it opens the conversation in the
  * community the two share (/community/<slug>?dm=<userId>, which the
@@ -26,8 +30,7 @@ import { useState } from "react"
 import { MessageCircle } from "lucide-react"
 import { secondaryDepth } from "@/components/ui/depth-button"
 import { cn } from "@/lib/utils"
-import { FollowButton, useFollow, type ActionScheme, type FollowTone } from "./follow-button"
-import { FollowListSheet, type FollowListKind } from "./follow-list-sheet"
+import { FollowButton, schemeQuiet, schemeVars, useFollow, type ActionScheme, type FollowTone } from "./follow-button"
 
 function compact(n: number): string {
   if (n < 1000) return String(n)
@@ -66,7 +69,6 @@ export function ProfileSocial({
   className?: string
 }) {
   const [followers, setFollowers] = useState(initialFollowers)
-  const [open, setOpen] = useState<FollowListKind | null>(null)
   const follow = useFollow({
     targetUserId: userId,
     initialFollowing: viewerFollowing,
@@ -75,43 +77,35 @@ export function ProfileSocial({
     onChange: (on) => setFollowers((n) => Math.max(0, n + (on ? 1 : -1))),
   })
   const storefront = tone === "storefront"
-  const count = (kind: FollowListKind, n: number, word: string) => (
-    <button
-      type="button"
-      onClick={() => setOpen(kind)}
-      data-profile-count={kind}
-      className={cn(
-        "inline-flex h-10 items-center gap-1 rounded-lg px-1.5 outline-none transition-colors [-webkit-tap-highlight-color:transparent] focus-visible:ring-2",
-        storefront ? "focus-visible:ring-current/30 hover:underline" : "text-[#6b7280] hover:text-[#1a1a2e] focus-visible:ring-[#1a1a2e]/20",
-      )}
-    >
-      <span className={cn("font-semibold tabular-nums", !storefront && "text-[#1a1a2e]")}>{compact(n)}</span>
-      <span className={storefront ? "opacity-75" : undefined}>{word}</span>
-    </button>
+  const count = (kind: "followers" | "following", n: number, word: string) => (
+    <span data-profile-count={kind} className="whitespace-nowrap">
+      <span className={cn("font-semibold tabular-nums", storefront ? undefined : "text-[#1a1a2e]")} data-profile-count-value="">
+        {compact(n)}
+      </span>{" "}
+      <span className={storefront ? "opacity-70" : undefined}>{word}</span>
+    </span>
   )
 
   return (
     <div className={cn("flex flex-col items-center", className)} data-profile-social="">
       {showCounts ? (
-        <div className="flex items-center justify-center gap-3 text-[14px]" data-profile-counts="">
-          {count("followers", followers, followers === 1 ? "follower" : "followers")}
+        <p className={cn("text-center text-[14px] leading-5", !storefront && "text-[#6b7280]")} data-profile-counts="">
+          {count("followers", followers, followers === 1 ? "follower" : "followers")}{" "}
+          <span aria-hidden className={cn("px-1", storefront ? "opacity-40" : "text-[#c4c8cf]")}>
+            ·
+          </span>{" "}
           {count("following", following, "following")}
-        </div>
+        </p>
       ) : null}
       {!isSelf ? (
-        <div className={cn("flex w-full max-w-[360px] flex-wrap items-center justify-center gap-2", showCounts ? "mt-2" : "mt-4")} data-profile-actions="">
+        <div className={cn("flex w-full max-w-[360px] items-center justify-center gap-2", showCounts ? "mt-3" : "mt-4")} data-profile-actions="">
           <FollowButton following={follow.following} busy={follow.busy} onClick={follow.toggle} tone={tone} scheme={scheme} name={name} className="flex-1 sm:flex-none" />
           {messageHref ? (
             <Link
               href={messageHref}
               data-profile-message=""
-              style={storefront && typeof scheme?.radius === "number" ? { borderRadius: `${Math.min(scheme.radius, 999)}px` } : undefined}
-              className={cn(
-                storefront
-                  ? "inline-flex h-10 min-w-[112px] shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-current/30 px-4 text-[14px] font-semibold outline-none transition-[background-color,border-color] duration-100 hover:border-current/50 hover:bg-current/[0.05] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
-                  : cn(secondaryDepth, "h-10 min-w-[112px] rounded-xl px-4 text-[14px]"),
-                "flex-1 sm:flex-none",
-              )}
+              style={storefront ? schemeVars(scheme) : undefined}
+              className={cn(storefront ? schemeQuiet : secondaryDepth, "h-10 min-w-[112px] rounded-xl px-4 text-[14px]", "flex-1 sm:flex-none")}
             >
               <MessageCircle className="h-4 w-4 opacity-70" aria-hidden />
               Message
@@ -124,15 +118,6 @@ export function ProfileSocial({
           {follow.error}
         </p>
       ) : null}
-      <FollowListSheet
-        userId={userId}
-        name={name}
-        open={open !== null}
-        initialList={open ?? "followers"}
-        onClose={() => setOpen(null)}
-        signedIn={signedIn}
-        counts={{ followers, following }}
-      />
     </div>
   )
 }
