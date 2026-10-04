@@ -69,6 +69,12 @@ const config: CapacitorConfig = {
       // Present the photo picker correctly on iPad (popover, not crash)
       // saveToGallery is off by default — only save when user requests it
     },
+    PushNotifications: {
+      // A push that arrives while the app is open still shows its banner and
+      // sound on iOS (Android shows it anyway). Read at build time, so it
+      // reaches phones with the next App Store release.
+      presentationOptions: ['badge', 'sound', 'alert'],
+    },
   },
 };
 
