@@ -1,3 +1,4 @@
+import { toStorageUrl } from "@/lib/storage/media-url"
 /**
  * The snapshot route's rules, kept out of the route file so a test can import
  * them (a Next route module may only export handlers) and so the editor and
@@ -22,7 +23,7 @@ export function previousSnapshotPath(
   userId: string,
   installId: string,
 ): string | null {
-  const url = typeof install.snapshot_url === "string" ? install.snapshot_url : ""
+  const url = typeof install.snapshot_url === "string" ? toStorageUrl(install.snapshot_url) : ""
   const marker = `/object/public/${SNAPSHOT_BUCKET}/`
   const at = url.indexOf(marker)
   if (at === -1) return null

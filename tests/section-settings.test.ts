@@ -210,6 +210,8 @@ const STRUCTURAL: Record<string, string[]> = {
      collection_list or the page's `collections`: none is a setting of theirs. */
   collection_featured: ["image", "title", "tag", "compare_price", "price", "url"],
   collections_grid: ["image", "title", "products_count", "description", "url"],
+  /* The search page draws the shop's own products, which arrive block-shaped; it has no blocks of its own. */
+  search: ["image", "title", "tag", "compare_price", "price", "url"],
 }
 
 /**
@@ -222,6 +224,8 @@ const STRUCTURAL: Record<string, string[]> = {
  * verifies that rather than taking it on trust.
  */
 const LEGACY_FALLBACK: Record<string, string[]> = {
+  /* Trust logos are blocks now; a bar saved with the four numbered image settings still shows them. */
+  social_proof_bar: ["trust_logo_1", "trust_logo_2", "trust_logo_3", "trust_logo_4"],
   /* `show_search` and `show_cart` are what the Header elements panel used
      to write while the header read `show_search_icon` and `show_cart_icon`,
      so those two toggles changed nothing. The panel writes the real names
@@ -361,7 +365,8 @@ section("And nothing a renderer needs is missing from the panel")
         anywhere in any call and still pass.
       */
       const fallback = new RegExp(
-        `,\\s*(?:str|bool|num)\\(s\\.${id}\\b|(?:headerIconOn|headerPad|headerGap)\\(s\\.\\w+,\\s*s\\.${id}\\b`,
+        /* legacyLogo(blocks, s.trust_logo_N): Social proof bar's numbered logos, read only while it has no Trust logo blocks. */
+        `,\\s*(?:str|bool|num)\\(s\\.${id}\\b|(?:headerIconOn|headerPad|headerGap)\\(s\\.\\w+,\\s*s\\.${id}\\b|legacyLogo\\(\\w+,\\s*s\\.${id}\\b`,
       )
       if (!fallback.test(src)) notFallbacks.push(`${type}.${id}`)
     }

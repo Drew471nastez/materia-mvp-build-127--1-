@@ -40,7 +40,6 @@ import { missingColumn } from "@/lib/reviews/store"
 import { headers } from "next/headers"
 import { ProfileSocial } from "@/components/profile/profile-social"
 import { ProfileTopBar, TopBarBack } from "@/components/profile/profile-top-bar"
-import { messageTarget } from "@/lib/profile/profile-communities"
 import { cameFromElsewhere, refererPath } from "@/lib/profile/back"
 import type { ActionScheme } from "@/components/profile/follow-button"
 
@@ -94,6 +93,7 @@ function withDefaultAbout(sections: Section[]): Section[] {
   ]
 }
 import { AllProductsGrid } from "@/components/storefront/all-products-grid"
+import { FirstProductPrompt, sectionsWithoutProducts, tabsWithoutProducts } from "@/components/storefront/no-products"
 import { ReviewsPanel, type StorefrontReview } from "@/components/storefront/reviews-panel"
 import { BackLabelSetter } from "@/components/product/discover-back-breadcrumb"
 import { deservesIndexing } from "@/lib/security/spam-signals"
@@ -574,21 +574,16 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
   const pageHost = await pageHostPromise
   /*
     THE OTHER HALF OF THE FOLLOW GRAPH, AND THE VIEWER'S PLACE IN IT: how
-    many people this creator follows, whether the viewer follows them, and
-    where Message goes when the two share a community that allows it
-    (lib/profile/profile-communities). Started after the batch because each
-    needs the viewer, which the batch has just settled; all three at once.
+    many people this creator follows and whether the viewer follows them.
+    Started after the batch because the second needs the viewer, which the
+    batch has just settled. No Message: the owner asked for only Follow on
+    creator pages for now, so nothing looks for a shared community.
   */
-  const [{ count: followingCount }, viewerFollowsCreator, creatorMessageHref, requestHeaders] = await Promise.all([
+  const [{ count: followingCount }, viewerFollowsCreator, requestHeaders] = await Promise.all([
     supabase.from("follows").select("id", { count: "exact", head: true }).eq("follower_id", profile.id),
     viewer && viewer.id !== profile.id
       ? supabase.from("follows").select("id").eq("follower_id", viewer.id).eq("following_id", profile.id).maybeSingle().then((r) => !!r.data)
       : Promise.resolve(false),
-    viewer && viewer.id !== profile.id && !embedded
-      ? communitiesEnabled()
-          .then((on) => (on ? messageTarget(createAdminClient(), viewer.id, profile.id) : null))
-          .catch(() => null)
-      : Promise.resolve(null),
     headers(),
   ])
   /*
@@ -717,7 +712,6 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         viewerFollowing={viewerFollowsCreator}
         signedIn={!!viewer}
         isSelf={viewerIsOwner}
-        messageHref={creatorMessageHref}
         showCounts={showCounts}
         /* Follow in the creator's own button colours, the scheme they picked in the page editor. */
         scheme={scheme ?? null}
@@ -1378,9 +1372,11 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         />
         {(() => {
           // Separate About section to render last
-          const regularSections = themedSections
-            .filter((s) => s.type !== "about")
-            .sort((a, b) => a.order - b.order)
+          /* Without products the sections that only show products are left out: all they drew was their spacing (components/storefront/no-products). */
+          const regularSections = sectionsWithoutProducts(
+            themedSections.filter((s) => s.type !== "about").sort((a, b) => a.order - b.order),
+            productsData.length,
+          )
           const aboutSection = themedSections.find((s) => s.type === "about")
 
           /**
@@ -1493,8 +1489,12 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
            * that is half set up. StorefrontTabs renders a lone panel bare,
            * with no strip, so a creator with no products still gets no strip.
            */
-          const tabs: StorefrontTab[] = [{ id: "home", label: "Home", panel: home }]
-          if (productsData.length > 0) {
+          const noProducts = productsData.length === 0
+          /* No products: Home is a tab only when something is left in it (components/storefront/no-products). */
+          const tabs: StorefrontTab[] = noProducts
+            ? tabsWithoutProducts({ home: regularSections.length > 0 ? home : null, communitiesPanel: creatorCommunitiesPanel(communityCards), communities: communityCards })
+            : [{ id: "home", label: "Home", panel: home }]
+          if (!noProducts) {
             tabs.push({
               id: "products",
               label: "Products",
@@ -1536,7 +1536,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
            * creatorCommunityCards), or "No communities yet" when they have
            * made none. No tab while communities are switched off.
            */
-          const communitiesPanel = creatorCommunitiesPanel(communityCards)
+          const communitiesPanel = noProducts ? null : creatorCommunitiesPanel(communityCards)
           if (communitiesPanel) {
             tabs.push({
               id: "communities",
@@ -1564,10 +1564,14 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
            */
           return (
             <>
-              <StorefrontTabs
-                tabs={tabs}
-                surface={{ textColor: chrome.text, mutedColor: chrome.muted, borderColor: chrome.border }}
-              />
+              {/* The creator on their own page with nothing published: one quiet line and the way to a first product. */}
+              {noProducts && viewerIsOwner && !embedded ? <FirstProductPrompt scheme={chrome.action} /> : null}
+              {tabs.length ? (
+                <StorefrontTabs
+                  tabs={tabs}
+                  surface={{ textColor: chrome.text, mutedColor: chrome.muted, borderColor: chrome.border }}
+                />
+              ) : null}
               {/*
                 The reviews and the About block are wrapped, the products are
                 not. See components/storefront/safe-region: a shop that loses
@@ -1723,25 +1727,20 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         * so there is one answer to what a creator page looks like.
         */}
       {(() => {
+        /* No products: no Home over nothing, the communities on their own, and the owner's line (components/storefront/no-products). */
+        if (productsData.length === 0) {
+          const bare = tabsWithoutProducts({ home: null, communitiesPanel: creatorCommunitiesPanel(communityCards), communities: communityCards })
+          return (
+            <>
+              {viewerIsOwner && !embedded ? <FirstProductPrompt /> : null}
+              {bare.length ? <StorefrontTabs tabs={bare} /> : null}
+            </>
+          )
+        }
         const tabs: StorefrontTab[] = [
           {
             id: "home",
             label: "Home",
-            panel: productsData.length > 0 ? (
-              <AllProductsGrid
-                products={productsData}
-                creatorName={profile.display_name}
-                creatorUsername={profile.username}
-                creatorAvatarUrl={profile.avatar_url}
-                isOwner={viewerIsOwner}
-              />
-            ) : null,
-          },
-        ]
-        if (productsData.length > 0) {
-          tabs.push({
-            id: "products",
-            label: "Products",
             panel: (
               <AllProductsGrid
                 products={productsData}
@@ -1751,8 +1750,21 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
                 isOwner={viewerIsOwner}
               />
             ),
-          })
-        }
+          },
+        ]
+        tabs.push({
+          id: "products",
+          label: "Products",
+          panel: (
+            <AllProductsGrid
+              products={productsData}
+              creatorName={profile.display_name}
+              creatorUsername={profile.username}
+              creatorAvatarUrl={profile.avatar_url}
+              isOwner={viewerIsOwner}
+            />
+          ),
+        })
         /* The communities they made, or "No communities yet" (components/profile/creator-communities-tab.tsx); no Activity tab on a creator page. */
         const communitiesPanel = creatorCommunitiesPanel(communityCards)
         if (communitiesPanel) {

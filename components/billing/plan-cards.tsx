@@ -49,7 +49,7 @@ export interface PlanCardAction {
   current?: boolean
 }
 
-const PICTURE_BASE = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images"
+const PICTURE_BASE = "https://storelib.com/media/platform%20images"
 
 /**
  * FILM GRAIN OVER THE PICTURES. A tile of fractal noise turned into light

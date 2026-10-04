@@ -27,6 +27,7 @@
  * per-request client with the session attached.
  */
 import { createClient } from "@supabase/supabase-js"
+import { mediaFetch } from "@/lib/storage/media-url"
 
 let cached: ReturnType<typeof createClient> | null = null
 
@@ -36,6 +37,7 @@ export function createPublicReadClient() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      global: { fetch: mediaFetch },
       auth: {
         // No session, ever. Nothing to persist, nothing to refresh, and no
         // cookie for a cached value to accidentally belong to.

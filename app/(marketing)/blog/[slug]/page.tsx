@@ -61,7 +61,7 @@ const BLOG_POSTS: Record<string, {
 const DEFAULT_AUTHOR = {
   name: "Anisia - Head of Marketing",
   bio: "Practical guides for digital product creators.",
-  avatar: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/onepage-assets/ee48b026-347c-4372-8589-eea3863b443c/avatars/avatar-1770910695542.jpg",
+  avatar: "https://storelib.com/media/onepage-assets/ee48b026-347c-4372-8589-eea3863b443c/avatars/avatar-1770910695542.jpg",
   twitter: "https://twitter.com/storelib",
   linkedin: "https://linkedin.com/company/storelib",
   website: "https://storelib.com",

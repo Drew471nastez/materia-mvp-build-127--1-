@@ -127,7 +127,8 @@ function main() {
     See tests/creator-page-default.test.ts.
   */
   check("the unconfigured page draws them",
-    /label: "Home",\s*\n\s*panel: productsData\.length > 0 \? \([\s\S]{0,200}?<AllProductsGrid/.test(page))
+    /* Round 9: no products returns early with the no products page (no Home over nothing); every other page's Home is the grid. */
+    /if \(productsData\.length === 0\) \{\s*const bare = tabsWithoutProducts\(/.test(page) && /label: "Home",\s*\n\s*panel: \(\s*\n\s*<AllProductsGrid/.test(page))
   /*
     AND THE OTHER WAY TO THE SAME EMPTY PAGE. Only the Featured section draws
     a catalogue, so a page ARRANGED without one showed no products either —

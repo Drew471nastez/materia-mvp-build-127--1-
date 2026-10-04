@@ -31,7 +31,20 @@
  * The count is read again when the tab comes back into view, so reads made
  * on another device or in a community's own inbox show here too.
  *
- * Signed out, or before the session is known, it draws nothing.
+ * Signed out it draws nothing.
+ *
+ * THE COUNT IS ON THE BELL'S FIRST FRAME (round 9). "The icon renders, then
+ * the bubble pops in late." Two waits did that: the bell asked the browser's
+ * Supabase client who was signed in (a promise) before it drew anything, and
+ * the count came from a request after that, so a page drew the bell, then
+ * the badge. Now the bell takes the person from the header's own snapshot
+ * (lib/auth/auth-snapshot, read synchronously before the first paint) and
+ * the count from the last one this device saw for that person (COUNT_KEY,
+ * kept per person, a display hint like the snapshot, never an authority).
+ * Both are applied in a layout effect, so the frame that first paints the
+ * bell already has its badge, on a fresh load and on a move between pages
+ * that draws a new header. The session and the server's count still answer
+ * straight after and correct either one.
  *
  * OPEN AND CLOSE. A second click on the bell closes it; so do a click
  * anywhere outside the list (a press that lands on another control still
@@ -69,6 +82,7 @@ import { relativeTime } from "@/lib/communities/format"
 import { optimizedImageUrl } from "@/lib/images/optimized-url"
 import { INBOX_FILTERS, badgeLabel, splitTitle, type InboxFilter, type InboxItem, type InboxPage } from "@/lib/notifications/user-inbox-shared"
 import { createClient } from "@/lib/supabase/client"
+import { readAuthSnapshot } from "@/lib/auth/auth-snapshot"
 import { cn } from "@/lib/utils"
 
 const INBOX = "/api/notifications/inbox"
@@ -121,9 +135,52 @@ function postRead(body: Record<string, unknown>): Promise<{ unread: number } | n
   same moment, never both at rest.
 */
 let sharedUnread = 0
+/** Whose count `sharedUnread` is: a different person signed in on this page starts from their own. */
+let sharedUser: string | null = null
 const unreadListeners = new Set<() => void>()
 function setSharedUnread(next: number | ((n: number) => number)) {
   const v = Math.max(0, typeof next === "function" ? next(sharedUnread) : next)
+  if (v === sharedUnread) return
+  sharedUnread = v
+  if (sharedUser) writeCachedCount(sharedUser, v)
+  unreadListeners.forEach((f) => f())
+}
+
+/*
+  THE LAST COUNT THIS DEVICE SAW, per person, so a page that has just been
+  opened draws the badge with the bell instead of a request later (THE COUNT
+  IS ON THE BELL'S FIRST FRAME, above). Only ever shown to the person it was
+  read for, and corrected by the server's count as soon as that answers.
+*/
+export const COUNT_KEY = "_sl_bell_v1"
+function readCachedCount(userId: string): number | null {
+  try {
+    const raw = JSON.parse(localStorage.getItem(COUNT_KEY) || "null") as { u?: unknown; n?: unknown } | null
+    return raw && raw.u === userId && typeof raw.n === "number" && Number.isFinite(raw.n) ? Math.max(0, raw.n) : null
+  } catch {
+    return null
+  }
+}
+function writeCachedCount(userId: string, n: number) {
+  try {
+    localStorage.setItem(COUNT_KEY, JSON.stringify({ u: userId, n }))
+  } catch {
+    /* no storage: the next page waits for the server's count, as it used to */
+  }
+}
+/** Who the shared count is for. A new person starts from what this device last saw for them, or nothing. */
+function adoptUser(userId: string | null) {
+  /* Signed out: what this device kept for the last person goes too. */
+  if (!userId) {
+    try {
+      localStorage.removeItem(COUNT_KEY)
+    } catch {
+      /* no storage, nothing kept */
+    }
+  }
+  if (userId === sharedUser) return
+  sharedUser = userId
+  const v = userId ? readCachedCount(userId) ?? 0 : 0
   if (v === sharedUnread) return
   sharedUnread = v
   unreadListeners.forEach((f) => f())
@@ -198,29 +255,42 @@ export function NotificationBell({ className }: { className?: string }) {
   const userRef = useRef(userId)
   userRef.current = userId
 
-  /* Who is signed in, from the session the browser already holds. */
+  /* This person: their count and the page another bell already read for them, so this one opens on both. */
+  const takeUser = useCallback((id: string | null) => {
+    adoptUser(id)
+    if (id && warm && warm.userId === id && filterRef.current === "all" && !hasItemsRef.current) {
+      setItems(warm.items)
+      setCursor(warm.nextCursor)
+      loadedAtRef.current = warm.at
+    }
+    setUserId(id)
+  }, [])
+
+  /*
+    WHO IS SIGNED IN, twice. First from the header's snapshot, before the
+    first paint, so the bell and its badge arrive in the same frame as the
+    rest of the signed in header; then from the session the browser holds,
+    which has the last word (signed out, or somebody else: no bell, or theirs).
+  */
+  useLayoutEffect(() => {
+    const seed = readAuthSnapshot()
+    if (seed?.signedIn && seed.userId) takeUser(seed.userId)
+  }, [takeUser])
   useEffect(() => {
     let gone = false
     void (async () => {
       try {
         const { data } = await createClient().auth.getSession()
         if (gone) return
-        const id = data.session?.user?.id ?? null
-        /* The page another bell already read for this person, so this one opens on it too. */
-        if (id && warm && warm.userId === id && filterRef.current === "all") {
-          setItems(warm.items)
-          setCursor(warm.nextCursor)
-          loadedAtRef.current = warm.at
-        }
-        setUserId(id)
+        takeUser(data.session?.user?.id ?? null)
       } catch {
-        /* No session: no bell. */
+        /* No session we can read: the snapshot stands until the next page. */
       }
     })()
     return () => {
       gone = true
     }
-  }, [])
+  }, [takeUser])
 
   const refreshCount = useCallback(async () => {
     const r = await getJson<{ unread: number }>(`${INBOX}?summary=1`)
@@ -567,9 +637,14 @@ function BellPanel({
       ) : items.length === 0 ? (
         <Quiet empty>Nothing new</Quiet>
       ) : (
-        <ul className="divide-y divide-[#f0f1f3]">
+        /*
+          A HAIRLINE BETWEEN TWO ROWS THAT STARTS WHERE THE WORDS DO, not a
+          rule across the whole list: the photos read as one column and the
+          list is lighter (round 9, "clean content, nothing heavy").
+        */
+        <ul>
           {items.map((n) => (
-            <li key={n.id}>
+            <li key={n.id} className="relative before:pointer-events-none before:absolute before:left-[68px] before:right-0 before:top-0 before:h-px before:bg-[#f0f1f3] first:before:hidden sm:before:left-[72px]">
               <Row n={n} onOpen={onOpenRow} />
             </li>
           ))}
@@ -683,7 +758,7 @@ function Row({ n, onOpen }: { n: InboxItem; onOpen: (n: InboxItem) => void }) {
         </span>
         {n.body ? <span className="mt-0.5 block truncate text-[13.5px] leading-[1.45] text-[#6b7280]">{n.body}</span> : null}
       </span>
-      <span className="flex w-3 shrink-0 justify-end pt-[7px]">{!n.read ? <span aria-label="Unread" data-unread-dot="" className="h-2.5 w-2.5 rounded-full bg-[#1a1a2e]" /> : null}</span>
+      <span className="flex w-3 shrink-0 justify-end pt-[6px]">{!n.read ? <span aria-label="Unread" data-unread-dot="" className="h-2 w-2 rounded-full bg-[#1a1a2e]" /> : null}</span>
     </>
   )
   const cls = "flex min-h-[64px] w-full items-start gap-3 px-4 py-3 text-left outline-none transition-colors hover:bg-[#f8f9fa] focus-visible:bg-[#f4f5f7] active:bg-[#f4f5f7] sm:px-5"

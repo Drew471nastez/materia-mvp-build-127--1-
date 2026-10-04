@@ -709,6 +709,9 @@ export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl
   const host = request.headers.get("host") || ""
 
+  /* A public file at Storelib's own address (lib/storage/media-url.ts): on every host, straight to next.config's rewrite, never a page of a site. */
+  if (pathname.startsWith("/media/")) return NextResponse.next()
+
   /*
     A COMMUNITY PAGE IS TOLD ITS OWN ADDRESS. A layout is not given its path,
     and the community's layout needs it to send an old address on to the new
