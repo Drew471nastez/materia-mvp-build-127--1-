@@ -1877,7 +1877,7 @@ check(
   // phone, where nothing hovers, the list still reads as three parts.
   /data-insert-section=""/.test(sectionsList) &&
     /group-hover\/ins:bg-\[#8b5cf6\]\/60/.test(sectionsList) &&
-    (sectionsList.match(/<div className="mx-2 my-2 h-px bg-\[#e5e7eb\]" aria-hidden \/>/g) ?? []).length === 2,
+    (sectionsList.match(/<div className="mx-1 my-2 h-px bg-\[#eceef1\]" aria-hidden \/>/g) ?? []).length === 2,
 )
 
 
@@ -2314,7 +2314,9 @@ check(
    */
   /<GripVertical className=\{cn\("h-3\.5 w-3\.5"/.test(sectionsList) &&
     /aria-label=\{`Drag \$\{displayName\} to reorder`\}/.test(sectionsList) &&
-    /flex h-6 w-6 shrink-0 touch-none items-center justify-center rounded-md cursor-grab active:cursor-grabbing/.test(sectionsList) &&
+    /* One mark column, 20px wide, the width every row's mark takes; the grab area grows past it without moving the grid. */
+    /relative flex h-6 w-5 shrink-0 touch-none cursor-grab items-center justify-center rounded transition-colors active:cursor-grabbing/.test(sectionsList) &&
+    /after:absolute after:-inset-x-1\.5 after:-inset-y-1/.test(sectionsList) &&
     /shown \? "flex" : "hidden group-hover\/row:flex group-focus-within\/row:flex"/.test(sectionsList) &&
     /isSelected \|\| menuOpen \? "flex" : "hidden group-hover\/row:flex group-focus-within\/row:flex"/.test(sectionsList) &&
     !/opacity-0 group-hover/.test(sectionsList),

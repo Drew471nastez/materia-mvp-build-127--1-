@@ -1,5 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
-import { NextResponse } from "next/server"
+import { NextResponse, after } from "next/server"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { keepProviderPhoto, type ProviderPhotoDb } from "@/lib/profile/provider-photo"
 import { classifyOAuthError, describeForLog, loginErrorQuery } from "@/lib/auth/oauth-errors"
 import { CONTINUE_PATH, sameOriginPath } from "@/lib/auth/continue"
 
@@ -49,7 +51,7 @@ export async function GET(request: Request) {
   }
 
   const supabase = await createClient()
-  const { error } = await supabase.auth.setSession({
+  const { data, error } = await supabase.auth.setSession({
     access_token: accessToken,
     refresh_token: refreshToken,
   })
@@ -64,6 +66,16 @@ export async function GET(request: Request) {
     console.error("[sync-session] setSession failed:", failure.code, describeForLog({ message: error.message }))
     return NextResponse.redirect(`${origin}/login?${loginErrorQuery(failure)}`)
   }
+
+  /*
+    THE APP'S SIGN IN LANDS HERE (lib/native-oauth.ts), never on the web
+    callback, so this is where the app's Google sign in keeps the
+    provider's photo for a profile that has none (lib/profile/provider-photo).
+    After the answer, so nobody waits for it; it never overwrites a photo
+    they set and never fails the sign in.
+  */
+  const signedIn = data.user
+  if (signedIn) after(() => keepProviderPhoto(createAdminClient() as unknown as ProviderPhotoDb, signedIn).then(() => undefined))
 
   // Cookies are now written via Set-Cookie on this redirect response.
   // The WebView stores them and sends them on the next request to /app.

@@ -45,6 +45,8 @@ export async function activityFor(
     storeHandle: null,
     communities: await communitiesEnabled().catch(() => false),
     after: decodeCursor(input.cursor),
+    /* NOTHING BOUGHT ON SOMEBODY ELSE'S PROFILE. A review names a product they bought, so it is in their own activity (/account) and nobody else's. */
+    reviews: self,
   })
   return { items: page.items, next: page.next ? encodeCursor(page.next) : null, hidden: !show }
 }

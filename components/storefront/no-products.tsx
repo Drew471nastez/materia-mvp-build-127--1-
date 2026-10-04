@@ -50,6 +50,76 @@ export function sectionsWithoutProducts<T extends { type: string }>(sections: T[
   return productCount > 0 ? sections : sections.filter((s) => !PRODUCT_ONLY.has(s.type))
 }
 
+/**
+ * ===========================================================================
+ *  A SECTION THAT DRAWS NOTHING IS NOT A SECTION (the "Home" over a blank band)
+ * ===========================================================================
+ * The owner, with a screenshot of /calvin: newsletter bar, photo, Follow,
+ * then a "Home" tab over an empty band and About under it. The rule above
+ * caught the Featured rail, and this page had none. What its Home held was
+ * a section of type "header", written into the sections list by an older
+ * builder: no type the live page draws, no `visible` flag, so it rendered
+ * nothing at all. But it was still a section, so Home was "not empty", the
+ * strip offered Home over nothing, and the Communities tab beside it.
+ *
+ * Every other way to the same hole was the same mistake, counting sections
+ * rather than what they draw:
+ *
+ *   HIDDEN           a section switched off in the builder (visible false)
+ *   NOT DRAWN HERE   a type the live page has no drawing for (an old
+ *                    "header", "custom-html", "subscribe-bar", "faq"), or a
+ *                    Reviews block, which a creator page never hands reviews
+ *   EMPTY            a text block with no words, an image and text with no
+ *                    image and no words, benefits with no benefit written,
+ *                    an announcement with no text
+ *   GONE             a Community section whose community is unpublished,
+ *                    deleted, made private or switched off (the server read
+ *                    for it came back empty, so the card draws nothing)
+ *   PRODUCTS         Featured and More from the seller with no products
+ *
+ * Each of those still painted its spacing, which is the blank band. So the
+ * live page keeps only the sections that will draw something, Home is a tab
+ * only when one is left, and a page with nothing in Home reads from the
+ * header to About (or to the communities, when it has those).
+ */
+type SectionLike = { type: string; settings?: unknown }
+
+/** Text worth drawing: not empty, and not only markup or spaces. */
+function words(value: unknown): boolean {
+  return typeof value === "string" && value.replace(/<[^>]*>/g, " ").replace(/&nbsp;/g, " ").trim().length > 0
+}
+
+export function drawsSomething(section: SectionLike, page: { productCount: number; communityBlocks?: Record<string, unknown> | null }): boolean {
+  const s = (section.settings ?? {}) as Record<string, unknown>
+  if (!section.settings || !s.visible) return false
+  switch (section.type) {
+    case "featured-products":
+    case "more-from-seller":
+      return page.productCount > 0
+    case "text-block":
+      return words(s.headline) || words(s.body)
+    case "image-text":
+      return words(s.imageUrl) || words(s.headline) || words(s.body)
+    case "benefits":
+      return Array.isArray(s.benefits) && (s.benefits as Array<Record<string, unknown>>).some((b) => b && (words(b.title) || words(b.description)))
+    case "announcement-bar":
+      return words(s.text)
+    case "community": {
+      const id = typeof s.communityId === "string" ? s.communityId.toLowerCase() : ""
+      return !!id && !!page.communityBlocks?.[id]
+    }
+    case "about":
+      return true
+    default:
+      return false
+  }
+}
+
+/** The sections a creator page's Home will actually draw, in their order. */
+export function drawableSections<T extends SectionLike>(sections: T[], page: { productCount: number; communityBlocks?: Record<string, unknown> | null }): T[] {
+  return sections.filter((section) => drawsSomething(section, page))
+}
+
 /** The page's own column, as the tabs, the Products grid and the communities panel draw it. */
 const COLUMN = "mx-auto w-full max-w-[1180px] px-3 sm:px-4 lg:px-6"
 

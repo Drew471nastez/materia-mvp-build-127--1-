@@ -6,13 +6,18 @@
 insert into auth.users (id, email, email_confirmed_at, raw_user_meta_data, created_at, aud, role) values
   ('00000000-0000-4000-a000-000000000001', 'mara@example.com', now(), '{"full_name": "Mara Pop", "avatar_url": "https://lh3.googleusercontent.com/a/mara"}', now() - interval '90 days', 'authenticated', 'authenticated'),
   ('00000000-0000-4000-a000-000000000002', 'ben@example.com', now(), '{"full_name": "Ben Buyer"}', now() - interval '60 days', 'authenticated', 'authenticated'),
-  ('00000000-0000-4000-a000-000000000003', 'ioana@example.com', null, '{}', now() - interval '30 days', 'authenticated', 'authenticated')
+  ('00000000-0000-4000-a000-000000000003', 'ioana@example.com', null, '{}', now() - interval '30 days', 'authenticated', 'authenticated'),
+  -- Part 97: a Google picture and no profile photo (it gets the picture), and one who removed theirs (it stays removed).
+  ('00000000-0000-4000-a000-000000000004', 'lia@example.com', now(), '{"full_name": "Lia Pic", "picture": "https://lh3.googleusercontent.com/a/lia"}', now() - interval '20 days', 'authenticated', 'authenticated'),
+  ('00000000-0000-4000-a000-000000000005', 'tom@example.com', now(), '{"full_name": "Tom Gone", "avatar_url": "https://lh3.googleusercontent.com/a/tom", "storelib_avatar_chosen": true}', now() - interval '10 days', 'authenticated', 'authenticated')
 on conflict (id) do nothing;
 
 insert into public.profiles (id, email, display_name, avatar_url, is_creator, username) values
   ('00000000-0000-4000-a000-000000000001', 'mara@example.com', 'Mara Pop', 'https://lh3.googleusercontent.com/a/mara', true, 'mara'),
   ('00000000-0000-4000-a000-000000000002', 'ben@example.com', 'Ben Buyer', null, false, 'ben'),
-  ('00000000-0000-4000-a000-000000000003', 'ioana@example.com', 'Ioana', null, true, 'ioana')
+  ('00000000-0000-4000-a000-000000000003', 'ioana@example.com', 'Ioana', null, true, 'ioana'),
+  ('00000000-0000-4000-a000-000000000004', 'lia@example.com', 'Lia Pic', null, false, 'lia'),
+  ('00000000-0000-4000-a000-000000000005', 'tom@example.com', 'Tom Gone', '', false, 'tom')
 on conflict (id) do nothing;
 
 insert into public.creators (id, user_id, slug, bio, display_name, avatar_url, stripe_account_id, username) values

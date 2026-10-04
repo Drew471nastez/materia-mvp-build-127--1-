@@ -60,6 +60,8 @@ const nextConfig = {
     '/*/links/share.png': ['./lib/checkout/fonts/**'],
     /* A shared community link's picture, the same Inter (app/(marketing)/community/[slug]/share.png). */
     '/community/*/share.png': ['./lib/checkout/fonts/**'],
+    /* A shared profile's picture, the same Inter (app/(marketing)/member/[username]/share.png). */
+    '/member/*/share.png': ['./lib/checkout/fonts/**'],
   },
   typescript: {
     ignoreBuildErrors: true,

@@ -93,7 +93,7 @@ function withDefaultAbout(sections: Section[]): Section[] {
   ]
 }
 import { AllProductsGrid } from "@/components/storefront/all-products-grid"
-import { FirstProductPrompt, sectionsWithoutProducts, tabsWithoutProducts } from "@/components/storefront/no-products"
+import { FirstProductPrompt, drawableSections, tabsWithoutProducts } from "@/components/storefront/no-products"
 import { ReviewsPanel, type StorefrontReview } from "@/components/storefront/reviews-panel"
 import { BackLabelSetter } from "@/components/product/discover-back-breadcrumb"
 import { deservesIndexing } from "@/lib/security/spam-signals"
@@ -1372,10 +1372,16 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         />
         {(() => {
           // Separate About section to render last
-          /* Without products the sections that only show products are left out: all they drew was their spacing (components/storefront/no-products). */
-          const regularSections = sectionsWithoutProducts(
+          /*
+            Only the sections that will draw something: a hidden one, an empty
+            one, one the live page has no drawing for, a community that is
+            gone, or a product rail without products all drew nothing but
+            their spacing, and a Home of only those was the blank band under
+            an empty "Home" tab (components/storefront/no-products drawableSections).
+          */
+          const regularSections = drawableSections(
             themedSections.filter((s) => s.type !== "about").sort((a, b) => a.order - b.order),
-            productsData.length,
+            { productCount: productsData.length, communityBlocks },
           )
           const aboutSection = themedSections.find((s) => s.type === "about")
 

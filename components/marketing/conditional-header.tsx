@@ -6,6 +6,7 @@ import { PlatformHeaderClient } from "@/components/platform/platform-header-clie
 import { extractUsernameFromHost, isCustomDomain, isSellerPage } from "@/lib/url-helpers"
 import { isDiscoverMode } from "@/lib/isDiscoverMode"
 import { BUYER_HEADER_DARK_BG } from "@/lib/platform/header-chrome"
+import { isProfilePath } from "@/lib/profile/profile-redirect"
 
 /**
  * Shown while PlatformHeaderClient suspends (SSR streaming / initial hydration).
@@ -130,7 +131,7 @@ export function ConditionalHeader({
   // "/" is intentionally excluded (ambiguous: could be a custom-domain home).
   // Seller paths (/u/ /p/ /l/) are excluded; host-based check below handles them.
   const [showPlatformHeader, setShowPlatformHeader] = useState(
-    () => !isOwnScreen(pathname) && (isKnownPlatformPath(pathname) || (pathname === "/" && onPlatformDomain))
+    () => !isOwnScreen(pathname) && (isKnownPlatformPath(pathname) || (pathname === "/" && onPlatformDomain) || (isProfilePath(pathname) && onPlatformDomain))
   )
 
   useEffect(() => {
@@ -152,6 +153,18 @@ export function ConditionalHeader({
     // Never show platform header on custom domains
     if (isOnCustomDomain) {
       setShowPlatformHeader(false)
+      return
+    }
+
+    /*
+      A PERSON'S PROFILE, /@handle, IS STORELIB'S PAGE ABOUT THEM, not a
+      creator's surface (a creator's /@handle is a redirect to their page,
+      lib/profile/profile-redirect.ts), so it has Storelib's header and the
+      person is never stranded on it. Asked before the seller rule below,
+      which reads "/@name" as a one segment creator address.
+    */
+    if (isProfilePath(pathname)) {
+      setShowPlatformHeader(true)
       return
     }
 

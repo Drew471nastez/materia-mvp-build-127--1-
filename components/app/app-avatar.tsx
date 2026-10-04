@@ -24,8 +24,9 @@ import { toOriginalImageUrl } from "@/lib/storage/image-url"
  *   IT WAS ALREADY HERE  (seen earlier in this tab, or decoded from the cache
  *                        before the first paint) it is simply there, with no
  *                        fade to replay
- *   THERE IS NO PHOTO    or it fails: the initials, which are then the
- *                        avatar, not a stand in for one
+ *   THERE IS NO PHOTO    or it fails: the default face for a person, the
+ *                        initials for a mark (DefaultAvatarGlyph below),
+ *                        which are then the avatar, not a stand in for one
  *
  * The photo is asked for at the size it is drawn, 1x and 2x, through the
  * image optimizer where the host allows it (lib/images/optimized-url), so the
@@ -73,10 +74,10 @@ const GROUND = {
 } as const
 
 /**
- * The letters in the circle. EMPTY, NOT "?", when there is no name: a
- * question mark is a thing drawn at somebody, and a review written by a guest
- * who never typed a name is not a mystery to be flagged. <AvatarMark> draws
- * the person glyph instead.
+ * The letters for a MARK: a community's logo, a business, a product, which
+ * have a name and no face. EMPTY, NOT "?", when there is no name: a
+ * question mark is a thing drawn at somebody. <AvatarMark> draws the default
+ * face instead.
  */
 export function initialsOf(name: string | null | undefined) {
   const words = (name || "").trim().split(/\s+/).filter(Boolean)
@@ -85,26 +86,64 @@ export function initialsOf(name: string | null | undefined) {
 }
 
 /**
- * WHAT A CIRCLE WITH NO PHOTO HOLDS: the initials of whoever it stands for,
- * and when there is no name at all a plain person, at the weight of the
- * letters it replaces. Never a "?" and never nothing.
+ * ===========================================================================
+ *  A PERSON WITHOUT A PHOTO: THE DEFAULT FACE, NEVER BARE INITIALS
+ * ===========================================================================
+ * The owner: "Without a photo, never bare initials: a clean default avatar,
+ * consistent everywhere through the one avatar component." Two letters in a
+ * grey circle read as a placeholder somebody forgot to fill; a row of them
+ * in a comment thread reads as a list of strangers. So a person with no
+ * photo is the same quiet face everywhere: the circle in the tint of the
+ * surface it sits on (GROUND below, so it is right on the white app, the
+ * dark header and a creator's own scheme) and a plain head and shoulders in
+ * the circle's own ink at a third of its strength, the shoulders running off
+ * the circle's lower edge the way a portrait is cropped. Drawn at the full
+ * size of the circle, one path, so it is crisp at 18px and at 134px.
+ *
+ * A MARK KEEPS ITS LETTERS. A community's logo, a business or a product
+ * drawn in the same component has a name and no face, so it still shows its
+ * initials (`kind="mark"`). AppAvatar decides from the shape when the caller
+ * does not say: a circle is a person, a rounded square is a thing.
  */
-export function AvatarMark({ name, size }: { name: string | null | undefined; size: number }) {
-  const initials = initialsOf(name)
-  if (!initials) {
-    const px = Math.max(12, Math.round(size * 0.56))
-    return (
-      <svg aria-hidden="true" viewBox="0 0 24 24" width={px} height={px} fill="currentColor" className="opacity-80">
-        <path d="M12 12.4a4.2 4.2 0 1 0 0-8.4 4.2 4.2 0 0 0 0 8.4Z" />
-        <path d="M12 14.1c-3.5 0-6.6 1.8-6.6 4.1V20h13.2v-1.8c0-2.3-3.1-4.1-6.6-4.1Z" />
-      </svg>
-    )
-  }
+export function DefaultAvatarGlyph({ size, fill = false }: { size?: number; fill?: boolean }) {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 64 64"
+      width={fill ? undefined : size}
+      height={fill ? undefined : size}
+      fill="currentColor"
+      /* `fill`: the whole of a positioned circle, whatever size its classes give it. Otherwise `size` square, for a parent that centres it. */
+      className={fill ? "pointer-events-none absolute inset-0 h-full w-full opacity-[0.32]" : "block shrink-0 opacity-[0.32]"}
+      data-avatar-default=""
+    >
+      <circle cx="32" cy="25.5" r="11.5" />
+      <path d="M8.5 64c0-13.6 10.5-22.5 23.5-22.5S55.5 50.4 55.5 64z" />
+    </svg>
+  )
+}
+
+/** Who a circle stands for: a person (the default face when there is no photo) or a mark (a community, a business: its initials). */
+export type AvatarKind = "person" | "mark"
+
+/**
+ * WHAT A CIRCLE WITH NO PHOTO HOLDS: for a person the default face, for a
+ * mark its initials (and the face when it has no name). Never a "?" and
+ * never nothing.
+ */
+export function AvatarMark({ name, size, kind = "person" }: { name: string | null | undefined; size: number; kind?: AvatarKind }) {
+  const initials = kind === "mark" ? initialsOf(name) : ""
+  if (!initials) return <DefaultAvatarGlyph size={size} />
   return (
     <span aria-hidden="true" className="font-medium leading-none" style={{ fontSize: Math.max(9, Math.round(size * 0.38)) }}>
       {initials}
     </span>
   )
+}
+
+/** A rounded square (rounded-lg, rounded-[10px]...) is a thing with a name; a circle is a person. */
+export function avatarKindFromClass(className: string | null | undefined): AvatarKind {
+  return /(^|\s)(?:[a-z0-9-]+:)*rounded-(?!full\b)(?:none|sm|md|lg|xl|2xl|3xl|\[)/.test(className || "") ? "mark" : "person"
 }
 
 /**
@@ -148,6 +187,7 @@ export function AppAvatar({
   alt,
   markWhileLoading = false,
   lazy = false,
+  kind,
 }: {
   src?: string | null
   /** For the initials and the picture's description. */
@@ -181,7 +221,10 @@ export function AppAvatar({
   markWhileLoading?: boolean
   /** Fetched only as it nears the screen: for a long list of faces (the notifications list). */
   lazy?: boolean
+  /** A person (the default face without a photo) or a mark (a community's logo: its initials). Read from the shape when not given. */
+  kind?: AvatarKind
 }) {
+  const who = kind ?? avatarKindFromClass(className)
   const url = src && !src.includes("placeholder.svg") ? toOriginalImageUrl(src) || null : null
   const [failed, setFailed] = useState<string | null>(null)
   const [loaded, setLoaded] = useState(() => !!url && shown.has(url))
@@ -245,10 +288,13 @@ export function AppAvatar({
     <span
       data-app-avatar=""
       data-state={photo ? (loaded ? "photo" : "waiting") : "initials"}
+      data-avatar-kind={who}
       className={cn("relative inline-flex shrink-0 select-none items-center justify-center overflow-hidden rounded-full", GROUND[tone], className)}
       style={sizedByClass ? style : { width: widthPx, height: widthPx, ...style }}
     >
-      {!photo || (!loaded && (markWhileLoading || waited)) ? <AvatarMark name={name} size={size} /> : null}
+      {!photo || (!loaded && (markWhileLoading || waited)) ? (
+        who === "person" || !initialsOf(name) ? <DefaultAvatarGlyph fill /> : <AvatarMark name={name} size={size} kind="mark" />
+      ) : null}
       {photo ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img

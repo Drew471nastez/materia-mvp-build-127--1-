@@ -131,7 +131,7 @@ async function main() {
   const migrations = readdirSync("supabase/migrations").map((f) => read(`supabase/migrations/${f}`))
   check("a byte for byte copy in migrations", migrations.includes(part))
   check("its README row", read(`${RN}/README.md`).includes("| `94_community_slug_history.sql` |"))
-  check("its column in the check after", /as p94_community_slug_history;/.test(read(`${RN}/99_check_after.sql`)))
+  check("its column in the check after", /as p94_community_slug_history[,;]/.test(read(`${RN}/99_check_after.sql`)))
   const sha = createHash("sha256").update(readFileSync(`${RN}/94_community_slug_history.sql`)).digest("hex")
   check("listed for the admin with the SHA-256 of its text", SQL_PARTS.some((p) => p.part === "94" && p.file === "94_community_slug_history.sql" && p.sha256 === sha))
   check("folded into the built files after 89, recording itself, so the harness runs it twice with the rest", ["all-in-two/1_of_2_everything.sql", "run-four/3_of_4_latest.sql", "all-in-three/2_of_3_latest.sql"].every((f) => { const t = read(`supabase/sql/${f}`); return t.indexOf("-- part 94_community_slug_history.sql") > t.indexOf("-- part 89_") && t.includes(`VALUES ('94', '94_community_slug_history.sql', '${sha}')`) }))
