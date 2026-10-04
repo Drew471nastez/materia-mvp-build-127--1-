@@ -43,6 +43,8 @@ export interface DetailsFormView {
   active: boolean
   idNumber: { label: string; hint: string }
   bank: BankFormat & { currency: string | null; holderName: string; last4: string | null; currencies: string[] }
+  /** Which sides of the ID Stripe holds. Lets setup on a computer see photos taken on a phone. */
+  idSides: { front: boolean; back: boolean }
 }
 
 /** Stripe's words with every run of digits taken out, for a log line that cannot carry an ID or bank number. */
@@ -142,6 +144,7 @@ async function viewOf(creator: PaymentsCreatorRef, account: Stripe.Account): Pro
     dueBy: deadline ? new Date(deadline * 1000).toISOString() : null,
     active: account.charges_enabled === true && account.payouts_enabled === true,
     idNumber: idNumberName(country),
+    idSides: { front: !!person?.verification?.document?.front, back: !!person?.verification?.document?.back },
     bank: { ...bankFormat(country), currency: (ext?.currency ?? account.default_currency)?.toUpperCase() ?? null, holderName, last4: ext?.last4 ?? null, currencies: await payoutCurrencies(country, account.default_currency ?? null) },
   }
 }
@@ -356,4 +359,22 @@ export async function addBank(creator: PaymentsCreatorRef, raw: unknown): Promis
   }
   const view = await viewOf(creator, account)
   return { ...view, bank: { ...view.bank, currency: currency.toUpperCase(), last4: added?.last4 ?? view.bank.last4, currencies: allowed.map((c) => c.toUpperCase()) } }
+}
+
+/**
+ * VERIFY ID FROM A PHONE (lib/payments/stripe/id-handoff.ts). The phone is
+ * not signed in: all it may learn is which sides are already in and whether
+ * the ID is still wanted, never a detail of the account.
+ */
+export async function idHandoffStatus(creator: PaymentsCreatorRef): Promise<{ front: boolean; back: boolean; wanted: boolean }> {
+  const account = await ownAccount(creator)
+  const doc = account.individual?.verification?.document
+  const view = await viewOf(creator, account)
+  return { front: !!doc?.front, back: !!doc?.back, wanted: view.needs.fields.includes("document") || !!doc?.front }
+}
+
+/** The phone's photos, through the same upload as the setup page. Only the ID document: nothing else can be sent this way. */
+export async function idHandoffUpload(creator: PaymentsCreatorRef, input: { side: string; file: File | null }): Promise<{ front: boolean; back: boolean }> {
+  const view = await uploadDocument(creator, { which: "document", side: input.side, file: input.file })
+  return { front: view.idSides.front, back: view.idSides.back }
 }

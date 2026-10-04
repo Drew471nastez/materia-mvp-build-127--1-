@@ -199,6 +199,7 @@ const SUITES = [
   "tests/payouts-and-disputes.test.ts",
   "tests/payout-weekly.test.ts",
   "tests/onboarding-flow.test.ts",
+  "tests/id-handoff.test.ts",
   "tests/payments-status.test.ts",
   "tests/payments-readiness.test.ts",
   "tests/payments-reconcile.test.ts",

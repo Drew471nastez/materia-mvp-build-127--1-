@@ -43,7 +43,7 @@ import { personalIssues } from "@/lib/payments/stripe/onboarding-steps"
 import { setupStepOf, type StorelibPaymentsStatus } from "@/lib/payments/stripe/status"
 import type { Overview } from "@/components/app/settings/payments-hub-shared"
 import { isNativeApp, openInApp } from "@/lib/native-bridge"
-import { IdCamera, armCameraSounds, type IdSide } from "@/components/app/settings/id-camera"
+import { IdCamera, armCameraSounds, shrinkPhoto, type IdSide } from "@/components/app/settings/id-camera"
 import { openIdentity } from "@/lib/payments/identity-client"
 import { playAskSound } from "@/lib/website-builder/ask-sounds"
 import { cn } from "@/lib/utils"
@@ -966,43 +966,12 @@ interface DetailsForm {
   dueBy: string | null
   active: boolean
   idNumber: { label: string; hint: string }
+  /** Which sides of the ID Stripe already holds (a phone may have added them). */
+  idSides?: { front: boolean; back: boolean }
   bank: { kind: "iban" | "routing"; routingLabel?: string; routingPattern?: string; accountLabel?: string; currency: string | null; holderName: string; last4: string | null; currencies?: string[] }
 }
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
-
-/*
- * A phone photo is often 4 to 8 MB and larger than Stripe's 8,000 by 8,000
- * limit. Drawn again at most 2000px on its long side as a colour JPEG, it is
- * a sharp, readable ID well inside every rule Stripe sets. A PDF is passed
- * through untouched: it is only ever a proof of address, where Stripe takes
- * one (an identity document may not be a PDF, and is refused before here).
- */
-async function shrinkPhoto(file: File): Promise<Blob> {
-  if (file.type === "application/pdf") return file
-  if (file.size < 2_500_000 && (file.type === "image/jpeg" || file.type === "image/png")) return file
-  const url = URL.createObjectURL(file)
-  try {
-    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-      const i = new Image()
-      i.onload = () => resolve(i)
-      i.onerror = () => reject(new Error("unreadable"))
-      i.src = url
-    })
-    const scale = Math.min(1, 2000 / Math.max(img.naturalWidth, img.naturalHeight))
-    const canvas = document.createElement("canvas")
-    canvas.width = Math.round(img.naturalWidth * scale)
-    canvas.height = Math.round(img.naturalHeight * scale)
-    canvas.getContext("2d")?.drawImage(img, 0, 0, canvas.width, canvas.height)
-    for (const q of [0.88, 0.78, 0.68]) {
-      const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, "image/jpeg", q))
-      if (blob && blob.size < 3_800_000) return blob
-    }
-    throw new Error("too large")
-  } finally {
-    URL.revokeObjectURL(url)
-  }
-}
 
 async function postForm<T>(path: string, form: FormData): Promise<T> {
   return read<T>(await fetch(`/api/payments/${path}`, { method: "POST", body: form, cache: "no-store" }))
@@ -1023,6 +992,128 @@ function useDetailsForm() {
     void load()
   }, [load])
   return { form, setForm, error, load }
+}
+
+/*
+ * A COMPUTER, NOT A PHONE: a wide screen with a mouse. Read after mount so
+ * the server and the browser draw the same first frame.
+ */
+function useDeskOnly(): boolean {
+  const [desk, setDesk] = React.useState(false)
+  React.useEffect(() => {
+    /* Wide, and not a touch screen first: a tablet in landscape still has the better camera in hand. */
+    const q = window.matchMedia("(min-width: 1024px)")
+    const update = () => setDesk(q.matches && !window.matchMedia("(pointer: coarse)").matches)
+    update()
+    q.addEventListener("change", update)
+    return () => q.removeEventListener("change", update)
+  }, [])
+  return desk
+}
+
+/*
+ * VERIFY ID ON YOUR PHONE. On a computer the ID camera is the phone's, so the
+ * step shows a QR code. It opens Storelib's own camera page on the phone,
+ * signed in or not (a thirty minute link that can only add the photos of
+ * this creator's ID: lib/payments/stripe/id-handoff.ts). This page asks every
+ * few seconds whether they have arrived, and moves on by itself when they do.
+ */
+function PhoneHandoff({ sides, onArrived, onHere }: { sides: { front: boolean; back: boolean }; onArrived: (next: DetailsForm) => void; onHere: () => void }) {
+  const [qr, setQr] = React.useState<string | null>(null)
+  const [failed, setFailed] = React.useState(false)
+  const arrived = React.useRef(onArrived)
+  arrived.current = onArrived
+  const seen = React.useRef(sides)
+  seen.current = sides
+
+  React.useEffect(() => {
+    let gone = false
+    const make = async () => {
+      try {
+        const { url } = await post<{ url: string }>("handoff", {})
+        const QRCode = (await import("qrcode")).default
+        const data = await QRCode.toDataURL(url, { margin: 1, width: 440, color: { dark: "#1a1a2e", light: "#ffffff" }, errorCorrectionLevel: "M" })
+        if (!gone) {
+          setQr(data)
+          setFailed(false)
+        }
+      } catch {
+        if (!gone) setFailed(true)
+      }
+    }
+    void make()
+    /* A fresh code before the old one's thirty minutes are up. */
+    const renew = window.setInterval(() => void make(), 25 * 60_000)
+    const poll = window.setInterval(async () => {
+      try {
+        const next = await post<DetailsForm>("details-form", {})
+        const got = next.idSides
+        /* Only when something new came from the phone: the front, then the back. */
+        if (!gone && got && ((got.front && !seen.current.front) || (got.back && !seen.current.back))) arrived.current(next)
+      } catch {
+        /* The next tick asks again. */
+      }
+    }, 3000)
+    return () => {
+      gone = true
+      window.clearInterval(renew)
+      window.clearInterval(poll)
+    }
+  }, [])
+
+  if (sides.front) {
+    return (
+      <div className="divide-y divide-[#f1f2f4] overflow-hidden rounded-2xl border border-[#e3e5e8] bg-white" data-id-photo="phone-done">
+        {(["front", "back"] as const).map((side) => {
+          const have = sides[side]
+          return (
+            <div key={side} className="flex items-center gap-3 px-3.5 py-3">
+              <span className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-full", have ? "bg-[#dcfae6] text-[#067647]" : "bg-[#f3f4f6] text-[#6b7280]")}>
+                {have ? <Check className="h-4 w-4" strokeWidth={3} /> : <Spinner dark />}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[14px] font-medium text-[#1a1a2e]">{side === "front" ? "Front" : "Back"}</span>
+                <span className="block text-[12.5px] text-[#6b7280]">{have ? "Added from your phone" : "Waiting for your phone. A passport has no back: press Continue."}</span>
+              </span>
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-3" data-id-photo="phone">
+      <div className="flex items-center gap-5 rounded-2xl border border-[#e3e5e8] bg-white p-4" data-id-qr="">
+        <div className="flex h-[148px] w-[148px] shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[#eceef1] bg-white">
+          {qr ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={qr} alt="QR code to verify your ID on your phone" className="h-[140px] w-[140px]" />
+          ) : failed ? (
+            <span className="px-3 text-center text-[12px] text-[#6b7280]">Could not make the code. Use this computer instead.</span>
+          ) : (
+            <Spinner dark />
+          )}
+        </div>
+        <div className="min-w-0">
+          <span className="block text-[15px] font-semibold text-[#1a1a2e]">Scan with your phone</span>
+          <span className="mt-1 block text-[13px] leading-[19px] text-[#6b7280]">
+            Point your phone's camera at the code. It opens Storelib's camera to take your ID, front and back. This page moves on by itself when it's done.
+          </span>
+          <span className="mt-2.5 flex items-center gap-2 text-[12.5px] text-[#6b7280]">
+            <span className="relative flex h-2 w-2">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#7c6cf0] opacity-60" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-[#7c6cf0]" />
+            </span>
+            Waiting for your phone
+          </span>
+        </div>
+      </div>
+      <button type="button" onClick={onHere} className="text-[13px] font-medium text-[#4b5563] underline-offset-2 outline-none hover:text-[#1a1a2e] hover:underline focus-visible:underline" data-id-here="">
+        Use this computer instead
+      </button>
+    </div>
+  )
 }
 
 function FormWaiting({ error, onRetry }: { error: string | null; onRetry: () => void }) {
@@ -1111,8 +1202,12 @@ function DetailsStep({
   const [idProblem, setIdProblem] = React.useState<string | null>(null)
   const [noBack, setNoBack] = React.useState(false)
   const [typeIdInstead, setTypeIdInstead] = React.useState(false)
-  const pickFor = React.useRef<IdSide>("front")
-  const picker = React.useRef<HTMLInputElement>(null)
+  /* What the last photo did, said right where the photos are: "Front added", or why it was not. */
+  const [idNote, setIdNote] = React.useState<string | null>(null)
+  const [idError, setIdError] = React.useState<{ side: IdSide; text: string } | null>(null)
+  /* On a computer the camera is the phone's: a QR code first, this computer only if they say so. */
+  const desktop = useDeskOnly()
+  const [hereInstead, setHereInstead] = React.useState(false)
 
   /* Stripe's answer, asked for until it has one. */
   /* How many times the ID step has asked Stripe since the check was opened. */
@@ -1240,6 +1335,8 @@ function DetailsStep({
     const key = `${which}-${side}`
     setUploading(key)
     setError(null)
+    setIdError(null)
+    if (which === "document") setIdNote(null)
     try {
       const blob = await shrinkPhoto(file)
       const data = new FormData()
@@ -1248,11 +1345,17 @@ function DetailsStep({
       data.set("file", blob, blob.type === "application/pdf" ? "document.pdf" : "document.jpg")
       const res = await postForm<{ form: DetailsForm }>("document", data)
       setUploaded((u) => ({ ...u, [key]: true }))
-      if (which === "document") playAskSound("done")
+      if (which === "document") {
+        playAskSound("done")
+        setIdNote(side === "front" ? "Front added. Stripe has it." : "Back added. Stripe has it.")
+      }
       setForm((f) => (f ? { ...res.form, needs: { ...res.form.needs, fields: f.needs.fields } } : res.form))
     } catch (err) {
       playAskSound("error")
-      setError(safe(err instanceof Error && err.message !== "too large" && err.message !== "unreadable" ? err.message : "That photo could not be used. Try a clear colour JPG or PNG."))
+      const text = safe(err instanceof Error && err.message !== "too large" && err.message !== "unreadable" ? err.message : "That photo could not be used. Take it again in good light.")
+      /* Said beside the photos, with a way to take it again, not at the top of a page the camera was covering. */
+      if (which === "document") setIdError({ side, text })
+      else setError(text)
     } finally {
       setUploading(null)
     }
@@ -1265,7 +1368,10 @@ function DetailsStep({
    * enough, and Stripe decides which it accepts.
    */
   const idVerified = idState === "done" || idState === "checking"
-  const front = !!uploaded["document-front"] || idVerified || docGiven
+  const front = !!uploaded["document-front"] || idVerified || docGiven || !!form.idSides?.front
+  const backDone = !!uploaded["document-back"] || !!form.idSides?.back
+  /* An ID card or licence has a back, and Stripe refuses one without it later (verification_document_missing_back). */
+  const backMissing = !!uploaded["document-front"] && !backDone && !noBack
   /* No CNP or ID number is ever typed here: the ID photo is the way (lib/payments/stripe/own-form-rules.ts needsOf). */
   const idEither = false
   const docDue = has("document") && !form.needs.offered.includes("document")
@@ -1327,12 +1433,24 @@ function DetailsStep({
         }
         return
       }
+      if (uploading) return
       if (form.needs.fields.includes("document") && !docGivenAtOpen && !front) {
-        setError("Verify your ID to carry on.")
+        setIdError({ side: "front", text: "Take a photo of your ID to carry on." })
+        return
+      }
+      if (backMissing) {
+        setIdError({ side: "back", text: "Add the back of your ID, or tap \u201cIt's a passport\u201d if there is none." })
         return
       }
       if (missingProof) return setError("Add a photo of your ID that shows your address.")
-      onNext(form, null)
+      /*
+       * The photos went in (the upload answered), so the ID is with Stripe
+       * even if the copy of the form here has not caught up: say so, so the
+       * next step is the bank and never this step again.
+       */
+      const given = new Set(form.needs.given ?? [])
+      if (front) given.add("document")
+      onNext({ ...form, needs: { ...form.needs, given: [...given] } }, null)
       return
     }
     if ((has("dob") && dobBad) || (has("address") && (!address.line1.trim() || !address.city.trim() || !address.postalCode.trim())) || (has("state") && !address.state.trim()) || (has("phone") && phone.replace(/\D/g, "").length < 7) || (has("nationality") && !countryOf(nationality)) || idBad || (has("ssnLast4") && !/^\d{4}$/.test(ssnLast4)) || (form.needs.tos && !agree) || bankBad) {
@@ -1465,21 +1583,11 @@ function DetailsStep({
               <span className="mt-0.5 block text-[12.5px] leading-[17px] text-[#6b7280]">Passport, national ID or driving licence. Hold it in the frame and it takes the photo for you, both sides.</span>
             </span>
           </button>
-          <button
-            type="button"
-            onClick={() => {
-              pickFor.current = "front"
-              picker.current?.click()
-            }}
-            className="text-[13px] font-medium text-[#4b5563] underline-offset-2 outline-none hover:text-[#1a1a2e] hover:underline focus-visible:underline"
-          >
-            No camera? Use a photo of it instead
-          </button>
         </>
       ) : (
         <div className="divide-y divide-[#f1f2f4] overflow-hidden rounded-2xl border border-[#e3e5e8] bg-white">
           {(["front", "back"] as const).map((side) => {
-            const done = !!uploaded[`document-${side}`]
+            const done = side === "front" ? !!uploaded["document-front"] || !!form.idSides?.front || idVerified || docGiven : backDone
             const busy = uploading === `document-${side}`
             const skipped = side === "back" && noBack && !done
             return (
@@ -1489,7 +1597,12 @@ function DetailsStep({
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-[14px] font-medium text-[#1a1a2e]">{side === "front" ? "Front" : "Back"}</span>
-                  <span className="block text-[12.5px] text-[#6b7280]">{busy ? "Sending to Stripe" : done ? "Added" : skipped ? "Not needed, it's a passport" : "Needed for an ID card or licence"}</span>
+                  <span className={cn("block text-[12.5px]", idError?.side === side ? "text-[#c4290c]" : "text-[#6b7280]")}>{busy ? "Sending to Stripe..." : done ? "Added" : skipped ? "Not needed, it's a passport" : "Needed for an ID card or licence"}</span>
+                  {side === "back" && !done && !skipped && !busy ? (
+                    <button type="button" onClick={() => { setNoBack(true); setIdError(null) }} className="mt-0.5 text-[12.5px] font-medium text-[#4b5563] underline underline-offset-2 outline-none hover:text-[#1a1a2e]" data-id-passport="">
+                      It's a passport
+                    </button>
+                  ) : null}
                 </span>
                 {/*
                   One control per side, and it reads as a button: bare "Add"
@@ -1515,28 +1628,27 @@ function DetailsStep({
           })}
         </div>
       )}
-      {/* Stripe takes an identity document as a colour JPG or PNG only: offering a PDF here would be offering a file it refuses. */}
-      <input
-        ref={picker}
-        type="file"
-        accept="image/jpeg,image/png,image/heic"
-        hidden
-        onChange={(e) => {
-          const f = e.target.files?.[0]
-          e.target.value = ""
-          if (f) void upload("document", pickFor.current, f)
-        }}
-      />
+      {idError ? (
+        <div role="alert" className="flex items-center gap-3 rounded-xl border border-[#f3b8ab] bg-[#fff8f6] px-3.5 py-2.5" data-id-error="">
+          <span className="min-w-0 flex-1 text-[13px] leading-[18px] text-[#b42318]">{idError.text}</span>
+          <button type="button" onClick={() => openCamera(idError.side)} className="shrink-0 rounded-full bg-[#1a1a2e] px-3 py-1.5 text-[12.5px] font-medium text-white outline-none">
+            Take it again
+          </button>
+        </div>
+      ) : uploading?.startsWith("document") ? (
+        <p role="status" className="flex items-center gap-2 text-[13px] text-[#4b5563]" data-id-note="">
+          <Spinner dark /> Sending your photo to Stripe...
+        </p>
+      ) : idNote ? (
+        <p role="status" className="flex items-center gap-2 text-[13px] font-medium text-[#067647] animate-in fade-in-0 duration-200" data-id-note="">
+          <Check className="h-4 w-4" strokeWidth={3} /> {idNote}
+        </p>
+      ) : null}
       <IdCamera
         open={!!camera}
         side={camera?.side ?? "front"}
         zIndex={SHEET_Z + 10}
         onClose={() => setCamera(null)}
-        onPickFile={() => {
-          pickFor.current = camera?.side ?? "front"
-          setCamera(null)
-          picker.current?.click()
-        }}
         onNoBack={() => {
           setNoBack(true)
           setCamera(null)
@@ -1561,7 +1673,19 @@ function DetailsStep({
    * to Storelib's camera without saying anything clever about it.
    */
   const idPhoto = has("document")
-    ? idWay === "camera"
+    ? desktop && !hereInstead && !uploaded["document-front"] && !idVerified && !docGivenAtOpen && !isNativeApp()
+      ? (
+          <PhoneHandoff
+            sides={form.idSides ?? { front: false, back: false }}
+            onArrived={(next) => {
+              setForm((f) => (f ? { ...next, needs: { ...next.needs, fields: f.needs.fields } } : next))
+              setIdNote(next.idSides?.back ? "Front and back added from your phone." : "Added from your phone.")
+              playAskSound("done")
+            }}
+            onHere={() => setHereInstead(true)}
+          />
+        )
+      : idWay === "camera"
       ? cameraPhoto
       : (
           <div className="space-y-2" data-id-photo="stripe">
@@ -1617,7 +1741,7 @@ function DetailsStep({
                   }}
                   className="text-[13px] font-medium text-[#4b5563] underline-offset-2 outline-none hover:text-[#1a1a2e] hover:underline focus-visible:underline"
                 >
-                  Add a photo of your ID instead
+                  Use your camera instead
                 </button>
               </>
             )}
@@ -1826,8 +1950,8 @@ function DetailsStep({
       <Footer>
         <button type="button" className={SECONDARY} onClick={onBack}>Back</button>
         <button type="submit" className={PRIMARY} disabled={busy || !!uploading}>
-          {busy ? <Spinner /> : null}
-          {busy ? "Saving" : "Continue"}
+          {busy || uploading ? <Spinner /> : null}
+          {busy ? "Saving" : uploading ? "Sending your ID" : "Continue"}
         </button>
       </Footer>
     </form>
