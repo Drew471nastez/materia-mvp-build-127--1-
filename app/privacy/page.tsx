@@ -314,10 +314,11 @@ export default function PrivacyPolicyPage() {
                   Verification is required by law and by the card networks before a Seller can be paid.
                   Storelib&apos;s own payout form collects only what Stripe requires of an individual in their
                   country, typically a date of birth, a home address and a phone number, together with the bank
-                  account payouts are sent to. Where Stripe additionally requires information Storelib&apos;s form
-                  does not collect, such as a national identification number or a proof of address, that
-                  information is collected by Stripe on Stripe&apos;s own form, which is embedded in the Storelib
-                  page; Storelib does not receive it.
+                  account payouts are sent to and the currency the Seller chooses to be paid in. Storelib does not
+                  ask for a national identification number or a proof of address: where Stripe accepts an
+                  identity document in their place, the identity document answers for them. Where Stripe requires
+                  one of them regardless, Storelib support helps the Seller provide it to Stripe directly, and
+                  Storelib does not keep it.
                 </p>
                 <p>
                   Where Stripe requires an identity document, the Seller presents a passport, national identity

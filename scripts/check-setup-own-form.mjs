@@ -65,7 +65,7 @@ const form = (needs) => ({
   dueBy: null,
   active: false,
   idNumber: { label: "CNP (personal numeric code)", hint: "The 13 digit number on your Romanian ID card." },
-  bank: { kind: "iban", currency: "RON", holderName: "Andrei Balan", last4: null },
+  bank: { kind: "iban", currency: "RON", holderName: "Andrei Balan", last4: null, currencies: ["RON", "EUR", "USD"] },
 })
 /* Fill the details page and press Continue, which is now how the ID step is reached. */
 async function pastDetails(p) {
@@ -169,15 +169,21 @@ try {
     await p.bringToFront()
     await p.setViewport({ width: 390, height: 844, deviceScaleFactor: 1, isMobile: true, hasTouch: true })
     await p.goto("http://probe.test/app/payouts")
-    /* Stripe wants only the bank: the details page is just the bank, nothing skips anywhere. */
-    await p.waitForSelector("[data-details-bank]", { timeout: 8000 }).catch(() => {})
+    /* Stripe wants only the bank: personal info and the ID hand straight on, and the bank step asks. */
+    await p.waitForSelector("[data-bank-step]", { timeout: 8000 }).catch(() => {})
     const arrived = await p.evaluate(() => {
       const t = document.querySelector("[data-payments-setup-panel]")?.textContent ?? ""
-      return { bank: !!document.querySelector("[data-details-bank]"), change: /Change bank account/.test(t), steps: [...document.querySelectorAll('[aria-label="Setup steps"] li:not([aria-hidden])')].length }
+      return {
+        bank: !!document.querySelector("[data-bank-step]"),
+        change: /Change bank account/.test(t),
+        steps: [...document.querySelectorAll('[aria-label="Setup steps"] li:not([aria-hidden])')].map((li) => li.textContent?.trim()),
+        currencies: [...document.querySelectorAll("[data-payout-currency]")].map((b) => b.getAttribute("data-payout-currency")),
+      }
     })
-    expect(arrived.bank, "the bank sits on the details page", arrived)
+    expect(arrived.bank, "the bank is its own step, the last one", arrived)
     expect(!arrived.change, "and a first bank is never worded as a change", arrived)
-    expect(arrived.steps === 2, "no ID asked, so no ID step: Account, Details", arrived)
+    expect(arrived.steps.length === 2 && /Personal info/.test(arrived.steps[0] ?? "") && /Bank account/.test(arrived.steps[1] ?? ""), "no ID asked, so the steps are Personal info, Bank account", arrived.steps)
+    expect(JSON.stringify(arrived.currencies) === JSON.stringify(["RON", "EUR", "USD"]), "the payout currency is picked first: local, euro or US dollar", arrived.currencies)
     await p.evaluate(() => [...document.querySelectorAll("button")].find((b) => b.textContent?.trim() === "Back")?.click())
     await new Promise((r) => setTimeout(r, 900))
     const back = await p.evaluate(() => {
@@ -230,13 +236,17 @@ try {
     await p.close()
   }
   {
-    /* Stripe offers the ID as its alternative to the CNP: the ID step says so, and the number is the other way. */
-    console.log("\nThe CNP instead of the ID (390px)")
+    /*
+      Stripe takes the ID photo for the CNP (its alternative). What the server
+      sends then: the document, and never the number. No CNP anywhere, no
+      "type it instead" link: the owner wants the ID and nothing else.
+    */
+    console.log("\nThe ID stands in for the CNP (390px)")
     const p = await browser.newPage()
     const errors = []
     p.on("pageerror", (e) => errors.push(e.message))
     await p.setRequestInterception(true)
-    const either = { ...needsNow, fields: ["dob", "address", "idNumber", "document"], either: [{ original: ["idNumber"], alternative: ["document"] }], offered: ["document"], given: [], handover: [] }
+    const either = { ...needsNow, fields: ["dob", "address", "document"], either: [{ original: ["idNumber"], alternative: ["document"] }], offered: ["document"], given: [], handover: [] }
     const sentHere = {}
     p.on("request", (r) => {
       const u = r.url()
@@ -269,21 +279,17 @@ try {
     expect(onDetails.noId, "and does not draw the ID check either", onDetails)
     await pastDetails(p)
 
-    await p.waitForSelector("[data-id-number-instead]", { timeout: 8000 }).catch(() => {})
+    await p.waitForSelector("[data-id-photo]", { timeout: 8000 }).catch(() => {})
     const idStep = await p.evaluate(() => ({
-      link: document.querySelector("[data-id-number-instead]")?.textContent?.trim(),
+      photo: !!document.querySelector("[data-id-photo]"),
+      link: !!document.querySelector("[data-id-number-instead]"),
+      cnp: [...document.querySelectorAll("label")].some((l) => l.textContent?.includes("CNP")) || /CNP/.test(document.querySelector("[data-payments-setup-panel]")?.textContent ?? ""),
       steps: [...document.querySelectorAll('[aria-label="Setup steps"] li:not([aria-hidden])')].map((li) => li.textContent?.trim()),
     }))
-    expect(idStep.link === "Use my CNP instead", "the ID step offers the CNP as Stripe's other way", idStep)
-    expect(idStep.steps.some((s) => /Verify ID/.test(s ?? "")), "and only now, with Stripe asking, is Verify ID a step", idStep.steps)
-    await p.evaluate(() => document.querySelector("[data-id-number-instead]")?.click())
-    await new Promise((r) => setTimeout(r, 300))
-    const typing = await p.evaluate(() => ({
-      cnp: [...document.querySelectorAll("label")].some((l) => l.textContent?.includes("CNP")),
-      stillHere: !!document.querySelector("[data-payments-setup-panel]"),
-    }))
-    expect(typing.cnp && typing.stillHere, "and the number is typed on that step, not back on the details page", typing)
-    await p.screenshot({ path: join(out, "cnp-instead-390.png") })
+    expect(idStep.photo, "the ID step asks for the ID itself", idStep)
+    expect(!idStep.link && !idStep.cnp, "and never offers or mentions the CNP", idStep)
+    expect(idStep.steps.length === 3 && /Verify ID/.test(idStep.steps[1] ?? ""), "the steps are Personal info, Verify ID, Bank account", idStep.steps)
+    await p.screenshot({ path: join(out, "id-for-cnp-390.png") })
     expect(errors.length === 0, "nothing threw", errors.slice(0, 1))
     await p.close()
   }
@@ -299,7 +305,7 @@ try {
     const errors = []
     p.on("pageerror", (e) => errors.push(e.message))
     await p.setRequestInterception(true)
-    const handed = { ...needsNow, fields: ["dob", "address", "ssnLast4", "proofOfAddress"] }
+    const handed = { ...needsNow, fields: ["dob", "address", "ssnLast4"] }
     p.on("request", (r) => {
       const u = r.url()
       const json = (body) => r.respond({ status: 200, contentType: "application/json", body: JSON.stringify(body) })
@@ -328,7 +334,8 @@ try {
         stillInStorelib: !!document.querySelector("[data-payments-setup-panel]"),
       }
     })
-    expect(drawn.ssnField && drawn.proofField, "Storelib's own form draws them, beside the rest", drawn)
+    expect(drawn.ssnField, "Storelib's own form draws it, beside the rest", drawn)
+    expect(!drawn.proofField, "and never a proof of address, a bill or a statement", drawn)
     expect(drawn.ownFields, "and the ordinary fields are still on the same step", drawn)
     expect(drawn.noStripeForm && drawn.noStripeFrame, "nothing is handed to a Stripe form, and no Stripe frame is loaded", drawn)
     expect(drawn.stillInStorelib, "still inside the Storelib page, with no browser sent anywhere", drawn)
@@ -565,7 +572,7 @@ try {
     const sent = {}
     p.on("pageerror", (e) => errors.push(e.message))
     await p.setRequestInterception(true)
-    const eitherNeeds = { ...needsNow, fields: ["dob", "address", "idNumber", "document"], either: [{ original: ["idNumber"], alternative: ["document"] }], offered: ["document"], given: [], handover: [] }
+    const eitherNeeds = { ...needsNow, fields: ["dob", "address", "document"], either: [{ original: ["idNumber"], alternative: ["document"] }], offered: ["document"], given: [], handover: [] }
     p.on("request", (r) => {
       const u = r.url()
       const json = (body) => r.respond({ status: 200, contentType: "application/json", body: JSON.stringify(body) })
@@ -583,7 +590,7 @@ try {
           fixture that keeps naming fields it already has makes the ID step
           hand back a list of things nobody still owes.
         */
-        const left = sent.details ? ["document"] : ["dob", "address", "idNumber", "document"]
+        const left = sent.details ? ["document"] : ["dob", "address", "document"]
         const withDoc = { ...eitherNeeds, fields: left, tos: sent.details ? false : eitherNeeds.tos, bank: sent.bank ? false : eitherNeeds.bank, given: sent.document ? ["document"] : [] }
         if (action === "details-form" || action === "document") return json(action === "document" ? { form: form(withDoc) } : form(withDoc))
         if (action === "details") return json({ form: form({ ...needsNow, fields: [], tos: false }), overview: { ...doneOverview, beat: "bank", paymentsStatus: { status: "BANK_REQUIRED", action: "bank" }, payoutDestination: null } })
@@ -642,7 +649,7 @@ try {
     /*
       The details went in before this step (pastDetails), and without a CNP:
       where Stripe takes the document instead, the number is never asked for
-      on the way through. The ID is the last thing, so Continue finishes.
+      on the way through. After the ID comes the bank, never the details again.
     */
     const body = sent.detailsBody ? JSON.parse(sent.detailsBody) : null
     expect(!!body && body.idNumber === undefined, "the details went without a CNP, because the ID answers for it", body && { idNumber: body.idNumber ?? null })
@@ -650,8 +657,8 @@ try {
     await p.evaluate(() => document.querySelector('button[type="submit"]')?.click())
     await new Promise((r) => setTimeout(r, 800))
     expect(
-      await p.evaluate(() => !document.querySelector('[autocomplete="bday-day"]')),
-      "and the ID is the last step: it does not hand back to a form to fill in again",
+      await p.evaluate(() => !document.querySelector('[autocomplete="bday-day"]') && !!document.querySelector("[data-bank-step]")),
+      "and after the ID it never hands back to the details: the bank is next",
     )
     expect(errors.length === 0, "nothing threw", errors.slice(0, 2))
     await p.close()
@@ -664,6 +671,7 @@ try {
     const errors = []
     const sent = {}
     const framed = []
+    let detailsIn = false
     p.on("pageerror", (e) => errors.push(e.message))
     await p.setRequestInterception(true)
     p.on("request", (r) => {
@@ -675,8 +683,12 @@ try {
         sent[action] = r.postData() ?? ""
         const json = (body) => r.respond({ status: 200, contentType: "application/json", body: JSON.stringify(body) })
         if (action === "details-form" && later) return json({ ...form({ ...needsNow, fields: ["document"], tos: false, bank: false, problems: ["Stripe could not read your ID. Upload a sharper photo, all four corners in, no glare."] }), active: true, dueBy: "2026-10-20T00:00:00.000Z" })
-        if (action === "details-form") return json(form(needsNow))
-        if (action === "details") return json({ form: form({ ...needsNow, fields: [], tos: false }), overview: { ...doneOverview, beat: "bank", paymentsStatus: { status: "BANK_REQUIRED", action: "bank" }, payoutDestination: null } })
+        /* As Stripe would: once the details are in, only the bank is left. */
+        if (action === "details-form") return json(form(detailsIn ? { ...needsNow, fields: [], tos: false } : needsNow))
+        if (action === "details") {
+          detailsIn = true
+          return json({ form: form({ ...needsNow, fields: [], tos: false }), overview: { ...doneOverview, beat: "bank", paymentsStatus: { status: "BANK_REQUIRED", action: "bank" }, payoutDestination: null } })
+        }
         if (action === "bank") return json({ form: form({ ...needsNow, fields: [], tos: false, bank: false }), overview: doneOverview })
         if (action === "refresh") return json(doneOverview)
         return json({})
@@ -729,12 +741,25 @@ try {
     await p.type('[autocomplete="address-level2"]', "Bucharest")
     await p.type('[autocomplete="postal-code"]', "030031")
     await p.evaluate(() => [...document.querySelectorAll('input[type="checkbox"]')].forEach((c) => c.click()))
-    expect(await p.evaluate(() => !!document.querySelector("[data-details-bank]") && document.body.textContent?.includes("IBAN")), "the bank, with an IBAN for Romania, is on the same page")
+    expect(await p.evaluate(() => !document.querySelector('[placeholder^="RO00"]')), "personal info is only personal info: no bank on it")
+    await p.click('button[type="submit"]')
+    /* Like Skool: personal info, then (no ID asked here) the bank, its own last step. */
+    await p.waitForSelector("[data-bank-step]", { timeout: 6000 }).catch(() => {})
+    const bankStep = await p.evaluate(() => ({
+      here: !!document.querySelector("[data-bank-step]") && !!document.body.textContent?.includes("IBAN"),
+      steps: [...document.querySelectorAll('[aria-label="Setup steps"] li:not([aria-hidden])')].map((li) => li.textContent?.trim()),
+      currencies: [...document.querySelectorAll("[data-payout-currency]")].map((b) => b.getAttribute("data-payout-currency")),
+      local: document.querySelector('[data-payout-currency="RON"]')?.getAttribute("aria-checked"),
+    }))
+    expect(bankStep.here, "the bank, with an IBAN for Romania, is the next step", bankStep)
+    expect(/Bank account/.test(bankStep.steps.at(-1) ?? ""), "  and the stepper says Bank account", bankStep.steps)
+    expect(JSON.stringify(bankStep.currencies) === JSON.stringify(["RON", "EUR", "USD"]) && bankStep.local === "true", "  payout currency first: local picked, euro and US dollar there", bankStep)
+    await p.click('[data-payout-currency="EUR"]')
     await p.type('[placeholder^="RO00"]', "RO49AAAA1B31007593840001")
     await p.screenshot({ path: join(out, `details-filled-${width}.png`) })
     await p.click('button[type="submit"]')
     await new Promise((r) => setTimeout(r, 200))
-    expect(!("bank" in sent) && !("details" in sent), "an IBAN with a wrong digit is caught on the page, before anything is sent")
+    expect(!("bank" in sent), "an IBAN with a wrong digit is caught on the page, before anything is sent")
     await p.evaluate(() => {
       const el = document.querySelector('[placeholder^="RO00"]')
       const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set
@@ -750,10 +775,11 @@ try {
     const body = sent.details ? JSON.parse(sent.details) : null
     expect(
       !!body && body.dob?.year === 1994 && body.dob?.month === 3 && body.address?.city === "Bucharest" && body.acceptTos === true && body.idNumber === undefined,
-      "one Continue sends the details as entered, and no national ID number with them",
+      "the details went as entered, and no national ID number with them",
       body && { dob: body.dob, city: body.address?.city, tos: body.acceptTos, idNumber: body.idNumber ?? null },
     )
     expect(sent.bank && JSON.parse(sent.bank).iban === "RO49 AAAA 1B31 0075 9384 0000", "the valid IBAN is sent")
+    expect(sent.bank && JSON.parse(sent.bank).currency === "EUR", "  in the currency picked", sent.bank && JSON.parse(sent.bank).currency)
     expect(await p.evaluate(() => document.body.textContent?.includes("Payments active")), "and setup ends on Payments active")
     await p.screenshot({ path: join(out, `finished-${width}.png`) })
     expect(framed.length === 0, "no request went to Stripe from the page", framed.slice(0, 2))

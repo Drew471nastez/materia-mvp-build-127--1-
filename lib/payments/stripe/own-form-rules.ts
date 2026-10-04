@@ -187,6 +187,25 @@ export function needsOf(
     for (const f of alternative) fields.add(f)
     either.push({ original, alternative })
   }
+  /*
+   * ONLY THE ID ITSELF. The owner, October 2026: "it should not ask for a
+   * rental bill, bank statement, whatever, just ID or passport, back and
+   * forth, like Skool, that's all, nothing more", and no CNP. So a proof of
+   * address and a typed national ID number are never fields on this form.
+   * Where Stripe takes the ID photo for the number (its alternatives, which
+   * is how Romania and most of Europe work) the ID step answers it. Where
+   * Stripe insists on either with no other way, it is listed under `other`,
+   * which Payouts shows as a support case rather than a field.
+   */
+  const coveredByDoc = new Set(either.filter((e) => e.alternative.includes("document")).flatMap((e) => e.original))
+  if (fields.has("idNumber")) {
+    fields.delete("idNumber")
+    if (!coveredByDoc.has("idNumber")) other.push("individual.id_number")
+  }
+  if (fields.has("proofOfAddress")) {
+    fields.delete("proofOfAddress")
+    other.push("individual.verification.additional_document")
+  }
   const problems = [...new Set((req?.errors ?? []).filter((e) => !e.requirement || due.has(e.requirement)).map((e) => problemWords(e.code)))]
   const ours = (f: DetailField) => fields.has(f)
   return {

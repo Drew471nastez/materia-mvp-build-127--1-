@@ -70,13 +70,14 @@ check("like Gumroad, the form asks date of birth, address, agreement, bank", ro.
   never loaded in the phone app, it hung and then took the creator out to
   js.stripe.com in a browser. So there is nowhere else for a field to go.
 */
-check("  nothing is ever handed to a Stripe form: Storelib draws what Stripe insists on", ro.handover.length === 0 && ro.fields.includes("idNumber"), ro)
+/* The owner, October 2026: "no proof of address or CNP, just ID or passport, back and forth, like Skool". A number Stripe insists on with no ID alternative is a support case, never a field. */
+check("  nothing is handed to a Stripe form, and no CNP is ever a field: without an ID alternative it is a support case", ro.handover.length === 0 && !ro.fields.includes("idNumber") && JSON.stringify(ro.other) === JSON.stringify(["individual.id_number"]), ro)
 check("  the ID photo Stripe will want later is not asked yet", !ro.fields.includes("document") && needsOf({ eventually_due: ["individual.verification.document"] }, "all").fields.includes("document"))
 const later = needsOf({ currently_due: ["individual.verification.document"], errors: [{ code: "verification_document_not_readable", requirement: "individual.verification.document" }] })
 check("when Stripe asks for it later, it is asked with Stripe's reason in plain words", later.fields[0] === "document" && /clearer photo/.test(later.problems[0] ?? ""), later)
 const reg = needsOf({ currently_due: ["individual.registered_address.line1", "individual.nationality"] })
 check("a registered address is the same address, and nationality is asked when listed", reg.registeredAddress && reg.fields.includes("address") && reg.fields.includes("nationality"))
-check("  never the business profile or the email, which are Storelib's", ro.other.length === 0 && !ro.fields.some((f) => String(f).startsWith("business")))
+check("  never the business profile or the email, which are Storelib's", !ro.other.some((k) => /business_profile|email/.test(k)) && !ro.fields.some((f) => String(f).startsWith("business")))
 const us = needsOf({ currently_due: ["individual.ssn_last_4", "individual.phone", "individual.address.state", "individual.address.city"] })
 check("a US account: phone, an address with a state, and the last four of the SSN, all on this form", JSON.stringify(us.fields) === JSON.stringify(["address", "state", "phone", "ssnLast4"]) && us.handover.length === 0, us)
 const waiting = needsOf({ currently_due: [], pending_verification: ["individual.verification.document"] })
@@ -106,17 +107,19 @@ check("with the photo given, no CNP is needed", !detailIssues({ dob }, alt.field
   the two arrives, and the ID step draws itself and offers the number.
 */
 check("the number is not demanded before the ID step has had its turn", !detailIssues({ dob }, alt.fields, { tos: false, either: alt.either, given: new Set() }).idNumber)
-check("  and a number typed without the photo is still checked", !!detailIssues({ dob, idNumber: "12" }, alt.fields, { tos: false, either: alt.either, given: new Set() }).idNumber)
-check("a CNP typed with the photo is still checked", !!detailIssues({ dob, idNumber: "12" }, alt.fields, { tos: false, either: alt.either, given: new Set(["document"]) }).idNumber)
-/* No alternative from Stripe: the number is needed, so this form asks for it. Asking nowhere would be a dead end. */
-check("no alternative from Stripe: the number is asked for here, by us", (() => {
+check("  the CNP is never a field: the ID photo answers for it, and nothing is left for support", !alt.fields.includes("idNumber") && alt.fields.includes("document") && alt.other.length === 0, alt)
+/* No alternative from Stripe: Stripe wants the number and only the number. It is not typed here; Payouts shows it as a support case. */
+check("no alternative from Stripe: the number is a support case, never a field", (() => {
   const n = needsOf({ currently_due: ["individual.id_number"] })
-  return n.fields.includes("idNumber") && n.handover.length === 0
+  return !n.fields.includes("idNumber") && n.other.includes("individual.id_number") && n.handover.length === 0
 })())
-/* Where Stripe DOES take the document instead, the ID check answers it, so the number is only the other way. */
-check("  where the ID settles it, the photo is offered as the other way", (() => {
+check("  where the ID settles it, only the ID is asked", (() => {
   const n = needsOf({ currently_due: ["individual.id_number"], alternatives: [{ original_fields_due: ["individual.id_number"], alternative_fields_due: ["individual.verification.document"] }] })
-  return n.handover.length === 0 && n.fields.includes("idNumber") && n.fields.includes("document")
+  return n.handover.length === 0 && !n.fields.includes("idNumber") && n.fields.includes("document") && n.other.length === 0
+})())
+check("a proof of address, a bill or a statement, is never asked on this form", (() => {
+  const n = needsOf({ currently_due: ["individual.verification.additional_document"] })
+  return !n.fields.includes("proofOfAddress") && n.other.includes("individual.verification.additional_document")
 })())
 
 console.log("\nThe ID camera takes the photo only when Stripe could read it")
