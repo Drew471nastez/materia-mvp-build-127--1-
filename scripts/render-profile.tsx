@@ -2,7 +2,7 @@
  * Profiles and follows with fixture data, for scripts/check-profile.mjs.
  * The real components:
  *
- *   ?other          somebody else's profile (a buyer): Follow, Message, the
+ *   ?other          somebody else's profile (a buyer): Follow (only), the
  *                   way back in a top bar beside their photo (reached from
  *                   a community), "In Clay Studio" with their posts there
  *                   six at a time, Activity and Communities tabs
@@ -163,7 +163,6 @@ if (which === "other") {
         viewerId="00000000-0000-4000-8000-0000000000a1"
         viewerFollowing={false}
         extras={{
-          messageHref: "/community/clay-studio?dm=00000000-0000-4000-8000-0000000000b2",
           activity: { items: activity, next: "n1", hidden: false },
           communities: { enabled: true, owned: [], member: communities },
           shared: [{ community: { id: "00000000-0000-4000-8000-00000000c1a5", slug: "clay-studio", name: "Clay Studio", logoUrl: LOGO }, page: sharedFirst }],
@@ -180,7 +179,7 @@ if (which === "other") {
         profile={{ ...base, privacy: { showActivity: false, showCommunities: true, supported: true } }}
         viewerId={base.userId}
         viewerFollowing={false}
-        extras={{ messageHref: null, activity: { items: activity.slice(0, 3), next: null, hidden: true }, communities: { enabled: true, owned: [], member: communities }, backShown: false, now }}
+        extras={{ activity: { items: activity.slice(0, 3), next: null, hidden: true }, communities: { enabled: true, owned: [], member: communities }, backShown: false, now }}
       />
     </ProfileFrame>
   )
@@ -209,7 +208,6 @@ if (which === "other") {
         viewerId={which === "creator-self" ? maya.userId : "00000000-0000-4000-8000-0000000000a1"}
         viewerFollowing={false}
         extras={{
-          messageHref: which === "creator-self" ? null : "/community/clay-studio?dm=00000000-0000-4000-8000-0000000000c3",
           activity: { items: activity, next: "n1", hidden: false },
           communities: { enabled: true, owned: communities.filter((c) => c.id === "clay-studio"), member: communities.filter((c) => c.id !== "clay-studio") },
           shared: [{ community: { id: "00000000-0000-4000-8000-00000000c1a5", slug: "clay-studio", name: "Clay Studio", logoUrl: LOGO }, page: sharedFirst }],
@@ -248,7 +246,7 @@ if (which === "other") {
         followerCount={1280}
         surface={surface}
         followRow={
-          <ProfileSocial tone="storefront" scheme={chrome.action} userId="00000000-0000-4000-8000-0000000000c3" name="Maya Ortiz" followers={1280} following={64} viewerFollowing={false} signedIn isSelf={false} messageHref="/community/clay-studio?dm=00000000-0000-4000-8000-0000000000c3" />
+          <ProfileSocial tone="storefront" scheme={chrome.action} userId="00000000-0000-4000-8000-0000000000c3" name="Maya Ortiz" followers={1280} following={64} viewerFollowing={false} signedIn isSelf={false} />
         }
       />
       <StorefrontTabs

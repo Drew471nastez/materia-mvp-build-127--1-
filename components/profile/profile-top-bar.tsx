@@ -30,13 +30,18 @@
  * Referer the server can trust. Opened cold (a shared link, a reload): no
  * chevron, and no bar of its own.
  *
- * IT ANSWERS THE FINGER AT ONCE. The press shows on pointerdown, before the
- * click and before any navigation, as a tint and a slight shrink with no
- * transition on the way in (globals.css strips transitions inside a .group
- * on touch screens, and iOS only paints :active with a touch listener, so
- * the state is the component's own), and eases back out when released.
+ * IT ANSWERS THE FINGER AT ONCE, AND ONCE. The press shows on pointerdown,
+ * before the click and before any navigation, as a soft tint of the bar's
+ * own ink, set on the element itself (no React render in between, no
+ * shrink: the owner asked for no bumps), and fades out when released. The
+ * first press goes back; a second press while that back is under way (a
+ * double tap, an impatient thumb) is ignored, so a double tap never goes
+ * back two pages. The guard lifts when this page is shown again (a back
+ * that did nothing ends in the fallback, and bfcache can bring the page
+ * back), so the chevron is never dead.
  */
-import { useEffect, useState } from "react"
+import type React from "react"
+import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { ChevronLeft } from "lucide-react"
 import { AppAvatar } from "@/components/app/app-avatar"
@@ -64,33 +69,52 @@ export function useCameFromSomewhere(initiallyShown: boolean): boolean {
   return shown
 }
 
+/** How long a press keeps the chevron from going back again: longer than any real back takes to show itself (go-back BACK_WATCH_MS). */
+const LEAVING_MS = 1500
+
 /** The chevron itself: 40px to a thumb, drawn in the bar's own text colour, nothing but the icon. */
 export function BackChevron({ fallback = "/explore", className }: { fallback?: string; className?: string }) {
   const router = useRouter()
-  const [pressed, setPressed] = useState(false)
-  const release = () => setPressed(false)
+  /* A back is under way: the next press does nothing (IT ANSWERS THE FINGER AT ONCE, AND ONCE). */
+  const leaving = useRef(false)
+  useEffect(() => {
+    const again = () => {
+      leaving.current = false
+    }
+    window.addEventListener("pageshow", again)
+    return () => window.removeEventListener("pageshow", again)
+  }, [])
+  const release = (e: React.PointerEvent<HTMLButtonElement>) => {
+    delete e.currentTarget.dataset.pressed
+  }
   return (
     <button
       type="button"
-      onPointerDown={() => setPressed(true)}
+      onPointerDown={(e) => {
+        if (e.button === 0) e.currentTarget.dataset.pressed = ""
+      }}
       onPointerUp={release}
       onPointerCancel={release}
       onPointerLeave={release}
-      onClick={() => {
-        setPressed(false)
+      onClick={(e) => {
+        delete e.currentTarget.dataset.pressed
+        if (leaving.current) return
+        leaving.current = true
+        window.setTimeout(() => {
+          leaving.current = false
+        }, LEAVING_MS)
         backThen(() => router.push(fallback))
       }}
       aria-label="Back"
       data-profile-back-button=""
-      data-pressed={pressed ? "true" : undefined}
       className={cn(
-        "-ml-1.5 inline-flex h-10 w-10 shrink-0 touch-manipulation items-center justify-center rounded-full text-current outline-none",
-        "transition-[background-color,scale] duration-150 ease-out data-[pressed=true]:scale-[0.9] data-[pressed=true]:bg-current/[0.12] data-[pressed=true]:duration-0",
-        "pointer-fine:hover:bg-current/[0.08] focus-visible:ring-2 focus-visible:ring-current/30 motion-reduce:data-[pressed=true]:scale-100 [-webkit-tap-highlight-color:transparent]",
+        "-ml-1.5 inline-flex h-10 w-10 shrink-0 cursor-pointer touch-manipulation select-none items-center justify-center rounded-full text-current outline-none",
+        "transition-[background-color] duration-200 ease-out data-[pressed]:bg-current/[0.12] data-[pressed]:duration-0",
+        "pointer-fine:hover:bg-current/[0.08] focus-visible:ring-2 focus-visible:ring-current/30 [-webkit-tap-highlight-color:transparent] [-webkit-touch-callout:none]",
         className,
       )}
     >
-      <ChevronLeft className="h-[22px] w-[22px]" strokeWidth={2} aria-hidden />
+      <ChevronLeft className="pointer-events-none h-[22px] w-[22px]" strokeWidth={2} aria-hidden />
     </button>
   )
 }

@@ -48,7 +48,7 @@ window.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
 }) as typeof fetch
 
 const which = location.search.slice(1) || "platform"
-const props = { userId: "00000000-0000-4000-8000-0000000000c3", name: "Maya Ortiz", followers: 1280, following: 64, viewerFollowing: false, signedIn: true, isSelf: false, messageHref: "/community/clay-studio?dm=00000000-0000-4000-8000-0000000000c3" }
+const props = { userId: "00000000-0000-4000-8000-0000000000c3", name: "Maya Ortiz", followers: 1280, following: 64, viewerFollowing: false, signedIn: true, isSelf: false }
 
 let app: React.ReactNode
 if (which === "platform") {
