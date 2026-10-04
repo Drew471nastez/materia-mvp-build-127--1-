@@ -55,7 +55,7 @@ import {
 } from "@dnd-kit/core"
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
-import { ArrowDown, ArrowUp, ChevronRight, Copy, Eye, EyeOff, GripVertical, MoreHorizontal, PanelBottom, PanelTop, Plus, Trash2 } from "lucide-react"
+import { ArrowDown, ArrowUp, ChevronRight, Copy, Eye, EyeOff, GripVertical, Megaphone, MoreHorizontal, PanelBottom, PanelTop, Plus, RectangleHorizontal, Trash2 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import type { SectionInstance } from "@/lib/website-builder/types"
@@ -189,7 +189,7 @@ function RowAction({
       className={cn(
         "h-6 w-6 shrink-0 items-center justify-center rounded-md transition-[background-color,scale] duration-150 active:scale-90",
         shown ? "flex" : "hidden group-hover/row:flex group-focus-within/row:flex",
-        selected ? "hover:bg-white/20" : "text-[#4b5563] hover:bg-black/[0.06] hover:text-[#1a1a2e]",
+        "text-[#4b5563] hover:bg-black/[0.06] hover:text-[#1a1a2e]",
       )}
     >
       {children}
@@ -249,7 +249,7 @@ export function SectionRow({
       className={cn(
         "group/row flex h-8 max-sm:h-11 cursor-pointer items-center gap-1 rounded-md pl-1 pr-1 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/15",
         /* The builder is a light surface by decision: explicit colours, not tokens a dark root would flip. */
-        isSelected ? "bg-[#1a1a2e] text-white" : "text-[#1a1a2e] hover:bg-[#f3f4f6]",
+        isSelected ? "bg-[#ebecef] text-[#111827]" : "text-[#1a1a2e] hover:bg-[#f3f4f6]",
       )}
       onClick={onSelect}
       onKeyDown={(e) => {
@@ -262,31 +262,6 @@ export function SectionRow({
         setMenuOpen(true)
       }}
     >
-      {chrome ? (
-        /* The dark grey badge the owner chose for the header and the footer, at the row's new size. */
-        <span aria-hidden className="flex h-6 w-6 shrink-0 items-center justify-center">
-          <span className={cn("flex h-5 w-5 items-center justify-center rounded-[5px]", isSelected ? "bg-white/15 text-white" : "bg-[#4d5058] text-white")}>
-            {chrome === "header" ? <PanelTop className="h-3 w-3" strokeWidth={2} /> : <PanelBottom className="h-3 w-3" strokeWidth={2} />}
-          </span>
-        </span>
-      ) : fixed ? (
-        /* Not dragged: the room the grip takes, so the names line up with the rows that have one. */
-        <span aria-hidden className="h-6 w-6 shrink-0" />
-      ) : (
-        /* The grip, always drawn: the list should look reorderable at rest. */
-        <span
-          {...(dragHandleProps ?? {})}
-          aria-label={`Drag ${displayName} to reorder`}
-          className={cn(
-            "flex h-6 w-6 shrink-0 touch-none items-center justify-center rounded-md cursor-grab active:cursor-grabbing transition-colors",
-            isSelected ? "hover:bg-white/20" : "hover:bg-black/[0.06]",
-          )}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <GripVertical className={cn("h-3.5 w-3.5", isSelected ? "opacity-70" : "opacity-40 group-hover/row:opacity-70")} strokeWidth={1.75} />
-        </span>
-      )}
-
       {/* The section's blocks, shown and hidden under it, as Shopify's tree does. */}
       {expandable ? (
         <button
@@ -298,12 +273,39 @@ export function SectionRow({
             e.stopPropagation()
             onToggleExpand?.()
           }}
-          className={cn("-mx-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded transition-colors", isSelected ? "hover:bg-white/20" : "text-[#6b7280] hover:bg-black/[0.06] hover:text-[#1a1a2e]")}
+          className={cn("-mx-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded transition-colors", "text-[#6b7280] hover:bg-black/[0.06] hover:text-[#1a1a2e]")}
         >
           <ChevronRight className={cn("h-3.5 w-3.5 transition-transform duration-150", expanded && "rotate-90")} strokeWidth={2} />
         </button>
       ) : (
         <span aria-hidden className="-mx-0.5 h-5 w-5 shrink-0" />
+      )}
+
+      {chrome ? (
+        /* The dark grey badge the owner chose for the header and the footer, at the row's new size. */
+        <span aria-hidden className="flex h-6 w-6 shrink-0 items-center justify-center">
+          <span className={cn("flex h-5 w-5 items-center justify-center rounded-[5px]", "bg-[#4d5058] text-white")}>
+            {chrome === "header" ? <PanelTop className="h-3 w-3" strokeWidth={2} /> : <PanelBottom className="h-3 w-3" strokeWidth={2} />}
+          </span>
+        </span>
+      ) : fixed ? (
+        /* Not dragged: a quiet icon of what it is where the grip would be, so the names line up and the row is not a gap. */
+        <span aria-hidden className="flex h-6 w-6 shrink-0 items-center justify-center text-[#6b7280]">
+          {/announce|promo|marquee|ticker/i.test(section.type) ? <Megaphone className="h-3.5 w-3.5" strokeWidth={1.75} /> : <RectangleHorizontal className="h-3.5 w-3.5" strokeWidth={1.75} />}
+        </span>
+      ) : (
+        /* The grip, always drawn: the list should look reorderable at rest. */
+        <span
+          {...(dragHandleProps ?? {})}
+          aria-label={`Drag ${displayName} to reorder`}
+          className={cn(
+            "flex h-6 w-6 shrink-0 touch-none items-center justify-center rounded-md cursor-grab active:cursor-grabbing transition-colors",
+            "hover:bg-black/[0.06]",
+          )}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <GripVertical className={cn("h-3.5 w-3.5", isSelected ? "opacity-70" : "opacity-40 group-hover/row:opacity-70")} strokeWidth={1.75} />
+        </span>
       )}
 
       <span className={cn("min-w-0 flex-1 truncate text-[13px] max-sm:text-[15px] font-medium", hidden && "opacity-50")}>{displayName}</span>
@@ -330,7 +332,7 @@ export function SectionRow({
             className={cn(
               "h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors duration-150",
               isSelected || menuOpen ? "flex" : "hidden group-hover/row:flex group-focus-within/row:flex",
-              isSelected ? "hover:bg-white/20" : "text-[#4b5563] hover:bg-black/[0.06] hover:text-[#1a1a2e]",
+              "text-[#4b5563] hover:bg-black/[0.06] hover:text-[#1a1a2e]",
             )}
           >
             <MoreHorizontal className="h-3.5 w-3.5" strokeWidth={1.75} />

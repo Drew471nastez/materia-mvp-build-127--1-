@@ -1,0 +1,136 @@
+/**
+ * ===========================================================================
+ *  A CREATOR PAGE WITH NO PRODUCTS YET
+ * ===========================================================================
+ * The owner, of a creator page with nothing published: "today an ugly empty
+ * space". It was three holes stacked on each other:
+ *
+ *   THE FEATURED SECTION   draws nothing without products, but its wrapper
+ *                          kept the section's spacing, so Home opened on a
+ *                          band of blank page the height of that spacing
+ *   AN EMPTY HOME TAB      a page never arranged in the builder handed the
+ *                          strip a Home panel of `null`, so the strip offered
+ *                          "Home" over nothing, beside Communities
+ *   NOTHING FOR THE OWNER  the creator looking at their own page saw the
+ *                          same blank, with no way from it to a product
+ *
+ * So the page reads with what it has. Without products the sections that
+ * only ever show products are left out, Home is only a tab when something
+ * is left in it, and when nothing is, the communities the creator made stand
+ * on the page under a heading of their own (one panel is never a tab strip).
+ * With neither, the page goes from the header to About, which is a page,
+ * not a hole. The creator on their own page gets one quiet line above all
+ * of it, "No products on your page yet", and the one button that changes
+ * that. Visitors never see it.
+ *
+ * Every colour is the scheme's own token (--card, --border, --foreground,
+ * --muted-foreground) and Follow's fill (the scheme's `action`), so it is
+ * at home on a light, a tinted and a dark page alike
+ * (scripts/check-creator-no-products.mjs draws three).
+ *
+ * No "use client": the creator page builds this on the server, and the probe
+ * draws the same functions.
+ */
+import Link from "next/link"
+import type React from "react"
+import type { ReactNode } from "react"
+import { ExploreCommunityGrid } from "@/components/explore/community-card"
+import type { ActionScheme } from "@/components/profile/follow-button"
+import type { CommunityCard } from "@/lib/communities/types"
+import type { StorefrontTab } from "./storefront-tabs"
+
+/** Where a creator adds a product. */
+export const NEW_PRODUCT_HREF = "/app/products/new"
+
+/** Section types that draw only products: without any, all they leave is their spacing. */
+const PRODUCT_ONLY = new Set(["featured-products", "more-from-seller"])
+
+/** The sections worth drawing on a page with no products. */
+export function sectionsWithoutProducts<T extends { type: string }>(sections: T[], productCount: number): T[] {
+  return productCount > 0 ? sections : sections.filter((s) => !PRODUCT_ONLY.has(s.type))
+}
+
+/** The page's own column, as the tabs, the Products grid and the communities panel draw it. */
+const COLUMN = "mx-auto w-full max-w-[1180px] px-3 sm:px-4 lg:px-6"
+
+/**
+ * The tabs of a page with no products. `home` is null when nothing is left
+ * to draw in it; `communitiesPanel` is the page's usual Communities tab (null
+ * while communities are off) and `communities` the cards behind it.
+ */
+export function tabsWithoutProducts({
+  home,
+  communitiesPanel,
+  communities,
+}: {
+  home: ReactNode | null
+  communitiesPanel: ReactNode | null
+  communities: CommunityCard[] | null
+}): StorefrontTab[] {
+  if (home) {
+    const tabs: StorefrontTab[] = [{ id: "home", label: "Home", panel: home }]
+    if (communitiesPanel) tabs.push({ id: "communities", label: "Communities", panel: communitiesPanel })
+    return tabs
+  }
+  /* Nothing in Home: no strip. The communities they made stand on the page, or nothing does. */
+  if (communities && communities.length > 0) {
+    return [{ id: "communities", label: "Communities", panel: <CommunitiesOnPage cards={communities} /> }]
+  }
+  return []
+}
+
+/** The communities, when they are the page's only content: a heading in the page's ink, then Explore's cards in its scheme. */
+function CommunitiesOnPage({ cards }: { cards: CommunityCard[] }) {
+  return (
+    <section className={`${COLUMN} pb-2 pt-6 sm:pt-8`} aria-labelledby="storefront-communities-heading" data-storefront-communities-only="">
+      <h2 id="storefront-communities-heading" className="mb-4 text-[17px] font-semibold text-foreground sm:text-[19px]">
+        Communities
+      </h2>
+      <div data-storefront-communities="">
+        <ExploreCommunityGrid cards={cards} surface="storefront" priorityCount={2} />
+      </div>
+    </section>
+  )
+}
+
+/**
+ * Follow's fill as the variables the button reads. Not follow-button's
+ * schemeVars: that module is "use client", and a server component calling a
+ * client module's function throws.
+ */
+function fillVars(scheme: ActionScheme | null | undefined): React.CSSProperties | undefined {
+  if (!scheme) return undefined
+  return {
+    "--sf-bg": scheme.background,
+    "--sf-ink": scheme.text,
+    "--sf-hover": scheme.hover || scheme.background,
+    "--sf-press": scheme.press || scheme.hover || scheme.background,
+  } as React.CSSProperties
+}
+
+/**
+ * The owner's line on their own page while nothing is published: what is
+ * true, and the button that changes it, in the page's own colours. Quiet on
+ * purpose: one hairline row in the page's column, not a banner.
+ */
+export function FirstProductPrompt({ scheme }: { scheme?: ActionScheme | null }) {
+  return (
+    <div className={`${COLUMN} pt-4 sm:pt-6`} data-first-product="">
+      <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card px-4 py-3.5 text-card-foreground sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:px-5 sm:py-4">
+        <div className="min-w-0">
+          <p className="text-[15px] font-semibold leading-snug">No products on your page yet</p>
+          <p className="mt-0.5 text-[13.5px] leading-snug text-muted-foreground">Only you see this. Publish one and it shows here.</p>
+        </div>
+        <Link
+          href={NEW_PRODUCT_HREF}
+          prefetch={false}
+          data-first-product-add=""
+          style={fillVars(scheme)}
+          className="inline-flex h-10 shrink-0 items-center justify-center self-start whitespace-nowrap rounded-xl border border-transparent bg-[var(--sf-bg,var(--foreground))] px-4 text-[14px] font-semibold text-[var(--sf-ink,var(--background))] shadow-[inset_0_1px_0_rgba(255,255,255,0.14),inset_0_-1px_0_rgba(0,0,0,0.3),0_1px_2px_rgba(16,24,40,0.2)] outline-none transition-[background-color] duration-100 [-webkit-tap-highlight-color:transparent] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--sf-bg,var(--foreground))] sm:self-auto pointer-fine:hover:bg-[var(--sf-hover,var(--foreground))] active:bg-[var(--sf-press,var(--foreground))]"
+        >
+          Add a product
+        </Link>
+      </div>
+    </div>
+  )
+}

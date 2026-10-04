@@ -550,7 +550,7 @@ async function main() {
     const layer = code("components/community/member/person-card.tsx")
     check("the card opens from a name's data-person-id, by pointer type, and from keyboard focus-visible", /closest<HTMLElement>\("\[data-person-id\]"\)/.test(layer) && /if \(!hoverPointer\(e\.pointerType\)\) return/.test(layer) && /anchor\.matches\(":focus-visible"\)/.test(layer))
     check("Escape closes it and hands focus back; scrolling closes it", /e\.key === "Escape"[\s\S]{0,200}back\.focus\(\)/.test(layer) && /addEventListener\("scroll", onScroll/.test(layer))
-    check("Message opens the panel in place", /openMessages\(\{ userId: person\.id \}\)/.test(layer) && !/router\.push/.test(layer))
+    check("the card draws Profile and Follow only, no Message (the owner's round 9 ask)", !/data-person-card-message/.test(layer) && !/openMessages\(/.test(layer) && !/router\.push/.test(layer))
     /* Round 7: the card's Follow was disabled while its request was out, so a quick second press did nothing for seconds. It shares the profile's hook now. */
     check("Follow goes through the one follow route, through the profile's never blocking hook", /useFollow\(\{\s*targetUserId: person\.id,/.test(layer) && /onClick=\{follow\.toggle\}/.test(layer) && !/disabled=\{busy\}/.test(layer) && /fetch\("\/api\/follow"/.test(code("components/profile/follow-button.tsx")))
   }

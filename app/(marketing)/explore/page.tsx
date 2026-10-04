@@ -5,7 +5,6 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { EMPTY_INTERESTS, type Interests } from "@/lib/explore/interests"
 import { readInterests } from "@/lib/explore/read-interests"
 import { ExplorePageClient } from "@/components/explore/explore-page-client"
-import { FeaturedCategoriesSection } from "@/components/explore/featured-categories-section"
 import { VALID_SUBCATEGORY_IDS } from "@/lib/marketplace/categories"
 import { MostPopularSection } from "@/components/explore/most-popular-section"
 import { jsonLdScript } from "@/lib/seo/json-ld"
@@ -303,16 +302,12 @@ export default async function ExplorePage({
         />
 
         {/*
-          Below-the-fold sections, wrapped in Suspense for streaming SSR, in
-          the order the owner asked for: eight rows of products and their
-          pagination, then the categories board, then Most popular. Most
-          popular was briefly first, directly under the pagination; the
-          instruction that put the board back in between is the current one.
+          Below the fold: eight rows of products and their pagination, then
+          Most popular. NO CATEGORIES BOARD. "Explore categories you can
+          build with" sat between the two, a grid of the same categories
+          the pill row and its More already offer; the owner asked for it
+          off, on a computer and a phone.
         */}
-        <Suspense fallback={null}>
-          <FeaturedCategoriesSection products={productsWithCreators} />
-        </Suspense>
-
         <Suspense fallback={null}>
           <MostPopularSection products={productsWithCreators} />
         </Suspense>

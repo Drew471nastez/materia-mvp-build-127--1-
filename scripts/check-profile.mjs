@@ -6,9 +6,8 @@
  * phones 320, 390 and 430 wide:
  *
  *   SOMEBODY ELSE   the photo (118 / 134px, five percent up) straddles the
- *                   band's lower edge, the name is centred, Follow and
- *                   Message are there (Message to the community's ?dm=
- *                   link), the way back is a chevron in a top bar beside
+ *                   band's lower edge, the name is centred, Follow is
+ *                   there and nothing else (no Message, round 9), the way back is a chevron in a top bar beside
  *                   their photo; Follow turns into Following with a check,
  *                   a pointer over it still says Following (no Unfollow),
  *                   the count goes up by one; followers and
@@ -30,7 +29,7 @@
  *                   a phone the newsletter bar is one row (back, photo,
  *                   email, Subscribe) from 320 to 430 wide, Subscribed
  *                   included; Follow is Storelib's primary in the scheme's
- *                   buy colour, Following and Message the quiet secondary in
+ *                   buy colour, Following the quiet secondary in
  *                   the scheme's surface, all one height and rounding, and
  *                   a pointer over Following says Following; with
  *                   no newsletter bar the slim top bar carries the chevron;
@@ -186,9 +185,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
         return bar && chev && face ? { barH: Math.round(bar.height), chevRight: Math.round(chev.right), faceLeft: Math.round(face.left), name: document.querySelector("[data-profile-top-bar-name]")?.textContent, pill: !!document.querySelector("[data-profile-back] .rounded-full.border") } : null
       })
       expect(!!bar && bar.faceLeft >= bar.chevRight && bar.faceLeft - bar.chevRight <= 16 && bar.name === "Sam Rivera", "the chevron sits right beside their photo and name, in the bar", bar)
-      expect(geo.follow === "Follow" && geo.message && geo.pills === 0, "Follow and Message, no owner pills", geo)
-      const dm = await p.evaluate(() => document.querySelector("[data-profile-message]")?.getAttribute("href"))
-      expect(/^\/community\/clay-studio\?dm=[0-9a-f-]{36}$/.test(dm || ""), "Message opens the conversation in the community (?dm=), never a member page", dm)
+      expect(geo.follow === "Follow" && !geo.message && geo.pills === 0, "Follow alone: no Message, no owner pills", geo)
       expect(geo.tabs.join() === "Activity,Communities", "tabs: Activity and Communities (no Products for a buyer)", geo.tabs)
       if (phone) {
         const small = await smallTargets(p, "[data-profile-social], [data-profile-back], [data-profile-activity]")
@@ -431,7 +428,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       })
       expect(!!about && about.sales !== null && about.sales === about.joined && about.joined === about.products && about.value === "14" && about.pay > about.sales, "Sales sit in About beside Joined and Products, above the payment methods", about)
 
-      /* The follow block: one quiet line, then Follow and Message in Storelib's language, in the scheme. */
+      /* The follow block: one quiet line, then Follow alone in Storelib's language, in the scheme. */
       const geo = await p.evaluate(() => {
         const row = document.querySelector("[data-storefront-follow]")
         const r = row?.querySelector("[data-profile-actions]")?.getBoundingClientRect()
@@ -452,20 +449,21 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       const look = () =>
         p.evaluate(() => {
           const b = document.querySelector("[data-storefront-follow] [data-follow-button]")
-          const m = document.querySelector("[data-storefront-follow] [data-profile-message]")
           const one = (el) => { const cs = getComputedStyle(el); const r = el.getBoundingClientRect(); return { bg: cs.backgroundColor, color: cs.color, border: cs.borderTopColor, radius: cs.borderTopLeftRadius, shadow: cs.boxShadow, h: Math.round(r.height), weight: cs.fontWeight } }
           /* The button draws its two states as two faces it crossfades: the one showing is the button's look. */
           const st = b.getAttribute("data-follow-button")
           const fill = one(b.querySelector(`[data-follow-fill=${st}]`))
           const label = getComputedStyle(b.querySelector(`[data-follow-label=${st}]`))
-          return { follow: { ...fill, color: label.color, weight: label.fontWeight, h: Math.round(b.getBoundingClientRect().height) }, tone: b.getAttribute("data-follow-tone"), state: st, message: one(m), inGroup: !!b.closest(".group") }
+          const quiet = one(b.querySelector("[data-follow-fill=following]"))
+          return { follow: { ...fill, color: label.color, weight: label.fontWeight, h: Math.round(b.getBoundingClientRect().height) }, tone: b.getAttribute("data-follow-tone"), state: st, quiet, message: !!document.querySelector("[data-profile-message]") || /\bMessage\b/.test(document.querySelector("[data-storefront-follow]").textContent), inGroup: !!b.closest(".group") }
         })
       const want = dark ? "rgb(37, 99, 235)" : "rgb(47, 93, 70)"
       const l0 = await look()
       expect(l0.tone === "scheme" && l0.follow.bg === want && l0.follow.color === "rgb(255, 255, 255)" && /inset/.test(l0.follow.shadow), `Follow is Storelib's primary (light on top, a darker foot) in the scheme's buy colour (${dark ? "Astrid" : "Sage"})`, l0.follow)
       const pageBg = hero.page
-      expect(l0.message.bg !== "rgba(0, 0, 0, 0)" && l0.message.bg !== pageBg && (dark ? l0.message.bg !== "rgb(255, 255, 255)" : true) && /inset/.test(l0.message.shadow), "Message is the quiet secondary: the scheme's surface, a hairline and a soft foot", { message: l0.message, page: pageBg })
-      expect(l0.follow.h === 40 && l0.message.h === 40 && l0.follow.radius === "12px" && l0.message.radius === "12px", "Follow and Message share one height and Storelib's rounding", { f: [l0.follow.h, l0.follow.radius], m: [l0.message.h, l0.message.radius] })
+      expect(!l0.message, "only Follow: no Message beside it", l0.message)
+      expect(l0.quiet.bg !== "rgba(0, 0, 0, 0)" && l0.quiet.bg !== pageBg && (dark ? l0.quiet.bg !== "rgb(255, 255, 255)" : true) && /inset/.test(l0.quiet.shadow), "Following's face is the quiet secondary: the scheme's surface, a hairline and a soft foot", { quiet: l0.quiet, page: pageBg })
+      expect(l0.follow.h === 40 && l0.follow.radius === "12px", "Follow is 40px with Storelib's rounding", { f: [l0.follow.h, l0.follow.radius] })
       /* globals.css stops every transition inside a plain .group on a touch screen; the crossfade would be a cut there. */
       expect(!l0.inGroup, "the button sits under no .group, so its crossfade runs on a phone too", l0.inGroup)
       await p.screenshot({ path: join(shots, `${label}-${which}-follow.png`), clip: { x: 0, y: 0, width: vp.width, height: Math.min(vp.height, 760) } })
@@ -475,7 +473,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
         await p.mouse.move(1, 1)
         await new Promise((r) => setTimeout(r, 250))
         const l1 = await look()
-        expect(l1.state === "following" && l1.follow.bg === l0.message.bg && l1.follow.border === l0.message.border, "Following settles into the same quiet secondary as Message", { following: l1.follow, message: l0.message })
+        expect(l1.state === "following" && l1.follow.bg === l0.quiet.bg && l1.follow.border === l0.quiet.border, "Following settles into the quiet secondary", { following: l1.follow, quiet: l0.quiet })
         if (!phone) {
           await p.mouse.move(5, 5)
           await frames(p, 2)
@@ -527,7 +525,27 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
           out.settled = Math.round(btn.getBoundingClientRect().height)
           return out
         })
-        expect(press.flag === "true" && press.scale === "0.9" && press.pressedBg !== press.rest && press.after === null && press.settled === 40, "the chevron answers a press on the next frame, and lets go", press)
+        expect(press.flag === "" && press.scale === "none" && press.pressedBg !== press.rest && press.after === null && press.settled === 40, "the chevron answers a press on the next frame with a tint (no shrink), and lets go", press)
+        /* Round 9: works on the first tap, and a double tap goes back once. */
+        const taps = await p.evaluate(async () => {
+          const btn = [...document.querySelectorAll("[data-profile-back-button]")].find((el) => el.getBoundingClientRect().width > 0)
+          let backs = 0
+          const real = history.back.bind(history)
+          history.back = () => { backs++ }
+          btn.click()
+          const first = backs
+          btn.click()
+          await new Promise((r) => setTimeout(r, 60))
+          btn.click()
+          const out = { first, all: backs }
+          /* The fallback for a back that did nothing (no popstate here) lands, then the chevron works again. */
+          await new Promise((r) => setTimeout(r, 1600))
+          btn.click()
+          out.later = backs
+          history.back = real
+          return out
+        })
+        expect(taps.first === 1 && taps.all === 1 && taps.later === 2, "the first tap goes back; a double (or triple) tap goes back once; it works again later", taps)
       }
 
       /* On a phone the newsletter bar is one row, Subscribed included. */

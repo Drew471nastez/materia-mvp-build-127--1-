@@ -45,6 +45,7 @@ import { coverCropStyle } from "@/lib/images/cover-crop"
 import { parseProfileCover } from "@/lib/profile/cover"
 import { EDIT_PROFILE_HREF } from "@/lib/profile/owner-pills"
 import { cn } from "@/lib/utils"
+import { ProfileCoverImage } from "./profile-cover-image"
 import { ProfileSocial } from "./profile-social"
 
 export interface ProfileHeroPerson {
@@ -83,7 +84,6 @@ export function ProfileHero({
   viewerFollowing = false,
   signedIn,
   isSelf,
-  messageHref = null,
   avatar,
   className,
 }: {
@@ -91,7 +91,6 @@ export function ProfileHero({
   viewerFollowing?: boolean
   signedIn: boolean
   isSelf: boolean
-  messageHref?: string | null
   /** The photo, when the caller draws its own (the account keeps its live copy of a just changed photo). */
   avatar?: ReactNode
   className?: string
@@ -103,16 +102,8 @@ export function ProfileHero({
       <div className="relative w-full overflow-hidden bg-[#eceef1]" data-profile-cover={cover.url ? "image" : "plain"}>
         <div className="relative h-[128px] sm:h-[192px] lg:h-[256px]" data-profile-cover-band="">
           {cover.url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={optimizedImageUrl(cover.url, 1600)}
-              alt=""
-              decoding="async"
-              fetchPriority="high"
-              draggable={false}
-              style={coverCropStyle(cover.crop)}
-              className="select-none"
-            />
+            /* Fades in on the band's grey when the page is opened in the app, rather than landing in one frame. */
+            <ProfileCoverImage src={optimizedImageUrl(cover.url, 1600)} style={coverCropStyle(cover.crop)} />
           ) : (
             <div aria-hidden className="absolute inset-0 bg-[radial-gradient(120%_140%_at_50%_0%,#f4f5f7_0%,#e7e9ed_100%)]" />
           )}
@@ -164,7 +155,6 @@ export function ProfileHero({
           viewerFollowing={viewerFollowing}
           signedIn={signedIn}
           isSelf={isSelf}
-          messageHref={messageHref}
         />
       </header>
     </div>

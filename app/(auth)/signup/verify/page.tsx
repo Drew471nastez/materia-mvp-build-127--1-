@@ -283,7 +283,7 @@ function VerifyContent() {
 
       <div className="relative hidden lg:block lg:w-1/2 lg:h-[100dvh] shrink-0 overflow-hidden bg-neutral-900">
         <Image
-          src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/awapage.png"
+          src="https://storelib.com/media/platform%20images/collage%20imags/awapage.png"
           alt="Verify email banner"
           fill
           className="object-cover object-center"

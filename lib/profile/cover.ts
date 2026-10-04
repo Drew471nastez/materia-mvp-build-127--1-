@@ -53,6 +53,13 @@ export function ownCoverUrl(value: unknown, userId: string, storageHost: string 
   } catch {
     return null
   }
+  /* Storelib's own address for a cover (https://storelib.com/media/covers/…) is kept as it is. */
+  const main = (process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com").toLowerCase()
+  if (url.protocol === "https:" && !url.username && !url.password && url.hostname.toLowerCase() === main) {
+    const own = `/media/covers/${userId}/`
+    if (!url.pathname.startsWith(own) || url.pathname.length <= own.length || url.pathname.includes("..")) return null
+    return `${url.origin}${url.pathname}`
+  }
   if (url.protocol !== "https:" || url.username || url.password) return null
   const host = url.hostname.toLowerCase()
   if (storageHost ? host !== storageHost.toLowerCase() : !host.endsWith(".supabase.co")) return null

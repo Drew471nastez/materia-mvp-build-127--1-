@@ -294,7 +294,7 @@ export default function VerifyEmailContent() {
       <div className="relative hidden lg:block lg:w-1/2 lg:h-[100dvh] shrink-0 overflow-hidden">
         {!isBannerLoaded && <div className="absolute inset-0 animate-pulse bg-gradient-to-br from-neutral-100 via-neutral-200 to-neutral-100" />}
         <Image
-          src="https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/awapage.png"
+          src="https://storelib.com/media/platform%20images/collage%20imags/awapage.png"
           alt="Verify email banner"
           fill
           className="object-cover object-center transition-opacity duration-500"

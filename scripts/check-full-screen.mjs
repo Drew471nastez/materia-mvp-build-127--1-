@@ -146,6 +146,9 @@ try {
   const before = await page.evaluate(STATE)
   expect(before.fold === "open" && before.foldWidth > 200 && before.switchVisible && before.pressed === "false", "the switch sits beside desktop / phone, off", before)
 
+  /* One icon cycles desktop, phone, large: phone first, then the click that is filmed goes to Large. */
+  await page.click("[data-wb-full-screen-switch]")
+  await sleep(500)
   const filmIn = page.evaluate(FILM, 700)
   await page.click("[data-wb-full-screen-switch]")
   const inFrames = await filmIn

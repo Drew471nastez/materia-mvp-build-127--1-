@@ -102,7 +102,7 @@ async function run() {
   check("  and a migration", read("supabase/migrations/20261110_store_menus.sql") === sql)
 
   const published = read("lib/website-builder/published-site.ts")
-  check("the live site draws with the store's menus", /withStoreMenus\(\s*sanitizeThemeSettings\(/.test(published) && /storeMenusOrNull\(admin, creatorId\)/.test(published))
+  check("the live site draws with the store's menus", /sanitizeThemeSettings\(\s*withStoreMenus\(/.test(published) && /storeMenusOrNull\(admin, creatorId\)/.test(published))
   const renderSite = read("app/(site)/w/[username]/render-site.tsx")
   check("  and so do a preview and a cover", (renderSite.match(/withStoreMenus\(/g) ?? []).length === 2)
   const project = read("lib/agent-access/project.ts")

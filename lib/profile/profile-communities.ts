@@ -18,7 +18,11 @@ import "server-only"
  * member directory is open. messageTarget finds such a community, most
  * recently active first, and answers that community's page with ?dm=<id>,
  * which opens the conversation in place (desktop panel, phone screen) and
- * never a member page. No shared community, no Message button.
+ * never a member page.
+ *
+ * NOT DRAWN FOR NOW. The owner asked for only Follow on profiles and creator
+ * pages (round 9), so no page calls messageTarget today; it stays, tested,
+ * for the day Message comes back.
  */
 import { cardsFor, CARD_COLUMNS, type CardRow } from "@/lib/communities/server/public"
 import type { CommunityCard } from "@/lib/communities/types"
