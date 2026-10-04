@@ -86,7 +86,8 @@ console.log("\n4 and 5. the phone menu, logged out")
   check("Sell on Storelib as purple text, to /sell", /go\("\/sell"\)\}\s*data-menu-sell=""[^>]*text-violet-600/.test(sheet))
   check("the buttons take the shared corner", /SHEET_BUTTON =\s*"[^"]*rounded-action/.test(header))
   check("the marketing menu has Discover", /<GuestSheetActions second="discover"/.test(header))
-  check("Explore's menu has Log in instead", /<GuestSheetActions second="login"/.test(header))
+  /* Round 3: Explore's hamburger is the navigator, whose signed out foot is Log in and Start creating (lib/nav/places-shared navigatorModel). */
+  check("Explore's menu is the navigator, with Log in and Start creating", /<PlaceNavigator\b/.test(header) && /key: "log-in", label: "Log in", href: "\/login"/.test(readCode("lib/nav/places-shared.ts")))
   check("and neither keeps the old Sign in and black Discover pair", !/data-menu-sign-in|bg-gray-900 text-white/.test(header))
 }
 
@@ -98,7 +99,7 @@ console.log("\n6. signed in")
   check("both computer rows show the Dashboard button and the photo's menu only when signed in", (header.match(/\{sellerDashboardButton\}\s*\{desktopAccountMenu\}/g) ?? []).length === 2)
   check("no link in the header goes to /onboarding: /sell decides", !/["']\/onboarding["']/.test(header))
   check("Become a seller goes to /sell from both phone sheets",
-    /function BecomeSellerRow[\s\S]{0,200}link\("\/sell"\)/.test(header) && /<MenuRow seller href="\/sell" label=\{sellingLabel\(sellerState\)\}/.test(header) && (header.match(/<BecomeSellerRow link=\{headerLink\} state=\{sellerState\}/g) ?? []).length === 2)
+    /function BecomeSellerRow[\s\S]{0,200}link\("\/sell"\)/.test(header) && (header.match(/<BecomeSellerRow link=\{headerLink\} state=\{sellerState\}/g) ?? []).length === 2)
   /* The profile's three (sellingEntry in lib/account/overview.ts): a seller who left the setup half done is asked to finish it. */
   check("a seller who began the setup and left it is asked to finish it, not to become one",
     /export const sellingLabel = \(state: SellerState\) => \(state === "started" \? "Finish setting up your store" : "Become a seller"\)/.test(header) && /setSellerState\(access\.state\)/.test(header))
@@ -106,8 +107,25 @@ console.log("\n6. signed in")
     /if \(profileErr\) \{[\s\S]{0,700}?const state = sellerAccessFrom\(\{ creator: creatorData, profile: null \}\)\.state\s*setIsCreator\(state === "seller"\)\s*setHasCompletedSellerOnboarding\(state === "seller"\)/.test(header))
   check("it is a calm row, not a badge: a pale violet ground, the height of its neighbours", /data-become-seller=""\s*className="[^"]*rounded-xl bg-\[#f5f3ff\] px-4 py-3\.5 text-base font-medium text-violet-700/.test(header))
   check("a seller gets Dashboard there instead", (header.match(/hasCompletedSellerOnboarding \? \(/g) ?? []).length >= 3)
-  check("on a computer the photo is a link to /account, not a menu", /<Link\s+\{\.\.\.headerLink\("\/account"\)\}\s+aria-label="Your account"\s+data-header-avatar=""/.test(header) && !/data-account-menu|desktopProfileOpen/.test(header))
-  check("the phone sheets lead to /account too (the profile card, Settings)", (header.match(/headerLink\("\/account"\)/g) ?? []).length === 3)
+  /*
+    ROUND 3, ask 8: "clicking my avatar on desktop opens an inline dropdown
+    like the phone menu and like /app's account dropdown (not a navigation to
+    /account): first Start creating (non creators, to /sell) or Dashboard
+    (creators, /app), then Profile (/account), Settings, Language, Help,
+    Discover (/explore), and Log out last."
+  */
+  {
+    const menu = fn(header, "DesktopAccountMenu")
+    const order = [...menu.matchAll(/data-account-item="([a-z-]+)"/g)].map((m) => m[1])
+    check("on a computer the photo opens a menu, not a page", /aria-haspopup="menu"/.test(menu) && /data-header-avatar=""/.test(menu) && /role="menu"/.test(menu) && !/<Link\s+\{\.\.\.headerLink\("\/account"\)\}\s+aria-label="Your account"/.test(header))
+    check("in the owner's order: Dashboard or Start creating, Profile, Settings, Language, Help, Discover, Log out", order.join(",") === "dashboard,start-creating,profile,settings,language,help,discover,log-out", order)
+    check("Dashboard for a seller and Start creating for anybody else", /\{seller \? \(\s*<Link \{\.\.\.go\("\/app"\)\}[\s\S]{0,200}Dashboard[\s\S]{0,80}\) : \(\s*<Link \{\.\.\.go\("\/sell"\)\}[\s\S]{0,200}Start creating/.test(menu))
+    check("Profile is /account, Settings /account/settings, Help /help, Discover /explore", /go\("\/account"\)\} role="menuitem" data-account-item="profile"/.test(menu) && /go\("\/account\/settings"\)/.test(menu) && /go\("\/help"\)/.test(menu) && /go\("\/explore"\)\} role="menuitem" data-account-item="discover"/.test(menu))
+    check("Language is the one language picker, and Log out is the header's own", /onLanguage=\{\(\) => setLanguageOpen\(true\)\}/.test(header) && /onLogout=\{handleLogout\}/.test(header))
+    check("a second click, a click outside, Escape and a new page close it", /onClick=\{\(\) => setOpen\(\(o\) => !o\)\}/.test(menu) && /document\.addEventListener\("pointerdown", away, true\)/.test(menu) && /e\.key !== "Escape"/.test(menu) && /useEffect\(\(\) => setOpen\(false\), \[pathname\]\)/.test(menu))
+    check("it moves by opacity, scale and translate only, and kept while it leaves", /transition-\[opacity,scale,translate\] motion-reduce:transition-none/.test(header) && /open \? HEADER_MENU_OPEN : HEADER_MENU_LEAVING/.test(menu) && /setPresent\(false\)/.test(menu))
+  }
+  check("the phone sheets lead to /account too (the profile card, Settings)", (header.match(/headerLink\("\/account"\)/g) ?? []).length === 2)
   check("no settings link in the header goes anywhere but /account", !/"\/library\/settings"|"\/app\/settings"/.test(header))
   check("the account sheet keeps My Library, Settings and Language", /<span>My Library<\/span>/.test(header) && /<span>Settings<\/span>/.test(header) && /t\("settings\.language"\)/.test(header))
   check("and it does not put the email under the name", !/\{user\?\.email && <p className="text-sm text-gray-500 truncate">\{user\.email\}<\/p>\}/.test(header))

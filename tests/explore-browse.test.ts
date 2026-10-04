@@ -111,11 +111,18 @@ function main() {
   check("the Active: row under the pills is gone", !/>\s*Active:\s*</.test(page))
   check("For you keeps its own order", /mainCategory === FOR_YOU_ID && !searching \? "for-you"/.test(page))
 
-  console.log("\n4. The header's category menu is the same list")
-  check("on a computer", /data-header-categories[\s\S]{0,1200}<CategoryBrowser\b/.test(header))
-  check("and in the phone sheet, at a fixed height", /fill=\{!isMarketingNavRoute\}/.test(header) && /height=\{isMarketingNavRoute \? undefined : "min\(78dvh, 680px\)"\}/.test(header))
+  /*
+    ROUND 3: the owner moved the header's hamburger to the navigator (my
+    communities, Discover communities, Explore, Dashboard or Start creating;
+    tests/place-navigator.test.ts). Categories are browsed on Explore itself,
+    from its pills and More (section 2 above), so the header no longer
+    carries a second copy of the list.
+  */
+  console.log("\n4. The header's hamburger is the navigator; categories stay on Explore")
+  check("the header no longer draws the category browser", !/<CategoryBrowser\b|data-header-categories|data-categories-dropdown/.test(header))
+  check("its hamburger is the navigator", /<PlaceNavigator\b/.test(header))
+  check("Explore still has the whole list, from More", /<ExploreCategoryPicker\b/.test(page) && /<CategoryBrowser\b/.test(picker))
   check("no Back to Categories link, no Hot badge, no violet icon", !/Back to Categories|<Flame|text-violet-500/.test(header))
-  check("it ticks the category Explore is on, read from c as well as category", /searchParams\.get\("c"\) \|\| searchParams\.get\("category"\)/.test(header))
 
   console.log("\n5. A category page is built from Explore's parts")
   const catLoading = code("app/(marketing)/explore/[category]/loading.tsx")
