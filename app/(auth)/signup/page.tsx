@@ -24,6 +24,7 @@ import { HtmlClass } from "@/components/platform/html-class"
 import { readCarry, withCarry } from "@/lib/auth/continue"
 import { goOnAfterAuth, rememberNativeCarry } from "@/lib/auth/continue-client"
 import { openAuthSheet, signInWithNativeGoogle } from "@/lib/auth/native-sign-in"
+import { GOOGLE_OAUTH_QUERY } from "@/lib/auth/google-oauth-params"
 
 function SignUpFormContent() {
   const { t } = useLocale()
@@ -441,7 +442,8 @@ function SignUpFormContent() {
           provider: "google",
           options: {
             redirectTo: nativeCallbackUrl,
-            queryParams: { access_type: "offline", prompt: "consent" },
+            /* Nothing extra: Google continues with the account it already has (lib/auth/google-oauth-params.ts). */
+            queryParams: GOOGLE_OAUTH_QUERY,
             skipBrowserRedirect: true,
           },
         })

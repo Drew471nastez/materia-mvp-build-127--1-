@@ -12,6 +12,7 @@
  *   - The nativeAuthInProgress flag is owned here so all callers agree on state.
  */
 
+import { GOOGLE_OAUTH_QUERY } from "@/lib/auth/google-oauth-params"
 import { needsDocumentLoad, nativeLinkFor } from "@/lib/native-links"
 import { forgetLastPlace } from "@/lib/native-resume"
 
@@ -276,7 +277,7 @@ export async function startNativeGoogleOAuth(
     provider: "google",
     options: {
       redirectTo: callbackUrl,
-      queryParams: { access_type: "offline", prompt: "consent" },
+      queryParams: GOOGLE_OAUTH_QUERY,
       skipBrowserRedirect: true,
     },
   })

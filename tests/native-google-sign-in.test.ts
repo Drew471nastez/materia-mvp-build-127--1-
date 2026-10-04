@@ -8,6 +8,7 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
 import { hasNativeGoogle, isCancelled } from "@/lib/auth/native-sign-in"
+import { oauthQueryFor } from "@/lib/auth/google-oauth-params"
 import { syncSessionHref } from "@/lib/auth/native-session"
 
 let passed = 0
@@ -19,6 +20,7 @@ function check(name: string, ok: boolean, detail?: unknown) {
 }
 const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
 
+const oauthQueryForApple = () => oauthQueryFor("apple")
 const sign = read("lib/auth/native-sign-in.ts")
 const login = read("app/(auth)/login/page.tsx")
 const signup = read("app/(auth)/signup/page.tsx")
@@ -33,7 +35,8 @@ console.log("\nThe browser opens as a sheet, never a takeover\n")
 console.log("\nThe phone's own Google sheet, where the build has one\n")
 {
   check("found at runtime, never imported, so a web build carries nothing", /Capacitor\?: \{ Plugins\?: Plugins \}/.test(sign) && !/from "@capgo\/capacitor-social-login"/.test(sign) && !/from "@codetrix-studio/.test(sign))
-  check("  three plugins are spoken to: Credential Manager's sheet first", /p\.SocialLogin/.test(sign) && /p\.GoogleAuth/.test(sign) && /p\.FirebaseAuthentication/.test(sign) && sign.indexOf("p.SocialLogin") < sign.indexOf("p.GoogleAuth"))
+  check("  the shared cookie one is there too, so iOS can know the person without a Google SDK", /p\.OAuth2Client/.test(sign) && /ASWebAuthenticationSession/.test(sign))
+  check("  four plugins are spoken to: Credential Manager's sheet first", /p\.SocialLogin/.test(sign) && /p\.GoogleAuth/.test(sign) && /p\.FirebaseAuthentication/.test(sign) && sign.indexOf("p.SocialLogin") < sign.indexOf("p.GoogleAuth"))
   check("  none in this build: no sheet, said plainly", hasNativeGoogle() === false)
   check("  the token goes straight to Supabase, with no browser and no deep link", /signInWithIdToken\(\{ provider: "google", token \}\)/.test(sign))
   check("backing out is not an error", isCancelled("The user canceled the sign-in flow") && isCancelled("12501") && !isCancelled("network request failed"))
@@ -48,6 +51,15 @@ console.log("\nBoth pages ask for it, and signup no longer signs in inside the W
   }
   check("signup opens Google outside the WebView now", /if \(Capacitor\.isNativePlatform\(\)\) \{[\s\S]{0,2000}skipBrowserRedirect: true/.test(signup))
   check("  and only a browser, never the app's own window, is sent to Google", !/window\.location\.href = `\$\{canonicalUrl\}\$\{withCarry\("\/auth\/start\?provider=google"[\s\S]{0,40}\n\s*\}\s*\n\s*if \(Capacitor/.test(signup))
+}
+
+console.log("\nGoogle is not asked to forget the person every time\n")
+{
+  const params = read("lib/auth/google-oauth-params.ts")
+  check("nothing extra is asked for, so Google continues with the account it has", /export const GOOGLE_OAUTH_QUERY: Record<string, string> = \{\}/.test(params))
+  check("  no sign in anywhere still forces the consent screen", !/access_type: "offline"/.test(login + signup + read("app/auth/start/route.ts") + read("lib/native-bridge.ts")))
+  check("  on the web too, through the same one decision", /oauthQueryFor\(provider\)/.test(read("app/auth/start/route.ts")))
+  check("  and Apple is still asked for nothing", oauthQueryForApple() === undefined)
 }
 
 console.log("\nWhere a person lands is decided once\n")
