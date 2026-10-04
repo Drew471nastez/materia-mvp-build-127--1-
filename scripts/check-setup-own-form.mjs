@@ -333,6 +333,109 @@ try {
     await p.close()
   }
   {
+    /*
+      IN THE PHONE APP, THE ID CHECK STAYS IN THE APP. Nothing is opened:
+      no browser sheet, no Stripe page, not even a session asked for. The
+      camera that is already in the app does it.
+    */
+    console.log("\nThe ID check in the phone app (390px)")
+    const p = await browser.newPage()
+    const errors = []
+    p.on("pageerror", (e) => errors.push(e.message))
+    await p.evaluateOnNewDocument(() => {
+      Object.defineProperty(window, "Capacitor", { value: { isNativePlatform: () => true, Plugins: {} }, configurable: true })
+    })
+    await p.setUserAgent("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 StorelibApp Capacitor")
+    await p.setRequestInterception(true)
+    const asked = []
+    const opened = []
+    const idNeeds = { ...needsNow, fields: ["document"], tos: false, bank: false }
+    p.on("request", (r) => {
+      const u = r.url()
+      const json = (body) => r.respond({ status: 200, contentType: "application/json", body: JSON.stringify(body) })
+      if (u.startsWith("http://probe.test/__file")) return r.respond({ status: 200, contentType: "font/woff2", body: readFileSync(decodeURIComponent(u.slice("http://probe.test/__file".length))) })
+      if (u.startsWith("http://probe.test/app/payouts")) return r.respond({ status: 200, contentType: "text/html", body: html })
+      if (u.startsWith("http://probe.test/api/payments/")) {
+        const action = u.slice("http://probe.test/api/payments/".length)
+        asked.push(action)
+        if (action === "details-form") return json({ ...form(idNeeds), active: true })
+        return json({})
+      }
+      if (/stripe\.com/.test(u)) opened.push(u)
+      if (u.startsWith("data:") || u.startsWith("blob:")) return r.continue()
+      r.abort()
+    })
+    p.on("popup", (t) => opened.push(`popup:${t.url()}`))
+    await p.bringToFront()
+    await p.setViewport({ width: 390, height: 844, deviceScaleFactor: 1, isMobile: true, hasTouch: true })
+    await p.goto("http://probe.test/app/payouts")
+    await p.waitForSelector("[data-id-photo]", { timeout: 8000 })
+    const press = await p.evaluate(() => {
+      const el = document.querySelector("[data-identity-open]") ?? document.querySelector("[data-id-camera-open]")
+      el?.dispatchEvent(new MouseEvent("click", { bubbles: true }))
+      return el?.getAttribute("data-identity-open") === "" ? "stripe" : "camera"
+    })
+    await new Promise((r) => setTimeout(r, 1200))
+    const after = await p.evaluate(() => ({ camera: !!document.querySelector("[data-id-camera]"), panel: !!document.querySelector("[data-payments-setup-panel]") }))
+    expect(after.camera, "the app's own camera opens, in the app", { press, ...after })
+    expect(after.panel, "and the setup page is still the page", after)
+    expect(!asked.includes("identity"), "no Stripe Identity session is even asked for in the app", asked)
+    expect(opened.length === 0, "nothing at Stripe is opened, in a sheet or anywhere else", opened.slice(0, 2))
+    expect(errors.length === 0, "nothing threw", errors.slice(0, 1))
+    await p.screenshot({ path: join(out, "native-id-390.png") })
+    await p.close()
+  }
+  {
+    /*
+      "Checking your ID" waits with the creator instead of sending them away
+      with a number of days: it asks again, and becomes Payments active by
+      itself the moment Stripe is satisfied.
+    */
+    console.log("\nThe checking screen resolves itself (390px)")
+    const p = await browser.newPage()
+    const errors = []
+    p.on("pageerror", (e) => errors.push(e.message))
+    await p.setRequestInterception(true)
+    let refreshes = 0
+    const nothingLeft = { ...needsNow, fields: [], tos: false, bank: false }
+    p.on("request", (r) => {
+      const u = r.url()
+      const json = (body) => r.respond({ status: 200, contentType: "application/json", body: JSON.stringify(body) })
+      if (u.startsWith("http://probe.test/__file")) return r.respond({ status: 200, contentType: "font/woff2", body: readFileSync(decodeURIComponent(u.slice("http://probe.test/__file".length))) })
+      if (u.startsWith("http://probe.test/app/payouts")) return r.respond({ status: 200, contentType: "text/html", body: html })
+      if (u.startsWith("http://probe.test/api/payments/")) {
+        const action = u.slice("http://probe.test/api/payments/".length)
+        if (action === "details-form") return json(form(nothingLeft))
+        if (action === "refresh") {
+          refreshes += 1
+          /* Stripe is still looking the first time, and satisfied by the next. */
+          return json(
+            refreshes < 2
+              ? { ...doneOverview, beat: "review", paymentsStatus: { status: "VERIFYING", title: "", line: "", action: null } }
+              : doneOverview,
+          )
+        }
+        return json({})
+      }
+      if (u.startsWith("data:")) return r.continue()
+      r.abort()
+    })
+    await p.bringToFront()
+    await p.setViewport({ width: 390, height: 844, deviceScaleFactor: 1, isMobile: true, hasTouch: true })
+    await p.goto("http://probe.test/app/payouts?checking=1")
+    await p.waitForFunction(() => /Checking your ID/.test(document.querySelector("[data-payments-setup-panel]")?.textContent ?? ""), { timeout: 8000 })
+    const waiting = await p.evaluate(() => document.querySelector("[data-payments-setup-panel]")?.textContent ?? "")
+    expect(!/business days|two days/i.test(waiting), "it never promises days", waiting.slice(0, 160))
+    await p.screenshot({ path: join(out, "checking-390.png") })
+    await p.waitForFunction(() => /Payments active/.test(document.querySelector("[data-payments-setup-panel]")?.textContent ?? ""), { timeout: 15000 }).catch(() => {})
+    expect(
+      await p.evaluate(() => /Payments active/.test(document.querySelector("[data-payments-setup-panel]")?.textContent ?? "")),
+      "and becomes Payments active by itself once Stripe is satisfied",
+    )
+    expect(errors.length === 0, "nothing threw", errors.slice(0, 1))
+    await p.close()
+  }
+  {
     /* The country sheet, opened from inside the setup panel: it must rise once and stop. */
     console.log("\nThe country sheet rises smoothly (390px)")
     const p = await browser.newPage()
