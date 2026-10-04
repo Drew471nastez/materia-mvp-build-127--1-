@@ -1908,31 +1908,38 @@ export function PlatformHeaderClient({
           ) : (
             <>
               {/*
-                THE NAVIGATOR, THEN THE LOGO, AT EVERY WIDTH. The three lines
-                left of the logo used to open category browsing; they open the
-                navigator now (components/nav/place-navigator.tsx): my
-                communities, Discover communities, Explore, and Dashboard or
-                Start creating. The same component sits beside a community's
-                name in its own top bar. Categories are browsed on Explore
-                itself, from its pills and its More picker.
+                THE LOGO, THEN THE NAVIGATOR, AT EVERY WIDTH. The three lines
+                sit right of the logo (the owner's ask, round 4): the logo is
+                where the eye lands first and the lines read as the menu that
+                belongs to it. They open the navigator
+                (components/nav/place-navigator.tsx): what I opened lately
+                from my library, my communities, Discover communities,
+                Explore, and Dashboard or Start creating. The same component
+                sits right of a community's name in its own top bar.
+                Categories are browsed on Explore itself.
 
                 One navigator for the phone row and the computer row, so the
-                phone keeps one sheet. Pulled 8px into the bar's padding on a
-                phone and 6px on a computer, so its lines start where the old
-                icon's did.
+                phone keeps one sheet. The logo is drawn at the phone's size
+                below md and the computer's from md, as it was; the lines
+                keep 4px from the wordmark, so the button's own 9px of air
+                makes the gap the logo and the lines had on storelib.com.
               */}
-              <div className="flex shrink-0 items-center gap-2 -ml-2 md:-ml-1.5" data-header-left="">
-                <PlaceNavigator
-                  current={{ kind: "storelib" }}
-                  onNavigate={(e, href) => onCanonicalNav(e, href)}
-                  /* The slack runs to the left and up and down, where a thumb undershoots; not to the right, where the logo is a target of its own. */
-                  className={cn("z-10 before:absolute before:-left-3 before:-top-2 before:-bottom-2 before:right-0 before:content-[''] md:before:content-none", chrome.navigator)}
-                />
+              <div className="flex shrink-0 items-center gap-1" data-header-left="">
                 {/* Logo with Storelib text - links to /explore */}
-                <Link href={buyerLogoHref} onClick={(e) => onCanonicalNav(e, buyerLogoHref)} className="shrink-0 hidden md:flex items-center gap-2">
+                <Link href={buyerLogoHref} onClick={(e) => onCanonicalNav(e, buyerLogoHref)} className="shrink-0 flex items-center gap-1.5 md:hidden" data-header-logo="phone">
+                  <StorelibLogo size={HEADER_LOGO.phone} priority />
+                  <span className={chrome.wordmarkPhone}>Storelib</span>
+                </Link>
+                <Link href={buyerLogoHref} onClick={(e) => onCanonicalNav(e, buyerLogoHref)} className="shrink-0 hidden md:flex items-center gap-2" data-header-logo="desk">
                   <StorelibLogo size={HEADER_LOGO.desktop} priority />
                   <span className={chrome.wordmark}>Storelib</span>
                 </Link>
+                <PlaceNavigator
+                  current={{ kind: "storelib" }}
+                  onNavigate={(e, href) => onCanonicalNav(e, href)}
+                  /* The slack runs to the right and up and down, where there is nothing else to hit; not to the left, where the logo is a target of its own. */
+                  className={cn("z-10 before:absolute before:-right-3 before:-top-2 before:-bottom-2 before:left-0 before:content-[''] md:before:content-none", chrome.navigator)}
+                />
               </div>
 
           {/* Desktop Search - Centered with Modal (10% larger) */}
@@ -2146,18 +2153,8 @@ export function PlatformHeaderClient({
             )
           })()}
 
-          {/* Mobile Header for Non-Homepage pages */}
-          {/* -ml-4: the row starts right after the navigator's 40px button (in the left group above), so the logo sits where it did beside the old hamburger. */}
-          <div className="md:hidden flex items-center justify-between flex-1 -ml-4">
-            {/* Logo left (the navigator is just before it), icons right */}
-            <div className="flex items-center gap-0">
-              {/* Logo next to hamburger - links to /explore */}
-              <Link href={buyerLogoHref} onClick={(e) => onCanonicalNav(e, buyerLogoHref)} className="shrink-0 flex items-center gap-1.5">
-                <StorelibLogo size={HEADER_LOGO.phone} priority />
-                <span className={chrome.wordmarkPhone}>Storelib</span>
-              </Link>
-            </div>
-
+          {/* Mobile Header for Non-Homepage pages: the logo and the navigator are in the left group above; this row is the icons at the right. */}
+          <div className="md:hidden flex items-center justify-end flex-1">
             {/* Right - Mobile Icons */}
             <div className="flex items-center gap-1">
               {/* Library - only show when logged in and the tab bar is not there

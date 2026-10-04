@@ -7,10 +7,12 @@
  * .tsx), at 1440x900 and 390x844, and checks round 3's asks 8, 9 and 10 as
  * numbers:
  *
- *   THE NAVIGATOR. Left of the logo, a little bigger; it opens my
- *   communities (the current one marked), Discover communities, Explore and
- *   Start creating or Dashboard; signed out Explore, Discover communities,
- *   Log in and Start creating. A popover on a computer that comes and goes
+ *   THE NAVIGATOR. Right of the logo (round 4, ask 7; right of the name in a
+ *   community's bar), a little bigger; it opens Recently opened (my own
+ *   digital products and courses with their covers, round 4 ask 9, and no
+ *   such section when there are none), my communities (the current one
+ *   marked), Discover communities, Explore and Start creating or Dashboard;
+ *   signed out Explore, Discover communities, Log in and Start creating. A popover on a computer that comes and goes
  *   on opacity, scale and translate only, a sheet on a phone. A second
  *   click, a click outside and Escape close it; reduced motion does not move.
  *   THE ACCOUNT MENU. The photo opens it, in the owner's order.
@@ -235,15 +237,16 @@ console.log("\ncomputer 1440, Explore, signed in buyer: the bar")
     const root = document.getElementById("platform-header-root")
     const trig = root.querySelector("[data-place-navigator-trigger]")
     const lines = trig.querySelector("[data-navigator-lines]")
-    const logo = [...root.querySelectorAll("[data-storelib-logo]")].find((i) => i.getBoundingClientRect().width > 0)
-    const box = (el) => { const r = el.getBoundingClientRect(); return { x: Math.round(r.left), right: Math.round(r.right), w: Math.round(r.width), h: Math.round(r.height) } }
+    const logo = [...root.querySelectorAll("[data-header-logo]")].find((i) => i.getBoundingClientRect().width > 0)
+    const box = (el) => { const r = el.getBoundingClientRect(); return { x: Math.round(r.left), right: Math.round(r.right), w: Math.round(r.width), h: Math.round(r.height), cy: Math.round(r.top + r.height / 2) } }
     return { bg: getComputedStyle(root).backgroundColor, trigger: box(trig), lines: box(lines), logo: logo && box(logo), categories: !!root.querySelector("[data-categories-dropdown], [data-header-categories]"), overflow: document.documentElement.scrollWidth - innerWidth }
   })
   await shot(p, { path: join(shots, "desk-1440-explore-bar.png"), clip: { x: 0, y: 0, width: 1440, height: 110 } })
   /* Chromium reports a colour with alpha in oklab: #fcfcfd is L 0.991, the old #f7f8f9 was L 0.979. */
   const L = Number(bar.bg.match(/oklab\(([\d.]+)/)?.[1] ?? NaN)
   expect(L > 0.988 && L < 1, "the bar is a little whiter (#fcfcfd, lightness 0.991 where #f7f8f9 was 0.979)", bar.bg)
-  expect(bar.trigger.right <= bar.logo.x, "the navigator sits left of the logo", { trigger: bar.trigger, logo: bar.logo })
+  expect(!!bar.logo && bar.trigger.x >= bar.logo.right, "the navigator sits RIGHT of the logo and its wordmark", { trigger: bar.trigger, logo: bar.logo })
+  expect(!!bar.logo && bar.lines.x - bar.logo.right >= 8 && bar.lines.x - bar.logo.right <= 20 && Math.abs(bar.trigger.cy - bar.logo.cy) <= 2, "close beside it (the lines 8 to 20px after the wordmark) and centred on the same line", { gap: bar.logo && bar.lines.x - bar.logo.right, dy: bar.logo && bar.trigger.cy - bar.logo.cy })
   expect(bar.trigger.w === 40 && bar.trigger.h === 40 && bar.lines.w === 22, "a 40px button with 22px lines (the old icon was an 18px glyph)", { trigger: bar.trigger, lines: bar.lines.w })
   expect(!bar.categories && bar.overflow <= 0, "no category menu in the bar, and nothing wider than the window", bar)
 
@@ -265,14 +268,18 @@ console.log("\ncomputer 1440, Explore, signed in buyer: the bar")
   const rows = await navRows(p)
   await shot(p, { path: join(shots, "desk-1440-explore-navigator.png"), clip: { x: 0, y: 0, width: 520, height: 520 } })
   const texts = rows.map((r) => r.text).join(" | ")
-  expect(texts === "Your communities | Mara Club | Film School Collective | Morning Runners | Discover communities | Explore | Start creating", "my communities in order, then Discover communities, Explore, Start creating", texts)
+  expect(texts === "Recently opened | Color Grading for Film: the complete course | Ambience Kit Vol. 1 | Your communities | Mara Club | Film School Collective | Morning Runners | Discover communities | Explore | Start creating", "Recently opened first (a course and a download), then my communities in order, Discover communities, Explore, Start creating", texts)
+  expect(rows.find((r) => r.text.startsWith("Color Grading"))?.href === "/account/library/courses/k-grade" && rows.find((r) => r.text === "Ambience Kit Vol. 1")?.href === "/account/library/products/p-amb", "the course opens its player, the download its page in the library")
+  const things = await p.evaluate((sel) => [...document.querySelectorAll(`${sel} [data-navigator-product]`)].map((a) => { const pic = a.querySelector("[data-app-avatar]").getBoundingClientRect(); const t = a.querySelector("span.truncate"); return { kind: a.getAttribute("data-navigator-product"), pic: Math.round(pic.width), radius: getComputedStyle(a.querySelector("[data-app-avatar]")).borderTopLeftRadius, truncates: t.scrollWidth > t.clientWidth, h: Math.round(a.getBoundingClientRect().height) } }), NAV_PANEL)
+  expect(things.length === 2 && things.every((t) => t.pic === 32 && t.radius === "8px" && t.h >= 44), "each with its 32px cover (squared at 8px, not a round avatar), at least 44px tall", things)
+  expect(things[0]?.truncates === true, "a long title ends in an ellipsis on one line rather than wrapping", things[0])
   expect(rows.find((r) => r.text === "Start creating")?.href === "/sell" && rows.find((r) => r.text === "Discover communities")?.href === "/explore/communities", "Start creating goes to /sell, Discover communities to /explore/communities")
   expect(rows.filter((r) => r.current).length === 0, "nothing is marked current on Storelib's own pages")
   const focus = await p.evaluate(() => document.activeElement?.getAttribute("data-place-navigator-panel"))
   expect(focus === "popover", "the panel takes focus, so arrows and Escape work from the first key", focus)
   await p.keyboard.press("ArrowDown")
   const down = await p.evaluate(() => document.activeElement?.textContent?.trim())
-  expect(/Mara Club$/.test(down), "ArrowDown moves to the first row", down)
+  expect(/Color Grading for Film: the complete course$/.test(down), "ArrowDown moves to the first row", down)
 
   console.log("\n  a second click on the button closes it")
   await throttle(p, 4)
@@ -309,6 +316,8 @@ console.log("\ncomputer 1440, a community's bar: the same navigator, the communi
   await shot(p, { path: join(shots, "desk-1440-community-navigator.png"), clip: { x: 0, y: 0, width: 760, height: 520 } })
   const cur = rows.filter((r) => r.current)
   expect(cur.length === 1 && cur[0].text === "Mara Club" && cur[0].aria === "page", "Mara Club is marked as where I am", cur)
+  const place = await p.evaluate(() => { const t = document.querySelector("[data-place-navigator-trigger]").getBoundingClientRect(); const id = document.querySelector("[data-community-identity]").getBoundingClientRect(); const mark = document.querySelector("[data-community-mark-stand-in]").getBoundingClientRect(); return { trigger: Math.round(t.left), name: Math.round(id.right), mark: Math.round(mark.right) } })
+  expect(place.trigger >= place.name && place.name > place.mark, "the hamburger sits right of the community's picture and name", place)
   const panel = await p.evaluate((sel) => { const r = document.querySelector(sel).getBoundingClientRect(); return { x: Math.round(r.left), right: Math.round(r.right) } }, NAV_PANEL)
   expect(panel.x >= 12 && panel.right <= 1440, "it hangs under the button, inside the window", panel)
   await p.close()
@@ -324,6 +333,20 @@ console.log("\ncomputer 1440, signed out")
   await shot(p, { path: join(shots, "desk-1440-guest-navigator.png"), clip: { x: 0, y: 0, width: 520, height: 360 } })
   const texts = rows.map((r) => r.text).join(" | ")
   expect(texts === "Explore | Discover communities | Log in | Start creating", "Explore, Discover communities, Log in, Start creating", texts)
+  await p.close()
+}
+
+/* ------------------------------------------------------------------ */
+console.log("\ncomputer 1440, a seller who bought nothing")
+{
+  const p = await open(DESK, "path=/explore&who=seller")
+  await p.click("[data-place-navigator-trigger]")
+  await sleep(500)
+  const rows = await navRows(p)
+  const texts = rows.map((r) => r.text).join(" | ")
+  await shot(p, { path: join(shots, "desk-1440-seller-navigator.png"), clip: { x: 0, y: 0, width: 520, height: 420 } })
+  expect(texts === "Your communities | Mara Club | Film School Collective | Morning Runners | Discover communities | Explore | Dashboard", "no Recently opened at all (no heading, no empty box), then my communities and Dashboard", texts)
+  expect(!(await p.$(`${NAV_PANEL} [data-navigator-products]`)), "the section is not in the page")
   await p.close()
 }
 
@@ -494,13 +517,13 @@ for (const hash of ["path=/explore&who=buyer", "path=/explore&who=guest", "mode=
     const trig = document.querySelector("[data-place-navigator-trigger]")
     const t = trig.getBoundingClientRect()
     const lines = trig.querySelector("[data-navigator-lines]").getBoundingClientRect()
-    const logo = [...document.querySelectorAll("[data-storelib-logo]")].find((i) => i.getBoundingClientRect().width > 0)?.getBoundingClientRect()
-    return { trigger: { x: Math.round(t.left), right: Math.round(t.right), w: Math.round(t.width) }, lines: Math.round(lines.width), linesX: Math.round(lines.left), logoX: logo ? Math.round(logo.left) : null, overflow: document.documentElement.scrollWidth - innerWidth, triggers: document.querySelectorAll("[data-place-navigator-trigger]").length }
+    const logo = [...document.querySelectorAll("[data-header-logo], [data-community-identity]")].find((i) => i.getBoundingClientRect().width > 0)?.getBoundingClientRect()
+    return { trigger: { x: Math.round(t.left), right: Math.round(t.right), w: Math.round(t.width) }, lines: Math.round(lines.width), linesX: Math.round(lines.left), logoX: logo ? Math.round(logo.left) : null, logoRight: logo ? Math.round(logo.right) : null, overflow: document.documentElement.scrollWidth - innerWidth, triggers: document.querySelectorAll("[data-place-navigator-trigger]").length }
   })
   await shot(p, { path: join(shots, `phone-390-${hash.includes("community") ? "community" : hash.includes("guest") ? "guest" : "buyer"}-bar.png`), clip: { x: 0, y: 0, width: 390, height: 100 } })
   expect(bar.overflow <= 0 && bar.triggers === 1, `${tag}: one navigator, nothing wider than the window`, bar)
   expect(bar.lines === 25 && bar.trigger.w >= 40, `${tag}: 25px lines in a 40px button`, bar)
-  if (bar.logoX !== null) expect(bar.trigger.right <= bar.logoX + 0.5 && bar.linesX >= 12, `${tag}: left of the logo, clear of the screen edge`, bar)
+  expect(bar.logoX !== null && bar.trigger.x >= bar.logoRight - 0.5 && bar.logoX >= 12, `${tag}: right of the ${hash.includes("community") ? "community's name" : "logo"}, which keeps its place at the edge`, bar)
   await p.tap("[data-place-navigator-trigger]")
   await sleep(800)
   const sheet = await p.evaluate(() => {
@@ -516,6 +539,7 @@ for (const hash of ["path=/explore&who=buyer", "path=/explore&who=guest", "mode=
     expect(sheet.rows.every((r) => r.h >= 44), `${tag}: every row is at least 44px to a thumb`, sheet.rows.map((r) => r.h))
     if (hash.includes("community")) expect(sheet.rows.find((r) => r.current)?.text === "Mara Club", `${tag}: Mara Club marked`)
     if (hash.includes("guest")) expect(sheet.rows.map((r) => r.text).join(" | ") === "Explore | Discover communities | Log in | Start creating", `${tag}: the signed out rows`, sheet.rows.map((r) => r.text))
+    else expect(sheet.rows.slice(0, 3).map((r) => r.text).join(" | ") === "Color Grading for Film: the complete course | Ambience Kit Vol. 1 | Mara Club", `${tag}: Recently opened first, then my communities`, sheet.rows.slice(0, 3).map((r) => r.text))
   }
   await p.close()
 }

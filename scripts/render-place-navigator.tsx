@@ -6,10 +6,11 @@
  * bell's inbox and read, the wishlist) and reads which page and visitor
  * from the hash:
  *
- *   #path=/explore&who=buyer       signed in, no seller access, in three communities
+ *   #path=/explore&who=buyer       signed in, no seller access, in three communities, two things recently opened
+ *   #path=/explore&who=seller      a seller, in the same communities, nothing bought (no Recently opened)
  *   #path=/help&who=seller         a seller, on a page where the header's own search field shows
  *   #path=/help&who=guest          nobody signed in
- *   #mode=community&who=buyer      a community's own bar with the same navigator, "Mara Club" current
+ *   #mode=community&who=buyer      a community's own bar with the same navigator right of its name, "Mara Club" current
  */
 import React from "react"
 import { createRoot } from "react-dom/client"
@@ -35,7 +36,7 @@ const PIC = "https://abc.supabase.co/storage/v1/object/public/avatars/p.jpg"
 const COVER = "https://abc.supabase.co/storage/v1/object/public/products/cover.jpg"
 const places = () => {
   const who = w.__who
-  if (who === "guest") return { signedIn: false, communitiesOn: true, isCreator: false, hasSellerAccess: false, communities: [] }
+  if (who === "guest") return { signedIn: false, communitiesOn: true, isCreator: false, hasSellerAccess: false, communities: [], products: [] }
   return {
     signedIn: true,
     communitiesOn: true,
@@ -46,6 +47,13 @@ const places = () => {
       { id: "c-film", slug: "film-school", name: "Film School Collective", logoUrl: PIC },
       { id: "c-run", slug: "morning-runners", name: "Morning Runners", logoUrl: null },
     ],
+    /* Recently opened: a course and a download for the buyer; a seller who bought nothing has none, and the section is not drawn. */
+    products: who === "seller"
+      ? []
+      : [
+          { id: "k-grade", kind: "course", title: "Color Grading for Film: the complete course", coverUrl: COVER },
+          { id: "p-amb", kind: "product", title: "Ambience Kit Vol. 1", coverUrl: null },
+        ],
   }
 }
 const now = Date.now()
@@ -73,18 +81,18 @@ window.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
 }) as typeof fetch
 
 function CommunityBar() {
-  /* A stand in for components/community/member/top-bar.tsx: the navigator right before the community's mark and name, as ask 4 places it. */
+  /* A stand in for components/community/member/top-bar.tsx: the navigator right of the community's mark and name, as round 4 places it. */
   return (
     <header className="sticky top-0 z-40 border-b border-[#eceef1] bg-white shadow-[0_1px_2px_rgba(16,18,27,0.04)]">
-      <div className="mx-auto flex h-16 w-full max-w-[1080px] items-center gap-2 px-3 sm:gap-3 sm:px-6 lg:px-8">
-        <PlaceNavigator current={{ kind: "community", id: "c-mara" }} className="-ml-1.5" />
-        <span className="flex h-[38px] w-[38px] items-center justify-center rounded-[10px] bg-[#1a1a2e] text-[15px] font-semibold text-white">M</span>
-        <span className="leading-tight">
-          <span className="block text-[16px] font-semibold text-[#1a1a2e]">Mara Club</span>
+      <div className="mx-auto flex h-14 w-full max-w-[1080px] items-center gap-2.5 px-4 sm:px-6 lg:px-8">
+        <span className="flex h-[34px] w-[34px] items-center justify-center rounded-[10px] bg-[#1a1a2e] text-[15px] font-semibold text-white" data-community-mark-stand-in="">M</span>
+        <span className="leading-tight" data-community-identity="">
+          <span className="block text-[15px] font-semibold text-[#1a1a2e]">Mara Club</span>
           <span className="block text-[12.5px] text-[#6b7280]">By Mara Lind</span>
         </span>
+        <PlaceNavigator current={{ kind: "community", id: "c-mara" }} className="-ml-1 rounded-[10px] bg-transparent hover:bg-transparent" />
         <span className="ml-auto">
-          <NotificationBell className="text-[#6b7280] hover:bg-[#f1f2f4] hover:text-[#1a1a2e]" />
+          <NotificationBell className="text-[#6b7280] hover:text-[#1a1a2e]" />
         </span>
       </div>
     </header>

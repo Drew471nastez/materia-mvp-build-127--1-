@@ -2,12 +2,13 @@
  * ===========================================================================
  *  THE NAVIGATOR'S PLACES: WHAT GET /api/me/places ANSWERS, AND IN WHAT ORDER
  * ===========================================================================
- * The hamburger left of the Storelib logo and the one beside a community's
- * name open the same panel (components/nav/place-navigator.tsx): the
- * communities this person is in, most recently visited first, then the ways
- * out to the rest of Storelib. This file is the part both the route and the
- * panel need, with nothing in it that touches a server or a browser, so the
- * rules are tested directly (tests/place-navigator.test.ts).
+ * The hamburger right of the Storelib logo and the one right of a
+ * community's name open the same panel (components/nav/place-navigator.tsx):
+ * the digital products and courses this person opened or bought most
+ * recently, the communities they are in, most recently visited first, then
+ * the ways out to the rest of Storelib. This file is the part both the route
+ * and the panel need, with nothing in it that touches a server or a browser,
+ * so the rules are tested directly (tests/place-navigator.test.ts).
  */
 
 export const PLACES_URL = "/api/me/places"
@@ -20,6 +21,18 @@ export interface PlaceCommunity {
   logoUrl: string | null
 }
 
+/**
+ * One thing from their library: a digital product (its library page) or a
+ * course (its player). The address is worked out here from the kind and the
+ * id, never taken from the answer.
+ */
+export interface PlaceProduct {
+  id: string
+  kind: "product" | "course"
+  title: string
+  coverUrl: string | null
+}
+
 /** GET /api/me/places. Signed out: every list empty and every flag false. */
 export interface PlacesResponse {
   signedIn: boolean
@@ -30,6 +43,8 @@ export interface PlacesResponse {
   /** Seller onboarding finished (lib/account/seller-access): Dashboard rather than Start creating. */
   hasSellerAccess: boolean
   communities: PlaceCommunity[]
+  /** Recently opened: their own digital products and courses, newest first, at most PRODUCTS_LIMIT. Not behind the communities switch. */
+  products: PlaceProduct[]
 }
 
 export const SIGNED_OUT_PLACES: PlacesResponse = {
@@ -38,6 +53,59 @@ export const SIGNED_OUT_PLACES: PlacesResponse = {
   isCreator: false,
   hasSellerAccess: false,
   communities: [],
+  products: [],
+}
+
+/** A time as milliseconds; a missing or unreadable one is the oldest there is. */
+const at = (v: string | null | undefined) => (v ? Date.parse(v) || 0 : 0)
+
+/** How many things from the library the panel lists at most: a glance, not the library. */
+export const PRODUCTS_LIMIT = 5
+
+/** A purchase as the route reads it: an entitlement or a completed order. */
+export interface PlaceOwnedRow {
+  product_id: string | null
+  created_at?: string | null
+}
+
+/** A course the person has opened (course_enrollments, part 74). */
+export interface PlaceOpenedRow {
+  product_id: string | null
+  last_opened_at?: string | null
+}
+
+/**
+ * RECENTLY OPENED, NEWEST FIRST. A course counts from the last time its
+ * player was opened (course_enrollments.last_opened_at); a digital product
+ * has no such moment, so it counts from when it was bought, as does a course
+ * never opened. Only what they own is listed: a course opened without being
+ * owned (a free preview, or the creator's own) is left out. Each product
+ * once, at its latest moment; ties keep the order they came in.
+ */
+export function rankRecentProducts(owned: PlaceOwnedRow[], opened: PlaceOpenedRow[]): { productId: string; at: number }[] {
+  const latest = new Map<string, { at: number; i: number }>()
+  const mine = new Set<string>()
+  let i = 0
+  const bump = (id: string, t: number) => {
+    const was = latest.get(id)
+    if (!was) latest.set(id, { at: t, i: i++ })
+    else if (t > was.at) was.at = t
+  }
+  for (const r of owned) {
+    if (!r.product_id) continue
+    mine.add(r.product_id)
+    bump(r.product_id, at(r.created_at))
+  }
+  for (const r of opened) if (r.product_id && mine.has(r.product_id)) bump(r.product_id, at(r.last_opened_at))
+  return [...latest.entries()]
+    .sort((a, b) => b[1].at - a[1].at || a[1].i - b[1].i)
+    .map(([productId, v]) => ({ productId, at: v.at }))
+}
+
+/** Where a library row goes: a course to its player, anything else to its page in the library. */
+export function productHref(p: Pick<PlaceProduct, "kind" | "id">): string {
+  const id = encodeURIComponent(p.id)
+  return p.kind === "course" ? `/account/library/courses/${id}` : `/account/library/products/${id}`
 }
 
 /** How many communities the panel lists at most; the list scrolls inside the panel past six. */
@@ -50,8 +118,6 @@ export interface PlaceMemberRow {
   last_active_at?: string | null
   joined_at?: string | null
 }
-
-const at = (v: string | null | undefined) => (v ? Date.parse(v) || 0 : 0)
 
 /**
  * MOST RECENTLY VISITED FIRST. last_seen_at is the member pages' heartbeat
@@ -72,10 +138,13 @@ export type NavigatorCurrent = { kind: "community"; id: string } | { kind: "stor
 
 /** One row of the panel, in order. `current` marks the community being looked at. */
 export type NavigatorRow =
+  | { kind: "product"; product: PlaceProduct; href: string }
   | { kind: "community"; community: PlaceCommunity; href: string; current: boolean }
   | { kind: "link"; key: "discover-communities" | "explore"; label: string; href: string }
 
 export interface NavigatorModel {
+  /** Recently opened, shown first; empty means the section is not drawn at all. */
+  products: NavigatorRow[]
   communities: NavigatorRow[]
   links: NavigatorRow[]
   /** The action at the foot of the panel. Signed out there are two (Log in and Start creating). */
@@ -83,9 +152,10 @@ export interface NavigatorModel {
 }
 
 /**
- * THE PANEL, AS DATA. Signed in: my communities (the current one marked),
- * Discover communities, Explore, then Dashboard for a seller or Start
- * creating for everybody else. Signed out: Explore, Discover communities,
+ * THE PANEL, AS DATA. Signed in: what I opened lately from my library
+ * (digital products and courses, newest first, at most five), my communities
+ * (the current one marked), Discover communities, Explore, then Dashboard for
+ * a seller or Start creating for everybody else. Signed out: Explore, Discover communities,
  * then Log in and Start creating. With communities switched off there is no
  * community anywhere in it. A community slug that would not make a safe path
  * is dropped rather than linked.
@@ -96,6 +166,12 @@ export function navigatorModel(places: PlacesResponse, current?: NavigatorCurren
     ? places.communities
         .filter((c) => /^[a-z0-9][a-z0-9-]{0,63}$/.test(c.slug))
         .map((c) => ({ kind: "community" as const, community: c, href: `/community/${c.slug}`, current: current?.kind === "community" && current.id === c.id }))
+    : []
+  const products: NavigatorRow[] = places.signedIn
+    ? places.products
+        .filter((p) => /^[0-9a-zA-Z-]{1,64}$/.test(p.id))
+        .slice(0, PRODUCTS_LIMIT)
+        .map((p) => ({ kind: "product" as const, product: p, href: productHref(p) }))
     : []
   const discover: NavigatorRow = { kind: "link", key: "discover-communities", label: "Discover communities", href: "/explore/communities" }
   const explore: NavigatorRow = { kind: "link", key: "explore", label: "Explore", href: "/explore" }
@@ -108,7 +184,7 @@ export function navigatorModel(places: PlacesResponse, current?: NavigatorCurren
         { key: "log-in", label: "Log in", href: "/login", primary: false },
         { key: "start-creating", label: "Start creating", href: "/sell", primary: true },
       ]
-  return { communities, links, actions }
+  return { products, communities, links, actions }
 }
 
 /** A body from the route, read defensively: anything unexpected is the signed out answer. */
@@ -116,6 +192,7 @@ export function parsePlaces(body: unknown): PlacesResponse {
   if (!body || typeof body !== "object") return SIGNED_OUT_PLACES
   const b = body as Record<string, unknown>
   const list = Array.isArray(b.communities) ? b.communities : []
+  const owned = Array.isArray(b.products) ? b.products : []
   return {
     signedIn: b.signedIn === true,
     communitiesOn: b.communitiesOn === true,
@@ -126,5 +203,10 @@ export function parsePlaces(body: unknown): PlacesResponse {
       .filter((c) => typeof c.id === "string" && typeof c.slug === "string" && typeof c.name === "string")
       .map((c) => ({ id: c.id as string, slug: c.slug as string, name: c.name as string, logoUrl: typeof c.logoUrl === "string" ? c.logoUrl : null }))
       .slice(0, PLACES_LIMIT),
+    products: owned
+      .filter((p): p is Record<string, unknown> => !!p && typeof p === "object")
+      .filter((p) => typeof p.id === "string" && (p.kind === "product" || p.kind === "course") && typeof p.title === "string")
+      .map((p) => ({ id: p.id as string, kind: p.kind as PlaceProduct["kind"], title: p.title as string, coverUrl: typeof p.coverUrl === "string" ? p.coverUrl : null }))
+      .slice(0, PRODUCTS_LIMIT),
   }
 }
