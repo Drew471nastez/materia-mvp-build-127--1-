@@ -51,6 +51,8 @@ import { StuckLayerGuard } from "@/components/platform/stuck-layer-guard"
 import { KeyboardGuard } from "@/components/platform/keyboard-guard"
 import { RotationGuard } from "@/components/platform/rotation-guard"
 import { AppHistoryTracker } from "@/components/platform/app-history-tracker"
+import { NativeLinkGuard } from "@/components/platform/native-link-guard"
+import { NativePlaceKeeper } from "@/components/platform/native-place-keeper"
 import { NativePushInit } from "@/components/native-push-init"
 import { SWITCH_FIRST_PAINT_SCRIPT } from "@/lib/businesses/switch-screen"
 import { EXPLORE_SCROLL_BOOT_SCRIPT } from "@/lib/explore/explore-scroll-boot"
@@ -263,6 +265,9 @@ export default function RootLayout({
         <KeyboardGuard />
         <RotationGuard />
         <AppHistoryTracker />
+        {/* Inside the phone app only: Storelib links stay in the app, and the page is kept for the next start. */}
+        <NativeLinkGuard />
+        <NativePlaceKeeper />
         <NativePushInit /> 
         <CookieConsentBanner />
         {/*

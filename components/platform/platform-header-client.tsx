@@ -346,7 +346,7 @@ const DARK_FOCUS =
   "outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#111113]"
 
 /** Where a header link goes, and the click that gets it there (canonical host, native shell). */
-type HeaderLink = (path: string) => { href: string; onClick: (e: React.MouseEvent<HTMLElement>) => void }
+export type HeaderLink = (path: string) => { href: string; onClick: (e: React.MouseEvent<HTMLElement>) => void }
 
 /*
   ═══════════════════════════════════════════════════════════════════════════
@@ -466,6 +466,26 @@ function SheetLogOut({ onPress }: { onPress: () => void }) {
   )
 }
 
+/**
+ * LOG OUT, the one way: the session on this device, the navigator's list
+ * (it was this person's: the next open asks again, as nobody) and the cached
+ * photo go, then the app's welcome or the home page. The header's menus and a
+ * community's own bar (components/community/member/account-menu.tsx) both
+ * call it.
+ */
+export async function endStorelibSession(router: { push: (href: string) => void; refresh: () => void }) {
+  const supabase = createClient()
+  await supabase.auth.signOut({ scope: "local" })
+  forgetPlaces()
+  try { localStorage.removeItem("_sl_avatar") } catch {}
+  if (isNativePlatform()) {
+    window.location.replace("/welcome")
+  } else {
+    router.push("/")
+    router.refresh()
+  }
+}
+
 /*
   ═══════════════════════════════════════════════════════════════════════════
    THE PHOTO OPENS THE ACCOUNT MENU, ON A COMPUTER
@@ -491,7 +511,7 @@ const ACCOUNT_PANEL =
 const ACCOUNT_ROW =
   "flex h-10 w-full cursor-pointer items-center gap-2.5 rounded-lg px-3 text-left text-[14px] font-medium text-[#3f4652] outline-none transition-colors duration-100 hover:bg-[#f4f5f7] hover:text-[#1a1a2e] focus-visible:bg-[#f1f2f4] focus-visible:text-[#1a1a2e]"
 
-function DesktopAccountMenu({
+export function DesktopAccountMenu({
   avatarUrl,
   name,
   username,
@@ -500,6 +520,8 @@ function DesktopAccountMenu({
   onLanguage,
   onLogout,
   dark = false,
+  trigger = "photo",
+  triggerClassName,
 }: {
   avatarUrl?: string
   name: string
@@ -510,6 +532,13 @@ function DesktopAccountMenu({
   onLogout: () => void
   /** The bar is the dark one: the ring around the photo sits on black. */
   dark?: boolean
+  /**
+   * What opens the menu: the photo (Storelib's header), or a quiet "..."
+   * button (a community's own bar, round 7), which brings its own look in
+   * `triggerClassName`. The menu itself is the same either way.
+   */
+  trigger?: "photo" | "more"
+  triggerClassName?: string
 }) {
   const pathname = usePathname()
   const { t } = useLocale()
@@ -563,22 +592,38 @@ function DesktopAccountMenu({
 
   return (
     <div ref={wrapRef} className="relative shrink-0" data-header-account="">
-      <button
-        ref={buttonRef}
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-label="Your account"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        data-header-avatar=""
-        className={cn(
-          "flex h-[42px] w-[42px] shrink-0 cursor-pointer items-center justify-center rounded-full outline-none ring-offset-2 transition-shadow duration-150 ease-out hover:ring-2 focus-visible:ring-2 focus-visible:ring-violet-400",
-          dark ? "ring-offset-[#0e0e10] hover:ring-white/30" : "ring-offset-white hover:ring-[#1a1a2e]/15",
-          open && (dark ? "ring-2 ring-white/30" : "ring-2 ring-[#1a1a2e]/15"),
-        )}
-      >
-        <AppAvatar src={avatarUrl} name={name.trim()} alt="" size={42} className="border border-gray-200" />
-      </button>
+      {trigger === "more" ? (
+        <button
+          ref={buttonRef}
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          aria-label="Your account"
+          aria-haspopup="menu"
+          aria-expanded={open}
+          data-account-more=""
+          data-state={open ? "open" : "closed"}
+          className={triggerClassName}
+        >
+          <MoreHorizontal aria-hidden className="h-5 w-5" strokeWidth={2} />
+        </button>
+      ) : (
+        <button
+          ref={buttonRef}
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          aria-label="Your account"
+          aria-haspopup="menu"
+          aria-expanded={open}
+          data-header-avatar=""
+          className={cn(
+            "flex h-[42px] w-[42px] shrink-0 cursor-pointer items-center justify-center rounded-full outline-none ring-offset-2 transition-shadow duration-150 ease-out hover:ring-2 focus-visible:ring-2 focus-visible:ring-violet-400",
+            dark ? "ring-offset-[#0e0e10] hover:ring-white/30" : "ring-offset-white hover:ring-[#1a1a2e]/15",
+            open && (dark ? "ring-2 ring-white/30" : "ring-2 ring-[#1a1a2e]/15"),
+          )}
+        >
+          <AppAvatar src={avatarUrl} name={name.trim()} alt="" size={42} className="border border-gray-200" />
+        </button>
+      )}
       {present ? (
         <div
           ref={menuRef}
@@ -653,6 +698,81 @@ function DesktopAccountMenu({
         </div>
       ) : null}
     </div>
+  )
+}
+
+/*
+  THE PHONE'S ACCOUNT SHEET, as a piece of its own, so a community's own bar
+  (components/community/member/account-menu.tsx) opens exactly this sheet
+  rather than a copy of it: the same rows in the same order, the same look.
+*/
+export function AccountSheet({
+  open,
+  onClose,
+  keepMounted = false,
+  avatarUrl,
+  name,
+  username,
+  seller,
+  link,
+  onLanguage,
+  onLogout,
+}: {
+  open: boolean
+  onClose: () => void
+  keepMounted?: boolean
+  avatarUrl?: string
+  name: string
+  username?: string | null
+  seller: boolean
+  link: HeaderLink
+  onLanguage: () => void
+  onLogout: () => void
+}) {
+  const { t } = useLocale()
+  return (
+    <MobileBottomSheet
+      isOpen={open}
+      onClose={onClose}
+      keepMounted={keepMounted}
+      fill
+      maxHeight="min(88dvh, 720px)"
+    >
+      <div className="flex min-h-0 flex-1 flex-col px-3" data-account-sheet-body="">
+        <div className="flex min-h-[52px] shrink-0 items-center gap-3 rounded-xl px-3 py-2" data-account-who="">
+          <AppAvatar src={avatarUrl} name={name.trim()} alt="" size={32} className="shrink-0 ring-1 ring-neutral-200" />
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-[15px] font-medium text-neutral-900">{name}</span>
+            {username ? <span className="block truncate text-[13px] text-neutral-500">@{username}</span> : null}
+          </span>
+        </div>
+        <div aria-hidden className="my-1.5 h-px shrink-0 bg-neutral-100" />
+
+        {/*
+          THE SAME ROWS AS THE COMPUTER'S MENU (DesktopAccountMenu), in the
+          owner's order: Dashboard for a seller or Start creating for anybody
+          else, Profile, Settings, Language, Help, Discover, and Log out last.
+          No My Library: the library lives inside the profile (/account).
+        */}
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain" data-account-sheet="">
+          {seller ? (
+            <SheetRow {...link("/app")} onDone={onClose} item="dashboard" icon={LayoutDashboard} label="Dashboard" />
+          ) : (
+            <SheetRow {...link("/sell")} onDone={onClose} item="start-creating" icon={Store} label="Start creating" />
+          )}
+          <SheetRow {...link("/account")} onDone={onClose} item="profile" icon={UserIcon} label="Profile" />
+          <SheetRow {...link("/account/settings")} onDone={onClose} item="settings" icon={Settings} label="Settings" />
+          <SheetRow onDone={() => { onClose(); onLanguage() }} item="language" icon={Globe} label={t("settings.language")} />
+          <SheetRow {...link("/help")} onDone={onClose} item="help" icon={LifeBuoy} label="Help" />
+          <SheetRow {...link("/explore")} onDone={onClose} item="discover" icon={Compass} label="Discover" />
+        </div>
+
+        <div aria-hidden className="my-1.5 h-px shrink-0 bg-neutral-100" />
+        <div className="shrink-0" data-account-sheet-foot="">
+          <SheetLogOut onPress={onLogout} />
+        </div>
+      </div>
+    </MobileBottomSheet>
   )
 }
 
@@ -1429,19 +1549,9 @@ export function PlatformHeaderClient({
     (user?.email ? user.email.split("@")[0] : "User")
 
   async function handleLogout() {
-    const supabase = createClient()
-    await supabase.auth.signOut({ scope: "local" })
-    /* The navigator's list was this person's: the next open asks again, as nobody. */
-    forgetPlaces()
     setMobileProfileOpen(false)
     setCachedAvatarUrl(null)
-    try { localStorage.removeItem("_sl_avatar") } catch {}
-    if (isNativePlatform()) {
-      window.location.replace("/welcome")
-    } else {
-      router.push("/")
-      router.refresh()
-    }
+    await endStorelibSession(router)
   }
 
   /**
@@ -2603,48 +2713,18 @@ export function PlatformHeaderClient({
         under it, the way /app's account sheet opens with its business row,
         so the two sheets feel like one product.
       */}
-      <MobileBottomSheet
-        isOpen={mobileProfileOpen}
+      <AccountSheet
+        open={mobileProfileOpen}
         onClose={() => setMobileProfileOpen(false)}
         keepMounted={!!user && belowMd}
-        fill
-        maxHeight="min(88dvh, 720px)"
-      >
-        <div className="flex min-h-0 flex-1 flex-col px-3" data-account-sheet-body="">
-          <div className="flex min-h-[52px] shrink-0 items-center gap-3 rounded-xl px-3 py-2" data-account-who="">
-            <AppAvatar src={avatarUrl} name={(displayName || "").trim()} alt="" size={32} className="shrink-0 ring-1 ring-neutral-200" />
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-[15px] font-medium text-neutral-900">{displayName}</span>
-              {profile?.username ? <span className="block truncate text-[13px] text-neutral-500">@{profile.username}</span> : null}
-            </span>
-          </div>
-          <div aria-hidden className="my-1.5 h-px shrink-0 bg-neutral-100" />
-
-          {/*
-            THE SAME ROWS AS THE COMPUTER'S MENU (DesktopAccountMenu), in the
-            owner's order: Dashboard for a seller or Start creating for anybody
-            else, Profile, Settings, Language, Help, Discover, and Log out last.
-            No My Library: the library lives inside the profile (/account).
-          */}
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain" data-account-sheet="">
-            {hasCompletedSellerOnboarding ? (
-              <SheetRow {...headerLink("/app")} onDone={() => setMobileProfileOpen(false)} item="dashboard" icon={LayoutDashboard} label="Dashboard" />
-            ) : (
-              <SheetRow {...headerLink("/sell")} onDone={() => setMobileProfileOpen(false)} item="start-creating" icon={Store} label="Start creating" />
-            )}
-            <SheetRow {...headerLink("/account")} onDone={() => setMobileProfileOpen(false)} item="profile" icon={UserIcon} label="Profile" />
-            <SheetRow {...headerLink("/account/settings")} onDone={() => setMobileProfileOpen(false)} item="settings" icon={Settings} label="Settings" />
-            <SheetRow onDone={() => { setMobileProfileOpen(false); setLanguageOpen(true) }} item="language" icon={Globe} label={t("settings.language")} />
-            <SheetRow {...headerLink("/help")} onDone={() => setMobileProfileOpen(false)} item="help" icon={LifeBuoy} label="Help" />
-            <SheetRow {...headerLink("/explore")} onDone={() => setMobileProfileOpen(false)} item="discover" icon={Compass} label="Discover" />
-          </div>
-
-          <div aria-hidden className="my-1.5 h-px shrink-0 bg-neutral-100" />
-          <div className="shrink-0" data-account-sheet-foot="">
-            <SheetLogOut onPress={handleLogout} />
-          </div>
-        </div>
-      </MobileBottomSheet>
+        avatarUrl={avatarUrl}
+        name={displayName || ""}
+        username={profile?.username}
+        seller={hasCompletedSellerOnboarding}
+        link={headerLink}
+        onLanguage={() => setLanguageOpen(true)}
+        onLogout={handleLogout}
+      />
 
       {/* Rendered outside both menus on purpose: each closes itself on the
           click that opens this, so it cannot be a child of either. */}

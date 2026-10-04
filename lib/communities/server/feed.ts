@@ -4,11 +4,19 @@ import "server-only"
  * ===========================================================================
  *  THE FEED: SPACES, POSTS, POLLS, SAVED POSTS AND LINK PREVIEWS
  * ===========================================================================
- * Reads page by KEYSET, never by offset: Latest walks (created_at, id) down,
- * Popular walks (reaction_count, created_at, id) down, each on its own index
- * in part 81, so page two hundred costs what page one costs. Pinned posts
- * come first on the first page only, read on their own, and the pages after
- * skip them, so a pinned post is never shown twice.
+ * Reads page by KEYSET, never by offset, in one of four orders (the sort
+ * menu at the end of the chips row, round 7):
+ *   Default  pinned posts first (first page only, read on their own, and the
+ *            pages after skip them), then the posts with the newest activity
+ *            (last_activity_at, id), so a post with a new comment comes back up.
+ *   New      newest posts first (created_at, id), pinned ones in their place.
+ *   Top      most liked first (reaction_count, created_at, id).
+ *   Unread   posts with activity since the member was last active here
+ *            (community_members.last_active_at: there is no per post read
+ *            table, so that is the cutoff), newest activity first.
+ * New and Top walk their own indexes from part 81, so page two hundred costs
+ * what page one costs. "latest" and "popular" are still understood (New and
+ * Top) for any caller written before the menu.
  *
  * A page of posts is drawn from a fixed number of reads, whatever its size:
  * the posts, their authors (directory.authorViews), what the viewer reacted
@@ -55,10 +63,23 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 export const FEED_PAGE = 20
 export const PINNED_MAX = 5
 
-export type FeedSort = "latest" | "popular"
+/** The four orders of the sort menu, and the two older names New and Top had. */
+export type FeedSort = "default" | "new" | "top" | "unread" | "latest" | "popular"
+/** What a sort means once its older name is put aside. */
+export type FeedOrder = "default" | "new" | "top" | "unread"
 
-export function feedSort(value: unknown): FeedSort {
-  return value === "popular" ? "popular" : "latest"
+export const FEED_SORTS: readonly FeedOrder[] = ["default", "new", "top", "unread"]
+
+/** The sort a request asked for, by any of its names; anything else is Default. */
+export function feedSort(value: unknown): FeedOrder {
+  if (value === "latest") return "new"
+  if (value === "popular") return "top"
+  return (FEED_SORTS as readonly unknown[]).includes(value) ? (value as FeedOrder) : "default"
+}
+
+/** Whether an order walks the posts by their last activity rather than by when they were written. */
+function byActivity(order: FeedOrder): boolean {
+  return order === "default" || order === "unread"
 }
 
 /** What a member is in the eyes of an access rule. */
@@ -136,13 +157,14 @@ export function encodeCursor(c: FeedCursor): string {
 
 /** A cursor from the address, or null when it is missing or was tampered into nonsense. */
 export function decodeCursor(raw: string | null | undefined, sort: FeedSort): FeedCursor | null {
+  sort = feedSort(sort)
   if (!raw || raw.length > 400) return null
   try {
     const v = JSON.parse(Buffer.from(raw, "base64url").toString("utf8")) as Record<string, unknown>
     const c = typeof v.c === "string" && Number.isFinite(Date.parse(v.c)) ? new Date(v.c).toISOString() : ""
     const i = typeof v.i === "string" && UUID.test(v.i) ? v.i.toLowerCase() : ""
     if (!c || !i) return null
-    if (sort === "popular") {
+    if (sort === "top") {
       const r = Number(v.r)
       if (!Number.isInteger(r) || r < 0) return null
       return { c, i, r }
@@ -158,17 +180,22 @@ export function decodeCursor(raw: string | null | undefined, sort: FeedSort): Fe
  * reads: strictly older on the same keys, the id breaking a tie.
  */
 export function keysetCondition(sort: FeedSort, cur: FeedCursor): string {
+  const order = feedSort(sort)
   const c = `"${cur.c}"`
-  if (sort === "popular") {
+  if (order === "top") {
     const r = cur.r ?? 0
     return `reaction_count.lt.${r},and(reaction_count.eq.${r},created_at.lt.${c}),and(reaction_count.eq.${r},created_at.eq.${c},id.lt.${cur.i})`
   }
-  return `created_at.lt.${c},and(created_at.eq.${c},id.lt.${cur.i})`
+  /* Default and Unread walk the last activity; the cursor's time is that column's. */
+  const col = byActivity(order) ? "last_activity_at" : "created_at"
+  return `${col}.lt.${c},and(${col}.eq.${c},id.lt.${cur.i})`
 }
 
 /** The cursor that follows a page, from its last post. */
-export function cursorAfter(sort: FeedSort, last: Pick<PostRow, "created_at" | "id" | "reaction_count">): string {
-  return encodeCursor(sort === "popular" ? { c: last.created_at, i: last.id, r: Number(last.reaction_count) || 0 } : { c: last.created_at, i: last.id })
+export function cursorAfter(sort: FeedSort, last: Pick<PostRow, "created_at" | "id" | "reaction_count"> & Partial<Pick<PostRow, "last_activity_at">>): string {
+  const order = feedSort(sort)
+  if (order === "top") return encodeCursor({ c: last.created_at, i: last.id, r: Number(last.reaction_count) || 0 })
+  return encodeCursor({ c: byActivity(order) ? (last.last_activity_at ?? last.created_at) : last.created_at, i: last.id })
 }
 
 /* ── Turning rows into what a page draws ───────────────────────────────── */
@@ -347,8 +374,22 @@ function hiddenSpaceIds(spaces: SpaceRow[], v: Viewer): string[] {
  * community feed too (they are not in `spaces`, so they count as hidden by
  * the id list only when known; an archived space's id is read here).
  */
+/**
+ * Where Unread starts: the member's last activity here (a post, a comment, a
+ * like: lib/communities/server/activity.ts moves it), else when they joined.
+ * There is no per post read table (community_post_reads does not exist), so
+ * a post is unread when something happened on it after that moment. Null
+ * reads every post as unread.
+ */
+export function unreadSince(viewer: Pick<Viewer, "member">): string | null {
+  const m = viewer.member
+  const at = m?.last_active_at || m?.joined_at || null
+  return at && Number.isFinite(Date.parse(at)) ? new Date(at).toISOString() : null
+}
+
 export async function listFeed(db: Db, community: CommunityRow, viewer: Viewer, req: FeedRequest): Promise<FeedPage> {
   const empty: FeedPage = { pinned: [], posts: [], nextCursor: null }
+  const order = feedSort(req.sort)
   const limit = Math.max(1, Math.min(40, Math.floor(req.limit ?? FEED_PAGE)))
   try {
     const spaces = await listSpaces(db, community.id)
@@ -368,23 +409,29 @@ export async function listFeed(db: Db, community: CommunityRow, viewer: Viewer, 
     }
     const scopeOr = hidden.length ? `space_id.is.null,space_id.not.in.(${hidden.join(",")})` : null
 
-    const cursor = decodeCursor(req.cursor, req.sort)
+    const cursor = decodeCursor(req.cursor, order)
     let pinnedRows: PostRow[] = []
-    if (!cursor) {
+    /* Only Default lifts the pinned posts to the top; the other orders keep them in their place. */
+    if (!cursor && order === "default") {
       let pq = scope(db.from("community_feed_posts").select(POST_COLUMNS)).eq("pinned", true)
       if (scopeOr) pq = pq.or(scopeOr)
       const { data } = await pq.order("created_at", { ascending: false }).limit(PINNED_MAX)
       pinnedRows = (data as PostRow[] | null) ?? []
     }
 
-    let q = scope(db.from("community_feed_posts").select(POST_COLUMNS)).eq("pinned", false)
-    const conditions = [scopeOr ? `or(${scopeOr})` : null, cursor ? `or(${keysetCondition(req.sort, cursor)})` : null].filter(Boolean)
+    let q = scope(db.from("community_feed_posts").select(POST_COLUMNS))
+    if (order === "default") q = q.eq("pinned", false)
+    if (order === "unread") {
+      const since = unreadSince(viewer)
+      if (since) q = q.gt("last_activity_at", since)
+    }
+    const conditions = [scopeOr ? `or(${scopeOr})` : null, cursor ? `or(${keysetCondition(order, cursor)})` : null].filter(Boolean)
     /* One `or` holding an `and` of the two, so the space filter and the cursor both apply. */
     if (conditions.length === 1) q = q.or(String(conditions[0]).slice(3, -1))
     else if (conditions.length === 2) q = q.or(`and(${conditions.join(",")})`)
-    if (req.sort === "popular") q = q.order("reaction_count", { ascending: false })
+    if (order === "top") q = q.order("reaction_count", { ascending: false })
     const { data, error } = await q
-      .order("created_at", { ascending: false })
+      .order(byActivity(order) ? "last_activity_at" : "created_at", { ascending: false })
       .order("id", { ascending: false })
       .limit(limit + 1)
     if (error) {
@@ -396,7 +443,7 @@ export async function listFeed(db: Db, community: CommunityRow, viewer: Viewer, 
     const last = page[page.length - 1]
     const h = { community, viewer, spaces }
     const [pinned, posts] = await Promise.all([hydratePosts(db, pinnedRows, h), hydratePosts(db, page, h)])
-    return { pinned, posts, nextCursor: rows.length > limit && last ? cursorAfter(req.sort, last) : null }
+    return { pinned, posts, nextCursor: rows.length > limit && last ? cursorAfter(order, last) : null }
   } catch (e) {
     console.error(`[communities] feed read: ${reasonOf(e)}`)
     return empty

@@ -18,6 +18,10 @@
  *   Library and everything in it   /library/...
  *   The account page               /account
  *   The wishlist                   /wishlist (a platform route of its own)
+ *   Inside a community             /community/<slug>/..., community aware:
+ *                                  Home is the community's home and Search
+ *                                  its own search (communityTabs below);
+ *                                  Library and Profile are the same
  *   A product or creator page      never. It is somebody's shop, and the
  *                                  page's own buy bar already stands at the
  *                                  foot of it; a second bar under that is
@@ -48,6 +52,39 @@ export type BuyerTabKey = (typeof BUYER_TABS)[number]["key"]
 
 /** Where a signed out person's Profile tab goes: sign in, then their account. */
 export const SIGNED_OUT_PROFILE_HREF = "/login?next=%2Faccount"
+
+/**
+ * ===========================================================================
+ *  INSIDE A COMMUNITY THE BAR IS THE COMMUNITY'S
+ * ===========================================================================
+ * "On phones inside a community the buyer bottom tab bar is shown and becomes
+ * community aware: Home goes to that community's home, Search opens the
+ * community search, Library and Profile stay global."
+ *
+ * The community is read from the address, so the bar is right on the first
+ * frame of every page in it. /community alone (the list of communities) is
+ * not inside one, and keeps no bar, as before. All four tabs are there with
+ * Discover switched off too: Home and Search here are the community's, not
+ * Discover's.
+ */
+const COMMUNITY_SLUG = /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/
+
+/** The slug of the community this address is inside, or null. */
+export function communityOf(pathname: string): string | null {
+  const m = /^\/community\/([^/?#]+)(?:[/?#]|$)/.exec(pathname)
+  return m && COMMUNITY_SLUG.test(m[1]) ? m[1] : null
+}
+
+/** The four tabs inside a community: its home, its search, then the library and the account as anywhere. */
+export function communityTabs(slug: string) {
+  return BUYER_TABS.map((t) => (t.key === "home" ? { ...t, href: `/community/${slug}` } : t))
+}
+
+/** The tabs for this address: the community's inside one, else as Discover allows. */
+export function buyerTabsAt(pathname: string, exploreMarketplaceEnabled = true) {
+  const slug = communityOf(pathname)
+  return slug ? communityTabs(slug) : buyerTabsForMarketplace(exploreMarketplaceEnabled)
+}
 
 /** The search screen's own address. A static route under /explore, so no new root word is taken from creators' handles. */
 export const SEARCH_HREF = "/explore/search"
@@ -91,10 +128,10 @@ export function buyerTabsBelongOn(
   if (where.customDomain) return false
   /* /account/continue is a redirect, never a page anybody sees. */
   if (under(pathname, "/account/continue")) return false
-  /* A COMMUNITY IS SOMEBODY'S COMMUNITY, like a product page: it has its own
-     sections to move between, so the bar never goes over it. */
-  if (under(pathname, "/community")) return false
   if (where.sellerSite) return false
+  /* Inside a community, the bar, made the community's (communityTabs above). /community alone keeps none. */
+  if (communityOf(pathname)) return true
+  if (under(pathname, "/community")) return false
   if (where.sellerProduct) return false
   if (where.sellerStore) return true
   return isBuyerPath(pathname, exploreOn)
@@ -112,6 +149,8 @@ export function buyerTabFor(
   where: { query?: boolean; sellerSurface?: boolean; exploreMarketplaceEnabled?: boolean } = {},
 ): number {
   const exploreOn = where.exploreMarketplaceEnabled !== false
+  /* Every page of a community is that community's Home, the way a product reached from Explore is still Home. */
+  if (communityOf(pathname)) return 0
   const tabs = buyerTabsForMarketplace(exploreOn)
   const idx = (key: BuyerTabKey) => tabs.findIndex((t) => t.key === key)
 

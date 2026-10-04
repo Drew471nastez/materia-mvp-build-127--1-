@@ -93,7 +93,8 @@ import {
 } from "@/components/nav/tab-lens"
 import { readAuthSnapshot, subscribeAuthSnapshot } from "@/lib/auth/auth-snapshot"
 import { useExploreMarketplaceEnabled } from "@/components/platform/explore-marketplace-context"
-import { SIGNED_OUT_PROFILE_HREF, buyerTabFor, buyerTabsBelongOn, buyerTabsForMarketplace } from "@/lib/nav/buyer-tabs"
+import { SIGNED_OUT_PROFILE_HREF, buyerTabFor, buyerTabsAt, buyerTabsBelongOn, communityOf } from "@/lib/nav/buyer-tabs"
+import { openCommunitySearch, refocusCommunitySearch } from "@/lib/nav/community-search-bridge"
 import { useBuyerTabsWhere } from "@/lib/nav/use-buyer-tabs-where"
 
 /* ── The look ────────────────────────────────────────────────────────────── */
@@ -239,7 +240,14 @@ function TabBar({
   const signedIn = useSignedIn()
   const typing = useTyping()
   const [query, setQuery] = useState("")
-  const tabs = buyerTabsForMarketplace(exploreMarketplaceEnabled)
+  /*
+    INSIDE A COMMUNITY THE BAR IS THE COMMUNITY'S (lib/nav/buyer-tabs.ts):
+    Home is its home, Search its own search screen, Library and Profile the
+    same as anywhere. Read from the address, so it is right on the frame a
+    community opens.
+  */
+  const community = communityOf(pathname)
+  const tabs = buyerTabsAt(pathname, exploreMarketplaceEnabled)
   const current = buyerTabFor(pathname, { query: query !== "", sellerSurface, exploreMarketplaceEnabled })
 
   /*
@@ -255,7 +263,7 @@ function TabBar({
 
   const hrefOf = (index: number): string => {
     const tab = tabs[index]
-    if (!tab) return exploreMarketplaceEnabled ? "/explore" : "/account/library"
+    if (!tab) return community ? `/community/${community}` : exploreMarketplaceEnabled ? "/explore" : "/account/library"
     return tab.key === "profile" && !signedIn ? SIGNED_OUT_PROFILE_HREF : tab.href
   }
 
@@ -272,7 +280,10 @@ function TabBar({
         comes up with it (components/search/search-overlay.tsx). On Explore's
         results it opens on the words that found them. Only where there is
         no screen to open (never on a phone) does it go to the address.
+        Inside a community it is that community's own search screen, when
+        the community's bar has one (a member's); otherwise the site's.
       */
+      if (tab.key === "search" && community && openCommunitySearch(community)) return
       if (tab.key === "search" && openSearchOverlay(query)) return
       const href = hrefOf(index)
       /*
@@ -385,6 +396,7 @@ function TabBar({
                is given the focus again here, so the keyboard comes up either
                way. */
             refocusSearchOverlay()
+            refocusCommunitySearch(community)
           }}
           className="relative flex select-none"
           style={{

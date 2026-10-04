@@ -514,11 +514,15 @@ async function main() {
   check("and it is never cached as a home", sanitizeNativeHome("/community/mara-club") === "/app")
   const token = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ4In0.abcdefghijklmnop"
   check("the stored session's token, plain or base64", accessTokenOf(JSON.stringify({ access_token: token })) === token && accessTokenOf(`base64-${Buffer.from(JSON.stringify({ access_token: token })).toString("base64url")}`) === token && accessTokenOf("{bad") === null && accessTokenOf(null) === null)
+  /*
+    ROUND 7: THE APP OPENS WHERE THE PERSON WAS. "Open the community they
+    used last" is replaced by the page they were last on (a community
+    included), kept on every navigation in the app; with nothing kept,
+    sellers /app and everybody else /explore. tests/native-app-links.test.ts
+    pins the new start; here, only that the old ask is gone from it.
+  */
   const start = code("app/native-start/page.tsx")
-  check("a seller's cached home goes straight there; a buyer's asks for a community first", /if \(isLibraryHome\(cachedHome\)\) \{\s*safeRedirect\(\(await communityStart\(accessTokenOf\(sessionRaw\)\)\) \|\| cachedHome\)/.test(start) && /safeRedirect\(cachedHome\)/.test(start))
-  check("a new device: the library is cached, the community asked for", /await cacheNativeHome\(home\)[\s\S]{0,200}safeRedirect\(\(home === "\/library" && \(await communityStart\(session\.access_token\)\)\) \|\| home\)/.test(start))
-  check("the redirect lets a community through without making it a home", /const target = isHandoff \|\| isCommunityStart\(url\) \? url : sanitizeNativeHome\(url\)/.test(start))
-  check("the ask has a time limit", /setTimeout\(\(\) => ctl\.abort\(\), 2500\)/.test(start))
+  check("the start no longer asks the server for a community: the kept page stands in for it", !/communityStart|\/api\/native\/start/.test(start) && /readLastPlace\(\)/.test(start))
   const nativeRoute = code("app/api/native/start/route.ts")
   const nativeLib = code("lib/communities/server/native-start.ts")
   check("the server: the session or a checked bearer, never a parameter", /let userId = await sessionUserId\(\)/.test(nativeRoute) && /db\.auth\.getUser\(bearer\)/.test(nativeRoute) && !/searchParams/.test(nativeRoute))

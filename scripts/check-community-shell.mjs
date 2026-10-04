@@ -108,9 +108,10 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
     },
     removeChannel() {},
     realtime: { setAuth: async () => {} },
-    auth: { getSession: async () => ({ data: { session: { user: { id: "u-me" } } } }) },
+    auth: { getSession: async () => ({ data: { session: { user: { id: "u-me" } } } }), signOut: async () => { window.__signedOut = true; return { error: null } } },
   }
 }
+export const isNativePlatform = () => false
 `)
   const { build } = await import("esbuild")
   await build({
@@ -195,7 +196,7 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
   const smallTargets = (p) =>
     p.evaluate(() => {
       const out = []
-      for (const el of document.querySelectorAll("button, a[data-community-nav], a[data-space-chip], [data-notification-bell], [data-community-me], [data-place-navigator], [data-community-login], [data-gallery-thumb], [data-join-bar] a, [data-join-bar] button, [role=radio]")) {
+      for (const el of document.querySelectorAll("button, a[data-community-nav], a[data-space-chip], [data-notification-bell], [data-account-more], [data-place-navigator], [data-community-login], [data-gallery-thumb], [data-join-bar] a, [data-join-bar] button, [role=radio]")) {
         const r = el.getBoundingClientRect()
         if (!r.width || !r.height) continue
         const cs = getComputedStyle(el)
@@ -252,6 +253,8 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
       const trig = document.querySelector("[data-community-top] [data-place-navigator-trigger]").getBoundingClientRect()
       const name = document.querySelector("[data-community-identity]").getBoundingClientRect()
       const mark = document.querySelector("[data-community-top-lead] > a").getBoundingClientRect()
+      const lines = [...document.querySelectorAll("[data-community-top] [data-navigator-lines] > span")].map((l) => { const r = l.getBoundingClientRect(); return { y: +r.top.toFixed(2), h: +r.height.toFixed(2), w: +r.width.toFixed(2) } })
+      const tcs = getComputedStyle(document.querySelector("[data-community-top] [data-place-navigator-trigger]"))
       const tabsBox = document.querySelector("[data-community-tabs]")?.getBoundingClientRect() ?? null
       const tabs = tabsBox && tabsBox.width > 0 ? tabsBox : null
       const actions = document.querySelector("[data-community-top-actions]").getBoundingClientRect()
@@ -261,6 +264,10 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
         trigger: { x: Math.round(trig.left), right: Math.round(trig.right), cy: Math.round(trig.top + trig.height / 2), h: Math.round(trig.height) },
         nameRight: Math.round(name.right),
         markRight: Math.round(mark.right),
+        markX: Math.round(mark.left),
+        markSize: Math.round(mark.height),
+        lines,
+        triggerLook: { bg: tcs.backgroundColor, border: `${tcs.borderTopWidth} ${tcs.borderTopColor}`, shadow: tcs.boxShadow, radius: tcs.borderTopLeftRadius, w: Math.round(trig.width) },
         leadCy: Math.round(lead.top + lead.height / 2),
         tabs: tabs && { top: Math.round(tabs.top), bottom: Math.round(tabs.bottom), x: Math.round(tabs.left), right: Math.round(tabs.right) },
         actionsX: Math.round(actions.left),
@@ -306,7 +313,7 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
             const off = document.querySelector("[data-wall-places] a:not([aria-current])")
             if (!vis(on) || !off) return null
             const tiles = [...document.querySelectorAll("[data-wall-places] [data-place-tile]")].map((t) => getComputedStyle(t).backgroundColor)
-            return { onBg: getComputedStyle(on).backgroundColor, offBg: getComputedStyle(off).backgroundColor, h: Math.round(on.getBoundingClientRect().height), tiles, chevrons: document.querySelectorAll("[data-wall-places] a svg.lucide-chevron-right").length }
+            return { onBg: getComputedStyle(on).backgroundColor, offBg: getComputedStyle(off).backgroundColor, h: Math.round(on.getBoundingClientRect().height), tiles, chevrons: document.querySelectorAll("[data-wall-places] a [data-place-chevron] svg").length, lucide: document.querySelectorAll("[data-wall-places] svg.lucide").length }
           })(),
           tabLook: (() => {
             const on = document.querySelector("[data-community-tabs] [aria-current=page]")
@@ -329,15 +336,17 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
           chipAll: (() => { const a = document.querySelector('[data-space-chip="all"]'); return a ? getComputedStyle(a).backgroundColor : null })(),
           messages: document.querySelector("[data-community-messages-button] [data-count-badge]")?.textContent ?? null,
           bell: document.querySelector("[data-community-top] [data-notification-bell] [data-bell-badge]")?.textContent?.trim() ?? null,
-          me: !!document.querySelector("[data-community-me]"),
-          chevron: vis(document.querySelector("[data-community-me-chevron]")),
+          more: [...document.querySelectorAll("[data-community-top] [data-account-more]")].filter(vis).length,
+          myPicture: [...document.querySelectorAll("[data-community-top-actions] [data-app-avatar]")].filter(vis).length,
+          byShown: vis(document.querySelector("[data-community-by]")),
+          bellIcon: Math.round(document.querySelector("[data-community-top] [data-notification-bell] svg.lucide-bell")?.getBoundingClientRect().width ?? 0),
           searchField: vis(document.querySelector('[data-community-search="field"]')),
           searchButton: vis(document.querySelector('[data-community-search="button"]')),
           placeholder: document.querySelector('[data-community-search="field"] input')?.getAttribute("placeholder"),
           stats: [...document.querySelectorAll("[data-wall-card] [data-wall-stat]")].filter(vis).map((d) => d.textContent.trim()),
           dot: vis(document.querySelector("[data-wall-card] [data-online-dot]")),
           faces: document.querySelectorAll("[data-wall-faces] [data-person-id]").length,
-          more: document.querySelector("[data-wall-more]")?.textContent?.trim() ?? null,
+          moreFaces: document.querySelector("[data-wall-more]")?.textContent?.trim() ?? null,
           address: document.querySelector("[data-wall-address]")?.textContent?.trim() ?? null,
           settings: !!document.querySelector("[data-wall-settings]"),
           actions: [...document.querySelectorAll("[data-composer-actions] [data-composer-action]")].map((b) => b.getAttribute("data-composer-action")),
@@ -351,14 +360,24 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
         }
       })
       expect(!g.platformHeader, "no Storelib header, only the community's bar", g.platformHeader)
-      expect(g.top === 0 && g.rowHeight === (phone ? 44 : 56), "the bar sits at the top: one 56px row on a computer, a 44px row over the tabs on a phone", { top: g.top, row: g.rowHeight })
+      expect(g.top === 0 && g.rowHeight === (phone ? 56 : 64), "round 7, taller: the bar sits at the top, one 64px row on a computer, a 56px row over the tabs on a phone", { top: g.top, row: g.rowHeight })
       const geo = await barGeometry(p)
       const was = phone ? BEFORE.phone : BEFORE.desktop
-      console.log(`        header height: ${was}px before round 4, ${geo.height}px now`)
-      expect(geo.height === (phone ? 85 : 57), `still slim: ${phone ? "44 + 40 of tabs + the hairline" : "one 56px row + the hairline, the places now in the left column"}`, { before: was, now: geo.height })
+      console.log(`        header height: ${was}px before round 4, ${phone ? 85 : 57}px in round 4, ${geo.height}px now (round 7)`)
+      expect(geo.height === (phone ? 97 : 65), `comfortable, not fat: ${phone ? "56 + 40 of tabs + the hairline" : "one 64px row + the hairline, the places in the right column"}`, { before: was, now: geo.height })
+      expect(geo.markSize === (phone ? 36 : 40), `the community's picture a bit bigger: ${phone ? 36 : 40}px (was ${phone ? 32 : 34})`, geo.markSize)
+      expect(g.bellIcon === 24, "the bell a bit bigger: a 24px glyph (was 22)", g.bellIcon)
       if (!phone) expect(!g.tabsShown && !geo.tabs, "no row of tabs on a computer: the left column has the places", { shown: g.tabsShown })
       else expect(!!geo.tabs && geo.tabs.top >= geo.lead && geo.tabs.bottom === geo.height - 1 && geo.tabs.bottom - geo.tabs.top === 40 && geo.tabs.x === 0 && geo.tabs.right === geo.vw, "on a phone the places are a 40px row of tabs under the bar, edge to edge", geo.tabs)
-      expect(geo.trigger.x >= geo.nameRight && geo.nameRight > geo.markRight && Math.abs(geo.trigger.cy - geo.leadCy) <= 1 && geo.trigger.h === 40, "the hamburger sits right of the picture and the name, centred in the row, a 40px target", geo)
+      if (phone) expect(geo.trigger.right <= geo.markX && Math.abs(geo.trigger.cy - geo.leadCy) <= 1 && geo.trigger.h === 40, "on a phone the hamburger sits LEFT of the community's picture, centred in the row, a 40px target", geo)
+      else expect(geo.trigger.x >= geo.nameRight && geo.nameRight > geo.markRight && Math.abs(geo.trigger.cy - geo.leadCy) <= 1 && geo.trigger.h === 40, "on a computer the hamburger sits right of the picture and the name, centred in the row, a 40px target", geo)
+      {
+        const L = geo.lines
+        const gaps = L.length === 3 ? [L[1].y - L[0].y, L[2].y - L[1].y] : []
+        expect(L.length === 3 && L.every((l) => l.h === 2 && l.w === 18 && Number.isInteger(l.y)) && gaps[0] === gaps[1], "the hamburger: three even 2px lines, 18px wide, on whole pixels, evenly spaced", L)
+        const T = geo.triggerLook
+        expect(T.bg === "rgb(248, 249, 250)" && /^1px rgb\(230, 232, 235\)$/.test(T.border) && T.shadow !== "none" && T.radius === "10px" && T.w === 40, "in a 40px button with the faintest grey ground, a hairline and a one pixel shadow, squared at 10px (not a pill)", T)
+      }
       const pills = await pillsInBar(p)
       expect(pills.pills.length === 0 && pills.seen > 10, `nothing in the bar is pill shaped at rest (${pills.seen} elements looked at)`, pills.pills)
       if (!phone) {
@@ -366,7 +385,7 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
         const lifted = await p.evaluate(() => { let n = 0; for (const st of document.querySelectorAll("style")) { const t = st.textContent; if (t.includes("@media (hover: hover)")) { st.textContent = t.replaceAll("@media (hover: hover)", "@media all"); n++ } } return n && matchMedia("(hover: hover)").matches === false })
         expect(lifted, "the hover rules are live for the hover checks (the browser itself reports no hover)", lifted)
         const hovered = []
-        for (const sel of ["[data-place-navigator-trigger]", "[data-community-messages-button]", "[data-community-top] [data-notification-bell]", "[data-community-me]", '[data-community-search="field"] label']) {
+        for (const sel of ["[data-place-navigator-trigger]", "[data-community-messages-button]", "[data-community-top] [data-notification-bell]", "[data-community-top] [data-account-more]", '[data-community-search="field"] label']) {
           await p.hover(sel)
           await sleep(220)
           hovered.push(...(await pillsInBar(p)).pills.map((x) => ({ ...x, hover: sel })))
@@ -375,11 +394,12 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
         expect(hovered.length === 0, "nor when any of its controls is hovered (no disc appears behind an icon)", hovered)
       }
       expect(g.name === "Clay Studio" && g.by === "/mara" && /By Mara Lindqvist/.test(g.byText || ""), "the name, and By <creator> to their page", { name: g.name, by: g.by })
-      expect(!g.switcher && g.rowOrder.logo >= 0 && g.rowOrder.logo < g.rowOrder.name && g.rowOrder.name < g.rowOrder.nav, "no chevron switcher; the picture, the name, then the hamburger", g.rowOrder)
+      expect(phone ? !g.byShown : g.byShown, phone ? "on a phone no By <creator> line: the picture and the name" : "By <creator> shows on a computer", g.byShown)
+      if (phone) expect(!g.switcher && g.rowOrder.nav >= 0 && g.rowOrder.nav < g.rowOrder.logo && g.rowOrder.logo < g.rowOrder.name, "no chevron switcher; on a phone the hamburger, the picture, then the name", g.rowOrder)
+      else expect(!g.switcher && g.rowOrder.logo >= 0 && g.rowOrder.logo < g.rowOrder.name && g.rowOrder.name < g.rowOrder.nav, "no chevron switcher; the picture, the name, then the hamburger", g.rowOrder)
       expect(g.shadow !== "none" && /^1px /.test(g.hairline), "the bar has a hairline and a soft shadow under it", { shadow: g.shadow, hairline: g.hairline })
       expect(g.chips.join() === "All,General,Announcements,🏺Critique,Glaze lab,Kiln room,Saved" && g.chipOn === "all" && g.chipAll === "rgb(26, 26, 46)", "the spaces as chips, All chosen in near black, Saved at the end", { chips: g.chips, all: g.chipAll })
-      expect(g.messages === "2" && g.bell === "4" && g.me, "Messages and Storelib's bell with their counts, and my picture", { messages: g.messages, bell: g.bell })
-      expect(phone ? !g.chevron : g.chevron, phone ? "on a phone my picture alone" : "my picture with a chevron that opens my menu", g.chevron)
+      expect(g.messages === "2" && g.bell === "4" && g.more === 1 && g.myPicture === 0, "Messages and Storelib's bell with their counts, then a \"...\" (round 7: no picture of me in the bar)", { messages: g.messages, bell: g.bell, more: g.more, picture: g.myPicture })
       expect(phone ? g.searchButton && !g.searchField : g.searchField && !g.searchButton && g.placeholder === "Search discussions, members, or content...", phone ? "on a phone the search is an icon" : "the search field: Search discussions, members, or content...", { field: g.searchField, button: g.searchButton, placeholder: g.placeholder })
       expect(g.topVar === `${g.height}px`, "--community-top is the bar's measured height", { topVar: g.topVar, height: g.height })
       expect(g.theme === "#ffffff", "the browser's bar is white to match", g.theme)
@@ -387,11 +407,11 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
       expect(g.actions.join() === "photo,video,poll,more", "the composer: Photo, Video, Poll and More (no Event for a member)", g.actions)
       expect(g.saveLabel === "Save" && g.spaceChip === "General", "a post: its space as a chip, and Save as a word", { save: g.saveLabel, space: g.spaceChip })
       if (!phone) {
-        expect(g.places.join() === "Community,Classroom,Calendar,Members,Leaderboards,About" && g.placeOn === "Community", "the left column lists the places, Community marked", { places: g.places, on: g.placeOn })
+        expect(g.places.join() === "Community,Classroom,Calendar,Members,Leaderboards,About" && g.placeOn === "Community", "the right column lists the places, Community marked", { places: g.places, on: g.placeOn })
         const L = g.placeLook
-        expect(!!L && L.onBg !== L.offBg && L.h >= 44 && L.chevrons === 6 && new Set(L.tiles).size === 6 && L.tiles.every((c) => !/139, 92, 246|124, 58, 237/.test(c)), "each place: a soft tile of its own tint, a word and a chevron; the open one shaded", L)
+        expect(!!L && L.onBg !== L.offBg && L.h >= 44 && L.chevrons === 6 && L.lucide === 0 && new Set(L.tiles).size === 6 && L.tiles.every((c) => !/139, 92, 246|124, 58, 237/.test(c)), "each place: a soft tile of its own tint, a Solar glyph (no lucide), a word and a Solar chevron; the open one shaded", L)
         expect(g.stats.join("|") === "8kMembers|191Online|2Admins" && g.dot, "the community card: Members, Online with its green dot, Admins", { stats: g.stats, dot: g.dot })
-        expect(g.faces === 7 && g.more === "+8k" && g.address === "storelib.com/community/clay-studio" && !g.settings, "seven faces and +8k, the address; no Settings for a member", { faces: g.faces, more: g.more, address: g.address, settings: g.settings })
+        expect(g.faces === 7 && g.moreFaces === "+8k" && g.address === null && !g.settings, "seven faces and +8k; round 7: no storelib.com/community/... line; no Settings for a member", { faces: g.faces, more: g.moreFaces, address: g.address, settings: g.settings })
         expect(/Upcoming event/.test(g.upcoming || "") && /Live critique: trimming feet/.test(g.upcoming || "") && /128 going/.test(g.upcoming || "") && /View event/.test(g.upcoming || ""), "Upcoming event: the date, the title, the time, 128 going, View event", g.upcoming)
         expect(!!g.contributors && g.contributors.length === 3 && /^1 (PR )?Priya Raman 420$/.test(g.contributors[0]) && /^3 Leo Martins 287$/.test(g.contributors[2]), "Top contributors: rank, name and points", g.contributors)
       } else {
@@ -446,12 +466,35 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
       await p.keyboard.press("Escape")
       await sleep(phone ? 650 : 250)
 
-      /* MY MENU */
-      await p.click("[data-community-me]")
-      await sleep(phone ? 650 : 250)
-      const menu = await p.evaluate(() => [...(document.querySelector("[data-action-sheet]") || document.querySelector("[data-action-list]"))?.querySelectorAll("a") ?? []].map((a) => a.getAttribute("href")))
-      expect(menu.join() === "/@samc,/account/library,/account/settings,/explore", "my menu: profile, library (/account/library), settings, explore", menu)
+      /*
+        MY MENU (round 7): a quiet "..." with a little depth, opening EXACTLY the Storelib header's account menu (the same component,
+        DesktopAccountMenu, on a computer; the same AccountSheet on a phone): Start creating (or Dashboard), Profile to /account (never
+        the creator's own page or its editor), Settings, Language, Help, Discover, Log out.
+      */
+      const moreLook = await p.evaluate(() => {
+        const b = [...document.querySelectorAll("[data-community-top] [data-account-more]")].find((x) => x.getBoundingClientRect().width > 0)
+        const cs = getComputedStyle(b)
+        const r = b.getBoundingClientRect()
+        return { w: Math.round(r.width), h: Math.round(r.height), bg: cs.backgroundColor, border: `${cs.borderTopWidth} ${cs.borderTopColor}`, shadow: cs.boxShadow, radius: cs.borderTopLeftRadius, label: b.getAttribute("aria-label") }
+      })
+      expect(moreLook.w === 40 && moreLook.h === 40 && moreLook.radius === "10px" && moreLook.bg === "rgb(248, 249, 250)" && moreLook.shadow !== "none" && /^1px /.test(moreLook.border), "the \"...\": a 40px square with the faintest ground, a hairline and a one pixel shadow", moreLook)
+      await p.evaluate(() => [...document.querySelectorAll("[data-community-top] [data-account-more]")].find((x) => x.getBoundingClientRect().width > 0).click())
+      await sleep(phone ? 650 : 300)
+      const menu = await p.evaluate((ph) => {
+        const box = ph ? [...document.querySelectorAll("[data-account-sheet-body]")].find((b) => b.getBoundingClientRect().height > 0) : document.querySelector("[data-community-top] [data-account-menu]")
+        if (!box) return null
+        return { items: [...box.querySelectorAll("[data-account-item]")].map((a) => a.getAttribute("data-account-item")), hrefs: Object.fromEntries([...box.querySelectorAll("a[data-account-item]")].map((a) => [a.getAttribute("data-account-item"), a.getAttribute("href")])), who: box.querySelector("[data-account-who]")?.innerText.replace(/\s+/g, " ").trim() }
+      }, phone)
+      expect(!!menu && menu.items.join() === "start-creating,profile,settings,language,help,discover,log-out", `the "..." opens the Storelib account ${phone ? "sheet" : "menu"}, the same rows in the same order`, menu?.items)
+      expect(!!menu && menu.hrefs.profile === "/account" && menu.hrefs.settings === "/account/settings" && menu.hrefs["start-creating"] === "/sell" && menu.hrefs.help === "/help" && menu.hrefs.discover === "/explore" && /Sam Carter @samc/.test(menu.who || ""), "Profile goes to /account (not /@samc or an editor), Settings, Start creating, Help, Discover; my name and @handle on top", menu)
       await shot(p, `${label}-me-menu`)
+      await p.evaluate((ph) => {
+        const box = ph ? [...document.querySelectorAll("[data-account-sheet-body]")].find((b) => b.getBoundingClientRect().height > 0) : document.querySelector("[data-community-top] [data-account-menu]")
+        box.querySelector('a[data-account-item="profile"]').click()
+      }, phone)
+      await sleep(phone ? 650 : 250)
+      const went = await p.evaluate(() => (window.__router || []).filter((x) => x[0] === "link").map((x) => x[1]))
+      expect(went.at(-1) === "/account", "and Profile is a link to /account", went)
       await p.keyboard.press("Escape")
       await sleep(phone ? 650 : 250)
 
@@ -559,39 +602,46 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
       await p.close()
     }
 
-    /* ── THE RIGHT COLUMN, FULLY DYNAMIC ─────────────────────────────── */
+    /*
+      ── THE COLUMNS, SWAPPED (round 7) ──────────────────────────────────
+      Left: the community card, and on the feed the top contributors right under it. Right: the places (Community, Classroom,
+      Calendar, Members, Leaderboards, About) and, on the feed, the next event under them. The three columns are the same on
+      every page, so the middle never moves between the feed and the classroom.
+    */
     if (!phone) {
       const widths = {}
+      const columns = (p) =>
+        p.evaluate(() => {
+          const r = (s) => { const e = document.querySelector(s); if (!e) return null; const b = e.getBoundingClientRect(); return b.width ? { x: Math.round(b.left), y: Math.round(b.top), w: Math.round(b.width), right: Math.round(b.right), b: Math.round(b.bottom) } : null }
+          const right = [...document.querySelectorAll("[data-community-right-cards] > *")].map((s) => s.hasAttribute("data-wall-upcoming") ? "event" : s.hasAttribute("data-wall-places") ? "places" : "other")
+          return { columns: document.querySelector("[data-community-columns]")?.getAttribute("data-community-columns"), left: r("[data-community-left]"), card: r("[data-wall-card]"), contributors: r("[data-wall-contributors]"), main: r("[data-community-main]"), right: r("[data-community-right]"), places: r("[data-wall-places]"), event: r("[data-wall-upcoming]"), rightOrder: right, search: r('[data-community-search="field"]'), mark: r("[data-community-top-lead] > a") }
+        })
       for (const wall of ["both", "event", "contributors", "none"]) {
         const { p, errors } = await open("feed", `/community/clay-studio?wall=${wall}`, vp)
-        const c = await p.evaluate(() => {
-          const r = (s) => { const e = document.querySelector(s); if (!e) return null; const b = e.getBoundingClientRect(); return b.width ? { x: Math.round(b.left), y: Math.round(b.top), w: Math.round(b.width), right: Math.round(b.right) } : null }
-          const cards = [...document.querySelectorAll("[data-community-right-cards] > section")].map((s) => ({ kind: s.hasAttribute("data-wall-upcoming") ? "event" : "contributors", y: Math.round(s.getBoundingClientRect().top) }))
-          return { columns: document.querySelector("[data-community-columns]")?.getAttribute("data-community-columns"), left: r("[data-community-left]"), main: r("[data-community-main]"), right: r("[data-community-right]"), cards, search: r('[data-community-search="field"]'), lead: r("[data-community-top-lead]"), mark: r("[data-community-top-lead] > a") }
-        })
+        const c = await columns(p)
         widths[wall] = c.main?.w
         console.log(`        ?wall=${wall}: left ${c.left?.w}px, feed ${c.main?.w}px, right ${c.right?.w ?? "none"}`)
+        expect(c.columns === "three" && c.left?.w === 280 && c.right?.w === 300 && c.main.x === c.left.right + 24 && c.right.x === c.main.right + 24, `?wall=${wall}: three columns, 280px left, the feed, 300px right, 24px apart`, c)
+        expect(!!c.places && c.places.x === c.right.x && c.rightOrder[0] === "places", "the places are in the RIGHT column, at its top", { places: c.places, order: c.rightOrder })
+        if (wall === "both" || wall === "event") expect(c.rightOrder.join() === "places,event" && c.event.y >= c.places.b, "the upcoming event stays on the right, under the places", c.rightOrder)
+        else expect(c.rightOrder.join() === "places" && !c.event, "no event: the places alone on the right", c.rightOrder)
+        if (wall === "both" || wall === "contributors") expect(!!c.contributors && c.contributors.x === c.left.x && c.contributors.y === c.card.b + 12, "top contributors in the LEFT column, 12px under the community card", { card: c.card, contributors: c.contributors })
+        else expect(!c.contributors, "no contributors: the card alone on the left", c.contributors)
         if (wall === "both") {
-          expect(c.columns === "three" && c.left?.w === 280 && c.right?.w === 300 && c.main.x === c.left.right + 24 && c.right.x === c.main.right + 24, "three columns: 280px left, the feed, 300px right, 24px apart", c)
-          expect(c.cards.map((x) => x.kind).join() === "event,contributors", "Upcoming event, then Top contributors", c.cards)
           expect(!!c.search && c.search.x === c.main.x && c.mark.x === c.left.x, "the search lines up with the feed, the logo with the left column", { search: c.search, main: c.main, mark: c.mark, left: c.left })
           await shot(p, `${label}-wall-both`)
-        } else if (wall === "none") {
-          expect(c.columns === "two" && !c.right && c.main.right === c.left.x + 280 + 24 + c.main.w && c.main.w > widths.both, "no event and no contributors: no right column, and the feed takes its room", c)
-          await shot(p, `${label}-wall-none`)
-        } else {
-          expect(c.columns === "three" && c.right?.w === 300 && c.cards.length === 1 && c.cards[0].kind === wall && c.cards[0].y === c.left.y, `only ${wall === "event" ? "the event" : "the contributors"}: one card, at the top of the right column`, c)
-          await shot(p, `${label}-wall-${wall}`)
-        }
+        } else await shot(p, `${label}-wall-${wall}`)
         expect(errors.length === 0, "no page errors", errors)
         await p.close()
       }
-      expect(widths.none - widths.both === 324, "the feed grows by the right column and its gap (300 + 24) when there is none", widths)
-      /* Not a feed: no right column, the classroom has the room. */
+      expect(new Set(Object.values(widths)).size === 1, "the feed is the same width whatever the side cards say", widths)
+      /* Not a feed: the same three columns (the places on the right, Classroom marked), no event, no contributors, the middle where it was. */
       {
         const { p, errors } = await open("classroom", "/community/clay-studio/classroom", vp)
-        const c = await p.evaluate(() => ({ columns: document.querySelector("[data-community-columns]")?.getAttribute("data-community-columns"), right: !!document.querySelector("[data-community-right]"), on: document.querySelector("[data-wall-places] [aria-current=page]")?.textContent?.trim() }))
-        expect(c.columns === "two" && !c.right && c.on === "Classroom", "a page that is not a feed (the classroom): the left column, no right one, Classroom marked", c)
+        const c = await columns(p)
+        const on = await p.evaluate(() => document.querySelector("[data-wall-places] [aria-current=page]")?.textContent?.trim())
+        expect(c.columns === "three" && on === "Classroom" && c.rightOrder.join() === "places" && !c.contributors && c.main.w === widths.both && c.main.x === c.left.right + 24, "the classroom: the same columns (no jump from the feed), the places on the right with Classroom marked, no side cards", { c, on })
+        await shot(p, `${label}-classroom`)
         expect(errors.length === 0, "no page errors", errors)
         await p.close()
       }
@@ -625,6 +675,154 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
       const s = await p.evaluate(() => ({ on: document.querySelector("[data-space-chip][aria-current=page]")?.getAttribute("data-space-chip"), pill: document.querySelector("[data-community-tabs] [aria-current=page]")?.textContent?.trim(), desc: !!document.querySelector("[data-space-description]") }))
       expect(s.on === "critique" && s.pill === "Community" && s.desc, "a space: its chip chosen, its line under the chips, Community still marked", s)
       await shot(p, `${label}-space`)
+      expect(errors.length === 0, "no page errors", errors)
+      await p.close()
+    }
+
+    /*
+      ── SWITCHING SPACES AND SORTS IN PLACE (round 7, asks 9 and 10) ──────
+      The harness answers /posts and /bookmarks itself after 250ms (scripts/render-community-shell.tsx), so a list that is not
+      cached costs exactly one ask and a quarter of a second, and a cached one should cost nothing. Each switch is timed from
+      the click to the frame its posts are on screen, every frame in between sampled: the list on screen never empties (no
+      skeleton, the previous list stays until the new one swaps in), and no frame is long.
+    */
+    {
+      const { p, errors } = await open("feed", "/community/clay-studio", vp)
+      /* One switch: click (or tap) a chip, then sample every frame until `done` holds. */
+      const sw = (sel, done, how = "click") =>
+        p.evaluate(
+          (sel, done, how) =>
+            new Promise((resolve) => {
+              const calls0 = window.__feedCalls.length
+              const tasks = []
+              const po = typeof PerformanceObserver === "undefined" ? null : new PerformanceObserver((l) => tasks.push(...l.getEntries().map((e) => Math.round(e.duration))))
+              try { po?.observe({ type: "longtask" }) } catch {}
+              const el = document.querySelector(sel)
+              const frames = []
+              const t0 = performance.now()
+              let last = t0
+              const ok = new Function(`return (${done})`)
+              if (how === "tap") el.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerType: "touch" }))
+              el.click()
+              const tick = () => {
+                const now = performance.now()
+                const list = document.querySelector("[data-feed-list]")
+                frames.push({ dt: Math.round(now - last), posts: list ? list.querySelectorAll("[data-post]").length : -1, skeleton: !!document.querySelector('[aria-busy="true"][aria-label^="Loading"]'), empty: !!document.querySelector("[data-feed-empty]") })
+                last = now
+                if (ok() || now - t0 > 3000) {
+                  po?.disconnect()
+                  resolve({ ms: Math.round(now - t0), done: ok(), frames, tasks, calls: window.__feedCalls.slice(calls0), path: location.pathname, key: document.querySelector("[data-feed-key]")?.getAttribute("data-feed-key") })
+                }
+                else requestAnimationFrame(tick)
+              }
+              requestAnimationFrame(tick)
+            }),
+          sel,
+          done,
+          how,
+        )
+      const how = phone ? "tap" : "click"
+      const t = {}
+      /* Uncached: one ask, the old list stays on screen until Glaze lab's arrives. */
+      t.uncached = await sw('[data-space-chip="glaze-lab"]', '!!document.querySelector(\'[data-post="p-glaze-1"]\') && !document.querySelector(\'[data-post="p-pinned"]\')', how)
+      expect(t.uncached.done && t.uncached.calls.length === 1 && /space=s-glaze/.test(t.uncached.calls[0]) && /sort=default/.test(t.uncached.calls[0]), "a space not seen yet: one ask for its first page (sort Default)", t.uncached.calls)
+      expect(t.uncached.frames.every((f) => f.posts > 0 && !f.skeleton && !f.empty), "while it comes, the list on screen stays (never empty, no skeleton)", t.uncached.frames.map((f) => f.posts))
+      expect(t.uncached.path === "/community/clay-studio/space/glaze-lab", "the address follows: /space/glaze-lab", t.uncached.path)
+      const chipNow = await p.evaluate(() => document.querySelector("[data-space-chip][aria-current=page]")?.getAttribute("data-space-chip"))
+      expect(chipNow === "glaze-lab", "the chip is chosen at once", chipNow)
+      /* Cached: back to All, no ask, on the next frame. */
+      t.cached = await sw('[data-space-chip="all"]', '!!document.querySelector(\'[data-post="p-pinned"]\')', how)
+      expect(t.cached.done && t.cached.calls.length === 0 && t.cached.frames.length <= 2 && t.cached.ms <= 100, "a list already seen: no ask, on screen on the first or second frame after the click", { ms: t.cached.ms, frames: t.cached.frames.length, calls: t.cached.calls })
+      t.cachedAgain = await sw('[data-space-chip="glaze-lab"]', '!!document.querySelector(\'[data-post="p-glaze-1"]\')', how)
+      expect(t.cachedAgain.calls.length === 0 && t.cachedAgain.frames.length <= 2, "and so is Glaze lab, the second time", { ms: t.cachedAgain.ms, calls: t.cachedAgain.calls })
+      /* Ahead of the click: a pointer resting on General (a finger landing on it on a phone) asks for it; the click then costs nothing. */
+      const before = await p.evaluate(() => window.__feedCalls.length)
+      if (phone) await p.evaluate(() => document.querySelector('[data-space-chip="general"]').dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerType: "touch" })))
+      else await p.hover('[data-space-chip="general"]')
+      await sleep(400)
+      const asked = await p.evaluate((n) => window.__feedCalls.slice(n), before)
+      expect(asked.length === 1 && /space=s-general/.test(asked[0]), phone ? "a finger landing on a chip asks for its list ahead" : "a pointer resting on a chip asks for its list ahead", asked)
+      t.prefetched = await sw('[data-space-chip="general"]', '!!document.querySelector(\'[data-community-feed="space:general"]\') && !document.querySelector(\'[data-feed-waiting]\')')
+      expect(t.prefetched.calls.length === 0 && t.prefetched.frames.length <= 2, "so the click shows it on the next frame, with no ask of its own", { ms: t.prefetched.ms, calls: t.prefetched.calls })
+      /* Back goes to the list before, at once. */
+      const back = await p.evaluate(() => new Promise((resolve) => { const t0 = performance.now(); history.back(); const tick = () => { if (document.querySelector('[data-community-feed="space:glaze-lab"]') || performance.now() - t0 > 2000) resolve({ ms: Math.round(performance.now() - t0), path: location.pathname, key: document.querySelector("[data-community-feed]")?.getAttribute("data-community-feed") }); else requestAnimationFrame(tick) }; requestAnimationFrame(tick) }))
+      expect(back.path === "/community/clay-studio/space/glaze-lab" && back.key === "space:glaze-lab" && back.ms <= 150, "Back returns to the list before, from the cache", back)
+      const long = [t.uncached, t.cached, t.cachedAgain, t.prefetched].flatMap((x) => x.frames.map((f) => f.dt))
+      const tasks = [t.uncached, t.cached, t.cachedAgain, t.prefetched].flatMap((x) => x.tasks)
+      if (process.env.FRAMES) console.log(JSON.stringify(Object.fromEntries(Object.entries(t).map(([k, v]) => [k, v.frames.map((f) => f.dt)]))))
+      console.log(`        switch to content: uncached ${t.uncached.ms}ms (the 250ms answer), cached ${t.cached.ms}ms / ${t.cachedAgain.ms}ms, read ahead ${t.prefetched.ms}ms; longest frame ${Math.max(...long)}ms (headless, software paint); long tasks: ${tasks.length ? tasks.join(", ") + "ms" : "none"}; asks: 1, 0, 0, 0 (+1 ahead)`)
+      expect(tasks.length === 0, "no long task (over 50ms of script) while switching", tasks)
+
+      /* ── THE SORT MENU (ask 9): no Latest / Popular pills; a sliders button left of Saved. ── */
+      const sortLook = await p.evaluate(() => {
+        const b = document.querySelector("[data-feed-sort-button]")
+        const saved = document.querySelector('[data-space-chip="saved"]')
+        const r = b?.getBoundingClientRect()
+        return {
+          pills: [...document.querySelectorAll("[data-feed] button, [data-feed] [role=tab]")].filter((x) => /^(Latest|Popular)$/.test(x.textContent.trim())).length + document.querySelectorAll('[role=tablist][aria-label="Sort posts"]').length,
+          button: !!b,
+          leftOfSaved: !!b && !!saved && r.right <= saved.getBoundingClientRect().left && Math.abs(r.top + r.height / 2 - (saved.getBoundingClientRect().top + saved.getBoundingClientRect().height / 2)) <= 1,
+          size: r && Math.round(r.height),
+          shadow: b && getComputedStyle(b).boxShadow,
+          label: b?.getAttribute("aria-label"),
+        }
+      })
+      expect(sortLook.pills === 0, "no Latest / Popular pills under the composer", sortLook.pills)
+      expect(sortLook.button && sortLook.leftOfSaved && sortLook.size === (phone ? 40 : 36) && sortLook.shadow !== "none" && sortLook.label === "Sort posts: Default", "a sliders button at the end of the chips row, left of Saved, with the same little depth", sortLook)
+      await p.click("[data-feed-sort-button]")
+      await sleep(250)
+      const menuNow = await p.evaluate(() => ({ items: [...document.querySelectorAll("[data-feed-sort-item]")].map((x) => `${x.getAttribute("data-feed-sort-item")}${x.getAttribute("aria-checked") === "true" ? "*" : ""}`), focus: document.activeElement?.getAttribute("data-feed-sort-item"), box: (() => { const r = document.querySelector("[data-feed-sort-menu]")?.getBoundingClientRect(); return r && { right: Math.round(r.right), w: Math.round(r.width), x: Math.round(r.left) } })(), vw: innerWidth }))
+      expect(menuNow.items.join() === "default*,new,top,unread" && menuNow.focus === "default" && menuNow.box && menuNow.box.x >= 0 && menuNow.box.right <= menuNow.vw, "the menu: Default (chosen, focused), New, Top, Unread, on screen", menuNow)
+      await shot(p, `${label}-sort-menu`)
+      await p.keyboard.press("ArrowDown")
+      await p.keyboard.press("ArrowDown")
+      const top = await p.evaluate(() => new Promise((resolve) => {
+        const n = window.__feedCalls.length
+        const t0 = performance.now()
+        document.activeElement.click()
+        const tick = () => {
+          const ids = [...document.querySelectorAll("[data-feed-list] [data-post]")].map((x) => x.getAttribute("data-post"))
+          if ((!document.querySelector("[data-feed-waiting]") && /\|top$/.test(document.querySelector("[data-feed-key]")?.getAttribute("data-feed-key") || "")) || performance.now() - t0 > 3000) resolve({ ms: Math.round(performance.now() - t0), ids, calls: window.__feedCalls.slice(n), menu: !!document.querySelector("[data-feed-sort-menu]"), dot: !!document.querySelector("[data-feed-sort-dot]"), label: document.querySelector("[data-feed-sort-button]")?.getAttribute("aria-label") })
+          else requestAnimationFrame(tick)
+        }
+        requestAnimationFrame(tick)
+      }))
+      expect(top.calls.length === 1 && /sort=top/.test(top.calls[0]) && /space=s-glaze/.test(top.calls[0]) && top.ids.join() === "p-glaze-1,p-glaze-2", "Top asks for this space's list (Glaze lab, where Back left us), most liked first", { calls: top.calls, ids: top.ids })
+      expect(!top.menu && top.dot && top.label === "Sort posts: Top", "the menu closes; the choice shows on the button as a dot (and in its name), not as a pill", top)
+      await p.click("[data-feed-sort-button]")
+      await sleep(200)
+      const checked = await p.evaluate(() => document.querySelector('[data-feed-sort-item][aria-checked="true"]')?.getAttribute("data-feed-sort-item"))
+      expect(checked === "top", "opened again, the menu marks Top", checked)
+      await p.keyboard.press("Escape")
+      await sleep(150)
+      const closed = await p.evaluate(() => ({ menu: !!document.querySelector("[data-feed-sort-menu]"), focus: document.activeElement?.hasAttribute("data-feed-sort-button") }))
+      expect(!closed.menu && closed.focus, "Escape closes it and gives the focus back to the button", closed)
+      /* The sort holds across spaces: All in Top is a new list (one ask), Unread another. */
+      const allTop = await sw('[data-space-chip="all"]', '!document.querySelector("[data-feed-waiting]") && /\\|all\\|top$/.test(document.querySelector("[data-feed-key]")?.getAttribute("data-feed-key") || "")')
+      const order = await p.evaluate(() => [...document.querySelectorAll("[data-feed-list] [data-post]")].map((x) => x.getAttribute("data-post")))
+      expect(allTop.calls.length === 1 && /sort=top/.test(allTop.calls[0]) && order.slice(0, 2).join() === "p-pinned,p-last", "the sort holds across spaces: All in Top, most liked first, the pinned post in its place", { calls: allTop.calls, order })
+      await p.click("[data-feed-sort-button]")
+      await sleep(200)
+      await p.click('[data-feed-sort-item="unread"]')
+      await sleep(400)
+      const unread = await p.evaluate(() => ({ ids: [...document.querySelectorAll("[data-feed-list] [data-post]")].map((x) => x.getAttribute("data-post")), call: window.__feedCalls.at(-1) }))
+      expect(/sort=unread/.test(unread.call) && unread.ids.join() === "p-text,p-glaze-1", "Unread: only the posts with activity since the member was last here, newest activity first", unread)
+      await shot(p, `${label}-sort-unread`)
+      const s = await sideScroll(p)
+      expect(s.scroll <= s.width, "nothing scrolls sideways", s)
+      expect(errors.length === 0, "no page errors", errors)
+      await p.close()
+    }
+
+    /* ── A PLACE IS MARKED AT ONCE, AND ITS LINK IS READ AHEAD ON HOVER (ask 10) ── */
+    if (!phone) {
+      const { p, errors } = await open("feed", "/community/clay-studio", vp)
+      const mark = await p.evaluate(() => new Promise((resolve) => {
+        const a = document.querySelector('[data-wall-places] a[data-community-nav="Members"]')
+        a.click()
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve({ on: document.querySelector("[data-wall-places] [aria-current=page]")?.textContent?.trim(), went: (window.__router || []).filter((x) => x[0] === "link").map((x) => x[1]) })))
+      }))
+      expect(mark.on === "Members" && mark.went.at(-1) === "/community/clay-studio/members", "a click on a place marks it on the next frame, before its page arrives", mark)
       expect(errors.length === 0, "no page errors", errors)
       await p.close()
     }
@@ -728,8 +926,8 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
       const vgeo = await barGeometry(p)
       const vwas = phone ? BEFORE.visitorPhone : BEFORE.visitorDesktop
       console.log(`        a visitor's bar: ${vwas}px before, ${vgeo.height}px now`)
-      expect(vgeo.height === (phone ? 45 : 57) && vgeo.height < vwas, "a visitor's bar is slimmer too (one row, no tabs)", { before: vwas, now: vgeo.height })
-      expect(vgeo.trigger.x >= vgeo.nameRight, "the hamburger right of the name for a visitor too", vgeo)
+      expect(vgeo.height === (phone ? 57 : 65), "a visitor's bar: one row (56px on a phone, 64px on a computer), no tabs", { before: vwas, now: vgeo.height })
+      expect(phone ? vgeo.trigger.right <= vgeo.markX : vgeo.trigger.x >= vgeo.nameRight, phone ? "the hamburger left of the picture for a visitor too" : "the hamburger right of the name for a visitor too", vgeo)
       const vp2 = await pillsInBar(p)
       const login = await p.evaluate(() => { const l = document.querySelector("[data-community-login]"); const cs = getComputedStyle(l); return { h: Math.round(l.getBoundingClientRect().height), bg: cs.backgroundColor, border: cs.borderTopWidth } })
       expect(vp2.pills.length === 0 && login.bg === "rgba(0, 0, 0, 0)" && login.border === "0px" && login.h === 40, "Log in is a word in a 40px target, not an outlined pill; nothing else in the bar is a pill", { pills: vp2.pills, login })
@@ -938,13 +1136,13 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
   }
   /* ── 1024 and 768: two columns with the right cards under the left, and the tablet ─── */
   if (!process.env.ONLY) {
-    for (const [label, vp, want] of [["laptop-1024", { width: 1024, height: 768, deviceScaleFactor: 1 }, 57], ["tablet-768", { width: 768, height: 1024, deviceScaleFactor: 1 }, 89]]) {
+    for (const [label, vp, want] of [["laptop-1024", { width: 1024, height: 768, deviceScaleFactor: 1 }, 65], ["tablet-768", { width: 768, height: 1024, deviceScaleFactor: 1 }, 97]]) {
       console.log(`\n${label}`)
       const { p, errors } = await open("feed", "/community/clay-studio", vp)
       await shot(p, `${label}-feed`)
       await shot(p, `${label}-feed-full`, true)
       const geo = await barGeometry(p)
-      expect(geo.height === want, `the header is ${want}px (${want === 57 ? "one row, the places in the left column" : "48 + 40 of tabs + the hairline"})`, geo.height)
+      expect(geo.height === want, `the header is ${want}px (${want === 65 ? "one 64px row, the places in the left column" : "56 + 40 of tabs + the hairline"})`, geo.height)
       expect(geo.trigger.x >= geo.nameRight, "the hamburger right of the name", geo)
       const pills = await pillsInBar(p)
       expect(pills.pills.length === 0, "nothing pill shaped", pills.pills)
@@ -952,10 +1150,10 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
       expect(s.scroll <= s.width, "nothing scrolls sideways", s)
       const c = await p.evaluate(() => {
         const r = (sel) => { const e = document.querySelector(sel); if (!e) return null; const b = e.getBoundingClientRect(); return b.width ? { x: Math.round(b.left), y: Math.round(b.top), w: Math.round(b.width), b: Math.round(b.bottom), right: Math.round(b.right) } : null }
-        return { left: r("[data-community-left]"), main: r("[data-community-main]"), right: r("[data-community-right]"), search: r('[data-community-search="field"]'), tabs: r("[data-community-tabs]") }
+        return { left: r("[data-community-left]"), main: r("[data-community-main]"), right: r("[data-community-right]"), more: r("[data-community-left-more]"), search: r('[data-community-search="field"]'), tabs: r("[data-community-tabs]") }
       })
-      if (want === 57) {
-        expect(!!c.left && c.left.w === 260 && !!c.right && c.right.x === c.left.x && c.right.y >= c.left.b && c.main.x === c.left.right + 24, "from 1024px to 1279px: two columns, the event and the contributors under the left column", c)
+      if (want === 65) {
+        expect(!!c.left && c.left.w === 260 && !!c.right && c.right.x === c.left.x && c.right.y >= c.left.b && !!c.more && c.more.x === c.left.x && c.more.y >= c.right.b && c.main.x === c.left.right + 24, "from 1024px to 1279px: two columns, the card, the places and the event, then the contributors, all in the left column", c)
         expect(!c.tabs && !!c.search, "the places in the left column (no tabs), the search field in the bar", { tabs: c.tabs, search: c.search })
       } else {
         expect(!c.left && !c.right && !!c.main && c.main.w === 768 - 48 && !!c.tabs && !!c.search, "a tablet: one column, the row of tabs, the search field in the bar", c)
@@ -966,7 +1164,7 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
   }
   await browser.close()
 } finally {
-  rmSync(stubs, { recursive: true, force: true })
+  if (!process.env.KEEP_STUBS) rmSync(stubs, { recursive: true, force: true })
 }
 
 console.log(`\nScreenshots: ${shots}`)

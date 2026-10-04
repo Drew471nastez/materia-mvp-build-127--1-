@@ -12,6 +12,9 @@
  *   - The nativeAuthInProgress flag is owned here so all callers agree on state.
  */
 
+import { needsDocumentLoad, nativeLinkFor } from "@/lib/native-links"
+import { forgetLastPlace } from "@/lib/native-resume"
+
 // ── Bridge accessor ──────────────────────────────────────────────────────────
 function bridge(): Record<string, unknown> | null {
   if (typeof window === "undefined") return null
@@ -195,6 +198,8 @@ export async function getCachedNativeHome(): Promise<string | null> {
  */
 async function clearNativeHome(): Promise<void> {
   if (typeof window === "undefined") return
+  /* And the place the app reopens on (lib/native-resume.ts): it was this account's. */
+  forgetLastPlace()
   try {
     const cap = (window as any).Capacitor
     if (!cap?.isNativePlatform?.()) return
@@ -360,6 +365,7 @@ export async function nativeLogout(
 ): Promise<void> {
   try { await supabaseClient.auth.signOut({ scope: "local" }) } catch { /* ignore */ }
   try { localStorage.removeItem("sb-native-home") } catch { /* ignore */ }
+  forgetLastPlace()
   isNative() ? window.location.replace("/welcome") : router.replace("/login")
 }
 
@@ -474,24 +480,69 @@ export function hapticTap(strength: "soft" | "light" | "medium" = "light"): void
 // ── External link handling ──────────────────────────────────────────────────
 
 /**
- * Open a URL in the system browser when running inside Capacitor, or in a
- * new tab when on the regular web.
+ * ===========================================================================
+ *  A STORELIB ADDRESS NAVIGATES THE APP; ONLY SOMEBODY ELSE'S SITE LEAVES IT
+ * ===========================================================================
+ * Inside the native app, `href` is followed in the app's own WebView when it
+ * is one of Storelib's addresses (lib/native-links.ts): storelib.com,
+ * www.storelib.com, storelib.me and a creator's <name>.storelib.com. A path
+ * goes through the router when one is given and the page shares the layout,
+ * else as a document load. Returns false, having done nothing, for anything
+ * else, which is the caller's to open.
  *
- * Inside the native app, routes like /explore, /store/*, /product/* should
- * open in the device's default browser rather than the in-app WebView so
- * the user gets the full browser experience (address bar, sharing, etc).
+ * Off the app it does nothing and returns false: the web's own link
+ * behaviour is already right there.
+ */
+export function navigateInApp(href: string, router?: { push: (href: string) => void } | null): boolean {
+  if (typeof window === "undefined" || !isNativeApp()) return false
+  const link = nativeLinkFor(href)
+  if (link.kind === "path") {
+    if (router && !needsDocumentLoad(link.path)) router.push(link.path)
+    else window.location.assign(link.path)
+    return true
+  }
+  if (link.kind === "host") {
+    window.location.assign(link.url)
+    return true
+  }
+  return false
+}
+
+/**
+ * The address to hand `location.replace` or `location.assign` for this href:
+ * inside the app a Storelib address becomes its storelib.com path, so a full
+ * page navigation (a checkout going back to the product, or on to a
+ * creator's website after paying) stays in the WebView. Anything else, and
+ * everything off the app, comes back as it was.
+ */
+export function inAppHref(href: string): string {
+  if (typeof window === "undefined" || !isNativeApp()) return href
+  const link = nativeLinkFor(href)
+  return link.kind === "path" ? link.path : href
+}
+
+/**
+ * Open a URL that is not Storelib's in the system browser when running inside
+ * Capacitor, or in a new tab on the regular web.
  *
- * iOS:  Uses window.open("_system") to launch the URL in Safari.app — fully
- *       external to the app. This satisfies App Store Guideline 3.1.1 because
- *       no purchase flow is ever presented inside the app or any in-app browser
- *       (SFSafariViewController). Apple reviewers will see product pages open
- *       in the user's default Safari browser, completely outside the app.
+ * A STORELIB ADDRESS NEVER LEAVES THE APP. This used to send every URL it
+ * was given to Safari, on purpose: /explore, a creator's page and a product
+ * all opened outside the app so that nothing for sale was ever shown in it.
+ * The owner asked for the opposite ("/explore, product pages, creator pages,
+ * the buyer side and checkout must stay inside the app"), so a Storelib
+ * address now navigates the app's WebView (navigateInApp above) and only
+ * somebody else's site, a creator's own links or Stripe's billing page, goes
+ * to the browser.
+ *
+ * iOS:  window.open("_system") hands the URL to iOS's openURL, which opens
+ *       Safari.app.
  *
  * Android: Uses @capacitor/browser (Chrome Custom Tab) with a _system fallback.
  */
 export function openExternal(url: string): void {
   if (typeof window === "undefined") return
   if (isNativeApp()) {
+    if (navigateInApp(url)) return
     if (isIOS()) {
       // On iOS, open in the actual Safari browser (fully external).
       // window.open("_system") in Capacitor's WKWebView delegates the URL to
@@ -532,6 +583,8 @@ export function openExternal(url: string): void {
 export function openInApp(url: string): void {
   if (typeof window === "undefined") return
   if (isNativeApp()) {
+    /* Opened over the app on purpose: the link guard (components/platform/native-link-guard.tsx) lets this one window through. */
+    ;(window as unknown as { __storelibSheet?: string }).__storelibSheet = url
     import("@capacitor/browser")
       .then(({ Browser }) => Browser.open({ url, presentationStyle: "popover", toolbarColor: "#ffffff" }))
       .catch(() => window.open(url, "_blank", "noopener"))

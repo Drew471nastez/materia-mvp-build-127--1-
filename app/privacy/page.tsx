@@ -315,10 +315,10 @@ export default function PrivacyPolicyPage() {
                   Storelib&apos;s own payout form collects only what Stripe requires of an individual in their
                   country, typically a date of birth, a home address and a phone number, together with the bank
                   account payouts are sent to and the currency the Seller chooses to be paid in. Storelib does not
-                  ask for a national identification number or a proof of address: where Stripe accepts an
-                  identity document in their place, the identity document answers for them. Where Stripe requires
-                  one of them regardless, Storelib support helps the Seller provide it to Stripe directly, and
-                  Storelib does not keep it.
+                  ask for a utility bill or bank statement. Where Stripe accepts an identity document in place of a
+                  national identification number, the identity document answers for it; only where the rules of
+                  the Seller&apos;s country leave Stripe no alternative (for example a United States Social Security
+                  number) is the number asked for, and it is passed to Stripe without being stored by Storelib.
                 </p>
                 <p>
                   Where Stripe requires an identity document, the Seller presents a passport, national identity

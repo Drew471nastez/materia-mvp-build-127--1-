@@ -139,9 +139,10 @@ async function main() {
     keysetCondition("popular", { c: at, i: U(5), r: 3 }) === `reaction_count.lt.3,and(reaction_count.eq.3,created_at.lt."${at}"),and(reaction_count.eq.3,created_at.eq."${at}",id.lt.${U(5)})`,
   )
   check("the next cursor comes from the page's last post", decodeCursor(cursorAfter("popular", { created_at: at, id: U(6), reaction_count: 4 }), "popular")?.r === 4)
-  check("anything but popular sorts by latest", feedSort("popular") === "popular" && feedSort("weird") === "latest" && feedSort(undefined) === "latest")
+  /* Round 7: the sort menu's four orders; the old names are New and Top, anything else is Default. */
+  check("the old names still read as New and Top, and anything unknown is Default", feedSort("popular") === "top" && feedSort("latest") === "new" && feedSort("weird") === "default" && feedSort(undefined) === "default")
   const feedSrc = code("lib/communities/server/feed.ts")
-  check("pinned posts are read on their own, first page only, and the pages skip them", /if \(!cursor\)[\s\S]{0,200}\.eq\("pinned", true\)/.test(feedSrc) && /\.eq\("pinned", false\)/.test(feedSrc))
+  check("pinned posts are read on their own, first page only (in Default), and the pages skip them", /if \(!cursor && order === "default"\) \{[\s\S]{0,200}\.eq\("pinned", true\)/.test(feedSrc) && /\.eq\("pinned", false\)/.test(feedSrc))
   check("pages ask for one more than they show, to know there is a next", /\.limit\(limit \+ 1\)/.test(feedSrc))
   check("no offset paging anywhere in the member modules", !["feed", "comments", "chat", "directory", "mentions"].some((m) => /\.range\(/.test(code(`lib/communities/server/${m}.ts`))))
   check("a page of posts is hydrated in a fixed number of reads (authors, likes, saves, polls)", /authorViews\(db, h\.community\.id, rows\.map/.test(feedSrc) && /\.in\("target_id", ids\)/.test(feedSrc) && /\.in\("post_id", ids\)/.test(feedSrc))
