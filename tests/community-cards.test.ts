@@ -21,6 +21,10 @@
  *                  two lines at most; one foot row: the price first, a slim
  *                  hairline, then members, views, and the stars only with
  *                  reviews; the mark ten per cent bigger in every layout.
+ *   ROUND 8        the owner's reference proportions: a 56px mark (48 on
+ *                  a phone), the name 20/26 from 640px, the price a step
+ *                  larger, each fact's icon in a round well; the builder's
+ *                  phone preview keeps a phone's sizes.
  *   THE TITLE      Roboto 500, 18px on a 24px line, no tracking, from one
  *                  next/font call with one weight, Latin and Latin
  *                  Extended, swap, a CSS variable used by these titles only;
@@ -96,7 +100,7 @@ async function main() {
     check("the storefront and the builder's canvas both go through the tab panel", /<StorefrontCommunities cards=\{cards\} \/>/.test(code("components/profile/creator-communities-tab.tsx")) && /creatorCommunitiesPanel\(communityCards\)/.test(code("app/(marketing)/u/[username]/page.tsx")) && /<StorefrontCommunities cards=\{communities\} phone=\{isMobile\} \/>/.test(code("components/store-builder/preview-canvas.tsx")))
     check("/explore/communities, which drew the old card, only redirects now", /NextResponse\.redirect\(new URL\(target, request\.url\), 308\)/.test(code("app/(marketing)/explore/communities/route.ts")) && /legacyCommunitiesTarget\(/.test(code("app/(marketing)/explore/communities/route.ts")) && !/<\w+Grid|<\w+Card/.test(code("app/(marketing)/explore/communities/route.ts")))
     const card = code(SHARED)
-    check("one card, two shapes: the grid and the compact row, with the same title, sneak peek, foot row and creator line", /layout === "row"/.test(card) && (card.match(/<Facts card=\{card\} \/>/g) ?? []).length === 2 && (card.match(/<Blurb card=\{card\}/g) ?? []).length === 2 && /<Creator card=\{card\} \/>/.test(card) && /<Creator card=\{card\} standing=\{standing\} \/>/.test(card) && (card.match(/COMMUNITY_TITLE\)/g) ?? []).length === 2)
+    check("one card, two shapes: the grid and the compact row, with the same title, sneak peek, foot row and creator line", /layout === "row"/.test(card) && (card.match(/<Facts card=\{card\} storefront=\{storefront\} \/>/g) ?? []).length === 2 && (card.match(/<Blurb card=\{card\}/g) ?? []).length === 2 && /<Creator card=\{card\} eager=\{priority\} wide=\{wide\} \/>/.test(card) && /<Creator card=\{card\} standing=\{standing\} eager=\{priority\} wide=\{wide\} \/>/.test(card) && (card.match(/, titleClass\)/g) ?? []).length === 2 && /const titleClass = cn\(COMMUNITY_TITLE, wide && COMMUNITY_TITLE_WIDE\)/.test(card))
     check("in a row, where they stand follows the creator, so the foot row still starts with the price", /data-community-standing=""/.test(card.slice(card.indexOf("function Creator("))) && !/data-community-standing/.test(card.slice(card.indexOf("function Facts("), card.indexOf("function Creator("))))
     check("no Launched line in any layout", !/launched|Launched/i.test(card))
     check("on a storefront the ground is the creator's tokens", /surface === "storefront"/.test(card) && /storefront \? "bg-muted" : "bg-\[#f1f2f4\]"/.test(card) && /bg-card/.test(card) && /text-muted-foreground/.test(card))
@@ -146,6 +150,7 @@ async function main() {
     const card = code(SHARED)
     const title = /COMMUNITY_TITLE = "([^"]*)"/.exec(card)?.[1] ?? ""
     check("Roboto, sans-serif; 18px; 500; 24px line; letter spacing 0", /\[font-family:var\(--font-community-title,Roboto\),sans-serif\]/.test(title) && /\btext-\[18px\]/.test(title) && /\bfont-medium\b/.test(title) && /\bleading-6\b/.test(title) && /\btracking-\[0px\]/.test(title))
+    check("and 20px on a 26px line from 640px (round 8), unless the frame is a phone", /COMMUNITY_TITLE_WIDE = "sm:text-\[20px\] sm:leading-\[26px\]"/.test(card) && /const wide = !phone/.test(card) && /<ExploreCommunityCard card=\{c\} priority=\{i < priorityCount\} surface=\{surface\} phone=\{phone\} \/>/.test(card))
     check("every title on the card is that one", (card.match(/data-community-title=""/g) ?? []).length === 2 && !/<h3 className="[^"]*text-\[\d+px\]/.test(card))
     const csp = code("lib/security/csp.ts")
     check("self hosted, so the CSP needs no new host: font-src allows 'self'", /\["font-src", \["'self'"/.test(csp))
