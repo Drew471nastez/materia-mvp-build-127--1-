@@ -45,6 +45,15 @@
  *               out of its thumbnail; neighbours load at once
  *   GIFS        Giphy's full reply parses; the picker keeps GIFs on screen
  *
+ * Round 10 (C7):
+ *   LIVE        new posts and comments travel as ids on a broadcast the
+ *               server sends after the write (service role, REST), on a
+ *               channel named by an HMAC only members are handed; the words
+ *               are read through the gated routes; typing is the id only,
+ *               throttled; the feed's one line, the pill, pull to refresh
+ *   FEEL        the heart fills on the icon only; the composer's sent state,
+ *               its finish and the toolbar riding the keyboard; comments land
+ *
  * Run with:  npm run test:push
  */
 import { readFileSync } from "node:fs"
@@ -76,6 +85,9 @@ import { checkMedia, checkPostInput, commentersByPost, COMMENTER_FACES } from "@
 import { cleanGifQuery, giphyKey, parseGiphy } from "@/lib/communities/server/gifs"
 import { communityFilesExist, fileLimitFor, prepareCommunityFile } from "@/lib/communities/server/post-files"
 import { isUnread, type SeenStore } from "@/components/community/member/post-seen"
+import { announceComment, announcePost, broadcastLive, liveTopic, postTopic } from "@/lib/communities/server/realtime"
+import { TYPING_EVERY_MS, TYPING_SHOWN_MS, typingLine } from "@/components/community/member/live"
+import { fitsList } from "@/components/community/member/feed-live"
 import type { CommunityRow } from "@/lib/communities/types"
 import type { Viewer } from "@/lib/communities/server/context"
 
@@ -340,7 +352,7 @@ async function main() {
   const composer = code("components/community/member/composer.tsx")
   check("closed it is one field, Share something...", /data-composer="closed"/.test(composer) && /"Share something\.\.\."/.test(composer) && !/data-composer-action=/.test(composer))
   check("a computer edits in place, a phone in a screen of its own", /data-composer="open"/.test(composer) && /data-composer="sheet"/.test(composer))
-  check("Post waits for a title, words, a space and every upload", /const ready = !!title\.trim\(\) && !!body\.trim\(\) && !!spaceId && !uploading && !!pollReady/.test(composer) && /disabled=\{busy \|\| !ready\}/.test(composer))
+  check("Post waits for a title, words, a space and every upload", /const ready = !!title\.trim\(\) && !!body\.trim\(\) && !!spaceId && !uploading && !!pollReady/.test(composer) && /disabled=\{busy \|\| sent \|\| !ready\}/.test(composer))
   check("the space list is only where the member may post", /composerSpacesOf\(spaces\)/.test(code("components/community/member/feed.tsx")) && /s\.canPost && s\.kind !== "chat"/.test(code("components/community/member/feed.tsx")))
   check("the emoji picker is the app's own", /from "@\/components\/app\/rich-text\/emoji-picker"/.test(composer) && /<EmojiControl /.test(composer))
   check("files go through the community's file route, for every member", /uploadCommunityFile\(\{ communityId, file/.test(composer) && !/DirectUploader/.test(composer))
@@ -406,6 +418,81 @@ async function main() {
   check("Giphy's full reply (every rendition, sizes as strings): the 200px moving GIF, its own still, sizes as numbers", parsed9.length === 1 && /\/abc123\/200w\.gif\?/.test(parsed9[0].url) && /\/abc123\/200w_s\.gif\?/.test(parsed9[0].still) && parsed9[0].w === 200 && parsed9[0].h === 113 && parsed9[0].title === "wave")
 
   /* ── Copy and boundaries ────────────────────────────────────────────── */
+  console.log("\nRound 10: live posts, comments and typing")
+  {
+    const env = { url: process.env.NEXT_PUBLIC_SUPABASE_URL, key: process.env.SUPABASE_SERVICE_ROLE_KEY }
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://abc.supabase.co/"
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "service-key-one"
+    const a = liveTopic(U(900))
+    const again = liveTopic(U(900).toUpperCase())
+    const other = liveTopic(U(901))
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "service-key-two"
+    const otherKey = liveTopic(U(900))
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "service-key-one"
+    check("the live channel's name is an HMAC of the community: the same each time, different per community and per key, and not the id", !!a && /^community-live:[0-9a-f]{32}$/.test(a) && a === again && a !== other && a !== otherKey && !a.includes(U(900)))
+    check("a post's channel is the community's with the post's id; a bad id or community gives none", postTopic(U(900), U(5)) === `${a}:${U(5)}` && postTopic(U(900), "nope") === null && liveTopic("not-a-uuid") === null)
+    const sent: { url: string; init: RequestInit }[] = []
+    const fetcher = (async (url: string, init: RequestInit) => {
+      sent.push({ url, init })
+      return new Response(null, { status: 202 })
+    }) as unknown as typeof fetch
+    const ok = await announcePost(U(900), { id: U(5), spaceId: U(6), authorId: U(1) }, fetcher)
+    const body = JSON.parse(String(sent[0]?.init.body ?? "{}"))
+    const headers = (sent[0]?.init.headers ?? {}) as Record<string, string>
+    check("a new post is broadcast through Realtime's REST endpoint as the service role", ok && sent[0]?.url === "https://abc.supabase.co/realtime/v1/api/broadcast" && headers.apikey === "service-key-one" && headers.Authorization === "Bearer service-key-one" && sent[0]?.init.method === "POST")
+    check("carrying ids only, on the community's channel, public (the name is the secret)", body.messages?.length === 1 && body.messages[0].topic === a && body.messages[0].event === "post" && body.messages[0].private === false && JSON.stringify(Object.keys(body.messages[0].payload).sort()) === JSON.stringify(["authorId", "postId", "spaceId"]))
+    sent.length = 0
+    await announceComment(U(900), { id: U(7), postId: U(5), parentId: null, authorId: U(1) }, fetcher)
+    const cbody = JSON.parse(String(sent[0]?.init.body ?? "{}"))
+    check("a new comment goes to the post's own channel, ids only", cbody.messages?.[0]?.topic === `${a}:${U(5)}` && cbody.messages[0].event === "comment" && JSON.stringify(Object.keys(cbody.messages[0].payload).sort()) === JSON.stringify(["authorId", "commentId", "parentId", "postId"]))
+    const refused = await broadcastLive([{ topic: a!, event: "post", payload: {} }], (async () => new Response("no", { status: 500 })) as unknown as typeof fetch)
+    const thrown = await broadcastLive([{ topic: a!, event: "post", payload: {} }], (async () => {
+      throw new Error("offline")
+    }) as unknown as typeof fetch)
+    check("a refused or failed broadcast is false, never thrown", refused === false && thrown === false)
+    delete process.env.SUPABASE_SERVICE_ROLE_KEY
+    check("without the service key there is no channel and nothing is sent", liveTopic(U(900)) === null && (await announcePost(U(900), { id: U(5), spaceId: null, authorId: null }, fetcher)) === false)
+    if (env.url === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_URL
+    else process.env.NEXT_PUBLIC_SUPABASE_URL = env.url
+    if (env.key !== undefined) process.env.SUPABASE_SERVICE_ROLE_KEY = env.key
+
+    const postsRoute = code("app/api/community/[communityId]/posts/route.ts")
+    const commentsRoute = code("app/api/community/[communityId]/posts/[postId]/comments/route.ts")
+    const oneComment = code("app/api/community/[communityId]/comments/[commentId]/route.ts")
+    const liveRoute = code("app/api/community/[communityId]/live/route.ts")
+    check("the routes broadcast after the answer (after()), once the write succeeded", /after\(\(\) => announcePost\(communityId, \{ id: post\.id/.test(postsRoute) && /if \(!result\.ok\)[\s\S]{0,200}after\(\(\) => announcePost/.test(postsRoute) && /after\(\(\) => announceComment\(communityId/.test(commentsRoute))
+    check("the channel name is handed to active members only, after the switch", /requireCommunitiesOn\(\)[\s\S]{0,200}requireMember\(db, communityId, await sessionUserId\(\), "view"\)[\s\S]{0,200}liveTopic\(gate\.community\.id\)/.test(liveRoute))
+    check("one comment is read through the member gate and the post's visibility", /export async function GET[\s\S]{0,400}requireMember\(db, communityId, await sessionUserId\(\), "view"\)[\s\S]{0,200}getCommentView\(db, gate\.community, gate\.viewer, commentId\)/.test(oneComment) && /eq\("community_id", community\.id\)[\s\S]{0,200}status !== "published"[\s\S]{0,200}visiblePostRow\(db, community, viewer, row\.post_id\)/.test(code("lib/communities/server/comments.ts")))
+
+    const live = code("components/community/member/live.ts")
+    check("the browser joins as the member (token first), one channel per name, broadcast events only", /await realtimeAuth\(client\)[\s\S]{0,200}client\.channel\(name, \{ config: \{ broadcast: \{ self: false \} \} \}\)/.test(live) && /ch\.on\("broadcast", \{ event: ev \}/.test(live) && /--j\.refs > 0/.test(live) && !/postgres_changes/.test(live))
+    check("typing says the id only, at most every 2s, and stops on send", TYPING_EVERY_MS === 2000 && TYPING_SHOWN_MS === 5000 && /sayLive\(communityId, postId, "typing", \{ userId, on: true \}\)/.test(live) && /now - last\.current < TYPING_EVERY_MS/.test(live))
+    check("the typing line names one, two, or several", typingLine([]) === null && typingLine(["Leo"]) === "Leo is writing..." && typingLine(["Leo", "Zoe"]) === "Leo and Zoe are writing..." && typingLine(["A", "B", "C"]) === "Several people are writing...")
+    check("a live post belongs at the top of All and its own space, in Default and New only", fitsList({ kind: "all" }, "default", null) && fitsList({ kind: "space", id: "s1" }, "new", "s1") && !fitsList({ kind: "space", id: "s1" }, "default", "s2") && !fitsList({ kind: "all" }, "top", null) && !fitsList({ kind: "saved" }, "default", "s1"))
+    const feedLive = code("components/community/member/feed-live.tsx")
+    check("live posts are read through the gated post route; the member's own are skipped; scrolled down they wait under the pill", /api<\{ post: FeedPostView \}>\(`\$\{apiBase\(communityId\)\}\/posts\/\$\{encodeURIComponent\(id\)\}`\)/.test(feedLive) && /payload\.authorId === viewerId/.test(feedLive) && /if \(atTop\(\)\) putRef\.current\(\[post\]\)\s*else setWaiting/.test(feedLive) && /data-feed-new-pill=\{n\}/.test(feedLive))
+    check("pull to refresh: the feed sets detail.done to the first page read again, for its own scope only", /PULL_EVENT = "storelib:pull-refresh"/.test(feedLive) && /PULL_SCOPE = "community-feed"/.test(feedLive) && /detail\.scope !== PULL_SCOPE\) return/.test(feedLive) && /detail\.done = loadView\(communityId, t, s\)/.test(feedLive))
+    const feed = code("components/community/member/feed.tsx")
+    check("the feed list container gets one line: <FeedLive /> just above its posts", (feed.match(/FeedLive/g) ?? []).length === 2 && /<FeedLive communityId=\{communityId\} viewerId=\{viewer\.userId\} feedKey=\{key\} target=\{target\} sort=\{sort\} onView=\{\(v\) => setShown\(\{ key, view: v \}\)\} \/>/.test(feed))
+    const arrive = code("components/community/member/arrive.ts")
+    check("arrivals start in the commit that draws them (a layout effect), the posts under them slide by translate, content-visibility lifted for the measure, no scroll anchoring meanwhile", /useLayoutEffect\(\(\) => \{\s*const p = pending\.current/.test(arrive) && /translate: `0 \$\{-pushed\}px`/.test(arrive) && /el\.style\.contentVisibility = "visible"/.test(arrive) && /overflowAnchor = "none"/.test(arrive) && !/scrollIntoView/.test(arrive))
+
+    const comments = code("components/community/member/comments.tsx")
+    check("live comments: by id, through the gate, appended only when the list is read to its end, the count moved, the member's own skipped", /listenLive\(post\.communityId, post\.id, "comment"/.test(comments) && /api<\{ comment: CommentView \}>\(`\$\{apiBase\(post\.communityId\)\}\/comments\/\$\{encodeURIComponent\(id\)\}`\)/.test(comments) && /else if \(!cursorRef\.current\)/.test(comments) && /onCountRef\.current\?\.\(1\)/.test(comments) && /p\.authorId === viewer\.userId/.test(comments))
+    check("a confirmed comment keeps its stand in's key (no flash), and arrivals land", /keys\.current\.set\(c\.id, keys\.current\.get\(tempId\) \?\? tempId\)/.test(comments) && /<li key=\{rows\.keyOf\(c\.id\)\}>/.test(comments) && /landComment\(rowRef\.current\)/.test(comments) && !/scrollIntoView/.test(comments))
+    check("the comment box sends from a round button inside it (no row added on focus); the typing line has its own band", /data-comment-send=""/.test(comments) && !/focused \|\| body/.test(comments) && /<TypingLine names=/.test(comments) && /open \? "mt-6" : "mt-4"/.test(comments))
+
+    const heart = code("components/community/member/heart.tsx")
+    const card = code("components/community/member/post-card.tsx")
+    check("the heart: 20px on a post, its fill follows the button's aria-pressed (group/like), a beat on the icon only, the button box never scales", /<LikeHeart on=\{reacted\} size=\{20\} \/>/.test(card) && /LIKE_BTN = BTN_GHOST\.replace\("active:scale-\[0\.97\]", ""\)/.test(card) && /group\/like/.test(card) && /group-aria-pressed\/like:scale-100/.test(heart) && /el\.animate\(\[\{ scale: "1" \}, \{ scale: "1\.2"/.test(heart))
+
+    const composer = code("components/community/member/composer.tsx")
+    check("Post: a spinner, then a check, at one width; the editor closes before the post goes in, with its arrival", /data-post-state=\{state\}/.test(composer) && /col-start-1 row-start-1/.test(composer) && /setSent\(true\)[\s\S]{0,600}window\.setTimeout\(shut, reducedMotion\(\) \? 0 : SENT_HOLD_MS\)/.test(composer) && /arrive\(\[post\.id\], \{ mine: true/.test(composer) && /const posted = afterClose\.current/.test(composer))
+    check("Cancel and Post carry the light depth (secondary and primary buttons)", (composer.match(/className=\{(`\$\{BTN_SECONDARY\}[^`]*`|BTN_SECONDARY)\}[^\n]*data-composer-cancel=""/g) ?? []).length === 2 && /\$\{BTN_PRIMARY\} \$\{className\}/.test(composer))
+    check("the toolbar rides the keyboard by translate, ahead of the report both ways, no CSS transition on the visible part", /function useToolbarDock\(/.test(composer) && /new MutationObserver\(onChange\)/.test(composer) && /expect\("down"\)/.test(composer) && /expect\("up"\)/.test(composer) && !/vv-settling/.test(composer))
+    check("stepping back over the composer's history step never restores an old scroll", /window\.history\.scrollRestoration = "manual"\s*const push = /.test(composer))
+  }
+
   console.log("\nCopy and boundaries")
   const mine = [
     "lib/communities/post-media.ts",
@@ -426,6 +513,12 @@ async function main() {
     "components/community/member/post-intent.ts",
     "components/community/member/post-seen.ts",
     "components/community/member/keep-in-sight.ts",
+    "components/community/member/live.ts",
+    "components/community/member/feed-live.tsx",
+    "components/community/member/arrive.ts",
+    "components/community/member/heart.tsx",
+    "lib/communities/server/realtime.ts",
+    "app/api/community/[communityId]/live/route.ts",
     "components/community/member/messages.tsx",
     "components/community/member/messages-setup-note.tsx",
     "scripts/check-community-posts.mjs",

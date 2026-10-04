@@ -295,6 +295,8 @@ function Screen() {
   if (which === "long") {
     /* Round 9: three times the posts, so there is a feed to scroll away into and come back to. */
     const many = [0, 1, 2].flatMap((k) => POSTS.filter((p) => !p.pinned).map((p) => ({ ...p, id: k ? `${p.id}-${k}` : p.id })))
+    /* Round 10: the probe answers a feed page read again (pull to refresh) from these. */
+    ;(window as unknown as { __FEED_POSTS: FeedPostView[] }).__FEED_POSTS = many
     return shell(
       <FeedColumns
         main={<FeedView communityId={CID} slug={community.slug} viewer={viewer} initial={{ pinned: [], posts: many, nextCursor: null }} composer={{ communityId: CID, userId: self.id, me, spaces: spaces.map((s) => ({ id: s.id, name: s.name, kind: s.kind })), fileProductId: null }} />}

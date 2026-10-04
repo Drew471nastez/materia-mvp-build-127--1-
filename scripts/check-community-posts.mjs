@@ -40,6 +40,31 @@
  *              comments appear at once and are confirmed, a refused one is
  *              taken out with its words back in the box; no router refresh
  *
+ * Round 10 (C7):
+ *   LIVE       the community's live channel (a stubbed Realtime broadcast)
+ *              says a new post's id: read through the gated route, it slides
+ *              in at the top (the posts under it start where they were and
+ *              slide down, no jump); scrolled down, a quiet "N new posts"
+ *              pill waits instead and nothing on screen moves; the pill
+ *              scrolls up and puts them in; the member's own is skipped
+ *   PULL       the pull to refresh event: detail.done is a promise, set by
+ *              the feed, that settles after the first page is read again
+ *   TYPING     "<name> is writing..." from the post's channel, names from
+ *              the comments on screen or the person card, gone after a few
+ *              seconds or when they stop; it takes no room; the member's
+ *              own typing is said at most once every two seconds
+ *   ARRIVAL    a comment from somebody else lands at the end with a rise
+ *              and a fade, the count moves; the member's own lands too
+ *   HEART      like taps at 4x CPU: one tap, one change, within a frame;
+ *              the heart fills over several frames and beats, the button
+ *              box never scales, the count shows only its two values
+ *   KBDOCK     the phone editor's toolbar sampled every frame while a
+ *              keyboard (modelled as iOS moves it) opens and closes four
+ *              times: how far it is from the keyboard's top each frame
+ *   FINISH     Post: spinner, then a check at one width; the editor closes;
+ *              the post arrives at the top with its highlight, the page
+ *              scrolling smoothly to it
+ *
  * and everywhere: nothing scrolls sideways, no page error, phone controls
  * at least 40px tall.
  *
@@ -97,6 +122,16 @@ window.__emit = (table, row, eventType = "INSERT") => {
   return n
 }
 window.__channels = handlers
+/* Round 10: Realtime broadcast. window.__broadcast(name, event, payload) reaches every listener on a channel of that exact name; what a page sends is kept in window.__sent. */
+window.__broadcast = (name, event, payload) => {
+  let n = 0
+  for (const h of handlers) {
+    if (h.gone || h.type !== "broadcast" || h.name !== name || h.filter.event !== event) continue
+    n++
+    h.cb({ type: "broadcast", event, payload })
+  }
+  return n
+}
 /* The Storelib header's menu (the community bar reuses it) asks this too. */
 export const isNativePlatform = () => false
 export function createClient() {
@@ -108,6 +143,7 @@ export function createClient() {
         name,
         on(type, filter, cb) { const h = { name, type, filter, cb, gone: false, authed: !!window.__authed }; mine.push(h); handlers.push(h); return ch },
         subscribe(cb) { setTimeout(() => cb && cb("SUBSCRIBED"), 20); return ch },
+        send(msg) { (window.__sent ||= []).push({ name, at: performance.now(), ...msg }); return Promise.resolve("ok") },
         _gone() { mine.forEach((h) => (h.gone = true)) },
       }
       return ch
@@ -224,6 +260,9 @@ async function giphyRoute(words, offset = 0) {
 const dmStore = { conversations: new Map(), messages: [], pages: new Map() }
 const NAMES = { "u-me": { id: "u-me", name: "Sam Carter", username: "samc", avatarUrl: null, role: "moderator" }, "u-jonas": { id: "u-jonas", name: "Jonas Berg", username: "jonasb", avatarUrl: null, role: "member" } }
 
+/** Round 10: a post somebody else just wrote, as the gated route answers it. */
+const livePost = (id) => ({ id, communityId: CID, space: { id: "s-general", slug: "general", name: "General" }, kind: "post", title: `Anyone else redoing their pricing page this week? (${id})`, body: "", bodyText: "Mine goes live on Friday. Happy to swap notes before then.", media: [], pinned: false, featured: false, locked: false, status: "published", author: { id: "u-leo", name: "Leo Martins", username: "leom", avatarUrl: null, role: "member", level: 2 }, reactionCount: 0, commentCount: 0, reacted: false, bookmarked: false, poll: null, createdAt: new Date().toISOString(), editedAt: null, lastActivityAt: new Date().toISOString(), canEdit: false, canModerate: true, recentCommenters: [], lastCommentAt: null, showLevel: true })
+
 async function open(name, path, vp, opts = {}) {
   const p = await browser.newPage()
   await p.setViewport(vp)
@@ -294,6 +333,15 @@ async function open(name, path, vp, opts = {}) {
       if (/\/posts\/p-video\/comments/.test(short)) return reply({ comments: ["Great session, thanks for posting.", "The pricing page part was gold. I rewrote mine the next day and the trial starts went up.", "Saving this one.", "Same here, the empty states bit too."].map((body, i) => ({ id: `c-v${i}`, postId: "p-video", parentId: null, body, status: "published", deleted: false, author: { id: i ? "u-leo" : "u-jonas", name: i ? "Leo Martins" : "Jonas Berg", username: i ? "leom" : "jonasb", avatarUrl: null, role: "member", level: 2 }, reactionCount: i, reacted: false, createdAt: new Date(Date.now() - (3 - i) * 3600e3).toISOString(), editedAt: null, replies: [], canEdit: false, canModerate: true })), nextCursor: null, commentsEnabled: true, me: { name: "Sam Carter", avatarUrl: null } }, 200, opts.commentsWait ?? 150)
       if (/\/posts\/[^/]+\/comments/.test(short)) return reply({ comments: [], nextCursor: null, commentsEnabled: true, me: { name: "Sam Carter", avatarUrl: null } }, 200, 150)
       if (/\/feed\b|\/posts\?/.test(short) && method === "GET") live.feedReads = (live.feedReads || 0) + 1
+      /* Round 10: the live channel's name, a post or a comment read by the id a broadcast carried, a person card, a feed page read again. */
+      if (short.endsWith("/live")) return reply({ topic: "community-live:probe" })
+      if (/\/posts\/p-live-\d+$/.test(short) && method === "GET") return reply({ post: livePost(short.split("/").pop()) }, 200, 60)
+      if (/\/comments\/c-live-\d+$/.test(short) && method === "GET") return reply({ comment: { id: short.split("/").pop(), postId: "p-video", parentId: null, body: "Just watched it, the pricing part is so good.", status: "published", deleted: false, author: { id: "u-leo", name: "Leo Martins", username: "leom", avatarUrl: null, role: "member", level: 2 }, reactionCount: 0, reacted: false, createdAt: new Date().toISOString(), editedAt: null, replies: [], canEdit: false, canModerate: true } }, 200, 60)
+      if (/\/people\/u-zoe\/card$/.test(short)) return reply({ person: { id: "u-zoe", name: "Zoe Park" } }, 200, 40)
+      if (/\/posts\?/.test(short) && method === "GET" && live.feedPage) {
+        live.feedReadAt = Date.now()
+        return reply(live.feedPage, 200, opts.feedWait ?? 300)
+      }
       if (/\/posts\/p-[a-z0-9-]+$/.test(short) && method === "GET") return reply({ error: "not_found" }, 404)
       if (short.endsWith("/posts") && method === "POST") return reply({ post: { id: "p-new", communityId: CID, space: { id: sent.spaceId, slug: "general", name: "General" }, kind: "post", title: sent.title, body: "", bodyText: sent.body, media: sent.media, pinned: false, featured: false, locked: false, status: "published", author: { id: "u-me", name: "Sam Carter", username: "samc", avatarUrl: null, role: "moderator", level: 3 }, reactionCount: 0, commentCount: 0, reacted: false, bookmarked: false, poll: null, createdAt: new Date().toISOString(), editedAt: null, lastActivityAt: new Date().toISOString(), canEdit: true, canModerate: true, recentCommenters: [], lastCommentAt: null, showLevel: true } }, 201)
       if (short.includes("/members?")) return reply({ members: [{ userId: "u-jonas", name: "Jonas Berg", username: "jonasb", avatarUrl: null, role: "member", status: "active", level: 3, points: 0 }], nextCursor: null })
@@ -608,7 +656,8 @@ try {
       await shot(p, `${label}-composer-full`, !phone)
 
       await p.click("[data-composer-post]")
-      await sleep(600)
+      /* Round 10: the check shows for a moment and the editor closes before the post goes in. */
+      await sleep(1200)
       const sent = calls.filter((c) => c.url.endsWith("/posts") && c.method === "POST").map((c) => JSON.parse(c.body))[0]
       const types = (sent?.media ?? []).map((m) => m.type).sort()
       expect(sent?.title === "Testing every attachment" && /Words for the post/.test(sent?.body ?? "") && !!sent?.spaceId, "the POST carries the title, the words and the space", sent && { title: sent.title, spaceId: sent.spaceId })
@@ -682,6 +731,13 @@ try {
       const cdp = await p.target().createCDPSession()
       const before = await p.evaluate(() => location.pathname)
       const target = `[data-post="${process.env.OPEN_POST || "p-video"}"] [data-post-excerpt]`
+      /* PROF_OPEN=1: where the main thread goes during the first open (round 10), self time per function and the long trace events. */
+      if (process.env.PROF_OPEN) {
+        await cdp.send("Profiler.enable")
+        await cdp.send("Profiler.setSamplingInterval", { interval: 200 })
+        await cdp.send("Profiler.start")
+        await p.tracing.start({ path: join(shots, "open-trace.json"), categories: ["devtools.timeline"] })
+      }
       const opening = await frames(
         p,
         cdp,
@@ -694,6 +750,22 @@ try {
         "[data-post-overlay]",
         280,
       )
+      if (process.env.PROF_OPEN) {
+        await p.tracing.stop()
+        const ev = JSON.parse(readFileSync(join(shots, "open-trace.json"), "utf8")).traceEvents
+        const sum = new Map()
+        for (const e of ev) if (e.ph === "X" && e.dur) sum.set(e.name, (sum.get(e.name) || [0, 0, 0]).map((v, k) => (k === 0 ? v + e.dur : k === 1 ? v + 1 : Math.max(v, e.dur))))
+        console.log("OPEN-TRACE", JSON.stringify([...sum].sort((a, b) => b[1][0] - a[1][0]).slice(0, 12).map(([k, [t, n, m]]) => [k, Math.round(t / 1000), n, Math.round(m / 1000)])))
+        const { profile } = await cdp.send("Profiler.stop")
+        const self = new Map()
+        const byId = new Map(profile.nodes.map((n) => [n.id, n]))
+        profile.samples.forEach((id, k) => {
+          const n = byId.get(id)
+          const key = `${n.callFrame.functionName || "(anon)"}:${n.callFrame.lineNumber}`
+          self.set(key, (self.get(key) || 0) + (profile.timeDeltas[k] || 0))
+        })
+        console.log("OPEN-SELF", JSON.stringify([...self].sort((a, b) => b[1] - a[1]).slice(0, 18).map(([k, v]) => [k, Math.round(v / 1000)])))
+      }
       const opened = await p.evaluate(() => ({ path: location.pathname, overlay: document.querySelector("[data-post-overlay]")?.getAttribute("data-post-overlay"), router: (window.__router ?? []).filter(([k]) => k === "push" || k === "link") }))
       expect(opened.overlay === (phone ? "phone" : "panel"), phone ? "a phone opens the post as a screen" : "a computer opens the post over the feed", opened.overlay)
       expect(opened.path === "/community/studio-notes/post/p-video" && opened.router.length === 0, "the address is the post's own, with no page load", opened)
@@ -2007,6 +2079,428 @@ try {
       const sent = calls.filter((c) => c.url.endsWith("/posts") && c.method === "POST").map((c) => JSON.parse(c.body))[0]
       const gif = sent?.media?.find((m) => m.type === "gif")
       expect(!!gif && /^https:\/\/media\d\.giphy\.com\/.+\/200w\.gif\?/.test(gif.url) && /200w_s\.gif/.test(gif.still) && gif.w === 200 && gif.title === "cat 0", "and the post carries Giphy's moving GIF, its still, its size and title", gif)
+      expect(errors.length === 0, "no page error", errors)
+      await p.close()
+    }
+
+    /* ── LIVE (round 10): a post somebody else writes arrives without a refresh ── */
+    if (want("live")) {
+      const { p, errors, calls, live } = await open("long", "/community/studio-notes", vp)
+      const cdp = await p.target().createCDPSession()
+      const FEED = "community-live:probe"
+      await p.waitForFunction((n) => window.__channels.some((h) => h.type === "broadcast" && h.name === n && !h.gone), { timeout: 4000 }, FEED).catch(() => {})
+      const joined = await p.evaluate((n) => window.__channels.filter((h) => h.type === "broadcast" && h.name === n).map((h) => ({ event: h.filter.event, authed: h.authed })), FEED)
+      expect(joined.length === 1 && joined[0].event === "post" && joined[0].authed, "LIVE: the feed listens for new posts on the community's own channel, joined as the member", joined)
+      const ids = () => p.evaluate(() => [...document.querySelectorAll("[data-feed-list] > [data-post]")].map((e) => e.getAttribute("data-post")))
+      const firstBefore = (await ids())[0]
+      /* At the top: every frame, where the post that was first is drawn, and how visible the new one is. */
+      await p.evaluate(() => window.scrollTo(0, 0))
+      await sleep(200)
+      const top0 = await p.evaluate((id) => document.querySelector(`[data-post="${id}"]`).getBoundingClientRect().top, firstBefore)
+      await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 })
+      await p.evaluate((id) => {
+        window.__lf = []
+        const loop = (t) => {
+          const old = document.querySelector(`[data-post="${id}"]`)
+          const neu = document.querySelector('[data-post="p-live-1"]')
+          window.__lf.push({ t, top: Math.round(old.getBoundingClientRect().top * 10) / 10, op: neu ? Math.round(Number(getComputedStyle(neu).opacity) * 100) / 100 : null })
+          window.__lfr = requestAnimationFrame(loop)
+        }
+        window.__lfr = requestAnimationFrame(loop)
+      }, firstBefore)
+      const heard = await p.evaluate((n) => window.__broadcast(n, "post", { postId: "p-live-1", spaceId: "s-general", authorId: "u-leo" }), FEED)
+      await sleep(250)
+      await shot(p, `${label}-r10-live-arriving`)
+      await sleep(1100)
+      const lf = await p.evaluate(() => (cancelAnimationFrame(window.__lfr), window.__lf))
+      await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
+      const order = await ids()
+      const tops = lf.map((f) => f.top)
+      const steps = tops.slice(1).map((t, i) => t - tops[i])
+      const pushed = tops.at(-1) - top0
+      const ops = lf.filter((f) => f.op !== null).map((f) => f.op)
+      const gaps = lf.slice(1).map((f, i) => f.t - lf[i].t)
+      expect(heard === 1 && calls.some((c) => c.url.endsWith("/posts/p-live-1") && c.method === "GET") && order[0] === "p-live-1" && order[1] === firstBefore, "the broadcast's id is read through the gated route and the post goes to the top", { heard, order: order.slice(0, 3) })
+      expect(Math.abs(tops[0] - top0) < 1 && pushed > 100 && steps.every((d) => d >= -0.5) && Math.max(...steps) < pushed * 0.45, "the post that was first never jumps: it starts where it was and slides down to make room, frame by frame (px moved per frame)", { from: top0, to: tops.at(-1), maxStep: Math.round(Math.max(...steps)), frames: steps.filter((d) => d > 0.5).length })
+      expect(ops[0] < 0.5 && ops.at(-1) === 1 && ops.every((o, i) => i === 0 || o >= ops[i - 1]), "while the new one fades in", ops.slice(0, 12))
+      console.log(`  info  LIVE slide at 4x CPU: longest frame ${Math.round(Math.max(...gaps))}ms, ${gaps.filter((g) => g > 34).length} over 34ms`)
+      await shot(p, `${label}-r10-live-arrived`)
+
+      /* Scrolled down: nothing on screen moves, a pill says how many are waiting. */
+      await p.evaluate(() => window.scrollTo(0, 1400))
+      await sleep(300)
+      const anchor = await p.evaluate(() => {
+        const el = [...document.querySelectorAll("[data-feed-list] > [data-post]")].find((e) => e.getBoundingClientRect().top > 100)
+        return { id: el.getAttribute("data-post"), top: Math.round(el.getBoundingClientRect().top) }
+      })
+      await p.evaluate((n) => window.__broadcast(n, "post", { postId: "p-live-2", spaceId: "s-general", authorId: "u-leo" }), FEED)
+      await sleep(400)
+      await p.evaluate((n) => window.__broadcast(n, "post", { postId: "p-live-3", spaceId: "s-general", authorId: "u-leo" }), FEED)
+      await sleep(500)
+      const away = await p.evaluate((id) => {
+        const pill = document.querySelector("[data-feed-new-pill]")
+        const r = pill?.getBoundingClientRect()
+        return { pill: pill?.textContent.trim() ?? null, pillTop: r ? Math.round(r.top) : null, h: r ? Math.round(r.height) : null, anchorTop: Math.round(document.querySelector(`[data-post="${id}"]`).getBoundingClientRect().top), first: document.querySelector("[data-feed-list] > [data-post]").getAttribute("data-post"), y: Math.round(scrollY) }
+      }, anchor.id)
+      await shot(p, `${label}-r10-live-pill`)
+      expect(away.pill === "2 new posts" && away.anchorTop === anchor.top && away.first === "p-live-1" && away.y === 1400, "scrolled down, the posts wait under a quiet \"2 new posts\" pill and nothing on screen moves", { ...away, before: anchor.top })
+      expect(away.pillTop >= 60 && away.pillTop < 140 && away.h >= 36, "the pill sits just under the community's bar", { top: away.pillTop, h: away.h })
+      /* The pill: up smoothly, then they go in. */
+      await p.evaluate(() => {
+        window.__ys = []
+        const loop = () => {
+          window.__ys.push(Math.round(scrollY))
+          window.__ysr = requestAnimationFrame(loop)
+        }
+        window.__ysr = requestAnimationFrame(loop)
+      })
+      await press(p, "[data-feed-new-pill]")
+      await sleep(1600)
+      const ys = await p.evaluate(() => (cancelAnimationFrame(window.__ysr), window.__ys))
+      const back = await p.evaluate(() => ({ order: [...document.querySelectorAll("[data-feed-list] > [data-post]")].map((e) => e.getAttribute("data-post")).slice(0, 4), pill: !!document.querySelector("[data-feed-new-pill]"), y: Math.round(scrollY) }))
+      const ysteps = ys.slice(1).map((y, i) => y - ys[i])
+      expect(back.order.slice(0, 3).join() === "p-live-3,p-live-2,p-live-1" && !back.pill && back.y < 400, "pressed, the page goes back up and the two posts go in on top, newest first; the pill is gone", back)
+      expect(ysteps.filter((d) => d < 0).length >= 4 && Math.min(...ysteps) > -700, "the way up is a smooth scroll over several frames, not a jump", { frames: ysteps.filter((d) => d < 0).length, biggest: Math.min(...ysteps) })
+      /* The member's own post on another device is the composer's, never read here. */
+      const before = calls.length
+      await p.evaluate((n) => window.__broadcast(n, "post", { postId: "p-live-9", spaceId: "s-general", authorId: "u-me" }), FEED)
+      await sleep(300)
+      expect(!calls.slice(before).some((c) => c.url.endsWith("/posts/p-live-9")), "the member's own post coming back on the channel is skipped")
+
+      /* PULL TO REFRESH: the event's promise is the feed's, settled after the first page is read again. */
+      const fixtures = await p.evaluate(() => window.__FEED_POSTS)
+      live.feedPage = { pinned: [], posts: [{ ...livePost("p-live-7"), title: "Fresh from the pull" }, ...fixtures], nextCursor: null }
+      await p.evaluate(() => window.scrollTo(0, 0))
+      await sleep(200)
+      const pull = await p.evaluate(async () => {
+        const other = { scope: "somewhere-else" }
+        window.dispatchEvent(new CustomEvent("storelib:pull-refresh", { detail: other }))
+        const detail = { scope: "community-feed" }
+        const t0 = performance.now()
+        window.dispatchEvent(new CustomEvent("storelib:pull-refresh", { detail }))
+        const isPromise = !!detail.done && typeof detail.done.then === "function"
+        let first = null
+        await detail.done
+        const ms = Math.round(performance.now() - t0)
+        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
+        first = document.querySelector("[data-feed-list] > [data-post]")?.getAttribute("data-post")
+        return { isPromise, otherIgnored: !("done" in other), ms, first }
+      })
+      expect(pull.isPromise && pull.otherIgnored && live.feedReads === 1 && pull.ms >= 290 && pull.first === "p-live-7", "PULL: storelib:pull-refresh (scope community-feed) gets detail.done, a promise that settles after the first page is read again (the reply takes 300ms), and the list is swapped in place", { ...pull, reads: live.feedReads })
+      await shot(p, `${label}-r10-pulled`)
+      const side = await sideScroll(p)
+      expect(side.scroll <= side.width, "nothing scrolls sideways", side)
+      expect(errors.length === 0, "no page error", errors)
+      await p.close()
+    }
+
+    /* ── TYPING and comments that arrive in an open post ── */
+    if (want("typing")) {
+      const { p, errors, calls } = await open("feed", "/community/studio-notes", vp)
+      const cdp = await p.target().createCDPSession()
+      const POST = "community-live:probe:p-video"
+      await (phone ? p.tap('[data-post="p-video"] [data-post-excerpt]') : p.click('[data-post="p-video"] [data-post-excerpt]'))
+      await p.waitForSelector("[data-post-overlay] [data-comments-rows] [data-comment]", { timeout: 5000 }).catch(() => {})
+      await p.waitForFunction((n) => window.__channels.filter((h) => h.type === "broadcast" && h.name === n && !h.gone).length >= 2, { timeout: 4000 }, POST).catch(() => {})
+      const events = await p.evaluate((n) => window.__channels.filter((h) => h.type === "broadcast" && h.name === n && !h.gone).map((h) => h.filter.event).sort(), POST)
+      expect(events.join() === "comment,typing", "TYPING: the open post listens on its own channel for comments and typing", events)
+      const rowTop = () => p.evaluate(() => Math.round(document.querySelector("[data-post-overlay] [data-comments-rows] [data-comment]").getBoundingClientRect().top))
+      const line = () => p.evaluate(() => {
+        const el = document.querySelector("[data-post-overlay] [data-typing]")
+        return el ? el.textContent.trim() : null
+      })
+      const r0 = await rowTop()
+      await p.evaluate((n) => window.__broadcast(n, "typing", { userId: "u-leo", on: true }), POST)
+      await sleep(300)
+      const one = await line()
+      const r1 = await rowTop()
+      await shot(p, `${label}-r10-typing`)
+      expect(one === "Leo Martins is writing..." && r1 === r0, "\"Leo Martins is writing...\" from the commenters already on screen, and nothing under it moves", { line: one, rowTop: [r0, r1] })
+      await p.evaluate((n) => window.__broadcast(n, "typing", { userId: "u-zoe", on: true }), POST)
+      await sleep(400)
+      const two = await line()
+      expect(two === "Leo Martins and Zoe Park are writing..." && calls.some((c) => c.url.endsWith("/people/u-zoe/card")) && !calls.some((c) => c.url.endsWith("/people/u-leo/card")), "somebody not on screen is named from the person card, once", two)
+      await p.evaluate((n) => window.__broadcast(n, "typing", { userId: "u-leo", on: false }), POST)
+      await sleep(300)
+      const left = await line()
+      expect(left === "Zoe Park is writing...", "stopping takes them off at once", left)
+      await sleep(5200)
+      const gone = await line()
+      expect(gone === null && (await rowTop()) === r0, "and a writer who goes quiet is gone after a few seconds", gone)
+
+      /* The member's own typing: said once for a burst of keys, then stopped when sent. */
+      const box = "[data-post-overlay] [data-comment-box=comment] textarea"
+      await (phone ? p.tap(box) : p.click(box))
+      await p.evaluate(() => (window.__sent = []))
+      await p.keyboard.type("Thanks for posting this", { delay: 35 })
+      const said = await p.evaluate(() => window.__sent.filter((m) => m.event === "typing").map((m) => ({ name: m.name, on: m.payload.on, user: m.payload.userId })))
+      expect(said.length === 1 && said[0].on === true && said[0].user === "u-me" && said[0].name === "community-live:probe:p-video", "the member's own typing is said once for a burst of keys (at most every 2s), as an id only", said)
+
+      /* Their comment lands: a rise and a fade at the end, frame by frame. */
+      await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 })
+      await p.evaluate(() => {
+        window.__cl = []
+        const loop = () => {
+          const el = document.querySelector("[data-post-overlay] [data-comment-sending]") ?? document.querySelector('[data-post-overlay] [data-comment="c-new-1"]')
+          if (el) {
+            const st = getComputedStyle(el)
+            window.__cl.push({ op: Math.round(Number(st.opacity) * 100) / 100, y: st.translate === "none" ? 0 : Math.round(parseFloat(st.translate.split(" ")[1] || "0") * 10) / 10 })
+          }
+          window.__clr = requestAnimationFrame(loop)
+        }
+        window.__clr = requestAnimationFrame(loop)
+      })
+      await (phone ? p.tap("[data-post-overlay] [data-comment-send]") : p.click("[data-post-overlay] [data-comment-send]"))
+      await sleep(1000)
+      const mine = await p.evaluate(() => (cancelAnimationFrame(window.__clr), window.__cl))
+      const stop = await p.evaluate(() => window.__sent.filter((m) => m.event === "typing").map((m) => m.payload.on))
+      expect(mine.length > 4 && mine[0].op < 0.3 && mine[0].y > 4 && mine.at(-1).op === 1 && mine.at(-1).y === 0, "ARRIVAL: the member's comment lands, rising into place as it fades in, then confirmed at full strength (first frames)", mine.slice(0, 8))
+      expect(stop.at(-1) === false, "sending says the typing stopped", stop)
+
+      /* Somebody else's comment by id, read through the gate, landing the same way; the count moves. */
+      const count0 = await p.evaluate(() => document.querySelector('[data-post="p-video"] [data-comment-button] span')?.textContent)
+      await p.evaluate(() => {
+        window.__cl = []
+        const loop = () => {
+          const el = document.querySelector('[data-post-overlay] [data-comment="c-live-1"]')
+          if (el) {
+            const st = getComputedStyle(el)
+            window.__cl.push({ op: Math.round(Number(st.opacity) * 100) / 100, y: st.translate === "none" ? 0 : Math.round(parseFloat(st.translate.split(" ")[1] || "0") * 10) / 10 })
+          }
+          window.__clr = requestAnimationFrame(loop)
+        }
+        window.__clr = requestAnimationFrame(loop)
+      })
+      await p.evaluate((n) => window.__broadcast(n, "typing", { userId: "u-leo", on: true }), POST)
+      await sleep(150)
+      await p.evaluate((n) => window.__broadcast(n, "comment", { commentId: "c-live-1", postId: "p-video", parentId: null, authorId: "u-leo" }), POST)
+      await sleep(900)
+      const theirs = await p.evaluate(() => (cancelAnimationFrame(window.__clr), window.__cl))
+      await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
+      const after = await p.evaluate(() => ({ last: [...document.querySelectorAll("[data-post-overlay] [data-comments-rows] > li > [data-comment]")].map((e) => e.getAttribute("data-comment")).at(-1), typing: !!document.querySelector("[data-post-overlay] [data-typing]"), count: document.querySelector('[data-post="p-video"] [data-comment-button] span')?.textContent }))
+      expect(calls.some((c) => c.url.endsWith("/comments/c-live-1") && c.method === "GET") && after.last === "c-live-1" && Number(after.count) === Number(count0) + 1, "a comment somebody else sent arrives by id, read through the gate, at the end, and the post's count moves", { ...after, before: count0 })
+      expect(theirs[0]?.op < 0.3 && theirs.at(-1)?.op === 1 && theirs.at(-1)?.y === 0, "it lands with the same rise and fade", theirs.slice(0, 8))
+      expect(!after.typing, "and their \"is writing...\" ends with it", after.typing)
+      await shot(p, `${label}-r10-comment-landed`)
+      expect(errors.length === 0, "no page error", errors)
+      await p.close()
+    }
+
+    /* ── HEART: like taps at 4x CPU ── */
+    if (want("heart")) {
+      const { p, errors, live } = await open("feed", "/community/studio-notes", vp, { likeBase: 24, wait: 200 })
+      const cdp = await p.target().createCDPSession()
+      const LIKE = '[data-post="p-text"] [data-like]'
+      await p.evaluate((sel) => document.querySelector(sel).scrollIntoView({ block: "center" }), LIKE)
+      await sleep(300)
+      await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 })
+      await p.evaluate((sel) => {
+        const b = document.querySelector(sel)
+        window.__hf = []
+        window.__changes = 0
+        new MutationObserver((ms) => ms.forEach((m) => m.attributeName === "aria-pressed" && window.__changes++)).observe(b, { attributes: true })
+        const loop = (t) => {
+          const r = b.getBoundingClientRect()
+          const heart = b.querySelector("[data-heart]")
+          const fill = b.querySelector("[data-heart-fill]")
+          const hs = getComputedStyle(heart)
+          const fs = getComputedStyle(fill)
+          window.__hf.push({ t, box: `${Math.round(r.left)},${Math.round(r.top)},${Math.round(r.width)},${Math.round(r.height)}`, boxScale: getComputedStyle(b).scale, heart: hs.scale === "none" ? 1 : Number(hs.scale), fill: fs.scale === "none" ? 1 : Number(fs.scale), fillOp: Number(fs.opacity), on: b.getAttribute("aria-pressed"), count: b.querySelector("[data-like-count]").textContent, size: Math.round(heart.getBoundingClientRect().width) })
+          window.__hfr = requestAnimationFrame(loop)
+        }
+        window.__hfr = requestAnimationFrame(loop)
+      }, LIKE)
+      const taps = 5
+      for (let i = 0; i < taps; i++) {
+        if (phone) await p.tap(LIKE)
+        else await p.click(LIKE)
+        await sleep(450)
+      }
+      await sleep(500)
+      const hf = await p.evaluate(() => (cancelAnimationFrame(window.__hfr), { frames: window.__hf, changes: window.__changes }))
+      await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
+      const fr = hf.frames
+      const boxes = new Set(fr.map((f) => f.box))
+      const boxScales = new Set(fr.map((f) => f.boxScale))
+      const counts = new Set(fr.map((f) => f.count))
+      const beat = Math.max(...fr.map((f) => f.heart))
+      /* The fill growing in: the frames between the press and full, with a value in between. */
+      const firstOn = fr.findIndex((f) => f.on === "true")
+      const fillRun = fr.slice(firstOn, firstOn + 20).map((f) => Math.round(f.fill * 100) / 100)
+      const between = fillRun.filter((v) => v > 0.45 && v < 0.98).length
+      const gaps = fr.slice(1).map((f, i) => f.t - fr[i].t)
+      expect(hf.changes === taps, "HEART: at 4x CPU, five taps are five changes of the like, no more, no less", hf.changes)
+      expect(boxes.size === 1 && [...boxScales].every((v) => v === "none" || v === "1"), "the button box never moves or scales: only the icon does", { boxes: [...boxes], scales: [...boxScales] })
+      expect(beat > 1.1 && between >= 2, "the heart fills over several frames (the fill's scale on the frames after the tap) and gives a beat", { beat, fillRun: fillRun.slice(0, 12) })
+      expect([...counts].every((c) => c === "24" || c === "25"), "the count only ever shows 24 or 25", [...counts])
+      expect(fr[0].size === 20, "the heart is 20px (a little bigger than the 18px icons beside it)", fr[0].size)
+      console.log(`  info  HEART at 4x CPU: longest frame ${Math.round(Math.max(...gaps))}ms, ${gaps.filter((g) => g > 34).length} over 34ms, requests ${live.sent.length}`)
+      await shot(p, `${label}-r10-heart`)
+      expect(errors.length === 0, "no page error", errors)
+      await p.close()
+    }
+
+    /* ── KBDOCK: the phone editor's toolbar on a keyboard opening and closing, every frame ── */
+    if (want("kbdock") && phone) {
+      const { p, errors } = await open("feed", "/community/studio-notes", vp)
+      await p.tap("[data-composer-open]")
+      await sleep(700)
+      await p.tap("[data-composer-title]")
+      await p.keyboard.type("Keyboard test")
+      await p.evaluate(() => document.activeElement.blur())
+      await sleep(200)
+      /*
+        A keyboard as iOS moves one: 340px tall, sliding over 250ms on an
+        ease out. Opening, Safari reports the new visual viewport as it
+        starts; closing, only once it has gone (viewport-vars.tsx). Each
+        frame: where the toolbar's bottom edge is drawn, and where the
+        keyboard's top is: a positive gap is an empty strip between them,
+        a negative one is the toolbar under the keys.
+      */
+      await p.evaluate(() => {
+        const vv = window.visualViewport
+        const H = innerHeight
+        const K = 340
+        window.__kb = { top: H, from: H, to: H, t0: 0 }
+        const ease = (x) => 1 - Math.pow(1 - x, 3)
+        const report = (h) => {
+          Object.defineProperty(vv, "height", { configurable: true, get: () => h })
+          Object.defineProperty(vv, "offsetTop", { configurable: true, get: () => 0 })
+          vv.dispatchEvent(new Event("resize"))
+          vv.dispatchEvent(new Event("scroll"))
+        }
+        window.__kbMove = (open) => {
+          window.__kb = { from: window.__kb.top, to: open ? H - K : H, t0: performance.now(), top: window.__kb.top }
+          if (open) setTimeout(() => report(H - K), 16)
+          else setTimeout(() => report(H), 260)
+        }
+        /* The keyboard comes up as a field that types takes focus, and goes down as focus leaves to something that does not, as the OS does. */
+        const types = (el) => !!el && (el.tagName === "TEXTAREA" || (el.tagName === "INPUT" && /^(text|search|url)$/.test(el.type || "text")))
+        window.__kbOpen = false
+        document.addEventListener("focusin", (e) => {
+          if (!types(e.target) || window.__kbOpen) return
+          window.__kbOpen = true
+          window.__kbMove(true)
+        })
+        document.addEventListener("focusout", () =>
+          requestAnimationFrame(() => {
+            if (types(document.activeElement) || !window.__kbOpen) return
+            window.__kbOpen = false
+            window.__kbMove(false)
+          }),
+        )
+        window.__dock = []
+        const loop = (t) => {
+          const k = window.__kb
+          const x = Math.min(1, Math.max(0, (t - k.t0) / 250))
+          k.top = k.from + (k.to - k.from) * ease(x)
+          const bar = document.querySelector("[data-composer-toolbar]")
+          if (bar) window.__dock.push({ t, kb: Math.round(k.top), bottom: Math.round(bar.getBoundingClientRect().bottom), top: Math.round(bar.getBoundingClientRect().top), moving: x > 0 && x < 1 })
+          window.__dockr = requestAnimationFrame(loop)
+        }
+        window.__dockr = requestAnimationFrame(loop)
+      })
+      const cycles = []
+      for (let i = 0; i < 4; i++) {
+        await p.evaluate(() => (window.__dock = []))
+        await p.tap(i % 2 ? '[aria-label="Post"]' : "[data-composer-title]")
+        await sleep(600)
+        const up = await p.evaluate(() => window.__dock.splice(0))
+        if (i === 1) await shot(p, `${label}-r10-kbdock-up`)
+        /* A press on the screen's own title, which takes no keys: the field lets go and the keyboard goes down. */
+        await p.tap('[data-composer="sheet"] span.truncate')
+        await sleep(160)
+        if (i === 1) await shot(p, `${label}-r10-kbdock-closing`)
+        await sleep(500)
+        const down = await p.evaluate(() => window.__dock.splice(0))
+        const judge = (fr) => {
+          /* From the keyboard's first move until 400ms after it stopped. */
+          const start = fr.findIndex((f) => f.moving)
+          const run = fr.slice(start, start + 40)
+          const gap = run.map((f) => f.kb - f.bottom)
+          const tops = run.map((f) => f.top)
+          const dir = tops.slice(1).map((t, j) => Math.sign(t - tops[j])).filter(Boolean)
+          const flips = dir.slice(1).filter((d, j) => d !== dir[j]).length
+          const jump = Math.max(0, ...tops.slice(1).map((t, j) => Math.abs(t - tops[j])))
+          return { strip: Math.max(0, ...gap), under: Math.max(0, ...gap.map((g) => -g)), flips, jump, end: run.at(-1)?.kb - run.at(-1)?.bottom }
+        }
+        cycles.push({ open: judge(up), close: judge(down) })
+      }
+      const worst = (k, w) => Math.max(...cycles.map((c) => c[k][w]))
+      console.log(`  info  KBDOCK per cycle: ${JSON.stringify(cycles)}`)
+      expect(cycles.every((c) => c.open.end === 0 && c.close.end === 0), "KBDOCK: after every open and close the toolbar sits exactly on the keyboard (or the screen's bottom)", cycles.map((c) => [c.open.end, c.close.end]))
+      expect(worst("open", "flips") === 0 && worst("close", "flips") === 0, "the toolbar only ever moves one way while the keyboard moves (no flicker back)", cycles.map((c) => [c.open.flips, c.close.flips]))
+      expect(worst("close", "strip") <= 40 && worst("open", "strip") <= 40, "no empty strip between the toolbar and the keyboard as it opens and closes (largest gap, px)", { open: worst("open", "strip"), close: worst("close", "strip") })
+      /*
+        Hidden under the rising keys: the very first keyboard is only known once it reports (a frame or two after it starts); from then on its
+        height is remembered and the toolbar rises with it from the same frame.
+      */
+      const later = cycles.slice(1)
+      expect(Math.max(...later.map((c) => c.open.under)) <= 60 && worst("close", "under") <= 60 && cycles[0].open.under <= 160, "the toolbar is never hidden under the keys by more than a sliver once the keyboard's height is known (the first one a frame or two behind its report)", { first: cycles[0].open.under, later: later.map((c) => c.open.under), close: worst("close", "under") })
+      expect(errors.length === 0, "no page error", errors)
+      await p.close()
+    }
+
+    /* ── FINISH: Post, its sent state, the editor closing, the post arriving ── */
+    if (want("finish")) {
+      /* A computer writes in the long feed, so the page is tall enough to have been scrolled down while writing. */
+      const { p, errors } = await open(phone ? "feed" : "long", "/community/studio-notes", vp)
+      await (phone ? p.tap("[data-composer-open]") : p.click("[data-composer-open]"))
+      await sleep(600)
+      await p.type("[data-composer-title]", "Notes from Thursday")
+      await p.type('[aria-label="Post"]', Array.from({ length: phone ? 2 : 8 }, (_, i) => `Line ${i + 1}: what we covered and what is next.`).join("\n"))
+      await p.click("[data-composer-space]")
+      await sleep(350)
+      const spaceItem = await p.evaluateHandle(() => [...document.querySelectorAll('[role="menuitem"], [data-sheet] button, button')].find((b) => b.textContent.trim() === "General" && b.closest('[role="menu"], [role="dialog"]')))
+      await spaceItem.asElement()?.click()
+      await sleep(400)
+      /* On a computer, scrolled down while writing: the editor's top (where the post will land) is above the bar. */
+      if (!phone) {
+        await p.evaluate(() => {
+          const b = document.querySelector("[data-composer-post]").getBoundingClientRect()
+          window.scrollBy(0, b.top - 120)
+        })
+        await sleep(300)
+      }
+      const y0 = await p.evaluate(() => Math.round(scrollY))
+      const w0 = await p.$eval("[data-composer-post]", (b) => Math.round(b.getBoundingClientRect().width))
+      await p.evaluate(() => {
+        window.__ff = []
+        const loop = (t) => {
+          const b = document.querySelector("[data-composer-post]")
+          const neu = document.querySelector('[data-feed-list] > [data-post="p-new"]')
+          const next = neu?.nextElementSibling
+          const st = next ? getComputedStyle(next).translate : "none"
+          window.__ff.push({ t, state: b?.getAttribute("data-post-state") ?? null, w: b ? Math.round(b.getBoundingClientRect().width) : null, y: Math.round(scrollY), neu: !!neu, op: neu ? Math.round(Number(getComputedStyle(neu).opacity) * 100) / 100 : null, hl: !!neu?.querySelector("[data-post-highlight]"), nextY: st === "none" ? 0 : Math.round(parseFloat(st.split(" ")[1] || "0")) })
+          window.__ffr = requestAnimationFrame(loop)
+        }
+        window.__ffr = requestAnimationFrame(loop)
+      })
+      await (phone ? p.tap("[data-composer-post]") : p.click("[data-composer-post]"))
+      await sleep(120)
+      await shot(p, `${label}-r10-finish-sent`)
+      await sleep(700)
+      await shot(p, `${label}-r10-finish-arrived`)
+      await sleep(1400)
+      const ff = await p.evaluate(() => (cancelAnimationFrame(window.__ffr), window.__ff))
+      const states = ff.map((f) => f.state).filter((s, i, a) => s && s !== a[i - 1])
+      const widths = new Set(ff.filter((f) => f.w).map((f) => f.w))
+      const arrived = ff.findIndex((f) => f.neu)
+      const nextYs = ff.slice(arrived).map((f) => f.nextY)
+      const ys = ff.map((f) => f.y)
+      const ysteps = ys.slice(1).map((y, i) => Math.abs(y - ys[i]))
+      const end = await p.evaluate(() => {
+        const el = document.querySelector('[data-feed-list] > [data-post="p-new"]')
+        const r = el.getBoundingClientRect()
+        return { top: Math.round(r.top), order: [...document.querySelectorAll("[data-feed-list] > [data-post]")].map((e) => e.getAttribute("data-post")).slice(0, 2), editor: !!document.querySelector("[data-composer=open], [data-composer=sheet]"), highlight: !!el.querySelector("[data-post-highlight]") }
+      })
+      expect(states.join() === "idle,busy,sent", "FINISH: Post shows a spinner while asked, then a check", states)
+      expect(widths.size === 1 && [...widths][0] === w0, "at one width throughout (the faces crossfade)", [...widths])
+      expect(!end.editor && end.order[phone ? 1 : 0] === "p-new", phone ? "the editor closes, then the post is first under the pinned one" : "the editor closes, then the post is first", end)
+      expect(ff.slice(arrived, arrived + 30).some((f) => f.hl) && !end.highlight, "it arrives with a warm highlight that fades away", { highlighted: ff.filter((f) => f.hl).length })
+      expect(nextYs[0] < -60 && nextYs.every((v, i) => i === 0 || v >= nextYs[i - 1]) && nextYs.at(-1) === 0, "the posts under it slide down to make room (their offset rising to 0)", nextYs.slice(0, 10))
+      expect(end.top >= 60 && end.top < 844 * 0.6, "and it ends in sight, under the bar", end.top)
+      if (!phone) expect(ys.at(-1) < y0 && ysteps.filter((d) => d > 0).length >= 4 && Math.max(...ysteps) < 300, "scrolled away, the page scrolls smoothly up to it (several frames, none a jump)", { from: y0, to: ys.at(-1), frames: ysteps.filter((d) => d > 0).length, biggest: Math.max(...ysteps) })
       expect(errors.length === 0, "no page error", errors)
       await p.close()
     }

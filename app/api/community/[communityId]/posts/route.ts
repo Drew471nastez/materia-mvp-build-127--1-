@@ -1,10 +1,11 @@
-import { NextResponse } from "next/server"
+import { NextResponse, after } from "next/server"
 import { rateLimit } from "@/lib/api/rate-limit"
 import { requireCommunitiesOn } from "@/lib/communities/flag"
 import { RATE_LIMITS, rateBucket } from "@/lib/communities/limits"
 import { requireMember } from "@/lib/communities/server/context"
 import { admin } from "@/lib/communities/server/db"
 import { NO_STORE, checkPostInput, createPost, feedSort, listFeed, memberSubject, readJson, sessionUserId } from "@/lib/communities/server/feed"
+import { announcePost } from "@/lib/communities/server/realtime"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -40,6 +41,8 @@ export async function GET(request: Request, { params }: Params) {
  * POST /api/community/<id>/posts
  * Body { spaceId, title?, body?, media?: PostMedia[], poll?: { question, options, multiple?, closesAt? } }
  * Answers { post }. 10 posts in 10 minutes and 50 a day per member.
+ * Once answered, the members with the community open hear of it by id
+ * (lib/communities/server/realtime.ts) and read it through GET above.
  */
 export async function POST(request: Request, { params }: Params) {
   const off = await requireCommunitiesOn()
@@ -59,5 +62,7 @@ export async function POST(request: Request, { params }: Params) {
   if (!input.ok) return NextResponse.json({ error: input.error }, { status: 400, headers: NO_STORE })
   const result = await createPost({ db, community: gate.community, viewer: gate.viewer }, input.value)
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status ?? 400, headers: NO_STORE })
-  return NextResponse.json({ post: result.value }, { status: 201, headers: NO_STORE })
+  const post = result.value
+  after(() => announcePost(communityId, { id: post.id, spaceId: post.space?.id ?? null, authorId: post.author?.id ?? null }))
+  return NextResponse.json({ post }, { status: 201, headers: NO_STORE })
 }

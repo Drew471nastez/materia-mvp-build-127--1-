@@ -20,19 +20,37 @@
  *
  * A like on a comment answers the press on the next frame like a post's
  * (post-intent.ts: one request at a time, the last press wins).
+ *
+ * LIVE (round 10). While the section is on screen it listens to the post's
+ * own channel (live.ts): a comment somebody else sends arrives by id and is
+ * read through the gated API, then lands at the end of its list (or under
+ * its comment) with the same small rise as the member's own (arrive.ts
+ * landComment), and the post's count moves with it. The member's typing is
+ * said there too (throttled, the id only), and while somebody else types
+ * "<name> is writing..." shows in the gap under the box, taking no room of
+ * its own, so nothing moves when it comes and goes.
+ *
+ * THE BOX (round 10): the send button sits inside it, on the right, a round
+ * arrow that is grey while there is nothing to send and ink when there is,
+ * so focusing the box never adds a row under it. A sent comment keeps its
+ * place (its key stays the stand in's when the server's copy replaces it),
+ * so it does not flash as it is confirmed.
  * Edit and delete are the author's; report is everybody else's; a moderator
  * removes through the moderation route.
  */
 import Link from "next/link"
-import { useCallback, useEffect, useRef, useState } from "react"
-import { Flag, Heart, MoreHorizontal, Pencil, Shield, Trash2 } from "lucide-react"
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
+import { ArrowUp, Flag, MoreHorizontal, Pencil, Shield, Trash2, X } from "lucide-react"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { relativeTime } from "@/lib/communities/format"
 import type { CommentView, FeedPostView, ViewerView } from "@/lib/communities/types"
 import { api, apiBase } from "./api"
+import { landComment } from "./arrive"
 import { BodyText } from "./body-text"
 import { ConfirmDialog, ReportDialog, type ConfirmState, type ReportTargetRef } from "./dialogs"
+import { LikeHeart } from "./heart"
+import { listenLive, typingLine, useTyping } from "./live"
 import { MentionTextarea, type MentionTextareaHandle } from "./mention-input"
 import { actOnContent } from "./moderation"
 import { press, useIntent } from "./post-intent"
@@ -49,12 +67,21 @@ type Author = { id: string; name: string; avatarUrl: string | null }
 
 /** What a comment box hands its section when it sends. */
 interface Sending {
+  /** The words in the box changed (said on the post's channel, throttled). */
+  typed?: (words: string) => void
   /** Draw this now. */
   start: (c: Shown) => void
   /** The server has it: swap the stand in for the real one. */
   confirm: (tempId: string, c: CommentView) => void
   /** The server said no: take it out. */
   drop: (tempId: string) => void
+}
+
+/** How the rows are keyed and which ones land: a confirmed comment keeps its stand in's key, so it is not drawn again. */
+interface Rows {
+  keyOf: (id: string) => string
+  /** "mine" for one sent from here (it is brought into sight), "live" for somebody else's arriving, null for one read with the page. */
+  lands: (id: string) => "mine" | "live" | null
 }
 
 export interface CommentsPageData {
@@ -130,8 +157,8 @@ export function commentsRoom(expected: number): number {
   const n = Math.min(Math.max(0, expected), 4)
   /* A phone's column is narrower, so a comment wraps onto more lines. */
   const narrow = typeof window !== "undefined" && !!window.matchMedia?.("(max-width: 639px)").matches
-  /* The box (44), then one comment's bubble and its row of actions (100, 112 on a phone) a gap (16) apart; or the one line saying there are none. */
-  return 44 + 16 + (n ? n * (narrow ? 112 : 100) + (n - 1) * 16 : 20)
+  /* The box (44) and the band under it where "is writing..." shows (24), then one comment's bubble and its row of actions (100, 112 on a phone) a gap (16) apart; or the one line saying there are none. */
+  return 44 + 24 + (n ? n * (narrow ? 112 : 100) + (n - 1) * 16 : 20)
 }
 
 /** The kept room while comments are read: still, no shimmer, the comment box's outline where it will be. */
@@ -233,6 +260,56 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
     }
   }, [initial, post.communityId, post.id])
 
+  /* A confirmed comment keeps the key its stand in had; the ones that arrive (sent or live) land with a small rise. */
+  const keys = useRef(new Map<string, string>())
+  const landing = useRef(new Map<string, "mine" | "live">())
+  const rows: Rows = { keyOf: (id) => keys.current.get(id) ?? id, lands: (id) => landing.current.get(id) ?? null }
+
+  /* The names the page already knows, for "<name> is writing...": the commenters on screen. */
+  const listRef = useRef(comments)
+  listRef.current = comments
+  const known = useCallback((id: string) => {
+    for (const c of listRef.current ?? []) {
+      if (c.author?.id === id) return c.author.name
+      for (const r of c.replies) if (r.author?.id === id) return r.author.name
+    }
+    return null
+  }, [])
+  const typing = useTyping(post.communityId, post.id, viewer.userId, known)
+
+  /* Somebody else's comment, by id from the post's channel, read through the gate and landed at the end of its list. */
+  const cursorRef = useRef(cursor)
+  cursorRef.current = cursor
+  const onCountRef = useRef(onCount)
+  onCountRef.current = onCount
+  useEffect(() => {
+    const taken = new Set<string>()
+    return listenLive(post.communityId, post.id, "comment", (p) => {
+      const id = typeof p.commentId === "string" ? p.commentId : ""
+      if (!id || taken.has(id) || (viewer.userId && p.authorId === viewer.userId)) return
+      taken.add(id)
+      void (async () => {
+        const r = await api<{ comment: CommentView }>(`${apiBase(post.communityId)}/comments/${encodeURIComponent(id)}`)
+        if (!r.ok || !r.data.comment) return
+        const c = r.data.comment
+        const list = listRef.current
+        if (!list) return
+        const there = list.some((x) => x.id === c.id || x.replies.some((y) => y.id === c.id))
+        if (there) return
+        if (c.parentId) {
+          if (!list.some((x) => x.id === c.parentId)) return onCountRef.current?.(1)
+          landing.current.set(c.id, "live")
+          setComments((l) => (l ?? []).map((x) => (x.id === c.parentId && !x.replies.some((y) => y.id === c.id) ? { ...x, replies: [...x.replies, c] } : x)))
+        } else if (!cursorRef.current) {
+          /* Only when the list is read to its end: otherwise it is on a later page, and Show more brings it. */
+          landing.current.set(c.id, "live")
+          setComments((l) => (l ?? []).some((x) => x.id === c.id) ? l : [...(l ?? []), c])
+        }
+        onCountRef.current?.(1)
+      })()
+    })
+  }, [post.communityId, post.id, viewer.userId])
+
   const update: CommentUpdate = useCallback((id, fn) => {
     setComments((list) =>
       (list ?? []).flatMap((c) => {
@@ -268,7 +345,10 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
   }
 
   const sending: Sending = {
+    typed: typing.typed,
     start: (c) => {
+      typing.sent()
+      landing.current.set(c.id, "mine")
       sentHere.current.add(c.id)
       if (c.parentId) setComments((list) => (list ?? []).map((p) => (p.id === c.parentId ? { ...p, replies: [...p.replies, c] } : p)))
       else setComments((list) => [...(list ?? []), c])
@@ -276,6 +356,7 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
     },
     confirm: (tempId, c) => {
       sentHere.current.add(c.id)
+      keys.current.set(c.id, keys.current.get(tempId) ?? tempId)
       update(tempId, () => c)
     },
     drop: (tempId) => {
@@ -288,7 +369,10 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
   return (
     <div data-comments-list="">
       {open ? (
-        <CommentBox communityId={post.communityId} postId={post.id} me={me} author={author} handleRef={boxRef} sending={sending} placeholder="Write a comment..." />
+        <div className="relative">
+          <CommentBox communityId={post.communityId} postId={post.id} me={me} author={author} handleRef={boxRef} sending={sending} placeholder="Write a comment..." />
+          <TypingLine names={typing.writers.map((w) => w.name)} />
+        </div>
       ) : (
         <p className="text-[13.5px] text-[#6b7280]">{post.locked ? "Comments are closed on this post." : !enabled ? "Comments are off in this space." : "You cannot comment here right now."}</p>
       )}
@@ -305,15 +389,15 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
           <div style={{ minHeight: commentsRoom(expected) - 44 }} aria-label="Loading comments" data-comments-loading="" />
         )
       ) : comments.length ? (
-        <ul className={`mt-4 space-y-4 ${arrived ? "animate-in fade-in-0 duration-200 ease-out motion-reduce:animate-none" : ""}`} data-comments-rows="">
+        <ul className={`${open ? "mt-6" : "mt-4"} space-y-4 ${arrived ? "animate-in fade-in-0 duration-200 ease-out motion-reduce:animate-none" : ""}`} data-comments-rows="">
           {comments.map((c) => (
-            <li key={c.id}>
-              <CommentItem c={c} slug={slug} communityId={post.communityId} postId={post.id} viewer={viewer} me={me} author={author} update={update} canReply={open} sending={sending} />
+            <li key={rows.keyOf(c.id)}>
+              <CommentItem c={c} slug={slug} communityId={post.communityId} postId={post.id} viewer={viewer} me={me} author={author} update={update} canReply={open} sending={sending} rows={rows} />
             </li>
           ))}
         </ul>
       ) : (
-        <p className={`mt-4 text-[14px] text-[#8a8f98] ${arrived ? "animate-in fade-in-0 duration-200 ease-out motion-reduce:animate-none" : ""}`} data-comments-empty="">
+        <p className={`${open ? "mt-6" : "mt-4"} text-[14px] text-[#8a8f98] ${arrived ? "animate-in fade-in-0 duration-200 ease-out motion-reduce:animate-none" : ""}`} data-comments-empty="">
           No comments yet.{open ? " Say something first." : ""}
         </p>
       )}
@@ -356,10 +440,13 @@ function CommentBox({
   autoFocus?: boolean
 }) {
   const [body, setBody] = useState(initial)
-  const [focused, setFocused] = useState(!!autoFocus)
   /* The box's words as they are now, so a refused comment goes back only into an empty box. */
   const current = useRef(body)
   current.current = body
+  const change = (words: string) => {
+    setBody(words)
+    sending.typed?.(words)
+  }
   const send = async () => {
     const text = body.trim()
     if (!text) return
@@ -392,42 +479,88 @@ function CommentBox({
     }
     sending.confirm(tempId, r.data.comment)
   }
+  const ready = !!body.trim()
   return (
     <div className="flex items-start gap-2.5" data-comment-box={parentId ? "reply" : "comment"} data-keep-in-sight="">
       {me ? <AppAvatar src={me.avatarUrl} name={me.name} alt="" size={parentId ? 28 : 32} markWhileLoading className="mt-1" /> : null}
-      <div className="min-w-0 flex-1 rounded-2xl border border-[#e3e4e8] bg-white px-3 py-2 focus-within:border-[#c9ccd3]">
-        <MentionTextarea
-          ref={handleRef}
-          communityId={communityId}
-          value={body}
-          onChange={setBody}
-          placeholder={placeholder}
-          ariaLabel={placeholder}
-          maxLength={5000}
-          autoFocus={autoFocus}
-          onFocus={() => setFocused(true)}
-          className="min-h-[24px] text-[16px] leading-6 text-[#262633] sm:text-[14.5px]"
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-              e.preventDefault()
-              void send()
-            }
-          }}
-        />
-        {focused || body ? (
-          <div className="mt-1.5 flex justify-end gap-1.5">
-            {onCancel ? (
-              <button type="button" className={BTN_GHOST} onClick={onCancel}>
-                Cancel
-              </button>
-            ) : null}
-            <button type="button" className={`${BTN_PRIMARY} touch-manipulation`} onClick={send} disabled={!body.trim()} data-comment-send="">
-              {parentId ? "Reply" : "Comment"}
-            </button>
-          </div>
+      <div className="flex min-w-0 flex-1 items-end gap-1 rounded-[20px] border border-[#e3e4e8] bg-white py-1 pl-3.5 pr-1 transition-[border-color] duration-150 focus-within:border-[#c9ccd3]">
+        <div className="min-w-0 flex-1 py-[5px]">
+          <MentionTextarea
+            ref={handleRef}
+            communityId={communityId}
+            value={body}
+            onChange={change}
+            placeholder={placeholder}
+            ariaLabel={placeholder}
+            maxLength={5000}
+            autoFocus={autoFocus}
+            className="min-h-[24px] text-[16px] leading-6 text-[#262633] sm:text-[14.5px]"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault()
+                void send()
+              }
+              if (e.key === "Escape" && onCancel && !body) onCancel()
+            }}
+          />
+        </div>
+        {onCancel ? (
+          <button type="button" aria-label="Cancel reply" onClick={onCancel} className="group/cancel -my-1 flex h-10 w-9 shrink-0 items-center justify-center rounded-full text-[#8a8f98] outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 [-webkit-tap-highlight-color:transparent]" data-comment-cancel="">
+            <span className="flex h-8 w-8 items-center justify-center rounded-full transition-colors group-hover/cancel:bg-[#f1f2f4] group-hover/cancel:text-[#1a1a2e]">
+              <X className="h-4 w-4" strokeWidth={2} aria-hidden />
+            </span>
+          </button>
         ) : null}
+        {/* Grey with nothing to send, ink with something: one button, its look follows the words (no row added on focus). */}
+        <button
+          type="button"
+          aria-label={parentId ? "Send reply" : "Send comment"}
+          /* The field keeps the caret (and a phone its keyboard) through the press. */
+          onPointerDown={(e) => e.preventDefault()}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={send}
+          className="group/send -my-1 flex h-10 w-9 shrink-0 touch-manipulation items-center justify-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 disabled:cursor-default [-webkit-tap-highlight-color:transparent]"
+          disabled={!body.trim()} data-comment-send=""
+        >
+          <span className={`flex h-8 w-8 items-center justify-center rounded-full transition-[background-color,color,scale] duration-150 group-active/send:scale-90 motion-reduce:transition-none ${ready ? "bg-[#1a1a2e] text-white shadow-[0_1px_1.5px_rgba(16,24,40,0.18)]" : "bg-[#eef0f2] text-[#a3a8b0]"}`}>
+            <ArrowUp className="h-[17px] w-[17px]" strokeWidth={2.25} aria-hidden />
+          </span>
+        </button>
       </div>
     </div>
+  )
+}
+
+/** "<name> is writing...", in the band under the comment box (kept whether or not anybody writes), so nothing moves when it comes and goes. */
+function TypingLine({ names }: { names: string[] }) {
+  const words = typingLine(names)
+  const [shown, setShown] = useState(words)
+  /* The last words stay while the line fades out, so it does not go blank first. */
+  useEffect(() => {
+    if (words) setShown(words)
+  }, [words])
+  /* Three dots that breathe one after another while somebody writes (opacity on the compositor), still otherwise. */
+  const dots = useRef<HTMLSpanElement>(null)
+  const on = !!words
+  useEffect(() => {
+    const box = dots.current
+    if (!on || !box || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
+    const running = [...box.children].map((d, i) => (d as HTMLElement).animate?.([{ opacity: 0.3 }, { opacity: 1 }, { opacity: 0.3 }], { duration: 1200, delay: i * 160, iterations: Infinity, easing: "ease-in-out" }))
+    return () => running.forEach((a) => a?.cancel())
+  }, [on])
+  return (
+    <p
+      aria-live="polite"
+      className={`pointer-events-none absolute left-[42px] right-0 top-full mt-1 flex h-4 items-center gap-1.5 truncate text-[12.5px] leading-4 text-[#6b7280] transition-opacity duration-200 motion-reduce:transition-none ${words ? "opacity-100" : "opacity-0"}`}
+      data-typing={words ? "" : undefined}
+    >
+      <span ref={dots} className="flex shrink-0 items-center gap-[3px]" aria-hidden>
+        <span className="h-1 w-1 rounded-full bg-[#9ca3af]" />
+        <span className="h-1 w-1 rounded-full bg-[#9ca3af]" />
+        <span className="h-1 w-1 rounded-full bg-[#9ca3af]" />
+      </span>
+      <span className="truncate">{words ?? shown}</span>
+    </p>
   )
 }
 
@@ -442,6 +575,7 @@ function CommentItem({
   update,
   canReply,
   sending,
+  rows,
   parent,
 }: {
   c: Shown
@@ -454,8 +588,40 @@ function CommentItem({
   update: CommentUpdate
   canReply: boolean
   sending: Sending
+  rows: Rows
   parent?: CommentView
 }) {
+  /* A comment that arrived while the post is open (sent here, or somebody else's) lands; the ones read with the page do not move. */
+  const rowRef = useRef<HTMLDivElement>(null)
+  const lands = rows.lands(c.id)
+  useLayoutEffect(() => {
+    if (!lands) return
+    landComment(rowRef.current)
+    /*
+      The member's own, brought into sight with a mouse and a keyboard only: on
+      a touch screen the box being typed in stays under the finger (and above
+      the on screen keyboard), never scrolled away from it. Somebody else's
+      never moves the reader.
+    */
+    const el = rowRef.current
+    if (el && lands === "mine" && window.matchMedia?.("(hover: hover) and (pointer: fine)").matches && document.documentElement.dataset.keyboard !== "open") {
+      /*
+        Only the post's own scroller (the sheet's, the panel's) or the page is
+        moved, never scrollIntoView: that also scrolls the clipped boxes a
+        sheet is made of, and slid the phone's sheet off its own bottom.
+      */
+      const box = el.closest<HTMLElement>("[data-sheet-scroll], [data-post-overlay-scroll]")
+      const r = el.getBoundingClientRect()
+      const view = box ? box.getBoundingClientRect() : { top: 0, bottom: window.innerHeight }
+      const below = r.bottom - (view.bottom - 12)
+      if (below > 0) {
+        const opts: ScrollToOptions = { top: Math.min(below, r.top - view.top - 12), behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }
+        if (box) box.scrollBy(opts)
+        else window.scrollBy(opts)
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const [replying, setReplying] = useState<string | null>(null)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(c.body)
@@ -535,7 +701,7 @@ function CommentItem({
 
   const small = !!parent
   return (
-    <div id={`c-${c.id}`} data-comment={c.id} data-comment-sending={c.sending ? "" : undefined} className={`scroll-mt-28 transition-opacity duration-200 ${c.sending ? "opacity-60" : ""}`}>
+    <div ref={rowRef} id={`c-${c.id}`} data-comment={c.id} data-comment-sending={c.sending ? "" : undefined} className={`scroll-mt-28 transition-opacity duration-200 ${c.sending ? "opacity-60" : ""}`}>
       <div className="flex items-start gap-2.5">
         {c.author ? (
           <Link href={memberHref(slug, c.author)} className="mt-0.5 shrink-0 rounded-full" data-person-link="" data-person-id={c.author.id}>
@@ -578,44 +744,43 @@ function CommentItem({
               </>
             )}
           </div>
-          {c.sending ? (
-            <div className="flex h-10 items-center pl-1.5 text-[12.5px] text-[#6b7280]" aria-live="polite">
-              Sending...
-            </div>
-          ) : !c.deleted ? (
+          {!c.deleted ? (
+            /* One row for both states: "Sending..." in the time's place while it goes, the actions kept in their places (hidden), so confirming moves nothing. */
             <div className="flex items-center gap-0.5 pl-1.5 text-[12.5px] text-[#6b7280]">
-              <time dateTime={c.createdAt} className="mr-1.5" suppressHydrationWarning>
-                {relativeTime(c.createdAt)}
-                {c.editedAt ? " · edited" : ""}
+              <time dateTime={c.createdAt} className="mr-1.5" suppressHydrationWarning aria-live={c.sending ? "polite" : undefined}>
+                {c.sending ? "Sending..." : relativeTime(c.createdAt)}
+                {!c.sending && c.editedAt ? " · edited" : ""}
               </time>
-              <button type="button" onClick={like} aria-pressed={reacted} disabled={!viewer.can.react} className={`inline-flex h-10 touch-manipulation items-center gap-1 rounded-full px-2 font-medium hover:text-[#1a1a2e] ${reacted ? "text-[#c4290c] hover:text-[#c4290c]" : ""}`} data-comment-like="">
-                <Heart className={`h-3.5 w-3.5 ${reacted ? "fill-current" : ""}`} strokeWidth={2} aria-hidden />
-                <span className="tabular-nums">{reactionCount > 0 ? reactionCount : "Like"}</span>
-              </button>
-              {canReply ? (
-                <button type="button" onClick={() => setReplying(c.author?.username ? `@${c.author.username} ` : "")} className="inline-flex h-10 items-center rounded-full px-2 font-medium hover:text-[#1a1a2e]">
-                  Reply
+              <span className={`flex items-center gap-0.5 transition-opacity duration-200 ${c.sending ? "pointer-events-none opacity-0" : "opacity-100"}`} aria-hidden={c.sending ? true : undefined}>
+                <button type="button" onClick={like} aria-pressed={reacted} disabled={!viewer.can.react || !!c.sending} className={`group/like inline-flex h-10 touch-manipulation items-center gap-1 rounded-full px-2 font-medium hover:text-[#1a1a2e] ${reacted ? "text-[#c4290c] hover:text-[#c4290c]" : ""}`} data-comment-like="">
+                  <LikeHeart on={reacted} size={15} strokeWidth={2} />
+                  <span className="tabular-nums">{reactionCount > 0 ? reactionCount : "Like"}</span>
                 </button>
-              ) : null}
-              {items.length ? (
-                <ResponsiveActionMenu
-                  title="Comment"
-                  items={items}
-                  trigger={
-                    <button type="button" aria-label="More" className={`${ICON_BTN} h-10 w-10`}>
-                      <MoreHorizontal className="h-4 w-4" />
-                    </button>
-                  }
-                />
-              ) : null}
+                {canReply ? (
+                  <button type="button" onClick={() => setReplying(c.author?.username ? `@${c.author.username} ` : "")} disabled={!!c.sending} className="inline-flex h-10 items-center rounded-full px-2 font-medium hover:text-[#1a1a2e]">
+                    Reply
+                  </button>
+                ) : null}
+                {items.length && !c.sending ? (
+                  <ResponsiveActionMenu
+                    title="Comment"
+                    items={items}
+                    trigger={
+                      <button type="button" aria-label="More" className={`${ICON_BTN} h-10 w-10`}>
+                        <MoreHorizontal className="h-4 w-4" />
+                      </button>
+                    }
+                  />
+                ) : null}
+              </span>
             </div>
           ) : null}
 
           {c.replies.length ? (
             <ul className="mt-2 space-y-3">
               {c.replies.map((r) => (
-                <li key={r.id}>
-                  <CommentItem c={r} slug={slug} communityId={communityId} postId={postId} viewer={viewer} me={me} author={author} update={update} canReply={canReply} sending={sending} parent={c} />
+                <li key={rows.keyOf(r.id)}>
+                  <CommentItem c={r} slug={slug} communityId={communityId} postId={postId} viewer={viewer} me={me} author={author} update={update} canReply={canReply} sending={sending} rows={rows} parent={c} />
                 </li>
               ))}
             </ul>

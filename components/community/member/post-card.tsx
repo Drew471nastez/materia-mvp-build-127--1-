@@ -36,7 +36,7 @@
  */
 import Link from "next/link"
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { BarChart3, Bookmark, Heart, Link2, Lock, MessageCircle, MoreHorizontal, Paperclip, Pencil, Pin, Shield, Trash2, Flag, VolumeX, Ban } from "lucide-react"
+import { BarChart3, Bookmark, Link2, Lock, MessageCircle, MoreHorizontal, Paperclip, Pencil, Pin, Shield, Trash2, Flag, VolumeX, Ban } from "lucide-react"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { relativeTime } from "@/lib/communities/format"
@@ -45,6 +45,7 @@ import type { FeedPostView, PollView, ViewerView } from "@/lib/communities/types
 import { api, apiBase } from "./api"
 import { BodyText, inline } from "./body-text"
 import { ConfirmDialog, ReportDialog, type ConfirmState, type ReportTargetRef } from "./dialogs"
+import { LikeHeart } from "./heart"
 import { CardMedia, PostMediaGrid, PostThumb } from "./media"
 import { REOPEN, actOnContent, actOnMember, moderationMenu, muteUntil } from "./moderation"
 import { PollBlock } from "./poll"
@@ -568,6 +569,12 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
   )
 }
 
+/**
+ * A like's button: the ghost button without its press scale, so a press moves
+ * the heart (heart.tsx) and never the box around it (round 10).
+ */
+const LIKE_BTN = BTN_GHOST.replace("active:scale-[0.97]", "")
+
 /** The heart and its count: the one part of a card a like draws again. */
 function LikeButton({ post, full, disabled, onPress }: { post: FeedPostView; full: boolean; disabled: boolean; onPress: () => void }) {
   const intent = useIntent(`like:${post.id}`)
@@ -581,9 +588,9 @@ function LikeButton({ post, full, disabled, onPress }: { post: FeedPostView; ful
       aria-label={full ? undefined : reacted ? `Unlike, ${count} likes` : `Like, ${count} likes`}
       disabled={disabled}
       data-like=""
-      className={`${BTN_GHOST} -ml-2 gap-2 touch-manipulation ${full ? "" : "px-2 sm:px-2.5"} ${reacted ? "text-[#c4290c] hover:text-[#c4290c]" : ""}`}
+      className={`${LIKE_BTN} group/like -ml-2 gap-2 touch-manipulation ${full ? "" : "px-2 sm:px-2.5"} ${reacted ? "text-[#c4290c] hover:text-[#c4290c]" : ""}`}
     >
-      <Heart className={`h-[18px] w-[18px] ${reacted ? "fill-current" : ""}`} strokeWidth={1.75} aria-hidden />
+      <LikeHeart on={reacted} size={20} />
       <span className="tabular-nums" data-like-count="">
         {full ? (count > 0 ? count : "Like") : count}
       </span>

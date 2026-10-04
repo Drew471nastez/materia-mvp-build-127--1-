@@ -46,6 +46,26 @@
  * the toolbar sits on the keyboard, and when the visible part changes the
  * field being typed in is scrolled back into sight.
  *
+ * AFTER POST (round 10): the button turns to a spinner while the server is
+ * asked and to a check when it has the post (one fixed width, the faces
+ * crossfade), the editor closes on its usual move, and only then does the
+ * post go into the feed: at the top, the posts under it sliding down to
+ * make room, with a warm highlight that fades, the page scrolling smoothly
+ * to it when it is out of sight (arrive.ts useArrivals).
+ *
+ * THE TOOLBAR ON THE KEYBOARD (round 10). The visible part follows the
+ * viewport at once, with no CSS transition (a transition on its height
+ * moved the toolbar a different way from the top, which jumps with a pan,
+ * and left an empty strip under it for a quarter second when the keyboard
+ * went down). The toolbar alone is carried from where it was drawn to its
+ * new place on the compositor (useToolbarDock: a FLIP on translate, 250ms,
+ * the keyboard's own curve). And a keyboard that is about to go down (the
+ * field lost focus to nothing that types) is not waited for: iOS says the
+ * viewport changed only once the keyboard has gone, so the toolbar goes
+ * down with it at once, and the report then finds it already there. The
+ * same the other way: a field taking focus brings the toolbar up with the
+ * keyboard, as tall as the last one was, before the report.
+ *
  * WHAT IS TYPED IS KEPT. Every change is written to this browser's storage
  * for this community, and comes back if the page is closed, refreshed or
  * crashed before posting. Posting, or choosing Leave, clears it.
@@ -54,7 +74,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog"
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { createPortal } from "react-dom"
-import { BarChart3, ChevronDown, Clapperboard, FileText, Link2, Loader2, Paperclip, Play, Plus, Upload, X } from "lucide-react"
+import { BarChart3, Check, ChevronDown, Clapperboard, FileText, Link2, Loader2, Paperclip, Play, Plus, Upload, X } from "lucide-react"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { EmojiControl } from "@/components/app/rich-text/emoji-picker"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
@@ -64,6 +84,7 @@ import { MAX_MEDIA_PER_POST, POLL_OPTIONS_MAX } from "@/lib/communities/limits"
 import { MAX_EMBEDS, MAX_GIFS, STAFF_FILE_MAX_BYTES, embedFromUrl, fileSizeLabel } from "@/lib/communities/post-media"
 import type { FeedPostView, PostMedia } from "@/lib/communities/types"
 import { api, apiBase } from "./api"
+import { holdAnchor, useArrivals } from "./arrive"
 import { LinkCard } from "./media"
 import { PHONE_ROW } from "./post-card"
 import { useKeepFieldInSight } from "./keep-in-sight"
@@ -129,6 +150,13 @@ const FADE_IN_MS = 180
 const FADE_OUT_MS = 150
 /** The closed field's height when it was never drawn (a draft that opened the editor at once). */
 const CLOSED_FALLBACK_H = 72
+/** How long the Post button shows its check before the editor closes. */
+const SENT_HOLD_MS = 260
+/** The toolbar's move to its new place on the keyboard, over the keyboard's own time and on a curve close to its own (a quick start, a long settle). */
+const DOCK_MS = 250
+const DOCK_EASE = "cubic-bezier(0.33, 1, 0.68, 1)"
+/** A keyboard expected to go down that has not after this is taken to be staying. */
+const DOCK_GIVE_UP_MS = 700
 
 function reducedMotion(): boolean {
   return typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
@@ -231,6 +259,18 @@ function useLeaveGuard(opts: { active: boolean; sheet: boolean; ask: () => Promi
   useEffect(() => {
     if (!guarding) return
     const marker = `composer-${Date.now()}`
+    /*
+      THE PAGE UNDER THE STEP KEEPS ITS SCROLL. The step added here is this
+      same page, and stepping back over it is a history traversal: the
+      browser would put back the scroll the page had when the step was added
+      (before the member scrolled while writing, and while the post just sent
+      is being scrolled to). Which scroll a traversal restores is set on the
+      entry it lands on, so it is set on this one before the step, and put
+      back once the step is gone (a moment after popstate, when the browser
+      would have restored it).
+    */
+    const was = window.history.scrollRestoration
+    window.history.scrollRestoration = "manual"
     const push = () => window.history.pushState({ ...(window.history.state ?? {}), storelibComposer: marker }, "", window.location.href)
     push()
     let ours = true
@@ -255,7 +295,11 @@ function useLeaveGuard(opts: { active: boolean; sheet: boolean; ask: () => Promi
     window.addEventListener("popstate", onPop)
     return () => {
       window.removeEventListener("popstate", onPop)
-      if (ours && (window.history.state as { storelibComposer?: string } | null)?.storelibComposer === marker) window.history.back()
+      const putBack = () => window.setTimeout(() => (window.history.scrollRestoration = was), 400)
+      if (ours && (window.history.state as { storelibComposer?: string } | null)?.storelibComposer === marker) {
+        window.addEventListener("popstate", putBack, { once: true })
+        window.history.back()
+      } else putBack()
     }
   }, [guarding])
 }
@@ -275,6 +319,10 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
   const [linkField, setLinkField] = useState<null | "link" | "video">(null)
   const [linkText, setLinkText] = useState("")
   const [busy, setBusy] = useState(false)
+  /* The server has the post: the check shows, then the editor closes and the post goes into the feed (AFTER POST). */
+  const [sent, setSent] = useState(false)
+  const afterClose = useRef<(() => void) | null>(null)
+  const arrive = useArrivals()
   const [restored, setRestored] = useState(false)
   const [asking, setAsking] = useState<((leave: boolean) => void) | null>(null)
   const textRef = useRef<MentionTextareaHandle>(null)
@@ -286,6 +334,8 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
   const editorRef = useRef<HTMLDivElement>(null)
   const sheetRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const visibleRef = useRef<HTMLDivElement>(null)
+  const toolbarRef = useRef<HTMLDivElement>(null)
   /* How tall the closed field was, for the editor growing out of it. */
   const closedH = useRef(0)
   /* The posts' slide while the editor closes, held at its end until the closed field is drawn. */
@@ -519,6 +569,8 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
       window.setTimeout(finish, SHEET_CLOSE_MS + 200)
       return
     }
+    /* The page keeps its scroll as the editor folds (the browser would otherwise move it to follow a post on screen). */
+    holdAnchor(FOLD_MS + 900)
     const d = Math.max(0, el.offsetHeight - (closedH.current || CLOSED_FALLBACK_H))
     const timing: KeyframeAnimationOptions = { duration: FOLD_MS, easing: SHEET_CLOSE_EASE, fill: "forwards" }
     el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: FADE_OUT_MS, easing: "ease-out", fill: "forwards" })
@@ -545,7 +597,7 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
   }
 
   useLeaveGuard({
-    active: open && dirty,
+    active: open && dirty && !sent,
     sheet,
     ask,
     onLeave: () => {
@@ -588,6 +640,10 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
       /* Closed: the posts' slide was held at its end; the field is drawn now, so let it go in the same frame. */
       for (const a of held.current) a.cancel()
       held.current = []
+      /* A post just sent goes into the feed now, after the editor's move (AFTER POST). */
+      const posted = afterClose.current
+      afterClose.current = null
+      posted?.()
       if (fadeClosed.current && closedRef.current && typeof closedRef.current.animate === "function") closedRef.current.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 140, easing: "ease-out" })
       fadeClosed.current = false
       /* The posts' own layer, held while the editor was open (so the fold drew nothing new), goes once all is still. */
@@ -609,9 +665,11 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
 
   /* The field being typed in stays in sight when the visible part changes (keep-in-sight.ts). */
   useKeepFieldInSight(sheet, () => scrollRef.current)
+  /* The toolbar rides the keyboard on the compositor (THE TOOLBAR ON THE KEYBOARD). */
+  useToolbarDock(sheet && sheetIn, visibleRef, toolbarRef)
 
   const submit = async () => {
-    if (busy || !ready) return
+    if (busy || sent || !ready) return
     setBusy(true)
     const all = linkMedia ? [...media, linkMedia] : media
     const closesAt = poll?.closesIn ? new Date(Date.now() + Number(poll.closesIn) * 86_400_000).toISOString() : null
@@ -626,10 +684,22 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
     })
     setBusy(false)
     if (!r.ok) return toast(r.error)
-    onPosted(r.data.post)
-    clear()
-    shut()
-    toast("Posted")
+    const post = r.data.post
+    /* Kept no longer: a reload from here on starts empty. */
+    try {
+      window.localStorage.removeItem(key)
+    } catch {
+      /* nothing kept */
+    }
+    setSent(true)
+    afterClose.current = () => {
+      clear()
+      setSent(false)
+      /* Into the feed with its finish; a list that does not show it (another order) says it in words instead, unless the feed already did ("Posted in ..."). */
+      arrive([post.id], { mine: true, missing: () => !document.querySelector('.fixed[role="status"]') && toast("Posted") })
+      onPosted(post)
+    }
+    window.setTimeout(shut, reducedMotion() ? 0 : SENT_HOLD_MS)
   }
 
   const openEditor = () => {
@@ -859,7 +929,8 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
           >
             <div
               /* The part that can be seen (THE KEYBOARD ON A PHONE); a keyboard's arrival is carried over 250ms rather than in one frame. */
-              className="absolute inset-x-0 top-[var(--vv-top,0px)] flex h-[var(--vv-h,100dvh)] flex-col [.vv-settling_&]:[transition:height_250ms_cubic-bezier(0.32,0.72,0,1)]"
+              ref={visibleRef}
+              className="group/vis absolute inset-x-0 top-[var(--vv-top,0px)] flex h-[var(--vv-h,100dvh)] flex-col"
               data-composer-visible=""
             >
             <div className="shrink-0 border-b border-[#f0f1f3] pt-[env(safe-area-inset-top)]">
@@ -869,13 +940,11 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
                   screen once it has gone rather than as it starts to slide: a keyboard closing changes the
                   visible height, and the whole page restyles for it, which belongs after the move.
                 */}
-                <button type="button" onPointerDown={(e) => e.preventDefault()} onMouseDown={(e) => e.preventDefault()} onClick={() => void cancel()} className={`${BTN_GHOST} px-3`} data-composer-cancel="">
+                <button type="button" onPointerDown={(e) => e.preventDefault()} onMouseDown={(e) => e.preventDefault()} onClick={() => void cancel()} className={`${BTN_SECONDARY} px-3.5`} disabled={sent} data-composer-cancel="">
                   Cancel
                 </button>
                 <span className="min-w-0 flex-1 truncate text-center text-[16px] font-semibold text-[#1a1a2e]">New post</span>
-                <button type="button" className={`${BTN_PRIMARY} px-4`} onClick={submit} disabled={busy || !ready} data-composer-post="">
-                  {busy ? "Posting..." : "Post"}
-                </button>
+                <PostButton busy={busy} sent={sent} ready={ready} onClick={submit} className="px-4" />
               </div>
             </div>
             <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4 pt-3" data-composer-scroll="">
@@ -887,7 +956,7 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
               {fields}
             </div>
             {/* On the keyboard when it is up (no home bar to clear then), above the home bar when it is not. */}
-            <div className="shrink-0 border-t border-[#f0f1f3] bg-white px-2 pb-[max(6px,env(safe-area-inset-bottom))] pt-1.5 [html[data-keyboard=open]_&]:pb-1.5" data-composer-toolbar="">{tools}</div>
+            <div ref={toolbarRef} className="relative z-[1] shrink-0 border-t border-[#f0f1f3] bg-white px-2 pb-[max(6px,env(safe-area-inset-bottom))] pt-1.5 group-data-[kb=up]/vis:pb-1.5" data-composer-toolbar="">{tools}</div>
             </div>
           </div>,
           document.body,
@@ -912,18 +981,150 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
           {tools}
           {spacePicker}
           <div className="ml-auto flex items-center gap-1.5">
-            <button type="button" className={BTN_GHOST} onClick={() => void cancel()} disabled={busy} data-composer-cancel="">
+            <button type="button" className={BTN_SECONDARY} onClick={() => void cancel()} disabled={busy || sent} data-composer-cancel="">
               Cancel
             </button>
-            <button type="button" className={BTN_PRIMARY} onClick={submit} disabled={busy || !ready} data-composer-post="">
-              {busy ? "Posting..." : "Post"}
-            </button>
+            <PostButton busy={busy} sent={sent} ready={ready} onClick={submit} />
           </div>
         </div>
       </div>
       {leaveDialog}
     </>
   )
+}
+
+/**
+ * Post, then a spinner while the server is asked, then a check once it has
+ * the post: three faces in one cell, so the button keeps the width "Post"
+ * gives it and the faces crossfade rather than the words changing length.
+ */
+function PostButton({ busy, sent, ready, onClick, className = "" }: { busy: boolean; sent: boolean; ready: boolean; onClick: () => void; className?: string }) {
+  const face = (on: boolean) => `col-start-1 row-start-1 flex items-center justify-center transition-[opacity,scale] duration-150 ease-out motion-reduce:transition-none ${on ? "opacity-100 scale-100" : "opacity-0 scale-75"}`
+  const state = sent ? "sent" : busy ? "busy" : "idle"
+  return (
+    <button type="button" className={`${BTN_PRIMARY} ${className} ${busy || sent ? "disabled:opacity-100" : ""}`} onClick={onClick} disabled={busy || sent || !ready} aria-label={sent ? "Posted" : busy ? "Posting" : undefined} data-composer-post="" data-post-state={state}>
+      <span className="grid">
+        <span className={face(state === "idle")}>Post</span>
+        <span className={face(state === "busy")} aria-hidden>
+          <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.25} />
+        </span>
+        <span className={face(state === "sent")} aria-hidden>
+          <Check className="h-[17px] w-[17px]" strokeWidth={2.5} />
+        </span>
+      </span>
+    </button>
+  )
+}
+
+const TYPES_TEXT = /^(text|search|url|tel|email|password|number)$/
+function takesKeys(el: Element | null): boolean {
+  const e = el as HTMLElement | null
+  if (!e) return false
+  if (e.isContentEditable || e.tagName === "TEXTAREA") return true
+  return e.tagName === "INPUT" && TYPES_TEXT.test(((e as HTMLInputElement).type || "text").toLowerCase())
+}
+
+/** The vertical part of an element's translate as drawn now (an animation's current value included). */
+function drawnY(el: HTMLElement): number {
+  const t = getComputedStyle(el).translate
+  if (!t || t === "none") return 0
+  return parseFloat(t.split(" ")[1] ?? "0") || 0
+}
+
+/**
+ * THE TOOLBAR ON THE KEYBOARD (see the top of this file). While `active`
+ * (the phone's editor on screen): every time the visible part changes,
+ * before that frame is painted, the toolbar is moved back to where it was
+ * drawn and slides to its new place; `data-kb` on the visible part says
+ * whether the keyboard is up (the toolbar's padding over the home bar
+ * follows it, from the same frame). A field losing focus to nothing that
+ * types means the keyboard is on its way down: the visible part is let go
+ * to the whole window at once (the report then changes nothing), and taken
+ * back if the keyboard stays.
+ */
+function useToolbarDock(active: boolean, visible: React.RefObject<HTMLDivElement | null>, toolbar: React.RefObject<HTMLDivElement | null>) {
+  useEffect(() => {
+    const vis = visible.current
+    const bar = toolbar.current
+    if (!active || !vis || !bar) return
+    const html = document.documentElement
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+    /* Where the toolbar is laid out (its drawn offset taken away). */
+    let laidTop = bar.getBoundingClientRect().top - drawnY(bar)
+    /* A keyboard about to come up or go down that has not said so yet, and how tall the last one was. */
+    let expecting: "up" | "down" | null = null
+    let lastKb = 0
+    let giveUp = 0
+    const kbOpen = () => html.dataset.keyboard === "open"
+    const mark = () => {
+      vis.dataset.kb = (kbOpen() && expecting !== "down") || expecting === "up" ? "up" : "down"
+    }
+    const dock = () => {
+      const off = drawnY(bar)
+      const now = bar.getBoundingClientRect().top - off
+      /* Laid out where it already was going (the report after an expected keyboard): the move under way carries on untouched. */
+      if (Math.abs(now - laidTop) < 1) return
+      const was = laidTop + off
+      for (const a of bar.getAnimations()) a.cancel()
+      laidTop = now
+      const d = was - laidTop
+      if (Math.abs(d) < 1 || reduce || typeof bar.animate !== "function") return
+      bar.animate([{ translate: `0 ${d}px` }, { translate: "0 0" }], { duration: DOCK_MS, easing: DOCK_EASE })
+    }
+    /* The visible part ahead of the report: the whole window for a keyboard going down, the window less the last keyboard for one coming up. */
+    const expect = (next: "up" | "down" | null) => {
+      expecting = next
+      window.clearTimeout(giveUp)
+      vis.style.top = next ? "0px" : ""
+      vis.style.height = next === "down" ? "100%" : next === "up" ? `calc(100% - ${lastKb}px)` : ""
+      if (next) giveUp = window.setTimeout(() => (expect(null), mark(), dock()), DOCK_GIVE_UP_MS)
+    }
+    /*
+      The vars and data-keyboard are written on <html> together, in the task
+      that heard the viewport change; this hears them right after it (a
+      mutation's callback), before any frame is painted with the new place,
+      so the toolbar is never drawn there before its move has started.
+    */
+    const onChange = () => {
+      if (kbOpen()) {
+        const layout = vis.parentElement?.clientHeight ?? window.innerHeight
+        const shown = parseFloat(getComputedStyle(html).getPropertyValue("--vv-h")) || layout
+        const top = parseFloat(getComputedStyle(html).getPropertyValue("--vv-top")) || 0
+        if (layout - shown - top > layout * 0.2) lastKb = layout - shown - top
+      }
+      if ((expecting === "down" && !kbOpen()) || (expecting === "up" && kbOpen())) expect(null)
+      mark()
+      dock()
+    }
+    const watch = new MutationObserver(onChange)
+    const onFocusOut = () =>
+      requestAnimationFrame(() => {
+        if (takesKeys(document.activeElement) || !kbOpen() || !vis.isConnected) return
+        expect("down")
+        mark()
+        dock()
+      })
+    const onFocusIn = (e: FocusEvent) => {
+      if (!takesKeys(e.target as Element)) return
+      if (expecting === "down") expect(null)
+      else if (!kbOpen() && lastKb > 0) expect("up")
+      else return
+      mark()
+      dock()
+    }
+    mark()
+    watch.observe(html, { attributes: true, attributeFilter: ["style", "data-keyboard"] })
+    document.addEventListener("focusout", onFocusOut)
+    document.addEventListener("focusin", onFocusIn)
+    return () => {
+      watch.disconnect()
+      window.clearTimeout(giveUp)
+      document.removeEventListener("focusout", onFocusOut)
+      document.removeEventListener("focusin", onFocusIn)
+      vis.style.top = ""
+      vis.style.height = ""
+    }
+  }, [active, visible, toolbar])
 }
 
 function AttachmentTile({ a, onRemove }: { a: Attachment; onRemove: () => void }) {
