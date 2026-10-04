@@ -84,10 +84,11 @@ export function ProfileHero({
               prefetch={false}
               data-profile-cover-edit=""
               className={cn(
-                "absolute bottom-2.5 right-2.5 inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-[13px] font-medium outline-none backdrop-blur-sm transition-[background-color,scale] duration-150 active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-white/70 [-webkit-tap-highlight-color:transparent]",
+                "absolute right-2.5 top-2.5 inline-flex h-10 items-center sm:bottom-2.5 sm:top-auto gap-1.5 rounded-full px-3 text-[13px] font-medium outline-none backdrop-blur-sm transition-[background-color,scale] duration-150 active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-white/70 [-webkit-tap-highlight-color:transparent]",
                 person.coverUrl ? "bg-black/45 text-white hover:bg-black/60" : "bg-white/85 text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.08)] hover:bg-white",
               )}
             >
+              {/* Top right on a phone, where the photo across the band's edge cannot be under it. */}
               <ImagePlus className="h-4 w-4" aria-hidden />
               {person.coverUrl ? "Change cover" : "Add cover"}
             </Link>

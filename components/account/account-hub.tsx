@@ -89,7 +89,7 @@ export function AccountHub({ identity, communities = false, children }: { identi
           </AvatarLightbox>
         }
       />
-      <ProfileOwnerPills communities={communities} className="mt-3 w-full" />
+      <ProfileOwnerPills communities={communities} className="mt-3" />
       <div className="mt-6 min-w-0 sm:mt-8" data-account-panel="">
         {children}
       </div>

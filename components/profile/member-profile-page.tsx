@@ -230,7 +230,7 @@ export function MemberProfilePage({ profile, viewerId, viewerFollowing, extras }
         {isSelf ? (
           /* Your own page is /account's page: the pills to your places, and your activity under them. */
           <>
-            <ProfileOwnerPills communities={communities.enabled} active="activity" className="mt-3 w-full" />
+            <ProfileOwnerPills communities={communities.enabled} active="activity" className="mt-3" />
             <div className="mt-6 sm:mt-8" data-profile-tabs="">
               {activityPanel}
             </div>

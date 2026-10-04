@@ -216,7 +216,7 @@ export function TabsHeaderStill({ active }: { active: string }) {
           {libraryTabs().map((t) => (
             <span
               key={t.href}
-              className={`inline-flex h-9 items-center justify-center rounded-full border px-4 text-[13px] font-medium ${
+              className={`inline-flex h-10 items-center justify-center rounded-full border px-4 text-[13px] font-medium sm:h-9 ${
                 t.href === active
                   ? "border-[#d7dadf] bg-[#e2e4e8] text-[#1a1a2e] shadow-[inset_0_1px_1.5px_rgba(15,23,42,0.07),inset_0_-1px_0_rgba(255,255,255,0.45)]"
                   : "border-[#e4e7ec] bg-white text-[#6b7280]"

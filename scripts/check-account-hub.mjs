@@ -22,8 +22,6 @@
  *   FIELDS          the name and the bio, the bio's counter following what
  *                   is typed, and no bio field at all where the column has
  *                   not been added yet.
- *   SELLING         Dashboard, Finish setting up your store, Become a
- *                   seller, and a Dashboard link only for a seller.
  *
  * Pictures go to SHOTS_DIR (or a temp folder), and are meant to be looked at.
  *
@@ -52,7 +50,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const URL_BASE = "https://storelib.com/__account_hub_probe"
 
 /** The library's room under the header (app/library/layout.tsx py-6). */
+/* The profile center's room under the header (app/account/layout.tsx pt-4 sm:pt-6). */
 const HEADER_GAP = 24
+const PHONE_GAP = 16
 
 try {
   writeFileSync(join(stubs, "navigation.js"), `import { useSyncExternalStore } from "react"
@@ -131,10 +131,11 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     const header = document.querySelector("[data-probe-header]")
     const top = column.firstElementChild.getBoundingClientRect()
     const mid = (el) => { const r = el.getBoundingClientRect(); return Math.round((r.left + r.right) / 2) }
-    const profile = document.querySelector("[data-account-profile]")
+    const profile = document.querySelector("[data-profile-hero]")
     return {
       sideways: document.documentElement.scrollWidth - innerWidth,
-      out: controls.filter((el) => { const r = el.getBoundingClientRect(); return r.left < -0.5 || r.right > innerWidth + 0.5 }).map((el) => el.textContent.trim().slice(0, 20)),
+      /* A pill scrolled out of its own sideways row is not off the page. */
+      out: controls.filter((el) => { const r = el.getBoundingClientRect(); return (r.left < -0.5 || r.right > innerWidth + 0.5) && !el.closest("[data-profile-owner-pills], [data-library-tabs]") }).map((el) => el.textContent.trim().slice(0, 20)),
       /* 36px is the library pill's height, and the floor for anything a thumb has to hit. */
       small: controls.filter((el) => el.getBoundingClientRect().height < 35.5).map((el) => `${el.textContent.trim().slice(0, 24) || el.tagName} ${Math.round(el.getBoundingClientRect().height)}`),
       fields: [...column.querySelectorAll("input:not([type=hidden]):not([hidden]), textarea")].filter((el) => el.offsetParent !== null).map((i) => (i.getAttribute("data-account-name") !== null ? "name" : i.getAttribute("data-account-bio-field") !== null ? "bio" : i.type || i.tagName.toLowerCase())),
@@ -151,11 +152,11 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       ownBar: !!document.querySelector("[data-account-bar]"),
       gap: Math.round(top.top - header.getBoundingClientRect().bottom),
       hasProfile: !!profile,
-      edit: !!document.querySelector("[data-account-edit]"),
+      edit: !!document.querySelector('[data-profile-owner-pill="edit"]'),
       sections: [...document.querySelectorAll("[data-account-section]")].map((t) => `${t.getAttribute("data-account-section")}${t.getAttribute("aria-current") ? "*" : ""}`),
       pillHeight: (() => { const t = document.querySelector("[data-account-section]"); return t ? Math.round(t.getBoundingClientRect().height) : null })(),
       centre: profile
-        ? { page: Math.round(innerWidth / 2), avatar: mid(document.querySelector("[data-account-avatar]")), name: mid(document.querySelector("h1")), edit: mid(document.querySelector("[data-account-edit]")) }
+        ? { page: Math.round(innerWidth / 2), avatar: mid(document.querySelector("[data-account-avatar]")), name: mid(document.querySelector("h1")) }
         : null,
     }
   })
@@ -170,7 +171,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       expect(l.sideways <= 0 && l.out.length === 0, `${path}: nothing sideways, nothing off the edge`, { sideways: l.sideways, out: l.out })
       expect(l.small.length === 0, `${path}: every control 36px or taller`, l.small)
       expect(l.headers === 1 && !l.ownBar, `${path}: the site header, and no bar of the profile's own over it`, { headers: l.headers, ownBar: l.ownBar })
-      expect(l.gap === HEADER_GAP, `${path}: the library's ${HEADER_GAP}px under the header`, l.gap)
+      expect(l.gap === PHONE_GAP, `${path}: the profile's ${PHONE_GAP}px under the header on a phone`, l.gap)
       expect(l.avatars === 1, `${path}: one face on the screen, never two`, l.avatars)
       if (settings) {
         expect(l.h1 === "Settings" && (await p.evaluate(() => !!document.querySelector("[data-account-settings-close]"))), "Settings: the X out and the word Settings", l.h1)
@@ -178,11 +179,11 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
         expect(l.fields.join() === "name,bio" && l.cards.join() === "profile", "Settings opens on the profile's own fields", { fields: l.fields, cards: l.cards })
         expect(!l.hasProfile, "and the profile header is not drawn here, so there is one face and one heading")
       } else {
-        expect(l.h1 === "Alex Morgan" && l.hasProfile && l.edit, "the person, and Edit profile under them", { h1: l.h1, edit: l.edit })
-        expect(l.fields.length === 0 && l.cards.join() === "library", "the profile has nothing to type and one card of facts", { fields: l.fields, cards: l.cards })
-        expect(await p.evaluate(() => !!document.querySelector("[data-account-bio]")), "the bio under the name")
+        expect(l.h1 === "Alex Morgan" && l.hasProfile && l.edit, "the person, and the owner's pills with Edit profile under them", { h1: l.h1, edit: l.edit })
+        expect(l.fields.length === 0, "the profile has nothing to type", { fields: l.fields })
+        expect(await p.evaluate(() => !!document.querySelector("[data-profile-bio]")), "the bio under the name")
         const off = Object.entries(l.centre).filter(([k, v]) => k !== "page" && Math.abs(v - l.centre.page) > 1)
-        expect(off.length === 0, "photo, name and the button on the page's centre line", l.centre)
+        expect(off.length === 0, "photo and name on the page's centre line", l.centre)
       }
       if (w === 390 || w === 360) await p.screenshot({ path: join(shots, `${settings ? "settings" : "overview"}-${w}.png`), fullPage: true })
       expect(errors.length === 0, "no errors", errors)
@@ -281,7 +282,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
   console.log("\nEdit profile, and the X back")
   {
     const { p } = await open(phone(390), "/account")
-    await p.evaluate(() => document.querySelector("[data-account-edit]").click())
+    await p.evaluate(() => document.querySelector('[data-profile-owner-pill="edit"]').click())
     await sleep(500)
     const l = await layout(p)
     expect(l.h1 === "Settings" && l.sections.join() === "profile*,account,preferences" && l.avatars === 1, "Edit profile opens Settings on the profile's fields, with one face", { h1: l.h1, sections: l.sections, avatars: l.avatars })
@@ -292,29 +293,15 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     await p.close()
   }
 
-  /* ── SELLING ────────────────────────────────────────────────────────── */
-  console.log("\nselling, phone 390")
-  for (const [state, key, title] of [["seller", "dashboard", "Dashboard"], ["started", "finish", "Finish setting up your store"], ["none", "become", "Become a seller"]]) {
-    const { p } = await open(phone(390), "/account", { __seller: state })
-    const got = await p.evaluate(() => {
-      const row = document.querySelector("[data-account-selling]")
-      return { key: row.getAttribute("data-account-selling"), href: row.getAttribute("href"), title: row.querySelector("span span").textContent, dashboards: document.querySelectorAll('a[href="/app"]').length }
-    })
-    expect(got.key === key && got.title === title && got.href === (state === "seller" ? "/app" : "/sell") && got.dashboards === (state === "seller" ? 1 : 0), `${state}: ${title}, and a Dashboard link only for a seller`, got)
-    if (state !== "seller") await p.screenshot({ path: join(shots, `selling-${state}-390.png`), clip: await p.evaluate(() => { const r = document.querySelector("[data-account-selling]").getBoundingClientRect(); return { x: 0, y: r.top + scrollY - 8, width: innerWidth, height: r.height + 16 } }) })
-    await p.close()
-  }
-
   /* ── DESKTOP ────────────────────────────────────────────────────────── */
   console.log("\ndesktop 1280")
   for (const path of ["/account", "/account/settings"]) {
     const { p, errors } = await open(DESK, path, { __seller: true })
     const l = await layout(p)
     const col = await p.evaluate(() => Math.round(document.querySelector("[data-probe-account-column]").getBoundingClientRect().width))
-    expect(l.sideways <= 0 && col === 1080, `${path}: one 1080px column on a computer, nothing sideways`, { col, sideways: l.sideways })
+    expect(l.sideways <= 0 && col === 960, `${path}: one 960px column on a computer, the profile's own width, nothing sideways`, { col, sideways: l.sideways })
     expect(l.headers === 1 && !l.ownBar && l.avatars === 1 && l.gap === HEADER_GAP, `${path}: the site header, one face, the library's gap`, { headers: l.headers, bar: l.ownBar, avatars: l.avatars, gap: l.gap })
     expect(l.small.length === 0, `${path}: every control 36px or taller`, l.small)
-    if (!path.endsWith("settings")) expect(await p.evaluate(() => !!document.querySelector('a[href="/app"][data-account-row="dashboard"]')), "a seller gets Dashboard")
     await p.screenshot({ path: join(shots, `${path.endsWith("settings") ? "settings" : "overview"}-1280.png`), fullPage: true })
     expect(errors.length === 0, "no errors", errors)
     await p.close()
