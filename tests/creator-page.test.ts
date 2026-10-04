@@ -2332,7 +2332,7 @@ function main() {
     */
     check("an internal link on the web is a link Next knows about", /<Link\s+href=\{internalPath\}/.test(link))
     check("and it is the origin that decides, not a leading slash",
-      /const internalPath = toSameOriginPath\(resolvedHref\)/.test(link))
+      /const internalPath = toSameOriginPath\(href\)/.test(link))
     check("and the routes that must reload still do", /useClientNav === false \|\|/.test(link) && /startsWith\("\/account\/library"\)/.test(link))
     /*
       AND THE PRODUCT PAGE HAS NO SKELETON, WHICH IS THE OPPOSITE OF WHAT THIS

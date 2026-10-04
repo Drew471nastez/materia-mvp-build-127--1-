@@ -28,6 +28,7 @@ import { createPortal, flushSync } from "react-dom"
 import { Hash, MessageSquareText, MessagesSquare, Search, X } from "lucide-react"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { relativeTime } from "@/lib/communities/format"
+import { registerCommunitySearch } from "@/lib/nav/community-search-bridge"
 import { api, apiBase } from "./api"
 import { PLAIN_ICON_BTN } from "./ui"
 import type { SearchResults } from "./view-types"
@@ -446,6 +447,23 @@ export function CommunitySearchButton({ communityId, slug, className = "" }: { c
     [close, router, s],
   )
   const onKey = useKeys(options.length, active, setActive, () => go(options[active].href))
+
+  /*
+    THE PHONE'S TAB BAR OPENS THIS SAME SCREEN (lib/nav/community-search-bridge):
+    its Search, inside this community, is this search, opened the way the
+    icon opens it, inside the tap.
+  */
+  useEffect(
+    () =>
+      registerCommunitySearch(slug, {
+        open: () => {
+          flushSync(() => setOpen(true))
+          input.current?.focus()
+        },
+        refocus: () => input.current?.focus(),
+      }),
+    [slug],
+  )
 
   /* The page under it does not scroll while the search covers it. */
   useLayoutEffect(() => {

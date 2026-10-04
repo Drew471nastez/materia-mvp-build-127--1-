@@ -1,56 +1,10 @@
 "use client"
 
-import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { isNativeApp } from "@/lib/platform-utils"
 import { openExternal } from "@/lib/native-bridge"
-import { getLinksInternalPath, isOnePageHost, toSameOriginPath } from "@/lib/url-helpers"
-
-/**
- * Convert a full subdomain URL to an internal path for in-app navigation.
- *
- * Examples:
- *   https://seller.storelib.com           -> /u/seller
- *   https://seller.storelib.com/p/slug     -> /p/slug
- *   https://seller.storelib.com/links      -> /seller/links
- *   https://storelib.me/seller             -> /seller/links
- *   /u/seller  (already internal)          -> /u/seller
- */
-function toInternalHref(href: string): string {
-  // Already a relative/internal path — leave it alone
-  if (href.startsWith("/")) return href
-
-  try {
-    const url = new URL(href)
-    const mainDomain = process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"
-    const host = url.hostname
-
-    // storelib.me/name -> /name/links, the route the OnePage renders from
-    if (isOnePageHost(host)) {
-      const name = url.pathname.split("/").filter(Boolean)[0]
-      return name ? getLinksInternalPath(name.toLowerCase()) : href
-    }
-
-    // Only rewrite storelib.com subdomains
-    if (!host.endsWith(`.${mainDomain}`)) return href
-
-    const username = host.replace(`.${mainDomain}`, "")
-    if (!username || username.includes(".")) return href
-
-    const path = url.pathname
-
-    // sellername.storelib.com/ -> /u/sellername
-    if (path === "/" || path === "") return `/${username}`
-
-    // sellername.storelib.com/links -> /username/links
-    if (path === "/links" || path === "/links/") return getLinksInternalPath(username)
-
-    // Any other path on the subdomain — keep as /u/username + path
-    return path
-  } catch {
-    return href
-  }
-}
+import { needsDocumentLoad, nativeLinkFor } from "@/lib/native-links"
+import { toSameOriginPath } from "@/lib/url-helpers"
 
 // Touch styles applied to every SmartLink to fix iOS single-tap behaviour:
 // - touchAction:manipulation removes the 300ms tap delay and prevents double-tap zoom
@@ -70,88 +24,61 @@ export function SmartLink({
   ...props
 }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { useClientNav?: boolean }) {
   const inApp = isNativeApp()
-  const resolvedHref = inApp && href ? toInternalHref(href) : href
-  const router = useRouter()
 
-  // In Capacitor, use router.push() for same-layout paths (smooth, no white flash).
-  // Cross-layout routes (/app, /store-builder, /library) and explicit
-  // useClientNav=false still use window.location.href (full reload for auth context).
-  // window.location.href remains the safe fallback for truly cross-context nav.
-  // target="_blank" on native always opens in the external system browser.
+  /*
+    ===========================================================================
+     IN THE PHONE APP, A STORELIB ADDRESS IS FOLLOWED IN THE APP
+    ===========================================================================
+    lib/native-links.ts decides what the address is. This used to send two
+    kinds of link to Safari: anything with target="_blank" (the creator link
+    on a product page) and any absolute address it could not turn into a path,
+    which included https://storelib.com/<handle>/<slug> itself, the address
+    getProductUrl hands every product card on Explore. So a product tapped on
+    Explore left the app. Now:
+
+      a storelib.com page (however it is spelled, target or not)
+                       a Next link for the same layout, a document load for
+                       /app, the library and the builders, which are another
+                       layout and auth context
+      a creator's website (<name>.storelib.com)
+                       this WebView goes there (it stays in the app once the
+                       host is in allowNavigation, with the next native release)
+      somebody else's site
+                       the system browser (openExternal)
+  */
   if (inApp) {
     const { target, rel, onClick, ...linkSafeProps } = props
-
-    // target="_blank" → open in external browser (SFSafariViewController / Chrome Custom Tab)
-    if (target === "_blank") {
-      const mainDomain = process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"
-      const externalUrl =
-        href?.startsWith("/")
-          ? `https://${mainDomain}${href}`
-          : (href ?? "")
+    const link = href ? nativeLinkFor(href) : ({ kind: "none" } as const)
+    /* A page of the same layout is a Next link, as on the web: prefetched when it comes into view, followed on the client, never a new window. */
+    if (link.kind === "path" && useClientNav !== false && !needsDocumentLoad(link.path)) {
       return (
-        <a
-          {...linkSafeProps}
-          href={href}
-          onClick={(e) => {
-            e.preventDefault()
-            if (typeof onClick === "function") onClick(e as any)
-            if (externalUrl) openExternal(externalUrl)
-          }}
-          style={{ ...TOUCH_STYLES, ...(linkSafeProps.style as React.CSSProperties) }}
-        >
+        <Link href={link.path} {...linkSafeProps} onClick={onClick} style={{ ...TOUCH_STYLES, ...(linkSafeProps.style as React.CSSProperties) }}>
           {children}
-        </a>
+        </Link>
       )
     }
-
-    if (resolvedHref?.startsWith("/")) {
-      const needsHardNav =
-        useClientNav === false ||
-        resolvedHref.startsWith("/app") ||
-        resolvedHref.startsWith("/creator-page") ||
-        resolvedHref.startsWith("/store-builder") ||
-        resolvedHref.startsWith("/account/library")
-      return (
-        <a
-          {...linkSafeProps}
-          href={resolvedHref}
-          onClick={(e) => {
-            e.preventDefault()
-            if (typeof onClick === "function") onClick(e as any)
-            if (needsHardNav) {
-              window.location.href = resolvedHref
-            } else {
-              router.push(resolvedHref)
-            }
-          }}
-          style={{ ...TOUCH_STYLES, ...(linkSafeProps.style as React.CSSProperties) }}
-        >
-          {children}
-        </a>
-      )
-    }
-
-    // Absolute URL that toInternalHref could not convert to an internal path
-    // (e.g. a product page on a creator's subdomain store, or any external URL
-    // the app cannot route to). Open in the in-app browser (SFSafariViewController
-    // on iOS / Chrome Custom Tab on Android) so the user stays within the app
-    // shell rather than being sent to the system browser.
-    if (resolvedHref) {
-      return (
-        <a
-          {...linkSafeProps}
-          href={resolvedHref}
-          onClick={(e) => {
-            e.preventDefault()
-            if (typeof onClick === "function") onClick(e as any)
-            openExternal(resolvedHref)
-          }}
-          style={{ ...TOUCH_STYLES, ...(linkSafeProps.style as React.CSSProperties) }}
-        >
-          {children}
-        </a>
-      )
-    }
+    const shown = link.kind === "path" ? link.path : href
+    return (
+      <a
+        {...linkSafeProps}
+        href={shown}
+        onClick={(e) => {
+          if (typeof onClick === "function") onClick(e as any)
+          if (link.kind === "none") return
+          e.preventDefault()
+          if (link.kind === "path") {
+            window.location.href = link.path
+          } else if (link.kind === "host") {
+            window.location.href = link.url
+          } else {
+            openExternal(link.url)
+          }
+        }}
+        style={{ ...TOUCH_STYLES, ...(linkSafeProps.style as React.CSSProperties) }}
+      >
+        {children}
+      </a>
+    )
   }
 
   /**
@@ -180,7 +107,7 @@ export function SmartLink({
    * Anything not internal — another origin, a mailto, an anchor — is not
    * Next's to route and stays exactly as it was.
    */
-  const internalPath = toSameOriginPath(resolvedHref)
+  const internalPath = toSameOriginPath(href)
   const needsHardNav =
     useClientNav === false ||
     (!!internalPath &&
@@ -204,10 +131,8 @@ export function SmartLink({
 
   return (
     <a
-      href={resolvedHref}
+      href={href}
       {...props}
-      target={inApp ? undefined : props.target}
-      rel={inApp ? undefined : props.rel}
       style={{ ...TOUCH_STYLES, ...(props.style as React.CSSProperties) }}
     >
       {children}

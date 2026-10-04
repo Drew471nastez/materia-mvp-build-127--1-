@@ -30,6 +30,7 @@ import { creatorBusinessProfile } from "./business-profile"
 import { platformBusinessUrl, readCreatorStripe, runsInStorelib, syncStripeAccount, type PaymentsCreatorRef } from "./connect"
 import { bankFormat, cleanIban, cleanPhone, detailIssues, ibanValid, idNumberName, needsOf, type BankFormat, type DetailField, type DetailsInput, type DetailsNeeds } from "./own-form-rules"
 import { stripeErrorMessage } from "./setup-errors"
+import { idOutstanding } from "./status"
 
 export interface DetailsFormView {
   needs: DetailsNeeds
@@ -117,10 +118,17 @@ async function viewOf(creator: PaymentsCreatorRef, account: Stripe.Account): Pro
   if (account.individual?.verification?.document?.front || pending.has("individual.verification.document")) given.push("document")
   if (account.individual?.verification?.additional_document?.front || pending.has("individual.verification.additional_document")) given.push("proofOfAddress")
   needs.given = given
-  const eventually = account.requirements?.eventually_due ?? []
-  if (!needs.fields.includes("document") && !given.includes("document") && eventually.includes("individual.verification.document")) {
-    needs.fields = [...needs.fields, "document"]
-  }
+  /*
+   * VERIFY ID IS ALWAYS A STEP, until Stripe holds an ID. The owner, October
+   * 2026: "the steps forever should be simple: personal info, KYC with ID
+   * only, with camera, bank details". Asking only when Stripe listed the
+   * document made the step appear for one seller and vanish for the next,
+   * and when it vanished the end screen still said "Checking your ID" to
+   * somebody who had never been shown it. So an individual whose identity
+   * Stripe has not verified, and who has no ID on file or under review, is
+   * asked for it, once, as step two.
+   */
+  if (!needs.fields.includes("document") && idOutstanding(account)) needs.fields = [...needs.fields, "document"]
   const country = (account.country ?? "").toUpperCase()
   const ext = account.external_accounts?.data?.find((e) => e.object === "bank_account") as Stripe.BankAccount | undefined
   const person = account.individual

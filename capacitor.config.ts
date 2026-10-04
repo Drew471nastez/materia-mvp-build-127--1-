@@ -46,7 +46,30 @@ const config: CapacitorConfig = {
     //   proxy.ts now allows in the app's frame-src; listed here so that if one
     //   of those frames ever navigates the shell, it stays in the app rather
     //   than ejecting a half finished identity check into Safari.
-    allowNavigation: ['js.stripe.com', 'hooks.stripe.com', 'connect-js.stripe.com'],
+    // Storelib's own other hosts, so following one never opens Safari:
+    //   www.storelib.com — redirects to storelib.com; listed so the hop
+    //     happens in the app.
+    //   *.storelib.com — a creator's website at <name>.storelib.com, and
+    //     the platform's own subdomains.
+    //   storelib.me, www.storelib.me — the OnePage's host.
+    //   checkout.stripe.com — Stripe's hosted checkout for physical goods,
+    //     which returns to storelib.com when the order is paid.
+    // The web layer already turns every one of these it can into a
+    // storelib.com path (lib/native-links.ts), so this list matters for the
+    // rest: a creator's website, and Stripe's page. Read at build time: it
+    // reaches phones with the next App Store and Play release. The list is
+    // NATIVE_ALLOW_NAVIGATION in lib/native-links.ts, and
+    // tests/native-app-links.test.ts fails if the two disagree.
+    allowNavigation: [
+      'js.stripe.com',
+      'hooks.stripe.com',
+      'connect-js.stripe.com',
+      'www.storelib.com',
+      '*.storelib.com',
+      'storelib.me',
+      'www.storelib.me',
+      'checkout.stripe.com',
+    ],
   },
   ios: {
     contentInset: 'never',

@@ -7,54 +7,75 @@
  * All the user sees is a neutral #f2f2f2 screen — never the public homepage.
  *
  * Client-side, we resolve session + role and redirect:
- *   - seller access (lib/account/seller-access.ts) → /app
- *   - any other signed in account                  → the community they used
- *     last, when they are an active member of one and communities are on
- *     (GET /api/native/start, asked on every cold start, never cached),
- *     otherwise /library
- *   - no valid session                             → /welcome
+ *   - signed in: the page they were on when they last used the app, when it
+ *     is one that is safe to open cold (lib/native-resume.ts: Discover, a
+ *     community, the library, the account, a creator's page or product, the
+ *     dashboard; never checkout, a receipt or sign in), kept on every
+ *     navigation inside the app (components/platform/native-place-keeper.tsx)
+ *   - signed in with nothing kept: seller access (lib/account/seller-access.ts)
+ *     → /app, anybody else → /explore (the library when Discover is off)
+ *   - no valid session → /welcome
+ *
+ * This replaces "open the community they used last": somebody who was last
+ * in a community reopens there, because that is the page that was kept.
  *
  * Splash hide is NOT called here.  The destination page hides it.
  */
 
 import { useEffect } from "react"
-import { accessTokenOf, isCommunityStart, sanitizeNativeHome } from "@/lib/native-bridge"
+import { sanitizeNativeHome } from "@/lib/native-bridge"
+import { isResumablePlace, readLastPlace, startTarget } from "@/lib/native-resume"
+import { useExploreMarketplaceEnabled } from "@/components/platform/explore-marketplace-context"
 
 /**
- * THE COMMUNITY TO OPEN ON, for somebody whose home is the library. Asked of
- * the server with the session's own token (the WebView's cookie may not be
- * fresh yet on a cold start), with a short limit so a slow network costs at
- * most a moment before the library opens as it always did. Sellers never
- * ask: their start is unchanged.
+ * A START THAT COMES BACK HERE IS NOT TRIED TWICE. A kept page that answers
+ * by sending the app to "/" (a page that has since closed, Discover switched
+ * off) lands back on /native-start, which would pick the same page again.
+ * The second start within a few seconds skips the kept page and goes to the
+ * home, which always resolves.
  */
-async function communityStart(accessToken: string | null): Promise<string | null> {
-  const ctl = new AbortController()
-  const limit = setTimeout(() => ctl.abort(), 2500)
+const RETRY_KEY = "native-start-at"
+const RETRY_MS = 8000
+
+/* Asked once per load of this page, so an effect that runs twice (React's development checks) does not read its own mark. */
+let startedAgain: boolean | null = null
+function startedJustNow(): boolean {
+  if (startedAgain !== null) return startedAgain
   try {
-    const res = await fetch("/api/native/start", {
-      cache: "no-store",
-      credentials: "same-origin",
-      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
-      signal: ctl.signal,
-    })
-    if (!res.ok) return null
-    const to = ((await res.json()) as { to?: unknown } | null)?.to
-    return isCommunityStart(to) ? to : null
+    const at = Number(sessionStorage.getItem(RETRY_KEY) || 0)
+    sessionStorage.setItem(RETRY_KEY, String(Date.now()))
+    startedAgain = Date.now() - at < RETRY_MS
   } catch {
-    return null
-  } finally {
-    clearTimeout(limit)
+    startedAgain = false
   }
+  return startedAgain
 }
 
-/** The library home (a buyer's), which a community may stand in for. */
-function isLibraryHome(home: string): boolean {
-  return sanitizeNativeHome(home).split(/[?#]/)[0] === "/library"
+/**
+ * ONLY A START OPENS THE KEPT PAGE. This screen is also where "/" lands from
+ * inside the app (the header's logo, a Storelib link to the home page), and
+ * there the person means home, not the page they are already on, which is
+ * the page that was just kept. A start is a document that opened at
+ * /native-start: the app's launch, or the proxy sending a fresh load of "/"
+ * here. A client navigation to it is a visit.
+ */
+function documentOpenedHere(): boolean {
+  try {
+    const nav = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined
+    if (nav?.name) return new URL(nav.name).pathname === "/native-start"
+  } catch {
+    /* No timing to read: taken as a start, which is what this screen mostly is. */
+  }
+  return true
 }
 
 export default function NativeStartPage() {
+  const exploreOn = useExploreMarketplaceEnabled()
   useEffect(() => {
     let didRedirect = false
+    /* Where a signed in start goes for this home: the kept page, else the home's own default. */
+    const kept = documentOpenedHere() && !startedJustNow()
+    const go = (home: string | null | undefined) => startTarget({ last: kept ? readLastPlace() : null, home, exploreOn })
 
     /**
      * The last line of defence against this screen redirecting to itself.
@@ -75,7 +96,7 @@ export default function NativeStartPage() {
       /* A tap on a push already chose the page (lib/push/client.ts): that navigation stands. */
       if ((window as unknown as { __storelibPushTap?: string }).__storelibPushTap) return
       const isHandoff = HANDOFF_OK.some((h) => url === h || url.startsWith(h))
-      const target = isHandoff || isCommunityStart(url) ? url : sanitizeNativeHome(url)
+      const target = isHandoff || isResumablePlace(url) ? url : sanitizeNativeHome(url)
       if (target === "/native-start" || target.startsWith("/native-start")) return
       didRedirect = true
       window.location.replace(target)
@@ -167,12 +188,7 @@ export default function NativeStartPage() {
           const sessionRaw = localStorage.getItem(`sb-${ref}-auth-token`)
           const cachedHome = localStorage.getItem("sb-native-home")
           if (sessionRaw && cachedHome) {
-            /* A buyer's home: the community they used last opens instead, when there is one. */
-            if (isLibraryHome(cachedHome)) {
-              safeRedirect((await communityStart(accessTokenOf(sessionRaw))) || cachedHome)
-              return
-            }
-            safeRedirect(cachedHome)
+            safeRedirect(go(cachedHome))
             return
           }
         }
@@ -190,7 +206,7 @@ export default function NativeStartPage() {
           // Use cached destination if available — avoids a DB round-trip.
           const cached = await getCachedNativeHome()
           if (cached) {
-            safeRedirect((isLibraryHome(cached) && (await communityStart(session.access_token))) || cached)
+            safeRedirect(go(cached))
             return
           }
 
@@ -206,8 +222,8 @@ export default function NativeStartPage() {
           const { hasSellerAccess, readSellerAccess } = await import("@/lib/account/seller-access")
           const home = hasSellerAccess(await readSellerAccess(supabase, session.user.id)) ? "/app" : "/library"
           await cacheNativeHome(home)
-          /* The library is cached as the home; the community they used last is asked for on each start. */
-          safeRedirect((home === "/library" && (await communityStart(session.access_token))) || home)
+          /* The library stays the cached home (the offline shell knows it); the start itself is Discover, or the kept page. */
+          safeRedirect(go(home))
           return
         }
 
@@ -223,7 +239,7 @@ export default function NativeStartPage() {
 
         if (rawPrefs || rawLocal) {
           const cached = await getCachedNativeHome()
-          safeRedirect(cached || "/app")
+          safeRedirect(cached ? go(cached) : "/app")
           return
         }
       } catch (err) {
@@ -263,7 +279,7 @@ export default function NativeStartPage() {
     resolve().finally(() => clearTimeout(timeout))
 
     return () => clearTimeout(timeout)
-  }, [])
+  }, [exploreOn])
 
   return (
     <>

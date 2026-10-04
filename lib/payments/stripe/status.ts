@@ -39,6 +39,8 @@ export interface StatusFacts {
   futureDue: string[]
   /** requirements.eventually_due: what Stripe may ask for as sales grow. Only the ID check is read from it. */
   eventuallyDue?: string[]
+  /** Verify ID is still ahead (idOutstanding), when the live account was read; otherwise eventually_due decides. */
+  idOutstanding?: boolean
   /** Requested capabilities by name, with Stripe's status for each. */
   capabilities: Record<string, string>
   /** Stripe's status of each payout bank account (new, validated, verified, verification_failed, errored). */
@@ -159,7 +161,7 @@ export function getStorelibPaymentsStatus(f: StatusFacts): StorelibStatusView {
    * progress" with no button here sent them away from the one step left,
    * and then asked for it again days later as "more information".
    */
-  const idStillToDo = !f.everActive && !(takes && f.payoutsEnabled) && (f.eventuallyDue ?? []).some((k) => DOCUMENT.test(k))
+  const idStillToDo = !f.everActive && !(takes && f.payoutsEnabled) && (f.idOutstanding ?? (f.eventuallyDue ?? []).some((k) => DOCUMENT.test(k)))
   if (idStillToDo) return view("INCOMPLETE", "Finish setting up payments", "One step left: verify your identity.", "Continue setup", "onboarding")
 
   const checking = f.pendingVerification.length > 0 || reason === "requirements.pending_verification" || reason === "under_review" || reason === "listed"
@@ -208,6 +210,24 @@ export function setupStepOf(status: StorelibPaymentsStatus): 0 | 1 | 2 {
   return 1
 }
 
+/**
+ * VERIFY ID IS STILL AHEAD: an individual whose identity Stripe has not
+ * verified, with no ID on file and none under review. Setup asks for it as
+ * step two whatever list Stripe keeps the document on (or none yet), so the
+ * step is the same for every seller and never vanishes.
+ */
+export function idOutstanding(account: {
+  business_type?: string | null
+  individual?: { verification?: { status?: string | null; document?: { front?: unknown } | null } | null } | null
+  requirements?: { pending_verification?: string[] | null } | null
+} | null | undefined): boolean {
+  const person = account?.individual
+  if (!person || account?.business_type === "company") return false
+  const v = person.verification
+  if (v?.status === "verified" || v?.document?.front) return false
+  return !(account?.requirements?.pending_verification ?? []).includes("individual.verification.document")
+}
+
 /** Minimal facts from a Stripe account object and its bank accounts. */
 export function statusFactsOf(
   account: {
@@ -224,6 +244,8 @@ export function statusFactsOf(
     } | null
     future_requirements?: { currently_due?: string[] | null; past_due?: string[] | null } | null
     capabilities?: object | null
+    business_type?: string | null
+    individual?: { verification?: { status?: string | null; document?: { front?: unknown } | null } | null } | null
   } | null,
   externalAccounts: Array<{ status?: string | null }>,
   extra: { lastPayoutFailed?: boolean; everActive?: boolean; reconnect?: boolean } = {},
@@ -243,6 +265,7 @@ export function statusFactsOf(
     currentDeadline: r?.current_deadline ?? null,
     futureDue: [...(account?.future_requirements?.currently_due ?? []), ...(account?.future_requirements?.past_due ?? [])],
     eventuallyDue: r?.eventually_due ?? [],
+    idOutstanding: account?.individual ? idOutstanding(account) : undefined,
     capabilities: caps,
     externalAccounts: externalAccounts.map((e) => ({ status: e.status ?? null })),
     lastPayoutFailed: extra.lastPayoutFailed,

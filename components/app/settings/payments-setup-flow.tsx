@@ -503,6 +503,8 @@ export function PaymentsSetupFlow({
   const [idNeeded, setIdNeeded] = React.useState(!!data.idAhead)
   /* Which screen the "checking" outcome is about: the ID that just went in, or the details. */
   const [checkingWhat, setCheckingWhat] = React.useState<"id" | "details">("details")
+  /* An ID went to Stripe in this setup: the bank is the last step now, so the end screen comes after it and has to remember. */
+  const idSent = React.useRef(false)
   /* The details step was walked past with nothing to ask, so Back skips it too. */
   const [detailsEmpty, setDetailsEmpty] = React.useState(false)
   /* The same for the ID step: Stripe needed no ID, so Back from the bank goes past it. */
@@ -526,6 +528,7 @@ export function PaymentsSetupFlow({
     setIdNeeded(!!data.idAhead)
     setDetailsEmpty(false)
     setIdEmpty(false)
+    idSent.current = false
     /* A fresh open starts from Stripe's answer, not from what was typed last time. */
     clearDetailsDraft()
     setStep(firstStep(status))
@@ -570,15 +573,17 @@ export function PaymentsSetupFlow({
    */
   const settle = async (sent: Overview, left: DetailsForm | null) => {
     onData(sent)
+    if (left?.needs.given?.includes("document") && step === 2) idSent.current = true
     const outcome = outcomeOf(statusOf(sent))
 
     /* The step that can ask for what is left, or null when this form cannot ask for it. */
     const stepFor = (form: DetailsForm | null): Step | null => {
       if (!form) return null
       const needs = form.needs
-      const detailsLeft = needs.fields.some((f) => f !== "document") || needs.tos
+      const detailsLeft = needs.fields.some((f) => f !== "document" && f !== "proofOfAddress") || needs.tos
       if (detailsLeft) return 1
-      if (needs.fields.includes("document") && !needs.given?.includes("document")) return 2
+      const idLeft = (needs.fields.includes("document") && !needs.given?.includes("document")) || (needs.fields.includes("proofOfAddress") && !needs.given?.includes("proofOfAddress"))
+      if (idLeft) return 2
       if (needs.bank) return 3
       return null
     }
@@ -598,7 +603,8 @@ export function PaymentsSetupFlow({
     }
 
     if (outcome === "done" || outcome === "checking") onFinished()
-    setCheckingWhat(step === 2 || !!left?.needs.given?.includes("document") ? "id" : "details")
+    /* "Checking your ID" only when an ID really went in. The ID step running past itself (Stripe already held one) is not one. */
+    setCheckingWhat(idSent.current ? "id" : "details")
     setEnding(outcome)
   }
 
@@ -782,18 +788,20 @@ export function PaymentsSetupFlow({
 function AccountStep({ data, onBack, onDone }: { data: Overview; onBack: () => void; onDone: (next: Overview) => void }) {
   const hasAccount = (data.beat ?? "personal") !== "personal"
   /*
-   * HOW ARE YOU SELLING? Two choices, Individual first and already picked,
-   * because somebody selling under their own name is nearly everybody here.
-   * An individual is never shown a company field. A business gives its legal
-   * name now and only what Stripe needs today after that. Fixed once the
-   * account exists: Stripe cannot change an account's type.
+   * NO "HOW ARE YOU SELLING?". Like Gumroad and Skool, everybody sets up as
+   * themselves: personal info, their ID, their bank. A company account needs
+   * company papers, a tax number, directors and owners, none of which this
+   * form asks (the owner, October 2026: "the steps should be simple ...
+   * personal info, KYC with ID only, bank details, and that's all"), and
+   * offering it only led to a choice that could not be made and a "contact
+   * support" line. An account made as a business before keeps its type:
+   * Stripe cannot change it.
    */
-  const [kindChoice, setKindChoice] = React.useState<"individual" | "business">(data.kind === "business" ? "business" : "individual")
-  const kind: "individual" | "business" = hasAccount ? (data.kind === "business" ? "business" : "individual") : kindChoice
+  const kind: "individual" | "business" = hasAccount && data.kind === "business" ? "business" : "individual"
   const [countryName, setCountryName] = React.useState(data.payoutHint?.country ? countryLabel(data.payoutHint.country) : data.prefill?.country ? countryLabel(data.prefill.country) : "")
   const [firstName, setFirstName] = React.useState(data.prefill?.firstName ?? "")
   const [lastName, setLastName] = React.useState(data.prefill?.lastName ?? "")
-  const [businessName, setBusinessName] = React.useState("")
+  const businessName = ""
   const [touched, setTouched] = React.useState<Record<string, boolean>>({})
   const [tried, setTried] = React.useState(false)
   const [busy, setBusy] = React.useState(false)
@@ -847,37 +855,6 @@ function AccountStep({ data, onBack, onDone }: { data: Overview; onBack: () => v
           )}
           {issue("country") ? <span className="mt-1.5 block text-[12px] text-[#c4290c]">{issue("country")}</span> : null}
         </div>
-
-        <fieldset data-account-kind="">
-          <legend className="mb-1.5 text-[13px] font-medium text-[#1a1a2e]">How are you selling?</legend>
-          <div className="grid grid-cols-2 gap-2">
-            {(["individual", "business"] as const).map((k) => {
-              const on = kind === k
-              return (
-                <button
-                  key={k}
-                  type="button"
-                  role="radio"
-                  aria-checked={on}
-                  disabled={hasAccount && !on}
-                  onClick={() => !hasAccount && setKindChoice(k)}
-                  className={cn(
-                    "h-11 rounded-[10px] border text-[14px] font-medium outline-none transition-[border-color,background-color,box-shadow] duration-150 focus-visible:shadow-[0_0_0_3px_rgba(17,17,19,0.08)] disabled:cursor-not-allowed disabled:opacity-50 sm:h-10 sm:rounded-lg",
-                    on ? "border-[#1a1a2e] bg-[#1a1a2e]/[0.03] text-[#1a1a2e]" : "border-[#e3e5e8] bg-white text-[#4b5563] hover:border-[#c9ccd3]",
-                  )}
-                >
-                  {k === "individual" ? "Individual" : "Business"}
-                </button>
-              )
-            })}
-          </div>
-        </fieldset>
-
-        {kind === "business" ? (
-          <Field label="Legal business name" error={issue("businessName")} tip="The registered name of your company, exactly as on its official papers.">
-            <input className={cn(FIELD, issue("businessName") && FIELD_BAD)} value={businessName} placeholder="Legal business name" autoComplete="organization" onBlur={() => mark("businessName")} onChange={(e) => setBusinessName(e.target.value)} />
-          </Field>
-        ) : null}
 
         <div className="grid grid-cols-1 gap-4 min-[420px]:grid-cols-2">
           <Field label="First name" error={issue("firstName")} tip={kind === "business" ? "The first name of the person running the business, as on their ID." : "Exactly as on your passport or ID card, with any middle names."}>
@@ -1208,7 +1185,7 @@ function DetailsStep({
    * back a step for it.
    */
   const inSection = (f: DetailField) =>
-    only === "id" ? f === "document" || (f === "idNumber" && typeIdInstead) : only === "details" ? f !== "document" || idAgain : true
+    only === "id" ? f === "document" || f === "proofOfAddress" : only === "details" ? (f !== "document" || idAgain) && f !== "proofOfAddress" : true
   /*
    * ALREADY ON FILE WHEN THIS OPENED. A document uploaded a moment ago also
    * comes back as given, and reading that live made the step hand itself on
@@ -1225,14 +1202,15 @@ function DetailsStep({
   const docGivenAtOpen = givenAtOpen.current ?? docGiven
   const sectionFields = form ? form.needs.fields.filter(inSection) : []
   const bankHere = withBank && !!form && form.needs.bank
-  const idAsked = !!form && form.needs.fields.includes("document") && !docGivenAtOpen
+  const proofAsked = !!form && form.needs.fields.includes("proofOfAddress") && !form.needs.given?.includes("proofOfAddress")
+  const idAsked = (!!form && form.needs.fields.includes("document") && !docGivenAtOpen) || proofAsked
 
   /* Nothing left to ask here: straight on. */
   const empty = !form
     ? false
     : only === "id"
       ? !idAsked
-      : sectionFields.length === 0 && !form.needs.tos && form.needs.other.length === 0 && !bankHere
+      : sectionFields.length === 0 && !form.needs.tos && !bankHere
   React.useEffect(() => {
     if (!form) return
     if (!empty) {
@@ -1349,10 +1327,11 @@ function DetailsStep({
         }
         return
       }
-      if (idAsked && !front) {
+      if (form.needs.fields.includes("document") && !docGivenAtOpen && !front) {
         setError("Verify your ID to carry on.")
         return
       }
+      if (missingProof) return setError("Add a photo of your ID that shows your address.")
       onNext(form, null)
       return
     }
@@ -1756,9 +1735,9 @@ function DetailsStep({
 
         {has("proofOfAddress") ? (
           <div className="space-y-2">
-            <span className="block text-[13px] font-medium text-[#1a1a2e]">Proof of your address</span>
+            <span className="block text-[13px] font-medium text-[#1a1a2e]">Confirm your address</span>
             <span className="block text-[12px] leading-[18px] text-[#6b7280]">
-              Stripe asks for this only when it cannot confirm your address from your ID, and never to set payments up. A bill, bank statement or rental agreement from the last three months showing your name and this address.
+              Stripe could not read your address from the first ID. Add a photo of an ID that shows it, like your national ID card or driving licence.
             </span>
             <button
               type="button"
@@ -1775,17 +1754,17 @@ function DetailsStep({
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block text-[15px] font-semibold text-[#1a1a2e]">
-                  {uploading === "proofOfAddress-front" ? "Sending to Stripe" : uploaded["proofOfAddress-front"] ? "Added" : "Add your document"}
+                  {uploading === "proofOfAddress-front" ? "Sending to Stripe" : uploaded["proofOfAddress-front"] ? "Added" : "Add a photo of your ID"}
                 </span>
                 <span className="mt-0.5 block text-[12.5px] leading-[17px] text-[#6b7280]">
-                  {uploaded["proofOfAddress-front"] ? "Tap to replace it." : "A photo or a PDF. It goes straight to Stripe."}
+                  {uploaded["proofOfAddress-front"] ? "Tap to replace it." : "A clear colour photo. It goes straight to Stripe."}
                 </span>
               </span>
             </button>
             <input
               ref={proofPicker}
               type="file"
-              accept="image/jpeg,image/png,image/heic,application/pdf"
+              accept="image/jpeg,image/png,image/heic"
               hidden
               onChange={(e) => {
                 const f = e.target.files?.[0]
@@ -1841,12 +1820,6 @@ function DetailsStep({
           </label>
         ) : null}
 
-        {form.needs.other.length ? (
-          <p className="rounded-xl border border-[#eceef1] bg-[#f9fafb] px-3.5 py-3 text-[13px] leading-[19px] text-[#4b5563]">
-            Stripe also needs something this form does not cover yet. Email{" "}
-            <a href="mailto:support@storelib.com" className="font-medium text-[#1a1a2e] underline underline-offset-2">support@storelib.com</a> and we will sort it out with you.
-          </p>
-        ) : null}
 
       </div>
 
