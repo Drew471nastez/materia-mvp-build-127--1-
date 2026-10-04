@@ -154,7 +154,7 @@ async function noteAccountReset(creatorId: string, previousAccountId: string, re
 export async function releaseConnectedAccount(creatorId: string, previousAccountId: string, reason: AccountResetReason): Promise<void> {
   const admin = createAdminClient()
   const now = new Date().toISOString()
-  const { error } = await admin
+  const { data: released, error } = await admin
     .from("creators")
     .update({
       stripe_account_id: null,
@@ -168,10 +168,23 @@ export async function releaseConnectedAccount(creatorId: string, previousAccount
     })
     .eq("id", creatorId)
     .eq("stripe_account_id", previousAccountId)
+    .select("id")
   if (error) {
     console.error("[stripe connect] release", error.message.slice(0, 160))
     throw new PaymentsProblem("We couldn't update your payments just now. Nothing was changed. Try again in a moment.", 502)
   }
+  /*
+   * THE GUARD ABOVE IS THE WHOLE POINT, SO NOTHING BELOW RUNS WITHOUT IT.
+   * The write only applies while the row still holds the account being let
+   * go. The writes that follow were filtered on the creator alone, so in
+   * exactly the race this guards against (a late deauthorise, or a release
+   * arriving after the creator reconnected) the guarded write correctly did
+   * nothing while the rest still fired, leaving a new and perfectly good
+   * account marked as unable to take payments with its bank forgotten.
+   * Checkout reads can_accept_payments, so that is a shop that has stopped
+   * selling for a reason nobody can see.
+   */
+  if (!released || released.length === 0) return
   const cached = await admin.from("creators").update({ payments_status: "NOT_STARTED", last_stripe_sync_at: now }).eq("id", creatorId)
   if (cached.error && !/payments_status|last_stripe_sync_at|column/i.test(cached.error.message)) {
     console.error("[stripe connect] status cache", cached.error.message.slice(0, 160))
@@ -460,7 +473,10 @@ export async function syncStripeAccountFull(creatorId: string, _actor: "webhook"
       (account) => ({ ok: true as const, account }),
       (error: unknown) => ({ ok: false as const, error }),
     ),
-    stripe.accounts.listExternalAccounts(accountId, { object: "bank_account", limit: 10 }).catch(() => ({ data: [] as Stripe.ExternalAccount[] })),
+    stripe.accounts
+      .listExternalAccounts(accountId, { object: "bank_account", limit: 10 })
+      .then((r) => ({ ok: true as const, data: r.data }))
+      .catch(() => ({ ok: false as const, data: [] as Stripe.ExternalAccount[] })),
     stripe.payouts.list({ limit: 1 }, { stripeAccount: accountId }).catch(() => ({ data: [] as Stripe.Payout[] })),
   ])
   if (!read.ok) {
@@ -478,6 +494,15 @@ export async function syncStripeAccountFull(creatorId: string, _actor: "webhook"
   }
   const account = read.account
   const banks = external.data.filter((e): e is Stripe.BankAccount => e.object === "bank_account")
+  /*
+   * A LIST THAT DID NOT ANSWER IS NOT AN EMPTY LIST. The account read beside
+   * this one is deliberately a tuple so a blip is thrown rather than read as
+   * "nothing": this one swallowed its failure and handed back no banks, so
+   * one slow call turned an active seller into "Add your bank account" with
+   * their saved bank gone from the page, until some later sync happened to
+   * work. When the list did not answer, what was known before stands.
+   */
+  const bankList = external.ok ? banks : null
 
   await enforceManualPayouts(accountId, account)
 
@@ -496,7 +521,7 @@ export async function syncStripeAccountFull(creatorId: string, _actor: "webhook"
   const requirements = (account.requirements ?? {}) as Stripe.Account.Requirements
   const due = [...new Set([...(requirements.past_due ?? []), ...(requirements.currently_due ?? [])])].sort()
   const status = getStorelibPaymentsStatus(
-    statusFactsOf(account, banks, {
+    statusFactsOf(account, bankList ?? (row.payout_destination ? [{ status: "verified" }] : []), {
       everActive: connected || !!row.stripe_connected_at,
       lastPayoutFailed: lastPayout.data[0]?.status === "failed",
     }),
@@ -535,7 +560,7 @@ export async function syncStripeAccountFull(creatorId: string, _actor: "webhook"
    * back after it was dealt with is told again, while Stripe repeating
    * itself over and over is told once.
    */
-  const masked = banks.find((b) => b.default_for_currency) ?? banks[0]
+  const masked = bankList ? (bankList.find((b) => b.default_for_currency) ?? bankList[0]) : null
   const hadDue = (row.stripe_requirements ?? []).length > 0
   const state = await admin
     .from("creators")
@@ -548,7 +573,10 @@ export async function syncStripeAccountFull(creatorId: string, _actor: "webhook"
       stripe_pending_verification: requirements.pending_verification ?? [],
       stripe_eventually_due: requirements.eventually_due ?? [],
       stripe_requirement_errors: [...new Set((requirements.errors ?? []).map((e) => e.code).filter(Boolean))].slice(0, 20),
-      payout_destination: masked ? { bankName: masked.bank_name ?? null, last4: masked.last4 ?? null, country: masked.country ?? null, currency: masked.currency?.toUpperCase() ?? null } : null,
+      /* Unknown leaves the last known bank alone; a list that answered and was empty does clear it. */
+      ...(bankList === null
+        ? {}
+        : { payout_destination: masked ? { bankName: masked.bank_name ?? null, last4: masked.last4 ?? null, country: masked.country ?? null, currency: masked.currency?.toUpperCase() ?? null } : null }),
       ...(hadDue && due.length === 0 ? { stripe_requirements_cleared_at: now } : {}),
     })
     .eq("id", creatorId)
@@ -556,7 +584,7 @@ export async function syncStripeAccountFull(creatorId: string, _actor: "webhook"
     console.error("[stripe connect] seller state", state.error.message.slice(0, 160))
   }
 
-  const hasBank = banks.length > 0
+  const hasBank = bankList ? bankList.length > 0 : !!row.payout_destination
   const snapshot = mergeStripeAccount(
     {
       accountId,

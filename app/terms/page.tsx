@@ -301,8 +301,10 @@ export default function TermsOfServicePage() {
                   Seller&apos;s identity is verified. Stripe collects and verifies identity information and
                   documents, which may include a government issued identity document, a photograph or selfie
                   processed with biometric technology, a date of birth, an address, and for a business its
-                  registration and beneficial ownership details. That information is collected by and provided
-                  directly to Stripe; Storelib does not receive or store identity documents or biometric data. See
+                  registration and beneficial ownership details. Storelib stores none of it. Where the Seller
+                  photographs a document in the Storelib application, Storelib transmits that photograph to
+                  Stripe over an encrypted connection and does not retain it; everything else, including any
+                  selfie and any biometric comparison, is collected by and provided directly to Stripe. See
                   the <a href="/privacy" className="text-[#8b5cf6] hover:underline">Privacy Policy</a>.
                 </p>
                 <p>

@@ -110,10 +110,12 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
   const provider = await providerFor(creator.id)
 
   const moves = action === "payout"
+  /* Reads the flow makes on its own (polling for Stripe's answer) must not spend the budget for writes. */
+  const reads = action === "details-form" || action === "identity-status" || action === "refresh" || action === "component"
   const limited = await rateLimit({
-    bucket: moves ? "payout" : "payments-setup",
+    bucket: moves ? "payout" : reads ? "payments-read" : "payments-setup",
     subjects: [creator.id],
-    windows: moves ? LIMITS.payout : LIMITS.paymentsSetup,
+    windows: moves ? LIMITS.payout : reads ? LIMITS.paymentsRead : LIMITS.paymentsSetup,
     message: "That is a lot of requests in a short time. Wait a few minutes and try again.",
   })
   if (limited) return limited
