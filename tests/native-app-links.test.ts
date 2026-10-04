@@ -80,6 +80,7 @@ const smart = code("components/smart-link.tsx")
 check("SmartLink: no target=\"_blank\" branch to the browser, and an absolute storelib.com address is a path",
   !/target === "_blank"/.test(smart) && /const link = href \? nativeLinkFor\(href\)/.test(smart) && /<Link href=\{link\.path\} \{\.\.\.linkSafeProps\}/.test(smart) && /openExternal\(link\.url\)/.test(smart) && !/toInternalHref/.test(smart))
 check("  and the browser only for the external kind", (smart.match(/openExternal\(/g) ?? []).length === 1 && /\} else \{\s*openExternal\(link\.url\)/.test(smart))
+check("the OnePage's Made with Storelib mark navigates the app rather than opening a browser sheet", /const openExternalUrl = async \(url: string\) => \{\s*if \(navigateInApp\(url\)\) return/.test(code("components/onepage/public-onepage.tsx")))
 const wish = code("components/wishlist/wishlist-content.tsx")
 check("the wishlist opens a product in this window in the app too", !/target: native \? "_blank"/.test(wish) && !/getProductShareUrl/.test(wish))
 const guard = code("components/platform/native-link-guard.tsx")
