@@ -21,8 +21,9 @@
  *                height on the <img>, asked for through the optimizer at
  *                twice that (w=48), fetched at once in the first row and
  *                lazily after; the price 15px, a step over the facts; the
- *                members and views icons each in a 22px round well with a
- *                shadow
+ *                members and views icons each in a 22px well with a
+ *                shadow (round 10: a square with a 7px corner, not a circle,
+ *                and an even quieter depth: drop alpha at most 0.05)
  *   THE TITLE    computed font-family starts with Roboto, weight 500, 20px
  *                on a 26px line on a computer and 18/24 on a phone, letter
  *                spacing 0, and the face really loaded (document.fonts),
@@ -45,6 +46,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import puppeteer from "puppeteer-core"
+import { cropPng } from "./probe-crop.mjs"
 import { appCss, interFaces } from "./probe-css.mjs"
 
 const root = process.cwd()
@@ -184,7 +186,7 @@ const MEASURE = `(() => {
         markRadius: mark ? getComputedStyle(mark).borderTopLeftRadius : null,
         price: stats.querySelector("[data-community-price]") ? getComputedStyle(stats.querySelector("[data-community-price]")).fontSize : null,
         facts: getComputedStyle(stats).fontSize,
-        wells: [...stats.querySelectorAll("[data-stat-well]")].map((w) => { const r = w.getBoundingClientRect(); const cs = getComputedStyle(w); return { stat: w.parentElement.getAttribute("data-stat"), w: Math.round(r.width), h: Math.round(r.height), round: cs.borderTopLeftRadius === "9999px" || parseFloat(cs.borderTopLeftRadius) >= r.width / 2, shadow: cs.boxShadow !== "none" } }),
+        wells: [...stats.querySelectorAll("[data-stat-well]")].map((w) => { const r = w.getBoundingClientRect(); const cs = getComputedStyle(w); return { stat: w.parentElement.getAttribute("data-stat"), w: Math.round(r.width), h: Math.round(r.height), radius: cs.borderTopLeftRadius, round: cs.borderTopLeftRadius === "9999px" || parseFloat(cs.borderTopLeftRadius) >= r.width / 2, shadow: cs.boxShadow !== "none", alphas: [...cs.boxShadow.matchAll(/rgba\\([^)]*,\\s*([\\d.]+)\\)\\s+(-?[\\d.]+)px\\s+(-?[\\d.]+)px/g)].filter((m) => !(m[2] === "0" && m[3] === "0") && !/255, 255, 255/.test(m[0])).map((m) => parseFloat(m[1])) } }),
         face: (() => { const a = c.querySelector("[data-community-creator] [data-app-avatar]"); const img = a?.querySelector("img"); const r = a?.getBoundingClientRect(); return a ? { w: Math.round(r.width), h: Math.round(r.height), img: img ? { width: img.getAttribute("width"), height: img.getAttribute("height"), loading: img.getAttribute("loading"), src: img.getAttribute("src") } : null } : null })(),
         titleLines: (() => { const t = c.querySelector("[data-community-title]"); return Math.round(t.getBoundingClientRect().height / parseFloat(getComputedStyle(t).lineHeight)) })(),
       }
@@ -224,6 +226,14 @@ for (const [label, vp] of SIZES) {
     else if (mode === "explore") await p.evaluate(() => document.querySelector("[data-explore-community-grid]")?.scrollIntoView({ block: "start" }))
     await sleep(250)
     await p.screenshot({ path: join(shots, `${label}-${mode}.png`) })
+    /* The first card's foot row, close up (four times on a computer, twice on a 2x phone): the square wells and their depth. */
+    {
+      const foot = await p.evaluate(() => { const r = document.querySelector("[data-community-stats]")?.getBoundingClientRect(); return r && r.top >= 0 && r.bottom <= innerHeight ? { x: r.left - 6, y: r.top - 6, width: Math.min(r.width + 12, 360), height: r.height + 12 } : null })
+      if (foot) {
+        const s = vp.deviceScaleFactor || 1
+        await cropPng(browser, join(shots, `${label}-${mode}.png`), join(shots, `${label}-${mode}-wells.png`), { x: foot.x * s, y: foot.y * s, width: foot.width * s, height: foot.height * s }, 4 / s)
+      }
+    }
     const m = await p.evaluate(MEASURE)
     expect(m.n >= 3 && m.withStats === m.n, "every card is the shared card, with the stats row", { n: m.n, withStats: m.withStats })
     expect(m.withViews >= m.n - 1 && m.withLaunched === 0, "views where known, and no Launched anywhere", { views: m.withViews, launched: m.withLaunched })
@@ -240,7 +250,8 @@ for (const [label, vp] of SIZES) {
     expect(m.foot.every((f) => f.mark === markSize && f.markH === markSize), `the mark is ${markSize}px square`, m.foot.map((f) => [f.mark, f.markH]))
     expect(m.foot.every((f) => f.markRadius === (phone ? "12px" : "14px")), `a rounded square (${phone ? 12 : 14}px corners)`, m.foot.map((f) => f.markRadius))
     expect(m.foot.filter((f) => f.price).every((f) => f.price === "15px" && f.facts === "13px"), "the price 15px, a step over the 13px facts", m.foot.map((f) => [f.price, f.facts]))
-    expect(m.foot.every((f) => f.wells.length === (f.kids.includes("views") ? 2 : 1) && f.wells.every((w) => w.w === 22 && w.h === 22 && w.round && w.shadow)), "members and views each sit in a 22px round well with a shadow", m.foot.map((f) => f.wells))
+    expect(m.foot.every((f) => f.wells.length === (f.kids.includes("views") ? 2 : 1) && f.wells.every((w) => w.w === 22 && w.h === 22 && !w.round && w.radius === "7px" && w.shadow)), "ROUND 10: members and views each sit in a 22px square well, 7px corner, with a shadow", m.foot.map((f) => f.wells.map((w) => `${w.w}x${w.h} r${w.radius}`)))
+    expect(m.foot.every((f) => f.wells.every((w) => w.alphas.length > 0 && w.alphas.every((a) => a <= 0.05))), "ROUND 10: an even subtler depth, every drop at 5% or less (was 8%)", m.foot.map((f) => f.wells.map((w) => w.alphas)))
     const faces = m.foot.map((f) => f.face).filter(Boolean)
     expect(faces.length >= 3 && faces.every((f) => f.w === 20 && f.h === 20 && (!f.img || (f.img.width === "20" && f.img.height === "20"))), "the creator's face is 20px, its <img> sized in its markup", faces)
     const first = m.foot[0]?.face?.img

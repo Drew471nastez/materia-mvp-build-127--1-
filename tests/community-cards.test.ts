@@ -70,7 +70,8 @@ const SHARED = "components/explore/community-card.tsx"
 
 /* Every place a community is listed as a card, and what it must render. */
 const CALL_SITES: [file: string, draws: RegExp][] = [
-  ["components/explore/explore-communities-results.tsx", /<ExploreCommunityGrid cards=\{items\} \/>/],
+  /* Round 10: the first two rows first, one cover preloaded (lib/explore/use-progressive-count). */
+  ["components/explore/explore-communities-results.tsx", /<ExploreCommunityGrid cards=\{count < items\.length \? items\.slice\(0, count\) : items\} priorityCount=\{1\} \/>/],
   ["components/explore/explore-page-client.tsx", /<ExploreCommunityGrid cards=\{communityResults\} \/>/],
   ["components/community/public/storefront-communities.tsx", /<ExploreCommunityGrid cards=\{cards\} surface="storefront" phone=\{phone\}/],
   ["components/profile/member-profile-page.tsx", /<ExploreCommunityCard card=\{c\} priority=\{i < 2\} \/>/],
