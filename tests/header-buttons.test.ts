@@ -98,8 +98,8 @@ console.log("\n6. signed in")
   check("no purple Library button for a buyer", !/user \? "Library"/.test(header) && !/hasCompletedSellerOnboarding \? "Dashboard" : "Library"/.test(header))
   check("both computer rows show the Dashboard button and the photo's menu only when signed in", (header.match(/\{sellerDashboardButton\}\s*\{desktopAccountMenu\}/g) ?? []).length === 2)
   check("no link in the header goes to /onboarding: /sell decides", !/["']\/onboarding["']/.test(header))
-  check("Become a seller goes to /sell from both phone sheets",
-    /function BecomeSellerRow[\s\S]{0,200}link\("\/sell"\)/.test(header) && (header.match(/<BecomeSellerRow link=\{headerLink\} state=\{sellerState\}/g) ?? []).length === 2)
+  check("Become a seller goes to /sell from the marketing menu",
+    /function BecomeSellerRow[\s\S]{0,200}link\("\/sell"\)/.test(header) && (header.match(/<BecomeSellerRow link=\{headerLink\} state=\{sellerState\}/g) ?? []).length === 1)
   /* The profile's three (sellingEntry in lib/account/overview.ts): a seller who left the setup half done is asked to finish it. */
   check("a seller who began the setup and left it is asked to finish it, not to become one",
     /export const sellingLabel = \(state: SellerState\) => \(state === "started" \? "Finish setting up your store" : "Become a seller"\)/.test(header) && /setSellerState\(access\.state\)/.test(header))
@@ -127,7 +127,14 @@ console.log("\n6. signed in")
   }
   check("the phone sheets lead to /account too (the profile card, Settings)", (header.match(/headerLink\("\/account"\)/g) ?? []).length === 2)
   check("no settings link in the header goes anywhere but /account", !/"\/library\/settings"|"\/app\/settings"/.test(header))
-  check("the account sheet keeps My Library, Settings and Language", /<span>My Library<\/span>/.test(header) && /<span>Settings<\/span>/.test(header) && /t\("settings\.language"\)/.test(header))
+  /* Round 3 follow up: the phone's account sheet has the computer menu's rows, in the same order; no My Library (the library lives inside /account). */
+  {
+    const sheet = header.slice(header.indexOf('data-account-sheet=""'), header.indexOf("<LanguageModal"))
+    const order = [...sheet.matchAll(/item="([a-z-]+)"|data-account-item="([a-z-]+)"/g)].map((m) => m[1] || m[2])
+    check("the phone's account sheet: Dashboard or Start creating, Profile, Settings, Language, Help, Discover, Log out", order.join(",") === "dashboard,start-creating,profile,settings,language,help,discover,log-out", order)
+    check("its links: /app or /sell, /account, /account/settings, /help, /explore; Language is the picker", /headerLink\("\/app"\)\} onDone=[\s\S]{0,80}item="dashboard"/.test(sheet) && /headerLink\("\/sell"\)\} onDone=[\s\S]{0,80}item="start-creating"/.test(sheet) && /headerLink\("\/account"\)\} onDone=[\s\S]{0,80}item="profile"/.test(sheet) && /headerLink\("\/account\/settings"\)/.test(sheet) && /headerLink\("\/help"\)/.test(sheet) && /headerLink\("\/explore"\)\} onDone=[\s\S]{0,80}item="discover"/.test(sheet) && /setLanguageOpen\(true\) \}\} item="language"/.test(sheet))
+    check("and no My Library row in it", !/My Library|"\/library"/.test(sheet))
+  }
   check("and it does not put the email under the name", !/\{user\?\.email && <p className="text-sm text-gray-500 truncate">\{user\.email\}<\/p>\}/.test(header))
   check("the seller check is the shared helper, marked SELLER ACCESS", /\/\/ SELLER ACCESS:[\s\S]{0,500}const access = sellerAccessFrom\(\{ creator: creatorData, profile: profileData \}\)\s*const isSellerByState = hasSellerAccess\(access\)/.test(headerSrc) && /from "@\/lib\/account\/seller-access"/.test(header))
   for (const f of ["components/marketing/user-nav.tsx", "components/marketing/user-nav-client.tsx", "components/dashboard/sidebar.tsx"]) {

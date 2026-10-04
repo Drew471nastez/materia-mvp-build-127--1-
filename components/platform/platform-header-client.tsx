@@ -406,6 +406,43 @@ function GuestHeaderActions({
   )
 }
 
+/** One row of the phone's account sheet: a link (href and its click) or, without an href, a button. */
+function SheetRow({
+  href,
+  onClick,
+  onDone,
+  item,
+  icon: Icon,
+  label,
+}: {
+  href?: string
+  onClick?: (e: React.MouseEvent<HTMLElement>) => void
+  onDone: () => void
+  item: string
+  icon: React.ComponentType<{ className?: string; "aria-hidden"?: boolean }>
+  label: string
+}) {
+  const cls = "flex w-full items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 active:bg-gray-100 transition-colors cursor-pointer [-webkit-tap-highlight-color:transparent]"
+  const inner = (
+    <>
+      <span className="flex items-center gap-3">
+        <Icon aria-hidden className="h-5 w-5 text-gray-400" />
+        <span>{label}</span>
+      </span>
+      <ChevronRight aria-hidden className="h-5 w-5 text-gray-400" />
+    </>
+  )
+  return href ? (
+    <Link href={href} onClick={(e) => { onClick?.(e); onDone() }} data-account-item={item} className={cls}>
+      {inner}
+    </Link>
+  ) : (
+    <button type="button" onClick={onDone} data-account-item={item} className={cls}>
+      {inner}
+    </button>
+  )
+}
+
 /*
   ═══════════════════════════════════════════════════════════════════════════
    THE PHOTO OPENS THE ACCOUNT MENU, ON A COMPUTER
@@ -1337,13 +1374,6 @@ export function PlatformHeaderClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchWishlistCount])
 
-  /*
-    A SELLER'S WAY IN IS THE DASHBOARD; EVERYBODY ELSE'S IS /sell. /sell is
-    the one door to selling (it sends a guest to sign up with the intent kept,
-    a buyer into seller onboarding and a seller to /app), so no link here
-    decides that for itself any more.
-  */
-  const dashboardHref = hasCompletedSellerOnboarding ? "/app" : "/sell"
 
   const wishlistHref = useMemo(() => {
     return user ? "/library/wishlist" : "/wishlist"
@@ -2424,69 +2454,31 @@ export function PlatformHeaderClient({
             </div>
           </div>
 
-          {/* Menu Items */}
-          <div className="space-y-0.5">
+          {/*
+            THE SAME ROWS AS THE COMPUTER'S MENU (DesktopAccountMenu), in the
+            owner's order: Dashboard for a seller or Start creating for anybody
+            else, Profile, Settings, Language, Help, Discover, and Log out last.
+            No My Library: the library lives inside the profile (/account).
+          */}
+          <div className="space-y-0.5" data-account-sheet="">
             {hasCompletedSellerOnboarding ? (
-            <Link
-              href={getCanonicalOrRelativePath(dashboardHref)}
-              onClick={(e) => { onCanonicalNav(e, dashboardHref); setMobileProfileOpen(false) }}
-              data-sheet-dashboard=""
-              className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
-            >
-              <div className="flex items-center gap-3">
-                <LayoutDashboard className="h-5 w-5 text-gray-400" />
-                <span>Dashboard</span>
-              </div>
-              <ChevronRight className="h-5 w-5 text-gray-400" />
-            </Link>
+              <SheetRow {...headerLink("/app")} onDone={() => setMobileProfileOpen(false)} item="dashboard" icon={LayoutDashboard} label="Dashboard" />
             ) : (
-              <div className="pb-1.5">
-                <BecomeSellerRow link={headerLink} state={sellerState} onDone={() => setMobileProfileOpen(false)} />
-              </div>
+              <SheetRow {...headerLink("/sell")} onDone={() => setMobileProfileOpen(false)} item="start-creating" icon={Store} label="Start creating" />
             )}
-            <Link
-              href={getCanonicalOrRelativePath("/library")}
-              onClick={(e) => { onCanonicalNav(e, "/library"); setMobileProfileOpen(false) }}
-              className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
-            >
-              <div className="flex items-center gap-3">
-                <Library className="h-5 w-5 text-gray-400" />
-                <span>My Library</span>
-              </div>
-              <ChevronRight className="h-5 w-5 text-gray-400" />
-            </Link>
-            <Link
-              /* The buyer's account page holds the settings now, for a seller too:
-                 the photo, name, password, language and log out are the account's,
-                 not the shop's. /library/settings only redirects there. */
-              {...headerLink("/account")}
-              onClick={(e) => { onCanonicalNav(e, "/account"); setMobileProfileOpen(false) }}
-              data-account-link=""
-              className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
-            >
-              <div className="flex items-center gap-3">
-                <Settings className="h-5 w-5 text-gray-400" />
-                <span>Settings</span>
-              </div>
-              <ChevronRight className="h-5 w-5 text-gray-400" />
-            </Link>
-            <button
-              type="button"
-              onClick={() => { setMobileProfileOpen(false); setLanguageOpen(true) }}
-              className="flex w-full items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
-            >
-              <div className="flex items-center gap-3">
-                <Globe className="h-5 w-5 text-gray-400" />
-                <span>{t("settings.language")}</span>
-              </div>
-              <ChevronRight className="h-5 w-5 text-gray-400" />
-            </button>
+            <SheetRow {...headerLink("/account")} onDone={() => setMobileProfileOpen(false)} item="profile" icon={UserIcon} label="Profile" />
+            <SheetRow {...headerLink("/account/settings")} onDone={() => setMobileProfileOpen(false)} item="settings" icon={Settings} label="Settings" />
+            <SheetRow onDone={() => { setMobileProfileOpen(false); setLanguageOpen(true) }} item="language" icon={Globe} label={t("settings.language")} />
+            <SheetRow {...headerLink("/help")} onDone={() => setMobileProfileOpen(false)} item="help" icon={LifeBuoy} label="Help" />
+            <SheetRow {...headerLink("/explore")} onDone={() => setMobileProfileOpen(false)} item="discover" icon={Compass} label="Discover" />
           </div>
 
           {/* Logout */}
           <div className="mt-4 pt-4 border-t border-gray-200">
             <button
+              type="button"
               onClick={handleLogout}
+              data-account-item="log-out"
               className="flex items-center justify-between w-full px-4 py-3.5 rounded-xl text-base font-medium text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
             >
               <div className="flex items-center gap-3">
