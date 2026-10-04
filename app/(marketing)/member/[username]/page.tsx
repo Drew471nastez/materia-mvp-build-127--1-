@@ -9,7 +9,7 @@ import { currentUserForRequest } from "@/lib/auth/request-scope"
 import { communitiesEnabled } from "@/lib/communities/flag"
 import { isFollowing } from "@/lib/profile/follows"
 import { activityFor } from "@/lib/profile/activity-page"
-import { messageTarget, profileCommunities } from "@/lib/profile/profile-communities"
+import { profileCommunities } from "@/lib/profile/profile-communities"
 import { cameFromElsewhere, refererPath } from "@/lib/profile/back"
 import { sharedCommunities, sharedPostsPage } from "@/lib/profile/shared-posts"
 import { MemberProfilePage } from "@/components/profile/member-profile-page"
@@ -69,7 +69,7 @@ async function sharedSections(db: ReturnType<typeof createAdminClient>, viewerId
  * /@handle: a person's profile (components/profile/member-profile-page.tsx).
  * Everything private is decided here, on the server: whether their activity
  * and their memberships are shown (their switches, except to themselves),
- * whether Message has anywhere to go, which communities the viewer shares
+ * which communities the viewer shares
  * with them (their posts there open the Activity tab, only from spaces the
  * viewer may read), and whether the page was reached from a community,
  * Explore or search, which puts the way back in a bar at its top.
@@ -96,9 +96,8 @@ export default async function MemberProfileRoute({ params, searchParams }: Props
   /* A person with a store has no activity on any of their pages, and lists only the communities they made (components/profile/member-profile-page.tsx). Nothing of it is read. */
   const creator = profile.hasStorefront
   const db = createAdminClient()
-  const [following, messageHref, activity, communities, shared] = await Promise.all([
+  const [following, activity, communities, shared] = await Promise.all([
     isFollowing(db, viewerId, profile.userId),
-    communitiesOn ? messageTarget(db, viewerId, profile.userId).catch(() => null) : Promise.resolve(null),
     creator
       ? Promise.resolve({ items: [], next: null, hidden: false })
       : activityFor(db, {
@@ -125,7 +124,6 @@ export default async function MemberProfileRoute({ params, searchParams }: Props
           viewerId={viewerId}
           viewerFollowing={following}
           extras={{
-            messageHref,
             activity,
             communities: { enabled: communitiesOn, owned: communities.owned, member: communities.member },
             shared,

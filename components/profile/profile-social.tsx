@@ -4,11 +4,13 @@
  * ===========================================================================
  *  THE COUNTS AND THE BUTTONS UNDER A PERSON'S NAME
  * ===========================================================================
- * One quiet line, "12 followers · 30 following", then the actions: Follow /
- * Following for somebody else, Message when the two of them share a
- * community where messages are open (the page works that out on the server
- * and passes the address). Your own profile has no Follow; it has the
- * owner's pills instead (the page).
+ * One quiet line, "12 followers · 30 following", then Follow / Following
+ * for somebody else. Your own profile has no Follow; it has the owner's
+ * pills instead (the page).
+ *
+ * ONLY FOLLOW. The owner: "remove the Message button on profiles and creator
+ * pages for now: only Follow". So there is no second button and no address
+ * for one; a conversation still starts inside a community the two share.
  *
  * THE COUNTS ARE A LINE, NOT A DOOR. They opened a dialog listing every
  * follower, which the owner asked to remove: a count is a fact about the
@@ -16,21 +18,13 @@
  * needed. So it is plain text now, quieter than the buttons under it. The
  * followers number is still the server's after every press.
  *
- * Follow and Message are one pair in Storelib's button language
- * (components/profile/follow-button.tsx): on a creator's page (tone
- * "storefront") painted in the page's scheme (`scheme`), on a plain profile
- * Storelib's own near black and white.
- *
- * Message never goes to a member page: it opens the conversation in the
- * community the two share (/community/<slug>?dm=<userId>, which the
- * community opens once and then drops from the address).
+ * Follow is Storelib's button (components/profile/follow-button.tsx): on
+ * a creator's page (tone "storefront") painted in the page's scheme
+ * (`scheme`), on a plain profile Storelib's own near black and white.
  */
-import Link from "next/link"
 import { useState } from "react"
-import { MessageCircle } from "lucide-react"
-import { secondaryDepth } from "@/components/ui/depth-button"
 import { cn } from "@/lib/utils"
-import { FollowButton, schemeQuiet, schemeVars, useFollow, type ActionScheme, type FollowTone } from "./follow-button"
+import { FollowButton, useFollow, type ActionScheme, type FollowTone } from "./follow-button"
 
 function compact(n: number): string {
   if (n < 1000) return String(n)
@@ -47,7 +41,6 @@ export function ProfileSocial({
   viewerFollowing,
   signedIn,
   isSelf,
-  messageHref,
   showCounts = true,
   tone = "platform",
   scheme,
@@ -60,7 +53,6 @@ export function ProfileSocial({
   viewerFollowing: boolean
   signedIn: boolean
   isSelf: boolean
-  messageHref?: string | null
   /** A creator can keep their follower count off their page (Show followers); the button stays. */
   showCounts?: boolean
   tone?: FollowTone
@@ -99,18 +91,7 @@ export function ProfileSocial({
       ) : null}
       {!isSelf ? (
         <div className={cn("flex w-full max-w-[360px] items-center justify-center gap-2", showCounts ? "mt-3" : "mt-4")} data-profile-actions="">
-          <FollowButton following={follow.following} busy={follow.busy} onClick={follow.toggle} tone={tone} scheme={scheme} name={name} className="flex-1 sm:flex-none" />
-          {messageHref ? (
-            <Link
-              href={messageHref}
-              data-profile-message=""
-              style={storefront ? schemeVars(scheme) : undefined}
-              className={cn(storefront ? schemeQuiet : secondaryDepth, "h-10 min-w-[112px] rounded-xl px-4 text-[14px]", "flex-1 sm:flex-none")}
-            >
-              <MessageCircle className="h-4 w-4 opacity-70" aria-hidden />
-              Message
-            </Link>
-          ) : null}
+          <FollowButton following={follow.following} busy={follow.busy} onClick={follow.toggle} tone={tone} scheme={scheme} name={name} className="min-w-[156px]" />
         </div>
       ) : null}
       {follow.error ? (

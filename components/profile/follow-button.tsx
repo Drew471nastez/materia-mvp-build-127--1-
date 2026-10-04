@@ -11,19 +11,21 @@
  * the owner asked for the hover "Unfollow" to go, so a pointer over
  * Following only shades it a little, as any button does.
  *
- * IT ANSWERS THE FINGER, NOT THE SERVER.
- *   pointerdown  the face sinks a touch (scale 0.96) and takes its pressed
- *                shade on that very frame: set on the element directly, no
- *                React render in between
+ * IT ANSWERS THE FINGER, NOT THE SERVER, AND NOTHING MOVES.
+ *   pointerdown  the face takes its pressed shade on that very frame: set on
+ *                the element directly, no React render in between
  *   click        the state flips at once: the two faces (the solid Follow
  *                and the quiet Following) and their labels crossfade over
- *                180ms, opacity and scale only, so the compositor does all
- *                of it and the main thread is free
- *   release      the face springs back with the smallest overshoot
- * Both labels are always laid out in one grid cell, so the button is as
- * wide as the wider of them in both states: nothing beside it moves.
- * Reduced motion: the same switch, without the movement.
- *
+ *                160ms, opacity only, so the compositor does all of it and
+ *                the main thread is free
+ * No scale, no bounce, no spring: the owner asked for "no bump" between
+ * Follow and Following. The box is the same box in both states and while
+ * pressed (scripts/check-follow-button.mjs measures it on every frame of a
+ * press at a quarter CPU speed). Both labels are always laid out in one grid
+ * cell, so the button is as wide as the wider of them in both states:
+ * nothing beside it moves.
+ * Reduced motion: the same switch, without the fade.
+
  * TAPS SETTLE TO THE LAST ONE (useFollow). "On mobile, clicking Follow
  * then quickly clicking again blocks for about 3 seconds." It did: the
  * button ignored every press while a request was out (`if (busy) return`),
@@ -46,14 +48,13 @@
  *
  * ONE BUTTON LANGUAGE, THE PAGE'S COLOURS. Everywhere it is Storelib's
  * pair from components/ui/depth-button.ts: Follow a solid primary with a
- * line of light on top and a darker foot, Following (and Message beside it)
- * the quiet secondary with a hairline and a soft foot, both going flat with
+ * line of light on top and a darker foot, Following the quiet secondary with a hairline and a soft foot, both going flat with
  * the shade inside when pressed, at the same height and rounding. On
  * Storelib's own pages ("platform") that is the near black and the white.
  * On a creator's page ("storefront") the same shapes are painted in the
  * scheme the creator picked (lib/store-builder/storefront-chrome.ts
- * `action`): Follow in their buy button colour, Following and Message a
- * surface a step off their page with their page's ink. The colours travel
+ * `action`): Follow in their buy button colour, Following a surface a
+ * step off their page with their page's ink. The colours travel
  * as CSS variables, so hover and press are plain CSS.
  *
  * THE NATIVE SHELL. globals.css dims every pressed button to 72% inside the
@@ -218,45 +219,21 @@ export function schemeVars(scheme: ActionScheme | null | undefined): React.CSSPr
   } as React.CSSProperties
 }
 
-/** Storelib's solid primary (primaryDepth), in the scheme's fill. */
-export const schemePrimary = cn(
-  "inline-flex shrink-0 cursor-pointer select-none items-center justify-center whitespace-nowrap border border-transparent font-semibold outline-none",
-  "bg-[var(--sf-bg)] text-[var(--sf-ink)] shadow-[inset_0_1px_0_rgba(255,255,255,0.16),inset_0_-1px_0_rgba(0,0,0,0.3),0_1px_2px_rgba(16,24,40,0.22)]",
-  "transition-[background-color,box-shadow,color] duration-100",
-  "hover:bg-[var(--sf-hover)] active:bg-[var(--sf-press)] active:shadow-[inset_0_1px_2px_rgba(0,0,0,0.38)]",
-  "focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-[var(--sf-bg)]",
-  "[-webkit-tap-highlight-color:transparent]",
-)
-
 /**
- * Storelib's quiet secondary (secondaryDepth), in the scheme's surface,
- * hairline and ink. Falls back to the page's text colour when there is no
- * scheme, so it is never a white box on a dark page.
+ * The state change: a crossfade of the two faces and their labels, opacity
+ * only, so nothing grows, shrinks or shifts. It starts 24ms in (a negative
+ * delay): a transition's first frame is its starting value, so without that
+ * the frame right after the press would show nothing yet; with it, that
+ * frame is already a part of the way across.
  */
-export const schemeQuiet = cn(
-  "inline-flex shrink-0 cursor-pointer select-none items-center justify-center gap-1.5 whitespace-nowrap border font-semibold outline-none",
-  "border-[var(--sq-line,color-mix(in_srgb,currentColor_22%,transparent))] bg-[var(--sq-bg,transparent)] text-[var(--sq-ink,currentColor)]",
-  "shadow-[inset_0_-1px_0_rgba(0,0,0,0.08),0_1px_0_rgba(0,0,0,0.05)] transition-[background-color,box-shadow,color] duration-100",
-  "hover:bg-[var(--sq-hover,color-mix(in_srgb,currentColor_5%,transparent))] active:bg-[var(--sq-press,color-mix(in_srgb,currentColor_9%,transparent))] active:shadow-[inset_0_1px_1px_rgba(0,0,0,0.12)]",
-  "focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-current",
-  "[-webkit-tap-highlight-color:transparent]",
-)
-
-/**
- * The state change: a crossfade of the two faces and their labels,
- * compositor only. It starts 24ms in (a negative delay): a transition's
- * first frame is its starting value, so without that the frame right after
- * the press would show nothing yet; with it, that frame is already a third
- * of the way across.
- */
-const SWAP = "transition-[opacity,scale] duration-[180ms] [transition-delay:-24ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none"
+const SWAP = "transition-opacity duration-[160ms] [transition-delay:-24ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none"
 
 /**
  * A label that is not the state goes invisible once it has faded, so the
  * button's text (and a find in page) is only the state. Visibility steps:
  * shown at the start of a fade in, hidden at the end of a fade out.
  */
-const LABEL = "relative col-start-1 row-start-1 inline-flex items-center gap-1.5 whitespace-nowrap transition-[opacity,scale,visibility] duration-[180ms] [transition-delay:-24ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none"
+const LABEL = "relative col-start-1 row-start-1 inline-flex items-center gap-1.5 whitespace-nowrap transition-[opacity,visibility] duration-[160ms] [transition-delay:-24ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none"
 
 /**
  * NOTHING TO WORK OUT ON A PRESS. cn() runs tailwind-merge, which parses
@@ -268,12 +245,8 @@ const LABEL = "relative col-start-1 row-start-1 inline-flex items-center gap-1.5
  */
 const join = (...parts: string[]) => parts.join(" ")
 
-/** The face: sinks on the press, springs back on release. */
-const FACE_BOX = cn(
-  "relative grid w-full place-items-center rounded-[inherit] px-5",
-  "transition-[scale] duration-[220ms] ease-[cubic-bezier(0.34,1.56,0.64,1)] group-data-[pressed]/follow:scale-[0.96] group-data-[pressed]/follow:duration-[90ms] group-data-[pressed]/follow:ease-out",
-  "motion-reduce:transition-none motion-reduce:scale-100!",
-)
+/** The face: the same box in every state. The press is a shade on the fill (PLATFORM, SCHEME), never a size. */
+const FACE_BOX = "relative grid w-full place-items-center rounded-[inherit] px-5"
 
 /** Each face is a full layer of the button, at the same box: a 1px edge on both, so neither is a pixel bigger. */
 const FACE = "pointer-events-none absolute inset-0 rounded-[inherit] border"
@@ -291,11 +264,11 @@ const PLATFORM = {
     "group-hover/follow:bg-[#f7f7f8] group-data-[pressed]/follow:bg-[#f1f2f4] group-data-[pressed]/follow:shadow-[inset_0_1px_1px_rgba(0,0,0,0.1)]",
   ),
   solidInk: "text-white",
-  /* Medium, like Message beside it (secondaryDepth). */
+  /* Medium, as Storelib's quiet secondary is (secondaryDepth). */
   quietInk: "text-[#1a1a2e] font-medium",
 }
 
-/** The same pair in the creator's scheme (schemePrimary and schemeQuiet above), as faces. */
+/** The same pair in the creator's scheme, as faces: Follow in their buy colour, Following a surface a step off their page. Without a scheme the quiet face falls back to the page's text colour, so it is never a white box on a dark page. */
 const SCHEME = {
   solid: cn(
     FACE,
@@ -342,7 +315,7 @@ export function FollowButton({
     <button
       type="button"
       onPointerDown={(e) => {
-        /* On this frame, without waiting for React: see IT ANSWERS THE FINGER. */
+        /* The pressed shade on this frame, without waiting for React: see IT ANSWERS THE FINGER. */
         if (e.button === 0) e.currentTarget.dataset.pressed = ""
       }}
       onPointerUp={release}
@@ -363,20 +336,20 @@ export function FollowButton({
       )}
       style={{ ...(storefront ? schemeVars(scheme) : null), opacity: 1 }}
     >
-      {/* The face: sinks on the press, springs back on release. The button itself never moves, so its target holds still under the finger. */}
+      {/* The face: one box for both states; a press shades it and a switch crossfades it. */}
       <span className={FACE_BOX} data-follow-face="">
         <span aria-hidden className={join(solid, SWAP, following ? "opacity-0" : "opacity-100")} data-follow-fill="follow" />
         <span aria-hidden className={join(look.quiet, SWAP, following ? "opacity-100" : "opacity-0")} data-follow-fill="following" />
         {/* Both labels in one cell, always laid out: the button is the width of the wider one in both states. */}
         <span
-          className={join(LABEL, solidInk, following ? "invisible scale-[0.92] opacity-0" : "visible scale-100 opacity-100")}
+          className={join(LABEL, solidInk, following ? "invisible opacity-0" : "visible opacity-100")}
           aria-hidden={following || undefined}
           data-follow-label="follow"
         >
           Follow
         </span>
         <span
-          className={join(LABEL, look.quietInk, following ? "visible scale-100 opacity-100" : "invisible scale-[0.92] opacity-0")}
+          className={join(LABEL, look.quietInk, following ? "visible opacity-100" : "invisible opacity-0")}
           aria-hidden={!following || undefined}
           data-follow-label="following"
         >
