@@ -5,9 +5,9 @@
  *  THE SECTION STORELIB AI IS WORKING ON, MARKED WHERE IT IS
  * ===========================================================================
  * While a run changes a section, that section carries a faint diagonal sheen
- * that passes over it every couple of seconds, so the creator can see which
+ * that passes over it slowly, so the creator can see which
  * part of the page is being worked on without reading the chat. When the run
- * ends, each section it changed gets a violet ring that fades out once.
+ * ends, each section it changed gets a soft grey ring that fades out once.
  *
  * DRAWN BESIDE THE PAGE, NOT INSIDE IT. A section's own box is the page's
  * (lib/website-builder/sections/SectionRenderer.tsx): giving it a class and a
@@ -132,7 +132,7 @@ export function AiWorkingOverlay({ working, settled, label }: { working: readonl
             {id === tagged && (
               <span
                 data-ai-label=""
-                className="absolute left-3 top-3 max-w-[calc(100%-24px)] truncate rounded-full bg-[#8b5cf6] px-2.5 py-1 text-[12px] font-medium leading-4 text-white shadow-[0_1px_3px_rgba(0,0,0,0.12)]"
+                className="absolute left-3 top-3 max-w-[calc(100%-24px)] truncate rounded-full bg-[#1a1a2e]/85 px-2.5 py-1 text-[12px] font-medium leading-4 text-white shadow-[0_1px_3px_rgba(0,0,0,0.12)]"
               >
                 {label}
               </span>

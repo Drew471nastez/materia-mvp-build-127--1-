@@ -42,20 +42,84 @@ export interface SeoFacts {
   logoUrl: string | null
   indexable: boolean
   creatorName: string | null
+  /**
+   * The picture drawn for this community (/community/<slug>/share.png,
+   * app/(marketing)/community/[slug]/share.png): what a shared link shows.
+   * Left out, the cover (else the logo) is the preview, as before.
+   */
+  shareVersion?: string | null
+}
+
+/**
+ * THE SHARED LINK'S PICTURE, made per request by next/og and kept briefly
+ * (app/(marketing)/community/[slug]/share.png). `v` changes with what it is
+ * drawn from, so an app that kept the old one asks again after an edit; an
+ * invite link asks for the invite's words with `invite=1` and never carries
+ * the invite itself.
+ */
+export const SHARE_IMAGE_WIDTH = 1200
+export const SHARE_IMAGE_HEIGHT = 630
+
+export function shareImageUrl(slug: string, version: string | null | undefined, opts: { invite?: boolean } = {}): string {
+  const q = new URLSearchParams()
+  if (version) q.set("v", version)
+  if (opts.invite) q.set("invite", "1")
+  const query = q.toString()
+  return `${SITE}/community/${slug}/share.png${query ? `?${query}` : ""}`
+}
+
+/** A short fingerprint of what the picture is drawn from (FNV-1a), so its address changes when it would. */
+export function shareImageVersion(parts: ReadonlyArray<string | number | null | undefined>): string {
+  let h = 0x811c9dc5
+  for (const ch of parts.map((p) => (p === null || p === undefined ? "" : String(p))).join("|")) {
+    h ^= ch.codePointAt(0) ?? 0
+    h = Math.imul(h, 0x01000193) >>> 0
+  }
+  return h.toString(36)
+}
+
+function previewImages(f: SeoFacts, invite: boolean): { og: NonNullable<Metadata["openGraph"]>["images"]; twitter: string[] } | null {
+  if (f.shareVersion !== undefined) {
+    const url = shareImageUrl(f.slug, f.shareVersion, { invite })
+    return { og: [{ url, width: SHARE_IMAGE_WIDTH, height: SHARE_IMAGE_HEIGHT, alt: f.name, type: "image/png" }], twitter: [url] }
+  }
+  const image = f.coverUrl || f.logoUrl
+  return image ? { og: [{ url: image, alt: f.name }], twitter: [image] } : null
 }
 
 export function communityMetadata(f: SeoFacts, opts: { about?: boolean } = {}): Metadata {
   const title = (f.seoTitle || f.name).slice(0, 120)
   const description = plain(f.seoDescription || f.tagline || f.description, 300) || (f.creatorName ? `A community by ${f.creatorName} on Storelib.` : "A community on Storelib.")
   const url = canonicalUrl(f.slug)
-  const image = f.coverUrl || f.logoUrl
+  const images = previewImages(f, false)
   return {
     title: opts.about ? `About ${title}` : title,
     description,
     alternates: { canonical: url },
-    openGraph: { type: "website", url, siteName: "Storelib", title, description, ...(image ? { images: [{ url: image, alt: f.name }] } : {}) },
-    twitter: { card: image ? "summary_large_image" : "summary", title, description, ...(image ? { images: [image] } : {}) },
+    openGraph: { type: "website", url, siteName: "Storelib", title, description, ...(images ? { images: images.og } : {}) },
+    twitter: { card: images ? "summary_large_image" : "summary", title, description, ...(images ? { images: images.twitter } : {}) },
     robots: f.indexable ? { index: true, follow: true } : { index: false, follow: false },
+  }
+}
+
+/**
+ * AN INVITE LINK'S PREVIEW (/community/<slug>/join?invite=...): the
+ * community's public face with the invite's words, never indexed. Its
+ * address in the preview is the community's own, so the invite is not
+ * repeated into anything that stores previews; the invite is never read.
+ */
+export function inviteMetadata(f: SeoFacts): Metadata {
+  const name = f.name.slice(0, 100)
+  const title = `Join ${name}`
+  const line = plain(f.tagline || f.seoDescription || f.description, 220)
+  const description = line ? `You're invited to ${name} on Storelib. ${line}` : `You're invited to ${name}, a community on Storelib.`
+  const images = previewImages(f, true)
+  return {
+    title,
+    description,
+    openGraph: { type: "website", url: canonicalUrl(f.slug), siteName: "Storelib", title, description, ...(images ? { images: images.og } : {}) },
+    twitter: { card: images ? "summary_large_image" : "summary", title, description, ...(images ? { images: images.twitter } : {}) },
+    robots: { index: false, follow: false },
   }
 }
 

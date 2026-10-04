@@ -32,12 +32,14 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { createPortal } from "react-dom"
 import { Check, Clock3 } from "lucide-react"
 import { AppAvatar } from "@/components/app/app-avatar"
+import { useFollow } from "@/components/profile/follow-button"
 import { api, apiBase } from "./api"
 import { openMessages } from "./messages"
 import { activeLabel, CARD_GRACE_MS, CARD_OPEN_MS, CARD_TTL_MS, communitiesLine, hoverPointer, ownerLine } from "./person-card-facts"
 import { toast } from "./toast"
 import { BTN } from "./ui"
-import { roleTag, type PersonCardView } from "./view-types"
+import type { PersonCardView } from "./view-types"
+import { RoleBadge } from "./role-badge"
 
 const WIDTH = 344
 const GAP = 8
@@ -290,9 +292,15 @@ function usePlacement(anchor: HTMLElement, card: React.RefObject<HTMLDivElement 
 function PersonCard({ anchor, person, leaving, canMessage, onFollowed, onDone, ref }: CardProps) {
   const inner = useRef<HTMLDivElement | null>(null)
   const at = usePlacement(anchor, inner)
-  const [following, setFollowing] = useState(person.following)
-  const [busy, setBusy] = useState(false)
-  const tag = roleTag(person.role)
+  /* The profile's Follow logic (components/profile/follow-button.tsx): the press flips it at once, the server hears the last one in the background. */
+  const follow = useFollow({
+    targetUserId: person.id,
+    initialFollowing: person.following,
+    signedIn: true,
+    onChange: onFollowed,
+    onError: (message) => toast(message === "Not signed in" ? "Sign in to follow people." : message),
+  })
+  const following = follow.following
   const active = activeLabel(person.activeAt)
   const lines = [communitiesLine(person.communities), ownerLine(person.owns)].filter(Boolean)
   const hasPage = person.href !== "/"
@@ -301,20 +309,6 @@ function PersonCard({ anchor, person, leaving, canMessage, onFollowed, onDone, r
     inner.current = el
     if (typeof ref === "function") ref(el)
     else if (ref) (ref as React.MutableRefObject<HTMLDivElement | null>).current = el
-  }
-
-  const follow = async () => {
-    const next = !following
-    setFollowing(next)
-    setBusy(true)
-    const r = await api<{ following: boolean }>("/api/follow", { body: { userId: person.id, follow: next } })
-    setBusy(false)
-    if (!r.ok) {
-      setFollowing(!next)
-      toast(r.status === 401 ? "Sign in to follow people." : r.error)
-      return
-    }
-    onFollowed(next)
   }
 
   const buttons: React.ReactNode[] = []
@@ -329,17 +323,16 @@ function PersonCard({ anchor, person, leaving, canMessage, onFollowed, onDone, r
       <button
         key="follow"
         type="button"
-        onClick={follow}
-        disabled={busy}
+        onClick={follow.toggle}
         aria-pressed={following}
-        className={`${BTN} group/follow h-9 flex-1 border px-3 text-[13.5px] ${following ? "border-[#e3e4e8] bg-[#f4f5f7] text-[#1a1a2e] hover:border-[#f1c9c9] hover:bg-[#fdf3f3] hover:text-[#b42318]" : "border-[#e3e4e8] bg-white text-[#1a1a2e] hover:bg-[#f6f7f8]"}`}
+        aria-busy={follow.busy || undefined}
+        className={`${BTN} h-9 flex-1 touch-manipulation border px-3 text-[13.5px] ${following ? "border-[#e3e4e8] bg-[#f4f5f7] text-[#1a1a2e] hover:bg-[#eceef1]" : "border-[#e3e4e8] bg-white text-[#1a1a2e] hover:bg-[#f6f7f8]"}`}
         data-person-card-follow={following ? "following" : "follow"}
       >
         {following ? (
           <>
-            <Check className="h-3.5 w-3.5 shrink-0 group-hover/follow:hidden" strokeWidth={2.4} aria-hidden />
-            <span className="group-hover/follow:hidden">Following</span>
-            <span className="hidden group-hover/follow:inline">Unfollow</span>
+            <Check className="h-3.5 w-3.5 shrink-0" strokeWidth={2.4} aria-hidden />
+            Following
           </>
         ) : (
           "Follow"
@@ -388,9 +381,9 @@ function PersonCard({ anchor, person, leaving, canMessage, onFollowed, onDone, r
           ) : null}
         </span>
         <div className="min-w-0 flex-1 pt-0.5">
-          <p className="flex min-w-0 items-center gap-1.5">
+          <p className="flex min-w-0 items-center gap-2">
             <span className="truncate text-[16px] font-semibold leading-6 text-[#1a1a2e]">{person.name}</span>
-            {tag ? <span className="shrink-0 rounded-md bg-[#f1f2f4] px-1.5 text-[11px] font-medium leading-[18px] text-[#4b5563]">{tag}</span> : null}
+            <RoleBadge role={person.role} />
           </p>
           <p className="truncate text-[13px] leading-5 text-[#6b7280]">
             {[person.username ? `@${person.username}` : null, person.level ? `Level ${person.level}${person.levelName ? ` ${person.levelName}` : ""}` : null].filter(Boolean).join(" · ")}

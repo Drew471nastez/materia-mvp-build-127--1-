@@ -108,9 +108,13 @@ export function SpaceChips({ slug, spaces, active, savedOn = false, onPick, onIn
         </div>
       </div>
       {sort}
-      <Link href={`${base}/saved`} aria-current={savedOn ? "page" : undefined} data-space-chip="saved" className={`${CHIP} ${savedOn ? CHIP_ON : CHIP_OFF}`} {...switching({ kind: "saved" })}>
+      {/*
+        Under 400px (round 8, a 375 or 390 phone) Saved is its bookmark alone in a 40px circle, its word kept for a screen reader: the
+        sort button and the word took half the row, and the spaces scrolled in what was left.
+      */}
+      <Link href={`${base}/saved`} aria-current={savedOn ? "page" : undefined} data-space-chip="saved" className={`${CHIP} ${savedOn ? CHIP_ON : CHIP_OFF} max-[399px]:w-10 max-[399px]:justify-center max-[399px]:px-0`} {...switching({ kind: "saved" })}>
         <BookmarkIcon size={16} className="shrink-0" />
-        Saved
+        <span className="max-[399px]:sr-only">Saved</span>
       </Link>
     </nav>
   )

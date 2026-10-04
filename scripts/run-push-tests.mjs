@@ -199,6 +199,7 @@ const SUITES = [
   "tests/payouts-and-disputes.test.ts",
   "tests/payout-weekly.test.ts",
   "tests/onboarding-flow.test.ts",
+  "tests/id-handoff.test.ts",
   "tests/payments-status.test.ts",
   "tests/payments-readiness.test.ts",
   "tests/payments-reconcile.test.ts",
@@ -391,11 +392,13 @@ const SUITES = [
   "tests/communities-classroom.test.ts",
   "tests/communities-creator.test.ts",
   "tests/communities-shell.test.ts",
+  "tests/communities-growth.test.ts",
   "tests/communities-posts.test.ts",
   "tests/profiles-follows.test.ts",
   "tests/account-center.test.ts",
   "tests/theme-blocks.test.ts",
   "tests/place-navigator.test.ts",
+  "tests/header-round8.test.ts",
   "tests/native-app-links.test.ts",
 ]
 

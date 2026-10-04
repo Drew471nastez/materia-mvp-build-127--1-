@@ -479,8 +479,9 @@ check(
     const src = code("components/platform/platform-header-client.tsx")
     // Both badges are the one CountBadge now, each inside the heart's own wrapper.
     const wrappers = src.match(/<span className="relative inline-flex">\s*<Heart[^>]*\/>\s*\{wishlistCount > 0 && \(\s*(?:\/\*[\s\S]*?\*\/\s*)?<CountBadge /g)?.length ?? 0
-    const badges = src.match(/bg-red-500/g)?.length ?? 0
-    return wrappers === 2 && badges === 1
+    // Round 8: the count is ink, not red, and its one colour lives in COUNT_BADGE_TONE.
+    const tone = src.match(/COUNT_BADGE_TONE = "bg-\[#1a1a2e\] text-white/g)?.length ?? 0
+    return wrappers === 2 && tone === 1 && !/bg-red-500/.test(src)
   })(),
   "        components/platform/platform-header-client.tsx",
 )

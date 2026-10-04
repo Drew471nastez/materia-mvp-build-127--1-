@@ -64,14 +64,15 @@ export interface TopBarProps {
 }
 
 /**
- * The small count on an icon: Storelib's red, squared off rather than a
- * round blob, so nothing in this bar is a pill. The bell's own count is
+ * The small count on an icon: Storelib's ink with white figures (round 8:
+ * not red), squared off rather than a round blob, so nothing in this bar is
+ * a pill. The bell's own count is
  * drawn the same way here (BELL below), so the two read as one pair.
  */
 const COUNT = "rounded-[5px]"
 function Badge({ n }: { n: number }) {
   return (
-    <span aria-hidden className={`pointer-events-none absolute -right-2 -top-1.5 box-border flex h-[18px] min-w-[18px] items-center justify-center ${COUNT} bg-red-500 px-[5px] text-white`} data-count-badge="">
+    <span aria-hidden className={`pointer-events-none absolute -right-2 -top-1.5 box-border flex h-[18px] min-w-[18px] items-center justify-center ${COUNT} bg-[#1a1a2e] px-[5px] text-white`} data-count-badge="">
       <span className="block text-[10px] font-semibold leading-none tabular-nums">{n > 99 ? "99+" : String(n)}</span>
     </span>
   )
@@ -133,7 +134,7 @@ export function CommunityTopBar({ data, messages = null, messagesOpen = false, o
       className="sticky top-0 z-40 border-b border-[#e6e8ec] bg-white pt-[env(safe-area-inset-top)] shadow-[0_1px_2px_rgba(17,24,39,0.04),0_8px_20px_-14px_rgba(17,24,39,0.16)]"
     >
       <div className={cn("mx-auto flex w-full flex-wrap items-center px-4 sm:px-6 md:gap-x-4 lg:gap-x-6 lg:px-8", wide ? "max-w-[1360px]" : "max-w-[1080px]")} data-community-top-row="">
-        <div className={cn("flex h-14 min-w-0 flex-1 items-center gap-2 md:gap-3 lg:h-16", search ? "md:max-w-[320px] md:flex-none" : "lg:max-w-[360px] lg:flex-none", wide && "lg:w-[260px] lg:max-w-none xl:w-[280px]")} data-community-top-lead="">
+        <div className={cn("flex h-14 min-w-0 flex-1 items-center gap-1.5 min-[400px]:gap-2 md:gap-3 lg:h-16", search ? "md:max-w-[320px] md:flex-none" : "lg:max-w-[360px] lg:flex-none", wide && "lg:w-[260px] lg:max-w-none xl:w-[280px]")} data-community-top-lead="">
           <Link href={base} aria-label={`${community.name}, home`} className="flex shrink-0 rounded-[10px] outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15" data-community-mark="">
             <span className="flex md:hidden">
               <CommunityMark community={community} size={36} />
@@ -143,7 +144,12 @@ export function CommunityTopBar({ data, messages = null, messagesOpen = false, o
             </span>
           </Link>
           <div className="min-w-0 leading-tight" data-community-identity="">
-            <Link href={base} className="block truncate text-[15px] font-semibold tracking-[-0.005em] text-[#1a1a2e] outline-none hover:underline focus-visible:underline md:text-[16px]">
+            {/*
+              A PHONE GIVES THE NAME TWO LINES (round 8, at 375 and 390 a one line name read "Clay Stu..."): the bar is 56px, two lines of
+              15px (14px under 400px, where the actions also lose their gap, so a 12 letter word still fits a line) sit in it, and a name
+              that needs a third is cut on the second. One line again from 768px, where there is room.
+            */}
+            <Link href={base} className="line-clamp-2 break-words text-[14px] font-semibold leading-[1.2] tracking-[-0.005em] text-[#1a1a2e] outline-none hover:underline focus-visible:underline min-[400px]:text-[15px] md:line-clamp-1 md:text-[16px] md:leading-tight" data-community-name="">
               {community.name}
             </Link>
             {creator ? (
@@ -181,7 +187,7 @@ export function CommunityTopBar({ data, messages = null, messagesOpen = false, o
           </div>
         ) : null}
 
-        <div className="ml-auto flex h-14 shrink-0 items-center gap-0.5 pl-2 sm:gap-1 md:pl-0 lg:h-16" data-community-top-actions="">
+        <div className="ml-auto flex h-14 shrink-0 items-center gap-0.5 pl-0 min-[400px]:pl-2 sm:gap-1 md:pl-0 lg:h-16" data-community-top-actions="">
           {search ? <CommunitySearchButton communityId={search.communityId} slug={community.slug} className="md:hidden" /> : null}
           {messages !== null && onMessages ? (
             <button

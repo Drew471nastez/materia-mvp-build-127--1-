@@ -23,15 +23,16 @@
  * A popover under the button on a computer; on a phone the app's one sheet
  * (components/ui/bottom-sheet.tsx), built while the page is idle and kept,
  * so a tap only slides it up. The popover is the same idea: built once
- * the page is idle and kept, invisible and inert, so the click that opens
- * it changes four properties and builds nothing (measured with the CPU
- * slowed four times, building it on the click held the first frame of the
- * fade back by 150ms). It comes in and goes out by transition on opacity,
- * `scale` and `translate` (the compositor's properties, which is what
- * Tailwind's scale-* and translate-* set), with `visibility` flipping at
- * the end of the way out, so a click away never snaps it off. Under
- * reduced motion neither moves. A second click on the button, a click anywhere outside, Escape and
- * a change of page all close it.
+ * the page is idle and kept, transparent and inert, so the click that
+ * opens it changes three properties of one element and builds nothing
+ * (measured with the CPU slowed four times, building it on the click held
+ * the first frame of the fade back by 150ms). It comes in and goes out by
+ * transition on opacity, `scale` and `translate` (the compositor's
+ * properties, which is what Tailwind's scale-* and translate-* set), and
+ * `inert` follows a frame later on the way in and after the fade on the
+ * way out, so a click away never snaps it off. Under reduced motion
+ * neither moves. A second click on the button, a click anywhere outside,
+ * Escape and a change of page all close it.
  *
  * The list comes from GET /api/me/places (lib/nav/places-shared.ts), asked
  * for once the page is idle and again when the panel opens if what is held
@@ -40,8 +41,11 @@
  */
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore } from "react"
+import { memo, useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react"
 import { Check } from "lucide-react"
+/* Solar's line icons, the family the tab bar and the app's sidebar draw in. */
+import { CompassIcon } from "@solar-icons/react/linear/compass"
+import { UsersGroupRoundedIcon } from "@solar-icons/react/linear/users-group-rounded"
 
 import { AppAvatar } from "@/components/app/app-avatar"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
@@ -152,20 +156,39 @@ function usePhone(): boolean {
 }
 
 /*
-  THE POPOVER'S TWO STATES. In over 180ms on a curve that settles, out over
-  140ms on one that leaves; a reopen while it is leaving turns the same
+  THE POPOVER'S TWO STATES. In over 200ms on a curve that settles, out over
+  150ms on one that leaves; a reopen while it is leaving turns the same
   transition round rather than restarting it. `starting:` covers the one
   case where it is built and opened in the same frame (a click before the
   page went idle).
+
+  A LITTLE MORE DEPTH (round 8): the hairline, a close contact shadow and a
+  wide soft one underneath, so the panel reads as lifted off the page
+  rather than printed on it, still quiet. It holds its own layer the whole
+  time (will-change), so neither the first frame of an open nor of a close
+  has to make one.
 */
+/** How long the way out takes: after it the closed panel is made inert. */
+const CLOSE_MS = 150
 const PANEL =
   "absolute left-0 top-full z-[60] mt-2 flex w-[300px] max-w-[calc(100vw-24px)] flex-col overflow-hidden rounded-2xl bg-white text-left text-[#1a1a2e] outline-none " +
-  "shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_2px_4px_-1px_rgba(15,23,42,0.06),0_16px_36px_-10px_rgba(15,23,42,0.2)] " +
-  "origin-top-left motion-reduce:transition-none"
-/* Visibility is not transitioned on the way in (it would stay hidden for the first frame, too early to take focus), only on the way out, where it waits for the fade. */
+  "shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_1px_2px_rgba(15,23,42,0.05),0_6px_12px_-4px_rgba(15,23,42,0.06),0_22px_44px_-14px_rgba(15,23,42,0.24)] " +
+  "origin-top-left will-change-[opacity,scale,translate] motion-reduce:transition-none"
+/*
+  NOTHING INHERITED CHANGES ON THE PRESS. Closed, the panel is transparent
+  and inert, no longer `visibility: hidden` and `pointer-events: none`:
+  both of those are inherited, so flipping either on the press made the
+  browser restyle every element inside the panel before the first frame
+  (traced: 33 elements, 22 to 30ms with the CPU slowed four times, which
+  was nearly all of the wait). Opacity, `scale` and `translate` are the
+  panel's own, so the press restyles one element; `inert` (which also keeps
+  a closed panel out of reach of a pointer, the keyboard and a screen
+  reader) changes after the first frame on the way in and after the fade
+  on the way out (`live` below).
+*/
 const PANEL_OPEN =
-  "transition-[opacity,scale,translate] opacity-100 scale-100 translate-y-0 duration-[180ms] ease-[cubic-bezier(0.22,1,0.36,1)] starting:opacity-0 starting:scale-[0.97] starting:-translate-y-1"
-const PANEL_CLOSED = "transition-[opacity,scale,translate,visibility] invisible pointer-events-none opacity-0 scale-[0.97] -translate-y-1 duration-[140ms] ease-[cubic-bezier(0.4,0,1,1)]"
+  "transition-[opacity,scale,translate] opacity-100 scale-100 translate-y-0 duration-[200ms] ease-[cubic-bezier(0.16,1,0.3,1)] starting:opacity-0 starting:scale-[0.97] starting:-translate-y-1"
+const PANEL_CLOSED = "transition-[opacity,scale,translate] opacity-0 scale-[0.98] -translate-y-0.5 duration-[150ms] ease-[cubic-bezier(0.4,0,0.7,0.2)]"
 
 /* ── The button ───────────────────────────────────────────────────────── */
 
@@ -192,6 +215,16 @@ export function PlaceNavigator({ current, className, onNavigate }: PlaceNavigato
   const places = usePlaces()
   const phone = usePhone()
   const [open, setOpen] = useState(false)
+  /*
+    THE PRESS ONLY STARTS THE MOTION. Traced with the CPU slowed four
+    times, the click that opened the popover spent 26ms in script before
+    the first frame: taking `inert` off restyled all 33 elements of the
+    panel, and the focus moved into it at once, which made the browser work
+    out styles and layout there and then. Both now wait for the first frame
+    of the fade to be drawn (`live`), and on the way out `inert` goes back on
+    once the fade has ended (see NOTHING INHERITED CHANGES ON THE PRESS).
+  */
+  const [live, setLive] = useState(false)
   /* The popover is built once (idle, a pointer coming near, or the click itself) and kept. */
   const [built, setBuilt] = useState(false)
   if (open && !built) setBuilt(true)
@@ -245,19 +278,52 @@ export function PlaceNavigator({ current, className, onNavigate }: PlaceNavigato
     }
     document.addEventListener("pointerdown", away, true)
     document.addEventListener("keydown", onKey)
-    /* Opened by keyboard or pointer, the panel takes focus so arrows and Escape work from the first key. */
-    panelRef.current?.focus({ preventScroll: true })
     return () => {
       document.removeEventListener("pointerdown", away, true)
       document.removeEventListener("keydown", onKey)
     }
   }, [open, phone, close])
 
-  const model = navigatorModel(places ?? SIGNED_OUT_PLACES, current)
-  const go = (href: string) => (e: React.MouseEvent<HTMLElement>) => {
-    onNavigate?.(e, href)
-    close()
-  }
+  /* Live once the first frame of the fade is on screen; inert again once the fade out is over (THE PRESS ONLY STARTS THE MOTION). */
+  useEffect(() => {
+    if (phone) return
+    let timer = 0
+    let frame = 0
+    if (open) frame = requestAnimationFrame(() => { timer = window.setTimeout(() => setLive(true), 0) })
+    else timer = window.setTimeout(() => setLive(false), CLOSE_MS + 20)
+    return () => {
+      cancelAnimationFrame(frame)
+      window.clearTimeout(timer)
+    }
+  }, [open, phone])
+  /* Opened by keyboard or pointer, the panel takes focus once it is live, so arrows and Escape work from the first key. */
+  useEffect(() => {
+    if (open && live && !phone) panelRef.current?.focus({ preventScroll: true })
+  }, [open, live, phone])
+
+  /*
+    THE BODY IS NOT DRAWN AGAIN BY AN OPEN OR A CLOSE. The model, the click
+    handler and the body are the same objects from one render to the next
+    unless the list itself changed, so the press that opens or closes the
+    panel re-renders the button and the panel's own classes and nothing
+    inside (measured with the CPU slowed four times, scripts/check-header-
+    round8.mjs).
+  */
+  const currentKind = current?.kind
+  const currentId = current?.kind === "community" ? current.id : undefined
+  const model = useMemo(
+    () => navigatorModel(places ?? SIGNED_OUT_PLACES, currentKind === "community" && currentId ? { kind: "community", id: currentId } : currentKind === "storelib" ? { kind: "storelib" } : undefined),
+    [places, currentKind, currentId],
+  )
+  const navigateRef = useRef(onNavigate)
+  navigateRef.current = onNavigate
+  const go = useCallback(
+    (href: string) => (e: React.MouseEvent<HTMLElement>) => {
+      navigateRef.current?.(e, href)
+      close()
+    },
+    [close],
+  )
 
   /* Up and down move between the rows, as in a menu. */
   const onPanelKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -308,7 +374,7 @@ export function PlaceNavigator({ current, className, onNavigate }: PlaceNavigato
           tabIndex={-1}
           data-place-navigator-panel="popover"
           data-state={open ? "open" : "closed"}
-          inert={open ? undefined : true}
+          inert={live ? undefined : true}
           onKeyDown={onPanelKey}
           className={cn(PANEL, open ? PANEL_OPEN : PANEL_CLOSED)}
         >
@@ -336,7 +402,10 @@ export function PlaceNavigator({ current, className, onNavigate }: PlaceNavigato
 
 /* ── What is in it ────────────────────────────────────────────────────── */
 
-function NavigatorBody({
+/** The two ways out, each with its Solar line icon at the size the tab bar draws them. */
+const LINK_ICON = { explore: CompassIcon, "discover-communities": UsersGroupRoundedIcon } as const
+
+const NavigatorBody = memo(function NavigatorBody({
   model,
   loading,
   go,
@@ -403,11 +472,18 @@ function NavigatorBody({
       {loading || hasRecent ? <div aria-hidden data-navigator-divider="" className={cn("h-px shrink-0 bg-[#f0f1f3]", phone ? "mx-6 my-2" : "mx-4 my-1.5")} /> : null}
 
       <div className={cn("shrink-0", pad, !phone && (loading || hasRecent) && "pt-0")} data-navigator-links="">
-        {model.links.map((r) => (
-          <Link key={r.key} href={r.href} onClick={go(r.href)} data-navigator-row="" data-navigator-link={r.key} className={cn(row, "font-medium text-[#1a1a2e]")}>
-            {r.label}
-          </Link>
-        ))}
+        {model.links.map((r) => {
+          const Icon = LINK_ICON[r.key]
+          return (
+            <Link key={r.key} href={r.href} onClick={go(r.href)} data-navigator-row="" data-navigator-link={r.key} className={cn(row, "font-medium text-[#1a1a2e]")}>
+              {/* In a box the width of a recent row's picture, so the words line up with the names above. */}
+              <span aria-hidden className="flex shrink-0 items-center justify-center text-[#4b5563]" style={{ width: pic, height: phone ? 24 : 22 }}>
+                <Icon size={phone ? 22 : 20} strokeWidth={1.6} />
+              </span>
+              {r.label}
+            </Link>
+          )
+        })}
       </div>
 
       <div className={cn("flex shrink-0 gap-2", phone ? "px-3 pt-2" : "p-2.5 pt-1")} data-navigator-actions="">
@@ -430,4 +506,4 @@ function NavigatorBody({
       </div>
     </div>
   )
-}
+})

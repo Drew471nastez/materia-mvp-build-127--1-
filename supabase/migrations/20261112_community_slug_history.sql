@@ -1,0 +1,11 @@
+/* A community's old addresses keep working, run after part 81. When a community's address (its slug) changes, the address it had is kept in the new server only table `community_slug_history` (one row per old address, naming the community it now belongs to), written by a trigger on `communities` in the same step as the change, so no path that renames a community can forget it; a community that takes back one of its old addresses drops that row. The pages read it to send an old link (/community/<old>/..., with the rest of the address and its query) on to the new address with a permanent redirect. Only the service role reads or writes it. No existing rows change. Until it runs, an old address answers not found, as it does now. Safe to run again. */
+CREATE TABLE IF NOT EXISTS public.community_slug_history (slug text NOT NULL, community_id uuid NOT NULL REFERENCES public.communities(id) ON DELETE CASCADE, changed_at timestamptz NOT NULL DEFAULT now(), CONSTRAINT community_slug_history_pkey PRIMARY KEY (slug));
+CREATE INDEX IF NOT EXISTS community_slug_history_community_idx ON public.community_slug_history (community_id);
+ALTER TABLE public.community_slug_history ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.community_slug_history FROM PUBLIC, anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.community_slug_history TO service_role;
+CREATE OR REPLACE FUNCTION public.community_slug_history_record() RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $f$ BEGIN IF OLD.slug IS NOT NULL AND NEW.slug IS DISTINCT FROM OLD.slug THEN INSERT INTO public.community_slug_history (slug, community_id, changed_at) VALUES (OLD.slug, NEW.id, now()) ON CONFLICT (slug) DO UPDATE SET community_id = excluded.community_id, changed_at = excluded.changed_at; DELETE FROM public.community_slug_history WHERE slug = NEW.slug; END IF; RETURN NEW; END $f$;
+REVOKE ALL ON FUNCTION public.community_slug_history_record() FROM PUBLIC, anon, authenticated;
+DROP TRIGGER IF EXISTS communities_slug_history ON public.communities;
+CREATE TRIGGER communities_slug_history AFTER UPDATE OF slug ON public.communities FOR EACH ROW WHEN (OLD.slug IS DISTINCT FROM NEW.slug) EXECUTE FUNCTION public.community_slug_history_record();
+notify pgrst, 'reload schema';

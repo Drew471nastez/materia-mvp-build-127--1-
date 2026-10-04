@@ -4,9 +4,8 @@
  * ===========================================================================
  * One row per community, drawn by the one community card in its compact
  * shape (components/explore/community-card.tsx, layout "row"): the same
- * mark, title face, creator line and stats row as Explore, led by where
- * they stand in it, a role when they hold one, the tier, or "Request sent"
- * while an admin has not answered. The whole row opens the community (a
+ * mark, title face, creator line and stats row as Explore, with a role when
+ * they hold one or "Request sent" while an admin has not answered. The whole row opens the community (a
  * request opens its About). Requests come after the communities they are in.
  *
  * No hooks: drawn on the server and by the probe.
@@ -18,9 +17,17 @@ import type { LibraryCommunityRow } from "./types"
 
 const ROLE_WORD: Partial<Record<Role, string>> = { owner: "Owner", admin: "Admin", moderator: "Moderator" }
 
-export function standingOf(row: Pick<LibraryCommunityRow, "status" | "role" | "tierName">): CommunityStanding {
+/**
+ * WHERE THEY STAND, ONLY WHEN IT SAYS SOMETHING: "Request sent" while an
+ * admin has not answered, and a role (Owner, Admin, Moderator) when they hold
+ * one. A plain member gets nothing beside "by <creator>": the default free
+ * tier is called "Members", so every row read "by <creator> · Members", a
+ * word that told them nothing they did not know (round 8).
+ */
+export function standingOf(row: Pick<LibraryCommunityRow, "status" | "role" | "tierName">): CommunityStanding | null {
   if (row.status === "pending") return { label: "Request sent", pending: true }
-  return { label: ROLE_WORD[row.role] ?? row.tierName ?? "Member" }
+  const role = ROLE_WORD[row.role]
+  return role ? { label: role } : null
 }
 
 export function LibraryCommunitiesList({ rows }: { rows: LibraryCommunityRow[] }) {

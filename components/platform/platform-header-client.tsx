@@ -3,14 +3,13 @@
 import { hasConsent } from "@/lib/consent/client"
 import type React from "react"
 
-import Image from "next/image"
 import Link from "next/link"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback } from "react"
 import { createPortal } from "react-dom"
 import type { User } from "@supabase/supabase-js"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
-import { extractUsernameFromHost, getCanonicalSiteUrl, isCustomDomain, isSellerPage, getProductInternalPath } from "@/lib/url-helpers"
+import { extractUsernameFromHost, getCanonicalSiteUrl, isCustomDomain, isSellerPage } from "@/lib/url-helpers"
 import { useBuyerHeaderLight, useExploreMarketplaceEnabled } from "@/components/platform/explore-marketplace-context"
 import { headerChrome, type HeaderChrome } from "@/lib/platform/header-chrome"
 import { cn } from "@/lib/utils"
@@ -25,7 +24,7 @@ import { NotificationBell } from "@/components/notifications/notification-bell"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 
-import { Heart, Library, Search, LayoutDashboard, Settings, LogOut, X, Loader2, ChevronRight, Sparkles, LifeBuoy, Store, Code, Megaphone, Briefcase, Music, Camera, Video, Bot, Share2, Zap, ShoppingBag, Lightbulb, ArrowRight, User as UserIcon, Compass, Globe, MoreHorizontal, Check } from "lucide-react"
+import { Heart, Library, Search, LayoutDashboard, Settings, LogOut, X, ChevronRight, LifeBuoy, Store, Share2, ArrowRight, User as UserIcon, Compass, Globe, MoreHorizontal, Check } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
 import { LanguageModal } from "@/components/platform/language-modal"
 import { readAuthSnapshot, writeAuthSnapshot, clearAuthSnapshot } from "@/lib/auth/auth-snapshot"
@@ -39,189 +38,14 @@ import { SEARCH_FIELD_FOCUS, SEARCH_FIELD_SURFACE } from "@/lib/explore/search-f
 import { SearchCategoriesButton } from "@/components/explore/search-categories-button"
 import { useBuyerTabsHere } from "@/lib/nav/use-buyer-tabs-where"
 import { PlaceNavigator, forgetPlaces } from "@/components/nav/place-navigator"
-import { listPrice } from "@/lib/pricing/list-price"
+import { addRecent, cleanTerm, clearRecent, DEBOUNCE_MS as QUICK_DEBOUNCE_MS, quickSearch, readRecent, removeRecent, topHits, viewAllHref, type QuickHit } from "@/lib/nav/quick-search"
+import { HeaderSearchResults, SLIM_SCROLL, hasPanel, optionCount, optionId } from "@/components/platform/header-search-results"
+import { useCommunitiesEnabled } from "@/lib/platform/use-flags"
 import { showsProfileHeader } from "@/lib/profile/owner-pills"
 import { profileShareUrl, shareProfile } from "@/lib/profile/share-profile"
 
 
 
-
-// Categories with subcategories for the dropdown
-const CATEGORIES_WITH_SUBS = [
-  {
-    label: "Design",
-    href: "/explore?category=design",
-    icon: Sparkles,
-    subcategories: [
-      { label: "UI/UX Templates", href: "/explore?category=design&sub=ui-ux" },
-      { label: "Graphics & Illustrations", href: "/explore?category=design&sub=graphics" },
-      { label: "Fonts & Typography", href: "/explore?category=design&sub=fonts" },
-      { label: "Icons & Elements", href: "/explore?category=design&sub=icons" },
-      { label: "Mockups", href: "/explore?category=design&sub=mockups" },
-    ]
-  },
-  {
-    /* "Tech" here too, or the header's menu and the page's pills disagree
-       about the name of the same category. The href keeps `development`. */
-    label: "Tech",
-    href: "/explore?category=development",
-    icon: Code,
-    subcategories: [
-      { label: "Web Templates", href: "/explore?category=development&sub=web" },
-      { label: "Mobile Apps", href: "/explore?category=development&sub=mobile" },
-      { label: "Scripts & Plugins", href: "/explore?category=development&sub=scripts" },
-      { label: "APIs & Tools", href: "/explore?category=development&sub=apis" },
-      { label: "Code Snippets", href: "/explore?category=development&sub=snippets" },
-    ]
-  },
-  {
-    label: "Marketing",
-    href: "/explore?category=marketing",
-    icon: Megaphone,
-    subcategories: [
-      { label: "Email Templates", href: "/explore?category=marketing&sub=email" },
-      { label: "Ad Creatives", href: "/explore?category=marketing&sub=ads" },
-      { label: "Landing Pages", href: "/explore?category=marketing&sub=landing" },
-      { label: "SEO Tools", href: "/explore?category=marketing&sub=seo" },
-    ]
-  },
-  {
-    label: "Business",
-    href: "/explore?category=business",
-    icon: Briefcase,
-    subcategories: [
-      { label: "Spreadsheets", href: "/explore?category=business&sub=spreadsheets" },
-      { label: "Presentations", href: "/explore?category=business&sub=presentations" },
-      { label: "Documents & Contracts", href: "/explore?category=business&sub=documents" },
-      { label: "Finance Tools", href: "/explore?category=business&sub=finance" },
-    ]
-  },
-  {
-    label: "AI",
-    href: "/explore?category=ai",
-    icon: Bot,
-    isHot: true,
-    subcategories: [
-      { label: "AI Prompts", href: "/explore?category=ai&sub=prompts" },
-      { label: "ChatGPT Templates", href: "/explore?category=ai&sub=chatgpt" },
-      { label: "AI Art Prompts", href: "/explore?category=ai&sub=art-prompts" },
-      { label: "Automation Tools", href: "/explore?category=ai&sub=automation" },
-      { label: "AI Workflows", href: "/explore?category=ai&sub=workflows" },
-    ]
-  },
-  {
-    label: "Social Media",
-    href: "/explore?category=social-media",
-    icon: Share2,
-    subcategories: [
-      { label: "Instagram Templates", href: "/explore?category=social-media&sub=instagram" },
-      { label: "TikTok Content", href: "/explore?category=social-media&sub=tiktok" },
-      { label: "YouTube Assets", href: "/explore?category=social-media&sub=youtube" },
-      { label: "Social Media Kits", href: "/explore?category=social-media&sub=kits" },
-    ]
-  },
-  {
-    label: "Music & Audio",
-    href: "/explore?category=music",
-    icon: Music,
-    subcategories: [
-      { label: "Sound Effects", href: "/explore?category=music&sub=sfx" },
-      { label: "Music Loops", href: "/explore?category=music&sub=loops" },
-      { label: "Podcast Templates", href: "/explore?category=music&sub=podcast" },
-    ]
-  },
-  {
-    label: "Photography",
-    href: "/explore?category=photography",
-    icon: Camera,
-    subcategories: [
-      { label: "Presets & Filters", href: "/explore?category=photography&sub=presets" },
-      { label: "Stock Photos", href: "/explore?category=photography&sub=stock" },
-      { label: "Overlays & Textures", href: "/explore?category=photography&sub=overlays" },
-    ]
-  },
-  {
-    label: "Video & Film",
-    href: "/explore?category=video",
-    icon: Video,
-    subcategories: [
-      { label: "Video Templates", href: "/explore?category=video&sub=templates" },
-      { label: "Motion Graphics", href: "/explore?category=video&sub=motion" },
-      { label: "LUTs & Color Grades", href: "/explore?category=video&sub=luts" },
-    ]
-  },
-  {
-    label: "Productivity",
-    href: "/explore?category=productivity",
-    icon: Zap,
-    subcategories: [
-      { label: "Notion Templates", href: "/explore?category=productivity&sub=notion" },
-      { label: "Calendars & Planners", href: "/explore?category=productivity&sub=planners" },
-      { label: "Checklists", href: "/explore?category=productivity&sub=checklists" },
-    ]
-  },
-  {
-    label: "E-commerce",
-    href: "/explore?category=ecommerce",
-    icon: ShoppingBag,
-    subcategories: [
-      { label: "Shopify Themes", href: "/explore?category=ecommerce&sub=shopify" },
-      { label: "Product Mockups", href: "/explore?category=ecommerce&sub=mockups" },
-      { label: "Store Templates", href: "/explore?category=ecommerce&sub=stores" },
-    ]
-  },
-  {
-    label: "Education",
-    href: "/explore?category=education",
-    icon: Lightbulb,
-    subcategories: [
-      { label: "Online Courses", href: "/explore?category=education&sub=courses" },
-      { label: "Ebooks & Guides", href: "/explore?category=education&sub=ebooks" },
-      { label: "Worksheets", href: "/explore?category=education&sub=worksheets" },
-    ]
-  },
-]
-
-// Simple search categories for search modal
-const SEARCH_CATEGORIES = CATEGORIES_WITH_SUBS.slice(0, 9).map(cat => ({
-  label: cat.label,
-  href: cat.href,
-  icon: cat.icon,
-  isHot: cat.isHot,
-}))
-
-// Product type for search results
-type SearchProduct = {
-  id: string
-  title: string
-  slug: string
-  thumbnail_url?: string
-  price_cents: number
-  compare_at_cents?: number | null
-  pay_what_you_want?: boolean | null
-  pwyw_min_price_cents?: number | null
-  /** A membership reads "$9/month" (lib/pricing/list-price). */
-  type?: string | null
-  creator?: {
-    display_name?: string
-    slug?: string
-    /** The handle, so a result links to `/<handle>/<slug>` rather than `/p/`. */
-    username?: string
-  }
-}
-
-/**
- * Where a search result points.
- *
- * `creators.slug` FIRST, because that is the column that actually holds the
- * handle. Asked of the live database: `creators.username` exists and is null
- * on every row sampled, while `slug` reads "zarrabianco", "ghazi-gharbi" —
- * and it is `slug` that the rename in settings keeps in step with
- * `profiles.username`. Preferring `username` would have quietly sent every
- * result back to `/p/<slug>`.
- */
-const productPath = (product: SearchProduct) =>
-  getProductInternalPath(product.slug, product.creator?.slug || product.creator?.username || undefined)
 
 type Profile = {
   display_name?: string | null
@@ -241,9 +65,10 @@ const HEADER_MENU_OPEN =
 const HEADER_MENU_LEAVING =
   "pointer-events-none opacity-0 scale-[0.98] -translate-y-1 duration-[140ms] ease-[cubic-bezier(0.4,0,1,1)]"
 
-/** Desktop header search results panel — same enter/leave as Categories. */
+/** Desktop header search results panel: same enter/leave as Categories, and the navigator's hairline and depth rather than a heavy default shadow. */
 const SEARCH_MODAL_PANEL =
-  "absolute top-full left-0 right-0 z-50 mt-2 max-h-[70vh] overflow-hidden overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-2xl " +
+  "absolute top-full left-0 right-0 z-50 mt-2 max-h-[min(70vh,560px)] overflow-hidden overflow-y-auto overscroll-contain rounded-2xl bg-white " +
+  "shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_1px_2px_rgba(15,23,42,0.05),0_6px_12px_-4px_rgba(15,23,42,0.06),0_22px_44px_-14px_rgba(15,23,42,0.22)] " +
   "origin-top transition-[opacity,scale,translate] motion-reduce:transition-none"
 const SEARCH_MODAL_OPEN = HEADER_MENU_OPEN
 const SEARCH_MODAL_LEAVING = HEADER_MENU_LEAVING
@@ -890,6 +715,15 @@ function BecomeSellerRow({ link, onDone, state = "none" }: { link: HeaderLink; o
  * at 1x, 2x and 3x: within 0.35px, where the old badge was 0.54px low on a
  * 3x phone (0.7px at 2x) and up to 1.9px off in a fallback face.
  */
+/**
+ * THE COUNT IS INK, NOT RED (round 8): Storelib's #1a1a2e with white
+ * figures, on the heart and on the bell, here and in a community's bar. A
+ * red bubble shouted on every page for a wishlist and an inbox, which are
+ * news, not alarms. On the dark bar the same bubble would vanish into the
+ * black, so there it turns round: white with ink figures.
+ */
+export const COUNT_BADGE_TONE = "bg-[#1a1a2e] text-white [[data-header-tone=dark]_&]:bg-white [[data-header-tone=dark]_&]:text-[#1a1a2e]"
+
 export function CountBadge({ count, className }: { count: number; className?: string }) {
   const ref = useRef<HTMLSpanElement>(null)
   useLayoutEffect(() => {
@@ -920,7 +754,8 @@ export function CountBadge({ count, className }: { count: number; className?: st
       ref={ref}
       data-count-badge=""
       className={cn(
-        "box-border flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-[5px] text-white",
+        "box-border flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-[5px]",
+        COUNT_BADGE_TONE,
         className,
       )}
     >
@@ -1183,7 +1018,7 @@ export function PlatformHeaderClient({
       document.removeEventListener("pointerdown", onPointerDown, true)
     }
   }, [searchModalOpen, closeSearchModal])
-  const [searchResults, setSearchResults] = useState<SearchProduct[]>([])
+  const [searchResults, setSearchResults] = useState<QuickHit[]>([])
   const [searchLoading, setSearchLoading] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [mobileProfileOpen, setMobileProfileOpen] = useState(false)
@@ -1214,120 +1049,68 @@ export function PlatformHeaderClient({
     setProfileBarOpen(false)
   }, [pathname, closeSearchModal])
 
-  // Live search with debounce
-  const handleSearchChange = useCallback((value: string) => {
-    setQuery(value)
-    /* Typing is as plain an intent as a tap: somebody who arrived in the field with Tab still sees their results. */
-    setSearchModalOpen(true)
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     A RESULTS LIST, NOT A CATEGORIES MENU
+    ═══════════════════════════════════════════════════════════════════════
+    The field used to open a box of category pills over "Start typing to
+    search products" (image 52), and a word gave products only. Now a word
+    asks the phone's search questions (lib/nav/quick-search quickSearch: the
+    products that say it or whose creator is called it, and, while the
+    communities switch is on, the public communities that say it, from
+    Storelib's own server) and shows the five most relevant together
+    (topHits), then View all. With nothing typed it offers the recent
+    searches on this device, and with none of those it draws no panel at
+    all. Categories are the grid icon at the end of the field.
 
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current)
-    }
-
-    if (value.trim().length < 1) {
-      setSearchResults([])
-      setSearchLoading(false)
-      return
-    }
-
-    setSearchLoading(true)
-
-    searchTimeoutRef.current = setTimeout(async () => {
-      try {
-        const supabase = createClient()
-
-        /*
-          ═══════════════════════════════════════════════════════════════════
-           ONE LETTER IS A SEARCH, AND A TITLE IS NOT THE ONLY THING TO MATCH
-          ═══════════════════════════════════════════════════════════════════
-          This asked `title ilike %v%` and nothing else, so "m" found only
-          products with an m in their name and nothing by a creator called
-          Marcus, and nothing whose description says what it is.
-
-          A search term goes into a PostgREST filter STRING, where a comma
-          separates one filter from the next and a parenthesis opens a group.
-          Typing a comma therefore did not search for a comma, it produced a
-          malformed filter and no results at all. So the term is stripped of
-          the characters that mean something to the grammar before it is used.
-        */
-        const term = value.trim().replace(/[,()*%\\]/g, " ").replace(/\s+/g, " ").trim()
-        if (!term) {
-          setSearchResults([])
-          return
-        }
-
-        const SELECT = `
-            id,
-            title,
-            slug,
-            thumbnail_url,
-            price_cents,
-            compare_at_cents,
-            pay_what_you_want,
-            pwyw_min_price_cents,
-            type,
-            creator_id,
-            creators!inner (
-              display_name,
-              slug,
-              username
-            )
-          `
-
-        /* Two questions at once: products that say it, and products by
-           somebody called it. */
-        const [byText, byCreator] = await Promise.all([
-          supabase
-            .from("products")
-            .select(SELECT)
-            .or(`title.ilike.%${term}%,description.ilike.%${term}%`)
-            .eq("status", "published")
-            .limit(8),
-          supabase
-            .from("products")
-            .select(SELECT)
-            .or(`display_name.ilike.%${term}%,username.ilike.%${term}%,slug.ilike.%${term}%`, {
-              referencedTable: "creators",
-            })
-            .eq("status", "published")
-            .limit(8),
-        ])
-
-        const error = byText.error
-        /* Titles first, then the creator matches that are not already in. */
-        const seen = new Set<string>()
-        const data = [...(byText.data || []), ...(byCreator.data || [])].filter((p: any) => {
-          if (!p?.creators || seen.has(p.id)) return false
-          seen.add(p.id)
-          return true
-        }).slice(0, 8)
-
-        if (!error && data) {
-          const results = data.map((p: any) => ({
-            id: p.id,
-            title: p.title,
-            slug: p.slug,
-            thumbnail_url: p.thumbnail_url,
-            price_cents: p.price_cents,
-            compare_at_cents: p.compare_at_cents,
-            pay_what_you_want: p.pay_what_you_want,
-            pwyw_min_price_cents: p.pwyw_min_price_cents,
-            type: p.type,
-            creator: p.creators ? {
-              display_name: p.creators.display_name,
-              slug: p.creators.slug,
-              username: p.creators.username,
-            } : undefined,
-          }))
-          setSearchResults(results)
-        }
-      } catch (err) {
-        console.error("Search error:", err)
-      } finally {
+    Answers come back in any order; only the newest word's is kept.
+  */
+  const communitiesOn = useCommunitiesEnabled()
+  const searchSeq = useRef(0)
+  const [recents, setRecents] = useState<string[]>([])
+  const [activeOption, setActiveOption] = useState(-1)
+  const runSearch = useCallback(
+    (value: string) => {
+      const seq = ++searchSeq.current
+      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current)
+      const term = cleanTerm(value)
+      if (!term) {
+        setSearchResults([])
         setSearchLoading(false)
+        return
       }
-    }, 300)
-  }, [])
+      setSearchLoading(true)
+      searchTimeoutRef.current = setTimeout(async () => {
+        try {
+          const answer = await quickSearch(createClient(), term, { communities: communitiesOn, creators: false })
+          if (seq !== searchSeq.current) return
+          setSearchResults(topHits(answer))
+        } catch (err) {
+          console.error("Search error:", err)
+        } finally {
+          if (seq === searchSeq.current) setSearchLoading(false)
+        }
+      }, QUICK_DEBOUNCE_MS)
+    },
+    [communitiesOn],
+  )
+  const handleSearchChange = useCallback(
+    (value: string) => {
+      setQuery(value)
+      setActiveOption(-1)
+      /* Typing is as plain an intent as a tap: somebody who arrived in the field with Tab still sees their results. */
+      setSearchModalOpen(true)
+      runSearch(value)
+    },
+    [runSearch],
+  )
+  /* The recent searches, read when the panel opens (they live in this device's storage, behind Preferences). */
+  useEffect(() => {
+    if (searchModalOpen) setRecents(readRecent())
+    else setActiveOption(-1)
+  }, [searchModalOpen])
+  /* Explore's mode, so View all stays in communities when that is what is being browsed. */
+  const searchMode: "products" | "communities" = pathname.startsWith("/explore") && searchParams.get("type") === "communities" ? "communities" : "products"
 
   // Cleanup search timeout on unmount
   useEffect(() => {
@@ -1573,6 +1356,14 @@ export function PlatformHeaderClient({
    */
   const isExploreSurface =
     exploreMarketplaceOn && (pathname === "/explore" || pathname.startsWith("/explore/") || pathname === "/wishlist")
+  /*
+    NO HEART ON EXPLORE. "Remove the wishlist icon from the Storelib header
+    on /explore (desktop and phone)": the marketplace's bar is the search,
+    the library, the bell and the photo. The wishlist is still one tap away
+    in the account (Library, then Wishlist), and the other pages that share
+    this bar (a product, a creator's page) keep their heart.
+  */
+  const showWishlistIcon = !isExploreSurface
   /*
     ═══════════════════════════════════════════════════════════════════════
      WHERE THE PHONE'S TAB BAR IS, THE HEADER DOES NOT REPEAT IT
@@ -1831,18 +1622,6 @@ export function PlatformHeaderClient({
     [shouldForceCanonicalNav, navigateToCanonical, router],
   )
 
-  // Navigate to an /explore category URL using router.push() for smooth client-side
-  // transition regardless of current page — avoids full page reload / white flash on
-  // Capacitor. Seller subdomains use canonical storelib.com URL instead.
-  const navigateToExploreCategory = useCallback((url: string) => {
-    startNavigationLoading()
-    if (shouldForceCanonicalNav) {
-      navigateToCanonical(url)
-    } else {
-      router.push(url, { scroll: false })
-    }
-  }, [router, shouldForceCanonicalNav, navigateToCanonical])
-
   const onCanonicalNav = useCallback(
     (e: React.MouseEvent<HTMLElement>, targetPath: string) => {
       if (targetPath !== pathname) startNavigationLoading()
@@ -1892,17 +1671,88 @@ export function PlatformHeaderClient({
     [getCanonicalOrRelativePath, onCanonicalNav],
   )
 
+  /* ── The search's rows: where each goes, and the keys that move through them ── */
+  const searchListId = (phone: boolean) => (phone ? "header-search-phone" : "header-search")
+  const panelShown = searchModalOpen && hasPanel(query, recents)
+  const pickHit = (hit: QuickHit) => {
+    setRecents(addRecent(query))
+    navigateReliably(hit.href)
+    closeSearchModal()
+  }
+  const viewAllResults = (word: string = query) => {
+    if (!word.trim()) return
+    setRecents(addRecent(word))
+    navigateReliably(viewAllHref(word, searchMode))
+    closeSearchModal()
+  }
+  const pickRecent = (word: string) => {
+    setQuery(word)
+    setActiveOption(-1)
+    runSearch(word)
+    searchInputRef.current?.focus({ preventScroll: true })
+  }
+  const onSearchKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    markSearchIntent()
+    const count = optionCount(query, searchResults, recents)
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      if (!searchModalOpen) setSearchModalOpen(true)
+      if (!count) return
+      e.preventDefault()
+      setActiveOption((i) => (e.key === "ArrowDown" ? (i + 1 >= count ? 0 : i + 1) : i <= 0 ? count - 1 : i - 1))
+      return
+    }
+    if (e.key !== "Enter" || e.nativeEvent.isComposing) return
+    e.preventDefault()
+    const word = query.trim()
+    if (!word) {
+      if (activeOption >= 0 && recents[activeOption]) pickRecent(recents[activeOption])
+      return
+    }
+    if (activeOption >= 0 && activeOption < searchResults.length) pickHit(searchResults[activeOption])
+    else viewAllResults()
+  }
+  const searchResultsBody = (phone: boolean) => (
+    <HeaderSearchResults
+      query={query}
+      hits={searchResults}
+      loading={searchLoading}
+      recents={recents}
+      active={activeOption}
+      idPrefix={searchListId(phone)}
+      onHover={setActiveOption}
+      onPick={pickHit}
+      onViewAll={() => viewAllResults()}
+      onRecent={pickRecent}
+      onRemoveRecent={(r) => setRecents(removeRecent(r))}
+      onClearRecent={() => setRecents(clearRecent())}
+      phone={phone}
+    />
+  )
+  const comboboxProps = (phone: boolean) => ({
+    role: "combobox" as const,
+    "aria-expanded": panelShown,
+    "aria-controls": panelShown ? `${searchListId(phone)}-list` : undefined,
+    "aria-autocomplete": "list" as const,
+    "aria-activedescendant": panelShown && activeOption >= 0 ? optionId(searchListId(phone), activeOption) : undefined,
+  })
+
   /*
     DASHBOARD, FOR AN ACCOUNT WITH SELLER ACCESS ONLY. A buyer sees no
     Dashboard and no Start selling beside their photo; their way to selling
-    is Become a seller in the account menu and the phone sheet. Filled purple
-    with the shared `rounded-action` corner, the same button as Sign up.
+    is Become a seller in the account menu and the phone sheet. Not a filled
+    purple button any more (round 8): Storelib's secondary button, white
+    with a hairline, a one pixel soft shadow and ink text, so the bar's one
+    loud thing is not a way out of the marketplace. The shared
+    `rounded-action` corner stays.
   */
   const sellerDashboardButton = hasCompletedSellerOnboarding ? (
     <Link
       {...headerLink("/app")}
       data-header-dashboard=""
-      className={cn("inline-flex h-[42px] items-center whitespace-nowrap rounded-action bg-violet-600 px-5 text-[15px] font-[550] text-white transition-colors hover:bg-violet-700", chrome.focus)}
+      className={cn(
+        "inline-flex h-[42px] items-center whitespace-nowrap rounded-action border border-[#e2e4e8] bg-white px-5 text-[15px] font-[550] text-[#1a1a2e] shadow-[0_1px_1px_rgba(16,18,27,0.05)] transition-[background-color,border-color] duration-150 hover:border-[#d4d7dd] hover:bg-[#f8f9fa] active:bg-[#f3f4f6]",
+        chrome.focus,
+      )}
     >
       {t("dashboard")}
     </Link>
@@ -2169,7 +2019,9 @@ export function PlatformHeaderClient({
                 onChange={(e) => handleSearchChange(e.target.value)}
                 onFocus={onSearchFocus}
                 onPointerDown={markSearchIntent}
-                onKeyDown={markSearchIntent}
+                onKeyDown={onSearchKey}
+                {...comboboxProps(false)}
+                aria-label={t("search_placeholder")}
                 placeholder={t("search_placeholder")}
                 className={cn(
                   "h-11 w-full pl-11 text-[15px] md:text-[15px] text-neutral-900 placeholder:text-neutral-400",
@@ -2185,8 +2037,7 @@ export function PlatformHeaderClient({
                     type="button"
                     aria-label="Clear search"
                     onClick={() => {
-                      setQuery("")
-                      setSearchResults([])
+                      handleSearchChange("")
                       searchInputRef.current?.focus()
                     }}
                     className="flex h-9 w-9 items-center justify-center rounded-[8px] cursor-pointer text-neutral-400 hover:text-neutral-700 outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15"
@@ -2234,7 +2085,7 @@ export function PlatformHeaderClient({
                         data-header-search-scrim=""
                         className={cn(
                           SEARCH_BACKDROP,
-                          searchModalOpen ? SEARCH_BACKDROP_OPEN : SEARCH_BACKDROP_LEAVING,
+                          panelShown ? SEARCH_BACKDROP_OPEN : SEARCH_BACKDROP_LEAVING,
                         )}
                         onClick={() => closeSearchModal()}
                       />,
@@ -2243,111 +2094,16 @@ export function PlatformHeaderClient({
                   : null}
                 <div
                   data-header-search-modal=""
-                  data-state={searchModalOpen ? "open" : "closed"}
-                  role="dialog"
-                  aria-label="Search"
-                  inert={searchModalOpen ? undefined : true}
+                  data-state={panelShown ? "open" : "closed"}
+                  inert={panelShown ? undefined : true}
                   onTransitionEnd={(e) => {
                     if (e.target === e.currentTarget && e.propertyName === "opacity" && !searchModalOpen) {
                       setSearchModalPresent(false)
                     }
                   }}
-                  className={cn(SEARCH_MODAL_PANEL, searchModalOpen ? SEARCH_MODAL_OPEN : SEARCH_MODAL_LEAVING)}
+                  className={cn(SEARCH_MODAL_PANEL, SLIM_SCROLL, panelShown ? SEARCH_MODAL_OPEN : SEARCH_MODAL_LEAVING)}
                 >
-                  {!query && (
-                    <div className="p-4 border-b border-gray-100">
-                      <h3 className="text-sm font-semibold text-gray-900 mb-3">Categories</h3>
-                      <div className="flex flex-wrap gap-2">
-                        {SEARCH_CATEGORIES.map((cat) => (
-                          <Link
-                            key={cat.label}
-                            href={getCanonicalOrRelativePath(cat.href + '&scroll=recommended')}
-                            onClick={(e) => {
-                              onCanonicalNav(e, cat.href + '&scroll=recommended')
-                              closeSearchModal()
-                            }}
-                            className="px-3 py-1.5 rounded-full text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 transition-colors cursor-pointer"
-                          >
-                            {cat.label}
-                          </Link>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {searchLoading && (
-                    <div className="p-6 flex items-center justify-center">
-                      <Loader2 className="w-5 h-5 text-gray-400 animate-spin" />
-                      <span className="ml-2 text-sm text-gray-500">Searching...</span>
-                    </div>
-                  )}
-
-                  {!searchLoading && searchResults.length > 0 && (
-                    <div className="p-2">
-                      <h3 className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wider">Products</h3>
-                      {searchResults.map((product) => (
-                        <Link
-                          key={product.id}
-                          href={getCanonicalOrRelativePath(productPath(product))}
-                          onClick={(e) => {
-                            onCanonicalNav(e, productPath(product))
-                            closeSearchModal()
-                          }}
-                          className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer group"
-                        >
-                          {product.thumbnail_url ? (
-                            <Image
-                              src={product.thumbnail_url}
-                              alt={product.title}
-                              width={46}
-                              height={44}
-                              className="w-12 h-12 rounded-lg object-cover border border-gray-200"
-                            />
-                          ) : (
-                            <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center">
-                              <Search className="w-5 h-5 text-gray-400" />
-                            </div>
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-900 truncate">{product.title}</p>
-                            {product.creator?.display_name && (
-                              <p className="text-xs text-gray-500 truncate">Product by {product.creator.display_name}</p>
-                            )}
-                          </div>
-                          <div className="text-sm font-medium text-gray-900">
-                            {listPrice(product).main}
-                          </div>
-                        </Link>
-                      ))}
-                    </div>
-                  )}
-
-                  {!searchLoading && query.trim().length >= 1 && searchResults.length === 0 && (
-                    <div className="p-6 text-center">
-                      <p className="text-sm text-gray-500">No products found for "{query}"</p>
-                    </div>
-                  )}
-
-                  {!query && (
-                    <div className="p-4 bg-gray-50 text-center">
-                      <p className="text-xs text-gray-500">Start typing to search products</p>
-                    </div>
-                  )}
-
-                  {query.trim() && (
-                    <div className="p-3 border-t border-gray-100 bg-gray-50">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          navigateReliably(`/explore?q=${encodeURIComponent(query)}`)
-                          closeSearchModal()
-                        }}
-                        className="w-full py-2.5 rounded-lg text-sm font-medium text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer"
-                      >
-                        View all results for "{query}"
-                      </button>
-                    </div>
-                  )}
+                  {searchResultsBody(false)}
                 </div>
               </>
             )}
@@ -2387,7 +2143,8 @@ export function PlatformHeaderClient({
                 </Link>
               )}
 
-              {/* Wishlist — h-[42px] w-[42px] = 44px tap target */}
+              {/* Wishlist: h-[42px] w-[42px] = 44px tap target. Not on Explore (round 8, see NO HEART ON EXPLORE). */}
+              {showWishlistIcon && (
               <Link
                 href={getCanonicalOrRelativePath(wishlistHref)} onClick={(e) => onCanonicalNav(e, wishlistHref)}
                 className={cn("relative flex h-[42px] w-[42px] items-center justify-center rounded-full transition cursor-pointer", chrome.iconBtn)}
@@ -2421,6 +2178,7 @@ export function PlatformHeaderClient({
                   )}
                 </span>
               </Link>
+              )}
 
               {/* The person's notifications: a full screen sheet on a phone. */}
               {user ? <NotificationBell className={chrome.iconBtn} /> : null}
@@ -2463,7 +2221,8 @@ export function PlatformHeaderClient({
             Library button: the icon beside it already is one.
           */}
           <div className="hidden md:flex items-center gap-2.5 shrink-0">
-                {/* Wishlist */}
+                {/* Wishlist, not on Explore (NO HEART ON EXPLORE). */}
+                {showWishlistIcon && (
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Link
@@ -2483,6 +2242,7 @@ export function PlatformHeaderClient({
                     Wishlist
                   </TooltipContent>
                 </Tooltip>
+                )}
 
                 {/* Library */}
                 <Tooltip>
@@ -2789,8 +2549,9 @@ export function PlatformHeaderClient({
                   value={query}
                   onChange={(e) => handleSearchChange(e.target.value)}
                   onFocus={onSearchFocus}
-                onPointerDown={markSearchIntent}
-                onKeyDown={markSearchIntent}
+                  onPointerDown={markSearchIntent}
+                  onKeyDown={onSearchKey}
+                  {...comboboxProps(true)}
                   placeholder={t("search_placeholder")}
                   aria-label={t("search_placeholder")}
                   className="h-10 w-full rounded-[10px] border-neutral-200 bg-neutral-100 pl-9 pr-9 text-sm text-neutral-900 placeholder:text-neutral-500 focus-visible:ring-0 focus-visible:border-neutral-300"
@@ -2798,10 +2559,7 @@ export function PlatformHeaderClient({
                 {query && (
                   <button
                     type="button"
-                    onClick={() => {
-                      setQuery("")
-                      setSearchResults([])
-                    }}
+                    onClick={() => handleSearchChange("")}
                     aria-label="Clear search"
                     className="absolute right-2.5 top-1/2 -translate-y-1/2 text-neutral-400 cursor-pointer"
                   >
@@ -2816,7 +2574,9 @@ export function PlatformHeaderClient({
                   onClick={() => {
                     closeSearchModal()
                     setQuery("")
+                    searchSeq.current++
                     setSearchResults([])
+                    setSearchLoading(false)
                   }}
                   className="shrink-0 text-sm font-medium text-neutral-600 cursor-pointer px-1"
                 >
@@ -2834,125 +2594,23 @@ export function PlatformHeaderClient({
           {searchModalPresent && (
             <div
               data-header-search-modal=""
-              data-state={searchModalOpen ? "open" : "closed"}
-              role="dialog"
-              aria-label="Search"
-              inert={searchModalOpen ? undefined : true}
+              data-state={panelShown ? "open" : "closed"}
+              inert={panelShown ? undefined : true}
               onTransitionEnd={(e) => {
                 if (e.target === e.currentTarget && e.propertyName === "opacity" && !searchModalOpen) {
                   setSearchModalPresent(false)
                 }
               }}
               className={cn(
-                "absolute inset-x-0 top-full overflow-y-auto overscroll-contain border-b border-neutral-200 bg-white px-4 pb-4 pt-3 shadow-[0_12px_28px_-18px_rgba(15,23,42,0.45)] origin-top transition-[opacity,translate] motion-reduce:transition-none",
-                searchModalOpen
+                "absolute inset-x-0 top-full overflow-y-auto overscroll-contain border-b border-neutral-200 bg-white px-2.5 pb-2 pt-1 shadow-[0_12px_28px_-18px_rgba(15,23,42,0.45)] origin-top transition-[opacity,translate] motion-reduce:transition-none",
+                SLIM_SCROLL,
+                panelShown
                   ? "opacity-100 translate-y-0 duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]"
                   : "pointer-events-none opacity-0 -translate-y-1 duration-150 ease-[cubic-bezier(0.4,0,1,1)]",
               )}
               style={{ maxHeight: `calc(var(--vv-h, 100dvh) - ${headerH + 56}px)` }}
             >
-          {/* Categories */}
-          {!query && (
-            <div className="pb-4 border-b border-gray-100">
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 px-2">Categories</h3>
-              <div className="flex flex-wrap gap-2">
-                {SEARCH_CATEGORIES.map((cat) => (
-                  <button
-                    key={cat.label}
-                    type="button"
-                    onClick={() => {
-                      navigateToExploreCategory(cat.href + '&scroll=recommended')
-                      closeSearchModal()
-                    }}
-                    className="px-3 py-2 rounded-full text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 transition-colors cursor-pointer touch-manipulation"
-                  >
-                    {cat.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Loading */}
-          {searchLoading && (
-            <div className="py-8 flex items-center justify-center">
-              <Loader2 className="w-5 h-5 text-gray-400 animate-spin" />
-              <span className="ml-2 text-sm text-gray-500">Searching...</span>
-            </div>
-          )}
-
-          {/* Search Results */}
-          {!searchLoading && searchResults.length > 0 && (
-            <div className="pt-2">
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 px-2">Products</h3>
-              <div className="space-y-0.5">
-                {searchResults.map((product) => (
-                  <button
-                    key={product.id}
-                    type="button"
-                    onClick={() => {
-                      navigateReliably(productPath(product))
-                      closeSearchModal()
-                    }}
-                    className="flex w-full items-center gap-3 px-2 py-2.5 rounded-xl hover:bg-gray-100 transition-colors cursor-pointer touch-manipulation text-left"
-                  >
-                    {product.thumbnail_url ? (
-                      <Image
-                        src={product.thumbnail_url}
-                        alt={product.title}
-                        width={46}
-                        height={44}
-                        className="w-12 h-12 rounded-lg object-cover border border-gray-200"
-                      />
-                    ) : (
-                      <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center">
-                        <Search className="w-5 h-5 text-gray-400" />
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">{product.title}</p>
-                      {product.creator?.display_name && (
-                        <p className="text-xs text-gray-500 truncate">by {product.creator.display_name}</p>
-                      )}
-                    </div>
-                    <div className="text-sm font-semibold text-gray-900">
-                      {listPrice(product).main}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* No results */}
-          {!searchLoading && query.trim().length >= 1 && searchResults.length === 0 && (
-            <div className="py-8 text-center">
-              <p className="text-sm text-gray-500">No products found for "{query}"</p>
-            </div>
-          )}
-
-          {/* Hint text */}
-          {!query && !searchLoading && (
-            <div className="py-4 text-center">
-              <p className="text-xs text-gray-500">Start typing to search products</p>
-            </div>
-          )}
-
-          {/* View all results button */}
-          {query.trim() && (
-            <div className="pt-3 mt-2 border-t border-gray-100">
-              <button
-                type="button"
-                onClick={() => {
-                  navigateReliably(`/explore?q=${encodeURIComponent(query)}`)
-                  closeSearchModal()
-                }}
-                className="w-full py-3 rounded-xl text-sm font-medium text-white bg-violet-600 hover:bg-violet-700 transition-colors cursor-pointer"
-              >
-                View all results for "{query}"
-              </button>
-            </div>
-          )}
+          {searchResultsBody(true)}
             </div>
           )}
         </div>

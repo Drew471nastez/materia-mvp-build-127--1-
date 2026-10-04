@@ -32,7 +32,7 @@ import { registerCommunitySearch } from "@/lib/nav/community-search-bridge"
 import { api, apiBase } from "./api"
 import { PLAIN_ICON_BTN } from "./ui"
 import type { SearchResults } from "./view-types"
-import { roleTag } from "./view-types"
+import { RoleBadge } from "./role-badge"
 
 /** Mirrors the server: shorter than this is not searched. */
 export const SEARCH_MIN_CHARS = 2
@@ -224,14 +224,13 @@ function ResultList({
         <div role="group" aria-label={GROUP_TITLE.members} data-search-group="members">
           <p className="px-2.5 pb-1 pt-2 text-[12px] font-medium text-[#8a8f98]">{GROUP_TITLE.members}</p>
           {results.members.map((m) => {
-            const tag = roleTag(m.role)
             return (
               <div key={m.id} {...optionProps(`member:${m.id}`)}>
                 <AppAvatar src={m.avatarUrl} name={m.name} alt="" size={32} markWhileLoading />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[14px] text-[#262633]">
                     <Marked text={m.name} q={term} />
-                    {tag ? <span className="ml-1.5 rounded-md bg-[#f1f2f4] px-1.5 text-[11px] font-medium text-[#4b5563]">{tag}</span> : null}
+                    <RoleBadge role={m.role} size="xs" className="ml-1.5 align-[-1px]" />
                   </span>
                   {m.username ? (
                     <span className="block truncate text-[12.5px] text-[#6b7280]">

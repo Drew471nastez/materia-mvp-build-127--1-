@@ -163,17 +163,26 @@ console.log("\nThe editor wires it up\n")
   check("the field is scrolled to inside its own scroller, and rung", /scroller\.scrollBy\(\{ top: r\.top - box\.top/.test(page) && /setAttribute\("data-sl-flash", stamp\)/.test(page))
   check("on a phone the tap brings the sheet up, and does not raise the keyboard", /if \(isMobileViewRef\.current\) \{\s*setAiOpen\(false\)\s*setMobileSidebarOpen\(true\)/.test(page) && /if \(!isMobileViewRef\.current\) \{\s*const input/.test(page))
   const css = read("app/globals.css")
-  check("the ring is violet and fades", /\[data-sl-flash\] \{[\s\S]{0,200}outline: 2px solid rgba\(139, 92, 246/.test(css) && /@keyframes sl-field-flash/.test(css))
+  check(
+    "the field is found with a soft grey wash that fades, not a violet ring",
+    /@keyframes sl-field-flash \{[\s\S]{0,400}rgba\(17, 24, 39, 0\.045\)/.test(css) && !/\[data-sl-flash\][^}]*139, 92, 246/.test(css),
+  )
   check("hover draws an outline and the section's name", /<CanvasHover enabled=/.test(page) && /wb-hover-chip/.test(read("components/website-builder/canvas-hover.tsx")))
   const shared = read("components/website-builder/sections/_shared.tsx")
-  check("the canvas selection is blue, as it was: ring, hover ring and badge", /inset 0 0 0 2px #3b82f6/.test(shared) && /inset 0 0 0 2px rgba\(59, 130, 246, 0\.5\)/.test(shared) && /background: "#3b82f6"/.test(shared) && !/8b5cf6|139, 92, 246/.test(shared))
+  check("the canvas selection is blue, as it was: ring, hover ring and badge", /inset 0 0 0 1\.5px #3b82f6/.test(shared) && /inset 0 0 0 1\.5px rgba\(59, 130, 246, 0\.5\)/.test(shared) && /background: "#3b82f6"/.test(shared) && !/8b5cf6|139, 92, 246/.test(shared))
   check("and the hover outline and chip wear the same blue", /\.wb-hover-outline \{[\s\S]{0,200}rgba\(59, 130, 246/.test(css) && /\.wb-hover-chip \{[\s\S]{0,300}background: #3b82f6/.test(css))
 }
 
 console.log("\nFull screen, the third way of looking\n")
 {
   const page = read("app/website-builder/editor/[installId]/page.tsx")
-  check("a switch beside desktop / phone, on a computer only", /\{!isMobileView && \(\s*<Tooltip>[\s\S]{0,400}data-wb-full-screen-switch/.test(page) || /data-wb-full-screen-switch=""/.test(page) && /\{!isMobileView && \(\s*\n\s*<Tooltip>/.test(page))
+  check(
+    "Large is the third place on the phone / desktop switch, on a computer only",
+    /\{!isMobileView && \(\s*<div\s+role="radiogroup"\s+aria-label="Preview size"\s+data-wb-device-switch=""/.test(page) &&
+      /\{ key: "mobile", label: "Phone"[\s\S]{0,200}\{ key: "desktop", label: "Desktop"[\s\S]{0,200}\{ key: "full", label: "Large"/.test(page) &&
+      /"data-wb-full-screen-switch": ""/.test(page),
+  )
+  check("and there is no full screen button of its own beside it any more", !/Minimize2/.test(page))
   check("remembered for the session", /const FULL_SCREEN_KEY = "wb:full-screen"/.test(page) && /window\.sessionStorage\.setItem\(FULL_SCREEN_KEY, "1"\)/.test(page))
   check("the sidebar folds by its width and opacity, not by unmounting", /maxWidth: fullView \? 0 : sidebarWidth/.test(page) && /opacity: fullView \? 0 : 1/.test(page) && /transition: `max-width \$\{FULL_SCREEN_MS\}ms/.test(page))
   check("Escape leaves it", /if \(e\.key !== "Escape" \|\| e\.defaultPrevented\) return[\s\S]{0,300}setFullScreen\(false\)/.test(page))

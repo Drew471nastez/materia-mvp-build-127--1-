@@ -57,7 +57,8 @@ function main() {
   check("and the spinner sits over the picture rather than replacing it",
     /\{uploading && \(\s*\n\s*<span className="absolute inset-0 z-10 flex items-center justify-center bg-white\/55">/.test(picker))
   check("with Replace and Remove held while it runs",
-    (picker.match(/disabled=\{uploading\}/g) ?? []).length === 2)
+    /* Two in the box layout, two in the sidebar's one-line layout. */
+    (picker.match(/disabled=\{uploading\}/g) ?? []).length === 4)
 
   console.log("\nThe stored copy arrives over it, and never under an empty box")
 

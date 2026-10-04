@@ -14,6 +14,12 @@
  *                   hairline, members, views, the stars only with reviews,
  *                   no Launched); a pill asks the server for that category
  *                   and the grid follows; Show more appends.
+ *   ROUND 8         communities mode has the products' pill row pill for
+ *                   pill (the Communities pill pressed in its place, and
+ *                   pressing it goes back) and the products' More picker,
+ *                   whole tree; a subcategory asks for c=<parent>&sub=<id>,
+ *                   narrows to the communities that mention it, and when
+ *                   none do shows the whole category with a line saying so.
  *   CATEGORIES      an icon alone (round 6) inside the hero's search field at
  *                   its right end, named Categories, with a tooltip on a
  *                   computer, at least 40px on a phone, clear of the typed
@@ -108,6 +114,13 @@ const ROW = (selector) => `(() => {
   return { n: cells.length, perRow: first.length, heights: [...new Set(first.map((r) => Math.round(r.height)))] }
 })()`
 
+/* The pill row as it reads: every pill's text, the More pill last. */
+const PILLS = `[...document.querySelectorAll("[data-category-pills-row] > button, [data-category-pills-row] > a")].map((b) => b.textContent.trim())`
+/* The More picker's first level, as a list of names. */
+const PICKER_ROWS = `(() => { const host = document.querySelector("[data-category-panel]") || document.querySelector("[data-app-sheet]"); return host ? [...host.querySelectorAll("button")].map((b) => b.textContent.trim()).filter(Boolean) : [] })()`
+const productPills = {}
+const productPicker = {}
+
 const SIZES = [
   ["desktop", { width: 1440, height: 900, deviceScaleFactor: 1 }],
   ["phone", { width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }],
@@ -128,6 +141,7 @@ for (const [label, vp] of SIZES) {
       return { lines: Math.round(h.getBoundingClientRect().height / lh), clipped: h.scrollHeight > h.clientHeight + 1, clamp: cs.webkitLineClamp, overflow: cs.overflow, ellipsis: cs.textOverflow }
     })
     expect(!!title && title.lines === 2 && title.clipped && title.clamp === "2", "the long title stops at two lines, the rest cut with an ellipsis", title)
+    productPills[label] = await p.evaluate(PILLS)
     const row = await p.evaluate(ROW("[data-product-card]"))
     expect(row.perRow === (phone ? 1 : 3) && row.heights.length === 1, `products: ${phone ? "one" : "three"} across, one height a row`, row)
     const rows = await p.evaluate(() => {
@@ -141,6 +155,16 @@ for (const [label, vp] of SIZES) {
     await p.evaluate(() => [...document.querySelectorAll("[data-product-title]")].find((x) => x.textContent.startsWith("CineTone"))?.closest("[data-product-card]")?.scrollIntoView({ block: "center" }))
     await sleep(300)
     await p.screenshot({ path: join(shots, `${label}-products-long-title.png`) })
+
+    /* The More pill's picker, for communities mode to match, before anything is picked. */
+    await p.evaluate(() => { document.querySelector("[data-more-pill]").scrollIntoView({ block: "center", inline: "end" }) })
+    await sleep(300)
+    await p.click("[data-more-pill]")
+    await sleep(600)
+    productPicker[label] = await p.evaluate(PICKER_ROWS)
+    if (phone) await p.evaluate(() => document.querySelector("[data-sheet-close]")?.click())
+    else await p.keyboard.press("Escape")
+    await sleep(500)
 
     /* The Categories control in the hero's field. */
     await p.evaluate(() => window.scrollTo(0, 0))
@@ -242,8 +266,10 @@ for (const [label, vp] of SIZES) {
     await p.screenshot({ path: join(shots, `${label}-communities-grid.png`) })
 
     /* A pill asks the server for that category. */
-    const pills = await p.evaluate(() => [...document.querySelectorAll("[data-category-pills-row] > button, [data-category-pills-row] > a")].map((b) => b.textContent.trim()))
-    expect(pills[0]?.includes("All") && !pills.some((t) => /For you|Communities/.test(t)) && pills.some((t) => /Design/.test(t)), "the row: All and the categories, no For you, no Communities pill", pills.slice(0, 5))
+    const pills = await p.evaluate(PILLS)
+    expect(JSON.stringify(pills) === JSON.stringify(productPills[label]), "the same pill row as products mode, pill for pill", { communities: pills, products: productPills[label] })
+    const on = await p.evaluate(() => { const c = document.querySelector("[data-communities-pill]"); return c ? { on: c.hasAttribute("data-on"), bg: getComputedStyle(c).backgroundColor, cross: !!c.querySelector("svg") } : null })
+    expect(!!on && on.on && on.bg === "rgb(226, 228, 232)" && on.cross, "the Communities pill stays in its place, pressed, with a cross to go back", on)
     await p.evaluate(() => [...document.querySelectorAll("[data-category-pills-row] > button")].find((b) => b.textContent.includes("Design")).click())
     await sleep(700)
     const after = await p.evaluate(() => ({ fetched: window.__fetches.slice(-1)[0], n: document.querySelectorAll("[data-explore-community]").length, names: [...document.querySelectorAll("[data-community-title]")].map((t) => t.textContent) }))
@@ -256,6 +282,42 @@ for (const [label, vp] of SIZES) {
     await sleep(700)
     const more = await p.evaluate(() => ({ n: document.querySelectorAll("[data-explore-community]").length, fetched: window.__fetches.slice(-1)[0], more: !!document.querySelector("[data-show-more]") }))
     expect(more.n === 9 && /cursor=cursor-1/.test(more.fetched) && !more.more, "Show more appends the next page by its cursor", more)
+    /* More: the same tree as products, and a subcategory narrows the category, or shows all of it and says so. */
+    const pickSub = async (group, item) => {
+      await p.evaluate(() => { document.querySelector("[data-more-pill]").scrollIntoView({ block: "center", inline: "end" }) })
+      await sleep(300)
+      await p.click("[data-more-pill]")
+      await sleep(600)
+      const rows = await p.evaluate(PICKER_ROWS)
+      const done = await p.evaluate(async (group, item) => {
+        const host = document.querySelector("[data-category-panel]") || document.querySelector("[data-app-sheet]")
+        const row = [...host.querySelectorAll("button")].find((b) => b.textContent.trim() === group)
+        row?.click()
+        await new Promise((r) => setTimeout(r, 600))
+        const sub = [...host.querySelectorAll("button")].find((b) => b.textContent.trim() === item)
+        sub?.click()
+        return !!row && !!sub
+      }, group, item)
+      await sleep(900)
+      const state = await p.evaluate(() => ({
+        fetched: window.__fetches.slice(-1)[0],
+        names: [...document.querySelectorAll("[data-community-title]")].map((t) => t.textContent.slice(0, 16)),
+        chip: document.querySelector("[data-subcategory-chip]")?.textContent.trim() ?? null,
+        note: document.querySelector("[data-communities-broadened]")?.textContent.trim() ?? null,
+        pressed: document.querySelector('[data-category-pills-row] [aria-pressed="true"]')?.textContent.trim() ?? null,
+      }))
+      return { rows, done, ...state }
+    }
+    const uiux = await pickSub("Design", "UI/UX Templates")
+    expect(JSON.stringify(uiux.rows) === JSON.stringify(productPicker[label]) && uiux.rows.includes("Freebies"), "More opens the products' picker, the whole tree", { communities: uiux.rows.slice(0, 16), products: (productPicker[label] || []).slice(0, 16) })
+    expect(uiux.done && uiux.fetched === "/api/explore/communities?c=design&sub=ui-ux&limit=24" && uiux.names.join() === "Design Systems G" && uiux.chip === "UI/UX Templates" && /Design/.test(uiux.pressed ?? "") && !uiux.note, "Design > UI/UX Templates asks for c=design&sub=ui-ux and shows the community about it, with its chip", uiux)
+    await p.screenshot({ path: join(shots, `${label}-communities-sub.png`) })
+    const sheets = await pickSub("Business", "Spreadsheets")
+    expect(sheets.done && sheets.fetched === "/api/explore/communities?c=business&sub=spreadsheets&limit=24" && sheets.names.join() === "Founders Weekly" && sheets.note === "No communities about Spreadsheets yet, so here is everything in Business.", "a subcategory nothing mentions: the whole category, and a line that says so", sheets)
+    await p.screenshot({ path: join(shots, `${label}-communities-sub-broadened.png`) })
+    await p.evaluate(() => [...document.querySelectorAll("[data-category-pills-row] > button")][0].click())
+    await sleep(700)
+
     if (phone) {
       const small = await p.evaluate(() => [...document.querySelectorAll("[data-category-pills-row] > button, [data-filters-button], [data-search-categories]")].map((b) => { const r = b.getBoundingClientRect(); return { t: b.textContent.trim().slice(0, 14), h: Math.round(r.height) } }).filter((x) => x.h < 36))
       expect(small.length === 0, "the row's controls are a thumb's size", small)
@@ -283,6 +345,10 @@ for (const [label, vp] of SIZES) {
     expect(searched.fetched === "/api/explore/communities?q=night&price=free&limit=24" && searched.names.join() === "Night Runner", "the search field asks for the word, with the price still on", searched)
     const side = await sideways(p)
     expect(side.doc <= side.win && errors.length === 0, "communities: nothing sideways, no errors", { side, errors })
+    await p.evaluate(() => document.querySelector("[data-communities-pill]").click())
+    await sleep(700)
+    const leave = await p.evaluate(() => ({ mode: document.querySelector("[data-discover-mode]")?.getAttribute("data-discover-mode") ?? null, products: document.querySelectorAll("[data-product-card]").length, pillOn: document.querySelector("[data-communities-pill]")?.hasAttribute("data-on") }))
+    expect(leave.mode === "products" && leave.pillOn === false, "pressing it again goes back to the products", leave)
     await p.close()
   }
 

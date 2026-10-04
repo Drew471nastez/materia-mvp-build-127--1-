@@ -24,6 +24,7 @@ import { slugify, slugWithSuffix, validSlug } from "../slug"
 import { audit } from "./audit"
 import { grantMembership } from "./membership"
 import { isUniqueViolation, missing, reasonOf, type Db } from "./db"
+import { communityIdForOldSlug } from "./slug-history"
 
 export interface CreateCommunityInput {
   creatorId: string
@@ -74,6 +75,11 @@ export async function createCommunity(db: Db, input: CreateCommunityInput): Prom
 
   let community: CommunityRow | null = null
   for (const slug of tries.slugs) {
+    /* Another community's old address stays theirs, so a link shared to it never opens this one (./slug-history.ts). */
+    if (await communityIdForOldSlug(db, slug)) {
+      if (tries.explicit) return { ok: false, error: "slug_taken" }
+      continue
+    }
     const { data, error } = await db
       .from("communities")
       .insert({

@@ -7,6 +7,7 @@ import { previewTokenFrom } from "@/lib/website-builder/preview-token"
 import { isApexHost } from "@/lib/custom-domains/hostname"
 import { quietAuthRefusals } from "@/lib/auth/quiet-refusals"
 import { onePageRoute } from "@/lib/onepage/host-route"
+import { COMMUNITY_PATH_HEADER } from "@/lib/communities/slug-move"
 import { oldAddressRedirect, resolveOnePageAddress, type OldAddressRedirect } from "@/lib/onepage/resolve-address"
 import { supabaseOnePageLookup } from "@/lib/onepage/address-lookup"
 import { createSiteGate } from "@/lib/site-password/proxy-gate"
@@ -700,13 +701,22 @@ const FRAME_RESERVED_FIRST_SEGMENT = new Set([
   "faq", "features", "help", "l", "legal", "library", "llms-full.txt", "llms.txt", "login", "member", "native-start",
   "onboarding", "onepage-preview", "p", "pricing", "privacy", "products", "purchase", "receipt",
   "register", "request", "reset-password", "sell", "signup", "site", "sitemap", "sitemap.xml", "sites", "store",
-  "store-builder", "terms", "u", "unsubscribe", "upgrade", "verify-email",
+  "store-builder", "terms", "u", "unsubscribe", "upgrade", "verify-email", "verify-id",
   "w", "website-builder", "welcome", "wishlist",
 ])
 
 export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl
   const host = request.headers.get("host") || ""
+
+  /*
+    A COMMUNITY PAGE IS TOLD ITS OWN ADDRESS. A layout is not given its path,
+    and the community's layout needs it to send an old address on to the new
+    one with the rest of the path and the query (lib/communities/slug-move.ts).
+    Written for every /community/ request, so whatever a visitor sends under
+    that name is replaced; no lookup, nothing else reads it.
+  */
+  if (pathname.startsWith("/community/")) request.headers.set(COMMUNITY_PATH_HEADER, `${pathname}${search}`)
 
   const bareHost = host.split(":")[0].toLowerCase()
 

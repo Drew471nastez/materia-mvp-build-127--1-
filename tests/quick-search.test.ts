@@ -6,7 +6,7 @@
  * what it was asked and answers from a small table, so the questions and the
  * shaping of the answers are both checked without a network.
  */
-import { CREATOR_LIMIT, PRODUCT_LIMIT, cleanTerm, matchCategories, quickSearch } from "../lib/nav/quick-search"
+import { CREATOR_LIMIT, PRODUCT_LIMIT, TOP_LIMIT, cleanTerm, matchCategories, quickSearch, relevance, topHits, viewAllHref } from "../lib/nav/quick-search"
 
 let passed = 0
 let failed = 0
@@ -40,6 +40,8 @@ function fakeClient(rows: Record<string, any[]>, profiles: any[] = []) {
         or(f: string, opts?: unknown) { call.or = f; call.opts = opts; return q },
         eq(k: string, v: unknown) { call.eq!.push([k, v]); return q },
         in(k: string, v: unknown[]) { call.in = [k, v]; return q },
+        /* A community's own tier products are left out (lib/communities/listing): the fake takes the filter and answers the same rows. */
+        is() { return q },
         limit(n: number) { call.limit = n; return q },
         then(resolve: (r: unknown) => void) {
           if (table === "profiles") return resolve({ data: profiles, error: null })
@@ -81,6 +83,24 @@ async function main() {
   const idle = fakeClient({})
   const none = await quickSearch(idle, " ,, ")
   check("no request for an empty word", idle.calls.length === 0 && none.products.length === 0)
+
+  console.log("\nThe header's five (round 8): products and communities together")
+  const header = fakeClient({ byText: [product("a", 1)] })
+  await quickSearch(header, "maria", { creators: false })
+  check("the header asks for no creator photos (it lists no creators)", !header.calls.some((c) => c.table === "profiles"))
+  check("relevance: starts with, then a word starts with, then has it, then found elsewhere", relevance("Editing presets", "e") === 0 && relevance("The Edit Book", "e") === 1 && relevance("Free pack", "e") === 2 && relevance("Pack", "e") === 3, [relevance("Editing presets", "e"), relevance("The Edit Book", "e"), relevance("Free pack", "e"), relevance("Pack", "e")])
+  const qp = (id: string, title: string) => ({ id, title, href: `/x/${id}?layout=discover`, thumb: null, creator: "Mara", price: "$9.00" })
+  const qc = (id: string, name: string) => ({ id, name, href: `/community/${id}`, logo: null, line: "12 members · Free" })
+  const top = topHits({
+    query: "e",
+    products: [qp("p1", "Lightroom pack"), qp("p2", "Editing presets"), qp("p3", "Sound effects"), qp("p4", "The Edit Book"), qp("p5", "Free pack"), qp("p6", "Ebook")],
+    communities: [qc("c1", "Editors Guild"), qc("c2", "Film club"), qc("c3", "Easy Runners")],
+  })
+  check("five at most", top.length === TOP_LIMIT && TOP_LIMIT === 5, top.length)
+  check("the most relevant first, products and communities interleaved within a rank", top.map((h) => h.id).join() === "c1,p2,c3,p6,p3", top.map((h) => `${h.kind}:${h.title}`))
+  check("a community row keeps its line and has no price", top[0].kind === "community" && top[0].line === "12 members · Free" && top[0].price === null && top[0].href === "/community/c1")
+  check("no communities (switched off): products only", topHits({ query: "e", products: [qp("p2", "Editing presets")] }).every((h) => h.kind === "product"))
+  check("View all keeps the mode being browsed", viewAllHref(" film grain ") === "/explore?q=film%20grain" && viewAllHref("e", "communities") === "/explore?type=communities&q=e")
 
   console.log(`\n${passed} passed, ${failed} failed\n`)
   if (failed > 0) process.exit(1)

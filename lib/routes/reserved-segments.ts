@@ -86,6 +86,8 @@ export const RESERVED_ROOT_SEGMENTS: readonly string[] = [
   "unsubscribe",
   "upgrade",
   "verify-email",
+  /* Verify ID on a phone, from the QR code setup shows on a computer (lib/payments/stripe/id-handoff.ts). */
+  "verify-id",
   "w",
   "website-builder",
   "welcome",

@@ -13,8 +13,9 @@
  *
  * IT RUNS INSIDE THE APP. The camera is the browser's own (getUserMedia),
  * which iOS's web view and Android's both give the app once the person says
- * yes, so nothing opens Safari or another app. Where there is no camera, or
- * the person says no, it says so and offers a photo from the library instead.
+ * yes, so nothing opens Safari or another app. Where the person said no, it
+ * says how to turn the camera on and tries again; there is no "use a photo"
+ * way round it (the owner, October 2026: the live camera, and that's all).
  *
  * WHAT LEAVES THE PHONE is the one JPEG of the card, cut to the frame with a
  * margin so all four corners are in it, at up to 2000px: sharp enough for
@@ -24,7 +25,7 @@
  */
 import * as React from "react"
 import { createPortal } from "react-dom"
-import { Camera, ImageUp, RotateCcw, X } from "lucide-react"
+import { Camera, RotateCcw, X } from "lucide-react"
 import { HINT_WORDS, STEADY_FRAMES, frameQuality, hintFor, toGray, type FrameHint } from "@/lib/payments/id-frame-quality"
 import { armAskSounds, playAskSound } from "@/lib/website-builder/ask-sounds"
 import { triggerHaptic } from "@/lib/native-bridge"
@@ -44,15 +45,15 @@ interface IdCameraProps {
   zIndex: number
   onPhoto: (photo: Blob) => void
   onClose: () => void
-  /** No camera, or the person would rather pick a photo they already have. */
-  onPickFile: () => void
+  /** Kept for older callers: the camera no longer offers a photo from the library. */
+  onPickFile?: () => void
   /** The back only: there is none (a passport). */
   onNoBack?: () => void
 }
 
 type Phase = "starting" | "live" | "review" | "denied" | "none"
 
-export function IdCamera({ open, side, zIndex, onPhoto, onClose, onPickFile, onNoBack }: IdCameraProps) {
+export function IdCamera({ open, side, zIndex, onPhoto, onClose, onNoBack }: IdCameraProps) {
   const video = React.useRef<HTMLVideoElement>(null)
   const frame = React.useRef<HTMLDivElement>(null)
   const stream = React.useRef<MediaStream | null>(null)
@@ -235,7 +236,7 @@ export function IdCamera({ open, side, zIndex, onPhoto, onClose, onPickFile, onN
           </span>
           <p className="mt-4 text-[17px] font-semibold">{phase === "denied" ? "Camera access is off" : "No camera here"}</p>
           <p className="mt-1.5 max-w-[320px] text-[14px] leading-5 text-white/70">
-            {phase === "denied" ? "Allow the camera for Storelib in your settings, or choose a photo of your ID you already have." : "Choose a photo or scan of your ID instead."}
+            {phase === "denied" ? "Allow the camera for Storelib in your phone's settings, then try again." : "Open setup on your phone to take the photo with its camera."}
           </p>
         </div>
       ) : (
@@ -286,10 +287,7 @@ export function IdCamera({ open, side, zIndex, onPhoto, onClose, onPickFile, onN
           </div>
         ) : (
           <div className="mx-auto flex max-w-[520px] items-center justify-between">
-            <button type="button" onClick={onPickFile} className="flex h-11 min-w-[88px] cursor-pointer items-center gap-1.5 rounded-full px-3 text-[13.5px] font-medium text-white/85 outline-none active:text-white">
-              <ImageUp className="h-4 w-4" />
-              Upload
-            </button>
+            <span className="min-w-[88px]" />
             {phase === "live" ? (
               <button
                 type="button"
@@ -302,8 +300,8 @@ export function IdCamera({ open, side, zIndex, onPhoto, onClose, onPickFile, onN
             ) : phase === "starting" ? (
               <span className="h-[72px] w-[72px]" />
             ) : (
-              <button type="button" onClick={onPickFile} className="flex h-12 cursor-pointer items-center justify-center rounded-xl bg-white px-6 text-[15px] font-semibold text-[#1a1a2e] outline-none">
-                Choose a photo
+              <button type="button" onClick={() => setPhase("starting")} className="flex h-12 cursor-pointer items-center justify-center rounded-xl bg-white px-6 text-[15px] font-semibold text-[#1a1a2e] outline-none">
+                Try again
               </button>
             )}
             {side === "back" && onNoBack ? (
@@ -330,5 +328,38 @@ export function armCameraSounds() {
     armAskSounds()
   } catch {
     /* no sound is fine */
+  }
+}
+
+/*
+ * A phone photo is often 4 to 8 MB and larger than Stripe's 8,000 by 8,000
+ * limit. Drawn again at most 2000px on its long side as a colour JPEG, it is
+ * a sharp, readable ID well inside every rule Stripe sets. A PDF is passed
+ * through untouched: it is only ever a proof of address, where Stripe takes
+ * one (an identity document may not be a PDF, and is refused before here).
+ */
+export async function shrinkPhoto(file: File): Promise<Blob> {
+  if (file.type === "application/pdf") return file
+  if (file.size < 2_500_000 && (file.type === "image/jpeg" || file.type === "image/png")) return file
+  const url = URL.createObjectURL(file)
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const i = new Image()
+      i.onload = () => resolve(i)
+      i.onerror = () => reject(new Error("unreadable"))
+      i.src = url
+    })
+    const scale = Math.min(1, 2000 / Math.max(img.naturalWidth, img.naturalHeight))
+    const canvas = document.createElement("canvas")
+    canvas.width = Math.round(img.naturalWidth * scale)
+    canvas.height = Math.round(img.naturalHeight * scale)
+    canvas.getContext("2d")?.drawImage(img, 0, 0, canvas.width, canvas.height)
+    for (const q of [0.88, 0.78, 0.68]) {
+      const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, "image/jpeg", q))
+      if (blob && blob.size < 3_800_000) return blob
+    }
+    throw new Error("too large")
+  } finally {
+    URL.revokeObjectURL(url)
   }
 }
