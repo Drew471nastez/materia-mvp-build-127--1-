@@ -372,8 +372,9 @@ check("the switch's table is made if it is missing, so the flag always exists", 
 console.log("\nThe switch, in the app")
 {
   const kinds = code("app/app/products/new/product-kinds.ts")
-  check("the New product question is the same three answers while it is off", /return physical \? \[\.\.\.KIND_OPTIONS, PHYSICAL_KIND_OPTION\] : KIND_OPTIONS/.test(kinds))
-  check("a physical product page asks the question again while it is off", /kind === "physical" && !\(await isPhysicalCommerceEnabled\(\)\)\) return <NewProductKindPage \/>/.test(code("app/app/products/new/page.tsx")))
+  /* The answers changed on purpose in round 5 (Membership left, Paid community joined behind its own switch); what stays is that physical is added only while this switch is on. */
+  check("the New product question has no physical answer while it is off", /const list: KindOption\[\] = \[\.\.\.KIND_OPTIONS\]\s*if \(physical\) list\.push\(PHYSICAL_KIND_OPTION\)/.test(kinds) && !/physical/.test(kinds.slice(kinds.indexOf("export const KIND_OPTIONS"), kinds.indexOf("export const PHYSICAL_KIND_OPTION"))))
+  check("a physical product page asks the question again while it is off", /kind === "physical" && !\(await isPhysicalCommerceEnabled\(\)\)\) return ask\(\)/.test(code("app/app/products/new/page.tsx")))
   check("the sidebar adds Inventory and Collections only while it is on", /if \(physicalCommerce\) \{\s*mainNavItems\.find\(\(item\) => item\.href === "\/app\/products"\)\?\.children\?\.unshift\(\{ href: "\/app\/inventory"/.test(code("components/app/sidebar.tsx")))
   const settings = code("components/app/settings-form-new.tsx")
   check("Settings shows the Shipping tab only while it is on", /TABS\.filter\(\(tab\) => tab\.id !== "shipping" \|\| physicalCommerce\)/.test(settings) && /activeTab === "shipping" && physicalCommerce && <ShippingSettings \/>/.test(settings))
