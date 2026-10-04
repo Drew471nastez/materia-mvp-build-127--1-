@@ -65,7 +65,7 @@ export interface ActionScheme {
   radius?: number | null
   hover?: string
   press?: string
-  quiet?: { background: string; hover: string; press: string; border: string; text: string; danger: string }
+  quiet?: { background: string; hover: string; press: string; border: string; text: string }
   dark?: boolean
 }
 
