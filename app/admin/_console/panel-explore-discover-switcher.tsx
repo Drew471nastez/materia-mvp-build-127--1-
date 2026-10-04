@@ -70,7 +70,7 @@ export function ExploreDiscoverModeSwitcherPanel() {
     <Panel
       id="explore-discover-mode-switcher"
       title="Discover headline pill switch"
-      meta="/explore — gray segmented control above “Discover” (Digital products / Communities)"
+      meta="/explore: gray control above “Discover” (Digital products / Communities), shown only while communities are on"
       action={
         enabled === null ? null : (
           <Button
@@ -91,8 +91,8 @@ export function ExploreDiscoverModeSwitcherPanel() {
           <div className="flex items-center justify-between gap-3">
             <p className="text-[13px] text-[#c9c9d1]">
               {enabled
-                ? "On: the pill-shaped switch sits above the headline. Catalogue choice is still remembered for 30 days."
-                : "Off (default): no pill above the headline. The violet rotating-word chip and its menu still work."}
+                ? "On: the pill-shaped switch sits above the headline while communities are switched on. Catalogue choice is still remembered for 30 days."
+                : "Off (default): no pill above the headline. The violet rotating-word chip and its menu still switch to Communities while communities are on."}
             </p>
             <Status value={enabled ? "ok" : null} label={enabled ? "On" : "Off"} />
           </div>

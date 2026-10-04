@@ -444,7 +444,7 @@ async function main() {
   const readme = read("supabase/sql/run-now/README.md")
   const row = readme.split("\n").find((l) => l.startsWith("| `86_push_notifications.sql` |")) ?? ""
   check("the README names it, with its lines and bytes", row.endsWith(`| ${sql.split("\n").length - 1} | ${Buffer.byteLength(sql).toLocaleString("en-US")} |`), row.slice(-30))
-  check("the check after has its column", /as p86_push_notifications;/.test(read("supabase/sql/run-now/99_check_after.sql")))
+  check("the check after has its column", /as p86_push_notifications[,;]/.test(read("supabase/sql/run-now/99_check_after.sql")))
   check("the built files and the admin's list carry it", read("supabase/sql/all-in-two/1_of_2_everything.sql").includes("-- part 86_push_notifications.sql") && /part: "86", file: "86_push_notifications\.sql"/.test(read("lib/admin/sql-parts.generated.ts")))
 
   console.log("\nCopy")

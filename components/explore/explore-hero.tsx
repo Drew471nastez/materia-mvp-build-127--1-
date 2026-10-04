@@ -245,11 +245,12 @@ export function ExploreHero({
   const searchPlaceholderProducts = narrow
     ? "Search products..."
     : "Search products, creators, topics..."
+  /* What the communities search really reads: a community's name and its line (lib/communities/server/explore.ts), not its creator. */
   const searchPlaceholderCommunities = narrow
     ? "Search communities..."
-    : "Search communities, creators, topics..."
+    : "Search communities by name or topic..."
   const searchAriaLabel = communities
-    ? "Search communities, creators and topics"
+    ? "Search communities by name or topic"
     : "Search products, creators and topics"
 
   /*
