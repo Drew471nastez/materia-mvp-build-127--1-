@@ -12,8 +12,9 @@
  * THE BAND RUNS EDGE TO EDGE, as a creator page's does: "the cover is full
  * bleed like creator pages (not a rounded card)". So this header is drawn
  * outside the page's column, and keeps a column of its own for the person
- * under the band. The band is the creator page's height (128px on a phone,
- * 192 and then 256 wider up). No "Joined" line under the name: the activity
+ * under the band. The band is 148px on a phone, 220 and then 294 wider up
+ * (lib/profile/cover.ts PROFILE_COVER_HEIGHTS, fifteen percent over the
+ * creator page's 128 / 192 / 256, as the owner asked of /account). No "Joined" line under the name: the activity
  * already ends on the day they joined, and the owner asked for it gone.
  *
  * The owner sees their own page with nothing to follow; on the band they
@@ -100,7 +101,7 @@ export function ProfileHero({
     <div className={className} data-profile-hero="">
       {/* The band, edge to edge, and the photo across its lower edge, as a creator page opens. */}
       <div className="relative w-full overflow-hidden bg-[#eceef1]" data-profile-cover={cover.url ? "image" : "plain"}>
-        <div className="relative h-[128px] sm:h-[192px] lg:h-[256px]" data-profile-cover-band="">
+        <div className="relative h-[148px] sm:h-[220px] lg:h-[294px]" data-profile-cover-band="">
           {cover.url ? (
             /* Fades in on the band's grey when the page is opened in the app, rather than landing in one frame. */
             <ProfileCoverImage src={optimizedImageUrl(cover.url, 1600)} style={coverCropStyle(cover.crop)} />
