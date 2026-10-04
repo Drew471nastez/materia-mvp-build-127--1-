@@ -10,8 +10,9 @@
  *                     tooltip on hover; it opens the category panel.
  *   THE HEADER FIELD  once the hero's field has gone under the header, the
  *                     header's field has the hero's corner, hairline,
- *                     background and depth, resting and focused, and is not
- *                     a pill; its height is the bar's (44px, not the hero's
+ *                     background and depth (round 10: the depth scaled to
+ *                     end inside the bar, so it is never cut at its edge),
+ *                     resting and focused, and is not a pill; its height is the bar's (44px, not the hero's
  *                     62), and the bar does not grow for it.
  *   THE HEADER ICON   the same grid icon at its right end, named
  *                     Categories, with the same tooltip; it opens the same
@@ -35,6 +36,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import puppeteer from "puppeteer-core"
 import { appCss, interFaces } from "./probe-css.mjs"
+import { cropPng } from "./probe-crop.mjs"
 
 const root = process.cwd()
 const CHROMIUM = process.env.CHROMIUM_PATH || "/opt/pw-browsers/chromium"
@@ -163,12 +165,40 @@ const shotTop = async (p, name, width, height) => {
   await p.screenshot({ path: join(shots, name), clip: { x: 0, y, width, height } })
 }
 
+/*
+  ROUND 10: NOTHING CUTS THE HERO FIELD'S DEPTH. No ancestor clips (overflow,
+  clip-path, paint containment) and nothing with a ground of its own is drawn
+  over the 20px of shadow under it or the 11px at its sides.
+*/
+const UNCUT = `(() => {
+  const input = document.querySelector("main form[role=search] input")
+  if (!input) return null
+  const r = input.getBoundingClientRect()
+  const clippers = []
+  for (let el = input.parentElement; el && el !== document.documentElement; el = el.parentElement) {
+    const cs = getComputedStyle(el)
+    if (cs.overflowX !== "visible" || cs.overflowY !== "visible" || cs.clipPath !== "none" || /paint|strict|content/.test(cs.contain)) clippers.push(el.tagName.toLowerCase() + "." + String(el.className).slice(0, 50))
+  }
+  const covers = []
+  const points = [[r.left + r.width / 2, r.bottom + 6], [r.left + r.width / 2, r.bottom + 16], [r.left + 24, r.bottom + 10], [r.right - 24, r.bottom + 10], [r.left - 5, r.top + r.height / 2], [r.right + 5, r.top + r.height / 2]]
+  for (const [x, y] of points) {
+    for (const el of document.elementsFromPoint(x, y)) {
+      if (el === document.body || el === document.documentElement || el.contains(input)) break
+      const bg = getComputedStyle(el).backgroundColor
+      if (bg !== "rgba(0, 0, 0, 0)" && bg !== "transparent") { covers.push(el.tagName.toLowerCase() + "." + String(el.className).slice(0, 50) + " " + bg); break }
+    }
+  }
+  return { clippers, covers }
+})()`
+
 console.log("\ncomputer: the hero's field")
 {
   const p = await open(WIDE)
   const icon = await p.evaluate(ICON("[data-search-categories]"))
   expect(!!icon && icon.text === "" && icon.svg && icon.label === "Categories", "an icon alone, named Categories", icon)
   expect(!!icon && icon.w === icon.h && icon.h === 44, "a 44px square", icon && { w: icon.w, h: icon.h })
+  const uncut = await p.evaluate(UNCUT)
+  expect(!!uncut && uncut.clippers.length === 0 && uncut.covers.length === 0, "ROUND 10: nothing clips or covers the field's depth", uncut)
   await p.hover("[data-search-categories]")
   await sleep(700)
   const tip = await p.evaluate(() => (document.querySelector("[data-categories-tooltip]") ? document.querySelector("[role=tooltip]")?.textContent.trim() : null) ?? null)
@@ -203,7 +233,17 @@ console.log("\ncomputer: the header's field, after scrolling past the hero")
   const head = await p.evaluate(LOOK(HEAD))
   expect(!!head && head.shown, "scrolled past the hero, the header shows its field", head && { shown: head.shown })
   expect(!!head && head.radius === hero.radius && head.radius === "10px 10px", "the same 10px corner, not a pill", { hero: hero.radius, header: head?.radius })
-  expect(!!head && head.shadow === hero.shadow, "the same depth (box-shadow)", { hero: hero.shadow, header: head?.shadow })
+  /*
+    ROUND 10: THE SAME LIGHT, SIZED TO THE BAR. The hero's depth reaches 20px
+    under its field; the header's field ends 13px above the bar's foot, and
+    the same shadow ran over the bar's hairline onto the page and read as cut
+    off. In the bar it is scaled to end inside it (lib/explore/search-field-look).
+  */
+  const reach = (shadow) => Math.max(0, ...shadow.split(/,(?![^(]*\))/).map((one) => { const n = one.replace(/rgba?\([^)]*\)/, "").trim().split(/\s+/).map(parseFloat); return (n[1] || 0) + (n[2] || 0) + (n[3] || 0) }))
+  const barFoot = await p.evaluate(() => document.getElementById("platform-header-root").getBoundingClientRect().bottom)
+  const room = barFoot - (head.top + head.height)
+  expect(!!head && reach(head.shadow) <= room - 1 && reach(hero.shadow) === 20, "the bar's depth ends inside the bar (the hero's reaches 20px)", { headerReach: reach(head.shadow), room: Math.round(room), heroReach: reach(hero.shadow), header: head?.shadow })
+  expect(!!head && /rgba\(15, 23, 42/.test(head.shadow) && head.shadow.split(/,(?![^(]*\))/).length === hero.shadow.split(/,(?![^(]*\))/).length, "the same two layers, the same ink", { hero: hero.shadow, header: head?.shadow })
   expect(!!head && head.border === hero.border && head.bg === hero.bg, "the same hairline and ground", { hero: [hero.border, hero.bg], header: head && [head.border, head.bg] })
   expect(!!head && head.height === 44 && hero.height === 62, "height: 44px in the bar, 62 under the heading (the bar's buttons are 42)", { hero: hero.height, header: head?.height })
   const barScrolled = await headerH(p)
@@ -217,6 +257,13 @@ console.log("\ncomputer: the header's field, after scrolling past the hero")
   const iconPaths = await p.evaluate(() => [document.querySelector("[data-search-categories] svg"), document.querySelector("[data-header-search-categories] svg")].map((s) => s?.innerHTML))
   expect(iconPaths[0] && iconPaths[0] === iconPaths[1], "the very same icon as the hero's")
   await shotTop(p, "desktop-header-field.png", 1440, 120)
+  /* Close looks, four times: the field's foot against the bar's edge, and the icon. */
+  {
+    const full = join(shots, "desktop-header-full.png")
+    await p.screenshot({ path: full, captureBeyondViewport: false })
+    await cropPng(browser, full, join(shots, "desktop-header-field-foot.png"), { x: head.right - 640, y: 0, width: 640, height: Math.round(barFoot) + 24 }, 2)
+    await cropPng(browser, full, join(shots, "desktop-header-icon.png"), { x: icon.right - 48, y: head.top - 4, width: 52, height: head.height + 8 }, 6)
+  }
 
   await p.hover("[data-header-search-categories]")
   await sleep(700)
@@ -271,7 +318,7 @@ console.log("\ncomputer: the header's field with its search results open")
   await p.focus(HERO)
   await settle(500)
   const heroFocused = await p.evaluate(LOOK(HERO))
-  expect(focused.shadow === heroFocused.shadow && focused.border === heroFocused.border, "focused, the same hairline and shadow too", { hero: [heroFocused.border, heroFocused.shadow], header: [focused.border, focused.shadow] })
+  expect(focused.border === heroFocused.border && focused.shadow !== heroFocused.shadow, "focused, the same darker hairline; the bar's deeper shadow is its own size", { hero: [heroFocused.border, heroFocused.shadow], header: [focused.border, focused.shadow] })
   expect(p.__errors.length === 0, "no errors", p.__errors.slice(0, 3))
   await p.close()
 }
@@ -310,6 +357,8 @@ console.log("\nphone")
   await settle(400)
   const heroIcon = await p.evaluate(ICON("[data-search-categories]"))
   expect(!!heroIcon && heroIcon.w === 40 && heroIcon.h === 40 && heroIcon.text === "", "the hero's icon is a 40px square on a phone", heroIcon)
+  const uncutPhone = await p.evaluate(UNCUT)
+  expect(!!uncutPhone && uncutPhone.clippers.length === 0 && uncutPhone.covers.length === 0, "ROUND 10: on a phone too, nothing clips or covers the field's depth", uncutPhone)
   await p.tap("[data-search-categories]")
   await sleep(700)
   expect(await p.evaluate(() => !!document.querySelector("[data-category-sheet]")), "and opens the sheet")

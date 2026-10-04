@@ -10,12 +10,15 @@
  * the search word, the order and the price the page hands in here.
  *
  * The first page usually came with the page: /explore?type=communities draws
- * it on the server, and the query it was drawn for travels with it. While
- * the choices still describe that page nothing is fetched. A different pill,
- * word, order or price asks GET /api/explore/communities for a new first
- * page; the answer to a question that has since been replaced is dropped
- * (an aborted request), so tapping through the pills quickly never lands on
- * an older list. "Show more" asks for the next page by its cursor.
+ * it on the server, and the query it was drawn for travels with it. Every
+ * answer is kept per question (lib/explore/communities-cache), so a pill seen
+ * before draws at once from memory, a press starts the request before the
+ * tap lands, the pills beside the current one are warmed while the page is
+ * idle, and an answer to a question that has since been replaced is kept
+ * for later but never drawn, so tapping through the pills quickly never
+ * lands on an older list. While a new question is on its way the previous
+ * grid stays (a step quieter); a skeleton only when there was never a grid.
+ * "Show more" asks for the next page by its cursor.
  *
  * A SUBCATEGORY from the More picker travels as `sub` beside its category.
  * Communities store a category and never a subcategory, so the server
@@ -26,8 +29,12 @@
  * list are asked for without the subcategory.
  */
 import * as React from "react"
+import { cn } from "@/lib/utils"
 import type { CommunityCard } from "@/lib/communities/types"
 import { communitiesQuery } from "@/lib/explore/communities-mode"
+import { cachedCommunities, COMMUNITIES_PAGE, loadCommunities, prefetchCommunities, seedCommunities, type CommunitiesPage } from "@/lib/explore/communities-cache"
+import { prefetchBudget, whenIdle } from "@/lib/explore/prefetch-budget"
+import { useProgressiveCount } from "@/lib/explore/use-progressive-count"
 import { ProductCardSkeleton } from "./product-card-skeleton"
 import { ExploreCommunityGrid } from "./community-card"
 
@@ -40,8 +47,6 @@ export interface CommunitiesFirstPage {
   broadened?: boolean
 }
 
-const PAGE = 24
-
 export function ExploreCommunitiesResults({
   initial,
   q,
@@ -53,6 +58,7 @@ export function ExploreCommunitiesResults({
   categoryLabel,
   onClearFilters,
   filtersOn,
+  ahead = [],
 }: {
   initial: CommunitiesFirstPage | null
   q: string
@@ -66,66 +72,103 @@ export function ExploreCommunitiesResults({
   categoryLabel: string | null
   onClearFilters: () => void
   filtersOn: boolean
+  /** The questions likely to be asked next (the pills beside this one), most likely first: warmed on idle, within the device's budget. */
+  ahead?: string[]
 }) {
   const query = communitiesQuery({ q, category, sub, srt, price })
-  const fresh = initial && initial.query === query ? initial : null
-  const [items, setItems] = React.useState<CommunityCard[] | null>(fresh ? fresh.items : null)
-  const [next, setNext] = React.useState<string | null>(fresh ? fresh.next : null)
-  const [broadened, setBroadened] = React.useState(fresh?.broadened === true)
+  /* The server's first page is kept as if it had been asked for, before the first render reads the cache. */
+  if (initial) seedCommunities(initial.query, { items: initial.items, next: initial.next, broadened: initial.broadened === true })
+  /*
+    WHAT IS ON SCREEN AND WHICH QUESTION IT ANSWERS. While a new question is
+    on its way the previous answer stays (dimmed a little, only if the wait
+    is long enough to notice); a skeleton is drawn only when there has never
+    been anything to show.
+  */
+  const [shown, setShown] = React.useState<(CommunitiesPage & { query: string }) | null>(() => {
+    const hit = cachedCommunities(query)
+    return hit ? { query, items: hit.items, next: hit.next, broadened: hit.broadened } : null
+  })
   const [loading, setLoading] = React.useState(false)
   const [failed, setFailed] = React.useState(false)
-  const [loadedFor, setLoadedFor] = React.useState<string | null>(fresh ? query : null)
-  /* A new list is a new question; the request for the old one is cancelled. */
   React.useEffect(() => {
-    if (loadedFor === query) return
-    if (initial && initial.query === query) {
-      setItems(initial.items)
-      setNext(initial.next)
-      setBroadened(initial.broadened === true)
-      setLoadedFor(query)
+    let live = true
+    const hit = cachedCommunities(query)
+    if (hit) {
+      setShown({ query, items: hit.items, next: hit.next, broadened: hit.broadened })
       setFailed(false)
-      return
+      if (!hit.stale) return
     }
-    const ctrl = new AbortController()
-    setItems(null)
-    setFailed(false)
-    fetch(`/api/explore/communities?${query}${query ? "&" : ""}limit=${PAGE}`, { signal: ctrl.signal })
-      .then(async (res) => {
-        if (!res.ok) throw new Error(String(res.status))
-        const body = (await res.json()) as { items: CommunityCard[]; next: string | null; broadened?: boolean }
-        setItems(body.items)
-        setNext(body.next)
-        setBroadened(body.broadened === true)
-        setLoadedFor(query)
-      })
-      .catch((e: unknown) => {
-        if ((e as { name?: string })?.name === "AbortError") return
-        setItems([])
-        setNext(null)
-        setBroadened(false)
+    loadCommunities(query).then(
+      (page) => {
+        if (!live) return
+        setShown({ query, ...page })
+        setFailed(false)
+      },
+      () => {
+        if (!live || hit) return
+        setShown({ query, items: [], next: null, broadened: false })
         setFailed(true)
-        setLoadedFor(query)
-      })
-    return () => ctrl.abort()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+      },
+    )
+    return () => {
+      live = false
+    }
   }, [query])
 
+  /* The next likely questions, once this one is answered and the page is idle, one at a time. */
+  const aheadKey = ahead.join("|")
+  const settled = shown?.query === query
+  React.useEffect(() => {
+    if (!settled) return
+    const budget = prefetchBudget()
+    const queue = ahead.filter((a) => a !== query).slice(0, budget)
+    if (!queue.length) return
+    let stopped = false
+    let cancel = () => {}
+    const step = () => {
+      const next = queue.shift()
+      if (stopped || next === undefined) return
+      cancel = whenIdle(() => {
+        void prefetchCommunities(next).then(step)
+      })
+    }
+    step()
+    return () => {
+      stopped = true
+      cancel()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settled, query, aheadKey])
+
+  const items = shown ? shown.items : null
+  const next = shown ? shown.next : null
+  const broadened = shown?.broadened === true
+  const pending = !!shown && shown.query !== query
+  /* A new list draws its first two rows first, the rest straight after (lib/explore/use-progressive-count). */
+  const count = useProgressiveCount(shown?.query ?? "", items?.length ?? 0)
+  /*
+    THE CARDS ARE NOT DRAWN AGAIN FOR A TAP THAT DOES NOT CHANGE THEM. The
+    tap's own render (the pill turning pressed) reaches this component with a
+    new `ahead` list and the same cards; drawing twenty four cards again there
+    is what made the pill late on a slow phone.
+  */
+  const grid = React.useMemo(() => (items && items.length ? <ExploreCommunityGrid cards={count < items.length ? items.slice(0, count) : items} priorityCount={1} /> : null), [items, count])
+
   const more = async () => {
-    if (!next || loading) return
+    if (!next || loading || pending) return
     setLoading(true)
     setFailed(false)
     try {
       /* A broadened list goes on as the whole category: the next page is asked for without the subcategory. */
       const pageQuery = broadened ? communitiesQuery({ q, category, srt, price }) : query
-      const res = await fetch(`/api/explore/communities?${pageQuery}${pageQuery ? "&" : ""}limit=${PAGE}&cursor=${encodeURIComponent(next)}`)
+      const res = await fetch(`/api/explore/communities?${pageQuery}${pageQuery ? "&" : ""}limit=${COMMUNITIES_PAGE}&cursor=${encodeURIComponent(next)}`)
       if (!res.ok) throw new Error(String(res.status))
       const body = (await res.json()) as { items: CommunityCard[]; next: string | null }
-      setItems((list) => {
-        const have = list ?? []
-        const seen = new Set(have.map((c) => c.id))
-        return [...have, ...body.items.filter((c) => !seen.has(c.id))]
+      setShown((was) => {
+        if (!was || was.query !== query) return was
+        const seen = new Set(was.items.map((c) => c.id))
+        return { ...was, items: [...was.items, ...body.items.filter((c) => !seen.has(c.id))], next: body.next }
       })
-      setNext(body.next)
     } catch {
       setFailed(true)
     } finally {
@@ -141,6 +184,11 @@ export function ExploreCommunitiesResults({
         ))}
       </div>
     )
+  }
+
+  if (items.length === 0 && pending) {
+    /* Nothing was found for the last question and the next is on its way: hold the room, say nothing about a list that is about to change. */
+    return <div className="min-h-[60svh]" data-communities-results="" data-communities-pending="" aria-busy="true" />
   }
 
   if (items.length === 0) {
@@ -167,19 +215,30 @@ export function ExploreCommunitiesResults({
   }
 
   return (
-    <div data-communities-results="">
+    <div
+      data-communities-results=""
+      data-communities-pending={pending ? "" : undefined}
+      aria-busy={pending || undefined}
+      /*
+        The previous answer while the next is on its way: still there, still
+        readable, a step quieter, and only after 160ms, so an answer from
+        memory or a quick network never dims anything. Opacity alone, on the
+        compositor.
+      */
+      className={cn("transition-opacity motion-reduce:transition-none", pending ? "opacity-60 delay-150 duration-200" : "opacity-100 duration-150")}
+    >
       {broadened && subLabel && categoryLabel ? (
         <p className="-mt-1 mb-4 text-[14px] leading-5 text-neutral-500" data-communities-broadened="">
           No communities about {subLabel} yet, so here is everything in {categoryLabel}.
         </p>
       ) : null}
-      <ExploreCommunityGrid cards={items} />
+      {grid}
       {next ? (
         <div className="mt-8 flex flex-col items-center gap-2">
           <button
             type="button"
             onClick={more}
-            disabled={loading}
+            disabled={loading || pending}
             data-show-more=""
             className="inline-flex h-11 cursor-pointer items-center justify-center rounded-full bg-neutral-100 px-6 text-sm font-medium text-neutral-700 outline-none transition-colors hover:bg-neutral-200 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 disabled:cursor-default disabled:opacity-60"
           >

@@ -109,7 +109,8 @@ function main() {
   check("a sort choice moves the circled check, and no row's weight changes", /<CheckDisc on=\{on\} \/>/.test(filters) && !/on && "font-medium"/.test(filters) && !/\bTick\b/.test(filters))
   check("the phone's button hands its close to the sheet, which moves before the page re-renders", /data-filters-done=""\s*data-sheet-close=""/.test(filters) && !/data-filters-done=""\s*onClick=/.test(filters))
   check("the Active: row under the pills is gone", !/>\s*Active:\s*</.test(page))
-  check("For you keeps its own order", /mainCategory === FOR_YOU_ID && !searching \? "for-you"/.test(page))
+  /* Round 10: the grid reads the deferred category (the pill answers first, the grid a beat behind). */
+  check("For you keeps its own order", /gridCategory === FOR_YOU_ID && !searching \? "for-you"/.test(page))
 
   /*
     ROUND 3: the owner moved the header's hamburger to the navigator (my

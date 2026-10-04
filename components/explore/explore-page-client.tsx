@@ -7,10 +7,12 @@ import { FeaturedBannerCarousel } from "./featured-banner-carousel"
 import { ExploreHero, type DiscoverMode } from "./explore-hero"
 import { writeDiscoverModeCookie } from "@/lib/explore/discover-mode-cookie"
 import { ProductCard } from "./product-card"
-import { ExploreCommunityGrid } from "./community-card"
+import { ExploreCommunityGrid, GRID_SIZES } from "./community-card"
 import { ExploreCommunitiesResults, type CommunitiesFirstPage } from "./explore-communities-results"
 import type { CommunityCard } from "@/lib/communities/types"
-import { COMMUNITY_PRICE_FILTERS, COMMUNITY_SORT_OPTIONS, EXPLORE_COMMUNITIES_HREF } from "@/lib/explore/communities-mode"
+import { COMMUNITY_PRICE_FILTERS, COMMUNITY_SORT_OPTIONS, EXPLORE_COMMUNITIES_HREF, communitiesQuery } from "@/lib/explore/communities-mode"
+import { prefetchCommunities } from "@/lib/explore/communities-cache"
+import { prefetchBudget, whenIdle } from "@/lib/explore/prefetch-budget"
 import { useEntranceOnChange } from "@/lib/ui/use-entrance-on-change"
 import { ProductCardSkeleton } from "./product-card-skeleton"
 import { Layers, Sparkles, Zap, Share2, Bot, SlidersHorizontal, ChevronLeft, ChevronRight, Briefcase, Megaphone, ArrowRight, Music, Camera, Video, ShoppingBag, GraduationCap, Code } from "lucide-react"
@@ -23,6 +25,8 @@ import { hasCategoryPage, showAllLabel as showAllProductsLabel } from "@/lib/exp
 import { normalizeCategoryToId as normalizeCategory } from "@/lib/marketplace/categories"
 import { matchesSubcategory, subcategoryTerms } from "@/lib/explore/subcategory-match"
 import { useExploreScrollRestore, useExploreScrollRestoring } from "@/lib/explore/use-explore-scroll"
+import { exploreCategoryFrom } from "@/lib/explore/explore-address"
+import { useProgressiveCount } from "@/lib/explore/use-progressive-count"
 
 // Categories with icons and subcategories - Extended list
 const CATEGORIES = [
@@ -387,6 +391,32 @@ export function ExplorePageClient({
   const searchParams = useSearchParams()
   const [isPending, startTransition] = useTransition()
 
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     A PILL REWRITES THE ADDRESS; IT DOES NOT ASK THE SERVER FOR THE PAGE
+    ═══════════════════════════════════════════════════════════════════════
+    Every pill, mode and subcategory change used to end in router.replace,
+    and this route is force-dynamic: each tap re-ran the whole page on the
+    server (the switches, the visitor, a hundred products, their creators)
+    and streamed it back, a full request on a slow phone for a list that was
+    already on screen, filtered where it sits. On Slow 3G that answer landed
+    seconds after the tap and redrew the page under the visitor.
+
+    The address still says what you are looking at (shareable, and what
+    Back and a reload come back to); it is written in place with the
+    history API, which Next keeps in step with useSearchParams, so nothing
+    is fetched. The category is read back out of the address below
+    (lib/explore/explore-address), not out of the prop the server first
+    drew, which no longer follows the taps.
+  */
+  const replaceAddress = useCallback((href: string) => {
+    try {
+      window.history.replaceState(null, "", href)
+    } catch {
+      router.replace(href, { scroll: false })
+    }
+  }, [router])
+
   /* Set from the switcher in the hero's chip, and written to the address as
      ?type=communities so Back from a community lands on communities. */
   /* Only while communities are switched on (lib/explore/communities-mode discoverModeFor): off, an old link or cookie asking for them gets the products. */
@@ -407,7 +437,8 @@ export function ExplorePageClient({
     their own. An address that names a category still wins.
   */
   const [mainCategory, setMainCategory] = useState(() => {
-    const fromUrl = initialCategory.toLowerCase() || "all"
+    /* The address, which is the server's own reading on arrival and stays right after a pill rewrote it in place. */
+    const fromUrl = exploreCategoryFrom(searchParams)
     return fromUrl === "all" && interests.enough && !communities ? FOR_YOU_ID : fromUrl
   })
 
@@ -515,6 +546,20 @@ export function ExplorePageClient({
     return initialProducts.filter(p => p.thumbnail_url).slice(0, 5)
   }, [initialProducts])
 
+  /*
+    THE PILL ANSWERS IN THE TAP'S FRAME; THE GRID FOLLOWS A BEAT BEHIND IT.
+    Drawing twenty-four new cards is the expensive part of a pill tap, and
+    done at the tap's own priority the pressed pill waited for the grid: on
+    a slow phone (4x CPU) that was the "nothing happened" moment before
+    everything changed at once. With the category deferred the pill turns
+    and the page starts its scroll at once, React draws the new grid in the
+    background (interrupted, not queued, by another tap), and the previous
+    grid stays on screen until the new one is ready. Never a skeleton: the
+    products are already here.
+  */
+  const gridCategory = useDeferredValue(mainCategory)
+  const gridSub = useDeferredValue(selectedSubcategoryId)
+
   // Get Recommended section products (based on main category and subcategory)
   const recommendedProducts = useMemo(() => {
     /* Every product, memberships included: communities are their own rows now (ExploreCommunitiesResults), not membership products. */
@@ -537,7 +582,7 @@ export function ExplorePageClient({
     /* Declared before the branches below so they can stand down. */
     if (searching) {
       /* nothing: a search is not scoped to a category */
-    } else if (mainCategory === FOR_YOU_ID) {
+    } else if (gridCategory === FOR_YOU_ID) {
       const owned = new Set(interests.ownedProductIds)
       products = products
         .filter((p) => !owned.has(p.id))
@@ -546,19 +591,19 @@ export function ExplorePageClient({
         .map(({ p }) => p)
     }
     // Special handling for "freebies" category - show free products
-    else if (mainCategory === "freebies") {
+    else if (gridCategory === "freebies") {
       products = products.filter(p => p.price_cents === 0)
     }
     // For all other categories (including "other"): strictly filter by normalized DB category
-    else if (mainCategory !== "all") {
+    else if (gridCategory !== "all") {
       products = products.filter(p => {
         // Primary: match via normalized DB category field
         const normalizedCategory = normalizeCategoryToId(p.category || p.categoryName || "")
-        if (normalizedCategory === mainCategory) return true
+        if (normalizedCategory === gridCategory) return true
 
         // Secondary: match via creator niche tags
         const creatorTags = p.creator?.niche_tags?.map((t: string) => normalizeCategoryToId(t)) || []
-        if (creatorTags.includes(mainCategory)) return true
+        if (creatorTags.includes(gridCategory)) return true
 
         return false
       })
@@ -569,9 +614,9 @@ export function ExplorePageClient({
        read `subcategory` and `tags`, which the route never selects, and
        looked for the slug itself in the text, so most subcategories came
        back empty. The category page uses the same rule. */
-    if (selectedSubcategoryId) {
-      const subDef = CATEGORIES.flatMap((c) => c.subcategories as readonly { id: string; label: string }[]).find((x) => x.id === selectedSubcategoryId)
-      const terms = subcategoryTerms(selectedSubcategoryId, subDef?.label ?? selectedSubcategoryId)
+    if (gridSub) {
+      const subDef = CATEGORIES.flatMap((c) => c.subcategories as readonly { id: string; label: string }[]).find((x) => x.id === gridSub)
+      const terms = subcategoryTerms(gridSub, subDef?.label ?? gridSub)
       products = products.filter((p) => matchesSubcategory(p, terms))
     }
 
@@ -615,7 +660,7 @@ export function ExplorePageClient({
       by general quality, which quietly undid the interest ranking above it:
       For you came out in the same order as All. Its order is the point of it.
     */
-    const ranking = mainCategory === FOR_YOU_ID && !searching ? "for-you" : recommendationFilter
+    const ranking = gridCategory === FOR_YOU_ID && !searching ? "for-you" : recommendationFilter
 
     // Apply recommendation filter with smart sorting algorithms
     switch (ranking) {
@@ -718,7 +763,7 @@ export function ExplorePageClient({
     }
 
     return products
-  }, [initialProducts, mainCategory, selectedSubcategoryId, recommendationFilter, deferredPrice, deferredSort, localSearchQuery, interests])
+  }, [initialProducts, gridCategory, gridSub, recommendationFilter, deferredPrice, deferredSort, localSearchQuery, interests])
 
   // Paginated products
   const paginatedProducts = useMemo(() => {
@@ -752,11 +797,13 @@ export function ExplorePageClient({
     nothing animates; anything different afterwards is a change the visitor
     made while looking at it.
   */
-  const productsGridToken = `${mode}-${mainCategory}-${selectedSubcategoryId}-${recommendationFilter}-${deferredPrice}-${deferredSort}-${currentPage}`
+  const productsGridToken = `${mode}-${gridCategory}-${gridSub}-${recommendationFilter}-${deferredPrice}-${deferredSort}-${currentPage}`
   const productsGridEntrance = useEntranceOnChange(
     productsGridToken,
     "animate-in fade-in-0 slide-in-from-bottom-2 duration-300",
   )
+  /* A changed grid draws its first two rows in the tap's render and the rest straight after (lib/explore/use-progressive-count). */
+  const productsShown = useProgressiveCount(productsGridToken, paginatedProducts.length)
   const browseGridEntrance = useEntranceOnChange(browseCategory, "animate-in fade-in-0 duration-200")
   const searchGridEntrance = useEntranceOnChange(urlSearchQuery || "", "animate-in fade-in-0 duration-200")
 
@@ -823,9 +870,9 @@ export function ExplorePageClient({
     categoryChangeTimeoutRef.current = setTimeout(() => {
       let href = exploreHref("all", DEFAULT_SORT, next)
       if (urlSearchQuery) href += `&q=${encodeURIComponent(urlSearchQuery)}`
-      router.replace(href, { scroll: false })
+      replaceAddress(href)
     }, 250)
-  }, [interests.enough, exploreHref, urlSearchQuery, router])
+  }, [interests.enough, exploreHref, urlSearchQuery, replaceAddress])
 
   const goToPage = useCallback((page: number) => {
     const next = Math.max(1, Math.min(totalPages, page))
@@ -936,9 +983,9 @@ export function ExplorePageClient({
       let newUrl = exploreHref(categoryId)
       if (subcategoryId) newUrl += `&sub=${subcategoryId}`
       if (urlSearchQuery) newUrl += `&q=${urlSearchQuery}`
-      router.replace(newUrl, { scroll: false })
+      replaceAddress(newUrl)
     }, 250)
-  }, [router, urlSearchQuery, exploreHref])
+  }, [replaceAddress, urlSearchQuery, exploreHref])
 
   // Handle subcategory selection from modal
   const handleSubcategorySelect = useCallback((categoryId: string, subcategoryId: string, subcategoryLabel: string) => {
@@ -1031,7 +1078,8 @@ export function ExplorePageClient({
   }, [])
 
   useEffect(() => {
-    const raw = initialCategory.toLowerCase() || "all"
+    /* From the address itself: a pill rewrites it in place, and the server's `initialCategory` is what the page was first drawn with. */
+    const raw = exploreCategoryFrom(searchParams)
     /* The address has no word for For you: it is the absence of a category,
        same as All. Which of the two that means depends on the account. */
     const normalizedCategory = raw === "all" && interests.enough && !communities ? FOR_YOU_ID : raw
@@ -1072,6 +1120,39 @@ export function ExplorePageClient({
 
   /* A category chosen from More that has no pill of its own: the More pill holds it. */
   const rowPills = [communities ? { id: "all", label: "All" } : { id: pillRow.first.id, label: pillRow.first.label }, ...pillRow.pills]
+
+  /*
+    THE NEXT LIKELY PILLS, IN COMMUNITIES MODE, where a pill is a request.
+    The ones beside the current pill first (the next, then the previous, then
+    one further each way), each as the exact question its tap would ask, so a
+    warmed answer is the one the tap finds. How many of them are actually
+    fetched is the device's and the network's call (lib/explore/prefetch-budget).
+  */
+  const communitiesQ = (localSearchQuery.trim() || urlSearchQuery || "").trim()
+  const communitiesQueryFor = (categoryId: string) => communitiesQuery({ q: communitiesQ, category: categoryId, srt: deferredSort, price: deferredPrice })
+  const pillIds = rowPills.map((p) => p.id).join("|")
+  const communitiesAhead = useMemo(() => {
+    if (!communities) return []
+    const ids = pillIds.split("|")
+    const at = Math.max(0, ids.indexOf(mainCategory))
+    const order: string[] = []
+    for (let d = 1; d < ids.length; d++) {
+      if (ids[at + d]) order.push(ids[at + d])
+      if (ids[at - d]) order.push(ids[at - d])
+    }
+    return order.map((id) => communitiesQuery({ q: communitiesQ, category: id, srt: deferredSort, price: deferredPrice }))
+  }, [communities, pillIds, mainCategory, communitiesQ, deferredSort, deferredPrice])
+
+  /*
+    AND THE WAY INTO COMMUNITIES, FROM PRODUCTS. Switching mode in the hero
+    starts communities on All with the default order, so that first page is
+    warmed once the products page is idle (not on Data Saver or 2G), and the
+    switch draws from memory instead of a skeleton.
+  */
+  useEffect(() => {
+    if (communities || !communitiesEnabled || prefetchBudget() < 2) return
+    return whenIdle(() => void prefetchCommunities(communitiesQuery({ q: communitiesQ })), 2500)
+  }, [communities, communitiesEnabled, communitiesQ])
   /* The picker's first row, the row's first pill: All categories, or For you for an account we know something about (never in communities mode). */
   const pickerAllRow = communities || pillRow.first.id !== FOR_YOU_ID ? { id: "all", label: "All categories" } : { id: pillRow.first.id, label: pillRow.first.label }
   const pickCategory = (groupId: string, itemId?: string | null) => {
@@ -1215,6 +1296,9 @@ export function ExplorePageClient({
                     <button
                       key={cat.id}
                       aria-pressed={isSelected}
+                      /* A press (or a hover with a mouse) starts the request the tap is about to make, a hundred milliseconds or so before the click. */
+                      onPointerDown={communities && !isSelected ? () => void prefetchCommunities(communitiesQueryFor(cat.id)) : undefined}
+                      onPointerEnter={communities && !isSelected ? (e) => { if (e.pointerType === "mouse") void prefetchCommunities(communitiesQueryFor(cat.id)) } : undefined}
                       onClick={() => {
                         setMainCategory(cat.id)
                         setSelectedSubcategoryId(null)
@@ -1225,7 +1309,7 @@ export function ExplorePageClient({
                            handleCategorySelect: a tap is not a page. */
                         if (categoryChangeTimeoutRef.current) clearTimeout(categoryChangeTimeoutRef.current)
                         categoryChangeTimeoutRef.current = setTimeout(() => {
-                          router.replace(exploreHref(cat.id), { scroll: false })
+                          replaceAddress(exploreHref(cat.id))
                         }, 250)
                         /* Switching a category changes what the list is, so
                            the list starts again from its top rather than
@@ -1357,7 +1441,7 @@ export function ExplorePageClient({
                     setSelectedSubcategoryLabel(null)
                     if (categoryChangeTimeoutRef.current) clearTimeout(categoryChangeTimeoutRef.current)
                     categoryChangeTimeoutRef.current = setTimeout(() => {
-                      router.replace(exploreHref(mainCategory), { scroll: false })
+                      replaceAddress(exploreHref(mainCategory))
                     }, 250)
                   }}
                   className="inline-flex items-center gap-1.5 h-8 pl-3 pr-2 rounded-full border border-neutral-200 bg-white text-[13px] font-medium text-[#1a1a2e] shadow-[0_1px_2px_rgba(15,23,42,0.05)] outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 hover:border-neutral-300 transition-colors cursor-pointer"
@@ -1383,12 +1467,13 @@ export function ExplorePageClient({
             <ExploreCommunitiesResults
               initial={initialCommunities}
               q={(localSearchQuery.trim() || urlSearchQuery || "").trim()}
-              category={mainCategory}
-              sub={selectedSubcategoryId}
+              category={gridCategory}
+              sub={gridSub}
               subLabel={selectedSubcategoryLabel}
               srt={deferredSort}
               price={deferredPrice}
-              categoryLabel={mainCategory === "all" ? null : CATEGORIES.find((c) => c.id === mainCategory)?.label ?? null}
+              categoryLabel={gridCategory === "all" ? null : CATEGORIES.find((c) => c.id === gridCategory)?.label ?? null}
+              ahead={communitiesAhead}
               filtersOn={activeFilterCount > 0}
               onClearFilters={resetFilters}
             />
@@ -1411,12 +1496,22 @@ export function ExplorePageClient({
                 */
                 className={`grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 ${productsGridEntrance}`}
               >
-                {paginatedProducts.map((product, index) => (
+                {paginatedProducts.slice(0, productsShown).map((product, index) => (
                   <ProductCard
                     key={product.id}
                     product={product}
                     srcParam="?src=platform"
-                    priority={index < 3}
+                    /*
+                      ONE PICTURE FIRST. The first card's picture is the
+                      largest thing above the fold on a phone and the first
+                      of the row on a computer: it is preloaded and asked for
+                      first. The rest of the first row is on screen anyway
+                      and starts the moment the grid is laid out; three
+                      preloads at once on Slow 3G shared the line three ways
+                      and every picture arrived late.
+                    */
+                    priority={index === 0}
+                    sizes={GRID_SIZES}
                     clientNav
                   />
                 ))}
@@ -1577,7 +1672,8 @@ export function ExplorePageClient({
                   key={product.id}
                   product={product}
                   srcParam="?src=platform"
-                  priority={index < 3}
+                  priority={index === 0}
+                  sizes={GRID_SIZES}
                   clientNav
                 />
               ))}

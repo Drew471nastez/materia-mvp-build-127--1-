@@ -246,7 +246,9 @@ for (const [label, vp] of SIZES) {
     await p.screenshot({ path: join(shots, `${label}-communities-top.png`) })
     const grid = await p.evaluate(ROW("[data-explore-community]"))
     expect(grid.n === 7 && grid.perRow === (phone ? 1 : 3) && grid.heights.length === 1, `seven cards from the first page, ${phone ? "one" : "three"} across, one height a row`, grid)
-    expect(await p.evaluate(() => window.__fetches.length === 0), "the first page came with the page: nothing fetched")
+    /* Round 10: the pills beside All are warmed while the page is idle (lib/explore/communities-cache); the first page itself is never asked for again. */
+    const first = await p.evaluate(() => [...window.__fetches])
+    expect(!first.includes("/api/explore/communities?limit=24") && first.every((f) => /^\/api\/explore\/communities\?c=[a-z-]+&limit=24$/.test(f)), "the first page came with the page: never fetched; only neighbouring pills warmed on idle", first)
     const stats = await p.evaluate(() => [...document.querySelectorAll("[data-explore-community]")].slice(0, 3).map((c) => ({
       title: c.querySelector("[data-community-title]")?.textContent,
       stats: [...c.querySelectorAll("[data-stat]")].map((s) => `${s.getAttribute("data-stat")}=${s.textContent.trim()}`),
@@ -278,7 +280,7 @@ for (const [label, vp] of SIZES) {
     expect(!on.pill && /All$/.test(on.first ?? "") && /All$/.test(on.pressed ?? ""), "ROUND 9: communities mode has no Communities pill either; All is first and pressed", on)
     await p.evaluate(() => [...document.querySelectorAll("[data-category-pills-row] > button")].find((b) => b.textContent.includes("Design")).click())
     await sleep(700)
-    const after = await p.evaluate(() => ({ fetched: window.__fetches.slice(-1)[0], n: document.querySelectorAll("[data-explore-community]").length, names: [...document.querySelectorAll("[data-community-title]")].map((t) => t.textContent) }))
+    const after = await p.evaluate(() => ({ fetched: window.__fetches.find((f) => f === "/api/explore/communities?c=design&limit=24"), n: document.querySelectorAll("[data-explore-community]").length, names: [...document.querySelectorAll("[data-community-title]")].map((t) => t.textContent) }))
     expect(after.fetched === "/api/explore/communities?c=design&limit=24" && after.n === 2, "the Design pill asks for c=design and the grid shows what came back", after)
     await p.evaluate(() => [...document.querySelectorAll("[data-category-pills-row] > button")][0].click())
     await sleep(700)
@@ -286,7 +288,7 @@ for (const [label, vp] of SIZES) {
     expect(back.n === 7 && back.more, "All again is the first page, from memory", back)
     await p.evaluate(() => document.querySelector("[data-show-more]").click())
     await sleep(700)
-    const more = await p.evaluate(() => ({ n: document.querySelectorAll("[data-explore-community]").length, fetched: window.__fetches.slice(-1)[0], more: !!document.querySelector("[data-show-more]") }))
+    const more = await p.evaluate(() => ({ n: document.querySelectorAll("[data-explore-community]").length, fetched: window.__fetches.filter((f) => /cursor=/.test(f)).slice(-1)[0], more: !!document.querySelector("[data-show-more]") }))
     expect(more.n === 9 && /cursor=cursor-1/.test(more.fetched) && !more.more, "Show more appends the next page by its cursor", more)
     /* More: the same tree as products, and a subcategory narrows the category, or shows all of it and says so. */
     const pickSub = async (group, item) => {
@@ -306,7 +308,7 @@ for (const [label, vp] of SIZES) {
       }, group, item)
       await sleep(900)
       const state = await p.evaluate(() => ({
-        fetched: window.__fetches.slice(-1)[0],
+        fetched: window.__fetches.filter((f) => /sub=/.test(f)).slice(-1)[0],
         names: [...document.querySelectorAll("[data-community-title]")].map((t) => t.textContent.slice(0, 16)),
         chip: document.querySelector("[data-subcategory-chip]")?.textContent.trim() ?? null,
         note: document.querySelector("[data-communities-broadened]")?.textContent.trim() ?? null,
@@ -336,7 +338,7 @@ for (const [label, vp] of SIZES) {
     await p.screenshot({ path: join(shots, `${label}-communities-filters.png`) })
     await p.evaluate(() => document.querySelector('[data-filter-price="free"]').click())
     await sleep(700)
-    const free = await p.evaluate(() => ({ fetched: window.__fetches.slice(-1)[0], prices: [...document.querySelectorAll("[data-community-price]")].map((x) => x.textContent) }))
+    const free = await p.evaluate(() => ({ fetched: window.__fetches.find((f) => f === "/api/explore/communities?price=free&limit=24"), prices: [...document.querySelectorAll("[data-community-price]")].map((x) => x.textContent) }))
     expect(/price=free/.test(free.fetched) && free.prices.length > 0 && free.prices.every((x) => x === "Free"), "Free asks for price=free and lists free communities", free)
     /* The hero's search, in this mode, is the communities' search. */
     if (phone) await p.evaluate(() => document.querySelector("[data-sheet-close], [data-filters-done]")?.click())
@@ -347,7 +349,7 @@ for (const [label, vp] of SIZES) {
     await p.keyboard.type("night")
     await p.keyboard.press("Enter")
     await sleep(700)
-    const searched = await p.evaluate(() => ({ fetched: window.__fetches.slice(-1)[0], names: [...document.querySelectorAll("[data-community-title]")].map((t) => t.textContent.slice(0, 12)) }))
+    const searched = await p.evaluate(() => ({ fetched: window.__fetches.find((f) => /q=night/.test(f) && !/&c=/.test(f)), names: [...document.querySelectorAll("[data-community-title]")].map((t) => t.textContent.slice(0, 12)) }))
     expect(searched.fetched === "/api/explore/communities?q=night&price=free&limit=24" && searched.names.join() === "Night Runner", "the search field asks for the word, with the price still on", searched)
     const side = await sideways(p)
     expect(side.doc <= side.win && errors.length === 0, "communities: nothing sideways, no errors", { side, errors })
