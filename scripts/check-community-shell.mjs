@@ -125,6 +125,10 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
         calls.push({ url: short, method: r.method() })
         let body = {}
         if (short.endsWith("/presence")) body = { ok: true, ready: true }
+        /* Storelib's navigator (components/nav/place-navigator.tsx) asks for the person's communities, most recently visited first. */
+        else if (short.startsWith("/api/me/places")) body = name.includes("visitor")
+          ? { signedIn: false, communitiesOn: true, isCreator: false, hasSellerAccess: false, communities: [] }
+          : { signedIn: true, communitiesOn: true, isCreator: false, hasSellerAccess: false, communities: [{ id: "c0000000-0000-4000-8000-000000000001", slug: "clay-studio", name: "Clay Studio", logoUrl: null }, { id: "c2", slug: "night-runners", name: "Night Runners", logoUrl: null }, { id: "c3", slug: "film-photo-club", name: "Film Photo Club", logoUrl: null }] }
         else if (short.startsWith("/api/notifications/inbox")) body = { unread: 4, items: [], nextCursor: null }
         else if (short.endsWith("/dms") && r.method() === "POST") body = { conversation: { id: "cv-1", other: { id: "u-jonas", name: "Jonas Berg", username: "jonasb", avatarUrl: null, role: null } } }
         else if (/\/dms\/cv-1/.test(short)) body = { messages: [], hasMore: false }
@@ -272,14 +276,15 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
       }
 
       /* NAVIGATOR */
-      await p.click("[data-place-navigator]")
-      await sleep(phone ? 650 : 250)
+      /* Storelib's one navigator (components/nav/place-navigator.tsx): a popover on a computer, the app's sheet on a phone. */
+      await p.click("[data-place-navigator-trigger]")
+      await sleep(phone ? 650 : 400)
       const sw = await p.evaluate(() => {
-        const box = document.querySelector("[data-action-sheet]") || document.querySelector("[data-action-list]")
-        return box ? { kind: box.hasAttribute("data-action-sheet") ? "sheet" : "menu", text: box.innerText.replace(/\s+/g, " ").trim(), links: [...box.querySelectorAll("a")].map((a) => a.getAttribute("href")) } : null
+        const box = [...document.querySelectorAll("[data-place-navigator-panel]")].find((b) => { const r = b.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(b).visibility !== "hidden" && !b.closest("[inert]") })
+        return box ? { kind: box.getAttribute("data-place-navigator-panel"), text: box.innerText.replace(/\s+/g, " ").trim(), links: [...box.querySelectorAll("a")].map((a) => a.getAttribute("href")), current: box.querySelector("[data-current]")?.getAttribute("href") ?? null } : null
       })
-      expect(!!sw && sw.kind === (phone ? "sheet" : "menu"), `the hamburger opens the navigator as a ${phone ? "sheet" : "menu"}`, sw?.kind)
-      expect(!!sw && /Your communities/.test(sw.text) && sw.links.join() === "/community/clay-studio,/community/night-runners,/community/film-photo-club,/explore/communities,/explore", "my communities, Discover communities, Explore Storelib", sw?.links)
+      expect(!!sw && sw.kind === (phone ? "sheet" : "popover"), `the hamburger opens the navigator as a ${phone ? "sheet" : "popover"}`, sw?.kind)
+      expect(!!sw && /Your communities/.test(sw.text) && sw.links.join() === "/community/clay-studio,/community/night-runners,/community/film-photo-club,/explore/communities,/explore,/sell" && sw.current === "/community/clay-studio", "my communities (this one marked), Discover communities, Explore, Start creating", sw && { links: sw.links, current: sw.current })
       await shot(p, `${label}-navigator`)
       await p.keyboard.press("Escape")
       await sleep(phone ? 650 : 250)

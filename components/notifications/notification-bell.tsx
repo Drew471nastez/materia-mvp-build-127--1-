@@ -27,6 +27,18 @@
  * on another device or in a community's own inbox show here too.
  *
  * Signed out, or before the session is known, it draws nothing.
+ *
+ * OPEN AND CLOSE. A second click on the bell closes it; so do a click
+ * anywhere outside the list (a press that lands on another control still
+ * does what it says, there is no invisible layer over the page to swallow
+ * it) and Escape. Both ways are a transition on opacity and `translate`
+ * only, from `starting:` values on the way in, and the list stays in the
+ * tree until its way out has finished: it used to be a keyframe animation
+ * cut off by a timer of the same length, which could let it snap back to
+ * full strength for a frame before it went. Under reduced motion nothing
+ * moves. The popover is a fixed height, so the list arriving does not grow
+ * it under the pointer, and every picture in it is a fixed box asked for at
+ * the size it is drawn (lib/images optimizedImageUrl) and loaded lazily.
  */
 import Link from "next/link"
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react"
@@ -36,6 +48,7 @@ import { Bell, Check, ChevronDown, X } from "lucide-react"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { INBOX_EVENT, realtimeAuth } from "@/components/community/member/realtime"
 import { relativeTime } from "@/lib/communities/format"
+import { optimizedImageUrl } from "@/lib/images/optimized-url"
 import { INBOX_FILTERS, badgeLabel, splitTitle, type InboxFilter, type InboxItem, type InboxPage } from "@/lib/notifications/user-inbox-shared"
 import { createClient } from "@/lib/supabase/client"
 import { useLightChrome } from "@/lib/ui/light-chrome"
@@ -43,8 +56,8 @@ import { cn } from "@/lib/utils"
 
 const INBOX = "/api/notifications/inbox"
 const READ = "/api/notifications/read"
-const ENTER_MS = 200
-const EXIT_MS = 150
+/** Longest the list is kept after a close if its transition never reports the end (a hidden tab, say). */
+const EXIT_MS = 400
 /** Below this width the list is a full screen sheet. */
 const PHONE_QUERY = "(max-width: 639px)"
 
@@ -81,8 +94,9 @@ export function NotificationBell({ className }: { className?: string }) {
   const [userId, setUserId] = useState<string | null>(null)
   const [unread, setUnread] = useState(0)
   const [open, setOpen] = useState(false)
-  const [shown, setShown] = useState(false)
-  const [leaving, setLeaving] = useState(false)
+  /* In the tree from the render that opens it until its way out has finished. */
+  const [present, setPresent] = useState(false)
+  if (open && !present) setPresent(true)
   const [filter, setFilter] = useState<InboxFilter>("all")
   const [items, setItems] = useState<InboxItem[] | null>(null)
   const [cursor, setCursor] = useState<string | null>(null)
@@ -194,21 +208,14 @@ export function NotificationBell({ className }: { className?: string }) {
     }
   }, [userId, loadFirst])
 
-  /* Open and close, with a short exit before it leaves the page. */
+  /* Closed: let go when the way out ends (onGone), at once under reduced motion, and after EXIT_MS whatever happens. */
   useEffect(() => {
-    if (open) {
-      setShown(true)
-      setLeaving(false)
-      return
-    }
-    if (!shown) return
-    setLeaving(true)
-    const t = window.setTimeout(() => {
-      setShown(false)
-      setLeaving(false)
-    }, EXIT_MS)
+    if (open || !present) return
+    const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+    const t = window.setTimeout(() => setPresent(false), still ? 0 : EXIT_MS)
     return () => window.clearTimeout(t)
-  }, [open, shown])
+  }, [open, present])
+  const gone = useCallback(() => setPresent(false), [])
 
   const openList = () => {
     setOpen(true)
@@ -273,10 +280,11 @@ export function NotificationBell({ className }: { className?: string }) {
           ) : null}
         </span>
       </button>
-      {shown ? (
+      {present ? (
         <BellPanel
           phone={phone}
-          leaving={leaving}
+          open={open}
+          onGone={gone}
           anchor={triggerRef}
           items={items}
           unread={unread}
@@ -299,7 +307,8 @@ export function NotificationBell({ className }: { className?: string }) {
 
 function BellPanel({
   phone,
-  leaving,
+  open,
+  onGone,
   anchor,
   items,
   unread,
@@ -314,7 +323,9 @@ function BellPanel({
   onRetry,
 }: {
   phone: boolean
-  leaving: boolean
+  /** False while it is on its way out. */
+  open: boolean
+  onGone: () => void
   anchor: React.RefObject<HTMLButtonElement | null>
   items: InboxItem[] | null
   unread: number
@@ -334,7 +345,7 @@ function BellPanel({
   const [pos, setPos] = useState<{ top: number; right: number } | null>(null)
   const titleId = useId()
 
-  useLightChrome(phone && !leaving)
+  useLightChrome(phone && open)
 
   /* Under the bell, its right edge on the bell's, inside a 16px gutter. */
   useLayoutEffect(() => {
@@ -349,20 +360,34 @@ function BellPanel({
     return () => window.removeEventListener("resize", place)
   }, [phone, anchor])
 
-  /* Escape closes; a phone's page behind the sheet does not scroll. */
+  /*
+    Escape closes; so does a press anywhere outside the list and the bell
+    (the bell toggles itself, so it is not "outside"). Heard in the capture
+    phase, so it is not lost to a control that stops its own events, and it
+    never cancels the press: whatever was under it still gets its click.
+    A phone's page behind the sheet does not scroll.
+  */
   useEffect(() => {
+    if (!open) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" && !e.defaultPrevented) onClose()
     }
+    const away = (e: PointerEvent) => {
+      const t = e.target as Node
+      if (panelRef.current?.contains(t) || anchor.current?.contains(t)) return
+      onClose(false)
+    }
     window.addEventListener("keydown", onKey)
+    if (!phone) document.addEventListener("pointerdown", away, true)
     const prev = document.body.style.overflow
     if (phone) document.body.style.overflow = "hidden"
     panelRef.current?.focus({ preventScroll: true })
     return () => {
       window.removeEventListener("keydown", onKey)
+      document.removeEventListener("pointerdown", away, true)
       if (phone) document.body.style.overflow = prev
     }
-  }, [phone, onClose])
+  }, [open, phone, onClose, anchor])
 
   /* More rows as the end of the list comes into view. */
   useEffect(() => {
@@ -440,6 +465,11 @@ function BellPanel({
     </>
   )
 
+  /* The way out has finished: the list can leave the page. Only the panel's own opacity counts, not a row's colour. */
+  const ended = (e: React.TransitionEvent<HTMLDivElement>) => {
+    if (e.target === e.currentTarget && e.propertyName === "opacity" && !open) onGone()
+  }
+
   return createPortal(
     phone ? (
       <div
@@ -449,33 +479,41 @@ function BellPanel({
         aria-modal="true"
         aria-labelledby={titleId}
         data-notification-panel="sheet"
-        style={{ animationDuration: `${leaving ? EXIT_MS : ENTER_MS + 40}ms` }}
+        data-state={open ? "open" : "closed"}
+        inert={open ? undefined : true}
+        onTransitionEnd={ended}
         className={cn(
-          "fixed inset-x-0 top-[var(--vv-top,0px)] z-[130] flex h-[var(--vv-h,100dvh)] flex-col bg-white outline-none ease-sheet [backface-visibility:hidden]",
-          leaving ? "animate-out fade-out-0 slide-out-to-bottom-6" : "animate-in fade-in-0 slide-in-from-bottom-6",
+          "fixed inset-x-0 top-[var(--vv-top,0px)] z-[130] flex h-[var(--vv-h,100dvh)] flex-col bg-white outline-none [backface-visibility:hidden]",
+          "transition-[opacity,translate] motion-reduce:transition-none",
+          open
+            ? "translate-y-0 opacity-100 duration-[240ms] ease-sheet starting:translate-y-6 starting:opacity-0"
+            : "pointer-events-none translate-y-6 opacity-0 duration-[180ms] ease-[cubic-bezier(0.4,0,1,1)]",
         )}
       >
         {body}
       </div>
     ) : (
-      <>
-        {/* No dark scrim: the page stays as it was, and a click outside closes the list. */}
-        <div aria-hidden className="fixed inset-0 z-[120]" onClick={() => onClose(false)} />
-        <div
-          ref={panelRef}
-          tabIndex={-1}
-          role="dialog"
-          aria-labelledby={titleId}
-          data-notification-panel="popover"
-          style={{ top: pos!.top, right: pos!.right, maxHeight: `min(600px, calc(100vh - ${pos!.top + 16}px))`, animationDuration: `${leaving ? EXIT_MS : ENTER_MS}ms` }}
-          className={cn(
-            "fixed z-[130] flex w-[420px] max-w-[calc(100vw-32px)] flex-col overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white text-left outline-none shadow-[0_24px_60px_-16px_rgba(17,24,39,0.28),0_2px_8px_rgba(17,24,39,0.06)] ease-sheet",
-            leaving ? "animate-out fade-out-0 slide-out-to-top-1" : "animate-in fade-in-0 slide-in-from-top-1",
-          )}
-        >
-          {body}
-        </div>
-      </>
+      <div
+        ref={panelRef}
+        tabIndex={-1}
+        role="dialog"
+        aria-labelledby={titleId}
+        data-notification-panel="popover"
+        data-state={open ? "open" : "closed"}
+        inert={open ? undefined : true}
+        onTransitionEnd={ended}
+        /* A fixed height (the room under the bell, at most 560px), so the list arriving never grows the panel under the pointer. */
+        style={{ top: pos!.top, right: pos!.right, height: `min(560px, calc(100vh - ${pos!.top + 16}px))` }}
+        className={cn(
+          "fixed z-[130] flex w-[420px] max-w-[calc(100vw-32px)] origin-top-right flex-col overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white text-left outline-none shadow-[0_24px_60px_-16px_rgba(17,24,39,0.28),0_2px_8px_rgba(17,24,39,0.06)]",
+          "transition-[opacity,translate,scale] motion-reduce:transition-none",
+          open
+            ? "translate-y-0 scale-100 opacity-100 duration-[200ms] ease-[cubic-bezier(0.22,1,0.36,1)] starting:-translate-y-1 starting:scale-[0.98] starting:opacity-0"
+            : "pointer-events-none -translate-y-1 scale-[0.98] opacity-0 duration-[150ms] ease-[cubic-bezier(0.4,0,1,1)]",
+        )}
+      >
+        {body}
+      </div>
     ),
     document.body,
   )
@@ -537,16 +575,21 @@ function Row({ n, onOpen }: { n: InboxItem; onOpen: (n: InboxItem) => void }) {
  * reply from one community reads apart from a reply in another without a
  * line of its own.
  */
+/* A picture that will not load leaves its grey box, never the browser's broken image mark. */
+const hideBroken = (e: React.SyntheticEvent<HTMLImageElement>) => {
+  e.currentTarget.style.visibility = "hidden"
+}
+
 function Face({ n }: { n: InboxItem }) {
   if (n.actor) {
     return (
       <span className="relative shrink-0">
-        <AppAvatar src={n.actor.avatarUrl} name={n.actor.name} alt="" size={40} markWhileLoading />
+        <AppAvatar src={n.actor.avatarUrl} name={n.actor.name} alt="" size={40} markWhileLoading lazy />
         {n.community ? (
           <span title={n.community.name} data-community-mark="" className="absolute -bottom-1 -right-1 flex h-[18px] w-[18px] items-center justify-center overflow-hidden rounded-[6px] bg-[#1a1a2e] text-[9.5px] font-semibold uppercase leading-none text-white ring-2 ring-white">
             {n.image ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={n.image} alt="" width={18} height={18} className="h-full w-full object-cover" loading="lazy" />
+              <img src={optimizedImageUrl(n.image, 18)} alt="" width={18} height={18} className="h-full w-full object-cover" loading="lazy" decoding="async" onError={hideBroken} />
             ) : (
               n.community.name.trim().charAt(0)
             )}
@@ -557,8 +600,11 @@ function Face({ n }: { n: InboxItem }) {
   }
   if (n.image) {
     return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img src={n.image} alt="" width={40} height={40} className="h-10 w-10 shrink-0 rounded-full border border-[#eef0f3] object-cover" loading="lazy" />
+      /* A fixed 40px box with the grey under it, so a picture still on its way holds its place. */
+      <span className="block h-10 w-10 shrink-0 overflow-hidden rounded-full border border-[#eef0f3] bg-[#eef0f3]">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={optimizedImageUrl(n.image, 40)} alt="" width={40} height={40} className="h-full w-full object-cover" loading="lazy" decoding="async" onError={hideBroken} />
+      </span>
     )
   }
   return (
@@ -584,10 +630,11 @@ function FilterMenu({ value, onChange, align = "right" }: { value: InboxFilter; 
       }
     }
     document.addEventListener("pointerdown", away)
-    window.addEventListener("keydown", onKey)
+    /* Capture, so it is heard before the list's own Escape: the first Escape closes this menu, the second the list. */
+    window.addEventListener("keydown", onKey, true)
     return () => {
       document.removeEventListener("pointerdown", away)
-      window.removeEventListener("keydown", onKey)
+      window.removeEventListener("keydown", onKey, true)
     }
   }, [open])
   return (

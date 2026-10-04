@@ -7,6 +7,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback } from "react"
+import { createPortal } from "react-dom"
 import type { User } from "@supabase/supabase-js"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
 import { extractUsernameFromHost, getCanonicalSiteUrl, isCustomDomain, isSellerPage, isProductPage, getProductInternalPath } from "@/lib/url-helpers"
@@ -25,7 +26,7 @@ import { NotificationBell } from "@/components/notifications/notification-bell"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 
-import { Heart, Library, Search, LayoutDashboard, Settings, LogOut, Menu, X, Loader2, ChevronRight, ChevronDown, Sparkles, Store, Code, Megaphone, Briefcase, Music, Camera, Video, Bot, Share2, Zap, ShoppingBag, Lightbulb, ArrowRight, User as UserIcon, Compass, Globe } from "lucide-react"
+import { Heart, Library, Search, LayoutDashboard, Settings, LogOut, X, Loader2, ChevronRight, Sparkles, LifeBuoy, Store, Code, Megaphone, Briefcase, Music, Camera, Video, Bot, Share2, Zap, ShoppingBag, Lightbulb, ArrowRight, User as UserIcon, Compass, Globe } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
 import { LanguageModal } from "@/components/platform/language-modal"
 import { readAuthSnapshot, writeAuthSnapshot, clearAuthSnapshot } from "@/lib/auth/auth-snapshot"
@@ -35,7 +36,7 @@ import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { useSearchHandoff, useSearchHandoffState, WINDOW_SLACK } from "@/lib/explore/use-search-handoff"
 import { useBuyerTabsHere } from "@/lib/nav/use-buyer-tabs-where"
-import { CategoryBrowser, Chevron, type BrowseGroup } from "@/components/explore/category-browser"
+import { PlaceNavigator, forgetPlaces } from "@/components/nav/place-navigator"
 import { listPrice } from "@/lib/pricing/list-price"
 
 
@@ -185,23 +186,6 @@ const SEARCH_CATEGORIES = CATEGORIES_WITH_SUBS.slice(0, 9).map(cat => ({
   isHot: cat.isHot,
 }))
 
-/**
- * The same list, in the shape the category browser draws
- * (components/explore/category-browser): ids read off the hrefs, so a pick
- * goes where the old menu's link went and the one on screen can be ticked.
- */
-const param = (href: string, key: string) => new URLSearchParams(href.split("?")[1] ?? "").get(key) ?? ""
-const HEADER_GROUPS: BrowseGroup[] = CATEGORIES_WITH_SUBS.map((c) => ({
-  id: param(c.href, "category"),
-  label: c.label,
-  items: c.subcategories.map((sub) => ({ id: param(sub.href, "sub"), label: sub.label })),
-}))
-const hrefFor = (groupId: string, itemId: string | null) => {
-  const cat = CATEGORIES_WITH_SUBS.find((c) => param(c.href, "category") === groupId)
-  const sub = itemId ? cat?.subcategories.find((x) => param(x.href, "sub") === itemId) : undefined
-  return (sub ?? cat)?.href ?? "/explore"
-}
-
 // Product type for search results
 type SearchProduct = {
   id: string
@@ -260,8 +244,8 @@ const SEARCH_MODAL_PANEL =
 const SEARCH_MODAL_OPEN = HEADER_MENU_OPEN
 const SEARCH_MODAL_LEAVING = HEADER_MENU_LEAVING
 const SEARCH_BACKDROP =
-  "fixed inset-0 z-[35] bg-black/10 transition-opacity motion-reduce:transition-none"
-const SEARCH_BACKDROP_OPEN = "opacity-100 duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]"
+  "fixed inset-0 z-[35] bg-[rgba(16,18,27,0.08)] transition-opacity motion-reduce:transition-none"
+const SEARCH_BACKDROP_OPEN = "opacity-100 duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] starting:opacity-0"
 const SEARCH_BACKDROP_LEAVING =
   "pointer-events-none opacity-0 duration-150 ease-[cubic-bezier(0.4,0,1,1)]"
 
@@ -336,25 +320,6 @@ function MobileBottomSheet({
     >
       {children}
     </BottomSheet>
-  )
-}
-
-/** A link row in the category sheet, drawn like the browser's own rows. */
-function MenuRow({ to, label, onNav, seller = false }: { href: string; to: string; label: string; onNav: (e: React.MouseEvent<HTMLElement>) => void; seller?: boolean }) {
-  return (
-    <Link
-      href={to}
-      onClick={onNav}
-      data-become-seller={seller ? "" : undefined}
-      className={cn(
-        "flex min-h-[48px] w-full items-center gap-3 px-4 text-left text-[16px] leading-5 outline-none transition-colors duration-100 [-webkit-tap-highlight-color:transparent] focus-visible:bg-[#f1f2f4]",
-        /* Become a seller, in the purple and on a pale violet press: noticed, not shouted. */
-        seller ? "font-medium text-violet-700 active:bg-[#f5f3ff]" : "text-[#1a1a2e] active:bg-[#f1f2f4]",
-      )}
-    >
-      <span className="min-w-0 flex-1 truncate">{label}</span>
-      <Chevron className={seller ? "text-violet-300" : "text-[#9ca3af]"} />
-    </Link>
   )
 }
 
@@ -437,6 +402,196 @@ function GuestHeaderActions({
       >
         Sign up
       </Link>
+    </div>
+  )
+}
+
+/*
+  ═══════════════════════════════════════════════════════════════════════════
+   THE PHOTO OPENS THE ACCOUNT MENU, ON A COMPUTER
+  ═══════════════════════════════════════════════════════════════════════════
+  It was a plain link to /account. The owner asked for a menu instead, like
+  the phone's account sheet and like /app's account dropdown, in this order:
+  Dashboard for a seller or Start creating for anybody else (/sell decides
+  what comes next), Profile (/account), Settings, Language (the one language
+  picker the phone sheet opens too), Help, Discover (/explore), and Log out
+  last, under a rule.
+
+  It hangs from the photo's right edge and comes and goes the way the bar's
+  other panels do: a transition on opacity, `scale` and `translate` from its
+  `starting:` values, kept in the tree while it leaves, nothing moving under
+  reduced motion. A second click on the photo, a click anywhere else, Escape
+  (focus goes back to the photo) and a change of page close it. Arrow keys
+  move between the rows.
+*/
+const ACCOUNT_PANEL =
+  "absolute right-0 top-full z-50 mt-2 w-[248px] origin-top-right rounded-xl bg-white p-1 text-left outline-none " +
+  "shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_2px_4px_-1px_rgba(15,23,42,0.06),0_16px_36px_-10px_rgba(15,23,42,0.2)] " +
+  "transition-[opacity,scale,translate] motion-reduce:transition-none"
+const ACCOUNT_ROW =
+  "flex h-10 w-full cursor-pointer items-center gap-2.5 rounded-lg px-3 text-left text-[14px] font-medium text-[#3f4652] outline-none transition-colors duration-100 hover:bg-[#f4f5f7] hover:text-[#1a1a2e] focus-visible:bg-[#f1f2f4] focus-visible:text-[#1a1a2e]"
+
+function DesktopAccountMenu({
+  avatarUrl,
+  name,
+  username,
+  seller,
+  link,
+  onLanguage,
+  onLogout,
+  dark = false,
+}: {
+  avatarUrl?: string
+  name: string
+  username?: string | null
+  seller: boolean
+  link: HeaderLink
+  onLanguage: () => void
+  onLogout: () => void
+  /** The bar is the dark one: the ring around the photo sits on black. */
+  dark?: boolean
+}) {
+  const pathname = usePathname()
+  const { t } = useLocale()
+  const [open, setOpen] = useState(false)
+  const [present, setPresent] = useState(false)
+  if (open && !present) setPresent(true)
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => setOpen(false), [pathname])
+  useEffect(() => {
+    if (open || !present) return
+    const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+    const t = window.setTimeout(() => setPresent(false), still ? 0 : 600)
+    return () => window.clearTimeout(t)
+  }, [open, present])
+  useEffect(() => {
+    if (!open) return
+    const away = (e: PointerEvent) => {
+      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return
+      setOpen(false)
+      buttonRef.current?.focus({ preventScroll: true })
+    }
+    document.addEventListener("pointerdown", away, true)
+    document.addEventListener("keydown", onKey)
+    menuRef.current?.focus({ preventScroll: true })
+    return () => {
+      document.removeEventListener("pointerdown", away, true)
+      document.removeEventListener("keydown", onKey)
+    }
+  }, [open])
+
+  const go = (path: string) => {
+    const { href, onClick } = link(path)
+    return { href, onClick: (e: React.MouseEvent<HTMLElement>) => { onClick(e); setOpen(false) } }
+  }
+  const onMenuKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp" && e.key !== "Home" && e.key !== "End") return
+    const rows = [...(menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [])]
+    if (!rows.length) return
+    e.preventDefault()
+    const i = rows.indexOf(document.activeElement as HTMLElement)
+    const next = e.key === "Home" ? 0 : e.key === "End" ? rows.length - 1 : e.key === "ArrowDown" ? (i + 1) % rows.length : i <= 0 ? rows.length - 1 : i - 1
+    rows[next]?.focus()
+  }
+  const icon = "h-4 w-4 shrink-0 text-[#8a909b]"
+
+  return (
+    <div ref={wrapRef} className="relative shrink-0" data-header-account="">
+      <button
+        ref={buttonRef}
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-label="Your account"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        data-header-avatar=""
+        className={cn(
+          "flex h-[42px] w-[42px] shrink-0 cursor-pointer items-center justify-center rounded-full outline-none ring-offset-2 transition-shadow duration-150 ease-out hover:ring-2 focus-visible:ring-2 focus-visible:ring-violet-400",
+          dark ? "ring-offset-[#0e0e10] hover:ring-white/30" : "ring-offset-white hover:ring-[#1a1a2e]/15",
+          open && (dark ? "ring-2 ring-white/30" : "ring-2 ring-[#1a1a2e]/15"),
+        )}
+      >
+        <AppAvatar src={avatarUrl} name={name.trim()} alt="" size={42} className="border border-gray-200" />
+      </button>
+      {present ? (
+        <div
+          ref={menuRef}
+          role="menu"
+          aria-label="Your account"
+          tabIndex={-1}
+          data-account-menu=""
+          data-state={open ? "open" : "closed"}
+          inert={open ? undefined : true}
+          onKeyDown={onMenuKey}
+          onTransitionEnd={(e) => {
+            if (e.target === e.currentTarget && e.propertyName === "opacity" && !open) setPresent(false)
+          }}
+          className={cn(ACCOUNT_PANEL, open ? HEADER_MENU_OPEN : HEADER_MENU_LEAVING)}
+        >
+          {/* Who is signed in: not a row, just the name over the handle. */}
+          <div className="flex items-center gap-2.5 px-3 pb-2 pt-2.5" data-account-who="">
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[14px] font-semibold text-[#1a1a2e]">{name}</span>
+              {username ? <span className="block truncate text-[12.5px] text-[#6b7280]">@{username}</span> : null}
+            </span>
+          </div>
+          <div className="mb-1 h-px bg-[#f0f1f3]" />
+          {seller ? (
+            <Link {...go("/app")} role="menuitem" data-account-item="dashboard" className={ACCOUNT_ROW}>
+              <LayoutDashboard aria-hidden className={icon} strokeWidth={1.75} />
+              Dashboard
+            </Link>
+          ) : (
+            <Link {...go("/sell")} role="menuitem" data-account-item="start-creating" className={ACCOUNT_ROW}>
+              <Store aria-hidden className={icon} strokeWidth={1.75} />
+              Start creating
+            </Link>
+          )}
+          <Link {...go("/account")} role="menuitem" data-account-item="profile" className={ACCOUNT_ROW}>
+            <UserIcon aria-hidden className={icon} strokeWidth={1.75} />
+            Profile
+          </Link>
+          <Link {...go("/account/settings")} role="menuitem" data-account-item="settings" className={ACCOUNT_ROW}>
+            <Settings aria-hidden className={icon} strokeWidth={1.75} />
+            Settings
+          </Link>
+          <button
+            type="button"
+            role="menuitem"
+            data-account-item="language"
+            onClick={() => { setOpen(false); onLanguage() }}
+            className={ACCOUNT_ROW}
+          >
+            <Globe aria-hidden className={icon} strokeWidth={1.75} />
+            {t("settings.language")}
+          </button>
+          <Link {...go("/help")} role="menuitem" data-account-item="help" className={ACCOUNT_ROW}>
+            <LifeBuoy aria-hidden className={icon} strokeWidth={1.75} />
+            Help
+          </Link>
+          <Link {...go("/explore")} role="menuitem" data-account-item="discover" className={ACCOUNT_ROW}>
+            <Compass aria-hidden className={icon} strokeWidth={1.75} />
+            Discover
+          </Link>
+          <div className="my-1 h-px bg-[#f0f1f3]" />
+          <button
+            type="button"
+            role="menuitem"
+            data-account-item="log-out"
+            onClick={() => { setOpen(false); onLogout() }}
+            className={cn(ACCOUNT_ROW, "hover:bg-red-50 hover:text-red-600 focus-visible:bg-red-50 focus-visible:text-red-600")}
+          >
+            <LogOut aria-hidden className={cn(icon, "text-current")} strokeWidth={1.75} />
+            Log out
+          </button>
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -850,39 +1005,7 @@ export function PlatformHeaderClient({
   }, [searchModalOpen, closeSearchModal])
   const [searchResults, setSearchResults] = useState<SearchProduct[]>([])
   const [searchLoading, setSearchLoading] = useState(false)
-  const [categoriesDropdownOpen, setCategoriesDropdownOpen] = useState(false)
-  /*
-    THE MENU STAYS ON SCREEN WHILE IT LEAVES. It was drawn only while open,
-    so a click away took it off in the same frame: a white panel gone from
-    one frame to the next, which is the snap the owner saw. `present` keeps it
-    in the tree through its exit transition and lets go when that ends (at
-    once under reduced motion, where there is none, and after 600ms whatever
-    happens, so it can never be left behind).
-    Set during render when it opens, so the opening frame already has it.
-  */
-  const [categoriesPresent, setCategoriesPresent] = useState(false)
-  if (categoriesDropdownOpen && !categoriesPresent) setCategoriesPresent(true)
-  useEffect(() => {
-    if (categoriesDropdownOpen || !categoriesPresent) return
-    /* No transition runs under reduced motion, so nothing would end: let go now. */
-    const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
-    const t = window.setTimeout(() => setCategoriesPresent(false), still ? 0 : 600)
-    return () => window.clearTimeout(t)
-  }, [categoriesDropdownOpen, categoriesPresent])
-  /* Escape closes it wherever focus is, not only from inside the panel. */
-  useEffect(() => {
-    if (!categoriesDropdownOpen) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return
-      setCategoriesDropdownOpen(false)
-      document.querySelector<HTMLElement>("[data-categories-dropdown] > button")?.focus({ preventScroll: true })
-    }
-    document.addEventListener("keydown", onKey)
-    return () => document.removeEventListener("keydown", onKey)
-  }, [categoriesDropdownOpen])
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  /* Counts the menu sheet's closes, so its kept category list starts again from the top. */
-  const [menuRound, setMenuRound] = useState(0)
   const [mobileProfileOpen, setMobileProfileOpen] = useState(false)
   /* Below 768px, where the header opens sheets rather than dropdowns. */
   const belowMd = useBelowMd()
@@ -903,34 +1026,9 @@ export function PlatformHeaderClient({
   // Close modals on route change
   useEffect(() => {
     closeSearchModal()
-    setCategoriesDropdownOpen(false)
     setMobileMenuOpen(false)
     setMobileProfileOpen(false)
   }, [pathname, closeSearchModal])
-
-  // Close desktop dropdowns when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as HTMLElement
-      // Never interfere with mobile sheet portals. These render to document.body
-      // outside the header DOM tree, so they always appear "outside" the header.
-      // Without this guard, every tap inside the bottom sheet fires mousedown on
-      // document and closes things that are not what was tapped.
-      if (
-        target.closest('[data-app-sheet]') ||
-        target.closest('[data-mobile-bottom-sheet]') ||
-        target.closest('[data-mobile-top-sheet]')
-      ) {
-        return
-      }
-      // Only close if clicking completely outside the dropdown
-      if (!target.closest('[data-categories-dropdown]')) {
-        setCategoriesDropdownOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
 
   // Live search with debounce
   const handleSearchChange = useCallback((value: string) => {
@@ -1276,6 +1374,8 @@ export function PlatformHeaderClient({
   async function handleLogout() {
     const supabase = createClient()
     await supabase.auth.signOut({ scope: "local" })
+    /* The navigator's list was this person's: the next open asks again, as nobody. */
+    forgetPlaces()
     setMobileProfileOpen(false)
     setCachedAvatarUrl(null)
     try { localStorage.removeItem("_sl_avatar") } catch {}
@@ -1285,11 +1385,6 @@ export function PlatformHeaderClient({
       router.push("/")
       router.refresh()
     }
-  }
-
-  const onCategoryClick = (cat: string) => {
-    const url = `/explore?category=${encodeURIComponent(cat)}&scroll=recommended`
-    navigateToExploreCategory(url)
   }
 
   /**
@@ -1599,27 +1694,6 @@ export function PlatformHeaderClient({
     [getCanonicalOrRelativePath, onCanonicalNav],
   )
 
-  // Detect active category from URL
-  const activeCategoryId = useMemo(() => {
-    if (pathname.startsWith("/explore/")) {
-      const seg = pathname.split("/explore/")[1]?.split("/")[0]?.split("?")[0]
-      return seg || "all"
-    }
-    /* Explore writes `c` now and still reads `category` (app/(marketing)/explore/page.tsx). */
-    return searchParams.get("c") || searchParams.get("category") || "all"
-  }, [pathname, searchParams])
-  const activeSubId = searchParams.get("sub")
-
-  /* A pick from either category list: where the old menu's link went. */
-  const pickCategory = useCallback((groupId: string, itemId: string | null) => {
-    setCategoriesDropdownOpen(false)
-    setMobileMenuOpen(false)
-    navigateToExploreCategory(hrefFor(groupId, itemId) + "&scroll=recommended")
-  }, [navigateToExploreCategory])
-  const browserSelection = pathname.startsWith("/explore") && activeCategoryId !== "all"
-    ? { group: activeCategoryId, item: activeSubId }
-    : { group: null, item: null }
-
   /*
     DASHBOARD, FOR AN ACCOUNT WITH SELLER ACCESS ONLY. A buyer sees no
     Dashboard and no Start selling beside their photo; their way to selling
@@ -1636,31 +1710,18 @@ export function PlatformHeaderClient({
     </Link>
   ) : null
 
-  /*
-    THE PHOTO IS THE WAY TO THE ACCOUNT, ON A COMPUTER. The owner: "just the
-    normal buyer controls and the avatar (-> /account)". It opened a menu of
-    Dashboard, My Library, Settings, Language and Log out; every one of those
-    is now either in the bar already (Dashboard for a seller, the library
-    icon) or on /account (settings, language, selling, log out), so the photo
-    goes there itself, as a plain link a screen reader names and a keyboard
-    reaches in one stop.
-  */
+  /* The photo's menu on a computer (DesktopAccountMenu above): Dashboard or Start creating, Profile, Settings, Language, Help, Discover, Log out. */
   const desktopAccountMenu = user ? (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Link
-          {...headerLink("/account")}
-          aria-label="Your account"
-          data-header-avatar=""
-          className="flex h-[42px] w-[42px] shrink-0 cursor-pointer items-center justify-center rounded-full outline-none ring-offset-2 ring-offset-[#111113] transition-shadow duration-150 ease-out hover:ring-2 hover:ring-violet-400 focus-visible:ring-2 focus-visible:ring-violet-400"
-        >
-          <AppAvatar src={avatarUrl} name={(displayName || "").trim()} alt="" size={42} className="border border-gray-200" />
-        </Link>
-      </TooltipTrigger>
-      <TooltipContent className="bg-neutral-900 text-white text-xs px-2 py-1" sideOffset={8}>
-        Your account
-      </TooltipContent>
-    </Tooltip>
+    <DesktopAccountMenu
+      avatarUrl={avatarUrl}
+      name={displayName || ""}
+      username={profile?.username}
+      seller={hasCompletedSellerOnboarding}
+      link={headerLink}
+      onLanguage={() => setLanguageOpen(true)}
+      onLogout={handleLogout}
+      dark={!buyerHeaderLight}
+    />
   ) : null
 
   return (
@@ -1816,84 +1877,33 @@ export function PlatformHeaderClient({
             </>
           ) : (
             <>
-              {/* Non-Homepage Desktop Header - Original Layout */}
-              {/* Left side - Logo and Categories Button */}
-              <div className="flex items-center gap-3 shrink-0">
+              {/*
+                THE NAVIGATOR, THEN THE LOGO, AT EVERY WIDTH. The three lines
+                left of the logo used to open category browsing; they open the
+                navigator now (components/nav/place-navigator.tsx): my
+                communities, Discover communities, Explore, and Dashboard or
+                Start creating. The same component sits beside a community's
+                name in its own top bar. Categories are browsed on Explore
+                itself, from its pills and its More picker.
+
+                One navigator for the phone row and the computer row, so the
+                phone keeps one sheet. Pulled 8px into the bar's padding on a
+                phone and 6px on a computer, so its lines start where the old
+                icon's did.
+              */}
+              <div className="flex shrink-0 items-center gap-2 -ml-2 md:-ml-1.5" data-header-left="">
+                <PlaceNavigator
+                  current={{ kind: "storelib" }}
+                  onNavigate={(e, href) => onCanonicalNav(e, href)}
+                  /* The slack runs to the left and up and down, where a thumb undershoots; not to the right, where the logo is a target of its own. */
+                  className={cn("z-10 before:absolute before:-left-3 before:-top-2 before:-bottom-2 before:right-0 before:content-[''] md:before:content-none", chrome.navigator)}
+                />
                 {/* Logo with Storelib text - links to /explore */}
                 <Link href={buyerLogoHref} onClick={(e) => onCanonicalNav(e, buyerLogoHref)} className="shrink-0 hidden md:flex items-center gap-2">
                   <StorelibLogo size={HEADER_LOGO.desktop} priority />
                   <span className={chrome.wordmark}>Storelib</span>
                 </Link>
-
-                {/* Categories Dropdown Button with Tooltip */}
-                {exploreMarketplaceOn ? (
-                <div className="relative hidden md:block" data-categories-dropdown>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    onClick={() => setCategoriesDropdownOpen(!categoriesDropdownOpen)}
-                    aria-expanded={categoriesDropdownOpen}
-                    aria-haspopup="true"
-                    className={cn(
-                      "flex items-center gap-2 px-3.5 py-2.5 rounded-lg text-[15px] font-medium transition-colors duration-150 cursor-pointer",
-                      categoriesDropdownOpen ? chrome.catBtnOpen : chrome.catBtn,
-                    )}
-                  >
-                    <Menu className="w-[18px] h-[18px]" aria-hidden />
-                    <span className="sr-only">Categories</span>
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent className="bg-neutral-900 text-white text-xs px-2 py-1" sideOffset={8}>
-                  Browse all categories
-                </TooltipContent>
-              </Tooltip>
-
-              {/*
-                THE SAME LIST AS EXPLORE'S MORE PICKER, HANGING FROM THE BUTTON.
-                Plain rows, a chevron where a category opens and a tick on the
-                one you are on; a category's subcategories slide in as a level
-                of their own with a back row, instead of replacing the list
-                with a "Back to Categories" link over a violet icon and a Hot
-                badge. See components/explore/category-browser.
-              */}
-              {/*
-                IN AND OUT BY TRANSITION, NOT BY KEYFRAMES. It opens from its
-                `starting:` values (@starting-style) and closes by the same
-                transition run backwards: a fade with a 4px lift and a hair of
-                scale toward the button, 160ms in and 140ms out. A transition
-                reverses from wherever it is, so a click that reopens it while
-                it is leaving turns it round instead of restarting it.
-                Opacity, `scale` and `translate` only (Tailwind's scale-* and
-                translate-y-* are those properties, not `transform`), on a
-                panel that is `absolute`, so nothing behind it moves. Leaving,
-                it takes no pointer and no focus, so a row under the cursor
-                cannot light up on its way out.
-              */}
-              {categoriesPresent && (
-                <div
-                  data-header-categories=""
-                  data-state={categoriesDropdownOpen ? "open" : "closed"}
-                  role="dialog"
-                  aria-label="Categories"
-                  inert={categoriesDropdownOpen ? undefined : true}
-                  onTransitionEnd={(e) => {
-                    if (e.target === e.currentTarget && e.propertyName === "opacity" && !categoriesDropdownOpen) setCategoriesPresent(false)
-                  }}
-                  className={cn(HEADER_MENU_PANEL, categoriesDropdownOpen ? HEADER_MENU_OPEN : HEADER_MENU_LEAVING)}
-                >
-                  <CategoryBrowser
-                    groups={HEADER_GROUPS}
-                    selectedGroup={browserSelection.group}
-                    selectedItem={browserSelection.item}
-                    onPick={pickCategory}
-                    phone={false}
-                    heading="Browse categories"
-                  />
-                </div>
-              )}
-            </div>
-                ) : null}
-          </div>
+              </div>
 
           {/* Desktop Search - Centered with Modal (10% larger) */}
           {/*
@@ -1963,14 +1973,35 @@ export function PlatformHeaderClient({
             {/* Search Modal Dropdown */}
             {searchModalPresent && (
               <>
-                <div
-                  aria-hidden
-                  className={cn(
-                    SEARCH_BACKDROP,
-                    searchModalOpen ? SEARCH_BACKDROP_OPEN : SEARCH_BACKDROP_LEAVING,
-                  )}
-                  onClick={() => closeSearchModal()}
-                />
+                {/*
+                  THE HARSH RECTANGLE OVER THE FIELD WAS THIS SCRIM. It is
+                  `fixed inset-0`, meant to dim the page behind the results,
+                  but it was drawn inside the field's wrapper, and that wrapper
+                  carries a `translate` (the fade in when the field arrives in
+                  the bar). Any `translate` other than none makes an element
+                  the containing block of its fixed children, so "the whole
+                  window" became "the wrapper": a 576 by 42px black/10 box with
+                  square corners laid over the rounded field the moment it took
+                  focus (measured on storelib.com). It is portalled to the body
+                  now, under the bar (z 35 against the bar's 40), so it is the
+                  window, and the field keeps only its own soft focus state:
+                  a slightly darker hairline and a 4px halo (lib/platform/
+                  header-chrome deskSearchField).
+                */}
+                {typeof document !== "undefined"
+                  ? createPortal(
+                      <div
+                        aria-hidden
+                        data-header-search-scrim=""
+                        className={cn(
+                          SEARCH_BACKDROP,
+                          searchModalOpen ? SEARCH_BACKDROP_OPEN : SEARCH_BACKDROP_LEAVING,
+                        )}
+                        onClick={() => closeSearchModal()}
+                      />,
+                      document.body,
+                    )
+                  : null}
                 <div
                   data-header-search-modal=""
                   data-state={searchModalOpen ? "open" : "closed"}
@@ -2086,33 +2117,10 @@ export function PlatformHeaderClient({
           })()}
 
           {/* Mobile Header for Non-Homepage pages */}
-          <div className="md:hidden flex items-center justify-between flex-1 -ml-6">
-            {/* Hamburger + Logo left, icons right */}
+          {/* -ml-4: the row starts right after the navigator's 40px button (in the left group above), so the logo sits where it did beside the old hamburger. */}
+          <div className="md:hidden flex items-center justify-between flex-1 -ml-4">
+            {/* Logo left (the navigator is just before it), icons right */}
             <div className="flex items-center gap-0">
-              <button
-                type="button"
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                /*
-                  THE SLACK WAS THERE AND THE LOGO WAS EATING HALF OF IT.
-
-                  This is 36px of icon with a pseudo-element extending the
-                  touch target ten pixels all round — and the logo link sits
-                  immediately to its right with `gap-0`, later in the DOM, so
-                  on the right-hand side the logo won the hit test and a near
-                  miss navigated to Explore instead of opening the menu.
-
-                  `z-10` puts the button's target above its neighbour, and the
-                  slack is asymmetric now: generous to the left, where the
-                  screen edge is and a thumb undershoots, and up and down;
-                  barely any to the right, where the logo is a legitimate
-                  target of its own.
-                */
-                className={cn("relative z-10 flex h-9 w-9 touch-manipulation items-center justify-center transition cursor-pointer before:absolute before:-left-4 before:-top-3 before:-bottom-3 before:-right-1.5 before:content-['']", chrome.hamburger)}
-                aria-label={mobileMenuOpen ? "Close categories" : "Open categories"}
-              >
-                <AnimatedHamburger isOpen={mobileMenuOpen} />
-              </button>
-
               {/* Logo next to hamburger - links to /explore */}
               <Link href={buyerLogoHref} onClick={(e) => onCanonicalNav(e, buyerLogoHref)} className="shrink-0 flex items-center gap-1.5">
                 <StorelibLogo size={HEADER_LOGO.phone} priority />
@@ -2269,36 +2277,23 @@ export function PlatformHeaderClient({
         {/* Mobile & Desktop Categories are now rendered below in white UI section */}
       </div>
 
-      {/* Mobile Categories Bottom Sheet with swipe-to-close */}
       {/*
-        ON EXPLORE, A PRODUCT OR THE WISHLIST THIS SHEET IS THE CATEGORY
-        BROWSER: the same list as Explore's More picker, at a fixed height so
-        opening a category never moves the sheet's top, each level its own
-        scroller, and a category's subcategories sliding in as a level with a
-        back row. What sat around the old list (sign in for a guest, the
-        search link on a product, My Library and the rest) scrolls with the
-        first level. On the marketing pages it is the menu it always was.
-      */}
-      {/*
+        THE MARKETING PAGES' PHONE MENU (the hamburger at the right of their
+        row). Explore and the pages that share its header have the navigator
+        at the left instead, which brings its own sheet, so this one is only
+        ever opened, and only ever kept, on the marketing pages.
+
         BUILT AHEAD AND KEPT, on a phone. "The animation when I open it needs
-        to be smooth and clean." It was built on the tap: React rendering the
-        category list and the browser styling and laying out every row of it
-        before the first frame of the slide could be drawn, which on a phone
-        is the stutter at the start of the open. Kept, it waits below the
-        screen on its own layer and the tap only slides it up, as the account
-        sheet and the app's sheets do (components/ui/bottom-sheet.tsx). The
-        category list is drawn afresh once it has slid away (`menuRound`), so
-        it still opens on the first level every time.
+        to be smooth and clean." Kept, it waits below the screen on its own
+        layer and the tap only slides it up, as the account sheet and the
+        app's sheets do (components/ui/bottom-sheet.tsx).
       */}
       <MobileBottomSheet
-        isOpen={mobileMenuOpen}
+        isOpen={mobileMenuOpen && isMarketingNavRoute}
         onClose={() => setMobileMenuOpen(false)}
-        onClosed={() => setMenuRound((n) => n + 1)}
-        keepMounted={belowMd}
-        fill={!isMarketingNavRoute}
-        height={isMarketingNavRoute ? undefined : "min(78dvh, 680px)"}
+        keepMounted={belowMd && isMarketingNavRoute}
       >
-        {isMarketingNavRoute ? (
+        {isMarketingNavRoute && (
         <div className="px-4 pb-6">
           {/* A guest: the owner's three, Sign up, Discover, Sell on Storelib (image 23). */}
           {!user && (
@@ -2404,65 +2399,6 @@ export function PlatformHeaderClient({
           )}
 
         </div>
-        ) : (
-          <CategoryBrowser
-            key={menuRound}
-            groups={HEADER_GROUPS}
-            selectedGroup={browserSelection.group}
-            selectedItem={browserSelection.item}
-            onPick={pickCategory}
-            phone
-            heading="Browse categories"
-            rootTop={
-              <>
-              <div className="px-4 pt-3">
-                {/*
-                  A GUEST ON EXPLORE, A PRODUCT OR ANY PAGE WITH THIS HEADER:
-                  Sign up, Log in, Sell on Storelib. The marketing menu's three
-                  with Log in where Discover was, because this is Discover.
-                  "A bit more space between the drag pill and the buttons"
-                  still holds (pt-3, 16px under the pill).
-                */}
-                {!user && (
-                  <div className="mb-2">
-                    <GuestSheetActions second="login" link={headerLink} onDone={() => setMobileMenuOpen(false)} />
-                  </div>
-                )}
-                {isDiscoverProductContext && !tabsHere && (
-                  /* This opened a search sheet that no longer exists. It goes to
-                     the page whose whole top half is a search field instead. */
-                  <Link
-                    href="/explore"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="mb-2 flex h-11 w-full items-center gap-2 overflow-hidden rounded-[10px] bg-[#f1f2f4] px-3 text-[15px] text-[#6b7280]"
-                  >
-                    <Search className="h-4 w-4 shrink-0 text-[#6b7280]" />
-                    <span className="truncate">{t("search_placeholder")}</span>
-                  </Link>
-                )}
-              </div>
-              {/* My Library sits under the buttons, above the categories, rather than at the foot of the list.
-                  Not where the tab bar is: Library is one of its four. */}
-              {!tabsHere && (
-              <div className="border-b border-[#eef0f2] pb-1">
-                <MenuRow href="/account/library" label="My Library" onNav={(e) => { onCanonicalNav(e, "/account/library"); setMobileMenuOpen(false) }} to={getCanonicalOrRelativePath("/account/library")} />
-              </div>
-              )}
-              </>
-            }
-            rootBottom={
-              user ? (
-              <div className="border-t border-[#eef0f2] pb-2 pt-1">
-                {hasCompletedSellerOnboarding && (
-                  <MenuRow href={dashboardHref} label="Dashboard" onNav={(e) => { onCanonicalNav(e, dashboardHref); setMobileMenuOpen(false) }} to={getCanonicalOrRelativePath(dashboardHref)} />
-                )}
-                {!hasCompletedSellerOnboarding && (
-                  <MenuRow seller href="/sell" label={sellingLabel(sellerState)} onNav={(e) => { onCanonicalNav(e, "/sell"); setMobileMenuOpen(false) }} to={getCanonicalOrRelativePath("/sell")} />
-                )}
-              </div>
-              ) : null
-            }
-          />
         )}
       </MobileBottomSheet>
 

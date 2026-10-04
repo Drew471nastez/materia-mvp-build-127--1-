@@ -481,6 +481,24 @@ async function main() {
   const header = code("components/platform/platform-header-client.tsx")
   check("in the platform header: both computer rows and the phone row, signed in only", (header.match(/<NotificationBell className=\{chrome\.iconBtn\} \/>\s*\{sellerDashboardButton\}\s*\{desktopAccountMenu\}/g) ?? []).length === 2 && /\{user \? <NotificationBell className=\{chrome\.iconBtn\} \/> : null\}/.test(header))
 
+  /*
+    ROUND 3, ask 9: "clicking the bell again closes it smoothly, clicking
+    outside closes it smoothly, Escape closes it; pictures in it are
+    optimized (lib/images optimizedImageUrl at the rendered size, lazy, fixed
+    box so nothing jumps); open and close are smooth (compositor only)."
+    Measured frame by frame in scripts/check-place-navigator.mjs.
+  */
+  console.log("\nThe bell opens and closes like a control")
+  check("a second click on the bell closes it", /onClick=\{\(\) => \(open \? close\(\) : openList\(\)\)\}/.test(bell))
+  check("no invisible layer over the page: a click outside is heard, never swallowed", !/fixed inset-0 z-\[120\]/.test(bell) && /document\.addEventListener\("pointerdown", away, true\)/.test(bell) && /if \(panelRef\.current\?\.contains\(t\) \|\| anchor\.current\?\.contains\(t\)\) return/.test(bell))
+  check("Escape closes it, after the filter's own menu has had its Escape", /e\.key === "Escape" && !e\.defaultPrevented\) onClose\(\)/.test(bell) && /window\.addEventListener\("keydown", onKey, true\)/.test(bell))
+  check("in and out by transition on opacity, translate and scale only, from starting values", (bell.match(/transition-\[opacity,translate(,scale)?\] motion-reduce:transition-none/g) ?? []).length === 2 && (bell.match(/starting:opacity-0/g) ?? []).length === 2 && !/animate-(in|out)[^"]*slide/.test(bell))
+  check("it stays on the page until its way out has ended, and never past a timer", /if \(open && !present\) setPresent\(true\)/.test(bell) && /e\.propertyName === "opacity" && !open\) onGone\(\)/.test(bell) && /still \? 0 : EXIT_MS/.test(bell))
+  check("leaving, it takes no clicks and no focus", (bell.match(/inert=\{open \? undefined : true\}/g) ?? []).length === 2 && (bell.match(/"pointer-events-none /g) ?? []).length === 2)
+  check("the popover is a fixed height, so the list arriving does not grow it", /height: `min\(560px, calc\(100vh - \$\{pos!\.top \+ 16\}px\)\)`/.test(bell))
+  check("pictures are asked for at the size they are drawn, lazily, in fixed boxes", /optimizedImageUrl\(n\.image, 18\)/.test(bell) && /optimizedImageUrl\(n\.image, 40\)/.test(bell) && (bell.match(/loading="lazy"/g) ?? []).length === 2 && /size=\{40\} markWhileLoading lazy/.test(bell) && /block h-10 w-10 shrink-0 overflow-hidden rounded-full/.test(bell))
+  check("and the shared avatar can load lazily without changing anybody else's", /loading=\{lazy \? "lazy" : undefined\}/.test(code("components/app/app-avatar.tsx")) && /lazy = false,/.test(code("components/app/app-avatar.tsx")))
+
   /* ── The native start ────────────────────────────────────────────────── */
   console.log("\nThe phone app's start")
   check("the community they used last first, never seen last, then the newest join", lastUsedOrder([{ community_id: "a", last_seen_at: null, joined_at: "2026-10-01T00:00:00Z" }, { community_id: "b", last_seen_at: "2026-09-01T00:00:00Z", joined_at: "2026-01-01T00:00:00Z" }, { community_id: "c", last_seen_at: "2026-09-05T00:00:00Z", joined_at: "2026-01-01T00:00:00Z" }, { community_id: "d", last_seen_at: null, joined_at: "2026-10-02T00:00:00Z" }]).map((m) => m.community_id).join("") === "cbda")

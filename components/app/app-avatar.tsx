@@ -147,6 +147,7 @@ export function AppAvatar({
   sizedByClass = false,
   alt,
   markWhileLoading = false,
+  lazy = false,
 }: {
   src?: string | null
   /** For the initials and the picture's description. */
@@ -178,6 +179,8 @@ export function AppAvatar({
    * is only about showing it from the first frame.
    */
   markWhileLoading?: boolean
+  /** Fetched only as it nears the screen: for a long list of faces (the notifications list). */
+  lazy?: boolean
 }) {
   const url = src && !src.includes("placeholder.svg") ? toOriginalImageUrl(src) || null : null
   const [failed, setFailed] = useState<string | null>(null)
@@ -257,6 +260,7 @@ export function AppAvatar({
           width={size}
           height={size}
           decoding="async"
+          loading={lazy ? "lazy" : undefined}
           /* A provider's photo (Google's) is loaded from its own host: no referrer, which it can refuse on. */
           referrerPolicy={optimized ? undefined : "no-referrer"}
           draggable={false}

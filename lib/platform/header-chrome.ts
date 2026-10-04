@@ -5,6 +5,14 @@
 
 /** Dark mode bar: near-black, not pure #000. */
 export const BUYER_HEADER_DARK_BG = "#0e0e10"
+/*
+  LIGHT MODE BAR: A LITTLE WHITER. The owner asked for it a touch whiter
+  than the #f7f8f9 it was. #fcfcfd sits just under pure white, so the bar
+  still reads as a surface over the #f8f9fa page (with its hairline and the
+  barely-there depth in app/globals.css) rather than as part of it.
+  conditional-header's stand in uses the same value, so nothing flashes.
+*/
+export const BUYER_HEADER_LIGHT_BG = "#fcfcfd"
 export type HeaderChrome = {
   root: string
   header: string
@@ -17,6 +25,8 @@ export type HeaderChrome = {
   iconBtn: string
   menuBtn: string
   hamburger: string
+  /** The navigator's three lines (components/nav/place-navigator.tsx): colour, hover and focus on this bar. */
+  navigator: string
   catBtn: string
   catBtnOpen: string
   guestDivider: string
@@ -29,7 +39,7 @@ export type HeaderChrome = {
 }
 
 const LIGHT_FOCUS =
-  "outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#f7f8f9]"
+  "outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#fcfcfd]"
 
 const DARK_FOCUS =
   `outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[${BUYER_HEADER_DARK_BG}]`
@@ -49,6 +59,7 @@ export function headerChrome(light: boolean): HeaderChrome {
       iconBtn: "text-white/80 hover:text-white hover:bg-white/10",
       menuBtn: "bg-white/10 backdrop-blur-sm border border-white/15 text-white hover:bg-white/15",
       hamburger: "text-white",
+      navigator: "text-white hover:bg-white/10 focus-visible:ring-white/40",
       catBtn: "text-white/80 hover:bg-white/10 hover:text-white",
       catBtnOpen: "bg-white/15 text-white",
       guestDivider: "bg-white/15",
@@ -56,7 +67,7 @@ export function headerChrome(light: boolean): HeaderChrome {
       guestLogin: "border-white/30 text-white hover:border-white/55 hover:bg-white/[0.06]",
       deskSearchIcon: "text-white/40",
       deskSearchField:
-        "bg-white/10 border-white/15 text-white placeholder:text-white/50 focus-visible:border-white/45 focus:border-white/45",
+        "bg-white/10 border-white/15 text-white placeholder:text-white/50 focus-visible:border-white/45 focus:border-white/45 focus:shadow-[0_0_0_4px_rgba(255,255,255,0.08)]",
       deskSearchClear: "text-white/40 hover:text-white/70",
       concaveBg: `bg-[${BUYER_HEADER_DARK_BG}]`,
     }
@@ -64,7 +75,7 @@ export function headerChrome(light: boolean): HeaderChrome {
 
   return {
     root:
-      "platform-header-light platform-header-depth z-40 w-full bg-[#f7f8f9] backdrop-blur supports-[backdrop-filter]:bg-[#f7f8f9]/98",
+      "platform-header-light platform-header-depth z-40 w-full bg-[#fcfcfd] backdrop-blur supports-[backdrop-filter]:bg-[#fcfcfd]/98",
     header: "w-full bg-transparent",
     headerBorder: "border-b border-[rgba(16,18,27,0.06)]",
     focus: LIGHT_FOCUS,
@@ -78,6 +89,7 @@ export function headerChrome(light: boolean): HeaderChrome {
     menuBtn:
       "bg-[rgba(16,18,27,0.04)] backdrop-blur-sm border border-[rgba(16,18,27,0.08)] text-[#1a1a2e] hover:bg-[rgba(16,18,27,0.06)]",
     hamburger: "text-[#1a1a2e]",
+    navigator: "text-[#1a1a2e] hover:bg-[rgba(16,18,27,0.05)] focus-visible:ring-[#1a1a2e]/20",
     catBtn: "text-[#5c6574] hover:bg-[rgba(16,18,27,0.05)] hover:text-[#1a1a2e]",
     catBtnOpen: "bg-[rgba(16,18,27,0.06)] text-[#1a1a2e]",
     guestDivider: "bg-[rgba(16,18,27,0.1)]",
@@ -85,8 +97,8 @@ export function headerChrome(light: boolean): HeaderChrome {
     guestLogin: "border-[rgba(16,18,27,0.12)] text-[#1a1a2e] hover:border-[rgba(16,18,27,0.2)] hover:bg-[rgba(16,18,27,0.03)]",
     deskSearchIcon: "text-[#9aa3b2]",
     deskSearchField:
-      "bg-white border-[rgba(16,18,27,0.08)] text-[#1a1a2e] placeholder:text-[#9aa3b2] shadow-[0_1px_2px_rgba(16,18,27,0.04)] focus-visible:border-[rgba(16,18,27,0.14)] focus:border-[rgba(16,18,27,0.14)]",
+      "bg-white border-[rgba(16,18,27,0.08)] text-[#1a1a2e] placeholder:text-[#9aa3b2] shadow-[0_1px_2px_rgba(16,18,27,0.04)] focus-visible:border-[rgba(16,18,27,0.16)] focus:border-[rgba(16,18,27,0.16)] focus:shadow-[0_0_0_4px_rgba(16,18,27,0.05),0_1px_2px_rgba(16,18,27,0.04)]",
     deskSearchClear: "text-[#9aa3b2] hover:text-[#5c6574]",
-    concaveBg: "bg-[#f7f8f9]",
+    concaveBg: "bg-[#fcfcfd]",
   }
 }

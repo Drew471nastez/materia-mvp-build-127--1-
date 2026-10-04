@@ -57,7 +57,8 @@ check("asks the tab bar's own question", /const tabsHere = useBuyerTabsHere\(pat
 check("the tab bar asks it the same way", /const where = useBuyerTabsWhere\(pathname\)/.test(code("components/nav/buyer-tab-bar.tsx")))
 check("no Library icon in the phone row there", /\{user && !tabsHere && \(\s*<Link\s+href=\{getCanonicalOrRelativePath\("\/account\/library"\)\}/.test(header))
 check("the heart and the photo stay (the photo opens the account sheet)", /aria-label="Wishlist"/.test(header) && /onClick=\{\(\) => setMobileProfileOpen\(true\)\}/.test(header))
-check("the menu sheet drops My Library and its search link there", /\{!tabsHere && \(\s*<div className="border-b border-\[#eef0f2\] pb-1">\s*<MenuRow href="\/account\/library"/.test(header) && /isDiscoverProductContext && !tabsHere/.test(header))
+/* Round 3: Explore's hamburger is the navigator now, which carries no Library row and no search link, so there is nothing of the tab bar's to drop. */
+check("the menu there is the navigator: no My Library row and no search link to repeat the tab bar", /<PlaceNavigator\b/.test(header) && !/<MenuRow href="\/(account\/)?library"/.test(header) && !/isDiscoverProductContext && !tabsHere/.test(header))
 check("the search strip under the header: not with the tab bar, never on the library or the account", /\{searchInHeader && !tabsHere && !isOwnPages && !isCommunityRoute && \(/.test(header) && /const isOwnPages = pathname === "\/account\/library" \|\| pathname\.startsWith\("\/account\/library\/"\) \|\| pathname === "\/account" \|\| pathname\.startsWith\("\/account\/"\)/.test(header))
 /* The strip is `fixed` at the foot of the header; a community's own tab row
    is `sticky` at the same offset, so the marketplace search landed on top of
@@ -71,8 +72,10 @@ console.log("\nThe header's menu sheet opens smoothly")
 {
   const src = read("components/platform/platform-header-client.tsx")
   /* "The animation when I open it needs to be smooth and clean": built ahead and kept on a phone, so the tap is only the slide. */
-  check("the menu sheet is kept on a phone, and its category list starts from the top again once it has slid away",
-    /onClosed=\{\(\) => setMenuRound\(\(n\) => n \+ 1\)\}\s*keepMounted=\{belowMd\}/.test(src) && /<CategoryBrowser\s*key=\{menuRound\}/.test(src) && /onClosed=\{onClosed\}/.test(src))
+  /* Round 3: the marketing menu is the only one left in the header (Explore's is the navigator, which keeps its own sheet). */
+  check("the marketing menu sheet is kept on a phone, and only where it can be opened",
+    /isOpen=\{mobileMenuOpen && isMarketingNavRoute\}/.test(src) && /keepMounted=\{belowMd && isMarketingNavRoute\}/.test(src))
+  check("and the navigator's sheet is kept on a phone too", /keepMounted=\{phone\}/.test(read("components/nav/place-navigator.tsx")))
   check("the menu button's lines move by opacity and scale only, never width", /transition-\[opacity,scale\]/.test(src) && !/transition-all duration-200 ease-out \$\{\s*isOpen \? "opacity-60 w-4"/.test(src) && !/opacity-60 w-4/.test(src))
 }
 
