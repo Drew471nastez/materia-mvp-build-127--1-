@@ -397,9 +397,9 @@ async function main() {
     const page = code("app/(marketing)/community/[slug]/page.tsx")
     check("/community/<slug> is a 404 while off, read per request", /await connection\(\)\s*if \(!\(await communitiesEnabled\(\)\)\) notFound\(\)/.test(page))
     check("a member gets the member area's feed (CommunityFeedPage, by its fixed path)", /if \(load\.viewer\.active\) return <CommunityFeedPage slug=\{load\.community\.slug\} \/>/.test(page) && /import \{ CommunityFeedPage \} from "@\/components\/community\/member\/feed-page"/.test(page))
-    check("everybody else the sales page, with its structured data", /<CommunitySalesPage data=\{load\.data\} \/>/.test(page) && /jsonLdScript\(jsonLd\)/.test(page))
+    check("everybody else the sales page, with its structured data", /<CommunitySalesPage data=\{\{ \.\.\.load\.data, extras \}\} \/>/.test(page) && /jsonLdScript\(jsonLd\)/.test(page))
     const about = code("app/(marketing)/community/[slug]/about/page.tsx")
-    check("/about is the sales page for everybody, members included", /await connection\(\)\s*if \(!\(await communitiesEnabled\(\)\)\) notFound\(\)/.test(about) && /<CommunitySalesPage data=\{load\.data\} \/>/.test(about) && !/viewer\.active/.test(about))
+    check("/about is the sales page for everybody, members included", /await connection\(\)\s*if \(!\(await communitiesEnabled\(\)\)\) notFound\(\)/.test(about) && /<CommunitySalesPage data=\{\{ \.\.\.load\.data, extras \}\} \/>/.test(about) && !/viewer\.active/.test(about))
     check("/account/communities is a 404 while off", /if \(!\(await communitiesEnabled\(\)\)\) notFound\(\)/.test(code("app/account/communities/page.tsx")))
     const routes = ["join", "leave", "onboarding", "invite/redeem"].map((r) => `app/api/community/[communityId]/${r}/route.ts`)
     for (const r of routes) {

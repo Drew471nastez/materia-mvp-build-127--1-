@@ -2,26 +2,36 @@
 
 /**
  * ===========================================================================
- *  THE ONE BUTTON, IN THE THREE PLACES IT IS DRAWN
+ *  THE ONE BUTTON, IN THE PLACES IT IS DRAWN
  * ===========================================================================
  * The sales page offers one action (lib/../join-state.ts decides which). It
- * is drawn in a sticky card at the right from 1024px, in a bar pinned to the
- * bottom of a phone (above the home indicator: env(safe-area-inset-bottom)),
- * and the phone also gets the card's content (the line, Members / Online /
- * Admins, the monthly or yearly choice) in the page itself, under the media. One
- * provider holds what they share (the interval, a press in flight, an error),
- * so the three never disagree.
+ * is drawn in a sticky card at the right from 1024px, in the page's
+ * Membership section (the pricing card, with Monthly and Yearly when the
+ * tier has both), and in a bar at the bottom of a phone. One provider holds
+ * what they share (the interval, a press in flight, an error), so they never
+ * disagree.
  *
  * WHAT A PRESS DOES
  *   open, product     a link
  *   signed out        sign in, then back here with ?join=1, where the press
  *                     is picked up again (a free join runs, a request opens
  *                     its note, a paid tier goes to checkout)
- *   join_free         POST join, then the page again: a member sees the feed
+ *   join_free         POST join, then straight into the community (below)
  *   request           a note (optional) in a sheet or dialog, then POST join
  *   checkout          to the existing checkout on the chosen interval; the
  *                     server answers the same address and checks again there
  *   pending           nothing to press; "Withdraw request" is POST leave
+ *
+ * JOINING FEELS INSTANT (round 10, ask 33). The press answers on the next
+ * frame: the button says "Joining" with a small spinner while the request
+ * is out (it is never greyed out, and a second press does nothing). When the
+ * server says "member" the button says "You're in" and the community comes
+ * in ONE navigation: the address becomes the community's home
+ * (history.pushState, which Next's router follows) and the router reads the
+ * whole page again once (router.refresh), so the frame around it becomes the
+ * member's and the feed fades in where the sales page was. No reload, no
+ * second hop through the sales page. Anything else (an error, a request
+ * that now waits for an admin) puts the button back with one line under it.
  *
  * Every write is the server's to allow (app/api/community/[communityId]/
  * join|leave): this file only says what happened, in a line under the button.
@@ -31,15 +41,18 @@ import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Check } from "lucide-react"
 import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
+import { Spinner } from "@/components/community/member/place-spinner"
 import { LENGTHS } from "@/lib/communities/limits"
 import { memberCountLabel } from "@/lib/communities/format"
-import { pricePer, yearlySaving } from "@/lib/memberships/state"
+import { money, pricePer, yearlySaving } from "@/lib/memberships/state"
 import { optimizedImageUrl } from "@/lib/images/optimized-url"
 import { cn } from "@/lib/utils"
-import { StatsRow } from "./stats-row"
+import { communityPath } from "./paths"
 import type { JoinOption, JoinStateView, PublicCommunityView } from "./types"
 
 type Interval = "month" | "year"
+/** Where a press is: nothing yet, the join on its way, or in (and the community on its way). */
+export type JoinPhase = "idle" | "joining" | "joined"
 
 interface JoinCtx {
   community: PublicCommunityView
@@ -47,6 +60,7 @@ interface JoinCtx {
   interval: Interval
   setInterval: (i: Interval) => void
   busy: boolean
+  phase: JoinPhase
   error: string | null
   press: () => void
   withdraw: () => void
@@ -66,7 +80,7 @@ function useJoin(): JoinCtx {
   return v
 }
 
-/** Both intervals on offer: the toggle is drawn. */
+/** Both intervals on offer: the switch is drawn. */
 export function bothIntervals(o: JoinOption | null): boolean {
   return !!o?.checkout?.month && !!o?.checkout?.year
 }
@@ -80,6 +94,25 @@ export function intervalPrice(o: JoinOption | null, interval: Interval): string 
     if (o.yearlyCents) return pricePer(o.yearlyCents, "year", o.currency)
   }
   return o.priceLine
+}
+
+/**
+ * The price as the pricing card prints it: the figure large and what it is
+ * per, apart ("$19" and "/month", "$249" and "once", "Free"). Null for a
+ * tier with no price yet.
+ */
+export function priceParts(o: JoinOption | null, interval: Interval): { amount: string; per: string | null } | null {
+  if (!o) return null
+  if (o.kind === "free") return { amount: "Free", per: null }
+  if (o.billing === "recurring") {
+    const year = interval === "year" && o.yearlyCents ? o.yearlyCents : null
+    const cents = year ?? o.monthlyCents ?? o.yearlyCents
+    if (!cents) return null
+    const per = year || !o.monthlyCents ? "/year" : "/month"
+    return { amount: money(cents, o.currency), per }
+  }
+  if (o.priceCents) return { amount: money(o.priceCents, o.currency), per: "once" }
+  return o.priceLine ? { amount: o.priceLine, per: null } : null
 }
 
 /** The button's words with the chosen interval's price in them. */
@@ -104,11 +137,25 @@ async function post(url: string, body?: unknown): Promise<{ ok: boolean; data: R
   }
 }
 
+/**
+ * INTO THE COMMUNITY, IN ONE NAVIGATION. The address becomes the
+ * community's home (Next's router follows history.pushState) and the router
+ * reads everything under it again, once: the layout gives the member's frame
+ * and the page the feed. Already on the home address (the sales page is the
+ * home for a visitor), the read alone does it.
+ */
+export function enterCommunity(slug: string, router: { refresh: () => void }) {
+  const home = communityPath(slug)
+  if (typeof window !== "undefined" && window.location.pathname.replace(/\/+$/, "") !== home) window.history.pushState(null, "", home)
+  router.refresh()
+}
+
 export function JoinProvider({ community, join, children }: { community: PublicCommunityView; join: JoinStateView; children: React.ReactNode }) {
   const router = useRouter()
   const params = useSearchParams()
   const [interval, setInterval] = React.useState<Interval>(() => (join.option?.checkout?.month || !join.option?.checkout?.year ? "month" : "year"))
   const [busy, setBusy] = React.useState(false)
+  const [phase, setPhase] = React.useState<JoinPhase>("idle")
   const [error, setError] = React.useState<string | null>(null)
   const [requestOpen, setRequestOpen] = React.useState(false)
   const [leaveOpen, setLeaveOpen] = React.useState(false)
@@ -116,26 +163,47 @@ export function JoinProvider({ community, join, children }: { community: PublicC
 
   const go = React.useCallback((href: string) => router.push(href), [router])
 
+  /*
+    THE FEED ARRIVES AT THE TOP. When the member's page takes this one's place (after "You're in"), the window is put back at the top
+    in the same commit, before it is painted, so the feed never appears halfway down where the sales page was read.
+  */
+  const phaseRef = React.useRef(phase)
+  phaseRef.current = phase
+  React.useLayoutEffect(
+    () => () => {
+      if (phaseRef.current === "joined") window.scrollTo(0, 0)
+    },
+    [],
+  )
+
   const answer = React.useCallback(
     (r: { ok: boolean; data: Record<string, unknown> }) => {
       if (r.ok) {
         const state = r.data.state
         if (state === "checkout" && typeof r.data.url === "string") return go(r.data.url)
+        if (state === "member") {
+          setPhase("joined")
+          return enterCommunity(community.slug, router)
+        }
+        setPhase("idle")
         router.refresh()
         return
       }
+      setPhase("idle")
       if (typeof r.data.url === "string" && (r.data.error === "needs_product" || r.data.error === "manage_billing")) {
         setError(String(r.data.message || ""))
         return go(r.data.url)
       }
       setError(typeof r.data.message === "string" ? r.data.message : "That did not go through. Try again.")
     },
-    [go, router],
+    [community.slug, go, router],
   )
 
   const joinNow = React.useCallback(
     async (note?: string) => {
+      /* On the next frame: the button answers before the request leaves. */
       setBusy(true)
+      setPhase("joining")
       setError(null)
       const r = await post(`${api}/join`, { note: note || undefined, interval })
       setBusy(false)
@@ -146,7 +214,7 @@ export function JoinProvider({ community, join, children }: { community: PublicC
   )
 
   const press = React.useCallback(() => {
-    if (busy) return
+    if (busy || phase !== "idle") return
     if (join.href && (join.kind === "open" || join.kind === "product" || !join.signedIn)) return go(join.href)
     if (join.kind === "join_free") return void joinNow()
     if (join.kind === "request") return setRequestOpen(true)
@@ -154,7 +222,7 @@ export function JoinProvider({ community, join, children }: { community: PublicC
       const href = checkoutHref(join.option, interval)
       if (href) go(href)
     }
-  }, [busy, go, interval, join, joinNow])
+  }, [busy, phase, go, interval, join, joinNow])
 
   const withdraw = React.useCallback(async () => {
     setBusy(true)
@@ -190,6 +258,7 @@ export function JoinProvider({ community, join, children }: { community: PublicC
     interval,
     setInterval,
     busy,
+    phase,
     error,
     press,
     withdraw,
@@ -212,17 +281,17 @@ export function JoinProvider({ community, join, children }: { community: PublicC
 /* ── Pieces ─────────────────────────────────────────────────────────────── */
 
 const PRIMARY =
-  "inline-flex h-11 items-center justify-center rounded-xl bg-[#1a1a2e] px-5 text-[15px] font-semibold text-white outline-none transition-[background-color,scale] duration-150 hover:bg-[#2a2a40] active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/30 focus-visible:ring-offset-2 disabled:cursor-default disabled:bg-[#e5e7eb] disabled:text-[#6b7280] motion-reduce:transition-none [-webkit-tap-highlight-color:transparent]"
+  "inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-[#1a1a2e] bg-[#1a1a2e] px-5 text-[15px] font-semibold text-white shadow-[0_1px_1.5px_rgba(16,24,40,0.18),inset_0_1px_0_rgba(255,255,255,0.08)] outline-none transition-[background-color,scale,box-shadow] duration-150 hover:bg-[#2a2a40] active:scale-[0.98] active:shadow-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/30 focus-visible:ring-offset-2 disabled:cursor-default disabled:border-[#e5e7eb] disabled:bg-[#e5e7eb] disabled:text-[#6b7280] disabled:shadow-none motion-reduce:transition-none [-webkit-tap-highlight-color:transparent]"
 /* A quiet second action: text, but a 40px target, so a thumb finds it. */
 const QUIET = "-mx-1 inline-flex min-h-10 items-center px-1 text-[13px] font-medium text-[#6b7280] underline-offset-2 outline-none hover:text-[#1a1a2e] hover:underline focus-visible:underline disabled:opacity-60"
 
 /** The button itself, or the sentence when there is nothing to press. */
-function PrimaryAction({ className }: { className?: string }) {
-  const { join, interval, busy, press } = useJoin()
-  const label = buttonLabel(join, interval)
+function PrimaryAction({ className, short = false }: { className?: string; /** Beside a price that already says it (the phone's bar): "Join" alone. */ short?: boolean }) {
+  const { join, interval, busy, phase, press } = useJoin()
+  const label = short && (join.kind === "checkout" || join.kind === "join_free") ? "Join" : buttonLabel(join, interval)
   if (join.kind === "invite_only" || join.kind === "banned" || join.kind === "closed" || join.kind === "unavailable") {
     return (
-      <p data-join-state={join.kind} className={cn("rounded-xl bg-[#f1f2f4] px-4 py-3 text-center text-[14px] font-medium text-[#4b5563]", className)}>
+      <p data-join-state={join.kind} className={cn("flex min-h-11 items-center justify-center rounded-xl bg-[#f1f2f4] px-4 py-2.5 text-center text-[14px] font-medium text-[#4b5563]", className)}>
         {label}
       </p>
     )
@@ -230,7 +299,7 @@ function PrimaryAction({ className }: { className?: string }) {
   if (join.kind === "pending") {
     return (
       <button type="button" disabled data-join-state="pending" className={cn(PRIMARY, className)}>
-        <Check aria-hidden className="mr-1.5 h-4 w-4" />
+        <Check aria-hidden className="h-4 w-4" />
         {label}
       </button>
     )
@@ -242,44 +311,96 @@ function PrimaryAction({ className }: { className?: string }) {
       </Link>
     )
   }
+  /*
+    The press is answered at once and the button keeps its colour and its size the whole way: "Joining" with a spinner while the
+    request is out, "You're in" with a check once it is in. The words cross by opacity only; nothing moves.
+  */
   return (
-    <button type="button" onClick={press} disabled={busy} aria-busy={busy} data-join-state={join.kind} className={cn(PRIMARY, className)}>
-      {busy ? "One moment" : label}
+    <button type="button" onClick={press} aria-busy={busy || phase !== "idle"} data-join-state={join.kind} data-join-phase={phase} className={cn(PRIMARY, "relative", className)}>
+      <span className={cn("inline-flex items-center gap-2 transition-opacity duration-150", phase === "idle" ? "opacity-100" : "opacity-0")}>{label}</span>
+      {phase !== "idle" ? (
+        <span aria-live="polite" className="absolute inset-0 inline-flex items-center justify-center gap-2 animate-in fade-in-0 duration-150" data-join-progress="">
+          {phase === "joining" ? (
+            <>
+              <Spinner size={18} className="!text-white" />
+              Joining
+            </>
+          ) : (
+            <>
+              <Check aria-hidden className="h-[18px] w-[18px]" strokeWidth={2.5} />
+              You&apos;re in
+            </>
+          )}
+        </span>
+      ) : null}
     </button>
   )
 }
 
-/** Monthly or yearly, when the tier offers both. */
-function IntervalChoice({ className }: { className?: string }) {
+/** How long the thumb takes to slide, and the words to follow it (components/billing/plan-cards.tsx IntervalSwitch). */
+const SWITCH_MS = 260
+const SWITCH_EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
+
+/**
+ * MONTHLY OR YEARLY, Storelib's switch (the billing page's: one track with a
+ * white thumb that slides between the two, two equal columns, so moving it is
+ * a shift by its own width and nothing is measured). Yearly carries what it
+ * saves. Only when the tier is sold both ways.
+ */
+export function IntervalSwitch({ className, full = false }: { className?: string; full?: boolean }) {
   const { join, interval, setInterval } = useJoin()
   const o = join.option
   if (join.kind !== "checkout" || !bothIntervals(o)) return null
   const saving = yearlySaving(o?.monthlyCents ?? null, o?.yearlyCents ?? null)
-  const choices: { id: Interval; label: string }[] = [
-    { id: "month", label: "Monthly" },
-    { id: "year", label: saving > 0 ? `Yearly, save ${saving}%` : "Yearly" },
-  ]
+  const yearly = interval === "year"
   return (
-    <div role="radiogroup" aria-label="Billing" data-interval-choice="" className={cn("grid grid-cols-2 gap-1 rounded-xl bg-[#f1f2f4] p-1", className)}>
-      {choices.map((c) => {
-        const on = interval === c.id
+    <div
+      role="radiogroup"
+      aria-label="Billing"
+      data-interval-choice={interval}
+      className={cn("relative grid-cols-2 rounded-full bg-[#eceef1] p-1 shadow-[inset_0_1px_2px_rgba(16,24,40,0.10),inset_0_0_0_1px_rgba(16,24,40,0.04)]", full ? "grid w-full" : "inline-grid", className)}
+    >
+      <span
+        aria-hidden
+        data-interval-thumb=""
+        className="pointer-events-none absolute inset-y-1 left-1 w-[calc(50%-4px)] rounded-full bg-white shadow-[0_1px_2px_rgba(16,24,40,0.12),0_4px_10px_-4px_rgba(16,24,40,0.18),inset_0_-1px_0_rgba(16,24,40,0.04)] motion-reduce:!transition-none"
+        style={{ translate: yearly ? "100% 0" : "0 0", transition: `translate ${SWITCH_MS}ms ${SWITCH_EASE}` }}
+      />
+      {(["month", "year"] as const).map((id) => {
+        const on = interval === id
         return (
           <button
-            key={c.id}
+            key={id}
             type="button"
             role="radio"
             aria-checked={on}
-            onClick={() => setInterval(c.id)}
+            data-interval-option={id}
+            onClick={() => setInterval(id)}
+            style={{ transition: `color ${SWITCH_MS}ms ${SWITCH_EASE}` }}
             className={cn(
-              "h-10 rounded-[9px] px-2 text-[13px] font-medium outline-none transition-[background-color,color,box-shadow] duration-150 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20",
-              on ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.08)]" : "text-[#6b7280] hover:text-[#1a1a2e]",
+              "relative z-[1] inline-flex h-10 cursor-pointer select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-4 text-[13px] font-semibold outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/25 motion-reduce:!transition-none [-webkit-tap-highlight-color:transparent]",
+              on ? "text-[#1a1a2e]" : "text-[#4b5260] hover:text-[#1a1a2e]",
             )}
           >
-            {c.label}
+            {id === "month" ? "Monthly" : "Yearly"}
+            {id === "year" && saving > 0 ? <span className="rounded-full bg-[#1a1a2e] px-1.5 py-px text-[10.5px] font-semibold leading-4 text-white">Save {saving}%</span> : null}
           </button>
         )
       })}
     </div>
+  )
+}
+
+/** The price, large, with what it is per beside it; it follows the interval. */
+function PriceLine({ className }: { className?: string }) {
+  const { join, interval } = useJoin()
+  const parts = priceParts(join.option, interval)
+  if (!parts || join.kind === "open" || join.kind === "invite_only" || join.kind === "product") return null
+  return (
+    <p className={cn("flex items-baseline gap-1.5", className)} data-join-price="">
+      <span className="text-[30px] font-semibold leading-9 tabular-nums tracking-[-0.02em] text-[#1a1a2e]">{parts.amount}</span>
+      {parts.per ? <span className="text-[14px] font-medium text-[#6b7280]">{parts.per}</span> : null}
+    </p>
   )
 }
 
@@ -288,12 +409,11 @@ function Status() {
   return (
     <>
       {error ? (
-        <p role="alert" className="mt-2.5 text-[13px] leading-snug text-[#b42318]">
+        <p role="alert" className="mt-2.5 text-[13px] leading-snug text-[#b42318]" data-join-error="">
           {error}
         </p>
       ) : null}
-      {join.note && join.kind !== "invite_only" ? <p className="mt-2.5 text-[13px] leading-snug text-[#6b7280]">{join.note}</p> : null}
-      {join.kind === "invite_only" && join.note ? <p className="mt-2.5 text-[13px] leading-snug text-[#6b7280]">{join.note}</p> : null}
+      {join.note ? <p className="mt-2.5 text-[13px] leading-snug text-[#6b7280]">{join.note}</p> : null}
       {join.kind === "pending" ? (
         <button type="button" onClick={withdraw} disabled={busy} className={cn(QUIET, "mt-1")}>
           Withdraw request
@@ -313,7 +433,7 @@ function Status() {
   )
 }
 
-/** The sticky card, from 1024px: the cover, the name, its address, the line, Members / Online / Admins, and the button. */
+/** The sticky card, from 1024px: the cover, the name, its address, the price with Monthly and Yearly, and the button. */
 export function JoinCard() {
   const { community, join } = useJoin()
   const image = community.coverUrl || community.logoUrl
@@ -330,11 +450,19 @@ export function JoinCard() {
           <div className="p-5">
             <p className="text-[18px] font-semibold leading-snug tracking-[-0.005em] text-[#1a1a2e] [overflow-wrap:anywhere]">{community.name}</p>
             <p className="mt-0.5 truncate text-[13px] text-[#8a8f98]">{community.address}</p>
-            {community.tagline ? <p className="mt-3 text-[14.5px] leading-relaxed text-[#374151]">{community.tagline}</p> : null}
-            <StatsRow stats={community.stats} className="mt-4" />
-            {join.option?.billing === "recurring" && join.kind === "checkout" ? <IntervalChoice className="mt-4" /> : null}
+            {join.kind === "open" ? (
+              <p className="mt-3 text-[14px] text-[#4b5563]">{join.isOwner ? "You run this community." : "You're a member."}</p>
+            ) : (
+              <>
+                <PriceLine className="mt-4" />
+                <IntervalSwitch className="mt-3" full />
+              </>
+            )}
             <PrimaryAction className="mt-4 w-full" />
             <Status />
+            <p className="mt-4 border-t border-[#eef0f2] pt-3.5 text-[13px] tabular-nums text-[#6b7280]" data-join-card-members="">
+              {memberCountLabel(community.memberCount)}
+            </p>
           </div>
         </div>
       </div>
@@ -342,34 +470,82 @@ export function JoinCard() {
   )
 }
 
-/** On a phone, where the card would be: under the media, the line, the three figures, the interval and what happened. */
-export function JoinSummaryPhone() {
-  const { community } = useJoin()
+/**
+ * THE MEMBERSHIP SECTION (round 10): the way in as a pricing card in the page
+ * itself, at every width. The tier's name and line, the price large
+ * (following Monthly and Yearly when it is sold both ways), what it
+ * includes (the tier's own benefits), and the button. `others` (the other
+ * paid tiers, the products that give access) is drawn under it.
+ */
+export function PricingCard({ others }: { others?: React.ReactNode }) {
+  const { join } = useJoin()
+  const o = join.option
+  if (join.kind === "open" || join.kind === "banned" || join.kind === "closed") return others ? <>{others}</> : null
+  const includes = o?.benefits?.length ? o.benefits : []
+  const title = join.kind === "invite_only" ? "Invite only" : join.kind === "product" ? "Comes with a product" : o?.name || "Membership"
   return (
-    <div className="lg:hidden" data-join-summary="">
-      {community.tagline ? <p className="text-[15.5px] leading-relaxed text-[#374151]">{community.tagline}</p> : null}
-      <StatsRow stats={community.stats} className={community.tagline ? "mt-4" : ""} />
-      <IntervalChoice className="mt-4" />
-      <div className="[&>*:first-child]:mt-2">
+    <div className="space-y-4">
+      <div className="rounded-2xl border border-[#e3e5e9] bg-white p-5 shadow-[0_1px_2px_rgba(16,24,40,0.04)] sm:p-6" data-pricing-card={join.kind}>
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+          <div className="min-w-0">
+            <p className="text-[15px] font-semibold text-[#1a1a2e]">{title}</p>
+            {o?.description && join.kind !== "invite_only" ? <p className="mt-0.5 max-w-[46ch] text-[13.5px] leading-snug text-[#6b7280]">{o.description}</p> : null}
+          </div>
+          <IntervalSwitch />
+        </div>
+        <PriceLine className="mt-4" />
+        {includes.length && join.kind !== "invite_only" ? (
+          <ul className="mt-4 grid gap-x-6 gap-y-2 sm:grid-cols-2" data-pricing-includes="">
+            {includes.map((b, i) => (
+              <li key={i} className="flex gap-2.5 text-[14px] leading-snug text-[#374151]">
+                <Check aria-hidden className="mt-[2px] h-4 w-4 shrink-0 text-[#1a1a2e]" strokeWidth={2.25} />
+                <span className="min-w-0 break-words">{b}</span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        <PrimaryAction className="mt-5 w-full sm:w-auto sm:min-w-[240px]" />
         <Status />
       </div>
+      {others}
     </div>
   )
 }
 
-/** The bar at the bottom of a phone: the price and the button, above the home indicator. */
+/** On a phone, under the media: only what happened (an error, a note, Withdraw or Leave), when there is something to say. */
+export function JoinSummaryPhone() {
+  const { join, error } = useJoin()
+  const something = !!error || join.kind === "pending" || (join.kind === "open" && (!!join.manageHref || join.canLeave))
+  if (!something) return null
+  return (
+    <div className="lg:hidden [&>*:first-child]:mt-0" data-join-summary="">
+      <Status />
+    </div>
+  )
+}
+
+/**
+ * THE BAR AT THE BOTTOM OF A PHONE (round 10, 63.webp: the button floated
+ * over the page with the page showing around it). It is one opaque white
+ * surface from its hairline to the very bottom of the screen: where the
+ * phone's tab bar is shown (lib/nav/buyer-tabs.ts, --buyer-tabs-h on
+ * <html>) the bar's white runs on under it, so whatever the two heights do
+ * there is never a strip of page between them; where there is no tab bar it
+ * ends above the home indicator. The price (with the interval) beside the
+ * button, or the button alone across the width.
+ */
 export function JoinBarPhone() {
   const { join, interval, community } = useJoin()
-  const price = join.kind === "open" || !join.option ? null : intervalPrice(join.option, interval)
-  const wide = join.kind === "open" || join.kind === "pending" || !price || ["invite_only", "banned", "closed", "unavailable", "product"].includes(join.kind)
+  const parts = join.kind === "open" ? null : priceParts(join.option, interval)
+  const wide = join.kind === "open" || join.kind === "pending" || !parts || ["invite_only", "banned", "closed", "unavailable", "product"].includes(join.kind)
   const ref = React.useRef<HTMLDivElement>(null)
   /*
     THE ROOM IT TAKES, AT THE END OF THE DOCUMENT. The footer comes after
     this page in the layout, so padding the page alone left the footer's last
-    lines under the bar. The bar's own height is measured (it changes with the
-    safe area and the text size) and given to the body as padding while the
-    bar is on screen: one number, read in one place. From 1024px the bar is
-    not displayed, measures 0, and takes nothing.
+    lines under the bar. What the bar covers above the tab bar (measured: it
+    changes with the safe area and the text size) is given to the body as
+    padding while the bar is on screen; the tab bar keeps its own room. From
+    1024px the bar is not displayed, measures 0, and takes nothing.
   */
   React.useLayoutEffect(() => {
     const el = ref.current
@@ -377,7 +553,9 @@ export function JoinBarPhone() {
     const body = document.body
     const before = body.style.paddingBottom
     const sync = () => {
-      body.style.paddingBottom = `${el.offsetHeight}px`
+      const tabs = document.querySelector<HTMLElement>("[data-buyer-tab-bar='shown']")
+      const under = tabs && tabs.offsetHeight > 0 ? tabs.offsetHeight : 0
+      body.style.paddingBottom = `${Math.max(0, el.offsetHeight - under)}px`
     }
     sync()
     const ro = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(sync)
@@ -394,17 +572,20 @@ export function JoinBarPhone() {
       ref={ref}
       data-join-bar=""
       className="fixed inset-x-0 bottom-0 z-40 border-t border-[#e5e7eb] bg-white px-4 pt-3 shadow-[0_-4px_16px_-8px_rgba(16,24,40,0.12)] lg:hidden"
-      style={{ paddingBottom: "calc(12px + env(safe-area-inset-bottom, 0px))" }}
+      /* Down to the screen's foot: under the tab bar where there is one, above the home indicator where there is not. */
+      style={{ paddingBottom: "calc(12px + var(--buyer-tabs-h, env(safe-area-inset-bottom, 0px)))" }}
     >
-      <div className="mx-auto flex max-w-[640px] items-center gap-3">
-        {/* Whose button it is, beside it: the price is already in the button's words. */}
-        {!wide ? (
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-[15px] font-semibold text-[#1a1a2e]">{community.name}</p>
+      <div className="mx-auto flex max-w-[640px] items-center gap-3" data-join-bar-row="">
+        {!wide && parts ? (
+          <div className="min-w-0 flex-1" data-join-bar-price="">
+            <p className="flex items-baseline gap-1 truncate">
+              <span className="text-[18px] font-semibold tabular-nums tracking-[-0.01em] text-[#1a1a2e]">{parts.amount}</span>
+              {parts.per ? <span className="text-[13px] font-medium text-[#6b7280]">{parts.per}</span> : null}
+            </p>
             <p className="truncate text-[12.5px] tabular-nums text-[#6b7280]">{memberCountLabel(community.memberCount)}</p>
           </div>
         ) : null}
-        <PrimaryAction className={wide ? "w-full" : "shrink-0"} />
+        <PrimaryAction className={wide ? "w-full" : "min-w-[132px] shrink-0"} short={!wide} />
       </div>
     </div>
   )

@@ -246,9 +246,10 @@ export const isNativePlatform = () => false
   {
     const { p, errors } = await open("/community/clay-studio/about?case=about-visitor", PHONE)
     const s = await bar(p)
-    const jb = await p.evaluate(() => { const j = document.querySelector("[data-join-bar]"); if (!j) return null; const r = j.getBoundingClientRect(); return { top: Math.round(r.top), bottom: Math.round(r.bottom), pb: getComputedStyle(j).paddingBottom } })
+    const jb = await p.evaluate(() => { const j = document.querySelector("[data-join-bar]"); if (!j) return null; const r = j.getBoundingClientRect(); const row = j.querySelector("[data-join-bar-row]").getBoundingClientRect(); return { top: Math.round(r.top), bottom: Math.round(r.bottom), rowBottom: Math.round(row.bottom), vh: innerHeight, pb: getComputedStyle(j).paddingBottom } })
     expect(s && s.shown && s.labels[3] === "Log in", "the bar is there, Profile is Log in while signed out", s && s.labels)
-    expect(jb && Math.abs(jb.bottom - s.top) <= 1, "the join bar stands on the tab bar, touching it, not under it", { jb, barTop: s && s.top })
+    /* Round 10 (63.webp): the join bar is one white surface down to the screen's foot, its button 12px above the tab bar, so no page shows between them. */
+    expect(jb && jb.bottom === jb.vh && Math.abs(jb.rowBottom + 12 - s.top) <= 1, "the join bar's button sits 12px above the tab bar and its white runs on under it to the foot", { jb, barTop: s && s.top })
     await p.screenshot({ path: join(shots, "phone-community-visitor.png") })
     await p.evaluate(() => { window.__router = [] })
     await touchTap(p, s.slots[1].x, s.slots[1].y)

@@ -143,12 +143,33 @@ export interface JoinStateView {
   status: MemberStatus | null
 }
 
+/**
+ * What else the About page says (round 10, lib/communities/server/about.ts),
+ * every figure counted from real rows and left out when it is not above zero.
+ */
+export interface AboutExtras {
+  activity: {
+    /** Posts published in the last 30 days, or null for none (or unknown). */
+    posts30: number | null
+    /** Members active in the last 30 days, or null for none (or unknown). */
+    active30: number | null
+    /** When the community was made. */
+    since: string | null
+  }
+  /** The classroom's published courses, the first few, and how many in all; null without any. */
+  classroom: { total: number; courses: { productId: string; title: string; coverUrl: string | null; lessons: number }[] } | null
+  /** The creator's own line (their profile's bio), for the creator card. */
+  creatorBio: string | null
+}
+
 /** What /community/[slug] and /about need to draw the sales page. */
 export interface SalesPageData {
   community: PublicCommunityView
   join: JoinStateView
   /** A draft or suspended community seen by its owner: one line saying so. */
   notice: string | null
+  /** The About page's extra facts (round 10); left out, those parts are not drawn. */
+  extras?: AboutExtras | null
 }
 
 /** A row in /library/communities. */

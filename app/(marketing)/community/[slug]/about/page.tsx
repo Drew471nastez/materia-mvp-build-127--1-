@@ -5,6 +5,8 @@ import { currentUserForRequest } from "@/lib/auth/request-scope"
 import { communitiesEnabled } from "@/lib/communities/flag"
 import { communityBySlug, sharePreviewable, loadSalesPage, seoFacts } from "@/lib/communities/server/public"
 import { scheduleCommunityView } from "@/lib/communities/server/record-view"
+import { aboutExtras } from "@/lib/communities/server/about"
+import { admin } from "@/lib/communities/server/db"
 import { CommunitySalesPage } from "@/components/community/public/sales-page"
 import { communityMetadata } from "@/components/community/public/seo"
 
@@ -33,5 +35,7 @@ export default async function CommunityAboutPage({ params }: { params: Promise<{
   if (!load) notFound()
   if (load.community.slug !== slug) permanentRedirect(`/community/${load.community.slug}/about`)
   await scheduleCommunityView({ communityId: load.community.id, status: load.community.status, userId: user?.id ?? null, isOwner: load.viewer.isOwner })
-  return <CommunitySalesPage data={load.data} />
+  /* The About page's extra facts: who runs it, how alive it is, the classroom (round 10, lib/communities/server/about.ts). */
+  const extras = await aboutExtras(admin(), load.community)
+  return <CommunitySalesPage data={{ ...load.data, extras }} />
 }

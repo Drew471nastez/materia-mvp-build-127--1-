@@ -162,7 +162,8 @@ check("the bar takes the community's tabs and opens its search first, the site's
 const search = code("components/community/member/search.tsx")
 check("the community's search button lends its screen to the bar, opened inside the tap", /registerCommunitySearch\(slug, \{\s*open: \(\) => \{\s*flushSync\(\(\) => setOpen\(true\)\)\s*input\.current\?\.focus\(\)/.test(search))
 const css = read("app/globals.css")
-check("the join bar stands on the tab bar, and a chat's field is lifted over it", /html\[data-buyer-tabs="shown"\] \[data-join-bar\] \{\s*bottom: var\(--buyer-tabs-h\);/.test(css) && /html\[data-buyer-tabs="shown"\] \[data-chat\] \{\s*padding-bottom: calc\(var\(--buyer-tabs-h\) \+ 12px\);/.test(css))
+/* Round 10: the join bar runs on under the tab bar to the screen's foot (its own padding reads --buyer-tabs-h), so no page shows between them. */
+check("the join bar's white runs on under the tab bar, and a chat's field is lifted over it", !/\[data-join-bar\] \{\s*bottom: var\(--buyer-tabs-h\)/.test(css) && /paddingBottom: "calc\(12px \+ var\(--buyer-tabs-h, env\(safe-area-inset-bottom, 0px\)\)\)"/.test(read("components/community/public/join-controls.tsx")) && /html\[data-buyer-tabs="shown"\] \[data-chat\] \{\s*padding-bottom: calc\(var\(--buyer-tabs-h\) \+ 12px\);/.test(css))
 check("the probes exist", ["scripts/check-community-tab-bar.mjs", "scripts/render-community-tab-bar.tsx", "scripts/check-native-links.mjs", "scripts/render-native-links.tsx"].every((f) => existsSync(join(process.cwd(), f))))
 
 /* ── Copy ─────────────────────────────────────────────────────────────── */

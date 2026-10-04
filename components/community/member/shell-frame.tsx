@@ -101,9 +101,12 @@ const FULL = "full" as never
  * put there, so a place that swaps in (cached, read ahead, or after the
  * spinner) eases in, while the same page drawing again (a refresh, a space
  * switched in place) changes nothing, because nothing new is inserted.
- * Opacity only; none for reduced motion.
+ * Opacity only (globals.css fade-in, never a move or a scale: either on
+ * the page's box, even for 200ms, would make it the box a fixed bar inside
+ * the page is placed in, the About page's join bar on a phone); none for
+ * reduced motion.
  */
-export const ARRIVE = "[&>*]:animate-in [&>*]:fade-in-0 [&>*]:duration-200 [&>*]:ease-sheet motion-reduce:[&>*]:animate-none"
+export const ARRIVE = "[&>*]:animate-[fade-in_200ms_cubic-bezier(0.32,0.72,0,1)] motion-reduce:[&>*]:animate-none"
 
 /** What ?dm= may carry: an id's characters and nothing else. The server checks it is somebody here. */
 const DM_TARGET = /^[0-9a-z-]{1,64}$/i

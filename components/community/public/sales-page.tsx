@@ -3,18 +3,30 @@
  *  A COMMUNITY'S ABOUT PAGE: FOR SOMEBODY DECIDING WHETHER TO JOIN
  * ===========================================================================
  * /community/<slug> for anyone who is not a member, and /about for everyone.
- * One white sheet says what it is, in the order a person weighs it: the
- * name and what members rate it, the pictures and videos the creator chose
- * (a large one and a strip to choose another), one line of facts (private
- * or public, how many members, the price, whose it is), what it is about,
- * what members get, the ways in, the rules they would agree to, what
- * members say, and the questions people ask. From 1024px the decision sits
- * beside it in a sticky card (the cover, the name, its address, the line,
- * Members / Online / Admins and the button); on a phone the card's content
- * flows under the media and the button is a bar at the bottom.
+ * One white sheet says what it is, in the order a person weighs it (round
+ * 10 gave it more to say and a clearer shape):
+ *
+ *   THE HEAD      the name, its line, what members rate it
+ *   THE MEDIA     the pictures and videos the creator chose
+ *   THE FACTS     one line (public or private, members, the price, whose it
+ *                 is, since when) and the figures: members, online, posts in
+ *                 the last 30 days, courses
+ *   ABOUT         what it is about, then what members get
+ *   MEMBERSHIP    the way in as a pricing card (Monthly and Yearly when the
+ *                 tier is sold both ways, what the tier includes, the
+ *                 button), the other paid tiers and the products that give
+ *                 access under it
+ *   CLASSROOM     the first few courses with their lessons, when it has any
+ *   WHO RUNS IT   the creator, with their own line and their page
+ *   RULES, REVIEWS, QUESTIONS
+ *
+ * From 1024px the decision also sits beside it in a sticky card (the cover,
+ * the name, the price and the button); on a phone the button is a bar at the
+ * bottom with its own white, down to the screen's foot (join-controls.tsx).
  *
  * NOTHING HERE IS MADE UP. The member count is the trigger kept count of
- * active members, Online is a real heartbeat (or not shown), the prices are
+ * active members, Online is a real heartbeat (or not shown), posts and
+ * courses are counted rows (lib/communities/server/about.ts), the prices are
  * the products', the reviews are real rows, and "Still a paying member" is
  * said only of somebody who is one today. No trending badge, no urgency.
  *
@@ -22,13 +34,15 @@
  * are the client parts.
  */
 import Link from "next/link"
-import { Check, EyeOff, Globe, Lock, Star, Tag, UsersRound } from "lucide-react"
+import { CalendarDays, Check, EyeOff, Globe, GraduationCap, Lock, Star, Tag, UsersRound } from "lucide-react"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { memberCountLabel, relativeTime } from "@/lib/communities/format"
 import { cn } from "@/lib/utils"
 import { CommunityGallery } from "./gallery-view"
-import { JoinBarPhone, JoinCard, JoinProvider, JoinSummaryPhone } from "./join-controls"
-import type { JoinOption, PublicCommunityView, PublicReviewView, SalesPageData } from "./types"
+import { optimizedImageUrl } from "@/lib/images/optimized-url"
+import { JoinBarPhone, JoinCard, JoinProvider, JoinSummaryPhone, PricingCard } from "./join-controls"
+import { StatsRow, type StatCell } from "./stats-row"
+import type { AboutExtras, JoinOption, PublicCommunityView, PublicReviewView, SalesPageData } from "./types"
 
 const H2 = "text-[18px] font-semibold tracking-[-0.005em] text-[#1a1a2e]"
 const PAD = "px-5 sm:px-8"
@@ -122,8 +136,16 @@ const VISIBILITY = {
   unlisted: { label: "Unlisted", Icon: EyeOff },
 } as const
 
-/** The one line of facts under the media: private or public, members, the price, whose it is. */
-function InfoRow({ c, price }: { c: PublicCommunityView; price: string | null }) {
+const SINCE = new Intl.DateTimeFormat("en-US", { month: "short", year: "numeric", timeZone: "UTC" })
+
+/** "Oct 2025", the month the community started, or null. */
+export function sinceLabel(iso: string | null | undefined): string | null {
+  const t = iso ? Date.parse(iso) : NaN
+  return Number.isFinite(t) ? SINCE.format(t) : null
+}
+
+/** The one line of facts under the media: private or public, members, the price, whose it is, since when. */
+function InfoRow({ c, price, since }: { c: PublicCommunityView; price: string | null; since: string | null }) {
   const vis = VISIBILITY[c.visibility] ?? VISIBILITY.public
   const item = "inline-flex min-w-0 max-w-full items-center gap-2 text-[14.5px] text-[#374151]"
   const icon = "h-[18px] w-[18px] shrink-0 text-[#6b7280]"
@@ -133,7 +155,7 @@ function InfoRow({ c, price }: { c: PublicCommunityView; price: string | null })
         <vis.Icon className={icon} strokeWidth={1.75} aria-hidden />
         {vis.label}
       </li>
-      {/* On a phone the figures right above already say it. */}
+      {/* On a phone the figures right under it already say it. */}
       <li className={cn(item, "max-lg:hidden")} data-info="members">
         <UsersRound className={icon} strokeWidth={1.75} aria-hidden />
         {memberCountLabel(c.memberCount)}
@@ -159,6 +181,12 @@ function InfoRow({ c, price }: { c: PublicCommunityView; price: string | null })
           </span>
         </li>
       ) : null}
+      {since ? (
+        <li className={item} data-info="since">
+          <CalendarDays className={icon} strokeWidth={1.75} aria-hidden />
+          Since {since}
+        </li>
+      ) : null}
     </ul>
   )
 }
@@ -171,14 +199,141 @@ function headlinePrice(data: SalesPageData): string | null {
   return o?.priceLine || null
 }
 
+/** The About page's own figures after the card's: posts in the last 30 days (members active in them where the heartbeat is not known) and courses. */
+export function extraFigures(extras: AboutExtras | null | undefined): StatCell[] {
+  if (!extras) return []
+  const out: StatCell[] = []
+  if (extras.activity.posts30) out.push({ key: "posts", label: "Posts in 30 days", value: extras.activity.posts30 })
+  if (extras.activity.active30) out.push({ key: "active", label: "Active in 30 days", value: extras.activity.active30, withoutHeartbeat: true })
+  if (extras.classroom?.total) out.push({ key: "courses", label: extras.classroom.total === 1 ? "Course" : "Courses", value: extras.classroom.total })
+  return out
+}
+
+/** The classroom's first courses: a picture, the title, how many lessons. Titles only; nothing inside a course is shown. */
+function ClassroomPreview({ classroom }: { classroom: NonNullable<AboutExtras["classroom"]> }) {
+  const more = classroom.total - classroom.courses.length
+  return (
+    <section className={SECTION} aria-labelledby="community-classroom" data-community-classroom="">
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 id="community-classroom" className={H2}>
+          Classroom
+        </h2>
+        <span className="text-[13.5px] tabular-nums text-[#6b7280]">
+          {classroom.total} {classroom.total === 1 ? "course" : "courses"}
+        </span>
+      </div>
+      <ul className="mt-3 divide-y divide-[#eef0f2]">
+        {classroom.courses.map((course) => (
+          <li key={course.productId} className="flex items-center gap-3.5 py-3 first:pt-1 last:pb-0" data-classroom-course={course.productId}>
+            <span className="relative flex h-[46px] w-[76px] shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[#f1f2f4] text-[#8a8f98]">
+              {course.coverUrl ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img src={optimizedImageUrl(course.coverUrl, 76)} alt="" width={76} height={46} loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" />
+              ) : (
+                <GraduationCap className="h-5 w-5" strokeWidth={1.75} aria-hidden />
+              )}
+            </span>
+            <span className="min-w-0">
+              <span className="block truncate text-[15px] font-medium text-[#1a1a2e]">{course.title}</span>
+              {course.lessons > 0 ? (
+                <span className="block text-[13px] tabular-nums text-[#6b7280]">
+                  {course.lessons} {course.lessons === 1 ? "lesson" : "lessons"}
+                </span>
+              ) : null}
+            </span>
+          </li>
+        ))}
+      </ul>
+      {more > 0 ? <p className="mt-3 text-[13.5px] text-[#6b7280]">And {more} more for members.</p> : null}
+    </section>
+  )
+}
+
+/** Who runs it: the creator's picture, name and handle, their own line, and their page. No box: a row on the sheet. */
+function CreatorBlock({ creator, bio }: { creator: NonNullable<PublicCommunityView["creator"]>; bio: string | null }) {
+  return (
+    <section className={SECTION} aria-labelledby="community-creator" data-community-creator-card="">
+      <h2 id="community-creator" className={H2}>
+        Who runs it
+      </h2>
+      <div className="mt-4 flex items-start gap-4">
+        {creator.href ? (
+          <Link href={creator.href} className="shrink-0 rounded-full" tabIndex={-1} aria-hidden>
+            <AppAvatar src={creator.avatarUrl} name={creator.name} alt="" size={56} />
+          </Link>
+        ) : (
+          <AppAvatar src={creator.avatarUrl} name={creator.name} alt="" size={56} className="shrink-0" />
+        )}
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[16px] font-semibold text-[#1a1a2e]">
+            {creator.href ? (
+              <Link href={creator.href} className="-my-2.5 inline-block py-2.5 hover:underline" data-person-link="">
+                {creator.name}
+              </Link>
+            ) : (
+              creator.name
+            )}
+          </p>
+          {creator.username ? <p className="truncate text-[13.5px] text-[#6b7280]">@{creator.username}</p> : null}
+          {bio ? <p className="mt-2 text-[14.5px] leading-relaxed text-[#374151] [overflow-wrap:anywhere]">{bio}</p> : null}
+          {creator.href ? (
+            <Link
+              href={creator.href}
+              className="mt-3 inline-flex h-10 items-center rounded-[10px] border border-[#e3e5e9] bg-white px-3.5 text-[13.5px] font-medium text-[#1a1a2e] shadow-[0_1px_1px_rgba(16,24,40,0.05)] outline-none transition-[background-color,box-shadow] duration-150 hover:bg-[#f6f7f8] active:shadow-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 sm:h-9"
+              data-creator-page=""
+            >
+              View profile
+            </Link>
+          ) : null}
+        </div>
+      </div>
+    </section>
+  )
+}
+
 export function CommunitySalesPage({ data }: { data: SalesPageData }) {
   const { community: c, join, notice } = data
+  const extras = data.extras ?? null
   const rules = c.rules.slice(0, RULES_SHOWN)
   const moreRules = c.rules.length - rules.length
-  const showOptions = c.options.length > 1 || c.accessProducts.length > 0
   /* The other paid ways in can be chosen when the button itself would be a payment or a free join: never ahead of an approval. */
   const paidOnOffer = join.kind === "checkout" || join.kind === "join_free"
+  const otherOptions = c.options.filter((o) => (o.tierId ?? o.name) !== (join.option?.tierId ?? join.option?.name))
+  const showMembership = join.kind !== "open" && join.kind !== "banned" && join.kind !== "closed"
   const hasDescription = Boolean(c.descriptionHtml || c.descriptionText)
+  const since = sinceLabel(extras?.activity.since)
+  const figures = extraFigures(extras)
+
+  const others =
+    otherOptions.length > 0 || c.accessProducts.length > 0 ? (
+      <div data-membership-others="">
+        {otherOptions.length > 0 ? (
+          <>
+            <p className="text-[13.5px] font-medium text-[#6b7280]">{join.option ? "Other ways to join" : "Ways to join"}</p>
+            <ul className="mt-1 divide-y divide-[#eef0f2]">
+              {otherOptions.map((o) => (
+                <OptionRow key={o.tierId ?? o.name} o={o} href={optionHref(o, join, paidOnOffer)} />
+              ))}
+            </ul>
+          </>
+        ) : null}
+        {c.accessProducts.length > 0 ? (
+          <>
+            <p className="mt-3 text-[14px] text-[#6b7280]">Owning any of these gives you access:</p>
+            <ul className="mt-2.5 divide-y divide-[#eef0f2]">
+              {c.accessProducts.map((p) => (
+                <li key={p.productId} className="flex items-center justify-between gap-4 py-3">
+                  <Link href={p.href} className="min-w-0 truncate text-[15px] font-medium text-[#1a1a2e] underline-offset-2 hover:underline">
+                    {p.title}
+                  </Link>
+                  <span className="shrink-0 text-[14px] tabular-nums text-[#6b7280]">{p.priceLine}</span>
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : null}
+      </div>
+    ) : null
 
   return (
     <JoinProvider community={c} join={join}>
@@ -194,7 +349,12 @@ export function CommunitySalesPage({ data }: { data: SalesPageData }) {
             <main className="min-w-0">
               <article className="overflow-hidden border-b border-[#e5e7eb]/70 bg-white sm:rounded-2xl sm:border sm:shadow-[0_1px_3px_rgba(0,0,0,0.04)]" data-community-sheet="">
                 <header className={cn(PAD, "pt-6 sm:pt-8")}>
-                  <h1 className="text-[24px] font-bold leading-tight tracking-[-0.015em] text-[#1a1a2e] [overflow-wrap:anywhere] sm:text-[30px]">{c.name}</h1>
+                  <h1 className="text-[26px] font-bold leading-[1.15] tracking-[-0.02em] text-[#1a1a2e] [overflow-wrap:anywhere] sm:text-[32px]">{c.name}</h1>
+                  {c.tagline ? (
+                    <p className="mt-2 max-w-[60ch] text-[16px] leading-relaxed text-[#4b5563] sm:text-[17px]" data-community-tagline="">
+                      {c.tagline}
+                    </p>
+                  ) : null}
                   {c.reviews ? (
                     <a href="#community-reviews" className="mt-2 inline-flex min-h-10 items-center gap-2 text-[14px] text-[#6b7280] hover:text-[#1a1a2e] sm:min-h-0" data-community-rating="">
                       <Stars rating={c.reviews.average} size="h-4 w-4" />
@@ -211,13 +371,14 @@ export function CommunitySalesPage({ data }: { data: SalesPageData }) {
                   </div>
                 ) : null}
 
-                {/* The card's content, on a phone, right under the media. */}
-                <div className={cn(PAD, "mt-6 lg:hidden")}>
+                {/* On a phone, under the media: only what happened (an error, a request waiting, Leave), when there is something. */}
+                <div className={cn(PAD, "mt-5 empty:hidden lg:hidden")}>
                   <JoinSummaryPhone />
                 </div>
 
                 <div className={cn(PAD, "mt-6 pb-7 sm:mt-7 sm:pb-8")}>
-                  <InfoRow c={c} price={headlinePrice(data)} />
+                  <InfoRow c={c} price={headlinePrice(data)} since={since} />
+                  <StatsRow stats={c.stats} admins={false} extra={figures} className="mt-5" />
                   {hasDescription ? (
                     c.descriptionHtml ? (
                       <div className="storelib-prose storelib-description mt-6 break-words text-[15.5px] leading-relaxed text-[#262633]" data-community-description="" dangerouslySetInnerHTML={{ __html: c.descriptionHtml }} />
@@ -234,7 +395,7 @@ export function CommunitySalesPage({ data }: { data: SalesPageData }) {
                     <h2 id="community-benefits" className={H2}>
                       What members get
                     </h2>
-                    <ul className="mt-3.5 space-y-2.5">
+                    <ul className="mt-3.5 grid gap-x-8 gap-y-2.5 sm:grid-cols-2">
                       {c.benefits.map((b, i) => (
                         <li key={i} className="flex gap-3 text-[15px] leading-snug text-[#374151]">
                           <Check aria-hidden className="mt-[3px] h-4 w-4 shrink-0 text-[#1a1a2e]" strokeWidth={2.25} />
@@ -245,35 +406,20 @@ export function CommunitySalesPage({ data }: { data: SalesPageData }) {
                   </section>
                 ) : null}
 
-                {showOptions ? (
-                  <section id="ways-to-join" className={cn(SECTION, "scroll-mt-24")} aria-labelledby="community-options">
+                {showMembership ? (
+                  <section id="ways-to-join" className={cn(SECTION, "scroll-mt-24")} aria-labelledby="community-options" data-community-membership="">
                     <h2 id="community-options" className={H2}>
-                      Ways to join
+                      Membership
                     </h2>
-                    {c.options.length > 1 ? (
-                      <ul className="mt-3.5 divide-y divide-[#eef0f2]">
-                        {c.options.map((o) => (
-                          <OptionRow key={o.tierId ?? o.name} o={o} href={optionHref(o, join, paidOnOffer)} />
-                        ))}
-                      </ul>
-                    ) : null}
-                    {c.accessProducts.length > 0 ? (
-                      <>
-                        <p className="mt-3 text-[14px] text-[#6b7280]">Owning any of these gives you access:</p>
-                        <ul className="mt-2.5 divide-y divide-[#eef0f2]">
-                          {c.accessProducts.map((p) => (
-                            <li key={p.productId} className="flex items-center justify-between gap-4 py-3">
-                              <Link href={p.href} className="min-w-0 truncate text-[15px] font-medium text-[#1a1a2e] underline-offset-2 hover:underline">
-                                {p.title}
-                              </Link>
-                              <span className="shrink-0 text-[14px] tabular-nums text-[#6b7280]">{p.priceLine}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </>
-                    ) : null}
+                    <div className="mt-4">
+                      <PricingCard others={others} />
+                    </div>
                   </section>
                 ) : null}
+
+                {extras?.classroom ? <ClassroomPreview classroom={extras.classroom} /> : null}
+
+                {c.creator ? <CreatorBlock creator={c.creator} bio={extras?.creatorBio ?? null} /> : null}
 
                 {rules.length > 0 ? (
                   <section className={SECTION} aria-labelledby="community-rules">
