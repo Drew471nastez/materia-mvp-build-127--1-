@@ -78,16 +78,22 @@ function fakeWindow(opts: { backDoes: "nothing" | "popstate" | "pagehide"; canGo
   }
   const g = globalThis as unknown as { window?: unknown; document?: unknown }
   g.window = w
+  /* Every fake tab is a fresh one: no back from the last case is still on its way (go-back's hold against a double tap). */
+  resetHold?.()
   g.document = { referrer: opts.referrer ?? "" }
   return {
     run() { timers.sort((a, b) => a.at - b.at).splice(0).forEach((t) => t.fn()) },
     backs: () => backs,
-    listening: () => Object.values(listeners).reduce((n, l) => n + l.length, 0),
+    /* The watch's own listeners. The click hold after a back (go-back BACK_HOLD_MS, LANDED_HOLD_MS) is a timed listener of its own, taken off on its own clock. */
+    listening: () => Object.entries(listeners).reduce((n, [t, l]) => n + (t === "click" ? 0 : l.length), 0),
   }
 }
 
+let resetHold: (() => void) | null = null
+
 async function main() {
-  const { goBackOr, BACK_WATCH_MS } = await import("../lib/navigation/go-back")
+  const { goBackOr, BACK_WATCH_MS, resetBackHold } = await import("../lib/navigation/go-back")
+  resetHold = resetBackHold
 
   {
     const tab = fakeWindow({ backDoes: "nothing" })

@@ -157,7 +157,8 @@ export function ProfileTopBar({
     <div
       data-profile-top-bar=""
       data-profile-back=""
-      className="w-full border-b border-black/[0.06] shadow-[0_1px_2px_rgba(16,24,40,0.03)]"
+      /* The page's top surface: in the app, when no Storelib header is above it, it pads itself under the clock (app/globals.css .native-top-surface); a hairline at its foot and no shadow, one surface with the white band. */
+      className="native-top-surface w-full border-b border-black/[0.06]"
       style={{ backgroundColor: colors?.background || "#ffffff", color: colors?.text || "#1a1a2e" }}
     >
       <div className={cn("mx-auto flex h-14 w-full items-center gap-2.5 px-3 sm:px-4", width)}>

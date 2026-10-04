@@ -82,10 +82,34 @@ const config: CapacitorConfig = {
     backgroundColor: '#f2f2f2',
   },
   plugins: {
+    // THE STATUS BAR'S FIRST FRAME. Every Storelib header is white now, so the
+    // bar starts with dark text on a white strip; from the first page on, the
+    // web layer sets both from the page's own top colour after every move
+    // (lib/native-chrome.ts, --native-band in app/globals.css), which needs
+    // no release. These two only decide the frames before the page has run,
+    // and like everything in this file they reach phones with the next App
+    // Store and Play release.
+    //   SystemBars (in @capacitor/core 8): dark text, no fade when it
+    //     changes, and on Android the real insets written into
+    //     --safe-area-inset-* for WebViews whose env() reads 0.
+    //   StatusBar: the same for a shell built before 8, and on Android the
+    //     strip behind the bar painted white rather than the grey it was.
+    SystemBars: {
+      insetsHandling: 'css',
+      style: 'LIGHT',
+      animation: 'NONE',
+    },
+    StatusBar: {
+      style: 'LIGHT',
+      backgroundColor: '#ffffff',
+    },
     SplashScreen: {
-      // Do NOT auto-hide the splash — we call SplashScreen.hide() manually
-      // from the final destination page (/app, /library, /welcome) after
-      // the first stable paint, so the user never sees a loading flash.
+      // Do NOT auto-hide the splash: the page the app lands on hides it after
+      // its first steady frame. /app, the library and welcome time it
+      // themselves; every other landing page (Explore, a community, a
+      // creator's page, the account) through components/platform/
+      // native-chrome.tsx, so a start that resumes anywhere is never left
+      // waiting on the launch screen.
       launchAutoHide: false,
     },
     Camera: {
