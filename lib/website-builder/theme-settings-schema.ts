@@ -215,6 +215,22 @@ export const THEME_SETTINGS_GROUPS: ThemeSettingsGroup[] = [
     ],
   },
   {
+    /* lib/website-builder/theme-breadcrumbs.ts: a bar under the header on every page but home. */
+    id: "breadcrumbs",
+    label: "Breadcrumbs",
+    icon: "layout",
+    fields: [
+      { id: "breadcrumbs_enabled", label: "Show on every page but home", type: "toggle", default: true },
+      { id: "breadcrumbs_separator", label: "Separator", type: "select", default: "slash",
+        options: [
+          { label: "/", value: "slash" },
+          { label: "›", value: "chevron" },
+          { label: "·", value: "dot" },
+        ],
+      },
+    ],
+  },
+  {
     id: "animations",
     label: "Animations",
     icon: "sparkles",

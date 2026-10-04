@@ -89,6 +89,8 @@ const CONSUMERS = [
   "lib/storelib-theme/render.ts",
   /* The Animations group, read by the runtime that reveals sections as they scroll in. */
   "lib/website-builder/section-anchors.ts",
+  /* Breadcrumbs: the bar under the header on every page but home. */
+  "lib/website-builder/theme-breadcrumbs.ts",
 ]
 const consumed = CONSUMERS.map((f) => stripComments(readFileSync(join(root, f), "utf8"))).join("\n")
 

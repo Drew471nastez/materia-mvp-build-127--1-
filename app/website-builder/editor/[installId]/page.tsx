@@ -147,6 +147,7 @@ import { MenuPickerControl } from "@/components/website-builder/editor/controls/
 import { dynamicContext, productFacts, siteMenus, storefrontData, withDynamicSources, type CreatorFacts } from "@/lib/website-builder/storefront-data"
 import { MAIN_MENU, adoptHeaderLinks, headerReadsMenu } from "@/lib/website-builder/main-menu"
 import { MenusEditor } from "@/components/website-builder/editor/controls/menus-editor"
+import { THEME_BREADCRUMBS_ID, withThemeBreadcrumbs } from "@/lib/website-builder/theme-breadcrumbs"
 import { cleanMenus } from "@/lib/storelib-theme/values"
 import type { StorefrontCollection, StorefrontCommunity } from "@/lib/storelib-theme/types"
 import type { PickerCollection, PickerCommunity } from "@/components/website-builder/editor/controls"
@@ -5268,10 +5269,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     aiWriting !== null &&
     aiWriting.page === currentPage &&
     !(aiWriting.placedId && deferredSections.some((s) => s.id === aiWriting.placedId))
-  const canvasSections = useMemo(
-    () => (writingShown && aiWriting ? withWritingPlaceholder(deferredSections, aiWriting.anchor, aiWriting.prompt) : deferredSections),
-    [writingShown, aiWriting, deferredSections],
-  )
+  /* Theme settings › Breadcrumbs, drawn here as the live site draws it (theme-breadcrumbs.ts); never in `sections`. */
+  const crumbTheme = settingsDraft as Record<string, unknown>
+  const crumbsOn = crumbTheme.breadcrumbs_enabled
+  const crumbsSep = crumbTheme.breadcrumbs_separator
+  const crumbsAlign = crumbTheme.breadcrumbs_align
+  const canvasSections = useMemo(() => {
+    const page = withThemeBreadcrumbs(deferredSections, { breadcrumbs_enabled: crumbsOn, breadcrumbs_separator: crumbsSep, breadcrumbs_align: crumbsAlign }, templateForPage(currentPage))
+    return writingShown && aiWriting ? withWritingPlaceholder(page, aiWriting.anchor, aiWriting.prompt) : page
+  }, [writingShown, aiWriting, deferredSections, crumbsOn, crumbsSep, crumbsAlign, currentPage])
   /** Placed and drawn, or placed and left behind on another page: either way, done. */
   useEffect(() => {
     if (!aiWriting?.placedId) return
@@ -5316,6 +5322,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       /* Switched off, and the rings are still fading: a tap now is a preview's tap. */
       if (!inspectorRef.current) return
       const el = document.getElementById("wb-preview-root")
+      /* The breadcrumb bar is the theme's, not the page's: it opens where it is set. */
+      if (sectionId === THEME_BREADCRUMBS_ID) {
+        setSidebarMode("settings")
+        setPageBrowserOpen(false)
+        setSelectedPanel({ type: "theme_settings" })
+        setExpandedSettings("breadcrumbs")
+        if (isMobileViewRef.current) setMobileSidebarOpen(true)
+        return
+      }
       if (el) {
         /**
          * SELECTING A SECTION MOVES NOTHING. ANYWHERE.

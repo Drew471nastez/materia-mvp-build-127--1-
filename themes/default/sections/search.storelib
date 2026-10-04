@@ -24,7 +24,7 @@
       {# Filters beside what was found, kept with the words searched for:
          lib/products/catalog-filters.ts. The bar says how many. #}
       {% if page.query %}<p class="s__sub">Results for "{{ page.query }}"</p>{% elsif settings.intro %}<p class="s__sub">{{ settings.intro }}</p>{% endif %}
-      <div class="cat">
+      <div class="cat{% if page.filters.price.show or page.filters.groups.size > 0 %}{% else %} cat--bare{% endif %}">
         <form class="cat__form" action="{{ page.filters.path | url }}" method="get" data-storelib-filters>
           {% if page.filters.q %}<input type="hidden" name="q" value="{{ page.filters.q }}">{% endif %}
           <input class="cat__toggle" type="checkbox" id="{{ section.id }}-filters" aria-hidden="true" tabindex="-1">
@@ -283,6 +283,11 @@
   .cat__panel { display: block; align-self: start; padding: 0; border-bottom: 0; }
   .cat__group:first-child { padding-top: 4px; }
 }
+
+/* Nothing to filter by (one product, no options): no Filter button and no
+   empty column holding a lone Apply; the bar keeps the count and the sort. */
+.cat--bare .cat__open, .cat--bare .cat__panel { display: none !important; }
+@container (min-width: 900px) { .cat.cat--bare { grid-template-columns: minmax(0, 1fr); grid-template-areas: "bar" "main"; } }
 </style>
 
 <schema>
