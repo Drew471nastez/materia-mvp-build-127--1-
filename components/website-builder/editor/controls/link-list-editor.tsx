@@ -252,7 +252,7 @@ function AddRow({ label, onClick, ...rest }: { label: string; onClick: () => voi
       className={cn(
         BAR,
         HAIRLINE,
-        "w-full text-left text-[#7c3aed] transition-colors hover:text-[#6d28d9] focus-visible:outline-none focus-visible:underline dark:text-[#c4b5fd] dark:hover:text-white",
+        "w-full text-left text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:underline dark:hover:text-white",
         LABEL_TEXT,
       )}
     >

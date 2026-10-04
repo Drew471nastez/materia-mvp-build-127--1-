@@ -5,7 +5,7 @@ import { ownOpen, useOwnMarker } from "@/lib/analytics/own-site"
 import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import {
-  ArrowLeft, Plug, Monitor, Smartphone, Maximize2, Loader2, Code2, ChevronDown, Plus, Eye, EyeOff, Trash2, Copy, Settings, Check, Layers, X, RotateCcw, Layout, AlignLeft, Image, MessageSquare, HelpCircle, Megaphone, BarChart2, Grid, Award, LayoutGrid, DollarSign, LayoutTemplate, Video, Users, MapPin, Mail, Clock, BookOpen, Shirt, Columns, Play, Star, Timer, Shield, Rss, SlidersHorizontal, Code, Bell, ChevronRight, Package, Undo2, Redo2, ExternalLink, Search, FileText, ArrowRight, FolderOpen, MoreHorizontal, Upload, Info, Crop, CheckCircle, Type, Square, Rows3, Grid3x3, MousePointerClick, MoveHorizontal, Hash, Columns2, LayoutDashboard, Badge as BadgeIcon, ArrowUp, ArrowDown,
+  ArrowLeft, Plug, Monitor, Smartphone, Maximize2, Loader2, Code2, ChevronDown, Plus, Eye, EyeOff, Trash2, Copy, Settings, Check, Layers, X, RotateCcw, Layout, AlignLeft, Image, MessageSquare, HelpCircle, Megaphone, BarChart2, Grid, Award, LayoutGrid, DollarSign, LayoutTemplate, Video, Users, MapPin, Mail, Clock, BookOpen, Shirt, Columns, Play, Star, Timer, Shield, Rss, SlidersHorizontal, Code, Bell, ChevronRight, Menu as MenuIcon, Package, Undo2, Redo2, ExternalLink, Search, FileText, ArrowRight, FolderOpen, MoreHorizontal, Upload, Info, Crop, CheckCircle, Type, Square, Rows3, Grid3x3, MousePointerClick, MoveHorizontal, Hash, Columns2, LayoutDashboard, Badge as BadgeIcon, ArrowUp, ArrowDown,
 } from "lucide-react"
 import {
   KeyboardSensor,
@@ -146,6 +146,8 @@ import { DynamicSourceField, EditorFieldProvider, SiblingSettingsProvider, contr
 import { MenuPickerControl } from "@/components/website-builder/editor/controls/menu-picker-control"
 import { dynamicContext, productFacts, siteMenus, storefrontData, withDynamicSources, type CreatorFacts } from "@/lib/website-builder/storefront-data"
 import { MAIN_MENU, adoptHeaderLinks, headerReadsMenu } from "@/lib/website-builder/main-menu"
+import { MenusEditor } from "@/components/website-builder/editor/controls/menus-editor"
+import { cleanMenus } from "@/lib/storelib-theme/values"
 import type { StorefrontCollection, StorefrontCommunity } from "@/lib/storelib-theme/types"
 import type { PickerCollection, PickerCommunity } from "@/components/website-builder/editor/controls"
 
@@ -2482,6 +2484,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const [install, setInstall] = useState<ThemeInstall | null>(null)
   const [sections, setSections] = useState<SectionInstance[]>([])
   const [settingsDraft, setSettingsDraft] = useState<ThemeSettingsValues>({})
+  /**
+   * THE MENUS ARE THE STORE'S (lib/website-builder/store-menus-server.ts).
+   * `available` once the store keeps menus of its own; `synced` is the menus
+   * as last saved there, so only a real change is sent.
+   */
+  const storeMenusRef = useRef<{ available: boolean; synced: string }>({ available: false, synced: "" })
   const [currentPage, setCurrentPage] = useState<PageKey>(() => {
     if (typeof window !== "undefined") {
       return parsePreviewFromSearch(window.location.search).page as PageKey
@@ -3510,6 +3518,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     // Load settings
     const settings = inst.settings
     const loadedSettings = settings?.draft_settings ?? settings?.settings ?? {}
+    /* Every theme shows the store's menus. Until the store has any, the live theme's are offered, or this theme's own when nothing is live yet. */
+    const offered = data.storeMenus as { available?: boolean; stored?: boolean; menus?: unknown } | undefined
+    if (offered?.available) {
+      const menus = offered.menus && typeof offered.menus === "object" && !Array.isArray(offered.menus) ? (offered.menus as Record<string, unknown>) : {}
+      if (offered.stored || Object.keys(menus).length > 0) (loadedSettings as Record<string, unknown>).menus = menus
+      storeMenusRef.current = { available: true, synced: JSON.stringify(cleanMenus((loadedSettings as Record<string, unknown>).menus)) }
+    }
 
     // Prefill default page title with "{creator username} | Storelib" on
     // load. We always derive the canonical "{handle} | Storelib" string
@@ -5833,8 +5848,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * and no account, sign in or wishlist at all.
    */
   const renderPageBrowser = () => (
+    <div className="flex h-full flex-col">
     <PageList
-      className="h-full"
+      className="min-h-0 flex-1"
       tone="light"
       boxed
       touch={isMobileView}
@@ -5847,6 +5863,23 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       onCreate={() => setAddPageOpen(true)}
       onDelete={(key) => { void handleDeletePage(key) }}
     />
+    {/* The store's menus sit beside its pages, the way Shopify keeps Navigation next to Pages. */}
+    <div className="shrink-0 border-t border-border p-2">
+      <button
+        type="button"
+        data-open-navigation=""
+        onClick={() => { setPageBrowserOpen(false); openMenus() }}
+        className="flex h-10 w-full items-center gap-2.5 rounded-md px-2.5 text-left transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/15 max-sm:h-12"
+      >
+        <MenuIcon className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.75} />
+        <span className="min-w-0 flex-1">
+          <span className="block text-[13px] font-medium max-sm:text-[15px]">Navigation</span>
+        </span>
+        <span className="text-[12px] text-muted-foreground">Menus</span>
+        <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" />
+      </button>
+    </div>
+    </div>
   )
 
   /**
@@ -5946,6 +5979,31 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     // ── Page browser mode ──
     if (pageBrowserOpen) return renderPageBrowser()
 
+    // ── Navigation: the store's menus, its own panel (a section's Edit, the header's Menu) ──
+    if (selectedPanel.type === "navigation") {
+      const back = selectedPanel.back
+      const backTo: Panel = back && (back.type !== "section" || sections.some((s) => s.id === back.sectionId)) ? back : { type: "pages" }
+      return (
+        <div className="flex flex-col h-full" data-wb-navigation-panel="">
+          <PanelBack onBack={() => setSelectedPanel(backTo)}>
+            <p className="truncate text-[15px] font-semibold md:text-sm">Navigation</p>
+          </PanelBack>
+          <div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll px-3.5 py-3.5">
+            <p className="mb-3 text-[12px] leading-relaxed text-muted-foreground max-sm:text-[13px]" data-navigation-note="">
+              {storeMenusRef.current.available
+                ? "Menus belong to your store, so every theme shows the same ones. Changes go live right away."
+                : "Menus are saved with this theme."}
+            </p>
+            <MenusEditor
+              value={(settingsDraft as Record<string, unknown>).menus}
+              onChange={(next) => updateSetting("menus", next)}
+              openHandle={selectedPanel.handle ?? null}
+            />
+          </div>
+        </div>
+      )
+    }
+
     // ── General Settings mode ──
     if (sidebarMode === "settings") {
       // Show section settings if a section is selected
@@ -5964,7 +6022,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               <p className="text-xs text-muted-foreground mt-0.5">Colors, fonts, buttons, spacing</p>
             </div>
             <div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll p-2">
-              {THEME_SETTINGS_GROUPS.filter(group => group.id !== "colors").map(group => (
+              {THEME_SETTINGS_GROUPS.filter(group => group.id !== "colors" && group.id !== "menus").map(group => (
                 <div key={group.id} data-theme-group={group.id} className="mb-0.5">
                   <button
                     aria-expanded={expandedSettings === group.id}
@@ -6553,7 +6611,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             <span className="text-[15px] font-semibold md:text-sm">Theme settings</span>
           </PanelBack>
           <div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll p-3">
-            {THEME_SETTINGS_GROUPS.map(group => (
+            {THEME_SETTINGS_GROUPS.filter(group => group.id !== "menus").map(group => (
               <div key={group.id} data-theme-group={group.id} className="mb-1">
                 <button
                   aria-expanded={expandedSettings === group.id}
@@ -6678,13 +6736,40 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const canvasMenus = useMemo(() => siteMenus(activeThemeSettings, sections), [activeThemeSettings, sections])
   /** Which menu Menus opens at, when something asked for one (the header's Edit, a section's menu picker). */
   const [menuRequest, setMenuRequest] = useState<{ handle: string; n: number } | null>(null)
+  /* Navigation is its own panel, opened at the menu asked for; Back returns to whatever asked. */
   const openMenus = useCallback((handle?: string) => {
-    setSidebarMode("settings")
-    setExpandedSettings("menus")
-    setSelectedPanel({ type: "pages" })
-    if (handle) setMenuRequest((r) => ({ handle, n: (r?.n ?? 0) + 1 }))
+    setSelectedPanel((prev) => ({ type: "navigation", handle, back: prev.type === "navigation" ? prev.back : prev }))
+    /* No menu asked for opens the list, not whichever menu was asked for last time. */
+    setMenuRequest((r) => (handle ? { handle, n: (r?.n ?? 0) + 1 } : null))
     if (isMobileViewRef.current) setMobileSidebarOpen(true)
   }, [])
+  /**
+   * A CHANGE TO THE MENUS IS SAVED TO THE STORE, on its own and soon after
+   * the typing stops, whichever way it came: the Navigation panel, a header
+   * picking the Main menu, Ask Storelib, Undo. It goes live on every theme,
+   * as Shopify's Navigation does. Where the store does not keep menus yet,
+   * they are saved with the theme as they always were.
+   */
+  const menusJson = useMemo(() => JSON.stringify(cleanMenus((settingsDraft as Record<string, unknown>).menus)), [settingsDraft])
+  useEffect(() => {
+    const st = storeMenusRef.current
+    if (loading || !st.available || menusJson === st.synced) return
+    const timer = window.setTimeout(async () => {
+      try {
+        const res = await fetch("/api/website-builder/menus", {
+          method: "PUT",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ menus: JSON.parse(menusJson) }),
+        })
+        if (res.ok) st.synced = menusJson
+        else if (res.status === 409) st.available = false
+        else toast.error("Your menus did not save. Change something to try again.")
+      } catch {
+        toast.error("Your menus did not save. Check the connection and try again.")
+      }
+    }, 700)
+    return () => window.clearTimeout(timer)
+  }, [menusJson, loading])
   /**
    * THE HEADER READS THE MAIN MENU (lib/website-builder/main-menu.ts). The
    * first time the Main menu is written, or picked for the header, the

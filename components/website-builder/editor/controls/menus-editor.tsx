@@ -38,7 +38,6 @@ import { INPUT, NOTE, TEXT_BUTTON } from "./styles"
 const FIELD = cn(INPUT, "max-sm:h-11")
 const ACTION = cn(TEXT_BUTTON, "max-sm:h-11")
 const HAIRLINE = "border-t border-border dark:border-white/[0.07]"
-const ROW = "flex h-9 w-full items-center gap-2 text-left max-sm:h-11"
 
 /** "Footer links" → "footer-links", made unique against the menus there are. */
 export function handleFor(title: string, taken: Set<string>): string {
@@ -117,6 +116,7 @@ export function MenusEditor({
   header: headerProp,
   onLinkHeader,
   openHandle,
+  plain = false,
 }: {
   value: unknown
   onChange: (menus: Record<string, Menu>) => void
@@ -126,6 +126,8 @@ export function MenusEditor({
   onLinkHeader?: () => void
   /** Open straight onto this menu. */
   openHandle?: string | null
+  /** Inside a settings card (Website Settings): rows and hairlines, no box of its own, so it is not a card in a card. */
+  plain?: boolean
 }) {
   const env = useEditorFieldEnv()
   const header = headerProp !== undefined ? headerProp : env?.header ?? null
@@ -138,6 +140,7 @@ export function MenusEditor({
   const main = mainMenuView(menus, header)
   const headerHandle = header ? headerReadsMenu(header) || MAIN_MENU : null
   const [open, setOpen] = React.useState<string | null>(openHandle ?? null)
+  const BOX = plain ? "" : "rounded-lg border border-border bg-white dark:bg-white/[0.03]"
   const [confirming, setConfirming] = React.useState(false)
   const [adding, setAdding] = React.useState(false)
   const [name, setName] = React.useState("")
@@ -178,15 +181,15 @@ export function MenusEditor({
     const menu = menuOf(open)
     const isMain = open === MAIN_MENU
     return (
-      <div className="space-y-3" data-menus-editor="" data-menu-open={open}>
+      <div className="space-y-4" data-menus-editor="" data-menu-open={open}>
         <button
           type="button"
           onClick={() => setOpen(null)}
-          className={cn(ACTION, "-ml-1.5 gap-1")}
+          className="-ml-1 inline-flex h-7 items-center gap-0.5 rounded-md pl-0.5 pr-2 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/15 max-sm:h-10 max-sm:text-[13px]"
           data-menu-back=""
         >
           <ChevronLeft className="h-3.5 w-3.5" strokeWidth={2} />
-          Menus
+          All menus
         </button>
         <label className="block">
           <span className="mb-1.5 block text-xs font-medium text-muted-foreground">Name</span>
@@ -197,21 +200,24 @@ export function MenusEditor({
             placeholder={isMain ? MAIN_MENU_TITLE : undefined}
             onChange={(e) => put(open, { ...menu, title: e.target.value })}
           />
+          {isMain && headerHandle === MAIN_MENU && <span className={cn(NOTE, "mt-1.5 block")}>Your header shows this menu.</span>}
         </label>
         <div>
-          <span className="mb-1 block text-xs font-medium text-muted-foreground">Links</span>
-          <MenuLinksEditor links={menu.links ?? []} onLinks={(links) => put(open, { ...menu, links })} />
+          <span className="mb-1.5 block text-xs font-medium text-muted-foreground">Links</span>
+          <div className={cn(BOX, !plain && "px-1")} data-menu-links="">
+            <MenuLinksEditor links={menu.links ?? []} onLinks={(links) => put(open, { ...menu, links })} />
+          </div>
         </div>
         {!isMain && (
-          <div className="flex flex-wrap items-center justify-end gap-x-2 gap-y-1 pt-1">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-border pt-3 dark:border-white/[0.07]">
             {confirming ? (
               <>
-                <span className="text-[12px] text-muted-foreground max-sm:text-[13px]">Sections showing it will show none.</span>
+                <span className="mr-auto text-[12px] text-muted-foreground max-sm:text-[13px]">Sections showing it will show none.</span>
                 <button type="button" className={ACTION} onClick={() => setConfirming(false)}>Keep</button>
-                <button type="button" className={cn(ACTION, "-mr-1.5 text-[#b91c1c] hover:bg-red-50 hover:text-[#991b1b] dark:text-red-300 dark:hover:bg-red-500/10")} onClick={() => remove(open)}>Delete</button>
+                <button type="button" className={cn(ACTION, "text-[#b91c1c] hover:bg-red-50 hover:text-[#991b1b] dark:text-red-300 dark:hover:bg-red-500/10")} onClick={() => remove(open)}>Delete</button>
               </>
             ) : (
-              <button type="button" className={cn(ACTION, "-mr-1.5 hover:bg-red-50 hover:text-[#b91c1c] dark:hover:bg-red-500/10 dark:hover:text-red-300")} onClick={() => setConfirming(true)}>
+              <button type="button" className={cn(ACTION, "-ml-1.5 text-muted-foreground hover:bg-red-50 hover:text-[#b91c1c] dark:hover:bg-red-500/10 dark:hover:text-red-300")} onClick={() => setConfirming(true)}>
                 Delete menu
               </button>
             )}
@@ -224,77 +230,89 @@ export function MenusEditor({
   const rows = [MAIN_MENU, ...others]
   const roomForMore = Object.keys(clean).filter((h) => h !== MAIN_MENU).length + 1 < MENU_LIMITS.menus
   return (
-    <div data-menus-editor="">
-      <div data-menu-list="">
+    <div className="space-y-2" data-menus-editor="">
+      <div className={cn("overflow-hidden", BOX)} data-menu-list="">
         {rows.map((handle, i) => {
           const menu = menuOf(handle)
-          const count = (menu.links ?? []).length
+          const links = menu.links ?? []
+          const preview = links.length ? links.map((l) => l.title).filter(Boolean).join(", ") : "No links yet"
           return (
             <button
               key={handle}
               type="button"
               data-menu-row={handle}
               onClick={() => setOpen(handle)}
-              className={cn(ROW, "group/menu pr-1", i > 0 && HAIRLINE, "focus-visible:outline-none")}
+              className={cn(
+                "group/menu flex min-h-[52px] w-full items-center gap-2 py-2",
+                plain ? "px-0" : "px-3",
+                "text-left transition-colors hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none max-sm:min-h-[60px]",
+                i > 0 && HAIRLINE,
+              )}
             >
-              <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground group-focus-visible/menu:underline max-sm:text-[15px]">
-                {menu.title || (handle === MAIN_MENU ? MAIN_MENU_TITLE : handle)}
-              </span>
-              <span className="shrink-0 text-[12px] tabular-nums text-muted-foreground max-sm:text-[13px]">
-                {headerHandle === handle ? "Header, " : ""}
-                {count} {count === 1 ? "link" : "links"}
+              <span className="min-w-0 flex-1">
+                <span className="flex items-center gap-1.5">
+                  <span className="truncate text-[13px] font-medium text-foreground max-sm:text-[15px]">
+                    {menu.title || (handle === MAIN_MENU ? MAIN_MENU_TITLE : handle)}
+                  </span>
+                  {headerHandle === handle && (
+                    <span className="shrink-0 rounded bg-muted px-1.5 py-px text-[10.5px] font-medium text-muted-foreground dark:bg-white/[0.08]">Header</span>
+                  )}
+                </span>
+                <span className="mt-0.5 block truncate text-[12px] text-muted-foreground max-sm:text-[13px]">{preview}</span>
               </span>
               <ChevronRight aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60 transition-colors group-hover/menu:text-foreground" />
             </button>
           )
         })}
-        {roomForMore ? (
-          adding ? (
-            <form
-              className={cn("flex items-center gap-2 py-2", HAIRLINE)}
-              onSubmit={(e) => {
-                e.preventDefault()
-                add()
-              }}
-            >
-              <input
-                aria-label="New menu name"
-                className={FIELD}
-                placeholder="Footer"
-                autoFocus
-                value={name}
-                maxLength={MENU_LIMITS.titleLength}
-                onChange={(e) => setName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Escape") {
-                    setAdding(false)
-                    setName("")
-                  }
-                }}
-              />
-              <button
-                type="submit"
-                disabled={!name.trim()}
-                className="h-8 max-sm:h-11 shrink-0 rounded-md bg-[#1a1a2e] px-3 text-[13px] max-sm:text-[15px] font-medium text-white transition-colors hover:bg-[#2d2d4e] disabled:opacity-40 dark:bg-white dark:text-[#0f0f0f] dark:hover:bg-white/90"
-              >
-                Add
-              </button>
-            </form>
-          ) : (
-            <button
-              type="button"
-              data-menu-add=""
-              onClick={() => setAdding(true)}
-              className={cn(ROW, HAIRLINE, "text-[13px] font-medium text-[#7c3aed] transition-colors hover:text-[#6d28d9] focus-visible:outline-none focus-visible:underline max-sm:text-[15px] dark:text-[#c4b5fd] dark:hover:text-white")}
-            >
-              <Plus className="h-3.5 w-3.5" strokeWidth={2} />
-              Add menu
-            </button>
-          )
-        ) : (
-          <p className={cn(NOTE, "pt-2")}>A site holds {MENU_LIMITS.menus} menus.</p>
-        )}
       </div>
+      {roomForMore ? (
+        adding ? (
+          <form
+            className="flex items-center gap-2"
+            onSubmit={(e) => {
+              e.preventDefault()
+              add()
+            }}
+          >
+            <input
+              aria-label="New menu name"
+              className={FIELD}
+              placeholder="Footer"
+              autoFocus
+              value={name}
+              maxLength={MENU_LIMITS.titleLength}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  setAdding(false)
+                  setName("")
+                }
+              }}
+            />
+            <button
+              type="submit"
+              disabled={!name.trim()}
+              className="h-8 max-sm:h-11 shrink-0 rounded-md bg-[#1a1a2e] px-3 text-[13px] max-sm:text-[15px] font-medium text-white transition-colors hover:bg-[#2d2d4e] disabled:opacity-40 dark:bg-white dark:text-[#0f0f0f] dark:hover:bg-white/90"
+            >
+              Add
+            </button>
+          </form>
+        ) : (
+          <button
+            type="button"
+            data-menu-add=""
+            onClick={() => setAdding(true)}
+            className="flex h-9 w-full items-center gap-2 rounded-md px-1 text-left text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/15 max-sm:h-11 max-sm:text-[15px]"
+          >
+            <span aria-hidden className="flex h-4 w-4 items-center justify-center rounded-full border border-border">
+              <Plus className="h-2.5 w-2.5" strokeWidth={2.5} />
+            </span>
+            Add menu
+          </button>
+        )
+      ) : (
+        <p className={NOTE}>A store holds {MENU_LIMITS.menus} menus.</p>
+      )}
     </div>
   )
 }

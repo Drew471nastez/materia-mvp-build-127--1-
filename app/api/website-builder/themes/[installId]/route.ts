@@ -29,6 +29,17 @@ async function creatorCommunitiesForBuilder(creatorId: string) {
   }
 }
 
+/** The store's menus for the editor; menus stay with the theme when they cannot be read. */
+async function builderStoreMenus(creatorId: string, installId: string) {
+  try {
+    const { createAdminClient } = await import("@/lib/supabase/admin")
+    const { storeMenusFor } = await import("@/lib/website-builder/store-menus-server")
+    return await storeMenusFor(createAdminClient(), creatorId, installId)
+  } catch {
+    return { available: false, stored: false, menus: {} }
+  }
+}
+
 /**
  * The creator's own collections for a collection picker, a collection list
  * and the collections page: every one as a choice, saying whether a visitor
@@ -148,13 +159,15 @@ export async function GET(_req: Request, { params }: Params) {
     public profile comes along for the canvas to fill `{{ creator.name }}`
     the way the live site will: the same four public facts, nothing else.
   */
-  const [lookup, facts, communities, collections] = await Promise.all([
+  const [lookup, facts, communities, collections, storeMenus] = await Promise.all([
     customSchemaLookup(supabase! as never, installId, sectionsOfInstallRow(data), { draft: true }),
     creatorFacts(supabase! as never, creator!.id),
     creatorCommunitiesForBuilder(creator!.id),
     creatorCollectionsForBuilder(creator!.id),
+    /* The store's menus, which every theme shares (lib/website-builder/store-menus-server.ts). */
+    builderStoreMenus(creator!.id, installId),
   ])
-  return NextResponse.json({ install: sanitizeInstallRow(data, lookup), username, siteHandle, creatorFacts: facts, communities, collections })
+  return NextResponse.json({ install: sanitizeInstallRow(data, lookup), username, siteHandle, creatorFacts: facts, communities, collections, storeMenus })
 }
 
 // PATCH /api/website-builder/themes/[installId]

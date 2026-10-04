@@ -319,7 +319,7 @@ export const THEME_SETTING_DOCS: Record<string, { does: string; as?: Partial<Spe
   },
 
   menus: {
-    does: "Named lists of links, two levels deep, that a section shows through a `link_list` setting. Each menu gets a handle from its first name, such as `footer`, which is what a section stores. The header's own links are the menu `main-menu` without being made here.",
+    does: "Named lists of links, two levels deep, that a section shows through a `link_list` setting. They belong to the store, so every theme shows the same ones, and they are edited in Navigation. Each menu gets a handle from its first name, such as `footer`, which is what a section stores. The header's own links are the menu `main-menu` without being made here.",
     as: { control: "picker", value: "Main menu, Footer" },
   },
 }

@@ -79,6 +79,8 @@ const probeGlobals = globalThis as unknown as {
   PROBE_PAGE_DELAY_MS?: number
   /* The store's products, for the page switcher probe. */
   PROBE_PRODUCTS?: { id: string; title: string; slug?: string }[]
+  /* The store's menus, as the theme route answers them (lib/website-builder/store-menus-server.ts); unset, the store keeps none. */
+  PROBE_STORE_MENUS?: { available: boolean; stored: boolean; menus: Record<string, unknown> }
 }
 const install = {
   id: "probe-install", creator_id: "probe-creator", theme_id: "default", name: "Probe store", status: probeGlobals.PROBE_LIVE ? "published" : "draft",
@@ -122,7 +124,12 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   /* The GitHub line on Connections (f8595a46) reads this route on open; the real one always answers with its lists. */
   if (/\/themes\/probe-install\/github/.test(url)) return json({ configured: true, ready: true, link: null, repos: [], accounts: [], events: [] })
   if (/\/themes\/probe-install\/agent-connections/.test(url)) return json({ connections: [], ready: true })
-  if (/\/themes\/probe-install$/.test(url)) return json({ install, username: "probe" })
+  if (/\/themes\/probe-install$/.test(url)) return json({ install, username: "probe", storeMenus: probeGlobals.PROBE_STORE_MENUS })
+  /* A save of the store's menus: kept, so a probe can read what was sent. */
+  if (/\/website-builder\/menus$/.test(url) && init?.method === "PUT") {
+    ;(window as unknown as { probeMenusSaved: unknown[] }).probeMenusSaved = [...((window as unknown as { probeMenusSaved?: unknown[] }).probeMenusSaved ?? []), JSON.parse(String(init.body)).menus]
+    return json({ menus: JSON.parse(String(init.body)).menus })
+  }
   if (/\/products/.test(url)) return json({ products: probeGlobals.PROBE_PRODUCTS ?? [] })
   if (/\/setup/.test(url)) return json({ setup: {} })
   return json({})

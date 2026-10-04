@@ -21,6 +21,7 @@ import { ThemePage } from "@/components/website-builder/theme/ThemePage"
 import { StorelibSourcesProvider } from "@/components/website-builder/sections/storelib-sources"
 import { renderWithSources } from "@/lib/website-builder/storefront-render"
 import { mayPreview, pageSections, previewTokenFrom, themeSettings as themeSettingsOf } from "@/lib/website-builder/preview-link"
+import { storeMenusOrNull, withStoreMenus } from "@/lib/website-builder/store-menus-server"
 import { creatorByName, dressPage, ownerOf, publishedShopByName, publishedSiteByName } from "@/lib/website-builder/published-site"
 import { SiteNotPublished } from "./not-published"
 import { chromeOf, withUniversalChrome, type Chrome } from "@/lib/website-builder/universal-chrome"
@@ -293,7 +294,7 @@ export async function previewInstall(username: string, token: string) {
    */
   const preview = mayPreview(row.preview_token, token)
   const settingsRow = Array.isArray(row.store_theme_settings) ? (row.store_theme_settings[0] ?? null) : (row.store_theme_settings ?? null)
-  const themeSettings = (themeSettingsOf(settingsRow as never, preview) ?? {}) as ThemeSettingsValues
+  const themeSettings = withStoreMenus((themeSettingsOf(settingsRow as never, preview) ?? {}) as ThemeSettingsValues, await storeMenusOrNull(admin, creatorId))
 
   return { admin, creatorId, installId: row.id, preview, themeSettings }
 }
@@ -390,7 +391,7 @@ export async function coverPage(installId: string) {
 
   const row = install as { id: string; creator_id: string; store_theme_settings?: unknown }
   const settingsRow = Array.isArray(row.store_theme_settings) ? (row.store_theme_settings[0] ?? null) : (row.store_theme_settings ?? null)
-  const themeSettings = (themeSettingsOf(settingsRow as never, true) ?? {}) as ThemeSettingsValues
+  const themeSettings = withStoreMenus((themeSettingsOf(settingsRow as never, true) ?? {}) as ThemeSettingsValues, await storeMenusOrNull(admin, row.creator_id))
 
   const { data: pageData } = await admin
     .from("store_theme_pages")

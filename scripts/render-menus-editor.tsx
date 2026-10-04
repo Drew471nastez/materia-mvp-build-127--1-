@@ -49,11 +49,12 @@ const TARGETS = [
   { href: "/about", label: "About", kind: "page" as const },
 ]
 
-function Editor({ openHandle }: { openHandle?: string }) {
+function Editor({ openHandle, plain }: { openHandle?: string; plain?: boolean }) {
   const [menus, setMenus] = React.useState<Record<string, Menu>>(MENUS)
   const [header, setHeader] = React.useState(HEADER)
   return (
     <MenusEditor
+      plain={plain}
       value={menus}
       header={header}
       openHandle={openHandle}
@@ -81,7 +82,7 @@ function App() {
         <div id="settings" className="dark" style={{ width: 560, background: "#111", color: "#fff", padding: 16 }}>
           <Card title="Menus">
             <div className="dark px-4 py-3 md:px-6" data-nav-menus="">
-              <Editor />
+              <Editor plain />
             </div>
           </Card>
         </div>

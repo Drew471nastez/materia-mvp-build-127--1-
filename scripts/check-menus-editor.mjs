@@ -155,7 +155,7 @@ const READ = (scope) => `(() => {
     const sides = [cs.borderTopWidth, cs.borderRightWidth, cs.borderBottomWidth, cs.borderLeftWidth].filter((w) => px(w) > 0).length
     return sides === 4 && px(cs.borderTopLeftRadius) > 0 && cs.borderTopStyle !== "none"
   }
-  const cards = [...ed.querySelectorAll("*")].filter(cardLike).map((el) => el.tagName.toLowerCase() + "." + String(el.className).split(" ").slice(0, 3).join("."))
+  const cards = [...ed.querySelectorAll("*")].filter((el) => !el.closest("button") && cardLike(el)).map((el) => el.tagName.toLowerCase() + "." + String(el.className).split(" ").slice(0, 3).join("."))
   let ancestorsCards = 0
   for (let el = ed.parentElement; el && el !== root.parentElement; el = el.parentElement) if (cardLike(el)) ancestorsCards++
   const bars = [...ed.querySelectorAll("[data-link-bar]")].map((b) => Math.round(b.getBoundingClientRect().height))
@@ -182,7 +182,7 @@ const indent = await desk.js(INDENT("#sidebar", "1", "1/0"))
 check("a sub-link's name starts 20px in from its parent's", indent === 20, indent)
 check("each row says where it goes, in 12px type", side.dests.length === 6 && side.dests.every((d) => d.size === "12px") && side.dests[3].text !== "" && side.dests[5].text === "instagram.com", side.dests)
 check("and says nothing when that is only its own name again", side.dests[0].text === "" && side.dests[1].text === "" && side.dests[4].text === "", side.dests.map((d) => d.text))
-check("no card inside the editor: rows and hairlines only", side.cards.length === 0, side.cards)
+check("in the builder's panel, one quiet box round the links, nothing boxed inside it", side.cards.length === 1, side.cards)
 check("no paragraph explaining the editor", side.paragraphs.length === 0, side.paragraphs)
 await desk.shot("menus-sidebar-main")
 
@@ -222,8 +222,8 @@ check("the other menus are kept", !!(writes.find((w) => w.menus) || {}).menus?.f
 console.log("\nWebsite Settings › Navigation, the dark page, 1280 wide")
 const set = await desk.js(READ("#settings"))
 check("Main menu first, then the rest", set.menuRows.length === 2 && /^Main menu/.test(set.menuRows[0].text) && /^Footer/.test(set.menuRows[1].text), set.menuRows.map((r) => r.text))
-check("the menu that sits in the header says so", /Header, 4 links/.test(set.menuRows[0].text), set.menuRows[0].text)
-check("every menu row is 36px", set.menuRows.every((r) => r.h === 36), set.menuRows.map((r) => r.h))
+check("the menu that sits in the header says so, and shows its first links", /^Main menuHeader/.test(set.menuRows[0].text) && /Home, Shop, About/.test(set.menuRows[0].text), set.menuRows[0].text)
+check("every menu row is two lines, 52 to 60px", set.menuRows.every((r) => r.h >= 52 && r.h <= 60), set.menuRows.map((r) => r.h))
 check("inside the page's Card, nothing else is a card", set.cards.length === 0 && set.ancestorsCards === 1, { inside: set.cards, around: set.ancestorsCards })
 const mainRow = await desk.js(centre("#settings", '[data-menu-row="main-menu"]'))
 await desk.click(mainRow.x, mainRow.y)
@@ -242,7 +242,7 @@ check("every link row is 44px under a thumb", ph.bars.length === 6 && ph.bars.ev
 const phIndent = await phone.js(INDENT("#sidebar", "1", "1/0"))
 check("a sub-link still starts 20px in", phIndent === 20, phIndent)
 const phSet = await phone.js(READ("#settings"))
-check("menu rows are 44px under a thumb", phSet.menuRows.every((r) => r.h === 44), phSet.menuRows.map((r) => r.h))
+check("menu rows are at least 60px under a thumb", phSet.menuRows.every((r) => r.h >= 60), phSet.menuRows.map((r) => r.h))
 await phone.shot("menus-phone")
 
 console.log(`\n${passed} passed, ${failures.length} failed`)

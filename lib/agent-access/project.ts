@@ -59,6 +59,7 @@ import { newPreviewToken } from "@/lib/website-builder/preview-link"
 import { siteOrigin } from "@/lib/website-builder/site-seo-data"
 import { toPageSlug } from "@/lib/sites/slug"
 import type { SectionInstance } from "@/lib/website-builder/types"
+import { storeMenusOrNull, withStoreMenus, writeStoreMenus } from "@/lib/website-builder/store-menus-server"
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -101,9 +102,14 @@ export async function readFocus(db: Db, installId: string): Promise<Focus | null
   }
 }
 
-async function readTheme(db: Db, installId: string): Promise<{ settings: Record<string, unknown>; rowId: string | null }> {
-  const { data } = await db.from("store_theme_settings").select("id, settings, draft_settings").eq("install_id", installId).maybeSingle()
-  return { settings: ((data?.draft_settings ?? data?.settings ?? {}) as Record<string, unknown>), rowId: (data?.id as string | undefined) ?? null }
+/** The theme being edited, with the store's menus over its own: menus belong to the store (lib/website-builder/store-menus-server.ts). */
+async function readTheme(db: Db, installId: string, creatorId: string): Promise<{ settings: Record<string, unknown>; rowId: string | null }> {
+  const [{ data }, menus] = await Promise.all([
+    db.from("store_theme_settings").select("id, settings, draft_settings").eq("install_id", installId).maybeSingle(),
+    storeMenusOrNull(db, creatorId),
+  ])
+  const settings = (data?.draft_settings ?? data?.settings ?? {}) as Record<string, unknown>
+  return { settings: withStoreMenus(settings, menus), rowId: (data?.id as string | undefined) ?? null }
 }
 
 async function readPageRow(db: Db, installId: string, pageKey: string): Promise<{ id: string | null; sections: SectionInstance[] }> {
@@ -151,7 +157,7 @@ export async function readPage(db: Db, who: AgentIdentity, rawPage: unknown): Pr
   const focus = await readFocus(db, who.installId)
   const key = pageKeyOf(rawPage, focus)
   if (!key) return bad(`"${String(rawPage)}" is not a page on this site.`)
-  const [{ id, sections }, { settings }] = await Promise.all([readPageRow(db, who.installId, key), readTheme(db, who.installId)])
+  const [{ id, sections }, { settings }] = await Promise.all([readPageRow(db, who.installId, key), readTheme(db, who.installId, who.creatorId)])
   if (!id && key !== "home") return bad(`There is no page "${key}". storelib_read_project lists the pages.`, 404)
   return {
     ok: true,
@@ -260,7 +266,7 @@ export async function applyPatch(
 
   const [row, theme, { schemas }] = await Promise.all([
     opts.create ? Promise.resolve({ id: null, sections: opts.create.start }) : readPageRow(db, who.installId, key),
-    readTheme(db, who.installId),
+    readTheme(db, who.installId, who.creatorId),
     schemasFor(db, who.installId),
   ])
   if (!opts.create && !row.id && key !== "home") return bad(`There is no page "${key}". Make it with storelib_create_page.`, 404)
@@ -290,6 +296,9 @@ export async function applyPatch(
       ? await db.from("store_theme_settings").update({ draft_settings: checked.state.settings }).eq("id", theme.rowId).eq("install_id", who.installId)
       : await db.from("store_theme_settings").insert({ install_id: who.installId, settings: {}, draft_settings: checked.state.settings })
     if (write.error) return bad("Could not save the theme settings just now. Try again.", 500)
+    /* A change to the menus is the store's, on every theme, the way the editor saves it. */
+    const menusChanged = checked.ops.some((o) => o.kind === "update_theme" && "menus" in (o.settings ?? {}))
+    if (menusChanged) await writeStoreMenus(db, who.creatorId, checked.state.settings.menus)
   }
 
   try {
@@ -457,7 +466,7 @@ export async function runTests(db: Db, who: AgentIdentity, args: { path?: unknow
     const focus = await readFocus(db, who.installId)
     const key = pageKeyOf(args.page, focus)
     if (!key) return bad(`"${String(args.page)}" is not a page on this site.`)
-    const [{ sections }, { settings }, { schemas }] = await Promise.all([readPageRow(db, who.installId, key), readTheme(db, who.installId), schemasFor(db, who.installId)])
+    const [{ sections }, { settings }, { schemas }] = await Promise.all([readPageRow(db, who.installId, key), readTheme(db, who.installId, who.creatorId), schemasFor(db, who.installId)])
     results.push(...checkPageState(key, { sections, settings }, schemas, wanted))
     if (!path && (wanted.includes("compile") || wanted.includes("quality"))) {
       /* The creator's own section files used on this page: the ones an agent can have broken. */
@@ -492,7 +501,7 @@ export async function runPreview(db: Db, who: AgentIdentity, args: { page?: unkn
   const draftUrl = token && origin ? `${origin}/preview/${token}${key === "home" ? "" : `/${key}`}` : null
   const builderUrl = `https://storelib.com/website-builder/editor/${who.installId}?page=${encodeURIComponent(key)}`
 
-  const [{ sections }, { settings }, { schemas }] = await Promise.all([readPageRow(db, who.installId, key), readTheme(db, who.installId), schemasFor(db, who.installId)])
+  const [{ sections }, { settings }, { schemas }] = await Promise.all([readPageRow(db, who.installId, key), readTheme(db, who.installId, who.creatorId), schemasFor(db, who.installId)])
   const tests = checkPageState(key, { sections, settings }, schemas, ["page-types", "contrast", "limits"])
   return {
     ok: true,

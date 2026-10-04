@@ -1,0 +1,6 @@
+/* The store's navigation menus, kept once per store instead of inside each theme. Shopify keeps menus in the store's Navigation and every theme reads the same ones; Storelib kept them in a theme's settings, so a second theme started with none and a menu edited in one theme did not change the others. store_menus holds, per creator, every menu as one JSON object keyed by handle ("main-menu", "footer"), the same shape the theme setting had. Server only: row level security on, no policies, nothing granted to visitors or signed in users; the editor writes it through /api/website-builder/menus, which checks the creator. Until this runs, each theme keeps its own menus exactly as before. Safe to run again. */
+CREATE TABLE IF NOT EXISTS public.store_menus ( creator_id uuid PRIMARY KEY REFERENCES public.creators(id) ON DELETE CASCADE, menus jsonb NOT NULL DEFAULT '{}'::jsonb, updated_at timestamptz NOT NULL DEFAULT now(), CONSTRAINT store_menus_is_object CHECK (jsonb_typeof(menus) = 'object'), CONSTRAINT store_menus_size CHECK (pg_column_size(menus) < 262144) );
+ALTER TABLE public.store_menus ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.store_menus FROM PUBLIC, anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.store_menus TO service_role;
+notify pgrst, 'reload schema';

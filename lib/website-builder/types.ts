@@ -513,6 +513,8 @@ export type EditorPanel =
   | { type: "section"; sectionId: string }
   | { type: "theme_settings"; group?: string }
   | { type: "add_section" }
+  /** The store's menus (Navigation), opened at one menu when `handle` says which, returning to `back`. */
+  | { type: "navigation"; handle?: string; back?: EditorPanel }
 
 export interface EditorState {
   installId: string

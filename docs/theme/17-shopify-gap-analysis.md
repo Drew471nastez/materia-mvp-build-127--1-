@@ -30,7 +30,7 @@ Status:
 | color_background | color_background | Built | colours and linear or radial gradients, parsed piece by piece |
 | video_url | video_url | Built | YouTube and Vimeo, `accept` |
 | product_list | product_list | Built | `limit` 1 to 24, order kept, missing products dropped |
-| link_list | link_list | Built | with Theme settings › Menus and a generated `main-menu` |
+| link_list | link_list | Built | menus are the store's (Navigation, shared by every theme) with a generated `main-menu` |
 | none | datetime | Built | read as written, never shifted by a time zone; `date` filter |
 | image focal point | focal_point | Built | beside the image setting, tap to choose |
 | collection, collection_list | none | N/A | no collections; refused with the reason |

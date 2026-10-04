@@ -48,6 +48,7 @@ import { isBanned } from "@/lib/seo/bans"
 import { renderWithSources, sectionSources } from "@/lib/website-builder/storefront-render"
 import { shopProducts, type ProductCard } from "@/lib/website-builder/shop-products"
 import { pageSections, themeSettings as themeSettingsOf } from "@/lib/website-builder/preview-link"
+import { storeMenusOrNull, withStoreMenus } from "@/lib/website-builder/store-menus-server"
 import { NOT_FOUND_PAGE_KEY, pageTitleFromKey, templateForPage } from "@/lib/website-builder/site-pages"
 import { notFoundSections } from "@/lib/website-builder/shop-page"
 import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
@@ -289,8 +290,10 @@ async function buildSite(creatorId: string, displayName: string): Promise<BuiltL
    * `.storelib` files may emit any of them through the template language's
    * `raw` filter. An imported theme brings both with it.
    */
-  const themeSettings = sanitizeThemeSettings(
-    (themeSettingsOf(settingsRow as never, false) ?? {}) as ThemeSettingsValues,
+  /* The store's menus over the theme's own, when the store has them (lib/website-builder/store-menus-server.ts). */
+  const themeSettings = withStoreMenus(
+    sanitizeThemeSettings((themeSettingsOf(settingsRow as never, false) ?? {}) as ThemeSettingsValues),
+    await storeMenusOrNull(admin, creatorId),
   )
 
   /* The saved section files first: a creator's own section is cleaned by

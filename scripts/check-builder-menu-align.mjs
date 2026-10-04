@@ -353,26 +353,24 @@ async function iconPicker(p, label) {
 /* ── the sidebar's fields: the menu picker, the link list, the menus ───── */
 async function sidebarFields(p, label) {
   console.log("\n══ THE SIDEBAR'S MENU FIELDS ══")
+  /* The menu setting is one card: the menu's name over its first links, and Edit menu across the card's foot. */
   const menuField = await p.evaluate(() => {
     const root = document.querySelector("#menu-picker")
-    const select = root.querySelector("select")
-    const note = root.querySelector("p")
-    const action = [...root.querySelectorAll("button")].pop()
-    const sb = select.getBoundingClientRect()
-    return {
-      field: { left: sb.left, right: sb.right },
-      note: note ? window.__textBox(note) : null,
-      action: action ? window.__textBox(action) : null,
-    }
+    const select = root.querySelector("[data-menu-select]")
+    const card = select?.parentElement?.parentElement
+    const name = select?.parentElement?.querySelector("span span")
+    const edit = root.querySelector("[data-menu-edit]")
+    if (!select || !card || !name || !edit) return null
+    const c = card.getBoundingClientRect()
+    const e = edit.getBoundingClientRect()
+    const iconLeft = edit.querySelector("svg").getBoundingClientRect().left
+    return { selectCovers: Math.abs(select.getBoundingClientRect().width - c.width) <= 2, nameLeft: window.__textBox(name).left, iconLeft, edit: { left: e.left - c.left, right: c.right - e.right } }
   })
-  note("the menu field: the note's words from the field's left, the action's from its right", [
-    menuField.note ? r1(menuField.note.left - menuField.field.left) : null,
-    menuField.action ? r1(menuField.field.right - menuField.action.right) : null,
-  ])
+  note("the menu card: the name's words and Edit menu's icon from the card's left", menuField ? [r1(menuField.nameLeft), r1(menuField.iconLeft)] : null)
   expect(
-    !!menuField.action && !!menuField.note && Math.abs(menuField.note.left - menuField.field.left) <= 0.6 && Math.abs(menuField.field.right - menuField.action.right) <= 0.6,
-    "the menu field: the note starts on the field's left edge and Edit menus ends on its right",
-    { note: r1(menuField.note.left - menuField.field.left), action: r1(menuField.field.right - menuField.action.right) },
+    !!menuField && menuField.selectCovers && Math.abs(menuField.nameLeft - menuField.iconLeft) <= 0.6 && Math.abs(menuField.edit.left) <= 1.5 && Math.abs(menuField.edit.right) <= 1.5,
+    "the menu card: picking is the whole top of the card, Edit menu spans its foot, and both start on one line",
+    menuField,
   )
 
   /* A link opened: its two fields, and the actions under them. */

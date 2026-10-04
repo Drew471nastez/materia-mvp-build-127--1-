@@ -101,7 +101,7 @@ check("delete is in the row's menu, red as a destructive row, never a red bin", 
 check("sub-links are added from their parent's row", /label: "Add sub-link", onClick: \(\) => ctx\.add\(item\.id\)/.test(editor))
 check("rows are compact: 36px, 44px under a thumb, 13px type", /const BAR = "flex h-9 max-sm:h-11 items-center"/.test(editor) && /text-\[13px\] max-sm:text-\[15px\]/.test(editor))
 check("where a link goes is shown once, small, on its row", /data-link-dest/.test(editor) && !/data-link-where/.test(editor))
-check("menus wear the same rows", /const ROW = "flex h-9 w-full items-center gap-2 text-left max-sm:h-11"/.test(menus))
+check("a menu is one row: its name, its first links under it, a chevron", /data-menu-row=\{handle\}/.test(menus) && /links\.map\(\(l\) => l\.title\)\.filter\(Boolean\)\.join\(", "\)/.test(menus) && /min-h-\[52px\]/.test(menus))
 check("the grip owns its finger", /touchAction: "none"/.test(read("components/website-builder/editor/controls/use-reorder.ts")) && /setPointerCapture/.test(read("components/website-builder/editor/controls/use-reorder.ts")))
 check("no em dash in what the sidebar prints", !/>[^<]*—[^<]*</.test(editor))
 

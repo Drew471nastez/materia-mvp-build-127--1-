@@ -17,8 +17,10 @@ const str = (v: unknown) => (typeof v === "string" ? v : "")
  * menu sits where. The header shows a menu (the Main menu unless it is told
  * otherwise) and each footer column shows one.
  *
- * NOTHING HERE IS A SECOND COPY. The menus are the theme's `menus` setting,
- * the one Theme settings › Menus edits. The header's menu is its own `menu`
+ * NOTHING HERE IS A SECOND COPY. The menus are the store's, the ones the
+ * editor's Navigation panel edits, shared by every theme and saved to the
+ * store as they change (lib/website-builder/store-menus-server.ts). The
+ * header's menu is its own `menu`
  * setting, and the footer's two columns its `menu` and `menu_2`. A site whose
  * header still keeps its links as blocks has them shown as the Main menu, and
  * the first edit moves them in (lib/website-builder/main-menu.ts).
@@ -53,6 +55,7 @@ export function NavigationSettings({ ctx }: { ctx: SettingsContext }) {
       <Card title="Menus" footer={GOES_LIVE}>
         <div className="dark px-4 py-3 md:px-6" data-nav-menus="">
           <MenusEditor
+            plain
             value={ctx.settings.menus}
             onChange={(next) => ctx.onSettingChange("menus", next)}
             header={header ?? null}
