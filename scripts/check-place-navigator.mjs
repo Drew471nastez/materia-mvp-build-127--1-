@@ -26,6 +26,21 @@
  *   FRAMES. Every open and close is sampled once per animation frame with the
  *   CPU slowed four times, and the longest gap between frames is reported.
  *
+ * Round 6:
+ *   THE PHONE'S LINES are LEFT of the logo again (a computer keeps them
+ *   right of it).
+ *   ONE RECENT LIST in the navigator: courses, digital products and
+ *   communities together, no headings, each with its picture and a small
+ *   grey word for its kind; then a faint, short, inset rule; then Discover
+ *   communities, Explore and the action.
+ *   THE ACCOUNT SHEET at 320x568, 375x667, 390x844 and 430x932, with no
+ *   safe area and with a 34px home indicator: Log out entirely on screen,
+ *   above the sheet's foot padding, and the thing under its middle is Log
+ *   out itself. Next to /app's own account sheet, shot the same way.
+ *   THE BELL ON A PHONE is the shared bottom sheet: it slides up and down
+ *   (sampled each frame, CPU slowed four times), a tap on the dimmed page
+ *   closes it, and so does a pull down.
+ *
  * Screenshots go to SHOTS_DIR (or a temp folder, printed at the end).
  *
  *   PROBE_CSS=source node scripts/check-place-navigator.mjs
@@ -226,7 +241,7 @@ const navRows = (p, scope = NAV_PANEL) => p.evaluate((scope) => {
   if (!root) return null
   /* The words a person reads: not the initials drawn in a picture's place (aria-hidden). */
   const words = (e) => { const c = e.cloneNode(true); c.querySelectorAll("[aria-hidden]").forEach((x) => x.remove()); return c.textContent.trim() }
-  return [...root.querySelectorAll("p, [data-navigator-row]")].map((e) => ({ text: words(e), href: e.getAttribute("href"), current: e.hasAttribute("data-current"), aria: e.getAttribute("aria-current"), h: Math.round(e.getBoundingClientRect().height) }))
+  return [...root.querySelectorAll("p, [data-navigator-row]")].map((e) => ({ text: e.querySelector("[data-navigator-title]") ? words(e.querySelector("[data-navigator-title]")) : words(e), hint: e.querySelector("[data-navigator-hint]")?.textContent.trim() ?? null, heading: e.tagName === "P", href: e.getAttribute("href"), current: e.hasAttribute("data-current"), aria: e.getAttribute("aria-current"), h: Math.round(e.getBoundingClientRect().height) }))
 }, scope)
 
 /* ------------------------------------------------------------------ */
@@ -268,18 +283,32 @@ console.log("\ncomputer 1440, Explore, signed in buyer: the bar")
   const rows = await navRows(p)
   await shot(p, { path: join(shots, "desk-1440-explore-navigator.png"), clip: { x: 0, y: 0, width: 520, height: 520 } })
   const texts = rows.map((r) => r.text).join(" | ")
-  expect(texts === "Recently opened | Color Grading for Film: the complete course | Ambience Kit Vol. 1 | Your communities | Mara Club | Film School Collective | Morning Runners | Discover communities | Explore | Start creating", "Recently opened first (a course and a download), then my communities in order, Discover communities, Explore, Start creating", texts)
-  expect(rows.find((r) => r.text.startsWith("Color Grading"))?.href === "/account/library/courses/k-grade" && rows.find((r) => r.text === "Ambience Kit Vol. 1")?.href === "/account/library/products/p-amb", "the course opens its player, the download its page in the library")
-  const things = await p.evaluate((sel) => [...document.querySelectorAll(`${sel} [data-navigator-product]`)].map((a) => { const pic = a.querySelector("[data-app-avatar]").getBoundingClientRect(); const t = a.querySelector("span.truncate"); return { kind: a.getAttribute("data-navigator-product"), pic: Math.round(pic.width), radius: getComputedStyle(a.querySelector("[data-app-avatar]")).borderTopLeftRadius, truncates: t.scrollWidth > t.clientWidth, h: Math.round(a.getBoundingClientRect().height) } }), NAV_PANEL)
-  expect(things.length === 2 && things.every((t) => t.pic === 32 && t.radius === "8px" && t.h >= 44), "each with its 32px cover (squared at 8px, not a round avatar), at least 44px tall", things)
+  expect(texts === "Color Grading for Film: the complete course | Mara Club | Ambience Kit Vol. 1 | Film School Collective | Morning Runners | Discover communities | Explore | Start creating", "one recent list (a course, a community, a download, two more communities, in the answer's order), then Discover communities, Explore, Start creating", texts)
+  expect(!rows.some((r) => r.heading), "no heading anywhere: no Recently opened, no Your communities", rows.filter((r) => r.heading).map((r) => r.text))
+  expect(rows.slice(0, 5).map((r) => r.hint).join() === "Course,Community,Digital product,Community,Community", "each recent row says what it is, in a small word under its name", rows.slice(0, 5).map((r) => r.hint))
+  expect(rows.find((r) => r.text.startsWith("Color Grading"))?.href === "/account/library/courses/k-grade" && rows.find((r) => r.text === "Ambience Kit Vol. 1")?.href === "/account/library/products/p-amb" && rows.find((r) => r.text === "Mara Club")?.href === "/community/mara-club", "the course opens its player, the download its page in the library, a community its page")
+  const things = await p.evaluate((sel) => [...document.querySelectorAll(`${sel} [data-navigator-kind]`)].map((a) => { const pic = a.querySelector("[data-app-avatar]"); const t = a.querySelector("[data-navigator-title]"); const h = getComputedStyle(a.querySelector("[data-navigator-hint]")); return { kind: a.getAttribute("data-navigator-kind"), pic: Math.round(pic.getBoundingClientRect().width), radius: getComputedStyle(pic).borderTopLeftRadius, truncates: t.scrollWidth > t.clientWidth, h: Math.round(a.getBoundingClientRect().height), hint: { size: h.fontSize, color: h.color } } }), NAV_PANEL)
+  expect(things.length === 5 && things.every((t) => t.pic === 32 && t.radius === (t.kind === "community" ? "9px" : "8px") && t.h >= 44), "each with its 32px cover or logo (squared, not a round avatar), at least 44px tall", things.map((t) => [t.kind, t.pic, t.radius, t.h]))
+  expect(things.every((t) => t.hint.size === "12px" && t.hint.color === "rgb(156, 163, 175)"), "the kind is small and quiet: 12px, light grey", things.map((t) => t.hint))
   expect(things[0]?.truncates === true, "a long title ends in an ellipsis on one line rather than wrapping", things[0])
+  const rule = await p.evaluate((sel) => {
+    const panel = document.querySelector(sel).getBoundingClientRect()
+    const d = document.querySelector(`${sel} [data-navigator-divider]`)
+    if (!d) return null
+    const r = d.getBoundingClientRect()
+    const lastRecent = [...document.querySelectorAll(`${sel} [data-navigator-kind]`)].at(-1).getBoundingClientRect()
+    const firstLink = document.querySelector(`${sel} [data-navigator-link]`).getBoundingClientRect()
+    return { h: r.height, color: getComputedStyle(d).backgroundColor, left: Math.round(r.left - panel.left), right: Math.round(panel.right - r.right), w: Math.round(r.width), below: Math.round(r.top - lastRecent.bottom), above: Math.round(firstLink.top - r.bottom), borders: [...document.querySelectorAll(`${sel} *`)].filter((e) => parseFloat(getComputedStyle(e).borderTopWidth) > 0 && e.getAttribute("data-navigator-action") === null).length }
+  }, NAV_PANEL)
+  expect(rule && rule.h === 1 && rule.color === "rgb(240, 241, 243)" && rule.left >= 12 && rule.right >= 12 && rule.below >= 4 && rule.above >= 0, "between the list and the links: one faint 1px rule in the lightest grey, inset from both edges", rule)
+  expect(rule && rule.borders === 0, "and no other line in the panel (the old full width borders are gone)", rule?.borders)
   expect(rows.find((r) => r.text === "Start creating")?.href === "/sell" && rows.find((r) => r.text === "Discover communities")?.href === "/explore?type=communities", "Start creating goes to /sell, Discover communities to /explore?type=communities")
   expect(rows.filter((r) => r.current).length === 0, "nothing is marked current on Storelib's own pages")
   const focus = await p.evaluate(() => document.activeElement?.getAttribute("data-place-navigator-panel"))
   expect(focus === "popover", "the panel takes focus, so arrows and Escape work from the first key", focus)
   await p.keyboard.press("ArrowDown")
-  const down = await p.evaluate(() => document.activeElement?.textContent?.trim())
-  expect(/Color Grading for Film: the complete course$/.test(down), "ArrowDown moves to the first row", down)
+  const down = await p.evaluate(() => document.activeElement?.querySelector("[data-navigator-title]")?.textContent?.trim())
+  expect(down === "Color Grading for Film: the complete course", "ArrowDown moves to the first row", down)
 
   console.log("\n  a second click on the button closes it")
   await throttle(p, 4)
@@ -333,6 +362,7 @@ console.log("\ncomputer 1440, signed out")
   await shot(p, { path: join(shots, "desk-1440-guest-navigator.png"), clip: { x: 0, y: 0, width: 520, height: 360 } })
   const texts = rows.map((r) => r.text).join(" | ")
   expect(texts === "Explore | Discover communities | Log in | Start creating", "Explore, Discover communities, Log in, Start creating", texts)
+  expect(!(await p.$(`${NAV_PANEL} [data-navigator-divider]`)), "no list, so no rule")
   await p.close()
 }
 
@@ -345,8 +375,8 @@ console.log("\ncomputer 1440, a seller who bought nothing")
   const rows = await navRows(p)
   const texts = rows.map((r) => r.text).join(" | ")
   await shot(p, { path: join(shots, "desk-1440-seller-navigator.png"), clip: { x: 0, y: 0, width: 520, height: 420 } })
-  expect(texts === "Your communities | Mara Club | Film School Collective | Morning Runners | Discover communities | Explore | Dashboard", "no Recently opened at all (no heading, no empty box), then my communities and Dashboard", texts)
-  expect(!(await p.$(`${NAV_PANEL} [data-navigator-products]`)), "the section is not in the page")
+  expect(texts === "Mara Club | Film School Collective | Morning Runners | Discover communities | Explore | Dashboard", "nothing bought: the list is my communities alone, no heading, then Dashboard", texts)
+  expect(!(await p.$(`${NAV_PANEL} [data-navigator-kind="course"], ${NAV_PANEL} [data-navigator-kind="product"]`)), "and no empty place for things")
   await p.close()
 }
 
@@ -426,14 +456,16 @@ console.log("\nthe search field, focused (a page where the header carries it)")
   await shot(p, { path: join(shots, "desk-1440-search-focused-zoom.png"), clip: { x: 360, y: 0, width: 720, height: 80 } })
   expect(r.focused && r.hitIsField, "the field is focused and nothing is drawn over it", r)
   expect(r.scrim && r.scrim.w === 1440 && r.scrim.h === 900 && r.scrim.parent === "BODY", "the page's scrim is the window, not a box the size of the field (live: 576x42)", r.scrim)
-  expect(r.shadow !== before.shadow && /0px 0px 0px 4px/.test(r.shadow) && r.border !== before.border && r.outline === "none", "a soft focus state: a darker hairline and a 4px halo, no ring or outline box", { before, after: { shadow: r.shadow, border: r.border } })
+  /* Round 6: the field takes the look Explore's own field has (lib/explore/search-field-look.ts): a darker hairline and a deeper shadow, no halo, no ring. */
+  const ringed = (sh) => /\dpx \dpx \dpx [1-9]/.test(sh.replace(/-?\d+px -?\d+px \d+px -\d+px/g, ""))
+  expect(r.shadow !== before.shadow && /11px 27px -16px/.test(r.shadow) && !ringed(r.shadow) && r.border !== before.border && r.outline === "none", "a soft focus state: a darker hairline and a deeper shadow, no ring or outline box", { before, after: { shadow: r.shadow, border: r.border } })
   await p.keyboard.press("Escape")
   await sleep(400)
   /* By keyboard: the halo is the visible focus. */
   await p.focus("[data-header-search-field] input")
   await sleep(300)
   const kb = await p.evaluate(() => getComputedStyle(document.querySelector("[data-header-search-field] input")).boxShadow)
-  expect(/0px 0px 0px 4px/.test(kb), "reached by keyboard, it shows the same halo", kb)
+  expect(/11px 27px -16px/.test(kb) && !ringed(kb), "reached by keyboard, it shows the same focus", kb)
   await p.close()
 }
 
@@ -523,7 +555,8 @@ for (const hash of ["path=/explore&who=buyer", "path=/explore&who=guest", "mode=
   await shot(p, { path: join(shots, `phone-390-${hash.includes("community") ? "community" : hash.includes("guest") ? "guest" : "buyer"}-bar.png`), clip: { x: 0, y: 0, width: 390, height: 100 } })
   expect(bar.overflow <= 0 && bar.triggers === 1, `${tag}: one navigator, nothing wider than the window`, bar)
   expect(bar.lines === 25 && bar.trigger.w >= 40, `${tag}: 25px lines in a 40px button`, bar)
-  expect(bar.logoX !== null && bar.trigger.x >= bar.logoRight - 0.5 && bar.logoX >= 12, `${tag}: right of the ${hash.includes("community") ? "community's name" : "logo"}, which keeps its place at the edge`, bar)
+  if (hash.includes("community")) expect(bar.logoX !== null && bar.trigger.x >= bar.logoRight - 0.5 && bar.logoX >= 12, `${tag}: right of the community's name, which keeps its place at the edge`, bar)
+  else expect(bar.logoX !== null && bar.trigger.right <= bar.logoX + 0.5 && bar.linesX >= 12 && bar.linesX <= 20 && bar.logoX - bar.trigger.right <= 4, `${tag}: LEFT of the logo, the lines 12 to 20px from the screen's edge, the logo right after them`, bar)
   await p.tap("[data-place-navigator-trigger]")
   await sleep(800)
   const sheet = await p.evaluate(() => {
@@ -531,7 +564,8 @@ for (const hash of ["path=/explore&who=buyer", "path=/explore&who=guest", "mode=
     if (!root) return null
     const panel = root.closest("[data-sheet-panel]")?.getBoundingClientRect()
     const words = (e) => { const c = e.cloneNode(true); c.querySelectorAll("[aria-hidden]").forEach((x) => x.remove()); return c.textContent.trim() }
-    return { rows: [...root.querySelectorAll("[data-navigator-row]")].map((e) => ({ text: words(e), h: Math.round(e.getBoundingClientRect().height), current: e.hasAttribute("data-current") })), bottom: panel && Math.round(panel.bottom), h: innerHeight, overflow: document.documentElement.scrollWidth - innerWidth }
+    const d = root.querySelector("[data-navigator-divider]")?.getBoundingClientRect()
+    return { rows: [...root.querySelectorAll("[data-navigator-row]")].map((e) => ({ text: e.querySelector("[data-navigator-title]") ? words(e.querySelector("[data-navigator-title]")) : words(e), h: Math.round(e.getBoundingClientRect().height), current: e.hasAttribute("data-current") })), rule: d && panel && { h: d.height, left: Math.round(d.left - panel.left), right: Math.round(panel.right - d.right) }, bottom: panel && Math.round(panel.bottom), h: innerHeight, overflow: document.documentElement.scrollWidth - innerWidth }
   })
   await shot(p, { path: join(shots, `phone-390-${hash.includes("community") ? "community" : hash.includes("guest") ? "guest" : "buyer"}-navigator.png`) })
   expect(!!sheet && sheet.rows.length >= 3, `${tag}: the sheet opens`, sheet?.rows.map((r) => r.text))
@@ -539,7 +573,8 @@ for (const hash of ["path=/explore&who=buyer", "path=/explore&who=guest", "mode=
     expect(sheet.rows.every((r) => r.h >= 44), `${tag}: every row is at least 44px to a thumb`, sheet.rows.map((r) => r.h))
     if (hash.includes("community")) expect(sheet.rows.find((r) => r.current)?.text === "Mara Club", `${tag}: Mara Club marked`)
     if (hash.includes("guest")) expect(sheet.rows.map((r) => r.text).join(" | ") === "Explore | Discover communities | Log in | Start creating", `${tag}: the signed out rows`, sheet.rows.map((r) => r.text))
-    else expect(sheet.rows.slice(0, 3).map((r) => r.text).join(" | ") === "Color Grading for Film: the complete course | Ambience Kit Vol. 1 | Mara Club", `${tag}: Recently opened first, then my communities`, sheet.rows.slice(0, 3).map((r) => r.text))
+    else expect(sheet.rows.slice(0, 3).map((r) => r.text).join(" | ") === "Color Grading for Film: the complete course | Mara Club | Ambience Kit Vol. 1", `${tag}: one recent list, kinds mixed, the last touched first`, sheet.rows.slice(0, 3).map((r) => r.text))
+    if (!hash.includes("guest")) expect(sheet.rule && sheet.rule.h === 1 && sheet.rule.left >= 20 && sheet.rule.right >= 20, `${tag}: the faint rule, inset, under the list`, sheet.rule)
   }
   await p.close()
 }
@@ -597,6 +632,173 @@ for (const who of ["buyer", "seller"]) {
   await p.close()
 }
 
+/*
+  LOG OUT, ALWAYS ON SCREEN. Four phones, from the smallest iPhone SE to a
+  Pro Max, each twice: as a browser draws it (no safe area) and as an
+  iPhone with a home indicator draws it in the Capacitor app. Headless
+  Chromium has no safe area to give env(), so the second pass sets the
+  sheet's foot padding to what max(env(safe-area-inset-bottom), 12px) is on
+  such an iPhone: 34px.
+*/
+console.log("\nthe account sheet keeps Log out on screen, at every phone size")
+const SIZES = [[320, 568], [375, 667], [390, 844], [430, 932]]
+const acctSheet = (p) => p.evaluate(() => {
+  const panel = document.querySelector("[data-app-sheet] [data-account-sheet]")?.closest("[data-sheet-panel]")
+  if (!panel) return null
+  const out = document.querySelector("[data-app-sheet] [data-account-item='log-out']")
+  const r = out.getBoundingClientRect()
+  const pr = panel.getBoundingClientRect()
+  const pad = parseFloat(getComputedStyle(panel).paddingBottom)
+  const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)
+  const rows = panel.querySelector("[data-account-sheet]")
+  const who = panel.querySelector("[data-account-who]").getBoundingClientRect()
+  return {
+    out: { top: Math.round(r.top), bottom: Math.round(r.bottom), h: Math.round(r.height) },
+    panel: { top: Math.round(pr.top), bottom: Math.round(pr.bottom), h: Math.round(pr.height) },
+    pad, vh: innerHeight,
+    hitIsLogOut: !!hit && hit.closest("[data-account-item]")?.getAttribute("data-account-item") === "log-out",
+    rowsScroll: rows.scrollHeight > rows.clientHeight + 1,
+    who: Math.round(who.height),
+  }
+})
+for (const [w, h] of SIZES) {
+  for (const inset of [0, 34]) {
+    const p = await open({ width: w, height: h, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }, "path=/explore&who=seller")
+    if (inset) await p.addStyleTag({ content: `[data-sheet-panel]{padding-bottom:${inset}px !important}` })
+    await p.tap('button[aria-label="Open profile menu"]')
+    await sleep(900)
+    const m = await acctSheet(p)
+    const tag = `${w}x${h}${inset ? `, ${inset}px home indicator` : ""}`
+    await shot(p, { path: join(shots, `phone-${w}x${h}${inset ? "-inset" : ""}-account.png`) })
+    expect(!!m && m.out.top >= m.panel.top && m.out.bottom <= m.vh - m.pad + 0.5 && m.out.h >= 44 && m.hitIsLogOut, `${tag}: Log out whole, on screen, clear of the foot padding, and a tap on it lands on it`, m && { logOut: m.out, panel: m.panel, pad: m.pad, vh: m.vh, hit: m.hitIsLogOut })
+    expect(!!m && !m.rowsScroll, `${tag}: and every row fits, nothing to scroll`, m && { rowsScroll: m.rowsScroll, panel: m.panel.h })
+    if (w === 320 && !inset) {
+      /* The smallest phone with a larger text size: the rows scroll and Log out still stays. */
+      await p.addStyleTag({ content: `[data-account-sheet] [data-account-item]{padding-top:22px !important;padding-bottom:22px !important}` })
+      await sleep(200)
+      const big = await acctSheet(p)
+      await shot(p, { path: join(shots, `phone-320x568-account-tall-rows.png`) })
+      expect(!!big && big.rowsScroll && big.out.bottom <= big.vh - big.pad + 0.5 && big.hitIsLogOut, "320x568 with rows taller than the screen: the rows scroll, Log out stays put at the foot", big && { rowsScroll: big.rowsScroll, logOut: big.out, vh: big.vh })
+    }
+    await p.close()
+  }
+}
+
+/* /app's own account sheet, shot the same way, to put next to the header's. */
+{
+  const p = await open(PHONE, "mode=app-account&who=buyer")
+  await p.tap("#account-trigger")
+  await sleep(900)
+  await shot(p, { path: join(shots, "phone-390-app-account-reference.png") })
+  const ref = await p.evaluate(() => {
+    const row = document.querySelector('[data-app-sheet] [data-business-row="current"]')
+    const pic = row?.querySelector("[data-app-avatar]")
+    const rule = row?.closest("[data-business-switcher]")?.nextElementSibling
+    return row && { h: Math.round(row.getBoundingClientRect().height), radius: getComputedStyle(row).borderTopLeftRadius, pic: Math.round(pic.getBoundingClientRect().width), rule: rule && getComputedStyle(rule).backgroundColor }
+  })
+  const p2 = await open(PHONE, "path=/explore&who=buyer")
+  await p2.tap('button[aria-label="Open profile menu"]')
+  await sleep(900)
+  const ours = await p2.evaluate(() => {
+    const row = document.querySelector("[data-app-sheet] [data-account-who]")
+    const pic = row?.querySelector("[data-app-avatar]")
+    const rule = row?.nextElementSibling
+    return row && { h: Math.round(row.getBoundingClientRect().height), radius: getComputedStyle(row).borderTopLeftRadius, pic: Math.round(pic.getBoundingClientRect().width), rule: rule && getComputedStyle(rule).backgroundColor }
+  })
+  expect(!!ref && !!ours && ref.h === ours.h && ref.radius === ours.radius && ref.pic === ours.pic && ref.rule === ours.rule, "the account block matches /app's: the same row height, corner, photo size and rule colour", { app: ref, header: ours })
+  await p.close()
+  await p2.close()
+}
+
+/* ------------------------------------------------------------------ */
+console.log("\nthe bell on a phone: the shared bottom sheet, not a page")
+{
+  const SHEET_INNER = '[data-notification-panel="sheet"]'
+  /* The sheet's panel, once per frame: where it is (its translate), and whether its layer is shown. */
+  const sampleSheet = (p) => p.evaluate((sel) => {
+    window.__ss = []
+    window.__ssOn = true
+    const tick = (t) => {
+      const panel = document.querySelector(sel)?.closest("[data-sheet-panel]")
+      if (panel) {
+        const root = panel.closest("[data-sheet-root]")
+        const m = new DOMMatrix(getComputedStyle(panel).transform)
+        window.__ss.push({ t, y: Math.round(m.m42 * 10) / 10, shown: getComputedStyle(root).visibility !== "hidden" && root.hasAttribute("data-app-sheet") })
+      } else window.__ss.push({ t, gone: true })
+      if (window.__ssOn) requestAnimationFrame(tick)
+    }
+    requestAnimationFrame(tick)
+  }, SHEET_INNER)
+  const stopSheet = (p) => p.evaluate(() => { window.__ssOn = false; return window.__ss })
+  const motion = (s, dir) => {
+    const moving = s.filter((x) => !x.gone && x.shown)
+    let mono = true
+    for (let i = 1; i < moving.length; i++) if (dir === "up" ? moving[i].y > moving[i - 1].y + 0.5 : moving[i].y < moving[i - 1].y - 0.5) mono = false
+    const first = s.findIndex((x) => !x.gone && x.shown && (dir === "up" ? x.y > 0 : x.y > 0))
+    const settle = dir === "up" ? s.findIndex((x) => x.shown && x.y === 0) : s.findIndex((x, i) => i > 0 && (x.gone || !x.shown))
+    const span = first >= 0 && settle >= 0 ? Math.round(s[settle].t - s[first].t) : null
+    const frames = s.slice(Math.max(0, first), settle + 1)
+    return { mono, ms: span, longest: gaps(frames), over20: frames.filter((x, i) => i && x.t - frames[i - 1].t > 20).length, frames: frames.length }
+  }
+
+  const p = await open(PHONE, "path=/help&who=buyer")
+  await sleep(600)
+  const kept = await p.evaluate((sel) => { const el = document.querySelector(sel); const root = el?.closest("[data-sheet-root]"); return el ? { visibility: getComputedStyle(root).visibility, full: Math.round(el.closest("[data-sheet-panel]").getBoundingClientRect().height) } : null }, SHEET_INNER)
+  expect(!!kept && kept.visibility === "hidden", "built while the page was idle, kept below the screen and hidden", kept)
+  const cdp = await throttle(p, 4)
+  await sampleSheet(p)
+  await p.tap("[data-notification-bell][data-bell-active]")
+  await sleep(1200)
+  let s = await stopSheet(p)
+  await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
+  const up = motion(s, "up")
+  console.log(`        opening (CPU 4x): ${JSON.stringify(up)}`)
+  expect(up.mono && up.ms !== null && up.ms >= 200 && up.ms <= 700, "it slides up from the foot, only ever upward, and settles (about the sheet's 360ms)", up)
+  await sleep(600)
+  const g = await p.evaluate((sel) => {
+    const panel = document.querySelector(sel).closest("[data-sheet-panel]").getBoundingClientRect()
+    const head = document.querySelector("[data-bell-sheet-header]").getBoundingClientRect()
+    const rows = [...document.querySelectorAll(`${sel} [data-notification-row]`)].map((r) => Math.round(r.getBoundingClientRect().height))
+    return { top: Math.round(panel.top), h: Math.round(panel.height), vh: innerHeight, w: Math.round(panel.width), head: Math.round(head.height), rows, filter: !!document.querySelector("[data-bell-sheet-header] [data-bell-filter]"), markAll: !!document.querySelector("[data-bell-sheet-header] [data-mark-all-read]"), overflow: document.documentElement.scrollWidth - innerWidth }
+  }, SHEET_INNER)
+  await shot(p, { path: join(shots, "phone-390-bell-sheet.png") })
+  expect(g.top > 100 && g.h < g.vh * 0.75 && g.w === 390, "a sheet from the foot of the screen with the page above it, not a full screen page", g)
+  expect(g.rows.length === 3 && g.rows.every((h) => h >= 64) && g.filter && g.markAll, "the same rows, filter and Mark all as read", g)
+  expect(g.overflow <= 0, "nothing wider than the screen", g.overflow)
+
+  console.log("\n  a tap on the dimmed page closes it, CPU slowed 4x")
+  await throttle(p, 4)
+  await sampleSheet(p)
+  await p.touchscreen.tap(195, 60)
+  await sleep(1200)
+  s = await stopSheet(p)
+  await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
+  const down = motion(s, "down")
+  console.log(`        closing (CPU 4x): ${JSON.stringify(down)}`)
+  expect(down.mono && down.ms !== null && down.ms <= 700, "it slides down, only ever downward, and is hidden at the end", down)
+
+  console.log("\n  a pull down closes it")
+  await p.tap("[data-notification-bell][data-bell-active]")
+  await sleep(900)
+  const top = await p.evaluate((sel) => Math.round(document.querySelector(sel).closest("[data-sheet-panel]").getBoundingClientRect().top), SHEET_INNER)
+  const c = await p.target().createCDPSession()
+  const at = (y) => [{ x: 195, y, radiusX: 12, radiusY: 12, force: 1 }]
+  await c.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: at(top + 10) })
+  /* A brisk pull of about two thirds of the sheet, a step a frame, as a thumb does it. */
+  for (let i = 1; i <= 12; i++) {
+    await c.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: at(top + 10 + i * 32) })
+    await sleep(12)
+  }
+  const pulled = await p.evaluate((sel) => Math.round(new DOMMatrix(getComputedStyle(document.querySelector(sel).closest("[data-sheet-panel]")).transform).m42), SHEET_INNER)
+  await c.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] })
+  await sleep(900)
+  const after = await p.evaluate((sel) => { const root = document.querySelector(sel)?.closest("[data-sheet-root]"); return root ? getComputedStyle(root).visibility : "gone" }, SHEET_INNER)
+  expect(pulled > 200, "the sheet follows the thumb down", pulled)
+  expect(after === "hidden" || after === "gone", "a pull down on its handle sends it back", { after, top, pulled })
+  await p.close()
+}
+
+/* ------------------------------------------------------------------ */
 await browser.close()
 if (!process.env.KEEP_PROBE) rmSync(stubs, { recursive: true, force: true })
 console.log(`\nshots: ${shots}`)

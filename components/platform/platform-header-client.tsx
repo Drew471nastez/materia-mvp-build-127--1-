@@ -291,6 +291,7 @@ function MobileBottomSheet({
   fill = false,
   height,
   keepMounted = false,
+  maxHeight,
   onClosed,
 }: {
   isOpen: boolean
@@ -306,6 +307,8 @@ function MobileBottomSheet({
   height?: string
   /** Built while the page is idle and kept, as the app's account sheet is: the tap only slides it up. */
   keepMounted?: boolean
+  /** The tallest it may be, when three quarters of the screen is not the right answer. */
+  maxHeight?: string
 }) {
   return (
     <BottomSheet
@@ -316,7 +319,7 @@ function MobileBottomSheet({
       hideFrom="md"
       fill={fill}
       height={height}
-      maxHeight={height ?? "min(74dvh, 720px)"}
+      maxHeight={height ?? maxHeight ?? "min(74dvh, 720px)"}
       className="rounded-t-[24px]"
       scrollKey={contentKey ?? "default"}
       keepMounted={keepMounted}
@@ -410,7 +413,17 @@ function GuestHeaderActions({
   )
 }
 
-/** One row of the phone's account sheet: a link (href and its click) or, without an href, a button. */
+/**
+ * One row of the phone's account sheet: a link (href and its click) or,
+ * without an href, a button. In /app's own account sheet's language
+ * (components/app/mobile-account-menu.tsx): a 48px row, an 18px icon in a
+ * light grey, 15px words, a soft press and no chevron, so the two sheets
+ * read as one product.
+ */
+const SHEET_ROW =
+  "flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-[15px] font-medium text-neutral-800 transition-colors duration-100 active:bg-neutral-100 hover:bg-neutral-50 cursor-pointer outline-none focus-visible:bg-neutral-100 [-webkit-tap-highlight-color:transparent]"
+const SHEET_ICON = "h-[18px] w-[18px] shrink-0"
+
 function SheetRow({
   href,
   onClick,
@@ -423,26 +436,32 @@ function SheetRow({
   onClick?: (e: React.MouseEvent<HTMLElement>) => void
   onDone: () => void
   item: string
-  icon: React.ComponentType<{ className?: string; "aria-hidden"?: boolean }>
+  icon: React.ComponentType<{ className?: string; strokeWidth?: number; "aria-hidden"?: boolean }>
   label: string
 }) {
-  const cls = "flex w-full items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 active:bg-gray-100 transition-colors cursor-pointer [-webkit-tap-highlight-color:transparent]"
   const inner = (
     <>
-      <span className="flex items-center gap-3">
-        <Icon aria-hidden className="h-5 w-5 text-gray-400" />
-        <span>{label}</span>
-      </span>
-      <ChevronRight aria-hidden className="h-5 w-5 text-gray-400" />
+      <Icon aria-hidden className={cn(SHEET_ICON, "text-neutral-400")} strokeWidth={1.75} />
+      <span className="min-w-0 truncate">{label}</span>
     </>
   )
   return href ? (
-    <Link href={href} onClick={(e) => { onClick?.(e); onDone() }} data-account-item={item} className={cls}>
+    <Link href={href} onClick={(e) => { onClick?.(e); onDone() }} data-account-item={item} className={SHEET_ROW}>
       {inner}
     </Link>
   ) : (
-    <button type="button" onClick={onDone} data-account-item={item} className={cls}>
+    <button type="button" onClick={onDone} data-account-item={item} className={SHEET_ROW}>
       {inner}
+    </button>
+  )
+}
+
+/** Log out, last in both phone sheets: the same row in red, under a rule. */
+function SheetLogOut({ onPress }: { onPress: () => void }) {
+  return (
+    <button type="button" onClick={onPress} data-account-item="log-out" className={cn(SHEET_ROW, "text-red-600 hover:bg-red-50/60 active:bg-red-50 focus-visible:bg-red-50")}>
+      <LogOut aria-hidden className={SHEET_ICON} strokeWidth={1.75} />
+      <span>Log out</span>
     </button>
   )
 }
@@ -1947,28 +1966,31 @@ export function PlatformHeaderClient({
           ) : (
             <>
               {/*
-                THE LOGO, THEN THE NAVIGATOR, AT EVERY WIDTH. The three lines
-                sit right of the logo (the owner's ask, round 4): the logo is
-                where the eye lands first and the lines read as the menu that
-                belongs to it. They open the navigator
-                (components/nav/place-navigator.tsx): what I opened lately
-                from my library, my communities, Discover communities,
-                Explore, and Dashboard or Start creating. The same component
-                sits right of a community's name in its own top bar.
-                Categories are browsed on Explore itself.
+                THE NAVIGATOR AND THE LOGO. On a computer the three lines sit
+                right of the logo (round 4: the logo is where the eye lands
+                first and the lines read as the menu that belongs to it). On
+                a phone they are back LEFT of the logo, where they were and
+                where a thumb looks for a menu (round 6). They open the
+                navigator (components/nav/place-navigator.tsx): one recent
+                list of my courses, digital products and communities, then
+                Discover communities, Explore, and Dashboard or Start
+                creating. The same component sits right of a community's
+                name in its own top bar. Categories are browsed on Explore
+                itself.
 
                 One navigator for the phone row and the computer row, so the
-                phone keeps one sheet. The logo is drawn at the phone's size
-                below md and the computer's from md, as it was; the lines
-                keep 4px from the wordmark, so the button's own 9px of air
-                makes the gap the logo and the lines had on storelib.com.
+                phone keeps one sheet. The order is the order in the page,
+                not a CSS reorder, so focus goes where the eye does at both
+                widths: the computer's logo (hidden on a phone), the lines,
+                then the phone's logo (hidden on a computer). On a phone the
+                group is pulled 8px into the bar's padding, so the lines
+                start where the old icon's did and the logo follows with the
+                button's own air as the gap; on a computer the lines keep
+                4px from the wordmark. The profile bar draws no lines on a
+                phone, so there the logo keeps its own place at the edge.
               */}
-              <div className="flex shrink-0 items-center gap-1" data-header-left="">
+              <div className={cn("flex shrink-0 items-center gap-1", profileBar ? "max-md:gap-0" : "max-md:-ml-2 max-md:gap-0.5")} data-header-left="">
                 {/* Logo with Storelib text - links to /explore */}
-                <Link href={buyerLogoHref} onClick={(e) => onCanonicalNav(e, buyerLogoHref)} className="shrink-0 flex items-center gap-1.5 md:hidden" data-header-logo="phone">
-                  <StorelibLogo size={HEADER_LOGO.phone} priority />
-                  <span className={chrome.wordmarkPhone}>Storelib</span>
-                </Link>
                 <Link href={buyerLogoHref} onClick={(e) => onCanonicalNav(e, buyerLogoHref)} className="shrink-0 hidden md:flex items-center gap-2" data-header-logo="desk">
                   <StorelibLogo size={HEADER_LOGO.desktop} priority />
                   <span className={chrome.wordmark}>Storelib</span>
@@ -1976,9 +1998,13 @@ export function PlatformHeaderClient({
                 <PlaceNavigator
                   current={{ kind: "storelib" }}
                   onNavigate={(e, href) => onCanonicalNav(e, href)}
-                  /* The slack runs to the right and up and down, where there is nothing else to hit; not to the left, where the logo is a target of its own. On a phone's profile bar it is not drawn (PROFILE BAR above). */
-                  className={cn("z-10 before:absolute before:-right-3 before:-top-2 before:-bottom-2 before:left-0 before:content-[''] md:before:content-none", chrome.navigator, profileBar && "max-md:hidden")}
+                  /* On a phone the slack runs left to the screen's edge and up and down, where a thumb undershoots; not right, where the logo is a target of its own. A computer's pointer needs none. On a phone's profile bar it is not drawn (PROFILE BAR above). */
+                  className={cn("z-10 before:absolute before:-left-3 before:-top-2 before:-bottom-2 before:right-0 before:content-[''] md:before:content-none", chrome.navigator, profileBar && "max-md:hidden")}
                 />
+                <Link href={buyerLogoHref} onClick={(e) => onCanonicalNav(e, buyerLogoHref)} className="shrink-0 flex items-center gap-1.5 md:hidden" data-header-logo="phone">
+                  <StorelibLogo size={HEADER_LOGO.phone} priority />
+                  <span className={chrome.wordmarkPhone}>Storelib</span>
+                </Link>
               </div>
 
           {/* Desktop Search - Centered with Modal (10% larger) */}
@@ -2519,27 +2545,18 @@ export function PlatformHeaderClient({
       */}
       {profileBar ? (
         <MobileBottomSheet isOpen={profileBarOpen} onClose={() => setProfileBarOpen(false)}>
-          <div className="px-4 pb-6">
-            <div className="space-y-0.5" data-profile-bar-sheet="">
+          <div className="px-3 pb-3">
+            <div data-profile-bar-sheet="">
               <SheetRow onDone={onShareProfile} item="share-profile" icon={Share2} label="Share profile" />
               <SheetRow {...headerLink("/account/settings?section=account")} onDone={() => setProfileBarOpen(false)} item="settings" icon={Settings} label="Settings" />
               <SheetRow onDone={() => { setProfileBarOpen(false); setLanguageOpen(true) }} item="language" icon={Globe} label={t("settings.language")} />
               <SheetRow {...headerLink("/help")} onDone={() => setProfileBarOpen(false)} item="help" icon={LifeBuoy} label="Help" />
             </div>
             {user ? (
-              <div className="mt-4 pt-4 border-t border-gray-200">
-                <button
-                  type="button"
-                  onClick={() => { setProfileBarOpen(false); void handleLogout() }}
-                  data-account-item="log-out"
-                  className="flex items-center justify-between w-full px-4 py-3.5 rounded-xl text-base font-medium text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
-                >
-                  <div className="flex items-center gap-3">
-                    <LogOut className="h-5 w-5" />
-                    <span>Log out</span>
-                  </div>
-                </button>
-              </div>
+              <>
+                <div aria-hidden className="my-1.5 h-px bg-neutral-100" />
+                <SheetLogOut onPress={() => { setProfileBarOpen(false); void handleLogout() }} />
+              </>
             ) : null}
           </div>
         </MobileBottomSheet>
@@ -2567,20 +2584,41 @@ export function PlatformHeaderClient({
         app's own account sheet is (components/app/mobile-account-menu.tsx):
         the tap that opens it only slides it up. On a phone only, where the
         header draws the button that opens it.
+
+        LOG OUT IS ALWAYS ON SCREEN. It used to be the last row of one
+        scrolling column inside a sheet capped at three quarters of the
+        screen: on an iPhone SE (568 or 667 tall) the column was taller than
+        the cap and Log out sat under the fold, or under the home indicator.
+        Now the sheet is three parts in a column (`fill`): who is signed in
+        at the top, the rows in the middle, which alone may scroll, and Log
+        out at the foot, which never shrinks. The sheet may take up to 88% of
+        the screen, enough for every row on the smallest phone, and its own
+        padding already clears the home indicator
+        (max(env(safe-area-inset-bottom), 12px)), in a browser and in the
+        Capacitor app alike. Measured at 320x568, 375x667, 390x844 and
+        430x932 by scripts/check-place-navigator.mjs.
+
+        THE TOP IS /app's. The person in a rounded row (a 32px photo with a
+        hairline ring, the name, their @handle under it) and a one pixel rule
+        under it, the way /app's account sheet opens with its business row,
+        so the two sheets feel like one product.
       */}
       <MobileBottomSheet
         isOpen={mobileProfileOpen}
         onClose={() => setMobileProfileOpen(false)}
         keepMounted={!!user && belowMd}
+        fill
+        maxHeight="min(88dvh, 720px)"
       >
-        <div className="px-4 pb-6">
-          {/* User Info */}
-          <div className="flex items-center gap-3 p-3 mb-4 bg-gray-50 rounded-xl">
-            <AppAvatar src={avatarUrl} name={(displayName || "").trim()} alt="" size={48} className="border border-gray-200" />
-            <div className="flex-1 min-w-0">
-              <p className="text-base font-medium text-gray-900 truncate">{displayName}</p>
-            </div>
+        <div className="flex min-h-0 flex-1 flex-col px-3" data-account-sheet-body="">
+          <div className="flex min-h-[52px] shrink-0 items-center gap-3 rounded-xl px-3 py-2" data-account-who="">
+            <AppAvatar src={avatarUrl} name={(displayName || "").trim()} alt="" size={32} className="shrink-0 ring-1 ring-neutral-200" />
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[15px] font-medium text-neutral-900">{displayName}</span>
+              {profile?.username ? <span className="block truncate text-[13px] text-neutral-500">@{profile.username}</span> : null}
+            </span>
           </div>
+          <div aria-hidden className="my-1.5 h-px shrink-0 bg-neutral-100" />
 
           {/*
             THE SAME ROWS AS THE COMPUTER'S MENU (DesktopAccountMenu), in the
@@ -2588,7 +2626,7 @@ export function PlatformHeaderClient({
             else, Profile, Settings, Language, Help, Discover, and Log out last.
             No My Library: the library lives inside the profile (/account).
           */}
-          <div className="space-y-0.5" data-account-sheet="">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain" data-account-sheet="">
             {hasCompletedSellerOnboarding ? (
               <SheetRow {...headerLink("/app")} onDone={() => setMobileProfileOpen(false)} item="dashboard" icon={LayoutDashboard} label="Dashboard" />
             ) : (
@@ -2601,19 +2639,9 @@ export function PlatformHeaderClient({
             <SheetRow {...headerLink("/explore")} onDone={() => setMobileProfileOpen(false)} item="discover" icon={Compass} label="Discover" />
           </div>
 
-          {/* Logout */}
-          <div className="mt-4 pt-4 border-t border-gray-200">
-            <button
-              type="button"
-              onClick={handleLogout}
-              data-account-item="log-out"
-              className="flex items-center justify-between w-full px-4 py-3.5 rounded-xl text-base font-medium text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
-            >
-              <div className="flex items-center gap-3">
-                <LogOut className="h-5 w-5" />
-                <span>Log out</span>
-              </div>
-            </button>
+          <div aria-hidden className="my-1.5 h-px shrink-0 bg-neutral-100" />
+          <div className="shrink-0" data-account-sheet-foot="">
+            <SheetLogOut onPress={handleLogout} />
           </div>
         </div>
       </MobileBottomSheet>

@@ -11,12 +11,17 @@
  * creator they bought from), newest first, from GET /api/notifications/inbox
  * (lib/notifications/user-inbox.ts).
  *
- * On a computer it is a popover under the bell; on a phone a full screen
- * sheet. Both have the same parts: "Notifications", Mark all as read, a
- * filter (All, Communities, Following, Purchases), and rows with the actor's
- * photo, their name in bold, what happened, when, a line of preview, and a
- * dot while unread. A row opens its page and is marked read on the way.
- * More rows load as the list is scrolled to its end.
+ * On a computer it is a popover under the bell; on a phone the app's one
+ * bottom sheet (components/ui/bottom-sheet.tsx), as /app's own
+ * notifications are (components/app/notifications-modal.tsx): it slides up
+ * from the foot of the screen over a dimmed page, follows the thumb, and a
+ * pull down, a tap on the page or Escape sends it back. It used to be a
+ * full screen page of its own. Both have the same parts: "Notifications",
+ * Mark all as read, a filter (All, Communities, Following, Purchases), and
+ * rows with the actor's photo, their name in bold, what happened, when, a
+ * line of preview, and a dot while unread. A row opens its page and is
+ * marked read on the way. More rows load as the list is scrolled to its
+ * end.
  *
  * LIVE. Supabase realtime on the person's own rows in both tables (each
  * table may only be read by its owner, parts 81 and 85): a new row counts up
@@ -45,24 +50,30 @@
  * moves. The popover is a fixed height, so the list arriving does not grow
  * it under the pointer, and every picture in it is a fixed box asked for at
  * the size it is drawn (lib/images optimizedImageUrl) and loaded lazily.
+ *
+ * The phone's sheet is built ahead and kept the same way (the sheet's own
+ * keepMounted: it waits below the screen and the tap only slides it up),
+ * is a fixed height for the same reason, and asks for its rows once it has
+ * arrived (onOpened), so the rows are drawn after the slide and not in the
+ * middle of it, as /app's sheet does.
  */
 import Link from "next/link"
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react"
 import { createPortal } from "react-dom"
-import { Bell, Check, ChevronDown, X } from "lucide-react"
+import { Bell, Check, ChevronDown } from "lucide-react"
 
 import { AppAvatar } from "@/components/app/app-avatar"
+import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { INBOX_EVENT, realtimeAuth } from "@/components/community/member/realtime"
 import { relativeTime } from "@/lib/communities/format"
 import { optimizedImageUrl } from "@/lib/images/optimized-url"
 import { INBOX_FILTERS, badgeLabel, splitTitle, type InboxFilter, type InboxItem, type InboxPage } from "@/lib/notifications/user-inbox-shared"
 import { createClient } from "@/lib/supabase/client"
-import { useLightChrome } from "@/lib/ui/light-chrome"
 import { cn } from "@/lib/utils"
 
 const INBOX = "/api/notifications/inbox"
 const READ = "/api/notifications/read"
-/** Below this width the list is a full screen sheet. */
+/** Below this width the list is a bottom sheet. */
 const PHONE_QUERY = "(max-width: 639px)"
 
 type Load = "idle" | "loading" | "failed"
@@ -283,9 +294,11 @@ export function NotificationBell({ className }: { className?: string }) {
 
   const openList = () => {
     setOpen(true)
-    void loadFirst(filterRef.current)
+    /* On a phone the rows are asked for once the sheet has arrived (onArrived), so they are not drawn in the middle of its slide. */
+    if (!phone) void loadFirst(filterRef.current)
     void postRead({ seen: true })
   }
+  const onArrived = useCallback(() => void loadFirst(filterRef.current), [loadFirst])
   const close = useCallback((refocus = true) => {
     setOpen(false)
     if (refocus) window.setTimeout(() => triggerRef.current?.focus({ preventScroll: true }), 0)
@@ -363,6 +376,7 @@ export function NotificationBell({ className }: { className?: string }) {
           onOpenRow={openRow}
           onMore={loadMore}
           onRetry={() => void loadFirst(filterRef.current)}
+          onArrived={onArrived}
         />
       ) : null}
     </>
@@ -386,6 +400,7 @@ function BellPanel({
   onOpenRow,
   onMore,
   onRetry,
+  onArrived,
 }: {
   phone: boolean
   /** False while it is closed: kept in the page, invisible and inert. */
@@ -402,14 +417,14 @@ function BellPanel({
   onOpenRow: (n: InboxItem) => void
   onMore: () => void
   onRetry: () => void
+  /** The phone's sheet has finished sliding up. */
+  onArrived: () => void
 }) {
   const panelRef = useRef<HTMLDivElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
   const endRef = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState<{ top: number; right: number } | null>(null)
   const titleId = useId()
-
-  useLightChrome(phone && open)
 
   /* Under the bell, its right edge on the bell's, inside a 16px gutter. Measured again on every open, before it is painted. */
   useLayoutEffect(() => {
@@ -429,10 +444,11 @@ function BellPanel({
     (the bell toggles itself, so it is not "outside"). Heard in the capture
     phase, so it is not lost to a control that stops its own events, and it
     never cancels the press: whatever was under it still gets its click.
-    A phone's page behind the sheet does not scroll.
+    The popover only: the phone's sheet has its own Escape, its own dimmed
+    page that closes it on a tap, and holds the page behind it still.
   */
   useEffect(() => {
-    if (!open) return
+    if (!open || phone) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" && !e.defaultPrevented) onClose()
     }
@@ -442,14 +458,11 @@ function BellPanel({
       onClose(false)
     }
     window.addEventListener("keydown", onKey)
-    if (!phone) document.addEventListener("pointerdown", away, true)
-    const prev = document.body.style.overflow
-    if (phone) document.body.style.overflow = "hidden"
+    document.addEventListener("pointerdown", away, true)
     panelRef.current?.focus({ preventScroll: true })
     return () => {
       window.removeEventListener("keydown", onKey)
       document.removeEventListener("pointerdown", away, true)
-      if (phone) document.body.style.overflow = prev
     }
   }, [open, phone, onClose, anchor])
 
@@ -465,114 +478,117 @@ function BellPanel({
 
   if (typeof document === "undefined" || (!phone && !pos)) return null
 
-  const body = (
-    <>
-      <div className={cn("shrink-0 border-b border-[#f0f1f3] bg-white", phone && "pt-[env(safe-area-inset-top)]")}>
-        {/* A phone has the title and Close on one row and what to do with the list under it; a computer has all of it on one. */}
-        <div className={cn("flex items-center gap-2", phone ? "h-14 pl-4 pr-2" : "h-[58px] pl-5 pr-3")}>
-          <h2 id={titleId} className="min-w-0 flex-1 truncate text-[17px] font-semibold tracking-[-0.01em] text-[#1a1a2e]">
-            Notifications
-          </h2>
-          {phone ? (
-            <button type="button" aria-label="Close" onClick={() => onClose()} className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-[#6b7280] outline-none transition-colors hover:bg-[#f4f5f7] hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15">
-              <X className="h-[20px] w-[20px]" />
+  const title = (
+    <h2 id={titleId} className="min-w-0 flex-1 truncate text-[17px] font-semibold tracking-[-0.01em] text-[#1a1a2e]">
+      Notifications
+    </h2>
+  )
+  /* A phone has the title on one row and what to do with the list under it (the filter's longest name and Mark all as read do not fit beside the title at 320px); a computer has all of it on one. */
+  const head = phone ? (
+    <div className="border-b border-[#f0f1f3]" data-bell-sheet-header="">
+      <div className="flex h-10 items-center pl-4 pr-2">{title}</div>
+      <div className="flex h-11 items-center justify-between pb-1 pl-2 pr-2">
+        <FilterMenu value={filter} onChange={onFilter} align="left" />
+        <MarkAll unread={unread} onMarkAll={onMarkAll} />
+      </div>
+    </div>
+  ) : (
+    <div className="shrink-0 border-b border-[#f0f1f3] bg-white">
+      <div className="flex h-[58px] items-center gap-2 pl-5 pr-3">
+        {title}
+        <MarkAll unread={unread} onMarkAll={onMarkAll} />
+        <FilterMenu value={filter} onChange={onFilter} />
+      </div>
+    </div>
+  )
+  const list = (
+    <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain" data-bell-list="">
+      {items === null ? (
+        load === "failed" ? (
+          <Quiet>
+            That did not load.{" "}
+            <button type="button" onClick={onRetry} className="cursor-pointer font-medium text-[#1a1a2e] underline underline-offset-2">
+              Try again
+            </button>
+          </Quiet>
+        ) : (
+          <RowsLoading />
+        )
+      ) : items.length === 0 ? (
+        <Quiet empty>Nothing new</Quiet>
+      ) : (
+        <ul className="divide-y divide-[#f0f1f3]">
+          {items.map((n) => (
+            <li key={n.id}>
+              <Row n={n} onOpen={onOpenRow} />
+            </li>
+          ))}
+        </ul>
+      )}
+      {items && items.length > 0 && hasMore ? (
+        <div ref={endRef} className="flex h-14 items-center justify-center text-[13px] text-[#9ca3af]">
+          {load === "failed" ? (
+            <button type="button" onClick={onMore} className="h-10 cursor-pointer px-3 font-medium text-[#1a1a2e]">
+              Show more
             </button>
           ) : (
-            <>
-              <MarkAll unread={unread} onMarkAll={onMarkAll} />
-              <FilterMenu value={filter} onChange={onFilter} />
-            </>
+            <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#e5e7eb] border-t-[#9ca3af] motion-reduce:animate-none" aria-label="Loading" />
           )}
         </div>
-        {phone ? (
-          <div className="-mt-1 flex h-11 items-center justify-between pb-1 pl-2 pr-2">
-            <FilterMenu value={filter} onChange={onFilter} align="left" />
-            <MarkAll unread={unread} onMarkAll={onMarkAll} />
-          </div>
-        ) : null}
-      </div>
-      <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain" data-bell-list="">
-        {items === null ? (
-          load === "failed" ? (
-            <Quiet>
-              That did not load.{" "}
-              <button type="button" onClick={onRetry} className="cursor-pointer font-medium text-[#1a1a2e] underline underline-offset-2">
-                Try again
-              </button>
-            </Quiet>
-          ) : (
-            <RowsLoading />
-          )
-        ) : items.length === 0 ? (
-          <Quiet empty>Nothing new</Quiet>
-        ) : (
-          <ul className="divide-y divide-[#f0f1f3]">
-            {items.map((n) => (
-              <li key={n.id}>
-                <Row n={n} onOpen={onOpenRow} />
-              </li>
-            ))}
-          </ul>
-        )}
-        {items && items.length > 0 && hasMore ? (
-          <div ref={endRef} className="flex h-14 items-center justify-center text-[13px] text-[#9ca3af]">
-            {load === "failed" ? (
-              <button type="button" onClick={onMore} className="h-10 cursor-pointer px-3 font-medium text-[#1a1a2e]">
-                Show more
-              </button>
-            ) : (
-              <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#e5e7eb] border-t-[#9ca3af] motion-reduce:animate-none" aria-label="Loading" />
-            )}
-          </div>
-        ) : null}
-        {phone ? <div className="h-[env(safe-area-inset-bottom)]" /> : null}
-      </div>
-    </>
+      ) : null}
+    </div>
   )
 
+  if (phone) {
+    return (
+      <BottomSheet
+        isOpen={open}
+        onClose={() => onClose(false)}
+        label="Notifications"
+        hideFrom="sm"
+        fill
+        /* A fixed height, so the rows arriving never move its top edge: /app's sheet's, plus the second row this header has. */
+        height="min(68dvh, 584px)"
+        /* Built while the page is idle and kept: the tap only slides it up. */
+        keepMounted
+        onOpened={onArrived}
+        header={head}
+      >
+        <div
+          ref={panelRef}
+          aria-labelledby={titleId}
+          data-notification-panel="sheet"
+          data-state={open ? "open" : "closed"}
+          className="flex min-h-0 flex-1 flex-col"
+        >
+          {list}
+        </div>
+      </BottomSheet>
+    )
+  }
+
   return createPortal(
-    phone ? (
-      <div
-        ref={panelRef}
-        tabIndex={-1}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        data-notification-panel="sheet"
-        data-state={open ? "open" : "closed"}
-        inert={open ? undefined : true}
-        className={cn(
-          "fixed inset-x-0 top-[var(--vv-top,0px)] z-[130] flex h-[var(--vv-h,100dvh)] flex-col bg-white outline-none [backface-visibility:hidden]",
-          "motion-reduce:transition-none",
-          open
-            ? "transition-[opacity,translate] translate-y-0 opacity-100 duration-[240ms] ease-sheet starting:translate-y-6 starting:opacity-0"
-            : "transition-[opacity,translate,visibility] invisible pointer-events-none translate-y-6 opacity-0 duration-[180ms] ease-[cubic-bezier(0.4,0,1,1)]",
-        )}
-      >
-        {body}
-      </div>
-    ) : (
-      <div
-        ref={panelRef}
-        tabIndex={-1}
-        role="dialog"
-        aria-labelledby={titleId}
-        data-notification-panel="popover"
-        data-state={open ? "open" : "closed"}
-        inert={open ? undefined : true}
-        /* A fixed height (the room under the bell, at most 560px), so the list arriving never grows the panel under the pointer. */
-        style={{ top: pos!.top, right: pos!.right, height: `min(560px, calc(100vh - ${pos!.top + 16}px))` }}
-        className={cn(
-          "fixed z-[130] flex w-[420px] max-w-[calc(100vw-32px)] origin-top-right flex-col overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white text-left outline-none shadow-[0_24px_60px_-16px_rgba(17,24,39,0.28),0_2px_8px_rgba(17,24,39,0.06)]",
-          "motion-reduce:transition-none",
-          open
-            ? "transition-[opacity,translate,scale] translate-y-0 scale-100 opacity-100 duration-[200ms] ease-[cubic-bezier(0.22,1,0.36,1)] starting:-translate-y-1 starting:scale-[0.98] starting:opacity-0"
-            : "transition-[opacity,translate,scale,visibility] invisible pointer-events-none -translate-y-1 scale-[0.98] opacity-0 duration-[150ms] ease-[cubic-bezier(0.4,0,1,1)]",
-        )}
-      >
-        {body}
-      </div>
-    ),
+    <div
+      ref={panelRef}
+      tabIndex={-1}
+      role="dialog"
+      aria-labelledby={titleId}
+      data-notification-panel="popover"
+      data-state={open ? "open" : "closed"}
+      inert={open ? undefined : true}
+      /* A fixed height (the room under the bell, at most 560px), so the list arriving never grows the panel under the pointer. */
+      style={{ top: pos!.top, right: pos!.right, height: `min(560px, calc(100vh - ${pos!.top + 16}px))` }}
+      className={cn(
+        "fixed z-[130] flex w-[420px] max-w-[calc(100vw-32px)] origin-top-right flex-col overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white text-left outline-none shadow-[0_24px_60px_-16px_rgba(17,24,39,0.28),0_2px_8px_rgba(17,24,39,0.06)]",
+        "motion-reduce:transition-none",
+        open
+          ? "transition-[opacity,translate,scale] translate-y-0 scale-100 opacity-100 duration-[200ms] ease-[cubic-bezier(0.22,1,0.36,1)] starting:-translate-y-1 starting:scale-[0.98] starting:opacity-0"
+          : "transition-[opacity,translate,scale,visibility] invisible pointer-events-none -translate-y-1 scale-[0.98] opacity-0 duration-[150ms] ease-[cubic-bezier(0.4,0,1,1)]",
+      )}
+    >
+      {head}
+      {list}
+    </div>,
     document.body,
   )
 }

@@ -27,6 +27,18 @@
  *       communities, Explore, Start creating / Dashboard. GET /api/me/places
  *       adds `products`."
  *
+ * Round 6 (asks 1 and 3):
+ *
+ *    1. "On phones the hamburger goes back to the LEFT of the Storelib logo
+ *       (as it was before). Desktop keeps it right of the logo."
+ *    3. "Instead of a 'Your communities' heading, one recent list mixing the
+ *       digital products/courses I interacted with and the communities I'm
+ *       in, ordered by my last interaction (courses: last opened; products:
+ *       last download or purchase; communities: last_seen_at /
+ *       last_active_at), each with its cover/logo and a small kind hint;
+ *       then a very light, small, subtle light-grey divider; then Discover
+ *       communities, Explore, and Dashboard / Start creating at the bottom."
+ *
  * The rules that are data (the order, the rows) are run directly; the rest
  * is read off the source. The rendered panel, the dropdown, the focused
  * search field and the bell are measured frame by frame in
@@ -34,15 +46,19 @@
  */
 import { readSource, readCode } from "./_source"
 import {
+  KIND_HINT,
+  lastTouched,
+  mergeRecent,
   navigatorModel,
   orderByLastVisit,
   parsePlaces,
   PLACES_URL,
-  PRODUCTS_LIMIT,
   productHref,
   rankRecentProducts,
+  RECENT_LIMIT,
   SIGNED_OUT_PLACES,
-  type PlaceProduct,
+  type PlaceKind,
+  type PlaceRecent,
   type PlacesResponse,
 } from "@/lib/nav/places-shared"
 
@@ -70,35 +86,34 @@ const header = readCode("components/platform/platform-header-client.tsx")
 const chrome = readCode("lib/platform/header-chrome.ts")
 const conditional = readCode("components/marketing/conditional-header.tsx")
 
-const community = (id: string, slug = id) => ({ id, slug, name: `Club ${id}`, logoUrl: null })
+const community = (id: string, slug = id): PlaceRecent => ({ kind: "community", id, slug, title: `Club ${id}`, imageUrl: null })
+const thing = (id: string, kind: Exclude<PlaceKind, "community"> = "product"): PlaceRecent => ({ kind, id, slug: "", title: `Thing ${id}`, imageUrl: null })
 const me = (over: Partial<PlacesResponse> = {}): PlacesResponse => ({
   signedIn: true,
   communitiesOn: true,
   isCreator: false,
   hasSellerAccess: false,
-  communities: [community("a"), community("b"), community("c")],
-  products: [],
+  recent: [community("a"), community("b"), community("c")],
   ...over,
 })
-const product = (id: string, kind: PlaceProduct["kind"] = "product"): PlaceProduct => ({ id, kind, title: `Thing ${id}`, coverUrl: null })
 const keys = (m: ReturnType<typeof navigatorModel>) => [
-  ...m.products.map((r) => (r.kind === "product" ? `p:${r.product.id}` : "")),
-  ...m.communities.map((r) => (r.kind === "community" ? `c:${r.community.id}${r.current ? "*" : ""}` : "")),
-  ...m.links.map((r) => (r.kind === "link" ? r.key : "")),
+  ...m.recent.map((r) => `${r.item.kind === "community" ? "c" : r.item.kind === "course" ? "k" : "p"}:${r.item.id}${r.current ? "*" : ""}`),
+  ...m.links.map((r) => r.key),
   ...m.actions.map((a) => `${a.key}:${a.href}`),
 ]
 
-console.log("\n1. Most recently visited first")
+console.log("\n1. Communities: the last touched first")
 {
   const rows = [
     { community_id: "never", last_seen_at: null, last_active_at: null, joined_at: null },
-    { community_id: "old-visit", last_seen_at: "2026-09-01T00:00:00Z", last_active_at: "2026-10-01T00:00:00Z", joined_at: "2026-01-01T00:00:00Z" },
+    { community_id: "old-visit-new-post", last_seen_at: "2026-09-01T00:00:00Z", last_active_at: "2026-10-01T00:00:00Z", joined_at: "2026-01-01T00:00:00Z" },
     { community_id: "new-visit", last_seen_at: "2026-10-03T00:00:00Z", last_active_at: null, joined_at: "2026-01-01T00:00:00Z" },
     { community_id: "no-heartbeat-active", last_seen_at: null, last_active_at: "2026-10-02T00:00:00Z", joined_at: "2025-01-01T00:00:00Z" },
-    { community_id: "no-heartbeat-joined", last_seen_at: null, last_active_at: null, joined_at: "2026-10-02T00:00:00Z" },
+    { community_id: "no-heartbeat-joined", last_seen_at: null, last_active_at: null, joined_at: "2026-09-15T00:00:00Z" },
   ]
   const order = orderByLastVisit(rows).map((r) => r.community_id).join(",")
-  check("the heartbeat decides, then the last thing done there, then the join, and never-seen goes last", order === "new-visit,old-visit,no-heartbeat-active,no-heartbeat-joined,never", order)
+  check("the later of the last visit (last_seen_at) and the last activity (last_active_at) decides; with neither, the join; never-seen goes last", order === "new-visit,no-heartbeat-active,old-visit-new-post,no-heartbeat-joined,never", order)
+  check("a community visited long ago but posted in yesterday counts from the post", lastTouched(rows[1]) === Date.parse("2026-10-01T00:00:00Z"))
   const before85 = orderByLastVisit([{ community_id: "x", last_active_at: "2026-01-01T00:00:00Z" }, { community_id: "y", last_active_at: "2026-02-01T00:00:00Z" }]).map((r) => r.community_id).join("")
   check("before part 85 (no last_seen_at at all) the last activity still orders them", before85 === "yx", before85)
   const ties = orderByLastVisit([{ community_id: "p" }, { community_id: "q" }, { community_id: "r" }]).map((r) => r.community_id).join("")
@@ -108,72 +123,77 @@ console.log("\n1. Most recently visited first")
 console.log("\n2. What the panel lists")
 {
   const buyer = keys(navigatorModel(me(), { kind: "community", id: "b" }))
-  check("signed in: my communities, Discover communities, Explore, Start creating (/sell)", buyer.join(" ") === "c:a c:b* c:c discover-communities explore start-creating:/sell", buyer)
+  check("signed in: the recent list, Discover communities, Explore, Start creating (/sell)", buyer.join(" ") === "c:a c:b* c:c discover-communities explore start-creating:/sell", buyer)
   const seller = keys(navigatorModel(me({ hasSellerAccess: true, isCreator: true }), { kind: "storelib" }))
   check("a seller gets Dashboard (/app) instead, and nothing is current on Storelib's own pages", seller.join(" ") === "c:a c:b c:c discover-communities explore dashboard:/app", seller)
   const started = keys(navigatorModel(me({ isCreator: true, hasSellerAccess: false })))
   check("a creator who has not finished the setup is still sent to /sell", started.at(-1) === "start-creating:/sell", started)
   const guest = keys(navigatorModel(SIGNED_OUT_PLACES))
   check("signed out with communities off: Explore, then Log in and Start creating", guest.join(" ") === "explore log-in:/login start-creating:/sell", guest)
-  const guestOn = keys(navigatorModel({ ...SIGNED_OUT_PLACES, communitiesOn: true, communities: [community("leak")] }))
-  check("signed out with communities on: Explore, Discover communities, Log in, Start creating, and never a community row", guestOn.join(" ") === "explore discover-communities log-in:/login start-creating:/sell", guestOn)
-  const off = keys(navigatorModel(me({ communitiesOn: false })))
-  check("communities switched off: no community rows and no Discover communities", off.join(" ") === "explore start-creating:/sell", off)
-  const unsafe = keys(navigatorModel(me({ communities: [community("ok", "good-club"), community("bad", "../admin"), community("caps", "Club")] })))
-  check("a slug that would not make a safe path is left out", unsafe[0] === "c:ok" && !unsafe.includes("c:bad") && !unsafe.includes("c:caps"), unsafe)
+  const guestOn = keys(navigatorModel({ ...SIGNED_OUT_PLACES, communitiesOn: true, recent: [community("leak"), thing("leak2")] }))
+  check("signed out with communities on: Explore, Discover communities, Log in, Start creating, and never a recent row", guestOn.join(" ") === "explore discover-communities log-in:/login start-creating:/sell", guestOn)
+  const off = keys(navigatorModel(me({ communitiesOn: false, recent: [thing("p1"), community("a")] })))
+  check("communities switched off: no community rows and no Discover communities, my things stay", off.join(" ") === "p:p1 explore start-creating:/sell", off)
+  const unsafe = keys(navigatorModel(me({ recent: [community("ok", "good-club"), community("bad", "../admin"), community("caps", "Club"), thing("ok-1"), thing("../admin"), thing("a/b")] })))
+  check("a slug or an id that would not make a safe path is left out", unsafe.slice(0, 2).join() === "c:ok,p:ok-1" && !unsafe.some((k) => /bad|caps|admin|a\/b/.test(k)), unsafe)
   const m = navigatorModel(me(), { kind: "community", id: "a" })
-  check("rows link to /community/<slug>, Discover communities to /explore?type=communities (Explore in communities mode), Explore to /explore",
-    m.communities[0].kind === "community" && m.communities[0].href === "/community/a" &&
-    m.links.some((r) => r.kind === "link" && r.key === "discover-communities" && r.href === "/explore?type=communities") &&
-    m.links.some((r) => r.kind === "link" && r.key === "explore" && r.href === "/explore"))
+  check("a community links to /community/<slug>, Discover communities to /explore?type=communities, Explore to /explore",
+    m.recent[0].href === "/community/a" &&
+    m.links.some((r) => r.key === "discover-communities" && r.href === "/explore?type=communities") &&
+    m.links.some((r) => r.key === "explore" && r.href === "/explore"))
   check("only the signed out foot has two buttons; the primary is Start creating or Dashboard", navigatorModel(SIGNED_OUT_PLACES).actions.filter((a) => a.primary).map((a) => a.key).join() === "start-creating" && m.actions.length === 1 && m.actions[0].primary)
 }
 
-console.log("\n2b. Recently opened: my own digital products and courses, first")
+console.log("\n2b. One recent list: courses, digital products and communities, the last touched first")
 {
-  const withThings = me({ products: [product("p1"), product("k1", "course")] })
-  const order = keys(navigatorModel(withThings, { kind: "storelib" }))
-  check("Recently opened comes before my communities, then the links and the action", order.join(" ") === "p:p1 p:k1 c:a c:b c:c discover-communities explore start-creating:/sell", order)
-  const m = navigatorModel(withThings)
-  check("a product opens its page in the library, a course its player",
-    m.products[0].kind === "product" && m.products[0].href === "/account/library/products/p1" &&
-    m.products[1].kind === "product" && m.products[1].href === "/account/library/courses/k1", m.products.map((r) => (r.kind === "product" ? r.href : "")))
-  check("productHref is the one rule for both", productHref({ kind: "product", id: "x" }) === "/account/library/products/x" && productHref({ kind: "course", id: "y" }) === "/account/library/courses/y")
-  check("none: the section is not drawn at all (an empty list, not an empty heading)", navigatorModel(me()).products.length === 0)
-  const many = navigatorModel(me({ products: Array.from({ length: 9 }, (_, i) => product(`p${i}`)) }))
-  check(`at most ${PRODUCTS_LIMIT}`, PRODUCTS_LIMIT === 5 && many.products.length === 5, many.products.length)
-  check("not behind the communities switch: off, my things are still there", navigatorModel(me({ communitiesOn: false, products: [product("p1")] })).products.length === 1)
-  check("signed out: never a product row, whatever the answer says", navigatorModel({ ...SIGNED_OUT_PLACES, products: [product("leak")] }).products.length === 0)
-  check("an id that would not make a safe path is left out", keys(navigatorModel(me({ products: [product("ok-1"), product("../admin"), product("a/b")] }))).filter((k) => k.startsWith("p:")).join() === "p:ok-1")
+  const m = navigatorModel(me({ recent: [thing("k1", "course"), community("a"), thing("p1"), community("b")] }), { kind: "community", id: "b" })
+  check("the answer's order is kept, kinds mixed, no section per kind", keys(m).slice(0, 4).join(" ") === "k:k1 c:a p:p1 c:b*", keys(m))
+  check("a course opens its player, a digital product its page in the library, a community its page",
+    m.recent[0].href === "/account/library/courses/k1" && m.recent[2].href === "/account/library/products/p1" && m.recent[1].href === "/community/a", m.recent.map((r) => r.href))
+  check("each row carries a small word for what it is", m.recent.map((r) => r.hint).join() === "Course,Community,Digital product,Community" && KIND_HINT.course === "Course" && KIND_HINT.product === "Digital product" && KIND_HINT.community === "Community")
+  check("productHref is the one rule for both kinds of thing", productHref({ kind: "product", id: "x" }) === "/account/library/products/x" && productHref({ kind: "course", id: "y" }) === "/account/library/courses/y")
+  check("nothing: the list is empty (not drawn, nor the rule under it)", navigatorModel(me({ recent: [] })).recent.length === 0)
+  const many = navigatorModel(me({ recent: Array.from({ length: 30 }, (_, i) => (i % 2 ? community(`c${i}`) : thing(`p${i}`))) }))
+  check(`at most ${RECENT_LIMIT} rows`, RECENT_LIMIT === 12 && many.recent.length === 12, many.recent.length)
+
+  const merged = mergeRecent(
+    [{ item: thing("course-opened-today", "course"), at: Date.parse("2026-10-04T09:00:00Z") }, { item: thing("downloaded-tuesday"), at: Date.parse("2026-09-29T00:00:00Z") }],
+    [{ item: community("visited-yesterday"), at: Date.parse("2026-10-03T00:00:00Z") }, { item: community("posted-last-month"), at: Date.parse("2026-09-01T00:00:00Z") }],
+  ).map((r) => r.id).join(",")
+  check("merged by the last touch, the newest first, whatever the kind", merged === "course-opened-today,visited-yesterday,downloaded-tuesday,posted-last-month", merged)
+  const tie = mergeRecent([{ item: thing("t"), at: 5 }], [{ item: community("c"), at: 5 }]).map((r) => r.id).join()
+  check("on a tie a thing from the library comes first, and the limit holds", tie === "t,c" && mergeRecent(Array.from({ length: 20 }, (_, i) => ({ item: thing(`p${i}`), at: i })), [], 4).length === 4)
 
   const owned = [
     { product_id: "old-buy", created_at: "2026-01-01T00:00:00Z" },
     { product_id: "new-buy", created_at: "2026-09-20T00:00:00Z" },
     { product_id: "course-a", created_at: "2026-02-01T00:00:00Z" },
     { product_id: "course-a", created_at: "2026-03-01T00:00:00Z" },
+    { product_id: "file-b", created_at: "2026-04-01T00:00:00Z" },
     { product_id: null, created_at: "2026-10-01T00:00:00Z" },
   ]
-  const opened = [
+  const used = [
     { product_id: "course-a", last_opened_at: "2026-10-03T00:00:00Z" },
     { product_id: "preview-only", last_opened_at: "2026-10-04T00:00:00Z" },
+    /* A download of file-b, from download_events. */
+    { product_id: "file-b", last_opened_at: "2026-09-25T00:00:00Z" },
   ]
-  const ranked = rankRecentProducts(owned, opened).map((r) => r.productId).join(",")
-  check("newest first: a course by when its player was last opened, anything else by when it was bought", ranked === "course-a,new-buy,old-buy", ranked)
+  const ranked = rankRecentProducts(owned, used).map((r) => r.productId).join(",")
+  check("a course by when its player was last opened, a digital product by its last download, either by its purchase when that is later", ranked === "course-a,file-b,new-buy,old-buy", ranked)
   check("a course opened but not owned (a free preview, the creator's own) never counts", !ranked.includes("preview-only"))
   check("each product once, at its latest moment", rankRecentProducts([{ product_id: "x", created_at: "2026-01-01T00:00:00Z" }, { product_id: "x", created_at: "2026-05-01T00:00:00Z" }, { product_id: "y", created_at: "2026-03-01T00:00:00Z" }], []).map((r) => r.productId).join() === "x,y")
-  check("nothing bought: nothing listed", rankRecentProducts([], opened).length === 0)
+  check("nothing bought: nothing listed", rankRecentProducts([], used).length === 0)
 }
 
 console.log("\n3. The answer is read defensively")
 {
   check("anything that is not an object is the signed out answer", JSON.stringify(parsePlaces(null)) === JSON.stringify(SIGNED_OUT_PLACES) && JSON.stringify(parsePlaces("x")) === JSON.stringify(SIGNED_OUT_PLACES))
-  const p = parsePlaces({ signedIn: true, communitiesOn: "yes", hasSellerAccess: 1, communities: [{ id: "a", slug: "a", name: "A", logoUrl: 5 }, { id: 1 }, null, "x"] })
-  check("only true is true, and only whole rows are kept", p.signedIn && !p.communitiesOn && !p.hasSellerAccess && p.communities.length === 1 && p.communities[0].logoUrl === null, p)
-  check("at most twenty", parsePlaces({ signedIn: true, communities: Array.from({ length: 40 }, (_, i) => community(`c${i}`)) }).communities.length === 20)
-  const things = parsePlaces({ signedIn: true, products: [{ id: "p", kind: "course", title: "T", coverUrl: "https://x/c.jpg" }, { id: "q", kind: "membership", title: "M" }, { id: "r", kind: "product", title: 4 }, { id: "s", kind: "product", title: "S", coverUrl: 9 }, null] })
-  check("products: only whole rows of a known kind, a cover only when it is a string", things.products.map((p) => `${p.id}:${p.kind}:${p.coverUrl ? "cover" : "none"}`).join() === "p:course:cover,s:product:none", things.products)
-  check("products: an answer without them is an empty list, and at most five", parsePlaces({ signedIn: true }).products.length === 0 && parsePlaces({ signedIn: true, products: Array.from({ length: 12 }, (_, i) => product(`p${i}`)) }).products.length === 5)
-  check("signed out has an empty products list too", Array.isArray(SIGNED_OUT_PLACES.products) && SIGNED_OUT_PLACES.products.length === 0)
+  const p = parsePlaces({ signedIn: true, communitiesOn: "yes", hasSellerAccess: 1, recent: [{ kind: "community", id: "a", slug: "a", title: "A", imageUrl: 5 }, { kind: "community", id: "b", title: "B" }, { kind: "membership", id: "m", title: "M" }, { kind: "course", id: "k", title: "K", imageUrl: "https://x/c.jpg" }, { kind: "product", id: "r", title: 4 }, { id: 1 }, null, "x"] })
+  check("only true is true, and only whole rows of a known kind are kept (a community needs its slug)", p.signedIn && !p.communitiesOn && !p.hasSellerAccess && p.recent.map((r) => `${r.kind}:${r.id}:${r.imageUrl ? "pic" : "none"}`).join() === "community:a:none,course:k:pic", p)
+  check(`at most ${RECENT_LIMIT}`, parsePlaces({ signedIn: true, recent: Array.from({ length: 40 }, (_, i) => community(`c${i}`)) }).recent.length === RECENT_LIMIT)
+  const old = parsePlaces({ signedIn: true, communitiesOn: true, communities: [{ id: "c1", slug: "club", name: "Club", logoUrl: "https://x/l.png" }], products: [{ id: "p1", kind: "course", title: "T", coverUrl: null }] })
+  check("an answer from before the one list (products, communities) still opens a full panel: things first", old.recent.map((r) => `${r.kind}:${r.id}:${r.title}`).join() === "course:p1:T,community:c1:Club" && old.recent[1].slug === "club" && old.recent[1].imageUrl === "https://x/l.png", old.recent)
+  check("an answer without a list is an empty list; signed out has one too", parsePlaces({ signedIn: true }).recent.length === 0 && Array.isArray(SIGNED_OUT_PLACES.recent) && SIGNED_OUT_PLACES.recent.length === 0)
   check("one address for the list", PLACES_URL === "/api/me/places")
 }
 
@@ -186,19 +206,25 @@ console.log("\n4. GET /api/me/places")
   check("active memberships only, most recently visited first", /\.eq\("user_id", userId\)\.eq\("status", "active"\)/.test(server) && /order\("last_seen_at", \{ ascending: false, nullsFirst: false \}\)/.test(server) && /orderByLastVisit\(/.test(server))
   check("before part 85 it asks again without last_seen_at", /if \(res\.error && missing\(res\.error\)\) res = await read\(false\)/.test(server))
   check("no deleted or suspended community, and a draft only for its staff", /\.is\("deleted_at", null\)/.test(server) && /c\.suspended_at \|\| c\.status === "suspended"/.test(server) && /c\.status === "draft" && !meetsRole\(m\.role, "moderator"\)/.test(server))
-  check("the switch decides whether communities are listed at all", /communitiesEnabled\(\)/.test(server) && /if \(on\) \{/.test(server))
+  check("the switch decides whether communities are listed at all", /communitiesEnabled\(\)/.test(server) && /switchOn\.then\(\(yes\) => \(yes \? readRecentCommunities\(db, userId\) : \[\]\)\)/.test(server))
   check("Dashboard follows the shared seller check", /readSellerAccess\(db, userId\)/.test(server) && /hasSellerAccess: access\.state === "seller"/.test(server))
-  check("products are read beside the rest, not after it", /const \[on, access, products\] = await Promise\.all\(\[communitiesEnabled\(\), readSellerAccess\(db, userId\), readRecentProducts\(db, userId\)\]\)/.test(server) && /communities,\s*products,\s*\}/.test(server))
+  check("all four reads at once: the switch, the seller check, the library, and the communities as soon as the switch allows", /const switchOn = communitiesEnabled\(\)/.test(server) && /readRecentProducts\(db, userId\),\s*switchOn\.then\(\(yes\) => \(yes \? readRecentCommunities\(db, userId\) : \[\]\)\)/.test(server))
+  check("one list, merged by the last touch", /recent: mergeRecent\(products, communities\)/.test(server) && /at: lastTouched\(m\)/.test(server))
   const recent = server.slice(server.indexOf("export async function readRecentProducts"), server.indexOf("export async function readPlaces"))
-  check("recently opened: only this person's own rows (entitlements, completed orders, course_enrollments), by the session's user id",
-    /from\("entitlements"\)\.select\("product_id, created_at"\)\.eq\("buyer_id", userId\)/.test(recent) &&
-    /from\("orders"\)\.select\("product_id, created_at"\)\.eq\("buyer_id", userId\)\.eq\("status", "completed"\)/.test(recent) &&
+  check("the library side: only this person's own rows (entitlements, completed orders, course_enrollments), by the session's user id",
+    /from\("entitlements"\)\.select\("id, product_id, created_at"\)\.eq\("buyer_id", userId\)/.test(recent) &&
+    /from\("orders"\)\.select\("id, product_id, created_at"\)\.eq\("buyer_id", userId\)\.eq\("status", "completed"\)/.test(recent) &&
     /from\("course_enrollments"\)\.select\("product_id, last_opened_at"\)\.eq\("buyer_id", userId\)\.order\("last_opened_at", \{ ascending: false \}\)/.test(recent))
-  check("only digital products and courses, with their cover and title", /from\("products"\)\.select\("id, title, thumbnail_url, type"\)\.in\("id", candidates\)\.in\("type", \["digital", "course"\]\)/.test(recent) && /coverUrl: p\.thumbnail_url \|\| null/.test(recent))
-  check("a course opened but not among the purchases read is checked against their purchases before it counts", /\.eq\("buyer_id", userId\)\.in\("product_id", unknown\)/.test(recent) && /rankRecentProducts\(\[\.\.\.owned, \.\.\.entAgain, \.\.\.orderAgain\], opened\)/.test(recent))
+  check("a digital product's last download: only download_events of the entitlements and orders just read for this person, ids checked as uuids, newest first, bounded",
+    /from\("download_events"\)\.select\("entitlement_id, order_id, created_at"\)\.or\(or\)\.order\("created_at", \{ ascending: false \}\)\.limit\(RECENT_SCAN\)/.test(recent) &&
+    /`entitlement_id\.in\.\(\$\{\[\.\.\.byEnt\.keys\(\)\]\.join\(","\)\}\)`/.test(recent) && /`order_id\.in\.\(\$\{\[\.\.\.byOrder\.keys\(\)\]\.join\(","\)\}\)`/.test(recent) &&
+    /filter\(\(e\) => UUID\.test\(e\.id\)/.test(recent) && /if \(!or\) return \[\]/.test(recent))
+  check("and an index for that read (partial, newest first)", /create index if not exists idx_download_events_entitlement_recent\s+on public\.download_events \(entitlement_id, created_at desc\)\s+where entitlement_id is not null;/.test(readSource("supabase/migrations/20261108_download_events_buyer_lookup.sql")) && /idx_download_events_order_recent/.test(readSource("supabase/migrations/20261108_download_events_buyer_lookup.sql")))
+  check("only digital products and courses, with their cover and title", /from\("products"\)\.select\("id, title, thumbnail_url, type"\)\.in\("id", candidates\)\.in\("type", \["digital", "course"\]\)/.test(recent) && /imageUrl: p\.thumbnail_url \|\| null/.test(recent))
+  check("a course opened but not among the purchases read is checked against their purchases before it counts", /\.eq\("buyer_id", userId\)\.in\("product_id", unknown\)/.test(recent) && /rankRecentProducts\(\[\.\.\.owned, \.\.\.entAgain, \.\.\.orderAgain\], used\)/.test(recent))
   check("a table not there yet is an empty list, never an error", /async function rowsOf<T>/.test(server) && /if \(!missing\(error\)\) console\.error/.test(server) && /return \[\]/.test(server))
   check("the server only reads: nothing is written for the navigator", !/\.(insert|update|upsert|delete)\(|\.rpc\(/.test(server) && !/\.(insert|update|upsert|delete)\(|\.rpc\(/.test(route))
-  check("bounded reads: a few dozen rows at most, five kept", /const RECENT_SCAN = 40/.test(server) && /\.limit\(RECENT_SCAN\)/.test(recent) && /if \(out\.length >= PRODUCTS_LIMIT\) break/.test(recent))
+  check("bounded reads: a few dozen rows at most, eight things and twenty communities considered", /const RECENT_SCAN = 40/.test(server) && /\.limit\(RECENT_SCAN\)/.test(recent) && /if \(out\.length >= PRODUCTS_LIMIT\) break/.test(recent) && /if \(out\.length >= PLACES_LIMIT\) break/.test(server))
 }
 
 console.log("\n5. The component")
@@ -213,20 +239,26 @@ console.log("\n5. The component")
   check("a second click, a click outside, Escape and a new page close it", /if \(open\) return close\(\)/.test(nav) && /document\.addEventListener\("pointerdown", away, true\)/.test(nav) && /e\.key === "Escape"/.test(nav) && /useEffect\(\(\) => \{\s*setOpen\(false\)\s*\}, \[pathname\]\)/.test(nav))
   check("the button says what it does and whether it is open", /aria-label=\{open \? "Close menu" : "Open menu"\}/.test(nav) && /aria-expanded=\{open\}/.test(nav) && /aria-haspopup="dialog"/.test(nav))
   check("the three lines are a little bigger: 25px on a phone, 22px on a computer", /w-\[25px\] flex-col gap-\[5px\] md:w-\[22px\]/.test(nav))
-  check("the current community is marked, for sight and for a screen reader", /aria-current=\{r\.current \? "page" : undefined\}/.test(nav) && /r\.current && "bg-\[#f4f5f7\] text-\[#6b7280\]"/.test(nav))
+  check("the current community is marked, for sight and for a screen reader", /aria-current=\{r\.current \? "page" : undefined\}/.test(nav) && /r\.current && "bg-\[#f4f5f7\]"/.test(nav) && /aria-label="You are here"/.test(nav))
   check("the list is asked for while the page is idle and kept for the tab", /requestIdleCallback/.test(nav) && /sessionStorage\.setItem\(STORE_KEY/.test(nav) && /FRESH_MS = 15_000/.test(nav))
   check("no violet fill: it sits in a community too", !/bg-violet|#8b5cf6/.test(nav))
-  check("Recently opened is drawn first, then Your communities, in one scrolling part", /data-navigator-lists=""/.test(nav) && nav.indexOf("Recently opened") > 0 && nav.indexOf("Recently opened") < nav.indexOf("Your communities") && nav.indexOf("data-navigator-products") < nav.indexOf("data-navigator-communities"))
-  check("each thing: its cover and its title, linking where productHref says", /data-navigator-product=\{r\.product\.kind\}/.test(nav) && /<AppAvatar src=\{r\.product\.coverUrl\} name=\{r\.product\.title\}/.test(nav) && /\{r\.product\.title\}<\/span>/.test(nav))
-  check("no things, no section: neither a heading nor an empty box", /\{model\.products\.length \? \(\s*<div data-navigator-products="">/.test(nav))
+  check("one recent list with no heading: no Recently opened, no Your communities", /data-navigator-recent=""/.test(nav) && !/Recently opened|Your communities/.test(nav) && !/<p className=\{heading\}/.test(nav))
+  check("each row: its cover or logo, its name, and a small grey word for its kind", /<AppAvatar src=\{r\.item\.imageUrl\} name=\{r\.item\.title\}/.test(nav) && /data-navigator-title="">\{r\.item\.title\}<\/span>/.test(nav) && /text-\[#9ca3af\]", phone \? "text-\[13px\]" : "text-\[12px\]"\)\} data-navigator-hint="">\{r\.hint\}<\/span>/.test(nav) && /data-navigator-kind=\{r\.item\.kind\}/.test(nav))
+  check("then a faint, short, inset rule, only under a list", /\{loading \|\| hasRecent \? <div aria-hidden data-navigator-divider="" className=\{cn\("h-px shrink-0 bg-\[#f0f1f3\]", phone \? "mx-6 my-2" : "mx-4 my-1\.5"\)\} \/> : null\}/.test(nav))
+  check("then Discover communities, Explore, and the action at the foot", nav.indexOf("data-navigator-divider") < nav.indexOf('data-navigator-links=""') && nav.indexOf('data-navigator-links=""') < nav.indexOf('data-navigator-actions=""'))
+  check("nothing recent: neither a list nor a rule", /\) : hasRecent \? \(/.test(nav))
   check("the header forgets the list on log out", /forgetPlaces\(\)/.test(header))
 }
 
 console.log("\n6. The Storelib header")
 {
-  const left = header.slice(header.indexOf('data-header-left=""') - 200, header.indexOf('data-header-left=""') + 2000)
-  check("the navigator sits RIGHT of the logo, at every width (the phone's logo and the computer's are both before it)", /<PlaceNavigator\s+current=\{\{ kind: "storelib" \}\}/.test(left) && left.indexOf("<StorelibLogo size={HEADER_LOGO.phone}") > 0 && left.indexOf("<StorelibLogo size={HEADER_LOGO.desktop}") > 0 && left.lastIndexOf("<StorelibLogo") < left.indexOf("<PlaceNavigator"))
-  check("its touch slack runs right, away from the logo", /before:-right-3 before:-top-2 before:-bottom-2 before:left-0/.test(left))
+  const left = header.slice(header.indexOf('data-header-left=""') - 200, header.indexOf('data-header-left=""') + 2400)
+  const desk = left.indexOf("<StorelibLogo size={HEADER_LOGO.desktop}")
+  const lines = left.indexOf("<PlaceNavigator")
+  const phoneLogo = left.indexOf("<StorelibLogo size={HEADER_LOGO.phone}")
+  check("a computer: the lines RIGHT of the logo; a phone: LEFT of it (the page's order, so focus follows the eye at both widths)", /<PlaceNavigator\s+current=\{\{ kind: "storelib" \}\}/.test(left) && desk > 0 && phoneLogo > 0 && desk < lines && lines < phoneLogo && /className="shrink-0 hidden md:flex items-center gap-2" data-header-logo="desk"/.test(left) && /className="shrink-0 flex items-center gap-1\.5 md:hidden" data-header-logo="phone"/.test(left))
+  check("on a phone the group is pulled into the bar's padding so the lines start at the edge, except on the profile bar, which has no lines", /cn\("flex shrink-0 items-center gap-1", profileBar \? "max-md:gap-0" : "max-md:-ml-2 max-md:gap-0\.5"\)/.test(left))
+  check("its touch slack runs left to the screen's edge on a phone, away from the logo", /before:-left-3 before:-top-2 before:-bottom-2 before:right-0 before:content-\[''\] md:before:content-none/.test(left))
   check("it navigates the way the header does (canonical host, the phone app)", /onNavigate=\{\(e, href\) => onCanonicalNav\(e, href\)\}/.test(header))
   check("the bar's colours, from the chrome", /chrome\.navigator/.test(header) && /navigator: "text-\[#1a1a2e\] hover:bg-\[rgba\(16,18,27,0\.05\)\]/.test(chrome))
   check("the hamburger no longer browses categories", !/<CategoryBrowser\b|categoriesDropdownOpen|Open categories|data-categories-dropdown/.test(header))

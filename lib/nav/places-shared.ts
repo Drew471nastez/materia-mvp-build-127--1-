@@ -2,49 +2,46 @@
  * ===========================================================================
  *  THE NAVIGATOR'S PLACES: WHAT GET /api/me/places ANSWERS, AND IN WHAT ORDER
  * ===========================================================================
- * The hamburger right of the Storelib logo and the one right of a
- * community's name open the same panel (components/nav/place-navigator.tsx):
- * the digital products and courses this person opened or bought most
- * recently, the communities they are in, most recently visited first, then
- * the ways out to the rest of Storelib. This file is the part both the route
- * and the panel need, with nothing in it that touches a server or a browser,
- * so the rules are tested directly (tests/place-navigator.test.ts).
+ * The hamburger beside the Storelib logo and the one right of a community's
+ * name open the same panel (components/nav/place-navigator.tsx): one recent
+ * list that mixes the courses and digital products this person used and the
+ * communities they are in, the last one they touched first, then the ways
+ * out to the rest of Storelib. This file is the part both the route and the
+ * panel need, with nothing in it that touches a server or a browser, so the
+ * rules are tested directly (tests/place-navigator.test.ts).
  */
 
 export const PLACES_URL = "/api/me/places"
 
-/** One community in the list: enough to draw a row and link to it. */
-export interface PlaceCommunity {
-  id: string
-  slug: string
-  name: string
-  logoUrl: string | null
-}
+/** What a recent row is: a course (its player), a digital product (its library page) or a community. */
+export type PlaceKind = "course" | "product" | "community"
 
 /**
- * One thing from their library: a digital product (its library page) or a
- * course (its player). The address is worked out here from the kind and the
- * id, never taken from the answer.
+ * One row of the recent list: enough to draw it (a picture, a name, what
+ * kind of thing it is) and to work out where it goes. The address is never
+ * taken from the answer: it is made here from the kind and the id or slug.
  */
-export interface PlaceProduct {
+export interface PlaceRecent {
+  kind: PlaceKind
   id: string
-  kind: "product" | "course"
   title: string
-  coverUrl: string | null
+  /** A product's cover or a community's logo. */
+  imageUrl: string | null
+  /** A community's slug, which its address is made from. Empty for a course or a product. */
+  slug: string
 }
 
-/** GET /api/me/places. Signed out: every list empty and every flag false. */
+/** GET /api/me/places. Signed out: an empty list and every flag false. */
 export interface PlacesResponse {
   signedIn: boolean
-  /** The communities switch (platform_flags). Off: no communities and no Discover communities. */
+  /** The communities switch (platform_flags). Off: no community rows and no Discover communities. */
   communitiesOn: boolean
   /** Began selling (a creators row or profiles.is_creator), finished or not. */
   isCreator: boolean
   /** Seller onboarding finished (lib/account/seller-access): Dashboard rather than Start creating. */
   hasSellerAccess: boolean
-  communities: PlaceCommunity[]
-  /** Recently opened: their own digital products and courses, newest first, at most PRODUCTS_LIMIT. Not behind the communities switch. */
-  products: PlaceProduct[]
+  /** Courses, digital products and communities, the last one touched first, at most RECENT_LIMIT. */
+  recent: PlaceRecent[]
 }
 
 export const SIGNED_OUT_PLACES: PlacesResponse = {
@@ -52,15 +49,20 @@ export const SIGNED_OUT_PLACES: PlacesResponse = {
   communitiesOn: false,
   isCreator: false,
   hasSellerAccess: false,
-  communities: [],
-  products: [],
+  recent: [],
 }
 
 /** A time as milliseconds; a missing or unreadable one is the oldest there is. */
-const at = (v: string | null | undefined) => (v ? Date.parse(v) || 0 : 0)
+export const at = (v: string | null | undefined) => (v ? Date.parse(v) || 0 : 0)
 
-/** How many things from the library the panel lists at most: a glance, not the library. */
-export const PRODUCTS_LIMIT = 5
+/** How many rows the recent list has at most: a glance, not the library. Past eight or so it scrolls inside the panel. */
+export const RECENT_LIMIT = 12
+
+/** How many things from the library are considered for it. */
+export const PRODUCTS_LIMIT = 8
+
+/** How many communities are considered for it. */
+export const PLACES_LIMIT = 20
 
 /** A purchase as the route reads it: an entitlement or a completed order. */
 export interface PlaceOwnedRow {
@@ -68,21 +70,21 @@ export interface PlaceOwnedRow {
   created_at?: string | null
 }
 
-/** A course the person has opened (course_enrollments, part 74). */
+/** A moment the person used something they own: a course player opened (course_enrollments.last_opened_at) or a file downloaded (download_events). */
 export interface PlaceOpenedRow {
   product_id: string | null
   last_opened_at?: string | null
 }
 
 /**
- * RECENTLY OPENED, NEWEST FIRST. A course counts from the last time its
- * player was opened (course_enrollments.last_opened_at); a digital product
- * has no such moment, so it counts from when it was bought, as does a course
- * never opened. Only what they own is listed: a course opened without being
- * owned (a free preview, or the creator's own) is left out. Each product
- * once, at its latest moment; ties keep the order they came in.
+ * THE LAST TIME EACH THING OF THEIRS WAS USED, NEWEST FIRST. A course counts
+ * from the last time its player was opened, a digital product from its last
+ * download, and either from when it was bought when that is later (or when
+ * it was never used). Only what they own is listed: a course opened without
+ * being owned (a free preview, or the creator's own) is left out. Each
+ * product once, at its latest moment; ties keep the order they came in.
  */
-export function rankRecentProducts(owned: PlaceOwnedRow[], opened: PlaceOpenedRow[]): { productId: string; at: number }[] {
+export function rankRecentProducts(owned: PlaceOwnedRow[], used: PlaceOpenedRow[]): { productId: string; at: number }[] {
   const latest = new Map<string, { at: number; i: number }>()
   const mine = new Set<string>()
   let i = 0
@@ -96,20 +98,17 @@ export function rankRecentProducts(owned: PlaceOwnedRow[], opened: PlaceOpenedRo
     mine.add(r.product_id)
     bump(r.product_id, at(r.created_at))
   }
-  for (const r of opened) if (r.product_id && mine.has(r.product_id)) bump(r.product_id, at(r.last_opened_at))
+  for (const r of used) if (r.product_id && mine.has(r.product_id)) bump(r.product_id, at(r.last_opened_at))
   return [...latest.entries()]
     .sort((a, b) => b[1].at - a[1].at || a[1].i - b[1].i)
     .map(([productId, v]) => ({ productId, at: v.at }))
 }
 
 /** Where a library row goes: a course to its player, anything else to its page in the library. */
-export function productHref(p: Pick<PlaceProduct, "kind" | "id">): string {
+export function productHref(p: { kind: PlaceKind; id: string }): string {
   const id = encodeURIComponent(p.id)
   return p.kind === "course" ? `/account/library/courses/${id}` : `/account/library/products/${id}`
 }
-
-/** How many communities the panel lists at most; the list scrolls inside the panel past six. */
-export const PLACES_LIMIT = 20
 
 /** A membership row as the route reads it, with every way of telling when it was last used. */
 export interface PlaceMemberRow {
@@ -120,61 +119,87 @@ export interface PlaceMemberRow {
 }
 
 /**
- * MOST RECENTLY VISITED FIRST. last_seen_at is the member pages' heartbeat
- * (part 85), so it is the visit; a row with none (never visited since the
- * heartbeat existed, or before part 85 has run) falls back to the last thing
- * they did there, then to when they joined. A row with none of the three
- * goes last, and ties keep the order they came in.
+ * WHEN A COMMUNITY WAS LAST TOUCHED. last_seen_at is the member pages'
+ * heartbeat (part 85), the visit; last_active_at is the last thing they did
+ * there. Whichever is later counts. A row with neither (never visited since
+ * the heartbeat existed, or before part 85 has run) falls back to when they
+ * joined.
  */
+export function lastTouched(r: PlaceMemberRow): number {
+  return Math.max(at(r.last_seen_at), at(r.last_active_at)) || at(r.joined_at)
+}
+
+/** The last touched first; a row with no time at all goes last, and ties keep the order they came in. */
 export function orderByLastVisit<T extends PlaceMemberRow>(rows: T[]): T[] {
   return rows
-    .map((r, i) => ({ r, i, k: [at(r.last_seen_at), at(r.last_active_at), at(r.joined_at)] as const }))
-    .sort((a, b) => b.k[0] - a.k[0] || b.k[1] - a.k[1] || b.k[2] - a.k[2] || a.i - b.i)
+    .map((r, i) => ({ r, i, k: lastTouched(r) }))
+    .sort((a, b) => b.k - a.k || a.i - b.i)
     .map((x) => x.r)
+}
+
+/**
+ * ONE LIST, THE LAST TOUCHED FIRST. Each side arrives in its own order with
+ * its own moment; merged by that moment, the newer first. On a tie a thing
+ * from the library goes before a community (it came first), and within each
+ * side the order it came in is kept.
+ */
+export function mergeRecent(things: { item: PlaceRecent; at: number }[], communities: { item: PlaceRecent; at: number }[], limit = RECENT_LIMIT): PlaceRecent[] {
+  return [...things, ...communities]
+    .map((x, i) => ({ ...x, i }))
+    .sort((a, b) => b.at - a.at || a.i - b.i)
+    .slice(0, limit)
+    .map((x) => x.item)
 }
 
 /** Where the navigator was opened from. */
 export type NavigatorCurrent = { kind: "community"; id: string } | { kind: "storelib" }
 
+/** The small word under a recent row's name: what kind of thing it is. */
+export const KIND_HINT: Record<PlaceKind, string> = { course: "Course", product: "Digital product", community: "Community" }
+
+export type NavigatorRecentRow = { kind: "recent"; item: PlaceRecent; href: string; hint: string; current: boolean }
+export type NavigatorLinkRow = { kind: "link"; key: "discover-communities" | "explore"; label: string; href: string }
+
 /** One row of the panel, in order. `current` marks the community being looked at. */
-export type NavigatorRow =
-  | { kind: "product"; product: PlaceProduct; href: string }
-  | { kind: "community"; community: PlaceCommunity; href: string; current: boolean }
-  | { kind: "link"; key: "discover-communities" | "explore"; label: string; href: string }
+export type NavigatorRow = NavigatorRecentRow | NavigatorLinkRow
 
 export interface NavigatorModel {
-  /** Recently opened, shown first; empty means the section is not drawn at all. */
-  products: NavigatorRow[]
-  communities: NavigatorRow[]
-  links: NavigatorRow[]
+  /** The recent list, shown first with no heading; empty means it is not drawn at all, nor the rule under it. */
+  recent: NavigatorRecentRow[]
+  links: NavigatorLinkRow[]
   /** The action at the foot of the panel. Signed out there are two (Log in and Start creating). */
   actions: { key: "dashboard" | "start-creating" | "log-in"; label: string; href: string; primary: boolean }[]
 }
 
+const SAFE_SLUG = /^[a-z0-9][a-z0-9-]{0,63}$/
+const SAFE_ID = /^[0-9a-zA-Z-]{1,64}$/
+
 /**
- * THE PANEL, AS DATA. Signed in: what I opened lately from my library
- * (digital products and courses, newest first, at most five), my communities
- * (the current one marked), Discover communities, Explore, then Dashboard for
- * a seller or Start creating for everybody else. Signed out: Explore, Discover communities,
- * then Log in and Start creating. With communities switched off there is no
- * community anywhere in it. A community slug that would not make a safe path
- * is dropped rather than linked.
+ * THE PANEL, AS DATA. Signed in: the recent list (courses, digital products
+ * and communities, the last touched first, the community being looked at
+ * marked), Discover communities, Explore, then Dashboard for a seller or
+ * Start creating for everybody else. Signed out: Explore, Discover
+ * communities, then Log in and Start creating. With communities switched
+ * off there is no community anywhere in it. A slug or an id that would not
+ * make a safe path is dropped rather than linked.
  */
 export function navigatorModel(places: PlacesResponse, current?: NavigatorCurrent): NavigatorModel {
   const on = places.communitiesOn
-  const communities: NavigatorRow[] = on && places.signedIn
-    ? places.communities
-        .filter((c) => /^[a-z0-9][a-z0-9-]{0,63}$/.test(c.slug))
-        .map((c) => ({ kind: "community" as const, community: c, href: `/community/${c.slug}`, current: current?.kind === "community" && current.id === c.id }))
-    : []
-  const products: NavigatorRow[] = places.signedIn
-    ? places.products
-        .filter((p) => /^[0-9a-zA-Z-]{1,64}$/.test(p.id))
-        .slice(0, PRODUCTS_LIMIT)
-        .map((p) => ({ kind: "product" as const, product: p, href: productHref(p) }))
-    : []
-  const discover: NavigatorRow = { kind: "link", key: "discover-communities", label: "Discover communities", href: "/explore?type=communities" }
-  const explore: NavigatorRow = { kind: "link", key: "explore", label: "Explore", href: "/explore" }
+  const recent: NavigatorRecentRow[] = []
+  if (places.signedIn) {
+    for (const item of places.recent) {
+      if (item.kind === "community") {
+        if (!on || !SAFE_SLUG.test(item.slug)) continue
+        recent.push({ kind: "recent", item, href: `/community/${item.slug}`, hint: KIND_HINT.community, current: current?.kind === "community" && current.id === item.id })
+      } else {
+        if (!SAFE_ID.test(item.id)) continue
+        recent.push({ kind: "recent", item, href: productHref(item), hint: KIND_HINT[item.kind], current: false })
+      }
+      if (recent.length >= RECENT_LIMIT) break
+    }
+  }
+  const discover: NavigatorLinkRow = { kind: "link", key: "discover-communities", label: "Discover communities", href: "/explore?type=communities" }
+  const explore: NavigatorLinkRow = { kind: "link", key: "explore", label: "Explore", href: "/explore" }
   const links = places.signedIn ? [...(on ? [discover] : []), explore] : [explore, ...(on ? [discover] : [])]
   const actions: NavigatorModel["actions"] = places.signedIn
     ? [places.hasSellerAccess
@@ -184,29 +209,48 @@ export function navigatorModel(places: PlacesResponse, current?: NavigatorCurren
         { key: "log-in", label: "Log in", href: "/login", primary: false },
         { key: "start-creating", label: "Start creating", href: "/sell", primary: true },
       ]
-  return { products, communities, links, actions }
+  return { recent, links, actions }
 }
 
-/** A body from the route, read defensively: anything unexpected is the signed out answer. */
+const str = (v: unknown) => (typeof v === "string" ? v : null)
+
+/** One recent row from an answer, or null when it is not a whole one. */
+function recentRow(v: unknown): PlaceRecent | null {
+  if (!v || typeof v !== "object") return null
+  const r = v as Record<string, unknown>
+  if (r.kind !== "course" && r.kind !== "product" && r.kind !== "community") return null
+  const id = str(r.id)
+  const title = str(r.title)
+  if (!id || title === null) return null
+  const slug = r.kind === "community" ? str(r.slug) : ""
+  if (slug === null) return null
+  return { kind: r.kind, id, title, imageUrl: str(r.imageUrl), slug }
+}
+
+/**
+ * A body from the route, read defensively: anything unexpected is the
+ * signed out answer. An answer from before the one list (separate
+ * `products` and `communities`, still in a tab's sessionStorage the first
+ * time a new deploy loads) is read too, things first, so nobody opens an
+ * empty panel.
+ */
 export function parsePlaces(body: unknown): PlacesResponse {
   if (!body || typeof body !== "object") return SIGNED_OUT_PLACES
   const b = body as Record<string, unknown>
-  const list = Array.isArray(b.communities) ? b.communities : []
-  const owned = Array.isArray(b.products) ? b.products : []
+  let rows: unknown[] = Array.isArray(b.recent) ? b.recent : []
+  if (!Array.isArray(b.recent)) {
+    const things = (Array.isArray(b.products) ? b.products : []).map((p) => (p && typeof p === "object" ? { ...(p as object), imageUrl: (p as Record<string, unknown>).coverUrl } : p))
+    const clubs = (Array.isArray(b.communities) ? b.communities : []).map((c) => (c && typeof c === "object" ? { kind: "community", ...(c as object), title: (c as Record<string, unknown>).name, imageUrl: (c as Record<string, unknown>).logoUrl } : c))
+    rows = [...things, ...clubs]
+  }
   return {
     signedIn: b.signedIn === true,
     communitiesOn: b.communitiesOn === true,
     isCreator: b.isCreator === true,
     hasSellerAccess: b.hasSellerAccess === true,
-    communities: list
-      .filter((c): c is Record<string, unknown> => !!c && typeof c === "object")
-      .filter((c) => typeof c.id === "string" && typeof c.slug === "string" && typeof c.name === "string")
-      .map((c) => ({ id: c.id as string, slug: c.slug as string, name: c.name as string, logoUrl: typeof c.logoUrl === "string" ? c.logoUrl : null }))
-      .slice(0, PLACES_LIMIT),
-    products: owned
-      .filter((p): p is Record<string, unknown> => !!p && typeof p === "object")
-      .filter((p) => typeof p.id === "string" && (p.kind === "product" || p.kind === "course") && typeof p.title === "string")
-      .map((p) => ({ id: p.id as string, kind: p.kind as PlaceProduct["kind"], title: p.title as string, coverUrl: typeof p.coverUrl === "string" ? p.coverUrl : null }))
-      .slice(0, PRODUCTS_LIMIT),
+    recent: rows
+      .map(recentRow)
+      .filter((r): r is PlaceRecent => r !== null)
+      .slice(0, RECENT_LIMIT),
   }
 }

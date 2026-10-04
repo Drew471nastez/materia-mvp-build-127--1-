@@ -14,15 +14,17 @@ const NO_STORE = { "Cache-Control": "private, no-store" }
  * GET /api/me/places
  *
  * What the navigator (components/nav/place-navigator.tsx) lists for the
- * person asking: the digital products and courses they opened or bought
- * most recently, their communities, most recently visited first, and
- * whether they get Dashboard or Start creating at its foot. Answers
- * { signedIn, communitiesOn, isCreator, hasSellerAccess, communities:
- * [{ id, slug, name, logoUrl }], products: [{ id, kind: "product" |
- * "course", title, coverUrl }] } (lib/nav/places-shared.ts).
+ * person asking: one recent list of the courses and digital products they
+ * own and the communities they are in, the last one they touched first
+ * (a course by its player last opened, a product by its last download,
+ * either by its purchase when that is later, a community by its last visit
+ * or activity), and whether they get Dashboard or Start creating at its
+ * foot. Answers { signedIn, communitiesOn, isCreator, hasSellerAccess,
+ * recent: [{ kind: "course" | "product" | "community", id, title, imageUrl,
+ * slug }] } (lib/nav/places-shared.ts).
  *
  * The person comes from the session and nowhere else; signed out is a 200
- * with every list empty, because a visitor's navigator is a normal thing to
+ * with an empty list, because a visitor's navigator is a normal thing to
  * draw and not an error. Nothing in the answer is anybody else's: names,
  * slugs and logos of communities this person is an active member of, and
  * titles and covers of things they bought. Never cached by anything but
