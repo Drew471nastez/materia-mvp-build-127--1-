@@ -118,7 +118,7 @@ console.log("\nNo light bar of the profile's own: one header on the screen")
     "Make sure the thing there is not an X, it is a back icon basically."
   */
   check("Settings' top row is the way back and the word Settings, and never sticky", /data-account-settings-top=""/.test(settings) && /data-account-settings-close=""/.test(settings) && !/sticky/.test(settings))
-  check("  and it is a chevron that says where it goes, not an X", /<ChevronLeft className="h-\[20px\] w-\[20px\]"/.test(settings) && /aria-label="Back to profile"/.test(settings) && !/<X /.test(settings))
+  check("  and it is a chevron that says where it goes, not an X: the shared back control, first tap and a real back", /<BackControl fallback="\/account" label="Back to profile"/.test(settings) && /<ChevronLeft className="h-5 w-5"/.test(read("components/navigation/back-control.tsx")) && !/<X /.test(settings))
   /*
     ONE SECTION DISSOLVES INTO THE NEXT: the one leaving fades out, then
     the one picked fades in behind it. It used to fade the arriving one up

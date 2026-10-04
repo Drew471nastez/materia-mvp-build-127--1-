@@ -53,7 +53,8 @@
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
-import { ChevronLeft, Loader2 } from "lucide-react"
+import { Loader2 } from "lucide-react"
+import { BackControl } from "@/components/navigation/back-control"
 
 import {
   EmailChangeFlow,
@@ -974,16 +975,16 @@ export function AccountSettings({
           X never says: "make sure the thing there is not an X, it is a back
           icon basically". The address it goes to has not changed.
         */}
-        <Link
-          href="/account"
-          prefetch={true}
-          scroll={false}
-          aria-label="Back to profile"
-          data-account-settings-close=""
-          className={cn(secondaryDepth, "h-10 w-10 rounded-full p-0")}
-        >
-          <ChevronLeft className="h-[20px] w-[20px]" strokeWidth={2} aria-hidden="true" />
-        </Link>
+        {/*
+          SMOOTH, AND THE FIRST TAP. It was a link, which pushed a second copy
+          of the profile at the top of it, and on a phone a tap sometimes
+          became no click at all. It goes back now, to the profile the router
+          kept (where it was scrolled), it darkens on the frame the finger
+          lands, and it acts on the first tap's lift
+          (components/navigation/back-control.tsx). Opened cold, it opens the
+          profile.
+        */}
+        <BackControl fallback="/account" label="Back to profile" data-account-settings-close="" />
         <h1 className="min-w-0 truncate text-[24px] font-bold tracking-[-0.01em] text-[#1a1a2e] sm:text-[28px]">Settings</h1>
       </div>
 

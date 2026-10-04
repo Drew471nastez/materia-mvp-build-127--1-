@@ -9,13 +9,14 @@
  *
  * IT IS ON STORELIB'S OWN BUYER PAGES AND NOWHERE ELSE. An allow list, not a
  * block list: a new route of the platform does not grow a tab bar until it is
- * named here, so the dashboard, admin, checkout, sign in, a receipt opened
- * from an email and every creator's own site are left alone without each of
- * them having to remember to say so.
+ * named here, so the dashboard, admin, checkout, sign in and every
+ * creator's own site are left alone without each of them having to
+ * remember to say so.
  *
  *   Explore and its categories     /explore, /explore/<category>
  *   Search                         /explore/search
  *   Library and everything in it   /library/...
+ *   A receipt                      /receipt/<token>, under Library
  *   The account page               /account
  *   The wishlist                   /wishlist (a platform route of its own)
  *   Inside a community             /community/<slug>/..., community aware:
@@ -134,6 +135,13 @@ export function buyerTabsBelongOn(
   if (under(pathname, "/community")) return false
   if (where.sellerProduct) return false
   if (where.sellerStore) return true
+  /*
+    A RECEIPT HAS THE BAR. Somebody who has just bought something in the app
+    was left on the receipt with nothing around it (image 64): no header, no
+    tab bar, no way back. It is one of their own pages now, under Library,
+    where everything they bought lives (app/receipt/layout.tsx).
+  */
+  if (under(pathname, "/receipt")) return true
   return isBuyerPath(pathname, exploreOn)
 }
 
@@ -157,13 +165,13 @@ export function buyerTabFor(
   if (exploreOn) {
     if (under(pathname, SEARCH_HREF)) return 1
     if (under(pathname, "/explore")) return where.query ? 1 : 0
-    if (under(pathname, "/account/library") || under(pathname, "/wishlist")) return 2
+    if (under(pathname, "/account/library") || under(pathname, "/wishlist") || under(pathname, "/receipt")) return 2
     if (under(pathname, "/account")) return 3
     if (where.sellerSurface) return 0
     return -1
   }
 
-  if (under(pathname, "/account/library") || under(pathname, "/wishlist")) return idx("library")
+  if (under(pathname, "/account/library") || under(pathname, "/wishlist") || under(pathname, "/receipt")) return idx("library")
   if (under(pathname, "/account")) return idx("profile")
   return -1
 }
