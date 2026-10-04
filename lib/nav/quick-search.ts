@@ -176,7 +176,8 @@ async function quickCommunities(term: string): Promise<QuickCommunity[]> {
  * they are switched on. Categories never wait for the network; the product
  * questions and the communities go out together.
  */
-export async function quickSearch(client: Client, query: string, opts: { communities?: boolean } = {}): Promise<QuickResults> {
+/** `creators: false` (the header, which lists no creators) skips asking for their photos. */
+export async function quickSearch(client: Client, query: string, opts: { communities?: boolean; creators?: boolean } = {}): Promise<QuickResults> {
   const term = cleanTerm(query)
   const categories = matchCategories(term)
   if (!term) return { query, products: [], creators: [], categories }
@@ -239,7 +240,7 @@ export async function quickSearch(client: Client, query: string, opts: { communi
     shown, and a failure keeps the copy rather than the search.
   */
   const userIds = creatorRows.map((r) => r.creators).filter((c) => c && byId.has(handleOf(c)) && c.user_id).map((c) => c!.user_id as string)
-  if (userIds.length > 0) {
+  if (userIds.length > 0 && opts.creators !== false) {
     try {
       const { data } = await client.from("profiles").select("id, avatar_url, display_name").in("id", [...new Set(userIds)])
       const photo = new Map<string, { avatar_url: string | null; display_name: string | null }>(((data as any[]) || []).map((p) => [p.id, p]))
@@ -259,6 +260,66 @@ export async function quickSearch(client: Client, query: string, opts: { communi
 
   const communities = communitiesAsked ? await communitiesAsked : undefined
   return { query, products, creators, categories, ...(communities ? { communities } : {}) }
+}
+
+/* ── The header's short list: five, products and communities together ──── */
+
+/**
+ * ONE ROW OF THE HEADER'S DROPDOWN. A product or a community, drawn the same
+ * way: a picture, a name, a line under it (who made it, or how many members
+ * and the price), and a price on the right for a product.
+ */
+export type QuickHit =
+  | { kind: "product"; id: string; title: string; href: string; thumb: string | null; line: string | null; price: string }
+  | { kind: "community"; id: string; title: string; href: string; thumb: string | null; line: string; price: null }
+
+/** The header shows five, then "View all results". */
+export const TOP_LIMIT = 5
+
+/**
+ * HOW WELL A NAME SAYS THE WORD, lower is better: the name starts with it,
+ * a word in the name starts with it, the name has it somewhere, or it was
+ * found elsewhere (a description, the creator's name, a tagline).
+ */
+export function relevance(name: string, query: string): number {
+  const n = name.toLowerCase()
+  const q = cleanTerm(query).toLowerCase()
+  if (!q) return 3
+  if (n.startsWith(q)) return 0
+  if (n.split(/[^\p{L}\p{N}]+/u).some((w) => w.startsWith(q))) return 1
+  if (n.includes(q)) return 2
+  return 3
+}
+
+/**
+ * THE FIVE MOST RELEVANT, WHATEVER THEY ARE. Products and communities are
+ * ranked on the same scale (relevance above); within a rank each keeps the
+ * order its own question returned it in, and the two take turns, so a page
+ * of products found first can never push every community out. "e" lists
+ * what starts with an e before anything that only mentions one.
+ */
+export function topHits(results: Pick<QuickResults, "query" | "products" | "communities">, limit: number = TOP_LIMIT): QuickHit[] {
+  const q = results.query
+  const pool: { hit: QuickHit; rank: number; order: number }[] = []
+  results.products.forEach((p, i) => {
+    pool.push({ hit: { kind: "product", id: p.id, title: p.title, href: p.href, thumb: p.thumb, line: p.creator, price: p.price }, rank: relevance(p.title, q), order: i * 2 })
+  })
+  ;(results.communities ?? []).forEach((c, i) => {
+    pool.push({ hit: { kind: "community", id: c.id, title: c.name, href: c.href, thumb: c.logo, line: c.line, price: null }, rank: relevance(c.name, q), order: i * 2 + 1 })
+  })
+  return pool
+    .sort((a, b) => a.rank - b.rank || a.order - b.order)
+    .slice(0, limit)
+    .map((x) => x.hit)
+}
+
+/**
+ * WHERE "VIEW ALL RESULTS" GOES: Explore's own results for the word, in the
+ * mode the person is already browsing (communities stays communities).
+ */
+export function viewAllHref(query: string, mode: "products" | "communities" = "products"): string {
+  const q = encodeURIComponent(query.trim())
+  return mode === "communities" ? `/explore?type=communities&q=${q}` : `/explore?q=${q}`
 }
 
 /* ── What was searched before ────────────────────────────────────────────── */
