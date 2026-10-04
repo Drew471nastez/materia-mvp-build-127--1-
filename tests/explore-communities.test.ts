@@ -1,0 +1,333 @@
+/**
+ * ===========================================================================
+ *  EXPLORE WITH REAL COMMUNITIES
+ * ===========================================================================
+ * The round 4 asks for Explore, held from their inputs where they are pure,
+ * against an in memory database where the server code runs, and by regex
+ * where the thing is a line of a page:
+ *
+ *   THE MODE       communities mode only while the switch is on; the admin's
+ *                  headline flag adds a control, never the mode; an old
+ *                  link or cookie gets the products while off.
+ *   THE QUERY      the pill, the word, the order and the price, as one
+ *                  string the server and the browser agree on.
+ *   FINDING        category and price filter on the server; views, stars
+ *                  and the launch date on the card, from real rows only;
+ *                  a database without part 87 still lists.
+ *   THE CARD       the stats row: stars only with reviews (no count),
+ *                  members, views, Launched.
+ *   VIEWS          one key per visitor, never the raw id or address; a bot
+ *                  is not a view; the database's once a day answer; the
+ *                  page records after the response, one call each.
+ *   PART 87        run-now rules, the 99 column, the README row, the copy.
+ *   LINKS          nothing points at /explore/communities any more; it
+ *                  redirects, keeping q and the order, and 404s while off.
+ *   PRODUCTS       titles clamp to two lines; cards fill their row.
+ *   CATEGORIES     the control in the hero's search field; the creator's
+ *                  category select uses Explore's list.
+ *   FOOTER         Explore on a computer ends with the creator page footer.
+ *
+ * Run with:  npm run test:push
+ */
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs"
+import { join } from "node:path"
+
+import { fakeDb } from "./_fake-db"
+import {
+  COMMUNITY_CATEGORIES,
+  COMMUNITY_PRICE_FILTERS,
+  COMMUNITY_SORT_OPTIONS,
+  EXPLORE_COMMUNITIES_HREF,
+  communitiesQuery,
+  communityCategoryId,
+  communityServerSort,
+  discoverModeFor,
+  launchedLabel,
+  legacyCommunitiesTarget,
+  ratingLabel,
+  showsHeadlineSwitch,
+  statCount,
+  srtForLegacySort,
+} from "@/lib/explore/communities-mode"
+import { ACCESS_FOR_PRICE, exploreCategory, exploreCommunities, explorePrice } from "@/lib/communities/server/explore"
+import { cardRating } from "@/lib/communities/server/public"
+import { purgeOldViewDays, recordCommunityView, visitorKey } from "@/lib/communities/server/views"
+
+let passed = 0
+let failed = 0
+const failures: string[] = []
+function check(label: string, ok: boolean, detail?: unknown) {
+  if (ok) {
+    passed++
+    console.log(`  ok    ${label}`)
+  } else {
+    failed++
+    const d = detail === undefined ? "" : ` (${typeof detail === "string" ? detail : JSON.stringify(detail)})`
+    failures.push(label + d)
+    console.log(`  FAIL  ${label}${d}`)
+  }
+}
+const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
+const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")
+
+const DAY = 86_400_000
+const NOW = Date.parse("2026-10-04T12:00:00Z")
+const C1 = "11111111-1111-4111-8111-111111111111"
+const C2 = "22222222-2222-4222-8222-222222222222"
+const C3 = "33333333-3333-4333-8333-333333333333"
+
+function world(withViews = true) {
+  const base = { status: "published", visibility: "public", discovery_enabled: true, platform_hidden: false, deleted_at: null, suspended_at: null, archived_at: null, tagline: null, logo_url: null, cover_url: null, member_count: 10, trending_score: 1, creator_id: "cr1" }
+  const communities = [
+    { ...base, id: C1, slug: "clay", name: "Clay Studio", category: "design", access: "paid", created_at: new Date(NOW - 400 * DAY).toISOString(), member_count: 1700, ...(withViews ? { view_count: 31_700 } : {}) },
+    { ...base, id: C2, slug: "code", name: "Code Club", category: "development", access: "free", created_at: new Date(NOW - 3 * DAY).toISOString(), ...(withViews ? { view_count: 0 } : {}) },
+    { ...base, id: C3, slug: "hidden", name: "Hidden", category: "design", access: "paid", discovery_enabled: false, created_at: new Date(NOW - 10 * DAY).toISOString() },
+  ]
+  return fakeDb({
+    communities,
+    community_tiers: [
+      { id: "t1", community_id: C1, name: "Members", position: 0, kind: "paid", billing: "one_time", product_id: "p1", benefits: [], is_default: false, archived_at: null },
+      { id: "t2", community_id: C2, name: "Free", position: 0, kind: "free", billing: null, product_id: null, benefits: [], is_default: true, archived_at: null },
+    ],
+    products: [{ id: "p1", title: "Clay", slug: "clay", type: "community", status: "published", price_cents: 9000, creator_id: "cr1", reviews_count: 37, reviews_average: 4.86 }],
+    membership_plans: [],
+    creators: [{ id: "cr1", user_id: "u1", slug: "mara", display_name: "Mara", avatar_url: null, stripe_account_id: null, stripe_onboarding_status: null, charges_enabled: null, onboarding_completed: true }],
+    profiles: [{ id: "u1", username: "mara", display_name: "Mara L", avatar_url: "https://x.test/a.png" }],
+  })
+}
+
+async function main() {
+  console.log("\nThe mode")
+  {
+    check("switch off: ?type=communities gets the products", discoverModeFor({ communitiesOn: false, type: "communities" }) === "products")
+    check("switch off: a remembered communities choice gets the products", discoverModeFor({ communitiesOn: false, cookie: "communities" }) === "products")
+    check("switch on: ?type=communities is communities", discoverModeFor({ communitiesOn: true, type: "communities" }) === "communities")
+    check("switch on: the address beats the cookie", discoverModeFor({ communitiesOn: true, type: "products", cookie: "communities" }) === "products")
+    check("switch on: the cookie when the address says nothing, else products", discoverModeFor({ communitiesOn: true, cookie: "communities" }) === "communities" && discoverModeFor({ communitiesOn: true }) === "products")
+    check("the admin's headline flag adds the gray control only while communities are on", showsHeadlineSwitch({ communitiesOn: true, headlineFlag: true }) && !showsHeadlineSwitch({ communitiesOn: false, headlineFlag: true }) && !showsHeadlineSwitch({ communitiesOn: true, headlineFlag: false }))
+    const page = code("app/(marketing)/explore/page.tsx")
+    check("the page decides the mode by that rule", /discoverModeFor\(\{ communitiesOn, type: params\?\.type \?\? null, cookie: cookieMode \}\)/.test(page))
+    check("and draws the first page of real communities in communities mode", /initialDiscoverMode === "communities"\s*\? exploreCommunities\(\{ q: searchQuery, category, sort: communityServerSort\(params\?\.srt\) \}\)/.test(page) && /initialCommunities=\{await firstCommunitiesPromise\}/.test(page))
+    const client = code("components/explore/explore-page-client.tsx")
+    check("the chip's switcher and the headline control only while communities are on", /onModeChange=\{communitiesEnabled \? handleModeChange : undefined\}/.test(client) && /discoverHeadlineSegmentEnabled=\{communitiesEnabled && discoverHeadlineSegmentEnabled\}/.test(client))
+    check("the client never starts in communities mode while off", /if \(!communitiesEnabled\) return "products"/.test(client))
+    check("communities mode no longer reads membership products", !/isCommunity/.test(client) && !/type === "membership"/.test(client))
+    check("communities mode draws ExploreCommunitiesResults with the pill, word, order and price", /<ExploreCommunitiesResults[\s\S]{0,200}initial=\{initialCommunities\}[\s\S]{0,200}category=\{mainCategory\}[\s\S]{0,80}srt=\{deferredSort\}[\s\S]{0,40}price=\{deferredPrice\}/.test(client))
+    check("the same pills (no For you), the More picker and the Filters, with the communities' orders and prices", /const COMMUNITY_PILLS = CATEGORY_PILLS\.map/.test(client) && /groups=\{communities \? COMMUNITY_PICKER_GROUPS : PICKER_GROUPS\}/.test(client) && /sortOptions=\{communities \? COMMUNITY_SORT_OPTIONS : SORT_OPTIONS\}/.test(client) && /priceOptions=\{communities \? COMMUNITY_PRICE_FILTERS : PRICE_FILTERS\}/.test(client))
+    check("the Communities pill switches the page instead of leaving it", /href=\{EXPLORE_COMMUNITIES_HREF\}[\s\S]{0,260}handleModeChange\("communities"\)/.test(client))
+    check("a search in communities mode is the communities' search, not the products' results", /\{\(!urlSearchQuery \|\| communities\) && \(/.test(client) && /\{urlSearchQuery && !communities && \(/.test(client))
+  }
+
+  console.log("\nThe query")
+  {
+    check("orders: Trending, Most members, Newest, in the products' sort ids", COMMUNITY_SORT_OPTIONS.map((o) => `${o.id}:${o.label}`).join() === "recommended:Trending,popular:Most members,newest:Newest")
+    check("prices: Any, Free, Paid", COMMUNITY_PRICE_FILTERS.map((o) => o.id).join() === "all,free,paid")
+    check("server order from the page's sort", communityServerSort("recommended") === "trending" && communityServerSort("popular") === "popular" && communityServerSort("newest") === "new" && communityServerSort("price-low") === "trending" && communityServerSort(null) === "trending")
+    check("the default choices are the empty query", communitiesQuery({ q: "", category: "all", srt: "recommended", price: "all" }) === "")
+    check("For you is no category", communitiesQuery({ category: "for-you" }) === "")
+    check("one fixed order for the same choice", communitiesQuery({ price: "free", srt: "newest", category: "Design", q: " pots " }) === "q=pots&c=design&sort=new&price=free")
+    check("an unknown price is no price", communitiesQuery({ price: "under-10" }) === "")
+    check("the old page's words: sort=new is Newest, popular stays, trending is the default", srtForLegacySort("new") === "newest" && srtForLegacySort("popular") === "popular" && srtForLegacySort("trending") === null)
+    check("the old address lands on the same list", legacyCommunitiesTarget({ q: "clay pots", sort: "new" }) === "/explore?type=communities&q=clay+pots&srt=newest" && legacyCommunitiesTarget({}) === EXPLORE_COMMUNITIES_HREF)
+  }
+
+  console.log("\nFinding")
+  {
+    check("a category is one of the pills' ids, never all or a made up word", exploreCategory("Design") === "design" && exploreCategory("all") === null && exploreCategory("knitting") === null && exploreCategory(5) === null)
+    check("a price is free or paid", explorePrice("free") === "free" && explorePrice("paid") === "paid" && explorePrice("cheap") === null)
+    check("free is a free way in; paid is a payment or a product; invite only is neither", ACCESS_FOR_PRICE.free.join() === "free" && ACCESS_FOR_PRICE.paid.join() === "paid,product,custom")
+
+    const db = world()
+    const all = await exploreCommunities({}, db)
+    check("only what may be found (discovery off is left out)", all.available && all.items.map((c) => c.slug).sort().join() === "clay,code")
+    const clay = all.items.find((c) => c.slug === "clay")
+    check("the card carries the real views", clay?.viewCount === 31_700 && all.items.find((c) => c.slug === "code")?.viewCount === 0)
+    check("the stars are the tier product's own average, with its count", clay?.rating?.average === 4.9 && clay?.rating?.count === 37)
+    check("no reviews, no stars", all.items.find((c) => c.slug === "code")?.rating === null)
+    check("the launch date is the community's", clay?.launchedAt === new Date(NOW - 400 * DAY).toISOString())
+
+    const design = await exploreCommunities({ category: "design" }, world())
+    check("a pill is an equality on communities.category", design.items.map((c) => c.slug).join() === "clay")
+    const db2 = world()
+    const free = await exploreCommunities({ price: "free" }, db2)
+    check("Free lists the free ways in", free.items.map((c) => c.slug).join() === "code")
+    check("and asks the database for it (access in free), beside the visibility rules", db2.log.some((l) => l.table === "communities" && l.filters.some(([k, c, v]) => k === "in" && c === "access" && JSON.stringify(v) === '["free"]') && l.filters.some(([k, c, v]) => k === "eq" && c === "discovery_enabled" && v === true)))
+    const paid = await exploreCommunities({ price: "paid", category: "development" }, world())
+    check("filters combine", paid.items.length === 0)
+
+    /* Before part 87: the column is not there, and the list still works. */
+    const old = world(false)
+    const realFrom = old.from
+    let asked: string[] = []
+    ;(old as { from: unknown }).from = (table: string) => {
+      const b = realFrom(table)
+      if (table !== "communities") return b
+      const realSelect = b.select.bind(b)
+      b.select = (cols: string, ...rest: unknown[]) => {
+        asked.push(cols)
+        const out = realSelect(cols, ...rest)
+        if (/view_count/.test(cols)) {
+          ;(out as { then: unknown }).then = (resolve: (v: unknown) => unknown) => Promise.resolve({ data: null, error: { code: "42703", message: "column communities.view_count does not exist" } }).then(resolve)
+        }
+        return out
+      }
+      return b
+    }
+    const before = await exploreCommunities({}, old)
+    check("before part 87: asked again without the views, and still listed", before.available && before.items.length === 2 && asked.length === 2 && !/view_count/.test(asked[1]))
+    check("  with no eye on the card (null, not zero)", before.items.every((c) => c.viewCount === null))
+    asked = []
+
+    const products = new Map([
+      ["a", { id: "a", title: null, slug: null, type: null, status: null, price_cents: null, creator_id: null, reviews_count: 3, reviews_average: 5 }],
+      ["b", { id: "b", title: null, slug: null, type: null, status: null, price_cents: null, creator_id: null, reviews_count: 1, reviews_average: 1 }],
+      ["c", { id: "c", title: null, slug: null, type: null, status: null, price_cents: null, creator_id: null, reviews_count: 0, reviews_average: 0 }],
+    ])
+    check("stars across tiers are weighted by their counts", JSON.stringify(cardRating(["a", "b", "c", null, "a"], products)) === JSON.stringify({ average: 4, count: 4 }))
+    check("and none without a review", cardRating(["c"], products) === null && cardRating([], products) === null)
+  }
+
+  console.log("\nThe card")
+  {
+    check("Launched: today, days, weeks, months, years, rounded down", [0.2, 3, 20, 70, 400, 900].map((d) => launchedLabel(new Date(NOW - d * DAY).toISOString(), NOW)).join("|") === "Launched today|Launched 3d ago|Launched 2w ago|Launched 2mo ago|Launched 1y ago|Launched 2y ago")
+    check("no date, no line", launchedLabel(null, NOW) === null && launchedLabel("nonsense", NOW) === null)
+    check("stars read 4.9, with no count beside them", ratingLabel({ average: 4.86, count: 37 }) === "4.9" && ratingLabel({ average: 5, count: 1 }) === "5.0")
+    check("counts read like the reference: 1.7k, 31.7k, never rounded up", [840, 1700, 1749, 31_700, 99_999, 128_000, 1_250_000, -3].map(statCount).join() === "840,1.7k,1.7k,31.7k,99.9k,128k,1.2M,0")
+    check("no reviews, no stars", ratingLabel(null) === null && ratingLabel({ average: 0, count: 0 }) === null && ratingLabel({ average: 4, count: 0 }) === null)
+    const card = code("components/explore/community-card.tsx")
+    check("the stats row: stars only with a rating, members, views only when known, Launched", /\{rating \? \(/.test(card) && /data-stat="members"/.test(card) && /\{views !== null \? \(/.test(card) && /data-stat="launched"/.test(card) && !/\(\{?card\.rating\.count/.test(card))
+    check("a bigger mark beside a bigger name, two lines at most, and the creator's face under it", /<Mark card=\{card\} size=\{40\} \/>/.test(card) && /line-clamp-2[^"]*text-\[18px\]/.test(card) && /<AppAvatar src=\{card\.creator\.avatarUrl\}/.test(card) && /by \{card\.creator\.name\}/.test(card))
+    check("the product card's frame: 16:9 picture, the border, the price at the foot", /aspect-video/.test(card) && /rounded-lg border border-border\/60 bg-card/.test(card) && /mt-auto pt-4 font-semibold/.test(card))
+    check("the card draws no hooks and imports no server code", !/use(State|Effect|Ref|Memo)\(/.test(card) && !/server-only|lib\/communities\/server|next\/headers/.test(card))
+  }
+
+  console.log("\nViews")
+  {
+    const SECRET = "test-secret"
+    const a = visitorKey({ userId: "user-1" }, C1, NOW, SECRET)
+    check("a signed in visitor's key: 64 hex, the same each time", !!a && /^[0-9a-f]{64}$/.test(a) && a === visitorKey({ userId: "user-1", userAgent: "curl/8" }, C1, NOW + DAY, SECRET))
+    check("never the raw id", !!a && !a.includes("user-1"))
+    check("another person is another key", visitorKey({ userId: "user-2" }, C1, NOW, SECRET) !== a)
+    const b = visitorKey({ userId: null, browserId: "v_abc123def", userAgent: "Mozilla/5.0 (Macintosh)" }, C1, NOW, SECRET)
+    check("signed out with a browser id: keyed by it", !!b && b === visitorKey({ userId: null, browserId: "v_abc123def", userAgent: "Mozilla/5.0 (Macintosh)", ip: "1.2.3.4" }, C1, NOW, SECRET))
+    const ua = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)"
+    const anon = visitorKey({ userId: null, ip: "203.0.113.9", userAgent: ua }, C1, NOW, SECRET)
+    check("signed out without one: a daily hash of the address, which never appears in the key", !!anon && !anon.includes("203.0.113.9") && anon === visitorKey({ userId: null, ip: "203.0.113.9", userAgent: ua }, C1, NOW + 1000, SECRET))
+    check("a bot is not a view", visitorKey({ userId: null, ip: "203.0.113.9", userAgent: "Googlebot/2.1 (+http://www.google.com/bot.html)" }, C1, NOW, SECRET) === null)
+    check("nothing to key by, no view", visitorKey({ userId: null, userAgent: ua }, C1, NOW, SECRET) === null)
+    check("a malformed browser id is not trusted", visitorKey({ userId: null, browserId: "x;drop", userAgent: ua }, C1, NOW, SECRET) === null)
+
+    const calls: unknown[] = []
+    const rpcDb = (answer: { data: unknown; error: unknown }) => ({ rpc: async (name: string, args: unknown) => (calls.push([name, args]), answer) })
+    check("a new view is counted by the database's own rule", (await recordCommunityView(rpcDb({ data: true, error: null }), C1, a)) === "counted" && JSON.stringify(calls[0]) === JSON.stringify(["community_record_view", { p_community: C1, p_visitor: a }]))
+    check("the same day again is a repeat", (await recordCommunityView(rpcDb({ data: false, error: null }), C1, a)) === "repeat")
+    check("before part 87 it is unavailable, never an error page", (await recordCommunityView(rpcDb({ data: null, error: { code: "PGRST202", message: "not found" } }), C1, a)) === "unavailable")
+    const asked = calls.length
+    check("no key, nothing asked", (await recordCommunityView(rpcDb({ data: true, error: null }), C1, null)) === "skipped" && calls.length === asked)
+
+    const deleted: unknown[] = []
+    const purgeDb = { from: (t: string) => ({ delete: () => ({ lt: async (c: string, v: string) => (deleted.push([t, c, v]), { error: null }) }) }) }
+    await purgeOldViewDays(purgeDb, NOW)
+    check("the cron keeps three days of day rows", JSON.stringify(deleted) === JSON.stringify([["community_view_days", "day", "2026-10-01"]]))
+    check("the daily rollup runs the purge once, on its first run", /if \(!after\) await purgeOldViewDays\(db\)/.test(code("lib/communities/server/jobs/rollup.ts")))
+
+    const record = code("lib/communities/server/record-view.ts")
+    check("the page reads the request, then writes after the response", /await Promise\.all\(\[headers\(\), cookies\(\)\]\)/.test(record) && /after\(async \(\) => \{\s*await recordCommunityView\(admin\(\)/.test(record))
+    check("owners and unpublished communities are not counted", /if \(input\.status !== "published" \|\| input\.isOwner\) return/.test(record))
+    const feed = code("app/(marketing)/community/[slug]/page.tsx")
+    const about = code("app/(marketing)/community/[slug]/about/page.tsx")
+    check("the member feed and the sales page record a view, one call", (feed.match(/scheduleCommunityView\(/g) ?? []).length === 1 && /scheduleCommunityView\([\s\S]{0,200}\)[\s\S]*if \(load\.viewer\.active\) return <CommunityFeedPage/.test(feed))
+    check("the about page records a view, one call", (about.match(/scheduleCommunityView\(/g) ?? []).length === 1)
+    check("the server modules say server-only", ["views", "record-view"].every((n) => /^import "server-only"/m.test(read(`lib/communities/server/${n}.ts`))))
+  }
+
+  console.log("\nPart 87")
+  {
+    const part = read("supabase/sql/run-now/87_community_views.sql")
+    const lines = part.trimEnd().split("\n")
+    check("line 1 is the summary", /^\/\* Community views, run after part 81\..*\*\/$/.test(lines[0]))
+    check("one statement per line, every line ends its statement", lines.slice(1).every((l) => l.trim().endsWith(";")))
+    check("notify pgrst is last", lines[lines.length - 1] === "notify pgrst, 'reload schema';")
+    check("view_count, never negative, readable like the member count", /ADD COLUMN IF NOT EXISTS view_count bigint NOT NULL DEFAULT 0;/.test(part) && /CHECK \(view_count >= 0\)/.test(part) && /GRANT SELECT \(view_count\) ON public\.communities TO anon, authenticated;/.test(part))
+    check("the day table: its key is (community, visitor, day), server only", /CREATE TABLE IF NOT EXISTS public\.community_view_days \(community_id uuid NOT NULL REFERENCES public\.communities\(id\) ON DELETE CASCADE, visitor_key text NOT NULL, day date NOT NULL/.test(part) && /PRIMARY KEY \(community_id, visitor_key, day\)/.test(part) && /ENABLE ROW LEVEL SECURITY;/.test(part) && /REVOKE ALL ON public\.community_view_days FROM PUBLIC, anon, authenticated;/.test(part))
+    check("the function counts only a new day row", /ON CONFLICT \(community_id, visitor_key, day\) DO NOTHING; GET DIAGNOSTICS v_new = ROW_COUNT; IF v_new = 0 THEN RETURN false; END IF; UPDATE public\.communities SET view_count = view_count \+ 1/.test(part))
+    check("service role only", /REVOKE ALL ON FUNCTION public\.community_record_view\(uuid, text\) FROM PUBLIC, anon, authenticated;/.test(part) && /GRANT EXECUTE ON FUNCTION public\.community_record_view\(uuid, text\) TO service_role;/.test(part) && /SECURITY DEFINER SET search_path = public/.test(part))
+    check("safe to run again (IF NOT EXISTS, OR REPLACE, DROP ... IF EXISTS)", !/CREATE TABLE public|CREATE INDEX public|CREATE FUNCTION/.test(part) && /CREATE INDEX IF NOT EXISTS community_view_days_day_idx/.test(part))
+    check("the migration copy is the part", existsSync("supabase/migrations/20261107_community_views.sql") && read("supabase/migrations/20261107_community_views.sql") === part)
+    check("the README lists it", /\| `87_community_views\.sql` \|/.test(read("supabase/sql/run-now/README.md")))
+    check("the check after has its column", /as p87_community_views;/.test(read("supabase/sql/run-now/99_check_after.sql")) && /not has_function_privilege\('anon', 'public\.community_record_view\(uuid,text\)', 'EXECUTE'\) as p87_community_views/.test(read("supabase/sql/run-now/99_check_after.sql")))
+    check("and the run-four files carry it", /-- part 87_community_views\.sql/.test(read("supabase/sql/run-four/3_of_4_latest.sql")))
+  }
+
+  console.log("\nLinks")
+  {
+    const walk = (dir: string): string[] => (existsSync(dir) ? readdirSync(dir).flatMap((f) => (statSync(join(dir, f)).isDirectory() ? walk(join(dir, f)) : [join(dir, f)])) : [])
+    const all = ["app", "components", "lib"].flatMap(walk).filter((f) => /\.(ts|tsx)$/.test(f))
+    const old = all.filter((f) => /["'`(]\/explore\/communities\b/.test(code(f).replace(/\/api\/explore\/communities/g, "")))
+    check("nothing links to /explore/communities any more", old.length === 0, old)
+    check("the navigator's Discover communities", /label: "Discover communities", href: "\/explore\?type=communities"/.test(read("lib/nav/places-shared.ts")))
+    check("the library's empty state", /ctaHref="\/explore\?type=communities"/.test(read("components/community/public/library-list.tsx")))
+    check("/community on its own", /redirect\("\/explore\?type=communities"\)/.test(read("app/(marketing)/community/page.tsx")))
+    const legacy = code("app/(marketing)/explore/communities/page.tsx")
+    check("/explore/communities: a 404 while off, else a permanent redirect keeping q and the order", /if \(!\(await communitiesEnabled\(\)\)\) notFound\(\)[\s\S]*permanentRedirect\(legacyCommunitiesTarget\(\{ q: one\(params\.q\), sort: one\(params\.sort\) \}\)\)/.test(legacy))
+    check("the old page's component is gone", !existsSync("components/community/public/explore-communities.tsx"))
+  }
+
+  console.log("\nProducts")
+  {
+    const card = code("components/explore/product-card.tsx")
+    check("a product title is two lines at most, with an ellipsis", /<h3 className="flex-1 min-w-0 line-clamp-2 [^"]*"/.test(card))
+    check("the card fills its row, the price at its foot", /className="group flex h-full flex-col/.test(card) && /mt-auto pt-4/.test(card))
+  }
+
+  console.log("\nCategories")
+  {
+    const hero = code("components/explore/explore-hero.tsx")
+    check("the hero's search field has a Categories control at its right end", /data-search-tail/.test(hero) && /<ExploreCategoryPicker[\s\S]{0,400}align="end"[\s\S]{0,80}marker="search-categories"/.test(hero) && />\s*Categories\s*</.test(hero))
+    check("sized for a thumb on a phone (40px), 44 on a computer", /"inline-flex h-10 sm:h-11 shrink-0/.test(hero))
+    check("the field leaves room for it", /categories \? \(draft \? "pr-\[\d+px\] sm:pr-\[\d+px\]" : "pr-\[\d+px\] sm:pr-\[\d+px\]"\) : "pr-12"/.test(hero))
+    const client = code("components/explore/explore-page-client.tsx")
+    check("the page hands it the same list and the same pick as More", /categories=\{\{\s*groups: communities \? COMMUNITY_PICKER_GROUPS : PICKER_GROUPS/.test(client) && /handleCategoryChange\(groupId, sub\?\.id, sub\?\.label, true\)/.test(client))
+    check("Explore's categories for a creator: no Freebies, Development reads Tech", !COMMUNITY_CATEGORIES.some((c) => c.id === "freebies" || c.id === "all") && COMMUNITY_CATEGORIES.find((c) => c.id === "development")?.label === "Tech" && COMMUNITY_CATEGORIES.length >= 12)
+    check("a saved category is a pill's id; old free text is read the products' way", communityCategoryId("design") === "design" && communityCategoryId(" AI ") === "ai" && communityCategoryId("Knitting circles") === "other" && communityCategoryId("") === null && communityCategoryId("all") === null && communityCategoryId(4) === null)
+    const settings = code("components/community/creator/settings-section.tsx")
+    check("Settings, Page has the category select with that list", /<select id="g-category" value=\{s\.category\}[\s\S]{0,200}COMMUNITY_CATEGORIES\.map/.test(settings) && /category: communityCategoryId\(data\.category\) \?\? ""/.test(settings))
+    check("and the free text field is gone from Access", !/id="d-cat"/.test(settings))
+    check("the server stores only a pill's id", /if \(b\.category !== undefined\) patch\.category = communityCategoryId\(b\.category\)/.test(code("lib/communities/server/creator.ts")))
+  }
+
+  console.log("\nFooter")
+  {
+    const footer = code("components/marketing/conditional-footer.tsx")
+    check("Explore's browse pages on the web: the creator page footer from 1024px", /setExploreDesktop\(!isNativeApp\(\) && isExploreBrowsePage\(pathname\)\)/.test(footer) && /<div className="hidden lg:block" data-explore-desktop-footer="">\s*<SellerFooter \/>/.test(footer))
+    check("below 1024px, what was there before", /\{footer \? <div className="lg:hidden">\{footer\}<\/div> : null\}/.test(footer))
+  }
+
+  console.log("\nCopy and the browser boundary")
+  {
+    const mine = [
+      "lib/explore/communities-mode.ts",
+      "lib/communities/server/views.ts",
+      "lib/communities/server/record-view.ts",
+      "components/explore/community-card.tsx",
+      "components/explore/explore-communities-results.tsx",
+      "app/(marketing)/explore/communities/page.tsx",
+      "supabase/sql/run-now/87_community_views.sql",
+    ]
+    const offenders = mine.filter((f) => /—/.test(read(f)) || /\b(unlock\w*|elevate|seamless|powerful|effortless(ly)?|supercharge|transform\w*)\b/i.test(read(f)))
+    check("no em dash and no banned word", offenders.length === 0, offenders)
+    const clientSide = ["components/explore/community-card.tsx", "components/explore/explore-communities-results.tsx", "components/explore/explore-page-client.tsx", "components/explore/explore-hero.tsx", "lib/explore/communities-mode.ts"]
+    check("what the browser draws imports no server code", clientSide.every((f) => !/server-only|next\/headers|lib\/communities\/server|lib\/supabase\/(server|admin)/.test(code(f))))
+  }
+
+  console.log(`\n${passed} passed, ${failed} failed`)
+  if (failed > 0) {
+    console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`)
+    process.exit(1)
+  }
+}
+
+main().catch((e) => {
+  console.error(e)
+  process.exit(1)
+})
