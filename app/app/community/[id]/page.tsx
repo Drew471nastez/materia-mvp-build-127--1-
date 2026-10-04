@@ -1,5 +1,6 @@
 import { communityHead, loadOverview, sectionPage } from "@/lib/communities/server/creator"
 import { Overview } from "@/components/community/creator/overview"
+import { MessagesSetupNote } from "@/components/community/member/messages-setup-note"
 
 export const dynamic = "force-dynamic"
 
@@ -9,5 +10,11 @@ export default async function CommunityOverviewPage({ params, searchParams }: { 
   const ctx = await sectionPage(id, "view")
   if (!ctx) return null
   const [head, data] = await Promise.all([communityHead(ctx), loadOverview(ctx)])
-  return <Overview head={head} data={data} created={query.created === "1"} />
+  return (
+    <>
+      {/* Staff see why members have no Messages button, when the only reason is the missing database part. */}
+      <MessagesSetupNote chatEnabled={!!ctx.community.chat_enabled} />
+      <Overview head={head} data={data} created={query.created === "1"} />
+    </>
+  )
 }
