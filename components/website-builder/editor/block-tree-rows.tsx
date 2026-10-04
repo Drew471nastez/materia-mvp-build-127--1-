@@ -177,9 +177,9 @@ export function BlockTreeLevel<B extends TreeBlock>({
           ) : (
             <span aria-hidden className={cn("mx-[7px] h-1.5 w-1.5 shrink-0 rounded-full", selected ? "bg-white/60" : "bg-[#c4c7cd]")} />
           )}
-          <span className={cn("flex min-w-0 flex-1 items-baseline gap-1.5", block.hidden && "opacity-50")}>
-            <span className="truncate text-[13px] max-sm:text-[15px] font-medium">{name}</span>
-            {detail && <span className={cn("min-w-0 truncate text-[12px]", selected ? "text-white/60" : "text-[#9ca3af]")}>{detail}</span>}
+          {/* Named by what it says, the way Shopify's tree does: five rows of "FAQ item" told nobody which question was which. */}
+          <span className={cn("flex min-w-0 flex-1 items-baseline gap-1.5", block.hidden && "opacity-50")} title={detail ? `${name}: ${detail}` : name}>
+            <span className="truncate text-[13px] max-sm:text-[15px] font-medium">{detail || name}</span>
           </span>
           {onToggleHidden && (
             <button
@@ -236,7 +236,9 @@ export function TreeAddBlock({
   const choices = React.useMemo(() => blockChoices(options), [options])
   const items = React.useMemo<ActionMenuItem[]>(() => choices.map((c) => ({ label: c.label, onClick: () => onAdd(c) })), [choices, onAdd])
   if (choices.length === 0 || disabledReason) return null
-  const text = choices.length === 1 ? `Add ${choices[0].label.toLowerCase()}` : "Add block"
+  /* "Add question", and "Add FAQ item" rather than "Add faq item": an acronym keeps its capitals. */
+  const one = choices[0]?.label ?? ""
+  const text = choices.length === 1 ? `Add ${/^[A-Z]{2,}\b/.test(one) ? one : one.charAt(0).toLowerCase() + one.slice(1)}` : "Add block"
   const indent = BASE_INDENT + (depth - 1) * TREE_INDENT
   const button = (
     <button
