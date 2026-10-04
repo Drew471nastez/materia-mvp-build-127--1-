@@ -8,7 +8,9 @@
  * level on it when the community counts levels, their name, how long ago
  * and in which space; the title in bold with a dot before it when there is
  * something here the member has not seen (post-seen.ts); two lines of the
- * words; ONE thumbnail on the right (media.tsx PostThumb); then the likes,
+ * words; ONE thumbnail on the right (media.tsx PostThumb; on a phone the
+ * pictures go under the words instead, CardMedia, and the card is a full
+ * width row, PHONE_ROW); then the likes,
  * the comments, the faces of the last three people who commented and "New
  * comment 2d ago" when one came in the last week. The whole card opens the
  * post over the feed (post-overlay.tsx) at the post's own address; a link or
@@ -43,9 +45,10 @@ import type { FeedPostView, PollView, ViewerView } from "@/lib/communities/types
 import { api, apiBase } from "./api"
 import { BodyText, inline } from "./body-text"
 import { ConfirmDialog, ReportDialog, type ConfirmState, type ReportTargetRef } from "./dialogs"
-import { PostMediaGrid, PostThumb } from "./media"
+import { CardMedia, PostMediaGrid, PostThumb } from "./media"
 import { REOPEN, actOnContent, actOnMember, moderationMenu, muteUntil } from "./moderation"
 import { PollBlock } from "./poll"
+import { readAheadComments } from "./comments"
 import { PostOverlay } from "./post-overlay"
 import { intentOf, press, useIntent } from "./post-intent"
 import { SEEN_EVENT, isUnread, readSeen } from "./post-seen"
@@ -73,6 +76,17 @@ export interface PostCardProps {
   /** Where the comment button goes; the permalink passes a function that focuses its box. */
   onComment?: () => void
 }
+
+/**
+ * ON A PHONE A POST IS A ROW (round 9, after Skool's phone feed, image 60):
+ * the screen's full width whatever padding the column has (the margin is
+ * worked out from the viewport, not from the column's padding), no rounded
+ * card edge, and a thin #f1f2f4 band under it as the only thing between two
+ * posts. From 640px it is the card it always was. The composer above the
+ * posts is a row the same way (composer.tsx).
+ */
+export const PHONE_ROW =
+  "max-sm:mx-[calc(50%-50vw)] max-sm:mb-0 max-sm:w-screen max-sm:rounded-none max-sm:border-x-0 max-sm:border-t-0 max-sm:border-b-8 max-sm:border-b-[#f1f2f4]"
 
 /*
   ONE CARD DRAWN AGAIN, NOT THE WHOLE FEED. A like changes one post, but the
@@ -334,11 +348,15 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
   if (!full) {
     return (
       <article
-        className={`${CARD} group/post cursor-pointer px-4 pb-2 pt-4 transition-[border-color,box-shadow] duration-150 hover:border-[#dfe2e6] hover:shadow-[0_1px_3px_rgba(17,24,39,0.05)] sm:px-5 sm:pt-5`}
+        className={`${CARD} ${PHONE_ROW} group/post cursor-pointer px-4 pb-2 pt-4 transition-[border-color,box-shadow] duration-150 sm:px-5 sm:pt-5 sm:hover:border-[#dfe2e6] sm:hover:shadow-[0_1px_3px_rgba(17,24,39,0.05)]`}
         data-post={post.id}
         data-pinned={post.pinned ? "true" : undefined}
         data-unread={unread ? "true" : undefined}
         onClick={openPost}
+        /* The comments are asked for as the finger lands, so they are usually here before the post has finished opening. */
+        onPointerDown={(e) => {
+          if (e.button === 0 && !(e.target as HTMLElement).closest("button, [role=menu]")) void readAheadComments(post.communityId, post.id)
+        }}
       >
         {head}
         {removed ? <p className="mt-3 rounded-lg bg-[#fff6e0] px-3 py-2 text-[13px] text-[#8a5a00]">Removed by a moderator. Only moderators see it.</p> : null}
@@ -379,8 +397,10 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
                   ) : null}
                 </div>
               ) : null}
+              {/* A phone draws the pictures here, under the words; a computer keeps the thumbnail on the right. */}
+              <CardMedia media={media} className="mt-3 sm:hidden" />
             </div>
-            <PostThumb media={media} />
+            <PostThumb media={media} className="max-sm:hidden" />
           </div>
         )}
         <footer className="mt-2 flex min-h-11 items-center gap-1 sm:mt-2.5">

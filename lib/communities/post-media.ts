@@ -142,6 +142,37 @@ export function cardThumb(media: PostMedia[]): { url: string; kind: "image" | "v
 }
 
 /**
+ * ON A PHONE'S CARD (round 9, components/community/member/media.tsx
+ * CardMedia) the pictures go under the words rather than one thumbnail on
+ * the right. Each one the card can draw: its address, whether the image
+ * optimizer may fetch it (Storelib's own), what it is, and its shape when
+ * known, so its box is the right shape before it loads.
+ */
+export interface CardPicture {
+  url: string
+  local: boolean
+  kind: "image" | "video" | "gif" | "link"
+  w?: number
+  h?: number
+}
+
+/** Every picture a post carries, in its order (a GIF by its still, a video by its poster), else its link's picture. */
+export function cardPictures(media: PostMedia[]): CardPicture[] {
+  const out: CardPicture[] = []
+  for (const m of media) {
+    if (m.type === "image") out.push({ url: m.url, local: true, kind: "image", w: m.w, h: m.h })
+    else if (m.type === "video" && m.poster) out.push({ url: m.poster, local: true, kind: "video", w: m.w, h: m.h })
+    else if (m.type === "embed" && m.thumb) out.push({ url: m.thumb, local: false, kind: "video" })
+    else if (m.type === "gif") out.push({ url: m.still, local: false, kind: "gif", w: m.w, h: m.h })
+  }
+  if (!out.length) {
+    const link = media.find((m): m is Extract<PostMedia, { type: "link" }> => m.type === "link" && !!m.image)
+    if (link?.image) out.push({ url: link.image, local: false, kind: "link" })
+  }
+  return out
+}
+
+/**
  * What the viewer (lightbox.tsx) walks through, in the post's order:
  * pictures, GIFs and videos. `raw` is an address the image optimizer must
  * not fetch (a member only file route, a signed address that ends soon);

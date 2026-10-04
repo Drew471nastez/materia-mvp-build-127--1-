@@ -6,11 +6,12 @@
  * ===========================================================================
  * Two ways of drawing it:
  *
- *   ON THE CARD   one thumbnail on the right (PostThumb): the first picture,
- *                 else a video's still, a video by address's picture, a
- *                 GIF's still, a link's picture. 96px on a computer, 72px on
- *                 a phone, rounded, in a fixed box so nothing moves when it
- *                 arrives.
+ *   ON THE CARD   from 640px one thumbnail on the right (PostThumb): the
+ *                 first picture, else a video's still, a video by address's
+ *                 picture, a GIF's still, a link's picture. 96px, rounded,
+ *                 in a fixed box so nothing moves when it arrives. On a
+ *                 phone (round 9) the pictures go under the words instead,
+ *                 the row's full width (CardMedia).
  *   IN THE POST   (round 8, PostMediaGrid, laid out by post-media.ts
  *                 mediaLayout) one picture or video is drawn large, at the
  *                 post's full width in its own shape, a picture never taller
@@ -36,11 +37,11 @@
  * the member and the file; videos play from a short lived address, and only
  * once pressed.
  */
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { Download, FileText, Film, ImageIcon, Play } from "lucide-react"
 import { StorelibVideo } from "@/components/video/storelib-video"
 import { optimizedImageUrl, optimizedSrcSet } from "@/lib/images/optimized-url"
-import { cardThumb, fileSizeLabel, mediaKindOf, mediaLayout, viewerItems, type ViewerItem } from "@/lib/communities/post-media"
+import { cardPictures, cardThumb, fileSizeLabel, mediaKindOf, mediaLayout, viewerItems, type CardPicture, type ViewerItem } from "@/lib/communities/post-media"
 import type { PostMedia } from "@/lib/communities/types"
 import { apiBase } from "./api"
 import { EmbedPlayer, Lightbox } from "./lightbox"
@@ -93,6 +94,79 @@ export function PostThumb({ media, className = "" }: { media: PostMedia[]; class
   )
 }
 
+/**
+ * ON A PHONE THE PICTURES GO UNDER THE WORDS (round 9, after Skool's phone
+ * feed, image 60): the row's full width rather than a thumbnail beside the
+ * title, rounded 12px, in boxes whose shape is known before anything loads.
+ * One picture keeps its own shape between square and 2:1 (16:9 when the
+ * shape is not known), cropped to fill; two or more are two squares side by
+ * side, the second saying how many more. Lazy, through the optimizer at the
+ * width a phone draws them. The whole card opens the post, so a press here
+ * does too; nothing in it is a control of its own.
+ */
+export function CardMedia({ media, className = "" }: { media: PostMedia[]; className?: string }) {
+  const pics = cardPictures(media)
+  if (!pics.length) return null
+  if (pics.length === 1) {
+    const p = pics[0]
+    const ratio = p.w && p.h ? Math.min(Math.max(p.w / p.h, 1), 2) : 16 / 9
+    return (
+      <div className={`relative overflow-hidden rounded-xl bg-[#f1f2f4] ${className}`} style={{ aspectRatio: String(ratio) }} data-card-media="single">
+        <CardPictureImg p={p} widths={[390, 640, 828, 1080]} sizes="100vw" display={640} />
+      </div>
+    )
+  }
+  const more = pics.length - 2
+  return (
+    <div className={`grid grid-cols-2 gap-1 overflow-hidden rounded-xl ${className}`} data-card-media="pair">
+      {pics.slice(0, 2).map((p, i) => (
+        <div key={i} className="relative aspect-square overflow-hidden bg-[#f1f2f4]">
+          <CardPictureImg p={p} widths={[256, 384, 640]} sizes="50vw" display={384} />
+          {i === 1 && more > 0 ? (
+            <span className="absolute inset-0 flex items-center justify-center bg-[#0f1115]/45 text-[20px] font-semibold tabular-nums text-white" aria-label={`${more} more`} data-card-media-more="">
+              +{more}
+            </span>
+          ) : null}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function CardPictureImg({ p, widths, sizes, display }: { p: CardPicture; widths: number[]; sizes: string; display: number }) {
+  const [failed, setFailed] = useState(false)
+  const srcSet = p.local ? optimizedSrcSet(p.url, widths) : ""
+  return (
+    <>
+      {failed ? null : (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={p.local ? optimizedImageUrl(p.url, display) : p.url}
+          srcSet={srcSet || undefined}
+          sizes={srcSet ? sizes : undefined}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          referrerPolicy={p.local ? undefined : "no-referrer"}
+          className="absolute inset-0 h-full w-full object-cover"
+          onError={() => setFailed(true)}
+        />
+      )}
+      {p.kind === "video" ? (
+        <span className="absolute inset-0 flex items-center justify-center" aria-hidden>
+          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-black/55 text-white">
+            <Play className="ml-0.5 h-5 w-5 fill-current" />
+          </span>
+        </span>
+      ) : p.kind === "gif" ? (
+        <span className="absolute bottom-1.5 left-1.5 rounded-md bg-black/55 px-1.5 text-[11px] font-semibold leading-[18px] text-white" aria-hidden>
+          GIF
+        </span>
+      ) : null}
+    </>
+  )
+}
+
 /** How a tile is drawn: its share of the post's width, for the optimizer's sizes. */
 type Fit = "single" | "half" | "top" | "third"
 const SIZES: Record<Fit, { widths: number[]; sizes: string; display: number }> = {
@@ -107,6 +181,7 @@ const isMotion = (item: ViewerItem) => item.kind === "video" || item.kind === "e
 /** Everything a post carries, as the opened post draws it. Pass media with the words' videos added (withBodyEmbeds). */
 export function PostMediaGrid({ media, communityId, postId }: { media: PostMedia[]; communityId: string; postId: string }) {
   const [open, setOpen] = useState<{ at: number; play: boolean } | null>(null)
+  const rootRef = useRef<HTMLDivElement>(null)
   if (!media.length) return null
   /* Pictures, GIFs and uploaded videos make the grid; a YouTube or Vimeo video is its own 16:9 player under it. */
   const all = viewerItems(media)
@@ -121,11 +196,11 @@ export function PostMediaGrid({ media, communityId, postId }: { media: PostMedia
     const kind = mediaKindOf(f.name)
     return kind ? [{ assetId: f.assetId, item: (kind === "image" ? { kind: "image", url: fileUrl(f.assetId), raw: true } : { kind: "clip", url: fileUrl(f.assetId) }) as ViewerItem }] : []
   })
-  const tile = (i: number, fit: Fit, shape: string, more = 0) => <Tile key={i} item={items[i]} fit={fit} shape={shape} more={more} onOpen={() => setOpen({ at: i, play: isMotion(items[i]) })} />
+  const tile = (i: number, fit: Fit, shape: string, more = 0) => <Tile key={i} index={i} item={items[i]} fit={fit} shape={shape} more={more} onOpen={() => setOpen({ at: i, play: isMotion(items[i]) })} />
   const motionPair = layout.kind === "pair" && items.every(isMotion)
 
   return (
-    <div className="mt-3 space-y-2.5" data-post-media="">
+    <div ref={rootRef} className="mt-3 space-y-2.5" data-post-media="">
       {layout.kind === "single" ? (
         <Single item={items[0]} communityId={communityId} onOpen={() => setOpen({ at: 0, play: false })} />
       ) : layout.kind === "pair" ? (
@@ -189,7 +264,17 @@ export function PostMediaGrid({ media, communityId, postId }: { media: PostMedia
           </div>
         )
       })}
-      {open !== null ? <Lightbox items={items} start={open.at} communityId={communityId} autoplay={open.play} onClose={() => setOpen(null)} /> : null}
+      {open !== null ? (
+        <Lightbox
+          items={items}
+          start={open.at}
+          communityId={communityId}
+          autoplay={open.play}
+          onClose={() => setOpen(null)}
+          /* The tile each one is drawn in, so the viewer grows out of it and goes back into it. */
+          originOf={(i) => rootRef.current?.querySelector<HTMLElement>(`[data-media-index="${i}"]`) ?? null}
+        />
+      ) : null}
     </div>
   )
 }
@@ -214,12 +299,12 @@ function Single({ item, communityId, onOpen }: { item: ViewerItem; communityId: 
   }
   return (
     <div data-post-media-grid="single">
-      <Tile item={item} fit="single" shape="" onOpen={onOpen} />
+      <Tile index={0} item={item} fit="single" shape="" onOpen={onOpen} />
     </div>
   )
 }
 
-function Tile({ item, fit, shape, more = 0, onOpen }: { item: ViewerItem; fit: Fit; shape: string; more?: number; onOpen: () => void }) {
+function Tile({ index, item, fit, shape, more = 0, onOpen }: { index: number; item: ViewerItem; fit: Fit; shape: string; more?: number; onOpen: () => void }) {
   const picture = item.kind === "image" ? item.url : item.kind === "gif" ? item.url : item.kind === "video" ? item.poster : item.kind === "embed" ? item.thumb : item.poster
   const local = (item.kind === "image" && !item.raw) || item.kind === "video"
   const size = SIZES[fit]
@@ -232,6 +317,7 @@ function Tile({ item, fit, shape, more = 0, onOpen }: { item: ViewerItem; fit: F
       onClick={onOpen}
       aria-label={label}
       data-media-tile={item.kind}
+      data-media-index={index}
       className={`group/tile relative block w-full overflow-hidden bg-[#eef0f2] outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#1a1a2e]/25 ${
         single ? "max-h-[min(560px,72vh)] rounded-xl" : shape
       } ${isMotion(item) ? "cursor-pointer" : "cursor-zoom-in"}`}
