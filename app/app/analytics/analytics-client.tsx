@@ -31,7 +31,8 @@
  * (lib/date-range/range compareBounds), sent with the question.
  */
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react"
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
+import { PULL_REFRESH_EVENT, type PullRefreshDetail } from "@/components/ui/pull-to-refresh"
 import { useSearchParams } from "next/navigation"
 import { TrendingDown, TrendingUp } from "lucide-react"
 import { useLanguage } from "@/lib/i18n"
@@ -277,6 +278,33 @@ export function AnalyticsClient({ products, userId, properties }: AnalyticsClien
     refresh: tick,
     viewer: userId,
   })
+  /*
+    PULLED DOWN TO REFRESH (components/ui/pull-to-refresh.tsx, around this
+    page in page.tsx): the same question as the minute's refresh, asked now,
+    and the ring turns until its answer is in. The figures stay on screen
+    and change in place, as they do every minute.
+  */
+  const pullWaiters = useRef<{ seen: boolean; resolve: () => void }[]>([])
+  useEffect(() => {
+    const onPull = (e: Event) => {
+      const detail = (e as CustomEvent<PullRefreshDetail>).detail
+      if (detail?.scope !== "app-analytics") return
+      detail.done = new Promise<void>((resolve) => pullWaiters.current.push({ seen: false, resolve }))
+      setTick((n) => n + 1)
+    }
+    window.addEventListener(PULL_REFRESH_EVENT, onPull)
+    return () => window.removeEventListener(PULL_REFRESH_EVENT, onPull)
+  }, [])
+  useEffect(() => {
+    if (reportsState.loading) {
+      for (const w of pullWaiters.current) w.seen = true
+      return
+    }
+    const done = pullWaiters.current.filter((w) => w.seen)
+    pullWaiters.current = pullWaiters.current.filter((w) => !w.seen)
+    for (const w of done) w.resolve()
+  }, [reportsState.loading, tick])
+
   const answer = reportsState.data
   /*
     SOFT ONLY WHILE THE FIGURES ARE THE WRONG ONES: a new period, place or

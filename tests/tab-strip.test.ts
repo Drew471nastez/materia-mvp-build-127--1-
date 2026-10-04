@@ -156,7 +156,7 @@ function main() {
     "a scrub claimed after the page has started moving shows the readout under a scrolling page")
   check("and neither of them cancels a touchstart",
     /addEventListener\("touchstart", onStart, \{ passive: true \}\)/.test(scrub)
-      && /el\.addEventListener\("touchstart", onTouchStart, \{ passive: true \}\)/.test(ptr))
+      && /(el|target)\.addEventListener\("touchstart", onTouchStart, \{ passive: true \}\)/.test(ptr))
   /*
     WKWebView ignores overscroll-behavior before iOS 16, so this guard stays.
     It leaves a gesture on a sideways scroller alone, and must keep doing so.
