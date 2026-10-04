@@ -66,13 +66,14 @@ import { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, u
 import type { ViewerView } from "@/lib/communities/types"
 import { useLightChrome } from "@/lib/ui/light-chrome"
 import { MessagesPanel, MESSAGES_EVENT, useUnreadMessages } from "./messages"
-import { FULL_ON_HOVER, navEntries, sectionFromPath, tabFor, type NavEntry, type TabKey } from "./nav"
+import { FULL_ON_HOVER, navEntries, sectionFromPath, tabFor, TABS_STILL_MS, tabsFollowTarget, type NavEntry, type TabKey } from "./nav"
 import { PersonCardLayer } from "./person-card"
 import { Toasts } from "./toast"
 import { CommunityTopBar } from "./top-bar"
 import { whenIdle } from "./feed-cache"
 import { InviteSheet } from "./invite-sheet"
-import { TAB, TAB_OFF, TAB_ON } from "./ui"
+import { preloadSearchIndex } from "./search"
+import { PRESS_PROPS, TAB, TAB_OFF, TAB_ON } from "./ui"
 import type { ShellCommunity, ShellSection, TopBarData, WallData } from "./view-types"
 import { PlaceContext, plainClick, WallCommunityCard, WallContributorsCard, WallPlaces, WallUpcoming, type PlaceState } from "./wall"
 
@@ -232,8 +233,10 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
       whenIdle(() => {
         const here = (pathRef.current || "").replace(/\/+$/, "")
         for (const href of hrefs) if (href !== here) router.prefetch(href, { kind: FULL })
+        /* And what the search knows before a key is pressed (round 10), so its first results come at once. */
+        void preloadSearchIndex(community.id)
       }),
-    [hrefs, router],
+    [hrefs, router, community.id],
   )
 
   return (
@@ -294,10 +297,18 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
  * THE ROW OF SECTION TABS under the bar, below 1024px (and on About at every
  * width). Plain words, not pills: the chosen one is ink with a 2px line
  * under it, sitting on the row's bottom edge; the others are muted until
- * hovered. The line grows in from its middle (scale and opacity, nothing
- * that moves the layout). The row scrolls sideways when it does not fit,
- * keeps the chosen tab in view, and fades at an edge only while there is
- * more that way.
+ * hovered, and dim the moment a finger lands on one (round 10: press
+ * feedback on the first frame, before the place is asked for). The line
+ * grows in from its middle (scale and opacity, nothing that moves the
+ * layout). The row fades at an edge only while there is more that way.
+ *
+ * A NATIVE SIDEWAYS SCROLL (round 10, ask 27). The row is the browser's own
+ * scroller, with its own momentum: no snap points, nothing that sets its
+ * position while a finger is on it or a throw is still gliding. When the
+ * chosen tab changes and is not wholly in view, the row glides to it
+ * (scrollTo smooth) once the row is still: never during a touch, never
+ * within a moment of the last scroll, so the follow can never fight a fling.
+ * The first draw puts it in view at once (nothing to glide from).
  */
 export function SectionTabs({ entries, current: currentProp, wide = true, onGo: onGoProp }: { entries: NavEntry[]; /** Left out, the frame's PlaceContext says. */ current?: TabKey; wide?: boolean; onGo?: (key: TabKey) => void }) {
   const place = useContext(PlaceContext)
@@ -305,6 +316,10 @@ export function SectionTabs({ entries, current: currentProp, wide = true, onGo: 
   const onGo = onGoProp ?? place.onGo
   const trackRef = useRef<HTMLDivElement>(null)
   const [edges, setEdges] = useState({ left: false, right: false })
+  /* A finger on the row, and when it last scrolled: the row is only moved by code once it is still. */
+  const touching = useRef(false)
+  const lastScroll = useRef(0)
+  const drawn = useRef(false)
   const measure = () => {
     const el = trackRef.current
     if (!el) return
@@ -315,32 +330,62 @@ export function SectionTabs({ entries, current: currentProp, wide = true, onGo: 
   useLayoutEffect(() => {
     measure()
     const el = trackRef.current
-    const on = el?.querySelector<HTMLElement>('[data-on="true"]')
-    if (el && on) {
-      const to = on.offsetLeft + on.offsetWidth + 24 - el.clientWidth
-      if (to > el.scrollLeft) el.scrollLeft = to
-    }
     if (!el || typeof ResizeObserver === "undefined") return
     const ro = new ResizeObserver(measure)
     ro.observe(el)
     return () => ro.disconnect()
+  }, [])
+  /* The chosen tab into view: at once on the first draw, gliding after, and only when the row is still. */
+  useLayoutEffect(() => {
+    const el = trackRef.current
+    const on = el?.querySelector<HTMLElement>('[data-on="true"]')
+    if (!el || !on) return
+    const first = !drawn.current
+    drawn.current = true
+    let timer = 0
+    const follow = () => {
+      if (touching.current || performance.now() - lastScroll.current < TABS_STILL_MS) {
+        timer = window.setTimeout(follow, TABS_STILL_MS)
+        return
+      }
+      const to = tabsFollowTarget({ left: on.offsetLeft, width: on.offsetWidth }, el)
+      if (to === null) return
+      if (first || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches || typeof el.scrollTo !== "function") el.scrollLeft = to
+      else el.scrollTo({ left: to, behavior: "smooth" })
+    }
+    follow()
+    return () => window.clearTimeout(timer)
   }, [current])
   return (
     <nav aria-label="Community sections" data-community-tabs="" className="relative w-full">
       {/* The row lines up with the page under it (1360px, About's 1080px). */}
       <div className={`mx-auto flex w-full items-stretch ${wide ? "lg:max-w-[1360px]" : "lg:max-w-[1080px]"}`}>
         <div className="relative min-w-0 flex-1">
-          <div ref={trackRef} onScroll={measure} className="overflow-x-auto overscroll-x-contain scrollbar-hide" data-community-tabs-track="">
+          <div
+            ref={trackRef}
+            onScroll={() => {
+              lastScroll.current = performance.now()
+              measure()
+            }}
+            onTouchStart={() => (touching.current = true)}
+            onTouchEnd={() => (touching.current = false)}
+            onTouchCancel={() => (touching.current = false)}
+            className="overflow-x-auto overscroll-x-contain scrollbar-hide [-webkit-overflow-scrolling:touch]"
+            data-community-tabs-track=""
+          >
             <div className="flex w-max min-w-full items-end gap-6 px-4 sm:gap-7 sm:px-6 lg:px-8">
               {entries.map((e) => {
                 const on = current === e.key
                 return (
-                  <Link key={e.key} href={e.href} {...FULL_ON_HOVER} onClick={(ev) => { if (plainClick(ev)) onGo?.(e.key) }} data-on={on ? "true" : "false"} data-community-nav={e.label} aria-current={on ? "page" : undefined} className={`${TAB} ${on ? TAB_ON : TAB_OFF}`}>
-                    {e.label}
+                  <Link key={e.key} href={e.href} {...FULL_ON_HOVER} {...PRESS_PROPS} onClick={(ev) => { if (plainClick(ev)) onGo?.(e.key) }} data-on={on ? "true" : "false"} data-community-nav={e.label} aria-current={on ? "page" : undefined} className={`${TAB} ${on ? TAB_ON : TAB_OFF}`}>
+                    {/* The chosen word a step heavier; its heavier twin (::after, unseen and unread) holds the width, so nothing in the row moves. */}
+                    <span className="inline-grid after:invisible after:col-start-1 after:row-start-1 after:font-semibold after:content-[attr(data-label)]" data-label={e.label}>
+                      <span className={`col-start-1 row-start-1 ${on ? "font-semibold" : "font-medium"}`}>{e.label}</span>
+                    </span>
                     <span
                       aria-hidden
                       data-tab-line=""
-                      className={`pointer-events-none absolute inset-x-0 bottom-0 h-[2px] rounded-full bg-[#1a1a2e] transition-[opacity,scale] duration-200 ease-sheet motion-reduce:transition-none ${on ? "scale-x-100 opacity-100" : "scale-x-50 opacity-0"}`}
+                      className={`pointer-events-none absolute inset-x-0 bottom-0 h-[2px] rounded-full bg-[#1a1a2e] transition-[opacity,scale] duration-200 ease-sheet shadow-[0_1px_3px_rgba(26,26,46,0.28)] motion-reduce:transition-none ${on ? "scale-x-100 opacity-100" : "scale-x-50 opacity-0"}`}
                     />
                   </Link>
                 )

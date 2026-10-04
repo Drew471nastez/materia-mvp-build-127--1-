@@ -26,13 +26,14 @@
  * draw it.
  */
 import Link from "next/link"
-import { DEPTH, DEPTH_INK, DEPTH_PRESS } from "./ui"
+import { DEPTH, DEPTH_INK, DEPTH_PRESS, press, PRESS_PROPS } from "./ui"
 import type { SpaceView } from "./view-types"
 
 const CHIP =
   "relative inline-flex h-10 shrink-0 select-none items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 text-[14px] font-medium outline-none transition-[color,background-color,border-color,box-shadow] duration-150 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 sm:h-9 sm:text-[13.5px] [-webkit-tap-highlight-color:transparent]"
 const CHIP_ON = `${DEPTH_INK} text-white`
-const CHIP_OFF = `${DEPTH} ${DEPTH_PRESS} text-[#4b5563] hover:border-[#d5d8de] hover:text-[#1a1a2e]`
+/* Pressed, a chip goes a step darker on the first frame (no easing in), so the finger sees it took (round 10). */
+const CHIP_OFF = `${DEPTH} ${DEPTH_PRESS} text-[#4b5563] hover:border-[#d5d8de] hover:text-[#1a1a2e] active:bg-[#eef0f2] active:duration-0 data-[pressed]:bg-[#eef0f2] data-[pressed]:duration-0`
 
 /** What a chip (or the sort menu's Saved posts) opens, for a feed that switches in place: All, one feed space, or Saved. */
 export type ChipPick = { kind: "all" } | { kind: "space"; slug: string } | { kind: "saved" }
@@ -70,6 +71,31 @@ export interface SpaceChipsProps {
 */
 const drawn = new Map<string, SpaceView[]>()
 
+/**
+ * THE CHOSEN CHIP INTO VIEW, by gliding its row only (never the page), and
+ * only while the row is still: a row a finger has just thrown is left to
+ * finish its glide (round 10: no fight with a fling). Already in view, it
+ * does nothing.
+ */
+export function followChosenChip(root: HTMLElement | null) {
+  const track = root?.querySelector<HTMLElement>("[data-space-chips-track]")
+  const on = track?.querySelector<HTMLElement>("[aria-current=page]")
+  if (!track || !on) return
+  const now = performance.now()
+  const last = Number(track.dataset.scrolledAt || 0)
+  if (now - last < 140) {
+    window.setTimeout(followChosenChip, 140, root)
+    return
+  }
+  const left = on.getBoundingClientRect().left - track.getBoundingClientRect().left + track.scrollLeft
+  let to: number | null = null
+  if (left < track.scrollLeft) to = Math.max(0, left - 16)
+  else if (left + on.offsetWidth > track.scrollLeft + track.clientWidth - 24) to = left + on.offsetWidth - track.clientWidth + 40
+  if (to === null) return
+  if (typeof track.scrollTo === "function" && !window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) track.scrollTo({ left: to, behavior: "smooth" })
+  else track.scrollLeft = to
+}
+
 /** The spaces of a community as its chips were last drawn here, if they were. */
 export function rememberedSpaces(slug: string): SpaceView[] | null {
   return drawn.get(slug) ?? null
@@ -90,13 +116,26 @@ export function SpaceChips({ slug, spaces, active, savedOn = false, onPick, onIn
             onPick(pick)
           },
           onPointerEnter: onIntent ? (e: React.PointerEvent) => e.pointerType === "mouse" && onIntent(pick) : undefined,
-          onPointerDown: onIntent ? () => onIntent(pick) : undefined,
+          /* Pressed on the first frame (ui.ts PRESS_PROPS), and the list asked for at the same moment. */
+          ...PRESS_PROPS,
+          onPointerDown: (e: React.PointerEvent<HTMLAnchorElement>) => {
+            press(e)
+            onIntent?.(pick)
+          },
           onFocus: onIntent ? () => onIntent(pick) : undefined,
         }
       : {}
   return (
     <nav aria-label="Spaces" data-space-chips="" className="-mx-4 mb-3 flex items-center gap-2 pr-4 sm:mx-0 sm:pr-0">
-      <div className="min-w-0 flex-1 overflow-x-auto overscroll-x-contain scrollbar-hide [mask-image:linear-gradient(to_right,#000_calc(100%-24px),transparent)]" data-space-chips-track="">
+      <div
+        className="min-w-0 flex-1 overflow-x-auto overscroll-x-contain scrollbar-hide [mask-image:linear-gradient(to_right,#000_calc(100%-24px),transparent)]"
+        data-space-chips-track=""
+        /*
+          When it last moved, for followChosenChip: written on the element, so this stays a component with no hooks. Only where the
+          row switches in place (the feed, in the browser); a server page drawing the row hands it no function.
+        */
+        {...(onPick ? { onScroll: (e: React.UIEvent<HTMLDivElement>) => void (e.currentTarget.dataset.scrolledAt = String(performance.now())) } : {})}
+      >
         {/* 2px above and below, so a chip's one pixel shadow is not cut by the scrolling track. */}
         <div className="flex w-max items-center gap-2 py-0.5 pl-4 pr-6 sm:pl-0">
           <Link href={base} aria-current={allOn ? "page" : undefined} data-space-chip="all" className={`${CHIP} ${allOn ? CHIP_ON : CHIP_OFF}`} {...switching({ kind: "all" })}>

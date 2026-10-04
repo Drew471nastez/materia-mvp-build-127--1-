@@ -165,11 +165,48 @@ export interface SearchMemberHit {
   role: Role | null
 }
 
+/** A course or one of its lessons, in a course this member may open (round 10). */
+export interface SearchLessonHit {
+  id: string
+  kind: "course" | "lesson"
+  title: string
+  /** The course's title, for a lesson. */
+  course: string | null
+  href: string
+}
+
+/** An event this member may see (round 10). */
+export interface SearchEventHit {
+  id: string
+  title: string
+  startsAt: string
+  href: string
+}
+
 export interface SearchResults {
   q: string
   spaces: SearchSpaceHit[]
   posts: SearchPostHit[]
   members: SearchMemberHit[]
+  /** Round 10: the classroom and the calendar too, when the community has them on. */
+  lessons?: SearchLessonHit[]
+  events?: SearchEventHit[]
+}
+
+/**
+ * WHAT THE SEARCH KNOWS BEFORE ANYTHING IS TYPED (round 10): the spaces,
+ * the latest posts, the members here most recently, the courses with their
+ * lessons and the coming events this member may see, read once when the
+ * frame is idle, so the first key already has answers (search.tsx). Posts
+ * carry a longer piece of their text (`text`) to match against.
+ */
+export interface SearchIndex {
+  at: number
+  spaces: SearchSpaceHit[]
+  posts: (SearchPostHit & { text: string })[]
+  members: SearchMemberHit[]
+  lessons: SearchLessonHit[]
+  events: SearchEventHit[]
 }
 
 export interface ChatMessageView {

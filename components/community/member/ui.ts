@@ -54,12 +54,13 @@ export const PILL_OFF = "border-[#e4e7ec] bg-white text-[#6b7280] shadow-[0_1px_
 /**
  * A section tab in the row under the community's bar: plain words, no box.
  * The chosen one is ink with a 2px underline on the row's bottom edge; the
- * rest are muted and darken on hover. 40px tall, so a thumb finds it. The
+ * rest are muted and darken on hover; a press dims it at once (round 10:
+ * feedback on the first frame). 40px tall, so a thumb finds it. The
  * row is a phone's and a tablet's (and About's, which has no left column):
  * from 1024px the places are the list in the left column (wall.tsx).
  */
 export const TAB =
-  "group/tab relative inline-flex h-10 shrink-0 cursor-pointer select-none items-center whitespace-nowrap px-0.5 text-[14.5px] font-medium outline-none transition-colors duration-150 focus-visible:text-[#1a1a2e] focus-visible:underline focus-visible:decoration-[#1a1a2e]/30 focus-visible:underline-offset-4 motion-reduce:transition-none [-webkit-tap-highlight-color:transparent] sm:text-[14px]"
+  "group/tab relative inline-flex h-10 shrink-0 cursor-pointer select-none items-center whitespace-nowrap px-0.5 text-[14.5px] font-medium outline-none transition-colors duration-150 active:opacity-55 data-[pressed]:opacity-55 focus-visible:text-[#1a1a2e] focus-visible:underline focus-visible:decoration-[#1a1a2e]/30 focus-visible:underline-offset-4 motion-reduce:transition-none [-webkit-tap-highlight-color:transparent] sm:text-[14px]"
 export const TAB_ON = "text-[#1a1a2e]"
 export const TAB_OFF = "text-[#6b7280] hover:text-[#1a1a2e]"
 
@@ -75,3 +76,20 @@ export const PLAIN_ICON_BTN =
 /** A field that is 16px on a phone so iOS does not zoom into it. */
 export const FIELD =
   "w-full rounded-xl border border-[#e3e4e8] bg-white px-3.5 py-2.5 text-[16px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] focus:border-[#c9ccd3] focus:ring-2 focus:ring-[#1a1a2e]/[0.06] sm:text-[14px]"
+
+/**
+ * PRESSED ON THE FIRST FRAME (round 10). A browser on a phone holds :active
+ * back for a moment while it decides whether a touch is a tap or the start
+ * of a scroll, so a press drawn by :active alone can come late. These mark
+ * the element itself the moment the pointer lands (data-pressed, written
+ * on the node, no render), and take it off when the pointer lifts, leaves,
+ * or the browser takes the touch for a scroll (pointercancel). Style it with
+ * data-[pressed]:. For client components only (they are functions).
+ */
+function unpress(e: { currentTarget: Element }) {
+  e.currentTarget.removeAttribute("data-pressed")
+}
+export function press(e: { currentTarget: Element; button: number }) {
+  if (e.button === 0) e.currentTarget.setAttribute("data-pressed", "")
+}
+export const PRESS_PROPS = { onPointerDown: press, onPointerUp: unpress, onPointerCancel: unpress, onPointerLeave: unpress }
