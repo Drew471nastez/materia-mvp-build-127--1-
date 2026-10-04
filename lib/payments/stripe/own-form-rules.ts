@@ -56,6 +56,19 @@ export interface DetailsNeeds {
    * not asked for once the document that stands in for it has been given.
    */
   given: DetailField[]
+  /**
+   * WHAT STORELIB'S OWN FORM WILL NOT ASK FOR.
+   *
+   * Verification here is one thing: the live ID check, a national ID or a
+   * passport, through the camera. No typing a national ID number out of a
+   * card, no photographing a utility bill. Where Stripe wants one of those
+   * anyway and no document can stand in for it, the field is not quietly
+   * added back to this form: it is handed to Stripe's own embedded form,
+   * drawn inside the Storelib page, which knows every country's version of
+   * it. Storelib's form stays the short one, and nobody is ever stuck
+   * because Storelib declined to ask.
+   */
+  handover: DetailField[]
 }
 
 /**
@@ -90,6 +103,14 @@ const MAP: Array<[RegExp, DetailField | "tos" | "bank" | "name" | "ours" | "regi
 ]
 
 const ORDER: DetailField[] = ["dob", "address", "state", "phone", "nationality", "idNumber", "ssnLast4", "politicalExposure", "document", "proofOfAddress"]
+
+/**
+ * Fields Storelib's own form does not draw: a number copied off a card, a
+ * second document, a question about public office. The live ID check is the
+ * verification here; these go to Stripe's embedded form instead (handover
+ * above), and only when Stripe truly needs them and the ID cannot answer.
+ */
+const STRIPE_OWN: readonly DetailField[] = ["idNumber", "ssnLast4", "politicalExposure", "proofOfAddress"]
 
 /** Stripe's reasons for turning something down, as a sentence about what to do next. */
 const PROBLEMS: Record<string, string> = {
@@ -172,7 +193,29 @@ export function needsOf(
     either.push({ original, alternative })
   }
   const problems = [...new Set((req?.errors ?? []).filter((e) => !e.requirement || due.has(e.requirement)).map((e) => problemWords(e.code)))]
-  return { fields: ORDER.filter((f) => fields.has(f)), tos, bank, name, other, checking: due.size === 0 && pending.size > 0, registeredAddress, problems, either, offered: ORDER.filter((f) => fields.has(f) && !dueOnItsOwn.has(f)), given: [] }
+  /*
+   * A field Stripe will take the ID document for instead is not a handover:
+   * the live check answers it, which is the whole point of the alternatives.
+   * Only one Stripe insists on, with no document that settles it, goes over.
+   */
+  const settledByDocument = new Set<DetailField>()
+  for (const alt of either) if (alt.alternative.includes("document")) for (const f of alt.original) settledByDocument.add(f)
+  const handover = ORDER.filter((f) => fields.has(f) && STRIPE_OWN.includes(f) && !settledByDocument.has(f))
+  const ours = (f: DetailField) => fields.has(f) && !handover.includes(f)
+  return {
+    fields: ORDER.filter(ours),
+    tos,
+    bank,
+    name,
+    other,
+    checking: due.size === 0 && pending.size > 0,
+    registeredAddress,
+    problems,
+    either,
+    offered: ORDER.filter((f) => ours(f) && !dueOnItsOwn.has(f)),
+    given: [],
+    handover,
+  }
 }
 
 /* ── the ID number, named as the creator knows it ───────────────────────── */

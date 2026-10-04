@@ -31,7 +31,7 @@
  */
 import * as React from "react"
 import { createPortal } from "react-dom"
-import { Camera, Check, ChevronDown, ChevronLeft, Clock, Info, Landmark, Lock, RotateCcw, ScanFace, Upload, X } from "lucide-react"
+import { Camera, Check, ChevronDown, ChevronLeft, Clock, Info, Landmark, Lock, RotateCcw, ScanFace, X } from "lucide-react"
 import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { Shimmer, ShimmerBlock } from "@/components/ui/shimmer"
@@ -844,8 +844,6 @@ interface DetailsDraft {
   phone: string
   nationality: string
   idNumber: string
-  ssnLast4: string
-  pep: boolean
   agree: boolean
   holder: string | null
   iban: string
@@ -859,8 +857,6 @@ const EMPTY_DRAFT: DetailsDraft = {
   phone: "",
   nationality: "",
   idNumber: "",
-  ssnLast4: "",
-  pep: false,
   agree: false,
   holder: null,
   iban: "",
@@ -889,7 +885,7 @@ function useDraft<K extends keyof DetailsDraft>(key: K): [DetailsDraft[K], (next
 
 type DetailField = "dob" | "address" | "state" | "phone" | "nationality" | "idNumber" | "ssnLast4" | "document" | "proofOfAddress" | "politicalExposure"
 interface DetailsForm {
-  needs: { fields: DetailField[]; tos: boolean; bank: boolean; name: boolean; other: string[]; checking: boolean; registeredAddress: boolean; problems: string[]; either: Array<{ original: DetailField[]; alternative: DetailField[] }>; offered: DetailField[]; given?: DetailField[] }
+  needs: { fields: DetailField[]; tos: boolean; bank: boolean; name: boolean; other: string[]; checking: boolean; registeredAddress: boolean; problems: string[]; either: Array<{ original: DetailField[]; alternative: DetailField[] }>; offered: DetailField[]; given?: DetailField[]; handover?: DetailField[] }
   country: string
   agreementUrl: string
   dueBy: string | null
@@ -931,41 +927,6 @@ async function shrinkPhoto(file: File): Promise<Blob> {
   } finally {
     URL.revokeObjectURL(url)
   }
-}
-
-function UploadTile({ label, hint, done, busy, onPick }: { label: string; hint?: string; done: boolean; busy: boolean; onPick: (file: File) => void }) {
-  const input = React.useRef<HTMLInputElement>(null)
-  return (
-    <button
-      type="button"
-      onClick={() => input.current?.click()}
-      disabled={busy}
-      data-upload-tile=""
-      className={cn(
-        "flex min-h-[64px] w-full cursor-pointer items-center gap-3 rounded-xl border border-dashed px-3.5 py-3 text-left outline-none transition-[border-color,background-color] duration-150 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15",
-        done ? "border-[#abefc6] bg-[#f6fef9]" : "border-[#d5d8dd] bg-white hover:border-[#b9bdc5] hover:bg-[#fafafb]",
-      )}
-    >
-      <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", done ? "bg-[#dcfae6] text-[#067647]" : "bg-[#f3f4f6] text-[#4b5563]")}>
-        {busy ? <Spinner dark /> : done ? <Check className="h-4 w-4" strokeWidth={3} /> : <Upload className="h-4 w-4" />}
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-[14px] font-medium text-[#1a1a2e]">{label}</span>
-        <span className="block text-[12.5px] text-[#6b7280]">{busy ? "Uploading securely to Stripe" : done ? "Uploaded. Tap to replace it." : hint ?? "A clear photo or PDF"}</span>
-      </span>
-      <input
-        ref={input}
-        type="file"
-        accept="image/jpeg,image/png,image/heic,image/*,application/pdf"
-        hidden
-        onChange={(e) => {
-          const f = e.target.files?.[0]
-          e.target.value = ""
-          if (f) onPick(f)
-        }}
-      />
-    </button>
-  )
 }
 
 async function postForm<T>(path: string, form: FormData): Promise<T> {
@@ -1040,8 +1001,6 @@ function DetailsStep({
   const [phone, setPhone] = useDraft("phone")
   const [nationality, setNationality] = useDraft("nationality")
   const [idNumber, setIdNumber] = useDraft("idNumber")
-  const [ssnLast4, setSsnLast4] = useDraft("ssnLast4")
-  const [pep, setPep] = useDraft("pep")
   const [agree, setAgree] = useDraft("agree")
   const [uploaded, setUploaded] = React.useState<Record<string, boolean>>({})
   const [uploading, setUploading] = React.useState<string | null>(null)
@@ -1134,11 +1093,21 @@ function DetailsStep({
   }, [form])
   const docGivenAtOpen = givenAtOpen.current ?? docGiven
   const sectionFields = form ? form.needs.fields.filter(inSection) : []
+  /*
+   * STRIPE WANTS SOMETHING THIS FORM DOES NOT ASK FOR. Verification here is
+   * the live ID check and nothing else: no national ID number typed off a
+   * card, no photograph of a utility bill. Where Stripe insists anyway and
+   * no document settles it (own-form-rules handover), this step becomes
+   * Stripe's own form, drawn inside this page, which collects everything
+   * due in that country in one go. Storelib's short form stays short, and
+   * nobody is stuck because Storelib would not ask.
+   */
+  const handover = only === "id" ? [] : form?.needs.handover ?? []
   const bankHere = withBank && !!form && form.needs.bank
   const idAsked = !!form && form.needs.fields.includes("document") && !docGivenAtOpen
 
   /* Nothing left to ask here: straight on. */
-  const empty = !form
+  const empty = !form || handover.length > 0
     ? false
     : only === "id"
       ? !idAsked
@@ -1155,6 +1124,16 @@ function DetailsStep({
   }, [form, empty])
 
   if (!form) return <FormWaiting error={loadError} onRetry={load} />
+  if (handover.length > 0) {
+    return (
+      <BusinessDetailsStep
+        onBack={onBack}
+        onDone={(sent) => onNext(form, sent)}
+        title="A few more details"
+        line="Stripe needs a little more to verify you in your country. It stays on this page."
+      />
+    )
+  }
   /* Nothing to ask: this step is on its way out, so it waits quietly rather than drawing fields it will never show. */
   if (empty) {
     return (
@@ -1168,7 +1147,7 @@ function DetailsStep({
   const issue = (key: string, bad: boolean, text: string) => (tried && bad ? text : undefined)
   const dobBad = !dob.day || !dob.month || !/^\d{4}$/.test(dob.year)
 
-  const upload = async (which: "document" | "proofOfAddress", side: "front" | "back", file: File) => {
+  const upload = async (which: "document", side: "front" | "back", file: File) => {
     const key = `${which}-${side}`
     setUploading(key)
     setError(null)
@@ -1220,7 +1199,6 @@ function DetailsStep({
     setCamera({ side })
   }
   const asFile = (blob: Blob) => new File([blob], "id.jpg", { type: blob.type || "image/jpeg" })
-  const missingProof = has("proofOfAddress") && !uploaded["proofOfAddress-front"]
 
   const bank = form.bank
   const holderName = holder ?? bank.holderName
@@ -1263,18 +1241,17 @@ function DetailsStep({
       onNext(form, null)
       return
     }
-    if ((has("dob") && dobBad) || (has("address") && (!address.line1.trim() || !address.city.trim() || !address.postalCode.trim())) || (has("state") && !address.state.trim()) || (has("phone") && phone.replace(/\D/g, "").length < 7) || (has("nationality") && !countryOf(nationality)) || idBad || (has("ssnLast4") && !/^\d{4}$/.test(ssnLast4)) || (form.needs.tos && !agree) || bankBad) {
+    if ((has("dob") && dobBad) || (has("address") && (!address.line1.trim() || !address.city.trim() || !address.postalCode.trim())) || (has("state") && !address.state.trim()) || (has("phone") && phone.replace(/\D/g, "").length < 7) || (has("nationality") && !countryOf(nationality)) || idBad || (form.needs.tos && !agree) || bankBad) {
       setError("Check the fields marked in red.")
       return
     }
     if (idState === "waiting") return setError("Finish the check with Stripe first, or add a photo of your ID instead.")
     if (missingDoc) return setError(idEither ? (only === "details" ? `Enter your ${form.idNumber.label.split(" (")[0]}.` : `Take a photo of your ID, or enter your ${form.idNumber.label.split(" (")[0]} instead.`) : "Add a photo of the front of your ID.")
-    if (missingProof) return setError("Add a document that shows your address.")
     setBusy(true)
     setError(null)
     try {
       /* Only the details Stripe asked for: a page that is only the bank sends only the bank. */
-      const sendDetails = sectionFields.some((f) => f !== "document" && f !== "proofOfAddress") || form.needs.tos
+      const sendDetails = sectionFields.some((f) => f !== "document") || form.needs.tos
       let latest = form
       if (!sendDetails && bankHere) {
         const paid = await post<{ form: DetailsForm; overview: Overview }>("bank", bankBody())
@@ -1287,13 +1264,11 @@ function DetailsStep({
         phone: has("phone") ? phone : undefined,
         nationality: has("nationality") ? countryOf(nationality) ?? undefined : undefined,
         idNumber: has("idNumber") && idNumber.trim() ? idNumber : undefined,
-        ssnLast4: has("ssnLast4") ? ssnLast4 : undefined,
-        politicalExposure: has("politicalExposure") ? (pep ? "existing" : "none") : undefined,
         acceptTos: form.needs.tos ? agree : undefined,
       })
       onData(res.overview)
       /* Stripe can ask for one more thing once it has checked these (an ID photo after an ID number it could not match). */
-      const left = res.form.needs.fields.filter((f) => !((f === "document" && front) || (f === "proofOfAddress" && uploaded["proofOfAddress-front"])))
+      const left = res.form.needs.fields.filter((f) => f !== "document" || !front)
       if (left.length || res.form.needs.tos) {
         setTried(false)
         if (left.includes("document")) setIdAgain(true)
@@ -1368,7 +1343,7 @@ function DetailsStep({
             </span>
             <span className="min-w-0 flex-1">
               <span className="block text-[15px] font-semibold text-[#1a1a2e]">{uploading === "document-front" ? "Sending to Stripe" : "Take a photo of your ID"}</span>
-              <span className="mt-0.5 block text-[12.5px] leading-[17px] text-[#6b7280]">Passport, ID card or driving licence. Hold it in the frame and it takes the photo for you.</span>
+              <span className="mt-0.5 block text-[12.5px] leading-[17px] text-[#6b7280]">Passport, national ID or driving licence. Hold it in the frame and it takes the photo for you, both sides.</span>
             </span>
           </button>
           <button
@@ -1379,7 +1354,7 @@ function DetailsStep({
             }}
             className="text-[13px] font-medium text-[#4b5563] underline-offset-2 outline-none hover:text-[#1a1a2e] hover:underline focus-visible:underline"
           >
-            Upload a photo or scan instead
+            No camera? Use a photo of it instead
           </button>
         </>
       ) : (
@@ -1625,35 +1600,12 @@ function DetailsStep({
           </button>
         ) : null}
 
-        {has("ssnLast4") ? (
-          <Field label="Last 4 digits of your SSN" error={issue("ssnLast4", !/^\d{4}$/.test(ssnLast4), "Enter the last four digits of your SSN.")}>
-            <input className={FIELD} inputMode="numeric" maxLength={4} autoComplete="off" value={ssnLast4} onChange={(e) => setSsnLast4(e.target.value.replace(/\D/g, ""))} />
-          </Field>
-        ) : null}
-
         {!idEither ? idPhoto : null}
 
         {only === "id" && idEither && !front && !typeIdInstead ? (
           <button type="button" onClick={() => setTypeIdInstead(true)} className="-mt-1 text-left text-[13px] font-medium text-[#4b5563] underline-offset-2 outline-none hover:text-[#1a1a2e] hover:underline focus-visible:underline" data-id-number-instead="">
             Use my {form.idNumber.label.split(" (")[0]} instead
           </button>
-        ) : null}
-
-        {has("proofOfAddress") ? (
-          <div className="space-y-2">
-            <span className="block text-[13px] font-medium text-[#1a1a2e]">Proof of address</span>
-            <span className="block text-[12px] leading-[18px] text-[#6b7280]">
-              Stripe asks for this only when it cannot confirm your address from your ID, and it never asks for it to set payments up. A utility bill, bank statement or rental agreement from the last three months, with your name and this address.
-            </span>
-            <UploadTile label="Document" done={!!uploaded["proofOfAddress-front"]} busy={uploading === "proofOfAddress-front"} onPick={(f) => void upload("proofOfAddress", "front", f)} />
-          </div>
-        ) : null}
-
-        {has("politicalExposure") ? (
-          <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-[#eceef1] px-3.5 py-3">
-            <input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0 accent-[#1a1a2e]" checked={pep} onChange={(e) => setPep(e.target.checked)} />
-            <span className="text-[13px] leading-[19px] text-[#4b5563]">I hold, or have held in the last year, a prominent public role (a politically exposed person). Leave it unticked if not.</span>
-          </label>
         ) : null}
 
         {bankHere ? (
@@ -1727,7 +1679,7 @@ function DetailsStep({
  * want later (StripeConnectEmbedded's default: currently_due, future omitted).
  * The bank is collected in the same form. No Stripe login, no new tab.
  */
-function BusinessDetailsStep({ onBack, onDone }: { onBack: () => void; onDone: (sent: Overview) => void }) {
+function BusinessDetailsStep({ onBack, onDone, title = "Business details", line = "Only what's needed to verify your business today." }: { onBack: () => void; onDone: (sent: Overview) => void; title?: string; line?: string }) {
   const [busy, setBusy] = React.useState(false)
   const finish = async () => {
     if (busy) return
@@ -1741,7 +1693,7 @@ function BusinessDetailsStep({ onBack, onDone }: { onBack: () => void; onDone: (
   return (
     <div className="flex min-h-full flex-1 flex-col">
       <div className="flex-1 px-5 sm:px-7">
-        <StepIntro title="Business details" line="Only what's needed to verify your business today." />
+        <StepIntro title={title} line={line} />
         <StripeConnectEmbedded purpose="stripe_onboarding" onExit={finish} className="min-h-[320px]" />
       </div>
       <Footer>

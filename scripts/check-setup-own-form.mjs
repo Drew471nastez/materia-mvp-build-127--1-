@@ -56,7 +56,8 @@ const css = await appCss(root)
 const inter = interFaces(root).replace(/url\(file:\/\//g, "url(http://probe.test/__file")
 const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${inter}</style><style>${css}</style><style>body{margin:0;font-family:Inter,system-ui,sans-serif}</style></head><body><div id="app"></div><script>${js.replace(/<\/script/gi, "<\\/script")}</script></body></html>`
 
-const needsNow = { fields: ["dob", "address", "idNumber"], tos: true, bank: true, name: false, other: [], checking: false, registeredAddress: false, problems: [], either: [], offered: [], given: [] }
+/* What own-form-rules hands the page: a national ID number it will not draw has already gone to `handover`. */
+const needsNow = { fields: ["dob", "address"], tos: true, bank: true, name: false, other: [], checking: false, registeredAddress: false, problems: [], either: [], offered: [], given: [], handover: [] }
 const form = (needs) => ({
   needs,
   country: "RO",
@@ -235,7 +236,7 @@ try {
     const errors = []
     p.on("pageerror", (e) => errors.push(e.message))
     await p.setRequestInterception(true)
-    const either = { ...needsNow, fields: ["dob", "address", "idNumber", "document"], either: [{ original: ["idNumber"], alternative: ["document"] }], offered: ["document"], given: [] }
+    const either = { ...needsNow, fields: ["dob", "address", "idNumber", "document"], either: [{ original: ["idNumber"], alternative: ["document"] }], offered: ["document"], given: [], handover: [] }
     const sentHere = {}
     p.on("request", (r) => {
       const u = r.url()
@@ -283,6 +284,51 @@ try {
     }))
     expect(typing.cnp && typing.stillHere, "and the number is typed on that step, not back on the details page", typing)
     await p.screenshot({ path: join(out, "cnp-instead-390.png") })
+    expect(errors.length === 0, "nothing threw", errors.slice(0, 1))
+    await p.close()
+  }
+  {
+    /*
+      Stripe wants a thing this form does not draw (a number off a card, a
+      proof of address). It is not quietly added back: Stripe's own form
+      takes the step, inside the page.
+    */
+    console.log("\nStripe asks for something the form will not draw (390px)")
+    const p = await browser.newPage()
+    const errors = []
+    p.on("pageerror", (e) => errors.push(e.message))
+    await p.setRequestInterception(true)
+    const handed = { ...needsNow, fields: ["dob", "address"], handover: ["ssnLast4"] }
+    p.on("request", (r) => {
+      const u = r.url()
+      const json = (body) => r.respond({ status: 200, contentType: "application/json", body: JSON.stringify(body) })
+      if (u.startsWith("http://probe.test/__file")) return r.respond({ status: 200, contentType: "font/woff2", body: readFileSync(decodeURIComponent(u.slice("http://probe.test/__file".length))) })
+      if (u.startsWith("http://probe.test/app/payouts")) return r.respond({ status: 200, contentType: "text/html", body: html })
+      if (u.startsWith("http://probe.test/api/payments/")) {
+        const action = u.slice("http://probe.test/api/payments/".length)
+        if (action === "details-form") return json(form(handed))
+        return json({})
+      }
+      if (u.startsWith("data:")) return r.continue()
+      r.abort()
+    })
+    await p.bringToFront()
+    await p.setViewport({ width: 390, height: 844, deviceScaleFactor: 1, isMobile: true, hasTouch: true })
+    await p.goto("http://probe.test/app/payouts")
+    await new Promise((r) => setTimeout(r, 1200))
+    const handedOver = await p.evaluate(() => {
+      const t = document.querySelector("[data-payments-setup-panel]")?.textContent ?? ""
+      return {
+        stripeForm: /A few more details/.test(t),
+        noOwnFields: !document.querySelector('[autocomplete="bday-day"]'),
+        noSsnField: !/Last 4 digits/.test(t),
+        stillInStorelib: !!document.querySelector("[data-payments-setup-panel]"),
+      }
+    })
+    expect(handedOver.stripeForm, "Stripe's own form takes the step", handedOver)
+    expect(handedOver.noOwnFields && handedOver.noSsnField, "and this form draws none of it itself", handedOver)
+    expect(handedOver.stillInStorelib, "still inside the Storelib page, with no browser sent anywhere", handedOver)
+    await p.screenshot({ path: join(out, "handover-390.png") })
     expect(errors.length === 0, "nothing threw", errors.slice(0, 1))
     await p.close()
   }
@@ -412,7 +458,7 @@ try {
     const sent = {}
     p.on("pageerror", (e) => errors.push(e.message))
     await p.setRequestInterception(true)
-    const eitherNeeds = { ...needsNow, fields: ["dob", "address", "idNumber", "document"], either: [{ original: ["idNumber"], alternative: ["document"] }], offered: ["document"], given: [] }
+    const eitherNeeds = { ...needsNow, fields: ["dob", "address", "idNumber", "document"], either: [{ original: ["idNumber"], alternative: ["document"] }], offered: ["document"], given: [], handover: [] }
     p.on("request", (r) => {
       const u = r.url()
       const json = (body) => r.respond({ status: 200, contentType: "application/json", body: JSON.stringify(body) })
@@ -540,7 +586,7 @@ try {
         footBottom: foot ? Math.round(window.innerHeight - foot.bottom) : null,
         iframes: document.querySelectorAll("iframe").length,
         fields: ["bday-day", "bday-month", "bday-year", "address-line1", "address-level2", "postal-code"].every((a) => !!document.querySelector(`[autocomplete="${a}"]`)),
-        idLabel: document.body.textContent?.includes("CNP (personal numeric code)"),
+        noNumberAsked: !document.body.textContent?.includes("CNP (personal numeric code)"),
         agreement: !!document.querySelector('a[href="https://stripe.com/legal/connect-account"]'),
         noPhoto: !document.querySelector("[data-upload-tile]"),
         smallText: [...document.querySelectorAll("[data-payments-setup-panel] input, [data-payments-setup-panel] select")].filter((el) => parseFloat(getComputedStyle(el).fontSize) < 16).length,
@@ -549,7 +595,7 @@ try {
     expect(!shape.sideways, "no sideways scroll", shape.sideways)
     expect(shape.iframes === 0, "nothing from Stripe is framed in", shape.iframes)
     expect(shape.fields, "date of birth and address are asked")
-    expect(shape.idLabel, "the ID number is named as Romania does: CNP")
+    expect(shape.noNumberAsked, "no national ID number is asked for: the live check is the verification")
     expect(shape.agreement, "Stripe's agreement is linked to be accepted")
     expect(shape.noPhoto, "like Gumroad, no ID photo is asked before Stripe wants one")
     if (phone) {
@@ -569,12 +615,6 @@ try {
     await p.type('[autocomplete="address-line1"]', "Strada Lipscani 12")
     await p.type('[autocomplete="address-level2"]', "Bucharest")
     await p.type('[autocomplete="postal-code"]', "030031")
-    await p.evaluate(() => {
-      const label = [...document.querySelectorAll("label")].find((l) => l.textContent?.includes("CNP"))
-      const id = label?.getAttribute("for")
-      ;(id ? document.getElementById(id) : null)?.focus()
-    })
-    await p.keyboard.type("1940314123456")
     await p.evaluate(() => [...document.querySelectorAll('input[type="checkbox"]')].forEach((c) => c.click()))
     expect(await p.evaluate(() => !!document.querySelector("[data-details-bank]") && document.body.textContent?.includes("IBAN")), "the bank, with an IBAN for Romania, is on the same page")
     await p.type('[placeholder^="RO00"]', "RO49AAAA1B31007593840001")
@@ -595,7 +635,11 @@ try {
     await p.waitForFunction(() => document.body.textContent?.includes("Payments active"), { timeout: 5000 }).catch(() => {})
     await new Promise((r) => setTimeout(r, 400))
     const body = sent.details ? JSON.parse(sent.details) : null
-    expect(!!body && body.dob?.year === 1994 && body.dob?.month === 3 && body.address?.city === "Bucharest" && body.idNumber === "1940314123456" && body.acceptTos === true, "one Continue sends the details as entered", body && { dob: body.dob, city: body.address?.city, tos: body.acceptTos })
+    expect(
+      !!body && body.dob?.year === 1994 && body.dob?.month === 3 && body.address?.city === "Bucharest" && body.acceptTos === true && body.idNumber === undefined,
+      "one Continue sends the details as entered, and no national ID number with them",
+      body && { dob: body.dob, city: body.address?.city, tos: body.acceptTos, idNumber: body.idNumber ?? null },
+    )
     expect(sent.bank && JSON.parse(sent.bank).iban === "RO49 AAAA 1B31 0075 9384 0000", "the valid IBAN is sent")
     expect(await p.evaluate(() => document.body.textContent?.includes("Payments active")), "and setup ends on Payments active")
     await p.screenshot({ path: join(out, `finished-${width}.png`) })
