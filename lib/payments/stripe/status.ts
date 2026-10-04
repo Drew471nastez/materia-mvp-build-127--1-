@@ -37,6 +37,8 @@ export interface StatusFacts {
   currentDeadline: number | null
   /** future_requirements.currently_due + past_due: asked later, not yet. */
   futureDue: string[]
+  /** requirements.eventually_due: what Stripe may ask for as sales grow. Only the ID check is read from it. */
+  eventuallyDue?: string[]
   /** Requested capabilities by name, with Stripe's status for each. */
   capabilities: Record<string, string>
   /** Stripe's status of each payout bank account (new, validated, verified, verification_failed, errored). */
@@ -150,6 +152,16 @@ export function getStorelibPaymentsStatus(f: StatusFacts): StorelibStatusView {
       : view("ACTION_REQUIRED", "More information needed", "More information is needed to activate payments.", "Continue", "onboarding")
   }
 
+  /*
+   * THE ID CHECK IS THE LAST STEP OF SETUP (lib/payments/stripe/own-form.ts
+   * viewOf). A seller whose details are in but whose ID is not has not
+   * finished, whatever Stripe is checking in the meantime: "Verification in
+   * progress" with no button here sent them away from the one step left,
+   * and then asked for it again days later as "more information".
+   */
+  const idStillToDo = !f.everActive && !(takes && f.payoutsEnabled) && (f.eventuallyDue ?? []).some((k) => DOCUMENT.test(k))
+  if (idStillToDo) return view("INCOMPLETE", "Finish setting up payments", "One step left: verify your identity.", "Continue setup", "onboarding")
+
   const checking = f.pendingVerification.length > 0 || reason === "requirements.pending_verification" || reason === "under_review" || reason === "listed"
   if (checking && !(takes && f.payoutsEnabled)) {
     return view("VERIFYING", "Verification in progress", "We're checking your information. No action is needed right now.", null, null)
@@ -208,6 +220,7 @@ export function statusFactsOf(
       pending_verification?: string[] | null
       disabled_reason?: string | null
       current_deadline?: number | null
+      eventually_due?: string[] | null
     } | null
     future_requirements?: { currently_due?: string[] | null; past_due?: string[] | null } | null
     capabilities?: object | null
@@ -229,6 +242,7 @@ export function statusFactsOf(
     disabledReason: r?.disabled_reason ?? null,
     currentDeadline: r?.current_deadline ?? null,
     futureDue: [...(account?.future_requirements?.currently_due ?? []), ...(account?.future_requirements?.past_due ?? [])],
+    eventuallyDue: r?.eventually_due ?? [],
     capabilities: caps,
     externalAccounts: externalAccounts.map((e) => ({ status: e.status ?? null })),
     lastPayoutFailed: extra.lastPayoutFailed,

@@ -130,6 +130,11 @@ is("a capability still pending", status(account({ details_submitted: true, charg
 is("something off with nothing to ask", status(account({ details_submitted: true, reason: "other" }), bank), "RESTRICTED")
 
 check("waiting items are not asked again", status(account({ details_submitted: true, due: ["individual.verification.document"], pending: ["individual.verification.document"] }), bank).status === "VERIFYING")
+/* The ID check is the last step of setup: details in, ID not, is setup unfinished, not "verification in progress" with nowhere to go. */
+const idLeft = status(account({ details_submitted: true, requirements: { currently_due: [], past_due: [], pending_verification: ["individual.dob.day"], disabled_reason: null, current_deadline: null, eventually_due: ["individual.verification.document"] }, capabilities: { card_payments: "pending", transfers: "pending" } }), bank)
+check("details in and the ID still to do is Finish setting up payments, with the way back in", idLeft.status === "INCOMPLETE" && idLeft.action === "onboarding" && /verify your identity/i.test(idLeft.line))
+check("  once the ID is with Stripe (pending), it is verification in progress", status(account({ details_submitted: true, requirements: { currently_due: [], past_due: [], pending_verification: ["individual.verification.document"], disabled_reason: null, current_deadline: null, eventually_due: [] }, capabilities: { card_payments: "pending", transfers: "pending" } }), bank).status === "VERIFYING")
+check("  and a seller already selling is never sent back to setup for an eventual ID", status(account({ details_submitted: true, charges_enabled: true, payouts_enabled: true, requirements: { currently_due: [], past_due: [], pending_verification: [], disabled_reason: null, current_deadline: null, eventually_due: ["individual.verification.document"] } }), bank, { everActive: true }).status === "ACTIVE")
 check("Storelib form state can never make an account active", status(account({ details_submitted: true, due: [] }), bank).status !== "ACTIVE")
 
 check("every status is reachable", all.every((s) => seen.has(s)))

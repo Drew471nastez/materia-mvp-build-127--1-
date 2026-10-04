@@ -485,8 +485,10 @@ export function PaymentsSetupFlow({
    * there and was sent forward again: the way back was a wall, and pressing
    * it looked like Continue. Once it has said it is empty, Back goes past it.
    */
-  /* Stripe wants an ID today: known once the ID step has loaded. */
-  const [idNeeded, setIdNeeded] = React.useState(false)
+  /* Stripe wants an ID: the overview says so from the start, and the ID step confirms it when it loads. */
+  const [idNeeded, setIdNeeded] = React.useState(!!data.idAhead)
+  /* Which screen the "checking" outcome is about: the ID that just went in, or the details. */
+  const [checkingWhat, setCheckingWhat] = React.useState<"id" | "details">("details")
   /* The details step was walked past with nothing to ask, so Back skips it too. */
   const [detailsEmpty, setDetailsEmpty] = React.useState(false)
 
@@ -505,7 +507,7 @@ export function PaymentsSetupFlow({
     if (!open) return
     setBack(false)
     setEnding(null)
-    setIdNeeded(false)
+    setIdNeeded(!!data.idAhead)
     setDetailsEmpty(false)
     /* A fresh open starts from Stripe's answer, not from what was typed last time. */
     clearDetailsDraft()
@@ -578,6 +580,7 @@ export function PaymentsSetupFlow({
     }
 
     if (outcome === "done" || outcome === "checking") onFinished()
+    setCheckingWhat(step === 2 || !!left?.needs.given?.includes("document") ? "id" : "details")
     setEnding(outcome)
   }
 
@@ -599,6 +602,7 @@ export function PaymentsSetupFlow({
     body = (
       <Outcome
         outcome={ending}
+        what={checkingWhat}
         onContinue={() => {
           setEnding(null)
           setOpenCount((k) => k + 1)
@@ -609,7 +613,20 @@ export function PaymentsSetupFlow({
           onData(next)
           const now = outcomeOf(statusOf(next))
           if (now === "done") onFinished()
-          if (now !== "checking") setEnding(now)
+          if (now === "checking") return
+          /*
+           * Stripe wants something after all. In setup that is the next
+           * step's to ask, not a "Verification isn't finished" screen with a
+           * button that only led back to the same form. The details step
+           * draws what is left, or hands straight on to the ID check.
+           */
+          if (mode === "setup" && now === "more") {
+            setEnding(null)
+            go(1)
+            setOpenCount((k) => k + 1)
+            return
+          }
+          setEnding(now)
         }}
       />
     )
@@ -656,7 +673,9 @@ export function PaymentsSetupFlow({
 
   const subtitle =
     mode === "setup"
-      ? "Your country, your name as on your ID, a few details Stripe needs and your bank. About five minutes."
+      ? idNeeded
+        ? "Your country, your name as on your ID, a few details Stripe needs, your bank, then a quick ID check with your camera. About five minutes."
+        : "Your country, your name as on your ID, a few details Stripe needs and your bank. About five minutes."
       : mode === "bank"
         ? "Where your cash outs are sent."
         : "The details on your payments account."
@@ -1946,7 +1965,7 @@ function ibanLooksValid(input: string, country: string): boolean {
  * over ever sees a wait, and even then it is not given a number: the email
  * when it clears is the promise, not a guess at how many days.
  */
-function Outcome({ outcome, onContinue, onDone, onChecked }: { outcome: Outcome; onContinue: () => void; onDone: () => void; onChecked?: (next: Overview) => void }) {
+function Outcome({ outcome, what, onContinue, onDone, onChecked }: { outcome: Outcome; what: "id" | "details"; onContinue: () => void; onDone: () => void; onChecked?: (next: Overview) => void }) {
   const [waited, setWaited] = React.useState(0)
   const checked = React.useRef(onChecked)
   checked.current = onChecked
@@ -1993,7 +2012,8 @@ function Outcome({ outcome, onContinue, onDone, onChecked }: { outcome: Outcome;
           ? {
             icon: <Clock className="h-5 w-5" />,
             tone: "bg-[#f4f3ff] text-[#5b4bd5]",
-            title: "Checking your ID",
+            /* "Checking your ID" when no ID had gone in read as the form having lost something. It is checking the details then. */
+            title: what === "id" ? "Checking your ID" : "Checking your details",
             line:
               waited >= 15
                 ? "Stripe is taking a closer look at this one. Nothing more is needed from you, and we'll email you the moment payments are on."

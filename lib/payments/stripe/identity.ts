@@ -111,7 +111,8 @@ async function accountAndPerson(creator: PaymentsCreatorRef): Promise<{ account:
  */
 function documentDue(account: Stripe.Account): boolean {
   const req = account.requirements
-  const due = new Set([...(req?.past_due ?? []), ...(req?.currently_due ?? [])])
+  /* The ID check is the last step of setup, so it may start as soon as Stripe lists the document, even under eventually_due (lib/payments/stripe/own-form.ts viewOf). */
+  const due = new Set([...(req?.past_due ?? []), ...(req?.currently_due ?? []), ...(req?.eventually_due ?? [])])
   const pending = new Set(req?.pending_verification ?? [])
   const isDoc = (k: string) => /^individual\.verification\.(document|additional_document)$/.test(k) && !pending.has(k)
   if ([...due].some(isDoc)) return true

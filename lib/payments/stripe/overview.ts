@@ -83,7 +83,7 @@ export async function stripeOverview(creator: CreatorRef, options?: { sync?: boo
               charges_enabled: snapshot.chargesEnabled,
               payouts_enabled: snapshot.payoutsEnabled,
               details_submitted: snapshot.detailsSubmitted,
-              requirements: { currently_due: snapshot.currentlyDue, pending_verification: snapshot.pendingVerification, disabled_reason: snapshot.disabledReason },
+              requirements: { currently_due: snapshot.currentlyDue, pending_verification: snapshot.pendingVerification, disabled_reason: snapshot.disabledReason, eventually_due: row?.stripe_eventually_due ?? [] },
               capabilities: snapshot.transfersStatus ? { transfers: snapshot.transfersStatus } : {},
             }
           : null,
@@ -91,6 +91,11 @@ export async function stripeOverview(creator: CreatorRef, options?: { sync?: boo
         { everActive: !!row?.stripe_connected_at, reconnect },
       ),
     )
+
+  /* The ID check is still ahead in setup: Stripe lists the document (now or eventually) and none is on file or being looked at. */
+  const req = live?.requirements
+  const listed = [...(req?.currently_due ?? snapshot.currentlyDue), ...(req?.eventually_due ?? row?.stripe_eventually_due ?? [])]
+  const idAhead = !!row?.stripe_account_id && listed.includes("individual.verification.document") && !(req?.pending_verification ?? snapshot.pendingVerification).includes("individual.verification.document")
 
   const stage = stripeStageOf(snapshot)
   const uxState = paymentUxStateOf(snapshot)
@@ -178,6 +183,7 @@ export async function stripeOverview(creator: CreatorRef, options?: { sync?: boo
     beat,
     statusLabel,
     nextPayout,
+    idAhead,
   }
 }
 

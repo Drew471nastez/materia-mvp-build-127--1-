@@ -87,18 +87,22 @@ async function ownAccount(creator: PaymentsCreatorRef): Promise<Stripe.Account> 
 async function viewOf(creator: PaymentsCreatorRef, account: Stripe.Account): Promise<DetailsFormView> {
   const needs = needsOf(account.requirements as never)
   /*
-   * PROGRESSIVE: ONLY WHAT STRIPE NEEDS NOW. needsOf reads past_due and
-   * currently_due and nothing else. eventually_due is what Stripe MAY ask for
-   * as sales grow, and asking for it at setup is exactly the "upload your
-   * passport" a seller who does not need it yet should never see. When Stripe
-   * moves something into currently_due later, account.updated syncs it,
-   * Payouts and Home say so, the seller gets an email, and this same form
-   * opens with only that.
+   * PROGRESSIVE, WITH ONE EXCEPTION. needsOf reads past_due and currently_due
+   * and nothing else: eventually_due is what Stripe MAY ask for as sales
+   * grow, and a detail asked for before Stripe wants it is a wall for
+   * nothing. When Stripe moves something into currently_due later,
+   * account.updated syncs it, Payouts and Home say so, the seller gets an
+   * email, and this same form opens with only that.
    *
-   * The one way an ID photo appears early is Stripe's own alternative to a
-   * field it needs today ("the national ID number, or a photo of your ID"):
-   * that is still only what is due now, offered in the form the seller finds
-   * easier.
+   * THE EXCEPTION IS THE ID CHECK, and it is the last step of setup however
+   * Stripe lists it. Stripe puts individual.verification.document under
+   * eventually_due the day most accounts are made, and moves it to
+   * currently_due seconds after the details go in. Reading only "now" made
+   * that a bounce: details sent, "checking", and then straight back to the
+   * form for the ID. The owner, October 2026: "once users set up it's done,
+   * they upload their KYC and that's all", and the ID check is step three.
+   * So the document is asked once, at the end, and nothing else is ever
+   * taken from eventually_due.
    */
   const pending = new Set(account.requirements?.pending_verification ?? [])
   /*
@@ -113,6 +117,10 @@ async function viewOf(creator: PaymentsCreatorRef, account: Stripe.Account): Pro
   if (account.individual?.verification?.document?.front || pending.has("individual.verification.document")) given.push("document")
   if (account.individual?.verification?.additional_document?.front || pending.has("individual.verification.additional_document")) given.push("proofOfAddress")
   needs.given = given
+  const eventually = account.requirements?.eventually_due ?? []
+  if (!needs.fields.includes("document") && !given.includes("document") && eventually.includes("individual.verification.document")) {
+    needs.fields = [...needs.fields, "document"]
+  }
   const country = (account.country ?? "").toUpperCase()
   const ext = account.external_accounts?.data?.find((e) => e.object === "bank_account") as Stripe.BankAccount | undefined
   const person = account.individual
