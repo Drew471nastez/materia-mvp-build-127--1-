@@ -66,11 +66,19 @@ export function WbImagePicker({
   aspectRatio = "video",
   bucket = "store-builder-images" as const,
   folder = "logos",
+  layout = "box",
 }: {
   value: string | undefined
   onChange: (url: string | null) => void
   label?: string
   aspectRatio?: "square" | "video" | "logo" | "favicon"
+  /**
+   * "row" is the section setting's picker: a thumbnail and its two actions on
+   * one line, about 64px, rather than a 16:9 box the width of the sidebar.
+   * "box" stays for Website settings' logo and favicon, where the picture is
+   * the whole point of the panel.
+   */
+  layout?: "box" | "row"
   bucket?: "product-images" | "avatars" | "covers" | "store-builder-images"
   folder?: string
 }) {
@@ -217,6 +225,123 @@ export function WbImagePicker({
     spinner over it, and the uploaded copy arrives underneath without the
     layout moving at all.
   */
+  /*
+   * ═════════════════════════════════════════════════════════════════════
+   *  THE SECTION'S PICTURE, ON ONE LINE
+   * ═════════════════════════════════════════════════════════════════════
+   * The box below was a 16:9 rectangle the width of the sidebar: about 170px
+   * of dashed border to say "nothing here yet", and a 96px picture plus a row
+   * of buttons once there was. In a panel of a dozen settings that was most
+   * of the screen given to one of them ("the image picker is too big, the
+   * whole container when an image is added"). Shopify's own is a small
+   * thumbnail with its actions beside it, and so is this: the picture at
+   * 56px, its name, Replace and Remove. Everything else (the upload, the
+   * local copy painted at once, the cross fade, the sweep while a stored
+   * picture loads) is the same component underneath, unchanged.
+   */
+  if (layout === "row") {
+    const name = (() => {
+      if (!url) return "Uploading"
+      try {
+        const last = decodeURIComponent(new URL(url, "https://x.invalid").pathname.split("/").pop() || "")
+        return last || "Image"
+      } catch {
+        return "Image"
+      }
+    })()
+    if (url || preview) {
+      return (
+        <div className="space-y-2" data-wb-image-picker="filled">
+          {label && <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">{label}</p>}
+          <div className="flex items-center gap-3 rounded-lg border border-border bg-white p-1.5 pr-2 dark:bg-white/[0.04]">
+            <div
+              data-wb-image-box
+              className="relative h-14 w-14 shrink-0 overflow-hidden rounded-md border border-black/[0.06] bg-[#f4f4f5] dark:bg-white/[0.06]"
+            >
+              {!faded && (
+                preview
+                  ? <img src={preview} alt="" data-wb-image-layer="local" className="absolute inset-0 h-full w-full object-cover" />
+                  : <span data-wb-image-layer="waiting" className="wb-image-skeleton absolute inset-0" aria-hidden />
+              )}
+              {url && (
+                <img
+                  key={url}
+                  src={url}
+                  alt=""
+                  data-wb-image-layer="stored"
+                  ref={el => { if (el?.complete && el.naturalWidth > 0) setReadyUrl(url) }}
+                  onLoad={() => setReadyUrl(url)}
+                  onError={() => setReadyUrl(url)}
+                  className={cn("wb-image-fade relative h-full w-full object-cover", ready ? "opacity-100" : "opacity-0")}
+                />
+              )}
+              {uploading && (
+                <span className="absolute inset-0 z-10 flex items-center justify-center bg-white/55">
+                  <span className="h-4 w-4 rounded-full border-2 border-foreground/70 border-t-transparent animate-spin" />
+                </span>
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[12.5px] font-medium text-foreground" title={name}>{name}</p>
+              <div className="mt-1 flex items-center gap-1">
+                <button
+                  type="button"
+                  disabled={uploading}
+                  onClick={pick}
+                  className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-[12px] font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-40 max-sm:h-9"
+                >
+                  <RefreshCw className="h-3 w-3" />
+                  Replace
+                </button>
+                <button
+                  type="button"
+                  disabled={uploading}
+                  onClick={() => { showFile(null); onChange(null) }}
+                  className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-40 max-sm:h-9"
+                >
+                  <Trash2 className="h-3 w-3" />
+                  Remove
+                </button>
+              </div>
+            </div>
+          </div>
+          {fileInput}
+        </div>
+      )
+    }
+    return (
+      <div className="space-y-2" data-wb-image-picker="empty">
+        {label && <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">{label}</p>}
+        <div
+          role="button"
+          tabIndex={0}
+          aria-label="Add image"
+          data-wb-image-box=""
+          className={cn(
+            "wb-dropzone-row flex h-16 w-full cursor-pointer items-center gap-3 rounded-lg border border-dashed px-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/15",
+            dragOver
+              ? "border-foreground/40 bg-muted"
+              : "border-neutral-300 bg-[#fafafa] hover:border-neutral-400 hover:bg-muted/60 dark:border-white/15 dark:bg-white/[0.03]",
+          )}
+          onClick={pick}
+          onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pick() } }}
+          onDragOver={e => { e.preventDefault(); setDragOver(true) }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={e => { e.preventDefault(); setDragOver(false); if (uploading) return; const f = e.dataTransfer.files[0]; if (f) handleFile(f) }}
+        >
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-black/[0.06] bg-white text-muted-foreground/70 dark:bg-white/[0.05]">
+            <ImageIcon className="h-[18px] w-[18px]" />
+          </span>
+          <span className="min-w-0">
+            <span className="block text-[13px] font-medium text-foreground">Add image</span>
+            <span className="block truncate text-[11.5px] text-muted-foreground">Upload or drop a file</span>
+          </span>
+        </div>
+        {fileInput}
+      </div>
+    )
+  }
+
   if (url || preview) {
     return (
       <div className="space-y-2" data-wb-image-picker="filled">

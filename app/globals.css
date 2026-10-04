@@ -1164,16 +1164,22 @@ html.capacitor body {
    * ring round the field, held for a moment and then faded, 1600ms in all
    * (FIELD_FLASH_MS). An outline, so it takes no room and moves nothing.
    */
+  /*
+   * THE FIELD A CANVAS CLICK OPENED, FOUND FOR YOU, QUIETLY. It was a violet
+   * outline four pixels out, which read as a border drawn round the setting,
+   * in a colour the sidebar uses for nothing else. The owner asked for no
+   * purple rings in the sidebar at all. So it is a soft grey wash under the
+   * field, out to the same edge, that comes up and goes again: the eye still
+   * lands on it, and nothing is outlined.
+   */
   [data-sl-flash] {
     border-radius: 10px;
-    outline: 2px solid rgba(139, 92, 246, 0.6);
-    outline-offset: 4px;
     animation: sl-field-flash 1600ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
   }
   @keyframes sl-field-flash {
-    0% { outline-color: rgba(139, 92, 246, 0); }
-    10%, 55% { outline-color: rgba(139, 92, 246, 0.6); }
-    100% { outline-color: rgba(139, 92, 246, 0); }
+    0% { background-color: rgba(17, 24, 39, 0); box-shadow: 0 0 0 6px rgba(17, 24, 39, 0); }
+    12%, 55% { background-color: rgba(17, 24, 39, 0.045); box-shadow: 0 0 0 6px rgba(17, 24, 39, 0.045); }
+    100% { background-color: rgba(17, 24, 39, 0); box-shadow: 0 0 0 6px rgba(17, 24, 39, 0); }
   }
   /*
    * WHAT THE POINTER IS OVER ON THE CANVAS (editor page.tsx, CanvasHover):
@@ -1205,7 +1211,7 @@ html.capacitor body {
     transition: opacity 120ms ease-out;
   }
   @media (prefers-reduced-motion: reduce) {
-    [data-sl-flash] { animation-duration: 1ms; animation-delay: 1200ms; outline-color: rgba(139, 92, 246, 0.6); }
+    [data-sl-flash] { animation-duration: 1ms; animation-delay: 1200ms; background-color: rgba(17, 24, 39, 0.045); }
     .wb-inspector, .wb-inspector svg { animation: none; transition: none; }
     [data-wb-inspect] .wb-ring { transition: none; animation: none; }
   }
@@ -5793,12 +5799,15 @@ html.pop-in-flight #platform-header-root {
   inset: 0;
   border-radius: inherit;
   padding: 1px;
+  /* Grey on grey, and slow: a soft brighter arc of the page's own ink going
+     round, not a violet comet. "Too hard and too fast... smoother, cleaner,
+     lighter grey, not purple." */
   background: conic-gradient(
     from var(--wb-ai-angle, 0deg),
-    color-mix(in srgb, var(--wb-ink) 10%, transparent) 0deg,
-    rgba(139, 92, 246, 0.85) 50deg,
-    color-mix(in srgb, var(--wb-ink) 10%, transparent) 110deg,
-    color-mix(in srgb, var(--wb-ink) 10%, transparent) 360deg
+    color-mix(in srgb, var(--wb-ink) 8%, transparent) 0deg,
+    color-mix(in srgb, var(--wb-ink) 22%, transparent) 70deg,
+    color-mix(in srgb, var(--wb-ink) 8%, transparent) 160deg,
+    color-mix(in srgb, var(--wb-ink) 8%, transparent) 360deg
   );
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
@@ -5806,7 +5815,7 @@ html.pop-in-flight #platform-header-root {
   mask-composite: exclude;
   pointer-events: none;
   z-index: -1;
-  animation: wb-ai-shimmer 2.6s linear infinite;
+  animation: wb-ai-shimmer 7s linear infinite;
 }
 .wb-writing-inner {
   position: relative;
@@ -5839,8 +5848,8 @@ html.pop-in-flight #platform-header-root {
   overflow: hidden;
   text-overflow: clip;
 }
-.wb-writing-tag { color: color-mix(in srgb, #8b5cf6 70%, var(--wb-ink)); }
-.wb-writing-liquid { color: color-mix(in srgb, #8b5cf6 45%, var(--wb-ink)); }
+.wb-writing-tag { color: color-mix(in srgb, var(--wb-ink) 66%, var(--wb-paper)); }
+.wb-writing-liquid { color: color-mix(in srgb, var(--wb-ink) 44%, var(--wb-paper)); }
 .wb-writing-str { color: color-mix(in srgb, var(--wb-ink) 72%, var(--wb-paper)); }
 .wb-writing-caret {
   display: inline-block;
@@ -5849,11 +5858,12 @@ html.pop-in-flight #platform-header-root {
   margin-left: 1px;
   vertical-align: -0.2em;
   border-radius: 1px;
-  background: #8b5cf6;
-  animation: wb-writing-caret 900ms steps(1) infinite;
+  background: color-mix(in srgb, var(--wb-ink) 45%, var(--wb-paper));
+  animation: wb-writing-caret 1100ms ease-in-out infinite;
 }
 @keyframes wb-writing-caret {
-  50% { opacity: 0; }
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.15; }
 }
 /* A band of light across the lane, slow and wide, so the work reads as
    alive between keystrokes. */
@@ -5862,23 +5872,27 @@ html.pop-in-flight #platform-header-root {
   position: absolute;
   inset: 0;
   pointer-events: none;
+  /* Wide, faint and unhurried: a light-grey haze that drifts across, with
+     a long rest between passes, rather than a bright violet band every two
+     seconds. */
   background: linear-gradient(
     100deg,
-    transparent 30%,
-    color-mix(in srgb, #8b5cf6 9%, transparent) 45%,
-    color-mix(in srgb, var(--wb-paper) 35%, transparent) 50%,
-    color-mix(in srgb, #8b5cf6 9%, transparent) 55%,
-    transparent 70%
+    transparent 20%,
+    color-mix(in srgb, var(--wb-paper) 22%, transparent) 42%,
+    color-mix(in srgb, var(--wb-paper) 38%, transparent) 50%,
+    color-mix(in srgb, var(--wb-paper) 22%, transparent) 58%,
+    transparent 80%
   );
   transform: translateX(-100%);
-  animation: wb-lane-sweep 2.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  animation: wb-lane-sweep 5.2s cubic-bezier(0.37, 0, 0.63, 1) infinite;
 }
 @keyframes wb-writing-open {
   from { opacity: 0; transform: translateY(8px) scale(0.99); }
   to { opacity: 1; transform: none; }
 }
 @keyframes wb-lane-sweep {
-  to { transform: translateX(100%); }
+  0% { transform: translateX(-100%); }
+  70%, 100% { transform: translateX(100%); }
 }
 .wb-section-arrive {
   animation: wb-section-arrive 520ms cubic-bezier(0.32, 0.72, 0, 1) both;
@@ -5904,13 +5918,13 @@ html.pop-in-flight #platform-header-root {
    in the way: pointer-events none all the way down, so a click selects the
    section under it and a wheel or a finger scrolls the canvas.
 
-   Working: a light diagonal sheen crosses the section every 2.4s. It is a
+   Working: a light grey diagonal sheen crosses the section once every 5.6s. It is a
    pseudo element moved by transform, with its opacity rising and falling
    as it crosses, so it costs the page no painting and the section is never
    covered by more than a faint film (peak 0.5 opacity over a gradient whose
    strongest stop is 0.22 alpha: measured by scripts/check-ask-states.mjs).
 
-   Settled: a violet ring that fades out once, 1.4s, so the eye lands on
+   Settled: a soft grey ring that fades out once, 1.4s, so the eye lands on
    what changed. Under reduced motion the sheen is a still tint and the ring
    is shown without fading, then removed with the box. */
 .wb-ai-layer {
@@ -5932,36 +5946,41 @@ html.pop-in-flight #platform-header-root {
   position: absolute;
   inset: 0;
   pointer-events: none;
+  /* Light grey only, wide and soft. The violet band read as an alarm. */
   background: linear-gradient(
     115deg,
-    transparent 30%,
-    rgba(139, 92, 246, 0.06) 42%,
-    rgba(255, 255, 255, 0.22) 50%,
-    rgba(139, 92, 246, 0.06) 58%,
-    transparent 70%
+    transparent 18%,
+    rgba(229, 231, 235, 0.10) 38%,
+    rgba(255, 255, 255, 0.20) 50%,
+    rgba(229, 231, 235, 0.10) 62%,
+    transparent 82%
   );
   opacity: 0;
   transform: translate3d(-100%, 0, 0);
   will-change: transform, opacity;
 }
 .wb-ai-work[data-ai-work="working"]::before {
-  animation: wb-ai-sheen 2.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  animation: wb-ai-sheen 5.6s cubic-bezier(0.37, 0, 0.63, 1) infinite;
 }
 .wb-ai-work::after {
   content: "";
   position: absolute;
   inset: 0;
   pointer-events: none;
-  box-shadow: inset 0 0 0 2px rgba(139, 92, 246, 0.55);
+  box-shadow: inset 0 0 0 1.5px rgba(17, 24, 39, 0.22);
   opacity: 0;
 }
 .wb-ai-work[data-ai-work="settled"]::after {
   animation: wb-ai-settle 1.4s cubic-bezier(0.32, 0.72, 0, 1) both;
 }
+/* One slow pass and then a rest, so it reads as quiet work going on, not a
+   strobe: it crosses in the first 70% and the section sits still for the
+   rest. */
 @keyframes wb-ai-sheen {
   0% { transform: translate3d(-100%, 0, 0); opacity: 0; }
-  20% { opacity: 0.5; }
-  80% { opacity: 0.5; }
+  14% { opacity: 0.45; }
+  56% { opacity: 0.45; }
+  70% { transform: translate3d(100%, 0, 0); opacity: 0; }
   100% { transform: translate3d(100%, 0, 0); opacity: 0; }
 }
 @keyframes wb-ai-settle {

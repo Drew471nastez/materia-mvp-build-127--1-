@@ -4,6 +4,44 @@ import { useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 
 /**
+ * THE PART OF THE PREVIEW YOU CAN ACTUALLY SEE. The preview root sits inside
+ * the canvas's own scroller (and, on a phone frame, a clipped device), so its
+ * box runs past what is on screen. Every ancestor that clips is intersected in
+ * turn, and the window last, which is the rectangle nothing may be drawn
+ * outside of: not the toolbar above it, not the sidebar beside it.
+ */
+function visibleArea(root: HTMLElement): DOMRect {
+  let top = -Infinity
+  let left = -Infinity
+  let right = Infinity
+  let bottom = Infinity
+  for (let el: HTMLElement | null = root; el && el !== document.body; el = el.parentElement) {
+    const cs = getComputedStyle(el)
+    const clips = el === root || /(auto|scroll|hidden|clip)/.test(cs.overflow + cs.overflowX + cs.overflowY)
+    if (!clips) continue
+    const r = el.getBoundingClientRect()
+    top = Math.max(top, r.top)
+    left = Math.max(left, r.left)
+    right = Math.min(right, r.right)
+    bottom = Math.min(bottom, r.bottom)
+  }
+  top = Math.max(top, 0)
+  left = Math.max(left, 0)
+  right = Math.min(right, window.innerWidth)
+  bottom = Math.min(bottom, window.innerHeight)
+  return new DOMRect(left, top, Math.max(0, right - left), Math.max(0, bottom - top))
+}
+
+/** `a` cut to `b`, or null when nothing of it is left. */
+function clip(a: DOMRect, b: DOMRect): DOMRect | null {
+  const left = Math.max(a.left, b.left)
+  const top = Math.max(a.top, b.top)
+  const right = Math.min(a.right, b.right)
+  const bottom = Math.min(a.bottom, b.bottom)
+  return right > left && bottom > top ? new DOMRect(left, top, right - left, bottom - top) : null
+}
+
+/**
  * ===========================================================================
  *  WHAT A CLICK HERE WOULD OPEN
  * ===========================================================================
@@ -20,7 +58,7 @@ import { createPortal } from "react-dom"
  * hover, and a tap goes straight to the field.
  */
 export function CanvasHover({ enabled, nameOf }: { enabled: boolean; nameOf: (sectionId: string) => string }) {
-  const [box, setBox] = useState<{ el: DOMRect | null; section: DOMRect; name: string } | null>(null)
+  const [box, setBox] = useState<{ el: DOMRect | null; section: DOMRect; area: DOMRect; name: string } | null>(null)
   const nameRef = useRef(nameOf)
   nameRef.current = nameOf
   const [mounted, setMounted] = useState(false)
@@ -50,11 +88,23 @@ export function CanvasHover({ enabled, nameOf }: { enabled: boolean; nameOf: (se
       const id = sectionEl.id.slice("wb-section-".length)
       const hit = target.closest<HTMLElement>("[data-sl-setting], [data-block-id]")
       const inside = hit && sectionEl.contains(hit) ? hit : null
-      const view = root.getBoundingClientRect()
-      const s = sectionEl.getBoundingClientRect()
-      /* The chip stays on screen while the top of a tall section is scrolled away. */
-      const section = new DOMRect(s.left, Math.max(s.top, view.top), s.width, Math.max(0, s.bottom - Math.max(s.top, view.top)))
-      setBox({ el: inside ? inside.getBoundingClientRect() : null, section, name: nameRef.current(id) })
+      /*
+       * NOTHING IS DRAWN OUTSIDE THE PREVIEW. The outline was the element's
+       * whole box, so a tall one (a grid of product cards scrolled half out
+       * of view) drew its outline up over the editor's toolbar, and the chip
+       * sat wherever the section's corner was, on screen or not. Both are
+       * cut to the part of the preview that is visible now.
+       */
+      const area = visibleArea(root)
+      const section = clip(sectionEl.getBoundingClientRect(), area)
+      if (!section) {
+        setBox(null)
+        return
+      }
+      /* Two pixels out from the element, as before, and then cut to the preview. */
+      const raw = inside ? inside.getBoundingClientRect() : null
+      const el = raw ? clip(new DOMRect(raw.left - 2, raw.top - 2, raw.width + 4, raw.height + 4), area) : null
+      setBox({ el, section, area, name: nameRef.current(id) })
     }
     const schedule = () => {
       if (!frame) frame = requestAnimationFrame(measure)
@@ -89,11 +139,16 @@ export function CanvasHover({ enabled, nameOf }: { enabled: boolean; nameOf: (se
           aria-hidden
           className="wb-hover-outline"
           data-wb-hover-outline=""
-          style={{ left: box.el.left - 2, top: box.el.top - 2, width: box.el.width + 4, height: box.el.height + 4 }}
+          style={{ left: box.el.left, top: box.el.top, width: box.el.width, height: box.el.height }}
         />
       )}
       {box.section.height > 24 && (
-        <span aria-hidden className="wb-hover-chip" data-wb-hover-chip="" style={{ left: box.section.left + 8, top: box.section.top + 8 }}>
+        <span
+          aria-hidden
+          className="wb-hover-chip"
+          data-wb-hover-chip=""
+          style={{ left: box.section.left + 8, top: box.section.top + 8, maxWidth: Math.max(0, Math.min(220, box.area.right - box.section.left - 16)) }}
+        >
           {box.name}
         </span>
       )}

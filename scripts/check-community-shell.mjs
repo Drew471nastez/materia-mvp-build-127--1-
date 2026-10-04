@@ -1067,12 +1067,26 @@ export const isNativePlatform = () => false
       const kept = await p.evaluate(() => !!document.querySelector("[data-person-card]:not([data-leaving])"))
       expect(kept, "moving from the name into the card keeps it open", kept)
       /* Follow, then Message opens the panel in place. */
-      await p.click("[data-person-card-follow]")
+      /*
+        Round 7: Follow was disabled while its request was out, so a quick
+        second press did nothing until the server answered. Three quick
+        presses now each flip it at once, and the server hears the last one.
+      */
+      const state = () => p.evaluate(() => { const b = document.querySelector("[data-person-card-follow]"); return `${b?.getAttribute("data-person-card-follow")}${b?.disabled ? " disabled" : ""}` })
+      const presses = []
+      for (let i = 0; i < 3; i++) {
+        await p.click("[data-person-card-follow]")
+        presses.push(await state())
+        await sleep(60)
+      }
+      expect(presses.join() === "following,follow,following", "three quick presses each flip it at once, never disabled", presses)
       await sleep(150)
       const followed = await p.evaluate(() => document.querySelector("[data-person-card-follow]")?.getAttribute("data-person-card-follow"))
       const tick = await p.evaluate(() => { const b = document.querySelector("[data-person-card-follow]"); const svg = b.querySelector("svg"); const r = b.getBoundingClientRect(); return { check: Math.round(svg?.getBoundingClientRect().width ?? 0), fits: b.scrollWidth <= Math.ceil(r.width) } })
       expect(tick.check === 14 && tick.fits, "Following shows its check and fits its button", tick)
-      expect(followed === "following" && calls.some((c) => c.url === "/api/follow" && c.method === "POST"), "Follow follows (POST /api/follow) and shows Following", followed)
+      await sleep(400)
+      const follows = calls.filter((c) => c.url === "/api/follow" && c.method === "POST").length
+      expect(followed === "following" && follows === 1, "Follow follows (one POST /api/follow, for the last press) and shows Following", { followed, follows })
       await shot(p, `${label}-person-card-following`)
       /* Leaving: still there within the grace, gone shortly after. */
       await p.evaluate(() => (window.__cardLog = []))

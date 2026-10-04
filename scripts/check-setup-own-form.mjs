@@ -536,7 +536,7 @@ try {
       const shown = await p.evaluate(() => ({
         stripeFirst: document.querySelector("[data-id-photo]")?.getAttribute("data-id-photo") === "stripe",
         says: document.body.textContent?.includes("matches a selfie to it"),
-        other: document.body.textContent?.includes("Add a photo of your ID instead"),
+        other: document.body.textContent?.includes("Use your camera instead"),
       }))
       if (enabled) {
         expect(shown.stripeFirst && shown.says, "Stripe's live check is the way in, and says what it does", shown)
@@ -661,6 +661,134 @@ try {
       await p.evaluate(() => !document.querySelector('[autocomplete="bday-day"]') && !!document.querySelector("[data-bank-step]")),
       "and after the ID it never hands back to the details: the bank is next",
     )
+    expect(errors.length === 0, "nothing threw", errors.slice(0, 2))
+    await p.close()
+  }
+  {
+    /*
+      The owner, October 2026: after the camera, "nothing happens, no
+      feedback, Continue is blocked". Take the front, close the camera on the
+      back: the step says the front is in, Continue says what is left, and
+      "It's a passport" lets it through to the bank.
+    */
+    console.log("\nClosing the camera after the front (390px)")
+    const p = await browser.newPage()
+    const errors = []
+    const sent = {}
+    p.on("pageerror", (e) => errors.push(e.message))
+    await p.setRequestInterception(true)
+    const idNeeds = { ...needsNow, fields: ["dob", "address", "document"] }
+    p.on("request", (r) => {
+      const u = r.url()
+      const json = (body) => r.respond({ status: 200, contentType: "application/json", body: JSON.stringify(body) })
+      if (u.startsWith("http://probe.test/__file")) return r.respond({ status: 200, contentType: "font/woff2", body: readFileSync(decodeURIComponent(u.slice("http://probe.test/__file".length))) })
+      if (u.startsWith("http://probe.test/app/payouts")) return r.respond({ status: 200, contentType: "text/html", body: html })
+      if (u.startsWith("http://probe.test/api/payments/")) {
+        const action = u.slice("http://probe.test/api/payments/".length)
+        sent[action] = (sent[action] ?? 0) + 1
+        if (action === "identity") return json({ ok: false, reason: "not_enabled" })
+        const left = { ...idNeeds, fields: sent.details ? ["document"] : idNeeds.fields, tos: sent.details ? false : true, given: [] }
+        if (action === "details-form") return json(form(left))
+        /* Stripe's copy lags: the upload answers without "given" yet. The step must still move on. */
+        if (action === "document") return json({ form: form(left) })
+        if (action === "details") return json({ form: form({ ...needsNow, fields: ["document"], tos: false }), overview: { ...doneOverview, beat: "verification", paymentsStatus: { status: "INCOMPLETE", action: "onboarding" }, payoutDestination: null } })
+        return json({})
+      }
+      if (u.startsWith("data:") || u.startsWith("blob:")) return r.continue()
+      r.abort()
+    })
+    await p.bringToFront()
+    await p.setViewport({ width: 390, height: 844, deviceScaleFactor: 1, isMobile: true, hasTouch: true })
+    await p.goto("http://probe.test/app/payouts")
+    await pastDetails(p)
+    await p.waitForSelector("[data-id-photo]", { timeout: 8000 })
+    await p.evaluate(() => document.querySelector("[data-identity-open]")?.click())
+    await p.waitForSelector('[data-id-camera="live"]', { timeout: 8000 }).catch(() => {})
+    await new Promise((r) => setTimeout(r, 700))
+    const cam = await p.evaluate(() => {
+      const t = document.querySelector("[data-id-camera]")?.textContent ?? ""
+      return { noUpload: !/Upload|Choose a photo/.test(t) }
+    })
+    expect(cam.noUpload, "the camera offers no 'upload a photo' way round it", cam)
+    await p.evaluate(() => document.querySelector('[aria-label="Take photo"]')?.click())
+    await p.waitForSelector('[data-id-camera="review"]', { timeout: 4000 }).catch(() => {})
+    await p.evaluate(() => [...document.querySelectorAll("[data-id-camera] button")].find((b) => b.textContent?.includes("Use photo"))?.click())
+    await new Promise((r) => setTimeout(r, 400))
+    /* Now on the back: close it, as somebody going back would. */
+    await p.evaluate(() => document.querySelector("[data-id-camera] [aria-label=Close]")?.click())
+    await new Promise((r) => setTimeout(r, 900))
+    const after = await p.evaluate(() => ({
+      closed: !document.querySelector("[data-id-camera]"),
+      note: document.querySelector("[data-id-note]")?.textContent ?? "",
+      noPhotoLink: !/No camera\? Use a photo/.test(document.body.textContent ?? ""),
+      passport: !!document.querySelector("[data-id-passport]"),
+    }))
+    expect(after.closed && /Front added/.test(after.note), "back on the step, it says the front is in", after)
+    expect(after.noPhotoLink, "and there is no 'No camera? Use a photo' link", after)
+    await p.evaluate(() => document.querySelector('button[type="submit"]')?.click())
+    await new Promise((r) => setTimeout(r, 300))
+    const blocked = await p.evaluate(() => document.querySelector("[data-id-error]")?.textContent ?? "")
+    expect(/back of your ID/.test(blocked) && after.passport, "Continue says the back is missing, beside the photos, with 'It's a passport'", blocked)
+    await p.screenshot({ path: join(out, "id-back-missing-390.png") })
+    await p.evaluate(() => document.querySelector("[data-id-passport]")?.click())
+    await new Promise((r) => setTimeout(r, 200))
+    await p.evaluate(() => document.querySelector('button[type="submit"]')?.click())
+    await p.waitForSelector("[data-bank-step]", { timeout: 6000 }).catch(() => {})
+    expect(await p.evaluate(() => !!document.querySelector("[data-bank-step]")), "then Continue goes on to the bank, even with Stripe's copy lagging")
+    expect(errors.length === 0, "nothing threw", errors.slice(0, 2))
+    await p.close()
+  }
+  {
+    /* On a computer: a QR code for the phone, and the step catches the photos as they arrive. */
+    console.log("\nVerify ID on a computer: the QR code (1280px)")
+    const p = await browser.newPage()
+    const errors = []
+    let polls = 0
+    let detailsIn = false
+    p.on("pageerror", (e) => errors.push(e.message))
+    await p.setRequestInterception(true)
+    const idNeeds = { ...needsNow, fields: ["dob", "address", "document"] }
+    p.on("request", (r) => {
+      const u = r.url()
+      const json = (body) => r.respond({ status: 200, contentType: "application/json", body: JSON.stringify(body) })
+      if (u.startsWith("http://probe.test/__file")) return r.respond({ status: 200, contentType: "font/woff2", body: readFileSync(decodeURIComponent(u.slice("http://probe.test/__file".length))) })
+      if (u.startsWith("http://probe.test/app/payouts")) return r.respond({ status: 200, contentType: "text/html", body: html })
+      if (u.startsWith("http://probe.test/api/payments/")) {
+        const action = u.slice("http://probe.test/api/payments/".length)
+        if (action === "handoff") return json({ url: "http://probe.test/verify-id/abc.def" })
+        if (action === "details-form") {
+          if (!detailsIn) return json(form(idNeeds))
+          polls += 1
+          const sides = { front: polls > 2, back: polls > 3 }
+          return json({ ...form({ ...needsNow, fields: ["document"], tos: false, given: sides.front ? ["document"] : [] }), idSides: sides })
+        }
+        if (action === "details") {
+          detailsIn = true
+          return json({ form: form({ ...needsNow, fields: ["document"], tos: false }), overview: { ...doneOverview, beat: "verification", paymentsStatus: { status: "INCOMPLETE", action: "onboarding" }, payoutDestination: null } })
+        }
+        return json({})
+      }
+      if (u.startsWith("data:")) return r.continue()
+      r.abort()
+    })
+    await p.bringToFront()
+    await p.setViewport({ width: 1280, height: 860, deviceScaleFactor: 1 })
+    await p.goto("http://probe.test/app/payouts")
+    await pastDetails(p)
+    await p.waitForSelector("[data-id-qr] img", { timeout: 10000 }).catch(() => {})
+    const qr = await p.evaluate(() => ({
+      img: !!document.querySelector("[data-id-qr] img")?.getAttribute("src")?.startsWith("data:image/png"),
+      words: /Scan with your phone/.test(document.querySelector("[data-payments-setup-panel]")?.textContent ?? ""),
+      here: !!document.querySelector("[data-id-here]"),
+    }))
+    expect(qr.img && qr.words, "a QR code to verify on the phone", qr)
+    expect(qr.here, "  with 'Use this computer instead' under it", qr)
+    await p.screenshot({ path: join(out, "id-qr-1280.png") })
+    /* The panel, not the body: the body holds the page's own script, words and all. */
+    await p.waitForFunction(() => /Added from your phone/.test(document.querySelector("[data-payments-setup-panel]")?.textContent ?? ""), { timeout: 20000, polling: 500 }).catch(() => {})
+    const got = await p.evaluate(() => (document.querySelector("[data-id-photo='phone-done']")?.textContent ?? ""))
+    expect(/Front/.test(got) && /Added from your phone/.test(got), "the photos taken on the phone show up here by themselves", got.slice(0, 120))
+    await p.screenshot({ path: join(out, "id-qr-arrived-1280.png") })
     expect(errors.length === 0, "nothing threw", errors.slice(0, 2))
     await p.close()
   }

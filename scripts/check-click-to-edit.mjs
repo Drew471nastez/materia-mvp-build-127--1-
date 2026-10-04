@@ -11,7 +11,7 @@
  *   - which panel opened, and which field was found for what was clicked
  *   - where that field sits inside its own scroller (fully visible or not)
  *   - the scroller's scrollTop before and after
- *   - whether the field carries the ring (data-sl-flash), and its outline
+ *   - whether the field carries the wash (data-sl-flash), and that no ring is drawn
  *     colour while it is on
  *   - on a computer, whether its input took the focus
  * Then hover: the outline drawn round the hovered heading, and the chip's
@@ -103,6 +103,7 @@ const READ_FIELD = (setting, block, ringAt) => new Promise((resolve) => {
       scrollTop: Math.round(scroller.scrollTop),
       flash: field.hasAttribute("data-sl-flash"),
       outline: cs.outlineColor + " " + cs.outlineWidth,
+      animation: cs.animationName,
       focused: !!active && field.contains(active) && /INPUT|TEXTAREA/.test(active.tagName) || (!!active && field.contains(active) && active.isContentEditable),
       label: (field.querySelector("label, span, p") || {}).textContent?.trim().slice(0, 30) || "",
     }
@@ -158,7 +159,7 @@ try {
       const r = await pressAndRead(page, heading, false)
       expect(r.found, "clicking the heading opens the hero at its Heading field", r)
       expect(r.visible, "the field is fully inside the sidebar's view", { top: r.top, bottom: r.bottom, height: r.height })
-      expect(r.flash && /139, 92, 246/.test(r.outline), "and wears the violet ring", r.outline)
+      expect(r.flash && r.animation === "sl-field-flash" && !/139, 92, 246/.test(r.outline), "and is washed soft grey, with no violet ring round it", r)
       expect(r.focused, "its input takes the focus, ready to type", r.focused)
       await sleep(1500)
       const after = await page.evaluate(() => !!document.querySelector("[data-sl-flash]"))

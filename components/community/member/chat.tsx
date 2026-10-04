@@ -134,7 +134,18 @@ export function ChatView({ communityId, slug, space, viewer, initial, readOnly =
     let supabase: ReturnType<typeof createClient> | null = null
     let channel: ReturnType<ReturnType<typeof createClient>["channel"]> | null = null
     let timer: number | undefined
+    let net: number | undefined
     let gone = false
+    let joined = false
+    /* The net under the stream (round 7): not joined, or dropped, the page asks every 5 seconds while it is seen. */
+    const tick = () => {
+      net = window.setTimeout(() => {
+        if (gone) return
+        if (!joined && document.visibilityState === "visible") void catchUp()
+        tick()
+      }, 5000)
+    }
+    tick()
     void (async () => {
       try {
         supabase = createClient()
@@ -154,9 +165,11 @@ export function ChatView({ communityId, slug, space, viewer, initial, readOnly =
               else setMessages((cur) => cur.map((m) => (m.id === id ? { ...m, body: String(row.body ?? m.body), editedAt: (row.edited_at as string | null) ?? m.editedAt } : m)))
             }
           })
-          .subscribe()
+          .subscribe((status: string) => {
+            joined = status === "SUBSCRIBED"
+          })
       } catch {
-        /* No realtime: new messages show on the next visit. */
+        /* No realtime: the net above carries it. */
       }
     })()
     const onVisible = () => document.visibilityState === "visible" && void catchUp()
@@ -164,6 +177,7 @@ export function ChatView({ communityId, slug, space, viewer, initial, readOnly =
     return () => {
       gone = true
       window.clearTimeout(timer)
+      window.clearTimeout(net)
       document.removeEventListener("visibilitychange", onVisible)
       if (supabase && channel) supabase.removeChannel(channel)
     }

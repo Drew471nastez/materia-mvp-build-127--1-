@@ -700,7 +700,7 @@ const FRAME_RESERVED_FIRST_SEGMENT = new Set([
   "faq", "features", "help", "l", "legal", "library", "llms-full.txt", "llms.txt", "login", "member", "native-start",
   "onboarding", "onepage-preview", "p", "pricing", "privacy", "products", "purchase", "receipt",
   "register", "request", "reset-password", "sell", "signup", "site", "sitemap", "sitemap.xml", "sites", "store",
-  "store-builder", "terms", "u", "unsubscribe", "upgrade", "verify-email",
+  "store-builder", "terms", "u", "unsubscribe", "upgrade", "verify-email", "verify-id",
   "w", "website-builder", "welcome", "wishlist",
 ])
 
