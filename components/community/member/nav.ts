@@ -1,8 +1,8 @@
 /**
  * WHICH SECTION OF THE MEMBER AREA AN ADDRESS IS, so the shell can mark it
  * without each page saying so (a route group's layout is not told the
- * path), and THE ONE ROW OF PILLS under the community's top bar. Pure and
- * browser safe.
+ * path), and THE ONE ROW OF SECTION TABS under the community's top bar.
+ * Pure and browser safe.
  */
 import type { ShellSection } from "./view-types"
 
@@ -19,17 +19,17 @@ export function sectionFromPath(pathname: string | null | undefined, slug: strin
   return "home"
 }
 
-/** The pills: Community, Classroom, Calendar, Members, Leaderboards, About. */
-export type PillKey = "home" | "classroom" | "events" | "members" | "leaderboard" | "about"
+/** The tabs: Community, Classroom, Calendar, Members, Leaderboards, About. */
+export type TabKey = "home" | "classroom" | "events" | "members" | "leaderboard" | "about"
 
 export interface NavEntry {
-  key: PillKey
+  key: TabKey
   label: string
   href: string
 }
 
 /**
- * The places in a community, in the one row of pills, each only when the
+ * The places in a community, in the one row of tabs, each only when the
  * community has it switched on. Members shows for staff even with the
  * directory off (they run it); the community and About are always there.
  */
@@ -44,8 +44,8 @@ export function navEntries(c: { slug: string; classroomEnabled: boolean; eventsE
   return out
 }
 
-/** The pill a section lights: a space, a post, Saved and the inbox all live under Community. */
-export function pillFor(section: ShellSection): PillKey {
+/** The tab a section marks: a space, a post, Saved and the inbox all live under Community. */
+export function tabFor(section: ShellSection): TabKey {
   if (section === "classroom" || section === "events" || section === "members" || section === "leaderboard" || section === "about") return section
   return "home"
 }

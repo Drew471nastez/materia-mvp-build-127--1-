@@ -11,8 +11,10 @@
  * that slides in, sized to what the keyboard leaves (--vv-h), so the box you
  * type in sits right above the keys.
  *
- * "Message" on a member's profile opens it straight on that conversation
- * (openMessages({ userId })), made on the server the first time.
+ * "Message" on a person's card, a member row or a profile (through
+ * /community/<slug>?dm=<userId>) opens it straight on that conversation
+ * (openMessages({ userId })), made on the server the first time. The name at
+ * the top of a conversation opens that person's own page.
  *
  * LIVE, BUT NEVER TRUSTED. Realtime tells the page a conversation moved or a
  * message arrived (part 83's policy sends those rows to the two members and
@@ -28,6 +30,7 @@ import type { MemberView } from "@/lib/communities/types"
 import { useLightChrome } from "@/lib/ui/light-chrome"
 import { api, apiBase } from "./api"
 import { inline } from "./body-text"
+import { memberHref } from "./person-href"
 import { toast } from "./toast"
 import { roleTag } from "./view-types"
 
@@ -653,7 +656,7 @@ function Thread({ communityId, slug, userId, id, other, onBack, onClose, onRead,
         onClose={onClose}
         title={
           other ? (
-            <a href={`/community/${slug}/members/${other.id}`} className="flex min-w-0 items-center gap-2.5 rounded-lg px-1 py-1 outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15">
+            <a href={memberHref(slug, { id: other.id, username: other.username })} data-person-link="" className="flex min-w-0 items-center gap-2.5 rounded-lg px-1 py-1 outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15">
               <AppAvatar src={other.avatarUrl} name={other.name} alt="" size={32} markWhileLoading />
               <span className="min-w-0">
                 <span className="flex items-center gap-1.5">
