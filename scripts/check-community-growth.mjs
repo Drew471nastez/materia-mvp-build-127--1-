@@ -194,7 +194,17 @@ export const isNativePlatform = () => false
     const box = await sheetBox(p)
     expect(!!box && box.left > 400 && box.right < 1040 && box.top > 60 && box.bottom < 860, "a centred dialog, inside the screen", box)
     expect(box?.url === "storelib.com/community/clay-studio", "the link is the community's own address", box?.url)
-    expect(box?.line === "Anyone with the link sees the page and the price, and joins when they pay.", "paid: says the link leads to the page and the price", box?.line)
+    expect(box?.line === "People with the link see the price and pay to join.", "paid: says, in a few words, the link leads to the price", box?.line)
+    /* Round 10: one obvious action. Copy link is the one filled button, first, and wider than its neighbour. */
+    const actions = await p.evaluate(() => {
+      const copy = document.querySelector('[data-invite-copy="community"]').getBoundingClientRect()
+      const other = (document.querySelector("[data-invite-share]") || document.querySelector("[data-invite-mail]")).getBoundingClientRect()
+      const bg = getComputedStyle(document.querySelector('[data-invite-copy="community"]')).backgroundColor
+      const words = document.querySelector("[data-invite-sheet]").innerText.split(/\s+/).filter(Boolean).length
+      return { copyW: Math.round(copy.width), otherW: Math.round(other.width), sameRow: Math.abs(copy.top - other.top) < 1, copyFirst: copy.left < other.left, bg, words }
+    })
+    expect(actions.sameRow && actions.copyFirst && actions.copyW > actions.otherW * 1.6 && actions.bg === "rgb(26, 26, 46)", "Copy link is the one filled button, first in its row, Share or Email beside it", actions)
+    expect(actions.words <= 30, "a member's sheet says it in 30 words or fewer", actions.words)
     expect(box && !box.share && /^mailto:\?subject=Join%20me%20in%20Clay%20Studio%20on%20Storelib&body=/.test(box.mail || ""), "no share sheet on this browser: Email, never a dead Share", box)
     expect(box && !box.staff, "a member sees no Private invites", box)
     await p.click('[data-invite-copy="community"]')
@@ -213,6 +223,11 @@ export const isNativePlatform = () => false
     const box = await sheetBox(p)
     expect(box?.staff && box.manage === "/app/community/c0000000-0000-4000-8000-000000000001/members", "an admin with a creator account: Private invites and Manage invites", box)
     expect(box?.line?.startsWith("This community is invite only"), "invite only: says an admin's invite lets people in", box?.line)
+    /* Round 10: the staff tools are one quiet row, closed, that opens in place. */
+    const closedPanel = await p.evaluate(() => ({ h: Math.round(document.querySelector("[data-invite-staff-panel]").getBoundingClientRect().height), toggle: Math.round(document.querySelector("[data-invite-staff-toggle]").getBoundingClientRect().height), fields: [...document.querySelectorAll("[data-invite-staff] input, [data-invite-staff] select")].filter((x) => x.getBoundingClientRect().height > 0 && x.closest("[inert]") === null).length }))
+    expect(closedPanel.h === 0 && closedPanel.toggle >= 40 && closedPanel.fields === 0, "staff options start tucked behind one quiet 40px row", closedPanel)
+    await p.click("[data-invite-staff-toggle]")
+    await sleep(400)
     const sendDisabled = await p.$eval("[data-invite-send]", (b) => b.disabled)
     await p.type("[data-invite-email]", "ana@example.com")
     const sendEnabled = await p.$eval("[data-invite-send]", (b) => !b.disabled)
@@ -292,6 +307,8 @@ export const isNativePlatform = () => false
     {
       const { p, errors } = await open("case=feed&access=free&staff=1&name=long", vp, { share: true })
       await openInvite(p, true)
+      await p.tap("[data-invite-staff-toggle]")
+      await sleep(450)
       const box = await sheetBox(p)
       expect(box?.staff && box.bottom <= vp.height + 1 && box.top >= 0 && box.spills === 0, `${name}: an admin's sheet, Private invites included, still inside the screen, nothing spilling`, box)
       expect((await sideScroll(p)) <= 0, `${name}: nothing scrolls sideways with the sheet open`)
