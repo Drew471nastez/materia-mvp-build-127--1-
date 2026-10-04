@@ -21,6 +21,24 @@
  */
 @custom-variant pointer-fine (@media (hover: hover) and (pointer: fine));
 
+/*
+  AND EVERY `hover:` IS THAT HOVER. The rule above asked each class to opt in,
+  and the ones that did not (a card's lift, a row's tint, a cover's veil)
+  went on lighting up under a thumb on every Android phone and WebView that
+  answers `hover: hover`, and stayed lit after the finger left: the grey
+  veil over a card that a scroll or a tap left behind. So the variant itself
+  asks both questions, once, for every `hover:`, `group-hover:` and
+  `peer-hover:` in the product. A real mouse sees exactly what it saw; a
+  finger sees no hover state at all, which is what a touch screen has.
+*/
+@custom-variant hover {
+  @media (hover: hover) and (pointer: fine) {
+    &:hover {
+      @slot;
+    }
+  }
+}
+
 :root {
   /* ── Theme defaults ────────────────────────────────────────────────────
      A section can be rendered outside a themed page — a dashboard preview
@@ -74,23 +92,40 @@
      env() values in html.capacitor (set by NativeCookieKillSwitch on native) */
   --sat: 0px;
   --sab: 0px;
+  /*
+    THE STATUS BAR BAND'S COLOUR, ONE NUMBER FOR EVERY PAGE. The strip under
+    the clock (the safe area at the top, in the app; the browser's own bar,
+    through theme-color, on a phone's browser) is painted this colour, and the
+    status bar's text is chosen against it (components/platform/native-
+    chrome.tsx reads it after every move). White, because every Storelib
+    header is white now: Explore, a product, a creator's page, a profile,
+    the account, the library, a community, checkout. A surface that is not
+    white says so by setting this on <html> (/app's #111111 below, the
+    builder's #171717, a dark buyer header from its own bar), and nothing
+    else has to know.
+  */
+  --native-band: #ffffff;
   /* Software keyboard height — updated by AppLayoutWrapper via VisualViewport API.
      0px default means no layout change when keyboard is closed. */
   --keyboard-inset-height: 0px;
 }
 
 /* Native Capacitor: activate real safe-area env() values.
-   background-color: #000 on the ROOT element paints to the full viewport
-   canvas (CSS spec: root element background covers the initial containing
-   block = full screen with viewport-fit:cover). This covers the safe-area
-   zone (y=0 → env(safe-area-inset-top), the Dynamic Island / status-bar
-   area) with black even when WKWebView's contentInset pushes the body
-   to start below the safe area. The body's own bg-background (white)
-   paints on top for all content areas, so page content stays white. */
+   The ROOT element's background paints the whole viewport canvas (with
+   viewport-fit:cover that includes the safe-area zone under the clock), so
+   it is the band's colour: what a rubber-band bounce or a frame before the
+   page paints shows there is the header's own colour, never a black strip.
+   It was #000000 for every page, from when every header was black; the
+   headers went white and the canvas stayed black, which is the black band
+   above Explore's white header.
+
+   ANDROID'S OWN NUMBER FIRST. Capacitor 8 (SystemBars, insetsHandling "css")
+   writes the real insets into --safe-area-inset-* for the Android WebViews
+   (under 140) whose env() reads 0 under an edge to edge window. */
 html.capacitor {
-  --sat: env(safe-area-inset-top);
-  --sab: env(safe-area-inset-bottom);
-  background-color: #000000;
+  --sat: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  --sab: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+  background-color: var(--native-band);
 }
 
 /* On /app pages the header and layout background are #111111, not #000000.
@@ -101,6 +136,11 @@ html.capacitor {
    the fixed header even though the rest of the UI is #111111. */
 html.capacitor.app-layout {
   background-color: #111111;
+}
+/* /app's header is #111111 from the first pixel under the clock: the band, the
+   browser's bar and the status bar's light text all follow this one number. */
+html.app-layout {
+  --native-band: #111111;
 }
 
 /*
@@ -3842,13 +3882,19 @@ html.capacitor [data-safe-bottom] {
  * on Android — our :active styles replace it.
  * ──────────────────────────────────────────────────────────────────────────── */
 
-/* Fixed black shield that covers the safe-area-inset-top zone (the iOS notch /
-   status-bar area). Together with the html.capacitor { background-color:#000000 }
-   rule below, this ensures NO visible gap above the platform header:
-   - ::before (z-9999) covers the notch zone with solid black at all times.
-   - html background (#000000) is visible during any rubber-band overscroll bounce,
-     matching the black header so the gap is invisible.
-   On browser env(safe-area-inset-top) = 0px → zero visual effect. */
+/* The shield over the safe-area-inset-top zone (the iOS notch / status-bar
+   area): nothing that scrolls ever shows under the clock, on any page.
+
+   IN THE BAND'S COLOUR, NOT BLACK. It was a fixed PURE BLACK strip at
+   z-9999 on every page that had not been put on a list of exceptions
+   (checkout, sign in, the library, welcome), from when every header was
+   black. The headers went white and the list did not grow, so Explore, a
+   product, a creator's page and a profile opened under a black band with
+   the white header starting below it: "not edge to edge". Now it is the
+   page's band (--native-band, white unless a page says otherwise), so the
+   strip and the header under it are one surface on every page, and a new
+   page needs no exception to get it right.
+   On a browser env(safe-area-inset-top) = 0px: nothing to see. */
 html.capacitor::before {
   content: '';
   position: fixed;
@@ -3856,7 +3902,7 @@ html.capacitor::before {
   left: 0;
   right: 0;
   height: env(safe-area-inset-top, 0px);
-  background-color: #000000;
+  background-color: var(--native-band);
   z-index: 9999;
   pointer-events: none;
 }
@@ -3885,6 +3931,10 @@ html.capacitor::before {
    which restyled the whole document whenever text anywhere was replaced. */
 html.capacitor.wb-fullscreen::before {
   display: none;
+}
+/* The builder's bar is #171717: light text in the status bar over it. */
+html.wb-fullscreen {
+  --native-band: #171717;
 }
 
 /* ── And any white full screen page that asks for it ─────────────────────
@@ -4214,15 +4264,24 @@ html.capacitor.with-cp-editor {
   background-color: #ffffff;
 }
 
+/* NO GREY TAP SQUARE, IN A BROWSER EITHER. WebKit draws its own translucent
+   grey box over any link or control a finger presses (and over a whole card,
+   since a card is one link). It was cleared inside the app only, so Safari
+   still laid it over every product and community card under a thumb. It is
+   inherited, so one declaration reaches every element. */
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
 html.capacitor {
   touch-action: manipulation; /* removes 300 ms delay on double-tap-to-zoom */
   -webkit-tap-highlight-color: transparent;
-  /* When iOS rubber-band overscroll exposes the html background, use black so
-     it matches the platform header. Any bounce gap above the header is invisible
-     since both the header and the html canvas are black. Body pages use their own
-     bg-* classes for content; the html background only shows during overscroll.
-     CapacitorBounceGuard (JS) also prevents rubber-band from firing in WKWebView. */
-  background-color: #000000;
+  /* When iOS rubber-band overscroll exposes the html background it is the
+     band's colour, the header's own (see --native-band). Body pages use their
+     own bg-* classes for content; the html background only shows during
+     overscroll. CapacitorBounceGuard (JS) also prevents rubber-band from
+     firing in WKWebView. */
+  background-color: var(--native-band);
   /* Prevent rubber-band bounce at the root element level in addition to body.
      overscroll-behavior: none works on iOS 16+; for older iOS the JS guard handles it. */
   overscroll-behavior: none;
@@ -4248,12 +4307,9 @@ html.capacitor {
   box-shadow: var(--bar-depth-dark);
 }
 
-/* Buyer header light mode (admin toggle): near-white, hairline, barely-there depth. */
-.platform-header-light.platform-header-depth {
-  box-shadow:
-    0 1px 0 rgba(16, 18, 27, 0.05),
-    0 6px 18px -10px rgba(16, 18, 27, 0.08);
-}
+/* The light bar has no depth: it is the white of the band above it, opaque,
+   with its hairline (lib/platform/header-chrome.ts headerBorder) and nothing
+   under that, so the strip under the clock and the bar read as one surface. */
 
 .platform-header-row {
   /*
@@ -4321,13 +4377,40 @@ html.capacitor .platform-header-row {
   padding-bottom: 0 !important;
   height: 65px;
 }
-/* Push ALL marketing layout content (category bar, search, main) below the
-   fixed header on native. Applied to the outermost flex wrapper so the
-   category bar, concave transition, and main content all start at y=112px.
-   :has() ensures the padding only applies when the header is in the DOM.
-   On web the header is sticky (in flow) so no wrapper padding is needed. */
-html.capacitor:has(#platform-header-root) .marketing-flex-wrapper {
-  padding-top: calc(65px + env(safe-area-inset-top, 0px));
+/* THE FIXED BAR'S ROOM, UNDER IT, ON EVERY PAGE THAT DRAWS IT. In the app the
+   bar is fixed, so it takes no room and the page has to leave it. Only the
+   marketing layout did (a padding on .marketing-flex-wrapper, asked through
+   `html:has(#platform-header-root)`), and the account and the library have
+   layouts of their own: their first lines started under the bar, and the
+   profile's photo was cut by it before anything had scrolled (the owner's
+   screenshot 59). Now the bar brings its room with it, an empty block in
+   the flow right after it (platform-header-client and its stand in), the
+   bar's own height. On the web the bar is sticky and in the flow, so the
+   block is not drawn at all. */
+.native-header-spacer {
+  display: none;
+}
+/* A PAGE'S OWN TOP BAR, ONE SURFACE WITH THE BAND. A bar that can be the top
+   of the screen (the profile bar with the back chevron, components/profile/
+   profile-top-bar.tsx) carries this: in the app its background runs up
+   under the clock and its row starts below it, instead of the row sitting
+   under the band with the page's first pixels hidden there. Under the
+   Storelib header it is not the top, the header's room
+   (.native-header-spacer) is before it, and it takes no inset. Shared with
+   any other top bar (the community's, components/community/member/top-bar
+   .tsx, pads itself the same way): padding only, its colour stays its own. */
+html.capacitor .native-top-surface {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+html.capacitor .native-header-spacer ~ .native-top-surface,
+html.capacitor .native-header-spacer ~ * .native-top-surface {
+  padding-top: 0;
+}
+
+html.capacitor .native-header-spacer {
+  display: block;
+  flex-shrink: 0;
+  height: calc(65px + env(safe-area-inset-top, 0px));
 }
 
 /* Prevent the white body flash during page transitions in Capacitor.
@@ -4581,9 +4664,13 @@ html.capacitor.library-layout::before {
   .group *[data-keep-transform] {
     transition-property: none !important;
   }
+  /* No border-color here: `inherit` is the PARENT's border colour, which
+     is its text colour, so a tapped card (iOS keeps :hover on the last thing
+     tapped) drew a darker frame than its neighbours, a tint of its own. A
+     card's hover border is behind a fine pointer now (the `hover` variant
+     at the top of this file), so there is nothing left here to cancel. */
   .group:hover {
     box-shadow: none !important;
-    border-color: inherit !important;
   }
 }
 
@@ -4591,6 +4678,9 @@ html.capacitor.library-layout::before {
    appears at the top. Also lock scroll since the page is fixed/full-screen. */
 html.capacitor.with-page-welcome::before {
   background-color: #f2f2f2;
+}
+html.with-page-welcome {
+  --native-band: #f2f2f2;
 }
 html.capacitor.with-page-welcome {
   overflow: hidden !important;
@@ -4646,6 +4736,26 @@ html.capacitor [tabindex="0"]:active {
   transition-duration: 60ms;
   /* scale(0.97) removed: transform on :active can trigger a relayout that delays
      the subsequent click event by one frame in some Android WebViews */
+}
+
+/* ── NEVER A VEIL OVER A CARD ─────────────────────────────────────────────────
+   "No fade, overlay or tint when a finger touches or scrolls over a product
+   card or a community card." The dim above is a press on a CONTROL; a card is
+   a picture and its words, and dimming it (or the brightness dip a card
+   draws itself, `active:brightness-95`, `active:opacity-70`) is a grey veil
+   over the whole tile for as long as the thumb rests there, and on every
+   scroll that starts on one. A link or a button with a picture in it is a
+   card, a row with a thumbnail, a cover: on a touch screen it answers the
+   finger by opening, never by greying. Buttons without pictures keep the
+   press. Unlayered and important, so it is the last word over a utility. */
+@media (hover: none), (pointer: coarse) {
+  :is(a, button, [role="button"], [tabindex="0"]):has(img, picture, video, canvas):active,
+  :is(a, button, [role="button"], [tabindex="0"]):has(img, picture, video, canvas) :active,
+  :is([data-card], [data-product-card], [data-community-card]):active,
+  :is([data-card], [data-product-card], [data-community-card]) :active {
+    opacity: 1 !important;
+    filter: none !important;
+  }
 }
 
 /* ── NOT THE PILL'S ICONS ─────────────────────────────────────────────────────

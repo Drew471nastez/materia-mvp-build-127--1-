@@ -409,7 +409,7 @@ function screenCases() {
   check("creators sit under the products on a computer with profile links, not a toggle filter", /data-creator-list=""/.test(home) && /function CreatorsList/.test(home) && /hidden overflow-hidden lg:block/.test(home) && /data-creator-profile=""/.test(home) && !/onChoose=|aria-pressed|data-creator-chips|function CreatorChips/.test(home))
   check("the pressed pill is chosen on the press, ahead of the address", /setPressed\(href\)/.test(tabs) && /const current = pressed \?\? path/.test(tabs))
   check("its fill fades in place on settings' 150ms curve", /TAB_FADE_MS = 150/.test(tabs) && /cubic-bezier\(0\.33, 1, 0\.68, 1\)/.test(tabs) && /transition-\[opacity,scale\]/.test(tabs))
-  check("every tab route is prefetched whole", /router\.prefetch\(tab\.href, \{ kind: FULL \}\)/.test(tabs) && /onPointerEnter=\{\(\) => warm/.test(tabs))
+  check("every tab route is prefetched whole", /router\.prefetch\(tab\.href, \{ kind: FULL \}\)/.test(tabs) && (/onPointerEnter=\{\(\) => warm/.test(tabs) || (/onPointerEnter=\{onWarm\}/.test(tabs) && /onWarm=\{\(\) => warm\(tab\.href\)\}/.test(tabs))))
   /* The library moved into the profile (lib/library/paths.ts): its layout and loading screens are under app/account/library now. */
   const layout = read("app/account/library/layout.tsx")
   check("the pills and the screen under them are one stage", /<LibraryPanel head=\{<LibraryTabs( communities=\{communities\})? \/>\}>\{children\}<\/LibraryPanel>/.test(layout))

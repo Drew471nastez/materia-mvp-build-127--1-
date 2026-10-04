@@ -14,7 +14,8 @@ import * as React from "react"
  *
  *   the browser bar      <meta name="theme-color">
  *   the page canvas      <html> background, which fills the notch zone
- *   the status bar       dark text on light, in the phone app
+ *   the status bar       dark text on light, in the phone app, through
+ *                        --native-band (lib/native-chrome.ts)
  */
 export function useLightChrome(active: boolean, color = "#ffffff") {
   React.useEffect(() => {
@@ -38,31 +39,26 @@ export function useLightChrome(active: boolean, color = "#ffffff") {
      */
     html.classList.add("light-chrome")
 
-    const cap = (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor
-    const native = Boolean(cap?.isNativePlatform?.())
-    if (native) {
-      void import("@capacitor/status-bar")
-        .then(async ({ StatusBar, Style }) => {
-          await StatusBar.setStyle({ style: Style.Light }).catch(() => {})
-          /* Android paints its own strip behind the status bar; iOS has none to paint. */
-          await StatusBar.setBackgroundColor({ color }).catch(() => {})
-        })
-        .catch(() => {})
-    }
+    /*
+     * THE BAND IS THIS PAGE'S COLOUR, AND THE STATUS BAR FOLLOWS THE BAND.
+     * This used to set the status bar's text itself, dark on the way in and
+     * LIGHT TEXT on a black strip on the way out, whatever page came next:
+     * after a community, Explore's white header sat under white text on a
+     * black band. Now it says the colour (--native-band, the one number
+     * app/globals.css paints the strip and the canvas from) and
+     * components/platform/native-chrome.tsx reads it after every change and
+     * picks the text, so leaving puts back whatever the next page says.
+     */
+    const prevBand = html.style.getPropertyValue("--native-band")
+    html.style.setProperty("--native-band", color)
 
     return () => {
       html.classList.remove("light-chrome")
       if (added) added.remove()
       else all.forEach((m, i) => (prevContent[i] == null ? m.removeAttribute("content") : m.setAttribute("content", prevContent[i] as string)))
       html.style.backgroundColor = prevBg
-      if (native) {
-        void import("@capacitor/status-bar")
-          .then(async ({ StatusBar, Style }) => {
-            await StatusBar.setStyle({ style: Style.Dark }).catch(() => {})
-            await StatusBar.setBackgroundColor({ color: "#000000" }).catch(() => {})
-          })
-          .catch(() => {})
-      }
+      if (prevBand) html.style.setProperty("--native-band", prevBand)
+      else html.style.removeProperty("--native-band")
     }
   }, [active, color])
 }

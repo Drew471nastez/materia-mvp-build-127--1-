@@ -15,6 +15,7 @@
  */
 
 import { isNativeApp } from "@/lib/platform-utils"
+import { isSellerPage } from "@/lib/url-helpers"
 
 /** Routes that belong to the Discover experience inside the native app. */
 const DISCOVER_PATH_PREFIXES = [
@@ -28,9 +29,19 @@ const DISCOVER_PATH_PREFIXES = [
   "/feed",
 ] as const
 
+/*
+  A CREATOR'S PAGE AND THEIR PRODUCTS ARE DISCOVER TOO, UNDER EITHER ADDRESS.
+  The list above knew only the prefixed spellings (/u/, /p/), and a creator's
+  page is `/<handle>` and a product `/<handle>/<slug>` now. So inside the app
+  a creator's page lost the app's own header (conditional-header asks this),
+  the page started under the clock, and the strip there was the old black
+  shield: "not edge to edge" on creator pages and products. The subscribe
+  bar and the product page already lay themselves out under that header in
+  the app (subscribe-bar.tsx stickyTop), so this puts back what they expect.
+*/
 function pathnameIsDiscoverRoute(pathname: string): boolean {
   if (pathname === "/explore") return true
-  return DISCOVER_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix))
+  return DISCOVER_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix)) || isSellerPage(pathname)
 }
 
 /**

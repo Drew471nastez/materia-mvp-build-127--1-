@@ -53,6 +53,7 @@ import { RotationGuard } from "@/components/platform/rotation-guard"
 import { AppHistoryTracker } from "@/components/platform/app-history-tracker"
 import { NativeLinkGuard } from "@/components/platform/native-link-guard"
 import { NativePlaceKeeper } from "@/components/platform/native-place-keeper"
+import { NativeChrome } from "@/components/platform/native-chrome"
 import { NativePushInit } from "@/components/native-push-init"
 import { SWITCH_FIRST_PAINT_SCRIPT } from "@/lib/businesses/switch-screen"
 import { EXPLORE_SCROLL_BOOT_SCRIPT } from "@/lib/explore/explore-scroll-boot"
@@ -141,7 +142,8 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  themeColor: "#000000",
+  /* The band's default, white like every Storelib header (app/globals.css --native-band). A dark page (/app) moves it after it commits (components/platform/native-chrome.tsx). It was black on every page, the black strip above a white header in a phone's browser. */
+  themeColor: "#ffffff",
   width: "device-width",
   initialScale: 1,
   maximumScale: 5,
@@ -268,6 +270,8 @@ export default function RootLayout({
         {/* Inside the phone app only: Storelib links stay in the app, and the page is kept for the next start. */}
         <NativeLinkGuard />
         <NativePlaceKeeper />
+        {/* The strip under the clock, the browser's bar and the status bar's text in the page's own top colour; the launch screen down on the first steady frame. */}
+        <NativeChrome />
         <NativePushInit /> 
         <CookieConsentBanner />
         {/*

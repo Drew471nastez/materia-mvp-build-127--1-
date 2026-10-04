@@ -5,6 +5,7 @@ import { useEffect, useState, Suspense } from "react"
 import { PlatformHeaderClient } from "@/components/platform/platform-header-client"
 import { extractUsernameFromHost, isCustomDomain, isSellerPage } from "@/lib/url-helpers"
 import { isDiscoverMode } from "@/lib/isDiscoverMode"
+import { BUYER_HEADER_DARK_BG } from "@/lib/platform/header-chrome"
 
 /**
  * Shown while PlatformHeaderClient suspends (SSR streaming / initial hydration).
@@ -21,12 +22,19 @@ function HeaderPlaceholder({ buyerHeaderLight = false }: { buyerHeaderLight?: bo
   // mobile:  max(64.6px, safe-area + 53.3px)
   // desktop: a 70.75px row (border-box, padding included) + 1px measured
   return (
+    <>
     <div
       id="platform-header-root"
-      className={buyerHeaderLight ? "sticky top-0 z-40 w-full bg-[#fcfcfd]" : "sticky top-0 z-40 w-full bg-[#0e0e10]"}
+      className={buyerHeaderLight ? "sticky top-0 z-40 w-full bg-white" : "sticky top-0 z-40 w-full bg-[#0e0e10]"}
       style={{ minHeight: 'max(64.6px, calc(env(safe-area-inset-top, 0px) + 53.3px))' }}
       aria-hidden
-    />
+    >
+      {/* The band under the clock in this bar's colour, as the bar it stands in for says (platform-header-client). */}
+      {buyerHeaderLight ? null : <style>{`:root{--native-band:${BUYER_HEADER_DARK_BG}}`}</style>}
+    </div>
+    {/* The same room under it in the app as the real bar leaves (platform-header-client), so the swap moves nothing. */}
+    <div aria-hidden className="native-header-spacer" />
+    </>
   )
 }
 
