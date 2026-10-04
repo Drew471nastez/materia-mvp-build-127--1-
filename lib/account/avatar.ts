@@ -11,9 +11,9 @@
  * the person had just removed stayed in the corner of every screen.
  *
  * Now there is one answer everywhere in the app: `profiles.avatar_url`, or
- * the initials. The Google picture is copied into it once, when the account
- * is made (app/auth/callback), and never again after the person has chosen
- * a photo or removed one (`AVATAR_CHOSEN`, kept on the account).
+ * the default face. The Google picture is copied into it while it has none
+ * (lib/profile/provider-photo.ts, on every sign in), and never after the
+ * person has chosen a photo or removed one (`AVATAR_CHOSEN`, on the account).
  *
  * The shell hears about a change at once through `announceAvatar`
  * (lib/account/avatar-store), so the header and the account sheet change with
@@ -45,8 +45,8 @@
  *   removed their photo as a buyer and then became a seller got it back
  *   (`onboardingPhoto`).
  *
- * Nothing about signing in changes: the provider's picture is still read
- * from the account the way Supabase keeps it, at sign up only.
+ * The provider's picture is read from the account the way Supabase keeps
+ * it, on every sign in while the profile has no photo of its own.
  */
 /** On the account's metadata once the person has uploaded or removed a photo themselves. */
 export const AVATAR_CHOSEN = "storelib_avatar_chosen"
@@ -57,19 +57,22 @@ export function profileAvatar(url: string | null | undefined): string | null {
 }
 
 /**
- * The provider's picture goes into a profile at sign up only: a profile that
- * has no photo and was never given one. `accountAgeMs` is how long ago the
- * auth user was made; a sign in to an older account is not a sign up.
+ * The provider's picture goes into a profile that has no photo and was never
+ * given or cleared one by its owner, on EVERY sign in until it has one: the
+ * owner asked for it ("on every sign in until they have one; never overwrite
+ * a photo they set"), so a first sign in that missed it is not the last
+ * chance. It was sign up only (`accountAgeMs` under fifteen minutes); the age
+ * is still taken and no longer decides. The sign in routes ask
+ * lib/profile/provider-photo.ts, which is this rule with the write.
  */
 export function copyProviderAvatar(input: {
   profileExists: boolean
   profileAvatar: string | null | undefined
   providerAvatar: string | null | undefined
   chosen: boolean
-  accountAgeMs: number
+  accountAgeMs?: number
 }): boolean {
-  if (!input.providerAvatar || input.chosen || profileAvatar(input.profileAvatar)) return false
-  return !input.profileExists || input.accountAgeMs < 15 * 60 * 1000
+  return !!input.providerAvatar && !input.chosen && !profileAvatar(input.profileAvatar)
 }
 
 /**

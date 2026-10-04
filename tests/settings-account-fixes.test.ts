@@ -58,14 +58,15 @@ console.log("\n2. One profile photo")
   const google = "https://lh3.googleusercontent.com/a/photo"
   check("a new account gets the Google picture", copyProviderAvatar({ profileExists: false, profileAvatar: null, providerAvatar: google, chosen: false, accountAgeMs: 2000 }))
   check("so does the profile the database trigger has just made", copyProviderAvatar({ profileExists: true, profileAvatar: null, providerAvatar: google, chosen: false, accountAgeMs: 60_000 }))
-  check("a sign in to an older account with no photo does not", !copyProviderAvatar({ profileExists: true, profileAvatar: null, providerAvatar: google, chosen: false, accountAgeMs: 30 * day }))
+  /* The owner, round 10: "saved to their profile when they have none (on every sign in until they have one)". */
+  check("a sign in to an older account with no photo now does too", copyProviderAvatar({ profileExists: true, profileAvatar: null, providerAvatar: google, chosen: false, accountAgeMs: 30 * day }))
   check("nor one where the person removed their photo, however new", !copyProviderAvatar({ profileExists: true, profileAvatar: null, providerAvatar: google, chosen: true, accountAgeMs: 2000 }))
   check("nor over a photo that is there", !copyProviderAvatar({ profileExists: true, profileAvatar: "https://x/avatars/u/a.jpg", providerAvatar: google, chosen: false, accountAgeMs: 2000 }))
   check("the old placeholder is no photo", profileAvatar("/placeholder.svg?height=40") === null && profileAvatar("") === null && profileAvatar("https://x/a.jpg") === "https://x/a.jpg")
 
   const callback = readCode("app/auth/callback/route.ts")
-  check("the sign in callback asks copyProviderAvatar, both when it makes the profile and when it finds one",
-    (callback.match(/copyProviderAvatar\(\{/g) ?? []).length === 2 && !/if \(!existingProfile\.avatar_url && avatarUrl\) updates\.avatar_url = avatarUrl/.test(callback)
+  check("the sign in callback asks the provider photo rule, both when it makes the profile and when it finds one",
+    (callback.match(/providerPhotoWanted\(\{/g) ?? []).length === 2 && !/if \(!existingProfile\.avatar_url && avatarUrl\) updates\.avatar_url = avatarUrl/.test(callback)
       && /AVATAR_CHOSEN\] === true/.test(callback))
 
   const layout = readCode("app/app/layout.tsx")

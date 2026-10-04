@@ -1,5 +1,5 @@
 -- STORELIB DATABASE, FILE 1 of 2
--- Every part from 01 to 95: the whole database Storelib's code expects, apart from the storage policies and the check, which are file 2.
+-- Every part from 01 to 97: the whole database Storelib's code expects, apart from the storage policies and the check, which are file 2.
 -- HOW: select all of this file, copy, paste into a NEW query tab in the Supabase
 -- SQL editor, press Run. Run the two files in order, one at a time.
 -- Safe to run again: every statement checks before it changes anything, so a
@@ -2876,6 +2876,11 @@ SELECT 'store_menus' AS table_name, to_regclass('public.store_menus') IS NOT NUL
 UNION ALL SELECT 'product_collections', to_regclass('public.product_collections') IS NOT NULL
 UNION ALL SELECT 'product_collection_items', to_regclass('public.product_collection_items') IS NOT NULL;
 INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('95', '95_navigation_and_collections.sql', 'fcd5e10c321b98b566430f5df4220205cea24ae2533f8018644e0852129ba163') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
+
+-- part 97_profile_provider_photos.sql
+/* The photo a person signed in with, for everybody who has none, run after nothing else. An account that signed in with Google (or any provider that sends a picture) and has no profile photo gets that picture as its photo, once, from the account Supabase keeps (`auth.users.raw_user_meta_data`: `avatar_url`, else `picture`, an https address only). Never over a photo that is there, and never for somebody who chose or removed a photo themselves (`storelib_avatar_chosen` on the account, lib/account/avatar), so a removed photo stays removed. From now on the app does the same on every sign in (lib/profile/provider-photo.ts), on the web and in the app. Changes only `profiles.avatar_url` where it is empty; adds no table, column or trigger. Skips itself with a notice where `auth.users` cannot be read. Safe to run again: a second run finds nobody left to change. */
+DO $$ BEGIN IF to_regclass('auth.users') IS NULL OR to_regclass('public.profiles') IS NULL THEN RAISE NOTICE 'profile provider photos skipped: auth.users or profiles is not there'; RETURN; END IF; UPDATE public.profiles p SET avatar_url = x.photo FROM (SELECT u.id, CASE WHEN btrim(coalesce(u.raw_user_meta_data ->> 'avatar_url', '')) ~ '^https://[^[:space:]]+$' AND position('placeholder.svg' in u.raw_user_meta_data ->> 'avatar_url') = 0 THEN btrim(u.raw_user_meta_data ->> 'avatar_url') WHEN btrim(coalesce(u.raw_user_meta_data ->> 'picture', '')) ~ '^https://[^[:space:]]+$' AND position('placeholder.svg' in u.raw_user_meta_data ->> 'picture') = 0 THEN btrim(u.raw_user_meta_data ->> 'picture') END AS photo FROM auth.users u WHERE coalesce(u.raw_user_meta_data ->> 'storelib_avatar_chosen', '') <> 'true') x WHERE x.id = p.id AND x.photo IS NOT NULL AND (p.avatar_url IS NULL OR btrim(p.avatar_url) = '' OR position('placeholder.svg' in p.avatar_url) > 0); EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE 'profile provider photos skipped: this role may not read auth.users, so photos are kept from the next sign in only'; END $$;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('97', '97_profile_provider_photos.sql', '120b7b95a33c9b2a567711a87fafa5ddaeb52b7c597143253b7109a45e2aa83b') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
 notify pgrst, 'reload schema';
 select 'Storelib file 1 of 2 ran. Next file.' as done;

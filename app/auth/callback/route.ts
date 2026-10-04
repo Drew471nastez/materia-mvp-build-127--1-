@@ -2,7 +2,8 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { NextResponse } from "next/server"
 import { classifyOAuthError, describeForLog, loginErrorQuery } from "@/lib/auth/oauth-errors"
-import { AVATAR_CHOSEN, copyProviderAvatar } from "@/lib/account/avatar"
+import { AVATAR_CHOSEN } from "@/lib/account/avatar"
+import { providerPhotoOf, providerPhotoWanted } from "@/lib/profile/provider-photo"
 import { cookies } from "next/headers"
 import { getMainDomain } from "@/lib/url-helpers"
 import { readSellerAccess } from "@/lib/account/seller-access"
@@ -103,11 +104,10 @@ export async function GET(request: Request) {
 
   // 2. Upsert profile
   const admin = createAdminClient()
-  const { avatar_url, full_name, name, picture } = data.user.user_metadata ?? {}
+  const { full_name, name } = data.user.user_metadata ?? {}
   const displayName = full_name || name || data.user.email?.split("@")[0] || "User"
-  const avatarUrl = avatar_url || picture || null
-  const createdAt = Date.parse(data.user.created_at ?? "")
-  const accountAgeMs = Number.isFinite(createdAt) ? Date.now() - createdAt : Number.POSITIVE_INFINITY
+  /* The picture Google sent (Apple sends none), for a profile that has no photo: lib/profile/provider-photo.ts. */
+  const providerPhoto = providerPhotoOf(data.user.user_metadata)
   const avatarChosen = data.user.user_metadata?.[AVATAR_CHOSEN] === true
 
   const { data: existingProfile } = await admin
@@ -121,7 +121,7 @@ export async function GET(request: Request) {
       id: data.user.id,
       email: data.user.email,
       display_name: displayName,
-      avatar_url: copyProviderAvatar({ profileExists: false, profileAvatar: null, providerAvatar: avatarUrl, chosen: avatarChosen, accountAgeMs }) ? avatarUrl : null,
+      avatar_url: providerPhotoWanted({ profileAvatar: null, providerAvatar: providerPhoto, chosen: avatarChosen }) ? providerPhoto : null,
       is_creator: false,
       /* No creator or buyer question after sign up any more: a new account is a buyer. */
       welcome_completed: true,
@@ -130,11 +130,11 @@ export async function GET(request: Request) {
     })
   } else {
     const updates: Record<string, unknown> = {}
-    /* The Google picture goes in at sign up only (a profile the database
-       trigger has just made), never over a photo that was removed later:
-       lib/account/avatar. */
-    if (copyProviderAvatar({ profileExists: true, profileAvatar: existingProfile.avatar_url, providerAvatar: avatarUrl, chosen: avatarChosen, accountAgeMs })) {
-      updates.avatar_url = avatarUrl
+    /* The provider's picture on every sign in while the profile has no photo
+       and they never chose or removed one themselves; never over a photo
+       they set (lib/profile/provider-photo.ts). */
+    if (providerPhoto && providerPhotoWanted({ profileAvatar: existingProfile.avatar_url, providerAvatar: providerPhoto, chosen: avatarChosen })) {
+      updates.avatar_url = providerPhoto
     }
     if (!existingProfile.email_verified) {
       updates.email_verified = true
