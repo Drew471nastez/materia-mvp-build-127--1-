@@ -23,7 +23,7 @@ function HeaderPlaceholder({ buyerHeaderLight = false }: { buyerHeaderLight?: bo
   return (
     <div
       id="platform-header-root"
-      className={buyerHeaderLight ? "sticky top-0 z-40 w-full bg-[#f7f8f9]" : "sticky top-0 z-40 w-full bg-[#0e0e10]"}
+      className={buyerHeaderLight ? "sticky top-0 z-40 w-full bg-[#fcfcfd]" : "sticky top-0 z-40 w-full bg-[#0e0e10]"}
       style={{ minHeight: 'max(64.6px, calc(env(safe-area-inset-top, 0px) + 53.3px))' }}
       aria-hidden
     />
