@@ -71,7 +71,8 @@ check("like Gumroad, the form asks date of birth, address, agreement, bank", ro.
   js.stripe.com in a browser. So there is nowhere else for a field to go.
 */
 /* The owner, October 2026: "no proof of address or CNP, just ID or passport, back and forth, like Skool". A number Stripe insists on with no ID alternative is a support case, never a field. */
-check("  nothing is handed to a Stripe form, and no CNP is ever a field: without an ID alternative it is a support case", ro.handover.length === 0 && !ro.fields.includes("idNumber") && JSON.stringify(ro.other) === JSON.stringify(["individual.id_number"]), ro)
+/* Dynamic by country: the number is only asked where Stripe has no ID alternative for it (a US SSN, a Brazilian CPF). Where the ID stands in, Romania's CNP included, it never is. */
+check("  nothing is handed to a Stripe form, and nothing becomes a support case", ro.handover.length === 0 && ro.other.length === 0, ro)
 check("  the ID photo Stripe will want later is not asked yet", !ro.fields.includes("document") && needsOf({ eventually_due: ["individual.verification.document"] }, "all").fields.includes("document"))
 const later = needsOf({ currently_due: ["individual.verification.document"], errors: [{ code: "verification_document_not_readable", requirement: "individual.verification.document" }] })
 check("when Stripe asks for it later, it is asked with Stripe's reason in plain words", later.fields[0] === "document" && /clearer photo/.test(later.problems[0] ?? ""), later)
@@ -109,17 +110,19 @@ check("with the photo given, no CNP is needed", !detailIssues({ dob }, alt.field
 check("the number is not demanded before the ID step has had its turn", !detailIssues({ dob }, alt.fields, { tos: false, either: alt.either, given: new Set() }).idNumber)
 check("  the CNP is never a field: the ID photo answers for it, and nothing is left for support", !alt.fields.includes("idNumber") && alt.fields.includes("document") && alt.other.length === 0, alt)
 /* No alternative from Stripe: Stripe wants the number and only the number. It is not typed here; Payouts shows it as a support case. */
-check("no alternative from Stripe: the number is a support case, never a field", (() => {
+check("no ID alternative from Stripe (a country that needs the number itself): it is asked, by the country's name for it", (() => {
   const n = needsOf({ currently_due: ["individual.id_number"] })
-  return !n.fields.includes("idNumber") && n.other.includes("individual.id_number") && n.handover.length === 0
+  return n.fields.includes("idNumber") && n.other.length === 0 && idNumberName("US").label === "Social Security number"
 })())
 check("  where the ID settles it, only the ID is asked", (() => {
   const n = needsOf({ currently_due: ["individual.id_number"], alternatives: [{ original_fields_due: ["individual.id_number"], alternative_fields_due: ["individual.verification.document"] }] })
   return n.handover.length === 0 && !n.fields.includes("idNumber") && n.fields.includes("document") && n.other.length === 0
 })())
-check("a proof of address, a bill or a statement, is never asked on this form", (() => {
+/* Stripe only asks this when it could not read the address from the first ID; the Verify ID step asks for an ID that shows it, never a bill. */
+check("an address Stripe could not confirm is asked as an ID photo on the Verify ID step, never a bill or statement", (() => {
   const n = needsOf({ currently_due: ["individual.verification.additional_document"] })
-  return !n.fields.includes("proofOfAddress") && n.other.includes("individual.verification.additional_document")
+  const flowText = read("components/app/settings/payments-setup-flow.tsx")
+  return n.fields.includes("proofOfAddress") && n.other.length === 0 && /only === "id" \? f === "document" \|\| f === "proofOfAddress"/.test(flowText) && !/bank statement|rental agreement|utility bill/i.test(flowText)
 })())
 
 console.log("\nThe ID camera takes the photo only when Stripe could read it")
