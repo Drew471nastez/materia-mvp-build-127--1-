@@ -259,6 +259,49 @@ export const isNativePlatform = () => false
     }
   }
 
+  /* ── ENTERING: the frame at once, the page fading in under it (round 10, ask 28), at 4x CPU ── */
+  {
+    console.log("\nENTERING at 4x CPU: the bar first, the page fading in under it")
+    const p = await browser.newPage()
+    await p.setViewport(PHONE)
+    await p.emulateCPUThrottling(4)
+    await p.evaluateOnNewDocument(() => {
+      window.__enter = []
+      const t0 = performance.now()
+      const tick = () => {
+        const bar = document.querySelector("[data-community-top]")
+        const page = document.querySelector("[data-community-body] > *")
+        if (page && !window.__enterAnim) {
+          /* The fade runs on the compositor, so a busy main thread cannot sample it: read the animation itself. */
+          const a = page.getAnimations().find((x) => x.animationName === "fade-in")
+          const kf = a?.effect?.getKeyframes?.() ?? []
+          window.__enterAnim = a ? { name: a.animationName, ms: a.effect.getTiming().duration, from: kf[0]?.opacity ?? null, to: kf.at(-1)?.opacity ?? null, props: [...new Set(kf.flatMap((k) => Object.keys(k).filter((x) => !["offset", "easing", "composite", "computedOffset"].includes(x))))] } : null
+        }
+        window.__enter.push([Math.round(performance.now() - t0), !!bar, page ? +Number(getComputedStyle(page).opacity).toFixed(2) : null])
+        if (window.__enter.length < 240) requestAnimationFrame(tick)
+      }
+      requestAnimationFrame(tick)
+    })
+    await p.setRequestInterception(true)
+    p.on("request", (r) => {
+      const url = r.url()
+      if (url.startsWith(`${ORIGIN}/api/`)) return void r.respond({ status: 200, contentType: "application/json", body: "{}" })
+      if (url.startsWith(`${ORIGIN}/`)) return r.respond({ status: 200, contentType: "text/html", body: html })
+      if (url.startsWith("data:")) return r.continue()
+      return r.respond({ status: 204, body: "" })
+    })
+    await p.goto(`${ORIGIN}/community/clay-studio?case=paid&tabs=1`, { waitUntil: "load" })
+    await sleep(900)
+    const { f, anim } = await p.evaluate(() => ({ f: window.__enter, anim: window.__enterAnim }))
+    const firstBar = f.find(([, bar]) => bar)
+    const firstPage = f.find(([, , o]) => o !== null)
+    const shown = f.filter(([, bar, o]) => bar && o !== null)
+    expect(!!firstBar && !!firstPage && firstBar[0] <= firstPage[0], "the bar is on screen no later than the page under it", { barAt: firstBar?.[0], pageAt: firstPage?.[0] })
+    expect(anim && anim.ms === 200 && Number(anim.from) === 0 && Number(anim.to) === 1 && anim.props.join() === "opacity" && shown.at(-1)[2] === 1, "the page fades in: a 200ms opacity animation from 0 (opacity alone, nothing that moves), settled at 1", anim)
+    console.log(`        (client drawn here, at 4x CPU: the bar's first frame ${firstBar?.[0]}ms after the document started; on the site it is server drawn HTML)`)
+    await p.close()
+  }
+
   /* ── THE JOIN, at 4x CPU ───────────────────────────────────────────── */
   const tapAt = async (p, sel) => {
     const box = await p.evaluate((s) => { const r = document.querySelector(s).getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } }, sel)
