@@ -90,7 +90,16 @@ const alt = needsOf({ currently_due: ["individual.id_number", "individual.dob.da
 check("Stripe's alternative puts the ID photo on the form as the other way", alt.fields.includes("document") && alt.offered.includes("document") && alt.either[0]?.original[0] === "idNumber", alt)
 const dob = { day: 1, month: 1, year: 1990 }
 check("with the photo given, no CNP is needed", !detailIssues({ dob }, alt.fields, { tos: false, either: alt.either, given: new Set(["document"]) }).idNumber)
-check("without the photo, the CNP is still needed", !!detailIssues({ dob }, alt.fields, { tos: false, either: alt.either, given: new Set() }).idNumber)
+/*
+  The ID step comes AFTER the details, so at the moment the details are sent
+  the document is not on file yet. Requiring the number then meant refusing
+  a page that deliberately does not show it, naming a field nobody could
+  see. Where Stripe takes the document instead, the step ahead answers it.
+  Nobody is let through by this: Stripe keeps the number due until one of
+  the two arrives, and the ID step draws itself and offers the number.
+*/
+check("the number is not demanded before the ID step has had its turn", !detailIssues({ dob }, alt.fields, { tos: false, either: alt.either, given: new Set() }).idNumber)
+check("  and a number typed without the photo is still checked", !!detailIssues({ dob, idNumber: "12" }, alt.fields, { tos: false, either: alt.either, given: new Set() }).idNumber)
 check("a CNP typed with the photo is still checked", !!detailIssues({ dob, idNumber: "12" }, alt.fields, { tos: false, either: alt.either, given: new Set(["document"]) }).idNumber)
 /* No alternative from Stripe: the number is still needed, and still not drawn here. Stripe's own form collects it. */
 check("no alternative from Stripe: the number is handed over, not quietly asked for here", (() => {

@@ -491,6 +491,17 @@ export function PaymentsSetupFlow({
   /* The details step was walked past with nothing to ask, so Back skips it too. */
   const [detailsEmpty, setDetailsEmpty] = React.useState(false)
 
+  /*
+   * The draft goes when setup closes, not only when it opens. Clearing on
+   * open alone left a date of birth, an address and a whole IBAN sitting in
+   * memory for the life of the tab, and relied on this component never
+   * unmounting to stop a later open reading them back before the clear ran.
+   */
+  React.useEffect(() => {
+    if (open) return
+    clearDetailsDraft()
+  }, [open])
+
   React.useEffect(() => {
     if (!open) return
     setBack(false)
@@ -515,27 +526,58 @@ export function PaymentsSetupFlow({
    * the extra "refresh" was a second full sync between the last Continue and
    * the screen that follows, and it was most of the wait.
    *
-   * It is also the only place the "We're verifying your details" screen can
-   * come from, and it is only shown when there is genuinely nothing left to
-   * do. Stripe parks things in pending_verification for a few seconds after
-   * almost any write, so a status read in that window said VERIFYING while
-   * the person still had fields and a bank in front of them: the screen
-   * appeared out of nowhere and the setup looked finished when it was not.
-   * Anything still being asked for sends them back to the form instead.
+   * IT ALSO DECIDES WHERE SOMEBODY GOES NEXT, and that is the part that has
+   * to be exactly right, because every way of getting it wrong is a wall:
+   *
+   *   IT SENDS THEM TO THE STEP THAT CAN ASK. It used to send a seller who
+   *   still owed a bank to step 2, which was the bank before the reorder and
+   *   is the ID check now. In setup there is no bank step at all any more
+   *   (the bank lives on the details page), so that was Continue on the last
+   *   step doing nothing at all, for good. Where something is still owed,
+   *   the step that draws it is worked out from what is left.
+   *
+   *   IT NEVER SENDS THEM SOMEWHERE THEY ALREADY ARE. A step that has
+   *   nothing to draw hands itself straight on, so "stay on the form" by
+   *   remounting it was a loop: empty, settle, remount, empty, for as long
+   *   as the tab was open, firing a request every round. If the step that
+   *   should ask is the one that just said it had nothing, the form and
+   *   Stripe disagree and there is nothing to draw: that is the outcome
+   *   screen's job, not another lap.
+   *
+   * The "Checking your ID" screen comes from here too, and only when there
+   * is genuinely nothing left to do. Stripe parks things in
+   * pending_verification for a few seconds after almost any write, so a
+   * status read in that window said so while the person still had fields in
+   * front of them.
    */
   const settle = async (sent: Overview, left: DetailsForm | null) => {
     onData(sent)
-    const stillAsking = !!left && (left.needs.fields.length > 0 || left.needs.tos || left.needs.bank || left.needs.other.length > 0)
     const outcome = outcomeOf(statusOf(sent))
-    if (stillAsking && (outcome === "checking" || outcome === "done")) {
-      /* Stripe has not caught up with what it is still asking for: stay on the form. */
-      setOpenCount((k) => k + 1)
-      return
+
+    /* The step that can ask for what is left, or null when this form cannot ask for it. */
+    const stepFor = (form: DetailsForm | null): Step | null => {
+      if (!form) return null
+      const needs = form.needs
+      const detailsLeft = needs.fields.some((f) => f !== "document") || needs.tos || needs.bank || (needs.handover?.length ?? 0) > 0
+      if (detailsLeft) return 1
+      if (needs.fields.includes("document")) return 2
+      return null
     }
-    if (outcome === "bank") {
-      go(2)
-      return
+
+    if (mode === "setup") {
+      const target = stepFor(left)
+      /* Somewhere else to be: go there. Already there: the step said it was empty, so asking again is a loop. */
+      if (target !== null && target !== step) {
+        go(target)
+        return
+      }
+      if (target === null && outcome === "bank" && step !== 1) {
+        /* Stripe wants a bank and the form did not know yet: the details page draws it once it asks again. */
+        go(1)
+        return
+      }
     }
+
     if (outcome === "done" || outcome === "checking") onFinished()
     setEnding(outcome)
   }
@@ -575,7 +617,7 @@ export function PaymentsSetupFlow({
     )
   } else if (mode === "bank") {
     const failed = data.paymentsStatus?.status === "PAYOUT_FAILED"
-    body = <BankForm key={`bank-${openCount}`} failed={failed} onBack={onClose} backLabel="Cancel" onDone={() => void settle(data, null)} onData={onData} />
+    body = <BankForm key={`bank-${openCount}`} failed={failed} onBack={onClose} backLabel="Cancel" onDone={(sent) => void settle(sent, null)} onData={onData} />
   } else if (mode === "details" && data.kind === "business") {
     body = <BusinessDetailsStep key={`business-more-${openCount}`} onBack={onClose} onDone={(sent) => void settle(sent, null)} />
   } else if (mode === "details") {
@@ -833,6 +875,13 @@ function StepIntro({ title, line }: { title: string; line: string }) {
 
 /* ── step 2: your details (Storelib's own form) ────────────────────────── */
 
+/** Fields Stripe will take the ID document for instead: the ID step answers them, so no page asks. */
+function coveredByEither(form: DetailsForm): DetailField[] {
+  const out: DetailField[] = []
+  for (const e of form.needs.either) if (e.alternative.includes("document")) out.push(...e.original)
+  return out
+}
+
 /*
  * WHAT WAS TYPED, KEPT WHILE SETUP IS OPEN.
  *
@@ -1023,7 +1072,19 @@ function DetailsStep({
   const [accountNumber, setAccountNumber] = useDraft("accountNumber")
   const [routing, setRouting] = useDraft("routing")
   /* Stripe's own live check: the way in, until Stripe says there is none for this account. */
+  /*
+   * WHAT THE ID STEP SAYS IT WILL DO HAS TO BE WHAT IT DOES. In the app the
+   * check is Storelib's own camera, because the app never hands anybody to a
+   * browser mid setup (lib/payments/identity-client). Left at "stripe" the
+   * step promised "Verify with Stripe: Stripe scans your ID and matches a
+   * selfie to it" and then opened our camera, which takes no selfie. Set
+   * after mount rather than at first render, so the server and the browser
+   * draw the same thing and nothing flickers.
+   */
   const [idWay, setIdWay] = React.useState<"stripe" | "camera">("stripe")
+  React.useEffect(() => {
+    if (isNativeApp()) setIdWay("camera")
+  }, [])
   const [idState, setIdState] = React.useState<"idle" | "opening" | "waiting" | "checking" | "done">("idle")
   const [idProblem, setIdProblem] = React.useState<string | null>(null)
   const [noBack, setNoBack] = React.useState(false)
@@ -1032,6 +1093,8 @@ function DetailsStep({
   const picker = React.useRef<HTMLInputElement>(null)
 
   /* Stripe's answer, asked for until it has one. */
+  /* How many times the ID step has asked Stripe since the check was opened. */
+  const asks = React.useRef(0)
   const askStripe = React.useCallback(async () => {
     try {
       const r = await post<{ status: string; problem: string | null; form: DetailsForm }>("identity-status", {})
@@ -1053,10 +1116,26 @@ function DetailsStep({
     return false
   }, [setForm])
 
-  /* While Stripe's own screen is open, or its sheet is: ask again when the page comes back, and now and then. */
+  /*
+   * While Stripe's own screen is open: ask again when the page comes back,
+   * and now and then. It does not ask for ever. A check closed without
+   * finishing leaves Stripe with a session that is simply unfinished and no
+   * reason to report, so nothing here ever changed and the step sat on
+   * "Waiting for Stripe" with its button disabled and Continue refusing:
+   * the only way out was a text link. After a couple of minutes of being
+   * told nothing, the step goes back to offering the check.
+   */
   React.useEffect(() => {
     if (idState !== "waiting") return
-    const tick = () => void askStripe()
+    asks.current = 0
+    const tick = () => {
+      asks.current += 1
+      if (asks.current > 48) {
+        setIdState("idle")
+        return
+      }
+      void askStripe()
+    }
     /* Stripe is often done before the person is back: ask once, soon, then keep asking. */
     const first = window.setTimeout(tick, 800)
     const t = window.setInterval(tick, 2500)
@@ -1237,6 +1316,8 @@ function DetailsStep({
           onNext(res.form, res.overview)
         } catch (err) {
           setError(safe(err instanceof Error ? err.message : "That could not be saved. Try again."))
+        } finally {
+          /* Whether the parent moves on or keeps this step, the button stops spinning. */
           setBusy(false)
         }
         return
@@ -1275,7 +1356,15 @@ function DetailsStep({
       })
       onData(res.overview)
       /* Stripe can ask for one more thing once it has checked these (an ID photo after an ID number it could not match). */
-      const left = res.form.needs.fields.filter((f) => f !== "document" || !front)
+      /*
+       * What Stripe still wants that THIS page can ask for. Measured against
+       * the whole account it redrew the page over fields it does not draw
+       * (the ID, which is the next step; a number Stripe takes the ID for),
+       * leaving a heading, a Continue, and no way to satisfy either: press
+       * it and the same empty page came back, for good.
+       */
+      const settled = new Set(coveredByEither(res.form))
+      const left = res.form.needs.fields.filter((f) => !settled.has(f) && (f !== "document" || !front) && inSection(f))
       if (left.length || res.form.needs.tos) {
         setTried(false)
         if (left.includes("document")) setIdAgain(true)
@@ -1705,7 +1794,8 @@ function BusinessDetailsStep({ onBack, onDone, title = "Business details", line 
     setBusy(true)
     try {
       onDone(await post<Overview>("refresh", {}))
-    } catch {
+    } finally {
+      /* The parent may keep this step on screen, so the button has to stop spinning either way. */
       setBusy(false)
     }
   }
@@ -1734,7 +1824,14 @@ function BusinessDetailsStep({ onBack, onDone, title = "Business details", line 
  * routing number where it does not. It becomes the payout account for the
  * account's currency; the old one, if any, stops being used.
  */
-function BankForm({ failed = false, onBack, backLabel = "Back", onDone, onData }: { failed?: boolean; onBack: () => void; backLabel?: string; onDone: () => void; onData: (next: Overview) => void }) {
+/*
+ * The bank on its own (Update bank on Payouts). It hands the overview Stripe
+ * answered with to the caller: settling from the prop instead read the state
+ * as it was BEFORE the bank was added, so a first bank still looked missing,
+ * the panel quietly went nowhere, and a creator who had just saved one was
+ * left looking at the form wondering whether it took.
+ */
+function BankForm({ failed = false, onBack, backLabel = "Back", onDone, onData }: { failed?: boolean; onBack: () => void; backLabel?: string; onDone: (sent: Overview) => void; onData: (next: Overview) => void }) {
   const { form, error: loadError, load } = useDetailsForm()
   const [holder, setHolder] = React.useState<string | null>(null)
   const [iban, setIban] = React.useState("")
@@ -1766,7 +1863,7 @@ function BankForm({ failed = false, onBack, backLabel = "Back", onDone, onData }
     try {
       const res = await post<{ form: DetailsForm; overview: Overview }>("bank", bank.kind === "iban" ? { holderName: name, iban } : { holderName: name, accountNumber, routingNumber: routing })
       onData(res.overview)
-      onDone()
+      onDone(res.overview)
     } catch (err) {
       setError(safe(err instanceof Error ? err.message : "That bank account was not saved. Try again."))
     } finally {
@@ -1883,8 +1980,17 @@ function Outcome({ outcome, onContinue, onDone, onChecked }: { outcome: Outcome;
   const copy =
     outcome === "done"
       ? { icon: <Check className="h-5 w-5" strokeWidth={3} />, tone: "bg-[#ecfdf3] text-[#067647]", title: "Payments active", line: "You're ready to accept payments. Your sales are paid into your balance and you cash out to your bank.", action: "Done", primary: onDone }
-      : outcome === "checking"
+      : outcome === "bank"
         ? {
+            icon: <Landmark className="h-5 w-5" />,
+            tone: "bg-[#fffaeb] text-[#b54708]",
+            title: "Add your bank account",
+            line: "Everything else is done. Add the account your payouts go to and payments switch on.",
+            action: "Add bank account",
+            primary: onContinue,
+          }
+        : outcome === "checking"
+          ? {
             icon: <Clock className="h-5 w-5" />,
             tone: "bg-[#f4f3ff] text-[#5b4bd5]",
             title: "Checking your ID",

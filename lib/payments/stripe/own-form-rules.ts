@@ -326,9 +326,21 @@ export function cleanPhone(input: string): string {
 
 /** One sentence per field that is wrong, keyed by the field. Empty is valid. */
 /** The fields that are not needed any more, because the creator gave Stripe's alternative for them (the ID photo for the CNP). */
+/**
+ * Fields nothing need be typed for, because Stripe takes something else
+ * instead. An alternative counts as met once it has been given, and a
+ * document alternative counts from the start: the ID check that satisfies it
+ * is a later step of the same setup, so demanding the number before that
+ * step runs is demanding it on a page that deliberately does not show it.
+ * Somebody who never does the ID is not let through by this: Stripe keeps
+ * asking, the ID step draws itself, and that step offers the number.
+ */
 export function coveredByAlternative(either: DetailsNeeds["either"], given: Set<DetailField>): Set<DetailField> {
   const out = new Set<DetailField>()
-  for (const e of either) if (e.alternative.every((f) => given.has(f))) for (const f of e.original) out.add(f)
+  for (const e of either) {
+    const met = e.alternative.every((f) => given.has(f)) || e.alternative.includes("document")
+    if (met) for (const f of e.original) out.add(f)
+  }
   return out
 }
 
