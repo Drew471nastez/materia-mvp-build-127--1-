@@ -152,6 +152,8 @@ export const POSTS: FeedPostView[] = [
   post({
     id: "p-video",
     author: people.maya,
+    /* Round 8: the owner's pinned post, so the role and Pinned share the line at 390px. */
+    pinned: true,
     title: "Recording from last week's critique night",
     bodyText: "Here is the recording. Skip to 14:20 for the pricing page discussion, it was the best part.",
     media: [{ type: "embed", provider: "youtube", id: "dQw4w9WgXcQ", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", thumb: picture("#283044", "#7c8db0", 480, 360), title: "Critique night" }],

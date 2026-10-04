@@ -392,6 +392,17 @@ try {
       expect(cut === 0, "and it is never cut short", cut)
       expect(card["p-intro"].unread && card["p-video"].unread && !card["p-gif"].unread && !card["p-link"].unread, "the dot: new to me, not opened, not mine", Object.fromEntries(Object.entries(card).map(([k, v]) => [k, v.unread])))
       expect(card["p-intro"].excerptLines <= 2 && card["p-intro"].excerptLines >= 1, "two lines of the words at most", card["p-intro"].excerptLines)
+      /* Round 8: the role is RoleBadge (no grey pill), on the name's line, beside Pinned, never wrapped under the name. */
+      const role = await p.evaluate(() => {
+        const card = document.querySelector('[data-post="p-video"]')
+        const line = card.querySelector("[data-post-name-line]")
+        const badge = line?.querySelector("[data-role-badge]")
+        const name = line?.querySelector("[data-person-link]")
+        const pin = card.querySelector("[data-pin-mark]")
+        const r = (e) => e?.getBoundingClientRect()
+        return badge && name && pin ? { role: badge.getAttribute("data-role-badge"), text: badge.textContent, lineH: Math.round(r(line).height), sameLine: Math.abs(r(badge).top + r(badge).height / 2 - (r(name).top + r(name).height / 2)) <= 2, gapToPin: Math.round(r(pin).left - r(badge).right), bg: getComputedStyle(badge).backgroundColor } : null
+      })
+      expect(!!role && role.role === "owner" && role.text === "Owner" && role.sameLine && role.lineH <= 20 && role.gapToPin >= 0 && role.bg === "rgba(0, 0, 0, 0)", "the Owner badge sits on the name's line, left of Pinned, not a filled pill", role)
       const side = await sideScroll(p)
       expect(side.scroll <= side.width, "nothing scrolls sideways", side)
       if (phone) {

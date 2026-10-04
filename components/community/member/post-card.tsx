@@ -52,7 +52,7 @@ import { SEEN_EVENT, isUnread, readSeen } from "./post-seen"
 import { toast } from "./toast"
 import { BTN_GHOST, BTN_PRIMARY, CARD, FIELD, ICON_BTN } from "./ui"
 import { memberHref } from "./person-href"
-import { roleTag } from "./view-types"
+import { RoleBadge } from "./role-badge"
 
 /** "New comment 2d ago", "New comment just now". */
 export function newCommentLabel(iso: string, now = Date.now()): string {
@@ -259,7 +259,6 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
   if (modItems.length) modItems[0] = { ...modItems[0], section: "Moderation" }
 
   const author = post.author
-  const tag = roleTag(author?.role)
   const removed = post.status === "removed"
   const level = post.showLevel && author?.level ? author.level : null
   const fresh = post.lastCommentAt && Date.now() - Date.parse(post.lastCommentAt) < 7 * 86_400_000 ? post.lastCommentAt : null
@@ -282,7 +281,8 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
         ) : null}
       </span>
       <div className="min-w-0 flex-1 pt-0.5">
-        <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 text-[14.5px] leading-5">
+        {/* One line: a long name is cut short before the role ever drops under it. */}
+        <div className="flex min-w-0 items-center gap-x-1.5 text-[14.5px] leading-5" data-post-name-line="">
           {author ? (
             <Link href={memberHref(slug, author)} className="truncate font-semibold text-[#1a1a2e] hover:underline" data-person-link="" data-person-id={author.id}>
               {author.name}
@@ -290,7 +290,7 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
           ) : (
             <span className="font-semibold text-[#6b7280]">Former member</span>
           )}
-          {tag ? <span className="rounded-md bg-[#f1f2f4] px-1.5 text-[11.5px] font-medium leading-[18px] text-[#4b5563]">{tag}</span> : null}
+          <RoleBadge role={author?.role} />
         </div>
         <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-1 text-[13px] leading-5 text-[#6b7280]">
           <Link href={href} className="hover:underline" suppressHydrationWarning data-post-open="" onClick={openPost}>

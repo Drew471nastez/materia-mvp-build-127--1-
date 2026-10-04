@@ -33,7 +33,7 @@ import { inline } from "./body-text"
 import { realtimeAuth } from "./realtime"
 import { memberHref } from "./person-href"
 import { toast } from "./toast"
-import { roleTag } from "./view-types"
+import { RoleBadge } from "./role-badge"
 
 export const MESSAGES_EVENT = "storelib:community-messages"
 
@@ -521,7 +521,6 @@ function NewMessage({ communityId, userId, onBack, onPick, back }: { communityId
         ) : (
           <ul>
             {found.map((m) => {
-              const tag = roleTag(m.role)
               return (
                 <li key={m.userId}>
                   <button type="button" onClick={() => void pick(m)} disabled={!!opening} className="flex w-full cursor-pointer items-center gap-3 rounded-xl px-2.5 py-2 text-left outline-none transition-colors hover:bg-[#f6f7f8] focus-visible:bg-[#f6f7f8] disabled:cursor-default">
@@ -529,7 +528,7 @@ function NewMessage({ communityId, userId, onBack, onPick, back }: { communityId
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center gap-1.5">
                         <span className="truncate text-[14.5px] font-medium text-[#1a1a2e]">{m.name}</span>
-                        {tag ? <span className="rounded-md bg-[#f1f2f4] px-1.5 text-[11px] font-medium leading-[17px] text-[#4b5563]">{tag}</span> : null}
+                        <RoleBadge role={m.role} size="xs" />
                       </span>
                       {m.username ? <span className="block truncate text-[12.5px] text-[#9ca3af]">@{m.username}</span> : null}
                     </span>
@@ -691,7 +690,6 @@ function Thread({ communityId, slug, userId, id, other, onBack, onClose, onRead,
   }
 
   const all = messages ?? []
-  const tag = roleTag(other?.role as never)
 
   return (
     <div className={`flex min-h-0 flex-1 flex-col ${slideClass(back)}`} data-thread={id}>
@@ -705,7 +703,7 @@ function Thread({ communityId, slug, userId, id, other, onBack, onClose, onRead,
               <span className="min-w-0">
                 <span className="flex items-center gap-1.5">
                   <span className="truncate text-[15px] font-semibold text-[#1a1a2e]">{other.name}</span>
-                  {tag ? <span className="rounded-md bg-[#f1f2f4] px-1.5 text-[11px] font-medium leading-[17px] text-[#4b5563]">{tag}</span> : null}
+                  <RoleBadge role={other?.role as never} size="xs" />
                 </span>
                 {other.username ? <span className="block truncate text-[12px] leading-4 text-[#9ca3af]">@{other.username}</span> : null}
               </span>

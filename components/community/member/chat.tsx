@@ -32,7 +32,8 @@ import { SpaceIcon } from "./space-icon"
 import { toast } from "./toast"
 import { BTN_PRIMARY, BTN_SECONDARY, CARD, ICON_BTN } from "./ui"
 import { memberHref } from "./person-href"
-import { roleTag, type ChatMessageView, type SpaceView } from "./view-types"
+import { RoleBadge } from "./role-badge"
+import type { ChatMessageView, SpaceView } from "./view-types"
 
 /** Messages from one person within this long of each other are drawn as one group. */
 export const GROUP_MS = 5 * 60_000
@@ -285,7 +286,6 @@ export function ChatView({ communityId, slug, space, viewer, initial, readOnly =
           {messages.map((m, i) => {
             const start = groupsStart(messages, i)
             const newDay = i === 0 || dayOf(messages[i - 1].createdAt) !== dayOf(m.createdAt)
-            const tag = roleTag(m.author?.role)
             const items: ActionMenuItem[] = []
             if (m.canEdit) {
               items.push({ label: "Edit", icon: <Pencil className="h-4 w-4" />, onClick: () => setEditing({ id: m.id, body: m.body }) })
@@ -332,7 +332,7 @@ export function ChatView({ communityId, slug, space, viewer, initial, readOnly =
                         ) : (
                           <span className="font-semibold text-[#6b7280]">Former member</span>
                         )}
-                        {tag ? <span className="rounded-md bg-[#f1f2f4] px-1.5 text-[11px] font-medium leading-[17px] text-[#4b5563]">{tag}</span> : null}
+                        <RoleBadge role={m.author?.role} size="xs" />
                         {mounted ? <span className="text-[12px] text-[#9ca3af]">{m.sending ? "Sending..." : clock(m.createdAt)}</span> : null}
                       </div>
                     ) : null}

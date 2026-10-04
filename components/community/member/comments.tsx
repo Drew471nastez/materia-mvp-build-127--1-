@@ -39,7 +39,7 @@ import { press, useIntent } from "./post-intent"
 import { toast } from "./toast"
 import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, ICON_BTN } from "./ui"
 import { memberHref } from "./person-href"
-import { roleTag } from "./view-types"
+import { RoleBadge } from "./role-badge"
 
 type CommentUpdate = (id: string, fn: (c: CommentView) => CommentView | null) => void
 type Me = { name: string; avatarUrl: string | null }
@@ -336,7 +336,6 @@ function CommentItem({
   const [confirm, setConfirm] = useState<ConfirmState | null>(null)
   const [report, setReport] = useState<ReportTargetRef | null>(null)
   const base = apiBase(communityId)
-  const tag = roleTag(c.author?.role)
   const intent = useIntent(`comment-like:${c.id}`)
   const reacted = intent ? intent.on : c.reacted
   const reactionCount = intent ? intent.count : c.reactionCount
@@ -433,7 +432,7 @@ function CommentItem({
                   ) : (
                     <span className="font-semibold text-[#6b7280]">Former member</span>
                   )}
-                  {tag ? <span className="rounded-md bg-white px-1.5 text-[11px] font-medium leading-[17px] text-[#4b5563]">{tag}</span> : null}
+                  <RoleBadge role={c.author?.role} size="xs" />
                 </div>
                 {editing ? (
                   <div className="mt-1">
