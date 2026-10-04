@@ -40,6 +40,10 @@ import { decodeFollowCursor, encodeFollowCursor, followCounts, isFollowing, list
 import { followDedupeKey, notifyNewFollower } from "@/lib/profile/notify-follow"
 import { privacyPatch, readPrivacy } from "@/lib/profile/privacy"
 import { cameFromBrowsing, refererPath } from "@/lib/profile/back"
+import { sharedPostView, SHARED_PAGE, SHARED_COMMUNITIES_MAX } from "@/lib/profile/shared-view"
+import { ownCoverUrl } from "@/lib/profile/cover"
+import { schemeFill } from "@/components/profile/follow-button"
+import { resolveStorefrontChrome } from "@/lib/store-builder/storefront-chrome"
 import { isValidUsername } from "@/lib/reserved-words"
 
 let passed = 0
@@ -470,8 +474,14 @@ async function main() {
     check("from a community, Explore or search", cameFromBrowsing("/community/design") && cameFromBrowsing("/explore") && cameFromBrowsing("/explore/communities") && cameFromBrowsing("/search"))
     check("not from anywhere else", !cameFromBrowsing("/library") && !cameFromBrowsing("/communityx") && !cameFromBrowsing(null))
     check("the referer counts only on our own host", refererPath("https://storelib.com/community/x", "storelib.com") === "/community/x" && refererPath("https://evil.example/community/x", "storelib.com") === null)
-    const bar = read("components/profile/profile-back-bar.tsx")
+    const bar = read("components/profile/profile-top-bar.tsx")
     check("history back with Explore as the fallback", /backThen\(\(\) => router\.push\(fallback\)\)/.test(bar) && /fallback = "\/explore"/.test(bar))
+    /* "The back control lives in the top bar next to the person's avatar ... not as a pill under it." */
+    check("the way back is a chevron in a top bar, never a pill", /export function TopBarBack/.test(bar) && /export function ProfileTopBar/.test(bar) && /aria-label="Back"/.test(bar) && !/>\s*Back\s*</.test(bar))
+    check("  the slim bar puts it right before the person's photo and name", /<BackChevron[^>]*\/>\s*<AppAvatar/.test(bar) && /data-profile-top-bar-name/.test(bar))
+    check("  only when reached from a community, Explore or search", /if \(!shown\) return null/.test(bar) && /cameFromBrowsing\(from\)/.test(bar))
+    const sub = read("components/store-builder/subscribe-bar.tsx")
+    check("  on a creator's newsletter bar it is the row's first thing, before the photo, at both widths", /\{leading\}\s*\{mobileAvatar\}/.test(sub) && /\{leading\}\s*\{desktopAvatar\}/.test(sub))
   }
 
   console.log("\nRoutes")
@@ -502,9 +512,9 @@ async function main() {
     const page = read("components/profile/member-profile-page.tsx")
     const route = read("app/(marketing)/member/[username]/page.tsx")
     check("the member profile reads follows, not the old table", !/profile_follows/.test(read("lib/profile/member-profile-data.ts")) && !/profile_follows/.test(route))
-    check("owner pills only on your own profile", /isSelf \? <ProfileOwnerPills/.test(page))
-    const pills = read("components/profile/profile-owner-pills.tsx")
-    check("the pills: Library, Courses, Communities, Edit profile, Settings", ["Library", "Courses", "Communities", "Edit profile", "Settings"].every((w) => pills.includes(`label: "${w}"`)))
+    check("owner pills only on your own profile, which is /account's own view", /\{isSelf \? \(/.test(page) && /<ProfileOwnerPills communities=\{communities\.enabled\} active="activity"/.test(page))
+    const pills = read("lib/profile/owner-pills.ts") + read("components/profile/profile-owner-pills.tsx")
+    check("the pills: Activity, Communities, Library, Edit profile, Settings", ["Activity", "Communities", "Library", "Edit profile", "Settings"].every((w) => pills.includes(`label: "${w}"`)))
     check("no selling UI on a buyer's profile", !/Start selling|Become a seller|Sell on Storelib|\/app\/onboarding/.test(page + pills))
     check("Products only with a live store", /profile\.hasStorefront && profile\.products\.length > 0/.test(page))
     check("memberships only when shown, or to themselves", /showCommunities \|\| isSelf/.test(page) && /showCommunities \|\| isSelf/.test(route))
@@ -514,7 +524,9 @@ async function main() {
     check("listed communities are published, public, open, not hidden", /eq\("visibility", "public"\)/.test(shared) && /platform_hidden", false/.test(shared) && /is\("suspended_at", null\)/.test(shared))
     const creator = read("app/(marketing)/u/[username]/page.tsx")
     check("the creator page has the same follow block", /<ProfileSocial[\s\S]{0,80}tone="storefront"/.test(creator) && (creator.match(/followRow=\{buildFollowRow\(/g) ?? []).length === 2)
-    check("the creator page has the back bar on both of its headers", (creator.match(/<ProfileBackBar /g) ?? []).length === 2)
+    check("the creator page has the way back on both of its headers: in the newsletter bar, else a slim top bar", (creator.match(/leading=\{!embedded \? <TopBarBack initiallyShown=\{backShown\} \/> : undefined\}/g) ?? []).length === 3 && (creator.match(/<ProfileTopBar\b/g) ?? []).length === 2 && !/ProfileBackBar/.test(creator))
+    check("Follow on the creator page is drawn in the scheme's own button colours", /buildFollowRow\(headerSettings, chrome\.action\)/.test(creator) && /scheme=\{scheme \?\? null\}/.test(creator) && /action: \{/.test(read("lib/store-builder/storefront-chrome.ts")))
+    check("the creator page shows their activity and the communities they are in, as a profile does", /id: "activity", label: "Activity"/.test(creator) && /communitiesPanel\(communityCards\)/.test(creator) && /readPrivacy\(admin, profile\.id\)/.test(creator))
     const header = read("components/store-builder/unified-section-renderer.tsx")
     check("the header does not print the follower count twice", /!followRow && \(settings\.showFollowers/.test(header))
     const settings = read("components/account/account-settings.tsx")
@@ -530,17 +542,84 @@ async function main() {
       "components/profile/follow-list-sheet.tsx",
       "components/profile/profile-social.tsx",
       "components/profile/profile-activity.tsx",
-      "components/profile/profile-back-bar.tsx",
+      "components/profile/profile-top-bar.tsx",
+      "components/profile/shared-community-posts.tsx",
+      "components/profile/profile-owner-pills.tsx",
       "components/account/account-settings.tsx",
+      "components/account/push-switch-row.tsx",
+      "components/account/cover-field.tsx",
+      "components/account/account-hub.tsx",
     ]
-    const serverOnly = /from "(next\/headers|server-only|@\/lib\/supabase\/admin|@\/lib\/profile\/(ensure-username|follows|activity|activity-page|privacy|notify-follow|follow-effects|profile-communities|member-profile-data)|@\/lib\/communities\/server\/[^"]*|@\/lib\/admin-blog-auth)"/
+    const serverOnly = /from "(next\/headers|server-only|@\/lib\/supabase\/admin|@\/lib\/profile\/(ensure-username|follows|activity|activity-page|privacy|notify-follow|follow-effects|profile-communities|member-profile-data|shared-posts)|@\/lib\/communities\/server\/[^"]*|@\/lib\/admin-blog-auth)"/
     for (const f of clientFiles) {
       const src = read(f)
       check(`${f} is a client module that imports nothing server only`, /^"use client"/.test(src) && !serverOnly.test(src))
     }
-    for (const f of ["lib/profile/ensure-username.ts", "lib/profile/follows.ts", "lib/profile/activity.ts", "lib/profile/privacy.ts", "lib/profile/notify-follow.ts", "lib/profile/follow-effects.ts", "lib/profile/profile-communities.ts", "lib/profile/activity-page.ts"]) {
+    for (const f of ["lib/profile/shared-posts.ts", "lib/profile/ensure-username.ts", "lib/profile/follows.ts", "lib/profile/activity.ts", "lib/profile/privacy.ts", "lib/profile/notify-follow.ts", "lib/profile/follow-effects.ts", "lib/profile/profile-communities.ts", "lib/profile/activity-page.ts"]) {
       check(`${f} is server only`, /^import "server-only"/.test(read(f)))
     }
+  }
+
+  console.log("\nIn <community>: their posts where you both are")
+  {
+    check("six to a page, at most three communities", SHARED_PAGE === 6 && SHARED_COMMUNITIES_MAX === 3)
+    const v = sharedPostView({ id: "p1", title: "  Cone 6  ", body_text: "Thinned  it\nwith water", space_id: "s1", created_at: "2026-10-01T00:00:00Z", reaction_count: 3, comment_count: null, media: [{ type: "link", url: "x" }, { type: "image", url: "https://a.supabase.co/i.png" }] }, { slug: "clay" }, (id) => (id === "s1" ? "General" : null))
+    check("a titled post: its title, its words short, its space, its first picture, a link into the community", v.title === "Cone 6" && v.excerpt === "Thinned it with water" && v.space === "General" && v.imageUrl === "https://a.supabase.co/i.png" && v.href === "/community/clay/post/p1" && v.reactions === 3 && v.comments === 0, v)
+    const u = sharedPostView({ id: "p2", title: null, body_text: "x".repeat(300), space_id: null, created_at: "2026-10-01T00:00:00Z", reaction_count: -2, comment_count: 4 }, { slug: "clay" }, () => null)
+    check("an untitled post leads with its words, clipped, and no second copy of them", u.title.length === 140 && u.excerpt === null && u.space === null && u.reactions === 0, u)
+    const src = stripComments(read("lib/profile/shared-posts.ts"))
+    check("the viewer passes the community's own gate first", /requireMember\(db, input\.communityId, input\.viewerId, "view"\)/.test(src) && src.indexOf("requireMember(") < src.indexOf('from("community_feed_posts")'))
+    check("only spaces the viewer may read, never chat, archived ones left out by listSpaces", /listSpaces\(db, community\.id\)/.test(src) && /s\.kind !== "chat" && canSeeSpace\(s, access\)/.test(src) && /space_id\.is\.null,space_id\.in\./.test(src))
+    check("only their published, undeleted posts in that community, newest first, keyset paged", /\.eq\("author_id", input\.targetId\)/.test(src) && /\.eq\("status", "published"\)/.test(src) && /\.is\("deleted_at", null\)/.test(src) && /keysetCondition\("latest", cursor\)/.test(src) && /limit\(SHARED_PAGE \+ 1\)/.test(src))
+    check("both must be active, unbanned members; the community published and open", (src.match(/is\("banned_at", null\)/g) ?? []).length === 2 && /status !== "active" \|\| theirs\[0\]\.banned_at/.test(src) && /eq\("status", "published"\)\.is\("deleted_at", null\)\.is\("suspended_at", null\)/.test(src))
+    const route = stripComments(read("app/api/profile/shared-posts/route.ts"))
+    check("the route: communities switch first, the session's viewer, 404 when they may not look", route.indexOf("requireCommunitiesOn()") < route.indexOf("sessionUserId()") && /status: 401/.test(route) && /not_found/.test(route))
+    const page = read("components/profile/member-profile-page.tsx")
+    check("the profile draws a section per shared community above the activity", /<SharedCommunityPosts key=\{s\.community\.id\}/.test(page) && /lead=\{/.test(page))
+    const view = read("components/profile/shared-community-posts.tsx")
+    check("Newer and Older, the pages already seen kept, the list holding its height while one comes", /data-shared-newer/.test(view) && /data-shared-older/.test(view) && /if \(pages\[at \+ 1\]\) return show\(at \+ 1\)/.test(view) && /minHeight: hold/.test(view))
+    check("Message opens the conversation in place: the community's ?dm= link, never a member page", /\?dm=\$\{targetId\}/.test(read("lib/profile/profile-communities.ts")) && !/members\/\$\{targetId\}/.test(read("lib/profile/profile-communities.ts")))
+  }
+
+  console.log("\nFollow, drawn better and in the page's colours")
+  {
+    const btn = read("components/profile/follow-button.tsx")
+    check("Following carries a check, and Unfollow shares its cell so the width holds", /<Check /.test(btn) && /data-follow-label="unfollow"/.test(btn) && /col-start-1 row-start-1/.test(btn))
+    check("hover or a press says Unfollow, but not under the pointer that just followed", /group-hover\/follow:visible group-active\/follow:visible/.test(btn) && /onPointerLeave=\{\(\) => setFresh\(false\)\}/.test(btn) && /const unfollowable = following && !fresh/.test(btn))
+    check("optimistic, and put back when the server refuses", /setFollowing\(next\)[\s\S]{0,80}input\.onChange\?\.\(next\)/.test(btn) && /setFollowing\(!next\)/.test(btn))
+    const sage = resolveStorefrontChrome("sage").action
+    check("a scheme's Follow is its buy button colour, text and rounding", sage.background === "#2F5D46" && typeof sage.radius === "number" && schemeFill(sage, false)?.backgroundColor === "#2F5D46" && schemeFill(sage, false)?.color === sage.text)
+    check("  and Following drops the fill, keeping only the rounding", !schemeFill(sage, true)?.backgroundColor && !!schemeFill(sage, true)?.borderRadius)
+    check("plain profiles keep Storelib's own pair", /: primaryDepth/.test(btn) && /cn\(secondaryDepth/.test(btn))
+  }
+
+  console.log("\nA cover of your own")
+  {
+    const host = "abc.supabase.co"
+    const me = "00000000-0000-4000-8000-0000000000a1"
+    check("your own upload in covers is accepted, its query dropped", ownCoverUrl(`https://${host}/storage/v1/object/public/covers/${me}/1.webp?x=1`, me, host) === `https://${host}/storage/v1/object/public/covers/${me}/1.webp`)
+    check("somebody else's folder is refused", ownCoverUrl(`https://${host}/storage/v1/object/public/covers/someone/1.webp`, me, host) === null)
+    check("another bucket, another host, http, credentials or a climb are refused", [
+      `https://${host}/storage/v1/object/public/avatars/${me}/1.webp`,
+      `https://evil.example/storage/v1/object/public/covers/${me}/1.webp`,
+      `http://${host}/storage/v1/object/public/covers/${me}/1.webp`,
+      `https://u:p@${host}/storage/v1/object/public/covers/${me}/1.webp`,
+      `https://${host}/storage/v1/object/public/covers/${me}/../x/1.webp`,
+      `https://${host}/storage/v1/object/public/covers/${me}/`,
+      "javascript:alert(1)",
+    ].every((u) => ownCoverUrl(u, me, host) === null))
+    const route = stripComments(read("app/api/profile/cover/route.ts"))
+    check("the route: the session's own row, checked address, rate limited, 503 before the column exists", /auth\.getUser\(\)/.test(route) && /\.eq\("id", user\.id\)/.test(route) && /ownCoverUrl\(body\.coverUrl, user\.id/.test(route) && /rateLimit\(/.test(route) && /status: 503/.test(route))
+    check("Settings uses the creator cover's own upload box (bucket covers, 3:1)", /<ImageUpload bucket="covers" aspectRatio="cover"/.test(read("components/account/cover-field.tsx")))
+    check("visitors see it: the page reads it with the service role", /select\("cover_url"\)/.test(read("lib/profile/member-profile-data.ts")) && /coverUrl: cover \|\| creatorRow\?\.cover_url/.test(read("lib/profile/member-profile-data.ts")))
+    check("the owner's band offers Add cover / Change cover, nobody else's does", /isSelf \? \(\s*<Link\s+href=\{COVER_SETTINGS_HREF\}/.test(read("components/profile/profile-hero.tsx")))
+  }
+
+  console.log("\nNever empty")
+  {
+    const act = read("components/profile/profile-activity.tsx")
+    check("the activity always ends on the day they joined", /function JoinedRow/.test(act) && /\{joinedAt && !next \? <JoinedRow/.test(act))
+    check("the profile and /account both hand it the join date", /joinedAt=\{profile\.joinedAt\}/.test(read("components/profile/member-profile-page.tsx")) && /joinedAt=\{user\.created_at/.test(read("app/account/page.tsx")))
   }
 
   console.log("\nCopy")
@@ -562,8 +641,16 @@ async function main() {
       "components/profile/follow-list-sheet.tsx",
       "components/profile/profile-social.tsx",
       "components/profile/profile-activity.tsx",
-      "components/profile/profile-back-bar.tsx",
+      "components/profile/profile-top-bar.tsx",
+      "components/profile/profile-hero.tsx",
+      "components/profile/shared-community-posts.tsx",
       "components/profile/profile-owner-pills.tsx",
+      "lib/profile/owner-pills.ts",
+      "lib/profile/shared-posts.ts",
+      "lib/profile/shared-view.ts",
+      "lib/profile/cover.ts",
+      "app/api/profile/cover/route.ts",
+      "app/api/profile/shared-posts/route.ts",
       "components/profile/member-profile-page.tsx",
       "app/(marketing)/member/[username]/page.tsx",
       "app/api/follow/list/route.ts",
