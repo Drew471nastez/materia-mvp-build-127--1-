@@ -160,6 +160,22 @@ async function open(vp, hash, { reduced = false } = {}) {
   const p = await browser.newPage()
   const errors = []
   p.on("pageerror", (e) => errors.push(e.message))
+  /*
+    Every picture the bell's list draws, recorded as it is put in the page.
+    Round 8 reads the list's first page before it opens, so its pictures are
+    drawn (and a failed one taken out again) before any frame of an open
+    could see them.
+  */
+  await p.evaluateOnNewDocument(() => {
+    new MutationObserver((muts) => {
+      for (const m of muts) for (const n of m.addedNodes) {
+        if (!(n instanceof Element)) continue
+        for (const i of [n, ...n.querySelectorAll("img")]) {
+          if (i.tagName === "IMG" && i.closest("[data-notification-panel]")) (window.__imgs ||= new Map()).set(i.getAttribute("src"), { loading: i.getAttribute("loading"), box: Math.round(i.parentElement.getBoundingClientRect().width / (parseFloat(getComputedStyle(i.closest("[data-notification-panel]")).scale) || 1)) })
+        }
+      }
+    }).observe(document, { childList: true, subtree: true })
+  })
   await p.setViewport(vp)
   if (reduced) await p.emulateMediaFeatures([{ name: "prefers-reduced-motion", value: "reduce" }])
   await p.goto(`file://${join(stubs, "index.html")}#${hash}`)
@@ -179,8 +195,8 @@ const startSampling = (p, sel) => p.evaluate((sel) => {
   window.__sampling = true
   const tick = (t) => {
     const el = document.querySelector(sel)
-    /* A kept panel (the navigator's) is in the page while closed, hidden: that counts as gone. */
-    if (el && getComputedStyle(el).visibility !== "hidden") {
+    /* A kept panel is in the page while closed, hidden (the bell's) or transparent (the navigator's, round 8): that counts as gone. */
+    if (el && getComputedStyle(el).visibility !== "hidden" && +getComputedStyle(el).opacity > 0) {
       const cs = getComputedStyle(el)
       const r = el.getBoundingClientRect()
       /* offsetHeight: the box's own height, not the scaled one the screen shows mid fade. Pictures as they are first drawn, before a failed load can take one out. */
@@ -235,7 +251,8 @@ const throttle = async (p, rate) => { const c = await p.target().createCDPSessio
 
 const NAV_PANEL = '[data-place-navigator-panel="popover"]'
 /* Closed: not in the page, or kept there invisible and inert. */
-const navClosed = (p) => p.evaluate((sel) => { const el = document.querySelector(sel); return !el || (getComputedStyle(el).visibility === "hidden" && el.hasAttribute("inert")) }, NAV_PANEL)
+/* Round 8: closed is transparent and inert (nothing inherited flips on the press), no longer visibility: hidden. */
+const navClosed = (p) => p.evaluate((sel) => { const el = document.querySelector(sel); return !el || ((getComputedStyle(el).visibility === "hidden" || +getComputedStyle(el).opacity === 0) && el.hasAttribute("inert")) }, NAV_PANEL)
 const navRows = (p, scope = NAV_PANEL) => p.evaluate((scope) => {
   const root = document.querySelector(scope)
   if (!root) return null
@@ -277,7 +294,7 @@ console.log("\ncomputer 1440, Explore, signed in buyer: the bar")
   expect(firstSeen && firstSeen.opacity < 0.6, "it fades in from nothing rather than appearing at full strength", firstSeen)
   expect(settled && settled.opacity === 1 && settled.scale === "1" , "and settles fully open", settled)
   const props = await p.evaluate((sel) => getComputedStyle(document.querySelector(sel)).transitionProperty, NAV_PANEL)
-  expect(props === "opacity, scale, translate", "it moves by opacity, scale and translate only (visibility only flips, at the end of the way out)", props)
+  expect(props === "opacity, scale, translate", "it moves by opacity, scale and translate only (and nothing inherited flips with it)", props)
   console.log(`        frames while opening: ${JSON.stringify(motionGaps(s))} (ms: the frame that builds it, then the longest during the fade), ${s.length} frames`)
   if (process.env.DEBUG_FRAMES) console.log(s.map((x, i) => i ? `${Math.round(x.t - s[i - 1].t)}${x.present ? ":" + x.opacity.toFixed(2) : ""}` : "").join(" "))
   const rows = await navRows(p)
