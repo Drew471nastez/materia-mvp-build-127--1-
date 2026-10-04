@@ -809,8 +809,10 @@ try {
         await shot(p, `${label}-lightbox-zoom`)
       }
       await p.keyboard.press("Escape")
-      await sleep(450)
-      expect(!(await p.$("[data-lightbox]")), "Escape closes it")
+      /* Round 9: the close goes back into its thumbnail (240ms); it leaves the page when that has finished. */
+      const t0 = Date.now()
+      await p.waitForFunction(() => !document.querySelector("[data-lightbox]"), { timeout: 1500 }).catch(() => {})
+      expect(!(await p.$("[data-lightbox]")), "Escape closes it", `${Date.now() - t0}ms`)
       expect(errors.length === 0, "no page error", errors)
       await p.close()
     }
@@ -1199,6 +1201,92 @@ try {
     }
 
     /* ══ ROUND 9 ═════════════════════════════════════════════════════ */
+
+    /* ── MOUNT: what drawing a page of 20 posts costs at 4x CPU (going back to the feed, switching a space) ── */
+    if (want("mount")) {
+      const { p, errors } = await open("mount", "/community/studio-notes", vp)
+      const cdp = await p.target().createCDPSession()
+      const runs = []
+      for (let k = 1; k <= 5; k++) {
+        await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 })
+        const prof = process.env.PROF && k === 3
+        if (prof) {
+          await cdp.send("Profiler.enable")
+          await cdp.send("Profiler.setSamplingInterval", { interval: 100 })
+          await cdp.send("Profiler.start")
+          await p.tracing.start({ path: join(shots, "mount-trace.json"), categories: ["devtools.timeline"] })
+        }
+        runs.push(
+          await p.evaluate(
+            (k) =>
+              new Promise((done) => {
+                const long = []
+                const po = new PerformanceObserver((l) => l.getEntries().forEach((e) => long.push(Math.round(e.duration))))
+                po.observe({ type: "longtask" })
+                const t0 = performance.now()
+                const seen = () => document.querySelectorAll(`[data-feed-list] > [data-post*="-m${k}-"]`).length > 0
+                const wait = () => {
+                  if (!seen()) return requestAnimationFrame(wait)
+                  /* The frame that shows the posts. */
+                  requestAnimationFrame(() => {
+                    const shown = Math.round(performance.now() - t0)
+                    setTimeout(() => {
+                      po.disconnect()
+                      done({ shown, longest: Math.max(0, ...long), longTotal: long.reduce((a, b) => a + b, 0), cards: document.querySelectorAll(`[data-feed-list] > [data-post*="-m${k}-"]`).length })
+                    }, 900)
+                  })
+                }
+                window.__mount(k)
+                requestAnimationFrame(wait)
+              }),
+            k,
+          ),
+        )
+        if (prof) {
+          await p.tracing.stop()
+          const ev = JSON.parse(readFileSync(join(shots, "mount-trace.json"), "utf8")).traceEvents
+          const sum = new Map()
+          for (const e of ev) if (e.ph === "X" && e.dur) sum.set(e.name, (sum.get(e.name) || 0) + e.dur)
+          console.log("TRACE", JSON.stringify([...sum].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([k, t]) => [k, Math.round(t / 1000)])))
+          const { profile } = await cdp.send("Profiler.stop")
+          const self = new Map()
+          const byId = new Map(profile.nodes.map((n) => [n.id, n]))
+          profile.samples.forEach((id, i) => {
+            const n = byId.get(id)
+            const key = `${n.callFrame.functionName || "(anon)"}:${n.callFrame.lineNumber}`
+            self.set(key, (self.get(key) || 0) + (profile.timeDeltas[i] || 0))
+          })
+          console.log("SELF", JSON.stringify([...self].sort((a, b) => b[1] - a[1]).slice(0, 30).map(([k, v]) => [k, Math.round(v / 1000)])))
+          /* Inclusive time per component (React function names in the stack). */
+          const parent = new Map()
+          for (const n of profile.nodes) for (const c of n.children || []) parent.set(c, n.id)
+          const incl = new Map()
+          profile.samples.forEach((id, i) => {
+            const names = new Set()
+            for (let x = id; x != null; x = parent.get(x)) {
+              const fn = byId.get(x).callFrame.functionName
+              if (/^[A-Z]/.test(fn)) names.add(fn)
+            }
+            for (const nm of names) incl.set(nm, (incl.get(nm) || 0) + (profile.timeDeltas[i] || 0))
+          })
+          console.log("INCL", JSON.stringify([...incl].sort((a, b) => b[1] - a[1]).slice(0, 30).map(([k, v]) => [k, Math.round(v / 1000)])))
+        }
+        await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
+        await sleep(300)
+      }
+      const mid = (key) => [...runs].map((r) => r[key]).sort((a, b) => a - b)[2]
+      console.log(`  info  MOUNT at 4x CPU, 20 posts, median of 5: on screen ${mid("shown")}ms, longest task ${mid("longest")}ms, long tasks ${mid("longTotal")}ms in all`, JSON.stringify(runs))
+      expect(runs.every((r) => r.cards === 20), "MOUNT: all twenty posts are drawn in the end", runs.map((r) => r.cards))
+      /*
+        Before round 9's change (the same fixture): on screen in 554ms (desktop) and 565ms (phone), longest
+        task 520ms and 497ms with the composer's every-render height read, 291ms and 340ms without it.
+      */
+      expect(mid("shown") <= 320 && mid("longest") <= 160, "and a screenful is on screen within 320ms at 4x CPU, no task over 160ms (median of 5)", { shown: mid("shown"), longest: mid("longest") })
+      const holes = await p.evaluate(() => document.querySelectorAll("[data-post-placeholder]").length)
+      expect(holes === 0, "no stand in is left once the frame after it has passed", holes)
+      expect(errors.length === 0, "no page error", errors)
+      await p.close()
+    }
 
     /* ── ROWS: a phone's feed is full width rows, a computer's cards are as they were ── */
     if (want("rows")) {

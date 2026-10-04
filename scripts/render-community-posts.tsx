@@ -11,6 +11,8 @@
  *   post   /community/<slug>/post/<id>     the post page with its media grid
  *   dm     /community/<slug>?as=<user>     the frame with Messages, as one of two members
  *   long   /community/<slug>               round 9: the feed with more posts, for scroll that must come back
+ *   mount  /community/<slug>               round 9: a page of 20 posts mounted when the probe calls
+ *          window.__mount(n), each time new (going back to the feed, switching a space)
  *   media  /community/<slug>/post/<id>?post=<id>   round 8: one post of MEDIA_POSTS on its
  *          page (one picture, a tall one, two, many, a video alone, a YouTube
  *          address in the words, a picture linked in the words and in a comment)
@@ -18,7 +20,7 @@
  * Like the real frame (components/community/member/shell.tsx), every case
  * draws MediaLinks, so a press on a picture link opens the viewer.
  */
-import React from "react"
+import React, { useEffect, useState } from "react"
 import { createRoot } from "react-dom/client"
 import { ShellFrame } from "@/components/community/member/shell-frame"
 import { FeedColumns } from "@/components/community/member/columns"
@@ -289,6 +291,7 @@ function Screen() {
     const chosen = MEDIA_POSTS.find((p) => p.id === params.get("post")) ?? MEDIA_POSTS[0]
     return shell(<FeedColumns main={<PostPage slug={community.slug} viewer={viewer} post={chosen} comments={{ comments: chosen.id === "m-links" ? MEDIA_COMMENTS : [], nextCursor: null }} me={me} />} />)
   }
+  if (which === "mount") return shell(<MountBench me={me} />)
   if (which === "long") {
     /* Round 9: three times the posts, so there is a feed to scroll away into and come back to. */
     const many = [0, 1, 2].flatMap((k) => POSTS.filter((p) => !p.pinned).map((p) => ({ ...p, id: k ? `${p.id}-${k}` : p.id })))
@@ -314,6 +317,24 @@ function Screen() {
         />
       }
     />,
+  )
+}
+
+/* Twenty posts (a feed page) of the usual mix, with ids new to each mount, so nothing is reused from the one before. */
+function MountBench({ me }: { me: { name: string; avatarUrl: string | null } }) {
+  const [n, setN] = useState(0)
+  useEffect(() => {
+    ;(window as unknown as { __mount: (k: number) => void }).__mount = setN
+  }, [])
+  if (!n) return <div data-bench-empty="" />
+  const posts = Array.from({ length: 20 }, (_, i) => {
+    const p = POSTS[i % POSTS.length]
+    return { ...p, id: `${p.id}-m${n}-${i}`, pinned: false }
+  })
+  return (
+    <FeedColumns
+      main={<FeedView key={n} communityId={CID} slug={community.slug} viewer={viewer} initial={{ pinned: [], posts, nextCursor: null }} composer={{ communityId: CID, userId: self.id, me, spaces: spaces.map((s) => ({ id: s.id, name: s.name, kind: s.kind })), fileProductId: null }} />}
+    />
   )
 }
 

@@ -391,6 +391,12 @@ async function main() {
   const gif9 = code("components/community/member/media-gif.tsx")
   check("GIFS: what the button's question brought shows at once, a search typed again too; GIFs stay on screen while the next ones come", /const seen = new Map<string, GifPage>\(\)/.test(gif9) && /const stale = loading && shownFor !== term/.test(gif9) && /Trending/.test(gif9) && !/animate-pulse/.test(gif9))
   check("nothing found names the words; a failure can be tried again; the next page as the end nears", /No GIFs for "\$\{shownFor\}"\. Try other words\./.test(gif9) && /Try again/.test(gif9) && /offset=\$\{page\.next\}/.test(gif9) && /IntersectionObserver/.test(gif9))
+  const feed9 = code("components/community/member/feed.tsx")
+  check("MOUNT: a list draws its first screenful of cards, the rest stand in at their height for a frame, then come in a transition", /export const FIRST_CARDS = 8/.test(card9) && /i < FIRST_CARDS \|\| whole \? <PostCard /.test(feed9) && /<PostCardPlaceholder key=\{p\.id\} post=\{p\} \/>/.test(feed9) && /requestAnimationFrame\(\(\) => startTransition\(\(\) => setWholeFor\(key\)\)\)/.test(feed9))
+  check("a card off screen is not laid out or painted, and keeps the height it last had (one shared ResizeObserver)", /\[content-visibility:auto\]/.test(card9) && /containIntrinsicSize: `auto \$\{heightOf\(post\.id\)\}px`/.test(card9) && /watcher \?\?= new ResizeObserver/.test(card9) && /style=\{\{ height: heightOf\(post\.id\) \}\} data-post-placeholder/.test(card9))
+  check("a card's dialogs are built only once asked for; an old date is formatted once", /const dialogs = asked\.current \?/.test(card9) && /\{dialogs\}/.test(card9) && /OLD_DATES\.set\(iso, label\)/.test(card9))
+  check("the composer reads no height while a list is being drawn (only when it is pressed)", !/useLayoutEffect\(\(\) => \{\s*if \(!open && closedRef\.current\) closedH\.current = closedRef\.current\.offsetHeight/.test(composer9))
+  check("a page of comments that lands late never takes away one sent meanwhile", /A PAGE THAT ARRIVES LATE NEVER TAKES A COMMENT AWAY/.test(read("components/community/member/comments.tsx")) && /sentHere\.current\.has\(c\.id\)/.test(comments9))
   const full = (id: string, w: number, h: number) => {
     const u = (f: string) => `https://media3.giphy.com/media/v1.Y2lk/${id}/${f}?cid=x&rid=${f}&ct=g`
     const r = (f: string, rw: number, rh: number) => ({ url: u(f), width: String(rw), height: String(rh), size: "1000" })
