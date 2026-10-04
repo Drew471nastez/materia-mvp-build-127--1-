@@ -28,24 +28,45 @@
  * to another page (useLeaveGuard). Closing the tab gets the browser's own
  * question.
  *
+ * OPENING AND CLOSING (round 9) are the compositor's. On a phone the screen
+ * slides up and down on the app's sheet curves (bottom-sheet.tsx), as Web
+ * Animations started before the first frame is painted. On a computer the
+ * editor grows out of the closed field in place: the posts under it start
+ * where they were and slide down to make room, uncovering it as they go
+ * (they are drawn over it) while it fades in; closing is the same move
+ * backwards, the posts sliding up over it as it fades, and then the closed
+ * field fades back in. Translate and opacity only: nothing is laid out or
+ * painted again per frame.
+ *
+ * THE KEYBOARD ON A PHONE. The screen's white covers the whole window, the
+ * part under the keyboard included, so a keyboard opening or closing never
+ * shows the page behind it; the header, the words and the toolbar inside it
+ * are sized to the part that can be seen (--vv-top and --vv-h, published from
+ * visualViewport's resize and scroll by components/viewport-vars.tsx), so
+ * the toolbar sits on the keyboard, and when the visible part changes the
+ * field being typed in is scrolled back into sight.
+ *
  * WHAT IS TYPED IS KEPT. Every change is written to this browser's storage
  * for this community, and comes back if the page is closed, refreshed or
  * crashed before posting. Posting, or choosing Leave, clears it.
  */
 import * as DialogPrimitive from "@radix-ui/react-dialog"
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { createPortal } from "react-dom"
 import { BarChart3, ChevronDown, Clapperboard, FileText, Link2, Loader2, Paperclip, Play, Plus, Upload, X } from "lucide-react"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { EmojiControl } from "@/components/app/rich-text/emoji-picker"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
+import { SHEET_CLOSE_EASE, SHEET_CLOSE_MS, SHEET_EASE, SHEET_OPEN_MS } from "@/components/ui/bottom-sheet"
 import { uploadCommunityVideo } from "@/lib/video/upload-client"
 import { MAX_MEDIA_PER_POST, POLL_OPTIONS_MAX } from "@/lib/communities/limits"
 import { MAX_EMBEDS, MAX_GIFS, STAFF_FILE_MAX_BYTES, embedFromUrl, fileSizeLabel } from "@/lib/communities/post-media"
 import type { FeedPostView, PostMedia } from "@/lib/communities/types"
 import { api, apiBase } from "./api"
 import { LinkCard } from "./media"
+import { PHONE_ROW } from "./post-card"
+import { useKeepFieldInSight } from "./keep-in-sight"
 import { GifButton } from "./media-gif"
 import { uploadCommunityFile, uploadKindOf, uploadPicture, uploadVideoPoster } from "./media-upload"
 import { MentionTextarea, type MentionTextareaHandle } from "./mention-input"
@@ -99,6 +120,26 @@ export const LEAVE_QUESTION = "You haven't finished your post yet. Leave without
 /** One tool in the editor's row: a 40px target, the glyph alone, no box until hovered. */
 const TOOL =
   "inline-flex h-10 w-10 shrink-0 cursor-pointer select-none items-center justify-center rounded-[10px] text-[#6b7280] outline-none transition-colors duration-150 hover:bg-[#f1f2f4] hover:text-[#1a1a2e] active:opacity-70 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 disabled:pointer-events-none disabled:opacity-40 aria-pressed:bg-[#eceef1] aria-pressed:text-[#1a1a2e] motion-reduce:transition-none [-webkit-tap-highlight-color:transparent]"
+
+/** The editor in place grows over this long, and folds back a little quicker. */
+const GROW_MS = 260
+const FOLD_MS = 220
+/* The editor itself only fades: the posts sliding over it (they are drawn after it) are what uncover and cover it. */
+const FADE_IN_MS = 180
+const FADE_OUT_MS = 150
+/** The closed field's height when it was never drawn (a draft that opened the editor at once). */
+const CLOSED_FALLBACK_H = 72
+
+function reducedMotion(): boolean {
+  return typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+}
+
+/** What comes after the editor in its list (the posts), which slides to make room for it. */
+function following(el: HTMLElement): HTMLElement[] {
+  const out: HTMLElement[] = []
+  for (let x = el.nextElementSibling; x; x = x.nextElementSibling) if (x instanceof HTMLElement) out.push(x)
+  return out
+}
 
 export function draftKey(communityId: string, spaceId?: string | null): string {
   return `storelib:community-draft:${communityId}${spaceId ? `:${spaceId}` : ""}`
@@ -240,6 +281,19 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
   const titleRef = useRef<HTMLInputElement>(null)
   const fileInput = useRef<HTMLInputElement>(null)
   const videoInput = useRef<HTMLInputElement>(null)
+  /* The closed field and the open editor in place (a computer), the phone's screen and the part of it that scrolls. */
+  const closedRef = useRef<HTMLDivElement>(null)
+  const editorRef = useRef<HTMLDivElement>(null)
+  const sheetRef = useRef<HTMLDivElement>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  /* How tall the closed field was, for the editor growing out of it. */
+  const closedH = useRef(0)
+  /* The posts' slide while the editor closes, held at its end until the closed field is drawn. */
+  const held = useRef<Animation[]>([])
+  const leaving = useRef(false)
+  /* The closed field fades back in after a fold, rather than appearing in one frame. */
+  const fadeClosed = useRef(false)
+  const openRef = useRef(false)
 
   /* A draft left here comes back: open in place on a computer, waiting under "Continue" on a phone. */
   useEffect(() => {
@@ -419,6 +473,7 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
   const space = spaces.find((s) => s.id === spaceId) ?? null
   const ready = !!title.trim() && !!body.trim() && !!spaceId && !uploading && !!pollReady
   const sheet = open && phone
+  openRef.current = open
 
   const clear = useCallback(() => {
     setTitle("")
@@ -438,12 +493,50 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
     }
   }, [fixedSpaceId, spaces.length, key])
 
+  /** Closing, with its move: down off the screen on a phone, folding back into the field in place. */
   const shut = useCallback(() => {
-    setSheetIn(false)
-    window.setTimeout(() => setOpen(false), phone ? 260 : 0)
+    if (leaving.current) return
+    const end = () => {
+      leaving.current = false
+      setSheetIn(false)
+      setOpen(false)
+    }
+    const el = phone ? sheetRef.current : editorRef.current
+    if (!el || typeof el.animate !== "function" || reducedMotion()) return end()
+    leaving.current = true
+    let finished = false
+    const finish = () => {
+      if (finished) return
+      finished = true
+      end()
+    }
+    if (phone) {
+      /* From wherever the open has got to. */
+      const from = getComputedStyle(el).translate
+      for (const a of el.getAnimations()) a.cancel()
+      el.style.translate = "0 100%"
+      el.animate([{ translate: from === "none" ? "0 0" : from }, { translate: "0 100%" }], { duration: SHEET_CLOSE_MS, easing: SHEET_CLOSE_EASE }).onfinish = finish
+      window.setTimeout(finish, SHEET_CLOSE_MS + 200)
+      return
+    }
+    const d = Math.max(0, el.offsetHeight - (closedH.current || CLOSED_FALLBACK_H))
+    const timing: KeyframeAnimationOptions = { duration: FOLD_MS, easing: SHEET_CLOSE_EASE, fill: "forwards" }
+    el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: FADE_OUT_MS, easing: "ease-out", fill: "forwards" })
+    window.setTimeout(finish, FOLD_MS)
+    fadeClosed.current = true
+    held.current = following(el).map((x) => x.animate([{ translate: "0 0" }, { translate: `0 ${-d}px` }], timing))
+    held.current[0]?.addEventListener("finish", finish)
   }, [phone])
 
   const ask = useCallback(() => new Promise<boolean>((resolve) => setAsking(() => resolve)), [])
+
+  /* The title, or the words when there is a title already; without scrolling, so the page under it stays where it is. */
+  const titleNow = useRef(title)
+  titleNow.current = title
+  const focusFirst = useCallback(() => {
+    if (titleNow.current) textRef.current?.focus()
+    else titleRef.current?.focus({ preventScroll: true })
+  }, [])
 
   const cancel = async () => {
     if (dirty && !(await ask())) return
@@ -463,18 +556,64 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
     onSheetBack: shut,
   })
 
-  /* The phone's screen slides up on the frame after it is drawn closed. */
-  useEffect(() => {
+  /* The phone's screen slides up from the first frame it is painted in, on the compositor. */
+  useLayoutEffect(() => {
     if (!sheet) return
-    const id = requestAnimationFrame(() => requestAnimationFrame(() => setSheetIn(true)))
+    const el = sheetRef.current
     const html = document.documentElement
     const prev = html.style.overflow
     html.style.overflow = "hidden"
+    /*
+      THE FIELD TAKES THE CARET ONCE THE SCREEN HAS ARRIVED. A keyboard that
+      rose while the screen was still sliding changed the visible height in
+      the middle of the slide (the whole page restyled for it); now the
+      screen slides alone, then the keyboard comes.
+    */
+    const arrived = () => {
+      setSheetIn(true)
+      focusFirst()
+    }
+    if (el && typeof el.animate === "function" && !reducedMotion()) {
+      const a = el.animate([{ translate: "0 100%" }, { translate: "0 0" }], { duration: SHEET_OPEN_MS, easing: SHEET_EASE })
+      a.onfinish = arrived
+    } else arrived()
     return () => {
-      cancelAnimationFrame(id)
       html.style.overflow = prev
     }
   }, [sheet])
+
+  /* In place: the posts under the editor slide down to make room, uncovering it as it fades in. */
+  useLayoutEffect(() => {
+    if (!open) {
+      /* Closed: the posts' slide was held at its end; the field is drawn now, so let it go in the same frame. */
+      for (const a of held.current) a.cancel()
+      held.current = []
+      if (fadeClosed.current && closedRef.current && typeof closedRef.current.animate === "function") closedRef.current.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 140, easing: "ease-out" })
+      fadeClosed.current = false
+      /* The posts' own layer, held while the editor was open (so the fold drew nothing new), goes once all is still. */
+      const list = closedRef.current ? following(closedRef.current) : []
+      const t = window.setTimeout(() => {
+        for (const x of list) x.style.willChange = ""
+      }, 400)
+      return () => window.clearTimeout(t)
+    }
+    if (phone) return
+    const el = editorRef.current
+    if (!el || typeof el.animate !== "function" || reducedMotion() || !closedH.current) return
+    const d = el.offsetHeight - closedH.current
+    if (d <= 0) return
+    const timing: KeyframeAnimationOptions = { duration: GROW_MS, easing: SHEET_EASE }
+    el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: FADE_IN_MS, easing: "ease-out" })
+    for (const x of following(el)) x.animate([{ translate: `0 ${-d}px` }, { translate: "0 0" }], timing)
+  }, [open, phone])
+
+  /* The closed field's height, every time it is drawn, for the editor to grow out of. */
+  useLayoutEffect(() => {
+    if (!open && closedRef.current) closedH.current = closedRef.current.offsetHeight
+  })
+
+  /* The field being typed in stays in sight when the visible part changes (keep-in-sight.ts). */
+  useKeepFieldInSight(sheet, () => scrollRef.current)
 
   const submit = async () => {
     if (busy || !ready) return
@@ -499,8 +638,10 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
   }
 
   const openEditor = () => {
+    if (closedRef.current) closedH.current = closedRef.current.offsetHeight
     setOpen(true)
-    requestAnimationFrame(() => (title ? textRef.current?.focus() : titleRef.current?.focus()))
+    /* In place, at once; a phone's screen takes it when it has arrived (THE FIELD TAKES THE CARET). */
+    if (!phone) requestAnimationFrame(focusFirst)
   }
 
   const pickers = (
@@ -538,12 +679,26 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
   )
 
   const closed = (
-    <div className={`${CARD} px-3 py-3 sm:px-4 sm:py-3.5`} data-composer="closed">
+    /* Keyed apart from the open editor: the same element reused would keep the editor's fade (held at nothing) on the closed field. */
+    <div key="closed" ref={closedRef} className={`${CARD} ${PHONE_ROW} px-4 py-3 sm:py-3.5`} data-composer="closed">
       <div className="flex items-center gap-3">
         <AppAvatar src={me.avatarUrl} name={me.name} alt="" size={40} markWhileLoading />
         <button
           type="button"
           onClick={openEditor}
+          /*
+            The posts under the field get their own layer as the finger or the pointer comes down, so the
+            first frame of the editor's open does not also have to draw them into one (a computer's move).
+          */
+          onPointerDown={() => {
+            if (phone || !closedRef.current) return
+            const list = following(closedRef.current)
+            for (const x of list) x.style.willChange = "translate"
+            /* A press that did not end in a click lets them go again. */
+            window.setTimeout(() => {
+              if (!openRef.current) for (const x of list) x.style.willChange = ""
+            }, 1500)
+          }}
           className="flex h-11 min-w-0 flex-1 items-center rounded-xl border border-[#eceef1] bg-[#f6f7f8] px-4 text-left text-[15px] text-[#8a8f98] transition-colors hover:bg-[#f1f2f4]"
           data-composer-open=""
         >
@@ -698,17 +853,28 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
         {closed}
         {createPortal(
           <div
+            ref={sheetRef}
             role="dialog"
             aria-modal="true"
             aria-label="New post"
             data-composer="sheet"
             data-composer-sheet-in={sheetIn ? "true" : "false"}
-            className="fixed inset-x-0 top-[var(--vv-top,0px)] z-[125] flex h-[var(--vv-h,100dvh)] flex-col bg-white"
-            style={{ translate: sheetIn ? "0 0" : "0 100%", transition: "translate 280ms cubic-bezier(0.32, 0.72, 0, 1)" }}
+            /* The whole window, white, under the keyboard too: nothing behind ever shows as the keyboard comes and goes. */
+            className="fixed inset-0 z-[125] bg-white"
           >
+            <div
+              /* The part that can be seen (THE KEYBOARD ON A PHONE); a keyboard's arrival is carried over 250ms rather than in one frame. */
+              className="absolute inset-x-0 top-[var(--vv-top,0px)] flex h-[var(--vv-h,100dvh)] flex-col [.vv-settling_&]:[transition:height_250ms_cubic-bezier(0.32,0.72,0,1)]"
+              data-composer-visible=""
+            >
             <div className="shrink-0 border-b border-[#f0f1f3] pt-[env(safe-area-inset-top)]">
               <div className="flex h-14 items-center gap-2 px-2">
-                <button type="button" onClick={() => void cancel()} className={`${BTN_GHOST} px-3`} data-composer-cancel="">
+                {/*
+                  The field keeps the caret through the press (no blur), so the keyboard goes down with the
+                  screen once it has gone rather than as it starts to slide: a keyboard closing changes the
+                  visible height, and the whole page restyles for it, which belongs after the move.
+                */}
+                <button type="button" onPointerDown={(e) => e.preventDefault()} onMouseDown={(e) => e.preventDefault()} onClick={() => void cancel()} className={`${BTN_GHOST} px-3`} data-composer-cancel="">
                   Cancel
                 </button>
                 <span className="min-w-0 flex-1 truncate text-center text-[16px] font-semibold text-[#1a1a2e]">New post</span>
@@ -717,7 +883,7 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
                 </button>
               </div>
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4 pt-3">
+            <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4 pt-3" data-composer-scroll="">
               <div className="mb-3 flex min-w-0 items-center gap-2">
                 <AppAvatar src={me.avatarUrl} name={me.name} alt="" size={32} markWhileLoading />
                 <span className="shrink-0 text-[14px] text-[#6b7280]">Posting in</span>
@@ -725,7 +891,9 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
               </div>
               {fields}
             </div>
-            <div className="shrink-0 border-t border-[#f0f1f3] bg-white px-2 pb-[max(6px,env(safe-area-inset-bottom))] pt-1.5">{tools}</div>
+            {/* On the keyboard when it is up (no home bar to clear then), above the home bar when it is not. */}
+            <div className="shrink-0 border-t border-[#f0f1f3] bg-white px-2 pb-[max(6px,env(safe-area-inset-bottom))] pt-1.5 [html[data-keyboard=open]_&]:pb-1.5" data-composer-toolbar="">{tools}</div>
+            </div>
           </div>,
           document.body,
         )}
@@ -737,7 +905,7 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
   return (
     <>
       {pickers}
-      <div className={`${CARD} p-4 shadow-[0_1px_3px_rgba(17,24,39,0.05)] sm:px-5 sm:pt-4`} data-composer="open">
+      <div key="open" ref={editorRef} className={`${CARD} relative p-4 shadow-[0_1px_3px_rgba(17,24,39,0.05)] sm:px-5 sm:pt-4`} data-composer="open">
         <div className="mb-3 flex items-center gap-2.5">
           <AppAvatar src={me.avatarUrl} name={me.name} alt="" size={32} markWhileLoading />
           <span className="text-[14px] text-[#6b7280]">

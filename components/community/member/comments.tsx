@@ -76,17 +76,97 @@ export interface CommentsSectionProps {
   boxRef?: React.Ref<MentionTextareaHandle>
   /** A comment or reply went up (+1) or was refused after being drawn (-1): the post's count moves with it. */
   onCount?: (delta: number) => void
+  /** How many comments the post says it has: the room kept for them while they are read (no jump when they arrive). */
+  expected?: number
+  /** The section replaces a room kept for it (an opened post): the comments fade in even when they were already read. */
+  fadeIn?: boolean
 }
 
-export function CommentsSection({ post, slug, viewer, initial, me: givenMe = null, readOnly = false, commentsEnabled: givenEnabled = true, boxRef, onCount }: CommentsSectionProps) {
-  const [comments, setComments] = useState<CommentView[] | null>(initial?.comments ?? null)
-  const [cursor, setCursor] = useState<string | null>(initial?.nextCursor ?? null)
-  const [enabled, setEnabled] = useState(initial?.commentsEnabled ?? givenEnabled)
-  const [me, setMe] = useState<Me | null>(givenMe ?? initial?.me ?? null)
+/**
+ * ===========================================================================
+ *  COMMENTS READ AHEAD (round 9)
+ * ===========================================================================
+ * A post opened over the feed asks for its comments the moment it is pressed
+ * (the card's pointerdown, and the opened post itself), not once its slide has
+ * finished, and keeps the answer here rather than in a component: nothing is
+ * drawn while the post is still moving, and by the time the comments are
+ * drawn they are usually already here, so the room kept for them simply fills
+ * in. What a section last showed is kept too (the member's own comments
+ * included), so opening the same post again shows it at once and only reads
+ * it again quietly.
+ */
+type Ahead = { at: number; data?: CommentsPageData; promise?: Promise<CommentsPageData | null> }
+const AHEAD = new Map<string, Ahead>()
+/** Read again on open when older than this. */
+const AHEAD_FRESH_MS = 5_000
+const aheadKey = (communityId: string, postId: string) => `${communityId}:${postId}`
+
+/** The first page of a post's comments, asked for once however many times this is called. */
+export function readAheadComments(communityId: string, postId: string, fresh = false): Promise<CommentsPageData | null> {
+  const k = aheadKey(communityId, postId)
+  const have = AHEAD.get(k)
+  if (have?.promise) return have.promise
+  if (have?.data && !fresh) return Promise.resolve(have.data)
+  const promise = api<CommentsPageData>(`${apiBase(communityId)}/posts/${postId}/comments`).then((r) => {
+    if (!r.ok) {
+      if (AHEAD.get(k)?.promise === promise) AHEAD.delete(k)
+      return null
+    }
+    AHEAD.set(k, { at: Date.now(), data: r.data })
+    return r.data
+  })
+  AHEAD.set(k, { at: have?.at ?? 0, data: have?.data, promise })
+  return promise
+}
+
+/** What is already here for a post, if anything, and whether it is recent. */
+function aheadOf(communityId: string, postId: string): { data: CommentsPageData; fresh: boolean } | null {
+  const have = AHEAD.get(aheadKey(communityId, postId))
+  return have?.data ? { data: have.data, fresh: Date.now() - have.at < AHEAD_FRESH_MS } : null
+}
+
+/** The room a list of `expected` comments takes, so the space is there before the words are. */
+export function commentsRoom(expected: number): number {
+  const n = Math.min(Math.max(0, expected), 4)
+  /* A phone's column is narrower, so a comment wraps onto more lines. */
+  const narrow = typeof window !== "undefined" && !!window.matchMedia?.("(max-width: 639px)").matches
+  /* The box (44), then one comment's bubble and its row of actions (100, 112 on a phone) a gap (16) apart; or the one line saying there are none. */
+  return 44 + 16 + (n ? n * (narrow ? 112 : 100) + (n - 1) * 16 : 20)
+}
+
+/** The kept room while comments are read: still, no shimmer, the comment box's outline where it will be. */
+export function CommentsPlaceholder({ expected }: { expected: number }) {
+  return (
+    <div style={{ minHeight: commentsRoom(expected) }} aria-hidden data-comments-loading="">
+      <div className="flex items-start gap-2.5">
+        <span className="mt-1 h-8 w-8 shrink-0 rounded-full bg-[#f1f2f4]" />
+        <span className="h-[42px] flex-1 rounded-2xl border border-[#eceef1]" />
+      </div>
+    </div>
+  )
+}
+
+export function CommentsSection({ post, slug, viewer, initial, me: givenMe = null, readOnly = false, commentsEnabled: givenEnabled = true, boxRef, onCount, expected = 0, fadeIn = false }: CommentsSectionProps) {
+  /* Handed a first page, or one read ahead (COMMENTS READ AHEAD): drawn on the first frame, no waiting state. */
+  const [ahead] = useState(() => (initial ? null : aheadOf(post.communityId, post.id)))
+  const first = initial ?? ahead?.data ?? null
+  const [comments, setComments] = useState<CommentView[] | null>(first?.comments ?? null)
+  const [cursor, setCursor] = useState<string | null>(first?.nextCursor ?? null)
+  const [enabled, setEnabled] = useState(first?.commentsEnabled ?? givenEnabled)
+  const [me, setMe] = useState<Me | null>(givenMe ?? first?.me ?? null)
   const [loading, setLoading] = useState(false)
   const [failed, setFailed] = useState(false)
+  /* The list fades in only when it arrives after the room for it was drawn. */
+  const [arrived, setArrived] = useState(fadeIn)
   const base = apiBase(post.communityId)
   const open = enabled && !readOnly && !!viewer.can.comment && (!post.locked || !!viewer.can.lock)
+
+  const apply = useCallback((data: CommentsPageData) => {
+    setComments(data.comments)
+    setCursor(data.nextCursor)
+    if (typeof data.commentsEnabled === "boolean") setEnabled(data.commentsEnabled)
+    if (data.me) setMe((m) => m ?? data.me ?? null)
+  }, [])
 
   const load = useCallback(async () => {
     setFailed(false)
@@ -95,15 +175,42 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
       setFailed(true)
       return
     }
-    setComments(r.data.comments)
-    setCursor(r.data.nextCursor)
-    if (typeof r.data.commentsEnabled === "boolean") setEnabled(r.data.commentsEnabled)
-    if (r.data.me) setMe((m) => m ?? r.data.me ?? null)
-  }, [base, post.id])
+    apply(r.data)
+  }, [base, post.id, apply])
 
   useEffect(() => {
-    if (!initial) void load()
-  }, [initial, load])
+    if (initial) return
+    /* Already shown from what was read ahead: read again quietly only when it is not recent, and swap without a sound. */
+    if (ahead && ahead.fresh) return
+    let live = true
+    void readAheadComments(post.communityId, post.id, !!ahead).then((data) => {
+      if (!live) return
+      if (!data) {
+        if (!ahead) setFailed(true)
+        return
+      }
+      if (!ahead) setArrived(true)
+      apply(data)
+    })
+    return () => {
+      live = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initial, post.id])
+
+  /* What was on screen (the member's own comments included) is what the next open shows first. */
+  const shownRef = useRef<{ comments: CommentView[] | null; cursor: string | null; enabled: boolean; me: Me | null }>({ comments, cursor, enabled, me })
+  shownRef.current = { comments, cursor, enabled, me }
+  useEffect(() => {
+    if (initial) return
+    const k = aheadKey(post.communityId, post.id)
+    return () => {
+      const now = shownRef.current
+      const sent = (now.comments ?? []).some((c) => (c as Shown).sending || c.replies.some((r) => (r as Shown).sending))
+      if (!now.comments || sent || AHEAD.get(k)?.promise) return
+      AHEAD.set(k, { at: AHEAD.get(k)?.at ?? Date.now(), data: { comments: now.comments, nextCursor: now.cursor, commentsEnabled: now.enabled, me: now.me } })
+    }
+  }, [initial, post.communityId, post.id])
 
   const update: CommentUpdate = useCallback((id, fn) => {
     setComments((list) =>
@@ -169,17 +276,11 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
             </button>
           </div>
         ) : (
-          <div className="mt-4 space-y-4" aria-label="Loading comments" data-comments-loading="">
-            {[0, 1].map((i) => (
-              <div key={i} className="flex gap-2.5">
-                <span className="h-8 w-8 shrink-0 animate-pulse rounded-full bg-[#f1f2f4]" />
-                <span className="h-14 flex-1 animate-pulse rounded-2xl bg-[#f4f5f7]" />
-              </div>
-            ))}
-          </div>
+          /* The room the comments will take, kept still (no shimmer); they fade into it. */
+          <div style={{ minHeight: commentsRoom(expected) - 44 }} aria-label="Loading comments" data-comments-loading="" />
         )
       ) : comments.length ? (
-        <ul className="mt-4 space-y-4">
+        <ul className={`mt-4 space-y-4 ${arrived ? "animate-in fade-in-0 duration-200 ease-out motion-reduce:animate-none" : ""}`} data-comments-rows="">
           {comments.map((c) => (
             <li key={c.id}>
               <CommentItem c={c} slug={slug} communityId={post.communityId} postId={post.id} viewer={viewer} me={me} author={author} update={update} canReply={open} sending={sending} />
@@ -187,7 +288,7 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
           ))}
         </ul>
       ) : (
-        <p className="mt-4 text-[14px] text-[#8a8f98]" data-comments-empty="">
+        <p className={`mt-4 text-[14px] text-[#8a8f98] ${arrived ? "animate-in fade-in-0 duration-200 ease-out motion-reduce:animate-none" : ""}`} data-comments-empty="">
           No comments yet.{open ? " Say something first." : ""}
         </p>
       )}
@@ -267,7 +368,7 @@ function CommentBox({
     sending.confirm(tempId, r.data.comment)
   }
   return (
-    <div className="flex items-start gap-2.5" data-comment-box={parentId ? "reply" : "comment"}>
+    <div className="flex items-start gap-2.5" data-comment-box={parentId ? "reply" : "comment"} data-keep-in-sight="">
       {me ? <AppAvatar src={me.avatarUrl} name={me.name} alt="" size={parentId ? 28 : 32} markWhileLoading className="mt-1" /> : null}
       <div className="min-w-0 flex-1 rounded-2xl border border-[#e3e4e8] bg-white px-3 py-2 focus-within:border-[#c9ccd3]">
         <MentionTextarea

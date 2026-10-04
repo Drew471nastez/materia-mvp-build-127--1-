@@ -49,16 +49,28 @@ function GifMark() {
   )
 }
 
+/**
+ * WHAT GIPHY SENT LAST, per community and search, for this page's life: the
+ * button's own "is it connected" question already brings what is trending,
+ * so opening the picker shows those at once, and a search typed again shows
+ * its GIFs at once while they are read again.
+ */
+type GifPage = { connected: boolean; gifs: Gif[]; next: number | null }
+const seen = new Map<string, GifPage>()
+const seenKey = (communityId: string, q: string) => `${communityId}:${q.toLowerCase()}`
+
 export function GifButton({ communityId, className, onPick, disabled = false }: { communityId: string; className: string; onPick: (gif: Extract<PostMedia, { type: "gif" }>) => void; disabled?: boolean }) {
   const phone = usePhone()
   const [open, setOpen] = useState(false)
-  const [connected, setConnected] = useState<boolean | null>(null)
+  const [connected, setConnected] = useState<boolean | null>(() => seen.get(seenKey(communityId, ""))?.connected ?? null)
 
-  /* Asked once while the editor is open, so the button knows whether GIFs are connected before it is pressed. */
+  /* Asked once while the editor is open, so the button knows whether GIFs are connected before it is pressed (and the trending ones are here for the picker). */
   useEffect(() => {
     let stop = false
-    void api<{ connected: boolean }>(`${apiBase(communityId)}/gifs`).then((r) => {
-      if (!stop && r.ok) setConnected(r.data.connected)
+    void api<GifPage>(`${apiBase(communityId)}/gifs`).then((r) => {
+      if (stop || !r.ok) return
+      setConnected(r.data.connected)
+      if (r.data.connected) seen.set(seenKey(communityId, ""), { connected: true, gifs: r.data.gifs ?? [], next: r.data.next ?? null })
     })
     return () => {
       stop = true
@@ -117,33 +129,119 @@ export function GifButton({ communityId, className, onPick, disabled = false }: 
   )
 }
 
+/**
+ * Two columns, each GIF to the shorter one, in order. A page that arrives
+ * later only adds to the bottom of them: the GIFs already there never move
+ * to the other column (a CSS multi-column grid rebalanced on every page).
+ */
+function columnsOf(gifs: Gif[]): [Gif[], Gif[]] {
+  const cols: [Gif[], Gif[]] = [[], []]
+  const tall = [0, 0]
+  for (const g of gifs) {
+    const c = tall[0] <= tall[1] ? 0 : 1
+    cols[c].push(g)
+    tall[c] += g.h / Math.max(1, g.w)
+  }
+  return cols
+}
+
+/** A thin grey spinner in the middle of where the GIFs go: for the first answer only, never over GIFs already shown. */
+function Spinner() {
+  return (
+    <div className="flex h-full min-h-[200px] items-center justify-center" role="status" aria-label="Loading GIFs" data-gif-loading="">
+      <span className="h-5 w-5 animate-spin rounded-full border-2 border-[#d9dce1] border-t-[#8a8f98] motion-reduce:animate-none" aria-hidden />
+    </div>
+  )
+}
+
+/**
+ * The search and the GIFs. While a new search is read the GIFs on screen
+ * stay (a little lighter) until the new ones are here, so typing never
+ * flashes an empty grid; the very first answer, when nothing was here yet,
+ * gets a small spinner. Each GIF keeps its own shape from the first frame
+ * (Giphy says how big it is), so the grid never moves as they load, and
+ * the next page comes as the end of the list nears.
+ */
 function GifPanel({ communityId, active, connected, onConnected, onPick, phone }: { communityId: string; active: boolean; connected: boolean | null; onConnected: (c: boolean) => void; onPick: (g: Gif) => void; phone: boolean }) {
   const [q, setQ] = useState("")
-  const [gifs, setGifs] = useState<Gif[] | null>(null)
+  const term = q.trim()
+  const [page, setPage] = useState<GifPage | null>(() => seen.get(seenKey(communityId, "")) ?? null)
+  /* The search the GIFs on screen answer. */
+  const [shownFor, setShownFor] = useState("")
+  const [loading, setLoading] = useState(false)
   const [failed, setFailed] = useState(false)
+  const [more, setMore] = useState(false)
   const ask = useRef(0)
+  const endRef = useRef<HTMLDivElement>(null)
 
   const load = useCallback(
-    async (term: string) => {
+    async (words: string) => {
       const n = ++ask.current
+      const have = seen.get(seenKey(communityId, words))
+      if (have) {
+        setPage(have)
+        setShownFor(words)
+      }
       setFailed(false)
-      const r = await api<{ connected: boolean; gifs: Gif[] }>(`${apiBase(communityId)}/gifs?q=${encodeURIComponent(term)}`)
+      setLoading(!have)
+      const r = await api<GifPage>(`${apiBase(communityId)}/gifs?q=${encodeURIComponent(words)}`)
       if (n !== ask.current) return
+      setLoading(false)
       if (!r.ok) {
-        setFailed(true)
+        if (!have) setFailed(true)
         return
       }
       onConnected(r.data.connected)
-      setGifs(r.data.gifs)
+      const next: GifPage = { connected: r.data.connected, gifs: r.data.gifs ?? [], next: r.data.next ?? null }
+      if (next.connected) seen.set(seenKey(communityId, words), next)
+      setPage(next)
+      setShownFor(words)
     },
     [communityId, onConnected],
   )
 
   useEffect(() => {
     if (!active || connected === false) return
-    const t = window.setTimeout(() => void load(q.trim()), q ? 300 : 0)
+    /* The trending ones are already here when the button asked: show them, read again only when typing. */
+    if (!term && seen.get(seenKey(communityId, ""))) {
+      ask.current++
+      setPage(seen.get(seenKey(communityId, ""))!)
+      setShownFor("")
+      setLoading(false)
+      return
+    }
+    /* Words already searched show their GIFs on this keystroke; they are read again once typing stops. */
+    const have = seen.get(seenKey(communityId, term))
+    if (have) {
+      setPage(have)
+      setShownFor(term)
+    }
+    const t = window.setTimeout(() => void load(term), term ? 300 : 0)
     return () => window.clearTimeout(t)
-  }, [active, q, load, connected])
+  }, [active, term, load, connected, communityId])
+
+  const loadMore = useCallback(async () => {
+    if (!page?.next || more) return
+    const words = shownFor
+    const n = ask.current
+    setMore(true)
+    const r = await api<GifPage>(`${apiBase(communityId)}/gifs?q=${encodeURIComponent(words)}&offset=${page.next}`)
+    setMore(false)
+    if (n !== ask.current || !r.ok) return
+    const have = new Set(page.gifs.map((g) => g.id))
+    const next: GifPage = { connected: true, gifs: [...page.gifs, ...(r.data.gifs ?? []).filter((g) => !have.has(g.id))], next: r.data.next ?? null }
+    seen.set(seenKey(communityId, words), next)
+    setPage(next)
+  }, [page, more, shownFor, communityId])
+
+  /* The next page as the end of the list comes near. */
+  useEffect(() => {
+    const el = endRef.current
+    if (!el || !page?.next || typeof IntersectionObserver === "undefined") return
+    const io = new IntersectionObserver((e) => e.some((x) => x.isIntersecting) && void loadMore(), { rootMargin: "240px 0px" })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [page?.next, loadMore])
 
   if (connected === false) {
     return (
@@ -154,6 +252,8 @@ function GifPanel({ communityId, active, connected, onConnected, onPick, phone }
     )
   }
 
+  const gifs = page?.gifs ?? null
+  const stale = loading && shownFor !== term
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="shrink-0 p-2.5">
@@ -163,35 +263,58 @@ function GifPanel({ communityId, active, connected, onConnected, onPick, phone }
             type="search"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search GIFs"
+            placeholder="Search GIPHY"
             aria-label="Search GIFs"
             autoFocus={!phone}
             autoComplete="off"
+            enterKeyHint="search"
             className="h-10 w-full rounded-lg border border-transparent bg-[#f3f4f6] pl-9 pr-3 text-[16px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] focus:border-[#e3e5e8] focus:bg-white sm:text-[14px] [&::-webkit-search-cancel-button]:hidden"
           />
         </label>
+        {!term && gifs?.length ? <p className="px-1 pt-2 text-[12px] font-medium text-[#8a8f98]">Trending</p> : null}
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2.5 pb-2.5" data-gif-results="">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2.5 pb-2.5" data-gif-results="" aria-busy={loading || undefined}>
         {failed ? (
-          <p className="px-4 py-10 text-center text-[13.5px] text-[#6b7280]">GIFs did not load. Try again.</p>
-        ) : gifs === null ? (
-          <div className="grid grid-cols-2 gap-1.5">
-            {Array.from({ length: 8 }, (_, i) => (
-              <span key={i} className="h-[110px] animate-pulse rounded-lg bg-[#f1f2f4]" />
-            ))}
+          <div className="flex flex-col items-center px-4 py-10 text-center" data-gif-failed="">
+            <p className="text-[13.5px] text-[#6b7280]">GIFs did not load.</p>
+            <button type="button" onClick={() => void load(term)} className="mt-2 inline-flex h-10 items-center rounded-full px-4 text-[14px] font-medium text-[#1a1a2e] hover:bg-[#f1f2f4]">
+              Try again
+            </button>
           </div>
-        ) : gifs.length === 0 ? (
-          <p className="px-4 py-10 text-center text-[13.5px] text-[#6b7280]">No GIFs for that.</p>
+        ) : gifs === null ? (
+          <Spinner />
+        ) : gifs.length === 0 && !stale ? (
+          <p className="px-4 py-10 text-center text-[13.5px] text-[#6b7280]" data-gif-empty="">
+            {shownFor ? `No GIFs for "${shownFor}". Try other words.` : "No GIFs to show right now."}
+          </p>
         ) : (
-          <div className="columns-2 gap-1.5 [&>*]:mb-1.5">
-            {gifs.map((g) => (
-              <button key={g.id} type="button" onClick={() => onPick(g)} aria-label={g.title || "GIF"} className="block w-full overflow-hidden rounded-lg bg-[#f1f2f4] outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/25" style={{ aspectRatio: `${g.w} / ${g.h}` }} data-gif="">
+          <div className={`flex items-start gap-1.5 transition-opacity duration-150 motion-reduce:transition-none ${stale ? "opacity-60" : ""}`} data-gif-grid="">
+            {columnsOf(gifs).map((col, c) => (
+              <div key={c} className="flex min-w-0 flex-1 flex-col gap-1.5">
+                {col.map((g) => (
+              <button
+                key={g.id}
+                type="button"
+                onClick={() => onPick(g)}
+                aria-label={g.title || "GIF"}
+                className="relative block w-full overflow-hidden rounded-lg bg-[#f1f2f4] outline-none transition-[opacity] active:opacity-80 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/25 [-webkit-tap-highlight-color:transparent]"
+                style={{ aspectRatio: `${g.w} / ${g.h}` }}
+                data-gif=""
+              >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={g.url} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                <img src={g.url} alt="" width={g.w} height={g.h} loading="lazy" decoding="async" referrerPolicy="no-referrer" className="absolute inset-0 h-full w-full object-cover" />
               </button>
+                ))}
+              </div>
             ))}
           </div>
         )}
+        <div ref={endRef} aria-hidden className="h-px" />
+        {more ? (
+          <div className="flex justify-center py-2" aria-hidden>
+            <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#d9dce1] border-t-[#8a8f98] motion-reduce:animate-none" />
+          </div>
+        ) : null}
         <p className="pt-2 text-center text-[11px] text-[#9ca3af]">Powered by GIPHY</p>
       </div>
     </div>
