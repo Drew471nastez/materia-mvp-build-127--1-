@@ -156,7 +156,7 @@ async function main() {
   check("an unknown tag is removed cleanly", resolveVariables("<p>Thanks {{nmae}}, see you soon.</p>", FULL, "html") === "<p>Thanks, see you soon.</p>" && resolveVariables("<p>{{nope}} Hello</p>", FULL, "html") === "<p>Hello</p>" && resolveVariables("a {{x}} b", FULL, "text") === "a b")
   check("an unknown tag in a link goes to the creator's page", resolveVariables('<a href="{{nope}}">x</a>', FULL, "html") === `<a href="${FULL.store_url}">x</a>`)
   check("a link with no value goes to the creator's page, never empty", resolveVariables('<a href="{{order_url}}">x</a>', { store_url: "https://storelib.com/lena" }, "html") === '<a href="https://storelib.com/lena">x</a>')
-  check("download falls back to the order page, then the library", resolveVariables("{{download_url}}", { order_url: "https://o" }, "text") === "https://o" && resolveVariables("{{download_url}}", {}, "text") === `${APP_ORIGIN}/library`)
+  check("download falls back to the order page, then the library", resolveVariables("{{download_url}}", { order_url: "https://o" }, "text") === "https://o" && resolveVariables("{{download_url}}", {}, "text") === `${APP_ORIGIN}/account/library`)
   check("no creator name falls back to the store name, and back", resolveVariables("{{creator_name}}", { store_name: "S" }, "text") === "S" && resolveVariables("{{store_name}}", { creator_name: "C" }, "text") === "C")
   check("nothing that reads as a placeholder survives an empty reader", !LEFT_OVER.test(resolveVariables(VARIABLES.map((v) => `{{${v.key}}} [Your name] [Name] *|FNAME|*`).join(" "), {}, "html")))
 

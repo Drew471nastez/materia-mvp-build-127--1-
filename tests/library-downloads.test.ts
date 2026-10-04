@@ -403,7 +403,7 @@ function screenCases() {
   console.log("\nthe library's screens")
   const read = (f: string) => readFileSync(f, "utf8")
   const tabs = read("components/library/library-tabs.tsx")
-  check("the tab list and its addresses", showsLibraryTabs("/library/") && showsLibraryTabs("/library/wishlist") && !showsLibraryTabs("/library/products/p1") && isLibraryProduct("/library/products/p1?x=1") && cleanPath("/library/reviews/?product=1") === "/library/reviews")
+  check("the tab list and its addresses", showsLibraryTabs("/account/library/") && showsLibraryTabs("/account/library/wishlist") && !showsLibraryTabs("/account/library/products/p1") && isLibraryProduct("/account/library/products/p1?x=1") && cleanPath("/account/library/reviews/?product=1") === "/account/library/reviews")
   check("the tabs are separate pills, not an underlined row", /rounded-full border/.test(tabs) && !/border-b-2/.test(tabs))
   const home = read("components/library/library-home.tsx")
   check("creators sit under the products on a computer with profile links, not a toggle filter", /data-creator-list=""/.test(home) && /function CreatorsList/.test(home) && /hidden overflow-hidden lg:block/.test(home) && /data-creator-profile=""/.test(home) && !/onChoose=|aria-pressed|data-creator-chips|function CreatorChips/.test(home))

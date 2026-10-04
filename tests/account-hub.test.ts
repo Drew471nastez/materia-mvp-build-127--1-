@@ -8,7 +8,10 @@
  * changing the name or profile photo." And: "in the profile page there
  * should be the header present like in the library page".
  *
- * The addresses and the overview's facts are pure functions and are asked
+ * Since then the owner made /account the profile center: "it is MY
+ * profile page, exactly the same page others see ... plus owner extras:
+ * pill navigation for Activity, Communities, Library ..., Edit profile,
+ * Settings". The addresses are pure functions and are asked
  * here. The wiring (the header, the tabs' switch, where signed out goes) is
  * read off the source. How it looks and how the switch moves is measured in
  * scripts/check-account-hub.mjs.
@@ -16,10 +19,9 @@
 import { readFileSync, existsSync, readdirSync, statSync } from "node:fs"
 import { join } from "node:path"
 import { ACCOUNT_TABS, accountLoginPath, accountTabFor } from "../lib/account/account-tabs"
-import { accountOverview, RECENT_PURCHASES, sellingEntry } from "../lib/account/overview"
 import { sellerAccessFrom, hasSellerAccess } from "../lib/account/seller-access"
 import { buyerTabFor, buyerTabsBelongOn } from "../lib/nav/buyer-tabs"
-import type { LibraryItem } from "../lib/library/library-view"
+import { ownerPillFor, showsProfileHeader } from "../lib/profile/owner-pills"
 
 let passed = 0
 let failed = 0
@@ -48,8 +50,10 @@ console.log("\nEvery page under /account sends signed out people to sign in with
     }
   }
   walk("app/account")
-  check("Overview and Settings are routes of their own", pages.includes("app/account/page.tsx") && pages.includes("app/account/settings/page.tsx"), pages)
-  for (const page of pages) {
+  check("Activity, Communities and Settings are routes of their own", pages.includes("app/account/page.tsx") && pages.includes("app/account/communities/page.tsx") && pages.includes("app/account/settings/page.tsx"), pages)
+  /* The library's pages moved in whole; its own layout sends signed out people to sign in with the library's address. */
+  check("the library's layout sends signed out people to sign in and back to the library", /redirect\(accountLoginPath\(LIBRARY_HOME\)\)/.test(code("app/account/library/layout.tsx")))
+  for (const page of pages.filter((p) => !p.startsWith("app/account/library/"))) {
     const href = page.replace(/^app/, "").replace(/\/page\.tsx$/, "") || "/account"
     const escaped = href.replace(/\//g, "\\/")
     check(`${page} asks with next=${href}`, new RegExp(`pageUser\\(accountLoginPath\\("${escaped}"\\)\\)`).test(code(page)))
@@ -61,9 +65,8 @@ console.log("\nEvery page under /account sends signed out people to sign in with
 console.log("\nThe header, as on the library, at every width")
 {
   const layout = code("app/account/layout.tsx")
-  const library = code("app/library/layout.tsx")
-  const mount = /<ConditionalHeader initialWishlistCount=\{initialWishlistCount\} onPlatformDomain=\{onPlatformDomain\} \/>/
-  check("the layout mounts the platform header the way /library does", mount.test(layout) && mount.test(library))
+  const mount = /<ConditionalHeader initialWishlistCount=\{initialWishlistCount\} onPlatformDomain=\{onPlatformDomain\} buyerHeaderLight=\{buyerHeaderLight\} \/>/
+  check("the layout mounts the platform header, and the library inside it draws none of its own", mount.test(layout) && !/ConditionalHeader|BuyerTabBar|ConditionalFooter/.test(code("app/account/library/layout.tsx")))
   check("with the footer and the phone's tab bar", /<ConditionalFooter \/>/.test(layout) && /<BuyerTabBar \/>/.test(layout))
   const header = code("components/marketing/conditional-header.tsx")
   const footer = code("components/marketing/conditional-footer.tsx")
@@ -71,37 +74,28 @@ console.log("\nThe header, as on the library, at every width")
   check("the footer too", /\(\(pathname === "\/account" \|\| pathname\.startsWith\("\/account\/"\)\) && !pathname\.startsWith\("\/account\/continue"\)\)/.test(footer))
   /* "The profile page reached from Explore needs to have the header on it." The rule that kept it off a phone, and the wrapper that applied it, are both gone. */
   check("nothing hides it on a phone any more: no rule, no wrapper", !/hidesHeaderOnPhone/.test(header) && !/data-header-phone/.test(header))
-  check("the column starts the library's py-6 under it, and grows on a computer", /max-w-\[720px\].*lg:max-w-\[1080px\]/.test(layout) && /px-4 py-6 sm:px-6 lg:px-8/.test(library))
+  check("the column is the profile's own width, the one /@handle draws at", /max-w-\[960px\] pt-4 pb-10 sm:pt-6/.test(layout) && /max-w-\[960px\]/.test(read("components/profile/member-profile-page.tsx")))
 }
 
-console.log("\nThe hub: the person, and the page under them")
+console.log("\nThe hub: your own profile page, as everybody sees it, with your pills")
 {
   const hub = code("components/account/account-hub.tsx")
+  const hero = code("components/profile/profile-hero.tsx")
   const layout = code("app/account/layout.tsx")
-  check("in the layout, so the person stays put while the page changes", /<AccountHub identity=\{identity\}>\{children\}<\/AccountHub>/.test(layout))
-  check("photo, name, @username when there is one, the bio, when they joined", /<AccountAvatar\b/.test(hub) && /useShellAvatar\(identity\.avatarUrl\)/.test(hub) && /@\{identity\.username\}/.test(hub) && /Joined \{identity\.memberSince\}/.test(hub) && /data-account-bio=""/.test(hub))
-  check("centred: the person in one column, with overview beside them on a computer", /data-account-profile=""[\s\S]*?flex flex-col items-center text-center/.test(hub) && /lg:grid/.test(hub))
-  check("Powered by Storelib under Edit profile", /data-account-powered=""/.test(hub) && /StorelibLogo/.test(hub))
-  /*
-    A LITTLE BIGGER, WITH A LITTLE MORE SKY. It was 96 and 112, and this
-    check held it there; the owner asked for "a bit bigger just, and 2%
-    more vertical space between the header at the top and the profile
-    avatar", so it is 104 and 120 over 2vh of room.
-  */
-  check("the photo is large: 112px on a phone, 128 from 768px, with 2vh of room over it", /h-\[112px\] w-\[112px\]/.test(hub) && /md:h-\[128px\] md:w-\[128px\]/.test(hub) && /className="mt-\[2vh\]"/.test(hub))
-  check("  and it wears a white ring and a soft shadow, like a creator's circle", /ring-\[3px\] ring-white/.test(hub) && /shadow-\[0_1px_2px_rgba\(16,24,40,0\.08\),0_8px_20px_-10px_rgba\(16,24,40,0\.32\)\]/.test(hub))
-  /*
-    AND IT OPENS. The same dialog the creator page uses, so the whole
-    photograph is there uncropped, Escape and the ground close it, and
-    focus comes back to the circle.
-  */
-  check("the photo opens full size in the creator page's own lightbox", /import \{ AvatarLightbox \} from "@\/components\/storefront\/avatar-lightbox"/.test(hub) && /<AvatarLightbox src=\{shown\} name=\{identity\.name\}>/.test(hub) && /cursor-zoom-in/.test(hub))
+  check("in the layout, so the person stays put while the page changes", /<AccountHub identity=\{identity\} communities=\{communities\}>/.test(layout))
+  /* "it is MY profile page, exactly the same page others see (same header, cover, avatar ...)" */
+  check("the header is the one /@handle draws (ProfileHero), with the cover", /<ProfileHero\b/.test(hub) && /<ProfileHero\b/.test(code("components/profile/member-profile-page.tsx")) && /coverUrl: identity\.coverUrl/.test(hub))
+  check("photo, name, @username, the bio, when they joined, the follower counts", /useShellAvatar\(identity\.avatarUrl\)/.test(hub) && /@\{person\.username\}/.test(hero) && /Joined \{person\.memberSince\}/.test(hero) && /data-profile-bio=""/.test(hero) && /<ProfileSocial\b/.test(hero))
+  check("the photo is the account's live copy and opens in the creator page's lightbox", /<AvatarLightbox src=\{shown\} name=\{name\}>/.test(hub) && /<AccountAvatar\s+src=\{shown\}/.test(hub) && /cursor-zoom-in/.test(hub))
+  check("the photo is large: 112px on a phone, 128 from 640px, with a ring and a soft shadow", /h-\[112px\] w-\[112px\]/.test(hub) && /sm:h-\[128px\] sm:w-\[128px\]/.test(hub) && /ring-4/.test(hub) && /shadow-\[0_1px_2px_rgba\(16,24,40,0\.08\),0_8px_20px_-10px_rgba\(16,24,40,0\.32\)\]/.test(hub))
+  check("the owner's pills under it", /<ProfileOwnerPills communities=\{communities\}/.test(hub))
   check("when they joined is written on the server in UTC, so both renders agree", /timeZone: "UTC"/.test(layout) && /memberSince: memberSince\(user\.created_at\)/.test(layout))
-  check("Edit profile goes to Settings, prefetched in full", /href="\/account\/settings"\s+prefetch=\{true\}/.test(hub) && /data-account-edit=""/.test(hub))
-  /* Two pills reading Overview and Settings, right under a button that went to Settings, were one journey drawn twice. Settings has section pills of its own now. */
-  check("no Overview / Settings pill row any more", !/data-account-tab\b/.test(hub) && !/ACCOUNT_TABS\.map/.test(hub))
-  check("and Settings is its own screen: the hub draws none of the person there", /const onSettings = accountTabFor\(pathname\) === 1/.test(hub) && /if \(onSettings\) return <>\{children\}<\/>/.test(hub))
-  check("the bio reaches the hub from the layout's own read of profiles.bio", /async function readBio\(userId: string\)/.test(layout) && /select\("bio"\)/.test(layout))
+  check("the bio, the cover and the counts reach the hub from the layout's own reads", /async function readBio\(userId: string\)/.test(layout) && /ownCover\(admin, user\.id\)/.test(layout) && /followCounts\(admin, user\.id\)/.test(layout))
+  check("Settings and a purchase opened from the library are screens of their own: the hub draws none of the person there", /if \(!showsProfileHeader\(pathname\)\) return <>\{children\}<\/>/.test(hub))
+  const where: Array<[string, boolean]> = [["/account", true], ["/account/communities", true], ["/account/library", true], ["/account/library/courses", true], ["/account/library/receipts/", true], ["/account/library/products/p1", false], ["/account/library/courses/c1", false], ["/account/library/memberships/m1", false], ["/account/settings", false]]
+  for (const [path, want] of where) check(`  ${path}: ${want ? "the person over it" : "its own screen"}`, showsProfileHeader(path) === want)
+  const pills: Array<[string, string | null, string | null]> = [["/account", null, "activity"], ["/account/communities", null, "communities"], ["/account/library/wishlist", null, "library"], ["/account/settings", null, "edit"], ["/account/settings", "profile", "edit"], ["/account/settings", "account", "settings"], ["/account/settings", "privacy", "settings"], ["/explore", null, null]]
+  for (const [path, section, want] of pills) check(`  ${path}${section ? `?section=${section}` : ""} lights ${want ?? "no pill"}`, ownerPillFor(path, section) === want)
 }
 
 console.log("\nNo light bar of the profile's own: one header on the screen")
@@ -150,7 +144,7 @@ console.log("\nOne face per screen")
   const settings = code("components/account/account-settings.tsx")
   /* "the settings tab opens with the same two profile pictures there, it looks ugly": the hub bows out on Settings, so its one circle is Settings' own. */
   /* It opens the picture now, which is a viewer, not a photo control: still no picker and no camera here. */
-  check("the profile's circle is only a picture: it is handed no photo control at all", /<AccountAvatar\s+src=\{shown\}\s+name=\{identity\.name\}\s+size=\{128\}/.test(hub) && !/useAccountPhoto/.test(hub) && !/photo=\{/.test(hub) && !/editable/.test(hub))
+  check("the profile's circle is only a picture: it is handed no photo control at all", /<AccountAvatar\s+src=\{shown\}\s+name=\{name\}\s+size=\{128\}/.test(hub) && !/useAccountPhoto/.test(hub) && !/photo=\{/.test(hub) && !/editable/.test(hub))
   check("Settings' circle is the control: pressed, it opens the picker", /<AccountAvatar src=\{shown\} name=\{name\} photo=\{photo\} editable/.test(settings) && /useAccountPhoto\(userId/.test(settings) && /\{editable && photo \? \(\s*<button[\s\S]{0,120}onClick=\{photo\.pick\}/.test(photo))
   check("Change photo and Remove sit beside it, and the picker is drawn once", /data-photo-change=""/.test(settings) && /data-photo-remove=""/.test(settings) && (settings.match(/\{photo\.input\}/g) ?? []).length === 1)
   check("uploaded under the owner's folder, through the one photo route, and announced", /`\$\{userId\}\/avatar-\$\{Date\.now\(\)\}\.jpg`/.test(photo) && /fetch\("\/api\/account\/avatar"/.test(photo) && /announceAvatar\(publicUrl\)/.test(photo) && /announceAvatar\(null\)/.test(photo))
@@ -179,94 +173,25 @@ console.log("\nSettings: the Skool shape, in Storelib's own parts")
 }
 
 
-console.log("\nSelling: Dashboard only with seller access")
+console.log("\nSeller access is still one rule")
 {
-  const cases: Array<[string, Parameters<typeof sellerAccessFrom>[0], string, string, string]> = [
-    ["onboarding finished", { creator: { onboarding_completed: true }, profile: { is_creator: true } }, "dashboard", "/app", "Dashboard"],
-    ["a creators row, onboarding not finished", { creator: { onboarding_completed: false }, profile: null }, "finish", "/sell", "Finish setting up your store"],
-    ["the old creator choice, no row", { creator: null, profile: { is_creator: true } }, "finish", "/sell", "Finish setting up your store"],
-    ["a buyer who never started", { creator: null, profile: { is_creator: false } }, "become", "/sell", "Become a seller"],
-    ["no rows at all", { creator: null, profile: null }, "become", "/sell", "Become a seller"],
-  ]
-  for (const [what, rows, key, href, title] of cases) {
-    const entry = sellingEntry(sellerAccessFrom(rows).state)
-    check(`${what}: ${title}`, entry.key === key && entry.href === href && entry.title === title, entry)
-  }
-  check("only the seller state is Dashboard", (["none", "started", "seller"] as const).filter((st) => sellingEntry(st).href === "/app").join() === "seller")
-  const data = accountOverview({ items: [], courses: null, memberships: null, wishlist: 0, seller: "started" })
-  check("the overview carries the entry for its state", data.selling.key === "finish" && data.seller === "started")
-
-  const overview = code("components/account/account-overview.tsx")
-  check("the overview draws the entry it is given, and no Dashboard of its own", /<SellRow entry=\{selling\} \/>/.test(overview) && !/href="\/app"/.test(overview))
-  const route = code("app/account/page.tsx")
-  check("the page asks for the signed in person's own access, for this request", /const user = await pageUser\(accountLoginPath\("\/account"\)\)/.test(route) && /sellerAccessForRequest\(user\.id\)/.test(route) && !/readAuthSnapshot|createAdminClient\(\)\.from\("creators"\)/.test(route))
-  const scope = code("lib/auth/request-scope.ts")
-  check("which is their own creators row, by user_id, on their own client (not any row; the service role only adds that row's private columns)", /creatorForRequest = cache\(async \(userId: string\)[\s\S]{0,200}const supabase = await createClient\(\)[\s\S]{0,120}\.from\("creators"\)\.select\(SHELL_CREATOR_COLUMNS\)\.eq\("user_id", userId\)\.maybeSingle\(\)/.test(scope))
-  check("and the user is the one the auth server confirmed this request", /currentUserForRequest = cache\(/.test(scope) && /readCurrentUser\(supabase\)/.test(scope))
-  check("a copy the router kept is asked for again, so a finished onboarding is never an old Become a seller", /<AccountOverview data=\{data\} drawnAt=\{Date\.now\(\)\} \/>/.test(route) && /router\.refresh\(\)/.test(code("components/account/account-fresh.tsx")))
+  check("only the seller state has seller access", hasSellerAccess(sellerAccessFrom({ creator: { onboarding_completed: true } })) && !hasSellerAccess(sellerAccessFrom({ creator: { onboarding_completed: false }, profile: { is_creator: true } })))
   const header = code("components/platform/platform-header-client.tsx")
-  check("the header's account sheet asks the same rule (hasSellerAccess of sellerAccessFrom), and says Finish setting up for a started store",
-    /const access = sellerAccessFrom\(\{ creator: creatorData, profile: profileData \}\)[\s\S]{0,80}hasSellerAccess\(access\)/.test(header)
-      && /state === "started" \? "Finish setting up your store" : "Become a seller"/.test(header))
-  check("and the shared rule itself: seller only with a finished onboarding", hasSellerAccess(sellerAccessFrom({ creator: { onboarding_completed: true } })) && !hasSellerAccess(sellerAccessFrom({ creator: { onboarding_completed: false }, profile: { is_creator: true } })))
+  check("the header's account sheet asks the same rule", /hasSellerAccess\(/.test(header) && /sellerAccessFrom\(/.test(header))
 }
 
-console.log("\nThe overview has nothing to type")
+console.log("\nActivity: what /account opens on")
 {
-  const overview = code("components/account/account-overview.tsx")
   const route = code("app/account/page.tsx")
-  check("no field, no photo control, no save", !/<input\b|<textarea\b|<ProfilePhoto\b|onSubmit|\.update\(/.test(overview + route))
-  check("each fact opens its library page", ["/library", "/library/courses", "/library/memberships", "/library/reviews", "/library/wishlist"].every((h) => read("lib/account/overview.ts").includes(`href: "${h}"`)))
-  check("the facts are the library's own loaders, not a second count", /loadLibrary\(user\.id\)/.test(route) && /loadMyCourses\(/.test(route) && /loadLibraryMemberships\(/.test(route))
-  check("a read that fails leaves its fact out, not the page", /orNull\(\(\) => loadLibrary/.test(route))
-  check("the slow part streams in under the header, behind a deferred skeleton", /<Suspense fallback=\{<OverviewSkeleton \/>\}>/.test(route) && /skeleton-deferred/.test(read("components/account/account-skeleton.tsx")))
-  check("seller access is lib/account/seller-access's answer", /sellerAccessForRequest\(user\.id\)/.test(route))
-  /* It was three white cards of the same size, the first a list of five rows each with its own grey icon square. CLAUDE.md names that. */
-  check("one card of facts, and selling on its own: no third card, no stack of the same box", (overview.match(/data-account-card=/g) ?? []).length === 1 && /data-account-card="library"/.test(overview) && /data-account-selling=/.test(overview))
-  check("no icon beside every label: the only marks left are the covers' placeholder and the chevrons", !/FACT_ICON|GraduationCap|BadgeCheck|LayoutDashboard|Store\b|Heart|Star\b/.test(overview))
-  check("the purchase count is the card's subline, not a row saying Purchases as well", /data-account-purchases=""/.test(overview) && /facts\.filter\(\(f\) => f\.key !== "purchases"\)/.test(overview))
-  check("Storelib's card: white, rounded-2xl, the #e5e7eb hairline and a soft shadow", /bg-white rounded-2xl app-card-x[^"]*shadow-\[0_1px_3px_rgba\(0,0,0,0\.04\)\] border border-\[#e5e7eb\]\/60/.test(overview))
-}
-
-console.log("\nThe overview's facts")
-{
-  const item = (id: string, at: string, extra: Partial<LibraryItem> = {}): LibraryItem => ({
-    productId: id, title: `P${id}`, thumbnailUrl: null, productSlug: null, archived: false, purchasedAt: at,
-    creator: { id: "c", name: "Maria", slug: "maria", avatarUrl: null }, files: [], state: "open", receiptToken: null,
-    review: null, canReview: false, ...extra,
-  } as LibraryItem)
-  const review = { id: "r", rating: 5, content: "", createdAt: "", editedAt: null, hidden: false, sellerReply: null }
-  const items = [
-    item("1", "2026-01-01T00:00:00Z", { review }),
-    item("2", "2026-03-01T00:00:00Z", { canReview: true }),
-    item("3", "2026-02-01T00:00:00Z", { canReview: true }),
-    item("4", "2026-04-01T00:00:00Z"),
-  ]
-  const full = accountOverview({
-    items,
-    courses: [{ title: "Lighting", status: "in_progress" }, { title: "Colour", status: "not_started" }],
-    memberships: { current: 1, ended: 0 },
-    wishlist: 7,
-    seller: "none",
-  })
-  check("purchases, courses in progress, memberships, reviews written, wishlist", full.facts.map((f) => f.key).join() === "purchases,courses,memberships,reviews,wishlist", full.facts.map((f) => f.key))
-  check("with the library's numbers", full.facts.map((f) => f.value).join() === "4,1,1,1,7", full.facts.map((f) => f.value))
-  check("the course they had open last is where Continue goes", full.facts[1].detail === "Continue Lighting", full.facts[1].detail)
-  check("purchases still to review are said", full.facts[3].detail === "2 purchases to review", full.facts[3].detail)
-  check(`the newest ${RECENT_PURCHASES} purchases, newest first, into the library`, full.recent.map((r) => r.productId).join() === "4,2,3" && full.recent[0].href === "/library/products/4", full.recent.map((r) => r.productId))
-
-  const fresh = accountOverview({ items: [], courses: [], memberships: null, wishlist: 0, seller: "seller" })
-  check("a new account: purchases and the wishlist, no zeros about things never had", fresh.facts.map((f) => f.key).join() === "purchases,wishlist", fresh.facts.map((f) => f.key))
-  check("and nothing in recent purchases", fresh.recent.length === 0)
-  const done = accountOverview({ items: [], courses: [{ title: "A", status: "completed" }], memberships: { current: 0, ended: 2 }, wishlist: 0, seller: "started" })
-  check("courses all finished say so; ended memberships say none are running", done.facts.find((f) => f.key === "courses")?.detail === "All finished" && done.facts.find((f) => f.key === "memberships")?.detail === "None running")
-  const unread = accountOverview({ items: null, courses: null, memberships: null, wishlist: 3, seller: "none" })
-  check("a library that could not be read is not an error on the page", unread.facts.map((f) => f.key).join() === "purchases,wishlist")
+  check("the profile's own Activity, read through the one gate that reads the privacy switch, you as the viewer", /activityFor\(db, \{ userId: user\.id, viewerId: user\.id \}\)/.test(route) && /<ProfileActivity\b/.test(route))
+  check("a hidden list says only you can see it", /privacy\.showActivity \? undefined/.test(route) && /Only you can see your activity\./.test(route))
+  check("it streams in under the header, behind a deferred skeleton", /<Suspense fallback=\{<OverviewSkeleton \/>\}>/.test(route) && /skeleton-deferred/.test(read("components/account/account-skeleton.tsx")))
+  check("nothing to type on it", !/<input\b|<textarea\b|onSubmit|\.update\(/.test(route))
 }
 
 console.log("\nThe copy")
 {
-  const files = ["components/account/account-hub.tsx", "components/account/account-photo.tsx", "components/account/account-fresh.tsx", "components/account/account-overview.tsx", "components/account/account-settings.tsx", "components/account/account-skeleton.tsx", "lib/account/overview.ts", "lib/account/account-tabs.ts", "app/account/layout.tsx", "app/account/page.tsx", "app/account/settings/page.tsx"]
+  const files = ["components/account/account-hub.tsx", "components/account/account-photo.tsx", "components/account/account-settings.tsx", "components/account/account-skeleton.tsx", "components/account/push-switch-row.tsx", "components/account/cover-field.tsx", "lib/account/account-tabs.ts", "app/account/layout.tsx", "app/account/page.tsx", "app/account/communities/page.tsx", "app/account/settings/page.tsx"]
   const banned = /—|\bunlock|\belevate|\bseamless|\bpowerful|\beffortless|\bsupercharge|\btransform/i
   for (const f of files) check(`${f}: no em dashes, none of the banned words`, !banned.test(read(f)), (read(f).match(banned) || [])[0])
 }

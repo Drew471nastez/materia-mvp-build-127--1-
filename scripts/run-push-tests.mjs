@@ -389,6 +389,7 @@ const SUITES = [
   "tests/communities-creator.test.ts",
   "tests/communities-shell.test.ts",
   "tests/profiles-follows.test.ts",
+  "tests/account-center.test.ts",
   "tests/theme-blocks.test.ts",
 ]
 

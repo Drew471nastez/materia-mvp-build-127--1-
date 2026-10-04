@@ -216,7 +216,7 @@ function main() {
   */
   check(
     "the cross-origin one is still a document load",
-    /window\.location\.assign\(new URL\("\/library\/my-downloads", canonical\)/.test(
+    /window\.location\.assign\(new URL\("\/account\/library", canonical\)/.test(
       read("components/store-builder/sticky-add-to-cart.tsx"),
     ),
     "a client navigation cannot move between hosts",

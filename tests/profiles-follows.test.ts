@@ -573,7 +573,7 @@ async function main() {
     check("only their published, undeleted posts in that community, newest first, keyset paged", /\.eq\("author_id", input\.targetId\)/.test(src) && /\.eq\("status", "published"\)/.test(src) && /\.is\("deleted_at", null\)/.test(src) && /keysetCondition\("latest", cursor\)/.test(src) && /limit\(SHARED_PAGE \+ 1\)/.test(src))
     check("both must be active, unbanned members; the community published and open", (src.match(/is\("banned_at", null\)/g) ?? []).length === 2 && /status !== "active" \|\| theirs\[0\]\.banned_at/.test(src) && /eq\("status", "published"\)\.is\("deleted_at", null\)\.is\("suspended_at", null\)/.test(src))
     const route = stripComments(read("app/api/profile/shared-posts/route.ts"))
-    check("the route: communities switch first, the session's viewer, 404 when they may not look", route.indexOf("requireCommunitiesOn()") < route.indexOf("sessionUserId()") && /status: 401/.test(route) && /not_found/.test(route))
+    check("the route: communities switch first, the session's viewer, 404 when they may not look", route.indexOf("requireCommunitiesOn()") < route.indexOf("auth.getUser()") && /status: 401/.test(route) && /not_found/.test(route))
     const page = read("components/profile/member-profile-page.tsx")
     check("the profile draws a section per shared community above the activity", /<SharedCommunityPosts key=\{s\.community\.id\}/.test(page) && /lead=\{/.test(page))
     const view = read("components/profile/shared-community-posts.tsx")

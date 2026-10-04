@@ -440,7 +440,7 @@ check(
     const offline = read("out/index.html")
 
     const sanitiserRejectsRoot =
-      /NATIVE_HOME_ALLOWED\s*=\s*\["\/app", "\/library", "\/dashboard", "\/creator-page", "\/store-builder"\]/.test(bridge) &&
+      /NATIVE_HOME_ALLOWED\s*=\s*\["\/app", "\/library", "\/account\/library", "\/dashboard", "\/creator-page", "\/store-builder"\]/.test(bridge) &&
       // Protocol-relative "//host" leaves the app entirely, so a leading "/"
       // alone must not be accepted.
       /startsWith\("\/\/"\)/.test(bridge)

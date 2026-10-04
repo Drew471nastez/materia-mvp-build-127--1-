@@ -7,8 +7,8 @@
  */
 import { NextResponse } from "next/server"
 import { requireCommunitiesOn } from "@/lib/communities/flag"
-import { sessionUserId } from "@/lib/communities/server/feed"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { createClient } from "@/lib/supabase/server"
 import { sharedPostsPage } from "@/lib/profile/shared-posts"
 
 export const dynamic = "force-dynamic"
@@ -19,7 +19,11 @@ const NO_STORE = { "Cache-Control": "no-store" }
 export async function GET(request: Request) {
   const off = await requireCommunitiesOn()
   if (off) return off
-  const viewerId = await sessionUserId()
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  const viewerId = user?.id ?? null
   if (!viewerId) return NextResponse.json({ error: "sign_in" }, { status: 401, headers: NO_STORE })
   const params = new URL(request.url).searchParams
   const page = await sharedPostsPage(createAdminClient(), {

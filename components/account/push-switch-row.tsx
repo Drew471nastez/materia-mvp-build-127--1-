@@ -18,6 +18,7 @@
  */
 import { useCallback, useEffect, useState } from "react"
 import { PrivacyRow, Saved, Switch, useSavedSwitch } from "@/components/app/settings/account-panels"
+import { pushStateFrom } from "@/lib/account/push-state"
 
 export const PUSH_ROUTE = "/api/me/push"
 
@@ -38,14 +39,6 @@ async function savePush(enabled: boolean) {
 const NOT_YET = "This turns on after the next update."
 const TITLE = "Push notifications from communities and people"
 const DETAIL = "Replies, mentions, messages and news from your communities and the creators you follow. Sale and payout alerts are not affected."
-
-/** What GET answered: the saved choice, "not_yet" before its table exists, or null when there is no row to show. */
-export function pushStateFrom(status: number, body: unknown): boolean | "not_yet" | null {
-  if (status === 503) return "not_yet"
-  if (status !== 200 || !body || typeof body !== "object") return null
-  const enabled = (body as { enabled?: unknown }).enabled
-  return typeof enabled === "boolean" ? enabled : null
-}
 
 function Row({ initial }: { initial: boolean }) {
   const push = useSavedSwitch(initial, useCallback((v: boolean) => savePush(v), []))

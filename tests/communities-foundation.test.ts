@@ -402,12 +402,12 @@ async function main() {
   check("and lists it among the framable first segments", /FRAME_RESERVED_FIRST_SEGMENT = new Set\(\[[^\]]*"community"/.test(proxy))
   /* Round 2: still a platform path, but every community page is its own screen with the community's own bar, so Storelib's is not drawn there. */
   check("a platform path, drawn without the platform header (the community's own bar instead)", /p === "\/community" \|\|\s*p\.startsWith\("\/community\/"\)/.test(code("components/marketing/conditional-header.tsx")) && /function isOwnScreen\(p: string\): boolean \{[^}]*p\.startsWith\("\/community\/"\)/.test(code("components/marketing/conditional-header.tsx")))
-  check("the buyer tab bar never covers a community", !buyerTabsBelongOn("/community/makers") && !buyerTabsBelongOn("/community") && !buyerTabsBelongOn("/community/makers/events", { sellerStore: true }) && buyerTabsBelongOn("/library"))
+  check("the buyer tab bar never covers a community", !buyerTabsBelongOn("/community/makers") && !buyerTabsBelongOn("/community") && !buyerTabsBelongOn("/community/makers/events", { sellerStore: true }) && buyerTabsBelongOn("/account/library"))
   const index = code("app/(marketing)/community/page.tsx")
   check("/community: Explore's communities when on, a 404 when off, read per request", /await connection\(\)\s*if \(!\(await communitiesEnabled\(\)\)\) notFound\(\)\s*redirect\("\/explore\/communities"\)/.test(index))
   /* /app/community is the new creator area now (W1); what must be gone is the old feed it used to render. */
   check("the old creator feed is gone", !existsSync("components/app/community-feed.tsx") && (!existsSync("app/app/community/page.tsx") || !/community_posts|CommunityFeed/.test(code("app/app/community/page.tsx"))))
-  check("the old buyer pages send to the library", ["app/dashboard/communities/page.tsx", "app/dashboard/communities/[creatorId]/page.tsx"].every((f) => /redirect\("\/library\/communities"\)/.test(code(f)) && !/community_posts|CommunityFeed/.test(code(f))))
+  check("the old buyer pages send to the library", ["app/dashboard/communities/page.tsx", "app/dashboard/communities/[creatorId]/page.tsx"].every((f) => /redirect\("\/account\/communities"\)/.test(code(f)) && !/community_posts|CommunityFeed/.test(code(f))))
 
   /* ── Copy and the client boundary ────────────────────────────────────── */
   console.log("\nCopy rules, and no server code in the browser")

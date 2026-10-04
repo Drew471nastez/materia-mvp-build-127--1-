@@ -40,11 +40,11 @@ for (const p of ["/", "/features", "/pricing", "/blog", "/blog/a-post", "/faq", 
 for (const p of ["/explore", "/explore/design", "/wishlist"]) {
   check(`${p}: signed out yes, signed in no`, siteFooterFor(p, { signedIn: false }) && !siteFooterFor(p, { signedIn: true }))
 }
-for (const p of ["/library", "/library/products/abc", "/library/wishlist", "/account", "/account/security", "/explore/search"]) {
+for (const p of ["/account/library", "/account/library/products/abc", "/account/library/wishlist", "/account", "/account/security", "/explore/search"]) {
   check(`${p}: never, whoever is looking`, !siteFooterFor(p, { signedIn: false }) && !siteFooterFor(p, { signedIn: true }))
 }
 check("/account-deletion is a legal page, not the account", !isFooterlessPage("/account-deletion") && isFooterlessPage("/account"))
-check("every page with the tab bar is a shop page or footerless", ["/explore", "/explore/design", "/explore/search", "/library", "/library/x", "/account", "/wishlist"].every((p) => buyerTabsBelongOn(p) && (isShopPage(p) || isFooterlessPage(p))))
+check("every page with the tab bar is a shop page or footerless", ["/explore", "/explore/design", "/explore/search", "/account/library", "/account/library/x", "/account", "/wishlist"].every((p) => buyerTabsBelongOn(p) && (isShopPage(p) || isFooterlessPage(p))))
 
 const footer = code("components/marketing/conditional-footer.tsx")
 check("the footer asks the rule, with the header's record of who is signed in", /siteFooterFor\(pathname, \{ signedIn \}\)/.test(footer) && /useSyncExternalStore\(subscribeAuthSnapshot, readSignedIn, \(\) => false\)/.test(footer))
@@ -55,10 +55,10 @@ console.log("\nThe phone header where the tab bar is")
 const header = code("components/platform/platform-header-client.tsx")
 check("asks the tab bar's own question", /const tabsHere = useBuyerTabsHere\(pathname\)/.test(header) && /from "@\/lib\/nav\/use-buyer-tabs-where"/.test(read("components/platform/platform-header-client.tsx")))
 check("the tab bar asks it the same way", /const where = useBuyerTabsWhere\(pathname\)/.test(code("components/nav/buyer-tab-bar.tsx")))
-check("no Library icon in the phone row there", /\{user && !tabsHere && \(\s*<Link\s+href=\{getCanonicalOrRelativePath\("\/library"\)\}/.test(header))
+check("no Library icon in the phone row there", /\{user && !tabsHere && \(\s*<Link\s+href=\{getCanonicalOrRelativePath\("\/account\/library"\)\}/.test(header))
 check("the heart and the photo stay (the photo opens the account sheet)", /aria-label="Wishlist"/.test(header) && /onClick=\{\(\) => setMobileProfileOpen\(true\)\}/.test(header))
-check("the menu sheet drops My Library and its search link there", /\{!tabsHere && \(\s*<div className="border-b border-\[#eef0f2\] pb-1">\s*<MenuRow href="\/library"/.test(header) && /isDiscoverProductContext && !tabsHere/.test(header))
-check("the search strip under the header: not with the tab bar, never on the library or the account", /\{searchInHeader && !tabsHere && !isOwnPages && !isCommunityRoute && \(/.test(header) && /const isOwnPages = pathname === "\/library" \|\| pathname\.startsWith\("\/library\/"\) \|\| pathname === "\/account" \|\| pathname\.startsWith\("\/account\/"\)/.test(header))
+check("the menu sheet drops My Library and its search link there", /\{!tabsHere && \(\s*<div className="border-b border-\[#eef0f2\] pb-1">\s*<MenuRow href="\/account\/library"/.test(header) && /isDiscoverProductContext && !tabsHere/.test(header))
+check("the search strip under the header: not with the tab bar, never on the library or the account", /\{searchInHeader && !tabsHere && !isOwnPages && !isCommunityRoute && \(/.test(header) && /const isOwnPages = pathname === "\/account\/library" \|\| pathname\.startsWith\("\/account\/library\/"\) \|\| pathname === "\/account" \|\| pathname\.startsWith\("\/account\/"\)/.test(header))
 /* The strip is `fixed` at the foot of the header; a community's own tab row
    is `sticky` at the same offset, so the marketplace search landed on top of
    the community's spaces on a phone. Every /community address is out. */
