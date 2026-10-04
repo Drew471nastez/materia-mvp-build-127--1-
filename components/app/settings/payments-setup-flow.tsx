@@ -49,7 +49,13 @@ import { playAskSound } from "@/lib/website-builder/ask-sounds"
 import { cn } from "@/lib/utils"
 
 export type SetupMode = "setup" | "bank" | "details"
-type Step = 0 | 1 | 2
+type Step = 0 | 1 | 2 | 3
+
+/* Where setup opens: the account step, the bank when the bank is all that is left, otherwise the details (which hand on by themselves when empty). */
+function firstStep(status: StorelibPaymentsStatus): Step {
+  const s = setupStepOf(status)
+  return s === 0 ? 0 : s === 2 ? 3 : 1
+}
 
 /* The app's calm field: a light hairline and a soft halo when focused, 16px on a phone so iOS does not zoom. */
 export const FIELD =
@@ -290,13 +296,21 @@ export function PaymentsPanelWaiting({ open, onClose, label = "Payments" }: { op
  * page of its own. The bank is only its own screen when the bank is all that
  * is being changed (Update bank on Payouts).
  */
-const STEP_LABELS = ["Account", "Details", "Verify ID"] as const
+/*
+ * LIKE SKOOL: PERSONAL INFO, VERIFY ID, BANK ACCOUNT. The owner, October
+ * 2026: "personal info, verification, KYC ID only, back and forth with the
+ * camera, and bank account, select payout method, local currency, EUR or
+ * USD, then the bank account number, and that's all". Personal info is two
+ * screens underneath (the country and name make the account, then the few
+ * details Stripe wants), shown as one step.
+ */
+const STEP_LABELS = ["Personal info", "Verify ID", "Bank account"] as const
 /*
  * THE ID CHECK IS ONLY A STEP WHEN STRIPE WANTS IT. A seller Stripe does not
  * need an ID from right now never sees it in the steps at all: the stepper is
  * Account, Details until the ID step has loaded and found Stripe is asking.
  */
-const STEP_LABELS_NO_ID = ["Account", "Details"] as const
+const STEP_LABELS_NO_ID = ["Personal info", "Bank account"] as const
 
 function Stepper({ step, done: all, labels = STEP_LABELS }: { step: number; done?: boolean; labels?: readonly string[] }) {
   return (
@@ -475,7 +489,7 @@ export function PaymentsSetupFlow({
 }) {
   const phone = usePhone()
   const status = statusOf(data)
-  const [step, setStep] = React.useState<Step>(() => (setupStepOf(status) === 0 ? 0 : 1))
+  const [step, setStep] = React.useState<Step>(() => firstStep(status))
   const [back, setBack] = React.useState(false)
   const [openCount, setOpenCount] = React.useState(0)
   const [ending, setEnding] = React.useState<Outcome | null>(null)
@@ -491,6 +505,8 @@ export function PaymentsSetupFlow({
   const [checkingWhat, setCheckingWhat] = React.useState<"id" | "details">("details")
   /* The details step was walked past with nothing to ask, so Back skips it too. */
   const [detailsEmpty, setDetailsEmpty] = React.useState(false)
+  /* The same for the ID step: Stripe needed no ID, so Back from the bank goes past it. */
+  const [idEmpty, setIdEmpty] = React.useState(false)
 
   /*
    * The draft goes when setup closes, not only when it opens. Clearing on
@@ -509,9 +525,10 @@ export function PaymentsSetupFlow({
     setEnding(null)
     setIdNeeded(!!data.idAhead)
     setDetailsEmpty(false)
+    setIdEmpty(false)
     /* A fresh open starts from Stripe's answer, not from what was typed last time. */
     clearDetailsDraft()
-    setStep(setupStepOf(status) === 0 ? 0 : 1)
+    setStep(firstStep(status))
     setOpenCount((k) => k + 1)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, mode])
@@ -559,9 +576,10 @@ export function PaymentsSetupFlow({
     const stepFor = (form: DetailsForm | null): Step | null => {
       if (!form) return null
       const needs = form.needs
-      const detailsLeft = needs.fields.some((f) => f !== "document") || needs.tos || needs.bank
+      const detailsLeft = needs.fields.some((f) => f !== "document") || needs.tos
       if (detailsLeft) return 1
-      if (needs.fields.includes("document")) return 2
+      if (needs.fields.includes("document") && !needs.given?.includes("document")) return 2
+      if (needs.bank) return 3
       return null
     }
 
@@ -572,9 +590,9 @@ export function PaymentsSetupFlow({
         go(target)
         return
       }
-      if (target === null && outcome === "bank" && step !== 1) {
-        /* Stripe wants a bank and the form did not know yet: the details page draws it once it asks again. */
-        go(1)
+      if (target === null && outcome === "bank" && step !== 3) {
+        /* Stripe wants a bank and the form did not know yet: the bank step asks. */
+        go(3)
         return
       }
     }
@@ -590,12 +608,15 @@ export function PaymentsSetupFlow({
   }
 
   const title = mode === "bank" ? (data.payoutDestination ? "Payout account" : "Add bank account") : mode === "details" ? "Account details" : "Set up payouts"
-  const onBack = mode === "setup" && step > 0 && !ending ? () => go((step - 1) as Step) : onClose
+  /* Back walks past a step that had nothing to ask, so it never lands somewhere that sends it forward again. */
+  const stepBefore = (from: Step): Step => (from === 3 ? (idEmpty ? (detailsEmpty ? 0 : 1) : 2) : from === 2 ? (detailsEmpty ? 0 : 1) : 0)
+  const onBack = mode === "setup" && step > 0 && !ending ? () => go(stepBefore(step)) : onClose
   const slide = back ? "slide-in-from-left-4" : "slide-in-from-right-4"
   /* The ID step is only a step once Stripe has asked for a document. */
   const labels = idNeeded ? STEP_LABELS : STEP_LABELS_NO_ID
   const last = labels.length - 1
-  const shownStep = ending === "done" || ending === "checking" ? last : labels === STEP_LABELS ? step : Math.min(step, 1)
+  /* Account and details are both Personal info; then Verify ID; then Bank account. */
+  const shownStep = ending === "done" || ending === "checking" ? last : step <= 1 ? 0 : step === 2 ? 1 : last
 
   let body: React.ReactNode
   if (ending) {
@@ -604,7 +625,9 @@ export function PaymentsSetupFlow({
         outcome={ending}
         what={checkingWhat}
         onContinue={() => {
+          const was = ending
           setEnding(null)
+          if (mode === "setup" && was === "bank") go(3)
           setOpenCount((k) => k + 1)
         }}
         onDone={finish}
@@ -651,31 +674,33 @@ export function PaymentsSetupFlow({
       <DetailsStep
         key={`details-step-${openCount}`}
         only="details"
-        withBank
         onBack={() => go(0)}
         onEmpty={() => setDetailsEmpty(true)}
         onNext={() => go(2)}
         onData={onData}
       />
     )
-  } else {
+  } else if (step === 2) {
     body = (
       <DetailsStep
         key={`id-${openCount}`}
         only="id"
-        onBack={() => go(detailsEmpty ? 0 : 1)}
+        onBack={() => go(stepBefore(2))}
+        onEmpty={() => setIdEmpty(true)}
         onAsking={() => setIdNeeded(true)}
         onNext={(left, sent) => void settle(sent ?? data, left)}
         onData={onData}
       />
     )
+  } else {
+    body = <BankForm key={`bank-step-${openCount}`} onBack={() => go(stepBefore(3))} onDone={(sent) => void settle(sent, null)} onData={onData} />
   }
 
   const subtitle =
     mode === "setup"
       ? idNeeded
-        ? "Your country, your name as on your ID, a few details Stripe needs, your bank, then a quick ID check with your camera. About five minutes."
-        : "Your country, your name as on your ID, a few details Stripe needs and your bank. About five minutes."
+        ? "Your personal info, a quick ID check with your camera, then your bank. About five minutes."
+        : "Your personal info, then your bank. About five minutes."
       : mode === "bank"
         ? "Where your cash outs are sent."
         : "The details on your payments account."
@@ -964,7 +989,7 @@ interface DetailsForm {
   dueBy: string | null
   active: boolean
   idNumber: { label: string; hint: string }
-  bank: { kind: "iban" | "routing"; routingLabel?: string; routingPattern?: string; accountLabel?: string; currency: string | null; holderName: string; last4: string | null }
+  bank: { kind: "iban" | "routing"; routingLabel?: string; routingPattern?: string; accountLabel?: string; currency: string | null; holderName: string; last4: string | null; currencies?: string[] }
 }
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
@@ -1263,7 +1288,8 @@ function DetailsStep({
    */
   const idVerified = idState === "done" || idState === "checking"
   const front = !!uploaded["document-front"] || idVerified || docGiven
-  const idEither = form.needs.either.some((e) => e.original.includes("idNumber") && e.alternative.includes("document"))
+  /* No CNP or ID number is ever typed here: the ID photo is the way (lib/payments/stripe/own-form-rules.ts needsOf). */
+  const idEither = false
   const docDue = has("document") && !form.needs.offered.includes("document")
   /* On the details page after the ID step was passed over for the number, the number is simply asked for. */
   /*
@@ -1856,12 +1882,16 @@ function BankForm({ failed = false, onBack, backLabel = "Back", onDone, onData }
   const [iban, setIban] = React.useState("")
   const [accountNumber, setAccountNumber] = React.useState("")
   const [routing, setRouting] = React.useState("")
+  const [picked, setPicked] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [tried, setTried] = React.useState(false)
 
   if (!form) return <FormWaiting error={loadError} onRetry={load} />
   const bank = form.bank
+  /* The payout currencies Stripe pays out to in this country: local first, then euro and US dollar where supported. */
+  const currencies = bank.currencies?.length ? bank.currencies : bank.currency ? [bank.currency] : []
+  const currency = picked ?? (bank.currency && currencies.includes(bank.currency) ? bank.currency : currencies[0] ?? null)
   /* What Stripe has right now, not what the page was opened with: during setup that said "Change bank account" to somebody adding their first. */
   const title = failed ? "Your payout account needs attention" : bank.last4 ? "Change bank account" : "Add your bank account"
   const line = failed ? "A payout didn't go through. Add the account you want paid into." : bank.last4 ? "The new account is used for your next payout." : "Where your payouts are sent."
@@ -1880,7 +1910,7 @@ function BankForm({ failed = false, onBack, backLabel = "Back", onDone, onData }
     setBusy(true)
     setError(null)
     try {
-      const res = await post<{ form: DetailsForm; overview: Overview }>("bank", bank.kind === "iban" ? { holderName: name, iban } : { holderName: name, accountNumber, routingNumber: routing })
+      const res = await post<{ form: DetailsForm; overview: Overview }>("bank", bank.kind === "iban" ? { holderName: name, iban, currency } : { holderName: name, accountNumber, routingNumber: routing, currency })
       onData(res.overview)
       onDone(res.overview)
     } catch (err) {
@@ -1891,7 +1921,7 @@ function BankForm({ failed = false, onBack, backLabel = "Back", onDone, onData }
   }
 
   return (
-    <form onSubmit={submit} onInput={() => error && setError(null)} noValidate className="flex min-h-full flex-1 flex-col">
+    <form onSubmit={submit} onInput={() => error && setError(null)} noValidate data-bank-step="" className="flex min-h-full flex-1 flex-col">
       <div className="flex-1 space-y-5 px-5 sm:px-7">
         <StepIntro title={title} line={line} />
         <ErrorLine message={error} />
@@ -1901,11 +1931,38 @@ function BankForm({ failed = false, onBack, backLabel = "Back", onDone, onData }
             <span className="text-[13.5px] text-[#4b5563]">Current account ending in <span className="font-medium tabular-nums text-[#1a1a2e]">{bank.last4}</span></span>
           </div>
         ) : null}
+        {currencies.length > 1 ? (
+          <div className="space-y-2">
+            <span className="block text-[13px] font-medium text-[#1a1a2e]">Payout currency</span>
+            <div role="radiogroup" aria-label="Payout currency" className="grid gap-2" style={{ gridTemplateColumns: `repeat(${currencies.length}, minmax(0, 1fr))` }}>
+              {currencies.map((cur) => {
+                const on = cur === currency
+                return (
+                  <button
+                    key={cur}
+                    type="button"
+                    role="radio"
+                    aria-checked={on}
+                    data-payout-currency={cur}
+                    onClick={() => setPicked(cur)}
+                    className={cn(
+                      "flex min-h-[56px] cursor-pointer flex-col items-start justify-center rounded-xl border px-3.5 py-2.5 text-left outline-none transition-[border-color,background-color,box-shadow] duration-150 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15",
+                      on ? "border-[#1a1a2e] bg-white shadow-[0_0_0_1px_#1a1a2e]" : "border-[#e3e5e8] bg-white hover:border-[#c9ccd3]",
+                    )}
+                  >
+                    <span className="text-[14px] font-semibold text-[#1a1a2e]">{cur}</span>
+                    <span className="truncate text-[12px] text-[#6b7280]">{cur === currencies[0] ? "Local" : currencyName(cur)}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        ) : null}
         <Field label="Account holder name" hint="Your name, as your bank has it." error={tried && name.trim().length < 2 ? "Enter the name on the account." : undefined}>
           <input className={FIELD} autoComplete="name" value={name} onChange={(e) => setHolder(e.target.value)} />
         </Field>
         {bank.kind === "iban" ? (
-          <Field label="IBAN" hint={bank.currency ? `Payouts arrive in ${bank.currency}.` : undefined} error={tried && !ibanOk ? "That IBAN does not look right. Check it in your bank app." : undefined}>
+          <Field label="IBAN" hint={currency ? `Your ${currency} account. Payouts arrive in ${currency}.` : undefined} error={tried && !ibanOk ? "That IBAN does not look right. Check it in your bank app." : undefined}>
             <input className={cn(FIELD, "font-mono tracking-[0.02em]")} autoComplete="off" spellCheck={false} autoCapitalize="characters" placeholder={`${form.country}00 0000 0000 0000 0000`} value={iban} onChange={(e) => setIban(formatIban(e.target.value))} />
           </Field>
         ) : (
@@ -1913,7 +1970,7 @@ function BankForm({ failed = false, onBack, backLabel = "Back", onDone, onData }
             <Field label={bank.routingLabel ?? "Bank code"} error={tried && !routingOk ? `Check your ${(bank.routingLabel ?? "bank code").toLowerCase()}.` : undefined}>
               <input className={FIELD} autoComplete="off" spellCheck={false} inputMode={form.country === "IN" ? undefined : "numeric"} value={routing} onChange={(e) => setRouting(e.target.value)} />
             </Field>
-            <Field label={bank.accountLabel ?? "Account number"} hint={bank.currency ? `Payouts arrive in ${bank.currency}.` : undefined} error={tried && accountNumber.replace(/[\s-]/g, "").length < 4 ? "Enter your account number." : undefined}>
+            <Field label={bank.accountLabel ?? "Account number"} hint={currency ? `Payouts arrive in ${currency}.` : undefined} error={tried && accountNumber.replace(/[\s-]/g, "").length < 4 ? "Enter your account number." : undefined}>
               <input className={FIELD} autoComplete="off" spellCheck={false} inputMode="numeric" value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} />
             </Field>
           </>
@@ -1928,6 +1985,16 @@ function BankForm({ failed = false, onBack, backLabel = "Back", onDone, onData }
       </Footer>
     </form>
   )
+}
+
+/** "Euro", "US dollar": the currency's name in English, or the code when the browser does not know it. */
+function currencyName(code: string): string {
+  try {
+    const name = new Intl.DisplayNames(["en"], { type: "currency" }).of(code)
+    return name ? name.charAt(0).toUpperCase() + name.slice(1) : code
+  } catch {
+    return code
+  }
 }
 
 /** Groups of four, as a bank prints it. */
