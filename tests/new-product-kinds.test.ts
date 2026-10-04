@@ -6,19 +6,24 @@
  * /app. Implement it fully so that it can be taken and built there." And
  * for courses, whatever was still missing to build and sell one.
  *
- * This drives the pure parts (the three kinds and their addresses, a
- * course's own default lines, the curriculum's counts, the upload's
- * sentences) and reads the pages for the wiring: every New product in /app
- * asks first, each answer opens the right editor, a membership is never
- * made by a GET, and a free preview plays through the same guarded route
- * buyers use. scripts/check-new-product.mjs measures the chooser at 390 and
+ * This drives the pure parts (the kinds and their addresses, a course's
+ * own default lines, the curriculum's counts, the upload's sentences) and
+ * reads the pages for the wiring: every New product in /app asks first,
+ * each answer opens the right editor, and a free preview plays through the
+ * same guarded route buyers use.
+ *
+ * CHANGED ON PURPOSE (round 5): the owner said memberships are communities,
+ * so Membership is no longer an answer. While communities are switched on
+ * the last answer is Paid community, which opens /app/community/new; with
+ * them off there is no such answer at all. tests/memberships-folded.test.ts
+ * holds the rest of that change. scripts/check-new-product.mjs measures the chooser at 390 and
  * 1280 and drives it by keyboard.
  *
  * Run with:  npm run test:push
  */
 
 import { readFileSync } from "node:fs"
-import { KIND_OPTIONS, NEW_PRODUCT_HREF, editorHref, kindFromParam, membershipHref } from "../app/app/products/new/product-kinds"
+import { KIND_OPTIONS, NEW_COMMUNITY_HREF, NEW_PRODUCT_HREF, editorHref, kindFromParam, kindHref, kindOptions } from "../app/app/products/new/product-kinds"
 import { COURSE_FAQS, COURSE_WHATS_INCLUDED, DEFAULT_FAQS, DEFAULT_WHATS_INCLUDED, initialForm, snapshotOfForm, swapDefaults } from "../app/app/products/new/editor-form"
 import { countLine, courseSeconds, lengthLabel, lessonClock, lessonsIn, previewLessons, secondsIn } from "../lib/courses/outline"
 import { PUT_RETRY_DELAYS_MS, putFailure } from "../lib/courses/upload-client"
@@ -38,18 +43,22 @@ function check(name: string, ok: boolean, detail?: unknown) {
 const read = (p: string) => readFileSync(p, "utf8")
 const code = (p: string) => stripComments(read(p))
 
-console.log("\nThe three kinds and where each opens")
-check("three answers, in the order asked: a digital product, a video course, a membership", KIND_OPTIONS.map((o) => o.kind).join(",") === "digital,course,membership")
-check("each says what the buyer gets in one short line", KIND_OPTIONS.every((o) => o.line.length > 20 && o.line.length < 80) && /templates, presets, sample packs, ebooks/.test(KIND_OPTIONS[0].line) && /Monthly or yearly/.test(KIND_OPTIONS[2].line) && /player/.test(KIND_OPTIONS[1].line))
+console.log("\nThe kinds and where each opens")
+check("two answers always, in the order asked: a digital product, a video course; no membership", KIND_OPTIONS.map((o) => o.kind).join(",") === "digital,course")
+check("the switches add theirs at the end: physical, then a paid community", kindOptions(false, false).map((o) => o.kind).join() === "digital,course" && kindOptions(true, false).map((o) => o.kind).join() === "digital,course,physical" && kindOptions(false, true).map((o) => o.kind).join() === "digital,course,community" && kindOptions(true, true).map((o) => o.kind).join() === "digital,course,physical,community")
+check("no switch combination offers a membership", [false, true].every((a) => [false, true].every((b) => !kindOptions(a, b).some((o) => /membership/i.test(`${o.kind} ${o.title}`)))))
+const community = kindOptions(false, true).find((o) => o.kind === "community")
+check("each says what the buyer gets in one short line", kindOptions(true, true).every((o) => o.line.length > 20 && o.line.length < 80) && /templates, presets, sample packs, ebooks/.test(KIND_OPTIONS[0].line) && /player/.test(KIND_OPTIONS[1].line) && community?.title === "Paid community" && /monthly or yearly/.test(community?.line ?? ""))
 check("a digital product and a course open the product editor at an address of their own", editorHref("digital") === "/app/products/new?type=digital" && editorHref("course") === "/app/products/new?type=course" && NEW_PRODUCT_HREF === "/app/products/new")
-check("a membership opens its screen on Settings, marked new", membershipHref("abc") === "/app/memberships/abc?tab=settings&new=1")
-check("?type= is read strictly: anything else is no answer yet", kindFromParam("course") === "course" && kindFromParam("membership") === "membership" && kindFromParam("Course") === null && kindFromParam(undefined) === null && kindFromParam(["course"]) === null)
+check("a paid community opens the community setup", kindHref("community") === "/app/community/new" && NEW_COMMUNITY_HREF === "/app/community/new" && kindHref("course") === editorHref("course"))
+check("?type= is read strictly: anything else, the old membership included, is no answer yet", kindFromParam("course") === "course" && kindFromParam("community") === "community" && kindFromParam("membership") === null && kindFromParam("Course") === null && kindFromParam(undefined) === null && kindFromParam(["course"]) === null)
 
 console.log("\nThe new product page")
 {
   const page = code("app/app/products/new/page.tsx")
-  check("no kind: the question as a page, before anything is read", /if \(!kind \|\| kind === "membership"\) return <NewProductKindPage \/>/.test(page) && page.indexOf("<NewProductKindPage") < page.indexOf("loadProductEditor(null)"))
-  check("a membership is never made by opening an address", !/api\/app\/memberships|createMembershipProduct/.test(page))
+  check("no kind: the question as a page, with the communities switch read on the server, before anything else is read", /if \(!kind\) return ask\(\)/.test(page) && /<NewProductKindPage communities=\{await communitiesEnabled\(\)\.catch\(\(\) => false\)\} \/>/.test(page) && page.indexOf("<NewProductKindPage") < page.indexOf("loadProductEditor(null)"))
+  check("?type=community goes to the community setup only while the switch is on, otherwise the question", /if \(kind === "community"\) \{\s*if \(await communitiesEnabled\(\)\.catch\(\(\) => false\)\) redirect\(NEW_COMMUNITY_HREF\)\s*return ask\(\)/.test(page))
+  check("nothing about a membership is made by opening an address", !/api\/app\/memberships|createMembershipProduct/.test(page))
   check("a kind opens the editor as that kind on its first frame", /<ProductEditor key=\{kind\} creator=\{load\.creator\} loaded=\{null\} startAs=\{kind\} \/>/.test(page))
   check("the old ?edit= address still goes to the product", /if \(edit\) redirect\(`\/app\/products\/\$\{encodeURIComponent\(edit\)\}`\)/.test(page))
   check("a course's tab says New course", /kind === "course" \? "New course" : "New product"/.test(page))
@@ -63,9 +72,8 @@ console.log("\nEvery New product in /app asks first")
 {
   const chooser = code("app/app/products/new/kind-chooser.tsx")
   check("in place: the shared sheet on a phone, a dialog from 768px", /<SheetDialog/.test(chooser) && /setPhone\(window\.matchMedia\(LAYER_PHONE\)\.matches\)/.test(chooser))
-  check("a membership is made by the pick itself, through the same route as New membership", /fetch\("\/api\/app\/memberships", \{\s*method: "POST"/.test(chooser))
-  check("its row says it is working while the draft is made, and the sheet cannot be pulled away meanwhile", /ActivitySpinner size=\{16\} label="Setting up"/.test(chooser) && /dismissible: !choice\.pending/.test(chooser))
-  check("a failure says so in the sheet, as an alert", /role="alert"/.test(chooser) && /The membership could not be made\. Try again\./.test(chooser))
+  check("no pick makes anything: no membership draft, every answer's address is known", !/api\/app\/memberships|makeMembership|membershipHref/.test(chooser) && /target\.current = kindHref\(kind\)/.test(chooser) && /const href = kindHref\(kind\)/.test(chooser))
+  check("the communities switch is read with the page, so Paid community is there when the question opens", /const communities = useCommunitiesEnabled\(\)/.test(chooser) && (chooser.match(/<KindList communities=\{communities\} onChoose=\{choose\} \/>/g) ?? []).length === 2 && /kindOptions\(physical, communities\)/.test(chooser))
   check("on a phone the editor rises after the sheet has left; on a computer at once", /onClosed: go/.test(chooser) && /if \(!phone\) go\(\)/.test(chooser))
   check("both editors are fetched ahead in full", /prefetchAppPage\(router, editorHref\("digital"\)\)/.test(chooser) && /prefetchAppPage\(router, editorHref\("course"\)\)/.test(chooser))
   check("the keyboard: first answer focused, arrows, Home and End move, the answers are buttons", /querySelector<HTMLButtonElement>\("\[data-kind\]"\)\?\.focus\(\)/.test(chooser) && /"ArrowDown"/.test(chooser) && /"ArrowUp"/.test(chooser) && /"Home"/.test(chooser) && /"End"/.test(chooser) && /<button\s+type="button"\s+data-kind=/.test(chooser))

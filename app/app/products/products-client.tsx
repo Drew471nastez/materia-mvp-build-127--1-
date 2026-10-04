@@ -770,9 +770,9 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
   }
   const resting = useRef<ReturnType<typeof setTimeout> | null>(null)
   /*
-    NEW PRODUCT ASKS FIRST: a digital product, a video course or a
-    membership (./new/kind-chooser.tsx), in a sheet on a phone and a dialog
-    on a computer. Both editors it can open are fetched ahead the same way
+    NEW PRODUCT ASKS FIRST: a digital product or a video course, and a paid
+    community while communities are on (./new/kind-chooser.tsx), in a sheet
+    on a phone and a dialog on a computer. Both editors it can open are fetched ahead the same way
     a row's is, so the pick finds its page here.
   */
   const newProduct = useNewProductChooser()

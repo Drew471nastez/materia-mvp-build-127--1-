@@ -7,8 +7,9 @@
  *   #page    /app/products/new with no kind: the question as a page
  *
  * The router is the probe's: every push, replace and prefetch is written to
- * window.__nav, so the probe reads where each answer went. /api/app/memberships
- * is answered in the page (window.__membership decides how).
+ * window.__nav, so the probe reads where each answer went. The communities
+ * switch (/api/platform/flags) is answered in the page: on when the hash
+ * ends in "-on" (#sheet-on, #page-on), off otherwise.
  */
 import React from "react"
 import { createRoot } from "react-dom/client"
@@ -39,4 +40,4 @@ function Bar() {
 }
 
 const mode = location.hash.slice(1) || "sheet"
-createRoot(document.getElementById("app")!).render(mode === "page" ? <div className="min-h-svh bg-[#f8f9fa]"><NewProductKindPage /></div> : <Bar />)
+createRoot(document.getElementById("app")!).render(mode.startsWith("page") ? <div className="min-h-svh bg-[#f8f9fa]"><NewProductKindPage /></div> : <Bar />)

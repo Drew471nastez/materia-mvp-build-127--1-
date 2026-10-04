@@ -4,7 +4,7 @@
  * ===========================================================================
  *  WHAT ARE YOU SELLING? THE QUESTION BEFORE A NEW PRODUCT
  * ===========================================================================
- * Every New product in /app asks it first (./product-kinds.ts has the three
+ * Every New product in /app asks it first (./product-kinds.ts has the
  * answers and where each opens). Two shapes, one list:
  *
  *   IN PLACE (useNewProductChooser). The Products list's New product and
@@ -23,15 +23,19 @@
  *
  * FAST. Both editors are fetched ahead in full (warmKinds) when a New
  * product button is hovered, touched or focused, and again when the
- * question opens, so a pick finds its page already here. A membership is
- * different: its screen is one membership's, so a pick makes the draft first
- * (/api/app/memberships, as New membership on /app/memberships does) and
- * the row says so with a spinner while it does. Nothing about a pick is
- * remembered for next time.
+ * question opens, so a pick finds its page already here. Nothing about a
+ * pick is remembered for next time.
+ *
+ * NO MEMBERSHIP. Memberships are communities now: while communities are
+ * switched on the last answer is Paid community, which opens the
+ * community's own setup (/app/community/new). The switch is read when the
+ * button's page draws (useCommunitiesEnabled), not when the question opens,
+ * so the row is there on the first frame rather than arriving a moment
+ * later. Off, the question has no such row at all.
  *
  * THE KEYBOARD. The dialog puts the focus on the first answer; up and down
- * (and Home, End) move between the three, Enter or Space picks, Escape
- * closes, and the focus goes back to the button that opened it.
+ * (and Home, End) move between them, Enter or Space picks, Escape closes,
+ * and the focus goes back to the button that opened it.
  */
 
 import * as React from "react"
@@ -39,14 +43,14 @@ import { useRouter } from "next/navigation"
 import { ChevronRight, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
-import { ActivitySpinner } from "@/components/ui/activity-spinner"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 import { LAYER_PHONE } from "@/components/app/page-layer"
 import { prefetchAppPage } from "@/lib/ui/app-navigation"
 import { hapticTap } from "@/lib/native-bridge"
 import { openEditor, returnToProducts } from "../list-return"
-import { NEW_PRODUCT_HREF, editorHref, kindOptions, membershipHref, type ProductKind } from "./product-kinds"
+import { NEW_PRODUCT_HREF, editorHref, kindHref, kindOptions, type ProductKind } from "./product-kinds"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
+import { useCommunitiesEnabled } from "@/lib/platform/use-flags"
 
 type Router = ReturnType<typeof useRouter>
 
@@ -58,61 +62,12 @@ export function warmKinds(router: Router) {
   prefetchAppPage(router, editorHref("course"))
 }
 
-/** A new membership, as a draft. Answers the address of its screen, or the sentence to show. */
-async function makeMembership(): Promise<{ href: string } | { error: string }> {
-  try {
-    const res = await fetch("/api/app/memberships", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: "Membership" }),
-      credentials: "same-origin",
-    })
-    const data = (await res.json().catch(() => ({}))) as { productId?: string; error?: string }
-    if (!res.ok || !data.productId) return { error: data.error || "The membership could not be made. Try again." }
-    return { href: membershipHref(data.productId) }
-  } catch {
-    return { error: "The connection dropped. Nothing was made. Try again." }
-  }
-}
-
-/**
- * A pick, turned into where it goes. The editors' addresses are known; a
- * membership's comes back from the draft it makes. `pending` is the row
- * whose answer is on its way.
- */
-function useKindChoice() {
-  const [pending, setPending] = React.useState<ProductKind | null>(null)
-  const [error, setError] = React.useState<string | null>(null)
-  const busy = React.useRef(false)
-  const resolve = React.useCallback(async (kind: ProductKind): Promise<string | null> => {
-    if (busy.current) return null
-    setError(null)
-    if (kind !== "membership") return editorHref(kind)
-    busy.current = true
-    setPending(kind)
-    const made = await makeMembership()
-    busy.current = false
-    setPending(null)
-    if ("error" in made) {
-      setError(made.error)
-      return null
-    }
-    return made.href
-  }, [])
-  const reset = React.useCallback(() => {
-    if (busy.current) return
-    setPending(null)
-    setError(null)
-  }, [])
-  return { pending, error, resolve, reset }
-}
-
 /* ── The drawings ─────────────────────────────────────────────────────── */
 
 const INK = "#1a1a2e"
 const ACCENT = "#8b5cf6"
 
-/** A small drawing of each kind: a file coming down, a lesson playing, a month of updates. */
+/** A small drawing of each kind: a file coming down, a lesson playing, a parcel, people together. */
 export function KindArt({ kind, className }: { kind: ProductKind; className?: string }) {
   return (
     <span aria-hidden className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#f3f4f6]", className)}>
@@ -138,14 +93,12 @@ export function KindArt({ kind, className }: { kind: ProductKind; className?: st
           </>
         ) : (
           <>
-            <rect x="5" y="7" width="22" height="20" rx="2.6" stroke={INK} />
-            <path d="M5 12.4h22M11 4.6v4.4M21 4.6v4.4" stroke={INK} />
-            <circle cx="11" cy="17.6" r="1.1" fill="#c4c8cf" />
-            <circle cx="16" cy="17.6" r="1.1" fill="#c4c8cf" />
-            <circle cx="21" cy="17.6" r="1.6" fill={ACCENT} />
-            <circle cx="11" cy="22.2" r="1.1" fill="#c4c8cf" />
-            <circle cx="16" cy="22.2" r="1.1" fill="#c4c8cf" />
-            <circle cx="21" cy="22.2" r="1.1" fill="#c4c8cf" />
+            <circle cx="16" cy="11" r="3.6" stroke={INK} />
+            <path d="M9.4 25.6c0-3.8 3-6.6 6.6-6.6s6.6 2.8 6.6 6.6" stroke={INK} />
+            <circle cx="7.6" cy="13.4" r="2.6" stroke={ACCENT} />
+            <path d="M3.4 24.2c0-2.8 1.9-4.8 4.4-4.8" stroke={ACCENT} />
+            <circle cx="24.4" cy="13.4" r="2.6" stroke={ACCENT} />
+            <path d="M28.6 24.2c0-2.8-1.9-4.8-4.4-4.8" stroke={ACCENT} />
           </>
         )}
       </svg>
@@ -170,25 +123,22 @@ function moveFocus(e: React.KeyboardEvent<HTMLElement>) {
 }
 
 export function KindList({
-  pending,
-  error,
+  communities,
   onChoose,
 }: {
-  pending: ProductKind | null
-  error: string | null
+  /** Whether communities are switched on: Paid community is offered only then. */
+  communities: boolean
   onChoose: (kind: ProductKind) => void
 }) {
   const physical = usePhysicalCommerceEnabled()
   return (
     <div onKeyDown={moveFocus} data-kind-list="">
       <ul className="space-y-0.5">
-        {kindOptions(physical).map((o) => (
+        {kindOptions(physical, communities).map((o) => (
           <li key={o.kind}>
             <button
               type="button"
               data-kind={o.kind}
-              aria-disabled={pending !== null || undefined}
-              aria-busy={pending === o.kind || undefined}
               onClick={() => onChoose(o.kind)}
               className={ROW}
             >
@@ -197,20 +147,11 @@ export function KindList({
                 <span className="block text-[15px] font-semibold leading-5 text-[#1a1a2e]">{o.title}</span>
                 <span className="mt-0.5 block text-[13.5px] leading-[19px] text-[#6b7280]">{o.line}</span>
               </span>
-              {pending === o.kind ? (
-                <ActivitySpinner size={16} label="Setting up" className="shrink-0 text-[#6b7280]" />
-              ) : (
-                <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-[#b6bac2] transition-[translate,color] duration-150 group-hover/kind:translate-x-0.5 group-hover/kind:text-[#6b7280]" />
-              )}
+              <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-[#b6bac2] transition-[translate,color] duration-150 group-hover/kind:translate-x-0.5 group-hover/kind:text-[#6b7280]" />
             </button>
           </li>
         ))}
       </ul>
-      {error ? (
-        <p role="alert" className="mx-3 mt-2 rounded-xl border border-[#fecaca] bg-[#fef2f2] px-3.5 py-2.5 text-[13.5px] text-[#991b1b]">
-          {error}
-        </p>
-      ) : null}
     </div>
   )
 }
@@ -229,8 +170,8 @@ export function useNewProductChooser(): { open: () => void; warm: () => void; ch
   const router = useRouter()
   const [isOpen, setOpen] = React.useState(false)
   const [phone, setPhone] = React.useState(false)
-  const choice = useKindChoice()
-  const { reset } = choice
+  /* Read with the page, so the answers are complete when the question opens. */
+  const communities = useCommunitiesEnabled()
   const body = React.useRef<HTMLDivElement>(null)
   /* The control that opened it: the focus goes back there when the dialog closes (the sheet does this itself). */
   const opener = React.useRef<HTMLElement | null>(null)
@@ -240,12 +181,11 @@ export function useNewProductChooser(): { open: () => void; warm: () => void; ch
   const warm = React.useCallback(() => warmKinds(router), [router])
   const open = React.useCallback(() => {
     warm()
-    reset()
     target.current = null
     opener.current = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null
     setPhone(window.matchMedia(LAYER_PHONE).matches)
     setOpen(true)
-  }, [warm, reset])
+  }, [warm])
 
   const go = React.useCallback(() => {
     const href = target.current
@@ -257,18 +197,14 @@ export function useNewProductChooser(): { open: () => void; warm: () => void; ch
     else router.push(href)
   }, [router])
 
-  const choose = async (kind: ProductKind) => {
-    if (choice.pending) return
+  /* Every answer's address is known ahead (./product-kinds kindHref), so nothing is made by a pick. */
+  const choose = (kind: ProductKind) => {
     if (phone) hapticTap("soft")
-    const href = await choice.resolve(kind)
-    if (!href) return
-    target.current = href
+    target.current = kindHref(kind)
     setOpen(false)
     if (!phone) go()
   }
-  const close = () => {
-    if (!choice.pending) setOpen(false)
-  }
+  const close = () => setOpen(false)
 
   const chooser = (
     <SheetDialog
@@ -281,7 +217,7 @@ export function useNewProductChooser(): { open: () => void; warm: () => void; ch
         e.preventDefault()
         body.current?.querySelector<HTMLButtonElement>("[data-kind]")?.focus()
       }}
-      sheet={{ fill: false, aboveKeyboard: false, maxHeight: "min(86dvh, 720px)", dismissible: !choice.pending, onClosed: go }}
+      sheet={{ fill: false, aboveKeyboard: false, maxHeight: "min(86dvh, 720px)", dismissible: true, onClosed: go }}
       dialog={{
         "aria-describedby": undefined,
         onCloseAutoFocus: (e) => {
@@ -300,7 +236,7 @@ export function useNewProductChooser(): { open: () => void; warm: () => void; ch
             <X className="h-4 w-4" />
           </button>
         </div>
-        <KindList pending={choice.pending} error={choice.error} onChoose={(k) => void choose(k)} />
+        <KindList communities={communities} onChoose={choose} />
       </div>
     </SheetDialog>
   )
@@ -319,18 +255,18 @@ export function asksInPlace(e: React.MouseEvent): boolean {
 
 /* ── As a page: /app/products/new with no kind ─────────────────────────── */
 
-export function NewProductKindPage() {
+export function NewProductKindPage({ communities: communitiesOn }: { communities?: boolean } = {}) {
   const router = useRouter()
-  const choice = useKindChoice()
+  /* The server page reads the switch and hands it over; without it, the shared request answers. */
+  const communities = useCommunitiesEnabled(communitiesOn)
   React.useEffect(() => {
     warmKinds(router)
     /* The first answer takes the focus on a computer, as in the dialog; a phone would scroll to show a ring nobody asked for. */
     if (!window.matchMedia(LAYER_PHONE).matches) document.querySelector<HTMLButtonElement>("[data-kind-page] [data-kind]")?.focus({ preventScroll: true })
   }, [router])
 
-  const choose = async (kind: ProductKind) => {
-    const href = await choice.resolve(kind)
-    if (!href) return
+  const choose = (kind: ProductKind) => {
+    const href = kindHref(kind)
     startNavigationLoading(href)
     /* The question gives its place in the history to the answer. */
     router.replace(href)
@@ -345,7 +281,7 @@ export function NewProductKindPage() {
         </button>
       </div>
       <div className="mt-4 rounded-2xl border border-[#e5e7eb]/60 bg-white p-2 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-        <KindList pending={choice.pending} error={choice.error} onChoose={(k) => void choose(k)} />
+        <KindList communities={communities} onChoose={choose} />
       </div>
     </div>
   )

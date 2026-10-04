@@ -10,11 +10,12 @@ import { cleanPath as clean, libraryTabs, showsLibraryTabs } from "./library-tab
  * ===========================================================================
  *  THE LIBRARY'S OWN PLACES
  * ===========================================================================
- * What a buyer comes here for is the things they bought, and those come in
- * three kinds that live on three screens: products (files to download),
- * courses (/account/library/courses) and memberships
- * (/account/library/memberships). Then what they have not bought yet: the
- * wishlist. Then what they did about them: reviews and receipts.
+ * What a buyer comes here for is the things they bought, and those live on
+ * two screens: products (files to download, and any membership bought on
+ * its own, labelled Membership) and courses (/account/library/courses).
+ * Then what they have not bought yet: the wishlist. Then what they did
+ * about them: reviews and receipts. Memberships are communities now, so
+ * they have no pill of their own (./library-tab-list.ts).
  *
  * THE LIBRARY IS A PILL OF THE PROFILE (/account/library), so this is the
  * second row: the profile's Library pill is the heading, and under it one
