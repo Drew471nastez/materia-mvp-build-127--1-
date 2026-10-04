@@ -12,39 +12,49 @@
  * communities, Explore, Start creating or Dashboard): right of the name on a
  * computer, LEFT of the picture on a phone (round 7), where the bar reads
  * hamburger, picture, name. For a member, the community's search in the
- * middle ("Search discussions, members, or content...", a field from 768px,
- * an icon that opens it over the whole screen on a phone). At the right, for
- * a member, Messages (the conversations panel, with how many have something
- * unread); for anybody signed in, Storelib's bell (components/notifications/
- * notification-bell.tsx) and a quiet "..." that opens exactly the Storelib
- * header's account menu (account-menu.tsx: Profile is always /account); for
- * a visitor, Log in.
+ * middle ("Search discussions, members, or content...", a field from 768px).
+ * Round 9: no search icon in the bar; on a phone the tab bar's Search opens
+ * the community's search screen (search.tsx, drawn here without its icon).
+ * At the right, for a member, Messages (the conversations panel, with how
+ * many have something unread); for anybody signed in, Storelib's bell
+ * (components/notifications/notification-bell.tsx) and a flat "..." that
+ * opens exactly the Storelib header's account menu (account-menu.tsx:
+ * Profile is always /account), with the community's "Invite people" and
+ * "Saved posts" above Storelib's rows; for a visitor, Log in.
  *
  * ONE COMFORTABLE BAR (round 7: "taller, not fat"): 64px on a computer, 56px
  * on a phone and a tablet; the community's picture 40px (36px on a phone),
  * the bell and Messages 24px glyphs. The places in the community are not in
  * it: from 1024px they are the list in the right column (wall.tsx), and below
  * that (or on a page with no side columns, About) one row of plain text tabs
- * under the bar. NOTHING IN IT IS A PILL: the hamburger and the "..." are
- * 40px squares at 10px with the faintest grey ground, a hairline and a one
- * pixel shadow (DEPTH_ICON_BTN, "extremely little depth"); Messages and the
- * bell are plain icons that darken on hover; the search field is squared at
- * 12px; Log in is a word; the counts are small squared tags; the only round
- * things are the pictures of people.
+ * under the bar. NOTHING IN IT IS A PILL: the hamburger is a 40px square
+ * at 10px with the faintest grey ground, a hairline and a one pixel shadow
+ * (DEPTH_ICON_BTN, "extremely little depth"); the "..." is flat (round 9,
+ * FLAT_ICON_BTN: a tint on hover only); Messages and the bell are plain
+ * icons that darken on hover; the search field is squared at 12px; Log in
+ * is a word; the counts are small squared tags; the only round things are
+ * the pictures of people.
  *
- * A BAR OVER THE PAGE. A hairline and a soft shadow under it, so the page
- * reads as passing beneath it. Below the status bar in the phone app
- * (env(safe-area-inset-top)).
+ * ONE OPAQUE WHITE SURFACE WITH THE STATUS BAR (round 9). The bar's white
+ * reaches up through env(safe-area-inset-top), so in the phone app the band
+ * under the clock is the bar itself, the same white, never a second colour
+ * or a tint the page shows through; a hairline at its bottom and nothing
+ * else marks where the page passes beneath it.
+ *
+ * DRAWN ONCE PER VISIT. The bar is memoised and reads nothing from the
+ * address (only a visitor's Log in does, in a piece of its own), so moving
+ * between the places of a community, which re-renders the frame around it,
+ * never draws it again (round 9: "the frame never re-renders or flashes").
  */
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useLayoutEffect, useRef } from "react"
+import { memo, useLayoutEffect, useRef } from "react"
 import { ChatRoundDotsIcon as ChatLine } from "@solar-icons/react/linear/chat-round-dots"
 import { ChatRoundDotsIcon as ChatBold } from "@solar-icons/react/bold/chat-round-dots"
 import { CommunityMark } from "./community-mark"
 import { cn } from "@/lib/utils"
 import { NotificationBell } from "@/components/notifications/notification-bell"
-import { CommunityAccountMenu } from "./account-menu"
+import { CommunityAccountMenu, type CommunityMenuRows } from "./account-menu"
 import { PlaceNavigator } from "./place-navigator"
 import { CommunitySearchButton, CommunitySearchField } from "./search"
 import { DEPTH_ICON_BTN, PLAIN_ICON_BTN } from "./ui"
@@ -61,6 +71,8 @@ export interface TopBarProps {
   /** The section tabs (shell-frame.tsx SectionTabs): a row under the bar below 1024px, and from 1024px only when `tabsOnDesktop` (a page with no left column). */
   children?: React.ReactNode
   tabsOnDesktop?: boolean
+  /** The community's own rows in the "..." menu (Invite people, Saved posts), for a member. */
+  menu?: CommunityMenuRows | null
 }
 
 /**
@@ -118,8 +130,21 @@ function useCommunityTop(ref: React.RefObject<HTMLElement | null>) {
   }, [ref])
 }
 
-export function CommunityTopBar({ data, messages = null, messagesOpen = false, onMessages, search = null, children, tabsOnDesktop = false }: TopBarProps) {
+/** A visitor's Log in, back to the page they are on: the one piece of the bar that follows the address. */
+function LogInLink({ base }: { base: string }) {
   const pathname = usePathname() || ""
+  return (
+    <Link
+      href={`/login?next=${encodeURIComponent(pathname || base)}`}
+      className="-mr-2 inline-flex h-10 shrink-0 items-center px-2 text-[14px] font-semibold text-[#1a1a2e] outline-none underline-offset-4 transition-opacity hover:underline focus-visible:underline active:opacity-60 [-webkit-tap-highlight-color:transparent]"
+      data-community-login=""
+    >
+      Log in
+    </Link>
+  )
+}
+
+function CommunityTopBarInner({ data, messages = null, messagesOpen = false, onMessages, search = null, children, tabsOnDesktop = false, menu = null }: TopBarProps) {
   const ref = useRef<HTMLElement>(null)
   useCommunityTop(ref)
   const { community, creator, me } = data
@@ -131,7 +156,7 @@ export function CommunityTopBar({ data, messages = null, messagesOpen = false, o
     <header
       ref={ref}
       data-community-top=""
-      className="sticky top-0 z-40 border-b border-[#e6e8ec] bg-white pt-[env(safe-area-inset-top)] shadow-[0_1px_2px_rgba(17,24,39,0.04),0_8px_20px_-14px_rgba(17,24,39,0.16)]"
+      className="sticky top-0 z-40 border-b border-[#e6e8ec] bg-white pt-[env(safe-area-inset-top)]"
     >
       <div className={cn("mx-auto flex w-full flex-wrap items-center px-4 sm:px-6 md:gap-x-4 lg:gap-x-6 lg:px-8", wide ? "max-w-[1360px]" : "max-w-[1080px]")} data-community-top-row="">
         <div className={cn("flex h-14 min-w-0 flex-1 items-center gap-1.5 min-[400px]:gap-2 md:gap-3 lg:h-16", search ? "md:max-w-[320px] md:flex-none" : "lg:max-w-[360px] lg:flex-none", wide && "lg:w-[260px] lg:max-w-none xl:w-[280px]")} data-community-top-lead="">
@@ -188,7 +213,8 @@ export function CommunityTopBar({ data, messages = null, messagesOpen = false, o
         ) : null}
 
         <div className="ml-auto flex h-14 shrink-0 items-center gap-0.5 pl-0 min-[400px]:pl-2 sm:gap-1 md:pl-0 lg:h-16" data-community-top-actions="">
-          {search ? <CommunitySearchButton communityId={search.communityId} slug={community.slug} className="md:hidden" /> : null}
+          {/* No icon (round 9): the screen alone, which the phone's tab bar Search opens. */}
+          {search ? <CommunitySearchButton communityId={search.communityId} slug={community.slug} trigger={false} /> : null}
           {messages !== null && onMessages ? (
             <button
               type="button"
@@ -205,19 +231,17 @@ export function CommunityTopBar({ data, messages = null, messagesOpen = false, o
             </button>
           ) : null}
           {me ? <NotificationBell className={BELL} /> : null}
-          {me ? (
-            <CommunityAccountMenu me={me} className="md:ml-1.5" />
-          ) : (
-            <Link
-              href={`/login?next=${encodeURIComponent(pathname || base)}`}
-              className="-mr-2 inline-flex h-10 shrink-0 items-center px-2 text-[14px] font-semibold text-[#1a1a2e] outline-none underline-offset-4 transition-opacity hover:underline focus-visible:underline active:opacity-60 [-webkit-tap-highlight-color:transparent]"
-              data-community-login=""
-            >
-              Log in
-            </Link>
-          )}
+          {me ? <CommunityAccountMenu me={me} className="md:ml-1" onInvite={menu?.onInvite} savedHref={menu?.savedHref} /> : <LogInLink base={base} />}
         </div>
       </div>
     </header>
   )
 }
+
+/**
+ * The bar, drawn again only when what it shows changes (the count on
+ * Messages, the panel opening, a new page of tabs), never because the
+ * address moved. The frame (shell-frame.tsx) hands it stable props: the
+ * tabs read the place they mark from a context of their own.
+ */
+export const CommunityTopBar = memo(CommunityTopBarInner)

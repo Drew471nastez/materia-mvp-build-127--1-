@@ -22,11 +22,20 @@ export const DEPTH_PRESS = "active:shadow-none"
 
 /**
  * An icon control in the community's bar with that same depth: the
- * hamburger and the account "...". 40px, squared at 10px (not a pill), the
- * faintest grey ground, a hairline and a one pixel shadow.
+ * hamburger. 40px, squared at 10px (not a pill), the faintest grey ground,
+ * a hairline and a one pixel shadow.
  */
 export const DEPTH_ICON_BTN =
   "inline-flex h-10 w-10 shrink-0 cursor-pointer select-none items-center justify-center rounded-[10px] border border-[#e6e8eb] bg-[#f8f9fa] text-[#1a1a2e] shadow-[0_1px_1px_rgba(16,24,40,0.04)] outline-none transition-[background-color,border-color,box-shadow] duration-150 hover:border-[#dcdfe3] hover:bg-[#f1f2f4] active:shadow-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 motion-reduce:transition-none [-webkit-tap-highlight-color:transparent]"
+
+/**
+ * A FLAT ICON CONTROL in the community's bar (round 9, the account "..."):
+ * no ground, no hairline and no shadow at rest; a soft grey tint under a
+ * pointer and while its menu is open. 40px, squared at 10px, so the tint is
+ * never a pill.
+ */
+export const FLAT_ICON_BTN =
+  "inline-flex h-10 w-10 shrink-0 cursor-pointer select-none items-center justify-center rounded-[10px] bg-transparent text-[#4b5563] outline-none transition-[background-color,color] duration-150 hover:bg-[#f1f2f4] hover:text-[#1a1a2e] data-[state=open]:bg-[#f1f2f4] data-[state=open]:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 motion-reduce:transition-none [-webkit-tap-highlight-color:transparent]"
 
 export const BTN =
   "inline-flex shrink-0 select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-full text-[14px] font-medium outline-none transition-[background-color,color,scale,box-shadow] active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none [-webkit-tap-highlight-color:transparent]"

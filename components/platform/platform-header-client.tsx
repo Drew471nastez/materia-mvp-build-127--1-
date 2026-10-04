@@ -329,6 +329,21 @@ export async function endStorelibSession(router: { push: (href: string) => void;
   (focus goes back to the photo) and a change of page close it. Arrow keys
   move between the rows.
 */
+/**
+ * ROWS A PLACE ADDS TO THE ACCOUNT MENU, ABOVE STORELIB'S OWN. A community's
+ * bar (components/community/member/account-menu.tsx) puts "Invite people"
+ * and "Saved posts" here (round 9), so its "..." stays this one menu rather
+ * than a copy with two more rows. A row is a link (`href`) or an action
+ * (`onSelect`); either closes the menu.
+ */
+export interface AccountExtraRow {
+  item: string
+  label: string
+  icon: React.ComponentType<{ className?: string; strokeWidth?: number; "aria-hidden"?: boolean }>
+  href?: string
+  onSelect?: () => void
+}
+
 const ACCOUNT_PANEL =
   "absolute right-0 top-full z-50 mt-2 w-[248px] origin-top-right rounded-xl bg-white p-1 text-left outline-none " +
   "shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_2px_4px_-1px_rgba(15,23,42,0.06),0_16px_36px_-10px_rgba(15,23,42,0.2)] " +
@@ -347,6 +362,7 @@ export function DesktopAccountMenu({
   dark = false,
   trigger = "photo",
   triggerClassName,
+  extra,
 }: {
   avatarUrl?: string
   name: string
@@ -364,6 +380,8 @@ export function DesktopAccountMenu({
    */
   trigger?: "photo" | "more"
   triggerClassName?: string
+  /** Rows of the place's own, above Storelib's (AccountExtraRow). */
+  extra?: AccountExtraRow[]
 }) {
   const pathname = usePathname()
   const { t } = useLocale()
@@ -472,6 +490,24 @@ export function DesktopAccountMenu({
             </span>
           </div>
           <div className="mb-1 h-px bg-[#f0f1f3]" />
+          {extra?.length ? (
+            <>
+              {extra.map((x) =>
+                x.href ? (
+                  <Link key={x.item} {...go(x.href)} role="menuitem" data-account-item={x.item} className={ACCOUNT_ROW}>
+                    <x.icon aria-hidden className={icon} strokeWidth={1.75} />
+                    {x.label}
+                  </Link>
+                ) : (
+                  <button key={x.item} type="button" role="menuitem" data-account-item={x.item} onClick={() => { setOpen(false); x.onSelect?.() }} className={ACCOUNT_ROW}>
+                    <x.icon aria-hidden className={icon} strokeWidth={1.75} />
+                    {x.label}
+                  </button>
+                ),
+              )}
+              <div className="my-1 h-px bg-[#f0f1f3]" />
+            </>
+          ) : null}
           {seller ? (
             <Link {...go("/app")} role="menuitem" data-account-item="dashboard" className={ACCOUNT_ROW}>
               <LayoutDashboard aria-hidden className={icon} strokeWidth={1.75} />
@@ -542,6 +578,7 @@ export function AccountSheet({
   link,
   onLanguage,
   onLogout,
+  extra,
 }: {
   open: boolean
   onClose: () => void
@@ -553,6 +590,8 @@ export function AccountSheet({
   link: HeaderLink
   onLanguage: () => void
   onLogout: () => void
+  /** Rows of the place's own, above Storelib's (AccountExtraRow). */
+  extra?: AccountExtraRow[]
 }) {
   const { t } = useLocale()
   return (
@@ -580,6 +619,18 @@ export function AccountSheet({
           No My Library: the library lives inside the profile (/account).
         */}
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain" data-account-sheet="">
+          {extra?.length ? (
+            <>
+              {extra.map((x) =>
+                x.href ? (
+                  <SheetRow key={x.item} {...link(x.href)} onDone={onClose} item={x.item} icon={x.icon} label={x.label} />
+                ) : (
+                  <SheetRow key={x.item} onDone={() => { onClose(); x.onSelect?.() }} item={x.item} icon={x.icon} label={x.label} />
+                ),
+              )}
+              <div aria-hidden className="my-1.5 h-px bg-neutral-100" data-account-extra-rule="" />
+            </>
+          ) : null}
           {seller ? (
             <SheetRow {...link("/app")} onDone={onClose} item="dashboard" icon={LayoutDashboard} label="Dashboard" />
           ) : (

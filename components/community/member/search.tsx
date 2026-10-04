@@ -418,9 +418,16 @@ export function CommunitySearchField({ communityId, slug, className = "" }: { co
   )
 }
 
-/* ── On a phone: an icon, and the search over the whole screen ─────────── */
+/* ── On a phone: the search over the whole screen ────────────────────── */
 
-export function CommunitySearchButton({ communityId, slug, className = "" }: { communityId: string; slug: string; className?: string }) {
+/**
+ * The phone's search screen. Round 9 took its icon out of the community's
+ * bar (`trigger={false}`): the screen is still drawn here and opened by the
+ * phone's tab bar Search (lib/nav/community-search-bridge), so a member on a
+ * phone searches the community from the bottom of the screen and the bar
+ * keeps only Messages, the bell and the "...".
+ */
+export function CommunitySearchButton({ communityId, slug, className = "", trigger = true }: { communityId: string; slug: string; className?: string; trigger?: boolean }) {
   const router = useRouter()
   const listId = useId()
   const s = useCommunitySearch(communityId)
@@ -477,22 +484,24 @@ export function CommunitySearchButton({ communityId, slug, className = "" }: { c
 
   return (
     <>
-      <button
-        ref={button}
-        type="button"
-        aria-label="Search this community"
-        aria-haspopup="dialog"
-        aria-expanded={open}
-        className={`${PLAIN_ICON_BTN} ${className}`}
-        data-community-search="button"
-        onClick={() => {
-          /* Drawn now, inside the tap, so the keyboard comes up on iOS. */
-          flushSync(() => setOpen(true))
-          input.current?.focus()
-        }}
-      >
-        <Search className="h-[21px] w-[21px]" strokeWidth={1.9} aria-hidden />
-      </button>
+      {trigger ? (
+        <button
+          ref={button}
+          type="button"
+          aria-label="Search this community"
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          className={`${PLAIN_ICON_BTN} ${className}`}
+          data-community-search="button"
+          onClick={() => {
+            /* Drawn now, inside the tap, so the keyboard comes up on iOS. */
+            flushSync(() => setOpen(true))
+            input.current?.focus()
+          }}
+        >
+          <Search className="h-[21px] w-[21px]" strokeWidth={1.9} aria-hidden />
+        </button>
+      ) : null}
       {mounted && open
         ? createPortal(
             <div
