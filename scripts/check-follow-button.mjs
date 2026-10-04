@@ -22,13 +22,24 @@
  *                  two at once; a refusal puts the button and count back
  *   THE FINGER     touch-action manipulation (no double tap zoom), 40px
  *                  tall, the native shell's 72% press dim does not reach it
+ *   A SLOW SERVER  "On mobile, clicking Follow then quickly clicking again
+ *                  blocks for about 3 seconds." A finger, the native shell,
+ *                  the CPU slowed four times and a server that takes 2.5s:
+ *                  five alternating taps inside a second, each shown on the
+ *                  frame after it, no frame over 20ms and no long task while
+ *                  they land, never two requests at once, and the server
+ *                  ends where the last tap left the button. Then a tap while
+ *                  a request is out (the last one wins), a request that
+ *                  fails once (tried again, the button never moves back) and
+ *                  one that fails twice (back, with a line saying so). A
+ *                  filmstrip of the five taps goes to SHOTS_DIR.
  *   REDUCED MOTION the switch lands on the next frame, the face never scales
  *
- *   PROBE_CSS=source node scripts/check-follow-button.mjs
+ *   PROBE_CSS=source node scripts/check-follow-button.mjs   (FOLLOW_ONLY=rapid: that section alone)
  * Screenshots, and a slowed filmstrip of each switch, go to SHOTS_DIR.
  */
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
-import { tmpdir } from "node:os"
+import { cpus, loadavg, tmpdir } from "node:os"
 import { join } from "node:path"
 import puppeteer from "puppeteer-core"
 import { appCss } from "./probe-css.mjs"
@@ -185,7 +196,9 @@ try {
     ["desktop-1440", { width: 1440, height: 900 }, browser, false],
     ["touch-390", { width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }, touchBrowser, true],
   ]
-  for (const [label, vp, b, finger] of CASES) {
+  /* FOLLOW_ONLY=rapid runs only the slow server section. */
+  const only = process.env.FOLLOW_ONLY || ""
+  for (const [label, vp, b, finger] of only === "rapid" ? [] : CASES) {
     for (const which of ["platform", "sage", "astrid"]) {
       console.log(`\n${label}: ${which}, CPU slowed 4x`)
       const { p, errors, cdp } = await open(b, vp, which, { capacitor: finger })
@@ -272,8 +285,8 @@ try {
     }
   }
 
-  console.log("\ndesktop-1440: taps settle to the last one")
-  {
+  if (only !== "rapid") {
+    console.log("\ndesktop-1440: taps settle to the last one")
     const { p, errors } = await open(browser, CASES[0][1], "sage")
     const quick = async (n) => { for (let i = 0; i < n; i++) { await p.click("[data-follow-button]"); await wait(40) } }
     await quick(5)
@@ -298,13 +311,166 @@ try {
     /* Refused: the button and the count go back. */
     await p.evaluate(() => { window.__follow.delay = 80; window.__follow.fail = true })
     const n0 = await p.evaluate(() => document.querySelector("[data-profile-count=followers] [data-profile-count-value]").textContent)
+    await p.evaluate(() => { window.__followLog.length = 0 })
     await p.click("[data-follow-button]")
     await frames(p, 2)
     const optimistic = await p.evaluate(() => ({ state: document.querySelector("[data-follow-button]").getAttribute("data-follow-button"), n: document.querySelector("[data-profile-count=followers] [data-profile-count-value]").textContent }))
-    await wait(700)
+    /* The debounce, the first try, RETRY_MS, the second try, and some room. */
+    await wait(300 + 80 + 600 + 80 + 400)
     const rolled = await p.evaluate(() => ({ state: document.querySelector("[data-follow-button]").getAttribute("data-follow-button"), n: document.querySelector("[data-profile-count=followers] [data-profile-count-value]").textContent, error: document.querySelector("[data-profile-social] [role=alert]")?.textContent ?? null }))
-    expect(optimistic.state === "follow" && rolled.state === "following" && rolled.n === n0 && !!rolled.error, "refused: Follow at once, then back to Following and the count it had, with a line saying so", { n0, optimistic, rolled })
+    const tries = await p.evaluate(() => window.__followLog.map((r) => r.follow))
+    expect(optimistic.state === "follow" && rolled.state === "following" && rolled.n === n0 && !!rolled.error && tries.join() === "false,false", "refused twice: Follow at once, tried once more, then back to Following and the count it had, with a line saying so", { n0, optimistic, rolled, tries })
     expect(errors.length === 0, "no errors", errors)
+    await p.close()
+  }
+
+
+  /*
+    A SLOW SERVER UNDER A FAST FINGER. The owner's report, as a test: the
+    native shell (html.capacitor), a finger, the CPU at a quarter speed, a
+    server that takes 2.5s to answer, and taps faster than it can.
+  */
+  const RAPID = () => {
+    const btn = document.querySelector("[data-follow-button]")
+    const lFollow = btn.querySelector("[data-follow-label=follow]")
+    const lFollowing = btn.querySelector("[data-follow-label=following]")
+    const taps = []
+    const samples = []
+    const longTasks = []
+    /* When the click reached the page and what the button said just after React handled it (a microtask later is still this task). */
+    document.addEventListener("click", () => taps.push({ t: performance.now(), before: btn.getAttribute("data-follow-button") }), { capture: true })
+    window.addEventListener("click", () => { const tap = taps[taps.length - 1]; tap.after = btn.getAttribute("data-follow-button"); tap.handlerMs = Math.round((performance.now() - tap.t) * 10) / 10 })
+    for (const type of ["touchstart", "touchend", "pointerdown", "pointerup"]) document.addEventListener(type, () => (window.__rapid?.inputs ?? []).push({ type, t: Math.round(performance.now()) }), { capture: true })
+    try { new PerformanceObserver((l) => { for (const e of l.getEntries()) longTasks.push({ at: Math.round(e.startTime), ms: Math.round(e.duration) }) }).observe({ type: "longtask" }) } catch {}
+    let on = true
+    const tick = (frame) => {
+      samples.push({ t: performance.now(), frame, state: btn.getAttribute("data-follow-button"), lFollow: Number(getComputedStyle(lFollow).opacity), lFollowing: Number(getComputedStyle(lFollowing).opacity), disabled: btn.disabled, pe: getComputedStyle(btn).pointerEvents })
+      if (on) requestAnimationFrame(tick)
+    }
+    requestAnimationFrame(tick)
+    window.__rapid = { taps, samples, longTasks, inputs: [], stop: () => { on = false } }
+  }
+  const settle = async (p, maxMs = 12000) => {
+    const t0 = Date.now()
+    let quiet = 0
+    while (Date.now() - t0 < maxMs) {
+      await wait(100)
+      const busy = await p.evaluate(() => window.__inFlight > 0 || document.querySelector("[data-follow-button]").getAttribute("aria-busy") === "true")
+      quiet = busy ? 0 : quiet + 100
+      /* Longer than the debounce and the retry wait together: nothing is still to go. */
+      if (quiet >= 1100) return Date.now() - t0
+    }
+    return -1
+  }
+  const tapAt = async (cdp, pt, holdMs, gapMs) => {
+    await touch(cdp, "touchStart", pt)
+    await wait(holdMs)
+    await touch(cdp, "touchEnd", pt)
+    await wait(gapMs)
+  }
+  const readTaps = ({ taps, samples }) =>
+    taps.map((tap) => {
+      const prev = [...samples].reverse().find((s) => s.t < tap.t)
+      const next = samples.find((s) => s.t >= tap.t)
+      const want = tap.before === "follow" ? "following" : "follow"
+      /* The label of the state it goes to must already be on its way in on that first frame. */
+      const moving = next && prev ? (want === "following" ? next.lFollowing > prev.lFollowing : next.lFollow > prev.lFollow) : false
+      return { want, after: tap.after, shown: next?.state, moving, ms: next ? Math.round(next.t - tap.t) : null }
+    })
+  const longest = (samples, from, to) => {
+    const span = samples.filter((s) => s.t >= from && s.t <= to)
+    const gaps = span.slice(1).map((s, i) => Math.round((s.frame - span[i].frame) * 10) / 10)
+    return { max: gaps.length ? Math.max(...gaps) : 0, over20: gaps.filter((g) => g > 20).length, frames: gaps.length }
+  }
+
+  for (const which of ["platform", "sage"]) {
+    console.log(`\ntouch-390, native shell, ${which}: five taps in a second against a 2.5s server, CPU slowed 4x`)
+    const { p, errors, cdp } = await open(touchBrowser, CASES[1][1], which, { capacitor: true })
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 })
+    await p.evaluate(() => { window.__follow.delay = 2500; window.__followLog.length = 0; window.__maxInFlight = 0 })
+    const pt = await centre(p)
+    await p.evaluate(RAPID)
+    await frames(p, 3)
+    if (process.env.FOLLOW_PROFILE) { await cdp.send("Profiler.enable"); await cdp.send("Profiler.setSamplingInterval", { interval: 100 }); await cdp.send("Profiler.start") }
+    const t0 = Date.now()
+    for (let i = 0; i < 5; i++) {
+      await tapAt(cdp, pt, 40, 100)
+      if (i === 0 && process.env.FOLLOW_PROFILE) {
+        const { profile } = await cdp.send("Profiler.stop")
+        const self = new Map()
+        const dt = profile.timeDeltas
+        const byId = new Map(profile.nodes.map((n) => [n.id, n]))
+        profile.samples.forEach((id, k) => { const n = byId.get(id); const key = `${n.callFrame.functionName || "(anon)"} ${n.callFrame.url.split("/").pop()}:${n.callFrame.lineNumber}`; self.set(key, (self.get(key) || 0) + (dt[k] || 0) / 1000) })
+        console.log("  profile", [...self.entries()].sort((a, b) => b[1] - a[1]).slice(0, 25).map(([k, v]) => `${k} ${v.toFixed(1)}ms`).join("\n          "))
+      }
+    }
+    const tapsMs = Date.now() - t0
+    const r = await p.evaluate(() => ({ taps: window.__rapid.taps, samples: window.__rapid.samples, longTasks: window.__rapid.longTasks, inputs: window.__rapid.inputs }))
+    if (process.env.FOLLOW_DEBUG) {
+      const from = r.taps[0].t - 40
+      const span = r.samples.filter((s) => s.t >= from && s.t <= r.taps[r.taps.length - 1].t + 220)
+      console.log("  debug taps", r.taps.map((t) => `${Math.round(t.t - from)} (handler+render ${t.handlerMs}ms)`).join(","), "inputs", r.inputs.map((e) => `${e.type}@${Math.round(e.t - from)}`).join(" "))
+      console.log("  debug frames", span.slice(1).map((s, i) => `${Math.round(s.t - from)}:${Math.round(s.frame - span[i].frame)}`).join(" "))
+    }
+    const each = readTaps(r)
+    const lf = longest(r.samples, r.taps[0].t - 20, r.taps[r.taps.length - 1].t + 220)
+    const midLog = await p.evaluate(() => window.__followLog.length)
+    console.log(`  info  ${each.length} taps in ${tapsMs}ms: ${each.map((e) => `${e.shown} after ${e.ms}ms`).join(", ")}; longest frame ${lf.max}ms over ${lf.frames}; long tasks ${JSON.stringify(r.longTasks)}`)
+    expect(each.length === 5 && tapsMs <= 1100, "five taps landed inside about a second", { taps: each.length, tapsMs })
+    expect(each.every((e) => e.after === e.want && e.shown === e.want && e.moving), "every tap flips the button in its own event and shows on the next frame, the new label already on its way in", each)
+    expect(each.every((e, i) => e.want === (i % 2 === 0 ? "following" : "follow")), "the taps alternate Following, Follow, Following, Follow, Following", each.map((e) => e.want))
+    /* This machine runs other probes and builds at the same time (its load is printed): two late frames are let through, none longer than three. */
+    expect(lf.over20 <= 2 && lf.max <= 51, `no frame over 20ms while they land (at most two late ones, for a busy machine: load ${loadavg()[0].toFixed(1)} on ${cpus().length} cores)`, lf)
+    const tapping = r.longTasks.filter((t) => t.at >= r.taps[0].t - 60 && t.at <= r.taps[r.taps.length - 1].t + 250)
+    expect(tapping.every((t) => t.ms <= 50), "no long task (over 50ms) on the main thread while they land", tapping)
+    expect(r.samples.every((s) => !s.disabled && s.pe !== "none"), "the button is never disabled and never stops taking taps", null)
+    const tookMs = await settle(p)
+    const end = await p.evaluate(() => ({ state: document.querySelector("[data-follow-button]").getAttribute("data-follow-button"), server: window.__server.following, log: window.__followLog.map((r) => r.follow), max: window.__maxInFlight, error: document.querySelector("[data-profile-social] [role=alert]")?.textContent ?? null }))
+    console.log(`  info  requests while tapping: ${midLog}; settled ${tookMs}ms after the last tap; requests ${JSON.stringify(end.log)}, most at once ${end.max}`)
+    expect(end.state === "following" && end.server === true && end.log.join() === "true" && end.max === 1 && !end.error, "the server ends where the last tap left it (Following): one request, never two at once", end)
+
+    /* A tap, its request out, then three more inside half a second: the last one is what the server keeps. */
+    await p.evaluate(() => { window.__followLog.length = 0; window.__maxInFlight = 0; window.__rapid.taps.length = 0; window.__rapid.samples.length = 0 })
+    await tapAt(cdp, pt, 50, 420)
+    for (let i = 0; i < 3; i++) await tapAt(cdp, pt, 50, 110)
+    const r2 = await p.evaluate(() => ({ taps: window.__rapid.taps, samples: window.__rapid.samples }))
+    const each2 = readTaps(r2)
+    const out2 = await p.evaluate(() => ({ log: window.__followLog.map((r) => r.follow), flying: window.__inFlight }))
+    await settle(p)
+    const end2 = await p.evaluate(() => ({ state: document.querySelector("[data-follow-button]").getAttribute("data-follow-button"), server: window.__server.following, log: window.__followLog.map((r) => r.follow), max: window.__maxInFlight }))
+    console.log(`  info  a tap with its request out, then three more: ${each2.map((e) => `${e.shown} ${e.ms}ms`).join(", ")}; requests ${JSON.stringify(end2.log)}`)
+    expect(each2.length === 4 && each2.every((e) => e.after === e.want && e.shown === e.want), "  each of those taps shows on the next frame too, with a request out", each2)
+    expect(out2.log.join() === "false" && out2.flying === 1, "  the first tap's request was out while the others landed", out2)
+    expect(end2.state === "following" && end2.server === true && end2.log.join() === "false,true" && end2.max === 1, "  then the newest one is sent once it lands: the server ends on the last tap, one at a time", end2)
+
+    /* A request that fails on the way, once: tried again, and the button never goes back. */
+    await p.evaluate(() => { window.__follow.delay = 300; window.__follow.failNext = 1; window.__followLog.length = 0; window.__rapid.samples.length = 0 })
+    await tapAt(cdp, pt, 50, 50)
+    await settle(p)
+    const once = await p.evaluate(() => ({ states: [...new Set(window.__rapid.samples.map((s) => s.state))], server: window.__server.following, log: window.__followLog.map((r) => `${r.follow}:${r.ok ? "ok" : "failed"}`), error: document.querySelector("[data-profile-social] [role=alert]")?.textContent ?? null }))
+    expect(once.states.join() === "following,follow" && once.server === false && once.log.join() === "false:failed,false:ok" && !once.error, "a request that fails once is tried again: the button never moves back, no error", once)
+    expect(errors.length === 0, "no errors", errors)
+
+    /* The filmstrip: the frame after each of five taps, at full speed, to look at. */
+    if (which === "platform") {
+      await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
+      await p.evaluate(() => { window.__follow.delay = 2500 })
+      const clip = await p.evaluate(() => { const r = document.querySelector("[data-profile-social]").getBoundingClientRect(); return { x: Math.max(0, r.left - 16), y: Math.max(0, r.top - 12), width: Math.min(innerWidth, r.width + 32), height: r.height + 24 } })
+      const film = []
+      for (let i = 0; i < 5; i++) {
+        await touch(cdp, "touchStart", pt)
+        await touch(cdp, "touchEnd", pt)
+        await frames(p, 1)
+        film.push(await p.screenshot({ clip, encoding: "base64" }))
+      }
+      await settle(p)
+      film.push(await p.screenshot({ clip, encoding: "base64" }))
+      const sheet = await touchBrowser.newPage()
+      await sheet.setViewport({ width: 420, height: 100 * film.length + 40, deviceScaleFactor: 1 })
+      await sheet.setContent(`<body style="margin:0;padding:8px;background:#e5e7eb;font:12px system-ui">${film.map((b, i) => `<div style="display:flex;align-items:center;gap:8px;margin:4px 0"><span style="width:70px">${i < 5 ? `tap ${i + 1} +1f` : "settled"}</span><img src="data:image/png;base64,${b}" style="height:88px"></div>`).join("")}</body>`)
+      await sheet.screenshot({ path: join(shots, "touch-390-rapid-film.png"), fullPage: true })
+      await sheet.close()
+    }
     await p.close()
   }
 
