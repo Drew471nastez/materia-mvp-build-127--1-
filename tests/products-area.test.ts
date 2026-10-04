@@ -384,7 +384,7 @@ check("its name on a pointer is the Website page's tooltip: near black, no arrow
 /* "The download icon should be next to the New product button." */
 check("Export is the word in the bar from 768px and on a phone Download, the quiet icon, beside New product (presses meeting, 12px apart); neither it nor New product is in the bar of an empty shop",
   /aria-label="Export products" className="max-md:hidden" look=\{EXPORT_LOOK\}/.test(list) && /aria-label="Export products" data-download="" className="md:hidden" look=\{DOWNLOAD_LOOK\}/.test(list)
-    && /\{products\.length > 0 \? \(\s*<div className="flex shrink-0 items-center gap-1\.5 md:gap-2 lg:gap-\[9px\]">\s*<ResponsiveActionMenu/.test(list)
+    && /\{products\.length > 0 \? \(\s*<div className="flex shrink-0 items-center gap-1\.5 md:gap-2 lg:gap-\[9px\]">[\s\S]{0,400}?<Link href="\/app\/collections" data-products-collections=""[^>]*max-md:hidden[^>]*>\s*Collections\s*<\/Link>\s*<ResponsiveActionMenu/.test(list)
     && list.indexOf('data-download=""') < list.indexOf('data-new-product=""') && list.indexOf('data-download=""') > list.indexOf("<PaneBar"))
 /* "Around the download icon add an extremely small, subtle border to make it like a button, but extremely subtle." */
 check("Download has the faintest border: 1px #eef0f2, 8px round, white, no shadow, a step darker when pressed",
