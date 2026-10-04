@@ -72,7 +72,7 @@ export function membershipPostRows(
       creatorId: p.creatorId,
       title: `${p.creatorName} posted in ${p.productTitle}`,
       body: p.preview || null,
-      url: `/library/memberships/${m.id}`,
+      url: `/account/library/memberships/${m.id}`,
       imageUrl: p.image,
       dedupeKey: `mpost:${p.postId}:${m.buyer_id}`,
     })

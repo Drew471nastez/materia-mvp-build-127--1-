@@ -96,7 +96,7 @@ async function main() {
     const stand = code("components/nav/place-navigator.tsx")
     check("it has the navigator's props: a community by id or Storelib", /export function PlaceNavigator\(\{ current, className, onNavigate \}: PlaceNavigatorProps\)/.test(stand) && /export type NavigatorCurrent = \{ kind: "community"; id: string \} \| \{ kind: "storelib" \}/.test(code("lib/nav/places-shared.ts")))
     check("the bar reads as a bar over the page: a hairline and a soft shadow", /data-community-top=""[\s\S]{0,40}className="sticky top-0 z-40 border-b border-\[#e6e8ec\] bg-white[^"]*shadow-\[0_1px_2px/.test(bar))
-    check("my menu: profile, library, settings, explore", /label: "My profile", href: me\.profileHref/.test(bar) && /label: "Library", href: "\/library"/.test(bar) && /label: "Settings", href: "\/account\/settings"/.test(bar) && /label: "Explore Storelib", href: "\/explore"/.test(bar))
+    check("my menu: profile, library, settings, explore", /label: "My profile", href: me\.profileHref/.test(bar) && /label: "Library", href: "\/account\/library"/.test(bar) && /label: "Settings", href: "\/account\/settings"/.test(bar) && /label: "Explore Storelib", href: "\/explore"/.test(bar))
     check("Manage community only when the server says this person runs it", /data\.manageHref \? \[\{ label: "Manage community", href: data\.manageHref/.test(bar))
     check("a visitor gets Log in, back to this page", /href=\{`\/login\?next=\$\{encodeURIComponent\(pathname \|\| base\)\}`\}/.test(bar))
     check("Messages only when the panel is available, with its unread count", /messages !== null && onMessages \?/.test(bar) && /messages > 0 \? <Badge n=\{messages\} \/>/.test(bar))

@@ -77,7 +77,7 @@ export function UserNav({ user, profile, isCreator }: UserNavProps) {
           </DropdownMenuItem>
         )}
         <DropdownMenuItem asChild>
-          <Link href="/library" className="cursor-pointer">
+          <Link href="/account/library" className="cursor-pointer">
             <Library className="mr-2 h-4 w-4" />
             My Library
           </Link>

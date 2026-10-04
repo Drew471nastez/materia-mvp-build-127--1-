@@ -65,15 +65,15 @@ export function DashboardSidebar() {
   const closeSidebar = useCallback(() => setMobileMenuOpen(false), [])
 
   const navItems = [
-    { href: "/library", label: "Overview", icon: LayoutDashboard },
-    { href: "/library/my-downloads", label: "My Downloads", icon: Download },
-    { href: "/library/wishlist", label: "Wishlist", icon: Heart },
+    { href: "/account/library", label: "Overview", icon: LayoutDashboard },
+    { href: "/account/library", label: "My Downloads", icon: Download },
+    { href: "/account/library/wishlist", label: "Wishlist", icon: Heart },
   ]
 
   const SidebarContent = ({ onItemClick }: { onItemClick?: () => void }) => (
     <>
       <div className="flex h-16 items-center border-b border-border px-4">
-        <Link href="/library" className="flex items-center gap-2.5" onClick={onItemClick}>
+        <Link href="/account/library" className="flex items-center gap-2.5" onClick={onItemClick}>
           <StorelibLogo size={37} />
           <span className="text-xl font-semibold tracking-tight truncate">Storelib</span>
         </Link>
@@ -82,7 +82,7 @@ export function DashboardSidebar() {
       <nav className="flex-1 space-y-1 overflow-y-auto p-3">
         {navItems.map((item) => {
           const Icon = item.icon
-          const isActive = pathname === item.href || (item.href !== "/library" && pathname.startsWith(item.href))
+          const isActive = pathname === item.href || (item.href !== "/account/library" && pathname.startsWith(item.href))
 
           return (
             <Link
@@ -166,7 +166,7 @@ export function DashboardSidebar() {
         }}
       >
         <div className="flex h-14 items-center justify-between px-4">
-        <Link href="/library" className="flex items-center gap-2">
+        <Link href="/account/library" className="flex items-center gap-2">
           <StorelibLogo size={37} />
           <span className="text-lg font-semibold tracking-tight">Storelib</span>
         </Link>

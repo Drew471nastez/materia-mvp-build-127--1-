@@ -16,9 +16,9 @@ import "server-only"
  * (run-now part 83, lib/communities/server/direct.ts): two people may write
  * to each other where they are both active members, chat is on and the
  * member directory is open. messageTarget finds such a community, most
- * recently active first, and answers that community's page for the person,
- * which is where Message opens the conversation. No shared community, no
- * Message button.
+ * recently active first, and answers that community's page with ?dm=<id>,
+ * which opens the conversation in place (desktop panel, phone screen) and
+ * never a member page. No shared community, no Message button.
  */
 import { cardsFor, CARD_COLUMNS, type CardRow } from "@/lib/communities/server/public"
 import type { CommunityCard } from "@/lib/communities/types"
@@ -94,5 +94,6 @@ export async function messageTarget(db: Db, viewerId: string | null, targetId: s
   if (ready?.error) return null
   const bySlug = new Map(communities.map((c) => [c.id, c.slug]))
   const first = shared.find((id) => bySlug.has(id))
-  return first ? `/community/${bySlug.get(first)}/members/${targetId}?message=1` : null
+  /* The community's own page, which opens the conversation once and drops the parameter (the ?dm= deep link). */
+  return first ? `/community/${bySlug.get(first)}?dm=${targetId}` : null
 }

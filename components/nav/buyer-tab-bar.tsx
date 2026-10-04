@@ -255,7 +255,7 @@ function TabBar({
 
   const hrefOf = (index: number): string => {
     const tab = tabs[index]
-    if (!tab) return exploreMarketplaceEnabled ? "/explore" : "/library"
+    if (!tab) return exploreMarketplaceEnabled ? "/explore" : "/account/library"
     return tab.key === "profile" && !signedIn ? SIGNED_OUT_PROFILE_HREF : tab.href
   }
 

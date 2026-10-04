@@ -37,6 +37,8 @@ export type MemberProfileData = {
   coverUrl: string | null
   bio: string | null
   memberSince: string
+  /** When the account was made (ISO), the last line of their activity: "Joined Storelib". */
+  joinedAt: string | null
   hasStorefront: boolean
   storefrontHandle: string
   /** The creator row behind a live store, for the products in their activity. Null otherwise. */
@@ -108,6 +110,23 @@ async function publicReviews(userId: string): Promise<MemberPublicReview[]> {
   })
 }
 
+/**
+ * Their own cover (profiles.cover_url), read with the service role so a
+ * visitor sees it whether or not the column's public grant has been made
+ * (lib/profile/cover.ts). Null where there is none or no column yet.
+ */
+export async function ownCover(admin: ReturnType<typeof createAdminClient>, userId: string): Promise<string | null> {
+  try {
+    const { data, error } = await admin.from("profiles").select("cover_url").eq("id", userId).maybeSingle()
+    if (error) return null
+    const url = ((data as { cover_url?: string | null } | null)?.cover_url || "").trim()
+    /* "preset:<id>" was an older idea of a cover (RUN_PROFILE_COVER_BIO.sql); only a picture is drawn. */
+    return /^https:\/\//.test(url) ? url : null
+  } catch {
+    return null
+  }
+}
+
 export const loadMemberProfile = cache(async (username: string): Promise<MemberProfileData | null> => {
   try {
   const profile = await readPublicRow(await createClient(), "profiles", (q) => q.ilike("username", username))
@@ -115,12 +134,13 @@ export const loadMemberProfile = cache(async (username: string): Promise<MemberP
   const creator = await loadCreatorForUser(profile.id)
   const storefront = hasActiveStorefront(creator) && creator?.id
   const admin = createAdminClient()
-  const [counts, reviews, catalog, privacy] = await Promise.all([
+  const [counts, reviews, catalog, privacy, cover] = await Promise.all([
     /* The follow graph is `follows`, the one the creator page and the Follow button use. */
     followCounts(admin, profile.id),
     publicReviews(profile.id),
     storefront ? storefrontProducts(creator.id) : Promise.resolve({ items: [], total: 0 }),
     readPrivacy(admin, profile.id),
+    ownCover(admin, profile.id),
   ])
   const handle = profile.username.toLowerCase()
   const creatorRow = creator as { cover_url?: string | null } | null
@@ -129,9 +149,11 @@ export const loadMemberProfile = cache(async (username: string): Promise<MemberP
     name: (profile.display_name || profile.username || "").trim(),
     username: handle,
     avatarUrl: profile.avatar_url || null,
-    coverUrl: creatorRow?.cover_url || null,
+    /* Their own cover first (set in Settings), else their store's. */
+    coverUrl: cover || creatorRow?.cover_url || null,
     bio: (profile.bio || "").trim() || null,
     memberSince: memberSince((profile as { created_at?: string }).created_at),
+    joinedAt: (profile as { created_at?: string }).created_at || null,
     hasStorefront: !!storefront,
     storefrontHandle: handle,
     creatorId: storefront ? (creator?.id as string) : null,

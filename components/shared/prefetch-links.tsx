@@ -19,7 +19,7 @@ const PREFETCH_MAP: Record<string, string[]> = {
   // having in hand before the click rather than after it.
   "/app/settings": ["/app/settings/billing"],
   "/app/settings/billing": ["/app/settings/billing/upgrade"],
-  "/library": ["/library/products", "/library/wishlist"],
+  "/account/library": ["/account/library", "/account/library/wishlist"],
   "/signup": ["/login"],
   "/login": ["/signup", "/app"],
 }

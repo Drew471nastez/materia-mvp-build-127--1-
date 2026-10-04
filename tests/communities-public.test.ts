@@ -49,8 +49,9 @@ import { excludingCommunityProducts, missingColumnError, sellsCommunity, without
 import { afterFilter, cleanQuery, decodeCursor, encodeCursor, exploreSort } from "@/lib/communities/server/explore"
 import { checkoutGate, finishOnboarding, inviteTokenHash, joinCommunity, leaveCommunity, redeemInvite, JOIN_BUCKET, JOIN_WINDOWS } from "@/lib/communities/server/join"
 import { communityIndexable, libraryCommunities, loadSalesPage, optionsFor } from "@/lib/communities/server/public"
-import { COMMUNITIES_TAB, LIBRARY_TABS, libraryTabs, showsLibraryTabs } from "@/components/library/library-tab-list"
-import { accountOverview } from "@/lib/account/overview"
+import { LIBRARY_TABS, libraryTabs, showsLibraryTabs } from "@/components/library/library-tab-list"
+import { ownerPillFor, ownerPillLinks } from "@/lib/profile/owner-pills"
+import { legacyLibraryTarget } from "@/lib/library/paths"
 
 let passed = 0
 let failed = 0
@@ -104,7 +105,7 @@ async function main() {
     const owner = decideJoin(facts({ viewer: { active: true, role: "owner", isOwner: true, status: "active" } }))
     check("the owner opens it and cannot leave it", owner.kind === "open" && !owner.canLeave)
     const payer = decideJoin(facts({ viewer: { active: true, role: "member", status: "active", source: "subscription", membershipId: "ms1" } }))
-    check("a member who pays by subscription manages it where it is billed", payer.manageHref === "/library/memberships/ms1")
+    check("a member who pays by subscription manages it where it is billed", payer.manageHref === "/account/library/memberships/ms1")
     check("banned: a sentence, no button", decideJoin(facts({ viewer: { banned: true, status: "banned" } })).kind === "banned")
     check("removed: the same", decideJoin(facts({ viewer: { status: "removed" } })).kind === "banned")
     check("archived takes nobody new", decideJoin(facts({ community: { archived: true } })).kind === "closed")
@@ -272,7 +273,7 @@ async function main() {
     const twice = await checkoutGate({ id: TIER_PRODUCT }, U, db)
     check("once paid, a second checkout is refused: already a member", twice.refusal?.code === "already_member" && twice.refusal.status === 409)
     const sub = await leaveCommunity(db, C, U)
-    check("a subscriber is sent to cancel where it is billed, not left paying", !A(sub).ok && A(sub).error === "manage_billing" && A(sub).url === "/library/memberships/ms1")
+    check("a subscriber is sent to cancel where it is billed, not left paying", !A(sub).ok && A(sub).error === "manage_billing" && A(sub).url === "/account/library/memberships/ms1")
   }
   {
     const db = world()
@@ -383,140 +384,13 @@ async function main() {
     check("their communities, with the tier and the count", list.available && list.rows.length === 1 && list.rows[0].slug === "makers" && list.rows[0].tierName === "Members" && list.rows[0].memberCount === 12)
     const none = await libraryCommunities(U, fakeDb({}, { failWith: { community_members: { code: "42P01", message: "missing" } } }))
     check("before part 81: not set up, not an error", none.available === false && none.rows.length === 0)
-    check("the tabs are the list while communities are off", JSON.stringify(libraryTabs(false)) === JSON.stringify([...LIBRARY_TABS]))
-    const on = libraryTabs(true).map((t) => t.href)
-    check("on: Communities right after Memberships", on.indexOf(COMMUNITIES_TAB.href) === on.indexOf("/library/memberships") + 1 && on.length === LIBRARY_TABS.length + 1)
-    check("the row is drawn on /library/communities", showsLibraryTabs("/library/communities") && showsLibraryTabs("/library/communities/") && !showsLibraryTabs("/library/communities/x"))
-    const base = { items: [], courses: [], memberships: null, wishlist: 0, seller: "none" as const }
-    check("the account fact is there only for somebody in one", accountOverview({ ...base, communities: 2 }).facts.some((f) => f.key === "communities" && f.value === 2 && f.href === "/library/communities") && !accountOverview({ ...base, communities: 0 }).facts.some((f) => f.key === "communities") && !accountOverview(base).facts.some((f) => f.key === "communities"))
-    check("the communities loading screen exists and is a library skeleton", existsSync("app/library/communities/loading.tsx") && /LibraryRouteSkeleton path="\/library\/communities"/.test(read("app/library/communities/loading.tsx")) && /COMMUNITIES_TAB\.href\) return <MembershipsSkeleton/.test(read("components/library/library-skeletons.tsx")))
-    check("the layout hands the switch to the pills", /communitiesEnabled\(\)/.test(code("app/library/layout.tsx")) && /<LibraryTabs communities=\{communities\} \/>/.test(read("app/library/layout.tsx")))
+    /* The communities somebody is in moved out of the library into their profile: a pill of /account, next to Activity. */
+    check("the library's sub pills no longer carry Communities", JSON.stringify(libraryTabs()) === JSON.stringify([...LIBRARY_TABS]) && !LIBRARY_TABS.some((t) => /communities/.test(t.href)))
+    check("the profile's Communities pill is there only while the switch is on", ownerPillLinks(true).some((p) => p.key === "communities" && p.href === "/account/communities") && !ownerPillLinks(false).some((p) => p.key === "communities"))
+    check("/account/communities is that pill, and /library/communities answers with it", ownerPillFor("/account/communities") === "communities" && legacyLibraryTarget("/library/communities") === "/account/communities" && !showsLibraryTabs("/account/communities"))
+    check("the layout hands the switch to the pills", /communitiesEnabled\(\)/.test(code("app/account/layout.tsx")) && /<AccountHub identity=\{identity\} communities=\{communities\}>/.test(read("app/account/layout.tsx")))
   }
 
-  /* ── Finding ─────────────────────────────────────────────────────────── */
-  console.log("\nExplore and search")
-  {
-    const id = "c0000000-0000-4000-8000-000000000003"
-    const cur = decodeCursor(encodeCursor({ v: 42, id }), "popular")
-    check("a cursor goes round", cur?.v === 42 && cur?.id === id)
-    check("a cursor for another order is not trusted", decodeCursor(encodeCursor({ v: 42, id }), "new") === null && decodeCursor("garbage", "trending") === null && decodeCursor(encodeCursor({ v: 1, id: "x" }), "trending") === null)
-    check("after a row: lower, or equal with a later id", afterFilter("popular", { v: 42, id }) === `member_count.lt.42,and(member_count.eq.42,id.gt.${id})`)
-    check("dates are quoted", afterFilter("new", { v: "2026-01-01T00:00:00.000Z", id }).startsWith('created_at.lt."2026-01-01T00:00:00.000Z"'))
-    check("a search word cannot break the filter", cleanQuery('a,b(c)*"%') === "a b c" && cleanQuery(42) === "")
-    check("trending is the default order", exploreSort("x") === "trending" && exploreSort("new") === "new")
-    const explore = code("lib/communities/server/explore.ts")
-    check("only what may be found: published, public, listed, not hidden, open", ['.eq("status", "published")', '.eq("visibility", "public")', '.eq("discovery_enabled", true)', '.eq("platform_hidden", false)', '.is("deleted_at", null)', '.is("suspended_at", null)', '.is("archived_at", null)'].every((s) => explore.includes(s)))
-    check("one page more than asked tells whether there is a next one", /\.limit\(limit \+ 1\)/.test(explore))
-    const page = code("app/(marketing)/explore/communities/page.tsx")
-    check("/explore/communities is a 404 while off", /await connection\(\)\s*if \(!\(await communitiesEnabled\(\)\)\) notFound\(\)/.test(page))
-    const api = code("app/api/explore/communities/route.ts")
-    check("its API answers communities_off first", /export async function GET[\s\S]*?const off = await requireCommunitiesOn\(\)\s*if \(off\) return off/.test(api))
-    const client = code("components/explore/explore-page-client.tsx")
-    check("the Communities pill is drawn only while on", /index === 0 && communitiesEnabled && !communities \? \(\s*<Link\s+href="\/explore\/communities"/.test(client))
-    check("Explore passes the switch and the matching communities", /communitiesEnabled=\{communitiesOn\}/.test(code("app/(marketing)/explore/page.tsx")) && /communitiesOn && searchQuery \? exploreCommunities/.test(code("app/(marketing)/explore/page.tsx")))
-    const qs = code("lib/nav/quick-search.ts")
-    check("quick search asks for communities only when told the switch is on", /const communitiesAsked = opts\.communities \? quickCommunities\(term\) : null/.test(qs) && /\/api\/explore\/communities\?q=/.test(qs))
-    check("the search screen tells it with the switch", /quickSearch\(createClient\(\), term, \{ communities: communitiesOn \}\)/.test(code("components/search/search-screen.tsx")))
-  }
-
-  /* ── Listings ────────────────────────────────────────────────────────── */
-  console.log("\nA product that sells a tier is not listed; every other product still is")
-  {
-    check("a tier's product is one", sellsCommunity({ community_id: C }) && !sellsCommunity({ community_id: null }) && !sellsCommunity({}) && !sellsCommunity(null))
-    const rows = [{ id: "a" }, { id: "b", community_id: null }, { id: "c", community_id: C }]
-    check("the list keeps every ordinary product, in order", JSON.stringify(withoutCommunityProducts(rows).map((r) => r.id)) === '["a","b"]')
-    check("the missing column is recognised", missingColumnError({ code: "42703" }) && missingColumnError({ code: "PGRST204" }) && !missingColumnError({ code: "42P01" }) && !missingColumnError(null))
-    const asked: boolean[] = []
-    const before = await excludingCommunityProducts(async (exclude) => (asked.push(exclude), exclude ? { data: null, error: { code: "42703" } } : { data: [{ id: "a" }], error: null }))
-    check("before part 81 the list is asked again without the filter, and has every product", JSON.stringify(asked) === "[true,false]" && (before as { data: unknown[] }).data.length === 1)
-    asked.length = 0
-    await excludingCommunityProducts(async (exclude) => (asked.push(exclude), { data: [], error: null }))
-    check("after it, once, with the filter", JSON.stringify(asked) === "[true]")
-    const lists: [string, RegExp][] = [
-      ["app/(marketing)/explore/page.tsx", /excludingCommunityProducts\(\(exclude\) => \{[\s\S]*?\.eq\("status", "published"\)\s*if \(exclude\) query = query\.is\("community_id", null\)/],
-      ["app/(marketing)/explore/[category]/page.tsx", /excludingCommunityProducts\(\(exclude\) => \{[\s\S]*?\.eq\("status", "published"\)\s*if \(exclude\) q = q\.is\("community_id", null\)/],
-      ["lib/nav/quick-search.ts", /const ordinary = \(q: any, exclude: boolean\) => \(exclude \? q\.is\("community_id", null\) : q\)/],
-      ["app/creator-page/sections/page.tsx", /if \(exclude\) q = q\.is\("community_id", null\)/],
-      ["lib/onepage/live-products.ts", /live\(row\) && !sellsCommunity\(row\)/],
-      ["lib/website-builder/shop-products.ts", /rows = withoutCommunityProducts\(\(data \?\? \[\]\) as ProductRow\[\]\)/],
-      ["app/(marketing)/u/[username]/page.tsx", /const products = catalogue \? withoutCommunityProducts\(catalogue\) : catalogue/],
-      ["lib/seo/sitemaps.ts", /if \(skipCommunity\) q = q\.is\("community_id", null\)/],
-    ]
-    for (const [file, re] of lists) check(`${file} leaves tier products out`, re.test(code(file)))
-    check("the OnePage and shop reads still fall back to their older column lists", /\[COLUMNS_WITH_COMMUNITY, COLUMNS, COLUMNS_WITHOUT_FLAG\]/.test(code("lib/onepage/live-products.ts")) && /\[PRODUCT_COLUMNS_WITH_CATEGORY, PRODUCT_COLUMNS_WITH_COMMUNITY, PRODUCT_COLUMNS, PRODUCT_COLUMNS_MINIMAL\]/.test(code("lib/website-builder/shop-products.ts")))
-    const product = code("app/(marketing)/p/[slug]/page.tsx")
-    check("a tier's product page sends to its community, and only that kind of product", /const communityId = \(product as \{ community_id\?: string \| null \}\)\.community_id\s*if \(communityId\) \{[\s\S]*?if \(target\) redirect\(target\)\s*notFound\(\)\s*\}/.test(product))
-    const store = code("app/(marketing)/u/[username]/page.tsx")
-    check("the storefront's Communities tab is real cards, and only when there are some", (store.match(/if \(communityCards\.length > 0\) \{\s*tabs\.push\(\{\s*id: "communities",\s*label: "Communities",\s*panel: <StorefrontCommunities cards=\{communityCards\} \/>/g) ?? []).length === 2)
-    check("and only while communities are on", /communitiesEnabled\(\)\s*\.then\(\(on\) => \(on \? creatorCommunityCards\(creator\.id\) : \[\]\)\)/.test(store))
-    /* Found end to end (QA): the bare grid ran edge to edge at 1440px, wider than the tabs above it. */
-    {
-      const panel = code("components/community/public/storefront-communities.tsx")
-      const products = code("components/storefront/all-products-grid.tsx")
-      const column = (panel.match(/const COLUMN = "([^"]+)"/) || [])[1]
-      check("the Communities panel sits in the page column the Products tab uses", !!column && products.includes(`className="${column}"`) && /<div className=\{COLUMN\}>\s*<ul data-storefront-communities/.test(panel))
-    }
-    check("the builder canvas draws the same tab the same way", /if \(communities\.length > 0\) \{[\s\S]*?<StorefrontCommunities cards=\{communities\} phone=\{isMobile\} \/>/.test(code("components/store-builder/preview-canvas.tsx")))
-    check("the storefront's Products tab and Home grid still read the product list", /productsData\.length > 0/.test(store) && /<AllProductsGrid/.test(store))
-  }
-
-  /* ── Checkout ────────────────────────────────────────────────────────── */
-  console.log("\nCheckout")
-  {
-    for (const f of ["app/api/checkout/stripe-session/route.ts", "app/api/checkout/process/route.ts", "app/api/checkout/quick-free/route.ts"]) {
-      const src = code(f)
-      check(`${f} asks the gate only for a product that sells a tier, and stops on a refusal`, /if \(\(product as \{ community_id\?: string \| null \}\)\.community_id\) \{\s*const \{ checkoutGate \} = await import\("@\/lib\/communities\/server\/join"\)\s*const gate = await checkoutGate\([\s\S]*?if \(gate\.refusal\) return NextResponse\.json/.test(src))
-    }
-    const mem = code("app/api/memberships/checkout/route.ts")
-    check("the membership checkout asks the gate before any Stripe call", /const gate = await checkoutGate\(\{ id: product\.id \}, user\?\.id \?\? null, admin\)\s*if \(gate\.refusal\)/.test(mem) && mem.indexOf("checkoutGate(") < mem.indexOf("ensurePrice("))
-    check("and still answers 409 already_member for a running membership", /code: "already_member" \}, \{ status: 409 \}/.test(mem))
-    const page = code("app/checkout/page.tsx")
-    check("the checkout page sends anybody the gate refuses where they belong", /const gate = await checkoutGate\([\s\S]*?if \(gate\.refusal\) redirect\(gate\.refusal\.url\)/.test(page))
-    check("after paying, back to the community, worked out from the product (not the link)", /communityReturn = \{ success: welcomePath\(gate\.community\.slug\), cancel: communityPath\(gate\.community\.slug\) \}/.test(page) && /returnTo=\{communityReturn\?\.success \?\? returns\.success\}/.test(page) && /returnTo: communityReturn\?\.success \?\? null/.test(page))
-    check("an ordinary product's checkout is untouched (gate only for community products)", /if \(\(product as \{ community_id\?: string \| null \}\)\.community_id\) \{/.test(page) && /returns\.success/.test(page))
-    const mc = code("app/checkout/membership-checkout.tsx")
-    check("the membership checkout lands a paid member in the community", /if \(isLoggedIn && returnTo\) \{\s*window\.setTimeout\(\(\) => router\.replace\(returnTo\), 900\)/.test(mc) && /\/library\/memberships\/\$\{membershipId\}\?welcome=1/.test(mc))
-  }
-
-  /* ── SEO ─────────────────────────────────────────────────────────────── */
-  console.log("\nSearch engines and previews")
-  {
-    const f: SeoFacts = { slug: "makers", name: "Makers", tagline: "People who make", description: "<p>About</p>", seoTitle: null, seoDescription: null, coverUrl: "https://x.supabase.co/cover.jpg", logoUrl: null, indexable: true, creatorName: null }
-    const m = communityMetadata(f)
-    check("canonical is the community's one address", (m.alternates as { canonical: string }).canonical === "https://storelib.com/community/makers" && canonicalUrl("makers") === "https://storelib.com/community/makers")
-    check("the preview picture is the cover", JSON.stringify(m.openGraph).includes("cover.jpg") && (m.twitter as { card: string }).card === "summary_large_image")
-    check("public and published: indexed", (m.robots as { index: boolean }).index === true)
-    check("anything else: noindex", (communityMetadata({ ...f, indexable: false }).robots as { index: boolean }).index === false)
-    check("/about names the same canonical", (communityMetadata(f, { about: true }).alternates as { canonical: string }).canonical === "https://storelib.com/community/makers")
-    const row = { status: "published", visibility: "public", suspended_at: null, deleted_at: null, platform_hidden: false } as const
-    check("indexable means published, public, open, not hidden", communityIndexable(row) && !communityIndexable({ ...row, visibility: "unlisted" }) && !communityIndexable({ ...row, visibility: "private" }) && !communityIndexable({ ...row, status: "draft" }) && !communityIndexable({ ...row, platform_hidden: true }))
-    const view = {
-      slug: "makers",
-      name: "Makers",
-      tagline: "People who make",
-      descriptionText: null,
-      descriptionHtml: null,
-      coverUrl: null,
-      logoUrl: "https://x/logo.png",
-      creator: { name: "Ana", username: "ana", avatarUrl: null, href: "/ana" },
-      options: [] as JoinOption[],
-      reviews: null,
-    } as unknown as PublicCommunityView
-    const org = communityJsonLd(view, true)
-    check("a free community is an Organization led by its creator", org?.["@type"] === "Organization" && (org?.founder as { name: string }).name === "Ana")
-    const paidView = { ...view, options: [{ kind: "paid", billing: "recurring", monthlyCents: 1900, yearlyCents: null, priceCents: null, currency: "usd", priceLine: "$19/month", name: "Pro" }] as JoinOption[], reviews: { average: 4.5, total: 2, items: [] } } as PublicCommunityView
-    const prod = communityJsonLd(paidView, true)
-    check("a paid one is a Product with its real price and rating", prod?.["@type"] === "Product" && (prod?.offers as { price: string }).price === "19.00" && (prod?.aggregateRating as { reviewCount: number }).reviewCount === 2)
-    check("no rating claimed without reviews", !("aggregateRating" in (communityJsonLd({ ...paidView, reviews: null } as PublicCommunityView, true) ?? {})))
-    check("nothing claimed for a page that is not indexed", communityJsonLd(view, false) === null)
-    check("every page inside a community is noindex", /robots: \{ index: false, follow: false \}/.test(read("app/(marketing)/community/[slug]/layout.tsx")))
-    const sm = code("lib/seo/sitemaps.ts")
-    check("the sitemap lists public published communities while on", /const communities = \(await communitiesEnabled\(\)\) \? await sitemapCommunityCount\(admin\) : 0/.test(sm) && /communities-\$\{i\}\.xml/.test(sm) && /\(products\|creators\|websites\|onepages\|communities\)/.test(sm))
-    const pub = code("lib/communities/server/public.ts")
-    check("and only those", /export async function sitemapCommunities[\s\S]*?\.eq\("status", "published"\)\s*\.eq\("visibility", "public"\)\s*\.eq\("platform_hidden", false\)/.test(pub))
-  }
-
-  /* ── Pages and routes ────────────────────────────────────────────────── */
   console.log("\nPages and routes")
   {
     const page = code("app/(marketing)/community/[slug]/page.tsx")
@@ -525,7 +399,7 @@ async function main() {
     check("everybody else the sales page, with its structured data", /<CommunitySalesPage data=\{load\.data\} \/>/.test(page) && /jsonLdScript\(jsonLd\)/.test(page))
     const about = code("app/(marketing)/community/[slug]/about/page.tsx")
     check("/about is the sales page for everybody, members included", /await connection\(\)\s*if \(!\(await communitiesEnabled\(\)\)\) notFound\(\)/.test(about) && /<CommunitySalesPage data=\{load\.data\} \/>/.test(about) && !/viewer\.active/.test(about))
-    check("/library/communities is a 404 while off", /if \(!\(await communitiesEnabled\(\)\)\) notFound\(\)/.test(code("app/library/communities/page.tsx")))
+    check("/account/communities is a 404 while off", /if \(!\(await communitiesEnabled\(\)\)\) notFound\(\)/.test(code("app/account/communities/page.tsx")))
     const routes = ["join", "leave", "onboarding", "invite/redeem"].map((r) => `app/api/community/[communityId]/${r}/route.ts`)
     for (const r of routes) {
       const src = code(r)
@@ -565,7 +439,7 @@ async function main() {
       ...walk("app/api/community/[communityId]/leave"),
       ...walk("app/api/community/[communityId]/onboarding"),
       ...walk("app/api/community/[communityId]/invite"),
-      ...walk("app/library/communities"),
+      ...walk("app/account/communities"),
     ]
     const offenders = mine.filter((f) => /—/.test(read(f)) || /\b(unlock\w*|elevate|seamless|powerful|effortless(ly)?|supercharge|transform\w*)\b/i.test(read(f)))
     check("no em dash and no banned word", offenders.length === 0, offenders)

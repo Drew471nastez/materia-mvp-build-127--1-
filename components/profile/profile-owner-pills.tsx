@@ -1,40 +1,81 @@
+"use client"
+
 /**
- * YOUR OWN PROFILE, AND THE PLACES YOU GO FROM IT.
+ * ===========================================================================
+ *  YOUR OWN PROFILE, AND THE PLACES YOU GO FROM IT
+ * ===========================================================================
+ * Only on your own profile, where somebody else would see Follow: Activity,
+ * Communities (while communities are on), Library, Edit profile and
+ * Settings (lib/profile/owner-pills.ts), as the Library's pills: white on a
+ * hairline, the one you are on pressed in on a grey fill, a row that scrolls
+ * sideways on a narrow phone rather than wrapping into a block.
  *
- * Only on your own profile, where somebody else would see Follow: Library,
- * Courses, Communities (the ones you are in, while communities are on),
- * Edit profile and Settings, as the Library's pills: white on a hairline,
- * a row that scrolls sideways on a narrow phone rather than wrapping into
- * a block. Plain links, so they work before any script has loaded. Nothing
- * here is about selling: a buyer's profile never offers a store.
+ * THE PILL ANSWERS THE PRESS. The pressed pill is chosen on the press and
+ * the address catches up, the way the library's own pills do
+ * (components/library/library-tabs.tsx), so a slow page never leaves the
+ * old pill lit under the finger. Plain links underneath, so they work
+ * before any script has loaded.
  */
 import Link from "next/link"
+import { usePathname, useSearchParams } from "next/navigation"
+import { useEffect, useState } from "react"
+import { ownerPillFor, ownerPillLinks, type OwnerPillKey } from "@/lib/profile/owner-pills"
 import { cn } from "@/lib/utils"
 
+export { ownerPillLinks } from "@/lib/profile/owner-pills"
+
+/** The library's numbers (components/library/library-tabs.tsx TAB_FADE_MS, TAB_EASE). */
+const FADE_MS = 150
+const EASE = "cubic-bezier(0.33, 1, 0.68, 1)"
+
 const PILL =
-  "inline-flex h-10 shrink-0 select-none items-center whitespace-nowrap rounded-full border border-[#e4e7ec] bg-white px-4 text-[14px] font-medium text-[#1a1a2e] outline-none " +
-  "transition-[background-color,border-color,scale] duration-150 hover:border-[#d7dadf] hover:bg-[#f7f7f8] active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 motion-reduce:transition-none motion-reduce:active:scale-100 [-webkit-tap-highlight-color:transparent]"
+  "relative inline-flex h-10 shrink-0 select-none items-center whitespace-nowrap rounded-full border bg-white px-4 text-[14px] font-medium outline-none " +
+  "transition-[color,scale] active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 motion-reduce:transition-none motion-reduce:active:scale-100 [-webkit-tap-highlight-color:transparent]"
 
-export function ownerPillLinks(communities: boolean): { key: string; label: string; href: string }[] {
-  return [
-    { key: "library", label: "Library", href: "/library" },
-    { key: "courses", label: "Courses", href: "/library/courses" },
-    ...(communities ? [{ key: "communities", label: "Communities", href: "/library/communities" }] : []),
-    { key: "edit", label: "Edit profile", href: "/account/settings" },
-    { key: "settings", label: "Settings", href: "/account/settings?section=account" },
-  ]
-}
+export function ProfileOwnerPills({ communities, active: fixed, className }: { communities: boolean; active?: OwnerPillKey | null; className?: string }) {
+  const pathname = usePathname()
+  /* Edit profile and Settings are one page, told apart by ?section= (app/account/settings). Every page that draws these is dynamic, so this needs no Suspense of its own. */
+  const section = useSearchParams()?.get("section") ?? null
+  const fromPath = fixed ?? ownerPillFor(pathname, section)
+  const [pressed, setPressed] = useState<OwnerPillKey | null>(null)
+  useEffect(() => setPressed(null), [fromPath])
+  const active = pressed ?? fromPath
 
-export function ProfileOwnerPills({ communities, className }: { communities: boolean; className?: string }) {
   return (
     <nav aria-label="Your pages" className={cn("-mx-4 sm:mx-0", className)} data-profile-owner-pills="">
       <div className="overflow-x-auto overscroll-x-contain px-4 py-0.5 scrollbar-hide sm:px-0">
         <div className="mx-auto flex w-max items-center gap-2">
-          {ownerPillLinks(communities).map((p) => (
-            <Link key={p.key} href={p.href} prefetch={false} className={PILL} data-profile-owner-pill={p.key}>
-              {p.label}
-            </Link>
-          ))}
+          {ownerPillLinks(communities).map((p) => {
+            const on = p.key === active
+            return (
+              <Link
+                key={p.key}
+                href={p.href}
+                prefetch={p.key === "library" || p.key === "communities" ? true : false}
+                scroll={false}
+                aria-current={p.key === fromPath ? "page" : undefined}
+                data-profile-owner-pill={p.key}
+                data-active={on ? "true" : "false"}
+                onClick={(e) => {
+                  if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return
+                  if (p.key !== fromPath) setPressed(p.key)
+                }}
+                style={{ transitionDuration: `${FADE_MS}ms`, transitionTimingFunction: EASE }}
+                className={cn(PILL, on ? "border-[#d7dadf] text-[#1a1a2e]" : "border-[#e4e7ec] text-[#4b5563] hover:text-[#1a1a2e]")}
+              >
+                {/* This pill's own fill: it fades in where it is, never slides over from the last one. */}
+                <span
+                  aria-hidden
+                  style={{ transitionDuration: `${FADE_MS}ms`, transitionTimingFunction: EASE }}
+                  className={cn(
+                    "pointer-events-none absolute -inset-px rounded-full border border-[#d7dadf] bg-[#e2e4e8] shadow-[inset_0_1px_1.5px_rgba(15,23,42,0.07),inset_0_-1px_0_rgba(255,255,255,0.45)] transition-[opacity,scale] motion-reduce:transition-none",
+                    on ? "scale-100 opacity-100" : "scale-[0.96] opacity-0",
+                  )}
+                />
+                <span className="relative">{p.label}</span>
+              </Link>
+            )
+          })}
         </div>
       </div>
     </nav>

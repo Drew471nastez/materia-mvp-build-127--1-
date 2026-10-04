@@ -362,7 +362,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
   const profileDropdownItems = [
     { href: "/app/settings/billing", label: t("settings.billing"), icon: CreditCard },
     { href: "/explore", label: "Explore", icon: Compass, target: "_blank" as const },
-    { href: "/library", label: "Library", icon: Library },
+    { href: "/account/library", label: "Library", icon: Library },
   ]
 
   /**

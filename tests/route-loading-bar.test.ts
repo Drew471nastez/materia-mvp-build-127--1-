@@ -157,7 +157,7 @@ function main() {
     stage is not mounted yet, and it is right.
   */
   check("the line is mounted on the marketing layout", /<RouteLoadingBar \/>/.test(layout))
-  check("the surface stays off a page that draws its own wait", /const DRAWS_ITS_OWN_WAIT = \/\^\\\/\(library\|checkout\)/.test(bar) && /DRAWS_ITS_OWN_WAIT\.test\(from\)/.test(bar))
+  check("the surface stays off a page that draws its own wait", /const DRAWS_ITS_OWN_WAIT = \/\^\\\/\(account\\\/library\|checkout\)/.test(bar) && /DRAWS_ITS_OWN_WAIT\.test\(from\)/.test(bar))
   check("  and it reads the page being left, not the one being opened", /<SlowPage pendingSince=\{pendingSince\} from=\{pathname\} cover=\{cover\} \/>/.test(bar))
 
   /*

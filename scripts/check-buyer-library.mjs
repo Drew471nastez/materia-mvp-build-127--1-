@@ -76,7 +76,7 @@ writeFileSync(join(stubs, "navigation.js"), `import { createContext, useContext,
 const PathContext = (window.__PathContext ||= createContext(null))
 const log = (k, a) => (window.__router ||= []).push([k, a])
 const router = { push: (h) => log("push", h), replace: (h) => log("replace", h), prefetch: (h, o) => (window.__prefetch ||= []).push([h, o && o.kind]), back: () => log("back"), refresh: () => log("refresh") }
-const store = () => (window.__navStore ||= { path: window.__path || "/library", listeners: new Set() })
+const store = () => (window.__navStore ||= { path: window.__path || "/account/library", listeners: new Set() })
 const subscribe = (l) => { store().listeners.add(l); return () => store().listeners.delete(l) }
 export const usePathname = () => {
   const routed = useContext(PathContext)
@@ -237,7 +237,7 @@ const DESK = { width: 1280, height: 900 }
 
 const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox"] })
 
-async function open(mode, vp, { path = "/library", ua, init, focus: focusId } = {}) {
+async function open(mode, vp, { path = "/account/library", ua, init, focus: focusId } = {}) {
   const page = await browser.newPage()
   await page.setViewport(vp)
   if (ua) await page.setUserAgent(ua)
@@ -373,7 +373,7 @@ try {
 
   for (const [mode, label, vp] of !part("layout") ? [] : [["reviews", "390", PHONE], ["reviews", "1280", DESK], ["receipts", "390", PHONE], ["receipts", "1280", DESK], ["product", "390", PHONE], ["product", "1280", DESK], ["empty", "390", PHONE], ["empty", "1280", DESK]]) {
     console.log(`\n${mode} at ${label}`)
-    const path = mode === "product" ? "/library/products/p1" : mode === "empty" ? "/library" : `/library/${mode}`
+    const path = mode === "product" ? "/account/library/products/p1" : mode === "empty" ? "/account/library" : `/account/library/${mode}`
     const page = await open(mode, vp, { path })
     await sleep(250)
     await page.screenshot({ path: join(shots, `${mode}-${label}.png`), fullPage: true })
@@ -396,7 +396,7 @@ try {
     if (mode === "product") {
       expect(m.tabs === 0, "a product has its back link, not the tabs", m.tabs)
       expect(m.files === 3 && /Added after you bought it/.test(m.text), "every file with its size, and the one added later marked", m.files)
-      expect(m.review === "/library/reviews?product=p1", "the review is one line that goes to the Reviews tab", m.review)
+      expect(m.review === "/account/library/reviews?product=p1", "the review is one line that goes to the Reviews tab", m.review)
       expect(/^mailto:hello@mayachen\.co/.test(m.contact || ""), "and the creator block writes to the seller", m.contact)
     }
     if (mode === "empty") expect(m.empty && /Your wishlist \(3\)/.test(m.text), "an empty library says what it is for and points at the wishlist", m.empty)
@@ -417,7 +417,7 @@ try {
       const t0 = performance.now()
       const long = []
       new PerformanceObserver((l) => l.getEntries().forEach((e) => long.push([Math.round(e.startTime - t0), Math.round(e.duration)]))).observe({ type: "longtask" })
-      document.querySelector(window.__profileSel || '[data-library-tab-href="/library/reviews"]').click()
+      document.querySelector(window.__profileSel || '[data-library-tab-href="/account/library/reviews"]').click()
       const t1 = performance.now()
       const frames = []
       const step = () => { frames.push(Math.round(performance.now() - t0)); if (frames.length < 12) requestAnimationFrame(step); else setTimeout(() => resolve({ click: Math.round(t1 - t0), frames, long }), 800) }
@@ -535,18 +535,18 @@ try {
       const page = await open("nav", vp, { init: mode === "cold" ? () => { window.__cold = true } : mode === "slow" ? () => { window.__delay = 400 } : undefined })
       await sleep(2600)
       const prefetched = await page.evaluate(() => (window.__prefetch || []).filter(([, k]) => k === "full").map(([h]) => h))
-      if (mode === "warm") expect(["/library/courses", "/library/memberships", "/library/reviews", "/library/receipts", "/library/wishlist"].every((h) => prefetched.includes(h)), "every other tab is fetched whole while the page is idle", [...new Set(prefetched)])
+      if (mode === "warm") expect(["/account/library/courses", "/account/library/memberships", "/account/library/reviews", "/account/library/receipts", "/account/library/wishlist"].every((h) => prefetched.includes(h)), "every other tab is fetched whole while the page is idle", [...new Set(prefetched)])
       await page.evaluate(() => window.scrollTo(0, 60))
       await sleep(100)
       const cdp = await page.createCDPSession()
       await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 })
-      const { f, cls } = await sampleMove(page, { selector: '[data-library-tab-href="/library/reviews"]', to: "/library/reviews", fills: ["/library/reviews", "/library"] }, mode === "warm" ? 1200 : 1600)
+      const { f, cls } = await sampleMove(page, { selector: '[data-library-tab-href="/account/library/reviews"]', to: "/account/library/reviews", fills: ["/account/library/reviews", "/account/library"] }, mode === "warm" ? 1200 : 1600)
       await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
       console.log(`    ${summary(f)}; layout shift ${cls.toFixed(4)}`)
       console.log(`    t:leaving/shape/screen ${trace(f)}`)
       if (process.env.DEBUG_FRAMES) console.log(f.map((x) => JSON.stringify(x)).join("\n"))
       /* f[0] is read in the same task as the click; f[1] is the first frame painted after the press. */
-      expect(f[1].active === "/library/reviews", "the pressed pill is chosen in the first frame after the press, ahead of the route", { t: f[1].t, active: f[1].active })
+      expect(f[1].active === "/account/library/reviews", "the pressed pill is chosen in the first frame after the press, ahead of the route", { t: f[1].t, active: f[1].active })
       const fills = f.map((x) => x.fills[0])
       const drops = fills.filter((v, i) => i > 0 && v < fills[i - 1] - 0.001).length
       const full = f.find((x) => x.fills[0] >= 0.999)
@@ -626,7 +626,7 @@ try {
     console.log(`\ntab switch at ${label}, warm, full speed`)
     const page = await open("nav", vp, { init: process.env.DEBUG_FRAMES ? () => { window.__dbgAnims = true } : undefined })
     await sleep(1500)
-    const { f } = await sampleMove(page, { selector: '[data-library-tab-href="/library/wishlist"]', to: "/library/wishlist", fills: ["/library/wishlist", "/library"] }, 500)
+    const { f } = await sampleMove(page, { selector: '[data-library-tab-href="/account/library/wishlist"]', to: "/account/library/wishlist", fills: ["/account/library/wishlist", "/account/library"] }, 500)
     const at = f.find((x) => x.live > 0)
     console.log(`    the wishlist landed ${at?.t}ms after the press; the old screen's fade is ${OUT_MS}ms`)
     if (process.env.DEBUG_FRAMES) console.log(f.slice(0, 10).map((x) => `${x.t} ${x.lead} ${x.dbg}`).join("\n"))
@@ -646,11 +646,11 @@ try {
     const listScroll = await page.evaluate(() => Math.round(window.scrollY))
     const cdp = await page.createCDPSession()
     await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 })
-    const into = await sampleMove(page, { selector: '[data-library-item="p3"] a[href="/library/products/p3"]:not([aria-hidden])', to: "/library/products/p3" }, 1300)
+    const into = await sampleMove(page, { selector: '[data-library-item="p3"] a[href="/account/library/products/p3"]:not([aria-hidden])', to: "/account/library/products/p3" }, 1300)
     await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
     console.log(`    in:   ${summary(into.f)}; layout shift ${into.cls.toFixed(4)}`)
     console.log(`          ${trace(into.f)}`)
-    expect(into.f.at(-1).path === "/library/products/p3", "the product opens", into.f.at(-1).path)
+    expect(into.f.at(-1).path === "/account/library/products/p3", "the product opens", into.f.at(-1).path)
     expect(Math.min(...into.f.map((x) => x.cover)) >= 0.99, "no blank frame on the way in", Math.min(...into.f.map((x) => x.cover)))
     const splitAt = (f) => f.findIndex((x) => x.live > 0)
     const fades = (f) => {
@@ -681,33 +681,33 @@ try {
     await page.mouse.up()
     await sleep(900)
     const after = await page.evaluate(() => ({ path: location.pathname, scrollY: Math.round(scrollY), rows: document.querySelectorAll("[data-library-item]").length, left: document.querySelectorAll("[data-library-leaving]").length }))
-    expect(after.path === "/library" && after.rows === 5 && after.left === 0, "Library returns to the list", after)
+    expect(after.path === "/account/library" && after.rows === 5 && after.left === 0, "Library returns to the list", after)
     expect(Math.abs(after.scrollY - listScroll) <= 1, "with the list's scroll where it was", { was: listScroll, now: after.scrollY })
     await page.screenshot({ path: join(shots, `product-back-${label}.png`) })
 
     /* Again, sampled frame by frame this time: in, then Library pressed as a click. */
     await page.evaluate((y) => window.scrollTo(0, y), listScroll)
     await sleep(120)
-    await page.click('[data-library-item="p3"] a[href="/library/products/p3"]:not([aria-hidden])')
+    await page.click('[data-library-item="p3"] a[href="/account/library/products/p3"]:not([aria-hidden])')
     await sleep(700)
     await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 })
-    const home = await sampleMove(page, { selector: "[data-library-back]", to: "/library" }, 1300)
+    const home = await sampleMove(page, { selector: "[data-library-back]", to: "/account/library" }, 1300)
     await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
     console.log(`    back: ${summary(home.f)}; layout shift ${home.cls.toFixed(4)}`)
     if (process.env.DEBUG_FRAMES) console.log(home.f.map((x) => JSON.stringify({ t: x.t, c: x.clock, lead: x.lead, inc: x.inc, live: x.live, copies: x.copies, y: x.scrollY })).join("\n"))
     console.log(`          ${trace(home.f)}`)
     expect(Math.min(...home.f.map((x) => x.cover)) >= 0.99, "no blank frame on the way back", Math.min(...home.f.map((x) => x.cover)))
-    expect(fades(home.f) && home.f.at(-1).live === 1 && home.f.at(-1).lead === 0 && home.f.at(-1).path === "/library", "the product dissolves into the list (no hard cut)", home.f.map((x) => x.lead.toFixed(2)).slice(0, 12))
+    expect(fades(home.f) && home.f.at(-1).live === 1 && home.f.at(-1).lead === 0 && home.f.at(-1).path === "/account/library", "the product dissolves into the list (no hard cut)", home.f.map((x) => x.lead.toFixed(2)).slice(0, 12))
     const settled = home.f.filter((x) => x.live > 0).map((x) => x.scrollY)
     expect(settled.length > 0 && settled.every((y) => Math.abs(y - listScroll) <= 1), "the list is drawn at its old scroll from its first frame", { was: listScroll, drawnAt: [...new Set(settled)] })
 
     /* The browser's own back: no fade of ours on top of the browser's, the scroll still put back. */
-    await page.click('[data-library-item="p3"] a[href="/library/products/p3"]:not([aria-hidden])')
+    await page.click('[data-library-item="p3"] a[href="/account/library/products/p3"]:not([aria-hidden])')
     await sleep(700)
     await page.evaluate(() => history.back())
     await sleep(120)
     const pop = await page.evaluate(() => ({ path: location.pathname, left: document.querySelectorAll("[data-library-leaving]").length, scrollY: Math.round(scrollY) }))
-    expect(pop.path === "/library" && pop.left === 0 && Math.abs(pop.scrollY - listScroll) <= 1, "the browser's back is not faded, and still lands at the list's scroll", { ...pop, was: listScroll })
+    expect(pop.path === "/account/library" && pop.left === 0 && Math.abs(pop.scrollY - listScroll) <= 1, "the browser's back is not faded, and still lands at the list's scroll", { ...pop, was: listScroll })
     expect(page.errors.length === 0, "no page errors", page.errors)
     await page.close()
   }
@@ -715,7 +715,7 @@ try {
   /* ─── REVIEWS: written, edited and deleted right there ─────────────── */
   for (const [label, vp] of part("reviews") ? [["390", PHONE], ["1280", DESK]] : []) {
     console.log(`\nreviews composer at ${label}`)
-    const page = await open("reviews", vp, { path: "/library/reviews" })
+    const page = await open("reviews", vp, { path: "/account/library/reviews" })
     state.reviews.length = 0
     await page.evaluate(() => { window.__router = [] })
     await page.click('[data-review-waiting="p1"] [data-review-write]')
@@ -788,7 +788,7 @@ try {
     await page.close()
 
     /* From a product's More menu: /library/reviews?product=p3 */
-    const focused = await open("reviews", vp, { path: "/library/reviews", focus: "p3" })
+    const focused = await open("reviews", vp, { path: "/account/library/reviews", focus: "p3" })
     await sleep(600)
     const f = await focused.evaluate(() => ({ open: !!document.querySelector('[data-review-composer="p3"]'), row: document.getElementById("review-p3")?.getBoundingClientRect().top }))
     expect(f.open, "?product=<id> opens that purchase's composer", f)
@@ -804,12 +804,12 @@ try {
     const rows = await page.evaluate(() => [...document.querySelectorAll('[role="menuitem"], [data-slot="dropdown-menu-item"], .action-list a')].map((a) => [a.textContent.trim(), a.getAttribute("href"), a.getAttribute("target")]))
     const review = rows.find((r) => /review/i.test(r[0]))
     const store = rows.find((r) => /store/i.test(r[0]))
-    expect(review && review[1] === "/library/reviews?product=p1", "Write a review goes to the Reviews tab, focused on that product", review)
+    expect(review && review[1] === "/account/library/reviews?product=p1", "Write a review goes to the Reviews tab, focused on that product", review)
     expect(store && store[2] === "_blank", "the creator's store opens in a new tab", store)
     await page.close()
 
     for (const width of [320, 360, 390, 430, 768, 1024, 1280]) {
-      const p = await open("product", { width, height: 900, isMobile: width < 640, hasTouch: width < 640 }, { path: "/library/products/p1" })
+      const p = await open("product", { width, height: 900, isMobile: width < 640, hasTouch: width < 640 }, { path: "/account/library/products/p1" })
       const m = await p.evaluate(() => {
         const btns = [...document.querySelectorAll("[data-creator-actions] > a")]
         return btns.map((b) => {
@@ -828,7 +828,7 @@ try {
       }
       await p.close()
     }
-    const app = await open("product", PHONE, { path: "/library/products/p1", ua: IPHONE_UA + " Capacitor", init: () => { window.Capacitor = { isNativePlatform: () => true, getPlatform: () => "ios" } } })
+    const app = await open("product", PHONE, { path: "/account/library/products/p1", ua: IPHONE_UA + " Capacitor", init: () => { window.Capacitor = { isNativePlatform: () => true, getPlatform: () => "ios" } } })
     const inApp = await app.evaluate(() => document.querySelector("[data-creator-profile]")?.getAttribute("target"))
     expect(inApp === null, "inside the app the store opens in the same web view, as store links do there", inApp)
     await app.close()
@@ -845,7 +845,7 @@ try {
       /* Every layout shift from the very first paint. */
       await page.evaluateOnNewDocument(() => {
         window.__mode = "home"
-        window.__path = "/library"
+        window.__path = "/account/library"
         window.__shifts = []
         new PerformanceObserver((l) =>
           l.getEntries().forEach((e) => {
@@ -857,7 +857,7 @@ try {
       })
       const errors = []
       page.on("pageerror", (e) => errors.push(String(e).slice(0, 200)))
-      await page.goto(`${origin}/library`, { waitUntil: "networkidle0" })
+      await page.goto(`${origin}/account/library`, { waitUntil: "networkidle0" })
       await page.evaluate(() => document.fonts.ready)
       await sleep(500)
       const b = await page.evaluate(() => {
@@ -942,7 +942,7 @@ try {
     for (const width of [360, 390, 430, 1280]) {
       console.log(`\nwishlist at ${width}`)
       const phone = width < 640
-      const page = await open("wishlist", { width, height: phone ? 844 : 900, isMobile: phone, hasTouch: phone, deviceScaleFactor: phone ? 2 : 1 }, { path: "/library/wishlist" })
+      const page = await open("wishlist", { width, height: phone ? 844 : 900, isMobile: phone, hasTouch: phone, deviceScaleFactor: phone ? 2 : 1 }, { path: "/account/library/wishlist" })
       await sleep(300)
       await page.screenshot({ path: join(shots, `wishlist-${width}.png`), fullPage: true })
       const m = await page.evaluate(() => {
@@ -994,7 +994,7 @@ try {
       expect(/^\$9\.00\/month$/.test(m.q2.price) && m.q2.action === "Join" && m.q2.actionHref === "/checkout?productId=q2&interval=month", "a membership says /month and Join", m.q2)
       expect(m.q3.price === "$5.00+" && m.q3.action === "View", "pay what you want: from its minimum, View to choose a price", m.q3)
       expect(m.q4.price === "Free" && m.q4.action === "Get it free", "free: Get it free", m.q4)
-      expect(m.p2.action === "In your library" && m.p2.actionHref === "/library/products/p2", "already theirs: In your library", m.p2)
+      expect(m.p2.action === "In your library" && m.p2.actionHref === "/account/library/products/p2", "already theirs: In your library", m.p2)
       expect(m.q1.creator === "Maya Chen" && m.q1.avatar, "the creator with their face", m.q1.creator)
       expect(page.errors.length === 0, "no page errors", page.errors)
 
@@ -1043,7 +1043,7 @@ try {
         await page.close()
       } else await page.close()
     }
-    const empty = await open("wishlist-empty", PHONE, { path: "/library/wishlist" })
+    const empty = await open("wishlist-empty", PHONE, { path: "/account/library/wishlist" })
     await sleep(200)
     const e = await empty.evaluate(() => ({ shown: !!document.querySelector("[data-wishlist-empty]"), text: document.querySelector("[data-wishlist-empty]")?.innerText, href: document.querySelector("[data-wishlist-empty] a")?.getAttribute("href") }))
     expect(e.shown && /Nothing saved yet/.test(e.text || "") && e.href === "/explore", "empty: says what it is for and where to find things", e)

@@ -116,7 +116,8 @@ const NATIVE_HOME_KEY = "sb-native-home"
  * decides, so the login page and the OAuth callback cannot disagree with
  * /native-start about what a valid home is.
  */
-const NATIVE_HOME_ALLOWED = ["/app", "/library", "/dashboard", "/creator-page", "/store-builder"]
+/* "/library" is the buyer's home the installed apps' offline shell knows (out/index.html), and it answers with /account/library (app/library/[[...path]]); the new address is allowed too. */
+const NATIVE_HOME_ALLOWED = ["/app", "/library", "/account/library", "/dashboard", "/creator-page", "/store-builder"]
 
 export function sanitizeNativeHome(destination: string | null | undefined): string {
   if (!destination) return "/app"

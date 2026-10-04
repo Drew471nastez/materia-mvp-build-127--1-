@@ -146,14 +146,14 @@ export const PATHS = {
   receipt: (token: string) => `/receipt/${token}`,
   /** The receipt, open at its review card, with the stars already chosen when `rate` is given. */
   review: (token: string, rate?: number) => `/receipt/${token}${rate ? `?rate=${rate}` : ""}#review`,
-  library: "/library",
-  libraryProduct: (id: string) => `/library/products/${id}`,
+  library: "/account/library",
+  libraryProduct: (id: string) => `/account/library/products/${id}`,
   /** A member's page for one membership: its posts, what it includes, and Manage. */
-  memberships: "/library/memberships",
-  membership: (id: string) => (id ? `/library/memberships/${id}` : "/library/memberships"),
+  memberships: "/account/library/memberships",
+  membership: (id: string) => (id ? `/account/library/memberships/${id}` : "/account/library/memberships"),
   /** A member's communities, and one community's pages by its address (app/(marketing)/community/[slug]). */
-  communities: "/library/communities",
-  community: (slug: string, rest = "") => (slug ? `/community/${slug}${rest}` : "/library/communities"),
+  communities: "/account/communities",
+  community: (slug: string, rest = "") => (slug ? `/community/${slug}${rest}` : "/account/communities"),
 } as const
 
 /* ── Reading data ──────────────────────────────────────────────────────── */

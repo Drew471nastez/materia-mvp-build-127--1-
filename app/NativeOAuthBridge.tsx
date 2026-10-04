@@ -57,7 +57,7 @@ export default function NativeOAuthBridge() {
   // causing the blank/white AuthResolvingScreen to flash briefly.
   const pathname = usePathname()
   useEffect(() => {
-    if (pathname.startsWith("/app") || pathname.startsWith("/library")) return
+    if (pathname.startsWith("/app") || pathname.startsWith("/library") || pathname.startsWith("/account/library")) return
     nativeAppReady()
   }, [pathname])
 

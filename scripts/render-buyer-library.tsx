@@ -9,7 +9,7 @@ import { createRoot } from "react-dom/client"
 import { LibraryTabs } from "@/components/library/library-tabs"
 import { LibraryPanel } from "@/components/library/library-panel"
 import { OpenInApp } from "@/components/library/open-in-app"
-import { TAB_SKELETON } from "@/app/library/loading"
+import { TAB_SKELETON } from "@/app/account/library/loading"
 import { skeletonFor } from "@/components/library/library-skeletons"
 import { WishlistContent } from "@/components/wishlist/wishlist-content"
 import type { WishlistEntry } from "@/components/wishlist/wishlist-entry"
@@ -142,16 +142,16 @@ export const WISHLIST: WishlistEntry[] = [
   loading.tsx first and the screen 500ms later, as Next does.
 */
 function screenFor(path: string): React.ReactNode {
-  if (path.startsWith("/library/products/")) return <LibraryProduct data={productData(path.split("/").pop())} />
+  if (path.startsWith("/account/library/products/")) return <LibraryProduct data={productData(path.split("/").pop())} />
   switch (path) {
-    case "/library/reviews":
+    case "/account/library/reviews":
       return <LibraryReviews items={data.items} />
-    case "/library/receipts":
+    case "/account/library/receipts":
       return <LibraryReceipts receipts={data.receipts} />
-    case "/library/wishlist":
+    case "/account/library/wishlist":
       return <WishlistContent isLibrary initialItems={WISHLIST} />
-    case "/library/courses":
-    case "/library/memberships":
+    case "/account/library/courses":
+    case "/account/library/memberships":
       return (
         <div data-probe-screen={path} className="rounded-2xl border border-[#e4e7ec]/80 bg-white px-5 py-10 text-center text-[14px] text-[#6b7280]">
           {path.split("/").pop()} screen
@@ -192,7 +192,7 @@ function productData(id?: string) {
 }
 
 function NavApp() {
-  const store = (w.__navStore ||= { path: (window as unknown as { __path?: string }).__path || "/library", listeners: new Set() })
+  const store = (w.__navStore ||= { path: (window as unknown as { __path?: string }).__path || "/account/library", listeners: new Set() })
   const [state, setState] = React.useState({ path: store.path, loading: false })
   React.useEffect(() => {
     /* Next navigates in a transition: the press's own updates (the pill) paint first. */

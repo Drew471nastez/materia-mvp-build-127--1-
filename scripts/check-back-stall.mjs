@@ -103,7 +103,7 @@ const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewp
 writeFileSync(join(stubs, "bar-navigation.js"), `import { useSyncExternalStore } from "react"
 const subs = new Set()
 const read = () => window.__path || location.pathname
-export const usePathname = () => useSyncExternalStore((f) => { subs.add(f); const t = setInterval(f, 16); return () => { subs.delete(f); clearInterval(t) } }, read, () => "/library")
+export const usePathname = () => useSyncExternalStore((f) => { subs.add(f); const t = setInterval(f, 16); return () => { subs.delete(f); clearInterval(t) } }, read, () => "/account/library")
 const params = new URLSearchParams(location.search)
 export const useSearchParams = () => params
 export const useRouter = () => ({ push: () => {}, replace: () => {}, prefetch: () => {}, back: () => history.back(), refresh: () => {} })
@@ -357,8 +357,8 @@ try {
     p.__errors = []
     p.on("pageerror", (e) => p.__errors.push(String(e).slice(0, 200)))
     await p.setRequestInterception(true)
-    p.on("request", (r) => (r.url().startsWith("https://storelib.com/library") ? r.respond({ status: 200, contentType: "text/html", body: barHtml }) : r.url().startsWith("https://storelib.com/") ? r.respond({ status: 204, body: "" }) : r.abort()))
-    await p.goto("https://storelib.com/library?delay=2500", { waitUntil: "load" })
+    p.on("request", (r) => (r.url().startsWith("https://storelib.com/account/library") ? r.respond({ status: 200, contentType: "text/html", body: barHtml }) : r.url().startsWith("https://storelib.com/") ? r.respond({ status: 204, body: "" }) : r.abort()))
+    await p.goto("https://storelib.com/account/library?delay=2500", { waitUntil: "load" })
     await p.waitForSelector("[data-open]")
     await sleep(300)
 

@@ -16,7 +16,7 @@ import { ensureOnePage } from "@/lib/onepage/ensure-onepage"
  *   creatorSlug?: string   (used when role = "creator" and no creator record exists yet)
  *
  * Returns:
- *   { ok: true, nextPath: "/app" | "/library" }
+ *   { ok: true, nextPath: "/app" | "/account/library" }
  *   { ok: false, error: string }
  */
 export async function POST(request: NextRequest) {
@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
       }
 
-      return NextResponse.json({ ok: true, nextPath: "/library" })
+      return NextResponse.json({ ok: true, nextPath: "/account/library" })
     }
 
     // ── Creator ─────────────────────────────────────────────────────────────

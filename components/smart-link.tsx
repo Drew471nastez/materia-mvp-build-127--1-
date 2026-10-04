@@ -110,7 +110,7 @@ export function SmartLink({
         resolvedHref.startsWith("/app") ||
         resolvedHref.startsWith("/creator-page") ||
         resolvedHref.startsWith("/store-builder") ||
-        resolvedHref.startsWith("/library")
+        resolvedHref.startsWith("/account/library")
       return (
         <a
           {...linkSafeProps}
@@ -188,7 +188,7 @@ export function SmartLink({
         internalPath.startsWith("/creator-page") ||
         internalPath.startsWith("/store-builder") ||
         internalPath.startsWith("/website-builder") ||
-        internalPath.startsWith("/library")))
+        internalPath.startsWith("/account/library")))
 
   if (internalPath && !needsHardNav) {
     return (

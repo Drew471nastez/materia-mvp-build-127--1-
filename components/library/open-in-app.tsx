@@ -51,7 +51,7 @@ const APP_STORE_URL =
 export const FOLD_MS = 220
 
 export function OpenInApp({ phone }: { phone: Phone | null }) {
-  const pathname = usePathname() || "/library"
+  const pathname = usePathname() || "/account/library"
   const [state, setState] = useState<"shown" | "folding" | "gone">(phone ? "shown" : "gone")
 
   /* Inside the app after all (a user agent the server did not know): gone before anyone sees it. */

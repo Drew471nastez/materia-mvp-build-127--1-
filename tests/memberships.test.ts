@@ -264,7 +264,7 @@ function main() {
     const entry = REGISTRY[type]
     check(`${type} is a required billing notice to a customer, email only`, entry.recipient === "customer" && entry.requirement === "required_service" && entry.channels.join() === "email")
     const e = renderEmail(type, { ...base, graceEndsAt: "2026-10-05T00:00:00Z", cardLast4: "4242", endsAt: "2026-10-28T00:00:00Z" }, { baseUrl: "https://storelib.com" })
-    check(`${type} links to the membership page, never /app`, e.html.includes("https://storelib.com/library/memberships") && !/\/app\//.test(e.html) && !/[—–]/.test(e.text), e.subject)
+    check(`${type} links to the membership page, never /app`, e.html.includes("https://storelib.com/account/library/memberships") && !/\/app\//.test(e.html) && !/[—–]/.test(e.text), e.subject)
   }
   const reminderA = membershipWorkflow(ev("membership.renewal_upcoming", "a", { ...base, periodEnd: "2026-10-28T00:00:00Z" }), ctx)?.jobs[0]
   const reminderB = membershipWorkflow(ev("membership.renewal_upcoming", "b", { ...base, periodEnd: "2026-11-28T00:00:00Z" }), ctx)?.jobs[0]
@@ -280,7 +280,7 @@ function main() {
     sender: { name: "Ana Lopez", brand: { ...DEFAULT_BRAND, name: "Ana Lopez" }, avatarUrl: "https://abc.supabase.co/storage/v1/object/public/avatars/ana.jpg" },
   })
   check("the title is escaped", mail.html.includes("Week 3 &lt;notes&gt;") && !mail.html.includes("<notes>"))
-  check("one button to the post on the membership page", mail.html.includes("https://storelib.com/library/memberships/m1#post-post1"))
+  check("one button to the post on the membership page", mail.html.includes("https://storelib.com/account/library/memberships/m1#post-post1"))
   check("files are named, never attached or linked", mail.html.includes("1 file attached") && !mail.html.includes("secret.pdf") && !mail.html.includes("/api/memberships/files"))
   check("the unsubscribe link turns off this membership's emails", mail.html.includes("/api/memberships/unsubscribe?t=") && mail.text.includes("/api/memberships/unsubscribe?t="))
   check("it says why it came", mail.html.includes("You are getting this because you are a member of Inner circle."))

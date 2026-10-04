@@ -23,7 +23,7 @@ export function ViewInLibraryButton({
 }: ViewInLibraryButtonProps) {
   const handleClick = () => {
     const canonical = getCanonicalSiteUrl()
-    window.location.assign(new URL("/library/my-downloads", canonical).toString())
+    window.location.assign(new URL("/account/library", canonical).toString())
   }
 
   return (

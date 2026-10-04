@@ -60,7 +60,7 @@ function page(state: "confirm" | "off" | "on" | "invalid" | "error", token: stri
     heading: words.heading,
     body: words.body,
     buttons: words.buttons,
-    link: { href: siteUrl("/library/memberships"), label: "Open your memberships" },
+    link: { href: siteUrl("/account/library/memberships"), label: "Open your memberships" },
   })
 }
 

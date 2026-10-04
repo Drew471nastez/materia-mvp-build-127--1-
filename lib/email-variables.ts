@@ -305,7 +305,7 @@ export function valuesFor(v: VariableValues, now: Date = new Date()): Record<Var
   const storeUrl = clean(v.store_url) || APP_ORIGIN
   const productUrl = clean(v.product_url) || storeUrl
   const orderUrl = clean(v.order_url)
-  const library = clean(v.library_url) || `${APP_ORIGIN}/library`
+  const library = clean(v.library_url) || `${APP_ORIGIN}/account/library`
   return {
     first_name: first,
     last_name: last,

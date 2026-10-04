@@ -112,7 +112,7 @@ export function WishlistButton({
   // canonical platform domain so the user lands on storelib.com/wishlist, not the
   // seller's subdomain /wishlist which doesn't exist there.
   const wishlistHref = (() => {
-    const basePath = userLoggedIn ? "/library/wishlist" : "/wishlist"
+    const basePath = userLoggedIn ? "/account/library/wishlist" : "/wishlist"
     if (typeof window !== "undefined" && extractUsernameFromHost(window.location.host)) {
       return `${getCanonicalSiteUrl()}${basePath}`
     }

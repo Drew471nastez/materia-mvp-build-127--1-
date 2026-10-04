@@ -17,6 +17,7 @@
  * measured in scripts/check-buyer-tab-bar.mjs; this is the wiring a browser
  * probe cannot see.
  */
+import { legacyLibraryTarget } from "../lib/library/paths"
 import { readFileSync, existsSync } from "node:fs"
 import { join } from "node:path"
 import {
@@ -41,12 +42,12 @@ const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\
 
 console.log("\nThe four tabs, in the owner's order")
 check("Home, Search, Library, Profile", BUYER_TABS.map((t) => t.label).join() === "Home,Search,Library,Profile", BUYER_TABS.map((t) => t.label))
-check("Home is Explore, Library the library, Profile the account page", BUYER_TABS[0].href === "/explore" && BUYER_TABS[2].href === "/library" && BUYER_TABS[3].href === "/account")
+check("Home is Explore, Library the library, Profile the account page", BUYER_TABS[0].href === "/explore" && BUYER_TABS[2].href === "/account/library" && BUYER_TABS[3].href === "/account")
 check("Search is a static screen under /explore, so no creator's handle is taken from them", SEARCH_HREF === "/explore/search" && !RESERVED_ROOT_SEGMENTS.includes("search") && existsSync(join(process.cwd(), "app/(marketing)/explore/search/page.tsx")))
 check("signed out, Profile is sign in and then the account page", SIGNED_OUT_PROFILE_HREF === "/login?next=%2Faccount")
 
 console.log("\nWhere it is drawn")
-const on = ["/explore", "/explore/design", SEARCH_HREF, "/library", "/library/products/abc", "/library/wishlist", "/library/my-downloads", "/account", "/wishlist"]
+const on = ["/explore", "/explore/design", SEARCH_HREF, "/account/library", "/account/library/products/abc", "/account/library/wishlist", "/account/communities", "/account", "/wishlist"]
 for (const p of on) check(`on ${p}`, buyerTabsBelongOn(p))
 const off = ["/", "/app", "/app/products", "/admin", "/checkout", "/checkout/abc", "/login", "/signup", "/reset-password", "/receipt/tok", "/purchase/x", "/creator-page", "/website-builder", "/blog", "/pricing", "/sell", "/account/continue", "/w/someone"]
 for (const p of off) check(`not on ${p}`, !buyerTabsBelongOn(p))
@@ -56,10 +57,10 @@ check("two tabs when marketplace is off", buyerTabsForMarketplace(false).map((t)
 for (const p of ["/explore", "/explore/design", SEARCH_HREF, "/wishlist"]) {
   check(`not on ${p} when discover is off`, !buyerTabsBelongOn(p, { exploreMarketplaceEnabled: false }))
 }
-for (const p of ["/library", "/library/wishlist", "/account"]) {
+for (const p of ["/account/library", "/account/library/wishlist", "/account"]) {
   check(`still on ${p} when discover is off`, buyerTabsBelongOn(p, { exploreMarketplaceEnabled: false }))
 }
-check("/library is tab 0 and /account is tab 1 when discover is off", buyerTabFor("/library", { exploreMarketplaceEnabled: false }) === 0 && buyerTabFor("/account", { exploreMarketplaceEnabled: false }) === 1)
+check("/account/library is tab 0 and /account is tab 1 when discover is off", buyerTabFor("/account/library", { exploreMarketplaceEnabled: false }) === 0 && buyerTabFor("/account/library/courses", { exploreMarketplaceEnabled: false }) === 0 && buyerTabFor("/account", { exploreMarketplaceEnabled: false }) === 1)
 /*
   A CREATOR'S PRODUCT HAS NO BAR; THEIR PAGE DOES. The bar came off both,
   because on a product the page's own buy bar already stands at the foot and
@@ -85,8 +86,10 @@ const cases: Array<[string, { query?: boolean; sellerSurface?: boolean }, number
   ["/explore/design", {}, 0],
   ["/explore", { query: true }, 1],
   [SEARCH_HREF, {}, 1],
-  ["/library", {}, 2],
-  ["/library/wishlist", {}, 2],
+  ["/account/library", {}, 2],
+  ["/account/library/wishlist", {}, 2],
+  ["/account/library/products/abc", {}, 2],
+  ["/account/communities", {}, 3],
   ["/wishlist", {}, 2],
   ["/account", {}, 3],
   ["/maria/preset-pack", { sellerSurface: true }, 0],
@@ -143,7 +146,8 @@ check("it brings its own room at the end of the page", /data-buyer-tabs-room="" 
 const buy = read("components/store-builder/sticky-add-to-cart.tsx")
 check("the product page's buy bar stands on it, and hands it the home indicator", /bottom: "var\(--buyer-tabs-h, 0px\)"/.test(buy) && /paddingBottom: "max\(0px, env\(safe-area-inset-bottom, 0px\) - var\(--buyer-tabs-h, 0px\)\)"/.test(buy))
 check("the cookie card lifts over it", /html\[data-buyer-tabs="shown"\] \[data-cookie-banner\] \{\s*bottom: var\(--buyer-tabs-h\);/.test(css))
-for (const layout of ["app/(marketing)/layout.tsx", "app/library/layout.tsx", "app/account/layout.tsx"]) {
+/* The library lives inside the profile now, so the profile's layout is the one that mounts it there. */
+for (const layout of ["app/(marketing)/layout.tsx", "app/account/layout.tsx"]) {
   check(`${layout} mounts it`, /<BuyerTabBar \/>/.test(read(layout)) && /from "@\/components\/nav\/buyer-tab-bar"/.test(read(layout)))
 }
 check("and the /app shell does not", !/BuyerTabBar/.test(read("app/app/layout.tsx")))
@@ -195,24 +199,22 @@ check("the page under it holds still while it is open", /el\.style\.setProperty\
 
 console.log("\nThe account page: a profile, with its settings one tab over (tests/account-hub.test.ts has the rest)")
 const account = code("components/account/account-settings.tsx")
-const overview = code("components/account/account-overview.tsx")
 const route = code("app/account/settings/page.tsx")
 const home = code("app/account/page.tsx")
 const layout = code("app/account/layout.tsx")
 check("signed out it is sign in first, then back to the page that was opened", /pageUser\(accountLoginPath\("\/account"\)\)/.test(home) && /pageUser\(accountLoginPath\("\/account\/settings"\)\)/.test(route) && !/redirect\(/.test(layout))
 check("the native app's session is recovered before it decides, as the library's is", /<NativeAuthGate requireAuth/.test(layout))
-check("/account has nothing to type: no photo control, no name field", !/<ProfilePhoto\b|<input\b/.test(overview) && !/<ProfilePhoto\b|<input\b/.test(home))
+check("/account has nothing to type: no photo control, no name field", !/<ProfilePhoto\b|<input\b/.test(home) && !/<input\b/.test(code("components/account/account-hub.tsx")))
 check("the photo is changed on Settings' own one photo, through the one photo route", /<AccountAvatar src=\{shown\} name=\{name\} photo=\{photo\} editable/.test(account) && /fetch\("\/api\/account\/avatar"/.test(code("components/account/account-photo.tsx")))
 check("the name and the bio save on the person's own client and their copies follow", /\.from\("profiles"\)\.update\(patch\)\.eq\("id", userId\)/.test(account) && /patch\.bio = nextBio \|\| null/.test(account) && /\/api\/account\/profile-changed/.test(account))
 check("the email changes with a code to each address", /<EmailChangeFlow\b/.test(account))
 check("the password is Settings' card, which can set one on a Google or Apple only account", /<PasswordCard email=\{email\} hasPassword=\{hasPassword\} via=\{via\} \/>/.test(account) && /const hasPassword = providers\.length === 0 \|\| providers\.includes\("email"\)/.test(route))
 check("preferences: language, the newsletter, recommendations, saved where they are read", /<LanguageModal\b/.test(account) && /savePreference\(\{ newsletter: v \}\)/.test(account) && /savePreference\(\{ personalizedRecommendations: v \}\)/.test(account))
-check("the wishlist counts only what is still on sale", /\.eq\("products\.status", "published"\)/.test(home))
-check("Become a seller goes to /sell; a seller gets Dashboard", /href: "\/sell"/.test(read("lib/account/overview.ts")) && /href: "\/app"/.test(read("lib/account/overview.ts")) && /<SellRow entry=\{selling\} \/>/.test(overview) && /sellerAccessForRequest\(user\.id\)/.test(home))
+check("the wishlist counts only what is still on sale", /\.eq\("products\.status", "published"\)/.test(code("app/account/library/page.tsx")))
 check("log out here or everywhere, and the header forgets the session at once", /signOut\(\{ scope \}\)/.test(account) && /clearAuthSnapshot\(\)/.test(account))
 check("deleting is the existing flow: a code, then the code", /action: "send-code"/.test(account) && /action: "verify", code/.test(account))
-check("no em dashes in what a person reads", ["components/account/account-settings.tsx", "components/account/account-overview.tsx", "components/account/account-hub.tsx", "components/nav/buyer-tab-bar.tsx", "components/nav/buyer-tab-icons.tsx", "components/search/search-screen.tsx", "components/search/search-overlay.tsx"].every((f) => !/\u2014/.test(read(f))))
-check("/library/settings is the profile's Settings now", /permanentRedirect\("\/account\/settings"\)/.test(read("app/library/settings/page.tsx")) && !existsSync(join(process.cwd(), "app/library/settings/buyer-settings.tsx")))
+check("no em dashes in what a person reads", ["components/account/account-settings.tsx", "components/account/account-hub.tsx", "components/nav/buyer-tab-bar.tsx", "components/nav/buyer-tab-icons.tsx", "components/search/search-screen.tsx", "components/search/search-overlay.tsx"].every((f) => !/\u2014/.test(read(f))))
+check("/library/settings is the profile's Settings now", legacyLibraryTarget("/library/settings") === "/account/settings" && !existsSync(join(process.cwd(), "app/library/settings")))
 
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) process.exit(1)

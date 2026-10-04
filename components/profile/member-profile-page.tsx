@@ -11,11 +11,15 @@
  *                the bio, then followers / following and the buttons:
  *                Follow, and Message where the two of them share a
  *                community that allows it.
- *   YOUR OWN     instead of Follow, the pills to your own places: Library,
- *                Courses, Communities, Edit profile, Settings.
+ *   YOUR OWN     the same page /account is (components/account/account-
+ *                hub.tsx): instead of Follow, the pills to your own places
+ *                (Activity, Communities, Library, Edit profile, Settings)
+ *                and your activity under them.
  *   THE TABS     the creator page's own underline tabs (StorefrontTabs):
  *                Activity, Communities, and Products only for somebody
- *                with a live store. A single tab draws no tab bar.
+ *                with a live store. A single tab draws no tab bar. When the
+ *                viewer shares a community with them, Activity opens with
+ *                "In <community>": their posts there, six at a time.
  *
  * Every number is a count of real rows; nothing is shown that the person
  * chose to hide (their activity, the communities they are in), except to
@@ -24,8 +28,6 @@
 import Link from "next/link"
 import Image from "next/image"
 import { ArrowRight } from "lucide-react"
-import { AppAvatar } from "@/components/app/app-avatar"
-import { AvatarLightbox } from "@/components/storefront/avatar-lightbox"
 import { StorefrontTabs, type StorefrontTab } from "@/components/storefront/storefront-tabs"
 import { CommunityCardTile } from "@/components/community/public/community-card"
 import { secondaryDepth } from "@/components/ui/depth-button"
@@ -34,10 +36,12 @@ import type { CommunityCard } from "@/lib/communities/types"
 import { listPrice } from "@/lib/pricing/list-price"
 import { getProductUrl, getStoreInternalPath } from "@/lib/url-helpers"
 import { cn } from "@/lib/utils"
+import type { SharedCommunity, SharedPostsPage } from "@/lib/profile/shared-view"
 import { ProfileActivity, type ActivityItemView } from "./profile-activity"
-import { ProfileBackBar } from "./profile-back-bar"
+import { ProfileHero } from "./profile-hero"
 import { ProfileOwnerPills } from "./profile-owner-pills"
-import { ProfileSocial } from "./profile-social"
+import { ProfileTopBar } from "./profile-top-bar"
+import { SharedCommunityPosts } from "./shared-community-posts"
 
 const CARD_SHADOW = "rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
 
@@ -45,6 +49,8 @@ export interface ProfilePageExtras {
   messageHref: string | null
   activity: { items: ActivityItemView[]; next: string | null; hidden: boolean }
   communities: { enabled: boolean; owned: CommunityCard[]; member: CommunityCard[] }
+  /** The communities the viewer shares with them, each with the first page of their posts there. */
+  shared?: { community: SharedCommunity; page: SharedPostsPage }[]
   backShown: boolean
   now: number
 }
@@ -136,26 +142,40 @@ export function MemberProfilePage({ profile, viewerId, viewerFollowing, extras }
   const first = profile.name.split(/\s+/)[0] || profile.name
   const { activity, communities } = extras
   const showMemberships = profile.privacy.showCommunities || isSelf
+  const shared = extras.shared ?? []
 
-  const tabs: StorefrontTab[] = []
-  tabs.push({
-    id: "activity",
-    label: "Activity",
-    panel: activity.hidden && !isSelf ? (
-      <p className="mx-auto max-w-[680px] rounded-2xl border border-dashed border-[#e5e7eb] px-6 py-10 text-center text-[14px] text-[#6b7280]" data-profile-activity-hidden="">
-        {first} keeps their activity private.
-      </p>
-    ) : (
-      <ProfileActivity
-        userId={profile.userId}
-        initial={activity.items}
-        initialNext={activity.next}
-        now={extras.now}
-        hiddenNote={isSelf && activity.hidden ? <OnlyYouNote>Only you can see your activity.</OnlyYouNote> : undefined}
-        emptyText={isSelf ? "Nothing here yet. Join a community or review something you bought and it shows up here." : "No public activity yet."}
-      />
-    ),
-  })
+  const activityPanel = (
+    <ProfileActivity
+      userId={profile.userId}
+      initial={activity.hidden && !isSelf ? [] : activity.items}
+      initialNext={activity.hidden && !isSelf ? null : activity.next}
+      now={extras.now}
+      /* Their posts where you both are come first, whether or not the rest is public: you can read them in the community anyway. */
+      lead={
+        shared.length ? (
+          <>
+            {shared.map((s) => (
+              <SharedCommunityPosts key={s.community.id} userId={profile.userId} community={s.community} initial={s.page} now={extras.now} firstName={first} />
+            ))}
+          </>
+        ) : undefined
+      }
+      hiddenNote={
+        isSelf && activity.hidden ? (
+          <OnlyYouNote>Only you can see your activity.</OnlyYouNote>
+        ) : activity.hidden ? (
+          <p className="mb-3 rounded-xl bg-[#f1f2f4] px-4 py-2.5 text-center text-[13px] leading-[1.45] text-[#4b5563]" data-profile-activity-hidden="">
+            {first} keeps the rest of their activity private.
+          </p>
+        ) : undefined
+      }
+      /* A hidden list still ends on the day they joined, which their profile says anyway. */
+      joinedAt={profile.joinedAt}
+      emptyText={isSelf ? "Nothing here yet. Join a community or review something you bought and it shows up here." : "No public activity yet."}
+    />
+  )
+
+  const tabs: StorefrontTab[] = [{ id: "activity", label: "Activity", panel: activityPanel }]
   const memberCards = showMemberships ? communities.member : []
   if (communities.enabled && (communities.owned.length > 0 || memberCards.length > 0 || isSelf)) {
     const both = communities.owned.length > 0 && memberCards.length > 0
@@ -184,69 +204,42 @@ export function MemberProfilePage({ profile, viewerId, viewerFollowing, extras }
   }
 
   return (
-    <div className="mx-auto w-full max-w-[960px] pb-12" data-member-profile="" data-profile-self={isSelf ? "true" : "false"}>
-      <ProfileBackBar initiallyShown={extras.backShown} />
+    <div className="pb-12" data-member-profile="" data-profile-self={isSelf ? "true" : "false"}>
+      {/* The way back, in a bar of its own next to the person, when they came from a community, Explore or search. */}
+      <ProfileTopBar initiallyShown={extras.backShown} name={profile.name} avatarUrl={profile.avatarUrl} />
 
-      {/* The band and the photo across its lower edge, as a creator page opens. */}
-      <div className="relative overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-[#eceef1]" data-profile-cover="">
-        <div className="relative h-[112px] sm:h-[168px]">
-          {profile.coverUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={profile.coverUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
-          ) : (
-            <div aria-hidden className="absolute inset-0 bg-[radial-gradient(120%_140%_at_50%_0%,#f4f5f7_0%,#e7e9ed_100%)]" />
-          )}
-        </div>
-      </div>
-
-      <header className="relative -mt-[56px] flex flex-col items-center px-2 text-center sm:-mt-[64px]" data-profile-header="">
-        <AvatarLightbox src={profile.avatarUrl} name={profile.name}>
-          <AppAvatar
-            src={profile.avatarUrl}
-            name={profile.name}
-            size={128}
-            sizedByClass
-            className="h-[112px] w-[112px] cursor-zoom-in shadow-[0_1px_2px_rgba(16,24,40,0.08),0_8px_20px_-10px_rgba(16,24,40,0.32)] ring-4 ring-[#f8f9fa] sm:h-[128px] sm:w-[128px]"
-          />
-        </AvatarLightbox>
-        <h1 className="mt-3 line-clamp-2 max-w-full text-[22px] font-bold leading-[1.2] tracking-[-0.015em] text-[#1a1a2e] [overflow-wrap:anywhere] sm:text-[26px]" data-profile-name="">
-          {profile.name}
-        </h1>
-        <p className="mt-1 max-w-full text-[13px] leading-[1.45] text-[#6b7280] [overflow-wrap:anywhere]">
-          <span className="text-[#4b5563]" data-profile-handle="">
-            @{profile.username}
-          </span>
-          {profile.memberSince ? (
-            <>
-              <span aria-hidden className="px-1.5 text-[#c4c8cf]">
-                ·
-              </span>
-              Joined {profile.memberSince}
-            </>
-          ) : null}
-        </p>
-        {profile.bio ? (
-          <p className="mt-2.5 max-w-[520px] whitespace-pre-line text-[14px] leading-[1.5] text-[#374151] [overflow-wrap:anywhere] sm:text-[15px]" data-profile-bio="">
-            {profile.bio}
-          </p>
-        ) : null}
-
-        <ProfileSocial
-          className="mt-2 w-full"
-          userId={profile.userId}
-          name={profile.name}
-          followers={profile.followers}
-          following={profile.following}
+      <div className="mx-auto w-full max-w-[960px] px-4 pt-4 sm:px-6 sm:pt-6 lg:px-0">
+        <ProfileHero
+          person={{
+            userId: profile.userId,
+            name: profile.name,
+            username: profile.username,
+            avatarUrl: profile.avatarUrl,
+            coverUrl: profile.coverUrl,
+            bio: profile.bio,
+            memberSince: profile.memberSince,
+            followers: profile.followers,
+            following: profile.following,
+          }}
           viewerFollowing={viewerFollowing}
           signedIn={!!viewerId}
           isSelf={isSelf}
           messageHref={extras.messageHref}
         />
-        {isSelf ? <ProfileOwnerPills communities={communities.enabled} className="mt-3 w-full" /> : null}
-      </header>
 
-      <div className="mt-6 sm:mt-8" data-profile-tabs="">
-        <StorefrontTabs tabs={tabs} />
+        {isSelf ? (
+          /* Your own page is /account's page: the pills to your places, and your activity under them. */
+          <>
+            <ProfileOwnerPills communities={communities.enabled} active="activity" className="mt-3" />
+            <div className="mt-6 sm:mt-8" data-profile-tabs="">
+              {activityPanel}
+            </div>
+          </>
+        ) : (
+          <div className="mt-6 sm:mt-8" data-profile-tabs="">
+            <StorefrontTabs tabs={tabs} />
+          </div>
+        )}
       </div>
     </div>
   )

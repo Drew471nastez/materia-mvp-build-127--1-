@@ -596,7 +596,7 @@ function main() {
      * two siblings in a Server Component cannot share state.
      */
     check("only the owner sees the pencil", /viewerIsOwner \? \(/.test(page) && page.includes("<LiveSubscribeBar"))
-    check("and a visitor gets the plain bar", /\) : \(\s*<SubscribeBar settings=/.test(page))
+    check("and a visitor gets the plain bar", /\) : \(\s*<SubscribeBar\s+settings=/.test(page))
     /**
      * The bar generates its own sentence from a preset when nothing is
      * stored, so seeding the dialog from the raw value would open two empty
@@ -1214,7 +1214,7 @@ function main() {
      * that frames us.
      */
     check("the live bar is only mounted for the owner", /viewerIsOwner \? \(/.test(page) && page.includes("<LiveSubscribeBar"))
-    check("a visitor gets the plain bar", /<SubscribeBar settings=/.test(page))
+    check("a visitor gets the plain bar", /<SubscribeBar\s+settings=/.test(page))
     check("the listener refuses another origin", live.includes("event.origin !== window.location.origin"))
     check("and any window that is not the one framing us", live.includes("event.source !== window.parent"))
     check("an unframed page never listens at all", live.includes("window.parent === window"))
@@ -2333,7 +2333,7 @@ function main() {
     check("an internal link on the web is a link Next knows about", /<Link\s+href=\{internalPath\}/.test(link))
     check("and it is the origin that decides, not a leading slash",
       /const internalPath = toSameOriginPath\(resolvedHref\)/.test(link))
-    check("and the routes that must reload still do", /useClientNav === false \|\|/.test(link) && /startsWith\("\/library"\)/.test(link))
+    check("and the routes that must reload still do", /useClientNav === false \|\|/.test(link) && /startsWith\("\/account\/library"\)/.test(link))
     /*
       AND THE PRODUCT PAGE HAS NO SKELETON, WHICH IS THE OPPOSITE OF WHAT THIS
       LINE USED TO ASSERT.

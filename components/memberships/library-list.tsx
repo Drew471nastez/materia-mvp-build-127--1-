@@ -35,7 +35,7 @@ function Row({ card }: { card: MembershipCard }) {
   return (
     <li>
       <Link
-        href={`/library/memberships/${card.id}`}
+        href={`/account/library/memberships/${card.id}`}
         data-membership-row={card.id}
         className={cn(
           "group/row flex items-center gap-3.5 rounded-2xl border border-[#e5e7eb]/70 bg-white px-3.5 py-3.5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] outline-none transition-[border-color,box-shadow] duration-150 hover:border-[#d9dce1] hover:shadow-[0_2px_8px_rgba(0,0,0,0.05)] focus-visible:ring-2 focus-visible:ring-[#8b5cf6] sm:gap-4 sm:px-5 sm:py-4",

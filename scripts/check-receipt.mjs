@@ -433,7 +433,7 @@ try {
         const contact = await page.evaluate(() => [...document.querySelectorAll("[data-receipt-contact] button")].find((b) => /Contact seller/.test(b.textContent || ""))?.getBoundingClientRect().height ?? 0)
         expect(contact >= 36, "Contact seller is there and easy to press", String(contact))
         if (!SIGNED_OUT.has(which) && which !== "refunded") {
-          const lib = await page.$("a[href='/library']")
+          const lib = await page.$("a[href='/account/library']")
           if (lib) {
             const before = await page.evaluate((a) => ({ shadow: getComputedStyle(a).boxShadow, arrow: a.querySelector("[data-arrow]")?.getBoundingClientRect().left ?? 0 }), lib)
             await lib.hover()

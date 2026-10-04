@@ -34,7 +34,7 @@
 export const BUYER_TABS = [
   { key: "home", label: "Home", href: "/explore" },
   { key: "search", label: "Search", href: "/explore/search" },
-  { key: "library", label: "Library", href: "/library" },
+  { key: "library", label: "Library", href: "/account/library" },
   { key: "profile", label: "Profile", href: "/account" },
 ] as const
 
@@ -58,7 +58,7 @@ const under = (pathname: string, base: string) => pathname === base || pathname.
 export function isBuyerPath(pathname: string, exploreMarketplaceEnabled = true): boolean {
   return (
     (exploreMarketplaceEnabled && under(pathname, "/explore")) ||
-    under(pathname, "/library") ||
+    under(pathname, "/account/library") ||
     under(pathname, "/account") ||
     (exploreMarketplaceEnabled && under(pathname, "/wishlist"))
   )
@@ -118,13 +118,13 @@ export function buyerTabFor(
   if (exploreOn) {
     if (under(pathname, SEARCH_HREF)) return 1
     if (under(pathname, "/explore")) return where.query ? 1 : 0
-    if (under(pathname, "/library") || under(pathname, "/wishlist")) return 2
+    if (under(pathname, "/account/library") || under(pathname, "/wishlist")) return 2
     if (under(pathname, "/account")) return 3
     if (where.sellerSurface) return 0
     return -1
   }
 
-  if (under(pathname, "/library") || under(pathname, "/wishlist")) return idx("library")
+  if (under(pathname, "/account/library") || under(pathname, "/wishlist")) return idx("library")
   if (under(pathname, "/account")) return idx("profile")
   return -1
 }

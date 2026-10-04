@@ -91,7 +91,7 @@ check("a routable link renders next/link", /if \(internalPath && !needsHardNav\)
 /* The builders and /app are a different layout and auth context. */
 check(
   "the builders and the app still reload",
-  /internalPath\.startsWith\("\/app"\)/.test(source) && /internalPath\.startsWith\("\/library"\)/.test(source),
+  /internalPath\.startsWith\("\/app"\)/.test(source) && /internalPath\.startsWith\("\/account\/library"\)/.test(source),
 )
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

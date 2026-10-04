@@ -210,7 +210,7 @@ export async function loadReceiptByToken(admin: SupabaseClient, token: string): 
       refundedCents: money.refundedCents,
       refundedAt: (r.refunded_at as string) ?? null,
       files,
-      courseHref: state === "open" && type === "course" ? `/library/courses/${r.product_id}` : null,
+      courseHref: state === "open" && type === "course" ? `/account/library/courses/${r.product_id}` : null,
       priceInterval: type === "membership" ? intervals.get(r.id) ?? "month" : null,
       refundPolicy: refundPolicyOf(policies.get(r.product_id)),
     }

@@ -170,7 +170,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     /* ── IDLE ── */
     await sleep(1200)
     const warm = await p.evaluate(() => (window.__router || []).filter(([k]) => k === "prefetch").map(([, h]) => h))
-    expect(warm.includes("/library") && warm.some((h) => h.startsWith("/login")) && !warm.includes("/explore") && !warm.some((h) => /search/.test(h)), "IDLE: the other tabs' pages are prefetched while the phone is idle (not this page, not Search)", warm)
+    expect(warm.includes("/account/library") && warm.some((h) => h.startsWith("/login")) && !warm.includes("/explore") && !warm.some((h) => /search/.test(h)), "IDLE: the other tabs' pages are prefetched while the phone is idle (not this page, not Search)", warm)
 
     /* ── ROOM ── */
     await p.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
@@ -234,8 +234,8 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     await shotBar(p, "phone-release-library.png")
     const after = await barState(p)
     const log = await p.evaluate(() => window.__router)
-    expect(log.some(([k, h]) => k === "push" && h === "/library"), "the press opens the library", log)
-    expect(log.some(([k, h]) => k === "prefetch" && h === "/library"), "and asked for it the moment the finger landed", log.filter(([k]) => k === "prefetch"))
+    expect(log.some(([k, h]) => k === "push" && h === "/account/library"), "the press opens the library", log)
+    expect(log.some(([k, h]) => k === "prefetch" && h === "/account/library"), "and asked for it the moment the finger landed", log.filter(([k]) => k === "prefetch"))
 
     expect(after.current === 2 && after.inks[2] === 1 && after.inks[0] === 0 && alpha(after.lens.bg) === 0, "the page arrives, Library fills, and the glass is gone", { current: after.current, inks: after.inks, alpha: alpha(after.lens.bg) })
     await shotBar(p, "phone-rest-library.png")

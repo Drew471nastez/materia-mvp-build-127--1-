@@ -37,7 +37,7 @@ export const APP_PAGES: readonly AppPage[] = [
   { label: "Emails", href: "/app/emails", group: "Pages", words: "subscribers contacts campaigns newsletter automations" },
   { label: "Payouts", href: "/app/payouts", group: "Pages", words: "revenue transactions balance money" },
   { label: "Explore", href: "/explore", group: "Pages", words: "discover" },
-  { label: "Library", href: "/library", group: "Pages", words: "purchases" },
+  { label: "Library", href: "/account/library", group: "Pages", words: "purchases" },
   { label: "Help", href: "/help", group: "Pages", words: "support questions" },
   { label: "Settings", href: "/app/settings", group: "Settings", words: "profile account" },
   { label: "Payments", href: "/app/settings/payments", group: "Settings", words: "stripe paypal connect" },

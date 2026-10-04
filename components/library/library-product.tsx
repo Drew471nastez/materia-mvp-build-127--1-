@@ -98,7 +98,7 @@ export function LibraryProduct({ data }: { data: LibraryProductData }) {
       */}
       <div className="-mt-1 mb-2 flex h-11 items-center">
         <ReturnLink
-          href="/library"
+          href="/account/library"
           data-library-back=""
           className="group/back -ml-1 inline-flex h-11 items-center rounded-full pl-1 pr-2 outline-none [-webkit-tap-highlight-color:transparent] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15"
         >

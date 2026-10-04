@@ -133,7 +133,7 @@ export function mergeValues(input: MergeInput): MergeValues {
     product_url: productUrl,
     order_number: orderNumberOf(input.orderId),
     order_url: orderUrl || productUrl,
-    download_url: orderUrl || `${APP_ORIGIN}/library`,
+    download_url: orderUrl || `${APP_ORIGIN}/account/library`,
     review_url: orderUrl ? `${orderUrl}#review` : productUrl,
     checkout_url: input.checkoutUrl || productUrl,
     unsubscribe_url: input.unsubscribeUrl || "",

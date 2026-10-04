@@ -553,7 +553,7 @@ export function LiveStickyAddToCart({
     if (inEditorFrame) return
     if (isPurchased) {
       if (isMembership) {
-        window.location.assign(new URL("/library/memberships", getCanonicalSiteUrl()).toString())
+        window.location.assign(new URL("/account/library/memberships", getCanonicalSiteUrl()).toString())
         return
       }
       if (downloadFiles.length > 1) {
@@ -565,7 +565,7 @@ export function LiveStickyAddToCart({
         return
       }
       const canonical = getCanonicalSiteUrl()
-      window.location.assign(new URL("/library/my-downloads", canonical).toString())
+      window.location.assign(new URL("/account/library", canonical).toString())
       return
     }
 

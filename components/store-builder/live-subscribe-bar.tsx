@@ -88,9 +88,12 @@ export function LiveSubscribeBar({
   settings,
   creatorId,
   editor,
+  leading,
 }: {
   settings: React.ComponentProps<typeof SubscribeBar>["settings"]
   creatorId: string
+  /** The way back before the photo, as SubscribeBar takes it. */
+  leading?: React.ReactNode
   /**
    * THE PENCIL LIVES HERE, not beside this in the page.
    *
@@ -147,7 +150,7 @@ export function LiveSubscribeBar({
       } as typeof settings)
     : settings
 
-  if (!editor) return <SubscribeBar settings={merged} creatorId={creatorId} />
+  if (!editor) return <SubscribeBar settings={merged} creatorId={creatorId} leading={leading} />
 
   /*
     THE PENCIL GOES IN THE BAR, not over a wrapper around it.
@@ -159,6 +162,7 @@ export function LiveSubscribeBar({
   */
   return (
     <SubscribeBar
+      leading={leading}
       settings={merged}
       creatorId={creatorId}
       ownerAction={

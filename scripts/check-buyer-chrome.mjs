@@ -314,7 +314,7 @@ try {
       expect(errors.length === 0, `${tag} no errors`, errors)
       await p.close()
     }
-    for (const path of ["/library", "/account", "/account/settings"]) {
+    for (const path of ["/account/library", "/account", "/account/settings"]) {
       const { p, errors } = await open(PHONE(width), path, "buyer")
       const own = path.startsWith("/account")
       const s = await p.evaluate(READ)
@@ -356,7 +356,7 @@ try {
 
   /* ── A COMPUTER ────────────────────────────────────────────────────────── */
   if (only("desktop")) console.log("\ndesktop 1280")
-  if (only("desktop")) for (const [path, who, footer] of [["/explore", "buyer", false], ["/explore", "guest", true], ["/library", "buyer", false], ["/account", "buyer", false], ["/account/settings", "buyer", false], ["/", "buyer", true], ["/", "guest", true]]) {
+  if (only("desktop")) for (const [path, who, footer] of [["/explore", "buyer", false], ["/explore", "guest", true], ["/account/library", "buyer", false], ["/account", "buyer", false], ["/account/settings", "buyer", false], ["/", "buyer", true], ["/", "guest", true]]) {
     const { p, errors } = await open(DESK, path, who)
     await p.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
     await sleep(300)
@@ -386,7 +386,7 @@ try {
   /* ── ICONS AT 1x, 2x, 3x ───────────────────────────────────────────────── */
   if (only("icons")) console.log("\nthe tab bar's icons")
   if (only("icons")) for (const dpr of [1, 2, 3]) {
-    for (const [address, tab] of [["/explore", 0], ["/explore?q=drum", 1], ["/library", 2], ["/account", 3]]) {
+    for (const [address, tab] of [["/explore", 0], ["/explore?q=drum", 1], ["/account/library", 2], ["/account", 3]]) {
       const { p } = await open(PHONE(390, dpr), address, "buyer")
       const s = await p.evaluate(() => {
         const tabs = [...document.querySelectorAll("[data-buyer-tab]")]

@@ -27,7 +27,7 @@ const under = (pathname: string, base: string) => pathname === base || pathname.
 
 /** Storelib's own pages the footer is never on, whoever is looking. */
 export function isFooterlessPage(pathname: string): boolean {
-  return under(pathname, "/library") || under(pathname, "/account") || under(pathname, "/explore/search")
+  return under(pathname, "/account/library") || under(pathname, "/account") || under(pathname, "/explore/search")
 }
 
 /** Pages that are a front door when signed out and a place to shop when signed in. */

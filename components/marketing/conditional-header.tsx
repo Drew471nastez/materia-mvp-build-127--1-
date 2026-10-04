@@ -54,7 +54,7 @@ function isKnownPlatformPath(p: string): boolean {
     /* /library draws this header now: it used to have a sidebar of its own
        that doubled as its header on a phone. Without this it is not a known
        platform path, so the header would not render there at all. */
-    p.startsWith("/library") ||
+    p.startsWith("/account/library") ||
     /* THE BUYER'S PROFILE, /account and its subpages. It mounted this
        header exactly as /library does and still drew none, because it was
        not on this list. Not /account/continue, which is a redirect and never

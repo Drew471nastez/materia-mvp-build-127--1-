@@ -38,6 +38,13 @@ interface SubscribeBarProps {
    * row happens to be.
    */
   ownerAction?: React.ReactNode
+  /**
+   * THE WAY BACK, BEFORE THE CREATOR'S PHOTO. A creator page opened from a
+   * community, Explore or search puts its back chevron here, at the start
+   * of the bar next to the avatar (components/profile/profile-top-bar.tsx
+   * TopBarBack), rather than as a pill under the bar.
+   */
+  leading?: React.ReactNode
 }
 
 /** Compute if a hex background is "dark" */
@@ -156,7 +163,7 @@ function getPlaceholderStyle(placeholderColor?: string): string {
  * Live subscribe bar component used on public pages
  * Uses FIXED positioning when sticky is enabled
  */
-export function SubscribeBar({ settings, creatorId, onSubmit, ownerAction }: SubscribeBarProps) {
+export function SubscribeBar({ settings, creatorId, onSubmit, ownerAction, leading }: SubscribeBarProps) {
   const [email, setEmail] = useState("")
   const [loading, setLoading] = useState(false)
   const [subscribed, setSubscribed] = useState(false)
@@ -515,7 +522,9 @@ export function SubscribeBar({ settings, creatorId, onSubmit, ownerAction }: Sub
 
       {/* MOBILE */}
       <div className="sm:hidden flex flex-col items-center gap-2">
+        {/* The way back, when there is one, sits right before the photo; it draws nothing otherwise, so the row stays centred. */}
         <div className="flex items-center gap-1.5 justify-center">
+          {leading}
           {mobileAvatar}
           <p className="text-xs font-medium">{displayText}</p>
           {/* On a phone the row is already the whole width; the pencil is the
@@ -560,6 +569,7 @@ export function SubscribeBar({ settings, creatorId, onSubmit, ownerAction }: Sub
       {/* DESKTOP */}
       <div className="hidden sm:flex items-center justify-between gap-4 max-w-[1150px] mx-auto">
         <div className="flex items-center gap-2 shrink-0">
+          {leading}
           {desktopAvatar}
           <p className="text-sm font-medium">{displayText}</p>
           {ownerAction}

@@ -1,5 +1,6 @@
 import { WishlistSkeleton } from "@/components/wishlist/wishlist-skeleton"
-import { COMMUNITIES_TAB, libraryTabs } from "./library-tab-list"
+import { isLibraryProduct, libraryTabs } from "./library-tab-list"
+import { LIBRARY_COURSES, LIBRARY_HOME, LIBRARY_MEMBERSHIPS, LIBRARY_RECEIPTS, LIBRARY_REVIEWS, LIBRARY_WISHLIST } from "@/lib/library/paths"
 
 export { WishlistSkeleton }
 
@@ -201,20 +202,21 @@ export function ProductDetailSkeleton() {
 }
 
 /**
- * The heading and the pills, still: what the stage draws above a screen's
- * shape on the way back from a product, so the row is where it will be
- * before the real one is. The same sizes as library-tabs.tsx draws.
+ * The pills, still: what the stage draws above a screen's shape when the
+ * row is not on the screen yet, so it is where it will be before the real
+ * one is. The same sizes as library-tabs.tsx draws. No "Library" heading
+ * over them any more: the library is a pill of the profile now, and the
+ * profile's own Library pill above says where this is.
  */
-export function TabsHeaderStill({ active, communities = active === COMMUNITIES_TAB.href }: { active: string; communities?: boolean }) {
+export function TabsHeaderStill({ active }: { active: string }) {
   return (
     <div className="mb-5 sm:mb-6" aria-hidden>
-      <div className="text-[24px] font-bold tracking-[-0.01em] text-[#1a1a2e] sm:text-[28px]">Library</div>
-      <div className="-mx-4 mt-3 overflow-hidden px-4 py-0.5 sm:mx-0 sm:mt-4 sm:px-0">
+      <div className="-mx-4 overflow-hidden px-4 py-0.5 sm:mx-0 sm:px-0">
         <div className="flex w-max items-center gap-2">
-          {libraryTabs(communities).map((t) => (
+          {libraryTabs().map((t) => (
             <span
               key={t.href}
-              className={`inline-flex h-9 items-center justify-center rounded-full border px-4 text-[13px] font-medium ${
+              className={`inline-flex h-10 items-center justify-center rounded-full border px-4 text-[13px] font-medium sm:h-9 ${
                 t.href === active
                   ? "border-[#d7dadf] bg-[#e2e4e8] text-[#1a1a2e] shadow-[inset_0_1px_1.5px_rgba(15,23,42,0.07),inset_0_-1px_0_rgba(255,255,255,0.45)]"
                   : "border-[#e4e7ec] bg-white text-[#6b7280]"
@@ -231,15 +233,13 @@ export function TabsHeaderStill({ active, communities = active === COMMUNITIES_T
 
 /** The shape of whatever is at `path`, or null for a screen that has none of its own here. */
 export function skeletonFor(path: string, still = false): React.ReactNode {
-  if (path === "/library") return <ListSkeleton still={still} />
+  if (path === LIBRARY_HOME) return <ListSkeleton still={still} />
   /* Empty-card shape while the stage waits: matches the common empty tab and avoids a list→empty jump. */
-  if (path === "/library/courses") return <CoursesSkeleton empty={still} still={still} />
-  if (path === "/library/memberships") return <MembershipsSkeleton still={still} />
-  /* Communities are rows of the same shape as memberships (components/community/public/library-list.tsx). */
-  if (path === COMMUNITIES_TAB.href) return <MembershipsSkeleton still={still} />
-  if (path === "/library/reviews") return <RowsSkeleton rows={3} sections={2} still={still} />
-  if (path === "/library/receipts") return <RowsSkeleton rows={4} still={still} />
-  if (path === "/library/wishlist") return <WishlistSkeleton still={still} />
-  if (/^\/library\/products\/[^/]+$/.test(path)) return <ProductDetailSkeleton />
+  if (path === LIBRARY_COURSES) return <CoursesSkeleton empty={still} still={still} />
+  if (path === LIBRARY_MEMBERSHIPS) return <MembershipsSkeleton still={still} />
+  if (path === LIBRARY_REVIEWS) return <RowsSkeleton rows={3} sections={2} still={still} />
+  if (path === LIBRARY_RECEIPTS) return <RowsSkeleton rows={4} still={still} />
+  if (path === LIBRARY_WISHLIST) return <WishlistSkeleton still={still} />
+  if (isLibraryProduct(path)) return <ProductDetailSkeleton />
   return null
 }

@@ -404,7 +404,7 @@ async function main() {
   ]
   const mr = membershipPostRows(members, { postId: U(650), creatorUserId: MARA, creatorId: U(800), creatorName: "Mara Pop", productTitle: "Inner circle", preview: "March notes", image: null }, now)
   check("members with access now, with an account, never the creator", mr.map((r) => r.userId).join() === [BEN, IOANA].join())
-  check("each to their own membership page, Purchases, once per post", mr[0].url === `/library/memberships/${U(601)}` && mr[0].source === "purchases" && mr[0].kind === "membership_post" && mr[0].dedupeKey === `mpost:${U(650)}:${BEN}` && mr[0].title === "Mara Pop posted in Inner circle")
+  check("each to their own membership page, Purchases, once per post", mr[0].url === `/account/library/memberships/${U(601)}` && mr[0].source === "purchases" && mr[0].kind === "membership_post" && mr[0].dedupeKey === `mpost:${U(650)}:${BEN}` && mr[0].title === "Mara Pop posted in Inner circle")
   check("the preview is the title, or the text without markup", postPreview("  March notes ", "<p>x</p>") === "March notes" && postPreview("", "<p>Hello <b>all</b> &amp; welcome</p>") === "Hello all & welcome" && postPreview(null, "z".repeat(300)).length === 140)
   const db6 = pg({
     membership_posts: [{ id: U(650), product_id: U(660), creator_id: U(800), title: "March notes", body: "", deleted_at: null }],

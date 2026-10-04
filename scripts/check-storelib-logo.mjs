@@ -38,7 +38,7 @@ mkdirSync(shots, { recursive: true })
 
 writeFileSync(join(dir, "next-navigation.js"), `const r = { push() {}, replace() {}, refresh() {}, back() {}, forward() {}, prefetch() {} }
 export const useRouter = () => r
-export const usePathname = () => "/library"
+export const usePathname = () => "/account/library"
 export const useSearchParams = () => new URLSearchParams()
 export const useParams = () => ({})
 `)

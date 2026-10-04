@@ -12,11 +12,13 @@ import { cleanPath as clean, libraryTabs, showsLibraryTabs } from "./library-tab
  * ===========================================================================
  * What a buyer comes here for is the things they bought, and those come in
  * three kinds that live on three screens: products (files to download),
- * courses (/library/courses) and memberships (/library/memberships). Then
- * what they did about them: reviews and receipts. Then what they have not
- * bought yet: the wishlist.
+ * courses (/account/library/courses) and memberships
+ * (/account/library/memberships). Then what they have not bought yet: the
+ * wishlist. Then what they did about them: reviews and receipts.
  *
- * So the heading is "Library" and under it one row of pills. The owner asked
+ * THE LIBRARY IS A PILL OF THE PROFILE (/account/library), so this is the
+ * second row: the profile's Library pill is the heading, and under it one
+ * row of sub pills. The owner asked
  * for separate pills rather than the underlined row it was, in Storelib's
  * own style, so each one is Explore's category pill (components/explore/
  * explore-page-client.tsx): white on a hairline, and the chosen one pressed
@@ -36,8 +38,7 @@ import { cleanPath as clean, libraryTabs, showsLibraryTabs } from "./library-tab
  * finger lands the next screen is usually already on the phone.
  *
  * On a phone the row scrolls sideways and fades at whichever edge has more
- * behind it. Settings is not a tab: it is the account (/account), which the
- * avatar in the header opens. The row is on the library's list screens only:
+ * behind it. Settings is not a tab: it is a pill of the profile above. The row is on the library's list screens only:
  * a product, a course player or a membership opened from it has its own back
  * link and needs the room.
  */
@@ -51,12 +52,12 @@ export const TAB_EASE = "cubic-bezier(0.33, 1, 0.68, 1)"
 const FULL = "full" as PrefetchKind
 
 const PILL =
-  "relative inline-flex h-9 shrink-0 cursor-pointer select-none items-center justify-center whitespace-nowrap rounded-full border bg-white px-4 text-[13px] font-medium outline-none transition-[color,scale] active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 motion-reduce:transition-none motion-reduce:active:scale-100 [-webkit-tap-highlight-color:transparent]"
+  "relative inline-flex h-10 sm:h-9 shrink-0 cursor-pointer select-none items-center justify-center whitespace-nowrap rounded-full border bg-white px-4 text-[13px] font-medium outline-none transition-[color,scale] active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 motion-reduce:transition-none motion-reduce:active:scale-100 [-webkit-tap-highlight-color:transparent]"
 
 type IdleWindow = Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void }
 
-export function LibraryTabs({ communities = false }: { communities?: boolean } = {}) {
-  const tabs = libraryTabs(communities)
+export function LibraryTabs() {
+  const tabs = libraryTabs()
   const pathname = usePathname()
   const router = useRouter()
   const path = clean(pathname)
@@ -91,9 +92,9 @@ export function LibraryTabs({ communities = false }: { communities?: boolean } =
     }
     const t = window.setTimeout(run, 800)
     return () => window.clearTimeout(t)
-    // `tabs` is rebuilt each render from one boolean; that boolean is the dependency.
+    // `tabs` is rebuilt each render from a constant list.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shows, path, router, communities])
+  }, [shows, path, router])
 
   /* And the one a pointer is on its way to, in case the idle pass has not reached it. */
   const warm = useCallback(
@@ -153,8 +154,9 @@ export function LibraryTabs({ communities = false }: { communities?: boolean } =
 
   return (
     <header data-library-header="" className="mb-5 sm:mb-6">
-      <h1 className="text-[24px] font-bold tracking-[-0.01em] text-[#1a1a2e] sm:text-[28px]">Library</h1>
-      <nav aria-label="Library" className="-mx-4 mt-3 sm:mx-0 sm:mt-4">
+      {/* No "Library" heading: the profile's own Library pill above is the heading (components/account/account-hub.tsx). */}
+      <h2 className="sr-only">Library</h2>
+      <nav aria-label="Library" className="-mx-4 sm:mx-0">
         <div ref={trackRef} onScroll={measure} data-library-tabs="" data-fade={fade} className={`overflow-x-auto overscroll-x-contain px-4 py-0.5 scrollbar-hide sm:px-0 ${mask}`}>
           <div className="flex w-max items-center gap-2">
             {tabs.map((tab) => {

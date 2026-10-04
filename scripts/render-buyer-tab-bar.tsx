@@ -80,7 +80,7 @@ function Page() {
   const body =
     path === "/explore/search" ? <SearchPage />
       : path.startsWith("/explore") ? <Explore />
-        : path.startsWith("/library") ? <Library />
+        : path.startsWith("/account/library") ? <Library />
           : path.startsWith("/account") ? <AccountDemo />
             : path.split("/").filter(Boolean).length === 2 ? <Product />
               : <p className="p-6">Elsewhere: {path}</p>

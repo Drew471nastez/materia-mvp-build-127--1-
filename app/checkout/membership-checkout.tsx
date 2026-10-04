@@ -108,7 +108,7 @@ export default function MembershipCheckout({ product, creator, plan, userEmail, 
       if (isLoggedIn && returnTo) {
         window.setTimeout(() => router.replace(returnTo), 900)
       } else if (isLoggedIn && membershipId) {
-        window.setTimeout(() => router.replace(`/library/memberships/${membershipId}?welcome=1`), 900)
+        window.setTimeout(() => router.replace(`/account/library/memberships/${membershipId}?welcome=1`), 900)
       }
     },
     [isLoggedIn, returnTo, router],
@@ -306,7 +306,7 @@ export default function MembershipCheckout({ product, creator, plan, userEmail, 
           {error.startsWith("You are already a member") ? (
             <>
               {" "}
-              <Link href="/library/memberships" className="font-semibold underline">
+              <Link href="/account/library/memberships" className="font-semibold underline">
                 Open your memberships
               </Link>
             </>
@@ -497,13 +497,13 @@ export default function MembershipCheckout({ product, creator, plan, userEmail, 
                     </p>
                     <div className="mt-4 flex flex-col gap-2 sm:flex-row">
                       <Link
-                        href={`/signup?email=${encodeURIComponent(email.trim())}&next=${encodeURIComponent(done.membershipId ? `/library/memberships/${done.membershipId}?welcome=1` : "/library/memberships")}`}
+                        href={`/signup?email=${encodeURIComponent(email.trim())}&next=${encodeURIComponent(done.membershipId ? `/account/library/memberships/${done.membershipId}?welcome=1` : "/account/library/memberships")}`}
                         className="inline-flex h-11 flex-1 items-center justify-center rounded-lg bg-[#8b5cf6] px-4 text-[14.5px] font-semibold text-white hover:bg-[#7c3aed]"
                       >
                         Create your account
                       </Link>
                       <Link
-                        href={`/login?next=${encodeURIComponent(done.membershipId ? `/library/memberships/${done.membershipId}?welcome=1` : "/library/memberships")}`}
+                        href={`/login?next=${encodeURIComponent(done.membershipId ? `/account/library/memberships/${done.membershipId}?welcome=1` : "/account/library/memberships")}`}
                         className="inline-flex h-11 flex-1 items-center justify-center rounded-lg border border-[#e1e3e7] bg-white px-4 text-[14.5px] font-medium text-[#1a1a2e] hover:bg-[#f7f7f8]"
                       >
                         Log in

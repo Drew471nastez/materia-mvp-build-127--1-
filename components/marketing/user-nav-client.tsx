@@ -85,7 +85,7 @@ export function UserNavClient({ user, profile, isCreator }: UserNavClientProps) 
           </DropdownMenuItem>
         )}
         <DropdownMenuItem asChild>
-          <Link href="/library" className="cursor-pointer">
+          <Link href="/account/library" className="cursor-pointer">
             <Library className="mr-2 h-4 w-4" />
             <span>My Library</span>
           </Link>

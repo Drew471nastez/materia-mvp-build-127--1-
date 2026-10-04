@@ -658,7 +658,7 @@ export function Hero() {
           Discover
         </Link>
         <Link
-          href={isAuthenticated ? (isCreator ? "/app" : "/library") : "/signup"}
+          href={isAuthenticated ? (isCreator ? "/app" : "/account/library") : "/signup"}
           className="inline-flex items-center gap-2 px-6 sm:px-7 py-2.5 sm:py-3 rounded-action text-sm font-semibold bg-violet-600 text-white hover:bg-violet-700 transition-colors"
         >
           {isAuthenticated ? (isCreator ? "Dashboard" : "Library") : "Sign Up"}

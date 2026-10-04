@@ -8,6 +8,7 @@ import { accountLoginPath } from "@/lib/account/account-tabs"
 import { AccountSettings } from "@/components/account/account-settings"
 import { ensureUsername } from "@/lib/profile/ensure-username"
 import { readPrivacy } from "@/lib/profile/privacy"
+import { missingCoverColumn } from "@/lib/profile/cover"
 
 /** ?section= from a link: the profile's Settings pill (account), "Change" on a hidden list (privacy). */
 const SECTION_KEYS = ["profile", "account", "privacy", "preferences"] as const
@@ -38,7 +39,7 @@ export default async function AccountSettingsRoute({ searchParams }: { searchPar
   if (!user) return null
 
   const admin = createAdminClient()
-  const [profile, bio, access, newsletter, personalized, username, privacy, handleOwner, { section }] = await Promise.all([
+  const [profile, bio, access, newsletter, personalized, username, privacy, handleOwner, cover, { section }] = await Promise.all([
     profileForRequest(user.id),
     /* THE BIO, AND WHETHER THERE IS ANYWHERE TO PUT ONE. profiles.bio comes
        from supabase/sql/RUN_PROFILE_COVER_BIO.sql; where that has not run,
@@ -90,6 +91,16 @@ export default async function AccountSettingsRoute({ searchParams }: { searchPar
         return false
       }
     })(),
+    /* The profile's own cover (lib/profile/cover.ts): the service role, and no field where the column is not there. */
+    (async () => {
+      try {
+        const { data, error } = await admin.from("profiles").select("cover_url").eq("id", user.id).maybeSingle()
+        if (error) return { url: null, supported: !missingCoverColumn(error) }
+        return { url: ((data as { cover_url?: string | null } | null)?.cover_url || "").trim() || null, supported: true }
+      } catch {
+        return { url: null, supported: false }
+      }
+    })(),
     searchParams,
   ])
 
@@ -118,6 +129,7 @@ export default async function AccountSettingsRoute({ searchParams }: { searchPar
       username={username || profile?.username || ""}
       usernameEditable={!handleOwner}
       privacy={privacy}
+      cover={cover}
       initialSection={sectionFrom(section)}
     />
   )

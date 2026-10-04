@@ -72,7 +72,7 @@ export async function POST(request: Request) {
 
   if (paymentMethodId && current) {
     const site = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin
-    const returnUrl = sameSite(body.returnUrl, site, request) ?? `${site.replace(/\/$/, "")}/library/memberships`
+    const returnUrl = sameSite(body.returnUrl, site, request) ?? `${site.replace(/\/$/, "")}/account/library/memberships`
     try {
       const id = intentIdOf(current.clientSecret)!
       const done =

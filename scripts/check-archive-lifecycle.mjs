@@ -183,10 +183,10 @@ async function surfaces(p, { expectShown, buyerOwns }) {
   const wishlist = await get(`/api/wishlist`)
   say(wishlist.body.includes(p.id) === expectShown, `a wishlist ${shownWord} it`, `status ${wishlist.status}`)
   if (buyerOwns !== undefined) {
-    const library = await open(`/library`, BUYER)
+    const library = await open(`/account/library`, BUYER)
     say(has(library.text) === buyerOwns, `My Library ${buyerOwns ? "still has" : "does not have"} it`, `status ${library.status}`)
     if (buyerOwns) {
-      const item = await open(`/library/products/${p.id}`, BUYER)
+      const item = await open(`/account/library/products/${p.id}`, BUYER)
       say(item.status === 200 && has(item.text) && item.text.includes("tech-house.zip"), "its page in the library opens, with its file", `status ${item.status}`)
       const dash = await open(`/dashboard/products`, BUYER)
       say(has(dash.text), "and the buyer dashboard lists it", `status ${dash.status}`)

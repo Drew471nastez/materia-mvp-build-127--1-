@@ -69,7 +69,7 @@ function sendPlace(body: Record<string, unknown>, beacon = false): Promise<Recor
 }
 
 /** `backHref` is where the arrow at the top goes: the library, or a community's classroom. */
-export function CoursePlayer({ data, backHref = "/library/courses", backLabel = "All courses" }: { data: PlayerData; backHref?: string; backLabel?: string }) {
+export function CoursePlayer({ data, backHref = "/account/library/courses", backLabel = "All courses" }: { data: PlayerData; backHref?: string; backLabel?: string }) {
   const lessons = useMemo(() => data.modules.flatMap((m) => m.lessons), [data.modules])
   const outline = data.modules
   const keeps = data.access !== "preview"

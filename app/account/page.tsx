@@ -1,94 +1,63 @@
 import { Suspense } from "react"
+import Link from "next/link"
 import type { User } from "@supabase/supabase-js"
-import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { pageUser } from "@/lib/auth/page-user"
-import { sellerAccessForRequest } from "@/lib/auth/request-scope"
-import { loadLibrary } from "@/lib/library/load-library"
-import { loadMyCourses } from "@/lib/courses/load"
-import { loadLibraryMemberships } from "@/lib/memberships/library"
-import { viewerOf } from "@/lib/memberships/server"
 import { accountLoginPath } from "@/lib/account/account-tabs"
-import { accountOverview } from "@/lib/account/overview"
-import { communitiesEnabled } from "@/lib/communities/flag"
-import { activeCommunityCount } from "@/lib/communities/server/public"
-import { AccountOverview } from "@/components/account/account-overview"
+import { activityFor } from "@/lib/profile/activity-page"
+import { readPrivacy } from "@/lib/profile/privacy"
+import { ProfileActivity } from "@/components/profile/profile-activity"
 import { OverviewSkeleton } from "@/components/account/account-skeleton"
 
 export const dynamic = "force-dynamic"
 
-/** A read that fails leaves its fact out; it never takes the page down with it. */
-async function orNull<T>(read: () => Promise<T>): Promise<T | null> {
-  try {
-    return await read()
-  } catch {
-    return null
-  }
-}
-
 /**
- * The overview's facts, read side by side with the library's own loaders,
- * so every number is the one its page shows: what they own (the library),
- * their courses and how far through, their memberships, the wishlist (only
- * what is still on sale, as the wishlist lists it), and seller access
- * (lib/account/seller-access.ts, from the rows the request already read).
+ * Your activity, exactly as the Activity tab of your public profile lists
+ * it (lib/profile/activity-page.ts with you as the viewer, so a list you
+ * chose to hide is still yours to see, with a line saying so). It always
+ * ends on the day you joined, so it is never an empty box.
  */
-async function overviewBody(user: User) {
-  const supabase = await createClient()
-  const [library, courses, memberships, saved, access, communities] = await Promise.all([
-    orNull(() => loadLibrary(user.id)),
-    orNull(() => loadMyCourses(createAdminClient(), user.id)),
-    orNull(async () => {
-      const viewer = viewerOf(user)
-      if (!viewer) return null
-      const list = await loadLibraryMemberships(createAdminClient(), viewer)
-      return list.available ? { current: list.current.length, ended: list.ended.length } : null
-    }),
-    orNull(async () =>
-      supabase
-        .from("wishlist_items")
-        .select("id, products!inner(status)", { count: "exact", head: true })
-        .eq("user_id", user.id)
-        .eq("products.status", "published"),
-    ),
-    /* SELLER ACCESS FOR THIS PERSON, FROM THIS REQUEST. `user` is the
-       signed in person as the auth server confirmed them for this request
-       (pageUser, lib/auth/request-scope.ts), and the answer is their own
-       creators row, `user_id = user.id` on their own client, with their
-       profile (lib/account/seller-access.ts). Not any creator row and not
-       a remembered one: nothing here reads the browser's auth snapshot. */
-    orNull(() => sellerAccessForRequest(user.id)),
-    /* How many communities they are an active member of; nothing while communities are off. */
-    orNull(async () => ((await communitiesEnabled()) ? activeCommunityCount(user.id) : null)),
+async function activityBody(user: User) {
+  const db = createAdminClient()
+  const [page, privacy] = await Promise.all([
+    activityFor(db, { userId: user.id, viewerId: user.id }).catch(() => ({ items: [], next: null, hidden: false })),
+    readPrivacy(db, user.id),
   ])
-
-  const data = accountOverview({
-    items: library?.items ?? null,
-    courses,
-    memberships,
-    wishlist: saved?.count ?? 0,
-    seller: access?.state ?? "none",
-    communities,
-  })
-  /* Stamped, so a copy the router kept is asked for again (components/account/account-fresh.tsx). */
-  return <AccountOverview data={data} drawnAt={Date.now()} />
+  return (
+    <ProfileActivity
+      userId={user.id}
+      initial={page.items}
+      initialNext={page.next}
+      now={Date.now()}
+      joinedAt={user.created_at || null}
+      hiddenNote={
+        privacy.showActivity ? undefined : (
+          <p className="mb-3 flex flex-wrap items-center justify-center gap-x-1.5 rounded-xl bg-[#f1f2f4] px-4 py-2.5 text-center text-[13px] leading-[1.45] text-[#4b5563]" data-profile-only-you="">
+            Only you can see your activity.
+            <Link href="/account/settings?section=privacy" className="font-medium text-[#1a1a2e] underline-offset-2 hover:underline">
+              Change
+            </Link>
+          </p>
+        )
+      }
+      emptyText="Nothing here yet. Join a community or review something you bought and it shows up here."
+    />
+  )
 }
 
 /**
- * /account, the buyer's profile. The person and the tabs are the layout's
- * and are drawn at once; the facts stream in under them, with a deferred
- * skeleton a quick answer never shows.
+ * /account: your profile, as everybody sees it, opened on Activity. The
+ * person and the pills are the layout's and are drawn at once; the list
+ * streams in under them, with a deferred skeleton a quick answer never shows.
  */
-export default async function AccountOverviewRoute() {
+export default async function AccountActivityRoute() {
   const user = await pageUser(accountLoginPath("/account"))
-  /* Supabase did not answer in time: the layout's gate recovers the session
-     in the browser (lib/auth/page-user.ts). */
+  /* Supabase did not answer in time: the layout's gate recovers the session in the browser (lib/auth/page-user.ts). */
   if (!user) return null
   return (
     <Suspense fallback={<OverviewSkeleton />}>
-      {/* A promise as the child, as app/app/payouts/page.tsx does: React
-          waits for it inside this boundary. */}
-      {overviewBody(user)}
+      {/* A promise as the child, as app/app/payouts/page.tsx does: React waits for it inside this boundary. */}
+      {activityBody(user)}
     </Suspense>
   )
 }

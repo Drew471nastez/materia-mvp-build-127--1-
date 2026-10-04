@@ -373,7 +373,7 @@ try {
       /* Changed on purpose: the owner asked for rating and reviewing to happen in one place, the library's
          Reviews tab. The product in the library carries one line that goes there, to this product. */
       const s = await page.evaluate(() => ({ text: document.getElementById("app")?.textContent || "", href: document.querySelector("[data-product-review]")?.getAttribute("href"), form: !!document.querySelector("textarea") }))
-      expect(/Write a review/.test(s.text) && s.href === "/library/reviews?product=9a9a9a9a-0000-4000-8000-000000000001" && !s.form, "one line to the Reviews tab, focused on this product, and no second form here", s)
+      expect(/Write a review/.test(s.text) && s.href === "/account/library/reviews?product=9a9a9a9a-0000-4000-8000-000000000001" && !s.form, "one line to the Reviews tab, focused on this product, and no second form here", s)
       await shot(page, `library-review-${size}`)
       await page.close()
     }

@@ -132,7 +132,7 @@ function AuthCompleteContent() {
           router.push(creator.onboarding_completed ? "/app" : "/signup/success")
         } else {
           const userType = localStorage.getItem("storelib_user_type")
-          router.push(userType === "buyer" ? "/library" : fallback)
+          router.push(userType === "buyer" ? "/account/library" : fallback)
         }
       } catch (error) {
         console.error("Auth complete error:", error)

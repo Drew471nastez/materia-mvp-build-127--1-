@@ -28,7 +28,7 @@ export interface PostForEmail {
 /** The email for one member. Pure given the sender: the tests draw it. */
 export function renderUpdateEmail(input: { post: PostForEmail; membershipId: string; membershipTitle: string; sender: { name: string; brand: Brand; avatarUrl: string | null } }) {
   const { post, sender } = input
-  const readUrl = siteUrl(`/library/memberships/${input.membershipId}#post-${post.id}`)
+  const readUrl = siteUrl(`/account/library/memberships/${input.membershipId}#post-${post.id}`)
   const leave = unsubscribeUrl(input.membershipId)
   const subject = (post.title || `New from ${sender.name}`).slice(0, 150)
   const paragraphs = post.body
