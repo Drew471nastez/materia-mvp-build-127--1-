@@ -45,7 +45,7 @@ import { FULL_ON_HOVER, type NavEntry, type TabKey } from "./nav"
 import { memberHref } from "./person-href"
 import { EventWhen } from "./time"
 import { CommunityMark } from "./community-mark"
-import { CARD, DEPTH, DEPTH_PRESS } from "./ui"
+import { CARD, DEPTH, DEPTH_PRESS, PRESS_PROPS } from "./ui"
 import type { ShellCommunity, WallCardData, WallContributors, WallEvent } from "./view-types"
 
 /* ── The community card ────────────────────────────────────────────────── */
@@ -244,11 +244,12 @@ export function WallPlaces({ entries, current: currentProp, onGo: onGoProp }: { 
                 href={e.href}
                 /* Asked for in full the moment a pointer rests on it (or a finger lands), so the place is usually here by the click. */
                 {...FULL_ON_HOVER}
+                {...PRESS_PROPS}
                 onClick={(ev) => { if (plainClick(ev)) onGo?.(e.key) }}
                 aria-current={on ? "page" : undefined}
                 data-community-nav={e.label}
                 data-on={on ? "true" : "false"}
-                className={`group/place flex h-12 items-center gap-3 rounded-xl px-2 outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 motion-reduce:transition-none ${on ? "bg-[#f3f4f6]" : "hover:bg-[#f8f9fa]"}`}
+                className={`group/place flex h-12 items-center gap-3 rounded-xl px-2 outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 motion-reduce:transition-none active:bg-[#eef0f2] active:duration-0 data-[pressed]:bg-[#eef0f2] data-[pressed]:duration-0 ${on ? "bg-[#f3f4f6]" : "hover:bg-[#f8f9fa]"}`}
               >
                 <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] ${look.tile} ${look.ink}`} data-place-tile="">
                   <Icon size={20} />

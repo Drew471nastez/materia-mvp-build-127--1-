@@ -64,7 +64,7 @@ import { sectionFromPath } from "./nav"
 import { PlaceSpinner, WAIT_MS } from "./place-spinner"
 import { FIRST_CARDS, PostCard, PostCardPlaceholder, type PostUpdate } from "./post-card"
 import { SortMenu } from "./sort-menu"
-import { SpaceChips, type ChipPick } from "./space-chips"
+import { followChosenChip, SpaceChips, type ChipPick } from "./space-chips"
 import { toast } from "./toast"
 import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, CARD } from "./ui"
 import type { SpaceView } from "./view-types"
@@ -216,14 +216,7 @@ export function CommunityFeed({ communityId, slug, viewer, spaces, start, initia
   /* The chosen chip in view inside its row (Back to a space far along it, say), by scrolling the row only, never the page. */
   const rootRef = useRef<HTMLDivElement>(null)
   const targetId = target.kind === "space" ? target.id : target.kind
-  useEffect(() => {
-    const track = rootRef.current?.querySelector<HTMLElement>("[data-space-chips-track]")
-    const on = track?.querySelector<HTMLElement>("[aria-current=page]")
-    if (!track || !on) return
-    const left = on.getBoundingClientRect().left - track.getBoundingClientRect().left + track.scrollLeft
-    if (left < track.scrollLeft) track.scrollLeft = Math.max(0, left - 16)
-    else if (left + on.offsetWidth > track.scrollLeft + track.clientWidth - 24) track.scrollLeft = left + on.offsetWidth - track.clientWidth + 40
-  }, [targetId])
+  useEffect(() => followChosenChip(rootRef.current), [targetId])
 
   /* The spinner, only when the next list is slow to come: a quick answer swaps the lists and nothing else. */
   const [slow, setSlow] = useState(false)

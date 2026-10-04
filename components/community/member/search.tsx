@@ -5,11 +5,26 @@
  *  "SEARCH DISCUSSIONS, MEMBERS, OR CONTENT..."
  * ===========================================================================
  * The community's own search, in its bar. On a computer and a tablet it is a
- * field in the middle of the bar with a dropdown under it; on a phone it is
- * an icon that opens the same search over the whole screen. What it finds
+ * field in the middle of the bar with a dropdown under it; on a phone the tab
+ * bar's Search opens the same search over the whole screen. What it finds
  * comes from GET /api/community/<id>/search (lib/communities/server/
- * search.ts): posts, members and spaces this member may see, in three short
- * groups, the words that matched in bold.
+ * search.ts): posts, members, spaces, and (round 10) the classroom's courses
+ * and lessons and the community's events, each only what this member may
+ * see, in short groups, the words that matched in bold.
+ *
+ * SMARTER (round 10, ask 29). Every word typed counts, in any order, without
+ * case or accents; a title or a name counts more than a body, a word's start
+ * more than its middle (search-rank.ts, the same rules the server ranks
+ * with). Each word is marked in bold where it matched.
+ *
+ * THE FIRST RESULTS AT ONCE. When the frame is idle it reads what the search
+ * knows before anything is typed (GET /search?index=1: the spaces, the
+ * latest posts, the members here lately, the open courses' lessons, the
+ * coming events), once per visit and again after two minutes. The first key
+ * is answered from it in the browser, on the next frame; the server's full
+ * answer, asked once the typing pauses (180ms), takes its place when it
+ * comes, and every answer is kept for the page, so going back over the same
+ * words asks nothing.
  *
  * KEYBOARD. It is a combobox: the arrows move through every result across
  * the groups, Enter opens the chosen one, Escape closes the list (a second
@@ -17,22 +32,22 @@
  * puts the cursor in it. Screen readers hear the list as a listbox with the
  * chosen option announced.
  *
- * QUIET ON THE NETWORK. It asks once the typing pauses (180ms), never for
- * fewer than two letters, drops an answer that arrives after a newer ask,
- * and keeps what it found in this page, so going back over the same words
- * asks nothing.
+ * OPEN AND CANCEL ARE SMOOTH. The phone's screen rises in and, on Cancel or a
+ * result, fades back down before it goes (opacity and a short slide on the
+ * compositor), rather than vanishing.
  */
 import { useRouter } from "next/navigation"
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { createPortal, flushSync } from "react-dom"
-import { Hash, MessageSquareText, MessagesSquare, Search, X } from "lucide-react"
+import { CalendarDays, GraduationCap, Hash, MessageSquareText, MessagesSquare, PlayCircle, Search, X } from "lucide-react"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { relativeTime } from "@/lib/communities/format"
 import { registerCommunitySearch } from "@/lib/nav/community-search-bridge"
 import { api, apiBase } from "./api"
 import { PLAIN_ICON_BTN } from "./ui"
-import type { SearchResults } from "./view-types"
+import type { SearchIndex, SearchResults } from "./view-types"
 import { RoleBadge } from "./role-badge"
+import { fold, markRanges, rankAll, rankItem, searchWords } from "./search-rank"
 
 /** Mirrors the server: shorter than this is not searched. */
 export const SEARCH_MIN_CHARS = 2
@@ -41,16 +56,18 @@ export const SEARCH_PLACEHOLDER = "Search discussions, members, or content..."
 /** The placeholder where the field is too narrow for the whole line (a tablet), so it is never cut mid word. */
 export const SEARCH_PLACEHOLDER_SHORT = "Search this community"
 const SHORT_BELOW_PX = 380
+/** How long the phone's search screen takes to go when closed. */
+export const SCREEN_OUT_MS = 150
 
 type Status = "idle" | "loading" | "done" | "error" | "busy"
 
 export interface SearchOption {
   key: string
-  group: "posts" | "members" | "spaces"
+  group: "posts" | "members" | "spaces" | "lessons" | "events"
   href: string
 }
 
-/** The results in the order they are drawn and stepped through: posts, members, spaces. */
+/** The results in the order they are drawn and stepped through: posts, members, spaces, the classroom, events. */
 export function searchOptions(r: SearchResults | null, slug: string): SearchOption[] {
   if (!r) return []
   const base = `/community/${slug}`
@@ -58,6 +75,8 @@ export function searchOptions(r: SearchResults | null, slug: string): SearchOpti
     ...r.posts.map((p) => ({ key: `post:${p.id}`, group: "posts" as const, href: `${base}/post/${p.id}` })),
     ...r.members.map((m) => ({ key: `member:${m.id}`, group: "members" as const, href: m.href })),
     ...r.spaces.map((s) => ({ key: `space:${s.id}`, group: "spaces" as const, href: `${base}/space/${s.slug}` })),
+    ...(r.lessons ?? []).map((l) => ({ key: `lesson:${l.id}`, group: "lessons" as const, href: l.href })),
+    ...(r.events ?? []).map((e) => ({ key: `event:${e.id}`, group: "events" as const, href: e.href })),
   ]
 }
 
@@ -70,32 +89,89 @@ export function stepOption(current: number, count: number, key: "ArrowDown" | "A
   return current <= 0 ? count - 1 : current - 1
 }
 
-/** The text with every match of q in bold, case kept. */
+/** The text with every word of the search in bold where it matched, case and accents kept (search-rank.ts markRanges). */
 function Marked({ text, q }: { text: string; q: string }) {
-  if (!q) return <>{text}</>
+  const ranges = useMemo(() => markRanges(text, searchWords(q)), [text, q])
+  if (!ranges.length) return <>{text}</>
   const parts: React.ReactNode[] = []
-  const lower = text.toLowerCase()
-  const needle = q.toLowerCase()
   let at = 0
-  let i = lower.indexOf(needle)
-  while (i >= 0 && parts.length < 40) {
-    if (i > at) parts.push(text.slice(at, i))
+  for (const [start, end] of ranges) {
+    if (start > at) parts.push(text.slice(at, start))
     parts.push(
-      <mark key={i} className="bg-transparent font-semibold text-[#1a1a2e]">
-        {text.slice(i, i + needle.length)}
+      <mark key={start} className="bg-transparent font-semibold text-[#1a1a2e]">
+        {text.slice(start, end)}
       </mark>,
     )
-    at = i + needle.length
-    i = lower.indexOf(needle, at)
+    at = end
   }
   if (at < text.length) parts.push(text.slice(at))
   return <>{parts}</>
 }
 
-/** The search itself: the words, the ask, the answer, the chosen option. Shared by the field and the phone screen. */
+/* ── What the search knows before anything is typed ─────────────────── */
+
+/** An index older than this is read again (quietly, the old one answering meanwhile). */
+export const SEARCH_INDEX_FRESH_MS = 120_000
+/** After an index that did not come, how long before it is asked for again. */
+export const SEARCH_INDEX_RETRY_MS = 30_000
+const indexes = new Map<string, { index: SearchIndex | null; at: number; going: Promise<SearchIndex | null> | null }>()
+
+/** The index for this community, read once (and again when stale); a read already on its way is shared. */
+export function preloadSearchIndex(communityId: string): Promise<SearchIndex | null> {
+  const have = indexes.get(communityId)
+  if (have?.going) return have.going
+  /* Fresh, or asked for lately and not given (the search then works without it): not asked again for a while. */
+  if (have && Date.now() - have.at < (have.index ? SEARCH_INDEX_FRESH_MS : SEARCH_INDEX_RETRY_MS)) return Promise.resolve(have.index)
+  const going = api<{ index: SearchIndex }>(`${apiBase(communityId)}/search?index=1`).then((r) => {
+    const index = r.ok && r.data.index ? r.data.index : null
+    indexes.set(communityId, { index: index ?? have?.index ?? null, at: Date.now(), going: null })
+    return index
+  })
+  indexes.set(communityId, { index: have?.index ?? null, at: have?.at ?? 0, going })
+  return going
+}
+
+/** The index already here for this community, if any. */
+export function searchIndexOf(communityId: string): SearchIndex | null {
+  return indexes.get(communityId)?.index ?? null
+}
+
+/** For tests and probes: forget every index. */
+export function clearSearchIndexes() {
+  indexes.clear()
+}
+
+/** A short piece of a text around the first word found in it, cut at spaces. */
+function snippetFor(text: string, words: string[], max = 120): string {
+  const t = text.replace(/\s+/g, " ").trim()
+  if (t.length <= max) return t
+  const f = fold(t)
+  const at = Math.min(...words.map((w) => f.indexOf(w)).filter((i) => i >= 0), Number.MAX_SAFE_INTEGER)
+  if (at === Number.MAX_SAFE_INTEGER || at < max - 30) return `${t.slice(0, max - 1).replace(/\s+\S*$/, "")}...`
+  const start = t.lastIndexOf(" ", Math.max(0, at - 40)) + 1
+  return `...${t.slice(start, start + max - 6).replace(/\s+\S*$/, "")}...`
+}
+
+/** The index's answer to a search, ranked by the same rules as the server's, in the same groups and sizes. */
+export function localResults(index: SearchIndex, q: string, now: number = Date.now()): SearchResults {
+  const words = searchWords(q)
+  if (!words.length) return { q, spaces: [], posts: [], members: [], lessons: [], events: [] }
+  return {
+    q,
+    spaces: rankAll(index.spaces, (s) => rankItem([{ text: s.name, weight: 3 }, { text: s.description, weight: 1 }], words), 4),
+    posts: rankAll(index.posts, (p) => rankItem([{ text: p.title, weight: 3 }, { text: p.text, weight: 1 }], words, Date.parse(p.createdAt), now), 6).map(({ text, ...p }) => ({ ...p, snippet: snippetFor(text || p.snippet, words) })),
+    members: rankAll(index.members, (m) => rankItem([{ text: m.name, weight: 3 }, { text: m.username, weight: 2 }], words), 5),
+    lessons: rankAll(index.lessons, (l) => rankItem([{ text: l.title, weight: l.kind === "course" ? 4 : 3 }, { text: l.course, weight: 1 }], words), 4),
+    events: rankAll(index.events, (e) => rankItem([{ text: e.title, weight: 3 }], words, Date.parse(e.startsAt), now), 3),
+  }
+}
+
+/** The search itself: the words, the answers, which answer is on screen. Shared by the field and the phone screen. */
 function useCommunitySearch(communityId: string) {
   const [q, setQ] = useState("")
   const [results, setResults] = useState<SearchResults | null>(null)
+  /* The words the results on screen answer: different from what is typed now, they are dimmed until the new ones come. */
+  const [shownFor, setShownFor] = useState("")
   const [status, setStatus] = useState<Status>("idle")
   const cache = useRef(new Map<string, SearchResults>())
   const latest = useRef("")
@@ -105,14 +181,23 @@ function useCommunitySearch(communityId: string) {
     latest.current = term
     if (term.length < SEARCH_MIN_CHARS) {
       setResults(null)
+      setShownFor("")
       setStatus("idle")
       return
     }
-    const known = cache.current.get(term.toLowerCase())
+    const key = term.toLowerCase()
+    const known = cache.current.get(key)
     if (known) {
       setResults(known)
+      setShownFor(term)
       setStatus("done")
       return
+    }
+    /* At once, from the preloaded index, on this very render: the server's answer replaces it when it comes. */
+    const index = searchIndexOf(communityId)
+    if (index) {
+      setResults(localResults(index, term))
+      setShownFor(term)
     }
     setStatus("loading")
     const ctrl = new AbortController()
@@ -123,8 +208,9 @@ function useCommunitySearch(communityId: string) {
         setStatus((r as { status?: number }).status === 429 ? "busy" : "error")
         return
       }
-      cache.current.set(term.toLowerCase(), r.data.results)
+      cache.current.set(key, r.data.results)
       setResults(r.data.results)
+      setShownFor(term)
       setStatus("done")
     }, SEARCH_DEBOUNCE_MS)
     return () => {
@@ -133,10 +219,12 @@ function useCommunitySearch(communityId: string) {
     }
   }, [q, communityId])
 
-  return { q, setQ, results, status, term: q.trim().replace(/\s+/g, " ") }
+  const term = q.trim().replace(/\s+/g, " ")
+  return { q, setQ, results, status, term, stale: !!results && shownFor !== term }
 }
 
-const GROUP_TITLE = { posts: "Posts", members: "Members", spaces: "Spaces" } as const
+const GROUP_TITLE = { posts: "Posts", members: "Members", spaces: "Spaces", lessons: "Classroom", events: "Events" } as const
+const EVENT_DATE = new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric" })
 
 /** The grouped list, for the dropdown and the phone screen alike. */
 function ResultList({
@@ -149,6 +237,7 @@ function ResultList({
   onHover,
   onPick,
   touch = false,
+  stale = false,
 }: {
   listId: string
   slug: string
@@ -159,6 +248,8 @@ function ResultList({
   onHover: (i: number) => void
   onPick: (href: string) => void
   touch?: boolean
+  /** The results answer earlier words: dimmed until the new ones come. */
+  stale?: boolean
 }) {
   const options = searchOptions(results, slug)
   const row = `flex w-full cursor-pointer items-center gap-3 rounded-xl px-2.5 text-left outline-none ${touch ? "min-h-[56px] py-2" : "min-h-[52px] py-1.5"}`
@@ -183,14 +274,18 @@ function ResultList({
     </p>
   )
 
-  if (term.length < SEARCH_MIN_CHARS) return touch ? message("Find posts, members and spaces in this community.") : null
-  if (status === "busy") return message("Search is busy. Try again in a moment.")
-  if (status === "error") return message("Search did not load. Try again.")
-  if (!results) return message("Searching...")
-  if (!options.length) return status === "loading" ? message("Searching...") : message(`Nothing here matches "${term}".`)
+  if (term.length < SEARCH_MIN_CHARS) return touch ? message("Find posts, members, lessons and events in this community.") : null
+  if (!results || !options.length) {
+    if (status === "busy") return message("Search is busy. Try again in a moment.")
+    if (status === "error") return message("Search did not load. Try again.")
+    if (!results || status === "loading") return message("Searching...")
+    return message(`Nothing here matches "${term}".`)
+  }
 
+  const groupHead = (title: string) => <p className="px-2.5 pb-1 pt-2 text-[12px] font-medium text-[#8a8f98]">{title}</p>
+  const tile = (icon: React.ReactNode) => <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#f3f4f6] text-[#6b7280]">{icon}</span>
   return (
-    <div role="listbox" id={listId} aria-label="Search results" className={`transition-opacity duration-150 ${status === "loading" ? "opacity-60" : ""}`} data-search-results="">
+    <div role="listbox" id={listId} aria-label="Search results" className={`transition-opacity duration-150 ${stale ? "opacity-60" : ""}`} data-search-results="" data-search-source={status === "done" ? "server" : "index"}>
       {results.posts.length ? (
         <div role="group" aria-label={GROUP_TITLE.posts} data-search-group="posts">
           <p className="px-2.5 pb-1 pt-2 text-[12px] font-medium text-[#8a8f98]">{GROUP_TITLE.posts}</p>
@@ -256,6 +351,40 @@ function ResultList({
                   <Marked text={s.name} q={term} />
                 </span>
                 {s.description ? <span className="block truncate text-[12.5px] text-[#6b7280]">{s.description}</span> : null}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      {results.lessons?.length ? (
+        <div role="group" aria-label={GROUP_TITLE.lessons} data-search-group="lessons">
+          {groupHead(GROUP_TITLE.lessons)}
+          {results.lessons.map((l) => (
+            <div key={l.id} {...optionProps(`lesson:${l.id}`)}>
+              {tile(l.kind === "course" ? <GraduationCap className="h-4 w-4" strokeWidth={1.9} aria-hidden /> : <PlayCircle className="h-4 w-4" strokeWidth={1.9} aria-hidden />)}
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[14px] text-[#262633]">
+                  <Marked text={l.title} q={term} />
+                </span>
+                <span className="block truncate text-[12.5px] text-[#6b7280]">{l.kind === "course" ? "Course" : l.course ? `Lesson in ${l.course}` : "Lesson"}</span>
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      {results.events?.length ? (
+        <div role="group" aria-label={GROUP_TITLE.events} data-search-group="events">
+          {groupHead(GROUP_TITLE.events)}
+          {results.events.map((e) => (
+            <div key={e.id} {...optionProps(`event:${e.id}`)}>
+              {tile(<CalendarDays className="h-4 w-4" strokeWidth={1.9} aria-hidden />)}
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[14px] text-[#262633]">
+                  <Marked text={e.title} q={term} />
+                </span>
+                <span className="block truncate text-[12.5px] text-[#6b7280]" suppressHydrationWarning>
+                  {Number.isFinite(Date.parse(e.startsAt)) ? EVENT_DATE.format(Date.parse(e.startsAt)) : ""}
+                </span>
               </span>
             </div>
           ))}
@@ -376,7 +505,10 @@ export function CommunitySearchField({ communityId, slug, className = "" }: { co
             s.setQ(e.target.value)
             setOpen(true)
           }}
-          onFocus={() => setOpen(true)}
+          onFocus={() => {
+            setOpen(true)
+            void preloadSearchIndex(communityId)
+          }}
           onKeyDown={(e) => {
             if (e.key === "Escape") {
               e.preventDefault()
@@ -411,7 +543,7 @@ export function CommunitySearchField({ communityId, slug, className = "" }: { co
           className="absolute left-0 right-0 top-full z-50 mt-2 max-h-[min(70vh,540px)] min-w-[340px] overflow-y-auto overscroll-contain rounded-2xl border border-[#e5e7eb] bg-white p-1.5 shadow-[0_12px_32px_-12px_rgba(17,24,39,0.22),0_2px_6px_rgba(17,24,39,0.05)] animate-in fade-in-0 slide-in-from-top-1 duration-150 ease-sheet motion-reduce:animate-none"
           data-community-search-panel=""
         >
-          <ResultList listId={listId} slug={slug} results={s.results} status={s.status} term={s.term} active={active} onHover={setActive} onPick={go} />
+          <ResultList listId={listId} slug={slug} results={s.results} status={s.status} term={s.term} active={active} onHover={setActive} onPick={go} stale={s.stale} />
         </div>
       ) : null}
     </div>
@@ -431,7 +563,20 @@ export function CommunitySearchButton({ communityId, slug, className = "", trigg
   const router = useRouter()
   const listId = useId()
   const s = useCommunitySearch(communityId)
-  const [open, setOpen] = useState(false)
+  const [open, setOpenState] = useState(false)
+  /* Closing: the screen fades and slides back down for SCREEN_OUT_MS before it goes (round 10: Cancel is smooth too). */
+  const [leaving, setLeaving] = useState(false)
+  const leaveTimer = useRef(0)
+  const setOpen = useCallback(
+    (v: boolean) => {
+      window.clearTimeout(leaveTimer.current)
+      setLeaving(false)
+      setOpenState(v)
+      if (v) void preloadSearchIndex(communityId)
+    },
+    [communityId],
+  )
+  useEffect(() => () => window.clearTimeout(leaveTimer.current), [])
   const [active, setActive] = useState(-1)
   const input = useRef<HTMLInputElement>(null)
   const button = useRef<HTMLButtonElement>(null)
@@ -441,8 +586,15 @@ export function CommunitySearchButton({ communityId, slug, className = "", trigg
   useEffect(() => setActive(-1), [s.results])
 
   const close = useCallback((focusBack = true) => {
-    setOpen(false)
-    if (focusBack) button.current?.focus({ preventScroll: true })
+    setLeaving(true)
+    input.current?.blur()
+    window.clearTimeout(leaveTimer.current)
+    const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+    leaveTimer.current = window.setTimeout(() => {
+      setLeaving(false)
+      setOpenState(false)
+      if (focusBack) button.current?.focus({ preventScroll: true })
+    }, reduced ? 0 : SCREEN_OUT_MS)
   }, [])
   const go = useCallback(
     (href: string) => {
@@ -468,7 +620,7 @@ export function CommunitySearchButton({ communityId, slug, className = "", trigg
         },
         refocus: () => input.current?.focus(),
       }),
-    [slug],
+    [slug, setOpen],
   )
 
   /* The page under it does not scroll while the search covers it. */
@@ -508,7 +660,8 @@ export function CommunitySearchButton({ communityId, slug, className = "", trigg
               role="dialog"
               aria-modal="true"
               aria-label="Search this community"
-              className="fixed inset-0 z-[80] flex flex-col bg-white pt-[env(safe-area-inset-top)] animate-in fade-in-0 slide-in-from-bottom-2 duration-200 ease-sheet motion-reduce:animate-none"
+              className={`fixed inset-0 z-[80] flex flex-col bg-white pt-[env(safe-area-inset-top)] motion-reduce:animate-none ${leaving ? "pointer-events-none animate-out fade-out-0 slide-out-to-bottom-2 fill-mode-forwards duration-150 ease-in" : "animate-in fade-in-0 slide-in-from-bottom-2 duration-200 ease-sheet"}`}
+              data-leaving={leaving ? "" : undefined}
               data-community-search-screen=""
               onKeyDown={(e) => {
                 if (e.key === "Escape") {
@@ -546,7 +699,7 @@ export function CommunitySearchButton({ communityId, slug, className = "", trigg
                 </button>
               </div>
               <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pb-[calc(env(safe-area-inset-bottom)+16px)] pt-1">
-                <ResultList listId={listId} slug={slug} results={s.results} status={s.status} term={s.term} active={active} onHover={setActive} onPick={go} touch />
+                <ResultList listId={listId} slug={slug} results={s.results} status={s.status} term={s.term} active={active} onHover={setActive} onPick={go} touch stale={s.stale} />
               </div>
             </div>,
             document.body,

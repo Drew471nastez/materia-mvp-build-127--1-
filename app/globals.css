@@ -7501,15 +7501,11 @@ html.capacitor .home-card li > :is(a, button):active {
     padding-bottom: 12px;
   }
   /* INSIDE A COMMUNITY the bar is there too (lib/nav/buyer-tabs.ts). The
-     join bar on a community's page stands on it, the way the product
-     page's buy bar does; the inset under it is the tab bar's now, so its
-     own 12px is all it keeps (its inline style adds the inset, hence the
-     !important). A chat space fills the screen to its foot, so its
-     message field is lifted over the bar by the bar's own height. */
-  html[data-buyer-tabs="shown"] [data-join-bar] {
-    bottom: var(--buyer-tabs-h);
-    padding-bottom: 12px !important;
-  }
+     join bar on a community's page runs on under it to the screen's foot
+     (its own padding reads --buyer-tabs-h, components/community/public/
+     join-controls.tsx), so no strip of page shows between the two. A chat
+     space fills the screen to its foot, so its message field is lifted over
+     the bar by the bar's own height. */
   html[data-buyer-tabs="shown"] [data-chat] {
     padding-bottom: calc(var(--buyer-tabs-h) + 12px);
   }

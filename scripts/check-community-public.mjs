@@ -142,7 +142,8 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
             const b = document.querySelector(phone ? "[data-join-bar] [data-join-state]" : "[data-join-card] [data-join-state]")
             return b ? { text: b.textContent.trim(), h: Math.round(b.getBoundingClientRect().height), w: Math.round(b.getBoundingClientRect().width) } : null
           })(),
-          interval: !!document.querySelector(phone ? "[data-join-summary] [data-interval-choice]" : "[data-join-card] [data-interval-choice]"),
+          /* Round 10: on a phone Monthly / Yearly is in the page's pricing card; on a computer in the side card too. */
+          interval: !!document.querySelector(phone ? "[data-pricing-card] [data-interval-choice]" : "[data-join-card] [data-interval-choice]"),
         }
       }, phone)
       if (!phone) {
@@ -156,7 +157,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
           await p.screenshot({ path: join(shots, `${label}-${which}-scrolled.png`) })
           expect(geo.button?.text === "Join for $19/month" && geo.button.h >= 44, "the button says the price and is 44px", geo.button)
           expect(geo.interval, "monthly or yearly is offered in the card", geo.interval)
-          await p.click("[data-join-card] [role=radio]:nth-child(2)")
+          await p.click('[data-join-card] [data-interval-option="year"]')
           const yearly = await p.evaluate(() => document.querySelector("[data-join-card] [data-join-state]").textContent.trim())
           expect(yearly === "Join for $190/year", "choosing yearly changes the button", yearly)
           await p.click("[data-join-card] [data-join-state]")
@@ -183,13 +184,12 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
         const small = await smallTargets(p)
         expect(small.length === 0, `${which}: every target is at least 40px`, small)
         if (which === "sales") {
-          expect(geo.interval, "the interval choice is in the page under the tagline", geo.interval)
-          await p.evaluate(() => window.scrollTo(0, 0))
-          const summary = await p.evaluate(() => document.querySelector("[data-join-summary]").getBoundingClientRect().top)
-          expect(summary < 700, "and on the first screen", Math.round(summary))
+          expect(geo.interval, "Monthly / Yearly is in the page's pricing card", geo.interval)
+          const price = await p.evaluate(() => document.querySelector("[data-join-bar-price]")?.textContent?.trim())
+          expect(/^\$19\/month/.test(price || "") && geo.button?.text === "Join", "the bar: the price, and Join beside it", { price, button: geo.button })
         }
         if (which === "sales-free") {
-          expect(geo.button?.text === "Join for free", "signed out on a free one: Join for free", geo.button)
+          expect(geo.button?.text === "Join", "signed out on a free one: Free, and Join beside it", geo.button)
           await p.click("[data-join-bar] [data-join-state]")
           const went = await p.evaluate(() => (window.__router || []).map(([, h]) => h))
           expect(went.some((h) => /^\/login\?next=%2Fcommunity%2Fnight-runners%3Fjoin%3D1$/.test(h)), "and goes to sign in, back with ?join=1", went)

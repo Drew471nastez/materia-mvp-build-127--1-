@@ -64,7 +64,7 @@ export async function cardsFor(_db, list) { return list.map((c) => state.cards[c
 export async function fetchImageBytes(url) { const b = (globalThis.__pictures || {})[url]; return b ? new Uint8Array(b) : null }
 `)
   const entry = join(dir, "entry.ts")
-  writeFileSync(entry, `export { GET } from "../app/(marketing)/community/[slug]/share.png/route"\n`)
+  writeFileSync(entry, `export { GET } from "../app/(marketing)/community/[slug]/share.png/route"\nexport { GET as COVER } from "../app/(marketing)/community/[slug]/cover.jpg/route"\n`)
   const stubs = join(dir, "stubs.js")
   await build({
     entryPoints: [entry],
@@ -91,7 +91,7 @@ export async function fetchImageBytes(url) { const b = (globalThis.__pictures ||
     alias: { "@": "." },
   })
   globalThis.__pictures = PICTURES
-  const { GET } = await import(pathToFileURL(join(dir, "route.mjs")).href)
+  const { GET, COVER } = await import(pathToFileURL(join(dir, "route.mjs")).href)
   const state = (globalThis.__og ||= { on: true, rows: {}, history: {}, cards: {} })
 
   const base = { status: "published", suspended_at: null, deleted_at: null, access: "paid", member_count: 8012, updated_at: "2026-10-01T00:00:00Z" }
@@ -131,8 +131,32 @@ export async function fetchImageBytes(url) { const b = (globalThis.__pictures ||
     const res = await ask(slug)
     expect(res.status === 404, `${slug}: 404`, res.status)
   }
+  /*
+    ROUND 10: A SHARED LINK SHOWS THE COVER. cover.jpg is the cover cut to 1200 by 630 as a JPEG; a community with no cover, or a
+    cover that cannot be read, answers with the drawn card at the same fingerprint (a 302 to share.png), never an empty preview.
+  */
+  console.log("\nThe cover, as the preview")
+  const cover = async (slug, query = "") => COVER(new Request(`https://storelib.com/community/${slug}/cover.jpg${query}`), { params: Promise.resolve({ slug }) })
+  {
+    const res = await cover("clay-studio", "?v=abc")
+    const buf = res.status === 200 ? Buffer.from(await res.arrayBuffer()) : null
+    if (buf) writeFileSync(join(shots, "og-cover.jpg"), buf)
+    const meta = buf ? await sharp(buf).metadata() : null
+    expect(res.status === 200 && meta?.format === "jpeg" && meta.width === 1200 && meta.height === 630, "clay-studio: the cover, a 1200 by 630 JPEG", { status: res.status, format: meta?.format, width: meta?.width, height: meta?.height })
+    expect(res.headers.get("content-type") === "image/jpeg" && res.headers.get("cache-control") === "public, max-age=300, s-maxage=600, stale-while-revalidate=86400", "  served as image/jpeg and kept briefly", [res.headers.get("content-type"), res.headers.get("cache-control")])
+    const plain = await cover("woodworkers", "?v=xyz")
+    expect(plain.status === 302 && plain.headers.get("location") === "/community/woodworkers/share.png?v=xyz", "no cover: the drawn card at the same fingerprint", [plain.status, plain.headers.get("location")])
+    state.rows["clay-studio"] = { ...state.rows["clay-studio"], cover_url: "https://x.supabase.co/missing.webp" }
+    const lost = await cover("clay-studio", "?v=abc")
+    expect(lost.status === 302 && lost.headers.get("location") === "/community/clay-studio/share.png?v=abc", "a cover that cannot be read: the drawn card, never an empty preview", [lost.status, lost.headers.get("location")])
+    state.rows["clay-studio"] = { ...state.rows["clay-studio"], cover_url: "https://x.supabase.co/cover.webp" }
+    expect((await cover("clay-club")).status === 200, "an old address shows the community it moved to")
+    for (const slug of ["secret-draft", "gone-quiet", "nobody-here", "..%2F..%2Fetc"]) expect((await cover(slug)).status === 404, `cover: ${slug}: 404`)
+  }
+
   state.on = false
   expect((await ask("clay-studio")).status === 404, "communities switched off: 404")
+  expect((await cover("clay-studio")).status === 404, "communities switched off: the cover is a 404 too")
   state.on = true
 } finally {
   rmSync(dir, { recursive: true, force: true })

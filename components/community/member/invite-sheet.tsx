@@ -4,30 +4,32 @@
  * ===========================================================================
  *  INVITE PEOPLE: THE COMMUNITY'S SHARE SHEET
  * ===========================================================================
- * Round 8: every member can bring people in. "Invite" on the community card
- * (from 1024px) and at the end of the row of tabs (a phone, a tablet, About)
- * opens this: a centred dialog on a computer, Storelib's own bottom sheet on
- * a phone (components/ui/sheet-dialog.tsx, the sheet every other one uses).
+ * "Invite people" in the bar's "..." menu opens this: a centred dialog on a
+ * computer, Storelib's own bottom sheet on a phone (components/ui/
+ * sheet-dialog.tsx, the sheet every other one uses).
  *
- *   THE LINK    the community's address, storelib.com/community/<slug>,
- *               with Copy. What it does is said in one line under the name,
- *               from how the community lets people in: free joins at once,
- *               a paid one shows its page and its price, approval asks an
- *               admin, invite only needs one of the invites below.
- *   SHARE       the phone's own share sheet (navigator.share) where there
- *               is one, every app the person really uses; Email always.
- *   STAFF       the owner and its admins (can("invite")) also make the
- *               invites the creator side makes, from here: one for an email
- *               address (sent, used once) or a link with an end date and a
- *               number of uses, through POST /api/community/<id>/invites
+ * ROUND 10: SIMPLER. Fewer words and one obvious action:
+ *
+ *   THE LINK    the community's address, storelib.com/community/<slug>, as
+ *               one quiet line, and under it Copy link, the one filled
+ *               button. One short line says what the link does, from how the
+ *               community lets people in.
+ *   SHARE       beside Copy link: the phone's own share sheet where there is
+ *               one, Email where there is not (a computer), never a dead
+ *               button.
+ *   STAFF       the owner and its admins (can("invite")) get one quiet row,
+ *               "Private invites", that opens in place to the invites the
+ *               creator side makes: one for an email address (sent, used
+ *               once) or a link with an end date and a number of uses,
+ *               through POST /api/community/<id>/invites
  *               (lib/communities/server/invites.ts). An invite lets somebody
  *               straight in: no payment, no request. Its link is shown once,
  *               with Copy, because only its hash is kept.
  *
  * Calm on purpose: white, hairlines, ink for the one primary action, no
- * violet, no pills; the field and its Copy read as one control.
+ * violet, no pills.
  */
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useId, useRef, useState } from "react"
 import Link from "next/link"
 import { AltArrowDownIcon } from "@solar-icons/react/linear/alt-arrow-down"
 import { CheckCircleIcon } from "@solar-icons/react/bold/check-circle"
@@ -56,12 +58,12 @@ export function communityShareUrl(slug: string): string {
   return `https://storelib.com/community/${slug}`
 }
 
-/** What the shared link does for whoever opens it, in one plain line. */
+/** What the shared link does for whoever opens it, in a few words (round 10: fewer words). */
 export function shareLinkLine(c: Pick<InviteSheetCommunity, "access" | "approvalRequired">): string {
-  if (c.access === "invite_only") return "This community is invite only: the link shows its page, and an admin's invite lets people in."
-  if (c.approvalRequired) return "Anyone with the link can ask to join. An admin approves each request."
-  if (c.access === "paid") return "Anyone with the link sees the page and the price, and joins when they pay."
-  if (c.access === "product" || c.access === "custom") return "Anyone with the link sees the page and how to get in."
+  if (c.access === "invite_only") return "This community is invite only. People need an invite from an admin."
+  if (c.approvalRequired) return "People with the link ask to join, and an admin approves."
+  if (c.access === "paid") return "People with the link see the price and pay to join."
+  if (c.access === "product" || c.access === "custom") return "People with the link see how to get in."
   return "Anyone with the link can join for free."
 }
 
@@ -130,10 +132,22 @@ export function splitShareUrl(url: string): { lead: string; tail: string } {
   return join > 0 ? { lead: `${lead}${rest.slice(0, join + 1)}`, tail: rest.slice(join + 1) } : { lead, tail: rest }
 }
 
-function LinkRow({ url, label, primary = false, testId }: { url: string; label: string; primary?: boolean; testId: string }) {
+/** Copy, and what it said for a moment after: "yes", "no" (the clipboard refused), or null. */
+function useCopy(text: string): ["yes" | "no" | null, () => Promise<void>] {
   const [copied, setCopied] = useState<"yes" | "no" | null>(null)
   const timer = useRef<number | null>(null)
   useEffect(() => () => { if (timer.current) window.clearTimeout(timer.current) }, [])
+  const copy = async () => {
+    const ok = await copyText(text)
+    setCopied(ok ? "yes" : "no")
+    if (timer.current) window.clearTimeout(timer.current)
+    timer.current = window.setTimeout(() => setCopied(null), 1800)
+  }
+  return [copied, copy]
+}
+
+function LinkRow({ url, label, primary = false, testId }: { url: string; label: string; primary?: boolean; testId: string }) {
+  const [copied, copy] = useCopy(url)
   const { lead, tail } = splitShareUrl(url)
   return (
     <div className="flex items-center gap-2" data-invite-link={testId}>
@@ -147,12 +161,7 @@ function LinkRow({ url, label, primary = false, testId }: { url: string; label: 
       <button
         type="button"
         className={cn(primary ? PRIMARY : SECONDARY, "w-[96px] shrink-0")}
-        onClick={async () => {
-          const ok = await copyText(url)
-          setCopied(ok ? "yes" : "no")
-          if (timer.current) window.clearTimeout(timer.current)
-          timer.current = window.setTimeout(() => setCopied(null), 1800)
-        }}
+        onClick={() => void copy()}
         data-invite-copy={testId}
         aria-live="polite"
       >
@@ -184,6 +193,8 @@ function StaffInvites({ community, manageHref }: { community: InviteSheetCommuni
   const [busy, setBusy] = useState<"email" | "link" | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [made, setMade] = useState<Made | null>(null)
+  const [staffOpen, setStaffOpen] = useState(false)
+  const panelId = useId()
   const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
 
   const make = async (kind: "email" | "link") => {
@@ -205,71 +216,91 @@ function StaffInvites({ community, manageHref }: { community: InviteSheetCommuni
   }
 
   return (
-    <section className="mt-5 border-t border-[#eceef1] pt-5" data-invite-staff="">
-      <div className="flex items-baseline justify-between gap-3">
-        <h3 className="text-[15px] font-semibold text-[#1a1a2e]">Private invites</h3>
-        {manageHref ? (
-          <Link href={manageHref} className="shrink-0 text-[13px] font-medium text-[#4b5563] underline-offset-4 hover:text-[#1a1a2e] hover:underline" data-invite-manage="">
-            Manage invites
-          </Link>
-        ) : null}
-      </div>
-      <p className="mt-1 text-[13.5px] leading-snug text-[#6b7280]">{staffInviteLine(community)}</p>
-
-      <form
-        className="mt-3 flex items-center gap-2"
-        onSubmit={(e) => {
-          e.preventDefault()
-          if (validEmail && !busy) void make("email")
-        }}
+    /*
+      ONE QUIET ROW, CLOSED AT FIRST (round 10: "staff options tucked behind one quiet row"). Pressed, it opens in place: the panel's
+      height eases from 0 to its own (a grid row from 0fr to 1fr, nothing measured), its content fades in, the chevron turns.
+    */
+    <section className="mt-4 border-t border-[#eceef1] pt-1" data-invite-staff="" data-open={staffOpen ? "true" : "false"}>
+      <button
+        type="button"
+        aria-expanded={staffOpen}
+        aria-controls={panelId}
+        onClick={() => setStaffOpen((o) => !o)}
+        className="group/staff -mx-2 flex h-11 w-[calc(100%+16px)] items-center justify-between gap-3 rounded-xl px-2 text-left outline-none transition-colors duration-150 hover:bg-[#f6f7f8] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 active:bg-[#f1f2f4] [-webkit-tap-highlight-color:transparent]"
+        data-invite-staff-toggle=""
       >
-        <label className="min-w-0 flex-1">
-          <span className="sr-only">Email address</span>
-          <input type="email" inputMode="email" autoComplete="off" value={email} onChange={(e) => setEmail(e.target.value.slice(0, 254))} placeholder="name@example.com" className={cn(FIELD, "h-11 sm:h-10")} data-invite-email="" />
-        </label>
-        <button type="submit" disabled={!validEmail || !!busy} className={cn(SECONDARY, "w-[96px] shrink-0")} data-invite-send="">
-          {busy === "email" ? "Sending" : "Send"}
-        </button>
-      </form>
+        <span className="min-w-0 text-[14.5px] font-medium text-[#1a1a2e]">Private invites</span>
+        <AltArrowDownIcon size={18} className={cn("shrink-0 text-[#8a8f98] transition-[rotate] duration-200 ease-sheet motion-reduce:transition-none", staffOpen && "rotate-180")} aria-hidden />
+      </button>
+      <div id={panelId} className={cn("grid transition-[grid-template-rows] duration-250 ease-sheet motion-reduce:transition-none", staffOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]")} data-invite-staff-panel="">
+        <div className={cn("min-h-0 overflow-hidden transition-opacity duration-200 motion-reduce:transition-none", staffOpen ? "opacity-100" : "opacity-0")} inert={!staffOpen || undefined}>
+          <div className="px-px pb-1 pt-1">
+            <div className="flex items-baseline justify-between gap-3">
+              <p className="min-w-0 text-[13px] leading-snug text-[#6b7280]">{staffInviteLine(community)}</p>
+              {manageHref ? (
+                <Link href={manageHref} className="shrink-0 text-[13px] font-medium text-[#4b5563] underline-offset-4 hover:text-[#1a1a2e] hover:underline" data-invite-manage="">
+                  Manage invites
+                </Link>
+              ) : null}
+            </div>
 
-      <div className="mt-3 grid grid-cols-2 items-end gap-2 sm:grid-cols-[1fr_1fr_auto]">
-        <label className="relative block min-w-0">
-          <span className="mb-1 block text-[12.5px] font-medium text-[#6b7280]">Works for</span>
-          <select value={days} onChange={(e) => setDays(e.target.value)} className={SELECT} data-invite-days="">
-            <option value="1">1 day</option>
-            <option value="7">7 days</option>
-            <option value="30">30 days</option>
-            <option value="never">No end date</option>
-          </select>
-          <Chevron />
-        </label>
-        <label className="relative block min-w-0">
-          <span className="mb-1 block text-[12.5px] font-medium text-[#6b7280]">Uses</span>
-          <select value={uses} onChange={(e) => setUses(e.target.value)} className={SELECT} data-invite-uses="">
-            <option value="">No limit</option>
-            <option value="1">1 person</option>
-            <option value="10">10 people</option>
-            <option value="50">50 people</option>
-            <option value="100">100 people</option>
-          </select>
-          <Chevron />
-        </label>
-        <button type="button" disabled={!!busy} onClick={() => void make("link")} className={cn(SECONDARY, "col-span-2 sm:col-span-1")} data-invite-create="">
-          {busy === "link" ? "Making" : "Create link"}
-        </button>
-      </div>
+            <form
+              className="mt-3 flex items-center gap-2"
+              onSubmit={(e) => {
+                e.preventDefault()
+                if (validEmail && !busy) void make("email")
+              }}
+            >
+              <label className="min-w-0 flex-1">
+                <span className="sr-only">Email address</span>
+                <input type="email" inputMode="email" autoComplete="off" value={email} onChange={(e) => setEmail(e.target.value.slice(0, 254))} placeholder="name@example.com" className={cn(FIELD, "h-11 sm:h-10")} data-invite-email="" />
+              </label>
+              <button type="submit" disabled={!validEmail || !!busy} className={cn(SECONDARY, "w-[96px] shrink-0")} data-invite-send="">
+                {busy === "email" ? "Sending" : "Send"}
+              </button>
+            </form>
 
-      {error ? (
-        <p role="alert" className="mt-2.5 text-[13px] text-[#b42318]" data-invite-error="">
-          {error}
-        </p>
-      ) : null}
-      {made ? (
-        <div className="mt-3 space-y-1.5" data-invite-made="">
-          <LinkRow url={made.url} label="Invite link" testId="made" />
-          <p className="text-[12.5px] leading-snug text-[#6b7280]">{made.note}</p>
+            <div className="mt-3 grid grid-cols-2 items-end gap-2 sm:grid-cols-[1fr_1fr_auto]">
+              <label className="relative block min-w-0">
+                <span className="mb-1 block text-[12.5px] font-medium text-[#6b7280]">Works for</span>
+                <select value={days} onChange={(e) => setDays(e.target.value)} className={SELECT} data-invite-days="">
+                  <option value="1">1 day</option>
+                  <option value="7">7 days</option>
+                  <option value="30">30 days</option>
+                  <option value="never">No end date</option>
+                </select>
+                <Chevron />
+              </label>
+              <label className="relative block min-w-0">
+                <span className="mb-1 block text-[12.5px] font-medium text-[#6b7280]">Uses</span>
+                <select value={uses} onChange={(e) => setUses(e.target.value)} className={SELECT} data-invite-uses="">
+                  <option value="">No limit</option>
+                  <option value="1">1 person</option>
+                  <option value="10">10 people</option>
+                  <option value="50">50 people</option>
+                  <option value="100">100 people</option>
+                </select>
+                <Chevron />
+              </label>
+              <button type="button" disabled={!!busy} onClick={() => void make("link")} className={cn(SECONDARY, "col-span-2 sm:col-span-1")} data-invite-create="">
+                {busy === "link" ? "Making" : "Create link"}
+              </button>
+            </div>
+
+            {error ? (
+              <p role="alert" className="mt-2.5 text-[13px] text-[#b42318]" data-invite-error="">
+                {error}
+              </p>
+            ) : null}
+            {made ? (
+              <div className="mt-3 space-y-1.5" data-invite-made="">
+                <LinkRow url={made.url} label="Invite link" testId="made" />
+                <p className="text-[12.5px] leading-snug text-[#6b7280]">{made.note}</p>
+              </div>
+            ) : null}
+          </div>
         </div>
-      ) : null}
+      </div>
     </section>
   )
 }
@@ -281,6 +312,8 @@ export function InviteSheet({ open, onClose, community, staff = false, manageHre
   useEffect(() => setCanShare(typeof navigator !== "undefined" && typeof navigator.share === "function"), [])
   const text = `Join me in ${community.name} on Storelib`
   const mail = `mailto:?subject=${encodeURIComponent(text)}&body=${encodeURIComponent(`${text}:\n${url}`)}`
+  const { lead, tail } = splitShareUrl(url)
+  const [copied, copy] = useCopy(url)
 
   return (
     <SheetDialog open={open} onClose={onClose} phone={phone} label={`Invite people to ${community.name}`} className="max-w-[460px] gap-0 rounded-2xl p-6">
@@ -292,19 +325,34 @@ export function InviteSheet({ open, onClose, community, staff = false, manageHre
             <p className="truncate text-[13.5px] leading-5 text-[#6b7280]">{community.name}</p>
           </div>
         </div>
-        <p className="mt-4 text-[14px] leading-relaxed text-[#4b5563]" data-invite-line="">
-          {shareLinkLine(community)}
-        </p>
-
-        <div className="mt-3">
-          <LinkRow url={url} label="Community link" primary testId="community" />
+        {/* The address, quiet, then the one filled button: Copy link. Share (or Email on a computer) beside it. One short line under. */}
+        <div className="mt-5 flex h-11 min-w-0 items-center gap-2 rounded-xl border border-[#e8eaee] bg-[#f8f9fa] px-3 sm:h-10" role="group" aria-label={`Community link: ${url}`}>
+          <LinkMinimalistic2Icon size={17} className="shrink-0 text-[#8a8f98]" aria-hidden />
+          <span className="flex min-w-0 flex-1 select-all items-baseline text-[15px] sm:text-[14px]" data-invite-url={`${lead}${tail}`}>
+            <span className="min-w-0 flex-initial truncate text-[#8a8f98]">{lead}</span>
+            <span className="max-w-[78%] shrink-0 truncate font-medium text-[#1a1a2e]">{tail}</span>
+          </span>
         </div>
-
-        <div className={cn("mt-2.5 grid gap-2", canShare ? "grid-cols-2" : "grid-cols-1")}>
+        <div className="mt-2.5 flex gap-2">
+          <button type="button" className={cn(PRIMARY, "min-w-0 flex-1")} onClick={() => void copy()} data-invite-copy="community" aria-live="polite">
+            {copied === "yes" ? (
+              <>
+                <CheckCircleIcon size={18} className="text-white" aria-hidden />
+                Copied
+              </>
+            ) : copied === "no" ? (
+              "Try again"
+            ) : (
+              <>
+                <CopyIcon size={18} aria-hidden />
+                Copy link
+              </>
+            )}
+          </button>
           {canShare ? (
             <button
               type="button"
-              className={SECONDARY}
+              className={cn(SECONDARY, "w-[112px] shrink-0")}
               data-invite-share=""
               onClick={async () => {
                 try {
@@ -317,12 +365,16 @@ export function InviteSheet({ open, onClose, community, staff = false, manageHre
               <ShareIcon size={18} aria-hidden />
               Share
             </button>
-          ) : null}
-          <a href={mail} className={SECONDARY} data-invite-mail="">
-            <LetterIcon size={18} aria-hidden />
-            Email
-          </a>
+          ) : (
+            <a href={mail} className={cn(SECONDARY, "w-[112px] shrink-0")} data-invite-mail="">
+              <LetterIcon size={18} aria-hidden />
+              Email
+            </a>
+          )}
         </div>
+        <p className="mt-3 text-[13px] leading-snug text-[#6b7280]" data-invite-line="">
+          {shareLinkLine(community)}
+        </p>
 
         {staff ? <StaffInvites community={community} manageHref={manageHref} /> : null}
       </div>

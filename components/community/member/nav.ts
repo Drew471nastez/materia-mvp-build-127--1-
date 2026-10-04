@@ -59,3 +59,17 @@ export function tabFor(section: ShellSection): TabKey {
  * app router's and not in next/link's own types.
  */
 export const FULL_ON_HOVER = { unstable_dynamicOnHover: true } as Record<never, never>
+
+/* ── The row of tabs following the chosen one (round 10, shell-frame.tsx SectionTabs) ── */
+
+/** How long the row must have been still before it may move itself to the chosen tab. */
+export const TABS_STILL_MS = 140
+
+/** Where the row should scroll to so the tab is wholly in view with a margin, or null when it already is. */
+export function tabsFollowTarget(tab: { left: number; width: number }, row: { scrollLeft: number; clientWidth: number; scrollWidth: number }, margin = 24): number | null {
+  const max = Math.max(0, row.scrollWidth - row.clientWidth)
+  if (tab.left - margin < row.scrollLeft) return Math.max(0, Math.min(max, tab.left - margin))
+  if (tab.left + tab.width + margin > row.scrollLeft + row.clientWidth) return Math.max(0, Math.min(max, tab.left + tab.width + margin - row.clientWidth))
+  return null
+}
+

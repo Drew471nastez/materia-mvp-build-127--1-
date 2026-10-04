@@ -4,9 +4,10 @@
  * ===========================================================================
  * One address per community, storelib.com/community/<slug>: /about says the
  * same and names that address as its canonical. The preview picture is the
- * cover (else the logo). Only a published, public community that Storelib
- * has not hidden is indexed; a private or unlisted one, a draft and every
- * page inside a community (its feed, a post, the members) say noindex.
+ * cover, cut to 1200 by 630 (else the card drawn for it, share.png). Only a
+ * published, public community that Storelib has not hidden is indexed; a
+ * private or unlisted one, a draft and every page inside a community (its
+ * feed, a post, the members) say noindex.
  *
  * The structured data is what the page really is: a paid community is a
  * Product with its real price (an Offer per way in), and its rating only
@@ -78,8 +79,28 @@ export function shareImageVersion(parts: ReadonlyArray<string | number | null | 
   return h.toString(36)
 }
 
-function previewImages(f: SeoFacts, invite: boolean): { og: NonNullable<Metadata["openGraph"]>["images"]; twitter: string[] } | null {
+/**
+ * THE COVER, AT 1200 BY 630 (round 10: "the community's COVER image by
+ * default; the generated share.png only when there is no cover"). The
+ * cover cut to the preview's size as a JPEG (app/(marketing)/community/
+ * [slug]/cover.jpg), with the same fingerprint, so a new cover asks again.
+ */
+export function shareCoverUrl(slug: string, version: string | null | undefined): string {
+  return `${SITE}/community/${slug}/cover.jpg${version ? `?v=${encodeURIComponent(version)}` : ""}`
+}
+
+/**
+ * The picture a shared link shows: the cover when there is one (cut to
+ * 1200 by 630), the drawn card (share.png, with "You're invited" for an
+ * invite) when there is none. Without a fingerprint (an older caller) the
+ * cover itself, else the logo.
+ */
+export function previewImages(f: SeoFacts, invite: boolean): { og: NonNullable<Metadata["openGraph"]>["images"]; twitter: string[] } | null {
   if (f.shareVersion !== undefined) {
+    if (f.coverUrl) {
+      const url = shareCoverUrl(f.slug, f.shareVersion)
+      return { og: [{ url, width: SHARE_IMAGE_WIDTH, height: SHARE_IMAGE_HEIGHT, alt: f.name, type: "image/jpeg" }], twitter: [url] }
+    }
     const url = shareImageUrl(f.slug, f.shareVersion, { invite })
     return { og: [{ url, width: SHARE_IMAGE_WIDTH, height: SHARE_IMAGE_HEIGHT, alt: f.name, type: "image/png" }], twitter: [url] }
   }

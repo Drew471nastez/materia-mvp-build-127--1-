@@ -577,10 +577,11 @@ export const isNativePlatform = () => false
         await p.keyboard.type("g", { delay: 30 })
         await sleep(400)
         const one = await p.evaluate(() => ({ panel: !!document.querySelector("[data-community-search-panel]") }))
-        expect(!one.panel && !calls.some((c) => c.url.includes("/search")), "one letter asks nothing and opens nothing", { one, calls: calls.filter((c) => c.url.includes("/search")) })
+        /* Round 10: the preloaded index (?index=1, read on idle) is not a search; a search is ?q=. */
+        expect(!one.panel && !calls.some((c) => c.url.includes("/search?q=")), "one letter asks nothing and opens nothing", { one, calls: calls.filter((c) => c.url.includes("/search?q=")) })
         await p.keyboard.type("la", { delay: 30 })
         await sleep(650)
-        const asked = calls.filter((c) => c.url.includes("/search"))
+        const asked = calls.filter((c) => c.url.includes("/search?q="))
         const r = await p.evaluate(() => {
           const panel = document.querySelector("[data-community-search-panel]")
           const pr = panel?.getBoundingClientRect()
@@ -1146,21 +1147,22 @@ export const isNativePlatform = () => false
           thumbs: document.querySelectorAll("[data-gallery-thumb]").length,
           main: document.querySelector("[data-gallery-main]")?.getAttribute("data-gallery-main"),
           info: [...document.querySelectorAll("[data-community-info] li")].map((li) => li.textContent.trim()),
-          stats: [...document.querySelectorAll((innerWidth >= 1024 ? "[data-join-card]" : "[data-join-summary]") + " [data-stat]")].map((d) => d.textContent.trim()),
+          /* Round 10: the figures sit in the sheet under the facts line, at every width (the card is the price and the button). */
+          stats: [...document.querySelectorAll("[data-community-sheet] [data-stat]")].map((d) => d.textContent.trim()),
           paying: [...document.querySelectorAll("[data-review-paying]")].map((s) => s.textContent.trim()),
           reviewLinks: [...document.querySelectorAll("[data-review] [data-person-link]")].map((a) => a.getAttribute("href")),
-          order: { gallery: y("[data-community-gallery]"), summary: y("[data-join-summary]"), info: y("[data-community-info]"), description: y("[data-community-description]") },
+          order: { gallery: y("[data-community-gallery]"), info: y("[data-community-info]"), stats: y("[data-community-sheet] [data-community-stats]"), description: y("[data-community-description]") },
         }
       })
       expect(!a.pills, "a visitor gets the bar without the member's tabs", a.pills)
       expect(a.title === "Clay Studio" && /4\.9 · 121 reviews/.test(a.rating || ""), "the title, then stars and the review count", a.rating)
       expect(a.main === "image" && a.thumbs === 6, "the gallery: a large picture and a strip of six", { main: a.main, thumbs: a.thumbs })
       expect(a.info.join("|") === "Private|8k members|$9/month|By Mara Lindqvist", "the facts line: private, members, price, By creator", a.info)
-      expect(a.stats.join("|") === "8kMembers|191Online|2Admins", "Members, Online, Admins", a.stats)
+      expect(a.stats.join("|") === "8kMembers|191Online", "Members and Online in the sheet", a.stats)
       expect(a.paying.join("|") === "· Still a paying member after 3 months|· Still a paying member after 4 days", "Still a paying member only where it is true", a.paying)
       expect(a.reviewLinks.join() === "/@ayla,/joemoss", "a reviewer's name opens their page (none for no username)", a.reviewLinks)
       expect(a.order.gallery < a.order.info && a.order.info < a.order.description, "gallery, then the facts line, then the description", a.order)
-      if (phone) expect(a.order.summary > a.order.gallery && a.order.summary < a.order.info, "on a phone the card's content sits right under the media", a.order)
+      expect(a.order.stats > a.order.info && a.order.stats < a.order.description, "the figures sit right under the facts line, before the description", a.order)
 
       /* A thumbnail changes the picture; the video plays in place. */
       const before = await p.evaluate(() => document.querySelector("[data-gallery-main] img")?.getAttribute("src"))
@@ -1194,9 +1196,9 @@ export const isNativePlatform = () => false
       } else {
         const bar = await p.evaluate(() => {
           const r = document.querySelector("[data-join-bar]").getBoundingClientRect()
-          return { top: Math.round(r.top), bottom: Math.round(r.bottom), vh: innerHeight, button: document.querySelector("[data-join-bar] [data-join-state]")?.textContent?.trim() }
+          return { top: Math.round(r.top), bottom: Math.round(r.bottom), vh: innerHeight, button: document.querySelector("[data-join-bar] [data-join-state]")?.textContent?.trim(), price: document.querySelector("[data-join-bar-price]")?.textContent?.trim() }
         })
-        expect(bar.bottom === bar.vh && /Join for \$9\/month/.test(bar.button || ""), "the join bar is pinned to the bottom with the button", bar)
+        expect(bar.bottom === bar.vh && bar.button === "Join" && /^\$9\/month/.test(bar.price || ""), "the join bar is pinned to the bottom: the price, and Join beside it", bar)
         await p.evaluate(() => window.scrollTo(0, 1600))
         await sleep(100)
         const later = await p.evaluate(() => ({ bottom: Math.round(document.querySelector("[data-join-bar]").getBoundingClientRect().bottom), top: Math.round(document.querySelector("[data-community-top]").getBoundingClientRect().top) }))
@@ -1224,7 +1226,7 @@ export const isNativePlatform = () => false
         messages: !!document.querySelector("[data-community-messages-button]"),
         bell: !!document.querySelector("[data-notification-bell]"),
         gallery: !!document.querySelector("[data-community-gallery]"),
-        stats: [...document.querySelectorAll((innerWidth >= 1024 ? "[data-join-card]" : "[data-join-summary]") + " [data-stat]")].map((d) => d.getAttribute("data-stat")),
+        stats: [...document.querySelectorAll("[data-community-sheet] [data-stat]")].map((d) => d.getAttribute("data-stat")),
         creator: document.querySelector("[data-info=creator] a")?.getAttribute("href"),
       }))
       expect(/^\/login\?next=/.test(v.login || "") && !v.messages && !v.bell, "signed out: Log in, no Messages, no bell", v)
@@ -1237,7 +1239,7 @@ export const isNativePlatform = () => false
       const login = await p.evaluate(() => { const l = document.querySelector("[data-community-login]"); const cs = getComputedStyle(l); return { h: Math.round(l.getBoundingClientRect().height), bg: cs.backgroundColor, border: cs.borderTopWidth } })
       expect(vp2.pills.length === 0 && login.bg === "rgba(0, 0, 0, 0)" && login.border === "0px" && login.h === 40, "Log in is a word in a 40px target, not an outlined pill; nothing else in the bar is a pill", { pills: vp2.pills, login })
       expect(!v.gallery, "no gallery and no cover: no empty media box", v.gallery)
-      expect(v.stats.join() === "members,admins", "Online is left out when it cannot be known", v.stats)
+      expect(v.stats.join() === "members", "Online is left out when it cannot be known", v.stats)
       expect(v.creator === "/@dev", "a creator without a storefront opens at /@handle", v.creator)
       const s = await sideScroll(p)
       expect(s.scroll <= s.width, "nothing scrolls sideways", s)
