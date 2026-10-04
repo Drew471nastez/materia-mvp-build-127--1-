@@ -14,10 +14,19 @@
  *                clipped at exactly two); the foot row in order: the price,
  *                a slim hairline (1px wide, shorter than the text), members,
  *                views, and the stars only on a card with reviews, all on
- *                one line; the mark 44px in the grid and 57 in a row
- *   THE TITLE    computed font-family starts with Roboto, 18px, weight 500,
- *                24px line, letter spacing 0, and the face really loaded
- *                (document.fonts), while the creator line stays Inter
+ *                one line
+ *   ROUND 8      the owner's reference proportions: the mark a rounded
+ *                square, 56px on a computer and 48 on a phone, in the grid
+ *                and in a row; the creator's face 20px with its width and
+ *                height on the <img>, asked for through the optimizer at
+ *                twice that (w=48), fetched at once in the first row and
+ *                lazily after; the price 15px, a step over the facts; the
+ *                members and views icons each in a 22px round well with a
+ *                shadow
+ *   THE TITLE    computed font-family starts with Roboto, weight 500, 20px
+ *                on a 26px line on a computer and 18/24 on a phone, letter
+ *                spacing 0, and the face really loaded (document.fonts),
+ *                while the creator line stays Inter
  *   THE GRID     three across on a computer and one on a phone, one height
  *                a row; a library row at least 72px tall and nothing cut
  *   STOREFRONT   the card takes the creator's --card ground, not white
@@ -121,6 +130,14 @@ async function open(vp, mode) {
   const p = await browser.newPage()
   const errors = []
   p.on("pageerror", (e) => errors.push(e.message))
+  /* The optimizer, answered with a small picture, and every address it was asked for kept. */
+  await p.setRequestInterception(true)
+  p.on("request", (r) => {
+    if (r.url().includes("/_next/image")) {
+      ;(p.__optimized ||= []).push(r.url())
+      r.respond({ status: 200, contentType: "image/svg+xml", body: PICTURE })
+    } else r.continue()
+  })
   await p.setViewport(vp)
   await p.goto(`file://${join(stubs, "index.html")}#${mode}`)
   await p.waitForSelector("[data-explore-community]", { timeout: 8000 }).catch(() => {})
@@ -128,6 +145,9 @@ async function open(vp, mode) {
   await sleep(500)
   return { p, errors }
 }
+
+/* What the optimizer answers in the probe: a plain picture, a muted slate square. */
+const PICTURE = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128"><rect width="128" height="128" fill="#5b6b82"/><circle cx="64" cy="54" r="22" fill="#c9d3e0"/><rect x="28" y="84" width="72" height="26" rx="13" fill="#c9d3e0"/></svg>')
 
 const MEASURE = `(() => {
   const cards = [...document.querySelectorAll("[data-explore-community]")]
@@ -160,6 +180,13 @@ const MEASURE = `(() => {
         oneLine: Math.max(...tops) - Math.min(...tops) <= 2,
         blurb: blurb ? { lines: Math.round(blurb.getBoundingClientRect().height / parseFloat(bcs.lineHeight)), clipped: blurb.scrollHeight > blurb.clientHeight + 1, clamp: bcs.webkitLineClamp, text: blurb.textContent.slice(0, 24) } : null,
         mark: mark ? Math.round(mark.getBoundingClientRect().width) : null,
+        markH: mark ? Math.round(mark.getBoundingClientRect().height) : null,
+        markRadius: mark ? getComputedStyle(mark).borderTopLeftRadius : null,
+        price: stats.querySelector("[data-community-price]") ? getComputedStyle(stats.querySelector("[data-community-price]")).fontSize : null,
+        facts: getComputedStyle(stats).fontSize,
+        wells: [...stats.querySelectorAll("[data-stat-well]")].map((w) => { const r = w.getBoundingClientRect(); const cs = getComputedStyle(w); return { stat: w.parentElement.getAttribute("data-stat"), w: Math.round(r.width), h: Math.round(r.height), round: cs.borderTopLeftRadius === "9999px" || parseFloat(cs.borderTopLeftRadius) >= r.width / 2, shadow: cs.boxShadow !== "none" } }),
+        face: (() => { const a = c.querySelector("[data-community-creator] [data-app-avatar]"); const img = a?.querySelector("img"); const r = a?.getBoundingClientRect(); return a ? { w: Math.round(r.width), h: Math.round(r.height), img: img ? { width: img.getAttribute("width"), height: img.getAttribute("height"), loading: img.getAttribute("loading"), src: img.getAttribute("src") } : null } : null })(),
+        titleLines: (() => { const t = c.querySelector("[data-community-title]"); return Math.round(t.getBoundingClientRect().height / parseFloat(getComputedStyle(t).lineHeight)) })(),
       }
     }),
     oldLine: /\\d+ members? · /.test(text),
@@ -209,11 +236,28 @@ for (const [label, vp] of SIZES) {
     expect(withBlurb.length >= 1 && withBlurb.every((f) => f.blurb.lines <= 2 && f.blurb.clamp === "2"), "every sneak peek is two lines at most, clamped", withBlurb.map((f) => f.blurb))
     const long = m.foot.find((f) => /^Film Photo Clu/.test(f.name))
     if (long) expect(long.blurb && long.blurb.lines === 2 && long.blurb.clipped, "a long one stops at two lines with the rest cut", long.blurb)
-    const markSize = mode === "library" ? 57 : 44
-    expect(m.foot.every((f) => f.mark === markSize), `the mark is ${markSize}px (ten per cent over ${mode === "library" ? 52 : 40})`, m.foot.map((f) => f.mark))
+    const markSize = phone ? 48 : 56
+    expect(m.foot.every((f) => f.mark === markSize && f.markH === markSize), `the mark is ${markSize}px square`, m.foot.map((f) => [f.mark, f.markH]))
+    expect(m.foot.every((f) => f.markRadius === (phone ? "12px" : "14px")), `a rounded square (${phone ? 12 : 14}px corners)`, m.foot.map((f) => f.markRadius))
+    expect(m.foot.filter((f) => f.price).every((f) => f.price === "15px" && f.facts === "13px"), "the price 15px, a step over the 13px facts", m.foot.map((f) => [f.price, f.facts]))
+    expect(m.foot.every((f) => f.wells.length === (f.kids.includes("views") ? 2 : 1) && f.wells.every((w) => w.w === 22 && w.h === 22 && w.round && w.shadow)), "members and views each sit in a 22px round well with a shadow", m.foot.map((f) => f.wells))
+    const faces = m.foot.map((f) => f.face).filter(Boolean)
+    expect(faces.length >= 3 && faces.every((f) => f.w === 20 && f.h === 20 && (!f.img || (f.img.width === "20" && f.img.height === "20"))), "the creator's face is 20px, its <img> sized in its markup", faces)
+    const first = m.foot[0]?.face?.img
+    if (mode !== "library") {
+      expect(first && first.src.startsWith("/_next/image?url=https%3A%2F%2Fprobe.supabase.co") && /[?&]w=48&/.test(first.src) && first.loading === null, "the first card's face: through the optimizer, fetched at once", first)
+      const lazy = m.foot.slice(3).map((f) => f.face?.img).filter(Boolean)
+      if (m.foot.length > 3) expect(lazy.every((i) => i.loading === "lazy"), "faces past the first row wait until they near the screen", lazy)
+      const asked = (p.__optimized || []).filter((u) => u.includes("andrew.png"))
+      expect(asked.length >= 1 && asked.every((u) => /[?&]w=(32|48)&/.test(u)), "the optimizer is asked for the face at 1x or 2x of 20px (32 or 48 wide)", asked.map((u) => u.replace(/^.*\?/, "")))
+      const marks = (p.__optimized || []).filter((u) => u.includes("night.png"))
+      if (m.n > 1) expect(marks.length >= 1 && marks.every((u) => /[?&]w=128&/.test(u)), "the mark is asked for at twice 56 (a 128px file)", marks.map((u) => u.replace(/^.*\?/, "")))
+    }
     expect(!m.oldLine, `no "N members · Free" line anywhere`)
     expect(m.font && /^Roboto\b/.test(m.font.family.replace(/["']/g, "")), "title family is Roboto", m.font?.family)
-    expect(m.font && m.font.size === "18px" && m.font.weight === "500" && m.font.lineHeight === "24px" && m.font.tracking === "0px" && (m.font.letterSpacing === "0px" || m.font.letterSpacing === "normal"), "18px, 500, 24px line, letter spacing 0 (Chrome prints a computed 0 as normal; the 0px is the card's own)", m.font)
+    const [fs, lh] = phone ? ["18px", "24px"] : ["20px", "26px"]
+    expect(m.font && m.font.size === fs && m.font.weight === "500" && m.font.lineHeight === lh && m.font.tracking === "0px" && (m.font.letterSpacing === "0px" || m.font.letterSpacing === "normal"), `${fs}, 500, ${lh} line, letter spacing 0 (Chrome prints a computed 0 as normal; the 0px is the card's own)`, m.font)
+    if (mode !== "library") expect(m.foot.every((f) => f.titleLines <= 2), "names two lines at most", m.foot.map((f) => f.titleLines))
     expect(m.titles.length === 1, "every title on the page is set the same", m.titles)
     if (roboto) expect(m.loaded, "the Roboto 500 face is the one that rendered")
     expect(/Inter/.test(m.creatorFamily ?? ""), "the creator line stays Inter", m.creatorFamily)

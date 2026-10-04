@@ -52,7 +52,7 @@ import {
   statCount,
   srtForLegacySort,
 } from "@/lib/explore/communities-mode"
-import { ACCESS_FOR_PRICE, exploreCategory, exploreCommunities, explorePrice } from "@/lib/communities/server/explore"
+import { ACCESS_FOR_PRICE, afterFilter, exploreCategory, exploreCommunities, exploreOrFilter, explorePrice, exploreSubcategory } from "@/lib/communities/server/explore"
 import { cardExcerpt, cardRating, EXCERPT_MAX } from "@/lib/communities/server/public"
 import { purgeOldViewDays, recordCommunityView, visitorKey } from "@/lib/communities/server/views"
 
@@ -110,14 +110,22 @@ async function main() {
     check("the admin's headline flag adds the gray control only while communities are on", showsHeadlineSwitch({ communitiesOn: true, headlineFlag: true }) && !showsHeadlineSwitch({ communitiesOn: false, headlineFlag: true }) && !showsHeadlineSwitch({ communitiesOn: true, headlineFlag: false }))
     const page = code("app/(marketing)/explore/page.tsx")
     check("the page decides the mode by that rule", /discoverModeFor\(\{ communitiesOn, type: params\?\.type \?\? null, cookie: cookieMode \}\)/.test(page))
-    check("and draws the first page of real communities in communities mode", /initialDiscoverMode === "communities"\s*\? exploreCommunities\(\{ q: searchQuery, category, sort: communityServerSort\(params\?\.srt\) \}\)/.test(page) && /initialCommunities=\{await firstCommunitiesPromise\}/.test(page))
+    check("and draws the first page of real communities in communities mode, with the subcategory from the address", /initialDiscoverMode === "communities"\s*\? exploreCommunities\(\{ q: searchQuery, category, sub, sort: communityServerSort\(params\?\.srt\) \}\)/.test(page) && /query: communitiesQuery\(\{ q: searchQuery, category, sub, srt: params\?\.srt \?\? null \}\)/.test(page) && /broadened: p\.broadened === true/.test(page) && /const sub = category !== "all" && params\?\.sub && VALID_SUBCATEGORY_IDS\.includes\(params\.sub\) \? params\.sub : null/.test(page) && /initialCommunities=\{await firstCommunitiesPromise\}/.test(page))
     const client = code("components/explore/explore-page-client.tsx")
     check("the chip's switcher and the headline control only while communities are on", /onModeChange=\{communitiesEnabled \? handleModeChange : undefined\}/.test(client) && /discoverHeadlineSegmentEnabled=\{communitiesEnabled && discoverHeadlineSegmentEnabled\}/.test(client))
     check("the client never starts in communities mode while off", /if \(!communitiesEnabled\) return "products"/.test(client))
     check("communities mode no longer reads membership products", !/isCommunity/.test(client) && !/type === "membership"/.test(client))
-    check("communities mode draws ExploreCommunitiesResults with the pill, word, order and price", /<ExploreCommunitiesResults[\s\S]{0,200}initial=\{initialCommunities\}[\s\S]{0,200}category=\{mainCategory\}[\s\S]{0,80}srt=\{deferredSort\}[\s\S]{0,40}price=\{deferredPrice\}/.test(client))
-    check("the same pills (no For you), the More picker and the Filters, with the communities' orders and prices", /const COMMUNITY_PILLS = CATEGORY_PILLS\.map/.test(client) && /groups=\{communities \? COMMUNITY_PICKER_GROUPS : PICKER_GROUPS\}/.test(client) && /sortOptions=\{communities \? COMMUNITY_SORT_OPTIONS : SORT_OPTIONS\}/.test(client) && /priceOptions=\{communities \? COMMUNITY_PRICE_FILTERS : PRICE_FILTERS\}/.test(client))
-    check("the Communities pill switches the page instead of leaving it", /href=\{EXPLORE_COMMUNITIES_HREF\}[\s\S]{0,260}handleModeChange\("communities"\)/.test(client))
+    check("communities mode draws ExploreCommunitiesResults with the pill, subcategory, word, order and price", /<ExploreCommunitiesResults[\s\S]{0,200}initial=\{initialCommunities\}[\s\S]{0,200}category=\{mainCategory\}\s*sub=\{selectedSubcategoryId\}\s*subLabel=\{selectedSubcategoryLabel\}\s*srt=\{deferredSort\}[\s\S]{0,40}price=\{deferredPrice\}/.test(client))
+    /* Round 8: the products' row and the products' More in communities mode, whole tree and subcategories. */
+    check("the products' pills in communities mode, All where For you would be", /const rowPills = \[communities \? \{ id: "all", label: "All" \} : \{ id: pillRow\.first\.id, label: pillRow\.first\.label \}, \.\.\.pillRow\.pills\]/.test(client) && !/COMMUNITY_PILLS/.test(client))
+    check("one picker for both modes, the whole tree with its subcategories, and one pick", !/COMMUNITY_PICKER_GROUPS/.test(client) && /groups=\{PICKER_GROUPS\}/.test(client) && /groups: PICKER_GROUPS,/.test(client) && (client.match(/selectedItem[=:] ?\{?selectedSubcategoryId/g) ?? []).length === 2 && (client.match(/onPick[=:] ?\{?pickCategory/g) ?? []).length === 2 && /items: c\.subcategories,/.test(client))
+    check("the Filters keep the communities' orders and prices", /sortOptions=\{communities \? COMMUNITY_SORT_OPTIONS : SORT_OPTIONS\}/.test(client) && /priceOptions=\{communities \? COMMUNITY_PRICE_FILTERS : PRICE_FILTERS\}/.test(client))
+    check("the Communities pill switches the page instead of leaving it, and in communities mode stays pressed in its place and goes back", /\{index === 0 && communitiesEnabled \? \(/.test(client) && /href=\{communities \? "\/explore\?type=products" : EXPLORE_COMMUNITIES_HREF\}[\s\S]{0,300}handleModeChange\(communities \? "products" : "communities"\)/.test(client) && /data-on=\{communities \? "" : undefined\}/.test(client))
+    check("a ?sub= address is the subcategory from the first render", /useState<string \| null>\(\(\) => subcategoryFromAddress\(searchParams\.get\("sub"\)\)\?\.id \?\? null\)/.test(client))
+    const results = code("components/explore/explore-communities-results.tsx")
+    check("the results ask with the subcategory, say when it was broadened, and go on without it", /communitiesQuery\(\{ q, category, sub, srt, price \}\)/.test(results) && /const pageQuery = broadened \? communitiesQuery\(\{ q, category, srt, price \}\) : query/.test(results) && /No communities about \{subLabel\} yet, so here is everything in \{categoryLabel\}\./.test(results))
+    const route = code("app/api/explore/communities/route.ts")
+    check("the route passes the subcategory and answers broadened", /sub: url\.searchParams\.get\("sub"\)/.test(route) && /broadened: true/.test(route))
     check("a search in communities mode is the communities' search, not the products' results", /\{\(!urlSearchQuery \|\| communities\) && \(/.test(client) && /\{urlSearchQuery && !communities && \(/.test(client))
   }
 
@@ -162,6 +170,68 @@ async function main() {
     check("and asks the database for it (access in free), beside the visibility rules", db2.log.some((l) => l.table === "communities" && l.filters.some(([k, c, v]) => k === "in" && c === "access" && JSON.stringify(v) === '["free"]') && l.filters.some(([k, c, v]) => k === "eq" && c === "discovery_enabled" && v === true)))
     const paid = await exploreCommunities({ price: "paid", category: "development" }, world())
     check("filters combine", paid.items.length === 0)
+
+    /*
+      ROUND 8: A SUBCATEGORY FROM MORE. A community stores a category, never a
+      subcategory, so the server reads one as its parent narrowed by its
+      words, and shows the whole category (broadened) when nothing has them.
+      The fake database has no `or`, so this one evaluates the flat list of
+      ilike patterns the narrowing sends, the way PostgREST would.
+    */
+    const ui = exploreSubcategory("ui-ux")
+    check("a subcategory is its parent category and its words, as ilike patterns", ui?.category === "design" && ui.label === "UI/UX Templates" && ui.patterns.includes("*ui*ux*") && ui.patterns.includes("*ui*ux*template*"), ui)
+    check("  never a two letter word on its own (it is inside half the dictionary)", !!ui && !ui.patterns.includes("*ui*") && !ui.patterns.includes("*ux*"))
+    check("  and nothing for a category id, an unknown word or a non string", exploreSubcategory("design") === null && exploreSubcategory("knitting") === null && exploreSubcategory(3) === null && exploreSubcategory("") === null)
+    check("  every pattern is words and stars only, safe in a filter", (["presets", "after-effects", "scripts", "documents", "guides", "ui-ux"] as const).every((id) => (exploreSubcategory(id)?.patterns ?? ["x"]).every((pt) => /^\*[a-z0-9*]+\*$/.test(pt))))
+    const cur = { v: 3, id: C1 }
+    check("one or: the search alone is what it always was", exploreOrFilter({ q: "pots", sort: "trending" }) === "name.ilike.*pots*,tagline.ilike.*pots*")
+    check("  the cursor alone too", exploreOrFilter({ sort: "trending", cursor: cur }) === afterFilter("trending", cur))
+    check("  and every group required together", exploreOrFilter({ q: "pots", patterns: ["*mockup*"], sort: "trending", cursor: cur }) === `and(or(name.ilike.*pots*,tagline.ilike.*pots*),or(name.ilike.*mockup*,tagline.ilike.*mockup*,description.ilike.*mockup*),or(${afterFilter("trending", cur)}))`)
+    check("  and nothing when nothing is asked", exploreOrFilter({ sort: "new" }) === null)
+    const withOr = (db: ReturnType<typeof world>) => {
+      const ors: string[] = []
+      const realFrom = db.from
+      ;(db as { from: unknown }).from = (table: string) => {
+        const b = realFrom(table) as Record<string, unknown> & { then: (res: (v: unknown) => unknown, rej?: (e: unknown) => unknown) => unknown }
+        if (table !== "communities") return b
+        let pats: { col: string; re: RegExp }[] | null = null
+        b.or = (f: string) => {
+          ors.push(f)
+          pats = f.split(",").map((part) => {
+            const [col, , pat] = part.split(".")
+            return { col, re: new RegExp(`^${pat.split("*").map((x) => x.replace(/[.+?^${}()|[\]\\]/g, "\\$&")).join(".*")}$`, "is") }
+          })
+          return b
+        }
+        const realThen = b.then.bind(b)
+        b.then = (res, rej) => realThen((v: unknown) => {
+          const out = v as { data: Record<string, unknown>[] | null }
+          if (pats && Array.isArray(out.data)) out.data = out.data.filter((r) => pats!.some(({ col, re }) => typeof r[col] === "string" && re.test(r[col] as string)))
+          return res(out)
+        }, rej)
+        return b
+      }
+      return ors
+    }
+    const narrowDb = world()
+    ;(narrowDb.tables.communities[0] as Record<string, unknown>).tagline = "Glazes, kilns and print mockups."
+    const narrowOrs = withOr(narrowDb)
+    const narrowed = await exploreCommunities({ category: "development", sub: "mockups" }, narrowDb)
+    check("Design > Mockups: the design communities that mention mockups, whatever category the address said", narrowed.items.map((c) => c.slug).join() === "clay" && !narrowed.broadened && narrowOrs.length === 1 && /tagline\.ilike\.\*mockup\*/.test(narrowOrs[0]), { items: narrowed.items.map((c) => c.slug), ors: narrowOrs })
+    check("  read inside the parent category", narrowDb.log.some((l) => l.table === "communities" && l.filters.some(([k, c, v]) => k === "eq" && c === "category" && v === "design")))
+    const wideDb = world()
+    const wideOrs = withOr(wideDb)
+    const wide = await exploreCommunities({ category: "design", sub: "ui-ux" }, wideDb)
+    check("Design > UI/UX Templates with nothing about it: the whole of Design, flagged broadened", wide.items.map((c) => c.slug).join() === "clay" && wide.broadened === true && wideOrs.length === 1, { items: wide.items.map((c) => c.slug), broadened: wide.broadened, ors: wideOrs })
+    const laterDb = world()
+    withOr(laterDb)
+    const later = await exploreCommunities({ category: "design", sub: "ui-ux", cursor: Buffer.from(JSON.stringify(cur)).toString("base64url") }, laterDb)
+    check("  a next page is never broadened on its own (the page asks for the category itself)", !later.broadened)
+    const freebies = await exploreCommunities({ category: "freebies" }, world())
+    check("Freebies is a price: the free communities, in any category", freebies.items.map((c) => c.slug).join() === "code")
+    const freePaid = await exploreCommunities({ category: "freebies", price: "paid" }, world())
+    check("  and Freebies with Paid is nothing", freePaid.items.length === 0)
+    check("the query carries the subcategory beside its category, and only there", communitiesQuery({ category: "design", sub: "ui-ux", srt: "newest" }) === "c=design&sub=ui-ux&sort=new" && communitiesQuery({ category: "all", sub: "ui-ux" }) === "")
 
     /* Before part 87: the column is not there, and the list still works. */
     const old = world(false)
@@ -210,9 +280,12 @@ async function main() {
     check("the hairline is slim and quiet: 1px wide, 14px tall, the border colour, hidden from readers", /<span aria-hidden className="h-3\.5 w-px shrink-0 bg-border" data-community-divider="" \/>/.test(facts))
     check("stars only with a rating (no count), views only when known, the price and hairline only with a price", /\{rating \? \(/.test(facts) && /\{views !== null \? \(/.test(facts) && /\{card\.priceLine \? \(/.test(facts) && !/\(\{?card\.rating\.count/.test(card))
     check("the sneak peek: the tagline, else the description's start, two lines at most", /return card\.tagline\?\.trim\(\) \|\| card\.excerpt\?\.trim\(\) \|\| null/.test(card) && /"line-clamp-2 break-words text-\[13\.5px\] leading-5 text-muted-foreground"/.test(card) && (card.match(/<Blurb card=\{card\}/g) ?? []).length === 2)
-    check("the mark ten per cent bigger in every layout: 44 (was 40), 57 in a row (was 52), 70 on an empty cover (was 64)", /<Mark card=\{card\} size=\{44\} \/>/.test(card) && /<Mark card=\{card\} size=\{57\} cover \/>/.test(card) && /<Mark card=\{card\} size=\{70\}/.test(card) && !/size=\{(40|52|64)\}/.test(card))
-    check("a bigger name, two lines at most, and the creator's face under it", /line-clamp-2[^"]*", COMMUNITY_TITLE\)/.test(card) && /COMMUNITY_TITLE = "[^"]*text-\[18px\] font-medium leading-6/.test(card) && /<AppAvatar src=\{card\.creator\.avatarUrl\}/.test(card) && /by \{card\.creator\.name\}/.test(card))
-    check("the product card's frame: 16:9 picture, the border, the foot row at the bottom so a row lines up", /aspect-video/.test(card) && /rounded-lg border border-border\/60 bg-card/.test(card) && /<div className="mt-auto pt-3\.5">\s*<Facts card=\{card\} \/>/.test(card) && /group\/community flex h-full w-full min-w-0 flex-col/.test(card))
+    /* Round 8, the owner's reference proportions without "Launched". */
+    check("the mark a rounded square, 56 on a computer and 48 on a phone, in the grid and in a row; 72 on an empty cover", /const MARK_PX = 56/.test(card) && /const MARK_CLASS = "h-12 w-12 rounded-\[12px\]"/.test(card) && /const MARK_CLASS_WIDE = "sm:h-14 sm:w-14 sm:rounded-\[14px\]"/.test(card) && /<Mark card=\{card\} size=\{MARK_PX\} eager=\{priority\} className=\{markClass\} \/>/.test(card) && /<Mark card=\{card\} size=\{MARK_PX\} cover eager=\{priority\}/.test(card) && /<Mark card=\{card\} size=\{72\}/.test(card) && !/size=\{(40|44|52|57|64|70)\}/.test(card))
+    check("the mark is asked for through the optimizer at its drawn size (twice that on file), with its width and height", /src=\{optimizedImageUrl\(src, size\)\}/.test(card) && /width=\{size\}\s*height=\{size\}/.test(card) && /loading=\{eager \? "eager" : "lazy"\}/.test(card))
+    check("a bigger name: 18/24 on a phone, 20/26 from 640px, two lines at most, and the creator's face under it", /line-clamp-2[^"]*", titleClass\)/.test(card) && /COMMUNITY_TITLE = "[^"]*text-\[18px\] font-medium leading-6/.test(card) && /COMMUNITY_TITLE_WIDE = "sm:text-\[20px\] sm:leading-\[26px\]"/.test(card) && /<AppAvatar src=\{card\.creator\.avatarUrl\} name=\{card\.creator\.name\} alt="" size=\{20\} lazy=\{!eager\}/.test(card) && /by \{card\.creator\.name\}/.test(card))
+    check("the price a step larger than the facts, and each fact's icon in a small round well", /text-\[15px\] font-semibold[^"]*" data-community-price=""/.test(card) && /h-\[22px\] w-\[22px\] shrink-0 items-center justify-center rounded-full/.test(card) && (facts.match(/<Well storefront=\{storefront\}>/g) ?? []).length === 2)
+    check("the product card's frame: 16:9 picture, the border, the foot row at the bottom so a row lines up", /aspect-video/.test(card) && /rounded-lg border border-border\/60 bg-card/.test(card) && /<div className="mt-auto pt-4">\s*<Facts card=\{card\} storefront=\{storefront\} \/>/.test(card) && /group\/community flex h-full w-full min-w-0 flex-col/.test(card))
     check("an excerpt is plain text cut at a word near the limit", cardExcerpt("<p>One <em>two</em></p><p>three</p>") === "One two three" && cardExcerpt(null) === null && cardExcerpt("<p> </p>") === null && (() => { const long = cardExcerpt(`<p>${"word ".repeat(80)}</p>`) ?? ""; return long.length <= EXCERPT_MAX + 1 && long.endsWith("word\u2026") })())
     check("the card draws no hooks and imports no server code", !/use(State|Effect|Ref|Memo)\(/.test(card) && !/server-only|lib\/communities\/server|next\/headers/.test(card))
   }
@@ -308,7 +381,7 @@ async function main() {
     check("the tooltip is a computer's, and stays away while the menu is open or just closed", /<Tooltip\s+open=\{tipOpen && !open\}/.test(picker) && /performance\.now\(\) - closedAt\.current > 400/.test(picker) && /<TooltipContent side="bottom" data-categories-tooltip="">/.test(picker))
     check("the field leaves room for it", /categories \? \(draft \? "pr-\[\d+px\] sm:pr-\[\d+px\]" : "pr-\[\d+px\] sm:pr-\[\d+px\]"\) : "pr-12"/.test(hero))
     const client = code("components/explore/explore-page-client.tsx")
-    check("the page hands it the same list and the same pick as More", /categories=\{\{\s*groups: communities \? COMMUNITY_PICKER_GROUPS : PICKER_GROUPS/.test(client) && /handleCategoryChange\(groupId, sub\?\.id, sub\?\.label, true\)/.test(client))
+    check("the page hands it the same list and the same pick as More", /categories=\{\{\s*groups: PICKER_GROUPS,/.test(client) && /handleCategoryChange\(groupId, sub\?\.id, sub\?\.label, true\)/.test(client))
     check("Explore's categories for a creator: no Freebies, Development reads Tech", !COMMUNITY_CATEGORIES.some((c) => c.id === "freebies" || c.id === "all") && COMMUNITY_CATEGORIES.find((c) => c.id === "development")?.label === "Tech" && COMMUNITY_CATEGORIES.length >= 12)
     check("a saved category is a pill's id; old free text is read the products' way", communityCategoryId("design") === "design" && communityCategoryId(" AI ") === "ai" && communityCategoryId("Knitting circles") === "other" && communityCategoryId("") === null && communityCategoryId("all") === null && communityCategoryId(4) === null)
     const settings = code("components/community/creator/settings-section.tsx")
