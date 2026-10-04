@@ -88,6 +88,7 @@ import { recordActivity } from "./activity"
 import { eventScheduled } from "./events"
 import { admin, missing, nowIso, reasonOf, type Db } from "./db"
 import { inviteCount } from "./invites"
+import { slugHeldByAnother } from "./slug-history"
 import { openReportCount, peopleOf } from "./moderation"
 import { createPaidTier, loadTiers, pickableProducts, recurringProductIds, syncTierProducts } from "./tiers"
 import { checkGalleryForCommunity, loadGallery, ownPicture, saveGallery } from "./gallery"
@@ -517,6 +518,14 @@ export async function updateSettings(db: Db, a: { community: CommunityRow; role:
     if (slug !== c.slug) {
       const { data: taken } = await db.from("communities").select("id").eq("slug", slug).maybeSingle()
       if (taken) return no(409, "That address is taken.", "slug")
+      /* Another community's old address stays theirs, so a link shared to it never opens this one (./slug-history.ts). */
+      if (await slugHeldByAnother(db, slug, c.id)) return no(409, "That address is taken.", "slug")
+      /*
+        THE OLD ADDRESS KEEPS WORKING. The database records it as this
+        community's in the same step as the change (run-now part 94, a trigger
+        on communities), and every page under it answers a permanent redirect
+        to the new one, the rest of the path and the query kept.
+      */
       patch.slug = slug
     }
   }

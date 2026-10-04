@@ -210,7 +210,8 @@ function PageSettings({ head, data }: { head: CommunityHead; data: SettingsData 
                 <span className="shrink-0 pl-3 text-[13px] text-[#9ca3af]"><span className="max-sm:hidden">storelib.com</span>/community/</span>
                 <input id="g-slug" value={s.slug} onChange={(e) => set("slug", e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "").slice(0, 48))} className="h-full min-w-0 flex-1 bg-transparent pr-3 text-[16px] text-[#1a1a2e] outline-none sm:text-[14px]" />
               </div>
-              {s.slug !== start.slug && head.status === "published" ? <p className="mt-1 text-[12px] text-[#b45309]">Links to the old address stop working.</p> : null}
+              {/* The old address is kept (run-now part 94): a shared link opens the community at its new address. */}
+              {s.slug !== start.slug && head.status === "published" ? <p className="mt-1 text-[12px] text-[#6b7280]" data-slug-note="">Links to /community/{start.slug} will open the new address.</p> : null}
             </div>
           </div>
           <div>
