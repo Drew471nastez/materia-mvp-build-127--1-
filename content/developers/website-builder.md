@@ -129,6 +129,12 @@ The text styles, with their defaults. Each can be changed: font, weight, a size 
 
 @[theme-settings:layout]
 
+### Breadcrumbs
+
+Home > Shop > the product, Home > Search: a bar under the header on every page except the home page, on the colours of the section under it. A page that already shows breadcrumbs (a Breadcrumbs section, or the product section's Breadcrumbs block) keeps its own and gets no second bar. In the editor, clicking the bar opens this group.
+
+@[theme-settings:breadcrumbs]
+
 ### Animations
 
 @[theme-settings:animations]

@@ -215,6 +215,9 @@ export const THEME_SETTING_DOCS: Record<string, { does: string; as?: Partial<Spe
   card_shadow: { does: "How much shadow a card casts." },
   image_border_radius: { does: "How round the corners of pictures and videos are. In Media, where Shopify files it." },
 
+  breadcrumbs_enabled: { does: "A Home > Shop > product trail under the header on every page but the home page. A page with breadcrumbs of its own keeps those instead." },
+  breadcrumbs_separator: { does: "What sits between the steps of the trail: a slash, a chevron or a dot." },
+
   animations_enabled: { does: "Sections ease in as they scroll into view. Visitors who ask their device for less motion never see it." },
   animation_style: { does: "How a section arrives: rising, fading, sliding or growing." },
   animation_duration: { does: "How long the arrival takes." },

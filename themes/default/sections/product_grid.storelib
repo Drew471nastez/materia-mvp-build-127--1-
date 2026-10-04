@@ -15,7 +15,7 @@
       {# The shop with its filters: the page passes the products that pass
          them as `products`, and every group, value and count as
          `page.filters` (lib/products/catalog-filters.ts). #}
-      <div class="cat">
+      <div class="cat{% if page.filters.price.show or page.filters.groups.size > 0 %}{% else %} cat--bare{% endif %}">
         <form class="cat__form" action="{{ page.filters.path | url }}" method="get" data-storelib-filters>
           {% if page.filters.q %}<input type="hidden" name="q" value="{{ page.filters.q }}">{% endif %}
           <input class="cat__toggle" type="checkbox" id="{{ section.id }}-filters" aria-hidden="true" tabindex="-1">
@@ -295,6 +295,11 @@
   .cat__panel { display: block; align-self: start; padding: 0; border-bottom: 0; }
   .cat__group:first-child { padding-top: 4px; }
 }
+
+/* Nothing to filter by (one product, no options): no Filter button and no
+   empty column holding a lone Apply; the bar keeps the count and the sort. */
+.cat--bare .cat__open, .cat--bare .cat__panel { display: none !important; }
+@container (min-width: 900px) { .cat.cat--bare { grid-template-columns: minmax(0, 1fr); grid-template-areas: "bar" "main"; } }
 </style>
 
 <schema>

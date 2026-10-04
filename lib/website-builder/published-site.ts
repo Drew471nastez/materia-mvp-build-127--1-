@@ -49,6 +49,7 @@ import { renderWithSources, sectionSources } from "@/lib/website-builder/storefr
 import { shopProducts, type ProductCard } from "@/lib/website-builder/shop-products"
 import { pageSections, themeSettings as themeSettingsOf } from "@/lib/website-builder/preview-link"
 import { storeMenusOrNull, withStoreMenus } from "@/lib/website-builder/store-menus-server"
+import { withThemeBreadcrumbs } from "@/lib/website-builder/theme-breadcrumbs"
 import { NOT_FOUND_PAGE_KEY, pageTitleFromKey, templateForPage } from "@/lib/website-builder/site-pages"
 import { notFoundSections } from "@/lib/website-builder/shop-page"
 import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
@@ -469,7 +470,8 @@ export async function dressPage(
     pageTitle,
     template,
   })
-  const filled = withDynamicSources(sections, schemaOf, dynamic)
+  /* Theme settings › Breadcrumbs: the bar under the header on every page but home (theme-breadcrumbs.ts). */
+  const filled = withDynamicSources(withThemeBreadcrumbs(sections, site.themeSettings, template), schemaOf, dynamic)
   /* The communities a community_picker names: the creator's own, published and public, while communities are on. A minute in the cache, like the shop. */
   const communityIds = communityReferences(sections, schemaOf)
   const communities = communityIds.length
