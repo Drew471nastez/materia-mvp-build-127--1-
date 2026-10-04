@@ -7,15 +7,24 @@
  *                      members (with the pills) and for everybody else (alone),
  *                      and never around a draft or suspended community for
  *                      somebody who may not see it.
- *   THE TOP BAR        logo, name, By <creator> to their page, the switcher
- *                      (my communities, Discover communities, Explore),
- *                      Messages wired to the existing panel, the bell slot,
- *                      my menu (profile, library, settings, explore).
- *   PILLS AND CHIPS    one row: Community, Classroom, Calendar, Members,
- *                      Leaderboards, About, only those on; spaces as chips at
- *                      the top of the feed.
+ *   THE TOP BAR        the hamburger (Storelib's one navigator) before the
+ *                      logo and name, By <creator> to their page, no chevron
+ *                      switcher, Messages wired to the existing panel, the
+ *                      bell, my menu (profile, library, settings, explore),
+ *                      a hairline and a soft shadow under it.
+ *   TABS AND CHIPS     one row of plain text tabs with a line under the
+ *                      chosen one (not pills): Community, Classroom, Calendar,
+ *                      Members, Leaderboards, About, only those on; spaces as
+ *                      chips at the top of the feed.
  *   PEOPLE             every name opens the person's page by one rule:
- *                      /<handle> for a storefront, /@handle otherwise.
+ *                      /<handle> for a storefront, /@handle otherwise. There
+ *                      is no member page inside a community: its old address
+ *                      redirects to the person's page.
+ *   PERSON CARD        resting on a name opens a card (350ms in, a short
+ *                      grace out, keyboard focus too, never on touch) with
+ *                      public facts only, from a rate limited member route.
+ *   MESSAGE            opens the panel in place; ?dm=<userId> opens that
+ *                      conversation once and leaves the address.
  *   ABOUT              the gallery (or the cover), the facts line, real
  *                      reviews with "Still a paying member" only when true,
  *                      Members / Online / Admins with Online from a real
@@ -30,7 +39,9 @@ import { existsSync, readFileSync } from "node:fs"
 import { fakeDb } from "./_fake-db"
 import { memberHref } from "@/components/community/member/person-href"
 import { personHref } from "@/lib/profile/person-href"
-import { navEntries, pillFor, sectionFromPath } from "@/components/community/member/nav"
+import { navEntries, sectionFromPath, tabFor } from "@/components/community/member/nav"
+import { activeLabel, CARD_GRACE_MS, CARD_OPEN_MS, communitiesLine, hoverPointer, ownerLine } from "@/components/community/member/person-card-facts"
+import { personCard } from "@/lib/communities/server/people"
 import { GALLERY_MAX, parseGallery, payingTenure, safeImageUrl } from "@/components/community/public/gallery"
 import { communityGallery, loadSalesPage, topBarData } from "@/lib/communities/server/public"
 import { adminCount, communityStats, HEARTBEAT_MS, onlineCount, ONLINE_WINDOW_MS, touchPresence } from "@/lib/communities/server/presence"
@@ -79,8 +90,12 @@ async function main() {
     const bar = code("components/community/member/top-bar.tsx")
     check("logo and name go to the community's home", /<Link href=\{base\} aria-label=\{`\$\{community\.name\}, home`\}/.test(bar) && /<Link href=\{base\} className="block truncate/.test(bar))
     check("By <creator> opens the creator's page", /By\{" "\}[\s\S]{0,80}<Link href=\{creator\.href\}/.test(bar))
-    check("the switcher: my communities, Discover communities, Explore Storelib", /others\.map\(\(c, i\) => \(\{[\s\S]*?href: `\/community\/\$\{c\.slug\}`/.test(bar) && /label: "Discover communities", href: "\/explore\/communities"/.test(bar) && /label: "Explore Storelib", href: "\/explore"/.test(bar))
-    check("the switcher is a menu on a computer and a sheet on a phone (the shared action list)", /<ResponsiveActionMenu\s+title="Switch community"/.test(bar))
+    check("no chevron switcher any more", !/ChevronsUpDown|Switch community|data-community-switcher/.test(bar))
+    check("the hamburger first: Storelib's navigator, marked as this community, before the picture and the name", /<PlaceNavigator current=\{\{ kind: "community", id: community\.id \}\}/.test(bar) && bar.indexOf("<PlaceNavigator") < bar.indexOf("<CommunityMark") && bar.indexOf("<PlaceNavigator") < bar.indexOf("data-community-identity"))
+    check("the navigator comes from one import that becomes components/nav/place-navigator.tsx on merge", /import \{ PlaceFallbackContext, PlaceNavigator \} from "\.\/place-navigator"/.test(bar))
+    const stand = code("components/community/member/place-navigator.tsx")
+    check("the stand in has the navigator's props and a working menu: my communities, Discover, Explore", /export function PlaceNavigator\(\{ current, className = "" \}: PlaceNavigatorProps\)/.test(stand) && /current\?: \{ kind: "community"; id: string \} \| \{ kind: "storelib" \}/.test(stand) && /href: `\/community\/\$\{c\.slug\}`/.test(stand) && /label: "Discover communities", href: "\/explore\/communities"/.test(stand) && /label: "Explore Storelib", href: "\/explore"/.test(stand))
+    check("the bar reads as a bar over the page: a hairline and a soft shadow", /data-community-top=""[\s\S]{0,40}className="sticky top-0 z-40 border-b border-\[#e6e8ec\] bg-white[^"]*shadow-\[0_1px_2px/.test(bar))
     check("my menu: profile, library, settings, explore", /label: "My profile", href: me\.profileHref/.test(bar) && /label: "Library", href: "\/library"/.test(bar) && /label: "Settings", href: "\/account\/settings"/.test(bar) && /label: "Explore Storelib", href: "\/explore"/.test(bar))
     check("Manage community only when the server says this person runs it", /data\.manageHref \? \[\{ label: "Manage community", href: data\.manageHref/.test(bar))
     check("a visitor gets Log in, back to this page", /href=\{`\/login\?next=\$\{encodeURIComponent\(pathname \|\| base\)\}`\}/.test(bar))
@@ -91,20 +106,29 @@ async function main() {
     check("its height is measured once and shared as --community-top", /frame\.style\.setProperty\("--community-top", h\)/.test(bar) && /html\.style\.setProperty\("--community-top", h\)/.test(bar))
     const frame = code("components/community/member/shell-frame.tsx")
     check("the frame wires Messages to the existing panel and its unread count", /useUnreadMessages\(community\.id, viewer\.userId, unreadMessages\)/.test(frame) && /<MessagesPanel communityId=\{community\.id\}/.test(frame) && /onMessages=\{\(\) => setChat/.test(frame))
-    check("Message on a member's page still opens the panel", /window\.addEventListener\(MESSAGES_EVENT, on\)/.test(frame))
+    check("Message on a person's card or a member row opens the panel", /window\.addEventListener\(MESSAGES_EVENT, on\)/.test(frame))
+    check("?dm=<userId> opens that conversation once and takes ?dm off the address", /const dm = search\?\.get\("dm"\) \?\? null/.test(frame) && /url\.searchParams\.delete\("dm"\)/.test(frame) && /window\.history\.replaceState\(window\.history\.state, "", url\.pathname \+ url\.search \+ url\.hash\)/.test(frame) && /setChat\(\{ userId: dm \}\)/.test(frame))
+    check("only when messages are available, never to yourself, only an id", /if \(!canMessage \|\| !DM_TARGET\.test\(dm\) \|\| dm === viewer\.userId\) return/.test(frame) && /const DM_TARGET = \/\^\[0-9a-z-\]\{1,64\}\$\/i/.test(frame))
+    check("the person card layer lives in the frame", /<PersonCardLayer communityId=\{community\.id\} canMessage=\{canMessage\} \/>/.test(frame))
     check("the old left column is gone", !/data-community-rail|RailLink|SpaceLink/.test(frame))
   }
 
   /* ── Pills and chips ─────────────────────────────────────────────────── */
-  console.log("\nOne row of pills, spaces as chips")
+  console.log("\nOne row of section tabs, spaces as chips")
   {
     const all = navEntries({ slug: "s", classroomEnabled: true, eventsEnabled: true, directoryEnabled: true, gamificationEnabled: true }, false)
     check("Community, Classroom, Calendar, Members, Leaderboards, About", all.map((e) => e.label).join() === "Community,Classroom,Calendar,Members,Leaderboards,About", all.map((e) => e.label))
     check("each to its own address", all.map((e) => e.href).join() === "/community/s,/community/s/classroom,/community/s/events,/community/s/members,/community/s/leaderboard,/community/s/about")
     const none = navEntries({ slug: "s", classroomEnabled: false, eventsEnabled: false, directoryEnabled: false, gamificationEnabled: false }, false)
     check("only the places that are on", none.map((e) => e.label).join() === "Community,About")
-    check("a space, a post, Saved and the inbox light Community", ["/community/s/space/x", "/community/s/post/p", "/community/s/saved", "/community/s/notifications", "/community/s"].every((p) => pillFor(sectionFromPath(p, "s")) === "home"))
-    check("About lights About; Calendar lights on an event", pillFor(sectionFromPath("/community/s/about", "s")) === "about" && pillFor(sectionFromPath("/community/s/events/e1", "s")) === "events")
+    check("a space, a post, Saved and the inbox mark Community", ["/community/s/space/x", "/community/s/post/p", "/community/s/saved", "/community/s/notifications", "/community/s"].every((p) => tabFor(sectionFromPath(p, "s")) === "home"))
+    check("About marks About; Calendar marks on an event; an old member address marks Members", tabFor(sectionFromPath("/community/s/about", "s")) === "about" && tabFor(sectionFromPath("/community/s/events/e1", "s")) === "events" && tabFor(sectionFromPath("/community/s/members/u1", "s")) === "members")
+    const frameCode = code("components/community/member/shell-frame.tsx")
+    check("the tabs are plain words, not pills", /<SectionTabs entries=\{entries\} current=\{tabFor\(current\)\} \/>/.test(frameCode) && /className=\{`\$\{TAB\} \$\{on \? TAB_ON : TAB_OFF\}`\}/.test(frameCode) && !/PillRow|PILL_ON|PILL_OFF/.test(frameCode))
+    const ui = code("components/community/member/ui.ts")
+    const tab = /export const TAB =\s*"([^"]+)"/.exec(ui)?.[1] ?? ""
+    check("a tab has no box: no border, no fill, no pill rounding", !!tab && !/(^|\s)(border|bg-\[)|rounded-full/.test(tab) && /h-11/.test(tab), tab)
+    check("the chosen one has a 2px ink line on the bar's edge that grows in by scale and opacity", /data-tab-line=""[\s\S]{0,80}absolute inset-x-0 bottom-0 h-\[2px\] rounded-full bg-\[#1a1a2e\] transition-\[opacity,scale\]/.test(frameCode) && /on \? "scale-x-100 opacity-100" : "scale-x-50 opacity-0"/.test(frameCode))
     const chips = code("components/community/member/space-chips.tsx")
     check("chips: All, then every space the member may see, then Saved", /data-space-chip="all"/.test(chips) && /spaces\.map\(\(s\) =>/.test(chips) && /href=\{`\$\{base\}\/space\/\$\{s\.slug\}`\}/.test(chips) && /href=\{`\$\{base\}\/saved`\}/.test(chips))
     check("chips are on the feed, a space and Saved", /<SpaceChips slug=\{community\.slug\} spaces=\{shell\.spaces\} active=\{null\} \/>/.test(code("components/community/member/feed-page.tsx")) && /<SpaceChips slug=\{community\.slug\} spaces=\{shell\.spaces\} active=\{space\.slug\} \/>/.test(code("app/(marketing)/community/[slug]/(member)/space/[space]/page.tsx")) && /savedOn/.test(code("app/(marketing)/community/[slug]/(member)/saved/page.tsx")))
@@ -116,15 +140,20 @@ async function main() {
     check("a storefront is /<handle>", personHref({ username: "Ana", hasStorefront: true }) === "/ana")
     check("anybody else is /@handle", personHref({ username: "sam", hasStorefront: false }) === "/@sam")
     check("no username, no page", personHref({ username: null, hasStorefront: false }) === "/" && personHref({ username: "  ", hasStorefront: true }) === "/")
-    check("inside a community, no username falls back to this community's view of them", memberHref("club", { id: "u1", username: null }) === "/community/club/members/u1" && memberHref("club", { id: "u1", username: "sam" }) === "/@sam")
+    check("inside a community, no handle yet goes through the old address, which only redirects", memberHref("club", { id: "u1", username: null }) === "/community/club/members/u1" && memberHref("club", { id: "u1", username: "sam" }) === "/@sam")
     for (const f of ["post-card.tsx", "post-page.tsx", "chat.tsx", "leaderboard.tsx", "members.tsx"]) {
       const src = code(`components/community/member/${f}`)
-      check(`${f}: names link through memberHref, not the community's member page`, /memberHref\(/.test(src) && !/href=\{`\$\{base\}\/members\/\$\{author\.id\}`\}|href=\{`\/community\/\$\{slug\}\/members\/\$\{(c\.author|m\.author|r|m)\.(id|userId)\}`\}/.test(src))
+      check(`${f}: names link through memberHref and say who they are, for the card`, /memberHref\(/.test(src) && /data-person-id=\{/.test(src) && !/href=\{`\$\{base\}\/members\/\$\{author\.id\}`\}|href=\{`\/community\/\$\{slug\}\/members\/\$\{(c\.author|m\.author|r|m)\.(id|userId)\}`\}/.test(src))
     }
+    check("the chat's names open the person too, not only the faces", (code("components/community/member/chat.tsx").match(/data-person-id=\{m\.author\.id\}/g) || []).length === 2)
+    check("a conversation's name opens the person's page, not a member page", /<a href=\{memberHref\(slug, \{ id: other\.id, username: other\.username \}\)\}/.test(code("components/community/member/messages.tsx")) && !/members\/\$\{other\.id\}/.test(code("components/community/member/messages.tsx")))
     const dir = code("lib/communities/server/directory.ts")
     check("who has a storefront is read once per page of people (finished onboarding, as /<handle> checks)", /from\("creators"\)\.select\("user_id"\)\.in\("user_id", list\)\.eq\("onboarding_completed", true\)/.test(dir) && (dir.match(/storefrontsOf\(db,/g) || []).length >= 3)
-    const profile = code("components/community/member/member-profile.tsx")
-    check("?message=1 on a member's page opens the conversation once, then leaves the address", /url\.searchParams\.get\("message"\) !== "1"\) return/.test(profile) && /url\.searchParams\.delete\("message"\)/.test(profile) && /window\.history\.replaceState\(/.test(profile) && /openMessages\(\{ userId: member\.userId \}\)/.test(profile))
+    const M = "app/(marketing)/community/[slug]/(member)/members/[userId]"
+    const old = code(`${M}/page.tsx`)
+    check("the member page inside a community is gone", !existsSync("components/community/member/member-profile.tsx") && !existsSync(`${M}/loading.tsx`) && !/MemberProfile|memberProfile\(/.test(old))
+    check("its old address redirects to the person's own page (a member asking; no handle, the member list)", /page\.state !== "member" \|\| !page\.community \|\| !page\.viewer\) notFound\(\)/.test(old) && /personHref\(\{ username: person\.username, hasStorefront: !!person\.hasStorefront \}\)/.test(old) && /redirect\(href === "\/" \? `\$\{base\}\/members` : href\)/.test(old))
+    check("and an old ?message=1 link opens the conversation in the community instead", /query\.message === "1" && userId !== page\.viewer\.userId\) redirect\(`\$\{base\}\?dm=\$\{userId\}`\)/.test(old))
     check("names come with a handle: anybody without one is given one when a page of people is read", /ensureUsernames\(db, unnamed\)/.test(code("lib/communities/server/directory.ts")))
     check("a member row offers Message beside the name when chat is on", /openMessages\(\{ userId: m\.userId \}\)/.test(code("components/community/member/members.tsx")))
   }
@@ -316,6 +345,93 @@ async function main() {
     check("the sales page calls no client function on the server", !/from "\.\/join-controls"[\s\S]*intervalPrice/.test(page))
   }
 
+  /* ── The person card ─────────────────────────────────────────────────── */
+  console.log("\nThe card on a person")
+  {
+    check("it opens after 350ms of rest and waits a short grace after the pointer leaves", CARD_OPEN_MS === 350 && CARD_GRACE_MS > 0 && CARD_GRACE_MS <= 250)
+    check("a mouse or a pen hovers; a finger never opens it", hoverPointer("mouse") && hoverPointer("pen") && !hoverPointer("touch") && !hoverPointer(""))
+    const N = Date.parse("2026-10-03T12:00:00.000Z")
+    check("Online now within the heartbeat's five minutes", activeLabel(iso(N - 2 * 60_000), N) === "Online now")
+    check("Active 2h ago, Active 3d ago, then the date", activeLabel(iso(N - 2 * 3600_000), N) === "Active 2h ago" && activeLabel(iso(N - 3 * DAY), N) === "Active 3d ago" && activeLabel(iso(N - 40 * DAY), N) === "Active Aug 24")
+    check("nothing when it is not known", activeLabel(null, N) === "" && activeLabel("nope", N) === "")
+    check("4 communities (1 in common); 1 community; none says nothing", communitiesLine({ count: 4, inCommon: 1 }) === "4 communities (1 in common)" && communitiesLine({ count: 1, inCommon: 0 }) === "1 community" && communitiesLine({ count: 0, inCommon: 0 }) === "" && communitiesLine(null) === "")
+    check("Owner of 2 communities; Owner of 1 community; none says nothing", ownerLine(2) === "Owner of 2 communities" && ownerLine(1) === "Owner of 1 community" && ownerLine(0) === "")
+
+    const C = "c0000000-0000-4000-8000-0000000000c1"
+    const PUB = "c0000000-0000-4000-8000-0000000000c2"
+    const PUB2 = "c0000000-0000-4000-8000-0000000000c3"
+    const PRIV = "c0000000-0000-4000-8000-0000000000c4"
+    const HIDDEN = "c0000000-0000-4000-8000-0000000000c5"
+    const ME = "a0000000-0000-4000-8000-0000000000e1"
+    const LEO = "a0000000-0000-4000-8000-0000000000e2"
+    const GONE = "a0000000-0000-4000-8000-0000000000e3"
+    const BANNED = "a0000000-0000-4000-8000-0000000000e4"
+    const pub = { status: "published", visibility: "public", platform_hidden: false, deleted_at: null, suspended_at: null }
+    const people = (o: { show?: boolean; gamification?: boolean; chat?: boolean; seen?: boolean; follows?: boolean } = {}) =>
+      fakeDb({
+        communities: [
+          { id: C, slug: "studio", name: "Studio", visibility: "private", status: "published", gamification_enabled: o.gamification ?? true, chat_enabled: o.chat ?? true, platform_hidden: false, deleted_at: null, suspended_at: null },
+          { id: PUB, slug: "pub", name: "Pub", owner_user_id: LEO, ...pub },
+          { id: PUB2, slug: "pub2", name: "Pub2", ...pub },
+          { id: PRIV, slug: "priv", name: "Priv", owner_user_id: LEO, ...pub, visibility: "private" },
+          { id: HIDDEN, slug: "hid", name: "Hid", ...pub, platform_hidden: true },
+        ],
+        community_members: [
+          { community_id: C, user_id: LEO, role: "admin", status: "active", level: 4, bio: "Here for the glaze talk.", banned_at: null, last_active_at: iso(Date.now() - 3 * DAY), ...(o.seen ? { last_seen_at: iso(Date.now() - 2 * 3600_000) } : {}) },
+          { community_id: C, user_id: ME, role: "member", status: "active", level: 1, banned_at: null },
+          { community_id: C, user_id: GONE, role: "member", status: "cancelled", level: 1, banned_at: null },
+          { community_id: C, user_id: BANNED, role: "member", status: "active", level: 1, banned_at: iso(Date.now()) },
+          { community_id: PUB, user_id: LEO, role: "owner", status: "active", level: 1 },
+          { community_id: PUB2, user_id: LEO, role: "member", status: "active", level: 1 },
+          { community_id: PRIV, user_id: LEO, role: "owner", status: "active", level: 1 },
+          { community_id: HIDDEN, user_id: LEO, role: "member", status: "active", level: 1 },
+          { community_id: PUB2, user_id: ME, role: "member", status: "active", level: 1 },
+          { community_id: PRIV, user_id: ME, role: "member", status: "active", level: 1 },
+        ],
+        community_levels: [{ community_id: C, level: 4, name: "Insider" }],
+        profiles: [
+          { id: LEO, username: "leo", display_name: "Leo Martins", avatar_url: null, bio: o.show === undefined ? "Potter in Lisbon." : null, email: "leo@example.com", ...(o.show === undefined ? {} : { show_communities: o.show }) },
+          { id: ME, username: "me", display_name: "Me", avatar_url: null },
+        ],
+        creators: [],
+        follows: o.follows ? [{ follower_id: ME, following_id: LEO }] : [],
+        community_conversations: [],
+      })
+    const viewer = { userId: ME }
+    const community = (db: ReturnType<typeof people>) => db.tables.communities[0] as never
+    const db1 = people({ seen: true, follows: true })
+    const card = await personCard(db1, community(db1), viewer, LEO)
+    check("an active member's card: name, handle, their page, role", card?.name === "Leo Martins" && card?.username === "leo" && card?.href === "/@leo" && card?.role === "admin", card)
+    check("their Storelib bio first", card?.bio === "Potter in Lisbon.")
+    check("their level here, with its name, while the community counts points", card?.level === 4 && card?.levelName === "Insider")
+    check("Active is the later of the heartbeat and their last activity", card?.activeAt === db1.tables.community_members[0].last_seen_at, card?.activeAt)
+    check("public communities only: not the private one, not one Storelib hid", card?.communities?.count === 2, card?.communities)
+    check("in common: the public ones the viewer is in too", card?.communities?.inCommon === 1, card?.communities)
+    check("owns: public ones only", card?.owns === 1, card?.owns)
+    check("following and Message from real rows", card?.following === true && card?.canMessage === true && card?.isSelf === false)
+    check("never an email", !JSON.stringify(card).includes("leo@example.com"))
+    const hiding = people({ show: false })
+    const hid = await personCard(hiding, community(hiding), viewer, LEO)
+    check("somebody who hides their memberships: no communities line, owned still counted, the community bio instead", hid?.communities === null && hid?.owns === 1 && hid?.bio === "Here for the glaze talk.", hid)
+    const quiet = people({ gamification: false, chat: false })
+    const q = await personCard(quiet, community(quiet), viewer, LEO)
+    check("no level while points are off; no Message while chat is off", q?.level === null && q?.levelName === null && q?.canMessage === false)
+    check("before part 85 Active falls back to their last activity", q?.activeAt === quiet.tables.community_members[0].last_active_at)
+    const self = await personCard(db1, community(db1), viewer, ME)
+    check("my own card: no Message, no following", self?.isSelf === true && self?.canMessage === false && self?.following === false)
+    check("nobody who left or was banned, and nothing for a bad id", (await personCard(db1, community(db1), viewer, GONE)) === null && (await personCard(db1, community(db1), viewer, BANNED)) === null && (await personCard(db1, community(db1), viewer, "x")) === null)
+
+    const route = code("app/api/community/[communityId]/people/[userId]/card/route.ts")
+    check("the card route: the switch first, a member asking (from the session), rate limited, no store", /export async function GET\([^)]*\)[^{]*\{\s*const off = await requireCommunitiesOn\(\)\s*if \(off\) return off/.test(route) && /requireMember\(db, communityId, await sessionUserId\(\), "view"\)/.test(route) && /rateLimit\(\{ bucket: rateBucket\("card"\)/.test(route) && /headers: NO_STORE/.test(route) && RATE_LIMITS.card.length > 0)
+    const server = code("lib/communities/server/people.ts")
+    check("the server reads no email and lists only published, public, open communities", !/email/.test(server) && /eq\("status", "published"\)\.eq\("visibility", "public"\)\.eq\("platform_hidden", false\)/.test(server))
+    const layer = code("components/community/member/person-card.tsx")
+    check("the card opens from a name's data-person-id, by pointer type, and from keyboard focus-visible", /closest<HTMLElement>\("\[data-person-id\]"\)/.test(layer) && /if \(!hoverPointer\(e\.pointerType\)\) return/.test(layer) && /anchor\.matches\(":focus-visible"\)/.test(layer))
+    check("Escape closes it and hands focus back; scrolling closes it", /e\.key === "Escape"[\s\S]{0,200}back\.focus\(\)/.test(layer) && /addEventListener\("scroll", onScroll/.test(layer))
+    check("Message opens the panel in place", /openMessages\(\{ userId: person\.id \}\)/.test(layer) && !/router\.push/.test(layer))
+    check("Follow goes through the one follow route", /api<\{ following: boolean \}>\("\/api\/follow", \{ body: \{ userId: person\.id, follow: next \} \}\)/.test(layer))
+  }
+
   /* ── Copy and boundaries ─────────────────────────────────────────────── */
   console.log("\nCopy, and no server code in the browser")
   {
@@ -325,6 +441,13 @@ async function main() {
       "components/community/member/space-chips.tsx",
       "components/community/member/person-href.ts",
       "components/community/member/nav.ts",
+      "components/community/member/place-navigator.tsx",
+      "components/community/member/person-card.tsx",
+      "components/community/member/person-card-facts.ts",
+      "components/community/member/messages.tsx",
+      "lib/communities/server/people.ts",
+      "app/api/community/[communityId]/people/[userId]/card/route.ts",
+      "app/(marketing)/community/[slug]/(member)/members/[userId]/page.tsx",
       "components/community/public/gallery.ts",
       "components/community/public/gallery-view.tsx",
       "components/community/public/stats-row.tsx",
@@ -340,7 +463,7 @@ async function main() {
     const clients = mine.filter((f) => /^"use client"/.test(read(f)))
     const leaks = clients.filter((f) => /server-only|next\/headers|lib\/communities\/server|lib\/supabase\/(server|admin)|lib\/admin-blog-auth|\.\/(data|shell|feed-page)"/.test(code(f)))
     check("client parts import nothing from the server", clients.length >= 5 && leaks.length === 0, { clients: clients.length, leaks })
-    check("the presence module says server-only", /^import "server-only"/m.test(read("lib/communities/server/presence.ts")))
+    check("the presence and people modules say server-only", /^import "server-only"/m.test(read("lib/communities/server/presence.ts")) && /^import "server-only"/m.test(read("lib/communities/server/people.ts")))
     check("no violet fills on the community's frame", !mine.some((f) => /bg-\[#8b5cf6\]|bg-violet|bg-purple/.test(code(f))))
   }
 

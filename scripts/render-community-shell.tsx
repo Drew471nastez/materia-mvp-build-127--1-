@@ -1,8 +1,8 @@
 /**
  * THE COMMUNITY'S OWN FRAME AND ITS ABOUT PAGE, with fixtures, for
  * scripts/check-community-shell.mjs. The real client components: the top
- * bar (logo, name, By <creator>, the switcher, Messages, the bell slot, my
- * menu), the one row of pills, the space chips on the feed, the feed's side
+ * bar (the navigator, logo, name, By <creator>, Messages, the bell, my
+ * menu), the one row of section tabs, the space chips on the feed, the feed's side
  * card with Members / Online / Admins, the about page with its gallery, facts
  * line, reviews, sticky card and phone bar, and the member pages inside the
  * frame. The server components around them (the community's layout,
@@ -14,7 +14,11 @@
  *   ?case=about-visitor   the same, signed out, a free community with no gallery
  *   ?case=about-member    /about for a member, inside the frame
  *   ?case=members         /community/clay-studio/members
- *   ?case=profile         /community/clay-studio/members/<id>
+ *   ?case=leaderboard     /community/clay-studio/leaderboard
+ *
+ * The person card on a name is the frame's own (PersonCardLayer); its facts
+ * come from the probe's answer to /people/<id>/card. ?dm=<id> on any case
+ * opens that conversation, as a profile's Message button does.
  */
 import React from "react"
 import { createRoot } from "react-dom/client"
@@ -22,7 +26,7 @@ import { ShellFrame } from "@/components/community/member/shell-frame"
 import { FeedAside, FeedColumns } from "@/components/community/member/columns"
 import { FeedView } from "@/components/community/member/feed"
 import { MembersDirectory } from "@/components/community/member/members"
-import { MemberProfile } from "@/components/community/member/member-profile"
+import { Leaderboard } from "@/components/community/member/leaderboard"
 import { SpaceChips } from "@/components/community/member/space-chips"
 import { CommunityPublicFrame } from "@/components/community/public/public-frame"
 import { CommunitySalesPage } from "@/components/community/public/sales-page"
@@ -31,7 +35,7 @@ import { checkoutPath } from "@/components/community/public/paths"
 import type { JoinOption, PublicCommunityView, SalesPageData } from "@/components/community/public/types"
 import { allowedActions } from "@/lib/communities/permissions"
 import type { FeedPostView, MemberView, Role, ViewerView } from "@/lib/communities/types"
-import type { MemberProfileView, ShellCommunity, SpaceView, TopBarData } from "@/components/community/member/view-types"
+import type { ShellCommunity, SpaceView, TopBarData } from "@/components/community/member/view-types"
 
 const NOW = Date.now()
 const HOUR = 3_600_000
@@ -186,18 +190,6 @@ const MEMBERS: MemberView[] = [
   member(people.leo),
 ]
 
-const PROFILE: MemberProfileView = {
-  ...member(people.jonas, { bio: "Weekend potter, Lisbon. Mostly bowls and cups, trying to get better at lids." }),
-  badges: [{ id: "b1", name: "First firing", icon: "🔥", description: null }],
-  posts: 14,
-  recent: [
-    { id: "p-more", kind: "post", title: "Anyone in Lisbon with a kiln to share?", url: "/community/clay-studio/post/p-more", createdAt: iso(NOW - 3 * DAY) },
-    { id: "p-x", kind: "post", title: "Lids that sit flat: what worked", url: "/community/clay-studio/post/p-x", createdAt: iso(NOW - 9 * DAY) },
-  ],
-  creatorUrl: null,
-  isSelf: false,
-}
-
 /* ── The about page ───────────────────────────────────────────────────── */
 
 const pro: JoinOption = {
@@ -323,7 +315,16 @@ function Screen() {
   )
   if (which === "space") return shell(feed(spaces[2]))
   if (which === "members") return shell(<MembersDirectory communityId={CID} slug={community.slug} memberCount={community.memberCount} initial={{ members: MEMBERS, nextCursor: null }} meId="u-me" canMessage />)
-  if (which === "profile") return shell(<MemberProfile communityId={CID} slug={community.slug} member={PROFILE} viewer={viewer} gamification canMessage />)
+  if (which === "leaderboard")
+    return shell(
+      <Leaderboard
+        communityId={CID}
+        slug={community.slug}
+        me={{ userId: "u-me", points: 111, level: 3 }}
+        levels={[1, 2, 3, 4, 5, 6].map((level) => ({ level, name: ["", "Newcomer", "Regular", "Contributor", "Insider", "Core", "Pillar"][level] }))}
+        initial={MEMBERS.slice(0, 4).map((m, i) => ({ rank: i + 1, userId: m.userId, points: 400 - i * 90, level: m.level, levelName: m.levelName, name: m.name, username: m.username, avatarUrl: m.avatarUrl, hasStorefront: m.hasStorefront }))}
+      />,
+    )
   if (which === "about-member") {
     const data: SalesPageData = { community: studio, join: facts(studio, { active: true, role: "member", status: "active" }), notice: null }
     return shell(<CommunitySalesPage data={data} />)

@@ -5,10 +5,10 @@
  * The real member components (scripts/render-community-member.tsx) with
  * fixtures, at 1440x900 and on a 390x844 phone, each photographed:
  *
- *   FEED       the community's own bar with one row of pills under it (no
+ *   FEED       the community's own bar with one row of tabs under it (no
  *              left column since round 2), the spaces as chips, the feed no
  *              wider than 720px, the side card from 1024px; the bar and the
- *              pills stay put while the page scrolls; pinned first; Latest
+ *              tabs stay put while the page scrolls; pinned first; Latest
  *              and Popular. The frame itself is measured in detail by
  *              scripts/check-community-shell.mjs.
  *   ONLINE     the side card shows the heartbeat count it is handed
@@ -211,7 +211,7 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
           rail: rect("[data-community-rail]"),
           aside: rect("[data-community-aside]"),
           feed: rect("[data-feed]"),
-          pills: rect("[data-community-pills]"),
+          pills: rect("[data-community-tabs]"),
           bar: rect("[data-community-top-row]"),
           chips: document.querySelectorAll("[data-space-chip]").length,
           firstPinned: cards[0]?.getAttribute("data-pinned") === "true",
@@ -227,9 +227,9 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
       expect(geo.firstPinned && geo.posts === 5, "pinned first, then the rest", { firstPinned: geo.firstPinned, posts: geo.posts })
       expect(geo.composer === "closed", "the composer arrives closed: one line", geo.composer)
       expect(geo.feed && geo.feed.w <= 720, "the feed is at most 720px wide", geo.feed)
-      /* Round 2: no left column; the community's own bar with one row of pills under it, at every width. */
+      /* Round 2: no left column; the community's own bar with one row of tabs under it, at every width. */
       expect(!geo.rail, "no left column any more", geo.rail)
-      expect(geo.bar && geo.pills && geo.pills.y >= geo.bar.y + geo.bar.h - 1, "the community's bar, then the pills", { bar: geo.bar, pills: geo.pills })
+      expect(geo.bar && geo.pills && geo.pills.y >= geo.bar.y + geo.bar.h - 1, "the community's bar, then the tabs", { bar: geo.bar, pills: geo.pills })
       expect(geo.chips > 0, "the spaces are chips at the top of the feed", geo.chips)
       if (!phone) {
         expect(geo.online === "5Online", "ONLINE: the side card's figure is the heartbeat count it is handed", geo.online)
@@ -237,14 +237,14 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
       } else {
         expect(!geo.aside, "no side column on a phone", geo.aside)
       }
-      /* The bar and the pills stay put while the page scrolls. */
+      /* The bar and the tabs stay put while the page scrolls. */
       const sticky = []
       for (const y of [400, 1200, 2000]) {
         await p.evaluate((v) => window.scrollTo(0, v), y)
         await sleep(60)
-        sticky.push(await p.evaluate(() => Math.round(document.querySelector("[data-community-pills]").getBoundingClientRect().top)))
+        sticky.push(await p.evaluate(() => Math.round(document.querySelector("[data-community-tabs]").getBoundingClientRect().top)))
       }
-      expect(sticky.every((t) => t === geo.pills.y), "the pills stay under the bar while the page scrolls", { sticky, at: geo.pills.y })
+      expect(sticky.every((t) => t === geo.pills.y), "the tabs stay under the bar while the page scrolls", { sticky, at: geo.pills.y })
       await shot(p, `${label}-feed-scrolled`, false)
       await p.evaluate(() => window.scrollTo(0, 0))
       if (phone) {
@@ -384,7 +384,7 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
       const n = await p.evaluate((q) => [...document.querySelectorAll(q)].map((li) => Math.round(li.getBoundingClientRect().height)), sel)
       expect(n.length > 0 && n.every((h) => h >= 56), `${name}: rows a thumb can hit`, n)
       /* A place is its pill; the community's inbox lives under Community (the bar's bell is Storelib's own). */
-      const active = await p.evaluate(() => document.querySelector("[data-community-pills] [aria-current=page]")?.textContent?.trim() || null)
+      const active = await p.evaluate(() => document.querySelector("[data-community-tabs] [aria-current=page]")?.textContent?.trim() || null)
       const want = name === "notifications" ? "community" : name.slice(0, 6)
       expect(active && active.toLowerCase().includes(want), `${name}: the shell marks where you are`, active)
       const s = await sideScroll(p)
