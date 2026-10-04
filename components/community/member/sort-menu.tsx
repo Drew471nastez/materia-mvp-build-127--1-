@@ -5,13 +5,19 @@
  *  THE FEED'S SORT: AN ICON AT THE END OF THE CHIPS ROW, AND A SMALL MENU
  * ===========================================================================
  * Round 7 (images/49.png): no Latest / Popular pills under the composer. A
- * round sliders button at the right end of the chips row, left of Saved,
- * opens four choices: Default (pinned first, then the posts with the newest
+ * round sliders button at the right end of the chips row opens four
+ * choices: Default (pinned first, then the posts with the newest
  * activity), New (newest posts), Top (most liked) and Unread (posts with
  * activity since the member was last active here). The choice in force is
  * marked in the menu (a soft fill, its icon in ink and a check), not as a
  * pill on the page; the button carries a small dot while it is anything but
  * Default, so a filtered feed never passes for the whole one.
+ *
+ * SAVED POSTS, UNDER A RULE (round 9: the Saved chip beside this button is
+ * gone). The member's saved posts are one more list of the same feed, so
+ * they are a row here: chosen, the feed switches to Saved in place (and the
+ * row is checked, the button dotted); chosen again, or any order chosen
+ * while on Saved, goes back to All.
  *
  * A menu in the full sense: arrows move between the rows, Enter or a click
  * chooses, Escape or a click anywhere else closes it and gives the focus
@@ -21,6 +27,7 @@
  */
 import { useEffect, useId, useRef, useState } from "react"
 import { Check } from "lucide-react"
+import { BookmarkIcon } from "@solar-icons/react/linear/bookmark"
 import { EyeIcon } from "@solar-icons/react/linear/eye"
 import { HistoryIcon } from "@solar-icons/react/linear/history"
 import { SortFromBottomToTopIcon } from "@solar-icons/react/linear/sort-from-bottom-to-top"
@@ -44,7 +51,16 @@ const SORT_ICON: Record<FeedSortValue, SolarIcon> = { default: HistoryIcon, new:
 const PANEL =
   "absolute right-0 top-full z-30 mt-2 w-[264px] max-w-[calc(100vw-32px)] origin-top-right rounded-xl bg-white p-1 text-left outline-none shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_2px_4px_-1px_rgba(15,23,42,0.06),0_16px_36px_-10px_rgba(15,23,42,0.2)] transition-[opacity,scale,translate] duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] starting:opacity-0 starting:scale-[0.97] starting:-translate-y-1 motion-reduce:transition-none"
 
-export function SortMenu({ value, onChange }: { value: FeedSortValue; onChange: (next: FeedSortValue) => void }) {
+export interface SortMenuProps {
+  value: FeedSortValue
+  onChange: (next: FeedSortValue) => void
+  /** The feed is on the member's saved posts. */
+  saved?: boolean
+  /** Saved posts in the menu: given, the row is drawn and toggles Saved. */
+  onSaved?: () => void
+}
+
+export function SortMenu({ value, onChange, saved = false, onSaved }: SortMenuProps) {
   const [open, setOpen] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
@@ -64,7 +80,8 @@ export function SortMenu({ value, onChange }: { value: FeedSortValue; onChange: 
     document.addEventListener("pointerdown", away, true)
     document.addEventListener("keydown", onKey)
     /* The chosen row takes the focus, so arrows start from it. */
-    menuRef.current?.querySelector<HTMLElement>('[aria-checked="true"]')?.focus({ preventScroll: true })
+    const first = menuRef.current?.querySelector<HTMLElement>('[aria-checked="true"]') ?? menuRef.current?.querySelector<HTMLElement>("[role^=menuitem]")
+    first?.focus({ preventScroll: true })
     return () => {
       document.removeEventListener("pointerdown", away, true)
       document.removeEventListener("keydown", onKey)
@@ -73,7 +90,7 @@ export function SortMenu({ value, onChange }: { value: FeedSortValue; onChange: 
 
   const onMenuKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key !== "ArrowDown" && e.key !== "ArrowUp" && e.key !== "Home" && e.key !== "End") return
-    const rows = [...(menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitemradio"]') ?? [])]
+    const rows = [...(menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitemradio"],[role="menuitemcheckbox"]') ?? [])]
     if (!rows.length) return
     e.preventDefault()
     const i = rows.indexOf(document.activeElement as HTMLElement)
@@ -84,8 +101,14 @@ export function SortMenu({ value, onChange }: { value: FeedSortValue; onChange: 
   const choose = (s: FeedSortValue) => {
     setOpen(false)
     buttonRef.current?.focus({ preventScroll: true })
-    if (s !== value) onChange(s)
+    if (s !== value || saved) onChange(s)
   }
+  const chooseSaved = () => {
+    setOpen(false)
+    buttonRef.current?.focus({ preventScroll: true })
+    onSaved?.()
+  }
+  const label = saved ? "Saved posts" : SORT_LABEL[value]
 
   return (
     <div ref={wrapRef} className="relative shrink-0" data-feed-sort="">
@@ -93,11 +116,11 @@ export function SortMenu({ value, onChange }: { value: FeedSortValue; onChange: 
         ref={buttonRef}
         type="button"
         onClick={() => setOpen((o) => !o)}
-        aria-label={`Sort posts: ${SORT_LABEL[value]}`}
+        aria-label={`Sort posts: ${label}`}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? id : undefined}
-        data-feed-sort-button={value}
+        data-feed-sort-button={saved ? "saved" : value}
         className={cn(
           "relative inline-flex h-10 w-10 cursor-pointer select-none items-center justify-center rounded-full text-[#4b5563] outline-none transition-[background-color,color,box-shadow] duration-150 hover:bg-[#f6f7f8] hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 sm:h-9 sm:w-9 [-webkit-tap-highlight-color:transparent]",
           DEPTH,
@@ -106,13 +129,13 @@ export function SortMenu({ value, onChange }: { value: FeedSortValue; onChange: 
         )}
       >
         <Tuning2Icon size={18} />
-        {value !== "default" ? <span aria-hidden className="absolute right-[7px] top-[7px] h-[7px] w-[7px] rounded-full bg-[#1a1a2e] ring-2 ring-white sm:right-[6px] sm:top-[6px]" data-feed-sort-dot="" /> : null}
+        {value !== "default" || saved ? <span aria-hidden className="absolute right-[7px] top-[7px] h-[7px] w-[7px] rounded-full bg-[#1a1a2e] ring-2 ring-white sm:right-[6px] sm:top-[6px]" data-feed-sort-dot="" /> : null}
       </button>
       {open ? (
         <div ref={menuRef} id={id} role="menu" aria-label="Sort posts" tabIndex={-1} onKeyDown={onMenuKey} className={PANEL} data-feed-sort-menu="">
           {SORTS.map((s) => {
             const Icon = SORT_ICON[s]
-            const on = s === value
+            const on = s === value && !saved
             return (
               <button
                 key={s}
@@ -137,6 +160,31 @@ export function SortMenu({ value, onChange }: { value: FeedSortValue; onChange: 
               </button>
             )
           })}
+          {onSaved ? (
+            <>
+              <div aria-hidden className="mx-2 my-1 h-px bg-[#f0f1f3]" />
+              <button
+                type="button"
+                role="menuitemcheckbox"
+                aria-checked={saved}
+                onClick={chooseSaved}
+                data-feed-sort-item="saved"
+                className={cn(
+                  "flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-left outline-none transition-colors duration-100 focus-visible:bg-[#f1f2f4]",
+                  saved ? "bg-[#f3f4f6]" : "hover:bg-[#f6f7f8]",
+                )}
+              >
+                <span className={cn("inline-flex shrink-0", saved ? "text-[#1a1a2e]" : "text-[#8a909b]")}>
+                  <BookmarkIcon size={18} />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className={cn("block text-[14px] leading-5", saved ? "font-semibold text-[#1a1a2e]" : "font-medium text-[#3f4652]")}>Saved posts</span>
+                  <span className="block truncate text-[12px] leading-4 text-[#8a8f98]">Only you see these</span>
+                </span>
+                {saved ? <Check aria-hidden className="h-4 w-4 shrink-0 text-[#1a1a2e]" strokeWidth={2.2} /> : null}
+              </button>
+            </>
+          ) : null}
         </div>
       ) : null}
     </div>

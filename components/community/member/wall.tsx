@@ -4,15 +4,16 @@
  * ===========================================================================
  *  THE WALL'S SIDE COLUMNS
  * ===========================================================================
- * Round 7 swapped the sides. Left: the community card (its cover, its name,
- * Members / Online / Admins, the faces of the members here most recently,
- * Settings for the people who run it; no "storelib.com/community/..." line
- * any more) and under it the top contributors (or the most active). Right:
- * the places in the community, each a soft coloured tile with a Solar line
- * glyph (bold when it is the open one), a word and a chevron, and under
- * them the next event. Each card only when there is something real to show
- * (lib/communities/server/wall.ts). From 1024px to 1279px all of it stacks
- * in the left column.
+ * Round 9 put the places back on the left. Left: the community card (its
+ * cover, its name with its address under it, storelib.com/community/<slug>,
+ * which copies itself when pressed, Members / Online / Admins, the faces of
+ * the members here most recently, Settings for the people who run it) and
+ * right under it the places in the community, each a soft coloured tile
+ * with a Solar line glyph (bold when it is the open one), a word and a
+ * chevron. Right: the next event, then the top contributors (or the most
+ * active), each only when there is something real to show (lib/communities/
+ * server/wall.ts). From 1024px to 1279px all of it stacks in the left
+ * column. Invite is in the bar's "..." menu now, not on the card.
  *
  * Calm on purpose: white cards on the page's #f8f9fa, hairlines, ink for
  * words, the tiles in quiet tints of a few hues, no violet. A face, a name
@@ -22,6 +23,8 @@
 import Link from "next/link"
 import { MessageSquareText, Settings, Users } from "lucide-react"
 import { AltArrowRightIcon as ChevronLine } from "@solar-icons/react/linear/alt-arrow-right"
+import { CheckCircleIcon as CheckLine } from "@solar-icons/react/linear/check-circle"
+import { CopyIcon as CopyLine } from "@solar-icons/react/linear/copy"
 import { CalendarIcon as CalendarLine } from "@solar-icons/react/linear/calendar"
 import { CalendarIcon as CalendarBold } from "@solar-icons/react/bold/calendar"
 import { CupStarIcon as CupLine } from "@solar-icons/react/linear/cup-star"
@@ -34,7 +37,7 @@ import { SquareAcademicCapIcon as CapLine } from "@solar-icons/react/linear/squa
 import { SquareAcademicCapIcon as CapBold } from "@solar-icons/react/bold/square-academic-cap"
 import { UsersGroupRoundedIcon as UsersLine } from "@solar-icons/react/linear/users-group-rounded"
 import { UsersGroupRoundedIcon as UsersBold } from "@solar-icons/react/bold/users-group-rounded"
-import { useEffect, useState } from "react"
+import { createContext, memo, useCallback, useContext, useEffect, useRef, useState } from "react"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { optimizedImageUrl } from "@/lib/images/optimized-url"
 import { compactCount, eventDateBadge } from "@/lib/communities/format"
@@ -42,7 +45,6 @@ import { FULL_ON_HOVER, type NavEntry, type TabKey } from "./nav"
 import { memberHref } from "./person-href"
 import { EventWhen } from "./time"
 import { CommunityMark } from "./community-mark"
-import { InviteGlyph } from "./invite-glyph"
 import { CARD, DEPTH, DEPTH_PRESS } from "./ui"
 import type { ShellCommunity, WallCardData, WallContributors, WallEvent } from "./view-types"
 
@@ -60,10 +62,67 @@ function Stat({ value, label, dot = false, kind }: { value: string; label: strin
   )
 }
 
-/** The card's actions: a white button with a hairline and a one pixel shadow, Invite for everybody, Settings beside it for staff. */
+/** The card's action: a white button with a hairline and a one pixel shadow, Settings for staff. */
 const CARD_ACTION = `flex h-10 min-w-0 flex-1 items-center justify-center gap-2 rounded-xl ${DEPTH} ${DEPTH_PRESS} text-[14px] font-medium text-[#1a1a2e] outline-none transition-[background-color,box-shadow] hover:bg-[#f6f7f8] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15`
 
-export function WallCommunityCard({ community, card, membersHref, onInvite }: { community: ShellCommunity; card: WallCardData; membersHref: string | null; onInvite?: () => void }) {
+/** How long "Link copied" stands in for the address after a press. */
+export const COPIED_MS = 1600
+
+/**
+ * THE COMMUNITY'S ADDRESS UNDER ITS NAME (round 9, as before round 7):
+ * storelib.com/community/<slug> in quiet grey, one line. A press copies the
+ * full link (https://storelib.com/community/<slug>, the address a shared
+ * link always carries) and the line says "Link copied" for a moment, in the
+ * same place and size, so nothing moves. Where the clipboard is refused (an
+ * old webview) it opens the community's home instead.
+ */
+export function WallAddress({ slug }: { slug: string }) {
+  const [copied, setCopied] = useState(false)
+  const timer = useRef(0)
+  useEffect(() => () => window.clearTimeout(timer.current), [])
+  const path = `/community/${slug}`
+  const copy = useCallback(
+    async (e: React.MouseEvent<HTMLAnchorElement>) => {
+      if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
+      e.preventDefault()
+      try {
+        await navigator.clipboard.writeText(`https://storelib.com${path}`)
+      } catch {
+        window.location.assign(path)
+        return
+      }
+      setCopied(true)
+      window.clearTimeout(timer.current)
+      timer.current = window.setTimeout(() => setCopied(false), COPIED_MS)
+    },
+    [path],
+  )
+  return (
+    <a
+      href={path}
+      onClick={copy}
+      title="Copy the link"
+      aria-label={copied ? "Link copied" : `Copy the link, storelib.com${path}`}
+      className="group/address -mx-1 flex h-6 min-w-0 items-center gap-1 rounded-md px-1 text-[13px] leading-5 text-[#8a8f98] outline-none transition-colors duration-150 hover:text-[#4b5563] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 [-webkit-tap-highlight-color:transparent]"
+      data-wall-address=""
+      data-copied={copied ? "" : undefined}
+    >
+      {copied ? (
+        <span className="inline-flex min-w-0 items-center gap-1 text-[#2f7a55]" aria-live="polite">
+          <CheckLine size={14} className="shrink-0" />
+          Link copied
+        </span>
+      ) : (
+        <>
+          <span className="truncate">storelib.com{path}</span>
+          <CopyLine size={13} className="shrink-0 opacity-0 transition-opacity duration-150 group-hover/address:opacity-100 group-focus-visible/address:opacity-100" />
+        </>
+      )}
+    </a>
+  )
+}
+
+function WallCommunityCardInner({ community, card, membersHref }: { community: ShellCommunity; card: WallCardData; membersHref: string | null }) {
   const base = `/community/${community.slug}`
   const { stats, faces, more } = card
   const cells = [<Stat key="members" kind="members" value={compactCount(stats.members)} label={stats.members === 1 ? "Member" : "Members"} />]
@@ -81,10 +140,11 @@ export function WallCommunityCard({ community, card, membersHref, onInvite }: { 
       <div className="px-4 pb-4 pt-3.5">
         <div className="flex min-w-0 items-center gap-3">
           {community.coverUrl ? null : <CommunityMark community={community} size={40} />}
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <Link href={base} className="block truncate text-[16px] font-semibold leading-snug text-[#1a1a2e] hover:underline" data-wall-name="">
               {community.name}
             </Link>
+            <WallAddress slug={community.slug} />
           </div>
         </div>
 
@@ -115,27 +175,22 @@ export function WallCommunityCard({ community, card, membersHref, onInvite }: { 
           </div>
         ) : null}
 
-        {onInvite || card.settingsHref ? (
-          /* Round 8: Invite for every member (invite-sheet.tsx), Settings beside it for whoever may change them. */
+        {card.settingsHref ? (
+          /* Settings for whoever may change them. Invite moved to the bar's "..." menu (round 9). */
           <div className="mt-3.5 flex gap-2" data-wall-actions="">
-            {onInvite ? (
-              <button type="button" onClick={onInvite} className={CARD_ACTION} aria-haspopup="dialog" data-community-invite="card">
-                <InviteGlyph size={18} className="text-[#4b5563]" />
-                Invite
-              </button>
-            ) : null}
-            {card.settingsHref ? (
-              <Link href={card.settingsHref} className={CARD_ACTION} data-wall-settings="">
-                <Settings className="h-[17px] w-[17px] text-[#4b5563]" strokeWidth={1.8} aria-hidden />
-                Settings
-              </Link>
-            ) : null}
+            <Link href={card.settingsHref} className={CARD_ACTION} data-wall-settings="">
+              <Settings className="h-[17px] w-[17px] text-[#4b5563]" strokeWidth={1.8} aria-hidden />
+              Settings
+            </Link>
           </div>
         ) : null}
       </div>
     </section>
   )
 }
+
+/** The card, drawn again only when its facts change, never because the member moved to another place. */
+export const WallCommunityCard = memo(WallCommunityCardInner)
 
 /* ── The places ────────────────────────────────────────────────────────── */
 
@@ -152,6 +207,19 @@ const PLACE_LOOK: Record<TabKey, { line: SolarIcon; bold: SolarIcon; tile: strin
 }
 
 /**
+ * WHICH PLACE IS MARKED, shared by the frame (shell-frame.tsx) with the two
+ * things that mark it: the list in the left column and the row of tabs. A
+ * context rather than a prop, so moving to another place redraws those two
+ * and nothing else of the frame (the bar, the card, the right column keep
+ * their props and are memoised).
+ */
+export interface PlaceState {
+  tab: TabKey
+  onGo?: (key: TabKey) => void
+}
+export const PlaceContext = createContext<PlaceState>({ tab: "home" })
+
+/**
  * A plain click on a place, for the frame to mark it at once (before the page arrives); a click that opens a new tab is not one.
  * Shared with the row of tabs (shell-frame.tsx SectionTabs).
  */
@@ -159,7 +227,10 @@ export function plainClick(e: React.MouseEvent): boolean {
   return e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey
 }
 
-export function WallPlaces({ entries, current, onGo }: { entries: NavEntry[]; current: TabKey; onGo?: (key: TabKey) => void }) {
+export function WallPlaces({ entries, current: currentProp, onGo: onGoProp }: { entries: NavEntry[]; current?: TabKey; onGo?: (key: TabKey) => void }) {
+  const place = useContext(PlaceContext)
+  const current = currentProp ?? place.tab
+  const onGo = onGoProp ?? place.onGo
   return (
     <nav aria-label="Community" className={`${CARD} p-2`} data-wall-places="">
       <ul className="space-y-0.5">
@@ -225,7 +296,7 @@ function CardHead({ title, detail, href, hrefLabel = "View all" }: { title: stri
   )
 }
 
-export function WallUpcoming({ slug, event }: { slug: string; event: WallEvent }) {
+function WallUpcomingInner({ slug, event }: { slug: string; event: WallEvent }) {
   const base = `/community/${slug}`
   const href = `${base}/events/${event.id}`
   return (
@@ -266,7 +337,7 @@ export function contributorsDetail(data: Pick<WallContributors, "basis" | "since
   return Number.isFinite(t) ? `Posts and comments since ${SHORT_DATE.format(t)}` : "Posts and comments, lately"
 }
 
-export function WallContributorsCard({ slug, data, viewAllHref }: { slug: string; data: WallContributors; viewAllHref: string | null }) {
+function WallContributorsCardInner({ slug, data, viewAllHref }: { slug: string; data: WallContributors; viewAllHref: string | null }) {
   const points = data.basis === "points"
   return (
     <section className={`${CARD} p-4`} data-wall-contributors={data.basis} aria-label={points ? "Top contributors" : "Most active"}>
@@ -291,3 +362,7 @@ export function WallContributorsCard({ slug, data, viewAllHref }: { slug: string
     </section>
   )
 }
+
+/* The right column's cards, memoised like the community card: their facts are the visit's, not the page's. */
+export const WallUpcoming = memo(WallUpcomingInner)
+export const WallContributorsCard = memo(WallContributorsCardInner)
