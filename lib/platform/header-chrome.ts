@@ -32,10 +32,8 @@ export type HeaderChrome = {
   guestDivider: string
   guestSell: string
   guestLogin: string
-  deskSearchIcon: string
-  deskSearchField: string
-  deskSearchClear: string
   concaveBg: string
+  /* The desktop search field is no longer the bar's colours: it is Explore's hero field on any bar (lib/explore/search-field-look). */
 }
 
 const LIGHT_FOCUS =
@@ -65,10 +63,6 @@ export function headerChrome(light: boolean): HeaderChrome {
       guestDivider: "bg-white/15",
       guestSell: "text-white/85 hover:text-white",
       guestLogin: "border-white/30 text-white hover:border-white/55 hover:bg-white/[0.06]",
-      deskSearchIcon: "text-white/40",
-      deskSearchField:
-        "bg-white/10 border-white/15 text-white placeholder:text-white/50 focus-visible:border-white/45 focus:border-white/45 focus:shadow-[0_0_0_4px_rgba(255,255,255,0.08)]",
-      deskSearchClear: "text-white/40 hover:text-white/70",
       concaveBg: `bg-[${BUYER_HEADER_DARK_BG}]`,
     }
   }
@@ -95,10 +89,6 @@ export function headerChrome(light: boolean): HeaderChrome {
     guestDivider: "bg-[rgba(16,18,27,0.1)]",
     guestSell: "text-[#5c6574] hover:text-[#1a1a2e]",
     guestLogin: "border-[rgba(16,18,27,0.12)] text-[#1a1a2e] hover:border-[rgba(16,18,27,0.2)] hover:bg-[rgba(16,18,27,0.03)]",
-    deskSearchIcon: "text-[#9aa3b2]",
-    deskSearchField:
-      "bg-white border-[rgba(16,18,27,0.08)] text-[#1a1a2e] placeholder:text-[#9aa3b2] shadow-[0_1px_2px_rgba(16,18,27,0.04)] focus-visible:border-[rgba(16,18,27,0.16)] focus:border-[rgba(16,18,27,0.16)] focus:shadow-[0_0_0_4px_rgba(16,18,27,0.05),0_1px_2px_rgba(16,18,27,0.04)]",
-    deskSearchClear: "text-[#9aa3b2] hover:text-[#5c6574]",
     concaveBg: "bg-[#fcfcfd]",
   }
 }

@@ -28,6 +28,7 @@ import "server-only"
 import { cache } from "react"
 import { money } from "@/lib/memberships/state"
 import { sanitizeDescription } from "@/lib/rich-text/sanitize"
+import { htmlToPlainText } from "@/lib/rich-text/html"
 import { readPublishedReviews } from "@/lib/reviews/store"
 import { getProductInternalPath } from "@/lib/url-helpers"
 import { personHref } from "@/lib/profile/person-href"
@@ -249,11 +250,46 @@ async function readViewCounts(db: Db, ids: string[]): Promise<Map<string, CardRo
   return new Map(found.map((r) => [r.id, r.view_count]))
 }
 
-/** Cards for any number of communities, in the order given, in five or six queries (the sixth reads views when the rows came without them). */
+/** The longest sneak peek a card is sent: the card shows two lines of it, so the rest would only be bytes. */
+export const EXCERPT_MAX = 200
+
+/**
+ * THE SNEAK PEEK WHEN THERE IS NO TAGLINE. The description is the creator's
+ * rich text (or older plain text); the card wants a sentence or two of what
+ * it says, so it is read as plain text, its paragraphs run together, and cut
+ * at a word near EXCERPT_MAX. The card clamps it to two lines on top.
+ */
+export function cardExcerpt(description: string | null | undefined, max: number = EXCERPT_MAX): string | null {
+  const text = htmlToPlainText(description).replace(/\s+/g, " ").trim()
+  if (!text) return null
+  if (text.length <= max) return text
+  const cut = text.slice(0, max)
+  const space = cut.lastIndexOf(" ")
+  return `${(space > max * 0.6 ? cut.slice(0, space) : cut).replace(/[\s.,;:!?-]+$/, "")}\u2026`
+}
+
+/*
+  DESCRIPTIONS ONLY FOR THE CARDS WITHOUT A TAGLINE. CARD_COLUMNS leaves the
+  description out because it can be long rich text; a card with a tagline
+  never needs it, so it is read by id for the others alone, in one read for
+  the list and alongside the tiers, so it adds no wait.
+*/
+async function readExcerpts(db: Db, ids: string[]): Promise<Map<string, string | null>> {
+  if (ids.length === 0) return new Map()
+  const found = await rows<{ id: string; description: string | null }>("card descriptions", () => db.from("communities").select("id, description").in("id", ids))
+  return new Map(found.map((r) => [r.id, cardExcerpt(r.description)]))
+}
+
+/** Cards for any number of communities, in the order given, in five to seven queries (views when the rows came without them, descriptions for the cards with no tagline). */
 export async function cardsFor(db: Db, list: CardRow[]): Promise<CommunityCard[]> {
   if (list.length === 0) return []
   const withoutViews = list.some((c) => c.view_count === undefined)
-  const [tiers, views] = await Promise.all([readTiers(db, list.map((c) => c.id)), withoutViews ? readViewCounts(db, uniq(list.map((c) => c.id))) : Promise.resolve(null)])
+  const untagged = uniq(list.filter((c) => !c.tagline?.trim()).map((c) => c.id))
+  const [tiers, views, excerpts] = await Promise.all([
+    readTiers(db, list.map((c) => c.id)),
+    withoutViews ? readViewCounts(db, uniq(list.map((c) => c.id))) : Promise.resolve(null),
+    readExcerpts(db, untagged),
+  ])
   const productIds = uniq(tiers.map((t) => t.product_id))
   const [products, plans, creators] = await Promise.all([readProducts(db, productIds), readPlans(db, productIds), readCreators(db, list.map((c) => c.creator_id))])
   return list.map((c) => {
@@ -277,6 +313,7 @@ export async function cardsFor(db: Db, list: CardRow[]): Promise<CommunityCard[]
       viewCount: viewsOf(c.view_count !== undefined ? c.view_count : views?.get(c.id)),
       rating: cardRating(own.map((t) => t.product_id), products),
       launchedAt: c.created_at ?? null,
+      excerpt: c.tagline?.trim() ? null : (excerpts.get(c.id) ?? null),
     }
   })
 }

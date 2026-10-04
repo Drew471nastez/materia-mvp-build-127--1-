@@ -10,11 +10,13 @@
  *                   ellipsis; the cards in a row are one height.
  *   COMMUNITIES     /explore?type=communities draws real community cards in
  *                   the products' grid (3 across, 1 on a phone), one height a
- *                   row, each with the stats row (stars only with reviews,
- *                   members, views, Launched); a pill asks the server for
- *                   that category and the grid follows; Show more appends.
- *   CATEGORIES      a control inside the hero's search field at its right
- *                   end, at least 40px tall on a phone, clear of the typed
+ *                   row, each with its foot row (round 6: the price first, a
+ *                   hairline, members, views, the stars only with reviews,
+ *                   no Launched); a pill asks the server for that category
+ *                   and the grid follows; Show more appends.
+ *   CATEGORIES      an icon alone (round 6) inside the hero's search field at
+ *                   its right end, named Categories, with a tooltip on a
+ *                   computer, at least 40px on a phone, clear of the typed
  *                   text; it opens the category browser (a panel under it on
  *                   a computer, the sheet on a phone) and a pick filters.
  *   FOOTER          on a computer Explore ends with the creator page footer
@@ -149,13 +151,20 @@ for (const [label, vp] of SIZES) {
       if (!input || !ctl) return null
       const f = input.getBoundingClientRect()
       const c = ctl.getBoundingClientRect()
-      return { fieldRight: f.right, fieldTop: f.top, fieldH: f.height, ctlLeft: c.left, ctlRight: c.right, ctlTop: c.top, ctlH: c.height, ctlW: c.width, padRight: parseFloat(getComputedStyle(input).paddingRight), text: ctl.textContent.trim() }
+      return { fieldRight: f.right, fieldTop: f.top, fieldH: f.height, ctlLeft: c.left, ctlRight: c.right, ctlTop: c.top, ctlH: c.height, ctlW: c.width, padRight: parseFloat(getComputedStyle(input).paddingRight), text: ctl.textContent.trim(), label: ctl.getAttribute("aria-label"), icon: !!ctl.querySelector("svg") }
     })
-    expect(!!field && field.text === "Categories", "the hero's search field carries a Categories control", field?.text)
+    expect(!!field && field.text === "" && field.icon && field.label === "Categories", "the hero's search field carries the categories icon alone, named Categories", field && { text: field.text, icon: field.icon, label: field.label })
+    expect(!!field && Math.abs(field.ctlW - field.ctlH) <= 1, "a square, not a word", field && { w: field.ctlW, h: field.ctlH })
     expect(!!field && field.fieldRight - field.ctlRight >= 4 && field.fieldRight - field.ctlRight <= 12, "at the field's right end", field && { gap: Math.round(field.fieldRight - field.ctlRight) })
     expect(!!field && Math.abs(field.ctlTop + field.ctlH / 2 - (field.fieldTop + field.fieldH / 2)) <= 1, "centred in the field's height", field && { ctlMid: field.ctlTop + field.ctlH / 2, fieldMid: field.fieldTop + field.fieldH / 2 })
     expect(!!field && field.ctlH >= (phone ? 40 : 44), `sized for touch: ${phone ? 40 : 44}px or more`, field?.ctlH)
     expect(!!field && field.padRight >= field.fieldRight - field.ctlLeft + 8, "the typed text stops before it (the field's right padding covers the control and its hairline)", field && { padRight: field.padRight, needs: Math.round(field.fieldRight - field.ctlLeft + 8) })
+    if (!phone) {
+      await p.hover("[data-search-categories]")
+      await sleep(700)
+      const tip = await p.evaluate(() => document.querySelector("[data-categories-tooltip]") ? document.querySelector("[role=tooltip]")?.textContent.trim() ?? null : null)
+      expect(tip === "Categories", "hovering it shows Categories", tip)
+    }
     await p.screenshot({ path: join(shots, `${label}-hero-field.png`), clip: { x: 0, y: Math.max(0, field.fieldTop - 160), width: vp.width, height: 260 } })
     await p.click("[data-search-categories]")
     await sleep(500)
@@ -214,17 +223,17 @@ for (const [label, vp] of SIZES) {
       creator: c.querySelector("[data-community-creator]")?.textContent.trim(),
       price: c.querySelector("[data-community-price]")?.textContent.trim(),
     })))
-    expect(stats[0]?.stats.join("|") === "rating=4.9|members=1.7k|views=31.7k|launched=Launched 1y ago", "the stats row: ★ 4.9, 1.7k members, 31.7k views, Launched 1y ago", stats[0])
-    expect(stats[1]?.stats.join("|") === "members=12|views=40|launched=Launched 3d ago", "no reviews, no stars", stats[1])
+    expect(stats[0]?.stats.join("|") === "members=1.7k|views=31.7k|rating=4.9", "the facts: 1.7k members, 31.7k views, ★ 4.9, and no Launched", stats[0])
+    expect(stats[1]?.stats.join("|") === "members=12|views=40", "no reviews, no stars", stats[1])
     expect(stats[0]?.creator === "by Mara Lindqvist" && stats[0]?.price === "$9/month", "by its creator, and its price at the foot", stats[0])
     const row = await p.evaluate(() => {
       const c = document.querySelector("[data-explore-community]")
-      const s = c.querySelector("[data-community-stats]").getBoundingClientRect()
-      const l = c.querySelector('[data-stat="launched"]').getBoundingClientRect()
-      const t = c.querySelector("[data-community-title]")
-      return { oneLine: s.height <= 22, launchedAtEnd: Math.round(s.right - l.right) <= 1, titleLines: Math.round(t.getBoundingClientRect().height / parseFloat(getComputedStyle(t).lineHeight)) }
+      const s = c.querySelector("[data-community-stats]")
+      const first = s.firstElementChild
+      const d = s.querySelector("[data-community-divider]")?.getBoundingClientRect()
+      return { oneLine: s.getBoundingClientRect().height <= 22, priceFirst: first?.hasAttribute("data-community-price"), divider: d ? { w: d.width, h: d.height } : null, launched: /Launched/.test(document.body.innerText) }
     })
-    expect(row.oneLine && row.launchedAtEnd, "the stats sit on one line, Launched at its right end", row)
+    expect(row.oneLine && row.priceFirst && row.divider && row.divider.w <= 1 && !row.launched, "one line: the price first, then a 1px hairline; no Launched on the page", row)
     const long = await p.evaluate(() => { const t = [...document.querySelectorAll("[data-community-title]")].find((x) => x.textContent.startsWith("Night Runners")); return { lines: Math.round(t.getBoundingClientRect().height / parseFloat(getComputedStyle(t).lineHeight)), clipped: t.scrollHeight > t.clientHeight + 1 } })
     expect(long.lines === 2 && long.clipped, "a long community name stops at two lines too", long)
     await p.evaluate(() => document.querySelector("[data-explore-community]").scrollIntoView({ block: "start" }))

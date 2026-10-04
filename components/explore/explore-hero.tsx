@@ -25,25 +25,23 @@
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react"
 import { Search, X } from "lucide-react"
 import { SEARCH_ANCHOR_ATTR } from "@/lib/explore/use-search-handoff"
+import { usePublishSearchCategories, type SearchCategories } from "@/lib/explore/search-categories"
+import { SEARCH_FIELD_FOCUS, SEARCH_FIELD_SURFACE } from "@/lib/explore/search-field-look"
 import { cn } from "@/lib/utils"
 import { DiscoverModeSegment } from "./discover-mode-segment"
-import { Chevron, type BrowseGroup } from "./category-browser"
-import { ExploreCategoryPicker } from "./explore-category-picker"
+import { SearchCategoriesButton } from "./search-categories-button"
 
 /**
  * THE CATEGORIES CONTROL IN THE FIELD. The header's hamburger opens the
  * navigator now and no longer browses categories, so the same browser
  * (./category-browser, in the picker the More pill uses) opens from the
  * right end of this field: a popover hanging from it on a computer, the
- * shared sheet on a phone. What a pick does is the page's to decide.
+ * shared sheet on a phone. What a pick does is the page's to decide. It is
+ * an icon alone since round 6 (./search-categories-button), and the hero
+ * publishes it (lib/explore/search-categories) so the header's field, once
+ * this one has scrolled away, carries the same icon and the same menu.
  */
-export interface HeroCategories {
-  groups: readonly BrowseGroup[]
-  selectedGroup: string | null
-  selectedItem: string | null
-  allRow?: { id: string; label: string }
-  onPick: (groupId: string, itemId: string | null) => void
-}
+export type HeroCategories = SearchCategories
 
 /** What the catalogue is made of, in the order it reads best out loud. */
 const NOUNS = ["templates", "courses", "ebooks", "tools", "software", "resources"] as const
@@ -206,7 +204,7 @@ export function ExploreHero({
   categories?: HeroCategories
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
-  const [categoriesOpen, setCategoriesOpen] = useState(false)
+  usePublishSearchCategories(categories)
   const { index, box, measureRef, chipRef } = useRollingNoun(mode, menuOpen)
   const rollMs = mode === "communities" ? COMMUNITIES_ENTER_MS : ROLL_MS
   const menuRef = useRef<HTMLSpanElement>(null)
@@ -551,17 +549,13 @@ export function ExploreHero({
             placeholder={communities ? searchPlaceholderCommunities : searchPlaceholderProducts}
             aria-label={searchAriaLabel}
             className={cn(
-              /* 10px, per the owner. A pill reads as a chip; this is a field. */
-              "relative z-0 h-[52px] sm:h-[62px] w-full appearance-none rounded-[10px] bg-white text-left",
+              /* 10px corner, hairline and depth: lib/explore/search-field-look, shared with the header's field. */
+              "relative z-0 h-[52px] sm:h-[62px] w-full text-left",
+              SEARCH_FIELD_SURFACE,
               "[&::-webkit-search-decoration]:hidden [&::-webkit-search-results-decoration]:hidden",
-              /* Ten per cent shallower than it was: offsets, blurs and both
-                 alphas scaled by 0.9. It stays level with the chip above,
-                 which sits at 0.05 and 0.30 against this field's 0.045 and
-                 0.315, so the two still read as the same depth. */
-              "border border-neutral-200/80 shadow-[0_1px_3px_rgba(15,23,42,0.045),0_9px_27px_-16px_rgba(15,23,42,0.315)]",
               "pl-12 sm:pl-14 text-[15px] sm:text-[17px] text-neutral-900 placeholder:text-transparent",
-              /* Room for the clear button, and for Categories when it is there: its width plus the hairline before it. */
-              categories ? (draft ? "pr-[180px] sm:pr-[216px]" : "pr-[136px] sm:pr-[168px]") : "pr-12",
+              /* Room for the clear button, and for the categories icon when it is there: its width, the hairline before it and 8px of air. */
+              categories ? (draft ? "pr-[104px] sm:pr-[116px]" : "pr-[60px] sm:pr-[68px]") : "pr-12",
               /*
                 NO VIOLET HALO ON FOCUS. It bloomed a purple glow around the
                 whole field the moment it was tapped, which on a phone is the
@@ -587,8 +581,7 @@ export function ExploreHero({
                 are here: a slightly deeper neutral shadow and a darker
                 border, and no violet in either.
               */
-              "outline-none transition-[box-shadow,border-color] focus:border-neutral-300",
-              "focus:shadow-[0_1px_3px_rgba(15,23,42,0.054),0_11px_27px_-16px_rgba(15,23,42,0.36)]",
+              SEARCH_FIELD_FOCUS,
             )}
           />
           {/*
@@ -600,7 +593,7 @@ export function ExploreHero({
               aria-hidden
               className={cn(
                 "pointer-events-none absolute inset-y-0 left-12 sm:left-14 z-[1] grid grid-cols-1 grid-rows-1 items-center overflow-hidden",
-                categories ? "right-[136px] sm:right-[168px]" : "right-12",
+                categories ? "right-[60px] sm:right-[68px]" : "right-12",
               )}
             >
               <span
@@ -623,7 +616,7 @@ export function ExploreHero({
               </span>
             </span>
           )}
-          {/* The field's right end: clear while there is a word, then Categories. */}
+          {/* The field's right end: clear while there is a word, then the categories icon. */}
           <div className="absolute inset-y-0 right-1.5 sm:right-2 z-[2] flex items-center gap-1" data-search-tail="">
             {draft && (
               <button
@@ -641,26 +634,7 @@ export function ExploreHero({
             {categories ? (
               <>
                 <span aria-hidden className="h-6 w-px shrink-0 bg-neutral-200" />
-                <ExploreCategoryPicker
-                  open={categoriesOpen}
-                  onOpenChange={setCategoriesOpen}
-                  groups={categories.groups}
-                  selectedGroup={categories.selectedGroup}
-                  selectedItem={categories.selectedItem}
-                  allRow={categories.allRow}
-                  onPick={categories.onPick}
-                  align="end"
-                  marker="search-categories"
-                  triggerClassName={cn(
-                    /* 40px tall on a phone and 44 on a computer: a thumb's size, inside a 52 / 62px field. */
-                    "inline-flex h-10 sm:h-11 shrink-0 items-center gap-1 rounded-[8px] pl-2.5 pr-2 sm:pl-3 sm:pr-2.5 text-[14px] sm:text-[15px] font-medium cursor-pointer select-none whitespace-nowrap",
-                    "outline-none transition-[background-color,color] duration-150 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 [-webkit-tap-highlight-color:transparent]",
-                    categoriesOpen ? "bg-neutral-100 text-[#1a1a2e]" : "text-neutral-600 hover:bg-neutral-100/80 hover:text-[#1a1a2e] active:bg-neutral-100",
-                  )}
-                >
-                  Categories
-                  <Chevron dir="down" className={cn("h-3.5 w-3.5 opacity-70 transition-[rotate] duration-200 motion-reduce:transition-none", categoriesOpen && "rotate-180")} />
-                </ExploreCategoryPicker>
+                <SearchCategoriesButton categories={categories} size="hero" />
               </>
             ) : null}
           </div>

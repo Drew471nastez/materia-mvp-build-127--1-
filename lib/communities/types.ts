@@ -635,8 +635,10 @@ export interface CommunityCard {
   viewCount?: number | null
   /** The published reviews of the products that sell its tiers, averaged by their counts. Null when nobody has reviewed it. */
   rating?: { average: number; count: number } | null
-  /** When it opened, for "Launched 1y ago". */
+  /** When it opened. Not drawn on the card (the owner took "Launched 1y ago" off); kept for the lists that sort or filter by it. */
   launchedAt?: string | null
+  /** The description as plain text, cut short, for the card's sneak peek when there is no tagline. Null when there is a tagline or no description. */
+  excerpt?: string | null
 }
 
 export interface PollView {

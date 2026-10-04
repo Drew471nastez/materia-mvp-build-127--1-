@@ -233,7 +233,8 @@ console.log("\n6. The Storelib header")
   check("the phone row has no second hamburger of its own", !/aria-label=\{mobileMenuOpen \? "Close categories"/.test(header) && (header.match(/<PlaceNavigator\b/g) ?? []).length === 1)
   check("a little whiter: #fcfcfd, not #f7f8f9, in the bar and in its stand in", /bg-\[#fcfcfd\] backdrop-blur supports-\[backdrop-filter\]:bg-\[#fcfcfd\]\/98/.test(chrome) && !/f7f8f9/.test(chrome) && /bg-\[#fcfcfd\]/.test(conditional) && !/f7f8f9/.test(conditional))
   check("the search scrim is portalled to the body, so it covers the window and not the field", /createPortal\(\s*<div\s+aria-hidden\s+data-header-search-scrim=""/.test(header) && /from "react-dom"/.test(header))
-  check("the field keeps a soft focus state: a darker hairline and a 4px halo, no ring", /focus:shadow-\[0_0_0_4px_rgba\(16,18,27,0\.05\)/.test(chrome) && /focus:shadow-\[0_0_0_4px_rgba\(255,255,255,0\.08\)\]/.test(chrome) && /focus-visible:ring-0 focus-visible:ring-offset-0/.test(header))
+  /* ROUND 6: the field is Explore's hero field now (lib/explore/search-field-look), on any bar; tests/explore-communities.test.ts holds the rest. */
+  check("the field keeps a soft focus state: a darker hairline and a deeper shadow, no ring", /focus:border-neutral-300 focus:shadow-\[0_1px_3px_rgba\(15,23,42,0\.054\),0_11px_27px_-16px_rgba\(15,23,42,0\.36\)\]/.test(readCode("lib/explore/search-field-look.ts")) && /SEARCH_FIELD_FOCUS,/.test(header) && /focus-visible:ring-0 focus-visible:ring-offset-0/.test(header))
   check("Explore keeps its whole category list (its pills and More)", /<ExploreCategoryPicker\b/.test(readCode("components/explore/explore-page-client.tsx")))
 }
 
