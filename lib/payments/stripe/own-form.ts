@@ -1,4 +1,5 @@
 import "server-only"
+import { after } from "next/server"
 
 /**
  * ===========================================================================
@@ -284,7 +285,6 @@ const ADDRESS_TYPES = new Set(["image/jpeg", "image/png", "application/pdf"])
 export const DOC_MAX_BYTES = 10 * 1024 * 1024
 
 export async function uploadDocument(creator: PaymentsCreatorRef, input: { which: string; side: string; file: File | null }): Promise<DetailsFormView> {
-  const account = await ownAccount(creator)
   const which = input.which === "proofOfAddress" ? "additional_document" : input.which === "document" ? "document" : null
   const side = input.side === "back" ? "back" : input.side === "front" ? "front" : null
   if (!which || !side) throw new PaymentsProblem("Choose the photo to upload.")
@@ -298,13 +298,27 @@ export async function uploadDocument(creator: PaymentsCreatorRef, input: { which
     )
   }
   if (file.size > DOC_MAX_BYTES) throw new PaymentsProblem("That file is too large. Use one under 10 MB.")
+  /*
+   * AS FAST AS STRIPE ALLOWS. The photo goes up while the account is read
+   * (both need only the account id), the answer is built from the account
+   * Stripe hands back on the write, and the full re-sync of the creator's row
+   * runs after the response has gone (account.updated does it too). It used
+   * to wait for that sync, several more Stripe calls, while the person
+   * watched "Sending to Stripe" for most of ten seconds or more.
+   */
+  const row = await readCreatorStripe(creator.id)
+  if (!row?.stripe_account_id) throw new PaymentsProblem("Start with your country and name first.")
+  const data = Buffer.from(await file.arrayBuffer())
   try {
-    const uploaded = await stripe.files.create(
-      { purpose: which === "document" ? "identity_document" : "additional_verification", file: { data: Buffer.from(await file.arrayBuffer()), name: `${which}-${side}`, type: file.type } },
-      { stripeAccount: account.id },
-    )
+    const [account, uploaded] = await Promise.all([
+      ownAccount(creator),
+      stripe.files.create(
+        { purpose: which === "document" ? "identity_document" : "additional_verification", file: { data, name: `${which}-${side}`, type: file.type } },
+        { stripeAccount: row.stripe_account_id },
+      ),
+    ])
     const saved = await stripe.accounts.update(account.id, { individual: { verification: { [which]: { [side]: uploaded.id } } } as Stripe.AccountUpdateParams.Individual })
-    await syncStripeAccount(creator.id, "creator").catch(() => undefined)
+    after(() => syncStripeAccount(creator.id, "creator").then(() => undefined, () => undefined))
     return viewOf(creator, saved)
   } catch (error) {
     if (error instanceof PaymentsProblem) throw error

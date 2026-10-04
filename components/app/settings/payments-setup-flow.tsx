@@ -43,7 +43,7 @@ import { personalIssues } from "@/lib/payments/stripe/onboarding-steps"
 import { setupStepOf, type StorelibPaymentsStatus } from "@/lib/payments/stripe/status"
 import type { Overview } from "@/components/app/settings/payments-hub-shared"
 import { isNativeApp, openInApp } from "@/lib/native-bridge"
-import { IdCamera, armCameraSounds, shrinkPhoto, type IdSide } from "@/components/app/settings/id-camera"
+import { IdCamera, armCameraSounds, sendIdPhoto, shrinkPhoto, type IdSide } from "@/components/app/settings/id-camera"
 import { openIdentity } from "@/lib/payments/identity-client"
 import { playAskSound } from "@/lib/website-builder/ask-sounds"
 import { cn } from "@/lib/utils"
@@ -973,9 +973,6 @@ interface DetailsForm {
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
 
-async function postForm<T>(path: string, form: FormData): Promise<T> {
-  return read<T>(await fetch(`/api/payments/${path}`, { method: "POST", body: form, cache: "no-store" }))
-}
 
 function useDetailsForm() {
   const [form, setForm] = React.useState<DetailsForm | null>(null)
@@ -1204,6 +1201,8 @@ function DetailsStep({
   const [typeIdInstead, setTypeIdInstead] = React.useState(false)
   /* What the last photo did, said right where the photos are: "Front added", or why it was not. */
   const [idNote, setIdNote] = React.useState<string | null>(null)
+  /* How far the photo on its way to Stripe has got, so "Sending" always moves. */
+  const [sentPct, setSentPct] = React.useState(0)
   const [idError, setIdError] = React.useState<{ side: IdSide; text: string } | null>(null)
   /* On a computer the camera is the phone's: a QR code first, this computer only if they say so. */
   const desktop = useDeskOnly()
@@ -1343,7 +1342,8 @@ function DetailsStep({
       data.set("which", which)
       data.set("side", side)
       data.set("file", blob, blob.type === "application/pdf" ? "document.pdf" : "document.jpg")
-      const res = await postForm<{ form: DetailsForm }>("document", data)
+      setSentPct(0)
+      const res = await sendIdPhoto<{ form: DetailsForm }>("/api/payments/document", data, setSentPct)
       setUploaded((u) => ({ ...u, [key]: true }))
       if (which === "document") {
         playAskSound("done")
@@ -1637,7 +1637,7 @@ function DetailsStep({
         </div>
       ) : uploading?.startsWith("document") ? (
         <p role="status" className="flex items-center gap-2 text-[13px] text-[#4b5563]" data-id-note="">
-          <Spinner dark /> Sending your photo to Stripe...
+          <Spinner dark /> {sentPct >= 99 ? "Stripe is saving it..." : `Sending your photo to Stripe... ${sentPct}%`}
         </p>
       ) : idNote ? (
         <p role="status" className="flex items-center gap-2 text-[13px] font-medium text-[#067647] animate-in fade-in-0 duration-200" data-id-note="">
@@ -1951,7 +1951,7 @@ function DetailsStep({
         <button type="button" className={SECONDARY} onClick={onBack}>Back</button>
         <button type="submit" className={PRIMARY} disabled={busy || !!uploading}>
           {busy || uploading ? <Spinner /> : null}
-          {busy ? "Saving" : uploading ? "Sending your ID" : "Continue"}
+          {busy ? "Saving" : uploading ? `Sending your ID ${sentPct < 99 ? `${sentPct}%` : ""}`.trim() : "Continue"}
         </button>
       </Footer>
     </form>
