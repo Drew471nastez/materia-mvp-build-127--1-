@@ -51,7 +51,7 @@ const group = THEME_SETTINGS_GROUPS.find((g) => g.id === "breadcrumbs")
 check("Theme settings › Breadcrumbs: show, and the separator", !!group && group.fields.map((f) => f.id).join() === "breadcrumbs_enabled,breadcrumbs_separator")
 check("every storefront page gets it through dressPage", /withDynamicSources\(withThemeBreadcrumbs\(sections, site\.themeSettings, template\)/.test(read("lib/website-builder/published-site.ts")))
 const editor = read("app/website-builder/editor/[installId]/page.tsx")
-check("the editor's canvas draws it too, and a click on it opens its setting", /withThemeBreadcrumbs\(deferredSections/.test(editor) && /sectionId === THEME_BREADCRUMBS_ID[\s\S]{0,300}setExpandedSettings\("breadcrumbs"\)/.test(editor))
+check("the editor's canvas draws it too, and a click on it opens its setting", /withThemeBreadcrumbs\(\s*withDynamicSources\(canvasSections,/.test(editor) && /sectionId === THEME_BREADCRUMBS_ID[\s\S]{0,300}setExpandedSettings\("breadcrumbs"\)/.test(editor))
 
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed) process.exit(1)

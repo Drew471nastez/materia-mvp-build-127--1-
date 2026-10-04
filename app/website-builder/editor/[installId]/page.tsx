@@ -5274,10 +5274,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const crumbsOn = crumbTheme.breadcrumbs_enabled
   const crumbsSep = crumbTheme.breadcrumbs_separator
   const crumbsAlign = crumbTheme.breadcrumbs_align
-  const canvasSections = useMemo(() => {
-    const page = withThemeBreadcrumbs(deferredSections, { breadcrumbs_enabled: crumbsOn, breadcrumbs_separator: crumbsSep, breadcrumbs_align: crumbsAlign }, templateForPage(currentPage))
-    return writingShown && aiWriting ? withWritingPlaceholder(page, aiWriting.anchor, aiWriting.prompt) : page
-  }, [writingShown, aiWriting, deferredSections, crumbsOn, crumbsSep, crumbsAlign, currentPage])
+  const canvasSections = useMemo(
+    () => (writingShown && aiWriting ? withWritingPlaceholder(deferredSections, aiWriting.anchor, aiWriting.prompt) : deferredSections),
+    [writingShown, aiWriting, deferredSections],
+  )
+
   /** Placed and drawn, or placed and left behind on another page: either way, done. */
   useEffect(() => {
     if (!aiWriting?.placedId) return
@@ -6778,9 +6779,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         })
         if (res.ok) st.synced = menusJson
         else if (res.status === 409) st.available = false
-        else toast.error("Your menus did not save. Change something to try again.")
+        else toast.error("Could not save menus. Try again.")
       } catch {
-        toast.error("Your menus did not save. Check the connection and try again.")
+        toast.error("Could not save menus. Try again.")
       }
     }, 700)
     return () => window.clearTimeout(timer)
@@ -6849,8 +6850,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   )
   /* What the canvas draws: the page with its placeholders filled. Never saved. */
   const drawnSections = useMemo(
-    () => withDynamicSources(canvasSections, (type) => schemaFor(type, storelibSources, librarySchemas), canvasDynamic),
-    [canvasSections, storelibSources, librarySchemas, canvasDynamic],
+    () => withThemeBreadcrumbs(
+      withDynamicSources(canvasSections, (type) => schemaFor(type, storelibSources, librarySchemas), canvasDynamic),
+      { breadcrumbs_enabled: crumbsOn, breadcrumbs_separator: crumbsSep, breadcrumbs_align: crumbsAlign },
+      templateForPage(currentPage),
+    ),
+    [canvasSections, storelibSources, librarySchemas, canvasDynamic, crumbsOn, crumbsSep, crumbsAlign, currentPage],
   )
 
   /**

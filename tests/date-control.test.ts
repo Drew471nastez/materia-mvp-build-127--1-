@@ -43,7 +43,7 @@ check("its words and digits are made to read on their ground", /readableOn\(bg, 
 
 const proof = SECTION_SCHEMAS.social_proof_bar
 check("Social proof bar: trust logos are blocks, up to eight", proof?.blocks?.[0]?.type === "trust_logo" && proof?.max_blocks === 8 && !proof.fields?.some((f) => /^trust_logo_\d$/.test(f.id)))
-check("  a bar saved with the four numbered logos still shows them", /\[s\.trust_logo_1, s\.trust_logo_2, s\.trust_logo_3, s\.trust_logo_4\]/.test(read("components/website-builder/sections/renderers/SocialProofBarSection.tsx")))
+check("  a bar saved with the four numbered logos still shows them", /legacyLogo\(own, s\.trust_logo_1\)[\s\S]{0,200}legacyLogo\(own, s\.trust_logo_4\)/.test(read("components/website-builder/sections/renderers/SocialProofBarSection.tsx")))
 
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed) process.exit(1)

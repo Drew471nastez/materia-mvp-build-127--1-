@@ -27,6 +27,11 @@ function Stars({ value, color }: { value: number; color: string }) {
   )
 }
 
+/** An old numbered trust logo, read only while the bar has no Trust logo blocks of its own. */
+function legacyLogo(blocks: readonly unknown[], value: unknown): string {
+  return blocks.length === 0 ? str(value) : ""
+}
+
 export function SocialProofBarSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
   const s = section.settings
   const c = sectionColors(section, theme)
@@ -91,7 +96,8 @@ export function SocialProofBarSection({ section, theme, isEditing, isSelected, o
     const own = (section.blocks ?? []).filter((b) => b.type === "trust_logo" && !b.hidden)
     const logos = own.length > 0
       ? own.map((b) => ({ id: b.id, src: str(b.settings?.image), alt: str(b.settings?.alt), url: str(b.settings?.url) }))
-      : [s.trust_logo_1, s.trust_logo_2, s.trust_logo_3, s.trust_logo_4].map((v, i) => ({ id: `legacy-${i}`, src: str(v), alt: "", url: "" }))
+      : [legacyLogo(own, s.trust_logo_1), legacyLogo(own, s.trust_logo_2), legacyLogo(own, s.trust_logo_3), legacyLogo(own, s.trust_logo_4)]
+          .map((src, i) => ({ id: `legacy-${i}`, src, alt: "", url: "" }))
     const shown = logos.filter((l) => l.src || (isEditing && own.length > 0))
     if (shown.length > 0) {
       items.push(
