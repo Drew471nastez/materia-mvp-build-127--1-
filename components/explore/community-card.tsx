@@ -54,7 +54,7 @@ import type { ReactNode } from "react"
 import Link from "next/link"
 import { ChevronRight, Eye, Star, Users } from "lucide-react"
 import { AppAvatar } from "@/components/app/app-avatar"
-import { optimizedImageUrl } from "@/lib/images/optimized-url"
+import { optimizedImageUrl, optimizedSrcSet } from "@/lib/images/optimized-url"
 import type { CommunityCard } from "@/lib/communities/types"
 import { ratingLabel, statCount } from "@/lib/explore/communities-mode"
 import { cn } from "@/lib/utils"
@@ -83,6 +83,17 @@ export const COMMUNITY_TITLE_WIDE = "sm:text-[20px] sm:leading-[26px]"
   128px file on a 2x screen) and drawn at 48 on a phone; one file either
   way, so the browser never fetches a second when the window crosses 640.
 */
+/*
+  THE COVER AT THE SIZE IT IS DRAWN. It was one file for every screen,
+  asked for at twice 640px, which the optimizer rounds up to a 1920px
+  picture: on a phone on Slow 3G each card's cover was the heaviest thing on
+  the page. Now the browser picks from real widths by the grid's columns
+  (one on a phone, two from 640px, three from 1024px in a 1400px page, so
+  never wider than about 440px) and the screen's density.
+*/
+const COVER_WIDTHS = [384, 640, 828, 1080]
+export const GRID_SIZES = "(max-width: 639px) 100vw, (max-width: 1023px) 50vw, 440px"
+
 const MARK_PX = 56
 const MARK_CLASS = "h-12 w-12 rounded-[12px]"
 const MARK_CLASS_WIDE = "sm:h-14 sm:w-14 sm:rounded-[14px]"
@@ -128,22 +139,27 @@ function Blurb({ card, className }: { card: CommunityCard; className?: string })
 }
 
 /*
-  A FACT'S ICON IN A SMALL ROUND WELL: 22px, a step off the card's ground,
-  a hairline and a 1px shadow under it with a lighter top edge, so it reads
-  as a pressed dot rather than a printed circle. On a storefront the ground
-  is a tenth of the creator's own text colour, as the avatar's is, so it
-  carries on a white page and a near black one alike.
+  A FACT'S ICON IN A SMALL SQUARE WELL: 22px with a 7px corner (round 10:
+  the owner asked for small squares, not circles), a step off the card's
+  ground, a hairline and the faintest shadow under it with a lighter top
+  edge, so it reads as a pressed tile rather than a printed shape. The depth
+  is even quieter than the round wells had: the hairline at 4% and the drop
+  at 5%, down from 5% and 8%. On a storefront the ground is a tenth of the
+  creator's own text colour, as the avatar's is, so it carries on a white
+  page and a near black one alike.
 */
+export const STAT_WELL_CLASS = "inline-flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[7px]"
+
 function Well({ storefront, children }: { storefront: boolean; children: ReactNode }) {
   return (
     <span
       aria-hidden
       data-stat-well=""
       className={cn(
-        "inline-flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full",
+        STAT_WELL_CLASS,
         storefront
-          ? "bg-foreground/[0.07] text-foreground/70 shadow-[0_1px_1.5px_rgba(16,24,40,0.08)]"
-          : "bg-[#f3f4f6] text-[#4b5563] shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_0_0_1px_rgba(16,24,40,0.05),0_1px_1.5px_rgba(16,24,40,0.08)]",
+          ? "bg-foreground/[0.07] text-foreground/70 shadow-[0_1px_1px_rgba(16,24,40,0.05)]"
+          : "bg-[#f3f4f6] text-[#4b5563] shadow-[inset_0_1px_0_rgba(255,255,255,0.85),0_0_0_1px_rgba(16,24,40,0.04),0_1px_1px_rgba(16,24,40,0.05)]",
       )}
     >
       {children}
@@ -293,9 +309,12 @@ export function ExploreCommunityCard({
         {card.coverUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={optimizedImageUrl(card.coverUrl, 640)}
+            src={optimizedImageUrl(card.coverUrl, 420)}
+            srcSet={optimizedSrcSet(card.coverUrl, COVER_WIDTHS) || undefined}
+            sizes={phone ? "390px" : GRID_SIZES}
             alt=""
             loading={priority ? "eager" : "lazy"}
+            fetchPriority={priority ? "high" : undefined}
             decoding="async"
             className="absolute inset-0 h-full w-full object-cover transition-[scale] duration-500 ease-out motion-reduce:transition-none [@media(hover:hover)]:group-hover/community:scale-[1.03]"
           />

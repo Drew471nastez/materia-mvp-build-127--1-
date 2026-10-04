@@ -79,6 +79,8 @@ interface ProductCardProps {
   srcParam?: string
   /** Set to true for above-the-fold images for faster LCP */
   priority?: boolean
+  /** The picture's drawn width for the grid it sits in (the `sizes` attribute); the default suits a four column row. */
+  sizes?: string
   /**
    * ═══════════════════════════════════════════════════════════════════════
    *  ON BY DEFAULT, BECAUSE A CARD IS A LINK INSIDE THE SAME APP
@@ -160,6 +162,7 @@ export const ProductCard = memo(function ProductCard({
   product,
   srcParam = "",
   priority = false,
+  sizes = "(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw",
   clientNav = true,
   discoverLayout = true,
   showCreator = true,
@@ -298,7 +301,7 @@ export const ProductCard = memo(function ProductCard({
             src={product.thumbnail_url}
             alt={product.title || "Product"}
             fill
-            sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
+            sizes={sizes}
             className="object-cover transition-transform duration-500 ease-out [@media(hover:hover)]:group-hover:scale-[1.03]"
             priority={priority}
             loading={priority ? undefined : "lazy"}

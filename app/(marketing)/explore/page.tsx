@@ -19,6 +19,7 @@ import type { CommunitiesFirstPage } from "@/components/explore/explore-communit
 import { cookies } from "next/headers"
 import { DISCOVER_MODE_COOKIE, parseDiscoverModeCookie } from "@/lib/explore/discover-mode-cookie"
 import { isExploreDiscoverModeSwitcherEnabled } from "@/lib/platform/explore-discover-mode-switcher"
+import { exploreCategoryFrom } from "@/lib/explore/explore-address"
 
 // SEO-optimized metadata
 export const metadata: Metadata = {
@@ -64,14 +65,6 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic"
 
-// Categories that match the client-side categories (including header categories)
-const VALID_CATEGORIES = [
-  "all", "productivity", "design", "social-media", "ai",
-  // Additional categories from header
-  "development", "marketing", "business", "music", "photography",
-  "video", "ecommerce", "education", "audio-music", "other", "freebies"
-]
-
 /**
  * The switch in Settings, Privacy (app/api/account/preferences): off means
  * nobody's purchases or wishlist shape what they are shown here. A column
@@ -91,6 +84,78 @@ async function personalizationOn(
   const column = (pref as { personalized_recommendations?: boolean } | null)?.personalized_recommendations
   /* No column yet: the choice Settings kept on the account (app/api/account/preferences). */
   return typeof column === "boolean" ? column : kept !== false
+}
+
+/** What the grid shows of a product. */
+const PRODUCT_COLUMNS =
+  "id, title, slug, description, price_cents, compare_at_cents, pay_what_you_want, pwyw_min_price_cents, thumbnail_url, type, category, creator_id, created_at, sales_count, reviews_count, reviews_average"
+/** Its creator and their face, the same fields the two separate reads asked for. */
+const CREATOR_EMBED = "creator:creators(id, user_id, slug, niche_tags, profile:profiles!creators_user_id_fkey(id, display_name, avatar_url, username))"
+
+type Supabase = Awaited<ReturnType<typeof createClient>>
+
+/*
+  THE CATALOGUE IN ONE ROUND TRIP. The products, then their creators, then
+  the creators' profiles were three reads in a row, each waiting for the one
+  before; the creator and the profile are embedded in the products' read now
+  (the same foreign keys lib/security/public-columns names), so the grid
+  waits for one answer. Should the embedded read ever be refused (a renamed
+  key, a policy on the join), the three reads below it are the fallback and
+  the page is exactly what it was.
+*/
+async function readCatalog(supabase: Supabase, searchQuery: string): Promise<any[]> {
+  const read = (columns: string) =>
+    excludingCommunityProducts((exclude) => {
+      let query = supabase.from("products").select(columns).eq("status", "published")
+      /* A product that sells a community tier is found through its community, not in this list (lib/communities/listing). */
+      if (exclude) query = query.is("community_id", null)
+      query = query.order("created_at", { ascending: false }).limit(100)
+      /* A search is applied here, by ILIKE, rather than fetching a hundred rows to keep a few. */
+      if (searchQuery) query = query.or(`title.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`)
+      return query
+    })
+
+  let { data: products, error } = (await read(`${PRODUCT_COLUMNS}, ${CREATOR_EMBED}`)) as { data: any[] | null; error: { message: string } | null }
+  let embedded = !error
+  if (error) {
+    console.error("[ExplorePage] Embedded catalogue read refused, reading in three steps:", error.message)
+    ;({ data: products, error } = (await read(PRODUCT_COLUMNS)) as { data: any[] | null; error: { message: string } | null })
+    embedded = false
+  }
+  if (error) console.error("[ExplorePage] Products error:", error.message)
+  if (!products || products.length === 0) return []
+
+  /* A yearly only membership says "/year" on its card (lib/memberships/intervals); asked beside the creators. */
+  const intervalsPromise = planIntervals(supabase, products.filter((p) => p.type === "membership").map((p) => p.id))
+
+  let creatorOf: (p: any) => any = (p) => {
+    const c = Array.isArray(p.creator) ? p.creator[0] : p.creator
+    if (!c) return null
+    const profile = Array.isArray(c.profile) ? c.profile[0] ?? null : c.profile ?? null
+    return { ...c, profile }
+  }
+  if (!embedded) {
+    const ids = [...new Set(products.map((p) => p.creator_id).filter(Boolean))]
+    const { data: creators } = ids.length ? await supabase.from("creators").select("id, user_id, slug, niche_tags").in("id", ids) : { data: [] as any[] }
+    const userIds = (creators || []).map((c) => c.user_id).filter(Boolean)
+    const { data: profiles } = userIds.length ? await supabase.from("profiles").select("id, display_name, avatar_url, username").in("id", userIds) : { data: [] as any[] }
+    creatorOf = (p) => {
+      const creator = (creators || []).find((c) => c.id === p.creator_id)
+      const profile = creator ? (profiles || []).find((x) => x.id === creator.user_id) ?? null : null
+      return creator ? { ...creator, profile } : null
+    }
+  }
+
+  const intervals = await intervalsPromise
+  return products.map((product) => ({
+    ...product,
+    ...(intervals.has(product.id) ? { price_interval: intervals.get(product.id) } : {}),
+    creator: creatorOf(product),
+    categories: [],
+    categoryName: product.category || null,
+    reviews_count: product.reviews_count || 0,
+    reviews_average: product.reviews_average || 0,
+  }))
 }
 
 export default async function ExplorePage({
@@ -117,10 +182,28 @@ export default async function ExplorePage({
     structured data on every product page, and anything anybody has shared.
     So the new name wins when both are present and the old one keeps working.
   */
-  const rawCategory = (params?.c || params?.category || "all").toLowerCase()
-  const category = VALID_CATEGORIES.includes(rawCategory) ? rawCategory : "all"
+  const category = exploreCategoryFrom({ c: params?.c, category: params?.category })
 
-  const discoverModeSwitcherEnabled = await isExploreDiscoverModeSwitcherEnabled()
+  /*
+    EVERYTHING THIS PAGE READS STARTS AT ONCE. The two switches, the cookie,
+    the visitor and the catalogue used to be asked for one after another, and
+    the catalogue then waited for its creators, which waited for their
+    profiles: five or six round trips in series before the grid could be
+    drawn. None of them needs another's answer except the communities, which
+    need the switch, so they all start here and are collected where they are
+    used. The grid arrives one round trip after the slowest read instead of
+    after the sum of them.
+  */
+  const supabasePromise = createClient()
+  const catalogPromise = supabasePromise.then((supabase) => readCatalog(supabase, searchQuery)).catch((error: unknown) => {
+    console.error("[ExplorePage] Exception:", (error as { message?: string })?.message || error)
+    return [] as any[]
+  })
+  const [discoverModeSwitcherEnabled, communitiesOn, cookieStore] = await Promise.all([
+    isExploreDiscoverModeSwitcherEnabled(),
+    communitiesEnabled(),
+    cookies(),
+  ])
   /*
     COMMUNITIES, WHILE THEY ARE SWITCHED ON, and only then: communities mode
     (?type=communities, the hero's switcher, the Communities pill), and on a
@@ -131,8 +214,7 @@ export default async function ExplorePage({
     for the same pill, word and order the page opens on, beside the
     catalogue rather than after it.
   */
-  const communitiesOn = await communitiesEnabled()
-  const cookieMode = parseDiscoverModeCookie((await cookies()).get(DISCOVER_MODE_COOKIE)?.value)
+  const cookieMode = parseDiscoverModeCookie(cookieStore.get(DISCOVER_MODE_COOKIE)?.value)
   const initialDiscoverMode = discoverModeFor({ communitiesOn, type: params?.type ?? null, cookie: cookieMode })
   const communityResultsPromise: Promise<CommunityCard[]> =
     communitiesOn && searchQuery && initialDiscoverMode === "products" ? exploreCommunities({ q: searchQuery, limit: 3 }).then((p) => p.items).catch(() => []) : Promise.resolve([])
@@ -158,18 +240,16 @@ export default async function ExplorePage({
     neither needs the other.
   */
   let interests: Interests = EMPTY_INTERESTS
-
-  // Initialize data
   let productsWithCreators: any[] = []
 
   try {
-    const supabase = await createClient()
+    const supabase = await supabasePromise
 
     /*
       Asked for beside the catalogue rather than before it: neither needs the
       other, and this route is force-dynamic with nothing cached in front of
       it, so a read in series is a round trip every visitor pays for.
-      A failure here is not a failure of the page — the catch below leaves
+      A failure here is not a failure of the page: the catch leaves
       `interests` empty and everybody gets the ordinary Explore.
     */
     const interestsPromise = (async () => {
@@ -181,72 +261,7 @@ export default async function ExplorePage({
       return readInterests(user.id, user.email)
     })().catch(() => EMPTY_INTERESTS)
 
-    // Fetch published products — apply search filter server-side via ILIKE
-    // to avoid fetching 100 rows when only a few match the query
-    /* A product that sells a community tier is found through its community, not in this list (lib/communities/listing). */
-    const { data: products, error: productsError } = await excludingCommunityProducts((exclude) => {
-      let query = supabase
-        .from("products")
-        .select("id, title, slug, description, price_cents, compare_at_cents, pay_what_you_want, pwyw_min_price_cents, thumbnail_url, type, category, creator_id, created_at, sales_count, reviews_count, reviews_average")
-        .eq("status", "published")
-      if (exclude) query = query.is("community_id", null)
-      query = query.order("created_at", { ascending: false }).limit(100)
-      if (searchQuery) {
-        query = query.or(`title.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%`)
-      }
-      return query
-    })
-
-    if (productsError) {
-      console.error("[ExplorePage] Products error:", productsError.message)
-    }
-
-    if (products && products.length > 0) {
-      // Get creators for products
-      /* A yearly only membership says "/year" on its card (lib/memberships/intervals); asked beside the creators. */
-      const intervalsPromise = planIntervals(supabase, products.filter((p) => p.type === "membership").map((p) => p.id))
-      const productCreatorIds = [...new Set(products.map((p) => p.creator_id).filter(Boolean))]
-      let productCreators: any[] = []
-
-      if (productCreatorIds.length > 0) {
-        const { data: pCreators } = await supabase
-          .from("creators")
-          .select("id, user_id, slug, niche_tags")
-          .in("id", productCreatorIds)
-        productCreators = pCreators || []
-      }
-
-      // Get profiles for product creators
-      const productCreatorUserIds = productCreators.map((c) => c.user_id).filter(Boolean)
-      let productCreatorProfiles: any[] = []
-
-      if (productCreatorUserIds.length > 0) {
-        const { data: pcProfiles } = await supabase
-          .from("profiles")
-          .select("id, display_name, avatar_url, username")
-          .in("id", productCreatorUserIds)
-        productCreatorProfiles = pcProfiles || []
-      }
-
-      const intervals = await intervalsPromise
-      // Build products with creator info
-      productsWithCreators = products.map((product) => {
-        const creator = productCreators.find((c) => c.id === product.creator_id)
-        const profile = creator ? productCreatorProfiles.find((p) => p.id === creator.user_id) : null
-        return {
-          ...product,
-          ...(intervals.has(product.id) ? { price_interval: intervals.get(product.id) } : {}),
-          creator: creator ? { ...creator, profile } : null,
-          categories: [],
-          categoryName: product.category || null,
-          reviews_count: (product as any).reviews_count || 0,
-          reviews_average: (product as any).reviews_average || 0,
-        }
-      })
-    }
-
-    /* Started above, collected here, so the two reads overlap. */
-    interests = await interestsPromise
+    ;[productsWithCreators, interests] = await Promise.all([catalogPromise, interestsPromise])
   } catch (error: any) {
     console.error("[ExplorePage] Exception:", error?.message || error)
   }
