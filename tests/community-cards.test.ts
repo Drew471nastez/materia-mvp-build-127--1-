@@ -87,7 +87,7 @@ async function main() {
     })
     check("no other component draws a community card by hand", ownCards.length === 0, ownCards)
     check("the storefront and the builder's canvas both go through the tab panel", /<StorefrontCommunities cards=\{cards\} \/>/.test(code("app/(marketing)/u/[username]/page.tsx")) && /<StorefrontCommunities cards=\{communities\} phone=\{isMobile\} \/>/.test(code("components/store-builder/preview-canvas.tsx")))
-    check("/explore/communities, which drew the old card, only redirects now", /permanentRedirect\(legacyCommunitiesTarget/.test(code("app/(marketing)/explore/communities/page.tsx")) && !/<\w+Grid|<\w+Card/.test(code("app/(marketing)/explore/communities/page.tsx")))
+    check("/explore/communities, which drew the old card, only redirects now", /NextResponse\.redirect\(new URL\(target, request\.url\), 308\)/.test(code("app/(marketing)/explore/communities/route.ts")) && /legacyCommunitiesTarget\(/.test(code("app/(marketing)/explore/communities/route.ts")) && !/<\w+Grid|<\w+Card/.test(code("app/(marketing)/explore/communities/route.ts")))
     const card = code(SHARED)
     check("one card, two shapes: the grid and the compact row, with the same title, stats and creator line", /layout === "row"/.test(card) && (card.match(/<Stats card=\{card\}/g) ?? []).length === 2 && (card.match(/<Creator card=\{card\} \/>/g) ?? []).length === 2 && (card.match(/COMMUNITY_TITLE\)/g) ?? []).length === 2)
     check("on a storefront the ground is the creator's tokens", /surface === "storefront"/.test(card) && /storefront \? "bg-muted" : "bg-\[#f1f2f4\]"/.test(card) && /bg-card/.test(card) && /text-muted-foreground/.test(card))

@@ -38,6 +38,9 @@ export const RESERVED_ROOT_SEGMENTS: readonly string[] = [
   /* The page a website cover's screenshot is taken of. A username of this
      would put a creator's profile at the same address. */
   "cover-render",
+  /* Profiles of people without a store: /@handle is rewritten to
+     /member/<handle> (next.config). Moved here from the extras. */
+  "member",
   "creator-page",
   "dashboard",
   // The Storelib Developer Hub. A creator called "developers" would have
@@ -104,7 +107,6 @@ export const RESERVED_ROOT_EXTRAS: readonly string[] = [
   "favicon",
   "files",
   "images",
-  "member",
   "messages",
   "orders",
   "profile",
