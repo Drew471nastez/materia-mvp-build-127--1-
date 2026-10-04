@@ -97,8 +97,12 @@ export function createClient() {
     realtime: { setAuth: async () => {} },
     from: (table) => chain(table),
     rpc: () => chain(null),
-    channel: () => chain(null),
-    removeChannel() {},
+    /* Realtime channels, counted: which are open right now, and how many were ever opened. */
+    channel: (name) => {
+      const ch = { name, on() { return ch }, subscribe() { (window.__channels ||= new Set()).add(ch); window.__opened = (window.__opened || 0) + 1; return ch } }
+      return ch
+    },
+    removeChannel(ch) { window.__channels?.delete(ch) },
   }
 }`,
 }
@@ -513,6 +517,41 @@ for (const hash of ["path=/explore&who=buyer", "path=/explore&who=guest", "mode=
     if (hash.includes("community")) expect(sheet.rows.find((r) => r.current)?.text === "Mara Club", `${tag}: Mara Club marked`)
     if (hash.includes("guest")) expect(sheet.rows.map((r) => r.text).join(" | ") === "Explore | Discover communities | Log in | Start creating", `${tag}: the signed out rows`, sheet.rows.map((r) => r.text))
   }
+  await p.close()
+}
+
+/* ------------------------------------------------------------------ */
+console.log("\none bell asks and listens, at either width")
+{
+  const p = await open(DESK, "path=/help&who=buyer")
+  await sleep(600)
+  const read = () => p.evaluate(() => ({
+    channels: [...(window.__channels ?? [])].map((c) => c.name).sort(),
+    opened: window.__opened || 0,
+    summaries: window.__fetches.filter((u) => u.includes("summary=1")).length,
+    badges: [...document.querySelectorAll("[data-notification-bell]")].filter((b) => b.getClientRects().length).map((b) => b.querySelector("[data-bell-badge]")?.textContent ?? null),
+    bells: document.querySelectorAll("[data-notification-bell]").length,
+    active: [...document.querySelectorAll("[data-notification-bell]")].map((b) => [b.getClientRects().length > 0, b.hasAttribute("data-bell-active")]),
+  }))
+  const SET = "bell:community_notifications:u1,bell:user_notifications:u1"
+  /* Headless Chromium draws no frame unless one is asked for, and a resize and a ResizeObserver are both delivered in a frame: ask for two. */
+  const frames = () => p.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))))
+  const d = await read()
+  expect(d.bells === 2 && d.channels.join() === SET && d.opened === 2 && d.summaries === 1, "computer: two bells in the header, one set of channels (two) and one count read", d)
+  expect(d.badges.join() === "2", "the bell on screen shows the count", d.badges)
+  /* Not isMobile or hasTouch: changing either makes puppeteer reload the page, which is not a layout switch. */
+  await p.setViewport({ width: 390, height: 844, deviceScaleFactor: 2 })
+  await frames()
+  const mid = await read()
+  expect(mid.badges.join() === "2", "the moment the layout switches, the bell that appears already shows the count", mid.badges)
+  await sleep(600)
+  const ph = await read()
+  expect(ph.channels.join() === SET && ph.channels.length === 2 && ph.opened === 4 && ph.summaries === 2, "phone: still one set of channels open (the hidden bell let its two go as the visible one opened its own), the count read once more", ph)
+  await p.setViewport(DESK)
+  await frames()
+  await sleep(600)
+  const back = await read()
+  expect(back.channels.join() === SET && back.badges.join() === "2", "and back on a computer: one set, the same badge", back)
   await p.close()
 }
 
