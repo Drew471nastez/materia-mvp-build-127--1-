@@ -82,7 +82,7 @@ export function PostPage({ slug, viewer, post: initialPost, comments: initial, m
           readOnly={readOnly}
           commentsEnabled={commentsEnabled}
           boxRef={box}
-          onAdded={() => setPost((p) => ({ ...p, commentCount: p.commentCount + 1 }))}
+          onCount={(d) => setPost((p) => ({ ...p, commentCount: Math.max(0, p.commentCount + d) }))}
         />
       </section>
     </div>

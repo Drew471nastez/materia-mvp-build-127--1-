@@ -4,18 +4,30 @@
  * ===========================================================================
  *  WHAT A POST CARRIES BESIDES ITS WORDS
  * ===========================================================================
- * Two ways of drawing it (round 7):
+ * Two ways of drawing it:
  *
  *   ON THE CARD   one thumbnail on the right (PostThumb): the first picture,
  *                 else a video's still, a video by address's picture, a
  *                 GIF's still, a link's picture. 96px on a computer, 72px on
  *                 a phone, rounded, in a fixed box so nothing moves when it
  *                 arrives.
- *   IN THE POST   never the post's full width (PostMediaGrid): pictures,
- *                 GIFs and videos as a grid of larger thumbnails, each
- *                 opening the lightbox (lightbox.tsx) at itself; one alone
- *                 is a single tile up to 360px wide in its own shape. Then
- *                 the link card and the files, each a row.
+ *   IN THE POST   (round 8, PostMediaGrid, laid out by post-media.ts
+ *                 mediaLayout) one picture or video is drawn large, at the
+ *                 post's full width in its own shape, a picture never taller
+ *                 than the screen allows; two sit side by side, each half the
+ *                 width and the same height, cropped to fill; three or more
+ *                 are a grid, the first large across the top and up to three
+ *                 under it, the last saying how many more. A picture or GIF
+ *                 opens the viewer (lightbox.tsx) at itself; a video
+ *                 uploaded to the community plays where it is when it is
+ *                 alone and opens the viewer from a pair or a grid; a
+ *                 YouTube or Vimeo video is never in the grid but a 16:9
+ *                 player of its own under it, the post's full width.
+ *                 A YouTube or Vimeo address pasted into the words plays
+ *                 under them the same way (post-media.ts withBodyEmbeds, done
+ *                 by the caller). Then the link card and the files, each a
+ *                 row; a file that is a picture or a video opens the viewer
+ *                 too, with its own download button beside it.
  *
  * Pictures come through the image optimizer at the size they are drawn
  * (optimizedImageUrl / optimizedSrcSet), lazily, in boxes of a fixed shape.
@@ -25,12 +37,14 @@
  * once pressed.
  */
 import { useState } from "react"
-import { Download, FileText, Play } from "lucide-react"
+import { Download, FileText, Film, ImageIcon, Play } from "lucide-react"
+import { StorelibVideo } from "@/components/video/storelib-video"
 import { optimizedImageUrl, optimizedSrcSet } from "@/lib/images/optimized-url"
-import { cardThumb, fileSizeLabel, viewerItems, type ViewerItem } from "@/lib/communities/post-media"
+import { cardThumb, fileSizeLabel, mediaKindOf, mediaLayout, viewerItems, type ViewerItem } from "@/lib/communities/post-media"
 import type { PostMedia } from "@/lib/communities/types"
 import { apiBase } from "./api"
-import { Lightbox } from "./lightbox"
+import { EmbedPlayer, Lightbox } from "./lightbox"
+import { openMediaViewer } from "./media-viewer"
 
 export function fileSize(bytes?: number): string {
   return fileSizeLabel(bytes)
@@ -79,93 +93,175 @@ export function PostThumb({ media, className = "" }: { media: PostMedia[]; class
   )
 }
 
-/** Everything a post carries, as the opened post draws it. */
+/** How a tile is drawn: its share of the post's width, for the optimizer's sizes. */
+type Fit = "single" | "half" | "top" | "third"
+const SIZES: Record<Fit, { widths: number[]; sizes: string; display: number }> = {
+  single: { widths: [640, 750, 828, 1080, 1200, 1920], sizes: "(min-width: 640px) 720px, 100vw", display: 720 },
+  top: { widths: [640, 750, 828, 1080, 1200, 1920], sizes: "(min-width: 640px) 720px, 100vw", display: 720 },
+  half: { widths: [384, 640, 750, 828], sizes: "(min-width: 640px) 360px, 50vw", display: 360 },
+  third: { widths: [256, 384, 640], sizes: "(min-width: 640px) 240px, 33vw", display: 240 },
+}
+
+const isMotion = (item: ViewerItem) => item.kind === "video" || item.kind === "embed" || item.kind === "clip"
+
+/** Everything a post carries, as the opened post draws it. Pass media with the words' videos added (withBodyEmbeds). */
 export function PostMediaGrid({ media, communityId, postId }: { media: PostMedia[]; communityId: string; postId: string }) {
-  const [open, setOpen] = useState<number | null>(null)
+  const [open, setOpen] = useState<{ at: number; play: boolean } | null>(null)
   if (!media.length) return null
-  const items = viewerItems(media)
+  /* Pictures, GIFs and uploaded videos make the grid; a YouTube or Vimeo video is its own 16:9 player under it. */
+  const all = viewerItems(media)
+  const items = all.filter((i) => i.kind !== "embed")
+  const embeds = all.filter((i): i is Extract<ViewerItem, { kind: "embed" }> => i.kind === "embed")
+  const layout = mediaLayout(items.length)
   const links = media.filter((m): m is Extract<PostMedia, { type: "link" }> => m.type === "link")
   const files = media.filter((m): m is Extract<PostMedia, { type: "file" }> => m.type === "file")
+  const fileUrl = (assetId: string) => `${apiBase(communityId)}/posts/${postId}/files/${assetId}`
+  /* A file that is a picture or a video opens the viewer, with the post's other such files a swipe away. */
+  const viewable = files.flatMap((f) => {
+    const kind = mediaKindOf(f.name)
+    return kind ? [{ assetId: f.assetId, item: (kind === "image" ? { kind: "image", url: fileUrl(f.assetId), raw: true } : { kind: "clip", url: fileUrl(f.assetId) }) as ViewerItem }] : []
+  })
+  const tile = (i: number, fit: Fit, shape: string, more = 0) => <Tile key={i} item={items[i]} fit={fit} shape={shape} more={more} onOpen={() => setOpen({ at: i, play: isMotion(items[i]) })} />
+  const motionPair = layout.kind === "pair" && items.every(isMotion)
+
   return (
     <div className="mt-3 space-y-2.5" data-post-media="">
-      {items.length === 1 ? (
-        <Tile item={items[0]} single onOpen={() => setOpen(0)} />
-      ) : items.length > 1 ? (
-        <div className="grid grid-cols-3 gap-1.5 sm:flex sm:flex-wrap sm:gap-2" data-post-media-grid="">
-          {items.map((item, i) => (
-            <Tile key={i} item={item} onOpen={() => setOpen(i)} />
-          ))}
+      {layout.kind === "single" ? (
+        <Single item={items[0]} communityId={communityId} onOpen={() => setOpen({ at: 0, play: false })} />
+      ) : layout.kind === "pair" ? (
+        <div className="grid grid-cols-2 gap-1 overflow-hidden rounded-xl" data-post-media-grid="pair">
+          {tile(0, "half", motionPair ? "aspect-[4/3]" : "aspect-square")}
+          {tile(1, "half", motionPair ? "aspect-[4/3]" : "aspect-square")}
+        </div>
+      ) : layout.kind === "grid" ? (
+        <div className="grid gap-1 overflow-hidden rounded-xl" data-post-media-grid="grid">
+          {tile(0, "top", "aspect-[16/9]")}
+          <div className={`grid gap-1 ${layout.below === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
+            {Array.from({ length: layout.below }, (_, k) => tile(k + 1, layout.below === 2 ? "half" : "third", layout.below === 2 ? "aspect-[3/2]" : "aspect-square", k === layout.below - 1 ? layout.more : 0))}
+          </div>
         </div>
       ) : null}
+      {embeds.map((e) => (
+        <div key={`${e.provider}:${e.id}`} className="overflow-hidden rounded-xl" data-media-embed="">
+          <EmbedPlayer item={e} />
+        </div>
+      ))}
       {links.map((l) => (
         <LinkCard key={l.url} url={l.url} title={l.title ?? null} image={l.image ?? null} />
       ))}
-      {files.map((f) => (
-        <a
-          key={f.assetId}
-          href={`${apiBase(communityId)}/posts/${postId}/files/${f.assetId}`}
-          className="flex min-h-12 max-w-[520px] items-center gap-3 rounded-xl border border-[#e8e9ec] px-3 py-2 transition-colors hover:bg-[#f8f9fa]"
-          data-post-file=""
-        >
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#f1f2f4] text-[#4b5563]">
-            <FileText className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden />
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-[14px] font-medium text-[#1a1a2e]">{f.name}</span>
-            {f.size ? <span className="block text-[12.5px] text-[#6b7280]">{fileSizeLabel(f.size)}</span> : null}
-          </span>
-          <Download className="h-[18px] w-[18px] shrink-0 text-[#6b7280]" strokeWidth={1.75} aria-label="Download" />
-        </a>
-      ))}
-      {open !== null ? <Lightbox items={items} start={open} communityId={communityId} onClose={() => setOpen(null)} /> : null}
+      {files.map((f) => {
+        const kind = mediaKindOf(f.name)
+        const at = viewable.findIndex((v) => v.assetId === f.assetId)
+        const Icon = kind === "image" ? ImageIcon : kind === "video" ? Film : FileText
+        const inner = (
+          <>
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#f1f2f4] text-[#4b5563]">
+              <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden />
+            </span>
+            <span className="min-w-0 flex-1 text-left">
+              <span className="block truncate text-[14px] font-medium text-[#1a1a2e]">{f.name}</span>
+              {f.size ? <span className="block text-[12.5px] text-[#6b7280]">{fileSizeLabel(f.size)}</span> : null}
+            </span>
+          </>
+        )
+        if (at === -1) {
+          return (
+            <a key={f.assetId} href={fileUrl(f.assetId)} download={f.name} className="flex min-h-12 max-w-[520px] items-center gap-3 rounded-xl border border-[#e8e9ec] px-3 py-2 transition-colors hover:bg-[#f8f9fa]" data-post-file="">
+              {inner}
+              <Download className="h-[18px] w-[18px] shrink-0 text-[#6b7280]" strokeWidth={1.75} aria-label="Download" />
+            </a>
+          )
+        }
+        return (
+          <div key={f.assetId} className="flex min-h-12 max-w-[520px] items-center rounded-xl border border-[#e8e9ec] transition-colors hover:bg-[#f8f9fa]" data-post-file={kind ?? ""}>
+            <button
+              type="button"
+              onClick={() => openMediaViewer(viewable.map((v) => v.item), at, { communityId, autoplay: kind === "video" })}
+              className="flex min-h-12 min-w-0 flex-1 cursor-zoom-in items-center gap-3 rounded-l-xl px-3 py-2 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#1a1a2e]/20"
+              aria-label={`Open ${f.name}`}
+              data-post-file-open=""
+            >
+              {inner}
+            </button>
+            <a href={fileUrl(f.assetId)} download={f.name} aria-label={`Download ${f.name}`} className="mr-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-[#6b7280] transition-colors hover:bg-[#eef0f2] hover:text-[#1a1a2e]" data-no-viewer="">
+              <Download className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden />
+            </a>
+          </div>
+        )
+      })}
+      {open !== null ? <Lightbox items={items} start={open.at} communityId={communityId} autoplay={open.play} onClose={() => setOpen(null)} /> : null}
     </div>
   )
 }
 
+/** A picture's shape, kept within reason: a panorama no flatter than 2.4:1, a portrait no taller than 1:2. */
 function ratioOf(item: ViewerItem): number {
+  if (item.kind === "embed" || item.kind === "clip") return 16 / 9
   const w = "w" in item ? item.w : undefined
   const h = "h" in item ? item.h : undefined
-  if (item.kind === "embed") return 16 / 9
-  if (w && h) return Math.min(Math.max(w / h, 0.75), 1.78)
+  if (w && h) return Math.min(Math.max(w / h, 0.5), 2.4)
   return item.kind === "video" ? 16 / 9 : 4 / 3
 }
 
-function Tile({ item, single = false, onOpen }: { item: ViewerItem; single?: boolean; onOpen: () => void }) {
-  const picture = item.kind === "image" ? item.url : item.kind === "gif" ? item.url : item.kind === "video" ? item.poster : item.thumb
-  const local = item.kind === "image" || item.kind === "video"
-  const display = single ? 360 : 148
-  const srcSet = picture && local ? optimizedSrcSet(picture, single ? [384, 640, 750] : [256, 384]) : ""
-  const label = item.kind === "image" ? "Open picture" : item.kind === "gif" ? "Open GIF" : "Play video"
+/** One thing alone: large, at the post's full width. */
+function Single({ item, communityId, onOpen }: { item: ViewerItem; communityId: string; onOpen: () => void }) {
+  if (item.kind === "video") {
+    return (
+      <div className="overflow-hidden rounded-xl bg-black [&_[data-storelib-video]]:rounded-none" data-media-tile="video" data-post-media-grid="single">
+        <StorelibVideo communityId={communityId} videoId={item.videoId} poster={item.poster} />
+      </div>
+    )
+  }
+  return (
+    <div data-post-media-grid="single">
+      <Tile item={item} fit="single" shape="" onOpen={onOpen} />
+    </div>
+  )
+}
+
+function Tile({ item, fit, shape, more = 0, onOpen }: { item: ViewerItem; fit: Fit; shape: string; more?: number; onOpen: () => void }) {
+  const picture = item.kind === "image" ? item.url : item.kind === "gif" ? item.url : item.kind === "video" ? item.poster : item.kind === "embed" ? item.thumb : item.poster
+  const local = (item.kind === "image" && !item.raw) || item.kind === "video"
+  const size = SIZES[fit]
+  const srcSet = picture && local ? optimizedSrcSet(picture, size.widths) : ""
+  const single = fit === "single"
+  const label = more ? `Open, and ${more} more` : item.kind === "image" ? "Open picture" : item.kind === "gif" ? "Open GIF" : "Play video"
   return (
     <button
       type="button"
       onClick={onOpen}
       aria-label={label}
       data-media-tile={item.kind}
-      className={`group/tile relative block overflow-hidden rounded-xl bg-[#eef0f2] outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/25 ${
-        single ? "w-full max-w-[min(360px,82%)]" : "aspect-square w-full sm:h-[148px] sm:w-[148px]"
-      } ${item.kind === "video" || item.kind === "embed" ? "cursor-pointer" : "cursor-zoom-in"}`}
+      className={`group/tile relative block w-full overflow-hidden bg-[#eef0f2] outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#1a1a2e]/25 ${
+        single ? "max-h-[min(560px,72vh)] rounded-xl" : shape
+      } ${isMotion(item) ? "cursor-pointer" : "cursor-zoom-in"}`}
       style={single ? { aspectRatio: String(ratioOf(item)) } : undefined}
     >
       {picture ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={local ? optimizedImageUrl(picture, display) : picture}
+          src={local ? optimizedImageUrl(picture, size.display) : picture}
           srcSet={srcSet || undefined}
-          sizes={srcSet ? (single ? "(min-width: 640px) 360px, 100vw" : "(min-width: 640px) 148px, 33vw") : undefined}
+          sizes={srcSet ? size.sizes : undefined}
+          width={"w" in item ? item.w : undefined}
+          height={"h" in item ? item.h : undefined}
           alt=""
           loading="lazy"
           decoding="async"
           referrerPolicy={local ? undefined : "no-referrer"}
-          className="absolute inset-0 h-full w-full object-cover transition-[scale] duration-300 ease-out group-hover/tile:scale-[1.02] motion-reduce:transition-none"
+          className={`absolute inset-0 h-full w-full transition-[scale] duration-300 ease-out group-hover/tile:scale-[1.015] motion-reduce:transition-none ${single ? "object-contain" : "object-cover"}`}
         />
       ) : (
         <span className="absolute inset-0 bg-[#1f2230]" aria-hidden />
       )}
-      {item.kind === "video" || item.kind === "embed" ? (
+      {more ? (
+        <span className="absolute inset-0 flex items-center justify-center bg-[#0f1115]/45 text-[22px] font-semibold tabular-nums text-white" aria-hidden data-media-more="">
+          +{more}
+        </span>
+      ) : isMotion(item) ? (
         <span className="absolute inset-0 flex items-center justify-center" aria-hidden>
-          <span className={`flex items-center justify-center rounded-full bg-black/55 text-white ${single ? "h-14 w-14" : "h-10 w-10"}`}>
-            <Play className={`ml-0.5 fill-current ${single ? "h-6 w-6" : "h-4 w-4"}`} />
+          <span className={`flex items-center justify-center rounded-full bg-black/55 text-white ${fit === "third" ? "h-10 w-10" : "h-12 w-12"}`}>
+            <Play className={`ml-0.5 fill-current ${fit === "third" ? "h-4 w-4" : "h-5 w-5"}`} />
           </span>
         </span>
       ) : item.kind === "gif" ? (

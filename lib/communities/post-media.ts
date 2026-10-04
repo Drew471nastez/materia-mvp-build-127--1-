@@ -141,12 +141,19 @@ export function cardThumb(media: PostMedia[]): { url: string; kind: "image" | "v
   return null
 }
 
-/** What the lightbox walks through, in the post's order: pictures, GIFs and videos. */
+/**
+ * What the viewer (lightbox.tsx) walks through, in the post's order:
+ * pictures, GIFs and videos. `raw` is an address the image optimizer must
+ * not fetch (a member only file route, a signed address that ends soon);
+ * `clip` is a video by its file address (a link in somebody's words, a
+ * lesson's file), played by the browser's own player.
+ */
 export type ViewerItem =
-  | { kind: "image"; url: string; w?: number; h?: number }
+  | { kind: "image"; url: string; w?: number; h?: number; raw?: boolean }
   | { kind: "gif"; url: string; still: string; w?: number; h?: number }
   | { kind: "video"; videoId: string; poster?: string; w?: number; h?: number }
   | { kind: "embed"; provider: "youtube" | "vimeo"; id: string; hash?: string; thumb?: string; title?: string }
+  | { kind: "clip"; url: string; poster?: string }
 
 export function viewerItems(media: PostMedia[]): ViewerItem[] {
   const out: ViewerItem[] = []
@@ -157,4 +164,84 @@ export function viewerItems(media: PostMedia[]): ViewerItem[] {
     else if (m.type === "embed") out.push({ kind: "embed", provider: m.provider, id: m.id, hash: m.hash, thumb: m.thumb, title: m.title })
   }
   return out
+}
+
+type EmbedMedia = Extract<PostMedia, { type: "embed" }>
+
+const URL_IN_WORDS = /https?:\/\/[^\s<>"']+[^\s<>"'.,;:!?)\]]/gi
+
+/**
+ * A YouTube or Vimeo address somebody pasted into a post's words, as the
+ * video it names, so it plays under the text like one attached. Leaves out
+ * a video the post already carries and keeps within MAX_EMBEDS in all.
+ */
+export function bodyEmbeds(text: string | null | undefined, media: PostMedia[]): EmbedMedia[] {
+  if (!text) return []
+  const have = new Set(media.filter((m): m is EmbedMedia => m.type === "embed").map((m) => `${m.provider}:${m.id}`))
+  let room = MAX_EMBEDS - have.size
+  const out: EmbedMedia[] = []
+  for (const m of text.matchAll(URL_IN_WORDS)) {
+    if (room <= 0) break
+    const ref = embedFromUrl(m[0])
+    if (!ref || have.has(`${ref.provider}:${ref.id}`)) continue
+    have.add(`${ref.provider}:${ref.id}`)
+    room--
+    out.push({ type: "embed", provider: ref.provider, id: ref.id, url: ref.url, ...(ref.hash ? { hash: ref.hash } : {}), ...(ref.thumb ? { thumb: ref.thumb } : {}) })
+  }
+  return out
+}
+
+/** A post's media with the videos named in its words after it. */
+export function withBodyEmbeds(media: PostMedia[], text: string | null | undefined): PostMedia[] {
+  const extra = bodyEmbeds(text, media)
+  return extra.length ? [...media, ...extra] : media
+}
+
+const IMAGE_EXT = /\.(?:jpe?g|png|gif|webp|avif|bmp)$/i
+const VIDEO_EXT = /\.(?:mp4|m4v|webm|mov|ogv)$/i
+
+/** Whether a file name or an address is a picture or a video the browser can show, by its extension. */
+export function mediaKindOf(nameOrUrl: unknown): "image" | "video" | null {
+  if (typeof nameOrUrl !== "string" || !nameOrUrl) return null
+  let path = nameOrUrl.trim()
+  if (/^https?:\/\//i.test(path)) {
+    try {
+      path = new URL(path).pathname
+    } catch {
+      return null
+    }
+  } else if (/^[a-z][a-z0-9+.-]*:/i.test(path)) return null
+  path = path.split(/[?#]/)[0]
+  try {
+    path = decodeURIComponent(path)
+  } catch {
+    /* kept as it was */
+  }
+  return IMAGE_EXT.test(path) ? "image" : VIDEO_EXT.test(path) ? "video" : null
+}
+
+/** A link to a picture or a video as the viewer shows it, or null for any other address. */
+export function viewerItemForUrl(url: string, raw = false): ViewerItem | null {
+  const kind = mediaKindOf(url)
+  if (kind === "image") return /\.gif$/i.test(url.split(/[?#]/)[0]) ? { kind: "gif", url, still: url } : { kind: "image", url, ...(raw ? { raw } : {}) }
+  if (kind === "video") return { kind: "clip", url }
+  return null
+}
+
+/**
+ * HOW THE OPENED POST LAYS OUT ITS PICTURES AND VIDEOS (round 8). One is
+ * drawn large, at the post's full width in its own shape (a picture no
+ * taller than the screen allows); two sit side by side, each half the width
+ * and the same height; three or more are a grid with the first one large
+ * across the top and up to three under it, the last of those saying how
+ * many more there are.
+ */
+export type MediaLayout = { kind: "none" } | { kind: "single" } | { kind: "pair" } | { kind: "grid"; below: number; more: number }
+
+export function mediaLayout(count: number): MediaLayout {
+  if (count <= 0) return { kind: "none" }
+  if (count === 1) return { kind: "single" }
+  if (count === 2) return { kind: "pair" }
+  const below = Math.min(3, count - 1)
+  return { kind: "grid", below, more: count - 1 - below }
 }

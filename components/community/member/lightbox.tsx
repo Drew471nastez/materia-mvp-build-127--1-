@@ -15,7 +15,16 @@
  * Only the picture on screen and its two neighbours are mounted. Pictures
  * come through the image optimizer at the size the screen needs
  * (optimizedSrcSet), videos only start loading when pressed (StorelibVideo),
- * and a video by address only loads its player when pressed.
+ * and a video by address only loads its player when pressed, or at once
+ * when the viewer was opened by pressing that video (`autoplay`).
+ *
+ * Round 8: it is the community's one viewer for anything somebody presses
+ * to look at, not only a post's grid: a picture or a video linked in a
+ * comment, a chat, a message, the about page or a lesson's notes, a lesson's
+ * picture file (media-viewer.tsx opens it from anywhere). A picture from a
+ * member only route or a short lived signed address is shown as it is
+ * (`raw`), never through the optimizer, and a video file by its address
+ * plays in the browser's own player (`clip`).
  *
  * Moves are compositor only (opacity, translate, scale), and with reduced
  * motion the open and close are a plain fade.
@@ -80,7 +89,7 @@ const CLOSE_MS = 170
 const SWIPE = 60
 const MAX_ZOOM = 4
 
-export function Lightbox({ items, start, communityId, onClose }: { items: ViewerItem[]; start: number; communityId: string; onClose: () => void }) {
+export function Lightbox({ items, start, communityId, onClose, autoplay = false }: { items: ViewerItem[]; start: number; communityId: string; onClose: () => void; autoplay?: boolean }) {
   const [index, setIndex] = useState(Math.max(0, Math.min(start, items.length - 1)))
   const [phase, setPhase] = useState<"opening" | "open" | "closing">("opening")
   const [drag, setDrag] = useState<{ x: number; y: number } | null>(null)
@@ -201,7 +210,7 @@ export function Lightbox({ items, start, communityId, onClose }: { items: Viewer
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Pictures"
+      aria-label={items.some((i) => i.kind !== "image" && i.kind !== "gif") ? "Pictures and videos" : "Pictures"}
       data-lightbox=""
       data-lightbox-phase={phase}
       className="fixed inset-0 z-[160] touch-none select-none overscroll-contain"
@@ -231,7 +240,7 @@ export function Lightbox({ items, start, communityId, onClose }: { items: Viewer
         >
           {items.map((item, i) => (
             <div key={i} className="relative flex h-full items-center justify-center px-0 sm:px-16" style={{ width: `${100 / items.length}%` }} onClick={(e) => e.target === e.currentTarget && finish()}>
-              {Math.abs(i - index) <= 1 ? <Slide item={item} communityId={communityId} active={i === index} zoom={i === index ? zoom : null} /> : null}
+              {Math.abs(i - index) <= 1 ? <Slide item={item} communityId={communityId} active={i === index} autoplay={autoplay && i === start} zoom={i === index ? zoom : null} /> : null}
             </div>
           ))}
         </div>
@@ -260,17 +269,19 @@ export function Lightbox({ items, start, communityId, onClose }: { items: Viewer
   )
 }
 
-function Slide({ item, communityId, active, zoom }: { item: ViewerItem; communityId: string; active: boolean; zoom: { s: number; x: number; y: number } | null }) {
-  const [play, setPlay] = useState(false)
+function Slide({ item, communityId, active, autoplay, zoom }: { item: ViewerItem; communityId: string; active: boolean; autoplay: boolean; zoom: { s: number; x: number; y: number } | null }) {
+  /* The first slide plays at once only the first time it is shown; moving away and back waits for a press. */
+  const [first, setFirst] = useState(autoplay)
   useEffect(() => {
-    if (!active) setPlay(false)
+    if (!active) setFirst(false)
   }, [active])
   if (item.kind === "image" || item.kind === "gif") {
-    const srcSet = item.kind === "image" ? optimizedSrcSet(item.url, [640, 828, 1080, 1200, 1920, 2048]) : ""
+    const own = item.kind === "image" && !item.raw
+    const srcSet = own ? optimizedSrcSet(item.url, [640, 828, 1080, 1200, 1920, 2048]) : ""
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={item.kind === "image" ? optimizedImageUrl(item.url, 1080) : item.url}
+        src={own ? optimizedImageUrl(item.url, 1080) : item.url}
         srcSet={srcSet || undefined}
         sizes={srcSet ? "100vw" : undefined}
         alt=""
@@ -285,25 +296,50 @@ function Slide({ item, communityId, active, zoom }: { item: ViewerItem; communit
       />
     )
   }
+  const box = "w-full max-w-[min(1100px,calc((100dvh-140px)*16/9))] overflow-hidden bg-black sm:rounded-xl"
   if (item.kind === "video") {
     return (
-      <div className="w-full max-w-[min(1100px,calc((100dvh-140px)*16/9))] overflow-hidden rounded-none bg-black sm:rounded-xl" data-lightbox-media-control="">
-        <StorelibVideo communityId={communityId} videoId={item.videoId} poster={item.poster} />
+      <div className={box} data-lightbox-media-control="">
+        <StorelibVideo communityId={communityId} videoId={item.videoId} poster={item.poster} key={active ? "on" : "off"} />
+      </div>
+    )
+  }
+  if (item.kind === "clip") {
+    return (
+      <div className={`${box} flex items-center justify-center`} data-lightbox-media-control="">
+        {active ? (
+          // eslint-disable-next-line jsx-a11y/media-has-caption
+          <video src={item.url} poster={item.poster} controls playsInline preload="metadata" autoPlay={first} className="max-h-[calc(100dvh-140px)] w-full bg-black" data-lightbox-clip="" />
+        ) : null}
       </div>
     )
   }
   return (
-    <div className="relative aspect-video w-full max-w-[min(1100px,calc((100dvh-140px)*16/9))] overflow-hidden bg-black sm:rounded-xl" data-lightbox-media-control="">
+    <div className={box} data-lightbox-media-control="">
+      <EmbedPlayer key={active ? "on" : "off"} item={item} autoplay={active && first} posterWidth={960} />
+    </div>
+  )
+}
+
+/**
+ * A YouTube or Vimeo video in a 16:9 box: its picture and a play button,
+ * and the privacy player only once pressed (or at once with `autoplay`),
+ * so a post with a video loads none of YouTube's page until somebody asks.
+ */
+export function EmbedPlayer({ item, autoplay = false, posterWidth = 720, className = "" }: { item: Extract<ViewerItem, { kind: "embed" }>; autoplay?: boolean; posterWidth?: number; className?: string }) {
+  const [play, setPlay] = useState(autoplay)
+  return (
+    <div className={`relative aspect-video w-full overflow-hidden bg-black ${className}`} data-embed-player={item.provider} data-embed-state={play ? "playing" : "idle"}>
       {play ? (
         <iframe src={embedPlayerSrc(item)} title={item.title || "Video"} allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen referrerPolicy="strict-origin-when-cross-origin" className="absolute inset-0 h-full w-full border-0" />
       ) : (
-        <button type="button" onClick={() => setPlay(true)} aria-label="Play video" className="group/play absolute inset-0 flex cursor-pointer items-center justify-center">
+        <button type="button" onClick={() => setPlay(true)} aria-label={item.title ? `Play ${item.title}` : "Play video"} className="group/play absolute inset-0 flex cursor-pointer items-center justify-center outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/60" data-embed-play="">
           {item.thumb ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={optimizedImageUrl(item.thumb, 960)} alt="" referrerPolicy="no-referrer" className="absolute inset-0 h-full w-full object-cover" />
+            <img src={optimizedImageUrl(item.thumb, posterWidth)} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" className="absolute inset-0 h-full w-full object-cover" />
           ) : null}
-          <span className="relative flex h-16 w-16 items-center justify-center rounded-full bg-black/60 text-white transition-[scale] group-hover/play:scale-105">
-            <Play className="ml-1 h-7 w-7 fill-current" />
+          <span className="relative flex h-14 w-14 items-center justify-center rounded-full bg-black/60 text-white transition-[scale] duration-150 group-hover/play:scale-105 motion-reduce:transition-none">
+            <Play className="ml-1 h-6 w-6 fill-current" />
           </span>
         </button>
       )}

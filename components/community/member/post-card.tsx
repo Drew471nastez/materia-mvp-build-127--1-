@@ -23,16 +23,22 @@
  * else's, and for a moderator pin, lock, remove, mute or ban) is behind the
  * dots, a menu on a computer and a sheet on a phone (ResponsiveActionMenu).
  *
- * A like answers the press at once and is put back if the server says no
- * (optimistic, rolled back on failure). A second press while the first is on
- * its way waits for it, so the count never runs ahead of the database.
+ * A like and a save answer the press on the next frame and are never
+ * turned off while the server is asked; presses as fast as anybody likes
+ * make at most two requests, the last press wins, and the count never
+ * flickers (post-intent.ts). A refusal of the last press puts it back.
+ *
+ * A YouTube or Vimeo address in the words plays under them in the opened
+ * post and gives the card its thumbnail when nothing else does
+ * (post-media.ts withBodyEmbeds).
  */
 import Link from "next/link"
-import { useEffect, useRef, useState } from "react"
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { BarChart3, Bookmark, Heart, Link2, Lock, MessageCircle, MoreHorizontal, Paperclip, Pencil, Pin, Shield, Trash2, Flag, VolumeX, Ban } from "lucide-react"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { relativeTime } from "@/lib/communities/format"
+import { withBodyEmbeds } from "@/lib/communities/post-media"
 import type { FeedPostView, PollView, ViewerView } from "@/lib/communities/types"
 import { api, apiBase } from "./api"
 import { BodyText, inline } from "./body-text"
@@ -41,6 +47,7 @@ import { PostMediaGrid, PostThumb } from "./media"
 import { REOPEN, actOnContent, actOnMember, moderationMenu, muteUntil } from "./moderation"
 import { PollBlock } from "./poll"
 import { PostOverlay } from "./post-overlay"
+import { intentOf, press, useIntent } from "./post-intent"
 import { SEEN_EVENT, isUnread, readSeen } from "./post-seen"
 import { toast } from "./toast"
 import { BTN_GHOST, BTN_PRIMARY, CARD, FIELD, ICON_BTN } from "./ui"
@@ -67,12 +74,31 @@ export interface PostCardProps {
   onComment?: () => void
 }
 
-export function PostCard({ post, slug, viewer, update, full = false, readOnly = false, onComment }: PostCardProps) {
+/*
+  ONE CARD DRAWN AGAIN, NOT THE WHOLE FEED. A like changes one post, but the
+  feed hands every card a new `update` each time its list changes, so each
+  press drew every card again (several frames' work at 4x CPU). A card now
+  draws again only when its own post (or how it is shown) changes, and calls
+  the feed's latest `update` through a ref.
+*/
+export const PostCard = memo(PostCardView, (a, b) => a.post === b.post && a.slug === b.slug && a.viewer === b.viewer && a.full === b.full && a.readOnly === b.readOnly && a.onComment === b.onComment)
+
+function PostCardView({ post, slug, viewer, update: given, full = false, readOnly = false, onComment }: PostCardProps) {
+  const latest = useRef(given)
+  useEffect(() => {
+    latest.current = given
+  })
+  const update: PostUpdate = useCallback((id, fn) => latest.current(id, fn), [])
   const base = `/community/${slug}`
   const href = `${base}/post/${post.id}`
-  const pending = useRef<Promise<unknown> | null>(null)
-  /* What the last press asked for, so a press that waited on the one before it starts from there. */
-  const asked = useRef<boolean | null>(null)
+  /*
+    While a press is on its way, what the member asked for wins over a copy
+    of the post read before it. Only the buttons below draw it as it moves
+    (LikeButton, SaveButton, SavedMark subscribe themselves), so a press
+    redraws a button, not the whole card; the card reads it when it draws.
+  */
+  const bookmarked = intentOf(`save:${post.id}`)?.on ?? post.bookmarked
+  const media = useMemo(() => withBodyEmbeds(post.media, post.bodyText), [post.media, post.bodyText])
   const [editing, setEditing] = useState(false)
   const [confirm, setConfirm] = useState<ConfirmState | null>(null)
   const [report, setReport] = useState<ReportTargetRef | null>(null)
@@ -105,35 +131,24 @@ export function PostCard({ post, slug, viewer, update, full = false, readOnly = 
     setOpened(true)
   }
 
-  const like = async () => {
+  const like = () => {
     if (readOnly || !viewer.can.react) return
-    if (pending.current) await pending.current
-    const was = asked.current ?? post.reacted
-    const next = !was
-    asked.current = next
-    update(post.id, (p) => ({ ...p, reacted: next, reactionCount: Math.max(0, p.reactionCount + (next ? 1 : -1)) }))
-    const call = api<{ on: boolean; count: number }>(`${apiBase(post.communityId)}/reactions`, { body: { targetType: "post", targetId: post.id, on: next } })
-    pending.current = call
-    const r = await call
-    pending.current = null
-    if (!r.ok) {
-      asked.current = was
-      update(post.id, (p) => ({ ...p, reacted: was, reactionCount: Math.max(0, p.reactionCount + (next ? -1 : 1)) }))
-      return toast(r.error)
-    }
-    asked.current = r.data.on
-    update(post.id, (p) => ({ ...p, reacted: r.data.on, reactionCount: r.data.count }))
+    press(`like:${post.id}`, intentOf(`like:${post.id}`) ?? { on: post.reacted, count: post.reactionCount }, {
+      send: (on) => api<{ on: boolean; count: number }>(`${apiBase(post.communityId)}/reactions`, { body: { targetType: "post", targetId: post.id, on } }),
+      apply: (t) => update(post.id, (p) => ({ ...p, reacted: t.on, reactionCount: t.count })),
+    })
   }
 
-  const save = async () => {
-    const next = !post.bookmarked
-    update(post.id, (p) => ({ ...p, bookmarked: next }))
-    const r = await api<{ on: boolean }>(`${apiBase(post.communityId)}/bookmarks`, { body: { postId: post.id, on: next } })
-    if (!r.ok) {
-      update(post.id, (p) => ({ ...p, bookmarked: !next }))
-      return toast(r.error)
-    }
-    toast(next ? "Saved. Find it under Saved." : "Removed from Saved.")
+  /* `said`: from the menu, where nothing else shows it, a toast says it; the opened post's Save button says it itself. */
+  const save = (said = true) => {
+    press(`save:${post.id}`, intentOf(`save:${post.id}`) ?? { on: post.bookmarked, count: 0 }, {
+      send: (on) => api<{ on: boolean }>(`${apiBase(post.communityId)}/bookmarks`, { body: { postId: post.id, on } }),
+      apply: (t) => update(post.id, (p) => ({ ...p, bookmarked: t.on })),
+      /* Said once, when the server has it, and only if it ended somewhere new. */
+      done: (t, from) => {
+        if (said && t.on !== from.on) toast(t.on ? "Saved. Find it under Saved." : "Removed from Saved.")
+      },
+    })
   }
 
   const copyLink = async () => {
@@ -154,7 +169,7 @@ export function PostCard({ post, slug, viewer, update, full = false, readOnly = 
   }
 
   const items: ActionMenuItem[] = [{ label: "Copy link", icon: <Link2 className="h-4 w-4" />, onClick: copyLink }]
-  if (!full) items.push({ label: post.bookmarked ? "Remove from Saved" : "Save post", icon: <Bookmark className="h-4 w-4" />, onClick: save })
+  if (!full) items.push({ label: bookmarked ? "Remove from Saved" : "Save post", icon: <Bookmark className="h-4 w-4" />, onClick: () => save() })
   if (own && !readOnly) {
     items.push({ label: "Edit post", icon: <Pencil className="h-4 w-4" />, onClick: () => setEditing(true) })
     items.push({
@@ -248,7 +263,7 @@ export function PostCard({ post, slug, viewer, update, full = false, readOnly = 
   const removed = post.status === "removed"
   const level = post.showLevel && author?.level ? author.level : null
   const fresh = post.lastCommentAt && Date.now() - Date.parse(post.lastCommentAt) < 7 * 86_400_000 ? post.lastCommentAt : null
-  const files = post.media.filter((m) => m.type === "file").length
+  const files = media.filter((m) => m.type === "file").length
 
   const head = (
     <header className="flex items-start gap-3">
@@ -314,22 +329,7 @@ export function PostCard({ post, slug, viewer, update, full = false, readOnly = 
     </header>
   )
 
-  const likeButton = (
-    <button
-      type="button"
-      onClick={like}
-      aria-pressed={post.reacted}
-      aria-label={full ? undefined : post.reacted ? `Unlike, ${post.reactionCount} likes` : `Like, ${post.reactionCount} likes`}
-      disabled={readOnly || !viewer.can.react}
-      data-like=""
-      className={`${BTN_GHOST} -ml-2 gap-2 ${full ? "" : "px-2 sm:px-2.5"} ${post.reacted ? "text-[#c4290c] hover:text-[#c4290c]" : ""}`}
-    >
-      <Heart className={`h-[18px] w-[18px] transition-[scale] ${post.reacted ? "fill-current" : ""}`} strokeWidth={1.75} aria-hidden />
-      <span className="tabular-nums" data-like-count="">
-        {full ? (post.reactionCount > 0 ? post.reactionCount : "Like") : post.reactionCount}
-      </span>
-    </button>
-  )
+  const likeButton = <LikeButton post={post} full={full} disabled={readOnly || !viewer.can.react} onPress={like} />
 
   if (!full) {
     return (
@@ -380,7 +380,7 @@ export function PostCard({ post, slug, viewer, update, full = false, readOnly = 
                 </div>
               ) : null}
             </div>
-            <PostThumb media={post.media} />
+            <PostThumb media={media} />
           </div>
         )}
         <footer className="mt-2 flex min-h-11 items-center gap-1 sm:mt-2.5">
@@ -407,9 +407,9 @@ export function PostCard({ post, slug, viewer, update, full = false, readOnly = 
               <Lock className="h-3.5 w-3.5" aria-hidden />
               <span className="hidden sm:inline">Comments closed</span>
             </span>
-          ) : post.bookmarked ? (
-            <Bookmark className="ml-auto h-4 w-4 shrink-0 fill-current text-[#1a1a2e]" aria-label="Saved" />
-          ) : null}
+          ) : (
+            <SavedMark post={post} />
+          )}
         </footer>
 
         <ConfirmDialog state={confirm} onClose={() => setConfirm(null)} />
@@ -441,7 +441,7 @@ export function PostCard({ post, slug, viewer, update, full = false, readOnly = 
           {post.kind === "announcement" ? <div className="mb-1 text-[12.5px] font-medium text-[#6b7280]">Announcement</div> : null}
           {post.title ? <h1 className="pr-8 text-[19px] font-semibold leading-snug text-[#1a1a2e] [overflow-wrap:anywhere] sm:text-[21px]">{post.title}</h1> : null}
           {post.bodyText ? <BodyText text={post.bodyText} clamp={false} className={post.title ? "mt-1.5" : ""} /> : null}
-          <PostMediaGrid media={post.media} communityId={post.communityId} postId={post.id} />
+          <PostMediaGrid media={media} communityId={post.communityId} postId={post.id} />
           {post.poll ? (
             <PollBlock poll={post.poll} communityId={post.communityId} canVote={!readOnly && !!viewer.can.react} onChange={(poll: PollView) => update(post.id, (p) => ({ ...p, poll }))} />
           ) : null}
@@ -467,16 +467,55 @@ export function PostCard({ post, slug, viewer, update, full = false, readOnly = 
             Comments closed
           </span>
         ) : null}
-        <button type="button" onClick={save} aria-pressed={post.bookmarked} aria-label={post.bookmarked ? "Remove from Saved" : "Save"} className={`${BTN_GHOST} -mr-2 ml-auto gap-2 ${post.bookmarked ? "text-[#1a1a2e]" : ""}`} data-save="">
-          <Bookmark className={`h-[18px] w-[18px] ${post.bookmarked ? "fill-current" : ""}`} strokeWidth={1.75} aria-hidden />
-          <span>{post.bookmarked ? "Saved" : "Save"}</span>
-        </button>
+        <SaveButton post={post} onPress={() => save(false)} />
       </footer>
 
       <ConfirmDialog state={confirm} onClose={() => setConfirm(null)} />
       <ReportDialog communityId={post.communityId} target={report} onClose={() => setReport(null)} />
     </article>
   )
+}
+
+/** The heart and its count: the one part of a card a like draws again. */
+function LikeButton({ post, full, disabled, onPress }: { post: FeedPostView; full: boolean; disabled: boolean; onPress: () => void }) {
+  const intent = useIntent(`like:${post.id}`)
+  const reacted = intent ? intent.on : post.reacted
+  const count = intent ? intent.count : post.reactionCount
+  return (
+    <button
+      type="button"
+      onClick={onPress}
+      aria-pressed={reacted}
+      aria-label={full ? undefined : reacted ? `Unlike, ${count} likes` : `Like, ${count} likes`}
+      disabled={disabled}
+      data-like=""
+      className={`${BTN_GHOST} -ml-2 gap-2 touch-manipulation ${full ? "" : "px-2 sm:px-2.5"} ${reacted ? "text-[#c4290c] hover:text-[#c4290c]" : ""}`}
+    >
+      <Heart className={`h-[18px] w-[18px] ${reacted ? "fill-current" : ""}`} strokeWidth={1.75} aria-hidden />
+      <span className="tabular-nums" data-like-count="">
+        {full ? (count > 0 ? count : "Like") : count}
+      </span>
+    </button>
+  )
+}
+
+/** Save in the opened post: the one part a save draws again. */
+function SaveButton({ post, onPress }: { post: FeedPostView; onPress: () => void }) {
+  const intent = useIntent(`save:${post.id}`)
+  const on = intent ? intent.on : post.bookmarked
+  return (
+    <button type="button" onClick={onPress} aria-pressed={on} aria-label={on ? "Remove from Saved" : "Save"} className={`${BTN_GHOST} -mr-2 ml-auto gap-2 touch-manipulation ${on ? "text-[#1a1a2e]" : ""}`} data-save="">
+      <Bookmark className={`h-[18px] w-[18px] ${on ? "fill-current" : ""}`} strokeWidth={1.75} aria-hidden />
+      <span>{on ? "Saved" : "Save"}</span>
+    </button>
+  )
+}
+
+/** The card's small saved mark: always in the page and only hidden when off, so a save adds no element (an added one restyles the page's :has() rules) and an unsaved card keeps the room for "New comment". */
+function SavedMark({ post }: { post: FeedPostView }) {
+  const intent = useIntent(`save:${post.id}`)
+  const on = intent ? intent.on : post.bookmarked
+  return <Bookmark className={`ml-auto h-4 w-4 shrink-0 fill-current text-[#1a1a2e] ${on ? "" : "hidden"}`} aria-label={on ? "Saved" : undefined} aria-hidden={on ? undefined : true} data-saved-mark={on ? "" : undefined} />
 }
 
 function EditPost({ post, onDone, update }: { post: FeedPostView; onDone: () => void; update: PostUpdate }) {

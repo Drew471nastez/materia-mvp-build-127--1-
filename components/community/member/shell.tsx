@@ -15,6 +15,10 @@ import "server-only"
  * `active` marks a section; left out, the frame works it out from the
  * address ("home" | "classroom" | "events" | "members" | "leaderboard" |
  * "saved" | "notifications" | "about" | "space:<slug>").
+ *
+ * Both draw MediaLinks (media-viewer.tsx) once: a press on a picture or a
+ * video anywhere in the community opens the app's own viewer, never the raw
+ * file in a new tab.
  */
 import type { Viewer } from "@/lib/communities/server/context"
 import { viewerView } from "@/lib/communities/server/context"
@@ -24,21 +28,30 @@ import { wallData } from "@/lib/communities/server/wall"
 import type { CommunityRow } from "@/lib/communities/types"
 import { CommunityPublicFrame } from "@/components/community/public/public-frame"
 import { shellData } from "./data"
+import { MediaLinks } from "./media-viewer"
 import { ShellFrame } from "./shell-frame"
 import type { ShellSection } from "./view-types"
 
 async function CommunityShellAsync({ community, viewer, active, children }: { community: CommunityRow; viewer: Viewer; active?: ShellSection; children: React.ReactNode }) {
   const [data, topBar, wall] = await Promise.all([shellData(community.id, viewer, community), topBarData(community, viewer), wallData(admin(), community, viewer)])
   return (
-    <ShellFrame community={data.community} viewer={viewerView(viewer)} topBar={topBar} unreadMessages={data.unreadMessages} wall={wall} active={active}>
-      {children}
-    </ShellFrame>
+    <>
+      <ShellFrame community={data.community} viewer={viewerView(viewer)} topBar={topBar} unreadMessages={data.unreadMessages} wall={wall} active={active}>
+        {children}
+      </ShellFrame>
+      <MediaLinks communityId={community.id} />
+    </>
   )
 }
 
 async function CommunityPublicShellAsync({ community, viewer, children }: { community: CommunityRow; viewer: Viewer | null; children: React.ReactNode }) {
   const topBar = await topBarData(community, viewer)
-  return <CommunityPublicFrame topBar={topBar}>{children}</CommunityPublicFrame>
+  return (
+    <>
+      <CommunityPublicFrame topBar={topBar}>{children}</CommunityPublicFrame>
+      <MediaLinks communityId={community.id} />
+    </>
+  )
 }
 
 /*

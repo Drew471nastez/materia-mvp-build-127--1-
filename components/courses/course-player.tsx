@@ -29,6 +29,7 @@ import { LessonVideo, type VideoSource } from "./lesson-video"
 import { downloadAttachment } from "./download-attachment"
 import { clock, isDone, lengthInWords, lessonNumber, progressMap, resumeAt, summarize, type LessonProgress } from "@/lib/courses/progress"
 import type { PlayerData, PlayerLesson } from "@/lib/courses/types"
+import { mediaKindOf } from "@/lib/communities/post-media"
 
 type Play =
   | { state: "loading" }
@@ -596,6 +597,26 @@ function size(bytes: number | null): string {
   return `${(bytes / 1024 ** 3).toFixed(1)} GB`
 }
 
+/**
+ * A LESSON'S PICTURE OR VIDEO FILE OPENS IN THE PAGE (round 8): pressing its
+ * name shows it in the community's viewer (components/community/member/
+ * media-viewer.tsx, loaded only when pressed), from the same short lived
+ * address the download uses, instead of a bare file in a new tab. Download
+ * still saves it.
+ */
+async function viewAttachment(id: string, kind: "image" | "video"): Promise<string | null> {
+  try {
+    const res = await fetch(`/api/courses/attachments/${encodeURIComponent(id)}`, { cache: "no-store", credentials: "same-origin" })
+    const body = (await res.json().catch(() => ({}))) as { url?: string; error?: string }
+    if (!res.ok || !body.url) return body.error || "The file could not be opened. Try again."
+    const { openMediaViewer } = await import("@/components/community/member/media-viewer")
+    openMediaViewer([kind === "image" ? { kind: "image", url: body.url, raw: true } : { kind: "clip", url: body.url }], 0, { autoplay: kind === "video" })
+    return null
+  } catch {
+    return "The file could not be opened. Check your connection and try again."
+  }
+}
+
 function Attachments({ lesson }: { lesson: PlayerLesson }) {
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -608,10 +629,32 @@ function Attachments({ lesson }: { lesson: PlayerLesson }) {
       <ul className="divide-y divide-[#f0f0f2]">
         {lesson.attachments.map((a) => (
           <li key={a.id} className="flex items-center gap-3 py-2.5">
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-[14px] font-medium text-[#1a1a2e]">{a.name}</span>
-              {a.size ? <span className="text-[12px] text-[#9ca3af]">{size(a.size)}</span> : null}
-            </span>
+            {(() => {
+              const kind = mediaKindOf(a.name)
+              const label = (
+                <>
+                  <span className={`block truncate text-[14px] font-medium text-[#1a1a2e] ${kind ? "underline decoration-[#d1d5db] underline-offset-2" : ""}`}>{a.name}</span>
+                  {a.size ? <span className="text-[12px] text-[#9ca3af]">{size(a.size)}</span> : null}
+                </>
+              )
+              return kind ? (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setBusy(`view:${a.id}`)
+                    setError(await viewAttachment(a.id, kind))
+                    setBusy(null)
+                  }}
+                  className="min-h-10 min-w-0 flex-1 cursor-zoom-in text-left"
+                  aria-label={`Open ${a.name}`}
+                  data-attachment-view={kind}
+                >
+                  {label}
+                </button>
+              ) : (
+                <span className="min-w-0 flex-1">{label}</span>
+              )
+            })()}
             <button
               type="button"
               onClick={async () => {

@@ -12,7 +12,14 @@
  * the section reads it, with whether the space takes comments and the
  * viewer's own name and picture for the box.
  *
- * A like on a comment answers at once and is put back if the server says no.
+ * A comment appears the moment it is sent (round 8): drawn at once in a
+ * lighter "Sending" state with the box already empty and ready for the next
+ * one, then swapped for the server's copy. If the server says no it is
+ * taken out, its words go back in the box when the box is still empty, and
+ * the reason is said. Send is never turned off while one is on its way.
+ *
+ * A like on a comment answers the press on the next frame like a post's
+ * (post-intent.ts: one request at a time, the last press wins).
  * Edit and delete are the author's; report is everybody else's; a moderator
  * removes through the moderation route.
  */
@@ -28,6 +35,7 @@ import { BodyText } from "./body-text"
 import { ConfirmDialog, ReportDialog, type ConfirmState, type ReportTargetRef } from "./dialogs"
 import { MentionTextarea, type MentionTextareaHandle } from "./mention-input"
 import { actOnContent } from "./moderation"
+import { press, useIntent } from "./post-intent"
 import { toast } from "./toast"
 import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, ICON_BTN } from "./ui"
 import { memberHref } from "./person-href"
@@ -35,6 +43,19 @@ import { roleTag } from "./view-types"
 
 type CommentUpdate = (id: string, fn: (c: CommentView) => CommentView | null) => void
 type Me = { name: string; avatarUrl: string | null }
+/** A comment on its way: drawn at once, lighter, until the server's copy replaces it. */
+type Shown = CommentView & { sending?: true }
+type Author = { id: string; name: string; avatarUrl: string | null }
+
+/** What a comment box hands its section when it sends. */
+interface Sending {
+  /** Draw this now. */
+  start: (c: Shown) => void
+  /** The server has it: swap the stand in for the real one. */
+  confirm: (tempId: string, c: CommentView) => void
+  /** The server said no: take it out. */
+  drop: (tempId: string) => void
+}
 
 export interface CommentsPageData {
   comments: CommentView[]
@@ -53,11 +74,11 @@ export interface CommentsSectionProps {
   readOnly?: boolean
   commentsEnabled?: boolean
   boxRef?: React.Ref<MentionTextareaHandle>
-  /** A comment or reply went up: the post's count moves by one. */
-  onAdded?: () => void
+  /** A comment or reply went up (+1) or was refused after being drawn (-1): the post's count moves with it. */
+  onCount?: (delta: number) => void
 }
 
-export function CommentsSection({ post, slug, viewer, initial, me: givenMe = null, readOnly = false, commentsEnabled: givenEnabled = true, boxRef, onAdded }: CommentsSectionProps) {
+export function CommentsSection({ post, slug, viewer, initial, me: givenMe = null, readOnly = false, commentsEnabled: givenEnabled = true, boxRef, onCount }: CommentsSectionProps) {
   const [comments, setComments] = useState<CommentView[] | null>(initial?.comments ?? null)
   const [cursor, setCursor] = useState<string | null>(initial?.nextCursor ?? null)
   const [enabled, setEnabled] = useState(initial?.commentsEnabled ?? givenEnabled)
@@ -118,16 +139,24 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
     setCursor(r.data.nextCursor)
   }
 
-  const added = (c: CommentView) => {
-    if (c.parentId) setComments((list) => (list ?? []).map((p) => (p.id === c.parentId ? { ...p, replies: [...p.replies, c] } : p)))
-    else setComments((list) => [...(list ?? []), c])
-    onAdded?.()
+  const sending: Sending = {
+    start: (c) => {
+      if (c.parentId) setComments((list) => (list ?? []).map((p) => (p.id === c.parentId ? { ...p, replies: [...p.replies, c] } : p)))
+      else setComments((list) => [...(list ?? []), c])
+      onCount?.(1)
+    },
+    confirm: (tempId, c) => update(tempId, () => c),
+    drop: (tempId) => {
+      update(tempId, () => null)
+      onCount?.(-1)
+    },
   }
+  const author: Author = { id: viewer.userId ?? "", name: me?.name ?? "You", avatarUrl: me?.avatarUrl ?? null }
 
   return (
     <div data-comments-list="">
       {open ? (
-        <CommentBox communityId={post.communityId} postId={post.id} me={me} handleRef={boxRef} onAdded={added} placeholder="Write a comment..." />
+        <CommentBox communityId={post.communityId} postId={post.id} me={me} author={author} handleRef={boxRef} sending={sending} placeholder="Write a comment..." />
       ) : (
         <p className="text-[13.5px] text-[#6b7280]">{post.locked ? "Comments are closed on this post." : !enabled ? "Comments are off in this space." : "You cannot comment here right now."}</p>
       )}
@@ -153,7 +182,7 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
         <ul className="mt-4 space-y-4">
           {comments.map((c) => (
             <li key={c.id}>
-              <CommentItem c={c} slug={slug} communityId={post.communityId} postId={post.id} viewer={viewer} me={me} update={update} canReply={open} onAdded={added} />
+              <CommentItem c={c} slug={slug} communityId={post.communityId} postId={post.id} viewer={viewer} me={me} author={author} update={update} canReply={open} sending={sending} />
             </li>
           ))}
         </ul>
@@ -173,13 +202,16 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
   )
 }
 
+let tempSeq = 0
+
 function CommentBox({
   communityId,
   postId,
   me,
+  author,
   parentId,
   initial = "",
-  onAdded,
+  sending,
   onCancel,
   handleRef,
   placeholder,
@@ -188,26 +220,51 @@ function CommentBox({
   communityId: string
   postId: string
   me: Me | null
+  author: Author
   parentId?: string
   initial?: string
-  onAdded: (c: CommentView) => void
+  sending: Sending
   onCancel?: () => void
   handleRef?: React.Ref<MentionTextareaHandle>
   placeholder: string
   autoFocus?: boolean
 }) {
   const [body, setBody] = useState(initial)
-  const [busy, setBusy] = useState(false)
   const [focused, setFocused] = useState(!!autoFocus)
+  /* The box's words as they are now, so a refused comment goes back only into an empty box. */
+  const current = useRef(body)
+  current.current = body
   const send = async () => {
-    if (!body.trim() || busy) return
-    setBusy(true)
-    const r = await api<{ comment: CommentView }>(`${apiBase(communityId)}/posts/${postId}/comments`, { body: { body: body.trim(), parentId } })
-    setBusy(false)
-    if (!r.ok) return toast(r.error)
+    const text = body.trim()
+    if (!text) return
+    const tempId = `sending-${Date.now().toString(36)}-${++tempSeq}`
+    sending.start({
+      id: tempId,
+      postId,
+      parentId: parentId ?? null,
+      body: text,
+      status: "published",
+      deleted: false,
+      author: { id: author.id, name: author.name, username: null, avatarUrl: author.avatarUrl, role: null, level: null },
+      reactionCount: 0,
+      reacted: false,
+      createdAt: new Date().toISOString(),
+      editedAt: null,
+      replies: [],
+      canEdit: false,
+      canModerate: false,
+      sending: true,
+    })
     setBody("")
-    onAdded(r.data.comment)
+    current.current = ""
     onCancel?.()
+    const r = await api<{ comment: CommentView }>(`${apiBase(communityId)}/posts/${postId}/comments`, { body: { body: text, parentId } })
+    if (!r.ok) {
+      sending.drop(tempId)
+      if (!current.current.trim()) setBody(text)
+      return toast(r.error)
+    }
+    sending.confirm(tempId, r.data.comment)
   }
   return (
     <div className="flex items-start gap-2.5" data-comment-box={parentId ? "reply" : "comment"}>
@@ -234,12 +291,12 @@ function CommentBox({
         {focused || body ? (
           <div className="mt-1.5 flex justify-end gap-1.5">
             {onCancel ? (
-              <button type="button" className={BTN_GHOST} onClick={onCancel} disabled={busy}>
+              <button type="button" className={BTN_GHOST} onClick={onCancel}>
                 Cancel
               </button>
             ) : null}
-            <button type="button" className={BTN_PRIMARY} onClick={send} disabled={busy || !body.trim()} data-comment-send="">
-              {busy ? "Sending..." : parentId ? "Reply" : "Comment"}
+            <button type="button" className={`${BTN_PRIMARY} touch-manipulation`} onClick={send} disabled={!body.trim()} data-comment-send="">
+              {parentId ? "Reply" : "Comment"}
             </button>
           </div>
         ) : null}
@@ -255,20 +312,22 @@ function CommentItem({
   postId,
   viewer,
   me,
+  author,
   update,
   canReply,
-  onAdded,
+  sending,
   parent,
 }: {
-  c: CommentView
+  c: Shown
   slug: string
   communityId: string
   postId: string
   viewer: ViewerView
   me: Me | null
+  author: Author
   update: CommentUpdate
   canReply: boolean
-  onAdded: (c: CommentView) => void
+  sending: Sending
   parent?: CommentView
 }) {
   const [replying, setReplying] = useState<string | null>(null)
@@ -276,22 +335,18 @@ function CommentItem({
   const [draft, setDraft] = useState(c.body)
   const [confirm, setConfirm] = useState<ConfirmState | null>(null)
   const [report, setReport] = useState<ReportTargetRef | null>(null)
-  const pending = useRef(false)
   const base = apiBase(communityId)
   const tag = roleTag(c.author?.role)
+  const intent = useIntent(`comment-like:${c.id}`)
+  const reacted = intent ? intent.on : c.reacted
+  const reactionCount = intent ? intent.count : c.reactionCount
 
-  const like = async () => {
-    if (pending.current || c.deleted || !viewer.can.react) return
-    pending.current = true
-    const next = !c.reacted
-    update(c.id, (x) => ({ ...x, reacted: next, reactionCount: Math.max(0, x.reactionCount + (next ? 1 : -1)) }))
-    const r = await api<{ on: boolean; count: number }>(`${base}/reactions`, { body: { targetType: "comment", targetId: c.id, on: next } })
-    pending.current = false
-    if (!r.ok) {
-      update(c.id, (x) => ({ ...x, reacted: !next, reactionCount: Math.max(0, x.reactionCount + (next ? -1 : 1)) }))
-      return toast(r.error)
-    }
-    update(c.id, (x) => ({ ...x, reacted: r.data.on, reactionCount: r.data.count }))
+  const like = () => {
+    if (c.deleted || c.sending || !viewer.can.react) return
+    press(`comment-like:${c.id}`, { on: reacted, count: reactionCount }, {
+      send: (on) => api<{ on: boolean; count: number }>(`${base}/reactions`, { body: { targetType: "comment", targetId: c.id, on } }),
+      apply: (t) => update(c.id, (x) => ({ ...x, reacted: t.on, reactionCount: t.count })),
+    })
   }
 
   const saveEdit = async () => {
@@ -355,7 +410,7 @@ function CommentItem({
 
   const small = !!parent
   return (
-    <div id={`c-${c.id}`} data-comment={c.id} className="scroll-mt-28">
+    <div id={`c-${c.id}`} data-comment={c.id} data-comment-sending={c.sending ? "" : undefined} className={`scroll-mt-28 transition-opacity duration-200 ${c.sending ? "opacity-60" : ""}`}>
       <div className="flex items-start gap-2.5">
         {c.author ? (
           <Link href={memberHref(slug, c.author)} className="mt-0.5 shrink-0 rounded-full" data-person-link="" data-person-id={c.author.id}>
@@ -398,15 +453,19 @@ function CommentItem({
               </>
             )}
           </div>
-          {!c.deleted ? (
+          {c.sending ? (
+            <div className="flex h-10 items-center pl-1.5 text-[12.5px] text-[#6b7280]" aria-live="polite">
+              Sending...
+            </div>
+          ) : !c.deleted ? (
             <div className="flex items-center gap-0.5 pl-1.5 text-[12.5px] text-[#6b7280]">
               <time dateTime={c.createdAt} className="mr-1.5" suppressHydrationWarning>
                 {relativeTime(c.createdAt)}
                 {c.editedAt ? " · edited" : ""}
               </time>
-              <button type="button" onClick={like} aria-pressed={c.reacted} disabled={!viewer.can.react} className={`inline-flex h-10 items-center gap-1 rounded-full px-2 font-medium hover:text-[#1a1a2e] ${c.reacted ? "text-[#c4290c] hover:text-[#c4290c]" : ""}`} data-comment-like="">
-                <Heart className={`h-3.5 w-3.5 ${c.reacted ? "fill-current" : ""}`} strokeWidth={2} aria-hidden />
-                {c.reactionCount > 0 ? c.reactionCount : "Like"}
+              <button type="button" onClick={like} aria-pressed={reacted} disabled={!viewer.can.react} className={`inline-flex h-10 touch-manipulation items-center gap-1 rounded-full px-2 font-medium hover:text-[#1a1a2e] ${reacted ? "text-[#c4290c] hover:text-[#c4290c]" : ""}`} data-comment-like="">
+                <Heart className={`h-3.5 w-3.5 ${reacted ? "fill-current" : ""}`} strokeWidth={2} aria-hidden />
+                <span className="tabular-nums">{reactionCount > 0 ? reactionCount : "Like"}</span>
               </button>
               {canReply ? (
                 <button type="button" onClick={() => setReplying(c.author?.username ? `@${c.author.username} ` : "")} className="inline-flex h-10 items-center rounded-full px-2 font-medium hover:text-[#1a1a2e]">
@@ -431,14 +490,14 @@ function CommentItem({
             <ul className="mt-2 space-y-3">
               {c.replies.map((r) => (
                 <li key={r.id}>
-                  <CommentItem c={r} slug={slug} communityId={communityId} postId={postId} viewer={viewer} me={me} update={update} canReply={canReply} onAdded={onAdded} parent={c} />
+                  <CommentItem c={r} slug={slug} communityId={communityId} postId={postId} viewer={viewer} me={me} author={author} update={update} canReply={canReply} sending={sending} parent={c} />
                 </li>
               ))}
             </ul>
           ) : null}
           {replying !== null ? (
             <div className="mt-2">
-              <CommentBox communityId={communityId} postId={postId} me={me} parentId={parent ? parent.id : c.id} initial={replying} onAdded={onAdded} onCancel={() => setReplying(null)} placeholder={`Reply to ${c.author?.name ?? "this comment"}...`} autoFocus />
+              <CommentBox communityId={communityId} postId={postId} me={me} author={author} parentId={parent ? parent.id : c.id} initial={replying} sending={sending} onCancel={() => setReplying(null)} placeholder={`Reply to ${c.author?.name ?? "this comment"}...`} autoFocus />
             </div>
           ) : null}
         </div>

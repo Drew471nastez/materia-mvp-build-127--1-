@@ -29,6 +29,7 @@ import { api, apiBase } from "./api"
 import { CommentsSection } from "./comments"
 import { useHistoryLayer } from "./lightbox"
 import type { MentionTextareaHandle } from "./mention-input"
+import { intentOf } from "./post-intent"
 import { markSeen } from "./post-seen"
 
 const IN_MS = 220
@@ -80,12 +81,22 @@ export function PostOverlay({ post: given, slug, viewer, readOnly = false, updat
   const leaving = useRef(false)
   const drag = useRef<{ y: number; at: number } | null>(null)
 
+  /*
+    THE SAME CLOSE FOR AS LONG AS IT IS OPEN. The card hands a new onClose
+    each time it draws (a like on it, say), and a close that changed with it
+    set the page's overflow again each time: a style pass over the whole
+    page, 95ms at 4x CPU, in the middle of a press.
+  */
+  const onCloseRef = useRef(onClose)
+  useEffect(() => {
+    onCloseRef.current = onClose
+  })
   const close = useCallback(() => {
     if (leaving.current) return
     leaving.current = true
     setPhase("out")
-    window.setTimeout(onClose, reduced ? 0 : OUT_MS)
-  }, [onClose, reduced])
+    window.setTimeout(() => onCloseRef.current(), reduced ? 0 : OUT_MS)
+  }, [reduced])
 
   useHistoryLayer(true, close, `/community/${slug}/post/${given.id}`)
 
@@ -138,8 +149,12 @@ export function PostOverlay({ post: given, slug, viewer, readOnly = false, updat
     void (async () => {
       const r = await api<{ post: FeedPostView }>(`${apiBase(given.communityId)}/posts/${given.id}`)
       if (stop || !r.ok) return
-      setPost(r.data.post)
-      update(given.id, (p) => ({ ...p, ...r.data.post }))
+      /* A like or a save pressed while this was read stays as pressed (post-intent.ts). */
+      const like = intentOf(`like:${given.id}`)
+      const save = intentOf(`save:${given.id}`)
+      const fresh: FeedPostView = { ...r.data.post, ...(like ? { reacted: like.on, reactionCount: like.count } : {}), ...(save ? { bookmarked: save.on } : {}) }
+      setPost(fresh)
+      update(given.id, (p) => ({ ...p, ...fresh }))
     })()
     return () => {
       stop = true
@@ -155,18 +170,21 @@ export function PostOverlay({ post: given, slug, viewer, readOnly = false, updat
       }
     }
     window.addEventListener("keydown", onKey)
-    /* The page under it stays still; the scrollbar's width is kept so nothing shifts sideways. */
+    return () => window.removeEventListener("keydown", onKey)
+  }, [close])
+
+  /* The page under it stays still, once for as long as it is open; the scrollbar's width is kept so nothing shifts sideways. */
+  useEffect(() => {
     const html = document.documentElement
     const bar = window.innerWidth - html.clientWidth
     const prev = { overflow: html.style.overflow, pad: html.style.paddingRight }
     html.style.overflow = "hidden"
     if (bar > 0) html.style.paddingRight = `${bar}px`
     return () => {
-      window.removeEventListener("keydown", onKey)
       html.style.overflow = prev.overflow
       html.style.paddingRight = prev.pad
     }
-  }, [close])
+  }, [])
 
   const onComment = useCallback(() => {
     const el = box.current
@@ -208,7 +226,7 @@ export function PostOverlay({ post: given, slug, viewer, readOnly = false, updat
       </div>
       <section id="comments" className="mt-1 border-t border-[#f0f1f3] px-4 pb-6 pt-4 sm:px-5" aria-label="Comments" data-comments="">
         {settled ? (
-          <CommentsSection post={post} slug={slug} viewer={viewer} initial={null} readOnly={readOnly} boxRef={box} onAdded={() => local(post.id, (p) => ({ ...p, commentCount: p.commentCount + 1 }))} />
+          <CommentsSection post={post} slug={slug} viewer={viewer} initial={null} readOnly={readOnly} boxRef={box} onCount={(d) => local(post.id, (p) => ({ ...p, commentCount: Math.max(0, p.commentCount + d) }))} />
         ) : (
           <div className="flex items-center gap-2.5" aria-hidden>
             <span className="h-8 w-8 shrink-0 rounded-full bg-[#f1f2f4]" />

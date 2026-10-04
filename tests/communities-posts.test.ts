@@ -23,6 +23,15 @@
  *               see why the button is missing when part 83 has not run
  *   COPY        no em dash, no banned word, no server code in a client file
  *
+ * Round 8 (C4):
+ *   LAYOUT      one thing large at full width, two side by side, three or
+ *               more a grid with the first large; YouTube and Vimeo as 16:9
+ *               players, also when the address is only in the words
+ *   VIEWER      a picture or a video linked anywhere in the community, or
+ *               a picture file, opens the in app viewer, never the raw file
+ *   INSTANT     likes, saves and comments: drawn at once, one request at a
+ *               time, the last press wins, put back only on a final refusal
+ *
  * Run with:  npm run test:push
  */
 import { readFileSync } from "node:fs"
@@ -41,8 +50,14 @@ import {
   fileDisplayName,
   fileExtension,
   giphyUrl,
+  bodyEmbeds,
+  mediaKindOf,
+  mediaLayout,
+  viewerItemForUrl,
   viewerItems,
+  withBodyEmbeds,
 } from "@/lib/communities/post-media"
+import { intentOf, press, type Toggle } from "@/components/community/member/post-intent"
 import { checkMedia, checkPostInput, commentersByPost, COMMENTER_FACES } from "@/lib/communities/server/feed"
 import { cleanGifQuery, giphyKey, parseGiphy } from "@/lib/communities/server/gifs"
 import { communityFilesExist, fileLimitFor, prepareCommunityFile } from "@/lib/communities/server/post-files"
@@ -202,7 +217,7 @@ async function main() {
   check("unread: activity since the first visit that I have not opened", isUnread(p("fresh", "2026-10-02T00:00:00.000Z"), "me", store) && !isUnread(p("old", "2026-09-20T00:00:00.000Z"), "me", store))
   check("a new comment after I opened it lights it again; my own posts never", !isUnread(p("seenOld", "2026-10-02T00:00:00.000Z"), "me", store) && isUnread(p("seenOld", "2026-10-03T00:00:00.000Z"), "me", store) && !isUnread(p("mine", "2026-10-03T00:00:00.000Z", "me"), "me", store) && !isUnread(p("x", "2026-10-03T00:00:00.000Z"), null, store))
   const card = code("components/community/member/post-card.tsx")
-  check("the card: thumbnail, faces, New comment, level badge, unread dot", /<PostThumb media=\{post\.media\} \/>/.test(card) && /data-commenters=""/.test(card) && /\{newCommentLabel\(fresh\)\}/.test(card) && /data-level-badge=""/.test(card) && /data-unread-dot=""/.test(card) && /line-clamp-2/.test(card))
+  check("the card: thumbnail, faces, New comment, level badge, unread dot", /<PostThumb media=\{media\} \/>/.test(card) && /const media = useMemo\(\(\) => withBodyEmbeds\(post\.media, post\.bodyText\)/.test(card) && /data-commenters=""/.test(card) && /\{newCommentLabel\(fresh\)\}/.test(card) && /data-level-badge=""/.test(card) && /data-unread-dot=""/.test(card) && /line-clamp-2/.test(card))
   check("the card's props are the ones the feed already passes", /export interface PostCardProps \{\s*post: FeedPostView\s*slug: string\s*viewer: ViewerView\s*update: PostUpdate\s*full\?: boolean\s*readOnly\?: boolean\s*onComment\?: \(\) => void\s*\}/.test(card.replace(/\/\*\*[^]*?\*\//g, "")))
   check("pressing the card opens the post over the feed; links and buttons inside do their own thing", /onClick=\{openPost\}/.test(card) && /closest\("a, button, input, textarea, select, label/.test(card) && /<PostOverlay/.test(card))
   check("a press with a modifier key is a plain link", /e\.metaKey \|\| e\.ctrlKey \|\| e\.shiftKey \|\| e\.altKey/.test(card))
@@ -214,9 +229,92 @@ async function main() {
   const lb = code("components/community/member/lightbox.tsx")
   check("history layers: a pushed entry carrying Next's state; Back closes; closing otherwise steps back", /pushState\(\{ \.\.\.\(window\.history\.state \?\? \{\}\), storelibLayer: marker \}/.test(lb) && /window\.addEventListener\("popstate", onPop\)/.test(lb) && /window\.history\.back\(\)/.test(lb))
   check("the lightbox: Escape, arrow keys, swipe, pinch, double tap", /e\.key === "Escape"/.test(lb) && /e\.key === "ArrowRight"/.test(lb) && /kind: "pinch"/.test(lb) && /lastTap\.current < 280/.test(lb) && /drag\.x < -SWIPE/.test(lb))
-  check("pictures at the size the screen needs, videos only on press", /optimizedSrcSet\(item\.url, \[640, 828, 1080, 1200, 1920, 2048\]\)/.test(lb) && /<StorelibVideo communityId=\{communityId\} videoId=\{item\.videoId\} poster=\{item\.poster\} \/>/.test(lb) && /play \? \(\s*<iframe/.test(lb))
+  check("pictures at the size the screen needs, videos only on press", /optimizedSrcSet\(item\.url, \[640, 828, 1080, 1200, 1920, 2048\]\)/.test(lb) && /<StorelibVideo communityId=\{communityId\} videoId=\{item\.videoId\} poster=\{item\.poster\} key=/.test(lb) && /play \? \(\s*<iframe/.test(lb))
   const media = code("components/community/member/media.tsx")
-  check("inside a post media is a grid of thumbnails, never the post's full width, lazy, in fixed boxes", /max-w-\[min\(360px,82%\)\]/.test(media) && /sm:h-\[148px\] sm:w-\[148px\]/.test(media) && /loading="lazy"/.test(media) && !/w-full rounded-xl[^"]*aspect-video/.test(media))
+  /* Round 8 changed this on purpose (the owner asked): one thing is large, two sit side by side, more are a grid. */
+  check("inside a post: one thing at the post's full width within the screen's height, lazy, in a box of its own shape", /single \? "max-h-\[min\(560px,72vh\)\] rounded-xl"/.test(media) && /style=\{single \? \{ aspectRatio: String\(ratioOf\(item\)\) \} : undefined\}/.test(media) && /loading="lazy"/.test(media) && !/max-w-\[min\(360px,82%\)\]/.test(media))
+
+  /* ── Round 8: media in an opened post ───────────────────────────────── */
+  console.log("\nRound 8: media in an opened post")
+  check("one thing is single, two a pair, three or more a grid with up to three under the first and a count of the rest", JSON.stringify([0, 1, 2, 3, 4, 6, 10].map(mediaLayout)) === JSON.stringify([{ kind: "none" }, { kind: "single" }, { kind: "pair" }, { kind: "grid", below: 2, more: 0 }, { kind: "grid", below: 3, more: 0 }, { kind: "grid", below: 3, more: 2 }, { kind: "grid", below: 3, more: 6 }]))
+  const words = "Watch https://youtu.be/aqz-KE-bpKQ and https://m.youtube.com/shorts/ScMzIvxBSi4, also https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=30 and https://vimeo.com/76979871. Not https://example.com/x"
+  const found = bodyEmbeds(words, [])
+  check("a YouTube address in the words is a video: youtu.be, m.youtube.com shorts, youtube.com/watch, Vimeo; other links are not", found.map((e) => `${e.provider}:${e.id}`).join() === "youtube:aqz-KE-bpKQ,youtube:ScMzIvxBSi4,youtube:dQw4w9WgXcQ,vimeo:76979871", found.map((e) => e.id).join())
+  check("one the post already carries is not added twice, and the post keeps four at most", bodyEmbeds(words, [{ type: "embed", provider: "youtube", id: "aqz-KE-bpKQ", url: "u" }]).length === 3 && bodyEmbeds(words + " https://youtu.be/AAAAAAAAAAA", []).length === MAX_EMBEDS)
+  const plain = [{ type: "image" as const, url: OWN }]
+  check("words without a video leave the post's media as it is", withBodyEmbeds(plain, "no links here") === plain && withBodyEmbeds(plain, words).length === 1 + 4)
+  check("the card's thumbnail comes from a video in the words when nothing else gives one", cardThumb(withBodyEmbeds([], "see https://youtu.be/aqz-KE-bpKQ"))?.url === "https://i.ytimg.com/vi/aqz-KE-bpKQ/hqdefault.jpg")
+  check("the grid: two side by side at half width and the same height; more with the first across the top", /<div className="grid grid-cols-2 gap-1 overflow-hidden rounded-xl" data-post-media-grid="pair">/.test(media) && /tile\(0, "top", "aspect-\[16\/9\]"\)/.test(media) && /data-media-more=""/.test(media))
+  check("YouTube and Vimeo are never a grid tile but a 16:9 player of their own under it, played in place", /const items = all\.filter\(\(i\) => i\.kind !== "embed"\)/.test(media) && /<EmbedPlayer item=\{e\} \/>/.test(media) && /relative aspect-video w-full overflow-hidden bg-black/.test(lb) && /src=\{embedPlayerSrc\(item\)\}/.test(lb))
+  check("an uploaded video alone plays where it is; in a pair or a grid it opens the viewer playing", /<StorelibVideo communityId=\{communityId\} videoId=\{item\.videoId\} poster=\{item\.poster\} \/>/.test(media) && /setOpen\(\{ at: i, play: isMotion\(items\[i\]\) \}\)/.test(media) && /autoplay=\{open\.play\}/.test(media))
+  check("pictures at the size they are drawn: the post's width alone, half in a pair, a third under a grid's first", /single: \{ widths: \[640, 750, 828, 1080, 1200, 1920\], sizes: "\(min-width: 640px\) 720px, 100vw"/.test(media) && /half: \{ widths: \[384, 640, 750, 828\], sizes: "\(min-width: 640px\) 360px, 50vw"/.test(media) && /third: \{ widths: \[256, 384, 640\], sizes: "\(min-width: 640px\) 240px, 33vw"/.test(media))
+
+  /* ── Round 8: the viewer, never a raw file in a tab ─────────────────── */
+  console.log("\nRound 8: the viewer")
+  check("what is a picture or a video, by its extension, also in a storage address with a query", mediaKindOf(OWN) === "image" && mediaKindOf("https://x.supabase.co/storage/v1/object/sign/a/b/clip.MP4?token=1") === "video" && mediaKindOf("Moodboard.PNG") === "image" && mediaKindOf("notes.pdf") === null && mediaKindOf("javascript:alert(1)//x.png") === null && mediaKindOf("https://example.com/") === null)
+  check("a link as the viewer shows it: a picture, a GIF, a video file; a member only route is never sent to the optimizer", viewerItemForUrl(OWN)?.kind === "image" && viewerItemForUrl("https://a.com/b.gif")?.kind === "gif" && viewerItemForUrl("https://a.com/b.webm")?.kind === "clip" && (viewerItemForUrl("/api/community/x/posts/y/files/z.jpg", true) as { raw?: boolean } | null)?.raw === true && viewerItemForUrl("https://a.com/b.zip") === null)
+  const mv = code("components/community/member/media-viewer.tsx")
+  check("one listener turns a press on a picture or video link into the viewer, leaving modifier presses, downloads and handled presses alone", /document\.addEventListener\("click", onClick\)/.test(mv) && /if \(e\.defaultPrevented \|\| e\.button !== 0 \|\| e\.metaKey \|\| e\.ctrlKey \|\| e\.shiftKey \|\| e\.altKey\) return/.test(mv) && /el\.hasAttribute\("download"\) \|\| el\.closest\("\[data-no-viewer\]"\)/.test(mv) && /e\.preventDefault\(\)\s*openMediaViewer\(/.test(mv))
+  check("a picture in written text (the about page, an event, a lesson) opens it too, with the text's other pictures a swipe away", /target instanceof HTMLImageElement && target\.closest\("\.storelib-prose"\)/.test(mv) && /TEXT_SCOPE = "\.storelib-prose, \[data-media-scope\], \[data-comment\], \[data-chat-message\]/.test(mv))
+  const shell = code("components/community/member/shell.tsx")
+  check("both community frames (a member's and a visitor's) draw it once", (shell.match(/<MediaLinks communityId=\{community\.id\} \/>/g) || []).length === 2)
+  check("a post's picture or video file opens the viewer from the member route as it is, with its own download beside it", /kind: "image", url: fileUrl\(f\.assetId\), raw: true/.test(media) && /data-post-file-open=""/.test(media) && /download=\{f\.name\}/.test(media))
+  check("the viewer shows a raw address as it is and plays a video file in the browser's player", /const own = item\.kind === "image" && !item\.raw/.test(lb) && /data-lightbox-clip=""/.test(lb))
+  const player = code("components/courses/course-player.tsx")
+  check("a lesson's picture or video file opens the viewer (loaded on press) from the same short lived address", /const \{ openMediaViewer \} = await import\("@\/components\/community\/member\/media-viewer"\)/.test(player) && /mediaKindOf\(a\.name\)/.test(player) && /data-attachment-view=\{kind\}/.test(player))
+  check("no media link in the member area opens a new tab on its own", !/target="_blank"[^>]*data-post-file|href=\{fileUrl[^}]*\}[^>]*target="_blank"/.test(media))
+
+  /* ── Round 8: likes, saves and comments answer at once ──────────────── */
+  console.log("\nRound 8: likes, saves and comments answer at once")
+  {
+    const tick = () => new Promise((r) => setTimeout(r, 0))
+    const sent: boolean[] = []
+    const answers: Array<() => void> = []
+    const applied: Toggle[] = []
+    const plan = (refuse = false) => ({
+      send: (on: boolean) =>
+        new Promise<{ ok: true; data: { on: boolean; count: number } } | { ok: false; status: number; error: string }>((done) => {
+          sent.push(on)
+          answers.push(() => done(refuse ? { ok: false, status: 403, error: "" } : { ok: true, data: { on, count: on ? 11 : 10 } }))
+        }),
+      apply: (t: Toggle) => applied.push(t),
+    })
+    const start = { on: false, count: 10 }
+    press("t1", start, plan())
+    check("a press is shown at once, before the server answers", JSON.stringify(intentOf("t1")) === JSON.stringify({ on: true, count: 11 }) && sent.join() === "true" && applied.length === 0)
+    for (let i = 0; i < 4; i++) press("t1", start, plan())
+    check("more presses while it is on its way only change the wish: still one request", sent.length === 1 && JSON.stringify(intentOf("t1")) === JSON.stringify({ on: true, count: 11 }))
+    answers.shift()!()
+    await tick()
+    await tick()
+    check("five presses end liked with one request, written once with the server's count", sent.length === 1 && intentOf("t1") === null && JSON.stringify(applied) === JSON.stringify([{ on: true, count: 11 }]))
+    sent.length = 0
+    applied.length = 0
+    press("t2", start, plan())
+    press("t2", start, plan())
+    check("the count never shows a third value: back to 10 while the first request is out", JSON.stringify(intentOf("t2")) === JSON.stringify({ on: false, count: 10 }))
+    answers.shift()!()
+    await tick()
+    await tick()
+    check("an answer to an older wish sends the latest, never two at once", sent.join() === "true,false" && JSON.stringify(intentOf("t2")) === JSON.stringify({ on: false, count: 10 }))
+    answers.shift()!()
+    await tick()
+    await tick()
+    check("and the last press wins", intentOf("t2") === null && JSON.stringify(applied.at(-1)) === JSON.stringify({ on: false, count: 10 }))
+    applied.length = 0
+    press("t3", start, plan(true))
+    answers.shift()!()
+    await tick()
+    await tick()
+    check("a refusal of the last wish puts back the server's last word", intentOf("t3") === null && JSON.stringify(applied) === JSON.stringify([start]))
+  }
+  check("the card's like and save buttons draw from the wish and are never turned off while asking", /function LikeButton\([\s\S]{0,200}useIntent\(`like:\$\{post\.id\}`\)/.test(card) && /function SaveButton\([\s\S]{0,200}useIntent\(`save:\$\{post\.id\}`\)/.test(card) && !/pending\.current/.test(card) && /disabled=\{readOnly \|\| !viewer\.can\.react\}/.test(card))
+  check("a card draws again only when its own post changes, not for every like in the feed", /export const PostCard = memo\(PostCardView, \(a, b\) => a\.post === b\.post/.test(card))
+  check("the opened post keeps a pressed like or save over a copy it reads meanwhile, and sets the page's overflow once", /const like = intentOf\(`like:\$\{given\.id\}`\)/.test(overlay) && /html\.style\.overflow = "hidden"[\s\S]{0,200}\}, \[\]\)/.test(overlay) && /\}, \[reduced\]\)/.test(overlay))
+  const comments = code("components/community/member/comments.tsx")
+  check("a comment is drawn before the server is asked, the box empties at once, Send is only off while empty", /sending\.start\(\{[\s\S]{0,600}\}\)\s*setBody\(""\)[\s\S]{0,120}await api</.test(comments) && /disabled=\{!body\.trim\(\)\} data-comment-send=""/.test(comments) && /Sending\.\.\./.test(comments))
+  check("a refused comment comes out with its words back in an empty box and the count put back", /sending\.drop\(tempId\)\s*if \(!current\.current\.trim\(\)\) setBody\(text\)/.test(comments) && /onCount\?\.\(-1\)/.test(comments))
+  check("no router refresh in a post, a card or the comments", ![card, overlay, comments, code("components/community/member/post-page.tsx")].some((f) => /router\.refresh\(\)/.test(f)))
 
   /* ── Composer ───────────────────────────────────────────────────────── */
   console.log("\nThe composer")
@@ -257,6 +355,8 @@ async function main() {
     "components/community/member/media-gif.tsx",
     "components/community/member/media-upload.ts",
     "components/community/member/lightbox.tsx",
+    "components/community/member/media-viewer.tsx",
+    "components/community/member/post-intent.ts",
     "components/community/member/post-seen.ts",
     "components/community/member/messages.tsx",
     "components/community/member/messages-setup-note.tsx",
