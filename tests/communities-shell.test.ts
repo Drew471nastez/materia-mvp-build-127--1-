@@ -673,7 +673,7 @@ async function main() {
     check("the file pickers stay mounted in both states", (composer.match(/\{pickers\}/g) || []).length >= 2 && /fileInput\.current\?\.click\(\)/.test(composer) && /videoInput\.current\?\.click\(\)/.test(composer))
     check("the pages hand the composer the event form only through the server's rule", /eventHref: eventHrefFor\(community, viewer\)/.test(code("components/community/member/feed-page.tsx")) && /eventHref: eventHrefFor\(community, viewer\)/.test(code("app/(marketing)/community/[slug]/(member)/space/[space]/page.tsx")))
     const post = code("components/community/member/post-card.tsx")
-    check("a post: its space as a chip, Like and Comment, Save as a word at the far end", /data-post-space=""/.test(post) && /\{post\.bookmarked \? "Saved" : "Save"\}/.test(post) && /data-like=""/.test(post) && /data-comment-button=""/.test(post))
+    check("a post: its space as a chip, Like and Comment, Save as a word at the far end", /data-post-space=""/.test(post) && /function SaveButton\([\s\S]*?\{on \? "Saved" : "Save"\}/.test(post) && /<SaveButton post=\{post\}/.test(post) && /data-like=""/.test(post) && /data-comment-button=""/.test(post))
     const chips = code("components/community/member/space-chips.tsx")
     check("the chips are one row that scrolls, Saved outside it at the right end", /data-space-chips-track=""/.test(chips) && chips.indexOf("data-space-chips-track") < chips.indexOf('data-space-chip="saved"') && /mask-image:linear-gradient/.test(chips))
   }
