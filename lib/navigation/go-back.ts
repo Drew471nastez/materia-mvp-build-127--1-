@@ -53,18 +53,33 @@ export function backInFlight(now: number = Date.now()): boolean {
  * of a double tap lands on IT, on whatever row or card is under the finger
  * there, and opens that: back and straight forward again, measured on the
  * back probe (scripts/check-native-shell.mjs). So for BACK_HOLD_MS after a
- * back, a click anywhere is the same press and is dropped. The press that
- * started the back is already past the capture phase, so it is not.
+ * back, and for LANDED_HOLD_MS after it lands (a slow second tap, seen on
+ * the profile's chevron), a click anywhere is the same press and is
+ * dropped. The press that started the back is already past the capture
+ * phase, so it is not.
  */
-function swallowEchoClicks(): void {
-  const until = Date.now() + BACK_HOLD_MS
+/** And after the page behind has come back: a slow second tap lands on it later than BACK_HOLD_MS from the press. */
+export const LANDED_HOLD_MS = 300
+
+function swallowEchoClicks(): () => void {
+  let until = Date.now() + BACK_HOLD_MS
+  let timer = 0
   const eat = (e: Event) => {
     if (Date.now() > until) return
     e.preventDefault()
     e.stopImmediatePropagation()
   }
+  const arm = () => {
+    window.clearTimeout(timer)
+    timer = window.setTimeout(() => window.removeEventListener("click", eat, true), until - Date.now() + 50)
+  }
   window.addEventListener("click", eat, true)
-  window.setTimeout(() => window.removeEventListener("click", eat, true), BACK_HOLD_MS + 50)
+  arm()
+  /* Called when the back lands: the hold runs on for LANDED_HOLD_MS from there. */
+  return () => {
+    until = Math.max(until, Date.now() + LANDED_HOLD_MS)
+    arm()
+  }
 }
 
 /** For tests: as if no back had ever been pressed. */
@@ -104,8 +119,8 @@ export function readBackEvidence(): BackEvidence {
  * entry, an editor opened straight from a link or a notification with no list
  * behind it, a web view that reports a length it cannot go back through.
  *
- * Every screen that goes back also puts something up while it waits — a
- * dimmed arrow, a spinner, a page layer held live over the page behind — and
+ * Every screen that goes back also puts something up while it waits (a
+ * dimmed arrow, a spinner, a page layer held live over the page behind), and
  * a back that does nothing leaves all of it there. Filmed on the product
  * editor, the layer sat over the list under a pressed Back for the full
  * LAYER_PRESS_KEPT_MS (8s) and then came back to life on the same page.
@@ -126,7 +141,7 @@ export function backThen(fallback: () => void, watchMs: number = BACK_WATCH_MS):
   if (backInFlight()) return () => {}
   backPending = true
   backStartedAt = Date.now()
-  swallowEchoClicks()
+  const landed = swallowEchoClicks()
   let settled = false
   const nav = navigationApi()
   const off = () => {
@@ -138,6 +153,7 @@ export function backThen(fallback: () => void, watchMs: number = BACK_WATCH_MS):
   function done() {
     settled = true
     backPending = false
+    landed()
     off()
   }
   window.addEventListener("popstate", done)

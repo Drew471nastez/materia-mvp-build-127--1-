@@ -174,7 +174,8 @@ export function resetNativeChromeMemory(): void {
  * native-splash.ts), and not while a sign in is still being finished
  * (nativeAuthInProgress, lib/native-bridge.ts).
  */
-const HIDES_ITS_OWN = ["/native-start", "/app", "/library", "/account/library", "/welcome"]
+/* /library itself only redirects to /account/library now (app/library), so the library is the one address here. */
+const HIDES_ITS_OWN = ["/native-start", "/app", "/account/library", "/welcome"]
 
 export function shouldHideSplashOn(pathname: string, authInProgress: boolean): boolean {
   if (authInProgress) return false

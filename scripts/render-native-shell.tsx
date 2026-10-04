@@ -9,6 +9,8 @@
  *   /account/library    the real LibraryPanel with the real LibraryTabs
  *   /maker              a creator's page: the real ProfileTopBar (the back
  *                       chevron next to the person) under the header
+ *   /member/ava         a person's profile: no Storelib header, the same
+ *                       bar is the top of the screen
  *   /list, /detail      two pages for the back probe: a long list, and a
  *                       page whose only control is the real BackChevron
  *
@@ -180,7 +182,7 @@ function Detail() {
 function Body({ path }: { path: string }) {
   if (path.startsWith("/account/library")) return <Library path={path} />
   if (path.startsWith("/account")) return <Account />
-  if (path === "/maker") return <Maker />
+  if (path === "/maker" || path.startsWith("/member/")) return <Maker />
   if (path === "/list") return <List />
   if (path === "/detail") return <Detail />
   return <Explore />

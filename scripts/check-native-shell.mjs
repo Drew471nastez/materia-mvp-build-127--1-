@@ -319,7 +319,7 @@ try {
   /* ── BAND ──────────────────────────────────────────────────────────────── */
   if (only("band")) {
     console.log("\nBAND (iPhone, safe area 59/34, html.capacitor)")
-    for (const path of ["/explore", "/account", "/account/library", "/maker"]) {
+    for (const path of ["/explore", "/account", "/account/library", "/maker", "/member/ava"]) {
       const { p, errors } = await open(path)
       const state = await p.evaluate(() => {
         const root = document.getElementById("platform-header-root")
@@ -338,6 +338,7 @@ try {
           bars: window.__bars || [],
           splash: (window.__splash || []).length,
           topBar: (() => { const t = document.querySelector("[data-profile-top-bar]"); return t ? Math.round(t.getBoundingClientRect().top) : null })(),
+          topRow: (() => { const t = document.querySelector("[data-profile-top-bar] > div"); return t ? Math.round(t.getBoundingClientRect().top) : null })(),
         }
       })
       const bottom = state.headerBottom ?? SAT + 65
@@ -354,6 +355,17 @@ try {
       const [overRed, underClockScrolled] = await pixels(p, [[195, SAT + 20], [195, 20]])
       await p.screenshot({ path: join(shots, `band-${name}-scrolled.png`), clip: { x: 0, y: await p.evaluate(() => scrollY), width: 390, height: 330 }, captureBeyondViewport: false })
       const tag = `${path}:`
+      if (path.startsWith("/member/")) {
+        /* A person's profile has no Storelib header: its own bar is the top, its row below the clock, its white up under it. */
+        const [band2, bar] = await pixels(p, [[195, 20], [300, SAT + 6]])
+        expect(!state.header, `${tag} no Storelib header on a profile`, state.header)
+        expect(state.topBar === 0 && state.topRow !== null && state.topRow >= SAT, `${tag} the profile bar is the top surface and its row starts below the clock`, [state.topBar, state.topRow])
+        expect(same(band2, [255, 255, 255]) && same(band2, bar, 1), `${tag} the strip and the bar are one white`, [hex(band2), hex(bar)])
+        expect(state.bars.some((b) => b[1] === "LIGHT") && state.theme === "#ffffff", `${tag} dark status text, white theme-color`, [state.bars, state.theme])
+        expect(errors.length === 0, `${tag} no errors`, errors)
+        await p.close()
+        continue
+      }
       expect(state.header, `${tag} the app's header is drawn${path === "/maker" ? " on a creator's page too" : ""}`, state.header)
       expect(same(band, [255, 255, 255]), `${tag} the strip under the clock is white`, hex(band))
       expect(same(band, headTop, 1) && same(band, headMid, 1), `${tag} the strip and the header are one colour`, [hex(band), hex(headTop), hex(headMid)])

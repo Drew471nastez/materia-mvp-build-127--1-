@@ -4390,6 +4390,23 @@ html.capacitor .platform-header-row {
 .native-header-spacer {
   display: none;
 }
+/* A PAGE'S OWN TOP BAR, ONE SURFACE WITH THE BAND. A bar that can be the top
+   of the screen (the profile bar with the back chevron, components/profile/
+   profile-top-bar.tsx) carries this: in the app its background runs up
+   under the clock and its row starts below it, instead of the row sitting
+   under the band with the page's first pixels hidden there. Under the
+   Storelib header it is not the top, the header's room
+   (.native-header-spacer) is before it, and it takes no inset. Shared with
+   any other top bar (the community's, components/community/member/top-bar
+   .tsx, pads itself the same way): padding only, its colour stays its own. */
+html.capacitor .native-top-surface {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+html.capacitor .native-header-spacer ~ .native-top-surface,
+html.capacitor .native-header-spacer ~ * .native-top-surface {
+  padding-top: 0;
+}
+
 html.capacitor .native-header-spacer {
   display: block;
   flex-shrink: 0;

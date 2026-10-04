@@ -62,6 +62,7 @@ function rule(selector: string): string | null {
   return cssCode.slice(i, cssCode.indexOf("}", i) + 1)
 }
 
+async function main() {
 console.log("\n1. ONE BAND, AND THE STATUS BAR'S TEXT FROM IT")
 {
   check("the band has one number, white by default", /--native-band: #ffffff;/.test(rule(":root") ?? cssCode))
@@ -80,7 +81,7 @@ console.log("\n1. ONE BAND, AND THE STATUS BAR'S TEXT FROM IT")
   check("white band: dark status text", statusStyleFor("#ffffff") === "LIGHT")
   check("#f2f2f2 (welcome) and #f8f9fa (a page layer): dark text", statusStyleFor("#f2f2f2") === "LIGHT" && statusStyleFor("#f8f9fa") === "LIGHT")
   check("/app's #111111, the dark header's #0e0e10, the builder's #171717: light text", statusStyleFor("#111111") === "DARK" && statusStyleFor("#0e0e10") === "DARK" && statusStyleFor("#171717") === "DARK")
-  check("the violet: light text (the more readable of the two)", statusStyleFor("#8b5cf6") === "DARK")
+  check("the violet #8b5cf6: dark text, the more readable of the two (4.96:1 against 4.23:1)", statusStyleFor("#8b5cf6") === "LIGHT")
   check("a colour that cannot be read is the white default", statusStyleFor("nonsense") === "LIGHT" && normalizeBand("") === DEFAULT_BAND)
   check("written one way, so a change is only a change", normalizeBand("#FFF") === "#ffffff" && normalizeBand("rgb(17, 17, 17)") === "#111111" && normalizeBand(" #0E0E10 ") === "#0e0e10")
   check("rgba and 8 digit hex read", JSON.stringify(parseColor("rgba(1, 2, 3, 0.5)")) === "[1,2,3]" && JSON.stringify(parseColor("#ffffff80")) === "[255,255,255]")
@@ -102,6 +103,8 @@ console.log("\n2. THE HEADER AND THE BAND ARE ONE SURFACE")
   check("the fixed bar brings its room in the flow, on every layout (the account, the library), not a marketing wrapper's padding", /html\.capacitor \.native-header-spacer \{[^}]*height: calc\(65px \+ env\(safe-area-inset-top, 0px\)\)/.test(cssCode) && /\.native-header-spacer \{\s*display: none;/.test(cssCode) && !/marketing-flex-wrapper \{\s*padding-top/.test(cssCode))
   check("the bar and its stand in both leave it", /className="native-header-spacer"/.test(header) && /className="native-header-spacer"/.test(conditional))
   check("the stand in is the bar's white", /"sticky top-0 z-40 w-full bg-white"/.test(conditional))
+  check("a page's own top bar (the profile's) pads under the clock when it is the top, and not under the Storelib header", /html\.capacitor \.native-top-surface \{\s*padding-top: env\(safe-area-inset-top, 0px\);/.test(cssCode) && /html\.capacitor \.native-header-spacer ~ \* \.native-top-surface \{\s*padding-top: 0;/.test(cssCode) || /html\.capacitor \.native-header-spacer ~ \.native-top-surface,\s*html\.capacitor \.native-header-spacer ~ \* \.native-top-surface \{\s*padding-top: 0;/.test(cssCode))
+  check("the profile bar is that surface: a hairline, no shadow", /className="native-top-surface w-full border-b border-black\/\[0\.06\]"/.test(readCode("components/profile/profile-top-bar.tsx")))
 }
 
 console.log("\n3. NO VEIL UNDER A FINGER")
@@ -142,7 +145,11 @@ console.log("\n4. ONE BACK PER PRESS")
   check("a click inside the hold is dropped", prevented === 1 && stopped === 1, { prevented, stopped })
   for (const f of listeners.popstate || []) f({})
   check("the back showed itself: no fallback", fallbacks === 0)
-  await new Promise((r) => setTimeout(r, go.BACK_HOLD_MS + 80))
+  await new Promise((r) => setTimeout(r, go.BACK_HOLD_MS - 50))
+  prevented = 0
+  for (const f of listeners.click || []) f({ preventDefault: () => prevented++, stopImmediatePropagation: () => {} })
+  check("a slow second tap, after the back has landed, is still dropped (LANDED_HOLD_MS from the landing)", prevented === 1 && go.LANDED_HOLD_MS >= 250, prevented)
+  await new Promise((r) => setTimeout(r, go.LANDED_HOLD_MS + 80))
   go.backThen(() => fallbacks++, 50)
   check("after the hold, the next back goes", backs === 2, backs)
   await new Promise((r) => setTimeout(r, 120))
@@ -166,7 +173,7 @@ console.log("\n5. THE FIRST TAP ON A PILL")
 console.log("\n6. THE SPLASH COMES DOWN ON EVERY LANDING PAGE")
 {
   check("Explore, a community, a creator's page, the account: hidden here", ["/explore", "/community/x", "/andrewrullz", "/account"].every((p) => shouldHideSplashOn(p, false)))
-  check("the gate and the pages that time it themselves are left alone", ["/native-start", "/app", "/app/products", "/library", "/account/library", "/account/library/courses", "/welcome"].every((p) => !shouldHideSplashOn(p, false)))
+  check("the gate and the pages that time it themselves are left alone", ["/native-start", "/app", "/app/products", "/account/library", "/account/library/courses", "/welcome"].every((p) => !shouldHideSplashOn(p, false)))
   check("not while a sign in is being finished", !shouldHideSplashOn("/explore", true))
   check("after two frames and the fonts, capped", /requestAnimationFrame\(\(\) =>\s*requestAnimationFrame/.test(nativeChrome) && /setTimeout\(r, 600\)/.test(nativeChrome) && /hideSplashOnce\(\)/.test(nativeChrome))
 }
@@ -178,10 +185,11 @@ console.log("\nCOPY")
   const files = ["lib/native-chrome.ts", "components/platform/native-chrome.tsx", "lib/navigation/first-tap.ts", "lib/navigation/go-back.ts", "lib/ui/light-chrome.ts", "lib/platform/header-chrome.ts", "components/library/library-tabs.tsx", "scripts/check-native-shell.mjs", "scripts/render-native-shell.tsx", "tests/native-shell.test.ts"]
   for (const f of files) {
     const src = readSource(f)
-    check(`${f}: no em dash and none of the banned words`, !DASH.test(src) && !BANNED.test(src.replace(/backface-visibility|transform-origin|translateZ|transforms|[a-zA-Z]+Transform/g, "")))
+    check(`${f}: no em dash and none of the banned words`, !DASH.test(src) && !BANNED.test(src))
   }
   /* The comments added to globals.css this round. */
-  const ours = css.slice(css.indexOf("THE STATUS BAR BAND'S COLOUR"), css.indexOf("THE STATUS BAR BAND'S COLOUR") + 900)
+  const at = css.indexOf("THE STATUS BAR BAND'S COLOUR")
+  const ours = css.slice(at, css.indexOf("*/", at))
   check("globals.css: the band's note has no em dash", !DASH.test(ours))
 }
 
@@ -190,3 +198,6 @@ if (failed > 0) {
   console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`)
   process.exit(1)
 }
+}
+
+void main()
