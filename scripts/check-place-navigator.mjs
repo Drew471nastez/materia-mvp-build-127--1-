@@ -456,14 +456,16 @@ console.log("\nthe search field, focused (a page where the header carries it)")
   await shot(p, { path: join(shots, "desk-1440-search-focused-zoom.png"), clip: { x: 360, y: 0, width: 720, height: 80 } })
   expect(r.focused && r.hitIsField, "the field is focused and nothing is drawn over it", r)
   expect(r.scrim && r.scrim.w === 1440 && r.scrim.h === 900 && r.scrim.parent === "BODY", "the page's scrim is the window, not a box the size of the field (live: 576x42)", r.scrim)
-  expect(r.shadow !== before.shadow && /0px 0px 0px 4px/.test(r.shadow) && r.border !== before.border && r.outline === "none", "a soft focus state: a darker hairline and a 4px halo, no ring or outline box", { before, after: { shadow: r.shadow, border: r.border } })
+  /* Round 6: the field takes the look Explore's own field has (lib/explore/search-field-look.ts): a darker hairline and a deeper shadow, no halo, no ring. */
+  const ringed = (sh) => /\dpx \dpx \dpx [1-9]/.test(sh.replace(/-?\d+px -?\d+px \d+px -\d+px/g, ""))
+  expect(r.shadow !== before.shadow && /11px 27px -16px/.test(r.shadow) && !ringed(r.shadow) && r.border !== before.border && r.outline === "none", "a soft focus state: a darker hairline and a deeper shadow, no ring or outline box", { before, after: { shadow: r.shadow, border: r.border } })
   await p.keyboard.press("Escape")
   await sleep(400)
   /* By keyboard: the halo is the visible focus. */
   await p.focus("[data-header-search-field] input")
   await sleep(300)
   const kb = await p.evaluate(() => getComputedStyle(document.querySelector("[data-header-search-field] input")).boxShadow)
-  expect(/0px 0px 0px 4px/.test(kb), "reached by keyboard, it shows the same halo", kb)
+  expect(/11px 27px -16px/.test(kb) && !ringed(kb), "reached by keyboard, it shows the same focus", kb)
   await p.close()
 }
 
