@@ -7,25 +7,36 @@
  * Somebody's community, not a dashboard, and not under Storelib's bar. At
  * the top the community's own bar (top-bar.tsx: its picture, its name, whose
  * it is, the navigator, the search, Messages, Storelib's bell and the
- * Storelib account menu behind "..."). Under it, from 1280px, three columns
- * (round 7 swapped the sides):
+ * Storelib account menu behind "...", with Invite people and Saved posts).
+ * Under it, from 1280px, three columns (round 9 put the places back left):
  *
- *   LEFT    the community card (cover, name, Members / Online / Admins, the
- *           faces of who was here last, Settings for its staff) and, on the
- *           feed, a space and Saved, the top contributors (or the most
- *           active) under it.
+ *   LEFT    the community card (cover, name, its address, Members / Online
+ *           / Admins, the faces of who was here last, Settings for its
+ *           staff) and right under it the places in the community
+ *           (Community, Classroom, Calendar, Members, Leaderboards, About)
+ *           as a list of soft tiles. No contributors here.
  *   CENTER  the page: the feed with its space chips and composer, a post,
  *           Members, the classroom, events...
- *   RIGHT   the places in the community (Community, Classroom, Calendar,
- *           Members, Leaderboards, About) as a list of soft tiles, and on
- *           the feed the next event under them, sticking under the bar.
+ *   RIGHT   the next event and the top contributors (or the most active),
+ *           each only when there is one, sticking under the bar.
  *
- * The three columns are the same on every page inside the community, so
- * moving between the feed, Members and the classroom never moves the
- * middle column: only what is in it changes (round 7, "route transitions
- * without a full re-render of the frame"). From 1024px to 1279px there are
- * two: the left one holds the card, the places, the next event and the
+ * The three columns and what is in the side ones are the same on every page
+ * inside the community, so moving between the feed, Members and the
+ * classroom never moves or redraws anything but the middle (round 9: "the
+ * frame (header, columns, chips) never re-renders or flashes"): the bar and
+ * the cards are memoised with props that do not change between places, and
+ * the place marked in the list and the tabs comes from a context of its
+ * own (wall.tsx PlaceContext). From 1024px to 1279px there are two columns:
+ * the left one holds the card, the places, the next event and the
  * contributors, in that order.
+ *
+ * MOVING BETWEEN PLACES. Every place is asked for in full once the frame is
+ * idle (router.prefetch, kind "full"; the router keeps each for five
+ * minutes, next.config.mjs staleTimes), so a click usually finds it here and
+ * it swaps in on the next frame. A page that arrives fades in (opacity only,
+ * on the middle column alone); one that is not here yet shows a small
+ * spinner in the middle column after a moment (place-spinner.tsx, every
+ * member page's loading.tsx), never a skeleton and never over the frame.
  *
  * Below 1024px there is one column, and the places are one row of plain
  * text tabs under the bar (scrolling sideways on a phone). About is the
@@ -50,20 +61,20 @@
  * heartbeat and never a guess.
  */
 import Link from "next/link"
-import { usePathname, useSearchParams } from "next/navigation"
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
+import { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import type { ViewerView } from "@/lib/communities/types"
 import { useLightChrome } from "@/lib/ui/light-chrome"
 import { MessagesPanel, MESSAGES_EVENT, useUnreadMessages } from "./messages"
-import { FULL_ON_HOVER, navEntries, rightColumnFor, sectionFromPath, tabFor, type NavEntry, type TabKey } from "./nav"
+import { FULL_ON_HOVER, navEntries, sectionFromPath, tabFor, type NavEntry, type TabKey } from "./nav"
 import { PersonCardLayer } from "./person-card"
 import { Toasts } from "./toast"
 import { CommunityTopBar } from "./top-bar"
-import { InviteGlyph } from "./invite-glyph"
+import { whenIdle } from "./feed-cache"
 import { InviteSheet } from "./invite-sheet"
 import { TAB, TAB_OFF, TAB_ON } from "./ui"
 import type { ShellCommunity, ShellSection, TopBarData, WallData } from "./view-types"
-import { plainClick, WallCommunityCard, WallContributorsCard, WallPlaces, WallUpcoming } from "./wall"
+import { PlaceContext, plainClick, WallCommunityCard, WallContributorsCard, WallPlaces, WallUpcoming, type PlaceState } from "./wall"
 
 export { CommunityMark } from "./top-bar"
 
@@ -81,6 +92,18 @@ export interface ShellFrameProps {
 
 /** How often a visible member page says the member is here. The server writes at most this often too. */
 export const HEARTBEAT_MS = 60_000
+
+/** The router's "full" prefetch (the whole page, not only up to its loading screen), as components/library/library-tabs.tsx asks. */
+const FULL = "full" as never
+
+/**
+ * A page arriving in the middle column fades in: a CSS animation on what is
+ * put there, so a place that swaps in (cached, read ahead, or after the
+ * spinner) eases in, while the same page drawing again (a refresh, a space
+ * switched in place) changes nothing, because nothing new is inserted.
+ * Opacity only; none for reduced motion.
+ */
+export const ARRIVE = "[&>*]:animate-in [&>*]:fade-in-0 [&>*]:duration-200 [&>*]:ease-sheet motion-reduce:[&>*]:animate-none"
 
 /** What ?dm= may carry: an id's characters and nothing else. The server checks it is somebody here. */
 const DM_TARGET = /^[0-9a-z-]{1,64}$/i
@@ -124,12 +147,13 @@ export function usePresenceHeartbeat(communityId: string, userId: string | null)
 
 export function ShellFrame({ community, viewer, topBar, unreadMessages = null, wall = null, active, children }: ShellFrameProps) {
   const pathname = usePathname()
+  const router = useRouter()
   const current: ShellSection = active ?? sectionFromPath(pathname, community.slug)
   const staff = !!viewer.can.manage_members
   const entries = useMemo(() => navEntries(community, staff), [community, staff])
   const [messages, refreshMessages] = useUnreadMessages(community.id, viewer.userId, unreadMessages)
   const [chat, setChat] = useState<{ userId?: string } | null>(null)
-  /* Round 8: the invite sheet, opened from the card or the end of the tabs. */
+  /* The invite sheet, opened from "Invite people" in the bar's "..." menu (round 9; the card and the tabs had it in round 8). */
   const [inviting, setInviting] = useState(false)
   const openInvite = useCallback(() => setInviting(true), [])
   const canInvite = !!viewer.can.invite && !community.archived
@@ -175,79 +199,91 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
   */
   const [going, setGoing] = useState<{ key: TabKey; from: string | null } | null>(null)
   if (going && going.from !== pathname) setGoing(null)
-  const goTo = useCallback((key: TabKey) => setGoing({ key, from: pathname }), [pathname])
+  /* Stable for the whole visit (the address is read when it is called), so the places' context changes only with the mark. */
+  const pathRef = useRef(pathname)
+  pathRef.current = pathname
+  const goTo = useCallback((key: TabKey) => setGoing({ key, from: pathRef.current }), [])
   const about = current === "about"
   const tab = going?.key ?? tabFor(current)
+  const place = useMemo<PlaceState>(() => ({ tab, onGo: goTo }), [tab, goTo])
   const membersHref = entries.find((e) => e.key === "members")?.href ?? null
-  const feedish = rightColumnFor(current)
-  const upcoming = wall && feedish ? wall.upcoming : null
-  const contributors = wall && feedish ? wall.contributors : null
+  /* The right column is the community's, the same on every place (round 9): the next event and who takes part. */
+  const upcoming = wall?.upcoming ?? null
+  const contributors = wall?.contributors ?? null
+  const contributorsAll = contributors ? (contributors.basis === "points" ? (community.gamificationEnabled ? `/community/${community.slug}/leaderboard` : null) : membersHref) : null
+
+  /* What the bar is handed, the same objects from place to place, so the memoised bar is not drawn again. */
+  const onMessages = useCallback(() => setChat((c) => (c ? null : {})), [])
+  const searchProp = useMemo(() => ({ communityId: community.id }), [community.id])
+  const menu = useMemo(() => ({ onInvite: community.archived ? null : openInvite, savedHref: `/community/${community.slug}/saved` }), [community.archived, community.slug, openInvite])
+  const tabs = useMemo(() => <SectionTabs entries={entries} wide={!about} />, [entries, about])
+
   /*
-    WHICH PAGE IS IN THE MIDDLE, for its entrance. A space, a post, Saved and the feed are all "home" (one place), so moving between spaces,
-    which the feed does in place (feed.tsx), never remounts the page; a new place (Members, the classroom...) fades in.
+    EVERY PLACE, READ AHEAD ONCE THE FRAME IS IDLE (round 9). The frame stays mounted for the whole visit, so this runs once per
+    community: each place's page is asked for in full, and the router keeps it for five minutes, so a click on Classroom or Members
+    swaps it in on the next frame. The place on screen is not asked for again.
   */
-  const pageKey = about ? "about" : tabFor(current)
+  const hrefs = useMemo(() => entries.map((e) => e.href), [entries])
+  useEffect(
+    () =>
+      whenIdle(() => {
+        const here = (pathRef.current || "").replace(/\/+$/, "")
+        for (const href of hrefs) if (href !== here) router.prefetch(href, { kind: FULL })
+      }),
+    [hrefs, router],
+  )
 
   return (
     /* The header's real heights until it is measured (56 + 40 of tabs + its hairline below 1024px, one 64px row + 1 from 1024px, About keeps its tabs): no jump on the first frame. */
-    <div data-community-shell="" className={`min-h-svh bg-[#f8f9fa] [--community-top:97px] ${about ? "lg:[--community-top:105px]" : "lg:[--community-top:65px]"}`}>
-      <CommunityTopBar
-        data={topBar}
-        messages={canMessage ? messages : null}
-        messagesOpen={!!chat}
-        onMessages={() => setChat((c) => (c ? null : {}))}
-        search={{ communityId: community.id }}
-        tabsOnDesktop={about}
-      >
-        <SectionTabs entries={entries} current={tab} wide={!about} onGo={goTo} trailing={community.archived ? null : <InviteTab onInvite={openInvite} />} />
-      </CommunityTopBar>
+    <PlaceContext.Provider value={place}>
+      <div data-community-shell="" className={`min-h-svh bg-[#f8f9fa] [--community-top:97px] ${about ? "lg:[--community-top:105px]" : "lg:[--community-top:65px]"}`}>
+        <CommunityTopBar data={topBar} messages={canMessage ? messages : null} messagesOpen={!!chat} onMessages={onMessages} search={searchProp} tabsOnDesktop={about} menu={menu}>
+          {tabs}
+        </CommunityTopBar>
 
-      {/*
-        A PLACE ARRIVES WITH A SHORT FADE, keyed on the place rather than the address, so moving between places reads as one surface
-        changing, and moving between spaces (the same place) changes nothing but the list. Opacity only. About brings its own width and
-        its own card; every other page sits in the middle column, the classroom and events pages (their own worker's) included.
-      */}
-      {about ? (
-        <div key={pageKey} className="animate-in fade-in-0 duration-150 ease-sheet motion-reduce:animate-none">
-          {children}
-        </div>
-      ) : (
-        <div className="mx-auto w-full max-w-[1360px] px-4 sm:px-6 lg:px-8">
-          <div
-            data-community-columns="three"
-            className="pb-16 pt-4 lg:grid lg:grid-cols-[260px_minmax(0,1fr)] lg:grid-rows-[auto_auto_1fr] lg:items-start lg:gap-x-6 lg:pt-6 xl:grid-cols-[280px_minmax(0,1fr)_300px] xl:grid-rows-[auto_1fr]"
-          >
-            {/* LEFT: the community card. */}
-            <div className="hidden min-w-0 lg:col-start-1 lg:row-start-1 lg:block" data-community-left="">
-              {wall ? <WallCommunityCard community={community} card={wall.card} membersHref={membersHref} onInvite={community.archived ? undefined : openInvite} /> : null}
-            </div>
-            {/* RIGHT from 1280px (under the card from 1024px): the places, then the next event, sticking under the bar. */}
-            <aside className="hidden min-w-0 lg:col-start-1 lg:row-start-2 lg:mt-3 lg:block xl:col-start-3 xl:row-span-2 xl:row-start-1 xl:mt-0 xl:self-stretch" data-community-right="">
-              <div className="space-y-3 xl:sticky xl:top-[calc(var(--community-top,65px)+24px)]" data-community-right-cards="">
-                <WallPlaces entries={entries} current={tab} onGo={goTo} />
-                {upcoming ? <WallUpcoming slug={community.slug} event={upcoming} /> : null}
+        {/*
+          About brings its own width and its own card; every other page sits in the middle column, the classroom and events pages (their
+          own worker's) included. What arrives there fades in (ARRIVE); the columns either side are not touched.
+        */}
+        {about ? (
+          <div className={ARRIVE} data-community-body="">
+            {children}
+          </div>
+        ) : (
+          <div className="mx-auto w-full max-w-[1360px] px-4 sm:px-6 lg:px-8">
+            <div
+              data-community-columns="three"
+              className="pb-16 pt-4 lg:grid lg:grid-cols-[260px_minmax(0,1fr)] lg:grid-rows-[auto_1fr] lg:items-start lg:gap-x-6 lg:pt-6 xl:grid-cols-[280px_minmax(0,1fr)_300px]"
+            >
+              {/* LEFT: the community card, and the places right under it (round 9). */}
+              <div className="hidden min-w-0 space-y-3 lg:col-start-1 lg:row-start-1 lg:block" data-community-left="">
+                {wall ? <WallCommunityCard community={community} card={wall.card} membersHref={membersHref} /> : null}
+                <WallPlaces entries={entries} />
               </div>
-            </aside>
-            {/* LEFT, under the card: who takes part, on the feed. */}
-            {contributors ? (
-              <div className="hidden min-w-0 lg:col-start-1 lg:row-start-3 lg:mt-3 lg:block xl:row-start-2" data-community-left-more="">
-                <WallContributorsCard slug={community.slug} data={contributors} viewAllHref={contributors.basis === "points" ? (community.gamificationEnabled ? `/community/${community.slug}/leaderboard` : null) : membersHref} />
-              </div>
-            ) : null}
-            <div className="min-w-0 lg:col-start-2 lg:row-span-3 lg:row-start-1 xl:row-span-2" data-community-main="">
-              <div key={pageKey} className="animate-in fade-in-0 duration-150 ease-sheet motion-reduce:animate-none" data-community-body="">
-                {children}
+              {/* RIGHT from 1280px (under the places from 1024px): the next event, then who takes part, sticking under the bar. */}
+              <aside className="hidden min-w-0 lg:col-start-1 lg:row-start-2 lg:mt-3 lg:block xl:col-start-3 xl:row-span-2 xl:row-start-1 xl:mt-0 xl:self-stretch" data-community-right="">
+                {upcoming || contributors ? (
+                  <div className="space-y-3 xl:sticky xl:top-[calc(var(--community-top,65px)+24px)]" data-community-right-cards="">
+                    {upcoming ? <WallUpcoming slug={community.slug} event={upcoming} /> : null}
+                    {contributors ? <WallContributorsCard slug={community.slug} data={contributors} viewAllHref={contributorsAll} /> : null}
+                  </div>
+                ) : null}
+              </aside>
+              <div className="min-w-0 lg:col-start-2 lg:row-span-2 lg:row-start-1" data-community-main="">
+                <div className={ARRIVE} data-community-body="">
+                  {children}
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {community.archived ? null : <InviteSheet open={inviting} onClose={() => setInviting(false)} community={community} staff={canInvite} manageHref={manageInvites} />}
-      <PersonCardLayer communityId={community.id} canMessage={canMessage} />
-      {canMessage ? <MessagesPanel communityId={community.id} slug={community.slug} userId={viewer.userId} open={!!chat} start={chat} onClose={() => setChat(null)} onRead={refreshMessages} /> : null}
-      <Toasts />
-    </div>
+        {community.archived ? null : <InviteSheet open={inviting} onClose={() => setInviting(false)} community={community} staff={canInvite} manageHref={manageInvites} />}
+        <PersonCardLayer communityId={community.id} canMessage={canMessage} />
+        {canMessage ? <MessagesPanel communityId={community.id} slug={community.slug} userId={viewer.userId} open={!!chat} start={chat} onClose={() => setChat(null)} onRead={refreshMessages} /> : null}
+        <Toasts />
+      </div>
+    </PlaceContext.Provider>
   )
 }
 
@@ -260,7 +296,10 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
  * keeps the chosen tab in view, and fades at an edge only while there is
  * more that way.
  */
-export function SectionTabs({ entries, current, wide = true, onGo, trailing = null }: { entries: NavEntry[]; current: TabKey; wide?: boolean; onGo?: (key: TabKey) => void; /** Pinned at the row's right end, outside what scrolls (round 8: Invite). */ trailing?: React.ReactNode }) {
+export function SectionTabs({ entries, current: currentProp, wide = true, onGo: onGoProp }: { entries: NavEntry[]; /** Left out, the frame's PlaceContext says. */ current?: TabKey; wide?: boolean; onGo?: (key: TabKey) => void }) {
+  const place = useContext(PlaceContext)
+  const current = currentProp ?? place.tab
+  const onGo = onGoProp ?? place.onGo
   const trackRef = useRef<HTMLDivElement>(null)
   const [edges, setEdges] = useState({ left: false, right: false })
   const measure = () => {
@@ -285,11 +324,11 @@ export function SectionTabs({ entries, current, wide = true, onGo, trailing = nu
   }, [current])
   return (
     <nav aria-label="Community sections" data-community-tabs="" className="relative w-full">
-      {/* The row lines up with the page under it (1360px, About's 1080px); only the tabs scroll, so an action pinned at the end stays put. */}
+      {/* The row lines up with the page under it (1360px, About's 1080px). */}
       <div className={`mx-auto flex w-full items-stretch ${wide ? "lg:max-w-[1360px]" : "lg:max-w-[1080px]"}`}>
         <div className="relative min-w-0 flex-1">
           <div ref={trackRef} onScroll={measure} className="overflow-x-auto overscroll-x-contain scrollbar-hide" data-community-tabs-track="">
-            <div className={`flex w-max min-w-full items-end gap-6 px-4 sm:gap-7 sm:px-6 lg:px-8 ${trailing ? "pr-4 sm:pr-5 lg:pr-5" : ""}`}>
+            <div className="flex w-max min-w-full items-end gap-6 px-4 sm:gap-7 sm:px-6 lg:px-8">
               {entries.map((e) => {
                 const on = current === e.key
                 return (
@@ -309,34 +348,7 @@ export function SectionTabs({ entries, current, wide = true, onGo, trailing = nu
           <span aria-hidden className={`pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-white to-transparent transition-opacity duration-200 ${edges.left ? "opacity-100" : "opacity-0"}`} />
           <span aria-hidden className={`pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-white to-transparent transition-opacity duration-200 ${edges.right ? "opacity-100" : "opacity-0"}`} />
         </div>
-        {trailing ? (
-          <div className="flex shrink-0 items-center pr-2 sm:pr-4 lg:pr-6" data-community-tabs-end="">
-            <span aria-hidden className="mr-1 h-5 w-px bg-[#e6e8ec]" />
-            {trailing}
-          </div>
-        ) : null}
       </div>
     </nav>
-  )
-}
-
-/**
- * INVITE, AT THE END OF THE ROW OF TABS: where a phone and a tablet (and
- * About, which has no card) find it, since the community card with its own
- * Invite is a computer's. Plain ink words with Solar's person and plus, no
- * box, a 40px target; it opens the invite sheet (invite-sheet.tsx).
- */
-export function InviteTab({ onInvite }: { onInvite: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onInvite}
-      aria-haspopup="dialog"
-      data-community-invite="tabs"
-      className="inline-flex h-10 shrink-0 cursor-pointer select-none items-center gap-1.5 rounded-[10px] px-2 text-[14.5px] font-medium text-[#1a1a2e] outline-none transition-opacity duration-150 active:opacity-60 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 motion-reduce:transition-none sm:text-[14px] [-webkit-tap-highlight-color:transparent]"
-    >
-      <InviteGlyph size={18} className="text-[#4b5563]" />
-      Invite
-    </button>
   )
 }

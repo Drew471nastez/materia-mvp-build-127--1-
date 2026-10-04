@@ -52,16 +52,6 @@ export function tabFor(section: ShellSection): TabKey {
 }
 
 /**
- * Whether a section draws the wall's right column (the next event, the top
- * contributors): the community's feed, a space, a post and Saved. Members,
- * the classroom, events, the leaderboard and the inbox use the room for
- * themselves.
- */
-export function rightColumnFor(section: ShellSection): boolean {
-  return section === "home" || section === "saved" || section.startsWith("space:")
-}
-
-/**
  * A place's link, asked for IN FULL the moment a pointer rests on it or a
  * finger lands on it (Next's app router Link, unstable_dynamicOnHover), so
  * the place is usually here by the click; in view it is only asked for up to

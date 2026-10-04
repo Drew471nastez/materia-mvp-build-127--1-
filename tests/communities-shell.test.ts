@@ -67,7 +67,7 @@ import { existsSync, readFileSync } from "node:fs"
 import { fakeDb } from "./_fake-db"
 import { memberHref } from "@/components/community/member/person-href"
 import { personHref } from "@/lib/profile/person-href"
-import { navEntries, rightColumnFor, sectionFromPath, tabFor } from "@/components/community/member/nav"
+import { navEntries, sectionFromPath, tabFor } from "@/components/community/member/nav"
 import { contributorsDetail } from "@/components/community/member/wall"
 import { SEARCH_DEBOUNCE_MS, SEARCH_MIN_CHARS, searchOptions, stepOption } from "@/components/community/member/search"
 import { ACTIVITY_SCAN, WALL_CONTRIBUTORS, WALL_FACES, eventHrefFor, mostActive, rankRows, recentFaces, settingsHrefFor, topContributors, upcomingEvent } from "@/lib/communities/server/wall"
@@ -79,7 +79,7 @@ import { communityGallery, loadSalesPage, topBarData } from "@/lib/communities/s
 import { adminCount, communityStats, HEARTBEAT_MS, onlineCount, ONLINE_WINDOW_MS, touchPresence } from "@/lib/communities/server/presence"
 import { RATE_LIMITS, rateBucket } from "@/lib/communities/limits"
 import { FEED_SORTS, cursorAfter, decodeCursor, encodeCursor, feedSort, keysetCondition, listFeed, unreadSince } from "@/lib/communities/server/feed"
-import { FRESH_MS, addPost, clearViews, dropSaved, firstPage, loadView, patchPost, prefetchView, readView, viewKey, viewUrl, writeView } from "@/components/community/member/feed-cache"
+import { AHEAD_MAX, FRESH_MS, addPost, clearViews, dropSaved, firstPage, loadView, patchPost, prefetchView, prefetchViews, readView, viewKey, viewUrl, writeView } from "@/components/community/member/feed-cache"
 
 let passed = 0
 let failed = 0
@@ -197,7 +197,8 @@ async function main() {
     check("the navigator comes from one import, which is Storelib's one navigator", /import \{ PlaceNavigator \} from "\.\/place-navigator"/.test(bar) && /export \{ PlaceNavigator \} from "@\/components\/nav\/place-navigator"/.test(code("components/community/member/place-navigator.tsx")))
     const stand = code("components/nav/place-navigator.tsx")
     check("it has the navigator's props: a community by id or Storelib", /export function PlaceNavigator\(\{ current, className, onNavigate \}: PlaceNavigatorProps\)/.test(stand) && /export type NavigatorCurrent = \{ kind: "community"; id: string \} \| \{ kind: "storelib" \}/.test(code("lib/nav/places-shared.ts")))
-    check("the bar reads as a bar over the page: a hairline and a soft shadow", /data-community-top=""[\s\S]{0,40}className="sticky top-0 z-40 border-b border-\[#e6e8ec\] bg-white[^"]*shadow-\[0_1px_2px/.test(bar))
+    /* Round 9, ask 2 (and C5): the bar and the status bar band are one opaque white surface, a hairline at its bottom and no shadow. */
+    check("round 9: the bar is one opaque white surface up through the status bar, a hairline at its bottom only", /data-community-top=""\s*className="sticky top-0 z-40 border-b border-\[#e6e8ec\] bg-white pt-\[env\(safe-area-inset-top\)\]"/.test(bar) && !/data-community-top=""[\s\S]{0,200}shadow-\[/.test(bar) && !/bg-white\/|backdrop-blur/.test(bar))
     /*
       Round 7, ask 6: "the avatar is replaced by a subtle ... that opens EXACTLY the same account menu as the Storelib header (reuse
       that component). Bug: my profile from the community menu opens the OnePage/creator editor: Profile must always go to /account."
@@ -205,10 +206,15 @@ async function main() {
     const acct = code("components/community/member/account-menu.tsx")
     const header = code("components/platform/platform-header-client.tsx")
     check("round 7: the bar's account control is the \"...\" menu, no picture of me and no menu of its own", /<CommunityAccountMenu me=\{me\}/.test(bar) && !/ResponsiveActionMenu|My profile|me\.profileHref|data-community-me=|AppAvatar src=\{me/.test(bar))
-    check("round 7: it IS the Storelib header's menu: DesktopAccountMenu on a computer, AccountSheet on a phone, the header's own log out", /import \{ AccountSheet, DesktopAccountMenu, endStorelibSession, type HeaderLink \} from "@\/components\/platform\/platform-header-client"/.test(acct) && /<DesktopAccountMenu[\s\S]{0,400}trigger="more"/.test(acct) && /<AccountSheet[\s\S]{0,300}onLogout=/.test(acct) && /await endStorelibSession\(router\)/.test(acct) && /<LanguageModal open=\{language\}/.test(acct))
+    check("round 7: it IS the Storelib header's menu: DesktopAccountMenu on a computer, AccountSheet on a phone, the header's own log out", /import \{ AccountSheet, DesktopAccountMenu, endStorelibSession, type AccountExtraRow, type HeaderLink \} from "@\/components\/platform\/platform-header-client"/.test(acct) && /<DesktopAccountMenu[\s\S]{0,400}trigger="more"/.test(acct) && /<AccountSheet[\s\S]{0,300}onLogout=/.test(acct) && /await endStorelibSession\(router\)/.test(acct) && /<LanguageModal open=\{language\}/.test(acct))
     check("round 7: the header exports those very pieces and draws its own sheet with AccountSheet", /export function DesktopAccountMenu\(/.test(header) && /export function AccountSheet\(/.test(header) && /export async function endStorelibSession\(/.test(header) && /<AccountSheet\s/.test(header) && /trigger === "more"/.test(header))
     check("round 7: Profile is /account in both, never the person's own page (which opened the editor for a creator)", /go\("\/account"\)\} role="menuitem" data-account-item="profile"/.test(header) && /link\("\/account"\)\} onDone=\{onClose\} item="profile"/.test(header) && /const link: HeaderLink = \(path\) => \(\{ href: path/.test(acct))
-    check("round 7: the \"...\" has the little depth (DEPTH_ICON_BTN), 40px on a phone too", /triggerClassName=\{cn\(DEPTH_ICON_BTN/.test(acct) && /className=\{cn\(DEPTH_ICON_BTN, "md:hidden"/.test(acct))
+    /* Round 9, ask 18: the "..." is flat, a plain icon button with a hover tint; ask 19: Invite people (and Saved posts) live in its menu. */
+    const flat = /export const FLAT_ICON_BTN =\s*"([^"]+)"/.exec(ui)?.[1] ?? ""
+    check("round 9: the \"...\" is flat (FLAT_ICON_BTN: no ground, hairline or shadow, a tint on hover and while open), 40px on a phone too", /triggerClassName=\{FLAT_ICON_BTN\}/.test(acct) && /className=\{cn\(FLAT_ICON_BTN, "md:hidden"\)\}/.test(acct) && /h-10 w-10/.test(flat) && /bg-transparent/.test(flat) && /hover:bg-\[#f1f2f4\]/.test(flat) && /data-\[state=open\]:bg-\[#f1f2f4\]/.test(flat) && !/border|shadow-\[/.test(flat) && !/DEPTH_ICON_BTN/.test(acct), flat)
+    check("round 9: Invite people and Saved posts sit above Storelib's rows, in the same menu (extra rows), on a computer and a phone", /label: "Invite people"/.test(acct) && /label: "Saved posts"/.test(acct) && /extra=\{desktopRows\}/.test(acct) && /extra=\{phoneRows\}/.test(acct) && /export interface AccountExtraRow/.test(header) && /\{extra\?\.length \? \(/.test(header) && (header.match(/extra\.map\(\(x\) =>/g) || []).length === 2)
+    check("round 9: on a phone the invite sheet rises once the account sheet is most of the way down", /SHEET_HANDOFF_MS = Math\.round\(SHEET_CLOSE_MS \* 0\.6\)/.test(acct) && /window\.setTimeout\(onInvite, SHEET_HANDOFF_MS\)/.test(acct))
+    check("round 9: the frame hands the bar the menu's rows: Invite (not for an archived community) and this community's saved posts", /onInvite: community\.archived \? null : openInvite, savedHref: `\/community\/\$\{community\.slug\}\/saved`/.test(code("components/community/member/shell-frame.tsx")) && /onInvite=\{menu\?\.onInvite\} savedHref=\{menu\?\.savedHref\}/.test(bar))
     check("a visitor gets Log in, back to this page", /href=\{`\/login\?next=\$\{encodeURIComponent\(pathname \|\| base\)\}`\}/.test(bar))
     check("Messages only when the panel is available, with its unread count", /messages !== null && onMessages \?/.test(bar) && /messages > 0 \? <Badge n=\{messages\} \/>/.test(bar))
     check("the bell is Storelib's own, for anybody signed in", /import \{ NotificationBell \} from "@\/components\/notifications\/notification-bell"/.test(bar) && /\{me \? <NotificationBell /.test(bar) && !existsSync("components/community/member/bell-slot.tsx"))
@@ -216,7 +222,7 @@ async function main() {
     check("the bar sits below the status bar in the phone app", /pt-\[env\(safe-area-inset-top\)\]/.test(bar))
     check("its height is measured once and shared as --community-top", /frame\.style\.setProperty\("--community-top", h\)/.test(bar) && /html\.style\.setProperty\("--community-top", h\)/.test(bar))
     const frame = code("components/community/member/shell-frame.tsx")
-    check("the frame wires Messages to the existing panel and its unread count", /useUnreadMessages\(community\.id, viewer\.userId, unreadMessages\)/.test(frame) && /<MessagesPanel communityId=\{community\.id\}/.test(frame) && /onMessages=\{\(\) => setChat/.test(frame))
+    check("the frame wires Messages to the existing panel and its unread count", /useUnreadMessages\(community\.id, viewer\.userId, unreadMessages\)/.test(frame) && /<MessagesPanel communityId=\{community\.id\}/.test(frame) && /const onMessages = useCallback\(\(\) => setChat/.test(frame) && /onMessages=\{onMessages\}/.test(frame))
     check("Message on a person's card or a member row opens the panel", /window\.addEventListener\(MESSAGES_EVENT, on\)/.test(frame))
     check("?dm=<userId> opens that conversation once and takes ?dm off the address", /const dm = search\?\.get\("dm"\) \?\? null/.test(frame) && /url\.searchParams\.delete\("dm"\)/.test(frame) && /window\.history\.replaceState\(window\.history\.state, "", url\.pathname \+ url\.search \+ url\.hash\)/.test(frame) && /setChat\(\{ userId: dm \}\)/.test(frame))
     check("only when messages are available, never to yourself, only an id", /if \(!canMessage \|\| !DM_TARGET\.test\(dm\) \|\| dm === viewer\.userId\) return/.test(frame) && /const DM_TARGET = \/\^\[0-9a-z-\]\{1,64\}\$\/i/.test(frame))
@@ -235,7 +241,7 @@ async function main() {
     check("a space, a post, Saved and the inbox mark Community", ["/community/s/space/x", "/community/s/post/p", "/community/s/saved", "/community/s/notifications", "/community/s"].every((p) => tabFor(sectionFromPath(p, "s")) === "home"))
     check("About marks About; Calendar marks on an event; an old member address marks Members", tabFor(sectionFromPath("/community/s/about", "s")) === "about" && tabFor(sectionFromPath("/community/s/events/e1", "s")) === "events" && tabFor(sectionFromPath("/community/s/members/u1", "s")) === "members")
     const frameCode = code("components/community/member/shell-frame.tsx")
-    check("the tabs are plain words, not pills", /<SectionTabs entries=\{entries\} current=\{tab\} wide=\{!about\} onGo=\{goTo\}( trailing=\{[^\n]*\})? \/>/.test(frameCode) && /const tab = going\?\.key \?\? tabFor\(current\)/.test(frameCode) && /className=\{`\$\{TAB\} \$\{on \? TAB_ON : TAB_OFF\}`\}/.test(frameCode) && !/PillRow|PILL_ON|PILL_OFF/.test(frameCode))
+    check("the tabs are plain words, not pills; the place they mark comes from the frame's context (round 9), so the bar around them is not drawn again", /<SectionTabs entries=\{entries\} wide=\{!about\} \/>/.test(frameCode) && /const current = currentProp \?\? place\.tab/.test(frameCode) && /<PlaceContext\.Provider value=\{place\}>/.test(frameCode) && /const tab = going\?\.key \?\? tabFor\(current\)/.test(frameCode) && /className=\{`\$\{TAB\} \$\{on \? TAB_ON : TAB_OFF\}`\}/.test(frameCode) && !/PillRow|PILL_ON|PILL_OFF/.test(frameCode))
     const ui = code("components/community/member/ui.ts")
     const tab = /export const TAB =\s*"([^"]+)"/.exec(ui)?.[1] ?? ""
     check("a tab has no box: no border, no fill, no rounding; a 40px row of its own", !!tab && !/(^|\s)(border|bg-\[|rounded)/.test(tab) && /(^|\s)h-10(\s|$)/.test(tab) && !/lg:h-14/.test(tab), tab)
@@ -243,7 +249,7 @@ async function main() {
     check("from 1024px the row is drawn only on About (no left column there); everywhere else the left column has the places", /tabsOnDesktop=\{about\}/.test(frameCode) && /const about = current === "about"/.test(frameCode) && /data-community-tabs="" className="relative w-full"/.test(frameCode))
     check("round 7: the frame's first guess at the header's height is the new one (97 below 1024px, 65 from 1024px, 105 on About; a visitor 57 and 65)", /\[--community-top:97px\] \$\{about \? "lg:\[--community-top:105px\]" : "lg:\[--community-top:65px\]"\}/.test(frameCode) && /\[--community-top:57px\] lg:\[--community-top:65px\]/.test(code("components/community/public/public-frame.tsx")))
     const chips = code("components/community/member/space-chips.tsx")
-    check("chips: All, then every space the member may see, then Saved", /data-space-chip="all"/.test(chips) && /spaces\.map\(\(s\) =>/.test(chips) && /href=\{`\$\{base\}\/space\/\$\{s\.slug\}`\}/.test(chips) && /href=\{`\$\{base\}\/saved`\}/.test(chips))
+    check("chips: All, then every space the member may see; round 9, ask 16: no Saved chip (Saved posts is in the sort menu and the \"...\" menu)", /data-space-chip="all"/.test(chips) && /spaces\.map\(\(s\) =>/.test(chips) && /href=\{`\$\{base\}\/space\/\$\{s\.slug\}`\}/.test(chips) && !/data-space-chip="saved"|\/saved`/.test(chips))
     /* Round 7: the feed, a feed space and Saved are one feed (CommunityFeed) that draws the chips itself; a chat space keeps its own row of chips. */
     const spacePage = code("app/(marketing)/community/[slug]/(member)/space/[space]/page.tsx")
     check("chips are on the feed, a space and Saved", /<CommunityFeed[\s\S]{0,200}spaces=\{shell\.spaces\}[\s\S]{0,60}start=\{\{ kind: "all" \}\}/.test(code("components/community/member/feed-page.tsx")) && /<CommunityFeed[\s\S]{0,200}spaces=\{shell\.spaces\}[\s\S]{0,60}start=\{\{ kind: "space", id: space\.id \}\}/.test(spacePage) && /<SpaceChips slug=\{community\.slug\} spaces=\{shell\.spaces\} active=\{space\.slug\} \/>/.test(spacePage) && /<CommunityFeed[\s\S]{0,200}spaces=\{shell\.spaces\}[\s\S]{0,60}start=\{\{ kind: "saved" \}\}/.test(code("app/(marketing)/community/[slug]/(member)/saved/page.tsx")) && /<SpaceChips\s/.test(code("components/community/member/feed.tsx")))
@@ -552,20 +558,22 @@ async function main() {
   /* ── Round 5: the wall ───────────────────────────────────────────────── */
   console.log("\nThe wall: three columns, the right one fully dynamic")
   {
-    check("the right column is the feed's: the community feed, a space, a post and Saved", ["home", "saved", "space:general"].every((x) => rightColumnFor(x as never)) && ["classroom", "events", "members", "leaderboard", "notifications", "about"].every((x) => !rightColumnFor(x as never)))
     check("ranks are shared on a tie", rankRows([{ value: 40 }, { value: 40 }, { value: 12 }]).map((r) => r.rank).join() === "1,1,3")
     check("the contributors say what they count: points, or posts and comments, and over what", contributorsDetail({ basis: "points", since: null }) === "Points, last 30 days" && contributorsDetail({ basis: "activity", since: null }) === "Posts and comments, last 30 days" && contributorsDetail({ basis: "activity", since: "2026-09-28T10:00:00.000Z" }) === "Posts and comments since Sep 28")
 
     const frame = code("components/community/member/shell-frame.tsx")
-    /* Round 7, ask 8: the sides swapped. The places (and the next event under them) on the RIGHT; the top contributors on the LEFT under the card. */
+    /* Round 9, ask 21: the places back on the LEFT under the card, no Most active there; the right column is the next event and Most active. */
     check("the frame draws three columns from 1280px on every page: 280px left, the page, 300px right (the middle never moves between places)", /xl:grid-cols-\[280px_minmax\(0,1fr\)_300px\]/.test(frame) && /data-community-columns="three"/.test(frame) && !/hasRight/.test(frame))
-    check("round 7: the right column is the places, then the next event (on the feed), sticking under the bar", /data-community-right=""[\s\S]{0,300}<WallPlaces entries=\{entries\} current=\{tab\} onGo=\{goTo\} \/>\s*\{upcoming \? <WallUpcoming /.test(frame) && /xl:sticky xl:top-\[calc\(var\(--community-top,65px\)\+24px\)\]/.test(frame))
-    check("round 7: the left column is the community card, then the top contributors (on the feed) right under it", frame.indexOf("<WallCommunityCard") < frame.indexOf("<WallContributorsCard") && /data-community-left=""/.test(frame) && /data-community-left-more=""/.test(frame) && /lg:col-start-1 lg:row-start-3 lg:mt-3 lg:block xl:row-start-2/.test(frame))
-    check("each card only when it has something, and only on the feed's pages", /const upcoming = wall && feedish \? wall\.upcoming : null/.test(frame) && /const contributors = wall && feedish \? wall\.contributors : null/.test(frame) && /const feedish = rightColumnFor\(current\)/.test(frame) && /\{contributors \? \(/.test(frame))
-    check("from 1024px to 1279px everything stacks in the left column: the card, the places and the event, then the contributors", /lg:col-start-1 lg:row-start-2 lg:mt-3 lg:block xl:col-start-3 xl:row-span-2 xl:row-start-1/.test(frame) && /lg:grid-rows-\[auto_auto_1fr\]/.test(frame) && /lg:row-span-3 lg:row-start-1 xl:row-span-2/.test(frame))
-    check("About keeps its own sheet, without the columns", /\{about \? \(\s*<div key=\{pageKey\}/.test(frame))
-    check("round 7: a page fades in when the PLACE changes, not the address, so a space switched in place never remounts the feed", /const pageKey = about \? "about" : tabFor\(current\)/.test(frame) && !/key=\{pathname\}/.test(frame))
-    check("round 7: a click on a place marks it at once, and its page is read in full on hover (Next's dynamic prefetch on intent)", /setGoing\(\{ key, from: pathname \}\)/.test(frame) && /if \(going && going\.from !== pathname\) setGoing\(null\)/.test(frame) && /\{\.\.\.FULL_ON_HOVER\}/.test(frame) && /\{\.\.\.FULL_ON_HOVER\}/.test(code("components/community/member/wall.tsx")) && /unstable_dynamicOnHover: true/.test(code("components/community/member/nav.ts")))
+    check("round 9: the left column is the community card and the places right under it, and nothing else", /data-community-left="">\s*\{wall \? <WallCommunityCard community=\{community\} card=\{wall\.card\} membersHref=\{membersHref\} \/> : null\}\s*<WallPlaces entries=\{entries\} \/>\s*<\/div>/.test(frame) && !/data-community-left-more/.test(frame))
+    check("round 9: the right column is the next event, then the top contributors (Most active), sticking under the bar", /data-community-right=""[\s\S]{0,400}\{upcoming \? <WallUpcoming [^\n]*\n\s*\{contributors \? <WallContributorsCard /.test(frame) && /xl:sticky xl:top-\[calc\(var\(--community-top,65px\)\+24px\)\]/.test(frame))
+    check("round 9: each card only when it has something, and the same on every place, so the side columns never change between places", /const upcoming = wall\?\.upcoming \?\? null/.test(frame) && /const contributors = wall\?\.contributors \?\? null/.test(frame) && !/feedish|rightColumnFor/.test(frame) && /\{upcoming \|\| contributors \? \(/.test(frame))
+    check("from 1024px to 1279px everything stacks in the left column: the card and the places, then the event and the contributors", /lg:col-start-1 lg:row-start-2 lg:mt-3 lg:block xl:col-start-3 xl:row-span-2 xl:row-start-1/.test(frame) && /lg:grid-rows-\[auto_1fr\]/.test(frame) && /lg:col-start-2 lg:row-span-2 lg:row-start-1/.test(frame))
+    check("About keeps its own sheet, without the columns", /\{about \? \(\s*<div className=\{ARRIVE\} data-community-body="">/.test(frame))
+    check("round 9: what arrives in the middle fades in (opacity, on what is inserted), so a place swapping in eases in and a space switched in place never remounts", /export const ARRIVE = "\[&>\*\]:animate-in \[&>\*\]:fade-in-0 [^"]*motion-reduce:\[&>\*\]:animate-none"/.test(frame) && /<div className=\{ARRIVE\} data-community-body="">/.test(frame) && !/key=\{pathname\}|key=\{pageKey\}/.test(frame))
+    check("round 9: the bar and the side cards are memoised and handed the same props from place to place", /export const CommunityTopBar = memo\(CommunityTopBarInner\)/.test(code("components/community/member/top-bar.tsx")) && /export const WallCommunityCard = memo\(WallCommunityCardInner\)/.test(code("components/community/member/wall.tsx")) && /export const WallUpcoming = memo\(WallUpcomingInner\)/.test(code("components/community/member/wall.tsx")) && /export const WallContributorsCard = memo\(WallContributorsCardInner\)/.test(code("components/community/member/wall.tsx")) && /const tabs = useMemo\(\(\) => <SectionTabs/.test(frame) && /const searchProp = useMemo\(/.test(frame) && /const goTo = useCallback\(\(key: TabKey\) => setGoing\(\{ key, from: pathRef\.current \}\), \[\]\)/.test(frame))
+    check("round 9: the bar reads nothing from the address but a visitor's Log in, in a piece of its own", /function LogInLink\(\{ base \}: \{ base: string \}\) \{\s*const pathname = usePathname\(\)/.test(code("components/community/member/top-bar.tsx")) && (code("components/community/member/top-bar.tsx").match(/usePathname\(\)/g) || []).length === 1)
+    check("round 9: every place is read ahead in full once the frame is idle, never the one on screen", /whenIdle\(\(\) => \{[\s\S]{0,200}for \(const href of hrefs\) if \(href !== here\) router\.prefetch\(href, \{ kind: FULL \}\)/.test(frame) && /const FULL = "full" as never/.test(frame))
+    check("round 7: a click on a place marks it at once, and its page is read in full on hover (Next's dynamic prefetch on intent)", /setGoing\(\{ key, from: pathRef\.current \}\)/.test(frame) && /if \(going && going\.from !== pathname\) setGoing\(null\)/.test(frame) && /\{\.\.\.FULL_ON_HOVER\}/.test(frame) && /\{\.\.\.FULL_ON_HOVER\}/.test(code("components/community/member/wall.tsx")) && /unstable_dynamicOnHover: true/.test(code("components/community/member/nav.ts")))
     check("the frame still keeps DMs, ?dm=, the card layer, presence and toasts", /<MessagesPanel /.test(frame) && /searchParams|search\?\.get\("dm"\)/.test(frame) && /<PersonCardLayer /.test(frame) && /usePresenceHeartbeat\(community\.id, viewer\.userId\)/.test(frame) && /<Toasts \/>/.test(frame))
 
     const wall = code("components/community/member/wall.tsx")
@@ -573,7 +581,8 @@ async function main() {
     check("up to the faces it is handed, +N only when there are more, Settings only when handed a link", /faces\.length \?/.test(wall) && /\{more > 0 \?/.test(wall) && /\{card\.settingsHref \?/.test(wall))
     check("a face and a contributor open the person and their card", (wall.match(/data-person-id=\{/g) || []).length >= 2 && /memberHref\(community\.slug, f\)/.test(wall))
     check("the places: soft tiles of their own tint, a Solar line glyph and the bold one for the open place, a Solar chevron each (one family, no lucide)", /const PLACE_LOOK: Record<TabKey/.test(wall) && /const Icon = on \? look\.bold : look\.line/.test(wall) && /<ChevronLine size=\{16\} \/>/.test(wall) && /from "@solar-icons\/react\/linear\/alt-arrow-right"/.test(wall) && !/ChevronRight/.test(wall) && /aria-current=\{on \? "page" : undefined\}/.test(wall))
-    check("round 7, ask 7: the card has no storelib.com/community/<slug> line", !/data-wall-address|storelib\.com\{base\}/.test(wall))
+    check("round 9, ask 20: the address is back under the name, quiet, and a press copies the link", /<WallAddress slug=\{community\.slug\} \/>/.test(wall) && /data-wall-address=""/.test(wall) && /storelib\.com\{path\}/.test(wall) && /navigator\.clipboard\.writeText\(`https:\/\/storelib\.com\$\{path\}`\)/.test(wall) && /Link copied/.test(wall) && /text-\[13px\] leading-5 text-\[#8a8f98\]/.test(wall))
+    check("round 9, ask 19: no Invite button on the card (it is in the \"...\" menu), Settings alone for staff", !/onInvite|InviteGlyph|data-community-invite/.test(wall) && /className=\{CARD_ACTION\} data-wall-settings=""/.test(wall))
     check("round 7, ask 11: Settings and View event carry the little depth", /const CARD_ACTION = `[^`]*\$\{DEPTH\} \$\{DEPTH_PRESS\}[^`]*`/.test(wall) && /className=\{CARD_ACTION\} data-wall-settings=""/.test(wall) && /\$\{DEPTH\} \$\{DEPTH_PRESS\}[^`]*`\} data-wall-view-event=""/.test(wall))
     check("Upcoming event: the date tile and time in the viewer's zone, N going only when somebody is, View event and View all", /<DateTile startsAt=\{event\.startsAt\} \/>/.test(wall) && /<EventWhen /.test(wall) && /\{event\.going > 0 \?/.test(wall) && /View event/.test(wall) && /href=\{`\$\{base\}\/events`\}/.test(wall))
     check("no violet in the wall", !/8b5cf6|7c3aed|violet|purple/i.test(code("components/community/member/wall.tsx")))
@@ -662,10 +671,10 @@ async function main() {
   console.log("\nThe bar, the composer and a post")
   {
     const bar = code("components/community/member/top-bar.tsx")
-    check("the search: a field from 768px, an icon on a phone, only for a member", /\{search \? \(\s*<CommunitySearchField communityId=\{search\.communityId\}[^>]*className="hidden md:block/.test(bar) && /\{search \? <CommunitySearchButton communityId=\{search\.communityId\}[^>]*className="md:hidden" \/> : null\}/.test(bar))
+    check("the search: a field from 768px; round 9, ask 17: no search icon in the bar, its screen kept for the phone's tab bar Search", /\{search \? \(\s*<CommunitySearchField communityId=\{search\.communityId\}[^>]*className="hidden md:block/.test(bar) && /\{search \? <CommunitySearchButton communityId=\{search\.communityId\} slug=\{community\.slug\} trigger=\{false\} \/> : null\}/.test(bar) && /\{trigger \? \(\s*<button/.test(code("components/community/member/search.tsx")) && /registerCommunitySearch\(slug,/.test(code("components/community/member/search.tsx")))
     check("from 1024px the name takes the left column's width, so the search lines up with the feed", /wide && "lg:w-\[260px\] lg:max-w-none xl:w-\[280px\]"/.test(bar) && /wide \? "max-w-\[1360px\]" : "max-w-\[1080px\]"/.test(bar))
     check("round 7: no picture with a chevron any more; the \"...\" opens the menu", !/ChevronDown|data-community-me=/.test(bar) && /<CommunityAccountMenu /.test(bar))
-    check("the frame hands the bar the search; the visitor's frame does not", /search=\{\{ communityId: community\.id \}\}/.test(code("components/community/member/shell-frame.tsx")) && !/search=/.test(code("components/community/public/public-frame.tsx")))
+    check("the frame hands the bar the search; the visitor's frame does not", /const searchProp = useMemo\(\(\) => \(\{ communityId: community\.id \}\), \[community\.id\]\)/.test(code("components/community/member/shell-frame.tsx")) && /search=\{searchProp\}/.test(code("components/community/member/shell-frame.tsx")) && !/search=/.test(code("components/community/public/public-frame.tsx")))
     const composer = code("components/community/member/composer.tsx")
     /* Round 7 (the owner's ask 12): closed, only "Share something..."; the toolbar lives in the editor. */
     check("the composer closed is only the field: no Photo, Video, Poll or More row", /data-composer-open=""/.test(composer) && !/data-composer-action=/.test(composer))
@@ -675,7 +684,7 @@ async function main() {
     const post = code("components/community/member/post-card.tsx")
     check("a post: its space as a chip, Like and Comment, Save as a word at the far end", /data-post-space=""/.test(post) && /function SaveButton\([\s\S]*?\{on \? "Saved" : "Save"\}/.test(post) && /<SaveButton post=\{post\}/.test(post) && /data-like=""/.test(post) && /data-comment-button=""/.test(post))
     const chips = code("components/community/member/space-chips.tsx")
-    check("the chips are one row that scrolls, Saved outside it at the right end", /data-space-chips-track=""/.test(chips) && chips.indexOf("data-space-chips-track") < chips.indexOf('data-space-chip="saved"') && /mask-image:linear-gradient/.test(chips))
+    check("the chips are one row that scrolls, the sort button outside it at the right end (round 9: no Saved chip)", /data-space-chips-track=""/.test(chips) && chips.indexOf("data-space-chips-track") < chips.indexOf("{sort}") && /mask-image:linear-gradient/.test(chips) && !/data-space-chip="saved"/.test(chips))
   }
 
   /* ── Round 5: search ─────────────────────────────────────────────────── */
@@ -824,8 +833,9 @@ async function main() {
     const menu = code("components/community/member/sort-menu.tsx")
     const chips = code("components/community/member/space-chips.tsx")
     check("no Latest / Popular pills: no tab list of sorts in the feed", !/"latest", "popular"|role="tablist"|data-feed-sort=""/.test(feed))
-    check("the sort is a sliders button at the end of the chips row, left of Saved, opening a menu of four", /sort=\{target\.kind === "saved" \? null : <SortMenu value=\{sort\} onChange=\{setSort\} \/>\}/.test(feed) && chips.indexOf("{sort}") > chips.indexOf("data-space-chips-track") && chips.indexOf("{sort}") < chips.indexOf('data-space-chip="saved"') && /Tuning2Icon/.test(menu) && /role="menuitemradio"/.test(menu) && /aria-checked=\{on\}/.test(menu))
-    check("the choice shows in the menu (a soft fill, a check) and as a dot on the button, never as a pill", /\{on \? <Check /.test(menu) && /value !== "default" \? <span[^>]*data-feed-sort-dot=""/.test(menu))
+    check("the sort is a sliders button at the end of the chips row, opening a menu of four and Saved posts (round 9)", /sort=\{<SortMenu value=\{sort\} onChange=\{onSort\} saved=\{target\.kind === "saved"\} onSaved=\{toggleSaved\} \/>\}/.test(feed) && chips.indexOf("{sort}") > chips.indexOf("data-space-chips-track") && /Tuning2Icon/.test(menu) && /role="menuitemradio"/.test(menu) && /aria-checked=\{on\}/.test(menu))
+    check("the choice shows in the menu (a soft fill, a check) and as a dot on the button, never as a pill", /\{on \? <Check /.test(menu) && /value !== "default" \|\| saved \? <span[^>]*data-feed-sort-dot=""/.test(menu))
+    check("round 9, ask 16: Saved posts is a row under a rule in that menu; chosen it toggles Saved, and an order chosen on Saved goes back to All", /role="menuitemcheckbox"/.test(menu) && /aria-checked=\{saved\}/.test(menu) && /data-feed-sort-item="saved"/.test(menu) && />Saved posts</.test(menu) && /const toggleSaved = \(\) => pick\(target\.kind === "saved" \? \{ kind: "all" \} : \{ kind: "saved" \}\)/.test(feed) && /if \(target\.kind === "saved"\) pick\(\{ kind: "all" \}\)/.test(feed) && /data-saved-line=""/.test(feed))
     check("the menu: arrows, Escape (focus back to the button), a click outside", /e\.key !== "Escape"/.test(menu) && /buttonRef\.current\?\.focus/.test(menu) && /document\.addEventListener\("pointerdown", away, true\)/.test(menu) && /ArrowDown/.test(menu))
     check("one family of glyphs: Solar line icons for the four sorts and the button", ["history", "stars", "sort-from-bottom-to-top", "eye", "tuning-2"].every((n) => menu.includes(`@solar-icons/react/linear/${n}"`)))
     check("a chip switches in place: a plain click is kept from loading a page, a new tab is not", /if \(!inPlace\(e\)\) return\s*e\.preventDefault\(\)\s*onPick\(pick\)/.test(chips) && /e\.button === 0 && !e\.metaKey && !e\.ctrlKey && !e\.shiftKey && !e\.altKey/.test(chips))
@@ -833,7 +843,9 @@ async function main() {
     check("and the switching chips are not prefetched as pages (the list comes from the API, once)", /prefetch: false/.test(chips))
     check("the address follows with pushState (Next's router keeps up), and Back is read from it", /window\.history\.pushState\(null, "", href\)/.test(feed) && /window\.addEventListener\("popstate", on\)/.test(feed) && /targetFromPath\(livePath \|\| pathname, slug, spaces, start\)/.test(feed))
     check("a cached list on the very next render (read during render, not after an effect)", /const cached = shown\.key === key \? shown\.view : \(readView\(key\) \?\? null\)/.test(feed))
-    check("otherwise the list on screen stays until the new one arrives, dimmed only after 200ms", /const view = cached \?\? shown\.view/.test(feed) && /DIM_AFTER_MS = 200/.test(feed) && /dim \? "opacity-60" : "opacity-100"/.test(feed) && !/Skeleton/.test(feed))
+    check("round 9, ask 22: otherwise the list on screen stays for a moment, then a small spinner holds its place (never a skeleton)", /const view = cached \?\? shown\.view/.test(feed) && /window\.setTimeout\(\(\) => \{\s*afterSpinner\.current = true\s*setSlow\(true\)\s*\}, WAIT_MS\)/.test(feed) && /slow && waiting \? \(\s*<PlaceSpinner compact label="Loading posts" \/>/.test(feed) && !/Skeleton|opacity-60/.test(feed))
+    check("round 9: the list that arrives eases in by opacity (from 0 after the spinner, from 35% over another list), only when the drawn list changes", /const drawnKey = cached \? key : shown\.key/.test(feed) && /const from = afterSpinner\.current \? 0 : 0\.35/.test(feed) && /el\.animate\(\[\{ opacity: from \}, \{ opacity: 1 \}\], \{ duration: ARRIVE_MS, easing: ARRIVE_EASE \}\)/.test(feed) && /prefers-reduced-motion: reduce/.test(feed))
+    check("round 9: once idle the feed reads the first page of All and every feed space ahead, one at a time, never a chat space", /whenIdle\(\(\) => void prefetchViews\(communityId, aheadTargets, "default", \(\) => stopped\)\)/.test(feed) && /spaces\.filter\(\(s\) => s\.kind !== "chat"\)/.test(feed))
     check("asked for ahead: a pointer resting on a chip, a finger landing, the keyboard", /onPointerEnter: onIntent \? \(e: React\.PointerEvent\) => e\.pointerType === "mouse" && onIntent\(pick\)/.test(chips) && /onPointerDown: onIntent \? \(\) => onIntent\(pick\)/.test(chips) && /onFocus: onIntent/.test(chips) && /prefetchView\(communityId, next/.test(feed))
     check("a stale list (over a minute) is shown at once and read again quietly", /Date\.now\(\) - have\.at > FRESH_MS && have\.pages <= 1/.test(feed) && FRESH_MS === 60_000)
     check("pinned posts lead only in Default", /const lead = sort === "default" && target\.kind !== "saved"/.test(feed))
@@ -878,6 +890,34 @@ async function main() {
       g.fetch = realFetch
       clearViews()
     }
+    /* Round 9, ask 22: every space's first page read ahead on idle, one at a time, the fresh ones skipped, at most AHEAD_MAX. */
+    {
+      let inFlight = 0
+      let most = 0
+      const urls: string[] = []
+      g.fetch = (async (u: string) => {
+        urls.push(String(u))
+        inFlight++
+        most = Math.max(most, inFlight)
+        await new Promise((r) => setTimeout(r, 3))
+        inFlight--
+        return new Response(JSON.stringify({ pinned: [], posts: [], nextCursor: null }), { status: 200, headers: { "Content-Type": "application/json" } })
+      }) as typeof fetch
+      try {
+        writeView(viewKey("c", { kind: "all" }, "default"), { posts: [], cursor: null, at: Date.now(), pages: 1 })
+        const targets = [{ kind: "all" as const }, ...Array.from({ length: 15 }, (_, i) => ({ kind: "space" as const, id: `s${i}` }))]
+        const asked = await prefetchViews("c", targets, "default")
+        check("reading ahead: one ask at a time, the list already fresh skipped, at most AHEAD_MAX lists", most === 1 && asked === AHEAD_MAX - 1 && urls.length === AHEAD_MAX - 1 && !urls.some((u) => !/space=/.test(u)) && AHEAD_MAX === 12, { most, asked, n: urls.length })
+        const again = await prefetchViews("c", targets, "default")
+        let stopAfter = 0
+        clearViews()
+        const stopped = await prefetchViews("c", targets, "default", () => stopAfter++ >= 2)
+        check("  and nothing again while they are fresh; a feed that went away stops it", again === 0 && stopped === 2, { again, stopped })
+      } finally {
+        g.fetch = realFetch
+        clearViews()
+      }
+    }
 
     /* Ask 11: extremely little depth on every pill, chip and button. */
     const ui = code("components/community/member/ui.ts")
@@ -890,6 +930,20 @@ async function main() {
   {
     const pub = code("lib/communities/server/public.ts")
     check("the bar is told the handle and whether the account sells (Dashboard or Start creating), from the creators row", /username: profile\?\.username \?\? null/.test(pub) && /seller: sellerRows\[0\]\?\.onboarding_completed === true/.test(pub) && /db\.from\("creators"\)\.select\("onboarding_completed"\)\.eq\("user_id", userId\)/.test(pub))
+  }
+
+  /* ── Round 9: waiting for a place, a spinner and never a skeleton ────── */
+  console.log("\nRound 9: a small spinner while a place comes, never a skeleton; the frame stays")
+  {
+    const spin = code("components/community/member/place-spinner.tsx")
+    check("an iOS style spinner: eight thin round spokes, each fainter, turned a spoke at a time, grey, 22px", /const SPOKES = 8/.test(spin) && /strokeWidth="2" strokeLinecap="round"/.test(spin) && /motion-safe:animate-\[spin_0\.8s_steps\(8,end\)_infinite\]/.test(spin) && /text-\[#8a8f98\]/.test(spin) && /size = 22/.test(spin))
+    check("it waits ~160ms and fades in, so a quick place never shows it; a status for a screen reader", /export const WAIT_MS = 160/.test(spin) && /skeleton-reveal 200ms cubic-bezier\(0\.22, 1, 0\.36, 1\) \$\{WAIT_MS\}ms both/.test(spin) && /role="status"/.test(spin))
+    const base = "app/(marketing)/community/[slug]"
+    const loadings = ["", "/(member)/post/[postId]", "/(member)/classroom", "/(member)/classroom/[courseProductId]", "/(member)/notifications", "/(member)/events", "/(member)/events/[eventId]", "/(member)/members", "/(member)/space/[space]", "/(member)/saved", "/(member)/leaderboard"].map((d) => `${base}${d}/loading.tsx`)
+    const bad = loadings.filter((f) => !existsSync(f) || !/<PlaceSpinner label="[^"]+" \/>/.test(read(f)) || /Skeleton/.test(read(f)))
+    check("every member page's loading screen is the spinner, none a skeleton (the community's home too)", bad.length === 0, bad)
+    check("the old member skeletons are gone", !existsSync("components/community/member/skeletons.tsx"))
+    check("a space's page, while it comes, keeps the row of spaces as it was (the pressed one chosen) over the spinner", /<SpaceChipsHeld \/>\s*<PlaceSpinner label="Loading the space" \/>/.test(read(`${base}/(member)/space/[space]/loading.tsx`)) && /rememberedSpaces\(slug\)/.test(code("components/community/member/space-chips-held.tsx")) && /if \(typeof window !== "undefined"\) drawn\.set\(slug, spaces\)/.test(code("components/community/member/space-chips.tsx")))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

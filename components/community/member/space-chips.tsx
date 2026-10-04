@@ -4,13 +4,14 @@
  * feed of that space, or its chat), so it works without JavaScript and the
  * back button does what it should. The chosen one is filled in ink; a chat
  * space with unread messages carries a dot. At the right end of the row the
- * sort button (round 7, sort-menu.tsx, the feed's only) and Saved, always
- * in view.
+ * sort button (round 7, sort-menu.tsx, the feed's only), always in view.
+ * Round 9: no Saved chip beside it; Saved posts is a row in that menu and
+ * in the bar's "..." menu.
  *
- * IN PLACE ON THE FEED (round 7). Given `onPick`, a plain click on All, a
- * feed space or Saved does not load a page: the feed (feed.tsx) swaps its
- * list where it stands, from its cache when it has the space, and moves the
- * address itself. `onIntent` is told when a pointer rests on a chip or a
+ * IN PLACE ON THE FEED (round 7). Given `onPick`, a plain click on All or a
+ * feed space does not load a page: the feed (feed.tsx) swaps its list where
+ * it stands, from its cache when it has the space, and moves the address
+ * itself. `onIntent` is told when a pointer rests on a chip or a
  * finger lands on one, so the list can be asked for before the click. A
  * chat space is always a page of its own, and every chip is still a real
  * link for a new tab or a reload.
@@ -25,7 +26,6 @@
  * draw it.
  */
 import Link from "next/link"
-import { BookmarkIcon } from "@solar-icons/react/linear/bookmark"
 import { DEPTH, DEPTH_INK, DEPTH_PRESS } from "./ui"
 import type { SpaceView } from "./view-types"
 
@@ -34,7 +34,7 @@ const CHIP =
 const CHIP_ON = `${DEPTH_INK} text-white`
 const CHIP_OFF = `${DEPTH} ${DEPTH_PRESS} text-[#4b5563] hover:border-[#d5d8de] hover:text-[#1a1a2e]`
 
-/** What a chip opens, for a feed that switches in place: All, one feed space, or Saved. */
+/** What a chip (or the sort menu's Saved posts) opens, for a feed that switches in place: All, one feed space, or Saved. */
 export type ChipPick = { kind: "all" } | { kind: "space"; slug: string } | { kind: "saved" }
 
 /** An emoji the creator chose for a space goes in front of its name; the line icon names do not. */
@@ -57,11 +57,26 @@ export interface SpaceChipsProps {
   onPick?: (pick: ChipPick) => void
   /** A pointer resting on a chip, a finger landing on one or the keyboard reaching it: read ahead. */
   onIntent?: (pick: ChipPick) => void
-  /** The sort button, drawn left of Saved (the feed only). */
+  /** The sort button, at the row's right end (the feed only). */
   sort?: React.ReactNode
 }
 
+/*
+  THE CHIPS LAST DRAWN IN THIS TAB, per community, so a space that is a page
+  of its own (a chat space, or a link from elsewhere) keeps the same row on
+  screen while its page is on its way (space-chips-held.tsx, its
+  loading.tsx): the row does not vanish and come back (round 9). Kept in the
+  browser only; a server draws chips for many people, so it keeps nothing.
+*/
+const drawn = new Map<string, SpaceView[]>()
+
+/** The spaces of a community as its chips were last drawn here, if they were. */
+export function rememberedSpaces(slug: string): SpaceView[] | null {
+  return drawn.get(slug) ?? null
+}
+
 export function SpaceChips({ slug, spaces, active, savedOn = false, onPick, onIntent, sort }: SpaceChipsProps) {
+  if (typeof window !== "undefined") drawn.set(slug, spaces)
   const base = `/community/${slug}`
   const allOn = active === null && !savedOn
   /* The props a chip that can switch in place carries; a page link otherwise. */
@@ -108,14 +123,6 @@ export function SpaceChips({ slug, spaces, active, savedOn = false, onPick, onIn
         </div>
       </div>
       {sort}
-      {/*
-        Under 400px (round 8, a 375 or 390 phone) Saved is its bookmark alone in a 40px circle, its word kept for a screen reader: the
-        sort button and the word took half the row, and the spaces scrolled in what was left.
-      */}
-      <Link href={`${base}/saved`} aria-current={savedOn ? "page" : undefined} data-space-chip="saved" className={`${CHIP} ${savedOn ? CHIP_ON : CHIP_OFF} max-[399px]:w-10 max-[399px]:justify-center max-[399px]:px-0`} {...switching({ kind: "saved" })}>
-        <BookmarkIcon size={16} className="shrink-0" />
-        <span className="max-[399px]:sr-only">Saved</span>
-      </Link>
     </nav>
   )
 }

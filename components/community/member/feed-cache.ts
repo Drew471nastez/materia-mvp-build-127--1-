@@ -120,6 +120,42 @@ export function prefetchView(communityId: string, target: FeedTarget, sort: Feed
   void loadView(communityId, target, sort)
 }
 
+/** Spaces read ahead at most, on one visit to a feed (a community with dozens of spaces does not ask for all of them). */
+export const AHEAD_MAX = 12
+
+/**
+ * THE FIRST PAGE OF EVERY SPACE, READ AHEAD WHILE NOTHING ELSE IS GOING ON
+ * (round 9: "prefetch all places and the first page of each space on
+ * idle"). One at a time, not in a burst, each skipped when it is cached and
+ * fresh or already on its way; `stop` ends the run (the feed went away).
+ * Resolves with how many were asked for.
+ */
+export async function prefetchViews(communityId: string, targets: FeedTarget[], sort: FeedSortValue, stopped: () => boolean = () => false): Promise<number> {
+  let asked = 0
+  for (const target of targets.slice(0, AHEAD_MAX)) {
+    if (stopped()) break
+    const key = viewKey(communityId, target, sort)
+    const have = views.get(key)
+    if (pending.has(key) || (have && Date.now() - have.at < FRESH_MS)) continue
+    asked++
+    await loadView(communityId, target, sort)
+  }
+  return asked
+}
+
+type IdleWindow = Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void }
+
+/** Run once the page is idle (after a moment where a browser has no idle callback); the returned function cancels it. */
+export function whenIdle(run: () => void, timeout = 2000): () => void {
+  const w = window as IdleWindow
+  if (w.requestIdleCallback) {
+    const id = w.requestIdleCallback(run, { timeout })
+    return () => w.cancelIdleCallback?.(id)
+  }
+  const t = window.setTimeout(run, 600)
+  return () => window.clearTimeout(t)
+}
+
 /**
  * A change to one post (a like, a save, an edit, a delete) made in one list,
  * carried into every other cached list that holds the same post, so a

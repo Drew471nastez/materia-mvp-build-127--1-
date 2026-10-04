@@ -91,16 +91,24 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const ORIGIN = "https://storelib.com"
 
 try {
-  writeFileSync(join(stubs, "navigation.js"), `const log = (k, a) => (window.__router ||= []).push([k, a])
-const router = { push: (h) => log("push", h), replace: (h) => log("replace", h), prefetch: (h) => log("prefetch", h), back: () => log("back"), refresh: () => log("refresh") }
-export const usePathname = () => location.pathname
+  /*
+    usePathname follows the address the way the app router's does: a navigation (the harness's __navigate, ?case=nav) or Back tells
+    whoever reads it, so the frame is drawn again by the address alone, never by a parent. router.prefetch is logged with its kind and
+    handed to the harness's cache.
+  */
+  writeFileSync(join(stubs, "navigation.js"), `import { useSyncExternalStore } from "react"
+const log = (k, a) => (window.__router ||= []).push([k, a])
+const router = { push: (h) => log("push", h), replace: (h) => log("replace", h), prefetch: (h, o) => { log("prefetch", h); (window.__prefetchKinds ||= []).push(o && o.kind); window.__onPrefetch && window.__onPrefetch(h) }, back: () => log("back"), refresh: () => log("refresh") }
+const subscribe = (cb) => { window.addEventListener("probe:path", cb); window.addEventListener("popstate", cb); return () => { window.removeEventListener("probe:path", cb); window.removeEventListener("popstate", cb) } }
+const path = () => location.pathname
+export const usePathname = () => useSyncExternalStore(subscribe, path, path)
 export const useRouter = () => router
 export const useSearchParams = () => new URLSearchParams(location.search)
 export const redirect = () => {}
 export const notFound = () => {}
 `)
   writeFileSync(join(stubs, "link.jsx"), `import React from "react"
-export default React.forwardRef(function Link({ href, children, prefetch, scroll, ...rest }, ref) { return React.createElement("a", { href, ref, ...rest, onClick: (e) => { rest.onClick && rest.onClick(e); if (!e.defaultPrevented) { e.preventDefault(); (window.__router ||= []).push(["link", href]) } } }, children) })
+export default React.forwardRef(function Link({ href, children, prefetch, scroll, unstable_dynamicOnHover, ...rest }, ref) { return React.createElement("a", { href, ref, ...rest, onClick: (e) => { rest.onClick && rest.onClick(e); if (!e.defaultPrevented) { e.preventDefault(); (window.__router ||= []).push(["link", href]); window.__navigate && window.__navigate(href) } } }, children) })
 `)
   writeFileSync(join(stubs, "supabase-client.js"), `export function createClient() {
   return {
@@ -123,7 +131,28 @@ export const isNativePlatform = () => false
     jsx: "automatic",
     define: { "process.env.NODE_ENV": '"production"' },
     alias: { "@": ".", "next/navigation": "./.community-shell-probe/navigation.js", "next/link": "./.community-shell-probe/link.jsx" },
-    plugins: [{ name: "supabase-stub", setup(b) { b.onResolve({ filter: /lib\/supabase\/client$/ }, () => ({ path: join(stubs, "supabase-client.js") })) } }],
+    plugins: [
+      { name: "supabase-stub", setup(b) { b.onResolve({ filter: /lib\/supabase\/client$/ }, () => ({ path: join(stubs, "supabase-client.js") })) } },
+      /*
+        RENDER COUNTS (round 9, "the frame never re-renders"): the probe's copy of the bar, the side cards and the chips counts each
+        time its function runs, in window.__renders. Only this bundle is changed; the source is not.
+      */
+      {
+        name: "render-counts",
+        setup(b) {
+          const counted = { "top-bar.tsx": ["CommunityTopBarInner"], "wall.tsx": ["WallCommunityCardInner", "WallUpcomingInner", "WallContributorsCardInner", "WallPlaces"], "space-chips.tsx": ["SpaceChips"] }
+          b.onLoad({ filter: /components\/community\/member\/(top-bar|wall|space-chips)\.tsx$/ }, (a) => {
+            let src = readFileSync(a.path, "utf8")
+            for (const name of counted[a.path.split("/").pop()]) {
+              const re = new RegExp(`(function ${name}\\([^\\n]*\\) \\{\\n)`)
+              if (!re.test(src)) throw new Error(`render-counts: ${name} not found`)
+              src = src.replace(re, `$1  ;(globalThis.__renders ||= {})["${name}"] = ((globalThis.__renders || {})["${name}"] || 0) + 1\n`)
+            }
+            return { contents: src, loader: "tsx" }
+          })
+        },
+      },
+    ],
     banner: { js: "var process={env:{NODE_ENV:'production',NEXT_PUBLIC_SUPABASE_URL:'https://placeholder.supabase.co',NEXT_PUBLIC_SUPABASE_ANON_KEY:'placeholder'}};" },
     loader: { ".css": "empty" },
     outfile: join(stubs, "app.js"),
@@ -327,6 +356,7 @@ export const isNativePlatform = () => false
             return { bg: cs.backgroundColor, border: cs.borderTopWidth, color: cs.color, offColor: getComputedStyle(off).color, line: { h: Math.round(lr.height), w: Math.round(lr.width), tabW: Math.round(on.getBoundingClientRect().width), opacity: getComputedStyle(line).opacity, bg: getComputedStyle(line).backgroundColor, bottom: Math.round(lr.bottom) }, offLine: getComputedStyle(off.querySelector("[data-tab-line]")).opacity, barBottom: Math.round(top.getBoundingClientRect().bottom) }
           })(),
           shadow: getComputedStyle(top).boxShadow,
+          barBg: getComputedStyle(top).backgroundColor,
           hairline: getComputedStyle(top).borderBottomWidth + " " + getComputedStyle(top).borderBottomColor,
           rowOrder: (() => {
             const x = (s) => Math.round(document.querySelector(s)?.getBoundingClientRect().left ?? -1)
@@ -350,6 +380,8 @@ export const isNativePlatform = () => false
           faces: document.querySelectorAll("[data-wall-faces] [data-person-id]").length,
           moreFaces: document.querySelector("[data-wall-more]")?.textContent?.trim() ?? null,
           address: document.querySelector("[data-wall-address]")?.textContent?.trim() ?? null,
+          addressBelowName: (() => { const n = document.querySelector("[data-wall-name]"); const a = document.querySelector("[data-wall-address]"); if (!vis(n) || !vis(a)) return null; const nr = n.getBoundingClientRect(); const ar = a.firstElementChild.getBoundingClientRect(); return { gap: Math.round(ar.top - nr.bottom), color: getComputedStyle(a).color, size: getComputedStyle(a).fontSize, left: Math.round(ar.left - nr.left) } })(),
+          invites: [...document.querySelectorAll("[data-community-invite]")].map((x) => x.getAttribute("data-community-invite")),
           settings: !!document.querySelector("[data-wall-settings]"),
           composer: { state: document.querySelector("[data-composer]")?.getAttribute("data-composer"), buttons: [...document.querySelectorAll('[data-composer="closed"] button')].map((b) => b.textContent.trim()), actions: document.querySelectorAll("[data-composer-action]").length },
           upcoming: vis(document.querySelector("[data-wall-upcoming]")) ? document.querySelector("[data-wall-upcoming]").innerText.replace(/\s+/g, " ").trim() : null,
@@ -367,7 +399,7 @@ export const isNativePlatform = () => false
       const geo = await barGeometry(p)
       const was = phone ? BEFORE.phone : BEFORE.desktop
       console.log(`        header height: ${was}px before round 4, ${phone ? 85 : 57}px in round 4, ${geo.height}px now (round 7)`)
-      expect(geo.height === (phone ? 97 : 65), `comfortable, not fat: ${phone ? "56 + 40 of tabs + the hairline" : "one 64px row + the hairline, the places in the right column"}`, { before: was, now: geo.height })
+      expect(geo.height === (phone ? 97 : 65), `comfortable, not fat: ${phone ? "56 + 40 of tabs + the hairline" : "one 64px row + the hairline, the places in the left column"}`, { before: was, now: geo.height })
       expect(geo.markSize === (phone ? 36 : 40), `the community's picture a bit bigger: ${phone ? 36 : 40}px (was ${phone ? 32 : 34})`, geo.markSize)
       expect(g.bellIcon === 24, "the bell a bit bigger: a 24px glyph (was 22)", g.bellIcon)
       if (!phone) expect(!g.tabsShown && !geo.tabs, "no row of tabs on a computer: the left column has the places", { shown: g.tabsShown })
@@ -400,10 +432,11 @@ export const isNativePlatform = () => false
       expect(phone ? !g.byShown : g.byShown, phone ? "on a phone no By <creator> line: the picture and the name" : "By <creator> shows on a computer", g.byShown)
       if (phone) expect(!g.switcher && g.rowOrder.nav >= 0 && g.rowOrder.nav < g.rowOrder.logo && g.rowOrder.logo < g.rowOrder.name, "no chevron switcher; on a phone the hamburger, the picture, then the name", g.rowOrder)
       else expect(!g.switcher && g.rowOrder.logo >= 0 && g.rowOrder.logo < g.rowOrder.name && g.rowOrder.name < g.rowOrder.nav, "no chevron switcher; the picture, the name, then the hamburger", g.rowOrder)
-      expect(g.shadow !== "none" && /^1px /.test(g.hairline), "the bar has a hairline and a soft shadow under it", { shadow: g.shadow, hairline: g.hairline })
-      expect(g.chips.join() === "All,General,Announcements,🏺Critique,Glaze lab,Kiln room,Saved" && g.chipOn === "all" && g.chipAll === "rgb(26, 26, 46)", "the spaces as chips, All chosen in near black, Saved at the end", { chips: g.chips, all: g.chipAll })
+      expect(g.shadow === "none" && /^1px /.test(g.hairline) && g.barBg === "rgb(255, 255, 255)", "round 9: one opaque white surface with a hairline at its bottom only (no shadow, no tint)", { shadow: g.shadow, hairline: g.hairline, bg: g.barBg })
+      expect(g.chips.join() === "All,General,Announcements,🏺Critique,Glaze lab,Kiln room" && g.chipOn === "all" && g.chipAll === "rgb(26, 26, 46)", "round 9: the spaces as chips, All chosen in near black, no Saved chip", { chips: g.chips, all: g.chipAll })
+      expect(g.invites.length === 0, "round 9: no Invite button on the card or at the end of the tabs (it is in the \"...\" menu)", g.invites)
       expect(g.messages === "2" && g.bell === "4" && g.more === 1 && g.myPicture === 0, "Messages and Storelib's bell with their counts, then a \"...\" (round 7: no picture of me in the bar)", { messages: g.messages, bell: g.bell, more: g.more, picture: g.myPicture })
-      expect(phone ? g.searchButton && !g.searchField : g.searchField && !g.searchButton && g.placeholder === "Search discussions, members, or content...", phone ? "on a phone the search is an icon" : "the search field: Search discussions, members, or content...", { field: g.searchField, button: g.searchButton, placeholder: g.placeholder })
+      expect(phone ? !g.searchButton && !g.searchField : g.searchField && !g.searchButton && g.placeholder === "Search discussions, members, or content...", phone ? "round 9: no search icon in the bar on a phone (the tab bar's Search opens it)" : "the search field: Search discussions, members, or content..., and no search icon", { field: g.searchField, button: g.searchButton, placeholder: g.placeholder })
       expect(g.topVar === `${g.height}px`, "--community-top is the bar's measured height", { topVar: g.topVar, height: g.height })
       expect(g.theme === "#ffffff", "the browser's bar is white to match", g.theme)
       expect(g.bg === "rgb(248, 249, 250)", "the page is #f8f9fa", g.bg)
@@ -411,11 +444,13 @@ export const isNativePlatform = () => false
       expect(g.composer.state === "closed" && g.composer.buttons.length === 1 && /Share something/.test(g.composer.buttons[0]) && g.composer.actions === 0, "the composer: one \"Share something...\" field, no row of Photo / Video / Poll under it", g.composer)
       expect(g.spaceName === "General" && /\/community\/clay-studio\/space\/general$/.test(g.spaceHref || "") && !g.saveOnCard, "a post: its space named in its line, linking to the space; Save is behind the card's dots", { space: g.spaceName, href: g.spaceHref, saveOnCard: g.saveOnCard })
       if (!phone) {
-        expect(g.places.join() === "Community,Classroom,Calendar,Members,Leaderboards,About" && g.placeOn === "Community", "the right column lists the places, Community marked", { places: g.places, on: g.placeOn })
+        expect(g.places.join() === "Community,Classroom,Calendar,Members,Leaderboards,About" && g.placeOn === "Community", "the left column lists the places, Community marked", { places: g.places, on: g.placeOn })
         const L = g.placeLook
         expect(!!L && L.onBg !== L.offBg && L.h >= 44 && L.chevrons === 6 && L.lucide === 0 && new Set(L.tiles).size === 6 && L.tiles.every((c) => !/139, 92, 246|124, 58, 237/.test(c)), "each place: a soft tile of its own tint, a Solar glyph (no lucide), a word and a Solar chevron; the open one shaded", L)
         expect(g.stats.join("|") === "8kMembers|191Online|2Admins" && g.dot, "the community card: Members, Online with its green dot, Admins", { stats: g.stats, dot: g.dot })
-        expect(g.faces === 7 && g.moreFaces === "+8k" && g.address === null && !g.settings, "seven faces and +8k; round 7: no storelib.com/community/... line; no Settings for a member", { faces: g.faces, more: g.moreFaces, address: g.address, settings: g.settings })
+        expect(g.faces === 7 && g.moreFaces === "+8k" && !g.settings, "seven faces and +8k; no Settings for a member", { faces: g.faces, more: g.moreFaces, settings: g.settings })
+        const A = g.addressBelowName
+        expect(g.address === "storelib.com/community/clay-studio" && !!A && A.gap >= 0 && A.gap <= 4 && A.left === 0 && A.size === "13px" && A.color === "rgb(138, 143, 152)", "round 9: the address again under the name, quiet grey, one line", { address: g.address, A })
         expect(/Upcoming event/.test(g.upcoming || "") && /Live critique: trimming feet/.test(g.upcoming || "") && /128 going/.test(g.upcoming || "") && /View event/.test(g.upcoming || ""), "Upcoming event: the date, the title, the time, 128 going, View event", g.upcoming)
         expect(!!g.contributors && g.contributors.length === 3 && /^1 (PR )?Priya Raman 420$/.test(g.contributors[0]) && /^3 Leo Martins 287$/.test(g.contributors[2]), "Top contributors: rank, name and points", g.contributors)
       } else {
@@ -481,15 +516,16 @@ export const isNativePlatform = () => false
         const r = b.getBoundingClientRect()
         return { w: Math.round(r.width), h: Math.round(r.height), bg: cs.backgroundColor, border: `${cs.borderTopWidth} ${cs.borderTopColor}`, shadow: cs.boxShadow, radius: cs.borderTopLeftRadius, label: b.getAttribute("aria-label") }
       })
-      expect(moreLook.w === 40 && moreLook.h === 40 && moreLook.radius === "10px" && moreLook.bg === "rgb(248, 249, 250)" && moreLook.shadow !== "none" && /^1px /.test(moreLook.border), "the \"...\": a 40px square with the faintest ground, a hairline and a one pixel shadow", moreLook)
+      expect(moreLook.w === 40 && moreLook.h === 40 && moreLook.radius === "10px" && moreLook.bg === "rgba(0, 0, 0, 0)" && moreLook.shadow === "none" && /^0px /.test(moreLook.border), "round 9: the \"...\" is flat, a 40px target with no ground, no hairline and no shadow at rest", moreLook)
       await p.evaluate(() => [...document.querySelectorAll("[data-community-top] [data-account-more]")].find((x) => x.getBoundingClientRect().width > 0).click())
       await sleep(phone ? 650 : 300)
       const menu = await p.evaluate((ph) => {
         const box = ph ? [...document.querySelectorAll("[data-account-sheet-body]")].find((b) => b.getBoundingClientRect().height > 0) : document.querySelector("[data-community-top] [data-account-menu]")
         if (!box) return null
-        return { items: [...box.querySelectorAll("[data-account-item]")].map((a) => a.getAttribute("data-account-item")), hrefs: Object.fromEntries([...box.querySelectorAll("a[data-account-item]")].map((a) => [a.getAttribute("data-account-item"), a.getAttribute("href")])), who: box.querySelector("[data-account-who]")?.innerText.replace(/\s+/g, " ").trim() }
+        return { items: [...box.querySelectorAll("[data-account-item]")].map((a) => a.getAttribute("data-account-item")), hrefs: Object.fromEntries([...box.querySelectorAll("a[data-account-item]")].map((a) => [a.getAttribute("data-account-item"), a.getAttribute("href")])), who: box.querySelector("[data-account-who]")?.innerText.replace(/\s+/g, " ").trim(), text: box.innerText }
       }, phone)
-      expect(!!menu && menu.items.join() === "start-creating,profile,settings,language,help,discover,log-out", `the "..." opens the Storelib account ${phone ? "sheet" : "menu"}, the same rows in the same order`, menu?.items)
+      expect(!!menu && menu.items.join() === "invite,saved,start-creating,profile,settings,language,help,discover,log-out", `the "..." opens the Storelib account ${phone ? "sheet" : "menu"} with Invite people and Saved posts on top (round 9), then the same rows in the same order`, menu?.items)
+      expect(!!menu && menu.hrefs.saved === "/community/clay-studio/saved" && /Invite people/.test(menu.text) && /Saved posts/.test(menu.text), "Invite people and Saved posts (to this community's saved posts)", menu && { saved: menu.hrefs.saved })
       expect(!!menu && menu.hrefs.profile === "/account" && menu.hrefs.settings === "/account/settings" && menu.hrefs["start-creating"] === "/sell" && menu.hrefs.help === "/help" && menu.hrefs.discover === "/explore" && /Sam Carter @samc/.test(menu.who || ""), "Profile goes to /account (not /@samc or an editor), Settings, Start creating, Help, Discover; my name and @handle on top", menu)
       await shot(p, `${label}-me-menu`)
       await p.evaluate((ph) => {
@@ -501,6 +537,23 @@ export const isNativePlatform = () => false
       expect(went.at(-1) === "/account", "and Profile is a link to /account", went)
       await p.keyboard.press("Escape")
       await sleep(phone ? 650 : 250)
+      /* Round 9: Invite people, from the same menu, opens the invite sheet (on a phone once the account sheet has gone). */
+      await p.evaluate(() => [...document.querySelectorAll("[data-community-top] [data-account-more]")].find((x) => x.getBoundingClientRect().width > 0).click())
+      await sleep(phone ? 650 : 300)
+      await p.evaluate((ph) => {
+        const box = ph ? [...document.querySelectorAll("[data-account-sheet-body]")].find((b) => b.getBoundingClientRect().height > 0) : document.querySelector("[data-community-top] [data-account-menu]")
+        box.querySelector('[data-account-item="invite"]').click()
+      }, phone)
+      await sleep(phone ? 900 : 400)
+      const invite = await p.evaluate(() => {
+        const sheet = [...document.querySelectorAll("[data-invite-sheet]")].find((b) => b.getBoundingClientRect().height > 0)
+        const account = [...document.querySelectorAll("[data-account-sheet-body]")].some((b) => b.getBoundingClientRect().height > 0 && !b.closest("[inert]") && getComputedStyle(b).visibility !== "hidden")
+        return { open: !!sheet, title: sheet?.querySelector("h2, [data-sheet-title]")?.textContent ?? sheet?.innerText.split("\n")[0], menu: !!document.querySelector('[data-community-top] [data-account-menu][data-state="open"]'), account }
+      })
+      expect(invite.open && !invite.menu, "Invite people opens the invite sheet and the menu closes", invite)
+      await shot(p, `${label}-invite-from-menu`)
+      await p.keyboard.press("Escape")
+      await sleep(phone ? 650 : 300)
 
       /* MESSAGES opens the existing panel */
       await p.click("[data-community-messages-button]")
@@ -574,14 +627,15 @@ export const isNativePlatform = () => false
         const slash = await p.evaluate(() => document.activeElement?.hasAttribute("data-community-search-input"))
         expect(slash, '"/" puts the cursor in the search', slash)
       } else {
-        await p.tap('[data-community-search="button"]')
+        /* Round 9: no icon in the bar; the tab bar's Search opens the same screen through the bridge (lib/nav/community-search-bridge). */
+        await p.evaluate(() => window.__openCommunitySearch("clay-studio"))
         await sleep(350)
         const sc = await p.evaluate(() => {
           const s = document.querySelector("[data-community-search-screen]")
           const r = s?.getBoundingClientRect()
           return { open: !!s, box: r && { x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height) }, focused: document.activeElement?.hasAttribute("data-community-search-input"), font: getComputedStyle(document.querySelector("[data-community-search-screen] input")).fontSize, vh: innerHeight, vw: innerWidth }
         })
-        expect(sc.open && sc.box.x === 0 && sc.box.y === 0 && sc.box.w === sc.vw && sc.box.h === sc.vh && sc.focused && sc.font === "16px", "on a phone the icon opens the search over the whole screen, the cursor in it (16px, so iOS does not zoom)", sc)
+        expect(sc.open && sc.box.x === 0 && sc.box.y === 0 && sc.box.w === sc.vw && sc.box.h === sc.vh && sc.focused && sc.font === "16px", "on a phone the tab bar's Search opens the community search over the whole screen, the cursor in it (16px, so iOS does not zoom)", sc)
         await p.keyboard.type("gla", { delay: 30 })
         await sleep(650)
         const res = await p.evaluate(() => [...document.querySelectorAll("[data-community-search-screen] [data-search-option]")].map((o) => Math.round(o.getBoundingClientRect().height)))
@@ -593,7 +647,7 @@ export const isNativePlatform = () => false
         await sleep(200)
         const nav = await p.evaluate(() => ({ to: (window.__router || []).filter((x) => x[0] === "push").map((x) => x[1]), open: !!document.querySelector("[data-community-search-screen]"), overflow: document.documentElement.style.overflow }))
         expect(nav.to.join() === "/@jonasb" && !nav.open && nav.overflow === "", "a result opens it and the screen goes, the page scrolls again", nav)
-        await p.tap('[data-community-search="button"]')
+        await p.evaluate(() => window.__openCommunitySearch("clay-studio"))
         await sleep(300)
         await p.tap("[data-community-search-close]")
         await sleep(200)
@@ -607,18 +661,21 @@ export const isNativePlatform = () => false
     }
 
     /*
-      ── THE COLUMNS, SWAPPED (round 7) ──────────────────────────────────
-      Left: the community card, and on the feed the top contributors right under it. Right: the places (Community, Classroom,
-      Calendar, Members, Leaderboards, About) and, on the feed, the next event under them. The three columns are the same on
-      every page, so the middle never moves between the feed and the classroom.
+      ── THE COLUMNS (round 9: the places back on the left) ───────────────
+      Left: the community card and the places (Community, Classroom, Calendar, Members, Leaderboards, About) right under it, and
+      nothing else (no Most active there). Right: the next event, then the top contributors / Most active, each only when there is
+      one. The three columns and their cards are the same on every place, so the middle never moves between the feed and the
+      classroom and the side columns never change.
     */
     if (!phone) {
       const widths = {}
       const columns = (p) =>
         p.evaluate(() => {
           const r = (s) => { const e = document.querySelector(s); if (!e) return null; const b = e.getBoundingClientRect(); return b.width ? { x: Math.round(b.left), y: Math.round(b.top), w: Math.round(b.width), right: Math.round(b.right), b: Math.round(b.bottom) } : null }
-          const right = [...document.querySelectorAll("[data-community-right-cards] > *")].map((s) => s.hasAttribute("data-wall-upcoming") ? "event" : s.hasAttribute("data-wall-places") ? "places" : "other")
-          return { columns: document.querySelector("[data-community-columns]")?.getAttribute("data-community-columns"), left: r("[data-community-left]"), card: r("[data-wall-card]"), contributors: r("[data-wall-contributors]"), main: r("[data-community-main]"), right: r("[data-community-right]"), places: r("[data-wall-places]"), event: r("[data-wall-upcoming]"), rightOrder: right, search: r('[data-community-search="field"]'), mark: r("[data-community-top-lead] > a") }
+          const kind = (s) => (s.hasAttribute("data-wall-upcoming") ? "event" : s.hasAttribute("data-wall-places") ? "places" : s.hasAttribute("data-wall-contributors") ? "contributors" : s.hasAttribute("data-wall-card") ? "card" : "other")
+          const right = [...document.querySelectorAll("[data-community-right-cards] > *")].map(kind)
+          const left = [...document.querySelectorAll("[data-community-left] > *")].map(kind)
+          return { columns: document.querySelector("[data-community-columns]")?.getAttribute("data-community-columns"), left: r("[data-community-left]"), card: r("[data-wall-card]"), contributors: r("[data-wall-contributors]"), main: r("[data-community-main]"), right: r("[data-community-right]"), places: r("[data-wall-places]"), event: r("[data-wall-upcoming]"), rightOrder: right, leftOrder: left, search: r('[data-community-search="field"]'), mark: r("[data-community-top-lead] > a") }
         })
       for (const wall of ["both", "event", "contributors", "none"]) {
         const { p, errors } = await open("feed", `/community/clay-studio?wall=${wall}`, vp)
@@ -626,26 +683,43 @@ export const isNativePlatform = () => false
         widths[wall] = c.main?.w
         console.log(`        ?wall=${wall}: left ${c.left?.w}px, feed ${c.main?.w}px, right ${c.right?.w ?? "none"}`)
         expect(c.columns === "three" && c.left?.w === 280 && c.right?.w === 300 && c.main.x === c.left.right + 24 && c.right.x === c.main.right + 24, `?wall=${wall}: three columns, 280px left, the feed, 300px right, 24px apart`, c)
-        expect(!!c.places && c.places.x === c.right.x && c.rightOrder[0] === "places", "the places are in the RIGHT column, at its top", { places: c.places, order: c.rightOrder })
-        if (wall === "both" || wall === "event") expect(c.rightOrder.join() === "places,event" && c.event.y >= c.places.b, "the upcoming event stays on the right, under the places", c.rightOrder)
-        else expect(c.rightOrder.join() === "places" && !c.event, "no event: the places alone on the right", c.rightOrder)
-        if (wall === "both" || wall === "contributors") expect(!!c.contributors && c.contributors.x === c.left.x && c.contributors.y === c.card.b + 12, "top contributors in the LEFT column, 12px under the community card", { card: c.card, contributors: c.contributors })
-        else expect(!c.contributors, "no contributors: the card alone on the left", c.contributors)
+        expect(c.leftOrder.join() === "card,places" && !!c.places && c.places.x === c.left.x && c.places.y === c.card.b + 12, "round 9: the places in the LEFT column, 12px under the community card, and nothing else there", { order: c.leftOrder, card: c.card, places: c.places })
+        const want = [wall === "both" || wall === "event" ? "event" : null, wall === "both" || wall === "contributors" ? "contributors" : null].filter(Boolean)
+        expect(c.rightOrder.join() === want.join() && (!c.contributors || c.contributors.x === c.right.x) && (!c.event || c.event.x === c.right.x), `the right column: ${want.length ? want.join(" then ") : "nothing (no event, no contributors)"}`, c.rightOrder)
+        if (wall === "both") expect(c.contributors.y >= c.event.b + 12 && c.event.y === c.main.y, "the event at the top of the right column, the contributors 12px under it", { event: c.event, contributors: c.contributors, main: c.main })
         if (wall === "both") {
           expect(!!c.search && c.search.x === c.main.x && c.mark.x === c.left.x, "the search lines up with the feed, the logo with the left column", { search: c.search, main: c.main, mark: c.mark, left: c.left })
           await shot(p, `${label}-wall-both`)
+          await p.evaluate(() => window.scrollTo(0, 0))
+          await shot(p, `${label}-wall-both-full`, true)
         } else await shot(p, `${label}-wall-${wall}`)
         expect(errors.length === 0, "no page errors", errors)
         await p.close()
       }
       expect(new Set(Object.values(widths)).size === 1, "the feed is the same width whatever the side cards say", widths)
-      /* Not a feed: the same three columns (the places on the right, Classroom marked), no event, no contributors, the middle where it was. */
+      /* Not a feed: the same three columns and the same side cards (the places on the left with Classroom marked), the middle where it was. */
       {
         const { p, errors } = await open("classroom", "/community/clay-studio/classroom", vp)
         const c = await columns(p)
         const on = await p.evaluate(() => document.querySelector("[data-wall-places] [aria-current=page]")?.textContent?.trim())
-        expect(c.columns === "three" && on === "Classroom" && c.rightOrder.join() === "places" && !c.contributors && c.main.w === widths.both && c.main.x === c.left.right + 24, "the classroom: the same columns (no jump from the feed), the places on the right with Classroom marked, no side cards", { c, on })
+        expect(c.columns === "three" && on === "Classroom" && c.leftOrder.join() === "card,places" && c.rightOrder.join() === "event,contributors" && c.main.w === widths.both && c.main.x === c.left.right + 24, "the classroom: the same columns and the same side cards as the feed (nothing in the frame changes), Classroom marked", { c, on })
         await shot(p, `${label}-classroom`)
+        expect(errors.length === 0, "no page errors", errors)
+        await p.close()
+      }
+      /* The address under the name copies the community's link and says so for a moment, in the same place. */
+      {
+        const { p, errors } = await open("feed", "/community/clay-studio", vp)
+        await p.evaluate(() => { window.__copied = []; Object.defineProperty(navigator, "clipboard", { value: { writeText: async (t) => { window.__copied.push(t) } }, configurable: true }) })
+        const before = await p.evaluate(() => { const r = document.querySelector("[data-wall-address]").getBoundingClientRect(); return { h: Math.round(r.height), y: Math.round(r.top) } })
+        await p.click("[data-wall-address]")
+        await sleep(120)
+        const after = await p.evaluate(() => { const a = document.querySelector("[data-wall-address]"); const r = a.getBoundingClientRect(); return { copied: window.__copied, text: a.textContent.trim(), h: Math.round(r.height), y: Math.round(r.top), went: (window.__router || []).filter((x) => x[0] === "link").length } })
+        expect(after.copied.join() === "https://storelib.com/community/clay-studio" && after.text === "Link copied" && after.h === before.h && after.y === before.y && after.went === 0, "a press on the address copies the link and says Link copied in its place, nothing moves, no page opens", { before, after })
+        await shot(p, `${label}-address-copied`)
+        await sleep(1700)
+        const back = await p.evaluate(() => document.querySelector("[data-wall-address]").textContent.trim())
+        expect(back === "storelib.com/community/clay-studio", "and turns back into the address", back)
         expect(errors.length === 0, "no page errors", errors)
         await p.close()
       }
@@ -686,14 +760,16 @@ export const isNativePlatform = () => false
     }
 
     /*
-      ── SWITCHING SPACES AND SORTS IN PLACE (round 7, asks 9 and 10) ──────
+      ── SWITCHING SPACES AND SORTS IN PLACE (round 7, asks 9 and 10; round 9, ask 22) ──────
       The harness answers /posts and /bookmarks itself after 250ms (scripts/render-community-shell.tsx), so a list that is not
       cached costs exactly one ask and a quarter of a second, and a cached one should cost nothing. Each switch is timed from
-      the click to the frame its posts are on screen, every frame in between sampled: the list on screen never empties (no
-      skeleton, the previous list stays until the new one swaps in), and no frame is long.
+      the click to the frame its posts are on screen, every frame in between sampled: the list on screen never empties into
+      nothing and never shows a skeleton; round 9: the previous list stays for a moment, then a small spinner holds its place
+      until the new one swaps in. ?idle=0 keeps the feed from reading the spaces ahead, so "uncached" is uncached here (the
+      reading ahead is measured on its own below).
     */
     {
-      const { p, errors } = await open("feed", "/community/clay-studio", vp)
+      const { p, errors } = await open("feed", "/community/clay-studio?idle=0", vp)
       /* One switch: click (or tap) a chip, then sample every frame until `done` holds. */
       const sw = (sel, done, how = "click") =>
         p.evaluate(
@@ -713,7 +789,7 @@ export const isNativePlatform = () => false
               const tick = () => {
                 const now = performance.now()
                 const list = document.querySelector("[data-feed-list]")
-                frames.push({ dt: Math.round(now - last), posts: list ? list.querySelectorAll("[data-post]").length : -1, skeleton: !!document.querySelector('[aria-busy="true"][aria-label^="Loading"]'), empty: !!document.querySelector("[data-feed-empty]") })
+                frames.push({ dt: Math.round(now - last), at: Math.round(now - t0), posts: list ? list.querySelectorAll("[data-post]").length : -1, spinner: !!document.querySelector('[data-place-spinner="list"]'), skeleton: !!document.querySelector(".skeleton-deferred, [data-skeleton]"), empty: !!document.querySelector("[data-feed-empty]"), opacity: list ? Number(getComputedStyle(list).opacity) : null })
                 last = now
                 if (ok() || now - t0 > 3000) {
                   po?.disconnect()
@@ -732,7 +808,15 @@ export const isNativePlatform = () => false
       /* Uncached: one ask, the old list stays on screen until Glaze lab's arrives. */
       t.uncached = await sw('[data-space-chip="glaze-lab"]', '!!document.querySelector(\'[data-post="p-glaze-1"]\') && !document.querySelector(\'[data-post="p-pinned"]\')', how)
       expect(t.uncached.done && t.uncached.calls.length === 1 && /space=s-glaze/.test(t.uncached.calls[0]) && /sort=default/.test(t.uncached.calls[0]), "a space not seen yet: one ask for its first page (sort Default)", t.uncached.calls)
-      expect(t.uncached.frames.every((f) => f.posts > 0 && !f.skeleton && !f.empty), "while it comes, the list on screen stays (never empty, no skeleton)", t.uncached.frames.map((f) => f.posts))
+      expect(t.uncached.frames.every((f) => (f.posts > 0 || f.spinner) && !f.skeleton && !f.empty), "while it comes, there is always the old list or the spinner (never empty, no skeleton)", t.uncached.frames.map((f) => (f.spinner ? "spin" : f.posts)))
+      {
+        const F = t.uncached.frames
+        const firstSpin = F.find((f) => f.spinner)
+        const lastOld = [...F].reverse().find((f) => f.posts > 0 && !f.spinner && f.at < (firstSpin?.at ?? 0))
+        expect(!!firstSpin && firstSpin.at >= 150 && !F.some((f) => f.at < 150 && f.spinner), "round 9: the old list stays for the first ~160ms, then a small spinner takes its place (no skeleton)", { firstSpin: firstSpin?.at, lastOld: lastOld?.at })
+        const arrived = F.at(-1)
+        expect(arrived.posts > 0 && arrived.opacity !== null && arrived.opacity < 0.6, "the new list comes in from nothing after the spinner (an opacity ease, not a cut)", { opacity: arrived.opacity })
+      }
       expect(t.uncached.path === "/community/clay-studio/space/glaze-lab", "the address follows: /space/glaze-lab", t.uncached.path)
       const chipNow = await p.evaluate(() => document.querySelector("[data-space-chip][aria-current=page]")?.getAttribute("data-space-chip"))
       expect(chipNow === "glaze-lab", "the chip is chosen at once", chipNow)
@@ -741,6 +825,32 @@ export const isNativePlatform = () => false
       expect(t.cached.done && t.cached.calls.length === 0 && t.cached.frames.length <= 2 && t.cached.ms <= 100, "a list already seen: no ask, on screen on the first or second frame after the click", { ms: t.cached.ms, frames: t.cached.frames.length, calls: t.cached.calls })
       t.cachedAgain = await sw('[data-space-chip="glaze-lab"]', '!!document.querySelector(\'[data-post="p-glaze-1"]\')', how)
       expect(t.cachedAgain.calls.length === 0 && t.cachedAgain.frames.length <= 2, "and so is Glaze lab, the second time", { ms: t.cachedAgain.ms, calls: t.cachedAgain.calls })
+      {
+        const o = [t.cached, t.cachedAgain].map((x) => x.frames.at(-1).opacity)
+        expect(o.every((v) => v !== null && v >= 0.3 && v < 1), "round 9: a cached list swaps in with a short crossfade (from about a third to full, never from nothing)", o)
+      }
+      /* A slow list: the spinner, alone in the middle column under the chips, thin and grey; then the list. */
+      {
+        await p.evaluate(() => { window.__feedLatency = 1500 })
+        await p.evaluate((how) => { const el = document.querySelector('[data-space-chip="announcements"]'); if (how === "tap") el.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerType: "touch" })); el.click() }, how)
+        await sleep(450)
+        const sp = await p.evaluate(() => {
+          const s = document.querySelector('[data-place-spinner="list"]')
+          const g0 = s?.querySelector("svg")?.getBoundingClientRect()
+          const g = g0 && { width: Number(s.querySelector("svg").getAttribute("width")), left: g0.left + g0.width / 2 - Number(s.querySelector("svg").getAttribute("width")) / 2, top: g0.top }
+          const col = document.querySelector("[data-community-main]")?.getBoundingClientRect() ?? document.querySelector("[data-feed]").getBoundingClientRect()
+          const chips = document.querySelector("[data-space-chips]").getBoundingClientRect()
+          const stroke = s?.querySelector("line")
+          return s && g ? { size: Math.round(g.width), cx: Math.round(g.left + g.width / 2), colCx: Math.round(col.left + col.width / 2), belowChips: g.top > chips.bottom, color: getComputedStyle(s.querySelector("svg")).color, strokeW: stroke?.getAttribute("stroke-width"), spokes: s.querySelectorAll("line").length, opacity: Number(getComputedStyle(s).opacity), anim: getComputedStyle(s.querySelector("svg")).animationName, posts: document.querySelectorAll("[data-feed-list] [data-post]").length, chipOn: document.querySelector("[data-space-chip][aria-current=page]")?.getAttribute("data-space-chip") } : null
+        })
+        expect(!!sp && sp.size <= 24 && Math.abs(sp.cx - sp.colCx) <= 2 && sp.belowChips && sp.spokes === 8 && sp.strokeW === "2" && sp.color === "rgb(138, 143, 152)" && sp.opacity > 0.9 && sp.anim === "spin" && sp.posts === 0 && sp.chipOn === "announcements", "a list that is slow: a small thin grey spinner centred in the middle column under the chips, the chips staying as they are", sp)
+        await shot(p, `${label}-space-spinner`)
+        await p.waitForSelector('[data-community-feed="space:announcements"]:not([data-feed-waiting])', { timeout: 4000 })
+        await p.evaluate(() => { window.__feedLatency = 250 })
+        /* Back to Glaze lab (cached), where the steps below start from; a click in the page, so no pointer is left resting on a chip. */
+        await p.evaluate(() => document.querySelector('[data-space-chip="glaze-lab"]').click())
+        await sleep(300)
+      }
       /* Ahead of the click: a pointer resting on General (a finger landing on it on a phone) asks for it; the click then costs nothing. */
       const before = await p.evaluate(() => window.__feedCalls.length)
       if (phone) await p.evaluate(() => document.querySelector('[data-space-chip="general"]').dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerType: "touch" })))
@@ -759,26 +869,26 @@ export const isNativePlatform = () => false
       console.log(`        switch to content: uncached ${t.uncached.ms}ms (the 250ms answer), cached ${t.cached.ms}ms / ${t.cachedAgain.ms}ms, read ahead ${t.prefetched.ms}ms; longest frame ${Math.max(...long)}ms (headless, software paint); long tasks: ${tasks.length ? tasks.join(", ") + "ms" : "none"}; asks: 1, 0, 0, 0 (+1 ahead)`)
       expect(tasks.length === 0, "no long task (over 50ms of script) while switching", tasks)
 
-      /* ── THE SORT MENU (ask 9): no Latest / Popular pills; a sliders button left of Saved. ── */
+      /* ── THE SORT MENU (ask 9): no Latest / Popular pills; a sliders button at the row's end (round 9: no Saved chip after it). ── */
       const sortLook = await p.evaluate(() => {
         const b = document.querySelector("[data-feed-sort-button]")
-        const saved = document.querySelector('[data-space-chip="saved"]')
+        const row = document.querySelector("[data-space-chips]")
         const r = b?.getBoundingClientRect()
         return {
           pills: [...document.querySelectorAll("[data-feed] button, [data-feed] [role=tab]")].filter((x) => /^(Latest|Popular)$/.test(x.textContent.trim())).length + document.querySelectorAll('[role=tablist][aria-label="Sort posts"]').length,
           button: !!b,
-          leftOfSaved: !!b && !!saved && r.right <= saved.getBoundingClientRect().left && Math.abs(r.top + r.height / 2 - (saved.getBoundingClientRect().top + saved.getBoundingClientRect().height / 2)) <= 1,
+          atEnd: !!b && !!row && row.lastElementChild === b.closest("[data-feed-sort]") && !document.querySelector('[data-space-chip="saved"]'),
           size: r && Math.round(r.height),
           shadow: b && getComputedStyle(b).boxShadow,
           label: b?.getAttribute("aria-label"),
         }
       })
       expect(sortLook.pills === 0, "no Latest / Popular pills under the composer", sortLook.pills)
-      expect(sortLook.button && sortLook.leftOfSaved && sortLook.size === (phone ? 40 : 36) && sortLook.shadow !== "none" && sortLook.label === "Sort posts: Default", "a sliders button at the end of the chips row, left of Saved, with the same little depth", sortLook)
+      expect(sortLook.button && sortLook.atEnd && sortLook.size === (phone ? 40 : 36) && sortLook.shadow !== "none" && sortLook.label === "Sort posts: Default", "a sliders button at the end of the chips row (no Saved chip), with the same little depth", sortLook)
       await p.click("[data-feed-sort-button]")
       await sleep(250)
       const menuNow = await p.evaluate(() => ({ items: [...document.querySelectorAll("[data-feed-sort-item]")].map((x) => `${x.getAttribute("data-feed-sort-item")}${x.getAttribute("aria-checked") === "true" ? "*" : ""}`), focus: document.activeElement?.getAttribute("data-feed-sort-item"), box: (() => { const r = document.querySelector("[data-feed-sort-menu]")?.getBoundingClientRect(); return r && { right: Math.round(r.right), w: Math.round(r.width), x: Math.round(r.left) } })(), vw: innerWidth }))
-      expect(menuNow.items.join() === "default*,new,top,unread" && menuNow.focus === "default" && menuNow.box && menuNow.box.x >= 0 && menuNow.box.right <= menuNow.vw, "the menu: Default (chosen, focused), New, Top, Unread, on screen", menuNow)
+      expect(menuNow.items.join() === "default*,new,top,unread,saved" && menuNow.focus === "default" && menuNow.box && menuNow.box.x >= 0 && menuNow.box.right <= menuNow.vw, "the menu: Default (chosen, focused), New, Top, Unread, and Saved posts under a rule (round 9), on screen", menuNow)
       await shot(p, `${label}-sort-menu`)
       await p.keyboard.press("ArrowDown")
       await p.keyboard.press("ArrowDown")
@@ -814,6 +924,24 @@ export const isNativePlatform = () => false
       const unread = await p.evaluate(() => ({ ids: [...document.querySelectorAll("[data-feed-list] [data-post]")].map((x) => x.getAttribute("data-post")), call: window.__feedCalls.at(-1) }))
       expect(/sort=unread/.test(unread.call) && unread.ids.join() === "p-text,p-glaze-1", "Unread: only the posts with activity since the member was last here, newest activity first", unread)
       await shot(p, `${label}-sort-unread`)
+      /* Round 9: Saved posts lives in this menu. Chosen, the feed switches to Saved in place; an order chosen there goes back to All. */
+      await p.click("[data-feed-sort-button]")
+      await sleep(200)
+      await p.click('[data-feed-sort-item="saved"]')
+      await p.waitForSelector('[data-community-feed="saved"]:not([data-feed-waiting])', { timeout: 3000 }).catch(() => {})
+      await sleep(250)
+      const sv = await p.evaluate(() => ({ path: location.pathname, ids: [...document.querySelectorAll("[data-feed-list] [data-post]")].map((x) => x.getAttribute("data-post")), line: document.querySelector("[data-saved-line]")?.textContent?.trim(), label: document.querySelector("[data-feed-sort-button]")?.getAttribute("aria-label"), dot: !!document.querySelector("[data-feed-sort-dot]"), chipOn: document.querySelector("[data-space-chip][aria-current=page]")?.getAttribute("data-space-chip") ?? null }))
+      expect(sv.path === "/community/clay-studio/saved" && sv.ids.join() === "p-more" && /^Saved posts/.test(sv.line || "") && sv.label === "Sort posts: Saved posts" && sv.dot && sv.chipOn === null, "Saved posts from the menu: the saved list in place, said in a line under the chips, the button dotted, no chip chosen", sv)
+      await shot(p, `${label}-saved-from-menu`)
+      await p.click("[data-feed-sort-button]")
+      await sleep(200)
+      const svMenu = await p.evaluate(() => [...document.querySelectorAll("[data-feed-sort-item]")].map((x) => `${x.getAttribute("data-feed-sort-item")}${x.getAttribute("aria-checked") === "true" ? "*" : ""}`).join())
+      expect(svMenu === "default,new,top,unread,saved*", "on Saved the menu marks Saved posts, no order", svMenu)
+      await p.click('[data-feed-sort-item="new"]')
+      await p.waitForSelector('[data-community-feed="all"]:not([data-feed-waiting])', { timeout: 3000 }).catch(() => {})
+      await sleep(250)
+      const outOf = await p.evaluate(() => ({ path: location.pathname, key: document.querySelector("[data-feed-key]")?.getAttribute("data-feed-key"), chipOn: document.querySelector("[data-space-chip][aria-current=page]")?.getAttribute("data-space-chip") }))
+      expect(outOf.path === "/community/clay-studio" && /\|all\|new$/.test(outOf.key || "") && outOf.chipOn === "all", "and an order chosen there goes back to All in that order", outOf)
       const s = await sideScroll(p)
       expect(s.scroll <= s.width, "nothing scrolls sideways", s)
       expect(errors.length === 0, "no page errors", errors)
@@ -829,6 +957,177 @@ export const isNativePlatform = () => false
         requestAnimationFrame(() => requestAnimationFrame(() => resolve({ on: document.querySelector("[data-wall-places] [aria-current=page]")?.textContent?.trim(), went: (window.__router || []).filter((x) => x[0] === "link").map((x) => x[1]) })))
       }))
       expect(mark.on === "Members" && mark.went.at(-1) === "/community/clay-studio/members", "a click on a place marks it on the next frame, before its page arrives", mark)
+      expect(errors.length === 0, "no page errors", errors)
+      await p.close()
+    }
+
+    /*
+      ── ROUND 9, ASK 22: THE PLACES AND THE SPACES INSIDE ONE FRAME, AT 4x CPU ON A SLOW NETWORK ──
+      ?case=nav draws the frame once and swaps the page inside it as the app router does (scripts/render-community-shell.tsx).
+      Once idle, every place is asked for in full (router.prefetch, kind "full") and the first page of every feed space is read,
+      one after another. Then, at 4x CPU: Members, Classroom and Calendar (read ahead) swap in on the first frame with a fade and
+      no spinner; Leaderboards is kept out of the cache (?cold=) and the network is slow (700ms), so it shows the small spinner
+      after ~160ms, alone in the middle column, then fades in. Through all of it the frame is the SAME nodes, the bar and the side
+      cards are never drawn again (their render counts, counted in this probe's bundle) and nothing in them changes but the mark
+      on the place (a MutationObserver over the bar and both side columns). No skeleton anywhere.
+    */
+    {
+      const { p, errors } = await open("nav", "/community/clay-studio?cold=leaderboard&latency=700", vp)
+      const cdp = await p.target().createCDPSession()
+      await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 })
+      await p.waitForFunction(() => (window.__feedSpans || []).filter((x) => !/cursor=/.test(x.url)).length >= 4 && window.__feedSpans.every((x) => x.end > 0), { timeout: 10000 }).catch(() => {})
+      await sleep(300)
+      const ahead = await p.evaluate(() => ({
+        places: (window.__router || []).filter((x) => x[0] === "prefetch" && /^\/community\/clay-studio/.test(x[1])).map((x) => x[1]),
+        kinds: window.__prefetchKinds || [],
+        /* The first pages read ahead (a next page of the list on screen, cursor=, is the feed scrolling, not reading ahead). */
+        spans: (window.__feedSpans || []).filter((x) => !/cursor=/.test(x.url)).map((x) => ({ url: x.url, start: Math.round(x.start), end: Math.round(x.end) })),
+      }))
+      expect(ahead.places.sort().join() === ["/community/clay-studio/about", "/community/clay-studio/classroom", "/community/clay-studio/events", "/community/clay-studio/leaderboard", "/community/clay-studio/members"].join() && ahead.kinds.every((k) => k === "full"), "once idle, every other place is asked for in full, once each (5 asks), never the one on screen", ahead.places)
+      const spaces = ahead.spans.map((x) => (/space=([^&]+)/.exec(x.url) || [])[1] || "all")
+      expect(spaces.join() === "s-general,s-ann,s-crit,s-glaze" && ahead.spans.every((x) => /sort=default/.test(x.url)), "and the first page of each feed space (4 asks: not All, which is on screen, not the chat space)", spaces)
+      expect(ahead.spans.every((x, i) => i === 0 || x.start >= ahead.spans[i - 1].end - 1), "one after another, never in a burst", ahead.spans)
+      console.log(`        read ahead on idle: ${ahead.places.length} places (full), ${ahead.spans.length} spaces, one at a time`)
+
+      await p.evaluate(() => {
+        const q = (sel) => document.querySelector(sel)
+        window.__frame = { header: q("[data-community-top]"), row: q("[data-community-top-row]"), card: q("[data-wall-card]"), places: q("[data-wall-places]"), right: q("[data-community-right-cards]"), tabs: q("[data-community-tabs]"), shell: q("[data-community-shell]") }
+        window.__renders0 = { ...(window.__renders || {}) }
+        window.__muts = []
+        const where = (n) => {
+          const el = n.nodeType === 1 ? n : n.parentElement
+          if (!el) return "other"
+          if (el.closest("[data-community-tabs], [data-wall-places]")) return "mark"
+          if (el.closest("[data-community-top]")) return "bar"
+          if (el.closest("[data-community-left], [data-community-right]")) return "side"
+          return "other"
+        }
+        const mo = new MutationObserver((list) => { for (const m of list) window.__muts.push({ where: where(m.target), type: m.type, attr: m.attributeName || null, tag: m.target.nodeType === 1 ? m.target.tagName : "#text" }) })
+        for (const el of [q("[data-community-top]"), q("[data-community-left]"), q("[data-community-right]")]) if (el) mo.observe(el, { subtree: true, childList: true, attributes: true, characterData: true })
+        window.__mo = mo
+      })
+
+      const go = (name) =>
+        p.evaluate(
+          (name) =>
+            new Promise((resolve) => {
+              const a = [...document.querySelectorAll(`[data-community-nav="${name}"]`)].find((x) => x.getBoundingClientRect().width > 0)
+              const frames = []
+              const tasks = []
+              const po = new PerformanceObserver((l) => tasks.push(...l.getEntries().map((e) => Math.round(e.duration))))
+              try { po.observe({ type: "longtask" }) } catch {}
+              const t0 = performance.now()
+              let last = t0
+              a.click()
+              const tick = () => {
+                const now = performance.now()
+                const body = document.querySelector("[data-community-body]")
+                const sp = body?.querySelector('[data-place-spinner="page"]')
+                const child = body?.firstElementChild
+                const content = !!child && !sp
+                if (sp && !window.__spinBox && Number(getComputedStyle(sp).opacity) > 0.9) {
+                  const s = sp.querySelector("svg")
+                  const r = s.getBoundingClientRect()
+                  const main = (document.querySelector("[data-community-main]") || body).getBoundingClientRect()
+                  const bar = document.querySelector("[data-community-top]").getBoundingClientRect()
+                  window.__spinBox = { w: Number(s.getAttribute("width")), cx: Math.round(r.left + r.width / 2), mainCx: Math.round(main.left + main.width / 2), top: Math.round(r.top), barBottom: Math.round(bar.bottom), inMain: r.left >= main.left && r.right <= main.right }
+                }
+                frames.push({ at: Math.round(now - t0), dt: Math.round(now - last), spinner: sp ? Number(getComputedStyle(sp).opacity) : null, content, opacity: content ? Number(getComputedStyle(child).opacity) : null, skeleton: !!document.querySelector(".skeleton-deferred, [data-skeleton]"), mark: [...document.querySelectorAll("[data-community-nav][aria-current=page]")].map((x) => x.getAttribute("data-community-nav"))[0] ?? null })
+                last = now
+                const firstContent = frames.findIndex((f) => f.content)
+                if ((firstContent >= 0 && now - t0 - frames[firstContent].at > 480) || now - t0 > 5000) {
+                  po.disconnect()
+                  resolve({ frames, tasks, path: location.pathname })
+                } else requestAnimationFrame(tick)
+              }
+              requestAnimationFrame(tick)
+            }),
+          name,
+        )
+      const report = []
+      for (const [name, path] of [["Members", "members"], ["Classroom", "classroom"], ["Calendar", "events"]]) {
+        const r = await go(name)
+        const F = r.frames
+        const first = F.findIndex((f) => f.content)
+        report.push(`${name} ${F[first]?.at}ms`)
+        expect(r.path === `/community/clay-studio/${path}` && first === 0 && F.every((f) => f.spinner === null && !f.skeleton) && F[0].mark === name, `${name} (read ahead): on screen on the first frame after the click, marked at once, no spinner, no skeleton`, { first, at: F[first]?.at, mark: F[0].mark, spin: F.filter((f) => f.spinner !== null).length })
+        expect(F[0].opacity < 1 && F.at(-1).opacity === 1, `${name} fades in (opacity ${F[0].opacity} on its first frame, 1 when settled)`, { first: F[0].opacity, last: F.at(-1).opacity })
+      }
+      /* Cold and slow: the spinner, photographed half way. */
+      const coldP = go("Leaderboards")
+      await sleep(520)
+      await shot(p, `${label}-place-spinner`)
+      const cold = await coldP
+      const spinBox = await p.evaluate(() => window.__spinBox ?? null)
+      {
+        const F = cold.frames
+        const first = F.findIndex((f) => f.content)
+        const shown = F.filter((f) => f.spinner !== null && f.spinner > 0.05)
+        report.push(`Leaderboards (cold, 700ms network) ${F[first]?.at}ms, spinner from ${shown[0]?.at}ms`)
+        expect(F[0].mark === "Leaderboards" && F.every((f) => !f.skeleton) && first > 0, "a place not read ahead: marked at once, its loading screen in the middle, no skeleton", { mark: F[0].mark, first })
+        expect(F.filter((f) => f.at < 140).every((f) => f.spinner === null || f.spinner < 0.05) && shown.length > 0 && shown[0].at >= 150, "the spinner shows only after a moment (~160ms), so a quick place never flashes it", { firstShown: shown[0]?.at, early: F.filter((f) => f.at < 140).map((f) => f.spinner) })
+        expect(!!spinBox && spinBox.w <= 24 && spinBox.inMain && Math.abs(spinBox.cx - spinBox.mainCx) <= 2 && spinBox.top > spinBox.barBottom, "a small spinner (22px), centred in the middle column only, under the bar", spinBox)
+        expect(first > 0 && F[first].opacity < 1 && F.at(-1).opacity === 1, "then the page fades in where the spinner was", { opacity: F[first]?.opacity, last: F.at(-1).opacity })
+      }
+      const home = await go("Community")
+      {
+        const F = home.frames
+        report.push(`Community ${F[F.findIndex((f) => f.content)]?.at}ms`)
+        expect(F[0].content && F.every((f) => f.spinner === null) && (await p.evaluate(() => !!document.querySelector("[data-community-feed]"))), "back to Community: the feed on the first frame, no spinner", { first: F[0] })
+      }
+      const frame = await p.evaluate(() => {
+        const q = (sel) => document.querySelector(sel)
+        const f = window.__frame
+        const now = window.__renders || {}
+        const r0 = window.__renders0
+        const muts = window.__muts
+        const by = (w) => muts.filter((m) => m.where === w)
+        return {
+          same: { header: f.header === q("[data-community-top]"), row: f.row === q("[data-community-top-row]"), card: f.card === q("[data-wall-card]"), places: f.places === q("[data-wall-places]"), right: f.right === q("[data-community-right-cards]"), tabs: f.tabs === q("[data-community-tabs]"), shell: f.shell === q("[data-community-shell]") },
+          renders: Object.fromEntries(Object.keys(now).map((k) => [k, (now[k] || 0) - (r0[k] || 0)])),
+          bar: by("bar"),
+          side: by("side"),
+          mark: by("mark").length,
+        }
+      })
+      console.log(`        at 4x CPU: ${report.join("; ")}`)
+      console.log(`        frame across 5 moves: renders ${JSON.stringify(frame.renders)}, mutations bar ${frame.bar.length}, side cards ${frame.side.length}, place marks ${frame.mark}`)
+      const desk = !phone
+      expect(Object.values(frame.same).every(Boolean), "the frame is the same nodes after five moves: the bar, its row, the card, the places, the right column, the tabs, the shell", frame.same)
+      expect((frame.renders.CommunityTopBarInner || 0) === 0 && (frame.renders.WallCommunityCardInner || 0) === 0 && (frame.renders.WallUpcomingInner || 0) === 0 && (frame.renders.WallContributorsCardInner || 0) === 0, "the bar and the side cards are never drawn again (render counts 0); only the places' list marks the new place", frame.renders)
+      expect(frame.bar.length === 0 && frame.side.length === 0 && (desk ? frame.mark > 0 : true), "nothing in the bar or the side cards changes; only the place mark moves", { bar: frame.bar.slice(0, 6), side: frame.side.slice(0, 6) })
+      const allTasks = [cold, home].flatMap((x) => x.tasks)
+      console.log(`        long tasks at 4x CPU while moving: ${allTasks.length ? allTasks.join(", ") + "ms" : "none"}`)
+
+      /* The spaces, at 4x CPU, after the idle reading ahead: every chip is cached, so each switch asks nothing and is on screen at once. */
+      const chip = (slug, sel) =>
+        p.evaluate(
+          (slug, sel) =>
+            new Promise((resolve) => {
+              const n = window.__feedCalls.length
+              const t0 = performance.now()
+              const el = document.querySelector(`[data-space-chip="${slug}"]`)
+              el.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerType: "touch" }))
+              el.click()
+              let frames = 0
+              const tick = () => {
+                frames++
+                if (document.querySelector(sel) || performance.now() - t0 > 3000) resolve({ ms: Math.round(performance.now() - t0), frames, calls: window.__feedCalls.slice(n), spinner: !!document.querySelector("[data-place-spinner]") })
+                else requestAnimationFrame(tick)
+              }
+              requestAnimationFrame(tick)
+            }),
+          slug,
+          sel,
+        )
+      const chips = []
+      for (const [slug, post] of [["glaze-lab", "p-glaze-1"], ["critique", "p-photo"], ["general", "p-text"], ["all", "p-pinned"]]) chips.push({ slug, ...(await chip(slug, `[data-post="${post}"]`)) })
+      console.log(`        spaces at 4x CPU, read ahead: ${chips.map((c) => `${c.slug} ${c.ms}ms/${c.frames}f/${c.calls.length} asks`).join(", ")}`)
+      expect(chips.every((c) => c.calls.length === 0 && c.frames <= 2 && !c.spinner), "every space, read ahead on idle: no ask, no spinner, on screen on the first or second frame, at 4x CPU", chips)
+      const after = await p.evaluate(() => ({ header: window.__frame.header === document.querySelector("[data-community-top]"), bar: window.__muts.filter((m) => m.where === "bar").length, renders: (window.__renders.CommunityTopBarInner || 0) - (window.__renders0.CommunityTopBarInner || 0) }))
+      expect(after.header && after.bar === 0 && after.renders === 0, "and switching spaces leaves the bar alone too", after)
+      await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
+      await shot(p, `${label}-nav-after`)
       expect(errors.length === 0, "no page errors", errors)
       await p.close()
     }
@@ -1063,7 +1362,7 @@ export const isNativePlatform = () => false
         }
       })
       expect(!!card && /Leo Martins/.test(card.text) && /@leom · Level 2 Regular/.test(card.text) && /Active 2h ago/.test(card.text) && /Weekend potter/.test(card.text) && /4 communities \(1 in common\)/.test(card.text) && /Owner of 1 community/.test(card.text), "the card: name, handle and level, Active 2h ago, bio, 4 communities (1 in common), Owner of 1 community", card?.text)
-      expect(!!card && card.level === "2" && card.profile === "/@leom" && card.buttons.join() === "Profile,Follow,Message", "the level on the photo, and Profile, Follow, Message", card && { level: card.level, buttons: card.buttons })
+      expect(!!card && card.level === "2" && card.profile === "/@leom" && card.buttons.join() === "Profile,Follow", "the level on the photo, and Profile and Follow (round 9: no Message)", card && { level: card.level, buttons: card.buttons })
       expect(!!card && card.box.y > at.y && card.box.b <= 900 && card.box.x >= 12, "the card sits under the name, inside the window", card?.box)
       expect(!!first && first.o < 0.9 && !!full && full.t - first.t <= 220 && frames.some((f) => f.tf !== "none" && f.o < 1) && new Set(frames.map((f) => f.box)).size === 1, "it fades and settles in within ~150ms, by opacity, scale and shift only, its box where it ends from the first frame", { first, full, n: frames.length, boxes: [...new Set(frames.map((f) => f.box))], mid: frames.slice(0, 5).map((f) => [f.t, f.o.toFixed(2)]) })
       await shot(p, `${label}-person-card`)
@@ -1167,10 +1466,10 @@ export const isNativePlatform = () => false
       expect(s.scroll <= s.width, "nothing scrolls sideways", s)
       const c = await p.evaluate(() => {
         const r = (sel) => { const e = document.querySelector(sel); if (!e) return null; const b = e.getBoundingClientRect(); return b.width ? { x: Math.round(b.left), y: Math.round(b.top), w: Math.round(b.width), b: Math.round(b.bottom), right: Math.round(b.right) } : null }
-        return { left: r("[data-community-left]"), main: r("[data-community-main]"), right: r("[data-community-right]"), more: r("[data-community-left-more]"), search: r('[data-community-search="field"]'), tabs: r("[data-community-tabs]") }
+        return { left: r("[data-community-left]"), main: r("[data-community-main]"), right: r("[data-community-right]"), places: r("[data-wall-places]"), card: r("[data-wall-card]"), event: r("[data-wall-upcoming]"), more: r("[data-wall-contributors]"), search: r('[data-community-search="field"]'), tabs: r("[data-community-tabs]") }
       })
       if (want === 65) {
-        expect(!!c.left && c.left.w === 260 && !!c.right && c.right.x === c.left.x && c.right.y >= c.left.b && !!c.more && c.more.x === c.left.x && c.more.y >= c.right.b && c.main.x === c.left.right + 24, "from 1024px to 1279px: two columns, the card, the places and the event, then the contributors, all in the left column", c)
+        expect(!!c.left && c.left.w === 260 && !!c.places && c.places.y >= c.card.b && !!c.right && c.right.x === c.left.x && c.right.y >= c.left.b && !!c.event && c.event.y >= c.places.b && !!c.more && c.more.x === c.left.x && c.more.y >= c.event.b && c.main.x === c.left.right + 24, "from 1024px to 1279px: two columns, the card, the places, the event, then the contributors, all in the left column", c)
         expect(!c.tabs && !!c.search, "the places in the left column (no tabs), the search field in the bar", { tabs: c.tabs, search: c.search })
       } else {
         expect(!c.left && !c.right && !!c.main && c.main.w === 768 - 48 && !!c.tabs && !!c.search, "a tablet: one column, the row of tabs, the search field in the bar", c)

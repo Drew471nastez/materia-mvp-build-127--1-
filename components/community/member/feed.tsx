@@ -4,8 +4,9 @@
  * ===========================================================================
  *  THE FEED
  * ===========================================================================
- * The spaces as chips (with the sort button and Saved at the end of the
- * row), the welcome (once), the composer, then the posts a page at a time.
+ * The spaces as chips (with the sort button at the end of the row; Saved
+ * posts is a row in its menu since round 9), the welcome (once), the
+ * composer, then the posts a page at a time.
  * The next page is asked for as the end of the list comes near (an
  * IntersectionObserver 600px ahead), and a "Show more" button stays
  * underneath for whatever the observer misses: a browser without it, a
@@ -16,12 +17,17 @@
  * Saved, in each of the four sorts (Default, New, Top, Unread: sort-menu.tsx),
  * are lists of the same feed. Choosing one does not load a page: the list is
  * taken from the client cache when it is there (feed-cache.ts: on the next
- * frame, no skeleton), and otherwise the list on screen stays until the new
- * one arrives and then swaps (it dims a little only if that takes over 200ms).
+ * frame, no skeleton). One that is not cached keeps the list on screen for a
+ * moment (WAIT_MS) and then, still waiting, gives its place to a small
+ * spinner (round 9, place-spinner.tsx), never a skeleton; whatever list
+ * arrives eases in (opacity), so a swap reads as a crossfade, not a cut.
  * The address moves with it (history.pushState, which Next's router follows),
  * so Back, a reload and a shared link all land on the same list. A list is
- * asked for ahead when a pointer rests on its chip or a finger lands on it.
- * A list read over a minute ago is shown at once and read again quietly.
+ * asked for ahead when a pointer rests on its chip or a finger lands on it,
+ * and once the feed is idle the first page of every space is read ahead,
+ * one after another (feed-cache.ts prefetchViews), so a chip usually finds
+ * its list already here. A list read over a minute ago is shown at once and
+ * read again quietly.
  *
  * A like, a save, an edit or a delete in one list is carried into every
  * other cached list holding that post; a new post goes to the top of the
@@ -31,7 +37,7 @@
  */
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import type { FeedPostView, ViewerView } from "@/lib/communities/types"
 import { api, apiBase } from "./api"
 import { Composer, type ComposerProps } from "./composer"
@@ -43,9 +49,11 @@ import {
   loadView,
   patchPost,
   prefetchView,
+  prefetchViews,
   readView,
   viewKey,
   viewUrl,
+  whenIdle,
   writeView,
   type CachedView,
   type FeedPageData,
@@ -53,6 +61,7 @@ import {
   type FeedTarget,
 } from "./feed-cache"
 import { sectionFromPath } from "./nav"
+import { PlaceSpinner, WAIT_MS } from "./place-spinner"
 import { PostCard, type PostUpdate } from "./post-card"
 import { SortMenu } from "./sort-menu"
 import { SpaceChips, type ChipPick } from "./space-chips"
@@ -82,8 +91,9 @@ function composerSpacesOf(spaces: SpaceView[]) {
   return spaces.filter((s) => s.canPost && s.kind !== "chat").map((s) => ({ id: s.id, name: s.name, kind: s.kind }))
 }
 
-/** Waiting this long for a list before the one on screen dims, so a quick answer changes nothing but the list. */
-export const DIM_AFTER_MS = 200
+/** How an arriving list eases in: from a little under full when it replaces another list, from nothing after the spinner. */
+const ARRIVE_MS = 200
+const ARRIVE_EASE = "cubic-bezier(0.22, 1, 0.36, 1)"
 
 export interface CommunityFeedProps {
   communityId: string
@@ -200,13 +210,51 @@ export function CommunityFeed({ communityId, slug, viewer, spaces, start, initia
     else if (left + on.offsetWidth > track.scrollLeft + track.clientWidth - 24) track.scrollLeft = left + on.offsetWidth - track.clientWidth + 40
   }, [targetId])
 
-  /* Dim the list on screen only when the next one is slow to come. */
-  const [dim, setDim] = useState(false)
+  /* The spinner, only when the next list is slow to come: a quick answer swaps the lists and nothing else. */
+  const [slow, setSlow] = useState(false)
+  /* Whether the spinner stood in for the list, so the list that follows comes in from nothing rather than from 35%. */
+  const afterSpinner = useRef(false)
   useEffect(() => {
-    if (!waiting) return setDim(false)
-    const t = window.setTimeout(() => setDim(true), DIM_AFTER_MS)
+    if (!waiting) return setSlow(false)
+    const t = window.setTimeout(() => {
+      afterSpinner.current = true
+      setSlow(true)
+    }, WAIT_MS)
     return () => window.clearTimeout(t)
   }, [waiting, key])
+
+  /*
+    THE SWAP EASES IN. The list drawn changes (another space, another sort, or the one that was waited for): it comes in by opacity
+    on the compositor, from 0 after the spinner and from 35% when it replaces a list directly, so it reads as one crossfade. A list
+    that only grew (the next page) or was read again quietly keeps its key and does not move.
+  */
+  const listRef = useRef<HTMLDivElement>(null)
+  const drawnKey = cached ? key : shown.key
+  const lastDrawn = useRef(drawnKey)
+  useLayoutEffect(() => {
+    if (lastDrawn.current === drawnKey) return
+    lastDrawn.current = drawnKey
+    const from = afterSpinner.current ? 0 : 0.35
+    afterSpinner.current = false
+    const el = listRef.current
+    if (!el || typeof el.animate !== "function" || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
+    el.animate([{ opacity: from }, { opacity: 1 }], { duration: ARRIVE_MS, easing: ARRIVE_EASE })
+  }, [drawnKey])
+
+  /*
+    EVERY SPACE'S FIRST PAGE, READ AHEAD ONCE THE FEED IS IDLE (round 9). All and each feed space in the order on screen (the one
+    shown already is cached), one at a time, in the sort in force; a chat space is a page of its own and is not read here.
+  */
+  const aheadTargets = useMemo<FeedTarget[]>(() => (spaces ? [{ kind: "all" as const }, ...spaces.filter((s) => s.kind !== "chat").map((s) => ({ kind: "space" as const, id: s.id }))] : []), [spaces])
+  useEffect(() => {
+    if (!aheadTargets.length) return
+    let stopped = false
+    const cancel = whenIdle(() => void prefetchViews(communityId, aheadTargets, "default", () => stopped))
+    return () => {
+      stopped = true
+      cancel()
+    }
+  }, [communityId, aheadTargets])
 
   const targetOf = useCallback(
     (pick: ChipPick): FeedTarget | null => {
@@ -227,6 +275,12 @@ export function CommunityFeed({ communityId, slug, viewer, spaces, start, initia
     setPicked({ target: next, from: href })
     if (typeof window !== "undefined" && window.location.pathname !== href) window.history.pushState(null, "", href)
   }
+  /* The sort menu: an order while on Saved goes back to All in that order; its Saved posts row toggles Saved. */
+  const onSort = (next: FeedSortValue) => {
+    if (target.kind === "saved") pick({ kind: "all" })
+    setSort(next)
+  }
+  const toggleSaved = () => pick(target.kind === "saved" ? { kind: "all" } : { kind: "saved" })
   const intent = (p: ChipPick) => {
     const next = targetOf(p)
     if (next) prefetchView(communityId, next, next.kind === "saved" ? "default" : sort)
@@ -324,11 +378,16 @@ export function CommunityFeed({ communityId, slug, viewer, spaces, start, initia
             savedOn={target.kind === "saved"}
             onPick={pick}
             onIntent={intent}
-            sort={target.kind === "saved" ? null : <SortMenu value={sort} onChange={setSort} />}
+            sort={<SortMenu value={sort} onChange={onSort} saved={target.kind === "saved"} onSaved={toggleSaved} />}
           />
           {space?.description ? (
             <p className="-mt-0.5 mb-3 px-1 text-[13.5px] leading-relaxed text-[#6b7280]" data-space-description="">
               {space.description}
+            </p>
+          ) : target.kind === "saved" ? (
+            /* Saved has no chip of its own (round 9), so it says what it is, in the space line's place. */
+            <p className="-mt-0.5 mb-3 px-1 text-[13.5px] leading-relaxed text-[#6b7280]" data-saved-line="">
+              <span className="font-semibold text-[#1a1a2e]">Saved posts</span> · only you see these
             </p>
           ) : null}
         </>
@@ -356,8 +415,10 @@ export function CommunityFeed({ communityId, slug, viewer, spaces, start, initia
               Try again
             </button>
           </div>
+        ) : slow && waiting ? (
+          <PlaceSpinner compact label="Loading posts" />
         ) : (
-          <div className={`space-y-3 transition-opacity duration-150 motion-reduce:transition-none ${dim ? "opacity-60" : "opacity-100"}`} aria-busy={waiting || undefined} data-feed-list="">
+          <div ref={listRef} className="space-y-3" aria-busy={waiting || undefined} data-feed-list="">
             {posts.map((p) => (
               <PostCard key={p.id} post={p} slug={slug} viewer={viewer} update={update} readOnly={readOnly} />
             ))}
