@@ -129,6 +129,36 @@ export interface MemberProfileView extends MemberView {
   isSelf: boolean
 }
 
+/**
+ * A person as the hover card in a community draws them
+ * (GET /api/community/<id>/people/<userId>/card). Every figure is counted
+ * from real rows; anything that cannot be known is null and left out.
+ */
+export interface PersonCardView {
+  id: string
+  name: string
+  username: string | null
+  avatarUrl: string | null
+  /** Their page: /<handle> for a storefront, /@handle for everybody else. */
+  href: string
+  /** Their Storelib bio, else the line they wrote for this community. */
+  bio: string | null
+  role: Role | null
+  /** Their level here, only while the community counts points. */
+  level: number | null
+  levelName: string | null
+  /** The latest of their heartbeat and their last activity here; null when unknown. */
+  activeAt: string | null
+  /** Public communities they are in, and how many of those the viewer is in too; null while they hide their memberships. */
+  communities: { count: number; inCommon: number } | null
+  /** Public communities they own. */
+  owns: number
+  following: boolean
+  isSelf: boolean
+  /** The viewer can write to them here (chat on, both active members, messages set up). */
+  canMessage: boolean
+}
+
 export interface ComposerSpace {
   id: string
   name: string
