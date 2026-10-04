@@ -15,6 +15,12 @@
  *   ?creator-dark   the same on a dark scheme (Astrid), drawn in its colours
  *   ?creator-noback the Sage page opened cold: no way back in the bar
  *   ?creator-nobar  a creator page with no newsletter bar: the slim top bar
+ *   ?creator-profile a creator's /@handle (a live store): no Activity, no
+ *                   "In <community>", Products then the communities they
+ *                   made, though the page is handed activity, shared posts
+ *                   and a community they only joined
+ *   ?creator-self   the same creator on their own /@handle: the pills with
+ *                   no Activity, then what visitors see
  *
  * fetch is answered here (the follow, a subscribe, the next activity page),
  * so the probe needs no server and no network.
@@ -175,6 +181,41 @@ if (which === "other") {
         viewerId={base.userId}
         viewerFollowing={false}
         extras={{ messageHref: null, activity: { items: activity.slice(0, 3), next: null, hidden: true }, communities: { enabled: true, owned: [], member: communities }, backShown: false, now }}
+      />
+    </ProfileFrame>
+  )
+} else if (which === "creator-profile" || which === "creator-self") {
+  const maya: MemberProfileData = {
+    ...base,
+    userId: "00000000-0000-4000-8000-0000000000c3",
+    name: "Maya Ortiz",
+    username: "maya",
+    avatarUrl: FACE2,
+    coverUrl: COVER,
+    bio: "Ceramics, glaze recipes and a weekly studio community.",
+    hasStorefront: true,
+    storefrontHandle: "maya",
+    creatorId: "cr",
+    products: [
+      { id: "p1", title: "Glaze chemistry handbook", slug: "glaze", thumbnailUrl: PRODUCT, priceCents: 2400, type: "digital" },
+      { id: "p2", title: "Wheel throwing basics", slug: "wheel", thumbnailUrl: null, priceCents: 0, type: "course" },
+    ],
+    productCount: 2,
+  }
+  app = (
+    <ProfileFrame>
+      <MemberProfilePage
+        profile={maya}
+        viewerId={which === "creator-self" ? maya.userId : "00000000-0000-4000-8000-0000000000a1"}
+        viewerFollowing={false}
+        extras={{
+          messageHref: which === "creator-self" ? null : "/community/clay-studio?dm=00000000-0000-4000-8000-0000000000c3",
+          activity: { items: activity, next: "n1", hidden: false },
+          communities: { enabled: true, owned: communities.filter((c) => c.id === "clay-studio"), member: communities.filter((c) => c.id !== "clay-studio") },
+          shared: [{ community: { id: "00000000-0000-4000-8000-00000000c1a5", slug: "clay-studio", name: "Clay Studio", logoUrl: LOGO }, page: sharedFirst }],
+          backShown: false,
+          now,
+        }}
       />
     </ProfileFrame>
   )

@@ -41,7 +41,7 @@ export interface DetailsFormView {
   /** Payments are already on: this is Stripe coming back for more, not first setup. */
   active: boolean
   idNumber: { label: string; hint: string }
-  bank: BankFormat & { currency: string | null; holderName: string; last4: string | null }
+  bank: BankFormat & { currency: string | null; holderName: string; last4: string | null; currencies: string[] }
 }
 
 /** Stripe's words with every run of digits taken out, for a log line that cannot carry an ID or bank number. */
@@ -134,8 +134,38 @@ async function viewOf(creator: PaymentsCreatorRef, account: Stripe.Account): Pro
     dueBy: deadline ? new Date(deadline * 1000).toISOString() : null,
     active: account.charges_enabled === true && account.payouts_enabled === true,
     idNumber: idNumberName(country),
-    bank: { ...bankFormat(country), currency: account.default_currency?.toUpperCase() ?? null, holderName, last4: ext?.last4 ?? null },
+    bank: { ...bankFormat(country), currency: (ext?.currency ?? account.default_currency)?.toUpperCase() ?? null, holderName, last4: ext?.last4 ?? null, currencies: await payoutCurrencies(country, account.default_currency ?? null) },
   }
+}
+
+/*
+ * WHICH CURRENCIES A SELLER CAN BE PAID IN. Stripe's country spec says, per
+ * currency, which bank countries it pays out to; a currency counts when the
+ * seller's own country is one of them. Shown as a short choice: the local
+ * currency first, then euro and US dollar where Stripe supports them. Kept
+ * per server instance, it changes about never.
+ */
+const PAYOUT_CHOICES = ["eur", "usd"]
+const currencyCache = new Map<string, string[]>()
+async function payoutCurrencies(country: string, local: string | null): Promise<string[]> {
+  const c = country.toUpperCase()
+  let supported = currencyCache.get(c)
+  if (!supported) {
+    try {
+      const spec = await stripe.countrySpecs.retrieve(c)
+      supported = Object.entries(spec.supported_bank_account_currencies ?? {})
+        .filter(([, countries]) => countries.includes(c))
+        .map(([cur]) => cur.toLowerCase())
+      currencyCache.set(c, supported)
+    } catch (error) {
+      console.error("[payments own form] country spec", quiet(error))
+      supported = []
+    }
+  }
+  const first = local?.toLowerCase()
+  const can = supported ?? []
+  const list = [first, ...PAYOUT_CHOICES].filter((cur): cur is string => !!cur && (cur === first || can.includes(cur)))
+  return [...new Set(list)].map((cur) => cur.toUpperCase())
 }
 
 export async function detailsForm(creator: PaymentsCreatorRef): Promise<DetailsFormView> {
@@ -276,8 +306,13 @@ export async function addBank(creator: PaymentsCreatorRef, raw: unknown): Promis
   const account = await ownAccount(creator)
   const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>
   const country = (account.country ?? "").toUpperCase()
-  const currency = (account.default_currency ?? "").toLowerCase()
-  if (!country || !currency) throw new PaymentsProblem("Finish your details first.")
+  const local = (account.default_currency ?? "").toLowerCase()
+  if (!country || !local) throw new PaymentsProblem("Finish your details first.")
+  /* The payout currency the seller picked, only from what Stripe pays out to their country. */
+  const allowed = (await payoutCurrencies(country, local)).map((c) => c.toLowerCase())
+  const asked = typeof r.currency === "string" ? r.currency.toLowerCase() : local
+  if (!allowed.includes(asked)) throw new PaymentsProblem("Pick one of the payout currencies shown.")
+  const currency = asked
   const format = bankFormat(country)
   const holder = typeof r.holderName === "string" ? r.holderName.trim().slice(0, 120) : ""
   if (holder.length < 2) throw new PaymentsProblem("Enter the name on the bank account.")
@@ -302,6 +337,15 @@ export async function addBank(creator: PaymentsCreatorRef, raw: unknown): Promis
     console.error("[payments own form] bank", (error as { param?: string })?.param ?? "", quiet(error))
     throw new PaymentsProblem(sentence(error, "Stripe did not accept that bank account. Check it and try again."))
   }
+  /*
+   * Sales settle in the account's default currency and pay out to the bank
+   * for that currency, so a seller who chose euro has euro settle and land
+   * in their euro account. A refusal leaves the bank added: Stripe still
+   * pays out any balance it holds in that currency there.
+   */
+  if (currency !== local) {
+    await stripe.accounts.update(account.id, { default_currency: currency }).catch((error) => console.error("[payments own form] payout currency", quiet(error)))
+  }
   const view = await viewOf(creator, account)
-  return { ...view, bank: { ...view.bank, last4: added?.last4 ?? view.bank.last4 } }
+  return { ...view, bank: { ...view.bank, currency: currency.toUpperCase(), last4: added?.last4 ?? view.bank.last4, currencies: allowed.map((c) => c.toUpperCase()) } }
 }

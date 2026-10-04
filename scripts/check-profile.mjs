@@ -10,13 +10,17 @@
  *                   Message are there (Message to the community's ?dm=
  *                   link), the way back is a chevron in a top bar beside
  *                   their photo; Follow turns into Following with a check,
- *                   a pointer over it says Unfollow (not right after the
- *                   press), the count goes up by one; followers and
+ *                   a pointer over it still says Following (no Unfollow),
+ *                   the count goes up by one; followers and
  *                   following are one quiet line that opens nothing; "In
  *                   Clay Studio" pages six posts at a time; the Activity
  *                   tab's Show more adds the next page
  *   YOUR OWN        the owner's pills (Activity lit), no Follow, the "only
  *                   you" line, Add cover on the band
+ *   A CREATOR'S     /@handle of somebody with a store: no Activity tab, no
+ *   PROFILE         activity list, no "In <community>" posts; Products and
+ *                   the communities they made; on their own, the pills
+ *                   without Activity
  *   CREATOR PAGE    light (Sage) and dark (Astrid) schemes: the photo is
  *                   158px (150 + 5%) with a ring in the page's own
  *                   background; no sales anywhere in the hero, Sales sit in
@@ -27,7 +31,8 @@
  *                   email, Subscribe) from 320 to 430 wide, Subscribed
  *                   included; Follow is Storelib's primary in the scheme's
  *                   buy colour, Following and Message the quiet secondary in
- *                   the scheme's surface, all one height and rounding; with
+ *                   the scheme's surface, all one height and rounding, and
+ *                   a pointer over Following says Following; with
  *                   no newsletter bar the slim top bar carries the chevron;
  *                   opened cold, no chevron at all
  *   EVERYWHERE      nothing scrolls sideways; on a phone every control of
@@ -161,7 +166,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
           avatar: avatar && { top: Math.round(avatar.top), bottom: Math.round(avatar.bottom), cx: Math.round(avatar.left + avatar.width / 2), w: Math.round(avatar.width) },
           nameCx: name ? Math.round(name.left + name.width / 2) : null,
           back: (() => { const b = r("[data-profile-back-button]"); return b && { top: Math.round(b.top), h: Math.round(b.height) } })(),
-          follow: document.querySelector("[data-follow-button]")?.textContent?.trim(),
+          follow: document.querySelector("[data-follow-button]")?.innerText?.trim(),
           message: !!document.querySelector("[data-profile-message]"),
           pills: document.querySelectorAll("[data-profile-owner-pill]").length,
           tabs: [...document.querySelectorAll("[role=tab]")].map((t) => t.textContent.trim()),
@@ -193,27 +198,28 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
         console.log(`  info  the shared tab row's tabs are ${tabs.join(", ")}px tall`)
       }
 
-      /* Follow. */
+      /* Follow. The server hears it once the presses stop (components/profile/follow-button.tsx DEBOUNCE_MS). */
       const before = await p.evaluate(() => document.querySelector("[data-profile-count=followers] [data-profile-count-value]").textContent)
       await p.click("[data-follow-button]")
-      await frames(p, 4)
-      const after = await p.evaluate(() => ({ text: document.querySelector("[data-follow-button]").textContent.trim(), n: document.querySelector("[data-profile-count=followers] [data-profile-count-value]").textContent, fetches: window.__fetches }))
-      expect(/Following/.test(after.text) && Number(after.n) === Number(before) + 1, "Follow: Following, and one more follower", { before, after })
-      const hover = await p.evaluate(() => {
-        const vis = (sel) => { const el = document.querySelector(sel); return el ? getComputedStyle(el).visibility : null }
-        return { check: !!document.querySelector("[data-follow-button] svg"), following: vis("[data-follow-label=following]"), unfollow: vis("[data-follow-label=unfollow]") }
-      })
+      await new Promise((r) => setTimeout(r, 500))
+      const after = await p.evaluate(() => ({ text: document.querySelector("[data-follow-button]").innerText.trim(), n: document.querySelector("[data-profile-count=followers] [data-profile-count-value]").textContent, fetches: window.__fetches }))
+      expect(after.text === "Following" && Number(after.n) === Number(before) + 1, "Follow: Following, and one more follower", { before, after })
+      const state = () =>
+        p.evaluate(() => {
+          const b = document.querySelector("[data-follow-button]")
+          const l = b.querySelector("[data-follow-label=following]")
+          return { check: !!l.querySelector("svg"), text: b.innerText.trim(), visible: getComputedStyle(l).visibility, opacity: getComputedStyle(l).opacity, unfollow: !!b.querySelector("[data-follow-label=unfollow]") || /Unfollow/.test(b.textContent), w: Math.round(b.getBoundingClientRect().width) }
+        })
+      const s0 = await state()
+      expect(s0.check && s0.text === "Following" && s0.visible === "visible" && !s0.unfollow, "Following has a check, and there is no Unfollow", s0)
       if (!phone) {
-        /* The pointer that pressed Follow is still on it: no Unfollow until it has left. */
-        expect(hover.check && hover.following === "visible" && hover.unfollow === "hidden", "Following has a check, and no Unfollow under the pointer that just followed", hover)
-        const w0 = await p.evaluate(() => Math.round(document.querySelector("[data-follow-button]").getBoundingClientRect().width))
         await p.mouse.move(5, 5)
         await frames(p, 2)
         await p.hover("[data-follow-button]")
-        await frames(p, 2)
-        const back = await p.evaluate(() => ({ following: getComputedStyle(document.querySelector("[data-follow-label=following]")).visibility, unfollow: getComputedStyle(document.querySelector("[data-follow-label=unfollow]")).visibility, w: Math.round(document.querySelector("[data-follow-button]").getBoundingClientRect().width), color: getComputedStyle(document.querySelector("[data-follow-button]")).color }))
-        expect(back.following === "hidden" && back.unfollow === "visible" && back.w === w0, "hovering Following again says Unfollow, at the same width", { ...back, w0 })
-        await p.screenshot({ path: join(shots, `${label}-other-unfollow-hover.png`), clip: { x: 0, y: 0, width: vp.width, height: 560 } })
+        await new Promise((r) => setTimeout(r, 250))
+        const over = await state()
+        expect(over.text === "Following" && over.opacity === "1" && !over.unfollow && over.w === s0.w, "a pointer over Following: still Following, at the same width", { over, w0: s0.w })
+        await p.screenshot({ path: join(shots, `${label}-other-following-hover.png`), clip: { x: 0, y: 0, width: vp.width, height: 560 } })
         await p.mouse.move(5, 5)
       }
       expect(after.fetches.some((u) => u === "/api/follow"), "asked the follow route", after.fetches)
@@ -323,6 +329,45 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     }
     }
 
+    /* A creator's /@handle: "In creator pages or creator profiles there should be no activity." */
+    for (const which of ["creator-profile", "creator-self"]) {
+      if (!profiles) break
+      console.log(`\n${label}: ${which}`)
+      const { p, errors } = await open(vp, which)
+      await p.screenshot({ path: join(shots, `${label}-${which}.png`) })
+      await p.screenshot({ path: join(shots, `${label}-${which}-full.png`), fullPage: true })
+      const seen = await p.evaluate(() => ({
+        tabs: [...document.querySelectorAll("[role=tab]")].map((t) => t.textContent.trim()),
+        activity: document.querySelectorAll("[data-profile-activity], [data-profile-activity-item]").length,
+        shared: document.querySelectorAll("[data-shared-community]").length,
+        word: /\bactivity\b/i.test(document.body.innerText),
+        pills: [...document.querySelectorAll("[data-profile-owner-pill]")].map((a) => [a.textContent.trim(), a.getAttribute("href")]),
+        lit: document.querySelector("[data-profile-owner-pill][data-active=true]")?.getAttribute("data-profile-owner-pill") ?? null,
+        products: document.querySelectorAll("[data-member-product]").length,
+        follow: !!document.querySelector("[data-follow-button]"),
+        side: document.documentElement.scrollWidth - innerWidth,
+      }))
+      expect(errors.length === 0 && seen.side <= 0, "nothing sideways, no errors", { errors, side: seen.side })
+      expect(seen.tabs.join() === "Products,Communities" && seen.activity === 0 && seen.shared === 0 && !seen.word, "no Activity tab, no activity list, no In <community> posts, the word nowhere: Products then Communities", seen)
+      expect(seen.products === 2, "Products is the first tab, open", seen.products)
+      if (which === "creator-self") {
+        expect(seen.pills.map((x) => x[0]).join() === "Communities,Library,Settings" && seen.pills[0][1] === "/account" && seen.lit === null && !seen.follow, "their own: the pills without Activity (Communities is /account), nothing lit, no Follow", seen)
+      } else {
+        expect(seen.follow && seen.pills.length === 0, "a visitor: Follow, no pills", seen)
+      }
+      await p.evaluate(() => [...document.querySelectorAll("[role=tab]")].find((t) => t.textContent.trim() === "Communities").click())
+      await frames(p, 3)
+      await p.evaluate(() => document.querySelector("[data-profile-tabs]").scrollIntoView())
+      await p.screenshot({ path: join(shots, `${label}-${which}-communities.png`) })
+      const cards = await p.evaluate(() => [...document.querySelectorAll("[data-profile-communities] [data-community-card]")].map((c) => c.getAttribute("data-community-card")))
+      expect(cards.join() === "clay-studio", "Communities: only the one they made, not the one they joined", cards)
+      if (phone) {
+        const small = await smallTargets(p, "[data-profile-social], [data-profile-owner-pills]")
+        expect(small.length === 0, "every control of ours is at least 40px", small)
+      }
+      await p.close()
+    }
+
     /* The creator page's tabs, from the function the page itself builds them with (components/profile/creator-communities-tab.tsx). */
     for (const which of ["creator", "creator-none"]) {
       if (!profiles) break
@@ -409,7 +454,11 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
           const b = document.querySelector("[data-storefront-follow] [data-follow-button]")
           const m = document.querySelector("[data-storefront-follow] [data-profile-message]")
           const one = (el) => { const cs = getComputedStyle(el); const r = el.getBoundingClientRect(); return { bg: cs.backgroundColor, color: cs.color, border: cs.borderTopColor, radius: cs.borderTopLeftRadius, shadow: cs.boxShadow, h: Math.round(r.height), weight: cs.fontWeight } }
-          return { follow: one(b), tone: b.getAttribute("data-follow-tone"), state: b.getAttribute("data-follow-button"), message: one(m) }
+          /* The button draws its two states as two faces it crossfades: the one showing is the button's look. */
+          const st = b.getAttribute("data-follow-button")
+          const fill = one(b.querySelector(`[data-follow-fill=${st}]`))
+          const label = getComputedStyle(b.querySelector(`[data-follow-label=${st}]`))
+          return { follow: { ...fill, color: label.color, weight: label.fontWeight, h: Math.round(b.getBoundingClientRect().height) }, tone: b.getAttribute("data-follow-tone"), state: st, message: one(m), inGroup: !!b.closest(".group") }
         })
       const want = dark ? "rgb(37, 99, 235)" : "rgb(47, 93, 70)"
       const l0 = await look()
@@ -417,6 +466,8 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       const pageBg = hero.page
       expect(l0.message.bg !== "rgba(0, 0, 0, 0)" && l0.message.bg !== pageBg && (dark ? l0.message.bg !== "rgb(255, 255, 255)" : true) && /inset/.test(l0.message.shadow), "Message is the quiet secondary: the scheme's surface, a hairline and a soft foot", { message: l0.message, page: pageBg })
       expect(l0.follow.h === 40 && l0.message.h === 40 && l0.follow.radius === "12px" && l0.message.radius === "12px", "Follow and Message share one height and Storelib's rounding", { f: [l0.follow.h, l0.follow.radius], m: [l0.message.h, l0.message.radius] })
+      /* globals.css stops every transition inside a plain .group on a touch screen; the crossfade would be a cut there. */
+      expect(!l0.inGroup, "the button sits under no .group, so its crossfade runs on a phone too", l0.inGroup)
       await p.screenshot({ path: join(shots, `${label}-${which}-follow.png`), clip: { x: 0, y: 0, width: vp.width, height: Math.min(vp.height, 760) } })
       if (which === "creator" || which === "creator-dark") {
         await p.click("[data-storefront-follow] [data-follow-button]")
@@ -429,10 +480,10 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
           await p.mouse.move(5, 5)
           await frames(p, 2)
           await p.hover("[data-storefront-follow] [data-follow-button]")
-          await frames(p, 3)
-          const red = await p.evaluate(() => ({ color: getComputedStyle(document.querySelector("[data-storefront-follow] [data-follow-button]")).color, unfollow: getComputedStyle(document.querySelector("[data-storefront-follow] [data-follow-label=unfollow]")).visibility }))
-          expect(red.unfollow === "visible" && red.color !== l1.follow.color, "a pointer over Following says Unfollow, in the scheme's red", { red, before: l1.follow.color })
-          await p.screenshot({ path: join(shots, `${label}-${which}-unfollow.png`), clip: { x: 0, y: 0, width: vp.width, height: 760 } })
+          await new Promise((r) => setTimeout(r, 250))
+          const over = await p.evaluate(() => { const b = document.querySelector("[data-storefront-follow] [data-follow-button]"); return { text: b.innerText.trim(), unfollow: /Unfollow/.test(b.textContent), w: Math.round(b.getBoundingClientRect().width), color: getComputedStyle(b.querySelector("[data-follow-label=following]")).color } })
+          expect(over.text === "Following" && !over.unfollow && over.color === l1.follow.color, "a pointer over Following says Following, in the same ink (no Unfollow, no red)", { over, before: l1.follow.color })
+          await p.screenshot({ path: join(shots, `${label}-${which}-following-hover.png`), clip: { x: 0, y: 0, width: vp.width, height: 760 } })
           await p.mouse.move(5, 5)
         }
       }

@@ -91,7 +91,7 @@ console.log("\nThe profile center's pills")
   const pills = read("components/profile/profile-owner-pills.tsx")
   check("the pressed pill answers the press, its fill fading in where it is", /setPressed\(p\.key\)/.test(pills) && /transition-\[opacity,scale\]/.test(pills) && /scale-100 opacity-100" : "scale-\[0\.96\] opacity-0"/.test(pills))
   const member = read("components/profile/member-profile-page.tsx")
-  check("/@<my handle> for me is the same owner view: the pills, Activity lit, my activity under them, no Follow", /\{isSelf \? \(/.test(member) && /active="activity"/.test(member) && /isSelf=\{isSelf\}/.test(member))
+  check("/@<my handle> for me is the same owner view: the pills, Activity lit, my activity under them, no Follow (a creator: no Activity, round 6)", /(\{|: )isSelf \? \(/.test(member) && /\{isSelf && creator \? \(/.test(member) && /active="activity"/.test(member) && /isSelf=\{isSelf\}/.test(member))
 }
 
 console.log("\nThe cover, Edit profile, and the person under them (round 5)")

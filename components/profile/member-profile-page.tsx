@@ -21,6 +21,14 @@
  *                viewer shares a community with them, Activity opens with
  *                "In <community>": their posts there, six at a time.
  *
+ * A PERSON WITH A STORE HAS NO ACTIVITY. The owner: "In creator pages or
+ * creator profiles there should be no activity." Their /@handle is a
+ * creator profile, so it has no Activity tab and no "In <community>" posts:
+ * their Products, then the communities they made (as their creator page's
+ * Communities tab lists, never the ones they only joined). On your own
+ * page as a creator the pills have no Activity either, and what visitors
+ * see sits under them.
+ *
  * Every number is a count of real rows; nothing is shown that the person
  * chose to hide (their activity, the communities they are in), except to
  * themselves, with a line saying only they can see it.
@@ -141,8 +149,10 @@ export function MemberProfilePage({ profile, viewerId, viewerFollowing, extras }
   const isSelf = !!viewerId && viewerId === profile.userId
   const first = profile.name.split(/\s+/)[0] || profile.name
   const { activity, communities } = extras
-  const showMemberships = profile.privacy.showCommunities || isSelf
-  const shared = extras.shared ?? []
+  /* A creator profile: no activity, and only the communities they made. See A PERSON WITH A STORE HAS NO ACTIVITY. */
+  const creator = profile.hasStorefront
+  const showMemberships = !creator && (profile.privacy.showCommunities || isSelf)
+  const shared = creator ? [] : (extras.shared ?? [])
 
   const activityPanel = (
     <ProfileActivity
@@ -175,9 +185,12 @@ export function MemberProfilePage({ profile, viewerId, viewerFollowing, extras }
     />
   )
 
-  const tabs: StorefrontTab[] = [{ id: "activity", label: "Activity", panel: activityPanel }]
+  const tabs: StorefrontTab[] = creator ? [] : [{ id: "activity", label: "Activity", panel: activityPanel }]
+  if (creator && profile.products.length > 0) {
+    tabs.push({ id: "products", label: "Products", panel: <ProductGrid profile={profile} /> })
+  }
   const memberCards = showMemberships ? communities.member : []
-  if (communities.enabled && (communities.owned.length > 0 || memberCards.length > 0 || isSelf)) {
+  if (communities.enabled && (communities.owned.length > 0 || memberCards.length > 0 || isSelf || creator)) {
     const both = communities.owned.length > 0 && memberCards.length > 0
     tabs.push({
       id: "communities",
@@ -189,17 +202,22 @@ export function MemberProfilePage({ profile, viewerId, viewerFollowing, extras }
           <CommunityList title={both ? "Member of" : null} cards={memberCards} />
           {communities.owned.length === 0 && memberCards.length === 0 ? (
             <p className="rounded-2xl border border-dashed border-[#e5e7eb] px-6 py-10 text-center text-[14px] text-[#6b7280]">
-              No communities yet.{" "}
-              <Link href="/explore?type=communities" className="font-medium text-[#1a1a2e] underline-offset-2 hover:underline">
-                Find one
-              </Link>
+              No communities yet.
+              {creator ? null : (
+                <>
+                  {" "}
+                  <Link href="/explore?type=communities" className="font-medium text-[#1a1a2e] underline-offset-2 hover:underline">
+                    Find one
+                  </Link>
+                </>
+              )}
             </p>
           ) : null}
         </div>
       ),
     })
   }
-  if (profile.hasStorefront && profile.products.length > 0) {
+  if (!creator && profile.hasStorefront && profile.products.length > 0) {
     tabs.push({ id: "products", label: "Products", panel: <ProductGrid profile={profile} /> })
   }
 
@@ -227,7 +245,15 @@ export function MemberProfilePage({ profile, viewerId, viewerFollowing, extras }
       />
 
       <div className="mx-auto w-full max-w-[960px] px-4 sm:px-6 lg:px-0">
-        {isSelf ? (
+        {isSelf && creator ? (
+          /* A creator's own page: the pills (no Activity), then what visitors see. */
+          <>
+            <ProfileOwnerPills communities={communities.enabled} creator active={null} className="mt-3" />
+            <div className="mt-6 sm:mt-8" data-profile-tabs="">
+              {tabs.length ? <StorefrontTabs tabs={tabs} /> : null}
+            </div>
+          </>
+        ) : isSelf ? (
           /* Your own page is /account's page: the pills to your places, and your activity under them. */
           <>
             <ProfileOwnerPills communities={communities.enabled} active="activity" className="mt-3" />
@@ -237,7 +263,7 @@ export function MemberProfilePage({ profile, viewerId, viewerFollowing, extras }
           </>
         ) : (
           <div className="mt-6 sm:mt-8" data-profile-tabs="">
-            <StorefrontTabs tabs={tabs} />
+            {tabs.length ? <StorefrontTabs tabs={tabs} /> : null}
           </div>
         )}
       </div>

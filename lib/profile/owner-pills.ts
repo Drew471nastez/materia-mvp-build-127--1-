@@ -19,6 +19,12 @@
  * Communities only while the communities switch is on. Pure, so the pills,
  * the hub, the site header and tests/account-center.test.ts ask the same
  * questions.
+ *
+ * A CREATOR HAS NO ACTIVITY PILL. The owner: "In creator pages or creator
+ * profiles there should be no activity." Somebody with a live store keeps
+ * Communities, Library and Settings, and /account itself opens on their
+ * Communities (app/account/page.tsx), so the Communities pill is /account
+ * for them and lights there.
  */
 import { ACCOUNT_COMMUNITIES, LIBRARY_HOME } from "@/lib/library/paths"
 
@@ -33,10 +39,10 @@ export interface OwnerPill {
   href: string
 }
 
-export function ownerPillLinks(communities: boolean): OwnerPill[] {
+export function ownerPillLinks(communities: boolean, creator = false): OwnerPill[] {
   return [
-    { key: "activity", label: "Activity", href: "/account" },
-    ...(communities ? [{ key: "communities" as const, label: "Communities", href: ACCOUNT_COMMUNITIES }] : []),
+    ...(creator ? [] : [{ key: "activity" as const, label: "Activity", href: "/account" }]),
+    ...(communities ? [{ key: "communities" as const, label: "Communities", href: creator ? "/account" : ACCOUNT_COMMUNITIES }] : []),
     { key: "library", label: "Library", href: LIBRARY_HOME },
     { key: "settings", label: "Settings", href: "/account/settings?section=account" },
   ]
@@ -44,10 +50,10 @@ export function ownerPillLinks(communities: boolean): OwnerPill[] {
 
 const clean = (p: string | null | undefined) => (p || "").split(/[?#]/)[0].replace(/\/+$/, "") || "/"
 
-/** The pill an address belongs to, or null for one that is not the profile's. */
-export function ownerPillFor(pathname: string | null | undefined): OwnerPillKey | null {
+/** The pill an address belongs to, or null for one that is not the profile's. For a creator /account is their Communities. */
+export function ownerPillFor(pathname: string | null | undefined, creator = false): OwnerPillKey | null {
   const path = clean(pathname)
-  if (path === "/account") return "activity"
+  if (path === "/account") return creator ? "communities" : "activity"
   if (path === ACCOUNT_COMMUNITIES || path.startsWith(`${ACCOUNT_COMMUNITIES}/`)) return "communities"
   if (path === LIBRARY_HOME || path.startsWith(`${LIBRARY_HOME}/`)) return "library"
   if (path === "/account/settings" || path.startsWith("/account/settings/")) return "settings"

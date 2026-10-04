@@ -118,7 +118,9 @@ check("the Account step's names are not asked again by Storelib", (flow.match(/a
 check("ID photos go to Stripe as the account's file, attached in the same call", /stripe\.files\.create\(/.test(own) && /stripeAccount: account\.id/.test(own) && /verification: \{ \[which\]: \{ \[side\]: uploaded\.id \} \}/.test(own))
 check("a bank on file shows its last four and can be replaced", /Current account ending in/.test(flow) && flow.includes("Change bank account") && /createExternalAccount\(account\.id, \{ external_account: bank, default_for_currency: true \}\)/.test(own))
 check("nothing opens a Stripe page or the Stripe dashboard", !/window\.open|dashboard\.stripe|account_links|accountLinks|connect\.stripe\.com\/(setup|express)/i.test(flow + ui + embedded))
-check("setup is Account, the details with the bank on them, then the ID check", /\["Account", "Details", "Verify ID"\]/.test(flow) && /data-details-bank/.test(flow) && /only\?: "id" \| "details"/.test(flow))
+/* The owner, October 2026: like Skool, personal info, verification with the camera, then the bank with its payout currency. */
+check("setup is Personal info, Verify ID, Bank account, with the bank its own last step", /\["Personal info", "Verify ID", "Bank account"\]/.test(flow) && /data-bank-step/.test(flow) && /only\?: "id" \| "details"/.test(flow) && /key=\{`bank-step-\$\{openCount\}`\}/.test(flow))
+check("  the bank step picks the payout currency first, from what Stripe pays out to that country", /data-payout-currency/.test(flow) && /countrySpecs\.retrieve\(/.test(own) && /supported_bank_account_currencies/.test(own) && /default_currency: currency/.test(own))
 /* The owner, October 2026: "the kyc photo id needs to be separate step", and the CNP "should not be needed". */
 check("  the ID check is its own step, drawn apart from the details", /only === "id" \? f === "document"/.test(flow))
 /* The owner, October 2026: "verify id is not step 2 is actually 3, so I don't have to re-enter again the details". */
@@ -141,8 +143,8 @@ check("the phone app never leaves for the ID check", /if \(isNativeApp\(\)\) ret
 check("  and does not even make a Stripe session it could not open", /if \(isNativeApp\(\)\) \{\s*\n\s*setIdWay\("camera"\)/.test(flow))
 check("  verifying is never shown while Stripe is still asking for something", /const stepFor = \(form: DetailsForm \| null\): Step \| null/.test(flow) && /if \(target !== null && target !== step\)/.test(flow))
 /* The owner, October 2026: finish it properly. Every way out of settle has to land somewhere. */
-check("  what is still owed decides the step, so no Continue leads nowhere", /if \(detailsLeft\) return 1/.test(flow) && /if \(needs\.fields\.includes\("document"\)\) return 2/.test(flow))
-check("  and a step is never sent to itself, which was an endless remount", /target !== step/.test(flow) && /outcome === "bank" && step !== 1/.test(flow))
+check("  what is still owed decides the step, so no Continue leads nowhere", /if \(detailsLeft\) return 1/.test(flow) && /if \(needs\.fields\.includes\("document"\) && !needs\.given\?\.includes\("document"\)\) return 2/.test(flow) && /if \(needs\.bank\) return 3/.test(flow))
+check("  and a step is never sent to itself, which was an endless remount", /target !== step/.test(flow) && /outcome === "bank" && step !== 3/.test(flow))
 check("a failed load has a way on", embedded.includes("Couldn't load verification") && embedded.includes("Try again in a moment.") && embedded.includes(">\n          Try again"))
 check("one loader, then Stripe's form fades in", /setOnLoaderStart/.test(embedded) && (embedded.match(/<WaitingArea/g) ?? []).length === 1)
 /* The owner, October 2026: "3 layers of backdrop, fade, I don't like those", and the modal "should not have that much width". */

@@ -304,7 +304,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       { type: "h", text: "If it is declined" },
       { type: "p", text: "Open Payouts and start the step again. Stripe says what was wrong, and it is nearly always the photo rather than you: a blur, a cut corner, or a name that does not match what you typed. Make sure the name on your Storelib account matches the document exactly." },
       { type: "h", text: "If Stripe asks again later" },
-      { type: "p", text: "As your sales grow, Stripe may ask for more, such as proof of address or, for a business, company papers. Storelib does not ask you for those itself: Stripe collects them on a form that opens inside Storelib, so you still never leave. You get an email with a deadline, and Payouts shows it with a button. Answer before the deadline and nothing stops; miss it and payouts pause until you do." },
+      { type: "p", text: "Setup asks for three things: your personal info, a photo of your ID with your camera (front and back), and the bank account your payouts go to, in your local currency, euro or US dollar. Storelib never asks for a proof of address, a utility bill or a bank statement. If Stripe needs something else later, you get an email with a deadline and Payouts shows a button that opens setup at exactly that step. Answer before the deadline and nothing stops; miss it and payouts pause until you do. In the rare case Stripe asks for something the Storelib form does not cover, Payouts says so and support sorts it out with you." },
     ],
   },
   {

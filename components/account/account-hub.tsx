@@ -12,7 +12,7 @@
  * it, the photo across its lower edge, the name, @username, the bio and the
  * follower counts. Under it, where somebody else would find Follow, the
  * owner's pills (components/profile/profile-owner-pills.tsx): Activity,
- * Communities, Library, Settings.
+ * Communities, Library, Settings; a creator has no Activity.
  *
  * THE COVER IS OUTSIDE THE COLUMN. It runs the window's whole width like a
  * creator page's, so this hub draws the profile's column itself
@@ -55,6 +55,8 @@ export interface AccountIdentity {
   coverUrl?: string | null
   followers?: number
   following?: number
+  /** A live store: their profile has no Activity, so /account opens on their Communities (lib/profile/owner-pills.ts). */
+  creator?: boolean
 }
 
 export function AccountHub({ identity, communities = false, children }: { identity: AccountIdentity; communities?: boolean; children: ReactNode }) {
@@ -91,7 +93,7 @@ export function AccountHub({ identity, communities = false, children }: { identi
         }
       />
       <AccountColumn top={false}>
-        <ProfileOwnerPills communities={communities} className="mt-3" />
+        <ProfileOwnerPills communities={communities} creator={!!identity.creator} className="mt-3" />
         <div className="mt-6 min-w-0 sm:mt-8" data-account-panel="">
           {children}
         </div>

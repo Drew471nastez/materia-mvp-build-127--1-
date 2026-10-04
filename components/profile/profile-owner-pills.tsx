@@ -4,8 +4,8 @@
  * ===========================================================================
  *  YOUR OWN PROFILE, AND THE PLACES YOU GO FROM IT
  * ===========================================================================
- * Only on your own profile, where somebody else would see Follow: Activity,
- * Communities (while communities are on), Library and Settings
+ * Only on your own profile, where somebody else would see Follow: Activity
+ * (not for a creator), Communities (while communities are on), Library and Settings
  * (lib/profile/owner-pills.ts; Edit profile is a button on the cover now),
  * as the Library's pills: white on a
  * hairline, the one you are on pressed in on a grey fill, a row that scrolls
@@ -33,9 +33,9 @@ const PILL =
   "relative inline-flex h-10 shrink-0 select-none items-center whitespace-nowrap rounded-full border bg-white px-4 text-[14px] font-medium outline-none " +
   "transition-[color,scale] active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 motion-reduce:transition-none motion-reduce:active:scale-100 [-webkit-tap-highlight-color:transparent]"
 
-export function ProfileOwnerPills({ communities, active: fixed, className }: { communities: boolean; active?: OwnerPillKey | null; className?: string }) {
+export function ProfileOwnerPills({ communities, creator = false, active: fixed, className }: { communities: boolean; /** A live store: no Activity pill, /account is their Communities. */ creator?: boolean; active?: OwnerPillKey | null; className?: string }) {
   const pathname = usePathname()
-  const fromPath = fixed ?? ownerPillFor(pathname)
+  const fromPath = fixed !== undefined ? fixed : ownerPillFor(pathname, creator)
   const [pressed, setPressed] = useState<OwnerPillKey | null>(null)
   useEffect(() => setPressed(null), [fromPath])
   const active = pressed ?? fromPath
@@ -44,7 +44,7 @@ export function ProfileOwnerPills({ communities, active: fixed, className }: { c
     <nav aria-label="Your pages" className={cn("-mx-4 sm:mx-0", className)} data-profile-owner-pills="">
       <div className="overflow-x-auto overscroll-x-contain px-4 py-0.5 scrollbar-hide sm:px-0">
         <div className="mx-auto flex w-max items-center gap-2">
-          {ownerPillLinks(communities).map((p) => {
+          {ownerPillLinks(communities, creator).map((p) => {
             const on = p.key === active
             return (
               <Link

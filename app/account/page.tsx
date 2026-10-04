@@ -8,6 +8,13 @@ import { activityFor } from "@/lib/profile/activity-page"
 import { readPrivacy } from "@/lib/profile/privacy"
 import { ProfileActivity } from "@/components/profile/profile-activity"
 import { OverviewSkeleton } from "@/components/account/account-skeleton"
+import { accountCommunitiesBody } from "@/components/account/account-communities-body"
+import { secondaryDepth } from "@/components/ui/depth-button"
+import { communitiesEnabled } from "@/lib/communities/flag"
+import { accountIsCreator } from "@/lib/profile/account-creator"
+import { profileForRequest } from "@/lib/auth/request-scope"
+import { getStoreInternalPath } from "@/lib/url-helpers"
+import { cn } from "@/lib/utils"
 
 export const dynamic = "force-dynamic"
 
@@ -46,18 +53,44 @@ async function activityBody(user: User) {
 }
 
 /**
- * /account: your profile, as everybody sees it, opened on Activity. The
- * person and the pills are the layout's and are drawn at once; the list
- * streams in under them, with a deferred skeleton a quick answer never shows.
+ * A CREATOR'S /account HAS NO ACTIVITY. The owner: "In creator pages or
+ * creator profiles there should be no activity." Somebody with a live store
+ * opens on their Communities, the list /account/communities draws, and the
+ * Communities pill lights here (lib/profile/owner-pills.ts). With
+ * communities switched off there is nothing of the profile's own to list,
+ * so it is one line and the way to the page people do see: their store.
+ */
+async function creatorBody(user: User) {
+  if (await communitiesEnabled().catch(() => false)) return accountCommunitiesBody(user.id)
+  const handle = (await profileForRequest(user.id))?.username || null
+  return (
+    <div className="rounded-2xl border border-[#e4e7ec]/80 bg-white px-6 py-10 text-center shadow-[0_1px_2px_rgba(16,24,40,0.04),0_3px_8px_-2px_rgba(16,24,40,0.05)]" data-account-creator-page="">
+      <p className="text-[14px] text-[#6b7280]">People who visit you see your store.</p>
+      {handle ? (
+        <Link href={getStoreInternalPath(handle)} className={cn(secondaryDepth, "mt-4 h-10 rounded-xl px-5 text-[14px]")}>
+          View your page
+        </Link>
+      ) : null}
+    </div>
+  )
+}
+
+/**
+ * /account: your profile, as everybody sees it, opened on Activity (on
+ * Communities for a creator, see creatorBody). The person and the pills are
+ * the layout's and are drawn at once; the list streams in under them, with
+ * a deferred skeleton a quick answer never shows.
  */
 export default async function AccountActivityRoute() {
   const user = await pageUser(accountLoginPath("/account"))
   /* Supabase did not answer in time: the layout's gate recovers the session in the browser (lib/auth/page-user.ts). */
   if (!user) return null
+  /* The layout asked the same question for the pills; cached for the request, so this is no second read. */
+  const creator = await accountIsCreator(user.id)
   return (
     <Suspense fallback={<OverviewSkeleton />}>
       {/* A promise as the child, as app/app/payouts/page.tsx does: React waits for it inside this boundary. */}
-      {activityBody(user)}
+      {creator ? creatorBody(user) : activityBody(user)}
     </Suspense>
   )
 }

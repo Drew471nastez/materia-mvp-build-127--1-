@@ -5,6 +5,11 @@ import "server-only"
  * (app/api/profile/activity). One place decides whether there is anything
  * to show: a person who hid their activity shows none to anybody but
  * themselves, and community activity only exists while communities are on.
+ *
+ * NOBODY WITH A STORE HAS ACTIVITY. The owner: "In creator pages or creator
+ * profiles there should be no activity." Their pages draw no Activity tab,
+ * and this answers an empty list for them too, so "Show more" or a direct
+ * call to app/api/profile/activity cannot bring it back.
  */
 import { communitiesEnabled } from "@/lib/communities/flag"
 import { readProfileActivity, type ProfileActivityItem } from "./activity"
@@ -31,13 +36,13 @@ export async function activityFor(
   if (creator === undefined) {
     const { data } = await db.from("creators").select("id, onboarding_completed").eq("user_id", input.userId).maybeSingle()
     const row = data as { id: string; onboarding_completed: boolean | null } | null
-    const { data: p } = await db.from("profiles").select("username").eq("id", input.userId).maybeSingle()
-    creator = row?.onboarding_completed ? { id: row.id, handle: (p as { username?: string | null } | null)?.username ?? null } : null
+    creator = row?.onboarding_completed ? { id: row.id, handle: null } : null
   }
+  if (creator) return { items: [], next: null, hidden: false }
   const page = await readProfileActivity(db, {
     userId: input.userId,
-    creatorId: creator?.id ?? null,
-    storeHandle: creator?.handle ?? null,
+    creatorId: null,
+    storeHandle: null,
     communities: await communitiesEnabled().catch(() => false),
     after: decodeCursor(input.cursor),
   })
