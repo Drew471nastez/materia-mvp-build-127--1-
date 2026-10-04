@@ -108,7 +108,13 @@ check("  with Stripe's own 10 MB limit, not a stricter guess", /DOC_MAX_BYTES = 
 check("  the ID number is not asked again once Stripe holds the document", /given\?: DetailField\[\]/.test(flow) && /needs\.given = given/.test(own))
 check("the step comes from Stripe's status", /setupStepOf\(/.test(flow))
 /* The owner, October 2026: going on "takes to much", and "We're verifying your details" appearing out of nowhere. */
-check("  the next step reads the overview the write returned, with no second sync", (flow.match(/post<Overview>\("refresh"/g) ?? []).length === 1 && /function BusinessDetailsStep[\s\S]*?post<Overview>\("refresh"/.test(flow) && /const settle = async \(sent: Overview, left: DetailsForm \| null\)/.test(flow))
+check("  the next step reads the overview the write returned, with no second sync", !/onNext\([^)]*\)\s*\n?\s*await post<Overview>\("refresh"/.test(flow) && /const settle = async \(sent: Overview, left: DetailsForm \| null\)/.test(flow))
+/* The owner, October 2026: "it says well notify you in 2 days, that should not be the case once users set up and uploaded their KYC". */
+check("  the checking screen waits with them instead of promising days", /function Outcome\([\s\S]*?title: "Checking your ID"/.test(flow) && !/line:[^\n]*business days/.test(flow))
+check("    and it asks again while it is open, becoming active by itself", /outcome !== "checking"\) return[\s\S]*?post<Overview>\("refresh"/.test(flow) && /onChecked/.test(flow))
+/* The owner, October 2026: the ID check "takes me outside to Stripe on iOS and Capacitor apps instead of opening there in the app". */
+check("the phone app never leaves for the ID check", /if \(isNativeApp\(\)\) return "no_way"/.test(readFileSync("lib/payments/identity-client.ts", "utf8")) && !/openInApp/.test(readFileSync("lib/payments/identity-client.ts", "utf8")))
+check("  and does not even make a Stripe session it could not open", /if \(isNativeApp\(\)\) \{\s*\n\s*setIdWay\("camera"\)/.test(flow))
 check("  verifying is never shown while Stripe is still asking for something", /stillAsking && \(outcome === "checking" \|\| outcome === "done"\)/.test(flow))
 check("a failed load has a way on", embedded.includes("Couldn't load verification") && embedded.includes("Try again in a moment.") && embedded.includes(">\n          Try again"))
 check("one loader, then Stripe's form fades in", /setOnLoaderStart/.test(embedded) && (embedded.match(/<WaitingArea/g) ?? []).length === 1)

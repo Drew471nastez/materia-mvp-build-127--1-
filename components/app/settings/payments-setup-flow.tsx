@@ -42,7 +42,7 @@ import { countryLabel, countryOf } from "@/lib/account/country"
 import { personalIssues } from "@/lib/payments/stripe/onboarding-steps"
 import { setupStepOf, type StorelibPaymentsStatus } from "@/lib/payments/stripe/status"
 import type { Overview } from "@/components/app/settings/payments-hub-shared"
-import { openInApp } from "@/lib/native-bridge"
+import { isNativeApp, openInApp } from "@/lib/native-bridge"
 import { IdCamera, armCameraSounds, type IdSide } from "@/components/app/settings/id-camera"
 import { StripeConnectEmbedded } from "@/components/app/settings/stripe-connect-embedded"
 import { openIdentity } from "@/lib/payments/identity-client"
@@ -564,6 +564,13 @@ export function PaymentsSetupFlow({
           setOpenCount((k) => k + 1)
         }}
         onDone={finish}
+        onChecked={(next) => {
+          /* Stripe answered while the screen was open: it becomes whatever is true now. */
+          onData(next)
+          const now = outcomeOf(statusOf(next))
+          if (now === "done") onFinished()
+          if (now !== "checking") setEnding(now)
+        }}
       />
     )
   } else if (mode === "bank") {
@@ -1293,6 +1300,18 @@ function DetailsStep({
 
   const runIdentity = async () => {
     setIdProblem(null)
+    /*
+     * IN THE APP, THE CAMERA IS THE CHECK. Asking the server for a Stripe
+     * Identity session here would make one (which Stripe charges for) and
+     * then find there is nothing to open with it, because the app does not
+     * hand anybody to a browser mid setup (lib/payments/identity-client).
+     */
+    if (isNativeApp()) {
+      setIdWay("camera")
+      setIdState("idle")
+      openCamera("front")
+      return
+    }
     setIdState("opening")
     try {
       const r = await post<{ ok?: boolean; reason?: string; clientSecret?: string | null; url?: string | null; publishableKey?: string }>("identity", {})
@@ -1814,7 +1833,53 @@ function ibanLooksValid(input: string, country: string): boolean {
 
 /* ── when the form is sent ─────────────────────────────────────────────── */
 
-function Outcome({ outcome, onContinue, onDone }: { outcome: Outcome; onContinue: () => void; onDone: () => void }) {
+/*
+ * "WE'RE VERIFYING YOUR DETAILS" WAS A DEAD END THAT PROMISED DAYS.
+ *
+ * A document handed to Stripe is usually cleared in seconds, sometimes in a
+ * minute. The screen at the end of setup read the account once, caught that
+ * short window, said it might take up to two business days and stopped
+ * there: the creator had done everything asked of them and was told to go
+ * away and wait. Most of them were already verified moments later and had
+ * no way of knowing.
+ *
+ * So it waits with them. While it is on screen it asks the server every few
+ * seconds for about a minute, and the moment Stripe is satisfied it becomes
+ * "Payments active" by itself. Only somebody Stripe really is taking longer
+ * over ever sees a wait, and even then it is not given a number: the email
+ * when it clears is the promise, not a guess at how many days.
+ */
+function Outcome({ outcome, onContinue, onDone, onChecked }: { outcome: Outcome; onContinue: () => void; onDone: () => void; onChecked?: (next: Overview) => void }) {
+  const [waited, setWaited] = React.useState(0)
+  const checked = React.useRef(onChecked)
+  checked.current = onChecked
+  React.useEffect(() => {
+    if (outcome !== "checking") return
+    let gone = false
+    let tries = 0
+    const ask = async () => {
+      tries += 1
+      setWaited(tries)
+      try {
+        const next = await post<Overview>("refresh", {})
+        if (!gone) checked.current?.(next)
+      } catch {
+        /* A blip: the next tick asks again, and the email arrives either way. */
+      }
+    }
+    const t = window.setInterval(() => {
+      if (tries >= 15) {
+        window.clearInterval(t)
+        return
+      }
+      void ask()
+    }, 4000)
+    return () => {
+      gone = true
+      window.clearInterval(t)
+    }
+  }, [outcome])
+
   const copy =
     outcome === "done"
       ? { icon: <Check className="h-5 w-5" strokeWidth={3} />, tone: "bg-[#ecfdf3] text-[#067647]", title: "Payments active", line: "You're ready to accept payments. Your sales are paid into your balance and you cash out to your bank.", action: "Done", primary: onDone }
@@ -1822,8 +1887,11 @@ function Outcome({ outcome, onContinue, onDone }: { outcome: Outcome; onContinue
         ? {
             icon: <Clock className="h-5 w-5" />,
             tone: "bg-[#f4f3ff] text-[#5b4bd5]",
-            title: "We're verifying your details",
-            line: "This usually takes a few minutes and sometimes up to two business days. We'll email you the moment payments are on.",
+            title: "Checking your ID",
+            line:
+              waited >= 15
+                ? "Stripe is taking a closer look at this one. Nothing more is needed from you, and we'll email you the moment payments are on."
+                : "This usually takes a few seconds. You can close this: we'll email you the moment payments are on.",
             action: "Done",
             primary: onDone,
           }

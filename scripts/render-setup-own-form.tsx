@@ -32,11 +32,14 @@ const overview = {
   payoutHint: { accountName: "Andrei Balan", currency: "RON", country: "RO", holderType: "individual", inStorelib: true },
 } as unknown as Overview
 
+/* ?checking=1: everything sent, Stripe still looking, so setup ends on the checking screen. */
+const checking = { ...overview, beat: "review", paymentsStatus: { status: "VERIFYING", title: "", line: "", action: null } } as unknown as Overview
+
 /* ?fresh=1: nothing set up yet, so setup opens on the Account step. */
 const fresh = { ...overview, beat: "personal", paymentsStatus: { status: "NOT_STARTED", title: "Set up payouts", line: "", action: "setup" }, payoutHint: null } as unknown as Overview
 
 function Page() {
-  const [data, setData] = React.useState(location.search.includes("fresh") ? fresh : overview)
+  const [data, setData] = React.useState(location.search.includes("fresh") ? fresh : location.search.includes("checking") ? checking : overview)
   const [done, setDone] = React.useState(false)
   return (
     <div className="min-h-screen bg-[#f8f9fa]">
