@@ -26,6 +26,7 @@ import type { JobRow, NotifyLevel } from "../../types"
 import { reasonOf, type Db } from "../db"
 import { sendCommunityEmail } from "../email"
 import type { JobContext, JobOutcome } from "./index"
+import { carryPushes, communityPushItem, pushFanout, type PushItem } from "@/lib/notifications/push-bridge"
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -58,7 +59,10 @@ export function announcementEmailees(members: { user_id: string; notify_level: N
 }
 
 export async function fanoutAnnouncement(db: Db, job: JobRow, ctx: JobContext): Promise<JobOutcome | void> {
-  const payload = job.payload ?? {}
+  /* Pushes an earlier run could not send in time go first (lib/notifications/push-bridge.ts). */
+  const carried = await carryPushes(job.payload, ctx.deadline)
+  if (carried.left.length) return { again: { payload: { ...carried.payload, pushLeft: carried.left } } }
+  const payload = carried.payload
   const communityId = typeof payload.communityId === "string" ? payload.communityId : ""
   const postId = typeof payload.postId === "string" ? payload.postId : ""
   const actorId = typeof payload.actorId === "string" && UUID.test(payload.actorId) ? payload.actorId : null
@@ -95,8 +99,22 @@ export async function fanoutAnnouncement(db: Db, job: JobRow, ctx: JobContext): 
     if (!members.length) return
     const rows = fanoutRows(members, { communityId, postId, actorId, title, body, url, reason })
     if (rows.length) {
-      const { error: writeError } = await db.from("community_notifications").upsert(rows, { onConflict: "dedupe_key", ignoreDuplicates: true })
+      const { data: written, error: writeError } = await db.from("community_notifications").upsert(rows, { onConflict: "dedupe_key", ignoreDuplicates: true }).select("user_id")
       if (writeError) throw new Error(`notifications write: ${reasonOf(writeError)}`)
+      /*
+        AND TO THEIR PHONES, the members whose row is new this run (a page run
+        again pushes nobody twice). Before the emails, so a page handed back
+        for its emails has already pushed; what does not fit in this run goes
+        back with the page's own cursor and is sent first next time.
+      */
+      const fresh = new Set(((written as { user_id: string }[] | null) ?? []).map((r) => r.user_id))
+      const levels = new Map(members.map((m) => [m.user_id, m.notify_level]))
+      const items = rows
+        .filter((r) => fresh.has(r.user_id as string))
+        .map((r) => communityPushItem({ userId: r.user_id as string, communityId, kind: "announcement", actorId, title: r.title as string, body: r.body as string | null, url, dedupeKey: r.dedupe_key as string, level: levels.get(r.user_id as string) ?? null }, community.name))
+        .filter((i): i is PushItem => !!i)
+      const left = await pushFanout(db, items, { deadline: ctx.deadline })
+      if (left.length) return { again: { payload: { ...payload, after, pushLeft: left } } }
     }
     if (reason === "announcement") {
       const emailTo = announcementEmailees(members, actorId)

@@ -28,7 +28,8 @@ import "server-only"
  * ends without telling anybody.
  */
 import { getProductInternalPath } from "@/lib/url-helpers"
-import { notifyUsers, type NotifyUserInput } from "@/lib/notifications/user-inbox"
+import { writeUserRows, type NotifyUserInput } from "@/lib/notifications/user-inbox"
+import { carryPushes, pushFanout, userPushItem, type PushItem } from "@/lib/notifications/push-bridge"
 import { communitiesEnabled } from "../../flag"
 import type { JobRow } from "../../types"
 import { reasonOf, type Db } from "../db"
@@ -105,12 +106,17 @@ function readCursor(v: unknown): TimeCursor | null {
 }
 
 export async function fanoutFollowers(db: Db, job: JobRow, ctx: JobContext): Promise<JobOutcome | void> {
-  const payload = job.payload ?? {}
+  /* Pushes an earlier run could not send in time go first (lib/notifications/push-bridge.ts). */
+  const carried = await carryPushes(job.payload, ctx.deadline)
+  if (carried.left.length) return { again: { payload: { ...carried.payload, pushLeft: carried.left } } }
+  const payload = carried.payload
   const type = payload.type === "community" ? "community" : payload.type === "product" ? "product" : null
   const id = type === "community" ? payload.communityId : payload.productId
   const creatorUserId = payload.creatorUserId
   if (!type || typeof id !== "string" || !UUID.test(id) || typeof creatorUserId !== "string" || !UUID.test(creatorUserId)) throw new Error("fanout_followers needs payload.type, its id and payload.creatorUserId")
 
+  /* Every page was written; only pushes were left, and they have gone. */
+  if (payload.finished === true) return
   const subject = await loadSubject(db, type, id, creatorUserId)
   if (!subject) return
 
@@ -145,24 +151,28 @@ export async function fanoutFollowers(db: Db, job: JobRow, ctx: JobContext): Pro
       full = rows.length === FOLLOWERS_PAGE
     }
 
+    let left: Awaited<ReturnType<typeof pushFanout>> = []
     if (userIds.length) {
-      const wrote = await notifyUsers(db, followerRows(userIds, subject, phase))
+      const wrote = await writeUserRows(db, followerRows(userIds, subject, phase))
       /* Before part 85 there is no inbox to write to: nothing to do, now or later. */
       if (wrote === "unavailable") return
-      told += wrote
+      told += wrote.wrote
+      /* The people whose row is new, to their phones: a low priority kind, so held for anyone who just had one. */
+      left = await pushFanout(db, wrote.fresh.map(userPushItem).filter((i): i is PushItem => !!i), { deadline: ctx.deadline })
     }
 
+    let done = false
     if (full && last) {
       after = last
-      continue
-    }
-    if (phase === "followers" && type === "product") {
+    } else if (phase === "followers" && type === "product") {
       phase = "buyers"
       after = null
-      continue
+    } else done = true
+    if (left.length) return { again: { payload: { ...payload, phase, after, told, ...(done ? { finished: true } : {}), pushLeft: left } } }
+    if (done) {
+      console.log(`[notifications] ${type} ${id}: ${told} told`)
+      return
     }
-    console.log(`[notifications] ${type} ${id}: ${told} told`)
-    return
   }
   return { again: { payload: { ...payload, phase, after, told } } }
 }

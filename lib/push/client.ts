@@ -1,6 +1,7 @@
 "use client"
 
 import { Capacitor } from "@capacitor/core"
+import { pushTapTarget } from "./tap"
 
 /**
  * Initialise push notifications for the native app.
@@ -104,17 +105,20 @@ export async function initPushNotifications(): Promise<void> {
   })
 
   PushNotifications.addListener("pushNotificationActionPerformed", ({ notification }) => {
-    const { type, url } = (notification.data ?? {}) as { type?: string; url?: string }
-    console.log("[push] Notification tapped, type:", type)
-
-    if (type === "sale") {
-      window.location.href = "/app/sales"
-    } else if (type === "payout_available") {
-      window.location.href = "/app/payouts"
-    } else if (type === "notification") {
-      /* lib/notifications/push: the page it is about, always inside /app. */
-      window.location.href = typeof url === "string" && /^\/app(?:[/?#]|$)/.test(url) && !url.includes("//") ? url : "/app"
-    }
+    const data = (notification.data ?? {}) as Record<string, unknown>
+    console.log("[push] Notification tapped, type:", data.type)
+    /*
+      lib/push/tap.ts: a sale, a payout, a page inside /app, or a community or
+      inbox notification's own page anywhere on storelib.com (a post, an
+      event, a conversation). Opened in this WebView, never another host.
+      On a cold start this can fire while /native-start is still deciding
+      where to go; the mark tells it a tap already chose, so it does not send
+      the person somewhere else a moment later.
+    */
+    const to = pushTapTarget(data)
+    if (!to) return
+    ;(window as unknown as { __storelibPushTap?: string }).__storelibPushTap = to
+    window.location.href = to
   })
 
   // ── 3. On iOS: listen for the FCM token dispatched from native AppDelegate ─

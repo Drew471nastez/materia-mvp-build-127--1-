@@ -72,6 +72,8 @@ export default function NativeStartPage() {
 
     function safeRedirect(url: string) {
       if (didRedirect) return
+      /* A tap on a push already chose the page (lib/push/client.ts): that navigation stands. */
+      if ((window as unknown as { __storelibPushTap?: string }).__storelibPushTap) return
       const isHandoff = HANDOFF_OK.some((h) => url === h || url.startsWith(h))
       const target = isHandoff || isCommunityStart(url) ? url : sanitizeNativeHome(url)
       if (target === "/native-start" || target.startsWith("/native-start")) return

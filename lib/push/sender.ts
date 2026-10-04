@@ -6,6 +6,7 @@ import { vapidKeys } from "./web-vapid"
 import { endpointOf, forgetOnAccount, readKept, tokenOf } from "./web-subscriptions"
 import { bodyOn, devicesFor, titleOn, type TokenRow } from "./recipients"
 import { businessGroup, listBusinesses } from "@/lib/businesses/server"
+import { inboxTapTarget } from "./tap"
 import { groupIds } from "@/lib/businesses/rules"
 
 export interface PushPayload {
@@ -14,6 +15,12 @@ export interface PushPayload {
   data?: Record<string, string>
   /** iOS: filename without extension (e.g. "cash"). Android: channel sound name. Defaults to "default". */
   sound?: string
+  /**
+   * Pushes with the same key replace each other on the device instead of
+   * stacking: the newest message of one conversation, the newest summary of
+   * one community (lib/notifications/push-bridge.ts). At most 64 bytes.
+   */
+  collapseKey?: string
 }
 
 /** Where a click on a browser notification goes, from what it is about. */
@@ -22,6 +29,9 @@ function pageFor(data: Record<string, string> | undefined): string {
   if (data?.type === "payout_available") return "/app/payouts"
   /* A notification from lib/notifications: its own page, always inside /app. */
   if (data?.type === "notification" && typeof data.url === "string" && /^\/app(?:[/?#]|$)/.test(data.url) && !data.url.includes("//")) return data.url
+  /* A community or inbox notification (lib/notifications/push-bridge.ts): its own page, any path on storelib.com. */
+  const inbox = data?.type === "inbox" ? inboxTapTarget(data.url) : null
+  if (inbox) return inbox
   return "/app"
 }
 
@@ -42,7 +52,7 @@ async function sendToBrowser(token: string, payload: PushPayload): Promise<"sent
   try {
     await webpush.sendNotification(
       subscription,
-      JSON.stringify({ title: payload.title, body: payload.body, url: pageFor(payload.data), tag: payload.data?.orderId ?? payload.data?.kind ?? payload.data?.type }),
+      JSON.stringify({ title: payload.title, body: payload.body, url: pageFor(payload.data), tag: payload.collapseKey ?? (payload.data?.type === "inbox" ? payload.data.url : undefined) ?? payload.data?.orderId ?? payload.data?.kind ?? payload.data?.type }),
       { vapidDetails: keys, TTL: 60 * 60 * 24 },
     )
     return "sent"
@@ -124,6 +134,7 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
         return
       }
       if (!firebase) return
+      const collapse = payload.collapseKey ? payload.collapseKey.slice(0, 64) : undefined
       const message: Message = {
         token,
         notification: {
@@ -134,6 +145,7 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
         ...(platform === "ios"
           ? {
               apns: {
+                ...(collapse ? { headers: { "apns-collapse-id": collapse } } : {}),
                 payload: {
                   aps: {
                     sound: sound === "default" ? "default" : `${sound}.wav`,
@@ -144,9 +156,11 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
             }
           : {
               android: {
+                ...(collapse ? { collapseKey: collapse } : {}),
                 notification: {
                   sound: sound,
                   channelId: "default",
+                  ...(collapse ? { tag: collapse } : {}),
                 },
               },
             }),
