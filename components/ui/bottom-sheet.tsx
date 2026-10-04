@@ -342,6 +342,27 @@ function scrollerAt(target: EventTarget | null, stop: HTMLElement): HTMLElement 
   return null
 }
 
+/*
+ * ===========================================================================
+ *  SAFARI'S FLOATING BAR
+ * ===========================================================================
+ * Image 55: the notifications sheet on an iPhone ended a hand's width above
+ * the bottom of the screen, and between it and the browser's floating bar
+ * the page showed through, undimmed. Safari 26 puts `bottom: 0` at the top
+ * of its bar, not at the bottom of the screen, and draws a fully opaque
+ * fixed layer only down to there; the skirt below the sheet was cut off
+ * with it. What Safari carries on under its bar is what it reads from a
+ * FIXED element at the edge (it tints and fills the bar from it) and any
+ * layer that is not fully opaque. So while a sheet is up (never while a
+ * kept one rests below the screen) its panel and its dim are fixed
+ * themselves, not only placed inside the fixed root, and the panel's
+ * opacity is 0.999: under 1, which is what makes Safari paint the panel,
+ * and its skirt, on to the bottom of the screen, and too close to 1 to
+ * show anything through (0.99 let the dimmed page show faintly through
+ * the white in screenshots). Everywhere else (Chrome, Android, the app's own
+ * WebView) it changes nothing: the geometry is the same either way, since
+ * the root is itself fixed to the whole window.
+ */
 export function BottomSheet({
   isOpen,
   onClose,
@@ -1052,7 +1073,8 @@ export function BottomSheet({
       <div
         ref={scrimRef}
         onClick={requestClose}
-        className={cn("absolute inset-0", scrim === "clear" ? "bg-transparent" : "bg-black/40")}
+        /* Fixed in its own right, not only through the root (SAFARI'S FLOATING BAR below). */
+        className={cn(atRest ? "absolute inset-0" : "fixed inset-0", scrim === "clear" ? "bg-transparent" : "bg-black/40")}
         /* Below the screen and invisible on the very first paint, before any
            script has run: there is no frame in which the sheet is at rest.
            Its own layer, so a drag's dimming is the compositor's (THE DIM IS
@@ -1064,9 +1086,11 @@ export function BottomSheet({
         data-sheet-panel=""
         tabIndex={-1}
         onClick={onPanelClick}
-        className={cn("absolute inset-x-0 bottom-0 rounded-t-[20px] bg-white outline-none", className)}
+        className={cn(atRest ? "absolute" : "fixed", "inset-x-0 bottom-0 rounded-t-[20px] bg-white outline-none", className)}
         style={{
           transform: "translate3d(0, 100%, 0)",
+          /* See SAFARI'S FLOATING BAR: a hair under 1, so the layer is drawn on past the bar's edge. Not while it rests below the screen. */
+          ...(atRest ? null : { opacity: 0.999 }),
           willChange: keepMounted ? "transform" : undefined,
           /* The sheet owns every touch on it: the browser must not decide
              half way through that this was a scroll. */

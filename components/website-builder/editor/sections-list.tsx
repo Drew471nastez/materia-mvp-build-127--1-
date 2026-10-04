@@ -119,7 +119,7 @@ export function AddSectionButton({ onClick, label = "Add section" }: { onClick: 
       type="button"
       data-add-section=""
       onClick={onClick}
-      className="flex h-8 max-sm:h-11 w-full items-center gap-2 rounded-md px-2 text-left text-[13px] font-medium text-[#7c3aed] transition-colors hover:bg-[#f5f3ff] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8b5cf6]/30 [-webkit-tap-highlight-color:transparent]"
+      className="flex h-8 max-sm:h-11 w-full items-center gap-2 rounded-md px-2 text-left text-[13px] font-medium text-[#7c3aed] transition-colors hover:bg-[#f5f3ff] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/15 [-webkit-tap-highlight-color:transparent]"
     >
       <span aria-hidden className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#8b5cf6] text-white">
         <Plus className="h-2.5 w-2.5" strokeWidth={3} />
@@ -231,7 +231,7 @@ export function SectionRow({
       aria-label={displayName}
       aria-current={isSelected || undefined}
       className={cn(
-        "group/row flex h-8 max-sm:h-11 cursor-pointer items-center gap-1 rounded-md pl-1 pr-1 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-[#8b5cf6]/30",
+        "group/row flex h-8 max-sm:h-11 cursor-pointer items-center gap-1 rounded-md pl-1 pr-1 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/15",
         /* The builder is a light surface by decision: explicit colours, not tokens a dark root would flip. */
         isSelected ? "bg-[#1a1a2e] text-white" : "text-[#1a1a2e] hover:bg-[#f3f4f6]",
       )}

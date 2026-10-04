@@ -212,7 +212,7 @@ export function SchemePicker({
         className={cn(
           "w-full flex items-center justify-between gap-2 px-3 rounded-xl border transition-all cursor-pointer",
           size === "sm" ? "h-9" : "h-10",
-          open ? "border-[#8b5cf6]" : "border-neutral-200 hover:border-neutral-300",
+          open ? "border-neutral-400" : "border-neutral-200 hover:border-neutral-300",
         )}
         style={{ background: active.gradient || active.background, color: active.heading }}
       >
@@ -257,7 +257,7 @@ export function SchemePicker({
                 key={key}
                 className={cn(
                   "relative flex w-full items-center rounded-lg border-2 transition-colors duration-150",
-                  isActive ? "border-[#8b5cf6]" : "border-transparent hover:border-[#ddd6fe]",
+                  isActive ? "border-neutral-900" : "border-transparent hover:border-neutral-300",
                 )}
                 style={{ background: sc.gradient || sc.background, color: sc.heading }}
               >

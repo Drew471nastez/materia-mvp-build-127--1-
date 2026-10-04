@@ -52,10 +52,10 @@
  * the size it is drawn (lib/images optimizedImageUrl) and loaded lazily.
  *
  * The phone's sheet is built ahead and kept the same way (the sheet's own
- * keepMounted: it waits below the screen and the tap only slides it up),
- * is a fixed height for the same reason, and asks for its rows once it has
- * arrived (onOpened), so the rows are drawn after the slide and not in the
- * middle of it, as /app's sheet does.
+ * keepMounted: it waits below the screen and the tap only slides it up).
+ * Its rows are read before it opens, so it is as tall as they are and opens
+ * with them drawn; a refresh waits until it has arrived (onOpened), so
+ * nothing is redrawn in the middle of the slide.
  */
 import Link from "next/link"
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react"
@@ -153,6 +153,24 @@ function useOnScreen(ref: React.RefObject<HTMLElement | null>, ready: boolean): 
   return on
 }
 
+/*
+  ═══════════════════════════════════════════════════════════════════════════
+   THE FIRST PAGE IS ALREADY HERE WHEN THE LIST OPENS
+  ═══════════════════════════════════════════════════════════════════════════
+  The phone's sheet used to open on four grey skeleton rows and ask for the
+  real ones once it had arrived, so every open was a slide, a flash of
+  placeholders, then the rows. Now the first page of "All" is asked for
+  while the page is idle (with the count, which is asked for at once), and
+  kept warm: a row arriving by realtime asks for the page again in the
+  background, and an open after FRESH_MS asks again without emptying what is
+  shown. So the sheet's first frame already has the rows in it. The page is
+  held here as well as in the bell, so a bell drawn again (the Storelib
+  header's and a community's are different bars) starts with it. Memory
+  only, never storage, and only for the person it was read for.
+*/
+const FRESH_MS = 30_000
+let warm: { userId: string; at: number; items: InboxItem[]; nextCursor: string | null } | null = null
+
 export function NotificationBell({ className }: { className?: string }) {
   const [userId, setUserId] = useState<string | null>(null)
   const unread = useSyncExternalStore(subscribeUnread, () => sharedUnread, () => 0)
@@ -173,6 +191,12 @@ export function NotificationBell({ className }: { className?: string }) {
   const filterRef = useRef(filter)
   openRef.current = open
   filterRef.current = filter
+  /* When the rows on hand were read, for whether an open asks again. */
+  const loadedAtRef = useRef(0)
+  const hasItemsRef = useRef(false)
+  hasItemsRef.current = items !== null
+  const userRef = useRef(userId)
+  userRef.current = userId
 
   /* Who is signed in, from the session the browser already holds. */
   useEffect(() => {
@@ -180,7 +204,15 @@ export function NotificationBell({ className }: { className?: string }) {
     void (async () => {
       try {
         const { data } = await createClient().auth.getSession()
-        if (!gone) setUserId(data.session?.user?.id ?? null)
+        if (gone) return
+        const id = data.session?.user?.id ?? null
+        /* The page another bell already read for this person, so this one opens on it too. */
+        if (id && warm && warm.userId === id && filterRef.current === "all") {
+          setItems(warm.items)
+          setCursor(warm.nextCursor)
+          loadedAtRef.current = warm.at
+        }
+        setUserId(id)
       } catch {
         /* No session: no bell. */
       }
@@ -204,7 +236,13 @@ export function NotificationBell({ className }: { className?: string }) {
     setCursor(r.nextCursor)
     setUnread(r.unread)
     setLoad("idle")
+    loadedAtRef.current = Date.now()
+    if (f === "all" && userRef.current) warm = { userId: userRef.current, at: loadedAtRef.current, items: r.items, nextCursor: r.nextCursor }
   }, [])
+  /* Asked again only when what is on hand is missing or older than FRESH_MS; what is shown stays until the answer. */
+  const refreshIfStale = useCallback(() => {
+    if (!hasItemsRef.current || Date.now() - loadedAtRef.current > FRESH_MS) void loadFirst(filterRef.current)
+  }, [loadFirst])
 
   const loadMore = useCallback(async () => {
     if (!cursor || load === "loading") return
@@ -246,7 +284,8 @@ export function NotificationBell({ className }: { className?: string }) {
     const channels: ReturnType<ReturnType<typeof createClient>["channel"]>[] = []
     const arrived = (payload: { new?: { read_at?: string | null } }) => {
       if (payload.new && !payload.new.read_at) setUnread((n) => n + 1)
-      if (!openRef.current) return
+      /* Kept warm: open or not, a list already read is read again, so the next open shows the new row at once. */
+      if (!openRef.current && !hasItemsRef.current) return
       if (timer) window.clearTimeout(timer)
       timer = window.setTimeout(() => void loadFirst(filterRef.current), 400)
     }
@@ -283,22 +322,32 @@ export function NotificationBell({ className }: { className?: string }) {
   useEffect(() => {
     if (!userId || built || !active) return
     const w = window as Window & { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void }
-    const build = () => setBuilt(true)
+    /* Built, and the first page asked for, so an open has rows to show (THE FIRST PAGE IS ALREADY HERE). */
+    const build = () => {
+      setBuilt(true)
+      refreshIfStale()
+    }
     if (w.requestIdleCallback) {
       const id = w.requestIdleCallback(build, { timeout: 4000 })
       return () => w.cancelIdleCallback?.(id)
     }
     const t = window.setTimeout(build, 1500)
     return () => window.clearTimeout(t)
-  }, [userId, built, active])
+  }, [userId, built, active, refreshIfStale])
 
   const openList = () => {
     setOpen(true)
-    /* On a phone the rows are asked for once the sheet has arrived (onArrived), so they are not drawn in the middle of its slide. */
-    if (!phone) void loadFirst(filterRef.current)
+    /*
+      The rows are on hand (asked for while the page was idle), so the list
+      opens drawn. On a phone a refresh of rows that are there waits for the
+      sheet to arrive (onArrived), so nothing is redrawn in the middle of its
+      slide; with nothing on hand yet (opened before the page went idle) it
+      is asked for now, the sooner the better.
+    */
+    if (!phone || !hasItemsRef.current) refreshIfStale()
     void postRead({ seen: true })
   }
-  const onArrived = useCallback(() => void loadFirst(filterRef.current), [loadFirst])
+  const onArrived = useCallback(() => refreshIfStale(), [refreshIfStale])
   const close = useCallback((refocus = true) => {
     setOpen(false)
     if (refocus) window.setTimeout(() => triggerRef.current?.focus({ preventScroll: true }), 0)
@@ -353,7 +402,8 @@ export function NotificationBell({ className }: { className?: string }) {
             <span
               data-bell-badge=""
               aria-hidden
-              className="absolute -right-2 -top-1.5 box-border flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-[5px] text-white"
+              /* Ink with white figures, not red; white with ink on a dark bar (round 8, the same as the heart's CountBadge). */
+              className="absolute -right-2 -top-1.5 box-border flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#1a1a2e] px-[5px] text-white [[data-header-tone=dark]_&]:bg-white [[data-header-tone=dark]_&]:text-[#1a1a2e]"
             >
               <span className="block text-[10px] font-semibold leading-none tabular-nums">{label}</span>
             </span>
@@ -547,8 +597,14 @@ function BellPanel({
         label="Notifications"
         hideFrom="sm"
         fill
-        /* A fixed height, so the rows arriving never move its top edge: /app's sheet's, plus the second row this header has. */
-        height="min(68dvh, 584px)"
+        /*
+          AS TALL AS ITS ROWS, NO TALLER (image 55: four rows in a fixed
+          68dvh sheet left a white gap under the list, down to the browser's
+          bar). The rows are on hand before it opens (THE FIRST PAGE IS
+          ALREADY HERE), so sized to them it never grows under the thumb; a
+          long list stops at this height and scrolls inside.
+        */
+        maxHeight="min(78dvh, 640px)"
         /* Built while the page is idle and kept: the tap only slides it up. */
         keepMounted
         onOpened={onArrived}

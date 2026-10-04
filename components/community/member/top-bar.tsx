@@ -64,14 +64,15 @@ export interface TopBarProps {
 }
 
 /**
- * The small count on an icon: Storelib's red, squared off rather than a
- * round blob, so nothing in this bar is a pill. The bell's own count is
+ * The small count on an icon: Storelib's ink with white figures (round 8:
+ * not red), squared off rather than a round blob, so nothing in this bar is
+ * a pill. The bell's own count is
  * drawn the same way here (BELL below), so the two read as one pair.
  */
 const COUNT = "rounded-[5px]"
 function Badge({ n }: { n: number }) {
   return (
-    <span aria-hidden className={`pointer-events-none absolute -right-2 -top-1.5 box-border flex h-[18px] min-w-[18px] items-center justify-center ${COUNT} bg-red-500 px-[5px] text-white`} data-count-badge="">
+    <span aria-hidden className={`pointer-events-none absolute -right-2 -top-1.5 box-border flex h-[18px] min-w-[18px] items-center justify-center ${COUNT} bg-[#1a1a2e] px-[5px] text-white`} data-count-badge="">
       <span className="block text-[10px] font-semibold leading-none tabular-nums">{n > 99 ? "99+" : String(n)}</span>
     </span>
   )
