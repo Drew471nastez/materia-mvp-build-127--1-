@@ -19,7 +19,7 @@ export const metadata: Metadata = {
  */
 export default async function DownloadsPage({ searchParams }: { searchParams: Promise<{ orderId?: string; token?: string }> }) {
   const { orderId, token } = await searchParams
-  if (!orderId) redirect("/library/my-downloads")
+  if (!orderId) redirect("/account/library")
 
   let userId: string | null = null
   try {

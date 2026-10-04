@@ -13,5 +13,5 @@ interface Props {
 export default async function DashboardCoursePage({ params, searchParams }: Props) {
   const [{ id }, { lesson }] = await Promise.all([params, searchParams])
   const q = lesson && /^[0-9a-f-]{36}$/i.test(lesson) ? `?lesson=${lesson}` : ""
-  redirect(`/library/courses/${encodeURIComponent(id)}${q}`)
+  redirect(`/account/library/courses/${encodeURIComponent(id)}${q}`)
 }

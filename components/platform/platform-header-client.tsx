@@ -1248,7 +1248,7 @@ export function PlatformHeaderClient({
   const dashboardHref = hasCompletedSellerOnboarding ? "/app" : "/sell"
 
   const wishlistHref = useMemo(() => {
-    return user ? "/library/wishlist" : "/wishlist"
+    return user ? "/account/library/wishlist" : "/wishlist"
   }, [user])
 
   // profiles.avatar_url is the single source of truth (lib/account/avatar): no
@@ -1331,7 +1331,7 @@ export function PlatformHeaderClient({
     was "Search for anything" over the owner's own purchases (image 25),
     a marketplace search on the one page that is not the marketplace.
   */
-  const isOwnPages = pathname === "/library" || pathname.startsWith("/library/") || pathname === "/account" || pathname.startsWith("/account/")
+  const isOwnPages = pathname === "/account/library" || pathname.startsWith("/account/library/") || pathname === "/account" || pathname.startsWith("/account/")
   /*
     AND NEITHER DOES A COMMUNITY. The strip is `fixed` at the foot of the
     header and the community's own tab row is `sticky` at the same offset
@@ -1506,7 +1506,7 @@ export function PlatformHeaderClient({
   // Same-layout routes (/explore, /u/, /p/, /l/, /library, /wishlist) use
   // router.push to keep client-side navigation and preserve the auth session.
   const isCrossLayoutPath = (path: string) =>
-    path.startsWith("/app") || path.startsWith("/creator-page") || path.startsWith("/store-builder") || path.startsWith("/library")
+    path.startsWith("/app") || path.startsWith("/creator-page") || path.startsWith("/store-builder") || path.startsWith("/account/library")
 
   const navigateReliably = useCallback(
     (targetPath: string) => {
@@ -1556,7 +1556,7 @@ export function PlatformHeaderClient({
       // When on a seller subdomain (e.g. sellername.storelib.com), ALL navigation
       // to non-seller routes (/library, /app, /explore, /signup, etc.) MUST use
       // the canonical storelib.com URL. Relative paths would land on
-      // sellername.storelib.com/library which doesn't exist and blocks the UI.
+      // sellername.storelib.com/account/library which doesn't exist and blocks the UI.
       // This check runs first — before the Capacitor branch — so native apps on
       // a seller subdomain also get canonical routing.
       if (shouldForceCanonicalNav) {
@@ -1767,7 +1767,7 @@ export function PlatformHeaderClient({
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Link
-                            {...headerLink("/library")}
+                            {...headerLink("/account/library")}
                             /* From lg: on a tablet the photo's menu has My Library. */
                             className={cn("hidden lg:flex h-[42px] w-[42px] items-center justify-center rounded-full transition cursor-pointer", chrome.iconBtn)}
                             aria-label={t("library")}
@@ -2126,7 +2126,7 @@ export function PlatformHeaderClient({
                   to carry it; h-[42px] w-[42px] = 44px tap target */}
               {user && !tabsHere && (
                 <Link
-                  href={getCanonicalOrRelativePath("/library")} onClick={(e) => { onCanonicalNav(e, "/library"); setMobileProfileOpen(false) }}
+                  href={getCanonicalOrRelativePath("/account/library")} onClick={(e) => { onCanonicalNav(e, "/account/library"); setMobileProfileOpen(false) }}
                   className={cn("flex h-[42px] w-[42px] items-center justify-center rounded-full transition cursor-pointer", chrome.iconBtn)}
                   aria-label="Library"
                 >
@@ -2234,7 +2234,7 @@ export function PlatformHeaderClient({
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Link
-                      href={getCanonicalOrRelativePath("/library")} onClick={(e) => onCanonicalNav(e, "/library")}
+                      href={getCanonicalOrRelativePath("/account/library")} onClick={(e) => onCanonicalNav(e, "/account/library")}
                       className={cn("hidden sm:flex h-[42px] w-[42px] items-center justify-center rounded-full transition cursor-pointer", chrome.iconBtn)}
                       aria-label={t("library")}
                     >
@@ -2445,7 +2445,7 @@ export function PlatformHeaderClient({
                   Not where the tab bar is: Library is one of its four. */}
               {!tabsHere && (
               <div className="border-b border-[#eef0f2] pb-1">
-                <MenuRow href="/library" label="My Library" onNav={(e) => { onCanonicalNav(e, "/library"); setMobileMenuOpen(false) }} to={getCanonicalOrRelativePath("/library")} />
+                <MenuRow href="/account/library" label="My Library" onNav={(e) => { onCanonicalNav(e, "/account/library"); setMobileMenuOpen(false) }} to={getCanonicalOrRelativePath("/account/library")} />
               </div>
               )}
               </>
@@ -2509,8 +2509,8 @@ export function PlatformHeaderClient({
               </div>
             )}
             <Link
-              href={getCanonicalOrRelativePath("/library")}
-              onClick={(e) => { onCanonicalNav(e, "/library"); setMobileProfileOpen(false) }}
+              href={getCanonicalOrRelativePath("/account/library")}
+              onClick={(e) => { onCanonicalNav(e, "/account/library"); setMobileProfileOpen(false) }}
               className="flex items-center justify-between px-4 py-3.5 rounded-xl text-base font-medium text-gray-800 hover:bg-gray-100 transition-colors cursor-pointer"
             >
               <div className="flex items-center gap-3">

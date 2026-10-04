@@ -96,14 +96,14 @@ export function ProductRow({
 }) {
   const [open, setOpen] = useState(false)
   const storeLink = useStoreLinkProps()
-  const href = `/library/products/${item.productId}`
+  const href = `/account/library/products/${item.productId}`
   const status = item.state === "open" ? null : STATE_LINE[item.state]
   const many = item.state === "open" && item.files.length > 1
 
   const menu = useMemo<ActionMenuItem[]>(() => {
     const rows: ActionMenuItem[] = [{ label: "Open", icon: <Package className="h-4 w-4" />, href }]
     if (item.receiptToken) rows.push({ label: "Receipt", icon: <Receipt className="h-4 w-4" />, href: `/receipt/${encodeURIComponent(item.receiptToken)}` })
-    const reviewHref = `/library/reviews?product=${encodeURIComponent(item.productId)}`
+    const reviewHref = `/account/library/reviews?product=${encodeURIComponent(item.productId)}`
     if (item.review) rows.push({ label: "Edit your review", icon: <Star className="h-4 w-4" />, href: reviewHref })
     else if (item.canReview) rows.push({ label: "Write a review", icon: <Star className="h-4 w-4" />, href: reviewHref })
     const contact = creator ? contactOf(creator, item.title) : null

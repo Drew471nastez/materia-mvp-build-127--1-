@@ -254,7 +254,7 @@ function RouteLoadingBarInner() {
  * why this reads the page being left and not the one being opened. /app
  * has its own surface and never mounts this at all.
  */
-const DRAWS_ITS_OWN_WAIT = /^\/(library|checkout)(\/|$)/
+const DRAWS_ITS_OWN_WAIT = /^\/(account\/library|checkout)(\/|$)/
 
 function SlowPage({ pendingSince, from, cover }: { pendingSince: number | null; from: string; cover: boolean }) {
   const [shown, setShown] = useState(false)

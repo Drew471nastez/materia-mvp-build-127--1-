@@ -47,7 +47,7 @@ export async function GET(request: Request) {
        costs them an error page. */
   }
 
-  if (signedIn) return NextResponse.redirect(`${platform}/library`)
+  if (signedIn) return NextResponse.redirect(`${platform}/account/library`)
 
   const login = new URL("/login", platform)
   if (back) login.searchParams.set("next", back)

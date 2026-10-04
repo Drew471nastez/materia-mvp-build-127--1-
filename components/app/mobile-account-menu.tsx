@@ -96,7 +96,7 @@ export const MobileAccountMenu = memo(function MobileAccountMenu({
     { href: "/app/settings", label: settingsLabel, icon: Settings },
     { href: "/app/settings/billing", label: billingLabel, icon: CreditCard },
     { href: "/explore", label: "Explore", icon: Compass, target: "_blank" as const },
-    { href: "/library", label: "Library", icon: Library },
+    { href: "/account/library", label: "Library", icon: Library },
   ], [settingsLabel, billingLabel])
 
   return (

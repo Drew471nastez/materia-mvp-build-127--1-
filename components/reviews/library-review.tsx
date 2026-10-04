@@ -49,7 +49,7 @@ export function LibraryReview({
   if (!status) return null
   if (!status.hasPurchased && !status.hasReviewed) return null
   const rating = status.hasReviewed ? Number(status.existingReview?.rating) || 0 : 0
-  const href = `/library/reviews?product=${encodeURIComponent(productId)}`
+  const href = `/account/library/reviews?product=${encodeURIComponent(productId)}`
 
   return (
     <Link

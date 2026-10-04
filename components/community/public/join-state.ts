@@ -92,7 +92,7 @@ export function decideJoin(f: JoinFacts): JoinStateView {
       label: joinButtonLabel({ isMember: true }),
       href: url,
       canLeave: !v.isOwner && v.role !== "owner",
-      manageHref: paying ? `/library/memberships/${v.membershipId}` : null,
+      manageHref: paying ? `/account/library/memberships/${v.membershipId}` : null,
     }
   }
   if (v.banned || v.status === "banned" || v.status === "removed") {

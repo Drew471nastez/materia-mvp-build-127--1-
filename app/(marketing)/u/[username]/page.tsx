@@ -39,9 +39,15 @@ import { reviewerOf } from "@/lib/reviews/rules"
 import { missingColumn } from "@/lib/reviews/store"
 import { headers } from "next/headers"
 import { ProfileSocial } from "@/components/profile/profile-social"
-import { ProfileBackBar } from "@/components/profile/profile-back-bar"
-import { messageTarget } from "@/lib/profile/profile-communities"
+import { ProfileTopBar, TopBarBack } from "@/components/profile/profile-top-bar"
+import { ProfileActivity } from "@/components/profile/profile-activity"
+import { SharedCommunityPosts } from "@/components/profile/shared-community-posts"
+import { messageTarget, profileCommunities } from "@/lib/profile/profile-communities"
 import { cameFromBrowsing, refererPath } from "@/lib/profile/back"
+import { activityFor } from "@/lib/profile/activity-page"
+import { readPrivacy } from "@/lib/profile/privacy"
+import { sharedCommunities, sharedPostsPage } from "@/lib/profile/shared-posts"
+import type { ActionScheme } from "@/components/profile/follow-button"
 
 /**
  * ===========================================================================
@@ -573,7 +579,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
     (lib/profile/profile-communities). Started after the batch because each
     needs the viewer, which the batch has just settled; all three at once.
   */
-  const [{ count: followingCount }, viewerFollowsCreator, creatorMessageHref, requestHeaders] = await Promise.all([
+  const [{ count: followingCount }, viewerFollowsCreator, creatorMessageHref, requestHeaders, personal] = await Promise.all([
     supabase.from("follows").select("id", { count: "exact", head: true }).eq("follower_id", profile.id),
     viewer && viewer.id !== profile.id
       ? supabase.from("follows").select("id").eq("follower_id", viewer.id).eq("following_id", profile.id).maybeSingle().then((r) => !!r.data)
@@ -584,8 +590,40 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
           .catch(() => null)
       : Promise.resolve(null),
     headers(),
+    /*
+      THE CREATOR AS A PERSON, as their profile shows them: their activity
+      (unless they hid it), the communities they are a member of (unless
+      they hid those), and, for a viewer who shares a community with them,
+      their posts there. Not in the editor's canvas. Every read is guarded:
+      a failure is a missing tab, never a missing page.
+    */
+    embedded
+      ? Promise.resolve(null)
+      : (async () => {
+          try {
+            const admin = createAdminClient()
+            const on = await communitiesEnabled().catch(() => false)
+            const privacy = await readPrivacy(admin, profile.id)
+            const viewerId = viewer?.id ?? null
+            const [activity, joined, shared] = await Promise.all([
+              activityFor(admin, { userId: profile.id, viewerId, creator: { id: creator.id, handle: profile.username || username }, showActivity: privacy.showActivity }).catch(() => null),
+              on && (privacy.showCommunities || viewerId === profile.id)
+                ? profileCommunities(admin, profile.id, { includeMemberships: true }).then((c) => c.member).catch(() => [])
+                : Promise.resolve([]),
+              on && viewerId && viewerId !== profile.id
+                ? sharedCommunities(admin, viewerId, profile.id)
+                    .then((list) => Promise.all(list.map(async (community) => ({ community, page: await sharedPostsPage(admin, { communityId: community.id, viewerId, targetId: profile.id }).catch(() => null) }))))
+                    .then((list) => list.flatMap((x) => (x.page ? [{ community: x.community, page: x.page }] : [])))
+                    .catch(() => [])
+                : Promise.resolve([]),
+            ])
+            return { activity, joined, shared }
+          } catch {
+            return null
+          }
+        })(),
   ])
-  /* Reached from a community or Explore: the way back at the top (components/profile/profile-back-bar). */
+  /* Reached from a community, Explore or search: the way back in the top bar, next to the creator (components/profile/profile-top-bar). */
   const backShown = from === "community" || from === "explore" || cameFromBrowsing(refererPath(requestHeaders.get("referer"), requestHeaders.get("host")))
   /* A product that sells a community tier is on the Communities tab, not in the grid (lib/communities/listing). */
   const products = catalogue ? withoutCommunityProducts(catalogue) : catalogue
@@ -689,7 +727,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
    * edited rather than visited. The counts follow the creator's Show
    * followers switch; the button is there either way.
    */
-  const buildFollowRow = (headerSettings?: ShopHeaderSettings) => {
+  const buildFollowRow = (headerSettings?: ShopHeaderSettings, scheme?: ActionScheme | null) => {
     if (embedded) return null
     const showCounts = headerSettings?.showFollowers ?? true
     if (viewerIsOwner && !showCounts) return null
@@ -705,8 +743,50 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         isSelf={viewerIsOwner}
         messageHref={creatorMessageHref}
         showCounts={showCounts}
+        /* Follow in the creator's own button colours, the scheme they picked in the page editor. */
+        scheme={scheme ?? null}
       />
     )
+  }
+
+  /*
+    THE ACTIVITY TAB AND THE COMMUNITIES THEY ARE IN, as on every profile
+    (components/profile/member-profile-page.tsx): one tab with their
+    activity, opened by their posts in the communities the viewer shares
+    with them, drawn in the page's own scheme. Only when there is something
+    true to show; the list always ends on the day they joined.
+  */
+  const personalActivityPanel = () => {
+    if (!personal) return null
+    const items = personal.activity?.hidden ? [] : personal.activity?.items ?? []
+    if (items.length === 0 && personal.shared.length === 0) return null
+    const first = (profile.display_name || username).split(/\s+/)[0] || username
+    return (
+      <ProfileActivity
+        tone="storefront"
+        userId={profile.id}
+        initial={items}
+        initialNext={personal.activity?.hidden ? null : personal.activity?.next ?? null}
+        now={Date.now()}
+        joinedAt={profile.created_at ?? null}
+        lead={
+          personal.shared.length ? (
+            <>
+              {personal.shared.map((x) => (
+                <SharedCommunityPosts key={x.community.id} tone="storefront" userId={profile.id} community={x.community} initial={x.page} now={Date.now()} firstName={first} />
+              ))}
+            </>
+          ) : undefined
+        }
+        emptyText="No public activity yet."
+      />
+    )
+  }
+  /* The ones they run first, then the public ones they are a member of, in one grid: the cards already say whose each one is. */
+  const communitiesPanel = (owned: CommunityCard[]) => {
+    const ownedIds = new Set(owned.map((c) => c.id))
+    const cards = [...owned, ...(personal?.joined ?? []).filter((c) => !ownedIds.has(c.id))]
+    return cards.length ? <StorefrontCommunities cards={cards} /> : null
   }
 
   const buildOwnerActions = (
@@ -1275,6 +1355,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
             <LiveSubscribeBar
               settings={{ ...subscribeBarSettings, creatorUserId: profile.id }}
               creatorId={creator.id}
+              leading={!embedded ? <TopBarBack initiallyShown={backShown} /> : undefined}
               editor={{
                 values: {
                   text: subscribeBarSettings.customCtaText || subscribeBarSettings.text || "",
@@ -1290,7 +1371,11 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
               }}
             />
           ) : (
-            <SubscribeBar settings={{ ...subscribeBarSettings, creatorUserId: profile.id }} creatorId={creator.id} />
+            <SubscribeBar
+              settings={{ ...subscribeBarSettings, creatorUserId: profile.id }}
+              creatorId={creator.id}
+              leading={!embedded ? <TopBarBack initiallyShown={backShown} /> : undefined}
+            />
           )
         )}
 
@@ -1310,7 +1395,16 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
           helper the header itself calls: one character of difference and this
           downloads the avatar a second time and shows it no sooner.
         */}
-        {!embedded ? <ProfileBackBar initiallyShown={backShown} className="mx-auto w-full max-w-[1180px] px-3 pt-3 sm:px-4 lg:px-6" /> : null}
+        {/* No newsletter bar to carry it: the way back gets a slim bar of its own, in the bar's scheme colours. */}
+        {!embedded && !subscribeBarSettings.visible ? (
+          <ProfileTopBar
+            initiallyShown={backShown}
+            name={profile.display_name || username}
+            avatarUrl={profile.avatar_url ?? null}
+            colors={{ background: chrome.bar.backgroundColor, text: chrome.bar.textColor }}
+            width="max-w-[1150px]"
+          />
+        ) : null}
 
         {headerAvatarPreload.url && (
           // eslint-disable-next-line @next/next/no-page-custom-font
@@ -1328,7 +1422,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
           reviewCount={creatorReviewCount}
           reviewAverage={creatorRating}
           followerCount={followerCount ?? 0}
-          followRow={buildFollowRow(headerSettings)}
+          followRow={buildFollowRow(headerSettings, chrome.action)}
           badges={creatorBadges(profile)}
           /**
            * The scheme's type colours. Without these the block reads its own
@@ -1500,13 +1594,17 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
            * none or communities are switched off: a tab that opens onto "not
            * yet" is a promise the page cannot keep.
            */
-          if (communityCards.length > 0) {
+          const communitiesTab = communitiesPanel(communityCards)
+          if (communitiesTab) {
             tabs.push({
               id: "communities",
               label: "Communities",
-              panel: <StorefrontCommunities cards={communityCards} />,
+              panel: communitiesTab,
             })
           }
+          /* Their activity across Storelib, as their profile lists it, opened by their posts where the viewer is too. */
+          const activityTab = personalActivityPanel()
+          if (activityTab) tabs.push({ id: "activity", label: "Activity", panel: <div className="mx-auto w-full max-w-[1180px] px-3 py-8 sm:px-4 sm:py-10 lg:px-6">{activityTab}</div> })
 
           /**
            * THREE TABS: Home, Products, Communities. Reviews and About are
@@ -1605,7 +1703,13 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         <BackLabelSetter label={profile.display_name || username} />
       <TrackView type="store" creatorId={creator.id} />
 
-      {defaultSubscribeSettings.visible && <SubscribeBar settings={{ ...defaultSubscribeSettings, creatorUserId: profile.id }} creatorId={creator.id} />}
+      {defaultSubscribeSettings.visible && (
+        <SubscribeBar
+          settings={{ ...defaultSubscribeSettings, creatorUserId: profile.id }}
+          creatorId={creator.id}
+          leading={!embedded ? <TopBarBack initiallyShown={backShown} /> : undefined}
+        />
+      )}
 
       {/*
         THE SAME HEADER AS THE CONFIGURED PAGE, not a second hand-written one.
@@ -1622,7 +1726,9 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         renderer passes no editor callbacks, so nothing editor-only leaks onto a
         public page.
       */}
-      {!embedded ? <ProfileBackBar initiallyShown={backShown} className="mx-auto w-full max-w-[1180px] px-3 pt-3 sm:px-4 lg:px-6" /> : null}
+      {!embedded && !defaultSubscribeSettings.visible ? (
+        <ProfileTopBar initiallyShown={backShown} name={profile.display_name || username} avatarUrl={profile.avatar_url ?? null} width="max-w-[1150px]" />
+      ) : null}
       <ShopHeaderRenderer
         settings={defaultShopHeaderSettings}
         creator={headerCreator}
@@ -1633,7 +1739,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         reviewCount={creatorReviewCount}
         reviewAverage={creatorRating}
         followerCount={followerCount ?? 0}
-        followRow={buildFollowRow(defaultShopHeaderSettings)}
+        followRow={buildFollowRow(defaultShopHeaderSettings, resolveStorefrontChrome(undefined).action)}
         badges={creatorBadges(profile)}
       />
 
@@ -1708,13 +1814,16 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
             ),
           })
         }
-        if (communityCards.length > 0) {
+        const communitiesTab = communitiesPanel(communityCards)
+        if (communitiesTab) {
           tabs.push({
             id: "communities",
             label: "Communities",
-            panel: <StorefrontCommunities cards={communityCards} />,
+            panel: communitiesTab,
           })
         }
+        const activityTab = personalActivityPanel()
+        if (activityTab) tabs.push({ id: "activity", label: "Activity", panel: <div className="mx-auto w-full max-w-[1180px] px-3 py-8 sm:px-4 sm:py-10 lg:px-6">{activityTab}</div> })
         return <StorefrontTabs tabs={tabs} />
       })()}
 

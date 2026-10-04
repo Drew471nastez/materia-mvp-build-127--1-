@@ -3,12 +3,16 @@
  * The real components:
  *
  *   ?other          somebody else's profile (a buyer): Follow, Message, the
- *                   back bar (reached from a community), Activity and
- *                   Communities tabs
+ *                   way back in a top bar beside their photo (reached from
+ *                   a community), "In Clay Studio" with their posts there
+ *                   six at a time, Activity and Communities tabs
  *   ?self           your own profile: the owner's pills, no Follow, your
  *                   activity hidden from others with the "only you" line
- *   ?creator        a creator's page header with the follow block under it
- *   ?creator-dark   the same on a dark scheme, drawn in the page's colours
+ *   ?creator        a creator's page on the Sage scheme: the newsletter bar
+ *                   with the way back before the photo, and Follow in the
+ *                   scheme's own green
+ *   ?creator-dark   the same on a dark scheme (Astrid), drawn in its colours
+ *   ?creator-nobar  a creator page with no newsletter bar: the slim top bar
  *
  * fetch is answered here (the follow, the list, the next activity page),
  * so the probe needs no server and no network.
@@ -16,7 +20,10 @@
 import { createRoot } from "react-dom/client"
 import { MemberProfilePage } from "@/components/profile/member-profile-page"
 import { ProfileSocial } from "@/components/profile/profile-social"
-import { ProfileBackBar } from "@/components/profile/profile-back-bar"
+import { TopBarBack, ProfileTopBar } from "@/components/profile/profile-top-bar"
+import { SubscribeBar } from "@/components/store-builder/subscribe-bar"
+import { resolveStorefrontChrome } from "@/lib/store-builder/storefront-chrome"
+import type { SharedPostsPage, SharedPostView } from "@/lib/profile/shared-view"
 import { StorefrontTabs } from "@/components/storefront/storefront-tabs"
 import { UnifiedShopHeader } from "@/components/store-builder/unified-section-renderer"
 import { defaultShopHeaderSettings, defaultGlobalStoreSettings } from "@/lib/store-builder/defaults"
@@ -73,6 +80,7 @@ const base: MemberProfileData = {
   coverUrl: null,
   bio: "Learning to throw pots and run longer. Mostly here for the glaze talk.",
   memberSince: "March 2025",
+  joinedAt: "2025-03-14T10:00:00Z",
   hasStorefront: false,
   storefrontHandle: "sam-rivera",
   creatorId: null,
@@ -94,6 +102,20 @@ const people = Array.from({ length: 30 }, (_, i) => ({
   isViewer: false,
 }))
 
+const post = (i: number): SharedPostView => ({
+  id: `00000000-0000-4000-8000-0000000002${String(i).padStart(2, "0")}`,
+  title: ["Cone 6 glaze that finally stopped crawling", "Is a banding wheel worth it?", "Trimming feet without chatter", "Studio photos from Saturday", "Best clay for a first wheel?", "Bisque at 04 or 06?", "Throwing off the hump, notes", "A shelf of mugs, finally", "Reclaiming slop the lazy way"][i % 9],
+  excerpt: i % 3 === 1 ? null : "Thinned it with a little more water and applied two coats instead of three. The difference was obvious after the first firing.",
+  space: ["General", "Glazes", "Show and tell"][i % 3],
+  at: ago(6 + i * 20),
+  reactions: (i * 7) % 23,
+  comments: (i * 3) % 9,
+  href: `/community/clay-studio/post/p${i}`,
+  imageUrl: i % 4 === 0 ? PRODUCT : null,
+})
+const sharedFirst: SharedPostsPage = { posts: Array.from({ length: 6 }, (_, i) => post(i)), next: "c2" }
+const sharedSecond: SharedPostsPage = { posts: Array.from({ length: 3 }, (_, i) => post(i + 6)), next: null }
+
 /* The server, answered in the page. */
 const realFetch = window.fetch.bind(window)
 let followers = 128
@@ -112,6 +134,7 @@ window.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
     return json({ following: body.follow !== false, followers })
   }
   if (url.startsWith("/api/profile/activity")) return json({ items: moreActivity, next: null, hidden: false })
+  if (url.startsWith("/api/profile/shared-posts")) return new Promise<Response>((r) => setTimeout(() => r(json(sharedSecond)), 120))
   return realFetch(input, init)
 }) as typeof fetch
 
@@ -123,13 +146,11 @@ function Header() {
   )
 }
 
+/* A profile has no Storelib header over it (it is somebody's page), so the frame is only the page's ground. */
 function ProfileFrame({ children }: { children: React.ReactNode }) {
   return (
     <div style={{ background: "#f8f9fa", minHeight: "100vh" }}>
-      <Header />
-      <main className="explore-ground min-h-screen bg-[#f8f9fa]">
-        <div className="mx-auto max-w-[1400px] px-4 pb-8 pt-4 sm:px-6 sm:pb-10 sm:pt-6 lg:px-8 lg:pb-12">{children}</div>
-      </main>
+      <main className="explore-ground min-h-screen bg-[#f8f9fa]">{children}</main>
     </div>
   )
 }
@@ -144,7 +165,14 @@ if (which === "other") {
         profile={base}
         viewerId="00000000-0000-4000-8000-0000000000a1"
         viewerFollowing={false}
-        extras={{ messageHref: "/community/clay-studio/members/00000000-0000-4000-8000-0000000000b2?message=1", activity: { items: activity, next: "n1", hidden: false }, communities: { enabled: true, owned: [], member: communities }, backShown: true, now }}
+        extras={{
+          messageHref: "/community/clay-studio?dm=00000000-0000-4000-8000-0000000000b2",
+          activity: { items: activity, next: "n1", hidden: false },
+          communities: { enabled: true, owned: [], member: communities },
+          shared: [{ community: { id: "00000000-0000-4000-8000-00000000c1a5", slug: "clay-studio", name: "Clay Studio", logoUrl: LOGO }, page: sharedFirst }],
+          backShown: true,
+          now,
+        }}
       />
     </ProfileFrame>
   )
@@ -159,14 +187,22 @@ if (which === "other") {
       />
     </ProfileFrame>
   )
-} else if (which === "creator" || which === "creator-dark") {
+} else if (which === "creator" || which === "creator-dark" || which === "creator-nobar") {
   const dark = which === "creator-dark"
-  const surface = dark ? { textColor: "#f5f5f4", mutedColor: "#a8a29e", avatarBorderColor: "#1c1917" } : undefined
+  const chrome = resolveStorefrontChrome(dark ? "astrid" : "sage")
+  const surface = { textColor: chrome.text, mutedColor: chrome.muted, avatarBorderColor: chrome.avatarBorder }
   const settings = { ...defaultShopHeaderSettings, showBio: true, bio: "Ceramics, glaze recipes and a weekly studio community.", showStats: true, coverImageUrl: COVER } as never
   app = (
-    <div style={{ background: dark ? "#0c0a09" : "#f6f6f7", minHeight: "100vh", color: dark ? "#f5f5f4" : undefined }}>
-      <Header />
-      <ProfileBackBar initiallyShown className="mx-auto w-full max-w-[1180px] px-3 pt-3 sm:px-4 lg:px-6" />
+    <div data-storefront-root="" style={{ background: chrome.pageBackground, minHeight: "100vh", color: chrome.text, ...(chrome.tokens as React.CSSProperties) }}>
+      {which === "creator-nobar" ? (
+        <ProfileTopBar initiallyShown name="Maya Ortiz" avatarUrl={FACE2} colors={{ background: chrome.bar.backgroundColor, text: chrome.bar.textColor }} />
+      ) : (
+        <SubscribeBar
+          settings={{ visible: true, text: "Join Maya's newsletter!", showAvatar: true, avatarUrl: FACE2, creatorName: "Maya Ortiz", backgroundColor: chrome.bar.backgroundColor, textColor: chrome.bar.textColor, buttonColor: chrome.bar.buttonColor, buttonTextColor: chrome.bar.buttonTextColor } as never}
+          creatorId="cr"
+          leading={<TopBarBack initiallyShown />}
+        />
+      )}
       <UnifiedShopHeader
         settings={settings}
         creator={{ cover_url: COVER, bio: null, show_total_sales_badge: false } as never}
@@ -178,14 +214,14 @@ if (which === "other") {
         followerCount={1280}
         surface={surface}
         followRow={
-          <ProfileSocial tone="storefront" userId="00000000-0000-4000-8000-0000000000c3" name="Maya Ortiz" followers={1280} following={64} viewerFollowing={false} signedIn isSelf={false} messageHref="/community/clay-studio/members/x?message=1" />
+          <ProfileSocial tone="storefront" scheme={chrome.action} userId="00000000-0000-4000-8000-0000000000c3" name="Maya Ortiz" followers={1280} following={64} viewerFollowing={false} signedIn isSelf={false} messageHref="/community/clay-studio?dm=00000000-0000-4000-8000-0000000000c3" />
         }
       />
       <StorefrontTabs
-        surface={surface ? { textColor: surface.textColor, mutedColor: surface.mutedColor, borderColor: "#292524" } : undefined}
+        surface={{ textColor: chrome.text, mutedColor: chrome.muted, borderColor: chrome.border }}
         tabs={[
           { id: "home", label: "Home", panel: <div style={{ height: 400 }} /> },
-          { id: "reviews", label: "Reviews", panel: <div /> },
+          { id: "activity", label: "Activity", panel: <div /> },
           { id: "about", label: "About", panel: <div /> },
         ]}
       />

@@ -1,5 +1,5 @@
 import { LibraryRouteSkeleton } from "@/components/library/library-route-skeleton"
 
 export default function Loading() {
-  return <LibraryRouteSkeleton path="/library/receipts" />
+  return <LibraryRouteSkeleton path="/account/library/receipts" />
 }

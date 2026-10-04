@@ -24,7 +24,7 @@ export const metadata: Metadata = {
  */
 export default async function PurchaseSuccessPage({ searchParams }: { searchParams: Promise<{ session_id?: string }> }) {
   const { session_id: sessionId } = await searchParams
-  if (!isCheckoutSessionId(sessionId)) redirect("/library")
+  if (!isCheckoutSessionId(sessionId)) redirect("/account/library")
 
   const admin = createAdminClient()
   const { data: orders } = await admin

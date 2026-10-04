@@ -27,7 +27,7 @@ export async function membershipForProductPage(productId: string, user: { id: st
     let memberHref: string | null = null
     if (viewer) {
       const access = await canReadMembership(admin, viewer, productId)
-      if (access.allowed && access.membership) memberHref = `/library/memberships/${access.membership.id}`
+      if (access.allowed && access.membership) memberHref = `/account/library/memberships/${access.membership.id}`
     }
     return { interval, memberHref, trialDays: plan?.trial_days ?? 0 }
   } catch {

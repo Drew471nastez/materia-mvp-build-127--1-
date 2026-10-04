@@ -12,14 +12,21 @@
  *
  * The followers count is the server's after every press, so it never
  * drifts from the list it opens. The same block sits on a creator's page
- * (tone "storefront"), drawn in the page's own colours.
+ * (tone "storefront"), drawn in the page's own colours: Follow in the
+ * scheme's button colours (`scheme`), Message as an outline in the page's
+ * text colour with the scheme's rounding. A plain profile has Storelib's
+ * own pair.
+ *
+ * Message never goes to a member page: it opens the conversation in the
+ * community the two share (/community/<slug>?dm=<userId>, which the
+ * community opens once and then drops from the address).
  */
 import Link from "next/link"
 import { useState } from "react"
 import { MessageCircle } from "lucide-react"
 import { secondaryDepth } from "@/components/ui/depth-button"
 import { cn } from "@/lib/utils"
-import { FollowButton, useFollow, type FollowTone } from "./follow-button"
+import { FollowButton, useFollow, type ActionScheme, type FollowTone } from "./follow-button"
 import { FollowListSheet, type FollowListKind } from "./follow-list-sheet"
 
 function compact(n: number): string {
@@ -40,6 +47,7 @@ export function ProfileSocial({
   messageHref,
   showCounts = true,
   tone = "platform",
+  scheme,
   className,
 }: {
   userId: string
@@ -53,6 +61,8 @@ export function ProfileSocial({
   /** A creator can keep their follower count off their page (Show followers); the button stays. */
   showCounts?: boolean
   tone?: FollowTone
+  /** A creator page's scheme button colours (lib/store-builder/storefront-chrome.ts `action`). */
+  scheme?: ActionScheme | null
   className?: string
 }) {
   const [followers, setFollowers] = useState(initialFollowers)
@@ -90,15 +100,16 @@ export function ProfileSocial({
       ) : null}
       {!isSelf ? (
         <div className={cn("flex w-full max-w-[360px] flex-wrap items-center justify-center gap-2", showCounts ? "mt-2" : "mt-4")} data-profile-actions="">
-          <FollowButton following={follow.following} busy={follow.busy} onClick={follow.toggle} tone={tone} name={name} className="flex-1 sm:flex-none" />
+          <FollowButton following={follow.following} busy={follow.busy} onClick={follow.toggle} tone={tone} scheme={scheme} name={name} className="flex-1 sm:flex-none" />
           {messageHref ? (
             <Link
               href={messageHref}
               data-profile-message=""
+              style={storefront && typeof scheme?.radius === "number" ? { borderRadius: `${Math.min(scheme.radius, 999)}px` } : undefined}
               className={cn(
                 storefront
-                  ? "inline-flex h-10 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-current/30 px-4 text-[14px] font-medium hover:border-current/50"
-                  : cn(secondaryDepth, "h-10 rounded-xl px-4 text-[14px]"),
+                  ? "inline-flex h-10 min-w-[112px] shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-current/30 px-4 text-[14px] font-semibold outline-none transition-[background-color,border-color] duration-100 hover:border-current/50 hover:bg-current/[0.05] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
+                  : cn(secondaryDepth, "h-10 min-w-[112px] rounded-xl px-4 text-[14px]"),
                 "flex-1 sm:flex-none",
               )}
             >

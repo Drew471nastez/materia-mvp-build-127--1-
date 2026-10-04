@@ -43,7 +43,7 @@ function Body({ path }: { path: string }) {
       </div>
     )
   }
-  if (path.startsWith("/library")) {
+  if (path.startsWith("/account/library")) {
     return (
       <div className="mx-auto max-w-[1200px] px-4 pb-8 pt-6" data-probe-page="library">
         <h1 className="text-[24px] font-bold text-[#1a1a2e]">Library</h1>

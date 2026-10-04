@@ -31,6 +31,6 @@ export default async function CoursePage({ params, searchParams }: CoursePagePro
 
   const load = await loadCoursePlayer(createAdminClient(), user.id, id, lesson ?? null)
   if (load.state === "not-found") notFound()
-  if (load.state === "locked") redirect(load.productHref ?? "/library/courses")
+  if (load.state === "locked") redirect(load.productHref ?? "/account/library/courses")
   return <CoursePlayer data={load.data} />
 }

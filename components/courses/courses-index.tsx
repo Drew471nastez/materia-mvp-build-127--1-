@@ -135,7 +135,7 @@ export function CoursesIndex({ courses }: { courses: MyCourse[] }) {
 }
 
 function CourseRow({ course, onCreator }: { course: MyCourse; onCreator: (() => void) | null }) {
-  const href = `/library/courses/${course.productId}${course.resume ? `?lesson=${course.resume.lessonId}` : ""}`
+  const href = `/account/library/courses/${course.productId}${course.resume ? `?lesson=${course.resume.lessonId}` : ""}`
   const length = lengthInWords(course.totalSeconds)
   const action = course.status === "completed" ? "Watch again" : course.status === "not_started" ? "Start" : "Continue"
   return (

@@ -11,6 +11,7 @@ import { isFollowing } from "@/lib/profile/follows"
 import { activityFor } from "@/lib/profile/activity-page"
 import { messageTarget, profileCommunities } from "@/lib/profile/profile-communities"
 import { cameFromBrowsing, refererPath } from "@/lib/profile/back"
+import { sharedCommunities, sharedPostsPage } from "@/lib/profile/shared-posts"
 import { MemberProfilePage } from "@/components/profile/member-profile-page"
 import { MemberProfileShell } from "@/components/profile/member-profile-shell"
 
@@ -53,12 +54,25 @@ async function renamedTo(handle: string): Promise<string | null> {
   }
 }
 
+/** The communities the viewer shares with them, each with the first page of their posts there. A failed read is no section, never an error page. */
+async function sharedSections(db: ReturnType<typeof createAdminClient>, viewerId: string, targetId: string) {
+  try {
+    const list = await sharedCommunities(db, viewerId, targetId)
+    const pages = await Promise.all(list.map((community) => sharedPostsPage(db, { communityId: community.id, viewerId, targetId }).catch(() => null)))
+    return list.flatMap((community, i) => (pages[i] ? [{ community, page: pages[i]! }] : []))
+  } catch {
+    return []
+  }
+}
+
 /**
  * /@handle: a person's profile (components/profile/member-profile-page.tsx).
  * Everything private is decided here, on the server: whether their activity
  * and their memberships are shown (their switches, except to themselves),
- * whether Message has anywhere to go, and whether the page was reached from
- * a community or Explore, which puts the back bar at its top.
+ * whether Message has anywhere to go, which communities the viewer shares
+ * with them (their posts there open the Activity tab, only from spaces the
+ * viewer may read), and whether the page was reached from a community,
+ * Explore or search, which puts the way back in a bar at its top.
  */
 export default async function MemberProfileRoute({ params, searchParams }: Props) {
   const handle = await resolveHandle(params)
@@ -80,7 +94,7 @@ export default async function MemberProfileRoute({ params, searchParams }: Props
   const viewerId = user?.id ?? null
   const isSelf = viewerId === profile.userId
   const db = createAdminClient()
-  const [following, messageHref, activity, communities] = await Promise.all([
+  const [following, messageHref, activity, communities, shared] = await Promise.all([
     isFollowing(db, viewerId, profile.userId),
     communitiesOn ? messageTarget(db, viewerId, profile.userId).catch(() => null) : Promise.resolve(null),
     activityFor(db, {
@@ -92,28 +106,28 @@ export default async function MemberProfileRoute({ params, searchParams }: Props
     communitiesOn
       ? profileCommunities(db, profile.userId, { includeMemberships: profile.privacy.showCommunities || isSelf }).catch(() => ({ owned: [], member: [] }))
       : Promise.resolve({ owned: [], member: [] }),
+    communitiesOn && viewerId && !isSelf ? sharedSections(db, viewerId, profile.userId) : Promise.resolve([]),
   ])
 
   const backShown = from === "community" || from === "explore" || cameFromBrowsing(refererPath(head.get("referer"), head.get("host")))
 
   return (
     <main className="explore-ground min-h-screen bg-[#f8f9fa]" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
-      <div className="mx-auto max-w-[1400px] px-4 pb-8 pt-4 sm:px-6 sm:pb-10 sm:pt-6 lg:px-8 lg:pb-12">
-        <MemberProfileShell>
-          <MemberProfilePage
-            profile={profile}
-            viewerId={viewerId}
-            viewerFollowing={following}
-            extras={{
-              messageHref,
-              activity,
-              communities: { enabled: communitiesOn, owned: communities.owned, member: communities.member },
-              backShown,
-              now: Date.now(),
-            }}
-          />
-        </MemberProfileShell>
-      </div>
+      <MemberProfileShell>
+        <MemberProfilePage
+          profile={profile}
+          viewerId={viewerId}
+          viewerFollowing={following}
+          extras={{
+            messageHref,
+            activity,
+            communities: { enabled: communitiesOn, owned: communities.owned, member: communities.member },
+            shared,
+            backShown,
+            now: Date.now(),
+          }}
+        />
+      </MemberProfileShell>
     </main>
   )
 }

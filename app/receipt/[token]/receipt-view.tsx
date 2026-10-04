@@ -711,7 +711,7 @@ export function ReceiptView({
               </div>
             ) : viewer.isBuyer ? (
               <Link
-                href="/library"
+                href="/account/library"
                 className="group mt-4 flex min-h-[56px] items-center justify-between rounded-2xl border border-[#e4e7ec]/80 bg-white px-4 shadow-[inset_0_-1px_0_rgba(16,24,40,0.04),0_1px_2px_rgba(16,24,40,0.05),0_3px_8px_-2px_rgba(16,24,40,0.06)] transition-[box-shadow,border-color,translate] duration-150 hover:border-[#d9dde3] hover:shadow-[inset_0_-1px_0_rgba(16,24,40,0.04),0_2px_4px_rgba(16,24,40,0.06),0_8px_16px_-4px_rgba(16,24,40,0.08)] active:translate-y-px active:shadow-[inset_0_1px_2px_rgba(16,24,40,0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 focus-visible:ring-offset-2 sm:px-5 print:hidden"
               >
                 <span className="text-[14px] font-semibold text-[#1a1a2e]">Open your library</span>

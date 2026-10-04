@@ -25,7 +25,7 @@ export function MemberStateScreen({ state, community }: { state: string; communi
           <Link href={`/community/${community.slug}/about`} className="inline-flex h-10 items-center rounded-full border border-[#e3e4e8] bg-white px-4 text-[14px] font-medium text-[#1a1a2e] hover:bg-[#f6f7f8]">
             About {community.name}
           </Link>
-          <Link href="/library" className="inline-flex h-10 items-center rounded-full px-4 text-[14px] font-medium text-[#4b5563] hover:bg-[#f1f2f4]">
+          <Link href="/account/library" className="inline-flex h-10 items-center rounded-full px-4 text-[14px] font-medium text-[#4b5563] hover:bg-[#f1f2f4]">
             Your library
           </Link>
         </div>

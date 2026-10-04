@@ -537,7 +537,7 @@ export function MemberPage({ page, welcome = false, cardUpdated = false, now: fi
 
   return (
     <div data-member-page="" data-status={m.status} className="mx-auto max-w-[1080px] pb-12">
-      <Link href="/library/memberships" className="mb-3 inline-flex h-9 items-center gap-1.5 rounded-lg pr-2 text-[13.5px] font-medium text-[#6b7280] transition-colors hover:text-[#1a1a2e]">
+      <Link href="/account/library/memberships" className="mb-3 inline-flex h-9 items-center gap-1.5 rounded-lg pr-2 text-[13.5px] font-medium text-[#6b7280] transition-colors hover:text-[#1a1a2e]">
         <ArrowLeft aria-hidden className="h-4 w-4" />
         Memberships
       </Link>

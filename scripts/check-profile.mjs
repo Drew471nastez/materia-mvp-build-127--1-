@@ -6,16 +6,24 @@
  * 390x844 phone:
  *
  *   SOMEBODY ELSE   the photo straddles the band's lower edge, the name is
- *                   centred, Follow and Message are there, the back bar is
- *                   at the top; Follow turns into Following and the count
- *                   goes up by one; the followers count opens the list (a
- *                   dialog on a computer, the bottom sheet on a phone) and
- *                   Show more loads the next page; the Activity tab's Show
- *                   more adds the next page
- *   YOUR OWN        the five pills, no Follow, the "only you" line
- *   CREATOR PAGE    the follow block under the bio, centred, the follower
- *                   count printed once; on a dark scheme the button is in
- *                   the page's own text colour
+ *                   centred, Follow and Message are there (Message to the
+ *                   community's ?dm= link), the way back is a chevron in a
+ *                   top bar beside their photo; Follow turns into Following
+ *                   with a check, a pointer over it says Unfollow (not right
+ *                   after the press), the count goes up by one; the
+ *                   followers count opens the list and Show more loads the
+ *                   next page; "In Clay Studio" lists six posts and Older /
+ *                   Newer page through them without the list jumping; the
+ *                   Activity tab's Show more adds the next page and the
+ *                   list ends on "Joined Storelib"
+ *   YOUR OWN        the owner's pills (Activity lit), no Follow, the "only
+ *                   you" line, Add cover on the band
+ *   CREATOR PAGE    the way back is the newsletter bar's first thing, before
+ *                   the photo; the follow block under the bio, centred, the
+ *                   follower count printed once; Follow is filled in the
+ *                   scheme's own button colour (Sage green, Astrid blue on
+ *                   black); with no newsletter bar the slim top bar carries
+ *                   the chevron, the photo and the name
  *   EVERYWHERE      nothing scrolls sideways; on a phone every control of
  *                   ours a finger presses is at least 40px tall
  *
@@ -86,7 +94,8 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     join(stubs, "index.html"),
     `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>${css}</style><style>body{margin:0;font-family:Inter,system-ui,sans-serif}</style></head><body><div id="app"></div><script>${js.replace(/<\/script/gi, "<\\/script")}</script></body></html>`,
   )
-  const browser = await puppeteer.launch({ executablePath: CHROMIUM, headless: true, args: ["--no-sandbox", "--disable-gpu", "--hide-scrollbars"] })
+  /* Headless Chromium says it has no hover at all, so a pointer over a button never matches Tailwind's hover: variants; a computer has one. */
+  const browser = await puppeteer.launch({ executablePath: CHROMIUM, headless: true, args: ["--no-sandbox", "--disable-gpu", "--hide-scrollbars", "--blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4"] })
   const VIEWPORTS = [
     ["desktop-1440", { width: 1440, height: 900 }],
     ["phone-390", { width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }],
@@ -144,8 +153,17 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       expect(!!geo.avatar && geo.avatar.top < geo.cover.bottom && geo.avatar.bottom > geo.cover.bottom, "the photo straddles the band's lower edge", geo)
       expect(geo.avatar && Math.abs(geo.avatar.w - (phone ? 112 : 128)) <= 1, `the photo is ${phone ? 112 : 128}px`, geo.avatar?.w)
       expect(Math.abs(geo.nameCx - geo.col) <= 2 && Math.abs(geo.avatar.cx - geo.col) <= 2, "name and photo are centred on the column", { name: geo.nameCx, avatar: geo.avatar?.cx, col: geo.col })
-      expect(!!geo.back && geo.back.top < geo.cover.top, "the back bar is above the band", { back: geo.back?.top, cover: geo.cover?.top })
+      expect(!!geo.back && geo.back.top < geo.cover.top && geo.back.h >= 40, "the way back is in the top bar above the band, 40px to a thumb", { back: geo.back, cover: geo.cover?.top })
+      const bar = await p.evaluate(() => {
+        const bar = document.querySelector("[data-profile-top-bar]")?.getBoundingClientRect()
+        const chev = document.querySelector("[data-profile-top-bar] [data-profile-back-button]")?.getBoundingClientRect()
+        const face = document.querySelector("[data-profile-top-bar] [data-slot=avatar], [data-profile-top-bar] span[class*='rounded-full']")?.getBoundingClientRect()
+        return bar && chev && face ? { barH: Math.round(bar.height), chevRight: Math.round(chev.right), faceLeft: Math.round(face.left), name: document.querySelector("[data-profile-top-bar-name]")?.textContent, pill: !!document.querySelector("[data-profile-back] .rounded-full.border") } : null
+      })
+      expect(!!bar && bar.faceLeft >= bar.chevRight && bar.faceLeft - bar.chevRight <= 16 && bar.name === "Sam Rivera", "the chevron sits right beside their photo and name, in the bar", bar)
       expect(geo.follow === "Follow" && geo.message && geo.pills === 0, "Follow and Message, no owner pills", geo)
+      const dm = await p.evaluate(() => document.querySelector("[data-profile-message]")?.getAttribute("href"))
+      expect(/^\/community\/clay-studio\?dm=[0-9a-f-]{36}$/.test(dm || ""), "Message opens the conversation in the community (?dm=), never a member page", dm)
       expect(geo.tabs.join() === "Activity,Communities", "tabs: Activity and Communities (no Products for a buyer)", geo.tabs)
       if (phone) {
         const small = await smallTargets(p, "[data-profile-social], [data-profile-back], [data-profile-activity]")
@@ -160,7 +178,24 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       await p.click("[data-follow-button]")
       await frames(p, 4)
       const after = await p.evaluate(() => ({ text: document.querySelector("[data-follow-button]").textContent.trim(), n: document.querySelector("[data-profile-count=followers] span").textContent, fetches: window.__fetches }))
-      expect(after.text === "Following" && Number(after.n) === Number(before) + 1, "Follow: Following, and one more follower", { before, after })
+      expect(/Following/.test(after.text) && Number(after.n) === Number(before) + 1, "Follow: Following, and one more follower", { before, after })
+      const hover = await p.evaluate(() => {
+        const vis = (sel) => { const el = document.querySelector(sel); return el ? getComputedStyle(el).visibility : null }
+        return { check: !!document.querySelector("[data-follow-button] svg"), following: vis("[data-follow-label=following]"), unfollow: vis("[data-follow-label=unfollow]") }
+      })
+      if (!phone) {
+        /* The pointer that pressed Follow is still on it: no Unfollow until it has left. */
+        expect(hover.check && hover.following === "visible" && hover.unfollow === "hidden", "Following has a check, and no Unfollow under the pointer that just followed", hover)
+        const w0 = await p.evaluate(() => Math.round(document.querySelector("[data-follow-button]").getBoundingClientRect().width))
+        await p.mouse.move(5, 5)
+        await frames(p, 2)
+        await p.hover("[data-follow-button]")
+        await frames(p, 2)
+        const back = await p.evaluate(() => ({ following: getComputedStyle(document.querySelector("[data-follow-label=following]")).visibility, unfollow: getComputedStyle(document.querySelector("[data-follow-label=unfollow]")).visibility, w: Math.round(document.querySelector("[data-follow-button]").getBoundingClientRect().width), color: getComputedStyle(document.querySelector("[data-follow-button]")).color }))
+        expect(back.following === "hidden" && back.unfollow === "visible" && back.w === w0, "hovering Following again says Unfollow, at the same width", { ...back, w0 })
+        await p.screenshot({ path: join(shots, `${label}-other-unfollow-hover.png`), clip: { x: 0, y: 0, width: vp.width, height: 560 } })
+        await p.mouse.move(5, 5)
+      }
       expect(after.fetches.some((u) => u === "/api/follow"), "asked the follow route", after.fetches)
       await p.screenshot({ path: join(shots, `${label}-other-following.png`) })
 
@@ -196,13 +231,41 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       await p.keyboard.press("Escape")
       await new Promise((r) => setTimeout(r, 500))
 
+      /* In Clay Studio: six posts, then Older and Newer. */
+      const sh0 = await p.evaluate(() => {
+        const sec = document.querySelector("[data-shared-community=clay-studio]")
+        sec?.scrollIntoView()
+        const list = sec?.querySelector("ul")
+        return { posts: sec?.querySelectorAll("[data-shared-post]").length, h: list ? Math.round(list.getBoundingClientRect().height) : 0, page: sec?.querySelector("[data-shared-page]")?.textContent, newerDisabled: sec?.querySelector("[data-shared-newer]")?.disabled, heading: sec?.querySelector("h2")?.textContent }
+      })
+      expect(sh0.posts === 6 && sh0.page === "Page 1" && sh0.newerDisabled === true && sh0.heading === "In Clay Studio", "In Clay Studio: six posts, page 1, Newer off", sh0)
+      await p.screenshot({ path: join(shots, `${label}-other-shared.png`) })
+      await p.click("[data-shared-older]")
+      await new Promise((r) => setTimeout(r, 40))
+      const mid = await p.evaluate(() => { const l = document.querySelector("[data-shared-community=clay-studio] ul"); return { h: Math.round(l.getBoundingClientRect().height), busy: l.getAttribute("aria-busy") } })
+      expect(mid.busy === "true" && mid.h >= sh0.h - 1, "while the next page comes the list keeps its height", { mid, before: sh0.h })
+      await new Promise((r) => setTimeout(r, 300))
+      const sh1 = await p.evaluate(() => { const sec = document.querySelector("[data-shared-community=clay-studio]"); return { posts: sec.querySelectorAll("[data-shared-post]").length, page: sec.querySelector("[data-shared-page]").textContent, olderDisabled: sec.querySelector("[data-shared-older]").disabled } })
+      expect(sh1.posts === 3 && sh1.page === "Page 2" && sh1.olderDisabled, "Older: the next three, page 2, nothing older", sh1)
+      const asked = await p.evaluate(() => window.__fetches.filter((u) => u.startsWith("/api/profile/shared-posts")))
+      await p.click("[data-shared-newer]")
+      await frames(p, 2)
+      const sh2 = await p.evaluate(() => ({ posts: document.querySelectorAll("[data-shared-community=clay-studio] [data-shared-post]").length, asked: window.__fetches.filter((u) => u.startsWith("/api/profile/shared-posts")).length }))
+      expect(sh2.posts === 6 && sh2.asked === asked.length && asked.length === 1 && /cursor=c2/.test(asked[0]), "Newer is the page already seen, not asked again", { sh2, asked })
+      if (phone) {
+        const small = await smallTargets(p, "[data-shared-pager]")
+        expect(small.length === 0, "the pager's buttons are at least 40px", small)
+      }
+
       /* Activity: Show more. */
       const n0 = await p.evaluate(() => document.querySelectorAll("[data-profile-activity-item]").length)
       await p.evaluate(() => document.querySelector("[data-profile-activity-more]").scrollIntoView())
       await p.click("[data-profile-activity-more]")
       await new Promise((r) => setTimeout(r, 300))
       const n1 = await p.evaluate(() => ({ n: document.querySelectorAll("[data-profile-activity-item]").length, more: !!document.querySelector("[data-profile-activity-more]") }))
-      expect(n0 === 5 && n1.n === 6 && !n1.more, "Activity: Show more adds the next page", { n0, n1 })
+      expect(n0 === 5 && n1.n === 7 && !n1.more, "Activity: Show more adds the next page, and the list ends on Joined Storelib", { n0, n1 })
+      const last = await p.evaluate(() => [...document.querySelectorAll("[data-profile-activity-item]")].pop()?.getAttribute("data-profile-activity-item"))
+      expect(last === "joined_storelib", "the last line is the day they joined", last)
 
       /* The Communities tab. */
       await p.evaluate(() => [...document.querySelectorAll("[role=tab]")].find((t) => t.textContent.trim() === "Communities").click())
@@ -228,11 +291,13 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       }))
       expect(side.doc <= side.win && errors.length === 0, "nothing sideways, no errors", { side, errors })
       expect(
-        geo.pills.map((x) => x[0]).join() === "Library,Courses,Communities,Edit profile,Settings" && geo.pills[4][1] === "/account/settings?section=account",
-        "the five pills, Settings on the Account section",
+        geo.pills.map((x) => x[0]).join() === "Activity,Communities,Library,Edit profile,Settings" && geo.pills[2][1] === "/account/library" && geo.pills[4][1] === "/account/settings?section=account",
+        "the profile center's pills: Activity, Communities, Library, Edit profile, Settings",
         geo.pills,
       )
-      expect(!geo.follow && geo.onlyYou && !geo.back, "no Follow, the only-you line, no back bar", geo)
+      const lit = await p.evaluate(() => document.querySelector("[data-profile-owner-pill][data-active=true]")?.getAttribute("data-profile-owner-pill"))
+      const cover = await p.evaluate(() => document.querySelector("[data-profile-cover-edit]")?.textContent?.trim())
+      expect(!geo.follow && geo.onlyYou && !geo.back && lit === "activity" && cover === "Add cover", "no Follow, the only-you line, no back bar, Activity lit, Add cover on the band", { ...geo, lit, cover })
       if (phone) {
         expect(geo.pillsOverflow === true, "on a phone the pills scroll sideways inside their row", geo.pillsOverflow)
         const small = await smallTargets(p, "[data-profile-owner-pills], [data-profile-social]")
@@ -241,7 +306,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       await p.close()
     }
 
-    for (const which of ["creator", "creator-dark"]) {
+    for (const which of ["creator", "creator-dark", "creator-nobar"]) {
       console.log(`\n${label}: ${which}`)
       const { p, errors } = await open(vp, which)
       await p.screenshot({ path: join(shots, `${label}-${which}.png`) })
@@ -264,7 +329,19 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       expect(geo.row && Math.abs(geo.actionsCx - geo.w / 2) <= 2, "the follow block sits under the bio, centred", geo)
       expect(/1\.3k\s*followers/.test(geo.counts || "") && /64\s*following/.test(geo.counts || ""), "followers and following", geo.counts)
       expect(geo.metaFollowers === 0, "the follower count is printed once", geo.metaFollowers)
-      if (which === "creator-dark") expect(geo.btnColor === "rgb(245, 245, 244)", "on a dark scheme the button is the page's text colour", geo.btnColor)
+      const fill = await p.evaluate(() => { const b = document.querySelector("[data-storefront-follow] [data-follow-button]"); const cs = b && getComputedStyle(b); return cs && { bg: cs.backgroundColor, color: cs.color, radius: cs.borderTopLeftRadius, tone: b.getAttribute("data-follow-tone"), msgRadius: getComputedStyle(document.querySelector("[data-storefront-follow] [data-profile-message]")).borderTopLeftRadius } })
+      const want = which === "creator-dark" ? "rgb(37, 99, 235)" : "rgb(47, 93, 70)"
+      expect(fill?.tone === "scheme" && fill.bg === want && fill.color === "rgb(255, 255, 255)", `Follow is filled in the scheme's own button colour (${which === "creator-dark" ? "Astrid" : "Sage"})`, fill)
+      expect(fill?.radius === fill?.msgRadius, "Message has the scheme's rounding too", fill)
+      const back = await p.evaluate(() => {
+        const shown = (list) => [...list].map((el) => el.getBoundingClientRect()).find((r) => r.width > 0 && r.height > 0)
+        const chev = shown(document.querySelectorAll("[data-profile-back-button]"))
+        const scope = document.querySelector("[data-profile-top-bar]") || document.querySelector(".subscribe-bar-fixed, [class*=subscribe-bar-border]")
+        const fr = scope ? shown(scope.querySelectorAll("[data-slot=avatar], span[class*='rounded-full']")) : null
+        const header = document.querySelector("[data-storefront-follow]")?.getBoundingClientRect()
+        return chev && fr ? { chevTop: Math.round(chev.top), chevRight: Math.round(chev.right), faceLeft: Math.round(fr.left), gap: Math.round(fr.left - chev.right), sameRow: Math.abs((chev.top + chev.height / 2) - (fr.top + fr.height / 2)) <= 3, belowHeader: header ? chev.top > header.top : false, pill: !!document.querySelector("[data-profile-back] .border") } : null
+      })
+      expect(!!back && back.sameRow && back.gap >= 0 && back.gap <= 16 && !back.belowHeader && !back.pill, "the way back is a chevron in the top bar, right before the photo, not a pill under it", back)
       if (phone) {
         const small = await smallTargets(p, "[data-storefront-follow], [data-profile-back]")
         expect(small.length === 0, "the follow block's controls are at least 40px", small)

@@ -286,7 +286,7 @@ export function MarketingHeaderClient() {
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Link
-                        href="/library"
+                        href="/account/library"
                         className="w-10 h-10 rounded-full flex items-center justify-center text-white/70 hover:text-white hover:bg-white/10 transition-all duration-150 cursor-pointer"
                       >
                         <Heart className="w-5 h-5" />
@@ -301,7 +301,7 @@ export function MarketingHeaderClient() {
                 {/* Library link */}
                 {user && (
                   <Link
-                    href="/library"
+                    href="/account/library"
                     className="hidden sm:flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white/70 hover:text-white transition-colors cursor-pointer"
                   >
                     <BookOpen className="w-4 h-4" />
@@ -316,7 +316,7 @@ export function MarketingHeaderClient() {
                   </Button>
                 ) : user ? (
                   <Button size="sm" asChild className="bg-violet-600 hover:bg-violet-700">
-                    <Link href="/library">Library</Link>
+                    <Link href="/account/library">Library</Link>
                   </Button>
                 ) : null}
 

@@ -5,5 +5,5 @@ import { redirect } from "next/navigation"
  * Every community a person belongs to is in their library now.
  */
 export default function LegacyCreatorCommunityPage() {
-  redirect("/library/communities")
+  redirect("/account/communities")
 }

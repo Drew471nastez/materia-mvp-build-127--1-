@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from "next/navigation"
 import { Component, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react"
 import type { PrefetchKind } from "next/dist/client/components/router-reducer/router-reducer-types"
+import { LIBRARY_HOME } from "@/lib/library/paths"
 import { cleanPath, isLibraryProduct, showsLibraryTabs } from "./library-tab-list"
 import { LibraryContentShell } from "./library-content-shell"
 import { TabsHeaderStill, skeletonFor } from "./library-skeletons"
@@ -94,12 +95,20 @@ const FULL = "full" as PrefetchKind
 /** Where each library screen was scrolled to, for the way back to it. Kept across the stage's life. */
 const scrolls = new Map<string, number>()
 
-/** The move between two library addresses, or null for one the stage leaves to the router. */
+/**
+ * The move between two library addresses, or null for one the stage leaves to the router.
+ *
+ * ONLY BETWEEN TABS NOW. The library lives inside the profile, whose header
+ * (photo, name, pills) stands over the lists and steps aside on a purchase
+ * opened from them (components/account/account-hub.tsx). A dissolve played
+ * in place cannot also follow a header leaving above it, so opening a
+ * purchase and coming back are the router's own moves, with the purchase's
+ * loading.tsx shape. The "open" and "back" kinds stay for a library that is
+ * ever drawn without that header again.
+ */
 export function moveOf(from: string, to: string): Kind | null {
   if (from === to) return null
   if (showsLibraryTabs(from) && showsLibraryTabs(to)) return "tab"
-  if (showsLibraryTabs(from) && isLibraryProduct(to)) return "open"
-  if (isLibraryProduct(from) && showsLibraryTabs(to)) return "back"
   return null
 }
 
@@ -465,7 +474,7 @@ export function LibraryPanel({ head, children }: { head?: ReactNode; children: R
   useEffect(() => {
     if (!isLibraryProduct(pathname)) return
     try {
-      router.prefetch("/library", { kind: FULL })
+      router.prefetch(LIBRARY_HOME, { kind: FULL })
     } catch {
       /* the way back waits for the list instead */
     }

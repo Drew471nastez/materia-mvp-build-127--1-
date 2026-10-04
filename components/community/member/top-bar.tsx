@@ -105,7 +105,7 @@ export function CommunityTopBar({ data, messages = null, messagesOpen = false, o
     ? [
         ...(data.manageHref ? [{ label: "Manage community", href: data.manageHref, icon: <Settings2 aria-hidden /> }] : []),
         { label: "My profile", href: me.profileHref, icon: <UserRound aria-hidden />, separatorBefore: !!data.manageHref },
-        { label: "Library", href: "/library", icon: <Library aria-hidden /> },
+        { label: "Library", href: "/account/library", icon: <Library aria-hidden /> },
         { label: "Settings", href: "/account/settings", icon: <Settings aria-hidden /> },
         { label: "Explore Storelib", href: "/explore", icon: <Compass aria-hidden />, separatorBefore: true },
       ]

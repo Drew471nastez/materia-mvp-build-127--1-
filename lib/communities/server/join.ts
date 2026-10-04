@@ -198,7 +198,7 @@ export async function leaveCommunity(db: Db, communityId: string, userId: string
   }
   if (member.status === "active" && member.source === "subscription" && member.source_membership_id) {
     /* Leaving would end the access and keep the subscription: cancel it where it is billed. */
-    return { ok: false, status: 409, error: "manage_billing", message: "Cancel your membership first. You keep access until the period you paid for ends.", url: `/library/memberships/${member.source_membership_id}` }
+    return { ok: false, status: 409, error: "manage_billing", message: "Cancel your membership first. You keep access until the period you paid for ends.", url: `/account/library/memberships/${member.source_membership_id}` }
   }
   const wasPending = member.status === "pending"
   const row = await revokeMembership(db, { communityId: community.id, userId, status: "cancelled", reason: wasPending ? "request withdrawn" : "left", actorId: userId, actorKind: "member" })

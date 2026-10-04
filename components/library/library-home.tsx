@@ -113,7 +113,7 @@ function NothingYet({ wishlistCount }: { wishlistCount: number }) {
           Discover products
         </Link>
         {wishlistCount > 0 ? (
-          <Link href="/library/wishlist" className={SECONDARY}>
+          <Link href="/account/library/wishlist" className={SECONDARY}>
             Your wishlist ({wishlistCount})
           </Link>
         ) : null}
@@ -241,7 +241,7 @@ export function LibraryHome({
       {/* A computer's column: what is waiting for a review, and where receipts live. */}
       <aside className="hidden space-y-4 lg:block lg:pt-7 lg:self-start" data-library-aside="">
         {toReview > 0 ? (
-          <Link href="/library/reviews" className={`${CARD} flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-[#fcfcfd]`}>
+          <Link href="/account/library/reviews" className={`${CARD} flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-[#fcfcfd]`}>
             <span className="min-w-0 flex-1">
               <span className="block text-[14px] font-semibold text-[#1a1a2e]">
                 {toReview} {toReview === 1 ? "purchase" : "purchases"} to review
@@ -253,7 +253,7 @@ export function LibraryHome({
         ) : null}
         <p className="px-1 text-[12.5px] leading-relaxed text-[#8a919c]">
           Courses and memberships have their own tabs. Every receipt is under{" "}
-          <Link href="/library/receipts" className={TEXT_LINK}>
+          <Link href="/account/library/receipts" className={TEXT_LINK}>
             Receipts
           </Link>
           .

@@ -109,7 +109,7 @@ export type { CreatorCard, FeedPost, IncludedItem, InvoiceItem, MembershipCard, 
 export const PAGE_SIZE = 20
 
 function libraryHref(p: { id: string; type: string }): string {
-  return p.type === "course" ? `/library/courses/${p.id}` : `/library/products/${p.id}`
+  return p.type === "course" ? `/account/library/courses/${p.id}` : `/account/library/products/${p.id}`
 }
 
 /** The feed's posts for this member, as the page draws them. Text, pictures and files only with access. */

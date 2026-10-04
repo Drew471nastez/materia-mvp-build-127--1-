@@ -5,5 +5,5 @@ export { ListSkeleton, RowsSkeleton } from "@/components/library/library-skeleto
 export const TAB_SKELETON = ""
 
 export default function LibraryLoading() {
-  return <LibraryRouteSkeleton path="/library" />
+  return <LibraryRouteSkeleton path="/account/library" />
 }

@@ -1,6 +1,6 @@
 /**
  * Whether a profile was reached from somewhere its back bar should return
- * to: a community, Explore, or search (components/profile/profile-back-bar).
+ * to: a community, Explore, or search (components/profile/profile-top-bar).
  * Pure, so the server (from the Referer) and the browser (from the page it
  * came from) ask the same question.
  */

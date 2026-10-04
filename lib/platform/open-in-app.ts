@@ -42,7 +42,7 @@ function sitePath(path: string | null | undefined): string | null {
 
 /** The address that opens the app, from the page this is on. */
 export function appLink(phone: Phone, path: string): string {
-  const safe = sitePath(path) ?? "/library"
+  const safe = sitePath(path) ?? "/account/library"
   if (phone === "ios") return `${APP_PACKAGE}://open?path=${encodeURIComponent(safe)}`
   return `intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;package=${APP_PACKAGE};S.browser_fallback_url=${encodeURIComponent(PLAY_URL)};end`
 }

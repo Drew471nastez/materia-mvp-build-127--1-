@@ -58,7 +58,7 @@ export function PaymentStatus({ state }: { state: "waiting" | "unpaid" | "expire
         ) : null}
         {state !== "waiting" || gaveUp ? (
           <Link
-            href="/library"
+            href="/account/library"
             className="mt-5 inline-flex h-10 items-center rounded-xl border border-[#e5e7eb] bg-white px-4 text-[14px] font-semibold text-[#1a1a2e] hover:bg-[#f8f9fa]"
           >
             Go to library

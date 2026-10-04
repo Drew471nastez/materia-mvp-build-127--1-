@@ -159,6 +159,13 @@ export interface StorefrontChrome {
    * get to decide what those mean.
    */
   tokens: Record<string, string>
+  /**
+   * THE PAGE'S OWN PRIMARY BUTTON: the scheme's buy button colours and its
+   * button rounding. Follow on the page is drawn in these
+   * (components/profile/follow-button.tsx), so a creator on a green scheme
+   * gets a green Follow rather than Storelib's near black.
+   */
+  action: { background: string; text: string; radius: number }
   /** Is the field dark enough that the design system's own tokens disappear? */
   dark: boolean
   /** The scheme this was resolved from, for anything that needs to say so. */
@@ -346,6 +353,11 @@ export function resolveStorefrontChrome(
     bar,
     avatarBorder,
     tokens,
+    action: {
+      background: theme.productHeader?.buyButtonColor || theme.colors.primary,
+      text: theme.productHeader?.buyButtonTextColor || "#ffffff",
+      radius: theme.productHeader?.buttonsBorderRadius ?? theme.buttonBorderRadius ?? 8,
+    },
     dark,
     preset: key,
   }

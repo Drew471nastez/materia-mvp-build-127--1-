@@ -68,6 +68,8 @@ import { LanguageModal } from "@/components/platform/language-modal"
 import { useLocale } from "@/components/locale-provider"
 import { secondaryDepth } from "@/components/ui/depth-button"
 import { AccountAvatar, useAccountPhoto } from "@/components/account/account-photo"
+import { PushSwitchRow } from "@/components/account/push-switch-row"
+import { CoverField } from "@/components/account/cover-field"
 import { useShellAvatar } from "@/lib/account/avatar-store"
 import { isValidUsername } from "@/lib/reserved-words"
 import { normalizeHandle } from "@/lib/profile/username-rules"
@@ -222,12 +224,15 @@ function ProfileSection({
   avatarUrl,
   username: initialUsername,
   usernameEditable,
+  cover,
 }: {
   userId: string
   name: string
   bio: string
   bioSupported: boolean
   avatarUrl: string | null
+  /** profiles.cover_url and whether the column is there (components/account/cover-field.tsx). */
+  cover: { url: string | null; supported: boolean }
   /** Their handle; made for them when they had none (lib/profile/ensure-username). */
   username: string
   /** False for somebody with a store or a OnePage: their handle is also those addresses and moves from /app Settings. */
@@ -354,6 +359,12 @@ function ProfileSection({
         </p>
       ) : null}
       {photo.input}
+
+      {cover.supported ? (
+        <div className="mt-5 border-t border-[#f0f1f3] pt-4">
+          <CoverField initial={cover.url} labelClass={LABEL} helpClass={HELP} />
+        </div>
+      ) : null}
 
       <div
         className="mt-5 space-y-4 border-t border-[#f0f1f3] pt-4"
@@ -885,6 +896,8 @@ function PreferencesSection({ email, newsletter: initialNewsletter, personalized
           }
           control={<Switch label="Recommendations for you" checked={personalized.value} busy={personalized.busy} onChange={personalized.change} />}
         />
+        {/* Drawn only once GET /api/me/push answers with the saved choice (components/account/push-switch-row.tsx). */}
+        <PushSwitchRow />
       </div>
       <LanguageModal open={languageOpen} onOpenChange={setLanguageOpen} />
     </section>
@@ -909,6 +922,7 @@ export function AccountSettings({
   username = "",
   usernameEditable = true,
   privacy = { showActivity: true, showCommunities: true, supported: false },
+  cover = { url: null, supported: false },
   initialSection = "profile",
 }: {
   userId: string
@@ -929,6 +943,8 @@ export function AccountSettings({
   username?: string
   usernameEditable?: boolean
   privacy?: { showActivity: boolean; showCommunities: boolean; supported: boolean }
+  /** The profile's own cover (profiles.cover_url); not offered where the column is not there. */
+  cover?: { url: string | null; supported: boolean }
   /** From ?section=, so the profile's Settings pill lands on Account. */
   initialSection?: SectionKey
 }) {
@@ -978,6 +994,7 @@ export function AccountSettings({
             avatarUrl={avatarUrl ?? null}
             username={username}
             usernameEditable={usernameEditable}
+            cover={cover}
           />
         ) : null}
         {section === "account" ? (

@@ -13,8 +13,8 @@ import { RouteLoadingBar } from "@/components/navigation/route-loading-bar"
 
 const q = new URLSearchParams(location.search)
 const DELAY = Number(q.get("delay") || 2500)
-const HERE = "/library"
-const THERE = "/library/products/one"
+const HERE = "/account/library"
+const THERE = "/account/library/products/one"
 
 function Page({ path }: { path: string }) {
   const product = path !== HERE

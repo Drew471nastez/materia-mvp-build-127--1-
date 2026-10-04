@@ -143,7 +143,7 @@ async function sendOne(db: Db, store: ReturnType<typeof supabaseStore>, kind: "r
   const identity = await store.identity(product.creator_id)
   const address = await loadBrand(db as never, product.creator_id).then((b) => b.address, () => null)
   const first = ((profile as { first_name?: string | null; display_name?: string | null } | null)?.first_name || (profile as { display_name?: string | null } | null)?.display_name || "").trim().split(/\s+/)[0] || null
-  const continueUrl = `${APP_URL}/library/courses/${row.product_id}${next ? `?lesson=${next.id}` : ""}`
+  const continueUrl = `${APP_URL}/account/library/courses/${row.product_id}${next ? `?lesson=${next.id}` : ""}`
   const content = courseEmail({
     kind,
     courseTitle: product.title || "your course",

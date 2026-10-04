@@ -71,7 +71,7 @@ export function WelcomeModal({ open, onClose, onCreatorSelect }: WelcomeModalPro
         router.push("/app")
       }
     } else {
-      router.push("/library")
+      router.push("/account/library")
     }
   }
 

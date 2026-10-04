@@ -37,10 +37,10 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
     const session = await stripe.billingPortal.sessions.create({
       customer: row.stripe_customer_id,
       configuration,
-      return_url: siteUrl(`/library/memberships/${row.id}?card=updated`),
+      return_url: siteUrl(`/account/library/memberships/${row.id}?card=updated`),
       flow_data: {
         type: "payment_method_update",
-        after_completion: { type: "redirect", redirect: { return_url: siteUrl(`/library/memberships/${row.id}?card=updated`) } },
+        after_completion: { type: "redirect", redirect: { return_url: siteUrl(`/account/library/memberships/${row.id}?card=updated`) } },
       },
     })
     return NextResponse.json({ url: session.url })

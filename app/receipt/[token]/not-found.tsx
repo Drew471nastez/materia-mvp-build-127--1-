@@ -14,7 +14,7 @@ export default function ReceiptNotFound() {
           purchase in your library.
         </p>
         <Link
-          href="/library"
+          href="/account/library"
           className="mt-5 inline-flex h-10 items-center rounded-[10px] border border-[#0f0f1c] bg-[#1a1a2e] px-4 text-[14px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_1px_2px_rgba(16,24,40,0.24)] transition-[background-color,translate] duration-150 hover:bg-[#262640] active:translate-y-px"
         >
           Go to library

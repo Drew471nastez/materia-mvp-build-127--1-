@@ -650,7 +650,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     keywords: ["buyer", "purchase", "download", "refund", "contact seller", "receipt", "library", "didn't get"],
     body: [
       { type: "list", items: [
-        "Your download is on the receipt page linked from your receipt email. If you bought while signed in, it is also in your [Library](/library).",
+        "Your download is on the receipt page linked from your receipt email. If you bought while signed in, it is also in your [Library](/account/library).",
         "Refunds are decided by the creator who sold the product, following the refund policy on its page. Reply to your receipt email or contact them from their page.",
         "If you cannot find the receipt email, check spam, then ask the creator to resend it: they can send it again, or to a corrected address.",
       ] },

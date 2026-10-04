@@ -51,7 +51,7 @@ export default async function LibraryWishlistPage() {
   /* Supabase did not answer in time: the layout's gate recovers the session in the browser, and the list is asked for there. */
   if (!user) return <WishlistContent isLibrary initialItems={null} />
   return (
-    <Suspense fallback={<LibraryRouteSkeleton path="/library/wishlist" />}>
+    <Suspense fallback={<LibraryRouteSkeleton path="/account/library/wishlist" />}>
       {/* A promise as the child, as app/account/page.tsx does: React waits for it inside this boundary. */}
       {savedBody(user.id)}
     </Suspense>

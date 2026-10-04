@@ -29,7 +29,7 @@ function page(title: string, body: string, form?: { action: string }): NextRespo
     form
       ? `<form method="post" action="${form.action}" style="margin-top:20px"><button type="submit" style="height:44px;padding:0 18px;border:0;border-radius:8px;background:#1a1a2e;color:#fff;font-size:15px;font-weight:600;cursor:pointer">Stop these emails</button></form>`
       : ""
-  }<p style="margin:20px 0 0;font-size:14px"><a href="/library/courses" style="color:#6d28d9">Your courses</a></p></div></main></body></html>`
+  }<p style="margin:20px 0 0;font-size:14px"><a href="/account/library/courses" style="color:#6d28d9">Your courses</a></p></div></main></body></html>`
   return new NextResponse(html, { headers: { ...PRIVATE, "Content-Type": "text/html; charset=utf-8" } })
 }
 
