@@ -50,6 +50,8 @@ export interface HubOverview {
   beat?: OnboardingBeat
   statusLabel?: string
   nextPayout?: { amountMinor: number; currency: string; arrivalDate: string | null } | null
+  /** Setup still has the ID check ahead: Stripe lists the document and none is on file. The stepper shows the step from the start. */
+  idAhead?: boolean
 }
 
 export interface CreatorRef {

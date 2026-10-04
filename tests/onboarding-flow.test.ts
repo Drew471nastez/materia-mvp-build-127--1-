@@ -100,9 +100,19 @@ check("  there is no way to finish setup around verification", !/>Later</.test(f
 check("  the bank is the country's own format, with the IBAN checked before it is sent", /IBAN_COUNTRIES/.test(rules) && /ibanValid\(iban, country\)/.test(own) && /ibanLooksValid\(/.test(flow))
 check("Your details is headed, and no lock-and-promise line under it", flow.includes('title="Your details"') && !/Sent securely to Stripe|Secured by Stripe\. Storelib never sees/.test(flow))
 /* The owner, October 2026: the ID check has to be on the form from the start, not sprung weeks later. */
-/* The owner, October 2026, the payments brief: progressive KYC. "A seller who does not currently need identity verification should never see Upload your passport just because Stripe may request it in the future." */
-check("the ID is never asked early: nothing is offered from eventually_due", !/eventually\.includes\("individual\.verification\.document"\)/.test(own) && !/needs\.offered = \[\.\.\.needs\.offered, "document"\]/.test(own))
-check("  and Stripe's identity check only starts when the document is due now", !/eventually_due/.test(readFileSync("lib/payments/stripe/identity.ts", "utf8").split("function documentDue")[1]?.split("\n}\n")[0] ?? "eventually_due"))
+/*
+  The owner, October 2026: "once users set up it's done, they upload their
+  KYC and that's all", and Verify ID is step three. Stripe lists the document
+  under eventually_due the day the account is made and moves it to
+  currently_due seconds after the details go in; asking only for "now" made
+  setup bounce: details, "checking", back to the form for the ID. So the
+  document is the one thing taken from eventually_due, asked last, once.
+*/
+check("the ID check is the last step of setup however Stripe lists the document", /eventually\.includes\("individual\.verification\.document"\)/.test(own) && /needs\.fields = \[\.\.\.needs\.fields, "document"\]/.test(own))
+check("  and nothing else is ever asked from eventually_due", !/eventually\.(some|filter|map)\(/.test(own) && /scope === "all" \? \(req\?\.eventually_due \?\? \[\]\) : \[\]/.test(rules))
+check("  and Stripe's identity check may start as soon as the document is listed", /eventually_due/.test(readFileSync("lib/payments/stripe/identity.ts", "utf8").split("function documentDue")[1]?.split("\n}\n")[0] ?? ""))
+check("the stepper shows Verify ID from the start when it is ahead, and the end screen says what it is checking", /useState\(!!data\.idAhead\)/.test(flow) && /what === "id" \? "Checking your ID" : "Checking your details"/.test(flow))
+check("  and a Stripe ask that arrives on the checking screen goes to the step, not to a 'not finished' wall", /if \(mode === "setup" && now === "more"\) \{\s*\n\s*setEnding\(null\)\s*\n\s*go\(1\)/.test(flow))
 check("a step is answered from the write Stripe just acknowledged, not another read", /return viewOf\(creator, saved\)/.test(own) && !/await syncStripeAccount\(creator\.id, "creator"\)\.catch\(\(\) => undefined\)\s*\n\s*return detailsForm/.test(own))
 check("the Account step's names are not asked again by Storelib", (flow.match(/autoComplete="given-name"/g) ?? []).length === 1)
 check("ID photos go to Stripe as the account's file, attached in the same call", /stripe\.files\.create\(/.test(own) && /stripeAccount: account\.id/.test(own) && /verification: \{ \[which\]: \{ \[side\]: uploaded\.id \} \}/.test(own))
@@ -124,7 +134,7 @@ check("the step comes from Stripe's status", /setupStepOf\(/.test(flow))
 /* The owner, October 2026: going on "takes to much", and "We're verifying your details" appearing out of nowhere. */
 check("  the next step reads the overview the write returned, with no second sync", !/onNext\([^)]*\)\s*\n?\s*await post<Overview>\("refresh"/.test(flow) && /const settle = async \(sent: Overview, left: DetailsForm \| null\)/.test(flow))
 /* The owner, October 2026: "it says well notify you in 2 days, that should not be the case once users set up and uploaded their KYC". */
-check("  the checking screen waits with them instead of promising days", /function Outcome\([\s\S]*?title: "Checking your ID"/.test(flow) && !/line:[^\n]*business days/.test(flow))
+check("  the checking screen waits with them instead of promising days", /function Outcome\([\s\S]*?"Checking your ID"/.test(flow) && !/line:[^\n]*business days/.test(flow))
 check("    and it asks again while it is open, becoming active by itself", /outcome !== "checking"\) return[\s\S]*?post<Overview>\("refresh"/.test(flow) && /onChecked/.test(flow))
 /* The owner, October 2026: the ID check "takes me outside to Stripe on iOS and Capacitor apps instead of opening there in the app". */
 check("the phone app never leaves for the ID check", /if \(isNativeApp\(\)\) return "no_way"/.test(readFileSync("lib/payments/identity-client.ts", "utf8")) && !/openInApp/.test(readFileSync("lib/payments/identity-client.ts", "utf8")))

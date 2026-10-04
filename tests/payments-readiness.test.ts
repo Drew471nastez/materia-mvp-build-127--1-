@@ -101,13 +101,14 @@ check("was selling, and now something is due: paused", home({ stripe_connected_a
 check("was selling, nothing due, payouts off: paused", home({ stripe_connected_at: "2026-01-01T00:00:00.000Z", payouts_enabled: false }) === "paused")
 check("was selling, nothing due, nothing off: Stripe is checking", home({ stripe_connected_at: "2026-01-01T00:00:00.000Z", payouts_enabled: true }) === "review")
 
-console.log("\nProgressive: nothing a seller is asked for comes from eventually_due")
+console.log("\nProgressive: nothing a seller is asked for comes from eventually_due, except the ID check, which is the last step of setup")
 const ownForm = readFileSync("lib/payments/stripe/own-form.ts", "utf8")
 const identity = readFileSync("lib/payments/stripe/identity.ts", "utf8")
 const rules = readFileSync("lib/payments/stripe/own-form-rules.ts", "utf8")
-check("the form never reads eventually_due into what it asks", !/eventually_due/.test(ownForm.replace(/\/\*[\s\S]*?\*\//g, "").split("export async function detailsForm")[0] ?? ""))
+/* The owner, October 2026: details sent, "checking", then straight back to the form for the ID was a bounce. The ID check is asked once, at the end, whatever list Stripe keeps it on. */
+check("the form reads one thing from eventually_due: the document, as the ID step", /eventually\.includes\("individual\.verification\.document"\)/.test(ownForm) && !/eventually\.(some|filter|map)\(/.test(ownForm))
 check("  needsOf's \"now\" is past_due and currently_due only", /scope === "all" \? \(req\?\.eventually_due \?\? \[\]\) : \[\]/.test(rules))
-check("Stripe's ID check only starts when the document is due now, or stands in for something due now", !/eventually_due/.test(identity.split("function documentDue")[1]?.split("\n}")[0] ?? "eventually_due"))
+check("Stripe's ID check may start as soon as Stripe lists the document, so the last step of setup is never refused", /eventually_due/.test(identity.split("function documentDue")[1]?.split("\n}")[0] ?? ""))
 
 console.log("\nThe buyer is never told about the seller's verification")
 check("the refusal says nothing about Stripe, KYC or verification", !/stripe|kyc|verif|ident|requirement/i.test(BUYER_UNAVAILABLE))
