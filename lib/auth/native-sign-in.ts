@@ -1,0 +1,148 @@
+/**
+ * ===========================================================================
+ *  CONTINUE WITH GOOGLE, THE WAY A PHONE DOES IT
+ * ===========================================================================
+ * Asked for plainly: in the iOS and Android apps, Continue with Google should
+ * open what the phone opens — the Safari sheet on iOS, Google's own bottom
+ * sheet on Android — and not whatever each page happened to do.
+ *
+ * Each page did happen to do its own thing. The login page opened an
+ * SFSafariViewController filling the whole screen (`windowName: "_self"`,
+ * no presentation style), which reads as leaving the app. The signup page
+ * did not open a browser at all: it set `window.location` to /auth/start,
+ * so Google's page loaded inside the app's own WebView, which is both a
+ * different experience and the thing Google refuses outright
+ * ("disallowed_useragent") when it notices.
+ *
+ * ONE PATH NOW, in two steps, best first:
+ *
+ *   1. THE PHONE'S OWN SHEET. If this build of the app carries a native
+ *      Google plugin (`nativeGoogleIdToken` below), it hands back an ID
+ *      token without any browser: on Android that is Credential Manager's
+ *      bottom sheet, the one that says "Continue as …" over the app; on iOS
+ *      it is Google's own sheet over the app. The token goes straight to
+ *      Supabase (`signInWithIdToken`), so there is no redirect, no deep link
+ *      and nothing to come back from.
+ *
+ *   2. THE SAFARI SHEET. Otherwise the OAuth address opens in the system
+ *      browser sheet — SFSafariViewController on iOS, presented as a card
+ *      that slides over the app and can be swiped away; a Chrome Custom Tab
+ *      on Android — and the deep link brings the session back
+ *      (lib/native-oauth.ts). This is what every current build does, and it
+ *      is now what BOTH pages do, with the same sheet.
+ *
+ * Step 1 needs a native release (a plugin is native code; the web layer
+ * alone cannot add one), so it is found at runtime rather than imported:
+ * `window.Capacitor.Plugins.<name>`. No plugin, no error — the app falls to
+ * step 2, which is why this ships safely ahead of the native build.
+ * docs/native-google-sign-in.md has what that release needs.
+ */
+import type { SupabaseClient } from "@supabase/supabase-js"
+
+import { completeNativeSession } from "@/lib/auth/native-session"
+
+/** How a sign-in attempt ended. `unavailable` means "this build has no native plugin; use the sheet". */
+export type NativeSignInResult = "done" | "cancelled" | "unavailable" | "failed"
+
+/**
+ * THE BROWSER AS A SHEET, NEVER A TAKEOVER. `popover` presents
+ * SFSafariViewController as a card over the app on iOS; Android's Chrome
+ * Custom Tab ignores it and is a sheet-like tab already. The white toolbar
+ * keeps Google's page from arriving under a black bar on a dark phone.
+ */
+export async function openAuthSheet(url: string): Promise<void> {
+  const { Browser } = await import("@capacitor/browser")
+  await Browser.open({ url, windowName: "_self", presentationStyle: "popover", toolbarColor: "#ffffff" })
+}
+
+type Plugins = Record<string, Record<string, (...args: never[]) => Promise<unknown>> | undefined>
+
+function plugins(): Plugins {
+  if (typeof window === "undefined") return {}
+  return ((window as unknown as { Capacitor?: { Plugins?: Plugins } }).Capacitor?.Plugins ?? {}) as Plugins
+}
+
+const WEB_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID || ""
+const IOS_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_IOS_CLIENT_ID || ""
+
+/** Did the person back out, rather than something going wrong? Every plugin says so differently. */
+export function isCancelled(message: string): boolean {
+  return /cancel|dismiss|12501|user_?cancell?ed|aborted|no credential|closed by user/i.test(message)
+}
+
+/** The ID token from whichever native Google plugin this build carries, or null when it carries none. */
+async function nativeGoogleIdToken(): Promise<string | null> {
+  const p = plugins()
+
+  /* @capgo/capacitor-social-login: Credential Manager on Android (the bottom sheet), Google's sheet on iOS. */
+  const social = p.SocialLogin as
+    | { initialize: (o: unknown) => Promise<unknown>; login: (o: unknown) => Promise<unknown> }
+    | undefined
+  if (social?.login) {
+    await social.initialize({ google: { webClientId: WEB_CLIENT_ID, iOSClientId: IOS_CLIENT_ID || undefined } })
+    const res = (await social.login({ provider: "google", options: { scopes: ["email", "profile"] } })) as {
+      result?: { idToken?: string | null; profile?: unknown }
+    }
+    return res?.result?.idToken ?? null
+  }
+
+  /* @codetrix-studio/capacitor-google-auth: the older one, still common. */
+  const gauth = p.GoogleAuth as
+    | { initialize?: (o: unknown) => void | Promise<unknown>; signIn: () => Promise<unknown> }
+    | undefined
+  if (gauth?.signIn) {
+    try {
+      await gauth.initialize?.({ clientId: WEB_CLIENT_ID, scopes: ["email", "profile"], grantOfflineAccess: false })
+    } catch {
+      /* Already initialised by the native side, which is the usual case. */
+    }
+    const user = (await gauth.signIn()) as { authentication?: { idToken?: string | null } }
+    return user?.authentication?.idToken ?? null
+  }
+
+  /* @capacitor-firebase/authentication, for a build that already carries Firebase. */
+  const fb = p.FirebaseAuthentication as { signInWithGoogle: (o?: unknown) => Promise<unknown> } | undefined
+  if (fb?.signInWithGoogle) {
+    const res = (await fb.signInWithGoogle({ scopes: ["email", "profile"] })) as { credential?: { idToken?: string | null } }
+    return res?.credential?.idToken ?? null
+  }
+
+  return null
+}
+
+/** Whether this build can show the phone's own Google sheet at all. */
+export function hasNativeGoogle(): boolean {
+  const p = plugins()
+  return !!(p.SocialLogin?.login || p.GoogleAuth?.signIn || p.FirebaseAuthentication?.signInWithGoogle)
+}
+
+/**
+ * Continue with Google through the phone's own sheet. Signs in and returns
+ * the address to go to; `unavailable` says this build has no such sheet and
+ * the caller should open the browser one instead.
+ *
+ * NO NONCE. Supabase takes one optionally, and it has to be the same value
+ * the token was minted against; the three plugins hand it over differently
+ * (one hashes it, one does not, one does not expose it), and a mismatch
+ * fails a sign in that would otherwise work. The token is verified against
+ * Google either way, and it is read once, here, over TLS.
+ */
+export async function signInWithNativeGoogle(
+  supabase: SupabaseClient,
+): Promise<{ result: NativeSignInResult; href?: string; message?: string }> {
+  if (!hasNativeGoogle()) return { result: "unavailable" }
+  try {
+    const token = await nativeGoogleIdToken()
+    if (!token) return { result: "unavailable" }
+
+    const { data, error } = await supabase.auth.signInWithIdToken({ provider: "google", token })
+    if (error || !data?.session) return { result: "failed", message: error?.message ?? "No session" }
+
+    return { result: "done", href: await completeNativeSession(supabase, data.session) }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err ?? "")
+    if (isCancelled(message)) return { result: "cancelled" }
+    /* A plugin that is there but cannot run (no client id, no Play services) is the sheet's job now. */
+    return { result: "unavailable", message }
+  }
+}
