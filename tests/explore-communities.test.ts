@@ -327,7 +327,7 @@ async function main() {
     check("owners and unpublished communities are not counted", /if \(input\.status !== "published" \|\| input\.isOwner\) return/.test(record))
     const feed = code("app/(marketing)/community/[slug]/page.tsx")
     const about = code("app/(marketing)/community/[slug]/about/page.tsx")
-    check("the member feed and the sales page record a view, one call", (feed.match(/scheduleCommunityView\(/g) ?? []).length === 1 && /scheduleCommunityView\([\s\S]{0,200}\)[\s\S]*if \(load\.viewer\.active\) return <CommunityFeedPage/.test(feed))
+    check("the member feed and the sales page record a view, one call", (feed.match(/scheduleCommunityView\(/g) ?? []).length === 1 && /scheduleCommunityView\([\s\S]{0,200}\)[\s\S]*if \(load\.viewer\.active\)\s*return \(?\s*(<PullToRefreshEvent scope="community-feed">\s*)?<CommunityFeedPage/.test(feed))
     check("the about page records a view, one call", (about.match(/scheduleCommunityView\(/g) ?? []).length === 1)
     check("the server modules say server-only", ["views", "record-view"].every((n) => /^import "server-only"/m.test(read(`lib/communities/server/${n}.ts`))))
   }

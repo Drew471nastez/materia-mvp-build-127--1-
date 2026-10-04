@@ -1,10 +1,10 @@
 "use client"
 
 /**
- * /native-start — dedicated native app cold-start entry gate.
+ * /native-start: dedicated native app cold-start entry gate.
  *
  * The server renders this page instantly (no DB queries, no auth checks).
- * All the user sees is a neutral #f2f2f2 screen — never the public homepage.
+ * All the user sees is a neutral #f2f2f2 screen, never the public homepage.
  *
  * Client-side, we resolve session + role and redirect:
  *   - signed in: the page they were on when they last used the app, when it
@@ -23,8 +23,10 @@
  */
 
 import { useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { sanitizeNativeHome } from "@/lib/native-bridge"
 import { isResumablePlace, readLastPlace, startTarget } from "@/lib/native-resume"
+import { landInPlace } from "@/lib/native-start-landing"
 import { useExploreMarketplaceEnabled } from "@/components/platform/explore-marketplace-context"
 
 /**
@@ -69,12 +71,23 @@ function documentOpenedHere(): boolean {
   return true
 }
 
+/**
+ * ONE START PER DOCUMENT. The start lands on its page in this same document
+ * now (lib/native-start-landing.ts), so the document's navigation entry says
+ * /native-start for as long as the app is open, and a later visit (the
+ * header's logo sending "/" here) would read as a start too. The first
+ * resolution uses it up.
+ */
+let startUsed = false
+
 export default function NativeStartPage() {
   const exploreOn = useExploreMarketplaceEnabled()
+  const router = useRouter()
   useEffect(() => {
     let didRedirect = false
     /* Where a signed in start goes for this home: the kept page, else the home's own default. */
-    const kept = documentOpenedHere() && !startedJustNow()
+    const kept = !startUsed && documentOpenedHere() && !startedJustNow()
+    startUsed = true
     const go = (home: string | null | undefined) => startTarget({ last: kept ? readLastPlace() : null, home, exploreOn })
 
     /**
@@ -99,7 +112,8 @@ export default function NativeStartPage() {
       const target = isHandoff || isResumablePlace(url) ? url : sanitizeNativeHome(url)
       if (target === "/native-start" || target.startsWith("/native-start")) return
       didRedirect = true
-      window.location.replace(target)
+      /* In this document, not a second one: see lib/native-start-landing.ts. */
+      landInPlace(target, router)
     }
 
     async function resolve() {
@@ -113,7 +127,7 @@ export default function NativeStartPage() {
          * =====================================================================
          * This was `await import("@capacitor/app")` on every single cold
          * start: a chunk fetched over the network before the synchronous
-         * localStorage read below could run — and that read is what sends an
+         * localStorage read below could run, and that read is what sends an
          * already-signed-in person straight to their home screen. So the
          * common launch, by far, paid for a module it did not need in order
          * to answer a question that was almost always "no deep link".
@@ -203,14 +217,14 @@ export default function NativeStartPage() {
         const { data: { session } } = await supabase.auth.getSession()
 
         if (session) {
-          // Use cached destination if available — avoids a DB round-trip.
+          // Use cached destination if available: avoids a DB round-trip.
           const cached = await getCachedNativeHome()
           if (cached) {
             safeRedirect(go(cached))
             return
           }
 
-          // No cache — query DB to determine creator vs buyer.
+          // No cache: query DB to determine creator vs buyer.
           /*
             SELLER ACCESS DECIDES THE HOME (lib/account/seller-access.ts): the
             dashboard for a seller, the library for everybody else. There is
@@ -229,7 +243,7 @@ export default function NativeStartPage() {
 
         // ── Layer 3: raw Preferences (expired token / no network) ───────────
         // The SDK returned null but the raw token bytes may still be in
-        // Preferences — the user IS logged in, just offline.
+        // Preferences: the user IS logged in, just offline.
         const { Preferences } = await import("@capacitor/preferences")
         const projectRef = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL!).hostname.split(".")[0]
         const authKey = `sb-${projectRef}-auth-token`
@@ -243,7 +257,7 @@ export default function NativeStartPage() {
           return
         }
       } catch (err) {
-        // Layer 2/3 failed — don't silently swallow. Try cached home or fall
+        // Layer 2/3 failed: don't silently swallow. Try cached home or fall
         // through to /welcome below.
         console.warn("[native-start] session resolution error:", err)
         try {
@@ -255,7 +269,7 @@ export default function NativeStartPage() {
         } catch { /* ignore */ }
       }
 
-      // ── No session — send to welcome screen ───────────────────────────────
+      // ── No session: send to welcome screen ───────────────────────────────
       safeRedirect("/welcome")
     }
 
@@ -265,7 +279,7 @@ export default function NativeStartPage() {
     // never stuck on the spinner indefinitely.
     const timeout = setTimeout(() => {
       if (didRedirect) return
-      console.warn("[native-start] resolve() timed out after 8 s — forcing redirect")
+      console.warn("[native-start] resolve() timed out after 8 s: forcing redirect")
       try {
         const cachedHome = localStorage.getItem("sb-native-home")
         if (cachedHome) {
@@ -279,7 +293,7 @@ export default function NativeStartPage() {
     resolve().finally(() => clearTimeout(timeout))
 
     return () => clearTimeout(timeout)
-  }, [exploreOn])
+  }, [exploreOn, router])
 
   return (
     <>
@@ -288,12 +302,18 @@ export default function NativeStartPage() {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
         }
+        /* A start that lands quickly never shows a spinner at all: it only
+           fades in once the start has taken longer than a launch should. */
+        @keyframes ns-show {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
         .ns-spinner {
           width: 28px; height: 28px;
           border: 2.5px solid rgba(0,0,0,.08);
           border-top-color: rgba(0,0,0,.35);
           border-radius: 50%;
-          animation: ns-spin 0.75s linear infinite;
+          animation: ns-spin 0.75s linear infinite, ns-show 160ms ease-out 700ms both;
           will-change: transform;
           transform-origin: 50% 50%;
           backface-visibility: hidden;

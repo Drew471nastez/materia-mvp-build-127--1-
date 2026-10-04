@@ -108,14 +108,7 @@ export function SmartLink({
    * Next's to route and stays exactly as it was.
    */
   const internalPath = toSameOriginPath(href)
-  const needsHardNav =
-    useClientNav === false ||
-    (!!internalPath &&
-      (internalPath.startsWith("/app") ||
-        internalPath.startsWith("/creator-page") ||
-        internalPath.startsWith("/store-builder") ||
-        internalPath.startsWith("/website-builder") ||
-        internalPath.startsWith("/account/library")))
+  const needsHardNav = useClientNav === false || (!!internalPath && needsDocumentLoad(internalPath))
 
   if (internalPath && !needsHardNav) {
     return (

@@ -154,9 +154,20 @@ export function nativeLinkFor(href: string | null | undefined, hosts?: NativeLin
 
 /**
  * Pages of a different layout and auth context. A client navigation into them
- * carries state a full load is relied upon to clear (components/smart-link.tsx
- * and the platform header say the same).
+ * carries state a full load is relied upon to clear. The one list: the
+ * platform header and components/smart-link.tsx ask it too.
+ *
+ * THE LIBRARY IS NOT ONE OF THEM ANY MORE. It moved under /account, in the
+ * same layouts as the profile, and the phone's tab bar has always opened it
+ * on the client. Only the navigator and the header still loaded it as a new
+ * document, which in the app was the slow white open of a product from the
+ * navigator, and then the page reloading itself when the new document's
+ * server render could not see the session yet (components/native-auth-gate,
+ * which writes the cookies back and reloads). A client navigation carries
+ * the session the page already has.
  */
+export const DOCUMENT_LOAD_PREFIXES = ["/app", "/creator-page", "/store-builder", "/website-builder"] as const
+
 export function needsDocumentLoad(path: string): boolean {
-  return ["/app", "/creator-page", "/store-builder", "/website-builder", "/account/library"].some((p) => under(path.split(/[?#]/)[0], p))
+  return DOCUMENT_LOAD_PREFIXES.some((p) => under(path.split(/[?#]/)[0], p))
 }

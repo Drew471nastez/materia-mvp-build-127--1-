@@ -148,6 +148,21 @@ interface Options {
   minSpin?: number
   /** Called on every phase change, outside React's render. */
   onPhaseChange?: (phase: PullPhase) => void
+  /**
+   * Where the touches are listened for, when that is not the scroller
+   * itself: a page that scrolls the whole document listens on its own
+   * wrapper (components/ui/pull-to-refresh.tsx), so a pull on the header
+   * above it is not a pull of the page.
+   */
+  listenOn?: React.RefObject<HTMLElement | null>
+  /**
+   * Judge every gesture by its first few pixels, not only those that land on
+   * a marked sideways row: a page made of other people's components (a
+   * community's space chips, a carousel) has sideways rows this hook does not
+   * know the names of, and a swipe along one with a little downward drift
+   * must stay theirs.
+   */
+  axisFirst?: boolean
 }
 
 const reducedMotion = () => {
@@ -194,6 +209,8 @@ export function usePullToRefresh(
     refreshHold = PULL_TO_REFRESH.refreshHold,
     minSpin = PULL_TO_REFRESH.minSpin,
     onPhaseChange,
+    listenOn,
+    axisFirst = false,
   } = options
 
   /** The element that slides down. The caller attaches this. */
@@ -241,9 +258,13 @@ export function usePullToRefresh(
    *  while the page settles. */
   const heldTurnRef = useRef<number | null>(null)
 
+  /* At rest the content is NOT translated: a moved ancestor pins every
+     position:fixed element inside it to itself instead of the screen,
+     and a feed or a page wrapped by components/ui/pull-to-refresh.tsx has
+     fixed things inside it (a sheet, a "new posts" pill). */
   const paintContent = useCallback((y: number) => {
     const el = contentRef.current
-    if (el) el.style.transform = `translate3d(0, ${y}px, 0)`
+    if (el) el.style.transform = y === 0 ? "" : `translate3d(0, ${y}px, 0)`
   }, [])
 
   const paintRing = useCallback(
@@ -441,6 +462,15 @@ export function usePullToRefresh(
     aliveRef.current = true
     const el = containerRef.current
     if (!el) return
+    /*
+      THE DOCUMENT AS THE SCROLLER. A page that scrolls the window hands
+      document.scrollingElement as the container: its scrollTop is the
+      window's, but touches are taken on `listenOn` (the page's own part of
+      the screen) and the top marker goes at the top of that part, watched
+      against the viewport rather than inside <html>.
+    */
+    const isDocument = el === document.scrollingElement || el === document.documentElement
+    const target: HTMLElement = listenOn?.current ?? el
 
     let startY = 0
     /* Where the finger landed, unadjusted, for telling a pull from a sideways swipe. */
@@ -483,6 +513,8 @@ export function usePullToRefresh(
          be, for position:fixed), so their touches bubble here. Not ours. */
       if ((e.target as Element | null)?.closest("[data-dashboard-sheet]")) return
       if (el.scrollTop !== 0 || phaseRef.current === "refreshing") return
+      /* A sheet or a dialog holds the page (react-remove-scroll's mark): the touch is the sheet's. */
+      if (isDocument && document.documentElement.hasAttribute("data-scroll-locked")) return
 
       /* CATCHING IT MID-SETTLE. A finger put back down while the page is
          springing home takes over from where the page IS, not from zero: the
@@ -495,6 +527,7 @@ export function usePullToRefresh(
       downY = e.touches[0].clientY
       /* A page already held down mid settle is a pull being caught, whatever it lands on. */
       lateral = held === 0 && !!(e.target as Element | null)?.closest?.(LATERAL)
+      if (held === 0 && axisFirst) lateral = true
       pendingDy = held > 0 ? rubberBandInverse(held, maxPull, tension) : 0
       startY = e.touches[0].clientY - pendingDy
       tracking = true
@@ -602,24 +635,24 @@ export function usePullToRefresh(
     let blocking = false
     const setBlocking = (atTop: boolean) => {
       if (atTop && !blocking) {
-        el.addEventListener("touchmove", onTouchMove, { passive: false })
+        target.addEventListener("touchmove", onTouchMove, { passive: false })
         blocking = true
       } else if (!atTop && blocking && !tracking) {
-        el.removeEventListener("touchmove", onTouchMove)
+        target.removeEventListener("touchmove", onTouchMove)
         blocking = false
       }
     }
-    el.addEventListener("touchstart", onTouchStart, { passive: true })
-    el.addEventListener("touchend", onTouchEnd, { passive: true })
-    el.addEventListener("touchcancel", onTouchEnd, { passive: true })
+    target.addEventListener("touchstart", onTouchStart, { passive: true })
+    target.addEventListener("touchend", onTouchEnd, { passive: true })
+    target.addEventListener("touchcancel", onTouchEnd, { passive: true })
     /* No observer (a very old engine): the listener stays on, as it always was. */
     const top = typeof IntersectionObserver === "function" ? document.createElement("div") : null
     let io: IntersectionObserver | null = null
     if (top) {
       top.setAttribute("aria-hidden", "true")
       top.style.cssText = "height:0;margin:0;padding:0;border:0;pointer-events:none;overflow:hidden"
-      el.prepend(top)
-      io = new IntersectionObserver(([entry]) => setBlocking(entry.isIntersecting), { root: el })
+      ;(isDocument ? target : el).prepend(top)
+      io = new IntersectionObserver(([entry]) => setBlocking(entry.isIntersecting), { root: isDocument ? null : el })
       io.observe(top)
     } else {
       setBlocking(true)
@@ -629,16 +662,18 @@ export function usePullToRefresh(
       aliveRef.current = false
       io?.disconnect()
       top?.remove()
-      el.removeEventListener("touchstart", onTouchStart)
-      el.removeEventListener("touchmove", onTouchMove)
-      el.removeEventListener("touchend", onTouchEnd)
-      el.removeEventListener("touchcancel", onTouchEnd)
+      target.removeEventListener("touchstart", onTouchStart)
+      target.removeEventListener("touchmove", onTouchMove)
+      target.removeEventListener("touchend", onTouchEnd)
+      target.removeEventListener("touchcancel", onTouchEnd)
       if (queued) cancelAnimationFrame(queued)
       cancelFrame()
       if (spinTimerRef.current) window.clearTimeout(spinTimerRef.current)
     }
   }, [
     containerRef,
+    listenOn,
+    axisFirst,
     threshold,
     maxPull,
     tension,

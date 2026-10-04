@@ -1511,9 +1511,21 @@ export async function proxy(request: NextRequest) {
    * readCurrentUser keeps the three outcomes apart and retries a blip once.
    * Only a definite "nobody is signed in" redirects now.
    */
-  const current = await readCurrentUser(supabase)
+  /*
+    THE APP'S START GATE ASKS NOBODY. /native-start draws a plain screen and
+    decides where to go from what the phone holds (app/native-start/page.tsx);
+    nothing on the server reads who is signed in for it, and it is never
+    /sell or /app. Asking Supabase here was one auth round trip (three
+    seconds and a retry on a bad day) in front of the very first byte of
+    every launch of the app. The page it lands on is asked for normally, and
+    that request refreshes the session cookies as every other one does. The
+    headers below (the app's Stripe frame policy among them) still go on
+    this response: the start now lands in this same document.
+  */
+  const current: Awaited<ReturnType<typeof readCurrentUser>> =
+    request.nextUrl.pathname === "/native-start" ? { user: null, state: "indeterminate", reason: "start gate" } : await readCurrentUser(supabase)
 
-  if (current.state === "indeterminate") {
+  if (current.state === "indeterminate" && request.nextUrl.pathname !== "/native-start") {
     console.warn(`[proxy] auth undetermined on ${request.nextUrl.pathname}: ${current.reason}`)
   }
 

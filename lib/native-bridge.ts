@@ -377,10 +377,35 @@ export async function nativeLogout(
  *
  * @param style - "light" | "medium" | "heavy" (default: "light")
  */
+/** An iPhone, iPod or iPad (which says Macintosh, with touch points) in a browser. */
+function appleTouchBrowser(): boolean {
+  if (typeof navigator === "undefined") return false
+  const ua = navigator.userAgent || ""
+  return /iPad|iPhone|iPod/.test(ua) || (/Macintosh/.test(ua) && (navigator.maxTouchPoints || 0) > 1)
+}
+
 export async function triggerHaptic(style: "soft" | "light" | "medium" | "heavy" = "light"): Promise<boolean> {
   if (typeof window === "undefined") return false
   const cap = (window as any).Capacitor
   if (!cap?.isNativePlatform?.()) return false
+  /*
+    THE PLUGIN IS ALREADY ON THE BRIDGE. Capacitor injects every installed
+    plugin as window.Capacitor.Plugins before the page loads, so the tick is
+    called there and lands on the frame it was asked for (a pull to refresh
+    crossing its line). The import below is only for a shell that does not
+    expose it there: it costs a chunk the first time, which is a tick that
+    lands late.
+  */
+  const onBridge = cap.Plugins?.Haptics
+  if (onBridge?.impact && onBridge?.selectionChanged) {
+    try {
+      if (style === "soft") await onBridge.selectionChanged()
+      else await onBridge.impact({ style: style === "light" ? "LIGHT" : style === "medium" ? "MEDIUM" : "HEAVY" })
+      return true
+    } catch {
+      return false
+    }
+  }
   try {
     const { Haptics, ImpactStyle } = await import("@capacitor/haptics")
     /**
@@ -443,6 +468,10 @@ export async function triggerHaptic(style: "soft" | "light" | "medium" | "heavy"
  */
 export function hapticTap(strength: "soft" | "light" | "medium" = "light"): void {
   const web = () => {
+    /* NEVER ON AN iPHONE'S OR iPAD'S BROWSER: Safari has no vibration for a
+       page today, and one that grew the API should not start buzzing for a
+       tick that was written for the Taptic Engine. */
+    if (appleTouchBrowser()) return
     if (typeof navigator !== "undefined" && "vibrate" in navigator) {
       /* Android has no selection generator, so soft is simply a shorter buzz
          than light — which is all `vibrate` can express. */

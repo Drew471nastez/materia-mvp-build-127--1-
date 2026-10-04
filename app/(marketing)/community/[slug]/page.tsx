@@ -9,6 +9,7 @@ import { aboutExtras } from "@/lib/communities/server/about"
 import { admin } from "@/lib/communities/server/db"
 import { jsonLdScript } from "@/lib/seo/json-ld"
 import { CommunityFeedPage } from "@/components/community/member/feed-page"
+import { PullToRefreshEvent } from "@/components/ui/pull-to-refresh"
 import { CommunitySalesPage } from "@/components/community/public/sales-page"
 import { communityJsonLd, communityMetadata } from "@/components/community/public/seo"
 
@@ -51,7 +52,13 @@ export default async function CommunityPage({ params }: { params: Promise<{ slug
   await scheduleCommunityView({ communityId: load.community.id, status: load.community.status, userId: user?.id ?? null, isOwner: load.viewer.isOwner })
 
   /* A member's home is the member area's (components/community/member/feed-page.tsx): it draws the shell and the feed. */
-  if (load.viewer.active) return <CommunityFeedPage slug={load.community.slug} />
+  /* Pulled down on a phone, the feed's first page is read again in place: the feed listens for "community-feed" (components/ui/pull-to-refresh.tsx). */
+  if (load.viewer.active)
+    return (
+      <PullToRefreshEvent scope="community-feed">
+        <CommunityFeedPage slug={load.community.slug} />
+      </PullToRefreshEvent>
+    )
 
   /* The About page's extra facts: who runs it, how alive it is, the classroom (round 10, lib/communities/server/about.ts). */
   const extras = await aboutExtras(admin(), load.community)

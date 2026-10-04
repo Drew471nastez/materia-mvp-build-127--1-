@@ -104,7 +104,7 @@ function main() {
   /* And the wiring: the two publishers and the one consumer. */
   check(
     "the wrapper publishes the reveal",
-    /setProductTopBarRevealed\(visible\)/.test(wrapper),
+    /setProductTopBarRevealed\((isNativeApp\(\) \? false : )?visible\)/.test(wrapper),
   )
   check(
     "the creator bar publishes whether it is on the page",

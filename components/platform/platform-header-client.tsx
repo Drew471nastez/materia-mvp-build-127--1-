@@ -38,6 +38,7 @@ import { SEARCH_FIELD_FOCUS, SEARCH_FIELD_SURFACE } from "@/lib/explore/search-f
 import { SearchCategoriesButton } from "@/components/explore/search-categories-button"
 import { useBuyerTabsHere } from "@/lib/nav/use-buyer-tabs-where"
 import { PlaceNavigator, forgetPlaces } from "@/components/nav/place-navigator"
+import { needsDocumentLoad } from "@/lib/native-links"
 import { addRecent, cleanTerm, clearRecent, DEBOUNCE_MS as QUICK_DEBOUNCE_MS, quickSearch, readRecent, removeRecent, topHits, viewAllHref, type QuickHit } from "@/lib/nav/quick-search"
 import { HeaderSearchResults, SLIM_SCROLL, hasPanel, optionCount, optionId } from "@/components/platform/header-search-results"
 import { useCommunitiesEnabled } from "@/lib/platform/use-flags"
@@ -1414,7 +1415,26 @@ export function PlatformHeaderClient({
     in the account (Library, then Wishlist), and the other pages that share
     this bar (a product, a creator's page) keep their heart.
   */
-  const showWishlistIcon = !isExploreSurface
+  /*
+    AND NO HEART OVER THE LIBRARY. "On the web, the library pages
+    (/account/library/**) show no wishlist icon in the header either": the
+    wishlist is one of the library's own pills there, so the heart was a
+    second door to the page under it.
+  */
+  const isLibraryPages = pathname === "/account/library" || pathname.startsWith("/account/library/")
+  const showWishlistIcon = !isExploreSurface && !isLibraryPages
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     IN THE APP THE HEADER HAS NO LIBRARY AND NO HEART
+    ═══════════════════════════════════════════════════════════════════════
+    "The Storelib header in the app: no library icon and no wishlist icon"
+    (image 61, a product page in the iPhone app). The app's tab bar carries
+    the library, and the wishlist is a pill inside it. Hidden by the
+    `capacitor` class the head script puts on <html> before the first paint
+    (app/layout.tsx), not by asking the bridge in a render, so the server's
+    HTML, the first frame and hydration all agree and nothing blinks out.
+  */
+  const appHidden = "[html.capacitor_&]:hidden"
   /*
     ═══════════════════════════════════════════════════════════════════════
      WHERE THE PHONE'S TAB BAR IS, THE HEADER DOES NOT REPEAT IT
@@ -1638,10 +1658,11 @@ export function PlatformHeaderClient({
   )
 
   // Cross-layout routes require a full page reload even in Capacitor.
-  // Same-layout routes (/explore, /u/, /p/, /l/, /library, /wishlist) use
+  // Same-layout routes (/explore, /u/, /p/, /l/, the library, /wishlist) use
   // router.push to keep client-side navigation and preserve the auth session.
-  const isCrossLayoutPath = (path: string) =>
-    path.startsWith("/app") || path.startsWith("/creator-page") || path.startsWith("/store-builder") || path.startsWith("/account/library")
+  // One list with the app's link guard (lib/native-links.ts needsDocumentLoad),
+  // which says why the library is no longer on it.
+  const isCrossLayoutPath = needsDocumentLoad
 
   const navigateReliably = useCallback(
     (targetPath: string) => {
@@ -2193,7 +2214,8 @@ export function PlatformHeaderClient({
               {user && !tabsHere && (
                 <Link
                   href={getCanonicalOrRelativePath("/account/library")} onClick={(e) => { onCanonicalNav(e, "/account/library"); setMobileProfileOpen(false) }}
-                  className={cn("flex h-[42px] w-[42px] items-center justify-center rounded-full transition cursor-pointer", chrome.iconBtn)}
+                  data-header-library=""
+                  className={cn("flex h-[42px] w-[42px] items-center justify-center rounded-full transition cursor-pointer", chrome.iconBtn, appHidden)}
                   aria-label="Library"
                 >
                   <Library className="h-5 w-5" />
@@ -2204,7 +2226,8 @@ export function PlatformHeaderClient({
               {showWishlistIcon && (
               <Link
                 href={getCanonicalOrRelativePath(wishlistHref)} onClick={(e) => onCanonicalNav(e, wishlistHref)}
-                className={cn("relative flex h-[42px] w-[42px] items-center justify-center rounded-full transition cursor-pointer", chrome.iconBtn)}
+                data-header-wishlist=""
+                className={cn("relative flex h-[42px] w-[42px] items-center justify-center rounded-full transition cursor-pointer", chrome.iconBtn, appHidden)}
                 aria-label="Wishlist"
               >
                 {/* The badge is anchored to the ICON, not to the link.
@@ -2284,7 +2307,8 @@ export function PlatformHeaderClient({
                   <TooltipTrigger asChild>
                     <Link
                       href={getCanonicalOrRelativePath(wishlistHref)} onClick={(e) => onCanonicalNav(e, wishlistHref)}
-                      className={cn("relative flex h-[42px] w-[42px] items-center justify-center rounded-full transition cursor-pointer", chrome.iconBtn)}
+                      data-header-wishlist=""
+                      className={cn("relative flex h-[42px] w-[42px] items-center justify-center rounded-full transition cursor-pointer", chrome.iconBtn, appHidden)}
                       aria-label={t("wishlist")}
                     >
                       <span className="relative inline-flex">
@@ -2306,7 +2330,8 @@ export function PlatformHeaderClient({
                   <TooltipTrigger asChild>
                     <Link
                       href={getCanonicalOrRelativePath("/account/library")} onClick={(e) => onCanonicalNav(e, "/account/library")}
-                      className={cn("hidden sm:flex h-[42px] w-[42px] items-center justify-center rounded-full transition cursor-pointer", chrome.iconBtn)}
+                      data-header-library=""
+                      className={cn("hidden sm:flex h-[42px] w-[42px] items-center justify-center rounded-full transition cursor-pointer", chrome.iconBtn, appHidden)}
                       aria-label={t("library")}
                     >
                       <Library className="h-[22px] w-[22px]" />

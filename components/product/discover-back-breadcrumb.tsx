@@ -1,10 +1,12 @@
 "use client"
 
-import { useEffect, useRef, useState, type MouseEvent } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { ChevronLeft } from "lucide-react"
-import { fallbackHref, isPlainClick, planBack } from "@/lib/navigation/back-plan"
+import { fallbackHref, planBack } from "@/lib/navigation/back-plan"
 import { goBackOr, readBackEvidence } from "@/lib/navigation/go-back"
+import { useFirstTap } from "@/lib/navigation/first-tap"
+import { usePressFeedback } from "@/lib/navigation/press-feedback"
 
 /**
  * Drop this into any page that links to product pages so the back breadcrumb
@@ -22,12 +24,12 @@ export function BackLabelSetter({ label }: { label: string }) {
  * Back breadcrumb rendered above product content.
  *
  * Visible in two cases:
- *  1. Capacitor native app (iOS/Android) — always shown on ALL product pages.
+ *  1. Capacitor native app (iOS/Android): always shown on ALL product pages.
  *     Primary: CSS rule `html.capacitor [data-discover-breadcrumb]` activates
  *     synchronously before first paint (html.capacitor set via inline <script>).
  *     Backup: useEffect directly sets style.display="flex" in case the CSS
  *     rule fails to apply (e.g. specificity conflict or late class application).
- *  2. Web/desktop — only shown when showOnWeb=true (URL has ?layout=discover&recommended=1).
+ *  2. Web/desktop: only shown when showOnWeb=true (URL has ?layout=discover&recommended=1).
  *
  * The back label is read from sessionStorage key "backPageName" set by explore/
  * category/store pages before navigating to a product. Falls back to "Back".
@@ -69,7 +71,7 @@ export function DiscoverBackBreadcrumb({
 
     if (!ref.current) return
     // JS backup: force visibility with !important so this overrides any CSS rule.
-    // Skip forcing visibility on desktop (≥768px) — the browser back button covers it.
+    // Skip forcing visibility on desktop (≥768px), the browser back button covers it.
     const isNative = document.documentElement.classList.contains("capacitor")
     const isDesktop = window.innerWidth >= 768
     if ((isNative || showOnWeb) && !isDesktop) {
@@ -77,22 +79,60 @@ export function DiscoverBackBreadcrumb({
     }
   }, [showOnWeb, href, creatorName])
 
-  const onClick = (e: MouseEvent<HTMLAnchorElement>) => {
-    if (!isPlainClick(e)) return
-    e.preventDefault()
+  /*
+    ===========================================================================
+     THE ONE BACK ON A PRODUCT IN THE APP, AND IT IS EASY TO HIT
+    ===========================================================================
+    In the app the product's own dark bar is gone (components/store-builder/
+    discover-sticky-wrapper.tsx), so this is the way back, and it was 14px
+    of grey text with a 16px chevron: a target a thumb misses. The link is
+    now a 44px tall pill with padding all round, pulled back by its own
+    padding so the words sit exactly where they did, and a few more pixels
+    of invisible reach around that. It darkens under the finger on the
+    frame it lands (lib/navigation/press-feedback.ts), and it acts on the
+    lift of the first tap (lib/navigation/first-tap.ts), so a tap that iOS
+    turns into no click, or a second tap of a double tap, can never need a
+    second go or go back twice. The page behind is the router's own kept
+    copy, and Explore puts its scroll back before it paints.
+  */
+  const press = usePressFeedback<HTMLAnchorElement>()
+  const tap = useFirstTap<HTMLAnchorElement>(() => {
     goBackOr(href, (to) => router.push(to))
-  }
+  })
 
   return (
     <a
       ref={ref}
       href={href}
-      onClick={onClick}
+      {...tap}
+      onPointerDown={(e) => {
+        press.onPointerDown(e)
+        tap.onPointerDown(e)
+      }}
+      onPointerUp={(e) => {
+        press.onPointerUp()
+        tap.onPointerUp(e)
+      }}
+      onPointerCancel={() => {
+        press.onPointerUp()
+        tap.onPointerCancel()
+      }}
+      onPointerLeave={press.onPointerUp}
       data-discover-breadcrumb={showOnWeb ? "web" : "native"}
-      className="w-fit items-center gap-1.5 mb-5 cursor-pointer text-[#9ca3af] hover:text-[#6b7280] transition-colors"
+      data-back-control=""
+      className={[
+        "relative -ml-3 mb-3 -mt-1 min-h-[44px] w-fit select-none items-center gap-1.5 rounded-full py-2.5 pl-3 pr-4",
+        "cursor-pointer touch-manipulation text-[#6b7280] [-webkit-tap-highlight-color:transparent]",
+        /* A little more reach than it shows, for a thumb that lands near it. */
+        "before:absolute before:-inset-x-1 before:-inset-y-1.5 before:content-['']",
+        "transition-[background-color,color,scale] duration-150 ease-out",
+        "data-[pressed]:scale-[0.97] data-[pressed]:bg-[#1a1a2e]/[0.06] data-[pressed]:text-[#1a1a2e] data-[pressed]:duration-0",
+        "[@media(hover:hover)_and_(pointer:fine)]:hover:text-[#1a1a2e]",
+        "motion-reduce:data-[pressed]:scale-100",
+      ].join(" ")}
     >
-      <ChevronLeft className="w-4 h-4" strokeWidth={2} />
-      <span className="text-[14px]">{backLabel}</span>
+      <ChevronLeft className="h-[18px] w-[18px]" strokeWidth={2.25} aria-hidden />
+      <span className="text-[15px] font-medium">{backLabel}</span>
     </a>
   )
 }

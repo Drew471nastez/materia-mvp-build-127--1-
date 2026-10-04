@@ -1,3 +1,4 @@
+import { PullToRefreshEvent } from "@/components/ui/pull-to-refresh"
 import { notFound } from "next/navigation"
 import { viewerView } from "@/lib/communities/server/context"
 import { admin } from "@/lib/communities/server/db"
@@ -43,7 +44,9 @@ export default async function CommunitySpacePage({ params }: { params: Promise<{
     meOf(community.id, viewer),
     fileProductFor(community, viewer),
   ])
+  /* A space's feed refreshes on a pull as the community's does (components/ui/pull-to-refresh.tsx, scope "community-feed"). */
   return (
+    <PullToRefreshEvent scope="community-feed">
     <CommunityFeed
       communityId={community.id}
       slug={community.slug}
@@ -55,5 +58,6 @@ export default async function CommunitySpacePage({ params }: { params: Promise<{
       readOnly={readOnly}
       compose={viewer.userId ? { userId: viewer.userId, me, fileProductId, eventHref: eventHrefFor(community, viewer) } : null}
     />
+    </PullToRefreshEvent>
   )
 }

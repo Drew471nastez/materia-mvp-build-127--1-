@@ -455,7 +455,7 @@ console.log("\nPressing a product, and coming back\n")
   )
   check(
     "the app surfaces are still hard navigations",
-    /startsWith\("\/app"\)/.test(smartLink) && /startsWith\("\/account\/library"\)/.test(smartLink),
+    /needsDocumentLoad\(internalPath\)/.test(smartLink) && /DOCUMENT_LOAD_PREFIXES = \["\/app"/.test(code("lib/native-links.ts")),
     "a different layout and a different auth context; a soft navigation carries state a reload is relied on to clear",
   )
 }

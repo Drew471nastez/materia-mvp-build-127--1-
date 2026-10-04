@@ -8,6 +8,7 @@ import { downloadEntitledFile } from "@/components/download-button"
 import { downloadFile, downloadKey } from "@/lib/downloads/download-file"
 import { percentOf, useDownloadJob } from "@/lib/downloads/download-store"
 import { ReceiptReview } from "@/components/reviews/receipt-review"
+import { BackControl } from "@/components/navigation/back-control"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { getStoreUrl } from "@/lib/url-helpers"
 import { isNativeApp } from "@/lib/platform-utils"
@@ -480,10 +481,17 @@ export function ReceiptView({
   const policies = receipt.items.filter((i) => i.refundPolicy)
 
   return (
-    <main data-receipt="" className="min-h-[100dvh] bg-[#f5f6f8] print:bg-white">
-      <div className="mx-auto w-full max-w-[640px] px-4 pb-[max(2.5rem,env(safe-area-inset-bottom))] pt-[max(1.25rem,env(safe-area-inset-top))] sm:px-6 sm:pt-10">
-        {/* Who it is from, and a way to keep a copy. */}
-        <div className="flex items-center justify-between gap-3">
+    <main data-receipt="" className="bg-[#f5f6f8] print:bg-white">
+      {/* The Storelib header above this page carries the inset under the clock now (app/receipt/layout.tsx). */}
+      <div className="mx-auto w-full max-w-[640px] px-4 pb-10 pt-4 sm:px-6 sm:pt-10">
+        {/*
+          The way back, who it is from, and a way to keep a copy. Back goes
+          where the person came from (the library, the product, an order),
+          never back into the checkout that made it, and to the library when
+          nothing of ours is behind (a receipt opened from an email).
+        */}
+        <div className="flex items-center gap-2.5">
+          <BackControl fallback="/account/library" label="Back" skipBack={(path) => path.startsWith("/checkout")} data-receipt-back="" />
           {storeHref ? (
             /* The seller's page, in a tab of its own: the buyer came here for
                the receipt and the files, and a look at the shop must not take
@@ -507,7 +515,7 @@ export function ReceiptView({
               <span className="truncate text-[14px] font-semibold text-[#1a1a2e]">{receipt.seller.name}</span>
             </span>
           )}
-          <button type="button" onClick={() => window.print()} className={cn(SECONDARY, SMALL, "print:hidden")}>
+          <button type="button" onClick={() => window.print()} className={cn(SECONDARY, SMALL, "ml-auto shrink-0 print:hidden")}>
             <Printer className="h-3.5 w-3.5 text-[#4b5563]" aria-hidden />
             Print
           </button>

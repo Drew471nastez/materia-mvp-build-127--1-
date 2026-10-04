@@ -68,7 +68,7 @@
 
 import Link from "next/link"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
-import { Suspense, useEffect, useState, useSyncExternalStore } from "react"
+import { Suspense, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react"
 
 import { LibraryIcon as LibraryLinear } from "@solar-icons/react/linear/library"
 import { LibraryIcon as LibraryBold } from "@solar-icons/react/bold/library"
@@ -96,6 +96,8 @@ import { useExploreMarketplaceEnabled } from "@/components/platform/explore-mark
 import { SIGNED_OUT_PROFILE_HREF, buyerTabFor, buyerTabsAt, buyerTabsBelongOn, communityOf } from "@/lib/nav/buyer-tabs"
 import { openCommunitySearch, refocusCommunitySearch } from "@/lib/nav/community-search-bridge"
 import { useBuyerTabsWhere } from "@/lib/nav/use-buyer-tabs-where"
+import { prefetchHref, prefetchOnIdle } from "@/lib/nav/prefetch-policy"
+import { noteTabScroll, prepareTabArrival, restoreTabScroll } from "@/lib/navigation/tab-scroll"
 
 /* ── The look ────────────────────────────────────────────────────────────── */
 
@@ -260,6 +262,8 @@ function TabBar({
   */
   const [toward, setToward] = useState<number | null>(null)
   useEffect(() => setToward(null), [pathname])
+  /* The page a press is taking the bar to, and where on it to land (lib/navigation/tab-scroll.ts). */
+  const arrival = useRef<{ href: string; y: number | null } | null>(null)
 
   const hrefOf = (index: number): string => {
     const tab = tabs[index]
@@ -297,6 +301,13 @@ function TabBar({
       }
       setToward(index)
       /*
+        EACH TAB KEEPS ITS PLACE (lib/navigation/tab-scroll.ts): the page
+        left is noted, and the page arriving goes back to where it was left
+        instead of the top. The push does not scroll; the arrival does.
+      */
+      noteTabScroll(pathname)
+      arrival.current = { href: href.split(/[?#]/)[0], y: prepareTabArrival(href) }
+      /*
         THE CLICK NEVER ARRIVES ON A PHONE. The touch's end below is
         cancelled so it cannot fall through onto the page, and cancelling
         it is what keeps the click from being sent at all. The loading line
@@ -306,11 +317,11 @@ function TabBar({
         what say the tap landed.
       */
       startRouteLoading({ cover: true })
-      router.push(href)
+      router.push(href, { scroll: false })
     },
     onPress: (index) => {
-      /* Search is a screen already in the page: nothing to fetch. */
-      if (index !== current && tabs[index]?.key !== "search") router.prefetch(hrefOf(index))
+      /* Search is a screen already in the page: nothing to fetch. The page under the finger is read whole, whatever the network (lib/nav/prefetch-policy.ts). */
+      if (index !== current && tabs[index]?.key !== "search") prefetchHref(router, hrefOf(index), "press")
     },
     /* No squeeze on a tap: see NO BUMP ON A TAP above. */
     give: false,
@@ -322,21 +333,33 @@ function TabBar({
     the bar is drawn, and never for the page you are on or for Search, which
     is a screen already in the page.
   */
+  /*
+    HOW MANY, AND HOW WHOLE, IS THE DEVICE'S CALL (lib/nav/prefetch-policy.ts):
+    on a fast phone every tab's whole page, so a tab already seen and one not
+    yet seen both land without a skeleton (the router keeps them for
+    staleTimes, next.config.mjs); on a slow network only the frame of the
+    next one; with Save-Data nothing until a finger lands.
+  */
   const prefetchKey = tabs.map((_, i) => hrefOf(i)).join(" ")
   useEffect(() => {
     if (!window.matchMedia?.("(max-width: 767px)").matches) return
     const hrefs = tabs.flatMap((tab, i) => (tab.key === "search" || i === current ? [] : [hrefOf(i)]))
-    const idle = (window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback
-    const cancelIdle = (window as Window & { cancelIdleCallback?: (id: number) => void }).cancelIdleCallback
-    const run = () => { for (const href of hrefs) router.prefetch(href) }
-    if (idle && cancelIdle) {
-      const id = idle(run, { timeout: 1500 })
-      return () => cancelIdle(id)
-    }
-    const t = window.setTimeout(run, 400)
-    return () => window.clearTimeout(t)
+    return prefetchOnIdle(router, hrefs)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prefetchKey, current, router])
+
+  /* The tab that was pressed has arrived: back to where it was left (see EACH TAB KEEPS ITS PLACE), before the frame is painted. */
+  useLayoutEffect(() => {
+    const a = arrival.current
+    if (!a || a.href !== pathname) return
+    arrival.current = null
+    if (a.y === null) return
+    if (a.y === 0) {
+      window.scrollTo(0, 0)
+      return
+    }
+    return restoreTabScroll(a.y)
+  }, [pathname])
 
   /* A finger is on the bar: the only time the glass is there. */
   const lit = slide.pressed || slide.following

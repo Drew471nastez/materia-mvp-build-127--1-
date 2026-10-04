@@ -49,8 +49,10 @@ check("signed out, Profile is sign in and then the account page", SIGNED_OUT_PRO
 console.log("\nWhere it is drawn")
 const on = ["/explore", "/explore/design", SEARCH_HREF, "/account/library", "/account/library/products/abc", "/account/library/wishlist", "/account/communities", "/account", "/wishlist"]
 for (const p of on) check(`on ${p}`, buyerTabsBelongOn(p))
-const off = ["/", "/app", "/app/products", "/admin", "/checkout", "/checkout/abc", "/login", "/signup", "/reset-password", "/receipt/tok", "/purchase/x", "/creator-page", "/website-builder", "/blog", "/pricing", "/sell", "/account/continue", "/w/someone"]
+const off = ["/", "/app", "/app/products", "/admin", "/checkout", "/checkout/abc", "/login", "/signup", "/reset-password", "/purchase/x", "/creator-page", "/website-builder", "/blog", "/pricing", "/sell", "/account/continue", "/w/someone"]
 for (const p of off) check(`not on ${p}`, !buyerTabsBelongOn(p))
+/* Round 10: a receipt is one of the person's own pages, with the bar and Library lit (image 64: it had no way back). */
+check("on a receipt, with Library lit", buyerTabsBelongOn("/receipt/tok") && buyerTabFor("/receipt/tok") === 2 && buyerTabFor("/receipt/tok", { exploreMarketplaceEnabled: false }) === 0)
 
 console.log("\nDiscover off: library and profile only")
 check("two tabs when marketplace is off", buyerTabsForMarketplace(false).map((t) => t.key).join() === "library,profile")
@@ -104,7 +106,7 @@ const pill = code("components/app/sidebar-mobile-nav.tsx")
 check("the slide, the lens and the pick are the shared hook's, in both bars", /useTabLens\(\{/.test(bar) && /useTabLens\(\{/.test(pill) && /export function useTabLens\(/.test(lens) && /export function useSlide\(/.test(lens))
 /* "I don't really like the bump when I click an icon." The buyer's bar asks the shared lens for no give, and its glass never grows in. */
 check("no bump on a tap: no squeeze on the icon, no growing glass, only colour", /give: false,/.test(bar) && /if \(give\) pulse\(index\)/.test(lens) && /scale: String\(slide\.following \? LIFT : 1\)/.test(bar) && !/0\.55/.test(bar))
-check("the other tabs' pages are fetched while the phone is idle, on a phone only", /requestIdleCallback/.test(bar) && /for \(const href of hrefs\) router\.prefetch\(href\)/.test(bar) && /matchMedia\?\.\("\(max-width: 767px\)"\)\.matches\) return/.test(bar))
+check("the other tabs' pages are fetched while the phone is idle, on a phone only, as the device and network allow", /requestIdleCallback/.test(read("lib/nav/prefetch-policy.ts")) && /return prefetchOnIdle\(router, hrefs\)/.test(bar) && /matchMedia\?\.\("\(max-width: 767px\)"\)\.matches\) return/.test(bar))
 check("and nothing of the slide is written twice", !/function useSlide\(/.test(bar + pill) && !/function settleSpring\(/.test(bar + pill) && !/const TAP_PULSE\b/.test(bar + pill))
 check("the icons cross fade through the shared NavIcon, drawn on their own layers", /<NavIcon icon=\{[^}]+\} active=\{on\} color="currentColor" box=\{GLYPH\} layer \/>/.test(bar))
 check("the finger's gesture decides, and a keyboard's Enter still picks", /\{\.\.\.slide\.handlers\}/.test(bar) && /if \(e\.detail === 0\) pick\(i\)/.test(bar) && /touchAction: "none"/.test(bar))
@@ -124,7 +126,7 @@ check("and the touch's end gives the field the focus again, for a WebKit that di
 check("the bar mounts the screen beside itself, so a result leading off the bar's pages does not unmount it mid fade", /<SearchOverlay \/>/.test(bar))
 check("the tab you are on scrolls to the top", /window\.scrollTo\(\{ top: 0/.test(bar))
 /* A phone cancels the touch's click, so the loading line never heard a tab. The push says so itself. */
-check("a tab's push tells the loading line, because the click is cancelled", /startRouteLoading\(\{ cover: true \}\)\s*router\.push\(href\)/.test(bar))
+check("a tab's push tells the loading line, because the click is cancelled", /startRouteLoading\(\{ cover: true \}\)\s*router\.push\(href, \{ scroll: false \}\)/.test(bar))
 check("its hooks are never behind a return: the question is asked where it is mounted", /buyerTabsBelongOn\(pathname, whereWithExplore\)/.test(bar) && /exploreMarketplaceEnabled=\{exploreMarketplaceEnabled\}/.test(bar))
 /* A creator's page is read from the address, so the bar is gone on the frame
    the product opens: nothing is carried between pages and nothing blinks. */

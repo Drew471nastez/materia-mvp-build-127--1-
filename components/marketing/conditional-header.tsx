@@ -70,6 +70,10 @@ function isKnownPlatformPath(p: string): boolean {
        a page; and a word boundary, so /account-deletion stays its own entry. */
     ((p === "/account" || p.startsWith("/account/")) && !p.startsWith("/account/continue")) ||
     p.startsWith("/dashboard") ||
+    /* A RECEIPT, Storelib's page whoever sold it (app/receipt/layout.tsx):
+       somebody who just bought in the app was left on it with no header,
+       no tab bar and no way back (image 64). */
+    p.startsWith("/receipt/") ||
     /* STORELIB COMMUNITIES. A platform path, so a creator called
        "communityx" stays a creator (the word boundary); but every page under
        /community/<slug> is its own screen with the community's own bar

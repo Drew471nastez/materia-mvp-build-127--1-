@@ -17,11 +17,12 @@ const BAR = "rounded-md bg-[#eceef1] animate-pulse [animation-duration:1.8s]"
 
 export default function ReceiptLoading() {
   return (
-    <main data-receipt-loading="" aria-busy="true" aria-label="Loading your receipt" className="min-h-[100dvh] bg-[#f5f6f8] skeleton-deferred">
-      <div className="mx-auto w-full max-w-[640px] px-4 pb-10 pt-[max(1.25rem,env(safe-area-inset-top))] sm:px-6 sm:pt-10">
-        {/* The seller, and Print. */}
+    <main data-receipt-loading="" aria-busy="true" aria-label="Loading your receipt" className="bg-[#f5f6f8] skeleton-deferred">
+      <div className="mx-auto w-full max-w-[640px] px-4 pb-10 pt-4 sm:px-6 sm:pt-10">
+        {/* The back chevron, the seller, and Print. */}
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-h-[44px] items-center gap-2.5">
+            <div className="h-10 w-10 rounded-full border border-[#e4e7ec] bg-white" />
             <div className="h-8 w-8 rounded-full bg-[#e4e7ec] animate-pulse [animation-duration:1.8s]" />
             <div className={`h-3.5 w-28 ${BAR}`} />
           </div>

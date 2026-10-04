@@ -8,10 +8,10 @@ import { Button } from "@/components/ui/button"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import { useState, useEffect, useCallback } from "react"
-import { isNativeApp, nativeLogOut, openExternal } from "@/lib/native-bridge"
+import { isNativeApp, nativeLogOut } from "@/lib/native-bridge"
+import { openStorelibPage } from "@/lib/navigation/cross-section"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 
-const EXPLORE_FULL_URL = `https://${process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"}/explore`
 
 export function DashboardSidebar() {
   const pathname = usePathname()
@@ -105,7 +105,7 @@ export function DashboardSidebar() {
         <Link
           href="/explore"
           onClick={(e) => {
-            if (isNativeApp()) { e.preventDefault(); openExternal(EXPLORE_FULL_URL) }
+            if (isNativeApp()) { e.preventDefault(); openStorelibPage(router, "/explore") }
             onItemClick?.()
           }}
           className="mb-2 flex items-center justify-center gap-2 rounded-lg px-3 py-3 min-h-[44px] text-sm font-medium border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50 hover:text-neutral-900 active:scale-[0.98] transition-colors cursor-pointer"
@@ -173,7 +173,7 @@ export function DashboardSidebar() {
         <div className="flex items-center gap-1">
           <Link
             href="/explore"
-            onClick={(e) => { if (isNativeApp()) { e.preventDefault(); openExternal(EXPLORE_FULL_URL) } }}
+            onClick={(e) => { if (isNativeApp()) { e.preventDefault(); openStorelibPage(router, "/explore") } }}
             className="h-10 w-10 shrink-0 inline-flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
             aria-label="Discover"
           >
