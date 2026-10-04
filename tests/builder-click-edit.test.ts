@@ -177,10 +177,11 @@ console.log("\nFull screen, the third way of looking\n")
 {
   const page = read("app/website-builder/editor/[installId]/page.tsx")
   check(
-    "Large is the third place on the phone / desktop switch, on a computer only",
-    /\{!isMobileView && \(\s*<div\s+role="radiogroup"\s+aria-label="Preview size"\s+data-wb-device-switch=""/.test(page) &&
-      /\{ key: "mobile", label: "Phone"[\s\S]{0,200}\{ key: "desktop", label: "Desktop"[\s\S]{0,200}\{ key: "full", label: "Large"/.test(page) &&
-      /"data-wb-full-screen-switch": ""/.test(page),
+    "one icon cycles desktop, phone and large, on a computer only",
+    /\{!isMobileView && \(\(\) => \{\s*const SIZES = \[/.test(page) &&
+      /\{ key: "desktop", label: "Desktop"[\s\S]{0,200}\{ key: "mobile", label: `Phone[\s\S]{0,200}\{ key: "full", label: "Large"/.test(page) &&
+      /const next = SIZES\[\(at \+ 1\) % SIZES\.length\]/.test(page) && /onClick=\{\(\) => go\(next\.key\)\}/.test(page) &&
+      /data-wb-full-screen-switch=""/.test(page) && !/role="radiogroup"\s+aria-label="Preview size"/.test(page),
   )
   check("and there is no full screen button of its own beside it any more", !/Minimize2/.test(page))
   check("remembered for the session", /const FULL_SCREEN_KEY = "wb:full-screen"/.test(page) && /window\.sessionStorage\.setItem\(FULL_SCREEN_KEY, "1"\)/.test(page))

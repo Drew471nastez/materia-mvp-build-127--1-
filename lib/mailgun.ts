@@ -9,6 +9,7 @@
  * - EMAIL_REPLY_TO: "support@storelib.com"
  */
 import { maskEmail } from "@/lib/privacy/mask-email"
+import { mediaUrlsIn } from "@/lib/storage/media-url"
 import { GMAIL_CLIP_BYTES, finalizeEmailHtml } from "@/lib/mail-document"
 
 export { finalizeEmailHtml }
@@ -19,7 +20,8 @@ export { finalizeEmailHtml }
  * the subject or an address.
  */
 function sendableHtml(html: string, subject: string): string {
-  const doc = finalizeEmailHtml(html, subject)
+  /* Every picture at Storelib's own address, never the storage host's (lib/storage/media-url.ts). */
+  const doc = mediaUrlsIn(finalizeEmailHtml(html, subject))
   const bytes = Buffer.byteLength(doc)
   if (bytes > GMAIL_CLIP_BYTES * 0.8) console.warn(`[mailgun] HTML is ${Math.round(bytes / 1024)} KB; Gmail clips a message over 102 KB`)
   return doc

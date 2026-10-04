@@ -18,6 +18,7 @@
  * in the box and not sent, and leaving the box with one says why.
  */
 import * as React from "react"
+import { isOwnMedia } from "@/lib/storage/media-url"
 
 import { useEchoedValue } from "@/components/website-builder/echo-field"
 import { WbImagePicker } from "@/components/website-builder/editor/image-picker"
@@ -40,12 +41,13 @@ export function ImagePickerControl({
   /* The value as this control last set it, ahead of the editor's echo (echo-field.ts). */
   const [shown, commit] = useEchoedValue(typeof value === "string" ? value : "", onChange)
   /* What is in the address box. Follows the value whenever that changes from outside: a file chosen, an undo. */
-  const [draft, setDraft] = React.useState(shown)
+  /* A file Storelib holds is shown by name in the picker, never as an address here (lib/storage/media-url.ts). */
+  const [draft, setDraft] = React.useState(isOwnMedia(shown) ? "" : shown)
   const [seen, setSeen] = React.useState(shown)
   const [left, setLeft] = React.useState(false)
   if (seen !== shown) {
     setSeen(shown)
-    setDraft(shown)
+    setDraft(isOwnMedia(shown) ? "" : shown)
     setLeft(false)
   }
   const typed = draft.trim()

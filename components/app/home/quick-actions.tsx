@@ -33,7 +33,7 @@ import { NEW_PRODUCT_HREF } from "@/app/app/products/new/product-kinds"
  *                    near the viewport, decoded off the main thread, and at
  *                    low priority, behind anything the first screen needs
  */
-const STORAGE = "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/"
+const STORAGE = "https://storelib.com/media/platform%20images/"
 
 const ACTIONS = [
   { href: "/app/products/new", image: "iiii.png", title: "dashboard.createProduct", body: "dashboard.createProductDesc" },

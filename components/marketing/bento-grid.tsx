@@ -18,11 +18,11 @@ import { optimizedImageUrl } from "@/lib/images/optimized-url"
  * own transformer is metered, exhausted, and fails the build.
  */
 const SELL_ANYTHING_PHONE =
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20design%20(48).webp"
+  "https://storelib.com/media/platform%20images/Untitled%20design%20(48).webp"
 const SELL_ANYTHING_WIDE =
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Untitled%20(2969%20x%201600%20px)%20(2969%20x%201450%20px).webp"
+  "https://storelib.com/media/platform%20images/Untitled%20(2969%20x%201600%20px)%20(2969%20x%201450%20px).webp"
 const SELL_ANYWHERE =
-  "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Untitled%20(1250%20x%20500%20px)%20(1250%20x%20400%20px)%20(1100%20x%20400%20px)%20(7).png"
+  "https://storelib.com/media/platform%20images/collage%20imags/Untitled%20(1250%20x%20500%20px)%20(1250%20x%20400%20px)%20(1100%20x%20400%20px)%20(7).png"
 
 
 /* ── Globe.gl (requires browser — no SSR) ── */

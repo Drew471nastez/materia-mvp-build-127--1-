@@ -51,6 +51,7 @@
  * (lib/checkout/return-url.ts). A section never builds one by hand.
  */
 import type { SectionInstanceData } from "@/lib/storelib-theme/types"
+import { mediaUrl } from "@/lib/storage/media-url"
 import { withoutCommunityProducts } from "@/lib/communities/listing"
 import { uniqueImages } from "@/lib/products/product-page-model"
 
@@ -193,7 +194,8 @@ function wasPrice(now: number, was: number | null | undefined): string {
  * the product page uses too (lib/products/product-page-model.ts).
  */
 function pictures(row: ProductRow): string[] {
-  return uniqueImages([row.thumbnail_url, ...(Array.isArray(row.gallery_urls) ? row.gallery_urls : [])], MAX_IMAGES)
+  /* Storelib's own address for each, never the storage host's (lib/storage/media-url.ts). */
+  return uniqueImages([row.thumbnail_url, ...(Array.isArray(row.gallery_urls) ? row.gallery_urls : [])].map((u) => mediaUrl(u)), MAX_IMAGES)
 }
 
 /** One option, as a section reads it. */
@@ -240,7 +242,7 @@ export function toCard(row: ProductRow, variants: VariantRow[] = [], optionRows:
       currency: SHOP_CURRENCY,
       free: cents <= 0 && !row.pay_what_you_want,
       pay_what_you_want: row.pay_what_you_want === true,
-      image: row.thumbnail_url ?? images[0] ?? "",
+      image: mediaUrl(row.thumbnail_url) ?? images[0] ?? "",
       images,
       url: row.slug ? `/products/${row.slug}` : "",
       slug: row.slug ?? "",

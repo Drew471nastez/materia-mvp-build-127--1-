@@ -70,7 +70,7 @@
             {% else %}
       <div class="none">
         <p class="none__h">{% if page.query %}No results for "{{ page.query }}"{% else %}{{ settings.empty_text }}{% endif %}</p>
-        {% if page.query %}<p class="none__p">{{ settings.empty_text }}</p><a class="none__a" href="/search">{{ settings.all_label }}</a>{% endif %}
+        {% if page.query %}<p class="none__p">{{ settings.empty_text }}</p><a class="none__a" href="{{ settings.all_url | default: '/products' | url }}">{{ settings.all_label }}</a>{% endif %}
       </div>
             {% endif %}
           {% else %}
@@ -102,7 +102,7 @@
       {% if products.size == 0 %}
       <div class="none">
         <p class="none__h">{% if page.query %}No results for "{{ page.query }}"{% else %}{{ settings.empty_text }}{% endif %}</p>
-        {% if page.query %}<p class="none__p">{{ settings.empty_text }}</p><a class="none__a" href="/search">{{ settings.all_label }}</a>{% endif %}
+        {% if page.query %}<p class="none__p">{{ settings.empty_text }}</p><a class="none__a" href="{{ settings.all_url | default: '/products' | url }}">{{ settings.all_label }}</a>{% endif %}
       </div>
       {% else %}
       <div class="grid">
@@ -347,6 +347,12 @@
       "id": "all_label",
       "label": "Link back to everything",
       "default": "See all products"
+    },
+    {
+      "type": "url",
+      "id": "all_url",
+      "label": "Goes to",
+      "default": "/products"
     },
     {
       "type": "toggle",

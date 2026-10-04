@@ -12,6 +12,7 @@
  * is only loaded where a whole page is being handled.
  */
 import { SECTION_SCHEMAS } from "./section-schemas"
+import { withMediaUrls } from "@/lib/storage/media-url"
 import { schemaFromStorelib, themeBlockCatalog } from "./storelib-schemas"
 import { MAX_BLOCK_DEPTH } from "@/lib/storelib-theme/types"
 import { htmlFieldsOf, sanitizeSettings, type HtmlFieldMap } from "./sanitize"
@@ -207,7 +208,8 @@ export function sanitizeSections<T extends SectionInstance>(sections: T[] | null
   if (!Array.isArray(sections)) return []
   let touched = false
   const out = sections.map((s) => {
-    const next = sanitizeSection(s as unknown as LooseSection, own) as unknown as T
+    /* Storelib's own address for every uploaded file, never the storage host's (lib/storage/media-url.ts). */
+    const next = withMediaUrls(sanitizeSection(s as unknown as LooseSection, own)) as unknown as T
     if (next !== (s as unknown)) touched = true
     return next
   })
@@ -227,7 +229,7 @@ const THEME_HTML_SETTINGS: HtmlFieldMap = {
 
 export function sanitizeThemeSettings<T extends Record<string, unknown>>(settings: T | null | undefined): T {
   if (!settings) return {} as T
-  const cleaned = sanitizeSettings(settings, THEME_HTML_SETTINGS) as T
+  const cleaned = withMediaUrls(sanitizeSettings(settings, THEME_HTML_SETTINGS)) as T
   /*
     THE MENUS, TO THE SHAPE A SECTION READS: handles that are handles,
     titles cut to length, every address made safe, no more than three

@@ -194,9 +194,22 @@ export function schemaFor(type: string, sources: Record<string, string> | undefi
   const saved = sources?.[path]
   if (saved !== undefined) {
     const r = schemaFromStorelib(saved, path)
-    if (r.ok === true) return r.schema
+    if (r.ok === true) return platformShape(type, r.schema)
   }
-  return fallback[type]
+  return platformShape(type, fallback[type])
+}
+
+/**
+ * SECTIONS WHOSE CONTENT THE SHOP OWNS. The search results list the shop's
+ * own products, the ones the words matched; there is nothing to pick and
+ * nothing to add. A theme that carries an older copy of the file (one saved
+ * in the code editor, or brought in with an imported theme) still offered
+ * "The ones I pick" and product blocks, so the shape is the platform's here,
+ * whatever copy a theme has: no blocks and no source switch.
+ */
+function platformShape(type: string, schema: SectionSchema | undefined): SectionSchema | undefined {
+  if (!schema || type !== "search") return schema
+  return { ...schema, fields: (schema.fields ?? []).filter((f) => f.id !== "source"), blocks: [], accepts: undefined, statics: undefined }
 }
 
 /** Where a section somebody wrote themselves is filed in Add Section. */
