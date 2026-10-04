@@ -515,7 +515,8 @@ async function main() {
     check("the member profile reads follows, not the old table", !/profile_follows/.test(read("lib/profile/member-profile-data.ts")) && !/profile_follows/.test(route))
     check("owner pills only on your own profile, which is /account's own view", /\{isSelf \? \(/.test(page) && /<ProfileOwnerPills communities=\{communities\.enabled\} active="activity"/.test(page))
     const pills = read("lib/profile/owner-pills.ts") + read("components/profile/profile-owner-pills.tsx")
-    check("the pills: Activity, Communities, Library, Edit profile, Settings", ["Activity", "Communities", "Library", "Edit profile", "Settings"].every((w) => pills.includes(`label: "${w}"`)))
+    /* Round 5: Edit profile is a button on the cover (components/profile/profile-hero.tsx), not a pill. */
+    check("the pills: Activity, Communities, Library, Settings; Edit profile on the cover instead", ["Activity", "Communities", "Library", "Settings"].every((w) => pills.includes(`label: "${w}"`)) && !pills.includes(`label: "Edit profile"`) && /Edit profile/.test(read("components/profile/profile-hero.tsx")))
     check("no selling UI on a buyer's profile", !/Start selling|Become a seller|Sell on Storelib|\/app\/onboarding/.test(page + pills))
     check("Products only with a live store", /profile\.hasStorefront && profile\.products\.length > 0/.test(page))
     check("memberships only when shown, or to themselves", /showCommunities \|\| isSelf/.test(page) && /showCommunities \|\| isSelf/.test(route))
@@ -527,7 +528,13 @@ async function main() {
     check("the creator page has the same follow block", /<ProfileSocial[\s\S]{0,80}tone="storefront"/.test(creator) && (creator.match(/followRow=\{buildFollowRow\(/g) ?? []).length === 2)
     check("the creator page has the way back on both of its headers: in the newsletter bar, else a slim top bar", (creator.match(/leading=\{!embedded \? <TopBarBack initiallyShown=\{backShown\} \/> : undefined\}/g) ?? []).length === 3 && (creator.match(/<ProfileTopBar\b/g) ?? []).length === 2 && !/ProfileBackBar/.test(creator))
     check("Follow on the creator page is drawn in the scheme's own button colours", /buildFollowRow\(headerSettings, chrome\.action\)/.test(creator) && /scheme=\{scheme \?\? null\}/.test(creator) && /action: schemeAction\(\{/.test(read("lib/store-builder/storefront-chrome.ts")))
-    check("the creator page shows their activity and the communities they are in, as a profile does", /id: "activity", label: "Activity"/.test(creator) && /communitiesPanel\(communityCards\)/.test(creator) && /readPrivacy\(admin, profile\.id\)/.test(creator))
+    /* Round 5: "Creator pages (creators with a store): NO Activity tab; the Communities tab lists ONLY communities they created (not ones they joined); none -> the No communities yet panel as before." */
+    const creatorCode = stripComments(creator)
+    check("the creator page has no Activity tab, and reads no activity or joined communities for one", !/id: "activity"/.test(creatorCode) && !/personalActivityPanel|activityFor\(|profileCommunities\(|includeMemberships|<ProfileActivity|<SharedCommunityPosts/.test(creatorCode))
+    check("  its Communities tab is the communities they made, on both of the page's branches", (creatorCode.match(/const communitiesPanel = creatorCommunitiesPanel\(communityCards\)\s+if \(communitiesPanel\) \{\s+tabs\.push\(\{\s+id: "communities",\s+label: "Communities",\s+panel: communitiesPanel,/g) ?? []).length === 2 && /on \? creatorCommunityCards\(creator\.id\) : null/.test(creatorCode))
+    const tabSrc = stripComments(read("components/profile/creator-communities-tab.tsx"))
+    check("  none made yet: the tab says No communities yet; switched off: no tab", /if \(cards === null\) return null/.test(tabSrc) && /cards\.length \? <StorefrontCommunities cards=\{cards\} \/> : <EmptyTabPanel icon="communities" title="No communities yet" detail="This creator hasn't opened any yet\." \/>/.test(tabSrc))
+    check("  a plain profile (/@handle) keeps its Activity tab and the communities they are in", /id: "activity", label: "Activity"/.test(page) && /CommunityList title=\{both \? "Member of" : null\} cards=\{memberCards\}/.test(page))
     const header = read("components/store-builder/unified-section-renderer.tsx")
     check("the header does not print the follower count twice", /!followRow && \(settings\.showFollowers/.test(header))
     /* Round 4: sales only in About, beside Joined and Products, above the payment methods. */
@@ -634,7 +641,8 @@ async function main() {
     check("the route: the session's own row, checked address, rate limited, 503 before the column exists", /auth\.getUser\(\)/.test(route) && /\.eq\("id", user\.id\)/.test(route) && /ownCoverUrl\(body\.coverUrl, user\.id/.test(route) && /rateLimit\(/.test(route) && /status: 503/.test(route))
     check("Settings uses the creator cover's own upload box (bucket covers, 3:1)", /<ImageUpload bucket="covers" aspectRatio="cover"/.test(read("components/account/cover-field.tsx")))
     check("visitors see it: the page reads it with the service role", /select\("cover_url"\)/.test(read("lib/profile/member-profile-data.ts")) && /coverUrl: cover \|\| creatorRow\?\.cover_url/.test(read("lib/profile/member-profile-data.ts")))
-    check("the owner's band offers Add cover / Change cover, nobody else's does", /isSelf \? \(\s*<Link\s+href=\{COVER_SETTINGS_HREF\}/.test(read("components/profile/profile-hero.tsx")))
+    /* Round 5: the cover's own camera button beside Edit profile, both only on your own band. */
+    check("the owner's band offers Add cover / Change cover beside Edit profile, nobody else's does", /isSelf \? \(\s*<div className="absolute inset-x-0 top-3 sm:bottom-4 sm:top-auto" data-profile-cover-actions="">[\s\S]{0,200}<Link\s+href=\{COVER_SETTINGS_HREF\}/.test(read("components/profile/profile-hero.tsx")))
   }
 
   console.log("\nNever empty")

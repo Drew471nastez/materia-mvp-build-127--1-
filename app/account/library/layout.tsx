@@ -19,7 +19,7 @@ import LibraryLoading from "./loading"
  * keeps crawlers out too (lib/seo/indexing.ts PLATFORM_DISALLOW); this is
  * for the page somebody links to anyway.
  */
-export const metadata: Metadata = { robots: { index: false, follow: false } }
+export const metadata: Metadata = { title: "Library", robots: { index: false, follow: false } }
 
 /**
  * Detect Capacitor WebView from the User-Agent header.
@@ -45,12 +45,16 @@ async function appBannerPhone(): Promise<Phone | null> {
  * The owner: "/account becomes the profile center ... The library lives
  * inside /account as subpages". So the shell the library used to draw for
  * itself (the platform header, the footer, the phone's tab bar, the light
- * page colour) is the profile's now (app/account/layout.tsx), and the
- * person's own header with its pills stands above this (components/account/
- * account-hub.tsx). What is left here is what only the library has: its
- * gates, the purchase sync, the stage that cross fades one tab into the
- * next with the sub pills over it (components/library/library-panel.tsx),
- * and the app's banner under it. Every screen inside is the same component
+ * page colour) is the profile's now (app/account/layout.tsx). But it is a
+ * page of its own, not a panel under the person: "Library opens as its own
+ * page ... WITHOUT the profile hero above them (like /account/settings
+ * does), with their own page title and the sub pills". So the profile's
+ * hub stands aside here (lib/profile/owner-pills.ts showsProfileHeader),
+ * and the head of the stage is the library's title over its sub pills
+ * (components/library/library-tabs.tsx). What is left here is what only
+ * the library has: its gates, the purchase sync, the stage that cross fades
+ * one tab into the next (components/library/library-panel.tsx), and the
+ * app's banner under it. Every screen inside is the same component
  * it always was; only the addresses moved (lib/library/paths.ts), and every
  * old /library address answers with the new one (app/library/[[...path]]).
  */

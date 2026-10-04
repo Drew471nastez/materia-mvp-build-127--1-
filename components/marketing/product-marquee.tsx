@@ -16,7 +16,7 @@ const PRODUCTS_ROW1 = [
 ]
 
 const PRODUCTS_ROW2 = [
-  { emoji: "📦", label: "Memberships" },
+  { emoji: "👥", label: "Communities" },
   { emoji: "🎹", label: "Beat Packs" },
   { emoji: "📄", label: "Worksheets" },
   { emoji: "🎥", label: "Video Tutorials" },

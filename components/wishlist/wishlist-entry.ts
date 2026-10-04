@@ -128,7 +128,8 @@ export type EntryAction = { label: string; kind: "checkout" | "page" | "library"
 /** Where the card's one button goes. */
 export function actionOf(e: WishlistEntry): EntryAction {
   if (e.owned) {
-    const href = e.type === "course" ? "/account/library/courses" : e.type === "membership" ? "/account/library/memberships" : `/account/library/products/${encodeURIComponent(e.productId)}`
+    /* A membership is a row of the library's Products now (there is no Memberships pill). */
+    const href = e.type === "course" ? "/account/library/courses" : e.type === "membership" ? "/account/library" : `/account/library/products/${encodeURIComponent(e.productId)}`
     return { label: "In your library", kind: "library", href }
   }
   const checkout = `/checkout?productId=${encodeURIComponent(e.productId)}`

@@ -29,7 +29,7 @@ import { EditAboutButton } from "@/components/storefront/edit-about-button"
 import { OwnerMenu } from "@/components/storefront/owner-menu"
 import { EmbeddedNavigation } from "@/components/storefront/embedded-navigation"
 import { StorefrontTabs, type StorefrontTab } from "@/components/storefront/storefront-tabs"
-import { StorefrontCommunities } from "@/components/community/public/storefront-communities"
+import { creatorCommunitiesPanel } from "@/components/profile/creator-communities-tab"
 import { communitiesEnabled } from "@/lib/communities/flag"
 import { withoutCommunityProducts } from "@/lib/communities/listing"
 import { creatorCommunityCards } from "@/lib/communities/server/public"
@@ -40,13 +40,8 @@ import { missingColumn } from "@/lib/reviews/store"
 import { headers } from "next/headers"
 import { ProfileSocial } from "@/components/profile/profile-social"
 import { ProfileTopBar, TopBarBack } from "@/components/profile/profile-top-bar"
-import { ProfileActivity } from "@/components/profile/profile-activity"
-import { SharedCommunityPosts } from "@/components/profile/shared-community-posts"
-import { messageTarget, profileCommunities } from "@/lib/profile/profile-communities"
+import { messageTarget } from "@/lib/profile/profile-communities"
 import { cameFromElsewhere, refererPath } from "@/lib/profile/back"
-import { activityFor } from "@/lib/profile/activity-page"
-import { readPrivacy } from "@/lib/profile/privacy"
-import { sharedCommunities, sharedPostsPage } from "@/lib/profile/shared-posts"
 import type { ActionScheme } from "@/components/profile/follow-button"
 
 /**
@@ -440,10 +435,15 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
      started now so it waits on nothing), else storelib.com/<name>. Named by
      the structured data below, like the canonical in generateMetadata. */
   const pageHostPromise = primaryHostFor(creator.id, "creator_page")
-  /* The creator's communities for the Communities tab, only while communities are switched on; started now, read below. */
-  const communitiesPromise: Promise<CommunityCard[]> = communitiesEnabled()
-    .then((on) => (on ? creatorCommunityCards(creator.id) : []))
-    .catch(() => [])
+  /*
+    THE COMMUNITIES TAB: only the ones this creator made, never the ones they
+    joined ("Creator pages: NO Activity tab; the Communities tab lists ONLY
+    communities they created"). `null` while communities are switched off,
+    which is no tab at all; started now, read below.
+  */
+  const communitiesPromise: Promise<CommunityCard[] | null> = communitiesEnabled()
+    .then((on) => (on ? creatorCommunityCards(creator.id) : null))
+    .catch(() => null)
 
   /**
    * The products and the published shop config are fetched together.
@@ -579,7 +579,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
     (lib/profile/profile-communities). Started after the batch because each
     needs the viewer, which the batch has just settled; all three at once.
   */
-  const [{ count: followingCount }, viewerFollowsCreator, creatorMessageHref, requestHeaders, personal] = await Promise.all([
+  const [{ count: followingCount }, viewerFollowsCreator, creatorMessageHref, requestHeaders] = await Promise.all([
     supabase.from("follows").select("id", { count: "exact", head: true }).eq("follower_id", profile.id),
     viewer && viewer.id !== profile.id
       ? supabase.from("follows").select("id").eq("follower_id", viewer.id).eq("following_id", profile.id).maybeSingle().then((r) => !!r.data)
@@ -590,38 +590,6 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
           .catch(() => null)
       : Promise.resolve(null),
     headers(),
-    /*
-      THE CREATOR AS A PERSON, as their profile shows them: their activity
-      (unless they hid it), the communities they are a member of (unless
-      they hid those), and, for a viewer who shares a community with them,
-      their posts there. Not in the editor's canvas. Every read is guarded:
-      a failure is a missing tab, never a missing page.
-    */
-    embedded
-      ? Promise.resolve(null)
-      : (async () => {
-          try {
-            const admin = createAdminClient()
-            const on = await communitiesEnabled().catch(() => false)
-            const privacy = await readPrivacy(admin, profile.id)
-            const viewerId = viewer?.id ?? null
-            const [activity, joined, shared] = await Promise.all([
-              activityFor(admin, { userId: profile.id, viewerId, creator: { id: creator.id, handle: profile.username || username }, showActivity: privacy.showActivity }).catch(() => null),
-              on && (privacy.showCommunities || viewerId === profile.id)
-                ? profileCommunities(admin, profile.id, { includeMemberships: true }).then((c) => c.member).catch(() => [])
-                : Promise.resolve([]),
-              on && viewerId && viewerId !== profile.id
-                ? sharedCommunities(admin, viewerId, profile.id)
-                    .then((list) => Promise.all(list.map(async (community) => ({ community, page: await sharedPostsPage(admin, { communityId: community.id, viewerId, targetId: profile.id }).catch(() => null) }))))
-                    .then((list) => list.flatMap((x) => (x.page ? [{ community: x.community, page: x.page }] : [])))
-                    .catch(() => [])
-                : Promise.resolve([]),
-            ])
-            return { activity, joined, shared }
-          } catch {
-            return null
-          }
-        })(),
   ])
   /*
     Arrived from somewhere (any other page of ours): the way back in the top
@@ -755,46 +723,6 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         scheme={scheme ?? null}
       />
     )
-  }
-
-  /*
-    THE ACTIVITY TAB AND THE COMMUNITIES THEY ARE IN, as on every profile
-    (components/profile/member-profile-page.tsx): one tab with their
-    activity, opened by their posts in the communities the viewer shares
-    with them, drawn in the page's own scheme. Only when there is something
-    true to show; the list always ends on the day they joined.
-  */
-  const personalActivityPanel = () => {
-    if (!personal) return null
-    const items = personal.activity?.hidden ? [] : personal.activity?.items ?? []
-    if (items.length === 0 && personal.shared.length === 0) return null
-    const first = (profile.display_name || username).split(/\s+/)[0] || username
-    return (
-      <ProfileActivity
-        tone="storefront"
-        userId={profile.id}
-        initial={items}
-        initialNext={personal.activity?.hidden ? null : personal.activity?.next ?? null}
-        now={Date.now()}
-        joinedAt={profile.created_at ?? null}
-        lead={
-          personal.shared.length ? (
-            <>
-              {personal.shared.map((x) => (
-                <SharedCommunityPosts key={x.community.id} tone="storefront" userId={profile.id} community={x.community} initial={x.page} now={Date.now()} firstName={first} />
-              ))}
-            </>
-          ) : undefined
-        }
-        emptyText="No public activity yet."
-      />
-    )
-  }
-  /* The ones they run first, then the public ones they are a member of, in one grid: the cards already say whose each one is. */
-  const communitiesPanel = (owned: CommunityCard[]) => {
-    const ownedIds = new Set(owned.map((c) => c.id))
-    const cards = [...owned, ...(personal?.joined ?? []).filter((c) => !ownedIds.has(c.id))]
-    return cards.length ? <StorefrontCommunities cards={cards} /> : null
   }
 
   const buildOwnerActions = (
@@ -1603,23 +1531,19 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
           }
 
           /**
-           * COMMUNITIES, WHEN THERE ARE SOME. The creator's published, public
-           * communities as cards in their own scheme (lib/communities/server/
-           * public.ts creatorCommunityCards). No tab at all when they have
-           * none or communities are switched off: a tab that opens onto "not
-           * yet" is a promise the page cannot keep.
+           * COMMUNITIES. The creator's published, public communities as cards
+           * in their own scheme (lib/communities/server/public.ts
+           * creatorCommunityCards), or "No communities yet" when they have
+           * made none. No tab while communities are switched off.
            */
-          const communitiesTab = communitiesPanel(communityCards)
-          if (communitiesTab) {
+          const communitiesPanel = creatorCommunitiesPanel(communityCards)
+          if (communitiesPanel) {
             tabs.push({
               id: "communities",
               label: "Communities",
-              panel: communitiesTab,
+              panel: communitiesPanel,
             })
           }
-          /* Their activity across Storelib, as their profile lists it, opened by their posts where the viewer is too. */
-          const activityTab = personalActivityPanel()
-          if (activityTab) tabs.push({ id: "activity", label: "Activity", panel: <div className="mx-auto w-full max-w-[1180px] px-3 py-8 sm:px-4 sm:py-10 lg:px-6">{activityTab}</div> })
 
           /**
            * THREE TABS: Home, Products, Communities. Reviews and About are
@@ -1829,16 +1753,15 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
             ),
           })
         }
-        const communitiesTab = communitiesPanel(communityCards)
-        if (communitiesTab) {
+        /* The communities they made, or "No communities yet" (components/profile/creator-communities-tab.tsx); no Activity tab on a creator page. */
+        const communitiesPanel = creatorCommunitiesPanel(communityCards)
+        if (communitiesPanel) {
           tabs.push({
             id: "communities",
             label: "Communities",
-            panel: communitiesTab,
+            panel: communitiesPanel,
           })
         }
-        const activityTab = personalActivityPanel()
-        if (activityTab) tabs.push({ id: "activity", label: "Activity", panel: <div className="mx-auto w-full max-w-[1180px] px-3 py-8 sm:px-4 sm:py-10 lg:px-6">{activityTab}</div> })
         return <StorefrontTabs tabs={tabs} />
       })()}
 

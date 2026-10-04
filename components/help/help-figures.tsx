@@ -110,8 +110,8 @@ const FIGURES: Record<string, (label: string) => ReactNode> = {
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           <Radio title="Digital" line="Files to download" />
           <Radio title="Course" line="Lessons" />
-          <Radio title="Membership" line="Monthly access" />
           <Radio on title="Physical" line="Shipped or picked up" />
+          <Radio title="Community" line="Paid members" />
         </div>
       </Card>
     </Frame>

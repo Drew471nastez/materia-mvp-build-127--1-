@@ -1,21 +1,22 @@
 import { NextResponse } from "next/server"
-import { isResponse, readJson, requireCreator, noStore } from "@/lib/email-campaigns/route-auth"
-import { createMembershipProduct } from "@/lib/memberships/creator"
+import { isResponse, requireCreator, noStore } from "@/lib/email-campaigns/route-auth"
 
 export const runtime = "nodejs"
 
 /**
- * POST /api/app/memberships  { title? }
+ * POST /api/app/memberships
  *
- * A new membership, as a draft: the product (type "membership") and its
- * empty plan. The screen then opens it to set the price and what members
- * get. Answers { productId }.
+ * It used to make a new membership as a draft. Memberships are communities
+ * now: a creator who wants members to pay every month makes a paid
+ * community (/app/community/new), whose recurring tier is still a
+ * membership product made by lib/memberships/creator.ts from the community
+ * code, never through here. So this answers 410 and makes nothing.
+ *
+ * The memberships a creator already sells are untouched: their screen, their
+ * settings and posts (./[productId]/**), their billing and their members.
  */
-export async function POST(request: Request) {
+export async function POST() {
   const ctx = await requireCreator()
   if (isResponse(ctx)) return ctx
-  const body = await readJson(request)
-  const made = await createMembershipProduct(ctx.admin, ctx.creatorId, typeof body.title === "string" ? body.title : "")
-  if (!made.ok) return NextResponse.json({ error: made.error }, { status: made.status, headers: noStore })
-  return NextResponse.json({ productId: made.productId }, { headers: noStore })
+  return NextResponse.json({ error: "New memberships are made as paid communities now.", code: "memberships_are_communities" }, { status: 410, headers: noStore })
 }

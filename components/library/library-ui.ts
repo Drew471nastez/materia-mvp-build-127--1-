@@ -13,6 +13,19 @@
 
 export const RADIUS = "rounded-[10px]"
 
+/**
+ * THE LIBRARY PAGE'S TITLE, as Settings writes its own (components/account/
+ * account-settings.tsx): the /app heading's size and weight. The library is
+ * a page of its own now, not a pill under the profile, so it says what it
+ * is. Here, in a module with no "use client", because both the live head
+ * (library-tabs.tsx) and the still copy a move back from a purchase draws
+ * (library-skeletons.tsx TabsHeaderStill, rendered on the server too) read
+ * it, and they must land on the same line.
+ */
+export const LIBRARY_TITLE = "min-w-0 truncate text-[24px] font-bold leading-[1.25] tracking-[-0.01em] text-[#1a1a2e] sm:text-[28px]"
+/** And the room between the title and the pills, the same in both. */
+export const LIBRARY_TITLE_GAP = "mb-4"
+
 export const CARD =
   "rounded-2xl border border-[#e4e7ec]/80 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04),0_3px_8px_-2px_rgba(16,24,40,0.05)]"
 

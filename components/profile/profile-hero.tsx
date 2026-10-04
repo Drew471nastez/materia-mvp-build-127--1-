@@ -6,13 +6,22 @@
  * as themselves: /@handle for everybody else, and /account, which is that
  * same page seen by its owner (components/account/account-hub.tsx). The
  * creator page's own order: a band (their cover when they have one) with
- * the photo across its lower edge, the name, @handle and when they joined,
- * the bio, then one quiet followers / following line and the buttons.
+ * the photo across its lower edge, the name and @handle, the bio, then one
+ * quiet followers / following line and the buttons.
  *
- * The owner sees their own page with nothing to follow; they get a quiet
- * "Add cover" or "Change cover" on the band instead, which opens Settings
- * at the cover, and the pills to their own places under the header (the
- * caller draws those).
+ * THE BAND RUNS EDGE TO EDGE, as a creator page's does: "the cover is full
+ * bleed like creator pages (not a rounded card)". So this header is drawn
+ * outside the page's column, and keeps a column of its own for the person
+ * under the band. The band is the creator page's height (128px on a phone,
+ * 192 and then 256 wider up). No "Joined" line under the name: the activity
+ * already ends on the day they joined, and the owner asked for it gone.
+ *
+ * The owner sees their own page with nothing to follow; on the band they
+ * get Edit profile, a real Storelib button, and beside it a camera button
+ * for the cover itself (Add cover or Change cover). Both open Settings:
+ * Edit profile at the profile's fields, the camera at the cover. Top right
+ * on a phone, where the photo across the band's edge cannot be under them;
+ * the foot of the band, at the column's right edge, wider up.
  *
  * No "use client" of its own: on /@handle it is drawn on the server, inside
  * /account by the client hub. Everything interactive in it is a client
@@ -20,10 +29,13 @@
  */
 import Link from "next/link"
 import type { ReactNode } from "react"
-import { ImagePlus } from "lucide-react"
+import { Camera } from "lucide-react"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { AvatarLightbox } from "@/components/storefront/avatar-lightbox"
+import { iconDepth, secondaryDepth } from "@/components/ui/depth-button"
+import { ACCOUNT_GUTTER_LEFT, ACCOUNT_GUTTER_RIGHT } from "@/lib/account/account-tabs"
 import { optimizedImageUrl } from "@/lib/images/optimized-url"
+import { EDIT_PROFILE_HREF } from "@/lib/profile/owner-pills"
 import { cn } from "@/lib/utils"
 import { ProfileSocial } from "./profile-social"
 
@@ -34,8 +46,6 @@ export interface ProfileHeroPerson {
   avatarUrl: string | null
   coverUrl: string | null
   bio: string | null
-  /** "March 2025", written on the server so both renders agree. */
-  memberSince: string
   followers: number
   following: number
 }
@@ -47,10 +57,18 @@ export interface ProfileHeroPerson {
  * owner asked of every creator page and profile. The ring is the page's own
  * ground (#f8f9fa, the Storelib page every profile sits on), so the photo
  * reads as cut out of the page where it crosses the cover.
+ *
+ * A LIGHTER RING: "the avatar border lighter (thinner, softer)". 2px where
+ * it was 4, and a shadow about half as dark, so the photo sits on the band
+ * rather than being framed on it.
  */
 export const PROFILE_AVATAR_PX = { phone: 118, wide: 134 } as const
 export const PROFILE_AVATAR_CLASS =
-  "h-[118px] w-[118px] cursor-zoom-in shadow-[0_1px_2px_rgba(16,24,40,0.08),0_8px_20px_-10px_rgba(16,24,40,0.32)] ring-4 ring-[#f8f9fa] sm:h-[134px] sm:w-[134px]"
+  "h-[118px] w-[118px] cursor-zoom-in shadow-[0_1px_2px_rgba(16,24,40,0.06),0_6px_16px_-10px_rgba(16,24,40,0.2)] ring-2 ring-[#f8f9fa] sm:h-[134px] sm:w-[134px]"
+
+/** The person's column under the band: the profile's own width and the account's side padding. */
+const COLUMN = "mx-auto w-full max-w-[960px]"
+const GUTTERS = { paddingLeft: ACCOUNT_GUTTER_LEFT, paddingRight: ACCOUNT_GUTTER_RIGHT } as const
 
 /** Where the owner's cover control goes: Settings, at the cover. */
 export const COVER_SETTINGS_HREF = "/account/settings?section=profile#cover"
@@ -75,13 +93,13 @@ export function ProfileHero({
 }) {
   return (
     <div className={className} data-profile-hero="">
-      {/* The band and the photo across its lower edge, as a creator page opens. */}
-      <div className="relative overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-[#eceef1]" data-profile-cover={person.coverUrl ? "image" : "plain"}>
-        <div className="relative h-[112px] sm:h-[168px]">
+      {/* The band, edge to edge, and the photo across its lower edge, as a creator page opens. */}
+      <div className="relative w-full overflow-hidden bg-[#eceef1]" data-profile-cover={person.coverUrl ? "image" : "plain"}>
+        <div className="relative h-[128px] sm:h-[192px] lg:h-[256px]">
           {person.coverUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={optimizedImageUrl(person.coverUrl, 960)}
+              src={optimizedImageUrl(person.coverUrl, 1600)}
               alt=""
               decoding="async"
               fetchPriority="high"
@@ -90,26 +108,30 @@ export function ProfileHero({
           ) : (
             <div aria-hidden className="absolute inset-0 bg-[radial-gradient(120%_140%_at_50%_0%,#f4f5f7_0%,#e7e9ed_100%)]" />
           )}
-          {isSelf ? (
-            <Link
-              href={COVER_SETTINGS_HREF}
-              prefetch={false}
-              data-profile-cover-edit=""
-              className={cn(
-                "absolute right-2.5 top-2.5 inline-flex h-10 items-center sm:bottom-2.5 sm:top-auto gap-1.5 rounded-full px-3 text-[13px] font-medium outline-none backdrop-blur-sm transition-[background-color,scale] duration-150 active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-white/70 [-webkit-tap-highlight-color:transparent]",
-                person.coverUrl ? "bg-black/45 text-white hover:bg-black/60" : "bg-white/85 text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.08)] hover:bg-white",
-              )}
-            >
-              {/* Top right on a phone, where the photo across the band's edge cannot be under it. */}
-              <ImagePlus className="h-4 w-4" aria-hidden />
-              {person.coverUrl ? "Change cover" : "Add cover"}
-            </Link>
-          ) : null}
         </div>
+        {isSelf ? (
+          <div className="absolute inset-x-0 top-3 sm:bottom-4 sm:top-auto" data-profile-cover-actions="">
+            <div className={cn(COLUMN, "flex items-center justify-end gap-2")} style={GUTTERS}>
+              <Link
+                href={COVER_SETTINGS_HREF}
+                prefetch={false}
+                aria-label={person.coverUrl ? "Change cover" : "Add cover"}
+                title={person.coverUrl ? "Change cover" : "Add cover"}
+                data-profile-cover-edit={person.coverUrl ? "change" : "add"}
+                className={cn(iconDepth, "h-10 w-10 rounded-[10px] p-0")}
+              >
+                <Camera className="h-[18px] w-[18px]" strokeWidth={1.9} aria-hidden />
+              </Link>
+              <Link href={EDIT_PROFILE_HREF} prefetch={false} data-profile-edit="" className={cn(secondaryDepth, "h-10 rounded-[10px] px-4 text-[14px]")}>
+                Edit profile
+              </Link>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       {/* Half the photo over the band's lower edge, at both sizes. */}
-      <header className="relative -mt-[59px] flex flex-col items-center px-2 text-center sm:-mt-[67px]" data-profile-header="">
+      <header className={cn(COLUMN, "relative -mt-[59px] flex flex-col items-center text-center sm:-mt-[67px]")} style={GUTTERS} data-profile-header="">
         {avatar ?? (
           <AvatarLightbox src={person.avatarUrl} name={person.name}>
             <AppAvatar
@@ -124,19 +146,11 @@ export function ProfileHero({
         <h1 className="mt-3 line-clamp-2 max-w-full text-[22px] font-bold leading-[1.2] tracking-[-0.015em] text-[#1a1a2e] [overflow-wrap:anywhere] sm:text-[26px]" data-profile-name="">
           {person.name || "Your profile"}
         </h1>
-        <p className="mt-1 max-w-full text-[13px] leading-[1.45] text-[#6b7280] [overflow-wrap:anywhere]">
-          {person.username ? (
-            <span className="text-[#4b5563]" data-profile-handle="">
-              @{person.username}
-            </span>
-          ) : null}
-          {person.username && person.memberSince ? (
-            <span aria-hidden className="px-1.5 text-[#c4c8cf]">
-              ·
-            </span>
-          ) : null}
-          {person.memberSince ? <>Joined {person.memberSince}</> : null}
-        </p>
+        {person.username ? (
+          <p className="mt-1 max-w-full text-[13px] leading-[1.45] text-[#4b5563] [overflow-wrap:anywhere]" data-profile-handle="">
+            @{person.username}
+          </p>
+        ) : null}
         {person.bio ? (
           <p className="mt-2.5 max-w-[520px] whitespace-pre-line text-[14px] leading-[1.5] text-[#374151] [overflow-wrap:anywhere] sm:text-[15px]" data-profile-bio="">
             {person.bio}

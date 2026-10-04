@@ -157,7 +157,8 @@ export async function exploreCommunities(input: { q?: unknown; sort?: unknown; c
       console.error(`[communities] explore: ${reasonOf(error)}`)
       return { available: true, items: [], next: null }
     }
-    const found = (data as CardRow[] | null) ?? []
+    /* Asked already: a database without the column says so once, and cardsFor is told the views are not known rather than asking again. */
+    const found = ((data as CardRow[] | null) ?? []).map((r) => (r.view_count === undefined ? { ...r, view_count: null } : r))
     const page = found.slice(0, limit)
     const last = page[page.length - 1]
     const next =

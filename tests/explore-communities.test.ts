@@ -196,7 +196,7 @@ async function main() {
     check("no reviews, no stars", ratingLabel(null) === null && ratingLabel({ average: 0, count: 0 }) === null && ratingLabel({ average: 4, count: 0 }) === null)
     const card = code("components/explore/community-card.tsx")
     check("the stats row: stars only with a rating, members, views only when known, Launched", /\{rating \? \(/.test(card) && /data-stat="members"/.test(card) && /\{views !== null \? \(/.test(card) && /data-stat="launched"/.test(card) && !/\(\{?card\.rating\.count/.test(card))
-    check("a bigger mark beside a bigger name, two lines at most, and the creator's face under it", /<Mark card=\{card\} size=\{40\} \/>/.test(card) && /line-clamp-2[^"]*text-\[18px\]/.test(card) && /<AppAvatar src=\{card\.creator\.avatarUrl\}/.test(card) && /by \{card\.creator\.name\}/.test(card))
+    check("a bigger mark beside a bigger name, two lines at most, and the creator's face under it", /<Mark card=\{card\} size=\{40\} \/>/.test(card) && /line-clamp-2[^"]*", COMMUNITY_TITLE\)/.test(card) && /COMMUNITY_TITLE = "[^"]*text-\[18px\] font-medium leading-6/.test(card) && /<AppAvatar src=\{card\.creator\.avatarUrl\}/.test(card) && /by \{card\.creator\.name\}/.test(card))
     check("the product card's frame: 16:9 picture, the border, the price at the foot", /aspect-video/.test(card) && /rounded-lg border border-border\/60 bg-card/.test(card) && /mt-auto pt-4 font-semibold/.test(card))
     check("the card draws no hooks and imports no server code", !/use(State|Effect|Ref|Memo)\(/.test(card) && !/server-only|lib\/communities\/server|next\/headers/.test(card))
   }
@@ -268,8 +268,8 @@ async function main() {
     check("the navigator's Discover communities", /label: "Discover communities", href: "\/explore\?type=communities"/.test(read("lib/nav/places-shared.ts")))
     check("the library's empty state", /ctaHref="\/explore\?type=communities"/.test(read("components/community/public/library-list.tsx")))
     check("/community on its own", /redirect\("\/explore\?type=communities"\)/.test(read("app/(marketing)/community/page.tsx")))
-    const legacy = code("app/(marketing)/explore/communities/page.tsx")
-    check("/explore/communities: a 404 while off, else a permanent redirect keeping q and the order", /if \(!\(await communitiesEnabled\(\)\)\) notFound\(\)[\s\S]*permanentRedirect\(legacyCommunitiesTarget\(\{ q: one\(params\.q\), sort: one\(params\.sort\) \}\)\)/.test(legacy))
+    const legacy = code("app/(marketing)/explore/communities/route.ts")
+    check("/explore/communities: a 404 while off, else a permanent redirect keeping q and the order", /if \(!\(await communitiesEnabled\(\)\)\) return new NextResponse\("Not found", \{ status: 404 \}\)[\s\S]*legacyCommunitiesTarget\(\{ q: params\.get\("q"\), sort: params\.get\("sort"\) \}\)[\s\S]*, 308\)/.test(legacy))
     check("the old page's component is gone", !existsSync("components/community/public/explore-communities.tsx"))
   }
 
@@ -311,7 +311,7 @@ async function main() {
       "lib/communities/server/record-view.ts",
       "components/explore/community-card.tsx",
       "components/explore/explore-communities-results.tsx",
-      "app/(marketing)/explore/communities/page.tsx",
+      "app/(marketing)/explore/communities/route.ts",
       "supabase/sql/run-now/87_community_views.sql",
     ]
     const offenders = mine.filter((f) => /—/.test(read(f)) || /\b(unlock\w*|elevate|seamless|powerful|effortless(ly)?|supercharge|transform\w*)\b/i.test(read(f)))

@@ -18,7 +18,8 @@ import { join } from "node:path"
 import { stripComments } from "./_source"
 import { ACCOUNT_COMMUNITIES, ACCOUNT_SETTINGS, LIBRARY_HOME, isLibraryPath, legacyLibraryTarget, libraryCoursePath, libraryMembershipPath, libraryProductPath } from "@/lib/library/paths"
 import { LIBRARY_TABS, isLibraryProduct, showsLibraryTabs } from "@/components/library/library-tab-list"
-import { ownerPillFor, ownerPillLinks, showsProfileHeader } from "@/lib/profile/owner-pills"
+import { EDIT_PROFILE_HREF, ownerPillFor, ownerPillLinks, showsProfileHeader } from "@/lib/profile/owner-pills"
+import { profileShareUrl } from "@/lib/profile/share-profile"
 import { BUYER_TABS, buyerTabFor } from "@/lib/nav/buyer-tabs"
 import { pushStateFrom } from "@/lib/account/push-state"
 
@@ -71,7 +72,8 @@ console.log("\nThe new places")
   check("the library's pages live under app/account/library", ["page.tsx", "layout.tsx", "loading.tsx", "products/[id]/page.tsx", "courses/page.tsx", "courses/[id]/page.tsx", "memberships/page.tsx", "memberships/[id]/page.tsx", "wishlist/page.tsx", "reviews/page.tsx", "receipts/page.tsx"].every((f) => existsSync(join(root, "app/account/library", f))))
   check("the communities a person is in are /account/communities", existsSync(join(root, "app/account/communities/page.tsx")) && ACCOUNT_COMMUNITIES === "/account/communities")
   check("the helpers spell them", libraryProductPath("p 1") === "/account/library/products/p%201" && libraryCoursePath("c1") === "/account/library/courses/c1" && libraryMembershipPath("m1") === "/account/library/memberships/m1" && ACCOUNT_SETTINGS === "/account/settings")
-  check("the library's sub pills: Products, Courses, Memberships, Wishlist, Reviews, Receipts", LIBRARY_TABS.map((t) => `${t.label} ${t.href}`).join() === "Products /account/library,Courses /account/library/courses,Memberships /account/library/memberships,Wishlist /account/library/wishlist,Reviews /account/library/reviews,Receipts /account/library/receipts", LIBRARY_TABS)
+  /* Changed on purpose in round 5: memberships are communities, so Memberships is no longer a pill (its pages still answer; tests/memberships-folded.test.ts). */
+  check("the library's sub pills: Products, Courses, Wishlist, Reviews, Receipts", LIBRARY_TABS.map((t) => `${t.label} ${t.href}`).join() === "Products /account/library,Courses /account/library/courses,Wishlist /account/library/wishlist,Reviews /account/library/reviews,Receipts /account/library/receipts", LIBRARY_TABS)
   check("the pills are drawn on the lists, not on a purchase", showsLibraryTabs("/account/library/") && showsLibraryTabs("/account/library/receipts") && !showsLibraryTabs("/account/library/products/p1") && isLibraryProduct("/account/library/products/p1?x=1") && !isLibraryProduct("/library/products/p1"))
   check("isLibraryPath knows the whole library and nothing else", isLibraryPath("/account/library") && isLibraryPath("/account/library/courses/c1") && !isLibraryPath("/account/libraryx") && !isLibraryPath("/account"))
   const lib = code("app/account/library/layout.tsx")
@@ -80,14 +82,61 @@ console.log("\nThe new places")
 
 console.log("\nThe profile center's pills")
 {
-  check("Activity, Communities, Library, Edit profile, Settings", ownerPillLinks(true).map((p) => `${p.label} ${p.href}`).join() === "Activity /account,Communities /account/communities,Library /account/library,Edit profile /account/settings,Settings /account/settings?section=account")
-  check("Communities only while the switch is on", ownerPillLinks(false).map((p) => p.key).join() === "activity,library,edit,settings")
+  /* Round 5: Edit profile left the pills for a button on the cover. */
+  check("Activity, Communities, Library, Settings (Edit profile is on the cover now)", ownerPillLinks(true).map((p) => `${p.label} ${p.href}`).join() === "Activity /account,Communities /account/communities,Library /account/library,Settings /account/settings?section=account")
+  check("Communities only while the switch is on", ownerPillLinks(false).map((p) => p.key).join() === "activity,library,settings")
   check("every library address lights Library", ["/account/library", "/account/library/courses", "/account/library/products/x"].every((p) => ownerPillFor(p) === "library"))
-  check("the header stands over the lists only", showsProfileHeader("/account") && showsProfileHeader("/account/library/wishlist") && !showsProfileHeader("/account/library/courses/c1") && !showsProfileHeader("/account/settings"))
+  /* Round 5: "Library opens as its own page ... WITHOUT the profile hero above them". */
+  check("the person's header stands over Activity and Communities only: not over the library, not over Settings", showsProfileHeader("/account") && showsProfileHeader("/account/communities") && !showsProfileHeader("/account/library") && !showsProfileHeader("/account/library/wishlist") && !showsProfileHeader("/account/library/courses/c1") && !showsProfileHeader("/account/settings"))
   const pills = read("components/profile/profile-owner-pills.tsx")
   check("the pressed pill answers the press, its fill fading in where it is", /setPressed\(p\.key\)/.test(pills) && /transition-\[opacity,scale\]/.test(pills) && /scale-100 opacity-100" : "scale-\[0\.96\] opacity-0"/.test(pills))
   const member = read("components/profile/member-profile-page.tsx")
   check("/@<my handle> for me is the same owner view: the pills, Activity lit, my activity under them, no Follow", /\{isSelf \? \(/.test(member) && /active="activity"/.test(member) && /isSelf=\{isSelf\}/.test(member))
+}
+
+console.log("\nThe cover, Edit profile, and the person under them (round 5)")
+{
+  const hero = code("components/profile/profile-hero.tsx")
+  const cover = hero.slice(hero.indexOf("data-profile-cover="), hero.indexOf("data-profile-header="))
+  check("the cover runs edge to edge: no card, no rounding, no border, the creator page's heights", /className="relative w-full overflow-hidden bg-\[#eceef1\]"/.test(hero) && !/rounded-2xl/.test(cover) && !/border-\[#e5e7eb\]/.test(cover) && /h-\[128px\] sm:h-\[192px\] lg:h-\[256px\]/.test(hero))
+  check("  so the hero is drawn outside the 960px column and keeps one of its own for the person", /<header className=\{cn\(COLUMN, "relative -mt-\[59px\]/.test(hero) && /const COLUMN = "mx-auto w-full max-w-\[960px\]"/.test(hero))
+  check("  /account draws the column under the hero, and around a page without one", /<AccountColumn top=\{false\}>/.test(code("components/account/account-hub.tsx")) && /<AccountColumn>\{children\}<\/AccountColumn>/.test(code("components/account/account-hub.tsx")) && !/max-w-\[960px\]/.test(code("app/account/layout.tsx")))
+  check("  and /@handle draws the hero before its column too", (() => { const m = code("components/profile/member-profile-page.tsx"); return m.indexOf("<ProfileHero") < m.indexOf('max-w-[960px] px-4') })())
+  check("no Joined line under the name", !/Joined/.test(hero) && !/memberSince/.test(hero))
+  check("a lighter ring on the photo: 2px, a softer shadow", /ring-2 ring-\[#f8f9fa\]/.test(hero) && !/ring-4/.test(hero))
+  check("Edit profile is a Storelib button on the cover, to /account/settings", EDIT_PROFILE_HREF === "/account/settings" && /<Link href=\{EDIT_PROFILE_HREF\}[^>]*className=\{cn\(secondaryDepth, "h-10 rounded-\[10px\] px-4 text-\[14px\]"\)\}>\s*Edit profile\s*<\/Link>/.test(hero))
+  check("  with the cover's own camera button beside it (Add cover / Change cover), to Settings at the cover", /href=\{COVER_SETTINGS_HREF\}[\s\S]{0,200}aria-label=\{person\.coverUrl \? "Change cover" : "Add cover"\}[\s\S]{0,200}className=\{cn\(iconDepth, "h-10 w-10 rounded-\[10px\] p-0"\)\}[\s\S]{0,120}<Camera/.test(hero) && cover.indexOf("COVER_SETTINGS_HREF") < cover.indexOf("EDIT_PROFILE_HREF"))
+  check("  only on your own page", /\{isSelf \? \(\s*<div className="absolute inset-x-0 top-3 sm:bottom-4 sm:top-auto" data-profile-cover-actions="">/.test(hero))
+}
+
+console.log("\nThe library, a page of its own (round 5)")
+{
+  const tabs = code("components/library/library-tabs.tsx")
+  const ui = code("components/library/library-ui.ts")
+  check("its own title over its sub pills", /<h1 className=\{`\$\{LIBRARY_TITLE\} \$\{LIBRARY_TITLE_GAP\}`\} data-library-title="">\s*Library\s*<\/h1>/.test(tabs) && /export const LIBRARY_TITLE = "[^"]*text-\[24px\] font-bold[^"]*sm:text-\[28px\]"/.test(ui))
+  check("  drawn in the still copy a move back from a purchase shows, so nothing jumps", /<p className=\{`\$\{LIBRARY_TITLE\} \$\{LIBRARY_TITLE_GAP\}`\}>Library<\/p>/.test(code("components/library/library-skeletons.tsx")))
+  check("  the constants live in a module the server can read (no \"use client\")", !/^"use client"/.test(read("components/library/library-ui.ts")))
+  check("  and the tab's title says Library", /title: "Library"/.test(code("app/account/library/layout.tsx")))
+  check("the profile's Library pill still leads there", ownerPillLinks(true).some((p) => p.key === "library" && p.href === LIBRARY_HOME))
+}
+
+console.log("\nOn a phone, your profile's header is a plain bar (round 5)")
+{
+  const header = code("components/platform/platform-header-client.tsx")
+  check("only over the pages that draw the profile", /const profileBar = showsProfileHeader\(pathname\)/.test(header))
+  const bar = header.slice(header.indexOf("{profileBar ? ("), header.indexOf(") : (", header.indexOf("{profileBar ? (")))
+  check("  the logo stays; the navigator is not drawn below md", /chrome\.navigator, profileBar && "max-md:hidden"\)/.test(header))
+  check("  the right of the row is one \"...\" button, below md only, 42px like the icons it replaces", /md:hidden flex items-center justify-end flex-1" data-header-profile-bar=""/.test(bar) && /<MoreHorizontal /.test(bar) && /h-\[42px\] w-\[42px\]/.test(bar) && /aria-label="More"/.test(bar))
+  check("  no photo, no bell, no heart, no library there", !/NotificationBell|<Heart|AppAvatar|<Library/.test(bar))
+  const sheet = header.slice(header.indexOf("data-profile-bar-sheet"), header.indexOf("What Share profile did"))
+  const order = ["Share profile", "Settings", "settings.language", "Help", "Log out"].map((w) => sheet.indexOf(w))
+  check("  its sheet: Share profile, Settings, Language, Help, Log out, in that order", order.every((i, n) => i >= 0 && (n === 0 || i > order[n - 1])), order)
+  check("  Settings opens the account's settings, Help the help center", /headerLink\("\/account\/settings\?section=account"\)[\s\S]{0,120}label="Settings"/.test(sheet) && /headerLink\("\/help"\)/.test(sheet))
+  check("  the computer's row is untouched: the bell, the heart and the photo menu are still there", /hidden md:flex items-center gap-2\.5 shrink-0/.test(header) && /\{desktopAccountMenu\}/.test(header))
+  const share = code("lib/profile/share-profile.ts")
+  check("Share profile: the phone's share sheet first, a cancel is final, else the link is copied", /nav\.share\(\{/.test(share) && /AbortError"\) return "cancelled"/.test(share) && /clipboard\?\.writeText\(input\.url\)/.test(share) && share.indexOf("nav.share(") < share.indexOf("writeText("))
+  check("  the address is the public /@handle on this origin", profileShareUrl("https://storelib.com", "Alex") === "https://storelib.com/@alex" && profileShareUrl("https://storelib.com/", "alex") === "https://storelib.com/@alex" && profileShareUrl("https://storelib.com", null) === null)
+  check("  and a copied link says so", /"Link copied"/.test(header) && /data-profile-share-note=\{shareNote\}/.test(header))
 }
 
 console.log("\nThe buyer tab bar and every internal link")
@@ -136,7 +185,7 @@ console.log("\nPush notifications: one switch, only where the route is")
 
 console.log("\nCopy")
 {
-  const files = ["lib/library/paths.ts", "lib/profile/owner-pills.ts", "app/library/[[...path]]/route.ts", "app/account/library/layout.tsx", "app/account/page.tsx", "app/account/communities/page.tsx", "components/account/account-hub.tsx", "components/account/push-switch-row.tsx", "components/account/cover-field.tsx", "components/profile/profile-owner-pills.tsx", "components/profile/profile-hero.tsx", "components/library/library-tab-list.ts", "scripts/check-account-center.mjs"].filter((f) => existsSync(join(root, f)))
+  const files = ["lib/library/paths.ts", "lib/profile/owner-pills.ts", "app/library/[[...path]]/route.ts", "app/account/library/layout.tsx", "app/account/page.tsx", "app/account/communities/page.tsx", "components/account/account-hub.tsx", "components/account/push-switch-row.tsx", "components/account/cover-field.tsx", "components/profile/profile-owner-pills.tsx", "components/profile/profile-hero.tsx", "components/library/library-tab-list.ts", "components/library/library-tabs.tsx", "components/account/account-column.tsx", "lib/profile/share-profile.ts", "scripts/check-account-center.mjs", "scripts/render-account-center.tsx"].filter((f) => existsSync(join(root, f)))
   const banned = /—|\b(unlock|elevate|seamless|powerful|effortless(ly)?|supercharge|transform)\b/i
   for (const f of files) check(`${f}: no em dash, no banned word`, !banned.test(read(f)), read(f).match(banned)?.[0])
 }

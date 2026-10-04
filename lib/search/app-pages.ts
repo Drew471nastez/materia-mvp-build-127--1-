@@ -23,10 +23,11 @@ export interface PageFlags {
 export const APP_PAGES: readonly AppPage[] = [
   { label: "Dashboard", href: "/app", group: "Pages", words: "home overview" },
   { label: "Products", href: "/app/products", group: "Pages", words: "digital downloads" },
-  { label: "New product", href: "/app/products/new", group: "Pages", words: "add create digital course membership sell" },
+  { label: "New product", href: "/app/products/new", group: "Pages", words: "add create digital course sell" },
   { label: "New course", href: "/app/products/new?type=course", group: "Pages", words: "video lessons create add" },
-  { label: "Memberships", href: "/app/memberships", group: "Pages", words: "subscription members monthly yearly posts updates community" },
-  { label: "Community", href: "/app/community", group: "Pages", words: "communities members spaces feed classroom events invite moderation", flag: "communities" },
+  /* No Memberships page here: memberships are communities now. Somebody who types it finds Community, while the switch is on. */
+  { label: "Community", href: "/app/community", group: "Pages", words: "communities members spaces feed classroom events invite moderation membership memberships subscription", flag: "communities" },
+  { label: "New community", href: "/app/community/new", group: "Pages", words: "paid community create add membership monthly yearly", flag: "communities" },
   { label: "Coupons", href: "/app/coupons", group: "Pages", words: "discount codes" },
   { label: "Reviews", href: "/app/reviews", group: "Pages", words: "ratings stars reply report buyers" },
   { label: "Orders", href: "/app/orders", group: "Pages", words: "sales refunds customers buyers" },

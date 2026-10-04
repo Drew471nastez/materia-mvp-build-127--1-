@@ -74,7 +74,8 @@ console.log("\nThe header, as on the library, at every width")
   check("the footer too", /\(\(pathname === "\/account" \|\| pathname\.startsWith\("\/account\/"\)\) && !pathname\.startsWith\("\/account\/continue"\)\)/.test(footer))
   /* "The profile page reached from Explore needs to have the header on it." The rule that kept it off a phone, and the wrapper that applied it, are both gone. */
   check("nothing hides it on a phone any more: no rule, no wrapper", !/hidesHeaderOnPhone/.test(header) && !/data-header-phone/.test(header))
-  check("the column is the profile's own width, the one /@handle draws at", /max-w-\[960px\] pt-4 pb-10 sm:pt-6/.test(layout) && /max-w-\[960px\]/.test(read("components/profile/member-profile-page.tsx")))
+  /* Round 5: the cover runs edge to edge, so the column is drawn under it by the hub (components/account/account-column.tsx), not around everything by the layout. */
+  check("the column is the profile's own width, the one /@handle draws at", /max-w-\[960px\] pb-10/.test(read("components/account/account-column.tsx")) && /"pt-4 sm:pt-6"/.test(read("components/account/account-column.tsx")) && /<AccountColumn>\{children\}<\/AccountColumn>/.test(layout) && /max-w-\[960px\]/.test(read("components/profile/member-profile-page.tsx")))
 }
 
 console.log("\nThe hub: your own profile page, as everybody sees it, with your pills")
@@ -85,18 +86,21 @@ console.log("\nThe hub: your own profile page, as everybody sees it, with your p
   check("in the layout, so the person stays put while the page changes", /<AccountHub identity=\{identity\} communities=\{communities\}>/.test(layout))
   /* "it is MY profile page, exactly the same page others see (same header, cover, avatar ...)" */
   check("the header is the one /@handle draws (ProfileHero), with the cover", /<ProfileHero\b/.test(hub) && /<ProfileHero\b/.test(code("components/profile/member-profile-page.tsx")) && /coverUrl: identity\.coverUrl/.test(hub))
-  check("photo, name, @username, the bio, when they joined, the follower counts", /useShellAvatar\(identity\.avatarUrl\)/.test(hub) && /@\{person\.username\}/.test(hero) && /Joined \{person\.memberSince\}/.test(hero) && /data-profile-bio=""/.test(hero) && /<ProfileSocial\b/.test(hero))
+  /* Round 5: no "Joined <month year>" line under the name any more (the activity ends on that day anyway). */
+  check("photo, name, @username, the bio, the follower counts, and no Joined line", /useShellAvatar\(identity\.avatarUrl\)/.test(hub) && /@\{person\.username\}/.test(hero) && !/Joined \{/.test(hero) && !/memberSince/.test(hero + hub + layout) && /data-profile-bio=""/.test(hero) && /<ProfileSocial\b/.test(hero))
   check("the photo is the account's live copy and opens in the creator page's lightbox", /<AvatarLightbox src=\{shown\} name=\{name\}>/.test(hub) && /<AccountAvatar\s+src=\{shown\}/.test(hub) && /cursor-zoom-in/.test(hero) && /className=\{PROFILE_AVATAR_CLASS\}/.test(hub))
   /* Round 4: five percent bigger on every profile, 118 / 134 from 112 / 128, one class shared with /@handle's hero so the two cannot drift. */
-  check("the photo is large: 118px on a phone, 134 from 640px, with a ring and a soft shadow, the same class as /@handle", /h-\[118px\] w-\[118px\]/.test(hero) && /sm:h-\[134px\] sm:w-\[134px\]/.test(hero) && /ring-4/.test(hero) && /shadow-\[0_1px_2px_rgba\(16,24,40,0\.08\),0_8px_20px_-10px_rgba\(16,24,40,0\.32\)\]/.test(hero) && /className=\{PROFILE_AVATAR_CLASS\}/.test(hub) && /export const PROFILE_AVATAR_CLASS/.test(hero))
+  /* Round 5: "the avatar border lighter (thinner, softer)": a 2px ring and a softer shadow. */
+  check("the photo is large: 118px on a phone, 134 from 640px, with a thin ring and a soft shadow, the same class as /@handle", /h-\[118px\] w-\[118px\]/.test(hero) && /sm:h-\[134px\] sm:w-\[134px\]/.test(hero) && /ring-2 ring-\[#f8f9fa\]/.test(hero) && !/ring-4/.test(hero) && /shadow-\[0_1px_2px_rgba\(16,24,40,0\.06\),0_6px_16px_-10px_rgba\(16,24,40,0\.2\)\]/.test(hero) && /className=\{PROFILE_AVATAR_CLASS\}/.test(hub) && /export const PROFILE_AVATAR_CLASS/.test(hero))
   check("the owner's pills under it", /<ProfileOwnerPills communities=\{communities\}/.test(hub))
-  check("when they joined is written on the server in UTC, so both renders agree", /timeZone: "UTC"/.test(layout) && /memberSince: memberSince\(user\.created_at\)/.test(layout))
   check("the bio, the cover and the counts reach the hub from the layout's own reads", /async function readBio\(userId: string\)/.test(layout) && /ownCover\(admin, user\.id\)/.test(layout) && /followCounts\(admin, user\.id\)/.test(layout))
-  check("Settings and a purchase opened from the library are screens of their own: the hub draws none of the person there", /if \(!showsProfileHeader\(pathname\)\) return <>\{children\}<\/>/.test(hub))
-  const where: Array<[string, boolean]> = [["/account", true], ["/account/communities", true], ["/account/library", true], ["/account/library/courses", true], ["/account/library/receipts/", true], ["/account/library/products/p1", false], ["/account/library/courses/c1", false], ["/account/library/memberships/m1", false], ["/account/settings", false]]
+  /* Round 5: "Library opens as its own page ... WITHOUT the profile hero above them (like /account/settings does)". */
+  check("Settings and the whole library are pages of their own: the hub draws none of the person there, only the profile's column", /if \(!showsProfileHeader\(pathname\)\) return <AccountColumn>\{children\}<\/AccountColumn>/.test(hub))
+  const where: Array<[string, boolean]> = [["/account", true], ["/account/communities", true], ["/account/library", false], ["/account/library/courses", false], ["/account/library/receipts/", false], ["/account/library/products/p1", false], ["/account/library/courses/c1", false], ["/account/library/memberships/m1", false], ["/account/settings", false]]
   for (const [path, want] of where) check(`  ${path}: ${want ? "the person over it" : "its own screen"}`, showsProfileHeader(path) === want)
-  const pills: Array<[string, string | null, string | null]> = [["/account", null, "activity"], ["/account/communities", null, "communities"], ["/account/library/wishlist", null, "library"], ["/account/settings", null, "edit"], ["/account/settings", "profile", "edit"], ["/account/settings", "account", "settings"], ["/account/settings", "privacy", "settings"], ["/explore", null, null]]
-  for (const [path, section, want] of pills) check(`  ${path}${section ? `?section=${section}` : ""} lights ${want ?? "no pill"}`, ownerPillFor(path, section) === want)
+  /* Edit profile is a button on the cover now, not a pill: every Settings address is the Settings pill. */
+  const pills: Array<[string, string | null]> = [["/account", "activity"], ["/account/communities", "communities"], ["/account/library/wishlist", "library"], ["/account/settings", "settings"], ["/account/settings?section=profile", "settings"], ["/account/settings?section=privacy", "settings"], ["/explore", null]]
+  for (const [path, want] of pills) check(`  ${path} lights ${want ?? "no pill"}`, ownerPillFor(path) === want)
 }
 
 console.log("\nNo light bar of the profile's own: one header on the screen")

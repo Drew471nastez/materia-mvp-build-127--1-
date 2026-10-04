@@ -153,12 +153,12 @@ import type { CommunitySettings } from "@/lib/store-builder/types"
 
 // Niche categories (mirrored from onboarding)
 const NICHE_PRIMARY = [
-  "Templates","Courses","Guides","Software","Assets","Memberships",
+  "Templates","Courses","Guides","Software","Assets","Communities",
   "Design Kits","Audio","Video","Education","Productivity","Marketing",
   "Business","Photography","Writing","Finance",
 ]
 const NICHE_EXTENDED = [
-  "3D Models","Animations","Apps","Art","Branding","Coaching","Community",
+  "3D Models","Animations","Apps","Art","Branding","Coaching",
   "Consulting","Content","Crafts","Data","Developer Tools","E-books",
   "Fashion","Fitness","Food & Recipes","Gaming","Graphics","Health",
   "Illustrations","Investing","Legal","Lifestyle","Music","Newsletter",

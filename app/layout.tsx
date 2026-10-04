@@ -2,7 +2,7 @@ import type React from "react"
 import type { Metadata, Viewport } from "next"
 /**
  * ===========================================================================
- *  ONE FONT THROUGH next/font, AND FIVE THROUGH A STYLESHEET
+ *  TWO FONTS THROUGH next/font, AND FIVE THROUGH A STYLESHEET
  * ===========================================================================
  *
  * `next/font/google` FETCHES FROM fonts.gstatic.com AT BUILD TIME, and a blip
@@ -19,6 +19,10 @@ import type { Metadata, Viewport } from "next"
  * Inter stays: it IS the interface, it is what `font-sans` resolves to, and
  * self-hosting it is worth a build-time dependency.
  *
+ * Roboto 500 is the second, by the owner's choice, for community card titles
+ * only (one weight, see `communityTitle` below): small, and self hosted like
+ * Inter so the strict CSP needs no new host.
+ *
  * The other five — Plus Jakarta Sans, Space Grotesk, DM Sans, Poppins,
  * Montserrat — are used by NOTHING in the marketplace. They exist for the
  * OnePage builder's theme picker, which writes them as raw CSS family names
@@ -32,7 +36,7 @@ import type { Metadata, Viewport } from "next"
  * it. The cost is one request; what it buys is that Google being slow can
  * neither stop this product shipping nor hold its first paint hostage.
  */
-import { Inter } from "next/font/google"
+import { Inter, Roboto } from "next/font/google"
 import "./globals.css"
 import { LocaleProvider } from "@/components/locale-provider"
 import { BodyScrollRestorer } from "@/components/body-scroll-restorer"
@@ -59,6 +63,24 @@ const inter = Inter({
   variable: "--font-inter",
   display: "swap",
   preload: true,
+})
+
+/*
+  ROBOTO 500, FOR COMMUNITY CARD TITLES AND NOTHING ELSE. The owner set the
+  title face of every community card (components/explore/community-card.tsx
+  COMMUNITY_TITLE) to Roboto 500, 18px on a 24px line. One weight, Latin and
+  Latin Extended (Romanian names need the second), self hosted by next/font
+  under /_next/static/media, so the CSP's font-src 'self' already allows it
+  and no page asks Google for anything. Not preloaded: a page without a
+  community card never downloads it; a page with one fetches it with the
+  card, and display swap keeps the name readable in the fallback meanwhile.
+*/
+const communityTitle = Roboto({
+  weight: ["500"],
+  subsets: ["latin", "latin-ext"],
+  variable: "--font-community-title",
+  display: "swap",
+  preload: false,
 })
 
 // Secondary fonts — used only in OnePage theme system.
@@ -217,7 +239,7 @@ export default function RootLayout({
         />
         <script dangerouslySetInnerHTML={{ __html: EXPLORE_SCROLL_BOOT_SCRIPT }} />
       </head>
-      <body className={`${inter.variable} font-sans antialiased bg-background text-foreground`}>
+      <body className={`${inter.variable} ${communityTitle.variable} font-sans antialiased bg-background text-foreground`}>
         <SWRProvider>
           <LocaleProvider>
             <ExploreMarketplaceRoot>{children}</ExploreMarketplaceRoot>

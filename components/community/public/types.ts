@@ -11,7 +11,7 @@
  * trigger kept member_count, prices come from the products that sell a tier,
  * and reviews are published reviews of those products.
  */
-import type { CommunityAccess, CommunityVisibility, CommunityStatus, MemberStatus, Role, TierBilling, TierKind } from "@/lib/communities/types"
+import type { CommunityAccess, CommunityCard, CommunityVisibility, CommunityStatus, MemberStatus, Role, TierBilling, TierKind } from "@/lib/communities/types"
 import type { GalleryItemView } from "./gallery"
 
 export type { GalleryItemView }
@@ -164,4 +164,6 @@ export interface LibraryCommunityRow {
   tierName: string | null
   memberCount: number
   url: string
+  /** The community as every list draws it (components/explore/community-card.tsx): the same stats row as Explore. */
+  card: CommunityCard
 }

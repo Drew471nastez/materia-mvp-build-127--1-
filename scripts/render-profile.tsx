@@ -27,6 +27,7 @@ import { SubscribeBar } from "@/components/store-builder/subscribe-bar"
 import { resolveStorefrontChrome } from "@/lib/store-builder/storefront-chrome"
 import type { SharedPostsPage, SharedPostView } from "@/lib/profile/shared-view"
 import { StorefrontTabs } from "@/components/storefront/storefront-tabs"
+import { creatorCommunitiesPanel } from "@/components/profile/creator-communities-tab"
 import { UnifiedShopHeader } from "@/components/store-builder/unified-section-renderer"
 import { UnifiedSectionRenderer } from "@/components/store-builder/unified-section-renderer"
 import { defaultAboutSettings, defaultShopHeaderSettings, defaultGlobalStoreSettings } from "@/lib/store-builder/defaults"
@@ -177,7 +178,7 @@ if (which === "other") {
       />
     </ProfileFrame>
   )
-} else if (which === "creator" || which === "creator-dark" || which === "creator-nobar" || which === "creator-noback") {
+} else if (which === "creator" || which === "creator-dark" || which === "creator-nobar" || which === "creator-noback" || which === "creator-none") {
   const dark = which === "creator-dark"
   /* Sales on the products, and both sales switches on: the hero must still not print them. */
   const products = [{ id: "p1", sales_count: 9 }, { id: "p2", sales_count: 5 }] as never
@@ -230,7 +231,8 @@ if (which === "other") {
               </div>
             ),
           },
-          { id: "activity", label: "Activity", panel: <div /> },
+          /* The page's own Communities tab: Maya made Clay Studio and only joined Night Runners, so only Clay Studio is hers to list; "creator-none" has made none. */
+          { id: "communities", label: "Communities", panel: creatorCommunitiesPanel(which === "creator-none" ? [] : communities.filter((c) => c.id === "clay-studio")) },
           { id: "about", label: "About", panel: <div /> },
         ]}
       />

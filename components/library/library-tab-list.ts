@@ -7,16 +7,20 @@
  *
  * THE LIBRARY IS INSIDE THE PROFILE NOW (lib/library/paths.ts): these are
  * the sub pills under the profile's Library pill, in the order the owner
- * gave them: Products, Courses, Memberships, Wishlist, Reviews, Receipts.
- * Communities is not one of them any more; it is a pill of the profile
- * itself (/account/communities), beside Activity.
+ * gave them: Products, Courses, Wishlist, Reviews, Receipts. Communities is
+ * not one of them; it is a pill of the profile itself (/account/communities).
+ *
+ * NO MEMBERSHIPS PILL. The owner: memberships are communities. A paid
+ * community's members find it under Communities; a membership bought on its
+ * own is a row of Products, labelled Membership (components/library/
+ * library-memberships.tsx), and its page still opens at
+ * /account/library/memberships/<id>.
  */
-import { LIBRARY_COURSES, LIBRARY_HOME, LIBRARY_MEMBERSHIPS, LIBRARY_RECEIPTS, LIBRARY_REVIEWS, LIBRARY_WISHLIST } from "@/lib/library/paths"
+import { LIBRARY_COURSES, LIBRARY_HOME, LIBRARY_RECEIPTS, LIBRARY_REVIEWS, LIBRARY_WISHLIST } from "@/lib/library/paths"
 
 export const LIBRARY_TABS = [
   { href: LIBRARY_HOME, label: "Products" },
   { href: LIBRARY_COURSES, label: "Courses" },
-  { href: LIBRARY_MEMBERSHIPS, label: "Memberships" },
   { href: LIBRARY_WISHLIST, label: "Wishlist" },
   { href: LIBRARY_REVIEWS, label: "Reviews" },
   { href: LIBRARY_RECEIPTS, label: "Receipts" },

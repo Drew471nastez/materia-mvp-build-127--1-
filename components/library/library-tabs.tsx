@@ -5,20 +5,25 @@ import { usePathname, useRouter } from "next/navigation"
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import type { PrefetchKind } from "next/dist/client/components/router-reducer/router-reducer-types"
 import { cleanPath as clean, libraryTabs, showsLibraryTabs } from "./library-tab-list"
+import { LIBRARY_TITLE, LIBRARY_TITLE_GAP } from "./library-ui"
 
 /**
  * ===========================================================================
  *  THE LIBRARY'S OWN PLACES
  * ===========================================================================
- * What a buyer comes here for is the things they bought, and those come in
- * three kinds that live on three screens: products (files to download),
- * courses (/account/library/courses) and memberships
- * (/account/library/memberships). Then what they have not bought yet: the
- * wishlist. Then what they did about them: reviews and receipts.
+ * What a buyer comes here for is the things they bought, and those live on
+ * two screens: products (files to download, and any membership bought on
+ * its own, labelled Membership) and courses (/account/library/courses).
+ * Then what they have not bought yet: the wishlist. Then what they did
+ * about them: reviews and receipts. Memberships are communities now, so
+ * they have no pill of their own (./library-tab-list.ts).
  *
- * THE LIBRARY IS A PILL OF THE PROFILE (/account/library), so this is the
- * second row: the profile's Library pill is the heading, and under it one
- * row of sub pills. The owner asked
+ * THE LIBRARY IS ITS OWN PAGE (/account/library): "Library opens as its own
+ * page ... WITHOUT the profile hero above them (like /account/settings
+ * does), with their own page title and the sub pills". So this is the
+ * page's head: the title, set as Settings sets its own (LIBRARY_TITLE), and
+ * under it one row of sub pills. The profile's Library pill still leads
+ * here. The owner asked
  * for separate pills rather than the underlined row it was, in Storelib's
  * own style, so each one is Explore's category pill (components/explore/
  * explore-page-client.tsx): white on a hairline, and the chosen one pressed
@@ -154,8 +159,9 @@ export function LibraryTabs() {
 
   return (
     <header data-library-header="" className="mb-5 sm:mb-6">
-      {/* No "Library" heading: the profile's own Library pill above is the heading (components/account/account-hub.tsx). */}
-      <h2 className="sr-only">Library</h2>
+      <h1 className={`${LIBRARY_TITLE} ${LIBRARY_TITLE_GAP}`} data-library-title="">
+        Library
+      </h1>
       <nav aria-label="Library" className="-mx-4 sm:mx-0">
         <div ref={trackRef} onScroll={measure} data-library-tabs="" data-fade={fade} className={`overflow-x-auto overscroll-x-contain px-4 py-0.5 scrollbar-hide sm:px-0 ${mask}`}>
           <div className="flex w-max items-center gap-2">
