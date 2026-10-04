@@ -41,6 +41,7 @@ import { startTransition, useCallback, useEffect, useLayoutEffect, useMemo, useR
 import type { FeedPostView, ViewerView } from "@/lib/communities/types"
 import { api, apiBase } from "./api"
 import { Composer, type ComposerProps } from "./composer"
+import { FeedLive } from "./feed-live"
 import {
   FRESH_MS,
   addPost,
@@ -408,6 +409,7 @@ export function CommunityFeed({ communityId, slug, viewer, spaces, start, initia
         </>
       ) : null}
 
+      <FeedLive communityId={communityId} viewerId={viewer.userId} feedKey={key} target={target} sort={sort} onView={(v) => setShown({ key, view: v })} />
       <div className="space-y-3" data-feed={target.kind === "saved" ? "saved" : "feed"}>
         {onboarding && target.kind === "all" ? <Onboarding communityId={communityId} data={onboarding} /> : null}
         {composerProps ? <Composer key={target.kind === "space" ? target.id : target.kind} {...composerProps} onPosted={onPosted} /> : null}
