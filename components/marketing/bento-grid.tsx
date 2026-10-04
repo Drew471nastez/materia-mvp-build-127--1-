@@ -333,7 +333,7 @@ export function BentoGrid() {
             <div className="rounded-3xl p-7 pb-5 sm:p-9 md:pb-4 bg-neutral-100 min-h-[320px] flex flex-col">
               <h3 className="text-2xl font-semibold tracking-tight leading-snug mb-2.5">Sell anything</h3>
               <p className="text-sm leading-relaxed text-neutral-500 max-w-[320px] mb-0">
-                Courses, digital products, memberships, bookings — if you made it, you can sell it here on Storelib.
+                Courses, digital products, communities, bookings. If you made it, you can sell it here on Storelib.
               </p>
               <div className="mt-3 sm:mt-2.5 flex-1 flex items-end justify-center overflow-hidden relative min-h-[100px] sm:min-h-[180px]">
                 {/* Mobile image */}

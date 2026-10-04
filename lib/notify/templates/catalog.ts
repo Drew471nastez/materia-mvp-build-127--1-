@@ -561,7 +561,7 @@ export const CATALOG: Record<NotificationType, Entry> = {
     preview: "Your store is ready. Here is where to start.",
     heading: "Welcome to Storelib",
     paragraphs: [
-      "Thanks for signing up. Storelib gives you one place to sell what you make: products, downloads, courses, services, memberships or anything else, with your own store, website and link in bio page.",
+      "Thanks for signing up. Storelib gives you one place to sell what you make: products, downloads, courses, services, communities or anything else, with your own store, website and link in bio page.",
       "Most people start with two things: adding their first product and setting up payments, so the first sale can pay out. Each takes a few minutes.",
       "Everything else, like your website, emails and discount codes, can wait until you are ready.",
     ],
