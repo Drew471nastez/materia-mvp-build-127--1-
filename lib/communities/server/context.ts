@@ -24,6 +24,7 @@ import { allowedActions, can, type CommunityAction } from "../permissions"
 import { COMMUNITY_COLUMNS, type CommunityRow, type MemberRow, type MemberStatus, type Role, type ViewerView } from "../types"
 import { grantMembership, ownedProductIds, reconcileAccess } from "./membership"
 import { admin, missing, reasonOf, type Db } from "./db"
+import { communityIdForOldSlug } from "./slug-history"
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -60,7 +61,7 @@ const NOBODY: Viewer = {
   mutedUntil: null,
 }
 
-/** A community by its address or its id, or null (not there, deleted, or part 81 not run). */
+/** A community by its address (or an address it used to have) or its id, or null (not there, deleted, or part 81 not run). */
 export async function loadCommunity(db: Db, key: { slug: string } | { id: string }): Promise<CommunityRow | null> {
   try {
     let q = db.from("communities").select(COMMUNITY_COLUMNS)
@@ -77,7 +78,18 @@ export async function loadCommunity(db: Db, key: { slug: string } | { id: string
       if (!missing(error)) console.error(`[communities] community read: ${reasonOf(error)}`)
       return null
     }
-    return (data as CommunityRow | null) ?? null
+    if (data) return data as CommunityRow
+    /*
+      AN OLD ADDRESS (run-now part 94): nobody is at it now, but a community
+      was, so it answers with that community under its current address. The
+      community's layout compares the two and sends the visitor on
+      (app/(marketing)/community/[slug]/layout.tsx, lib/communities/slug-move.ts).
+    */
+    if ("slug" in key) {
+      const moved = await communityIdForOldSlug(db, key.slug)
+      if (moved) return loadCommunity(db, { id: moved })
+    }
+    return null
   } catch (e) {
     console.error(`[communities] community read: ${reasonOf(e)}`)
     return null

@@ -175,14 +175,14 @@ async function main() {
   console.log("\nThe community's top bar")
   {
     const bar = code("components/community/member/top-bar.tsx")
-    check("logo and name go to the community's home", /<Link href=\{base\} aria-label=\{`\$\{community\.name\}, home`\}/.test(bar) && /<Link href=\{base\} className="block truncate/.test(bar))
+    check("logo and name go to the community's home", /<Link href=\{base\} aria-label=\{`\$\{community\.name\}, home`\}/.test(bar) && /<Link href=\{base\} className="line-clamp-2 /.test(bar))
     check("By <creator> opens the creator's page", /By\{" "\}[\s\S]{0,80}<Link href=\{creator\.href\}/.test(bar))
     check("no chevron switcher any more", !/ChevronsUpDown|Switch community|data-community-switcher/.test(bar))
     const render = bar.slice(bar.indexOf("<header"))
     check("the hamburger RIGHT of the picture and the name on a computer: Storelib's navigator, marked as this community", /<PlaceNavigator current=\{\{ kind: "community", id: community\.id \}\}/.test(render) && render.indexOf("<CommunityMark") < render.indexOf("<PlaceNavigator") && render.indexOf("data-community-identity") < render.indexOf("<PlaceNavigator") && render.indexOf("<PlaceNavigator") < render.indexOf("data-community-top-actions"))
     /* Round 7, ask 5: on a phone the hamburger moves LEFT of the picture, by order (one navigator, not two). */
     check("round 7: on a phone it sits LEFT of the picture (order-first), from 768px back after the name; one navigator", /<div className="order-first flex shrink-0 md:order-none[^"]*" data-community-hamburger="">\s*<PlaceNavigator /.test(render) && (render.match(/<PlaceNavigator /g) || []).length === 1)
-    check("round 7: taller, not fat: a 56px row on a phone and a tablet, 64px from 1024px, the tabs a row of their own under it below 1024px", /data-community-top-lead=""/.test(bar) && /"flex h-14 min-w-0 flex-1 items-center gap-2 md:gap-3 lg:h-16"/.test(bar) && /flex h-14 shrink-0 items-center[^"]*lg:h-16/.test(bar) && /"order-last -mx-4 min-w-0 basis-\[calc\(100%\+2rem\)\] sm:-mx-6 sm:basis-\[calc\(100%\+3rem\)\] lg:-mx-8 lg:basis-\[calc\(100%\+4rem\)\]", !tabsOnDesktop && "lg:hidden"/.test(bar))
+    check("round 7: taller, not fat: a 56px row on a phone and a tablet, 64px from 1024px, the tabs a row of their own under it below 1024px", /data-community-top-lead=""/.test(bar) && /"flex h-14 min-w-0 flex-1 items-center gap-1\.5 min-\[400px\]:gap-2 md:gap-3 lg:h-16"/.test(bar) && /flex h-14 shrink-0 items-center[^"]*lg:h-16/.test(bar) && /"order-last -mx-4 min-w-0 basis-\[calc\(100%\+2rem\)\] sm:-mx-6 sm:basis-\[calc\(100%\+3rem\)\] lg:-mx-8 lg:basis-\[calc\(100%\+4rem\)\]", !tabsOnDesktop && "lg:hidden"/.test(bar))
     check("round 7: the community's picture a bit bigger (36px on a phone, 40px from 768px), the bell and Messages 24px glyphs", /<CommunityMark community=\{community\} size=\{36\} \/>/.test(bar) && /<CommunityMark community=\{community\} size=\{40\} \/>/.test(bar) && /\[&_svg\.lucide-bell\]:h-6 \[&_svg\.lucide-bell\]:w-6/.test(bar) && /<ChatLine size=\{24\} \/>/.test(bar))
     check("round 7: By <creator> on a computer only", /<p className="hidden truncate[^"]*md:block" data-community-by="">/.test(bar))
     const ui = code("components/community/member/ui.ts")
@@ -235,7 +235,7 @@ async function main() {
     check("a space, a post, Saved and the inbox mark Community", ["/community/s/space/x", "/community/s/post/p", "/community/s/saved", "/community/s/notifications", "/community/s"].every((p) => tabFor(sectionFromPath(p, "s")) === "home"))
     check("About marks About; Calendar marks on an event; an old member address marks Members", tabFor(sectionFromPath("/community/s/about", "s")) === "about" && tabFor(sectionFromPath("/community/s/events/e1", "s")) === "events" && tabFor(sectionFromPath("/community/s/members/u1", "s")) === "members")
     const frameCode = code("components/community/member/shell-frame.tsx")
-    check("the tabs are plain words, not pills", /<SectionTabs entries=\{entries\} current=\{tab\} wide=\{!about\} onGo=\{goTo\} \/>/.test(frameCode) && /const tab = going\?\.key \?\? tabFor\(current\)/.test(frameCode) && /className=\{`\$\{TAB\} \$\{on \? TAB_ON : TAB_OFF\}`\}/.test(frameCode) && !/PillRow|PILL_ON|PILL_OFF/.test(frameCode))
+    check("the tabs are plain words, not pills", /<SectionTabs entries=\{entries\} current=\{tab\} wide=\{!about\} onGo=\{goTo\}( trailing=\{[^\n]*\})? \/>/.test(frameCode) && /const tab = going\?\.key \?\? tabFor\(current\)/.test(frameCode) && /className=\{`\$\{TAB\} \$\{on \? TAB_ON : TAB_OFF\}`\}/.test(frameCode) && !/PillRow|PILL_ON|PILL_OFF/.test(frameCode))
     const ui = code("components/community/member/ui.ts")
     const tab = /export const TAB =\s*"([^"]+)"/.exec(ui)?.[1] ?? ""
     check("a tab has no box: no border, no fill, no rounding; a 40px row of its own", !!tab && !/(^|\s)(border|bg-\[|rounded)/.test(tab) && /(^|\s)h-10(\s|$)/.test(tab) && !/lg:h-14/.test(tab), tab)
@@ -574,7 +574,7 @@ async function main() {
     check("a face and a contributor open the person and their card", (wall.match(/data-person-id=\{/g) || []).length >= 2 && /memberHref\(community\.slug, f\)/.test(wall))
     check("the places: soft tiles of their own tint, a Solar line glyph and the bold one for the open place, a Solar chevron each (one family, no lucide)", /const PLACE_LOOK: Record<TabKey/.test(wall) && /const Icon = on \? look\.bold : look\.line/.test(wall) && /<ChevronLine size=\{16\} \/>/.test(wall) && /from "@solar-icons\/react\/linear\/alt-arrow-right"/.test(wall) && !/ChevronRight/.test(wall) && /aria-current=\{on \? "page" : undefined\}/.test(wall))
     check("round 7, ask 7: the card has no storelib.com/community/<slug> line", !/data-wall-address|storelib\.com\{base\}/.test(wall))
-    check("round 7, ask 11: Settings and View event carry the little depth", /\$\{DEPTH\} \$\{DEPTH_PRESS\}[^`]*`\} data-wall-settings=""/.test(wall) && /\$\{DEPTH\} \$\{DEPTH_PRESS\}[^`]*`\} data-wall-view-event=""/.test(wall))
+    check("round 7, ask 11: Settings and View event carry the little depth", /const CARD_ACTION = `[^`]*\$\{DEPTH\} \$\{DEPTH_PRESS\}[^`]*`/.test(wall) && /className=\{CARD_ACTION\} data-wall-settings=""/.test(wall) && /\$\{DEPTH\} \$\{DEPTH_PRESS\}[^`]*`\} data-wall-view-event=""/.test(wall))
     check("Upcoming event: the date tile and time in the viewer's zone, N going only when somebody is, View event and View all", /<DateTile startsAt=\{event\.startsAt\} \/>/.test(wall) && /<EventWhen /.test(wall) && /\{event\.going > 0 \?/.test(wall) && /View event/.test(wall) && /href=\{`\$\{base\}\/events`\}/.test(wall))
     check("no violet in the wall", !/8b5cf6|7c3aed|violet|purple/i.test(code("components/community/member/wall.tsx")))
 

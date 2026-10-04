@@ -59,6 +59,8 @@ import { FULL_ON_HOVER, navEntries, rightColumnFor, sectionFromPath, tabFor, typ
 import { PersonCardLayer } from "./person-card"
 import { Toasts } from "./toast"
 import { CommunityTopBar } from "./top-bar"
+import { InviteGlyph } from "./invite-glyph"
+import { InviteSheet } from "./invite-sheet"
 import { TAB, TAB_OFF, TAB_ON } from "./ui"
 import type { ShellCommunity, ShellSection, TopBarData, WallData } from "./view-types"
 import { plainClick, WallCommunityCard, WallContributorsCard, WallPlaces, WallUpcoming } from "./wall"
@@ -127,6 +129,12 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
   const entries = useMemo(() => navEntries(community, staff), [community, staff])
   const [messages, refreshMessages] = useUnreadMessages(community.id, viewer.userId, unreadMessages)
   const [chat, setChat] = useState<{ userId?: string } | null>(null)
+  /* Round 8: the invite sheet, opened from the card or the end of the tabs. */
+  const [inviting, setInviting] = useState(false)
+  const openInvite = useCallback(() => setInviting(true), [])
+  const canInvite = !!viewer.can.invite && !community.archived
+  /* The creator side's list of invites, for whoever has it (the owner, or a creator account that runs this community). */
+  const manageInvites = canInvite && (viewer.isOwner || viewer.isCreatorAccount) ? `/app/community/${community.id}/members` : null
 
   usePresenceHeartbeat(community.id, viewer.userId)
   /* The bar is white, so the browser's bar and the phone's status bar are too. */
@@ -191,7 +199,7 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
         search={{ communityId: community.id }}
         tabsOnDesktop={about}
       >
-        <SectionTabs entries={entries} current={tab} wide={!about} onGo={goTo} />
+        <SectionTabs entries={entries} current={tab} wide={!about} onGo={goTo} trailing={community.archived ? null : <InviteTab onInvite={openInvite} />} />
       </CommunityTopBar>
 
       {/*
@@ -211,7 +219,7 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
           >
             {/* LEFT: the community card. */}
             <div className="hidden min-w-0 lg:col-start-1 lg:row-start-1 lg:block" data-community-left="">
-              {wall ? <WallCommunityCard community={community} card={wall.card} membersHref={membersHref} /> : null}
+              {wall ? <WallCommunityCard community={community} card={wall.card} membersHref={membersHref} onInvite={community.archived ? undefined : openInvite} /> : null}
             </div>
             {/* RIGHT from 1280px (under the card from 1024px): the places, then the next event, sticking under the bar. */}
             <aside className="hidden min-w-0 lg:col-start-1 lg:row-start-2 lg:mt-3 lg:block xl:col-start-3 xl:row-span-2 xl:row-start-1 xl:mt-0 xl:self-stretch" data-community-right="">
@@ -235,6 +243,7 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
         </div>
       )}
 
+      {community.archived ? null : <InviteSheet open={inviting} onClose={() => setInviting(false)} community={community} staff={canInvite} manageHref={manageInvites} />}
       <PersonCardLayer communityId={community.id} canMessage={canMessage} />
       {canMessage ? <MessagesPanel communityId={community.id} slug={community.slug} userId={viewer.userId} open={!!chat} start={chat} onClose={() => setChat(null)} onRead={refreshMessages} /> : null}
       <Toasts />
@@ -251,7 +260,7 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
  * keeps the chosen tab in view, and fades at an edge only while there is
  * more that way.
  */
-export function SectionTabs({ entries, current, wide = true, onGo }: { entries: NavEntry[]; current: TabKey; wide?: boolean; onGo?: (key: TabKey) => void }) {
+export function SectionTabs({ entries, current, wide = true, onGo, trailing = null }: { entries: NavEntry[]; current: TabKey; wide?: boolean; onGo?: (key: TabKey) => void; /** Pinned at the row's right end, outside what scrolls (round 8: Invite). */ trailing?: React.ReactNode }) {
   const trackRef = useRef<HTMLDivElement>(null)
   const [edges, setEdges] = useState({ left: false, right: false })
   const measure = () => {
@@ -276,26 +285,58 @@ export function SectionTabs({ entries, current, wide = true, onGo }: { entries: 
   }, [current])
   return (
     <nav aria-label="Community sections" data-community-tabs="" className="relative w-full">
-      <div ref={trackRef} onScroll={measure} className="overflow-x-auto overscroll-x-contain scrollbar-hide">
-        <div className={`mx-auto flex w-max min-w-full items-end gap-6 px-4 sm:gap-7 sm:px-6 lg:px-8 ${wide ? "lg:max-w-[1360px]" : "lg:max-w-[1080px]"}`}>
-          {entries.map((e) => {
-            const on = current === e.key
-            return (
-              <Link key={e.key} href={e.href} {...FULL_ON_HOVER} onClick={(ev) => { if (plainClick(ev)) onGo?.(e.key) }} data-on={on ? "true" : "false"} data-community-nav={e.label} aria-current={on ? "page" : undefined} className={`${TAB} ${on ? TAB_ON : TAB_OFF}`}>
-                {e.label}
-                <span
-                  aria-hidden
-                  data-tab-line=""
-                  className={`pointer-events-none absolute inset-x-0 bottom-0 h-[2px] rounded-full bg-[#1a1a2e] transition-[opacity,scale] duration-200 ease-sheet motion-reduce:transition-none ${on ? "scale-x-100 opacity-100" : "scale-x-50 opacity-0"}`}
-                />
-              </Link>
-            )
-          })}
+      {/* The row lines up with the page under it (1360px, About's 1080px); only the tabs scroll, so an action pinned at the end stays put. */}
+      <div className={`mx-auto flex w-full items-stretch ${wide ? "lg:max-w-[1360px]" : "lg:max-w-[1080px]"}`}>
+        <div className="relative min-w-0 flex-1">
+          <div ref={trackRef} onScroll={measure} className="overflow-x-auto overscroll-x-contain scrollbar-hide" data-community-tabs-track="">
+            <div className={`flex w-max min-w-full items-end gap-6 px-4 sm:gap-7 sm:px-6 lg:px-8 ${trailing ? "pr-4 sm:pr-5 lg:pr-5" : ""}`}>
+              {entries.map((e) => {
+                const on = current === e.key
+                return (
+                  <Link key={e.key} href={e.href} {...FULL_ON_HOVER} onClick={(ev) => { if (plainClick(ev)) onGo?.(e.key) }} data-on={on ? "true" : "false"} data-community-nav={e.label} aria-current={on ? "page" : undefined} className={`${TAB} ${on ? TAB_ON : TAB_OFF}`}>
+                    {e.label}
+                    <span
+                      aria-hidden
+                      data-tab-line=""
+                      className={`pointer-events-none absolute inset-x-0 bottom-0 h-[2px] rounded-full bg-[#1a1a2e] transition-[opacity,scale] duration-200 ease-sheet motion-reduce:transition-none ${on ? "scale-x-100 opacity-100" : "scale-x-50 opacity-0"}`}
+                    />
+                  </Link>
+                )
+              })}
+            </div>
+          </div>
+          {/* The fade is a layer over the row, not a mask on it, so measuring the scroll never repaints the row. */}
+          <span aria-hidden className={`pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-white to-transparent transition-opacity duration-200 ${edges.left ? "opacity-100" : "opacity-0"}`} />
+          <span aria-hidden className={`pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-white to-transparent transition-opacity duration-200 ${edges.right ? "opacity-100" : "opacity-0"}`} />
         </div>
+        {trailing ? (
+          <div className="flex shrink-0 items-center pr-2 sm:pr-4 lg:pr-6" data-community-tabs-end="">
+            <span aria-hidden className="mr-1 h-5 w-px bg-[#e6e8ec]" />
+            {trailing}
+          </div>
+        ) : null}
       </div>
-      {/* The fade is a layer over the row, not a mask on it, so measuring the scroll never repaints the row. */}
-      <span aria-hidden className={`pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-white to-transparent transition-opacity duration-200 ${edges.left ? "opacity-100" : "opacity-0"}`} />
-      <span aria-hidden className={`pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-white to-transparent transition-opacity duration-200 ${edges.right ? "opacity-100" : "opacity-0"}`} />
     </nav>
+  )
+}
+
+/**
+ * INVITE, AT THE END OF THE ROW OF TABS: where a phone and a tablet (and
+ * About, which has no card) find it, since the community card with its own
+ * Invite is a computer's. Plain ink words with Solar's person and plus, no
+ * box, a 40px target; it opens the invite sheet (invite-sheet.tsx).
+ */
+export function InviteTab({ onInvite }: { onInvite: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onInvite}
+      aria-haspopup="dialog"
+      data-community-invite="tabs"
+      className="inline-flex h-10 shrink-0 cursor-pointer select-none items-center gap-1.5 rounded-[10px] px-2 text-[14.5px] font-medium text-[#1a1a2e] outline-none transition-opacity duration-150 active:opacity-60 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 motion-reduce:transition-none sm:text-[14px] [-webkit-tap-highlight-color:transparent]"
+    >
+      <InviteGlyph size={18} className="text-[#4b5563]" />
+      Invite
+    </button>
   )
 }

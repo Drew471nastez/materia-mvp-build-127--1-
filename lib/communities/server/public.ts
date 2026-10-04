@@ -36,9 +36,9 @@ import type { TopBarCommunity, TopBarData } from "@/components/community/member/
 import { parseGallery, payingTenure, type GalleryItemView } from "@/components/community/public/gallery"
 import { checkoutPath, communityPath } from "@/components/community/public/paths"
 import { decideJoin } from "@/components/community/public/join-state"
-import type { SeoFacts } from "@/components/community/public/seo"
+import { shareImageVersion, type SeoFacts } from "@/components/community/public/seo"
 import type { AccessProductLink, JoinOption, LibraryCommunityRow, PublicCommunityView, PublicCreatorView, PublicReviewView, SalesPageData } from "@/components/community/public/types"
-import { priceLine } from "../format"
+import { compactCount, priceLine } from "../format"
 import { can, meetsRole } from "../permissions"
 import { TIER_COLUMNS, type CommunityCard, type CommunityRow, type Role, type TierRow } from "../types"
 import { communitiesEnabled } from "../flag"
@@ -480,7 +480,18 @@ export function seoFacts(c: CommunityRow): SeoFacts {
     logoUrl: c.logo_url,
     indexable: communityIndexable(c),
     creatorName: null,
+    /* The drawn picture (share.png): what it is drawn from, so its address changes when the picture would. */
+    shareVersion: shareImageVersion([c.name, c.tagline, c.logo_url, c.cover_url, compactCount(c.member_count ?? 0), c.access, c.updated_at]),
   }
+}
+
+/**
+ * Whether a link to this community may show anything about it: a draft and a
+ * suspended or deleted community show nothing (no name, no picture), as
+ * their pages are a 404 to everyone but their staff.
+ */
+export function sharePreviewable(c: Pick<CommunityRow, "status" | "suspended_at" | "deleted_at">): boolean {
+  return c.status !== "draft" && c.status !== "suspended" && !c.suspended_at && !c.deleted_at
 }
 
 /**

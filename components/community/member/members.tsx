@@ -20,7 +20,7 @@ import { PageTitle } from "./headers"
 import { openMessages } from "./messages"
 import { memberHref } from "./person-href"
 import { BTN_SECONDARY, CARD, ICON_BTN, PILL, PILL_OFF, PILL_ON } from "./ui"
-import { roleTag } from "./view-types"
+import { RoleBadge } from "./role-badge"
 
 type Filter = "all" | "admin" | "moderator"
 
@@ -123,15 +123,14 @@ export function MembersDirectory({ communityId, slug, memberCount, initial, meId
 }
 
 export function MemberRow({ m, slug, canMessage = false }: { m: Pick<MemberView, "userId" | "name" | "username" | "avatarUrl" | "role" | "level" | "levelName" | "bio" | "hasStorefront">; slug: string; canMessage?: boolean }) {
-  const tag = roleTag(m.role as Role)
   return (
     <div className="flex items-center pr-2 transition-colors hover:bg-[#f8f9fa] sm:pr-3">
     <Link href={memberHref(slug, { id: m.userId, username: m.username, hasStorefront: m.hasStorefront })} data-person-link="" data-person-id={m.userId} className="flex min-h-[64px] min-w-0 flex-1 items-center gap-3 py-3 pl-4 pr-2 sm:pl-5">
       <AppAvatar src={m.avatarUrl} name={m.name} alt="" size={44} markWhileLoading />
       <span className="min-w-0 flex-1">
-        <span className="flex items-center gap-1.5">
+        <span className="flex items-center gap-2">
           <span className="truncate text-[15px] font-semibold text-[#1a1a2e]">{m.name}</span>
-          {tag ? <span className="shrink-0 rounded-md bg-[#f1f2f4] px-1.5 text-[11.5px] font-medium leading-[18px] text-[#4b5563]">{tag}</span> : null}
+          <RoleBadge role={m.role as Role} />
         </span>
         <span className="block truncate text-[13px] text-[#6b7280]">{m.bio || (m.username ? `@${m.username}` : `Level ${m.level}${m.levelName ? ` · ${m.levelName}` : ""}`)}</span>
       </span>

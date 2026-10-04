@@ -38,7 +38,8 @@ import { openMessages } from "./messages"
 import { activeLabel, CARD_GRACE_MS, CARD_OPEN_MS, CARD_TTL_MS, communitiesLine, hoverPointer, ownerLine } from "./person-card-facts"
 import { toast } from "./toast"
 import { BTN } from "./ui"
-import { roleTag, type PersonCardView } from "./view-types"
+import type { PersonCardView } from "./view-types"
+import { RoleBadge } from "./role-badge"
 
 const WIDTH = 344
 const GAP = 8
@@ -300,7 +301,6 @@ function PersonCard({ anchor, person, leaving, canMessage, onFollowed, onDone, r
     onError: (message) => toast(message === "Not signed in" ? "Sign in to follow people." : message),
   })
   const following = follow.following
-  const tag = roleTag(person.role)
   const active = activeLabel(person.activeAt)
   const lines = [communitiesLine(person.communities), ownerLine(person.owns)].filter(Boolean)
   const hasPage = person.href !== "/"
@@ -381,9 +381,9 @@ function PersonCard({ anchor, person, leaving, canMessage, onFollowed, onDone, r
           ) : null}
         </span>
         <div className="min-w-0 flex-1 pt-0.5">
-          <p className="flex min-w-0 items-center gap-1.5">
+          <p className="flex min-w-0 items-center gap-2">
             <span className="truncate text-[16px] font-semibold leading-6 text-[#1a1a2e]">{person.name}</span>
-            {tag ? <span className="shrink-0 rounded-md bg-[#f1f2f4] px-1.5 text-[11px] font-medium leading-[18px] text-[#4b5563]">{tag}</span> : null}
+            <RoleBadge role={person.role} />
           </p>
           <p className="truncate text-[13px] leading-5 text-[#6b7280]">
             {[person.username ? `@${person.username}` : null, person.level ? `Level ${person.level}${person.levelName ? ` ${person.levelName}` : ""}` : null].filter(Boolean).join(" · ")}

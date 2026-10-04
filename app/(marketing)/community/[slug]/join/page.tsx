@@ -1,6 +1,9 @@
 import type { Metadata } from "next"
 import { notFound, redirect } from "next/navigation"
 import { connection } from "next/server"
+import { communitiesEnabled } from "@/lib/communities/flag"
+import { communityBySlug, seoFacts, sharePreviewable } from "@/lib/communities/server/public"
+import { communityMetadata, inviteMetadata } from "@/components/community/public/seo"
 import { memberPage } from "@/components/community/member/data"
 import { InviteLanding } from "@/components/community/member/invite-landing"
 
@@ -13,7 +16,21 @@ import { InviteLanding } from "@/components/community/member/invite-landing"
  * Only the community's public face is shown (name, picture, tagline,
  * members); the token itself is never shown or stored by the page.
  */
-export const metadata: Metadata = { title: "Join", robots: { index: false, follow: false } }
+/**
+ * WHAT AN INVITE LINK SHOWS WHEN IT IS SHARED: the community's public face
+ * (its name, line and the drawn picture with "You're invited", share.png
+ * ?invite=1), never indexed, and nothing an invite lets in. The token is not
+ * read here: a preview never learns whether it is valid.
+ */
+export async function generateMetadata({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ invite?: string }> }): Promise<Metadata> {
+  const plainJoin: Metadata = { title: "Join", robots: { index: false, follow: false } }
+  await connection()
+  if (!(await communitiesEnabled())) return plainJoin
+  const [{ slug }, { invite }] = await Promise.all([params, searchParams])
+  const community = await communityBySlug(slug)
+  if (!community || !sharePreviewable(community)) return plainJoin
+  return typeof invite === "string" && invite ? inviteMetadata(seoFacts(community)) : { ...communityMetadata(seoFacts(community)), title: `Join ${community.name}`, robots: { index: false, follow: false } }
+}
 
 export default async function CommunityJoinPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ invite?: string }> }) {
   await connection()

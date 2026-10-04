@@ -3,7 +3,7 @@ import { notFound, permanentRedirect } from "next/navigation"
 import { connection } from "next/server"
 import { currentUserForRequest } from "@/lib/auth/request-scope"
 import { communitiesEnabled } from "@/lib/communities/flag"
-import { communityBySlug, loadSalesPage, seoFacts } from "@/lib/communities/server/public"
+import { communityBySlug, sharePreviewable, loadSalesPage, seoFacts } from "@/lib/communities/server/public"
 import { scheduleCommunityView } from "@/lib/communities/server/record-view"
 import { CommunitySalesPage } from "@/components/community/public/sales-page"
 import { communityMetadata } from "@/components/community/public/seo"
@@ -19,7 +19,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   if (!(await communitiesEnabled())) return { robots: { index: false, follow: false } }
   const { slug } = await params
   const community = await communityBySlug(slug)
-  if (!community) return { robots: { index: false, follow: false } }
+  /* A draft or a suspended community says nothing about itself to a link preview either. */
+  if (!community || !sharePreviewable(community)) return { robots: { index: false, follow: false } }
   return communityMetadata(seoFacts(community), { about: true })
 }
 

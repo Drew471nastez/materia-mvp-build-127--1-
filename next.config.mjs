@@ -58,6 +58,8 @@ const nextConfig = {
     '/api/payments/airwallex/return': ['./lib/checkout/fonts/**'],
     /* The OnePage share image draws its words in the same Inter, read by path. */
     '/*/links/share.png': ['./lib/checkout/fonts/**'],
+    /* A shared community link's picture, the same Inter (app/(marketing)/community/[slug]/share.png). */
+    '/community/*/share.png': ['./lib/checkout/fonts/**'],
   },
   typescript: {
     ignoreBuildErrors: true,

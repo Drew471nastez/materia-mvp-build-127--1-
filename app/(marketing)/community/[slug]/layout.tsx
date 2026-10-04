@@ -1,6 +1,9 @@
 import type { Metadata } from "next"
 import type React from "react"
+import { headers } from "next/headers"
+import { permanentRedirect } from "next/navigation"
 import { connection } from "next/server"
+import { COMMUNITY_PATH_HEADER, movedCommunityPath } from "@/lib/communities/slug-move"
 import { meetsRole } from "@/lib/communities/permissions"
 import { memberPage, type MemberPage } from "@/components/community/member/data"
 import { CommunityPublicShell, CommunityShell } from "@/components/community/member/shell"
@@ -40,6 +43,19 @@ export default async function CommunitySlugLayout({ children, params }: { childr
   await connection()
   const { slug } = await params
   const page = await memberPage(slug)
+  /*
+    AN OLD OR DIFFERENTLY CASED ADDRESS goes on to the community's own, with
+    the rest of the path and the query (a 308, so a link keeps its method and
+    a search engine moves its record): /community/old/post/1?c=2 is
+    /community/new/post/1?c=2. Here, above every page and before anything is
+    streamed, so the member area, About, the invite landing and a post all
+    answer it the same, and a real 308 leaves rather than a page that
+    redirects itself. Only for somebody who may see the community at all: a
+    draft or a suspended one stays a plain 404 at any address.
+  */
+  if (page.community && page.community.slug !== slug && barVisible(page)) {
+    permanentRedirect(movedCommunityPath(slug, page.community.slug, (await headers()).get(COMMUNITY_PATH_HEADER)))
+  }
   if (page.state === "member" && page.community && page.viewer) {
     return (
       <CommunityShell community={page.community} viewer={page.viewer}>
