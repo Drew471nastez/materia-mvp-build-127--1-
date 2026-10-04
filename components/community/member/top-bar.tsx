@@ -5,29 +5,31 @@
  *  THE COMMUNITY'S OWN TOP BAR
  * ===========================================================================
  * Every page of a community carries this bar instead of Storelib's: it is
- * somebody's community, so the bar says whose. At the left the community's
- * picture and name with "By <creator>" under it (their page, in this tab),
- * and a switcher: the other communities this person is in, Discover
- * communities and Explore Storelib, which is how somebody inside a community
- * still reaches everything else. At the right, for a member, Messages (the
- * conversations panel, with how many have something unread); for anybody
- * signed in, Storelib's bell (components/notifications/notification-bell.tsx:
- * everything that happened for them, communities included, in one list) and
- * their picture with their profile, library, settings and Explore; for a
- * visitor, Log in.
+ * somebody's community, so the bar says whose. At the left the hamburger,
+ * which opens Storelib's one navigator (the same one the Storelib header's
+ * hamburger opens: my communities, Discover communities, Explore, Start
+ * creating or Dashboard), then the community's picture and name with
+ * "By <creator>" under it (their page, in this tab). At the right, for a
+ * member, Messages (the conversations panel, with how many have something
+ * unread); for anybody signed in, Storelib's bell
+ * (components/notifications/notification-bell.tsx: everything that happened
+ * for them, communities included, in one list) and their picture with their
+ * profile, library, settings and Explore; for a visitor, Log in.
  *
- * The same bar on a phone, smaller, with the switcher as a sheet. It sits
- * below the status bar in the phone app (env(safe-area-inset-top)).
+ * A BAR OVER THE PAGE. A hairline and a soft shadow under it, so the page
+ * reads as passing beneath it. The same bar on a phone, smaller, below the
+ * status bar in the phone app (env(safe-area-inset-top)).
  */
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useLayoutEffect, useRef } from "react"
-import { ChevronsUpDown, Compass, LayoutGrid, Library, Settings, Settings2, UserRound } from "lucide-react"
+import { Compass, Library, Settings, Settings2, UserRound } from "lucide-react"
 import { ChatRoundDotsIcon as ChatLine } from "@solar-icons/react/linear/chat-round-dots"
 import { ChatRoundDotsIcon as ChatBold } from "@solar-icons/react/bold/chat-round-dots"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { NotificationBell } from "@/components/notifications/notification-bell"
+import { PlaceFallbackContext, PlaceNavigator } from "./place-navigator"
 import { BTN, ICON_BTN } from "./ui"
 import type { TopBarCommunity, TopBarData } from "./view-types"
 
@@ -88,19 +90,6 @@ export function CommunityTopBar({ data, messages = null, messagesOpen = false, o
   useCommunityTop(ref)
   const { community, creator, me } = data
   const base = `/community/${community.slug}`
-  const others = data.communities
-
-  const switchItems: ActionMenuItem[] = [
-    ...others.map((c, i) => ({
-      label: c.name,
-      href: `/community/${c.slug}`,
-      icon: <AppAvatar src={c.logoUrl} name={c.name} alt="" size={20} className="rounded-[6px]" />,
-      section: i === 0 ? "Your communities" : undefined,
-    })),
-    { label: "Discover communities", href: "/explore/communities", icon: <Compass aria-hidden />, separatorBefore: others.length > 0 },
-    { label: "Explore Storelib", href: "/explore", icon: <LayoutGrid aria-hidden /> },
-  ]
-
   const meItems: ActionMenuItem[] = me
     ? [
         ...(data.manageHref ? [{ label: "Manage community", href: data.manageHref, icon: <Settings2 aria-hidden /> }] : []),
@@ -112,8 +101,15 @@ export function CommunityTopBar({ data, messages = null, messagesOpen = false, o
     : []
 
   return (
-    <header ref={ref} data-community-top="" className="sticky top-0 z-40 border-b border-[#eceef1] bg-white pt-[env(safe-area-inset-top)]">
+    <header
+      ref={ref}
+      data-community-top=""
+      className="sticky top-0 z-40 border-b border-[#e6e8ec] bg-white pt-[env(safe-area-inset-top)] shadow-[0_1px_2px_rgba(17,24,39,0.04),0_8px_20px_-14px_rgba(17,24,39,0.16)]"
+    >
       <div className="mx-auto flex h-14 w-full max-w-[1080px] items-center gap-2 px-3 sm:h-16 sm:gap-3 sm:px-6 lg:px-8" data-community-top-row="">
+        <PlaceFallbackContext.Provider value={data.communities}>
+          <PlaceNavigator current={{ kind: "community", id: community.id }} className="-ml-1.5 text-[#1a1a2e] sm:-ml-2.5" />
+        </PlaceFallbackContext.Provider>
         <Link href={base} aria-label={`${community.name}, home`} className="shrink-0 rounded-[10px] outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15">
           <span className="sm:hidden">
             <CommunityMark community={community} size={34} />
@@ -139,17 +135,6 @@ export function CommunityTopBar({ data, messages = null, messagesOpen = false, o
             </p>
           ) : null}
         </div>
-        <ResponsiveActionMenu
-          title="Switch community"
-          align="start"
-          menuWidth="w-72"
-          items={switchItems}
-          trigger={
-            <button type="button" aria-label="Switch community" className={`${ICON_BTN} -ml-1 shrink-0 text-[#8a8f98]`} data-community-switcher="">
-              <ChevronsUpDown className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden />
-            </button>
-          }
-        />
 
         <div className="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-1">
           {messages !== null && onMessages ? (

@@ -300,7 +300,7 @@ export function ChatView({ communityId, slug, space, viewer, initial, readOnly =
                   <div className="w-9 shrink-0">
                     {start ? (
                       m.author ? (
-                        <Link href={memberHref(slug, m.author)} data-person-link="">
+                        <Link href={memberHref(slug, m.author)} data-person-link="" data-person-id={m.author.id}>
                           <AppAvatar src={m.author.avatarUrl} name={m.author.name} alt="" size={36} markWhileLoading />
                         </Link>
                       ) : (
@@ -311,7 +311,13 @@ export function ChatView({ communityId, slug, space, viewer, initial, readOnly =
                   <div className="min-w-0 flex-1">
                     {start ? (
                       <div className="flex items-baseline gap-1.5 text-[13.5px]">
-                        <span className="font-semibold text-[#1a1a2e]">{m.author?.name ?? "Former member"}</span>
+                        {m.author ? (
+                          <Link href={memberHref(slug, m.author)} className="font-semibold text-[#1a1a2e] hover:underline" data-person-link="" data-person-id={m.author.id}>
+                            {m.author.name}
+                          </Link>
+                        ) : (
+                          <span className="font-semibold text-[#6b7280]">Former member</span>
+                        )}
                         {tag ? <span className="rounded-md bg-[#f1f2f4] px-1.5 text-[11px] font-medium leading-[17px] text-[#4b5563]">{tag}</span> : null}
                         {mounted ? <span className="text-[12px] text-[#9ca3af]">{m.sending ? "Sending..." : clock(m.createdAt)}</span> : null}
                       </div>

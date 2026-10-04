@@ -340,7 +340,7 @@ function CommentItem({
     <div id={`c-${c.id}`} data-comment={c.id} className="scroll-mt-28">
       <div className="flex items-start gap-2.5">
         {c.author ? (
-          <Link href={memberHref(slug, c.author)} className="mt-0.5 shrink-0 rounded-full" data-person-link="">
+          <Link href={memberHref(slug, c.author)} className="mt-0.5 shrink-0 rounded-full" data-person-link="" data-person-id={c.author.id}>
             <AppAvatar src={c.author.avatarUrl} name={c.author.name} alt="" size={small ? 28 : 32} markWhileLoading />
           </Link>
         ) : (
@@ -354,7 +354,7 @@ function CommentItem({
               <>
                 <div className="flex flex-wrap items-center gap-x-1.5 text-[13.5px] leading-5">
                   {c.author ? (
-                    <Link href={memberHref(slug, c.author)} className="font-semibold text-[#1a1a2e] hover:underline" data-person-link="">
+                    <Link href={memberHref(slug, c.author)} className="font-semibold text-[#1a1a2e] hover:underline" data-person-link="" data-person-id={c.author.id}>
                       {c.author.name}
                     </Link>
                   ) : (

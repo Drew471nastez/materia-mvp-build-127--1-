@@ -86,6 +86,8 @@ export const RATE_LIMITS = {
   dmOpen: [{ limit: 20, seconds: 3600 }, { limit: 60, seconds: 86400 }],
   /** The presence heartbeat: one a minute per open page, room for a few tabs, never a loop. */
   presence: [{ limit: 40, seconds: 600 }],
+  /** A person's hover card: one per name rested on, cached a minute in the page; room to browse, not to sweep a directory. */
+  card: [{ limit: 300, seconds: 600 }],
   report: [{ limit: 10, seconds: 3600 }],
   invite: [{ limit: 50, seconds: 86400 }],
 } as const satisfies Record<string, readonly RateWindowSpec[]>

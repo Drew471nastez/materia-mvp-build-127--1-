@@ -5,32 +5,41 @@
  *  THE MEMBER AREA'S FRAME
  * ===========================================================================
  * Somebody's community, not a dashboard, and not under Storelib's bar. At
- * the top the community's own bar (top-bar.tsx: its picture, its name, whose
- * it is, the switcher, Messages, Storelib's bell and the member's own menu), and
- * under it ONE row of pills: Community, Classroom, Calendar, Members,
- * Leaderboards, About, each only when the community has it on. Spaces are
- * not in the frame at all: they are chips at the top of the Community feed
- * (space-chips.tsx). Everything below is the community's content.
+ * the top the community's own bar (top-bar.tsx: the navigator, its picture,
+ * its name, whose it is, Messages, Storelib's bell and the member's own
+ * menu), and under it ONE row of section tabs, plain words with a line under
+ * the chosen one: Community, Classroom, Calendar, Members, Leaderboards,
+ * About, each only when the community has it on. Spaces are not in the frame
+ * at all: they are chips at the top of the Community feed (space-chips.tsx).
+ * Everything below is the community's content.
  *
- * The bar and the pills stick together at the top. Their height is measured
+ * The bar and the tabs stick together at the top. Their height is measured
  * once (ResizeObserver) and shared as --community-top with everything that
  * sticks under them or sits beside them (the feed's side card, the chat's
  * height, the messages panel), rather than guessed twice.
+ *
+ * PEOPLE. A name anywhere in the frame opens that person's own page; resting
+ * on it on a computer opens their card (person-card.tsx). Message, from the
+ * card, the members list or a profile, opens the conversation here in the
+ * messages panel and never another page. A profile's Message button links to
+ * /community/<slug>?dm=<userId>: the frame opens that conversation once and
+ * takes ?dm off the address, so a reload or Back does not open it again.
  *
  * While a member page is on screen it tells the server the member is here,
  * once a minute (POST /presence), so "Online" on the community is a real
  * heartbeat and never a guess.
  */
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useSearchParams } from "next/navigation"
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import type { ViewerView } from "@/lib/communities/types"
 import { useLightChrome } from "@/lib/ui/light-chrome"
 import { MessagesPanel, MESSAGES_EVENT, useUnreadMessages } from "./messages"
-import { navEntries, pillFor, sectionFromPath, type NavEntry, type PillKey } from "./nav"
+import { navEntries, sectionFromPath, tabFor, type NavEntry, type TabKey } from "./nav"
+import { PersonCardLayer } from "./person-card"
 import { Toasts } from "./toast"
 import { CommunityTopBar } from "./top-bar"
-import { PILL, PILL_OFF, PILL_ON } from "./ui"
+import { TAB, TAB_OFF, TAB_ON } from "./ui"
 import type { ShellCommunity, ShellSection, TopBarData } from "./view-types"
 
 export { CommunityMark } from "./top-bar"
@@ -47,6 +56,9 @@ export interface ShellFrameProps {
 
 /** How often a visible member page says the member is here. The server writes at most this often too. */
 export const HEARTBEAT_MS = 60_000
+
+/** What ?dm= may carry: an id's characters and nothing else. The server checks it is somebody here. */
+const DM_TARGET = /^[0-9a-z-]{1,64}$/i
 
 /**
  * The presence heartbeat: once now, then once a minute while the page is
@@ -97,7 +109,7 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, a
   /* The bar is white, so the browser's bar and the phone's status bar are too. */
   useLightChrome(true)
 
-  /* "Message" on a member's page or a member row opens the panel. */
+  /* "Message" on a person's card or a member row opens the panel. */
   useEffect(() => {
     const on = (e: Event) => setChat(((e as CustomEvent<{ userId?: string }>).detail ?? {}) as { userId?: string })
     window.addEventListener(MESSAGES_EVENT, on)
@@ -107,16 +119,35 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, a
   /* Null until part 83 is in the database: no button rather than one that opens nothing. */
   const canMessage = messages !== null
 
+  /*
+    ?dm=<userId>: A PROFILE'S MESSAGE BUTTON. The conversation with that
+    person opens once, and the address loses ?dm (and keeps everything else)
+    so a reload or Back does not open it again. Read from the address the
+    frame is on now, so it works on arrival and on a link inside the
+    community alike, because the frame itself stays mounted between pages.
+  */
+  const search = useSearchParams()
+  const dm = search?.get("dm") ?? null
+  useEffect(() => {
+    if (!dm) return
+    const url = new URL(window.location.href)
+    if (!url.searchParams.has("dm")) return
+    url.searchParams.delete("dm")
+    window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash)
+    if (!canMessage || !DM_TARGET.test(dm) || dm === viewer.userId) return
+    setChat({ userId: dm })
+  }, [dm, canMessage, viewer.userId])
+
   return (
     /* The header's real heights until it is measured: no jump on the first frame. */
-    <div data-community-shell="" className="min-h-svh bg-[#f8f9fa] [--community-top:109px] sm:[--community-top:117px]">
+    <div data-community-shell="" className="min-h-svh bg-[#f8f9fa] [--community-top:101px] sm:[--community-top:109px]">
       <CommunityTopBar
         data={topBar}
         messages={canMessage ? messages : null}
         messagesOpen={!!chat}
         onMessages={() => setChat((c) => (c ? null : {}))}
       >
-        <PillRow entries={entries} current={pillFor(current)} />
+        <SectionTabs entries={entries} current={tabFor(current)} />
       </CommunityTopBar>
 
       {/*
@@ -139,6 +170,7 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, a
         </div>
       )}
 
+      <PersonCardLayer communityId={community.id} canMessage={canMessage} />
       {canMessage ? <MessagesPanel communityId={community.id} slug={community.slug} userId={viewer.userId} open={!!chat} start={chat} onClose={() => setChat(null)} onRead={refreshMessages} /> : null}
       <Toasts />
     </div>
@@ -146,11 +178,14 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, a
 }
 
 /**
- * The one row of places, in the Library's pills. It scrolls sideways when it
- * does not fit (a phone with every place on), keeps the chosen pill in view,
- * and fades at an edge only while there is more that way.
+ * THE ONE ROW OF SECTION TABS. Plain words, not pills: the chosen one is ink
+ * with a 2px line under it, sitting on the bar's bottom edge; the others are
+ * muted until hovered. The line grows in from its middle (scale and opacity,
+ * nothing that moves the layout). On a phone the row scrolls sideways when
+ * it does not fit, keeps the chosen tab in view, and fades at an edge only
+ * while there is more that way.
  */
-export function PillRow({ entries, current }: { entries: NavEntry[]; current: PillKey }) {
+export function SectionTabs({ entries, current }: { entries: NavEntry[]; current: TabKey }) {
   const trackRef = useRef<HTMLDivElement>(null)
   const [edges, setEdges] = useState({ left: false, right: false })
   const measure = () => {
@@ -174,14 +209,19 @@ export function PillRow({ entries, current }: { entries: NavEntry[]; current: Pi
     return () => ro.disconnect()
   }, [current])
   return (
-    <nav aria-label="Community" data-community-pills="" className="relative mx-auto w-full max-w-[1080px]">
-      <div ref={trackRef} onScroll={measure} className="overflow-x-auto overscroll-x-contain px-3 pb-2.5 pt-0.5 scrollbar-hide sm:px-6 lg:px-8">
-        <div className="flex w-max items-center gap-2">
+    <nav aria-label="Community" data-community-tabs="" className="relative mx-auto w-full max-w-[1080px]">
+      <div ref={trackRef} onScroll={measure} className="overflow-x-auto overscroll-x-contain px-4 scrollbar-hide sm:px-6 lg:px-8">
+        <div className="flex w-max items-end gap-6 sm:gap-7">
           {entries.map((e) => {
             const on = current === e.key
             return (
-              <Link key={e.key} href={e.href} data-on={on ? "true" : "false"} data-community-nav={e.label} aria-current={on ? "page" : undefined} className={`${PILL} ${on ? PILL_ON : PILL_OFF}`}>
+              <Link key={e.key} href={e.href} data-on={on ? "true" : "false"} data-community-nav={e.label} aria-current={on ? "page" : undefined} className={`${TAB} ${on ? TAB_ON : TAB_OFF}`}>
                 {e.label}
+                <span
+                  aria-hidden
+                  data-tab-line=""
+                  className={`pointer-events-none absolute inset-x-0 bottom-0 h-[2px] rounded-full bg-[#1a1a2e] transition-[opacity,scale] duration-200 ease-sheet motion-reduce:transition-none ${on ? "scale-x-100 opacity-100" : "scale-x-50 opacity-0"}`}
+                />
               </Link>
             )
           })}
