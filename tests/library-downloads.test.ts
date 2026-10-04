@@ -170,7 +170,7 @@ function wishlistCases() {
   const free = entryOf(row({ id: "q7", price_cents: 0 }))!
   check("free: Get it free", priceOf(free).main === "Free" && actionOf(free).label === "Get it free")
   const owned = entryOf(row({ id: "q8" }), { owned: true })!
-  check("already theirs: In your library, to that purchase", actionOf(owned).label === "In your library" && actionOf(owned).href === "/library/products/q8")
+  check("already theirs: In your library, to that purchase", actionOf(owned).label === "In your library" && actionOf(owned).href === "/account/library/products/q8")
   check("a row with no product left is dropped", entryOf({ id: "w9", product_id: "gone", created_at: "", products: null }) === null)
   const content = read("components/wishlist/wishlist-content.tsx")
   check("the heart is 44px to press, filled, and takes it off with Undo",
@@ -410,7 +410,8 @@ function screenCases() {
   check("the pressed pill is chosen on the press, ahead of the address", /setPressed\(href\)/.test(tabs) && /const current = pressed \?\? path/.test(tabs))
   check("its fill fades in place on settings' 150ms curve", /TAB_FADE_MS = 150/.test(tabs) && /cubic-bezier\(0\.33, 1, 0\.68, 1\)/.test(tabs) && /transition-\[opacity,scale\]/.test(tabs))
   check("every tab route is prefetched whole", /router\.prefetch\(tab\.href, \{ kind: FULL \}\)/.test(tabs) && /onPointerEnter=\{\(\) => warm/.test(tabs))
-  const layout = read("app/library/layout.tsx")
+  /* The library moved into the profile (lib/library/paths.ts): its layout and loading screens are under app/account/library now. */
+  const layout = read("app/account/library/layout.tsx")
   check("the pills and the screen under them are one stage", /<LibraryPanel head=\{<LibraryTabs( communities=\{communities\})? \/>\}>\{children\}<\/LibraryPanel>/.test(layout))
   const panel = read("components/library/library-panel.tsx")
   check("a press cross fades in place: the old screen fades over the next one's shape, which is drawn at once",
@@ -419,9 +420,10 @@ function screenCases() {
     /getSnapshotBeforeUpdate/.test(panel) && /liveFade\.current = startNow\(live\.animate/.test(panel))
   check("the live screen stays laid out while hidden, so Next never scrolls the page up", /el\.style\.visibility = "hidden"/.test(panel) && !/style\.display = "none"\s*\n\s*}\s*\n\s*function show/.test(panel))
   check("the way back puts the list's scroll back, and the browser's own back is not faded", /history\.scrollRestoration = "manual"/.test(panel) && /jump\(scrolls\.get\(p\.href\) \?\? 0\)/.test(panel) && /traversal\.current/.test(panel))
-  check("library tab loading draws the tab's shape, still, for the stage and the route", ["app/library/loading.tsx", "app/library/courses/loading.tsx", "app/library/memberships/loading.tsx", "app/library/wishlist/loading.tsx"].every((f) => /LibraryRouteSkeleton/.test(read(f)) && /data-library-skeleton/.test(read("components/library/library-route-skeleton.tsx"))))
+  check("library tab loading draws the tab's shape, still, for the stage and the route", ["app/account/library/loading.tsx", "app/account/library/courses/loading.tsx", "app/account/library/memberships/loading.tsx", "app/account/library/wishlist/loading.tsx", "app/account/library/communities/loading.tsx"].every((f) => /LibraryRouteSkeleton/.test(read(f)) && /data-library-skeleton/.test(read("components/library/library-route-skeleton.tsx"))))
   check("library route skeleton is not deferred; the panel already cross-fades", !/skeleton-deferred/.test(read("components/library/library-route-skeleton.tsx")))
-  check("tab content uses settings' panel entrance, not a second deferred fade", /\.library-panel/.test(read("app/globals.css")) && /enter=\{panelEnter\}/.test(panel) && /library-panel/.test(read("components/library/library-content-shell.tsx")))
+  /* Round 8, changed on purpose: the entrance played after the commit dipped the new screen to 0.2 the frame after it landed (a flash). A pill's screen now cross fades in at its commit, and has no entrance of its own. */
+  check("a pill's screen cross fades at its commit, with no second entrance on top", /leaveCopy\(live, CROSS_MS, false, 1, true\)/.test(panel) && !/panelEnter/.test(panel) && !/\.library-panel \{/.test(read("app/globals.css")) && !/library-panel(?!\.tsx)/.test(read("components/library/library-content-shell.tsx")))
   check("pill links do not scroll the page to the top on a tab change", /scroll=\{false\}/.test(read("components/library/library-tabs.tsx")))
   check("tab cross-fade timing unchanged for the buyer probe", /OUT_MS = 150/.test(panel))
   check("explore back from a product hides until scroll is restored", /explore-scroll-restoring/.test(read("app/globals.css")) && /primeExploreScrollRestore/.test(read("lib/explore/use-explore-scroll.ts")) && /EXPLORE_SCROLL_BOOT_SCRIPT/.test(read("lib/explore/explore-scroll-boot.ts")) && /EXPLORE_SCROLL_BOOT_SCRIPT/.test(read("app/layout.tsx")))

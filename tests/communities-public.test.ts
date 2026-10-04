@@ -385,7 +385,8 @@ async function main() {
     const none = await libraryCommunities(U, fakeDb({}, { failWith: { community_members: { code: "42P01", message: "missing" } } }))
     check("before part 81: not set up, not an error", none.available === false && none.rows.length === 0)
     /* The communities somebody is in moved out of the library into their profile: a pill of /account, next to Activity. */
-    check("the library's sub pills no longer carry Communities", JSON.stringify(libraryTabs()) === JSON.stringify([...LIBRARY_TABS]) && !LIBRARY_TABS.some((t) => /communities/.test(t.href)))
+    /* Round 8, changed on purpose: "add a Communities pill (the communities list inside the library) when the communities switch is on". Off, the five; on, Communities after Courses. */
+    check("the library's sub pills carry Communities only while the switch is on", JSON.stringify(libraryTabs()) === JSON.stringify([...LIBRARY_TABS]) && !LIBRARY_TABS.some((t) => /communities/.test(t.href)) && libraryTabs(true)[2]?.href === "/account/library/communities")
     check("the profile's Communities pill is there only while the switch is on", ownerPillLinks(true).some((p) => p.key === "communities" && p.href === "/account/communities") && !ownerPillLinks(false).some((p) => p.key === "communities"))
     check("/account/communities is that pill, and /library/communities answers with it", ownerPillFor("/account/communities") === "communities" && legacyLibraryTarget("/library/communities") === "/account/communities" && !showsLibraryTabs("/account/communities"))
     check("the layout hands the switch to the pills", /communitiesEnabled\(\)/.test(code("app/account/layout.tsx")) && /<AccountHub identity=\{identity\} communities=\{communities\}>/.test(read("app/account/layout.tsx")))

@@ -10,6 +10,7 @@ import { PurchaseSyncProvider } from "@/components/checkout/purchase-sync-provid
 import { NativeAuthGate } from "@/components/native-auth-gate"
 import { HtmlClass } from "@/components/platform/html-class"
 import { accountLoginPath } from "@/lib/account/account-tabs"
+import { communitiesEnabled } from "@/lib/communities/flag"
 import { LIBRARY_HOME } from "@/lib/library/paths"
 import { APP_BANNER_COOKIE, bannerPhone, isAppWebView, type Phone } from "@/lib/platform/open-in-app"
 import LibraryLoading from "./loading"
@@ -60,7 +61,8 @@ async function appBannerPhone(): Promise<Phone | null> {
  */
 export default async function LibraryLayout({ children }: { children: React.ReactNode }) {
   /* A blip is not a sign-out (lib/auth/current-user.ts); the header read happens while the auth request is in flight. */
-  const [isNative, current, bannerFor] = await Promise.all([isCapacitorWebView(), currentUserForRequest(), appBannerPhone()])
+  /* The Communities sub pill is drawn only while communities are on (components/library/library-tab-list.ts). */
+  const [isNative, current, bannerFor, communities] = await Promise.all([isCapacitorWebView(), currentUserForRequest(), appBannerPhone(), communitiesEnabled().catch(() => false)])
   const user = current.user
 
   if (!user) {
@@ -86,7 +88,7 @@ export default async function LibraryLayout({ children }: { children: React.Reac
       <HtmlClass name="with-page-library" />
       <PurchaseSyncProvider />
       {/* The sub pills and the screen under them, which cross fades from one to the next (library-panel.tsx). */}
-      <LibraryPanel head={<LibraryTabs />}>{children}</LibraryPanel>
+      <LibraryPanel head={<LibraryTabs communities={communities} />}>{children}</LibraryPanel>
       {/*
         THE APP'S BANNER SITS UNDER THE LIBRARY, NOT OVER IT: "do not use
         the banner above the library, use it under, at the page". Outside

@@ -90,6 +90,15 @@ interface ImageUploadProps {
    * Off by default: every other caller keeps the bar it has.
    */
   livePreview?: boolean
+  /**
+   * WITH NO PICTURE YET, THE BAND IT WILL FILL. A cover with `reposition`
+   * and nothing chosen draws the band's own shape (`reposition.aspect`) in
+   * the quiet grey a profile shows without a cover, with one plain button
+   * in it, rather than the dashed "click to upload" box. A press anywhere or
+   * a picture dropped on it starts the same upload. Opt in: every other
+   * caller keeps the box it has.
+   */
+  emptyBand?: { label: string; hint?: string }
 }
 
 /** A picture on its way up: its own preview, and how far the upload has got. */
@@ -174,6 +183,7 @@ export function ImageUpload({
   allowRemove = false,
   reposition,
   livePreview = false,
+  emptyBand,
 }: ImageUploadProps) {
   const isVideoMode = accept === "video/*"
   const [uploading, setUploading] = useState(false)
@@ -584,6 +594,54 @@ export function ImageUpload({
             </div>
           )}
         </CoverCropFrame>
+        {error && (
+          <div className="flex items-center gap-2 text-sm text-destructive">
+            <AlertCircle className="h-4 w-4" />
+            {error}
+          </div>
+        )}
+        <input ref={inputRef} type="file" accept={accept} className="hidden" onChange={handleFileSelect} />
+      </div>
+    )
+  }
+
+  if (emptyBand && reposition && !value && !pending) {
+    return (
+      <div className="space-y-2">
+        <div
+          role="button"
+          tabIndex={0}
+          aria-label={emptyBand.label}
+          data-upload-empty-band=""
+          onClick={() => !uploading && inputRef.current?.click()}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault()
+              if (!uploading) inputRef.current?.click()
+            }
+          }}
+          onDrop={handleDrop}
+          onDragOver={(e) => {
+            e.preventDefault()
+            setDragOver(true)
+          }}
+          onDragLeave={(e) => {
+            e.preventDefault()
+            setDragOver(false)
+          }}
+          style={{ aspectRatio: String(reposition.aspect ?? 3) }}
+          className={`group/band relative flex w-full cursor-pointer items-center justify-center overflow-hidden rounded-xl bg-[radial-gradient(120%_140%_at_50%_0%,#f4f5f7_0%,#e7e9ed_100%)] outline-none ring-1 ring-inset transition-[box-shadow] duration-150 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/25 ${
+            dragOver ? "ring-[#1a1a2e]/30" : "ring-black/[0.06]"
+          }`}
+        >
+          <span className="pointer-events-none flex flex-col items-center gap-1 px-4 text-center">
+            <span className="inline-flex h-9 items-center gap-2 rounded-[10px] border border-[#e4e7ec] bg-white px-3.5 text-[13px] font-medium text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.06)] transition-[scale] duration-150 group-active/band:scale-[0.97] motion-reduce:transition-none">
+              <ImageIcon className="h-4 w-4 text-[#4b5563]" strokeWidth={1.9} aria-hidden />
+              {dragOver ? "Drop it here" : emptyBand.label}
+            </span>
+            {emptyBand.hint ? <span className="text-[12px] leading-[1.4] text-[#6b7280] max-[380px]:hidden">{emptyBand.hint}</span> : null}
+          </span>
+        </div>
         {error && (
           <div className="flex items-center gap-2 text-sm text-destructive">
             <AlertCircle className="h-4 w-4" />

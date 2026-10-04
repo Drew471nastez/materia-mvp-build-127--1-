@@ -19,6 +19,8 @@ export const LIBRARY_MEMBERSHIPS = "/account/library/memberships"
 export const LIBRARY_WISHLIST = "/account/library/wishlist"
 export const LIBRARY_REVIEWS = "/account/library/reviews"
 export const LIBRARY_RECEIPTS = "/account/library/receipts"
+/** The communities you run and are in, as a pill of the library too, while communities are on. */
+export const LIBRARY_COMMUNITIES = "/account/library/communities"
 /** The communities a person is in are a pill of their profile now, not of the library. */
 export const ACCOUNT_COMMUNITIES = "/account/communities"
 export const ACCOUNT_SETTINGS = "/account/settings"

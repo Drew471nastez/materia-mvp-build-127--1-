@@ -14,9 +14,11 @@ import { LIBRARY_TITLE, LIBRARY_TITLE_GAP } from "./library-ui"
  * What a buyer comes here for is the things they bought, and those live on
  * two screens: products (files to download, and any membership bought on
  * its own, labelled Membership) and courses (/account/library/courses).
- * Then what they have not bought yet: the wishlist. Then what they did
- * about them: reviews and receipts. Memberships are communities now, so
- * they have no pill of their own (./library-tab-list.ts).
+ * While communities are on, the communities they run and are in come next
+ * (`communities`, read by the layout on the server). Then what they have
+ * not bought yet: the wishlist. Then what they did about them: reviews and
+ * receipts. Memberships are communities now, so they have no pill of their
+ * own (./library-tab-list.ts).
  *
  * THE LIBRARY IS ITS OWN PAGE (/account/library): "Library opens as its own
  * page ... WITHOUT the profile hero above them (like /account/settings
@@ -36,11 +38,11 @@ import { LIBRARY_TITLE, LIBRARY_TITLE_GAP } from "./library-ui"
  *
  * THE PILL ANSWERS THE PRESS, NOT THE SERVER. The tabs are routes, and a
  * route can take a moment. The pressed pill is chosen on the press itself
- * and the address catches up. The screen under the row answers the same
- * press on its own (components/library/library-panel.tsx hears the click):
- * the old screen fades out over the new one's shape. Every tab is fetched whole while the page is
- * idle, and again the moment a pointer comes near one, so by the time a
- * finger lands the next screen is usually already on the phone.
+ * and the address catches up. The screen under the row cross fades into
+ * the next one the moment it arrives (components/library/library-panel.tsx),
+ * and the row itself never moves or fades. Every tab is fetched whole while
+ * the page is idle, and again the moment a pointer comes near one, so by
+ * the time a finger lands the next screen is usually already on the phone.
  *
  * On a phone the row scrolls sideways and fades at whichever edge has more
  * behind it. Settings is not a tab: it is a pill of the profile above. The row is on the library's list screens only:
@@ -61,8 +63,8 @@ const PILL =
 
 type IdleWindow = Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void }
 
-export function LibraryTabs() {
-  const tabs = libraryTabs()
+export function LibraryTabs({ communities = false }: { communities?: boolean } = {}) {
+  const tabs = libraryTabs(communities)
   const pathname = usePathname()
   const router = useRouter()
   const path = clean(pathname)
@@ -99,7 +101,7 @@ export function LibraryTabs() {
     return () => window.clearTimeout(t)
     // `tabs` is rebuilt each render from a constant list.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shows, path, router])
+  }, [shows, path, router, communities])
 
   /* And the one a pointer is on its way to, in case the idle pass has not reached it. */
   const warm = useCallback(

@@ -17,11 +17,18 @@
  * already ends on the day they joined, and the owner asked for it gone.
  *
  * The owner sees their own page with nothing to follow; on the band they
- * get Edit profile, a real Storelib button, and beside it a camera button
- * for the cover itself (Add cover or Change cover). Both open Settings:
- * Edit profile at the profile's fields, the camera at the cover. Top right
- * on a phone, where the photo across the band's edge cannot be under them;
- * the foot of the band, at the column's right edge, wider up.
+ * get Edit profile, a real Storelib button, which opens Settings at the
+ * profile's fields, the cover among them (components/account/cover-field.tsx:
+ * pick it, drag it into place). No second button for the cover beside it:
+ * the owner asked for the camera gone. Top right on a phone, where the
+ * photo across the band's edge cannot be under it; the foot of the band, at
+ * the column's right edge, wider up.
+ *
+ * THE COVER IS DRAWN WHERE IT WAS PLACED. The stored address carries the
+ * crop chosen in Settings (lib/profile/cover.ts parseProfileCover), and the
+ * picture is laid out with the creator page's own crop model
+ * (lib/images/cover-crop.ts coverCropStyle), so the band shows exactly what
+ * the frame in Settings showed at this width.
  *
  * No "use client" of its own: on /@handle it is drawn on the server, inside
  * /account by the client hub. Everything interactive in it is a client
@@ -29,12 +36,13 @@
  */
 import Link from "next/link"
 import type { ReactNode } from "react"
-import { Camera } from "lucide-react"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { AvatarLightbox } from "@/components/storefront/avatar-lightbox"
-import { iconDepth, secondaryDepth } from "@/components/ui/depth-button"
+import { secondaryDepth } from "@/components/ui/depth-button"
 import { ACCOUNT_GUTTER_LEFT, ACCOUNT_GUTTER_RIGHT } from "@/lib/account/account-tabs"
 import { optimizedImageUrl } from "@/lib/images/optimized-url"
+import { coverCropStyle } from "@/lib/images/cover-crop"
+import { parseProfileCover } from "@/lib/profile/cover"
 import { EDIT_PROFILE_HREF } from "@/lib/profile/owner-pills"
 import { cn } from "@/lib/utils"
 import { ProfileSocial } from "./profile-social"
@@ -70,9 +78,6 @@ export const PROFILE_AVATAR_CLASS =
 const COLUMN = "mx-auto w-full max-w-[960px]"
 const GUTTERS = { paddingLeft: ACCOUNT_GUTTER_LEFT, paddingRight: ACCOUNT_GUTTER_RIGHT } as const
 
-/** Where the owner's cover control goes: Settings, at the cover. */
-export const COVER_SETTINGS_HREF = "/account/settings?section=profile#cover"
-
 export function ProfileHero({
   person,
   viewerFollowing = false,
@@ -91,19 +96,22 @@ export function ProfileHero({
   avatar?: ReactNode
   className?: string
 }) {
+  const cover = parseProfileCover(person.coverUrl)
   return (
     <div className={className} data-profile-hero="">
       {/* The band, edge to edge, and the photo across its lower edge, as a creator page opens. */}
-      <div className="relative w-full overflow-hidden bg-[#eceef1]" data-profile-cover={person.coverUrl ? "image" : "plain"}>
-        <div className="relative h-[128px] sm:h-[192px] lg:h-[256px]">
-          {person.coverUrl ? (
+      <div className="relative w-full overflow-hidden bg-[#eceef1]" data-profile-cover={cover.url ? "image" : "plain"}>
+        <div className="relative h-[128px] sm:h-[192px] lg:h-[256px]" data-profile-cover-band="">
+          {cover.url ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={optimizedImageUrl(person.coverUrl, 1600)}
+              src={optimizedImageUrl(cover.url, 1600)}
               alt=""
               decoding="async"
               fetchPriority="high"
-              className="absolute inset-0 h-full w-full object-cover"
+              draggable={false}
+              style={coverCropStyle(cover.crop)}
+              className="select-none"
             />
           ) : (
             <div aria-hidden className="absolute inset-0 bg-[radial-gradient(120%_140%_at_50%_0%,#f4f5f7_0%,#e7e9ed_100%)]" />
@@ -112,16 +120,6 @@ export function ProfileHero({
         {isSelf ? (
           <div className="absolute inset-x-0 top-3 sm:bottom-4 sm:top-auto" data-profile-cover-actions="">
             <div className={cn(COLUMN, "flex items-center justify-end gap-2")} style={GUTTERS}>
-              <Link
-                href={COVER_SETTINGS_HREF}
-                prefetch={false}
-                aria-label={person.coverUrl ? "Change cover" : "Add cover"}
-                title={person.coverUrl ? "Change cover" : "Add cover"}
-                data-profile-cover-edit={person.coverUrl ? "change" : "add"}
-                className={cn(iconDepth, "h-10 w-10 rounded-[10px] p-0")}
-              >
-                <Camera className="h-[18px] w-[18px]" strokeWidth={1.9} aria-hidden />
-              </Link>
               <Link href={EDIT_PROFILE_HREF} prefetch={false} data-profile-edit="" className={cn(secondaryDepth, "h-10 rounded-[10px] px-4 text-[14px]")}>
                 Edit profile
               </Link>
