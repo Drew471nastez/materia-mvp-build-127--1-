@@ -147,6 +147,22 @@ export type SiteSeo =
     }
   | { kind: "none" }
 
+/** The handles of the shop's published collections, or none when they cannot be read. */
+async function listedCollections(creatorId: string): Promise<string[]> {
+  try {
+    const { data } = await createAdminClient()
+      .from("product_collections")
+      .select("slug")
+      .eq("creator_id", creatorId)
+      .eq("published", true)
+      .order("created_at", { ascending: true })
+      .limit(200)
+    return ((data ?? []) as { slug: string | null }[]).map((r) => r.slug ?? "").filter((h) => /^[a-z0-9]+(-[a-z0-9]+)*$/.test(h))
+  } catch {
+    return []
+  }
+}
+
 /** Everything /robots.txt and /sitemap.xml need, for the site at this name. */
 export async function siteSeo(name: string): Promise<SiteSeo> {
   const found = await publishedShopByName(name)
@@ -175,6 +191,8 @@ export async function siteSeo(name: string): Promise<SiteSeo> {
         images: [...new Set(pictures)].map((loc) => (p.title ? { loc, title: p.title } : { loc })),
       })
     }
+    /* Each published collection's own page, /collections/<handle>: every shop can have them. */
+    for (const handle of await listedCollections(site.creatorId)) entries.push({ loc: `${origin}/collections/${handle}` })
   }
 
   return {

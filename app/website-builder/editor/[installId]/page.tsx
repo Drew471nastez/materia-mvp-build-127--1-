@@ -69,6 +69,7 @@ import { remapScheme, themeColorSchemes } from "@/lib/storelib-theme/color-schem
 import { sameSettingValue } from "@/lib/website-builder/same-setting"
 import { PAGE_META } from "@/lib/website-builder/types"
 import { customPageSections, searchListsTheShop } from "@/lib/website-builder/shop-page"
+import { storeLinkTargets } from "@/lib/website-builder/link-targets"
 import { BUILT_IN_PAGE_KEYS, pageKeyFromSegment, pagePath, pageTitleFromKey, templateForPage } from "@/lib/website-builder/site-pages"
 import { editorPageKeyOf, editorPagePath, resolveEditorHref } from "@/lib/website-builder/editor-navigation"
 import { sectionLinkTargets } from "@/lib/website-builder/link-menu"
@@ -5559,35 +5560,22 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       return read
     },
   }), [openPagePath, installId, librarySchemas])
+  /* The published collections, as a link goes to them: /collections/<handle>. None while collections are off. */
+  const siteCollectionTargets = useMemo(
+    () => Object.values(builderCollections?.cards ?? {}).map((c) => ({ handle: c.handle, title: c.title, image: c.image })),
+    [builderCollections],
+  )
   const linkTargets = useMemo<LinkTarget[]>(
+    /* The store's pages, collections and products, the same list Navigation offers (lib/website-builder/link-targets.ts). */
     () => [
       ...sectionTargets,
-      { href: "/", label: "Home", kind: "page" },
-      /**
-       * `/products`, not `/shop`. The picker offered "Shop" pointing at
-       * /shop, which is not a route on any address: the shop index is
-       * /products, which is where the themes' own Shop link goes.
-       */
-      { href: "/products", label: "Shop", kind: "page" },
-      { href: "/about", label: "About", kind: "page" },
-      { href: "/contact", label: "Contact", kind: "page" },
-      /* The page browser lists it, and the header's links used to offer it. */
-      { href: "/search", label: "Search", kind: "page" },
-      /* The visitor's own pages, every site has them (lib/website-builder/account-pages): the picker's Customer accounts. */
-      { href: "/account", label: "Account", kind: "page" },
-      { href: "/account/login", label: "Sign in", kind: "page" },
-      { href: "/wishlist", label: "Wishlist", kind: "page" },
-      ...customPages.map((p) => ({ href: `/${p.key}`, label: p.name, kind: "page" as const })),
-      ...products.map((p) => ({ href: `/products/${p.slug}`, label: p.title, kind: "product" as const, image: p.thumbnail_url || undefined })),
-      /**
-       * NO COLLECTIONS. The picker had a Collections group fed by
-       * `/api/collections`, which is not a route: the fetch 404'd, the list
-       * was always empty, and the group was a heading nobody could ever fill.
-       * There is no collection in this product — a creator has products, and
-       * the sections that say "collection" take hand-typed items.
-       */
+      ...storeLinkTargets({
+        customPages: customPages.map((p) => ({ key: p.key as string, name: p.name })),
+        products,
+        collections: siteCollectionTargets,
+      }),
     ],
-    [customPages, products, sectionTargets],
+    [customPages, products, sectionTargets, siteCollectionTargets],
   )
   baseTargetsRef.current = linkTargets
   /**
@@ -8057,15 +8045,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         ]}
         productCount={productsLoading || products.length >= 100 ? null : products.length}
         onAddPage={() => setAddPageOpen(true)}
-        onEditMenu={() => {
-          const header = sections.find((sec) => sec.type === "header")
+        /* A menu is edited in Navigation, beside Pages, with the page drawn next to it. */
+        onEditMenu={(handle) => {
           setSidebarMode("sections")
           setPageBrowserOpen(false)
-          if (header) {
-            setSelectedPanel({ type: "section", sectionId: header.id })
-            revealSection(header.id)
-          }
-          if (isMobileView) setMobileSidebarOpen(true)
+          openMenus(handle)
         }}
         onOpenCode={() => void openCode()}
         onPublish={() => setPublishOpen(true)}

@@ -1,10 +1,10 @@
 "use client"
 
-import { MenusEditor } from "@/components/website-builder/editor/controls/menus-editor"
-import { LinkTargetsProvider } from "@/components/website-builder/link-picker"
+import { ChevronRight } from "lucide-react"
+
 import { cleanMenus } from "@/lib/storelib-theme/values"
-import { MAIN_MENU, adoptHeaderLinks, headerMenuHandle, headerReadsMenu, menuChoices } from "@/lib/website-builder/main-menu"
-import { Card, GOES_LIVE, PageTitle, Row, inputClass } from "./parts"
+import { MAIN_MENU, adoptHeaderLinks, headerMenuHandle, menuChoices } from "@/lib/website-builder/main-menu"
+import { Card, PageTitle, Row, buttonClass, inputClass } from "./parts"
 import type { SettingsContext } from "./types"
 
 const str = (v: unknown) => (typeof v === "string" ? v : "")
@@ -25,8 +25,9 @@ const str = (v: unknown) => (typeof v === "string" ? v : "")
  * header still keeps its links as blocks has them shown as the Main menu, and
  * the first edit moves them in (lib/website-builder/main-menu.ts).
  *
- * The editors are the builder's, drawn on this dark page by putting them
- * under `dark`, which flips the tokens they are written in.
+ * The links themselves are edited in the builder's Navigation panel, not
+ * here: a menu is listed with how many links it has and where it shows, and
+ * a press opens it there (`onEditMenu`).
  */
 export function NavigationSettings({ ctx }: { ctx: SettingsContext }) {
   const header = ctx.header
@@ -39,6 +40,14 @@ export function NavigationSettings({ ctx }: { ctx: SettingsContext }) {
     ...Object.keys(menus).map((h) => ({ value: h, label: menus[h].title })),
   ]
 
+  /** Where a menu shows, said under its name: "Header", "Footer". */
+  const placedIn = (handle: string) => {
+    const at: string[] = []
+    if (header && headerMenuHandle(ctx.settings.menus, header) === handle) at.push("Header")
+    if (footer && (str(footer.settings.menu) === handle || str(footer.settings.menu_2) === handle)) at.push("Footer")
+    return at.join(", ")
+  }
+
   const pickHeaderMenu = (handle: string) => {
     if (!header) return
     if (handle === MAIN_MENU) {
@@ -49,21 +58,35 @@ export function NavigationSettings({ ctx }: { ctx: SettingsContext }) {
   }
 
   return (
-    <LinkTargetsProvider targets={ctx.linkTargets ?? []} sections={ctx.linkSections}>
-      <PageTitle>Navigation</PageTitle>
+    <>
+      <PageTitle aside={<button type="button" onClick={() => ctx.onEditMenu()} className={buttonClass} data-nav-open-menus="">Edit menus</button>}>
+        Navigation
+      </PageTitle>
 
-      <Card title="Menus" footer={GOES_LIVE}>
-        <div className="dark px-4 py-3 md:px-6" data-nav-menus="">
-          <MenusEditor
-            plain
-            value={ctx.settings.menus}
-            onChange={(next) => ctx.onSettingChange("menus", next)}
-            header={header ?? null}
-            onLinkHeader={() => {
-              if (header && !headerReadsMenu(header)) ctx.onSectionSetting?.(header.id, "menu", MAIN_MENU)
-            }}
-          />
-        </div>
+      {/* THE MENUS ARE LISTED HERE, AND EDITED IN NAVIGATION. A menu is the
+          store's, not a setting of this site, so its links are edited in one
+          place: the builder's Navigation panel, next to Pages, with the page
+          drawn beside it so a change is seen as it is made. A row opens that
+          menu there. */}
+      <Card title="Menus" footer="Menus belong to your store, so every theme shows the same ones.">
+        {choices.map((c) => (
+          <button
+            key={c.handle}
+            type="button"
+            data-nav-menu-row={c.handle}
+            onClick={() => ctx.onEditMenu(c.handle)}
+            className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition-colors hover:bg-white/[0.04] active:bg-white/[0.06] md:px-6 [-webkit-tap-highlight-color:transparent]"
+          >
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[14.5px] font-medium text-white">{c.title}</span>
+              <span className="mt-0.5 block text-[13px] text-white/45">
+                {c.count === 0 ? "No links yet" : `${c.count} link${c.count === 1 ? "" : "s"}`}
+                {placedIn(c.handle) ? ` · ${placedIn(c.handle)}` : ""}
+              </span>
+            </span>
+            <ChevronRight className="h-4 w-4 shrink-0 text-white/40" aria-hidden />
+          </button>
+        ))}
       </Card>
 
       <Card title="Where menus show">
@@ -114,6 +137,6 @@ export function NavigationSettings({ ctx }: { ctx: SettingsContext }) {
           <Row label="Footer" hint="Open a page that has the site's footer to choose its menus." />
         )}
       </Card>
-    </LinkTargetsProvider>
+    </>
   )
 }

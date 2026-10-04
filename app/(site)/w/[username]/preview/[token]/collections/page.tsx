@@ -7,7 +7,6 @@ import { dressPage, ownerOf } from "@/lib/website-builder/published-site"
 import { previewTokenFrom, pageSections } from "@/lib/website-builder/preview-link"
 import { sanitizeSections } from "@/lib/website-builder/sanitize-sections"
 import { collectionsPageSections } from "@/lib/website-builder/shop-page"
-import { isPhysicalCommerceEnabled } from "@/lib/platform/physical-commerce"
 import type { SectionInstance } from "@/lib/website-builder/types"
 import { previewInstall } from "../../../render-site"
 
@@ -34,7 +33,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function PreviewCollectionsPage({ params }: PageProps) {
   const { username, token } = await params
   const clean = tokenOf(token)
-  if (!clean || !(await isPhysicalCommerceEnabled())) notFound()
+  if (!clean) notFound()
 
   const { admin, creatorId, installId, preview, themeSettings } = await previewInstall(username, clean)
 

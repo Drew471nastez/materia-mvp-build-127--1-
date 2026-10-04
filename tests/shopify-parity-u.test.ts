@@ -224,7 +224,7 @@ async function main() {
     check("the builder asks for the signed in creator's collections only", /creatorCollectionsForBuilder\(creator!\.id\)/.test(route) && /siteCollections\(createAdminClient\(\), creatorId, \{ published: false \}\)/.test(route))
     const site = read("lib/website-builder/published-site.ts")
     check("the live site asks for the site owner's, cached under that owner", /siteCollections\(createAdminClient\(\), site\.creatorId\)/.test(site) && /\["site-collections", site\.creatorId\]/.test(site))
-    check("and only while collections are on", /isPhysicalCommerceEnabled/.test(site) && /isPhysicalCommerceEnabled/.test(route))
+    check("for every shop, whatever it sells: not behind physical commerce", !/isPhysicalCommerceEnabled/.test(site.slice(site.indexOf("pageWantsCollections(sections"), site.indexOf("pageWantsCollections(sections") + 600)) && !/isPhysicalCommerceEnabled/.test(route.slice(route.indexOf("async function creatorCollectionsForBuilder"), route.indexOf("async function creatorCollectionsForBuilder") + 500)))
   }
 
   // ═══════════════════════════════════════════════════════════════════════

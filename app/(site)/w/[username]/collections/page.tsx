@@ -6,7 +6,6 @@ import { renderWithSources } from "@/lib/website-builder/storefront-render"
 import { dressPage, publishedShopByName } from "@/lib/website-builder/published-site"
 import { getMainDomain } from "@/lib/url-helpers"
 import { collectionsPageSections } from "@/lib/website-builder/shop-page"
-import { isPhysicalCommerceEnabled } from "@/lib/platform/physical-commerce"
 import { siteMetadata } from "../render-site"
 import { SiteVitals } from "@/components/website-builder/site-vitals"
 import { TrackView } from "@/components/analytics/track-view"
@@ -36,12 +35,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
  * header and footer around one Collection list showing every published
  * collection (lib/website-builder/shop-page, collectionsPageSections).
  *
- * Collections live in physical commerce. While that is off, the site has
- * none, and this address is a 404 like any other it does not have.
+ * Every shop can have collections, whatever it sells. One with none shows
+ * the page's own empty state.
  */
 export default async function SiteCollectionsPage({ params }: PageProps) {
   const { username } = await params
-  if (!(await isPhysicalCommerceEnabled())) notFound()
 
   const found = await publishedShopByName(username)
   if (found.kind === "renamed") permanentRedirect(`https://${found.to}.${getMainDomain()}/collections`)

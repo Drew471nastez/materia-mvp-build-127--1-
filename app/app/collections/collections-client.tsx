@@ -5,6 +5,11 @@
  * Manual is a hand-picked list; smart is every product matching its rules
  * (all of them or any), kept up to date by itself. A published collection
  * can be shown by the website and used by a discount code.
+ *
+ * FOR EVERY KIND OF PRODUCT. A collection groups downloads, courses,
+ * memberships, services and physical goods alike, the way Shopify's and
+ * Payhip's do. Only the rules that need stock and weight wait for physical
+ * commerce, since nothing else has either.
  */
 
 import * as React from "react"
@@ -12,6 +17,7 @@ import { Check, Layers, Plus, Search, Trash2, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { GUTTER, LIST_BAR, LIST_WIDTH, PaneBar, card } from "../orders/order-parts"
 import { RULE_FIELDS, RULE_FIELD_LABEL, RULE_OPS, RULE_OP_LABEL, type CollectionRule, type RuleField, type RuleOp } from "@/lib/physical/collections"
+import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 import { BTN_DANGER, BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, Empty, Field, Modal, Notice, Pill, SelectInput, TextInput, Toggle, api } from "@/components/physical/ui"
 
 interface Collection {
@@ -35,6 +41,19 @@ interface Product {
   price_cents: number
 }
 
+/** The kinds a product can be, as a rule on Product type reads them. */
+const PRODUCT_KINDS = [
+  ["digital", "Digital product"],
+  ["course", "Course"],
+  ["membership", "Membership"],
+  ["community", "Community"],
+  ["service", "Service"],
+  ["physical", "Physical product"],
+] as const
+const KIND_LABEL: Record<string, string> = Object.fromEntries(PRODUCT_KINDS)
+/** Rules that only mean something for goods with stock and weight. */
+const PHYSICAL_RULES: ReadonlySet<string> = new Set(["vendor", "inventory", "weight"])
+
 const SORTS = [
   ["manual", "Your order"],
   ["best_selling", "Best selling"],
@@ -50,7 +69,7 @@ export function CollectionsClient() {
   const [error, setError] = React.useState<string | null>(null)
   const [editing, setEditing] = React.useState<Collection | "new" | null>(null)
   const load = React.useCallback(async () => {
-    const r = await api<{ collections: Collection[]; products: Product[] }>("/api/physical/collections")
+    const r = await api<{ collections: Collection[]; products: Product[] }>("/api/collections")
     if (!r.ok) return setError(r.error)
     setList(r.data.collections)
     setProducts(r.data.products)
@@ -87,7 +106,7 @@ export function CollectionsClient() {
                 </button>
               }
             >
-              Group products, like New in, T-shirts or Under $30, by hand or by rules.
+              Group products, like New in, Courses or Under $30, by hand or by rules. Show one on your website with a Featured collection or a Collection list section.
             </Empty>
           ) : (
             <ul className="divide-y divide-[#f1f2f4]">
@@ -130,7 +149,7 @@ function CollectionEditor({ initial, products, onClose, onSaved }: { initial: Co
   const [title, setTitle] = React.useState(initial?.title ?? "")
   const [description, setDescription] = React.useState(initial?.description ?? "")
   const [kind, setKind] = React.useState<"manual" | "smart">(initial?.kind ?? "manual")
-  const [rules, setRules] = React.useState<CollectionRule[]>(initial?.rules.length ? initial.rules : [{ field: "tag", op: "equals", value: "" }])
+  const [rules, setRules] = React.useState<CollectionRule[]>(initial?.rules.length ? initial.rules : [{ field: "type", op: "equals", value: "" }])
   const [match, setMatch] = React.useState<"all" | "any">(initial?.match ?? "all")
   const [sort, setSort] = React.useState(initial?.sort ?? "manual")
   const [published, setPublished] = React.useState(initial?.published ?? true)
@@ -138,19 +157,21 @@ function CollectionEditor({ initial, products, onClose, onSaved }: { initial: Co
   const [query, setQuery] = React.useState("")
   const [error, setError] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState(false)
+  const physical = usePhysicalCommerceEnabled()
+  const ruleFields = RULE_FIELDS.filter((f) => physical || !PHYSICAL_RULES.has(f) || rules.some((r) => r.field === f))
   const q = query.trim().toLowerCase()
   const save = async () => {
     setBusy(true)
     setError(null)
     const body = { title, description, kind, rules: rules.filter((r) => r.value.trim()), match, sort, published, productIds: picked }
-    const r = await api<{ collections: Collection[] }>(initial ? `/api/physical/collections/${initial.id}` : "/api/physical/collections", { method: initial ? "PUT" : "POST", body })
+    const r = await api<{ collections: Collection[] }>(initial ? `/api/collections/${initial.id}` : "/api/collections", { method: initial ? "PUT" : "POST", body })
     setBusy(false)
     if (!r.ok) return setError(r.error)
     onSaved(r.data.collections)
   }
   const remove = async () => {
     if (!initial || !window.confirm(`Delete ${initial.title}? The products stay.`)) return
-    const r = await api<{ collections: Collection[] }>(`/api/physical/collections/${initial.id}`, { method: "DELETE" })
+    const r = await api<{ collections: Collection[] }>(`/api/collections/${initial.id}`, { method: "DELETE" })
     if (!r.ok) return setError(r.error)
     onSaved(r.data.collections)
   }
@@ -208,7 +229,7 @@ function CollectionEditor({ initial, products, onClose, onSaved }: { initial: Co
             {rules.map((r, i) => (
               <div key={i} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2">
                 <SelectInput value={r.field} onChange={(v) => setRules((x) => x.map((y, j) => (j === i ? { ...y, field: v as RuleField } : y)))} aria-label="Field">
-                  {RULE_FIELDS.map((f) => (
+                  {ruleFields.map((f) => (
                     <option key={f} value={f}>
                       {RULE_FIELD_LABEL[f]}
                     </option>
@@ -221,14 +242,25 @@ function CollectionEditor({ initial, products, onClose, onSaved }: { initial: Co
                     </option>
                   ))}
                 </SelectInput>
-                <TextInput value={r.value} onChange={(e) => setRules((x) => x.map((y, j) => (j === i ? { ...y, value: e.target.value } : y)))} aria-label="Value" placeholder={r.field === "price" ? "30" : "summer"} />
+                {r.field === "type" && ["equals", "not_equals"].includes(r.op) ? (
+                  <SelectInput value={r.value} onChange={(v) => setRules((x) => x.map((y, j) => (j === i ? { ...y, value: v } : y)))} aria-label="Value">
+                    <option value="">Choose a kind</option>
+                    {PRODUCT_KINDS.filter(([k]) => physical || k !== "physical" || r.value === k).map(([k, label]) => (
+                      <option key={k} value={k}>
+                        {label}
+                      </option>
+                    ))}
+                  </SelectInput>
+                ) : (
+                  <TextInput value={r.value} onChange={(e) => setRules((x) => x.map((y, j) => (j === i ? { ...y, value: e.target.value } : y)))} aria-label="Value" placeholder={r.field === "price" || r.field === "compare_at_price" ? "30" : "summer"} />
+                )}
                 <button type="button" className={cn(BTN_GHOST, "w-10 px-0")} aria-label="Remove condition" onClick={() => setRules((x) => x.filter((_, j) => j !== i))}>
                   <X className="h-4 w-4" />
                 </button>
               </div>
             ))}
             {rules.length < 20 ? (
-              <button type="button" className={BTN_GHOST} onClick={() => setRules((x) => [...x, { field: "tag", op: "equals", value: "" }])}>
+              <button type="button" className={BTN_GHOST} onClick={() => setRules((x) => [...x, { field: "type", op: "equals", value: "" }])}>
                 <Plus className="h-4 w-4" />
                 Add condition
               </button>
@@ -240,7 +272,7 @@ function CollectionEditor({ initial, products, onClose, onSaved }: { initial: Co
               <Search aria-hidden className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9ca3af]" />
               <TextInput value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search products" className="pl-9" />
             </div>
-            <ul className="max-h-[280px] divide-y divide-[#f1f2f4] overflow-y-auto rounded-xl border border-[#eceef1]">
+            <ul className="max-h-[320px] divide-y divide-[#f1f2f4] overflow-y-auto rounded-xl border border-[#eceef1]">
               {products
                 .filter((p) => !q || p.title.toLowerCase().includes(q))
                 .map((p) => {
@@ -249,7 +281,18 @@ function CollectionEditor({ initial, products, onClose, onSaved }: { initial: Co
                     <li key={p.id}>
                       <button type="button" onClick={() => setPicked((x) => (on ? x.filter((y) => y !== p.id) : [...x, p.id]))} className="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-[#fafafb]">
                         <span className={cn("grid h-4 w-4 shrink-0 place-items-center rounded border", on ? "border-[#1a1a2e] bg-[#1a1a2e]" : "border-[#d1d5db]")}>{on ? <Check className="h-3 w-3 text-white" strokeWidth={3} /> : null}</span>
-                        <span className="min-w-0 flex-1 truncate text-[14px] text-[#1a1a2e]">{p.title}</span>
+                        {p.thumbnail_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={p.thumbnail_url} alt="" className="h-8 w-8 shrink-0 rounded-md object-cover ring-1 ring-black/5" loading="lazy" />
+                        ) : (
+                          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-[#f1f2f4]">
+                            <Layers className="h-3.5 w-3.5 text-[#9ca3af]" />
+                          </span>
+                        )}
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-[14px] text-[#1a1a2e]">{p.title}</span>
+                          <span className="block truncate text-[12px] text-[#6b7280]">{KIND_LABEL[p.type] ?? "Product"}</span>
+                        </span>
                         {p.status !== "published" ? <Pill tone="gray">Draft</Pill> : null}
                       </button>
                     </li>
