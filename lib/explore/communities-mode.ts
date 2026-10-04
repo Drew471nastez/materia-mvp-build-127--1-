@@ -76,12 +76,15 @@ export function communityPrice(price: string | null | undefined): "free" | "paid
  * choice is the same string: the page compares it with the first page the
  * server drew, and a match means there is nothing to fetch.
  */
-export function communitiesQuery(input: { q?: string | null; category?: string | null; srt?: string | null; price?: string | null }): string {
+export function communitiesQuery(input: { q?: string | null; category?: string | null; sub?: string | null; srt?: string | null; price?: string | null }): string {
   const p = new URLSearchParams()
   const q = (input.q ?? "").trim()
   if (q) p.set("q", q)
   const c = (input.category ?? "").trim().toLowerCase()
   if (c && c !== "all" && c !== "for-you") p.set("c", c)
+  /* A subcategory from the More picker, only inside a category (its parent): the server narrows the category by its words. */
+  const sub = (input.sub ?? "").trim().toLowerCase()
+  if (sub && p.has("c")) p.set("sub", sub)
   const sort = communityServerSort(input.srt)
   if (sort !== "trending") p.set("sort", sort)
   const price = communityPrice(input.price)

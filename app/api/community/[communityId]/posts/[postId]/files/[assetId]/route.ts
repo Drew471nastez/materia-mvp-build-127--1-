@@ -6,6 +6,7 @@ import { admin } from "@/lib/communities/server/db"
 import { NO_STORE, sessionUserId, visiblePostRow } from "@/lib/communities/server/feed"
 import { generateSignedDownloadUrl, SIGNED_DOWNLOAD_SECONDS } from "@/lib/storage/download"
 import { gateDownload } from "@/lib/storage/scan-gate"
+import { signCommunityFile } from "@/lib/communities/server/post-files"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -20,6 +21,11 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
  * space: the file must be named on that post, uploaded by its author for a
  * product of this community, and not refused by the file checks
  * (lib/storage/scan-gate). Then a signed address for a few minutes.
+ *
+ * A member's own file (round 7, `store: "community"`) lives in the
+ * community's folder under its author's id; it was checked where it landed
+ * before it could be posted (lib/communities/server/post-files.ts), and is
+ * signed from that folder only, saved under its name, never opened inline.
  */
 export async function GET(_request: Request, { params }: Params) {
   const off = await requireCommunitiesOn()
@@ -31,8 +37,13 @@ export async function GET(_request: Request, { params }: Params) {
   if (gate instanceof NextResponse) return gate
   const found = await visiblePostRow(db, gate.community, gate.viewer, postId)
   if (!found || found.row.status !== "published") return NextResponse.json({ error: "File not found" }, { status: 404, headers: NO_STORE })
-  const named = found.row.media.find((m) => m.type === "file" && m.assetId === assetId.toLowerCase()) as { assetId: string; name?: string } | undefined
+  const named = found.row.media.find((m) => m.type === "file" && m.assetId === assetId.toLowerCase()) as { assetId: string; name?: string; store?: string } | undefined
   if (!named) return NextResponse.json({ error: "File not found" }, { status: 404, headers: NO_STORE })
+  if (named.store === "community") {
+    const url = await signCommunityFile(db, gate.community, found.row.author_id, { assetId: named.assetId, name: named.name || "File" })
+    if (!url) return NextResponse.json({ error: "The file could not be opened. Try again in a moment." }, { status: 502, headers: NO_STORE })
+    return NextResponse.redirect(url, { status: 302, headers: NO_STORE })
+  }
   const { data: products } = await db.from("products").select("id").eq("community_id", gate.community.id)
   const productIds = ((products as { id: string }[] | null) ?? []).map((p) => p.id)
   if (!productIds.length) return NextResponse.json({ error: "File not found" }, { status: 404, headers: NO_STORE })

@@ -24,13 +24,23 @@
  * wide as the wider of them in both states: nothing beside it moves.
  * Reduced motion: the same switch, without the movement.
  *
- * TAPS SETTLE TO THE LAST ONE (useFollow). Each press flips what the button
- * shows; the server hears the result once the presses stop (DEBOUNCE_MS),
- * one request at a time, and only when it differs from what the server
- * already has. Follow, Following, Follow in a quick row is one follow, and
- * a double tap is nothing. A refusal puts the button and the count back to
- * what the server has. Leaving the page mid wait still sends it (keepalive).
- * The server is POST /api/follow, which takes the follower from the session.
+ * TAPS SETTLE TO THE LAST ONE (useFollow). "On mobile, clicking Follow
+ * then quickly clicking again blocks for about 3 seconds." It did: the
+ * button ignored every press while a request was out (`if (busy) return`),
+ * and the request took that long because the route waited for the
+ * follower's handle and the "followed you" notice before it answered. Now
+ * no press ever waits on the network. Each press flips what the button shows
+ * on that frame; the server hears the result once the presses stop
+ * (DEBOUNCE_MS), one request at a time, and only when it differs from what
+ * the server already has. A press while a request is out is kept, and the
+ * newest one is sent when that request lands. Follow, Following, Follow in a
+ * quick row is one follow, and a double tap is nothing. A request that fails
+ * on the way (no network, a 5xx) is tried once more (RETRY_MS later); only
+ * when that fails too, or the server says no, do the button and the count
+ * go back to what the server has. Leaving the page mid wait still sends it
+ * (keepalive, on that request only). Nothing here refreshes the page.
+ * The server is POST /api/follow, which takes the follower from the session
+ * and answers before the notice is written (after()).
  *
  * Signed out, the press goes to sign in and comes back here.
  *
@@ -71,10 +81,22 @@ export interface ActionScheme {
 
 /** How long the presses must stop before the server hears the last one. */
 export const DEBOUNCE_MS = 300
+/** How long before a request that failed on the way is tried the second and last time. */
+export const RETRY_MS = 600
 
 type FollowAnswer = { following?: boolean; followers?: number; error?: string }
 
-export function useFollow(input: { targetUserId: string; initialFollowing: boolean; signedIn: boolean; onFollowers?: (n: number) => void; onChange?: (following: boolean) => void }) {
+const TRY_AGAIN = "That did not go through. Try again."
+
+export function useFollow(input: {
+  targetUserId: string
+  initialFollowing: boolean
+  signedIn: boolean
+  onFollowers?: (n: number) => void
+  onChange?: (following: boolean) => void
+  /** A press that could not be saved, after the button went back (the community card says it in a toast). */
+  onError?: (message: string) => void
+}) {
   /* What the button shows: the last press. */
   const [following, setFollowing] = useState(input.initialFollowing)
   const [busy, setBusy] = useState(false)
@@ -87,39 +109,58 @@ export function useFollow(input: { targetUserId: string; initialFollowing: boole
   const live = useRef(input)
   live.current = input
 
-  const send = useCallback(async () => {
+  /* One request (and its one retry) at a time, for whatever the newest press is when it goes. `leaving` marks the one sent as the page goes away. */
+  const send = useCallback(async (leaving = false) => {
     timer.current = null
     if (flying.current || wanted.current === server.current) return
-    const next = wanted.current
     flying.current = true
     setBusy(true)
-    try {
-      const res = await fetch("/api/follow", {
-        method: "POST",
-        credentials: "include",
-        keepalive: true,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: live.current.targetUserId, follow: next }),
-      })
-      const data = (await res.json().catch(() => ({}))) as FollowAnswer
-      if (!res.ok || typeof data.following !== "boolean") throw new Error(data.error || "That did not go through. Try again.")
-      server.current = data.following
-      /* The server's count only while it is still the count of what the button shows. */
-      if (wanted.current === data.following && typeof data.followers === "number") live.current.onFollowers?.(data.followers)
-    } catch (e) {
-      /* Refused: the button and the count go back to what the server has. */
-      if (wanted.current !== server.current) {
-        wanted.current = server.current
-        setFollowing(server.current)
-        live.current.onChange?.(server.current)
-        setError(e instanceof Error ? e.message : "That did not go through. Try again.")
+    let failure: string | null = null
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const next = wanted.current
+      /* Pressed back to what the server has while waiting to retry: nothing left to say. */
+      if (next === server.current) {
+        failure = null
+        break
       }
-    } finally {
-      flying.current = false
-      setBusy(false)
-      /* Pressed again while that one was out: one more, for the newest press. */
-      if (wanted.current !== server.current && !timer.current) void send()
+      let refused = false
+      try {
+        const res = await fetch("/api/follow", {
+          method: "POST",
+          credentials: "include",
+          keepalive: leaving,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId: live.current.targetUserId, follow: next }),
+        })
+        const data = (await res.json().catch(() => ({}))) as FollowAnswer
+        if (res.ok && typeof data.following === "boolean") {
+          server.current = data.following
+          failure = null
+          /* The server's count only while it is still the count of what the button shows. */
+          if (wanted.current === data.following && typeof data.followers === "number") live.current.onFollowers?.(data.followers)
+          break
+        }
+        failure = data.error || TRY_AGAIN
+        /* A no from the server (signed out, too many, nobody by that id) is its answer; asking again would not change it. */
+        refused = res.status < 500
+      } catch {
+        failure = TRY_AGAIN
+      }
+      if (refused || attempt === 1 || leaving) break
+      await new Promise((r) => setTimeout(r, RETRY_MS))
     }
+    /* The last word was a no: the button and the count go back to what the server has. */
+    if (failure && wanted.current !== server.current) {
+      wanted.current = server.current
+      setFollowing(server.current)
+      live.current.onChange?.(server.current)
+      setError(failure)
+      live.current.onError?.(failure)
+    }
+    flying.current = false
+    setBusy(false)
+    /* Pressed again while that one was out: one more, for the newest press. */
+    if (wanted.current !== server.current && !timer.current) void send()
   }, [])
 
   /* Leaving with a press still waiting: send it now, keepalive carries it past the page. */
@@ -127,7 +168,7 @@ export function useFollow(input: { targetUserId: string; initialFollowing: boole
     const flush = () => {
       if (timer.current) {
         clearTimeout(timer.current)
-        void send()
+        void send(true)
       }
     }
     window.addEventListener("pagehide", flush)
@@ -137,6 +178,7 @@ export function useFollow(input: { targetUserId: string; initialFollowing: boole
     }
   }, [send])
 
+  /* Never awaits anything: the press is answered in this event, the server in the background. */
   const toggle = () => {
     if (!input.signedIn) {
       const back = typeof window !== "undefined" ? window.location.pathname + window.location.search : "/"
@@ -215,6 +257,23 @@ const SWAP = "transition-[opacity,scale] duration-[180ms] [transition-delay:-24m
  * shown at the start of a fade in, hidden at the end of a fade out.
  */
 const LABEL = "relative col-start-1 row-start-1 inline-flex items-center gap-1.5 whitespace-nowrap transition-[opacity,scale,visibility] duration-[180ms] [transition-delay:-24ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none"
+
+/**
+ * NOTHING TO WORK OUT ON A PRESS. cn() runs tailwind-merge, which parses
+ * every class it has not seen before. The parts below change class on every
+ * switch, so the first press met strings never merged and spent most of its
+ * render on them (a profile of the first tap at a quarter CPU speed). They
+ * have no clashing classes to settle, so they are joined, and the face's
+ * box is worked out once, here.
+ */
+const join = (...parts: string[]) => parts.join(" ")
+
+/** The face: sinks on the press, springs back on release. */
+const FACE_BOX = cn(
+  "relative grid w-full place-items-center rounded-[inherit] px-5",
+  "transition-[scale] duration-[220ms] ease-[cubic-bezier(0.34,1.56,0.64,1)] group-data-[pressed]/follow:scale-[0.96] group-data-[pressed]/follow:duration-[90ms] group-data-[pressed]/follow:ease-out",
+  "motion-reduce:transition-none motion-reduce:scale-100!",
+)
 
 /** Each face is a full layer of the button, at the same box: a 1px edge on both, so neither is a pixel bigger. */
 const FACE = "pointer-events-none absolute inset-0 rounded-[inherit] border"
@@ -305,26 +364,19 @@ export function FollowButton({
       style={{ ...(storefront ? schemeVars(scheme) : null), opacity: 1 }}
     >
       {/* The face: sinks on the press, springs back on release. The button itself never moves, so its target holds still under the finger. */}
-      <span
-        className={cn(
-          "relative grid w-full place-items-center rounded-[inherit] px-5",
-          "transition-[scale] duration-[220ms] ease-[cubic-bezier(0.34,1.56,0.64,1)] group-data-[pressed]/follow:scale-[0.96] group-data-[pressed]/follow:duration-[90ms] group-data-[pressed]/follow:ease-out",
-          "motion-reduce:transition-none motion-reduce:scale-100!",
-        )}
-        data-follow-face=""
-      >
-        <span aria-hidden className={cn(solid, SWAP, following ? "opacity-0" : "opacity-100")} data-follow-fill="follow" />
-        <span aria-hidden className={cn(look.quiet, SWAP, following ? "opacity-100" : "opacity-0")} data-follow-fill="following" />
+      <span className={FACE_BOX} data-follow-face="">
+        <span aria-hidden className={join(solid, SWAP, following ? "opacity-0" : "opacity-100")} data-follow-fill="follow" />
+        <span aria-hidden className={join(look.quiet, SWAP, following ? "opacity-100" : "opacity-0")} data-follow-fill="following" />
         {/* Both labels in one cell, always laid out: the button is the width of the wider one in both states. */}
         <span
-          className={cn(LABEL, solidInk, following ? "invisible scale-[0.92] opacity-0" : "visible scale-100 opacity-100")}
+          className={join(LABEL, solidInk, following ? "invisible scale-[0.92] opacity-0" : "visible scale-100 opacity-100")}
           aria-hidden={following || undefined}
           data-follow-label="follow"
         >
           Follow
         </span>
         <span
-          className={cn(LABEL, look.quietInk, following ? "visible scale-100 opacity-100" : "invisible scale-[0.92] opacity-0")}
+          className={join(LABEL, look.quietInk, following ? "visible scale-100 opacity-100" : "invisible scale-[0.92] opacity-0")}
           aria-hidden={!following || undefined}
           data-follow-label="following"
         >

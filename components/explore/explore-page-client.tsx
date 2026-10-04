@@ -269,25 +269,38 @@ export const CATEGORY_PILLS = PILL_IDS
   .map((id) => CATEGORIES.find((c) => c.id === id))
   .filter((c): c is (typeof CATEGORIES)[number] => Boolean(c))
 
-/**
- * THE ROW IN COMMUNITIES MODE is the products' row without For you (it is
- * built from what somebody bought, which says nothing about where they would
- * gather): All, then the same categories with the same faces. A community
- * carries one of these ids (communities.category, picked by its creator in
- * Settings, Page), so a pill here is an equality on the server. More lists
- * the categories alone: a subcategory is a kind of file, and Freebies is a
- * price, which the Filters panel already asks.
- */
-const COMMUNITY_PILLS = CATEGORY_PILLS.map((c) => ({ id: c.id, label: c.label }))
-
-/** The same categories, as the More picker lists them: everything but "All", with their subcategories. */
+/** The categories, as the More picker lists them: everything but "All", with their subcategories. */
 const PICKER_GROUPS: BrowseGroup[] = CATEGORIES.filter((c) => c.id !== "all").map((c) => ({
   id: c.id,
   label: c.label,
   items: c.subcategories,
 }))
-/** And for communities: the categories alone, no Freebies. */
-const COMMUNITY_PICKER_GROUPS: BrowseGroup[] = PICKER_GROUPS.filter((g) => g.id !== "freebies").map((g) => ({ ...g, items: [] }))
+
+/*
+  COMMUNITIES MODE HAS THE PRODUCTS' ROW AND THE PRODUCTS' MORE (round 8: the
+  owner wants the categories to open up for communities too). The same
+  pills in the same order, with All where For you would be (For you is
+  built from what somebody bought, which says nothing about where they
+  would gather), the same Communities pill in the second place (pressed,
+  and pressing it again goes back to the products), and the same picker
+  with the whole tree, subcategories included.
+
+  A community stores one category id (communities.category), never a
+  subcategory, so the server reads a subcategory as its parent category
+  narrowed by the subcategory's words in the name, tagline or description,
+  and when no community in that category mentions them it shows the whole
+  category and says so (lib/communities/server/explore.ts). Freebies is a
+  price, so there it is the free communities.
+*/
+/** A subcategory id from the address, with its label, or null for anything the tree does not have. */
+function subcategoryFromAddress(id: string | null): { id: string; label: string } | null {
+  if (!id) return null
+  for (const g of PICKER_GROUPS) {
+    const hit = g.items.find((x) => x.id === id)
+    if (hit) return { id: hit.id, label: hit.label }
+  }
+  return null
+}
 
 /**
  * The row's shape is decided by lib/explore/interests, which is pure and
@@ -399,8 +412,9 @@ export function ExplorePageClient({
   })
 
   // Selected subcategory from modal
-  const [selectedSubcategoryId, setSelectedSubcategoryId] = useState<string | null>(null)
-  const [selectedSubcategoryLabel, setSelectedSubcategoryLabel] = useState<string | null>(null)
+  /* From the address on the first render, so a shared ?sub= link asks the communities route for the same list the server drew instead of drawing the category first and then narrowing it. */
+  const [selectedSubcategoryId, setSelectedSubcategoryId] = useState<string | null>(() => subcategoryFromAddress(searchParams.get("sub"))?.id ?? null)
+  const [selectedSubcategoryLabel, setSelectedSubcategoryLabel] = useState<string | null>(() => subcategoryFromAddress(searchParams.get("sub"))?.label ?? null)
 
   // Separate category for the Browse by Category section
   const [browseCategory, setBrowseCategory] = useState("all")
@@ -1057,7 +1071,13 @@ export function ExplorePageClient({
   const showSkeletons = (isPending || isLoadingCategory) && !restoringExploreScroll
 
   /* A category chosen from More that has no pill of its own: the More pill holds it. */
-  const rowPills = communities ? COMMUNITY_PILLS : [{ id: pillRow.first.id, label: pillRow.first.label }, ...pillRow.pills]
+  const rowPills = [communities ? { id: "all", label: "All" } : { id: pillRow.first.id, label: pillRow.first.label }, ...pillRow.pills]
+  /* The picker's first row, the row's first pill: All categories, or For you for an account we know something about (never in communities mode). */
+  const pickerAllRow = communities || pillRow.first.id !== FOR_YOU_ID ? { id: "all", label: "All categories" } : { id: pillRow.first.id, label: pillRow.first.label }
+  const pickCategory = (groupId: string, itemId?: string | null) => {
+    const sub = itemId ? PICKER_GROUPS.find((c) => c.id === groupId)?.items.find((x) => x.id === itemId) : undefined
+    handleCategoryChange(groupId, sub?.id, sub?.label, true)
+  }
   const moreHolds =
     mainCategory !== "all" &&
     mainCategory !== FOR_YOU_ID &&
@@ -1099,16 +1119,11 @@ export function ExplorePageClient({
         onModeChange={communitiesEnabled ? handleModeChange : undefined}
         discoverHeadlineSegmentEnabled={communitiesEnabled && discoverHeadlineSegmentEnabled}
         categories={{
-          groups: communities ? COMMUNITY_PICKER_GROUPS : PICKER_GROUPS,
+          groups: PICKER_GROUPS,
           selectedGroup: mainCategory === "all" || mainCategory === FOR_YOU_ID ? null : mainCategory,
-          selectedItem: communities ? null : selectedSubcategoryId,
-          allRow: communities
-            ? { id: "all", label: "All categories" }
-            : { id: pillRow.first.id, label: pillRow.first.id === FOR_YOU_ID ? pillRow.first.label : "All categories" },
-          onPick: (groupId, itemId) => {
-            const sub = !communities && itemId ? PICKER_GROUPS.find((c) => c.id === groupId)?.items.find((x) => x.id === itemId) : undefined
-            handleCategoryChange(groupId, sub?.id, sub?.label, true)
-          },
+          selectedItem: selectedSubcategoryId,
+          allRow: pickerAllRow,
+          onPick: pickCategory,
         }}
       />
 
@@ -1227,23 +1242,31 @@ export function ExplorePageClient({
                       switches this page to communities, the same as the
                       chip's menu (a real link, so it also opens in a new tab
                       and reads as one). Drawn only while communities are
-                      switched on, and not in communities mode, whose whole
-                      row is already about them.
+                      switched on. In communities mode it stays where it was,
+                      pressed, with a small cross: pressing it again goes back
+                      to the products, so the row is the same row in both.
                     */}
-                    {index === 0 && communitiesEnabled && !communities ? (
+                    {index === 0 && communitiesEnabled ? (
                       <Link
-                        href={EXPLORE_COMMUNITIES_HREF}
+                        href={communities ? "/explore?type=products" : EXPLORE_COMMUNITIES_HREF}
                         onClick={(e) => {
                           if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return
                           e.preventDefault()
-                          handleModeChange("communities")
+                          handleModeChange(communities ? "products" : "communities")
                           smoothScrollToRecommendedSection(categorySectionRef)
                         }}
                         data-communities-pill=""
-                        className="inline-flex items-center gap-1.5 shrink-0 px-3.5 py-2 rounded-full text-sm font-medium cursor-pointer select-none whitespace-nowrap border transition-[background-color,border-color,color,box-shadow] duration-150 bg-white text-neutral-500 border-neutral-200 hover:border-neutral-300 hover:text-neutral-800"
+                        data-on={communities ? "" : undefined}
+                        aria-label={communities ? "Communities, on. Show products instead" : undefined}
+                        className={`inline-flex items-center gap-1.5 shrink-0 px-3.5 py-2 rounded-full text-sm font-medium cursor-pointer select-none whitespace-nowrap border transition-[background-color,border-color,color,box-shadow] duration-150 ${
+                          communities
+                            ? "bg-[#e2e4e8] text-neutral-900 border-[#d7dadf] shadow-[inset_0_1px_1.5px_rgba(15,23,42,0.07),inset_0_-1px_0_rgba(255,255,255,0.45)] pr-2.5"
+                            : "bg-white text-neutral-500 border-neutral-200 hover:border-neutral-300 hover:text-neutral-800"
+                        }`}
                       >
                         <span aria-hidden className="text-[15px] leading-none">{"\u{1F465}"}</span>
                         Communities
+                        {communities ? <X aria-hidden className="h-3.5 w-3.5 opacity-60" strokeWidth={2.2} /> : null}
                       </Link>
                     ) : null}
                     </Fragment>
@@ -1259,14 +1282,11 @@ export function ExplorePageClient({
                 <ExploreCategoryPicker
                   open={categorySelectorOpen}
                   onOpenChange={setCategorySelectorOpen}
-                  groups={communities ? COMMUNITY_PICKER_GROUPS : PICKER_GROUPS}
+                  groups={PICKER_GROUPS}
                   selectedGroup={mainCategory === "all" || mainCategory === FOR_YOU_ID ? null : mainCategory}
-                  selectedItem={communities ? null : selectedSubcategoryId}
-                  allRow={communities ? { id: "all", label: "All categories" } : { id: pillRow.first.id, label: pillRow.first.id === FOR_YOU_ID ? pillRow.first.label : "All categories" }}
-                  onPick={(groupId, itemId) => {
-                    const sub = !communities && itemId ? PICKER_GROUPS.find((c) => c.id === groupId)?.items.find((x) => x.id === itemId) : undefined
-                    handleCategoryChange(groupId, sub?.id, sub?.label, true)
-                  }}
+                  selectedItem={selectedSubcategoryId}
+                  allRow={pickerAllRow}
+                  onPick={pickCategory}
                   triggerClassName={`inline-flex items-center gap-1 shrink-0 pl-3.5 pr-2.5 py-2 rounded-full text-sm font-medium cursor-pointer select-none whitespace-nowrap border outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 transition-[background-color,border-color,color,box-shadow] duration-150 ${
                     moreHolds || categorySelectorOpen
                       ? "bg-[#e2e4e8] text-neutral-900 border-[#d7dadf] shadow-[inset_0_1px_1.5px_rgba(15,23,42,0.07),inset_0_-1px_0_rgba(255,255,255,0.45)]"
@@ -1391,6 +1411,8 @@ export function ExplorePageClient({
               initial={initialCommunities}
               q={(localSearchQuery.trim() || urlSearchQuery || "").trim()}
               category={mainCategory}
+              sub={selectedSubcategoryId}
+              subLabel={selectedSubcategoryLabel}
               srt={deferredSort}
               price={deferredPrice}
               categoryLabel={mainCategory === "all" ? null : CATEGORIES.find((c) => c.id === mainCategory)?.label ?? null}

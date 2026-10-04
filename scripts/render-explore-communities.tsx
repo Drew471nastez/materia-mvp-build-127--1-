@@ -69,7 +69,8 @@ const communities: CommunityCard[] = NAMES.map((name, i) => ({
   id: `00000000-0000-4000-8000-00000000000${i}`,
   slug: name.toLowerCase().split(":")[0].replace(/[^a-z0-9]+/g, "-"),
   name,
-  tagline: "A calm place to share work and get honest feedback.",
+  /* Design Systems Guild mentions UI/UX, so the Design > UI/UX Templates pick has one community to narrow to. */
+  tagline: i === 4 ? "UI/UX systems, tokens and the people who keep them." : "A calm place to share work and get honest feedback.",
   logoUrl: i === 3 ? null : logo(i),
   coverUrl: i === 4 ? null : picture(i + 2),
   category: ["design", "productivity", "photography", "business", "design", "ai", "ai"][i],
@@ -94,13 +95,22 @@ window.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
   const q = new URL(href, "https://storelib.test").searchParams
   let items = communities
   if (q.get("c")) items = items.filter((c) => c.category === q.get("c"))
+  /* The server's subcategory rule, in small: the category narrowed by the subcategory's words, else the whole category, broadened. */
+  let broadened = false
+  const sub = q.get("sub")
+  if (sub) {
+    const words = (t: string) => ` ${t.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()} `
+    const narrowed = items.filter((c) => words(`${c.name} ${c.tagline ?? ""}`).includes(words(sub.replace(/-/g, " "))))
+    if (narrowed.length) items = narrowed
+    else broadened = true
+  }
   if (q.get("price") === "free") items = items.filter((c) => c.access === "free")
   if (q.get("price") === "paid") items = items.filter((c) => c.access !== "free")
   if (q.get("q")) items = items.filter((c) => c.name.toLowerCase().includes(q.get("q")!.toLowerCase()))
   if (q.get("sort") === "popular") items = [...items].sort((a, b) => b.memberCount - a.memberCount)
   if (q.get("cursor")) items = items.slice(0, 2).map((c, i) => ({ ...c, id: `${c.id}-more-${i}`, slug: `${c.slug}-more` }))
   await new Promise((r) => setTimeout(r, 60))
-  return new Response(JSON.stringify({ items, next: null }), { status: 200, headers: { "content-type": "application/json" } })
+  return new Response(JSON.stringify({ items, next: null, ...(broadened ? { broadened } : {}) }), { status: 200, headers: { "content-type": "application/json" } })
 }) as typeof window.fetch
 
 const mode = location.hash.replace("#", "") || "products"

@@ -37,6 +37,7 @@ import { publicUrlProblem, fetchPublic } from "@/lib/api/public-fetch"
 import { plainTextToHtml } from "@/lib/rich-text/html"
 import { evaluateAccess, type AccessViewer } from "../access"
 import { LENGTHS, MAX_MEDIA_PER_POST, POLL_OPTIONS_MAX, POLL_OPTIONS_MIN, mentionsEveryone } from "../limits"
+import { MAX_EMBEDS, MAX_GIFS, embedFromUrl, embedThumbUrl, giphyUrl } from "../post-media"
 import { can, meetsRole } from "../permissions"
 import {
   POST_COLUMNS,
@@ -55,6 +56,7 @@ import type { Viewer } from "./context"
 import { missing, nowIso, reasonOf, type Db } from "./db"
 import { authorViews, displayName } from "./directory"
 import { everyoneAllowed, notifyMentions, queueEveryone } from "./mentions"
+import { communityFilesExist } from "./post-files"
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -199,9 +201,48 @@ export function cursorAfter(sort: FeedSort, last: Pick<PostRow, "created_at" | "
 /* ── Turning rows into what a page draws ───────────────────────────────── */
 
 interface Hydration {
-  community: Pick<CommunityRow, "id">
+  community: Pick<CommunityRow, "id"> & Partial<Pick<CommunityRow, "gamification_enabled">>
   viewer: Viewer
   spaces: SpaceRow[]
+  /** A list of cards: the html copy of the words stays out (cards and an opened post draw from bodyText), so a page is smaller. */
+  lean?: boolean
+}
+
+/** The most comments read for one page of cards, whatever its size: enough for the faces of every post on it. */
+export const COMMENTERS_READ = 120
+export const COMMENTER_FACES = 3
+
+/**
+ * The faces under each card: up to three people who commented most recently
+ * on each post, and when the newest comment came. One read for the page (the
+ * newest published comments on these posts, bounded), never one per post.
+ */
+export function commentersByPost(rows: { post_id: string; author_id: string | null; created_at: string }[], faces = COMMENTER_FACES): Map<string, { ids: string[]; last: string }> {
+  const out = new Map<string, { ids: string[]; last: string }>()
+  for (const r of rows) {
+    const entry = out.get(r.post_id) ?? { ids: [], last: r.created_at }
+    if (Date.parse(r.created_at) > Date.parse(entry.last)) entry.last = r.created_at
+    if (r.author_id && entry.ids.length < faces && !entry.ids.includes(r.author_id)) entry.ids.push(r.author_id)
+    out.set(r.post_id, entry)
+  }
+  return out
+}
+
+async function recentComments(db: Db, postIds: string[]): Promise<Map<string, { ids: string[]; last: string }>> {
+  if (!postIds.length) return new Map()
+  try {
+    const { data, error } = await db
+      .from("community_feed_comments")
+      .select("post_id, author_id, created_at")
+      .in("post_id", postIds)
+      .eq("status", "published")
+      .order("created_at", { ascending: false })
+      .limit(COMMENTERS_READ)
+    if (error) return new Map()
+    return commentersByPost((data as { post_id: string; author_id: string | null; created_at: string }[] | null) ?? [])
+  } catch {
+    return new Map()
+  }
 }
 
 async function pollsFor(db: Db, postIds: string[], userId: string | null, now = Date.now()): Promise<Map<string, PollView>> {
@@ -238,7 +279,8 @@ export async function hydratePosts(db: Db, rows: PostRow[], h: Hydration): Promi
   if (!rows.length) return []
   const ids = rows.map((r) => r.id)
   const userId = h.viewer.userId
-  const [authors, reacted, saved, polls] = await Promise.all([
+  const withComments = rows.filter((r) => r.status === "published" && Number(r.comment_count) > 0).map((r) => r.id)
+  const [authors, reacted, saved, polls, commented] = await Promise.all([
     authorViews(db, h.community.id, rows.map((r) => r.author_id)),
     userId
       ? db
@@ -262,7 +304,13 @@ export async function hydratePosts(db: Db, rows: PostRow[], h: Hydration): Promi
       rows.filter((r) => r.kind === "poll").map((r) => r.id),
       userId,
     ).catch(() => new Map<string, PollView>()),
+    recentComments(db, withComments),
   ])
+  /* The commenters' faces: whoever is not already known as an author, in one more read. */
+  const faceIds = [...new Set([...commented.values()].flatMap((c) => c.ids))].filter((id) => !authors.has(id))
+  const faces = faceIds.length ? await authorViews(db, h.community.id, faceIds).catch(() => new Map()) : new Map()
+  const person = (id: string) => authors.get(id) ?? faces.get(id) ?? null
+  const showLevel = h.community.gamification_enabled !== false
   const spaceById = new Map(h.spaces.map((s) => [s.id, s]))
   const moderator = can(h.viewer.role, "moderate_content")
   return rows.map((r) => {
@@ -273,7 +321,7 @@ export async function hydratePosts(db: Db, rows: PostRow[], h: Hydration): Promi
       space: space ? { id: space.id, slug: space.slug, name: space.name } : null,
       kind: r.kind,
       title: r.title,
-      body: r.status === "published" ? r.body : "",
+      body: r.status === "published" && !h.lean ? r.body : "",
       bodyText: r.status === "published" ? r.body_text : "",
       media: r.status === "published" ? (Array.isArray(r.media) ? r.media : []) : [],
       pinned: !!r.pinned,
@@ -291,6 +339,12 @@ export async function hydratePosts(db: Db, rows: PostRow[], h: Hydration): Promi
       lastActivityAt: r.last_activity_at,
       canEdit: !!userId && r.author_id === userId && r.status === "published",
       canModerate: moderator,
+      recentCommenters: (commented.get(r.id)?.ids ?? [])
+        .map((id) => person(id))
+        .filter((p): p is NonNullable<ReturnType<typeof person>> => !!p)
+        .map((p) => ({ id: p.id, name: p.name, avatarUrl: p.avatarUrl })),
+      lastCommentAt: commented.get(r.id)?.last ?? null,
+      showLevel,
     }
   })
 }
@@ -390,7 +444,7 @@ export async function listFeed(db: Db, community: CommunityRow, viewer: Viewer, 
     const page = rows.slice(0, limit)
     const last = page[page.length - 1]
     const h = { community, viewer, spaces }
-    const [pinned, posts] = await Promise.all([hydratePosts(db, pinnedRows, h), hydratePosts(db, page, h)])
+    const [pinned, posts] = await Promise.all([hydratePosts(db, pinnedRows, { ...h, lean: true }), hydratePosts(db, page, { ...h, lean: true })])
     return { pinned, posts, nextCursor: rows.length > limit && last ? cursorAfter(order, last) : null }
   } catch (e) {
     console.error(`[communities] feed read: ${reasonOf(e)}`)
@@ -494,20 +548,30 @@ export function refused<T>(c: { ok: boolean; error?: string; status?: number }, 
 /**
  * The media a client sent, in the shapes PostMedia allows. Files and videos
  * are only references here; createPost checks they belong to this person and
- * this community before they are kept.
+ * this community before they are kept. Every address is checked against the
+ * one place it may come from (lib/communities/post-media.ts): pictures from
+ * Storelib's storage, GIFs from Giphy, videos by address from YouTube or
+ * Vimeo and nothing else, so a post never makes a member's browser load
+ * somebody else's page or script.
  */
 export function checkMedia(raw: unknown): Checked<PostMedia[]> {
   const list = Array.isArray(raw) ? raw : []
+  if (list.length > MAX_MEDIA_PER_POST * 2) return { ok: false, error: `Up to ${MAX_MEDIA_PER_POST} pictures and files in one post.` }
   const out: PostMedia[] = []
   let links = 0
+  let gifs = 0
+  let embeds = 0
+  const dims = (m: Record<string, unknown>) => {
+    const w = Number(m.w)
+    const h = Number(m.h)
+    return { ...(Number.isFinite(w) && w > 0 && w <= 20000 ? { w: Math.round(w) } : {}), ...(Number.isFinite(h) && h > 0 && h <= 20000 ? { h: Math.round(h) } : {}) }
+  }
   for (const item of list) {
     const m = (item && typeof item === "object" ? item : {}) as Record<string, unknown>
     if (m.type === "image") {
       const url = ownImageUrl(m.url)
       if (!url) return { ok: false, error: "That picture could not be added. Upload it again." }
-      const w = Number(m.w)
-      const h = Number(m.h)
-      out.push({ type: "image", url, ...(Number.isFinite(w) && w > 0 ? { w: Math.round(w) } : {}), ...(Number.isFinite(h) && h > 0 ? { h: Math.round(h) } : {}) })
+      out.push({ type: "image", url, ...dims(m) })
     } else if (m.type === "link") {
       const url = linkUrl(m.url)
       if (!url) return { ok: false, error: "That link cannot be added." }
@@ -517,12 +581,28 @@ export function checkMedia(raw: unknown): Checked<PostMedia[]> {
       out.push({ type: "link", url, ...(title ? { title } : {}), ...(image ? { image } : {}) })
     } else if (m.type === "file") {
       if (typeof m.assetId !== "string" || !UUID.test(m.assetId)) return { ok: false, error: "That file could not be added. Upload it again." }
-      const name = typeof m.name === "string" ? m.name.trim().slice(0, 200) : ""
+      const name = typeof m.name === "string" ? m.name.replace(/[\u0000-\u001f\u007f/\\]/g, "").trim().slice(0, 200) : ""
       const size = Number(m.size)
-      out.push({ type: "file", assetId: m.assetId.toLowerCase(), name: name || "File", ...(Number.isFinite(size) && size > 0 ? { size: Math.round(size) } : {}) })
+      out.push({ type: "file", assetId: m.assetId.toLowerCase(), name: name || "File", ...(Number.isFinite(size) && size > 0 ? { size: Math.round(size) } : {}), ...(m.store === "community" ? { store: "community" as const } : {}) })
     } else if (m.type === "video") {
       if (typeof m.videoId !== "string" || !UUID.test(m.videoId)) return { ok: false, error: "That video could not be added." }
-      out.push({ type: "video", videoId: m.videoId.toLowerCase() })
+      const poster = m.poster === undefined || m.poster === null ? null : ownImageUrl(m.poster)
+      if (m.poster && !poster) return { ok: false, error: "That video could not be added." }
+      out.push({ type: "video", videoId: m.videoId.toLowerCase(), ...(poster ? { poster } : {}), ...dims(m) })
+    } else if (m.type === "embed") {
+      const ref = embedFromUrl(m.url)
+      if (!ref || (m.provider !== undefined && m.provider !== ref.provider)) return { ok: false, error: "Only YouTube and Vimeo videos can be added by link." }
+      if (++embeds > MAX_EMBEDS) return { ok: false, error: `Up to ${MAX_EMBEDS} videos by link in one post.` }
+      const thumb = ref.thumb ?? embedThumbUrl(m.thumb) ?? undefined
+      const title = typeof m.title === "string" ? m.title.replace(/\s+/g, " ").trim().slice(0, 200) : ""
+      out.push({ type: "embed", provider: ref.provider, id: ref.id, url: ref.url, ...(ref.hash ? { hash: ref.hash } : {}), ...(thumb ? { thumb } : {}), ...(title ? { title } : {}) })
+    } else if (m.type === "gif") {
+      const url = giphyUrl(m.url)
+      const still = giphyUrl(m.still)
+      if (!url || !still) return { ok: false, error: "That GIF could not be added." }
+      if (++gifs > MAX_GIFS) return { ok: false, error: `Up to ${MAX_GIFS} GIFs in one post.` }
+      const title = typeof m.title === "string" ? m.title.replace(/\s+/g, " ").trim().slice(0, 120) : ""
+      out.push({ type: "gif", url, still, ...dims(m), ...(title ? { title } : {}) })
     }
   }
   if (out.length > MAX_MEDIA_PER_POST) return { ok: false, error: `Up to ${MAX_MEDIA_PER_POST} pictures and files in one post.` }
@@ -579,11 +659,13 @@ export function checkPostInput(raw: unknown): Checked<PostInput> {
   if (title.length > LENGTHS.postTitle.max) return { ok: false, error: "Keep the title under 200 characters." }
   const body = cleanText(r.body, LENGTHS.postBody.max)
   if (body.length > LENGTHS.postBody.max) return { ok: false, error: "Keep the post under 20,000 characters." }
+  /* A post is a title and its words, whatever else it carries (round 7). */
+  if (!title) return { ok: false, error: "Give the post a title." }
+  if (!body) return { ok: false, error: "Write something in the post." }
   const media = checkMedia(r.media)
   if (!media.ok) return refused(media)
   const poll = checkPoll(r.poll)
   if (!poll.ok) return refused(poll)
-  if (!title && !body && media.value.length === 0 && !poll.value) return { ok: false, error: "Write something first." }
   return { ok: true, value: { spaceId, title, body, media: media.value, poll: poll.value } }
 }
 
@@ -596,9 +678,21 @@ export function kindFor(space: Pick<SpaceRow, "kind">, hasPoll: boolean): PostKi
 }
 
 /** The file and video references a post may keep: the poster's own uploads, for this community. */
-async function ownedMedia(db: Db, community: CommunityRow, viewer: Viewer, media: PostMedia[]): Promise<Checked<PostMedia[]>> {
-  const files = media.filter((m): m is Extract<PostMedia, { type: "file" }> => m.type === "file")
-  const videos = media.filter((m): m is Extract<PostMedia, { type: "video" }> => m.type === "video")
+async function ownedMedia(db: Db, community: CommunityRow, viewer: Viewer, media: PostMedia[], kept: PostMedia[] = []): Promise<Checked<PostMedia[]>> {
+  /* What the post already had stays as it is: it was checked when it was added. */
+  const had = new Set(kept.map((m) => (m.type === "file" ? `f:${m.assetId}` : m.type === "video" ? `v:${m.videoId}` : "")).filter(Boolean))
+  const fresh = media.filter((m) => !((m.type === "file" && had.has(`f:${m.assetId}`)) || (m.type === "video" && had.has(`v:${m.videoId}`))))
+  /* A member's own file, in the community's folder: it must be there, under their id, and keeps the name it was checked with. */
+  const mine = fresh.filter((m): m is Extract<PostMedia, { type: "file" }> => m.type === "file" && m.store === "community")
+  let named = new Map<string, string>()
+  if (mine.length) {
+    const found = await communityFilesExist(db, community, String(viewer.userId), mine.map((f) => ({ fileId: f.assetId, name: f.name })))
+    if (!found.ok) return refused(found, 400)
+    named = found.value
+  }
+  media = media.map((m) => (m.type === "file" && m.store === "community" && named.has(m.assetId) ? { ...m, name: named.get(m.assetId)! } : m))
+  const files = fresh.filter((m): m is Extract<PostMedia, { type: "file" }> => m.type === "file" && m.store !== "community")
+  const videos = fresh.filter((m): m is Extract<PostMedia, { type: "video" }> => m.type === "video")
   if (files.length) {
     const { data: products } = await db.from("products").select("id").eq("community_id", community.id)
     const productIds = ((products as { id: string }[] | null) ?? []).map((p) => p.id)
@@ -730,15 +824,16 @@ export async function updatePost(w: WriteContext, postId: string, raw: unknown):
   const body = cleanText(r.body ?? found.row.body_text, LENGTHS.postBody.max)
   if (title.length > LENGTHS.postTitle.max) return { ok: false, error: "Keep the title under 200 characters.", status: 400 }
   if (body.length > LENGTHS.postBody.max) return { ok: false, error: "Keep the post under 20,000 characters.", status: 400 }
+  if (!title) return { ok: false, error: "Give the post a title.", status: 400 }
+  if (!body) return { ok: false, error: "Write something in the post.", status: 400 }
   let media = found.row.media
   if (r.media !== undefined) {
     const checked = checkMedia(r.media)
     if (!checked.ok) return refused(checked, 400)
-    const owned = await ownedMedia(db, community, viewer, checked.value)
+    const owned = await ownedMedia(db, community, viewer, checked.value, Array.isArray(found.row.media) ? found.row.media : [])
     if (!owned.ok) return refused(owned, 400)
     media = owned.value
   }
-  if (!title && !body && !media.length && found.row.kind !== "poll") return { ok: false, error: "Write something first.", status: 400 }
   const text = `${title}\n${body}`
   if (mentionsEveryone(text) && !mentionsEveryone(`${found.row.title ?? ""}\n${found.row.body_text}`) && !everyoneAllowed(text, viewer.role)) {
     return { ok: false, error: "Only admins can mention everyone.", status: 403 }
@@ -853,7 +948,7 @@ export async function listSaved(db: Db, community: CommunityRow, viewer: Viewer,
     const ordered = page.map((m) => byId.get(m.post_id)).filter((r): r is PostRow => !!r)
     const last = page[page.length - 1]
     return {
-      posts: await hydratePosts(db, ordered, { community, viewer, spaces }),
+      posts: await hydratePosts(db, ordered, { community, viewer, spaces, lean: true }),
       nextCursor: marks.length > FEED_PAGE ? encodeCursor({ c: last.created_at, i: last.post_id }) : null,
     }
   } catch (e) {

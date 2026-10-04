@@ -256,7 +256,7 @@ async function main() {
     check("anybody else is /@handle", personHref({ username: "sam", hasStorefront: false }) === "/@sam")
     check("no username, no page", personHref({ username: null, hasStorefront: false }) === "/" && personHref({ username: "  ", hasStorefront: true }) === "/")
     check("inside a community, no handle yet goes through the old address, which only redirects", memberHref("club", { id: "u1", username: null }) === "/community/club/members/u1" && memberHref("club", { id: "u1", username: "sam" }) === "/@sam")
-    for (const f of ["post-card.tsx", "post-page.tsx", "chat.tsx", "leaderboard.tsx", "members.tsx"]) {
+    for (const f of ["post-card.tsx", "comments.tsx", "chat.tsx", "leaderboard.tsx", "members.tsx"]) {
       const src = code(`components/community/member/${f}`)
       check(`${f}: names link through memberHref and say who they are, for the card`, /memberHref\(/.test(src) && /data-person-id=\{/.test(src) && !/href=\{`\$\{base\}\/members\/\$\{author\.id\}`\}|href=\{`\/community\/\$\{slug\}\/members\/\$\{(c\.author|m\.author|r|m)\.(id|userId)\}`\}/.test(src))
     }
@@ -545,7 +545,8 @@ async function main() {
     check("the card opens from a name's data-person-id, by pointer type, and from keyboard focus-visible", /closest<HTMLElement>\("\[data-person-id\]"\)/.test(layer) && /if \(!hoverPointer\(e\.pointerType\)\) return/.test(layer) && /anchor\.matches\(":focus-visible"\)/.test(layer))
     check("Escape closes it and hands focus back; scrolling closes it", /e\.key === "Escape"[\s\S]{0,200}back\.focus\(\)/.test(layer) && /addEventListener\("scroll", onScroll/.test(layer))
     check("Message opens the panel in place", /openMessages\(\{ userId: person\.id \}\)/.test(layer) && !/router\.push/.test(layer))
-    check("Follow goes through the one follow route", /api<\{ following: boolean \}>\("\/api\/follow", \{ body: \{ userId: person\.id, follow: next \} \}\)/.test(layer))
+    /* Round 7: the card's Follow was disabled while its request was out, so a quick second press did nothing for seconds. It shares the profile's hook now. */
+    check("Follow goes through the one follow route, through the profile's never blocking hook", /useFollow\(\{\s*targetUserId: person\.id,/.test(layer) && /onClick=\{follow\.toggle\}/.test(layer) && !/disabled=\{busy\}/.test(layer) && /fetch\("\/api\/follow"/.test(code("components/profile/follow-button.tsx")))
   }
 
   /* ── Round 5: the wall ───────────────────────────────────────────────── */
@@ -666,9 +667,10 @@ async function main() {
     check("round 7: no picture with a chevron any more; the \"...\" opens the menu", !/ChevronDown|data-community-me=/.test(bar) && /<CommunityAccountMenu /.test(bar))
     check("the frame hands the bar the search; the visitor's frame does not", /search=\{\{ communityId: community\.id \}\}/.test(code("components/community/member/shell-frame.tsx")) && !/search=/.test(code("components/community/public/public-frame.tsx")))
     const composer = code("components/community/member/composer.tsx")
-    check("the composer: Photo, Video, Poll, Event for staff only, and More", /data-composer-action="photo"/.test(composer) && /data-composer-action="video"/.test(composer) && /data-composer-action="poll"/.test(composer) && /\{eventHref \? \(\s*<Link href=\{eventHref\}[^>]*data-composer-action="event"/.test(composer) && /data-composer-action="more"/.test(composer))
-    check("Photo and Video open the file picker inside the same press, from pickers that stay mounted", /imageInput\.current\?\.click\(\)/.test(composer) && /videoInput\.current\?\.click\(\)/.test(composer) && (composer.match(/\{pickers\}/g) || []).length === 2)
-    check("More: post in a chosen space, a file for the creator; nothing to offer, no button", /label: `Post in \$\{s\.name\}`/.test(composer) && /label: "Attach a file"/.test(composer) && /\{more\.length \?/.test(composer))
+    /* Round 7 (the owner's ask 12): closed, only "Share something..."; the toolbar lives in the editor. */
+    check("the composer closed is only the field: no Photo, Video, Poll or More row", /data-composer-open=""/.test(composer) && !/data-composer-action=/.test(composer))
+    check("the editor's toolbar: files, link, video, poll, emoji, GIF, then the space, Cancel and Post", ["file", "link", "video", "poll", "emoji"].every((t) => new RegExp(`data-composer-tool="${t}"`).test(composer)) && /<GifButton /.test(composer) && /"Select a space"/.test(composer) && /data-composer-cancel=""/.test(composer) && /data-composer-post=""/.test(composer))
+    check("the file pickers stay mounted in both states", (composer.match(/\{pickers\}/g) || []).length >= 2 && /fileInput\.current\?\.click\(\)/.test(composer) && /videoInput\.current\?\.click\(\)/.test(composer))
     check("the pages hand the composer the event form only through the server's rule", /eventHref: eventHrefFor\(community, viewer\)/.test(code("components/community/member/feed-page.tsx")) && /eventHref: eventHrefFor\(community, viewer\)/.test(code("app/(marketing)/community/[slug]/(member)/space/[space]/page.tsx")))
     const post = code("components/community/member/post-card.tsx")
     check("a post: its space as a chip, Like and Comment, Save as a word at the far end", /data-post-space=""/.test(post) && /\{post\.bookmarked \? "Saved" : "Save"\}/.test(post) && /data-like=""/.test(post) && /data-comment-button=""/.test(post))
