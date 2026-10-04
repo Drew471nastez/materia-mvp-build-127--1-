@@ -100,6 +100,8 @@ async function main() {
   const settings = creatorSrc.slice(creatorSrc.indexOf("export async function updateSettings"), creatorSrc.indexOf("async function ensureFreeDefault"))
   check("another community's old address is refused as taken, before anything is written", /if \(await slugHeldByAnother\(db, slug, c\.id\)\) return no\(409, "That address is taken\.", "slug"\)/.test(settings) && settings.indexOf("slugHeldByAnother(") < settings.indexOf("patch.slug = slug") && settings.indexOf("patch.slug = slug") < settings.indexOf('db.from("communities").update(patch)'))
   check("  after the check that the address is free now", settings.indexOf('db.from("communities").select("id").eq("slug", slug)') < settings.indexOf("slugHeldByAnother("))
+  const createSrc = code("lib/communities/server/create.ts")
+  check("a new community never takes another community's old address", /if \(await communityIdForOldSlug\(db, slug\)\) \{\s*if \(tries\.explicit\) return \{ ok: false, error: "slug_taken" \}\s*continue/.test(createSrc) && createSrc.indexOf("communityIdForOldSlug(db, slug)") < createSrc.indexOf('.from("communities")\n      .insert('))
   check("the history is the database's to write (part 94's trigger), so no path that renames a community forgets it", !/community_slug_history/.test(creatorSrc))
   const settingsUi = read("components/community/creator/settings-section.tsx")
   check("the editor no longer says old links stop working; it says they open the new address", !/stop working/.test(settingsUi) && /Links to \/community\/\{start\.slug\} will open the new address\./.test(settingsUi))
