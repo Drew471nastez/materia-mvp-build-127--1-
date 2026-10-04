@@ -29,7 +29,7 @@ import Link from "next/link"
 import Image from "next/image"
 import { ArrowRight } from "lucide-react"
 import { StorefrontTabs, type StorefrontTab } from "@/components/storefront/storefront-tabs"
-import { CommunityCardTile } from "@/components/community/public/community-card"
+import { ExploreCommunityCard } from "@/components/explore/community-card"
 import { secondaryDepth } from "@/components/ui/depth-button"
 import type { MemberProfileData } from "@/lib/profile/member-profile-data"
 import type { CommunityCard } from "@/lib/communities/types"
@@ -118,7 +118,7 @@ function CommunityList({ title, cards }: { title: string | null; cards: Communit
       <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3" data-profile-communities="">
         {cards.map((c, i) => (
           <li key={c.id} className="min-w-0">
-            <CommunityCardTile card={c} priority={i < 2} />
+            <ExploreCommunityCard card={c} priority={i < 2} />
           </li>
         ))}
       </ul>

@@ -53,7 +53,7 @@ export type CardRow = Pick<
   CommunityRow,
   "id" | "slug" | "name" | "tagline" | "logo_url" | "cover_url" | "category" | "access" | "visibility" | "status" | "member_count" | "creator_id" | "created_at" | "trending_score"
 > & {
-  /** Read by Explore once part 87 has run (lib/communities/server/explore.ts); absent elsewhere. */
+  /** Read with the rows by Explore once part 87 has run (lib/communities/server/explore.ts); cardsFor reads it itself for a list that did not. */
   view_count?: number | string | null
 }
 
@@ -236,10 +236,24 @@ function viewsOf(v: CardRow["view_count"]): number | null {
   return Number.isFinite(n) && n >= 0 ? Math.floor(n) : null
 }
 
-/** Cards for any number of communities, in the order given, in five queries. */
+/*
+  VIEWS FOR A LIST THAT DID NOT READ THEM. Explore selects view_count with
+  its rows; a creator's tab, a profile and the library select CARD_COLUMNS
+  (which a database before part 87 can always answer), so their cards came
+  without the eye and drew a shorter stats row than Explore's. One read by
+  id for the whole list, quietly empty while the column is not there.
+*/
+async function readViewCounts(db: Db, ids: string[]): Promise<Map<string, CardRow["view_count"]>> {
+  if (ids.length === 0) return new Map()
+  const found = await rows<{ id: string; view_count: CardRow["view_count"] }>("card views", () => db.from("communities").select("id, view_count").in("id", ids))
+  return new Map(found.map((r) => [r.id, r.view_count]))
+}
+
+/** Cards for any number of communities, in the order given, in five or six queries (the sixth reads views when the rows came without them). */
 export async function cardsFor(db: Db, list: CardRow[]): Promise<CommunityCard[]> {
   if (list.length === 0) return []
-  const tiers = await readTiers(db, list.map((c) => c.id))
+  const withoutViews = list.some((c) => c.view_count === undefined)
+  const [tiers, views] = await Promise.all([readTiers(db, list.map((c) => c.id)), withoutViews ? readViewCounts(db, uniq(list.map((c) => c.id))) : Promise.resolve(null)])
   const productIds = uniq(tiers.map((t) => t.product_id))
   const [products, plans, creators] = await Promise.all([readProducts(db, productIds), readPlans(db, productIds), readCreators(db, list.map((c) => c.creator_id))])
   return list.map((c) => {
@@ -260,7 +274,7 @@ export async function cardsFor(db: Db, list: CardRow[]): Promise<CommunityCard[]
       priceLine: cardPrice(c.access, options),
       creator: who ? { id: c.creator_id, name: who.name, username: who.username, avatarUrl: who.avatarUrl } : null,
       url: communityPath(c.slug),
-      viewCount: viewsOf(c.view_count),
+      viewCount: viewsOf(c.view_count !== undefined ? c.view_count : views?.get(c.id)),
       rating: cardRating(own.map((t) => t.product_id), products),
       launchedAt: c.created_at ?? null,
     }
@@ -654,24 +668,27 @@ export async function libraryCommunities(userId: string, db: Db = admin()): Prom
     ])
     const byId = new Map(communities.map((c) => [c.id, c]))
     const tierName = new Map(tiers.map((t) => [t.id, t.name]))
-    const creators = await readCreators(db, communities.map((c) => c.creator_id))
+    /* The cards every list draws (the stats row, the creator's face), in one batch for the whole list. */
+    const cards = new Map((await cardsFor(db, communities)).map((card) => [card.id, card]))
     const out: LibraryCommunityRow[] = []
     for (const m of members) {
       const c = byId.get(m.community_id)
       /* A suspended or unpublished community is not somewhere the row could take them. */
-      if (!c || c.suspended_at || c.status === "suspended" || (c.status === "draft" && !meetsRole(m.role, "moderator"))) continue
+      const card = c ? cards.get(c.id) : undefined
+      if (!c || !card || c.suspended_at || c.status === "suspended" || (c.status === "draft" && !meetsRole(m.role, "moderator"))) continue
       out.push({
         id: c.id,
         slug: c.slug,
         name: c.name,
         logoUrl: c.logo_url,
         coverUrl: c.cover_url,
-        creatorName: c.creator_id ? creatorView(creators.get(c.creator_id))?.name ?? null : null,
+        creatorName: card.creator?.name ?? null,
         status: m.status,
         role: m.role,
         tierName: m.tier_id ? tierName.get(m.tier_id) ?? null : null,
         memberCount: Math.max(0, c.member_count ?? 0),
         url: communityPath(c.slug),
+        card,
       })
     }
     /* The ones they are in first, requests after. */

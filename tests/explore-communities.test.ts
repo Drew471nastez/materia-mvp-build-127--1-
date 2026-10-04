@@ -196,7 +196,7 @@ async function main() {
     check("no reviews, no stars", ratingLabel(null) === null && ratingLabel({ average: 0, count: 0 }) === null && ratingLabel({ average: 4, count: 0 }) === null)
     const card = code("components/explore/community-card.tsx")
     check("the stats row: stars only with a rating, members, views only when known, Launched", /\{rating \? \(/.test(card) && /data-stat="members"/.test(card) && /\{views !== null \? \(/.test(card) && /data-stat="launched"/.test(card) && !/\(\{?card\.rating\.count/.test(card))
-    check("a bigger mark beside a bigger name, two lines at most, and the creator's face under it", /<Mark card=\{card\} size=\{40\} \/>/.test(card) && /line-clamp-2[^"]*text-\[18px\]/.test(card) && /<AppAvatar src=\{card\.creator\.avatarUrl\}/.test(card) && /by \{card\.creator\.name\}/.test(card))
+    check("a bigger mark beside a bigger name, two lines at most, and the creator's face under it", /<Mark card=\{card\} size=\{40\} \/>/.test(card) && /line-clamp-2[^"]*", COMMUNITY_TITLE\)/.test(card) && /COMMUNITY_TITLE = "[^"]*text-\[18px\] font-medium leading-6/.test(card) && /<AppAvatar src=\{card\.creator\.avatarUrl\}/.test(card) && /by \{card\.creator\.name\}/.test(card))
     check("the product card's frame: 16:9 picture, the border, the price at the foot", /aspect-video/.test(card) && /rounded-lg border border-border\/60 bg-card/.test(card) && /mt-auto pt-4 font-semibold/.test(card))
     check("the card draws no hooks and imports no server code", !/use(State|Effect|Ref|Memo)\(/.test(card) && !/server-only|lib\/communities\/server|next\/headers/.test(card))
   }
