@@ -107,7 +107,7 @@ export const NOTIFICATION_KINDS = [
 ] as const
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number]
 
-export const JOB_KINDS = ["fanout_announcement", "fanout_event", "event_reminder", "recount", "rollup", "trending", "video_poll", "fanout_followers", "fanout_membership_post"] as const
+export const JOB_KINDS = ["fanout_announcement", "fanout_event", "event_reminder", "recount", "rollup", "trending", "video_poll", "fanout_followers", "fanout_membership_post", "push_digest"] as const
 export type JobKind = (typeof JOB_KINDS)[number]
 
 /**
@@ -115,9 +115,11 @@ export type JobKind = (typeof JOB_KINDS)[number]
  * new product and members of a membership hearing about a new post have
  * nothing to do with the communities switch, so the cron runs these kinds
  * whether communities are on or off (app/api/cron/community). Part 85 adds
- * both to the queue's check.
+ * both to the queue's check. A held push (push_digest, part 86) may be about
+ * a creator somebody follows as well as a community: it runs either way and
+ * a community's own digest ends without a push while communities are off.
  */
-export const PLATFORM_JOB_KINDS = ["fanout_followers", "fanout_membership_post"] as const satisfies readonly JobKind[]
+export const PLATFORM_JOB_KINDS = ["fanout_followers", "fanout_membership_post", "push_digest"] as const satisfies readonly JobKind[]
 
 export const JOB_STATES = ["pending", "running", "done", "failed"] as const
 export type JobState = (typeof JOB_STATES)[number]

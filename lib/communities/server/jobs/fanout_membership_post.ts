@@ -22,7 +22,8 @@ import "server-only"
  * communities are switched on or not (PLATFORM_JOB_KINDS).
  */
 import { grantsAccess } from "@/lib/memberships/state"
-import { notifyUsers, type NotifyUserInput } from "@/lib/notifications/user-inbox"
+import { writeUserRows, type NotifyUserInput } from "@/lib/notifications/user-inbox"
+import { carryPushes, pushFanout, userPushItem, type PushItem } from "@/lib/notifications/push-bridge"
 import type { JobRow } from "../../types"
 import { reasonOf, type Db } from "../db"
 import type { JobContext, JobOutcome } from "./index"
@@ -80,7 +81,12 @@ export function membershipPostRows(
 }
 
 export async function fanoutMembershipPost(db: Db, job: JobRow, ctx: JobContext): Promise<JobOutcome | void> {
-  const payload = job.payload ?? {}
+  /* Pushes an earlier run could not send in time go first (lib/notifications/push-bridge.ts). */
+  const carried = await carryPushes(job.payload, ctx.deadline)
+  if (carried.left.length) return { again: { payload: { ...carried.payload, pushLeft: carried.left } } }
+  const payload = carried.payload
+  /* Every page was written; only pushes were left, and they have gone. */
+  if (payload.finished === true) return
   const postId = typeof payload.postId === "string" ? payload.postId : ""
   const productId = typeof payload.productId === "string" ? payload.productId : ""
   let after = typeof payload.after === "string" && UUID.test(payload.after) ? payload.after : null
@@ -126,16 +132,21 @@ export async function fanoutMembershipPost(db: Db, job: JobRow, ctx: JobContext)
     const { data, error } = await q.order("id", { ascending: true }).limit(MEMBERSHIP_PAGE)
     if (error) throw new Error(`memberships read: ${reasonOf(error)}`)
     const rows = (data as MembershipLite[] | null) ?? []
+    let left: Awaited<ReturnType<typeof pushFanout>> = []
     if (rows.length) {
-      const wrote = await notifyUsers(db, membershipPostRows(rows, meta))
+      const wrote = await writeUserRows(db, membershipPostRows(rows, meta))
       if (wrote === "unavailable") return
-      told += wrote
+      told += wrote.wrote
+      /* The members whose row is new, to their phones: a low priority kind, so held for anyone who just had one. */
+      left = await pushFanout(db, wrote.fresh.map(userPushItem).filter((i): i is PushItem => !!i), { deadline: ctx.deadline })
     }
-    if (rows.length < MEMBERSHIP_PAGE) {
+    const done = rows.length < MEMBERSHIP_PAGE
+    if (!done) after = rows[rows.length - 1].id
+    if (left.length) return { again: { payload: { ...payload, after, told, ...(done ? { finished: true } : {}), pushLeft: left } } }
+    if (done) {
       console.log(`[notifications] membership post ${postId}: ${told} told`)
       return
     }
-    after = rows[rows.length - 1].id
   }
   return { again: { payload: { ...payload, after, told } } }
 }

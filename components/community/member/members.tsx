@@ -126,7 +126,7 @@ export function MemberRow({ m, slug, canMessage = false }: { m: Pick<MemberView,
   const tag = roleTag(m.role as Role)
   return (
     <div className="flex items-center pr-2 transition-colors hover:bg-[#f8f9fa] sm:pr-3">
-    <Link href={memberHref(slug, { id: m.userId, username: m.username, hasStorefront: m.hasStorefront })} data-person-link="" className="flex min-h-[64px] min-w-0 flex-1 items-center gap-3 py-3 pl-4 pr-2 sm:pl-5">
+    <Link href={memberHref(slug, { id: m.userId, username: m.username, hasStorefront: m.hasStorefront })} data-person-link="" data-person-id={m.userId} className="flex min-h-[64px] min-w-0 flex-1 items-center gap-3 py-3 pl-4 pr-2 sm:pl-5">
       <AppAvatar src={m.avatarUrl} name={m.name} alt="" size={44} markWhileLoading />
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-1.5">

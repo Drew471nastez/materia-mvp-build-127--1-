@@ -20,21 +20,26 @@ import { reasonOf, type Db } from "../db"
 import { bulkNotify } from "../events"
 import { ownedProductIds } from "../membership"
 import type { JobContext, JobOutcome } from "./index"
+import { carryPushes, communityPushItem, pushFanout, type PushItem } from "@/lib/notifications/push-bridge"
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 export const FANOUT_PAGE = 500
 
 export async function fanoutEvent(db: Db, job: JobRow, ctx: JobContext): Promise<JobOutcome | void> {
-  const eventId = typeof job.payload?.eventId === "string" ? job.payload.eventId : ""
+  /* Pushes an earlier run could not send in time go first (lib/notifications/push-bridge.ts). */
+  const carried = await carryPushes(job.payload, ctx.deadline)
+  if (carried.left.length) return { again: { payload: { ...carried.payload, pushLeft: carried.left } } }
+  const payload = carried.payload
+  const eventId = typeof payload.eventId === "string" ? payload.eventId : ""
   if (!UUID.test(eventId)) throw new Error("fanout_event needs payload.eventId")
-  let after = typeof job.payload?.cursor === "string" && UUID.test(job.payload.cursor) ? job.payload.cursor : null
+  let after = typeof payload.cursor === "string" && UUID.test(payload.cursor) ? payload.cursor : null
 
   const { data: row, error } = await db.from("community_events").select(EVENT_COLUMNS).eq("id", eventId).maybeSingle()
   if (error) throw new Error(`event read: ${reasonOf(error)}`)
   const e = row as EventRow | null
   if (!e || e.status === "cancelled" || Date.parse(e.starts_at) <= ctx.now) return
-  const { data: community } = await db.from("communities").select("id, slug, status, suspended_at, deleted_at").eq("id", e.community_id).maybeSingle()
-  const c = community as { id: string; slug: string; status: string; suspended_at: string | null; deleted_at: string | null } | null
+  const { data: community } = await db.from("communities").select("id, slug, name, status, suspended_at, deleted_at").eq("id", e.community_id).maybeSingle()
+  const c = community as { id: string; slug: string; name?: string | null; status: string; suspended_at: string | null; deleted_at: string | null } | null
   if (!c || c.deleted_at || c.suspended_at || c.status === "suspended" || c.status === "archived") return
 
   const rule = parseAccessRule(e.access)
@@ -63,9 +68,17 @@ export async function fanoutEvent(db: Db, job: JobRow, ctx: JobContext): Promise
       if (!allowed) continue
       notices.push({ userId: m.user_id, title: `New event: ${e.title}`, body: when, url: `/community/${c.slug}/events/${e.id}`, dedupeKey: `event_new:${e.id}:${m.user_id}` })
     }
-    await bulkNotify(db, c.id, "event", { type: "event", id: e.id }, notices)
+    const fresh = await bulkNotify(db, c.id, "event", { type: "event", id: e.id }, notices)
+    /* The members whose row is new this run, to their phones; a low priority kind, so held when they just had one (lib/notifications/push-bridge.ts). */
+    const levels = new Map(page.map((m) => [m.user_id, m.notify_level]))
+    const items = notices
+      .filter((n) => fresh.has(n.userId))
+      .map((n) => communityPushItem({ userId: n.userId, communityId: c.id, kind: "event", actorId: e.created_by, title: n.title, body: n.body, url: n.url, dedupeKey: n.dedupeKey, level: levels.get(n.userId) ?? null }, c.name ?? null))
+      .filter((i): i is PushItem => !!i)
+    const left = await pushFanout(db, items, { deadline: ctx.deadline })
     after = page[page.length - 1].user_id
+    if (left.length) return { again: { payload: { ...payload, cursor: after, pushLeft: left } } }
     if (page.length < FANOUT_PAGE) break
-    if (Date.now() >= ctx.deadline - 8_000) return { again: { payload: { ...job.payload, cursor: after } } }
+    if (Date.now() >= ctx.deadline - 8_000) return { again: { payload: { ...payload, cursor: after } } }
   }
 }

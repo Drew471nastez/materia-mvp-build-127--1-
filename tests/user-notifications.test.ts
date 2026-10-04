@@ -202,7 +202,7 @@ async function main() {
   const row = readme.split("\n").find((l) => l.startsWith("| `85_profiles_follows_notifications.sql` |")) ?? ""
   check("the README names it, with its lines and bytes", row.endsWith(`| ${sql.split("\n").length - 1} | ${Buffer.byteLength(sql).toLocaleString("en-US")} |`), row.slice(-30))
   const after = read("supabase/sql/run-now/99_check_after.sql")
-  check("the check after has its column", /as p85_profiles_follows_notifications;/.test(after))
+  check("the check after has its column", /as p85_profiles_follows_notifications[,;]/.test(after))
   check("and the private columns check knows notifications_seen_at is private", /'notifications_seen_at'\]\)\)\) as p63_private_columns/.test(after))
   check("the built files carry it", read("supabase/sql/all-in-two/1_of_2_everything.sql").includes("-- part 85_profiles_follows_notifications.sql") && read("supabase/sql/run-four/3_of_4_latest.sql").includes("-- part 85_profiles_follows_notifications.sql"))
   check("the admin's list of parts has it", /part: "85", file: "85_profiles_follows_notifications\.sql"/.test(read("lib/admin/sql-parts.generated.ts")))
@@ -224,8 +224,9 @@ async function main() {
   const kinds = sql.match(/ALTER TABLE public\.community_jobs DROP CONSTRAINT IF EXISTS community_jobs_kind_check, ADD CONSTRAINT community_jobs_kind_check CHECK \(kind IN \(([^)]+)\)\);/)?.[1] ?? ""
   const p81 = read("supabase/sql/run-now/81_communities.sql").match(/CONSTRAINT community_jobs_kind_check CHECK \(kind IN \(([^)]+)\)\)/)?.[1] ?? ""
   check("every kind part 81 allowed is still allowed", p81.length > 0 && p81.split(", ").every((k) => kinds.split(", ").includes(k)), p81)
-  check("the CHECK and JOB_KINDS are the same list", kinds === JOB_KINDS.map((k) => `'${k}'`).join(", "), kinds)
-  check("fanout_followers and fanout_membership_post are the platform kinds", PLATFORM_JOB_KINDS.join() === "fanout_followers,fanout_membership_post" && PLATFORM_JOB_KINDS.every((k) => (JOB_KINDS as readonly string[]).includes(k)))
+  /* Part 86 (push_digest, tests/push-bridge.test.ts) is the newest CHECK; this one is every kind JOB_KINDS had then. */
+  check("the CHECK and JOB_KINDS are the same list, push_digest apart (part 86 adds it)", kinds === JOB_KINDS.filter((k) => k !== "push_digest").map((k) => `'${k}'`).join(", "), kinds)
+  check("fanout_followers and fanout_membership_post are platform kinds (and push_digest, part 86)", PLATFORM_JOB_KINDS.join() === "fanout_followers,fanout_membership_post,push_digest" && PLATFORM_JOB_KINDS.every((k) => (JOB_KINDS as readonly string[]).includes(k)))
 
   console.log("\nProfiles, follows, communities")
   check("two privacy switches, on unless changed, and when the bell was opened", ["show_activity boolean NOT NULL DEFAULT true", "show_communities boolean NOT NULL DEFAULT true", "notifications_seen_at timestamptz"].every((c) => sql.includes(`ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS ${c};`)))

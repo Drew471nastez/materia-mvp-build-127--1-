@@ -826,7 +826,7 @@ function wiringSuite() {
   check("account.updated also asks whether a live product can now be paid for, so Connect Stripe resolves at once", /\[stripeRestricted, stripeRequirementsDue, payoutsNotConnected\]/.test(events))
   check("events never wait long and never throw", /export const EVENT_BUDGET_MS = 2_500/.test(events) && /within\(/.test(events) && (events.match(/catch \{/g) ?? []).length >= 2)
   check("a browser push opens the notification's own page, inside /app only", /data\?\.type === "notification" && typeof data\.url === "string" && \/\^\\\/app/.test(read("lib/push/sender.ts")))
-  check("so does a tap on the phone", /type === "notification"/.test(read("lib/push/client.ts")))
+  check("so does a tap on the phone", /pushTapTarget\(data\)/.test(read("lib/push/client.ts")) && /if \(type === "notification"\) return appTarget\(data\?\.url\)/.test(read("lib/push/tap.ts")))
 
   console.log("\nThe SQL: one statement per line, safe twice, the database keeps the promises")
   const part = read("supabase/sql/run-now/29_notification_rules.sql")

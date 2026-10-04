@@ -28,6 +28,7 @@ import { nowIso, reasonOf, type Db } from "../db"
 import { REMINDER_WINDOWS, bulkNotify, ensureReminders, type ReminderWindow } from "../events"
 import { sendCommunityEmail } from "../email"
 import type { JobContext, JobOutcome } from "./index"
+import { carryPushes, communityPushItem, pushFanout, type PushItem } from "@/lib/notifications/push-bridge"
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 export const REMINDER_PAGE = 200
@@ -46,17 +47,21 @@ export function alreadySent(e: Pick<EventRow, "reminder_24h_at" | "reminder_1h_a
 
 
 export async function eventReminder(db: Db, job: JobRow, ctx: JobContext): Promise<JobOutcome | void> {
-  const eventId = typeof job.payload?.eventId === "string" ? job.payload.eventId : ""
-  const window = job.payload?.window === "24h" || job.payload?.window === "1h" ? (job.payload.window as ReminderWindow) : null
+  /* Pushes an earlier run could not send in time go first (lib/notifications/push-bridge.ts). */
+  const carried = await carryPushes(job.payload, ctx.deadline)
+  if (carried.left.length) return { again: { payload: { ...carried.payload, pushLeft: carried.left } } }
+  const payload = carried.payload
+  const eventId = typeof payload.eventId === "string" ? payload.eventId : ""
+  const window = payload.window === "24h" || payload.window === "1h" ? (payload.window as ReminderWindow) : null
   if (!UUID.test(eventId) || !window) throw new Error("event_reminder needs payload.eventId and payload.window")
-  const cursor = typeof job.payload?.cursor === "string" && UUID.test(job.payload.cursor) ? job.payload.cursor : null
+  const cursor = typeof payload.cursor === "string" && UUID.test(payload.cursor) ? payload.cursor : null
 
   const { data: row, error } = await db.from("community_events").select(EVENT_COLUMNS).eq("id", eventId).maybeSingle()
   if (error) throw new Error(`event read: ${reasonOf(error)}`)
   const e = row as EventRow | null
   if (!e || e.status === "cancelled") return
   const start = Date.parse(e.starts_at)
-  if (new Date(start).toISOString() !== String(job.payload?.startsAt ?? "")) {
+  if (new Date(start).toISOString() !== String(payload.startsAt ?? "")) {
     await ensureReminders(db, e, ctx.now)
     return
   }
@@ -83,13 +88,8 @@ export async function eventReminder(db: Db, job: JobRow, ctx: JobContext): Promi
     const wanted = ((members as { user_id: string; status: string; notify_level: NotifyLevel; email_events: boolean }[] | null) ?? []).filter(
       (m) => m.status === "active" && wantsNotification(m.notify_level, "event_reminder"),
     )
-    const fresh = await bulkNotify(
-      db,
-      c.id,
-      "event_reminder",
-      { type: "event", id: e.id },
-      wanted.map((m) => ({ userId: m.user_id, title: reminderTitle(window, e.title), body: when, url: path, dedupeKey: `event_reminder:${e.id}:${window}:${e.starts_at}:${m.user_id}` })),
-    )
+    const notices = wanted.map((m) => ({ userId: m.user_id, title: reminderTitle(window, e.title), body: when, url: path, dedupeKey: `event_reminder:${e.id}:${window}:${e.starts_at}:${m.user_id}` }))
+    const fresh = await bulkNotify(db, c.id, "event_reminder", { type: "event", id: e.id }, notices)
     const emailTo = wanted.filter((m) => fresh.has(m.user_id) && m.email_events !== false).map((m) => m.user_id)
     /* Only members whose inbox row this run wrote: a job run again sends no second email, and the key makes it once besides. */
     for (const userId of emailTo) {
@@ -105,9 +105,22 @@ export async function eventReminder(db: Db, job: JobRow, ctx: JobContext): Promi
         { soon: false },
       )
     }
+    /*
+      AND TO THEIR PHONES, right away (a reminder is never held), after the
+      emails: only the members whose row this run wrote, so a page run again
+      pushes nobody twice. What does not fit in this run is sent first in the
+      next, from the next page's cursor.
+    */
+    const levels = new Map(wanted.map((m) => [m.user_id, m.notify_level]))
+    const items = notices
+      .filter((n) => fresh.has(n.userId))
+      .map((n) => communityPushItem({ userId: n.userId, communityId: c.id, kind: "event_reminder", title: n.title, body: n.body, url: n.url, dedupeKey: n.dedupeKey, level: levels.get(n.userId) ?? null }, c.name))
+      .filter((i): i is PushItem => !!i)
+    const left = await pushFanout(db, items, { deadline: ctx.deadline })
     after = ids[ids.length - 1]
+    if (left.length) return { again: { payload: { ...payload, cursor: after, pushLeft: left } } }
     if (ids.length < REMINDER_PAGE) break
-    if (Date.now() >= ctx.deadline - 8_000) return { again: { payload: { ...job.payload, cursor: after } } }
+    if (Date.now() >= ctx.deadline - 8_000) return { again: { payload: { ...payload, cursor: after } } }
   }
   await db.from("community_events").update(window === "24h" ? { reminder_24h_at: nowIso(ctx.now) } : { reminder_1h_at: nowIso(ctx.now) }).eq("id", e.id)
 }

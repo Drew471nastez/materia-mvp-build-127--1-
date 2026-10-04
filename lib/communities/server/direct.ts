@@ -29,6 +29,7 @@ import { missing, nowIso, reasonOf, type Db } from "./db"
 import { authorViews } from "./directory"
 import { cleanText, type Checked } from "./feed"
 import { touchMember } from "./activity"
+import { pushDirectMessage, pushSoon } from "@/lib/notifications/push-bridge"
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 export const DM_PAGE = 50
@@ -306,6 +307,9 @@ export async function sendDirectMessage(db: Db, community: CommunityRow, viewer:
       ),
     touchMember(db, community.id, viewer.userId),
   ])
+  /* The other person's phone, right away (after the response): lib/notifications/push-bridge.ts. A message has no bell row; the push is its notice. */
+  const senderId = viewer.userId
+  await pushSoon(() => pushDirectMessage(db, { communityId: community.id, communitySlug: community.slug, conversationId: conversation.id, senderId, recipientId: other, text: body }))
   return { ok: true, value: toViews([row], viewer.userId)[0] }
 }
 

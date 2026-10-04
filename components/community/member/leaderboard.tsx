@@ -70,7 +70,7 @@ export function Leaderboard({
         <ol className={`${CARD} mt-4 divide-y divide-[#f0f1f3] overflow-hidden transition-opacity ${loading ? "opacity-60" : ""}`} data-leaderboard-list="">
           {rows.map((r) => (
             <li key={r.userId}>
-              <Link href={memberHref(slug, { id: r.userId, username: r.username, hasStorefront: r.hasStorefront })} data-person-link="" className={`flex min-h-[60px] items-center gap-3 px-4 py-2.5 hover:bg-[#f8f9fa] sm:px-5 ${r.userId === me.userId ? "bg-[#f8f9fa]" : ""}`}>
+              <Link href={memberHref(slug, { id: r.userId, username: r.username, hasStorefront: r.hasStorefront })} data-person-link="" data-person-id={r.userId} className={`flex min-h-[60px] items-center gap-3 px-4 py-2.5 hover:bg-[#f8f9fa] sm:px-5 ${r.userId === me.userId ? "bg-[#f8f9fa]" : ""}`}>
                 <span className={`w-7 shrink-0 text-center text-[15px] font-semibold tabular-nums ${r.rank <= 3 ? "text-[#1a1a2e]" : "text-[#9ca3af]"}`}>{r.rank}</span>
                 <AppAvatar src={r.avatarUrl} name={r.name} alt="" size={40} markWhileLoading />
                 <span className="min-w-0 flex-1">

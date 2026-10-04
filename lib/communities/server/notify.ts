@@ -26,6 +26,7 @@ import { wantsNotification } from "../permissions"
 import { JOB_COLUMNS, type JobKind, type JobRow, type NotificationKind, type NotifyLevel } from "../types"
 import { missing, nowIso, reasonOf, type Db } from "./db"
 import type { JobOutcome } from "./jobs/index"
+import { pushCommunityRow, pushSoon } from "@/lib/notifications/push-bridge"
 
 export interface NotifyInput {
   userId: string
@@ -81,7 +82,22 @@ export async function notifyMember(db: Db, n: NotifyInput): Promise<NotifyOutcom
       if (missing(error)) return "unavailable"
       throw error
     }
-    return Array.isArray(data) && data.length > 0 ? "sent" : "duplicate"
+    if (!(Array.isArray(data) && data.length > 0)) return "duplicate"
+    /* A new row, never a duplicate: it may also reach their phone (lib/notifications/push-bridge.ts), after the response. */
+    await pushSoon(() =>
+      pushCommunityRow(db, {
+        userId: n.userId,
+        communityId: n.communityId,
+        kind: n.kind,
+        actorId: n.actorId ?? null,
+        title: (n.title || "").trim().slice(0, 200) || "Community update",
+        body: n.body ? n.body.trim().slice(0, 500) : null,
+        url: n.url,
+        dedupeKey: n.dedupeKey,
+        level: (member.notify_level as NotifyLevel | null) ?? null,
+      }),
+    )
+    return "sent"
   } catch (e) {
     console.error(`[communities] notification ${n.dedupeKey}: ${reasonOf(e)}`)
     return "unavailable"

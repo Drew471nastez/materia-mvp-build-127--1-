@@ -137,7 +137,7 @@ async function open(width, path) {
 
 const READ = `(() => {
   const strip = document.querySelector("[data-header-search-strip]")
-  const pills = document.querySelector("[data-community-pills]")
+  const pills = document.querySelector("[data-community-tabs]")
   const seen = (el) => { if (!el) return false; const r = el.getBoundingClientRect(); const cs = getComputedStyle(el); return r.width > 0 && r.height > 0 && cs.display !== "none" && cs.visibility !== "hidden" }
   let onPills = null
   if (seen(pills)) {

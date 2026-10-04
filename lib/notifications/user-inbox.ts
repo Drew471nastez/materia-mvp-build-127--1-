@@ -42,6 +42,7 @@ import {
   type UserNotificationKind,
   type UserNotificationSource,
 } from "./user-inbox-shared"
+import { pushSoon, pushUserRow } from "./push-bridge"
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 /** A timestamptz as PostgREST writes it. Kept as text, so the cursor keeps its microseconds. */
@@ -103,35 +104,74 @@ export async function notifyUser(db: Db, n: NotifyUserInput): Promise<NotifyUser
       if (missing(error)) return "unavailable"
       throw error
     }
-    return Array.isArray(data) && data.length > 0 ? "sent" : "duplicate"
+    if (!(Array.isArray(data) && data.length > 0)) return "duplicate"
+    /* A new row, never a duplicate: it may also reach their phone (lib/notifications/push-bridge.ts), after the response. */
+    await pushSoon(() => pushUserRow(db, freshOf(row)))
+    return "sent"
   } catch (e) {
     console.error(`[notifications] ${String(row.dedupe_key)}: ${reasonOf(e)}`)
     return "unavailable"
   }
 }
 
+/** A written row as the push bridge reads it. */
+export interface FreshUserRow {
+  userId: string
+  kind: UserNotificationKind
+  source: UserNotificationSource
+  actorId: string | null
+  title: string
+  body: string | null
+  url: string
+  dedupeKey: string
+}
+
+function freshOf(row: Record<string, unknown>): FreshUserRow {
+  return {
+    userId: String(row.user_id),
+    kind: row.kind as UserNotificationKind,
+    source: row.source as UserNotificationSource,
+    actorId: (row.actor_id as string | null) ?? null,
+    title: String(row.title ?? ""),
+    body: (row.body as string | null) ?? null,
+    url: String(row.url ?? ""),
+    dedupeKey: String(row.dedupe_key ?? ""),
+  }
+}
+
 /**
  * Many at once, for the fan outs: one insert for the batch, once per key.
- * Answers how many rows were new, or "unavailable" before part 85 (the table
- * is not there). Any other failure throws, so the job that called it is
- * tried again later.
+ * Answers how many rows were new and which ones (so a job can push those and
+ * nobody else), or "unavailable" before part 85 (the table is not there).
+ * Any other failure throws, so the job that called it is tried again later.
  */
-export async function notifyUsers(db: Db, list: NotifyUserInput[]): Promise<number | "unavailable"> {
-  const seen = new Set<string>()
-  const rows: Record<string, unknown>[] = []
+export async function writeUserRows(db: Db, list: NotifyUserInput[]): Promise<{ wrote: number; fresh: FreshUserRow[] } | "unavailable"> {
+  const seen = new Map<string, Record<string, unknown>>()
   for (const n of list) {
     const row = userNotificationRow(n)
     if (!row || seen.has(row.dedupe_key as string)) continue
-    seen.add(row.dedupe_key as string)
-    rows.push(row)
+    seen.set(row.dedupe_key as string, row)
   }
-  if (rows.length === 0) return 0
-  const { data, error } = await db.from("user_notifications").upsert(rows, { onConflict: "dedupe_key", ignoreDuplicates: true }).select("id")
+  if (seen.size === 0) return { wrote: 0, fresh: [] }
+  const rows = [...seen.values()]
+  const { data, error } = await db.from("user_notifications").upsert(rows, { onConflict: "dedupe_key", ignoreDuplicates: true }).select("id, dedupe_key")
   if (error) {
     if (missing(error)) return "unavailable"
     throw new Error(`user_notifications batch of ${rows.length}: ${reasonOf(error)}`)
   }
-  return Array.isArray(data) ? data.length : 0
+  const made = Array.isArray(data) ? (data as { id: string; dedupe_key?: string }[]) : []
+  const fresh: FreshUserRow[] = []
+  for (const r of made) {
+    const row = r.dedupe_key ? seen.get(r.dedupe_key) : undefined
+    if (row) fresh.push(freshOf(row))
+  }
+  return { wrote: made.length, fresh }
+}
+
+/** Many at once: how many rows were new, or "unavailable" before part 85. */
+export async function notifyUsers(db: Db, list: NotifyUserInput[]): Promise<number | "unavailable"> {
+  const out = await writeUserRows(db, list)
+  return out === "unavailable" ? out : out.wrote
 }
 
 /* ── The bell's list ───────────────────────────────────────────────────── */
