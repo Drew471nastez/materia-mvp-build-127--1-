@@ -134,10 +134,26 @@ async function threadFor(db: Db, community: Pick<CommunityRow, "id">, viewer: Vi
   return buildThread(parents, replies, { viewerId: viewer.userId, moderator: can(viewer.role, "moderate_content"), authors, reacted: reacted as Set<string> })
 }
 
+export interface CommentsPage {
+  comments: CommentView[]
+  nextCursor: string | null
+  /** First page only: whether the post's space takes comments (an opened post over the feed reads it here). */
+  commentsEnabled?: boolean
+  /** First page only: the viewer's own name and picture, for the comment box. */
+  me?: { name: string; avatarUrl: string | null } | null
+}
+
 /** A page of a post's comments, oldest first, with their replies. */
-export async function listComments(db: Db, community: CommunityRow, viewer: Viewer, postId: string, cursor: string | null): Promise<Checked<{ comments: CommentView[]; nextCursor: string | null }>> {
+export async function listComments(db: Db, community: CommunityRow, viewer: Viewer, postId: string, cursor: string | null): Promise<Checked<CommentsPage>> {
   const found = await visiblePostRow(db, community, viewer, postId)
   if (!found) return { ok: false, error: "That post is gone.", status: 404 }
+  const first = !cursor
+  const space = found.row.space_id ? found.spaces.find((s) => s.id === found.row.space_id) : null
+  const extra = async () => {
+    if (!first) return {}
+    const me = viewer.userId ? ((await authorViews(db, community.id, [viewer.userId]).catch(() => new Map())).get(viewer.userId) ?? null) : null
+    return { commentsEnabled: space ? space.comments_enabled : true, me: me ? { name: me.name, avatarUrl: me.avatarUrl } : null }
+  }
   try {
     let q = db.from("community_feed_comments").select(COMMENT_COLUMNS).eq("post_id", postId).eq("community_id", community.id).is("parent_id", null)
     const cur = decodeCommentCursor(cursor)
@@ -150,11 +166,13 @@ export async function listComments(db: Db, community: CommunityRow, viewer: View
     const rows = (data as CommentRow[] | null) ?? []
     const page = rows.slice(0, COMMENT_PAGE)
     const last = page[page.length - 1]
+    const [comments, more] = await Promise.all([threadFor(db, community, viewer, page), extra()])
     return {
       ok: true,
       value: {
-        comments: await threadFor(db, community, viewer, page),
+        comments,
         nextCursor: rows.length > COMMENT_PAGE && last ? encodeCommentCursor({ c: last.created_at, i: last.id }) : null,
+        ...more,
       },
     }
   } catch (e) {

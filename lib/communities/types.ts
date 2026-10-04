@@ -285,9 +285,15 @@ export interface SpaceRow {
 
 export type PostMedia =
   | { type: "image"; url: string; w?: number; h?: number }
-  | { type: "video"; videoId: string }
-  | { type: "file"; assetId: string; name: string; size?: number }
+  /** `poster`: a still from the file, kept with the post's pictures (round 7). */
+  | { type: "video"; videoId: string; poster?: string; w?: number; h?: number }
+  /** `store: "community"`: a member's file in the community's own folder (lib/communities/server/post-files.ts); none is a product file (digital_assets). */
+  | { type: "file"; assetId: string; name: string; size?: number; store?: "community" }
   | { type: "link"; url: string; title?: string; image?: string }
+  /** A YouTube or Vimeo video by its address, played in their privacy player (lib/communities/post-media.ts). */
+  | { type: "embed"; provider: "youtube" | "vimeo"; id: string; url: string; hash?: string; thumb?: string; title?: string }
+  /** A GIF from Giphy: its address and a still for the card. */
+  | { type: "gif"; url: string; still: string; w?: number; h?: number; title?: string }
 
 export interface PostRow {
   id: string
@@ -676,6 +682,12 @@ export interface FeedPostView {
   lastActivityAt: string
   canEdit: boolean
   canModerate: boolean
+  /** Up to three people who commented most recently, newest first (round 7). */
+  recentCommenters?: { id: string; name: string; avatarUrl: string | null }[]
+  /** When the newest comment was written; null with none. */
+  lastCommentAt?: string | null
+  /** The community counts levels, so the author's is drawn on their picture. */
+  showLevel?: boolean
 }
 
 export interface CommentView {
