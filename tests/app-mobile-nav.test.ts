@@ -119,9 +119,10 @@ async function main() {
       && shell.indexOf('aria-label="Explore"') < shell.indexOf('aria-label="Notifications"'))
   check("and it is drawn with the same compass the rail knows",
     /import \{ CompassIcon as ExploreIcon \} from "@solar-icons\/react\/linear\/compass"/.test(shell))
-  check("it opens outside the shell in the native app",
-    /aria-label="Explore"[\s\S]{0,300}?isNativeApp\(\)\) openExternal\(EXPLORE_FULL_URL\)/.test(shell),
-    "in Capacitor a navigation to the public site would strand somebody inside the app's own WebView")
+  /* Round 10: "From /app to /explore, no white blank then an abrupt paint". It stays in the app now, through the router (lib/navigation/cross-section.ts). */
+  check("it opens Explore in the same document, in the app and in a browser",
+    /aria-label="Explore"[\s\S]{0,400}?openStorelibPage\(router, "\/explore"\)/.test(shell),
+    "a document load to the public site was the white blank before Explore")
   check("and the bar does not carry it any more",
     !/onExplore/.test(strip(nav)) && !/onExplore/.test(strip(shell)))
 

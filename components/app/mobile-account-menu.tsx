@@ -8,11 +8,11 @@ import { cn } from "@/lib/utils"
 import { BottomSheet, SHEET_OPEN_MS } from "@/components/ui/bottom-sheet"
 import { AppAvatar, preloadAvatar } from "@/components/app/app-avatar"
 import { prefetchAppPage } from "@/lib/ui/app-navigation"
-import { isNativeApp, openExternal } from "@/lib/native-bridge"
+import { isNativeApp } from "@/lib/native-bridge"
+import { openStorelibPage } from "@/lib/navigation/cross-section"
 import { BusinessSwitcher, SWITCHER_AVATAR, type BusinessRow } from "@/components/app/business-switcher"
 import { AccountFilm, FILM, pressHandlers, release } from "@/components/app/account-film"
 
-const EXPLORE_FULL_URL = `https://${process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"}/explore`
 
 /**
  * ===========================================================================
@@ -185,7 +185,7 @@ export const MobileAccountMenu = memo(function MobileAccountMenu({
               onClick={(e) => {
                 if (isExplore && isNativeApp()) {
                   e.preventDefault()
-                  openExternal(EXPLORE_FULL_URL)
+                  openStorelibPage(router, "/explore")
                 }
                 setMobileProfileDropdownOpen(false)
               }}
