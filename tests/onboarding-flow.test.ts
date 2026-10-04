@@ -188,7 +188,8 @@ check(
   check("and still keep Stripe.js's controller iframe out", !/controller/.test(native))
   check(
     "a frame that does navigate stays in the app",
-    /allowNavigation: \['js\.stripe\.com', 'hooks\.stripe\.com', 'connect-js\.stripe\.com'\]/.test(readFileSync("capacitor.config.ts", "utf8")),
+    /* Round 7 added Storelib's own hosts to the list (tests/native-app-links.test.ts); Stripe's three are still first. */
+    /allowNavigation: \[\s*'js\.stripe\.com',\s*'hooks\.stripe\.com',\s*'connect-js\.stripe\.com',/.test(readFileSync("capacitor.config.ts", "utf8")),
   )
 }
 check("new accounts are run by Storelib, with no Stripe dashboard", /requirement_collection: "application"/.test(connect) && /stripe_dashboard: \{ type: "none" \}/.test(connect))
