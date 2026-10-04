@@ -536,7 +536,7 @@ async function main() {
     const controls = code("components/website-builder/editor/controls/index.tsx")
     check("the editor draws it as a picker of the creator's communities", /case "community_picker":\s*\n\s*return <CommunityPickerControl/.test(controls) && /"community_picker",[\s\S]*?\] as const/.test(controls))
     const editor = code("app/website-builder/editor/[installId]/page.tsx")
-    check("not as a text box any more", !/kind === "community_picker"\) \{/.test(editor) && /if \(kind === "file_picker"\) \{/.test(editor))
+    check("not as a text box any more", !/kind === "community_picker"\) \{/.test(editor) && !/Paste a community/i.test(editor))
     check("the canvas hands the communities to the engine and the picker", /communities: builderCommunities\?\.cards/.test(editor) && /communities: builderCommunities\?\.choices \?\? null/.test(editor))
     check("and offers the card only while communities are on", /t !== "community_card" \|\| builderCommunities !== null/.test(editor))
     const themeRoute = code("app/api/website-builder/themes/[installId]/route.ts")
