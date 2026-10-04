@@ -17,6 +17,7 @@ import { SearchPage } from "@/components/search/search-page"
 import { AccountDemo } from "./account-hub-demo"
 import { LiveStickyAddToCart } from "@/components/store-builder/sticky-add-to-cart"
 import { LocaleProvider } from "@/components/locale-provider"
+import { ExploreMarketplaceProvider } from "@/components/platform/explore-marketplace-context"
 import { SEARCH_ANCHOR_ATTR } from "@/lib/explore/use-search-handoff"
 
 const THUMB = "data:image/svg+xml;utf8," + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"><rect width="96" height="96" fill="#c7d2fe"/><circle cx="48" cy="40" r="18" fill="#818cf8"/></svg>`)
@@ -99,6 +100,9 @@ function Page() {
 
 createRoot(document.getElementById("app")!).render(
   <LocaleProvider>
-    <Page />
+    {/* Discover on, as on storelib.com: the context's default is off, which leaves /explore without a bar. */}
+    <ExploreMarketplaceProvider exploreMarketplace buyerHeaderLight={false} physicalCommerce={false}>
+      <Page />
+    </ExploreMarketplaceProvider>
   </LocaleProvider>,
 )
