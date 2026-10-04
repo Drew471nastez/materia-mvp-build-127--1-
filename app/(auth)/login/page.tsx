@@ -18,6 +18,7 @@ import { useAuthGate } from "@/lib/use-auth-gate"
 import { nativeAuthStart, nativeAppReady } from "@/lib/native-bridge"
 import { useNativeScrollLock } from "@/lib/use-native-scroll-lock"
 import { classifyOAuthError, existingAccountHint, messageForCode, type OAuthErrorCode, type OAuthProvider, type SignInMethod } from "@/lib/auth/oauth-errors"
+import { openAuthSheet, signInWithNativeGoogle } from "@/lib/auth/native-sign-in"
 import { HtmlClass } from "@/components/platform/html-class"
 import { readCarry, withCarry } from "@/lib/auth/continue"
 import { goOnAfterAuth, rememberNativeCarry } from "@/lib/auth/continue-client"
@@ -501,6 +502,33 @@ function LoginFormContent() {
             : "storelib://auth/callback"
 
         const supabase = createClient()
+
+        /*
+          THE PHONE'S OWN SHEET FIRST (lib/auth/native-sign-in.ts): Google's
+          bottom sheet on Android, Google's sheet on iOS, no browser and no
+          deep link. A build without the native plugin says so and the Safari
+          sheet below runs exactly as before.
+        */
+        rememberNativeCarry(carry)
+        const sheet = await signInWithNativeGoogle(supabase)
+        if (sheet.result === "done" && sheet.href) {
+          nativeAuthStart()
+          window.location.assign(sheet.href)
+          return
+        }
+        if (sheet.result === "cancelled") {
+          ;(window as any).__oauthStarting = false
+          setIsGoogleLoading(false)
+          nativeAppReady()
+          return
+        }
+        if (sheet.result === "failed") {
+          ;(window as any).__oauthStarting = false
+          setIsGoogleLoading(false)
+          nativeAppReady()
+          setError(classifyOAuthError({ message: sheet.message ?? null }, "google").message)
+          return
+        }
         const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
           provider: "google",
           options: {
@@ -577,7 +605,7 @@ function LoginFormContent() {
 
         /* Why they came, for lib/native-oauth.ts to hand on once the deep link is back. */
         rememberNativeCarry(carry)
-        await Browser.open({ url: data.url, windowName: "_self" })
+        await openAuthSheet(data.url)
 
         // isGoogleLoading stays true while the browser is open.
         // It will be cleared by one of: CapacitorAuthHandler navigation,
@@ -671,7 +699,7 @@ function LoginFormContent() {
         nativeAuthStart()
         /* Why they came, for lib/native-oauth.ts to hand on once the deep link is back. */
         rememberNativeCarry(carry)
-        await Browser.open({ url: data.url, windowName: "_self" })
+        await openAuthSheet(data.url)
         // isAppleLoading stays true while browser is open.
         // Cleared by: CapacitorAuthHandler navigation, browserFinished, or timeout.
         return

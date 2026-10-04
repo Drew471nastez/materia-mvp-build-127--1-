@@ -30,11 +30,9 @@
  */
 
 import { createClient } from "@/lib/supabase/client"
-import { cacheNativeHome } from "@/lib/native-bridge"
-import { hasSellerAccess, readSellerAccess } from "@/lib/account/seller-access"
-import { NATIVE_BUYER_HOME, SELLER_HOME, continueHref, readCarry, withCarry } from "@/lib/auth/continue"
+import { readCarry, withCarry } from "@/lib/auth/continue"
 import { getMainDomain } from "@/lib/url-helpers"
-import { takeNativeCarry } from "@/lib/auth/continue-client"
+import { completeNativeSession } from "@/lib/auth/native-session"
 import { classifyOAuthError, describeForLog, loginErrorQuery } from "@/lib/auth/oauth-errors"
 
 const TAG = "[NativeOAuth]"
@@ -500,31 +498,10 @@ export async function handleOAuthCallback(rawUrl: string): Promise<void> {
       creator or buyer question for a new account any more. Seller access is
       still read here, but only to remember the home a cold start opens on.
     */
-    const userId = verifiedSession.user.id
-    const carry = takeNativeCarry()
-    try {
-      const access = await readSellerAccess(supabase, userId)
-      cacheNativeHome(hasSellerAccess(access) ? SELLER_HOME : NATIVE_BUYER_HOME)
-    } catch (e) {
-      console.warn(`${TAG}   Seller access read failed, home not cached:`, e)
-    }
-    const nextPath = continueHref(carry)
-    console.log(`${TAG}   destination: ${nextPath}`)
+    const nextUrl = await completeNativeSession(supabase, { ...data.session, user: { id: verifiedSession.user.id } })
+    console.log(`${TAG}   destination: ${nextUrl}`)
 
-    // The native Capacitor client stores the session in Capacitor Preferences
-    // (Android SharedPreferences), but Next.js server components read cookies.
-    // Route through /auth/sync-session which calls setSession() server-side,
-    // writing Set-Cookie headers so the WebView's cookie jar is populated.
-    // Without this the app layout's auth check finds no cookies → redirect loop.
-    const { access_token, refresh_token } = data.session
-    const syncUrl =
-      `/auth/sync-session` +
-      `?access_token=${encodeURIComponent(access_token)}` +
-      `&refresh_token=${encodeURIComponent(refresh_token)}` +
-      `&next=${encodeURIComponent(nextPath)}`
-    console.log(`${TAG}   Navigating to sync-session route to establish cookies → ${nextPath}`)
-
-    window.location.assign(syncUrl)
+    window.location.assign(nextUrl)
 
   } catch (err) {
     const raw = err instanceof Error ? err.message : ""

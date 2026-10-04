@@ -23,6 +23,7 @@ import { alreadyRegisteredHint, classifyOAuthError, type SignInMethod } from "@/
 import { HtmlClass } from "@/components/platform/html-class"
 import { readCarry, withCarry } from "@/lib/auth/continue"
 import { goOnAfterAuth, rememberNativeCarry } from "@/lib/auth/continue-client"
+import { openAuthSheet, signInWithNativeGoogle } from "@/lib/auth/native-sign-in"
 
 function SignUpFormContent() {
   const { t } = useLocale()
@@ -396,6 +397,84 @@ function SignUpFormContent() {
         localStorage.setItem("storelib_welcome_shown", "true")
       }
 
+      /*
+        ═══════════════════════════════════════════════════════════════════
+         THE APP SIGNS IN THE WAY THE PHONE DOES, AND THE WAY LOGIN DOES
+        ═══════════════════════════════════════════════════════════════════
+        This page used to send the app's own WebView to /auth/start, so
+        Google's page loaded inside the app: a different experience from the
+        login page, and the one Google turns away outright when it notices
+        ("disallowed_useragent"). Both pages now take the same path
+        (lib/auth/native-sign-in.ts): the phone's own Google sheet where this
+        build has it, and the Safari sheet (a Chrome Custom Tab on Android)
+        with the deep link back where it does not.
+      */
+      const { Capacitor } = await import("@capacitor/core")
+      if (Capacitor.isNativePlatform()) {
+        const supabase = createClient()
+        rememberNativeCarry(carry)
+
+        const sheet = await signInWithNativeGoogle(supabase)
+        if (sheet.result === "done" && sheet.href) {
+          nativeAuthStart()
+          window.location.assign(sheet.href)
+          return
+        }
+        if (sheet.result === "cancelled") {
+          ;(window as any).__oauthStarting = false
+          setIsGoogleLoading(false)
+          nativeAppReady()
+          return
+        }
+        if (sheet.result === "failed") {
+          ;(window as any).__oauthStarting = false
+          setIsGoogleLoading(false)
+          nativeAppReady()
+          setError(classifyOAuthError({ message: sheet.message ?? null }, "google").message)
+          return
+        }
+
+        /* No native sheet in this build: the browser one, exactly as the login page opens it. */
+        const nativeCallbackUrl =
+          Capacitor.getPlatform() === "ios" ? "com.storelib.app://auth/callback" : "storelib://auth/callback"
+        const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
+          provider: "google",
+          options: {
+            redirectTo: nativeCallbackUrl,
+            queryParams: { access_type: "offline", prompt: "consent" },
+            skipBrowserRedirect: true,
+          },
+        })
+        if (oauthError || !data.url) throw oauthError ?? new Error("OAuth init failed")
+
+        const { Browser } = await import("@capacitor/browser")
+        let browserFinishedHandle: { remove: () => void } | undefined
+        /* Two minutes, for the reason the login page gives: a real sign in takes longer than twenty seconds. */
+        const timeoutId = window.setTimeout(() => {
+          browserFinishedHandle?.remove()
+          ;(window as any).__oauthStarting = false
+          setIsGoogleLoading(false)
+          setError(t("auth.err_signin_timeout"))
+        }, 120_000)
+        try {
+          browserFinishedHandle = await Browser.addListener("browserFinished", () => {
+            window.clearTimeout(timeoutId)
+            browserFinishedHandle?.remove()
+            /* The deep link can land just after the sheet closes on Android; only a real cancel gets here. */
+            window.setTimeout(() => {
+              ;(window as any).__oauthStarting = false
+              setIsGoogleLoading(false)
+              nativeAppReady()
+            }, 400)
+          })
+        } catch {
+          /* addListener throws when the plugin is not loaded — nothing to clean up. */
+        }
+        nativeAuthStart()
+        await openAuthSheet(data.url)
+        return
+      }
+
       // Show full-page overlay immediately — the OAuth redirect is about to happen
       setIsGoogleRedirecting(true)
 
@@ -492,7 +571,7 @@ function SignUpFormContent() {
         nativeAuthStart()
         /* Why they came, for lib/native-oauth.ts to hand on once the deep link is back. */
         rememberNativeCarry(carry)
-        await Browser.open({ url: data.url, windowName: "_self" })
+        await openAuthSheet(data.url)
         return
       } else {
         window.location.href = `${canonicalUrl}${withCarry("/auth/start?provider=apple", carry)}`
