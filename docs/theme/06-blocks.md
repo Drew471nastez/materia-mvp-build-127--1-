@@ -24,6 +24,27 @@ writing any of that.
   by the editor and the importer. The hard ceiling is 50 per section.
 - A section without `blocks` has no block UI at all.
 
+## In the editor
+
+Blocks are part of the page's structure, so the theme editor shows them in
+the sidebar's tree, the way Shopify does, not inside the section's settings:
+
+- A section that has blocks gets a chevron in the list. Opening it shows one
+  row per block under the section, indented a step for each level a block
+  sits inside another, and an **Add block** line at the end of each level
+  that offers what that level accepts (one entry per preset).
+- A row is the block's name and a word of what it says. The grip and the eye
+  (hide or show) appear under the pointer, and always on a phone. Rows drag
+  to reorder within their level; static blocks have no grip.
+- Selecting a row, or clicking the block on the canvas, opens that block's
+  own settings panel: its fields and nothing else, the section it is in named
+  under the title (tap it for the section's settings), and Hide, Duplicate
+  and Delete pinned at the foot.
+- The section's own panel shows only the section's settings.
+
+The header's links are its menu and are edited in the header's panel, so the
+header has no block rows in the tree.
+
 ## Rendering blocks
 
 ```html

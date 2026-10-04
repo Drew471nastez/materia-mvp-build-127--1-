@@ -27,7 +27,7 @@ Every `type` a schema setting may use is here, and only these. A setting's `type
 | [`image_picker`](#image_picker) | asset | `""` | no |  |
 | [`image_gallery`](#image_gallery) | asset_list | `[]` | no | `max` |
 | [`video_picker`](#video_picker) | asset | `""` | no |  |
-| [`file_picker`](#file_picker) | asset | `""` | no |  |
+| [`file_picker`](#file_picker) | asset | `""` | no | `accept` |
 | [`icon_picker`](#icon_picker) | string | `""` | no |  |
 | [`url`](#url) | string | `""` | no | `placeholder` |
 | [`video_url`](#video_url) | string | `""` | no | `accept`, `placeholder` |
@@ -481,18 +481,22 @@ These Shopify types have nothing to point at on Storelib and are refused with th
 
 ## file_picker
 
-**File.** Any file from the media library.
+**File.** An attachment on the website, such as a PDF sample, a press kit or a price list. In the editor it is an upload (straight to the creator's Storelib storage, checked like every public file) or a pasted link, and the setting holds the file's public URL. `accept` narrows what it takes, as kinds (`pdf`, `document`, `spreadsheet`, `presentation`, `archive`, `audio`, `ebook`) or extensions (`".zip"`); the picker then offers only those and says which in words. Never a web page, a script or an SVG, whatever `accept` says.
 
 - Value: asset
 - Default when the schema gives none: `""`
 - Responsive: no
 - Editor control: `FilePicker`
+- Reads these extra keys: `accept`
 
 ```json
 {
   "type": "file_picker",
-  "id": "download",
-  "label": "Downloadable file"
+  "id": "sample",
+  "label": "Sample PDF",
+  "accept": [
+    "pdf"
+  ]
 }
 ```
 

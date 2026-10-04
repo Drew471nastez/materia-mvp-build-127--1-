@@ -11,8 +11,9 @@
  *                   edge right under the site header (no card, no rounding),
  *                   the photo across its lower edge with a thin 2px ring, no
  *                   "Joined" line, Edit profile (a Storelib button, to
- *                   /account/settings) on the cover with the cover's camera
- *                   button beside it, the four owner pills with Activity lit
+ *                   /account/settings, where the cover is placed) alone on
+ *                   the cover (round 8: no camera button beside it), the
+ *                   four owner pills with Activity lit
  *                   (no Edit profile pill), the activity ending on "Joined
  *                   Storelib"
  *   THE PHONE BAR   on a phone, over /account only: the Storelib logo and a
@@ -235,7 +236,7 @@ try {
       expect(!/Joined/.test(m.heroText || ""), "no Joined line under the name", m.heroText)
       expect(!!m.edit && m.edit.text === "Edit profile" && m.edit.href === "/account/settings" && m.edit.h === 40 && m.edit.bg === "rgb(255, 255, 255)", "Edit profile is a white Storelib button, 40px, to /account/settings", m.edit)
       expect(!!m.edit && m.edit.top >= m.cover.top && m.edit.bottom <= m.cover.bottom, "  on the cover", { edit: m.edit, cover: m.cover })
-      expect(!!m.camera && m.camera.label === "Add cover" && m.camera.w === 40 && m.camera.h === 40 && m.camera.right <= m.edit.left && m.camera.href.startsWith("/account/settings"), "  the cover's camera button beside it (Add cover)", m.camera)
+      expect(!m.camera, "  and nothing beside it: no camera button for the cover (it is placed in Settings)", m.camera)
       if (phone) expect(m.edit.top - m.cover.top <= 16, "  top right on a phone, clear of the photo", { edit: m.edit, avatar: m.avatar })
       else expect(m.cover.bottom - m.edit.bottom <= 20 && m.edit.right <= (m.width + 960) / 2, "  at the foot of the band, inside the profile's column", { edit: m.edit, cover: m.cover })
       expect(m.owner.map((x) => x[0]).join() === "Activity,Communities,Library,Settings" && m.owner[0][1] === "true", "the four owner pills, Activity lit, no Edit profile pill", m.owner)

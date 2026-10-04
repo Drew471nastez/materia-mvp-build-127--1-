@@ -669,10 +669,11 @@ async function main() {
     ].every((u) => ownCoverUrl(u, me, host) === null))
     const route = stripComments(read("app/api/profile/cover/route.ts"))
     check("the route: the session's own row, checked address, rate limited, 503 before the column exists", /auth\.getUser\(\)/.test(route) && /\.eq\("id", user\.id\)/.test(route) && /ownCoverUrl\(body\.coverUrl, user\.id/.test(route) && /rateLimit\(/.test(route) && /status: 503/.test(route))
-    check("Settings uses the creator cover's own upload box (bucket covers, 3:1)", /<ImageUpload bucket="covers" aspectRatio="cover"/.test(read("components/account/cover-field.tsx")))
+    /* Round 8: the creator editor's own control, its frame the repositioner (drag, pinch, Reset), not only its upload box. */
+    check("Settings uses the creator cover's own control (bucket covers, the frame that repositions)", /<ImageUpload\s+bucket="covers"\s+aspectRatio="cover"/.test(read("components/account/cover-field.tsx")) && /reposition=\{reposition\}/.test(read("components/account/cover-field.tsx")))
     check("visitors see it: the page reads it with the service role", /select\("cover_url"\)/.test(read("lib/profile/member-profile-data.ts")) && /coverUrl: cover \|\| creatorRow\?\.cover_url/.test(read("lib/profile/member-profile-data.ts")))
-    /* Round 5: the cover's own camera button beside Edit profile, both only on your own band. */
-    check("the owner's band offers Add cover / Change cover beside Edit profile, nobody else's does", /isSelf \? \(\s*<div className="absolute inset-x-0 top-3 sm:bottom-4 sm:top-auto" data-profile-cover-actions="">[\s\S]{0,200}<Link\s+href=\{COVER_SETTINGS_HREF\}/.test(read("components/profile/profile-hero.tsx")))
+    /* Round 8: "Remove the camera icon button next to Edit profile on the profile cover." Edit profile alone, only on your own band; the cover is changed in Settings. */
+    check("the owner's band offers Edit profile alone, nobody else's does", /isSelf \? \(\s*<div className="absolute inset-x-0 top-3 sm:bottom-4 sm:top-auto" data-profile-cover-actions="">[\s\S]{0,200}<Link href=\{EDIT_PROFILE_HREF\}/.test(read("components/profile/profile-hero.tsx")) && !/<Camera|COVER_SETTINGS_HREF|data-profile-cover-edit/.test(read("components/profile/profile-hero.tsx")))
   }
 
   console.log("\nNever empty")

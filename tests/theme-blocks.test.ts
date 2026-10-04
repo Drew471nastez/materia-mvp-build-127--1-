@@ -332,9 +332,11 @@ function main() {
   check("countAll counts every depth", countAll(base) === 6)
 
   const editor = read("app/website-builder/editor/[installId]/page.tsx")
-  check("the section panel draws the tree with BlockLevel", /<BlockLevel[\s\S]*parent=\{\[\]\}/.test(editor) && /function BlockLevel\(/.test(editor))
-  check("a block that holds blocks lists them in its open row", /data-block-children=\{key\}/.test(editor))
-  check("each level has its own Add block, listing what it accepts", /<AddBlockButton options=\{options\}/.test(editor) && /addableBlocks\(/.test(editor))
+  /* Shopify's tree: a section's blocks are rows under it in the sidebar's list, not a list in its settings. */
+  check("the sidebar's tree draws each section's blocks with BlockTreeFor", /<BlockTreeFor[\s\S]*parent=\{\[\]\}/.test(editor) && /function BlockTreeFor\(/.test(editor) && /blocksOf=\{\(s\) => \{/.test(editor))
+  check("a block that holds blocks lists them under its own row, a level further in", /children=\{\(block\) => \{[\s\S]{0,400}<BlockTreeFor[\s\S]{0,300}parent=\{\[\.\.\.parent, block\.id\]\}/.test(editor))
+  check("each level has its own Add block, listing what it accepts", /<TreeAddBlock options=\{options\}/.test(editor) && /addableBlocks\(/.test(editor))
+  check("and the section's settings panel no longer lists them", !/<BlockLevel/.test(editor) && /data-block-hint=""/.test(editor))
   check("a click on the canvas selects the deepest block, by its path", /path\.unshift\(bid\)/.test(editor) && /pathKey\(path\)/.test(editor))
   check("adding a preset gives its blocks fresh ids", /blocks: freshBlocks\(preset\?\.blocks, newBlockId\)/.test(editor))
   check("duplicating a section copies its blocks all the way down", /blocks: \(orig\.blocks \?\? \[\]\)\.map\(\(b\) => cloneTree\(b, newBlockId\)\)/.test(editor))

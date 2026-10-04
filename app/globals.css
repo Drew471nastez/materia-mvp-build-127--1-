@@ -1285,14 +1285,6 @@ html.capacitor body {
     .settings-panel { animation: none; }
   }
 
-  /* Library tab content after a pill press (components/library/library-panel.tsx). */
-  .library-panel {
-    animation: settings-panel-in 200ms cubic-bezier(0.33, 1, 0.68, 1) backwards;
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .library-panel { animation: none; }
-  }
-
   /*
     THE ONEPAGE ONBOARDING'S LAST STEP: two thin rings in the logo's shape
     grow out of it and fade, 1.2s apart, while the page is built

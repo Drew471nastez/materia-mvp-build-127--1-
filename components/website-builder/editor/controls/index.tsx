@@ -22,6 +22,7 @@ import { FontPickerControl } from "./font-picker-control"
 import { NumberControl } from "./number-control"
 import { CommunityPickerControl } from "./community-picker-control"
 import { DateTimeControl } from "./datetime-control"
+import { FilePickerControl } from "./file-picker-control"
 import { FocalPointControl } from "./focal-point-control"
 import { HtmlControl } from "./html-control"
 import { ImagePickerControl } from "./image-picker-control"
@@ -37,7 +38,7 @@ export { EditorFieldProvider, SiblingSettingsProvider, type EditorFieldEnv, type
 
 /** The types this folder draws, for FieldEditor's label rule and the docs. */
 export const REGISTERED_CONTROLS = [
-  "inline_richtext", "html", "color_background", "datetime", "focal_point", "image_picker", "video_url", "video_picker", "product_list", "link_list", "menus", "community_picker",
+  "inline_richtext", "html", "color_background", "datetime", "focal_point", "image_picker", "file_picker", "video_url", "video_picker", "product_list", "link_list", "menus", "community_picker",
   "collection_picker", "collection_list", "number", "font_picker", "css",
 ] as const
 
@@ -70,6 +71,9 @@ export function renderRegisteredControl(
       return <ImagePickerControl value={str} onChange={onChange} label={field.label} />
     case "video_picker":
       return <VideoPickerControl value={str} onChange={onChange} label={field.label} />
+    /* An attachment: uploaded to Storelib, or linked; what it takes comes from `accept`. */
+    case "file_picker":
+      return <FilePickerControl value={str} onChange={onChange} label={field.label} accept={field.accept} placeholder={field.placeholder} />
     case "video_url":
       return <VideoUrlControl value={str} onChange={onChange} accept={field.accept} placeholder={field.placeholder} label={field.label} />
     case "product_list":

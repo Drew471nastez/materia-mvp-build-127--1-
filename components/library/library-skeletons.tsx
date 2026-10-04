@@ -1,7 +1,7 @@
 import { WishlistSkeleton } from "@/components/wishlist/wishlist-skeleton"
 import { isLibraryProduct, libraryTabs } from "./library-tab-list"
 import { LIBRARY_TITLE, LIBRARY_TITLE_GAP } from "./library-ui"
-import { LIBRARY_COURSES, LIBRARY_HOME, LIBRARY_MEMBERSHIPS, LIBRARY_RECEIPTS, LIBRARY_REVIEWS, LIBRARY_WISHLIST } from "@/lib/library/paths"
+import { LIBRARY_COMMUNITIES, LIBRARY_COURSES, LIBRARY_HOME, LIBRARY_MEMBERSHIPS, LIBRARY_RECEIPTS, LIBRARY_REVIEWS, LIBRARY_WISHLIST } from "@/lib/library/paths"
 
 export { WishlistSkeleton }
 
@@ -171,6 +171,32 @@ export function MembershipsSkeleton({ still = false }: { still?: boolean }) {
   )
 }
 
+/**
+ * Communities (components/account/account-communities-body.tsx): the count,
+ * then a row per community as components/explore/community-card.tsx draws it
+ * in a list (a 57px mark, the name, the by line, a line of facts).
+ */
+export function CommunitiesSkeleton({ still = false }: { still?: boolean }) {
+  const pulse = still ? "" : PULSE
+  return (
+    <div className="space-y-3 pb-4" aria-hidden>
+      <div className={`h-[18px] w-28 ${LINE} ${pulse}`} />
+      <div className="space-y-2.5">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="flex min-h-[72px] items-center gap-3.5 rounded-lg border border-[#e4e7ec]/80 bg-white px-3.5 py-3.5 sm:gap-4 sm:px-5 sm:py-4">
+            <div className={`h-[57px] w-[57px] shrink-0 rounded-xl ${SOFT} ${pulse}`} />
+            <div className="min-w-0 flex-1 space-y-2">
+              <div className={`h-4 w-1/2 ${LINE} ${pulse}`} />
+              <div className={`h-3 w-1/3 ${SOFT} ${pulse}`} />
+              <div className={`h-3 w-2/5 ${SOFT} ${pulse}`} />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 /** One purchase (components/library/library-product.tsx): the back control, the picture and title, the files, the seller. */
 export function ProductDetailSkeleton() {
   return (
@@ -243,6 +269,7 @@ export function skeletonFor(path: string, still = false): React.ReactNode {
   if (path === LIBRARY_REVIEWS) return <RowsSkeleton rows={3} sections={2} still={still} />
   if (path === LIBRARY_RECEIPTS) return <RowsSkeleton rows={4} still={still} />
   if (path === LIBRARY_WISHLIST) return <WishlistSkeleton still={still} />
+  if (path === LIBRARY_COMMUNITIES) return <CommunitiesSkeleton still={still} />
   if (isLibraryProduct(path)) return <ProductDetailSkeleton />
   return null
 }

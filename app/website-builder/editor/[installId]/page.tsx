@@ -32,7 +32,7 @@ import { SliderNumberControl } from "@/components/website-builder/editor/slider-
 import { WbImagePicker } from "@/components/website-builder/editor/image-picker"
 import { ImagePickerControl } from "@/components/website-builder/editor/controls/image-picker-control"
 import { Collapse } from "@/components/website-builder/editor/collapse"
-import { SectionBlockList } from "@/components/website-builder/editor/section-block-list"
+import { BlockTreeLevel, TreeAddBlock } from "@/components/website-builder/editor/block-tree-rows"
 import { afterAddSettles, measureSectionTops, playArrival, sheetCoverAbovePeek } from "@/lib/website-builder/section-arrival"
 import { SectionLibrary } from "@/components/website-builder/editor/section-library"
 import { SectionsList } from "@/components/website-builder/editor/sections-list"
@@ -110,7 +110,7 @@ import { watchKeyboard } from "@/lib/website-builder/keyboard-watch"
 import { clearStaleDocumentLocks, watchForStuckLayer } from "@/lib/website-builder/stuck-layer"
 import { addableBlocks, blockSchemaIn, customAddableSections, customSectionSchemas, schemaFor, themeBlockCatalog } from "@/lib/website-builder/storelib-schemas"
 import { blockAt, cloneTree, countAll, depthOf, freshBlocks, insertAt as insertBlockAt, parsePath, pathKey, removeAt, resolvePath, updateAt, withChildren } from "@/lib/website-builder/block-tree"
-import { AddBlockButton, type BlockChoice } from "@/components/website-builder/editor/add-block-button"
+import { type BlockChoice } from "@/components/website-builder/editor/add-block-button"
 import { isStorelibSection } from "@/lib/website-builder/storelib-runtime"
 import { LIMITS, MAX_BLOCK_DEPTH } from "@/lib/storelib-theme/types"
 import {
@@ -841,18 +841,6 @@ function FieldControl({
         </select>
         <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
       </div>
-    )
-  }
-
-  if (kind === "file_picker") {
-    return (
-      <input
-        type="text"
-        className={"w-full h-8 px-2.5 text-[13px] border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-300"}
-        placeholder={field.placeholder ?? "Paste a file URL"}
-        value={typeof raw === "string" ? raw : ""}
-        onChange={e => onChange(e.target.value)}
-      />
     )
   }
 
@@ -2298,7 +2286,18 @@ function blockDetail(settings: Record<string, unknown>): string | undefined {
   return undefined
 }
 
-function BlockLevel({
+/**
+ * ===========================================================================
+ *  A SECTION'S BLOCKS, AS ROWS OF THE SIDEBAR'S TREE
+ * ===========================================================================
+ * One level of the tree under a section (or under a block that holds
+ * blocks), and every level inside it: the rows, and the Add block line at
+ * the end of each level. Opening a block is selecting it: the sidebar then
+ * shows that block's own settings panel (BlockSettings below). The rules
+ * for what may be added where are the ones the panel's list used, through
+ * the same `ops`.
+ */
+function BlockTreeFor({
   section,
   schema,
   catalog,
@@ -2308,7 +2307,6 @@ function BlockLevel({
   statics,
   selectedKey,
   onSelect,
-  theme,
   canHide,
   ops,
 }: {
@@ -2321,92 +2319,145 @@ function BlockLevel({
   statics: { type: string; id: string }[]
   selectedKey: string | null
   onSelect: (key: string) => void
-  theme: ThemeSettingsValues
   canHide: boolean
-  ops: BlockOps
+  ops: Pick<BlockOps, "add" | "reorder" | "toggleHidden">
 }) {
   const parentKey = parent.length ? pathKey(parent) : null
   const defOf = (type: string) => (parent.length === 0 ? blockSchemaIn(schema, catalog, type) : catalog[type])
   const keyOf = (b: BlockInstance) => pathKey([...parent, b.id])
   const dynamic = siblings.filter((b) => !b.static)
-  /* A static block nobody has edited is not in the data yet: drawn here from its defaults, and created the first time it is changed. */
   const fixed: BlockInstance[] = statics.map((st) => siblings.find((b) => b.static && b.id === st.id) ?? { id: st.id, type: st.type, settings: blockDefaults(catalog[st.type]), static: true })
   const stored = (b: BlockInstance) => siblings.some((x) => x.id === b.id)
   const options = addableBlocks(parent.length === 0 ? owner : { accepts: owner.accepts }, catalog)
   const full = !!owner.max_blocks && dynamic.length >= owner.max_blocks
-
+  const holds = (b: BlockInstance) => {
+    const def = defOf(b.type)
+    return !!(def?.accepts?.length || def?.statics?.length) && stored(b)
+  }
   return (
-    <>
-      <SectionBlockList<BlockInstance>
-        blocks={dynamic}
-        fixed={fixed}
-        rowKey={keyOf}
-        selectedId={selectedKey}
-        onSelect={onSelect}
-        onReorder={(next) => ops.reorder(next, parentKey)}
-        // The real ones: they check there is room, give a copy its own ids, and record an undo step.
-        onDuplicate={ops.duplicate}
-        onRemove={ops.remove}
-        onToggleHidden={canHide ? (key) => {
-          const b = fixed.find((f) => keyOf(f) === key)
-          ops.toggleHidden(key, b && !stored(b) ? b.type : undefined)
-        } : undefined}
-        title={(block) => ({ name: defOf(block.type)?.name ?? block.type, detail: blockDetail(block.settings) })}
-        fields={(block) => {
-          const def = defOf(block.type)
-          const key = keyOf(block)
-          const virtual = block.static && !stored(block) ? block.type : undefined
-          const holds = !!(def?.accepts?.length || def?.statics?.length)
-          return (
-            <>
-              <SiblingSettingsProvider settings={block.settings}>
-                {visibleFields(def?.fields ?? [], block.settings, { fields: schema.fields ?? [], saved: section.settings }).map((field) => (
-                  <div key={field.id} data-block-field={field.id}>
-                    {/* A block's colour follows its section's scheme the same way: SectionColorSetting. */}
-                    {field.type === "color" ? (
-                      <SectionColorSetting
-                        field={field}
-                        value={block.settings[field.id]}
-                        settings={section.settings}
-                        theme={theme}
-                        onChange={(val) => ops.update(key, field.id, val, virtual)}
-                      />
-                    ) : (
-                      <FieldEditor
-                        label={fieldCarriesOwnLabel(field) ? undefined : field.label}
-                        field={field}
-                        value={block.settings[field.id]}
-                        onChange={(val) => ops.update(key, field.id, val, virtual)}
-                      />
-                    )}
-                  </div>
-                ))}
-              </SiblingSettingsProvider>
-              {holds && def && !virtual && (
-                <div className="border-t border-border pt-3" data-block-children={key}>
-                  <p className="mb-2 text-[11px] font-semibold text-muted-foreground">Blocks in {def.name.toLowerCase()}</p>
-                  <BlockLevel
-                    section={section}
-                    schema={schema}
-                    catalog={catalog}
-                    parent={[...parent, block.id]}
-                    siblings={block.blocks ?? []}
-                    owner={{ accepts: def.accepts, max_blocks: def.max_blocks }}
-                    statics={def.statics ?? []}
-                    selectedKey={selectedKey}
-                    onSelect={onSelect}
-                    theme={theme}
-                    canHide={canHide}
-                    ops={ops}
-                  />
-                </div>
-              )}
-            </>
-          )
-        }}
-      />
-      {!full && parent.length < MAX_BLOCK_DEPTH && <AddBlockButton options={options} onAdd={(choice) => ops.add(choice, parentKey)} />}
-    </>
+    <BlockTreeLevel<BlockInstance>
+      blocks={dynamic}
+      fixed={fixed}
+      depth={parent.length + 1}
+      rowKey={keyOf}
+      title={(block) => ({ name: defOf(block.type)?.name ?? block.type, detail: blockDetail(block.settings) })}
+      selectedKey={selectedKey}
+      onSelect={onSelect}
+      onReorder={(next) => ops.reorder(next, parentKey)}
+      onToggleHidden={canHide ? (key, b) => ops.toggleHidden(key, b.static && !stored(b) ? b.type : undefined) : undefined}
+      hasChildren={holds}
+      children={(block) => {
+        const def = defOf(block.type)
+        if (!def) return null
+        return (
+          <BlockTreeFor
+            section={section}
+            schema={schema}
+            catalog={catalog}
+            parent={[...parent, block.id]}
+            siblings={block.blocks ?? []}
+            owner={{ accepts: def.accepts, max_blocks: def.max_blocks }}
+            statics={def.statics ?? []}
+            selectedKey={selectedKey}
+            onSelect={onSelect}
+            canHide={canHide}
+            ops={ops}
+          />
+        )
+      }}
+      add={
+        !full && parent.length < MAX_BLOCK_DEPTH ? (
+          <TreeAddBlock options={options} depth={parent.length + 1} onAdd={(choice) => ops.add(choice, parentKey)} />
+        ) : null
+      }
+    />
+  )
+}
+
+/**
+ * The block a sidebar selection names, found level by level: a stored
+ * block, or a static one the template places that nobody has edited yet,
+ * drawn from its defaults (`virtual`, created the first time it changes).
+ */
+function resolveBlock(
+  section: SectionInstance,
+  schema: SectionSchema,
+  catalog: Record<string, BlockSchema>,
+  key: string,
+): { block: BlockInstance; def: BlockSchema | undefined; virtual: string | undefined; stored: boolean } | null {
+  const path = parsePath(key)
+  if (!path.length) return null
+  let siblings: BlockInstance[] = section.blocks ?? []
+  let statics: { type: string; id: string }[] = schema.statics ?? []
+  for (let i = 0; i < path.length; i++) {
+    const id = path[i]
+    let block = siblings.find((b) => b.id === id)
+    let virtual = false
+    if (!block) {
+      const st = statics.find((x) => x.id === id)
+      if (!st) return null
+      block = { id, type: st.type, settings: blockDefaults(catalog[st.type]), static: true }
+      virtual = true
+    }
+    const def = i === 0 ? blockSchemaIn(schema, catalog, block.type) : catalog[block.type]
+    if (i === path.length - 1) return { block, def, virtual: virtual ? block.type : undefined, stored: !virtual }
+    if (virtual) return null
+    siblings = block.blocks ?? []
+    statics = def?.statics ?? []
+  }
+  return null
+}
+
+/** One block's own settings, as its panel shows them. */
+function BlockFields({
+  section,
+  schema,
+  block,
+  def,
+  blockKey,
+  virtual,
+  theme,
+  onUpdate,
+}: {
+  section: SectionInstance
+  schema: SectionSchema
+  block: BlockInstance
+  def: BlockSchema | undefined
+  blockKey: string
+  virtual: string | undefined
+  theme: ThemeSettingsValues
+  onUpdate: (key: string, field: string, value: unknown, staticType?: string) => void
+}) {
+  const fields = visibleFields(def?.fields ?? [], block.settings, { fields: schema.fields ?? [], saved: section.settings })
+  if (fields.length === 0) {
+    return <p className="text-[12.5px] leading-5 text-muted-foreground">This block has no settings of its own.</p>
+  }
+  return (
+    <SiblingSettingsProvider settings={block.settings}>
+      {fields.map((field) => (
+        <div key={field.id} data-block-field={field.id}>
+          {field.type === "color" ? (
+            <SectionColorSetting
+              field={field}
+              value={block.settings[field.id]}
+              settings={section.settings}
+              theme={theme}
+              onChange={(val) => onUpdate(blockKey, field.id, val, virtual)}
+            />
+          ) : (
+            <FieldEditor
+              label={fieldCarriesOwnLabel(field) ? undefined : field.label}
+              field={field}
+              value={block.settings[field.id]}
+              onChange={(val) => onUpdate(blockKey, field.id, val, virtual)}
+            />
+          )}
+          {field.type !== "header" && field.type !== "paragraph" && field.info && (
+            <p className="text-[11px] text-muted-foreground mt-1">{field.info}</p>
+          )}
+        </div>
+      ))}
+    </SiblingSettingsProvider>
   )
 }
 
@@ -2447,6 +2498,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * selects the block, and the sidebar brings it into view and rings it.
    */
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null)
+  /**
+   * WHICH SECTIONS ARE OPEN IN THE TREE, showing their blocks under them.
+   * The one being edited is opened for you (the effect below), the way
+   * Shopify's tree follows a selection; anything else stays as the person
+   * left it.
+   */
+  const [treeOpen, setTreeOpen] = useState<ReadonlySet<string>>(() => new Set())
   /** The field a click on the canvas asked for: the sidebar scrolls to it and rings it. `n` makes a second click on the same thing count. */
   const [fieldFocus, setFieldFocus] = useState<{ sectionId: string; block: string | null; setting: string; n: number } | null>(null)
   const fieldFocusSeq = useRef(0)
@@ -5517,6 +5575,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   // Narrow the selected section id safely
   const selectedSectionId: string | null =
     selectedPanel.type === "section" ? (selectedPanel as { type: "section"; sectionId: string }).sectionId : null
+  /* The section being edited is open in the tree when you go back to it, its blocks showing, as Shopify's tree follows a selection. */
+  useEffect(() => {
+    if (!selectedSectionId) return
+    setTreeOpen((prev) => (prev.has(selectedSectionId) ? prev : new Set(prev).add(selectedSectionId)))
+  }, [selectedSectionId])
 
   /**
    * =========================================================================
@@ -6090,7 +6153,43 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 sections={sections}
                 nameOf={(s) => sectionDisplayName(s, librarySchemas)}
                 selectedId={selectedSectionId}
-                onSelect={(id) => { setSelectedPanel({ type: "section", sectionId: id }); revealSection(id) }}
+                onSelect={(id) => { setSelectedBlockId(null); setSelectedPanel({ type: "section", sectionId: id }); revealSection(id) }}
+                expanded={treeOpen}
+                onToggleExpand={(id) => setTreeOpen((prev) => {
+                  const next = new Set(prev)
+                  if (next.has(id)) next.delete(id)
+                  else next.add(id)
+                  return next
+                })}
+                blocksOf={(s) => {
+                  /* The header's links are its menu, edited in its own panel; every other section with blocks shows them here. */
+                  if (s.type === "header") return null
+                  const sch = schemaFor(s.type, storelibSources, librarySchemas)
+                  if (!sch || !(sch.blocks?.length || sch.accepts?.length || sch.statics?.length)) return null
+                  return (
+                    <BlockTreeFor
+                      section={s}
+                      schema={sch}
+                      catalog={blockCatalog}
+                      parent={[]}
+                      siblings={s.blocks ?? []}
+                      owner={{ blocks: sch.blocks, accepts: sch.accepts, max_blocks: sch.max_blocks }}
+                      statics={sch.statics ?? []}
+                      selectedKey={selectedBlockId}
+                      onSelect={(key) => {
+                        setSelectedPanel({ type: "section", sectionId: s.id })
+                        setSelectedBlockId(key)
+                        revealSection(s.id)
+                      }}
+                      canHide={isStorelibSection(s.type, storelibSources)}
+                      ops={{
+                        add: (choice, parentKey) => addBlock(s.id, choice.type, {}, { parent: parentKey, preset: choice.preset }),
+                        reorder: (next, parentKey) => reorderBlocks(s.id, next, parentKey),
+                        toggleHidden: (key, staticType) => toggleBlockHidden(s.id, key, staticType),
+                      }}
+                    />
+                  )
+                }}
                 onToggleHide={toggleSectionHidden}
                 onDuplicate={duplicateSection}
                 onRemove={removeSection}
@@ -6142,6 +6241,94 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               setSelectedPanel({ type: "pages" })
             }}
           />
+        )
+      }
+
+      /*
+       * ═════════════════════════════════════════════════════════════════
+       *  A BLOCK'S OWN PANEL
+       * ═════════════════════════════════════════════════════════════════
+       * Opened from its row in the tree or by clicking it on the canvas:
+       * the block's settings and nothing else, with the section it is in
+       * named under its own name (tap it for the section's settings), and
+       * Hide, Duplicate and Delete pinned at the foot like a section's.
+       * Same `data-wb-section-panel` and `data-block-row` marks the panel's
+       * old list carried, so a click on a block's heading on the canvas
+       * still lands on that field here.
+       */
+      const blockHit = selectedBlockId && section.type !== "header" && schema ? resolveBlock(section, schema, blockCatalog, selectedBlockId) : null
+      if (blockHit && schema) {
+        const key = selectedBlockId as string
+        const name = blockHit.def?.name ?? blockHit.block.type
+        const canHide = isStorelibSection(section.type, storelibSources)
+        return (
+          <div className="flex flex-col h-full" data-wb-section-panel={section.id} data-wb-block-panel={key}>
+            <PanelBack onBack={() => setSelectedPanel({ type: "pages" })}>
+              <p className="truncate text-[15px] font-semibold md:text-sm">{name}</p>
+            </PanelBack>
+            <div className="border-b border-border px-3.5 py-2">
+              <button
+                type="button"
+                data-block-parent-section=""
+                onClick={() => setSelectedBlockId(null)}
+                className="inline-flex max-w-full items-center gap-1 text-[12px] text-muted-foreground transition-colors hover:text-foreground"
+              >
+                <span className="truncate">In {sectionDisplayName(section, librarySchemas)}</span>
+                <ChevronRight className="h-3 w-3 shrink-0" />
+              </button>
+            </div>
+            <div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll">
+              <div className="px-3.5 py-3.5 space-y-3.5" data-block-row={key}>
+                <BlockFields
+                  section={section}
+                  schema={schema}
+                  block={blockHit.block}
+                  def={blockHit.def}
+                  blockKey={key}
+                  virtual={blockHit.virtual}
+                  theme={settingsDraft}
+                  onUpdate={(k, field, value, staticType) => updateBlockSetting(section.id, k, field, value, staticType)}
+                />
+              </div>
+            </div>
+            <div className="sticky bottom-0 z-10 shrink-0 border-t border-[#e5e7eb] bg-white px-3 pt-3 pb-3.5 flex gap-2" data-block-actions="">
+              {canHide && (
+                <button
+                  type="button"
+                  className={cn(
+                    "flex-auto min-w-0 h-10 md:h-9 px-1.5 flex items-center justify-center rounded-lg text-[13px] font-semibold transition-colors duration-150",
+                    blockHit.block.hidden
+                      ? "bg-[#1a1a2e] text-white active:bg-[#2a2a44]"
+                      : "bg-[#f3f4f6] text-[#1a1a2e] hover:bg-[#e9eaee] active:bg-[#e3e4e9]",
+                  )}
+                  onClick={() => toggleBlockHidden(section.id, key, blockHit.virtual)}
+                >
+                  <span className="truncate">{blockHit.block.hidden ? "Show" : "Hide"}</span>
+                </button>
+              )}
+              {!blockHit.block.static && (
+                <>
+                  <button
+                    type="button"
+                    className="flex-auto min-w-0 h-10 md:h-9 px-1.5 flex items-center justify-center rounded-lg bg-[#f3f4f6] text-[13px] font-semibold text-[#1a1a2e] transition-colors duration-150 hover:bg-[#e9eaee] active:bg-[#e3e4e9]"
+                    onClick={() => duplicateBlock(section.id, key)}
+                  >
+                    <span className="truncate">Duplicate</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="flex-auto min-w-0 h-10 md:h-9 px-1.5 flex items-center justify-center rounded-lg bg-[#f3f4f6] text-[13px] font-semibold text-[#1a1a2e] transition-colors duration-150 hover:bg-[#fee2e2] hover:text-[#dc2626] active:bg-[#fecaca] active:text-[#b91c1c]"
+                    onClick={() => removeBlock(section.id, key)}
+                  >
+                    <span className="truncate">Delete</span>
+                  </button>
+                </>
+              )}
+              {blockHit.block.static && !canHide && (
+                <p className="flex-1 py-2 text-center text-[12px] text-muted-foreground">Placed by the section, so it stays where it is.</p>
+              )}
+            </div>
+          </div>
         )
       }
 
@@ -6256,35 +6443,25 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               )
             })()}
 
-            {/* Blocks: the section's own, or the theme blocks it accepts, as deep as they nest. */}
-            {schema && (schema.blocks?.length || schema.accepts?.length || schema.statics?.length) ? (
-              <div className="border-t border-border px-3.5 py-3.5" data-block-tree="">
-                <p className="text-xs font-semibold mb-3">
-                  {schema.blocks?.length && schema.blocks[0]?.name ? `${schema.blocks[0].name}s` : "Blocks"}
-                </p>
-                {/* Grip, name, Duplicate, Delete, chevron: section-block-list.tsx.
-                    A drag commits once, on release, through reorderBlocks. */}
-                <BlockLevel
-                  section={section}
-                  schema={schema}
-                  catalog={blockCatalog}
-                  parent={[]}
-                  siblings={section.blocks ?? []}
-                  owner={{ blocks: schema.blocks, accepts: schema.accepts, max_blocks: schema.max_blocks }}
-                  statics={schema.statics ?? []}
-                  selectedKey={selectedBlockId}
-                  onSelect={setSelectedBlockId}
-                  theme={settingsDraft}
-                  canHide={isStorelibSection(section.type, storelibSources)}
-                  ops={{
-                    update: (key, field, value, staticType) => updateBlockSetting(section.id, key, field, value, staticType),
-                    add: (choice, parentKey) => addBlock(section.id, choice.type, {}, { parent: parentKey, preset: choice.preset }),
-                    duplicate: (key) => duplicateBlock(section.id, key),
-                    remove: (key) => removeBlock(section.id, key),
-                    reorder: (next, parentKey) => reorderBlocks(section.id, next, parentKey),
-                    toggleHidden: (key, staticType) => toggleBlockHidden(section.id, key, staticType),
+            {/* A section's blocks are not here any more: they are rows under the
+                section in the sidebar's tree, and each opens its own panel
+                (BlockTreeFor, BlockFields). A short line says where they went,
+                for anyone who looks for them where they used to be. */}
+            {schema && section.type !== "header" && (schema.blocks?.length || schema.accepts?.length || schema.statics?.length) ? (
+              <div className="border-t border-border px-3.5 py-3" data-block-hint="">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTreeOpen((prev) => (prev.has(section.id) ? prev : new Set(prev).add(section.id)))
+                    setSelectedPanel({ type: "pages" })
                   }}
-                />
+                  className="flex w-full items-center justify-between gap-2 rounded-lg px-1 py-1.5 text-left text-[12.5px] text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  <span>
+                    {countAll(section.blocks)} block{countAll(section.blocks) === 1 ? "" : "s"} in this section, under it in the list
+                  </span>
+                  <ChevronRight className="h-3.5 w-3.5 shrink-0" />
+                </button>
               </div>
             ) : null}
           </div>
