@@ -60,3 +60,12 @@ export function tabFor(section: ShellSection): TabKey {
 export function rightColumnFor(section: ShellSection): boolean {
   return section === "home" || section === "saved" || section.startsWith("space:")
 }
+
+/**
+ * A place's link, asked for IN FULL the moment a pointer rests on it or a
+ * finger lands on it (Next's app router Link, unstable_dynamicOnHover), so
+ * the place is usually here by the click; in view it is only asked for up to
+ * its loading screen, as every link is. Spread onto a Link: the prop is the
+ * app router's and not in next/link's own types.
+ */
+export const FULL_ON_HOVER = { unstable_dynamicOnHover: true } as Record<never, never>

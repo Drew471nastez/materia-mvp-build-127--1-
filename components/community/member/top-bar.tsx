@@ -6,27 +6,31 @@
  * ===========================================================================
  * Every page of a community carries this bar instead of Storelib's: it is
  * somebody's community, so the bar says whose. At the left the community's
- * picture and name with "By <creator>" under it (their page, in this tab),
- * and right of them the hamburger, which opens Storelib's one navigator (the
- * same one right of the Storelib logo: what I opened lately from my library,
- * my communities, Discover communities, Explore, Start creating or
- * Dashboard). For a member, the community's search in the middle (round 5:
- * "Search discussions, members, or content...", a field from 768px, an icon
- * that opens it over the whole screen on a phone). At the right, for a
- * member, Messages (the conversations panel, with how many have something
+ * picture and name, with "By <creator>" under it on a computer (their page,
+ * in this tab), and the hamburger, which opens Storelib's one navigator
+ * (what I opened lately from my library, my communities, Discover
+ * communities, Explore, Start creating or Dashboard): right of the name on a
+ * computer, LEFT of the picture on a phone (round 7), where the bar reads
+ * hamburger, picture, name. For a member, the community's search in the
+ * middle ("Search discussions, members, or content...", a field from 768px,
+ * an icon that opens it over the whole screen on a phone). At the right, for
+ * a member, Messages (the conversations panel, with how many have something
  * unread); for anybody signed in, Storelib's bell (components/notifications/
- * notification-bell.tsx) and their picture with a chevron, opening their
- * profile, library, settings and Explore; for a visitor, Log in.
+ * notification-bell.tsx) and a quiet "..." that opens exactly the Storelib
+ * header's account menu (account-menu.tsx: Profile is always /account); for
+ * a visitor, Log in.
  *
- * ONE COMPACT BAR (round 4: "not fat"): one 56px row on a computer, 44px
- * on a phone (48px from 640px). The places in the community are not in it:
- * from 1024px they are the list in the left column (wall.tsx), and below
- * that (or on a page with no left column, About) they are one row of plain
- * text tabs under the bar. NOTHING IN IT IS A PILL: the icons are plain
- * icon buttons that darken on hover and dim on press, with no disc behind
- * them; the search field is squared at 12px; Log in is a word; the counts
- * are small squared tags; the only round things are the pictures of people.
- * Every control is still a 40px target on a phone.
+ * ONE COMFORTABLE BAR (round 7: "taller, not fat"): 64px on a computer, 56px
+ * on a phone and a tablet; the community's picture 40px (36px on a phone),
+ * the bell and Messages 24px glyphs. The places in the community are not in
+ * it: from 1024px they are the list in the right column (wall.tsx), and below
+ * that (or on a page with no side columns, About) one row of plain text tabs
+ * under the bar. NOTHING IN IT IS A PILL: the hamburger and the "..." are
+ * 40px squares at 10px with the faintest grey ground, a hairline and a one
+ * pixel shadow (DEPTH_ICON_BTN, "extremely little depth"); Messages and the
+ * bell are plain icons that darken on hover; the search field is squared at
+ * 12px; Log in is a word; the counts are small squared tags; the only round
+ * things are the pictures of people.
  *
  * A BAR OVER THE PAGE. A hairline and a soft shadow under it, so the page
  * reads as passing beneath it. Below the status bar in the phone app
@@ -35,17 +39,16 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useLayoutEffect, useRef } from "react"
-import { ChevronDown, Compass, Library, Settings, Settings2, UserRound } from "lucide-react"
 import { ChatRoundDotsIcon as ChatLine } from "@solar-icons/react/linear/chat-round-dots"
 import { ChatRoundDotsIcon as ChatBold } from "@solar-icons/react/bold/chat-round-dots"
-import { AppAvatar } from "@/components/app/app-avatar"
+import { CommunityMark } from "./community-mark"
 import { cn } from "@/lib/utils"
-import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { NotificationBell } from "@/components/notifications/notification-bell"
+import { CommunityAccountMenu } from "./account-menu"
 import { PlaceNavigator } from "./place-navigator"
 import { CommunitySearchButton, CommunitySearchField } from "./search"
-import { PLAIN_ICON_BTN } from "./ui"
-import type { TopBarCommunity, TopBarData } from "./view-types"
+import { DEPTH_ICON_BTN, PLAIN_ICON_BTN } from "./ui"
+import type { TopBarData } from "./view-types"
 
 export interface TopBarProps {
   data: TopBarData
@@ -74,13 +77,17 @@ function Badge({ n }: { n: number }) {
   )
 }
 
-/** Storelib's bell, made a plain icon button here, its count squared like Messages'. */
-const BELL = `${PLAIN_ICON_BTN} [&_[data-bell-badge]]:rounded-[5px]`
+/** Storelib's bell, made a plain icon button here, its glyph 24px (round 7: "a bit bigger"), its count squared like Messages'. */
+const BELL = `${PLAIN_ICON_BTN} [&_[data-bell-badge]]:rounded-[5px] [&_svg.lucide-bell]:h-6 [&_svg.lucide-bell]:w-6`
 
-/** The community's picture, or its initials on a quiet grey square. */
-export function CommunityMark({ community, size }: { community: Pick<TopBarCommunity, "name" | "logoUrl">; size: number }) {
-  return <AppAvatar src={community.logoUrl} name={community.name} alt="" size={size} className="shrink-0 rounded-[10px]" markWhileLoading />
-}
+/**
+ * The hamburger: three even 2px lines, 18px wide and 4px apart, on whole
+ * pixels in a 40px square (so no line blurs into two), in the bar's one
+ * control with a little depth (DEPTH_ICON_BTN). Open, it sits pressed in.
+ */
+const HAMBURGER = `${DEPTH_ICON_BTN} rounded-[10px] text-[#1a1a2e] hover:text-[#1a1a2e] aria-expanded:bg-[#eef0f2] aria-expanded:shadow-none [&_[data-navigator-lines]]:w-[18px] [&_[data-navigator-lines]]:gap-[4px]`
+
+export { CommunityMark }
 
 /**
  * The bar's height (with the pills under it, for a member), measured once
@@ -118,15 +125,6 @@ export function CommunityTopBar({ data, messages = null, messagesOpen = false, o
   /* The member's frame lines the bar up with its three columns (1360px); a visitor's page and About keep the sheet's 1080px. */
   const wide = !!search && !tabsOnDesktop
   const base = `/community/${community.slug}`
-  const meItems: ActionMenuItem[] = me
-    ? [
-        ...(data.manageHref ? [{ label: "Manage community", href: data.manageHref, icon: <Settings2 aria-hidden /> }] : []),
-        { label: "My profile", href: me.profileHref, icon: <UserRound aria-hidden />, separatorBefore: !!data.manageHref },
-        { label: "Library", href: "/account/library", icon: <Library aria-hidden /> },
-        { label: "Settings", href: "/account/settings", icon: <Settings aria-hidden /> },
-        { label: "Explore Storelib", href: "/explore", icon: <Compass aria-hidden />, separatorBefore: true },
-      ]
-    : []
 
   return (
     <header
@@ -135,21 +133,22 @@ export function CommunityTopBar({ data, messages = null, messagesOpen = false, o
       className="sticky top-0 z-40 border-b border-[#e6e8ec] bg-white pt-[env(safe-area-inset-top)] shadow-[0_1px_2px_rgba(17,24,39,0.04),0_8px_20px_-14px_rgba(17,24,39,0.16)]"
     >
       <div className={cn("mx-auto flex w-full flex-wrap items-center px-4 sm:px-6 md:gap-x-4 lg:gap-x-6 lg:px-8", wide ? "max-w-[1360px]" : "max-w-[1080px]")} data-community-top-row="">
-        <div className={cn("flex h-11 min-w-0 flex-1 items-center gap-2.5 sm:h-12 lg:h-14", search ? "md:max-w-[300px] md:flex-none" : "lg:max-w-[340px] lg:flex-none", wide && "lg:w-[260px] lg:max-w-none xl:w-[280px]")} data-community-top-lead="">
-          <Link href={base} aria-label={`${community.name}, home`} className="shrink-0 rounded-[9px] outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15">
-            <span className="sm:hidden">
-              <CommunityMark community={community} size={32} />
+        <div className={cn("flex h-14 min-w-0 flex-1 items-center gap-2 md:gap-3 lg:h-16", search ? "md:max-w-[320px] md:flex-none" : "lg:max-w-[360px] lg:flex-none", wide && "lg:w-[260px] lg:max-w-none xl:w-[280px]")} data-community-top-lead="">
+          <Link href={base} aria-label={`${community.name}, home`} className="flex shrink-0 rounded-[10px] outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15" data-community-mark="">
+            <span className="flex md:hidden">
+              <CommunityMark community={community} size={36} />
             </span>
-            <span className="hidden sm:block">
-              <CommunityMark community={community} size={34} />
+            <span className="hidden md:flex">
+              <CommunityMark community={community} size={40} />
             </span>
           </Link>
           <div className="min-w-0 leading-tight" data-community-identity="">
-            <Link href={base} className="block truncate text-[15px] font-semibold tracking-[-0.005em] text-[#1a1a2e] outline-none hover:underline focus-visible:underline">
+            <Link href={base} className="block truncate text-[15px] font-semibold tracking-[-0.005em] text-[#1a1a2e] outline-none hover:underline focus-visible:underline md:text-[16px]">
               {community.name}
             </Link>
             {creator ? (
-              <p className="truncate text-[12.5px] leading-[1.3] text-[#6b7280]">
+              /* A computer only (round 7): on a phone the bar is the picture and the name. */
+              <p className="hidden truncate text-[12.5px] leading-[1.35] text-[#6b7280] md:block" data-community-by="">
                 By{" "}
                 {creator.href ? (
                   <Link href={creator.href} className="font-medium text-[#4b5563] outline-none hover:text-[#1a1a2e] hover:underline focus-visible:underline" data-person-link="" data-community-creator="">
@@ -161,8 +160,13 @@ export function CommunityTopBar({ data, messages = null, messagesOpen = false, o
               </p>
             ) : null}
           </div>
-          {/* Right of the picture and the name, as the Storelib header has it right of its logo. A block flex box (not inline), so no line box sits under it and it centres in the row. */}
-          <PlaceNavigator current={{ kind: "community", id: community.id }} className={`-ml-1 ${PLAIN_ICON_BTN} flex text-[#1a1a2e] hover:text-[#1a1a2e]`} />
+          {/*
+            Right of the picture and the name on a computer, as the Storelib header has it right of its logo; FIRST on a phone (order), left of
+            the picture. One navigator either way, moved by `order` rather than drawn twice. A block flex box, so no line box sits under it.
+          */}
+          <div className="order-first flex shrink-0 md:order-none md:ml-0.5" data-community-hamburger="">
+            <PlaceNavigator current={{ kind: "community", id: community.id }} className={HAMBURGER} />
+          </div>
         </div>
 
         {search ? (
@@ -171,13 +175,13 @@ export function CommunityTopBar({ data, messages = null, messagesOpen = false, o
         ) : null}
 
         {children ? (
-          /* The tabs are their own row under the bar, edge to edge, below 1024px; from 1024px the left column has the places, so the row is only drawn where there is none. */
+          /* The tabs are their own row under the bar, edge to edge, below 1024px; from 1024px the right column has the places, so the row is only drawn where there is none. */
           <div className={cn("order-last -mx-4 min-w-0 basis-[calc(100%+2rem)] sm:-mx-6 sm:basis-[calc(100%+3rem)] lg:-mx-8 lg:basis-[calc(100%+4rem)]", !tabsOnDesktop && "lg:hidden")} data-community-top-tabs="">
             {children}
           </div>
         ) : null}
 
-        <div className="ml-auto flex h-11 shrink-0 items-center gap-0.5 pl-2 sm:h-12 sm:gap-1 md:pl-0 lg:h-14" data-community-top-actions="">
+        <div className="ml-auto flex h-14 shrink-0 items-center gap-0.5 pl-2 sm:gap-1 md:pl-0 lg:h-16" data-community-top-actions="">
           {search ? <CommunitySearchButton communityId={search.communityId} slug={community.slug} className="md:hidden" /> : null}
           {messages !== null && onMessages ? (
             <button
@@ -189,24 +193,14 @@ export function CommunityTopBar({ data, messages = null, messagesOpen = false, o
               data-community-messages-button=""
             >
               <span className="relative inline-flex">
-                {messagesOpen ? <ChatBold size={22} /> : <ChatLine size={22} />}
+                {messagesOpen ? <ChatBold size={24} /> : <ChatLine size={24} />}
                 {messages > 0 ? <Badge n={messages} /> : null}
               </span>
             </button>
           ) : null}
           {me ? <NotificationBell className={BELL} /> : null}
           {me ? (
-            <ResponsiveActionMenu
-              title={me.name}
-              menuWidth="w-56"
-              items={meItems}
-              trigger={
-                <button type="button" aria-label="Your account" className="group/me -mr-1 inline-flex h-10 min-w-10 shrink-0 cursor-pointer select-none items-center justify-center gap-1 rounded-[10px] outline-none transition-opacity duration-150 active:opacity-70 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 motion-reduce:transition-none [-webkit-tap-highlight-color:transparent] md:pl-1 md:pr-0.5" data-community-me="">
-                  <AppAvatar src={me.avatarUrl} name={me.name} alt="" size={32} markWhileLoading />
-                  <ChevronDown className="hidden h-4 w-4 text-[#6b7280] transition-colors group-hover/me:text-[#1a1a2e] md:block" strokeWidth={2} aria-hidden data-community-me-chevron="" />
-                </button>
-              }
-            />
+            <CommunityAccountMenu me={me} className="md:ml-1.5" />
           ) : (
             <Link
               href={`/login?next=${encodeURIComponent(pathname || base)}`}

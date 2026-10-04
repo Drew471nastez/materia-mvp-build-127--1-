@@ -15,7 +15,7 @@ import { useLightChrome } from "@/lib/ui/light-chrome"
 export function CommunityPublicFrame({ topBar, children }: { topBar: TopBarData; children: React.ReactNode }) {
   useLightChrome(true)
   return (
-    <div data-community-public="" className="min-h-svh bg-[#f8f9fa] [--community-top:45px] sm:[--community-top:49px] lg:[--community-top:57px]">
+    <div data-community-public="" className="min-h-svh bg-[#f8f9fa] [--community-top:57px] lg:[--community-top:65px]">
       <CommunityTopBar data={topBar} />
       {children}
     </div>

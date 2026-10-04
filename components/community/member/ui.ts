@@ -8,10 +8,30 @@ export const HAIRLINE = "border-[#eceef1]"
 export const INK = "#1a1a2e"
 export const MUTED = "#6b7280"
 
+/**
+ * "EXTREMELY LITTLE" DEPTH (round 7, Polaris by way of Storelib): a control
+ * that can be pressed carries a hairline and a one pixel soft shadow under
+ * it, never more. DEPTH is the white surface (a chip, a secondary button),
+ * DEPTH_INK the filled near black one (the chosen chip, the primary button),
+ * whose shadow is a touch darker so it still reads on the page's #f8f9fa.
+ * Both press in by a hair (the shadow goes) rather than scaling.
+ */
+export const DEPTH = "border border-[#e3e5e9] bg-white shadow-[0_1px_1px_rgba(16,24,40,0.05)]"
+export const DEPTH_INK = "border border-[#1a1a2e] bg-[#1a1a2e] shadow-[0_1px_1.5px_rgba(16,24,40,0.18)]"
+export const DEPTH_PRESS = "active:shadow-none"
+
+/**
+ * An icon control in the community's bar with that same depth: the
+ * hamburger and the account "...". 40px, squared at 10px (not a pill), the
+ * faintest grey ground, a hairline and a one pixel shadow.
+ */
+export const DEPTH_ICON_BTN =
+  "inline-flex h-10 w-10 shrink-0 cursor-pointer select-none items-center justify-center rounded-[10px] border border-[#e6e8eb] bg-[#f8f9fa] text-[#1a1a2e] shadow-[0_1px_1px_rgba(16,24,40,0.04)] outline-none transition-[background-color,border-color,box-shadow] duration-150 hover:border-[#dcdfe3] hover:bg-[#f1f2f4] active:shadow-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 motion-reduce:transition-none [-webkit-tap-highlight-color:transparent]"
+
 export const BTN =
-  "inline-flex shrink-0 select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-full text-[14px] font-medium outline-none transition-[background-color,color,scale] active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none [-webkit-tap-highlight-color:transparent]"
-export const BTN_PRIMARY = `${BTN} h-10 bg-[#1a1a2e] px-4 text-white hover:bg-[#2b2b42] sm:h-9`
-export const BTN_SECONDARY = `${BTN} h-10 border border-[#e3e4e8] bg-white px-4 text-[#1a1a2e] hover:bg-[#f6f7f8] sm:h-9`
+  "inline-flex shrink-0 select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-full text-[14px] font-medium outline-none transition-[background-color,color,scale,box-shadow] active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none [-webkit-tap-highlight-color:transparent]"
+export const BTN_PRIMARY = `${BTN} h-10 ${DEPTH_INK} px-4 text-white hover:bg-[#2b2b42] sm:h-9`
+export const BTN_SECONDARY = `${BTN} h-10 ${DEPTH} ${DEPTH_PRESS} px-4 text-[#1a1a2e] hover:bg-[#f6f7f8] sm:h-9`
 export const BTN_GHOST = `${BTN} h-10 px-3 text-[#4b5563] hover:bg-[#f1f2f4] hover:text-[#1a1a2e] sm:h-9`
 /** A round 40px tap target around an 18px icon. */
 export const ICON_BTN = `${BTN} h-10 w-10 text-[#6b7280] hover:bg-[#f1f2f4] hover:text-[#1a1a2e]`
@@ -20,7 +40,7 @@ export const ICON_BTN = `${BTN} h-10 w-10 text-[#6b7280] hover:bg-[#f1f2f4] hove
 export const PILL =
   "relative inline-flex h-10 shrink-0 cursor-pointer select-none items-center justify-center gap-1 whitespace-nowrap rounded-full border px-4 text-[14px] font-medium outline-none transition-[color,scale] lg:h-9 lg:text-[13px] active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 motion-reduce:transition-none [-webkit-tap-highlight-color:transparent]"
 export const PILL_ON = "border-[#d7dadf] bg-[#e2e4e8] text-[#1a1a2e] shadow-[inset_0_1px_1.5px_rgba(15,23,42,0.07),inset_0_-1px_0_rgba(255,255,255,0.45)]"
-export const PILL_OFF = "border-[#e4e7ec] bg-white text-[#6b7280] hover:text-[#1a1a2e]"
+export const PILL_OFF = "border-[#e4e7ec] bg-white text-[#6b7280] shadow-[0_1px_1px_rgba(16,24,40,0.05)] hover:text-[#1a1a2e]"
 
 /**
  * A section tab in the row under the community's bar: plain words, no box.

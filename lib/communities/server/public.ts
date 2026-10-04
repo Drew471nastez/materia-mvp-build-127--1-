@@ -609,7 +609,7 @@ export function communityIndexable(c: Pick<CommunityRow, "status" | "visibility"
  */
 export async function topBarData(community: CommunityRow, viewer: Viewer | null, db: Db = admin()): Promise<TopBarData> {
   const userId = viewer?.userId ?? null
-  const [creators, me, stores, mine] = await Promise.all([
+  const [creators, me, stores, mine, sellerRows] = await Promise.all([
     readCreators(db, [community.creator_id ?? ""]),
     userId ? rows<ProfileLite>("top bar profile", () => db.from("profiles").select("id, username, display_name, avatar_url").eq("id", userId).limit(1)) : Promise.resolve([] as ProfileLite[]),
     userId ? storefrontsOf(db, [userId]) : Promise.resolve(new Set<string>()),
@@ -618,6 +618,8 @@ export async function topBarData(community: CommunityRow, viewer: Viewer | null,
           db.from("community_members").select("community_id, role").eq("user_id", userId).eq("status", "active").order("last_active_at", { ascending: false, nullsFirst: false }).limit(20),
         )
       : Promise.resolve([] as { community_id: string; role: Role }[]),
+    /* Seller access (lib/account/seller-access.ts): the account menu's first row is Dashboard for a seller, Start creating for anybody else. */
+    userId ? rows<{ onboarding_completed: boolean | null }>("top bar seller", () => db.from("creators").select("onboarding_completed").eq("user_id", userId).limit(1)) : Promise.resolve([] as { onboarding_completed: boolean | null }[]),
   ])
   const ids = uniq(mine.map((m) => m.community_id))
   const found = ids.length
@@ -646,6 +648,8 @@ export async function topBarData(community: CommunityRow, viewer: Viewer | null,
           avatarUrl: profile?.avatar_url ?? null,
           /* No username yet: their account page, where one is set. */
           profileHref: profile?.username ? personHref({ username: profile.username, hasStorefront: stores.has(userId) }) : "/account",
+          username: profile?.username ?? null,
+          seller: sellerRows[0]?.onboarding_completed === true,
         }
       : null,
     communities,
