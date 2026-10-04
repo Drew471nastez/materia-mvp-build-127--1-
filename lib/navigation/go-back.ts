@@ -22,6 +22,57 @@ import { fallbackHref, planBack, type BackEvidence, type BackPlan } from "./back
 /** How long a real back has to show itself before the fallback is used. */
 export const BACK_WATCH_MS = 900
 
+/**
+ * ===========================================================================
+ *  ONE BACK PER PRESS, HOWEVER MANY TIMES THE FINGER LANDS
+ * ===========================================================================
+ * A double tap on a back arrow was two `history.back()` calls: the first
+ * landed on the page behind (a page the router keeps answers in a frame or
+ * two), the second tap then hit that page's own back, or the same control
+ * still on its way out, and the visitor went back twice, past the page they
+ * wanted. So a back that is on its way holds every other one: until it has
+ * shown itself (or given up for the fallback), and for at least
+ * BACK_HOLD_MS from the press, which is longer than any double tap and
+ * shorter than a deliberate second back. Shared by every control that goes
+ * back through here: the header arrows, the profile bar's chevron next to
+ * the avatar, a ReturnLink, the app's own back handler.
+ */
+export const BACK_HOLD_MS = 400
+
+let backPending = false
+let backStartedAt = -Infinity
+
+/** A back from here is on its way, so another press is the same press. */
+export function backInFlight(now: number = Date.now()): boolean {
+  return backPending || now - backStartedAt < BACK_HOLD_MS
+}
+
+/**
+ * AND THE SECOND TAP DOES NOT LAND ON THE PAGE BEHIND. A page the router
+ * keeps comes back within a frame or two of the first tap, so the second tap
+ * of a double tap lands on IT, on whatever row or card is under the finger
+ * there, and opens that: back and straight forward again, measured on the
+ * back probe (scripts/check-native-shell.mjs). So for BACK_HOLD_MS after a
+ * back, a click anywhere is the same press and is dropped. The press that
+ * started the back is already past the capture phase, so it is not.
+ */
+function swallowEchoClicks(): void {
+  const until = Date.now() + BACK_HOLD_MS
+  const eat = (e: Event) => {
+    if (Date.now() > until) return
+    e.preventDefault()
+    e.stopImmediatePropagation()
+  }
+  window.addEventListener("click", eat, true)
+  window.setTimeout(() => window.removeEventListener("click", eat, true), BACK_HOLD_MS + 50)
+}
+
+/** For tests: as if no back had ever been pressed. */
+export function resetBackHold(): void {
+  backPending = false
+  backStartedAt = -Infinity
+}
+
 type NavigationLike = { canGoBack?: boolean; addEventListener?: (t: string, f: () => void) => void; removeEventListener?: (t: string, f: () => void) => void }
 
 function navigationApi(): NavigationLike | null {
@@ -71,6 +122,11 @@ export function backThen(fallback: () => void, watchMs: number = BACK_WATCH_MS):
     fallback()
     return () => {}
   }
+  /* The second tap of a double tap: the first is already taking the visitor back. */
+  if (backInFlight()) return () => {}
+  backPending = true
+  backStartedAt = Date.now()
+  swallowEchoClicks()
   let settled = false
   const nav = navigationApi()
   const off = () => {
@@ -81,6 +137,7 @@ export function backThen(fallback: () => void, watchMs: number = BACK_WATCH_MS):
   }
   function done() {
     settled = true
+    backPending = false
     off()
   }
   window.addEventListener("popstate", done)
@@ -107,6 +164,12 @@ export function backThen(fallback: () => void, watchMs: number = BACK_WATCH_MS):
 export function goBackOr(creatorHref: string | null | undefined, navigate: (href: string) => void): BackPlan {
   const plan = planBack(readBackEvidence(), creatorHref)
   if (plan.kind === "navigate") {
+    /* The same hold as a history back: a double tap pushes the page once. */
+    if (typeof window !== "undefined") {
+      if (backInFlight()) return plan
+      backStartedAt = Date.now()
+      swallowEchoClicks()
+    }
     navigate(plan.href)
     return plan
   }

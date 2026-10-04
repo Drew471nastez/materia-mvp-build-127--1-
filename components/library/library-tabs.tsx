@@ -6,6 +6,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import type { PrefetchKind } from "next/dist/client/components/router-reducer/router-reducer-types"
 import { cleanPath as clean, libraryTabs, showsLibraryTabs } from "./library-tab-list"
 import { LIBRARY_TITLE, LIBRARY_TITLE_GAP } from "./library-ui"
+import { useFirstTap } from "@/lib/navigation/first-tap"
 
 /**
  * ===========================================================================
@@ -62,6 +63,85 @@ const PILL =
   "relative inline-flex h-10 sm:h-9 shrink-0 cursor-pointer select-none items-center justify-center whitespace-nowrap rounded-full border bg-white px-4 text-[13px] font-medium outline-none transition-[color,scale] active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 motion-reduce:transition-none motion-reduce:active:scale-100 [-webkit-tap-highlight-color:transparent]"
 
 type IdleWindow = Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void }
+
+/**
+ * ONE PILL, ANSWERING THE FIRST TAP. On a finger the move starts on the lift
+ * (lib/navigation/first-tap.ts), not on a click the browser may never send:
+ * a tap while the row is still gliding the last pill into view, or while
+ * the screen under it is cross fading, used to be spent on the glide or
+ * cancelled by the fade, and the pill needed a second tap. A mouse and the
+ * keyboard keep the Link's own click.
+ */
+function LibraryPill({
+  href,
+  label,
+  active,
+  current,
+  panelEntrance,
+  onPress,
+  onTap,
+  onWarm,
+}: {
+  href: string
+  label: string
+  active: boolean
+  current: boolean
+  panelEntrance: boolean
+  onPress: () => void
+  onTap: () => void
+  onWarm: () => void
+}) {
+  const tap = useFirstTap<HTMLAnchorElement>((via) => {
+    if (via === "tap") {
+      if (!active) onTap()
+      return
+    }
+    onPress()
+    /* A plain click: the Link navigates itself, as it always has. */
+    return false
+  })
+  return (
+    <Link
+      href={href}
+      scroll={false}
+      aria-current={current ? "page" : undefined}
+      data-library-tab={label}
+      data-library-tab-href={href}
+      data-active={active ? "true" : "false"}
+      onPointerDown={(e) => {
+        onWarm()
+        tap.onPointerDown(e)
+      }}
+      onPointerUp={tap.onPointerUp}
+      onPointerCancel={tap.onPointerCancel}
+      onClick={(e) => {
+        /* Not ours: a new tab, a new window, a context menu. */
+        if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return
+        /* The pill already chosen: nothing to do but not to push it again. */
+        if (active) {
+          e.preventDefault()
+          return
+        }
+        tap.onClick(e)
+      }}
+      onPointerEnter={onWarm}
+      onFocus={onWarm}
+      style={{ transitionDuration: `${TAB_FADE_MS}ms`, transitionTimingFunction: TAB_EASE }}
+      className={`${PILL} ${active ? "border-[#d7dadf] text-[#1a1a2e]" : "border-[#e4e7ec] text-[#6b7280] hover:text-[#1a1a2e]"}`}
+    >
+      {/* This pill's own fill: it fades in where it is, never slides over from the last one. */}
+      <span
+        aria-hidden
+        data-library-tab-fill=""
+        style={{ transitionDuration: `${TAB_FADE_MS}ms`, transitionTimingFunction: TAB_EASE }}
+        className={`pointer-events-none absolute -inset-px rounded-full border border-[#d7dadf] bg-[#e2e4e8] shadow-[inset_0_1px_1.5px_rgba(15,23,42,0.07),inset_0_-1px_0_rgba(255,255,255,0.45)] ${panelEntrance ? "transition-[opacity,scale]" : "transition-none"} motion-reduce:transition-none ${
+          active ? "scale-100 opacity-100" : "scale-[0.96] opacity-0"
+        }`}
+      />
+      <span className="pointer-events-none relative">{label}</span>
+    </Link>
+  )
+}
 
 export function LibraryTabs({ communities = false }: { communities?: boolean } = {}) {
   const tabs = libraryTabs(communities)
@@ -170,35 +250,20 @@ export function LibraryTabs({ communities = false }: { communities?: boolean } =
             {tabs.map((tab) => {
               const active = tab.href === current
               return (
-                <Link
+                <LibraryPill
                   key={tab.href}
                   href={tab.href}
-                  scroll={false}
-                  aria-current={tab.href === path ? "page" : undefined}
-                  data-library-tab={tab.label}
-                  data-library-tab-href={tab.href}
-                  data-active={active ? "true" : "false"}
-                  onClick={(e) => {
-                    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return
+                  label={tab.label}
+                  active={active}
+                  current={tab.href === path}
+                  panelEntrance={panelEntrance}
+                  onPress={() => press(tab.href)}
+                  onWarm={() => warm(tab.href)}
+                  onTap={() => {
                     press(tab.href)
+                    router.push(tab.href, { scroll: false })
                   }}
-                  onPointerEnter={() => warm(tab.href)}
-                  onTouchStart={() => warm(tab.href)}
-                  onFocus={() => warm(tab.href)}
-                  style={{ transitionDuration: `${TAB_FADE_MS}ms`, transitionTimingFunction: TAB_EASE }}
-                  className={`${PILL} ${active ? "border-[#d7dadf] text-[#1a1a2e]" : "border-[#e4e7ec] text-[#6b7280] hover:text-[#1a1a2e]"}`}
-                >
-                  {/* This pill's own fill: it fades in where it is, never slides over from the last one. */}
-                  <span
-                    aria-hidden
-                    data-library-tab-fill=""
-                    style={{ transitionDuration: `${TAB_FADE_MS}ms`, transitionTimingFunction: TAB_EASE }}
-                    className={`pointer-events-none absolute -inset-px rounded-full border border-[#d7dadf] bg-[#e2e4e8] shadow-[inset_0_1px_1.5px_rgba(15,23,42,0.07),inset_0_-1px_0_rgba(255,255,255,0.45)] ${panelEntrance ? "transition-[opacity,scale]" : "transition-none"} motion-reduce:transition-none ${
-                      active ? "scale-100 opacity-100" : "scale-[0.96] opacity-0"
-                    }`}
-                  />
-                  <span className="relative">{tab.label}</span>
-                </Link>
+                />
               )
             })}
           </div>

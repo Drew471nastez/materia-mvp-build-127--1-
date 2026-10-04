@@ -11,7 +11,7 @@ import type { User } from "@supabase/supabase-js"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
 import { extractUsernameFromHost, getCanonicalSiteUrl, isCustomDomain, isSellerPage } from "@/lib/url-helpers"
 import { useBuyerHeaderLight, useExploreMarketplaceEnabled } from "@/components/platform/explore-marketplace-context"
-import { headerChrome, type HeaderChrome } from "@/lib/platform/header-chrome"
+import { BUYER_HEADER_DARK_BG, headerChrome, type HeaderChrome } from "@/lib/platform/header-chrome"
 import { cn } from "@/lib/utils"
 
 import { Button } from "@/components/ui/button"
@@ -1780,6 +1780,12 @@ export function PlatformHeaderClient({
         data-header-tone={buyerHeaderLight ? "light" : "dark"}
         className={cn(chrome.root, isSellerOrProductPage ? "relative" : "sticky top-0")}
       >
+        {/* A DARK BAR SAYS SO TO THE BAND. The strip under the clock, the
+            browser's bar and the status bar's text all read --native-band
+            (app/globals.css), white by default. This bar is the one buyer
+            surface that can be dark (the admin's toggle), so while it is
+            drawn the band is its colour, from the server's HTML on. */}
+        {buyerHeaderLight ? null : <style>{`:root{--native-band:${BUYER_HEADER_DARK_BG}}`}</style>}
     <header className={cn(chrome.header, !(isNativePlatform() && isSellerOrProductPage) && chrome.headerBorder)}>
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8">
         <div
@@ -2491,6 +2497,8 @@ export function PlatformHeaderClient({
       <LanguageModal open={languageOpen} onOpenChange={setLanguageOpen} />
     </header>
       </div>
+      {/* The fixed bar's room in the app, in the flow under it (app/globals.css .native-header-spacer): every layout that draws this header gets it, not only the marketing one. */}
+      <div aria-hidden className="native-header-spacer" data-native-header-spacer="" />
 
       {/*
         ═══════════════════════════════════════════════════════════════════════

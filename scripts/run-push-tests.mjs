@@ -403,6 +403,7 @@ const SUITES = [
   "tests/place-navigator.test.ts",
   "tests/header-round8.test.ts",
   "tests/native-app-links.test.ts",
+  "tests/native-shell.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

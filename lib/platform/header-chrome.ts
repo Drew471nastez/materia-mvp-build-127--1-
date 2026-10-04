@@ -6,13 +6,16 @@
 /** Dark mode bar: near-black, not pure #000. */
 export const BUYER_HEADER_DARK_BG = "#0e0e10"
 /*
-  LIGHT MODE BAR: A LITTLE WHITER. The owner asked for it a touch whiter
-  than the #f7f8f9 it was. #fcfcfd sits just under pure white, so the bar
-  still reads as a surface over the #f8f9fa page (with its hairline and the
-  barely-there depth in app/globals.css) rather than as part of it.
-  conditional-header's stand in uses the same value, so nothing flashes.
+  LIGHT MODE BAR: WHITE, AND ONE SURFACE WITH THE STATUS BAR ABOVE IT. It was
+  #fcfcfd at 98% over a blur, so on a phone it read as a grey a shade off the
+  white band under the clock, and the page showed through it as it scrolled
+  (the owner's screenshots of the library and the account). Now it is the
+  band's own white (--native-band in app/globals.css), opaque, with a
+  hairline at its foot and nothing else: content goes under it and is not
+  seen. conditional-header's stand in uses the same value, so nothing
+  flashes.
 */
-export const BUYER_HEADER_LIGHT_BG = "#fcfcfd"
+export const BUYER_HEADER_LIGHT_BG = "#ffffff"
 export type HeaderChrome = {
   root: string
   header: string
@@ -37,7 +40,7 @@ export type HeaderChrome = {
 }
 
 const LIGHT_FOCUS =
-  "outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#fcfcfd]"
+  "outline-none focus-visible:ring-2 focus-visible:ring-violet-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white"
 
 const DARK_FOCUS =
   `outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[${BUYER_HEADER_DARK_BG}]`
@@ -68,8 +71,7 @@ export function headerChrome(light: boolean): HeaderChrome {
   }
 
   return {
-    root:
-      "platform-header-light platform-header-depth z-40 w-full bg-[#fcfcfd] backdrop-blur supports-[backdrop-filter]:bg-[#fcfcfd]/98",
+    root: "platform-header-light z-40 w-full bg-white",
     header: "w-full bg-transparent",
     headerBorder: "border-b border-[rgba(16,18,27,0.06)]",
     focus: LIGHT_FOCUS,
@@ -89,6 +91,6 @@ export function headerChrome(light: boolean): HeaderChrome {
     guestDivider: "bg-[rgba(16,18,27,0.1)]",
     guestSell: "text-[#5c6574] hover:text-[#1a1a2e]",
     guestLogin: "border-[rgba(16,18,27,0.12)] text-[#1a1a2e] hover:border-[rgba(16,18,27,0.2)] hover:bg-[rgba(16,18,27,0.03)]",
-    concaveBg: "bg-[#fcfcfd]",
+    concaveBg: "bg-white",
   }
 }
