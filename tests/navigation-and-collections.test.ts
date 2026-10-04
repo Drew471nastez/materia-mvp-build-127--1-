@@ -87,5 +87,21 @@ console.log("\nCollections, every shop's\n")
   check("Products has a way to Collections", /href="\/app\/collections" data-products-collections/.test(read("app/app/products/products-client.tsx")))
 }
 
+console.log("\nOne grid down the sidebar\n")
+{
+  const parts = read("components/website-builder/editor/tree-parts.tsx")
+  const list = read("components/website-builder/editor/sections-list.tsx")
+  const tree = read("components/website-builder/editor/block-tree-rows.tsx")
+  check("the columns are named once, and a level is one of them", /export const ROW_PAD = 4/.test(parts) && /export const TREE_STEP = 20/.test(parts) && /rowIndent = \(depth: number\) => ROW_PAD \+ depth \* TREE_STEP/.test(parts))
+  check("  a twisty column, filled or empty, so no chevron hangs off the left", /export function TreeTwisty/.test(parts) && /export function TreeSpacer/.test(parts) && /<TreeSpacer \/>/.test(list) && /<TreeSpacer \/>/.test(tree))
+  check("  and one mark column, 20px, on a section's row and a block's alike", (list.match(/h-6 w-5 shrink-0/g) ?? []).length >= 3 && (tree.match(/h-6 w-5 shrink-0/g) ?? []).length >= 2)
+  check("a block is one column further in, not a few stray pixels", /paddingLeft: rowIndent\(depth\)/.test(tree) && !/BASE_INDENT/.test(tree))
+  check("  and swaps its dot for the grip in that one column, never both", /group-hover\/block:opacity-0/.test(tree) && /absolute inset-0 flex cursor-grab/.test(tree))
+  check("Add section and Add block are one line, on the grid, in Storelib's violet", /export function TreeAddRow/.test(parts) && /text-\[#7c3aed\]/.test(parts) &&
+    /<TreeAddRow data-add-section=""/.test(list) && /<TreeAddRow data-add-block=""/.test(tree) && !/rounded-full border border-\[#d1d5db\]/.test(tree))
+  check("every name on one left edge", /export const TREE_NAME/.test(parts) && /ml-1\.5 min-w-0 flex-1 truncate/.test(parts) && (list.match(/TREE_NAME/g) ?? []).length >= 2 && /TREE_NAME/.test(tree))
+  check("a group's heading is quiet, over its rows, not another row", /uppercase tracking-\[0\.06em\] text-\[#6b7280\]/.test(list))
+}
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed) process.exit(1)
