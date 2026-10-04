@@ -22,6 +22,7 @@
  */
 
 import { CATEGORY_GROUPS, groupOfCategory, isCategory } from "./category-groups"
+import { toStorageUrl } from "@/lib/storage/media-url"
 
 /* ── what a request may carry ─────────────────────────────────────────── */
 
@@ -58,7 +59,7 @@ export function isOwnStorageImage(url: string, storageOrigin: string, creatorId:
   let u: URL
   let origin: string
   try {
-    u = new URL(url)
+    u = new URL(toStorageUrl(url))
     origin = new URL(storageOrigin).origin
   } catch {
     return false

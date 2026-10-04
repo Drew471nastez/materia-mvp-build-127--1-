@@ -5,6 +5,7 @@
  */
 
 import { type SupabaseClient } from "@supabase/supabase-js"
+import { toStorageUrl } from "@/lib/storage/media-url"
 import { isContainedPath, sanitizeDisplayName } from "@/lib/security/uploads/filename"
 import { STORAGE_BUCKET, PUBLIC_BUCKET, DIGITAL_BUCKETS, getPlanLimits } from "./plans"
 
@@ -71,7 +72,8 @@ export async function generateSignedDownloadUrl(
     }
   }
 
-  // Also handle full Supabase URLs
+  // Also handle full Supabase URLs, and Storelib's own address for one (lib/storage/media-url.ts)
+  normalizedPath = toStorageUrl(normalizedPath)
   if (normalizedPath.includes("/storage/v1/object/")) {
     const match = normalizedPath.match(/\/storage\/v1\/object\/(?:public|sign)\/[^/]+\/(.+?)(?:\?|$)/)
     if (match) {

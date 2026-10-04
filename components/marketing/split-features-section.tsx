@@ -10,7 +10,7 @@ const FEATURES = [
     title: "Build Your One Page",
     description:
       "Create a single page for coaching, digital products, courses, music, links, and more.",
-    src: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/Visits%20(14).webp",
+    src: "https://storelib.com/media/platform%20images/Visits%20(14).webp",
     imageLeft: true,
     sectionBg: "bg-gray-50",
   },
@@ -18,7 +18,7 @@ const FEATURES = [
     title: "Build Your Online Store",
     description:
       "Customize your store with drag-and-drop sections, products, and branding.",
-    src: "https://skgtqglupjcnfhfscink.supabase.co/storage/v1/object/public/platform%20images/collage%20imags/Visits%20(3).webp",
+    src: "https://storelib.com/media/platform%20images/collage%20imags/Visits%20(3).webp",
     imageLeft: false,
     sectionBg: "bg-white",
   },

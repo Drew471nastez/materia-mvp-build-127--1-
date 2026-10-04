@@ -276,3 +276,19 @@ export function productMatchesQuery(product: any, query: string): boolean {
 export function chromeSections(homeSections: SectionInstance[]): SectionInstance[] {
   return withUniversalChrome([], chromeOf(homeSections))
 }
+
+/**
+ * A search section lists the shop, always. An older copy of the section file
+ * (saved in the code editor or brought in with a theme) could be set to
+ * "The ones I pick" with product blocks of its own; those are set aside here
+ * when a page is drawn, so every search page answers with what the shop sells.
+ */
+export function searchListsTheShop<T extends { type: string; settings: Record<string, unknown>; blocks?: unknown[] }>(sections: T[]): T[] {
+  let changed = false
+  const out = sections.map((s) => {
+    if (s.type !== "search" || (s.settings?.source !== "picked" && !(s.blocks?.length))) return s
+    changed = true
+    return { ...s, settings: { ...s.settings, source: "shop" }, blocks: [] }
+  })
+  return changed ? out : sections
+}

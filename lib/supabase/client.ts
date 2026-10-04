@@ -1,4 +1,5 @@
 import { createBrowserClient } from "@supabase/ssr"
+import { mediaFetch, withMediaAddresses } from "@/lib/storage/media-url"
 import { createClient as createSupabaseClient } from "@supabase/supabase-js"
 import { fresherSession, readSessionFromCookies, sessionCookieRemovals, sessionCookieWrites, storedSessionKey } from "./session-jar"
 
@@ -185,6 +186,7 @@ export function createClient() {
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
+        global: { fetch: mediaFetch },
         auth: {
           flowType: "pkce",
           persistSession: true,
@@ -205,6 +207,7 @@ export function createClient() {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
         isSingleton: true,
+        global: { fetch: mediaFetch },
         cookieOptions: {
           domain: cookieDomain,
           path: "/",
@@ -215,5 +218,6 @@ export function createClient() {
     )
   }
 
-  return browserClient
+  /* Every getPublicUrl hands back Storelib's own address (lib/storage/media-url.ts). */
+  return withMediaAddresses(browserClient)
 }

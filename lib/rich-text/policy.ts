@@ -340,8 +340,10 @@ export function ownStorageImageSrc(raw: string | null | undefined): string | nul
   const value = raw.trim()
   try {
     const url = new URL(value)
-    if (url.protocol !== "https:" || !OWN_STORAGE_HOSTS.has(url.hostname)) return null
-    if (url.username || url.password || url.port) return null
+    if (url.username || url.password || url.port || url.protocol !== "https:") return null
+    /* Storelib's own address for an uploaded picture (lib/storage/media-url.ts). */
+    if (url.hostname === (process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com") && url.pathname.startsWith("/media/")) return value
+    if (!OWN_STORAGE_HOSTS.has(url.hostname)) return null
     return url.pathname.startsWith("/storage/v1/object/public/") ? value : null
   } catch {
     return null

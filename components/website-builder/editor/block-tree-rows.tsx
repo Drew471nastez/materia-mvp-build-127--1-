@@ -48,7 +48,7 @@ export interface TreeBlock {
 
 /** How far in a row is drawn: the section's own blocks one step, each level inside them one more. */
 export const TREE_INDENT = 16
-const BASE_INDENT = 44
+const BASE_INDENT = 32
 
 export function BlockTreeLevel<B extends TreeBlock>({
   blocks,
@@ -131,7 +131,7 @@ export function BlockTreeLevel<B extends TreeBlock>({
           }}
           className={cn(
             "group/block relative flex h-8 max-sm:h-11 cursor-pointer items-center gap-1 rounded-md pr-1 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-neutral-900/15",
-            selected ? "bg-[#1a1a2e] text-white" : "text-[#374151] hover:bg-[#f3f4f6]",
+            selected ? "bg-[#ebecef] text-[#111827]" : "text-[#374151] hover:bg-[#f3f4f6]",
             lifted && "bg-white shadow-[0_6px_20px_rgba(0,0,0,0.12)]",
           )}
           style={{ paddingLeft: indent - 24 }}
@@ -148,7 +148,7 @@ export function BlockTreeLevel<B extends TreeBlock>({
               className={cn(
                 "flex h-6 w-6 shrink-0 cursor-grab touch-none items-center justify-center rounded-md transition-opacity active:cursor-grabbing focus-visible:opacity-100 focus-visible:outline-none",
                 "opacity-0 group-hover/block:opacity-100 max-sm:opacity-60",
-                selected ? "hover:bg-white/20" : "hover:bg-black/[0.06]",
+                "hover:bg-black/[0.06]",
               )}
               {...gripProps(i)}
             >
@@ -170,12 +170,12 @@ export function BlockTreeLevel<B extends TreeBlock>({
                   return next
                 })
               }}
-              className={cn("-ml-1 flex h-5 w-5 shrink-0 items-center justify-center rounded", selected ? "hover:bg-white/20" : "hover:bg-black/[0.06]")}
+              className={cn("-ml-1 flex h-5 w-5 shrink-0 items-center justify-center rounded", "hover:bg-black/[0.06]")}
             >
               <ChevronRight className={cn("h-3.5 w-3.5 transition-transform duration-150", expanded && "rotate-90")} strokeWidth={2} />
             </button>
           ) : (
-            <span aria-hidden className={cn("mx-[7px] h-1.5 w-1.5 shrink-0 rounded-full", selected ? "bg-white/60" : "bg-[#c4c7cd]")} />
+            <span aria-hidden className={cn("mx-[7px] h-1.5 w-1.5 shrink-0 rounded-full", selected ? "bg-[#6b7280]" : "bg-[#c4c7cd]")} />
           )}
           {/* Named by what it says, the way Shopify's tree does: five rows of "FAQ item" told nobody which question was which. */}
           <span className={cn("flex min-w-0 flex-1 items-baseline gap-1.5", block.hidden && "opacity-50")} title={detail ? `${name}: ${detail}` : name}>
@@ -193,8 +193,8 @@ export function BlockTreeLevel<B extends TreeBlock>({
               }}
               className={cn(
                 "h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors",
-                block.hidden || selected ? "flex" : "hidden group-hover/block:flex group-focus-within/block:flex max-sm:flex",
-                selected ? "hover:bg-white/20" : "text-[#4b5563] hover:bg-black/[0.06] hover:text-[#1a1a2e]",
+                block.hidden ? "flex" : "hidden group-hover/block:flex group-focus-within/block:flex max-sm:flex",
+                "text-[#4b5563] hover:bg-black/[0.06] hover:text-[#1a1a2e]",
               )}
             >
               {block.hidden ? <EyeOff className="h-3.5 w-3.5" strokeWidth={1.75} /> : <Eye className="h-3.5 w-3.5" strokeWidth={1.75} />}

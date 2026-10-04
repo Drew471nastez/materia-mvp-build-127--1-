@@ -66,6 +66,12 @@ const nextConfig = {
   },
   images: {
     remotePatterns: [
+      /* Storelib's own address for a public file (lib/storage/media-url.ts). */
+      {
+        protocol: 'https',
+        hostname: process.env.NEXT_PUBLIC_MAIN_DOMAIN || 'storelib.com',
+        pathname: '/media/**',
+      },
       {
         protocol: 'https',
         hostname: 'skgtqglupjcnfhfscink.supabase.co',
@@ -151,8 +157,17 @@ const nextConfig = {
   // use 2MB chunks to stay safely under the platform body size limit.
 
   async rewrites() {
+    /*
+      STORELIB'S OWN ADDRESS FOR A PUBLIC FILE (lib/storage/media-url.ts).
+      /media/<bucket>/<path> is the storage bucket's public object, passed
+      straight through, so no page, input or email shows the storage host.
+    */
+    const storage = (process.env.NEXT_PUBLIC_SUPABASE_URL || "").replace(/\/+$/, "")
     return {
-      beforeFiles: [{ source: "/@:handle", destination: "/member/:handle" }],
+      beforeFiles: [
+        { source: "/@:handle", destination: "/member/:handle" },
+        ...(storage ? [{ source: "/media/:path*", destination: `${storage}/storage/v1/object/public/:path*` }] : []),
+      ],
     }
   },
 

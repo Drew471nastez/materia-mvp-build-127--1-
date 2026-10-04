@@ -221,8 +221,8 @@ check(
     !/DEVICE_WIDTH[\s\S]{0,120}tablet/.test(editor) &&
     !/DeviceMode = [^\n]*tablet/.test(editor) &&
     !/"desktop" \| "tablet" \| "mobile"/.test(editor) &&
-    // the switch offers phone, desktop and Large, and no tablet
-    /\{ key: "mobile", label: "Phone"/.test(editor) && /\{ key: "desktop", label: "Desktop"/.test(editor) && !/key: "tablet"/.test(editor),
+    // the switch cycles desktop, phone and Large, and no tablet
+    /\{ key: "mobile", label: `Phone/.test(editor) && /\{ key: "desktop", label: "Desktop"/.test(editor) && !/key: "tablet"/.test(editor),
 )
 
 check(
@@ -234,7 +234,7 @@ check(
    * switching phone, desktop, large, not a separate icon"), because all
    * three answer one question: how am I looking at the page.
    */
-  /role="radiogroup"\s+aria-label="Preview size"/.test(editor) && /setDevice\(key\)/.test(editor) && /key: "full", label: "Large"/.test(editor),
+  /aria-label=\{`Preview size: \$\{now\.label\}/.test(editor) && /setDevice\(key\)/.test(editor) && /key: "full", label: "Large"/.test(editor),
 )
 
 /**
@@ -294,7 +294,7 @@ check(
       editor.indexOf("CENTRE: WHICH PAGE, AND HOW YOU ARE LOOKING AT IT"),
       editor.indexOf("RIGHT: where the site is"),
     )
-    const fmt = centre.indexOf('aria-label="Preview size"')
+    const fmt = centre.indexOf("aria-label={`Preview size:")
     const sw = centre.indexOf("<PageSwitcher")
     const open = centre.indexOf("Open the live page")
     // Reload is INSIDE the pill now, asserted on the switcher below.
@@ -1502,7 +1502,7 @@ check(
 
 check(
   "the header and the footer wear a dark grey badge, because they are the two rows that are different",
-  /isSelected \? "bg-white\/15 text-white" : "bg-\[#4d5058\] text-white"/.test(sectionsList),
+  /"bg-\[#4d5058\] text-white"/.test(sectionsList) && !/bg-\[#1a1a2e\] text-white/.test(sectionsList),
 )
 
 check(
