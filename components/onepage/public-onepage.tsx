@@ -30,6 +30,7 @@ import { useState, useRef, useEffect, useLayoutEffect, useCallback, createContex
 import { Bell, X, Check, Send, Link2, ChevronLeft, ChevronRight, ExternalLink, Loader2, Download, ShoppingBag, Calendar } from "lucide-react"
 import { getLinksUrl, getLinksShareUrl } from "@/lib/url-helpers"
 import { isNativeApp } from "@/lib/platform-utils"
+import { navigateInApp } from "@/lib/native-bridge"
 import { downloadEntitledFile } from "@/components/download-button"
 import { downloadFile } from "@/lib/downloads/download-file"
 import { intervalOf, perInterval } from "@/lib/pricing/list-price"
@@ -725,6 +726,8 @@ function ShareButton({
   }
 
   const openExternalUrl = async (url: string) => {
+    /* Storelib itself (the Made with Storelib mark) opens in the app's own WebView, not a browser over it (lib/native-links.ts). */
+    if (navigateInApp(url)) return
     if (isNativeApp()) {
       const { Browser } = await import("@capacitor/browser")
       await Browser.open({ url })

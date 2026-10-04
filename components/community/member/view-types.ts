@@ -61,7 +61,15 @@ export interface TopBarData {
   /** "By <name>", opening their page; null when the community has no creator on record. */
   creator: { name: string; href: string | null } | null
   /** The signed in person, or null for a visitor. */
-  me: { name: string; avatarUrl: string | null; profileHref: string } | null
+  me: {
+    name: string
+    avatarUrl: string | null
+    profileHref: string
+    /** Their @handle, under their name in the account menu. */
+    username?: string | null
+    /** Whether the account has seller access: the account menu starts with Dashboard rather than Start creating. */
+    seller?: boolean
+  } | null
   /** Communities they are an active member of, most recently visited first (this one included when they are in it). */
   communities: TopBarCommunity[]
   /** /app/community/<id> for its owner and staff with a creator account; null for everybody else. */

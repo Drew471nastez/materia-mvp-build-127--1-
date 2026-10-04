@@ -4,13 +4,15 @@
  * ===========================================================================
  *  THE WALL'S SIDE COLUMNS
  * ===========================================================================
- * Left, from 1024px: the community card (its cover, its name and address,
+ * Round 7 swapped the sides. Left: the community card (its cover, its name,
  * Members / Online / Admins, the faces of the members here most recently,
- * Settings for the people who run it) and under it the places in the
- * community, each a soft coloured tile, a word and a chevron, the one open
- * marked. Right, from 1280px (under the left column from 1024px): the next
- * event and the top contributors, each only when there is something real to
- * show (lib/communities/server/wall.ts).
+ * Settings for the people who run it; no "storelib.com/community/..." line
+ * any more) and under it the top contributors (or the most active). Right:
+ * the places in the community, each a soft coloured tile with a Solar line
+ * glyph (bold when it is the open one), a word and a chevron, and under
+ * them the next event. Each card only when there is something real to show
+ * (lib/communities/server/wall.ts). From 1024px to 1279px all of it stacks
+ * in the left column.
  *
  * Calm on purpose: white cards on the page's #f8f9fa, hairlines, ink for
  * words, the tiles in quiet tints of a few hues, no violet. A face, a name
@@ -18,7 +20,8 @@
  * computer, their card (person-card.tsx), like every name in the community.
  */
 import Link from "next/link"
-import { ChevronRight, MessageSquareText, Settings, Users } from "lucide-react"
+import { MessageSquareText, Settings, Users } from "lucide-react"
+import { AltArrowRightIcon as ChevronLine } from "@solar-icons/react/linear/alt-arrow-right"
 import { CalendarIcon as CalendarLine } from "@solar-icons/react/linear/calendar"
 import { CalendarIcon as CalendarBold } from "@solar-icons/react/bold/calendar"
 import { CupStarIcon as CupLine } from "@solar-icons/react/linear/cup-star"
@@ -35,11 +38,11 @@ import { useEffect, useState } from "react"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { optimizedImageUrl } from "@/lib/images/optimized-url"
 import { compactCount, eventDateBadge } from "@/lib/communities/format"
-import type { NavEntry, TabKey } from "./nav"
+import { FULL_ON_HOVER, type NavEntry, type TabKey } from "./nav"
 import { memberHref } from "./person-href"
 import { EventWhen } from "./time"
-import { CommunityMark } from "./top-bar"
-import { CARD } from "./ui"
+import { CommunityMark } from "./community-mark"
+import { CARD, DEPTH, DEPTH_PRESS } from "./ui"
 import type { ShellCommunity, WallCardData, WallContributors, WallEvent } from "./view-types"
 
 /* ── The community card ────────────────────────────────────────────────── */
@@ -78,9 +81,6 @@ export function WallCommunityCard({ community, card, membersHref }: { community:
             <Link href={base} className="block truncate text-[16px] font-semibold leading-snug text-[#1a1a2e] hover:underline" data-wall-name="">
               {community.name}
             </Link>
-            <p className="truncate text-[13px] leading-5 text-[#8a8f98]" data-wall-address="">
-              storelib.com{base}
-            </p>
           </div>
         </div>
 
@@ -112,7 +112,7 @@ export function WallCommunityCard({ community, card, membersHref }: { community:
         ) : null}
 
         {card.settingsHref ? (
-          <Link href={card.settingsHref} className="mt-3.5 flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-[#e8e9ec] bg-[#f8f9fa] text-[14px] font-medium text-[#1a1a2e] transition-colors hover:bg-[#f1f2f4] active:opacity-80" data-wall-settings="">
+          <Link href={card.settingsHref} className={`mt-3.5 flex h-10 w-full items-center justify-center gap-2 rounded-xl ${DEPTH} ${DEPTH_PRESS} text-[14px] font-medium text-[#1a1a2e] transition-[background-color,box-shadow] hover:bg-[#f6f7f8]`} data-wall-settings="">
             <Settings className="h-[17px] w-[17px] text-[#4b5563]" strokeWidth={1.8} aria-hidden />
             Settings
           </Link>
@@ -136,7 +136,15 @@ const PLACE_LOOK: Record<TabKey, { line: SolarIcon; bold: SolarIcon; tile: strin
   about: { line: InfoLine, bold: InfoBold, tile: "bg-[#e7f3f3]", ink: "text-[#2c7a7b]" },
 }
 
-export function WallPlaces({ entries, current }: { entries: NavEntry[]; current: TabKey }) {
+/**
+ * A plain click on a place, for the frame to mark it at once (before the page arrives); a click that opens a new tab is not one.
+ * Shared with the row of tabs (shell-frame.tsx SectionTabs).
+ */
+export function plainClick(e: React.MouseEvent): boolean {
+  return e.button === 0 && !e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey
+}
+
+export function WallPlaces({ entries, current, onGo }: { entries: NavEntry[]; current: TabKey; onGo?: (key: TabKey) => void }) {
   return (
     <nav aria-label="Community" className={`${CARD} p-2`} data-wall-places="">
       <ul className="space-y-0.5">
@@ -148,6 +156,9 @@ export function WallPlaces({ entries, current }: { entries: NavEntry[]; current:
             <li key={e.key}>
               <Link
                 href={e.href}
+                /* Asked for in full the moment a pointer rests on it (or a finger lands), so the place is usually here by the click. */
+                {...FULL_ON_HOVER}
+                onClick={(ev) => { if (plainClick(ev)) onGo?.(e.key) }}
                 aria-current={on ? "page" : undefined}
                 data-community-nav={e.label}
                 data-on={on ? "true" : "false"}
@@ -157,7 +168,9 @@ export function WallPlaces({ entries, current }: { entries: NavEntry[]; current:
                   <Icon size={20} />
                 </span>
                 <span className={`min-w-0 flex-1 truncate text-[15px] ${on ? "font-semibold text-[#1a1a2e]" : "font-medium text-[#262633]"}`}>{e.label}</span>
-                <ChevronRight className={`h-4 w-4 shrink-0 transition-[translate,color] duration-150 motion-reduce:transition-none ${on ? "text-[#6b7280]" : "text-[#b0b4bb] group-hover/place:translate-x-0.5 group-hover/place:text-[#6b7280]"}`} strokeWidth={2} aria-hidden />
+                <span aria-hidden data-place-chevron="" className={`inline-flex shrink-0 transition-[translate,color] duration-150 motion-reduce:transition-none ${on ? "text-[#6b7280]" : "text-[#b0b4bb] group-hover/place:translate-x-0.5 group-hover/place:text-[#6b7280]"}`}>
+                  <ChevronLine size={16} />
+                </span>
               </Link>
             </li>
           )
@@ -218,7 +231,7 @@ export function WallUpcoming({ slug, event }: { slug: string; event: WallEvent }
           ) : null}
         </span>
       </Link>
-      <Link href={href} className="mt-3.5 flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-[#e3e4e8] bg-white text-[14px] font-medium text-[#1a1a2e] transition-colors hover:bg-[#f6f7f8] active:opacity-80" data-wall-view-event="">
+      <Link href={href} className={`mt-3.5 flex h-10 w-full items-center justify-center gap-2 rounded-xl ${DEPTH} ${DEPTH_PRESS} text-[14px] font-medium text-[#1a1a2e] transition-[background-color,box-shadow] hover:bg-[#f6f7f8]`} data-wall-view-event="">
         <CalendarLine size={17} className="text-[#4b5563]" />
         View event
       </Link>

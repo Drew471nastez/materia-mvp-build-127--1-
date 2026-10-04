@@ -8,9 +8,8 @@ import { AppAvatar } from "@/components/app/app-avatar"
 import { SmartLink } from "@/components/smart-link"
 import { WishlistSkeleton } from "./wishlist-skeleton"
 import { CARD, PRIMARY, SECONDARY, SMALL, VIOLET } from "@/components/library/library-ui"
-import { isNativeApp } from "@/lib/platform-utils"
 import { cn } from "@/lib/utils"
-import { getProductShareUrl, getProductUrl } from "@/lib/url-helpers"
+import { getProductUrl } from "@/lib/url-helpers"
 import { actionOf, entryOf, priceOf, type WishlistEntry } from "./wishlist-entry"
 
 /**
@@ -85,14 +84,11 @@ function announce(count: unknown) {
 export function WishlistContent({ isLibrary = false, showDiscoverMoreCta = false, initialItems = null }: WishlistContentProps) {
   const [items, setItems] = useState<WishlistEntry[] | null>(initialItems)
   const [removed, setRemoved] = useState<{ entry: WishlistEntry; index: number; failed?: boolean } | null>(null)
-  const [native, setNative] = useState(false)
   const listRef = useRef<HTMLUListElement>(null)
   /* Where every card was just before one left, for the rest to glide from. */
   const before = useRef<{ rects: Map<string, DOMRect>; height: number } | null>(null)
   const arrived = useRef<string | null>(null)
   const undoTimer = useRef<number | null>(null)
-
-  useEffect(() => setNative(isNativeApp()), [])
 
   const fetchWishlist = useCallback(async () => {
     try {
@@ -269,7 +265,7 @@ export function WishlistContent({ isLibrary = false, showDiscoverMoreCta = false
         className={`${CARD} divide-y divide-[#eef0f3] overflow-hidden sm:grid sm:grid-cols-2 sm:gap-4 sm:divide-y-0 sm:overflow-visible sm:rounded-none sm:border-0 sm:bg-transparent sm:shadow-none lg:grid-cols-3 xl:grid-cols-4`}
       >
         {items.map((entry, i) => (
-          <WishlistCard key={entry.productId} entry={entry} native={native} priority={i < 4} onRemove={() => remove(entry)} />
+          <WishlistCard key={entry.productId} entry={entry} priority={i < 4} onRemove={() => remove(entry)} />
         ))}
       </ul>
 
@@ -287,12 +283,13 @@ export function WishlistContent({ isLibrary = false, showDiscoverMoreCta = false
 
 /* ─── One saved product ──────────────────────────────────────────────── */
 
-function WishlistCard({ entry, native, priority, onRemove }: { entry: WishlistEntry; native: boolean; priority: boolean; onRemove: () => void }) {
+function WishlistCard({ entry, priority, onRemove }: { entry: WishlistEntry; priority: boolean; onRemove: () => void }) {
   const price = priceOf(entry)
   const action = actionOf(entry)
   const handle = entry.creator.username
-  const page = handle && entry.slug ? (native ? getProductShareUrl(handle, entry.slug) : getProductUrl(handle, entry.slug)) : entry.slug ? `/p/${entry.slug}` : null
-  const pageProps = { useClientNav: true, target: native ? "_blank" : undefined } as const
+  /* The product, in this window: inside the phone app too, where a new window used to send it to Safari (components/smart-link.tsx). */
+  const page = handle && entry.slug ? getProductUrl(handle, entry.slug) : entry.slug ? `/p/${entry.slug}` : null
+  const pageProps = { useClientNav: true } as const
   /* The cover and the name both open the product; only the name is announced. */
   const productLink = (className: string, children: React.ReactNode, label = false) =>
     page ? (

@@ -1,0 +1,179 @@
+/**
+ * ===========================================================================
+ *  THE FEED'S CLIENT CACHE: ONE LIST PER SPACE AND SORT, KEPT FOR THE VISIT
+ * ===========================================================================
+ * Round 7: "switching spaces must be instant and smooth: no skeleton flash
+ * for cached content, keep the previous list on screen and swap when data
+ * arrives, prefetch on hover, a client side data cache per space/sort".
+ *
+ * A module, not React state, so a list outlives the component that drew it:
+ * going into a post and back, or from Members back to the feed, finds the
+ * spaces already read. Each entry is the list as the member last saw it
+ * (every page loaded, every like and save), its cursor for the next page and
+ * when it was read. A view read under FRESH_MS ago is shown and left alone;
+ * an older one is shown at once and asked for again quietly (feed.tsx).
+ *
+ * One request per view at a time: a hover, a press and the click that
+ * follows share the same promise. At most MAX_VIEWS lists are kept; the one
+ * read longest ago goes first. Browser safe, no server code.
+ */
+import type { FeedPostView } from "@/lib/communities/types"
+import { api, apiBase } from "./api"
+
+/** The sort menu's four orders (lib/communities/server/feed.ts FeedOrder). */
+export type FeedSortValue = "default" | "new" | "top" | "unread"
+export const SORTS: readonly FeedSortValue[] = ["default", "new", "top", "unread"]
+
+/** Which list: the whole community, one space (by its id), or the member's saved posts. */
+export type FeedTarget = { kind: "all" } | { kind: "space"; id: string } | { kind: "saved" }
+
+export interface FeedPageData {
+  pinned: FeedPostView[]
+  posts: FeedPostView[]
+  nextCursor: string | null
+}
+
+export interface CachedView {
+  /** Pinned first (Default only), then the rest, as drawn. */
+  posts: FeedPostView[]
+  cursor: string | null
+  /** When it was read from the server (ms). */
+  at: number
+  /** How many pages have been read into it. */
+  pages: number
+}
+
+/** Under this a cached view is fresh enough to show and leave alone. */
+export const FRESH_MS = 60_000
+/** Lists kept at most, across communities. */
+export const MAX_VIEWS = 24
+
+const views = new Map<string, CachedView>()
+const pending = new Map<string, Promise<CachedView | null>>()
+
+export function viewKey(communityId: string, target: FeedTarget, sort: FeedSortValue): string {
+  const where = target.kind === "space" ? `space:${target.id}` : target.kind
+  /* Saved has one order (newest saved first): the sort is not part of its key. */
+  return `${communityId}|${where}|${target.kind === "saved" ? "-" : sort}`
+}
+
+/** The address of the first (or a following) page of a view: the routes the feed already used. */
+export function viewUrl(communityId: string, target: FeedTarget, sort: FeedSortValue, cursor: string | null = null): string {
+  const q = new URLSearchParams()
+  if (target.kind === "saved") {
+    if (cursor) q.set("cursor", cursor)
+    const s = q.toString()
+    return `${apiBase(communityId)}/bookmarks${s ? `?${s}` : ""}`
+  }
+  q.set("sort", sort)
+  if (cursor) q.set("cursor", cursor)
+  if (target.kind === "space") q.set("space", target.id)
+  return `${apiBase(communityId)}/posts?${q}`
+}
+
+export function readView(key: string): CachedView | undefined {
+  return views.get(key)
+}
+
+export function writeView(key: string, view: CachedView) {
+  views.delete(key)
+  views.set(key, view)
+  while (views.size > MAX_VIEWS) {
+    const oldest = views.keys().next().value
+    if (oldest === undefined) break
+    views.delete(oldest)
+  }
+}
+
+/** A first page as the list draws it: pinned first, each post once. */
+export function firstPage(page: FeedPageData, at = Date.now()): CachedView {
+  const seen = new Set<string>()
+  const posts = [...(page.pinned ?? []), ...(page.posts ?? [])].filter((p) => (seen.has(p.id) ? false : (seen.add(p.id), true)))
+  return { posts, cursor: page.nextCursor ?? null, at, pages: 1 }
+}
+
+/**
+ * The first page of a view from the server, into the cache. A view already
+ * on its way is not asked for twice; the answer is null when it failed (the
+ * cache keeps what it had).
+ */
+export function loadView(communityId: string, target: FeedTarget, sort: FeedSortValue): Promise<CachedView | null> {
+  const key = viewKey(communityId, target, sort)
+  const going = pending.get(key)
+  if (going) return going
+  const run = (async () => {
+    const r = await api<FeedPageData>(viewUrl(communityId, target, sort))
+    if (!r.ok) return null
+    const view = firstPage({ pinned: r.data.pinned ?? [], posts: r.data.posts ?? [], nextCursor: r.data.nextCursor ?? null })
+    writeView(key, view)
+    return view
+  })().finally(() => pending.delete(key))
+  pending.set(key, run)
+  return run
+}
+
+/** Read a view ahead (a pointer resting on its chip, a finger landing on it), unless it is cached and fresh or already coming. */
+export function prefetchView(communityId: string, target: FeedTarget, sort: FeedSortValue, now = Date.now()) {
+  const key = viewKey(communityId, target, sort)
+  const have = views.get(key)
+  if (pending.has(key) || (have && now - have.at < FRESH_MS)) return
+  void loadView(communityId, target, sort)
+}
+
+/**
+ * A change to one post (a like, a save, an edit, a delete) made in one list,
+ * carried into every other cached list that holds the same post, so a
+ * space switched back to never shows the old state. A save or unsave drops
+ * the cached Saved list, which is read again when it is next opened.
+ */
+export function patchPost(communityId: string, id: string, fn: (p: FeedPostView) => FeedPostView | null, skipKey?: string) {
+  for (const [key, view] of views) {
+    if (!key.startsWith(`${communityId}|`) || key === skipKey) continue
+    if (!view.posts.some((p) => p.id === id)) continue
+    const before = view.posts.find((p) => p.id === id)
+    const posts = view.posts.flatMap((p) => {
+      if (p.id !== id) return [p]
+      const next = fn(p)
+      return next ? [next] : []
+    })
+    const after = posts.find((p) => p.id === id)
+    if (key.endsWith("|saved|-") && after && !after.bookmarked) {
+      views.set(key, { ...view, posts: posts.filter((p) => p.id !== id) })
+      continue
+    }
+    views.set(key, { ...view, posts })
+    if (before && after && before.bookmarked !== after.bookmarked) dropSaved(communityId)
+  }
+}
+
+/** The cached Saved list, to be read again next time (a post was saved or unsaved somewhere else). */
+export function dropSaved(communityId: string) {
+  views.delete(`${communityId}|saved|-`)
+}
+
+/**
+ * A post the member just wrote: at the top of the lists it belongs in (All
+ * and its space) in Default and New, where the newest comes first. In Top
+ * and Unread its place is the server's to say, so those lists are dropped
+ * and read again when next opened.
+ */
+export function addPost(communityId: string, post: FeedPostView) {
+  const homes = new Set([`${communityId}|all|`, post.space ? `${communityId}|space:${post.space.id}|` : ""].filter(Boolean))
+  for (const [key, view] of [...views]) {
+    const home = key.slice(0, key.lastIndexOf("|") + 1)
+    if (!homes.has(home)) continue
+    const sort = key.slice(home.length)
+    if (sort === "default" || sort === "new") {
+      if (view.posts.some((p) => p.id === post.id)) continue
+      /* Below the pinned posts in Default, which lead the list. */
+      const at = sort === "default" ? view.posts.filter((p) => p.pinned).length : 0
+      views.set(key, { ...view, posts: [...view.posts.slice(0, at), post, ...view.posts.slice(at)] })
+    } else views.delete(key)
+  }
+}
+
+/** For tests and probes: forget everything. */
+export function clearViews() {
+  views.clear()
+  pending.clear()
+}

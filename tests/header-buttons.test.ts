@@ -106,7 +106,8 @@ console.log("\n6. signed in")
   check("a profile that could not be read does not undo what the creators row says",
     /if \(profileErr\) \{[\s\S]{0,700}?const state = sellerAccessFrom\(\{ creator: creatorData, profile: null \}\)\.state\s*setIsCreator\(state === "seller"\)\s*setHasCompletedSellerOnboarding\(state === "seller"\)/.test(header))
   check("it is a calm row, not a badge: a pale violet ground, the height of its neighbours", /data-become-seller=""\s*className="[^"]*rounded-xl bg-\[#f5f3ff\] px-4 py-3\.5 text-base font-medium text-violet-700/.test(header))
-  check("a seller gets Dashboard there instead", (header.match(/hasCompletedSellerOnboarding \? \(/g) ?? []).length >= 3)
+  /* Round 7: the phone's account sheet is its own component (AccountSheet), shared with a community's bar, and takes the seller answer as `seller`. */
+  check("a seller gets Dashboard there instead", (header.match(/hasCompletedSellerOnboarding \? \(/g) ?? []).length + (fn(header, "AccountSheet").match(/\{seller \? \(/g) ?? []).length >= 3 && /<AccountSheet[\s\S]{0,500}seller=\{hasCompletedSellerOnboarding\}/.test(header))
   /*
     ROUND 3, ask 8: "clicking my avatar on desktop opens an inline dropdown
     like the phone menu and like /app's account dropdown (not a navigation to
@@ -125,11 +126,13 @@ console.log("\n6. signed in")
     check("a second click, a click outside, Escape and a new page close it", /onClick=\{\(\) => setOpen\(\(o\) => !o\)\}/.test(menu) && /document\.addEventListener\("pointerdown", away, true\)/.test(menu) && /e\.key !== "Escape"/.test(menu) && /useEffect\(\(\) => setOpen\(false\), \[pathname\]\)/.test(menu))
     check("it moves by opacity, scale and translate only, and kept while it leaves", /transition-\[opacity,scale,translate\] motion-reduce:transition-none/.test(header) && /open \? HEADER_MENU_OPEN : HEADER_MENU_LEAVING/.test(menu) && /setPresent\(false\)/.test(menu))
   }
-  check("the phone sheets lead to /account too (the profile card, Settings)", (header.match(/headerLink\("\/account"\)/g) ?? []).length === 2)
+  check("the phone sheets lead to /account too (the profile card, Settings)", (header.match(/headerLink\("\/account"\)/g) ?? []).length === 1 && /link\("\/account"\)\} onDone=\{onClose\} item="profile"/.test(fn(header, "AccountSheet")) && /<AccountSheet[\s\S]{0,500}link=\{headerLink\}/.test(header))
   check("no settings link in the header goes anywhere but /account", !/"\/library\/settings"|"\/app\/settings"/.test(header))
   /* Round 3 follow up: the phone's account sheet has the computer menu's rows, in the same order; no My Library (the library lives inside /account). */
   {
-    const sheet = header.slice(header.indexOf('data-account-sheet=""'), header.indexOf("<LanguageModal"))
+    /* Round 7: the sheet is AccountSheet, drawn by the header with its own link, language picker and log out, and by a community's bar. */
+    const sheetFn = fn(header, "AccountSheet")
+    const sheet = sheetFn.slice(sheetFn.indexOf('data-account-sheet=""'))
     const order = [...sheet.matchAll(/item="([a-z-]+)"|data-account-item="([a-z-]+)"|<(SheetLogOut) /g)].map((m) => m[1] || m[2] || (m[3] && "log-out"))
     check("the phone's account sheet: Dashboard or Start creating, Profile, Settings, Language, Help, Discover, Log out", order.join(",") === "dashboard,start-creating,profile,settings,language,help,discover,log-out", order)
     /*
@@ -139,10 +142,10 @@ console.log("\n6. signed in")
       account block." Measured at four phone sizes in
       scripts/check-place-navigator.mjs.
     */
-    check("Log out is pinned at the foot: the rows scroll on their own above it, and the foot never shrinks", /fill\s+maxHeight="min\(88dvh, 720px\)"/.test(sheet.length ? header.slice(header.indexOf("isOpen={mobileProfileOpen}"), header.indexOf('data-account-sheet=""')) : "") && /className="min-h-0 flex-1 overflow-y-auto overscroll-contain" data-account-sheet=""/.test(header) && /<div className="shrink-0" data-account-sheet-foot="">\s*<SheetLogOut onPress=\{handleLogout\} \/>/.test(header))
-    check("the top is /app's: a rounded row with a 32px photo in a hairline ring, the name and the @handle, a one pixel rule under it", /className="flex min-h-\[52px\] shrink-0 items-center gap-3 rounded-xl px-3 py-2" data-account-who="">\s*<AppAvatar src=\{avatarUrl\}[^>]*size=\{32\} className="shrink-0 ring-1 ring-neutral-200" \/>/.test(header) && /data-account-who=""[\s\S]{0,700}<div aria-hidden className="my-1\.5 h-px shrink-0 bg-neutral-100" \/>/.test(header) && /@\{profile\.username\}/.test(header))
+    check("Log out is pinned at the foot: the rows scroll on their own above it, and the foot never shrinks", /fill\s+maxHeight="min\(88dvh, 720px\)"/.test(sheetFn) && /className="min-h-0 flex-1 overflow-y-auto overscroll-contain" data-account-sheet=""/.test(sheetFn) && /<div className="shrink-0" data-account-sheet-foot="">\s*<SheetLogOut onPress=\{onLogout\} \/>/.test(sheetFn) && /<AccountSheet[\s\S]{0,600}onLogout=\{handleLogout\}/.test(header))
+    check("the top is /app's: a rounded row with a 32px photo in a hairline ring, the name and the @handle, a one pixel rule under it", /className="flex min-h-\[52px\] shrink-0 items-center gap-3 rounded-xl px-3 py-2" data-account-who="">\s*<AppAvatar src=\{avatarUrl\}[^>]*size=\{32\} className="shrink-0 ring-1 ring-neutral-200" \/>/.test(header) && /data-account-who=""[\s\S]{0,700}<div aria-hidden className="my-1\.5 h-px shrink-0 bg-neutral-100" \/>/.test(header) && /@\{username\}/.test(sheetFn) && /<AccountSheet[\s\S]{0,500}username=\{profile\?\.username\}/.test(header))
     check("and the rows are /app's rows: 18px icons, 15px words, no chevrons", /const SHEET_ROW =\s*"flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-\[15px\] font-medium text-neutral-800/.test(header) && !/<ChevronRight/.test(fn(header, "SheetRow")))
-    check("its links: /app or /sell, /account, /account/settings, /help, /explore; Language is the picker", /headerLink\("\/app"\)\} onDone=[\s\S]{0,80}item="dashboard"/.test(sheet) && /headerLink\("\/sell"\)\} onDone=[\s\S]{0,80}item="start-creating"/.test(sheet) && /headerLink\("\/account"\)\} onDone=[\s\S]{0,80}item="profile"/.test(sheet) && /headerLink\("\/account\/settings"\)/.test(sheet) && /headerLink\("\/help"\)/.test(sheet) && /headerLink\("\/explore"\)\} onDone=[\s\S]{0,80}item="discover"/.test(sheet) && /setLanguageOpen\(true\) \}\} item="language"/.test(sheet))
+    check("its links: /app or /sell, /account, /account/settings, /help, /explore; Language is the picker", /link\("\/app"\)\} onDone=[\s\S]{0,80}item="dashboard"/.test(sheet) && /link\("\/sell"\)\} onDone=[\s\S]{0,80}item="start-creating"/.test(sheet) && /link\("\/account"\)\} onDone=[\s\S]{0,80}item="profile"/.test(sheet) && /link\("\/account\/settings"\)/.test(sheet) && /link\("\/help"\)/.test(sheet) && /link\("\/explore"\)\} onDone=[\s\S]{0,80}item="discover"/.test(sheet) && /onLanguage\(\) \}\} item="language"/.test(sheet) && /<AccountSheet[\s\S]{0,600}onLanguage=\{\(\) => setLanguageOpen\(true\)\}/.test(header))
     check("and no My Library row in it", !/My Library|"\/library"/.test(sheet))
   }
   check("and it does not put the email under the name", !/\{user\?\.email && <p className="text-sm text-gray-500 truncate">\{user\.email\}<\/p>\}/.test(header))

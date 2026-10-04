@@ -84,7 +84,7 @@ check("an empty href is nothing", toSameOriginPath(undefined) === null)
 console.log("\nand SmartLink uses it")
 check(
   "the internal test is the origin one, not startsWith('/')",
-  /const internalPath = toSameOriginPath\(resolvedHref\)/.test(source) &&
+  /const internalPath = toSameOriginPath\(href\)/.test(source) &&
     !/const internal = !!resolvedHref && resolvedHref\.startsWith\("\/"\)/.test(source),
 )
 check("a routable link renders next/link", /if \(internalPath && !needsHardNav\)[\s\S]{0,200}<Link/.test(source))

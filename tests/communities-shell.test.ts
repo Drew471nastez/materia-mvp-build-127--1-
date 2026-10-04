@@ -42,6 +42,18 @@
  *                      (no right column at all when neither does); points
  *                      or posts and comments, said plainly; Settings and
  *                      Event only for who may use them.
+ *   ROUND 7 (frame)    the bar taller (64px, 56px on a phone), the picture
+ *                      and the bell bigger, the hamburger's three even lines
+ *                      in a light grey button with a hairline, LEFT of the
+ *                      picture on a phone, By <creator> on a computer only;
+ *                      a "..." opening exactly the Storelib account menu
+ *                      (Profile is /account); no address line on the card;
+ *                      the places on the RIGHT, the contributors on the left;
+ *                      a sort menu (Default, New, Top, Unread) instead of
+ *                      Latest / Popular, read by the server; spaces and
+ *                      sorts switched in place from a client cache; a
+ *                      hairline and a one pixel shadow on every chip and
+ *                      button.
  *   SEARCH (round 5)   GET /search: switch first, a member, rate limited,
  *                      only what the member may see (spaces by their access
  *                      rule, posts in those spaces, members while the
@@ -66,6 +78,8 @@ import { GALLERY_MAX, parseGallery, payingTenure, safeImageUrl } from "@/compone
 import { communityGallery, loadSalesPage, topBarData } from "@/lib/communities/server/public"
 import { adminCount, communityStats, HEARTBEAT_MS, onlineCount, ONLINE_WINDOW_MS, touchPresence } from "@/lib/communities/server/presence"
 import { RATE_LIMITS, rateBucket } from "@/lib/communities/limits"
+import { FEED_SORTS, cursorAfter, decodeCursor, encodeCursor, feedSort, keysetCondition, listFeed, unreadSince } from "@/lib/communities/server/feed"
+import { FRESH_MS, addPost, clearViews, dropSaved, firstPage, loadView, patchPost, prefetchView, readView, viewKey, viewUrl, writeView } from "@/components/community/member/feed-cache"
 
 let passed = 0
 let failed = 0
@@ -165,19 +179,36 @@ async function main() {
     check("By <creator> opens the creator's page", /By\{" "\}[\s\S]{0,80}<Link href=\{creator\.href\}/.test(bar))
     check("no chevron switcher any more", !/ChevronsUpDown|Switch community|data-community-switcher/.test(bar))
     const render = bar.slice(bar.indexOf("<header"))
-    check("the hamburger RIGHT of the picture and the name: Storelib's navigator, marked as this community", /<PlaceNavigator current=\{\{ kind: "community", id: community\.id \}\}/.test(render) && render.indexOf("<CommunityMark") < render.indexOf("<PlaceNavigator") && render.indexOf("data-community-identity") < render.indexOf("<PlaceNavigator") && render.indexOf("<PlaceNavigator") < render.indexOf("data-community-top-actions"))
-    check("slimmer: a 44px row on a phone (48px from 640px), one 56px row from 1024px, the tabs a row of their own under it below 1024px", /data-community-top-lead=""/.test(bar) && /"flex h-11 min-w-0 flex-1 items-center gap-2\.5 sm:h-12 lg:h-14"/.test(bar) && /flex h-11 shrink-0 items-center[^"]*sm:h-12[^"]*lg:h-14/.test(bar) && /"order-last -mx-4 min-w-0 basis-\[calc\(100%\+2rem\)\] sm:-mx-6 sm:basis-\[calc\(100%\+3rem\)\] lg:-mx-8 lg:basis-\[calc\(100%\+4rem\)\]", !tabsOnDesktop && "lg:hidden"/.test(bar))
+    check("the hamburger RIGHT of the picture and the name on a computer: Storelib's navigator, marked as this community", /<PlaceNavigator current=\{\{ kind: "community", id: community\.id \}\}/.test(render) && render.indexOf("<CommunityMark") < render.indexOf("<PlaceNavigator") && render.indexOf("data-community-identity") < render.indexOf("<PlaceNavigator") && render.indexOf("<PlaceNavigator") < render.indexOf("data-community-top-actions"))
+    /* Round 7, ask 5: on a phone the hamburger moves LEFT of the picture, by order (one navigator, not two). */
+    check("round 7: on a phone it sits LEFT of the picture (order-first), from 768px back after the name; one navigator", /<div className="order-first flex shrink-0 md:order-none[^"]*" data-community-hamburger="">\s*<PlaceNavigator /.test(render) && (render.match(/<PlaceNavigator /g) || []).length === 1)
+    check("round 7: taller, not fat: a 56px row on a phone and a tablet, 64px from 1024px, the tabs a row of their own under it below 1024px", /data-community-top-lead=""/.test(bar) && /"flex h-14 min-w-0 flex-1 items-center gap-2 md:gap-3 lg:h-16"/.test(bar) && /flex h-14 shrink-0 items-center[^"]*lg:h-16/.test(bar) && /"order-last -mx-4 min-w-0 basis-\[calc\(100%\+2rem\)\] sm:-mx-6 sm:basis-\[calc\(100%\+3rem\)\] lg:-mx-8 lg:basis-\[calc\(100%\+4rem\)\]", !tabsOnDesktop && "lg:hidden"/.test(bar))
+    check("round 7: the community's picture a bit bigger (36px on a phone, 40px from 768px), the bell and Messages 24px glyphs", /<CommunityMark community=\{community\} size=\{36\} \/>/.test(bar) && /<CommunityMark community=\{community\} size=\{40\} \/>/.test(bar) && /\[&_svg\.lucide-bell\]:h-6 \[&_svg\.lucide-bell\]:w-6/.test(bar) && /<ChatLine size=\{24\} \/>/.test(bar))
+    check("round 7: By <creator> on a computer only", /<p className="hidden truncate[^"]*md:block" data-community-by="">/.test(bar))
     const ui = code("components/community/member/ui.ts")
     const plain = /export const PLAIN_ICON_BTN =\s*"([^"]+)"/.exec(ui)?.[1] ?? ""
     check("nothing pill shaped: the icons are plain 40px icon buttons with no disc, squared at 10px", !!plain && /h-10 w-10/.test(plain) && /rounded-\[10px\] bg-transparent/.test(plain) && /hover:bg-transparent hover:text-\[#1a1a2e\]/.test(plain) && !/rounded-full/.test(plain), plain)
-    check("the navigator, Messages and the bell all use it; the counts are squared, not round", /className=\{`-ml-1 \$\{PLAIN_ICON_BTN\}/.test(bar) && /className=\{cn\(PLAIN_ICON_BTN, "relative"/.test(bar) && /const BELL = `\$\{PLAIN_ICON_BTN\} \[&_\[data-bell-badge\]\]:rounded-\[5px\]`/.test(bar) && /<NotificationBell className=\{BELL\} \/>/.test(bar) && /const COUNT = "rounded-\[5px\]"/.test(bar) && !/\bICON_BTN\b/.test(bar))
+    check("Messages and the bell use it; the counts are squared, not round", /className=\{cn\(PLAIN_ICON_BTN, "relative"/.test(bar) && /const BELL = `\$\{PLAIN_ICON_BTN\} \[&_\[data-bell-badge\]\]:rounded-\[5px\]/.test(bar) && /<NotificationBell className=\{BELL\} \/>/.test(bar) && /const COUNT = "rounded-\[5px\]"/.test(bar) && !/\bICON_BTN\b/.test(bar))
+    /* Round 7, ask 5: the hamburger and the "..." carry "extremely little depth": a faint grey ground, a hairline, a one pixel shadow, squared at 10px. */
+    const depthIcon = /export const DEPTH_ICON_BTN =\s*"([^"]+)"/.exec(ui)?.[1] ?? ""
+    check("round 7: DEPTH_ICON_BTN is a 40px square at 10px with a faint grey ground, a hairline and a one pixel shadow (not a pill)", /h-10 w-10/.test(depthIcon) && /rounded-\[10px\]/.test(depthIcon) && /border border-\[#e6e8eb\] bg-\[#f8f9fa\]/.test(depthIcon) && /shadow-\[0_1px_1px_rgba\(16,24,40,0\.04\)\]/.test(depthIcon) && !/rounded-full/.test(depthIcon), depthIcon)
+    check("round 7: the hamburger is that button, its three lines 18px wide and 4px apart", /const HAMBURGER = `\$\{DEPTH_ICON_BTN\} rounded-\[10px\][^`]*\[&_\[data-navigator-lines\]\]:w-\[18px\] \[&_\[data-navigator-lines\]\]:gap-\[4px\]`/.test(bar) && /<PlaceNavigator current=\{\{ kind: "community", id: community\.id \}\} className=\{HAMBURGER\} \/>/.test(bar))
     check("Log in is a word, not an outlined pill", /data-community-login=""/.test(bar) && !/border border-\[#e3e4e8\][^"]*\n?[^"]*data-community-login/.test(bar) && /inline-flex h-10 shrink-0 items-center px-2 text-\[14px\] font-semibold/.test(bar))
     check("the navigator comes from one import, which is Storelib's one navigator", /import \{ PlaceNavigator \} from "\.\/place-navigator"/.test(bar) && /export \{ PlaceNavigator \} from "@\/components\/nav\/place-navigator"/.test(code("components/community/member/place-navigator.tsx")))
     const stand = code("components/nav/place-navigator.tsx")
     check("it has the navigator's props: a community by id or Storelib", /export function PlaceNavigator\(\{ current, className, onNavigate \}: PlaceNavigatorProps\)/.test(stand) && /export type NavigatorCurrent = \{ kind: "community"; id: string \} \| \{ kind: "storelib" \}/.test(code("lib/nav/places-shared.ts")))
     check("the bar reads as a bar over the page: a hairline and a soft shadow", /data-community-top=""[\s\S]{0,40}className="sticky top-0 z-40 border-b border-\[#e6e8ec\] bg-white[^"]*shadow-\[0_1px_2px/.test(bar))
-    check("my menu: profile, library, settings, explore", /label: "My profile", href: me\.profileHref/.test(bar) && /label: "Library", href: "\/account\/library"/.test(bar) && /label: "Settings", href: "\/account\/settings"/.test(bar) && /label: "Explore Storelib", href: "\/explore"/.test(bar))
-    check("Manage community only when the server says this person runs it", /data\.manageHref \? \[\{ label: "Manage community", href: data\.manageHref/.test(bar))
+    /*
+      Round 7, ask 6: "the avatar is replaced by a subtle ... that opens EXACTLY the same account menu as the Storelib header (reuse
+      that component). Bug: my profile from the community menu opens the OnePage/creator editor: Profile must always go to /account."
+    */
+    const acct = code("components/community/member/account-menu.tsx")
+    const header = code("components/platform/platform-header-client.tsx")
+    check("round 7: the bar's account control is the \"...\" menu, no picture of me and no menu of its own", /<CommunityAccountMenu me=\{me\}/.test(bar) && !/ResponsiveActionMenu|My profile|me\.profileHref|data-community-me=|AppAvatar src=\{me/.test(bar))
+    check("round 7: it IS the Storelib header's menu: DesktopAccountMenu on a computer, AccountSheet on a phone, the header's own log out", /import \{ AccountSheet, DesktopAccountMenu, endStorelibSession, type HeaderLink \} from "@\/components\/platform\/platform-header-client"/.test(acct) && /<DesktopAccountMenu[\s\S]{0,400}trigger="more"/.test(acct) && /<AccountSheet[\s\S]{0,300}onLogout=/.test(acct) && /await endStorelibSession\(router\)/.test(acct) && /<LanguageModal open=\{language\}/.test(acct))
+    check("round 7: the header exports those very pieces and draws its own sheet with AccountSheet", /export function DesktopAccountMenu\(/.test(header) && /export function AccountSheet\(/.test(header) && /export async function endStorelibSession\(/.test(header) && /<AccountSheet\s/.test(header) && /trigger === "more"/.test(header))
+    check("round 7: Profile is /account in both, never the person's own page (which opened the editor for a creator)", /go\("\/account"\)\} role="menuitem" data-account-item="profile"/.test(header) && /link\("\/account"\)\} onDone=\{onClose\} item="profile"/.test(header) && /const link: HeaderLink = \(path\) => \(\{ href: path/.test(acct))
+    check("round 7: the \"...\" has the little depth (DEPTH_ICON_BTN), 40px on a phone too", /triggerClassName=\{cn\(DEPTH_ICON_BTN/.test(acct) && /className=\{cn\(DEPTH_ICON_BTN, "md:hidden"/.test(acct))
     check("a visitor gets Log in, back to this page", /href=\{`\/login\?next=\$\{encodeURIComponent\(pathname \|\| base\)\}`\}/.test(bar))
     check("Messages only when the panel is available, with its unread count", /messages !== null && onMessages \?/.test(bar) && /messages > 0 \? <Badge n=\{messages\} \/>/.test(bar))
     check("the bell is Storelib's own, for anybody signed in", /import \{ NotificationBell \} from "@\/components\/notifications\/notification-bell"/.test(bar) && /\{me \? <NotificationBell /.test(bar) && !existsSync("components/community/member/bell-slot.tsx"))
@@ -204,16 +235,18 @@ async function main() {
     check("a space, a post, Saved and the inbox mark Community", ["/community/s/space/x", "/community/s/post/p", "/community/s/saved", "/community/s/notifications", "/community/s"].every((p) => tabFor(sectionFromPath(p, "s")) === "home"))
     check("About marks About; Calendar marks on an event; an old member address marks Members", tabFor(sectionFromPath("/community/s/about", "s")) === "about" && tabFor(sectionFromPath("/community/s/events/e1", "s")) === "events" && tabFor(sectionFromPath("/community/s/members/u1", "s")) === "members")
     const frameCode = code("components/community/member/shell-frame.tsx")
-    check("the tabs are plain words, not pills", /<SectionTabs entries=\{entries\} current=\{tab\} wide=\{!about\} \/>/.test(frameCode) && /const tab = tabFor\(current\)/.test(frameCode) && /className=\{`\$\{TAB\} \$\{on \? TAB_ON : TAB_OFF\}`\}/.test(frameCode) && !/PillRow|PILL_ON|PILL_OFF/.test(frameCode))
+    check("the tabs are plain words, not pills", /<SectionTabs entries=\{entries\} current=\{tab\} wide=\{!about\} onGo=\{goTo\} \/>/.test(frameCode) && /const tab = going\?\.key \?\? tabFor\(current\)/.test(frameCode) && /className=\{`\$\{TAB\} \$\{on \? TAB_ON : TAB_OFF\}`\}/.test(frameCode) && !/PillRow|PILL_ON|PILL_OFF/.test(frameCode))
     const ui = code("components/community/member/ui.ts")
     const tab = /export const TAB =\s*"([^"]+)"/.exec(ui)?.[1] ?? ""
     check("a tab has no box: no border, no fill, no rounding; a 40px row of its own", !!tab && !/(^|\s)(border|bg-\[|rounded)/.test(tab) && /(^|\s)h-10(\s|$)/.test(tab) && !/lg:h-14/.test(tab), tab)
     check("the chosen one has a 2px ink line on the bar's edge that grows in by scale and opacity", /data-tab-line=""[\s\S]{0,80}absolute inset-x-0 bottom-0 h-\[2px\] rounded-full bg-\[#1a1a2e\] transition-\[opacity,scale\]/.test(frameCode) && /on \? "scale-x-100 opacity-100" : "scale-x-50 opacity-0"/.test(frameCode))
     check("from 1024px the row is drawn only on About (no left column there); everywhere else the left column has the places", /tabsOnDesktop=\{about\}/.test(frameCode) && /const about = current === "about"/.test(frameCode) && /data-community-tabs="" className="relative w-full"/.test(frameCode))
-    check("the frame's first guess at the header's height is the new one (85, 89, then 57 from 1024px, 97 on About)", /\[--community-top:85px\] sm:\[--community-top:89px\] \$\{about \? "lg:\[--community-top:97px\]" : "lg:\[--community-top:57px\]"\}/.test(frameCode) && /\[--community-top:45px\] sm:\[--community-top:49px\] lg:\[--community-top:57px\]/.test(code("components/community/public/public-frame.tsx")))
+    check("round 7: the frame's first guess at the header's height is the new one (97 below 1024px, 65 from 1024px, 105 on About; a visitor 57 and 65)", /\[--community-top:97px\] \$\{about \? "lg:\[--community-top:105px\]" : "lg:\[--community-top:65px\]"\}/.test(frameCode) && /\[--community-top:57px\] lg:\[--community-top:65px\]/.test(code("components/community/public/public-frame.tsx")))
     const chips = code("components/community/member/space-chips.tsx")
     check("chips: All, then every space the member may see, then Saved", /data-space-chip="all"/.test(chips) && /spaces\.map\(\(s\) =>/.test(chips) && /href=\{`\$\{base\}\/space\/\$\{s\.slug\}`\}/.test(chips) && /href=\{`\$\{base\}\/saved`\}/.test(chips))
-    check("chips are on the feed, a space and Saved", /<SpaceChips slug=\{community\.slug\} spaces=\{shell\.spaces\} active=\{null\} \/>/.test(code("components/community/member/feed-page.tsx")) && /<SpaceChips slug=\{community\.slug\} spaces=\{shell\.spaces\} active=\{space\.slug\} \/>/.test(code("app/(marketing)/community/[slug]/(member)/space/[space]/page.tsx")) && /savedOn/.test(code("app/(marketing)/community/[slug]/(member)/saved/page.tsx")))
+    /* Round 7: the feed, a feed space and Saved are one feed (CommunityFeed) that draws the chips itself; a chat space keeps its own row of chips. */
+    const spacePage = code("app/(marketing)/community/[slug]/(member)/space/[space]/page.tsx")
+    check("chips are on the feed, a space and Saved", /<CommunityFeed[\s\S]{0,200}spaces=\{shell\.spaces\}[\s\S]{0,60}start=\{\{ kind: "all" \}\}/.test(code("components/community/member/feed-page.tsx")) && /<CommunityFeed[\s\S]{0,200}spaces=\{shell\.spaces\}[\s\S]{0,60}start=\{\{ kind: "space", id: space\.id \}\}/.test(spacePage) && /<SpaceChips slug=\{community\.slug\} spaces=\{shell\.spaces\} active=\{space\.slug\} \/>/.test(spacePage) && /<CommunityFeed[\s\S]{0,200}spaces=\{shell\.spaces\}[\s\S]{0,60}start=\{\{ kind: "saved" \}\}/.test(code("app/(marketing)/community/[slug]/(member)/saved/page.tsx")) && /<SpaceChips\s/.test(code("components/community/member/feed.tsx")))
   }
 
   /* ── People ──────────────────────────────────────────────────────────── */
@@ -387,6 +420,7 @@ async function main() {
     check("its owner gets Manage community, and their own page is their storefront", owner.manageHref === `/app/community/${C}` && owner.me?.profileHref === "/ana")
     const member = await topBarData(community, { userId: PAYER, active: true, role: "member", isOwner: false, isCreatorAccount: false } as never, db)
     check("a member does not", member.manageHref === null)
+    check("round 7: the account menu's facts: the handle, and seller access from the creators row (Dashboard for the owner, Start creating for Uma)", signedIn.me?.username === "uma" && signedIn.me?.seller === false && owner.me?.seller === true, { uma: signedIn.me, owner: owner.me })
   }
 
   /* ── Presence ────────────────────────────────────────────────────────── */
@@ -523,20 +557,24 @@ async function main() {
     check("the contributors say what they count: points, or posts and comments, and over what", contributorsDetail({ basis: "points", since: null }) === "Points, last 30 days" && contributorsDetail({ basis: "activity", since: null }) === "Posts and comments, last 30 days" && contributorsDetail({ basis: "activity", since: "2026-09-28T10:00:00.000Z" }) === "Posts and comments since Sep 28")
 
     const frame = code("components/community/member/shell-frame.tsx")
-    check("the frame draws three columns from 1280px: 280px left, the page, 300px right", /xl:grid-cols-\[280px_minmax\(0,1fr\)_300px\]/.test(frame) && /data-community-columns=\{hasRight \? "three" : "two"\}/.test(frame))
-    check("no right column at all when neither card has anything, and the page takes its room", /const hasRight = !!right && !!\(right\.upcoming \|\| right\.contributors\)/.test(frame) && /\{hasRight && right \? \(/.test(frame) && /: "lg:grid-cols-\[260px_minmax\(0,1fr\)\] xl:grid-cols-\[280px_minmax\(0,1fr\)\]"/.test(frame))
-    check("each card only when it has something: the event, the contributors", /\{right\.upcoming \? <WallUpcoming /.test(frame) && /\{right\.contributors \? <WallContributorsCard /.test(frame))
-    check("only on the feed's pages", /const right = wall && rightColumnFor\(current\) \?/.test(frame))
-    check("from 1024px to 1279px the right cards sit under the left column, and from 1280px in their own column, sticking under the bar", /lg:col-start-1 lg:row-start-2 lg:mt-3 lg:block xl:col-start-3 xl:row-start-1/.test(frame) && /xl:sticky xl:top-\[calc\(var\(--community-top,57px\)\+24px\)\]/.test(frame) && /lg:row-span-2 xl:row-span-1/.test(frame))
-    check("the left column: the community card, then the places", frame.indexOf("<WallCommunityCard") < frame.indexOf("<WallPlaces") && /data-community-left=""/.test(frame) && /hidden min-w-0 space-y-3 lg:col-start-1 lg:row-start-1 lg:block/.test(frame))
-    check("About keeps its own sheet, without the columns", /\{about \? \(\s*<div key=\{pathname\}/.test(frame))
+    /* Round 7, ask 8: the sides swapped. The places (and the next event under them) on the RIGHT; the top contributors on the LEFT under the card. */
+    check("the frame draws three columns from 1280px on every page: 280px left, the page, 300px right (the middle never moves between places)", /xl:grid-cols-\[280px_minmax\(0,1fr\)_300px\]/.test(frame) && /data-community-columns="three"/.test(frame) && !/hasRight/.test(frame))
+    check("round 7: the right column is the places, then the next event (on the feed), sticking under the bar", /data-community-right=""[\s\S]{0,300}<WallPlaces entries=\{entries\} current=\{tab\} onGo=\{goTo\} \/>\s*\{upcoming \? <WallUpcoming /.test(frame) && /xl:sticky xl:top-\[calc\(var\(--community-top,65px\)\+24px\)\]/.test(frame))
+    check("round 7: the left column is the community card, then the top contributors (on the feed) right under it", frame.indexOf("<WallCommunityCard") < frame.indexOf("<WallContributorsCard") && /data-community-left=""/.test(frame) && /data-community-left-more=""/.test(frame) && /lg:col-start-1 lg:row-start-3 lg:mt-3 lg:block xl:row-start-2/.test(frame))
+    check("each card only when it has something, and only on the feed's pages", /const upcoming = wall && feedish \? wall\.upcoming : null/.test(frame) && /const contributors = wall && feedish \? wall\.contributors : null/.test(frame) && /const feedish = rightColumnFor\(current\)/.test(frame) && /\{contributors \? \(/.test(frame))
+    check("from 1024px to 1279px everything stacks in the left column: the card, the places and the event, then the contributors", /lg:col-start-1 lg:row-start-2 lg:mt-3 lg:block xl:col-start-3 xl:row-span-2 xl:row-start-1/.test(frame) && /lg:grid-rows-\[auto_auto_1fr\]/.test(frame) && /lg:row-span-3 lg:row-start-1 xl:row-span-2/.test(frame))
+    check("About keeps its own sheet, without the columns", /\{about \? \(\s*<div key=\{pageKey\}/.test(frame))
+    check("round 7: a page fades in when the PLACE changes, not the address, so a space switched in place never remounts the feed", /const pageKey = about \? "about" : tabFor\(current\)/.test(frame) && !/key=\{pathname\}/.test(frame))
+    check("round 7: a click on a place marks it at once, and its page is read in full on hover (Next's dynamic prefetch on intent)", /setGoing\(\{ key, from: pathname \}\)/.test(frame) && /if \(going && going\.from !== pathname\) setGoing\(null\)/.test(frame) && /\{\.\.\.FULL_ON_HOVER\}/.test(frame) && /\{\.\.\.FULL_ON_HOVER\}/.test(code("components/community/member/wall.tsx")) && /unstable_dynamicOnHover: true/.test(code("components/community/member/nav.ts")))
     check("the frame still keeps DMs, ?dm=, the card layer, presence and toasts", /<MessagesPanel /.test(frame) && /searchParams|search\?\.get\("dm"\)/.test(frame) && /<PersonCardLayer /.test(frame) && /usePresenceHeartbeat\(community\.id, viewer\.userId\)/.test(frame) && /<Toasts \/>/.test(frame))
 
     const wall = code("components/community/member/wall.tsx")
     check("the card: Members always, Online and Admins only when known, the green dot only when somebody is online", /if \(stats\.online !== null\) cells\.push/.test(wall) && /if \(stats\.admins !== null\) cells\.push/.test(wall) && /dot=\{stats\.online > 0\}/.test(wall))
     check("up to the faces it is handed, +N only when there are more, Settings only when handed a link", /faces\.length \?/.test(wall) && /\{more > 0 \?/.test(wall) && /\{card\.settingsHref \?/.test(wall))
     check("a face and a contributor open the person and their card", (wall.match(/data-person-id=\{/g) || []).length >= 2 && /memberHref\(community\.slug, f\)/.test(wall))
-    check("the places: soft tiles of their own tint, a Solar line glyph and the bold one for the open place, a chevron each", /const PLACE_LOOK: Record<TabKey/.test(wall) && /const Icon = on \? look\.bold : look\.line/.test(wall) && /<ChevronRight /.test(wall) && /aria-current=\{on \? "page" : undefined\}/.test(wall))
+    check("the places: soft tiles of their own tint, a Solar line glyph and the bold one for the open place, a Solar chevron each (one family, no lucide)", /const PLACE_LOOK: Record<TabKey/.test(wall) && /const Icon = on \? look\.bold : look\.line/.test(wall) && /<ChevronLine size=\{16\} \/>/.test(wall) && /from "@solar-icons\/react\/linear\/alt-arrow-right"/.test(wall) && !/ChevronRight/.test(wall) && /aria-current=\{on \? "page" : undefined\}/.test(wall))
+    check("round 7, ask 7: the card has no storelib.com/community/<slug> line", !/data-wall-address|storelib\.com\{base\}/.test(wall))
+    check("round 7, ask 11: Settings and View event carry the little depth", /\$\{DEPTH\} \$\{DEPTH_PRESS\}[^`]*`\} data-wall-settings=""/.test(wall) && /\$\{DEPTH\} \$\{DEPTH_PRESS\}[^`]*`\} data-wall-view-event=""/.test(wall))
     check("Upcoming event: the date tile and time in the viewer's zone, N going only when somebody is, View event and View all", /<DateTile startsAt=\{event\.startsAt\} \/>/.test(wall) && /<EventWhen /.test(wall) && /\{event\.going > 0 \?/.test(wall) && /View event/.test(wall) && /href=\{`\$\{base\}\/events`\}/.test(wall))
     check("no violet in the wall", !/8b5cf6|7c3aed|violet|purple/i.test(code("components/community/member/wall.tsx")))
 
@@ -626,7 +664,7 @@ async function main() {
     const bar = code("components/community/member/top-bar.tsx")
     check("the search: a field from 768px, an icon on a phone, only for a member", /\{search \? \(\s*<CommunitySearchField communityId=\{search\.communityId\}[^>]*className="hidden md:block/.test(bar) && /\{search \? <CommunitySearchButton communityId=\{search\.communityId\}[^>]*className="md:hidden" \/> : null\}/.test(bar))
     check("from 1024px the name takes the left column's width, so the search lines up with the feed", /wide && "lg:w-\[260px\] lg:max-w-none xl:w-\[280px\]"/.test(bar) && /wide \? "max-w-\[1360px\]" : "max-w-\[1080px\]"/.test(bar))
-    check("my picture with a chevron from 768px, opening my menu", /<ChevronDown className="hidden h-4 w-4[^"]*md:block"/.test(bar) && /data-community-me=""/.test(bar))
+    check("round 7: no picture with a chevron any more; the \"...\" opens the menu", !/ChevronDown|data-community-me=/.test(bar) && /<CommunityAccountMenu /.test(bar))
     check("the frame hands the bar the search; the visitor's frame does not", /search=\{\{ communityId: community\.id \}\}/.test(code("components/community/member/shell-frame.tsx")) && !/search=/.test(code("components/community/public/public-frame.tsx")))
     const composer = code("components/community/member/composer.tsx")
     check("the composer: Photo, Video, Poll, Event for staff only, and More", /data-composer-action="photo"/.test(composer) && /data-composer-action="video"/.test(composer) && /data-composer-action="poll"/.test(composer) && /\{eventHref \? \(\s*<Link href=\{eventHref\}[^>]*data-composer-action="event"/.test(composer) && /data-composer-action="more"/.test(composer))
@@ -723,6 +761,17 @@ async function main() {
       "lib/communities/server/wall.ts",
       "lib/communities/server/search.ts",
       "app/api/community/[communityId]/search/route.ts",
+      "components/community/member/account-menu.tsx",
+      "components/community/member/community-mark.tsx",
+      "components/community/member/feed.tsx",
+      "components/community/member/feed-cache.ts",
+      "components/community/member/sort-menu.tsx",
+      "components/community/member/space-chips.tsx",
+      "components/community/member/feed-page.tsx",
+      "components/community/member/ui.ts",
+      "components/community/member/nav.ts",
+      "app/(marketing)/community/[slug]/(member)/space/[space]/page.tsx",
+      "app/(marketing)/community/[slug]/(member)/saved/page.tsx",
     ]
     const offenders = mine.filter((f) => /—/.test(read(f)) || /\b(unlock\w*|elevate|seamless|powerful|effortless(ly)?|supercharge|transform\w*)\b/i.test(read(f)))
     check("no em dash and no banned word", offenders.length === 0, offenders)
@@ -731,6 +780,115 @@ async function main() {
     check("client parts import nothing from the server", clients.length >= 5 && leaks.length === 0, { clients: clients.length, leaks })
     check("the presence, people, wall and search modules say server-only", ["presence", "people", "wall", "search"].every((m) => /^import "server-only"/m.test(read(`lib/communities/server/${m}.ts`))))
     check("no violet fills on the community's frame", !mine.some((f) => /bg-\[#8b5cf6\]|bg-violet|bg-purple/.test(code(f))))
+  }
+
+  /* ── Round 7: the sort menu, read by the server ──────────────────────── */
+  console.log("\nRound 7: Default, New, Top and Unread")
+  {
+    check("four orders, Default first; the old names still mean New and Top; anything else is Default", FEED_SORTS.join() === "default,new,top,unread" && feedSort("latest") === "new" && feedSort("popular") === "top" && feedSort("top") === "top" && feedSort("unread") === "unread" && feedSort("drop table") === "default" && feedSort(null) === "default")
+    const at = "2026-10-01T10:00:00.000Z"
+    const id = "00000000-0000-4000-8000-0000000000aa"
+    check("Default and Unread walk the last activity, New the creation time, Top the likes", keysetCondition("default", { c: at, i: id }).startsWith("last_activity_at.lt.") && keysetCondition("unread", { c: at, i: id }).startsWith("last_activity_at.lt.") && keysetCondition("new", { c: at, i: id }).startsWith("created_at.lt.") && keysetCondition("latest", { c: at, i: id }).startsWith("created_at.lt.") && keysetCondition("top", { c: at, i: id, r: 3 }).startsWith("reaction_count.lt.3,"))
+    const row = { created_at: "2026-09-01T10:00:00.000Z", last_activity_at: at, id, reaction_count: 7 }
+    check("a page's cursor carries the key its order walks", decodeCursor(cursorAfter("default", row), "default")?.c === at && decodeCursor(cursorAfter("new", row), "new")?.c === row.created_at && decodeCursor(cursorAfter("top", row), "top")?.r === 7 && decodeCursor(encodeCursor({ c: at, i: id }), "top") === null)
+    check("Unread starts at the member's last activity here, else when they joined; nothing known, everything", unreadSince({ member: { last_active_at: at, joined_at: "2026-01-01T00:00:00Z" } } as never) === at && unreadSince({ member: { last_active_at: null, joined_at: "2026-01-01T00:00:00Z" } } as never) === "2026-01-01T00:00:00.000Z" && unreadSince({ member: null } as never) === null)
+
+    /* What each order asks the database, recorded. */
+    const C = "c0000000-0000-4000-8000-0000000000f1"
+    const community = { id: C, chat_enabled: true } as never
+    const viewer = { userId: "u1", role: "member", active: true, tierId: null, ownedProductIds: [], level: 1, member: { last_active_at: at, joined_at: null } } as never
+    const asked = async (sort: string) => {
+      const s2 = scriptedDb(() => ({ data: [] }))
+      await listFeed(s2.db as never, community, viewer, { sort: sort as never })
+      const posts = s2.calls.filter((c) => c.table === "community_feed_posts")
+      return { pinnedRead: posts.some((c) => c.ops.some((o) => o[0] === "eq" && o[1] === "pinned" && o[2] === true)), main: posts.find((c) => !c.ops.some((o) => o[0] === "eq" && o[1] === "pinned" && o[2] === true)) }
+    }
+    const d = await asked("default")
+    check("Default: the pinned posts read on their own, then the rest by last activity", d.pinnedRead && !!d.main && d.main.ops.some((o) => o[0] === "eq" && o[1] === "pinned" && o[2] === false) && orderOf(d.main)[0] === "last_activity_at", d.main?.ops)
+    const n = await asked("new")
+    check("New: no pinned block, every post by when it was written", !n.pinnedRead && !!n.main && !n.main.ops.some((o) => o[0] === "eq" && o[1] === "pinned") && orderOf(n.main)[0] === "created_at", n.main?.ops)
+    const t = await asked("top")
+    check("Top: most liked first, then newest", !t.pinnedRead && !!t.main && orderOf(t.main).join() === "reaction_count,created_at,id", orderOf(t.main!))
+    const u = await asked("unread")
+    check("Unread: only posts with activity after the member was last active, newest activity first", !u.pinnedRead && !!u.main && u.main.ops.some((o) => o[0] === "gt" && o[1] === "last_activity_at" && o[2] === at) && orderOf(u.main)[0] === "last_activity_at", u.main?.ops)
+    const route = code("app/api/community/[communityId]/posts/route.ts")
+    check("the posts route reads ?sort= through feedSort, so the menu's four reach the server", /sort: feedSort\(url\.searchParams\.get\("sort"\)\)/.test(route))
+    check("the first page on the server is Default, on the feed and on a space", /listFeed\(admin\(\), community, viewer, \{ sort: "default" \}\)/.test(code("components/community/member/feed-page.tsx")) && /listFeed\(admin\(\), community, viewer, \{ sort: "default", spaceId: space\.id \}\)/.test(code("app/(marketing)/community/[slug]/(member)/space/[space]/page.tsx")))
+  }
+
+  /* ── Round 7: the sort menu and switching in place, in the browser ───── */
+  console.log("\nRound 7: no Latest / Popular pills; spaces and sorts switch in place from a cache")
+  {
+    const feed = code("components/community/member/feed.tsx")
+    const menu = code("components/community/member/sort-menu.tsx")
+    const chips = code("components/community/member/space-chips.tsx")
+    check("no Latest / Popular pills: no tab list of sorts in the feed", !/"latest", "popular"|role="tablist"|data-feed-sort=""/.test(feed))
+    check("the sort is a sliders button at the end of the chips row, left of Saved, opening a menu of four", /sort=\{target\.kind === "saved" \? null : <SortMenu value=\{sort\} onChange=\{setSort\} \/>\}/.test(feed) && chips.indexOf("{sort}") > chips.indexOf("data-space-chips-track") && chips.indexOf("{sort}") < chips.indexOf('data-space-chip="saved"') && /Tuning2Icon/.test(menu) && /role="menuitemradio"/.test(menu) && /aria-checked=\{on\}/.test(menu))
+    check("the choice shows in the menu (a soft fill, a check) and as a dot on the button, never as a pill", /\{on \? <Check /.test(menu) && /value !== "default" \? <span[^>]*data-feed-sort-dot=""/.test(menu))
+    check("the menu: arrows, Escape (focus back to the button), a click outside", /e\.key !== "Escape"/.test(menu) && /buttonRef\.current\?\.focus/.test(menu) && /document\.addEventListener\("pointerdown", away, true\)/.test(menu) && /ArrowDown/.test(menu))
+    check("one family of glyphs: Solar line icons for the four sorts and the button", ["history", "stars", "sort-from-bottom-to-top", "eye", "tuning-2"].every((n) => menu.includes(`@solar-icons/react/linear/${n}"`)))
+    check("a chip switches in place: a plain click is kept from loading a page, a new tab is not", /if \(!inPlace\(e\)\) return\s*e\.preventDefault\(\)\s*onPick\(pick\)/.test(chips) && /e\.button === 0 && !e\.metaKey && !e\.ctrlKey && !e\.shiftKey && !e\.altKey/.test(chips))
+    check("a chat space stays a page of its own", /s\.kind === "chat" \? \{\} : switching\(/.test(chips))
+    check("and the switching chips are not prefetched as pages (the list comes from the API, once)", /prefetch: false/.test(chips))
+    check("the address follows with pushState (Next's router keeps up), and Back is read from it", /window\.history\.pushState\(null, "", href\)/.test(feed) && /window\.addEventListener\("popstate", on\)/.test(feed) && /targetFromPath\(livePath \|\| pathname, slug, spaces, start\)/.test(feed))
+    check("a cached list on the very next render (read during render, not after an effect)", /const cached = shown\.key === key \? shown\.view : \(readView\(key\) \?\? null\)/.test(feed))
+    check("otherwise the list on screen stays until the new one arrives, dimmed only after 200ms", /const view = cached \?\? shown\.view/.test(feed) && /DIM_AFTER_MS = 200/.test(feed) && /dim \? "opacity-60" : "opacity-100"/.test(feed) && !/Skeleton/.test(feed))
+    check("asked for ahead: a pointer resting on a chip, a finger landing, the keyboard", /onPointerEnter: onIntent \? \(e: React\.PointerEvent\) => e\.pointerType === "mouse" && onIntent\(pick\)/.test(chips) && /onPointerDown: onIntent \? \(\) => onIntent\(pick\)/.test(chips) && /onFocus: onIntent/.test(chips) && /prefetchView\(communityId, next/.test(feed))
+    check("a stale list (over a minute) is shown at once and read again quietly", /Date\.now\(\) - have\.at > FRESH_MS && have\.pages <= 1/.test(feed) && FRESH_MS === 60_000)
+    check("pinned posts lead only in Default", /const lead = sort === "default" && target\.kind !== "saved"/.test(feed))
+    check("the post card's props are unchanged (post, slug, viewer, update, readOnly)", /<PostCard key=\{p\.id\} post=\{p\} slug=\{slug\} viewer=\{viewer\} update=\{update\} readOnly=\{readOnly\} \/>/.test(feed))
+    check("the composer follows the list: every space it may post in on All, the space itself on a space, none on Saved", /fixedSpaceId: space\.id/.test(feed) && /target\.kind === "saved"\) return null/.test(feed) && /<Composer key=\{target\.kind === "space" \? target\.id : target\.kind\}/.test(feed))
+
+    /* The cache itself. */
+    clearViews()
+    const P = (id: string, extra: Record<string, unknown> = {}) => ({ id, pinned: false, bookmarked: false, reacted: false, reactionCount: 0, space: { id: "s1", slug: "g", name: "G" }, ...extra }) as never
+    check("a key per community, list and sort; Saved has one order", viewKey("c", { kind: "all" }, "top") === "c|all|top" && viewKey("c", { kind: "space", id: "s1" }, "new") === "c|space:s1|new" && viewKey("c", { kind: "saved" }, "top") === "c|saved|-")
+    check("the addresses the feed already used", viewUrl("c", { kind: "space", id: "s1" }, "unread") === "/api/community/c/posts?sort=unread&space=s1" && viewUrl("c", { kind: "saved" }, "default", "x") === "/api/community/c/bookmarks?cursor=x")
+    const fp = firstPage({ pinned: [P("a", { pinned: true })], posts: [P("a"), P("b")], nextCursor: "n" }, 5)
+    check("a first page: pinned first, each post once", fp.posts.map((p) => (p as { id: string }).id).join() === "a,b" && fp.cursor === "n" && fp.at === 5 && fp.pages === 1)
+    writeView("c|all|default", firstPage({ pinned: [P("p", { pinned: true })], posts: [P("a"), P("b")], nextCursor: null }))
+    writeView("c|space:s1|default", firstPage({ pinned: [], posts: [P("a")], nextCursor: null }))
+    writeView("c|all|top", firstPage({ pinned: [], posts: [P("b")], nextCursor: null }))
+    writeView("c|saved|-", firstPage({ pinned: [], posts: [P("a", { bookmarked: true })], nextCursor: null }))
+    patchPost("c", "a", (p) => ({ ...(p as object), reacted: true, reactionCount: 1 }) as never, "c|all|default")
+    check("a like in one list reaches every other cached list holding the post", (readView("c|space:s1|default")!.posts[0] as { reacted: boolean }).reacted && !(readView("c|all|default")!.posts[1] as { reacted: boolean }).reacted)
+    patchPost("c", "a", (p) => ({ ...(p as object), bookmarked: false }) as never)
+    check("an unsave takes it off the cached Saved list", readView("c|saved|-")!.posts.length === 0)
+    addPost("c", P("new"))
+    check("a new post goes to the top of All and its space in Default (under the pinned) and New; Top is read again", (readView("c|all|default")!.posts.map((p) => (p as { id: string }).id).join() === "p,new,a,b") && (readView("c|space:s1|default")!.posts[0] as { id: string }).id === "new" && !readView("c|all|top"))
+    dropSaved("c")
+    check("Saved can be dropped to be read again", !readView("c|saved|-"))
+    /* One ask per list at a time, however many hovers and clicks. */
+    const g = globalThis as { fetch?: typeof fetch }
+    const realFetch = g.fetch
+    let asks = 0
+    g.fetch = (async () => {
+      asks++
+      await new Promise((r) => setTimeout(r, 5))
+      return new Response(JSON.stringify({ pinned: [], posts: [{ id: "z" }], nextCursor: null }), { status: 200, headers: { "Content-Type": "application/json" } })
+    }) as typeof fetch
+    try {
+      prefetchView("c", { kind: "space", id: "s9" }, "default")
+      prefetchView("c", { kind: "space", id: "s9" }, "default")
+      const v = await loadView("c", { kind: "space", id: "s9" }, "default")
+      prefetchView("c", { kind: "space", id: "s9" }, "default")
+      check("a hover, a press and the click share one ask; a fresh list is not asked for again", asks === 1 && (v?.posts[0] as { id: string } | undefined)?.id === "z" && !!readView("c|space:s9|default"), asks)
+    } finally {
+      g.fetch = realFetch
+      clearViews()
+    }
+
+    /* Ask 11: extremely little depth on every pill, chip and button. */
+    const ui = code("components/community/member/ui.ts")
+    check("the depth tokens: a hairline and a one pixel soft shadow, never more", /export const DEPTH = "border border-\[#e3e5e9\] bg-white shadow-\[0_1px_1px_rgba\(16,24,40,0\.05\)\]"/.test(ui) && /export const DEPTH_INK = "border border-\[#1a1a2e\] bg-\[#1a1a2e\] shadow-\[0_1px_1\.5px_rgba\(16,24,40,0\.18\)\]"/.test(ui))
+    check("the buttons, the chips and the sort button wear them", /BTN_PRIMARY = `\$\{BTN\} h-10 \$\{DEPTH_INK\}/.test(ui) && /BTN_SECONDARY = `\$\{BTN\} h-10 \$\{DEPTH\} \$\{DEPTH_PRESS\}/.test(ui) && /const CHIP_ON = `\$\{DEPTH_INK\} text-white`/.test(chips) && /const CHIP_OFF = `\$\{DEPTH\} \$\{DEPTH_PRESS\}/.test(chips) && /DEPTH,\s*DEPTH_PRESS,/.test(menu))
+  }
+
+  /* ── Round 7: the account menu's facts from the server ───────────────── */
+  console.log("\nRound 7: the account menu's facts")
+  {
+    const pub = code("lib/communities/server/public.ts")
+    check("the bar is told the handle and whether the account sells (Dashboard or Start creating), from the creators row", /username: profile\?\.username \?\? null/.test(pub) && /seller: sellerRows\[0\]\?\.onboarding_completed === true/.test(pub) && /db\.from\("creators"\)\.select\("onboarding_completed"\)\.eq\("user_id", userId\)/.test(pub))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

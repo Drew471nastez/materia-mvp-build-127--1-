@@ -85,5 +85,6 @@ export const SQL_PARTS: ReadonlyArray<{ part: string; file: string; sha256: stri
   { part: "86", file: "86_push_notifications.sql", sha256: "b153d009b54a9722403c242590babe276bf10466c7d13fcc075ac1b7e7f60dca" },
   { part: "87", file: "87_community_views.sql", sha256: "353ad2a64a343e68c0cac11103203e2335d4f5ef2419449912d74dc004bef2cc" },
   { part: "88", file: "88_download_events_buyer_lookup.sql", sha256: "b85c7ac3d7f2c5b02443288615a2226cf21d8bd2eab2f96079d252a0495177a9" },
+  { part: "89", file: "89_community_feed_activity_index.sql", sha256: "20154f9dc2140e1956ed20602054d384a54d0b6cc5942f5f6f388d92d72f0f6c" },
   { part: "90", file: "90_storage_policies_needs_owner.sql", sha256: "ddc22cfc130759fbfacb45536938c90e20f1aec09c5d3ee4db92f4450a763149" },
 ]

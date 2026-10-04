@@ -4,32 +4,63 @@
  * ===========================================================================
  *  THE FEED
  * ===========================================================================
- * The composer, then Latest or Popular, pinned posts first, then posts a page
- * at a time. The next page is asked for as the end of the list comes near
- * (an IntersectionObserver 600px ahead), and a "Show more" button stays
+ * The spaces as chips (with the sort button and Saved at the end of the
+ * row), the welcome (once), the composer, then the posts a page at a time.
+ * The next page is asked for as the end of the list comes near (an
+ * IntersectionObserver 600px ahead), and a "Show more" button stays
  * underneath for whatever the observer misses: a browser without it, a
  * keyboard, a slow connection. Pages follow the server's keyset cursor, so a
  * post written while reading never shifts one into the next page twice.
  *
- * The same list draws a space's feed (one space) and Saved (the member's
- * bookmarks, where unsaving takes the post off the list).
+ * ONE FEED, MANY LISTS, SWITCHED IN PLACE (round 7). All, each feed space and
+ * Saved, in each of the four sorts (Default, New, Top, Unread: sort-menu.tsx),
+ * are lists of the same feed. Choosing one does not load a page: the list is
+ * taken from the client cache when it is there (feed-cache.ts: on the next
+ * frame, no skeleton), and otherwise the list on screen stays until the new
+ * one arrives and then swaps (it dims a little only if that takes over 200ms).
+ * The address moves with it (history.pushState, which Next's router follows),
+ * so Back, a reload and a shared link all land on the same list. A list is
+ * asked for ahead when a pointer rests on its chip or a finger lands on it.
+ * A list read over a minute ago is shown at once and read again quietly.
+ *
+ * A like, a save, an edit or a delete in one list is carried into every
+ * other cached list holding that post; a new post goes to the top of the
+ * lists it belongs in. Pinned posts lead only in Default.
+ *
+ * FeedView is the same list with no chips, for a caller that draws its own.
  */
 import Link from "next/link"
-import { useCallback, useEffect, useRef, useState } from "react"
+import { usePathname } from "next/navigation"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { FeedPostView, ViewerView } from "@/lib/communities/types"
 import { api, apiBase } from "./api"
 import { Composer, type ComposerProps } from "./composer"
+import {
+  FRESH_MS,
+  addPost,
+  dropSaved,
+  firstPage,
+  loadView,
+  patchPost,
+  prefetchView,
+  readView,
+  viewKey,
+  viewUrl,
+  writeView,
+  type CachedView,
+  type FeedPageData,
+  type FeedSortValue,
+  type FeedTarget,
+} from "./feed-cache"
+import { sectionFromPath } from "./nav"
 import { PostCard, type PostUpdate } from "./post-card"
+import { SortMenu } from "./sort-menu"
+import { SpaceChips, type ChipPick } from "./space-chips"
 import { toast } from "./toast"
 import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, CARD } from "./ui"
+import type { SpaceView } from "./view-types"
 
-export type FeedSortValue = "latest" | "popular"
-
-export interface FeedPageData {
-  pinned: FeedPostView[]
-  posts: FeedPostView[]
-  nextCursor: string | null
-}
+export type { FeedPageData, FeedSortValue, FeedTarget } from "./feed-cache"
 
 export interface OnboardingView {
   name: string
@@ -38,79 +69,188 @@ export interface OnboardingView {
   introHref: string | null
 }
 
-export interface FeedViewProps {
+/** What the composer needs besides the spaces, which follow the list on screen. */
+export interface ComposeBase {
+  userId: string
+  me: { name: string; avatarUrl: string | null }
+  fileProductId?: string | null
+  eventHref?: string | null
+}
+
+/** The spaces a post may go to from the composer (data.ts composerSpaces, browser side). */
+function composerSpacesOf(spaces: SpaceView[]) {
+  return spaces.filter((s) => s.canPost && s.kind !== "chat").map((s) => ({ id: s.id, name: s.name, kind: s.kind }))
+}
+
+/** Waiting this long for a list before the one on screen dims, so a quick answer changes nothing but the list. */
+export const DIM_AFTER_MS = 200
+
+export interface CommunityFeedProps {
   communityId: string
   slug: string
   viewer: ViewerView
+  /** The spaces the member may see, for the chips; without them no chips are drawn and the list never switches. */
+  spaces?: SpaceView[]
+  /** The list the server drew, and its first page. */
+  start: FeedTarget
   initial: FeedPageData
-  initialSort?: FeedSortValue
-  spaceId?: string | null
-  mode?: "feed" | "saved"
-  composer?: Omit<ComposerProps, "onPosted"> | null
+  /** When the server read `initial` (ms), so a newer cached copy (with the member's own likes since) wins. */
+  servedAt?: number
   readOnly?: boolean
-  emptyText?: string
+  /** The welcome, shown on All only. */
   onboarding?: OnboardingView | null
+  /** The composer's member; null for nobody who may post. */
+  compose?: ComposeBase | null
+  /** A caller that draws its own composer props (FeedView). */
+  composer?: Omit<ComposerProps, "onPosted"> | null
+  emptyText?: string
 }
 
-export function FeedView({ communityId, slug, viewer, initial, initialSort = "latest", spaceId = null, mode = "feed", composer = null, readOnly = false, emptyText, onboarding = null }: FeedViewProps) {
-  const [sort, setSort] = useState<FeedSortValue>(initialSort)
-  /* One list; pinned posts are drawn first from it, so pinning or unpinning only changes a flag. */
-  const [posts, setPosts] = useState<FeedPostView[]>(() => [...initial.pinned, ...initial.posts])
-  const [cursor, setCursor] = useState(initial.nextCursor)
-  const [loading, setLoading] = useState<"more" | "sort" | null>(null)
-  const [failed, setFailed] = useState(false)
-  const sentinel = useRef<HTMLDivElement>(null)
-  const busy = useRef(false)
+/** The list an address shows: /community/<slug> All, /space/<feed space> that space, /saved Saved; anything else keeps `fallback`. */
+export function targetFromPath(pathname: string | null | undefined, slug: string, spaces: SpaceView[] | undefined, fallback: FeedTarget): FeedTarget {
+  if (!spaces) return fallback
+  const section = sectionFromPath(pathname, slug)
+  if (section === "home") return { kind: "all" }
+  if (section === "saved") return { kind: "saved" }
+  if (section.startsWith("space:")) {
+    const want = section.slice(6).toLowerCase()
+    const space = spaces.find((s) => s.slug.toLowerCase() === want)
+    if (space && space.kind !== "chat") return { kind: "space", id: space.id }
+  }
+  return fallback
+}
 
-  const url = useCallback(
-    (s: FeedSortValue, c: string | null) => {
-      const q = new URLSearchParams()
-      if (mode === "saved") {
-        if (c) q.set("cursor", c)
-        return `${apiBase(communityId)}/bookmarks?${q}`
+function sameTarget(a: FeedTarget, b: FeedTarget): boolean {
+  return a.kind === b.kind && (a.kind !== "space" || a.id === (b as { id: string }).id)
+}
+
+export function CommunityFeed({ communityId, slug, viewer, spaces, start, initial, servedAt, readOnly = false, onboarding = null, compose = null, composer = null, emptyText }: CommunityFeedProps) {
+  const base = `/community/${slug}`
+  const pathname = usePathname()
+  /* Back and Forward between lists switched in place: the address is the truth, so read it again when it moves. */
+  const [, setTick] = useState(0)
+  useEffect(() => {
+    const on = () => setTick((t) => t + 1)
+    window.addEventListener("popstate", on)
+    return () => window.removeEventListener("popstate", on)
+  }, [])
+  const livePath = typeof window === "undefined" ? pathname : window.location.pathname
+  const fromPath = targetFromPath(livePath || pathname, slug, spaces, start)
+  /* A click marks its list at once; the address catching up clears the mark. */
+  const [picked, setPicked] = useState<{ target: FeedTarget; from: string } | null>(null)
+  if (picked && picked.from !== (livePath || pathname)) setPicked(null)
+  const target = picked?.target ?? fromPath
+  const [sort, setSort] = useState<FeedSortValue>("default")
+  const key = viewKey(communityId, target, sort)
+
+  /* The server's first page goes into the cache, unless the cache already holds a newer copy (likes and saves made since). */
+  const [shown, setShown] = useState<{ key: string; view: CachedView }>(() => {
+    const k = viewKey(communityId, start, "default")
+    const have = readView(k)
+    const served = firstPage(initial, servedAt ?? Date.now())
+    const view = have && have.at >= served.at ? have : served
+    writeView(k, view)
+    return { key: k, view }
+  })
+  const [failedKey, setFailedKey] = useState<string | null>(null)
+  const [more, setMore] = useState<"idle" | "loading" | "failed">("idle")
+  const keyRef = useRef(key)
+  keyRef.current = key
+
+  /* The list for this key: the one in state, else the cache (on this very frame), else the one still on screen while it comes. */
+  const cached = shown.key === key ? shown.view : (readView(key) ?? null)
+  const view = cached ?? shown.view
+  const waiting = !cached && failedKey !== key
+
+  /* Bring the list for a new key: from the cache (and quietly again when it is over a minute old), or from the server. */
+  useEffect(() => {
+    setMore("idle")
+    const have = readView(key)
+    if (have) {
+      setShown((s) => (s.key === key && s.view === have ? s : { key, view: have }))
+      if (Date.now() - have.at > FRESH_MS && have.pages <= 1) {
+        void loadView(communityId, target, sort).then((fresh) => {
+          if (fresh && keyRef.current === key) setShown({ key, view: fresh })
+        })
       }
-      q.set("sort", s)
-      if (c) q.set("cursor", c)
-      if (spaceId) q.set("space", spaceId)
-      return `${apiBase(communityId)}/posts?${q}`
-    },
-    [communityId, mode, spaceId],
-  )
-
-  const loadMore = useCallback(async () => {
-    if (!cursor || busy.current) return
-    busy.current = true
-    setLoading("more")
-    setFailed(false)
-    const r = await api<FeedPageData>(url(sort, cursor))
-    busy.current = false
-    setLoading(null)
-    if (!r.ok) {
-      setFailed(true)
       return
     }
-    setPosts((list) => {
-      const seen = new Set(list.map((p) => p.id))
-      return [...list, ...r.data.posts.filter((p) => !seen.has(p.id))]
+    setFailedKey(null)
+    let live = true
+    void loadView(communityId, target, sort).then((fresh) => {
+      if (!live || keyRef.current !== key) return
+      if (fresh) setShown({ key, view: fresh })
+      else setFailedKey(key)
     })
-    setCursor(r.data.nextCursor)
-  }, [cursor, sort, url])
-
-  const changeSort = async (next: FeedSortValue) => {
-    if (next === sort || loading === "sort") return
-    setSort(next)
-    setLoading("sort")
-    const r = await api<FeedPageData>(url(next, null))
-    setLoading(null)
-    if (!r.ok) {
-      setSort(sort)
-      return toast(r.error)
+    return () => {
+      live = false
     }
-    setPosts([...r.data.pinned, ...r.data.posts])
-    setCursor(r.data.nextCursor)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key])
+
+  /* The chosen chip in view inside its row (Back to a space far along it, say), by scrolling the row only, never the page. */
+  const rootRef = useRef<HTMLDivElement>(null)
+  const targetId = target.kind === "space" ? target.id : target.kind
+  useEffect(() => {
+    const track = rootRef.current?.querySelector<HTMLElement>("[data-space-chips-track]")
+    const on = track?.querySelector<HTMLElement>("[aria-current=page]")
+    if (!track || !on) return
+    const left = on.getBoundingClientRect().left - track.getBoundingClientRect().left + track.scrollLeft
+    if (left < track.scrollLeft) track.scrollLeft = Math.max(0, left - 16)
+    else if (left + on.offsetWidth > track.scrollLeft + track.clientWidth - 24) track.scrollLeft = left + on.offsetWidth - track.clientWidth + 40
+  }, [targetId])
+
+  /* Dim the list on screen only when the next one is slow to come. */
+  const [dim, setDim] = useState(false)
+  useEffect(() => {
+    if (!waiting) return setDim(false)
+    const t = window.setTimeout(() => setDim(true), DIM_AFTER_MS)
+    return () => window.clearTimeout(t)
+  }, [waiting, key])
+
+  const targetOf = useCallback(
+    (pick: ChipPick): FeedTarget | null => {
+      if (pick.kind !== "space") return pick
+      const space = spaces?.find((s) => s.slug === pick.slug)
+      return space && space.kind !== "chat" ? { kind: "space", id: space.id } : null
+    },
+    [spaces],
+  )
+  const hrefOf = (pick: ChipPick) => (pick.kind === "all" ? base : pick.kind === "saved" ? `${base}/saved` : `${base}/space/${encodeURIComponent(pick.slug)}`)
+
+  /* A chip: the list switches here and the address follows; a list already on screen only scrolls the feed back into view. */
+  const pick = (p: ChipPick) => {
+    const next = targetOf(p)
+    if (!next) return
+    const href = hrefOf(p)
+    if (sameTarget(next, target)) return
+    setPicked({ target: next, from: href })
+    if (typeof window !== "undefined" && window.location.pathname !== href) window.history.pushState(null, "", href)
+  }
+  const intent = (p: ChipPick) => {
+    const next = targetOf(p)
+    if (next) prefetchView(communityId, next, next.kind === "saved" ? "default" : sort)
   }
 
+  const loadMore = useCallback(async () => {
+    const k = key
+    const from = readView(k) ?? (shown.key === k ? shown.view : null)
+    if (!from?.cursor || more === "loading") return
+    setMore("loading")
+    const r = await api<FeedPageData>(viewUrl(communityId, target, sort, from.cursor))
+    if (keyRef.current !== k) return
+    if (!r.ok) return setMore("failed")
+    setMore("idle")
+    const now = readView(k) ?? from
+    const seen = new Set(now.posts.map((p) => p.id))
+    const next: CachedView = { ...now, posts: [...now.posts, ...(r.data.posts ?? []).filter((p) => !seen.has(p.id))], cursor: r.data.nextCursor ?? null, pages: now.pages + 1 }
+    writeView(k, next)
+    setShown({ key: k, view: next })
+  }, [communityId, key, more, shown, sort, target])
+
   /* The next page, as the end comes near. */
+  const sentinel = useRef<HTMLDivElement>(null)
+  const cursor = waiting ? null : view.cursor
   useEffect(() => {
     const el = sentinel.current
     if (!el || !cursor || typeof IntersectionObserver === "undefined") return
@@ -119,68 +259,150 @@ export function FeedView({ communityId, slug, viewer, initial, initialSort = "la
     return () => io.disconnect()
   }, [cursor, loadMore])
 
+  /* A change to one post: this list, then every other cached list holding it. */
   const update: PostUpdate = useCallback(
-    (id, fn) =>
-      setPosts((list) =>
-        list.flatMap((p) => {
-          if (p.id !== id) return [p]
-          const next = fn(p)
-          if (!next || (mode === "saved" && !next.bookmarked)) return []
-          return [next]
-        }),
-      ),
-    [mode],
+    (id, fn) => {
+      const k = keyRef.current
+      const current = readView(k) ?? shown.view
+      const before = current.posts.find((p) => p.id === id)
+      const posts = current.posts.flatMap((p) => {
+        if (p.id !== id) return [p]
+        const next = fn(p)
+        if (!next || (target.kind === "saved" && !next.bookmarked)) return []
+        return [next]
+      })
+      const after = posts.find((p) => p.id === id)
+      const next = { ...current, posts }
+      writeView(k, next)
+      setShown({ key: k, view: next })
+      patchPost(communityId, id, fn, k)
+      if (target.kind !== "saved" && before && (!after || before.bookmarked !== after.bookmarked)) dropSaved(communityId)
+    },
+    [communityId, shown.view, target.kind],
   )
 
-  const all = [...posts.filter((p) => p.pinned && mode === "feed"), ...posts.filter((p) => !p.pinned || mode !== "feed")]
+  const onPosted = (p: FeedPostView) => {
+    if (p.space && target.kind === "space" && p.space.id !== target.id) return toast(`Posted in ${p.space.name}`)
+    addPost(communityId, p)
+    const now = readView(key)
+    if (now) setShown({ key, view: now })
+  }
+
+  /* What follows the list on screen: the space's line, the composer, the empty words. */
+  const space = target.kind === "space" ? (spaces?.find((s) => s.id === target.id) ?? null) : null
+  const composerProps: Omit<ComposerProps, "onPosted"> | null = useMemo(() => {
+    if (readOnly) return null
+    if (composer) return composer
+    if (!compose || !spaces || target.kind === "saved") return null
+    if (space) return space.canPost ? { communityId, ...compose, spaces: composerSpacesOf([space]), fixedSpaceId: space.id } : null
+    const all = composerSpacesOf(spaces)
+    return all.length ? { communityId, ...compose, spaces: all } : null
+  }, [readOnly, composer, compose, spaces, target.kind, space, communityId])
+  const empty =
+    emptyText && sameTarget(target, start)
+      ? emptyText
+      : target.kind === "saved"
+        ? "Save a post with the bookmark and it waits here."
+        : sort === "unread"
+          ? "Nothing new since you were last here."
+          : space
+            ? space.canPost && !readOnly
+              ? "Be the first to post here."
+              : "Nothing here yet."
+            : "Start the conversation."
+  const lead = sort === "default" && target.kind !== "saved"
+  const posts = lead ? [...view.posts.filter((p) => p.pinned), ...view.posts.filter((p) => !p.pinned)] : view.posts
 
   return (
-    <div className="space-y-3" data-feed={mode}>
-      {onboarding ? <Onboarding communityId={communityId} data={onboarding} /> : null}
-      {composer && !readOnly ? <Composer {...composer} onPosted={(p) => (p.space && spaceId && p.space.id !== spaceId ? toast(`Posted in ${p.space.name}`) : setPosts((list) => [p, ...list]))} /> : null}
+    <div ref={rootRef} className="w-full min-w-0" data-community-feed={target.kind === "space" ? `space:${space?.slug ?? ""}` : target.kind} data-feed-key={key} data-feed-waiting={waiting ? "" : undefined}>
+      {spaces ? (
+        <>
+          <SpaceChips
+            slug={slug}
+            spaces={spaces}
+            active={space?.slug ?? null}
+            savedOn={target.kind === "saved"}
+            onPick={pick}
+            onIntent={intent}
+            sort={target.kind === "saved" ? null : <SortMenu value={sort} onChange={setSort} />}
+          />
+          {space?.description ? (
+            <p className="-mt-0.5 mb-3 px-1 text-[13.5px] leading-relaxed text-[#6b7280]" data-space-description="">
+              {space.description}
+            </p>
+          ) : null}
+        </>
+      ) : null}
 
-      {mode === "feed" ? (
-        <div className="flex items-center gap-1 pt-1" role="tablist" aria-label="Sort posts" data-feed-sort="">
-          {(["latest", "popular"] as const).map((s) => (
+      <div className="space-y-3" data-feed={target.kind === "saved" ? "saved" : "feed"}>
+        {onboarding && target.kind === "all" ? <Onboarding communityId={communityId} data={onboarding} /> : null}
+        {composerProps ? <Composer key={target.kind === "space" ? target.id : target.kind} {...composerProps} onPosted={onPosted} /> : null}
+
+        {failedKey === key ? (
+          <div className={`${CARD} px-6 py-10 text-center`} data-feed-failed="">
+            <p className="text-[15px] font-semibold text-[#1a1a2e]">These posts did not load.</p>
             <button
-              key={s}
               type="button"
-              role="tab"
-              aria-selected={sort === s}
-              onClick={() => changeSort(s)}
-              className={`h-10 rounded-full px-3.5 text-[14px] font-medium transition-colors sm:h-9 ${sort === s ? "bg-[#e9ebee] text-[#1a1a2e]" : "text-[#6b7280] hover:text-[#1a1a2e]"}`}
+              className={`${BTN_SECONDARY} mt-3`}
+              onClick={() => {
+                setFailedKey(null)
+                void loadView(communityId, target, sort).then((fresh) => {
+                  if (keyRef.current !== key) return
+                  if (fresh) setShown({ key, view: fresh })
+                  else setFailedKey(key)
+                })
+              }}
             >
-              {s === "latest" ? "Latest" : "Popular"}
+              Try again
             </button>
-          ))}
-        </div>
-      ) : null}
+          </div>
+        ) : (
+          <div className={`space-y-3 transition-opacity duration-150 motion-reduce:transition-none ${dim ? "opacity-60" : "opacity-100"}`} aria-busy={waiting || undefined} data-feed-list="">
+            {posts.map((p) => (
+              <PostCard key={p.id} post={p} slug={slug} viewer={viewer} update={update} readOnly={readOnly} />
+            ))}
+          </div>
+        )}
 
-      <div className={`space-y-3 transition-opacity ${loading === "sort" ? "opacity-50" : ""}`} data-feed-list="">
-        {all.map((p) => (
-          <PostCard key={p.id} post={p} slug={slug} viewer={viewer} update={update} readOnly={readOnly} />
-        ))}
+        {posts.length === 0 && !waiting && failedKey !== key ? (
+          <div className={`${CARD} px-6 py-12 text-center`} data-feed-empty="">
+            <p className="text-[16px] font-semibold text-[#1a1a2e]">{target.kind === "saved" ? "Nothing saved yet." : sort === "unread" ? "You are all caught up." : "No posts yet."}</p>
+            <p className="mt-1 text-[14px] text-[#6b7280]">{empty}</p>
+          </div>
+        ) : null}
+
+        <div ref={sentinel} aria-hidden className="h-px" />
+        {cursor ? (
+          <div className="flex justify-center pb-4 pt-1">
+            <button type="button" onClick={loadMore} disabled={more === "loading"} className={BTN_SECONDARY} data-feed-more="">
+              {more === "loading" ? "Loading..." : more === "failed" ? "Try again" : "Show more posts"}
+            </button>
+          </div>
+        ) : !waiting && posts.length > 4 ? (
+          <p className="pb-6 pt-2 text-center text-[13px] text-[#9ca3af]">You are all caught up.</p>
+        ) : null}
       </div>
-
-      {all.length === 0 && loading !== "sort" ? (
-        <div className={`${CARD} px-6 py-12 text-center`} data-feed-empty="">
-          <p className="text-[16px] font-semibold text-[#1a1a2e]">{mode === "saved" ? "Nothing saved yet." : "No posts yet."}</p>
-          <p className="mt-1 text-[14px] text-[#6b7280]">{emptyText ?? (mode === "saved" ? "Save a post with the bookmark and it waits here." : "Start the conversation.")}</p>
-        </div>
-      ) : null}
-
-      <div ref={sentinel} aria-hidden className="h-px" />
-      {cursor ? (
-        <div className="flex justify-center pb-4 pt-1">
-          <button type="button" onClick={loadMore} disabled={loading === "more"} className={BTN_SECONDARY} data-feed-more="">
-            {loading === "more" ? "Loading..." : failed ? "Try again" : "Show more posts"}
-          </button>
-        </div>
-      ) : all.length > 4 ? (
-        <p className="pb-6 pt-2 text-center text-[13px] text-[#9ca3af]">You are all caught up.</p>
-      ) : null}
     </div>
   )
+}
+
+export interface FeedViewProps {
+  communityId: string
+  slug: string
+  viewer: ViewerView
+  initial: FeedPageData
+  spaceId?: string | null
+  mode?: "feed" | "saved"
+  composer?: Omit<ComposerProps, "onPosted"> | null
+  readOnly?: boolean
+  emptyText?: string
+  onboarding?: OnboardingView | null
+}
+
+/** One list with no chips (and so no switching), for a caller that draws its own header. */
+export function FeedView({ communityId, slug, viewer, initial, spaceId = null, mode = "feed", composer = null, readOnly = false, emptyText, onboarding = null }: FeedViewProps) {
+  const start: FeedTarget = mode === "saved" ? { kind: "saved" } : spaceId ? { kind: "space", id: spaceId } : { kind: "all" }
+  return <CommunityFeed communityId={communityId} slug={slug} viewer={viewer} start={start} initial={initial} composer={composer} readOnly={readOnly} emptyText={emptyText} onboarding={onboarding} />
 }
 
 /** The welcome a new member sees once: the creator's words, the rules, and a nudge to say hello. */
