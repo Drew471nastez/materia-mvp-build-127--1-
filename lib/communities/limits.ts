@@ -88,6 +88,8 @@ export const RATE_LIMITS = {
   presence: [{ limit: 40, seconds: 600 }],
   /** A person's hover card: one per name rested on, cached a minute in the page; room to browse, not to sweep a directory. */
   card: [{ limit: 300, seconds: 600 }],
+  /** The community's search field: one ask per pause in typing; room to look around, not to page through everything. */
+  search: [{ limit: 60, seconds: 60 }, { limit: 600, seconds: 3600 }],
   report: [{ limit: 10, seconds: 3600 }],
   invite: [{ limit: 50, seconds: 86400 }],
 } as const satisfies Record<string, readonly RateWindowSpec[]>
