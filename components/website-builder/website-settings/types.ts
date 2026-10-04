@@ -71,7 +71,8 @@ export interface SettingsContext {
   onRestored?: () => void
   onEditPage: (pageKey: string) => void
   onAddPage: () => void
-  onEditMenu: () => void
+  /** Opens the builder's Navigation panel, at one menu when a handle is given. */
+  onEditMenu: (handle?: string) => void
   onOpenCode: () => void
   onPublish: () => void
   onUnpublished: () => void

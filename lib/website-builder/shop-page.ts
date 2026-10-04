@@ -292,3 +292,24 @@ export function searchListsTheShop<T extends { type: string; settings: Record<st
   })
   return changed ? out : sections
 }
+
+/**
+ * ===========================================================================
+ *  ONE COLLECTION: SHOPIFY'S COLLECTION PAGE
+ * ===========================================================================
+ * /collections/<handle>. The shop page with the collection's own name and
+ * words above its products, and the same filters and sort: the route hands
+ * the grid only the collection's products, in the collection's order, as
+ * `products` (app/(site)/w/[username]/collections/[handle]/page.tsx).
+ */
+export function collectionSections(
+  homeSections: SectionInstance[],
+  theme: ThemeSettingsValues,
+  collection: { title: string; description?: string | null },
+): SectionInstance[] {
+  return shopSections(homeSections, theme).map((s) =>
+    s.id === GRID_ID
+      ? { ...s, settings: { ...s.settings, heading: collection.title, subheading: (collection.description ?? "").slice(0, 400) } }
+      : s,
+  )
+}

@@ -118,11 +118,11 @@ function CollectionMenu({
 
 /** Said in place of the control when there is nothing it could pick from. */
 function Unavailable({ list }: { list: PickerCollection[] | null | undefined }) {
-  if (list === null) return <p className={NOTE}>Collections are switched off on Storelib right now, so this shows nothing on your site.</p>
+  if (list === null) return <p className={NOTE}>Your collections could not be loaded. Reload the builder to try again.</p>
   return (
     <div className="space-y-1">
-      <p className={NOTE}>You have no collections yet.</p>
-      <a href="/app/collections" className={TEXT_BUTTON}>Create a collection</a>
+      <p className={NOTE}>You have no collections yet. Make one in Products › Collections, from any of your products.</p>
+      <a href="/app/collections" target="_blank" rel="noopener" className={TEXT_BUTTON}>Create a collection</a>
     </div>
   )
 }

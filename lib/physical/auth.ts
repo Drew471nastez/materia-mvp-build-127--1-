@@ -37,6 +37,15 @@ export function physicalJson(body: unknown, status = 200): NextResponse {
 
 export async function physicalCaller(): Promise<PhysicalCaller | NextResponse> {
   if (!(await isPhysicalCommerceEnabled())) return physicalJson({ error: "Not found." }, 404)
+  return shopCaller()
+}
+
+/**
+ * The owner check alone, for what every shop has whatever it sells:
+ * collections group downloads, courses and memberships as well as goods, so
+ * they are not behind the physical commerce switch.
+ */
+export async function shopCaller(): Promise<PhysicalCaller | NextResponse> {
   const supabase = await createClient()
   const {
     data: { user },

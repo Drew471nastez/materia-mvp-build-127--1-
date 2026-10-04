@@ -142,7 +142,7 @@ const server = createServer((req, res) => {
         ], lowStockDefault: 5,
       } : { level: { onHand: 22, committed: 2, incoming: 0, available: 20 }, applied: true }
       else if (u.startsWith("/api/physical/transfers")) out = { transfers: [] }
-      else if (u.startsWith("/api/physical/collections")) out = { collections: [{ id: "c1", title: "Summer", slug: "summer", description: null, kind: "smart", rules: [{ field: "tag", op: "equals", value: "summer" }], match: "all", sort: "manual", published: true, productIds: [SHOP] }], products: [{ id: SHOP, title: "Linen shirt", thumbnail_url: null, type: "physical", status: "published", price_cents: 4500 }] }
+      else if (u.startsWith("/api/collections")) out = { collections: [{ id: "c1", title: "Summer", slug: "summer", description: null, kind: "smart", rules: [{ field: "tag", op: "equals", value: "summer" }], match: "all", sort: "manual", published: true, productIds: [SHOP] }], products: [{ id: SHOP, title: "Linen shirt", thumbnail_url: null, type: "physical", status: "published", price_cents: 4500 }] }
       else if (u.startsWith("/api/physical/orders/")) out = { order: order(req.method === "POST" && body.action === "fulfil", u.includes("/pickup"), req.method === "POST" && body.action === "processing"), locations: [{ id: LOC, name: "Studio" }] }
       else if (u === "/api/physical/locations" && req.method === "POST") out = { location: { ...settings().locations[0], id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc", name: body.name, kind: body.kind, email: body.email, forwarding: body.forwarding, pickupEnabled: false } }
       else if (u.startsWith("/api/physical/shipping/rates")) out = { profiles: settings().profiles }

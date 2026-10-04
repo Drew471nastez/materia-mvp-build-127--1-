@@ -485,14 +485,12 @@ export async function dressPage(
   /*
     The creator's published collections, for a collection picker, a
     collection list and the collections page: read only for a page that
-    uses them, a minute in the cache like the shop, and only while physical
-    commerce (where collections live) is on.
+    uses them, a minute in the cache like the shop. Every shop has them,
+    whatever kind of product it sells.
   */
   const sourceOf = (type: string) => site.sources[`sections/${type}.storelib`] ?? DEFAULT_THEME_SOURCES[`sections/${type}.storelib`]
   const collections = pageWantsCollections(sections, schemaOf, sourceOf)
     ? await (async () => {
-        const { isPhysicalCommerceEnabled } = await import("@/lib/platform/physical-commerce")
-        if (!(await isPhysicalCommerceEnabled())) return undefined
         const { siteCollections } = await import("@/lib/website-builder/storefront-collections-server")
         const read = async () => (await siteCollections(createAdminClient(), site.creatorId)).collections
         return opts.cached

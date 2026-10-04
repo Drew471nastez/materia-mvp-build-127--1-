@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server"
-import { physicalCaller, physicalJson, readBody } from "@/lib/physical/auth"
+import { shopCaller, physicalJson, readBody } from "@/lib/physical/auth"
 import { listCollections, saveCollection } from "@/lib/physical/collections-server"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
 export async function GET() {
-  const c = await physicalCaller()
+  const c = await shopCaller()
   if (c instanceof NextResponse) return c
   const [collections, { data: products }] = await Promise.all([
     listCollections(c.db, c.creatorId),
@@ -16,7 +16,7 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const c = await physicalCaller()
+  const c = await shopCaller()
   if (c instanceof NextResponse) return c
   const body = await readBody(request)
   if (!body) return physicalJson({ error: "Bad request." }, 400)

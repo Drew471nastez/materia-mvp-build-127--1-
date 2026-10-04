@@ -10,8 +10,9 @@
  *
  * Only what this product has: the pages in lib/website-builder/page-groups
  * (the account pages in account-pages.ts, the policies in policy-pages.ts)
- * and the store's products. No collections and no blogs, because a site here
- * has neither, and a heading nobody can fill is worse than no heading.
+ * the store's products and its collections (lib/products/collections.ts). No
+ * blogs, because a site here has none, and a heading nobody can fill is worse
+ * than no heading: a store with no collections gets no Collections row.
  *
  * A target is sorted by its address, which is what the field stores, so a
  * link saved before any of this sorts the same as one picked today.
@@ -32,7 +33,7 @@ import {
   type SectionLike,
 } from "./section-anchors"
 
-export type LinkCategoryKey = "sections" | "home" | "shop" | "products" | "pages" | "accounts" | "policies" | "search"
+export type LinkCategoryKey = "sections" | "home" | "shop" | "products" | "collections" | "pages" | "accounts" | "policies" | "search"
 
 export interface LinkCategory {
   key: LinkCategoryKey
@@ -47,6 +48,7 @@ export const LINK_CATEGORIES: readonly LinkCategory[] = [
   { key: "home", label: "Home", single: true },
   { key: "shop", label: "Shop", single: true },
   { key: "products", label: "Products", single: false },
+  { key: "collections", label: "Collections", single: false },
   { key: "pages", label: "Pages", single: false },
   { key: "accounts", label: "Customer accounts", single: false },
   { key: "policies", label: "Policies", single: false },
@@ -62,6 +64,7 @@ const POLICY_HREFS: readonly string[] = POLICY_PAGE_KEYS.map((k) => `/${k}`)
 export function linkCategoryOf(t: Pick<LinkTarget, "href" | "kind">): LinkCategoryKey {
   if (t.kind === "section") return "sections"
   if (t.kind === "product") return "products"
+  if (t.kind === "collection" || t.href === "/collections" || t.href.startsWith("/collections/")) return "collections"
   if (t.href === "/") return "home"
   if (t.href === "/products") return "shop"
   if (t.href === "/search") return "search"

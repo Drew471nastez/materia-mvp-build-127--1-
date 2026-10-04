@@ -486,7 +486,7 @@ function main() {
      */
     check("a nav link cannot be pointed at a collection", !/collections\//.test(code) && !/"value": "collection"/.test(headerSchema))
     check("and the editor no longer fetches a list that cannot answer", !/api\/collections/.test(editor.replace(/\/\*[\s\S]*?\*\//g, " ")))
-    check("the shop link in the picker is the address the shop is at", /\{ href: "\/products", label: "Shop", kind: "page" \}/.test(editor))
+    check("the shop link in the picker is the address the shop is at", /\{ href: "\/products", label: "Shop", kind: "page" \}/.test(read("lib/website-builder/link-targets.ts")))
   }
 
   // ═══════════════════════════════════════════════════════════════════════

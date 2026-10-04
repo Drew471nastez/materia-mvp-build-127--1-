@@ -121,6 +121,33 @@
           {% endfor %}
         </div>
       {% endif %}
+    {% elsif settings.source == 'collection' %}
+      {# One collection's products, in the collection's own order, from
+         Products › Collections: any kind of product. The button goes to
+         the whole collection. #}
+      {% if settings.collection.title %}
+        {% if settings.collection.products.size == 0 %}
+          {% if page.in_editor %}<p class="empty">This collection has no published products yet</p>{% endif %}
+        {% else %}
+        <div class="grid">
+          {% for block in settings.collection.products %}
+          <article class="card card__wrap" data-card="product" data-block-id="{{ block.id }}">
+            <div class="card__media" data-card-media style="aspect-ratio: {{ settings.shape }};">
+              {% if block.settings.image %}<img src="{{ block.settings.image | asset }}" alt="{{ block.settings.title }}" loading="lazy" decoding="async">{% endif %}
+              {# Theme settings › Badges: Sale on a discounted product, then the card's own tag (Sold out on the shop's). #}{% if block.settings.tag or theme.badges.sale and block.settings.compare_price %}<span class="badges" data-badges>{% if theme.badges.sale and block.settings.compare_price %}<span class="tag" data-badge="sale">{{ theme.badges.sale_text }}</span>{% endif %}{% if block.settings.tag %}<span class="tag" data-badge="{% if block.settings.tag == 'Sold out' %}soldout{% else %}tag{% endif %}">{{ block.settings.tag }}</span>{% endif %}</span>{% endif %}
+            </div>
+            <h3 class="card__title">{{ block.settings.title }}</h3>
+            {% if settings.show_price and block.settings.price %}
+              <p class="card__price">{{ block.settings.price }}{% if block.settings.compare_price %}<s class="card__was">{{ block.settings.compare_price }}</s>{% endif %}</p>
+            {% endif %}
+            {% if block.settings.url %}<a class="card__link" href="{{ block.settings.url | url }}"><span class="sr">{{ block.settings.title }}</span></a>{% endif %}
+          </article>
+          {% endfor %}
+        </div>
+        {% endif %}
+      {% else %}
+        {% if page.in_editor %}<p class="empty">Choose a collection in the sidebar</p>{% endif %}
+      {% endif %}
     {% else %}
       {% if blocks.size == 0 %}
         {% if page.in_editor %}<p class="empty">Add products in the sidebar</p>{% endif %}
@@ -144,7 +171,11 @@
       {% endif %}
     {% endif %}
     {% if settings.button_text %}
-      <div class="s__btns more"><a class="s__btn s__btn--secondary" href="{{ settings.button_url | default: '/products' | url }}">{{ settings.button_text }}</a></div>
+      {% if settings.source == 'collection' and settings.collection.title %}
+        <div class="s__btns more"><a class="s__btn s__btn--secondary" href="{{ settings.collection | url }}">{{ settings.button_text }}</a></div>
+      {% else %}
+        <div class="s__btns more"><a class="s__btn s__btn--secondary" href="{{ settings.button_url | default: '/products' | url }}">{{ settings.button_text }}</a></div>
+      {% endif %}
     {% endif %}
   </div>
 </section>
@@ -316,7 +347,7 @@
       "type": "select",
       "id": "source",
       "label": "Products",
-      "info": "Products you choose and your shop stay in step with Products on their own. Cards you fill in show whatever you type.",
+      "info": "Products you choose, a collection and your shop stay in step with Products on their own. Cards you fill in show whatever you type.",
       "default": "picked",
       "options": [
         {
@@ -330,6 +361,10 @@
         {
           "label": "My shop, newest first",
           "value": "shop"
+        },
+        {
+          "label": "A collection",
+          "value": "collection"
         }
       ]
     },
@@ -340,6 +375,13 @@
       "limit": 12,
       "default": [],
       "visible_if": "{{ section.settings.source == 'chosen' }}"
+    },
+    {
+      "type": "collection_picker",
+      "id": "collection",
+      "label": "Collection",
+      "info": "Its products in its own order, up to 12. The button goes to the whole collection.",
+      "visible_if": "{{ section.settings.source == 'collection' }}"
     },
     {
       "type": "header",
@@ -449,7 +491,8 @@
       "type": "url",
       "id": "button_url",
       "label": "Button link",
-      "default": "/products"
+      "default": "/products",
+      "visible_if": "{{ section.settings.source != 'collection' }}"
     },
     {
       "type": "select",
