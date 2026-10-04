@@ -104,6 +104,23 @@ writeFileSync(
   `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${inter}</style><style>${css}</style><style>body{margin:0;font-family:Inter,system-ui,sans-serif}</style></head><body><div id="app"></div><script>${readFileSync(join(stubs, "country.js"), "utf8").replace(/<\/script/gi, "<\\/script")}</script></body></html>`,
 )
 
+/* A third bundle: the phone page a computer's QR code opens. */
+await build({
+  entryPoints: [join(root, "scripts/render-verify-id-phone.tsx")],
+  bundle: true,
+  format: "iife",
+  jsx: "automatic",
+  define: { "process.env.NODE_ENV": '"production"' },
+  alias: { "@": ".", react: compiled("react"), "react-dom": compiled("react-dom"), "next/navigation": join(stubs, "navigation.js") },
+  banner: { js: "var process={env:{NODE_ENV:'production'}};" },
+  loader: { ".css": "empty" },
+  outfile: join(stubs, "phone.js"),
+  logLevel: "error",
+  absWorkingDir: root,
+  nodePaths: [join(root, "node_modules")],
+})
+const phoneHtml = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${inter}</style><style>${css}</style><style>body{margin:0;font-family:Inter,system-ui,sans-serif}</style></head><body><div id="app"></div><script>${readFileSync(join(stubs, "phone.js"), "utf8").replace(/<\/script/gi, "<\\/script")}</script></body></html>`
+
 const out = join(root, ".setup-own-form-probe")
 mkdirSync(out, { recursive: true })
 const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox", "--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream", "--unsafely-treat-insecure-origin-as-secure=http://probe.test"] })
@@ -789,6 +806,54 @@ try {
     const got = await p.evaluate(() => (document.querySelector("[data-id-photo='phone-done']")?.textContent ?? ""))
     expect(/Front/.test(got) && /Added from your phone/.test(got), "the photos taken on the phone show up here by themselves", got.slice(0, 120))
     await p.screenshot({ path: join(out, "id-qr-arrived-1280.png") })
+    expect(errors.length === 0, "nothing threw", errors.slice(0, 2))
+    await p.close()
+  }
+  {
+    /* The phone page the QR code opens: front, back, a percentage while it sends, then "All done". */
+    console.log("\nThe phone page from the QR code (390px)")
+    const p = await browser.newPage()
+    const errors = []
+    let sides = { front: false, back: false }
+    const posted = []
+    p.on("pageerror", (e) => errors.push(e.message))
+    await p.setRequestInterception(true)
+    p.on("request", (r) => {
+      const u = r.url()
+      const json = (body, status = 200) => r.respond({ status, contentType: "application/json", body: JSON.stringify(body) })
+      if (u.startsWith("http://probe.test/__file")) return r.respond({ status: 200, contentType: "font/woff2", body: readFileSync(decodeURIComponent(u.slice("http://probe.test/__file".length))) })
+      if (u.startsWith("http://probe.test/verify-id")) return r.respond({ status: 200, contentType: "text/html", body: phoneHtml })
+      if (u.startsWith("http://probe.test/api/payments/handoff")) {
+        if (r.method() === "GET") return json({ ...sides, wanted: true })
+        /* A multipart body with a photo in it does not reach the probe as text: the order says the side. */
+        const side = posted.length === 0 ? "front" : "back"
+        posted.push({ side, multipart: /multipart\/form-data/.test(r.headers()["content-type"] ?? "") })
+        sides = { ...sides, [side]: true }
+        return json(sides)
+      }
+      if (u.startsWith("data:") || u.startsWith("blob:")) return r.continue()
+      r.abort()
+    })
+    await p.bringToFront()
+    await p.setViewport({ width: 390, height: 844, deviceScaleFactor: 1, isMobile: true, hasTouch: true })
+    await p.goto("http://probe.test/verify-id/probe.token")
+    await p.waitForFunction(() => /Open the camera/.test(document.querySelector("main")?.textContent ?? ""), { timeout: 8000, polling: 200 }).catch(() => {})
+    expect(await p.evaluate(() => /Verify your ID/.test(document.querySelector("main")?.textContent ?? "")), "it opens on Verify your ID, no sign in")
+    await p.evaluate(() => [...document.querySelectorAll("main button")].find((b) => /Open the camera/.test(b.textContent ?? ""))?.click())
+    for (const side of ["front", "back"]) {
+      await p.waitForSelector('[data-id-camera="live"]', { timeout: 8000 }).catch(() => {})
+      await new Promise((r) => setTimeout(r, 600))
+      await p.evaluate(() => document.querySelector('[aria-label="Take photo"]')?.click())
+      await p.waitForSelector('[data-id-camera="review"]', { timeout: 4000 }).catch(() => {})
+      await p.evaluate(() => [...document.querySelectorAll("[data-id-camera] button")].find((b) => b.textContent?.includes("Use photo"))?.click())
+      await new Promise((r) => setTimeout(r, 900))
+      void side
+    }
+    await p.waitForFunction(() => /All done/.test(document.querySelector("main")?.textContent ?? ""), { timeout: 8000, polling: 200 }).catch(() => {})
+    const end = await p.evaluate(() => document.querySelector("main")?.textContent ?? "")
+    expect(posted.length === 2 && posted[0].side === "front" && posted[1].side === "back" && posted.every((x) => x.multipart), "front then back go up as photos", posted)
+    expect(/All done/.test(end) && /computer/.test(end), "and it ends on All done, go back to your computer", end.slice(0, 120))
+    await p.screenshot({ path: join(out, "phone-page-done-390.png") })
     expect(errors.length === 0, "nothing threw", errors.slice(0, 2))
     await p.close()
   }

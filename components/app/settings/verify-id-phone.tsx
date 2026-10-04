@@ -12,7 +12,7 @@
 import * as React from "react"
 import { Camera, Check, RotateCcw } from "lucide-react"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
-import { IdCamera, armCameraSounds, shrinkPhoto, type IdSide } from "@/components/app/settings/id-camera"
+import { IdCamera, armCameraSounds, sendIdPhoto, shrinkPhoto, type IdSide } from "@/components/app/settings/id-camera"
 import { playAskSound } from "@/lib/website-builder/ask-sounds"
 import { cn } from "@/lib/utils"
 
@@ -31,6 +31,7 @@ export function VerifyIdOnPhone({ token }: { token: string }) {
   const [sending, setSending] = React.useState<IdSide | null>(null)
   const [noBack, setNoBack] = React.useState(false)
   const [note, setNote] = React.useState<string | null>(null)
+  const [pct, setPct] = React.useState(0)
   const [error, setError] = React.useState<{ side: IdSide; text: string } | null>(null)
 
   React.useEffect(() => {
@@ -64,7 +65,8 @@ export function VerifyIdOnPhone({ token }: { token: string }) {
       data.set("t", token)
       data.set("side", side)
       data.set("file", shrunk, "id.jpg")
-      const next = await call<Sides>(await fetch("/api/payments/handoff", { method: "POST", body: data, cache: "no-store" }))
+      setPct(0)
+      const next = await sendIdPhoto<Sides>("/api/payments/handoff", data, setPct)
       setSides(next)
       playAskSound("done")
       setNote(side === "front" ? "Front added. Stripe has it." : "Back added. Stripe has it.")
@@ -115,7 +117,7 @@ export function VerifyIdOnPhone({ token }: { token: string }) {
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block text-[15px] font-medium">{side === "front" ? "Front" : "Back"}</span>
-                      <span className="block text-[13px] text-[#6b7280]">{busy ? "Sending to Stripe..." : have ? "Added" : skipped ? "Not needed, it's a passport" : side === "back" ? "Needed for an ID card or licence" : "The side with your photo"}</span>
+                      <span className="block text-[13px] text-[#6b7280]">{busy ? (pct >= 99 ? "Stripe is saving it..." : `Sending to Stripe... ${pct}%`) : have ? "Added" : skipped ? "Not needed, it's a passport" : side === "back" ? "Needed for an ID card or licence" : "The side with your photo"}</span>
                       {side === "back" && !have && !skipped && !busy && sides.front ? (
                         <button type="button" onClick={() => setNoBack(true)} className="mt-0.5 text-[13px] font-medium text-[#4b5563] underline underline-offset-2">
                           It's a passport

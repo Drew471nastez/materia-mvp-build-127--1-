@@ -20,6 +20,8 @@ import type { PaymentsCreatorRef } from "@/lib/payments/stripe/connect"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
+/* An ID photo crosses a phone connection and then Stripe: room for both, never the ten second default. */
+export const maxDuration = 60
 
 const NO_STORE = { "cache-control": "no-store", "x-robots-tag": "noindex" }
 

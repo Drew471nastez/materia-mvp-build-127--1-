@@ -118,7 +118,7 @@ check("the stepper shows Verify ID from the start when it is ahead, and the end 
 check("  and a Stripe ask that arrives on the checking screen goes to the step, not to a 'not finished' wall", /if \(mode === "setup" && now === "more"\) \{\s*\n\s*setEnding\(null\)\s*\n\s*go\(1\)/.test(flow))
 check("a step is answered from the write Stripe just acknowledged, not another read", /return viewOf\(creator, saved\)/.test(own) && !/await syncStripeAccount\(creator\.id, "creator"\)\.catch\(\(\) => undefined\)\s*\n\s*return detailsForm/.test(own))
 check("the Account step's names are not asked again by Storelib", (flow.match(/autoComplete="given-name"/g) ?? []).length === 1)
-check("ID photos go to Stripe as the account's file, attached in the same call", /stripe\.files\.create\(/.test(own) && /stripeAccount: account\.id/.test(own) && /verification: \{ \[which\]: \{ \[side\]: uploaded\.id \} \}/.test(own))
+check("ID photos go to Stripe as the account's file, attached in the same call", /stripe\.files\.create\(/.test(own) && /stripeAccount: row\.stripe_account_id/.test(own) && /verification: \{ \[which\]: \{ \[side\]: uploaded\.id \} \}/.test(own))
 check("a bank on file shows its last four and can be replaced", /Current account ending in/.test(flow) && flow.includes("Change bank account") && /createExternalAccount\(account\.id, \{ external_account: bank, default_for_currency: true \}\)/.test(own))
 check("nothing opens a Stripe page or the Stripe dashboard", !/window\.open|dashboard\.stripe|account_links|accountLinks|connect\.stripe\.com\/(setup|express)/i.test(flow + ui + embedded))
 /* The owner, October 2026: like Skool, personal info, verification with the camera, then the bank with its payout currency. */

@@ -18,8 +18,8 @@
  * way round it (the owner, October 2026: the live camera, and that's all).
  *
  * WHAT LEAVES THE PHONE is the one JPEG of the card, cut to the frame with a
- * margin so all four corners are in it, at up to 2000px: sharp enough for
- * Stripe to read, under 4 MB. It goes to Storelib's server and straight on to
+ * margin so all four corners are in it, at up to 1600px: sharp enough for
+ * Stripe to read, well under 1 MB. It goes to Storelib's server and straight on to
  * Stripe (lib/payments/stripe/own-form uploadDocument); nothing is kept.
  * Whether the document is genuine is Stripe's check, on that photo.
  */
@@ -37,6 +37,9 @@ const ANALYSE_WIDTH = 320
 const TICK_MS = 110
 
 export type IdSide = "front" | "back"
+
+/** The long side of an ID photo sent to Stripe. Readable, and small enough to send in a couple of seconds on a phone. */
+export const ID_PHOTO_PX = 1600
 
 interface IdCameraProps {
   open: boolean
@@ -141,12 +144,13 @@ export function IdCamera({ open, side, zIndex, onPhoto, onClose, onNoBack }: IdC
     sy = Math.max(0, sy)
     sw = Math.min(v.videoWidth - sx, sw)
     sh = Math.min(v.videoHeight - sy, sh)
-    const out = Math.min(1, 2000 / sw)
+    /* 1600px of card is sharp for Stripe and a fraction of the bytes: the photo has to cross a phone connection. */
+    const out = Math.min(1, ID_PHOTO_PX / sw)
     const canvas = document.createElement("canvas")
     canvas.width = Math.round(sw * out)
     canvas.height = Math.round(sh * out)
     canvas.getContext("2d")?.drawImage(v, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height)
-    const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, "image/jpeg", 0.9))
+    const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, "image/jpeg", 0.85))
     if (!blob) return
     setFlash(true)
     window.setTimeout(() => setFlash(false), 180)
@@ -333,14 +337,14 @@ export function armCameraSounds() {
 
 /*
  * A phone photo is often 4 to 8 MB and larger than Stripe's 8,000 by 8,000
- * limit. Drawn again at most 2000px on its long side as a colour JPEG, it is
+ * limit. Drawn again at most 1600px on its long side as a colour JPEG, it is
  * a sharp, readable ID well inside every rule Stripe sets. A PDF is passed
  * through untouched: it is only ever a proof of address, where Stripe takes
  * one (an identity document may not be a PDF, and is refused before here).
  */
 export async function shrinkPhoto(file: File): Promise<Blob> {
   if (file.type === "application/pdf") return file
-  if (file.size < 2_500_000 && (file.type === "image/jpeg" || file.type === "image/png")) return file
+  if (file.size < 900_000 && (file.type === "image/jpeg" || file.type === "image/png")) return file
   const url = URL.createObjectURL(file)
   try {
     const img = await new Promise<HTMLImageElement>((resolve, reject) => {
@@ -349,17 +353,54 @@ export async function shrinkPhoto(file: File): Promise<Blob> {
       i.onerror = () => reject(new Error("unreadable"))
       i.src = url
     })
-    const scale = Math.min(1, 2000 / Math.max(img.naturalWidth, img.naturalHeight))
+    const scale = Math.min(1, ID_PHOTO_PX / Math.max(img.naturalWidth, img.naturalHeight))
     const canvas = document.createElement("canvas")
     canvas.width = Math.round(img.naturalWidth * scale)
     canvas.height = Math.round(img.naturalHeight * scale)
     canvas.getContext("2d")?.drawImage(img, 0, 0, canvas.width, canvas.height)
-    for (const q of [0.88, 0.78, 0.68]) {
+    for (const q of [0.85, 0.75, 0.65]) {
       const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, "image/jpeg", q))
-      if (blob && blob.size < 3_800_000) return blob
+      if (blob && blob.size < 1_500_000) return blob
     }
     throw new Error("too large")
   } finally {
     URL.revokeObjectURL(url)
   }
 }
+
+/**
+ * SEND AN ID PHOTO, AND SAY HOW IT IS GOING. fetch cannot report an upload's
+ * progress, so this is XMLHttpRequest: the page shows "Sending 40%", never a
+ * spinner with no end. It also gives up: a request that has not answered in
+ * `timeoutMs` is stopped and said so, with the photo kept to try again,
+ * rather than a step left spinning on a connection that dropped.
+ */
+export function sendIdPhoto<T>(url: string, form: FormData, onProgress: (pct: number) => void, timeoutMs = 45_000): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open("POST", url)
+    xhr.timeout = timeoutMs
+    xhr.responseType = "text"
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable && e.total > 0) onProgress(Math.min(99, Math.round((e.loaded / e.total) * 100)))
+    }
+    xhr.onload = () => {
+      let body: (T & { error?: string }) | null = null
+      try {
+        body = JSON.parse(xhr.responseText || "{}")
+      } catch {
+        body = null
+      }
+      if (xhr.status >= 200 && xhr.status < 300 && body) {
+        onProgress(100)
+        resolve(body)
+      } else {
+        reject(Object.assign(new Error(body?.error || "That photo did not go through. Take it again."), { status: xhr.status }))
+      }
+    }
+    xhr.onerror = () => reject(Object.assign(new Error("No connection. Check your internet and take it again."), { status: 0 }))
+    xhr.ontimeout = () => reject(Object.assign(new Error("That took too long. Check your connection and take it again."), { status: 0 }))
+    xhr.send(form)
+  })
+}
+

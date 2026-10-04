@@ -44,6 +44,11 @@ async function main() {
   check("the phone page is never indexed or sent as a referrer", /index: false/.test(page) && /referrer: "no-referrer"/.test(page))
   const flow = readFileSync("components/app/settings/payments-setup-flow.tsx", "utf8")
   check("setup on a computer shows the QR code and watches for the photos", /function PhoneHandoff/.test(flow) && /post<\{ url: string \}>\("handoff"/.test(flow) && /idSides/.test(flow))
+  const phone = readFileSync("components/app/settings/verify-id-phone.tsx", "utf8")
+  check("the phone page sends the link's token with every photo", /data\.set\("t", token\)/.test(phone) && /sendIdPhoto<Sides>\("\/api\/payments\/handoff"/.test(phone))
+  const camera = readFileSync("components/app/settings/id-camera.tsx", "utf8")
+  check("photos are 1600px JPEGs, sent with progress and a time limit", /ID_PHOTO_PX = 1600/.test(camera) && /xhr\.upload\.onprogress/.test(camera) && /xhr\.timeout = timeoutMs/.test(camera))
+  check("the upload answers without waiting for a full re-sync", /after\(\(\) => syncStripeAccount\(creator\.id, "creator"\)/.test(own) && /await Promise\.all\(\[\s*\n\s*ownAccount\(creator\),\s*\n\s*stripe\.files\.create\(/.test(own))
   check("no 'use a photo instead' way round the camera", !/No camera\? Use a photo/.test(flow) && !/onPickFile=\{/.test(flow))
 
   console.log(`\n${passed} passed, ${failed} failed`)
