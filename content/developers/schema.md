@@ -249,6 +249,36 @@ An `image_picker`, `video_picker` or `file_picker` setting holds the file's **pu
 
 In the builder a `video_picker` uploads an MP4, WebM or MOV of up to 200 MB, or takes a link to a video file, and shows the video itself. A YouTube or Vimeo address is a page, not a file, so it belongs in a `video_url` setting, printed through the `embed` filter.
 
+### Files: `file_picker` and `accept`
+
+A `file_picker` is an attachment on the website: a PDF sample, a press kit, a price list, a track. In the builder it is a picker, not an address box: the creator uploads the file (it goes to their Storelib storage and is checked like every public file), or pastes a link to one that lives elsewhere. Either way the setting holds the file's public URL.
+
+`accept` says what the setting takes, so the picker offers only those files and says which in words ("Upload or drop a PDF"). Each entry is a kind or an extension:
+
+| Kind | Takes |
+| --- | --- |
+| `pdf` | .pdf |
+| `document` | .pdf, .doc, .docx, .odt, .rtf, .txt, .md |
+| `spreadsheet` | .xls, .xlsx, .ods, .csv |
+| `presentation` | .ppt, .pptx, .odp |
+| `archive` | .zip, .rar, .7z, .tar, .gz |
+| `audio` | .mp3, .wav, .m4a, .aac, .flac, .ogg, .aiff |
+| `ebook` | .epub, .mobi, .pdf |
+
+```json
+{ "type": "file_picker", "id": "sample", "label": "Sample", "accept": ["pdf"] }
+{ "type": "file_picker", "id": "kit", "label": "Press kit", "accept": ["document", "archive"] }
+{ "type": "file_picker", "id": "stems", "label": "Stems", "accept": [".zip", ".wav"] }
+```
+
+Without `accept` any file a website may hand out is taken. Whatever `accept` says, a web page, a script or an SVG never is: `"accept": [".html"]` is a validation error. Link to the file with `download` so it saves rather than opening in place when that is what you mean:
+
+```storelib
+{% if settings.sample != "" %}
+  <a href="{{ settings.sample }}" download>{{ settings.link_text | default: "Download the sample" }}</a>
+{% endif %}
+```
+
 An empty value means nothing is chosen yet, so put the element behind `{% if %}`. Give every image a width and height, or an `aspect-ratio`, so nothing moves as it loads.
 
 **In a theme package**, the same settings hold `asset://` and the SHA-256 of the file, and the file travels in `assets/`. An import stores each file in the importing account and writes its new URL back, so on a site a setting is always a URL. See [Sharing themes](/developers/sharing-themes). The `asset` filter passes a URL through, and prints an `asset://` reference as nothing.

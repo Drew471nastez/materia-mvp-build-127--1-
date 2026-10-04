@@ -17,6 +17,7 @@ import { z } from "zod"
 
 import { CONTROL_TYPES, UNSUPPORTED_TYPES, controlFor, holdsValue, resolveControlType } from "../controls/registry"
 import { VIDEO_HOSTS } from "../values"
+import { FILE_KINDS, acceptEntryProblem } from "../file-kinds"
 import { parseCondition } from "../storelib/template"
 import { readLanguageVersion } from "../language"
 import { LIMITS, MAX_BLOCK_DEPTH, SECTION_SCHEMA_VERSION, type Result, type SectionSchema, type ThemeBlockSchema, type ThemeError } from "../types"
@@ -614,6 +615,15 @@ function settingChecks(err: (path: string, message: string) => void, sectionValu
         const hosts = f.accept as unknown
         if (!Array.isArray(hosts) || hosts.length === 0 || !hosts.every((h) => (VIDEO_HOSTS as readonly unknown[]).includes(h))) {
           err(`${p}.accept`, `accept lists the hosts to allow: ${VIDEO_HOSTS.map((h) => `"${h}"`).join(", ")}`)
+        }
+      }
+      /* A file setting may say what it takes: kinds ("pdf", "document") or extensions (".zip"). */
+      if (canonical === "file_picker" && f.accept !== undefined) {
+        const list = f.accept as unknown
+        if (!Array.isArray(list) || list.length === 0) err(`${p}.accept`, `accept lists what the file may be: kinds (${Object.keys(FILE_KINDS).join(", ")}) or extensions like ".pdf"`)
+        else for (const entry of list) {
+          const problem = acceptEntryProblem(entry)
+          if (problem) err(`${p}.accept`, problem)
         }
       }
       if (canonical === "focal_point" && f.image !== undefined) {

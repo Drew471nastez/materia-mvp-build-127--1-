@@ -844,18 +844,6 @@ function FieldControl({
     )
   }
 
-  if (kind === "file_picker") {
-    return (
-      <input
-        type="text"
-        className={"w-full h-8 px-2.5 text-[13px] border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-300"}
-        placeholder={field.placeholder ?? "Paste a file URL"}
-        value={typeof raw === "string" ? raw : ""}
-        onChange={e => onChange(e.target.value)}
-      />
-    )
-  }
-
   if (kind === "radio") {
     const current = typeof raw === "string" ? raw : String(field.default ?? "")
     const opts = field.options ?? []
