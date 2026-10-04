@@ -520,8 +520,8 @@ try {
       const types = (sent?.media ?? []).map((m) => m.type).sort()
       expect(sent?.title === "Testing every attachment" && /Words for the post/.test(sent?.body ?? "") && !!sent?.spaceId, "the POST carries the title, the words and the space", sent && { title: sent.title, spaceId: sent.spaceId })
       expect(["embed", "file", "gif", "image", "link", "video"].every((t) => types.includes(t)) && !!sent?.poll, "and every kind of attachment, and the poll", types)
-      const after = await p.evaluate(() => ({ closed: !!document.querySelector('[data-composer="closed"]'), first: document.querySelector("[data-post]")?.getAttribute("data-post") }))
-      expect(after.closed && after.first === "p-new", "posted: the composer closes and the post is first", after)
+      const after = await p.evaluate(() => ({ closed: !!document.querySelector('[data-composer="closed"]'), order: [...document.querySelectorAll("[data-feed-list] > [data-post]")].map((e) => e.getAttribute("data-post")).slice(0, 3) }))
+      expect(after.closed && after.order.join() === "p-video,p-new,p-intro", "posted: the composer closes and the new post is first under the pinned one", after)
       expect(errors.length === 0, "no page error", errors)
       await p.close()
     }

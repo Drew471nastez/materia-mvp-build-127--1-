@@ -298,7 +298,7 @@ function Screen() {
           communityId={CID}
           slug={community.slug}
           viewer={viewer}
-          initial={{ pinned: [], posts: POSTS, nextCursor: null }}
+          initial={{ pinned: POSTS.filter((p) => p.pinned), posts: POSTS.filter((p) => !p.pinned), nextCursor: null }}
           composer={{ communityId: CID, userId: self.id, me, spaces: spaces.map((s) => ({ id: s.id, name: s.name, kind: s.kind })), fileProductId: null }}
         />
       }
