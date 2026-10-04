@@ -39,7 +39,7 @@ const WEBSITE_TYPES = [
   "Store",
 ]
 
-const GOALS = ["Get leads", "Sell a product", "Book calls", "Build an audience", "Sell memberships", "Showcase work"]
+const GOALS = ["Get leads", "Sell a product", "Book calls", "Build an audience", "Run a community", "Showcase work"]
 
 function Chip({
   active,

@@ -27,6 +27,8 @@ export interface CreatorCard {
 
 export interface MembershipCard {
   id: string
+  /** The membership product it is of: the library tells one sold on its own from a paid community's. */
+  productId?: string | null
   title: string
   cover: string | null
   creator: CreatorCard

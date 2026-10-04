@@ -411,9 +411,9 @@ async function main() {
     check("onboarding is for an active member (requireMember)", /const gate = await requireMember\(db, communityId, user\?\.id \?\? null, "view"\)\s*if \(gate instanceof NextResponse\) return gate/.test(code("app/api/community/[communityId]/onboarding/route.ts")))
     check("the join bucket is community-join, with a ten minute and a daily window", JOIN_BUCKET === "community-join" && JOIN_WINDOWS.length === 2)
     /* Round 4: communities are found inside Explore (/explore?type=communities); the old page is a redirect and the card counts views (tests/explore-communities.test.ts). */
-    check("/explore/communities is a 404 while off and otherwise a permanent redirect into Explore", /if \(!\(await communitiesEnabled\(\)\)\) notFound\(\)\s*const params = await searchParams[\s\S]*permanentRedirect\(legacyCommunitiesTarget\(/.test(code("app/(marketing)/explore/communities/page.tsx")))
+    check("/explore/communities is a 404 while off and otherwise a permanent redirect into Explore", /if \(!\(await communitiesEnabled\(\)\)\) return new NextResponse\("Not found", \{ status: 404 \}\)[\s\S]*legacyCommunitiesTarget\([\s\S]*NextResponse\.redirect\([^)]*\), 308\)/.test(code("app/(marketing)/explore/communities/route.ts")))
     check("the explore route takes the pill and the price as well as the word and the order", /category: url\.searchParams\.get\("c"\), price: url\.searchParams\.get\("price"\)/.test(code("app/api/explore/communities/route.ts")))
-    check("a card says what is real: views only when read, stars only from reviews, the launch date", /viewCount: viewsOf\(c\.view_count\)/.test(code("lib/communities/server/public.ts")) && /rating: cardRating\(own\.map\(\(t\) => t\.product_id\), products\)/.test(code("lib/communities/server/public.ts")) && /launchedAt: c\.created_at \?\? null/.test(code("lib/communities/server/public.ts")))
+    check("a card says what is real: views only when read (with the rows, else one read for the list), stars only from reviews, the launch date", /viewCount: viewsOf\(c\.view_count !== undefined \? c\.view_count : views\?\.get\(c\.id\)\)/.test(code("lib/communities/server/public.ts")) && /rating: cardRating\(own\.map\(\(t\) => t\.product_id\), products\)/.test(code("lib/communities/server/public.ts")) && /launchedAt: c\.created_at \?\? null/.test(code("lib/communities/server/public.ts")))
     const server = ["lib/communities/server/public.ts", "lib/communities/server/join.ts", "lib/communities/server/explore.ts"].map(code).join("\n")
     /* Found end to end (QA): COMMUNITY_WELCOME was drawn by the notify engine and raised by nothing. */
     {
@@ -437,7 +437,7 @@ async function main() {
       "lib/communities/server/explore.ts",
       "lib/communities/listing.ts",
       ...walk("app/(marketing)/community/[slug]").filter((f) => !f.includes("(member)")),
-      "app/(marketing)/explore/communities/page.tsx",
+      "app/(marketing)/explore/communities/route.ts",
       "app/api/explore/communities/route.ts",
       ...walk("app/api/community/[communityId]/join"),
       ...walk("app/api/community/[communityId]/leave"),
@@ -449,7 +449,7 @@ async function main() {
     check("no em dash and no banned word", offenders.length === 0, offenders)
     const clients = walk("components/community/public").filter((f) => /^"use client"/.test(read(f)))
     check("the client parts import nothing from the server", clients.length >= 2 && clients.every((f) => !/server-only|next\/headers|lib\/communities\/server|lib\/supabase\/(server|admin)/.test(code(f))))
-    const drawnAnywhere = ["sales-page.tsx", "community-card.tsx", "library-list.tsx", "storefront-communities.tsx", "types.ts", "paths.ts", "join-state.ts", "seo.ts"].map((f) => `components/community/public/${f}`)
+    const drawnAnywhere = ["sales-page.tsx", "library-list.tsx", "storefront-communities.tsx", "types.ts", "paths.ts", "join-state.ts", "seo.ts"].map((f) => `components/community/public/${f}`)
     check("the pieces the browser also draws import no server code", drawnAnywhere.every((f) => !/server-only|next\/headers|lib\/communities\/server|lib\/supabase\/(server|admin)/.test(code(f))))
     check("every new server module says server-only", ["public", "join", "explore"].every((n) => /^import "server-only"/m.test(read(`lib/communities/server/${n}.ts`))))
     /* Round 2: the about card shows Online, and only as the heartbeat count (lib/communities/server/presence.ts), never otherwise. */

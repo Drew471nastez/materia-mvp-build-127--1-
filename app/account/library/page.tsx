@@ -3,6 +3,9 @@ import { createClient } from "@/lib/supabase/server"
 import { getLibraryDownloads } from "@/lib/library/get-library-downloads"
 import { getLibraryExtras } from "@/lib/library/library-extras"
 import { assembleLibrary } from "@/lib/library/library-view"
+import { libraryMemberships } from "@/lib/library/library-memberships"
+import { communitiesEnabled } from "@/lib/communities/flag"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { LibrarySplashInit } from "@/components/library/splash-init"
 import { LibraryHome } from "@/components/library/library-home"
 import { currentUserForRequest } from "@/lib/auth/request-scope"
@@ -44,11 +47,13 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
     What they own and its files (three waves deep), everything else the
     library shows about those purchases (two waves: orders, reviews and
     sellers, lib/library/library-extras), and the wishlist count, which
-    the empty library points at. None waits for another, so the page waits
-    for the slowest, not the sum. The profile row is the account page's
+    the empty library points at, and the memberships bought on their own
+    (there is no Memberships pill any more: they are rows here,
+    lib/library/library-memberships.ts). None waits for another, so the page
+    waits for the slowest, not the sum. The profile row is the account page's
     now (/account); this page no longer draws the buyer's own face.
   */
-  const [downloads, extras, { count: wishlistCount }] = await Promise.all([
+  const [downloads, extras, { count: wishlistCount }, memberships] = await Promise.all([
     getLibraryDownloads(user.id),
     getLibraryExtras(user.id),
     /* Only what is still on sale, as the wishlist itself lists (app/api/wishlist): an archived or deleted product is not counted. */
@@ -57,6 +62,10 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
       .select("id, products!inner(status)", { count: "exact", head: true })
       .eq("user_id", user.id)
       .eq("products.status", "published"),
+    communitiesEnabled()
+      .catch(() => false)
+      .then((communities) => libraryMemberships(createAdminClient(), user, { communities }))
+      .catch(() => []),
   ])
 
   const { items, creators } = assembleLibrary(downloads, extras)
@@ -71,6 +80,7 @@ export default async function LibraryPage({ searchParams }: LibraryPageProps) {
         purchased={purchase === "success"}
         toReview={items.filter((i) => i.canReview).length}
         wishlistCount={wishlistCount || 0}
+        memberships={memberships}
       />
     </div>
   )

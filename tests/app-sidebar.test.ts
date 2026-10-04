@@ -208,7 +208,8 @@ section("A row is the same size in every state")
      */
     /const REST_WEIGHT = 470/.test(navSource) &&
       /const ACTIVE_WEIGHT = 575/.test(navSource) &&
-      !/weight: \[/.test(readFileSync(join(root, "app/layout.tsx"), "utf8").slice(0, 4000)),
+      /* Inter's own call: Roboto beside it loads one weight on purpose, for community card titles only. */
+      !/Inter\(\{[^}]*weight:/.test(readFileSync(join(root, "app/layout.tsx"), "utf8")),
   )
   check(
     "the transition names the two properties that change, and nothing else",

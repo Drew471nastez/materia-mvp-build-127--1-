@@ -7,8 +7,11 @@
  *
  *   SHAPE     a sheet on the phone's bottom edge, full width; a dialog in
  *             the middle of a computer's window, at most 520px wide
- *   ROWS      three answers, each with its drawing, its name and one line;
- *             every row at least 56px tall, nothing scrolls sideways
+ *   ROWS      a digital product and a video course, and Paid community
+ *             only while communities are switched on; never Membership
+ *             (memberships are communities now). Each with its drawing,
+ *             its name and one line; every row at least 56px tall, nothing
+ *             scrolls sideways
  *   MOTION    the phone's sheet rises, every frame higher than
  *             the last, at a 4x slower CPU; the longest gap between frames
  *             is reported
@@ -16,12 +19,12 @@
  *             Home move it; Escape closes and the focus is back on New product
  *   ANSWERS   Digital product and Video course open their editors
  *             (/app/products/new?type=digital, ?type=course) by the router;
- *             Membership makes its draft first, then opens its screen on
- *             Settings; both editors were fetched ahead when it opened
- *   FAILURE   a membership that could not be made says so in the sheet,
- *             which stays
- *   PAGE      /app/products/new with no kind: the same three, and a pick
+ *             Paid community opens /app/community/new; nothing is posted
+ *             anywhere by a pick; both editors were fetched ahead
+ *   PAGE      /app/products/new with no kind: the same answers, and a pick
  *             replaces the page with its editor
+ *
+ * At 390x844 and 1440x900, with communities off and on.
  *
  *   PROBE_CSS=source node scripts/check-new-product.mjs
  */
@@ -72,19 +75,16 @@ await build({
 })
 const js = readFileSync(join(stubs, "app.js"), "utf8")
 
-/* /api/app/memberships, answered in the page: a draft after 250ms, or the refusal the route gives. */
+/* The communities switch, answered in the page from the hash; anything posted anywhere is written down (nothing should be). */
 const server = `
 window.__posts = []
-window.__membership = "ok"
 const realFetch = window.fetch
 window.fetch = async (input, init) => {
   const url = typeof input === "string" ? input : input.url
-  if (!url.startsWith("/api/app/memberships")) return realFetch(input, init)
-  window.__posts.push(JSON.parse(init.body))
-  await new Promise((r) => setTimeout(r, 250))
   const json = (x, status) => new Response(JSON.stringify(x), { status, headers: { "Content-Type": "application/json" } })
-  if (window.__membership === "fail") return json({ error: "Memberships are not set up on Storelib yet." }, 503)
-  return json({ productId: "m-1" }, 200)
+  if (url.startsWith("/api/platform/flags")) return json({ communities: location.hash.endsWith("-on") }, 200)
+  if (init && init.method && init.method !== "GET") window.__posts.push(url)
+  return realFetch(input, init)
 }
 `
 const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${inter}</style><style>${css}</style><style>body{margin:0;font-family:Inter,system-ui,sans-serif}</style><script>${server}</script></head><body><div id="app"></div><script>${js.replace(/<\/script/gi, "<\\/script")}</script></body></html>`
@@ -133,22 +133,31 @@ const nav = (p) => p.evaluate(() => (window.__nav || []).filter((n) => n.kind !=
 
 for (const [label, vp, phone] of [
   ["phone-390", { width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }, true],
-  ["desktop-1280", { width: 1280, height: 800 }, false],
+  ["desktop-1440", { width: 1440, height: 900 }, false],
 ]) {
-  console.log(`\n${label}`)
+  for (const on of [false, true]) {
+  const tag = `${label}-communities-${on ? "on" : "off"}`
+  const sheet = on ? "sheet-on" : "sheet"
+  const want = on ? "digital,course,community" : "digital,course"
+  console.log(`\n${tag}`)
   /* ── SHAPE, ROWS, MOTION ─────────────────────────────────────────── */
   {
-    const { p, errors } = await openPage(vp)
+    const { p, errors } = await openPage(vp, sheet)
+    /* The switch is read with the page, before New product is pressed (as in the app, where the header has asked already). */
+    await p.waitForFunction(() => performance.now() > 0)
+    await sleep(150)
     const cdp = await p.target().createCDPSession()
     await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 })
     /* Every frame of the opening, from the press. */
     await p.evaluate(() => {
       window.__frames = []
+      window.__rowsSeen = []
       const t0 = performance.now()
       const tick = () => {
         const el = document.querySelector("[data-new-product-chooser]")
         const r = el?.getBoundingClientRect()
         window.__frames.push({ t: performance.now() - t0, top: r ? r.top : null })
+        if (el) window.__rowsSeen.push(el.querySelectorAll("[data-kind]").length)
         if (performance.now() - t0 < 900) requestAnimationFrame(tick)
       }
       requestAnimationFrame(tick)
@@ -168,6 +177,8 @@ for (const [label, vp, phone] of [
     } else {
       expect(seen.length > 0, "MOTION: the dialog is there", { frames: seen.length })
     }
+    const counts = await p.evaluate(() => [...new Set(window.__rowsSeen)])
+    expect(counts.length === 1 && counts[0] === want.split(",").length, "ROWS: the same answers on every frame from the first (no row arrives late)", counts)
     console.log(`        first drawn ${Math.round(first?.t ?? -1)}ms after the press; longest gap between frames ${longest}ms at 4x slower CPU`)
 
     const box = await settled(p)
@@ -185,23 +196,25 @@ for (const [label, vp, phone] of [
         text: b.innerText.replace(/\s+/g, " ").trim(),
       })),
     )
-    expect(rows.map((r) => r.kind).join() === "digital,course,membership", "ROWS: digital, course, membership", rows.map((r) => r.kind))
+    expect(rows.map((r) => r.kind).join() === want, `ROWS: ${want}`, rows.map((r) => r.kind))
+    expect(!rows.some((r) => /membership/i.test(`${r.kind} ${r.text}`)), "ROWS: no Membership anywhere", rows.map((r) => r.text))
     expect(rows.every((r) => r.h >= 56 && r.art), "ROWS: each at least 56px tall, with its drawing", rows.map((r) => r.h))
-    expect(/Digital product/.test(rows[0]?.text) && /Video course/.test(rows[1]?.text) && /Membership/.test(rows[2]?.text), "ROWS: the names and their lines", rows.map((r) => r.text))
+    expect(/Digital product/.test(rows[0]?.text) && /Video course/.test(rows[1]?.text) && (!on || /Paid community/.test(rows[2]?.text)), "ROWS: the names and their lines", rows.map((r) => r.text))
     const title = await p.evaluate(() => document.querySelector("[data-new-product-chooser]")?.innerText.split("\n")[0])
     expect(title === "What are you selling?", "the question", title)
     const fit = await p.evaluate(() => ({ scroll: document.scrollingElement.scrollWidth, width: innerWidth }))
     expect(fit.scroll <= fit.width, "FIT: nothing scrolls sideways", fit)
     const prefetched = await p.evaluate(() => (window.__nav || []).filter((n) => n.kind === "prefetch").map((n) => n.href))
     expect(prefetched.includes("/app/products/new?type=digital") && prefetched.includes("/app/products/new?type=course"), "FAST: both editors fetched ahead when it opened", prefetched)
-    await p.screenshot({ path: join(shots, `${label}-chooser.png`) })
+    await p.screenshot({ path: join(shots, `${tag}-chooser.png`) })
     expect(errors.length === 0, "no errors on the page", errors)
     await p.close()
   }
 
   /* ── KEYS ─────────────────────────────────────────────────────────── */
   if (!phone) {
-    const { p } = await openPage(vp)
+    const { p } = await openPage(vp, sheet)
+    await sleep(150)
     await p.focus("[data-new-product]")
     await p.keyboard.press("Enter")
     await settled(p)
@@ -214,8 +227,8 @@ for (const [label, vp, phone] of [
       await p.keyboard.press(key)
       order.push(await focused())
     }
-    expect(order.join(",") === "digital,course,membership,digital,membership,membership,digital", "KEYS: first answer focused; down, down, down (wraps), up (wraps), End, Home", order)
-    await p.screenshot({ path: join(shots, `${label}-keyboard.png`) })
+    const keysWant = on ? "digital,course,community,digital,community,community,digital" : "digital,course,digital,course,digital,course,digital"
+    expect(order.join(",") === keysWant, "KEYS: first answer focused; down, down, down (wraps), up (wraps), End, Home", order)
     await p.keyboard.press("Escape")
     await sleep(400)
     const after = await p.evaluate(() => ({ open: !!document.querySelector("[data-new-product-chooser]"), opener: document.activeElement?.hasAttribute("data-new-product") }))
@@ -231,63 +244,48 @@ for (const [label, vp, phone] of [
   }
 
   /* ── ANSWERS ──────────────────────────────────────────────────────── */
-  for (const [kind, want] of [
+  for (const [kind, goes] of [
     ["digital", "push /app/products/new?type=digital"],
     ["course", "push /app/products/new?type=course"],
-    ["membership", "push /app/memberships/m-1?tab=settings&new=1"],
+    ...(on ? [["community", "push /app/community/new"]] : []),
   ]) {
-    const { p, errors } = await openPage(vp)
+    const { p, errors } = await openPage(vp, sheet)
+    await sleep(150)
     await p.click("[data-new-product]")
     await settled(p)
     const t0 = await p.evaluate(() => performance.now())
     if (phone) await p.tap(`[data-new-product-chooser] [data-kind="${kind}"]`)
     else await p.click(`[data-new-product-chooser] [data-kind="${kind}"]`)
-    if (kind === "membership") {
-      await sleep(80)
-      const busy = await p.evaluate(() => ({ spinner: !!document.querySelector('[data-kind="membership"][aria-busy="true"]'), open: !!document.querySelector("[data-new-product-chooser]") }))
-      expect(busy.spinner && busy.open, "ANSWERS: Membership says it is setting up while its draft is made", busy)
-    }
-    await p.waitForFunction((w) => (window.__nav || []).some((n) => `${n.kind} ${n.href}` === w), { timeout: 5000 }, want).catch(() => {})
+    await p.waitForFunction((w) => (window.__nav || []).some((n) => `${n.kind} ${n.href}` === w), { timeout: 5000 }, goes).catch(() => {})
     const went = await nav(p)
-    const at = await p.evaluate((w) => (window.__nav || []).find((n) => `${n.kind} ${n.href}` === w)?.at ?? null, want)
+    const at = await p.evaluate((w) => (window.__nav || []).find((n) => `${n.kind} ${n.href}` === w)?.at ?? null, goes)
     const posts = await p.evaluate(() => window.__posts.length)
-    expect(went.length === 1 && went[0] === want && (kind === "membership" ? posts === 1 : posts === 0), `ANSWERS: ${kind} opens ${want.slice(5)}`, { went, posts, ms: at === null ? null : Math.round(at - t0) })
+    expect(went.length === 1 && went[0] === goes && posts === 0, `ANSWERS: ${kind} opens ${goes.slice(5)}, nothing posted`, { went, posts, ms: at === null ? null : Math.round(at - t0) })
     expect(errors.length === 0, "no errors on the page", errors)
-    await p.close()
-  }
-
-  /* ── FAILURE ──────────────────────────────────────────────────────── */
-  {
-    const { p } = await openPage(vp)
-    await p.evaluate(() => (window.__membership = "fail"))
-    await p.click("[data-new-product]")
-    await settled(p)
-    await p.click('[data-new-product-chooser] [data-kind="membership"]')
-    await p.waitForSelector("[data-new-product-chooser] [role=alert]", { timeout: 3000 }).catch(() => {})
-    const state = await p.evaluate(() => ({ alert: document.querySelector("[data-new-product-chooser] [role=alert]")?.textContent, open: !!document.querySelector("[data-new-product-chooser]"), went: (window.__nav || []).filter((n) => n.kind !== "prefetch").length }))
-    expect(state.open && /not set up/.test(state.alert || "") && state.went === 0, "FAILURE: the reason in the sheet, which stays, and nothing opens", state)
-    await p.screenshot({ path: join(shots, `${label}-membership-failed.png`) })
     await p.close()
   }
 
   /* ── PAGE ─────────────────────────────────────────────────────────── */
   {
-    const { p, errors } = await openPage(vp, "page")
+    const { p, errors } = await openPage(vp, on ? "page-on" : "page")
     await p.waitForSelector("[data-kind-page] [data-kind]")
+    await sleep(150)
     const page = await p.evaluate(() => ({
       title: document.querySelector("[data-kind-page] h1")?.textContent,
       kinds: [...document.querySelectorAll("[data-kind-page] [data-kind]")].map((b) => b.getAttribute("data-kind")),
       focus: document.activeElement?.getAttribute("data-kind") ?? null,
       scroll: document.scrollingElement.scrollWidth,
     }))
-    expect(page.title === "What are you selling?" && page.kinds.join() === "digital,course,membership" && page.scroll <= vp.width, "PAGE: the same question and three answers", page)
+    expect(page.title === "What are you selling?" && page.kinds.join() === want && page.scroll <= vp.width, "PAGE: the same question and answers", page)
     if (!phone) expect(page.focus === "digital", "PAGE: the first answer has the focus on a computer", page.focus)
-    await p.screenshot({ path: join(shots, `${label}-page.png`) })
-    await p.click('[data-kind-page] [data-kind="course"]')
+    await p.screenshot({ path: join(shots, `${tag}-page.png`) })
+    await p.click(`[data-kind-page] [data-kind="${on ? "community" : "course"}"]`)
     await sleep(200)
-    expect((await nav(p)).join() === "replace /app/products/new?type=course", "PAGE: a pick replaces the page with its editor", await nav(p))
+    const replaced = on ? "replace /app/community/new" : "replace /app/products/new?type=course"
+    expect((await nav(p)).join() === replaced, `PAGE: a pick replaces the page with where it goes (${replaced.slice(8)})`, await nav(p))
     expect(errors.length === 0, "no errors on the page", errors)
     await p.close()
+  }
   }
 }
 

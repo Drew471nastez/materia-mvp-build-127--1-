@@ -275,7 +275,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
       children: [
         { href: "/app/coupons", label: "Coupons" },
         { href: "/app/reviews", label: "Reviews" },
-        { href: "/app/memberships", label: "Memberships" },
+        /* No Memberships row: memberships are communities now (Community, below, while the switch is on). A creator's existing ones still open at /app/memberships. */
       ],
     },
     ...communityItem,

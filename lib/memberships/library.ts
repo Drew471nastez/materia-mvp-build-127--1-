@@ -79,6 +79,7 @@ export async function loadLibraryMemberships(admin: Db, viewer: Viewer): Promise
     const c = counts.get(r.id)
     return {
       id: r.id,
+      productId: r.product_id,
       title: product?.title || r.title || "Membership",
       cover: product?.thumbnail_url ?? null,
       creator: (r.creator_id && creators.get(r.creator_id)) || { id: r.creator_id, name: "Creator", avatarUrl: null, handle: null },
