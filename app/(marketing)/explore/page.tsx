@@ -6,6 +6,7 @@ import { EMPTY_INTERESTS, type Interests } from "@/lib/explore/interests"
 import { readInterests } from "@/lib/explore/read-interests"
 import { ExplorePageClient } from "@/components/explore/explore-page-client"
 import { FeaturedCategoriesSection } from "@/components/explore/featured-categories-section"
+import { VALID_SUBCATEGORY_IDS } from "@/lib/marketplace/categories"
 import { MostPopularSection } from "@/components/explore/most-popular-section"
 import { jsonLdScript } from "@/lib/seo/json-ld"
 import { STORELIB_OG_IMAGE, storelibAssetUrl } from "@/lib/brand/logo"
@@ -96,10 +97,10 @@ async function personalizationOn(
 export default async function ExplorePage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; category?: string; c?: string; type?: string; srt?: string }>
+  searchParams: Promise<{ q?: string; category?: string; c?: string; sub?: string; type?: string; srt?: string }>
 }) {
   // Safely get search params
-  let params: { q?: string; category?: string; c?: string; type?: string; srt?: string } = {}
+  let params: { q?: string; category?: string; c?: string; sub?: string; type?: string; srt?: string } = {}
   try {
     params = await searchParams
   } catch {
@@ -136,10 +137,12 @@ export default async function ExplorePage({
   const initialDiscoverMode = discoverModeFor({ communitiesOn, type: params?.type ?? null, cookie: cookieMode })
   const communityResultsPromise: Promise<CommunityCard[]> =
     communitiesOn && searchQuery && initialDiscoverMode === "products" ? exploreCommunities({ q: searchQuery, limit: 3 }).then((p) => p.items).catch(() => []) : Promise.resolve([])
+  /* A subcategory from the More picker, inside its category: communities are found by its parent narrowed by its words (lib/communities/server/explore.ts). */
+  const sub = category !== "all" && params?.sub && VALID_SUBCATEGORY_IDS.includes(params.sub) ? params.sub : null
   const firstCommunitiesPromise: Promise<CommunitiesFirstPage | null> =
     initialDiscoverMode === "communities"
-      ? exploreCommunities({ q: searchQuery, category, sort: communityServerSort(params?.srt) })
-          .then((p) => ({ query: communitiesQuery({ q: searchQuery, category, srt: params?.srt ?? null }), items: p.items, next: p.next }))
+      ? exploreCommunities({ q: searchQuery, category, sub, sort: communityServerSort(params?.srt) })
+          .then((p) => ({ query: communitiesQuery({ q: searchQuery, category, sub, srt: params?.srt ?? null }), items: p.items, next: p.next, broadened: p.broadened === true }))
           .catch(() => null)
       : Promise.resolve(null)
 
