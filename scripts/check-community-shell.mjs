@@ -443,7 +443,7 @@ export const isNativePlatform = () => false
         const small = await smallTargets(p)
         expect(small.length === 0, "every control is at least 40px tall", small.slice(0, 8))
         const track = await p.evaluate(() => {
-          const t = document.querySelector("[data-community-tabs] > div")
+          const t = document.querySelector("[data-community-tabs-track]") || document.querySelector("[data-community-tabs] > div")
           return { scrolls: t.scrollWidth > t.clientWidth, w: t.clientWidth }
         })
         expect(track.scrolls, "on a phone the tabs scroll sideways inside their row", track)
