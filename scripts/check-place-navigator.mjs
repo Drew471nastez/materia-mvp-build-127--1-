@@ -195,7 +195,8 @@ const monotonicDown = (s) => {
 const shot = async (p, opts) => { await p.screenshot({ ...opts, path: undefined }); await p.screenshot(opts) }
 
 /* The visible one of several matches (the header draws a phone row and a computer row; one is display: none). */
-const clickVisible = async (p, sel) => {
+/* The pointer arrives first and the press comes a moment later, as a hand does; the frames sampled are the press's. */
+const clickVisible = async (p, sel, { hoverFirst = false } = {}) => {
   const pt = await p.evaluate((sel) => {
     const el = [...document.querySelectorAll(sel)].find((e) => e.getBoundingClientRect().width > 0)
     if (!el) return null
@@ -203,6 +204,10 @@ const clickVisible = async (p, sel) => {
     return { x: r.left + r.width / 2, y: r.top + r.height / 2 }
   }, sel)
   if (!pt) throw new Error(`nothing visible for ${sel}`)
+  if (hoverFirst) {
+    await p.mouse.move(pt.x, pt.y)
+    await sleep(300)
+  }
   await p.mouse.click(pt.x, pt.y)
 }
 const throttle = async (p, rate) => { const c = await p.target().createCDPSession(); await c.send("Emulation.setCPUThrottlingRate", { rate }); return c }
@@ -241,10 +246,8 @@ console.log("\ncomputer 1440, Explore, signed in buyer: the bar")
   console.log("\n  the navigator opens, CPU slowed 4x")
   const cdp = await throttle(p, 4)
   await startSampling(p, NAV_PANEL)
-  if (process.env.PROFILE) await p.tracing.start({ path: "/tmp/claude-0/-home-user-DREW/4149d236-7d9f-55de-bc3e-49a9513a374e/scratchpad/c3head/trace.json", categories: ["devtools.timeline", "disabled-by-default-devtools.timeline", "v8.execute", "blink.user_timing"] })
   await p.click("[data-place-navigator-trigger]")
   await sleep(700)
-  if (process.env.PROFILE) await p.tracing.stop()
   let s = await stopSampling(p)
   await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
   const firstSeen = s.find((x) => x.present)
@@ -414,9 +417,13 @@ console.log("\nthe bell")
   const BELL = "[data-notification-bell]"
   const bell = () => clickVisible(p, BELL)
   const PANEL = '[data-notification-panel="popover"]'
+  const kept = await p.evaluate((sel) => { const b = document.querySelector(sel); return b ? { visibility: getComputedStyle(b).visibility, inert: b.hasAttribute("inert") } : null }, PANEL)
+  expect(kept && kept.visibility === "hidden" && kept.inert, "built while the page was idle, before any click: in the page, invisible and inert", kept)
   const cdp = await throttle(p, 4)
+  await p.mouse.move(1300, 30)
+  await sleep(300)
   await startSampling(p, PANEL)
-  await bell()
+  await clickVisible(p, BELL, { hoverFirst: true })
   await sleep(900)
   let s = await stopSampling(p)
   await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
@@ -427,7 +434,9 @@ console.log("\nthe bell")
   console.log(`        frames while opening: ${JSON.stringify(motionGaps(s))} (ms: the frame that builds it, then the longest during the fade), ${s.length} frames`)
   if (process.env.DEBUG_FRAMES) console.log(s.map((x, i) => i ? `${Math.round(x.t - s[i - 1].t)}${x.present ? ":" + x.opacity.toFixed(2) : ""}` : "").join(" "))
   const props = await p.evaluate((sel) => getComputedStyle(document.querySelector(sel)).transitionProperty, PANEL)
-  expect(props === "opacity, translate, scale", "it moves by opacity, translate and scale only", props)
+  expect(props === "opacity, translate, scale", "it moves by opacity, translate and scale only (visibility only flips, at the end of the way out)", props)
+  const panels = await p.evaluate(() => document.querySelectorAll("[data-notification-panel]").length)
+  expect(panels === 1, "one list in the page: the hidden phone row's bell builds none", panels)
   const pics = await p.evaluate(() => [...(window.__imgs ?? new Map()).entries()].map(([src, v]) => ({ src: decodeURIComponent(src), ...v })))
   expect(pics.length >= 2 && pics.every((x) => x.src.startsWith("/_next/image?url=https://abc.supabase.co") && x.loading === "lazy"), "every picture is asked for through the optimizer, lazily", pics)
   expect(pics.every((x) => /&w=96&/.test(x.src) && x.box === 40), "at its drawn size: 40px boxes ask for 96px files (2x, the next size the optimizer has)", pics.map((x) => [x.box, x.src.match(/&w=(\d+)/)?.[1]]))
@@ -441,7 +450,7 @@ console.log("\nthe bell")
   s = await stopSampling(p)
   await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
   const m = monotonicDown(s)
-  expect(m.ok, "it fades out without snapping back, then leaves the page", m)
+  expect(m.ok, "it fades out without snapping back, then is hidden", m)
   console.log(`        longest frame while closing: ${gaps(s)}ms`)
 
   console.log("\n  a click outside")
@@ -460,7 +469,7 @@ console.log("\nthe bell")
   await sleep(500)
   await p.click("[data-header-avatar]")
   await sleep(700)
-  const both = await p.evaluate((sel) => ({ bell: !!document.querySelector(sel), menu: !!document.querySelector("[data-account-menu]") }), PANEL)
+  const both = await p.evaluate((sel) => { const b = document.querySelector(sel); return { bell: !!b && getComputedStyle(b).visibility !== "hidden", menu: !!document.querySelector("[data-account-menu]") } }, PANEL)
   expect(!both.bell && both.menu, "a click on the photo while it is open closes it and opens the photo's menu (nothing swallows the click)", both)
   await p.keyboard.press("Escape")
   await sleep(500)
@@ -468,7 +477,7 @@ console.log("\nthe bell")
   await sleep(500)
   await p.keyboard.press("Escape")
   await sleep(700)
-  expect(!(await p.$(PANEL)), "Escape closes it")
+  expect(await p.evaluate((sel) => { const b = document.querySelector(sel); return !b || (getComputedStyle(b).visibility === "hidden" && b.hasAttribute("inert")) }, PANEL), "Escape closes it")
   await p.close()
 }
 
@@ -504,6 +513,24 @@ for (const hash of ["path=/explore&who=buyer", "path=/explore&who=guest", "mode=
     if (hash.includes("community")) expect(sheet.rows.find((r) => r.current)?.text === "Mara Club", `${tag}: Mara Club marked`)
     if (hash.includes("guest")) expect(sheet.rows.map((r) => r.text).join(" | ") === "Explore | Discover communities | Log in | Start creating", `${tag}: the signed out rows`, sheet.rows.map((r) => r.text))
   }
+  await p.close()
+}
+
+/* ------------------------------------------------------------------ */
+console.log("\nphone 390: the account sheet from the photo has the computer menu's rows")
+for (const who of ["buyer", "seller"]) {
+  const p = await open(PHONE, `path=/explore&who=${who}`)
+  await p.tap('button[aria-label="Open profile menu"]')
+  await sleep(800)
+  const rows = await p.evaluate(() => {
+    const sheet = document.querySelector("[data-app-sheet] [data-account-sheet]")?.closest("[data-sheet-panel]")
+    if (!sheet) return null
+    return [...sheet.querySelectorAll("[data-account-item]")].map((e) => ({ item: e.getAttribute("data-account-item"), href: e.getAttribute("href"), text: e.textContent.trim(), h: Math.round(e.getBoundingClientRect().height) }))
+  })
+  await shot(p, { path: join(shots, `phone-390-account-${who}.png`) })
+  const want = [who === "seller" ? ["dashboard", "/app"] : ["start-creating", "/sell"], ["profile", "/account"], ["settings", "/account/settings"], ["language", null], ["help", "/help"], ["discover", "/explore"], ["log-out", null]]
+  expect(rows && JSON.stringify(rows.map((r) => [r.item, r.href])) === JSON.stringify(want), `${who}: ${want.map((x) => x[0]).join(", ")}, and no My Library`, rows?.map((r) => [r.item, r.href]))
+  expect(rows && rows.every((r) => r.h >= 44), `${who}: every row at least 44px`, rows?.map((r) => r.h))
   await p.close()
 }
 
