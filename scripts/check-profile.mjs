@@ -151,8 +151,13 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
         const cover = r("[data-profile-cover]")
         const avatar = r("[data-profile-header] [data-slot=avatar], [data-profile-header] span[class*='rounded-full']")
         const name = r("[data-profile-name]")
+        const ring = document.querySelector("[data-profile-header] [class*='ring-2']")
         return {
-          cover: cover && { top: Math.round(cover.top), bottom: Math.round(cover.bottom) },
+          cover: cover && { top: Math.round(cover.top), bottom: Math.round(cover.bottom), left: Math.round(cover.left), w: Math.round(cover.width), h: Math.round(cover.height), radius: getComputedStyle(document.querySelector("[data-profile-cover]")).borderTopLeftRadius },
+          win: innerWidth,
+          ring: ring ? getComputedStyle(ring).boxShadow : null,
+          joined: /Joined/.test(document.querySelector("[data-profile-header]")?.textContent || ""),
+          ownerControls: !!document.querySelector("[data-profile-cover-actions]"),
           avatar: avatar && { top: Math.round(avatar.top), bottom: Math.round(avatar.bottom), cx: Math.round(avatar.left + avatar.width / 2), w: Math.round(avatar.width) },
           nameCx: name ? Math.round(name.left + name.width / 2) : null,
           back: (() => { const b = r("[data-profile-back-button]"); return b && { top: Math.round(b.top), h: Math.round(b.height) } })(),
@@ -163,6 +168,8 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
           col: (() => { const m = r("[data-member-profile]"); return m && Math.round(m.left + m.width / 2) })(),
         }
       })
+      expect(!!geo.cover && geo.cover.left === 0 && geo.cover.w === geo.win && geo.cover.radius === "0px" && geo.cover.h === (phone ? 128 : 256), "the band runs edge to edge, square, the creator page's height", geo.cover)
+      expect(!geo.joined && /0px 0px 0px 2px/.test(geo.ring || "") && !geo.ownerControls, "no Joined line, a thin 2px ring, no owner controls on somebody else's band", { joined: geo.joined, ring: geo.ring, owner: geo.ownerControls })
       expect(!!geo.avatar && geo.avatar.top < geo.cover.bottom && geo.avatar.bottom > geo.cover.bottom, "the photo straddles the band's lower edge", geo)
       expect(geo.avatar && Math.abs(geo.avatar.w - (phone ? 118 : 134)) <= 1, `the photo is ${phone ? 118 : 134}px (112 / 128 plus five percent)`, geo.avatar?.w)
       expect(Math.abs(geo.nameCx - geo.col) <= 2 && Math.abs(geo.avatar.cx - geo.col) <= 2, "name and photo are centred on the column", { name: geo.nameCx, avatar: geo.avatar?.cx, col: geo.col })
@@ -292,13 +299,21 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       }))
       expect(side.doc <= side.win && errors.length === 0, "nothing sideways, no errors", { side, errors })
       expect(
-        geo.pills.map((x) => x[0]).join() === "Activity,Communities,Library,Edit profile,Settings" && geo.pills[2][1] === "/account/library" && geo.pills[4][1] === "/account/settings?section=account",
-        "the profile center's pills: Activity, Communities, Library, Edit profile, Settings",
+        geo.pills.map((x) => x[0]).join() === "Activity,Communities,Library,Settings" && geo.pills[2][1] === "/account/library" && geo.pills[3][1] === "/account/settings?section=account",
+        "the profile center's pills: Activity, Communities, Library, Settings (Edit profile is on the cover)",
         geo.pills,
       )
       const lit = await p.evaluate(() => document.querySelector("[data-profile-owner-pill][data-active=true]")?.getAttribute("data-profile-owner-pill"))
-      const cover = await p.evaluate(() => document.querySelector("[data-profile-cover-edit]")?.textContent?.trim())
+      const cover = await p.evaluate(() => document.querySelector("[data-profile-cover-edit]")?.getAttribute("aria-label"))
       expect(!geo.follow && geo.onlyYou && !geo.back && lit === "activity" && cover === "Add cover", "no Follow, the only-you line, no back bar, Activity lit, Add cover on the band", { ...geo, lit, cover })
+      const band = await p.evaluate(() => {
+        const b = (s) => { const r = document.querySelector(s)?.getBoundingClientRect(); return r ? { top: Math.round(r.top), bottom: Math.round(r.bottom), left: Math.round(r.left), right: Math.round(r.right), w: Math.round(r.width), h: Math.round(r.height) } : null }
+        const edit = document.querySelector("[data-profile-edit]")
+        return { cover: b("[data-profile-cover]"), edit: b("[data-profile-edit]"), camera: b("[data-profile-cover-edit]"), href: edit?.getAttribute("href"), text: edit?.textContent?.trim(), win: innerWidth, joined: /Joined/.test(document.querySelector("[data-profile-header]")?.textContent || "") }
+      })
+      expect(band.cover.left === 0 && band.cover.w === band.win, "/@me: the same edge to edge band as /account", band.cover)
+      expect(band.text === "Edit profile" && band.href === "/account/settings" && band.edit.h === 40 && band.edit.top >= band.cover.top && band.edit.bottom <= band.cover.bottom && band.camera.right <= band.edit.left && band.camera.h === 40, "Edit profile on the cover with the camera button beside it, both 40px", band)
+      expect(!band.joined, "no Joined line", band.joined)
       if (phone) {
         expect(geo.pillsOverflow === true, "on a phone the pills scroll sideways inside their row", geo.pillsOverflow)
         const small = await smallTargets(p, "[data-profile-owner-pills], [data-profile-social]")
@@ -306,6 +321,29 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       }
       await p.close()
     }
+    }
+
+    /* The creator page's tabs, from the function the page itself builds them with (components/profile/creator-communities-tab.tsx). */
+    for (const which of ["creator", "creator-none"]) {
+      if (!profiles) break
+      console.log(`\n${label}: ${which}, the tabs`)
+      const { p, errors } = await open(vp, which)
+      const tabs = await p.evaluate(() => [...document.querySelectorAll("[role=tab]")].map((t) => t.textContent.trim()))
+      expect(errors.length === 0 && tabs.join() === "Home,Communities,About", "Home, Communities and About: no Activity tab on a creator page", { tabs, errors })
+      await p.evaluate(() => [...document.querySelectorAll("[role=tab]")].find((t) => t.textContent.trim() === "Communities").click())
+      await frames(p, 3)
+      await p.evaluate(() => document.querySelector("[role=tablist]")?.scrollIntoView())
+      await p.screenshot({ path: join(shots, `${label}-${which}-communities.png`) })
+      const panel = await p.evaluate(() => ({
+        cards: document.querySelectorAll("[data-storefront-communities] > li").length,
+        names: [...document.querySelectorAll("[data-storefront-communities] > li")].map((li) => (li.textContent || "").slice(0, 40)),
+        empty: [...document.querySelectorAll("[data-panel-spacing]")].map((e) => e.innerText.replace(/\s+/g, " ").trim()).find((t) => /No communities yet/.test(t)) ?? null,
+        side: document.documentElement.scrollWidth - innerWidth,
+      }))
+      if (which === "creator") expect(panel.cards === 1 && /Clay Studio/.test(panel.names[0] || "") && !panel.empty, "Communities lists only the one they made, not the one they joined", panel)
+      else expect(panel.cards === 0 && panel.empty === "No communities yet This creator hasn't opened any yet.", "none made: the No communities yet panel", panel)
+      expect(panel.side <= 0, "nothing sideways", panel.side)
+      await p.close()
     }
 
     for (const which of ["creator", "creator-dark", "creator-noback", "creator-nobar"]) {

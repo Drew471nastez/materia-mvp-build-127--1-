@@ -1,5 +1,6 @@
 import { WishlistSkeleton } from "@/components/wishlist/wishlist-skeleton"
 import { isLibraryProduct, libraryTabs } from "./library-tab-list"
+import { LIBRARY_TITLE, LIBRARY_TITLE_GAP } from "./library-ui"
 import { LIBRARY_COURSES, LIBRARY_HOME, LIBRARY_MEMBERSHIPS, LIBRARY_RECEIPTS, LIBRARY_REVIEWS, LIBRARY_WISHLIST } from "@/lib/library/paths"
 
 export { WishlistSkeleton }
@@ -211,6 +212,8 @@ export function ProductDetailSkeleton() {
 export function TabsHeaderStill({ active }: { active: string }) {
   return (
     <div className="mb-5 sm:mb-6" aria-hidden>
+      {/* The page's title, where the live head draws it (library-tabs.tsx), so coming back to the list moves nothing. */}
+      <p className={`${LIBRARY_TITLE} ${LIBRARY_TITLE_GAP}`}>Library</p>
       <div className="-mx-4 overflow-hidden px-4 py-0.5 sm:mx-0 sm:px-0">
         <div className="flex w-max items-center gap-2">
           {libraryTabs().map((t) => (

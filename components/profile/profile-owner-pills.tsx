@@ -5,8 +5,9 @@
  *  YOUR OWN PROFILE, AND THE PLACES YOU GO FROM IT
  * ===========================================================================
  * Only on your own profile, where somebody else would see Follow: Activity,
- * Communities (while communities are on), Library, Edit profile and
- * Settings (lib/profile/owner-pills.ts), as the Library's pills: white on a
+ * Communities (while communities are on), Library and Settings
+ * (lib/profile/owner-pills.ts; Edit profile is a button on the cover now),
+ * as the Library's pills: white on a
  * hairline, the one you are on pressed in on a grey fill, a row that scrolls
  * sideways on a narrow phone rather than wrapping into a block.
  *
@@ -17,7 +18,7 @@
  * before any script has loaded.
  */
 import Link from "next/link"
-import { usePathname, useSearchParams } from "next/navigation"
+import { usePathname } from "next/navigation"
 import { useEffect, useState } from "react"
 import { ownerPillFor, ownerPillLinks, type OwnerPillKey } from "@/lib/profile/owner-pills"
 import { cn } from "@/lib/utils"
@@ -34,9 +35,7 @@ const PILL =
 
 export function ProfileOwnerPills({ communities, active: fixed, className }: { communities: boolean; active?: OwnerPillKey | null; className?: string }) {
   const pathname = usePathname()
-  /* Edit profile and Settings are one page, told apart by ?section= (app/account/settings). Every page that draws these is dynamic, so this needs no Suspense of its own. */
-  const section = useSearchParams()?.get("section") ?? null
-  const fromPath = fixed ?? ownerPillFor(pathname, section)
+  const fromPath = fixed ?? ownerPillFor(pathname)
   const [pressed, setPressed] = useState<OwnerPillKey | null>(null)
   useEffect(() => setPressed(null), [fromPath])
   const active = pressed ?? fromPath

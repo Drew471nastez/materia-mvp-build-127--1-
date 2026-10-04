@@ -17,7 +17,7 @@ import { AccountHub, type AccountIdentity } from "@/components/account/account-h
 import { AccountNavFade } from "@/components/account/account-nav-fade"
 import { AccountSkeleton } from "@/components/account/account-skeleton"
 import { LibraryBgFix } from "@/components/library/library-bg-fix"
-import { ACCOUNT_GUTTER_LEFT, ACCOUNT_GUTTER_RIGHT } from "@/lib/account/account-tabs"
+import { AccountColumn } from "@/components/account/account-column"
 import { communitiesEnabled } from "@/lib/communities/flag"
 import { followCounts } from "@/lib/profile/follows"
 import { ownCover } from "@/lib/profile/member-profile-data"
@@ -48,12 +48,6 @@ async function readBio(userId: string): Promise<string | null> {
   }
 }
 
-/** "March 2025", in UTC, so the server's words and the browser's are the same words. */
-function memberSince(createdAt: string | undefined): string {
-  const d = new Date(createdAt || "")
-  return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" })
-}
-
 /**
  * ===========================================================================
  *  THE PROFILE CENTER: YOUR OWN PAGE, AND EVERYTHING THAT IS YOURS
@@ -70,12 +64,13 @@ function memberSince(createdAt: string | undefined): string {
  *   /account/settings           Edit profile and Settings
  *
  * The platform header, a main column, the footer and the phone's tab bar,
- * as every buyer page draws them. Inside the column, the person's header
- * (components/profile/profile-hero.tsx, the one /@handle draws) and the
- * pills, from components/account/account-hub.tsx, which stands aside on
- * Settings and on one purchase, course or membership opened from the
- * library. In the layout, so the person stays put while the page under
- * them changes.
+ * as every buyer page draws them. Over Activity and Communities, the
+ * person's header (components/profile/profile-hero.tsx, the one /@handle
+ * draws, its cover edge to edge) and the pills, from components/account/
+ * account-hub.tsx, which also draws the profile's column under them
+ * (components/account/account-column.tsx). It stands aside on Settings and
+ * on the whole library, each a page of its own with its own title. In the
+ * layout, so the person stays put while the page under them changes.
  *
  * SIGNED OUT, EACH PAGE SENDS TO SIGN IN WITH ITS OWN ADDRESS. A layout is
  * not told which of its pages is being opened, so it cannot say where to
@@ -118,7 +113,6 @@ export default async function AccountLayout({ children }: { children: React.Reac
         name: profile?.display_name || user.user_metadata?.full_name || user.user_metadata?.name || "",
         username: username || null,
         avatarUrl: profile?.avatar_url || null,
-        memberSince: memberSince(user.created_at),
         bio,
         coverUrl: cover,
         followers: counts.followers,
@@ -134,21 +128,16 @@ export default async function AccountLayout({ children }: { children: React.Reac
       <LibraryBgFix />
       <ConditionalHeader initialWishlistCount={initialWishlistCount} onPlatformDomain={onPlatformDomain} buyerHeaderLight={buyerHeaderLight} />
       <main className="flex-1 overflow-x-hidden supports-[scrollbar-gutter:stable]:scrollbar-gutter-stable">
-        {/* The profile's own width, the one /@handle draws at, with the room the library always had under the header. */}
-        <div
-          className="mx-auto w-full max-w-[960px] pt-4 pb-10 sm:pt-6"
-          style={{ paddingLeft: ACCOUNT_GUTTER_LEFT, paddingRight: ACCOUNT_GUTTER_RIGHT }}
-        >
-          <AccountNavFade>
-            {identity ? (
-              <AccountHub identity={identity} communities={communities}>
-                {children}
-              </AccountHub>
-            ) : (
-              children
-            )}
-          </AccountNavFade>
-        </div>
+        {/* The profile's own width, the one /@handle draws at: drawn by the hub, under a cover that runs edge to edge. */}
+        <AccountNavFade>
+          {identity ? (
+            <AccountHub identity={identity} communities={communities}>
+              {children}
+            </AccountHub>
+          ) : (
+            <AccountColumn>{children}</AccountColumn>
+          )}
+        </AccountNavFade>
       </main>
       <div className="relative isolate">
         <Suspense fallback={null}>

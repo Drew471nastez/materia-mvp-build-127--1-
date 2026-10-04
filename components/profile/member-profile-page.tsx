@@ -6,9 +6,9 @@
  * page STRUCTURE as a creator page, without the selling parts". So the
  * order is the creator page's:
  *
- *   THE HEADER   a band (their cover when they have one), the photo across
- *                its lower edge, the name, @handle and when they joined,
- *                the bio, then followers / following and the buttons:
+ *   THE HEADER   a band edge to edge (their cover when they have one), the
+ *                photo across its lower edge, the name, @handle, the bio,
+ *                then followers / following and the buttons:
  *                Follow, and Message where the two of them share a
  *                community that allows it.
  *   YOUR OWN     the same page /account is (components/account/account-
@@ -208,25 +208,25 @@ export function MemberProfilePage({ profile, viewerId, viewerFollowing, extras }
       {/* The way back, in a bar of its own next to the person, when they came from a community, Explore or search. */}
       <ProfileTopBar initiallyShown={extras.backShown} name={profile.name} avatarUrl={profile.avatarUrl} />
 
-      <div className="mx-auto w-full max-w-[960px] px-4 pt-4 sm:px-6 sm:pt-6 lg:px-0">
-        <ProfileHero
-          person={{
-            userId: profile.userId,
-            name: profile.name,
-            username: profile.username,
-            avatarUrl: profile.avatarUrl,
-            coverUrl: profile.coverUrl,
-            bio: profile.bio,
-            memberSince: profile.memberSince,
-            followers: profile.followers,
-            following: profile.following,
-          }}
-          viewerFollowing={viewerFollowing}
-          signedIn={!!viewerId}
-          isSelf={isSelf}
-          messageHref={extras.messageHref}
-        />
+      {/* The band runs the window's whole width, as a creator page's does; the person and the tabs keep the profile's column. */}
+      <ProfileHero
+        person={{
+          userId: profile.userId,
+          name: profile.name,
+          username: profile.username,
+          avatarUrl: profile.avatarUrl,
+          coverUrl: profile.coverUrl,
+          bio: profile.bio,
+          followers: profile.followers,
+          following: profile.following,
+        }}
+        viewerFollowing={viewerFollowing}
+        signedIn={!!viewerId}
+        isSelf={isSelf}
+        messageHref={extras.messageHref}
+      />
 
+      <div className="mx-auto w-full max-w-[960px] px-4 sm:px-6 lg:px-0">
         {isSelf ? (
           /* Your own page is /account's page: the pills to your places, and your activity under them. */
           <>

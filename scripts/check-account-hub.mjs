@@ -123,13 +123,16 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
   }
 
   const layout = (p) => p.evaluate(() => {
-    const column = document.querySelector("[data-probe-account-column]")
+    /* The profile's own column (components/account/account-column.tsx); the cover runs edge to edge outside it (round 5). */
+    const column = document.querySelector("[data-account-column]") || document.querySelector("[data-probe-account-column]")
+    const cover = document.querySelector("[data-profile-cover]")
     const controls = [...column.querySelectorAll("a, button, input, textarea")].filter((el) => {
       const r = el.getBoundingClientRect()
       return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== "hidden"
     })
     const header = document.querySelector("[data-probe-header]")
-    const top = column.firstElementChild.getBoundingClientRect()
+    /* Under the header: the cover, which starts right there, or the page's own first line. */
+    const top = (cover || column.firstElementChild).getBoundingClientRect()
     const mid = (el) => { const r = el.getBoundingClientRect(); return Math.round((r.left + r.right) / 2) }
     const profile = document.querySelector("[data-profile-hero]")
     return {
@@ -152,7 +155,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       ownBar: !!document.querySelector("[data-account-bar]"),
       gap: Math.round(top.top - header.getBoundingClientRect().bottom),
       hasProfile: !!profile,
-      edit: !!document.querySelector('[data-profile-owner-pill="edit"]'),
+      edit: !!document.querySelector('[data-profile-edit]'),
       sections: [...document.querySelectorAll("[data-account-section]")].map((t) => `${t.getAttribute("data-account-section")}${t.getAttribute("aria-current") ? "*" : ""}`),
       pillHeight: (() => { const t = document.querySelector("[data-account-section]"); return t ? Math.round(t.getBoundingClientRect().height) : null })(),
       centre: profile
@@ -171,7 +174,9 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       expect(l.sideways <= 0 && l.out.length === 0, `${path}: nothing sideways, nothing off the edge`, { sideways: l.sideways, out: l.out })
       expect(l.small.length === 0, `${path}: every control 36px or taller`, l.small)
       expect(l.headers === 1 && !l.ownBar, `${path}: the site header, and no bar of the profile's own over it`, { headers: l.headers, ownBar: l.ownBar })
-      expect(l.gap === PHONE_GAP, `${path}: the profile's ${PHONE_GAP}px under the header on a phone`, l.gap)
+      /* Round 5: the profile's cover runs edge to edge right under the header; a page without the person keeps its 16px. */
+      const want = l.hasProfile ? 0 : PHONE_GAP
+      expect(l.gap === want, `${path}: ${want ? `${want}px under the header` : "the cover starts right under the header"} on a phone`, l.gap)
       expect(l.avatars === 1, `${path}: one face on the screen, never two`, l.avatars)
       if (settings) {
         expect(l.h1 === "Settings" && (await p.evaluate(() => !!document.querySelector("[data-account-settings-close]"))), "Settings: the X out and the word Settings", l.h1)
@@ -179,7 +184,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
         expect(l.fields.join() === "name,bio" && l.cards.join() === "profile", "Settings opens on the profile's own fields", { fields: l.fields, cards: l.cards })
         expect(!l.hasProfile, "and the profile header is not drawn here, so there is one face and one heading")
       } else {
-        expect(l.h1 === "Alex Morgan" && l.hasProfile && l.edit, "the person, and the owner's pills with Edit profile under them", { h1: l.h1, edit: l.edit })
+        expect(l.h1 === "Alex Morgan" && l.hasProfile && l.edit, "the person, with Edit profile on the cover", { h1: l.h1, edit: l.edit })
         expect(l.fields.length === 0, "the profile has nothing to type", { fields: l.fields })
         expect(await p.evaluate(() => !!document.querySelector("[data-profile-bio]")), "the bio under the name")
         const off = Object.entries(l.centre).filter(([k, v]) => k !== "page" && Math.abs(v - l.centre.page) > 1)
@@ -282,7 +287,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
   console.log("\nEdit profile, and the X back")
   {
     const { p } = await open(phone(390), "/account")
-    await p.evaluate(() => document.querySelector('[data-profile-owner-pill="edit"]').click())
+    await p.evaluate(() => document.querySelector('[data-profile-edit]').click())
     await sleep(500)
     const l = await layout(p)
     expect(l.h1 === "Settings" && l.sections.join() === "profile*,account,preferences" && l.avatars === 1, "Edit profile opens Settings on the profile's fields, with one face", { h1: l.h1, sections: l.sections, avatars: l.avatars })
@@ -298,9 +303,9 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
   for (const path of ["/account", "/account/settings"]) {
     const { p, errors } = await open(DESK, path, { __seller: true })
     const l = await layout(p)
-    const col = await p.evaluate(() => Math.round(document.querySelector("[data-probe-account-column]").getBoundingClientRect().width))
+    const col = await p.evaluate(() => Math.round(document.querySelector("[data-account-column]").getBoundingClientRect().width))
     expect(l.sideways <= 0 && col === 960, `${path}: one 960px column on a computer, the profile's own width, nothing sideways`, { col, sideways: l.sideways })
-    expect(l.headers === 1 && !l.ownBar && l.avatars === 1 && l.gap === HEADER_GAP, `${path}: the site header, one face, the library's gap`, { headers: l.headers, bar: l.ownBar, avatars: l.avatars, gap: l.gap })
+    expect(l.headers === 1 && !l.ownBar && l.avatars === 1 && l.gap === (l.hasProfile ? 0 : HEADER_GAP), `${path}: the site header, one face, ${l.hasProfile ? "the cover right under it" : "the library's gap"}`, { headers: l.headers, bar: l.ownBar, avatars: l.avatars, gap: l.gap })
     expect(l.small.length === 0, `${path}: every control 36px or taller`, l.small)
     await p.screenshot({ path: join(shots, `${path.endsWith("settings") ? "settings" : "overview"}-1280.png`), fullPage: true })
     expect(errors.length === 0, "no errors", errors)

@@ -26,7 +26,7 @@ import { NotificationBell } from "@/components/notifications/notification-bell"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 
-import { Heart, Library, Search, LayoutDashboard, Settings, LogOut, X, Loader2, ChevronRight, Sparkles, LifeBuoy, Store, Code, Megaphone, Briefcase, Music, Camera, Video, Bot, Share2, Zap, ShoppingBag, Lightbulb, ArrowRight, User as UserIcon, Compass, Globe } from "lucide-react"
+import { Heart, Library, Search, LayoutDashboard, Settings, LogOut, X, Loader2, ChevronRight, Sparkles, LifeBuoy, Store, Code, Megaphone, Briefcase, Music, Camera, Video, Bot, Share2, Zap, ShoppingBag, Lightbulb, ArrowRight, User as UserIcon, Compass, Globe, MoreHorizontal, Check } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
 import { LanguageModal } from "@/components/platform/language-modal"
 import { readAuthSnapshot, writeAuthSnapshot, clearAuthSnapshot } from "@/lib/auth/auth-snapshot"
@@ -38,6 +38,8 @@ import { useSearchHandoff, useSearchHandoffState, WINDOW_SLACK } from "@/lib/exp
 import { useBuyerTabsHere } from "@/lib/nav/use-buyer-tabs-where"
 import { PlaceNavigator, forgetPlaces } from "@/components/nav/place-navigator"
 import { listPrice } from "@/lib/pricing/list-price"
+import { showsProfileHeader } from "@/lib/profile/owner-pills"
+import { profileShareUrl, shareProfile } from "@/lib/profile/share-profile"
 
 
 
@@ -1044,6 +1046,9 @@ export function PlatformHeaderClient({
   const [searchLoading, setSearchLoading] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [mobileProfileOpen, setMobileProfileOpen] = useState(false)
+  /* The "..." sheet of the phone's profile bar, and what its Share profile row last did (see PROFILE BAR below). */
+  const [profileBarOpen, setProfileBarOpen] = useState(false)
+  const [shareNote, setShareNote] = useState<"copied" | "failed" | null>(null)
   /* Below 768px, where the header opens sheets rather than dropdowns. */
   const belowMd = useBelowMd()
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -1065,6 +1070,7 @@ export function PlatformHeaderClient({
     closeSearchModal()
     setMobileMenuOpen(false)
     setMobileProfileOpen(false)
+    setProfileBarOpen(false)
   }, [pathname, closeSearchModal])
 
   // Live search with debounce
@@ -1457,6 +1463,38 @@ export function PlatformHeaderClient({
     a marketplace search on the one page that is not the marketplace.
   */
   const isOwnPages = pathname === "/account/library" || pathname.startsWith("/account/library/") || pathname === "/account" || pathname.startsWith("/account/")
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     PROFILE BAR: ON A PHONE, YOUR PROFILE GETS A PLAIN BAR
+    ═══════════════════════════════════════════════════════════════════════
+    "On phones only, on /account (and /account/* pages that show the
+    profile), the Storelib header turns into a simple bar": the logo at the
+    left and a "..." at the right, nothing else (image 43). No navigator,
+    no heart, no bell, no photo: the profile under it is the photo, and the
+    tab bar at the foot still goes everywhere else. The "..." opens a sheet
+    with Share profile (the phone's share sheet, else the link copied),
+    Settings, Language, Help and Log out.
+
+    Exactly the pages that draw the profile's header (lib/profile/
+    owner-pills.ts showsProfileHeader: Activity and Communities); Settings
+    and the library keep the usual bar. Below 768px only, by the same
+    md:hidden the rest of the phone row uses, so a computer's bar is the bar
+    it always was.
+  */
+  const profileBar = showsProfileHeader(pathname)
+  useEffect(() => {
+    if (!shareNote) return
+    const t = window.setTimeout(() => setShareNote(null), 2200)
+    return () => window.clearTimeout(t)
+  }, [shareNote])
+  const onShareProfile = () => {
+    const url = profileShareUrl(window.location.origin, profile?.username) ?? `${window.location.origin}/account`
+    /* Asked for inside the press: a browser opens its share sheet only for one. */
+    void shareProfile({ url, name: displayName || null }).then((outcome) => {
+      if (outcome === "copied" || outcome === "failed") setShareNote(outcome)
+      if (outcome !== "failed") setProfileBarOpen(false)
+    })
+  }
   /*
     AND NEITHER DOES A COMMUNITY. The strip is `fixed` at the foot of the
     header and the community's own tab row is `sticky` at the same offset
@@ -1937,8 +1975,8 @@ export function PlatformHeaderClient({
                 <PlaceNavigator
                   current={{ kind: "storelib" }}
                   onNavigate={(e, href) => onCanonicalNav(e, href)}
-                  /* The slack runs to the right and up and down, where there is nothing else to hit; not to the left, where the logo is a target of its own. */
-                  className={cn("z-10 before:absolute before:-right-3 before:-top-2 before:-bottom-2 before:left-0 before:content-[''] md:before:content-none", chrome.navigator)}
+                  /* The slack runs to the right and up and down, where there is nothing else to hit; not to the left, where the logo is a target of its own. On a phone's profile bar it is not drawn (PROFILE BAR above). */
+                  className={cn("z-10 before:absolute before:-right-3 before:-top-2 before:-bottom-2 before:left-0 before:content-[''] md:before:content-none", chrome.navigator, profileBar && "max-md:hidden")}
                 />
               </div>
 
@@ -2154,6 +2192,22 @@ export function PlatformHeaderClient({
           })()}
 
           {/* Mobile Header for Non-Homepage pages: the logo and the navigator are in the left group above; this row is the icons at the right. */}
+          {profileBar ? (
+            /* The profile's plain bar on a phone: only the "..." at the right (PROFILE BAR above). */
+            <div className="md:hidden flex items-center justify-end flex-1" data-header-profile-bar="">
+              <button
+                type="button"
+                onClick={() => setProfileBarOpen(true)}
+                aria-label="More"
+                aria-haspopup="dialog"
+                aria-expanded={profileBarOpen}
+                data-header-profile-more=""
+                className={cn("relative flex h-[42px] w-[42px] touch-manipulation items-center justify-center rounded-full transition-[background-color,scale] duration-150 active:scale-[0.94] cursor-pointer [-webkit-tap-highlight-color:transparent] before:absolute before:-inset-1 before:content-['']", chrome.iconBtn)}
+              >
+                <MoreHorizontal className="h-[22px] w-[22px]" strokeWidth={2} aria-hidden />
+              </button>
+            </div>
+          ) : (
           <div className="md:hidden flex items-center justify-end flex-1">
             {/* Right - Mobile Icons */}
             <div className="flex items-center gap-1">
@@ -2234,6 +2288,7 @@ export function PlatformHeaderClient({
               )}
             </div>
           </div>
+          )}
 
           {/*
             THE RIGHT OF THE BAR ON A COMPUTER. The wishlist and the library
@@ -2486,6 +2541,54 @@ export function PlatformHeaderClient({
           </div>
         </div>
       </MobileBottomSheet>
+
+      {/*
+        THE PROFILE BAR'S SHEET (PROFILE BAR above): Share profile, Settings,
+        Language, Help, and Log out last under a rule, in the account sheet's
+        own rows. Only on the pages that draw the bar, on a phone.
+      */}
+      {profileBar ? (
+        <MobileBottomSheet isOpen={profileBarOpen} onClose={() => setProfileBarOpen(false)}>
+          <div className="px-4 pb-6">
+            <div className="space-y-0.5" data-profile-bar-sheet="">
+              <SheetRow onDone={onShareProfile} item="share-profile" icon={Share2} label="Share profile" />
+              <SheetRow {...headerLink("/account/settings?section=account")} onDone={() => setProfileBarOpen(false)} item="settings" icon={Settings} label="Settings" />
+              <SheetRow onDone={() => { setProfileBarOpen(false); setLanguageOpen(true) }} item="language" icon={Globe} label={t("settings.language")} />
+              <SheetRow {...headerLink("/help")} onDone={() => setProfileBarOpen(false)} item="help" icon={LifeBuoy} label="Help" />
+            </div>
+            {user ? (
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => { setProfileBarOpen(false); void handleLogout() }}
+                  data-account-item="log-out"
+                  className="flex items-center justify-between w-full px-4 py-3.5 rounded-xl text-base font-medium text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                >
+                  <div className="flex items-center gap-3">
+                    <LogOut className="h-5 w-5" />
+                    <span>Log out</span>
+                  </div>
+                </button>
+              </div>
+            ) : null}
+          </div>
+        </MobileBottomSheet>
+      ) : null}
+      {/* What Share profile did when it was not the phone's own sheet: a short line over the tab bar, gone by itself. Portalled to the body, so it is placed against the window and not the header. */}
+      {profileBar && shareNote && typeof document !== "undefined" ? createPortal(
+        <div
+          role="status"
+          data-profile-share-note={shareNote}
+          className="md:hidden fixed inset-x-0 z-[60] flex justify-center px-4 pointer-events-none transition-[opacity,translate] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] starting:opacity-0 starting:translate-y-1 motion-reduce:transition-none"
+          style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 84px)" }}
+        >
+          <span className="inline-flex items-center gap-2 rounded-full bg-[#1a1a2e] px-4 py-2.5 text-[14px] font-medium text-white shadow-[0_8px_24px_-8px_rgba(15,23,42,0.45)]">
+            {shareNote === "copied" ? <Check className="h-4 w-4" aria-hidden /> : null}
+            {shareNote === "copied" ? "Link copied" : "Could not copy the link"}
+          </span>
+        </div>,
+        document.body,
+      ) : null}
 
       {/* Rendered outside both menus on purpose: each closes itself on the
           click that opens this, so it cannot be a child of either. */}

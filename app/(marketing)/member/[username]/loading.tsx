@@ -1,0 +1,26 @@
+/**
+ * /@handle while the profile is on its way: the shape of the page that is
+ * coming (components/profile/profile-hero.tsx), so nothing moves when it
+ * arrives. The band edge to edge at the creator page's heights, the photo
+ * across its lower edge, two lines for the name and the handle, and the
+ * tabs' rule. `skeleton-deferred` (globals.css): invisible for the first
+ * 200ms, so a quick page never shows grey at all. Server safe: no hooks.
+ */
+export default function MemberProfileSkeleton() {
+  return (
+    <main className="explore-ground min-h-screen bg-[#f8f9fa]" aria-busy="true" aria-label="Loading profile">
+      <div className="skeleton-deferred">
+        <div className="h-[128px] w-full bg-[#eceef1] sm:h-[192px] lg:h-[256px]" />
+        <div className="mx-auto flex w-full max-w-[960px] flex-col items-center px-4 sm:px-6 lg:px-0">
+          <span className="-mt-[59px] block h-[118px] w-[118px] rounded-full bg-[#e3e5e9] ring-2 ring-[#f8f9fa] sm:-mt-[67px] sm:h-[134px] sm:w-[134px]" />
+          <span className="mt-4 block h-6 w-44 rounded-md bg-[#e8eaee]" />
+          <span className="mt-2.5 block h-3.5 w-28 rounded bg-[#eceef1]" />
+          <div className="mt-10 flex w-full items-end gap-6 border-b border-[#e5e7eb] pb-3 sm:mt-12">
+            <span className="block h-3.5 w-16 rounded bg-[#e8eaee]" />
+            <span className="block h-3.5 w-24 rounded bg-[#eceef1]" />
+          </div>
+        </div>
+      </div>
+    </main>
+  )
+}
