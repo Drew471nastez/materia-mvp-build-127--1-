@@ -50,8 +50,9 @@ export function parseGiphy(json: unknown): GifResult[] {
   const out: GifResult[] = []
   for (const item of data) {
     const g = (item ?? {}) as { id?: unknown; title?: unknown; images?: Record<string, { url?: unknown; width?: unknown; height?: unknown }> }
-    const moving = g.images?.fixed_width
-    const still = g.images?.fixed_width_still
+    const moving = g.images?.fixed_width ?? g.images?.fixed_height ?? g.images?.downsized
+    /* Giphy leaves some stills out of a reply (a bundle, an older GIF): any still of the same GIF will do for the card. */
+    const still = g.images?.fixed_width_still ?? g.images?.fixed_height_still ?? g.images?.["480w_still"] ?? g.images?.original_still ?? g.images?.downsized_still
     const url = giphyUrl(moving?.url)
     const stillUrl = giphyUrl(still?.url)
     const w = Number(moving?.width)
@@ -63,18 +64,25 @@ export function parseGiphy(json: unknown): GifResult[] {
 }
 
 export async function searchGifs(q: string, offset: number, key: string): Promise<{ ok: true; gifs: GifResult[]; next: number | null } | { ok: false }> {
-  const params = new URLSearchParams({ api_key: key, limit: String(GIF_PAGE), offset: String(Math.max(0, Math.min(4999, Math.floor(offset) || 0))), rating: "pg-13", bundle: "messaging_non_clips" })
+  const params = new URLSearchParams({ api_key: key, limit: String(GIF_PAGE), offset: String(Math.max(0, Math.min(4999, Math.floor(offset) || 0))), rating: "pg-13" })
   if (q) params.set("q", q)
   const url = `https://api.giphy.com/v1/gifs/${q ? "search" : "trending"}?${params}`
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT_MS), cache: "no-store", headers: { Accept: "application/json" } })
-    if (!res.ok) return { ok: false }
+    if (!res.ok) {
+      /* The status only: the address carries the key. */
+      console.error(`[communities] giphy ${q ? "search" : "trending"}: ${res.status}`)
+      return { ok: false }
+    }
     const json = (await res.json()) as { pagination?: { total_count?: number; count?: number; offset?: number } }
     const gifs = parseGiphy(json)
+    const sent = Array.isArray((json as { data?: unknown }).data) ? ((json as { data: unknown[] }).data.length) : 0
+    if (sent && !gifs.length) console.error(`[communities] giphy sent ${sent} GIFs and none had a picture this post can keep`)
     const p = json.pagination ?? {}
     const nextOffset = (Number(p.offset) || 0) + (Number(p.count) || 0)
     return { ok: true, gifs, next: gifs.length && nextOffset < (Number(p.total_count) || 0) ? nextOffset : null }
-  } catch {
+  } catch (e) {
+    console.error(`[communities] giphy: ${e instanceof Error ? e.name : "failed"}`)
     return { ok: false }
   }
 }

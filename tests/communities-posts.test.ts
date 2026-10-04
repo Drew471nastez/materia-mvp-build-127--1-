@@ -192,6 +192,10 @@ async function main() {
     ],
   })
   check("Giphy's answer: only GIFs on its own host, with a size", parsed.length === 1 && parsed[0].id === "a" && parsed[0].w === 200 && parsed[0].still === STILL)
+  const otherStills = parseGiphy({ data: [{ id: "d", images: { fixed_width: { url: GIF, width: "200", height: "150" }, "480w_still": { url: STILL } } }, { id: "e", images: { fixed_height: { url: GIF, width: "267", height: "200" }, original_still: { url: STILL } } }] })
+  check("a GIF without the fixed width still takes any other still of it (Giphy leaves some out)", otherStills.length === 2 && otherStills.every((g) => g.still === STILL) && otherStills[1].w === 267)
+  const gifSrc = code("lib/communities/server/gifs.ts")
+  check("the search asks for every picture Giphy has (no bundle that drops the still), and says why when it fails", !/bundle:/.test(gifSrc) && /console\.error\(`\[communities\] giphy \$\{q \? "search" : "trending"\}: \$\{res\.status\}`\)/.test(gifSrc) && !/api_key=\$\{|\$\{url\}/.test(gifSrc.slice(gifSrc.indexOf("console.error"))))
   const gifRoute = code("app/api/community/[communityId]/gifs/route.ts")
   check("the GIF route: switch first, a member who may post, not connected without the key, rate limited", /^\s*const off = await requireCommunitiesOn\(\)\s*if \(off\) return off/m.test(gifRoute) && /requireMember\(db, communityId, await sessionUserId\(\), "post"\)/.test(gifRoute) && /if \(!key\) return NextResponse\.json\(\{ connected: false, gifs: \[\], next: null \}/.test(gifRoute) && /rateLimit\(\{ bucket: "community-gif"/.test(gifRoute))
   const gifBtn = code("components/community/member/media-gif.tsx")
