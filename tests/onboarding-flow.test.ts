@@ -115,7 +115,10 @@ check("    and it asks again while it is open, becoming active by itself", /outc
 /* The owner, October 2026: the ID check "takes me outside to Stripe on iOS and Capacitor apps instead of opening there in the app". */
 check("the phone app never leaves for the ID check", /if \(isNativeApp\(\)\) return "no_way"/.test(readFileSync("lib/payments/identity-client.ts", "utf8")) && !/openInApp/.test(readFileSync("lib/payments/identity-client.ts", "utf8")))
 check("  and does not even make a Stripe session it could not open", /if \(isNativeApp\(\)\) \{\s*\n\s*setIdWay\("camera"\)/.test(flow))
-check("  verifying is never shown while Stripe is still asking for something", /stillAsking && \(outcome === "checking" \|\| outcome === "done"\)/.test(flow))
+check("  verifying is never shown while Stripe is still asking for something", /const stepFor = \(form: DetailsForm \| null\): Step \| null/.test(flow) && /if \(target !== null && target !== step\)/.test(flow))
+/* The owner, October 2026: finish it properly. Every way out of settle has to land somewhere. */
+check("  what is still owed decides the step, so no Continue leads nowhere", /if \(detailsLeft\) return 1/.test(flow) && /if \(needs\.fields\.includes\("document"\)\) return 2/.test(flow))
+check("  and a step is never sent to itself, which was an endless remount", /target !== step/.test(flow) && /outcome === "bank" && step !== 1/.test(flow))
 check("a failed load has a way on", embedded.includes("Couldn't load verification") && embedded.includes("Try again in a moment.") && embedded.includes(">\n          Try again"))
 check("one loader, then Stripe's form fades in", /setOnLoaderStart/.test(embedded) && (embedded.match(/<WaitingArea/g) ?? []).length === 1)
 /* The owner, October 2026: "3 layers of backdrop, fade, I don't like those", and the modal "should not have that much width". */
