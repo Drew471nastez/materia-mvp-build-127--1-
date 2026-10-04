@@ -8,6 +8,7 @@ import { accountLoginPath } from "@/lib/account/account-tabs"
 import { AccountSettings } from "@/components/account/account-settings"
 import { ensureUsername } from "@/lib/profile/ensure-username"
 import { readPrivacy } from "@/lib/profile/privacy"
+import { accountIsCreator } from "@/lib/profile/account-creator"
 import { missingCoverColumn } from "@/lib/profile/cover"
 
 /** ?section= from a link: the profile's Settings pill (account), "Change" on a hidden list (privacy). */
@@ -39,7 +40,7 @@ export default async function AccountSettingsRoute({ searchParams }: { searchPar
   if (!user) return null
 
   const admin = createAdminClient()
-  const [profile, bio, access, newsletter, personalized, username, privacy, handleOwner, cover, { section }] = await Promise.all([
+  const [profile, bio, access, newsletter, personalized, username, privacy, handleOwner, cover, { section }, creator] = await Promise.all([
     profileForRequest(user.id),
     /* THE BIO, AND WHETHER THERE IS ANYWHERE TO PUT ONE. profiles.bio comes
        from supabase/sql/RUN_PROFILE_COVER_BIO.sql; where that has not run,
@@ -102,6 +103,8 @@ export default async function AccountSettingsRoute({ searchParams }: { searchPar
       }
     })(),
     searchParams,
+    /* A live store: no activity anywhere, so Privacy has no switch for it (the layout asked the same, cached). */
+    accountIsCreator(user.id),
   ])
 
   const providers = ((user.app_metadata?.providers as string[] | undefined) ?? [user.app_metadata?.provider as string | undefined]).filter(Boolean) as string[]
@@ -129,6 +132,7 @@ export default async function AccountSettingsRoute({ searchParams }: { searchPar
       username={username || profile?.username || ""}
       usernameEditable={!handleOwner}
       privacy={privacy}
+      creator={creator}
       cover={cover}
       initialSection={sectionFrom(section)}
     />

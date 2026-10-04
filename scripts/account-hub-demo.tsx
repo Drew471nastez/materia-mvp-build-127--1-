@@ -111,7 +111,7 @@ export function AccountDemo() {
   return (
     /* The layout's main column: the hub draws the profile's 960px column itself now, under a cover that runs edge to edge (app/account/layout.tsx). */
     <div className="min-w-0" data-probe-account-column="">
-      <AccountHub identity={{ userId: "u1", name, username, avatarUrl, bio, coverUrl, followers: 12, following: 30 }} communities={flag("__communities") !== false}>
+      <AccountHub identity={{ userId: "u1", name, username, avatarUrl, bio, coverUrl, followers: 12, following: 30, creator: !!flag("__creator") }} communities={flag("__communities") !== false}>
         {path.startsWith("/account/settings") ? (
           <AccountSettings
             userId="u1"
@@ -127,6 +127,10 @@ export function AccountDemo() {
             newsletter={false}
             personalized={true}
             cover={{ url: coverUrl, supported: true }}
+            privacy={{ showActivity: true, showCommunities: true, supported: true }}
+            /* A live store: Privacy has no activity switch (lib/profile/account-creator.ts). */
+            creator={!!flag("__creator")}
+            initialSection={(flag("__section") as "profile" | "account" | "privacy" | "preferences" | undefined) ?? "profile"}
           />
         ) : (
           <Page path={path} />

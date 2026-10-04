@@ -319,6 +319,22 @@ try {
       if (phone) expect(!m.more, "the phone's usual bar here", m.headerItems)
       await p.close()
     }
+
+    /* Privacy: a creator shows no activity anywhere, so has no switch for it; the communities switch still drives their card in a community. */
+    for (const creator of [false, true]) {
+      console.log(`\n${label}: Settings, Privacy, ${creator ? "a creator" : "a buyer"}`)
+      const { p, errors } = await open(vp, "/account/settings", { __photo: true, __section: "privacy", __creator: creator })
+      const rows = await p.evaluate(() => ({
+        switches: [...document.querySelectorAll("[data-account-card=privacy] [role=switch]")].map((b) => b.getAttribute("aria-label")),
+        text: document.querySelector("[data-account-card=privacy]")?.innerText.replace(/\s+/g, " ") ?? "",
+        sideways: document.documentElement.scrollWidth - innerWidth,
+      }))
+      await p.screenshot({ path: join(shots, `${label}-settings-privacy-${creator ? "creator" : "buyer"}.png`) })
+      expect(errors.length === 0 && rows.sideways <= 0, "nothing sideways, no errors", { errors, sideways: rows.sideways })
+      if (creator) expect(rows.switches.join() === "Show communities I am in" && !/activity/i.test(rows.text), "a creator: only Show communities I am in, and the word activity nowhere", rows)
+      else expect(rows.switches.join() === "Show my activity,Show communities I am in", "a buyer: both switches", rows)
+      await p.close()
+    }
   }
   await browser.close()
 } finally {

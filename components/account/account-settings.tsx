@@ -773,8 +773,14 @@ async function savePrivacy(body: Record<string, boolean>) {
  * only they can. Saved on the press, as the preference switches are.
  * Before the columns exist there is nowhere to keep a choice, so the card
  * says the profile shows both rather than drawing switches that cannot save.
+ *
+ * A CREATOR HAS NO ACTIVITY SWITCH. Somebody with a live store shows no
+ * activity anywhere (lib/profile/activity-page.ts), so a switch for it would
+ * do nothing. Show communities I am in stays: it is the "in N communities"
+ * line on their card inside a community (lib/communities/server/people.ts),
+ * which is the one place a creator's memberships still show.
  */
-function PrivacySection({ username, privacy }: { username: string; privacy: { showActivity: boolean; showCommunities: boolean; supported: boolean } }) {
+function PrivacySection({ username, privacy, creator }: { username: string; privacy: { showActivity: boolean; showCommunities: boolean; supported: boolean }; creator: boolean }) {
   const activity = useSavedSwitch(privacy.showActivity, useCallback((v: boolean) => savePrivacy({ showActivity: v }), []))
   const communities = useSavedSwitch(privacy.showCommunities, useCallback((v: boolean) => savePrivacy({ showCommunities: v }), []))
   return (
@@ -783,7 +789,9 @@ function PrivacySection({ username, privacy }: { username: string; privacy: { sh
         Your profile
       </h2>
       <p className="mb-3 mt-0.5 text-[13px] leading-[1.45] text-[#6b7280]">
-        {username ? (
+        {creator ? (
+          "What people see on your card in a community."
+        ) : username ? (
           <>
             What people see at{" "}
             <Link href={`/@${username}`} className="font-medium text-[#1a1a2e] underline-offset-2 hover:underline">
@@ -797,22 +805,24 @@ function PrivacySection({ username, privacy }: { username: string; privacy: { sh
       </p>
       {privacy.supported ? (
         <div className="divide-y divide-[#f0f1f3]">
-          <PrivacyRow
-            id="show-activity"
-            title={
-              <>
-                Show my activity
-                <Saved at={activity.savedAt} />
-              </>
-            }
-            detail={
-              <>
-                Communities you joined, posts in public spaces, courses you finished, your reviews.
-                {activity.error && <span className="mt-1 block text-red-600">{activity.error}</span>}
-              </>
-            }
-            control={<Switch label="Show my activity" checked={activity.value} busy={activity.busy} onChange={activity.change} />}
-          />
+          {creator ? null : (
+            <PrivacyRow
+              id="show-activity"
+              title={
+                <>
+                  Show my activity
+                  <Saved at={activity.savedAt} />
+                </>
+              }
+              detail={
+                <>
+                  Communities you joined, posts in public spaces, courses you finished, your reviews.
+                  {activity.error && <span className="mt-1 block text-red-600">{activity.error}</span>}
+                </>
+              }
+              control={<Switch label="Show my activity" checked={activity.value} busy={activity.busy} onChange={activity.change} />}
+            />
+          )}
           <PrivacyRow
             id="show-communities"
             title={
@@ -823,7 +833,7 @@ function PrivacySection({ username, privacy }: { username: string; privacy: { sh
             }
             detail={
               <>
-                Public communities only. The ones you run are always listed.
+                {creator ? "How many public communities you are in, on your card inside a community. The ones you run are always listed." : "Public communities only. The ones you run are always listed."}
                 {communities.error && <span className="mt-1 block text-red-600">{communities.error}</span>}
               </>
             }
@@ -832,7 +842,7 @@ function PrivacySection({ username, privacy }: { username: string; privacy: { sh
         </div>
       ) : (
         <p className="text-[13px] leading-[1.45] text-[#6b7280]" data-account-privacy-pending="">
-          Your profile shows your public activity and the public communities you are in. Private and unlisted communities are never shown.
+          {creator ? "Your card in a community shows how many public communities you are in." : "Your profile shows your public activity and the public communities you are in."} Private and unlisted communities are never shown.
         </p>
       )}
     </section>
@@ -922,6 +932,7 @@ export function AccountSettings({
   username = "",
   usernameEditable = true,
   privacy = { showActivity: true, showCommunities: true, supported: false },
+  creator = false,
   cover = { url: null, supported: false },
   initialSection = "profile",
 }: {
@@ -943,6 +954,8 @@ export function AccountSettings({
   username?: string
   usernameEditable?: boolean
   privacy?: { showActivity: boolean; showCommunities: boolean; supported: boolean }
+  /** A live store (lib/profile/account-creator.ts): no activity anywhere, so no switch for it. */
+  creator?: boolean
   /** The profile's own cover (profiles.cover_url); not offered where the column is not there. */
   cover?: { url: string | null; supported: boolean }
   /** From ?section=, so the profile's Settings pill lands on Account. */
@@ -1004,7 +1017,7 @@ export function AccountSettings({
             <LeaveCard email={email} createdAt={createdAt} isSeller={isSeller} />
           </>
         ) : null}
-        {section === "privacy" ? <PrivacySection username={username} privacy={privacy} /> : null}
+        {section === "privacy" ? <PrivacySection username={username} privacy={privacy} creator={creator} /> : null}
         {section === "preferences" ? <PreferencesSection email={email} newsletter={newsletter} personalized={personalized} /> : null}
       </SectionSwap>
     </div>

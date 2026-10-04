@@ -567,6 +567,9 @@ async function main() {
     const settings = read("components/account/account-settings.tsx")
     check("settings: a username field with a live check", /data-account-username-field/.test(settings) && /\/api\/profile\/username\?handle=/.test(settings))
     check("settings: the two privacy switches", /Show my activity/.test(settings) && /Show communities I am in/.test(settings) && /\/api\/profile\/privacy/.test(settings))
+    /* Round 6 follow up: a creator shows no activity anywhere, so has no switch for it; Show communities I am in still drives their card in a community (lib/communities/server/people.ts). */
+    check("  a creator's Privacy has no activity switch, and keeps the communities one", /\{creator \? null : \(\s*<PrivacyRow\s+id="show-activity"/.test(settings) && /<PrivacyRow\s+id="show-communities"/.test(settings) && /creator=\{creator\}/.test(read("app/account/settings/page.tsx")) && /accountIsCreator\(user\.id\)/.test(read("app/account/settings/page.tsx")) && /communityFacts\(db, targetId, viewer\.userId, extras\.showCommunities\)/.test(read("lib/communities/server/people.ts")))
+    check("  the scheme has no Unfollow red any more", !/danger/.test(stripComments(read("components/profile/follow-button.tsx"))) && !/danger:/.test(stripComments(read("lib/store-builder/storefront-chrome.ts"))))
     check("the account page makes a handle when there is none", /ensureUsername\(/.test(read("app/account/layout.tsx")) && /ensureUsername\(/.test(read("app/account/settings/page.tsx")))
   }
 

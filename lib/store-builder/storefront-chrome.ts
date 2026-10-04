@@ -169,8 +169,8 @@ export interface StorefrontChrome {
    * `background` / `text` are the scheme's buy button, so a creator on a
    * green scheme gets a green Follow; `hover` and `press` are that colour a
    * step and two steps further from the page. `quiet` is the secondary
-   * (Following, Message): a surface a step off the page, a hairline, the
-   * page's text, and `danger` for the Unfollow a pointer reveals. `radius`
+   * (Following, Message): a surface a step off the page, a hairline and the
+   * page's text. `radius`
    * is the scheme's rounding, kept for anything else that wants it; the
    * follow buttons wear Storelib's own shape.
    */
@@ -187,7 +187,7 @@ export interface SchemeAction {
   radius: number
   hover: string
   press: string
-  quiet: { background: string; hover: string; press: string; border: string; text: string; danger: string }
+  quiet: { background: string; hover: string; press: string; border: string; text: string }
   /** Is the page dark (the depth's shadows and the quiet surface lean the other way). */
   dark: boolean
 }
@@ -439,7 +439,6 @@ export function schemeAction(input: { background: string; text: string; radius: 
       press: mix(quietBg, input.ink, dark ? 0.1 : 0.055) || quietBg,
       border: mix(input.ink, quietBg, dark ? 0.8 : 0.82) || "#d9dbe0",
       text: ensureContrast(input.ink, quietBg),
-      danger: ensureContrast(dark ? "#f97066" : "#b42318", quietBg),
     },
     dark,
   }
