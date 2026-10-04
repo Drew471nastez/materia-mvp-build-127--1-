@@ -106,7 +106,9 @@ const JUSTIFY = { left: "flex-start", center: "center", right: "flex-end" } as c
 function EditorNote({ ctx, children }: { ctx: ProductCtx; children: ReactNode }) {
   if (!ctx.inEditor) return null
   return (
-    <p className="rounded-md border border-dashed px-3 py-2 text-[12px]" style={{ borderColor: ctx.palette.border, color: ctx.palette.text_muted ?? ctx.palette.paragraph, opacity: 0.8 }}>
+    /* One quiet line, never a box: a product page with five blocks that do not apply here read as five empty boxes. */
+    <p className="flex items-center gap-1.5 text-[12px] italic leading-5" style={{ color: ctx.palette.text_muted ?? ctx.palette.paragraph, opacity: 0.55 }} data-editor-note="">
+      <span aria-hidden className="h-1 w-1 shrink-0 rounded-full" style={{ background: "currentColor" }} />
       {children}
     </p>
   )
@@ -423,6 +425,8 @@ function BuyButtons({ s, ctx }: { s: S; ctx: ProductCtx }) {
   const row = str(s.layout, "stacked") === "row"
   const soldOut = !ctx.canBuy && !buy.unavailable
   const disabled = ctx.inert || !ctx.canBuy || !!buy.unavailable
+  /* In the editor the buttons do nothing but are drawn as a visitor sees them: faded only when a visitor would find them so. */
+  const faded = !ctx.canBuy || !!buy.unavailable
   const blocked = buy.unavailable ?? (soldOut ? "Sold out" : null)
   return (
     <div className={cn("flex flex-col gap-2.5", row && "@[480px]:flex-row")} data-buy-buttons="">
@@ -431,7 +435,7 @@ function BuyButtons({ s, ctx }: { s: S; ctx: ProductCtx }) {
           type="button"
           disabled={disabled}
           onClick={(e) => { e.stopPropagation(); buy.add() }}
-          className={cn("w-full shrink-0 border-2 px-5 text-[15px] font-semibold transition-opacity hover:opacity-85 disabled:cursor-not-allowed disabled:opacity-50", row && "@[480px]:w-auto @[480px]:flex-1")}
+          className={cn("w-full shrink-0 border-2 px-5 text-[15px] font-semibold transition-opacity hover:opacity-85 disabled:cursor-not-allowed", faded && "opacity-50", row && "@[480px]:w-auto @[480px]:flex-1")}
           style={{ height: h, minHeight: h, borderColor: outline, color: outline, background: "transparent", ...ctx.buttonRadius }}
           data-add-to-cart=""
         >
@@ -443,7 +447,7 @@ function BuyButtons({ s, ctx }: { s: S; ctx: ProductCtx }) {
           type="button"
           disabled={disabled}
           onClick={(e) => { e.stopPropagation(); buy.now() }}
-          className={cn("w-full shrink-0 px-5 text-[15px] font-semibold transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50", row && "@[480px]:w-auto @[480px]:flex-1")}
+          className={cn("w-full shrink-0 px-5 text-[15px] font-semibold transition-opacity hover:opacity-90 disabled:cursor-not-allowed", faded && "opacity-50", row && "@[480px]:w-auto @[480px]:flex-1")}
           style={{ height: h, minHeight: h, background: fill, color: text, border: `2px solid ${fill}`, ...ctx.buttonRadius }}
           data-buy-now=""
         >
