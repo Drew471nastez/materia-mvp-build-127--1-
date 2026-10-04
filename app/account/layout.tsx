@@ -21,6 +21,7 @@ import { AccountColumn } from "@/components/account/account-column"
 import { communitiesEnabled } from "@/lib/communities/flag"
 import { followCounts } from "@/lib/profile/follows"
 import { ownCover } from "@/lib/profile/member-profile-data"
+import { accountIsCreator } from "@/lib/profile/account-creator"
 
 /** One signed in person's own pages: never in a search index. */
 export const metadata: Metadata = { title: "Profile", robots: { index: false, follow: false } }
@@ -58,6 +59,8 @@ async function readBio(userId: string): Promise<string | null> {
  * Communities, Library (with sub pills ...), Edit profile, Settings."
  *
  *   /account                    Activity, the page everybody else sees first
+ *                               (a creator's Communities: they have no
+ *                               Activity, app/account/page.tsx)
  *   /account/communities        the communities you run and are in
  *   /account/library/...        the library, moved here whole (its own
  *                               layout, app/account/library/layout.tsx)
@@ -102,9 +105,9 @@ export default async function AccountLayout({ children }: { children: React.Reac
 
   /* Cached for the request: the settings page reads the same row. The bio is one more read beside it, not after it. */
   const admin = createAdminClient()
-  const [profile, bio, counts, cover] = user
-    ? await Promise.all([profileForRequest(user.id), readBio(user.id), followCounts(admin, user.id), ownCover(admin, user.id)])
-    : [null, null, { followers: 0, following: 0 }, null]
+  const [profile, bio, counts, cover, creator] = user
+    ? await Promise.all([profileForRequest(user.id), readBio(user.id), followCounts(admin, user.id), ownCover(admin, user.id), accountIsCreator(user.id)])
+    : [null, null, { followers: 0, following: 0 }, null, false]
   /* EVERY ACCOUNT HAS A HANDLE: one that never had one gets it here, the first time it is needed (lib/profile/ensure-username). */
   const username = user ? profile?.username || (profile ? await ensureUsername(admin, user.id) : null) : null
   const identity: AccountIdentity | null = user
@@ -117,6 +120,7 @@ export default async function AccountLayout({ children }: { children: React.Reac
         coverUrl: cover,
         followers: counts.followers,
         following: counts.following,
+        creator,
       }
     : null
 

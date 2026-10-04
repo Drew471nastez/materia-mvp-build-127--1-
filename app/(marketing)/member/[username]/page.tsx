@@ -93,20 +93,24 @@ export default async function MemberProfileRoute({ params, searchParams }: Props
   ])
   const viewerId = user?.id ?? null
   const isSelf = viewerId === profile.userId
+  /* A person with a store has no activity on any of their pages, and lists only the communities they made (components/profile/member-profile-page.tsx). Nothing of it is read. */
+  const creator = profile.hasStorefront
   const db = createAdminClient()
   const [following, messageHref, activity, communities, shared] = await Promise.all([
     isFollowing(db, viewerId, profile.userId),
     communitiesOn ? messageTarget(db, viewerId, profile.userId).catch(() => null) : Promise.resolve(null),
-    activityFor(db, {
-      userId: profile.userId,
-      viewerId,
-      creator: profile.creatorId ? { id: profile.creatorId, handle: profile.storefrontHandle } : null,
-      showActivity: profile.privacy.showActivity,
-    }).catch(() => ({ items: [], next: null, hidden: !profile.privacy.showActivity })),
+    creator
+      ? Promise.resolve({ items: [], next: null, hidden: false })
+      : activityFor(db, {
+          userId: profile.userId,
+          viewerId,
+          creator: null,
+          showActivity: profile.privacy.showActivity,
+        }).catch(() => ({ items: [], next: null, hidden: !profile.privacy.showActivity })),
     communitiesOn
-      ? profileCommunities(db, profile.userId, { includeMemberships: profile.privacy.showCommunities || isSelf }).catch(() => ({ owned: [], member: [] }))
+      ? profileCommunities(db, profile.userId, { includeMemberships: !creator && (profile.privacy.showCommunities || isSelf) }).catch(() => ({ owned: [], member: [] }))
       : Promise.resolve({ owned: [], member: [] }),
-    communitiesOn && viewerId && !isSelf ? sharedSections(db, viewerId, profile.userId) : Promise.resolve([]),
+    communitiesOn && viewerId && !isSelf && !creator ? sharedSections(db, viewerId, profile.userId) : Promise.resolve([]),
   ])
 
   /* Arrived from any other page of ours (not a reload of this one): the way back in the top bar. */
