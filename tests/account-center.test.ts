@@ -17,7 +17,9 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs"
 import { join } from "node:path"
 import { stripComments } from "./_source"
 import { ACCOUNT_COMMUNITIES, ACCOUNT_SETTINGS, LIBRARY_HOME, isLibraryPath, legacyLibraryTarget, libraryCoursePath, libraryMembershipPath, libraryProductPath } from "@/lib/library/paths"
-import { LIBRARY_TABS, isLibraryProduct, showsLibraryTabs } from "@/components/library/library-tab-list"
+import { LIBRARY_TABS, isLibraryProduct, libraryTabs, showsLibraryTabs } from "@/components/library/library-tab-list"
+import { navFadeKey } from "@/components/account/account-nav-fade"
+import { cropFromBody, parseProfileCover, profileBandAspect, profileCoverValue } from "@/lib/profile/cover"
 import { EDIT_PROFILE_HREF, ownerPillFor, ownerPillLinks, showsProfileHeader } from "@/lib/profile/owner-pills"
 import { profileShareUrl } from "@/lib/profile/share-profile"
 import { BUYER_TABS, buyerTabFor } from "@/lib/nav/buyer-tabs"
@@ -77,7 +79,7 @@ console.log("\nThe new places")
   check("the pills are drawn on the lists, not on a purchase", showsLibraryTabs("/account/library/") && showsLibraryTabs("/account/library/receipts") && !showsLibraryTabs("/account/library/products/p1") && isLibraryProduct("/account/library/products/p1?x=1") && !isLibraryProduct("/library/products/p1"))
   check("isLibraryPath knows the whole library and nothing else", isLibraryPath("/account/library") && isLibraryPath("/account/library/courses/c1") && !isLibraryPath("/account/libraryx") && !isLibraryPath("/account"))
   const lib = code("app/account/library/layout.tsx")
-  check("the library keeps its gates, its purchase sync, its stage with the sub pills and the app banner", /email_verified/.test(lib) && /<PurchaseSyncProvider \/>/.test(lib) && /<LibraryPanel head=\{<LibraryTabs \/>\}>/.test(lib) && /<OpenInApp phone=\{bannerFor\} \/>/.test(lib) && /NativeAuthGate requireAuth/.test(lib))
+  check("the library keeps its gates, its purchase sync, its stage with the sub pills and the app banner", /email_verified/.test(lib) && /<PurchaseSyncProvider \/>/.test(lib) && /<LibraryPanel head=\{<LibraryTabs communities=\{communities\} \/>\}>/.test(lib) && /<OpenInApp phone=\{bannerFor\} \/>/.test(lib) && /NativeAuthGate requireAuth/.test(lib))
 }
 
 console.log("\nThe profile center's pills")
@@ -105,7 +107,8 @@ console.log("\nThe cover, Edit profile, and the person under them (round 5)")
   check("no Joined line under the name", !/Joined/.test(hero) && !/memberSince/.test(hero))
   check("a lighter ring on the photo: 2px, a softer shadow", /ring-2 ring-\[#f8f9fa\]/.test(hero) && !/ring-4/.test(hero))
   check("Edit profile is a Storelib button on the cover, to /account/settings", EDIT_PROFILE_HREF === "/account/settings" && /<Link href=\{EDIT_PROFILE_HREF\}[^>]*className=\{cn\(secondaryDepth, "h-10 rounded-\[10px\] px-4 text-\[14px\]"\)\}>\s*Edit profile\s*<\/Link>/.test(hero))
-  check("  with the cover's own camera button beside it (Add cover / Change cover), to Settings at the cover", /href=\{COVER_SETTINGS_HREF\}[\s\S]{0,200}aria-label=\{person\.coverUrl \? "Change cover" : "Add cover"\}[\s\S]{0,200}className=\{cn\(iconDepth, "h-10 w-10 rounded-\[10px\] p-0"\)\}[\s\S]{0,120}<Camera/.test(hero) && cover.indexOf("COVER_SETTINGS_HREF") < cover.indexOf("EDIT_PROFILE_HREF"))
+  /* Round 8, changed on purpose: "Remove the camera icon button next to Edit profile on the profile cover." The cover is changed in Settings, which Edit profile opens. */
+  check("  and nothing beside it: no camera button for the cover", !/<Camera|COVER_SETTINGS_HREF|data-profile-cover-edit|iconDepth/.test(hero) && cover.indexOf("EDIT_PROFILE_HREF") > 0)
   check("  only on your own page", /\{isSelf \? \(\s*<div className="absolute inset-x-0 top-3 sm:bottom-4 sm:top-auto" data-profile-cover-actions="">/.test(hero))
 }
 
@@ -184,9 +187,47 @@ console.log("\nPush notifications: one switch, only where the route is")
   check("it saves with PATCH { enabled } and is in Preferences", /method: "PATCH"/.test(row) && /JSON\.stringify\(\{ enabled \}\)/.test(row) && /<PushSwitchRow \/>/.test(read("components/account/account-settings.tsx")))
 }
 
+console.log("\nThe cover you place in Settings, drawn where you put it (round 8)")
+{
+  const host = "https://abc.supabase.co/storage/v1/object/public/covers/u1/1.webp"
+  check("a stored address without a crop is a centred cover at its own size", JSON.stringify(parseProfileCover(host)) === JSON.stringify({ url: host, crop: { x: 50, y: 50, zoom: 1 } }))
+  check("the crop rides on the address's fragment, which no server is sent", profileCoverValue(host, { x: 42.5, y: 30, zoom: 1.25 }) === `${host}#crop=42.5,30,1.25`)
+  check("  and comes back as it went in", JSON.stringify(parseProfileCover(`${host}#crop=42.5,30,1.25`)) === JSON.stringify({ url: host, crop: { x: 42.5, y: 30, zoom: 1.25 } }))
+  check("  the centred default adds nothing to the address", profileCoverValue(host, { x: 50, y: 50, zoom: 1 }) === host)
+  check("  out of range values are held to the band (0..100, zoom 1..4), anything else after # is dropped", JSON.stringify(parseProfileCover(`${host}#crop=140,-3,9`).crop) === JSON.stringify({ x: 100, y: 0, zoom: 4 }) && parseProfileCover(`${host}#x`).url === host && parseProfileCover(`${host}#x`).crop.zoom === 1)
+  check("  a crop from the browser is three finite numbers or nothing", cropFromBody({ x: 10, y: 20, zoom: 1 })?.x === 10 && cropFromBody({ x: "1", y: 2, zoom: 1 }) === null && cropFromBody([1, 2, 3]) === null && cropFromBody({ x: NaN, y: 2, zoom: 1 }) === null)
+  check("the frame's shape is the profile band's: the window over 128, 192 or 256px", profileBandAspect(390) === Math.round((390 / 128) * 1000) / 1000 && profileBandAspect(800) === Math.round((800 / 192) * 1000) / 1000 && profileBandAspect(1440) === 5.625 && profileBandAspect(5000) === 12)
+  const field = code("components/account/cover-field.tsx")
+  check("Settings' cover is the creator editor's control: the frame repositions, a new picture uploads with a live preview", /<ImageUpload\s+bucket="covers"\s+aspectRatio="cover"/.test(field) && /reposition=\{reposition\}/.test(field) && /livePreview/.test(field) && /emptyBand=\{/.test(field))
+  check("  a move is saved alone, after the gesture, and the profile refreshed", /saveCover\(\{ crop: next \}\)/.test(field) && /CROP_SAVE_MS = \d+/.test(field) && /router\.refresh\(\)/.test(field))
+  const route = code("app/api/profile/cover/route.ts")
+  check("the route keeps the crop on the address, and moves only the picture already there", /cropFromBody\(body\.crop\)/.test(route) && /profileCoverValue\(picture, crop\)/.test(route) && /parseProfileCover\(/.test(route) && /ownCoverUrl\(body\.coverUrl, user\.id/.test(route))
+  const hero = code("components/profile/profile-hero.tsx")
+  check("the profile draws the cover with the creator page's crop model", /parseProfileCover\(person\.coverUrl\)/.test(hero) && /style=\{coverCropStyle\(cover\.crop\)\}/.test(hero))
+  const upload = code("components/app/image-upload.tsx")
+  check("with no cover, the band's own shape in the profile's grey and one button, not a dashed box", /emptyBand && reposition && !value && !pending/.test(upload) && /data-upload-empty-band=""/.test(upload))
+  check("the probe exists", existsSync(join(root, "scripts/check-account-cover.mjs")) && existsSync(join(root, "scripts/render-account-cover.tsx")))
+}
+
+console.log("\nThe library's pills switch smoothly, and Communities is one of them (round 8)")
+{
+  check("Communities after Courses, only while communities are on", libraryTabs(false).map((t) => t.label).join() === "Products,Courses,Wishlist,Reviews,Receipts" && libraryTabs(true).map((t) => `${t.label} ${t.href}`).join() === "Products /account/library,Courses /account/library/courses,Communities /account/library/communities,Wishlist /account/library/wishlist,Reviews /account/library/reviews,Receipts /account/library/receipts")
+  check("  its screen is a pill screen", showsLibraryTabs("/account/library/communities") && !showsLibraryTabs("/account/communities"))
+  const page = code("app/account/library/communities/page.tsx")
+  check("  the same list as the profile's Communities, and a 404 while off", /accountCommunitiesBody\(user\.id\)/.test(page) && /if \(!\(await communitiesEnabled\(\)\)\) notFound\(\)/.test(page) && existsSync(join(root, "app/account/library/communities/loading.tsx")))
+  check("  the layout reads the switch and hands it to the pills", /communitiesEnabled\(\)/.test(code("app/account/library/layout.tsx")) && /libraryTabs\(communities\)/.test(code("components/library/library-tabs.tsx")))
+  check("the account no longer rebuilds the library on every pill: one key for all the pill screens", navFadeKey("/account/library") === navFadeKey("/account/library/reviews") && navFadeKey("/account/library/communities") === navFadeKey("/account/library") && navFadeKey("/account/library/products/p1") !== navFadeKey("/account/library") && navFadeKey("/account") !== navFadeKey("/account/settings") && /key=\{navFadeKey\(pathname\)\}/.test(code("components/account/account-nav-fade.tsx")))
+  const panel = code("components/library/library-panel.tsx")
+  check("a pill's screen cross fades into the next: a copy of the old one, on the page's colour, dissolves over the new one as it commits", /getSnapshotBeforeUpdate/.test(panel) && /leaveCopy\(live, CROSS_MS, false, 1, true\)/.test(panel) && /groundOf\(el\)/.test(panel) && /export const CROSS_MS = \d+/.test(panel))
+  check("  seen whole for the commit's frame, then faded on the compositor", /anim\.pause\(\)\s*requestAnimationFrame\(\(\) => requestAnimationFrame\(\(\) => anim\.play\(\)\)\)/.test(panel) && /\[\{ opacity: from \}, \{ opacity: 0 \}\]/.test(panel))
+  check("  a cold pill's route skeleton dissolves into its screen the same way", /const watchSkeleton = useCallback/.test(panel) && /stillCopy\(skeleton, true\)/.test(panel))
+  check("  no second entrance on top (the dip to a fifth), and the panel holds its height through the fade", !/panelEnter|className="library-panel/.test(panel) && !/library-panel(?!\.tsx)/.test(code("components/library/library-content-shell.tsx")) && /panel\.style\.minHeight = `\$\{Math\.ceil\(panel\.getBoundingClientRect\(\)\.height\)\}px`/.test(panel))
+  check("the probe exists", existsSync(join(root, "scripts/check-library-switch.mjs")) && existsSync(join(root, "scripts/render-library-switch.tsx")))
+}
+
 console.log("\nCopy")
 {
-  const files = ["lib/library/paths.ts", "lib/profile/owner-pills.ts", "app/library/[[...path]]/route.ts", "app/account/library/layout.tsx", "app/account/page.tsx", "app/account/communities/page.tsx", "components/account/account-hub.tsx", "components/account/push-switch-row.tsx", "components/account/cover-field.tsx", "components/profile/profile-owner-pills.tsx", "components/profile/profile-hero.tsx", "components/library/library-tab-list.ts", "components/library/library-tabs.tsx", "components/account/account-column.tsx", "lib/profile/share-profile.ts", "scripts/check-account-center.mjs", "scripts/render-account-center.tsx"].filter((f) => existsSync(join(root, f)))
+  const files = ["lib/library/paths.ts", "lib/profile/owner-pills.ts", "app/library/[[...path]]/route.ts", "app/account/library/layout.tsx", "app/account/page.tsx", "app/account/communities/page.tsx", "components/account/account-hub.tsx", "components/account/push-switch-row.tsx", "components/account/cover-field.tsx", "components/profile/profile-owner-pills.tsx", "components/profile/profile-hero.tsx", "components/library/library-tab-list.ts", "components/library/library-tabs.tsx", "components/account/account-column.tsx", "lib/profile/share-profile.ts", "scripts/check-account-center.mjs", "scripts/render-account-center.tsx", "lib/profile/cover.ts", "app/api/profile/cover/route.ts", "app/account/library/communities/page.tsx", "components/account/account-nav-fade.tsx", "components/library/library-panel.tsx", "components/library/library-content-shell.tsx", "components/library/library-skeletons.tsx", "scripts/check-library-switch.mjs", "scripts/render-library-switch.tsx", "scripts/check-account-cover.mjs", "scripts/render-account-cover.tsx"].filter((f) => existsSync(join(root, f)))
   const banned = /—|\b(unlock|elevate|seamless|powerful|effortless(ly)?|supercharge|transform)\b/i
   for (const f of files) check(`${f}: no em dash, no banned word`, !banned.test(read(f)), read(f).match(banned)?.[0])
 }

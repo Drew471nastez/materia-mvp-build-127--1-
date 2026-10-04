@@ -16,7 +16,7 @@
  *                   Clay Studio" pages six posts at a time; the Activity
  *                   tab's Show more adds the next page
  *   YOUR OWN        the owner's pills (Activity lit), no Follow, the "only
- *                   you" line, Add cover on the band
+ *                   you" line, Edit profile alone on the band (no camera)
  *   A CREATOR'S     /@handle of somebody with a store: no Activity tab, no
  *   PROFILE         activity list, no "In <community>" posts; Products and
  *                   the communities they made; on their own, the pills
@@ -311,14 +311,14 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       )
       const lit = await p.evaluate(() => document.querySelector("[data-profile-owner-pill][data-active=true]")?.getAttribute("data-profile-owner-pill"))
       const cover = await p.evaluate(() => document.querySelector("[data-profile-cover-edit]")?.getAttribute("aria-label"))
-      expect(!geo.follow && geo.onlyYou && !geo.back && lit === "activity" && cover === "Add cover", "no Follow, the only-you line, no back bar, Activity lit, Add cover on the band", { ...geo, lit, cover })
+      expect(!geo.follow && geo.onlyYou && !geo.back && lit === "activity" && !cover, "no Follow, the only-you line, no back bar, Activity lit, no camera button on the band", { ...geo, lit, cover })
       const band = await p.evaluate(() => {
         const b = (s) => { const r = document.querySelector(s)?.getBoundingClientRect(); return r ? { top: Math.round(r.top), bottom: Math.round(r.bottom), left: Math.round(r.left), right: Math.round(r.right), w: Math.round(r.width), h: Math.round(r.height) } : null }
         const edit = document.querySelector("[data-profile-edit]")
         return { cover: b("[data-profile-cover]"), edit: b("[data-profile-edit]"), camera: b("[data-profile-cover-edit]"), href: edit?.getAttribute("href"), text: edit?.textContent?.trim(), win: innerWidth, joined: /Joined/.test(document.querySelector("[data-profile-header]")?.textContent || "") }
       })
       expect(band.cover.left === 0 && band.cover.w === band.win, "/@me: the same edge to edge band as /account", band.cover)
-      expect(band.text === "Edit profile" && band.href === "/account/settings" && band.edit.h === 40 && band.edit.top >= band.cover.top && band.edit.bottom <= band.cover.bottom && band.camera.right <= band.edit.left && band.camera.h === 40, "Edit profile on the cover with the camera button beside it, both 40px", band)
+      expect(band.text === "Edit profile" && band.href === "/account/settings" && band.edit.h === 40 && band.edit.top >= band.cover.top && band.edit.bottom <= band.cover.bottom && !band.camera, "Edit profile on the cover, 40px, alone (the cover is placed in Settings)", band)
       expect(!band.joined, "no Joined line", band.joined)
       if (phone) {
         expect(geo.pillsOverflow === true, "on a phone the pills scroll sideways inside their row", geo.pillsOverflow)

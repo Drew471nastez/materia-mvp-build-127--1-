@@ -1,9 +1,12 @@
 /**
- * A person's own cover: PATCH { coverUrl: string | null } -> { coverUrl }.
+ * A person's own cover: PATCH { coverUrl?: string | null, crop?: { x, y, zoom } } -> { coverUrl, crop }.
  * The picture was already uploaded by the shared upload control to the
  * `covers` bucket; this saves its address on the signed in person's own row
  * (the id is the session's), after lib/profile/cover.ts has checked it is
- * their own upload. null removes it. Rate limited. Where
+ * their own upload. null removes it. `crop` is where the picture sits in
+ * the band (lib/profile/cover.ts): sent with a new picture, or on its own to
+ * move the one that is there. It is kept on the stored address's fragment,
+ * so no column is needed. Rate limited. Where
  * profiles.cover_url has not been added it answers 503 not_set_up and
  * Settings does not offer a cover.
  */
@@ -11,7 +14,7 @@ import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { rateLimit } from "@/lib/api/rate-limit"
-import { missingCoverColumn, ownCoverUrl, supabaseStorageHost } from "@/lib/profile/cover"
+import { cropFromBody, missingCoverColumn, ownCoverUrl, parseProfileCover, profileCoverValue, supabaseStorageHost } from "@/lib/profile/cover"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -24,7 +27,8 @@ export async function PATCH(request: Request) {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Sign in first" }, { status: 401, headers: NO_STORE })
-  const limited = await rateLimit({ bucket: "profile-cover", subjects: [`user:${user.id}`], windows: [{ limit: 20, seconds: 600 }] })
+  /* A crop is saved once per gesture, so placing a cover is a few saves, not one: the window allows for that. */
+  const limited = await rateLimit({ bucket: "profile-cover", subjects: [`user:${user.id}`], windows: [{ limit: 60, seconds: 600 }] })
   if (limited) return limited
   let body: Record<string, unknown> = {}
   try {
@@ -33,14 +37,30 @@ export async function PATCH(request: Request) {
   } catch {
     body = {}
   }
-  if (!("coverUrl" in body)) return NextResponse.json({ error: "Nothing to change" }, { status: 400, headers: NO_STORE })
-  const coverUrl = body.coverUrl === null ? null : ownCoverUrl(body.coverUrl, user.id, supabaseStorageHost())
-  if (body.coverUrl !== null && !coverUrl) return NextResponse.json({ error: "That picture did not upload. Try again." }, { status: 400, headers: NO_STORE })
-  const { error } = await createAdminClient().from("profiles").update({ cover_url: coverUrl }).eq("id", user.id)
+  const hasUrl = "coverUrl" in body
+  const crop = "crop" in body ? cropFromBody(body.crop) : null
+  if (!hasUrl && !crop) return NextResponse.json({ error: "Nothing to change" }, { status: 400, headers: NO_STORE })
+  const admin = createAdminClient()
+  let picture: string | null
+  if (hasUrl) {
+    picture = body.coverUrl === null ? null : ownCoverUrl(body.coverUrl, user.id, supabaseStorageHost())
+    if (body.coverUrl !== null && !picture) return NextResponse.json({ error: "That picture did not upload. Try again." }, { status: 400, headers: NO_STORE })
+  } else {
+    /* Only the crop: it moves the picture that is there now, read from the person's own row. */
+    const { data, error } = await admin.from("profiles").select("cover_url").eq("id", user.id).maybeSingle()
+    if (error) {
+      if (missingCoverColumn(error)) return NextResponse.json({ error: "not_set_up" }, { status: 503, headers: NO_STORE })
+      return NextResponse.json({ error: "That did not save. Try again in a moment." }, { status: 500, headers: NO_STORE })
+    }
+    picture = parseProfileCover((data as { cover_url?: string | null } | null)?.cover_url).url
+    if (!picture || !/^https:\/\//.test(picture)) return NextResponse.json({ error: "Add a cover first." }, { status: 409, headers: NO_STORE })
+  }
+  const coverUrl = picture ? profileCoverValue(picture, crop) : null
+  const { error } = await admin.from("profiles").update({ cover_url: coverUrl }).eq("id", user.id)
   if (error) {
     if (missingCoverColumn(error)) return NextResponse.json({ error: "not_set_up" }, { status: 503, headers: NO_STORE })
     console.error("[profile] cover save failed", error.code, error.message)
     return NextResponse.json({ error: "That did not save. Try again in a moment." }, { status: 500, headers: NO_STORE })
   }
-  return NextResponse.json({ coverUrl }, { headers: NO_STORE })
+  return NextResponse.json({ coverUrl: picture, crop: parseProfileCover(coverUrl).crop }, { headers: NO_STORE })
 }
