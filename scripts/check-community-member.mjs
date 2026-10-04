@@ -12,9 +12,12 @@
  *              and Popular. The frame itself is measured in detail by
  *              scripts/check-community-shell.mjs.
  *   ONLINE     the side card shows the heartbeat count it is handed
- *   COMPOSER   closed it is one line; pressed it opens into title, text and
- *              extras; a poll adds its editor; typing @ lists members; a
- *              link brings its card from the server's preview route
+ *   COMPOSER   (the round 7 composer) closed it is one line; pressed it
+ *              opens with the title focused and Post off; Post waits for a
+ *              title, words and a space; a poll from the toolbar adds its
+ *              editor; typing @ lists members; a link brings its card from
+ *              the server's preview route. Every attachment kind and the
+ *              leave question are measured by check-community-posts.mjs.
  *   LIKE       a like answers at once and the request goes to /reactions;
  *              a refused like is put back (the probe answers 403 once)
  *   POST       the post whole, comments with replies one level deep
@@ -63,8 +66,11 @@ export const notFound = () => {}
 export default React.forwardRef(function Link({ href, children, prefetch, scroll, ...rest }, ref) { return React.createElement("a", { href, ref, ...rest, onClick: (e) => { rest.onClick && rest.onClick(e); if (!e.defaultPrevented) { e.preventDefault(); (window.__router ||= []).push(["link", href]) } } }, children) })
 `)
   /* Realtime and storage as a stub: five people present, every channel subscribed. */
-  writeFileSync(join(stubs, "supabase-client.js"), `export function createClient() {
+  writeFileSync(join(stubs, "supabase-client.js"), `/* The Storelib header's menu (the community bar reuses it) asks this too. */
+export const isNativePlatform = () => false
+export function createClient() {
   return {
+    realtime: { setAuth: async () => {} },
     channel(name) {
       const handlers = []
       const ch = {
@@ -197,6 +203,7 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
     /* ── FEED ─────────────────────────────────────────────────────── */
     {
       const { p, errors, calls } = await open("feed", "/community/studio-notes", vp)
+      if (!(await p.$("[data-community-shell]"))) throw new Error(`the feed did not draw: ${JSON.stringify(errors)}`)
       await shot(p, `${label}-feed`, false)
       await shot(p, `${label}-feed-full`)
       const s = await sideScroll(p)
@@ -292,9 +299,12 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
       const { p, errors, calls } = await open("feed", "/community/studio-notes", vp)
       await p.click("[data-composer-open]")
       await sleep(150)
-      const opened = await p.evaluate(() => ({ state: document.querySelector("[data-composer]")?.getAttribute("data-composer"), focused: document.activeElement?.getAttribute("aria-label"), post: document.querySelector("[data-composer-post]")?.disabled }))
-      expect(opened.state === "open" && opened.focused === "Post" && opened.post === true, "pressed, it opens with the text box focused and Post off until something is written", opened)
-      await p.type('[aria-label="Title"]', "Naming things")
+      await sleep(300)
+      /* On a phone the closed line stays in the feed and the editor is a screen of its own over it. */
+      const opened = await p.evaluate(() => ({ state: document.querySelector("[data-composer=sheet]") ? "sheet" : document.querySelector("[data-composer=open]") ? "open" : "closed", focused: document.activeElement?.getAttribute("aria-label"), post: document.querySelector("[data-composer-post]")?.disabled }))
+      const mode = phone ? "sheet" : "open"
+      expect(opened.state === mode && opened.focused === "Title" && opened.post === true, `pressed, it opens (${phone ? "a screen of its own" : "in place"}) with the title focused and Post off until it is ready`, opened)
+      await p.type("[data-composer-title]", "Naming things")
       await p.type('textarea[aria-label="Post"]', "Worth a watch https://example.com/talk thoughts @pri")
       await sleep(900)
       const live = await p.evaluate(() => ({
@@ -304,15 +314,21 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
       }))
       expect(live.mentions.length === 2 && live.mentions[0].includes("@priya"), "typing @ lists members with a username", live.mentions)
       expect(/naming things/i.test(live.card || "") && calls.some((c) => c.url.endsWith("/posts/link-preview")), "a link brings its card from the server", live.card)
-      expect(live.post === false, "Post is on once there is text", live.post)
+      expect(live.post === true, "a title and words are not enough: Post waits for a space", live.post)
       await p.keyboard.press("Enter")
       await sleep(100)
       const text = await p.$eval('textarea[aria-label="Post"]', (t) => t.value)
       expect(text.endsWith("@priya "), "Enter puts the @username in the text", text.slice(-24))
-      await p.click("[data-composer-poll]")
+      await p.click("[data-composer-space]")
+      await sleep(350)
+      const space = await p.evaluateHandle(() => [...document.querySelectorAll("button, [role=menuitem]")].find((b) => b.closest('[role="menu"], [role="dialog"]') && b.textContent.trim() === "General"))
+      await space.asElement()?.click()
+      await sleep(350)
+      expect(await p.$eval("[data-composer-post]", (b) => !b.disabled), "with a space chosen, Post is on")
+      await p.click('[data-composer-tool="poll"]')
       await sleep(150)
       const poll = await p.evaluate(() => document.querySelectorAll("[data-composer-poll-editor] input[aria-label^='Choice']").length)
-      expect(poll === 2, "a poll adds its question and two choices", poll)
+      expect(poll === 2, "a poll from the toolbar adds its question and two choices", poll)
       await sleep(500)
       const kept = await p.evaluate(() => Object.keys(localStorage).find((k) => k.startsWith("storelib:community-draft:")) || null)
       expect(!!kept, "the draft is kept in this browser while typing", kept)
@@ -332,7 +348,7 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
       const { p, errors } = await open("post", "/community/studio-notes/post/p-photo", vp)
       await shot(p, `${label}-post`)
       const t = await p.evaluate(() => {
-        const top = [...document.querySelectorAll("[data-comments] > ul > li > [data-comment]")].map((c) => c.getAttribute("data-comment"))
+        const top = [...document.querySelectorAll("[data-comments] [data-comments-list] > ul > li > [data-comment]")].map((c) => c.getAttribute("data-comment"))
         const replies = [...document.querySelectorAll("[data-comment='c1'] ul [data-comment]")].map((c) => c.getAttribute("data-comment"))
         const deleted = document.querySelector("[data-comment='c3']")?.textContent || ""
         return { top, replies, deleted: deleted.includes("Deleted"), box: !!document.querySelector("[data-comment-box=comment]") }

@@ -23,6 +23,23 @@
  *              lights and the message arrives through the realtime stub;
  *              the answer arrives back
  *
+ * Round 8:
+ *   MEDIA      in an opened post one picture is the post's full width in
+ *              its own shape (a tall one no taller than the screen allows),
+ *              two sit side by side at half width with equal heights, three
+ *              or more are a grid with the first large; a video alone plays
+ *              where it is; YouTube addresses (youtu.be, m.youtube.com,
+ *              shorts) pasted in the words play under them in a 16:9 box
+ *   VIEWER     a picture or a video linked in a post's words or a comment,
+ *              and a picture file, open the viewer: no new tab, no page
+ *              load, nothing asked of supabase.co as a page
+ *   TAPS       at 4x CPU, rapid likes, saves and comments: every press is
+ *              drawn by the next frame, the button is never turned off, at
+ *              most one request per post at a time, the last press wins,
+ *              the count only ever shows the two values a press can mean,
+ *              comments appear at once and are confirmed, a refused one is
+ *              taken out with its words back in the box; no router refresh
+ *
  * and everywhere: nothing scrolls sideways, no page error, phone controls
  * at least 40px tall.
  *
@@ -49,6 +66,8 @@ const expect = (ok, what, got) => {
   if (!ok) broken++
 }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+/* SECTION=media,viewer,taps runs only those parts (and MESSAGES only without SECTION or with "messages"). */
+const want = (name) => !process.env.SECTION || process.env.SECTION.split(",").includes(name)
 const ORIGIN = "https://storelib.com"
 const CID = "6f1c2a1e-0000-4000-8000-000000000001"
 const svg = (a, b, w = 400, h = 300) => `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><rect width="${w}" height="${h}" fill="${a}"/><circle cx="${w / 2}" cy="${h / 2}" r="${h / 4}" fill="${b}"/></svg>`)}`
@@ -135,6 +154,8 @@ async function open(name, path, vp, opts = {}) {
   await p.setViewport(vp)
   const errors = []
   const calls = []
+  const navs = []
+  const live = { now: {}, max: {}, sent: [], comments: 0 }
   p.on("pageerror", (e) => errors.push(String(e).slice(0, 300)))
   await p.setRequestInterception(true)
   const as = new URL(`${ORIGIN}${path}`).searchParams.get("as") || "u-me"
@@ -147,11 +168,35 @@ async function open(name, path, vp, opts = {}) {
       calls.push({ url: url.replace(ORIGIN, ""), method })
       return reply({}, 200, 60)
     }
+    /* A picture the optimizer or storage would serve: a drawn one, so the viewer has something to show. */
+    if (url.startsWith(`${ORIGIN}/_next/image`) || /\.supabase\.co\//.test(url) || (/\/api\/community\/[^/]+\/posts\/[^/]+\/files\//.test(url) && method === "GET")) {
+      if (r.isNavigationRequest()) navs.push(url)
+      calls.push({ url: url.replace(ORIGIN, ""), method, media: true })
+      if (/\.(mp4|pdf)(\?|$)/.test(url) || /22222222-0000-4000-8000-000000000003/.test(url)) return r.respond({ status: 404, body: "" })
+      return r.respond({ status: 200, contentType: "image/svg+xml", body: decodeURIComponent(svg("#dfe5ec", "#8796ab", 1200, 800).split(",")[1]) })
+    }
     if (url.startsWith(`${ORIGIN}/api/`)) {
       const short = url.replace(ORIGIN, "")
       const body = r.postData() || null
       calls.push({ url: short, method, body })
       const sent = body ? JSON.parse(body) : {}
+      /* Likes, saves and comments answer after a real connection's wait, one count of how many are on their way at once. */
+      const toggle = short.endsWith("/reactions") ? `like:${sent.targetId}` : short.endsWith("/bookmarks") ? `save:${sent.postId}` : null
+      if (toggle) {
+        live.now[toggle] = (live.now[toggle] || 0) + 1
+        live.max[toggle] = Math.max(live.max[toggle] || 0, live.now[toggle])
+        live.sent.push([toggle, sent.on])
+        return setTimeout(() => {
+          live.now[toggle]--
+          const refuse = opts.refuse?.includes(toggle)
+          r.respond({ status: refuse ? 403 : 200, contentType: "application/json", body: JSON.stringify(refuse ? { error: "muted" } : toggle.startsWith("like:") ? { on: sent.on, count: (opts.likeBase ?? 0) + (sent.on ? 1 : 0) } : { on: sent.on }) })
+        }, opts.wait ?? 300)
+      }
+      if (/\/posts\/[^/]+\/comments$/.test(short) && method === "POST") {
+        const refuse = /refuse/.test(sent.body || "")
+        const n = ++live.comments
+        return setTimeout(() => r.respond({ status: refuse ? 403 : 201, contentType: "application/json", body: JSON.stringify(refuse ? { error: "muted" } : { comment: { id: `c-new-${n}`, postId: "x", parentId: sent.parentId ?? null, body: sent.body, status: "published", deleted: false, author: { id: "u-me", name: "Sam Carter", username: "samc", avatarUrl: null, role: "moderator", level: 3 }, reactionCount: 0, reacted: false, createdAt: new Date().toISOString(), editedAt: null, replies: [], canEdit: true, canModerate: true } }) }), opts.commentWait ?? 400)
+      }
       if (short.includes("/gifs")) return reply(opts.gifsOff ? { connected: false, gifs: [], next: null } : { connected: true, gifs: GIFS, next: null })
       if (short.includes("/files")) {
         if (sent.action === "prepare") return reply({ ticket: { fileId: "33333333-0000-4000-8000-000000000001", url: `${ORIGIN}/upload/file`, token: "t", name: sent.fileName, maxBytes: 52428800 } })
@@ -177,11 +222,12 @@ async function open(name, path, vp, opts = {}) {
       return r.respond({ status: 404, body: "" })
     }
     if (url.startsWith("data:") || url.startsWith("blob:")) return r.continue()
+    if (r.isNavigationRequest()) navs.push(url)
     return r.respond({ status: 204, body: "" })
   })
   await p.goto(`${ORIGIN}${path}${path.includes("?") ? "&" : "?"}case=${name}`, { waitUntil: "load" })
   await sleep(500)
-  return { p, errors, calls }
+  return { p, errors, calls, navs, live }
 }
 
 function dmAnswer(as, short, method, sent, reply) {
@@ -309,7 +355,7 @@ try {
     console.log(`\n${label}`)
 
     /* ── CARDS ────────────────────────────────────────────────────── */
-    {
+    if (want("cards")) {
       const { p, errors } = await open("feed", "/community/studio-notes", vp)
       await shot(p, `${label}-feed`)
       const card = await p.evaluate(() => {
@@ -359,7 +405,7 @@ try {
     }
 
     /* ── COMPOSER: every attachment kind, and the POST ─────────────── */
-    {
+    if (want("composer")) {
       const { p, errors, calls } = await open("feed", "/community/studio-notes", vp)
       const closedKids = await p.evaluate(() => [...document.querySelectorAll('[data-composer="closed"] button')].map((b) => b.textContent.trim()))
       expect(closedKids.length === 1 && /Share something/.test(closedKids[0]), "closed, the composer is one field", closedKids)
@@ -470,7 +516,7 @@ try {
     }
 
     /* ── GIFS NOT CONNECTED ───────────────────────────────────────── */
-    {
+    if (want("gifs")) {
       const { p } = await open("feed", "/community/studio-notes", vp, { gifsOff: true })
       await p.click("[data-composer-open]")
       await sleep(600)
@@ -484,7 +530,7 @@ try {
     }
 
     /* ── LEAVING WITH SOMETHING WRITTEN ───────────────────────────── */
-    {
+    if (want("leaving")) {
       const { p } = await open("feed", "/community/studio-notes", vp)
       await p.click("[data-composer-open]")
       await sleep(450)
@@ -527,7 +573,7 @@ try {
     }
 
     /* ── OPENING A POST OVER THE FEED ─────────────────────────────── */
-    {
+    if (want("opening")) {
       const { p, errors, calls } = await open("feed", "/community/studio-notes", vp)
       const cdp = await p.target().createCDPSession()
       const before = await p.evaluate(() => location.pathname)
@@ -610,15 +656,16 @@ try {
     }
 
     /* ── THE POST PAGE AND THE LIGHTBOX ───────────────────────────── */
-    {
+    if (want("lightbox")) {
       const { p, errors } = await open("post", "/community/studio-notes/post/p-intro", vp)
       await shot(p, `${label}-post-page`, true)
       const grid = await p.evaluate(() => {
-        const card = document.querySelector("[data-post]").getBoundingClientRect()
+        const box = document.querySelector("[data-post-media]").getBoundingClientRect()
         const tiles = [...document.querySelectorAll("[data-media-tile]")].map((t) => t.getBoundingClientRect())
-        return { cardW: Math.round(card.width), tiles: tiles.length, tileW: Math.round(tiles[0]?.width ?? 0), widest: Math.round(Math.max(...tiles.map((t) => t.width))) }
+        return { boxW: Math.round(box.width), tiles: tiles.length, widths: tiles.map((t) => Math.round(t.width)), layout: document.querySelector("[data-post-media-grid]")?.getAttribute("data-post-media-grid") }
       })
-      expect(grid.tiles === 4 && grid.widest < grid.cardW * 0.5, "inside the post media is a grid of thumbnails, never its full width", grid)
+      /* Round 8 changed this on purpose: four things are a grid, the first one large across the post. */
+      expect(grid.tiles === 4 && grid.layout === "grid" && grid.widths[0] === grid.boxW && grid.widths.slice(1).every((w) => Math.abs(w - (grid.boxW - 8) / 3) <= 1.5), "four things in a post: the first across its full width, three under it", grid)
       const cdp = await p.target().createCDPSession()
       /* Three opens, the middle one judged, as for the post: the machine these run on is shared. */
       const lbRuns = []
@@ -663,10 +710,393 @@ try {
       expect(errors.length === 0, "no page error", errors)
       await p.close()
     }
+
+    /* ── ROUND 8: MEDIA IN AN OPENED POST ─────────────────────────── */
+    if (want("media")) {
+      const layout = async (id) => {
+        const { p, errors } = await open("media", `/community/studio-notes/post/${id}?post=${id}`, vp)
+        await p.waitForSelector("[data-post-media]", { timeout: 4000 }).catch(() => {})
+        const m = await p.evaluate(() => {
+          const r = (e) => {
+            const b = e.getBoundingClientRect()
+            return { x: Math.round(b.left), y: Math.round(b.top), w: Math.round(b.width), h: Math.round(b.height) }
+          }
+          const box = document.querySelector("[data-post-media]")
+          const title = document.querySelector("[data-post] h1")
+          return {
+            box: box ? r(box) : null,
+            text: title ? r(title.parentElement) : null,
+            layout: document.querySelector("[data-post-media-grid]")?.getAttribute("data-post-media-grid") ?? null,
+            tiles: [...document.querySelectorAll("[data-media-tile]")].map((t) => ({ ...r(t), kind: t.getAttribute("data-media-tile") })),
+            more: document.querySelector("[data-media-more]")?.textContent ?? null,
+            embeds: [...document.querySelectorAll("[data-embed-player]")].map(r),
+            video: [...document.querySelectorAll("[data-storelib-video]")].map(r),
+            vh: innerHeight,
+          }
+        })
+        return { p, errors, m }
+      }
+      const W = (m) => m.box?.w ?? 0
+
+      {
+        const { p, errors, m } = await layout("m-one")
+        const t = m.tiles[0]
+        expect(m.layout === "single" && t && t.w === W(m) && m.text && W(m) === m.text.w, "one picture: the post's full width", { box: m.box, text: m.text, tile: t })
+        expect(t && Math.abs(t.h - t.w / 1.6) <= 1.5, "in its own shape (16:10 here)", t)
+        await shot(p, `${label}-media-one`)
+        expect(errors.length === 0, "no page error", errors)
+        await p.close()
+      }
+      {
+        const { p, m } = await layout("m-tall")
+        const t = m.tiles[0]
+        const cap = Math.min(560, Math.round(m.vh * 0.72))
+        expect(t && t.w === W(m) && Math.abs(t.h - cap) <= 1, "a tall picture: full width, no taller than the screen allows", { tile: t, cap })
+        await shot(p, `${label}-media-tall`)
+        await p.close()
+      }
+      {
+        const { p, m } = await layout("m-two")
+        const [a, b] = m.tiles
+        const half = (W(m) - 4) / 2
+        expect(m.layout === "pair" && m.tiles.length === 2 && Math.abs(a.w - half) <= 1 && Math.abs(b.w - half) <= 1, "two things side by side, each half the width", m.tiles)
+        expect(a.h === b.h && a.y === b.y && a.h >= half - 1, "at the same height, never shrunk to thumbnails", m.tiles)
+        expect(a.kind === "image" && b.kind === "video", "a picture and a video together", m.tiles.map((x) => x.kind))
+        await shot(p, `${label}-media-two`)
+        /* The video's tile plays it in the viewer. */
+        await p.click('[data-media-tile="video"]')
+        await p.waitForSelector("[data-lightbox] [data-storelib-video]", { timeout: 3000 }).catch(() => {})
+        expect(!!(await p.$("[data-lightbox] [data-storelib-video]")), "the video's tile opens the viewer on the video")
+        await p.keyboard.press("Escape")
+        await sleep(300)
+        await p.close()
+      }
+      {
+        const { p, m } = await layout("m-many")
+        const [top, ...below] = m.tiles
+        const third = (W(m) - 8) / 3
+        expect(m.layout === "grid" && top.w === W(m) && Math.abs(top.h - (W(m) * 9) / 16) <= 1.5, "five pictures: the first large across the top", top)
+        expect(below.length === 3 && below.every((x) => Math.abs(x.w - third) <= 1.5 && Math.abs(x.h - x.w) <= 1.5 && x.y === below[0].y), "then three squares under it", below)
+        expect(m.more === "+1", "the last says how many more", m.more)
+        expect(!m.tiles.some((x) => x.kind === "embed"), "no YouTube tile in the grid", m.tiles.map((x) => x.kind))
+        await shot(p, `${label}-media-many`)
+        /* The YouTube video among them is not a tile but its own player under the grid. */
+        const grid = await p.evaluate(() => Math.round(document.querySelector("[data-post-media-grid]").getBoundingClientRect().bottom))
+        expect(m.embeds.length === 1 && m.embeds[0].w === W(m) && Math.abs(m.embeds[0].h - (W(m) * 9) / 16) <= 1 && m.embeds[0].y >= grid, "the YouTube video with them is a 16:9 player under the grid, full width", { grid, embed: m.embeds[0] })
+        await p.close()
+      }
+      {
+        const { p, m } = await layout("m-video")
+        const v = m.video[0]
+        expect(m.layout === "single" && v && v.w === W(m) && Math.abs(v.h - (v.w * 9) / 16) <= 1, "a video alone: the post's full width, 16:9, with its poster", v)
+        expect(!!(await p.$("[data-post-media] [data-storelib-video] button")), "and plays where it is")
+        await shot(p, `${label}-media-video`)
+        await p.close()
+      }
+      {
+        const { p, errors, m } = await layout("m-yt")
+        expect(m.embeds.length === 2 && m.embeds.every((e) => e.w === W(m) && Math.abs(e.h - (e.w * 9) / 16) <= 1), "two YouTube addresses in the words (youtu.be, m.youtube.com/shorts): each a 16:9 player under the text", m.embeds)
+        const textBottom = await p.evaluate(() => Math.round(document.querySelector("[data-post] h1 + div").getBoundingClientRect().bottom))
+        expect(m.embeds[0] && m.embeds[0].y >= textBottom, "under the text", { textBottom, embed: m.embeds[0] })
+        await shot(p, `${label}-media-youtube`)
+        await p.click("[data-embed-play]")
+        await p.waitForSelector("[data-post-media] iframe", { timeout: 3000 }).catch(() => {})
+        const srcs = await p.evaluate(() => [...document.querySelectorAll("[data-post-media] iframe")].map((f) => f.getAttribute("src")))
+        expect(srcs.length === 1 && /youtube-nocookie\.com\/embed\/aqz-KE-bpKQ\?.*autoplay=1/.test(srcs[0]), "pressed, it plays inline in the post", srcs)
+        await p.click("[data-embed-play]")
+        await sleep(200)
+        const srcs2 = await p.evaluate(() => [...document.querySelectorAll("[data-post-media] iframe")].map((f) => f.getAttribute("src")))
+        expect(srcs2.some((x) => /embed\/ScMzIvxBSi4/.test(x)), "the shorts address plays as well", srcs2)
+        const side = await sideScroll(p)
+        expect(side.scroll <= side.width, "nothing scrolls sideways", side)
+        expect(errors.length === 0, "no page error", errors)
+        await p.close()
+      }
+    }
+
+    /* ── ROUND 8: THE VIEWER, NEVER A RAW FILE IN A TAB ───────────── */
+    if (want("viewer")) {
+      const { p, errors, navs } = await open("media", "/community/studio-notes/post/m-links?post=m-links", vp)
+      let tabs = 0
+      const onTarget = () => tabs++
+      browser.on("targetcreated", onTarget)
+      const before = await p.evaluate(() => location.href)
+      const viewer = async (sel, what) => {
+        await p.evaluate((q) => document.querySelector(q)?.scrollIntoView({ block: "center" }), sel)
+        await sleep(120)
+        if (phone) await p.tap(sel)
+        else await p.click(sel)
+        await p.waitForFunction(() => document.querySelector("[data-lightbox-phase]")?.getAttribute("data-lightbox-phase") === "open", { timeout: 3000 }).catch(() => {})
+        const got = await p.evaluate(() => ({
+          open: !!document.querySelector("[data-lightbox]"),
+          img: document.querySelector("[data-lightbox] [data-lightbox-image]")?.getAttribute("src") ?? null,
+          clip: document.querySelector("[data-lightbox] [data-lightbox-clip]")?.getAttribute("src") ?? null,
+          href: location.href,
+        }))
+        return got
+      }
+      const sketch = await viewer('[data-post] a[href$="sketch.png"]', "picture link")
+      expect(sketch.open && /sketch\.png/.test(decodeURIComponent(sketch.img ?? "")), "a supabase picture linked in the words opens the viewer", sketch)
+      await sleep(350)
+      await shot(p, `${label}-viewer-link`)
+      await p.keyboard.press("Escape")
+      await sleep(350)
+      const clip = await viewer('[data-post] a[href$="walkthrough.mp4"]', "video link")
+      expect(clip.open && /walkthrough\.mp4$/.test(clip.clip ?? ""), "a video file linked in the words plays in the viewer", clip)
+      await p.keyboard.press("Escape")
+      await sleep(350)
+      const comment = await viewer('[data-comment] a[href$="mine.jpg"]', "comment link")
+      expect(comment.open && /mine\.jpg/.test(decodeURIComponent(comment.img ?? "")), "a picture linked in a comment opens it too", comment)
+      await p.keyboard.press("Escape")
+      await sleep(350)
+      const file = await viewer("[data-post-file-open]", "picture file")
+      expect(file.open && /\/posts\/m-links\/files\/22222222-0000-4000-8000-000000000002$/.test(file.img ?? ""), "a picture file opens the viewer, from the member route as it is", file)
+      await sleep(350)
+      await shot(p, `${label}-viewer-file`)
+      await p.keyboard.press("Escape")
+      await sleep(350)
+      const pdf = await p.evaluate(() => {
+        const a = [...document.querySelectorAll("[data-post-file]")].find((x) => /Notes\.pdf/.test(x.textContent))
+        return a ? { tag: a.tagName, download: a.getAttribute("download") } : null
+      })
+      expect(pdf?.tag === "A" && pdf.download === "Notes.pdf", "a PDF is still a download", pdf)
+      browser.off("targetcreated", onTarget)
+      const after = await p.evaluate(() => location.href)
+      expect(tabs === 0 && navs.length === 0 && after === before, "no new tab, no page load, the address is where it was", { tabs, navs, before, after })
+      expect(errors.length === 0, "no page error", errors)
+      await p.close()
+    }
+
+    /* ── ROUND 8: RAPID LIKES, SAVES AND COMMENTS AT 4x CPU ───────── */
+    if (want("taps")) {
+      const { p, errors, live } = await open("feed", "/community/studio-notes", vp, { likeBase: 24, wait: 300 })
+      const cdp = await p.target().createCDPSession()
+      /*
+        Watches one button through a burst: every value its count and its
+        pressed state take (so a flicker to any third value shows), whether
+        it was ever turned off, and for each press the time from the press
+        to the frame that shows it.
+      */
+      const watch = (sel, countSel) =>
+        p.evaluate((sel, countSel) => {
+          const w = { values: [], disabled: 0, presses: [], drawn: [] }
+          window.__watch = w
+          const el = () => document.querySelector(sel)
+          const read = () => {
+            const b = el()
+            if (!b) return
+            if (b.disabled) w.disabled++
+            const v = `${b.getAttribute("aria-pressed")}|${countSel ? b.querySelector(countSel)?.textContent : ""}`
+            if (w.values.at(-1) !== v) w.values.push(v)
+          }
+          read()
+          w.mo = new MutationObserver(read)
+          w.mo.observe(document.body, { subtree: true, childList: true, attributes: true, characterData: true })
+          /* From the click (the press is complete) to the first frame that shows it. */
+          document.addEventListener(
+            "click",
+            (e) => {
+              if (!e.target.closest(sel)) return
+              const t = performance.now()
+              const was = el()?.getAttribute("aria-pressed")
+              w.presses.push(t)
+              /* The next frame's callback runs before that frame is painted: the state must be there by then. */
+              requestAnimationFrame((at) => w.drawn.push({ ms: at - t, shown: el()?.getAttribute("aria-pressed") !== was }))
+            },
+            true,
+          )
+        }, sel, countSel)
+      const burst = async (sel, n, gap) => {
+        for (let i = 0; i < n; i++) {
+          if (phone) await p.tap(sel)
+          else await p.click(sel)
+          await sleep(gap)
+        }
+      }
+      const report = () =>
+        p.evaluate(() => {
+          const w = window.__watch
+          return { values: w.values, disabled: w.disabled, presses: w.presses.length, span: Math.round(w.presses.at(-1) - w.presses[0]), drawn: w.drawn.filter((d) => d.shown).length, drawnMax: Math.round(Math.max(0, ...w.drawn.map((d) => d.ms))) }
+        })
+      /* Requests for one toggle: one at a time, each asking for the other state than the one before, the last for the final state. */
+      const sane = (reqs, final) => reqs.length >= 1 && reqs.every(([, on], i) => i === 0 || on !== reqs[i - 1][1]) && reqs.at(-1)[1] === final
+
+      /* Seven likes on a card, 40ms apart: ends liked. */
+      const LIKE = '[data-post="p-text"] [data-like]'
+      await watch(LIKE, "[data-like-count]")
+      if (process.env.PROFILE)
+        await p.evaluate(() => {
+          window.__lt = []
+          new PerformanceObserver((l) => l.getEntries().forEach((e) => window.__lt.push([Math.round(e.startTime), Math.round(e.duration)]))).observe({ type: "longtask" })
+          window.__clk = []
+          let t0 = 0
+          window.addEventListener("click", () => (t0 = performance.now()), true)
+          window.addEventListener("click", () => window.__clk.push(Math.round(performance.now() - t0)), false)
+          for (const ev of ["pointerdown", "pointerup", "mousedown", "mouseup", "pointermove", "mousemove", "pointerover"]) {
+            let s0 = 0
+            window.addEventListener(ev, () => (s0 = performance.now()), true)
+            window.addEventListener(ev, () => (window["__" + ev] ||= []).push(Math.round(performance.now() - s0)), false)
+          }
+        })
+      if (process.env.TRACE) await p.tracing.start({ path: join(shots, "taps-trace.json"), categories: ["devtools.timeline", "disabled-by-default-devtools.timeline"] })
+      if (process.env.PROFILE) {
+        await cdp.send("Profiler.enable")
+        await cdp.send("Profiler.setSamplingInterval", { interval: 200 })
+        await cdp.send("Profiler.start")
+      }
+      const likes = await frames(
+        p,
+        cdp,
+        () => burst(LIKE, 7, 40),
+        () => !document.querySelector("[data-like][disabled]") && true,
+        900,
+        null,
+        900,
+      )
+      await sleep(900)
+      if (process.env.TRACE) {
+        await p.tracing.stop()
+        const ev = JSON.parse(readFileSync(join(shots, "taps-trace.json"), "utf8")).traceEvents
+        const sum = new Map()
+        for (const e of ev) if (e.ph === "X" && e.dur) sum.set(e.name, (sum.get(e.name) || [0, 0, 0]).map((v, i) => (i === 0 ? v + e.dur : i === 1 ? v + 1 : Math.max(v, e.dur))))
+        console.log("TRACE", JSON.stringify([...sum].sort((a, b) => b[1][0] - a[1][0]).slice(0, 18).map(([k, [t, n, m]]) => [k, Math.round(t / 1000), n, Math.round(m / 1000)])))
+      }
+      if (process.env.PROFILE) {
+        const { profile } = await cdp.send("Profiler.stop")
+        const self = new Map()
+        const dt = profile.timeDeltas
+        const byId = new Map(profile.nodes.map((n) => [n.id, n]))
+        profile.samples.forEach((id, i) => {
+          const n = byId.get(id)
+          const k = `${n.callFrame.functionName || "(anon)"} ${n.callFrame.url.split("/").pop()}:${n.callFrame.lineNumber}`
+          self.set(k, (self.get(k) || 0) + (dt[i] || 0))
+        })
+        console.log("SELF", JSON.stringify([...self].sort((a, b) => b[1] - a[1]).slice(0, 25).map(([k, v]) => [k, Math.round(v / 1000)])))
+      }
+      if (process.env.PROFILE) console.log("PROFILE", JSON.stringify(await p.evaluate(() => ({ lt: window.__lt, clk: window.__clk, pd: window.__pointerdown, pu: window.__pointerup, md: window.__mousedown, mu: window.__mouseup, mm: window.__mousemove, po: window.__pointerover }))))
+      const lr = await report()
+      const final = await p.$eval(LIKE, (b) => `${b.getAttribute("aria-pressed")}|${b.querySelector("[data-like-count]").textContent}`)
+      expect(lr.presses === 7 && lr.drawn === 7, "LIKES at 4x CPU: each of seven presses is on screen in the very next frame", { presses: lr.presses, drawn: lr.drawn, slowestFrameAfterPress: lr.drawnMax })
+      expect(lr.disabled === 0, "the like button is never turned off while asking", lr.disabled)
+      expect(lr.values.every((v) => v === "false|24" || v === "true|25"), "the count only ever shows 24 or 25 (no flicker to any other)", lr.values)
+      expect(final === "true|25", "the last press wins: liked, 25", final)
+      const likeReqs = live.sent.filter(([k]) => k === "like:p-text")
+      expect(live.max["like:p-text"] === 1 && likeReqs.length < 7 && sane(likeReqs, true), "one request on its way at a time, fewer requests than presses, each a change, the last asking for on", { requests: likeReqs.map(([, on]) => on), maxAtOnce: live.max["like:p-text"], burstMs: lr.span })
+      /* Two more bursts for the frames alone, so one noisy frame on a shared machine does not decide it: the middle of three is judged. */
+      const likeRuns = [likes]
+      for (let i = 0; i < 2; i++) {
+        await sleep(400)
+        likeRuns.push(await frames(p, cdp, () => burst(LIKE, 7, 40), () => true, 900, null, 900))
+      }
+      const likeMid = [...likeRuns].sort((x, y) => x.max - y.max)[1]
+      expect(likeMid.max <= 50, "and the page keeps drawing frames through it: no frame over 50ms at 4x CPU (middle of three bursts)", likeRuns.map((r) => ({ max: r.max, long: r.long })))
+      await sleep(900)
+
+      /* Open the post; six saves there end where they started: not saved, and nothing said. */
+      await p.click('[data-post="p-text"] [data-post-excerpt]')
+      await p.waitForFunction(() => document.querySelector("[data-post-overlay-phase]")?.getAttribute("data-post-overlay-phase") === "shown", { timeout: 3000 }).catch(() => {})
+      await sleep(500)
+      const SAVE = "[data-post-overlay] [data-save]"
+      await watch(SAVE, null)
+      if (process.env.TRACE) await p.tracing.start({ path: join(shots, "saves-trace.json"), categories: ["devtools.timeline", "disabled-by-default-devtools.timeline", "disabled-by-default-devtools.timeline.stack", "disabled-by-default-devtools.timeline.invalidationTracking"] })
+      const saves = await frames(p, cdp, () => burst(SAVE, 6, 35), () => true, 900, null, 900)
+      if (process.env.TRACE) await p.tracing.stop()
+      await sleep(900)
+      const sr = await report()
+      const saved = await p.evaluate(() => ({ overlay: document.querySelector("[data-post-overlay] [data-save]")?.getAttribute("aria-pressed"), toast: document.querySelector("[data-community-toast]")?.textContent ?? null }))
+      expect(sr.presses === 6 && sr.drawn === 6 && sr.disabled === 0, "SAVES: each of six presses on screen in the very next frame, never turned off", { presses: sr.presses, drawn: sr.drawn, slowestFrameAfterPress: sr.drawnMax, disabled: sr.disabled })
+      const saveReqs = live.sent.filter(([k]) => k === "save:p-text")
+      expect(saved.overlay === "false" && live.max["save:p-text"] <= 1 && sane(saveReqs, false), "an even number of saves ends unsaved, one request at a time, the last asking for off", { saved, requests: saveReqs.map(([, on]) => on) })
+      expect(!saved.toast, "and no toast: the button says Saved itself", saved.toast)
+      const saveRuns = [saves]
+      for (let i = 0; i < 2; i++) {
+        await sleep(400)
+        saveRuns.push(await frames(p, cdp, () => burst(SAVE, 6, 35), () => true, 900, null, 900))
+      }
+      const saveMid = [...saveRuns].sort((x, y) => x.max - y.max)[1]
+      expect(saveMid.max <= 50, "frames through the saves: none over 50ms at 4x CPU (middle of three bursts)", saveRuns.map((r) => ({ max: r.max, long: r.long })))
+      await sleep(900)
+
+      /* Like in the opened post, then the card under it agrees. */
+      await p.click("[data-post-overlay] [data-like]")
+      await sleep(700)
+      /* The card comes first in the page; the opened post is drawn at the end of it. */
+      const both = await p.evaluate(() => [document.querySelector("[data-post-overlay] [data-like]")?.getAttribute("aria-pressed"), document.querySelector('[data-post="p-text"] [data-like]')?.getAttribute("aria-pressed")])
+      expect(both[0] === "false" && both[1] === "false", "an unlike in the opened post shows on the card under it", both)
+
+      /* Three comments sent fast: each drawn at once, the box empty again, then confirmed in order. */
+      await p.waitForSelector("[data-post-overlay] [data-comment-box=comment] textarea", { timeout: 4000 })
+      const countBefore = await p.evaluate(() => Number(document.querySelector('[data-post="p-text"] [data-comment-button]')?.textContent.trim() || 0))
+      const instant = []
+      await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 })
+      for (const words of ["First thought", "Second thought", "Third thought"]) {
+        await p.click("[data-post-overlay] [data-comment-box=comment] textarea")
+        await p.keyboard.type(words)
+        const t = await p.evaluate((words) => {
+          const box = document.querySelector("[data-post-overlay] [data-comment-box=comment]")
+          const btn = box.querySelector("[data-comment-send]")
+          return new Promise((done) => {
+            const t0 = performance.now()
+            btn.click()
+            requestAnimationFrame(() =>
+              done({
+                ms: Math.round(performance.now() - t0),
+                shown: [...document.querySelectorAll("[data-post-overlay] [data-comment-sending]")].some((c) => c.textContent.includes(words)),
+                box: box.querySelector("textarea").value,
+              }),
+            )
+          })
+        }, words)
+        instant.push(t)
+      }
+      await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
+      expect(instant.every((x) => x.shown && x.box === ""), "COMMENTS: each is on screen in the very next frame in its sending state, and the box is empty and ready again", instant)
+      await shot(p, `${label}-comments-sending`)
+      await sleep(900)
+      const confirmed = await p.evaluate(() => ({
+        sending: document.querySelectorAll("[data-post-overlay] [data-comment-sending]").length,
+        ids: [...document.querySelectorAll("[data-post-overlay] [data-comment]")].map((c) => c.getAttribute("data-comment")),
+        words: [...document.querySelectorAll("[data-post-overlay] [data-comment]")].map((c) => c.textContent.match(/(First|Second|Third) thought/)?.[1]).filter(Boolean),
+        count: Number(document.querySelector('[data-post="p-text"] [data-comment-button]')?.textContent.trim() || 0),
+      }))
+      expect(confirmed.sending === 0 && confirmed.ids.every((id) => id.startsWith("c-new-")) && confirmed.words.join() === "First,Second,Third", "then each is the server's copy, in the order sent", confirmed)
+      expect(confirmed.count === countBefore + 3, "and the card's count moved by three", { before: countBefore, after: confirmed.count })
+      /* A refused one comes out, its words back in the box, the reason said. */
+      await p.click("[data-post-overlay] [data-comment-box=comment] textarea")
+      await p.keyboard.type("please refuse this")
+      await p.click("[data-post-overlay] [data-comment-send]")
+      const mid = await p.evaluate(() => document.querySelectorAll("[data-post-overlay] [data-comment-sending]").length)
+      await sleep(800)
+      const refused = await p.evaluate(() => ({
+        sending: document.querySelectorAll("[data-post-overlay] [data-comment-sending]").length,
+        box: document.querySelector("[data-post-overlay] [data-comment-box=comment] textarea").value,
+        toast: document.querySelector("[data-community-toast]")?.textContent ?? null,
+        count: Number(document.querySelector('[data-post="p-text"] [data-comment-button]')?.textContent.trim() || 0),
+      }))
+      expect(mid === 1 && refused.sending === 0 && refused.box === "please refuse this" && /muted/i.test(refused.toast ?? "") && refused.count === countBefore + 3, "a refused comment is taken out, its words back in the box, the reason said, the count put back", { mid, ...refused })
+      const router = await p.evaluate(() => (window.__router ?? []).filter(([k]) => k === "refresh").length)
+      expect(router === 0, "no router refresh anywhere in it", router)
+      expect(errors.length === 0, "no page error", errors)
+      await p.close()
+    }
+
+    /* A like the server refuses goes back to where it was, with the reason. */
+    if (want("taps")) {
+      const { p, live } = await open("feed", "/community/studio-notes", vp, { likeBase: 24, wait: 200, refuse: ["like:p-text"] })
+      await (phone ? p.tap('[data-post="p-text"] [data-like]') : p.click('[data-post="p-text"] [data-like]'))
+      const mid = await p.$eval('[data-post="p-text"] [data-like]', (b) => b.getAttribute("aria-pressed"))
+      await sleep(600)
+      const back = await p.evaluate(() => {
+        const b = document.querySelector('[data-post="p-text"] [data-like]')
+        return { pressed: b.getAttribute("aria-pressed"), count: b.querySelector("[data-like-count]").textContent, toast: document.querySelector("[data-community-toast]")?.textContent ?? null }
+      })
+      expect(mid === "true" && back.pressed === "false" && back.count === "24" && /muted/i.test(back.toast ?? "") && live.sent.length === 1, "a refused like is put back with the reason", { mid, ...back })
+      await p.close()
+    }
   }
 
   /* ── MESSAGES: two members, two pages ───────────────────────────── */
-  for (const [label, vp] of VIEWPORTS.filter(([l]) => !process.env.ONLY || l.startsWith(process.env.ONLY))) {
+  for (const [label, vp] of VIEWPORTS.filter(([l]) => want("messages") && (!process.env.ONLY || l.startsWith(process.env.ONLY)))) {
     console.log(`\n${label}: messages between two members`)
     dmStore.conversations.clear()
     dmStore.messages.length = 0
@@ -713,7 +1143,7 @@ try {
   }
 } finally {
   await browser.close()
-  rmSync(stubs, { recursive: true, force: true })
+  if (!process.env.KEEP_STUBS) rmSync(stubs, { recursive: true, force: true })
 }
 
 console.log(`\nshots: ${shots}`)

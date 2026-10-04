@@ -10,6 +10,12 @@
  *   feed   /community/<slug>               cards: picture, video still, GIF, video by address, link, file, text
  *   post   /community/<slug>/post/<id>     the post page with its media grid
  *   dm     /community/<slug>?as=<user>     the frame with Messages, as one of two members
+ *   media  /community/<slug>/post/<id>?post=<id>   round 8: one post of MEDIA_POSTS on its
+ *          page (one picture, a tall one, two, many, a video alone, a YouTube
+ *          address in the words, a picture linked in the words and in a comment)
+ *
+ * Like the real frame (components/community/member/shell.tsx), every case
+ * draws MediaLinks, so a press on a picture link opens the viewer.
  */
 import React from "react"
 import { createRoot } from "react-dom/client"
@@ -18,6 +24,7 @@ import { FeedColumns } from "@/components/community/member/columns"
 import { FeedView } from "@/components/community/member/feed"
 import { SpaceChips } from "@/components/community/member/space-chips"
 import { PostPage } from "@/components/community/member/post-page"
+import { MediaLinks } from "@/components/community/member/media-viewer"
 import { LocaleProvider } from "@/components/locale-provider"
 import { allowedActions } from "@/lib/communities/permissions"
 import type { FeedPostView, ViewerView } from "@/lib/communities/types"
@@ -194,6 +201,68 @@ export const POSTS: FeedPostView[] = [
   }),
 ]
 
+/** Round 8: the opened post's media, one post per layout. */
+const STORAGE = "https://placeholder.supabase.co/storage/v1/object/public/community-media/u-me"
+export const MEDIA_POSTS: FeedPostView[] = [
+  post({ id: "m-one", title: "One picture", bodyText: "The new studio, finally painted.", media: [{ type: "image", url: picture("#e9e4dc", "#c8b9a6", 1600, 1000), w: 1600, h: 1000 }] }),
+  post({ id: "m-tall", title: "A tall picture", bodyText: "Phone screenshot of the onboarding.", media: [{ type: "image", url: picture("#dfe7ee", "#a9bccd", 900, 1950), w: 900, h: 1950 }] }),
+  post({
+    id: "m-two",
+    title: "Two side by side",
+    bodyText: "Before and after.",
+    media: [
+      { type: "image", url: picture("#efe3cf", "#c49a5a", 1200, 900), w: 1200, h: 900 },
+      { type: "video", videoId: "11111111-0000-4000-8000-000000000002", poster: picture("#1f2a3a", "#4b6b8a", 1920, 1080), w: 1920, h: 1080 },
+    ],
+  }),
+  post({
+    id: "m-many",
+    title: "Five from the workshop, and the talk",
+    bodyText: "Some pictures from Saturday.",
+    media: [
+      { type: "image", url: picture("#e8d5c4", "#8a5a3c", 1600, 900), w: 1600, h: 900 },
+      { type: "image", url: picture("#cfdcd2", "#3f6b4f"), w: 1200, h: 800 },
+      { type: "gif", url: picture("#f4d7c8", "#d98f6a", 400, 300), still: picture("#f4d7c8", "#d98f6a", 400, 300), w: 400, h: 300 },
+      { type: "embed", provider: "youtube", id: "dQw4w9WgXcQ", url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", thumb: picture("#283044", "#7c8db0", 480, 360) },
+      { type: "image", url: picture("#d6d9ef", "#4a4f8a"), w: 1200, h: 800 },
+      { type: "image", url: picture("#f1e9da", "#d9c3a0"), w: 1200, h: 800 },
+    ],
+  }),
+  post({ id: "m-video", title: "A video alone", bodyText: "Ten minutes on grids.", media: [{ type: "video", videoId: "11111111-0000-4000-8000-000000000003", poster: picture("#283044", "#5c6b8a", 1920, 1080), w: 1920, h: 1080 }] }),
+  post({
+    id: "m-yt",
+    title: "Talks worth watching",
+    bodyText: "This one changed how I name layers: https://youtu.be/aqz-KE-bpKQ\n\nAnd the short version: https://m.youtube.com/shorts/ScMzIvxBSi4",
+    media: [],
+  }),
+  post({
+    id: "m-links",
+    title: "Picture in the words",
+    bodyText: `Here is the sketch: ${STORAGE}/sketch.png and the clip ${STORAGE}/walkthrough.mp4`,
+    media: [{ type: "file", assetId: "22222222-0000-4000-8000-000000000002", name: "Moodboard.jpg", size: 840_000, store: "community" }, { type: "file", assetId: "22222222-0000-4000-8000-000000000003", name: "Notes.pdf", size: 120_000, store: "community" }],
+    commentCount: 1,
+  }),
+]
+
+const MEDIA_COMMENTS = [
+  {
+    id: "c-pic",
+    postId: "m-links",
+    parentId: null,
+    body: `Mine from last week: ${STORAGE}/mine.jpg`,
+    status: "published" as const,
+    deleted: false,
+    author: people.maya,
+    reactionCount: 2,
+    reacted: false,
+    createdAt: iso(NOW - HOUR),
+    editedAt: null,
+    replies: [],
+    canEdit: false,
+    canModerate: true,
+  },
+]
+
 const topBar: TopBarData = {
   community: { id: CID, slug: community.slug, name: community.name, logoUrl: community.logoUrl },
   creator: { name: "Maya Okafor", href: "/mayao" },
@@ -204,11 +273,18 @@ const topBar: TopBarData = {
 
 function Screen() {
   const shell = (children: React.ReactNode) => (
+    <>
+    <MediaLinks communityId={CID} />
     <ShellFrame community={community} viewer={viewer} topBar={topBar} unreadMessages={which === "dm" ? 0 : null} wall={{ card: { stats: { members: community.memberCount, online: 5, admins: 2 }, faces: [], more: 0, settingsHref: null }, upcoming: null, contributors: null }}>
       {children}
     </ShellFrame>
+    </>
   )
   const me = { name: self.name, avatarUrl: self.avatarUrl }
+  if (which === "media") {
+    const chosen = MEDIA_POSTS.find((p) => p.id === params.get("post")) ?? MEDIA_POSTS[0]
+    return shell(<FeedColumns main={<PostPage slug={community.slug} viewer={viewer} post={chosen} comments={{ comments: chosen.id === "m-links" ? MEDIA_COMMENTS : [], nextCursor: null }} me={me} />} />)
+  }
   if (which === "post") {
     return shell(<FeedColumns main={<PostPage slug={community.slug} viewer={viewer} post={POSTS[0]} comments={{ comments: [], nextCursor: null }} me={me} />} />)
   }

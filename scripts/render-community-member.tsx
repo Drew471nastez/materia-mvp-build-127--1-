@@ -25,6 +25,7 @@ import { ChatView } from "@/components/community/member/chat"
 import { MembersDirectory } from "@/components/community/member/members"
 import { Leaderboard } from "@/components/community/member/leaderboard"
 import { NotificationsList } from "@/components/community/member/notifications"
+import { LocaleProvider } from "@/components/locale-provider"
 import { allowedActions } from "@/lib/communities/permissions"
 import type { CommentView, FeedPostView, MemberView, Role, ViewerView } from "@/lib/communities/types"
 import type { ChatMessageView, LeaderboardRow, NotificationView, ShellCommunity, SpaceView, TopBarData } from "@/components/community/member/view-types"
@@ -351,4 +352,9 @@ try {
 } catch {
   /* fine */
 }
-createRoot(document.getElementById("app")!).render(<Screen />)
+/* The root layout's LocaleProvider: the community bar's account menu reads its words from it. */
+createRoot(document.getElementById("app")!).render(
+  <LocaleProvider>
+    <Screen />
+  </LocaleProvider>,
+)
