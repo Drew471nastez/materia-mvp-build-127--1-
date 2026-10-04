@@ -38,4 +38,5 @@ export const JOB_HANDLERS: Partial<Record<JobKind, JobHandler>> = {
   trending: (db, job, ctx) => import("./trending").then((m) => m.trending(db, job, ctx)),
   fanout_followers: (db, job, ctx) => import("./fanout_followers").then((m) => m.fanoutFollowers(db, job, ctx)),
   fanout_membership_post: (db, job, ctx) => import("./fanout_membership_post").then((m) => m.fanoutMembershipPost(db, job, ctx)),
+  push_digest: (db, job, ctx) => import("./push_digest").then((m) => m.pushDigest(db, job, ctx)),
 }
