@@ -37,6 +37,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { LIMITS, callerAddress, rateLimit } from "@/lib/api/rate-limit"
 import { addBank, detailsForm, submitDetails, uploadDocument } from "@/lib/payments/stripe/own-form"
+import { signIdHandoff } from "@/lib/payments/stripe/id-handoff"
 import { identityStatus, startIdentity } from "@/lib/payments/stripe/identity"
 import {
   addPayoutAccount,
@@ -208,6 +209,14 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
         const file = form?.get("file")
         const result = await uploadDocument(creator, { which: String(form?.get("which") ?? ""), side: String(form?.get("side") ?? ""), file: file instanceof File ? file : null })
         return NextResponse.json({ form: result }, { headers: NO_STORE })
+      }
+      case "handoff": {
+        /* Verify ID on a phone: a link that lets this creator, and only them, add their ID photos for thirty minutes. */
+        if (provider !== "stripe") return NextResponse.json({ error: "Not found." }, { status: 404, headers: NO_STORE })
+        const token = signIdHandoff(creator.id)
+        if (!token) return NextResponse.json({ error: "This is not available just now." }, { status: 503, headers: NO_STORE })
+        /* The address this page was opened on, so a preview opens on the preview and the token's key matches. */
+        return NextResponse.json({ url: `${request.nextUrl.origin}/verify-id/${token}` }, { headers: NO_STORE })
       }
       case "bank": {
         if (provider !== "stripe") return NextResponse.json({ error: "Not found." }, { status: 404, headers: NO_STORE })
