@@ -537,9 +537,10 @@ export function MemberPage({ page, welcome = false, cardUpdated = false, now: fi
 
   return (
     <div data-member-page="" data-status={m.status} className="mx-auto max-w-[1080px] pb-12">
-      <Link href="/account/library/memberships" className="mb-3 inline-flex h-9 items-center gap-1.5 rounded-lg pr-2 text-[13.5px] font-medium text-[#6b7280] transition-colors hover:text-[#1a1a2e]">
+      {/* Back to the library, where this membership is a row of Products now (there is no Memberships pill). */}
+      <Link href="/account/library" className="mb-3 inline-flex h-9 items-center gap-1.5 rounded-lg pr-2 text-[13.5px] font-medium text-[#6b7280] transition-colors hover:text-[#1a1a2e]">
         <ArrowLeft aria-hidden className="h-4 w-4" />
-        Memberships
+        Library
       </Link>
 
       {/* ── The top ─────────────────────────────────────────────────── */}

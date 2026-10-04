@@ -5,6 +5,8 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { Check, ChevronRight, Search, X } from "lucide-react"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { creatorKey, visibleItems, type LibraryCreator, type LibraryItem, type LibrarySort } from "@/lib/library/library-view"
+import type { MembershipCard } from "@/lib/memberships/view-types"
+import { LibraryMembershipRow, membershipMatches } from "./library-memberships"
 import { contactOf, memberProfileOf } from "./creator-links"
 import { ProductRow } from "./product-row"
 import { useStoreLinkProps } from "./use-store-link"
@@ -23,6 +25,11 @@ import { cn } from "@/lib/utils"
  *
  * Nothing here is a dashboard. There are no totals to admire: the count
  * under the heading is only there so an empty search is not a surprise.
+ *
+ * MEMBERSHIPS ARE ROWS HERE TOO. There is no Memberships pill any more
+ * (memberships are communities), so a membership bought on its own sits at
+ * the top of this list, labelled Membership (./library-memberships.tsx),
+ * found by the same search, and counted with the rest.
  */
 
 /**
@@ -127,6 +134,14 @@ function NothingYet({ wishlistCount }: { wishlistCount: number }) {
 
 /* ─── The page ────────────────────────────────────────────────────────── */
 
+/** "3 products", "3 products · 1 membership", "1 membership": what the list holds. */
+export function countLine(products: number, memberships: number): string {
+  const parts: string[] = []
+  if (products > 0 || memberships === 0) parts.push(`${products} ${products === 1 ? "product" : "products"}`)
+  if (memberships > 0) parts.push(`${memberships} ${memberships === 1 ? "membership" : "memberships"}`)
+  return parts.join(" · ")
+}
+
 export function LibraryHome({
   items,
   creators,
@@ -134,6 +149,7 @@ export function LibraryHome({
   purchased = false,
   toReview = 0,
   wishlistCount = 0,
+  memberships = [],
 }: {
   items: LibraryItem[]
   creators: LibraryCreator[]
@@ -145,12 +161,17 @@ export function LibraryHome({
   toReview?: number
   /** Saved products still on sale, which an empty library points at. */
   wishlistCount?: number
+  /** Memberships bought on their own (lib/library/library-memberships.ts), drawn above the products. */
+  memberships?: MembershipCard[]
 }) {
   const [query, setQuery] = useState("")
   const [sort, setSort] = useState<LibrarySort>("recent")
   const listRef = useRef<HTMLUListElement>(null)
 
   const shown = useMemo(() => visibleItems(items, { query, sort, creator: null }), [items, query, sort])
+  const shownMemberships = useMemo(() => memberships.filter((m) => membershipMatches(m, query)), [memberships, query])
+  const total = items.length + memberships.length
+  const showing = shown.length + shownMemberships.length
 
   /* The product just bought, brought into view once. */
   useEffect(() => {
@@ -159,7 +180,7 @@ export function LibraryHome({
     el?.scrollIntoView({ block: "center", behavior: "smooth" })
   }, [highlight])
 
-  if (items.length === 0) return <NothingYet wishlistCount={wishlistCount} />
+  if (total === 0) return <NothingYet wishlistCount={wishlistCount} />
 
   return (
     <div data-library-home="" className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_280px] lg:gap-6">
@@ -171,7 +192,7 @@ export function LibraryHome({
           </p>
         ) : null}
 
-        {items.length >= CONTROLS_FROM ? (
+        {total >= CONTROLS_FROM ? (
         <div className="flex items-center gap-2" data-library-toolbar="">
           <label className="relative min-w-0 flex-1">
             <span className="sr-only">Search your products</span>
@@ -209,13 +230,14 @@ export function LibraryHome({
         ) : null}
 
         <p className="px-0.5 text-[13px] text-[#6b7280]" aria-live="polite">
-          {shown.length === items.length
-            ? `${items.length} ${items.length === 1 ? "product" : "products"}`
-            : `${shown.length} of ${items.length}`}
+          {showing === total ? countLine(items.length, memberships.length) : `${showing} of ${total}`}
         </p>
 
-        {shown.length > 0 ? (
+        {showing > 0 ? (
           <ul ref={listRef} data-library-list="" className={`${CARD} divide-y divide-[#eef0f3] overflow-hidden`}>
+            {shownMemberships.map((card) => (
+              <LibraryMembershipRow key={`m-${card.id}`} card={card} />
+            ))}
             {shown.map((item) => (
               <ProductRow
                 key={item.productId}
@@ -252,7 +274,7 @@ export function LibraryHome({
           </Link>
         ) : null}
         <p className="px-1 text-[12.5px] leading-relaxed text-[#8a919c]">
-          Courses and memberships have their own tabs. Every receipt is under{" "}
+          Courses have their own tab. Every receipt is under{" "}
           <Link href="/account/library/receipts" className={TEXT_LINK}>
             Receipts
           </Link>
