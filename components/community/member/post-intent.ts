@@ -124,19 +124,21 @@ async function run(key: string, e: Entry): Promise<void> {
   while (e.want !== e.base.on) {
     const asked = e.want
     const r = await e.plan.send(asked)
-    if (!r.ok) {
+    if (r.ok === false) {
       if (e.want === asked) {
         /* The latest wish was refused: back to the server's last word. */
         entries.delete(key)
         e.plan.apply(e.base)
         emit(key)
-        if (r.error) toast(r.error)
+        const said = (r as { error?: string }).error
+        if (said) toast(said)
         return
       }
       /* Refused, but already taken back: the server still holds the base, which is what is wanted. */
       break
     }
-    e.base = { on: r.data.on, count: typeof r.data.count === "number" ? r.data.count : e.base.count + (r.data.on === e.base.on ? 0 : r.data.on ? 1 : -1) }
+    const got = (r as { data: { on: boolean; count?: number } }).data
+    e.base = { on: got.on, count: typeof got.count === "number" ? got.count : e.base.count + (got.on === e.base.on ? 0 : got.on ? 1 : -1) }
   }
   entries.delete(key)
   const final = e.base

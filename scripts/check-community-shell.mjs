@@ -41,9 +41,11 @@
  *               screen): nothing for one letter, one ask once typing
  *               pauses, posts / members / spaces grouped with the match in
  *               bold, arrows and Enter, Escape, "/" to focus
- *   FEED        spaces as chips (All chosen, near black), the composer's
- *               Photo / Video / Poll / Event (staff) / More, a post's space
- *               chip and Save, the heartbeat sent on load
+ *   FEED        spaces as chips (All chosen, near black), the composer
+ *               closed as one "Share something..." field (round 7: its
+ *               toolbar is inside the editor, events are made on the
+ *               creator side), a post's space named in its line with Save
+ *               behind its dots, the heartbeat sent on load
  *   ABOUT       title, rating, the gallery with its strip (a thumbnail
  *               changes the picture, a video plays in place), the facts line,
  *               "Still a paying member" only where the fixture says so, the
@@ -349,11 +351,12 @@ export const isNativePlatform = () => false
           moreFaces: document.querySelector("[data-wall-more]")?.textContent?.trim() ?? null,
           address: document.querySelector("[data-wall-address]")?.textContent?.trim() ?? null,
           settings: !!document.querySelector("[data-wall-settings]"),
-          actions: [...document.querySelectorAll("[data-composer-actions] [data-composer-action]")].map((b) => b.getAttribute("data-composer-action")),
+          composer: { state: document.querySelector("[data-composer]")?.getAttribute("data-composer"), buttons: [...document.querySelectorAll('[data-composer="closed"] button')].map((b) => b.textContent.trim()), actions: document.querySelectorAll("[data-composer-action]").length },
           upcoming: vis(document.querySelector("[data-wall-upcoming]")) ? document.querySelector("[data-wall-upcoming]").innerText.replace(/\s+/g, " ").trim() : null,
           contributors: vis(document.querySelector("[data-wall-contributors]")) ? [...document.querySelectorAll("[data-wall-contributor]")].map((r) => r.innerText.replace(/\s+/g, " ").trim()) : null,
-          saveLabel: document.querySelector('[data-post="p-text"] [data-save]')?.textContent?.trim(),
-          spaceChip: document.querySelector('[data-post="p-text"] [data-post-space]')?.textContent?.trim(),
+          saveOnCard: !!document.querySelector('[data-post="p-text"] [data-save]'),
+          spaceName: document.querySelector('[data-post="p-text"] [data-post-space]')?.textContent?.trim(),
+          spaceHref: document.querySelector('[data-post="p-text"] [data-post-space]')?.getAttribute("href"),
           topVar: getComputedStyle(document.documentElement).getPropertyValue("--community-top").trim(),
           theme: document.querySelector('meta[name="theme-color"]')?.getAttribute("content"),
           bg: getComputedStyle(document.querySelector("[data-community-shell]")).backgroundColor,
@@ -404,8 +407,9 @@ export const isNativePlatform = () => false
       expect(g.topVar === `${g.height}px`, "--community-top is the bar's measured height", { topVar: g.topVar, height: g.height })
       expect(g.theme === "#ffffff", "the browser's bar is white to match", g.theme)
       expect(g.bg === "rgb(248, 249, 250)", "the page is #f8f9fa", g.bg)
-      expect(g.actions.join() === "photo,video,poll,more", "the composer: Photo, Video, Poll and More (no Event for a member)", g.actions)
-      expect(g.saveLabel === "Save" && g.spaceChip === "General", "a post: its space as a chip, and Save as a word", { save: g.saveLabel, space: g.spaceChip })
+      /* Round 7 changed these on purpose: the composer is one field until pressed, and a card names its space in its line. */
+      expect(g.composer.state === "closed" && g.composer.buttons.length === 1 && /Share something/.test(g.composer.buttons[0]) && g.composer.actions === 0, "the composer: one \"Share something...\" field, no row of Photo / Video / Poll under it", g.composer)
+      expect(g.spaceName === "General" && /\/community\/clay-studio\/space\/general$/.test(g.spaceHref || "") && !g.saveOnCard, "a post: its space named in its line, linking to the space; Save is behind the card's dots", { space: g.spaceName, href: g.spaceHref, saveOnCard: g.saveOnCard })
       if (!phone) {
         expect(g.places.join() === "Community,Classroom,Calendar,Members,Leaderboards,About" && g.placeOn === "Community", "the right column lists the places, Community marked", { places: g.places, on: g.placeOn })
         const L = g.placeLook
@@ -645,17 +649,19 @@ export const isNativePlatform = () => false
         expect(errors.length === 0, "no page errors", errors)
         await p.close()
       }
-      /* Staff: Settings on the card, Event in the composer, both to the creator side. */
+      /* Staff: Settings on the card, to the creator side; the composer's toolbar (round 7) opens with the editor. */
       {
         const { p, errors } = await open("feed", "/community/clay-studio?staff=1", vp)
-        const st = await p.evaluate(() => ({ settings: document.querySelector("[data-wall-settings]")?.getAttribute("href"), event: document.querySelector('[data-composer-action="event"]')?.getAttribute("href"), actions: [...document.querySelectorAll("[data-composer-action]")].map((b) => b.getAttribute("data-composer-action")) }))
-        expect(st.settings === "/app/community/c0000000-0000-4000-8000-000000000001/settings" && st.event === "/app/community/c0000000-0000-4000-8000-000000000001/events?new=1" && st.actions.join() === "photo,video,poll,event,more", "staff: Settings opens the community's settings, Event its event form", st)
+        const st = await p.evaluate(() => ({ settings: document.querySelector("[data-wall-settings]")?.getAttribute("href") }))
+        expect(st.settings === "/app/community/c0000000-0000-4000-8000-000000000001/settings", "staff: Settings opens the community's settings", st)
         await shot(p, `${label}-wall-staff`)
-        /* Poll and Photo from the closed composer open it already doing that. */
-        await p.click('[data-composer-action="poll"]')
+        /* Pressed, the composer opens (in place, or a screen of its own on a phone) and its toolbar's Poll adds a poll. */
+        await p.click("[data-composer-open]")
+        await sleep(450)
+        await p.click('[data-composer-tool="poll"]')
         await sleep(150)
-        const poll = await p.evaluate(() => ({ open: document.querySelector("[data-composer]")?.getAttribute("data-composer"), editor: !!document.querySelector("[data-composer-poll-editor]") }))
-        expect(poll.open === "open" && poll.editor, "Poll opens the composer with a poll in it", poll)
+        const poll = await p.evaluate(() => ({ open: document.querySelector("[data-composer=sheet]") ? "sheet" : document.querySelector("[data-composer=open]") ? "open" : "closed", editor: !!document.querySelector("[data-composer-poll-editor]") }))
+        expect(poll.open === (phone ? "sheet" : "open") && poll.editor, "the toolbar's Poll puts a poll in the opened composer", poll)
         expect(errors.length === 0, "no page errors", errors)
         await p.close()
       }
