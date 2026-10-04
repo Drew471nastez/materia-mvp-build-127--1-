@@ -304,6 +304,7 @@ const SUITES = [
   "tests/control-frames.test.ts",
   "tests/builder-sidebar.test.ts",
   "tests/media-field.test.ts",
+  "tests/file-picker.test.ts",
   "tests/header-search.test.ts",
   "tests/creator-page-default.test.ts",
   "tests/explore-show-all.test.ts",

@@ -374,14 +374,15 @@ export const CONTROLS: Record<ControlType, ControlDefinition> = {
   file_picker: def({
     type: "file_picker",
     label: "File",
-    description: "Any file from the media library.",
+    description:
+      "An attachment on the website, such as a PDF sample, a press kit or a price list. In the editor it is an upload (straight to the creator's Storelib storage, checked like every public file) or a pasted link, and the setting holds the file's public URL. `accept` narrows what it takes, as kinds (`pdf`, `document`, `spreadsheet`, `presentation`, `archive`, `audio`, `ebook`) or extensions (`\".zip\"`); the picker then offers only those and says which in words. Never a web page, a script or an SVG, whatever `accept` says.",
     value: "asset",
     schema: assetOrUrl,
     fallback: "",
     responsive: false,
     component: "FilePicker",
-    accepts: [],
-    example: { type: "file_picker", id: "download", label: "Downloadable file" },
+    accepts: ["accept"],
+    example: { type: "file_picker", id: "sample", label: "Sample PDF", accept: ["pdf"] },
   }),
   icon_picker: def({
     type: "icon_picker",

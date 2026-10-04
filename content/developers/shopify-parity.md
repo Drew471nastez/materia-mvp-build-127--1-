@@ -67,7 +67,7 @@ How the Storelib website builder compares with Shopify's Online Store 2.0 theme 
 | `video_url` | `video_url` | Have | YouTube and Vimeo. |
 | `header` | `header` | Have | |
 | `paragraph` | `paragraph` | Have | |
-| none | `datetime`, `focal_point`, `icon_picker`, `file_picker`, `community_picker`, `divider` | Storelib only | `file_picker` is a box for a file's address. |
+| none | `datetime`, `focal_point`, `icon_picker`, `file_picker`, `community_picker`, `divider` | Storelib only | `file_picker` uploads a file to Storelib or takes a link; `accept` narrows it to kinds or extensions. |
 
 ## Page templates
 
