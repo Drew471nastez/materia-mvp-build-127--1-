@@ -88,6 +88,63 @@ export interface PostCardProps {
 export const PHONE_ROW =
   "max-sm:mx-[calc(50%-50vw)] max-sm:mb-0 max-sm:w-screen max-sm:rounded-none max-sm:border-x-0 max-sm:border-t-0 max-sm:border-b-8 max-sm:border-b-[#f1f2f4]"
 
+/**
+ * ===========================================================================
+ *  A PAGE OF POSTS COSTS ONE SCREENFUL TO DRAW (round 9)
+ * ===========================================================================
+ * Going back to the feed or switching a space drew twenty cards in one go:
+ * about half a second of main thread at 4x CPU before the first of them
+ * showed (scripts/check-community-posts.mjs MOUNT). Three things now:
+ *
+ *   A CARD OFF SCREEN IS NOT LAID OUT OR PAINTED (content-visibility:
+ *   auto). It keeps its place at the height it last had, remembered per
+ *   post for this page's life (REMEMBERED below, measured by one shared
+ *   ResizeObserver), so the page is as tall as it was and a scroll position
+ *   comes back to the same post.
+ *
+ *   THE FEED DRAWS A SCREENFUL FIRST (feed.tsx, FIRST_CARDS): the rest are
+ *   placeholders of the same remembered height for one frame, then become
+ *   cards in a transition React can pause for a tap.
+ *
+ *   NOTHING A CARD DOES NOT SHOW IS BUILT: its confirm and report dialogs
+ *   are put in the page the first time they are asked for, and a date
+ *   older than a week (an Intl format) is worked out once per post.
+ */
+export const FIRST_CARDS = 8
+/** A card never seen yet: about a card with a line of words and its footer. */
+const CARD_GUESS_PX = 320
+const REMEMBERED = new Map<string, number>()
+let watcher: ResizeObserver | null = null
+function watchHeight(el: HTMLElement): () => void {
+  if (typeof ResizeObserver === "undefined") return () => {}
+  watcher ??= new ResizeObserver((entries) => {
+    for (const e of entries) {
+      const id = (e.target as HTMLElement).dataset.post
+      const h = Math.round(e.borderBoxSize?.[0]?.blockSize ?? e.contentRect.height)
+      /* A card skipped while off screen reports the height it was given, not its own: only a drawn one is remembered. */
+      if (id && h > 0 && h !== heightOf(id)) REMEMBERED.set(id, h)
+    }
+  })
+  watcher.observe(el)
+  return () => watcher?.unobserve(el)
+}
+const heightOf = (id: string) => REMEMBERED.get(id) ?? CARD_GUESS_PX
+
+/** A card still to be drawn: its place, at the height it will have (feed.tsx draws these past the first screenful for one frame). */
+export function PostCardPlaceholder({ post }: { post: FeedPostView }) {
+  return <div className={`${CARD} ${PHONE_ROW}`} style={{ height: heightOf(post.id) }} data-post-placeholder={post.id} aria-hidden />
+}
+
+/** "5h", "3d", or "Sep 11": the last kind (an Intl format, the costly one) once per date. */
+const OLD_DATES = new Map<string, string>()
+function whenLabel(iso: string): string {
+  const have = OLD_DATES.get(iso)
+  if (have) return have
+  const label = relativeTime(iso)
+  if (Date.now() - Date.parse(iso) > 8 * 86_400_000) OLD_DATES.set(iso, label)
+  return label
+}
+
 /*
   ONE CARD DRAWN AGAIN, NOT THE WHOLE FEED. A like changes one post, but the
   feed hands every card a new `update` each time its list changes, so each
@@ -118,6 +175,21 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
   const [report, setReport] = useState<ReportTargetRef | null>(null)
   const [opened, setOpened] = useState(false)
   const [unread, setUnread] = useState(false)
+  /* The dialogs are built the first time one is asked for, then kept (so they can animate out). */
+  const asked = useRef(false)
+  if (confirm || report) asked.current = true
+  const dialogs = asked.current ? (
+    <>
+      <ConfirmDialog state={confirm} onClose={() => setConfirm(null)} />
+      <ReportDialog communityId={post.communityId} target={report} onClose={() => setReport(null)} />
+    </>
+  ) : null
+  /* Its height, remembered for the next time the feed is drawn (A PAGE OF POSTS COSTS ONE SCREENFUL). */
+  const cardRef = useRef<HTMLElement>(null)
+  useEffect(() => {
+    if (full || !cardRef.current) return
+    return watchHeight(cardRef.current)
+  }, [full])
   const mod = moderationMenu(viewer, post.author ? { id: post.author.id, role: post.author.role } : null)
   const own = post.canEdit
 
@@ -309,7 +381,7 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
         <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-1 text-[13px] leading-5 text-[#6b7280]">
           <Link href={href} className="hover:underline" suppressHydrationWarning data-post-open="" onClick={openPost}>
             <time dateTime={post.createdAt} suppressHydrationWarning>
-              {relativeTime(post.createdAt)}
+              {whenLabel(post.createdAt)}
             </time>
           </Link>
           {post.editedAt ? <span>· edited</span> : null}
@@ -348,7 +420,9 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
   if (!full) {
     return (
       <article
-        className={`${CARD} ${PHONE_ROW} group/post cursor-pointer px-4 pb-2 pt-4 transition-[border-color,box-shadow] duration-150 sm:px-5 sm:pt-5 sm:hover:border-[#dfe2e6] sm:hover:shadow-[0_1px_3px_rgba(17,24,39,0.05)]`}
+        ref={cardRef}
+        className={`${CARD} ${PHONE_ROW} group/post cursor-pointer px-4 pb-2 pt-4 transition-[border-color,box-shadow] duration-150 [content-visibility:auto] sm:px-5 sm:pt-5 sm:hover:border-[#dfe2e6] sm:hover:shadow-[0_1px_3px_rgba(17,24,39,0.05)]`}
+        style={{ containIntrinsicSize: `auto ${heightOf(post.id)}px` }}
         data-post={post.id}
         data-pinned={post.pinned ? "true" : undefined}
         data-unread={unread ? "true" : undefined}
@@ -432,8 +506,7 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
           )}
         </footer>
 
-        <ConfirmDialog state={confirm} onClose={() => setConfirm(null)} />
-        <ReportDialog communityId={post.communityId} target={report} onClose={() => setReport(null)} />
+        {dialogs}
         {opened ? (
           <PostOverlay
             post={post}
@@ -490,8 +563,7 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
         <SaveButton post={post} onPress={() => save(false)} />
       </footer>
 
-      <ConfirmDialog state={confirm} onClose={() => setConfirm(null)} />
-      <ReportDialog communityId={post.communityId} target={report} onClose={() => setReport(null)} />
+      {dialogs}
     </article>
   )
 }

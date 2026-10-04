@@ -37,7 +37,7 @@
  */
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { startTransition, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import type { FeedPostView, ViewerView } from "@/lib/communities/types"
 import { api, apiBase } from "./api"
 import { Composer, type ComposerProps } from "./composer"
@@ -62,7 +62,7 @@ import {
 } from "./feed-cache"
 import { sectionFromPath } from "./nav"
 import { PlaceSpinner, WAIT_MS } from "./place-spinner"
-import { PostCard, type PostUpdate } from "./post-card"
+import { FIRST_CARDS, PostCard, PostCardPlaceholder, type PostUpdate } from "./post-card"
 import { SortMenu } from "./sort-menu"
 import { SpaceChips, type ChipPick } from "./space-chips"
 import { toast } from "./toast"
@@ -154,6 +154,21 @@ export function CommunityFeed({ communityId, slug, viewer, spaces, start, initia
   const key = viewKey(communityId, target, sort)
 
   /* The server's first page goes into the cache, unless the cache already holds a newer copy (likes and saves made since). */
+  /*
+    A SCREENFUL FIRST (round 9, C6: post-card.tsx A PAGE OF POSTS COSTS ONE
+    SCREENFUL). A list that comes on screen (the feed again, another space,
+    another sort) draws its first FIRST_CARDS cards; the rest stand in at the
+    height they will have for one frame and are drawn in a transition after
+    it, which a tap can interrupt.
+  */
+  const [wholeFor, setWholeFor] = useState<string | null>(null)
+  const whole = wholeFor === key
+  useEffect(() => {
+    if (wholeFor === key) return
+    const id = requestAnimationFrame(() => startTransition(() => setWholeFor(key)))
+    return () => cancelAnimationFrame(id)
+  }, [key, wholeFor])
+
   const [shown, setShown] = useState<{ key: string; view: CachedView }>(() => {
     const k = viewKey(communityId, start, "default")
     const have = readView(k)
@@ -419,9 +434,9 @@ export function CommunityFeed({ communityId, slug, viewer, spaces, start, initia
           <PlaceSpinner compact label="Loading posts" />
         ) : (
           <div ref={listRef} className="space-y-3" aria-busy={waiting || undefined} data-feed-list="">
-            {posts.map((p) => (
-              <PostCard key={p.id} post={p} slug={slug} viewer={viewer} update={update} readOnly={readOnly} />
-            ))}
+            {posts.map((p, i) =>
+              i < FIRST_CARDS || whole ? <PostCard key={p.id} post={p} slug={slug} viewer={viewer} update={update} readOnly={readOnly} /> : <PostCardPlaceholder key={p.id} post={p} />,
+            )}
           </div>
         )}
 

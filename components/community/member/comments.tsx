@@ -161,8 +161,29 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
   const base = apiBase(post.communityId)
   const open = enabled && !readOnly && !!viewer.can.comment && (!post.locked || !!viewer.can.lock)
 
+  /*
+    A PAGE THAT ARRIVES LATE NEVER TAKES A COMMENT AWAY. The first page can
+    land after the member has already sent one (a slow connection, a post
+    opened and answered at once): what was drawn here and is not in the
+    page (sending, or confirmed after the page was read) stays, at the end,
+    and so do replies sent under a comment the page has.
+  */
+  /* The comments and replies sent from this section, stand ins and the server's copies alike. */
+  const sentHere = useRef(new Set<string>())
   const apply = useCallback((data: CommentsPageData) => {
-    setComments(data.comments)
+    setComments((list) => {
+      if (!list?.length) return data.comments
+      const byId = new Map(list.map((c) => [c.id, c]))
+      const merged = data.comments.map((c) => {
+        const mine = byId.get(c.id)
+        if (!mine) return c
+        const have = new Set(c.replies.map((r) => r.id))
+        const extra = mine.replies.filter((r) => !have.has(r.id) && sentHere.current.has(r.id))
+        return extra.length ? { ...c, replies: [...c.replies, ...extra] } : c
+      })
+      const ids = new Set(data.comments.map((c) => c.id))
+      return [...merged, ...list.filter((c) => !ids.has(c.id) && sentHere.current.has(c.id))]
+    })
     setCursor(data.nextCursor)
     if (typeof data.commentsEnabled === "boolean") setEnabled(data.commentsEnabled)
     if (data.me) setMe((m) => m ?? data.me ?? null)
@@ -248,11 +269,15 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
 
   const sending: Sending = {
     start: (c) => {
+      sentHere.current.add(c.id)
       if (c.parentId) setComments((list) => (list ?? []).map((p) => (p.id === c.parentId ? { ...p, replies: [...p.replies, c] } : p)))
       else setComments((list) => [...(list ?? []), c])
       onCount?.(1)
     },
-    confirm: (tempId, c) => update(tempId, () => c),
+    confirm: (tempId, c) => {
+      sentHere.current.add(c.id)
+      update(tempId, () => c)
+    },
     drop: (tempId) => {
       update(tempId, () => null)
       onCount?.(-1)

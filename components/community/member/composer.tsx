@@ -607,11 +607,6 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
     for (const x of following(el)) x.animate([{ translate: `0 ${-d}px` }, { translate: "0 0" }], timing)
   }, [open, phone])
 
-  /* The closed field's height, every time it is drawn, for the editor to grow out of. */
-  useLayoutEffect(() => {
-    if (!open && closedRef.current) closedH.current = closedRef.current.offsetHeight
-  })
-
   /* The field being typed in stays in sight when the visible part changes (keep-in-sight.ts). */
   useKeepFieldInSight(sheet, () => scrollRef.current)
 
