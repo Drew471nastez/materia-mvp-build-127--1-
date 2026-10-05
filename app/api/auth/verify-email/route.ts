@@ -42,7 +42,7 @@ export async function POST(request: Request) {
       console.error("[verify-email] Error checking rate limit:", recentError)
     }
 
-    if (!recentError && recentCodes && recentCodes.length >= 3) {
+    if (!recentError && recentCodes && recentCodes.length >= 8) {
       console.log("[verify-email] Rate limit exceeded for user:", userId.slice(0, 8) + "...")
       return NextResponse.json(
         { error: "Too many verification attempts. Please try again in 15 minutes." },
@@ -56,12 +56,12 @@ export async function POST(request: Request) {
 
     console.log("[verify-email] Generated verification code, inserting into database...")
 
-    const { error: codeError } = await admin.from("verification_codes").insert({
+    const { data: inserted, error: codeError } = await admin.from("verification_codes").insert({
       user_id: userId,
       code,
       email,
       expires_at: expiresAt.toISOString(),
-    })
+    }).select("id").maybeSingle()
 
     if (codeError) {
       console.error("[verify-email] Error creating verification code:", codeError)
@@ -94,8 +94,9 @@ export async function POST(request: Request) {
 
       if (!result.success) {
         console.error("[verify-email] SMTP error:", result.error)
+        if (inserted?.id) await admin.from("verification_codes").delete().eq("id", inserted.id)
         return NextResponse.json({
-          error: `Failed to send email: ${result.error || "Unknown error"}`
+          error: "Could not send the code. Try again in a moment."
         }, { status: 500 })
       }
 

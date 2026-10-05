@@ -153,7 +153,7 @@ export function postShareImageUrl(slug: string, postId: string, version: string 
 function fingerprint(f: PostFacts, open: boolean): string {
   return open
     ? postShareVersion([
-        2,
+        3,
         f.community.name,
         f.community.logo_url,
         f.post.title,
@@ -170,7 +170,7 @@ export function postMetadata(f: PostFacts): Metadata {
   const open = publicPost(f)
   const url = `${SITE}${postPath(f.community.slug, f.post)}`
   const image = postShareImageUrl(f.community.slug, f.post.id, fingerprint(f, open))
-  const images = [{ url: image, width: POST_SHARE_WIDTH, height: POST_SHARE_HEIGHT, alt: open ? postHeadline(f) || f.community.name : f.community.name, type: "image/png" }]
+  const images = [{ url: image, width: POST_SHARE_WIDTH, height: POST_SHARE_HEIGHT, alt: open ? postHeadline(f) || f.community.name : f.community.name, type: "image/jpeg" }]
   const twitterImages = [image]
   if (!open) {
     const title = `A post in ${f.community.name}`
@@ -187,7 +187,6 @@ export function postMetadata(f: PostFacts): Metadata {
   const headline = postHeadline(f) || `A post in ${f.community.name}`
   const title = `${headline} · ${f.community.name}`
   const { text: description } = postSharePayload(f)
-  const picture = firstPicture(f.post.media)
   return {
     title: { absolute: title },
     description,
@@ -212,7 +211,6 @@ export function postMetadata(f: PostFacts): Metadata {
       images: twitterImages,
     },
     robots: { index: true, follow: true, googleBot: { index: true, follow: true, "max-image-preview": "large" } },
-    ...(picture ? { other: { "og:image:secure_url": picture } } : {}),
   }
 }
 

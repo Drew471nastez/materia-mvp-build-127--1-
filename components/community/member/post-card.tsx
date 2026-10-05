@@ -368,7 +368,7 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
   }
 
   const share = async () => {
-    const url = `${SHARE_ORIGIN}${href}`
+    const url = `${SHARE_ORIGIN}${href}?v=3`
     const headline = (post.title || "").replace(/\s+/g, " ").trim() || post.bodyText.replace(/\s+/g, " ").trim().slice(0, 90)
     const how = await sharePost(url, headline || null, post.bodyText)
     if (how === "copied") toast("Link copied")

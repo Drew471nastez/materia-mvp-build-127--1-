@@ -167,17 +167,21 @@ export function isValidEmail(email: string): boolean {
  * From it named, unless that domain is not the sending domain and a signed
  * address is configured.
  */
-function fromForSend(requested: string | undefined, transactional?: boolean): string {
+function fromForSend(requested: string | undefined, _transactional?: boolean): string {
   const sendingDomain = MAILGUN_DOMAIN.toLowerCase()
   const signedEmail = (process.env.MAILGUN_FROM_EMAIL || "").replace(/[<>"\s]/g, "").trim()
+  const signedDomain = signedEmail.split("@")[1]?.toLowerCase() || ""
   const name = (process.env.MAILGUN_FROM_NAME || "Storelib").replace(/[<>"\r\n]/g, "").trim() || "Storelib"
-  const signed = signedEmail.includes("@") ? quotedFrom(withDisplayName(`${name} <${signedEmail}>`)) : ""
-  /* A code uses the address the rest of Storelib's mail already sends from. */
-  if (transactional && signed) return signed
+  const signed =
+    signedEmail.includes("@") && signedDomain === sendingDomain
+      ? quotedFrom(withDisplayName(`${name} <${signedEmail}>`))
+      : ""
   const built = quotedFrom(withDisplayName(requested || EMAIL_FROM))
   const addr = (built.match(/<([^<>\s]+@[^<>\s]+)>/)?.[1] || built).toLowerCase()
   const fromDomain = addr.split("@")[1] || ""
-  if (signed && fromDomain && sendingDomain && fromDomain !== sendingDomain) return signed
+  /* Only swap when the named From is not on the domain Mailgun is sending as.
+     A signed address on a different domain is refused, and the code never leaves. */
+  if (signed && fromDomain && fromDomain !== sendingDomain) return signed
   return built
 }
 

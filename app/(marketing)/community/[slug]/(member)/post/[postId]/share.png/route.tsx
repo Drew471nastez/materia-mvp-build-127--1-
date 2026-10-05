@@ -86,5 +86,20 @@ export async function GET(_request: Request, { params }: { params: Promise<{ slu
     drawn = (await png(<GenericPostShareArt {...generic} logoSrc={logoSrc} />)) ?? (await png(<GenericPostShareArt {...generic} logoSrc={null} />))
   }
   if (!drawn) return new Response("Could not draw the image", { status: 500, headers: { "cache-control": "no-store" } })
-  return new Response(drawn, { headers: { "content-type": "image/png", "cache-control": BRIEF, "x-robots-tag": "noindex" } })
+  /* Chat apps drop a preview picture much over a few hundred kilobytes and
+     then show a cached generic card. A JPEG of the same 1200 by 630 card
+     is what they actually fetch. */
+  let body: Uint8Array = new Uint8Array(drawn)
+  let type = "image/png"
+  try {
+    const { default: sharp } = await import("sharp")
+    const jpeg = await sharp(Buffer.from(drawn)).jpeg({ quality: 72, mozjpeg: true }).toBuffer()
+    if (jpeg.byteLength > 0 && jpeg.byteLength < drawn.byteLength) {
+      body = new Uint8Array(jpeg)
+      type = "image/jpeg"
+    }
+  } catch {
+    /* The PNG still answers if sharp cannot run. */
+  }
+  return new Response(body, { headers: { "content-type": type, "cache-control": BRIEF, "x-robots-tag": "noindex" } })
 }
