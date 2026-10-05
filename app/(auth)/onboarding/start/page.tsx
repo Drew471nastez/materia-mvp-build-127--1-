@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { redirect } from "next/navigation"
 import { currentUserForRequest, profileForRequest, sellerAccessForRequest } from "@/lib/auth/request-scope"
+import { shouldSendToLogin } from "@/lib/auth/current-user"
 import { hasSellerAccess } from "@/lib/account/seller-access"
 import { WELCOMED_KEY, welcomeDone } from "@/lib/account/welcome"
 import { BUYER_HOME, SELLER_HOME, safeNext, withCarry } from "@/lib/auth/continue"
@@ -25,7 +26,8 @@ export const metadata: Metadata = {
  * store setup, unchanged) or "I'm here to join and buy" (a name, a photo,
  * notifications in the app, done). Decided here, on the server:
  *
- *   signed out          -> /login, carrying next
+ *   signed out          -> /login, carrying next (a blip reading the
+ *                          session goes on to `next` instead)
  *   a seller            -> /app
  *   answered before     -> where they were going
  *   anybody else        -> the onboarding, with the name to start from
@@ -39,8 +41,10 @@ export default async function StartPage({ searchParams }: { searchParams: Promis
   const next = safeNext(typeof params.next === "string" ? params.next : null, getMainDomain())
 
   const current = await currentUserForRequest()
+  /* Signed out: sign in, then back here. A blip reading the session is not a sign out: on to where they were going, and the question waits for another visit. */
+  if (shouldSendToLogin(current)) redirect(withCarry("/login", { next }))
+  if (!current.user) redirect(welcomeDone(next))
   const user = current.user
-  if (!user) redirect(withCarry("/login", { next }))
 
   const [profile, access] = await Promise.all([profileForRequest(user.id), sellerAccessForRequest(user.id)])
   if (hasSellerAccess(access)) redirect(next && (next === SELLER_HOME || next.startsWith(`${SELLER_HOME}/`)) ? next : SELLER_HOME)
