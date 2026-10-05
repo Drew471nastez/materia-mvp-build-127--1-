@@ -88,11 +88,11 @@ export function BackControl({
       onPointerLeave={press.onPointerUp}
       data-back-control=""
       className={cn(
-        "relative flex h-10 w-10 shrink-0 select-none items-center justify-center rounded-full",
+        "relative flex h-11 w-11 shrink-0 select-none items-center justify-center rounded-[10px]",
         "border border-[#e4e7ec] bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.05)]",
         "touch-manipulation [-webkit-tap-highlight-color:transparent]",
-        /* 44px of reach around a 40px circle. */
-        "before:absolute before:-inset-[3px] before:rounded-full before:content-['']",
+        /* 48px of reach around an 44px control. */
+        "before:absolute before:-inset-[2px] before:rounded-[12px] before:content-['']",
         /*
           PRESSED IS A TINT, NOTHING MOVES (round 11: "no bump on press").
           It shrank to 0.94 and lost its shadow, which on a 40px circle is a

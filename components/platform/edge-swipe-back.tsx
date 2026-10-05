@@ -312,7 +312,7 @@ function installEdgeSwipe(waiting: (host: HTMLElement | null) => void) {
     if (backInFlight()) return
     if (planBack(readBackEvidence(), null).kind !== "history") return
     if (overlayUp(doc) || typing(doc)) return
-    if (handledSideways(e.target instanceof Element ? e.target : null, win)) return
+    if (handledSideways(e.target instanceof Element ? e.target : null, win, t.clientX)) return
     phase = "armed"
     touchId = t.identifier
     startX = t.clientX

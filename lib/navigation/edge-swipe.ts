@@ -266,7 +266,8 @@ export function typing(doc: Document = document): boolean {
  * colour square, the tab bar's own slide, or anything marked
  * data-edge-swipe="off". Read once, when the finger lands.
  */
-export function handledSideways(target: Element | null, win: Window = window): boolean {
+export function handledSideways(target: Element | null, win: Window = window, startX?: number): boolean {
+  const atEdge = startX !== undefined && startsAtEdge(startX)
   let el: Element | null = target
   const doc = win.document
   while (el && el !== doc.body && el !== doc.documentElement) {
@@ -276,7 +277,10 @@ export function handledSideways(target: Element | null, win: Window = window): b
     if (el.tagName === "INPUT" && (el as HTMLInputElement).type === "range") return true
     const cs = win.getComputedStyle(el)
     const he = el as HTMLElement
-    if ((cs.overflowX === "auto" || cs.overflowX === "scroll") && he.scrollWidth > he.clientWidth + 1) return true
+    if ((cs.overflowX === "auto" || cs.overflowX === "scroll") && he.scrollWidth > he.clientWidth + 1) {
+      /* A sideways row (tabs, filters) must not steal the left-edge back gesture. */
+      if (!atEdge || el.hasAttribute("data-gallery-swipe")) return true
+    }
     const ta = cs.touchAction
     if (ta && /\bpan-y\b/.test(ta) && !/\bpan-x\b/.test(ta) && cs.overflowY !== "auto" && cs.overflowY !== "scroll") return true
     if (ta === "none") return true

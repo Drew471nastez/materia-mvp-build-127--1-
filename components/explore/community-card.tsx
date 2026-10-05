@@ -182,9 +182,9 @@ function Well({ storefront, children }: { storefront: boolean; children: ReactNo
   time views where they are known, and the stars only when somebody has
   reviewed it (the average, no count). No "Launched": the owner took it off.
 */
-function Facts({ card, storefront }: { card: CommunityCard; storefront: boolean }) {
+function Facts({ card, storefront, hideViews = false }: { card: CommunityCard; storefront: boolean; /** Your communities list: members and price only. */ hideViews?: boolean }) {
   const rating = ratingLabel(card.rating)
-  const views = typeof card.viewCount === "number" ? card.viewCount : null
+  const views = !hideViews && typeof card.viewCount === "number" ? card.viewCount : null
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-[13px] leading-[22px] text-muted-foreground tabular-nums" data-community-stats="">
       {card.priceLine ? (
@@ -257,6 +257,7 @@ export function ExploreCommunityCard({
   standing = null,
   href,
   phone = false,
+  hideViews = false,
 }: {
   card: CommunityCard
   /** In the first row: its pictures are fetched at once rather than as they near the screen. */
@@ -268,6 +269,8 @@ export function ExploreCommunityCard({
   href?: string
   /** A phone's sizes at any window width (the builder's phone preview). */
   phone?: boolean
+  /** Row lists (e.g. /account/communities): no public view counts. */
+  hideViews?: boolean
 }) {
   const storefront = surface === "storefront"
   const wide = !phone
@@ -295,7 +298,7 @@ export function ExploreCommunityCard({
           <Creator card={card} standing={standing} eager={priority} wide={wide} />
           <Blurb card={card} className="mt-1" />
           <div className="mt-2">
-            <Facts card={card} storefront={storefront} />
+            <Facts card={card} storefront={storefront} hideViews={hideViews} />
           </div>
         </div>
         <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-muted-foreground/60 transition-[translate] duration-150 [@media(hover:hover)]:group-hover/community:translate-x-0.5" />

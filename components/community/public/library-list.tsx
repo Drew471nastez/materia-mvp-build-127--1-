@@ -42,7 +42,7 @@ export function LibraryCommunitiesList({ rows }: { rows: LibraryCommunityRow[] }
     <ul className="space-y-2.5" aria-label="Your communities" data-library-communities="">
       {rows.map((r) => (
         <li key={r.id} data-community-row={r.slug} className="min-w-0">
-          <ExploreCommunityCard card={r.card} layout="row" standing={standingOf(r)} href={r.status === "pending" ? `${r.url}/about` : r.url} />
+          <ExploreCommunityCard card={r.card} layout="row" standing={standingOf(r)} hideViews href={r.status === "pending" ? `${r.url}/about` : r.url} />
         </li>
       ))}
     </ul>

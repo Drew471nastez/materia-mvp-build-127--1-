@@ -124,6 +124,15 @@ const DOUBLE_TAP_PX = 32
 /** Slides mounted either side of the one shown. */
 export const LIGHTBOX_AHEAD = 2
 
+function clampZoom(z: { s: number; x: number; y: number }): { s: number; x: number; y: number } {
+  if (z.s <= 1) return { s: 1, x: 0, y: 0 }
+  const w = typeof window !== "undefined" ? window.innerWidth : 390
+  const h = typeof window !== "undefined" ? Math.max(320, window.innerHeight - 112) : 600
+  const maxX = (z.s - 1) * w * 0.48
+  const maxY = (z.s - 1) * h * 0.48
+  return { s: z.s, x: Math.max(-maxX, Math.min(maxX, z.x)), y: Math.max(-maxY, Math.min(maxY, z.y)) }
+}
+
 /**
  * Where something is drawn, as the two properties that move it: `translate`
  * and `scale` (each its own CSS property, so the compositor moves it and
@@ -211,6 +220,7 @@ export function Lightbox({
   const [index, setIndex] = useState(Math.max(0, Math.min(start, n - 1)))
   const [phase, setPhase] = useState<"opening" | "open" | "closing">("opening")
   const [zoom, setZoom] = useState({ s: 1, x: 0, y: 0 })
+  const [zooming, setZooming] = useState(false)
   const reduced = useReducedMotion()
   const rootRef = useRef<HTMLDivElement>(null)
   const backRef = useRef<HTMLDivElement>(null)
@@ -222,7 +232,7 @@ export function Lightbox({
   const zoomRef = useRef(zoom)
   zoomRef.current = zoom
   const pointers = useRef(new Map<number, { x: number; y: number }>())
-  const gesture = useRef<{ kind: "swipe" | "pan" | "pinch" | null; x0: number; y0: number; d0: number; s0: number; zx: number; zy: number; axis: "x" | "y" | null; base: number }>({ kind: null, x0: 0, y0: 0, d0: 0, s0: 1, zx: 0, zy: 0, axis: null, base: 0 })
+  const gesture = useRef<{ kind: "swipe" | "pan" | "pinch" | null; x0: number; y0: number; d0: number; s0: number; zx: number; zy: number; axis: "x" | "y" | null; base: number; midX: number; midY: number }>({ kind: null, x0: 0, y0: 0, d0: 0, s0: 1, zx: 0, zy: 0, axis: null, base: 0, midX: 0, midY: 0 })
   const samples = useRef<Sample[]>([])
   const drag = useRef({ x: 0, y: 0 })
   const raf = useRef<number | null>(null)
@@ -427,18 +437,24 @@ export function Lightbox({
       const d = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y)
       /* A slide half way under the first finger goes back, and the two fingers zoom. */
       if (drag.current.x) go(indexRef.current)
-      gesture.current = { kind: "pinch", x0: 0, y0: 0, d0: d || 1, s0: z.s, zx: z.x, zy: z.y, axis: null, base: 0 }
+      setZooming(true)
+      gesture.current = {
+        kind: "pinch",
+        x0: 0,
+        y0: 0,
+        d0: d || 1,
+        s0: z.s,
+        zx: z.x,
+        zy: z.y,
+        axis: null,
+        base: 0,
+        midX: (pts[0].x + pts[1].x) / 2,
+        midY: (pts[0].y + pts[1].y) / 2,
+      }
       return
     }
     if (pts.length === 1) {
       const now = e.timeStamp || performance.now()
-      const tap = lastTap.current
-      if (tap && now - tap.t < DOUBLE_TAP_MS && Math.hypot(e.clientX - tap.x, e.clientY - tap.y) < DOUBLE_TAP_PX && items[indexRef.current]?.kind === "image" && !trackRef.current?.getAnimations().length) {
-        lastTap.current = null
-        downAt.current = null
-        setZoom((zz) => (zz.s > 1 ? { s: 1, x: 0, y: 0 } : { s: 2.5, x: 0, y: 0 }))
-        return
-      }
       downAt.current = { t: now, x: e.clientX, y: e.clientY }
       /* Caught mid-slide: the track stops where it is and the finger takes it from there. */
       const track = trackRef.current
@@ -448,7 +464,8 @@ export function Lightbox({
         drag.current = { x: x + indexRef.current * width(), y: 0 }
         track.style.translate = `${x.toFixed(1)}px 0`
       }
-      gesture.current = { kind: z.s > 1 ? "pan" : "swipe", x0: e.clientX, y0: e.clientY, d0: 0, s0: z.s, zx: z.x, zy: z.y, axis: null, base: drag.current.x }
+      if (z.s > 1) setZooming(true)
+      gesture.current = { kind: z.s > 1 ? "pan" : "swipe", x0: e.clientX, y0: e.clientY, d0: 0, s0: z.s, zx: z.x, zy: z.y, axis: null, base: drag.current.x, midX: 0, midY: 0 }
       samples.current = [{ y: e.clientX, t: e.timeStamp || performance.now() }]
     }
   }
@@ -462,9 +479,17 @@ export function Lightbox({
       if (pts.length < 2) return
       const d = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y)
       const s = Math.max(1, Math.min(MAX_ZOOM, g.s0 * (d / g.d0)))
-      setZoom({ s, x: s === 1 ? 0 : g.zx, y: s === 1 ? 0 : g.zy })
+      const midX = (pts[0].x + pts[1].x) / 2
+      const midY = (pts[0].y + pts[1].y) / 2
+      const ratio = s / g.s0
+      const cx = typeof window !== "undefined" ? window.innerWidth / 2 : 0
+      const cy = typeof window !== "undefined" ? window.innerHeight / 2 : 0
+      const nx = s === 1 ? 0 : g.zx * ratio + (midX - g.midX) + (g.midX - cx) * (ratio - 1)
+      const ny = s === 1 ? 0 : g.zy * ratio + (midY - g.midY) + (g.midY - cy) * (ratio - 1)
+      setZoom(clampZoom({ s, x: nx, y: ny }))
     } else if (g.kind === "pan") {
-      setZoom((z) => ({ ...z, x: g.zx + (e.clientX - g.x0), y: g.zy + (e.clientY - g.y0) }))
+      setZooming(true)
+      setZoom((z) => clampZoom({ ...z, x: g.zx + (e.clientX - g.x0), y: g.zy + (e.clientY - g.y0) }))
     } else if (g.kind === "swipe") {
       const dx = e.clientX - g.x0
       const dy = e.clientY - g.y0
@@ -493,10 +518,9 @@ export function Lightbox({
     if (!pointers.current.has(e.pointerId)) return
     pointers.current.delete(e.pointerId)
     const g = gesture.current
-    /* A tap (no move decided), remembered for a double tap; anything else is not one. */
-    const d = downAt.current
-    lastTap.current = d && !g.axis && e.type !== "pointercancel" && Math.hypot(e.clientX - d.x, e.clientY - d.y) < SLOP ? { t: e.timeStamp || performance.now(), x: e.clientX, y: e.clientY } : null
-    downAt.current = null
+    const d0 = downAt.current
+    const moved = d0 ? Math.hypot(e.clientX - d0.x, e.clientY - d0.y) >= SLOP : true
+    const swipeAxis = g.kind === "swipe" ? g.axis : null
     if (g.kind === "swipe" && g.axis) {
       if (raf.current != null) {
         cancelAnimationFrame(raf.current)
@@ -517,11 +541,42 @@ export function Lightbox({
       go(indexRef.current)
     }
     if (pointers.current.size === 0) {
+      const now = e.timeStamp || performance.now()
+      const image = items[indexRef.current]?.kind === "image"
+      const tap =
+        image &&
+        !swipeAxis &&
+        g.kind !== "pinch" &&
+        g.kind !== "pan" &&
+        !moved &&
+        e.type !== "pointercancel" &&
+        !trackRef.current?.getAnimations().length
+      if (tap) {
+        const prev = lastTap.current
+        if (prev && now - prev.t < DOUBLE_TAP_MS && Math.hypot(e.clientX - prev.x, e.clientY - prev.y) < DOUBLE_TAP_PX) {
+          lastTap.current = null
+          const el = media(indexRef.current)
+          const rect = el?.getBoundingClientRect()
+          setZooming(false)
+          if (rect && zoomRef.current.s <= 1) {
+            const ox = e.clientX - (rect.left + rect.width / 2)
+            const oy = e.clientY - (rect.top + rect.height / 2)
+            setZoom(clampZoom({ s: 2.5, x: -ox * 1.2, y: -oy * 1.2 }))
+          } else setZoom({ s: 1, x: 0, y: 0 })
+        } else {
+          lastTap.current = { t: now, x: e.clientX, y: e.clientY }
+        }
+      } else if (swipeAxis || g.kind === "pinch" || g.kind === "pan") {
+        lastTap.current = null
+      }
+      downAt.current = null
+      setZooming(false)
+      setZoom((z) => clampZoom(z))
       gesture.current = { ...g, kind: null, axis: null }
     } else if (g.kind === "pinch") {
       const [p] = [...pointers.current.values()]
       const z = zoomRef.current
-      gesture.current = { kind: "pan", x0: p.x, y0: p.y, d0: 0, s0: z.s, zx: z.x, zy: z.y, axis: null, base: 0 }
+      gesture.current = { kind: "pan", x0: p.x, y0: p.y, d0: 0, s0: z.s, zx: z.x, zy: z.y, axis: null, base: 0, midX: 0, midY: 0 }
     }
   }
 
@@ -536,12 +591,14 @@ export function Lightbox({
       aria-label={items.some((i) => i.kind !== "image" && i.kind !== "gif") ? "Pictures and videos" : "Pictures"}
       data-lightbox=""
       data-lightbox-phase={phase}
-      className="fixed inset-0 z-[160] touch-none select-none overflow-hidden overscroll-contain"
-      style={phase === "closing" ? { pointerEvents: "none" } : undefined}
+      className="fixed inset-0 z-[160] touch-none select-none overflow-hidden overscroll-contain [-webkit-touch-callout:none]"
+      style={{ WebkitUserSelect: "none", userSelect: "none", ...(phase === "closing" ? { pointerEvents: "none" } : {}) }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
+      onContextMenu={(e) => e.preventDefault()}
+      onDragStart={(e) => e.preventDefault()}
     >
       <div ref={backRef} aria-hidden className="absolute inset-0 bg-[#0b0c0f]/[0.94]" style={{ willChange: "opacity" }} onClick={finish} data-lightbox-back="" />
       <div ref={stageRef} className="absolute inset-0" data-lightbox-stage="">
@@ -553,7 +610,9 @@ export function Lightbox({
         >
           {items.map((item, i) => (
             <div key={i} className="relative flex h-full items-center justify-center px-0 sm:px-16" style={{ width: `${100 / n}%` }} onClick={(e) => e.target === e.currentTarget && finish()} data-lightbox-slide={i}>
-              {Math.abs(i - index) <= (phase === "open" ? LIGHTBOX_AHEAD : 1) ? <Slide item={item} communityId={communityId} active={i === index} autoplay={autoplay && i === start} zoom={i === index ? zoom : null} /> : null}
+              {Math.abs(i - index) <= (phase === "open" ? LIGHTBOX_AHEAD : 1) ? (
+                <Slide item={item} communityId={communityId} active={i === index} autoplay={autoplay && i === start} zoom={i === index ? zoom : null} zooming={i === index && zooming} />
+              ) : null}
             </div>
           ))}
         </div>
@@ -584,7 +643,7 @@ export function Lightbox({
   )
 }
 
-function Slide({ item, communityId, active, autoplay, zoom }: { item: ViewerItem; communityId: string; active: boolean; autoplay: boolean; zoom: { s: number; x: number; y: number } | null }) {
+function Slide({ item, communityId, active, autoplay, zoom, zooming }: { item: ViewerItem; communityId: string; active: boolean; autoplay: boolean; zoom: { s: number; x: number; y: number } | null; zooming?: boolean }) {
   /* The first slide plays at once only the first time it is shown; moving away and back waits for a press. */
   const [first, setFirst] = useState(autoplay)
   useEffect(() => {
@@ -609,12 +668,22 @@ function Slide({ item, communityId, active, autoplay, zoom }: { item: ViewerItem
         referrerPolicy={item.kind === "gif" ? "no-referrer" : undefined}
         width={item.w}
         height={item.h}
-        className={`${shaped ? "block object-contain" : "max-h-[calc(100dvh-112px)] max-w-full object-contain"} [dynamic-range-limit:standard]`}
+        className={`${shaped ? "block object-contain" : "max-h-[calc(100dvh-112px)] max-w-full object-contain"} [dynamic-range-limit:standard] pointer-events-none`}
         style={{
           /* Its box is the picture, fitted to the screen before it has loaded, so the open can grow it out of the thumbnail from the first frame. */
           ...(shaped ? { width: `min(100%, calc((100dvh - 112px) * ${(item.w! / item.h!).toFixed(5)}))`, height: "auto", aspectRatio: `${item.w} / ${item.h}` } : null),
-          ...(zoom ? { scale: String(zoom.s), translate: `${zoom.x}px ${zoom.y}px`, transition: "scale 120ms ease-out" } : null),
+          ...(zoom
+            ? {
+                scale: String(zoom.s),
+                translate: `${zoom.x}px ${zoom.y}px`,
+                transition: zooming ? "none" : "scale 160ms cubic-bezier(0.22, 1, 0.36, 1), translate 160ms cubic-bezier(0.22, 1, 0.36, 1)",
+                willChange: zooming ? "scale, translate" : undefined,
+              }
+            : null),
+          WebkitUserSelect: "none",
+          userSelect: "none",
         }}
+        onContextMenu={(e) => e.preventDefault()}
         data-lightbox-image=""
         data-lightbox-media=""
       />
