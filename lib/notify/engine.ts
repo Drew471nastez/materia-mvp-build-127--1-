@@ -28,8 +28,11 @@
  *            then each channel on its own:
  *
  *              in app        preference, then the bell row (idempotent)
- *              email         sent elsewhere, address, preference,
- *                            suppression, three optional emails a day, then
+ *              email         sent elsewhere, the email list (email-budget.ts:
+ *                            a type that is never an email is skipped
+ *                            EMAIL_BUDGET), address, preference,
+ *                            suppression, three optional emails a day, the
+ *                            account's daily cap on budgeted emails, then
  *                            the delivery row in "sending", then the send
  *
  * WRITE BEFORE SEND. The delivery row (unique per job and channel) is written
@@ -46,6 +49,7 @@
  */
 import { ownerAddress } from "@/lib/businesses/email-alias"
 import { checkCondition, isConditionName } from "./conditions"
+import { ACCOUNT_DAILY_EMAIL_CAP, BUDGETED_TYPES, emailAllowed, emailClass } from "./email-budget"
 import type { EmailSend } from "./channels/email"
 import type { InAppWrite } from "./channels/in-app"
 import { notifyLog, reasonText } from "./log"
@@ -273,6 +277,7 @@ export async function processJob(deps: EngineDeps, claimed: JobRow): Promise<Job
 
   async function deliverEmail(): Promise<ChannelOutcome> {
     if (entry.emailSentElsewhere) return skipChannel("email", "EMAIL_SENT_ELSEWHERE")
+    if (!emailAllowed(entry.type)) return skipChannel("email", "EMAIL_BUDGET")
     if (!deps.email || !address) return skipChannel("email", "NO_RECIPIENT")
     if (job.recipient_user_id && !decide(await preferences(), entry, "email")) return skipChannel("email", "PREFERENCE_OFF")
     if (!job.recipient_user_id && entry.requirement === "marketing") return skipChannel("email", "PREFERENCE_OFF")
@@ -281,6 +286,9 @@ export async function processJob(deps: EngineDeps, claimed: JobRow): Promise<Job
       const recent = await store.emailsSentSince({ recipientEmail: address, sinceIso: iso(now - DAY_MS), requirements: ["optional_product", "marketing"] })
       if (recent >= OPTIONAL_DAILY_CAP) return skipChannel("email", "DAILY_CAP")
     }
+    const budgeted = emailClass(entry.type) === "budgeted"
+    const budgetedSince = () => store.emailsSentSince({ recipientEmail: address, sinceIso: iso(now - DAY_MS), requirements: ["required_service", "optional_product", "marketing"], types: BUDGETED_TYPES })
+    if (budgeted && (await budgetedSince()) >= ACCOUNT_DAILY_EMAIL_CAP) return skipChannel("email", "DAILY_CAP")
 
     const begun = await store.beginDelivery(start("email"))
     if (begun.kind === "unavailable") return { kind: "retry", error: "The delivery could not be recorded" }
@@ -294,6 +302,11 @@ export async function processJob(deps: EngineDeps, claimed: JobRow): Promise<Job
         await store.finishDelivery(begun.deliveryId, { status: "skipped", skipReason: "DAILY_CAP" })
         return { kind: "skip", reason: "DAILY_CAP" }
       }
+    }
+    /* The account's cap, counted again with this row written, for the same reason. */
+    if (budgeted && (await budgetedSince()) > ACCOUNT_DAILY_EMAIL_CAP) {
+      await store.finishDelivery(begun.deliveryId, { status: "skipped", skipReason: "DAILY_CAP" })
+      return { kind: "skip", reason: "DAILY_CAP" }
     }
 
     const result = await deps.email!({ job, entry, to: address, recipientName: recipient?.name ?? null, deliveryId: begun.deliveryId })

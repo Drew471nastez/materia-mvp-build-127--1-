@@ -271,7 +271,7 @@ export interface NotifyStore {
   /** A channel that was not used, with why, for the trace. Idempotent. */
   skipDelivery(d: DeliveryStart, reason: string): Promise<void>
   /** Email deliveries that left for this address since, of these requirements and categories. */
-  emailsSentSince(q: { recipientEmail: string; sinceIso: string; requirements: Requirement[]; categories?: PreferenceCategory[] }): Promise<number>
+  emailsSentSince(q: { recipientEmail: string; sinceIso: string; requirements: Requirement[]; categories?: PreferenceCategory[]; types?: readonly string[] }): Promise<number>
   findDelivery(q: { deliveryId?: string | null; providerMessageId?: string | null }): Promise<DeliveryRow | null>
   updateDelivery(id: string, patch: ProviderUpdate): Promise<void>
 
@@ -591,6 +591,7 @@ export function supabaseNotifyStore(db: AdminDb, log: (line: string, code?: stri
         .in("requirement", q.requirements)
         .gte("created_at", q.sinceIso)
       if (q.categories && q.categories.length) query = query.in("category", q.categories)
+      if (q.types && q.types.length) query = query.in("type", [...q.types])
       const { count, error } = await query
       if (error) {
         fail("count recent emails", error)

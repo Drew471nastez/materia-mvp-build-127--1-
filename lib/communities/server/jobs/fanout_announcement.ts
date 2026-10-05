@@ -14,22 +14,28 @@ import "server-only"
  *
  * A post removed or deleted before the job reaches it tells nobody else.
  *
- * AN ANNOUNCEMENT IS ALSO EMAILED (an @everyone is not): to each member who
- * keeps email_announcements on and has not set notify_level to none, through
+ * AN ANNOUNCEMENT IS NOT EMAILED while lib/notify/email-budget.ts says an
+ * announcement is never an email (today: the bell and the phone carry it).
+ * Were it allowed again, each member who keeps email_announcements on and
+ * has not set notify_level to none would get it through
  * lib/communities/server/email.ts sendCommunityEmail, once per member and
- * post (key announce:<postId>:<userId>), so a page run again sends nothing
- * twice. A page whose emails cannot all go before the deadline is handed
- * back from its own start; what already went answers "duplicate".
+ * post (key announce:<postId>:<userId>).
  *
  * A NEW POST (reason "post", queued by notify.ts queueNewPost for a post in
- * an ordinary space) is told on phones only, and only to the members who set
- * this community to Everything or left it at the default Everything but
- * likes (notify_level "all" or "important") and can see the post's
- * space: no bell row, no email. The same pages and cursor, the members read
- * already filtered to that level, and lib/notifications/push-bridge.ts
- * holding a second post inside five minutes for one "3 new posts" push. A
- * page run again pushes nobody twice: the window the first run opened holds
- * the repeat, and the digest only counts posts newer than that window.
+ * an ordinary space) is told on phones only, to the members who can see the
+ * post's space and hear posts at their level: a post by the community's
+ * owner or an admin reaches members at Everything and at the default
+ * Everything but likes ("admin_post"), a member's post only those at
+ * Everything ("post"). No bell row, no email. The same pages and cursor, the
+ * members read already filtered to those levels, and lib/notifications/
+ * push-bridge.ts holding a second post inside five minutes for one "3 new
+ * posts" push. A page run again pushes nobody twice: the window the first
+ * run opened holds the repeat, and the digest only counts posts newer than
+ * that window.
+ *
+ * A NEW PROGRAM OR LESSON (reason "program", queued by notify.ts
+ * notifyProgramPublished) rides this kind too, since the queue's kinds are
+ * fixed in SQL: jobs/fanout_program.ts.
  */
 import { evaluateAccess, parseAccessRule } from "../../access"
 import { wantsNotification } from "../../permissions"
@@ -38,13 +44,16 @@ import { reasonOf, type Db } from "../db"
 import { sendCommunityEmail } from "../email"
 import { ownedProductIds } from "../membership"
 import type { JobContext, JobOutcome } from "./index"
-import { carryPushes, communityPushItem, newPostPushItem, pushFanout, type PushItem } from "@/lib/notifications/push-bridge"
+import { STAFF_POST_ROLES, carryPushes, communityPushItem, newPostPushItem, pushFanout, type PushItem } from "@/lib/notifications/push-bridge"
+import { emailAllowed } from "@/lib/notify/email-budget"
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export const FANOUT_PAGE = 500
-/* The levels that hear a new post: Everything, and the default Everything but likes (permissions.ts, push-bridge.ts levelAllowsPush). */
-const POST_LEVELS = ["all", "important"]
+/* The levels that hear a new post (push-bridge.ts levelAllowsPush): an owner's or admin's at Everything and the default Everything but likes, a member's at Everything. */
+export function postLevels(byStaff: boolean): NotifyLevel[] {
+  return byStaff ? ["all", "important"] : ["all"]
+}
 
 /** The inbox rows for one page of members: everyone who wants to hear, never the author. */
 export function fanoutRows(
@@ -77,6 +86,10 @@ export async function fanoutAnnouncement(db: Db, job: JobRow, ctx: JobContext): 
   const carried = await carryPushes(job.payload, ctx.deadline)
   if (carried.left.length) return { again: { payload: { ...carried.payload, pushLeft: carried.left } } }
   const payload = carried.payload
+  if (payload.reason === "program") {
+    const { fanoutProgram } = await import("./fanout_program")
+    return fanoutProgram(db, payload, ctx)
+  }
   const communityId = typeof payload.communityId === "string" ? payload.communityId : ""
   const postId = typeof payload.postId === "string" ? payload.postId : ""
   const actorId = typeof payload.actorId === "string" && UUID.test(payload.actorId) ? payload.actorId : null
@@ -131,7 +144,7 @@ export async function fanoutAnnouncement(db: Db, job: JobRow, ctx: JobContext): 
       const left = await pushFanout(db, items, { deadline: ctx.deadline })
       if (left.length) return { again: { payload: { ...payload, after, pushLeft: left } } }
     }
-    if (reason === "announcement") {
+    if (reason === "announcement" && emailAllowed("COMMUNITY_ANNOUNCEMENT")) {
       const emailTo = announcementEmailees(members, actorId)
       for (const userId of emailTo) {
         if (Date.now() > ctx.deadline - 5_000) return { again: { payload: { ...payload, after } } }
@@ -150,10 +163,10 @@ export async function fanoutAnnouncement(db: Db, job: JobRow, ctx: JobContext): 
 }
 
 /**
- * A new post to the phones of the members at Everything or the default level who can see its
- * space. A page of them at a time by user id, already filtered to that
- * level by the read (members at Mentions only or Nothing never leave
- * the database).
+ * A new post to the phones of the members who hear it at their level and can
+ * see its space. A page of them at a time by user id, already filtered to
+ * those levels by the read (members at Mentions only or Nothing, and for a
+ * member's post the default level too, never leave the database).
  */
 async function newPostFanout(
   db: Db,
@@ -175,13 +188,20 @@ async function newPostFanout(
   if (!space || space.archived_at || space.kind === "announcements" || space.kind === "chat") return
   const rule = parseAccessRule(space.view_access)
   const authorId = post.author_id ?? a.actorId
+  /* Who wrote it decides who hears it: the owner and admins reach the default level too. */
+  let byStaff = false
+  if (authorId) {
+    const { data: author } = await db.from("community_members").select("role, status").eq("community_id", community.id).eq("user_id", authorId).maybeSingle()
+    const r = author as { role: Role; status: string } | null
+    byStaff = !!r && r.status === "active" && (STAFF_POST_ROLES as readonly string[]).includes(r.role)
+  }
   for (;;) {
     let read = db
       .from("community_members")
       .select("user_id, role, tier_id, level, notify_level")
       .eq("community_id", community.id)
       .eq("status", "active")
-      .in("notify_level", POST_LEVELS)
+      .in("notify_level", postLevels(byStaff))
       .order("user_id", { ascending: true })
       .limit(FANOUT_PAGE)
     if (after) read = read.gt("user_id", after)
@@ -198,7 +218,7 @@ async function newPostFanout(
       if (!allowed && rule.productIds?.length) allowed = evaluateAccess(rule, { ...v, ownedProductIds: await ownedProductIds(db, m.user_id, rule.productIds) }).ok
       if (!allowed) continue
       const item = newPostPushItem(
-        { userId: m.user_id, communityId: community.id, communitySlug: community.slug, postId: post.id, actorId: authorId, authorName: a.actorName, heading: post.heading, text: post.text, level: m.notify_level },
+        { userId: m.user_id, communityId: community.id, communitySlug: community.slug, postId: post.id, actorId: authorId, authorName: a.actorName, heading: post.heading, text: post.text, level: m.notify_level, byStaff },
         community.name,
       )
       if (item) items.push(item)

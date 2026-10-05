@@ -30,12 +30,23 @@ import "server-only"
  * app_metadata). Anything from a community while communities are switched
  * off, since its link would 404.
  *
- * NEW POSTS push to members whose level in that community is "all"
- * (Everything) or the default "important" (Everything but likes), never to
- * "mentions" or "none", never write a bell row (the feed is where a post is), and
- * have a window of their own per community (group "p:<id>"), so a busy
+ * Kinds can also be switched off for one community alone (push-kinds.ts,
+ * communities), read with the rest of the person's choice.
+ *
+ * NEW POSTS from the community's owner or admins ("admin_post") push to
+ * members at "all" (Everything) or the default "important" (Everything but
+ * likes); a member's post ("post") only to members at Everything. Never to
+ * "mentions" or "none", never a bell row (the feed is where a post is), and
+ * a window of their own per community (group "p:<id>"), so a busy
  * afternoon is one push and then "4 new posts", and a like on your post is
  * never held behind somebody else's post.
+ *
+ * QUIET HOURS AND THE DAILY CAP (push-budget.ts). After everything above
+ * says yes: inside the person's quiet hours nothing pushes, and one summary
+ * goes when they end ("While you were away: 2 mentions and 5 new likes");
+ * past DAILY_PUSH_CAP pushes in their day, the low priority ones wait for
+ * one summary in the late afternoon. Both are push_digest jobs with group
+ * "z:quiet" or "z:daily", once per stretch of quiet and once per day.
  *
  * LIKES are one bell row per post per window (lib/communities/server/
  * notify.ts): "7 people liked your post". The row is new for the first like
@@ -78,13 +89,14 @@ import type { AccessRuleJson, NotificationKind, NotifyLevel, Role } from "@/lib/
 import { evaluateAccess, type AccessViewer } from "@/lib/communities/access"
 import { missing, reasonOf, type Db } from "@/lib/communities/server/db"
 import type { UserNotificationKind, UserNotificationSource } from "./user-inbox-shared"
-import { NOTIFY_META_KEY, kindAllowed, pushKindOf, readNotifyChoice, type NotifyChoice } from "./push-kinds"
+import { NOTIFY_META_KEY, communityOfGroup, emptyChoice, kindAllowed, readNotifyChoice, storedChoice, type NotifyChoice } from "./push-kinds"
+import { CAP_EXEMPT_KINDS, PUSH_DAY_BUCKET, budgetDecision, clockAt, dailySummaryAt, inQuietHours, quietBeganAt, quietEndsAt, sentToday } from "./push-budget"
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /* ── The rules, pure ────────────────────────────────────────────────────── */
 
-export type PushKind = NotificationKind | UserNotificationKind | "dm" | "post"
+export type PushKind = NotificationKind | UserNotificationKind | "dm" | "post" | "admin_post"
 export type PushPriority = "now" | "coalesce"
 
 /** One push per person per group for low priority kinds in this long. */
@@ -111,12 +123,17 @@ export const ADDRESSED_KINDS: readonly PushKind[] = ["mention", "reply", "admin_
 
 export function pushPriority(kind: string, dedupeKey?: string | null): PushPriority {
   if ((IMMEDIATE_KINDS as readonly string[]).includes(kind)) return "now"
-  /* "A spot opened: you are going" is an event row about the person alone. */
-  if (kind === "event" && typeof dedupeKey === "string" && dedupeKey.startsWith("event_promoted:")) return "now"
+  /* "A spot opened: you are going", and an event you are going to that moved or was called off: about the person alone. */
+  if (kind === "event" && typeof dedupeKey === "string" && (dedupeKey.startsWith("event_promoted:") || dedupeKey.startsWith("event_change:"))) return "now"
   return "coalesce"
 }
 
-/** Whether a member's notify_level in a community lets this kind reach their phone. */
+/**
+ * Whether a member's notify_level in a community lets this kind reach their
+ * phone. A post by a member ("post") pushes only from a community set to
+ * Everything; a post by its owner or an admin ("admin_post") also from the
+ * default level, so a busy community is not a phone that never stops.
+ */
 export function levelAllowsPush(level: NotifyLevel | null | undefined, kind: string): boolean {
   switch (level ?? "important") {
     case "none":
@@ -124,7 +141,7 @@ export function levelAllowsPush(level: NotifyLevel | null | undefined, kind: str
     case "mentions":
       return (ADDRESSED_KINDS as readonly string[]).includes(kind)
     case "important":
-      return kind !== "reaction"
+      return kind !== "reaction" && kind !== "post"
     default:
       return true
   }
@@ -215,7 +232,7 @@ const NOUNS: Record<string, readonly [string, string]> = {
   reaction: ["new like", "new likes"],
   comment: ["new comment", "new comments"],
   event: ["new event", "new events"],
-  course_available: ["new course", "new courses"],
+  course_available: ["new program or lesson", "new programs and lessons"],
   level_up: ["level up", "level ups"],
   report: ["new report", "new reports"],
   join_request: ["request to join", "requests to join"],
@@ -225,6 +242,13 @@ const NOUNS: Record<string, readonly [string, string]> = {
   followed_new_community: ["new community", "new communities"],
   membership_post: ["new post", "new posts"],
   post: ["new post", "new posts"],
+  admin_post: ["new post", "new posts"],
+  mention: ["mention", "mentions"],
+  reply: ["reply", "replies"],
+  announcement: ["announcement", "announcements"],
+  event_reminder: ["event reminder", "event reminders"],
+  admin_message: ["message from the admins", "messages from the admins"],
+  membership: ["membership update", "membership updates"],
 }
 
 /** "3 new likes", "3 new likes and 2 new comments", "3 new likes, 2 new comments and 1 new event". */
@@ -454,14 +478,14 @@ export async function readChoices(db: Db, userIds: readonly string[], now: numbe
 /** The person's own choice, fresh, for Settings. */
 export async function readChoice(db: Db, userId: string): Promise<NotifyChoice> {
   forgetChoice(userId)
-  return (await readOneChoice(db, userId)) ?? { pushOff: [], emailOff: [] }
+  return (await readOneChoice(db, userId)) ?? emptyChoice()
 }
 
 /** Saves the person's choice on their account. Only the server can write app_metadata. */
 export async function saveChoice(db: Db, userId: string, choice: NotifyChoice): Promise<boolean> {
   if (!UUID.test(userId) || typeof db?.auth?.admin?.updateUserById !== "function") return false
   try {
-    const { error } = await db.auth.admin.updateUserById(userId, { app_metadata: { [NOTIFY_META_KEY]: { pushOff: choice.pushOff, emailOff: choice.emailOff } } })
+    const { error } = await db.auth.admin.updateUserById(userId, { app_metadata: { [NOTIFY_META_KEY]: storedChoice(choice) } })
     forgetChoice(userId)
     if (error) throw error
     return true
@@ -471,12 +495,85 @@ export async function saveChoice(db: Db, userId: string, choice: NotifyChoice): 
   }
 }
 
-/** Keeps only the items whose kind the person still wants on their phone. One read per person, only for kinds a switch governs. */
-async function byKind<T extends { userId: string; kind: string }>(db: Db, items: T[]): Promise<T[]> {
-  const governed = items.filter((i) => pushKindOf(i.kind)).map((i) => i.userId)
-  if (governed.length === 0) return items
-  const choices = await readChoices(db, governed)
-  return items.filter((i) => kindAllowed(choices.get(i.userId), i.kind))
+/**
+ * Keeps only the items whose kind the person still wants on their phone,
+ * everywhere and in the item's own community (its group, or communityId).
+ * One read per person, kept a moment (readChoices).
+ */
+async function byKind<T extends { userId: string; kind: string; group?: string; communityId?: string | null }>(db: Db, items: T[], known?: Map<string, NotifyChoice | null>): Promise<T[]> {
+  if (items.length === 0) return items
+  const choices = known ?? (await readChoices(db, items.map((i) => i.userId)))
+  return items.filter((i) => kindAllowed(choices.get(i.userId), i.kind, i.communityId ?? communityOfGroup(i.group)))
+}
+
+/* ── Quiet hours and the daily cap (lib/notifications/push-budget.ts) ──── */
+
+/** Users counted per read of the day's pushes, so one read stays under the 1000 rows PostgREST answers. */
+const DAY_READ_USERS = 50
+
+/**
+ * How many pushes each of these people had in their own day so far: one
+ * read per DAY_READ_USERS people, of the last 26 hours (every zone's day
+ * fits in that), counted against each person's midnight. A failed read
+ * counts nothing, so pushes go as they did before the cap.
+ */
+export async function pushesToday(db: Db, userIds: readonly string[], choices: Map<string, NotifyChoice | null>, now: number): Promise<Map<string, number>> {
+  const ids = unique(userIds)
+  const out = new Map<string, number>()
+  const times = new Map<string, string[]>()
+  const since = new Date(now - 26 * 3_600_000).toISOString()
+  const chunks: string[][] = []
+  for (let i = 0; i < ids.length; i += DAY_READ_USERS) chunks.push(ids.slice(i, i + DAY_READ_USERS))
+  await Promise.all(
+    chunks.map(async (chunk) => {
+      const { data, error } = await db.from("rate_limit_hits").select("subject, created_at").eq("bucket", PUSH_DAY_BUCKET).in("subject", chunk).gte("created_at", since).order("created_at", { ascending: false }).limit(1000)
+      if (error) {
+        if (!missing(error)) console.error(`[push-bridge] day counts: ${reasonOf(error)}`)
+        return
+      }
+      for (const r of (data as { subject: string; created_at: string }[] | null) ?? []) times.set(r.subject, [...(times.get(r.subject) ?? []), r.created_at])
+    }),
+  )
+  for (const id of ids) out.set(id, sentToday(times.get(id) ?? [], now, choices.get(id)?.tz ?? null))
+  return out
+}
+
+/** One row per push sent, so the day can be counted. */
+async function countPushes(db: Db, userIds: readonly string[]): Promise<void> {
+  if (userIds.length === 0) return
+  const { error } = await db.from("rate_limit_hits").insert(userIds.map((subject) => ({ bucket: PUSH_DAY_BUCKET, subject })))
+  if (error && !missing(error)) console.error(`[push-bridge] pushes not counted: ${reasonOf(error)}`)
+}
+
+export interface SummaryHold {
+  userId: string
+  hold: "quiet" | "daily"
+}
+
+/** The job a held push waits in: one per person per stretch of quiet hours, one per person per day for the cap. */
+export function summaryJob(h: SummaryHold, choice: NotifyChoice | null | undefined, now: number): { key: string; runAt: number; payload: { userId: string; group: string; since: string } } | null {
+  const tz = choice?.tz ?? null
+  if (h.hold === "quiet") {
+    if (!choice?.quiet) return null
+    const ends = quietEndsAt(choice.quiet, now, tz)
+    const began = quietBeganAt(choice.quiet, now, tz)
+    return { key: `push_summary:${h.userId}:quiet:${new Date(ends).toISOString()}`, runAt: ends + 60_000, payload: { userId: h.userId, group: "z:quiet", since: new Date(began - PUSH_WINDOW_MS).toISOString() } }
+  }
+  const runAt = dailySummaryAt(now, tz, choice?.quiet ?? null)
+  return { key: `push_summary:${h.userId}:daily:${clockAt(now, tz).day}`, runAt, payload: { userId: h.userId, group: "z:daily", since: new Date(now - PUSH_WINDOW_MS).toISOString() } }
+}
+
+/** Queues the summary each held push waits in, once per key. */
+async function holdForSummary(db: Db, holds: readonly SummaryHold[], choices: Map<string, NotifyChoice | null>, now: number): Promise<void> {
+  const rows = new Map<string, Record<string, unknown>>()
+  for (const h of holds) {
+    const j = summaryJob(h, choices.get(h.userId), now)
+    if (!j || rows.has(j.key)) continue
+    rows.set(j.key, { kind: "push_digest", payload: j.payload, run_at: new Date(j.runAt).toISOString(), idempotency_key: j.key.slice(0, 300) })
+  }
+  if (rows.size === 0) return
+  const { error } = await db.from("community_jobs").upsert([...rows.values()], { onConflict: "idempotency_key", ignoreDuplicates: true })
+  if (error && !(error.code === "23514" || missing(error))) console.error(`[push-bridge] summary not queued: ${reasonOf(error)}`)
 }
 
 /** The last push in each window still open, by subject. */
@@ -603,13 +700,14 @@ export interface PushItem {
 
 /** A push whose link is a community page: only while communities are switched on (it would answer 404). */
 function needsCommunities(i: Pick<PushItem, "group" | "kind">): boolean {
-  return i.group.startsWith("c:") || i.group.startsWith("p:") || i.group.startsWith("dm:") || i.kind === "followed_new_community" || i.kind === "post" || i.group === "s:communities"
+  return i.group.startsWith("c:") || i.group.startsWith("p:") || i.group.startsWith("dm:") || i.kind === "followed_new_community" || i.kind === "post" || i.kind === "admin_post" || i.group === "s:communities"
 }
 
 /**
  * Many at once, for a job: who may hear, who has a device, whose window is
- * open; one read each for the page. Sends what it can before the deadline and
- * answers what is left (empty when all went). Never throws.
+ * open, who is in their quiet hours or past their day's cap; one read each
+ * for the page. Sends what it can before the deadline and answers what is
+ * left (empty when all went). Never throws.
  */
 export async function pushFanout(db: Db, items: readonly PushItem[], opts: { deadline: number; now?: number }): Promise<PushLeft> {
   try {
@@ -624,17 +722,30 @@ export async function pushFanout(db: Db, items: readonly PushItem[], opts: { dea
     const off = await pushSwitchedOff(db, list.map((i) => i.userId))
     list = list.filter((i) => !off.has(i.userId))
     if (list.length === 0) return []
-    list = await byKind(db, list)
+    const choices = await readChoices(db, list.map((i) => i.userId), now)
+    list = await byKind(db, list, choices)
     if (list.length === 0) return []
 
     const coalesced = list.filter((i) => pushPriority(i.kind, i.dedupeKey) === "coalesce")
-    const windows = await openWindows(db, coalesced.map((i) => gateSubject(i.userId, i.group)), now)
+    const [windows, today] = await Promise.all([
+      openWindows(db, coalesced.map((i) => gateSubject(i.userId, i.group)), now),
+      pushesToday(db, list.map((i) => i.userId), choices, now),
+    ])
     const send: PushItem[] = []
     const opened: string[] = []
     const held: { userId: string; group: string; since: string }[] = []
+    const summaries: SummaryHold[] = []
     for (const i of list) {
+      const choice = choices.get(i.userId) ?? null
+      const sent = today.get(i.userId) ?? 0
+      const budget = budgetDecision({ kind: i.kind, quiet: choice?.quiet, tz: choice?.tz, sentToday: sent, now })
+      if (!budget.send) {
+        summaries.push({ userId: i.userId, hold: budget.hold })
+        continue
+      }
       if (pushPriority(i.kind, i.dedupeKey) === "now") {
         send.push(i)
+        today.set(i.userId, sent + 1)
         continue
       }
       const subject = gateSubject(i.userId, i.group)
@@ -646,8 +757,9 @@ export async function pushFanout(db: Db, items: readonly PushItem[], opts: { dea
       windows.set(subject, new Date(now).toISOString())
       opened.push(subject)
       send.push(i)
+      today.set(i.userId, sent + 1)
     }
-    await Promise.all([openWindowsFor(db, opened), holdForDigest(db, held)])
+    await Promise.all([openWindowsFor(db, opened), holdForDigest(db, held), holdForSummary(db, summaries, choices, now), countPushes(db, send.map((i) => i.userId))])
 
     const byPayload = new Map<string, { p: PushPayload; u: string[] }>()
     for (const i of send) {
@@ -675,7 +787,15 @@ export async function pushOne(db: Db, item: PushItem, now: number = Date.now()):
     if (!(await reachable(db, [item.userId])).has(item.userId)) return "skipped"
     if (needsCommunities(item) && !(await deps.communitiesOn())) return "skipped"
     if ((await pushSwitchedOff(db, [item.userId])).has(item.userId)) return "skipped"
-    if ((await byKind(db, [item])).length === 0) return "skipped"
+    const choices = await readChoices(db, [item.userId], now)
+    if ((await byKind(db, [item], choices)).length === 0) return "skipped"
+    const choice = choices.get(item.userId) ?? null
+    const today = await pushesToday(db, [item.userId], choices, now)
+    const budget = budgetDecision({ kind: item.kind, quiet: choice?.quiet, tz: choice?.tz, sentToday: today.get(item.userId) ?? 0, now })
+    if (!budget.send) {
+      await holdForSummary(db, [{ userId: item.userId, hold: budget.hold }], choices, now)
+      return "held"
+    }
     if (pushPriority(item.kind, item.dedupeKey) === "coalesce") {
       const subject = gateSubject(item.userId, item.group)
       const since = (await openWindows(db, [subject], now)).get(subject)
@@ -685,6 +805,7 @@ export async function pushOne(db: Db, item: PushItem, now: number = Date.now()):
       }
       await openWindowsFor(db, [subject])
     }
+    await countPushes(db, [item.userId])
     await withTimeout(Promise.resolve().then(() => deps.sender(item.userId, payloadOf(item.content))), PUSH_SEND_TIMEOUT_MS)
     return "sent"
   } catch (e) {
@@ -704,18 +825,21 @@ export function communityPushItem(
 }
 
 /**
- * A new post, as a push to one member who hears it (Everything, or the default Everything but likes). There is no bell
- * row for it: the post is in the feed. Its window is the community's posts
+ * A new post, as a push to one member who hears it: a member's post from a
+ * community set to Everything, an owner's or admin's post (byStaff) from
+ * Everything or the default Everything but likes. There is no bell row for
+ * it: the post is in the feed. Its window is the community's posts
  * (postGroup), so the first post of a quiet spell pushes at once and the
  * rest are counted.
  */
 export function newPostPushItem(
-  r: { userId: string; communityId: string; communitySlug: string; postId: string; actorId: string | null; authorName: string; heading: string; text: string; level: NotifyLevel | null },
+  r: { userId: string; communityId: string; communitySlug: string; postId: string; actorId: string | null; authorName: string; heading: string; text: string; level: NotifyLevel | null; byStaff?: boolean },
   communityName: string | null,
 ): PushItem | null {
-  const content = communityPushContent({ kind: "post", title: `${oneLine(r.authorName) || "A member"} posted`, body: oneLine(r.heading) || oneLine(r.text) || null, url: `/community/${r.communitySlug}/post/${r.postId}` }, communityName)
+  const kind = r.byStaff ? "admin_post" : "post"
+  const content = communityPushContent({ kind, title: `${oneLine(r.authorName) || "A member"} posted`, body: oneLine(r.heading) || oneLine(r.text) || null, url: `/community/${r.communitySlug}/post/${r.postId}` }, communityName)
   if (!content) return null
-  return { userId: r.userId, kind: "post", group: postGroup(r.communityId), actorId: r.actorId, dedupeKey: `post:${r.postId}:${r.userId}`, level: r.level, content }
+  return { userId: r.userId, kind, group: postGroup(r.communityId), actorId: r.actorId, dedupeKey: `post:${r.postId}:${r.userId}`, level: r.level, content }
 }
 
 /** A row of the person's own inbox a job wrote, as a push item. */
@@ -797,11 +921,14 @@ export async function pushDirectMessage(
 const HELD_COMMUNITY_KINDS: readonly NotificationKind[] = ["reaction", "comment", "event", "course_available", "level_up", "report", "join_request"]
 const HELD_USER_KINDS: readonly UserNotificationKind[] = ["new_follower", "followed_new_product", "followed_new_community", "membership_post", "purchased_creator_new_product", "system"]
 const DIGEST_READ = 100
+/** The roles whose posts are "admin_post": they reach members at the default level too. */
+export const STAFF_POST_ROLES: readonly Role[] = ["owner", "admin"]
 
 export interface DigestPayload {
   userId: string
+  /** "c:<community>", "p:<community>", "s:<source>", or "z:quiet" / "z:daily" for a summary (quiet hours, the daily cap). */
   group: string
-  /** When the push that opened the window went. */
+  /** When the push that opened the window went; for a summary, the first moment it covers. */
   since: string
   /** A later push that opened a newer window, which this one now waits for. */
   anchor?: string
@@ -810,7 +937,7 @@ export interface DigestPayload {
 export function readDigestPayload(v: unknown): DigestPayload | null {
   const p = (v ?? {}) as Record<string, unknown>
   const userId = typeof p.userId === "string" && UUID.test(p.userId) ? p.userId : null
-  const group = typeof p.group === "string" && /^([cp]:[0-9a-f-]{36}|s:(following|purchases|communities|system))$/i.test(p.group) ? p.group : null
+  const group = typeof p.group === "string" && /^([cp]:[0-9a-f-]{36}|s:(following|purchases|communities|system)|z:(quiet|daily))$/i.test(p.group) ? p.group : null
   const since = typeof p.since === "string" && Number.isFinite(Date.parse(p.since)) ? p.since : null
   if (!userId || !group || !since) return null
   const anchor = typeof p.anchor === "string" && Number.isFinite(Date.parse(p.anchor)) ? p.anchor : undefined
@@ -821,9 +948,11 @@ export function readDigestPayload(v: unknown): DigestPayload | null {
  * The new posts a member who hears them has not been pushed about since
  * a window opened, in the spaces they can see. Their posts are not in the
  * bell, so they are read from the feed: published, by someone else, newest
- * first. A space open only through a product is left out here (owning it
- * would be one more read per member); staff and tier members see theirs.
- * Null when the member no longer hears new posts from this community.
+ * first. A member at the default level hears only the owner's and admins'
+ * posts; at Everything, every post. A space open only through a product is
+ * left out here (owning it would be one more read per member); staff and
+ * tier members see theirs. Null when the member no longer hears new posts
+ * from this community.
  */
 async function heldPosts(db: Db, communityId: string, userId: string, since: string): Promise<{ rows: HeldRow[]; name: string; slug: string } | null> {
   const [{ data: member }, c, { data: spaces }] = await Promise.all([
@@ -832,7 +961,7 @@ async function heldPosts(db: Db, communityId: string, userId: string, since: str
     db.from("community_spaces").select("id, kind, view_access, archived_at").eq("community_id", communityId),
   ])
   const m = member as { status: string; notify_level: NotifyLevel | null; role: Role | null; tier_id: string | null; level: number | null } | null
-  if (!m || m.status !== "active" || !c || !levelAllowsPush(m.notify_level, "post")) return null
+  if (!m || m.status !== "active" || !c || !levelAllowsPush(m.notify_level, "admin_post")) return null
   const viewer: AccessViewer = { role: m.role ?? "member", active: true, tierId: m.tier_id ?? null, ownedProductIds: [], level: m.level ?? 1 }
   const open = ((spaces as { id: string; kind: string; view_access: unknown; archived_at: string | null }[] | null) ?? [])
     .filter((s) => !s.archived_at && s.kind !== "chat" && evaluateAccess(s.view_access as AccessRuleJson, viewer).ok)
@@ -848,20 +977,31 @@ async function heldPosts(db: Db, communityId: string, userId: string, since: str
     .order("created_at", { ascending: false })
     .limit(DIGEST_READ)
   if (error) throw new Error(`held posts: ${reasonOf(error)}`)
-  const rows = ((data as { id: string; author_id: string | null; title: string | null; body_text: string | null }[] | null) ?? [])
-    .filter((p) => p.author_id !== userId)
-    .map((p) => ({ kind: "post", title: oneLine(p.title) || clip(oneLine(p.body_text), 100) || "New post", body: null, url: `/community/${c.slug}/post/${p.id}` }))
+  const posts = ((data as { id: string; author_id: string | null; title: string | null; body_text: string | null }[] | null) ?? []).filter((p) => p.author_id !== userId)
+  const authors = unique(posts.map((p) => p.author_id ?? ""))
+  const staff = new Set<string>()
+  if (authors.length) {
+    const { data: roles } = await db.from("community_members").select("user_id, role").eq("community_id", communityId).in("user_id", authors)
+    for (const r of (roles as { user_id: string; role: Role }[] | null) ?? []) if ((STAFF_POST_ROLES as readonly string[]).includes(r.role)) staff.add(r.user_id)
+  }
+  const rows = posts
+    .map((p) => ({ kind: p.author_id && staff.has(p.author_id) ? "admin_post" : "post", title: oneLine(p.title) || clip(oneLine(p.body_text), 100) || "New post", body: null, url: `/community/${c.slug}/post/${p.id}` }))
+    .filter((r) => levelAllowsPush(m.notify_level, r.kind))
   return { rows, name: c.name, slug: c.slug }
 }
 
 /**
  * Sends what was held in one window as one push, or waits for a newer
  * window that opened since. Nothing when everything held was read in the
- * bell in the meantime, or the person can no longer hear it.
+ * bell in the meantime, or the person can no longer hear it. A summary
+ * (group "z:") goes to runPushSummary. A window that closes inside the
+ * person's quiet hours, or after their day's cap, sends nothing itself: what
+ * it held is in the summary those queue.
  */
 export async function runPushDigest(db: Db, raw: unknown, now: number = Date.now()): Promise<{ again?: { payload: Record<string, unknown>; runAt: string } } | void> {
   const d = readDigestPayload(raw)
   if (!d) throw new Error("push_digest needs payload.userId, payload.group and payload.since")
+  if (d.group.startsWith("z:")) return runPushSummary(db, d, now)
   const community = d.group.startsWith("c:")
   const posts = d.group.startsWith("p:")
   if ((community || posts || d.group === "s:communities") && !(await deps.communitiesOn())) return
@@ -872,6 +1012,14 @@ export async function runPushDigest(db: Db, raw: unknown, now: number = Date.now
   const anchor = Date.parse(d.anchor ?? d.since)
   if (latest && Date.parse(latest) > anchor + 1_000) {
     return { again: { payload: { ...d, anchor: latest }, runAt: new Date(Date.parse(latest) + PUSH_WINDOW_MS + 5_000).toISOString() } }
+  }
+
+  const choices = await readChoices(db, [d.userId], now)
+  const choice = choices.get(d.userId) ?? null
+  const budget = budgetDecision({ kind: "digest", quiet: choice?.quiet, tz: choice?.tz, sentToday: (await pushesToday(db, [d.userId], choices, now)).get(d.userId) ?? 0, now })
+  if (!budget.send) {
+    await holdForSummary(db, [{ userId: d.userId, hold: budget.hold }], choices, now)
+    return
   }
 
   let rows: HeldRow[] = []
@@ -919,9 +1067,87 @@ export async function runPushDigest(db: Db, raw: unknown, now: number = Date.now
     /* A followed creator's new community is only told while communities are on. */
     if (rows.some((r) => r.kind === "followed_new_community") && !(await deps.communitiesOn())) rows = rows.filter((r) => r.kind !== "followed_new_community")
   }
-  rows = await byKind(db, rows.map((r) => ({ ...r, userId: d.userId })))
+  rows = await byKind(db, rows.map((r) => ({ ...r, userId: d.userId, group: d.group })), choices)
   const content = digestContent(rows, scope)
   if (!content) return
-  await openWindowsFor(db, [subject])
+  await Promise.all([openWindowsFor(db, [subject]), countPushes(db, [d.userId])])
+  await withTimeout(Promise.resolve().then(() => deps.sender(d.userId, payloadOf(content))), PUSH_SEND_TIMEOUT_MS)
+}
+
+/* ── The summary after quiet hours, and after the day's cap ────────────── */
+
+export interface SummaryRow {
+  kind: string
+  url: string | null
+  communityId: string | null
+}
+
+/**
+ * What was held in quiet hours (or past the day's cap) as one push. The
+ * title is the community when it was all one, "Your communities" when it was
+ * several, Storelib otherwise; the line counts it, "2 mentions, 5 new likes
+ * and 1 new event"; a tap opens that community's notifications (the one with
+ * the most, when several), or the newest row's own page.
+ */
+export function summaryContent(rows: readonly SummaryRow[], communities: ReadonlyMap<string, { name: string; slug: string }>, hold: "quiet" | "daily"): PushContent | null {
+  const usable = rows.filter((r) => safePushUrl(r.url))
+  if (usable.length === 0) return null
+  const counts = new Map<string, number>()
+  for (const r of usable) if (r.communityId && communities.has(r.communityId)) counts.set(r.communityId, (counts.get(r.communityId) ?? 0) + 1)
+  const top = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
+  const fromCommunities = usable.every((r) => r.communityId && communities.has(r.communityId))
+  const title = counts.size === 1 && fromCommunities ? communities.get(top!)!.name : counts.size > 1 && fromCommunities ? "Your communities" : "Storelib"
+  const line = summaryLine(usable.map((r) => r.kind))
+  const body = hold === "quiet" ? `While you were away: ${line}` : `Today so far: ${line}`
+  const url = top ? `/community/${communities.get(top)!.slug}/notifications` : usable[0].url!
+  return { title: clip(oneLine(title) || "Storelib", PUSH_TITLE_MAX), body: clip(body, PUSH_BODY_MAX), url: safePushUrl(url) ?? usable[0].url!, kind: "digest", collapseKey: `summary:${hold}` }
+}
+
+/**
+ * The summary job: what is still unread in the person's bell since it began,
+ * from the communities and kinds they still hear, as one push. Quiet hours
+ * still going (they were moved) wait for their new end. The daily summary
+ * leaves out what is addressed to the person: that went at the time.
+ */
+export async function runPushSummary(db: Db, d: DigestPayload, now: number = Date.now()): Promise<{ again?: { payload: Record<string, unknown>; runAt: string } } | void> {
+  const hold = d.group === "z:quiet" ? "quiet" : "daily"
+  if ((await pushSwitchedOff(db, [d.userId])).has(d.userId)) return
+  const choices = await readChoices(db, [d.userId], now)
+  const choice = choices.get(d.userId) ?? null
+  if (choice?.quiet && inQuietHours(choice.quiet, now, choice.tz)) {
+    return { again: { payload: { ...d }, runAt: new Date(quietEndsAt(choice.quiet, now, choice.tz) + 60_000).toISOString() } }
+  }
+  const on = await deps.communitiesOn()
+  const [community, user] = await Promise.all([
+    on
+      ? db.from("community_notifications").select("community_id, kind, url, actor_id").eq("user_id", d.userId).gt("created_at", d.since).is("read_at", null).order("created_at", { ascending: false }).limit(200)
+      : Promise.resolve({ data: [], error: null }),
+    db.from("user_notifications").select("kind, url, actor_id, source").eq("user_id", d.userId).gt("created_at", d.since).is("read_at", null).order("created_at", { ascending: false }).limit(DIGEST_READ),
+  ])
+  if (community.error && !missing(community.error)) throw new Error(`summary rows: ${reasonOf(community.error)}`)
+  if (user.error && !missing(user.error)) throw new Error(`summary rows: ${reasonOf(user.error)}`)
+  const crow = ((community.data as { community_id: string; kind: string; url: string | null; actor_id: string | null }[] | null) ?? []).filter((r) => r.actor_id !== d.userId)
+  const urow = ((user.data as { kind: string; url: string | null; actor_id: string | null; source: string }[] | null) ?? []).filter((r) => r.actor_id !== d.userId && (on || r.kind !== "followed_new_community"))
+
+  const ids = unique(crow.map((r) => r.community_id))
+  const levels = new Map<string, NotifyLevel | null>()
+  const names = new Map<string, { name: string; slug: string }>()
+  if (ids.length) {
+    const [{ data: members }, { data: cs }] = await Promise.all([
+      db.from("community_members").select("community_id, status, notify_level").eq("user_id", d.userId).in("community_id", ids),
+      db.from("communities").select("id, name, slug").in("id", ids),
+    ])
+    for (const m of (members as { community_id: string; status: string; notify_level: NotifyLevel | null }[] | null) ?? []) if (m.status === "active") levels.set(m.community_id, m.notify_level)
+    for (const c of (cs as { id: string; name: string; slug: string }[] | null) ?? []) names.set(c.id, { name: c.name, slug: c.slug })
+  }
+  let rows: (SummaryRow & { userId: string })[] = [
+    ...crow.filter((r) => levels.has(r.community_id) && levelAllowsPush(levels.get(r.community_id), r.kind)).map((r) => ({ userId: d.userId, kind: r.kind, url: r.url, communityId: r.community_id })),
+    ...urow.map((r) => ({ userId: d.userId, kind: r.kind, url: r.url, communityId: null })),
+  ]
+  if (hold === "daily") rows = rows.filter((r) => !CAP_EXEMPT_KINDS.includes(r.kind))
+  rows = await byKind(db, rows, choices)
+  const content = summaryContent(rows, names, hold)
+  if (!content) return
+  await countPushes(db, [d.userId])
   await withTimeout(Promise.resolve().then(() => deps.sender(d.userId, payloadOf(content))), PUSH_SEND_TIMEOUT_MS)
 }
