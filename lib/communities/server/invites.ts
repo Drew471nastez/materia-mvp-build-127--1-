@@ -22,6 +22,7 @@ import "server-only"
 import { createHash, randomBytes } from "node:crypto"
 import { sendCommunityEmail } from "./email"
 import { siteUrl } from "@/lib/memberships/server"
+import { joinCosts, needsInvite } from "../access-model"
 import type { CommunityRow } from "../types"
 import { decodeCursor, encodeCursor, isUuid, keysetOr, type InviteInput } from "@/components/community/creator/logic"
 import type { InviteView } from "@/components/community/creator/view-types"
@@ -42,6 +43,76 @@ export function hashInviteToken(token: string): string {
 
 export function inviteUrl(slug: string, token: string): string {
   return siteUrl(`/community/${slug}/join?invite=${encodeURIComponent(token)}`)
+}
+
+/* ── Whether an invite would be accepted, without spending it ───────────── */
+
+/** Why an invite cannot be used, or "ok": the same reasons community_redeem_invite answers with. */
+export type InviteStanding = "ok" | "revoked" | "expired" | "used_up" | "email_mismatch"
+
+export interface InviteStandingRow {
+  email?: string | null
+  max_uses?: number | null
+  uses?: number | null
+  expires_at?: string | null
+  revoked_at?: string | null
+}
+
+/**
+ * WOULD THIS INVITE BE ACCEPTED NOW, counting nothing. The checks are the
+ * database function's, in the same order, so an invite that passes here is
+ * an invite that passes there. `reserved` is how many people are holding
+ * this invite and have not paid yet, counted against its uses so a link
+ * that lets one person in cannot be held by two.
+ *
+ * Pure: the caller reads the row and the person's address.
+ */
+export function inviteStanding(invite: InviteStandingRow, a: { email: string | null; reserved?: number; now?: number }): InviteStanding {
+  const now = a.now ?? Date.now()
+  if (invite.revoked_at) return "revoked"
+  if (invite.expires_at) {
+    const at = Date.parse(invite.expires_at)
+    if (Number.isFinite(at) && at <= now) return "expired"
+  }
+  if (invite.email) {
+    const mine = (a.email ?? "").trim().toLowerCase()
+    if (!mine || mine !== invite.email.trim().toLowerCase()) return "email_mismatch"
+  }
+  const max = invite.max_uses
+  if (typeof max === "number" && Number.isFinite(max)) {
+    const held = Math.max(0, invite.uses ?? 0) + Math.max(0, a.reserved ?? 0)
+    if (held >= max) return "used_up"
+  }
+  return "ok"
+}
+
+/**
+ * How many other people hold this invite and have not finished paying:
+ * their row is a request (pending) made by this invite. Their own hold is
+ * not counted against them, so pressing the link twice is one person.
+ */
+export async function reservedInviteUses(db: Db, inviteId: string, userId: string): Promise<number> {
+  const { data, error } = await db.from("community_members").select("user_id, status").eq("invite_id", inviteId).eq("status", "pending").limit(200)
+  if (error) {
+    if (!missing(error)) console.error(`[communities] invite holds read: ${reasonOf(error)}`)
+    return 0
+  }
+  return ((data as { user_id: string }[] | null) ?? []).filter((r) => r.user_id !== userId).length
+}
+
+/** The address an account signs in with, for an invite sent to one address. */
+export async function accountEmail(db: Db, userId: string): Promise<string | null> {
+  try {
+    const auth = (db as { auth?: { admin?: { getUserById?: (id: string) => Promise<{ data?: { user?: { email?: unknown } | null } }> } } }).auth
+    const got = auth?.admin?.getUserById ? await auth.admin.getUserById(userId) : null
+    const email = got?.data?.user?.email
+    if (typeof email === "string" && email.includes("@")) return email.toLowerCase()
+  } catch {
+    /* profiles.email below */
+  }
+  const { data } = await db.from("profiles").select("email").eq("id", userId).maybeSingle()
+  const email = (data as { email?: unknown } | null)?.email
+  return typeof email === "string" && email.includes("@") ? email.toLowerCase() : null
 }
 
 interface InviteRowLite {
@@ -105,10 +176,19 @@ export interface MadeInvite {
 }
 
 /**
- * Makes an invite. The tier, when given, must be one of this community's
- * (an invite to a paid tier is complimentary: the person gets it without
- * paying). Answers the invite with its link, which is the only time the
- * link can be shown.
+ * Makes an invite. The tier, when given, must be one of this community's,
+ * and naming one is a gift of it: the person gets that tier without paying.
+ *
+ * WHETHER THE INVITE IS COMPLIMENTARY. In a private community that charges,
+ * the link is the way in and not the gift: whoever follows it lands on the
+ * join screen with the price and pays, and the use is counted when the
+ * payment lands (../access-model.ts, ./invite-spend.ts). Everywhere else an
+ * invite is the gift it has always been, so a public paid community's staff
+ * invite still lets somebody in without paying. The caller may say outright
+ * with `complimentary`.
+ *
+ * Answers the invite with its link, which is the only time the link can be
+ * shown.
  */
 export async function createInvite(
   db: Db,
@@ -125,6 +205,8 @@ export async function createInvite(
     const { data: open } = await db.from("community_invites").select("id").eq("community_id", a.community.id).eq("email", a.input.email).is("revoked_at", null).limit(5)
     for (const o of (open as { id: string }[] | null) ?? []) await db.from("community_invites").update({ revoked_at: new Date().toISOString() }).eq("id", o.id)
   }
+  const paidPrivate = needsInvite(a.community) && joinCosts(a.community)
+  const complimentary = typeof a.input.complimentary === "boolean" ? a.input.complimentary : Boolean(tierId) || !paidPrivate
   const { token, hash } = newInviteToken()
   const expiresAt = a.input.expiresInDays ? new Date(Date.now() + a.input.expiresInDays * 86_400_000).toISOString() : null
   const { data, error } = await db
@@ -137,7 +219,7 @@ export async function createInvite(
       max_uses: a.input.maxUses,
       expires_at: expiresAt,
       created_by: a.createdBy,
-      complimentary: true,
+      complimentary,
     })
     .select(COLUMNS)
     .single()
@@ -170,7 +252,7 @@ export async function createInvite(
     targetType: "invite",
     targetId: data.id,
     targetLabel: a.input.email ?? "Invite link",
-    detail: { tierId, maxUses: a.input.maxUses, expiresAt, sent },
+    detail: { tierId, maxUses: a.input.maxUses, expiresAt, sent, complimentary },
   })
   const tiers = tierId ? await tierNames(db, [tierId]) : new Map()
   return { ok: true, made: { invite: { ...view(data as InviteRowLite, tiers), url }, sent } }

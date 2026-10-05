@@ -35,6 +35,7 @@ import { rateLimit } from "@/lib/api/rate-limit"
 import { checkoutPath, communityPath } from "@/components/community/public/paths"
 import { primaryOption } from "@/components/community/public/join-state"
 import { LENGTHS } from "../limits"
+import { invitedIn, needsInvite } from "../access-model"
 import { meetsRole } from "../permissions"
 import { MEMBER_COLUMNS, type CommunityRow, type MemberRow } from "../types"
 import { communityOpen, loadCommunity, viewerContext, type Viewer } from "./context"
@@ -44,6 +45,7 @@ import { sendCommunityEmail } from "./email"
 import { audit } from "./audit"
 import { admin, missing, nowIso, reasonOf, type Db } from "./db"
 import { creatorTakesPayments, optionsFor, readPlans, readProducts, readTiers } from "./public"
+import { accountEmail, inviteStanding, reservedInviteUses } from "./invites"
 import { watchJoin } from "./safety"
 import { noteInviteJoin } from "./invite-joins"
 
@@ -135,7 +137,14 @@ export async function joinCommunity(db: Db, communityId: string, userId: string,
   if (back?.status === "active") return { ok: true, state: "member", url }
   if (back) viewer = { ...viewer, member: back, status: back.status }
 
-  if (community.access === "invite_only") return refuse(403, "invite_only", "This community is invite only.")
+  /*
+    A PRIVATE COMMUNITY IS NOT A REFUSAL OF EVERYTHING ANY MORE. Privacy says
+    who may enter, the tiers say what joining costs, and the two are
+    independent (lib/communities/access-model.ts). With no invite and no
+    approved request there is no way in; with one, the ordinary free or paid
+    path below runs, which is what lets a private community charge.
+  */
+  if (needsInvite(community) && !invitedIn(viewer.member)) return refuse(403, "invite_only", "This community is invite only.")
   if (community.access === "product") return refuse(409, "needs_product", "Access comes with one of the creator's products.", `${url}/about#ways-to-join`)
 
   const tiers = await readTiers(db, [community.id])
@@ -256,6 +265,62 @@ const REDEEM_MESSAGES: Record<string, [number, string]> = {
   used_up: [410, "This invite link has been used up."],
 }
 
+interface InviteFacts {
+  id: string
+  tier_id?: string | null
+  complimentary?: boolean | null
+  created_by?: string | null
+  email?: string | null
+  max_uses?: number | null
+  uses?: number | null
+  expires_at?: string | null
+  revoked_at?: string | null
+}
+
+/** Where the person pays for a tier, on the interval its plan offers. */
+async function priceUrl(db: Db, slug: string, productId: string): Promise<string> {
+  const { data: plan } = await db.from("membership_plans").select("monthly_price_cents, yearly_price_cents").eq("product_id", productId).maybeSingle()
+  const p = plan as { monthly_price_cents?: number | null; yearly_price_cents?: number | null } | null
+  const interval = p ? (p.monthly_price_cents ? "month" : p.yearly_price_cents ? "year" : null) : null
+  return checkoutPath(productId, slug, interval)
+}
+
+/**
+ * An invite to a tier that is sold, which the creator did not make
+ * complimentary: the answer is "you are approved, now pay", and the invite's
+ * use is not counted. Null when this invite is not that (and the atomic
+ * redeem below runs instead).
+ */
+async function heldInvite(db: Db, community: CommunityRow, invite: InviteFacts, userId: string): Promise<RedeemAnswer | null> {
+  if (invite.complimentary !== false) return null
+  const tiers = await readTiers(db, [community.id])
+  const tier = (invite.tier_id && tiers.find((t) => t.id === invite.tier_id)) || tiers.find((t) => t.is_default) || tiers.find((t) => t.kind === "free") || null
+  if (!tier || tier.kind !== "paid" || !tier.product_id) return null
+
+  const [email, reserved] = await Promise.all([invite.email ? accountEmail(db, userId) : Promise.resolve(null), reservedInviteUses(db, invite.id, userId)])
+  const standing = inviteStanding(invite, { email, reserved })
+  if (standing !== "ok") {
+    const [status, message] = REDEEM_MESSAGES[standing] ?? REDEEM_MESSAGES.not_found
+    return { ok: false, status, error: standing, message }
+  }
+
+  const invitedBy = invite.created_by ?? null
+  const row = await grantMembership(db, {
+    communityId: community.id,
+    userId,
+    source: "invite",
+    tierId: tier.id,
+    status: "pending",
+    sourceRefs: { inviteId: invite.id, invitedBy, approvedBy: invitedBy ?? community.owner_user_id },
+    actorId: userId,
+  })
+  if (!row) return { ok: false, status: 503, error: "not_set_up", message: "Communities are not set up on Storelib yet." }
+  if (row.status === "active") return { ok: true, state: "member", url: communityPath(community.slug), already: false }
+  if (row.status !== "pending") return { ok: false, status: 403, error: "banned", message: "You can't join this community." }
+  await audit(db, { communityId: community.id, actorId: userId, actorKind: "member", action: "invite.held", targetType: "invite", targetId: invite.id, detail: { tierId: tier.id } })
+  return { ok: true, state: "checkout", url: await priceUrl(db, community.slug, tier.product_id) }
+}
+
 export async function redeemInvite(db: Db, communityId: string, userId: string, rawToken: unknown): Promise<RedeemAnswer> {
   const token = typeof rawToken === "string" ? rawToken.trim() : ""
   if (!TOKEN.test(token)) return { ok: false, status: 400, error: "not_found", message: REDEEM_MESSAGES.not_found[1] }
@@ -264,7 +329,11 @@ export async function redeemInvite(db: Db, communityId: string, userId: string, 
   const hash = inviteTokenHash(token)
 
   /* The invite must be THIS community's before a use is counted: a token for another one counts nothing here. */
-  const { data: invite, error } = await db.from("community_invites").select("id, community_id, tier_id, complimentary, created_by").eq("token_hash", hash).maybeSingle()
+  const { data: invite, error } = await db
+    .from("community_invites")
+    .select("id, community_id, tier_id, complimentary, created_by, email, max_uses, uses, expires_at, revoked_at")
+    .eq("token_hash", hash)
+    .maybeSingle()
   if (error) {
     if (missing(error)) return { ok: false, status: 503, error: "not_set_up", message: "Communities are not set up on Storelib yet." }
     console.error(`[communities] invite read: ${reasonOf(error)}`)
@@ -278,6 +347,20 @@ export async function redeemInvite(db: Db, communityId: string, userId: string, 
   if (viewer.banned || viewer.status === "banned" || viewer.status === "removed") return { ok: false, status: 403, error: "banned", message: "You can't join this community." }
   const closed = closedAnswer(community)
   if (closed) return { ok: false, status: closed.status, error: closed.error, message: closed.message }
+
+  /*
+    A PRICED INVITE IS HELD, NOT SPENT. Accepting an invite to a tier that is
+    sold only says "you may pay now", and the payment may never come, so
+    counting the use here would burn a one use link on somebody who closed
+    the checkout. The invite's own checks run first, with the people already
+    holding it counted against its uses (./invites.ts inviteStanding), the
+    request row is written with the invite on it, and the use is counted when
+    the payment makes that row active (./invite-spend.ts, called from
+    ./membership.ts). A refund takes the access away again the way every
+    paid membership does (reconcileAccess).
+  */
+  const held = await heldInvite(db, community, invite, userId)
+  if (held) return held
 
   const { data: result, error: rpcError } = await db.rpc("community_redeem_invite", { p_token_hash: hash, p_user: userId })
   if (rpcError) {
@@ -295,16 +378,7 @@ export async function redeemInvite(db: Db, communityId: string, userId: string, 
   const tier = (r.tier_id && tiers.find((t) => t.id === r.tier_id)) || tiers.find((t) => t.is_default) || tiers.find((t) => t.kind === "free") || null
   const refs = { inviteId: r.invite_id ?? invite.id, invitedBy: (invite.created_by as string | null) ?? null }
 
-  /* Not complimentary and the tier is sold: the invite is the approval, the payment is still theirs to make. */
-  if (r.complimentary === false && tier?.kind === "paid" && tier.product_id) {
-    const row = await grantMembership(db, { communityId: community.id, userId, source: "invite", tierId: tier.id, status: "pending", sourceRefs: { ...refs, approvedBy: refs.invitedBy ?? community.owner_user_id }, actorId: userId })
-    if (!row || (row.status !== "pending" && row.status !== "active")) return { ok: false, status: 403, error: "banned", message: "You can't join this community." }
-    if (row.status === "active") return { ok: true, state: "member", url, already: false }
-    const { data: plan } = await db.from("membership_plans").select("monthly_price_cents, yearly_price_cents").eq("product_id", tier.product_id).maybeSingle()
-    const interval = plan ? (plan.monthly_price_cents ? "month" : plan.yearly_price_cents ? "year" : null) : null
-    return { ok: true, state: "checkout", url: checkoutPath(tier.product_id, community.slug, interval) }
-  }
-
+  /* Anything that reaches here is complimentary: they are in on the invite's tier, with nothing to pay. */
   const row = await grantMembership(db, { communityId: community.id, userId, source: "invite", tierId: tier?.id ?? null, status: "active", sourceRefs: refs, actorId: userId })
   if (!row) return { ok: false, status: 503, error: "not_set_up", message: "Communities are not set up on Storelib yet." }
   if (row.status !== "active") return { ok: false, status: 403, error: "banned", message: "You can't join this community." }

@@ -12,7 +12,11 @@
  *      moderator's decision, never a second press.
  *   3. A CLOSED COMMUNITY (archived, suspended, a draft) takes nobody new.
  *   4. A REQUEST ALREADY SENT says so, until an admin answers it.
- *   5. INVITE ONLY: nothing to press; an invite link is the way in.
+ *   5. A PRIVATE COMMUNITY: nothing to press until they hold an invite; the
+ *      price is said all the same, because privacy and price are two facts
+ *      (lib/communities/access-model.ts). With an invite accepted, or a
+ *      request approved, the ordinary free or paid way in below runs, which
+ *      is what lets a private community charge.
  *   6. ACCESS BY PRODUCT: to the product that gives it.
  *   7. Otherwise the first way in: a free tier when the community has one,
  *      else the first paid tier the creator can actually sell.
@@ -28,7 +32,8 @@
  * Pure and browser safe; the server calls it with the rows it read.
  */
 import { joinButtonLabel } from "@/lib/communities/format"
-import type { CommunityAccess, CommunityStatus, MemberSource, MemberStatus, Role } from "@/lib/communities/types"
+import { accessWords, inviteNote, needsInvite } from "@/lib/communities/access-model"
+import type { CommunityAccess, CommunityStatus, CommunityVisibility, MemberSource, MemberStatus, Role } from "@/lib/communities/types"
 import { communityPath, signInToJoinPath } from "./paths"
 import type { AccessProductLink, JoinOption, JoinStateView } from "./types"
 
@@ -37,6 +42,8 @@ export interface JoinFacts {
     slug: string
     status: CommunityStatus
     access: CommunityAccess
+    /** Who can find it: with `access` it says whether the community is private. */
+    visibility?: CommunityVisibility
     approvalRequired: boolean
     suspended: boolean
     archived: boolean
@@ -51,6 +58,8 @@ export interface JoinFacts {
     banned: boolean
     /** A pending row an admin has approved (approved_by set): may pay now. */
     approved: boolean
+    /** An invite they accepted, so a private community's door is open to them. */
+    invited?: boolean
     source: MemberSource | null
     /** The subscription a paying member pays with, for "Manage billing". */
     membershipId: string | null
@@ -106,9 +115,16 @@ export function decideJoin(f: JoinFacts): JoinStateView {
     return { ...base, kind: "pending", label: joinButtonLabel({ isMember: false, pending: true }), note: "You'll get access once an admin approves it." }
   }
 
-  if (c.access === "invite_only") {
-    const who = c.creatorName ? `Ask ${c.creatorName} for an invite link.` : "Ask the creator for an invite link."
-    return { ...base, kind: "invite_only", label: "Invite only", note: who }
+  /*
+    A PRIVATE COMMUNITY, AND NOTHING TO GET IN WITH: the two facts are said
+    together ("Invite only · $19/month") instead of the price being hidden
+    behind the privacy, and there is still nothing to press. Somebody who
+    holds an invite or an approved request falls through to the way in below.
+  */
+  const priced = primaryOption(f.options, c.access, f.canTakePayments)
+  if (needsInvite({ access: c.access, visibility: c.visibility ?? "public" }) && !v.invited && !v.approved) {
+    const price = priced?.kind === "paid" ? priced.priceLine : null
+    return { ...base, kind: "invite_only", label: accessWords("private", price) ?? "Invite only", note: inviteNote(c.creatorName, price) }
   }
 
   if (c.access === "product") {
@@ -123,7 +139,7 @@ export function decideJoin(f: JoinFacts): JoinStateView {
     }
   }
 
-  const option = primaryOption(f.options, c.access, f.canTakePayments)
+  const option = priced
   if (!option) return { ...base, kind: "unavailable", label: "Joining isn't open yet." }
 
   const signIn = v.signedIn ? null : signInToJoinPath(c.slug)

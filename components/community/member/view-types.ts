@@ -3,7 +3,7 @@
  * lib/communities/types.ts. Types and tiny pure helpers only, so a client
  * component and a server module can both import this file.
  */
-import type { AuthorView, CommentView, CommunityAccess, FeedPostView, MemberView, PostMedia, Role, SpaceKind } from "@/lib/communities/types"
+import type { AuthorView, CommentView, CommunityAccess, CommunityVisibility, FeedPostView, MemberView, PostMedia, Role, SpaceKind } from "@/lib/communities/types"
 
 export type { AuthorView, CommentView, FeedPostView, MemberView }
 
@@ -43,6 +43,8 @@ export interface ShellCommunity {
   archived: boolean
   /** How people get in (the invite sheet says what a shared link does): free, paid, invite only, by a product. */
   access?: CommunityAccess
+  /** Who can find it: with `access` it says whether the community is private (lib/communities/access-model.ts). */
+  visibility?: CommunityVisibility
   /** Joining waits for an admin's yes. */
   approvalRequired?: boolean
 }

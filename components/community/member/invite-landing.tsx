@@ -5,6 +5,11 @@
  * `POST /api/community/<id>/invite/redeem { token }`) checks the token,
  * its limits and its email, and makes the membership; this page only says
  * what happened in words and sends the new member in.
+ *
+ * A PRIVATE COMMUNITY CAN CHARGE (lib/communities/access-model.ts), so the
+ * price is said before the press and the answer may be "checkout": the
+ * invite is the approval, the payment is still theirs to make, and the
+ * invite is only spent once it lands.
  */
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -29,7 +34,7 @@ export function InviteLanding({
   state,
   loginHref,
 }: {
-  community: { id: string; slug: string; name: string; tagline: string | null; logoUrl: string | null; memberCount: number }
+  community: { id: string; slug: string; name: string; tagline: string | null; logoUrl: string | null; memberCount: number; priceLine?: string | null }
   token: string | null
   state: string
   loginHref: string
@@ -42,9 +47,10 @@ export function InviteLanding({
     if (!token || busy) return
     setBusy(true)
     setError(null)
-    const r = await api<{ ok?: boolean; reason?: string; error?: string }>(`${apiBase(community.id)}/invite/redeem`, { body: { token } })
+    const r = await api<{ ok?: boolean; reason?: string; error?: string; state?: string; url?: string }>(`${apiBase(community.id)}/invite/redeem`, { body: { token } })
     if (r.ok && r.data.ok !== false) {
-      router.push(`/community/${community.slug}?welcome=1`)
+      /* An invite into a community that charges answers with where to pay; the invite is spent when the payment lands. */
+      router.push(r.data.state === "checkout" && r.data.url ? r.data.url : `/community/${community.slug}?welcome=1`)
       return
     }
     setBusy(false)
@@ -79,6 +85,11 @@ export function InviteLanding({
         <h1 className="mt-1 text-[22px] font-bold text-[#1a1a2e]">{community.name}</h1>
         {community.tagline ? <p className="mt-2 text-[14.5px] leading-relaxed text-[#4b5563]">{community.tagline}</p> : null}
         <p className="mt-2 text-[13px] text-[#8a8f98]">{memberCountLabel(community.memberCount)}</p>
+        {community.priceLine ? (
+          <p className="mt-4 text-[14px] text-[#1a1a2e]" data-invite-price="">
+            <span className="font-semibold">{community.priceLine}</span> to join
+          </p>
+        ) : null}
         {error ? <p className="mt-5 rounded-xl bg-[#fef1ee] px-3.5 py-2.5 text-[14px] text-[#9f2a12]">{error}</p> : null}
         <div className="mt-6 flex flex-col gap-2">
           {state === "signed_out" ? (
@@ -87,7 +98,7 @@ export function InviteLanding({
             </Link>
           ) : token && state !== "banned" ? (
             <button type="button" className={BTN_PRIMARY} onClick={accept} disabled={busy}>
-              {busy ? "Joining..." : "Accept invite"}
+              {busy ? "Joining..." : community.priceLine ? "Accept and pay" : "Accept invite"}
             </button>
           ) : null}
           <Link href={`/community/${community.slug}/about`} className={BTN_SECONDARY}>

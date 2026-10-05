@@ -62,6 +62,7 @@ export function toShellCommunity(c: CommunityRow): ShellCommunity {
     gamificationEnabled: c.gamification_enabled,
     archived: c.status === "archived" || !!c.archived_at,
     access: c.access,
+    visibility: c.visibility,
     approvalRequired: c.approval_required,
   }
 }

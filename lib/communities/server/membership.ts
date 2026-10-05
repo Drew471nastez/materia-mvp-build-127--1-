@@ -38,6 +38,7 @@ import { ROLE_RANK } from "../permissions"
 import { MEMBER_COLUMNS, PAID_SOURCES, type MemberRow, type MemberSource, type MemberStatus, type Role, type TierKind } from "../types"
 import { audit } from "./audit"
 import { recordActivity } from "./activity"
+import { spendInvite } from "./invite-spend"
 import { isUniqueViolation, missing, nowIso, reasonOf, type Db } from "./db"
 
 const PAID: readonly MemberSource[] = PAID_SOURCES
@@ -116,6 +117,14 @@ function refColumns(refs: SourceRefs | undefined): Record<string, string | null>
 }
 
 async function afterJoin(db: Db, row: MemberRow, input: GrantInput): Promise<void> {
+  /*
+    AN INVITE IS SPENT WHEN THE PERSON IS ACTUALLY IN. A free invite is spent
+    where it is accepted; an invite to a tier that is sold is only held there,
+    because the payment may never come, so its use is counted here, on the
+    activation the payment causes (./invite-spend.ts). Counting twice is not
+    possible: community_invite_uses is unique on the invite and the person.
+  */
+  if (row.invite_id) await spendInvite(db, { communityId: row.community_id, userId: row.user_id, inviteId: row.invite_id })
   await recordActivity(db, { communityId: row.community_id, userId: row.user_id, kind: "joined" })
   await audit(db, {
     communityId: row.community_id,

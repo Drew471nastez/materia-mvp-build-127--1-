@@ -19,6 +19,7 @@ import "server-only"
 import { creatorSitePlan } from "@/lib/sites/plan-server"
 import { communityLimitFor, mayCreateCommunity, PLAN_LIMIT_ERROR } from "../plan-limit"
 import { REFUND_POLICY_MAX, cleanContactEmail, cleanRefundPolicy } from "../membership-policy"
+import { accessColumnsFor, privacyOf } from "../access-model"
 import { COMMUNITY_COLUMNS, type CommunityRow, type Role } from "../types"
 import type { CommunityLimitView, PoliciesView } from "@/components/community/creator/view-types"
 import { audit } from "./audit"
@@ -56,8 +57,8 @@ export async function duplicateCommunity(db: Db, a: { source: CommunityRow; crea
     ownerUserId: a.userId,
     name,
     tagline: src.tagline ?? undefined,
-    access: src.access === "invite_only" ? "invite_only" : "free",
-    visibility: src.access === "invite_only" ? "private" : src.visibility,
+    /* The copy keeps who can get in and starts free: a price is a product with buyers of its own (../access-model.ts). */
+    ...accessColumnsFor(privacyOf(src), "free"),
     logoUrl: src.logo_url ?? undefined,
     coverUrl: src.cover_url ?? undefined,
   })
