@@ -376,8 +376,8 @@ export function PostMediaGrid({ media, communityId, postId }: { media: PostMedia
         </div>
       ) : null}
       {embeds.map((e) => (
-        <div key={`${e.provider}:${e.id}`} className="overflow-hidden rounded-xl" data-media-embed="">
-          <EmbedPlayer item={e} />
+        <div key={`${e.provider}:${e.id}`} className="overflow-hidden rounded-2xl" data-media-embed="">
+          <EmbedPlayer item={e} posterWidth={960} />
         </div>
       ))}
       {links.map((l) => (
@@ -551,7 +551,7 @@ function ratioOf(item: ViewerItem): number {
 function Single({ item, communityId, onOpen }: { item: ViewerItem; communityId: string; onOpen: () => void }) {
   if (item.kind === "video") {
     return (
-      <div className="overflow-hidden rounded-xl bg-black [&_[data-storelib-video]]:rounded-none" data-media-tile="video" data-post-media-grid="single">
+      <div className="overflow-hidden rounded-2xl bg-black shadow-[0_8px_28px_-14px_rgba(0,0,0,0.35)] ring-1 ring-black/10 [&_[data-storelib-video]]:rounded-none" data-media-tile="video" data-post-media-grid="single">
         <StorelibVideo communityId={communityId} videoId={item.videoId} poster={item.poster} width={item.w} height={item.h} />
       </div>
     )

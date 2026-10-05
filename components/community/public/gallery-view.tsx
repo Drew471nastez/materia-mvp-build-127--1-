@@ -80,8 +80,8 @@ const keyOf = (g: GalleryItemView) => (g.type === "image" ? `i:${g.url}` : g.typ
 /** The round play button over a still: ink, a hairline of white, its own soft shadow; pressed, a deeper ink (never a jump). */
 function PlayMark({ busy }: { busy?: boolean }) {
   return (
-    <span className="relative flex h-16 w-16 items-center justify-center rounded-full bg-[#1a1a2e]/80 text-white shadow-[0_8px_24px_-8px_rgba(0,0,0,0.5),inset_0_0_0_1px_rgba(255,255,255,0.14)] transition-[background-color] duration-150 group-hover/play:bg-[#1a1a2e]/90 group-active/play:bg-[#1a1a2e] group-focus-visible/play:ring-4 group-focus-visible/play:ring-white/60">
-      {busy ? <ActivitySpinner size={22} label="Loading" className="text-white" /> : <Play className="ml-1 h-7 w-7 fill-white" aria-hidden />}
+    <span className="relative flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-full bg-white text-[#1a1a2e] shadow-[0_12px_40px_-10px_rgba(0,0,0,0.55)] transition-[transform,background-color] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover/play:scale-[1.06] group-active/play:scale-[0.98] group-focus-visible/play:ring-4 group-focus-visible/play:ring-white/70 motion-reduce:transition-none">
+      {busy ? <ActivitySpinner size={24} label="Loading" className="text-[#1a1a2e]" /> : <Play className="ml-1 h-8 w-8 fill-current" aria-hidden />}
     </span>
   )
 }

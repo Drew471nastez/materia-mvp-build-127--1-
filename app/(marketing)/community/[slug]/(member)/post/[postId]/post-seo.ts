@@ -89,12 +89,32 @@ export function postShareRouteId(postId: string): string {
   return postShortId(postId)
 }
 
+/** A media preview address safe to fetch for the share card (https, or our /media proxy path). */
+export function mediaPreviewUrl(value: unknown): string | null {
+  if (typeof value !== "string" || !value.trim()) return null
+  const raw = value.trim()
+  if (/^https:\/\//i.test(raw)) return raw
+  if (raw.startsWith("/media/")) return `${SITE}${raw}`
+  return null
+}
+
 /** The post's first picture, for the card and the structured data: a photo, else a GIF's still, a video's poster, an embed's or a link's picture. */
 export function firstPicture(media: PostMedia[] | null | undefined): string | null {
   for (const m of media ?? []) {
     const url =
-      m.type === "image" ? m.url : m.type === "gif" ? m.still : m.type === "video" ? m.poster : m.type === "embed" ? m.thumb : m.type === "link" ? m.image : undefined
-    if (typeof url === "string" && /^https:\/\//.test(url)) return url
+      m.type === "image"
+        ? m.url
+        : m.type === "gif"
+          ? m.still || m.url
+          : m.type === "video"
+            ? m.poster
+            : m.type === "embed"
+              ? m.thumb
+              : m.type === "link"
+                ? m.image
+                : undefined
+    const safe = mediaPreviewUrl(url)
+    if (safe) return safe
   }
   return null
 }
@@ -132,7 +152,17 @@ export function postShareImageUrl(slug: string, postId: string, version: string 
 
 function fingerprint(f: PostFacts, open: boolean): string {
   return open
-    ? postShareVersion([1, f.community.name, f.community.logo_url, f.post.title, f.post.bodyText.slice(0, 300), firstPicture(f.post.media), f.author?.name, f.author?.avatarUrl, f.post.editedAt])
+    ? postShareVersion([
+        2,
+        f.community.name,
+        f.community.logo_url,
+        f.post.title,
+        f.post.bodyText.slice(0, 300),
+        firstPicture(f.post.media),
+        f.author?.name,
+        f.author?.avatarUrl,
+        f.post.editedAt,
+      ])
     : postShareVersion([0, f.community.name, f.community.logo_url])
 }
 
@@ -141,6 +171,7 @@ export function postMetadata(f: PostFacts): Metadata {
   const url = `${SITE}${postPath(f.community.slug, f.post)}`
   const image = postShareImageUrl(f.community.slug, f.post.id, fingerprint(f, open))
   const images = [{ url: image, width: POST_SHARE_WIDTH, height: POST_SHARE_HEIGHT, alt: open ? postHeadline(f) || f.community.name : f.community.name, type: "image/png" }]
+  const twitterImages = [image]
   if (!open) {
     const title = `A post in ${f.community.name}`
     const description = `Members of ${f.community.name} can read this post on Storelib.`
@@ -149,7 +180,7 @@ export function postMetadata(f: PostFacts): Metadata {
       description,
       alternates: { canonical: url },
       openGraph: { type: "website", url, siteName: "Storelib", title, description, images },
-      twitter: { card: "summary_large_image", title, description, images: [image] },
+      twitter: { card: "summary_large_image", title, description, images: twitterImages },
       robots: { index: false, follow: false, googleBot: { index: false, follow: false } },
     }
   }
@@ -178,7 +209,7 @@ export function postMetadata(f: PostFacts): Metadata {
       card: "summary_large_image",
       title: headline,
       description,
-      images: [{ url: image, alt: headline }],
+      images: twitterImages,
     },
     robots: { index: true, follow: true, googleBot: { index: true, follow: true, "max-image-preview": "large" } },
     ...(picture ? { other: { "og:image:secure_url": picture } } : {}),

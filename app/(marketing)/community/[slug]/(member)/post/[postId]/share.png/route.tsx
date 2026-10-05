@@ -74,7 +74,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ slu
     }
     const [logoSrc, pictureSrc, avatarSrc] = await Promise.all([
       logo,
-      sharePicture(firstPicture(facts.post.media), 400, 400, "jpeg"),
+      sharePicture(firstPicture(facts.post.media), POST_SHARE_WIDTH, POST_SHARE_HEIGHT, "jpeg"),
       sharePicture(facts.author?.avatarUrl, 96, 96, "jpeg"),
     ])
     drawn =

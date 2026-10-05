@@ -723,7 +723,11 @@ function Slide({ item, communityId, active, autoplay, zoom, zooming }: { item: V
 export function EmbedPlayer({ item, autoplay = false, posterWidth = 720, className = "" }: { item: Extract<ViewerItem, { kind: "embed" }>; autoplay?: boolean; posterWidth?: number; className?: string }) {
   const [play, setPlay] = useState(autoplay)
   return (
-    <div className={`relative aspect-video w-full overflow-hidden bg-black ${className}`} data-embed-player={item.provider} data-embed-state={play ? "playing" : "idle"}>
+    <div
+      className={`relative aspect-video w-full overflow-hidden rounded-2xl bg-[#0a0a0a] shadow-[0_8px_32px_-12px_rgba(0,0,0,0.45),0_2px_8px_rgba(0,0,0,0.12)] ring-1 ring-black/10 ${className}`}
+      data-embed-player={item.provider}
+      data-embed-state={play ? "playing" : "idle"}
+    >
       {play ? (
         <iframe src={embedPlayerSrc(item)} title={item.title || `${EMBED_NAMES[item.provider]} video`} allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen referrerPolicy="strict-origin-when-cross-origin" className="absolute inset-0 h-full w-full border-0" />
       ) : (
@@ -753,10 +757,14 @@ function EmbedPosterFace({ item, posterWidth }: { item: Extract<ViewerItem, { ki
       ) : (
         <span className="absolute inset-0 bg-[#1f2230]" aria-hidden />
       )}
-      <span className="relative flex h-14 w-14 items-center justify-center rounded-full bg-black/60 text-white transition-[scale] duration-150 group-hover/play:scale-105 motion-reduce:transition-none">
-        <Play className="ml-1 h-6 w-6 fill-current" />
+      <span
+        className={`relative flex h-[4.25rem] w-[4.25rem] items-center justify-center rounded-full text-white shadow-[0_10px_40px_-8px_rgba(0,0,0,0.55)] transition-[transform,background-color] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover/play:scale-[1.06] group-active/play:scale-[0.98] motion-reduce:transition-none ${
+          item.provider === "youtube" ? "bg-[#ff0000]/95 group-hover/play:bg-[#ff0000]" : "bg-black/65 group-hover/play:bg-black/75"
+        }`}
+      >
+        <Play className="ml-1 h-7 w-7 fill-current" />
       </span>
-      <span className="absolute bottom-2 left-2 inline-flex items-center gap-1.5 rounded-md bg-black/55 py-0.5 pl-1 pr-1.5 text-[11.5px] font-medium leading-5 text-white" aria-hidden data-embed-site="">
+      <span className="absolute bottom-3 left-3 inline-flex items-center gap-1.5 rounded-lg bg-black/60 px-2 py-1 text-[12px] font-semibold leading-5 text-white backdrop-blur-sm" aria-hidden data-embed-site="">
         <ProviderMark provider={item.provider} size={15} />
         {EMBED_NAMES[item.provider]}
       </span>

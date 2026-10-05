@@ -453,7 +453,7 @@ export function VideoPlayer({ source, poster, startAt = 0, autoPlay = false, tit
       data-playing={playing ? "true" : "false"}
       role="region"
       aria-label={title ? `Video: ${title}` : "Video"}
-      className={`group/vp relative w-full select-none overflow-hidden bg-black [dynamic-range-limit:standard] ${full ? "" : rounded ? "rounded-xl" : ""} ${controlsOn ? "" : "cursor-none"}`}
+      className={`group/vp relative w-full select-none overflow-hidden bg-[#0a0a0a] [dynamic-range-limit:standard] ${full ? "" : rounded ? "rounded-2xl shadow-[0_8px_28px_-14px_rgba(0,0,0,0.35)] ring-1 ring-black/10" : ""} ${controlsOn ? "" : "cursor-none"}`}
       style={full ? { height: "100%" } : { aspectRatio: String(ratio && ratio > 0 ? ratio : 16 / 9) }}
       onPointerMove={(e) => e.pointerType === "mouse" && reveal()}
       onPointerDownCapture={() => (lastPressed = id.current)}
@@ -535,7 +535,7 @@ export function VideoPlayer({ source, poster, startAt = 0, autoPlay = false, tit
           type="button"
           onClick={togglePlay}
           aria-label={ended ? "Play again" : "Play"}
-          className="group/big absolute left-1/2 top-1/2 flex h-14 w-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white/95 text-[#1a1a2e] shadow-[0_6px_24px_rgba(0,0,0,0.3)] outline-none transition-[scale] duration-150 hover:scale-105 focus-visible:ring-4 focus-visible:ring-white/50 motion-reduce:transition-none"
+          className="group/big absolute left-1/2 top-1/2 flex h-[4.25rem] w-[4.25rem] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white text-[#1a1a2e] shadow-[0_10px_40px_-8px_rgba(0,0,0,0.55)] outline-none transition-[transform] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] hover:scale-[1.06] active:scale-[0.98] focus-visible:ring-4 focus-visible:ring-white/50 motion-reduce:transition-none"
           data-video-big-play=""
         >
           {ended ? <RotateCcw className="h-6 w-6" aria-hidden /> : <Play className="ml-0.5 h-6 w-6" fill="currentColor" aria-hidden />}
@@ -563,7 +563,7 @@ export function VideoPlayer({ source, poster, startAt = 0, autoPlay = false, tit
         className={`absolute inset-x-0 bottom-0 transition-opacity duration-200 motion-reduce:transition-none ${controlsOn && !failed ? "opacity-100" : "pointer-events-none opacity-0"}`}
         data-video-bar=""
       >
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/60 via-black/25 to-transparent" aria-hidden />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-black/80 via-black/35 to-transparent" aria-hidden />
         <div className="relative px-2 pb-1.5 sm:px-3 sm:pb-2">
           <div
             ref={bar}
@@ -583,7 +583,7 @@ export function VideoPlayer({ source, poster, startAt = 0, autoPlay = false, tit
             className="group/bar relative mx-1 flex h-6 cursor-pointer touch-none items-center outline-none focus-visible:ring-2 focus-visible:ring-white/60"
             data-video-scrub=""
           >
-            <div className={`relative h-[3px] w-full overflow-hidden rounded-full bg-white/25 transition-[scale] duration-150 group-hover/bar:scale-y-[1.67] motion-reduce:transition-none ${scrub !== null ? "scale-y-[1.67]" : ""}`}>
+            <div className={`relative h-[4px] w-full overflow-hidden rounded-full bg-white/30 transition-[scale] duration-150 group-hover/bar:scale-y-[1.5] motion-reduce:transition-none ${scrub !== null ? "scale-y-[1.5]" : ""}`}>
               <div className="absolute inset-y-0 left-0 w-full origin-left bg-white/40" style={{ scale: `${loaded} 1` }} />
               <div className="absolute inset-y-0 left-0 w-full origin-left bg-white" style={{ scale: `${played} 1` }} data-video-played="" />
             </div>
