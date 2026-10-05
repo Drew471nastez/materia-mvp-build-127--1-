@@ -156,11 +156,12 @@ export function StorelibVideo({ communityId, videoId, poster, durationSeconds, t
         setState({ kind: "playing", source: sourceOf(got.playback), startAt: readPlace(videoId) })
         return
       }
-      if (got.status === 409 && got.error === "not_ready") return setState({ kind: "processing" })
-      if (got.status === 409) return setState({ kind: "message", text: "This video could not be processed.", retry: false })
-      if (got.status === 403 && got.error === "not_yet") return setState({ kind: "message", text: "The replay is here once the event is over.", retry: false })
-      if (got.status === 404) return setState({ kind: "message", text: "This video is not available.", retry: false })
-      if (got.status === 401) return setState({ kind: "message", text: "Sign in to watch this video.", retry: false })
+      const { status, error } = got as { status: number; error: string }
+      if (status === 409 && error === "not_ready") return setState({ kind: "processing" })
+      if (status === 409) return setState({ kind: "message", text: "This video could not be processed.", retry: false })
+      if (status === 403 && error === "not_yet") return setState({ kind: "message", text: "The replay is here once the event is over.", retry: false })
+      if (status === 404) return setState({ kind: "message", text: "This video is not available.", retry: false })
+      if (status === 401) return setState({ kind: "message", text: "Sign in to watch this video.", retry: false })
       setState({ kind: "message", text: "The video did not load. Check your connection and try again.", retry: true })
     },
     [communityId, videoId, me],
