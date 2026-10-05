@@ -689,9 +689,11 @@ export interface InviteInput {
    * Said outright: true gives the tier without paying, false sends them to
    * the price. Left out, the server decides from the community (a private
    * community that charges sends them to pay; everywhere else an invite is
-   * the gift it has always been).
+   * the gift it has always been). An invite for one free event leaves it
+   * out for exactly that reason: the seat is the gift, the membership is
+   * still the community's own rule.
    */
-  complimentary: boolean | null
+  complimentary?: boolean | null
 }
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
