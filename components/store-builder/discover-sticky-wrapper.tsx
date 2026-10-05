@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import { useLandAtTop } from "@/lib/navigation/land-at-top"
 import { setProductTopBarRevealed } from "@/lib/store-builder/product-top-bar"
 import { isNativeApp } from "@/lib/platform-utils"
 import { useRevealOnScrollUp } from "@/lib/store-builder/use-reveal-on-scroll-up"
@@ -16,6 +17,15 @@ import { cn } from "@/lib/utils"
  */
 export function DiscoverStickyWrapper({ children }: { children: React.ReactNode }) {
   const [topOffset, setTopOffset] = useState("0px")
+
+  /*
+    A PRODUCT OPENS AT ITS TOP. This bar is on every product page, both
+    layouts, so it is where the page says so: opened from Explore (or any
+    list) it is at 0 before its first paint and stays there until the person
+    moves it, rather than wherever the list or a glide left the window.
+    Back and Forward are left to restore. lib/navigation/land-at-top.ts.
+  */
+  useLandAtTop()
 
   useEffect(() => {
     if (!isNativeApp()) return
