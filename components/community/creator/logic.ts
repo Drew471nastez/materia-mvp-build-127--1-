@@ -794,6 +794,8 @@ export const MUTE_CHOICES = [
 export interface MemberChoice {
   key: string
   label: string
+  /** The same press in fewer words, where a phone's row has no room for the whole label. */
+  shortLabel?: string
   action: "mute" | "unmute" | "suspend" | "unsuspend" | "ban" | "unban" | "remove" | "reinstate" | "approve" | "reject" | "role" | "complimentary" | "end_complimentary" | "points" | "badge"
   role?: Role
   hours?: number
@@ -860,7 +862,7 @@ export function memberChoices(actor: ChoiceActor, m: { userId: string; role: Rol
   if (m.status === "paused" && c.suspend && mayUndoHere) out.push({ key: "unsuspend", label: "Bring back", action: "unsuspend", confirm: true })
   if (m.status === "paused" && c.ban) out.push({ key: "ban", label: "Ban", action: "ban", confirm: true, danger: true })
   if (m.status === "banned" && c.ban && mayUndoHere) out.push({ key: "unban", label: "Unban", action: "unban", confirm: true })
-  if (m.status === "removed" && c.remove_member && mayUndoHere) out.push({ key: "reinstate", label: "Let them back in", action: "reinstate", confirm: true })
+  if (m.status === "removed" && c.remove_member && mayUndoHere) out.push({ key: "reinstate", label: "Let them back in", shortLabel: "Let back in", action: "reinstate", confirm: true })
   return out
 }
 
@@ -919,8 +921,13 @@ export function memberDoneText(choice: MemberChoice, name: string): string {
 
 /** The line a confirmation shows before a member action that cannot simply be undone. */
 export function memberConfirmText(choice: MemberChoice, name: string, person?: { source?: string; paying?: boolean }): { title: string; detail: string; verb: string } {
-  /* A paid way in that nobody is paying for any more comes back as the free tier, and the confirm says so before it is pressed. */
-  const toFree = person && ["subscription", "purchase", "product"].includes(person.source ?? "") && person.paying !== true ? " Their paid membership has ended, so they come back on the free tier." : ""
+  /*
+    A paid way in that nobody is paying for any more comes back as the free
+    tier, and the confirm says so before it is pressed. The screen cannot see
+    whether the payment is live (the server works that out when it runs), so
+    the sentence is written to be true either way.
+  */
+  const toFree = person && ["subscription", "purchase", "product"].includes(person.source ?? "") && person.paying !== true ? " If their paid membership has ended, they come back on the free tier." : ""
   switch (choice.action) {
     case "reject":
       return { title: `Decline ${name}?`, detail: "They can ask again later.", verb: "Decline" }

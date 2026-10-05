@@ -167,11 +167,11 @@ export function MembersSection(p: Props) {
           </button>
         ) : null}
         {undo ? (
-          <button type="button" disabled={actions.busy} onClick={() => actions.run(undo, person(m))} className={cn(buttonSecondary, phone && "h-10 px-3.5")} data-undo="">
-            {undo.label}
+          <button type="button" disabled={actions.busy} onClick={() => actions.run(undo, person(m))} className={cn(buttonSecondary, phone && "h-10 whitespace-nowrap px-3")} data-undo="">
+            {phone ? (undo.shortLabel ?? undo.label) : undo.label}
           </button>
         ) : null}
-        <RowMenu items={actions.menuItems(person(m), [...(phone ? ["approve"] : ["approve", "reject"]), ...(undo ? [undo.key] : [])])} label={`Actions for ${m.name}`} />
+        <RowMenu keepSpace={restricted && !phone} items={actions.menuItems(person(m), [...(phone ? ["approve"] : ["approve", "reject"]), ...(undo ? [undo.key] : [])])} label={`Actions for ${m.name}`} />
       </span>
     )
   }
@@ -241,7 +241,7 @@ export function MembersSection(p: Props) {
             <table className="hidden w-full table-fixed border-separate border-spacing-0 md:table">
               <thead>
                 <tr className="h-9 text-left text-[12px] text-[#6b7280]">
-                  <th className="w-[38%] border-b border-[#eef0f2] pl-4 pr-3 font-medium">Member</th>
+                  <th className={cn("border-b border-[#eef0f2] pl-4 pr-3 font-medium", restricted ? "w-[30%]" : "w-[38%]")}>Member</th>
                   <th className="border-b border-[#eef0f2] px-3 font-medium">{pending ? "Note" : restricted ? "What happened" : "Role"}</th>
                   {!pending && !restricted ? <th className="border-b border-[#eef0f2] px-3 font-medium">Tier</th> : null}
                   {showLevel && !pending && !restricted ? <th className="w-[96px] border-b border-[#eef0f2] px-3 font-medium">Level</th> : null}
@@ -267,7 +267,15 @@ export function MembersSection(p: Props) {
                       </div>
                     </td>
                     <td className="truncate border-b border-[#f1f2f4] px-3 text-[13px] text-[#1a1a2e] group-last/row:border-b-0">
-                      {pending ? <span className="text-[#4b5563]">{m.requestNote || (m.approved ? "Approved, waiting for payment" : "")}</span> : restricted ? <span className="text-[#4b5563]">{takenAwayLine(m)}</span> : ROLE_LABEL[m.role]}
+                      {pending ? (
+                        <span className="text-[#4b5563]">{m.requestNote || (m.approved ? "Approved, waiting for payment" : "")}</span>
+                      ) : restricted ? (
+                        <span className="text-[#4b5563]" title={takenAwayLine(m)}>
+                          {takenAwayLine(m)}
+                        </span>
+                      ) : (
+                        ROLE_LABEL[m.role]
+                      )}
                     </td>
                     {!pending && !restricted ? <td className="truncate border-b border-[#f1f2f4] px-3 text-[13px] text-[#4b5563] group-last/row:border-b-0">{m.tierName ?? ""}</td> : null}
                     {showLevel && !pending && !restricted ? (
