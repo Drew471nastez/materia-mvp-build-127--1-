@@ -3885,7 +3885,8 @@ try {
       expect(!!ed && ed.save === "Save" && /General/.test(ed.space ?? ""), "its button says Save, and the space can be changed", ed)
       await shot(p, `${label}-r13-edit-open`)
       /* Take a picture off, change the title, save. */
-      await p.evaluate(() => document.querySelector('[data-composer="edit"] [data-attachment] [aria-label="Remove"], [data-composer="sheet"] [data-attachment] [aria-label="Remove"]')?.click())
+      /* Worker V's tray (attachment-tray.tsx) has its own remove control; the older tile's "Remove" too. */
+      await p.evaluate(() => document.querySelector('[data-composer="edit"] [data-tray-remove], [data-composer="sheet"] [data-tray-remove], [data-composer="edit"] [data-attachment] [aria-label="Remove"], [data-composer="sheet"] [data-attachment] [aria-label="Remove"]')?.click())
       const t = await p.$('[data-composer="edit"] [data-composer-title], [data-composer="sheet"] [data-composer-title]')
       await t.evaluate((el) => (el.focus(), el.select()))
       await t.type("Studio wall, after")
