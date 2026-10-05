@@ -113,8 +113,9 @@ console.log("\nNo face is a question mark")
     ["components/explore/creator-card.tsx", 1],
     ["components/marketing/user-nav.tsx", 1],
     ["components/marketing/user-nav-client.tsx", 1],
-    /* 4: the computer's photo became a link to /account, so the menu that drew it a second time is gone. */
-    ["components/platform/platform-header-client.tsx", 4],
+    /* 4: the computer's photo became a link to /account, so the menu that drew it a second time is gone.
+       5 (round 12, 69.webp): the menu a community's "..." opens shows the real picture beside the name again, as the phone's sheet does. */
+    ["components/platform/platform-header-client.tsx", 5],
     ["components/store-builder/sticky-desktop-creator-bar.tsx", 1],
     ["app/(marketing)/p/[slug]/page.tsx", 2],
     ["app/(marketing)/u/[username]/page.tsx", 1],

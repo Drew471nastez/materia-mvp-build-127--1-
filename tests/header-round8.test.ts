@@ -68,9 +68,11 @@ check("the wishlist icon is drawn only off Explore, on both rows", /const showWi
 
 console.log("\n5. Ink counts")
 check("the heart's count", /COUNT_BADGE_TONE = "bg-\[#1a1a2e\] text-white \[\[data-header-tone=dark\]_&\]:bg-white \[\[data-header-tone=dark\]_&\]:text-\[#1a1a2e\]"/.test(header))
-check("the bell's count", /data-bell-badge=""[\s\S]{0,400}bg-\[#1a1a2e\] px-\[5px\] text-white/.test(bell))
-check("the community bar's Messages count", /\$\{COUNT\} bg-\[#1a1a2e\] px-\[5px\] text-white/.test(bar))
-check("no red count left in any of them", ![header, bell, bar].some((s) => /bg-red-500/.test(s)))
+/* Round 12 reversed the bell's and Messages': notifications are the red bubble again (components/notifications/badge-tone.ts); the heart stays ink. */
+const badgeTone = readSource("components/notifications/badge-tone.ts")
+check("the bell's count is the red notification bubble", /data-bell-badge=""[\s\S]{0,400}NOTIFICATION_BADGE/.test(bell) && /NOTIFICATION_BADGE = "rounded-full bg-\[#ef4444\] text-white/.test(badgeTone))
+check("the community bar's Messages count is the same bubble", /px-\[5px\] \$\{NOTIFICATION_BADGE\}/.test(bar))
+check("the heart's count stays ink", !/bg-red-500/.test(header))
 
 console.log("\n6. The phone's notifications sheet")
 check("as tall as its rows, up to a maximum, no fixed height", /maxHeight="min\(78dvh, 640px\)"/.test(bell) && !/height="min\(68dvh, 584px\)"/.test(bell))

@@ -80,10 +80,11 @@ async function main() {
   console.log("\nSPINNER and PLACES")
   {
     const spinner = code("components/community/member/place-spinner.tsx")
-    check("the spinner turns continuously and linearly on a box of its own, not a spoke at a time on the svg", /animate-\[spin_var\(--spin-ms\)_linear_infinite\]/.test(spinner) && !/steps\(8/.test(spinner) && SPIN_MS >= 700 && SPIN_MS <= 1200)
+    /* Round 12: the turn is the app spinner's (.activity-spinner in app/globals.css: one linear turn a second on its own box). */
+    check("the spinner turns continuously and linearly on a box of its own, not a spoke at a time on the svg", /<ActivitySpinner size=\{size\}/.test(spinner) && /\.activity-spinner \{\s*display: block;\s*animation: activity-spin 1000ms linear infinite;/.test(readSource("app/globals.css")) && SPIN_MS === 1000)
     check("eight spokes, each fainter than the one before", SPINNER_SPOKES.length === 8 && SPINNER_SPOKES.every((l, i) => i === 0 || l.opacity < SPINNER_SPOKES[i - 1].opacity))
     const frame = code("components/community/member/shell-frame.tsx")
-    check("the frame keeps the scrollbar's room on every page", /html\{scrollbar-gutter:stable\}/.test(frame) && /<style>\{GUTTER\}<\/style>/.test(frame))
+    check("the frame keeps the scrollbar's room on every page", /html\{scrollbar-gutter:stable\}/.test(frame) && /<style>\{GUTTER \+ PLACE_KEYFRAMES\}<\/style>/.test(frame))
     check("About sits in the same columns under the same bar (no narrower frame, no tabs on a computer)", !/tabsOnDesktop=\{about\}/.test(frame) && /lg:\[--community-top:65px\]/.test(frame) && !/lg:\[--community-top:105px\]/.test(frame) && /about \? "lg:col-start-2 xl:col-span-2"/.test(frame) && /lg:col-start-1 lg:row-start-1 lg:block \$\{LAND\}/.test(frame))
     check("entering, the side columns and then the middle come in by opacity", /const LAND = "motion-safe:animate-\[fade-in_/.test(frame) && /const LAND_LATE = "motion-safe:animate-\[fade-in_[^"]*_60ms_both\]"/.test(frame))
   }

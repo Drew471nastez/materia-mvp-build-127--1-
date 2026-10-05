@@ -1204,7 +1204,36 @@ try {
     await page.close()
   }
 } finally {
-  await browser.close()
+  /* ── HEIGHT (round 12): a library with nothing below the fold does not scroll ── */
+if (part("height")) {
+  console.log("\nHEIGHT: the library inside the profile's column, on an iPhone (home indicator inset 34px), nothing to scroll")
+  const IPHONE = { width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }
+  for (const before of [true, false]) {
+    for (const [mode, path] of [["nav", "/account/library/courses"], ["nav", "/account/library/memberships"]]) {
+      const page = await browser.newPage()
+      await page.setViewport(IPHONE)
+      const cdp = await page.target().createCDPSession()
+      /* The phone's safe area, as an iPhone has it: the body pads itself by the bottom one (app/globals.css). */
+      await cdp.send("Emulation.setSafeAreaInsetsOverride", { insets: { top: 47, bottom: 34 } })
+      const errors = []
+      page.on("pageerror", (e) => errors.push(String(e).slice(0, 200)))
+      await page.evaluateOnNewDocument((m, p, b) => { window.__mode = m; window.__path = p; window.__accountShell = true; window.__before = b }, mode, path, before)
+      await page.goto(`${origin}${path}`, { waitUntil: "networkidle0" })
+      await sleep(600)
+      const m = await page.evaluate(() => {
+        const el = document.scrollingElement
+        return { extra: el.scrollHeight - innerHeight, body: getComputedStyle(document.body).paddingBottom, room: Math.round(document.querySelector("[data-buyer-tabs-room]").getBoundingClientRect().height), column: Math.round(document.querySelector('[data-page="account"]').getBoundingClientRect().height) }
+      })
+      if (before) expect(m.extra === 34, `before: ${path} scrolled by the inset with nothing to scroll (${m.extra}px over)`, m)
+      else expect(m.extra <= 0 && m.body === "0px" && m.room === 90, `${path}: nothing to scroll; the bar's room holds the inset once`, m)
+      if (!before) await page.screenshot({ path: join(shots, `height-${path.split("/").pop()}.png`) })
+      expect(errors.length === 0, "no page errors", errors)
+      await page.close()
+    }
+  }
+}
+
+await browser.close()
   server.close()
   fileServer.close()
   if (!process.env.KEEP_STUBS) rmSync(stubs, { recursive: true, force: true })

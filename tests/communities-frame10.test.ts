@@ -101,7 +101,8 @@ async function main() {
     check("the first key reads the index on the same render; the server's answer replaces it after the pause", /const index = searchIndexOf\(communityId\)\s*if \(index\) \{\s*setResults\(localResults\(index, term\)\)/.test(client) && /window\.setTimeout\(async \(\) => \{\s*const r = await api/.test(client))
     check("the index is read once (shared promise), again after two minutes", /if \(have\?\.going\) return have\.going/.test(client) && /SEARCH_INDEX_FRESH_MS = 120_000/.test(client) && /\/search\?index=1/.test(client))
     check("the frame preloads it when idle", /whenIdle\(\(\) => \{[\s\S]{0,400}void preloadSearchIndex\(community\.id\)/.test(code("components/community/member/shell-frame.tsx")))
-    check("Cancel fades the phone screen down before it goes", /SCREEN_OUT_MS = 150/.test(client) && /animate-out fade-out-0 slide-out-to-bottom-2/.test(client) && /flushSync\(\(\) => setOpen\(true\)\)\s*input\.current\?\.focus\(\)/.test(client))
+    /* Round 12: the screen is opaque white on every frame; Cancel sinks and fades it over 180ms on its own keyframes. */
+    check("Cancel fades the phone screen down before it goes", /SCREEN_OUT_MS = 180/.test(client) && /animate-\[community-search-out_180ms/.test(client) && /community-search-out\{from\{opacity:1;translate:0 0\}to\{opacity:0;translate:0 6px\}\}/.test(client) && /flushSync\(\(\) => setOpen\(true\)\)\s*input\.current\?\.focus\(\)/.test(client))
   }
 
   /* ── The server's search ─────────────────────────────────────────────── */
@@ -160,7 +161,8 @@ async function main() {
     check("a press marks the element at once and a scroll taking the touch clears it", down && !el.attrs.has("data-pressed"))
     check("tabs, places and chips carry it", /\{\.\.\.PRESS_PROPS\}/.test(frame) && /\{\.\.\.PRESS_PROPS\}/.test(code("components/community/member/wall.tsx")) && /\.\.\.PRESS_PROPS,/.test(code("components/community/member/space-chips.tsx")) && /data-\[pressed\]:opacity-55/.test(code("components/community/member/ui.ts")))
     check("the chips' scroll handler only where the row switches in place (a server page hands it no function)", /\{\.\.\.\(onPick \? \{ onScroll:/.test(code("components/community/member/space-chips.tsx")))
-    check("what arrives fades by opacity only (no move that would hold a fixed bar)", /animate-\[fade-in_200ms/.test(frame) && /animate-\[fade-in_200ms/.test(code("components/community/public/public-frame.tsx")))
+    /* Round 12: a place lands with a fade and a 6px rise; the join bar that a move would have held is portalled to the body. */
+    check("what arrives fades in and rises, and no fixed bar rides it", /animate-\[community-place-in_260ms/.test(frame) && /translate:0 6px/.test(frame) && /animate-\[fade-in_200ms/.test(code("components/community/public/public-frame.tsx")) && /createPortal\(bar, document\.body\)/.test(code("components/community/public/join-controls.tsx")))
   }
 
   /* ── Invite and the social image ─────────────────────────────────────── */
@@ -214,7 +216,7 @@ async function main() {
     check("the body keeps room for the bar above the tab bar only", /body\.style\.paddingBottom = `\$\{Math\.max\(0, el\.offsetHeight - under\)\}px`/.test(controls))
     const page = code("components/community/public/sales-page.tsx")
     check("the sheet: Membership as a pricing card, the classroom, who runs it", /<PricingCard others=\{others\} \/>/.test(page) && /<ClassroomPreview classroom=\{extras\.classroom\} \/>/.test(page) && /<CreatorBlock creator=\{c\.creator\} bio=\{extras\?\.creatorBio \?\? null\} \/>/.test(page))
-    check("both pages read the extras", ["page.tsx", "about/page.tsx"].every((f) => /const extras = await aboutExtras\(admin\(\), load\.community\)/.test(code(`app/(marketing)/community/[slug]/${f}`))))
+    check("both pages read the extras", ["page.tsx", "about/page.tsx"].every((f) => /const \[extras, askWhy\] = await Promise\.all\(\[aboutExtras\(admin\(\), load\.community\)/.test(code(`app/(marketing)/community/[slug]/${f}`))))
   }
 
   /* ── Copy ────────────────────────────────────────────────────────────── */
