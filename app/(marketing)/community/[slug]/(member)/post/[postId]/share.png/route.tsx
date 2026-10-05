@@ -6,7 +6,8 @@
  * 630, named by the post page's metadata (../post-seo.ts). Drawn per request
  * by next/og (../post-share-card.tsx):
  *
- *   A PUBLIC POST   (post-seo publicPost: a free, public community's open
+ *   A PUBLIC POST   (post-seo publicPost: a public community's open space,
+ *                   free or paid to join;
  *                   space, the post published) its title and words, its
  *                   first picture, its author and the community's logo
  *   ANY OTHER       the generic card: the community's name and logo, "A post

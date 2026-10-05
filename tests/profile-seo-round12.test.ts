@@ -102,7 +102,8 @@ async function main() {
   }
   const with_ = (c: Partial<PostFacts["community"]> = {}, s: PostFacts["space"] | undefined = undefined, p: Partial<PostFacts["post"]> = {}): PostFacts => ({ ...base, community: { ...base.community, ...c }, space: s === undefined ? base.space : s, post: { ...base.post, ...p } })
   check("public: a free, public community's open space, the post published", publicPost(base) && publicPost(with_({}, null)) && publicPost(with_({ status: "archived" })))
-  check("not public: private, unlisted, paid, invite only, hidden, suspended, a draft", [with_({ visibility: "private" }), with_({ visibility: "unlisted" }), with_({ access: "paid" }), with_({ access: "invite_only" }), with_({ platform_hidden: true }), with_({ suspended_at: "2026-01-01" }), with_({ status: "draft" })].every((f) => !publicPost(f)))
+  check("public: a paid, public community's open space, the post published", publicPost(with_({ access: "paid" })))
+  check("not public: private, unlisted, paid-but-private, invite only, hidden, suspended, a draft", [with_({ visibility: "private" }), with_({ visibility: "unlisted" }), with_({ access: "paid", visibility: "private" }), with_({ access: "invite_only" }), with_({ platform_hidden: true }), with_({ suspended_at: "2026-01-01" }), with_({ status: "draft" })].every((f) => !publicPost(f)))
   check("not public: a tier, product, level or role space, an archived space", [{ tierIds: ["t"] }, { productIds: ["p"] }, { minLevel: 3 }, { roles: ["admin" as never] }].every((rule) => !publicPost(with_({}, { name: "Pro", view_access: rule, archived_at: null }))) && !publicPost(with_({}, { name: "Old", view_access: {}, archived_at: "2026-01-01" })))
   check("not public: a removed or deleted post", !publicPost(with_({}, undefined, { status: "removed" })) && !publicPost(with_({}, undefined, { deletedAt: "2026-01-01" })))
 

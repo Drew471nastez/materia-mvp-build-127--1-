@@ -226,11 +226,15 @@ export function ViewportVars() {
        arrives in the same task, so the check waits a frame. */
     const onFocusOut = () => {
       window.clearTimeout(estimateTimer)
-      requestAnimationFrame(() => {
+      const clearEstimate = () => {
         if (!estimate || takesAKeyboard(document.activeElement)) return
         estimate = 0
         apply()
-      })
+      }
+      requestAnimationFrame(clearEstimate)
+      /* iOS often reports the keyboard gone one frame late; a second pass catches the sheet. */
+      window.setTimeout(clearEstimate, 50)
+      window.setTimeout(clearEstimate, 180)
     }
 
     apply()

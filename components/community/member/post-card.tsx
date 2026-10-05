@@ -44,9 +44,10 @@
  *   light shadow), the same at every width.
  *   THE SPACE'S GLYPH before its name on the space line (space-glyph.ts).
  *   SHARE: the system share sheet (the app's Share plugin when the app has
- *   it, else navigator.share) with the post's address, title and words; a
- *   browser without one copies the link. Copy link stays beside it. The
- *   shared link's preview is the post's own picture card (post-seo.ts).
+ *   it, else navigator.share) with the post's address, title and words. The
+ *   shared link's preview is the post's own picture card (post-seo.ts), not
+ *   Storelib's generic community card, when the post is public (open or paid
+ *   public community; private and unlisted stay generic).
  *   EDIT POST is the composer itself (composer.tsx `edit`), in place of the
  *   post's words on a computer and as its screen on a phone; the spaces it
  *   may move to come from the feed (EditSpacesContext). The cards under it
@@ -61,7 +62,6 @@ import Link from "next/link"
 import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { BarChart3, Bookmark, Lock, MessageCircle, Paperclip, VolumeX, Ban } from "lucide-react"
 import { FlagIcon } from "@solar-icons/react/linear/flag"
-import { LinkRoundIcon } from "@solar-icons/react/linear/link-round"
 import { MenuDotsIcon } from "@solar-icons/react/linear/menu-dots"
 import { PenIcon } from "@solar-icons/react/linear/pen"
 import { PinIcon } from "@solar-icons/react/linear/pin"
@@ -362,15 +362,6 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
     })
   }
 
-  const copyLink = async () => {
-    const url = `${SHARE_ORIGIN}${href}`
-    try {
-      await navigator.clipboard.writeText(url)
-      toast("Link copied")
-    } catch {
-      toast(url)
-    }
-  }
   const share = async () => {
     const url = `${SHARE_ORIGIN}${href}`
     const headline = (post.title || "").replace(/\s+/g, " ").trim() || post.bodyText.replace(/\s+/g, " ").trim().slice(0, 90)
@@ -388,7 +379,6 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
 
   const items: ActionMenuItem[] = []
   if (canShare) items.push({ label: "Share post", icon: <ShareIcon size={16} />, onClick: () => void share() })
-  items.push({ label: "Copy link", icon: <LinkRoundIcon size={16} />, onClick: copyLink })
   if (!full && viewer.active) items.push({ label: bookmarked ? "Remove from Saved" : "Save post", icon: <Bookmark className="h-4 w-4" strokeWidth={1.75} />, onClick: () => save() })
   if (own && !readOnly) {
     items.push({ label: "Edit post", icon: <PenIcon size={16} />, onClick: startEdit })

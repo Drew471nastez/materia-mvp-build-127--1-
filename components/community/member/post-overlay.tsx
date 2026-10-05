@@ -296,7 +296,7 @@ function OverlayFrame({ phone, post, open, phase, setPhase, close, onGone, conte
           ref={contentRef}
           data-post-overlay="phone"
           data-post-overlay-phase={phase}
-          className="min-h-full bg-white pb-[var(--kb-inset,0px)] transition-[padding-bottom] duration-[250ms] ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none"
+          className="min-h-0 bg-white"
         >
           {content}
         </div>

@@ -59,6 +59,7 @@ export function useKeepFieldInSight(active: boolean, scroller: () => HTMLElement
     vv?.addEventListener("scroll", keep)
     window.addEventListener(KEYBOARD_CHANGE_EVENT, keep)
     document.addEventListener("focusin", keep)
+    document.addEventListener("focusout", keep)
     return () => {
       cancelAnimationFrame(raf)
       window.clearTimeout(later)
@@ -66,6 +67,7 @@ export function useKeepFieldInSight(active: boolean, scroller: () => HTMLElement
       vv?.removeEventListener("scroll", keep)
       window.removeEventListener(KEYBOARD_CHANGE_EVENT, keep)
       document.removeEventListener("focusin", keep)
+      document.removeEventListener("focusout", keep)
     }
   }, [active])
 }

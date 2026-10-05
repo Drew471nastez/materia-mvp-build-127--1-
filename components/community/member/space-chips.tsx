@@ -42,11 +42,11 @@ import { press, PRESS_PROPS } from "./ui"
 import type { SpaceView } from "./view-types"
 
 const CHIP =
-  "relative inline-flex h-10 shrink-0 touch-manipulation select-none items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 text-[14px] font-medium outline-none transition-[color,background-color,border-color,box-shadow] duration-[180ms] ease-out focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 motion-reduce:transition-none sm:h-9 sm:text-[13.5px] [-webkit-tap-highlight-color:transparent]"
+  "relative inline-flex h-10 shrink-0 touch-manipulation select-none items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 text-[14px] font-medium outline-none transition-[color,background-color,border-color,box-shadow,transform] duration-[220ms] ease-[cubic-bezier(0.32,0.72,0,1)] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 motion-reduce:transition-none sm:h-9 sm:text-[13.5px] [-webkit-tap-highlight-color:transparent] active:scale-[0.97] active:duration-[120ms] data-[pressed]:scale-[0.97] data-[pressed]:duration-[120ms]"
 const CHIP_ON = "border-[#1a1a2e] bg-[#1a1a2e] text-white shadow-[0_1px_2px_rgba(16,24,40,0.2),0_2px_5px_-2px_rgba(16,24,40,0.22),inset_0_1px_0_rgba(255,255,255,0.09)]"
 /* Pressed, a chip sinks on the first frame (no easing in), so the finger sees it took (round 10), and eases back when it lifts. */
 const CHIP_OFF =
-  "border-[#e1e4e8] bg-white text-[#4b5563] shadow-[0_1px_2px_rgba(16,24,40,0.07),0_1px_1px_rgba(16,24,40,0.03)] [@media(hover:hover)]:hover:bg-[#fafbfc] [@media(hover:hover)]:hover:text-[#1a1a2e] active:bg-[#f0f1f3] active:shadow-[inset_0_1px_2px_rgba(16,24,40,0.08)] active:duration-0 data-[pressed]:bg-[#f0f1f3] data-[pressed]:text-[#1a1a2e] data-[pressed]:shadow-[inset_0_1px_2px_rgba(16,24,40,0.08)] data-[pressed]:duration-0"
+  "border-[#e1e4e8] bg-white text-[#4b5563] shadow-[0_1px_2px_rgba(16,24,40,0.07),0_1px_1px_rgba(16,24,40,0.03)] [@media(hover:hover)]:hover:bg-[#fafbfc] [@media(hover:hover)]:hover:text-[#1a1a2e] active:bg-[#f0f1f3] active:shadow-[inset_0_1px_2px_rgba(16,24,40,0.1)] data-[pressed]:bg-[#f0f1f3] data-[pressed]:text-[#1a1a2e] data-[pressed]:shadow-[inset_0_1px_2px_rgba(16,24,40,0.1)]"
 
 /** What a chip (or the sort menu's Saved posts) opens, for a feed that switches in place: All, one feed space, or Saved. */
 export type ChipPick = { kind: "all" } | { kind: "space"; slug: string } | { kind: "saved" }

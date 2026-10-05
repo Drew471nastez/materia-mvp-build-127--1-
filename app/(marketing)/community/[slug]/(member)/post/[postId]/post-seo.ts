@@ -12,9 +12,9 @@
  * WHICH POSTS ARE PUBLIC (publicPost): all of these, or none of it is said.
  *
  *   THE COMMUNITY   published (or archived: read only, still there), listed
- *                   publicly (visibility "public"), free to join (a paid,
- *                   invite only or product community is paid or chosen
- *                   content, however it is listed), not hidden by Storelib,
+ *                   publicly (visibility "public"), free or paid to join (still
+ *                   listed on Explore; invite only or private/unlisted are not),
+ *                   not hidden by Storelib,
  *                   not suspended, not deleted
  *   THE SPACE       none, or one that lets every member in (no tier,
  *                   product, level or role rule: lib/communities/access
@@ -68,7 +68,12 @@ export interface PostFacts {
 export function publicPost(f: PostFacts): boolean {
   const c = f.community
   const communityOpen =
-    (c.status === "published" || c.status === "archived") && c.visibility === "public" && c.access === "free" && !c.platform_hidden && !c.suspended_at && !c.deleted_at
+    (c.status === "published" || c.status === "archived") &&
+    c.visibility === "public" &&
+    (c.access === "free" || c.access === "paid") &&
+    !c.platform_hidden &&
+    !c.suspended_at &&
+    !c.deleted_at
   const spaceOpen = !f.space || (!f.space.archived_at && isOpenRule(f.space.view_access ?? {}))
   const postOpen = f.post.status === "published" && !f.post.deletedAt
   return communityOpen && spaceOpen && postOpen
