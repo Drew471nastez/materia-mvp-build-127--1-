@@ -581,8 +581,8 @@ section("Sheets")
     /const IMAGE_WAIT_MS = 120/.test(sheet) && /img\.decode\(\)\.catch/.test(sheet) && /openTokenRef\.current !== token/.test(sheet))
   check("the parent is told when the sheet is actually gone, on both ways out",
     (sheet.match(/setPresent\(false\)\s*onClosedRef\.current\?\.\(\)/g) || []).length === 2)
-  check("a keyboard lifts the sheet over the keyboard's own time, not in one frame",
-    /const KEYBOARD_MOVE = "bottom 250ms/.test(sheet) && /aboveKeyboard && settled \? \{ transition: KEYBOARD_MOVE \}/.test(sheet))
+  check("a keyboard moves the sheet's content over the keyboard's own time, not in one frame",
+    /const KEYBOARD_MOVE = "padding-bottom 250ms/.test(sheet) && /aboveKeyboard && settled \? \{ transition: KEYBOARD_MOVE \}/.test(sheet))
   /* The same curve applied while the sheet was still rising made a changed keyboard inset read as a second, slower slide. */
   check("  and only once the sheet has landed, so an open never creeps",
     /const \[settled, setSettled\] = useState\(false\)/.test(sheet) && /setSettled\(false\)/.test(sheet) && /setSettled\(true\)/.test(sheet))
