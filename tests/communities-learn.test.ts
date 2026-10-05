@@ -359,6 +359,11 @@ async function main() {
     const row = made.ok ? db.tables.community_courses.find((r) => r.id === made.id) : null
     check("a new program is a draft, with no product, at the end", made.ok && row?.status === "draft" && row?.product_id === null && row?.title === "Glazing basics" && row?.position === 5, row)
     check("a nameless one is refused", (await createProgram(db, { communityId: A, actorId: OWNER, title: "" })).ok === false)
+    const published = await updateProgram(db, { communityId: A, programId: DRAFT, actorId: OWNER, input: { status: "published" }, currency: "usd" })
+    await updateProgram(db, { communityId: A, programId: DRAFT, actorId: OWNER, input: { status: "draft" }, currency: "usd" })
+    await updateProgram(db, { communityId: A, programId: DRAFT, actorId: OWNER, input: { status: "published" }, currency: "usd" })
+    const jobs = (db.tables.community_jobs ?? []).filter((j) => j.idempotency_key === `fanout_program:${DRAFT}`)
+    check("publishing tells the members once (notifyProgramPublished), with the program's address", published.ok && jobs.length === 1 && jobs[0].payload?.url === `/community/makers/learn/${DRAFT}` && jobs[0].payload?.title === "Draft program", db.tables.community_jobs)
     const madePaid = await updateProgram(db, { communityId: A, programId: FREE, actorId: OWNER, input: { mode: "paid", priceCents: 2900 }, currency: "usd" })
     const freeRow = db.tables.community_courses.find((r) => r.id === FREE)
     check("paid: the price and the currency are written, the level rule cleared", madePaid.ok && freeRow?.price_cents === 2900 && freeRow?.currency === "usd")

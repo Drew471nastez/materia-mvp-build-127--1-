@@ -665,7 +665,35 @@ export async function updateProgram(db: Db, a: { communityId: string; programId:
   const { error } = await db.from("community_courses").update(patch).eq("community_id", a.communityId).eq("id", row.id)
   if (error) return missing(error) ? no(409, "Programs need the latest database update (part 102).") : no(500, "That did not save. Try again.")
   await audit(db, { communityId: a.communityId, actorId: a.actorId, actorKind: "member", action: "program.updated", targetType: "program", targetId: row.id, detail: { fields: Object.keys(patch).filter((k) => k !== "updated_at") } })
+  /* Published for the first time (or again from a draft): the members who can see it hear once (notify.ts, idempotent per program). */
+  if (c.status === "published" && row.status !== "published") await announceProgram(db, { ...row, ...(c.title ? { title: c.title } : {}), access: patch.access ?? row.access, priceCents: patch.price_cents !== undefined ? (patch.price_cents as number | null) : row.priceCents }, a.actorId)
   return { ok: true }
+}
+
+/* The members' bell and push for a program just published. A paid one is told to every member (anyone can buy it); a level or tier one only to those its rule lets see it. Never throws. */
+async function announceProgram(db: Db, program: ProgramRow, actorId: string): Promise<void> {
+  try {
+    const { data } = await db.from("communities").select("slug").eq("id", program.communityId).maybeSingle()
+    const slug = (data as { slug?: string } | null)?.slug
+    if (!slug) return
+    let title = program.title
+    if (!title && program.productId) {
+      const { data: p } = await db.from("products").select("title").eq("id", program.productId).maybeSingle()
+      title = (p as { title?: string | null } | null)?.title ?? null
+    }
+    const rule = parseAccessRule(program.access)
+    const { notifyProgramPublished } = await import("./notify")
+    await notifyProgramPublished(db, {
+      communityId: program.communityId,
+      programId: program.id,
+      title: title || "A new program",
+      url: programHref(slug, program.id),
+      actorId,
+      access: program.priceCents ? null : Object.keys(rule).length ? (rule as Record<string, unknown>) : null,
+    })
+  } catch (e) {
+    console.error(`[communities] program announce: ${reasonOf(e)}`)
+  }
 }
 
 /** Every program, in the new order. */
