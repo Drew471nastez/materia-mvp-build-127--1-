@@ -29,6 +29,7 @@ import { pageKeyOfTemplate, sendContactMessage } from "@/lib/website-builder/con
 import { useSiteWishlist } from "../site-wishlist"
 import { useSectionScript } from "./section-sandbox"
 import { morphInto } from "@/lib/website-builder/morph-html"
+import { StorefrontHooks, asksForDrawers } from "./site-chrome-hooks"
 
 /** The markup each section element holds, once it has been changed after React drew it. */
 const drawn = new WeakMap<Element, string>()
@@ -186,6 +187,16 @@ export function StorelibSection({
     scriptRoot.querySelectorAll<HTMLElement>("[data-storelib-wishlist-empty]").forEach((el) => { el.hidden = shown > 0 })
   }, [scriptRoot, html, savedIds, savedReady])
 
+  /*
+    THE SITE'S DRAWERS, ASKED FOR BY ATTRIBUTE. A header written as a
+    .storelib file marks its bag `data-storelib-cart`, its count
+    `data-storelib-cart-count`, its search `data-storelib-search` and its menu
+    button `data-storelib-menu`, and the page opens the same cart, search
+    window and menu drawer the built-in header does (./site-chrome-hooks.tsx).
+  */
+  const asksDrawers = useMemo(() => asksForDrawers(html), [html])
+  const drawerTrigger = useRef<((e: MouseEvent<HTMLElement>) => boolean) | null>(null)
+
   const script = out.ok === true ? out.script ?? null : null
   useSectionScript(
     script
@@ -228,6 +239,7 @@ export function StorelibSection({
    * capture-phase handler over the rendered markup.
    */
   const intercept = (e: MouseEvent<HTMLDivElement>) => {
+    if (drawerTrigger.current?.(e)) return
     /*
       A HEART IS A BUTTON, NOT A LINK. It sits over the card's link, so the
       click stops here and the card does not open: the product is saved, or
@@ -367,6 +379,17 @@ export function StorelibSection({
         onChangeCapture={onFilterChange}
         dangerouslySetInnerHTML={htmlProp}
       />
+      {asksDrawers && (
+        <StorefrontHooks
+          trigger={drawerTrigger}
+          section={section}
+          theme={theme}
+          html={html}
+          scriptRoot={scriptRoot}
+          inCanvas={!!(isEditing || insideEditor || inEditor)}
+          onEditorNavigate={onEditorNavigate}
+        />
+      )}
     </SectionWrapper>
   )
 }

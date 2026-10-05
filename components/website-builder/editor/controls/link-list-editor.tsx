@@ -46,6 +46,7 @@ import {
   type NavBlock,
 } from "@/lib/website-builder/nav-links"
 import { cn } from "@/lib/utils"
+import { isMenuButton } from "@/lib/website-builder/header-settings"
 import { INPUT } from "./styles"
 import { useReorder } from "./use-reorder"
 
@@ -123,6 +124,10 @@ function LinkRow({
   const name = item.label.trim()
   const lifted = !!style?.zIndex
   const panelId = `link-panel-${item.id}`
+  /* A top-level link with sub-links may open them instead of going anywhere (header-settings.ts, isMenuButton). */
+  const opensKids = depth === 0 && kids.length > 0
+  const menuButton = opensKids && isMenuButton(item.url, kids.length)
+  const lastUrl = React.useRef(item.url)
 
   const roomUnder = depth === 0 && !!ctx.nested && kids.length < (ctx.maxSubLinks ?? Infinity)
   const nestable = depth === 0 && ctx.canNest(index) && !!above
@@ -188,6 +193,7 @@ function LinkRow({
             {/* Where it goes, unless that is only its own name again ("Shop" to the Shop page). */}
             <span data-link-dest="" className="min-w-0 flex-1 truncate text-[12px] text-muted-foreground max-sm:text-[13px]">
               {(() => {
+                if (menuButton) return "Opens its sub-links"
                 const where = describeLink(item.url, ctx.targets)
                 return where.toLowerCase() === name.toLowerCase() ? "" : where
               })()}
@@ -224,10 +230,41 @@ function LinkRow({
                 onChange={(e) => ctx.onLabel(item.id, e.target.value)}
               />
             </label>
-            <div>
-              <span className="mb-1.5 block text-xs font-medium text-muted-foreground">Link</span>
-              <LinkPicker value={item.url} targets={ctx.targets} onChange={(href) => ctx.onUrl(item.id, href)} />
-            </div>
+            {/*
+              A LINK WITH SUB-LINKS GOES TO ITS LINK, OR OPENS THEM. In the
+              header the second is a button that opens its sub-links as a
+              dropdown, and in the menu drawer on a phone. It is stored as the
+              address `#`, which is how a menu says "nowhere of its own", so the
+              rule is one place (isMenuButton) and a menu edited anywhere else
+              keeps it.
+            */}
+            {opensKids && (
+              <label className="block">
+                <span className="mb-1.5 block text-xs font-medium text-muted-foreground">When pressed</span>
+                <select
+                  className={FIELD}
+                  value={menuButton ? "menu" : "link"}
+                  data-link-opens=""
+                  onChange={(e) => {
+                    if (e.target.value === "menu") {
+                      if (!menuButton) lastUrl.current = item.url
+                      ctx.onUrl(item.id, "#")
+                    } else {
+                      ctx.onUrl(item.id, lastUrl.current && lastUrl.current !== "#" ? lastUrl.current : "/")
+                    }
+                  }}
+                >
+                  <option value="link">Goes to its link</option>
+                  <option value="menu">Opens its sub-links</option>
+                </select>
+              </label>
+            )}
+            {!menuButton && (
+              <div>
+                <span className="mb-1.5 block text-xs font-medium text-muted-foreground">Link</span>
+                <LinkPicker value={item.url} targets={ctx.targets} onChange={(href) => ctx.onUrl(item.id, href)} />
+              </div>
+            )}
           </div>
         </Reveal>
       </div>

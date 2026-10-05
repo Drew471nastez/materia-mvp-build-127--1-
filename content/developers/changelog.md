@@ -12,6 +12,18 @@ A file written for a newer version is **refused, not misread**: a schema declari
 
 Every change since 1.0 has been additive. Nothing a section could do on 11 September 2026 has stopped working since, which is why every version above is still 1.
 
+## 5 October 2026
+
+**Added**
+
+- [The site's drawers](/developers/header-and-footer#the-sites-drawers) for a header of your own: `data-storelib-menu` with `data-storelib-menu-from`, `data-storelib-cart`, `data-storelib-cart-count` and `data-storelib-search` open the same menu drawer, cart drawer and search window as the built-in header.
+- The built-in header: Menu on larger screens (`desktop_menu`), a phone menu that drops down from the top (`mobile_menu_style: "top"`), a search window with live results (`search_behaviour: "modal"`), and links that open their sub-links as a dropdown when they have no address of their own.
+
+**Changed**
+
+- Every drawer closes on the curve it opens with, and closes when pushed back toward its edge.
+- A site with no favicon shows its logo in the browser tab.
+
 ## 3 October 2026
 
 **Added**

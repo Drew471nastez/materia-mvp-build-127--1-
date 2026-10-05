@@ -271,8 +271,37 @@
           "value": "right"
         },
         {
+          "label": "Drops down from the top",
+          "value": "top"
+        },
+        {
           "label": "Covers the screen",
           "value": "full"
+        }
+      ]
+    },
+    {
+      "id": "desktop_menu",
+      "label": "Menu on larger screens",
+      "type": "select",
+      "default": "inline",
+      "info": "Links in the header row, or a menu button that opens them in a drawer.",
+      "options": [
+        {
+          "label": "Links in the header",
+          "value": "inline"
+        },
+        {
+          "label": "Menu button, drawer from the left",
+          "value": "drawer_left"
+        },
+        {
+          "label": "Menu button, drawer from the right",
+          "value": "drawer_right"
+        },
+        {
+          "label": "Menu button, drops down from the top",
+          "value": "drawer_top"
         }
       ]
     },
@@ -508,6 +537,10 @@
         {
           "label": "Open it in the header",
           "value": "header"
+        },
+        {
+          "label": "Open a search window",
+          "value": "modal"
         },
         {
           "label": "Go to the search page",

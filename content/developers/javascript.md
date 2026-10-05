@@ -212,6 +212,10 @@ A button with `data-storelib-wishlist="<product id>"` saves that product to the 
 
 Only `products` carry an id that can be saved. A visitor who is not signed in keeps the list in their browser; signing in moves it to their account. On the Wishlist page, a card marked `data-storelib-wishlist-card="<product id>"` is hidden when its product is taken out, and an element marked `data-storelib-wishlist-empty` is shown once none are left.
 
+## The cart, search and menu
+
+The same way, a button marked `data-storelib-cart` opens the site's cart drawer, `data-storelib-search` its search window and `data-storelib-menu` its menu drawer, and an element marked `data-storelib-cart-count` shows the cart's count. The page does it, not a script. They are for a header of your own: see [The site's drawers](/developers/header-and-footer#the-sites-drawers).
+
 ## Embeds
 
 An `<iframe>` hands part of the page to somebody else's code, so a section does not get one by asking. It declares the `embed` capability, and every frame takes its address from the `embed` filter:
