@@ -180,7 +180,7 @@ function Shell({ children, section }: { children: React.ReactNode; section: stri
   )
 }
 
-const subject = (n: number, name: string) => ({ userId: `00000000-0000-4000-8000-0000000000${n}`, name, role: "member" as const, member: { role: "member" as const, status: "active", source: "free", mutedUntil: null } })
+const subject = (n: number, name: string) => ({ userId: `00000000-0000-4000-8000-0000000000${n}`, name, role: "member" as const, member: { role: "member" as const, status: "active" as const, source: "free" as const, mutedUntil: null } })
 
 function App() {
   switch (which) {
