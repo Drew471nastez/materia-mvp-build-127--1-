@@ -249,7 +249,7 @@ export function WallPlaces({ entries, current: currentProp, onGo: onGoProp }: { 
                 aria-current={on ? "page" : undefined}
                 data-community-nav={e.label}
                 data-on={on ? "true" : "false"}
-                className={`group/place flex h-12 items-center gap-3 rounded-xl px-2 outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 motion-reduce:transition-none active:bg-[#eef0f2] active:duration-0 data-[pressed]:bg-[#eef0f2] data-[pressed]:duration-0 ${on ? "bg-[#f3f4f6]" : "hover:bg-[#f8f9fa]"}`}
+                className={`group/place flex h-12 touch-manipulation items-center gap-3 rounded-xl px-2 outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 motion-reduce:transition-none active:bg-[#eef0f2] active:duration-0 data-[pressed]:bg-[#eef0f2] data-[pressed]:duration-0 ${on ? "bg-[#f3f4f6]" : "hover:bg-[#f8f9fa]"}`}
               >
                 <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] ${look.tile} ${look.ink}`} data-place-tile="">
                   <Icon size={20} />

@@ -60,7 +60,7 @@ export const PILL_OFF = "border-[#e4e7ec] bg-white text-[#6b7280] shadow-[0_1px_
  * from 1024px the places are the list in the left column (wall.tsx).
  */
 export const TAB =
-  "group/tab relative inline-flex h-10 shrink-0 cursor-pointer select-none items-center whitespace-nowrap px-0.5 text-[14.5px] font-medium outline-none transition-colors duration-150 active:opacity-55 data-[pressed]:opacity-55 focus-visible:text-[#1a1a2e] focus-visible:underline focus-visible:decoration-[#1a1a2e]/30 focus-visible:underline-offset-4 motion-reduce:transition-none [-webkit-tap-highlight-color:transparent] sm:text-[14px]"
+  "group/tab relative inline-flex h-10 shrink-0 cursor-pointer touch-manipulation select-none items-center whitespace-nowrap px-0.5 text-[14.5px] font-medium outline-none transition-colors duration-150 active:opacity-55 data-[pressed]:opacity-55 focus-visible:text-[#1a1a2e] focus-visible:underline focus-visible:decoration-[#1a1a2e]/30 focus-visible:underline-offset-4 motion-reduce:transition-none [-webkit-tap-highlight-color:transparent] sm:text-[14px]"
 export const TAB_ON = "text-[#1a1a2e]"
 export const TAB_OFF = "text-[#6b7280] hover:text-[#1a1a2e]"
 
