@@ -11,7 +11,9 @@
  *   ?case=once       one time: pay once
  *   ?case=invite     invite only: nothing to press
  *   ?case=approval   approval required: Request to join
- *   ?case=member     a member on /about: Open community
+ *   ?case=member     a member on /about: Open community, Your membership
+ *   ?case=video      round 11: a YouTube cover video first in the gallery,
+ *                    pictures, a Vimeo video without a still; a member
  *
  * THE JOIN, END TO END WITH STUBBED ROUTES. router.refresh (the probe's
  * next/navigation stub) calls window.__onRefresh: here that draws what the
@@ -106,7 +108,7 @@ const base: PublicCommunityView = {
 }
 
 const extrasFull: AboutExtras = {
-  activity: { posts30: 186, active30: 402, since: "2025-03-02T00:00:00Z" },
+  activity: { posts30: 186, active7: 402, since: "2025-03-02T00:00:00Z" },
   classroom: {
     total: 9,
     courses: [
@@ -118,7 +120,7 @@ const extrasFull: AboutExtras = {
   },
   creatorBio: "Potter and teacher in Gothenburg. Twelve years running a workshop, now teaching online.",
 }
-const extrasSmall: AboutExtras = { activity: { posts30: 23, active30: 41, since: "2026-08-20T00:00:00Z" }, classroom: null, creatorBio: null }
+const extrasSmall: AboutExtras = { activity: { posts30: 23, active7: 41, since: "2026-08-20T00:00:00Z" }, classroom: null, creatorBio: null }
 
 const viewer = { signedIn: true, active: false, status: null, role: null, isOwner: false, banned: false, approved: false, source: null, membershipId: null } as const
 const decide = (c: PublicCommunityView, v: Record<string, unknown> = {}) =>
@@ -148,6 +150,20 @@ function page(which: string): SalesPageData {
     return { community: c, join: decide(c), notice: null, extras: extrasSmall }
   }
   if (which === "member") return { community: base, join: decide(base, { active: true, role: "member", status: "active" }), notice: null, extras: extrasFull }
+  if (which === "video") {
+    /* The stills come from YouTube's and Vimeo's hosts on the site; the probe answers those addresses with a picture of its own. */
+    const c: PublicCommunityView = {
+      ...base,
+      coverUrl: "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg",
+      gallery: [
+        { type: "embed", provider: "youtube", id: "dQw4w9WgXcQ", thumb: "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg" },
+        { type: "image", url: COVERS[1] },
+        { type: "embed", provider: "vimeo", id: "76979871", thumb: null },
+        { type: "image", url: COVERS[2] },
+      ],
+    }
+    return { community: c, join: decide(c, { active: true, role: "member", status: "active" }), notice: null, extras: extrasFull }
+  }
   return { community: base, join: decide(base), notice: null, extras: extrasFull }
 }
 

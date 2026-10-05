@@ -13,6 +13,10 @@
  * Product with its real price (an Offer per way in), and its rating only
  * when there are published reviews; a free one is an Organization led by its
  * creator. Pure, so the tests read it without a server.
+ *
+ * A COVER THAT IS A VIDEO (round 11) still gives a still here: its still is
+ * saved as the cover picture, so the preview, Explore and the cards draw
+ * that, never a player.
  */
 import type { Metadata } from "next"
 import type { PublicCommunityView } from "./types"
@@ -87,6 +91,19 @@ export function shareImageVersion(parts: ReadonlyArray<string | number | null | 
  */
 export function shareCoverUrl(slug: string, version: string | null | undefined): string {
   return `${SITE}/community/${slug}/cover.jpg${version ? `?v=${encodeURIComponent(version)}` : ""}`
+}
+
+/**
+ * WHERE THE 1200 BY 630 PREVIEW IS CUT FROM, best first (round 11). A cover
+ * video's still is the cover picture (lib/communities/server/gallery.ts
+ * coverAfterGallery), and YouTube's stored still is hqdefault (480 by 360,
+ * the size every video has); its 1280 by 720 maxresdefault is tried first,
+ * as most videos have one, and a video without it falls back to the stored
+ * one. Any other cover is cut from itself.
+ */
+export function coverSources(coverUrl: string): string[] {
+  const m = /^https:\/\/i\.ytimg\.com\/vi\/([A-Za-z0-9_-]{11})\/hqdefault\.jpg$/.exec(coverUrl)
+  return m ? [`https://i.ytimg.com/vi/${m[1]}/maxresdefault.jpg`, coverUrl] : [coverUrl]
 }
 
 /**

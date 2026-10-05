@@ -3,7 +3,8 @@
  *  A SHARED COMMUNITY LINK SHOWS THE COMMUNITY'S COVER
  * ===========================================================================
  * storelib.com/community/<slug>/cover.jpg?v=<fingerprint>, 1200 by 630: the
- * cover the creator chose, cut from its middle to the size every link
+ * cover the creator chose (or, when the cover is a YouTube or Vimeo video,
+ * its still, which is saved as the cover picture), cut from its middle to the size every link
  * preview draws (Open Graph and X's large card), as a JPEG, the one kind
  * every app that previews links reads. Round 10: "the community's COVER
  * image by default; the generated share.png only when there is no cover".
@@ -26,7 +27,7 @@ import { loadCommunity } from "@/lib/communities/server/context"
 import { admin } from "@/lib/communities/server/db"
 import { sharePreviewable } from "@/lib/communities/server/public"
 import { sharePicture } from "@/lib/communities/server/share-image"
-import { SHARE_IMAGE_HEIGHT, SHARE_IMAGE_WIDTH } from "@/components/community/public/seo"
+import { SHARE_IMAGE_HEIGHT, SHARE_IMAGE_WIDTH, coverSources } from "@/components/community/public/seo"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -54,7 +55,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
   if (!community || !sharePreviewable(community)) return notFound()
   if (!community.cover_url) return drawnCard(request, community.slug)
 
-  const picture = await sharePicture(community.cover_url, SHARE_IMAGE_WIDTH, SHARE_IMAGE_HEIGHT, "jpeg")
+  /* A cover video's still (round 11): YouTube's large still first when it has one, else the stored one (seo.ts coverSources). */
+  let picture: string | null = null
+  for (const source of coverSources(community.cover_url)) {
+    picture = await sharePicture(source, SHARE_IMAGE_WIDTH, SHARE_IMAGE_HEIGHT, "jpeg")
+    if (picture) break
+  }
   const base64 = picture?.startsWith("data:image/jpeg;base64,") ? picture.slice("data:image/jpeg;base64,".length) : null
   if (!base64) return drawnCard(request, community.slug)
   const bytes = Buffer.from(base64, "base64")

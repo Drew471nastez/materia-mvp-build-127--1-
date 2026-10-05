@@ -407,8 +407,9 @@ async function readyVideos(db: Db, communityId: string, ids: string[]): Promise<
 }
 
 /**
- * What the about page shows at the top: the creator's gallery (pictures and
- * ready videos of this community, in their order), or, before part 85 or
+ * What the about page shows at the top: the creator's gallery (pictures,
+ * ready videos of this community and YouTube or Vimeo videos by link, in
+ * their order), or, before part 85 or
  * when they chose none, the cover video and the cover picture. Empty when
  * there is nothing at all, and the page then shows no media block.
  */
@@ -420,7 +421,7 @@ export async function communityGallery(db: Db, community: Pick<CommunityRow, "id
   const posters = await readyVideos(db, community.id, wanted.filter((g) => g.type === "video").map((g) => (g as { videoId: string }).videoId))
   const out: GalleryItemView[] = []
   for (const g of wanted) {
-    if (g.type === "image") out.push(g)
+    if (g.type === "image" || g.type === "embed") out.push(g)
     else if (posters.has(g.videoId)) out.push({ type: "video", videoId: g.videoId, posterUrl: posters.get(g.videoId) ?? community.cover_url ?? null })
   }
   if (fallback && community.cover_url) out.push({ type: "image", url: community.cover_url })
