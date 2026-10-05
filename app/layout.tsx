@@ -53,6 +53,7 @@ import { RotationGuard } from "@/components/platform/rotation-guard"
 import { AppHistoryTracker } from "@/components/platform/app-history-tracker"
 import { NativeLinkGuard } from "@/components/platform/native-link-guard"
 import { AppLinkOpener } from "@/components/platform/app-link-opener"
+import { OpenInAppCard } from "@/components/platform/open-in-app-card"
 import { NativePlaceKeeper } from "@/components/platform/native-place-keeper"
 import { NativeChrome } from "@/components/platform/native-chrome"
 import { EdgeSwipeBack } from "@/components/platform/edge-swipe-back"
@@ -273,6 +274,8 @@ export default function RootLayout({
         <NativeLinkGuard />
         {/* Inside the phone app only: a storelib.com link the phone opened in the app goes to its page (lib/platform/app-links). */}
         <AppLinkOpener />
+        {/* Inside Instagram's, WhatsApp's or another app's web view only: the page handed to the Storelib app, which neither a Universal Link nor an App Link can do from in there. */}
+        <OpenInAppCard />
         <NativePlaceKeeper />
         {/* The strip under the clock, the browser's bar and the status bar's text in the page's own top colour; the launch screen down on the first steady frame. */}
         <NativeChrome />
