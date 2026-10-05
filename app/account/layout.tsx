@@ -131,7 +131,13 @@ export default async function AccountLayout({ children }: { children: React.Reac
       <RouteLoadingBar />
       <LibraryBgFix />
       <ConditionalHeader initialWishlistCount={initialWishlistCount} onPlatformDomain={onPlatformDomain} buyerHeaderLight={buyerHeaderLight} />
-      <main className="flex-1 overflow-x-hidden supports-[scrollbar-gutter:stable]:scrollbar-gutter-stable">
+      {/* overflow-x-CLIP, not hidden: the cover runs edge to edge and must not
+          open a sideways scroll, and `hidden` does that by making this a
+          scroll box -- which also makes it the scrollport of anything sticky
+          inside it, so the profile's Edit profile button could not stick
+          under the header (components/profile/profile-hero.tsx). `clip`
+          clips without a scroll box, so both hold. */}
+      <main className="flex-1 overflow-x-clip supports-[scrollbar-gutter:stable]:scrollbar-gutter-stable">
         {/* The profile's own width, the one /@handle draws at: drawn by the hub, under a cover that runs edge to edge. */}
         <AccountNavFade>
           {identity ? (

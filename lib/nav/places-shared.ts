@@ -167,8 +167,21 @@ export interface NavigatorModel {
   /** The recent list, shown first with no heading; empty means it is not drawn at all, nor the rule under it. */
   recent: NavigatorRecentRow[]
   links: NavigatorLinkRow[]
-  /** The action at the foot of the panel. Signed out there are two (Log in and Start creating). */
-  actions: { key: "dashboard" | "start-creating" | "log-in"; label: string; href: string; primary: boolean }[]
+  /**
+   * The action at the foot of the panel. Signed out there are two (Log in and
+   * Start creating).
+   *
+   * `quiet`: drawn as a row rather than a button (components/nav/place-
+   * navigator.tsx). "If the user is not a seller, add a button, very subtle,
+   * Start creating or something like that, but it should not look very AI. If
+   * the user is a creator and has joined, show Dashboard as it currently is."
+   * A signed in person who does not sell had the same solid black button a
+   * seller's Dashboard has, which is the panel shouting at somebody who came
+   * to it to go somewhere they already know. So theirs is quiet: the row
+   * shape the ways out already use, in grey, with a shop in the line family
+   * the rest of the panel draws in. Dashboard is untouched.
+   */
+  actions: { key: "dashboard" | "start-creating" | "log-in"; label: string; href: string; primary: boolean; quiet?: boolean }[]
 }
 
 const SAFE_SLUG = /^[a-z0-9][a-z0-9-]{0,63}$/
@@ -201,10 +214,16 @@ export function navigatorModel(places: PlacesResponse, current?: NavigatorCurren
   const discover: NavigatorLinkRow = { kind: "link", key: "discover-communities", label: "Discover communities", href: "/explore?type=communities" }
   const explore: NavigatorLinkRow = { kind: "link", key: "explore", label: "Explore", href: "/explore" }
   const links = places.signedIn ? [...(on ? [discover] : []), explore] : [explore, ...(on ? [discover] : [])]
+  /*
+    WHO IS A SELLER IS THE ONE RULE THERE ALREADY IS: `hasSellerAccess`, which
+    the route reads from lib/account/seller-access (readSellerAccess, state
+    === "seller"), the same answer /app itself is gated on. A creator who
+    began and has not finished is not one yet, and still gets Start creating.
+  */
   const actions: NavigatorModel["actions"] = places.signedIn
     ? [places.hasSellerAccess
         ? { key: "dashboard", label: "Dashboard", href: "/app", primary: true }
-        : { key: "start-creating", label: "Start creating", href: "/sell", primary: true }]
+        : { key: "start-creating", label: "Start creating", href: "/sell", primary: false, quiet: true }]
     : [
         { key: "log-in", label: "Log in", href: "/login", primary: false },
         { key: "start-creating", label: "Start creating", href: "/sell", primary: true },

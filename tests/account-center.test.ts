@@ -101,17 +101,18 @@ console.log("\nThe cover, Edit profile, and the person under them (round 5)")
 {
   const hero = code("components/profile/profile-hero.tsx")
   const cover = hero.slice(hero.indexOf("data-profile-cover="), hero.indexOf("data-profile-header="))
-  check("the cover runs edge to edge: no card, no rounding, no border, taller than the creator page's (round 10 about +15%, round 11 about +6% more)", /className="relative w-full overflow-hidden bg-\[#eceef1\]"/.test(hero) && !/rounded-2xl/.test(cover) && !/border-\[#e5e7eb\]/.test(cover) && /h-\[157px\] sm:h-\[233px\] lg:h-\[312px\]/.test(hero))
+  check("the cover runs edge to edge: no card, no rounding, no border, taller than the creator page's (round 10 about +15%, round 11 about +6% more)", /className="relative w-full bg-\[#eceef1\]"/.test(hero) && !/rounded-2xl/.test(cover) && !/border-\[#e5e7eb\]/.test(cover) && /h-\[157px\] sm:h-\[233px\] lg:h-\[312px\]/.test(hero))
   check("  so the hero is drawn outside the 960px column and keeps one of its own for the person", /<header className=\{cn\(COLUMN, "relative -mt-\[62\.5px\]/.test(hero) && /const COLUMN = "mx-auto w-full max-w-\[960px\]"/.test(hero))
   check("  /account draws the column under the hero, and around a page without one", /<AccountColumn top=\{false\}>/.test(code("components/account/account-hub.tsx")) && /<AccountColumn>\{children\}<\/AccountColumn>/.test(code("components/account/account-hub.tsx")) && !/max-w-\[960px\]/.test(code("app/account/layout.tsx")))
   /* Round 12: /@handle draws the creator header edge to edge, then the creator page's column. */
   check("  and /@handle draws the creator header before its column too", (() => { const m = code("components/profile/member-profile-page.tsx"); return m.indexOf("<ShopHeaderRenderer") > 0 && m.indexOf("<ShopHeaderRenderer") < m.indexOf("<div data-profile-tabs") })())
   check("no Joined line under the name", !/Joined/.test(hero) && !/memberSince/.test(hero))
   check("a lighter ring on the photo: 2px, a softer shadow", /ring-2 ring-\[#f8f9fa\]/.test(hero) && !/ring-4/.test(hero))
-  check("Edit profile is a Storelib button on the cover, to /account/settings", EDIT_PROFILE_HREF === "/account/settings" && /<Link href=\{EDIT_PROFILE_HREF\}[^>]*className=\{cn\(secondaryDepth, "h-10 rounded-\[10px\] px-4 text-\[14px\]"\)\}>\s*Edit profile\s*<\/Link>/.test(hero))
+  /* Round 13: the same button, on a sticky row so it never slides under the bar, and "Edit" under sm so it clears the centred photo at 320px (tests/profile-page-s.test.ts). */
+  check("Edit profile is a Storelib button on the cover, to /account/settings", EDIT_PROFILE_HREF === "/account/settings" && /<Link\s+href=\{EDIT_PROFILE_HREF\}[\s\S]{0,200}className=\{cn\(secondaryDepth, "pointer-events-auto h-10 rounded-\[10px\] px-4 text-\[14px\]"\)\}\s*>[\s\S]{0,200}Edit profile/.test(hero))
   /* Round 8, changed on purpose: "Remove the camera icon button next to Edit profile on the profile cover." The cover is changed in Settings, which Edit profile opens. */
   check("  and nothing beside it: no camera button for the cover", !/<Camera|COVER_SETTINGS_HREF|data-profile-cover-edit|iconDepth/.test(hero) && cover.indexOf("EDIT_PROFILE_HREF") > 0)
-  check("  only on your own page", /\{isSelf \? \(\s*<div className="absolute inset-x-0 top-3 sm:bottom-4 sm:top-auto" data-profile-cover-actions="">/.test(hero))
+  check("  only on your own page", /\{isSelf \? \([\s\S]{0,400}data-profile-cover-actions="">/.test(hero) && !/absolute inset-x-0 top-3 sm:bottom-4 sm:top-auto/.test(hero))
 }
 
 console.log("\nThe library, a page of its own (round 5)")

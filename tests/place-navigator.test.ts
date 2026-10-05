@@ -141,7 +141,19 @@ console.log("\n2. What the panel lists")
     m.recent[0].href === "/community/a" &&
     m.links.some((r) => r.key === "discover-communities" && r.href === "/explore?type=communities") &&
     m.links.some((r) => r.key === "explore" && r.href === "/explore"))
-  check("only the signed out foot has two buttons; the primary is Start creating or Dashboard", navigatorModel(SIGNED_OUT_PLACES).actions.filter((a) => a.primary).map((a) => a.key).join() === "start-creating" && m.actions.length === 1 && m.actions[0].primary)
+  /*
+    CHANGED (nav feel round): a signed in person who does not sell no longer
+    gets a solid black button for Start creating. "If the user is not a
+    seller, add a button, very subtle... it should not look very AI. If the
+    user is a creator and has joined, show Dashboard as it currently is." So
+    theirs is `quiet` (drawn as a grey row), a seller's Dashboard is still
+    the one primary button, and the signed out foot is untouched.
+  */
+  check("only the signed out foot has two buttons; the primary is Start creating or Dashboard", navigatorModel(SIGNED_OUT_PLACES).actions.filter((a) => a.primary).map((a) => a.key).join() === "start-creating" && m.actions.length === 1)
+  check("a seller's Dashboard is the primary button; somebody who does not sell gets Start creating quietly instead",
+    navigatorModel(me({ hasSellerAccess: true, isCreator: true })).actions.every((a) => a.key === "dashboard" && a.primary && !a.quiet)
+      && m.actions.every((a) => a.key === "start-creating" && !a.primary && a.quiet === true)
+      && navigatorModel(SIGNED_OUT_PLACES).actions.every((a) => !a.quiet))
 }
 
 console.log("\n2b. One recent list: courses, digital products and communities, the last touched first")
@@ -248,7 +260,8 @@ console.log("\n5. The component")
   check("one recent list with no heading: no Recently opened, no Your communities", /data-navigator-recent=""/.test(nav) && !/Recently opened|Your communities/.test(nav) && !/<p className=\{heading\}/.test(nav))
   check("each row: its cover or logo, its name, and a small grey word for its kind", /<AppAvatar src=\{r\.item\.imageUrl\} name=\{r\.item\.title\}/.test(nav) && /data-navigator-title="">\{r\.item\.title\}<\/span>/.test(nav) && /text-\[#9ca3af\]", phone \? "text-\[13px\]" : "text-\[12px\]"\)\} data-navigator-hint="">\{r\.hint\}<\/span>/.test(nav) && /data-navigator-kind=\{r\.item\.kind\}/.test(nav))
   check("then a faint, short, inset rule, only under a list", /\{loading \|\| hasRecent \? <div aria-hidden data-navigator-divider="" className=\{cn\("h-px shrink-0 bg-\[#f0f1f3\]", phone \? "mx-6 my-2" : "mx-4 my-1\.5"\)\} \/> : null\}/.test(nav))
-  check("then Discover communities, Explore, and the action at the foot", nav.indexOf("data-navigator-divider") < nav.indexOf('data-navigator-links=""') && nav.indexOf('data-navigator-links=""') < nav.indexOf('data-navigator-actions=""'))
+  check("then Discover communities, Explore, and the action at the foot", nav.indexOf("data-navigator-divider") < nav.indexOf('data-navigator-links=""') && nav.indexOf('data-navigator-links=""') < nav.indexOf('data-navigator-quiet=""') && nav.indexOf('data-navigator-quiet=""') < nav.indexOf('data-navigator-actions=""'))
+  check("a quiet action is a row under the ways out, in grey, with a Solar shop; the loud one is still the button", /data-navigator-quiet=""/.test(nav) && /className=\{cn\(row, "text-\[#6b7280\] hover:text-\[#1a1a2e\]"\)\}/.test(nav) && /<ShopIcon size=\{phone \? 21 : 19\} strokeWidth=\{1\.5\} \/>/.test(nav) && /from "@solar-icons\/react\/linear\/shop"/.test(nav) && /\{loud\.map\(\(a\) =>/.test(nav))
   check("nothing recent: neither a list nor a rule", /\) : hasRecent \? \(/.test(nav))
   check("the header forgets the list on log out", /forgetPlaces\(\)/.test(header))
 }
