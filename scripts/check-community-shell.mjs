@@ -68,7 +68,7 @@
  *   PROBE_CSS=source node scripts/check-community-shell.mjs
  *   Pictures go to SHOTS_DIR (a temp folder by default).
  */
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import puppeteer from "puppeteer-core"
@@ -77,6 +77,8 @@ import { appCss, interFaces } from "./probe-css.mjs"
 const root = process.cwd()
 const CHROMIUM = process.env.CHROMIUM_PATH || "/opt/pw-browsers/chromium"
 const css = await appCss(root)
+/* The About gallery is the product gallery's Swiper (round 11); its stylesheet is imported by the component, which the bundle here leaves out. */
+const swiperCss = readFileSync(join(realpathSync(join(root, "node_modules/swiper")), "swiper.css"), "utf8")
 const fonts = interFaces(root)
 const stubs = join(root, ".community-shell-probe")
 mkdirSync(stubs, { recursive: true })
@@ -161,7 +163,7 @@ export const isNativePlatform = () => false
     nodePaths: [join(root, "node_modules")],
   })
   const js = readFileSync(join(stubs, "app.js"), "utf8")
-  const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#000000"><style>${fonts}${css}</style><style>body{margin:0;font-family:Inter,system-ui,sans-serif}</style></head><body><div id="app"></div><script>${js.replace(/<\/script/gi, "<\\/script")}</script></body></html>`
+  const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#000000"><style>${fonts}${css}</style><style>${swiperCss}</style><style>body{margin:0;font-family:Inter,system-ui,sans-serif}</style></head><body><div id="app"></div><script>${js.replace(/<\/script/gi, "<\\/script")}</script></body></html>`
   const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox", "--hide-scrollbars"] })
 
   const VIEWPORTS = [
@@ -1146,8 +1148,8 @@ export const isNativePlatform = () => false
           rating: document.querySelector("[data-community-rating]")?.textContent,
           thumbs: document.querySelectorAll("[data-gallery-thumb]").length,
           main: document.querySelector("[data-gallery-main]")?.getAttribute("data-gallery-main"),
-          info: [...document.querySelectorAll("[data-community-info] li")].map((li) => li.textContent.trim()),
-          /* Round 10: the figures sit in the sheet under the facts line, at every width (the card is the price and the button). */
+          /* Round 11: the facts are quiet words under the name (no price, no members); the figures one panel under the media. */
+          info: [...document.querySelectorAll("[data-community-info] [data-info]")].map((li) => li.textContent.replace(/\s+/g, " ").trim()),
           stats: [...document.querySelectorAll("[data-community-sheet] [data-stat]")].map((d) => d.textContent.trim()),
           paying: [...document.querySelectorAll("[data-review-paying]")].map((s) => s.textContent.trim()),
           reviewLinks: [...document.querySelectorAll("[data-review] [data-person-link]")].map((a) => a.getAttribute("href")),
@@ -1157,18 +1159,17 @@ export const isNativePlatform = () => false
       expect(!a.pills, "a visitor gets the bar without the member's tabs", a.pills)
       expect(a.title === "Clay Studio" && /4\.9 · 121 reviews/.test(a.rating || ""), "the title, then stars and the review count", a.rating)
       expect(a.main === "image" && a.thumbs === 6, "the gallery: a large picture and a strip of six", { main: a.main, thumbs: a.thumbs })
-      expect(a.info.join("|") === "Private|8k members|$9/month|By Mara Lindqvist", "the facts line: private, members, price, By creator", a.info)
-      expect(a.stats.join("|") === "8kMembers|191Online", "Members and Online in the sheet", a.stats)
+      expect(a.info[0] === "Private community" && a.info.at(-1) === "ByMara Lindqvist" && !a.info.some((t) => /\$|members/.test(t)), "the facts line: private, By creator, no price and no member count", a.info)
+      expect(a.stats.join("|") === "8,012Members|191Online now", "Members and Online now in the sheet", a.stats)
       expect(a.paying.join("|") === "· Still a paying member after 3 months|· Still a paying member after 4 days", "Still a paying member only where it is true", a.paying)
       expect(a.reviewLinks.join() === "/@ayla,/joemoss", "a reviewer's name opens their page (none for no username)", a.reviewLinks)
-      expect(a.order.gallery < a.order.info && a.order.info < a.order.description, "gallery, then the facts line, then the description", a.order)
-      expect(a.order.stats > a.order.info && a.order.stats < a.order.description, "the figures sit right under the facts line, before the description", a.order)
+      expect(a.order.info < a.order.gallery && a.order.gallery < a.order.stats && a.order.stats < a.order.description, "the facts line under the name, then the gallery, the figures and the description", a.order)
 
       /* A thumbnail changes the picture; the video plays in place. */
-      const before = await p.evaluate(() => document.querySelector("[data-gallery-main] img")?.getAttribute("src"))
+      const before = await p.evaluate(() => document.querySelector("[data-gallery-main] .swiper-slide-active img")?.getAttribute("src"))
       await p.evaluate(() => document.querySelectorAll("[data-gallery-thumb]")[2].click())
       await sleep(150)
-      const after = await p.evaluate(() => ({ src: document.querySelector("[data-gallery-main] img")?.getAttribute("src"), selected: [...document.querySelectorAll("[data-gallery-thumb]")].findIndex((t) => t.getAttribute("aria-selected") === "true") }))
+      const after = await p.evaluate(() => ({ src: document.querySelector("[data-gallery-main] .swiper-slide-active img")?.getAttribute("src"), selected: [...document.querySelectorAll("[data-gallery-thumb]")].findIndex((t) => t.getAttribute("aria-selected") === "true") }))
       expect(!!after.src && after.src !== before && after.selected === 2, "a thumbnail changes the large picture", { changed: after.src !== before, selected: after.selected })
       await p.evaluate(() => document.querySelectorAll("[data-gallery-thumb]")[1].click())
       await sleep(150)
