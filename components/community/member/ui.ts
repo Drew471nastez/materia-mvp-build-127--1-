@@ -4,6 +4,14 @@
  * no violet fill anywhere a member looks (ARCH 5).
  */
 export const CARD = "rounded-2xl border border-[#e5e7eb]/80 bg-white"
+/**
+ * A CARD WITH POLARIS DEPTH (round 13, ask 27: the "Most active" card).
+ * The same white card, lifted the way Polaris lifts one: a hairline that is
+ * a touch darker at the foot (an inset line, so nothing moves) and a soft
+ * one pixel shadow under it, never more. The right column's cards wear it.
+ */
+export const CARD_RAISED =
+  "rounded-2xl border border-[#e3e5e9] bg-white shadow-[0_1px_0_rgba(16,24,40,0.04),0_1px_3px_rgba(16,24,40,0.06),inset_0_-1px_0_rgba(16,24,40,0.05)]"
 export const HAIRLINE = "border-[#eceef1]"
 export const INK = "#1a1a2e"
 export const MUTED = "#6b7280"
@@ -94,3 +102,17 @@ export function press(e: { currentTarget: Element; button: number }) {
   if (e.button === 0) e.currentTarget.setAttribute("data-pressed", "")
 }
 export const PRESS_PROPS = { onPointerDown: press, onPointerUp: unpress, onPointerCancel: unpress, onPointerLeave: unpress }
+
+/**
+ * AN AVATAR STACK (round 13, ask 25: "white rings cut the neighbouring
+ * circles unevenly"). Every stack in the community is the same: each face
+ * overlaps the one before it by 8px and wears an even 2px ring of the
+ * ground it sits on, drawn as a spread shadow on a box that is exactly the
+ * circle. The uneven ring was a link around the picture: a link in a row is
+ * a block whose line box adds the text's descent under an inline picture,
+ * so the box was 32 by 37 and its "round" ring was a lozenge, thicker at
+ * the bottom where it cut the next face. STACK_FACE makes the face's box a
+ * flex box of the picture's own size, whatever wraps it.
+ */
+export const STACK = "flex items-center [&>*]:relative [&>*]:shrink-0 [&>*+*]:-ml-2"
+export const STACK_FACE = "flex rounded-full shadow-[0_0_0_2px_#fff]"
