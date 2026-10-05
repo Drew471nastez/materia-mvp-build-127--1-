@@ -39,6 +39,8 @@ const PLACEHOLDERS = new Set([
   "undefined",
   "new user",
   "storelib user",
+  /* NAMELESS below: what a screen shows, never what a row keeps. */
+  "storelib member",
 ])
 
 /** The longest name kept, the same ceiling Settings puts on the field. */

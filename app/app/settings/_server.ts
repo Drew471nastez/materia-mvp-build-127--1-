@@ -109,7 +109,8 @@ export async function loadSettingsData() {
       .upsert({
         id: user.id,
         email: user.email || "",
-        display_name: personName({ name: user.user_metadata?.display_name, meta: user.user_metadata, email: user.email }),
+        /* Nothing worth calling them stays empty, never a placeholder in the row (lib/profile/display-name). */
+        display_name: personName({ name: user.user_metadata?.display_name, meta: user.user_metadata, email: user.email }, "") || null,
         is_creator: true,
       })
       .select()

@@ -9,7 +9,10 @@ insert into auth.users (id, email, email_confirmed_at, raw_user_meta_data, creat
   ('00000000-0000-4000-a000-000000000003', 'ioana@example.com', null, '{}', now() - interval '30 days', 'authenticated', 'authenticated'),
   -- Part 97: a Google picture and no profile photo (it gets the picture), and one who removed theirs (it stays removed).
   ('00000000-0000-4000-a000-000000000004', 'lia@example.com', now(), '{"full_name": "Lia Pic", "picture": "https://lh3.googleusercontent.com/a/lia"}', now() - interval '20 days', 'authenticated', 'authenticated'),
-  ('00000000-0000-4000-a000-000000000005', 'tom@example.com', now(), '{"full_name": "Tom Gone", "avatar_url": "https://lh3.googleusercontent.com/a/tom", "storelib_avatar_chosen": true}', now() - interval '10 days', 'authenticated', 'authenticated')
+  ('00000000-0000-4000-a000-000000000005', 'tom@example.com', now(), '{"full_name": "Tom Gone", "avatar_url": "https://lh3.googleusercontent.com/a/tom", "storelib_avatar_chosen": true}', now() - interval '10 days', 'authenticated', 'authenticated'),
+  -- Part 103: a Google account the trigger named after its email (it gets Google's name), and a profile with no name and a handle (it gets the handle's words).
+  ('00000000-0000-4000-a000-000000000006', 'jsmith92@example.com', now(), '{"full_name": "John Smith"}', now() - interval '5 days', 'authenticated', 'authenticated'),
+  ('00000000-0000-4000-a000-000000000007', 'q8x2kz7v@example.com', now(), '{}', now() - interval '4 days', 'authenticated', 'authenticated')
 on conflict (id) do nothing;
 
 insert into public.profiles (id, email, display_name, avatar_url, is_creator, username) values
@@ -17,8 +20,12 @@ insert into public.profiles (id, email, display_name, avatar_url, is_creator, us
   ('00000000-0000-4000-a000-000000000002', 'ben@example.com', 'Ben Buyer', null, false, 'ben'),
   ('00000000-0000-4000-a000-000000000003', 'ioana@example.com', 'Ioana', null, true, 'ioana'),
   ('00000000-0000-4000-a000-000000000004', 'lia@example.com', 'Lia Pic', null, false, 'lia'),
-  ('00000000-0000-4000-a000-000000000005', 'tom@example.com', 'Tom Gone', '', false, 'tom')
+  ('00000000-0000-4000-a000-000000000005', 'tom@example.com', 'Tom Gone', '', false, 'tom'),
+  ('00000000-0000-4000-a000-000000000006', 'jsmith92@example.com', 'jsmith92', null, false, 'jsmith92'),
+  ('00000000-0000-4000-a000-000000000007', 'q8x2kz7v@example.com', null, null, false, 'maya-prints')
 on conflict (id) do nothing;
+-- The new user trigger made those two rows first (with the email's letters as the name), so the second is set here as part 103 finds it: no name, a handle.
+update public.profiles set display_name = null, username = 'maya-prints' where id = '00000000-0000-4000-a000-000000000007';
 
 insert into public.creators (id, user_id, slug, bio, display_name, avatar_url, stripe_account_id, username) values
   ('00000000-0000-4000-b000-000000000001', '00000000-0000-4000-a000-000000000001', 'mara', 'Prints and presets', 'Mara Pop', 'https://example.com/old-mara.png', 'acct_mara', 'mara'),
