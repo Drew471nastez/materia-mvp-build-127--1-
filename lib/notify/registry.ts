@@ -139,6 +139,16 @@ const ENTRIES: Record<NotificationType, Entry> = {
   COMMUNITY_EVENT_REMINDER: E({ category: "product_and_store", priority: "normal", requirement: "optional_product", recipient: "customer", channels: ["email"], template: "transaction", defaultOn: true, cooldownSeconds: 0 }),
   COMMUNITY_COURSE_AVAILABLE: E({ category: "product_and_store", priority: "info", requirement: "optional_product", recipient: "customer", channels: ["email"], template: "base", defaultOn: true, cooldownSeconds: 0 }),
   /*
+    A TICKET FOR A PAID EVENT (part 105). All four are money addressed to the person, so they are required, like a
+    receipt: no unsubscribe link, no daily cap, only a hard bounce stops them. The receipt carries the event's calendar
+    file. An event called off says in one message that it is off and that the money is coming back, so a holder is never
+    sent two.
+  */
+  COMMUNITY_EVENT_TICKET: E({ category: "account", priority: "normal", requirement: "required_service", recipient: "customer", channels: ["email"], template: "transaction", defaultOn: true, cooldownSeconds: 0 }),
+  COMMUNITY_EVENT_TICKET_INVITE: E({ category: "account", priority: "normal", requirement: "required_service", recipient: "customer", channels: ["email"], template: "success", defaultOn: true, cooldownSeconds: 0 }),
+  COMMUNITY_EVENT_REFUND: E({ category: "account", priority: "normal", requirement: "required_service", recipient: "customer", channels: ["email"], template: "transaction", defaultOn: true, cooldownSeconds: 0 }),
+  COMMUNITY_EVENT_CANCELLED: E({ category: "account", priority: "important", requirement: "required_service", recipient: "customer", channels: ["email"], template: "transaction", defaultOn: true, cooldownSeconds: 0 }),
+  /*
     The day's new reports, to a moderator who runs the community from /app. Keeping a community safe is part of running
     it, so it is not counted against the three optional emails a day; it is at most one a day per community already, and
     the person can turn it off in account settings (lib/notifications/push-kinds.ts, emailOff), checked before it is raised.

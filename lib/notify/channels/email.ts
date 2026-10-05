@@ -26,6 +26,8 @@
  *   variables  delivery_id and job_id, which come back on every webhook
  *   Message-Id made from the delivery id, the same on every retry, so a
  *              mailbox can recognise a repeat as the same message
+ *   files      what the template drew beside the words: the event's
+ *              calendar file on a ticket receipt, and nothing else today
  *
  * The renderer, the unsubscribe link and the provider are handed in, so the
  * worker's tests run this file with a fake provider and no network.
@@ -107,6 +109,7 @@ export function emailChannel(o: EmailChannelOptions): EmailSend {
       tags: [entry.type],
       variables: { delivery_id: deliveryId, job_id: job.id },
       messageId: `<notify.${deliveryId}@${domain}>`,
+      ...(rendered.attachments?.length ? { attachments: rendered.attachments } : {}),
     })
   }
 }

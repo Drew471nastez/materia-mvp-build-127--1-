@@ -110,6 +110,11 @@ export const EMAIL_POLICY: Record<NotificationType, EmailClass> = {
   COMMUNITY_ANNOUNCEMENT: "never",
   COMMUNITY_EVENT_REMINDER: "never",
   COMMUNITY_COURSE_AVAILABLE: "never",
+  /* A ticket for a paid event is money: the receipt, a free invite, a refund and an event called off always go, and are never counted. */
+  COMMUNITY_EVENT_TICKET: "essential",
+  COMMUNITY_EVENT_TICKET_INVITE: "essential",
+  COMMUNITY_EVENT_REFUND: "essential",
+  COMMUNITY_EVENT_CANCELLED: "essential",
   COMMUNITY_REPORT_DIGEST: "budgeted",
   COMMUNITY_WEEKLY_DIGEST: "budgeted",
 }
