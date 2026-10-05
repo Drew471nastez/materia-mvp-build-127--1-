@@ -291,7 +291,7 @@ export type PostMedia =
   | { type: "file"; assetId: string; name: string; size?: number; store?: "community" }
   | { type: "link"; url: string; title?: string; image?: string }
   /** A YouTube or Vimeo video by its address, played in their privacy player (lib/communities/post-media.ts). */
-  | { type: "embed"; provider: "youtube" | "vimeo"; id: string; url: string; hash?: string; thumb?: string; title?: string }
+  | { type: "embed"; provider: "youtube" | "vimeo" | "loom"; id: string; url: string; hash?: string; thumb?: string; title?: string }
   /** A GIF from Giphy: its address and a still for the card. */
   | { type: "gif"; url: string; still: string; w?: number; h?: number; title?: string }
 

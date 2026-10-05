@@ -8,8 +8,9 @@
  * nothing else (round 7). Pressing it opens the editor: in place on a
  * computer, a screen of its own sliding up on a phone. The editor is a title
  * and the words (both needed), what the post carries, and one toolbar after
- * Skool's: attach files, add a link, a video (a YouTube or Vimeo address,
- * or Upload for one from the device, side by side in one row), a poll, an
+ * Skool's: attach files, add a link, a video (a YouTube, Vimeo or Loom
+ * address, or Upload for one from the device, side by side in one row: the
+ * link field, media-link.tsx, with Paste and a live preview), a poll, an
  * emoji, a GIF, the space it goes to ("Select a space", only spaces this
  * member may post in), Cancel and Post.
  * Post waits until there is a title, words, a space and nothing still
@@ -19,8 +20,9 @@
  * Storelib's picture storage; a video through the community's video route,
  * with a still for the card; any other file through the community's file
  * route, checked before and after it is sent. A link typed in the words
- * brings its card on its own (fetched by the server), a YouTube or Vimeo
- * address brings the video, and either can be taken off.
+ * brings its card on its own (fetched by the server), a YouTube, Vimeo or
+ * Loom address brings the video, and either can be taken off. A picture is
+ * made lighter in the browser first (media-compress.ts).
  *
  * LEAVING WITH SOMETHING WRITTEN asks first, in Storelib's own dialog: "You
  * haven't finished your post yet. Leave without posting?" (Keep writing /
@@ -37,18 +39,18 @@
  *
  * ONE CARD, NEVER GONE (round 11). The closed field and the editor in place
  * are the same card, the same element for the composer's whole life: it is
- * never taken out and put back, and its own opacity never moves. Only what is
- * inside it changes: the closed row stays in the card (laid over the
- * editor's top while open, invisible and inert) and crossfades with the
- * editor's content, never dipping, while the posts slide over the card's
- * lower part as before, so the card is whole on every frame. (A clip-path
- * on the card's edge was tried and measured: Chrome draws it on the
- * compositor, but the posts' layer then missed its first frames, a blank
- * band where the posts should be; the posts covering the card is cleaner.) Before round 11 the closed field and the editor were two
- * elements swapped by key: for a frame neither was on screen, then the one
- * coming in faded up from nothing, which read as the composer flashing out
- * and back. What was written is cleared once the card has closed, not
- * before, so Leave never empties the editor while it is still on screen.
+ * never taken out and put back, and its own opacity never moves. What was
+ * written is cleared once the card has closed, not before, so Leave never
+ * empties the editor while it is still on screen.
+ *
+ * NO MORPH (round 12). The card's top row is the same row open and closed:
+ * the member's picture at 40px in the same place on every frame (round 11
+ * crossfaded a closed row with a 40px picture into an editor header with a
+ * 32px one, which read as the picture shrinking). Opening, the card simply
+ * grows (the posts under it slide down), the field's placeholder goes at
+ * once and "<name> posting" with the fields and the toolbar fade in after;
+ * Cancel is the same backwards: the content goes, the card folds, the field
+ * is back as it ends.
  *
  * THE KEYBOARD ON A PHONE. The screen's white covers the whole window, the
  * part under the keyboard included, so a keyboard opening or closing never
@@ -85,15 +87,16 @@
 import * as DialogPrimitive from "@radix-ui/react-dialog"
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { createPortal } from "react-dom"
-import { BarChart3, Check, ChevronDown, Clapperboard, FileText, Link2, Loader2, Paperclip, Play, Plus, Upload, X } from "lucide-react"
+import { createPortal, flushSync } from "react-dom"
+import { BarChart3, Check, ChevronDown, Clapperboard, FileText, GripVertical, Link2, Loader2, Paperclip, Play, Plus, X } from "lucide-react"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { EmojiControl } from "@/components/app/rich-text/emoji-picker"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
+import { EMOJI_POPOVER } from "@/components/ui/popover-fit"
 import { SHEET_CLOSE_EASE, SHEET_CLOSE_MS, SHEET_EASE, SHEET_OPEN_MS } from "@/components/ui/bottom-sheet"
 import { uploadCommunityVideo } from "@/lib/video/upload-client"
 import { MAX_MEDIA_PER_POST, POLL_OPTIONS_MAX } from "@/lib/communities/limits"
-import { MAX_EMBEDS, MAX_GIFS, STAFF_FILE_MAX_BYTES, embedFromUrl, fileSizeLabel } from "@/lib/communities/post-media"
+import { EMBED_NAMES, MAX_EMBEDS, MAX_GIFS, STAFF_FILE_MAX_BYTES, fileSizeLabel, postEmbedFromUrl } from "@/lib/communities/post-media"
 import type { FeedPostView, PostMedia } from "@/lib/communities/types"
 import { api, apiBase } from "./api"
 import { holdAnchor, useArrivals } from "./arrive"
@@ -101,10 +104,12 @@ import { LinkCard } from "./media"
 import { PHONE_ROW } from "./post-card"
 import { useKeepFieldInSight } from "./keep-in-sight"
 import { GifButton } from "./media-gif"
+import { LinkField, type LinkPick } from "./media-link"
+import { ProviderMark } from "./media-providers"
 import { uploadCommunityFile, uploadKindOf, uploadPicture, uploadVideoPoster } from "./media-upload"
 import { MentionTextarea, type MentionTextareaHandle } from "./mention-input"
 import { toast } from "./toast"
-import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, CARD, DEPTH, DEPTH_PRESS, FIELD, ICON_BTN } from "./ui"
+import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, CARD, DEPTH, DEPTH_PRESS, ICON_BTN } from "./ui"
 import type { ComposerSpace, LinkPreview } from "./view-types"
 
 export interface ComposerProps {
@@ -148,6 +153,9 @@ interface Draft {
   media: PostMedia[]
 }
 
+/** Said when the server holds a post for a moderator and gives no words of its own. */
+export const HELD_POST = "Your post is waiting for a moderator."
+
 export const LEAVE_QUESTION = "You haven't finished your post yet. Leave without posting?"
 
 /** One tool in the editor's row: a 40px target, the glyph alone, no box until hovered. */
@@ -157,16 +165,22 @@ const TOOL =
 /** The editor in place grows over this long, and folds back a little quicker. */
 const GROW_MS = 260
 const FOLD_MS = 220
-/* The editor's content only fades: the posts sliding over it (they are drawn after it) and the card's edge are what uncover and cover it. */
-const FADE_IN_MS = 180
-const FADE_OUT_MS = 170
 /*
-  THE CROSSFADE NEVER DIPS. The one coming in eases out (most of it at once)
-  and the one going eases in (most of it late), so between them the card is
-  never emptier than either: no frame where the composer's content is gone.
+  THE CARD GROWS, THEN ITS CONTENT ARRIVES (round 12). Opening: the field's
+  placeholder goes at once (FIELD_OUT_MS) while the posts slide down; the
+  editor's content (the name line, the fields, the toolbar) fades in from
+  CONTENT_DELAY_MS, once most of the room is there. Closing is the same
+  backwards: the content goes first, then the card folds and the field
+  comes back as it ends. The picture never moves or changes size.
 */
-const ROW_OUT_MS = 170
-const ROW_IN_MS = 140
+const FIELD_OUT_MS = 110
+const CONTENT_DELAY_MS = 110
+const CONTENT_IN_MS = 200
+const CONTENT_OUT_MS = 120
+/* Closing: the posts start up once the content has mostly gone, and the field is back as they arrive. */
+const FOLD_DELAY_MS = 70
+const FIELD_BACK_DELAY_MS = 140
+const FIELD_BACK_MS = 150
 const FADE_GOING = "cubic-bezier(0.4, 0, 1, 1)"
 const FADE_COMING = "cubic-bezier(0, 0, 0.2, 1)"
 /** The closed field's height when it was never drawn (a draft that opened the editor at once). */
@@ -213,7 +227,7 @@ function attachmentOf(m: PostMedia, key: string): Attachment {
   if (m.type === "video") return { key, kind: "video", name: "Video", size: 0, preview: m.poster, progress: 100, media: m }
   if (m.type === "file") return { key, kind: "file", name: m.name, size: m.size ?? 0, progress: 100, media: m }
   if (m.type === "gif") return { key, kind: "gif", name: m.title ?? "GIF", size: 0, preview: m.still, progress: 100, media: m }
-  if (m.type === "embed") return { key, kind: "embed", name: m.title ?? (m.provider === "youtube" ? "YouTube" : "Vimeo"), size: 0, preview: m.thumb, progress: 100, media: m }
+  if (m.type === "embed") return { key, kind: "embed", name: m.title ?? EMBED_NAMES[m.provider], size: 0, preview: m.thumb, progress: 100, media: m }
   return { key, kind: "file", name: "", size: 0, progress: 100 }
 }
 
@@ -338,13 +352,14 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
   const [preview, setPreview] = useState<LinkPreview | null>(null)
   const [dismissed, setDismissed] = useState<string[]>([])
   const [linkField, setLinkField] = useState<null | "link" | "video">(null)
-  const [linkText, setLinkText] = useState("")
   const [busy, setBusy] = useState(false)
   /* The server has the post: the check shows, then the editor closes and the post goes into the feed (AFTER POST). */
   const [sent, setSent] = useState(false)
   const afterClose = useRef<(() => void) | null>(null)
   const arrive = useArrivals()
   const [restored, setRestored] = useState(false)
+  /* The last post was held for a moderator; what is here is a copy of it. */
+  const [heldCopy, setHeldCopy] = useState(false)
   const [asking, setAsking] = useState<((leave: boolean) => void) | null>(null)
   const textRef = useRef<MentionTextareaHandle>(null)
   const titleRef = useRef<HTMLInputElement>(null)
@@ -352,7 +367,8 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
   const videoInput = useRef<HTMLInputElement>(null)
   /* The one card (closed and open in place), its closed row, the editor's content in it, the phone's screen and the part of it that scrolls. */
   const cardRef = useRef<HTMLDivElement>(null)
-  const rowRef = useRef<HTMLDivElement>(null)
+  const fieldRef = useRef<HTMLButtonElement>(null)
+  const nameRef = useRef<HTMLDivElement>(null)
   const editorRef = useRef<HTMLDivElement>(null)
   const sheetRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -412,7 +428,7 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
   const typedLink = URL_IN_TEXT.exec(body)?.[0] ?? null
   useEffect(() => {
     if (!typedLink || dismissed.includes(typedLink)) return
-    const embed = embedFromUrl(typedLink)
+    const embed = postEmbedFromUrl(typedLink)
     if (embed) {
       if (dismissed.includes(embed.url)) return
       const t = window.setTimeout(() => {
@@ -433,40 +449,41 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [typedLink, dismissed, communityId])
 
-  const addLink = async () => {
-    const raw = linkText.trim()
-    if (!raw) return
-    const url = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`
-    const embed = embedFromUrl(url)
-    if (linkField === "video" && !embed) return toast("Paste a YouTube or Vimeo link.")
-    if (embed) {
+  /* What the link field hands over (media-link.tsx): a video by link becomes the post's video, any other link its card. */
+  const addPick = (pick: LinkPick) => {
+    if (pick.embed) {
       if (items.filter((x) => x.kind === "embed").length >= MAX_EMBEDS) return toast(`Up to ${MAX_EMBEDS} videos by link in one post.`)
       if (!room()) return toast(`Up to ${MAX_MEDIA_PER_POST} things in one post.`)
+      const p = pick.preview
+      const thumb = pick.embed.thumb ?? p?.image ?? undefined
       const k = newKey()
-      add(attachmentOf({ type: "embed", ...embed }, k))
-      setLinkText("")
+      add(attachmentOf({ type: "embed", ...pick.embed, ...(thumb ? { thumb } : {}), ...(p?.title ? { title: p.title.slice(0, 200) } : {}) }, k))
       setLinkField(null)
-      /* Vimeo's picture and either one's title come from its page, read by the server. */
-      const r = await api<{ preview: LinkPreview | null }>(`${apiBase(communityId)}/posts/link-preview`, { body: { url: embed.url } })
-      if (r.ok && r.data.preview) {
-        const p = r.data.preview
-        setItems((list) =>
-          list.map((x) =>
-            x.key === k && x.media?.type === "embed"
-              ? { ...x, name: p.title || x.name, preview: x.preview ?? p.image ?? undefined, media: { ...x.media, ...(p.title ? { title: p.title.slice(0, 200) } : {}), ...(!x.media.thumb && p.image ? { thumb: p.image } : {}) } }
-              : x,
-          ),
-        )
+      /* Added before its page was read: Vimeo's and Loom's picture and any one's title come from there, read by the server. */
+      if (!p) {
+        void api<{ preview: LinkPreview | null }>(`${apiBase(communityId)}/posts/link-preview`, { body: { url: pick.embed.url } }).then((r) => {
+          const got = r.ok ? r.data.preview : null
+          if (!got) return
+          setItems((list) =>
+            list.map((x) =>
+              x.key === k && x.media?.type === "embed"
+                ? { ...x, name: got.title || x.name, preview: x.preview ?? got.image ?? undefined, media: { ...x.media, ...(got.title ? { title: got.title.slice(0, 200) } : {}), ...(!x.media.thumb && got.image ? { thumb: got.image } : {}) } }
+                : x,
+            ),
+          )
+        })
       }
       return
     }
     setLinkField(null)
-    setLinkText("")
-    setDismissed((d) => d.filter((x) => x !== url))
-    setPreview({ url, title: null, image: null, site: null })
-    const r = await api<{ preview: LinkPreview | null }>(`${apiBase(communityId)}/posts/link-preview`, { body: { url } })
-    if (r.ok && r.data.preview) setPreview(r.data.preview)
-    else if (!r.ok) toast(r.error)
+    setDismissed((d) => d.filter((x) => x !== pick.url))
+    setPreview(pick.preview ?? { url: pick.url, title: null, image: null, site: null })
+    /* Added before the page was read (Enter at once): its card fills in when the server has read it. */
+    if (!pick.preview) {
+      void api<{ preview: LinkPreview | null }>(`${apiBase(communityId)}/posts/link-preview`, { body: { url: pick.url } }).then((r) => {
+        if (r.ok && r.data.preview) setPreview((now) => (now?.url === pick.url ? r.data.preview : now))
+      })
+    }
   }
 
   /* A video goes through the community's video route; only a ready one can be posted. Its still is the card's picture. */
@@ -533,7 +550,7 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
     const m = a.media
     if (m?.type === "embed") {
       /* Taken off, it stays off: the address in the words does not bring it back. */
-      const typed = typedLink && embedFromUrl(typedLink)?.id === m.id ? [typedLink] : []
+      const typed = typedLink && postEmbedFromUrl(typedLink)?.id === m.id ? [typedLink] : []
       setDismissed((d) => [...d, m.url, ...typed])
     }
     drop(a.key)
@@ -555,8 +572,8 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
     setPreview(null)
     setDismissed([])
     setLinkField(null)
-    setLinkText("")
     setRestored(false)
+    setHeldCopy(false)
     if (!fixedSpaceId && spaces.length !== 1) setSpaceId(null)
     try {
       window.localStorage.removeItem(key)
@@ -592,15 +609,17 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
       return
     }
     /* The page keeps its scroll as the editor folds (the browser would otherwise move it to follow a post on screen). */
-    holdAnchor(FOLD_MS + 900)
+    holdAnchor(FOLD_DELAY_MS + FOLD_MS + 900)
     const d = Math.max(0, el.offsetHeight - (closedH.current || CLOSED_FALLBACK_H))
-    const timing: KeyframeAnimationOptions = { duration: FOLD_MS, easing: SHEET_CLOSE_EASE, fill: "forwards" }
-    window.setTimeout(finish, FOLD_MS)
-    /* The card stays, whole: its content crossfades back to the closed row while the posts slide up over it. */
+    const timing: KeyframeAnimationOptions = { duration: FOLD_MS, delay: FOLD_DELAY_MS, easing: SHEET_CLOSE_EASE, fill: "forwards" }
+    window.setTimeout(finish, FOLD_DELAY_MS + FOLD_MS)
+    /* The card stays, whole, its picture where it is: the content goes, the posts slide up over the card, the field comes back as they end. */
+    const content = [editorRef.current, nameRef.current].filter((x): x is HTMLDivElement => !!x)
+    for (const a of fieldRef.current?.getAnimations() ?? []) a.cancel()
     held.current = [
       ...following(el).map((x) => x.animate([{ translate: "0 0" }, { translate: `0 ${-d}px` }], timing)),
-      ...(editorRef.current ? [editorRef.current.animate([{ opacity: 1 }, { opacity: 0 }], { duration: FADE_OUT_MS, easing: FADE_GOING, fill: "forwards" })] : []),
-      ...(rowRef.current ? [rowRef.current.animate([{ opacity: 0 }, { opacity: 1 }], { duration: ROW_IN_MS, easing: FADE_COMING, fill: "forwards" })] : []),
+      ...content.map((x) => x.animate([{ opacity: 1 }, { opacity: 0 }], { duration: CONTENT_OUT_MS, easing: FADE_GOING, fill: "forwards" })),
+      ...(fieldRef.current ? [fieldRef.current.animate([{ opacity: 0 }, { opacity: 1 }], { duration: FIELD_BACK_MS, delay: FIELD_BACK_DELAY_MS, easing: FADE_COMING, fill: "both" })] : []),
     ]
     held.current[0]?.addEventListener("finish", finish)
   }, [phone])
@@ -687,10 +706,10 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
     const d = el.offsetHeight - closedH.current
     if (d <= 0) return
     const timing: KeyframeAnimationOptions = { duration: GROW_MS, easing: SHEET_EASE }
-    /* The same card: the posts slide down off it, the closed row gives way to the editor's content. */
+    /* The same card, the same picture: the posts slide down off it, the field's words go, then the editor's content fades in. */
     for (const x of following(el)) x.animate([{ translate: `0 ${-d}px` }, { translate: "0 0" }], timing)
-    rowRef.current?.animate([{ opacity: 1 }, { opacity: 0 }], { duration: ROW_OUT_MS, easing: FADE_GOING })
-    editorRef.current?.animate([{ opacity: 0 }, { opacity: 1 }], { duration: FADE_IN_MS, easing: FADE_COMING })
+    fieldRef.current?.animate([{ opacity: 1 }, { opacity: 0 }], { duration: FIELD_OUT_MS, easing: FADE_GOING })
+    for (const x of [nameRef.current, editorRef.current]) x?.animate([{ opacity: 0 }, { opacity: 1 }], { duration: CONTENT_IN_MS, delay: CONTENT_DELAY_MS, easing: FADE_COMING, fill: "backwards" })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, phone])
 
@@ -704,7 +723,7 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
     setBusy(true)
     const all = linkMedia ? [...media, linkMedia] : media
     const closesAt = poll?.closesIn ? new Date(Date.now() + Number(poll.closesIn) * 86_400_000).toISOString() : null
-    const r = await api<{ post: FeedPostView }>(`${apiBase(communityId)}/posts`, {
+    const r = await api<{ post: FeedPostView; held?: boolean; message?: string }>(`${apiBase(communityId)}/posts`, {
       body: {
         spaceId,
         title: title.trim(),
@@ -715,6 +734,31 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
     })
     setBusy(false)
     if (!r.ok) return toast(r.error)
+    /*
+      HELD FOR A MODERATOR (202, the community's safety checks: a new member's
+      first links, a lookalike link, the same words again). The editor closes
+      as usual but nothing goes into the feed as if it were published; a toast
+      says what the server said, and what was written stays here as a draft
+      ("Continue: ...") in case the member wants to change it.
+    */
+    if (r.data.held) {
+      const said = r.data.message || HELD_POST
+      try {
+        window.localStorage.setItem(key, JSON.stringify({ title, body, spaceId, poll, media: linkMedia ? [...media, linkMedia] : media } satisfies Draft))
+      } catch {
+        /* nothing kept */
+      }
+      setSent(true)
+      afterClose.current = () => {
+        setSent(false)
+        setRestored(true)
+        setHeldCopy(true)
+        toast(said)
+      }
+      window.setTimeout(shut, reducedMotion() ? 0 : SENT_HOLD_MS)
+      return
+    }
+    setHeldCopy(false)
     const post = r.data.post
     /* Kept no longer: a reload from here on starts empty. */
     try {
@@ -774,21 +818,23 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
     </DialogPrimitive.Root>
   )
 
-  /* Open in place (a computer): the closed row stays in the card, laid over the editor's top, unseen and out of reach. */
+  /*
+    Open in place (a computer): the card's top row stays exactly as it is, the
+    member's picture at the same place and size on every frame (round 12); only
+    what is beside it changes, the field's words giving way to "<name> posting".
+  */
   const inPlace = open && !phone
   const row = (
-    <div
-      ref={rowRef}
-      className={inPlace ? "pointer-events-none absolute inset-x-0 top-0 px-4 py-3 opacity-0 sm:py-3.5" : "px-4 py-3 sm:py-3.5"}
-      aria-hidden={inPlace || undefined}
-      inert={inPlace || undefined}
-      data-composer-row=""
-    >
-      <div className="flex items-center gap-3">
+    <div className="flex items-center gap-3 px-4 py-3 sm:px-5 sm:py-3.5" data-composer-row="">
+      <span className="flex shrink-0" data-composer-avatar="">
         <AppAvatar src={me.avatarUrl} name={me.name} alt="" size={40} markWhileLoading />
+      </span>
+      <div className="grid min-w-0 flex-1">
         <button
+          ref={fieldRef}
           type="button"
           tabIndex={inPlace ? -1 : undefined}
+          aria-hidden={inPlace || undefined}
           onClick={openEditor}
           /*
             The posts under the field get their own layer as the finger or the pointer comes down, so the
@@ -803,11 +849,18 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
               if (!openRef.current) for (const x of list) x.style.willChange = ""
             }, 1500)
           }}
-          className="flex h-11 min-w-0 flex-1 items-center rounded-xl border border-[#eceef1] bg-[#f6f7f8] px-4 text-left text-[15px] text-[#8a8f98] transition-colors hover:bg-[#f1f2f4]"
+          className={`col-start-1 row-start-1 flex h-11 min-w-0 items-center rounded-xl border border-[#eceef1] bg-[#f6f7f8] px-4 text-left text-[15px] text-[#8a8f98] transition-colors hover:bg-[#f1f2f4] ${inPlace ? "pointer-events-none opacity-0" : ""}`}
           data-composer-open={inPlace ? undefined : ""}
         >
           <span className="truncate">{restored && title ? `Continue: ${title}` : "Share something..."}</span>
         </button>
+        {inPlace ? (
+          <div ref={nameRef} className="col-start-1 row-start-1 flex min-w-0 items-center text-[14.5px] text-[#6b7280]" data-composer-name="">
+            <span className="truncate">
+              <span className="font-semibold text-[#1a1a2e]">{me.name}</span> posting{space ? ` in ${space.name}` : ""}
+            </span>
+          </div>
+        ) : null}
       </div>
     </div>
   )
@@ -850,7 +903,7 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
         <BarChart3 className="h-5 w-5" strokeWidth={1.75} />
       </button>
       <span data-composer-tool="emoji" className="contents">
-        <EmojiControl className={TOOL} onBeforeOpen={() => undefined} onInsert={(e) => textRef.current?.insert(e)} />
+        <EmojiControl className={TOOL} size={EMOJI_POPOVER} onBeforeOpen={() => undefined} onInsert={(e) => textRef.current?.insert(e)} />
       </span>
       <GifButton communityId={communityId} className={TOOL} onPick={addGif} />
     </div>
@@ -886,40 +939,23 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
           }
         }}
       />
-      {restored ? <p className="mt-1 text-[12.5px] text-[#8a8f98]">Your draft is back where you left it.</p> : null}
+      {restored ? (
+        <p className="mt-1 text-[12.5px] text-[#8a8f98]" data-composer-restored={heldCopy ? "held" : ""}>
+          {heldCopy ? "Your post is waiting for a moderator. This is a copy, in case you want to change it." : "Your draft is back where you left it."}
+        </p>
+      ) : null}
 
       {linkField ? (
-        <form
-          className="mt-3 flex items-center gap-2"
-          onSubmit={(e) => {
-            e.preventDefault()
-            void addLink()
-          }}
-          data-composer-link-field={linkField}
-        >
-          <input value={linkText} onChange={(e) => setLinkText(e.target.value)} placeholder={linkField === "video" ? "YouTube or Vimeo link" : "Paste a link"} aria-label={linkField === "video" ? "Video link" : "Link"} inputMode="url" autoFocus className={FIELD} />
-          <button type="submit" className={BTN_PRIMARY} disabled={!linkText.trim()}>
-            Add
-          </button>
-          {linkField === "video" ? (
-            /* The file picker opens inside this press: a browser only opens one from a press it is still handling. */
-            <button type="button" className={`${BTN_SECONDARY} gap-1.5 px-3`} onClick={() => videoInput.current?.click()} data-composer-video-upload="">
-              <Upload className="h-4 w-4" aria-hidden />
-              <span className="max-sm:sr-only">Upload</span>
-            </button>
-          ) : null}
-          <button
-            type="button"
-            aria-label="Close"
-            className={ICON_BTN}
-            onClick={() => {
-              setLinkField(null)
-              setLinkText("")
-            }}
-          >
-            <X className="h-[18px] w-[18px]" />
-          </button>
-        </form>
+        /* The file picker opens inside the Upload press: a browser only opens one from a press it is still handling. */
+        <LinkField
+          key={linkField}
+          mode={linkField}
+          communityId={communityId}
+          className="mt-3"
+          onAdd={addPick}
+          onUpload={linkField === "video" ? () => videoInput.current?.click() : undefined}
+          onClose={() => setLinkField(null)}
+        />
       ) : null}
 
       {items.length ? (
@@ -947,13 +983,7 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
       <div ref={cardRef} className={`${CARD} ${PHONE_ROW} relative sm:shadow-[0_1px_2px_rgba(16,24,40,0.04)]`} data-composer={inPlace ? "open" : "closed"}>
         {row}
         {inPlace ? (
-          <div ref={editorRef} className="p-4 sm:px-5 sm:pt-4" data-composer-editor="">
-            <div className="mb-3 flex items-center gap-2.5">
-              <AppAvatar src={me.avatarUrl} name={me.name} alt="" size={32} markWhileLoading />
-              <span className="text-[14px] text-[#6b7280]">
-                <span className="font-semibold text-[#1a1a2e]">{me.name}</span> posting{space ? ` in ${space.name}` : ""}
-              </span>
-            </div>
+          <div ref={editorRef} className="px-4 pb-4 pt-0.5 sm:px-5" data-composer-editor="">
             {fields}
             <div className="mt-3 flex flex-wrap items-center gap-x-1 gap-y-2 border-t border-[#f0f1f3] pt-2.5">
               {tools}
@@ -1185,6 +1215,11 @@ function AttachmentTile({ a, onRemove }: { a: Attachment; onRemove: () => void }
         </span>
       ) : null}
       {a.kind === "gif" ? <span className="absolute bottom-1 left-1 rounded-[5px] bg-black/55 px-1 text-[10px] font-semibold leading-[15px] text-white">GIF</span> : null}
+      {a.media?.type === "embed" ? (
+        <span className="absolute bottom-1 left-1 flex h-5 w-5 items-center justify-center rounded-[5px] bg-white/95 shadow-[0_1px_1px_rgba(0,0,0,0.15)]" aria-label={EMBED_NAMES[a.media.provider]} data-attachment-site={a.media.provider}>
+          <ProviderMark provider={a.media.provider} size={14} />
+        </span>
+      ) : null}
       {loading ? (
         <span className="absolute inset-0 flex flex-col items-center justify-center gap-1 text-white" aria-label="Uploading">
           <Loader2 className="h-5 w-5 animate-spin" />
@@ -1206,55 +1241,205 @@ function RemoveButton({ onClick }: { onClick: () => void }) {
   )
 }
 
+/** The poll's fields: the Storelib field with its hairline and 1px shadow. */
+const POLL_FIELD =
+  "h-11 w-full min-w-0 rounded-[10px] border border-[#e3e5e9] bg-white px-3 text-[16px] text-[#1a1a2e] shadow-[0_1px_1px_rgba(16,24,40,0.04)] outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-[#9ca3af] focus:border-[#c9ccd3] focus:shadow-[0_0_0_3px_rgba(26,26,46,0.05)] motion-reduce:transition-none sm:h-10 sm:text-[14px]"
+
+const POLL_ENDS: { value: PollDraft["closesIn"]; label: string }[] = [
+  { value: "", label: "No end" },
+  { value: "1", label: "1 day" },
+  { value: "3", label: "3 days" },
+  { value: "7", label: "1 week" },
+]
+
+let choiceSeq = 0
+const newChoiceId = () => `choice-${++choiceSeq}`
+
+/**
+ * ===========================================================================
+ *  THE POLL, AS IT IS WRITTEN (round 12)
+ * ===========================================================================
+ * A card inside the editor with the light depth: the question, the choices
+ * (two to ten), each with a handle to drag it up or down (or the arrow keys
+ * on the handle) and an x to take it off, "Add a choice", then how long it
+ * runs (No end, 1 day, 3 days, 1 week) and whether a member may pick more
+ * than one. A choice dragged follows the finger on the compositor, the one
+ * it passes slides into the place it left.
+ */
 function PollEditor({ poll, onChange, onRemove }: { poll: PollDraft; onChange: (p: PollDraft) => void; onRemove: () => void }) {
   const set = (patch: Partial<PollDraft>) => onChange({ ...poll, ...patch })
+  /* A key per choice that moves with it, so a dragged field keeps its caret and its place in React. */
+  const ids = useRef<string[]>([])
+  while (ids.current.length < poll.options.length) ids.current.push(newChoiceId())
+  if (ids.current.length > poll.options.length) ids.current.length = poll.options.length
+  const listRef = useRef<HTMLOListElement>(null)
+  const latest = useRef(poll)
+  latest.current = poll
+
+  const move = (from: number, to: number) => {
+    const opts = [...latest.current.options]
+    const [o] = opts.splice(from, 1)
+    opts.splice(to, 0, o)
+    const keys = [...ids.current]
+    const [k] = keys.splice(from, 1)
+    keys.splice(to, 0, k)
+    ids.current = keys
+    const next = { ...latest.current, options: opts }
+    latest.current = next
+    flushSync(() => onChange(next))
+  }
+  const rowOf = (id: string) => listRef.current?.querySelector<HTMLElement>(`[data-choice="${id}"]`) ?? null
+  /* The choice that gave way slides from where it was to its new place. */
+  const slide = (id: string, from: number) => {
+    const el = rowOf(id)
+    if (!el || typeof el.animate !== "function" || reducedMotion()) return
+    el.animate([{ translate: `0 ${from}px` }, { translate: "0 0" }], { duration: 160, easing: "cubic-bezier(0.2, 0, 0, 1)" })
+  }
+
+  const drag = (e: React.PointerEvent<HTMLButtonElement>, index: number) => {
+    if (e.button !== 0) return
+    e.preventDefault()
+    const id = ids.current[index]
+    const row = rowOf(id)
+    if (!row) return
+    const step = row.offsetHeight + 6
+    const y0 = e.clientY
+    let at = index
+    /*
+      Heard on the window, not the handle: moving the row in the list takes its node out and puts it back,
+      which ends a pointer capture, so the move would stop at the first choice it passed.
+    */
+    const id0 = e.pointerId
+    row.style.zIndex = "1"
+    row.style.willChange = "translate"
+    row.dataset.dragging = ""
+    const onMove = (m: PointerEvent) => {
+      if (m.pointerId !== id0) return
+      m.preventDefault()
+      const dy = m.clientY - y0
+      const want = Math.max(0, Math.min(latest.current.options.length - 1, index + Math.round(dy / step)))
+      if (want !== at) {
+        const passed = ids.current[want]
+        move(at, want)
+        slide(passed, (want - at) * step)
+        at = want
+      }
+      row.style.translate = `0 ${dy - (at - index) * step}px`
+    }
+    const onUp = (u: PointerEvent) => {
+      if (u.pointerId !== id0) return
+      window.removeEventListener("pointermove", onMove)
+      window.removeEventListener("pointerup", onUp)
+      window.removeEventListener("pointercancel", onUp)
+      const left = row.style.translate
+      row.style.translate = ""
+      row.style.zIndex = ""
+      delete row.dataset.dragging
+      if (left && !reducedMotion() && typeof row.animate === "function") row.animate([{ translate: left }, { translate: "0 0" }], { duration: 150, easing: "cubic-bezier(0.2, 0, 0, 1)" }).onfinish = () => (row.style.willChange = "")
+      else row.style.willChange = ""
+    }
+    window.addEventListener("pointermove", onMove, { passive: false })
+    window.addEventListener("pointerup", onUp)
+    window.addEventListener("pointercancel", onUp)
+  }
+
+  const keyMove = (e: React.KeyboardEvent<HTMLButtonElement>, index: number) => {
+    const to = e.key === "ArrowUp" ? index - 1 : e.key === "ArrowDown" ? index + 1 : -1
+    if (to < 0 || to >= poll.options.length) return
+    e.preventDefault()
+    const id = ids.current[index]
+    move(index, to)
+    rowOf(id)?.querySelector<HTMLButtonElement>("[data-choice-handle]")?.focus()
+  }
+
   return (
-    <div className="mt-3 rounded-xl border border-[#e8e9ec] p-3" data-composer-poll-editor="">
-      <div className="flex items-center gap-2">
-        <input value={poll.question} onChange={(e) => set({ question: e.target.value })} maxLength={200} placeholder="Ask a question" aria-label="Poll question" className={`${FIELD} font-medium`} />
-        <button type="button" onClick={onRemove} aria-label="Remove poll" className={ICON_BTN}>
+    <div className="mt-3 rounded-xl border border-[#e6e8eb] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.05)]" data-composer-poll-editor="">
+      <div className="flex items-center justify-between border-b border-[#f0f1f3] py-1 pl-3.5 pr-1">
+        <span className="inline-flex items-center gap-2 text-[13.5px] font-semibold text-[#1a1a2e]">
+          <BarChart3 className="h-4 w-4 text-[#6b7280]" strokeWidth={2} aria-hidden />
+          Poll
+        </span>
+        <button type="button" onClick={onRemove} aria-label="Remove poll" className={ICON_BTN} data-poll-remove="">
           <X className="h-[18px] w-[18px]" />
         </button>
       </div>
-      <div className="mt-2 space-y-2">
-        {poll.options.map((o, i) => (
-          <div key={i} className="flex items-center gap-2">
-            <input
-              value={o}
-              onChange={(e) => set({ options: poll.options.map((x, j) => (j === i ? e.target.value : x)) })}
-              maxLength={100}
-              placeholder={`Choice ${i + 1}`}
-              aria-label={`Choice ${i + 1}`}
-              className={FIELD}
-            />
-            {poll.options.length > 2 ? (
-              <button type="button" onClick={() => set({ options: poll.options.filter((_, j) => j !== i) })} aria-label={`Remove choice ${i + 1}`} className={ICON_BTN}>
-                <X className="h-4 w-4" />
+      <div className="p-3 sm:p-3.5">
+        <input value={poll.question} onChange={(e) => set({ question: e.target.value })} maxLength={200} placeholder="Ask a question" aria-label="Poll question" className={`${POLL_FIELD} font-medium`} data-poll-question="" />
+        <ol ref={listRef} className="mt-2.5 space-y-1.5" aria-label="Choices">
+          {poll.options.map((o, i) => (
+            <li key={ids.current[i]} className="relative flex items-center gap-1 rounded-[10px] bg-white data-[dragging]:shadow-[0_8px_20px_-8px_rgba(17,24,39,0.25)]" data-choice={ids.current[i]}>
+              <button
+                type="button"
+                aria-label={`Move choice ${i + 1}`}
+                title="Drag to reorder"
+                onPointerDown={(e) => drag(e, i)}
+                onKeyDown={(e) => keyMove(e, i)}
+                className="flex h-10 w-7 shrink-0 cursor-grab touch-none items-center justify-center rounded-[8px] text-[#a3a8b0] outline-none transition-colors hover:text-[#4b5563] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 active:cursor-grabbing disabled:opacity-30"
+                disabled={poll.options.length < 2}
+                data-choice-handle=""
+              >
+                <GripVertical className="h-4 w-4" aria-hidden />
               </button>
-            ) : null}
-          </div>
-        ))}
-      </div>
-      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
+              <input
+                value={o}
+                onChange={(e) => set({ options: poll.options.map((x, j) => (j === i ? e.target.value : x)) })}
+                maxLength={100}
+                placeholder={`Choice ${i + 1}`}
+                aria-label={`Choice ${i + 1}`}
+                className={POLL_FIELD}
+                data-poll-choice={i}
+              />
+              {poll.options.length > 2 ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    ids.current.splice(i, 1)
+                    set({ options: poll.options.filter((_, j) => j !== i) })
+                  }}
+                  aria-label={`Remove choice ${i + 1}`}
+                  className={ICON_BTN}
+                  data-poll-choice-remove={i}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              ) : (
+                <span className="w-10 shrink-0" aria-hidden />
+              )}
+            </li>
+          ))}
+        </ol>
         {poll.options.length < POLL_OPTIONS_MAX ? (
-          <button type="button" onClick={() => set({ options: [...poll.options, ""] })} className={`${BTN_GHOST} -ml-2 text-[13.5px]`}>
+          <button type="button" onClick={() => set({ options: [...poll.options, ""] })} className={`${BTN_GHOST} mt-1.5 pl-2 text-[13.5px]`} data-poll-add="">
             <Plus className="h-4 w-4" aria-hidden />
             Add a choice
           </button>
         ) : null}
-        <label className="flex min-h-10 cursor-pointer items-center gap-2 text-[13.5px] text-[#4b5563]">
-          <input type="checkbox" checked={poll.multiple} onChange={(e) => set({ multiple: e.target.checked })} className="h-4 w-4 accent-[#1a1a2e]" />
-          More than one answer
-        </label>
-        <label className="flex min-h-10 items-center gap-2 text-[13.5px] text-[#4b5563]">
-          Closes
-          <select value={poll.closesIn} onChange={(e) => set({ closesIn: e.target.value as PollDraft["closesIn"] })} className="h-10 rounded-lg border border-[#e3e4e8] bg-white px-2 text-[14px] text-[#1a1a2e] outline-none">
-            <option value="">Never</option>
-            <option value="1">In a day</option>
-            <option value="3">In 3 days</option>
-            <option value="7">In a week</option>
-          </select>
-        </label>
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-[#f0f1f3] pt-3">
+          <div className="flex items-center gap-2">
+            <span className="text-[13px] text-[#6b7280]">Ends</span>
+            <div role="radiogroup" aria-label="Poll ends" className="flex items-center gap-1 rounded-full bg-[#f1f2f4] p-0.5">
+              {POLL_ENDS.map((d) => (
+                <button
+                  key={d.value || "never"}
+                  type="button"
+                  role="radio"
+                  aria-checked={poll.closesIn === d.value}
+                  onClick={() => set({ closesIn: d.value })}
+                  className={`h-9 whitespace-nowrap rounded-full px-2.5 text-[13px] font-medium outline-none transition-[background-color,color,box-shadow] duration-150 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 motion-reduce:transition-none sm:h-8 ${poll.closesIn === d.value ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.1)]" : "text-[#6b7280] hover:text-[#1a1a2e]"}`}
+                  data-poll-ends={d.value || "never"}
+                >
+                  {d.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <button type="button" role="switch" aria-checked={poll.multiple} onClick={() => set({ multiple: !poll.multiple })} className="flex min-h-10 items-center gap-2.5 text-[13.5px] text-[#4b5563] outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15" data-poll-multiple={poll.multiple ? "on" : "off"}>
+            More than one answer
+            <span className={`relative h-6 w-10 shrink-0 rounded-full transition-colors duration-200 motion-reduce:transition-none ${poll.multiple ? "bg-[#1a1a2e]" : "bg-[#d9dce1]"}`} aria-hidden>
+              <span className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow-[0_1px_2px_rgba(16,24,40,0.2)] transition-[translate] duration-200 ease-out motion-reduce:transition-none ${poll.multiple ? "translate-x-4" : "translate-x-0"}`} />
+            </span>
+          </button>
+        </div>
       </div>
     </div>
   )

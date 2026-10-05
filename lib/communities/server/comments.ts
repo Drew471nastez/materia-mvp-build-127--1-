@@ -16,12 +16,13 @@ import "server-only"
  * Writing one tells the post's author (comment) and, for a reply, the
  * comment's author (reply), then everyone mentioned, each once.
  *
- * WHAT A COMMENT CARRIES (round 11): pictures, a GIF and files under its
- * words, kept in `media` (run-now part 96). Through the same checks as a
- * post's media (feed.ts checkMedia), then only what lib/communities/post-media.ts
- * allows a comment, and every picture and file must be the commenter's own
- * upload for this community, still there: a picture in their own folder of
- * the picture bucket, a file in their folder of the community's files.
+ * WHAT A COMMENT CARRIES (round 12): pictures, a GIF and a video by link
+ * (YouTube, Vimeo, Loom) under its words, kept in `media` (run-now part 96).
+ * Through the same checks as a post's media (feed.ts checkMedia), then only
+ * what lib/communities/post-media.ts allows a comment, and every picture must
+ * be the commenter's own upload for this community, still there, in their own
+ * folder of the picture bucket. Files are refused (round 11 had them); one
+ * already kept on a comment still shows and downloads.
  * Until part 96 has run, comments read and write as before and one that
  * carries something is refused with a sentence.
  */
@@ -29,7 +30,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import { storedObjectSize } from "@/lib/storage/upload-guard"
 import { LENGTHS, mentionsEveryone } from "../limits"
 import { can } from "../permissions"
-import { COMMENT_MEDIA_TYPES, MAX_COMMENT_GIFS, MAX_COMMENT_MEDIA, PICTURE_BUCKET, memberPictureFolder, picturePathOf } from "../post-media"
+import { COMMENT_MEDIA_TYPES, MAX_COMMENT_EMBEDS, MAX_COMMENT_GIFS, MAX_COMMENT_MEDIA, PICTURE_BUCKET, memberPictureFolder, picturePathOf } from "../post-media"
 import { COMMENT_COLUMNS, type CommentRow, type CommentView, type CommunityRow, type PostMedia, type PostRow } from "../types"
 import { recordActivity } from "./activity"
 import type { Viewer } from "./context"
@@ -39,7 +40,6 @@ import { checkMedia, cleanText, refused, visiblePostRow, type Checked, type Writ
 import { notifyMentions, snippet } from "./mentions"
 import { heldColumns, holdForReview, screenEdit, screenWrite } from "./safety"
 import { notifyMember } from "./notify"
-import { communityFilesExist } from "./post-files"
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -118,28 +118,29 @@ function storageHost(): string | null {
 }
 
 /**
- * What a comment may carry, checked: the shapes and hosts a post's media
- * must have (checkMedia), only the kinds a comment takes, four at most and
- * one GIF, and every picture and file the commenter's own upload for this
- * community that is still there. Answers the media as it will be kept (a
- * file named with the extension it was checked with).
+ * What a comment may carry, checked (round 12): the shapes and hosts a
+ * post's media must have (checkMedia), only the kinds a comment takes
+ * (pictures, one GIF, one video by link), four at most, and every picture
+ * the commenter's own upload for this community that is still there. A
+ * file is refused outright: comments no longer carry files (a comment that
+ * already has one keeps showing it).
  */
 export async function checkCommentMedia(db: Db, community: Pick<CommunityRow, "id" | "creator_id">, viewer: Pick<Viewer, "userId" | "role">, raw: unknown): Promise<Checked<PostMedia[]>> {
   if (raw === undefined || raw === null) return { ok: true, value: [] }
   if (!Array.isArray(raw)) return { ok: false, error: "That could not be added to the comment.", status: 400 }
   if (!raw.length) return { ok: true, value: [] }
-  if (raw.length > MAX_COMMENT_MEDIA) return { ok: false, error: `Up to ${MAX_COMMENT_MEDIA} pictures, GIFs or files in a comment.`, status: 400 }
+  if (raw.some((m) => !!m && typeof m === "object" && (m as { type?: unknown }).type === "file")) return { ok: false, error: COMMENT_FILES_REFUSED, status: 400 }
+  if (raw.length > MAX_COMMENT_MEDIA) return { ok: false, error: `Up to ${MAX_COMMENT_MEDIA} pictures, GIFs or videos in a comment.`, status: 400 }
   const checked = checkMedia(raw)
   if (!checked.ok) return refused(checked, 400)
   const media = checked.value
   /* checkMedia leaves out a kind it does not know; a comment says so instead. */
-  if (media.length !== raw.length || media.some((m) => !COMMENT_MEDIA_TYPES.includes(m.type))) return { ok: false, error: "A comment can carry pictures, a GIF and files.", status: 400 }
+  if (media.length !== raw.length || media.some((m) => !COMMENT_MEDIA_TYPES.includes(m.type))) return { ok: false, error: "A comment can carry pictures, a GIF and a video link.", status: 400 }
   if (media.filter((m) => m.type === "gif").length > MAX_COMMENT_GIFS) return { ok: false, error: "One GIF per comment.", status: 400 }
+  if (media.filter((m) => m.type === "embed").length > MAX_COMMENT_EMBEDS) return { ok: false, error: "One video link per comment.", status: 400 }
   const pictures = media.filter((m): m is Extract<PostMedia, { type: "image" }> => m.type === "image")
-  const files = media.filter((m): m is Extract<PostMedia, { type: "file" }> => m.type === "file")
-  if (pictures.length + files.length === 0) return { ok: true, value: media }
-  if (!viewer.userId || !can(viewer.role, "upload")) return { ok: false, error: "You cannot add pictures or files here.", status: 403 }
-  if (files.some((f) => f.store !== "community")) return { ok: false, error: "That file could not be added. Upload it again.", status: 400 }
+  if (pictures.length === 0) return { ok: true, value: media }
+  if (!viewer.userId || !can(viewer.role, "upload")) return { ok: false, error: "You cannot add pictures here.", status: 403 }
   /* A picture: on this project's storage, in the commenter's own folder for this community, and there. */
   const host = storageHost()
   const folder = memberPictureFolder(viewer.userId, community.id)
@@ -154,15 +155,11 @@ export async function checkCommentMedia(db: Db, community: Pick<CommunityRow, "i
   }
   const sizes = await Promise.all(paths.map((path) => storedObjectSize(db as SupabaseClient, PICTURE_BUCKET, path).catch(() => null)))
   if (sizes.some((size) => size === null)) return { ok: false, error: "That picture could not be added. Upload it again.", status: 400 }
-  /* A file: in the commenter's folder of this community's files, under the extension it was checked with. */
-  let named = new Map<string, string>()
-  if (files.length) {
-    const found = await communityFilesExist(db, community, viewer.userId, files.map((f) => ({ fileId: f.assetId, name: f.name })))
-    if (!found.ok) return refused(found, 400)
-    named = found.value
-  }
-  return { ok: true, value: media.map((m) => (m.type === "file" && named.has(m.assetId) ? { ...m, name: named.get(m.assetId)! } : m)) }
+  return { ok: true, value: media }
 }
+
+/** What a comment carrying a file is told (round 12). */
+export const COMMENT_FILES_REFUSED = "Files can't be added to comments. Share it in a post instead."
 
 /**
  * Rows into the thread a page draws: top level comments in order, each with
@@ -341,6 +338,7 @@ export function mediaLine(media: PostMedia[]): string {
   if (media.some((m) => m.type === "gif")) return "Sent a GIF"
   const pictures = media.filter((m) => m.type === "image").length
   if (pictures) return pictures === 1 ? "Sent a picture" : `Sent ${pictures} pictures`
+  if (media.some((m) => m.type === "embed")) return "Sent a video"
   return media.length ? (media.length === 1 ? "Sent a file" : `Sent ${media.length} files`) : ""
 }
 
@@ -383,7 +381,7 @@ export async function createComment(w: WriteContext, postId: string, raw: unknow
       .single(),
   )
   /* Part 96 not run: the words alone went up above (asked again without the column); something to carry cannot. */
-  if (carried.length && noMediaColumn(error)) return { ok: false, error: "Pictures and files in comments are not switched on yet. Send the words alone for now.", status: 503 }
+  if (carried.length && noMediaColumn(error)) return { ok: false, error: "Pictures and videos in comments are not switched on yet. Send the words alone for now.", status: 503 }
   if (error || !data) {
     console.error(`[communities] comment not written: ${reasonOf(error)}`)
     return { ok: false, error: "The comment did not go up. Try again.", status: missing(error as DbError | null) ? 503 : 500 }

@@ -6,9 +6,10 @@
  * ===========================================================================
  * Three ways in, by what the file is:
  *
- *   a picture   compressed here, into Storelib's picture storage under the
- *               member's own folder, then checked where it landed by the
- *               upload pipeline (confirmUpload)
+ *   a picture   compressed here (media-compress.ts: 2560px at most, WebP
+ *               or JPEG at 0.85, no EXIF, a GIF as it is), into Storelib's
+ *               picture storage under the member's own folder, then checked
+ *               where it landed by the upload pipeline (confirmUpload)
  *   a video     the community's video route (uploadCommunityVideo), with a
  *               still taken from the file here for the card's thumbnail
  *   any file    the community's file route: asked first (name, type, size),
@@ -19,10 +20,10 @@
  */
 import { createClient } from "@/lib/supabase/client"
 import { confirmUpload } from "@/lib/storage/confirm-upload"
-import { COMPRESS_PROFILES, compressImage } from "@/lib/images/compress"
 import { PICTURE_BUCKET, memberPictureFolder } from "@/lib/communities/post-media"
 import type { PostMedia } from "@/lib/communities/types"
 import { apiBase } from "./api"
+import { compressPostPicture } from "./media-compress"
 
 export type UploadKind = "image" | "video" | "file"
 
@@ -62,8 +63,8 @@ export function localPicture(url: string): string | null {
 export async function uploadPicture(file: File, userId: string, communityId: string): Promise<Extract<PostMedia, { type: "image" }>> {
   if (uploadKindOf(file) !== "image") throw new Error("That file is not a picture.")
   if (file.size > 25 * 1024 * 1024) throw new Error("That picture is over 25 MB.")
-  /* A GIF keeps its frames: compressing would leave the first one. */
-  const upload = /gif/i.test(file.type) ? file : await compressImage(file, COMPRESS_PROFILES["product-images"])
+  /* Lighter first: 2560px at most, WebP (or JPEG) at 0.85, no EXIF; a GIF keeps its frames (media-compress.ts). */
+  const upload = await compressPostPicture(file)
   const size = await pictureSize(upload)
   const supabase = createClient()
   const ext = (upload.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg"

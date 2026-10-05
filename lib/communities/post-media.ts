@@ -34,16 +34,29 @@ export const MEMBER_FILE_MAX_BYTES = 50 * MB
 export const STAFF_FILE_MAX_BYTES = 500 * MB
 
 /**
- * WHAT A COMMENT MAY CARRY (round 11). Pictures, one GIF and the member's
- * own files, four things at most, through the same checks as a post's
- * (feed.ts checkMedia) and then one more on the server: every picture and
- * every file must be the commenter's own upload for this community, in
- * their own folder, and there (comments.ts checkCommentMedia). No videos,
- * no link cards: a link in a comment's words already opens the viewer.
+ * WHAT A COMMENT MAY CARRY (round 12). Pictures, one GIF and one video by
+ * link (YouTube, Vimeo or Loom, played where it is), four things at most,
+ * through the same checks as a post's (feed.ts checkMedia) and then one more
+ * on the server: every picture must be the commenter's own upload for this
+ * community, in their own folder, and there (comments.ts checkCommentMedia).
+ * No files any more (round 11 took them; the owner asked for them gone): the
+ * server refuses one, and a comment that already carries one still shows it.
+ * No link cards: a link in a comment's words already opens the viewer.
  */
 export const MAX_COMMENT_MEDIA = 4
 export const MAX_COMMENT_GIFS = 1
-export const COMMENT_MEDIA_TYPES: readonly PostMedia["type"][] = ["image", "gif", "file"]
+export const MAX_COMMENT_EMBEDS = 1
+export const COMMENT_MEDIA_TYPES: readonly PostMedia["type"][] = ["image", "gif", "embed"]
+
+/**
+ * A PICTURE IS MADE LIGHTER IN THE BROWSER BEFORE IT IS SENT (round 12):
+ * its longest side at most 2560px, WebP at 0.85 (JPEG at the same quality
+ * where the browser cannot write WebP, as Safari cannot), its EXIF gone
+ * (where it was taken, the camera). A GIF goes as it is, frames and all.
+ * components/community/member/media-compress.ts does it.
+ */
+export const POST_PICTURE_MAX_EDGE = 2560
+export const POST_PICTURE_QUALITY = 0.85
 
 /** The bucket a member's pictures go to (media-upload.ts uploadPicture). */
 export const PICTURE_BUCKET = "product-images"
@@ -96,7 +109,7 @@ export function embedThumbUrl(value: unknown): string | null {
   const u = httpsUrl(value)
   if (!u) return null
   const h = u.hostname.toLowerCase()
-  return h === "i.ytimg.com" || h === "img.youtube.com" || h === "i.vimeocdn.com" ? u.toString() : null
+  return h === "i.ytimg.com" || h === "img.youtube.com" || h === "i.vimeocdn.com" || h === "cdn.loom.com" ? u.toString() : null
 }
 
 export interface EmbedRef {
@@ -105,6 +118,43 @@ export interface EmbedRef {
   url: string
   hash?: string
   thumb?: string
+}
+
+/** A video by address in a post or a comment: YouTube, Vimeo, or (round 12) Loom. */
+export type EmbedProvider = "youtube" | "vimeo" | "loom"
+export interface PostEmbedRef {
+  provider: EmbedProvider
+  id: string
+  url: string
+  hash?: string
+  thumb?: string
+}
+
+/** The names people know the players by. */
+export const EMBED_NAMES: Record<EmbedProvider, string> = { youtube: "YouTube", vimeo: "Vimeo", loom: "Loom" }
+
+const LOOM_ID = /^[0-9a-f]{32}$/i
+
+/** A Loom address (a share or an embed page) as a post keeps it, or null. */
+export function loomFromUrl(raw: unknown): PostEmbedRef | null {
+  const u = typeof raw === "string" && raw.length <= 500 ? (() => {
+    try {
+      return new URL(raw.trim())
+    } catch {
+      return null
+    }
+  })() : null
+  if (!u || (u.protocol !== "https:" && u.protocol !== "http:") || u.username || u.password) return null
+  if (u.hostname.replace(/^www\./, "").toLowerCase() !== "loom.com") return null
+  const m = /^\/(?:share|embed)\/([0-9a-f]{32})(?:\/|$)/i.exec(u.pathname)
+  if (!m || !LOOM_ID.test(m[1])) return null
+  const id = m[1].toLowerCase()
+  return { provider: "loom", id, url: `https://www.loom.com/share/${id}` }
+}
+
+/** A YouTube, Vimeo or Loom address, for a post or a comment; the gallery and covers keep to embedFromUrl. */
+export function postEmbedFromUrl(raw: unknown): PostEmbedRef | null {
+  return embedFromUrl(raw) ?? loomFromUrl(raw)
 }
 
 /** A YouTube or Vimeo address as a post keeps it, or null for anything else. */
@@ -122,7 +172,12 @@ export function embedFromUrl(raw: unknown): EmbedRef | null {
 }
 
 /** The privacy player's address for a video by address, set to play when it opens. */
-export function embedPlayerSrc(m: { provider: "youtube" | "vimeo"; id: string; hash?: string }, autoplay = true): string {
+export function embedPlayerSrc(m: { provider: EmbedProvider; id: string; hash?: string }, autoplay = true): string {
+  if (m.provider === "loom") {
+    const q = new URLSearchParams({ hide_owner: "true", hide_share: "true", hide_title: "true", hideEmbedTopBar: "true" })
+    if (autoplay) q.set("autoplay", "1")
+    return `https://www.loom.com/embed/${encodeURIComponent(m.id)}?${q}`
+  }
   if (m.provider === "youtube") {
     const q = new URLSearchParams({ rel: "0", modestbranding: "1", playsinline: "1" })
     if (autoplay) q.set("autoplay", "1")
@@ -168,11 +223,11 @@ export function fileSizeLabel(bytes?: number): string {
 }
 
 /** The one picture a post's card shows on its right: a picture, a video's poster, a GIF's still, a video by address, a link's picture. */
-export function cardThumb(media: PostMedia[]): { url: string; kind: "image" | "video" | "gif" | "link"; local: boolean } | null {
+export function cardThumb(media: PostMedia[]): { url: string; kind: "image" | "video" | "gif" | "link"; local: boolean; motion?: string } | null {
   for (const m of media) if (m.type === "image") return { url: m.url, kind: "image", local: true }
   for (const m of media) if (m.type === "video" && m.poster) return { url: m.poster, kind: "video", local: true }
   for (const m of media) if (m.type === "embed" && m.thumb) return { url: m.thumb, kind: "video", local: false }
-  for (const m of media) if (m.type === "gif") return { url: m.still, kind: "gif", local: false }
+  for (const m of media) if (m.type === "gif") return { url: m.still, kind: "gif", local: false, motion: m.url }
   for (const m of media) if (m.type === "link" && m.image) return { url: m.image, kind: "link", local: false }
   return null
 }
@@ -190,6 +245,8 @@ export interface CardPicture {
   kind: "image" | "video" | "gif" | "link"
   w?: number
   h?: number
+  /** A GIF's moving picture (round 12): it plays while the card is on screen, the still stands in otherwise. */
+  motion?: string
 }
 
 /** Every picture a post carries, in its order (a GIF by its still, a video by its poster), else its link's picture. */
@@ -199,7 +256,7 @@ export function cardPictures(media: PostMedia[]): CardPicture[] {
     if (m.type === "image") out.push({ url: m.url, local: true, kind: "image", w: m.w, h: m.h })
     else if (m.type === "video" && m.poster) out.push({ url: m.poster, local: true, kind: "video", w: m.w, h: m.h })
     else if (m.type === "embed" && m.thumb) out.push({ url: m.thumb, local: false, kind: "video" })
-    else if (m.type === "gif") out.push({ url: m.still, local: false, kind: "gif", w: m.w, h: m.h })
+    else if (m.type === "gif") out.push({ url: m.still, local: false, kind: "gif", w: m.w, h: m.h, motion: m.url })
   }
   if (!out.length) {
     const link = media.find((m): m is Extract<PostMedia, { type: "link" }> => m.type === "link" && !!m.image)
@@ -219,7 +276,7 @@ export type ViewerItem =
   | { kind: "image"; url: string; w?: number; h?: number; raw?: boolean }
   | { kind: "gif"; url: string; still: string; w?: number; h?: number }
   | { kind: "video"; videoId: string; poster?: string; w?: number; h?: number }
-  | { kind: "embed"; provider: "youtube" | "vimeo"; id: string; hash?: string; thumb?: string; title?: string }
+  | { kind: "embed"; provider: EmbedProvider; id: string; hash?: string; thumb?: string; title?: string }
   | { kind: "clip"; url: string; poster?: string }
 
 export function viewerItems(media: PostMedia[]): ViewerItem[] {
@@ -249,7 +306,7 @@ export function bodyEmbeds(text: string | null | undefined, media: PostMedia[]):
   const out: EmbedMedia[] = []
   for (const m of text.matchAll(URL_IN_WORDS)) {
     if (room <= 0) break
-    const ref = embedFromUrl(m[0])
+    const ref = postEmbedFromUrl(m[0])
     if (!ref || have.has(`${ref.provider}:${ref.id}`)) continue
     have.add(`${ref.provider}:${ref.id}`)
     room--

@@ -24,9 +24,19 @@ import { SHEET_EASE } from "@/components/ui/bottom-sheet"
 
 export const SLIDE_MS = 420
 export const FADE_IN_MS = 260
-export const HIGHLIGHT_MS = 1800
+/*
+  THE HIGHLIGHT SETTLES, IT NEVER FLASHES (round 12). The tint is there from
+  the post's first frame (it fades in with the post itself, so there is no
+  moment where a yellow block appears on its own), holds while the post
+  lands, then eases out over HIGHLIGHT_FADE_MS on a long soft curve. The
+  colour is a very light warm paper (#fdf8ec), a touch of warmth on white
+  rather than a yellow.
+*/
+export const HIGHLIGHT_HOLD_MS = 450
+export const HIGHLIGHT_FADE_MS = 1200
+export const HIGHLIGHT_MS = HIGHLIGHT_HOLD_MS + HIGHLIGHT_FADE_MS
 /** The warm tint a new post is marked with, under its words (no violet in the member area). */
-const HIGHLIGHT = "#fbf5e4"
+export const HIGHLIGHT = "#fdf8ec"
 
 function reduced(): boolean {
   return typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
@@ -62,7 +72,7 @@ export function highlight(el: HTMLElement) {
   const tint = document.createElement("span")
   tint.setAttribute("aria-hidden", "true")
   tint.setAttribute("data-post-highlight", "")
-  tint.style.cssText = `position:absolute;inset:0;border-radius:inherit;background:${HIGHLIGHT};pointer-events:none;z-index:-1;opacity:0`
+  tint.style.cssText = `position:absolute;inset:0;border-radius:inherit;background:${HIGHLIGHT};pointer-events:none;z-index:-1;opacity:0;will-change:opacity`
   const prev = { position: el.style.position, isolation: el.style.isolation }
   if (getComputedStyle(el).position === "static") el.style.position = "relative"
   el.style.isolation = "isolate"
@@ -73,7 +83,8 @@ export function highlight(el: HTMLElement) {
     el.style.isolation = prev.isolation
   }
   if (typeof tint.animate !== "function") return void window.setTimeout(done, HIGHLIGHT_MS)
-  const a = tint.animate([{ opacity: 0 }, { opacity: 1, offset: 0.12 }, { opacity: 1, offset: 0.45 }, { opacity: 0 }], { duration: HIGHLIGHT_MS, easing: "ease-out" })
+  const hold = HIGHLIGHT_HOLD_MS / HIGHLIGHT_MS
+  const a = tint.animate([{ opacity: 1, easing: "linear" }, { opacity: 1, offset: hold, easing: "cubic-bezier(0.4, 0, 0.2, 1)" }, { opacity: 0 }], { duration: HIGHLIGHT_MS })
   a.onfinish = done
   a.oncancel = done
 }

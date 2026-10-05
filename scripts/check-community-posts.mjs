@@ -272,6 +272,9 @@ async function open(name, path, vp, opts = {}) {
   const navs = []
   const live = { now: {}, max: {}, sent: [], comments: 0 }
   p.on("pageerror", (e) => errors.push(String(e).slice(0, 300)))
+  /* Round 12: a script run before the page's own (the AudioContext stand in, say). */
+  if (opts.before) await p.evaluateOnNewDocument(opts.before)
+  if (opts.reduced) await p.emulateMediaFeatures([{ name: "prefers-reduced-motion", value: "reduce" }])
   if (process.env.DEBUG) p.on("console", (m) => console.log("    [page]", m.text()))
   await p.setRequestInterception(true)
   const as = new URL(`${ORIGIN}${path}`).searchParams.get("as") || "u-me"
@@ -308,6 +311,12 @@ async function open(name, path, vp, opts = {}) {
           r.respond({ status: refuse ? 403 : 200, contentType: "application/json", body: JSON.stringify(refuse ? { error: "muted" } : toggle.startsWith("like:") ? { on: sent.on, count: (opts.likeBase ?? 0) + (sent.on ? 1 : 0) } : { on: sent.on }) })
         }, opts.wait ?? 300)
       }
+      /* Round 12: the safety checks hold it for a moderator (202, held, the server's own words). */
+      if (opts.held && method === "POST" && (short.endsWith("/posts") || /\/posts\/[^/]+\/comments$/.test(short))) {
+        live.held = [...(live.held || []), short]
+        const post = short.endsWith("/posts")
+        return reply(post ? { post: { id: "p-held", title: sent.title }, held: true, message: "Your post is waiting for a moderator. You will hear when it is up." } : { comment: { id: "c-held", body: sent.body }, held: true, message: "Your comment is waiting for a moderator." }, 202, 200)
+      }
       if (/\/posts\/[^/]+\/comments$/.test(short) && method === "POST") {
         const refuse = /refuse/.test(sent.body || "")
         const n = ++live.comments
@@ -315,6 +324,21 @@ async function open(name, path, vp, opts = {}) {
         const notMine = /not mine/.test(sent.body || "")
         live.commentBodies = [...(live.commentBodies || []), sent]
         return setTimeout(() => r.respond({ status: refuse ? 403 : notMine ? 400 : 201, contentType: "application/json", body: JSON.stringify(refuse ? { error: "muted" } : notMine ? { error: "That picture could not be added. Upload it again." } : { comment: { id: `c-new-${n}`, postId: "x", parentId: sent.parentId ?? null, body: sent.body, status: "published", deleted: false, author: { id: "u-me", name: "Sam Carter", username: "samc", avatarUrl: null, role: "moderator", level: 3 }, reactionCount: 0, reacted: false, createdAt: new Date().toISOString(), editedAt: null, replies: [], canEdit: true, canModerate: true, ...(sent.media ? { media: sent.media } : {}) } }) }), opts.commentWait ?? 400)
+      }
+      /* Round 12: a report lands; a poll's vote is counted from the fixture's own numbers (3, 2, 1) plus the member's answer. */
+      if (short.endsWith("/reports") && method === "POST") {
+        live.reports = [...(live.reports || []), sent]
+        return reply({ ok: true, already: false }, 200, 250)
+      }
+      const vote = /\/polls\/([^/]+)\/vote$/.exec(short)
+      if (vote && method === "POST") {
+        const id = vote[1]
+        const multiple = id.endsWith("b2")
+        const base = [3, 2, 1]
+        const labels = multiple ? ["Figma", "Framer", "Paper"] : ["Tuesday evening", "Thursday evening", "Saturday morning"]
+        const options = ["a", "b", "c"].map((k, i) => ({ id: `${id}-${k}`, label: labels[i], voteCount: base[i] + (sent.optionIds.includes(`${id}-${k}`) ? 1 : 0), voted: sent.optionIds.includes(`${id}-${k}`) }))
+        live.votes = [...(live.votes || []), sent.optionIds]
+        return reply({ poll: { id, question: multiple ? "Which tools do you use?" : "When should critique night be?", multiple, closesAt: null, closed: false, totalVotes: options.reduce((n, o) => n + o.voteCount, 0), options } }, 200, opts.voteWait ?? 250)
       }
       if (short.includes("/gifs") && opts.giphy) {
         const u = new URL(url)
@@ -552,10 +576,11 @@ try {
       })
       if (!card["p-intro"]) throw new Error(`the feed did not draw: ${JSON.stringify(errors)}`)
       /* Round 9 changed this on purpose (the owner asked): a phone draws the pictures under the words (ROWS below), no thumbnail on the right. */
-      if (phone) expect(card["p-intro"].thumb?.w === 0 && card["p-intro"].thumb?.h === 0, "a phone draws no thumbnail on the right (the pictures go under the words)", card["p-intro"].thumb)
+      if (phone) expect(card["p-intro"].thumb === null || (card["p-intro"].thumb.w === 0 && card["p-intro"].thumb.h === 0), "a phone draws no thumbnail on the right (the pictures go under the words)", card["p-intro"].thumb)
       else {
-        expect(card["p-intro"].thumb?.w === 96 && card["p-intro"].thumb?.h === 96, "the card's one thumbnail is 96px", card["p-intro"].thumb)
-        expect(card["p-intro"].thumb?.rightOfTitle && card["p-intro"].thumb.right <= 24, "it sits on the right, beside the title and the words", card["p-intro"].thumb)
+        /* Round 12 changed this on purpose (the owner asked): two or more pictures go under the words on a computer too (R12 CARD below). */
+        expect(card["p-intro"].thumb === null, "a computer draws no right thumbnail for a post with several pictures", card["p-intro"].thumb)
+        expect(card["p-gif"].thumb?.w === 96 && card["p-gif"].thumb?.h === 96 && card["p-gif"].thumb.rightOfTitle && card["p-gif"].thumb.right <= 24, "one picture keeps its 96px thumbnail on the right, beside the title and the words", card["p-gif"].thumb)
       }
       expect(card["p-video"].thumb?.kind === "video" && card["p-gif"].thumb?.kind === "gif" && card["p-link"].thumb?.kind === "link" && card["p-text"].thumb === null, "a video by address shows its picture, a GIF its still, a link its picture, text nothing", Object.fromEntries(Object.entries(card).map(([k, v]) => [k, v.thumb?.kind ?? null])))
       expect(card["p-intro"].level === "2" && card["p-video"].level === "6", "the author's level sits on their picture", [card["p-intro"].level, card["p-video"].level])
@@ -632,7 +657,7 @@ try {
 
       /* A link with its card. */
       await p.click('[data-composer-tool="link"]')
-      await p.type("[data-composer-link-field] input", "example.com/talk")
+      await p.type('[data-link-field="link"] input', "example.com/talk")
       await p.keyboard.press("Enter")
       await p.waitForSelector("[data-link-card]", { timeout: 4000 }).catch(() => {})
       expect(!!(await p.$("[data-link-card]")), "a link brings its card")
@@ -640,7 +665,7 @@ try {
       /* A video by address. */
       await p.click('[data-composer-tool="video"]')
       await sleep(200)
-      await p.type('[data-composer-link-field="video"] input', "https://youtu.be/dQw4w9WgXcQ")
+      await p.type('[data-link-field="video"] input', "https://youtu.be/dQw4w9WgXcQ")
       await p.keyboard.press("Enter")
       await sleep(300)
       expect(!!(await p.$('[data-attachment="embed"]')), "a YouTube address becomes the video")
@@ -1426,13 +1451,15 @@ try {
         expect(rows.intro.shown && rows.intro.kind === "pair" && rows.intro.x === 16 && rows.intro.w === 358 && rows.intro.belowWords && rows.intro.radius === "12px" && rows.intro.lazy, "MEDIA under the words, the row's width inside its 16px padding, rounded 12px, lazy (two side by side)", rows.intro)
         expect(rows.video.shown && rows.video.kind === "single" && Math.abs(rows.video.h - (rows.video.w * 9) / 16) <= 1.5, "one video by address: a 16:9 box", rows.video)
         expect(rows.link.shown && rows.text.shown === false, "a link's picture shows, a post with only words has nothing", { link: rows.link.shown, text: rows.text.shown })
-        expect(rows.intro.thumb === "none" && rows.video.thumb === "none", "and no thumbnail on the right on a phone", [rows.intro.thumb, rows.video.thumb])
+        expect((rows.intro.thumb === null || rows.intro.thumb === "none") && rows.video.thumb === "none", "and no thumbnail on the right on a phone", [rows.intro.thumb, rows.video.thumb])
         const small = await smallTargets(p, "[data-feed-list]")
         expect(small.length === 0, "every control in a row is at least 40px tall", small.slice(0, 6))
       } else {
         expect(rows.posts.every((c) => c.radius === "16px" && c.sides === "1px 1px 1px 1px" && c.x > 300 && c.w < 760), "ROWS on a computer: the cards are as they were (1px edge, 16px rounding, in the column)", rows.posts.map((c) => [c.x, c.w, c.radius, c.sides]))
         expect(rows.posts.slice(1).every((c, i) => c.top - rows.posts[i].bottom === 12), "with the 12px gap between them", rows.posts.map((c) => c.top))
-        expect(!rows.intro.shown && rows.intro.thumb === "block", "and the thumbnail on the right, nothing under the words", rows.intro)
+        /* Round 12 (the owner asked): several pictures go under the words on a computer too; one keeps the thumbnail on the right. */
+        expect(rows.intro.shown && rows.intro.kind === "pair" && rows.intro.belowWords && rows.intro.thumb === null, "several pictures: under the words, no thumbnail on the right", rows.intro)
+        expect(!rows.video.shown && rows.video.thumb === "block", "one picture: the thumbnail on the right, nothing under the words", rows.video)
       }
       const side = await sideScroll(p)
       expect(side.scroll <= side.width, "nothing scrolls sideways", side)
@@ -1861,6 +1888,12 @@ try {
               next: card ? Math.round(ty(card.nextElementSibling) ?? 0) : null,
               sheet: sheet ? Math.round(sheet.getBoundingClientRect().top) : null,
               sheetNode: sheet ? (sheet.__id ||= Math.random()) : null,
+              /* Round 12: every picture of the member inside the card, its size and its place in the card. */
+              avs: card ? [...card.querySelectorAll("[data-composer-avatar], [data-composer-editor] img, [data-composer-editor] [data-avatar]")].map((a) => {
+                const r = a.getBoundingClientRect()
+                const c = card.getBoundingClientRect()
+                return `${Math.round(r.width)}x${Math.round(r.height)}@${Math.round(r.left - c.left)},${Math.round(r.top - c.top)}`
+              }) : [],
             })
             window.__ffr = requestAnimationFrame(loop)
           }
@@ -1910,6 +1943,8 @@ try {
       const c = runs.close
       expect(o.every((f) => f.same) && c.every((f) => f.same), "FLASH: the composer's card and its row are the same nodes on every frame of the open and the Cancel (nothing taken out and put back)", { open: o.filter((f) => !f.same).length, close: c.filter((f) => !f.same).length })
       expect(o.every((f) => f.cardOp === 1) && c.every((f) => f.cardOp === 1), "the card's own opacity never moves (no fade from nothing)", [...new Set([...o, ...c].map((f) => f.cardOp))])
+      const avs = [...new Set([...o, ...c].map((f) => f.avs.join(" ")))]
+      expect(avs.length === 1 && /^40x40@/.test(avs[0]) && !avs[0].includes(" "), "NO MORPH (round 12): one picture in the card, 40px, in the same place on every frame of the open and the Cancel", avs)
       if (phone) {
         const os = o.filter((f) => f.sheet !== null)
         const first = o.findIndex((f) => f.sheet !== null)
@@ -1974,7 +2009,7 @@ try {
       await sleep(500)
       expect(!(await p.$("[data-lightbox]")), "Escape closes it", null)
 
-      /* Sending one with a picture, a file and a GIF. */
+      /* Round 12: sending one with a picture, a video by link and a GIF; a file is turned away in the box (comments take no files). */
       const dir = join(stubs, "files")
       mkdirSync(dir, { recursive: true })
       const png = join(dir, "board.png")
@@ -1983,17 +2018,26 @@ try {
       writeFileSync(pdf, "%PDF-1.4\n%probe\n")
       await p.evaluate((s) => document.querySelector(s).scrollIntoView({ block: "center" }), scope)
       const input = await p.$(`${scope} [data-comment-file-input]`)
+      expect(!(await p.$(`${scope} [data-comment-tool="file"]`)) && !!(await p.$(`${scope} [data-comment-tool="image"]`)) && (await p.$eval(`${scope} [data-comment-file-input]`, (i) => i.accept)) === "image/*", "NO FILES: the paperclip is gone; the picture button takes pictures only")
       await input.uploadFile(png, pdf)
-      await p.waitForFunction((s) => document.querySelectorAll(`${s} [data-comment-pick][data-comment-pick-ready]`).length === 2, { timeout: 6000 }, scope).catch(() => {})
+      await p.waitForFunction((s) => document.querySelectorAll(`${s} [data-comment-pick][data-comment-pick-ready]`).length === 1, { timeout: 6000 }, scope).catch(() => {})
+      const fileSaid = await p.evaluate(() => [...document.querySelectorAll('[role="status"]')].map((t) => t.textContent).join(" | "))
+      expect(/Share files in a post/.test(fileSaid), "a file picked anyway is turned away with a sentence, the picture kept", fileSaid)
+      await press(p, `${scope} [data-comment-tool="video"]`)
+      await p.waitForSelector(`${scope} [data-link-field="video"] input`, { timeout: 3000 }).catch(() => null)
+      await p.type(`${scope} [data-link-field="video"] input`, "https://youtu.be/dQw4w9WgXcQ")
+      await sleep(500)
+      await p.keyboard.press("Enter")
+      await sleep(300)
       await press(p, `${scope} [data-comment-tool="gif"] button`)
       await p.waitForSelector("[data-gif]", { visible: true, timeout: 4000 }).catch(() => null)
       await sleep(300)
       await press(p, "[data-gif]")
       await sleep(phone ? 500 : 250)
       const picks = await p.evaluate((s) => [...document.querySelectorAll(`${s} [data-comment-pick]`)].map((x) => x.getAttribute("data-comment-pick")), scope)
-      expect(picks.join(",") === "image,file,gif", "a picture, a file and a GIF wait at the top of the box", picks)
+      expect(picks.join(",") === "image,embed,gif", "a picture, a video link and a GIF wait at the top of the box", picks)
       const filesRoute = calls.filter((c) => /\/files$/.test(c.url) && c.method === "POST").length
-      expect(filesRoute === 2, "the file went through the community's file route (asked, then checked)", filesRoute)
+      expect(filesRoute === 0, "nothing went to the file route", filesRoute)
       await p.type(`${scope} textarea`, "Boards attached")
       await sleep(150)
       await p.evaluate((s) => document.querySelector(s).scrollIntoView({ block: "center" }), scope)
@@ -2024,13 +2068,16 @@ try {
       expect(land.length > 4 && tys[0] > 6 && tys.every((v, i) => i === 0 || v <= tys[i - 1] + 0.05) && tys.at(-1) === 0, "LANDING: the sent comment rises into its place, never back down", tys.slice(0, 16))
       expect(land[0].op < 0.5 && land.at(-1).op === 1 && land[0].media, "it fades in from its first frame with what it carries, and ends whole once confirmed", { first: land[0].op, last: land.at(-1).op })
       const sentBody = live.commentBodies?.at(-1)
-      expect(JSON.stringify((sentBody?.media || []).map((m) => m.type)) === JSON.stringify(["image", "file", "gif"]) && sentBody.media[1].store === "community", "the POST carries the picture, the file (the member's own, in the community's folder) and the GIF", (sentBody?.media || []).map((m) => m.type))
+      expect(JSON.stringify((sentBody?.media || []).map((m) => m.type)) === JSON.stringify(["image", "embed", "gif"]) && sentBody.media[1].provider === "youtube", "the POST carries the picture, the YouTube video and the GIF", (sentBody?.media || []).map((m) => m.type))
       const mine = await p.evaluate(() => {
         const rows = [...document.querySelectorAll("[data-comment]")]
         const last = rows.at(-1)
-        return { id: last.getAttribute("data-comment"), tiles: last.querySelectorAll("[data-comment-tile]").length, files: last.querySelectorAll("[data-comment-file]").length, boxEmpty: !document.querySelector('[data-comment-box="comment"] [data-comment-pick]') }
+        return { id: last.getAttribute("data-comment"), tiles: last.querySelectorAll("[data-comment-tile]").length, embeds: last.querySelectorAll('[data-comment-embed="youtube"] [data-embed-player]').length, files: last.querySelectorAll("[data-comment-file]").length, boxEmpty: !document.querySelector('[data-comment-box="comment"] [data-comment-pick]') }
       })
-      expect(/^c-new-/.test(mine.id) && mine.tiles === 2 && mine.files === 1 && mine.boxEmpty, "posted: confirmed with its picture, GIF and file under it, the box empty for the next", mine)
+      expect(/^c-new-/.test(mine.id) && mine.tiles === 2 && mine.embeds === 1 && mine.files === 0 && mine.boxEmpty, "posted: confirmed with its picture and GIF as tiles and the video as a player under it, the box empty for the next", mine)
+      await press(p, '[data-comment-embed="youtube"] [data-embed-play]')
+      await sleep(300)
+      expect(!!(await p.$('[data-comment-embed="youtube"] [data-embed-state="playing"] iframe[src*="youtube-nocookie.com"]')), "the video plays inline in the comment (YouTube's privacy player)")
       await p.evaluate(() => [...document.querySelectorAll("[data-comment]")].at(-1).scrollIntoView({ block: "center" }))
       await sleep(250)
       await p.screenshot({ path: join(shots, `${label}-r11-comment-sent.png`), captureBeyondViewport: false })
@@ -2830,6 +2877,735 @@ try {
       expect(nextYs[0] < -60 && nextYs.every((v, i) => i === 0 || v >= nextYs[i - 1]) && nextYs.at(-1) === 0, "the posts under it slide down to make room (their offset rising to 0)", nextYs.slice(0, 10))
       expect(end.top >= 60 && end.top < 844 * 0.6, "and it ends in sight, under the bar", end.top)
       if (!phone) expect(ys.at(-1) < y0 && ysteps.filter((d) => d > 0).length >= 4 && Math.max(...ysteps) < 300, "scrolled away, the page scrolls smoothly up to it (several frames, none a jump)", { from: y0, to: ys.at(-1), frames: ysteps.filter((d) => d > 0).length, biggest: Math.max(...ysteps) })
+      expect(errors.length === 0, "no page error", errors)
+      await p.close()
+    }
+
+    /* ══ ROUND 12 (P) ═══════════════════════════════════════════════ */
+
+    /* ── R12 CARD: two or more pictures under the words on a computer too ── */
+    if (want("r12card")) {
+      const { p, errors } = await open("feed", "/community/studio-notes", vp)
+      const c = await p.evaluate(() => {
+        const card = document.querySelector('[data-post="p-intro"]')
+        const m = card.querySelector('[data-card-media="pair"]')
+        const ex = card.querySelector("[data-post-excerpt]")
+        const r = (e) => e.getBoundingClientRect()
+        if (!m) return null
+        const tiles = [...m.querySelectorAll("[data-card-media-tile]")].map((t) => ({ w: Math.round(r(t).width), h: Math.round(r(t).height) }))
+        return { w: Math.round(r(m).width), cardW: Math.round(r(card).width), inside: r(m).left >= r(card).left && r(m).right <= r(card).right, below: r(m).top >= r(ex).bottom - 1, tiles, more: m.querySelector("[data-card-media-more]")?.textContent ?? null, thumb: !!card.querySelector("[data-post-thumb]") }
+      })
+      expect(!!c && c.inside && c.below && !c.thumb, "R12 CARD: a post with several pictures shows them inside the card, under its words, no right thumbnail", c)
+      if (!phone) expect(!!c && c.tiles.length === 2 && c.tiles.every((t) => Math.abs(t.w / t.h - 4 / 3) < 0.03) && c.w > 500, "on a computer: two side by side at 4:3 across the card", c?.tiles)
+      expect(c?.more === "+2", "the second says how many more", c?.more)
+      const one = await p.evaluate(() => ({ thumb: !!document.querySelector('[data-post="p-gif"] [data-post-thumb]'), under: getComputedStyle(document.querySelector('[data-post="p-gif"] [data-card-media]')).display }))
+      if (!phone) expect(one.thumb && one.under === "none", "a post with one picture keeps its thumbnail on the right", one)
+      await (await p.$('[data-post="p-intro"]')).screenshot({ path: join(shots, `${label}-r12-card-pair.png`) })
+      expect(errors.length === 0, "no page error", errors)
+      await p.close()
+    }
+
+    /* ── R12 GIF: GIFs play in the feed and the opened post, rest when off screen ── */
+    if (want("r12gif")) {
+      const { p, errors } = await open("long", "/community/studio-notes", vp)
+      /* Each card draws its GIF twice (the right thumbnail for a computer, the pictures under the words for a phone), one of them hidden: only the one drawn counts. Where it is comes from its card (a card off screen is not laid out). */
+      const read = () => p.evaluate(() => [...document.querySelectorAll("[data-gif-state]")].filter((g) => getComputedStyle(g.closest("[data-post-thumb], [data-card-media]") ?? g).display !== "none").map((g) => {
+        const r = (g.closest("[data-post]") ?? g).getBoundingClientRect()
+        return { state: g.getAttribute("data-gif-state"), on: r.bottom > -120 && r.top < innerHeight + 120, post: g.closest("[data-post]")?.getAttribute("data-post") }
+      }))
+      await sleep(400)
+      const top = await read()
+      const shownTop = top.filter((g) => g.on)
+      expect(shownTop.length >= 1 && shownTop.every((g) => g.state === "playing"), "R12 GIF: a GIF in sight in the feed plays (its moving picture in the box)", shownTop)
+      expect(top.filter((g) => !g.on).every((g) => g.state === "paused"), "one far below rests on its still", top.filter((g) => !g.on).length)
+      const gifPost = await p.evaluate(() => document.querySelector('[data-post="p-gif"] [data-gif-state]')?.getAttribute("src")?.slice(0, 60))
+      await p.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
+      await sleep(500)
+      const bottom = await read()
+      const firstNow = bottom.find((g) => g.post === "p-gif")
+      expect(firstNow && !firstNow.on && firstNow.state === "paused", "scrolled away, the first one is paused (its still)", firstNow)
+      expect(bottom.filter((g) => g.on).every((g) => g.state === "playing"), "and the ones now in sight play", bottom.filter((g) => g.on).length)
+      expect(!!gifPost, "the moving picture is a real address", gifPost)
+      await p.close()
+      const m = await open("media", "/community/studio-notes/post/m-many?post=m-many", vp)
+      await sleep(400)
+      const tile = await m.p.evaluate(() => document.querySelector('[data-media-tile="gif"] [data-gif-state]')?.getAttribute("data-gif-state"))
+      await m.p.evaluate(() => document.querySelector('[data-media-tile="gif"]')?.scrollIntoView({ block: "center" }))
+      await sleep(300)
+      const tile2 = await m.p.evaluate(() => document.querySelector('[data-media-tile="gif"] [data-gif-state]')?.getAttribute("data-gif-state"))
+      expect(tile2 === "playing", "in the opened post the GIF plays too", [tile, tile2])
+      await m.p.close()
+      const rm = await open("long", "/community/studio-notes", vp, { reduced: true })
+      await sleep(400)
+      const still = await rm.p.evaluate(() => [...document.querySelectorAll("[data-gif-state]")].map((g) => g.getAttribute("data-gif-state")))
+      expect(still.length > 0 && still.every((x) => x === "paused"), "with reduced motion every GIF stays on its still", still.length)
+      await rm.p.close()
+      expect(errors.length === 0, "no page error", errors)
+    }
+
+    /* ── R12 SOUND: like and unlike, a tiny Web Audio sound ── */
+    if (want("r12sound")) {
+      const fakeAudio = () => {
+        window.__tones = []
+        window.__ctx = 0
+        class Param {
+          constructor(host, key) { this.host = host; this.key = key }
+          setValueAtTime(v) { this.host[this.key] = Math.max(this.host[this.key] || 0, v) }
+          exponentialRampToValueAtTime(v) { this.host[this.key] = Math.max(this.host[this.key] || 0, v) }
+        }
+        class Ctx {
+          constructor() { window.__ctx++; this.state = "running"; this.currentTime = 0; this.destination = {} }
+          createOscillator() {
+            const o = { type: "sine", connect(g) { o.gain = g }, disconnect() {}, stop() {}, start() { window.__tones.push({ at: performance.now(), peak: o.gain?.peak ?? 0, hz: o.hz }) } }
+            o.frequency = new Param(o, "hz")
+            return o
+          }
+          createGain() { const g = { connect() {}, disconnect() {} }; g.gain = new Param(g, "peak"); return g }
+          resume() { return Promise.resolve() }
+        }
+        window.AudioContext = Ctx
+      }
+      const sounds = async (p) => p.evaluate(() => {
+        const t = window.__tones.slice()
+        window.__tones = []
+        const groups = []
+        for (const x of t) if (!groups.length || x.at - groups.at(-1).at > 30) groups.push({ at: x.at, peak: x.peak, n: 1 })
+        else { groups.at(-1).n++; groups.at(-1).peak = Math.max(groups.at(-1).peak, x.peak) }
+        return groups.map((g) => ({ n: g.n, peak: Math.round(g.peak * 1000) / 1000 }))
+      })
+      const { p, errors } = await open("feed", "/community/studio-notes", vp, { before: fakeAudio })
+      const like = '[data-post="p-text"] [data-like]'
+      await press(p, like)
+      await sleep(250)
+      const a = await sounds(p)
+      await press(p, like)
+      await sleep(250)
+      const b = await sounds(p)
+      expect(a.length === 1 && a[0].peak > 0 && a[0].peak <= 0.06, "R12 SOUND: a like plays one tiny sound (quiet)", a)
+      expect(b.length === 1 && b[0].peak > 0 && b[0].peak < a[0]?.peak, "an unlike plays one, softer", b)
+      await p.evaluate(() => localStorage.setItem("storelib:sounds", "off"))
+      await press(p, like)
+      await sleep(250)
+      const c = await sounds(p)
+      expect(c.length === 0, "with Sounds off nothing plays", c)
+      await p.evaluate(() => localStorage.removeItem("storelib:sounds"))
+      expect(errors.length === 0, "no page error", errors)
+      await p.close()
+      const r = await open("feed", "/community/studio-notes", vp, { before: fakeAudio, reduced: true })
+      await press(r.p, like)
+      await sleep(250)
+      const d = await sounds(r.p)
+      expect(d.length === 0, "with reduced motion nothing plays", d)
+      await r.p.close()
+    }
+
+    /* ── R12 REPORT: the report sheet / dialog, the toast, the POST ── */
+    if (want("r12report")) {
+      const { p, errors, live } = await open("feed", "/community/studio-notes", vp)
+      await press(p, '[data-post="p-text"] [aria-label="More"]')
+      await sleep(450)
+      const item = await p.evaluateHandle(() => [...document.querySelectorAll('[role="menuitem"], [data-sheet] button, button')].find((b) => b.textContent.trim() === "Report post"))
+      await item.asElement()?.click()
+      const box = phone ? "[data-report-sheet]" : "[data-report-dialog]"
+      /* The way in, frame by frame: its opacity and place, so it is seen to arrive rather than appear. */
+      await p.evaluate((sel) => {
+        window.__rp = []
+        const loop = () => {
+          const el = document.querySelector(sel)
+          const panel = el?.closest("[data-sheet-panel], [role=dialog]") ?? el
+          if (panel) {
+            const r = panel.getBoundingClientRect()
+            window.__rp.push({ op: Number(getComputedStyle(panel).opacity), top: Math.round(r.top), bottom: Math.round(r.bottom) })
+          }
+          window.__rpr = requestAnimationFrame(loop)
+        }
+        window.__rpr = requestAnimationFrame(loop)
+      }, box)
+      await sleep(700)
+      const arrive = await p.evaluate(() => (cancelAnimationFrame(window.__rpr), window.__rp))
+      const shown = await p.evaluate((sel) => {
+        const el = document.querySelector(sel)
+        if (!el) return null
+        const panel = el.closest("[data-sheet-panel], [role=dialog]") ?? el
+        const r = panel.getBoundingClientRect()
+        return { reasons: el.querySelectorAll("[data-report-reason]").length, send: document.querySelector("[data-report-send]")?.disabled, top: Math.round(r.top), bottom: Math.round(r.bottom), left: Math.round(r.left), right: Math.round(r.right), title: panel.textContent.slice(0, 20) }
+      }, box)
+      expect(!!shown && shown.reasons === 6 && shown.send === true, phone ? "R12 REPORT: a Storelib sheet with the reasons, Send waits for one" : "R12 REPORT: a small dialog with the reasons, Send waits for one", shown)
+      expect(!!shown && shown.top >= 0 && shown.bottom <= vp.height + 1 && shown.left >= 0 && shown.right <= vp.width, "whole on screen", shown)
+      const tops = arrive.map((f) => f.top)
+      const ops = arrive.map((f) => f.op)
+      expect(phone ? tops.length > 3 && tops[0] > tops.at(-1) + 40 : ops.length > 3 && ops[0] < 0.9 && ops.at(-1) === 1, phone ? "it slides up (not a jump)" : "it fades and settles in (not a jump)", phone ? tops.slice(0, 8) : ops.slice(0, 8))
+      await sleep(600)
+      /* Nothing of the page shows through it: what is drawn at points across it is the sheet or the dialog, each layer up to the top fully opaque. */
+      const solid = await p.evaluate((sel) => {
+        const el = document.querySelector(sel)
+        const panel = el.closest("[data-sheet-panel], [role=dialog]") ?? el
+        const r = panel.getBoundingClientRect()
+        const pts = [0.2, 0.5, 0.8].flatMap((fx) => [0.3, 0.6, 0.9].map((fy) => [r.left + r.width * fx, r.top + r.height * fy]))
+        const hits = pts.map(([x, y]) => panel.contains(document.elementFromPoint(x, y)))
+        let op = 1
+        for (let n = panel; n && n !== document.documentElement; n = n.parentElement) op *= Number(getComputedStyle(n).opacity)
+        return { inside: hits.every(Boolean), opacity: Math.round(op * 1000) / 1000 }
+      }, box)
+      expect(solid.inside && solid.opacity >= 0.99, "it is solid: nothing of the page is drawn over it or shows through", solid)
+      await sleep(1200)
+      await shot(p, `${label}-r12-report`)
+      await press(p, '[data-report-reason="spam"]')
+      await p.type("[data-report-note]", "Same link posted in five spaces")
+      await press(p, "[data-report-send]")
+      await sleep(900)
+      const after = await p.evaluate((sel) => ({ open: !!document.querySelector(sel), toast: document.querySelector("[data-community-toast]")?.textContent ?? null }), box)
+      const sent = live.reports?.at(-1)
+      expect(sent?.targetType === "post" && sent?.targetId === "p-text" && sent?.reason === "spam" && /five spaces/.test(sent?.note ?? ""), "the report is sent to the community's report route (into the moderators' queue)", sent)
+      expect(!after.open && after.toast === "Thanks. The moderators will take a look.", "it closes and a toast thanks the member", after)
+      await shot(p, `${label}-r12-report-sent`)
+      expect(errors.length === 0, "no page error", errors)
+      await p.close()
+    }
+
+    /* ── R12 POPOVERS: always whole inside the window ── */
+    if (want("r12pop")) {
+      const zooms = phone ? [["100", vp]] : [["100", vp], ["125", { width: 1152, height: 720, deviceScaleFactor: 1.25 }], ["80", { width: 1800, height: 1125, deviceScaleFactor: 0.8 }]]
+      for (const [zoom, zvp] of zooms) {
+        const { p, errors } = await open("long", "/community/studio-notes", zvp)
+        /* Room above the feed, so the composer can be put at the bottom of the window as well as the top. */
+        await p.evaluate(() => (document.getElementById("app").style.paddingTop = "1400px"))
+        await press(p, "[data-composer-open]")
+        await sleep(700)
+        const results = []
+        const place = async (where) => {
+          await p.evaluate((where) => {
+            const tb = document.querySelector('[data-composer-tools], [data-composer-toolbar]').getBoundingClientRect()
+            const want = where === "top" ? 70 : innerHeight - 60
+            window.scrollBy(0, tb.top - want)
+          }, where)
+          await sleep(200)
+        }
+        const measure = (sel) => p.evaluate((sel) => {
+          const el = document.querySelector(sel)
+          if (!el) return null
+          const panel = el.closest("[data-sheet-panel]") ?? el
+          const r = panel.getBoundingClientRect()
+          return { top: Math.round(r.top * 10) / 10, bottom: Math.round(r.bottom * 10) / 10, left: Math.round(r.left), right: Math.round(r.right), w: Math.round(r.width), h: Math.round(r.height), vw: innerWidth, vh: innerHeight, scrolls: el.querySelector("[data-gif-results], [data-emoji-panel] .overflow-y-auto") ? true : null }
+        }, sel)
+        const inside = (m) => !!m && m.top >= -0.5 && m.left >= -0.5 && m.bottom <= m.vh + 0.5 && m.right <= m.vw + 0.5
+        for (const where of phone ? ["top"] : ["top", "bottom"]) {
+          if (!phone) await place(where)
+          if (!phone) {
+            await press(p, '[data-composer-tool="emoji"] [data-emoji-trigger]')
+            await sleep(400)
+            const e = await measure(phone ? "[data-emoji-panel]" : "[data-emoji-popover]")
+            results.push(["emoji", where, e])
+            await p.keyboard.press("Escape")
+            await sleep(300)
+            await press(p, "[data-composer-gif]")
+            await sleep(500)
+            const g = await measure("[data-gif-popover]")
+            results.push(["gif", where, g])
+            await p.keyboard.press("Escape")
+            await sleep(300)
+            await press(p, "[data-composer-space]")
+            await sleep(400)
+            const sp = await measure('[role="menu"]')
+            results.push(["space", where, sp])
+            await p.keyboard.press("Escape")
+            await sleep(300)
+            if (where === "top" && zoom === "100") await (async () => {
+              await press(p, "[data-composer-gif]")
+              await sleep(500)
+              await shot(p, `${label}-r12-pop-gif-top`)
+              await p.keyboard.press("Escape")
+              await sleep(300)
+              await press(p, '[data-composer-tool="emoji"] [data-emoji-trigger]')
+              await sleep(400)
+              await shot(p, `${label}-r12-pop-emoji-top`)
+              await p.keyboard.press("Escape")
+              await sleep(300)
+            })()
+            if (where === "bottom" && zoom === "125") await (async () => {
+              await press(p, "[data-composer-gif]")
+              await sleep(500)
+              await shot(p, `${label}-r12-pop-gif-bottom-125`)
+              await p.keyboard.press("Escape")
+              await sleep(300)
+            })()
+          } else {
+            await press(p, '[data-composer-tool="emoji"] [data-emoji-trigger]')
+            await sleep(700)
+            results.push(["emoji sheet", where, await measure("[data-emoji-panel]")])
+            await shot(p, `${label}-r12-pop-emoji-sheet`)
+            await p.keyboard.press("Escape")
+            await sleep(500)
+            await press(p, "[data-composer-gif]")
+            await sleep(700)
+            results.push(["gif sheet", where, await measure("[data-gif-results]")])
+            await shot(p, `${label}-r12-pop-gif-sheet`)
+            await p.keyboard.press("Escape")
+            await sleep(500)
+          }
+        }
+        for (const [what, where, m] of results) {
+          const max = what === "gif" ? { w: 340, h: 380 } : what === "emoji" ? { w: 320, h: 340 } : null
+          expect(inside(m) && (!max || (m.w <= max.w + 1 && m.h <= max.h + 1)), `R12 POPOVERS ${zoom}%: the ${what} ${phone ? "" : "popover "}with the composer at the ${where} of the window is whole inside it${max ? `, at most ${max.w}x${max.h}` : ""}`, m)
+        }
+        expect(errors.length === 0, "no page error", errors)
+        await p.close()
+      }
+      /* The comment box's emoji and GIF, the box near the top and near the bottom of the window. */
+      const { p, errors } = await open("post", "/community/studio-notes/post/p-intro", vp)
+      await p.evaluate(() => (document.getElementById("app").style.paddingBottom = "1400px", document.getElementById("app").style.paddingTop = "1400px"))
+      const box = '[data-comment-box="comment"]'
+      for (const where of phone ? ["top"] : ["top", "bottom"]) {
+        await p.evaluate((box, where) => {
+          const r = document.querySelector(box).getBoundingClientRect()
+          window.scrollBy(0, r.top - (where === "top" ? 80 : innerHeight - 70))
+        }, box, where)
+        await sleep(250)
+        await press(p, `${box} [data-emoji-trigger]`)
+        await sleep(600)
+        const e = await p.evaluate((phone) => {
+          const el = document.querySelector(phone ? "[data-emoji-panel]" : "[data-emoji-popover]")
+          const r = (el.closest("[data-sheet-panel]") ?? el).getBoundingClientRect()
+          return { top: Math.round(r.top), bottom: Math.round(r.bottom), left: Math.round(r.left), right: Math.round(r.right), w: Math.round(r.width), h: Math.round(r.height), vw: innerWidth, vh: innerHeight }
+        }, phone)
+        expect(e.top >= 0 && e.left >= 0 && e.bottom <= e.vh && e.right <= e.vw && (phone || (e.w <= 321 && e.h <= 341)), `the comment box's emoji, the box at the ${where} of the window: whole inside it`, e)
+        await p.keyboard.press("Escape")
+        await sleep(400)
+        await press(p, `${box} [data-comment-tool="gif"] button`)
+        await sleep(600)
+        const g = await p.evaluate((phone) => {
+          const el = document.querySelector(phone ? "[data-gif-results]" : "[data-gif-popover]")
+          const r = (el.closest("[data-sheet-panel]") ?? el).getBoundingClientRect()
+          return { top: Math.round(r.top), bottom: Math.round(r.bottom), left: Math.round(r.left), right: Math.round(r.right), w: Math.round(r.width), h: Math.round(r.height), vw: innerWidth, vh: innerHeight }
+        }, phone)
+        expect(g.top >= 0 && g.left >= 0 && g.bottom <= g.vh && g.right <= g.vw && (phone || (g.w <= 341 && g.h <= 381)), `the comment box's GIFs, the box at the ${where} of the window: whole inside it`, g)
+        if (where === "bottom") await shot(p, `${label}-r12-pop-comment-gif-bottom`)
+        await p.keyboard.press("Escape")
+        await sleep(400)
+      }
+      expect(errors.length === 0, "no page error", errors)
+      await p.close()
+    }
+
+    /* ── R12 LINK: the link and video fields, YouTube / Vimeo / Loom, Paste, the preview ── */
+    if (want("r12link")) {
+      const ctx = browser.defaultBrowserContext()
+      await ctx.overridePermissions(ORIGIN, ["clipboard-read", "clipboard-write", "clipboard-sanitized-write"])
+      const { p, errors, calls } = await open("feed", "/community/studio-notes", vp)
+      await press(p, "[data-composer-open]")
+      await sleep(700)
+      await p.type("[data-composer-title]", "Two videos and a link")
+      await p.type('[aria-label="Post"]', "Worth a look. ")
+      await press(p, '[data-composer-tool="link"]')
+      await sleep(250)
+      const field = await p.evaluate(() => {
+        const f = document.querySelector('[data-link-field="link"] label')
+        const cs = getComputedStyle(f)
+        return { radius: cs.borderTopLeftRadius, border: cs.borderTopWidth, shadow: cs.boxShadow !== "none", paste: !!document.querySelector("[data-link-paste]"), focused: document.activeElement?.hasAttribute("data-link-input") }
+      })
+      expect(parseFloat(field.radius) === 10 && field.border === "1px" && field.shadow && field.paste && field.focused, "R12 LINK: a Storelib field (10px, hairline, 1px shadow) with Paste, the caret in it", field)
+      await p.evaluate(() => navigator.clipboard.writeText("example.com/notes/naming").catch(() => {}))
+      await press(p, "[data-link-paste]")
+      await sleep(250)
+      const pasted = await p.$eval("[data-link-input]", (i) => i.value)
+      expect(pasted === "example.com/notes/naming", "Paste puts the clipboard's link in", pasted)
+      await p.waitForFunction(() => /naming things/.test(document.querySelector('[data-link-preview="link"]')?.textContent ?? ""), { timeout: 3000 }).catch(() => {})
+      const prev = await p.evaluate(() => document.querySelector('[data-link-preview="link"]')?.textContent ?? null)
+      expect(/example\.com/.test(prev ?? "") && /naming things/.test(prev ?? ""), "a live preview card: the site and the page's title", prev)
+      await shot(p, `${label}-r12-link-field`)
+      await press(p, "[data-link-add]")
+      await sleep(300)
+      expect(!!(await p.$("[data-link-card]")) && !(await p.$("[data-link-field]")), "Add puts the card in the post and closes the field")
+      await press(p, '[data-composer-tool="video"]')
+      await sleep(250)
+      await p.type('[data-link-field="video"] input', "https://example.com/watch")
+      await sleep(200)
+      const wrong = await p.evaluate(() => ({ hint: document.querySelector("[data-link-hint]")?.textContent ?? null, add: document.querySelector("[data-link-add]")?.disabled }))
+      expect(/YouTube, Vimeo or Loom/.test(wrong.hint ?? "") && wrong.add === true, "a link that is not a video says what it takes, Add waits", wrong)
+      for (const [url, site] of [["https://vimeo.com/76979871", "vimeo"], ["https://youtu.be/aqz-KE-bpKQ", "youtube"], ["https://www.loom.com/share/0123456789abcdef0123456789abcdef", "loom"]]) {
+        await press(p, '[data-link-field="video"] [aria-label="Clear"]')
+        await p.type('[data-link-field="video"] input', url)
+        await sleep(450)
+        const got = await p.evaluate(() => ({ icon: document.querySelector("[data-link-field-icon]")?.getAttribute("data-link-field-icon"), mark: !!document.querySelector("[data-link-field-icon] [data-provider-mark]"), card: document.querySelector("[data-link-preview]")?.getAttribute("data-link-preview") }))
+        expect(got.icon === site && got.mark && got.card === site, `${site} is recognised: its mark in the field and on the preview card`, got)
+        if (site === "loom") await shot(p, `${label}-r12-video-field-loom`)
+      }
+      await press(p, "[data-link-add]")
+      await sleep(300)
+      await press(p, '[data-composer-tool="video"]')
+      await sleep(250)
+      await p.type('[data-link-field="video"] input', "https://youtu.be/aqz-KE-bpKQ")
+      await sleep(400)
+      expect(!!(await p.$("[data-composer-video-upload]")), "Upload from the device sits next to it")
+      await p.keyboard.press("Enter")
+      await sleep(400)
+      const sites = await p.$$eval("[data-attachment-site]", (els) => els.map((e) => e.getAttribute("data-attachment-site")))
+      expect(sites.join() === "loom,youtube", "the videos wait in the post with their site's mark", sites)
+      await shot(p, `${label}-r12-composer-videos`, !phone)
+      await press(p, "[data-composer-space]")
+      await sleep(350)
+      const spaceItem = await p.evaluateHandle(() => [...document.querySelectorAll('[role="menuitem"], [data-sheet] button, button')].find((b) => b.textContent.trim() === "General" && b.closest('[role="menu"], [role="dialog"]')))
+      await spaceItem.asElement()?.click()
+      await sleep(400)
+      await press(p, "[data-composer-post]")
+      await sleep(1300)
+      const sent = calls.filter((c) => c.url.endsWith("/posts") && c.method === "POST").map((c) => JSON.parse(c.body))[0]
+      const kinds = (sent?.media ?? []).map((m) => (m.type === "embed" ? `embed:${m.provider}` : m.type))
+      expect(kinds.join() === "embed:loom,embed:youtube,link", "the POST carries the Loom and YouTube videos and the link", kinds)
+      expect(errors.length === 0, "no page error", errors)
+      await p.close()
+      const lm = await open("media", "/community/studio-notes/post/m-loom?post=m-loom", vp)
+      const lo = await lm.p.evaluate(() => ({ player: !!document.querySelector('[data-embed-player="loom"]'), site: document.querySelector('[data-embed-player="loom"] [data-embed-site]')?.textContent ?? null }))
+      await press(lm.p, '[data-embed-player="loom"] [data-embed-play]')
+      await sleep(300)
+      const src = await lm.p.evaluate(() => document.querySelector('[data-embed-player="loom"] iframe')?.getAttribute("src") ?? null)
+      expect(lo.player && lo.site === "Loom" && /^https:\/\/www\.loom\.com\/embed\/0123456789abcdef0123456789abcdef\?/.test(src ?? ""), "a Loom link in a post's words plays under them, in Loom's player", { ...lo, src })
+      await lm.p.close()
+    }
+
+    /* ── R12 POLL: written (choices added, moved, how long), then voted, changed, its results ── */
+    if (want("r12poll")) {
+      const { p, errors, calls } = await open("feed", "/community/studio-notes", vp)
+      await press(p, "[data-composer-open]")
+      await sleep(700)
+      await p.type("[data-composer-title]", "Which night?")
+      await p.type('[aria-label="Post"]', "Vote below.")
+      await press(p, '[data-composer-tool="poll"]')
+      await sleep(250)
+      await p.type("[data-poll-question]", "When should critique night be?")
+      await p.type('[aria-label="Choice 1"]', "Tuesday")
+      await p.type('[aria-label="Choice 2"]', "Thursday")
+      await press(p, "[data-poll-add]")
+      await p.type('[aria-label="Choice 3"]', "Saturday")
+      await press(p, "[data-poll-add]")
+      await p.type('[aria-label="Choice 4"]', "Sunday")
+      await press(p, '[data-poll-choice-remove="3"]')
+      const order = () => p.$$eval("[data-poll-choice]", (els) => els.map((e) => e.value))
+      expect((await order()).join() === "Tuesday,Thursday,Saturday", "choices are added and taken off", await order())
+      /* Moved by the keyboard on the handle, then by dragging it. */
+      await p.focus('[data-choice]:nth-child(3) [data-choice-handle]')
+      await p.keyboard.press("ArrowUp")
+      await sleep(100)
+      expect((await order()).join() === "Tuesday,Saturday,Thursday", "the arrow keys on a choice's handle move it", await order())
+      /* A phone's keyboard (estimated while a field has the caret) is let down first, and the choices brought into sight. */
+      await p.evaluate(() => document.activeElement?.blur())
+      await sleep(900)
+      await p.evaluate(() => document.querySelector("[data-composer-poll-editor] ol").scrollIntoView({ block: "center" }))
+      await sleep(250)
+      const h = await (await p.$("[data-choice]:nth-child(1) [data-choice-handle]")).boundingBox()
+      const step = await p.$eval("[data-choice]:nth-child(2)", (e) => e.getBoundingClientRect().top - e.previousElementSibling.getBoundingClientRect().top)
+      await p.mouse.move(h.x + h.width / 2, h.y + h.height / 2)
+      await p.mouse.down()
+      for (let k = 1; k <= 12; k++) {
+        await p.mouse.move(h.x + h.width / 2, h.y + h.height / 2 + (step * 2.1 * k) / 12)
+        await sleep(16)
+      }
+      await shot(p, `${label}-r12-poll-drag`)
+      await p.mouse.up()
+      await sleep(250)
+      expect((await order()).join() === "Saturday,Thursday,Tuesday", "and dragging the handle moves it down past the others", await order())
+      await press(p, '[data-poll-ends="3"]')
+      await press(p, "[data-poll-multiple]")
+      await sleep(250)
+      await p.evaluate(() => document.querySelector("[data-composer-poll-editor]").scrollIntoView({ block: "center" }))
+      await sleep(200)
+      await (await p.$("[data-composer-poll-editor]")).screenshot({ path: join(shots, `${label}-r12-poll-editor.png`) })
+      await press(p, "[data-composer-space]")
+      await sleep(350)
+      const spaceItem = await p.evaluateHandle(() => [...document.querySelectorAll('[role="menuitem"], [data-sheet] button, button')].find((b) => b.textContent.trim() === "General" && b.closest('[role="menu"], [role="dialog"]')))
+      await spaceItem.asElement()?.click()
+      await sleep(400)
+      await press(p, "[data-composer-post]")
+      await sleep(1300)
+      const sent = calls.filter((c) => c.url.endsWith("/posts") && c.method === "POST").map((c) => JSON.parse(c.body))[0]
+      const days = sent?.poll?.closesAt ? (Date.parse(sent.poll.closesAt) - Date.now()) / 86400000 : null
+      expect(sent?.poll?.question === "When should critique night be?" && sent.poll.options.join() === "Saturday,Thursday,Tuesday" && sent.poll.multiple === true && days > 2.9 && days < 3.01, "R12 POLL: the POST carries the question, the choices in their order, several answers, ending in 3 days", sent?.poll)
+      expect(errors.length === 0, "no page error", errors)
+      await p.close()
+
+      /* One answer: vote, change, take back. */
+      const one = await open("poll", "/community/studio-notes/post/p-poll", vp)
+      const pid = "33333333-0000-4000-8000-0000000000b1"
+      const state = () => one.p.evaluate(() => ({ state: document.querySelector("[data-poll]")?.getAttribute("data-poll-state"), voted: [...document.querySelectorAll("[data-poll-voted]")].map((e) => e.getAttribute("data-poll-option").slice(-1)), shares: [...document.querySelectorAll("[data-poll-share]")].map((e) => e.textContent), total: document.querySelector("[data-poll-total]")?.textContent }))
+      expect((await state()).state === "choosing", "a poll not answered shows its choices", await state())
+      await press(one.p, `[data-poll-option="${pid}-b"]`)
+      await one.p.evaluate(() => new Promise(requestAnimationFrame))
+      const instant = await state()
+      expect(instant.state === "results" && instant.voted.join() === "b" && /^7 votes/.test(instant.total), "a press answers at once: the results with the counts moved, before the server", instant)
+      await sleep(500)
+      const confirmed = await state()
+      expect(confirmed.voted.join() === "b" && confirmed.shares.join() === "43%,43%,14%", "confirmed by the server: 3, 3 and 1 of 7", confirmed)
+      await shot(one.p, `${label}-r12-poll-results`)
+      await press(one.p, `[data-poll-option="${pid}-c"]`)
+      await sleep(500)
+      const changed = await state()
+      expect(changed.voted.join() === "c" && changed.shares.join() === "43%,29%,29%", "pressing another choice changes the vote", changed)
+      await press(one.p, `[data-poll-option="${pid}-c"]`)
+      await sleep(500)
+      const back = await state()
+      expect(back.voted.length === 0 && back.state === "choosing", "the same choice again takes the vote back", back)
+      expect(JSON.stringify(one.live.votes) === JSON.stringify([[`${pid}-b`], [`${pid}-c`], []]), "each answer went to the vote route", one.live.votes)
+      await one.p.close()
+
+      /* Several answers: tick, vote, change. */
+      const many = await open("poll", "/community/studio-notes/post/p-poll-multi?multiple=1", vp)
+      const mid = "33333333-0000-4000-8000-0000000000b2"
+      await press(many.p, `[data-poll-option="${mid}-a"]`)
+      await press(many.p, `[data-poll-option="${mid}-c"]`)
+      const ticked = await many.p.$$eval('[data-poll-option][aria-pressed="true"]', (els) => els.length)
+      await press(many.p, "[data-poll-vote]")
+      await sleep(500)
+      const res = await many.p.evaluate(() => ({ state: document.querySelector("[data-poll]").getAttribute("data-poll-state"), voted: [...document.querySelectorAll("[data-poll-voted]")].map((e) => e.getAttribute("data-poll-option").slice(-1)) }))
+      expect(ticked === 2 && res.state === "results" && res.voted.join() === "a,c", "several answers: ticked, then Vote shows the results with both marked", { ticked, ...res })
+      await press(many.p, "[data-poll-change]")
+      await sleep(150)
+      const back2 = await many.p.$$eval('[data-poll-option][aria-pressed="true"]', (els) => els.map((e) => e.getAttribute("data-poll-option").slice(-1)))
+      expect(back2.join() === "a,c", "Change vote brings the ticks back with the answers in them", back2)
+      await press(many.p, `[data-poll-option="${mid}-a"]`)
+      await press(many.p, `[data-poll-option="${mid}-b"]`)
+      await press(many.p, "[data-poll-vote]")
+      await sleep(500)
+      expect(JSON.stringify(many.live.votes?.at(-1)) === JSON.stringify([`${mid}-c`, `${mid}-b`]), "and Vote replaces the answer", many.live.votes)
+      await shot(many.p, `${label}-r12-poll-multi`)
+      await many.p.close()
+    }
+
+    /* ── R12 COMMENT BOX: emoji, video link, pictures; no files ── */
+    if (want("r12cbox")) {
+      const { p, errors, live } = await open("post", "/community/studio-notes/post/p-intro", vp)
+      const box = '[data-comment-box="comment"]'
+      await p.evaluate((s) => document.querySelector(s).scrollIntoView({ block: "center" }), box)
+      const tools = await p.$$eval(`${box} [data-comment-tool]`, (els) => els.map((e) => e.getAttribute("data-comment-tool")))
+      expect(tools.join() === "image,video,emoji,gif", "R12 COMMENT BOX: pictures, a video link, emoji and GIF; no paperclip", tools)
+      const width = await p.$eval(`${box} textarea`, (t) => Math.round(t.getBoundingClientRect().width))
+      expect(width >= (phone ? 250 : 340), "the words keep their width (on a phone the tools sit under them)", width)
+      await p.click(`${box} textarea`)
+      await p.type(`${box} textarea`, "Love this ")
+      await press(p, `${box} [data-emoji-trigger]`)
+      await sleep(600)
+      await p.evaluate(() => document.querySelector("[data-emoji]")?.dispatchEvent(new MouseEvent("click", { bubbles: true })))
+      await sleep(300)
+      await p.keyboard.press("Escape").catch(() => {})
+      await sleep(400)
+      const words = await p.$eval(`${box} textarea`, (t) => t.value)
+      expect(/^Love this \p{Extended_Pictographic}/u.test(words), "an emoji goes in where the caret was", words)
+      await press(p, `${box} [data-comment-tool="video"]`)
+      await sleep(250)
+      await p.type(`${box} [data-link-field="video"] input`, "https://vimeo.com/76979871")
+      await sleep(500)
+      await shot(p, `${label}-r12-comment-video-field`)
+      await p.keyboard.press("Enter")
+      await sleep(300)
+      const picks = await p.$$eval(`${box} [data-comment-pick]`, (els) => els.map((e) => e.getAttribute("data-comment-pick")))
+      expect(picks.join() === "embed" && !!(await p.$(`${box} [data-comment-pick-site="vimeo"]`)), "a Vimeo link waits in the box with its mark", picks)
+      await press(p, `${box} [data-comment-send]`)
+      await sleep(900)
+      const sent = live.commentBodies?.at(-1)
+      expect(sent?.media?.[0]?.type === "embed" && sent.media[0].provider === "vimeo" && /Love this/.test(sent.body), "sent: the words, the emoji and the video", sent)
+      const row = await p.evaluate(() => {
+        const last = [...document.querySelectorAll("[data-comment]")].at(-1)
+        return { embed: !!last.querySelector('[data-comment-embed="vimeo"] [data-embed-play]') }
+      })
+      expect(row.embed, "the comment shows the video as a player under its words", row)
+      await p.evaluate(() => [...document.querySelectorAll("[data-comment]")].at(-1).scrollIntoView({ block: "center" }))
+      await sleep(250)
+      await shot(p, `${label}-r12-comment-with-video`)
+      expect(errors.length === 0, "no page error", errors)
+      await p.close()
+    }
+
+    /* ── R12 HIGHLIGHT: the new post's warm tint, frame by frame ── */
+    if (want("r12highlight")) {
+      const { p, errors } = await open("feed", "/community/studio-notes", vp)
+      await (phone ? p.tap("[data-composer-open]") : p.click("[data-composer-open]"))
+      await sleep(700)
+      await p.type("[data-composer-title]", "Notes from Thursday")
+      await p.type('[aria-label="Post"]', "What we covered and what is next.")
+      await press(p, "[data-composer-space]")
+      await sleep(350)
+      const spaceItem = await p.evaluateHandle(() => [...document.querySelectorAll('[role="menuitem"], [data-sheet] button, button')].find((b) => b.textContent.trim() === "General" && b.closest('[role="menu"], [role="dialog"]')))
+      await spaceItem.asElement()?.click()
+      await sleep(400)
+      const cdp = await p.target().createCDPSession()
+      const film = []
+      cdp.on("Page.screencastFrame", (f) => {
+        film.push({ t: f.metadata.timestamp, data: f.data })
+        cdp.send("Page.screencastFrameAck", { sessionId: f.sessionId }).catch(() => {})
+      })
+      await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 })
+      await p.evaluate(() => {
+        window.__hl = []
+        const loop = () => {
+          const neu = document.querySelector('[data-feed-list] > [data-post="p-new"]')
+          const tint = neu?.querySelector("[data-post-highlight]")
+          const ed = document.querySelector("[data-composer=open], [data-composer=sheet]")
+          window.__hl.push({ t: performance.now(), post: neu ? Number(getComputedStyle(neu).opacity) : null, tint: tint ? Number(getComputedStyle(tint).opacity) : null, color: tint ? getComputedStyle(tint).backgroundColor : null, editor: !!ed })
+          window.__hlr = requestAnimationFrame(loop)
+        }
+        window.__hlr = requestAnimationFrame(loop)
+      })
+      await press(p, "[data-composer-post]")
+      await sleep(3200)
+      await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
+      const hl = await p.evaluate(() => (cancelAnimationFrame(window.__hlr), window.__hl))
+      const first = hl.findIndex((f) => f.post !== null)
+      const seen = hl.slice(first).map((f) => ({ t: f.t, eff: Math.round((f.post ?? 0) * (f.tint ?? 0) * 100) / 100, tint: f.tint, editor: f.editor }))
+      /* How much the tint changes in one 60Hz frame's time, so a slow frame at 4x CPU is not counted as a jump. */
+      const jumps = seen.slice(1).map((f, i) => (Math.abs(f.eff - seen[i].eff) * 16.7) / Math.max(16.7, f.t - seen[i].t))
+      const tinted = hl.filter((f) => f.tint !== null)
+      const lastTint = tinted.at(-1)
+      const fadeStart = tinted.findIndex((f) => f.tint < 0.99 && tinted.indexOf(f) > 0)
+      const fadeMs = tinted.length ? Math.round(lastTint.t - tinted[Math.max(0, fadeStart)].t) : 0
+      expect(first > 0 && hl[first].tint === 1 && !hl[first].editor, "R12 HIGHLIGHT: the post arrives after the editor has closed, tinted from its first frame (no tint popping on later)", hl[first])
+      /* The post's own 260ms fade in moves it by about 0.11 a frame at its steepest; a flash would be a whole step (1.0) at once. */
+      expect(Math.max(0, ...jumps) <= 0.25, "the tint never jumps: it comes in with the post and only fades (largest change in a frame's time at 4x CPU)", { max: Math.round(Math.max(0, ...jumps) * 1000) / 1000, frames: seen.length })
+      expect(tinted.every((f, i) => i === 0 || f.tint <= tinted[i - 1].tint + 0.001), "once there, the tint only ever fades", tinted.slice(0, 6).map((f) => f.tint))
+      expect(tinted[0]?.color === "rgb(253, 248, 236)", "a soft warm paper tint, not a yellow", tinted[0]?.color)
+      expect(fadeMs >= 1000 && fadeMs <= 1500, "it eases out over about 1.2s", fadeMs)
+      expect(!(await p.$("[data-post-highlight]")), "and is gone after", null)
+      /* The filmstrip of the arrival, cropped to the new post, to look at: a second post, filmed (the screencast is not counted above). */
+      const top = await p.evaluate(() => Math.round(document.querySelector('[data-feed-list] > [data-post="p-new"]').getBoundingClientRect().top))
+      await (phone ? p.tap("[data-composer-open]") : p.click("[data-composer-open]"))
+      await sleep(700)
+      await p.type("[data-composer-title]", "And one more")
+      await p.type('[aria-label="Post"]', "Filmed this time.")
+      await press(p, "[data-composer-space]")
+      await sleep(350)
+      const item2 = await p.evaluateHandle(() => [...document.querySelectorAll('[role="menuitem"], [data-sheet] button, button')].find((b) => b.textContent.trim() === "General" && b.closest('[role="menu"], [role="dialog"]')))
+      await item2.asElement()?.click()
+      await sleep(400)
+      await cdp.send("Page.startScreencast", { format: "jpeg", quality: 70, maxWidth: phone ? 390 : 1440, maxHeight: phone ? 844 : 900, everyNthFrame: 1 })
+      await press(p, "[data-composer-post]")
+      await sleep(2600)
+      await cdp.send("Page.stopScreencast")
+      const strip = await browser.newPage()
+      await strip.setViewport({ width: 1460, height: 900, deviceScaleFactor: 1 })
+      const picked = film.filter((_, i) => i % 3 === 0).slice(0, 18)
+      const cell = (f) => phone ? `<div style="width:230px;height:300px;overflow:hidden;position:relative"><img style="position:absolute;left:0;top:${-Math.max(0, top - 60) * (230 / 390)}px;width:230px" src="data:image/jpeg;base64,${f.data}"></div>` : `<div style="width:470px;height:250px;overflow:hidden;position:relative"><img style="position:absolute;left:-${Math.round(360 * 0.75)}px;top:${-Math.max(0, top - 60) * 0.75}px;width:1080px" src="data:image/jpeg;base64,${f.data}"></div>`
+      await strip.setContent(`<body style="margin:0;background:#222;font:12px system-ui;color:#fff"><div style="display:grid;grid-template-columns:repeat(${phone ? 6 : 3},max-content);gap:6px;padding:4px">${picked.map((f, i) => `<div><div>+${Math.round((f.t - picked[0].t) * 1000)}ms</div>${cell(f)}</div>`).join("")}</div></body>`)
+      await strip.screenshot({ path: join(shots, `${label}-r12-highlight-film.png`), fullPage: true })
+      await strip.close()
+      console.log(`  info  HIGHLIGHT frames (ms from first, post x tint): ${JSON.stringify(seen.filter((_, i) => i % 4 === 0).slice(0, 30).map((f) => [Math.round(f.t - seen[0].t), f.eff]))}`)
+      expect(errors.length === 0, "no page error", errors)
+      await p.close()
+    }
+
+    /* ── R12 HELD: a post or a comment held for a moderator (202) ── */
+    if (want("r12held")) {
+      const { p, errors } = await open("feed", "/community/studio-notes", vp, { held: true })
+      await press(p, "[data-composer-open]")
+      await sleep(700)
+      await p.type("[data-composer-title]", "My first link")
+      await p.type('[aria-label="Post"]', "Have a look at https://example.com/offer")
+      await press(p, "[data-composer-space]")
+      await sleep(350)
+      const spaceItem = await p.evaluateHandle(() => [...document.querySelectorAll('[role="menuitem"], [data-sheet] button, button')].find((b) => b.textContent.trim() === "General" && b.closest('[role="menu"], [role="dialog"]')))
+      await spaceItem.asElement()?.click()
+      await sleep(400)
+      await press(p, "[data-composer-post]")
+      await sleep(1400)
+      const after = await p.evaluate(() => ({ inFeed: !!document.querySelector('[data-post="p-held"]'), closed: !!document.querySelector('[data-composer="closed"]'), field: document.querySelector("[data-composer-open]")?.textContent?.trim() ?? null, toast: document.querySelector("[data-community-toast]")?.textContent ?? null, highlight: !!document.querySelector("[data-post-highlight]") }))
+      expect(!after.inFeed && !after.highlight && after.closed, "R12 HELD: a post held for a moderator closes the editor and is not put in the feed as if published", after)
+      expect(after.toast === "Your post is waiting for a moderator. You will hear when it is up.", "a calm toast says the server's own words", after.toast)
+      expect(after.field === "Continue: My first link", "what was written is kept as a draft to change", after.field)
+      await shot(p, `${label}-r12-held-post`)
+      await press(p, "[data-composer-open]")
+      await sleep(700)
+      const back = await p.evaluate(() => ({ title: document.querySelector("[data-composer-title]")?.value, note: document.querySelector('[data-composer-restored="held"]')?.textContent ?? null }))
+      expect(back.title === "My first link" && /waiting for a moderator/.test(back.note ?? ""), "opened again, the words are there with a note that this is a copy", back)
+      expect(errors.length === 0, "no page error", errors)
+      await p.close()
+      const c = await open("post", "/community/studio-notes/post/p-intro", vp, { held: true })
+      const box = '[data-comment-box="comment"]'
+      await c.p.evaluate((s) => document.querySelector(s).scrollIntoView({ block: "center" }), box)
+      await c.p.type(`${box} textarea`, "Join my group at https://example.com/x")
+      const before = await c.p.evaluate(() => document.querySelectorAll("[data-comment]").length)
+      await press(c.p, `${box} [data-comment-send]`)
+      await sleep(900)
+      const cafter = await c.p.evaluate((s) => ({ rows: document.querySelectorAll("[data-comment]").length, words: document.querySelector(`${s} textarea`).value, toast: document.querySelector("[data-community-toast]")?.textContent ?? null }), box)
+      expect(cafter.rows === before && cafter.words === "Join my group at https://example.com/x" && cafter.toast === "Your comment is waiting for a moderator.", "a held comment is not left in the thread, its words come back into the box, and the toast says why", cafter)
+      expect(c.errors.length === 0, "no page error", c.errors)
+      await c.p.close()
+    }
+
+    /* ── R12 COMPRESS: pictures made lighter in the browser ── */
+    if (want("r12compress") && !phone) {
+      const { p, errors } = await open("feed", "/community/studio-notes", vp)
+      const r = await p.evaluate(async () => {
+        /* A 4000x3000 photo-like JPEG with an EXIF block that says where it was taken. */
+        const c = document.createElement("canvas")
+        c.width = 4000
+        c.height = 3000
+        const x = c.getContext("2d")
+        const g = x.createLinearGradient(0, 0, 4000, 3000)
+        g.addColorStop(0, "#c9a27a")
+        g.addColorStop(1, "#3d5a73")
+        x.fillStyle = g
+        x.fillRect(0, 0, 4000, 3000)
+        for (let i = 0; i < 1400; i++) {
+          x.fillStyle = `hsl(${(i * 37) % 360} 40% ${30 + (i % 50)}%)`
+          x.fillRect((i * 997) % 4000, (i * 613) % 3000, 30 + (i % 90), 20 + (i % 70))
+        }
+        x.fillStyle = "#fff"
+        x.font = "48px sans-serif"
+        for (let i = 0; i < 40; i++) x.fillText("Fine print that must stay readable 0123456789", 40, 80 + i * 70)
+        const jpeg = new Uint8Array(await (await new Promise((res) => c.toBlob(res, "image/jpeg", 0.95))).arrayBuffer())
+        const exifText = new TextEncoder().encode("Exif\0\0MM\0*\0\0\0\bGPSLatitude 52.3676 GPSLongitude 4.9041 CameraOwner Probe")
+        const len = exifText.length + 2
+        const app1 = new Uint8Array([0xff, 0xe1, len >> 8, len & 255, ...exifText])
+        const withExif = new Uint8Array(jpeg.length + app1.length)
+        withExif.set(jpeg.subarray(0, 2), 0)
+        withExif.set(app1, 2)
+        withExif.set(jpeg.subarray(2), 2 + app1.length)
+        const photo = new File([withExif], "IMG_0042.jpg", { type: "image/jpeg" })
+        const has = (bytes, s) => new TextDecoder("latin1").decode(bytes).includes(s)
+        const out = await window.__compress(photo)
+        const ob = new Uint8Array(await out.arrayBuffer())
+        const bmp = await createImageBitmap(out)
+        /*
+          What the encoding lost: the original drawn at the same 2560px without any encoding, against what
+          will be uploaded, both read at full size: the mean difference per channel, out of 255.
+        */
+        const diff = async (a, b) => {
+          const w = 2560, h = 1920
+          const pix = async (blob) => {
+            const cc = document.createElement("canvas")
+            cc.width = w
+            cc.height = h
+            const cx = cc.getContext("2d")
+            cx.imageSmoothingQuality = "high"
+            cx.drawImage(await createImageBitmap(blob), 0, 0, w, h)
+            return cx.getImageData(0, 0, w, h).data
+          }
+          const [pa, pb] = await Promise.all([pix(a), pix(b)])
+          let sum = 0
+          for (let i = 0; i < pa.length; i += 4) sum += Math.abs(pa[i] - pb[i]) + Math.abs(pa[i + 1] - pb[i + 1]) + Math.abs(pa[i + 2] - pb[i + 2])
+          return Math.round((sum / (pa.length / 4) / 3) * 100) / 100
+        }
+        const res = { inType: photo.type, inSize: photo.size, inExif: has(withExif, "GPSLatitude"), type: out.type, name: out.name, size: out.size, w: bmp.width, h: bmp.height, exif: has(ob, "Exif") || has(ob, "GPSLatitude"), diff: await diff(photo, out) }
+        /* A GIF goes as it is (every frame kept). */
+        const gifBytes = Uint8Array.from(atob("R0lGODlhAgACAIAAAP///wAAACH5BAAAAAAALAAAAAACAAIAAAICRAEAOw=="), (ch) => ch.charCodeAt(0))
+        const gif = new File([gifBytes], "wave.gif", { type: "image/gif" })
+        const gout = await window.__compress(gif)
+        res.gif = { same: gout === gif, type: gout.type, size: gout.size }
+        /* A browser whose canvas writes no WebP (Safari): JPEG at the same quality instead. */
+        const real = HTMLCanvasElement.prototype.toBlob
+        HTMLCanvasElement.prototype.toBlob = function (cb, type, q) {
+          return real.call(this, cb, type === "image/webp" ? "image/png" : type, q)
+        }
+        const sout = await window.__compress(photo)
+        HTMLCanvasElement.prototype.toBlob = real
+        const sbmp = await createImageBitmap(sout)
+        res.safari = { type: sout.type, w: sbmp.width, h: sbmp.height, size: sout.size, exif: has(new Uint8Array(await sout.arrayBuffer()), "GPSLatitude") }
+        return res
+      })
+      expect(r.inExif && r.type === "image/webp" && /\.webp$/.test(r.name), "R12 COMPRESS: a 4000x3000 JPEG goes up as WebP", { type: r.type, name: r.name })
+      expect(r.w === 2560 && r.h === 1920, "its longest side 2560px, its shape kept", [r.w, r.h])
+      expect(r.size < r.inSize / 2, "much lighter", { from: r.inSize, to: r.size })
+      expect(!r.exif, "the EXIF (where it was taken) is gone", r.exif)
+      expect(r.diff < 2.5, "and it looks the same (mean difference per channel under 2.5 of 255 against the unencoded picture at 2560px)", r.diff)
+      expect(r.gif.same && r.gif.type === "image/gif", "a GIF goes as it is, frames and all", r.gif)
+      expect(r.safari.type === "image/jpeg" && r.safari.w === 2560 && !r.safari.exif && r.safari.size < r.inSize / 2, "where the canvas cannot write WebP (Safari), JPEG at the same size, EXIF gone", r.safari)
       expect(errors.length === 0, "no page error", errors)
       await p.close()
     }

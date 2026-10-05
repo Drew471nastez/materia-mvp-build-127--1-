@@ -36,8 +36,9 @@ import { createPortal } from "react-dom"
 import { ChevronLeft, ChevronRight, Play, X } from "lucide-react"
 import { StorelibVideo } from "@/components/video/storelib-video"
 import { optimizedImageUrl, optimizedSrcSet } from "@/lib/images/optimized-url"
-import { embedPlayerSrc, type ViewerItem } from "@/lib/communities/post-media"
+import { EMBED_NAMES, embedPlayerSrc, type ViewerItem } from "@/lib/communities/post-media"
 import { SHEET_CLOSE_EASE, SHEET_EASE } from "@/components/ui/bottom-sheet"
+import { ProviderMark } from "./media-providers"
 /* The app's sheet arithmetic, so the slider is let go the way a sheet is (pure: no DOM, no React). */
 import { curveCss, releaseVelocity, rubberBand, snapMotion, snapTarget, type Sample } from "@/components/website-builder/sheet-gestures"
 
@@ -602,27 +603,51 @@ function Slide({ item, communityId, active, autoplay, zoom }: { item: ViewerItem
 }
 
 /**
- * A YouTube or Vimeo video in a 16:9 box: its picture and a play button,
- * and the privacy player only once pressed (or at once with `autoplay`),
- * so a post with a video loads none of YouTube's page until somebody asks.
+ * A YouTube, Vimeo or Loom video in a 16:9 box: its picture and a play
+ * button, and the privacy player only once pressed (or at once with
+ * `autoplay`), so a post with a video loads none of the site's page until
+ * somebody asks. The site's mark sits in the poster's corner (round 12).
  */
 export function EmbedPlayer({ item, autoplay = false, posterWidth = 720, className = "" }: { item: Extract<ViewerItem, { kind: "embed" }>; autoplay?: boolean; posterWidth?: number; className?: string }) {
   const [play, setPlay] = useState(autoplay)
   return (
     <div className={`relative aspect-video w-full overflow-hidden bg-black ${className}`} data-embed-player={item.provider} data-embed-state={play ? "playing" : "idle"}>
       {play ? (
-        <iframe src={embedPlayerSrc(item)} title={item.title || "Video"} allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen referrerPolicy="strict-origin-when-cross-origin" className="absolute inset-0 h-full w-full border-0" />
+        <iframe src={embedPlayerSrc(item)} title={item.title || `${EMBED_NAMES[item.provider]} video`} allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen referrerPolicy="strict-origin-when-cross-origin" className="absolute inset-0 h-full w-full border-0" />
       ) : (
-        <button type="button" onClick={() => setPlay(true)} aria-label={item.title ? `Play ${item.title}` : "Play video"} className="group/play absolute inset-0 flex cursor-pointer items-center justify-center outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/60" data-embed-play="">
-          {item.thumb ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={optimizedImageUrl(item.thumb, posterWidth)} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" className="absolute inset-0 h-full w-full object-cover" />
-          ) : null}
-          <span className="relative flex h-14 w-14 items-center justify-center rounded-full bg-black/60 text-white transition-[scale] duration-150 group-hover/play:scale-105 motion-reduce:transition-none">
-            <Play className="ml-1 h-6 w-6 fill-current" />
-          </span>
+        <button type="button" onClick={() => setPlay(true)} aria-label={item.title ? `Play ${item.title}` : `Play ${EMBED_NAMES[item.provider]} video`} className="group/play absolute inset-0 flex cursor-pointer items-center justify-center outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/60" data-embed-play="">
+          <EmbedPosterFace item={item} posterWidth={posterWidth} />
         </button>
       )}
     </div>
+  )
+}
+
+/** The poster alone, nothing to press (a comment still on its way). */
+export function EmbedPoster({ item, posterWidth = 420 }: { item: Extract<ViewerItem, { kind: "embed" }>; posterWidth?: number }) {
+  return (
+    <div className="relative flex aspect-video w-full items-center justify-center overflow-hidden bg-black" data-embed-player={item.provider} data-embed-state="idle">
+      <EmbedPosterFace item={item} posterWidth={posterWidth} />
+    </div>
+  )
+}
+
+function EmbedPosterFace({ item, posterWidth }: { item: Extract<ViewerItem, { kind: "embed" }>; posterWidth: number }) {
+  return (
+    <>
+      {item.thumb ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={optimizedImageUrl(item.thumb, posterWidth)} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" className="absolute inset-0 h-full w-full object-cover" />
+      ) : (
+        <span className="absolute inset-0 bg-[#1f2230]" aria-hidden />
+      )}
+      <span className="relative flex h-14 w-14 items-center justify-center rounded-full bg-black/60 text-white transition-[scale] duration-150 group-hover/play:scale-105 motion-reduce:transition-none">
+        <Play className="ml-1 h-6 w-6 fill-current" />
+      </span>
+      <span className="absolute bottom-2 left-2 inline-flex items-center gap-1.5 rounded-md bg-black/55 py-0.5 pl-1 pr-1.5 text-[11.5px] font-medium leading-5 text-white" aria-hidden data-embed-site="">
+        <ProviderMark provider={item.provider} size={15} />
+        {EMBED_NAMES[item.provider]}
+      </span>
+    </>
   )
 }

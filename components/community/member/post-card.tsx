@@ -10,7 +10,9 @@
  * something here the member has not seen (post-seen.ts); two lines of the
  * words; ONE thumbnail on the right (media.tsx PostThumb; on a phone the
  * pictures go under the words instead, CardMedia, and the card is a full
- * width row, PHONE_ROW); then the likes,
+ * width row, PHONE_ROW; round 12: a post with two or more pictures shows
+ * them under the words on a computer too, and its GIFs play while on
+ * screen); then the likes,
  * the comments, the faces of the last three people who commented and "New
  * comment 2d ago" when one came in the last week. The whole card opens the
  * post over the feed (post-overlay.tsx) at the post's own address; a link or
@@ -40,12 +42,13 @@ import { BarChart3, Bookmark, Link2, Lock, MessageCircle, MoreHorizontal, Paperc
 import { AppAvatar } from "@/components/app/app-avatar"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { relativeTime } from "@/lib/communities/format"
-import { withBodyEmbeds } from "@/lib/communities/post-media"
+import { cardPictures, withBodyEmbeds } from "@/lib/communities/post-media"
 import type { FeedPostView, PollView, ViewerView } from "@/lib/communities/types"
 import { api, apiBase } from "./api"
 import { BodyText, inline } from "./body-text"
-import { ConfirmDialog, ReportDialog, type ConfirmState, type ReportTargetRef } from "./dialogs"
-import { LikeHeart } from "./heart"
+import { ConfirmDialog, type ConfirmState, type ReportTargetRef } from "./dialogs"
+import { ReportSheet } from "./report-sheet"
+import { LikeHeart, likeSound } from "./heart"
 import { CardMedia, PostMediaGrid, PostThumb } from "./media"
 import { REOPEN, actOnContent, actOnMember, moderationMenu, muteUntil } from "./moderation"
 import { PollBlock } from "./poll"
@@ -182,7 +185,7 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
   const dialogs = asked.current ? (
     <>
       <ConfirmDialog state={confirm} onClose={() => setConfirm(null)} />
-      <ReportDialog communityId={post.communityId} target={report} onClose={() => setReport(null)} />
+      <ReportSheet communityId={post.communityId} target={report} onClose={() => setReport(null)} />
     </>
   ) : null
   /* Its height, remembered for the next time the feed is drawn (A PAGE OF POSTS COSTS ONE SCREENFUL). */
@@ -220,7 +223,10 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
 
   const like = () => {
     if (readOnly || !viewer.can.react) return
-    press(`like:${post.id}`, intentOf(`like:${post.id}`) ?? { on: post.reacted, count: post.reactionCount }, {
+    const now = intentOf(`like:${post.id}`) ?? { on: post.reacted, count: post.reactionCount }
+    /* The like's tiny sound, softer for an unlike (heart.tsx likeSound), in the press itself. */
+    likeSound(!now.on)
+    press(`like:${post.id}`, now, {
       send: (on) => api<{ on: boolean; count: number }>(`${apiBase(post.communityId)}/reactions`, { body: { targetType: "post", targetId: post.id, on } }),
       apply: (t) => update(post.id, (p) => ({ ...p, reacted: t.on, reactionCount: t.count })),
     })
@@ -350,6 +356,8 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
   const level = post.showLevel && author?.level ? author.level : null
   const fresh = post.lastCommentAt && Date.now() - Date.parse(post.lastCommentAt) < 7 * 86_400_000 ? post.lastCommentAt : null
   const files = media.filter((m) => m.type === "file").length
+  /* Two or more pictures: under the words on a computer too (round 12), not one thumbnail on the right. */
+  const several = useMemo(() => cardPictures(media).length >= 2, [media])
 
   const head = (
     <header className="flex items-start gap-3">
@@ -472,10 +480,10 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
                   ) : null}
                 </div>
               ) : null}
-              {/* A phone draws the pictures here, under the words; a computer keeps the thumbnail on the right. */}
-              <CardMedia media={media} className="mt-3 sm:hidden" />
+              {/* A phone draws the pictures here, under the words; a computer too when there are two or more, else its thumbnail on the right. */}
+              <CardMedia media={media} className={several ? "mt-3" : "mt-3 sm:hidden"} />
             </div>
-            <PostThumb media={media} className="max-sm:hidden" />
+            {several ? null : <PostThumb media={media} className="max-sm:hidden" />}
           </div>
         )}
         <footer className="mt-2 flex min-h-11 items-center gap-1 sm:mt-2.5">
