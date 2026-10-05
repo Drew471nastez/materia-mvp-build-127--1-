@@ -31,3 +31,6 @@ export function checkoutPath(productId: string, slug: string, interval?: "month"
 export function signInToJoinPath(slug: string): string {
   return `/login?next=${encodeURIComponent(`${communityPath(slug)}?join=1`)}`
 }
+
+/** Set as the member's frame is asked for after a join: the frame says "Welcome to <name>" once, and forgets it (round 12). */
+export const JOINED_KEY = "storelib:community-joined"

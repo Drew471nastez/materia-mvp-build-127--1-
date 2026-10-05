@@ -7,6 +7,7 @@ import { communityBySlug, sharePreviewable, communityIndexable, loadSalesPage, s
 import { scheduleCommunityView } from "@/lib/communities/server/record-view"
 import { aboutExtras } from "@/lib/communities/server/about"
 import { admin } from "@/lib/communities/server/db"
+import { leaveReasonsReady } from "@/lib/communities/server/leave-reasons"
 import { jsonLdScript } from "@/lib/seo/json-ld"
 import { CommunityFeedPage } from "@/components/community/member/feed-page"
 import { PullToRefreshEvent } from "@/components/ui/pull-to-refresh"
@@ -61,12 +62,13 @@ export default async function CommunityPage({ params }: { params: Promise<{ slug
     )
 
   /* The About page's extra facts: who runs it, how alive it is, the classroom (round 10, lib/communities/server/about.ts). */
-  const extras = await aboutExtras(admin(), load.community)
+  /* Leaving asks why once part 98 is in (round 12), for a member who can leave; the check is remembered by the server. */
+  const [extras, askWhy] = await Promise.all([aboutExtras(admin(), load.community), load.data.join.canLeave ? leaveReasonsReady(admin()) : Promise.resolve(false)])
   const jsonLd = communityJsonLd(load.data.community, communityIndexable(load.community))
   return (
     <>
       {jsonLd ? <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(jsonLd) }} /> : null}
-      <CommunitySalesPage data={{ ...load.data, extras }} />
+      <CommunitySalesPage data={{ ...load.data, extras, askWhy }} />
     </>
   )
 }

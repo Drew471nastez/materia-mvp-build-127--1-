@@ -37,18 +37,19 @@
  * join|leave): this file only says what happened, in a line under the button.
  */
 import * as React from "react"
+import { createPortal } from "react-dom"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Check } from "lucide-react"
 import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
 import { Spinner } from "@/components/community/member/place-spinner"
 import { LENGTHS } from "@/lib/communities/limits"
+import { LEAVE_NOTE_MAX, LEAVE_REASONS, type LeaveReason } from "@/lib/communities/leave-reasons"
 import { memberCountLabel } from "@/lib/communities/format"
 import { money, pricePer, yearlySaving } from "@/lib/memberships/state"
-import { optimizedImageUrl } from "@/lib/images/optimized-url"
 import { cn } from "@/lib/utils"
 import { CheckDot } from "./check-dot"
-import { communityPath } from "./paths"
+import { communityPath, JOINED_KEY } from "./paths"
 import type { JoinOption, JoinStateView, PublicCommunityView } from "./types"
 
 type Interval = "month" | "year"
@@ -65,7 +66,9 @@ interface JoinCtx {
   error: string | null
   press: () => void
   withdraw: () => void
-  leave: () => void
+  leave: (why?: { reason: LeaveReason | null; note: string }) => void
+  /** Part 98 is in: leaving asks why (the six reasons and a note, all optional). */
+  askWhy: boolean
   requestOpen: boolean
   setRequestOpen: (open: boolean) => void
   sendRequest: (note: string) => void
@@ -147,11 +150,17 @@ async function post(url: string, body?: unknown): Promise<{ ok: boolean; data: R
  */
 export function enterCommunity(slug: string, router: { refresh: () => void }) {
   const home = communityPath(slug)
+  /* The member's frame says welcome once it is drawn (shell-frame.tsx reads this, once). */
+  try {
+    window.sessionStorage.setItem(JOINED_KEY, slug)
+  } catch {
+    /* No storage: no welcome line, the community still opens. */
+  }
   if (typeof window !== "undefined" && window.location.pathname.replace(/\/+$/, "") !== home) window.history.pushState(null, "", home)
   router.refresh()
 }
 
-export function JoinProvider({ community, join, children }: { community: PublicCommunityView; join: JoinStateView; children: React.ReactNode }) {
+export function JoinProvider({ community, join, askWhy = false, children }: { community: PublicCommunityView; join: JoinStateView; /** Leaving asks why (round 12): only once part 98 has made the table (lib/communities/server/leave-reasons.ts). */ askWhy?: boolean; children: React.ReactNode }) {
   const router = useRouter()
   const params = useSearchParams()
   const [interval, setInterval] = React.useState<Interval>(() => (join.option?.checkout?.month || !join.option?.checkout?.year ? "month" : "year"))
@@ -233,10 +242,12 @@ export function JoinProvider({ community, join, children }: { community: PublicC
     answer(r)
   }, [answer, api])
 
-  const leave = React.useCallback(async () => {
+  const leave = React.useCallback(async (why?: { reason: LeaveReason | null; note: string }) => {
     setBusy(true)
     setError(null)
-    const r = await post(`${api}/leave`)
+    /* Why, only when they said: a reason, a note, or both. Nothing chosen is a plain leave. */
+    const said = why && (why.reason || why.note.trim()) ? { reason: why.reason ?? undefined, note: why.note.trim() || undefined } : undefined
+    const r = await post(`${api}/leave`, said)
     setBusy(false)
     setLeaveOpen(false)
     answer(r)
@@ -264,6 +275,7 @@ export function JoinProvider({ community, join, children }: { community: PublicC
     press,
     withdraw,
     leave,
+    askWhy,
     requestOpen,
     setRequestOpen,
     sendRequest: (note) => void joinNow(note),
@@ -328,13 +340,30 @@ function PrimaryAction({ className, short = false }: { className?: string; /** B
             </>
           ) : (
             <>
-              <Check aria-hidden className="h-[18px] w-[18px]" strokeWidth={2.5} />
+              <DrawnCheck />
               You&apos;re in
             </>
           )}
         </span>
       ) : null}
     </button>
+  )
+}
+
+/*
+  THE MOMENT IT TAKES (round 12, ask 13: "a satisfying, smooth join"). The
+  check beside "You're in" draws itself, one stroke over 280ms on a curve
+  that settles (stroke-dashoffset, painted by the compositor's clock), while
+  the words cross from "Joining" by opacity; the button keeps its size and
+  its ink the whole way, so nothing bumps. Still for reduced motion.
+*/
+const CHECK_DRAW = "@keyframes join-check-draw{from{stroke-dashoffset:20}to{stroke-dashoffset:0}}"
+function DrawnCheck() {
+  return (
+    <svg aria-hidden viewBox="0 0 24 24" width={18} height={18} fill="none" stroke="currentColor" strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round" className="shrink-0" data-join-check="">
+      <style>{CHECK_DRAW}</style>
+      <path d="M5 12.5l4.5 4.5L19 7.5" strokeDasharray={20} className="motion-safe:animate-[join-check-draw_280ms_cubic-bezier(0.22,1,0.36,1)_60ms_both]" />
+    </svg>
   )
 }
 
@@ -460,20 +489,17 @@ export function MembershipRow() {
   )
 }
 
-/** The sticky card, from 1024px: the cover, the name, its address, the price with Monthly and Yearly, and the button. */
+/**
+ * The sticky card, from 1280px, in the frame's right column (round 12): the
+ * name, its address, the price with Monthly and Yearly, and the button. No
+ * cover: the community's card in the left column has it, a column away.
+ */
 export function JoinCard() {
   const { community, join } = useJoin()
-  const image = community.coverUrl || community.logoUrl
   return (
-    <aside data-join-card="" className="hidden lg:block">
+    <aside data-join-card="" className="hidden xl:block">
       <div className="sticky top-[calc(var(--community-top,65px)+24px)]" data-join-card-sticky="">
         <div className="overflow-hidden rounded-2xl border border-[#e5e7eb]/80 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04),0_8px_24px_-12px_rgba(16,24,40,0.10)]">
-          {image ? (
-            <div className="relative aspect-[16/9] w-full bg-[#f1f2f4]">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={optimizedImageUrl(image, 640)} alt="" className="absolute inset-0 h-full w-full object-cover" />
-            </div>
-          ) : null}
           <div className="p-5">
             <p className="text-[18px] font-semibold leading-snug tracking-[-0.005em] text-[#1a1a2e] [overflow-wrap:anywhere]">{community.name}</p>
             <p className="mt-0.5 truncate text-[13px] text-[#8a8f98]">{community.address}</p>
@@ -545,7 +571,7 @@ export function JoinSummaryPhone() {
   const something = !!error || join.kind === "pending"
   if (!something) return null
   return (
-    <div className="lg:hidden [&>*:first-child]:mt-0" data-join-summary="">
+    <div className="xl:hidden [&>*:first-child]:mt-0" data-join-summary="">
       <Status />
     </div>
   )
@@ -566,6 +592,15 @@ export function JoinBarPhone() {
   const parts = join.kind === "open" ? null : priceParts(join.option, interval)
   const wide = join.kind === "open" || join.kind === "pending" || !parts || ["invite_only", "banned", "closed", "unavailable", "product"].includes(join.kind)
   const ref = React.useRef<HTMLDivElement>(null)
+  /*
+    ON THE BODY, NOT IN THE PAGE (round 12). A page arriving in the member's
+    frame rises a few px by `translate` (shell-frame.tsx ARRIVE), and for
+    those frames the page's box is where a fixed bar inside it is placed: the
+    bar rode down the page and jumped back. Portalled to the body it is fixed
+    to the screen whatever the page does. The server's HTML (and the frame
+    that hydrates it) draws it in place, where nothing moves the page.
+  */
+  const onClient = React.useSyncExternalStore(noSubscribe, () => true, () => false)
   /*
     THE ROOM IT TAKES, AT THE END OF THE DOCUMENT. The footer comes after
     this page in the layout, so padding the page alone left the footer's last
@@ -593,12 +628,13 @@ export function JoinBarPhone() {
       window.removeEventListener("resize", sync)
       body.style.paddingBottom = before
     }
-  }, [])
-  return (
+  }, [onClient])
+  const bar = (
     <div
       ref={ref}
       data-join-bar=""
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-[#e5e7eb] bg-white px-4 pt-3 shadow-[0_-4px_16px_-8px_rgba(16,24,40,0.12)] lg:hidden"
+      /* Until the side card takes over (1280px); a member's "Open community" only on a phone and a tablet, where there is no left column. */
+      className={cn("fixed inset-x-0 bottom-0 z-40 border-t border-[#e5e7eb] bg-white px-4 pt-3 shadow-[0_-4px_16px_-8px_rgba(16,24,40,0.12)]", join.kind === "open" ? "lg:hidden" : "xl:hidden")}
       /* Down to the screen's foot: under the tab bar where there is one, above the home indicator where there is not. */
       style={{ paddingBottom: "calc(12px + var(--buyer-tabs-h, env(safe-area-inset-bottom, 0px)))" }}
     >
@@ -616,7 +652,10 @@ export function JoinBarPhone() {
       </div>
     </div>
   )
+  return onClient ? createPortal(bar, document.body) : bar
 }
+
+const noSubscribe = () => () => {}
 
 /* ── Dialogs ────────────────────────────────────────────────────────────── */
 
@@ -673,14 +712,75 @@ function RequestDialog() {
   )
 }
 
+/*
+  LEAVING (round 11 asked first; round 12 asks why). Once part 98 is in, the
+  dialog offers six calm answers (lib/communities/leave-reasons.ts) as one
+  list of rows, none chosen, and a note field under them; neither is needed,
+  Leave works with nothing chosen. What they say goes to the people who run
+  the community (their dashboard's "Why people left") and to nobody else.
+  Before part 98 it is the plain question it was.
+*/
+const REASON_ROW =
+  "flex min-h-[44px] w-full items-center gap-3 rounded-xl border px-3.5 py-2.5 text-left text-[14.5px] leading-snug outline-none transition-[background-color,border-color,box-shadow] duration-150 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 [-webkit-tap-highlight-color:transparent] sm:min-h-10 sm:text-[14px]"
+
 function LeaveDialog() {
-  const { community, leaveOpen, setLeaveOpen, leave, busy, error } = useJoin()
+  const { community, leaveOpen, setLeaveOpen, leave, busy, error, askWhy } = useJoin()
   const phone = usePhone()
+  const [reason, setReason] = React.useState<LeaveReason | null>(null)
+  const [note, setNote] = React.useState("")
+  /* A fresh question each time it opens. */
+  React.useEffect(() => {
+    if (!leaveOpen) return
+    setReason(null)
+    setNote("")
+  }, [leaveOpen])
   return (
-    <SheetDialog open={leaveOpen} onClose={() => setLeaveOpen(false)} phone={phone} label={`Leave ${community.name}`} className="max-w-[420px] gap-0 rounded-2xl p-6">
-      <div className={phone ? "px-5 pb-[calc(20px+env(safe-area-inset-bottom,0px))] pt-1" : ""} data-leave-dialog="">
+    <SheetDialog open={leaveOpen} onClose={() => setLeaveOpen(false)} phone={phone} label={`Leave ${community.name}`} className={cn("gap-0 rounded-2xl p-6", askWhy ? "max-w-[460px]" : "max-w-[420px]")}>
+      <div className={phone ? "px-5 pb-[calc(20px+env(safe-area-inset-bottom,0px))] pt-1" : ""} data-leave-dialog="" data-leave-asks={askWhy ? "why" : undefined}>
         <SheetDialogTitle className="text-[18px] font-semibold text-[#1a1a2e]">Leave {community.name}?</SheetDialogTitle>
         <p className="mt-2 text-[14px] leading-relaxed text-[#6b7280]">You won&apos;t see its posts or get its notifications. Your posts stay, and you can join again later.</p>
+        {askWhy ? (
+          <div className="mt-5" data-leave-why="">
+            <p id="leave-why" className="text-[14px] font-medium text-[#1a1a2e]">
+              What made you leave? <span className="font-normal text-[#8a8f98]">Optional</span>
+            </p>
+            <div role="radiogroup" aria-labelledby="leave-why" className="mt-2.5 space-y-1.5">
+              {LEAVE_REASONS.map((r) => {
+                const on = reason === r.key
+                return (
+                  <button
+                    key={r.key}
+                    type="button"
+                    role="radio"
+                    aria-checked={on}
+                    onClick={() => setReason(on ? null : r.key)}
+                    data-leave-reason={r.key}
+                    className={cn(REASON_ROW, on ? "border-[#1a1a2e] bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.08)]" : "border-[#e6e8ec] bg-white text-[#374151] hover:bg-[#fafbfc] active:bg-[#f4f5f7]")}
+                  >
+                    {/* The choice's dot: a ring, filled with a smaller ink dot when chosen (scale only, so nothing moves). */}
+                    <span aria-hidden className={cn("relative flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border transition-colors duration-150", on ? "border-[#1a1a2e]" : "border-[#c9ccd2]")}>
+                      <span className={cn("h-2 w-2 rounded-full bg-[#1a1a2e] transition-[scale,opacity] duration-150 ease-out motion-reduce:transition-none", on ? "scale-100 opacity-100" : "scale-50 opacity-0")} />
+                    </span>
+                    <span className="min-w-0">{r.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+            <label className="mt-3 block">
+              <span className="sr-only">A note for the people who run it</span>
+              <textarea
+                value={note}
+                onChange={(e) => setNote(e.target.value.slice(0, LEAVE_NOTE_MAX))}
+                rows={2}
+                maxLength={LEAVE_NOTE_MAX}
+                placeholder="Anything you'd like them to know"
+                className="block w-full resize-none rounded-xl border border-[#e6e8ec] bg-white px-3.5 py-2.5 text-[16px] leading-snug text-[#1a1a2e] shadow-[0_1px_1px_rgba(16,24,40,0.03)] outline-none placeholder:text-[#9ca3af] focus:border-[#c9ccd2] focus:ring-2 focus:ring-[#1a1a2e]/10 sm:text-[14.5px]"
+                data-leave-note=""
+              />
+            </label>
+            <p className="mt-1.5 text-[12.5px] text-[#8a8f98]">Only the people who run {community.name} see this.</p>
+          </div>
+        ) : null}
         {error ? (
           <p role="alert" className="mt-3 text-[13px] text-[#b42318]">
             {error}
@@ -694,7 +794,7 @@ function LeaveDialog() {
           <button
             type="button"
             onClick={() => {
-              if (!busy) leave()
+              if (!busy) leave(askWhy ? { reason, note } : undefined)
             }}
             aria-busy={busy}
             data-leave-confirm=""

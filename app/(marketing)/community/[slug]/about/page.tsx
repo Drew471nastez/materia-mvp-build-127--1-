@@ -7,6 +7,7 @@ import { communityBySlug, sharePreviewable, loadSalesPage, seoFacts } from "@/li
 import { scheduleCommunityView } from "@/lib/communities/server/record-view"
 import { aboutExtras } from "@/lib/communities/server/about"
 import { admin } from "@/lib/communities/server/db"
+import { leaveReasonsReady } from "@/lib/communities/server/leave-reasons"
 import { CommunitySalesPage } from "@/components/community/public/sales-page"
 import { communityMetadata } from "@/components/community/public/seo"
 
@@ -36,6 +37,7 @@ export default async function CommunityAboutPage({ params }: { params: Promise<{
   if (load.community.slug !== slug) permanentRedirect(`/community/${load.community.slug}/about`)
   await scheduleCommunityView({ communityId: load.community.id, status: load.community.status, userId: user?.id ?? null, isOwner: load.viewer.isOwner })
   /* The About page's extra facts: who runs it, how alive it is, the classroom (round 10, lib/communities/server/about.ts). */
-  const extras = await aboutExtras(admin(), load.community)
-  return <CommunitySalesPage data={{ ...load.data, extras }} />
+  /* Leaving asks why once part 98 is in (round 12), for a member who can leave; the check is remembered by the server. */
+  const [extras, askWhy] = await Promise.all([aboutExtras(admin(), load.community), load.data.join.canLeave ? leaveReasonsReady(admin()) : Promise.resolve(false)])
+  return <CommunitySalesPage data={{ ...load.data, extras, askWhy }} />
 }

@@ -27,7 +27,7 @@ import { admin } from "@/lib/communities/server/db"
 import { wallData } from "@/lib/communities/server/wall"
 import type { CommunityRow } from "@/lib/communities/types"
 import { CommunityPublicFrame } from "@/components/community/public/public-frame"
-import { shellData } from "./data"
+import { shellData, toShellCommunity } from "./data"
 import { MediaLinks } from "./media-viewer"
 import { ShellFrame } from "./shell-frame"
 import type { ShellSection } from "./view-types"
@@ -46,9 +46,16 @@ async function CommunityShellAsync({ community, viewer, active, children }: { co
 
 async function CommunityPublicShellAsync({ community, viewer, children }: { community: CommunityRow; viewer: Viewer | null; children: React.ReactNode }) {
   const topBar = await topBarData(community, viewer)
+  /*
+    THE LEFT COLUMN'S CARD FOR A VISITOR (round 12): the member frame's community card from what the page already has, its cover,
+    name, address and member count (the trigger kept count). No faces, no Online, no Admins: who is in it is a member's to see.
+  */
+  const card = { community: toShellCommunity(community), card: { stats: { members: community.member_count ?? 0, online: null, admins: null }, faces: [], more: 0, settingsHref: null } }
   return (
     <>
-      <CommunityPublicFrame topBar={topBar}>{children}</CommunityPublicFrame>
+      <CommunityPublicFrame topBar={topBar} card={card}>
+        {children}
+      </CommunityPublicFrame>
       <MediaLinks communityId={community.id} />
     </>
   )

@@ -5,23 +5,43 @@
  * invite landing, a request waiting for approval. The community's own top
  * bar (whose it is, the switcher, their own menu or Log in) and the page,
  * with no Storelib bar above it: a shared community link is the community's
- * page, not Storelib's. The pills and the member's tools are a member's,
+ * page, not Storelib's. The places and the member's tools are a member's,
  * so they are not here.
+ *
+ * THE SAME COLUMNS AS EVERY OTHER PAGE OF THE COMMUNITY (round 12, ask 10:
+ * "the About page, member and non member, uses exactly the same page width
+ * and columns as the community's other pages"). It had a frame of its own,
+ * the bar and the sheet centred at 1080px, so a visitor's About and the
+ * member's (inside the 1360px frame, shell-frame.tsx) were two different
+ * pages, and joining moved everything. Now it is the member frame's grid:
+ * the bar lined up with the 1360px columns, the community's card in the
+ * left column from 1024px (its cover, name, address and member count; no
+ * faces, no online count, nothing a visitor should not see), and the page
+ * across the middle and the right columns from 1280px, exactly where the
+ * member's About sits.
  *
  * ENTERING (round 10, ask 28): the bar is the frame and is there at once;
  * the page under it fades in (opacity only, on what is inserted, so the
- * same page drawn again does not flash), as the member frame's middle
- * column does (shell-frame.tsx ARRIVE).
+ * same page drawn again does not flash).
  */
 import { CommunityTopBar } from "@/components/community/member/top-bar"
-import type { TopBarData } from "@/components/community/member/view-types"
+import type { ShellCommunity, TopBarData, WallCardData } from "@/components/community/member/view-types"
+import { WallCommunityCard } from "@/components/community/member/wall"
 import { useLightChrome } from "@/lib/ui/light-chrome"
 import { useCommunityLanding } from "@/components/community/member/landing"
 
-/** What arrives under the bar fades in: the member frame's own (shell-frame.tsx ARRIVE), named here so this frame does not load that one. */
+/** What arrives under the bar fades in (opacity only: a visitor never moves between places, so nothing rises). */
 const ARRIVE = "[&>*]:animate-[fade-in_200ms_cubic-bezier(0.32,0.72,0,1)] motion-reduce:[&>*]:animate-none"
 
-export function CommunityPublicFrame({ topBar, children }: { topBar: TopBarData; children: React.ReactNode }) {
+/** The member frame's own scrollbar room (shell-frame.tsx GUTTER), so the two frames centre on the same line. */
+const GUTTER = "html{scrollbar-gutter:stable}"
+
+export interface PublicFrameCard {
+  community: ShellCommunity
+  card: WallCardData
+}
+
+export function CommunityPublicFrame({ topBar, card = null, children }: { topBar: TopBarData; /** The community's card for the left column; left out, the page has the columns alone. */ card?: PublicFrameCard | null; children: React.ReactNode }) {
   useLightChrome(true)
   /* Opened from Discover: the frame lands as an /app page does (components/community/member/landing.ts). */
   const landing = useCommunityLanding()
@@ -31,9 +51,19 @@ export function CommunityPublicFrame({ topBar, children }: { topBar: TopBarData;
       data-community-landing={landing ? "" : undefined}
       className={`min-h-svh bg-[#f8f9fa] [--community-top:57px] lg:[--community-top:65px]${landing ? " community-land" : ""}`}
     >
-      <CommunityTopBar data={topBar} />
-      <div className={ARRIVE} data-community-body="">
-        {children}
+      <style>{GUTTER}</style>
+      <CommunityTopBar data={topBar} wide />
+      <div className="mx-auto w-full max-w-[1360px] px-4 sm:px-6 lg:px-8">
+        <div data-community-columns="public" className="pb-16 pt-4 lg:grid lg:grid-cols-[260px_minmax(0,1fr)] lg:items-start lg:gap-x-6 lg:pt-6 xl:grid-cols-[280px_minmax(0,1fr)_300px]">
+          <div className="hidden min-w-0 lg:col-start-1 lg:row-start-1 lg:block" data-community-left="">
+            {card ? <WallCommunityCard community={card.community} card={card.card} membersHref={null} /> : null}
+          </div>
+          <div className="min-w-0 lg:col-start-2 lg:row-start-1 xl:col-span-2" data-community-main="">
+            <div className={`${ARRIVE} max-sm:-mx-4 max-sm:-mt-4`} data-community-body="">
+              {children}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   )
