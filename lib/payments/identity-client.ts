@@ -4,12 +4,17 @@
  * ===========================================================================
  *  RUNNING STRIPE'S OWN ID CHECK FROM THE PAGE
  * ===========================================================================
- * STRIPE DOES THE WHOLE ID CHECK NOW, on every platform. Its screen opens the
- * camera, scans the document live, matches a selfie to it, and sends both to
- * Stripe directly: the photo never passes through Storelib's server, which is
- * what kept failing (an upload that sat on "Stripe is saving it" and then
- * timed out). Storelib's own camera is still there underneath as the other
- * way, for anybody Stripe has no check for.
+ * STRIPE DOES THE WHOLE ID CHECK, on every platform. Its screen takes the
+ * document and sends it to Stripe directly: the photo never passes through
+ * Storelib's server, which is what kept failing (an upload that sat on
+ * "Stripe is saving it" and then timed out).
+ *
+ * TWO SCREENS, AND THE SERVER PICKS. Connect's own hosted verification is the
+ * one that always runs (lib/payments/stripe/hosted-verification.ts): a page
+ * for this one connected account that comes back to Storelib when it is done.
+ * Stripe Identity's modal runs instead where that product is really switched
+ * on. `openIdentity` opens Identity; `openHostedVerification` opens the
+ * Connect page.
  *
  *   A BROWSER. Stripe.js opens its modal over the page, in Stripe's own
  *     frame, on Stripe's origin. The page is never left.
@@ -64,6 +69,21 @@ async function openSheet(url: string): Promise<IdentityOpened> {
  * Stripe's modal or sheet closes, so the step can ask Stripe at once rather
  * than leaving somebody looking at a spinner.
  */
+export async function openHostedVerification(url: string): Promise<IdentityOpened> {
+  if (typeof window === "undefined" || !url) return "no_way"
+  /* The app: Stripe's page in the sheet over the app, which closes itself on the way back. */
+  if (isNativeApp()) return openSheet(url)
+  /*
+   * A browser goes to Stripe's page in this same tab. Not a second window: a
+   * phone browser buries one behind the first, and a popup blocker eats it,
+   * both of which read as Verify doing nothing. Stripe's return address is
+   * Payouts with ?setup=1, so coming back reopens setup on the step that is
+   * left, whether that is a minute later or the next day.
+   */
+  window.location.assign(url)
+  return "sent"
+}
+
 export async function openIdentity(opening: IdentityOpening): Promise<IdentityOpened> {
   if (typeof window === "undefined") return "no_way"
 

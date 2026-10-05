@@ -45,7 +45,8 @@ import { setupStepOf, type StorelibPaymentsStatus } from "@/lib/payments/stripe/
 import type { Overview } from "@/components/app/settings/payments-hub-shared"
 import { isNativeApp, openInApp } from "@/lib/native-bridge"
 import { sendIdPhoto, shrinkPhoto } from "@/components/app/settings/id-camera"
-import { openIdentity } from "@/lib/payments/identity-client"
+import { openHostedVerification, openIdentity } from "@/lib/payments/identity-client"
+import { readsLikeStripe, verifyLine } from "@/lib/payments/verify-id"
 import { playAskSound } from "@/lib/website-builder/ask-sounds"
 import { cn } from "@/lib/utils"
 
@@ -74,8 +75,14 @@ const SECONDARY = cn(secondaryDepth, "h-11 rounded-xl px-5 text-[14px] sm:h-10 s
 const PANEL_Z = 1000
 const SHEET_Z = PANEL_Z + 10
 
+/*
+ * NOTHING OF STRIPE'S OWN WIRE REACHES A CREATOR. One rule for the whole
+ * flow, kept beside the step's own words (lib/payments/verify-id.ts
+ * readsLikeStripe), because the sentence a creator was reading on step two
+ * came from a server that had passed Stripe's text straight through.
+ */
 function safe(message: string): string {
-  if (/invalid_request|acct_|accs_|btok_|file_|capability|requirement|sk_|whsec/i.test(message)) return "Something went wrong. Try again in a moment."
+  if (!message.trim() || readsLikeStripe(message)) return "Something went wrong. Try again in a moment."
   return message
 }
 
@@ -706,7 +713,7 @@ export function PaymentsSetupFlow({
   const subtitle =
     mode === "setup"
       ? idNeeded
-        ? "Your personal info, a quick ID check with your camera, then your bank. About five minutes."
+        ? "Your personal info, a quick ID check with Stripe, then your bank. About five minutes."
         : "Your personal info, then your bank. About five minutes."
       : mode === "bank"
         ? "Where your cash outs are sent."
@@ -990,21 +997,6 @@ function useDetailsForm() {
     void load()
   }, [load])
   return { form, setForm, error, load }
-}
-
-/*
- * WHY STRIPE WOULD NOT START THE CHECK, in words the person can act on.
- * Said out loud rather than quietly opening something else: the one that
- * matters, "not_enabled", is Stripe Identity being switched off for the
- * platform, which nobody can fix from inside setup.
- */
-function whyNoCheck(reason: string | undefined, detail?: string): string {
-  if (reason === "not_enabled") return "Stripe's ID check is not switched on for Storelib yet. Turn on Stripe Identity in the Stripe dashboard, under Settings, then try again."
-  if (reason === "nothing_to_verify") return "Stripe is not asking for your ID right now. Press Continue to carry on."
-  if (reason === "no_account" || reason === "not_ours") return "Your payments account is not ready for this yet. Go back a step, then try again."
-  if (reason === "no_person") return "Your name and date of birth have to be in before Stripe can check your ID. Go back a step and finish those."
-  /* Stripe's own sentence beats a guess: it names the real cause, which a guess hid for days. */
-  return detail ? `Stripe would not start the check: ${detail}` : "Stripe could not start the check just now. Try again in a moment."
 }
 
 function FormWaiting({ error, onRetry }: { error: string | null; onRetry: () => void }) {
@@ -1377,19 +1369,27 @@ function DetailsStep({
     }
   }
 
+  /*
+   * VERIFY WITH STRIPE. The server says which of Stripe's two checks this
+   * account gets (lib/payments/stripe/hosted-verification.ts): Connect's own
+   * hosted verification, which every connected account has, or Stripe
+   * Identity's modal where that product is really switched on. The step does
+   * not care which, and neither does the creator: either way it is Stripe's
+   * screen and Storelib never sees the document.
+   *
+   * WHEN IT WILL NOT OPEN, one calm sentence with what to do next. It used to
+   * print Stripe's own refusal here ("Your account is not set up to use
+   * Identity. Please have an account admin visit to get started"), which no
+   * creator can act on and which was a note for us, not for them.
+   */
   const runIdentity = async () => {
     setIdProblem(null)
     setIdState("opening")
     try {
-      const r = await post<{ ok?: boolean; reason?: string; detail?: string; clientSecret?: string | null; url?: string | null; publishableKey?: string }>("identity", {})
+      const r = await post<{ ok?: boolean; way?: string; reason?: string; clientSecret?: string | null; url?: string | null; publishableKey?: string }>("identity", { inApp: isNativeApp() })
       if (!r.ok) {
-        /*
-         * Stripe would not start one. It used to open Storelib's camera
-         * here without a word, which read as "Verify with Stripe" opening
-         * our camera, and hid the only thing worth knowing: why.
-         */
         setIdState("idle")
-        setIdProblem(whyNoCheck(r.reason, r.detail))
+        setIdProblem(verifyLine(r.reason))
         return
       }
       /*
@@ -1399,7 +1399,10 @@ function DetailsStep({
        * dismissed by a swipe left it there for good.
        */
       setIdState("waiting")
-      const how = await openIdentity({ clientSecret: r.clientSecret ?? null, url: r.url ?? null, publishableKey: r.publishableKey ?? "" })
+      const how =
+        r.way === "connect"
+          ? await openHostedVerification(r.url ?? "")
+          : await openIdentity({ clientSecret: r.clientSecret ?? null, url: r.url ?? null, publishableKey: r.publishableKey ?? "" })
       if (how === "no_way") {
         setIdState("idle")
         setIdProblem("Stripe's check could not open on this device. Try again, or open Storelib on your phone and finish it there.")
@@ -1411,7 +1414,7 @@ function DetailsStep({
       }
     } catch {
       setIdState("idle")
-      setIdProblem("We could not reach Stripe just now. Try again in a moment.")
+      setIdProblem(verifyLine("offline"))
     }
   }
 
@@ -1461,7 +1464,7 @@ function DetailsStep({
                     <span className="mt-0.5 block text-[12.5px] leading-[17px] text-[#6b7280]">
                       {idState === "waiting"
                         ? "Finish the check with Stripe, then come back here. This page knows the moment it is done."
-                        : "Stripe opens its camera, scans your ID and matches a selfie to it. About a minute, and Storelib never sees either."}
+                        : "Stripe opens its own check, takes a photo of your ID and brings you straight back here. About a minute, and Storelib never sees the document."}
                     </span>
                   </span>
                 </button>
