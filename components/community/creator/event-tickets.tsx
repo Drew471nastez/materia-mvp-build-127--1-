@@ -38,11 +38,11 @@ function sourceWords(t: TicketHolderView): string {
   return "Given a seat"
 }
 
+/* Only what the row's own buttons do not already say: whether they came is the Came button beside it. */
 function statusBadge(t: TicketHolderView): React.ReactNode {
   if (t.status === "refunded") return <StatusBadge tone="neutral">Refunded</StatusBadge>
   if (t.status === "cancelled") return <StatusBadge tone="neutral">Gave up the seat</StatusBadge>
   if (t.status === "held") return <StatusBadge tone="attention">Paying</StatusBadge>
-  if (t.attendedAt) return <StatusBadge tone="success">Came</StatusBadge>
   return null
 }
 
@@ -130,7 +130,7 @@ export function EventTicketsPanel({ head, event, currency, onBack }: { head: Com
 
   return (
     <div className="space-y-4" data-event-tickets={event.id}>
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         <button type="button" onClick={onBack} aria-label="Back to events" className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border border-[#e5e7eb] bg-white text-[#1a1a2e] hover:bg-[#f8f9fa] sm:h-9 sm:w-9" data-tickets-back="">
           <ArrowLeft aria-hidden className="h-4 w-4" />
         </button>
@@ -145,7 +145,7 @@ export function EventTicketsPanel({ head, event, currency, onBack }: { head: Com
           </p>
         </div>
         {mayInvite ? (
-          <button type="button" onClick={() => setInviting(true)} className={cn(buttonPrimary, "shrink-0")} data-invite-free="">
+          <button type="button" onClick={() => setInviting(true)} className={cn(buttonPrimary, "shrink-0 max-sm:basis-full")} data-invite-free="">
             <Plus aria-hidden className="h-4 w-4" />
             Invite free
           </button>
@@ -154,7 +154,7 @@ export function EventTicketsPanel({ head, event, currency, onBack }: { head: Com
 
       {error ? <Notice>{error}</Notice> : null}
       {panel && !panel.ready ? <Notice tone="info">Tickets need the database update, run-now part 105.</Notice> : null}
-      {panel?.cancelled && money && money.sold - (money.refundedCents > 0 ? 1 : 0) > 0 && money.refundedCents === 0 ? (
+      {panel?.cancelled && money && money.grossCents > 0 && money.refundedCents === 0 ? (
         <Notice tone="warn">This event is cancelled and nobody has had their money back yet. Refund each ticket below, or ask the owner to.</Notice>
       ) : null}
 
@@ -195,7 +195,7 @@ export function EventTicketsPanel({ head, event, currency, onBack }: { head: Com
                     {[sourceWords(t), t.paidAt ? shortDate(t.paidAt) : null, t.email].filter(Boolean).join(" · ")}
                   </p>
                 </div>
-                <div className="flex shrink-0 items-center gap-2">
+                <div className="flex shrink-0 items-center gap-2 max-sm:w-full max-sm:justify-end">
                   {t.status === "paid" ? (
                     <button
                       type="button"

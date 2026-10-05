@@ -3,9 +3,8 @@ import { requireCommunitiesOn } from "@/lib/communities/flag"
 import { requireCreatorCommunity } from "@/lib/communities/server/context"
 import { noStore, readJson } from "@/lib/email-campaigns/route-auth"
 import { can } from "@/lib/communities/permissions"
-import { loadEventTicketPanel, manageLimit, searchMembersToInvite, ticketInCommunity } from "@/lib/communities/server/creator"
-import { markAttended } from "@/lib/communities/server/event-tickets"
-import { refundTicket } from "@/lib/communities/server/event-refunds"
+import { manageLimit } from "@/lib/communities/server/creator"
+import { loadEventTicketPanel, markTicketAttended, refundOneTicket, searchMembersToInvite } from "@/lib/communities/server/event-admin"
 import { isUuid } from "@/components/community/creator/logic"
 
 export const runtime = "nodejs"
@@ -42,7 +41,7 @@ export async function GET(request: Request, { params }: Params) {
   const find = url.searchParams.get("find")
   if (find !== null) {
     if (!can(gate.role, "price_events", gate.viewer.perms)) return NextResponse.json({ error: "not_allowed" }, { status: 403, headers: noStore })
-    const members = await searchMembersToInvite(gate.ctx.admin, { communityId: gate.community.id, eventId, q: find, withEmail })
+    const members = await searchMembersToInvite(gate.ctx.admin, { communityId: gate.community.id, eventId, q: find, withEmail, role: gate.role, perms: gate.viewer.perms })
     return NextResponse.json({ members }, { headers: noStore })
   }
   const done = await loadEventTicketPanel(gate.ctx.admin, { communityId: gate.community.id, eventId, cursor: url.searchParams.get("cursor"), q: url.searchParams.get("q") ?? "", withEmail })
@@ -60,11 +59,15 @@ export async function PATCH(request: Request, { params }: Params) {
   const limited = await manageLimit(gate.ctx.userId)
   if (limited) return limited
   const body = await readJson(request)
-  const ticketId = typeof body.ticketId === "string" ? body.ticketId : ""
-  const owns = await ticketInCommunity(gate.ctx.admin, gate.community.id, eventId, ticketId)
-  if (!owns.ok) return NextResponse.json({ error: owns.error }, { status: owns.status, headers: noStore })
-  const done = await markAttended(gate.ctx.admin, { ticketId, at: body.attended === false ? null : undefined })
-  if (!done) return NextResponse.json({ error: "failed" }, { status: 500, headers: noStore })
+  const done = await markTicketAttended(gate.ctx.admin, {
+    community: gate.community,
+    role: gate.role,
+    perms: gate.viewer.perms,
+    eventId,
+    ticketId: typeof body.ticketId === "string" ? body.ticketId : "",
+    came: body.attended !== false,
+  })
+  if (!done.ok) return NextResponse.json({ error: done.error }, { status: done.status, headers: noStore })
   return NextResponse.json({ ok: true }, { headers: noStore })
 }
 
@@ -79,10 +82,15 @@ export async function DELETE(request: Request, { params }: Params) {
   const limited = await manageLimit(gate.ctx.userId)
   if (limited) return limited
   const body = await readJson(request)
-  const ticketId = typeof body.ticketId === "string" ? body.ticketId : ""
-  const owns = await ticketInCommunity(gate.ctx.admin, gate.community.id, eventId, ticketId)
-  if (!owns.ok) return NextResponse.json({ error: owns.error }, { status: owns.status, headers: noStore })
-  const done = await refundTicket(gate.ctx.admin, { community: gate.community, ticketId, actorId: gate.ctx.userId, reason: typeof body.reason === "string" ? body.reason : null })
+  const done = await refundOneTicket(gate.ctx.admin, {
+    community: gate.community,
+    role: gate.role,
+    perms: gate.viewer.perms,
+    eventId,
+    ticketId: typeof body.ticketId === "string" ? body.ticketId : "",
+    actorId: gate.ctx.userId,
+    reason: typeof body.reason === "string" ? body.reason : null,
+  })
   if (!done.ok) return NextResponse.json({ error: done.error }, { status: done.status, headers: noStore })
-  return NextResponse.json({ ok: true, refundedCents: done.amountCents }, { headers: noStore })
+  return NextResponse.json({ ok: true, refundedCents: done.refundedCents }, { headers: noStore })
 }

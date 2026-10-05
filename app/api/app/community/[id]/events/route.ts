@@ -48,7 +48,7 @@ export async function POST(request: Request, { params }: Params) {
     if (!price.ok) return NextResponse.json({ error: price.error, field: price.field }, { status: 400, headers: noStore })
     tickets = price.value
   }
-  const made = await createEvent(gate.ctx.admin, { community: gate.community, actorId: gate.ctx.userId, input: checked.value, tickets })
+  const made = await createEvent(gate.ctx.admin, { community: gate.community, actorId: gate.ctx.userId, input: checked.value, tickets, role: gate.role, perms: gate.viewer.perms })
   if (!made.ok) return NextResponse.json({ error: made.error }, { status: made.status, headers: noStore })
   return NextResponse.json({ event: made.event }, { status: 201, headers: noStore })
 }

@@ -4,7 +4,7 @@ import { requireCreatorCommunity } from "@/lib/communities/server/context"
 import { noStore, readJson } from "@/lib/email-campaigns/route-auth"
 import { can } from "@/lib/communities/permissions"
 import { manageLimit, setEventCancelled, updateEvent } from "@/lib/communities/server/creator"
-import { refundEveryTicket } from "@/lib/communities/server/event-refunds"
+import { refundEveryTicketFor } from "@/lib/communities/server/event-admin"
 import { checkEvent, checkEventTickets, isUuid } from "@/components/community/creator/logic"
 
 export const runtime = "nodejs"
@@ -30,16 +30,23 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const limited = await manageLimit(gate.ctx.userId)
   if (limited) return limited
   const body = await readJson(request)
-  if (body.status === "cancelled" || body.status === "scheduled") {
-    /* GIVING EVERYBODY THEIR MONEY BACK IS ITS OWN PERMISSION, and it happens before the event is called off. */
-    let refund: { refunded: number; failed: number; totalCents: number } | null = null
-    if (body.status === "cancelled" && body.refundAll === true) {
+  if (body.status === "cancelled") {
+    /* GIVING EVERYBODY THEIR MONEY BACK IS ITS OWN PERMISSION, and it happens BEFORE the event is called off. */
+    let back = { refunded: 0, failed: 0, refundedCents: 0 }
+    if (body.refundAll === true) {
       if (!can(gate.role, "refund_tickets", gate.viewer.perms)) return NextResponse.json({ error: "not_allowed" }, { status: 403, headers: noStore })
-      refund = await refundEveryTicket(gate.ctx.admin, { community: gate.community, eventId, actorId: gate.ctx.userId, reason: "The event was cancelled." })
+      const money = await refundEveryTicketFor(gate.ctx.admin, { community: gate.community, role: gate.role, perms: gate.viewer.perms, eventId, actorId: gate.ctx.userId })
+      if (!money.ok) return NextResponse.json({ error: money.error }, { status: money.status, headers: noStore })
+      back = { refunded: money.refunded, failed: money.failed, refundedCents: money.refundedCents }
     }
-    const done = await setEventCancelled(gate.ctx.admin, { communityId: gate.community.id, eventId, actorId: gate.ctx.userId, cancelled: body.status === "cancelled" })
+    const done = await setEventCancelled(gate.ctx.admin, { communityId: gate.community.id, eventId, actorId: gate.ctx.userId, cancelled: true })
     if (!done.ok) return NextResponse.json({ error: done.error }, { status: done.status, headers: noStore })
-    return NextResponse.json({ ok: true, refunded: refund?.refunded ?? 0, failed: refund?.failed ?? 0, refundedCents: refund?.totalCents ?? 0 }, { headers: noStore })
+    return NextResponse.json({ ok: true, ...back }, { headers: noStore })
+  }
+  if (body.status === "scheduled") {
+    const done = await setEventCancelled(gate.ctx.admin, { communityId: gate.community.id, eventId, actorId: gate.ctx.userId, cancelled: false })
+    if (!done.ok) return NextResponse.json({ error: done.error }, { status: done.status, headers: noStore })
+    return NextResponse.json({ ok: true, refunded: 0, failed: 0, refundedCents: 0 }, { headers: noStore })
   }
   const checked = checkEvent(body)
   if (!checked.ok) return NextResponse.json({ error: checked.error, field: checked.field }, { status: 400, headers: noStore })
@@ -50,7 +57,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (!price.ok) return NextResponse.json({ error: price.error, field: price.field }, { status: 400, headers: noStore })
     tickets = price.value
   }
-  const done = await updateEvent(gate.ctx.admin, { community: gate.community, creatorId: gate.ctx.creatorId, eventId, actorId: gate.ctx.userId, input: checked.value, replay: body.replay, tickets })
+  const done = await updateEvent(gate.ctx.admin, { community: gate.community, creatorId: gate.ctx.creatorId, eventId, actorId: gate.ctx.userId, input: checked.value, replay: body.replay, tickets, role: gate.role, perms: gate.viewer.perms })
   if (!done.ok) return NextResponse.json({ error: done.error, field: done.field }, { status: done.status, headers: noStore })
   return NextResponse.json({ event: done.event }, { headers: noStore })
 }

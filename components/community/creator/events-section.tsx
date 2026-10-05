@@ -207,6 +207,8 @@ export function EventsSection({ head, initial, options, openNew }: { head: Commu
     const parts = [`${m.sold} ${m.sold === 1 ? "ticket" : "tickets"}`, eventPriceLabel(m.grossCents, m.currency)]
     if (m.invited > 0) parts.push(`${m.invited} free`)
     if (m.refundedCents > 0) parts.push(`${eventPriceLabel(m.refundedCents, m.currency)} refunded`)
+    /* A cancelled event that kept the money says so, because that is the thing left to do. */
+    else if (e.status === "cancelled" && m.grossCents > 0) parts.push("nobody refunded yet")
     return parts.join(" · ")
   }
 
@@ -267,7 +269,7 @@ export function EventsSection({ head, initial, options, openNew }: { head: Commu
                     </p>
                     <p className="line-clamp-2 text-[12.5px] text-[#6b7280] sm:truncate">{[eventTime(e.startsAt, e.endsAt), EVENT_KIND_LABEL[e.kind], `${e.goingCount}${e.capacity ? ` of ${e.capacity}` : ""} going`].join(" · ")}</p>
                     {money ? (
-                      <p className="mt-0.5 truncate text-[12.5px] tabular-nums text-[#4b5563]" data-event-money="">
+                      <p className="mt-0.5 text-[12.5px] leading-snug tabular-nums text-[#4b5563] max-sm:line-clamp-2 sm:truncate" data-event-money="">
                         {money}
                       </p>
                     ) : null}
@@ -436,7 +438,7 @@ export function EventsSection({ head, initial, options, openNew }: { head: Commu
                             {draft.capacity ? ` ${draft.capacity} seats.` : " No seat limit: add a capacity above to sell a set number."}
                           </p>
                         </div>
-                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-[1fr_1fr_120px]">
+                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-[1fr_1fr_152px]">
                           <div>
                             <label htmlFor="ev-close-date" className={label}>
                               Sales close
@@ -456,19 +458,22 @@ export function EventsSection({ head, initial, options, openNew }: { head: Commu
                             </label>
                             <input id="ev-close-time" type="time" value={draft.salesCloseTime} onChange={(e) => set("salesCloseTime", e.target.value)} className={cn(field, "h-11 sm:h-10", bad("salesClose") && "border-[#dc2626]")} />
                           </div>
-                          <div>
+                          <div className="col-span-2 sm:col-span-1">
                             <label htmlFor="ev-refund-window" className={label}>
                               Refunds up to
                             </label>
-                            <input
-                              id="ev-refund-window"
-                              inputMode="numeric"
-                              value={draft.refundWindow}
-                              onChange={(e) => set("refundWindow", e.target.value.replace(/\D/g, "").slice(0, 4))}
-                              placeholder="None"
-                              aria-invalid={bad("refundWindow") || undefined}
-                              className={cn(field, "h-11 tabular-nums sm:h-10", bad("refundWindow") && "border-[#dc2626]")}
-                            />
+                            <div className="flex items-center gap-2">
+                              <input
+                                id="ev-refund-window"
+                                inputMode="numeric"
+                                value={draft.refundWindow}
+                                onChange={(e) => set("refundWindow", e.target.value.replace(/\D/g, "").slice(0, 4))}
+                                placeholder="None"
+                                aria-invalid={bad("refundWindow") || undefined}
+                                className={cn(field, "h-11 w-[92px] shrink-0 tabular-nums sm:h-10", bad("refundWindow") && "border-[#dc2626]")}
+                              />
+                              <span className="text-[13.5px] text-[#4b5563]">hours before</span>
+                            </div>
                           </div>
                         </div>
                         <p className="text-[12.5px] leading-snug text-[#6b7280]">
