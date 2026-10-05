@@ -225,7 +225,10 @@ async function main() {
   check("an admin's post a few hours older passes members' newer ones", boosted.map((x) => x.id).join() === "a1,m1,m2,o1,m3", boosted.map((x) => x.id).join())
   check("never hides a post: the page holds the same posts", boosted.length === page1.length && new Set(boosted.map((x) => x.id)).size === page1.length)
   check("gentle: about six hours", STAFF_BOOST_MS === 6 * H && boostStaff([p("m", "member", 1), p("a", "admin", 8)]).map((x) => x.id).join() === "m,a")
-  check("only in Default, inside the page already read (its cursor is the page's last row before the boost)", /const posts = order === "default" \? boostStaff\(hydrated\) : hydrated/.test(serverFeed) && /cursorAfter\(order, last\)/.test(serverFeed))
+  check(
+    "only in Default, inside the page already read (cursor is the keyset batch before reorder)",
+    /rankPostRows|boostStaff\(hydrated\)/.test(serverFeed) && /cursorAfter\(order, last\)/.test(serverFeed) && /before any in-page reorder/.test(serverFeed),
+  )
 
   /* ── 17 ────────────────────────────────────────────────────────────── */
   console.log("\n17. Sounds in /account/settings")

@@ -432,6 +432,7 @@ const SUITES = [
   "tests/communities-safety2.test.ts",
   "tests/communities-posts12.test.ts",
   "tests/communities-posts13.test.ts",
+  "tests/communities-feed-rank.test.ts",
   "tests/communities-admin13.test.ts",
   "tests/communities-events-admin.test.ts",
   "tests/communities-paid-events.test.ts",

@@ -51,9 +51,11 @@ import {
   type SpaceRow,
 } from "../types"
 import type { LinkPreview, SpaceView } from "@/components/community/member/view-types"
+import { FEED_RANK_CANDIDATE_MULT, FEED_RANK_MAX_CANDIDATES, feedRankEnabled, rankPostRows, boostStaff } from "../feed-rank"
 import { recordActivity } from "./activity"
 import type { Viewer } from "./context"
 import { missing, nowIso, reasonOf, type Db } from "./db"
+import { buildFeedRankContext } from "./feed-rank-load"
 import { authorViews, displayName } from "./directory"
 import { everyoneAllowed, notifyMentions, queueEveryone } from "./mentions"
 import { queueNewPost } from "./notify"
@@ -410,19 +412,10 @@ export function unreadSince(viewer: Pick<Viewer, "member">): string | null {
  * brings) are exactly the ones without the boost, so no post is ever skipped
  * or shown twice, and a member's post is never hidden, only passed by a
  * staff post that is at most a few hours older. The name line already says
- * who they are (RoleBadge: Owner, Admin).
+ * who they are (RoleBadge: Owner, Admin). When COMMUNITY_FEED_RANK is on,
+ * Default uses lib/communities/feed-rank.ts instead of boostStaff on hydrate.
  */
-export const STAFF_BOOST_MS = 6 * 60 * 60 * 1000
-const BOOSTED_ROLES = new Set(["owner", "admin"])
-
-export function boostStaff<T extends { id: string; lastActivityAt?: string | null; createdAt: string; author: { role?: string | null } | null }>(page: T[], boost = STAFF_BOOST_MS): T[] {
-  if (page.length < 2 || !page.some((p) => BOOSTED_ROLES.has(p.author?.role ?? ""))) return page
-  const at = (p: T) => Date.parse(p.lastActivityAt || p.createdAt) || 0
-  return page
-    .map((p, i) => ({ p, i, score: at(p) + (BOOSTED_ROLES.has(p.author?.role ?? "") ? boost : 0) }))
-    .sort((a, b) => b.score - a.score || a.i - b.i)
-    .map((x) => x.p)
-}
+export { STAFF_BOOST_MS, boostStaff } from "../feed-rank"
 
 export async function listFeed(db: Db, community: CommunityRow, viewer: Viewer, req: FeedRequest): Promise<FeedPage> {
   const empty: FeedPage = { pinned: [], posts: [], nextCursor: null }
@@ -467,22 +460,35 @@ export async function listFeed(db: Db, community: CommunityRow, viewer: Viewer, 
     if (conditions.length === 1) q = q.or(String(conditions[0]).slice(3, -1))
     else if (conditions.length === 2) q = q.or(`and(${conditions.join(",")})`)
     if (order === "top") q = q.order("reaction_count", { ascending: false })
+    const rankDefault = order === "default" && feedRankEnabled()
+    const candidateCap = rankDefault
+      ? Math.min(FEED_RANK_MAX_CANDIDATES, Math.max(limit * FEED_RANK_CANDIDATE_MULT, limit))
+      : limit
+    const readLimit = candidateCap + 1
     const { data, error } = await q
       .order(byActivity(order) ? "last_activity_at" : "created_at", { ascending: false })
       .order("id", { ascending: false })
-      .limit(limit + 1)
+      .limit(readLimit)
     if (error) {
       if (!missing(error)) console.error(`[communities] feed read: ${reasonOf(error)}`)
       return empty
     }
     const rows = (data as PostRow[] | null) ?? []
-    const page = rows.slice(0, limit)
-    const last = page[page.length - 1]
+    const candidates = rows.slice(0, candidateCap)
+    let page: PostRow[] = candidates.slice(0, limit)
+    if (rankDefault && candidates.length) {
+      const ctx = await buildFeedRankContext(db, community.id, viewer, candidates)
+      page = rankPostRows(candidates, ctx, limit)
+    } else if (!rankDefault) {
+      page = candidates.slice(0, limit)
+    }
+    const last = rankDefault ? candidates[candidates.length - 1] : page[page.length - 1]
     const h = { community, viewer, spaces }
     const [pinned, hydrated] = await Promise.all([hydratePosts(db, pinnedRows, { ...h, lean: true }), hydratePosts(db, page, { ...h, lean: true })])
-    /* The cursor is the page's last row as read, before the boost reorders it (THE OWNER'S AND ADMINS' POSTS). */
-    const posts = order === "default" ? boostStaff(hydrated) : hydrated
-    return { pinned, posts, nextCursor: rows.length > limit && last ? cursorAfter(order, last) : null }
+    /* Cursor from the keyset batch before any in-page reorder (boost or rank). */
+    const posts = order === "default" && !rankDefault ? boostStaff(hydrated) : hydrated
+    const hasMore = rows.length > candidateCap
+    return { pinned, posts, nextCursor: hasMore && last ? cursorAfter(order, last) : null }
   } catch (e) {
     console.error(`[communities] feed read: ${reasonOf(e)}`)
     return empty
