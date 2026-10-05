@@ -33,6 +33,42 @@ const MB = 1024 * 1024
 export const MEMBER_FILE_MAX_BYTES = 50 * MB
 export const STAFF_FILE_MAX_BYTES = 500 * MB
 
+/**
+ * WHAT A COMMENT MAY CARRY (round 11). Pictures, one GIF and the member's
+ * own files, four things at most, through the same checks as a post's
+ * (feed.ts checkMedia) and then one more on the server: every picture and
+ * every file must be the commenter's own upload for this community, in
+ * their own folder, and there (comments.ts checkCommentMedia). No videos,
+ * no link cards: a link in a comment's words already opens the viewer.
+ */
+export const MAX_COMMENT_MEDIA = 4
+export const MAX_COMMENT_GIFS = 1
+export const COMMENT_MEDIA_TYPES: readonly PostMedia["type"][] = ["image", "gif", "file"]
+
+/** The bucket a member's pictures go to (media-upload.ts uploadPicture). */
+export const PICTURE_BUCKET = "product-images"
+
+/** Where a member's pictures for a community land in the picture bucket: their own folder first, as storage only lets them write there. */
+export function memberPictureFolder(userId: string, communityId: string): string {
+  return `${userId}/community/${communityId}/`
+}
+
+/** The path inside the picture bucket a public picture address points at, or null for any other address. */
+export function picturePathOf(value: unknown): string | null {
+  const u = httpsUrl(value)
+  if (!u || u.search || u.hash) return null
+  const m = new RegExp(`^/storage/v1/object/public/${PICTURE_BUCKET}/(.+)$`).exec(u.pathname)
+  if (!m) return null
+  let path: string
+  try {
+    path = decodeURIComponent(m[1])
+  } catch {
+    return null
+  }
+  if (!path || path.startsWith("/") || path.split("/").some((part) => !part || part === "." || part === "..") || /[\u0000-\u001f\\]/.test(path)) return null
+  return path
+}
+
 /** The folder under the creator's storage that holds a community's post files. */
 export const COMMUNITY_FILES_FOLDER = "community-files"
 

@@ -2,14 +2,23 @@
 
 /**
  * ===========================================================================
- *  THE HEART (round 10)
+ *  THE HEART (round 10, its burst round 11)
  * ===========================================================================
  * A like's icon, a little bigger than the other icons in a post's footer.
  * Two hearts in one box: the outline always, and a filled one over it that
- * grows into it on a like (a short overshoot, then rest) and shrinks away on
+ * grows into it on a like (a short overshoot, then rest) and fades away on
  * an unlike. The icon itself gives one small beat when it fills. Only the
  * icon moves, never the button around it, and only by scale and opacity on
  * the compositor; the count beside it stays where it is.
+ *
+ * THE BURST (round 11). A like also sends eight tiny hearts out from the
+ * icon, in the like's own red, each on its own line a little off an even
+ * ring, rising and shrinking as they fade: translate, scale, rotate and opacity
+ * only (the compositor's), every
+ * one gone within BURST_MS, and taken out of the page when done. One burst
+ * per like (a like pressed again while one is in the air replaces it). An
+ * unlike is only the quiet un-fill: the filled heart fades as it settles a
+ * little smaller, nothing thrown, no beat. Nothing moves with reduced motion.
  *
  * Nothing moves on the first draw or when a post is read again with the
  * same answer: only a change of `on` while drawn beats.
@@ -18,11 +27,116 @@ import { Heart } from "lucide-react"
 import { useLayoutEffect, useRef } from "react"
 
 const BEAT_MS = 380
+const FILL_MS = 280
+export const BURST_MS = 440
+export const BURST_COUNT = 8
+/** The like's own red, set on the tiny hearts rather than taken from the button, whose colour is still settling when they leave. */
+const BURST_COLOR = "#c4290c"
+
+/** The small heart a burst throws, as one path (lucide's heart, filled). */
+const HEART_PATH = "M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"
+
+export interface BurstPath {
+  x: number
+  y: number
+  s: number
+  r: number
+  delay: number
+}
+
+/**
+ * Where each tiny heart goes: evenly round the icon with a small turn and
+ * reach of its own (fixed, so every burst looks the same), drifting up a
+ * little as it fades, as a like feels.
+ */
+export function burstPaths(size: number, count = BURST_COUNT): BurstPath[] {
+  const out: BurstPath[] = []
+  for (let i = 0; i < count; i++) {
+    const a = (i / count) * Math.PI * 2 - Math.PI / 2 + (i % 2 ? 0.18 : -0.12)
+    const reach = size * (i % 3 === 0 ? 1.0 : i % 3 === 1 ? 0.86 : 1.12)
+    out.push({ x: Math.cos(a) * reach, y: Math.sin(a) * reach - size * 0.12, s: i % 2 ? 0.75 : 1, r: (i % 2 ? 1 : -1) * (10 + (i % 3) * 6), delay: (i % 4) * 12 })
+  }
+  return out
+}
+
+/*
+  A TINY HEART IS AN HTML BOX, NOT AN SVG. Chrome will not run an animation
+  of an <svg> element on the compositor (measured: compositeFailed on the
+  svg, none on a box), so each one is a small box in the like's red, cut to
+  the heart's shape by a mask drawn once.
+*/
+const HEART_MASK = `url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="${HEART_PATH}"/></svg>`)}") center / contain no-repeat`
+const particleStyle = (dot: number) =>
+  `position:absolute;left:${-dot / 2}px;top:${-dot / 2}px;width:${dot}px;height:${dot}px;background:${BURST_COLOR};-webkit-mask:${HEART_MASK};mask:${HEART_MASK};opacity:0`
+
+/* The burst in the air for each heart, so a like pressed again (or an unlike) takes it away. */
+const flying = new WeakMap<HTMLElement, HTMLElement>()
+
+function clearBurst(host: HTMLElement) {
+  flying.get(host)?.remove()
+  flying.delete(host)
+}
+
+/*
+  CHEAP ON THE PRESS. The burst is made on the frame after the press (the
+  fill has already been drawn), in one small layer of its own fixed over
+  the heart at the end of the page, so making it restyles those few new
+  nodes and nothing of the post around it (a layer inside the card restyled
+  the whole card, about 25ms a like at 4x CPU, measured). It is parsed in one
+  go, then each tiny heart is given its run.
+*/
+function burst(host: HTMLElement, size: number) {
+  clearBurst(host)
+  const r = host.getBoundingClientRect()
+  if (!r.width) return
+  const layer = document.createElement("span")
+  layer.setAttribute("data-heart-burst", "")
+  layer.setAttribute("aria-hidden", "true")
+  layer.style.cssText = `position:fixed;left:${(r.left + r.width / 2).toFixed(1)}px;top:${(r.top + r.height / 2).toFixed(1)}px;width:0;height:0;pointer-events:none;z-index:2147483000;contain:layout style`
+  const dot = Math.max(5, Math.round(size * 0.36))
+  const paths = burstPaths(size)
+  layer.innerHTML = paths.map(() => `<i data-heart-particle="" style="${particleStyle(dot)}"></i>`).join("")
+  const runs: Animation[] = []
+  paths.forEach((p, i) => {
+    const el = layer.children[i] as HTMLElement
+    /* Out fast, a short float at full strength, then a soft fade as it drifts up: easing per stretch, the whole run linear. */
+    const at = (k: number, lift = 0) => `${(p.x * k).toFixed(1)}px ${(p.y * k - lift).toFixed(1)}px`
+    runs.push(
+      el.animate(
+        [
+          { translate: at(0), scale: `${0.3 * p.s}`, rotate: "0deg", opacity: 0, easing: "cubic-bezier(0.2, 0.8, 0.3, 1)" },
+          { translate: at(0.72), scale: `${p.s}`, rotate: `${p.r * 0.5}deg`, opacity: 1, offset: 0.3, easing: "ease-out" },
+          { translate: at(0.92, size * 0.08), scale: `${0.9 * p.s}`, rotate: `${p.r * 0.8}deg`, opacity: 1, offset: 0.58, easing: "ease-in" },
+          { translate: at(1, size * 0.22), scale: `${0.4 * p.s}`, rotate: `${p.r}deg`, opacity: 0 },
+        ],
+        { duration: BURST_MS - p.delay, delay: p.delay, easing: "linear", fill: "both" },
+      ),
+    )
+  })
+  document.body.appendChild(layer)
+  flying.set(host, layer)
+  const gone = () => {
+    layer.remove()
+    if (flying.get(host) === layer) flying.delete(host)
+  }
+  let left = runs.length
+  for (const a of runs) {
+    a.onfinish = () => {
+      if (--left <= 0) gone()
+    }
+    a.oncancel = a.onfinish
+  }
+  /* A net under it: whatever happens to the animations, nothing is left in the page. */
+  window.setTimeout(gone, BURST_MS + 120)
+}
 
 /**
  * The button around it carries `group/like` and aria-pressed: the fill follows
  * that one attribute (no class or attribute of its own changes on a press,
- * so a press restyles the button and nothing else). `on` only starts the beat.
+ * so a press restyles the button and nothing else). `on` only starts the
+ * beat, the fill's grow and the burst. The fill's own transition is there
+ * only for the way out (the un-fill); the way in is the grow, so the two
+ * never fight.
  */
 export function LikeHeart({ on, size = 20, strokeWidth = 1.75 }: { on: boolean; size?: number; strokeWidth?: number }) {
   const box = useRef<HTMLSpanElement>(null)
@@ -31,14 +145,22 @@ export function LikeHeart({ on, size = 20, strokeWidth = 1.75 }: { on: boolean; 
     if (was.current === on) return
     was.current = on
     const el = box.current
-    if (!on || !el || typeof el.animate !== "function" || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
+    if (!el) return
+    if (!on) {
+      clearBurst(el)
+      return
+    }
+    if (typeof el.animate !== "function" || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
     el.animate([{ scale: "1" }, { scale: "1.2", offset: 0.35 }, { scale: "0.95", offset: 0.7 }, { scale: "1" }], { duration: BEAT_MS, easing: "cubic-bezier(0.2, 0, 0, 1)" })
-  }, [on])
+    el.querySelector<HTMLElement | SVGElement>("[data-heart-fill]")?.animate([{ scale: "0.4", opacity: 0 }, { scale: "1", opacity: 1 }], { duration: FILL_MS, easing: "cubic-bezier(0.34, 1.56, 0.64, 1)" })
+    const frame = requestAnimationFrame(() => burst(el, size))
+    return () => cancelAnimationFrame(frame)
+  }, [on, size])
   return (
     <span ref={box} className="relative inline-block shrink-0" style={{ width: size, height: size }} aria-hidden data-heart="">
       <Heart className="absolute inset-0 h-full w-full" strokeWidth={strokeWidth} />
       <Heart
-        className="absolute inset-0 h-full w-full scale-[0.4] fill-current opacity-0 transition-[scale,opacity] duration-150 ease-out group-aria-pressed/like:scale-100 group-aria-pressed/like:opacity-100 group-aria-pressed/like:duration-[280ms] group-aria-pressed/like:ease-[cubic-bezier(0.34,1.56,0.64,1)] motion-reduce:transition-none"
+        className="absolute inset-0 h-full w-full scale-[0.85] fill-current opacity-0 transition-[scale,opacity] duration-200 ease-out group-aria-pressed/like:scale-100 group-aria-pressed/like:opacity-100 group-aria-pressed/like:transition-none motion-reduce:transition-none"
         strokeWidth={strokeWidth}
         data-heart-fill=""
       />

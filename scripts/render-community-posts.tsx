@@ -13,6 +13,7 @@
  *   long   /community/<slug>               round 9: the feed with more posts, for scroll that must come back
  *   mount  /community/<slug>               round 9: a page of 20 posts mounted when the probe calls
  *          window.__mount(n), each time new (going back to the feed, switching a space)
+ *   cmedia /community/<slug>/post/<id>     round 11: a comment with pictures, a GIF and a file, and one with a GIF alone
  *   media  /community/<slug>/post/<id>?post=<id>   round 8: one post of MEDIA_POSTS on its
  *          page (one picture, a tall one, two, many, a video alone, a YouTube
  *          address in the words, a picture linked in the words and in a comment)
@@ -302,6 +303,35 @@ function Screen() {
         main={<FeedView communityId={CID} slug={community.slug} viewer={viewer} initial={{ pinned: [], posts: many, nextCursor: null }} composer={{ communityId: CID, userId: self.id, me, spaces: spaces.map((s) => ({ id: s.id, name: s.name, kind: s.kind })), fileProductId: null }} />}
       />,
     )
+  }
+  /* Round 11: a post whose conversation already has a comment carrying two pictures, a GIF and a file. */
+  if (which === "cmedia") {
+    const comments = [
+      {
+        id: "c-media-1",
+        postId: POSTS[0].id,
+        parentId: null,
+        body: "Here are the boards from Friday, and the notes.",
+        status: "published" as const,
+        deleted: false,
+        author: people.jonas,
+        reactionCount: 2,
+        reacted: false,
+        createdAt: iso(NOW - 40 * MIN),
+        editedAt: null,
+        replies: [],
+        canEdit: false,
+        canModerate: true,
+        media: [
+          { type: "image" as const, url: picture("#e3d9c6", "#b49a6a", 1200, 900), w: 1200, h: 900 },
+          { type: "image" as const, url: picture("#cfd9e6", "#6d84a3", 900, 1200), w: 900, h: 1200 },
+          { type: "gif" as const, url: picture("#f4d7c8", "#d08a6a", 480, 270), still: picture("#eeeeee", "#cccccc", 480, 270), w: 480, h: 270, title: "nice" },
+          { type: "file" as const, assetId: "33333333-0000-4000-8000-000000000009", name: "Friday notes.pdf", size: 482133, store: "community" as const },
+        ],
+      },
+      { id: "c-media-2", postId: POSTS[0].id, parentId: null, body: "", status: "published" as const, deleted: false, author: people.leo, reactionCount: 0, reacted: false, createdAt: iso(NOW - 20 * MIN), editedAt: null, replies: [], canEdit: false, canModerate: true, media: [{ type: "gif" as const, url: picture("#d6e6d2", "#5f8d68", 400, 300), still: picture("#eeeeee", "#cccccc", 400, 300), w: 400, h: 300, title: "yes" }] },
+    ]
+    return shell(<FeedColumns main={<PostPage slug={community.slug} viewer={viewer} post={POSTS[0]} comments={{ comments, nextCursor: null }} me={me} />} />)
   }
   if (which === "post") {
     return shell(<FeedColumns main={<PostPage slug={community.slug} viewer={viewer} post={POSTS[0]} comments={{ comments: [], nextCursor: null }} me={me} />} />)

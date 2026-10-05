@@ -33,10 +33,22 @@
  * Animations started before the first frame is painted. On a computer the
  * editor grows out of the closed field in place: the posts under it start
  * where they were and slide down to make room, uncovering it as they go
- * (they are drawn over it) while it fades in; closing is the same move
- * backwards, the posts sliding up over it as it fades, and then the closed
- * field fades back in. Translate and opacity only: nothing is laid out or
- * painted again per frame.
+ * (they are drawn over it); closing is the same move backwards.
+ *
+ * ONE CARD, NEVER GONE (round 11). The closed field and the editor in place
+ * are the same card, the same element for the composer's whole life: it is
+ * never taken out and put back, and its own opacity never moves. Only what is
+ * inside it changes: the closed row stays in the card (laid over the
+ * editor's top while open, invisible and inert) and crossfades with the
+ * editor's content, never dipping, while the posts slide over the card's
+ * lower part as before, so the card is whole on every frame. (A clip-path
+ * on the card's edge was tried and measured: Chrome draws it on the
+ * compositor, but the posts' layer then missed its first frames, a blank
+ * band where the posts should be; the posts covering the card is cleaner.) Before round 11 the closed field and the editor were two
+ * elements swapped by key: for a frame neither was on screen, then the one
+ * coming in faded up from nothing, which read as the composer flashing out
+ * and back. What was written is cleared once the card has closed, not
+ * before, so Leave never empties the editor while it is still on screen.
  *
  * THE KEYBOARD ON A PHONE. The screen's white covers the whole window, the
  * part under the keyboard included, so a keyboard opening or closing never
@@ -145,9 +157,18 @@ const TOOL =
 /** The editor in place grows over this long, and folds back a little quicker. */
 const GROW_MS = 260
 const FOLD_MS = 220
-/* The editor itself only fades: the posts sliding over it (they are drawn after it) are what uncover and cover it. */
+/* The editor's content only fades: the posts sliding over it (they are drawn after it) and the card's edge are what uncover and cover it. */
 const FADE_IN_MS = 180
-const FADE_OUT_MS = 150
+const FADE_OUT_MS = 170
+/*
+  THE CROSSFADE NEVER DIPS. The one coming in eases out (most of it at once)
+  and the one going eases in (most of it late), so between them the card is
+  never emptier than either: no frame where the composer's content is gone.
+*/
+const ROW_OUT_MS = 170
+const ROW_IN_MS = 140
+const FADE_GOING = "cubic-bezier(0.4, 0, 1, 1)"
+const FADE_COMING = "cubic-bezier(0, 0, 0.2, 1)"
 /** The closed field's height when it was never drawn (a draft that opened the editor at once). */
 const CLOSED_FALLBACK_H = 72
 /** How long the Post button shows its check before the editor closes. */
@@ -329,8 +350,9 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
   const titleRef = useRef<HTMLInputElement>(null)
   const fileInput = useRef<HTMLInputElement>(null)
   const videoInput = useRef<HTMLInputElement>(null)
-  /* The closed field and the open editor in place (a computer), the phone's screen and the part of it that scrolls. */
-  const closedRef = useRef<HTMLDivElement>(null)
+  /* The one card (closed and open in place), its closed row, the editor's content in it, the phone's screen and the part of it that scrolls. */
+  const cardRef = useRef<HTMLDivElement>(null)
+  const rowRef = useRef<HTMLDivElement>(null)
   const editorRef = useRef<HTMLDivElement>(null)
   const sheetRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -338,11 +360,11 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
   const toolbarRef = useRef<HTMLDivElement>(null)
   /* How tall the closed field was, for the editor growing out of it. */
   const closedH = useRef(0)
-  /* The posts' slide while the editor closes, held at its end until the closed field is drawn. */
+  /* The fold (the posts' slide, the card's edge, the crossfade), held at its end until the closed card is drawn. */
   const held = useRef<Animation[]>([])
   const leaving = useRef(false)
-  /* The closed field fades back in after a fold, rather than appearing in one frame. */
-  const fadeClosed = useRef(false)
+  /* Cancel or Leave: what was written is cleared once the card has closed, never while it is still on screen. */
+  const clearAfter = useRef(false)
   const openRef = useRef(false)
 
   /* A draft left here comes back: open in place on a computer, waiting under "Continue" on a phone. */
@@ -551,7 +573,7 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
       setSheetIn(false)
       setOpen(false)
     }
-    const el = phone ? sheetRef.current : editorRef.current
+    const el = phone ? sheetRef.current : cardRef.current
     if (!el || typeof el.animate !== "function" || reducedMotion()) return end()
     leaving.current = true
     let finished = false
@@ -573,10 +595,13 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
     holdAnchor(FOLD_MS + 900)
     const d = Math.max(0, el.offsetHeight - (closedH.current || CLOSED_FALLBACK_H))
     const timing: KeyframeAnimationOptions = { duration: FOLD_MS, easing: SHEET_CLOSE_EASE, fill: "forwards" }
-    el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: FADE_OUT_MS, easing: "ease-out", fill: "forwards" })
     window.setTimeout(finish, FOLD_MS)
-    fadeClosed.current = true
-    held.current = following(el).map((x) => x.animate([{ translate: "0 0" }, { translate: `0 ${-d}px` }], timing))
+    /* The card stays, whole: its content crossfades back to the closed row while the posts slide up over it. */
+    held.current = [
+      ...following(el).map((x) => x.animate([{ translate: "0 0" }, { translate: `0 ${-d}px` }], timing)),
+      ...(editorRef.current ? [editorRef.current.animate([{ opacity: 1 }, { opacity: 0 }], { duration: FADE_OUT_MS, easing: FADE_GOING, fill: "forwards" })] : []),
+      ...(rowRef.current ? [rowRef.current.animate([{ opacity: 0 }, { opacity: 1 }], { duration: ROW_IN_MS, easing: FADE_COMING, fill: "forwards" })] : []),
+    ]
     held.current[0]?.addEventListener("finish", finish)
   }, [phone])
 
@@ -592,7 +617,7 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
 
   const cancel = async () => {
     if (dirty && !(await ask())) return
-    clear()
+    clearAfter.current = true
     shut()
   }
 
@@ -637,30 +662,36 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
   /* In place: the posts under the editor slide down to make room, uncovering it as it fades in. */
   useLayoutEffect(() => {
     if (!open) {
-      /* Closed: the posts' slide was held at its end; the field is drawn now, so let it go in the same frame. */
+      /* Closed: the fold was held at its end; the closed card is drawn now (the same pixels), so let it go in the same frame. */
       for (const a of held.current) a.cancel()
       held.current = []
+      /* Cancel or Leave: emptied now that nothing of it is on screen. */
+      if (clearAfter.current) {
+        clearAfter.current = false
+        clear()
+      }
       /* A post just sent goes into the feed now, after the editor's move (AFTER POST). */
       const posted = afterClose.current
       afterClose.current = null
       posted?.()
-      if (fadeClosed.current && closedRef.current && typeof closedRef.current.animate === "function") closedRef.current.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 140, easing: "ease-out" })
-      fadeClosed.current = false
       /* The posts' own layer, held while the editor was open (so the fold drew nothing new), goes once all is still. */
-      const list = closedRef.current ? following(closedRef.current) : []
+      const list = cardRef.current ? following(cardRef.current) : []
       const t = window.setTimeout(() => {
         for (const x of list) x.style.willChange = ""
       }, 400)
       return () => window.clearTimeout(t)
     }
     if (phone) return
-    const el = editorRef.current
+    const el = cardRef.current
     if (!el || typeof el.animate !== "function" || reducedMotion() || !closedH.current) return
     const d = el.offsetHeight - closedH.current
     if (d <= 0) return
     const timing: KeyframeAnimationOptions = { duration: GROW_MS, easing: SHEET_EASE }
-    el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: FADE_IN_MS, easing: "ease-out" })
+    /* The same card: the posts slide down off it, the closed row gives way to the editor's content. */
     for (const x of following(el)) x.animate([{ translate: `0 ${-d}px` }, { translate: "0 0" }], timing)
+    rowRef.current?.animate([{ opacity: 1 }, { opacity: 0 }], { duration: ROW_OUT_MS, easing: FADE_GOING })
+    editorRef.current?.animate([{ opacity: 0 }, { opacity: 1 }], { duration: FADE_IN_MS, easing: FADE_COMING })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, phone])
 
   /* The field being typed in stays in sight when the visible part changes (keep-in-sight.ts). */
@@ -703,7 +734,7 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
   }
 
   const openEditor = () => {
-    if (closedRef.current) closedH.current = closedRef.current.offsetHeight
+    if (cardRef.current) closedH.current = cardRef.current.offsetHeight
     setOpen(true)
     /* In place, at once; a phone's screen takes it when it has arrived (THE FIELD TAKES THE CARET). */
     if (!phone) requestAnimationFrame(focusFirst)
@@ -743,21 +774,29 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
     </DialogPrimitive.Root>
   )
 
-  const closed = (
-    /* Keyed apart from the open editor: the same element reused would keep the editor's fade (held at nothing) on the closed field. */
-    <div key="closed" ref={closedRef} className={`${CARD} ${PHONE_ROW} px-4 py-3 sm:py-3.5`} data-composer="closed">
+  /* Open in place (a computer): the closed row stays in the card, laid over the editor's top, unseen and out of reach. */
+  const inPlace = open && !phone
+  const row = (
+    <div
+      ref={rowRef}
+      className={inPlace ? "pointer-events-none absolute inset-x-0 top-0 px-4 py-3 opacity-0 sm:py-3.5" : "px-4 py-3 sm:py-3.5"}
+      aria-hidden={inPlace || undefined}
+      inert={inPlace || undefined}
+      data-composer-row=""
+    >
       <div className="flex items-center gap-3">
         <AppAvatar src={me.avatarUrl} name={me.name} alt="" size={40} markWhileLoading />
         <button
           type="button"
+          tabIndex={inPlace ? -1 : undefined}
           onClick={openEditor}
           /*
             The posts under the field get their own layer as the finger or the pointer comes down, so the
             first frame of the editor's open does not also have to draw them into one (a computer's move).
           */
           onPointerDown={() => {
-            if (phone || !closedRef.current) return
-            const list = following(closedRef.current)
+            if (phone || !cardRef.current) return
+            const list = following(cardRef.current)
             for (const x of list) x.style.willChange = "translate"
             /* A press that did not end in a click lets them go again. */
             window.setTimeout(() => {
@@ -765,23 +804,13 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
             }, 1500)
           }}
           className="flex h-11 min-w-0 flex-1 items-center rounded-xl border border-[#eceef1] bg-[#f6f7f8] px-4 text-left text-[15px] text-[#8a8f98] transition-colors hover:bg-[#f1f2f4]"
-          data-composer-open=""
+          data-composer-open={inPlace ? undefined : ""}
         >
           <span className="truncate">{restored && title ? `Continue: ${title}` : "Share something..."}</span>
         </button>
       </div>
     </div>
   )
-
-  if (!open) {
-    return (
-      <>
-        {pickers}
-        {closed}
-        {leaveDialog}
-      </>
-    )
-  }
 
   const spacePicker =
     !fixedSpaceId && spaces.length > 1 ? (
@@ -911,83 +940,81 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
     </>
   )
 
-  if (sheet) {
-    return (
-      <>
-        {pickers}
-        {closed}
-        {createPortal(
-          <div
-            ref={sheetRef}
-            role="dialog"
-            aria-modal="true"
-            aria-label="New post"
-            data-composer="sheet"
-            data-composer-sheet-in={sheetIn ? "true" : "false"}
-            /* The whole window, white, under the keyboard too: nothing behind ever shows as the keyboard comes and goes. */
-            className="fixed inset-0 z-[125] bg-white"
-          >
-            <div
-              /* The part that can be seen (THE KEYBOARD ON A PHONE); a keyboard's arrival is carried over 250ms rather than in one frame. */
-              ref={visibleRef}
-              className="group/vis absolute inset-x-0 top-[var(--vv-top,0px)] flex h-[var(--vv-h,100dvh)] flex-col"
-              data-composer-visible=""
-            >
-            <div className="shrink-0 border-b border-[#f0f1f3] pt-[env(safe-area-inset-top)]">
-              <div className="flex h-14 items-center gap-2 px-2">
-                {/*
-                  The field keeps the caret through the press (no blur), so the keyboard goes down with the
-                  screen once it has gone rather than as it starts to slide: a keyboard closing changes the
-                  visible height, and the whole page restyles for it, which belongs after the move.
-                */}
-                <button type="button" onPointerDown={(e) => e.preventDefault()} onMouseDown={(e) => e.preventDefault()} onClick={() => void cancel()} className={`${BTN_SECONDARY} px-3.5`} disabled={sent} data-composer-cancel="">
-                  Cancel
-                </button>
-                <span className="min-w-0 flex-1 truncate text-center text-[16px] font-semibold text-[#1a1a2e]">New post</span>
-                <PostButton busy={busy} sent={sent} ready={ready} onClick={submit} className="px-4" />
-              </div>
-            </div>
-            <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4 pt-3" data-composer-scroll="">
-              <div className="mb-3 flex min-w-0 items-center gap-2">
-                <AppAvatar src={me.avatarUrl} name={me.name} alt="" size={32} markWhileLoading />
-                <span className="shrink-0 text-[14px] text-[#6b7280]">Posting in</span>
-                <span className="min-w-0">{spacePicker}</span>
-              </div>
-              {fields}
-            </div>
-            {/* On the keyboard when it is up (no home bar to clear then), above the home bar when it is not. */}
-            <div ref={toolbarRef} className="relative z-[1] shrink-0 border-t border-[#f0f1f3] bg-white px-2 pb-[max(6px,env(safe-area-inset-bottom))] pt-1.5 group-data-[kb=up]/vis:pb-1.5" data-composer-toolbar="">{tools}</div>
-            </div>
-          </div>,
-          document.body,
-        )}
-        {leaveDialog}
-      </>
-    )
-  }
-
+  /* One tree for every state, so nothing in it is ever taken out and put back by a change of state (ONE CARD, NEVER GONE). */
   return (
     <>
       {pickers}
-      <div key="open" ref={editorRef} className={`${CARD} relative p-4 shadow-[0_1px_3px_rgba(17,24,39,0.05)] sm:px-5 sm:pt-4`} data-composer="open">
-        <div className="mb-3 flex items-center gap-2.5">
-          <AppAvatar src={me.avatarUrl} name={me.name} alt="" size={32} markWhileLoading />
-          <span className="text-[14px] text-[#6b7280]">
-            <span className="font-semibold text-[#1a1a2e]">{me.name}</span> posting{space ? ` in ${space.name}` : ""}
-          </span>
-        </div>
-        {fields}
-        <div className="mt-3 flex flex-wrap items-center gap-x-1 gap-y-2 border-t border-[#f0f1f3] pt-2.5">
-          {tools}
-          {spacePicker}
-          <div className="ml-auto flex items-center gap-1.5">
-            <button type="button" className={BTN_SECONDARY} onClick={() => void cancel()} disabled={busy || sent} data-composer-cancel="">
-              Cancel
-            </button>
-            <PostButton busy={busy} sent={sent} ready={ready} onClick={submit} />
+      <div ref={cardRef} className={`${CARD} ${PHONE_ROW} relative sm:shadow-[0_1px_2px_rgba(16,24,40,0.04)]`} data-composer={inPlace ? "open" : "closed"}>
+        {row}
+        {inPlace ? (
+          <div ref={editorRef} className="p-4 sm:px-5 sm:pt-4" data-composer-editor="">
+            <div className="mb-3 flex items-center gap-2.5">
+              <AppAvatar src={me.avatarUrl} name={me.name} alt="" size={32} markWhileLoading />
+              <span className="text-[14px] text-[#6b7280]">
+                <span className="font-semibold text-[#1a1a2e]">{me.name}</span> posting{space ? ` in ${space.name}` : ""}
+              </span>
+            </div>
+            {fields}
+            <div className="mt-3 flex flex-wrap items-center gap-x-1 gap-y-2 border-t border-[#f0f1f3] pt-2.5">
+              {tools}
+              {spacePicker}
+              <div className="ml-auto flex items-center gap-1.5">
+                <button type="button" className={BTN_SECONDARY} onClick={() => void cancel()} disabled={busy || sent} data-composer-cancel="">
+                  Cancel
+                </button>
+                <PostButton busy={busy} sent={sent} ready={ready} onClick={submit} />
+              </div>
+            </div>
           </div>
-        </div>
+        ) : null}
       </div>
+      {sheet
+        ? createPortal(
+              <div
+                ref={sheetRef}
+                role="dialog"
+                aria-modal="true"
+                aria-label="New post"
+                data-composer="sheet"
+                data-composer-sheet-in={sheetIn ? "true" : "false"}
+                /* The whole window, white, under the keyboard too: nothing behind ever shows as the keyboard comes and goes. */
+                className="fixed inset-0 z-[125] bg-white"
+              >
+                <div
+                  /* The part that can be seen (THE KEYBOARD ON A PHONE); a keyboard's arrival is carried over 250ms rather than in one frame. */
+                  ref={visibleRef}
+                  className="group/vis absolute inset-x-0 top-[var(--vv-top,0px)] flex h-[var(--vv-h,100dvh)] flex-col"
+                  data-composer-visible=""
+                >
+                <div className="shrink-0 border-b border-[#f0f1f3] pt-[env(safe-area-inset-top)]">
+                  <div className="flex h-14 items-center gap-2 px-2">
+                    {/*
+                      The field keeps the caret through the press (no blur), so the keyboard goes down with the
+                      screen once it has gone rather than as it starts to slide: a keyboard closing changes the
+                      visible height, and the whole page restyles for it, which belongs after the move.
+                    */}
+                    <button type="button" onPointerDown={(e) => e.preventDefault()} onMouseDown={(e) => e.preventDefault()} onClick={() => void cancel()} className={`${BTN_SECONDARY} px-3.5`} disabled={sent} data-composer-cancel="">
+                      Cancel
+                    </button>
+                    <span className="min-w-0 flex-1 truncate text-center text-[16px] font-semibold text-[#1a1a2e]">New post</span>
+                    <PostButton busy={busy} sent={sent} ready={ready} onClick={submit} className="px-4" />
+                  </div>
+                </div>
+                <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4 pt-3" data-composer-scroll="">
+                  <div className="mb-3 flex min-w-0 items-center gap-2">
+                    <AppAvatar src={me.avatarUrl} name={me.name} alt="" size={32} markWhileLoading />
+                    <span className="shrink-0 text-[14px] text-[#6b7280]">Posting in</span>
+                    <span className="min-w-0">{spacePicker}</span>
+                  </div>
+                  {fields}
+                </div>
+                {/* On the keyboard when it is up (no home bar to clear then), above the home bar when it is not. */}
+                <div ref={toolbarRef} className="relative z-[1] shrink-0 border-t border-[#f0f1f3] bg-white px-2 pb-[max(6px,env(safe-area-inset-bottom))] pt-1.5 group-data-[kb=up]/vis:pb-1.5" data-composer-toolbar="">{tools}</div>
+                </div>
+              </div>,
+              document.body,
+          )
+        : null}
       {leaveDialog}
     </>
   )
