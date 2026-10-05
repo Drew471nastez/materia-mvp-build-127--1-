@@ -5,7 +5,7 @@
  * A pure function over raw pixels: no model, no download, no dependency, so
  * it runs anywhere (a Vercel function, the suite, a browser). It is the
  * fallback picture check for communities when no classifier is switched on
- * (lib/security/images/classify.ts), and a second opinion when one is.
+ * (lib/security/images/classify.ts), or when it fails on a picture.
  *
  * WHAT IT DOES. Every pixel of a small copy of the picture (at most 128px
  * on its longest side) is called skin or not by two published colour rules
@@ -19,18 +19,21 @@
  * Then the skin pixels are joined into regions (4 neighbours), and the
  * picture is SKIN HEAVY when, after the region rules of Ap-apid (2005):
  *
- *   skin covers at least 30% of the picture, and
- *   the largest region is at least 15% of the picture, and
+ *   skin covers at least 35% of the picture, and
+ *   the largest region is at least 20% of the picture, and
  *   the three largest regions hold at least 45% of the skin
  *     (a body, not a scatter of small warm patches)
+ *
+ * Ap-apid's own lines are 30% and 15%. On 58 ordinary photos (round 13:
+ * portraits, a family, babies, beaches, yoga, a massage, tattoos, food,
+ * wood, sand dunes) those called 14 skin heavy; these call 9.
  *
  * WHAT IT CANNOT DO, said plainly. It sees colour, not people. A close up
  * face, a baby, a hand, a peach wall or a desert at sunset can look like
  * skin; a nude picture in black and white, under blue light, or very dark
  * skin under poor light may not. So it never REFUSES anything: a skin heavy
  * picture from a member on their first day is held for a moderator, and
- * that is all (lib/communities/server/image-check.ts). The numbers it was
- * tuned on are in lib/communities/DATA-SAFETY.md.
+ * that is all (lib/security/images/classify.ts judgePicture).
  */
 
 export interface SkinReading {
@@ -50,8 +53,8 @@ export interface SkinReading {
 export const SKIN_RULE = {
   /** The longest side the picture is read at. */
   edge: 128,
-  minSkin: 0.3,
-  minLargest: 0.15,
+  minSkin: 0.35,
+  minLargest: 0.2,
   minTop3: 0.45,
   /** A region smaller than this share of the picture is noise. */
   minRegion: 0.002,

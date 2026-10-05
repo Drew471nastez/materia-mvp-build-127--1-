@@ -44,8 +44,21 @@ import "server-only"
  *                reporting the same post, comment or message hide it until a
  *                moderator looks, unless a moderator already put it back once
  *                (hideAfterReports).
+ *   WORDS        (round 13) the platform's list (lib/communities/word-blocklist.ts):
+ *                sexual content involving children and slurs refused for
+ *                everybody, selling sexual content held (refused in chat
+ *                and direct messages); the community's own list (Moderation,
+ *                Rules) refused or held, as the owner chose. Matching in
+ *                lib/communities/word-filter.ts. A refusal is in the log, at
+ *                most once in ten minutes per member (screenWords).
+ *   PICTURES     (round 13) a post's or comment's pictures read before they
+ *                go up (./image-check.ts): clearly explicit refused, likely
+ *                adult content held; a member on their first day has a
+ *                skin heavy or unreadable picture held, and an uploaded
+ *                video held.
  *
- * The owner, admins and moderators skip every rule but the blocklist.
+ * The owner, admins and moderators skip every rule but the blocklist, the
+ * platform's words and a clearly explicit picture.
  *
  * HOW A HOLD WORKS, with nothing new in the database: the post or comment is
  * written with status "removed" and removed_reason "Held for review: ...",
@@ -64,7 +77,11 @@ import { redirectTarget } from "@/lib/api/public-fetch"
 import { can } from "../permissions"
 import { PAID_SOURCES, type CommunityRow, type PostMedia, type ReportTarget, type Role } from "../types"
 import { LINK_REASON_WORDS, checkLink, linksInText, worstOf, type LinkCheck } from "../link-check"
+import { compileList, findWords, hasPrintedWord, readText, wordSettingsOf, type CompiledEntry, type ReadText } from "../word-filter"
+import { PLATFORM_ADULT, PLATFORM_HATE_PRINTS, PLATFORM_MINORS } from "../word-blocklist"
+import { logSecurityEvent } from "@/lib/security/uploads/audit"
 import { audit } from "./audit"
+import { PICTURE_REFUSED, picturesOf, screenPictures, uploadedVideoCount } from "./image-check"
 import { notifyMember } from "./notify"
 import { admin, missing, nowIso, reasonOf, type Db } from "./db"
 import type { Viewer } from "./context"
@@ -118,6 +135,8 @@ export const SAFETY = {
     missSeconds: 3600,
   },
   shortener: { maxLinks: 3, steps: 3, timeoutMs: 2500 },
+  /** One log line per member per community in this long for refused words. */
+  wordsLogSeconds: 600,
 } as const
 
 /** The rate_limit_hits buckets these rules count in. */
@@ -131,6 +150,7 @@ export const SAFETY_BUCKETS = {
   joinAlarm: "community-join-alarm",
   inviteUse: "community-invite-use",
   inviteMiss: "community-invite-miss",
+  words: "community-words",
 } as const
 
 export type WriteKind = "post" | "comment" | "message" | "dm"
@@ -336,6 +356,119 @@ async function followShortLink(start: LinkCheck, deadline: number): Promise<Link
   return { ...start, verdict: "hold", reason: "shortener" }
 }
 
+/* ── Words ──────────────────────────────────────────────────────────────── */
+
+const PLATFORM = { minors: compileList(PLATFORM_MINORS), adult: compileList(PLATFORM_ADULT) }
+
+/** What the lists found in a text. */
+export interface WordFindings {
+  /** Platform: sexual content involving children. */
+  minors: string[]
+  /** Platform: a slur (fingerprinted, so no words to show). */
+  hate: boolean
+  /** Platform: selling or trading sexual content. */
+  adult: string[]
+  /** The community's own list. */
+  community: string[]
+}
+
+/* The community's list, compiled once per version of it. */
+const compiledLists = new Map<string, { key: string; list: CompiledEntry[] }>()
+function communityList(community: Pick<CommunityRow, "id" | "onboarding">): { list: CompiledEntry[]; action: "block" | "hold" } {
+  const s = wordSettingsOf(community.onboarding)
+  const key = `${s.words.join("\n")}`
+  let hit = compiledLists.get(community.id)
+  if (!hit || hit.key !== key) {
+    hit = { key, list: compileList(s.words) }
+    if (compiledLists.size > 500) compiledLists.clear()
+    compiledLists.set(community.id, hit)
+  }
+  return { list: hit.list, action: s.action }
+}
+
+/** Every list read against a text. The community's list is skipped for the team (they may need to write the words to name them). */
+export function wordFindings(community: Pick<CommunityRow, "id" | "onboarding">, read: ReadText, team: boolean): WordFindings {
+  return {
+    minors: findWords(read, PLATFORM.minors),
+    hate: hasPrintedWord(read, PLATFORM_HATE_PRINTS),
+    adult: findWords(read, PLATFORM.adult),
+    community: team ? [] : findWords(read, communityList(community).list),
+  }
+}
+
+export const WORDS_REFUSED_PLATFORM = "That can't be shared on Storelib."
+export const WORDS_REFUSED_COMMUNITY = "This community doesn't allow some of the words in that. Change them and try again."
+const ADULT_HOLD = "words used to sell sexual content"
+
+function quoteWords(entries: string[]): string {
+  return entries
+    .slice(0, 3)
+    .map((e) => `"${e}"`)
+    .join(", ")
+}
+
+/**
+ * The words decision for one write: refused (with which list, for the log),
+ * or the reasons to hold it. `chatLike` writes cannot be held, so a hold
+ * there is a refusal. Pure.
+ */
+export function screenWords(
+  community: Pick<CommunityRow, "id" | "onboarding">,
+  found: WordFindings,
+  opts: { team: boolean; chatLike: boolean },
+): { refuse: { list: "minors" | "hate" | "adult" | "community"; error: string; entries: string[] } | null; hold: string[] } {
+  if (found.minors.length) return { refuse: { list: "minors", error: WORDS_REFUSED_PLATFORM, entries: found.minors }, hold: [] }
+  if (found.hate) return { refuse: { list: "hate", error: WORDS_REFUSED_PLATFORM, entries: [] }, hold: [] }
+  const hold: string[] = []
+  if (found.adult.length && !opts.team) {
+    if (opts.chatLike) return { refuse: { list: "adult", error: WORDS_REFUSED_PLATFORM, entries: found.adult }, hold: [] }
+    hold.push(ADULT_HOLD)
+  }
+  if (found.community.length) {
+    const { action } = communityList(community)
+    if (action === "block" || opts.chatLike) return { refuse: { list: "community", error: WORDS_REFUSED_COMMUNITY, entries: found.community }, hold: [] }
+    hold.push(`a word on the community's list (${quoteWords(found.community)})`)
+  }
+  return { refuse: null, hold }
+}
+
+/**
+ * A refusal in the community's log (and, for the platform's own lists, the
+ * platform's security log too, so a community whose team is the problem is
+ * not the only one who knows). At most once per member per community in
+ * SAFETY.wordsLogSeconds: somebody retrying twenty times is one line.
+ */
+async function logWordRefusal(w: Writer, kind: WriteKind, refuse: { list: string; entries: string[] }, text: string): Promise<void> {
+  const { db, community, viewer } = w
+  const subject = `${community.id}:${viewer.userId}`
+  if ((await countHits(db, SAFETY_BUCKETS.words, subject, SAFETY.wordsLogSeconds)) > 0) return
+  await addHits(db, [{ bucket: SAFETY_BUCKETS.words, subject }])
+  const platform = refuse.list !== "community"
+  const shown = refuse.list === "hate" ? "a slur" : quoteWords(refuse.entries)
+  const reason = platform ? `Refused: Storelib's word list (${refuse.list === "minors" ? "sexual content involving children" : refuse.list === "hate" ? "slurs" : "selling sexual content"})` : `Refused: the community's word list (${shown})`
+  await audit(db, {
+    communityId: community.id,
+    actorId: null,
+    actorKind: "system",
+    action: `${kind === "dm" ? "message" : kind}.refused`,
+    targetType: kind === "dm" ? "message" : kind,
+    targetId: null,
+    targetLabel: refuse.list === "hate" ? "Words not shown" : text.replace(/\s+/g, " ").trim().slice(0, 120) || kind,
+    reason,
+    detail: { authorId: viewer.userId, list: refuse.list, ...(refuse.list === "hate" ? {} : { words: refuse.entries.slice(0, 10) }) },
+  })
+  if (platform) {
+    await logSecurityEvent(db as unknown as Parameters<typeof logSecurityEvent>[0], {
+      event: "upload",
+      outcome: "refused",
+      context: "community_words",
+      code: `words_${refuse.list}`,
+      userId: viewer.userId,
+      detail: { communityId: community.id, kind, ...(refuse.list === "hate" ? {} : { words: refuse.entries.slice(0, 10) }) },
+    }).catch(() => undefined)
+  }
+}
+
 /* ── The screen every write passes ──────────────────────────────────────── */
 
 const REFUSE_LINK = "That link can't be shared here."
@@ -353,11 +486,21 @@ export async function screenWrite(w: Writer, kind: WriteKind, input: { text: str
   const team = isTeam(viewer.role)
   const urls = linksOf(text, input.media)
   const chatLike = kind === "message" || kind === "dm"
+  const withPictures = kind === "post" || kind === "comment"
 
-  /* The team skips everything but the blocklist. */
+  /* WORDS, for everybody: the platform's lists, and the community's for members. */
+  const words = screenWords(community, wordFindings(community, readText(text), team), { team, chatLike })
+  if (words.refuse) {
+    await logWordRefusal(w, kind, words.refuse, text)
+    return { ok: false, error: words.refuse.error, status: 400 }
+  }
+
+  /* The team skips everything but the blocklist, the platform's words and a clearly explicit picture. */
   if (team) {
     const blocked = urls.map(checkLink).find((c) => c.verdict === "block")
-    return blocked ? { ok: false, error: REFUSE_LINK, status: 400 } : { ok: true, hold: [] }
+    if (blocked) return { ok: false, error: REFUSE_LINK, status: 400 }
+    if (withPictures && (await screenPictures(db, { communityId: community.id, userId, fresh: false, team: true }, picturesOf(input.media))).refuse) return { ok: false, error: PICTURE_REFUSED, status: 400 }
+    return { ok: true, hold: words.hold }
   }
 
   const fresh = isNewMember(viewer)
@@ -436,6 +579,15 @@ export async function screenWrite(w: Writer, kind: WriteKind, input: { text: str
     hits.push({ bucket: SAFETY_BUCKETS.duplicate, subject: mine })
   }
 
+  /* PICTURES, last: the only rule that reads files. */
+  if (withPictures) {
+    const pictures = await screenPictures(db, { communityId: community.id, userId, fresh, team: false }, picturesOf(input.media))
+    if (pictures.refuse) return { ok: false, error: PICTURE_REFUSED, status: 400 }
+    hold.push(...pictures.hold)
+    if (fresh && uploadedVideoCount(input.media)) hold.push("a video from a member on their first day")
+  }
+
+  hold.push(...words.hold)
   await addHits(db, hits)
   return { ok: true, hold: [...new Set(hold)] }
 }
@@ -443,19 +595,47 @@ export async function screenWrite(w: Writer, kind: WriteKind, input: { text: str
 /**
  * An edit: only what the edit ADDS is checked, so a post written clean and
  * edited into a scam later is caught, and fixing a typo is never slowed.
- * Nothing can be held on an edit (the post is already up), so a link that
- * would be held is refused instead, with the same words; mentions keep
+ * Nothing can be held on an edit (the post is already up), so a link, a
+ * word or a picture that would be held is refused instead; mentions keep
  * their per write cap. No slow mode, no daily count, no duplicate check.
  */
 export async function screenEdit(w: Writer, kind: WriteKind, input: { text: string; media?: unknown; before: string; beforeMedia?: unknown }): Promise<Screen> {
-  const { viewer } = w
+  const { db, community, viewer } = w
   if (!viewer.userId) return { ok: true, hold: [] }
+  const team = isTeam(viewer.role)
+  const fresh = isNewMember(viewer)
+  const chatLike = kind === "message" || kind === "dm"
+
+  /* WORDS: only what the edit adds; nothing can be held on an edit, so a hold is a refusal. */
+  const now = wordFindings(community, readText(input.text), team)
+  const was = wordFindings(community, readText(input.before), team)
+  const addedWords: WordFindings = {
+    minors: now.minors.filter((e) => !was.minors.includes(e)),
+    hate: now.hate && !was.hate,
+    adult: now.adult.filter((e) => !was.adult.includes(e)),
+    community: now.community.filter((e) => !was.community.includes(e)),
+  }
+  const words = screenWords(community, addedWords, { team, chatLike: true })
+  if (words.refuse) {
+    await logWordRefusal(w, kind, words.refuse, input.text)
+    return { ok: false, error: words.refuse.error, status: 400 }
+  }
+
+  /* PICTURES: only the ones the edit adds. */
+  if (kind === "post" || kind === "comment") {
+    const before = new Set(picturesOf(input.beforeMedia).map((p) => p.path))
+    const newPictures = picturesOf(input.media).filter((p) => !before.has(p.path))
+    const pictures = await screenPictures(db, { communityId: community.id, userId: viewer.userId, fresh, team }, newPictures)
+    if (pictures.refuse) return { ok: false, error: PICTURE_REFUSED, status: 400 }
+    if (pictures.hold.length) return { ok: false, error: "A moderator needs to see that picture first. Share it in a new post.", status: 400 }
+    if (fresh && uploadedVideoCount(input.media) > uploadedVideoCount(input.beforeMedia)) return { ok: false, error: "Videos can be added in an edit after your first day.", status: 403 }
+  }
+
   const had = new Set(linksOf(input.before, input.beforeMedia))
   const added = linksOf(input.text, input.media).filter((u) => !had.has(u))
-  if (isTeam(viewer.role)) {
+  if (team) {
     return added.map(checkLink).some((c) => c.verdict === "block") ? { ok: false, error: REFUSE_LINK, status: 400 } : { ok: true, hold: [] }
   }
-  const fresh = isNewMember(viewer)
   const perWrite = fresh ? Math.min(SAFETY.newMemberMentions, SAFETY.mentionsPerWrite[kind]) : SAFETY.mentionsPerWrite[kind]
   if (mentionCount(input.text) > Math.max(perWrite, mentionCount(input.before))) return { ok: false, error: `Mention up to ${perWrite} people at a time.`, status: 400 }
   if (!added.length) return { ok: true, hold: [] }
