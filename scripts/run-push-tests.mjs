@@ -401,6 +401,7 @@ const SUITES = [
   "tests/communities-foundation.test.ts",
   "tests/user-notifications.test.ts",
   "tests/push-bridge.test.ts",
+  "tests/communities-notify.test.ts",
   "tests/communities-public.test.ts",
   "tests/communities-platform.test.ts",
   "tests/communities-security.test.ts",
