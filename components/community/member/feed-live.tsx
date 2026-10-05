@@ -43,9 +43,10 @@ import { useArrivals } from "./arrive"
 import { addPost, loadView, patchPost, readView, writeView, type CachedView, type FeedSortValue, type FeedTarget } from "./feed-cache"
 import { listenLive } from "./live"
 import { intentOf } from "./post-intent"
+import { COMMUNITY_FEED_REFRESH_SCOPE } from "@/lib/communities/refresh-scope"
 
 export const PULL_EVENT = "storelib:pull-refresh"
-export const PULL_SCOPE = "community-feed"
+export const PULL_SCOPE = COMMUNITY_FEED_REFRESH_SCOPE
 
 /** A reader whose first post is further above the bar than this is "scrolled down": new posts wait under the pill. */
 const AWAY_PX = 80

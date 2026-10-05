@@ -34,6 +34,8 @@ import { eventDateBadge } from "@/lib/communities/format"
 import { eventPriceLabel } from "@/lib/communities/event-tickets"
 import { dayKey, goingLabel, isLive, monthGrid, monthKey, monthTitle, type EventCardView } from "./model"
 import { clockIn, useViewerZone } from "./use-zone"
+import { useCommunityPullListener } from "@/components/community/member/community-pull-refresh"
+import { COMMUNITY_EVENTS_REFRESH_SCOPE } from "@/lib/communities/refresh-scope"
 
 type Tab = "upcoming" | "past" | "calendar"
 
@@ -89,6 +91,12 @@ export function EventsPage({ communityId, initial, month, fallbackZone, manageHr
   useEffect(() => {
     if (tab === "past" && !lists.past.loaded && !lists.past.loading) void loadMore("past", null)
   }, [tab, lists.past.loaded, lists.past.loading, loadMore])
+
+  const pullRefresh = useCallback(async () => {
+    await loadMore("upcoming", null)
+    if (tab === "past" && lists.past.loaded) await loadMore("past", null)
+  }, [loadMore, tab, lists.past.loaded])
+  useCommunityPullListener(COMMUNITY_EVENTS_REFRESH_SCOPE, pullRefresh)
 
   const listTab: "upcoming" | "past" = tab === "past" ? "past" : "upcoming"
   const list = lists[listTab]

@@ -8,7 +8,7 @@
  * duplicate top-three card is hidden on this page).
  */
 import Link from "next/link"
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { ChevronDown } from "lucide-react"
 import { MemberAvatar, warmMemberFaces } from "./member-avatar"
 import { api, apiBase } from "./api"
@@ -17,6 +17,8 @@ import { toast } from "./toast"
 import { CARD } from "./ui"
 import { memberHref } from "./person-href"
 import type { LeaderboardRow } from "./view-types"
+import { useCommunityPullListener } from "./community-pull-refresh"
+import { COMMUNITY_LEADERBOARD_REFRESH_SCOPE } from "@/lib/communities/refresh-scope"
 
 type Period = "7d" | "30d" | "all"
 const PERIODS: { key: Period; label: string; short: string }[] = [
@@ -100,6 +102,13 @@ export function Leaderboard({
     if (!r.ok) return toast(r.error)
     setRows(r.data.entries)
   }
+  const pullRefresh = useCallback(async () => {
+    setLoading(true)
+    const r = await api<{ entries: LeaderboardRow[] }>(`${apiBase(communityId)}/leaderboard?period=${period}`)
+    setLoading(false)
+    if (r.ok) setRows(r.data.entries)
+  }, [communityId, period])
+  useCommunityPullListener(COMMUNITY_LEADERBOARD_REFRESH_SCOPE, pullRefresh)
   const myLevel = levels.find((l) => l.level === me.level)
   const myRow = me.userId ? rows.find((r) => r.userId === me.userId) : null
   return (

@@ -29,6 +29,7 @@ import type { ShellCommunity, TopBarData, WallCardData } from "@/components/comm
 import { WallCommunityCard } from "@/components/community/member/wall"
 import { useLightChrome } from "@/lib/ui/light-chrome"
 import { useCommunityLanding } from "@/components/community/member/landing"
+import { CommunityPullRefresh } from "@/components/community/member/community-pull-refresh"
 
 /** What arrives under the bar fades in (opacity only: a visitor never moves between places, so nothing rises). */
 const ARRIVE = "[&>*]:animate-[fade-in_200ms_cubic-bezier(0.32,0.72,0,1)] motion-reduce:[&>*]:animate-none"
@@ -43,6 +44,7 @@ export interface PublicFrameCard {
 
 export function CommunityPublicFrame({ topBar, card = null, children }: { topBar: TopBarData; /** The community's card for the left column; left out, the page has the columns alone. */ card?: PublicFrameCard | null; children: React.ReactNode }) {
   useLightChrome(true)
+  const slug = card?.community.slug ?? topBar.community.slug
   /* Opened from Discover: the frame lands as an /app page does (components/community/member/landing.ts). */
   const landing = useCommunityLanding()
   return (
@@ -60,7 +62,7 @@ export function CommunityPublicFrame({ topBar, card = null, children }: { topBar
           </div>
           <div className="min-w-0 lg:col-start-2 lg:row-start-1 xl:col-span-2" data-community-main="">
             <div className={`${ARRIVE} max-sm:-mx-4 max-sm:-mt-4`} data-community-body="">
-              {children}
+              <CommunityPullRefresh slug={slug}>{children}</CommunityPullRefresh>
             </div>
           </div>
         </div>

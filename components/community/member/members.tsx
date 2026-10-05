@@ -31,6 +31,8 @@ import { PlaceEmpty } from "./place-empty"
 import { Spinner } from "./place-spinner"
 import { BTN_SECONDARY, CARD, ICON_BTN } from "./ui"
 import { RoleBadge } from "./role-badge"
+import { useCommunityPullListener } from "./community-pull-refresh"
+import { COMMUNITY_MEMBERS_REFRESH_SCOPE } from "@/lib/communities/refresh-scope"
 
 type Filter = "all" | "admin" | "moderator"
 
@@ -101,6 +103,18 @@ export function MembersDirectory({ communityId, slug, memberCount, initial, meId
     setMembers((m) => [...m, ...r.data.members.filter((x) => !m.some((y) => y.userId === x.userId))])
     setCursor(r.data.nextCursor)
   }
+
+  const reload = useCallback(async () => {
+    setLoading(true)
+    const r = await api<{ members: MemberView[]; nextCursor: string | null }>(url(null))
+    setLoading(false)
+    if (r.ok) {
+      setMembers(r.data.members)
+      setCursor(r.data.nextCursor)
+      setAnswer((n) => n + 1)
+    }
+  }, [url])
+  useCommunityPullListener(COMMUNITY_MEMBERS_REFRESH_SCOPE, reload)
 
   const filters: { key: Filter; label: string }[] = [
     { key: "all", label: "Everyone" },

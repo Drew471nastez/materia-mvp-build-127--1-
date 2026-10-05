@@ -103,6 +103,7 @@ import { PlaceContext, plainClick, WallCommunityCard, WallContributorsCard, Wall
 import { useCommunityLanding } from "./landing"
 import { useReturnScroll } from "./return-scroll"
 import { JOINED_KEY } from "@/components/community/public/paths"
+import { CommunityPullRefresh } from "./community-pull-refresh"
 
 export { CommunityMark } from "./top-bar"
 
@@ -388,7 +389,7 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
             </aside>
             <div className={`min-w-0 lg:row-span-2 lg:row-start-1 ${about ? "lg:col-start-2 xl:col-span-2" : "lg:col-start-2"} ${LAND_LATE}`} data-community-main="">
               <div className={`${moved ? ARRIVE : ""} ${about ? ABOUT_BOX : ""}`} data-community-body="" data-community-moved={moved ? "" : undefined}>
-                {children}
+                <CommunityPullRefresh slug={community.slug}>{children}</CommunityPullRefresh>
               </div>
             </div>
           </div>
