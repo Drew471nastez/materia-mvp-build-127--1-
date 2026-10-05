@@ -9,6 +9,7 @@
 import { usePathname } from "next/navigation"
 import { useCallback, useEffect, useRef } from "react"
 import { PullToRefreshEvent, PULL_REFRESH_EVENT, RouterPullToRefresh, type PullRefreshDetail } from "@/components/ui/pull-to-refresh"
+import { cancelAllPullToRefresh } from "@/hooks/use-pull-to-refresh"
 import {
   COMMUNITY_ABOUT_REFRESH_SCOPE,
   COMMUNITY_EVENTS_REFRESH_SCOPE,
@@ -40,12 +41,18 @@ export function communityPullUsesFeed(pathname: string | null, slug: string): bo
 
 export function CommunityPullRefresh({ slug, children }: { slug: string; children: React.ReactNode }) {
   const pathname = usePathname()
-  if (communityPullUsesFeed(pathname, slug)) {
-    return <PullToRefreshEvent scope={COMMUNITY_FEED_REFRESH_SCOPE}>{children}</PullToRefreshEvent>
+  const feed = communityPullUsesFeed(pathname, slug)
+  const scope = feed ? COMMUNITY_FEED_REFRESH_SCOPE : communityPullRouterScope(pathname, slug)
+
+  useEffect(() => {
+    cancelAllPullToRefresh()
+  }, [pathname, scope])
+
+  if (feed) {
+    return <PullToRefreshEvent key={`feed-${slug}`} scope={COMMUNITY_FEED_REFRESH_SCOPE}>{children}</PullToRefreshEvent>
   }
-  const scope = communityPullRouterScope(pathname, slug)
   if (!scope) return children
-  return <RouterPullToRefresh scope={scope}>{children}</RouterPullToRefresh>
+  return <RouterPullToRefresh key={`${scope}-${slug}`} scope={scope}>{children}</RouterPullToRefresh>
 }
 
 /** A client list on a tab page: run `refresh` when that tab is pulled (after router.refresh). */

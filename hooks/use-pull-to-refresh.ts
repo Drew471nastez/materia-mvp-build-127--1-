@@ -14,6 +14,13 @@ export function pullRefreshVisualActive(): boolean {
   return pullVisualActiveCount > 0
 }
 
+const pullCancels = new Set<() => void>()
+
+/** Drop every active pull immediately (navigation, tab change, route loading). */
+export function cancelAllPullToRefresh() {
+  for (const fn of pullCancels) fn()
+}
+
 /**
  * ===========================================================================
  *  ONE SET OF NUMBERS FOR THE WHOLE GESTURE
@@ -594,9 +601,37 @@ export function usePullToRefresh(
       })
   }, [minSpin, parts, refreshHold, setLifted, setPhase, settle])
 
+  const forceIdle = useCallback(() => {
+    cancelFrame()
+    if (spinTimerRef.current) {
+      window.clearTimeout(spinTimerRef.current)
+      spinTimerRef.current = null
+    }
+    offsetRef.current = 0
+    heldTurnRef.current = null
+    paintContent(0)
+    const p = parts()
+    if (p) {
+      p.spin.style.animation = ""
+      p.root.style.opacity = "0"
+      p.root.style.transform = "translate3d(0, 0, 0) scale(0)"
+      if (p.spokes) p.spokes.lines.forEach((l) => { l.style.opacity = "0" })
+    }
+    setLifted(false)
+    if (phaseRef.current !== "idle") {
+      pullVisualActiveCount = Math.max(0, pullVisualActiveCount - 1)
+      holdScroller(false)
+      phaseRef.current = "idle"
+      const c = contentRef.current
+      if (c) c.setAttribute("data-ptr-phase", "idle")
+      phaseCbRef.current?.("idle")
+    }
+  }, [cancelFrame, holdScroller, paintContent, parts, setLifted])
+
   /* ── Touch ─────────────────────────────────────────────────────────────── */
   useEffect(() => {
     aliveRef.current = true
+    pullCancels.add(forceIdle)
     const el = containerRef.current
     if (!el) return
     /*
@@ -797,10 +832,8 @@ export function usePullToRefresh(
 
     return () => {
       aliveRef.current = false
-      if (phaseRef.current !== "idle") {
-        pullVisualActiveCount = Math.max(0, pullVisualActiveCount - 1)
-        phaseRef.current = "idle"
-      }
+      pullCancels.delete(forceIdle)
+      forceIdle()
       if (overflowHold.current) {
         const held = overflowHold.current
         overflowHold.current = null
@@ -814,8 +847,6 @@ export function usePullToRefresh(
       target.removeEventListener("touchend", onTouchEnd)
       target.removeEventListener("touchcancel", onTouchEnd)
       if (queued) cancelAnimationFrame(queued)
-      cancelFrame()
-      if (spinTimerRef.current) window.clearTimeout(spinTimerRef.current)
     }
   }, [
     containerRef,
@@ -831,6 +862,7 @@ export function usePullToRefresh(
     setPhase,
     holdScroller,
     cancelFrame,
+    forceIdle,
   ])
 
   return { contentRef: syncContentRef, indicatorRef, phaseRef }

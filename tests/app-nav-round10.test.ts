@@ -127,6 +127,7 @@ check("the event contract: storelib:pull-refresh with a scope, waiting on detail
 check("router.refresh on a pull is not wrapped in startTransition (no stacked duplicate UI under a transform)", !/startTransition\(\(\) => router\.refresh/.test(ptr) && /router\.refresh\(\)/.test(ptr))
 check("a refresh that never ends still lets the ring go", /REFRESH_MAX_MS = 10_000/.test(ptr))
 const hook = code("hooks/use-pull-to-refresh.ts")
+check("pull to refresh cancels cleanly when navigation interrupts it", /export function cancelAllPullToRefresh/.test(hook) && /cancelAllPullToRefresh\(\)/.test(ptr))
 check("the hook takes a document scroller: touches on the page's own wrapper, its top watched against the viewport", /listenOn\?: React\.RefObject/.test(hook) && /root: isDocument \? null : el/.test(hook) && /target\.addEventListener\("touchstart"/.test(hook))
 check("every gesture inside the shared component is judged by its first pixels, so a sideways row keeps its swipe", /axisFirst: true/.test(ptr) && /if \(held === 0 && axisFirst\) lateral = true/.test(hook))
 check("the blocking listener is still only on while the top is on screen", /target\.addEventListener\("touchmove", onTouchMove, \{ passive: false \}\)/.test(hook) && /new IntersectionObserver/.test(hook))

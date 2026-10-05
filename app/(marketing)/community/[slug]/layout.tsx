@@ -86,7 +86,6 @@ export default async function CommunitySlugLayout({ children, params }: { childr
     return (
       <CommunityPublicShell community={page.community} viewer={page.viewer}>
         {children}
-        <OpenInAppPill />
       </CommunityPublicShell>
     )
   }

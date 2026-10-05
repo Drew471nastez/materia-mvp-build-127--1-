@@ -49,11 +49,11 @@
  *   a vibration on Android, and nothing in Safari (lib/native-bridge.ts).
  */
 
-import { useCallback, useLayoutEffect, useRef, type ReactNode, type RefObject } from "react"
-import { useRouter } from "next/navigation"
+import { useCallback, useEffect, useLayoutEffect, useRef, type ReactNode, type RefObject } from "react"
+import { usePathname, useRouter } from "next/navigation"
 
 import { SPINNER_SPOKES } from "@/components/community/member/place-spinner"
-import { SPOKES_HOLD, SPOKES_SIZE, usePullToRefresh } from "@/hooks/use-pull-to-refresh"
+import { SPOKES_HOLD, SPOKES_SIZE, cancelAllPullToRefresh, usePullToRefresh } from "@/hooks/use-pull-to-refresh"
 import { cn } from "@/lib/utils"
 
 /** Longest the ring waits for a refresh before the page comes home anyway. */
@@ -111,6 +111,21 @@ export function PullToRefresh({
     /* Whatever is inside is somebody else's: a sideways row keeps its swipe without having to be named. */
     axisFirst: true,
   })
+
+  const pathname = usePathname()
+  const pathRef = useRef(pathname)
+  useEffect(() => {
+    if (pathRef.current !== pathname) {
+      pathRef.current = pathname
+      cancelAllPullToRefresh()
+    }
+  }, [pathname])
+
+  useEffect(() => {
+    const onRoute = () => cancelAllPullToRefresh()
+    window.addEventListener("storelib-route-loading", onRoute)
+    return () => window.removeEventListener("storelib-route-loading", onRoute)
+  }, [])
 
   return (
     <div ref={rootRef} data-pull-to-refresh="" className={cn("relative", fill && "h-full", className)}>

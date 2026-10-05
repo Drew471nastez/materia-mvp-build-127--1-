@@ -128,6 +128,11 @@ async function main() {
         /startRouteLoading\(\{ cover: true \}\)/.test(code("components/community/public/join-nav.ts")) &&
         /prefetchJoinAuth/.test(code("components/community/public/join-controls.tsx")),
     )
+    const layout = code("app/(marketing)/community/[slug]/layout.tsx")
+    check(
+      "signed-out visitors do not get the Open in app pill; signed-in members still do",
+      /CommunityShell[\s\S]*<OpenInAppPill \/>/.test(layout) && !/CommunityPublicShell[\s\S]*<OpenInAppPill/.test(layout),
+    )
     const request = decideJoin(facts({ community: { approvalRequired: true } }))
     check("approval required: Request to join", request.kind === "request" && request.label === "Request to join")
     const paidRequest = decideJoin(facts({ community: { access: "paid", approvalRequired: true }, options: [paid] }))
