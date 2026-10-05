@@ -32,6 +32,7 @@ import { StatusBadge } from "@/app/app/orders/order-parts"
 import { relativeTime } from "@/lib/communities/format"
 import type { BadgeView, CommunityHead, InviteView, MemberPage, MemberRowView } from "./view-types"
 import { MEMBER_STATUS_FILTERS, ROLE_LABEL, takenAwayLine, type MemberStatusFilter } from "./logic"
+import { joinCosts, needsInvite } from "@/lib/communities/access-model"
 import { useMemberActions, type ActOnPerson } from "./member-actions"
 import { PaymentsSection } from "@/components/community/membership/refund-dialog"
 import { Dialog, Empty, FilterTabs, ListCard, ListNote, Notice, PickButton, RowMenu, SearchField, Segmented, ToolbarDivider, buttonPrimary, buttonSecondary, errorText, field, label, selectField, send, shortDate, useToast } from "./parts"
@@ -328,6 +329,7 @@ export function MembersSection(p: Props) {
         open={inviteOpen}
         onClose={() => setInviteOpen(false)}
         base={base}
+        head={p.head}
         tiers={p.tiers}
         canAdd={p.head.can.manage_members === true}
         onMade={(inv) => setInvites((x) => ({ ...x, rows: [inv, ...x.rows] }))}
@@ -423,7 +425,7 @@ function CopyField({ value }: { value: string }) {
   )
 }
 
-function InviteDialog({ open, onClose, base, tiers, canAdd, onMade, onAdded }: { open: boolean; onClose: () => void; base: string; tiers: { id: string; name: string; kind: string }[]; canAdd: boolean; onMade: (i: InviteView) => void; onAdded: () => void }) {
+function InviteDialog({ open, onClose, base, head, tiers, canAdd, onMade, onAdded }: { open: boolean; onClose: () => void; base: string; head: CommunityHead; tiers: { id: string; name: string; kind: string }[]; canAdd: boolean; onMade: (i: InviteView) => void; onAdded: () => void }) {
   type Mode = "email" | "link" | "add"
   const [mode, setMode] = React.useState<Mode>("email")
   const [email, setEmail] = React.useState("")
@@ -519,6 +521,12 @@ function InviteDialog({ open, onClose, base, tiers, canAdd, onMade, onAdded }: {
           ]}
         />
         {mode === "add" ? <p className="text-[13px] leading-snug text-[#6b7280]">Somebody with a Storelib account joins right away, without paying.</p> : null}
+        {/* A private community that charges: the link is the way in, and the price is still theirs to pay (lib/communities/access-model.ts). */}
+        {mode !== "add" && needsInvite(head) && joinCosts(head) ? (
+          <p className="text-[13px] leading-snug text-[#6b7280]" data-invite-price-note="">
+            Whoever follows this sees the price and pays to join. To give somebody access without paying, use Add directly.
+          </p>
+        ) : null}
         {mode !== "link" ? (
           <div>
             <label htmlFor="inv-email" className={label}>
