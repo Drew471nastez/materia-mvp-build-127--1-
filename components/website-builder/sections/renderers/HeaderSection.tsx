@@ -18,7 +18,9 @@ import { useCallback, useState, useEffect, useRef, useLayoutEffect, type CSSProp
 import { createPortal } from "react-dom"
 import { ThemeSocials } from "../../theme/ThemeSocials"
 import { cn } from "@/lib/utils"
-import { DRAWER_BACKDROP_Z, DRAWER_CLOSE_MS, DRAWER_PANEL_Z, drawerSafeArea, prefersStill, useBackdropDismiss, useComposedRef, useDrawerFrame, useDrawerMotion, useDrawerPresence, useDrawerTouchGuard, useFocusTrap } from "../../drawer-frame"
+import { DRAWER_BACKDROP_Z, DRAWER_CLOSE_MS, DRAWER_PANEL_Z, drawerSafeArea, prefersStill, useBackdropDismiss, useComposedRef, useDrawerFrame, useDrawerMotion, useDrawerPresence, useDrawerSwipe, useDrawerTouchGuard, useFocusTrap } from "../../drawer-frame"
+import { useDrawerHost } from "../../site-drawer-host"
+import { SearchModal } from "../../header-search-modal"
 import { SHOP_PATH } from "@/lib/website-builder/live-links"
 import { followSectionLink } from "@/lib/website-builder/section-motion"
 import { useSiteCart } from "../../site-cart"
@@ -40,13 +42,13 @@ import {
 } from "../_shared"
 import { useStorelibPage } from "../storelib-sources"
 import { cleanMenus } from "@/lib/storelib-theme/values"
-import { headerBorderHere, headerMenuBlocks, headerMenuHandleOf, logoFontStack as wordmarkFont, logoParts, mobileMenuStyle, transparentHere, type MobileMenuStyle } from "@/lib/website-builder/header-settings"
-import { MENU_DRAWER_MAX_WIDTH, menuDrawerExists } from "@/lib/website-builder/header-drawers"
+import { desktopDrawerEdge, desktopMenu, drawerClosedTransform, headerBorderHere, headerMenuBlocks, headerMenuHandleOf, isMenuButton, logoFontStack as wordmarkFont, logoParts, mobileMenuStyle, searchMode, transparentHere, type MobileMenuStyle } from "@/lib/website-builder/header-settings"
+import { MENU_DRAWER_MAX_WIDTH, drawerEdgeHere, menuDrawerExists } from "@/lib/website-builder/header-drawers"
 
 // ── Header color schemes ─────────────────────────────────────
 type HeaderColorScheme = ColorSchemeKey
 
-type MobileNavItem = {
+export type MobileNavItem = {
   id: string
   label: string
   href: string
@@ -58,14 +60,14 @@ type MobileNavItem = {
 const CLOSE_MS = DRAWER_CLOSE_MS
 
 /** The header's call to action, as the drawer needs it. */
-interface DrawerCta {
+export interface DrawerCta {
   text: string
   url: string
   /** The scheme button's colours as custom properties: see schemeButton. */
   style: CSSProperties
 }
 
-function HeaderMobileNavDrawer({
+export function HeaderMobileNavDrawer({
   open,
   onClose,
   items,
@@ -735,7 +737,7 @@ function money(cents: number): string {
  * product, so a second copy of a download is not a thing this product can
  * express, and a stepper that refuses to go past one is a control that lies.
  */
-function HeaderCartDrawer({
+export function HeaderCartDrawer({
   scheme,
   scopedToPreview,
   onEditorNavigate,
@@ -795,10 +797,14 @@ function CartDrawerInner({
   const fadeBackdrop = useDrawerMotion(open, "opacity", "0", "1")
   const pressBackdrop = useBackdropDismiss(open, onClose)
   const touchGuard = useDrawerTouchGuard()
-  const dismissBackdrop = useComposedRef(pressBackdrop, fadeBackdrop)
+  /* Pushed back toward the right edge, it closes: see useDrawerSwipe. */
+  const backdropNode = useRef<HTMLElement | null>(null)
+  const keepBackdrop = useCallback((node: HTMLElement | null) => { backdropNode.current = node }, [])
+  const swipeBack = useDrawerSwipe("right", onClose, backdropNode)
+  const dismissBackdrop = useComposedRef(useComposedRef(pressBackdrop, fadeBackdrop), keepBackdrop)
   const panelRef = useRef<HTMLElement | null>(null)
   const keepPanel = useCallback((node: HTMLElement | null) => { panelRef.current = node }, [])
-  const guardPanel = useComposedRef(useComposedRef(touchGuard, slidePanel), keepPanel)
+  const guardPanel = useComposedRef(useComposedRef(useComposedRef(touchGuard, slidePanel), keepPanel), swipeBack)
   useFocusTrap(open, panelRef, !scopedToPreview)
 
   const stop = (e: React.MouseEvent) => { if (onEditorNavigate) { e.preventDefault(); e.stopPropagation() } }
@@ -1025,19 +1031,25 @@ function MobileDrawerInner({
   const slidePanel = useDrawerMotion(
     open,
     "transform",
-    /* Covers the screen slides in from the side too: from the top it would
-       travel across the header it now opens under. */
-    menuStyle === "right" ? "translate3d(101%, 0, 0)" : "translate3d(-101%, 0, 0)",
+    /* Covers the screen slides in from the side too. From the top it drops
+       inside a frame that starts under the header, so it never travels
+       across the header it opens under (drawerClosedTransform). */
+    drawerClosedTransform(menuStyle),
     "translate3d(0, 0, 0)",
   )
+  const fromTop = menuStyle === "top"
   const fadeBackdrop = useDrawerMotion(open, "opacity", "0", "1")
   const pressBackdrop = useBackdropDismiss(open, onClose)
   const touchGuard = useDrawerTouchGuard()
-  const dismissBackdrop = useComposedRef(pressBackdrop, fadeBackdrop)
+  /* Pushed back toward the edge it came from, it closes: see useDrawerSwipe. */
+  const backdropNode = useRef<HTMLElement | null>(null)
+  const keepBackdrop = useCallback((node: HTMLElement | null) => { backdropNode.current = node }, [])
+  const swipeBack = useDrawerSwipe(menuStyle === "right" ? "right" : fromTop ? "top" : "left", onClose, backdropNode)
+  const dismissBackdrop = useComposedRef(useComposedRef(pressBackdrop, fadeBackdrop), keepBackdrop)
   /* The panel, for the focus trap: Tab goes round the menu, not out to the page. */
   const panelRef = useRef<HTMLElement | null>(null)
   const keepPanel = useCallback((node: HTMLElement | null) => { panelRef.current = node }, [])
-  const guardPanel = useComposedRef(useComposedRef(touchGuard, slidePanel), keepPanel)
+  const guardPanel = useComposedRef(useComposedRef(useComposedRef(touchGuard, slidePanel), keepPanel), swipeBack)
   /* Under the header the hamburger is the close, so Tab goes round it and the menu. */
   useFocusTrap(open, panelRef, !scopedToPreview, underHeader)
   const railRef = useRef<HTMLDivElement | null>(null)
@@ -1154,20 +1166,7 @@ function MobileDrawerInner({
     window.setTimeout(go, CLOSE_MS)
   }
 
-  return (
-    <>
-      {/* Backdrop — spans the ENTIRE viewport (top:0) so the drawer and
-          overlay fully cover the sticky header when opened. */}
-      <div
-        aria-hidden
-        data-site-drawer-backdrop=""
-        ref={dismissBackdrop}
-        className={cn(positionClass, "left-0 right-0 bg-black/50", DRAWER_BACKDROP_Z, phoneOnly && "md:hidden")}
-        style={{
-          ...frameStyle,
-          pointerEvents: open ? "auto" : "none",
-        }}
-      />
+  const menuPanel = (
       <aside
         ref={guardPanel}
         role="dialog"
@@ -1220,10 +1219,11 @@ function MobileDrawerInner({
         */
         aria-modal={open ? true : undefined}
         className={cn(
-          positionClass,
+          /* From the top it sits in its frame (below), as tall as its links and no taller than the frame. */
+          fromTop ? "absolute left-0 right-0 top-0 max-h-full overflow-y-auto overscroll-contain site-slim-scroll" : positionClass,
           "flex flex-col",
           DRAWER_PANEL_Z,
-          /* Never on a desktop layout: the header has its links in the row there. */
+          /* Never on a desktop layout, unless Menu on larger screens asks for it: the header has its links in the row there. */
           phoneOnly && "md:hidden",
           open && "shadow-2xl",
           /*
@@ -1233,19 +1233,25 @@ function MobileDrawerInner({
             names. Only the transform differs, so the slide stays on the
             compositor whichever it is.
           */
-          menuStyle === "full"
+          fromTop
+            ? "w-full"
+            : menuStyle === "full"
             ? "left-0 right-0 w-full max-w-none"
             : menuStyle === "right"
               ? cn("right-0", scopedToPreview ? "w-[82%] max-w-[320px]" : "w-[85vw] max-w-[360px]")
               : cn("left-0", scopedToPreview ? "w-[82%] max-w-[320px]" : "w-[85vw] max-w-[360px]"),
         )}
         style={{
-          ...frameStyle,
+          ...(fromTop ? {} : frameStyle),
           background: scheme.bg,
           color: scheme.heading,
           pointerEvents: open ? "auto" : "none",
           /* Clear of the notch and the home bar on an iPhone; nought in a browser. */
-          ...(scopedToPreview ? {} : drawerSafeArea(menuStyle === "right" ? "right" : menuStyle === "full" ? "both" : "left")),
+          ...(scopedToPreview ? {} : drawerSafeArea(menuStyle === "right" ? "right" : menuStyle === "full" || fromTop ? "both" : "left")),
+          /* From the top on a wide screen the rows line up with the header's own 5% edge (their own 20px inside it); on a phone the inset comes to nothing, or to the notch. */
+          ...(fromTop
+            ? { paddingLeft: "max(env(safe-area-inset-left, 0px), calc(5% - 20px))", paddingRight: "max(env(safe-area-inset-right, 0px), calc(5% - 20px))" }
+            : {}),
         }}
       >
         {/*
@@ -1285,12 +1291,13 @@ function MobileDrawerInner({
             exact pattern iOS uses for drill-down navigation and keeps
             animation work on the GPU. */}
         <nav
-          className="flex-1 relative overflow-hidden"
+          /* From the top the list is in the flow, so the panel is as tall as its links; the panel scrolls when they outgrow the frame. */
+          className={fromTop ? "relative shrink-0 overflow-hidden" : "flex-1 relative overflow-hidden"}
           style={{ overscrollBehavior: "contain" }}
         >
           <div
             ref={railRef}
-            className="absolute inset-0 flex"
+            className={fromTop ? "grid grid-cols-2" : "absolute inset-0 flex"}
             style={{
               width: "200%",
               transform: inSubmenu ? "translateX(-50%)" : "translateX(0%)",
@@ -1300,7 +1307,7 @@ function MobileDrawerInner({
           >
             {/* ── Pane 1: ROOT menu ── */}
             <div
-              className="site-slim-scroll w-1/2 h-full overflow-y-auto"
+              className={fromTop ? "min-w-0" : "site-slim-scroll w-1/2 h-full overflow-y-auto"}
               aria-hidden={inSubmenu}
               /* The pane that is slid away takes no Tab and no tap. */
               inert={inSubmenu}
@@ -1344,7 +1351,7 @@ function MobileDrawerInner({
                 this pane mounted even when inactive so the slide-out
                 animation has something to slide toward. */}
             <div
-              className="site-slim-scroll w-1/2 h-full overflow-y-auto"
+              className={fromTop ? "min-w-0" : "site-slim-scroll w-1/2 h-full overflow-y-auto"}
               aria-hidden={!inSubmenu}
               inert={!inSubmenu}
               style={{ overscrollBehavior: "contain" }}
@@ -1513,6 +1520,41 @@ function MobileDrawerInner({
         )}
 
       </aside>
+  )
+
+  return (
+    <>
+      {/* Backdrop — spans the ENTIRE viewport (top:0) so the drawer and
+          overlay fully cover the sticky header when opened. */}
+      <div
+        aria-hidden
+        data-site-drawer-backdrop=""
+        ref={dismissBackdrop}
+        className={cn(positionClass, "left-0 right-0 bg-black/50", DRAWER_BACKDROP_Z, phoneOnly && "md:hidden")}
+        style={{
+          ...frameStyle,
+          pointerEvents: open ? "auto" : "none",
+        }}
+      />
+      {/*
+        FROM THE TOP, INSIDE A FRAME THAT STARTS UNDER THE HEADER. The frame
+        is the drawer's rectangle and clips; the panel inside it is only as
+        tall as its links and drops from the frame's top edge, so it never
+        travels across the header. Presses on the frame below the panel fall
+        through to the backdrop, which closes it. Fixed, the frame is a
+        stacking context of its own, so it carries the panel's layer: without
+        it the panel was drawn under the backdrop, dimmed, and a touch on it
+        landed on the backdrop. It paints nothing itself.
+      */}
+      {fromTop ? (
+        <div
+          data-drawer-frame="top"
+          className={cn(positionClass, "left-0 right-0 overflow-hidden", DRAWER_PANEL_Z)}
+          style={{ ...frameStyle, pointerEvents: "none" }}
+        >
+          {menuPanel}
+        </div>
+      ) : menuPanel}
     </>
   )
 }
@@ -1591,7 +1633,38 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
     before do, and because it costs a visitor nothing to change their mind.
   */
   const searchOpensInHeader = str(s.search_behaviour, "header") !== "page"
+  /* And, opening here, in the row or in a window over the page (header-search-modal.tsx). */
+  const searchInWindow = searchMode(s.search_behaviour) === "modal"
   const [searchOpen, setSearchOpen] = useState(false)
+  /*
+    THE DROPDOWN A MENU BUTTON HAS OPENED, on a computer. A link with
+    sub-links and nowhere of its own to go is a button (isMenuButton): a
+    pointer resting on it opens its links, as it always did, and a press, a
+    tap or Enter opens them too. Escape, a press anywhere else, or choosing a
+    link puts them away.
+  */
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null)
+  const dropdownRoot = useRef<HTMLElement | null>(null)
+  useEffect(() => {
+    if (!openDropdown) return
+    const onDown = (e: PointerEvent) => {
+      const el = e.target as Element | null
+      if (el && el.closest?.(`[data-nav-item="${CSS.escape(openDropdown)}"]`)) return
+      setOpenDropdown(null)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return
+      const trigger = dropdownRoot.current?.querySelector<HTMLElement>(`[data-nav-item="${CSS.escape(openDropdown)}"] > button`)
+      setOpenDropdown(null)
+      if (trigger && trigger.closest("[data-nav-item]")?.contains(document.activeElement)) trigger.focus({ preventScroll: true })
+    }
+    document.addEventListener("pointerdown", onDown)
+    window.addEventListener("keydown", onKey)
+    return () => {
+      document.removeEventListener("pointerdown", onDown)
+      window.removeEventListener("keydown", onKey)
+    }
+  }, [openDropdown])
   const showCart = headerIconOn(s.show_cart_icon, s.show_cart)
 
   /*
@@ -1605,14 +1678,23 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
     drawer-frame.ts, so a handover never lets go of the page in between.
   */
   const { open: cartOpen, setOpen: setCartOpen } = useSiteCart()
-  /* Does this surface have a phone menu at all? Not on a desktop canvas. */
-  const hasMenuDrawer = menuDrawerExists(deviceMode)
+  /*
+    Header › Menu on larger screens. The links in the row, as every header
+    had, or a menu button that opens the drawer from the left, the right or
+    the top. A phone always has its menu button; this is the larger layout.
+  */
+  const desktopMenuSetting = desktopMenu(s.desktop_menu)
+  const desktopEdge = desktopDrawerEdge(desktopMenuSetting)
+  const drawerOnDesktop = desktopEdge !== null
+  /* Does this surface have a menu drawer at all? Not on a desktop canvas whose links are in the row. */
+  const hasMenuDrawer = menuDrawerExists(deviceMode, drawerOnDesktop)
   const openMenu = useCallback(() => {
     setSearchOpen(false)
     setCartOpen(false)
     setMobileNavOpen(true)
   }, [setCartOpen])
   const toggleMenu = () => { if (mobileNavOpen) setMobileNavOpen(false); else openMenu() }
+  const closeSearch = useCallback(() => setSearchOpen(false), [])
   const toggleSearch = () => {
     if (searchOpen) { setSearchOpen(false); return }
     setMobileNavOpen(false)
@@ -1634,11 +1716,33 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
   useEffect(() => {
     if (deviceMode || !mobileNavOpen || typeof window.matchMedia !== "function") return
     const wide = window.matchMedia(`(min-width: ${MENU_DRAWER_MAX_WIDTH + 1}px)`)
+    /* With a drawer on larger screens too it may stay, but it closes as the
+       window crosses the breakpoint: the edge it came from may be another. */
+    if (drawerOnDesktop) {
+      const was = wide.matches
+      const onCross = () => { if (wide.matches !== was) setMobileNavOpen(false) }
+      wide.addEventListener("change", onCross)
+      return () => wide.removeEventListener("change", onCross)
+    }
     if (wide.matches) { setMobileNavOpen(false); return }
     const onChange = () => { if (wide.matches) setMobileNavOpen(false) }
     wide.addEventListener("change", onChange)
     return () => wide.removeEventListener("change", onChange)
-  }, [deviceMode, mobileNavOpen])
+  }, [deviceMode, mobileNavOpen, drawerOnDesktop])
+  /*
+    WHICH EDGE, HERE. The phone's setting on a phone and the larger screen's
+    on a larger one. Published there is no device, so it is read from the
+    window as the menu opens, and kept while it is open.
+  */
+  const [wideWindow, setWideWindow] = useState(false)
+  useEffect(() => {
+    if (deviceMode || !drawerOnDesktop || typeof window.matchMedia !== "function") return
+    const wide = window.matchMedia(`(min-width: ${MENU_DRAWER_MAX_WIDTH + 1}px)`)
+    const read = () => setWideWindow(wide.matches)
+    read()
+    wide.addEventListener("change", read)
+    return () => wide.removeEventListener("change", read)
+  }, [deviceMode, drawerOnDesktop])
   /*
     PREVIEWING Menu on phones SHOWS THE REAL DRAWER, AT THE REAL SIZE. In
     the editor's phone preview a change to the setting opens the menu, so
@@ -1652,6 +1756,16 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
     lastMenuStyle.current = menuStyleSetting
     if (renderingInsideEditor && deviceMode === "mobile") openMenu()
   }, [menuStyleSetting, renderingInsideEditor, deviceMode, openMenu])
+  /* And Menu on larger screens, the same way, in the desktop and tablet previews. */
+  const lastDesktopMenu = useRef(desktopMenuSetting)
+  useEffect(() => {
+    if (lastDesktopMenu.current === desktopMenuSetting) return
+    lastDesktopMenu.current = desktopMenuSetting
+    if (!renderingInsideEditor || deviceMode === "mobile") return
+    if (drawerOnDesktop) openMenu()
+    else setMobileNavOpen(false)
+  }, [desktopMenuSetting, drawerOnDesktop, renderingInsideEditor, deviceMode, openMenu])
+  const drawerEdge = drawerEdgeHere(menuStyleSetting, desktopEdge, deviceMode, wideWindow)
   // Hover style for desktop menu links — mirrors the select in Header Settings.
   // Values: "inherit" | "none" | "underline" | "underline_reverse" | "fade_siblings"
   const menuHoverStyle = str(s.menu_link_hover_style, "inherit")
@@ -2230,8 +2344,31 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
       const label = str(block.settings.label)
       const kids = childrenByParent[block.id] ?? []
       const hasChildren = kids.length > 0
+      /* A link with sub-links and nowhere of its own to go opens them instead (header-settings.ts). */
+      const asButton = isMenuButton(href, kids.length)
+      const dropdownOpen = asButton && openDropdown === block.id
 
-      const linkAnchor = (
+      const linkAnchor = asButton ? (
+        <button
+          type="button"
+          aria-haspopup="menu"
+          aria-expanded={dropdownOpen}
+          aria-controls={`${block.id}-menu`}
+          className="text-[14px] font-medium whitespace-nowrap inline-flex flex-row items-center gap-1.5 leading-none align-middle"
+          style={{ color: navLinkColor }}
+          onClick={e => {
+            e.stopPropagation()
+            setOpenDropdown(dropdownOpen ? null : block.id)
+          }}
+        >
+          <span className={cn("inline-block", hoverLabelClass)}>{label}</span>
+          <ChevronDown
+            className={cn("h-[14px] w-[14px] shrink-0 translate-y-[0.5px] transition-transform duration-200", dropdownOpen && "rotate-180")}
+            strokeWidth={2}
+            aria-hidden
+          />
+        </button>
+      ) : (
         <a
           href={href}
           target={openInNew ? "_blank" : undefined}
@@ -2285,10 +2422,14 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
       return (
         <div
           key={block.id}
+          data-nav-item={block.id}
           className={cn(
             "relative group/navitem",
             visibilityClass,
           )}
+          /* A menu button opens under a resting pointer too, as the links did; never on a touch, whose tap is the press. */
+          onPointerEnter={asButton ? (e) => { if (e.pointerType === "mouse") setOpenDropdown(block.id) } : undefined}
+          onPointerLeave={asButton ? (e) => { if (e.pointerType === "mouse") setOpenDropdown((cur) => (cur === block.id ? null : cur)) } : undefined}
         >
           {linkAnchor}
           {/* Hover bridge — prevents the dropdown from closing when the
@@ -2297,6 +2438,8 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
           {/* Dropdown panel */}
           <div
             role="menu"
+            id={`${block.id}-menu`}
+            data-open={asButton ? (dropdownOpen ? "true" : "false") : undefined}
             className={cn(
               // Dropdown z-index MUST be higher than every section below
               // (which sit at `isolate` / z:auto). We use z-[70] so the panel
@@ -2307,8 +2450,14 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
               // its effective paint order vs. outside siblings = z-[60] —
               // still comfortably above all non-sticky section content.
               "theme-nav-dropdown absolute left-0 top-full mt-2 min-w-[200px] rounded-xl shadow-xl py-2 z-[70]",
-              "opacity-0 translate-y-1 pointer-events-none",
-              "group-hover/navitem:opacity-100 group-hover/navitem:translate-y-0 group-hover/navitem:pointer-events-auto",
+              /* A link opens it under the pointer, and under the keyboard's focus; a menu button when it is pressed. */
+              asButton
+                ? (dropdownOpen ? "opacity-100 translate-y-0 pointer-events-auto" : "opacity-0 translate-y-1 pointer-events-none")
+                : cn(
+                    "opacity-0 translate-y-1 pointer-events-none",
+                    "group-hover/navitem:opacity-100 group-hover/navitem:translate-y-0 group-hover/navitem:pointer-events-auto",
+                    "group-focus-within/navitem:opacity-100 group-focus-within/navitem:translate-y-0 group-focus-within/navitem:pointer-events-auto",
+                  ),
               "transition-[opacity,translate] duration-200 ease-out",
             )}
             /*
@@ -2364,9 +2513,11 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
                     a pixel under its own trigger reads as a different menu
                     rather than as part of this one.
                   */
+                  role="menuitem"
                   className="theme-nav-dropdown-item block px-4 py-2 text-[14px] font-medium transition-colors whitespace-nowrap"
                   style={{ color: "inherit" }}
                   onClick={e => {
+                    setOpenDropdown(null)
                     if (onEditorNavigate) {
                       e.preventDefault()
                       e.stopPropagation()
@@ -2541,14 +2692,18 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
 
   // Mobile hamburger — 3 animated bars that morph into an X when open.
   // Rendered on the LEFT side of the header on mobile.
-  const renderHamburger = () => (
+  /* `forDesktop`: the menu button the larger layout gets from Menu on larger screens. It only ever sits in the desktop shell, which hides it on a phone. */
+  const renderHamburger = (forDesktop: boolean = false) => (
     <button
       type="button"
       aria-label={mobileNavOpen ? "Close menu" : "Open menu"}
       aria-expanded={mobileNavOpen}
+      data-menu-button={forDesktop ? "desktop" : "phone"}
       className={cn(
         "h-9 w-9 items-center justify-center rounded-full theme-tint-hover transition-colors shrink-0",
-        hasDeviceMode
+        forDesktop
+          ? "flex"
+          : hasDeviceMode
           ? (forceMobile ? "flex" : "hidden")
           : "flex md:hidden",
       )}
@@ -2636,8 +2791,10 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
   // For the "fade siblings" hover style we wire the fade with an `:has()`
   // selector on the nav wrapper. When any anchor inside the nav is hovered,
   // every anchor drops to 40% opacity, and the hovered one stays at 100%.
-  const navNode = (
+  /* With a drawer on larger screens the row has no links: the menu button opens them. */
+  const navNode = drawerOnDesktop ? null : (
     <nav
+      ref={dropdownRoot}
       className={cn(
         "flex items-center",
         // "Fade siblings": when any link is hovered, every other anchor in
@@ -2733,6 +2890,19 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
   // desktop browsers see the configured desktop layout.
   const isMobileShell = hasDeviceMode && forceMobile
   const isLiveResponsive = !hasDeviceMode
+  /*
+    MENU ON LARGER SCREENS: A MENU BUTTON. The links leave the row and the
+    same hamburger a phone has sits beside the logo, opening the drawer from
+    the edge the setting names. In the two layouts with a slot of their own
+    on the left, the button takes that slot.
+  */
+  const deskMenuButton = drawerOnDesktop ? renderHamburger(true) : null
+  const deskLogo = deskMenuButton ? (
+    <div className="flex min-w-0 items-center gap-3">
+      {deskMenuButton}
+      {logoNode}
+    </div>
+  ) : logoNode
   let content: React.ReactNode
   if (isMobileShell) {
     content = buildMobileShell()
@@ -2740,7 +2910,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
     // Truly centered nav using 3-col grid
     content = (
       <div className="w-full grid grid-cols-[1fr_auto_1fr] items-center gap-6">
-        <div className="flex items-center">{logoNode}</div>
+        <div className="flex items-center">{deskLogo}</div>
         <div className="flex items-center justify-center">{navNode}</div>
         <div className="flex items-center justify-end">{renderIcons()}</div>
       </div>
@@ -2749,7 +2919,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
     // Truly centered logo using 3-col grid
     content = (
       <div className="w-full grid grid-cols-[1fr_auto_1fr] items-center gap-6">
-        <div className="flex items-center justify-start">{navNode}</div>
+        <div className="flex items-center justify-start">{navNode ?? deskMenuButton}</div>
         <div className="flex items-center justify-center">{logoNode}</div>
         <div className="flex items-center justify-end">{renderIcons()}</div>
       </div>
@@ -2758,17 +2928,17 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
     content = (
       <div className="w-full flex flex-col items-center gap-3">
         <div className="w-full grid grid-cols-[1fr_auto_1fr] items-center gap-6">
-          <div />
+          {deskMenuButton ? <div className="flex items-center justify-start">{deskMenuButton}</div> : <div />}
           <div className="flex items-center justify-center">{logoNode}</div>
           <div className="flex items-center justify-end">{renderIcons()}</div>
         </div>
-        <div className="flex items-center justify-center w-full">{navNode}</div>
+        {navNode && <div className="flex items-center justify-center w-full">{navNode}</div>}
       </div>
     )
   } else if (layout === "logo_left_nav_inline") {
     content = (
       <div className="w-full flex items-center gap-8">
-        {logoNode}
+        {deskLogo}
         {navNode}
         <div className="flex-1" />
         {renderIcons()}
@@ -2779,7 +2949,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
     if (navAlignment === "center") {
       content = (
         <div className="w-full grid grid-cols-[1fr_auto_1fr] items-center gap-6">
-          <div className="flex items-center">{logoNode}</div>
+          <div className="flex items-center">{deskLogo}</div>
           <div className="flex items-center justify-center">{navNode}</div>
           <div className="flex items-center justify-end">{renderIcons()}</div>
         </div>
@@ -2787,7 +2957,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
     } else if (navAlignment === "left") {
       content = (
         <div className="w-full flex items-center gap-6">
-          {logoNode}
+          {deskLogo}
           {navNode}
           <div className="flex-1" />
           {renderIcons()}
@@ -2796,7 +2966,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
     } else {
       content = (
         <div className="w-full flex items-center justify-between gap-6">
-          {logoNode}
+          {deskLogo}
           <div className="flex items-center" style={{ gap: `${linkSpacingPx}px` }}>
             {navNode}
             {renderIcons()}
@@ -2912,7 +3082,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
     A DRAWER OVER THE PAGE, the menu or the bag: the header's show on scroll
     up stands still, so the lock is not read as a scroll.
   */
-  const drawerOpen = mobileNavOpen || (showCart && cartOpen)
+  const drawerOpen = mobileNavOpen || (showCart && cartOpen) || (searchInWindow && searchOpen)
   drawerOverPage.current = drawerOpen
   /*
     THE HEADER STAYS. It used to fade out under an open drawer, which on a
@@ -3043,7 +3213,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
       <div className={cn(widthClass, outerPaddingClass)} style={{ ...innerStyle, ...widthStyle }}>
         {content}
       </div>
-      {showSearch && searchOpensInHeader && (
+      {showSearch && searchOpensInHeader && !searchInWindow && (
         <HeaderSearchPanel
           open={searchOpen}
           onClose={() => setSearchOpen(false)}
@@ -3095,9 +3265,24 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
    */
   const revealEnabled = headerStickyOnScrollUp
 
-  const cartDrawer = showCart ? (
+  /* One drawer per cart, even beside a header of the creator's own with a bag in it (site-drawer-host.ts). */
+  const hostsCart = useDrawerHost(setCartOpen, section.id, showCart)
+  const cartDrawer = showCart && hostsCart ? (
     <HeaderCartDrawer
       scheme={scheme}
+      scopedToPreview={renderingInsideEditor}
+      onEditorNavigate={renderingInsideEditor ? onEditorNavigate : undefined}
+    />
+  ) : null
+
+  /* Header › When search is clicked › Open a search window. */
+  const searchWindow = showSearch && searchInWindow ? (
+    <SearchModal
+      open={searchOpen}
+      onClose={closeSearch}
+      scheme={scheme}
+      radius={buttonRadiusStyle(theme)}
+      placeholder={str(s.search_placeholder, "Search")}
       scopedToPreview={renderingInsideEditor}
       onEditorNavigate={renderingInsideEditor ? onEditorNavigate : undefined}
     />
@@ -3115,8 +3300,9 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
       open={mobileNavOpen}
       onClose={closeMobileNav}
       scheme={scheme}
-      menuStyle={menuStyleSetting}
-      phoneOnly={!deviceMode}
+      menuStyle={drawerEdge}
+      /* Published, a phone's alone, unless Menu on larger screens has a drawer too. */
+      phoneOnly={!deviceMode && !drawerOnDesktop}
       below={headerRef}
       // CRITICAL: use `renderingInsideEditor`, NOT `isEditing`. `isEditing`
       // flips with the Inspector toggle — when the user turns Inspector off
@@ -3241,6 +3427,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
         {headerInner}
         {mobileDrawer}
         {cartDrawer}
+        {searchWindow}
       </SectionWrapper>
     )
   }
@@ -3265,6 +3452,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
       {headerInner}
       {mobileDrawer}
       {cartDrawer}
+      {searchWindow}
     </SectionWrapper>
   )
 }

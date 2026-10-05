@@ -1591,6 +1591,18 @@ function HeaderSectionSettings({
                   <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
                 </div>
               </button>
+              {/* Links in the row, or a menu button and a drawer: lib/website-builder/header-settings.ts. */}
+              <WbSelect
+                label="Menu on larger screens"
+                value={typeof s.desktop_menu === "string" ? s.desktop_menu : "inline"}
+                onChange={v => onUpdateSetting("desktop_menu", v)}
+                options={[
+                  { label: "Links in the header", value: "inline" },
+                  { label: "Menu button, drawer from the left", value: "drawer_left" },
+                  { label: "Menu button, drawer from the right", value: "drawer_right" },
+                  { label: "Menu button, drops down from the top", value: "drawer_top" },
+                ]}
+              />
             </div>
 
             {/* ── 2. Header layout (mobile) ── */}
@@ -1617,6 +1629,7 @@ function HeaderSectionSettings({
                 options={[
                   { label: "Slides in from the left", value: "left" },
                   { label: "Slides in from the right", value: "right" },
+                  { label: "Drops down from the top", value: "top" },
                   { label: "Covers the screen", value: "full" },
                 ]}
               />
@@ -1882,6 +1895,7 @@ function HeaderSectionSettings({
                         onChange={e => onUpdateSetting("search_behaviour", e.target.value)}
                       >
                         <option value="header">Open it in the header</option>
+                        <option value="modal">Open a search window</option>
                         <option value="page">Go to the search page</option>
                       </select>
                       <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />

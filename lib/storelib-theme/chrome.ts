@@ -166,7 +166,7 @@ export function chromeRefusal(role: ChromeRole): string {
       "Change the site's header instead: it is the section of type \"header\".",
       "Its settings cover the logo and store name (Theme settings), the menu links (its nav_link blocks, or a menu from Website settings, Navigation), the desktop and phone layouts, sticky, sticky on scroll up and transparent, the search, account, wishlist and cart icons with their drawers, a call to action button, its colour scheme and its border.",
       "In the editor that is Sections, Header. In the builder's AI it is update_section on the header, with add_block and update_block for its nav_link links. Over MCP it is storelib_create_safe_patch with those same operations, or storelib_update_styles for its colours.",
-      "Only if the creator asked for a header of their own: write ONE section with \"kind\": \"header\" in its schema, a link_list setting for the menu (default \"main-menu\") and an image_picker for the logo. It replaces the built-in header on every page.",
+      "Only if the creator asked for a header of their own: write ONE section with \"kind\": \"header\" in its schema, a link_list setting for the menu (default \"main-menu\") and an image_picker for the logo. It replaces the built-in header on every page, and opens the site's own drawers by attribute: data-storelib-menu on its menu button, data-storelib-cart on its bag with data-storelib-cart-count for the count, and data-storelib-search on its search.",
     ].join(" ")
   }
   return [

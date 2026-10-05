@@ -55,7 +55,17 @@ const useBeforePaint = typeof window === "undefined" ? useEffect : useLayoutEffe
 export const DRAWER_OPEN_MS = 300
 export const DRAWER_CLOSE_MS = 240
 export const DRAWER_OPEN_EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
-export const DRAWER_CLOSE_EASE = "cubic-bezier(0.4, 0, 1, 1)"
+/*
+  THE WAY OUT IS THE SAME CURVE AS THE WAY IN, A LITTLE SHORTER.
+
+  It was `cubic-bezier(0.4, 0, 1, 1)`, an ease-in: the panel hung still for
+  the first frames and was moving at its fastest when it left the screen,
+  which reads as the page snatching it away. iOS closes a sheet on the same
+  curve it opens one with, quick to start and settling at the edge, and a
+  drawer let go of mid-swipe carries on at the speed the finger left it
+  rather than stopping dead and accelerating again.
+*/
+export const DRAWER_CLOSE_EASE = DRAWER_OPEN_EASE
 export const drawerSlide = (open: boolean) =>
   open ? `transform ${DRAWER_OPEN_MS}ms ${DRAWER_OPEN_EASE}` : `transform ${DRAWER_CLOSE_MS}ms ${DRAWER_CLOSE_EASE}`
 export const drawerFade = (open: boolean) =>
@@ -468,6 +478,149 @@ export function useDrawerTouchGuard() {
       panel.removeEventListener("touchmove", onMove)
     }
   }, [])
+}
+
+/**
+ * ===========================================================================
+ *  A DRAWER CAN BE PUSHED BACK WHERE IT CAME FROM
+ * ===========================================================================
+ * A tap on the backdrop closed it, the X closed it, and a thumb pushing the
+ * panel back toward its edge did nothing at all, which is the first thing
+ * anybody tries on a phone. Now the panel follows the finger toward its edge
+ * and, let go far enough or fast enough, closes from wherever it was; let go
+ * early, it settles back open.
+ *
+ * Only toward the edge it came from, and only once the gesture has shown
+ * which way it is going: a list scrolled up and down is a list being
+ * scrolled, and a drawer from the top is only pushed up once its list has
+ * nowhere further to scroll. The panel and the backdrop are moved by
+ * writing transform and opacity to the nodes, so a drag is never a render.
+ */
+export type DrawerEdge = "left" | "right" | "top"
+
+/** How far a drag has carried the panel toward its edge, from 0 to 1. Movement the other way counts for nothing. */
+export function swipeProgress(edge: DrawerEdge, dx: number, dy: number, size: number): number {
+  if (size <= 0) return 0
+  const travel = edge === "left" ? -dx : edge === "right" ? dx : -dy
+  return Math.min(1, Math.max(0, travel / size))
+}
+
+/**
+ * Whether letting go here closes the drawer: past a third of the way, or a
+ * flick toward the edge (a third of a pixel per millisecond and 24px of it),
+ * which is how a sheet on a phone decides.
+ */
+export function swipeCloses(edge: DrawerEdge, dx: number, dy: number, size: number, velocity: number): boolean {
+  if (swipeProgress(edge, dx, dy, size) >= 1 / 3) return true
+  const travel = edge === "left" ? -dx : edge === "right" ? dx : -dy
+  return travel >= 24 && velocity >= 0.33
+}
+
+/** Whether a gesture's first clear movement is the one that pushes this drawer back. */
+export function swipeStarts(edge: DrawerEdge, dx: number, dy: number, scroller: GestureScroller | null): boolean {
+  if (edge === "top") {
+    if (!(dy < 0 && Math.abs(dy) > Math.abs(dx))) return false
+    /* Up is also how a list is scrolled; only a list already at its end lets the drawer go. */
+    if (!scroller) return true
+    return scroller.scrollTop >= scroller.scrollHeight - scroller.clientHeight - 1
+  }
+  if (Math.abs(dx) <= Math.abs(dy)) return false
+  return edge === "left" ? dx < 0 : dx > 0
+}
+
+export function useDrawerSwipe(
+  edge: DrawerEdge,
+  onClose: () => void,
+  backdrop: { current: HTMLElement | null },
+) {
+  const closeRef = useRef(onClose)
+  closeRef.current = onClose
+  return useCallback((panel: HTMLElement | null) => {
+    if (!panel) return
+    let x0 = 0
+    let y0 = 0
+    let decided = false
+    let dragging = false
+    let dx = 0
+    let dy = 0
+    let lastT = 0
+    let lastTravel = 0
+    let velocity = 0
+    let scroller: HTMLElement | null = null
+    const size = () => (edge === "top" ? panel.offsetHeight : panel.offsetWidth)
+    const place = (travel: number) => {
+      const t = edge === "left" ? `translate3d(${-travel}px, 0, 0)` : edge === "right" ? `translate3d(${travel}px, 0, 0)` : `translate3d(0, ${-travel}px, 0)`
+      panel.style.transition = "none"
+      panel.style.transform = t
+      const b = backdrop.current
+      if (b) {
+        b.style.transition = "none"
+        b.style.opacity = String(1 - Math.min(1, travel / Math.max(1, size())))
+      }
+    }
+    const onStart = (e: TouchEvent) => {
+      const t = e.touches[0]
+      if (!t || e.touches.length !== 1) return
+      x0 = t.clientX
+      y0 = t.clientY
+      dx = 0
+      dy = 0
+      decided = false
+      dragging = false
+      velocity = 0
+      lastT = e.timeStamp
+      lastTravel = 0
+      scroller = scrollerUnder(e.target, panel)
+    }
+    const onMove = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return
+      const t = e.touches[0]
+      dx = t.clientX - x0
+      dy = t.clientY - y0
+      if (!decided) {
+        if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return
+        decided = true
+        dragging = swipeStarts(edge, dx, dy, scroller)
+        if (dragging) panel.style.willChange = "transform"
+      }
+      if (!dragging) return
+      if (e.cancelable) e.preventDefault()
+      const travel = Math.max(0, edge === "left" ? -dx : edge === "right" ? dx : -dy)
+      const dt = e.timeStamp - lastT
+      if (dt > 0) velocity = (travel - lastTravel) / dt
+      lastT = e.timeStamp
+      lastTravel = travel
+      place(travel)
+    }
+    const onEnd = () => {
+      if (!dragging) return
+      dragging = false
+      decided = false
+      if (swipeCloses(edge, dx, dy, size(), velocity)) {
+        /* From here: the drawer's own motion picks the node up where the finger left it. */
+        closeRef.current()
+        return
+      }
+      const still = prefersStill()
+      panel.style.transition = still ? "none" : drawerSlide(true)
+      panel.style.transform = "translate3d(0, 0, 0)"
+      const b = backdrop.current
+      if (b) {
+        b.style.transition = still ? "none" : drawerFade(true)
+        b.style.opacity = "1"
+      }
+    }
+    panel.addEventListener("touchstart", onStart, { passive: true })
+    panel.addEventListener("touchmove", onMove, { passive: false })
+    panel.addEventListener("touchend", onEnd)
+    panel.addEventListener("touchcancel", onEnd)
+    return () => {
+      panel.removeEventListener("touchstart", onStart)
+      panel.removeEventListener("touchmove", onMove)
+      panel.removeEventListener("touchend", onEnd)
+      panel.removeEventListener("touchcancel", onEnd)
+    }
+  }, [edge, backdrop])
 }
 
 export interface DrawerFrame {

@@ -6,6 +6,7 @@ import { productUrl } from "@/lib/website-builder/site-seo"
 import { builtSiteIndexable } from "@/lib/seo/indexing"
 import { siteOrigin } from "@/lib/website-builder/site-seo-data"
 import { siteLocale } from "@/lib/website-builder/site-language"
+import { siteIcons } from "@/lib/website-builder/site-icon"
 
 /**
  * RENDERED PER REQUEST, unlike the pages of the site around it.
@@ -30,7 +31,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const settings = found.kind === "site" ? (found.site.themeSettings as Record<string, unknown>) : {}
   const brand = typeof settings.brand_name === "string" && settings.brand_name.trim() ? settings.brand_name.trim() : creator.displayName
   /* The site's own rule: its switch, and not under a handle the spam rules hold back. */
-  return productMetadata(slug, { url: productUrl(origin, slug), brand, indexable: builtSiteIndexable(settings, username), creatorId: creator.creatorId, locale: siteLocale(settings) })
+  const meta = await productMetadata(slug, { url: productUrl(origin, slug), brand, indexable: builtSiteIndexable(settings, username), creatorId: creator.creatorId, locale: siteLocale(settings) })
+  /* The site's own icon in the tab, as on its other pages: the favicon, or its logo (site-icon.ts). */
+  const icons = found.kind === "site" ? siteIcons(settings, found.site.pages.home ?? found.site.sections) : undefined
+  return icons ? { ...meta, icons } : meta
 }
 
 /**
