@@ -19,9 +19,10 @@
  *                   have one, never over one they set or removed (a stubbed
  *                   auth user against a stand in database); run-now part 97
  *                   gives existing accounts the same answer
- *   SETTINGS        the crop keeps the circle covered and cuts exactly what
- *                   it shows; the upload reports real progress; the cover
- *                   is fifteen percent taller
+ *   SETTINGS        a chosen photo goes straight up (round 11: no crop
+ *                   sheet), the middle square the circle shows; the upload
+ *                   reports real progress; the cover is taller (round 10
+ *                   about +15%, round 11 about +6% more)
  *
  * Browser measurements: scripts/check-profile-round10.mjs.
  * Run with:  npm run test:push
@@ -37,7 +38,7 @@ import { keepProviderPhoto, providerPhotoOf, providerPhotoWanted, type ProviderP
 import { AVATAR_CHOSEN } from "../lib/account/avatar"
 import { drawableSections, drawsSomething } from "../components/storefront/no-products"
 import { AppAvatar, AvatarMark, avatarKindFromClass } from "../components/app/app-avatar"
-import { clampView, cropSquare } from "../components/account/photo-crop"
+import { PHOTO_SIDE, centreSquare } from "../lib/profile/photo-square"
 import { PROFILE_COVER_HEIGHTS, profileBandAspect } from "../lib/profile/cover"
 
 let passed = 0
@@ -233,30 +234,20 @@ async function main() {
   check("  folded into the files the owner runs", raw("supabase/sql/all-in-two/1_of_2_everything.sql").includes(lines[1]) && raw("supabase/sql/run-four/3_of_4_latest.sql").includes(lines[1]))
 
   /* ── 18. Settings ────────────────────────────────────────────────────── */
-  console.log("\nThe photo is placed in its circle")
-  const pic = { width: 1200, height: 800, circle: 300 }
-  const start = cropSquare({ ...pic, view: { x: 0, y: 0, zoom: 1 } })
-  check("unmoved, it is the centre square of the picture", start.sx === 200 && start.sy === 0 && start.side === 800, start)
-  const moved = clampView({ ...pic, view: { x: 10_000, y: 50, zoom: 1 } })
-  check("the picture can never leave an edge of nothing inside the circle", moved.x === (1200 * (300 / 800) - 300) / 2 && moved.y === 0, moved)
-  check("  nor zoom out past filling it, nor in past four times", clampView({ ...pic, view: { x: 0, y: 0, zoom: 0.2 } }).zoom === 1 && clampView({ ...pic, view: { x: 0, y: 0, zoom: 9 } }).zoom === 4)
-  const left = cropSquare({ ...pic, view: moved })
-  check("dragged right, the circle shows the left of the picture", left.sx === 0 && left.side === 800, left)
-  const zoomed = cropSquare({ ...pic, view: { x: 0, y: 0, zoom: 2 } })
-  check("zoomed in twice, the middle half", zoomed.side === 400 && zoomed.sx === 400 && zoomed.sy === 200, zoomed)
+  console.log("\nThe photo goes straight up (round 11: the cropper is gone)")
+  check("a wide picture: the middle square, the part the circle shows", JSON.stringify(centreSquare(1200, 800)) === JSON.stringify({ sx: 200, sy: 0, side: 800 }))
+  check("  a tall one: the middle square too", JSON.stringify(centreSquare(800, 1200)) === JSON.stringify({ sx: 0, sy: 200, side: 800 }))
+  check("  sent at no more than 512px", PHOTO_SIDE === 512)
   const photo = readCode("components/account/account-photo.tsx")
-  check("a picture chosen opens the crop sheet; Use photo puts it in the circle at once and uploads it", /setPlacing\(\{ bitmap, src: URL\.createObjectURL\(file\) \}\)/.test(photo) && /closePlacing\(\)\s*showPreview\(URL\.createObjectURL\(blob\)\)/.test(photo))
+  check("chosen: in the circle on that frame, the ring at its start, then cut and sent; no sheet in between",
+    /showPreview\(URL\.createObjectURL\(file\)\)\s*setBusy\("upload"\)\s*setProgress\(0\)\s*let blob: Blob\s*try \{\s*blob = await squareJpeg\(file\)/.test(photo) && !/PhotoCropSheet|setPlacing|photo-crop/.test(photo))
   check("  with the real progress from the request, drawn as a ring that fills", /uploadWithProgress\("avatars", path, blob, \{[^}]*onProgress/.test(photo) && /strokeDashoffset=\{RING \* \(1 - /.test(photo) && !/animate-spin/.test(photo))
-  const crop = readCode("components/account/photo-crop.tsx")
-  check("  the sheet is fixed over the page (nothing moves under it), every move written onto the picture in one frame",
-    /fixed inset-0 z-\[120\]/.test(crop) && /requestAnimationFrame\(\(\) => \{\s*const img = imgRef\.current/.test(crop) && /translate3d\(\$\{x\}px, \$\{y\}px, 0\) scale\(\$\{zoom\}\)/.test(crop) && !/getBoundingClientRect/.test(crop))
-  check("  Escape cancels, a touch pinch zooms, the wheel is not passive", /e\.key === "Escape"/.test(crop) && /pinch\.current = \{ distance:/.test(crop) && /addEventListener\("wheel", onWheel, \{ passive: false \}\)/.test(crop))
-  check("  thumbs: 40px zoom steps and 44px buttons", (crop.match(/h-10 w-10 shrink-0/g) ?? []).length === 2 && (crop.match(/h-11 flex-1/g) ?? []).length === 2)
+  check("  the crop sheet is gone from the repository", (() => { try { readCode("components/account/photo-crop.tsx"); return false } catch { return true } })())
 
-  console.log("\nThe cover in /account and in Settings, fifteen percent taller")
-  check("148 / 220 / 294 (128 / 192 / 256 plus fifteen percent)", PROFILE_COVER_HEIGHTS.phone === 148 && PROFILE_COVER_HEIGHTS.sm === 220 && PROFILE_COVER_HEIGHTS.lg === 294)
-  check("the band draws those heights, and the profile's skeleton holds them", /relative h-\[148px\] sm:h-\[220px\] lg:h-\[294px\]/.test(readCode("components/profile/profile-hero.tsx")) && /h-\[148px\] w-full bg-\[#eceef1\] sm:h-\[220px\] lg:h-\[294px\]/.test(readCode("app/(marketing)/member/[username]/loading.tsx")))
-  check("Settings' frame takes the new shape on its own", profileBandAspect(390) === Math.round((390 / 148) * 1000) / 1000 && profileBandAspect(1440) === Math.round((1440 / 294) * 1000) / 1000)
+  console.log("\nThe cover in /account and in Settings, taller")
+  check("157 / 233 / 312 (128 / 192 / 256 plus fifteen percent, then about six percent more)", PROFILE_COVER_HEIGHTS.phone === 157 && PROFILE_COVER_HEIGHTS.sm === 233 && PROFILE_COVER_HEIGHTS.lg === 312)
+  check("the band draws those heights, and the profile's skeleton holds them", /relative h-\[157px\] sm:h-\[233px\] lg:h-\[312px\]/.test(readCode("components/profile/profile-hero.tsx")) && /h-\[157px\] w-full bg-\[#eceef1\] sm:h-\[233px\] lg:h-\[312px\]/.test(readCode("app/(marketing)/member/[username]/loading.tsx")))
+  check("Settings' frame takes the new shape on its own", profileBandAspect(390) === Math.round((390 / 157) * 1000) / 1000 && profileBandAspect(1440) === Math.round((1440 / 312) * 1000) / 1000)
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) {

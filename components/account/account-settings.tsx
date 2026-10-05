@@ -55,6 +55,8 @@ import { useRouter } from "next/navigation"
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { Loader2 } from "lucide-react"
 import { BackControl } from "@/components/navigation/back-control"
+import { prefetchHref, prefetchOnIdle } from "@/lib/nav/prefetch-policy"
+import { canReturnInApp } from "@/lib/navigation/in-app-history"
 
 import {
   EmailChangeFlow,
@@ -71,6 +73,7 @@ import { secondaryDepth } from "@/components/ui/depth-button"
 import { AccountAvatar, useAccountPhoto } from "@/components/account/account-photo"
 import { PushSwitchRow } from "@/components/account/push-switch-row"
 import { CoverField } from "@/components/account/cover-field"
+import { SaveBar } from "@/components/account/save-bar"
 import { useShellAvatar } from "@/lib/account/avatar-store"
 import { isValidUsername } from "@/lib/reserved-words"
 import { normalizeHandle } from "@/lib/profile/username-rules"
@@ -257,6 +260,14 @@ function ProfileSection({
   const handleChanged = usernameEditable && handleCheck.state !== "same"
   const handleBlocked = handleChanged && handleCheck.state !== "available"
   const changed = name.trim() !== savedName.trim() || (bioSupported && bio.trim() !== savedBio.trim()) || handleChanged
+
+  /* Back to what is saved: the bar goes down with it. */
+  const discard = () => {
+    setName(savedName)
+    setBio(savedBio)
+    setHandle(savedHandle)
+    setError(null)
+  }
 
   const save = async () => {
     const nextName = name.trim()
@@ -470,18 +481,17 @@ function ProfileSection({
           </div>
         ) : null}
 
-        <div className="flex items-center gap-3">
-          <button type="button" onClick={() => void save()} disabled={busy || !changed || !name.trim() || handleBlocked} className={INK} data-account-save="">
-            {busy && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
-            Save changes
-          </button>
-          {error ? (
-            <p role="alert" className="text-[12px] leading-[1.45] text-[#b42318]">
-              {error}
-            </p>
-          ) : null}
-        </div>
       </div>
+
+      {/* Save changes: a bar of its own at the foot of the screen while there is something to save (components/account/save-bar.tsx). */}
+      <SaveBar
+        shown={changed || busy}
+        busy={busy}
+        disabled={!name.trim() || handleBlocked}
+        error={error}
+        onSave={() => void save()}
+        onDiscard={discard}
+      />
     </section>
   )
 }
@@ -917,6 +927,9 @@ function PreferencesSection({ email, newsletter: initialNewsletter, personalized
 
 /* ── The screen ────────────────────────────────────────────────────────── */
 
+/** Where the back goes when nothing of ours is behind: the profile. */
+const BACK_TO = "/account"
+
 export function AccountSettings({
   userId,
   email,
@@ -964,10 +977,29 @@ export function AccountSettings({
 }) {
   /* Edit profile lands on the profile's own fields, which is what it promised. */
   const [section, setSection] = useState<SectionKey>(initialSection)
+  const router = useRouter()
+
+  /*
+    THE WAY BACK IS WARM BEFORE IT IS PRESSED (round 11: "the destination
+    already warm: prefetch it when settings opens"). Back from the profile
+    is the router's kept copy and needs nothing; opened cold (a link, a
+    reload) the back opens /account, so that page is read ahead once this
+    one is idle, as the device and network allow (lib/nav/prefetch-policy),
+    and read at once when a finger lands on the back with nothing of ours
+    behind it. Nothing here waits on either: the press itself is the back
+    control's own (components/navigation/back-control.tsx).
+  */
+  useEffect(() => prefetchOnIdle(router, [BACK_TO]), [router])
 
   return (
     <div data-account-page="" data-account-settings="">
-      <div className="flex items-center gap-2.5" data-account-settings-top="">
+      <div
+        className="flex items-center gap-2.5"
+        data-account-settings-top=""
+        onPointerDownCapture={() => {
+          if (!canReturnInApp()) prefetchHref(router, BACK_TO, "press")
+        }}
+      >
         {/*
           A WAY BACK, NOT A WAY OUT. This was an X, which says "close this,
           you are done" about a screen you reached from your own profile and
@@ -984,7 +1016,7 @@ export function AccountSettings({
           (components/navigation/back-control.tsx). Opened cold, it opens the
           profile.
         */}
-        <BackControl fallback="/account" label="Back to profile" data-account-settings-close="" />
+        <BackControl fallback={BACK_TO} label="Back to profile" data-account-settings-close="" />
         <h1 className="min-w-0 truncate text-[24px] font-bold tracking-[-0.01em] text-[#1a1a2e] sm:text-[28px]">Settings</h1>
       </div>
 
