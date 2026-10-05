@@ -23,6 +23,7 @@ export type Action =
   | { kind: "ban" | "unban"; creatorId: string; label: string }
   | { kind: "unpublish" | "republish"; productId: string; label: string }
   | { kind: "refund"; orderId: string; label: string }
+  | { kind: "delete_account"; userId: string; label: string }
 
 export type Outcome = { tone: "good" | "bad"; text: string; notes?: string[] }
 
@@ -39,11 +40,15 @@ export function ActionDialog({ action, onClose, onDone }: { action: Action | nul
   const [error, setError] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState(false)
   const [reason, setReason] = React.useState("")
+  const [forceDelete, setForceDelete] = React.useState(false)
+  const [confirmId, setConfirmId] = React.useState("")
 
   React.useEffect(() => {
     setPlan(null)
     setError(null)
     setReason("")
+    setForceDelete(false)
+    setConfirmId("")
     if (!action) return
     let cancelled = false
     const load = async () => {
@@ -58,6 +63,12 @@ export function ActionDialog({ action, onClose, onDone }: { action: Action | nul
         const body = await readJson(res)
         if (cancelled) return
         if (!res.ok) setError(body.error || "Could not read this order.")
+        else setPlan(body)
+      } else if (action.kind === "delete_account") {
+        const res = await fetch(`/api/admin/accounts/delete?id=${encodeURIComponent(action.userId)}`, { cache: "no-store" })
+        const body = await readJson(res)
+        if (cancelled) return
+        if (!res.ok) setError(body.error || "Could not read this account.")
         else setPlan(body)
       } else {
         setPlan({})
@@ -75,6 +86,11 @@ export function ActionDialog({ action, onClose, onDone }: { action: Action | nul
 
   const submit = async () => {
     if (!plan) return
+    if (action.kind === "delete_account" && plan.isAdmin) return
+    if (action.kind === "delete_account" && (plan.creatorOrders ?? 0) > 0 && !forceDelete) {
+      setError("Confirm that you understand this creator has sales on record.")
+      return
+    }
     setBusy(true)
     setError(null)
     try {
@@ -90,6 +106,22 @@ export function ActionDialog({ action, onClose, onDone }: { action: Action | nul
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ orderId: action.orderId, confirm: plan.amount, reason: reason.trim() }),
+        })
+      } else if (action.kind === "delete_account") {
+        if (confirmId.trim() !== action.userId) {
+          setError("Type the user id exactly as shown to confirm.")
+          setBusy(false)
+          return
+        }
+        res = await fetch("/api/admin/accounts/delete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: action.userId,
+            confirm: action.userId,
+            reason: reason.trim() || null,
+            force: (plan?.creatorOrders ?? 0) > 0 ? forceDelete : true,
+          }),
         })
       } else {
         const product = action as Extract<Action, { kind: "unpublish" | "republish" }>
@@ -114,7 +146,11 @@ export function ActionDialog({ action, onClose, onDone }: { action: Action | nul
               ? `Refunded ${money(body.amount ?? plan.amount, plan.currency || "USD")} for ${action.label}.`
               : action.kind === "unpublish"
                 ? `Took ${action.label} off sale.`
-                : `Put ${action.label} back on sale.`
+                : action.kind === "delete_account"
+                  ? body.mode === "retired"
+                    ? `Retired ${action.label}. Personal details are gone; sales records stay.`
+                    : `Deleted ${action.label} completely.`
+                  : `Put ${action.label} back on sale.`
       onDone({ tone: "good", text: done, notes: Array.isArray(body.notes) ? body.notes : [] })
     } catch {
       setError("Could not reach the server. Nothing was changed.")
@@ -132,7 +168,9 @@ export function ActionDialog({ action, onClose, onDone }: { action: Action | nul
           ? "Refund this order"
           : action.kind === "unpublish"
             ? `Take ${action.label} off sale`
-            : `Put ${action.label} back on sale`
+            : action.kind === "delete_account"
+              ? `Delete ${action.label}`
+              : `Put ${action.label} back on sale`
 
   const target = plan?.targets?.[0] as { publishedProducts?: number; orders?: number } | undefined
 
@@ -140,8 +178,8 @@ export function ActionDialog({ action, onClose, onDone }: { action: Action | nul
     <ConfirmDialog
       open
       title={title}
-      confirmLabel={action.kind === "ban" ? "Ban" : action.kind === "unban" ? "Lift ban" : action.kind === "refund" ? (plan ? `Refund ${money(plan.amount, plan.currency || "USD")}` : "Refund") : action.kind === "unpublish" ? "Take off sale" : "Put back on sale"}
-      danger={action.kind === "ban" || action.kind === "refund" || action.kind === "unpublish"}
+      confirmLabel={action.kind === "ban" ? "Ban" : action.kind === "unban" ? "Lift ban" : action.kind === "refund" ? (plan ? `Refund ${money(plan.amount, plan.currency || "USD")}` : "Refund") : action.kind === "unpublish" ? "Take off sale" : action.kind === "delete_account" ? "Delete account" : "Put back on sale"}
+      danger={action.kind === "ban" || action.kind === "refund" || action.kind === "unpublish" || action.kind === "delete_account"}
       busy={busy || (!plan && !error)}
       error={error}
       onConfirm={submit}
@@ -162,7 +200,49 @@ export function ActionDialog({ action, onClose, onDone }: { action: Action | nul
           {money(plan.amount, plan.currency || "USD")} goes back to {plan.buyer} for {plan.product}. The creator&apos;s share comes back from their balance, and both are emailed. This cannot be undone.
         </p>
       ) : null}
-      {plan && action.kind !== "unban" && action.kind !== "republish" ? (
+      {plan && action.kind === "delete_account" ? (
+        <>
+          {plan.isAdmin ? (
+            <p className="text-[#f47067]">This is a Storelib admin account. It cannot be deleted from here.</p>
+          ) : (
+            <p>
+              {plan.expectedMode === "retired"
+                ? "This account will be retired: the storefront closes, personal details and sign-in are erased, and buyers keep what they paid for. Financial records stay."
+                : "This account will be removed completely, including sign-in. This cannot be undone."}
+              {plan.creatorOrders > 0 ? ` They have ${plan.creatorOrders} sale${plan.creatorOrders === 1 ? "" : "s"} as a creator.` : ""}
+              {plan.buyerOrders > 0 ? ` They have ${plan.buyerOrders} purchase${plan.buyerOrders === 1 ? "" : "s"}; those orders stay as the sellers' records.` : ""}
+            </p>
+          )}
+          {plan.blockers?.length ? (
+            <p className="text-[12px] text-[#9b9ba6]">Note for creators with open balances: {plan.blockers.join(" ")}</p>
+          ) : null}
+          {!plan.isAdmin ? (
+            <>
+              <label className="mt-3 block text-[12px] font-medium text-[#9b9ba6]">
+                Type user id to confirm
+                <input
+                  className="mt-1 w-full rounded-[7px] border border-white/[0.1] bg-[#17171d] px-3 py-2 font-mono text-[12px] text-[#ededf0] outline-none focus:border-[#8b5cf6]/50"
+                  value={confirmId}
+                  onChange={(e) => setConfirmId(e.target.value)}
+                  placeholder={action.userId}
+                  autoComplete="off"
+                  spellCheck={false}
+                />
+              </label>
+              {plan.creatorOrders > 0 ? (
+                <label className="mt-3 flex items-start gap-2 text-[13px] text-[#ededf0]">
+                  <input type="checkbox" className="mt-0.5" checked={forceDelete} onChange={(e) => setForceDelete(e.target.checked)} />
+                  <span>I understand this creator has sales on record and I still want to delete their account.</span>
+                </label>
+              ) : null}
+            </>
+          ) : null}
+        </>
+      ) : null}
+      {plan && action.kind !== "unban" && action.kind !== "republish" && action.kind !== "delete_account" ? (
+        <TextArea label="Reason, for the audit log" value={reason} onChange={(e) => setReason(e.target.value)} maxLength={300} placeholder="Optional" />
+      ) : null}
+      {plan && action.kind === "delete_account" && !plan.isAdmin ? (
         <TextArea label="Reason, for the audit log" value={reason} onChange={(e) => setReason(e.target.value)} maxLength={300} placeholder="Optional" />
       ) : null}
     </ConfirmDialog>

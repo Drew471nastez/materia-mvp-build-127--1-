@@ -12,7 +12,8 @@ import { ExploreMarketplacePanel } from "./panel-explore-marketplace"
 import { ExploreDiscoverModeSwitcherPanel } from "./panel-explore-discover-switcher"
 import { PhysicalCommercePanel } from "./panel-physical-commerce"
 import { ViewHeader } from "./shell"
-import { DataList, Figures, Filters, LinkText, Pager, Panel, ReadNotes, SearchField, Status, Toolbar, reasonFor, type Column } from "./ui"
+import { DataList, Figures, Filters, LinkText, Pager, Panel, ReadNotes, SearchField, Status, Toolbar, Button, Facts, reasonFor, type Column } from "./ui"
+import type { PersonRow } from "@/lib/admin/types"
 
 type Go = (r: Partial<Route>) => void
 type Common = { route: Route; go: Go; query: string; onQuery: (q: string) => void }
@@ -235,11 +236,16 @@ export function AudienceView({ data }: Common & { data: AudiencePayload }) {
 
 /* ── People ───────────────────────────────────────────────────────────── */
 
-export function PeopleView({ data, go, query, onQuery }: Common & { data: PeoplePayload }) {
+export function PeopleView({ data, go, query, onQuery, act }: Common & { data: PeoplePayload }) {
   const p = data.problems
+  const [person, setPerson] = React.useState<PersonRow | null>(null)
+  React.useEffect(() => {
+    if (!person || !data.list) return
+    if (!data.list.rows.some((r) => r.id === person.id)) setPerson(null)
+  }, [data.list, person])
   return (
     <div className="space-y-4">
-      <ViewHeader title="People" meta="Every account, buyer or creator. Search by handle, name, id or whole email address." />
+      <ViewHeader title="People" meta="Every account, buyer or creator. Open one to delete it completely. Search by handle, name, id or whole email address." />
       <ReadNotes problems={p} notices={data.notices} />
       {data.reports?.length ? (
         <Panel title="Open message reports">
@@ -259,6 +265,49 @@ export function PeopleView({ data, go, query, onQuery }: Common & { data: People
       <Toolbar>
         <SearchField label="Search people" value={query} onChange={onQuery} placeholder="Handle, name, id or email" />
       </Toolbar>
+      {person ? (
+        <Panel
+          title={person.name}
+          meta={[person.handle ? `@${person.handle}` : null, person.email, person.role === "admin" ? "Admin" : person.creator ? "Creator" : "Buyer"].filter(Boolean).join(" · ")}
+          action={
+            <div className="flex flex-wrap gap-2">
+              {person.creator ? (
+                <Button variant="quiet" className="h-8" onClick={() => go({ view: "creators", q: person.handle || person.id, page: 1 })}>
+                  Find creator
+                </Button>
+              ) : null}
+              {person.role !== "admin" ? (
+                <Button
+                  variant="danger"
+                  className="h-8"
+                  onClick={() =>
+                    act({
+                      kind: "delete_account",
+                      userId: person.id,
+                      label: person.handle ? `@${person.handle}` : person.name,
+                    })
+                  }
+                >
+                  Delete account
+                </Button>
+              ) : null}
+              <Button variant="quiet" className="h-8" onClick={() => setPerson(null)}>Close</Button>
+            </div>
+          }
+        >
+          <Facts
+            items={[
+              { label: "User id", value: person.id },
+              { label: "Short id", value: short(person.id) },
+              { label: "Joined", value: date(person.joined) },
+              { label: "Spam review", value: person.spam ? statusWord(person.spam) : "Not reviewed" },
+            ]}
+          />
+          <p className="border-t border-white/[0.08] px-4 py-3 text-[12px] text-[#6b6b76]">
+            Deleting removes sign-in and personal details. Creators who have sold are retired instead of wiped; buyers keep access and records stay. This is not a ban.
+          </p>
+        </Panel>
+      ) : null}
       <Panel>
         {data.list ? (
           <>
@@ -267,6 +316,7 @@ export function PeopleView({ data, go, query, onQuery }: Common & { data: People
               rows={data.list.rows}
               rowKey={(r) => r.id}
               empty={data.q ? "No account matches that. Email search takes the whole address." : "No accounts."}
+              onOpen={(r) => setPerson(r)}
               columns={[
                 { key: "name", label: "Name", width: "minmax(0,1.4fr)", phone: "primary", render: (r) => r.name },
                 { key: "handle", label: "Handle", width: "minmax(0,1fr)", render: (r) => (r.handle ? `@${r.handle}` : "No handle") },

@@ -86,7 +86,7 @@ async function main() {
 
   console.log("\nDeleting an account")
   {
-    for (const f of ["app/api/auth/delete-account/route.ts", "app/api/admin/delete-user/route.ts", "app/api/admin/creators/moderate/route.ts", "app/api/admin/spam-purge/route.ts"]) {
+    for (const f of ["app/api/auth/delete-account/route.ts", "app/api/admin/delete-user/route.ts", "app/api/admin/accounts/delete/route.ts", "app/api/admin/creators/moderate/route.ts", "app/api/admin/spam-purge/route.ts"]) {
       const src = read(f)
       check(`${f} deletes through lib/account/delete-account`, src.includes('from "@/lib/account/delete-account"') && /deleteAccount\(/.test(src) && !/deleteAllUserData/.test(src))
     }
