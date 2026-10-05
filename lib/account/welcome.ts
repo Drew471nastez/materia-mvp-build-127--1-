@@ -21,9 +21,11 @@ import { BUYER_HOME, SELL_INTENT, type AuthIntent } from "@/lib/auth/continue"
  *                                  existed is not stopped on its way in
  *   otherwise                      /onboarding/start?next=<where it was going>
  *
- * The join branch ends where the person was going: the community they
- * signed up from (joined when it is free, by the community's own ?join=1),
- * the invite they followed, or Discover. Never their profile.
+ * The two slides are the account's own (a profile, then notifications).
+ * They end where the person was going: the community they signed up from
+ * (joined when it is free, by the community's own ?join=1), a product, a
+ * creator, a course, the invite they followed, or Discover. Never their
+ * profile.
  *
  * Pure and browser safe: the routes, the page and the tests read the same
  * table (tests/profile-display-name.test.ts).
@@ -84,5 +86,15 @@ export function welcomeDone(next: string | null | undefined): string {
   return next
 }
 
+/** A short bio on the profile slide. profiles.bio allows 400; the slide asks for a line. */
+export const WELCOME_BIO_MAX = 160
+
+/** A bio worth saving, or null for empty. Not a type check: a non-string is null. */
+export function cleanBio(raw: unknown): string | null {
+  if (typeof raw !== "string") return null
+  const text = raw.replace(/\s+/g, " ").trim().slice(0, WELCOME_BIO_MAX)
+  return text || null
+}
+
 /** The answer the page sends back (app/api/account/welcome). */
-export type WelcomeAnswer = { name?: string; skip?: boolean }
+export type WelcomeAnswer = { name?: string; bio?: string | null; skip?: boolean }

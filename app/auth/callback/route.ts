@@ -10,6 +10,7 @@ import { cookies } from "next/headers"
 import { getMainDomain } from "@/lib/url-helpers"
 import { hasSellerAccess, readSellerAccess } from "@/lib/account/seller-access"
 import { throughWelcome } from "@/lib/account/welcome"
+import { APP_OPEN_USED, destinationWithAppOpen } from "@/lib/account/app-open"
 import { CARRY_COOKIE, CONTINUE_PATH, decodeCarry, destinationAfterAuth } from "@/lib/auth/continue"
 
 /**
@@ -162,8 +163,10 @@ export async function GET(request: Request) {
   const carry = decodeCarry(jar.get(CARRY_COOKIE)?.value, getMainDomain())
   jar.delete(CARRY_COOKIE)
   const access = existingProfile ? await readSellerAccess(admin, data.user.id) : { state: "none" as const }
-  /* A new account is asked once what brought it here, on its way (lib/account/welcome). */
-  const destination = throughWelcome(destinationAfterAuth(carry, access), { createdAt: data.user.created_at, meta: data.user.user_metadata, seller: hasSellerAccess(access), intent: carry.intent })
+  /* A new account sets its profile once, on its way (lib/account/welcome). A sign-in with nowhere else to go opens the remembered page. */
+  const opened = destinationWithAppOpen(destinationAfterAuth(carry, access), data.user.user_metadata, carry.next)
+  if (opened.used) after(() => supabase.auth.updateUser({ data: { [APP_OPEN_USED]: opened.used } }).then(() => undefined))
+  const destination = throughWelcome(opened.destination, { createdAt: data.user.created_at, meta: data.user.user_metadata, seller: hasSellerAccess(access), intent: carry.intent })
 
   return NextResponse.redirect(new URL(destination, origin))
 }

@@ -157,6 +157,16 @@ export function enterCommunity(slug: string, router: { refresh: () => void }) {
   } catch {
     /* No storage: no welcome line, the community still opens. */
   }
+  /* The app's next sign-in opens here (lib/account/app-open). Best effort, never blocks the feed. */
+  try {
+    void fetch("/api/account/app-open", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path: home }),
+    })
+  } catch {
+    /* Offline: the community still opens. */
+  }
   if (typeof window !== "undefined" && window.location.pathname.replace(/\/+$/, "") !== home) window.history.pushState(null, "", home)
   router.refresh()
 }

@@ -20,9 +20,7 @@ import {
   ShoppingBag,
   Search,
   Bell,
-  ChevronRight,
   User,
-  Users
 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { PricingSection } from "@/components/marketing/pricing-section"
@@ -34,8 +32,9 @@ import { AvatarMark } from "@/components/app/app-avatar"
 import type { OnboardingResume } from "@/lib/account/onboarding-resume"
 import { cleanName } from "@/lib/profile/display-name"
 import { normalizeHandle } from "@/lib/profile/username-rules"
-import { welcomeDone } from "@/lib/account/welcome"
-import { askPushPermission, nativePlatform, phoneSettingsPath, type PushPermission } from "@/lib/native-push"
+import { cleanBio, welcomeDone } from "@/lib/account/welcome"
+import { askPushPermission, inNativeApp, nativePlatform, phoneSettingsPath, type PushPermission } from "@/lib/native-push"
+import { startRouteLoading } from "@/components/navigation/route-loading-bar"
 
 /*
   ONE CLOCK FOR EVERY MOVE IN THE ONBOARDING. A step change is a crossfade:
@@ -403,9 +402,8 @@ interface CreatorOnboardingModalProps {
   leave?: { label: string; href: string; onLeave?: () => Promise<void> } | null
   /**
    * A new account's first steps (app/(auth)/onboarding/start, lib/account/
-   * welcome): the onboarding opens on "What brings you to Storelib?", and
-   * the join branch (a name, a photo, notifications in the app) ends at
-   * `next`, the place they were going.
+   * welcome): two slides, a profile then notifications, then `next`, the
+   * page that brought them to Storelib. Seller setup is /sell, unchanged.
    */
   start?: StartBranch | null
   /**
@@ -415,25 +413,24 @@ interface CreatorOnboardingModalProps {
   resume?: OnboardingResume | null
 }
 
-/** What /onboarding/start hands the onboarding: where the join branch ends, and the name and handle to start from. */
+/** What /onboarding/start hands the onboarding: where it ends, and whatever Google or Apple already gave. */
 export interface StartBranch {
   next: string | null
   name: string
   username: string | null
+  avatar?: string | null
+  bio?: string
 }
 
 /*
   THE STEPS BY NUMBER. 1 to 5 are the store setup as it always was. A new
-  account's onboarding (`start`) opens on BRANCH_STEP, the question; the
-  join branch is JOIN_NAME, JOIN_PHOTO and, in the app only, JOIN_NOTIFY.
-  Numbers apart from the store's, so every rule written for 1 to 5 reads
-  the same as before.
+  account (`start`) is two slides: the profile, then notifications, on the
+  web and in the app. Numbers apart from the store's, so every rule written
+  for 1 to 5 reads the same as before.
 */
-const BRANCH_STEP = 0
 const JOIN_NAME = 11
-const JOIN_PHOTO = 12
 const JOIN_NOTIFY = 13
-const isJoinStep = (step: number) => step >= JOIN_NAME && step <= JOIN_NOTIFY
+const isJoinStep = (step: number) => step === JOIN_NAME || step === JOIN_NOTIFY
 
 export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switchBack = null, leave = null, resume = null, start = null }: CreatorOnboardingModalProps) {
   const router = useRouter()
@@ -473,7 +470,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
   void onClose
 
   // Step management
-  const [currentStep, setCurrentStep] = useState(start ? BRANCH_STEP : 1)
+  const [currentStep, setCurrentStep] = useState(start ? JOIN_NAME : 1)
   /** The step on its way out, drawn under the new one while the two crossfade, and how far it was scrolled. */
   const [leavingStep, setLeavingStep] = useState<{ step: number; offset: number } | null>(null)
   /** The panel the steps are drawn in, so the next one starts at its top. */
@@ -521,7 +518,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
   const [categorySearch, setCategorySearch] = useState("")
 
   // Step 3: Socials & Avatar
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(start?.avatar ?? null)
   const [socials, setSocials] = useState({
     instagram: "",
     tiktok: "",
@@ -561,13 +558,14 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
   */
   const [joinName, setJoinName] = useState(start?.name ?? "")
   const [joinHandle, setJoinHandle] = useState(start?.username ?? "")
-  const [joinHandleState, setJoinHandleState] = useState<"same" | "checking" | "free" | "taken">("same")
+  const [joinBio, setJoinBio] = useState(start?.bio ?? "")
+  const [joinHandleState, setJoinHandleState] = useState<"same" | "checking" | "free" | "taken" | "empty">("same")
   const [joinHandleError, setJoinHandleError] = useState<string | null>(null)
   const [joinError, setJoinError] = useState<string | null>(null)
   const [joinSaving, setJoinSaving] = useState(false)
   const [pushAnswer, setPushAnswer] = useState<PushPermission | null>(null)
   const [askingPush, setAskingPush] = useState(false)
-  const joinSteps = nativeFullScreen ? [JOIN_NAME, JOIN_PHOTO, JOIN_NOTIFY] : [JOIN_NAME, JOIN_PHOTO]
+  const joinSteps = [JOIN_NAME, JOIN_NOTIFY]
   const lastJoinStep = joinSteps[joinSteps.length - 1]
   useEffect(() => {
     if (!start) return
@@ -578,7 +576,8 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
       return
     }
     if (!handle) {
-      setJoinHandleState(start.username ? "taken" : "same")
+      setJoinHandleState("empty")
+      setJoinHandleError(null)
       return
     }
     setJoinHandleState("checking")
@@ -616,7 +615,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
           return false
         }
       }
-      const res = await fetch("/api/account/welcome", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) })
+      const res = await fetch("/api/account/welcome", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, bio: cleanBio(joinBio) }) })
       if (!res.ok) {
         const data = (await res.json().catch(() => ({}))) as { error?: string }
         setJoinError(data.error || "That did not save. Try again in a moment.")
@@ -639,15 +638,48 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
       fetch("/api/account/welcome", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ done: true }) }).catch(() => null),
       new Promise((r) => setTimeout(r, 2500)),
     ])
-    window.location.replace(welcomeDone(start?.next ?? null))
+    const done = welcomeDone(start?.next ?? null)
+    try {
+      startRouteLoading({ cover: true })
+      router.replace(done)
+    } catch {
+      window.location.replace(done)
+    }
   }
 
-  /** The app's notification question, asked by the system, from this tap only (lib/native-push). */
+  /**
+   * The notification question, from the Turn on button only. The app asks
+   * the phone (lib/native-push). A browser asks its own permission and, where
+   * push exists, subscribes (lib/push/web-client). Never on open.
+   */
   const allowNotifications = async () => {
     if (askingPush) return
     setAskingPush(true)
     try {
-      setPushAnswer(await askPushPermission())
+      if (inNativeApp()) {
+        setPushAnswer(await askPushPermission())
+        return
+      }
+      if (typeof window !== "undefined" && "Notification" in window) {
+        let answer: NotificationPermission = Notification.permission
+        if (answer === "default") {
+          try {
+            answer = await Notification.requestPermission()
+          } catch {
+            answer = Notification.permission
+          }
+        }
+        setPushAnswer(answer === "granted" ? "granted" : answer === "denied" ? "denied" : "prompt")
+        /* Subscribe before leaving, but never hold the next page on a stuck worker. */
+        if (answer === "granted") {
+          const { enableWebPush, webPushSupported } = await import("@/lib/push/web-client")
+          if (webPushSupported()) {
+            await Promise.race([enableWebPush().catch(() => undefined), new Promise((r) => setTimeout(r, 2500))])
+          }
+        }
+        return
+      }
+      setPushAnswer("unsupported")
     } finally {
       setAskingPush(false)
     }
@@ -994,12 +1026,10 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
   const canProceed = () => {
     switch (currentStep) {
       case JOIN_NAME:
-        return !!cleanName(joinName) && !joinSaving && (joinHandleState === "same" || joinHandleState === "free")
-      case JOIN_PHOTO:
-        return !joinSaving
-      /* Like Substack: "Allow notifications" or "Not now" first; Done once the phone has answered. */
+        return !!cleanName(joinName) && !!normalizeHandle(joinHandle) && !joinSaving && (joinHandleState === "same" || joinHandleState === "free")
+      /* Turn on notifications asks; Not now skips. Neither waits on a second press. */
       case JOIN_NOTIFY:
-        return !joinSaving && pushAnswer !== null
+        return !joinSaving && !askingPush
       case 1:
         return displayName.trim().length > 0 && usernameAvailable === true
       case 2:
@@ -1015,10 +1045,8 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
   // Check if can skip
   const canSkip = () => {
     switch (currentStep) {
-      case JOIN_PHOTO:
-        return !joinSaving
       case JOIN_NOTIFY:
-        return !joinSaving && pushAnswer === null
+        return !joinSaving && !askingPush && pushAnswer === null
       case 1:
         return displayName.trim().length > 0 && usernameAvailable === true
       case 2:
@@ -1100,6 +1128,10 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
     if (!canProceed()) return
     if (isJoinStep(currentStep)) {
       if (currentStep === JOIN_NAME && !(await saveJoinName())) return
+      if (currentStep === JOIN_NOTIFY) {
+        await allowNotifications()
+        return finishJoin()
+      }
       if (currentStep === lastJoinStep) return finishJoin()
       goToStep(joinSteps[joinSteps.indexOf(currentStep) + 1], "right")
       return
@@ -1111,9 +1143,9 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
 
   /** The step Back goes to, or null where there is none (the first question, the store's first step without it, the plans' setup). */
   const backFrom = (step: number): number | null => {
-    if (step === JOIN_NAME) return BRANCH_STEP
+    if (step === JOIN_NAME) return null
     if (isJoinStep(step)) return joinSteps[joinSteps.indexOf(step) - 1] ?? JOIN_NAME
-    if (step === 1) return start ? BRANCH_STEP : null
+    if (step === 1) return null
     if (step >= 2 && step <= 4) return step - 1
     return null
   }
@@ -1477,11 +1509,9 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
   }
 
   // Progress bar width (5 steps total; the join branch its own two or three, the first question a sliver)
-  const progressWidth = currentStep === BRANCH_STEP
-    ? 8
-    : isJoinStep(currentStep)
-      ? ((joinSteps.indexOf(currentStep) + 1) / (joinSteps.length + 1)) * 100
-      : (currentStep / 5) * 100
+  const progressWidth = isJoinStep(currentStep)
+    ? ((Math.max(0, joinSteps.indexOf(currentStep)) + 1) / joinSteps.length) * 100
+    : (currentStep / 5) * 100
 
   // Filter categories for search
   const allCategories = [...PRIMARY_CATEGORIES, ...EXTENDED_CATEGORIES]
@@ -1495,61 +1525,39 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
    */
   const renderStep = (step: number) => (
     <>
-        {/*
-          THE FIRST QUESTION, for a new account (/onboarding/start). Two
-          answers, each a whole card to press: the store setup that follows
-          is the one /sell has always opened, and the join branch is three
-          short steps with no store in them. Either can do the other later
-          (Sell on Storelib is always in the menu).
-        */}
-        {step === BRANCH_STEP && (
-          <div className="flex flex-col items-center" data-onboarding-branch="">
-            <div className={HEADING_BLOCK}>
-              <h1 className={HEADING}>What brings you to Storelib?</h1>
-              <p className={SUBHEADING}>You can do both later.</p>
-            </div>
-            <div className="grid w-full max-w-[600px] gap-3 sm:grid-cols-2 sm:gap-4">
-              {([
-                { key: "sell", icon: ShoppingBag, title: "I want to sell", line: "Open a store for products, courses or memberships.", go: () => goToStep(1, "right") },
-                { key: "join", icon: Users, title: "I'm here to join and buy", line: "Join communities, follow creators, keep what you buy.", go: () => goToStep(JOIN_NAME, "right") },
-              ] as const).map((o) => (
-                <button
-                  key={o.key}
-                  type="button"
-                  onClick={o.go}
-                  data-onboarding-branch-choice={o.key}
-                  className="group/choice relative flex min-h-[88px] w-full items-center gap-4 rounded-[18px] bg-white px-4 py-4 text-left shadow-[0_0_0_1px_#e5e7eb,0_1px_2px_rgba(17,24,39,0.05),0_4px_12px_-6px_rgba(17,24,39,0.08)] transition-[box-shadow,scale] duration-150 [-webkit-tap-highlight-color:transparent] hover:shadow-[0_0_0_1px_#c7c9d1,0_1px_2px_rgba(17,24,39,0.06),0_8px_20px_-8px_rgba(17,24,39,0.14)] active:scale-[0.985] sm:min-h-[184px] sm:flex-col sm:items-start sm:gap-0 sm:px-6 sm:py-6 motion-reduce:transition-none"
-                >
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-[#f4f4f5] text-[#1a1a2e] shadow-[inset_0_0_0_1px_rgba(17,24,39,0.05)]">
-                    <o.icon className="h-[20px] w-[20px]" strokeWidth={1.9} />
-                  </span>
-                  <span className="min-w-0 flex-1 sm:mt-5">
-                    <span className="block text-[16px] font-semibold leading-[22px] text-[#1a1a2e] sm:text-[17px]">{o.title}</span>
-                    <span className="mt-1 block text-[14px] leading-[20px] text-[#6b7280]">{o.line}</span>
-                  </span>
-                  <ChevronRight className="h-5 w-5 shrink-0 text-[#9ca3af] transition-[translate,color] duration-150 group-hover/choice:translate-x-0.5 group-hover/choice:text-[#4b5563] sm:absolute sm:right-5 sm:top-6" />
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* The join branch, 1: the name they go by and their handle. */}
+        {/* Slide 1 of a new account: photo, name, username, optional bio. Prefilled from the sign-in. */}
         {step === JOIN_NAME && (
-          <div className="flex flex-col items-center" data-onboarding-join="name">
+          <div className="flex flex-col items-center" data-onboarding-join="profile">
             <div className={HEADING_BLOCK}>
-              <h1 className={HEADING}>What should we call you?</h1>
-              <p className={SUBHEADING}>Your name and username show on your profile and in communities.</p>
+              <h1 className={HEADING}>Make it yours</h1>
             </div>
+            <button
+              type="button"
+              onClick={() => avatarInputRef.current?.click()}
+              data-onboarding-join-photo=""
+              className="group/photo relative mb-5 flex h-[96px] w-[96px] items-center justify-center overflow-hidden rounded-full bg-[#f4f4f5] shadow-[inset_0_0_0_1px_rgba(17,24,39,0.06),0_1px_2px_rgba(17,24,39,0.05)] [-webkit-tap-highlight-color:transparent] sm:mb-6 sm:h-[112px] sm:w-[112px]"
+              aria-label={avatarUrl ? "Change photo" : "Add a photo"}
+            >
+              {avatarUrl ? <img src={avatarUrl} alt="" className="h-full w-full object-cover" /> : <AvatarMark name={joinName} size={112} />}
+              {uploadingAvatar && (
+                <span className="absolute inset-0 flex items-center justify-center bg-white/60">
+                  <Loader2 className="h-6 w-6 animate-spin text-[#1a1a2e]" />
+                </span>
+              )}
+              <span className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full bg-white text-[#374151] shadow-[0_0_0_1px_#e5e7eb,0_1px_2px_rgba(17,24,39,0.08)]">
+                <Pencil className="h-3.5 w-3.5" />
+              </span>
+            </button>
+            <input ref={avatarInputRef} type="file" accept="image/*" onChange={handleAvatarSelect} className="hidden" />
             <div className="w-full max-w-[600px] space-y-3 sm:space-y-4">
               <label className={cn("flex h-[56px] items-center gap-3 rounded-[14px] px-5", FIELD_WELL)}>
                 <User className="h-5 w-5 shrink-0 text-gray-400" />
-                <span className="sr-only">Your name</span>
+                <span className="sr-only">Display name</span>
                 <input
                   type="text"
                   value={joinName}
                   onChange={(e) => setJoinName(e.target.value)}
-                  placeholder="Your name"
+                  placeholder="Display name"
                   maxLength={60}
                   autoComplete="name"
                   data-onboarding-join-name=""
@@ -1581,50 +1589,27 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                   {joinHandleError ?? (normalizeHandle(joinHandle) ? `storelib.com/@${normalizeHandle(joinHandle)}` : "Pick a username")}
                 </p>
               </div>
+              <label className={cn("flex items-start gap-3 rounded-[14px] px-5 py-4", FIELD_WELL)}>
+                <span className="sr-only">Bio, optional</span>
+                <textarea
+                  value={joinBio}
+                  onChange={(e) => setJoinBio(e.target.value.slice(0, 160))}
+                  placeholder="Short bio, optional"
+                  rows={2}
+                  maxLength={160}
+                  data-onboarding-join-bio=""
+                  className="min-h-[48px] w-full resize-none bg-transparent text-base outline-none"
+                />
+              </label>
               {joinError && <p role="alert" className="text-center text-[13px] text-red-600">{joinError}</p>}
             </div>
           </div>
         )}
 
-        {/* The join branch, 2: a photo, the account's own (the same picker and crop as the store's step). */}
-        {step === JOIN_PHOTO && (
-          <div className="flex flex-col items-center" data-onboarding-join="photo">
-            <div className={HEADING_BLOCK}>
-              <h1 className={HEADING}>Add a photo</h1>
-              <p className={SUBHEADING}>So people in your communities know it is you.</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => avatarInputRef.current?.click()}
-              data-onboarding-join-photo=""
-              className="group/photo relative flex h-[120px] w-[120px] items-center justify-center overflow-hidden rounded-full bg-[#f4f4f5] shadow-[inset_0_0_0_1px_rgba(17,24,39,0.06),0_1px_2px_rgba(17,24,39,0.05)] [-webkit-tap-highlight-color:transparent] sm:h-[132px] sm:w-[132px]"
-              aria-label={avatarUrl ? "Change photo" : "Add a photo"}
-            >
-              {avatarUrl ? <img src={avatarUrl} alt="" className="h-full w-full object-cover" /> : <AvatarMark name="" size={132} />}
-              {uploadingAvatar && (
-                <span className="absolute inset-0 flex items-center justify-center bg-white/60">
-                  <Loader2 className="h-6 w-6 animate-spin text-[#1a1a2e]" />
-                </span>
-              )}
-            </button>
-            <button
-              type="button"
-              onClick={() => avatarInputRef.current?.click()}
-              className="mt-4 inline-flex h-11 items-center gap-1.5 rounded-xl px-4 text-[14px] font-medium text-[#374151] shadow-[0_0_0_1px_#e5e7eb,0_1px_2px_rgba(17,24,39,0.06)] transition-colors hover:bg-[#f9fafb]"
-            >
-              <Pencil className="h-4 w-4" />
-              {avatarUrl ? "Change photo" : "Choose a photo"}
-            </button>
-            <input ref={avatarInputRef} type="file" accept="image/*" onChange={handleAvatarSelect} className="hidden" />
-          </div>
-        )}
-
         {/*
-          The join branch, 3, in the app only: notifications. One clear
-          button that brings up the phone's own question (lib/native-push
-          askPushPermission), like Substack's; skipping is "Not now". A
-          browser has its own notifications, under Settings, so it never
-          sees this step.
+          Slide 2. The permission is asked only from Turn on notifications
+          (the footer). Not now leaves it alone. Same step on the web and
+          in the app.
         */}
         {step === JOIN_NOTIFY && (
           <div className="flex flex-col items-center text-center" data-onboarding-join="notify" data-push-answer={pushAnswer ?? ""}>
@@ -1632,8 +1617,8 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
               <Bell className="h-7 w-7" strokeWidth={1.8} />
             </span>
             <div className={HEADING_BLOCK}>
-              <h1 className={HEADING}>Turn on notifications</h1>
-              <p className={SUBHEADING}>Replies, mentions and new posts from the communities you join. You choose which in Settings.</p>
+              <h1 className={HEADING}>Don&apos;t miss a thing</h1>
+              <p className={SUBHEADING}>Get notified about replies, messages, updates and things you follow.</p>
             </div>
             {pushAnswer === "granted" ? (
               <p className="inline-flex h-12 items-center gap-2 text-[15px] font-medium text-[#1a1a2e]">
@@ -1646,18 +1631,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
               <p className="max-w-[360px] text-[14px] leading-[20px] text-[#6b7280]">
                 They are off for now. You can turn them on in {phoneSettingsPath(nativePlatform())}.
               </p>
-            ) : (
-              <button
-                type="button"
-                onClick={allowNotifications}
-                disabled={askingPush}
-                data-onboarding-allow-push=""
-                className="inline-flex h-12 min-w-[220px] items-center justify-center gap-2 rounded-xl bg-[#1a1a2e] px-6 text-[15px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_1px_2px_rgba(16,24,40,0.24)] transition-[background-color,scale] duration-100 active:scale-[0.98] active:bg-[#12121f] disabled:opacity-70"
-              >
-                {askingPush ? <Loader2 className="h-4 w-4 animate-spin" /> : <Bell className="h-4 w-4" />}
-                Allow notifications
-              </button>
-            )}
+            ) : null}
           </div>
         )}
 
@@ -2185,7 +2159,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
               style={{ maskImage: SCROLL_EDGE_MASK, WebkitMaskImage: SCROLL_EDGE_MASK }}
               className={cn(
                 "flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 sm:px-12 pt-5 sm:pt-6",
-                (currentStep === 1 || currentStep === 3 || currentStep === BRANCH_STEP || isJoinStep(currentStep)) && "max-sm:pb-4",
+                (currentStep === 1 || currentStep === 3 || isJoinStep(currentStep)) && "max-sm:pb-4",
                 currentStep === 2 && "max-sm:pb-2",
                 currentStep === 4 && "pb-4 sm:pb-6",
               )}
@@ -2310,24 +2284,24 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                   type="button"
                   onClick={handleNext}
                   data-onboarding-next=""
+                  {...(currentStep === JOIN_NOTIFY ? { "data-onboarding-allow-push": "" } : {})}
                   disabled={(currentStep > 3 && !isJoinStep(currentStep)) || currentStep < 1 || !canProceed()}
-                  style={
-                    currentStep === JOIN_NOTIFY
-                      ? fadeWith(pushAnswer !== null, `background-color 200ms ${MOTION_EASE}, box-shadow 200ms ${MOTION_EASE}`)
-                      : { transition: `background-color 200ms ${MOTION_EASE}, color 200ms ${MOTION_EASE}, box-shadow 200ms ${MOTION_EASE}` }
-                  }
+                  style={{ transition: `background-color 200ms ${MOTION_EASE}, color 200ms ${MOTION_EASE}, box-shadow 200ms ${MOTION_EASE}` }}
                   className={cn(
-                    "px-7 sm:px-8 py-3 sm:py-3 rounded-xl font-semibold text-sm sm:text-sm min-w-[110px] sm:min-w-[140px] max-[384px]:min-w-[88px] max-[384px]:px-4 motion-reduce:!transition-none",
+                    "px-7 sm:px-8 py-3 sm:py-3 rounded-xl font-semibold text-sm sm:text-sm min-w-[110px] sm:min-w-[140px] max-[384px]:min-w-0 max-[384px]:px-3 max-[384px]:text-[13px] motion-reduce:!transition-none",
+                    currentStep === JOIN_NOTIFY && "min-w-0 px-4 sm:px-6",
                     /* Keeps its colour while it fades out with the plan step coming in. */
-                    (currentStep > 3 && !isJoinStep(currentStep)) || canProceed() || (isJoinStep(currentStep) && joinSaving)
+                    (currentStep > 3 && !isJoinStep(currentStep)) || canProceed() || (isJoinStep(currentStep) && (joinSaving || askingPush))
                       ? NEXT_ON
                       : "bg-gray-200 text-gray-400 cursor-not-allowed"
                   )}
                 >
-                  {isJoinStep(currentStep) && joinSaving ? (
+                  {isJoinStep(currentStep) && (joinSaving || askingPush) ? (
                     <Loader2 className="mx-auto h-4 w-4 animate-spin" />
-                  ) : currentStep === lastJoinStep ? (
-                    "Done"
+                  ) : currentStep === JOIN_NOTIFY ? (
+                    "Turn on notifications"
+                  ) : currentStep === JOIN_NAME ? (
+                    "Continue"
                   ) : (
                     "Next"
                   )}

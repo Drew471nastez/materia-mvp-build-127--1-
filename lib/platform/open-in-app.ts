@@ -101,7 +101,13 @@ export function openTarget(url: string): string | null {
 export function pageAppLink(phone: Phone, path: string, host = "storelib.com"): string {
   const safe = sitePath(path) ?? "/"
   if (phone === "ios") return `${APP_PACKAGE}://open?path=${encodeURIComponent(safe)}`
-  return `intent://${host}${safe}#Intent;scheme=https;package=${APP_PACKAGE};S.browser_fallback_url=${encodeURIComponent(PLAY_URL)};end`
+  /*
+    Not installed: Chrome opens the Play Store. The referrer is the page,
+    so a later install can land on it (storeLink). Installed: the app opens
+    on this page.
+  */
+  const store = storeLink("android", safe) || PLAY_URL
+  return `intent://${host}${safe}#Intent;scheme=https;package=${APP_PACKAGE};S.browser_fallback_url=${encodeURIComponent(store)};end`
 }
 
 /**

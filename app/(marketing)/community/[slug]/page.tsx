@@ -1,6 +1,8 @@
 import type { Metadata } from "next"
-import { notFound, permanentRedirect } from "next/navigation"
+import { notFound, permanentRedirect, redirect } from "next/navigation"
 import { connection } from "next/server"
+import { rememberAppOpen } from "@/lib/account/app-open"
+import { joinCommunity, joinRateLimit } from "@/lib/communities/server/join"
 import { currentUserForRequest } from "@/lib/auth/request-scope"
 import { communitiesEnabled } from "@/lib/communities/flag"
 import { communityBySlug, sharePreviewable, communityIndexable, loadSalesPage, seoFacts } from "@/lib/communities/server/public"
@@ -39,15 +41,47 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   return communityMetadata(seoFacts(community))
 }
 
-export default async function CommunityPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function CommunityPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>
+  searchParams: Promise<Record<string, string | string[] | undefined>>
+}) {
   await connection()
   if (!(await communitiesEnabled())) notFound()
   const { slug } = await params
+  const query = await searchParams
   const { user } = await currentUserForRequest()
   const load = await loadSalesPage(slug, user?.id ?? null)
   if (!load) notFound()
   /* One address per community: /community/MyClub is /community/myclub. */
   if (load.community.slug !== slug) permanentRedirect(`/community/${load.community.slug}`)
+  /*
+    BACK FROM SIGNING UP WITH ?join=1. A free join is finished here, before
+    the sales page is drawn, so the next paint is the member's feed. Paid
+    and approval stays on the page: those still need a choice. Already in:
+    the flag is dropped so it is not pressed again.
+  */
+  const wantsJoin = query.join === "1"
+  if (wantsJoin && user) {
+    const home = `/community/${load.community.slug}`
+    if (load.viewer.active) redirect(query.welcome === "1" ? `${home}?welcome=1` : home)
+    if (load.data.join.kind === "join_free") {
+      const limited = await joinRateLimit(user.id)
+      if (!limited) {
+        const answer = await joinCommunity(admin(), load.community.id, user.id, {})
+        if (answer.ok && answer.state === "member") {
+          try {
+            await rememberAppOpen(user.id, home)
+          } catch {
+            /* The community still opens. The app can be pointed there later. */
+          }
+          redirect(`${home}?welcome=1`)
+        }
+      }
+    }
+  }
   /* One view a visitor a day, the feed and the sales page alike, written after the response (lib/communities/server/views.ts). */
   await scheduleCommunityView({ communityId: load.community.id, status: load.community.status, userId: user?.id ?? null, isOwner: load.viewer.isOwner })
 

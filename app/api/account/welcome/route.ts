@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { readCurrentUser } from "@/lib/auth/current-user"
 import { rateLimit } from "@/lib/api/rate-limit"
 import { cleanName } from "@/lib/profile/display-name"
-import { WELCOMED_KEY } from "@/lib/account/welcome"
+import { WELCOMED_KEY, cleanBio } from "@/lib/account/welcome"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -18,9 +18,12 @@ const NO_STORE = { "Cache-Control": "no-store" }
  * The join branch of a new account's first steps (/onboarding/start,
  * lib/account/welcome.ts):
  *
- *   { name }        "What should we call you?": the name goes on the
- *                   profile (cleaned by lib/profile/display-name, never a
- *                   placeholder word, never an address)
+ *   { name, bio? }  the profile slide: the name goes on the profile
+ *                   (cleaned by lib/profile/display-name, never a
+ *                   placeholder word, never an address). bio, when sent,
+ *                   is the optional short line (lib/account/welcome
+ *                   cleanBio). A database without profiles.bio saves the
+ *                   name anyway.
  *   { done: true }  the last step: the question is not asked again
  *   { skip: true }  "Not now": the same, nothing else changes
  *
@@ -28,7 +31,7 @@ const NO_STORE = { "Cache-Control": "no-store" }
  * handle. Signed in only, the user from the session, rate limited.
  */
 export async function POST(request: NextRequest) {
-  let body: { name?: unknown; skip?: unknown; done?: unknown } | null
+  let body: { name?: unknown; bio?: unknown; skip?: unknown; done?: unknown } | null
   try {
     body = await request.json()
   } catch {
@@ -53,7 +56,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Type the name you go by." }, { status: 400, headers: NO_STORE })
     }
     /* The service role, for this person's own row only: the profile is theirs, the id is the session's. */
-    const { error } = await createAdminClient().from("profiles").update({ display_name: name }).eq("id", user.id)
+    const patch: { display_name: string; bio?: string | null } = { display_name: name }
+    if (body.bio !== undefined) {
+      if (body.bio !== null && typeof body.bio !== "string") {
+        return NextResponse.json({ error: "That bio is not a line of text." }, { status: 400, headers: NO_STORE })
+      }
+      patch.bio = cleanBio(body.bio)
+    }
+    const db = createAdminClient()
+    let { error } = await db.from("profiles").update(patch).eq("id", user.id)
+    /* profiles.bio is added by RUN_PROFILE_COVER_BIO. Without it, the name still saves. */
+    if (error && patch.bio !== undefined && /bio/i.test(`${error.message} ${error.code ?? ""}`)) {
+      ;({ error } = await db.from("profiles").update({ display_name: name }).eq("id", user.id))
+    }
     if (error) {
       console.error("[welcome] name not saved", error.code, error.message)
       return NextResponse.json({ error: "That did not save. Try again in a moment." }, { status: 500, headers: NO_STORE })

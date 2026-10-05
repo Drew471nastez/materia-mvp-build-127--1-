@@ -6,17 +6,10 @@
  * branch.tsx), at 390x844 and 1440x900, and in the app at 390 (a stubbed
  * Capacitor bridge):
  *
- *   THE QUESTION      "What brings you to Storelib?", two answers, each a
- *                     whole card, 44px or taller on a phone, side by side
- *                     on a computer, nothing past the screen's edge
- *   SELL              the store setup's first step, unchanged; Back returns
- *                     to the question
- *   JOIN              the name (prefilled) and handle (checked as typed),
- *                     saved through /api/profile/username and
- *                     /api/account/welcome as the step is left; the photo;
- *                     Done ends at the community it was going to
- *   APP               a notifications step whose button asks the phone
- *                     (the stub records the ask) and says the answer
+ *   PROFILE           "Make it yours": photo, name (prefilled), username,
+ *                     optional bio. Continue saves the name and handle.
+ *   NOTIFICATIONS     "Don't miss a thing". Not now skips. Turn on
+ *                     notifications asks the phone only in the app stub.
  *   THE STEP CHANGE   sampled every frame: the step leaving and the one
  *                     arriving cross on opacity and translate, with a
  *                     filmstrip of the frames to look at
@@ -41,7 +34,7 @@ const dir = join(root, ".onboarding-branch-probe")
 mkdirSync(dir, { recursive: true })
 writeFileSync(join(dir, "navigation.js"), `export const usePathname = () => "/onboarding/start"
 export const useSearchParams = () => new URLSearchParams(location.search)
-export const useRouter = () => ({ push() {}, replace() {}, prefetch() {}, refresh() {}, back() {} })
+export const useRouter = () => ({ push(h) { if (typeof h === "string") location.assign(h) }, replace(h) { if (typeof h === "string") location.assign(h) }, prefetch() {}, refresh() {}, back() {} })
 export const useParams = () => ({})
 export const redirect = () => {}
 `)
@@ -169,56 +162,17 @@ for (const [label, viewport, native] of [
   const r = (report[label] = {})
   const q = native ? "?native=1" : ""
 
-  /* ── The question, then the sell branch and back ───────────────────── */
   await page.goto(`${base}/onboarding/start${q}`, { waitUntil: "load" })
-  await page.waitForSelector("[data-onboarding-branch]")
-  await wait(500)
-  r.heading = await textOf(page, "[data-onboarding-branch] h1")
-  if (r.heading !== "What brings you to Storelib?") problems.push(`${label}: the first step reads "${r.heading}"`)
-  r.choices = await page.$$eval("[data-onboarding-branch-choice]", (els) => els.map((el) => { const b = el.getBoundingClientRect(); return { key: el.getAttribute("data-onboarding-branch-choice"), x: Math.round(b.left), y: Math.round(b.top), w: Math.round(b.width), h: Math.round(b.height) } }))
-  if (r.choices.length !== 2) problems.push(`${label}: ${r.choices.length} answers, not 2`)
-  if (r.choices.some((c) => c.h < 44)) problems.push(`${label}: an answer is under 44px tall`)
-  if (viewport.width >= 640 && !(r.choices[0].y === r.choices[1].y)) problems.push(`${label}: the answers are not side by side on a computer`)
-  if (viewport.width < 640 && !(r.choices[1].y > r.choices[0].y)) problems.push(`${label}: the answers are not stacked on a phone`)
-  r.overflowQuestion = await overflow(page)
-  r.footerHidden = await page.$$eval("[data-onboarding-back], [data-onboarding-next]", (els) => els.map((el) => getComputedStyle(el.closest("[style]") || el).visibility))
+  await page.waitForSelector("[data-onboarding-join='profile']")
+  await wait(400)
+  r.heading = await textOf(page, "[data-onboarding-step] h1")
+  if (r.heading !== "Make it yours") problems.push(`${label}: the first step reads "${r.heading}"`)
+  r.photoBox = await page.$eval("[data-onboarding-join-photo]", (el) => { const b = el.getBoundingClientRect(); return { w: Math.round(b.width), h: Math.round(b.height) } }).catch(() => null)
+  if (!r.photoBox || r.photoBox.h < 44) problems.push(`${label}: the photo is missing`)
   r.leave = await page.$eval("[data-onboarding-leave]", (el) => { const b = el.getBoundingClientRect(); return { w: Math.round(b.width), h: Math.round(b.height), text: el.textContent.trim() } }).catch(() => null)
-  if (!r.leave || r.leave.h < 40) problems.push(`${label}: Not now is missing or under 40px`)
-  if (SHOTS) await page.screenshot({ path: join(SHOTS, `${label}-0-question.png`) })
-
-  await filmstrip(page, viewport, `${label}-strip-sell`, () => page.click('[data-onboarding-branch-choice="sell"]'))
-  await wait(400)
-  r.sellHeading = await textOf(page, "[data-onboarding-step] h1")
-  if (r.sellHeading !== "Name your store") problems.push(`${label}: the sell branch opens on "${r.sellHeading}"`)
-  r.sellBackShown = await page.$eval("[data-onboarding-back]", (el) => getComputedStyle(el).visibility === "visible" && !el.disabled)
-  if (!r.sellBackShown) problems.push(`${label}: no Back from the store's first step to the question`)
-  if (SHOTS) await page.screenshot({ path: join(SHOTS, `${label}-1-sell.png`) })
-  await page.click("[data-onboarding-back]")
-  await wait(450)
-  r.backToQuestion = !!(await page.$("[data-onboarding-step='0'] [data-onboarding-branch]"))
-  if (!r.backToQuestion) problems.push(`${label}: Back did not return to the question`)
-
-  /* ── The join branch ──────────────────────────────────────────────── */
-  const sample = page.evaluate(SAMPLE(420))
-  await page.click('[data-onboarding-branch-choice="join"]')
-  r.frames = await sample
-  /* And once more, slowed, for the strip: back to the question, then the join answer again. */
-  await wait(400)
-  await page.click("[data-onboarding-back]")
-  await wait(500)
-  await filmstrip(page, viewport, `${label}-strip-join`, () => page.click('[data-onboarding-branch-choice="join"]'))
-  await page.waitForSelector("[data-onboarding-step='11']")
-  const crossing = r.frames.filter((f) => f.leave && f.enter)
-  r.crossFrames = crossing.length
-  r.enterOpacities = r.frames.map((f) => f.enter?.o ?? null).slice(0, 14)
-  if (crossing.length < 3) problems.push(`${label}: the step change crossed in ${crossing.length} frames (a cut, not a crossfade)`)
-  if (!r.frames.some((f) => f.enter && f.enter.o > 0 && f.enter.o < 1)) problems.push(`${label}: the arriving step never faded`)
-  await wait(400)
-  r.joinHeading = await textOf(page, "[data-onboarding-step] h1")
-  if (r.joinHeading !== "What should we call you?") problems.push(`${label}: the join branch opens on "${r.joinHeading}"`)
+  if (!r.leave || r.leave.h < 40) problems.push(`${label}: the way out is missing or under 40px`)
   r.nameValue = await page.$eval("[data-onboarding-join-name]", (el) => el.value)
   if (r.nameValue !== "Ana Lucia") problems.push(`${label}: the name is not prefilled (${r.nameValue})`)
-  /* A taken handle says so and holds Next; a free one lets it go. */
   const handle = await page.$("[data-onboarding-join-handle]")
   const retype = async (text) => {
     await handle.evaluate((el) => { el.focus(); el.select() })
@@ -227,63 +181,52 @@ for (const [label, viewport, native] of [
   }
   await retype("taken")
   await wait(700)
-  r.takenSays = await page.$eval("[data-onboarding-join='name'] p[aria-live]", (el) => el.textContent.trim())
+  r.takenSays = await page.$eval("[data-onboarding-join='profile'] p[aria-live]", (el) => el.textContent.trim())
   r.nextHeldWhenTaken = await page.$eval("[data-onboarding-next]", (el) => el.disabled)
-  if (!/taken/i.test(r.takenSays) || !r.nextHeldWhenTaken) problems.push(`${label}: a taken handle did not hold Next (${r.takenSays})`)
-  /* Typed the way people type: a space and a dot become the dash a handle allows. */
+  if (!/taken/i.test(r.takenSays) || !r.nextHeldWhenTaken) problems.push(`${label}: a taken handle did not hold Continue (${r.takenSays})`)
   await retype("Ana Lucia.2")
   await wait(700)
-  r.freeSays = await page.$eval("[data-onboarding-join='name'] p[aria-live]", (el) => el.textContent.trim())
+  r.freeSays = await page.$eval("[data-onboarding-join='profile'] p[aria-live]", (el) => el.textContent.trim())
   if (r.freeSays !== "storelib.com/@ana-lucia-2") problems.push(`${label}: the typed handle reads ${r.freeSays}`)
-  if (SHOTS) await page.screenshot({ path: join(SHOTS, `${label}-2-name.png`) })
+  r.continueLabel = await textOf(page, "[data-onboarding-next]")
+  if (r.continueLabel !== "Continue") problems.push(`${label}: the profile button reads ${r.continueLabel}`)
   r.overflowName = await overflow(page)
+  if (SHOTS) await page.screenshot({ path: join(SHOTS, `${label}-1-profile.png`) })
+  const sample = page.evaluate(SAMPLE(420))
   const before = calls.length
   await page.click("[data-onboarding-next]")
-  await page.waitForSelector("[data-onboarding-step='12']", { timeout: 4000 }).catch(() => null)
+  r.frames = await sample
+  await page.waitForSelector("[data-onboarding-step='13']", { timeout: 4000 }).catch(() => null)
+  const crossing = (r.frames || []).filter((f) => f.leave && f.enter)
+  if (crossing.length < 3) problems.push(`${label}: the step change crossed in ${crossing.length} frames (a cut, not a crossfade)`)
   const saved = calls.slice(before)
-  r.savedCalls = saved.map((c) => `${c.method} ${c.url.split("?")[0]} ${c.body}`)
   if (!saved.some((c) => c.method === "PATCH" && c.url.startsWith("/api/profile/username"))) problems.push(`${label}: the new handle was not saved`)
   if (!saved.some((c) => c.url.startsWith("/api/account/welcome") && /"name":"Ana Lucia"/.test(c.body))) problems.push(`${label}: the name was not saved`)
   await wait(400)
-  r.photoHeading = await textOf(page, "[data-onboarding-step] h1")
-  if (r.photoHeading !== "Add a photo") problems.push(`${label}: after the name comes "${r.photoHeading}"`)
-  r.photoBox = await page.$eval("[data-onboarding-join-photo]", (el) => { const b = el.getBoundingClientRect(); return { w: Math.round(b.width), h: Math.round(b.height) } })
-  if (SHOTS) await page.screenshot({ path: join(SHOTS, `${label}-3-photo.png`) })
-  r.nextLabelOnPhoto = await textOf(page, "[data-onboarding-next]")
-
-  if (native) {
-    if (r.nextLabelOnPhoto !== "Next") problems.push(`${label}: in the app the photo step is not followed by notifications (${r.nextLabelOnPhoto})`)
-    await page.click("[data-onboarding-next]")
-    await page.waitForSelector("[data-onboarding-step='13']", { timeout: 3000 }).catch(() => null)
-    await wait(400)
-    r.notifyHeading = await textOf(page, "[data-onboarding-step] h1")
-    r.skipLabel = await textOf(page, "[data-onboarding-skip]")
-    if (r.skipLabel !== "Not now") problems.push(`${label}: notifications are not skippable with Not now (${r.skipLabel})`)
-    r.doneBeforeAnswer = await page.$eval("[data-onboarding-next]", (el) => getComputedStyle(el).visibility)
-    if (r.doneBeforeAnswer !== "hidden") problems.push(`${label}: Done shows beside Not now before the phone was asked`)
-    r.allowBox = await page.$eval("[data-onboarding-allow-push]", (el) => { const b = el.getBoundingClientRect(); return { w: Math.round(b.width), h: Math.round(b.height) } }).catch(() => null)
-    if (!r.allowBox || r.allowBox.h < 44) problems.push(`${label}: Allow notifications is missing or under 44px`)
-    if (SHOTS) await page.screenshot({ path: join(SHOTS, `${label}-4-notify.png`) })
-    await page.click("[data-onboarding-allow-push]")
-    await wait(500)
-    r.pushAsked = await page.evaluate(() => window.__pushAsked || 0)
-    r.registered = await page.evaluate(() => !!window.__registered)
-    r.answer = await page.$eval("[data-onboarding-join='notify']", (el) => el.getAttribute("data-push-answer"))
-    if (r.pushAsked !== 1 || r.answer !== "granted" || !r.registered) problems.push(`${label}: the phone was asked ${r.pushAsked} times, answer ${r.answer}, registered ${r.registered}`)
-    r.skipAfterAnswer = await page.$eval("[data-onboarding-skip]", (el) => getComputedStyle(el).visibility)
-    if (r.skipAfterAnswer !== "hidden") problems.push(`${label}: Not now stays after the answer`)
-    await wait(300)
-    if (SHOTS) await page.screenshot({ path: join(SHOTS, `${label}-5-notify-on.png`) })
-  } else if (r.nextLabelOnPhoto !== "Done") problems.push(`${label}: on the web the photo step should be the last (${r.nextLabelOnPhoto})`)
-
+  r.notifyHeading = await textOf(page, "[data-onboarding-step] h1")
+  if (r.notifyHeading !== "Don't miss a thing") problems.push(`${label}: notifications open on "${r.notifyHeading}"`)
+  r.skipLabel = await textOf(page, "[data-onboarding-skip]")
+  if (r.skipLabel !== "Not now") problems.push(`${label}: notifications are not skippable with Not now (${r.skipLabel})`)
+  r.allowLabel = await textOf(page, "[data-onboarding-allow-push]")
+  if (r.allowLabel !== "Turn on notifications") problems.push(`${label}: the primary reads ${r.allowLabel}`)
+  if (SHOTS) await page.screenshot({ path: join(SHOTS, `${label}-2-notify.png`) })
   const doneBefore = calls.length
-  await page.click("[data-onboarding-next]")
-  await wait(900)
+  if (native) {
+    await page.click("[data-onboarding-allow-push]")
+    await wait(700)
+    r.pushAsked = await page.evaluate(() => window.__pushAsked || 0)
+    if (r.pushAsked !== 1) problems.push(`${label}: the phone was asked ${r.pushAsked} times`)
+  } else {
+    await page.click("[data-onboarding-skip]")
+    await wait(700)
+    r.pushAsked = await page.evaluate(() => window.__pushAsked || 0)
+    if (r.pushAsked) problems.push(`${label}: the web asked before Turn on notifications`)
+  }
   r.doneCalls = calls.slice(doneBefore).map((c) => `${c.method} ${c.url} ${c.body}`)
   r.landed = navigations[navigations.length - 1]
-  if (!calls.slice(doneBefore).some((c) => /"done":true/.test(c.body))) problems.push(`${label}: Done did not mark the question answered`)
-  if (!/\/community\/clay-studio\?join=1$/.test(r.landed || "")) problems.push(`${label}: Done landed on ${r.landed}, not the community`)
-  if (r.overflowQuestion > 0 || r.overflowName > 0) problems.push(`${label}: the page scrolls sideways (${r.overflowQuestion}, ${r.overflowName})`)
+  if (!calls.slice(doneBefore).some((c) => /"done":true/.test(c.body))) problems.push(`${label}: finishing did not mark onboarding answered`)
+  if (!/\/community\/clay-studio\?join=1$/.test(r.landed || "")) problems.push(`${label}: finished on ${r.landed}`)
+  if (r.overflowName > 0) problems.push(`${label}: the page scrolls sideways (${r.overflowName})`)
   await page.close()
 }
 

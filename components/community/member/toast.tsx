@@ -43,7 +43,11 @@ export function Toasts() {
       role="status"
       aria-live="polite"
     >
-      <div key={key} data-community-toast="" className="max-w-[420px] rounded-full bg-[#1a1a2e] px-4 py-2.5 text-center text-[14px] font-medium text-white shadow-[0_8px_24px_-8px_rgba(17,24,39,0.35)]">
+      <div
+        key={key}
+        data-community-toast=""
+        className="max-w-[420px] rounded-full bg-[#1a1a2e] px-4 py-2.5 text-center text-[14px] font-medium text-white shadow-[0_8px_24px_-8px_rgba(17,24,39,0.35)] motion-reduce:animate-none animate-in fade-in-0 slide-in-from-bottom-2 duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
+      >
         {text}
       </div>
     </div>

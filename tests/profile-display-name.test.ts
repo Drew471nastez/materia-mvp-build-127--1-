@@ -31,7 +31,8 @@ import {
   providerNameOf,
 } from "../lib/profile/display-name"
 import { keepProfileName, type KeepNameDb } from "../lib/profile/keep-name"
-import { WELCOME_PATH, WELCOMED_KEY, throughWelcome, welcomeDone, welcomeHref, welcomeWanted } from "../lib/account/welcome"
+import { WELCOME_PATH, WELCOMED_KEY, cleanBio, throughWelcome, welcomeDone, welcomeHref, welcomeWanted } from "../lib/account/welcome"
+import { destinationWithAppOpen, pendingAppOpen } from "../lib/account/app-open"
 import { safeNext } from "../lib/auth/continue"
 import { APP_PATHS, DEFAULT_ANDROID_FINGERPRINTS, DEFAULT_TEAM_ID, WEB_ONLY_SEGMENTS, appLinkConfig, appleAppSiteAssociation, assetLinks, opensInApp } from "../lib/platform/app-links"
 import { openTarget, pageAppLink, pillPhone } from "../lib/platform/open-in-app"
@@ -207,14 +208,16 @@ async function main() {
   check("  and with nowhere to go, Discover, never their profile", welcomeDone(null) === "/explore" && welcomeDone("//evil.com") === "/explore")
   const startPage = readCode("app/(auth)/onboarding/start/page.tsx")
   check("the start page sends a seller to /app and an answered account on its way", /hasSellerAccess\(access\)\) redirect/.test(startPage) && /WELCOMED_KEY\] === true\) redirect\(welcomeDone/.test(startPage))
+  check("a short bio is one line, and empty is nothing", cleanBio("  hi   there  ") === "hi there" && cleanBio("   ") === null && cleanBio(4) === null && (cleanBio("x".repeat(200)) || "").length === 160)
   const modal = readCode("components/app/creator-onboarding-modal.tsx")
-  check("the onboarding opens on the question only for a new account", /useState\(start \? BRANCH_STEP : 1\)/.test(modal))
-  check("  the join branch is a name, a photo and, in the app only, notifications", /nativeFullScreen \? \[JOIN_NAME, JOIN_PHOTO, JOIN_NOTIFY\] : \[JOIN_NAME, JOIN_PHOTO\]/.test(modal))
-  check("  no store field in it (no category, no socials, no plan)", (() => { const a = modal.indexOf("step === JOIN_NAME &&"); const b = modal.indexOf("{step === 1 && ("); const part = modal.slice(a, b); return a > 0 && b > a && !/socials|selectedCategory|PricingSection/.test(part) })())
-  check("  the phone is asked only from the button (askPushPermission)", /onClick=\{allowNotifications\}/.test(modal) && /setPushAnswer\(await askPushPermission\(\)\)/.test(modal))
+  check("a new account opens on Make it yours, not a community question", /useState\(start \? JOIN_NAME : 1\)/.test(modal) && /Make it yours/.test(modal) && !/What brings you to Storelib/.test(modal) && !/I'm here to join and buy/.test(modal))
+  check("  the profile is a photo, a name, a username and an optional bio, then notifications for everyone", /data-onboarding-join-photo/.test(modal) && /data-onboarding-join-bio/.test(modal) && /const joinSteps = \[JOIN_NAME, JOIN_NOTIFY\]/.test(modal) && /Don't miss a thing|Don&apos;t miss a thing/.test(modal))
+  check("  no store field in it (no category, no socials, no plan)", (() => { const a = modal.indexOf("step === JOIN_NAME &&"); const b = modal.indexOf("{step === 1 && ("); const part = modal.slice(a, b); return a > 0 && b > a && !/socials|selectedCategory|PricingSection|communities/.test(part) })())
+  check("  notifications are asked only after Turn on notifications", /Turn on notifications/.test(modal) && /await allowNotifications\(\)/.test(modal) && /setPushAnswer\(await askPushPermission\(\)\)/.test(modal) && /Notification\.requestPermission/.test(modal) && /Get notified about replies, messages, updates and things you follow/.test(modal))
   check("  the handle goes through the one handle rule, the name through /api/account/welcome", /\/api\/profile\/username/.test(modal) && /\/api\/account\/welcome/.test(modal))
   const api = readCode("app/api/account/welcome/route.ts")
-  check("the welcome API cleans the name, refuses an address, is rate limited and writes only the session's own row", /cleanName\(body\.name\)/.test(api) && /name\.includes\("@"\)/.test(api) && /rateLimit\(/.test(api) && /\.eq\("id", user\.id\)/.test(api))
+  check("the welcome API cleans the name, refuses an address, is rate limited and writes only the session's own row", /cleanName\(body\.name\)/.test(api) && /name\.includes\("@"\)/.test(api) && /rateLimit\(/.test(api) && /\.eq\("id", user\.id\)/.test(api) && /cleanBio\(body\.bio\)/.test(api))
+  check("a sign-in with nowhere else to go opens the page the account remembered, once", destinationWithAppOpen("/explore", { storelib_open_path: "/community/clay" }, null).destination === "/community/clay" && destinationWithAppOpen("/explore", { storelib_open_path: "/community/clay", storelib_open_used: "/community/clay" }, null).destination === "/explore" && destinationWithAppOpen("/p/x", { storelib_open_path: "/community/clay" }, "/p/x").destination === "/p/x" && pendingAppOpen({ storelib_open_path: "https://evil.com" }) === null)
   const invite = readCode("components/community/member/invite-landing.tsx")
   check("an invite's landing accepts once on arrival with ?accept=1, and drops the flag first", /get\("accept"\) !== "1"/.test(invite) && /searchParams\.delete\("accept"\)/.test(invite) && /autoAccepted\.current = true/.test(invite))
 
@@ -273,15 +276,20 @@ async function main() {
 
   console.log("\nThe Open in the app pill (scripts/check-open-app-pill.mjs measures it)")
   check("Android opens this page in the app, the Play Store as the fallback", /^intent:\/\/storelib\.com\/community\/clay#Intent;scheme=https;package=com\.storelib\.app;S\.browser_fallback_url=/.test(pageAppLink("android", "/community/clay")))
+  {
+    const fb = decodeURIComponent((pageAppLink("android", "/community/clay").split("S.browser_fallback_url=")[1] || "").replace(/;end$/, ""))
+    check("  and Play carries the page, so a later install can open it", fb.startsWith("https://play.google.com/store/apps/details") && fb.includes("referrer=utm_content%3D%2Fcommunity%2Fclay"))
+  }
+  check("a free join from sign-up is finished on the server, then the feed", /load\.data\.join\.kind === "join_free"/.test(readCode("app/(marketing)/community/[slug]/page.tsx")) && /redirect\(`\$\{home\}\?welcome=1`\)/.test(readCode("app/(marketing)/community/[slug]/page.tsx")))
   check("an iPhone opens the app's scheme with the page", pageAppLink("ios", "/community/clay") === "com.storelib.app://open?path=%2Fcommunity%2Fclay")
   const ua = { safari: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Version/18.0 Mobile/15E148 Safari/604.1", chrome: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) CriOS/129.0 Mobile/15E148", android: "Mozilla/5.0 (Linux; Android 14) Chrome/129.0 Mobile Safari/537.36", app: "Mozilla/5.0 (iPhone) Capacitor", mac: "Mozilla/5.0 (Macintosh) Safari/605" }
   check("Safari with the Smart App Banner gets no pill; without one it does", pillPhone(ua.safari, true) === null && pillPhone(ua.safari, false) === "ios")
   check("Chrome on an iPhone and Android get the pill; the app and a computer never", pillPhone(ua.chrome, true) === "ios" && pillPhone(ua.android, true) === "android" && pillPhone(ua.app, false) === null && pillPhone(ua.mac, false) === null)
   const pill = readCode("components/community/open-in-app-pill.tsx")
-  const join = readCode("components/community/public/join-controls.tsx")
+  const joinBar = readCode("components/community/public/join-controls.tsx")
   check(
     "the pill floats above the join bar and buyer tabs, not over them",
-    /COMMUNITY_FLOAT_BOTTOM/.test(pill) && /data-community-fixed-foot/.test(join) && /CommunityFixedFootWatch/.test(readCode("components/community/member/shell-frame.tsx")),
+    /COMMUNITY_FLOAT_BOTTOM/.test(pill) && /data-community-fixed-foot/.test(joinBar) && /CommunityFixedFootWatch/.test(readCode("components/community/member/shell-frame.tsx")),
   )
 
   console.log(`\n${passed} passed, ${failed} failed`)

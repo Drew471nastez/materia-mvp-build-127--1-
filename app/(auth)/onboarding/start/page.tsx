@@ -7,6 +7,7 @@ import { WELCOMED_KEY, welcomeDone } from "@/lib/account/welcome"
 import { BUYER_HOME, SELLER_HOME, safeNext, withCarry } from "@/lib/auth/continue"
 import { getMainDomain } from "@/lib/url-helpers"
 import { isStandInName, nameFromEmail, personName, providerNameOf } from "@/lib/profile/display-name"
+import { providerPhotoOf } from "@/lib/profile/provider-photo"
 import { StartOnboarding } from "./start-onboarding"
 
 export const dynamic = "force-dynamic"
@@ -21,10 +22,10 @@ export const metadata: Metadata = {
  *  /onboarding/start: A NEW ACCOUNT'S FIRST STEPS
  * ===========================================================================
  * Where the end of a sign up sends a new account once (lib/account/welcome
- * throughWelcome, from app/auth/continue and app/auth/callback): the same
- * onboarding as /sell, opening on one question, "I want to sell" (the
- * store setup, unchanged) or "I'm here to join and buy" (a name, a photo,
- * notifications in the app, done). Decided here, on the server:
+ * throughWelcome, from app/auth/continue and app/auth/callback): two slides
+ * in the same onboarding /sell uses for a store, without the store. A
+ * profile (photo, name, username, optional bio, prefilled from Google or
+ * Apple), then notifications. Seller setup stays on /sell. Decided here:
  *
  *   signed out          -> /login, carrying next (a blip reading the
  *                          session goes on to `next` instead)
@@ -56,6 +57,16 @@ export default async function StartPage({ searchParams }: { searchParams: Promis
     providerNameOf(meta) ??
     (isStandInName(stored, user.email) ? nameFromEmail(user.email) : personName({ name: stored, email: user.email })) ??
     ""
+  const avatar = profile?.avatar_url || providerPhotoOf(meta)
+  /* profiles.bio may not exist on an older database: a missing column is an empty bio, not a failed page. */
+  let bio = ""
+  try {
+    const { createAdminClient } = await import("@/lib/supabase/admin")
+    const { data, error } = await createAdminClient().from("profiles").select("bio").eq("id", user.id).maybeSingle()
+    if (!error && typeof (data as { bio?: string | null } | null)?.bio === "string") bio = ((data as { bio: string }).bio || "").trim()
+  } catch {
+    bio = ""
+  }
 
-  return <StartOnboarding next={next} name={name} username={profile?.username?.trim() || null} />
+  return <StartOnboarding next={next} name={name} username={profile?.username?.trim() || null} avatar={avatar} bio={bio} />
 }

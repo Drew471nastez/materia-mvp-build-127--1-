@@ -35,7 +35,7 @@ import { X } from "lucide-react"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { isNativeApp } from "@/lib/platform-utils"
 import { COMMUNITY_FLOAT_BOTTOM, startCommunityFixedFootWatch } from "@/components/community/fixed-foot-chrome"
-import { APP_PILL_KEY, APP_PILL_QUIET_DAYS, pageAppLink, pillPhone, type Phone } from "@/lib/platform/open-in-app"
+import { APP_PILL_KEY, APP_PILL_QUIET_DAYS, pageAppLink, pillPhone, storeLink, type Phone } from "@/lib/platform/open-in-app"
 
 const APP_STORE_ID = (process.env.NEXT_PUBLIC_IOS_APP_STORE_ID || "").trim()
 const APP_STORE_URL = /^\d+$/.test(APP_STORE_ID)
@@ -83,12 +83,27 @@ export function OpenInAppPill() {
   }
 
   const open = () => {
+    /* The account remembers this page, so signing in on the phone opens it (lib/account/app-open). */
+    try {
+      void fetch("/api/account/app-open", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: pathname }),
+      })
+    } catch {
+      /* Signed out, or offline: the store link still carries the page where it can. */
+    }
     if (phone !== "ios") return
-    /* Still here after the app had its chance: it is not installed. */
+    /*
+      The scheme opens the app when it is installed. Still here a moment
+      later: it is not, so the App Store. Android's intent already falls
+      back to Play with this page as the referrer.
+    */
+    const store = storeLink("ios", pathname, APP_STORE_ID) || APP_STORE_URL
     const started = Date.now()
     const timer = window.setTimeout(() => {
-      if (document.visibilityState === "visible" && Date.now() - started < 4000) window.location.href = APP_STORE_URL
-    }, 1600)
+      if (document.visibilityState === "visible" && Date.now() - started < 4000) window.location.href = store
+    }, 1400)
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "hidden") window.clearTimeout(timer)
     }, { once: true })

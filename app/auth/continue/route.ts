@@ -5,6 +5,7 @@ import { readCurrentUser } from "@/lib/auth/current-user"
 import { getMainDomain } from "@/lib/url-helpers"
 import { hasSellerAccess, sellerAccessFrom } from "@/lib/account/seller-access"
 import { throughWelcome } from "@/lib/account/welcome"
+import { APP_OPEN_USED, destinationWithAppOpen } from "@/lib/account/app-open"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { keepProfileName, type KeepNameDb } from "@/lib/profile/keep-name"
 import {
@@ -82,6 +83,12 @@ export async function GET(request: Request) {
   })
   /* A name for the account, from the provider or the handle, over a made up one (lib/profile/keep-name), after the answer. */
   after(() => keepProfileName(createAdminClient() as unknown as KeepNameDb, user).then(() => undefined))
-  /* A new account is asked once what brought it here, on its way to where it was going (lib/account/welcome). */
-  return go(throughWelcome(destinationAfterAuth(carry, access), { createdAt: user.created_at, meta: user.user_metadata, seller: hasSellerAccess(access), intent: carry.intent }))
+  /*
+    A new account sets its profile once, on its way to where it was going
+    (lib/account/welcome). A sign-in with nowhere else to go opens the page
+    the account remembered (the app, after a join or Open in the app).
+  */
+  const opened = destinationWithAppOpen(destinationAfterAuth(carry, access), user.user_metadata, carry.next)
+  if (opened.used) after(() => supabase.auth.updateUser({ data: { [APP_OPEN_USED]: opened.used } }).then(() => undefined))
+  return go(throughWelcome(opened.destination, { createdAt: user.created_at, meta: user.user_metadata, seller: hasSellerAccess(access), intent: carry.intent }))
 }

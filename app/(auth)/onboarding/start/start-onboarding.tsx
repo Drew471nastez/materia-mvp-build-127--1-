@@ -9,14 +9,13 @@ import { welcomeDone } from "@/lib/account/welcome"
  *  A NEW ACCOUNT'S FIRST STEPS, OPENED FROM /onboarding/start
  * ===========================================================================
  * The same onboarding /sell opens (./page.tsx decided this person is signed
- * in and not a seller), on its first question. The same white screen and
+ * in and not a seller), on the profile slide. The same white screen and
  * spinner the sign in ended on is the first HTML, and the onboarding fades
  * in over it as soon as the page can run (as on /sell).
  *
- * "Not now" at the top marks the question answered and goes where they were
- * going, as the join branch's last step does.
+ * "Not now" at the top marks it answered and goes where they were going.
  */
-export function StartOnboarding({ next, name, username }: { next: string | null; name: string; username: string | null }) {
+export function StartOnboarding({ next, name, username, avatar, bio }: { next: string | null; name: string; username: string | null; avatar: string | null; bio: string }) {
   const [open, setOpen] = useState(false)
   useEffect(() => {
     const id = requestAnimationFrame(() => setOpen(true))
@@ -37,7 +36,7 @@ export function StartOnboarding({ next, name, username }: { next: string | null;
       <CreatorOnboardingModal
         open={open}
         onClose={() => {}}
-        start={{ next, name, username }}
+        start={{ next, name, username, avatar, bio }}
         leave={{
           label: "Not now",
           href: done,

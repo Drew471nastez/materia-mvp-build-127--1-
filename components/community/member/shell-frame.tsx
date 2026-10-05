@@ -243,15 +243,30 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
     the note is forgotten, so a reload says nothing.
   */
   useEffect(() => {
-    let joined: string | null = null
+    let fromStore = false
     try {
-      joined = window.sessionStorage.getItem(JOINED_KEY)
-      if (joined === community.slug) window.sessionStorage.removeItem(JOINED_KEY)
+      const joined = window.sessionStorage.getItem(JOINED_KEY)
+      if (joined === community.slug) {
+        window.sessionStorage.removeItem(JOINED_KEY)
+        fromStore = true
+      }
     } catch {
-      return
+      /* No storage: the address can still say welcome. */
     }
-    if (joined !== community.slug) return
-    const t = window.setTimeout(() => toast(`Welcome to ${community.name}`), 420)
+    let fromAddress = false
+    try {
+      const url = new URL(window.location.href)
+      if (url.searchParams.get("welcome") === "1") {
+        fromAddress = true
+        url.searchParams.delete("welcome")
+        const next = url.pathname + url.search + url.hash
+        window.history.replaceState(window.history.state, "", next)
+      }
+    } catch {
+      /* A broken address still shows the community. */
+    }
+    if (!fromStore && !fromAddress) return
+    const t = window.setTimeout(() => toast(`Welcome to ${community.name}`), 280)
     return () => window.clearTimeout(t)
   }, [community.slug, community.name])
 
