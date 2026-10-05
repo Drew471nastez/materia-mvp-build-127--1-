@@ -11,7 +11,8 @@ import "server-only"
  * The server makes the video at Bunny and hands the browser a TUS upload
  * signed for that one video for a day (the API key stays here). The
  * library's MP4 fallback plays it, through a token that expires with the
- * hour (BUNNY_STREAM_MP4 picks the file, play_720p.mp4 when unset).
+ * hour (BUNNY_STREAM_MP4 picks the file, play_720p.mp4 when unset;
+ * BUNNY_STREAM_MP4_LOW, optional, the lighter one for slow networks).
  *
  * Bunny's webhooks are not signed, so the address itself carries a secret
  * that is compared in constant time.
@@ -68,11 +69,13 @@ export const bunnyAdapter: VideoAdapter = {
       patch: { provider_asset_id: guid, status: "uploading" },
     }
   },
-  async playback(_db, video, seconds, env = process.env) {
+  async playback(_db, video, seconds, env = process.env, quality = "auto") {
     if (video.status !== "ready" || !video.provider_asset_id) return null
     const expiresAt = Date.now() + seconds * 1000
     const expires = Math.floor(expiresAt / 1000)
-    const file = (env.BUNNY_STREAM_MP4 || "play_720p.mp4").replace(/[^a-z0-9_.]/gi, "")
+    /* The lighter file for Save Data, a slow network and previews, only when the library keeps one (BUNNY_STREAM_MP4_LOW, e.g. play_360p.mp4); otherwise the usual file. */
+    if (quality === "low" && !env.BUNNY_STREAM_MP4_LOW) return null
+    const file = (quality === "low" ? env.BUNNY_STREAM_MP4_LOW || "" : env.BUNNY_STREAM_MP4 || "play_720p.mp4").replace(/[^a-z0-9_.]/gi, "")
     const path = `/${video.provider_asset_id}/${file}`
     const thumb = `/${video.provider_asset_id}/thumbnail.jpg`
     const key = env.BUNNY_STREAM_TOKEN_KEY || ""

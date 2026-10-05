@@ -22,6 +22,8 @@ import { createClient } from "@/lib/supabase/client"
 import { confirmUpload } from "@/lib/storage/confirm-upload"
 import { PICTURE_BUCKET, memberPictureFolder } from "@/lib/communities/post-media"
 import type { PostMedia } from "@/lib/communities/types"
+import { uploadCommunityVideo, waitUntilPlayable } from "@/lib/video/upload-client"
+import type { VideoStatusView } from "@/lib/video/types"
 import { apiBase } from "./api"
 import { compressPostPicture } from "./media-compress"
 
@@ -135,6 +137,37 @@ export async function uploadVideoPoster(file: File, userId: string, communityId:
   } catch {
     return null
   }
+}
+
+/**
+ * A post's video, from the file to playable (round 13): sent with real
+ * progress (onProgress, 0 to 99), then, on a video service, waited on until
+ * it plays (onProcessing once, when the bytes are all there). Answers a
+ * ready video, or throws with a sentence the member can act on: the Post
+ * button stays waiting the whole time, so a post never carries a video
+ * that does not play yet.
+ */
+export async function uploadPostVideo(input: { communityId: string; file: File; key?: string; onProgress?: (percent: number) => void; onProcessing?: () => void }): Promise<VideoStatusView> {
+  const endpoint = `${apiBase(input.communityId)}/videos`
+  const ctrl = new AbortController()
+  if (input.key) SENDING.set(input.key, ctrl)
+  try {
+    const sent = await uploadCommunityVideo({ endpoint, file: input.file, onProgress: (p) => input.onProgress?.(Math.min(99, p)), signal: ctrl.signal })
+    if (sent.status === "ready") return sent
+    input.onProcessing?.()
+    return await waitUntilPlayable({ endpoint, video: sent, signal: ctrl.signal })
+  } finally {
+    if (input.key && SENDING.get(input.key) === ctrl) SENDING.delete(input.key)
+  }
+}
+
+/** Uploads under way, by the composer's key for each, so taking one off the post stops its upload. */
+const SENDING = new Map<string, AbortController>()
+
+/** Stops the upload (or the wait) for this key, if there is one. */
+export function stopUpload(key: string): void {
+  SENDING.get(key)?.abort()
+  SENDING.delete(key)
 }
 
 export class FileUploadError extends Error {}

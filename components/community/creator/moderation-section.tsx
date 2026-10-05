@@ -38,9 +38,11 @@ import { MAX_RULES } from "@/lib/communities/limits"
 import type { CommunityRule, ReportReason } from "@/lib/communities/types"
 import type { ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import type { AuditView, BadgeView, CommunityHead, MemberPage, MemberRowView, ReportView } from "./view-types"
-import { checkRules, moveItem, type MemberChoice } from "./logic"
+import { checkRules, moveItem, systemReportKind, type MemberChoice } from "./logic"
 import { useMemberActions, type ActOnPerson } from "./member-actions"
-import { Confirm, Empty, FilterTabs, ListCard, Notice, RowMenu, buttonPrimary, buttonSecondary, card, errorText, field, selectField, send, shortDate, useToast } from "./parts"
+import { BlockedWords } from "@/components/community/creator/blocked-words"
+import type { WordSettings } from "@/lib/communities/word-filter"
+import { Confirm, EditorFoot, Empty, FilterTabs, ListCard, Notice, RowMenu, buttonPrimary, buttonSecondary, card, errorText, field, selectField, send, shortDate, useToast } from "./parts"
 
 const REASON: Record<ReportReason, string> = { spam: "Spam", abuse: "Abuse", harassment: "Harassment", off_topic: "Off topic", illegal: "Illegal", other: "Other" }
 const TARGET: Record<ReportView["targetType"], string> = { post: "Post", comment: "Comment", message: "Chat message", member: "Member" }
@@ -105,6 +107,11 @@ export function auditSentence(action: string): string {
     held: "Held back for review",
     hidden: "Hid after reports",
     join_alarm: "Switched on join approval for",
+    roles_changed: "Changed what admins and moderators may do in",
+    policies_changed: "Changed the refund policy or contact of",
+    duplicated: "Copied the settings into",
+    refused: "Refused",
+    words_updated: "Changed the blocked words of",
   }
   const v = verbs[verb] ?? verb?.replace(/_/g, " ") ?? action
   return `${v} ${thing === "invite" && verb === "link_created" ? "an invite link" : (nouns[thing] ?? thing)}`
@@ -127,6 +134,7 @@ export function ModerationSection({
   tiers = [],
   badges = [],
   slowMode = 0,
+  blockedWords,
 }: {
   head: CommunityHead
   meId: string
@@ -139,6 +147,8 @@ export function ModerationSection({
   badges?: BadgeView[]
   /** Seconds between a member's posts, comments and chat messages (lib/communities/server/safety.ts); 0 is off. */
   slowMode?: number
+  /** The community's blocked words (worker T2, lib/communities/word-filter.ts wordSettingsOf). */
+  blockedWords?: WordSettings
 }) {
   const toast = useToast()
   const base = `/api/app/community/${head.id}`
@@ -238,6 +248,26 @@ export function ModerationSection({
     toast(approve ? "Approved. Members can see it now." : "Kept hidden")
   }
 
+  /*
+    A JOIN ALARM (lib/communities/server/safety.ts watchJoin): more people
+    joined at once than the community plausibly gets, so approval was
+    switched on and a report was opened here. Turn approval off puts the
+    door back as it was; Keep it on leaves it. Either closes the report.
+  */
+  const settleAlarm = async (r: ReportView, approvalOff: boolean) => {
+    setBusy(r.id)
+    if (approvalOff) {
+      const res = await send(base, "PATCH", { approvalRequired: false })
+      if (!res.ok) {
+        setBusy(null)
+        return toast(errorText(res.data.error))
+      }
+    }
+    await setStatus(r, "resolved", approvalOff ? "Approval turned off" : "Approval kept on")
+    setBusy(null)
+    toast(approvalOff ? "Approval is off. People can join again." : "Approval stays on")
+  }
+
   const people = useMemberActions({
     head,
     meId,
@@ -302,22 +332,23 @@ export function ModerationSection({
                 const authorAbove = Boolean(r.subject?.member && r.subject.userId !== meId && !canActOn(head.role, r.subject.member.role))
                 const canRemove = view === "open" && r.targetType !== "member" && r.targetState === "published" && head.can.moderate_content && !authorAbove
                 const held = view === "open" && (r.targetType === "post" || r.targetType === "comment") && r.targetState === "removed"
+                const system = !r.reporterName ? systemReportKind(r.note) : null
                 return (
                   <li key={r.id} className="py-3.5 pl-4 pr-2 sm:pl-5 sm:pr-3" data-report="">
                     <div className="flex items-start gap-2">
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-[#6b7280]">
-                          <StatusBadge tone={r.reason === "illegal" || r.reason === "harassment" || r.reason === "abuse" ? "critical" : "attention"}>{REASON[r.reason]}</StatusBadge>
+                          {system === "join_alarm" ? <StatusBadge tone="attention">Join alarm</StatusBadge> : system === "invite_paused" ? <StatusBadge tone="attention">Invite link turned off</StatusBadge> : <StatusBadge tone={r.reason === "illegal" || r.reason === "harassment" || r.reason === "abuse" ? "critical" : "attention"}>{REASON[r.reason]}</StatusBadge>}
                           <span className="font-medium text-[#1a1a2e]">{TARGET[r.targetType]}</span>
                           {r.subject && r.targetType !== "member" ? <span>by {r.subject.name}</span> : null}
                           <span>{relativeTime(r.createdAt)}</span>
                           {r.status === "reviewing" ? <StatusBadge tone="neutral">Reviewing</StatusBadge> : null}
                           {held ? <StatusBadge tone="attention">Held for review</StatusBadge> : r.targetState === "removed" ? <StatusBadge tone="neutral">Already removed</StatusBadge> : r.targetState === "deleted" || r.targetState === "missing" ? <StatusBadge tone="neutral">Deleted</StatusBadge> : null}
                         </div>
-                        <p className="mt-1.5 line-clamp-3 text-[14px] leading-relaxed text-[#1a1a2e]">{r.preview || "(no text)"}</p>
+                        {system ? null : <p className="mt-1.5 line-clamp-3 text-[14px] leading-relaxed text-[#1a1a2e]">{r.preview || "(no text)"}</p>}
                         {r.note && !r.reporterName ? (
                           <p className="mt-1 text-[13px] text-[#4b5563]" data-report-system="">
-                            {held ? r.note.replace(/^Held for review: /, "").replace(/^./, (c) => c.toUpperCase()) : r.note}
+                            {held ? r.note.replace(/^Held for review: /, "").replace(/^./, (c) => c.toUpperCase()) : system ? r.note.replace(/^(Join alarm|Invite link turned off): /, "").replace(/^./, (c) => c.toUpperCase()) : r.note}
                           </p>
                         ) : r.note ? (
                           <p className="mt-1 text-[13px] text-[#4b5563]">
@@ -330,6 +361,16 @@ export function ModerationSection({
                         {authorAbove && view === "open" ? <p className="mt-1 text-[12px] text-[#9ca3af]">Written by somebody ranked at or above you: an owner or admin decides.</p> : null}
                         {view === "open" ? (
                           <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                            {system === "join_alarm" && head.can.manage_settings ? (
+                              <>
+                                <button type="button" disabled={busy === r.id} onClick={() => void settleAlarm(r, true)} className={cn(buttonPrimary, "h-10 sm:h-8")} data-alarm-off="">
+                                  Turn approval off
+                                </button>
+                                <button type="button" disabled={busy === r.id} onClick={() => void settleAlarm(r, false)} className={cn(buttonSecondary, "h-10 sm:h-8")} data-alarm-keep="">
+                                  Keep it on
+                                </button>
+                              </>
+                            ) : null}
                             {held && head.can.moderate_content && !authorAbove ? (
                               <>
                                 <button type="button" disabled={busy === r.id} onClick={() => void settleHeld(r, true)} className={cn(buttonPrimary, "h-10 sm:h-8")} data-report-approve="">
@@ -345,7 +386,7 @@ export function ModerationSection({
                                 Remove {TARGET[r.targetType].toLowerCase()}
                               </button>
                             ) : null}
-                            {held && head.can.moderate_content && !authorAbove ? null : (
+                            {(held && head.can.moderate_content && !authorAbove) || (system === "join_alarm" && head.can.manage_settings) ? null : (
                               <button type="button" disabled={busy === r.id} onClick={() => void setStatus(r, "dismissed")} className={cn(buttonSecondary, "h-10 sm:h-8")}>
                                 Dismiss
                               </button>
@@ -367,6 +408,7 @@ export function ModerationSection({
         {tab === "rules" ? (
           <>
             <SlowMode head={head} initial={slowMode} />
+            <BlockedWords communityId={head.id} canEdit={head.can.manage_settings === true} initial={blockedWords} />
             <RulesEditor head={head} initial={rules} onSaved={setRuleCount} />
           </>
         ) : null}
@@ -527,7 +569,7 @@ function SlowMode({ head, initial }: { head: CommunityHead; initial: number }) {
 
 /* ── Rules ──────────────────────────────────────────────────────────────── */
 
-function RulesEditor({ head, initial, onSaved }: { head: CommunityHead; initial: CommunityRule[]; onSaved: (n: number) => void }) {
+export function RulesEditor({ head, initial, onSaved }: { head: CommunityHead; initial: CommunityRule[]; onSaved: (n: number) => void }) {
   const router = useRouter()
   const toast = useToast()
   const canEdit = head.can.manage_settings === true
@@ -613,18 +655,8 @@ function RulesEditor({ head, initial, onSaved }: { head: CommunityHead; initial:
         </span>
       </div>
       {dirty || error ? (
-        <div className="sticky bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-10 px-3 pb-3 max-md:bottom-[calc(var(--app-nav-room,0px)+0.75rem)]" data-save-bar="">
-          <div className={cn(card, "flex items-center gap-2 px-3 py-2.5 shadow-[0_8px_24px_-8px_rgba(17,24,39,0.18)]")}>
-            <p role="status" className={cn("min-w-0 flex-1 truncate px-1 text-[13px]", error ? "text-[#b91c1c]" : "text-[#6b7280]")}>
-              {error ?? "Unsaved changes"}
-            </p>
-            <button type="button" onClick={() => { setRules(JSON.parse(saved)); setError(null) }} disabled={busy} className={cn(buttonSecondary, "h-10 sm:h-9")}>
-              Discard
-            </button>
-            <button type="button" onClick={() => void save()} disabled={busy || !dirty} className={cn(buttonPrimary, "h-10 px-4 sm:h-9")} data-rules-save="">
-              {busy ? "Saving" : "Save"}
-            </button>
-          </div>
+        <div className="px-3 pb-3" data-save-bar="">
+          <EditorFoot dirty={dirty} busy={busy} error={error} onSave={() => void save()} onCancel={() => { setRules(JSON.parse(saved)); setError(null) }} />
         </div>
       ) : null}
     </div>

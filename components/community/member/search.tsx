@@ -233,7 +233,7 @@ function useCommunitySearch(communityId: string) {
   return { q, setQ, results, status, term, stale: !!results && shownFor !== term }
 }
 
-const GROUP_TITLE = { posts: "Posts", members: "Members", spaces: "Spaces", lessons: "Classroom", events: "Events" } as const
+const GROUP_TITLE = { posts: "Posts", members: "Members", spaces: "Spaces", lessons: "Learn", events: "Events" } as const
 const EVENT_DATE = new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric" })
 
 /** The grouped list, for the dropdown and the phone screen alike. */
@@ -377,7 +377,7 @@ function ResultList({
                 <span className="block truncate text-[14px] text-[#262633]">
                   <Marked text={l.title} q={term} />
                 </span>
-                <span className="block truncate text-[12.5px] text-[#6b7280]">{l.kind === "course" ? "Course" : l.course ? `Lesson in ${l.course}` : "Lesson"}</span>
+                <span className="block truncate text-[12.5px] text-[#6b7280]">{l.kind === "course" ? "Program" : l.course ? `Lesson in ${l.course}` : "Lesson"}</span>
               </span>
             </div>
           ))}

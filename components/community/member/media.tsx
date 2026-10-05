@@ -585,7 +585,7 @@ function Single({ item, communityId, onOpen }: { item: ViewerItem; communityId: 
   if (item.kind === "video") {
     return (
       <div className="overflow-hidden rounded-xl bg-black [&_[data-storelib-video]]:rounded-none" data-media-tile="video" data-post-media-grid="single">
-        <StorelibVideo communityId={communityId} videoId={item.videoId} poster={item.poster} />
+        <StorelibVideo communityId={communityId} videoId={item.videoId} poster={item.poster} width={item.w} height={item.h} />
       </div>
     )
   }

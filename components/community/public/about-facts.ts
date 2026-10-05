@@ -43,7 +43,7 @@ export function aboutFacts(c: Pick<PublicCommunityView, "visibility" | "creator"
   const posts = extras?.activity.posts30
   if (posts) out.push({ key: "posts", label: "Posts, last 30 days", value: factFigure(posts) })
   const courses = extras?.classroom?.total
-  if (courses) out.push({ key: "courses", label: "Courses", value: factFigure(courses) })
+  if (courses) out.push({ key: "courses", label: "Programs", value: factFigure(courses) })
   out.push({ key: "visibility", label: "Community", value: VISIBILITY[c.visibility] ?? VISIBILITY.public })
   const since = sinceLabel(extras?.activity.since)
   if (since) out.push({ key: "since", label: "Started", value: since })
@@ -61,7 +61,7 @@ export function aboutFigures(stats: CommunityStatsView, extras: AboutExtras | nu
   const out: StatCell[] = [{ key: "members", label: stats.members === 1 ? "Member" : "Members", value: Math.max(0, stats.members) }]
   const a = extras?.activity
   if (a?.posts30) out.push({ key: "posts", label: "Posts in 30 days", value: a.posts30 })
-  if (extras?.classroom?.total) out.push({ key: "courses", label: extras.classroom.total === 1 ? "Course" : "Courses", value: extras.classroom.total })
+  if (extras?.classroom?.total) out.push({ key: "courses", label: extras.classroom.total === 1 ? "Program" : "Programs", value: extras.classroom.total })
   if (out.length < 4 && stats.online) out.push({ key: "online", label: "Online now", value: stats.online })
   return out.slice(0, 4)
 }

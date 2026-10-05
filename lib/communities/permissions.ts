@@ -15,6 +15,9 @@
  *              approves requests, reviews reports and reads the audit log.
  *   member     reads, posts, comments, reacts, chats, uploads and reports.
  *
+ * The owner can narrow or widen what admins and moderators may do, a group
+ * at a time (PERMISSION_GROUPS below); the lines above are the defaults.
+ *
  * Being active is not decided here: a role is only handed to can() for a
  * member whose row is active (lib/communities/server/context.ts).
  */
@@ -86,9 +89,89 @@ const ALLOWED: Readonly<Record<Role, ReadonlySet<CommunityAction>>> = {
   member: new Set(MEMBER_ACTIONS),
 }
 
-/** Whether this role may do this. No role (not an active member) may do nothing. */
-export function can(role: Role | null | undefined, action: CommunityAction): boolean {
+/*
+  WHAT THE OWNER MAY HAND TO ADMINS AND MODERATORS (round 13, run-now part
+  100: communities.role_permissions). The actions an admin or a moderator may
+  take, in groups a person can read, each one on or off per role. What a
+  member may do is always theirs, and the owner only actions never move:
+  money, deleting the community and handing it over stay with the owner.
+  A community that never changed anything (or a database without the column)
+  has the defaults below, which are exactly the roles as they were:
+    admin      every group
+    moderator  posts and comments, members, reports and the audit log
+*/
+export const STAFF_ROLES = ["admin", "moderator"] as const
+export type StaffRole = (typeof STAFF_ROLES)[number]
+
+export const PERMISSION_GROUPS = [
+  { key: "content", label: "Remove, restore, pin and close comments", detail: "On any post or comment by a member ranked below them.", actions: ["moderate_content", "pin", "lock"] },
+  { key: "feature", label: "Feature posts", detail: "Pick the posts shown first on the About page.", actions: ["feature"] },
+  { key: "members", label: "Mute, suspend, ban and remove members", detail: "And approve or decline requests to join.", actions: ["mute", "suspend", "ban", "remove_member", "approve_member"] },
+  { key: "reports", label: "Review reports", detail: "The report queue, held posts and join alarms.", actions: ["review_reports"] },
+  { key: "audit", label: "Read the audit log", detail: "Who did what, and when.", actions: ["view_audit"] },
+  { key: "announce", label: "Post announcements", detail: "And mention everyone at once.", actions: ["announce", "mention_everyone"] },
+  { key: "people", label: "Invite people and change roles", detail: "Invite links, member emails and roles below their own.", actions: ["manage_members", "change_role", "invite"] },
+  { key: "spaces", label: "Manage spaces", detail: "Add, rename, order and archive spaces.", actions: ["manage_spaces"] },
+  { key: "learn", label: "Manage Learn", detail: "Programs, modules and lessons.", actions: ["manage_classroom"] },
+  { key: "events", label: "Manage the calendar", detail: "Add, change and cancel events.", actions: ["manage_events"] },
+  { key: "settings", label: "Change settings", detail: "The page, features, points and levels, and archiving.", actions: ["manage_settings", "manage_gamification", "award_points", "archive"] },
+  { key: "analytics", label: "See analytics", detail: "Members, activity and revenue.", actions: ["view_analytics"] },
+] as const satisfies readonly { key: string; label: string; detail: string; actions: readonly CommunityAction[] }[]
+
+export type PermissionKey = (typeof PERMISSION_GROUPS)[number]["key"]
+export const PERMISSION_KEYS: readonly PermissionKey[] = PERMISSION_GROUPS.map((g) => g.key)
+
+/** Per role, the groups that differ from the defaults (or all of them; extra keys are ignored). */
+export type RolePermissions = Partial<Record<StaffRole, Partial<Record<PermissionKey, boolean>>>>
+
+const GROUP_OF = new Map<CommunityAction, PermissionKey>(PERMISSION_GROUPS.flatMap((g) => g.actions.map((a) => [a as CommunityAction, g.key] as const)))
+
+/** The groups each staff role has when the owner changed nothing: the roles as they were before round 13. */
+export const DEFAULT_ROLE_PERMISSIONS: Readonly<Record<StaffRole, Readonly<Record<PermissionKey, boolean>>>> = {
+  admin: Object.fromEntries(PERMISSION_KEYS.map((k) => [k, true])) as Record<PermissionKey, boolean>,
+  moderator: Object.fromEntries(PERMISSION_KEYS.map((k) => [k, ["content", "members", "reports", "audit"].includes(k)])) as Record<PermissionKey, boolean>,
+}
+
+/**
+ * Whatever is stored (or sent), as permissions: only the two staff roles,
+ * only known groups, only booleans. Anything else is dropped, so a bad row
+ * means the defaults, never more.
+ */
+export function parseRolePermissions(raw: unknown): RolePermissions {
+  const out: RolePermissions = {}
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return out
+  for (const role of STAFF_ROLES) {
+    const given = (raw as Record<string, unknown>)[role]
+    if (!given || typeof given !== "object" || Array.isArray(given)) continue
+    const groups: Partial<Record<PermissionKey, boolean>> = {}
+    for (const key of PERMISSION_KEYS) {
+      const v = (given as Record<string, unknown>)[key]
+      if (typeof v === "boolean") groups[key] = v
+    }
+    if (Object.keys(groups).length) out[role] = groups
+  }
+  return out
+}
+
+/** Every group of a staff role, on or off, with the defaults filled in. */
+export function roleGroups(role: StaffRole, perms?: RolePermissions | null): Record<PermissionKey, boolean> {
+  return { ...DEFAULT_ROLE_PERMISSIONS[role], ...(perms?.[role] ?? {}) }
+}
+
+/**
+ * Whether this role may do this. No role (not an active member) may do
+ * nothing. `perms` is the community's role_permissions; without it an admin
+ * and a moderator have the defaults.
+ */
+export function can(role: Role | null | undefined, action: CommunityAction, perms?: RolePermissions | null): boolean {
   if (!role) return false
+  if (role === "admin" || role === "moderator") {
+    if (OWNER_ONLY_ACTIONS.includes(action)) return false
+    if (MEMBER_ACTIONS.includes(action)) return true
+    const group = GROUP_OF.get(action)
+    if (!group) return ALLOWED[role]?.has(action) ?? false
+    return perms?.[role]?.[group] ?? DEFAULT_ROLE_PERMISSIONS[role][group]
+  }
   return ALLOWED[role]?.has(action) ?? false
 }
 
@@ -109,15 +192,15 @@ export function meetsRole(role: Role | null | undefined, min: Role): boolean {
 }
 
 /** The roles an actor may give somebody: below their own, and only with change_role. */
-export function assignableRoles(actorRole: Role | null | undefined): Role[] {
-  if (!actorRole || !can(actorRole, "change_role")) return []
+export function assignableRoles(actorRole: Role | null | undefined, perms?: RolePermissions | null): Role[] {
+  if (!actorRole || !can(actorRole, "change_role", perms)) return []
   return (["admin", "moderator", "member"] as const).filter((r) => ROLE_RANK[r] < ROLE_RANK[actorRole])
 }
 
 /** Every action a role may take, for a client component that draws only what works. */
-export function allowedActions(role: Role | null | undefined): Partial<Record<CommunityAction, boolean>> {
+export function allowedActions(role: Role | null | undefined, perms?: RolePermissions | null): Partial<Record<CommunityAction, boolean>> {
   const out: Partial<Record<CommunityAction, boolean>> = {}
-  for (const a of COMMUNITY_ACTIONS) if (can(role, a)) out[a] = true
+  for (const a of COMMUNITY_ACTIONS) if (can(role, a, perms)) out[a] = true
   return out
 }
 

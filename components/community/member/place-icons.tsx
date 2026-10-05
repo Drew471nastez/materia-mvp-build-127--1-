@@ -11,7 +11,9 @@
  * decoration that is not the thing itself.
  *
  *   Community     a house: the community's home
- *   Classroom     an open book
+ *   Learn         a lesson: a screen with a play mark and the progress
+ *                 line under it (round 13, when the Classroom became Learn
+ *                 and its courses programs of video lessons)
  *   Calendar      a page with two rings and its header line
  *   Members       two people, one in front
  *   Leaderboards  three steps of a podium
@@ -33,8 +35,8 @@ const DRAWN: Record<TabKey, { lines: string[]; fill?: string[] }> = {
     fill: ["M4.5 10.2 12 4.25l7.5 5.95v8.3a1.75 1.75 0 0 1-1.75 1.75h-3.5V15a2.25 2.25 0 0 0-4.5 0v5.25h-3.5A1.75 1.75 0 0 1 4.5 18.5z"],
   },
   classroom: {
-    lines: ["M12 6.75C10.25 5.4 7.75 4.9 3.75 5.2v12.6c4-.3 6.5.2 8.25 1.55 1.75-1.35 4.25-1.85 8.25-1.55V5.2c-4-.3-6.5.2-8.25 1.55z", "M12 6.75v12.6"],
-    fill: ["M12 6.75C10.25 5.4 7.75 4.9 3.75 5.2v12.6c4-.3 6.5.2 8.25 1.55 1.75-1.35 4.25-1.85 8.25-1.55V5.2c-4-.3-6.5.2-8.25 1.55z"],
+    lines: ["M6.25 4.5h11.5A2.25 2.25 0 0 1 20 6.75v7.5a2.25 2.25 0 0 1-2.25 2.25H6.25A2.25 2.25 0 0 1 4 14.25v-7.5A2.25 2.25 0 0 1 6.25 4.5z", "M10.5 8.1v4.8l4-2.4z", "M4 19.75h5.45", "M13.55 19.75H20", "M11.5 21a1.25 1.25 0 1 0 0-2.5 1.25 1.25 0 0 0 0 2.5z"],
+    fill: ["M6.25 4.5h11.5A2.25 2.25 0 0 1 20 6.75v7.5a2.25 2.25 0 0 1-2.25 2.25H6.25A2.25 2.25 0 0 1 4 14.25v-7.5A2.25 2.25 0 0 1 6.25 4.5z"],
   },
   events: {
     lines: ["M6.25 5.5h11.5A2.25 2.25 0 0 1 20 7.75v10A2.25 2.25 0 0 1 17.75 20H6.25A2.25 2.25 0 0 1 4 17.75v-10A2.25 2.25 0 0 1 6.25 5.5z", "M4 10h16", "M8.25 3.75v3.5", "M15.75 3.75v3.5"],

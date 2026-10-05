@@ -41,7 +41,8 @@ import type { CommunityRow } from "../types"
 import { memberHref } from "@/components/community/member/person-href"
 import { rankAll, rankItem, searchWords } from "@/components/community/member/search-rank"
 import type { SearchEventHit, SearchIndex, SearchLessonHit, SearchMemberHit, SearchPostHit, SearchResults, SearchSpaceHit } from "@/components/community/member/view-types"
-import { attachedCourses, courseDenial } from "./classroom"
+import { programGate } from "../learn"
+import { ownedPrograms, programViewer, readPrograms } from "./learn"
 import type { Viewer } from "./context"
 import { missing, nowIso, reasonOf, type Db } from "./db"
 import { authorViews, excerpt, listMembers } from "./directory"
@@ -142,23 +143,26 @@ async function postHits(db: Db, communityId: string, rows: PostHitRow[], bySpace
 }
 
 /**
- * The courses this member may open (no lock: tier, product, level, role or
- * a drip not yet open), with their titles and their course ids. A locked
- * course and its lessons are never searched.
+ * The programs this member may open in Learn (lib/communities/learn.ts
+ * programGate: no tier, product, level, price or drip in the way), with
+ * their titles and their course ids. A locked program and its lessons are
+ * never searched. `productId` is the program's id, which its address uses.
  */
 async function openCourses(db: Db, community: SearchCommunityRow, viewer: Viewer): Promise<{ productId: string; title: string; courseId: string | null }[]> {
-  const attached = await attachedCourses(db, community.id)
-  if (!attached.length) return []
-  const lock = { role: viewer.role, active: viewer.active, tierId: viewer.tierId, ownedProductIds: viewer.ownedProductIds, level: viewer.level, joinedAt: viewer.member?.joined_at ?? viewer.member?.created_at ?? null }
-  const open = attached.filter((a) => !courseDenial(a, lock))
+  const { rows } = await readPrograms(db, community.id)
+  if (!rows.length) return []
+  const owned = await ownedPrograms(db, viewer.userId, rows.filter((r) => r.priceCents).map((r) => r.id))
+  const open = rows.filter((r) => programGate(r, programViewer(viewer, owned.has(r.id))).open)
   if (!open.length) return []
-  const { data: productRows } = await db.from("products").select("id, title, type").in("id", open.map((a) => a.productId))
+  const productIds = open.map((r) => r.productId).filter((id): id is string => !!id)
+  const { data: productRows } = productIds.length ? await db.from("products").select("id, title, type").in("id", productIds) : { data: [] }
   const products = new Map(((productRows as { id: string; title: string | null; type: string | null }[] | null) ?? []).filter((p) => p.type === "course").map((p) => [p.id, p]))
   const { data: courseRows } = products.size ? await db.from("courses").select("id, product_id").in("product_id", [...products.keys()]) : { data: [] }
   const courseOf = new Map(((courseRows as { id: string; product_id: string }[] | null) ?? []).map((c) => [c.product_id, c.id]))
-  return open.flatMap((a) => {
-    const p = products.get(a.productId)
-    return p ? [{ productId: p.id, title: p.title?.trim() || "Course", courseId: courseOf.get(p.id) ?? null }] : []
+  return open.flatMap((r) => {
+    if (!r.productId) return [{ productId: r.id, title: r.title?.trim() || "Program", courseId: r.courseId }]
+    const p = products.get(r.productId)
+    return p ? [{ productId: r.id, title: p.title?.trim() || "Course", courseId: courseOf.get(p.id) ?? null }] : []
   })
 }
 
@@ -168,7 +172,7 @@ async function classroomItems(db: Db, community: SearchCommunityRow, viewer: Vie
   try {
     const courses = await openCourses(db, community, viewer)
     if (!courses.length) return []
-    const base = `/community/${community.slug}/classroom`
+    const base = `/community/${community.slug}/learn`
     const out: SearchLessonHit[] = courses.map((c) => ({ id: `course:${c.productId}`, kind: "course", title: c.title, course: null, href: `${base}/${c.productId}` }))
     const courseIds = courses.map((c) => c.courseId).filter((v): v is string => !!v)
     if (!courseIds.length) return out

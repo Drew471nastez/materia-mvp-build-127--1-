@@ -118,6 +118,7 @@ export function memDb(tables: Record<string, Row[]>, options: MemOptions = {}) {
     let returning = false
     let single: "one" | "maybe" | null = null
     let limit: number | null = null
+    let refusal: { code: string; message: string } | null = null
     let countHead = false
     let count = false
     const orders: [string, boolean][] = []
@@ -130,6 +131,7 @@ export function memDb(tables: Record<string, Row[]>, options: MemOptions = {}) {
     }
 
     function run(): { data: any; error: any; count?: number | null } {
+      if (refusal) return { data: null, error: refusal }
       log.push({ table, op, filters: described })
       const fail = options.failWith?.[table]
       if (fail) return { data: null, error: fail }
@@ -219,7 +221,24 @@ export function memDb(tables: Record<string, Row[]>, options: MemOptions = {}) {
       gte: (c: string, v: unknown) => add(`${c}=gte`, (r) => r[c] != null && compare(r[c], v) >= 0),
       lt: (c: string, v: unknown) => add(`${c}=lt`, (r) => r[c] != null && compare(r[c], v) < 0),
       lte: (c: string, v: unknown) => add(`${c}=lte`, (r) => r[c] != null && compare(r[c], v) <= 0),
-      contains: (c: string, v: unknown) => add(`${c}=cs`, (r) => jsonContains(r[c], v)),
+      /*
+        WHAT POSTGREST IS SENT, NOT WHAT WAS PASSED (round 13). supabase-js
+        writes a string as it is, an array as a Postgres array literal
+        "{a,b}" and an object as JSON. A jsonb column reads that text as
+        JSON, so an array of objects ("{[object Object]}") is an error there,
+        and here: the fake answers what production answers.
+      */
+      contains: (c: string, v: unknown) => {
+        const wire = typeof v === "string" ? v : Array.isArray(v) ? `{${v.join(",")}}` : JSON.stringify(v)
+        let want: unknown
+        try {
+          want = JSON.parse(wire)
+        } catch {
+          refusal = { code: "22P02", message: `invalid input syntax for type json: ${wire}` }
+          return b
+        }
+        return add(`${c}=cs`, (r) => jsonContains(r[c], want))
+      },
       or: (s: string) => {
         const t = term(`or(${s})`)
         return add(`or=${s}`, t)

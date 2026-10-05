@@ -41,7 +41,8 @@
  * are the client parts.
  */
 import Link from "next/link"
-import { GraduationCap, Star } from "lucide-react"
+import { Star } from "lucide-react"
+import { PlaceIcon } from "@/components/community/member/place-icons"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { relativeTime } from "@/lib/communities/format"
 import { cn } from "@/lib/utils"
@@ -140,17 +141,17 @@ function OptionRow({ o, href }: { o: JoinOption; href: string | null }) {
   )
 }
 
-/** The classroom's first courses: a picture, the title, how many lessons. Titles only; nothing inside a course is shown. */
+/** Learn's first programs (round 13: the Classroom renamed): a picture, the title, how many lessons. Titles only; nothing inside one is shown. */
 function ClassroomPreview({ classroom }: { classroom: NonNullable<AboutExtras["classroom"]> }) {
   const more = classroom.total - classroom.courses.length
   return (
     <section className={SECTION} aria-labelledby="community-classroom" data-community-classroom="">
       <div className="flex items-baseline justify-between gap-3">
         <h2 id="community-classroom" className={H2}>
-          Classroom
+          Learn
         </h2>
         <span className="text-[13.5px] tabular-nums text-[#6b7280]">
-          {classroom.total} {classroom.total === 1 ? "course" : "courses"}
+          {classroom.total} {classroom.total === 1 ? "program" : "programs"}
         </span>
       </div>
       <ul className="mt-3 divide-y divide-[#eef0f2]">
@@ -161,7 +162,7 @@ function ClassroomPreview({ classroom }: { classroom: NonNullable<AboutExtras["c
                 /* eslint-disable-next-line @next/next/no-img-element */
                 <img src={optimizedImageUrl(course.coverUrl, 76)} alt="" width={76} height={46} loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" />
               ) : (
-                <GraduationCap className="h-5 w-5" strokeWidth={1.75} aria-hidden />
+                <PlaceIcon place="classroom" size={20} />
               )}
             </span>
             <span className="min-w-0">

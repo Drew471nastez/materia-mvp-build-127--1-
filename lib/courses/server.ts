@@ -166,21 +166,39 @@ export async function productAccess(db: Db, userId: string | null, productId: st
 }
 
 export interface CourseTree {
-  course: { id: string; product_id: string }
+  /** product_id is empty for a community's own program (part 102), whose modules and lessons are kept here all the same. */
+  course: { id: string; product_id: string | null }
   modules: Array<ModuleRow & { lessons: LessonRow[] }>
 }
 
-/** The course of a product, its modules and their lessons, in order. Null when it has no course. */
+/**
+ * The course of a product, its modules and their lessons, in order. Null
+ * when it has no course. A community program's id is answered too: a
+ * program has no product, and its row (community_courses, part 102) names
+ * its course. That second read only happens when no product has the id.
+ */
 export async function readCourseTree(db: Db, productId: string): Promise<CourseTree | null> {
   const { data: course } = await db.from("courses").select("id, product_id").eq("product_id", productId).maybeSingle()
-  if (!course) return null
-  const { data: modules } = await db.from("course_modules").select("*").eq("course_id", (course as { id: string }).id)
+  if (course) return readTreeOf(db, course as CourseTree["course"])
+  const { data: program, error } = await db.from("community_courses").select("course_id").eq("id", productId).maybeSingle()
+  const courseId = !error ? ((program as { course_id?: string | null } | null)?.course_id ?? null) : null
+  return courseId ? readCourseTreeById(db, courseId) : null
+}
+
+/** The same tree, from the course's own id. */
+export async function readCourseTreeById(db: Db, courseId: string): Promise<CourseTree | null> {
+  const { data: course } = await db.from("courses").select("id, product_id").eq("id", courseId).maybeSingle()
+  return course ? readTreeOf(db, course as CourseTree["course"]) : null
+}
+
+async function readTreeOf(db: Db, course: CourseTree["course"]): Promise<CourseTree> {
+  const { data: modules } = await db.from("course_modules").select("*").eq("course_id", course.id)
   const mods = ((modules ?? []) as ModuleRow[]).slice().sort(byPosition)
   const ids = mods.map((m) => m.id)
   const { data: lessons } = ids.length ? await db.from("course_lessons").select("*").in("module_id", ids) : { data: [] }
   const all = ((lessons ?? []) as LessonRow[]).slice().sort(byPosition)
   return {
-    course: course as { id: string; product_id: string },
+    course,
     modules: mods.map((m) => ({ ...m, lessons: all.filter((l) => l.module_id === m.id) })),
   }
 }
@@ -253,7 +271,17 @@ export async function readEnrollments(db: Db, userId: string, courseIds: string[
  */
 export async function syncEnrollment(
   db: Db,
-  input: { userId: string; courseId: string; productId: string; outline: OutlineModule[]; lastLessonId?: string | null; activity: boolean; now?: Date },
+  input: {
+    userId: string
+    courseId: string
+    productId: string
+    /** A community's own program: its row has no product, and its points are the program's (lib/communities/server/learn.ts). */
+    programId?: string | null
+    outline: OutlineModule[]
+    lastLessonId?: string | null
+    activity: boolean
+    now?: Date
+  },
 ): Promise<CourseProgressSummary> {
   const now = (input.now ?? new Date()).toISOString()
   const lessonIds = input.outline.flatMap((m) => m.lessons.map((l) => l.id))
@@ -285,10 +313,14 @@ export async function syncEnrollment(
     } else {
       await db
         .from("course_enrollments")
-        .upsert({ buyer_id: input.userId, course_id: input.courseId, product_id: input.productId, started_at: now, last_activity_at: now, ...row }, { onConflict: "buyer_id,course_id" })
+        .upsert({ buyer_id: input.userId, course_id: input.courseId, product_id: input.programId ? null : input.productId, started_at: now, last_activity_at: now, ...row }, { onConflict: "buyer_id,course_id" })
     }
-    /* A course in a community's classroom: its lessons count there, and finishing it earns points once. */
-    if (summary.completed > lessonsBefore || finishedNow) await courseProgressed(db, { userId: input.userId, productId: input.productId, lessonsBefore, lessonsNow: summary.completed, finished: finishedNow })
+    /* A course or a program in a community's Learn: its lessons count there, and finishing it earns points once. */
+    if (summary.completed > lessonsBefore || finishedNow) {
+      const moved = { userId: input.userId, lessonsBefore, lessonsNow: summary.completed, finished: finishedNow }
+      if (input.programId) await programProgressed(db, { ...moved, programId: input.programId })
+      else await courseProgressed(db, { ...moved, productId: input.productId })
+    }
   } catch {
     /* Before part 74: nothing to keep it in. */
   }
@@ -304,12 +336,24 @@ async function courseProgressed(db: Db, p: { userId: string; productId: string; 
   }
 }
 
+async function programProgressed(db: Db, p: { userId: string; programId: string; lessonsBefore: number; lessonsNow: number; finished: boolean }): Promise<void> {
+  try {
+    const { onProgramProgress } = await import("@/lib/communities/server/learn")
+    await onProgramProgress(db, p)
+  } catch {
+    /* Same: the progress is saved whatever the points do. */
+  }
+}
+
 /** Everything about one lesson that decides who may watch it. */
 export interface LessonContext {
   lesson: LessonRow
   module: ModuleRow
-  course: { id: string; product_id: string }
+  course: { id: string; product_id: string | null }
+  /** For a community's own program, the program standing in for a product: its id, title and the community's creator. */
   product: ProductRow
+  /** Set for a community's own program (part 102), null for a course product. */
+  programId: string | null
   creatorId: string
   access: LessonAccess
   level: ProductLevel
@@ -324,10 +368,30 @@ export async function lessonContext(db: Db, userId: string | null, lessonId: str
   const m = mod as ModuleRow
   const { data: course } = await db.from("courses").select("id, product_id").eq("id", m.course_id).maybeSingle()
   if (!course) return null
-  const c = course as { id: string; product_id: string }
+  const c = course as { id: string; product_id: string | null }
+  if (!c.product_id) return programLessonContext(db, userId, l, m, c)
   const { level, product } = await productAccess(db, userId, c.product_id)
   if (!product || !product.creator_id) return null
-  return { lesson: l, module: m, course: c, product, creatorId: product.creator_id, level, access: lessonAccess(level, !!l.is_preview) }
+  return { lesson: l, module: m, course: c, product, programId: null, creatorId: product.creator_id, level, access: lessonAccess(level, !!l.is_preview) }
+}
+
+/*
+  A LESSON OF A COMMUNITY'S OWN PROGRAM (part 102: a course with no
+  product). Who may watch is the community's answer, asked afresh every
+  time (lib/communities/server/learn.ts programLessonLevel): the people who
+  run Learn as its creator, a member the program is open to as its owner, a
+  member it is not open to yet for its free previews only, and nobody else.
+  Loaded when asked, like the community grant above.
+*/
+async function programLessonContext(db: Db, userId: string | null, lesson: LessonRow, mod: ModuleRow, course: { id: string; product_id: string | null }): Promise<LessonContext | null> {
+  try {
+    const { programLessonLevel } = await import("@/lib/communities/server/learn")
+    const found = await programLessonLevel(db, userId, course.id)
+    if (!found) return null
+    return { lesson, module: mod, course, product: found.product, programId: found.programId, creatorId: found.creatorId, level: found.level, access: lessonAccess(found.level, !!lesson.is_preview) }
+  } catch {
+    return null
+  }
 }
 
 /** A short lived address for a file of this creator's lesson, or null when the path is not theirs. */

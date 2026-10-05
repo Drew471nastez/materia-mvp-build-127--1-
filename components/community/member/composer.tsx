@@ -101,25 +101,24 @@ import * as DialogPrimitive from "@radix-ui/react-dialog"
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { createPortal, flushSync } from "react-dom"
-import { BarChart3, Check, ChevronDown, Clapperboard, FileText, GripVertical, Link2, Loader2, Paperclip, Play, Plus, X } from "lucide-react"
+import { BarChart3, Check, ChevronDown, Clapperboard, GripVertical, Link2, Loader2, Paperclip, Plus, X } from "lucide-react"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { EmojiControl } from "@/components/app/rich-text/emoji-picker"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { EMOJI_POPOVER } from "@/components/ui/popover-fit"
 import { SHEET_CLOSE_EASE, SHEET_CLOSE_MS, SHEET_EASE, SHEET_OPEN_MS } from "@/components/ui/bottom-sheet"
-import { uploadCommunityVideo } from "@/lib/video/upload-client"
 import { MAX_MEDIA_PER_POST, POLL_OPTIONS_MAX } from "@/lib/communities/limits"
 import { EMBED_NAMES, MAX_EMBEDS, MAX_GIFS, STAFF_FILE_MAX_BYTES, fileSizeLabel, postEmbedFromUrl } from "@/lib/communities/post-media"
 import type { FeedPostView, PostMedia } from "@/lib/communities/types"
 import { api, apiBase } from "./api"
 import { holdAnchor, useArrivals } from "./arrive"
+import { AttachmentTray, moveKey } from "./attachment-tray"
 import { LinkCard } from "./media"
 import { PHONE_ROW } from "./post-card"
 import { useKeepFieldInSight } from "./keep-in-sight"
 import { GifButton } from "./media-gif"
 import { LinkField, type LinkPick } from "./media-link"
-import { ProviderMark } from "./media-providers"
-import { uploadCommunityFile, uploadKindOf, uploadPicture, uploadVideoPoster } from "./media-upload"
+import { uploadCommunityFile, uploadKindOf, uploadPicture, uploadPostVideo, uploadVideoPoster } from "./media-upload"
 import { MentionTextarea, type MentionTextareaHandle } from "./mention-input"
 import { postSound, primeSounds } from "./heart"
 import { spaceGlyph } from "./space-glyph"
@@ -161,6 +160,8 @@ interface Attachment {
   preview?: string
   progress: number
   media?: PostMedia
+  /** Why it did not upload or process; the tray says so and Post waits until it is taken off. */
+  error?: string
 }
 
 interface PollDraft {
@@ -542,16 +543,16 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
     const k = newKey()
     add({ key: k, kind: "video", name: file.name, size: file.size, progress: 0 })
     try {
+      /* Post waits until the video plays: sent, then processed on a video service (media-upload.ts uploadPostVideo). */
       const [video, still] = await Promise.all([
-        uploadCommunityVideo({ endpoint: `${apiBase(communityId)}/videos`, file, onProgress: (p) => patch(k, { progress: Math.min(99, p) }) }),
-        uploadVideoPoster(file, userId, communityId),
+        uploadPostVideo({ communityId, file, key: k, onProgress: (p) => patch(k, { progress: p }), onProcessing: () => patch(k, { progress: 100 }) }),
+        uploadVideoPoster(file, userId, communityId).then((s) => (s && patch(k, { preview: s.poster }), s)),
       ])
-      if (video.status === "failed") throw new Error(video.error || "The video could not be processed.")
-      if (video.status !== "ready") throw new Error("The video is still processing. Add it again in a few minutes.")
       patch(k, { progress: 100, preview: still?.poster, media: { type: "video", videoId: video.id, ...(still ? { poster: still.poster, w: still.w, h: still.h } : {}) } })
     } catch (e) {
-      drop(k)
-      toast((e as { message?: string })?.message || "The video did not upload.")
+      const message = (e as { message?: string })?.message || "The video did not upload."
+      if (message === "Upload stopped") return drop(k)
+      patch(k, { error: message })
     }
   }
 
@@ -1091,11 +1092,7 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
         from the post's media, so the tray works the same there.
       */}
       {items.length ? (
-        <div className="mt-3 flex flex-wrap gap-2" data-composer-uploads="">
-          {items.map((u) => (
-            <AttachmentTile key={u.key} a={u} onRemove={() => removeItem(u)} />
-          ))}
-        </div>
+        <AttachmentTray className="mt-3" items={items} onMove={(k, to) => setItems((list) => moveKey(list, k, to))} onRemove={removeItem} onAdd={items.length < MAX_MEDIA_PER_POST ? () => fileInput.current?.click() : undefined} />
       ) : null}
 
       {linkMedia && preview ? (
@@ -1334,63 +1331,6 @@ function useToolbarDock(active: boolean, visible: React.RefObject<HTMLDivElement
       vis.style.height = ""
     }
   }, [active, visible, toolbar])
-}
-
-function AttachmentTile({ a, onRemove }: { a: Attachment; onRemove: () => void }) {
-  const loading = !a.media
-  if (a.kind === "file") {
-    return (
-      <div className="relative flex h-12 min-w-[180px] max-w-full items-center gap-2 rounded-xl border border-[#e8e9ec] py-1 pl-3 pr-11" data-attachment="file" data-ready={loading ? "false" : "true"}>
-        <FileText className="h-4 w-4 shrink-0 text-[#6b7280]" aria-hidden />
-        <span className="min-w-0">
-          <span className="block max-w-[200px] truncate text-[13px] font-medium text-[#1a1a2e]">{a.name}</span>
-          <span className="block text-[12px] text-[#6b7280]">{loading ? `${Math.round(a.progress)}%` : fileSizeLabel(a.size)}</span>
-        </span>
-        <RemoveButton onClick={onRemove} />
-      </div>
-    )
-  }
-  const video = a.kind === "video" || a.kind === "embed"
-  return (
-    <div className={`relative h-[76px] overflow-hidden rounded-xl bg-[#eef0f2] ${video ? "w-[120px]" : "w-[76px]"}`} data-attachment={a.kind} data-ready={loading ? "false" : "true"}>
-      {a.preview ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={a.preview} alt="" referrerPolicy={a.kind === "gif" || a.kind === "embed" ? "no-referrer" : undefined} className={`h-full w-full object-cover ${loading ? "opacity-60" : ""}`} />
-      ) : video ? (
-        <span className="absolute inset-0 bg-[#1f2230]" aria-hidden />
-      ) : null}
-      {video && !loading ? (
-        <span className="absolute inset-0 flex items-center justify-center" aria-hidden>
-          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-black/55 text-white">
-            <Play className="ml-0.5 h-3.5 w-3.5 fill-current" />
-          </span>
-        </span>
-      ) : null}
-      {a.kind === "gif" ? <span className="absolute bottom-1 left-1 rounded-[5px] bg-black/55 px-1 text-[10px] font-semibold leading-[15px] text-white">GIF</span> : null}
-      {a.media?.type === "embed" ? (
-        <span className="absolute bottom-1 left-1 flex h-5 w-5 items-center justify-center rounded-[5px] bg-white/95 shadow-[0_1px_1px_rgba(0,0,0,0.15)]" aria-label={EMBED_NAMES[a.media.provider]} data-attachment-site={a.media.provider}>
-          <ProviderMark provider={a.media.provider} size={14} />
-        </span>
-      ) : null}
-      {loading ? (
-        <span className="absolute inset-0 flex flex-col items-center justify-center gap-1 text-white" aria-label="Uploading">
-          <Loader2 className="h-5 w-5 animate-spin" />
-          {a.kind === "video" ? <span className="text-[11px] font-medium tabular-nums">{Math.round(a.progress)}%</span> : null}
-        </span>
-      ) : null}
-      <RemoveButton onClick={onRemove} />
-    </div>
-  )
-}
-
-function RemoveButton({ onClick }: { onClick: () => void }) {
-  return (
-    <button type="button" onClick={onClick} aria-label="Remove" className="absolute right-0.5 top-0.5 flex h-10 w-10 items-center justify-center">
-      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-black/55 text-white">
-        <X className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden />
-      </span>
-    </button>
-  )
 }
 
 /** The poll's fields: the Storelib field with its hairline and 1px shadow. */

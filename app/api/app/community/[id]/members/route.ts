@@ -27,7 +27,7 @@ export async function GET(request: Request, { params }: Params) {
   if (gate instanceof NextResponse) return gate
   const url = new URL(request.url)
   const query = parseMemberQuery(url.searchParams)
-  const withEmail = can(gate.role, "manage_members")
+  const withEmail = can(gate.role, "manage_members", gate.viewer.perms)
   const [page, counts] = await Promise.all([
     listMembers(gate.ctx.admin, gate.community.id, query, { withEmail }),
     url.searchParams.get("counts") === "1" ? memberCounts(gate.ctx.admin, gate.community.id) : Promise.resolve(undefined),

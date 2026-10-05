@@ -163,7 +163,13 @@ async function main() {
   check("at most ten pictures and files", !checkMedia(Array.from({ length: 11 }, () => ({ type: "image", url: "https://storelib.com/a.png" }))).ok)
   check("unknown media kinds are dropped, not stored", (checkMedia([{ type: "script", src: "x" }]) as { value: unknown[] }).value.length === 0)
   check("a video must be this community's and ready", /from\("media_videos"\)[\s\S]{0,300}r\.status === "ready"/.test(feedSrc))
-  check("the composer uploads a video through the community's video route and plays it with StorelibVideo", /uploadCommunityVideo\(\{ endpoint: `\$\{apiBase\(communityId\)\}\/videos`/.test(code("components/community/member/composer.tsx")) && /<StorelibVideo communityId=\{communityId\} videoId=\{item\.videoId\}/.test(code("components/community/member/lightbox.tsx")))
+  /* Round 13: through uploadPostVideo (media-upload.ts), which sends it on the same route and waits until it plays. */
+  check(
+    "the composer uploads a video through the community's video route and plays it with StorelibVideo",
+    /uploadPostVideo\(\{ communityId, file/.test(code("components/community/member/composer.tsx")) &&
+      /const endpoint = `\$\{apiBase\(input\.communityId\)\}\/videos`[\s\S]*uploadCommunityVideo\(\{ endpoint/.test(code("components/community/member/media-upload.ts")) &&
+      /<StorelibVideo communityId=\{communityId\} videoId=\{item\.videoId\}/.test(code("components/community/member/lightbox.tsx")),
+  )
   check("createPost keeps only files and videos that are the poster's own, for this community", /\.eq\("uploaded_by", viewer\.userId\)/.test(feedSrc) && /from\("media_videos"\)[\s\S]{0,200}\.eq\("community_id", community\.id\)/.test(feedSrc))
 
   console.log("\nPolls")
@@ -338,7 +344,7 @@ async function main() {
   check("switched off places are not drawn", off.map((e) => e.key).join() === "home,about", off.map((e) => e.key).join())
   const allOn = navEntries({ slug: "s", classroomEnabled: true, eventsEnabled: true, directoryEnabled: false, gamificationEnabled: true }, true)
   check("staff see Members even with the directory off", allOn.map((e) => e.key).join() === "home,classroom,events,members,leaderboard,about")
-  check("the pills say Community, Classroom, Calendar, Members, Leaderboards, About", allOn.map((e) => e.label).join() === "Community,Classroom,Calendar,Members,Leaderboards,About")
+  check("the pills say Community, Learn, Calendar, Members, Leaderboards, About (round 13: the Classroom is Learn)", allOn.map((e) => e.label).join() === "Community,Learn,Calendar,Members,Leaderboards,About")
   const modView = { can: allowedActions("moderator"), role: "moderator" as Role, userId: "me" }
   check("a moderator's menu: remove, pin, lock, mute and ban a member", JSON.stringify(moderationMenu(modView, { id: "x", role: "member" })) === JSON.stringify({ remove: true, pin: true, lock: true, mute: true, ban: true }))
   check("but never mute or ban an admin, or themselves", !moderationMenu(modView, { id: "x", role: "admin" }).ban && !moderationMenu(modView, { id: "me", role: "member" }).mute)

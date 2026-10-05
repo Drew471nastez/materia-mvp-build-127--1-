@@ -3,7 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { isUuid, keepsProgress } from "@/lib/courses/access"
 import { shouldAutoComplete } from "@/lib/courses/progress"
 import { PRIVATE, sessionUserId } from "@/lib/courses/route-auth"
-import { lessonContext, outlineOf, readCourseTree, syncEnrollment, toProgress } from "@/lib/courses/server"
+import { lessonContext, outlineOf, readCourseTreeById, syncEnrollment, toProgress } from "@/lib/courses/server"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -86,8 +86,8 @@ export async function POST(request: Request) {
       await admin.from("course_enrollments").update({ last_activity_at: now, last_lesson_id: lessonId }).eq("buyer_id", userId).eq("course_id", ctx.course.id)
       return NextResponse.json({ kept: true }, { headers: PRIVATE })
     }
-    const tree = await readCourseTree(admin, ctx.product.id)
-    const summary = await syncEnrollment(admin, { userId, courseId: ctx.course.id, productId: ctx.product.id, outline: outlineOf(tree), lastLessonId: lessonId, activity: true })
+    const tree = await readCourseTreeById(admin, ctx.course.id)
+    const summary = await syncEnrollment(admin, { userId, courseId: ctx.course.id, productId: ctx.product.id, programId: ctx.programId, outline: outlineOf(tree), lastLessonId: lessonId, activity: true })
     return NextResponse.json(
       { kept: true, completedAt: complete === true ? (existing?.completedAt ?? now) : complete === false ? null : (existing?.completedAt ?? null), summary },
       { headers: PRIVATE },

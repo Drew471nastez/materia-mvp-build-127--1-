@@ -313,7 +313,7 @@ async function main() {
   check("removing reported content goes through the moderation route", /send\(`\$\{base\}\/moderation`, "POST", \{ action: "remove", targetType: r\.targetType, targetId: r\.targetId/.test(modSrc))
   check("an author action from a report resolves the report", /fromReport\.current = r/.test(modSrc) && /setStatus\(r, "resolved"/.test(modSrc))
   const modPage = code("app/app/community/[id]/moderation/page.tsx")
-  check("the Moderation page reads the restricted lists and the audit log only for roles that may use them", /restrict \? page\("muted"\)/.test(modPage) && /can\(ctx\.role, "view_audit"\) \? auditLog/.test(modPage) && /rules=\{Array\.isArray\(c\.rules\)/.test(modPage))
+  check("the Moderation page reads the restricted lists and the audit log only for roles that may use them", /restrict \? page\("muted"\)/.test(modPage) && /can\(ctx\.role, "view_audit", ctx\.viewer\.perms\) \? auditLog/.test(modPage) && /rules=\{Array\.isArray\(c\.rules\)/.test(modPage))
 
   /* ── Gallery ─────────────────────────────────────────────────────────── */
   console.log("\ngallery")
@@ -383,7 +383,7 @@ async function main() {
     check("approving a request emails the person (join_approved), whether they still pay or are in",
       (approve.match(/await sendCommunityEmail\(db, "join_approved", \{ userId: a\.userId, communityId: a\.community\.id, data: \{ needsPayment: (true|false) \}, key: `approved:\$\{target\.id\}/g) ?? []).length === 2 && /needsPayment: true/.test(approve) && /needsPayment: false/.test(approve))
   }
-  check("moderation decides with can() and canActOn(), not role strings", /can\(a\.actor\.role/.test(moderation) && /canActOn\(a\.actor\.role, target\.role\)/.test(moderation))
+  check("moderation decides with can() and canActOn(), not role strings", /can\(actor\.role, action, perms\)/.test(moderation) && /actorMay\(db, a\.community\.id, a\.actor/.test(moderation) && /canActOn\(a\.actor\.role, target\.role\)/.test(moderation))
   const audited = ["createSpace", "updateSpace", "reorderSpaces", "deleteSpace", "attachCourse", "updateCourse", "reorderCourses", "detachCourse", "createEvent", "updateEvent", "setEventCancelled", "createCreatorPost", "saveLevels", "createBadge", "deleteBadge", "awardBadge", "givePoints", "grantComplimentary", "updateSettings", "setPublished", "setArchived", "deleteCommunity"]
   for (const fn of audited) {
     const at = creatorSrc.indexOf(`export async function ${fn}(`)
@@ -400,7 +400,7 @@ async function main() {
     const src = code(f)
     check(`${f}: a 404 while communities are off`, /communitiesEnabled\(\)\)\) notFound\(\)/.test(src) || /sectionPage\(id, "/.test(src))
   }
-  check("sectionPage itself 404s while off or without the permission", /if \(!\(await communitiesEnabled\(\)\)\) notFound\(\)[\s\S]{0,200}if \(!ctx \|\| !can\(ctx\.role, action\)\) notFound\(\)/.test(creatorSrc))
+  check("sectionPage itself 404s while off or without the permission", /if \(!\(await communitiesEnabled\(\)\)\) notFound\(\)[\s\S]{0,200}if \(!ctx \|\| !can\(ctx\.role, action, ctx\.viewer\.perms\)\) notFound\(\)/.test(creatorSrc))
 
   /* ── Shell ───────────────────────────────────────────────────────────── */
   console.log("\nshell")

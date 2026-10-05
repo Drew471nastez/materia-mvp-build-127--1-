@@ -236,8 +236,8 @@ async function main() {
   console.log("\nOne row of section tabs, spaces as chips")
   {
     const all = navEntries({ slug: "s", classroomEnabled: true, eventsEnabled: true, directoryEnabled: true, gamificationEnabled: true }, false)
-    check("Community, Classroom, Calendar, Members, Leaderboards, About", all.map((e) => e.label).join() === "Community,Classroom,Calendar,Members,Leaderboards,About", all.map((e) => e.label))
-    check("each to its own address", all.map((e) => e.href).join() === "/community/s,/community/s/classroom,/community/s/events,/community/s/members,/community/s/leaderboard,/community/s/about")
+    check("Community, Learn, Calendar, Members, Leaderboards, About (round 13: the Classroom is Learn)", all.map((e) => e.label).join() === "Community,Learn,Calendar,Members,Leaderboards,About", all.map((e) => e.label))
+    check("each to its own address", all.map((e) => e.href).join() === "/community/s,/community/s/learn,/community/s/events,/community/s/members,/community/s/leaderboard,/community/s/about")
     const none = navEntries({ slug: "s", classroomEnabled: false, eventsEnabled: false, directoryEnabled: false, gamificationEnabled: false }, false)
     check("only the places that are on", none.map((e) => e.label).join() === "Community,About")
     check("a space, a post, Saved and the inbox mark Community", ["/community/s/space/x", "/community/s/post/p", "/community/s/saved", "/community/s/notifications", "/community/s"].every((p) => tabFor(sectionFromPath(p, "s")) === "home"))
@@ -949,7 +949,7 @@ async function main() {
     check("an iOS style spinner: the /app ActivitySpinner itself, at its own size", /import \{ ActivitySpinner, SPINNER_SIZE \} from "@\/components\/ui\/activity-spinner"/.test(spin) && /size = SPINNER_SIZE/.test(spin) && /<ActivitySpinner size=\{size\}/.test(spin) && !/<svg/.test(spin))
     check("it waits ~160ms and fades in, so a quick place never shows it; a status for a screen reader", /export const WAIT_MS = 160/.test(spin) && /skeleton-reveal 200ms cubic-bezier\(0\.22, 1, 0\.36, 1\) \$\{WAIT_MS\}ms both/.test(spin) && /role="status"/.test(spin))
     const base = "app/(marketing)/community/[slug]"
-    const loadings = ["", "/(member)/post/[postId]", "/(member)/classroom", "/(member)/classroom/[courseProductId]", "/(member)/notifications", "/(member)/events", "/(member)/events/[eventId]", "/(member)/members", "/(member)/space/[space]", "/(member)/saved", "/(member)/leaderboard"].map((d) => `${base}${d}/loading.tsx`)
+    const loadings = ["", "/(member)/post/[postId]", "/(member)/learn", "/(member)/learn/[programId]", "/(member)/notifications", "/(member)/events", "/(member)/events/[eventId]", "/(member)/members", "/(member)/space/[space]", "/(member)/saved", "/(member)/leaderboard"].map((d) => `${base}${d}/loading.tsx`)
     const bad = loadings.filter((f) => !existsSync(f) || !/<PlaceSpinner label="[^"]+" \/>/.test(read(f)) || /Skeleton/.test(read(f)))
     check("every member page's loading screen is the spinner, none a skeleton (the community's home too)", bad.length === 0, bad)
     check("the old member skeletons are gone", !existsSync("components/community/member/skeletons.tsx"))

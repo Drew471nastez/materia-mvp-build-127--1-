@@ -34,7 +34,7 @@ import { queueCommunityFanout } from "@/lib/notifications/fanout"
 import { parseAccessRule } from "../access"
 import { priceLine } from "../format"
 import { LENGTHS, MAX_SPACES } from "../limits"
-import { allowedActions, can, meetsRole, type CommunityAction } from "../permissions"
+import { allowedActions, can, meetsRole, type CommunityAction, type RolePermissions } from "../permissions"
 import { slugify, slugWithSuffix, validSlug, validSpaceSlug } from "../slug"
 import { COMMUNITY_COLUMNS, COMMUNITY_VISIBILITIES, EVENT_COLUMNS, MEMBER_COLUMNS, NOTIFY_LEVELS, PAID_SOURCES, SPACE_COLUMNS, isOneOf, type AccessRuleJson, type CommunityRow, type EventRow, type MemberRow, type Role, type SpaceRow } from "../types"
 import {
@@ -65,6 +65,7 @@ import {
 import type {
   BadgeView,
   CommunityHead,
+  CommunityLimitView,
   CommunityListRow,
   CourseView,
   EventEditView,
@@ -83,7 +84,7 @@ import { createCommunity } from "./create"
 import { loadCommunity, viewerContext, type Viewer } from "./context"
 import { grantMembership, memberOf, revokeMembership } from "./membership"
 import { awardPoints } from "./points"
-import { queueJob } from "./notify"
+import { notifyEventChanged, queueJob } from "./notify"
 import { recordActivity } from "./activity"
 import { eventScheduled } from "./events"
 import { admin, missing, nowIso, reasonOf, type Db } from "./db"
@@ -93,6 +94,10 @@ import { openReportCount, peopleOf } from "./moderation"
 import { createPaidTier, loadTiers, pickableProducts, recurringProductIds, syncTierProducts } from "./tiers"
 import { checkGalleryForCommunity, coverAfterGallery, loadGallery, ownPicture, saveGallery } from "./gallery"
 import { keptSafety, slowModeChoice, withSlowMode } from "./safety"
+import { rolePermissionsOf, rolesView, staffPermissionsFor } from "./creator-roles"
+import { communityRoom, loadPolicies } from "./creator-policies"
+import { creatorSitePlan } from "@/lib/sites/plan-server"
+import { communityLimitFor, PLAN_LIMIT_ERROR } from "../plan-limit"
 
 export type Result<T = unknown> = ({ ok: true } & T) | { ok: false; error: string; status: number; field?: string }
 const no = (status: number, error: string, field?: string) => ({ ok: false as const, status, error, field })
@@ -170,7 +175,7 @@ export async function sectionPage(id: string, action: CommunityAction): Promise<
   if (!(await communitiesEnabled())) notFound()
   const ctx = await creatorCommunityPage(id)
   if (ctx === "no-session") return null
-  if (!ctx || !can(ctx.role, action)) notFound()
+  if (!ctx || !can(ctx.role, action, ctx.viewer.perms)) notFound()
   return ctx
 }
 
@@ -183,7 +188,7 @@ export async function creatorPaymentsReady(db: Db, creatorId: string): Promise<b
 /** The header every section shows; cached per request with the context, so the layout and the page share it. */
 export const communityHead = cache(async (ctx: CreatorPageContext): Promise<CommunityHead> => {
   const c = ctx.community
-  const openReports = can(ctx.role, "review_reports") ? await openReportCount(ctx.db, c.id) : 0
+  const openReports = can(ctx.role, "review_reports", ctx.viewer.perms) ? await openReportCount(ctx.db, c.id) : 0
   return {
     id: c.id,
     slug: c.slug,
@@ -202,27 +207,37 @@ export const communityHead = cache(async (ctx: CreatorPageContext): Promise<Comm
     classroomEnabled: c.classroom_enabled,
     eventsEnabled: c.events_enabled,
     role: ctx.role,
-    can: allowedActions(ctx.role),
+    can: allowedActions(ctx.role, ctx.viewer.perms),
     openReports,
   }
 })
 
 /* ── The list ───────────────────────────────────────────────────────────── */
 
-/** The communities this creator owns, and the ones they help run as an admin or a moderator. */
-export async function loadCreatorCommunities(db: Db, creatorId: string, userId: string): Promise<{ available: boolean; rows: CommunityListRow[] }> {
-  const LIST_COLUMNS = "id, slug, name, logo_url, status, access, visibility, member_count, post_count, created_at, creator_id, owner_user_id"
-  const [owned, staff] = await Promise.all([
+/**
+ * The communities this creator owns, and the ones they help run as an admin
+ * or a moderator, as the list's cards draw them: cover, logo, name, state,
+ * members, and the monthly revenue of a paid one for whoever may see its
+ * analytics. What each card's menu offers is the person's own: the owner's
+ * choices for their role (./creator-roles.ts) included. With them, the Free
+ * plan's limit (lib/communities/plan-limit.ts) for New community.
+ */
+export async function loadCreatorCommunities(db: Db, creatorId: string, userId: string): Promise<{ available: boolean; rows: CommunityListRow[]; limit: CommunityLimitView }> {
+  const LIST_COLUMNS = "id, slug, name, tagline, logo_url, cover_url, status, access, visibility, member_count, post_count, created_at, archived_at, creator_id, owner_user_id"
+  const [owned, staff, plan] = await Promise.all([
     db.from("communities").select(LIST_COLUMNS).eq("creator_id", creatorId).is("deleted_at", null).order("created_at", { ascending: false }).limit(100),
     db.from("community_members").select("community_id, role").eq("user_id", userId).eq("status", "active").in("role", ["admin", "moderator"]).limit(100),
+    creatorSitePlan(creatorId),
   ])
+  const limit: CommunityLimitView = { max: communityLimitFor(plan), owned: 0 }
   if (owned.error) {
-    if (missing(owned.error)) return { available: false, rows: [] }
+    if (missing(owned.error)) return { available: false, rows: [], limit }
     console.error(`[communities] creator list: ${reasonOf(owned.error)}`)
   }
-  type Lite = { id: string; slug: string; name: string; logo_url: string | null; status: CommunityRow["status"]; access: CommunityRow["access"]; visibility: CommunityRow["visibility"]; member_count: number; post_count: number; created_at: string }
+  type Lite = { id: string; slug: string; name: string; tagline: string | null; logo_url: string | null; cover_url: string | null; status: CommunityRow["status"]; access: CommunityRow["access"]; visibility: CommunityRow["visibility"]; member_count: number; post_count: number; created_at: string; archived_at: string | null }
   const rows = new Map<string, Lite & { role: Role }>()
   for (const c of (owned.data as Lite[] | null) ?? []) rows.set(c.id, { ...c, role: "owner" })
+  limit.owned = rows.size
   const staffRoles = new Map(((staff.data as { community_id: string; role: Role }[] | null) ?? []).map((m) => [m.community_id, m.role]))
   const extra = [...staffRoles.keys()].filter((id) => !rows.has(id))
   if (extra.length) {
@@ -230,12 +245,16 @@ export async function loadCreatorCommunities(db: Db, creatorId: string, userId: 
     for (const c of (data as Lite[] | null) ?? []) rows.set(c.id, { ...c, role: staffRoles.get(c.id) ?? "moderator" })
   }
   const list = [...rows.values()]
+  const perms = await staffPermissionsFor(db, list.filter((c) => c.role !== "owner").map((c) => c.id))
+  const may = (c: Lite & { role: Role }, action: CommunityAction) => can(c.role, action, perms.get(c.id) ?? null)
   const paidIds = list.filter((c) => c.access === "paid").map((c) => c.id)
   const prices = new Map<string, string>()
+  const mrr = new Map<string, { cents: number; currency: string }>()
   if (paidIds.length) {
     const { data: tiers } = await db.from("community_tiers").select("community_id, billing, product_id, is_default").in("community_id", paidIds).eq("kind", "paid").is("archived_at", null).order("position", { ascending: true })
+    const tierRows = (tiers as { community_id: string; billing: string | null; product_id: string | null; is_default: boolean }[] | null) ?? []
     const first = new Map<string, { billing: string | null; product_id: string | null }>()
-    for (const t of (tiers as { community_id: string; billing: string | null; product_id: string | null; is_default: boolean }[] | null) ?? []) if (!first.has(t.community_id) || t.is_default) first.set(t.community_id, t)
+    for (const t of tierRows) if (!first.has(t.community_id) || t.is_default) first.set(t.community_id, t)
     const productIds = [...first.values()].map((t) => t.product_id).filter((x): x is string => Boolean(x))
     if (productIds.length) {
       const [plans, products] = await Promise.all([
@@ -251,16 +270,27 @@ export async function loadCreatorCommunities(db: Db, creatorId: string, userId: 
         if (line) prices.set(cid, line)
       }
     }
+    /* The money on a card, only for somebody who may see the community's analytics: one sum per paid community, from its recurring tiers. */
+    const shown = list.filter((c) => c.access === "paid" && may(c, "view_analytics"))
+    await Promise.all(
+      shown.map(async (c) => {
+        const recurring = tierRows.filter((t) => t.community_id === c.id && t.billing === "recurring" && t.product_id).map((t) => t.product_id as string)
+        mrr.set(c.id, await monthlyRevenue(db, recurring))
+      }),
+    )
   }
   return {
     available: true,
+    limit,
     rows: list
       .sort((a, b) => b.created_at.localeCompare(a.created_at))
       .map((c) => ({
         id: c.id,
         slug: c.slug,
         name: c.name,
+        tagline: c.tagline,
         logoUrl: c.logo_url,
+        coverUrl: c.cover_url,
         status: c.status,
         access: c.access,
         visibility: c.visibility,
@@ -269,6 +299,10 @@ export async function loadCreatorCommunities(db: Db, creatorId: string, userId: 
         role: c.role,
         priceLine: c.access === "paid" ? (prices.get(c.id) ?? null) : c.access === "invite_only" ? "Invite only" : "Free",
         createdAt: c.created_at,
+        archived: c.status === "archived" || Boolean(c.archived_at),
+        mrrCents: mrr.get(c.id)?.cents ?? null,
+        currency: mrr.get(c.id)?.currency ?? "usd",
+        can: { edit: may(c, "manage_settings"), analytics: may(c, "view_analytics"), archive: may(c, "archive"), duplicate: c.role === "owner" },
       })),
   }
 }
@@ -282,6 +316,7 @@ export async function loadCreatorCommunities(db: Db, creatorId: string, userId: 
  * taken back, so a paid community never exists without a price.
  */
 export async function createFromFlow(db: Db, a: { creatorId: string; userId: string; input: CreateInput }): Promise<Result<{ community: CommunityRow }>> {
+  if (!(await communityRoom(db, a.creatorId)).ok) return no(402, PLAN_LIMIT_ERROR)
   const { access, visibility } = accessForType(a.input.type)
   const made = await createCommunity(db, {
     creatorId: a.creatorId,
@@ -432,13 +467,16 @@ export async function loadBadges(db: Db, communityId: string): Promise<BadgeView
 
 export async function loadSettings(ctx: CreatorPageContext): Promise<SettingsData> {
   const { db, community: c } = ctx
-  const [tiers, products, me, levels, badges, gallery] = await Promise.all([
+  const owner = ctx.role === "owner"
+  const [tiers, products, me, levels, badges, gallery, roles, policies] = await Promise.all([
     loadTiers(db, c.id),
     can(ctx.role, "manage_pricing") ? pickableProducts(db, ctx.creatorId) : Promise.resolve([] as PickProduct[]),
     memberOf(db, c.id, ctx.userId),
     loadLevels(db, c.id),
     loadBadges(db, c.id),
     loadGallery(db, c.id),
+    owner ? rolePermissionsOf(db, c.id) : Promise.resolve(null),
+    owner ? loadPolicies(db, c.id) : Promise.resolve(null),
   ])
   return {
     description: htmlToText(c.description),
@@ -465,6 +503,8 @@ export async function loadSettings(ctx: CreatorPageContext): Promise<SettingsDat
     gallery: gallery.items,
     galleryReady: gallery.ready,
     galleryVideos: gallery.videos,
+    roles: roles ? { ready: roles.ready, ...rolesView(roles.perms) } : null,
+    policies,
   }
 }
 
@@ -491,13 +531,13 @@ export function settingNeeds(field: string): CommunityAction {
  * field that is not there is left as it is. Answers the community as it now
  * is, or the first field that was refused.
  */
-export async function updateSettings(db: Db, a: { community: CommunityRow; role: Role; actorId: string; creatorId: string; body: Record<string, unknown> }): Promise<Result<{ community: CommunityRow }>> {
+export async function updateSettings(db: Db, a: { community: CommunityRow; role: Role; perms?: RolePermissions | null; actorId: string; creatorId: string; body: Record<string, unknown> }): Promise<Result<{ community: CommunityRow }>> {
   const b = a.body
   const c = a.community
   const patch: Record<string, unknown> = {}
   const changed: string[] = []
   for (const key of Object.keys(b)) {
-    if (!can(a.role, settingNeeds(key))) return no(403, "forbidden", key)
+    if (!can(a.role, settingNeeds(key), a.perms)) return no(403, "forbidden", key)
   }
   if (b.name !== undefined) {
     const name = typeof b.name === "string" ? b.name.replace(/\s+/g, " ").trim() : ""
@@ -1046,6 +1086,8 @@ export async function updateEvent(db: Db, a: { community: CommunityRow; creatorI
   if (error || !data) return no(500, "The event could not be saved. Try again.")
   await audit(db, { communityId: a.community.id, actorId: a.actorId, actorKind: "member", action: "event.updated", targetType: "event", targetId: e.id, targetLabel: a.input.title, detail: { moved: patch.starts_at !== e.starts_at } })
   if (patch.starts_at !== e.starts_at) await eventScheduled(db, data as EventRow, { announce: false })
+  /* Members who are going hear that it moved (worker N2's fan out, lib/communities/server/notify.ts). */
+  if (patch.starts_at !== e.starts_at) await notifyEventChanged(db, { eventId: e.id, communityId: a.community.id, change: "moved", startsAt: (data as EventRow).starts_at, actorId: a.actorId })
   return { ok: true, event: eventView(data as EventRow) }
 }
 
@@ -1056,6 +1098,7 @@ export async function setEventCancelled(db: Db, a: { communityId: string; eventI
   if (error) return no(500, "That did not save. Try again.")
   await audit(db, { communityId: a.communityId, actorId: a.actorId, actorKind: "member", action: a.cancelled ? "event.cancelled" : "event.restored", targetType: "event", targetId: e.id, targetLabel: e.title })
   if (!a.cancelled) await eventScheduled(db, { ...e, status: "scheduled" }, { announce: false })
+  else await notifyEventChanged(db, { eventId: e.id, communityId: a.communityId, change: "cancelled", actorId: a.actorId })
   return { ok: true }
 }
 
@@ -1107,14 +1150,14 @@ export async function loadFeedRows(db: Db, communityId: string, opts: { cursor: 
  * activity feed. In the Announcements space it is an announcement, and
  * members hear about it through the announcement fan out.
  */
-export async function createCreatorPost(db: Db, a: { community: CommunityRow; role: Role; actorId: string; spaceId: unknown; title: unknown; body: unknown; pin?: boolean }): Promise<Result<{ id: string }>> {
+export async function createCreatorPost(db: Db, a: { community: CommunityRow; role: Role; perms?: RolePermissions | null; actorId: string; spaceId: unknown; title: unknown; body: unknown; pin?: boolean }): Promise<Result<{ id: string }>> {
   if (a.community.status === "archived" || a.community.archived_at) return no(403, "archived")
   if (!isUuid(a.spaceId)) return no(400, "Pick a space.", "space")
   const space = await spaceOf(db, a.community.id, a.spaceId)
   if (!space || space.archived_at || space.kind === "chat") return no(404, "That space is not in this community.", "space")
   if (!can(a.role, "post") || !meetsRole(a.role, space.post_role)) return no(403, "forbidden", "space")
   const announcement = space.kind === "announcements"
-  if (announcement && !can(a.role, "announce")) return no(403, "forbidden", "space")
+  if (announcement && !can(a.role, "announce", a.perms)) return no(403, "forbidden", "space")
   const title = typeof a.title === "string" ? a.title.replace(/\s+/g, " ").trim() : ""
   if (title.length > LENGTHS.postTitle.max) return no(400, `A title is up to ${LENGTHS.postTitle.max} characters.`, "title")
   const text = typeof a.body === "string" ? a.body.replace(/\r\n?/g, "\n").trim() : ""
@@ -1131,7 +1174,7 @@ export async function createCreatorPost(db: Db, a: { community: CommunityRow; ro
       title: title || null,
       body: text ? sanitizeDescription(textToHtml(text)) : "",
       body_text: text,
-      pinned: a.pin === true && can(a.role, "pin"),
+      pinned: a.pin === true && can(a.role, "pin", a.perms),
       last_activity_at: now,
     })
     .select("id")

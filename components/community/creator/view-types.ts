@@ -5,7 +5,7 @@
  * row it should not, and never imports server code to know a shape.
  * Emails appear only in fields the server fills for an owner or an admin.
  */
-import type { CommunityAction } from "@/lib/communities/permissions"
+import type { CommunityAction, PermissionKey } from "@/lib/communities/permissions"
 import type {
   AccessRuleJson,
   CommunityAccess,
@@ -73,6 +73,23 @@ export interface CommunityListRow {
   role: Role
   priceLine: string | null
   createdAt: string
+  /** Round 13 cards: the cover, the line under the name, and the money when this person may see it. */
+  coverUrl: string | null
+  tagline: string | null
+  /** Monthly recurring revenue, for a paid community and somebody allowed to see analytics; else null. */
+  mrrCents: number | null
+  currency: string
+  archived: boolean
+  /** What this person may do from the card's menu (the owner's choices for their role included). */
+  can: { edit: boolean; analytics: boolean; archive: boolean; duplicate: boolean }
+}
+
+/** The Free plan's community limit as the list sees it (lib/communities/plan-limit.ts). */
+export interface CommunityLimitView {
+  /** Null: no limit on this plan. */
+  max: number | null
+  /** Communities this account owns now, archived ones included. */
+  owned: number
 }
 
 export interface UpcomingEvent {
@@ -167,6 +184,26 @@ export interface SettingsData {
   galleryReady: boolean
   /** What the editor shows for each video in the gallery. */
   galleryVideos: Record<string, GalleryVideoView>
+  /** What admins and moderators may do: the owner's only (null for anybody else). */
+  roles: RolesView | null
+  /** The refund policy and contact email: the owner's only (null for anybody else). */
+  policies: PoliciesView | null
+}
+
+/** Settings, Roles (run-now part 100): each staff role's groups, on or off. */
+export interface RolesView {
+  /** False until part 100 has run: the defaults are shown and saving waits for the update. */
+  ready: boolean
+  admin: Record<PermissionKey, boolean>
+  moderator: Record<PermissionKey, boolean>
+}
+
+/** Settings, Rules and policies (worker M's columns, run-now part 101). */
+export interface PoliciesView {
+  ready: boolean
+  refundPolicy: string
+  contactEmail: string
+  contactEmailPublic: boolean
 }
 
 export interface GalleryVideoView {
@@ -322,6 +359,36 @@ export interface BadgeView {
   awarded: number
 }
 
+/* ── Money and growth (lib/communities/server/stats.ts) ─────────────────── */
+
+export interface RevenueStats {
+  currency: string
+  mrrCents: number
+  activeSubscribers: number
+  newSubscribers: number
+  cancellations: number
+  /** Why, when the cancellations record says (worker M's part 101); otherwise empty. */
+  reasons: { reason: string; count: number }[]
+  latestCancellations: { reason: string; note: string | null; endsAt: string | null; createdAt: string }[]
+  /** Percent, one decimal, or null when there was nobody to lose. */
+  churnRate: number | null
+  refunds: { count: number; totalCents: number; currency: string }
+}
+
+export interface JoinStats {
+  total: number
+  bySource: { source: MemberSource; count: number }[]
+  invites: { id: string; label: string; uses: number; revoked: boolean }[]
+}
+
+export interface MoneyAndGrowth {
+  days: number
+  /** Null for a community that sells nothing. */
+  revenue: RevenueStats | null
+  joins: JoinStats
+  active: { last7: number; last30: number }
+}
+
 export interface AnalyticsView {
   days: number
   today: string
@@ -339,6 +406,8 @@ export interface AnalyticsView {
   /** Whether the daily rollup has written anything yet. */
   rolledUp: boolean
   topPosts: { id: string; title: string; reactions: number; comments: number }[]
+  /** Revenue, joins by source and active members (round 13); absent from an older answer. */
+  money?: MoneyAndGrowth
 }
 
 /** What an access rule can name in this community, for the editors. */

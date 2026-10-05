@@ -11,7 +11,7 @@ export function ClassroomSkeleton() {
   return (
     <section aria-busy="true" aria-label="Loading the classroom">
       <header className="mb-4 flex items-baseline justify-between gap-3 sm:mb-5">
-        <h1 className="text-[22px] font-bold tracking-[-0.01em] text-[#1a1a2e] sm:text-[24px]">Classroom</h1>
+        <h1 className="text-[22px] font-bold tracking-[-0.01em] text-[#1a1a2e] sm:text-[24px]">Learn</h1>
       </header>
       <ul className="skeleton-deferred grid grid-cols-1 gap-3 min-[520px]:grid-cols-2 sm:gap-4 xl:grid-cols-3">
         {Array.from({ length: 6 }, (_, i) => (

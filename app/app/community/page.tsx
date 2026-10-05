@@ -19,5 +19,5 @@ export default async function CreatorCommunitiesPage() {
   const creator = await creatorForRequest(user.id)
   if (!creator) redirect("/app")
   const list = await loadCreatorCommunities(admin(), creator.id, user.id)
-  return <CommunityList available={list.available} rows={list.rows} />
+  return <CommunityList available={list.available} rows={list.rows} limit={list.limit} />
 }

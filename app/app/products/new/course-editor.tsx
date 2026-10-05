@@ -32,10 +32,11 @@ import { SWITCH_GROUP, SwitchRow } from "./editor-controls"
 import { useConfirm } from "./confirm-sheet"
 
 const TOOL =
-  "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[#6b7280] outline-none transition-colors duration-100 hover:bg-[#eceef1] hover:text-[#1a1a2e] focus-visible:shadow-[inset_0_0_0_2px_#9ca3af] disabled:pointer-events-none disabled:opacity-35 sm:h-8 sm:w-8 [-webkit-tap-highlight-color:transparent]"
+  "inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-[#6b7280] outline-none transition-colors duration-100 hover:bg-[#eceef1] hover:text-[#1a1a2e] focus-visible:shadow-[inset_0_0_0_2px_#9ca3af] disabled:pointer-events-none disabled:opacity-35 sm:h-8 sm:w-8 [-webkit-tap-highlight-color:transparent]"
 const FIELD =
   "w-full rounded-xl border border-gray-200 bg-white px-3 text-[16px] text-[#1a1a2e] outline-none transition-shadow placeholder:text-[#9ca3af] focus:border-[#8b5cf6] focus:ring-2 focus:ring-[#8b5cf6]/15 sm:text-sm"
-const SMALL = cn(secondaryDepth, "h-8 shrink-0 rounded-lg px-3 text-[13px]")
+/* 40px on a phone, the tap size every phone control here keeps; 32px from 640px as before. */
+const SMALL = cn(secondaryDepth, "h-10 shrink-0 rounded-lg px-3 text-[13px] sm:h-8")
 
 type Uploading = { percent: number; name: string; sent: number; total: number; retrying: boolean; stop: () => void }
 
@@ -258,7 +259,7 @@ function ModuleBlock(props: {
           }}
           onKeyDown={(e) => e.key === "Enter" && (e.currentTarget as HTMLInputElement).blur()}
           aria-label="Module name"
-          className="min-w-0 flex-1 rounded-lg bg-transparent px-2 py-1.5 text-[16px] font-semibold text-[#1a1a2e] outline-none focus:bg-white focus:ring-2 focus:ring-[#8b5cf6]/20 sm:text-sm"
+          className="min-h-10 min-w-0 flex-1 rounded-lg bg-transparent px-2 py-1.5 text-[16px] font-semibold sm:min-h-0 text-[#1a1a2e] outline-none focus:bg-white focus:ring-2 focus:ring-[#8b5cf6]/20 sm:text-sm"
         />
         {modules.length > 1 ? (
           <>
@@ -315,7 +316,7 @@ function ModuleBlock(props: {
         <button
           type="button"
           disabled={props.busy}
-          className="inline-flex h-9 items-center gap-1.5 rounded-lg px-2 text-[13px] font-medium text-[#6b7280] hover:bg-[#f4f5f7] hover:text-[#1a1a2e]"
+          className="inline-flex h-10 items-center gap-1.5 rounded-lg px-2 text-[13px] font-medium text-[#6b7280] sm:h-9 hover:bg-[#f4f5f7] hover:text-[#1a1a2e]"
           onClick={async () => {
             const next = await act({ action: "add-lesson", moduleId: m.id, title: `Lesson ${m.lessons.length + 1}` })
             const mod = next?.modules.find((x) => x.id === m.id)
