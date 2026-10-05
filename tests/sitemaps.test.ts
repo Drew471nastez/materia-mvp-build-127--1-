@@ -192,7 +192,7 @@ section("Pages a visitor can reach but no index should hold carry noindex")
       && !/\.or\(`slug\.eq\./.test(site) && /creatorIdByHandle\(lower, admin\)/.test(code("lib/website-builder/published-site.ts")))
   check("a preview is noindex", /return \{ title: "Preview", robots: \{ index: false, follow: false \} \}/.test(site))
   for (const layout of ["app/app/layout.tsx", "app/website-builder/layout.tsx", "app/account/library/layout.tsx", "app/creator-page/layout.tsx", "app/dashboard/layout.tsx", "app/store/[creatorSlug]/themes/[installId]/editor/page.tsx"]) {
-    check(`  ${layout} is noindex`, /export const metadata: Metadata = \{ robots: \{ index: false, follow: false \} \}/.test(code(layout)))
+    check(`  ${layout} is noindex`, /export const metadata: Metadata = \{ (?:title: [^\n]*?, )?robots: \{ index: false, follow: false \} \}/.test(code(layout)))
   }
   const product = code("app/(marketing)/p/[slug]/page.tsx")
   check("a product page's robots tag is the sitemap's rule", /index: productIndexable\(product, sellerHandle \?\? null\)/.test(product))
