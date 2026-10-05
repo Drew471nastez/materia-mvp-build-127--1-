@@ -120,16 +120,19 @@ export function cropFromBody(value: unknown): CoverCrop | null {
 
 /**
  * THE BAND'S SHAPE AT A GIVEN WIDTH. The profile's cover runs edge to edge
- * at a fixed height (components/profile/profile-hero.tsx: 148px on a phone,
- * 220 from 640px, 294 from 1024px), so its shape is the window's width over
+ * at a fixed height (components/profile/profile-hero.tsx: 157px on a phone,
+ * 233 from 640px, 312 from 1024px), so its shape is the window's width over
  * that height. Settings previews the crop in a frame of exactly that shape:
  * a crop depends only on the frame's shape, never its size.
  *
  * FIFTEEN PERCENT TALLER than the 128 / 192 / 256 it was: the owner asked
  * for the cover in /account and in Settings "a little taller (about +15%)".
  * Settings' frame follows on its own, since it takes this shape.
+ *
+ * AND SIX PERCENT MORE (round 11): "a very little taller (about +6%)",
+ * 148 / 220 / 294 to 157 / 233 / 312.
  */
-export const PROFILE_COVER_HEIGHTS = { phone: 148, sm: 220, lg: 294 } as const
+export const PROFILE_COVER_HEIGHTS = { phone: 157, sm: 233, lg: 312 } as const
 
 export function profileBandAspect(viewportWidth: number): number {
   const w = Number.isFinite(viewportWidth) && viewportWidth > 0 ? viewportWidth : 390

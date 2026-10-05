@@ -15,6 +15,7 @@
 import { centsFromInput } from "@/lib/memberships/plan"
 import { assignableRoles, canActOn } from "@/lib/communities/permissions"
 import { LENGTHS, MAX_BENEFITS, MAX_FAQ, MAX_LEVELS, MAX_LINKS, MAX_RULES } from "@/lib/communities/limits"
+import { embedFromUrl, embedThumbUrl, type EmbedRef } from "@/lib/communities/post-media"
 import { EVENT_KINDS, POST_ROLES, ROLES, SPACE_KINDS, isOneOf, type AccessRuleJson, type CommunityAccess, type CommunityFaq, type CommunityLink, type CommunityRule, type CommunityVisibility, type EventKind, type PostRole, type Role, type SpaceKind } from "@/lib/communities/types"
 
 export type Checked<T> = { ok: true; value: T } | { ok: false; error: string; field: string }
@@ -602,14 +603,61 @@ export const SPACE_KIND_LABEL: Record<SpaceKind, string> = { feed: "Discussion",
 /** Pictures and videos at the top of the community's page, in order. */
 export const GALLERY_MAX = 12
 
-export type GalleryItem = { type: "image"; url: string } | { type: "video"; videoId: string }
+/**
+ * A YouTube or Vimeo video in the gallery (round 11), kept as the post
+ * composer keeps one (lib/communities/post-media embedFromUrl): which
+ * service, its id, Vimeo's private hash, and its still. The still is
+ * YouTube's own picture (i.ytimg.com, from the id) or the one Vimeo's oEmbed
+ * answered when it was saved (i.vimeocdn.com), never an address the creator
+ * typed. `cover` (only ever on the first item) makes it the community's
+ * cover: the page leads with it and its still stands in for the cover
+ * picture wherever a still is needed (Explore, a shared link).
+ */
+export type GalleryEmbed = { type: "embed"; provider: "youtube" | "vimeo"; id: string; hash?: string; thumb?: string; cover?: true }
+
+export type GalleryItem = { type: "image"; url: string } | { type: "video"; videoId: string } | GalleryEmbed
+
+/** The one string an item is known by: its picture, its upload's id, or the service and id of a linked video. */
+export function galleryKey(i: GalleryItem): string {
+  return i.type === "image" ? i.url : i.type === "video" ? i.videoId.toLowerCase() : `${i.provider}:${i.id}`
+}
+
+/**
+ * A YouTube or Vimeo link (or a stored item) as a gallery item, or null for
+ * anything else. A link the creator pastes and a stored item go through the
+ * same parse, so a stored id is only ever one embedFromUrl accepted.
+ */
+export function galleryEmbed(raw: unknown): GalleryEmbed | null {
+  let ref: EmbedRef | null = null
+  if (typeof raw === "string") ref = embedFromUrl(raw)
+  else if (raw && typeof raw === "object") {
+    const it = raw as Record<string, unknown>
+    if (typeof it.url === "string") ref = embedFromUrl(it.url)
+    else if ((it.provider === "youtube" || it.provider === "vimeo") && typeof it.id === "string") {
+      const hash = typeof it.hash === "string" && /^[A-Za-z0-9]{1,40}$/.test(it.hash) ? it.hash : ""
+      ref = embedFromUrl(it.provider === "youtube" ? `https://www.youtube.com/watch?v=${it.id}` : `https://vimeo.com/${it.id}${hash ? `/${hash}` : ""}`)
+    }
+    if (ref && it.provider && it.provider !== ref.provider) ref = null
+  }
+  if (!ref) return null
+  const stored = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {}
+  const thumb = ref.provider === "youtube" ? ref.thumb : embedThumbUrl(stored.thumb) ?? undefined
+  return { type: "embed", provider: ref.provider, id: ref.id, ...(ref.hash ? { hash: ref.hash } : {}), ...(thumb ? { thumb } : {}), ...(stored.cover === true ? { cover: true as const } : {}) }
+}
+
+/** The cover video, when the first item is one. */
+export function coverVideo(items: readonly GalleryItem[]): GalleryEmbed | null {
+  const first = items[0]
+  return first && first.type === "embed" && first.cover ? first : null
+}
 
 /**
  * A gallery as the route stores it in communities.gallery: at most twelve,
  * pictures only from our own storage (`ownUrl` answers the URL it accepts,
  * or null), videos by the id of a video uploaded to this community (the
- * route then checks each id is one). The same picture or video twice is
- * kept once.
+ * route then checks each id is one), YouTube and Vimeo videos by a link
+ * embedFromUrl accepts (anything else is refused with what to do). The same
+ * picture or video twice is kept once; `cover` stays on the first item only.
  */
 export function checkGallery(raw: unknown, ownUrl: (url: unknown) => string | null): Checked<GalleryItem[]> {
   if (!Array.isArray(raw)) return { ok: false, field: "gallery", error: "The gallery is a list." }
@@ -630,6 +678,14 @@ export function checkGallery(raw: unknown, ownUrl: (url: unknown) => string | nu
       if (seen.has(id)) continue
       seen.add(id)
       out.push({ type: "video", videoId: id })
+    } else if (item.type === "embed") {
+      const embed = galleryEmbed(item)
+      if (!embed) return { ok: false, field: "gallery", error: "Only YouTube and Vimeo links can be added as a video." }
+      const key = galleryKey(embed)
+      if (seen.has(key)) continue
+      seen.add(key)
+      if (out.length > 0) delete embed.cover
+      out.push(embed)
     } else {
       return { ok: false, field: "gallery", error: "A gallery holds pictures and videos." }
     }

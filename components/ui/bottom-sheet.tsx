@@ -163,7 +163,7 @@
 import { startTransition, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { cn } from "@/lib/utils"
-import { bottomAboveKeyboard } from "@/lib/ui/keyboard-safe-sheet"
+import { readPublishedKeyboardInset, sheetFoot, sheetOverKeyboard } from "@/lib/ui/keyboard-safe-sheet"
 /* The builder sheet's arithmetic, so the two move alike (pure: no DOM, no React). */
 import { releaseVelocity, rubberBand, snapMotion, snapTarget, curveCss, type Sample } from "@/components/website-builder/sheet-gestures"
 
@@ -200,8 +200,14 @@ const SLOP_PX = 6
 const MAX_SAMPLES = 12
 /** The longest an open will wait for its pictures to decode. */
 const IMAGE_WAIT_MS = 120
-/** The keyboard's own slide, near enough, so the sheet rides up with it. */
-const KEYBOARD_MOVE = "bottom 250ms cubic-bezier(0.32, 0.72, 0, 1)"
+/**
+ * The keyboard's own slide, near enough, so the sheet's content rides up with
+ * it. The panel itself never moves (A SHEET ON THE KEYBOARD STILL PAINTS TO
+ * THE FOOT OF THE SCREEN, lib/ui/keyboard-safe-sheet): what changes is the
+ * room taken out of it at the bottom, and the box grown by the same amount,
+ * so these three carry the move the way `bottom` used to.
+ */
+const KEYBOARD_MOVE = "padding-bottom 250ms cubic-bezier(0.32, 0.72, 0, 1), height 250ms cubic-bezier(0.32, 0.72, 0, 1), max-height 250ms cubic-bezier(0.32, 0.72, 0, 1)"
 
 /** How long after the page settles a kept sheet is built, at the latest. */
 const PREWARM_TIMEOUT_MS = 4000
@@ -209,6 +215,29 @@ const PREWARM_TIMEOUT_MS = 4000
 const REST_STYLE: React.CSSProperties = { visibility: "hidden", pointerEvents: "none" }
 
 const translate = (y: number) => `translate3d(0, ${y.toFixed(1)}px, 0)`
+
+/**
+ * ===========================================================================
+ *  THE SHEET THE EYE SEES, AND THE BOX THAT PAINTS IT
+ * ===========================================================================
+ * A sheet on the keyboard keeps its box down to the foot of the screen and
+ * holds the keyboard's room at the bottom as padding (sheetOverKeyboard, and
+ * the note it carries). So the box is taller than the sheet anybody can see,
+ * by exactly the published inset.
+ *
+ * Every number the motion works in is the COLUMN, not the box: how far a
+ * drag has to travel before it means dismiss, how fast the scrim fades
+ * beside it, how long a close takes. Measured against the box instead, a
+ * sheet with the keyboard up would need a longer pull to close and would
+ * keep a little scrim at the end of one. The one number that is the whole
+ * box is the distance that takes the panel off the screen.
+ *
+ * With no keyboard the inset is 0 and the two are the same number, which is
+ * every sheet in the app at rest: nothing about any of this is reached.
+ */
+function panelLift(aboveKeyboard: boolean): number {
+  return aboveKeyboard ? readPublishedKeyboardInset() : 0
+}
 
 /** Where the sheet really is right now, running animation included. */
 function readY(el: HTMLElement): number {
@@ -503,7 +532,10 @@ export function BottomSheet({
   const fromHandleRef = useRef(false)
   const scrollerRef = useRef<HTMLElement | null>(null)
   const offsetRef = useRef(0)
+  /** The column: what the sheet looks like it is (panelLift). */
   const heightRef = useRef(0)
+  /** The box: how far down the panel has to go to be off the screen. */
+  const goneRef = useRef(0)
   const rafRef = useRef<number | null>(null)
   const animsRef = useRef<Animation[]>([])
   const closingRef = useRef(false)
@@ -530,7 +562,13 @@ export function BottomSheet({
   const dismissibleRef = useRef(dismissible)
   const onRaiseRef = useRef(onRaise)
   const keepRef = useRef(keepMounted)
-  useEffect(() => { onCloseRef.current = onClose; onClosedRef.current = onClosed; onOpenedRef.current = onOpened; waitRef.current = waitForImages; dismissibleRef.current = dismissible; onRaiseRef.current = onRaise; keepRef.current = keepMounted })
+  const aboveKbRef = useRef(aboveKeyboard)
+  useEffect(() => { onCloseRef.current = onClose; onClosedRef.current = onClosed; onOpenedRef.current = onOpened; waitRef.current = waitForImages; dismissibleRef.current = dismissible; onRaiseRef.current = onRaise; keepRef.current = keepMounted; aboveKbRef.current = aboveKeyboard })
+  /** Both numbers off the panel as it stands now (THE SHEET THE EYE SEES). */
+  const sizeUp = useCallback((sheet: HTMLElement) => {
+    goneRef.current = sheet.offsetHeight || goneRef.current || 600
+    heightRef.current = Math.max(1, goneRef.current - panelLift(aboveKbRef.current))
+  }, [])
   /** Where the open sheet rests: 0 at the top, or `lowered` below it. */
   const restRef = useRef(0)
   /**
@@ -676,7 +714,7 @@ export function BottomSheet({
     if (atRest) return
     const sheet = sheetRef.current
     if (!sheet) return
-    heightRef.current = sheet.offsetHeight || 600
+    sizeUp(sheet)
     if (isOpen) {
       closingRef.current = false
       /* A fresh open is unsettled again, so the keyboard curve waits for this one too. */
@@ -686,7 +724,7 @@ export function BottomSheet({
       const fresh = !animsRef.current.length
       /* A kept sheet opens at the top of its content, as a new one would. */
       if (fresh && keepRef.current && bodyRef.current) bodyRef.current.scrollTop = 0
-      const from = fresh ? heightRef.current : readY(sheet)
+      const from = fresh ? goneRef.current : readY(sheet)
       const pictures = waitRef.current && fresh
         ? Array.from(sheet.querySelectorAll("img")).filter((img) => img.loading !== "lazy" && typeof img.decode === "function")
         : []
@@ -730,7 +768,7 @@ export function BottomSheet({
       else setPresent(false)
       onClosedRef.current?.()
     }, CLOSE_EASE)
-  }, [isOpen, present, mounted, atRest, glide, currentY])
+  }, [isOpen, present, mounted, atRest, glide, currentY, sizeUp])
 
   useEffect(() => () => {
     stopMotion()
@@ -766,7 +804,7 @@ export function BottomSheet({
       /* A kept sheet at rest was never on screen: nothing to see leave. */
       if (!root || !sheet || atRestRef.current) return
       const scrim = scrimRef.current
-      leaveBehind(root, currentY(), heightRef.current || sheet.offsetHeight, scrim ? Number(getComputedStyle(scrim).opacity) || 0 : 0)
+      leaveBehind(root, currentY(), goneRef.current || sheet.offsetHeight, scrim ? Number(getComputedStyle(scrim).opacity) || 0 : 0)
     }
   })
   useLayoutEffect(() => {
@@ -806,7 +844,12 @@ export function BottomSheet({
     }
     closingRef.current = true
     const sheet = sheetRef.current
+    /* Again now: a keyboard that came up after the sheet did changed both
+       numbers, and a close is the one move that has to clear the box. */
+    if (sheet) sizeUp(sheet)
     const h = heightRef.current || sheet?.offsetHeight || 600
+    /* Off the screen is the box; how long that takes is the column, as it was. */
+    const gone = Math.max(h, goneRef.current || h)
     const from = currentY()
     const travel = Math.max(1, h - from)
     /* A release keeps the finger's speed; a tap outside or Escape eases in and out over what is left. */
@@ -820,7 +863,7 @@ export function BottomSheet({
          rather than leave a sheet it still thinks is open. */
       if (isOpenRef.current) {
         if (rootRef.current) rootRef.current.style.pointerEvents = ""
-        glide(h, restRef.current, OPEN_MS)
+        glide(gone, restRef.current, OPEN_MS)
         return
       }
       pinLimitRef.current = 0
@@ -828,7 +871,7 @@ export function BottomSheet({
       else setPresent(false)
       onClosedRef.current?.()
     }
-    glide(from, h, ms, () => {
+    glide(from, gone, ms, () => {
       /* Arrived before the parent was told (a background tab draws no frames): tell it, and give it a moment to answer. */
       if (tellNow()) window.setTimeout(settled, 50)
       else settled()
@@ -845,7 +888,7 @@ export function BottomSheet({
     const tell = { raf: 0, timer: 0 }
     tell.raf = requestAnimationFrame(() => { tell.timer = window.setTimeout(tellNow, 0) })
     tellRef.current = tell
-  }, [currentY, glide, springBack, tellNow])
+  }, [currentY, glide, springBack, tellNow, sizeUp])
 
   const requestClose = useCallback(() => { dismiss(0) }, [dismiss])
 
@@ -885,7 +928,7 @@ export function BottomSheet({
         sheet.style.transform = translate(y)
         schedule()
       }
-      heightRef.current = sheet.offsetHeight || heightRef.current
+      sizeUp(sheet)
       pendingRef.current = true
       draggingRef.current = false
       startYRef.current = e.touches[0].clientY - offsetRef.current
@@ -997,7 +1040,7 @@ export function BottomSheet({
       window.removeEventListener("touchend", onLift)
       window.removeEventListener("touchcancel", onLift)
     }
-  }, [mounted, present, dismiss, glide, paint, schedule, stopMotion, springBack])
+  }, [mounted, present, dismiss, glide, paint, schedule, stopMotion, springBack, sizeUp])
 
   /* The scrim takes no scroll: a drag on it must not move the page behind. */
   useEffect(() => {
@@ -1095,12 +1138,17 @@ export function BottomSheet({
           /* The sheet owns every touch on it: the browser must not decide
              half way through that this was a scroll. */
           touchAction: "none",
-          paddingBottom: "max(env(safe-area-inset-bottom), 12px)",
-          ...(aboveKeyboard ? bottomAboveKeyboard() : {}),
-          /* A keyboard arriving lifts the sheet with it rather than in one frame. */
+          /*
+            ON THE KEYBOARD, AND STILL DOWN TO THE FOOT OF THE SCREEN. The
+            panel is never lifted off the bottom: the keyboard's room is
+            taken out of it as padding and added back to its height, so the
+            content column is where a lifted panel put it and the box carries
+            on underneath in the sheet's own white. Image 66, and the long
+            note in lib/ui/keyboard-safe-sheet.
+          */
+          ...(aboveKeyboard ? sheetOverKeyboard(maxHeight, height) : { ...sheetFoot(), maxHeight, height }),
+          /* A keyboard arriving moves the content with it rather than in one frame. */
           ...(aboveKeyboard && settled ? { transition: KEYBOARD_MOVE } : {}),
-          maxHeight: aboveKeyboard ? `min(${maxHeight}, calc(var(--vv-h, 100dvh) - 24px))` : maxHeight,
-          height,
           display: "flex",
           flexDirection: "column",
           /* Layout and style stop at the panel. Paint cannot: the skirt

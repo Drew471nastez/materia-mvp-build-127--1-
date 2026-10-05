@@ -455,7 +455,8 @@ async function main() {
     check("every new server module says server-only", ["public", "join", "explore"].every((n) => /^import "server-only"/m.test(read(`lib/communities/server/${n}.ts`))))
     /* Round 2: the about card shows Online, and only as the heartbeat count (lib/communities/server/presence.ts), never otherwise. */
     const drawsOnline = mine.filter((f) => /online/i.test(code(f)))
-    check("Online on the public side is drawn in one place, and only when the heartbeat count is known", drawsOnline.join() === "components/community/public/stats-row.tsx,components/community/public/types.ts" && /if \(stats\.online !== null\)/.test(code("components/community/public/stats-row.tsx")), drawsOnline)
+    /* Round 11: the About page's own figures (about-facts.ts aboutFigures) may add Online now, only when the heartbeat counted someone. */
+    check("Online on the public side is drawn only from the heartbeat count, and only when it is known", drawsOnline.join() === "components/community/public/about-facts.ts,components/community/public/stats-row.tsx,components/community/public/types.ts" && /if \(stats\.online !== null\)/.test(code("components/community/public/stats-row.tsx")) && /if \(out\.length < 4 && stats\.online\)/.test(code("components/community/public/about-facts.ts")), drawsOnline)
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

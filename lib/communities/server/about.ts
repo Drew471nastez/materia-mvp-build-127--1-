@@ -10,8 +10,9 @@ import "server-only"
  * guessed, and a part with nothing real to say is left out:
  *
  *   ACTIVITY   posts published in the last 30 days and members active in
- *              them (last_active_at), each only when it is above zero, and
- *              the month the community started.
+ *              the last 7 (last_active_at; round 11, "active this week"),
+ *              each only when it is above zero, and the month the
+ *              community started.
  *   CLASSROOM  the courses attached to it (community_courses), the
  *              published ones, in the creator's order: title, picture and
  *              how many lessons. Titles only: nothing inside a course.
@@ -31,8 +32,10 @@ import { missing, reasonOf, type Db } from "./db"
 
 /** Courses shown on the About page; the rest are counted. */
 export const ABOUT_COURSES = 4
-/** The window the activity line looks back over. */
+/** The window the posts figure looks back over. */
 export const ABOUT_DAYS = 30
+/** The window "active this week" looks back over. */
+export const ACTIVE_DAYS = 7
 
 const DAY_MS = 86_400_000
 
@@ -109,14 +112,15 @@ async function creatorBio(db: Db, creatorId: string | null): Promise<string | nu
 /** Everything the About page adds to the sales page's data, for this community. */
 export async function aboutExtras(db: Db, community: Pick<CommunityRow, "id" | "creator_id" | "created_at" | "classroom_enabled">, now: number = Date.now()): Promise<AboutExtras> {
   const since = new Date(now - ABOUT_DAYS * DAY_MS).toISOString()
+  const week = new Date(now - ACTIVE_DAYS * DAY_MS).toISOString()
   const [posts, active, classroom, bio] = await Promise.all([
     headCount(() => db.from("community_feed_posts").select("id", { count: "exact", head: true }).eq("community_id", community.id).eq("status", "published").gte("created_at", since)),
-    headCount(() => db.from("community_members").select("id", { count: "exact", head: true }).eq("community_id", community.id).eq("status", "active").gte("last_active_at", since)),
+    headCount(() => db.from("community_members").select("id", { count: "exact", head: true }).eq("community_id", community.id).eq("status", "active").gte("last_active_at", week)),
     community.classroom_enabled ? aboutClassroom(db, community.id) : Promise.resolve(null),
     creatorBio(db, community.creator_id ?? null),
   ])
   return {
-    activity: { posts30: posts && posts > 0 ? posts : null, active30: active && active > 0 ? active : null, since: community.created_at ?? null },
+    activity: { posts30: posts && posts > 0 ? posts : null, active7: active && active > 0 ? active : null, since: community.created_at ?? null },
     classroom,
     creatorBio: bio,
   }

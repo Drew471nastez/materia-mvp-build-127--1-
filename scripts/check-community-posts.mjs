@@ -2128,11 +2128,20 @@ try {
       const sheet = await p.evaluate(() => {
         const panel = document.querySelector("[data-post-overlay=phone]").closest("[data-sheet-panel]")
         const b = panel.getBoundingClientRect()
+        const pad = Number.parseFloat(getComputedStyle(panel).paddingBottom)
         const f = document.activeElement.closest("[data-comment-box]").getBoundingClientRect()
         const sc = panel.querySelector("[data-sheet-scroll]").getBoundingClientRect()
-        return { top: Math.round(b.top), bottom: Math.round(b.bottom), box: Math.round(f.bottom), visibleTo: Math.round(sc.bottom) }
+        return { top: Math.round(b.top), bottom: Math.round(b.bottom), column: Math.round(b.bottom - pad), box: Math.round(f.bottom), visibleTo: Math.round(sc.bottom) }
       })
-      expect(sheet.bottom === 504 && sheet.top >= 0 && sheet.box <= sheet.visibleTo, "the post's sheet sits on the keyboard with the whole comment box in sight", sheet)
+      /*
+        IMAGE 66. The panel is never lifted off the foot of the screen: its
+        content ends on the keyboard and its own white carries on underneath,
+        so an inset that is bigger than the keys (Safari counts its floating
+        accessory bar as part of the obscured area) costs a strip of the
+        sheet rather than a window onto the page. scripts/check-sheet-
+        keyboard-gap.mjs measures the strip itself.
+      */
+      expect(sheet.bottom === 844 && sheet.column === 504 - 12 && sheet.top >= 0 && sheet.box <= sheet.visibleTo, "the post's sheet paints to the foot of the screen with its content on the keyboard and the whole comment box in sight", sheet)
       await shot(p, `${label}-r9-sheet-keyboard`)
       expect(errors.length === 0, "no page error", errors)
       await p.close()

@@ -403,6 +403,7 @@ const SUITES = [
   "tests/communities-shell.test.ts",
   "tests/communities-growth.test.ts",
   "tests/communities-frame10.test.ts",
+  "tests/communities-about11.test.ts",
   "tests/communities-posts.test.ts",
   "tests/profiles-follows.test.ts",
   "tests/profile-one-page.test.ts",
@@ -412,6 +413,7 @@ const SUITES = [
   "tests/header-round8.test.ts",
   "tests/native-app-links.test.ts",
   "tests/native-shell.test.ts",
+  "tests/account-round11.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

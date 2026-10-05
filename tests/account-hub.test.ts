@@ -89,9 +89,9 @@ console.log("\nThe hub: your own profile page, as everybody sees it, with your p
   /* Round 5: no "Joined <month year>" line under the name any more (the activity ends on that day anyway). */
   check("photo, name, @username, the bio, the follower counts, and no Joined line", /useShellAvatar\(identity\.avatarUrl\)/.test(hub) && /@\{person\.username\}/.test(hero) && !/Joined \{/.test(hero) && !/memberSince/.test(hero + hub + layout) && /data-profile-bio=""/.test(hero) && /<ProfileSocial\b/.test(hero))
   check("the photo is the account's live copy and opens in the creator page's lightbox", /<AvatarLightbox src=\{shown\} name=\{name\}>/.test(hub) && /<AccountAvatar\s+src=\{shown\}/.test(hub) && /cursor-zoom-in/.test(hero) && /className=\{PROFILE_AVATAR_CLASS\}/.test(hub))
-  /* Round 4: five percent bigger on every profile, 118 / 134 from 112 / 128, one class shared with /@handle's hero so the two cannot drift. */
+  /* Round 4: five percent bigger on every profile, 118 / 134 from 112 / 128; round 11 about six percent more, 125 / 142. One class shared with /@handle's hero so the two cannot drift. */
   /* Round 5: "the avatar border lighter (thinner, softer)": a 2px ring and a softer shadow. */
-  check("the photo is large: 118px on a phone, 134 from 640px, with a thin ring and a soft shadow, the same class as /@handle", /h-\[118px\] w-\[118px\]/.test(hero) && /sm:h-\[134px\] sm:w-\[134px\]/.test(hero) && /ring-2 ring-\[#f8f9fa\]/.test(hero) && !/ring-4/.test(hero) && /shadow-\[0_1px_2px_rgba\(16,24,40,0\.06\),0_6px_16px_-10px_rgba\(16,24,40,0\.2\)\]/.test(hero) && /className=\{PROFILE_AVATAR_CLASS\}/.test(hub) && /export const PROFILE_AVATAR_CLASS/.test(hero))
+  check("the photo is large: 125px on a phone, 142 from 640px, with a thin ring and a soft shadow, the same class as /@handle", /h-\[125px\] w-\[125px\]/.test(hero) && /sm:h-\[142px\] sm:w-\[142px\]/.test(hero) && /ring-2 ring-\[#f8f9fa\]/.test(hero) && !/ring-4/.test(hero) && /shadow-\[0_1px_2px_rgba\(16,24,40,0\.06\),0_6px_16px_-10px_rgba\(16,24,40,0\.2\)\]/.test(hero) && /className=\{PROFILE_AVATAR_CLASS\}/.test(hub) && /export const PROFILE_AVATAR_CLASS/.test(hero))
   check("the owner's pills under it", /<ProfileOwnerPills communities=\{communities\}/.test(hub))
   check("the bio, the cover and the counts reach the hub from the layout's own reads", /async function readBio\(userId: string\)/.test(layout) && /ownCover\(admin, user\.id\)/.test(layout) && /followCounts\(admin, user\.id\)/.test(layout))
   /* Round 5: "Library opens as its own page ... WITHOUT the profile hero above them (like /account/settings does)". */
@@ -118,7 +118,7 @@ console.log("\nNo light bar of the profile's own: one header on the screen")
     "Make sure the thing there is not an X, it is a back icon basically."
   */
   check("Settings' top row is the way back and the word Settings, and never sticky", /data-account-settings-top=""/.test(settings) && /data-account-settings-close=""/.test(settings) && !/sticky/.test(settings))
-  check("  and it is a chevron that says where it goes, not an X: the shared back control, first tap and a real back", /<BackControl fallback="\/account" label="Back to profile"/.test(settings) && /<ChevronLeft className="h-5 w-5"/.test(read("components/navigation/back-control.tsx")) && !/<X /.test(settings))
+  check("  and it is a chevron that says where it goes, not an X: the shared back control, first tap and a real back", /<BackControl fallback=\{BACK_TO\} label="Back to profile"/.test(settings) && /const BACK_TO = "\/account"/.test(settings) && /<ChevronLeft className="h-5 w-5"/.test(read("components/navigation/back-control.tsx")) && !/<X /.test(settings))
   /*
     ONE SECTION DISSOLVES INTO THE NEXT: the one leaving fades out, then
     the one picked fades in behind it. It used to fade the arriving one up

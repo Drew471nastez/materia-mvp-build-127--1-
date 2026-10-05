@@ -375,7 +375,7 @@ export async function shrinkPhoto(file: File): Promise<Blob> {
  * `timeoutMs` is stopped and said so, with the photo kept to try again,
  * rather than a step left spinning on a connection that dropped.
  */
-export function sendIdPhoto<T>(url: string, form: FormData, onProgress: (pct: number) => void, timeoutMs = 45_000): Promise<T> {
+export function sendIdPhoto<T>(url: string, form: FormData, onProgress: (pct: number) => void, timeoutMs = 60_000): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const xhr = new XMLHttpRequest()
     xhr.open("POST", url)
@@ -399,7 +399,7 @@ export function sendIdPhoto<T>(url: string, form: FormData, onProgress: (pct: nu
       }
     }
     xhr.onerror = () => reject(Object.assign(new Error("No connection. Check your internet and take it again."), { status: 0 }))
-    xhr.ontimeout = () => reject(Object.assign(new Error("That took too long. Check your connection and take it again."), { status: 0 }))
+    xhr.ontimeout = () => reject(Object.assign(new Error("That took too long. Take it again, or use Verify with Stripe instead."), { status: 0 }))
     xhr.send(form)
   })
 }

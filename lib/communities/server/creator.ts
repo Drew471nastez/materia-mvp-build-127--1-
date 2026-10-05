@@ -91,7 +91,7 @@ import { inviteCount } from "./invites"
 import { slugHeldByAnother } from "./slug-history"
 import { openReportCount, peopleOf } from "./moderation"
 import { createPaidTier, loadTiers, pickableProducts, recurringProductIds, syncTierProducts } from "./tiers"
-import { checkGalleryForCommunity, loadGallery, ownPicture, saveGallery } from "./gallery"
+import { checkGalleryForCommunity, coverAfterGallery, loadGallery, ownPicture, saveGallery } from "./gallery"
 
 export type Result<T = unknown> = ({ ok: true } & T) | { ok: false; error: string; status: number; field?: string }
 const no = (status: number, error: string, field?: string) => ({ ok: false as const, status, error, field })
@@ -566,6 +566,9 @@ export async function updateSettings(db: Db, a: { community: CommunityRow; role:
     const r = await checkGalleryForCommunity(db, c.id, b.gallery)
     if (!r.ok) return no(400, r.error, r.field)
     gallery = r.value
+    /* A cover video's still is the cover picture, so every place that draws a still keeps drawing one (./gallery.ts). */
+    const cover = coverAfterGallery(c.cover_url ?? null, patch.cover_url !== undefined, gallery)
+    if (cover !== undefined) patch.cover_url = cover
   }
   if (b.onboarding !== undefined) {
     const o = (b.onboarding && typeof b.onboarding === "object" ? b.onboarding : {}) as Record<string, unknown>
