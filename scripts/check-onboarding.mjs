@@ -47,6 +47,10 @@ export const useRouter = () => ({ push() {}, replace() {}, prefetch() {}, refres
 export const useParams = () => ({})
 export const redirect = () => {}
 `)
+/* The real picture, from public/, so the setup screen's mark is the mark in a screenshot. */
+writeFileSync(join(dir, "image.jsx"), `import React from "react"
+export default function Image({ src, alt, width, height, fill, sizes, preload, priority, unoptimized, loading, ...rest }) { return React.createElement("img", { src: typeof src === "string" ? src : src.src, alt, width, height, ...rest }) }
+`)
 writeFileSync(join(dir, "link.jsx"), `import React from "react"
 export default function Link({ href, children, prefetch, ...rest }) { return React.createElement("a", { href: typeof href === "string" ? href : "#", ...rest }, children) }
 `)
@@ -59,12 +63,12 @@ try {
   execFileSync("npx", ["--no-install", "esbuild", join(root, "scripts/render-onboarding.tsx"),
     "--bundle", "--format=iife", "--platform=browser", "--jsx=automatic", "--log-level=error", `--outfile=${join(dir, "probe.js")}`,
     '--define:process.env.NODE_ENV="production"',
-    `--alias:next/navigation=${join(dir, "navigation.js")}`, `--alias:next/link=${join(dir, "link.jsx")}`,
+    `--alias:next/navigation=${join(dir, "navigation.js")}`, `--alias:next/link=${join(dir, "link.jsx")}`, `--alias:next/image=${join(dir, "image.jsx")}`,
     `--alias:@/lib/supabase/client=${join(dir, "supabase.js")}`,
     `--alias:@=${root}`, "--loader:.jsx=jsx", "--loader:.css=empty", "--loader:.svg=dataurl", "--loader:.png=dataurl"],
     { stdio: ["ignore", "ignore", "inherit"] })
 } catch { rmSync(dir, { recursive: true, force: true }); fail("the probe did not bundle") }
-const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">` +
+const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">` +
   `<style>${await appCss(root)}</style><style>body{margin:0;font-family:Inter,system-ui,sans-serif}</style>` +
   `</head><body><div id="app"></div><script>window.process={env:{NODE_ENV:"production"}}</script><script>${readFileSync(join(dir, "probe.js"), "utf8")}</script></body></html>`
 rmSync(dir, { recursive: true, force: true })
@@ -73,6 +77,14 @@ const server = createServer((req, res) => {
   if (req.url.startsWith("/api/")) {
     setTimeout(() => { res.writeHead(200, { "content-type": "application/json" }); res.end("{}") }, 60)
     return
+  }
+  if (req.url.startsWith("/images/")) {
+    const file = join(root, "public", decodeURIComponent(req.url.split("?")[0]))
+    if (existsSync(file)) {
+      res.writeHead(200, { "content-type": file.endsWith(".webp") ? "image/webp" : file.endsWith(".png") ? "image/png" : "image/jpeg" })
+      res.end(readFileSync(file))
+      return
+    }
   }
   res.writeHead(200, { "content-type": "text/html" })
   res.end(html)
@@ -126,11 +138,19 @@ for (const [label, viewport] of [
   /* A short laptop window: the card keeps its margin by giving up height. */
   ["1366x600", { width: 1366, height: 600, deviceScaleFactor: 1 }],
 ]) {
+  /* ONLY=390,1440 measures those widths alone. */
+  if (process.env.ONLY && !process.env.ONLY.split(",").includes(label)) continue
+  if (process.env.VERBOSE) console.error(`  ${label}...`)
   const phone = viewport.width < 640
   const page = await browser.newPage()
   const errors = []
   page.on("pageerror", (e) => errors.push(String(e)))
   await page.setViewport(viewport)
+  /* The 390 phone is an iPhone: the clock's 47px at the top and the home bar's 34 at the bottom. */
+  if (label === "390") {
+    const sa = await page.createCDPSession()
+    await sa.send("Emulation.setSafeAreaInsetsOverride", { insets: { top: 47, bottom: 34, left: 0, right: 0 } }).catch(() => {})
+  }
   /* A long name, because a short one hides the overlap this is about. */
   await page.goto(`${base}/?switch=1&name=${encodeURIComponent("AndrewRullz Studio Supplies")}`)
   await page.waitForFunction(() => !!document.querySelector("[data-onboarding-progress]"), { timeout: 15000 })
@@ -338,6 +358,44 @@ for (const [label, viewport] of [
     return { room, atTop, middle, mask: getComputedStyle(sc).maskImage || getComputedStyle(sc).webkitMaskImage }
   })
   if (process.env.SHOTS) await page.screenshot({ path: join(process.env.SHOTS, `onboarding-plan-${label}.png`) })
+
+  /*
+    THE PLANS (round 12, ask 34): "pricing cards a hair narrower; more
+    vertical space between the Monthly/Yearly pill and the cards; the bottom
+    white bar a softer, more subtle white fade with a light blur".
+  */
+  const plans = await page.evaluate(() => {
+    const cards = [...document.querySelectorAll("[data-onboarding-step] [data-plan-card]")].map((c) => { const r = c.getBoundingClientRect(); return { x: Math.round(r.left), w: Math.round(r.width), top: Math.round(r.top) } })
+    const pill = document.querySelector("[data-onboarding-step] [data-plan-interval-row]")
+    const grid = document.querySelector("[data-onboarding-step] [data-plan-cards]")
+    const veil = document.querySelector("[data-onboarding-veil]")
+    const bands = [...document.querySelectorAll("[data-onboarding-veil-band]")].map((b) => getComputedStyle(b))
+    const vs = veil && getComputedStyle(veil)
+    const sc = document.querySelector("[data-onboarding-scroller]").getBoundingClientRect()
+    const vr = veil && veil.getBoundingClientRect()
+    return {
+      cards, pillGap: pill && grid ? Math.round(grid.getBoundingClientRect().top - pill.getBoundingClientRect().bottom) : null,
+      sideRoom: cards.length ? Math.round(cards[0].x - sc.left) : null,
+      veil: veil && { h: Math.round(vr.height), overScrollerBottom: Math.round(sc.bottom - vr.bottom), opacity: bands.length ? Math.min(...bands.map((b) => Number(b.opacity))) : 0, blur: bands.map((b) => b.backdropFilter || b.webkitBackdropFilter).join(" "), events: vs.pointerEvents },
+    }
+  })
+  if (process.env.SHOTS) {
+    const vp = page.viewport()
+    const foot = await page.evaluate(() => { const r = document.querySelector("[data-onboarding-footer]").getBoundingClientRect(); return { y: Math.max(0, Math.round(r.top - 150)), h: Math.round(r.bottom) } })
+    await page.screenshot({ path: join(process.env.SHOTS, `onboarding-plan-foot-${label}.png`), clip: { x: 0, y: foot.y, width: vp.width, height: Math.min(vp.height, foot.h) - foot.y } })
+  }
+  if (plans.cards.length !== 2) problems.push(`${at} the plan step drew ${plans.cards.length} plan cards`)
+  else if (phone) {
+    if (plans.cards[0].w > viewport.width - 44) problems.push(`${at} a plan card is ${plans.cards[0].w}px on a ${viewport.width}px phone: not narrower than before (${viewport.width - 32})`)
+  } else if (viewport.width >= 768 && plans.cards[0].w + plans.cards[1].w + 12 > 668) problems.push(`${at} the two plan cards take ${plans.cards[0].w + plans.cards[1].w + 12}px, more than 668`)
+  if (plans.pillGap === null || plans.pillGap < 20) problems.push(`${at} ${plans.pillGap}px between the Monthly and Yearly pill and the cards, under 20`)
+  if (!plans.veil) problems.push(`${at} no soft white at the foot of the panel`)
+  else {
+    if (!/blur\(/.test(plans.veil.blur || "")) problems.push(`${at} the foot of the panel is not blurred (${plans.veil.blur})`)
+    if (plans.veil.events !== "none") problems.push(`${at} the soft white at the foot takes taps`)
+    if (plans.veil.overScrollerBottom !== 0) problems.push(`${at} the soft white is ${plans.veil.overScrollerBottom}px off the panel's foot`)
+    if (edges.room > 40 && Number(plans.veil.opacity) < 0.99) problems.push(`${at} with more plans below, the soft white is at ${plans.veil.opacity}`)
+  }
   if (!/gradient/.test(edges.mask || "")) problems.push(`${at} the step panel has no edge fade`)
   if (edges.atTop.top !== "0px") problems.push(`${at} the top edge fades before anything has scrolled under it`)
   if (edges.room > 40) {
@@ -352,7 +410,77 @@ for (const [label, viewport] of [
     grow as setup begins.
   */
   const footAtPlan = await page.evaluate(() => { const r = document.querySelector("[data-onboarding-footer]").getBoundingClientRect(); const sc = document.querySelector("[data-onboarding-scroller]").getBoundingClientRect(); return `${Math.round(r.top)}/${Math.round(r.height)}/${Math.round(sc.height)}` })
+  /*
+    PLANS TO SETUP, FRAME BY FRAME: the mark, its line and the marks each
+    rise and fade in over several frames, one after another, on opacity,
+    translate and scale alone. Under SHOTS it is also slowed ten times and
+    photographed, a filmstrip for a person to look at.
+  */
+  const RISE = `(async () => {
+    const frames = []
+    const t0 = performance.now()
+    while (performance.now() - t0 < 1100) {
+      await new Promise((r) => requestAnimationFrame(r))
+      const parts = [...document.querySelectorAll("[data-onboarding-step='5'] [data-setup-rise]")]
+      const leave = document.querySelector("[data-onboarding-leaving]")
+      frames.push({ t: Math.round(performance.now() - t0), parts: parts.map((p) => { const cs = getComputedStyle(p); return { o: +Number(cs.opacity).toFixed(3), y: parseFloat((cs.translate || "0 0").split(" ")[1]) || 0, s: parseFloat(cs.scale) || 1 } }), leave: leave ? +Number(getComputedStyle(leave).opacity).toFixed(3) : null })
+    }
+    return frames
+  })()`
+  const filmstrip = process.env.SHOTS && ["390", "1440"].includes(label)
+  const risePromise = filmstrip ? null : page.evaluate(RISE)
+  /* Every animation on the page held at one moment, so a slow screenshot still shows that moment. */
+  const holdAt = (ms) => page.evaluate(async (ms) => {
+    for (const a of document.getAnimations()) {
+      if (!a.effect?.target?.closest?.("[data-onboarding-steps]")) continue
+      a.pause()
+      a.currentTime = ms
+    }
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
+  }, ms)
+  const letGo = () => page.evaluate(() => { for (const a of document.getAnimations()) if (a.playState === "paused") a.play() })
+  /* Setup's two second phases held while it is photographed (a slow screenshot would miss "Creating your store"), and let go one at a time. */
+  if (filmstrip) await page.evaluate(() => {
+    const st = window.setTimeout
+    const held = []
+    window.__nextPhase = () => { const f = held.shift(); if (f) f() }
+    window.setTimeout = (f, ms, ...a) => (ms >= 1500 ? (held.push(() => f(...a)), 0) : st(f, ms, ...a))
+  })
   await clickText("Start free")
+  if (filmstrip) {
+    await page.waitForFunction(() => !!document.querySelector("[data-onboarding-setup]"))
+    for (const ms of [0, 60, 140, 220, 320, 460, 700]) {
+      await holdAt(ms)
+      await page.screenshot({ path: join(process.env.SHOTS, `onboarding-rise-${label}-${String(ms).padStart(3, "0")}ms.png`) })
+    }
+    await letGo()
+    /* And the line changing to "Applying your settings", two seconds on. */
+    await page.evaluate(() => window.__nextPhase())
+    await page.waitForFunction(() => document.querySelector("[data-onboarding-setup]")?.getAttribute("data-onboarding-setup") === "applying", { timeout: 15000 }).catch(() => {})
+    for (const ms of [0, 80, 160, 260]) {
+      await holdAt(ms)
+      await page.screenshot({ path: join(process.env.SHOTS, `onboarding-applying-${label}-${String(ms).padStart(3, "0")}ms.png`) })
+    }
+    await letGo()
+    await page.evaluate(() => { window.__nextPhase(); window.__nextPhase(); window.__nextPhase() })
+  }
+  const rise = risePromise ? await risePromise : null
+  if (rise) {
+    const n = rise.find((f) => f.parts.length)?.parts.length ?? 0
+    if (n !== 3) problems.push(`${at} the setup screen has ${n} pieces that rise, not three (the mark, its line, the marks)`)
+    for (let i = 0; i < n; i++) {
+      const part = rise.filter((f) => f.parts[i]).map((f) => f.parts[i])
+      const between = part.filter((p) => p.o > 0.02 && p.o < 0.98).length
+      const firstSeen = rise.findIndex((f) => f.parts[i] && f.parts[i].o > 0.02)
+      if (between < 4) problems.push(`${at} setup piece ${i + 1} appeared in ${between} part-way frames: a cut, not a rise`)
+      if (!part.some((p) => p.y > 2)) problems.push(`${at} setup piece ${i + 1} never started below its place`)
+      const last = part[part.length - 1]
+      if (!last || last.o < 0.99 || Math.abs(last.y) > 0.5 || Math.abs(last.s - 1) > 0.005) problems.push(`${at} setup piece ${i + 1} did not land (${JSON.stringify(last)})`)
+      report[`${label}-rise-${i + 1}`] = { firstSeenFrame: firstSeen, partWayFrames: between }
+    }
+    const order = [0, 1, 2].map((i) => rise.findIndex((f) => f.parts[i] && f.parts[i].o > 0.05))
+    if (!(order[0] <= order[1] && order[1] <= order[2])) problems.push(`${at} the setup pieces did not arrive one after another (${order})`)
+  }
   await page.waitForFunction(() => !!document.querySelector("[data-onboarding-setup]"), { timeout: 8000 }).catch(() => {})
   await wait(900)
   const setup = await page.evaluate(`(() => { const box = ${box.toString()}
@@ -364,14 +492,15 @@ for (const [label, viewport] of [
     const shown = wrap.querySelector('[data-morph="on"] h1') || wrap.querySelector("h1")
     const r = document.querySelector("[data-onboarding-footer]").getBoundingClientRect()
     const sc = document.querySelector("[data-onboarding-scroller]").getBoundingClientRect()
-    return { state: wrap.getAttribute("data-onboarding-setup"), mark: mark ? box(mark) : null, clipped, heading: (shown || {}).textContent, foot: Math.round(r.top) + "/" + Math.round(r.height) + "/" + Math.round(sc.height) }
+    return { state: wrap.getAttribute("data-onboarding-setup"), mark: mark ? box(mark) : null, depth: mark ? getComputedStyle(mark.parentElement).boxShadow : null, clipped, heading: (shown || {}).textContent, foot: Math.round(r.top) + "/" + Math.round(r.height) + "/" + Math.round(sc.height) }
   })()`)
   if (process.env.SHOTS) await page.screenshot({ path: join(process.env.SHOTS, `onboarding-setup-${label}.png`) })
   if (!setup) problems.push(`${at} Start free did not reach the setup screen`)
   else {
     if (!setup.mark) problems.push(`${at} the setup screen has no Storelib mark`)
-    /* "make the logo icon about 5% smaller": 64 and 72px were the sizes, 61 and 68 are 5% under them. */
-    else if (setup.mark.w !== (phone ? 61 : 68)) problems.push(`${at} the mark is ${setup.mark.w}px, not ${phone ? 61 : 68}`)
+    /* Round 12: "the Storelib icon on that step a little smaller with a little depth (phones especially)": 54 and 62px, from 61 and 68. */
+    else if (setup.mark.w !== (phone ? 54 : 62)) problems.push(`${at} the mark is ${setup.mark.w}px, not ${phone ? 54 : 62}`)
+    if (!/rgba\(26, 26, 46, 0\.3\)/.test(setup.depth || "")) problems.push(`${at} the mark has no depth under it (${setup.depth})`)
     if (setup.clipped) problems.push(`${at} the mark sits in a box that clips it (${setup.clipped})`)
     if (setup.foot !== footAtPlan) problems.push(`${at} the panel and the row of buttons moved as setup began (${footAtPlan} on the plan step, ${setup.foot} on setup)`)
   }
@@ -380,7 +509,7 @@ for (const [label, viewport] of [
     gap: top.gap, backMid: top.back?.midY, barMid: top.bar.midY, backBox: top.back ? `${top.back.w}x${top.back.h}` : null,
     room: [top.leftRoom, top.rightRoom], card, slowed: { fadeFrames: fading, slidePositions: sliding, leastMax, leastSum, both, swapCurve }, full: swapFull, animates: swap.props,
     footer: footer.buttons.map((b) => `${b.label} ${b.x}-${b.right}`), sideways: footer.sideways,
-    planScrollRoom: edges.room, edgesScrolled: edges.middle, setup: setup && { state: setup.state, mark: setup.mark && setup.mark.w, heading: setup.heading, foot: setup.foot, footAtPlan },
+    plans, planScrollRoom: edges.room, edgesScrolled: edges.middle, setup: setup && { state: setup.state, mark: setup.mark && setup.mark.w, depth: setup.depth, heading: setup.heading, foot: setup.foot, footAtPlan },
   }
   if (errors.length) problems.push(`${at} ${errors.length} error(s): ${errors[0]}`)
   await page.close()
