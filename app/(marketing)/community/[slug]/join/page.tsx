@@ -29,7 +29,7 @@ export async function generateMetadata({ params, searchParams }: { params: Promi
   const [{ slug }, { invite }] = await Promise.all([params, searchParams])
   const community = await communityBySlug(slug)
   if (!community || !sharePreviewable(community)) return plainJoin
-  return typeof invite === "string" && invite ? inviteMetadata(seoFacts(community)) : { ...communityMetadata(seoFacts(community)), title: `Join ${community.name}`, robots: { index: false, follow: false } }
+  return typeof invite === "string" && invite ? inviteMetadata(seoFacts(community)) : { ...communityMetadata(seoFacts(community)), title: { absolute: `Join ${community.name}` }, robots: { index: false, follow: false } }
 }
 
 export default async function CommunityJoinPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ invite?: string }> }) {

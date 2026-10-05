@@ -81,9 +81,17 @@ export function communityTabs(slug: string) {
   return BUYER_TABS.map((t) => (t.key === "home" ? { ...t, href: `/community/${slug}` } : t))
 }
 
-/** The tabs for this address: the community's inside one, else as Discover allows. */
-export function buyerTabsAt(pathname: string, exploreMarketplaceEnabled = true) {
-  const slug = communityOf(pathname)
+/**
+ * The tabs for this address: the community's inside one, else as Discover allows.
+ *
+ * THE COMMUNITY CONTEXT (round 12). Outside a community, `homeCommunity` is
+ * the one the person was last inside (lib/nav/community-context.ts): Home
+ * still leads back to it from Profile, Library or Search, until the
+ * navigator's Explore, Discover communities or Dashboard ends it. Only Home
+ * changes; Search outside a community is the site's.
+ */
+export function buyerTabsAt(pathname: string, exploreMarketplaceEnabled = true, homeCommunity: string | null = null) {
+  const slug = communityOf(pathname) ?? (homeCommunity && COMMUNITY_SLUG.test(homeCommunity) ? homeCommunity : null)
   return slug ? communityTabs(slug) : buyerTabsForMarketplace(exploreMarketplaceEnabled)
 }
 
@@ -154,11 +162,15 @@ export function buyerTabsBelongOn(
  */
 export function buyerTabFor(
   pathname: string,
-  where: { query?: boolean; sellerSurface?: boolean; exploreMarketplaceEnabled?: boolean } = {},
+  where: { query?: boolean; sellerSurface?: boolean; exploreMarketplaceEnabled?: boolean; homeCommunity?: string | null } = {},
 ): number {
   const exploreOn = where.exploreMarketplaceEnabled !== false
   /* Every page of a community is that community's Home, the way a product reached from Explore is still Home. */
   if (communityOf(pathname)) return 0
+  /* While Home is a community's (the context), Explore's own pages are not Home: nothing is lit there but Search's results. */
+  if (where.homeCommunity && exploreOn && under(pathname, "/explore") && !under(pathname, SEARCH_HREF) && !where.query) return -1
+  /* And a creator's page reached from there is not the community's Home either. */
+  if (where.homeCommunity && where.sellerSurface) return -1
   const tabs = buyerTabsForMarketplace(exploreOn)
   const idx = (key: BuyerTabKey) => tabs.findIndex((t) => t.key === key)
 

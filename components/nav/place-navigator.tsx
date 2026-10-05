@@ -51,6 +51,7 @@ import { AppAvatar } from "@/components/app/app-avatar"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { cn } from "@/lib/utils"
 import { prefetchHref } from "@/lib/nav/prefetch-policy"
+import { ENDS_COMMUNITY_CONTEXT, endCommunityContext } from "@/lib/nav/community-context"
 import { navigatorModel, parsePlaces, PLACES_URL, SIGNED_OUT_PLACES, type NavigatorCurrent, type NavigatorModel, type PlacesResponse } from "@/lib/nav/places-shared"
 
 export interface PlaceNavigatorProps {
@@ -335,7 +336,9 @@ export function PlaceNavigator({ current, className, onNavigate }: PlaceNavigato
     return () => window.clearTimeout(t)
   }, [open, model, router])
   const go = useCallback(
-    (href: string) => (e: React.MouseEvent<HTMLElement>) => {
+    (href: string, key?: string) => (e: React.MouseEvent<HTMLElement>) => {
+      /* Explore, Discover communities and Dashboard leave the community behind: the tab bar's Home is Storelib's again (lib/nav/community-context.ts). */
+      if (key && ENDS_COMMUNITY_CONTEXT.has(key)) endCommunityContext()
       navigateRef.current?.(e, href)
       close()
     },
@@ -419,6 +422,16 @@ export function PlaceNavigator({ current, className, onNavigate }: PlaceNavigato
 
 /* ── What is in it ────────────────────────────────────────────────────── */
 
+/*
+  THE ROW YOU ARE IN (round 12, 68.webp): it read as switched off, a grey
+  ground with its name in grey, as if under a veil. Now it is the one row
+  lifted off the panel: a white card with Storelib's hairline and a one pixel
+  shadow, its name in ink like every other row, the check in ink. Pressed or
+  hovered it keeps its white, so it never greys over.
+*/
+const CURRENT_ROW =
+  "bg-white shadow-[0_0_0_1px_rgba(16,24,40,0.08),0_1px_2px_rgba(16,24,40,0.07),0_2px_6px_-2px_rgba(16,24,40,0.06)] hover:bg-white active:bg-[#fafbfc] focus-visible:bg-white"
+
 /** The two ways out, each with its Solar line icon at the size the tab bar draws them. */
 const LINK_ICON = { explore: CompassIcon, "discover-communities": UsersGroupRoundedIcon } as const
 
@@ -430,7 +443,7 @@ const NavigatorBody = memo(function NavigatorBody({
 }: {
   model: NavigatorModel
   loading: boolean
-  go: (href: string) => (e: React.MouseEvent<HTMLElement>) => void
+  go: (href: string, key?: string) => (e: React.MouseEvent<HTMLElement>) => void
   phone: boolean
 }) {
   const row = cn(
@@ -460,7 +473,7 @@ const NavigatorBody = memo(function NavigatorBody({
           read apart. It scrolls on its own, so the links and the action at
           the foot stay put.
         */
-        <ul className={cn("min-h-0 overflow-y-auto overscroll-contain", pad, !phone && "pb-0")} data-navigator-lists="" data-navigator-recent="">
+        <ul className={cn("min-h-0 overflow-y-auto overscroll-contain", pad, phone ? "py-0.5" : "pb-0")} data-navigator-lists="" data-navigator-recent="">
           {model.recent.map((r) => (
             <li key={`${r.item.kind}:${r.item.id}`}>
               <Link
@@ -471,14 +484,14 @@ const NavigatorBody = memo(function NavigatorBody({
                 data-navigator-kind={r.item.kind}
                 data-navigator-community={r.item.kind === "community" ? r.item.slug : undefined}
                 data-current={r.current ? "" : undefined}
-                className={cn(row, phone ? "min-h-[56px] py-1.5" : "min-h-[48px] py-1", r.current && "bg-[#f4f5f7]")}
+                className={cn(row, phone ? "min-h-[56px] py-1.5" : "min-h-[48px] py-1", r.current && CURRENT_ROW)}
               >
                 <AppAvatar src={r.item.imageUrl} name={r.item.title} alt="" size={pic} className={cn("shrink-0", r.item.kind === "community" ? "rounded-[9px]" : "rounded-[8px]")} markWhileLoading />
                 <span className="min-w-0 flex-1">
-                  <span className={cn("block truncate font-medium leading-[1.3]", r.current ? "text-[#6b7280]" : "text-[#1a1a2e]")} data-navigator-title="">{r.item.title}</span>
-                  <span className={cn("block truncate leading-[1.35] text-[#9ca3af]", phone ? "text-[13px]" : "text-[12px]")} data-navigator-hint="">{r.hint}</span>
+                  <span className="block truncate font-medium leading-[1.3] text-[#1a1a2e]" data-navigator-title="">{r.item.title}</span>
+                  <span className={cn("block truncate leading-[1.35]", r.current ? "text-[#6b7280]" : "text-[#9ca3af]", phone ? "text-[13px]" : "text-[12px]")} data-navigator-hint="">{r.hint}</span>
                 </span>
-                {r.current ? <Check aria-label="You are here" className="h-4 w-4 shrink-0 text-[#9ca3af]" strokeWidth={2.25} /> : null}
+                {r.current ? <Check aria-label="You are here" className="h-4 w-4 shrink-0 text-[#1a1a2e]" strokeWidth={2.25} /> : null}
               </Link>
             </li>
           ))}
@@ -492,7 +505,7 @@ const NavigatorBody = memo(function NavigatorBody({
         {model.links.map((r) => {
           const Icon = LINK_ICON[r.key]
           return (
-            <Link key={r.key} href={r.href} onClick={go(r.href)} data-navigator-row="" data-navigator-link={r.key} className={cn(row, "font-medium text-[#1a1a2e]")}>
+            <Link key={r.key} href={r.href} onClick={go(r.href, r.key)} data-navigator-row="" data-navigator-link={r.key} className={cn(row, "font-medium text-[#1a1a2e]")}>
               {/* In a box the width of a recent row's picture, so the words line up with the names above. */}
               <span aria-hidden className="flex shrink-0 items-center justify-center text-[#4b5563]" style={{ width: pic, height: phone ? 24 : 22 }}>
                 <Icon size={phone ? 22 : 20} strokeWidth={1.6} />
@@ -508,7 +521,7 @@ const NavigatorBody = memo(function NavigatorBody({
           <Link
             key={a.key}
             href={a.href}
-            onClick={go(a.href)}
+            onClick={go(a.href, a.key)}
             data-navigator-row=""
             data-navigator-action={a.key}
             className={cn(

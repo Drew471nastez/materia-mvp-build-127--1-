@@ -131,7 +131,8 @@ export function communityMetadata(f: SeoFacts, opts: { about?: boolean } = {}): 
   const url = canonicalUrl(f.slug)
   const images = previewImages(f, false)
   return {
-    title: opts.about ? `About ${title}` : title,
+    /* Absolute (round 12): the community's layout puts its name after every page's own word, and these already say it. */
+    title: { absolute: opts.about ? `About ${title}` : title },
     description,
     alternates: { canonical: url },
     openGraph: { type: "website", url, siteName: "Storelib", title, description, ...(images ? { images: images.og } : {}) },
@@ -153,7 +154,7 @@ export function inviteMetadata(f: SeoFacts): Metadata {
   const description = line ? `You're invited to ${name} on Storelib. ${line}` : `You're invited to ${name}, a community on Storelib.`
   const images = previewImages(f, true)
   return {
-    title,
+    title: { absolute: title },
     description,
     openGraph: { type: "website", url: canonicalUrl(f.slug), siteName: "Storelib", title, description, ...(images ? { images: images.og } : {}) },
     twitter: { card: images ? "summary_large_image" : "summary", title, description, ...(images ? { images: images.twitter } : {}) },
@@ -198,4 +199,27 @@ export function communityJsonLd(c: PublicCommunityView, indexable: boolean): Rec
     ...(image ? { image } : {}),
     ...(creator ? { founder: creator } : {}),
   }
+}
+
+/**
+ * THE TAB'S ICON AND TITLE (round 12, ask 8). Every page of a community
+ * shows the community's own mark in the browser's tab
+ * (app/(marketing)/community/[slug]/tab-icon.png) and its name in the title.
+ * The icon's address carries a fingerprint of the logo's address and the
+ * name, so changing either is a new address the browser fetches at once.
+ */
+export function tabIconUrl(slug: string, logoUrl: string | null | undefined, name: string): string {
+  return `/community/${slug}/tab-icon.png?v=${shareImageVersion(["tab", logoUrl ?? "", name])}`
+}
+
+/** The letter a community without a logo is marked with in its tab: the first letter or digit of its name. */
+export function tabIconInitial(name: string): string {
+  const ch = Array.from((name || "").trim()).find((c) => /[\p{L}\p{N}]/u.test(c))
+  return (ch ?? "S").toLocaleUpperCase("en-US")
+}
+
+/** The tab's title for every page inside a community: its own page's word, then the community ("Classroom · Clay Studio"). */
+export function communityTitle(name: string): { default: string; template: string } {
+  const n = name.slice(0, 100)
+  return { default: n, template: `%s · ${n}` }
 }

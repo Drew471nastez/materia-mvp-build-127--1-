@@ -84,6 +84,7 @@ import { INBOX_FILTERS, badgeLabel, splitTitle, type InboxFilter, type InboxItem
 import { createClient } from "@/lib/supabase/client"
 import { readAuthSnapshot } from "@/lib/auth/auth-snapshot"
 import { cn } from "@/lib/utils"
+import { NOTIFICATION_BADGE } from "./badge-tone"
 
 const INBOX = "/api/notifications/inbox"
 const READ = "/api/notifications/read"
@@ -490,8 +491,8 @@ export function NotificationBell({ className, sheetMin }: {
             <span
               data-bell-badge=""
               aria-hidden
-              /* Ink with white figures, not red; white with ink on a dark bar (round 8, the same as the heart's CountBadge). */
-              className="absolute -right-2 -top-1.5 box-border flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#1a1a2e] px-[5px] text-white [[data-header-tone=dark]_&]:bg-white [[data-header-tone=dark]_&]:text-[#1a1a2e]"
+              /* Red with white figures again (round 12, components/notifications/badge-tone.ts), on a light bar and a dark one. */
+              className={cn("absolute -right-2 -top-1.5 box-border flex h-[18px] min-w-[18px] items-center justify-center px-[5px]", NOTIFICATION_BADGE)}
             >
               <span className="block text-[10px] font-semibold leading-none tabular-nums">{label}</span>
             </span>

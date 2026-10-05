@@ -1,60 +1,63 @@
 /**
  * ===========================================================================
- *  WAITING FOR A PLACE THAT IS NOT HERE YET: A SMALL iOS SPINNER
+ *  WAITING FOR A PLACE THAT IS NOT HERE YET: THE APP'S OWN iOS SPINNER
  * ===========================================================================
  * Round 9: "while a not yet loaded one is fetched a small iOS style spinner
  * (thin, grey, centred in the content area only) instead of a skeleton".
- * Eight thin spokes with round ends, each a step fainter than the one before:
- * no grey shapes pretending to be the page, nothing over the frame around it
+ * No grey shapes pretending to be the page, nothing over the frame around it
  * (the bar, the columns, the chips stay as they were).
  *
- * TURNING ON THE COMPOSITOR (round 11: "smooth rotation on the compositor").
- * It turned a spoke at a time (steps) on the <svg> itself; now a plain box
- * around the glyph turns, continuously and linearly, by a rotation the
- * compositor runs on its own: while the page's thread is busy drawing what
- * the spinner waits for, it keeps turning (scripts/check-community-frame11.mjs
- * SPINNER blocks the thread and watches the compositor's frames).
+ * ROUND 12: EXACTLY THE ONE /app DRAWS. The community had a spinner of its
+ * own (eight thin lines in a 24 unit box, a turn every 900ms) that read
+ * close to the dashboard's and was not it. Every loader in a community is
+ * now components/ui/activity-spinner.tsx itself: the same eight rounded
+ * spokes, the same 26px, the same turn a second on the compositor
+ * (app/globals.css .activity-spinner), the same slower turn for reduced
+ * motion. `Spinner` stays as the community's name for it, so a button's
+ * small one (16px, 18px) is that component at that size, as /app's editor
+ * buttons draw it.
  *
  * It waits before it shows (WAIT_MS, then a short fade), so a place that
  * arrives quickly never shows it at all. Every member page's loading.tsx
  * draws it, and so does the feed while a list it has never read is on its
- * way (feed.tsx). Server safe: no hooks; the motion is CSS (the spin
- * stops for reduced motion and the spokes stay as a still mark).
+ * way (feed.tsx). Server safe: no hooks; the motion is CSS.
  */
+import { ActivitySpinner, SPINNER_SIZE } from "@/components/ui/activity-spinner"
 
 /** How long a wait goes unmarked: most places arrive before this. */
 export const WAIT_MS = 160
 
-const SPOKES = 8
+/** One turn: the app spinner's (app/globals.css .activity-spinner, one turn a second). */
+export const SPIN_MS = 1000
 
-/* Each spoke from 4.75 to 9.25 units out of the centre, the first straight up and the rest going back round, worked out once. */
-const LINES = Array.from({ length: SPOKES }, (_, i) => {
-  const a = (-i * 2 * Math.PI) / SPOKES
-  const at = (r: number) => [+(12 + r * Math.sin(a)).toFixed(3), +(12 - r * Math.cos(a)).toFixed(3)]
-  const [x1, y1] = at(9.25)
-  const [x2, y2] = at(4.75)
-  return { x1, y1, x2, y2, opacity: +(1 - (i * 0.85) / SPOKES).toFixed(3) }
-})
-
-/** One turn: a little slower than a second, the pace of the system's own. */
-export const SPIN_MS = 900
-
-export function Spinner({ size = 22, className = "" }: { size?: number; className?: string }) {
+/** The app's spinner. Its colour comes from `className` (text-*), light grey by default; a dark button passes white. */
+export function Spinner({ size = SPINNER_SIZE, className = "", label = "" }: { size?: number; className?: string; label?: string }) {
   return (
-    <span
-      aria-hidden
-      className={`inline-flex shrink-0 text-[#8a8f98] motion-safe:animate-[spin_var(--spin-ms)_linear_infinite] ${className}`}
-      style={{ width: size, height: size, ["--spin-ms" as string]: `${SPIN_MS}ms` }}
-      data-place-spinner-glyph=""
-    >
-      <svg viewBox="0 0 24 24" width={size} height={size} className="block">
-        {LINES.map((l, i) => (
-          <line key={i} x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} stroke="currentColor" strokeWidth="2" strokeLinecap="round" opacity={l.opacity} />
-        ))}
-      </svg>
+    <span className="inline-flex shrink-0" data-place-spinner-glyph="">
+      <ActivitySpinner size={size} label={label} className={className} />
     </span>
   )
 }
+
+const SPOKES = 8
+/** The app spinner's faintest spoke (activity-spinner.tsx TAIL). */
+const TAIL = 0.28
+
+/*
+  THE SAME SPOKES AS LINES, for a caller that draws them itself and fades
+  them one by one (components/ui/pull-to-refresh.tsx, in a 24 unit box with
+  a 2 unit stroke): the app spinner's geometry (a spoke from 3.2 to 8.6
+  units out of 10, its ends round) scaled to 24 and pulled in by the
+  stroke's round caps, the leading spoke straight up and darkest, each one
+  behind it a step fainter down to the same tail.
+*/
+const LINES = Array.from({ length: SPOKES }, (_, i) => {
+  const a = (-i * 2 * Math.PI) / SPOKES
+  const at = (r: number) => [+(12 + r * Math.sin(a)).toFixed(3), +(12 - r * Math.cos(a)).toFixed(3)]
+  const [x1, y1] = at(9.32)
+  const [x2, y2] = at(4.84)
+  return { x1, y1, x2, y2, opacity: +(1 - (i * (1 - TAIL)) / (SPOKES - 1)).toFixed(3) }
+})
 
 /** The spokes for a caller that draws them itself (components/ui/pull-to-refresh.tsx): where each runs and how faint it is. */
 export const SPINNER_SPOKES = LINES

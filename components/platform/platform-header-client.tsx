@@ -513,8 +513,17 @@ export function DesktopAccountMenu({
           }}
           className={cn(ACCOUNT_PANEL, open ? HEADER_MENU_OPEN : HEADER_MENU_LEAVING)}
         >
-          {/* Who is signed in: not a row, just the name over the handle. */}
+          {/*
+            Who is signed in: not a row, just the name over the handle. Opened from a community's "..." (round 12, 69.webp) the
+            photo is not on the button, so it is here beside the name, as the phone's sheet has it: the real picture, 36px, in a
+            hairline ring.
+          */}
           <div className="flex items-center gap-2.5 px-3 pb-2 pt-2.5" data-account-who="">
+            {trigger === "more" ? (
+              <span className="flex shrink-0" data-account-who-avatar="">
+                <AppAvatar src={avatarUrl} name={name.trim()} alt="" size={36} className="ring-1 ring-[rgba(16,18,27,0.08)] shadow-[0_1px_2px_rgba(16,18,27,0.06)]" />
+              </span>
+            ) : null}
             <span className="min-w-0 flex-1">
               <span className="block truncate text-[14px] font-semibold text-[#1a1a2e]">{name}</span>
               {username ? <span className="block truncate text-[12.5px] text-[#6b7280]">@{username}</span> : null}
