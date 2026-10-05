@@ -2263,6 +2263,8 @@ interface BlockOps {
   remove: (key: string) => void
   reorder: (next: BlockInstance[], parentKey: string | null) => void
   toggleHidden: (key: string, staticType?: string) => void
+  /** Into another level: under `parentKey` (null for the section's own), at `index` or last. */
+  moveTo: (key: string, parentKey: string | null, index?: number) => void
 }
 
 /** A word or two after a block's name: what it says, so twelve rows that are all "Heading" can be told apart. */
@@ -2299,6 +2301,7 @@ function BlockTreeFor({
   onSelect,
   canHide,
   ops,
+  outer,
 }: {
   section: SectionInstance
   schema: SectionSchema
@@ -2306,11 +2309,13 @@ function BlockTreeFor({
   parent: string[]
   siblings: BlockInstance[]
   owner: { blocks?: BlockSchema[]; accepts?: string[]; max_blocks?: number }
+  /** The level this one's parent sits in, so a block can be dragged out to it. Absent at the section's own level. */
+  outer?: { owner: { blocks?: BlockSchema[]; accepts?: string[]; max_blocks?: number }; siblings: BlockInstance[] }
   statics: { type: string; id: string }[]
   selectedKey: string | null
   onSelect: (key: string) => void
   canHide: boolean
-  ops: Pick<BlockOps, "add" | "reorder" | "toggleHidden" | "remove">
+  ops: Pick<BlockOps, "add" | "reorder" | "toggleHidden" | "remove" | "moveTo">
 }) {
   const parentKey = parent.length ? pathKey(parent) : null
   const defOf = (type: string) => (parent.length === 0 ? blockSchemaIn(schema, catalog, type) : catalog[type])
@@ -2324,11 +2329,45 @@ function BlockTreeFor({
     const def = defOf(b.type)
     return !!(def?.accepts?.length || def?.statics?.length) && stored(b)
   }
+  /** Whether a level (by its owner and where it is) takes a block of this type, with room for it. */
+  const levelTakes = (levelOwner: { blocks?: BlockSchema[]; accepts?: string[]; max_blocks?: number } | undefined, atRoot: boolean, held: BlockInstance[], b: BlockInstance, levelDepth: number) => {
+    if (!levelOwner) return false
+    const kinds = addableBlocks(atRoot ? levelOwner : { accepts: levelOwner.accepts }, catalog)
+    if (!kinds.some((k) => k.type === b.type)) return false
+    if (levelOwner.max_blocks && held.filter((x) => !x.static).length >= levelOwner.max_blocks) return false
+    return levelDepth + depthOf([b]) <= MAX_BLOCK_DEPTH
+  }
+  /* Right: into the block above, when it holds blocks and takes this one. Left: out to the level outside, just after its parent. */
+  const canNest = (i: number, dir: 1 | -1) => {
+    const b = dynamic[i]
+    if (!b) return false
+    if (dir === 1) {
+      const above = dynamic[i - 1]
+      if (!above || !holds(above)) return false
+      const def = defOf(above.type)
+      return levelTakes(def ? { accepts: def.accepts, max_blocks: def.max_blocks } : undefined, false, above.blocks ?? [], b, parent.length + 1)
+    }
+    return parent.length > 0 && levelTakes(outer?.owner, parent.length === 1, outer?.siblings ?? [], b, parent.length - 1)
+  }
+  const onNest = (i: number, dir: 1 | -1) => {
+    const b = dynamic[i]
+    if (!b) return
+    if (dir === 1) {
+      const above = dynamic[i - 1]
+      if (above) ops.moveTo(keyOf(b), keyOf(above))
+      return
+    }
+    const outerKey = parent.length > 1 ? pathKey(parent.slice(0, -1)) : null
+    const at = (outer?.siblings ?? []).findIndex((x) => x.id === parent[parent.length - 1])
+    ops.moveTo(keyOf(b), outerKey, at < 0 ? undefined : at + 1)
+  }
   return (
     <BlockTreeLevel<BlockInstance>
       blocks={dynamic}
       fixed={fixed}
       depth={parent.length + 1}
+      canNest={canNest}
+      onNest={onNest}
       rowKey={keyOf}
       title={(block) => ({ name: defOf(block.type)?.name ?? block.type, detail: blockDetail(block.settings) })}
       selectedKey={selectedKey}
@@ -2353,6 +2392,7 @@ function BlockTreeFor({
             onSelect={onSelect}
             canHide={canHide}
             ops={ops}
+            outer={{ owner, siblings }}
           />
         )
       }}
@@ -4546,6 +4586,29 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     setIsDirty(true)
   }
 
+  /**
+   * A block to another level: into a group, or out of one. Its children go
+   * with it. Refused, with nothing changed, when the result would break the
+   * tree's own rules (depth, a block inside itself), which the tree checks too.
+   */
+  const moveBlockTo = (sectionId: string, blockKey: string, parentKey: string | null, index?: number) => {
+    const section = sectionsRef.current.find(s => s.id === sectionId)
+    const path = section ? resolvePath(section.blocks, blockKey) : null
+    const found = section && path ? blockAt(section.blocks, path) : null
+    if (!section || !path || !found || found.block.static) return
+    const parent = parentKey ? resolvePath(section.blocks, parentKey) : []
+    if (!parent) return
+    if (pathKey(parent) === pathKey(path) || pathKey(parent).startsWith(`${pathKey(path)}/`)) return
+    if (parent.length + depthOf([found.block]) > MAX_BLOCK_DEPTH) return
+    pushUndo()
+    hapticTap("medium")
+    setSections(prev => prev.map(s => (s.id === sectionId ? { ...s, blocks: insertBlockAt(removeAt(s.blocks, path), parent, found.block, index) } : s)))
+    const was = pathKey(path)
+    const now = pathKey([...parent, found.block.id])
+    setSelectedBlockId(prev => (prev === was || prev === blockKey ? now : prev && prev.startsWith(`${was}/`) ? now + prev.slice(was.length) : prev))
+    setIsDirty(true)
+  }
+
   /** Kept, not drawn: hiding a block is not deleting it. A static block nobody has edited is created hidden. */
   const toggleBlockHidden = (sectionId: string, blockKey: string, staticType?: string) => {
     const section = sectionsRef.current.find(s => s.id === sectionId)
@@ -6165,6 +6228,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                         reorder: (next, parentKey) => reorderBlocks(s.id, next, parentKey),
                         toggleHidden: (key, staticType) => toggleBlockHidden(s.id, key, staticType),
                         remove: (key) => removeBlock(s.id, key),
+                        moveTo: (key, parentKey, index) => moveBlockTo(s.id, key, parentKey, index),
                       }}
                     />
                   )

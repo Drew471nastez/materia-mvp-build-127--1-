@@ -104,5 +104,16 @@ console.log("\nShop data in a sentence is a chip\n")
   check("  a connected field is the height of the boxes beside it", /flex h-8 max-sm:h-auto max-sm:min-h-11/.test(ds))
 }
 
+console.log("\nA block goes into a group, and out of one, by dragging sideways\n")
+{
+  const rows = read("components/website-builder/editor/block-tree-rows.tsx")
+  check("the tree hands the drag its rule and its move", /nest: canNest && onNest \? \{ step: TREE_STEP, can: canNest, onNest \} : undefined/.test(rows))
+  check("  the block it would go into is marked while held", /const into = drag && nesting === 1 \? drag\.from - 1 : -1/.test(rows) && /data-tree-nesting=/.test(rows))
+  check("  right only into a block above that holds blocks and takes this kind, with room", /if \(!above \|\| !holds\(above\)\) return false/.test(editor) && /levelOwner\.max_blocks && held\.filter/.test(editor) && /levelDepth \+ depthOf\(\[b\]\) <= MAX_BLOCK_DEPTH/.test(editor))
+  check("  left only out to a level that takes it, just after the group it left", /return parent\.length > 0 && levelTakes\(outer\?\.owner/.test(editor) && /ops\.moveTo\(keyOf\(b\), outerKey, at < 0 \? undefined : at \+ 1\)/.test(editor))
+  check("  the move carries its children, is one undo, and never puts a block inside itself", /insertBlockAt\(removeAt\(s\.blocks, path\), parent, found\.block, index\)/.test(editor) && /pathKey\(parent\)\.startsWith\(`\$\{pathKey\(path\)\}\/`\)/.test(editor) && /const moveBlockTo[\s\S]{0,900}pushUndo\(\)/.test(editor))
+  check("  and a selected block stays selected at its new address", /setSelectedBlockId\(prev => \(prev === was \|\| prev === blockKey \? now/.test(editor))
+}
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed) process.exit(1)

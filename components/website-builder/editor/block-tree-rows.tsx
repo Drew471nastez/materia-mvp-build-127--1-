@@ -61,6 +61,8 @@ export function BlockTreeLevel<B extends TreeBlock>({
   onReorder,
   onToggleHidden,
   onRemove,
+  canNest,
+  onNest,
   children,
   hasChildren,
   add,
@@ -83,6 +85,14 @@ export function BlockTreeLevel<B extends TreeBlock>({
    * every other row action; undo brings it back. Static blocks have none.
    */
   onRemove?: (key: string, block: B) => void
+  /**
+   * DRAGGED SIDEWAYS, A BLOCK GOES IN OR OUT. Right, by most of one tree
+   * step, puts it inside the block above it; left takes it out of the block
+   * it is in, to just after it. Only where the page says the move is allowed
+   * (the block above takes that kind of block, the level outside does too).
+   */
+  canNest?: (index: number, dir: 1 | -1) => boolean
+  onNest?: (index: number, dir: 1 | -1) => void
   /** The level inside a block that holds blocks, or null. */
   children?: (block: B) => React.ReactNode
   hasChildren?: (block: B) => boolean
@@ -101,7 +111,7 @@ export function BlockTreeLevel<B extends TreeBlock>({
 
   const blocksRef = React.useRef(blocks)
   blocksRef.current = blocks
-  const { listRef, gripProps, rowStyle } = useReorder<HTMLDivElement>({
+  const { listRef, gripProps, rowStyle, drag, nesting } = useReorder<HTMLDivElement>({
     count: blocks.length,
     onMove: (from, to) => {
       const next = [...blocksRef.current]
@@ -110,7 +120,10 @@ export function BlockTreeLevel<B extends TreeBlock>({
       next.splice(to, 0, moved)
       onReorder(next)
     },
+    nest: canNest && onNest ? { step: TREE_STEP, can: canNest, onNest } : undefined,
   })
+  /* The block a row would go into, let go now: drawn so the answer shows before the pointer lifts. */
+  const into = drag && nesting === 1 ? drag.from - 1 : -1
 
   const row = (block: B, i: number, still: boolean) => {
     const key = rowKey(block)
@@ -139,6 +152,7 @@ export function BlockTreeLevel<B extends TreeBlock>({
             "group/block",
             selected ? "bg-[#ebecef] text-[#111827]" : "text-[#374151] hover:bg-[#f3f4f6]",
             lifted && "bg-white shadow-[0_6px_20px_rgba(0,0,0,0.12)]",
+            !still && i === into && "bg-[#f3f4f6] shadow-[inset_0_0_0_1px_#d4d7dd]",
           )}
           style={{ paddingLeft: rowIndent(depth) }}
         >
@@ -235,7 +249,7 @@ export function BlockTreeLevel<B extends TreeBlock>({
   return (
     <div data-block-tree-level={depth}>
       {fixed.length > 0 && <div data-tree-fixed="">{fixed.map((b, i) => row(b, i, true))}</div>}
-      <div ref={listRef}>{blocks.map((b, i) => row(b, i, false))}</div>
+      <div ref={listRef} data-tree-nesting={drag && nesting ? (nesting === 1 ? "in" : "out") : undefined}>{blocks.map((b, i) => row(b, i, false))}</div>
       {add}
     </div>
   )
