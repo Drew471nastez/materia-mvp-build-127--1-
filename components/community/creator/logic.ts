@@ -504,7 +504,7 @@ export function nextSteps(f: NextStepFacts, base: string): NextStep[] {
   if (!f.published) steps.push({ id: "publish", title: "Publish your community", detail: "It is a draft. Only you can see it until you publish.", href: `${base}/settings?tab=advanced`, action: "Publish" })
   if (f.members <= 1 && f.invites === 0) steps.push({ id: "invite", title: "Invite your first members", detail: "Send an invite by email or share a link.", href: `${base}/members?invite=1`, action: "Invite" })
   if (f.posts === 0) steps.push({ id: "welcome", title: "Write a welcome post", detail: "Say who it is for and how to get started.", href: `${base}/feed?compose=welcome`, action: "Write" })
-  if (f.classroomEnabled && f.courses === 0) steps.push({ id: "course", title: "Add something to Learn", detail: "A program of lessons, or a course you already sell.", href: `${base}/classroom`, action: "Add" })
+  if (f.classroomEnabled && f.courses === 0) steps.push({ id: "course", title: "Add something to Learn", detail: "A program of lessons, or a course you already sell.", href: `${base}/learn`, action: "Add" })
   if (f.eventsEnabled && f.events === 0) steps.push({ id: "event", title: "Schedule an event", detail: "A call, a workshop or a Q&A.", href: `${base}/events?new=1`, action: "Schedule" })
   if (!f.customized) steps.push({ id: "customize", title: "Customize the page", detail: "Add pictures, a video and what members get.", href: `${base}/settings?tab=page`, action: "Edit" })
   if (f.rules === 0) steps.push({ id: "rules", title: "Write the rules", detail: "Members see them before they join and when they post.", href: `${base}/moderation?tab=rules`, action: "Write" })

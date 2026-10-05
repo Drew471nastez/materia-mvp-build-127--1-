@@ -43,7 +43,7 @@ export function sectionTabs(head: CommunityHead): SectionTab[] {
     { id: "overview", label: "Overview", href: base },
     can.moderate_content ? { id: "feed", label: "Feed", href: `${base}/feed` } : null,
     can.manage_spaces ? { id: "spaces", label: "Spaces", href: `${base}/spaces` } : null,
-    can.manage_classroom && head.classroomEnabled ? { id: "classroom", label: "Learn", href: `${base}/classroom` } : null,
+    can.manage_classroom && head.classroomEnabled ? { id: "classroom", label: "Learn", href: `${base}/learn` } : null,
     can.manage_events && head.eventsEnabled ? { id: "events", label: "Calendar", href: `${base}/events` } : null,
     can.remove_member ? { id: "members", label: "Members", href: `${base}/members`, count: head.memberCount } : null,
     can.review_reports ? { id: "moderation", label: "Moderation", href: `${base}/moderation`, count: head.openReports || undefined } : null,
@@ -57,6 +57,7 @@ export function activeSection(pathname: string, id: string): SectionId {
   const rest = pathname.split(`/app/community/${id}`)[1] ?? ""
   const seg = rest.split("/").filter(Boolean)[0]
   if (seg === "gamification") return "settings"
+  if (seg === "learn") return "classroom"
   return (seg as SectionId) || "overview"
 }
 

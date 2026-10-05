@@ -747,3 +747,10 @@ async function removeProgramCourse(db: Db, courseId: string): Promise<void> {
     console.error(`[communities] program course removal: ${reasonOf(e)}`)
   }
 }
+
+/* The builder's data with what it needs about selling: the currency every charge is made in, and whether the creator's payouts take payments. The /app editor's Learn page and its GET route both read it here. */
+export async function learnBuilderFor(db: Db, community: CommunityRow): Promise<LearnBuilderData> {
+  const [{ platformChargeCurrency }, { checkoutReadyForCreator }] = await Promise.all([import("@/lib/payments/fees/currency-rules"), import("@/lib/payments/service")])
+  const canSell = community.creator_id ? await checkoutReadyForCreator(community.creator_id).catch(() => false) : false
+  return loadLearnBuilder(db, community, { currency: platformChargeCurrency(), canSell })
+}

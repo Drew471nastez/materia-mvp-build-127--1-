@@ -3,9 +3,7 @@ import { requireCommunitiesOn } from "@/lib/communities/flag"
 import { requireCreatorCommunity } from "@/lib/communities/server/context"
 import { noStore, readJson } from "@/lib/email-campaigns/route-auth"
 import { manageLimit } from "@/lib/communities/server/creator"
-import { attachCourseProgram, createProgram, loadLearnBuilder, reorderPrograms } from "@/lib/communities/server/learn"
-import type { CommunityRow } from "@/lib/communities/types"
-import type { Db } from "@/lib/communities/server/db"
+import { attachCourseProgram, createProgram, learnBuilderFor, reorderPrograms } from "@/lib/communities/server/learn"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -58,11 +56,4 @@ export async function PUT(request: Request, { params }: Params) {
   const done = await reorderPrograms(gate.ctx.admin, { communityId: gate.community.id, actorId: gate.ctx.userId, ids: body.ids })
   if (done.ok === false) return NextResponse.json({ error: done.error }, { status: done.status, headers: noStore })
   return NextResponse.json({ ok: true }, { headers: noStore })
-}
-
-/* The builder's data with what it needs about selling: the currency every charge is made in, and whether the creator's payouts take payments. */
-async function learnBuilderFor(db: Db, community: CommunityRow) {
-  const [{ platformChargeCurrency }, { checkoutReadyForCreator }] = await Promise.all([import("@/lib/payments/fees/currency-rules"), import("@/lib/payments/service")])
-  const canSell = community.creator_id ? await checkoutReadyForCreator(community.creator_id).catch(() => false) : false
-  return loadLearnBuilder(db, community, { currency: platformChargeCurrency(), canSell })
 }

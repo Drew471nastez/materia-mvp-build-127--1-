@@ -16,7 +16,7 @@ import type { PlayerData } from "@/lib/courses/types"
 import { lessonsLabel, opensOnLabel, type ClassroomCourse } from "./model"
 
 export function CommunityCoursePlayer({ data, classroomHref }: { data: PlayerData; classroomHref: string }) {
-  return <CoursePlayer data={data} backHref={classroomHref} backLabel="Classroom" />
+  return <CoursePlayer data={data} backHref={classroomHref} backLabel="Learn" />
 }
 
 function sentence(course: ClassroomCourse, timeZone?: string): string {
