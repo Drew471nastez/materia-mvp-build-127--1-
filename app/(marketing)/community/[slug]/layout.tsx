@@ -1,4 +1,5 @@
 import type { Metadata } from "next"
+import { OpenInAppPill } from "@/components/community/open-in-app-pill"
 import type React from "react"
 import { headers } from "next/headers"
 import { permanentRedirect } from "next/navigation"
@@ -77,6 +78,7 @@ export default async function CommunitySlugLayout({ children, params }: { childr
     return (
       <CommunityShell community={page.community} viewer={page.viewer}>
         {children}
+        <OpenInAppPill />
       </CommunityShell>
     )
   }
@@ -84,6 +86,7 @@ export default async function CommunitySlugLayout({ children, params }: { childr
     return (
       <CommunityPublicShell community={page.community} viewer={page.viewer}>
         {children}
+        <OpenInAppPill />
       </CommunityPublicShell>
     )
   }
