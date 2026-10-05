@@ -1,3 +1,4 @@
+import { personName } from "@/lib/profile/display-name"
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { pageUser } from "@/lib/auth/page-user"
@@ -108,7 +109,7 @@ export async function loadSettingsData() {
       .upsert({
         id: user.id,
         email: user.email || "",
-        display_name: user.user_metadata?.display_name || user.email?.split("@")[0] || "User",
+        display_name: personName({ name: user.user_metadata?.display_name, meta: user.user_metadata, email: user.email }),
         is_creator: true,
       })
       .select()
@@ -120,7 +121,7 @@ export async function loadSettingsData() {
   const safeProfile = finalProfile || {
     id: user.id,
     email: user.email || "",
-    display_name: user.user_metadata?.display_name || "User",
+    display_name: personName({ name: user.user_metadata?.display_name, meta: user.user_metadata, email: user.email }),
     avatar_url: null,
     username: null,
     is_creator: true,

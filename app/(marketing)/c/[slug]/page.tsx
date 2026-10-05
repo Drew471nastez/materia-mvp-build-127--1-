@@ -1,3 +1,4 @@
+import { personName } from "@/lib/profile/display-name"
 import { permanentRedirect, redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { CREATOR_WITH_PROFILE, PROFILE_CARD } from "@/lib/security/public-columns"
@@ -21,7 +22,7 @@ export async function generateMetadata({ params }: CreatorPageProps) {
   }
 
   return {
-    title: (creator.profile as unknown as { display_name?: string | null } | null)?.display_name || "Creator",
+    title: personName({ name: (creator.profile as unknown as { display_name?: string | null } | null)?.display_name, slug: (creator as { slug?: string | null }).slug }),
     description: creator.headline || creator.bio || "Check out this creator on Storelib",
   }
 }

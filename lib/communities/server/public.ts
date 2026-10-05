@@ -1,3 +1,4 @@
+import { personName } from "@/lib/profile/display-name"
 import "server-only"
 
 /**
@@ -202,7 +203,7 @@ function creatorView(entry: { creator: CreatorLite; profile: ProfileLite | null 
   if (!entry) return null
   const { creator, profile } = entry
   const username = (profile?.username || creator.slug || "").toLowerCase() || null
-  const name = profile?.display_name?.trim() || creator.display_name?.trim() || username || "Creator"
+  const name = personName({ name: profile?.display_name?.trim() || creator.display_name?.trim(), username })
   /* Their page, by the one rule every name follows: the storefront once onboarding is done, the profile before. */
   return { name, username, avatarUrl: profile?.avatar_url || creator.avatar_url || null, href: username ? personHref({ username, hasStorefront: !!creator.onboarding_completed }) : null }
 }

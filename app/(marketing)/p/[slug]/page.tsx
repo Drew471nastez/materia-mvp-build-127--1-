@@ -1,4 +1,5 @@
 import { notFound, permanentRedirect, redirect } from "next/navigation"
+import { personName } from "@/lib/profile/display-name"
 import { CourseOutline } from "@/components/courses/course-outline"
 import { listPrice } from "@/lib/pricing/list-price"
 import { plainSummary } from "@/lib/html-entities"
@@ -1066,7 +1067,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                     className="font-medium truncate"
                     style={{ color: themeColors.textColor || "var(--foreground)" }}
                   >
-                    {creatorProfile?.display_name || "Creator"}
+                    {personName({ name: creatorProfile?.display_name, username: creatorProfile?.username, slug: creator?.slug })}
                   </p>
                   <CreatorBadges badges={creatorBadgeIds} ink={themeColors.textColor} size={17} className="-ml-1.5" />
                   {/* Not gap-3 away from the name: the chevron belongs to the
@@ -1265,7 +1266,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                       className="font-medium truncate text-sm"
                       style={{ color: themeColors.cardTextColor || "var(--foreground)" }}
                     >
-                      {creatorProfile?.display_name || "Creator"}
+                      {personName({ name: creatorProfile?.display_name, username: creatorProfile?.username, slug: creator?.slug })}
                     </p>
                     <CreatorBadges badges={creatorBadgeIds} ink={themeColors.cardTextColor} size={15} className="-ml-1.5" />
                     <ChevronRight
@@ -1572,7 +1573,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   /* The same address the canonical tag declares, so the structured data and
      the <link> cannot disagree about which URL this product lives at. */
   const canonicalUrl = getProductShareUrl(creatorUsername, product.slug, pageHost)
-  const sellerDisplayName = creatorProfile?.display_name || creator?.name || "Creator"
+  const sellerDisplayName = personName({ name: creatorProfile?.display_name || creator?.name, username: creatorProfile?.username, slug: creator?.slug })
 
   /*
     THE CATEGORY PAGE THE PRODUCT IS LISTED ON. The breadcrumb pointed at
@@ -1765,7 +1766,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
         <DiscoverStickyWrapper>
           <LiveProductCreatorBar
             settings={creatorBarSettings}
-            creatorName={creatorProfile?.display_name || creator?.name || "Creator"}
+            creatorName={personName({ name: creatorProfile?.display_name || creator?.name, username: creatorProfile?.username, slug: creator?.slug })}
             creatorId={product.creator_id}
             creatorUsername={creatorUsername}
             avatarUrl={creatorAvatarUrl}
@@ -1941,7 +1942,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
       <DiscoverStickyWrapper>
         <LiveProductCreatorBar
           settings={defaultProductCreatorBarSettings}
-          creatorName={creatorProfile?.display_name || creator?.name || "Creator"}
+          creatorName={personName({ name: creatorProfile?.display_name || creator?.name, username: creatorProfile?.username, slug: creator?.slug })}
           creatorId={product.creator_id}
           creatorUsername={creatorUsername}
           avatarUrl={creatorAvatarUrl}

@@ -1,5 +1,6 @@
 "use client"
 
+import { personName } from "@/lib/profile/display-name"
 import { useEffect, useLayoutEffect, useRef, useState, useCallback } from "react"
 import { useStoreBuilder } from "./store-builder-context"
 import { createClient } from "@/lib/supabase/client"
@@ -645,7 +646,7 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
               settings={
                 (draftConfig.headerSettings as ProductHeaderSettings).creatorBar || defaultProductCreatorBarSettings
               }
-              creatorName={profile?.display_name || "Creator"}
+              creatorName={personName({ name: profile?.display_name, username: profile?.username })}
               creatorUsername={profile?.username}
               avatarUrl={avatarUrl}
               isEditorPreview={isEditorMode}
@@ -757,7 +758,7 @@ export function PreviewCanvas({ creatorId, creator, profile, products, isPreview
                     // Pass avatar and creator info
                     showAvatar: subscribeBarSettings?.showAvatar ?? true,
                     avatarUrl: avatarUrl,
-                    creatorName: profile?.display_name || "Creator",
+                    creatorName: personName({ name: profile?.display_name, username: profile?.username }),
                   } || defaultSubscribeBarSettings
                 }
                 creatorId={creatorId}

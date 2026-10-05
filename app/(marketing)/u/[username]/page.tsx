@@ -1,3 +1,4 @@
+import { personName } from "@/lib/profile/display-name"
 import type React from "react"
 import { hasBoughtFromCreator } from "@/lib/commerce/has-bought-from-creator"
 import { applyManualOrder } from "@/lib/store-builder/featured-order"
@@ -259,7 +260,7 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
     creator page was counted against the website and previewed as it.
   */
   const pageUrl = pageHost ? `https://${pageHost}/` : `https://storelib.com/${handle}`
-  const displayTitle = profile.display_name || profile.username || "Creator"
+  const displayTitle = personName({ name: profile.display_name, username: profile.username })
   const defaultDescription = `Check out ${profile.display_name || profile.username}'s products on Storelib`
 
   /*

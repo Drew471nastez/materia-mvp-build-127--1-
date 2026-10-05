@@ -1,3 +1,4 @@
+import { personName } from "@/lib/profile/display-name"
 import { notFound, permanentRedirect, redirect } from "next/navigation"
 import { createAdminClient } from "@/lib/supabase/admin"
 import type { Metadata } from "next"
@@ -269,7 +270,7 @@ export default async function PublicOnePageRoute({ params, searchParams }: Props
       ? jsonLdScript(
           profilePageJsonLd({
             url: owner.canonical,
-            name: transformedOnepage.title || owner.handle || "Creator",
+            name: personName({ name: transformedOnepage.title, username: owner.handle }),
             image: transformedOnepage.avatar_url,
             /* The same words the metadata gives (lib/onepage/seo), from the blocks drawn below with their products read live. */
             description: resolveOnePageSeo({

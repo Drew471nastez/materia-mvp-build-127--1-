@@ -1,5 +1,6 @@
 "use client"
 
+import { personName } from "@/lib/profile/display-name"
 import { listPrice } from "@/lib/pricing/list-price"
 import { memo, useRef, useCallback } from "react"
 import { useRouter } from "next/navigation"
@@ -212,7 +213,7 @@ export const ProductCard = memo(function ProductCard({
   /* Free, pay what you want, a price and a saving: one rule for every card (lib/pricing/list-price). */
   const priceLabel = listPrice(product)
 
-  const creatorName = product.creator?.profile?.display_name || "Creator"
+  const creatorName = personName({ name: product.creator?.profile?.display_name, username: product.creator?.profile?.username, slug: product.creator?.slug })
   // Only use the profile username — it's what /u/[username] routes look up.
   // creator.slug may differ from profile.username or be a UUID → broken URL.
   const creatorUsername = product.creator?.profile?.username || ""

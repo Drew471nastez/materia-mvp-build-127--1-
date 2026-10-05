@@ -1,3 +1,4 @@
+import { personName } from "@/lib/profile/display-name"
 import Link from "next/link"
 import Image from "next/image"
 import { createClient } from "@/lib/supabase/server"
@@ -125,7 +126,7 @@ export default async function DashboardOverview({ searchParams }: DashboardOverv
                     <div className="p-4">
                       <h3 className="font-medium group-hover:text-primary">{e.product?.title}</h3>
                       <p className="mt-1 text-sm text-muted-foreground">
-                        by {e.creator?.profile?.display_name || "Creator"}
+                        by {personName({ name: e.creator?.profile?.display_name, slug: e.creator?.slug })}
                       </p>
                     </div>
                   </Link>
@@ -170,7 +171,7 @@ export default async function DashboardOverview({ searchParams }: DashboardOverv
                     <div className="p-4">
                       <h3 className="font-medium group-hover:text-primary">{e.product?.title}</h3>
                       <p className="mt-1 text-sm text-muted-foreground">
-                        by {e.creator?.profile?.display_name || "Creator"}
+                        by {personName({ name: e.creator?.profile?.display_name, slug: e.creator?.slug })}
                       </p>
                     </div>
                   </Link>
@@ -204,7 +205,7 @@ export default async function DashboardOverview({ searchParams }: DashboardOverv
                       </div>
                       <div>
                         <h3 className="font-medium group-hover:text-primary">
-                          {e.creator?.profile?.display_name || "Creator"}&apos;s Community
+                          {personName({ name: e.creator?.profile?.display_name, slug: e.creator?.slug })}&apos;s Community
                         </h3>
                         <p className="text-sm text-muted-foreground">Active community</p>
                       </div>
