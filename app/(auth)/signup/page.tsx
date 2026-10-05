@@ -294,9 +294,11 @@ function SignUpFormContent() {
           welcome_completed: true,
         }, { onConflict: "id" })
 
-        // Send branded verification code via SMTP
+        // Send branded verification code via SMTP. sent=1 only when Mailgun
+        // accepted it; otherwise the verify page sends again as it opens.
+        let codeSent = false
         try {
-          await fetch("/api/auth/verify-email", {
+          const sent = await fetch("/api/auth/verify-email", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -304,6 +306,7 @@ function SignUpFormContent() {
               email: trimmedEmail,
             }),
           })
+          codeSent = sent.ok
         } catch (verifyError) {
           console.error("Error sending verification code:", verifyError)
         }
@@ -326,7 +329,7 @@ function SignUpFormContent() {
 
         // Redirect to verify page
         navigateWithFallback(
-          withCarry(`/signup/verify?userId=${data.user.id}&email=${encodeURIComponent(trimmedEmail)}&sent=1`, carry)
+          withCarry(`/signup/verify?userId=${data.user.id}&email=${encodeURIComponent(trimmedEmail)}${codeSent ? "&sent=1" : ""}`, carry)
         )
         router.refresh()
       }

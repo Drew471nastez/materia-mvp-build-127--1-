@@ -83,10 +83,15 @@ function VerifyContent() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId, email }),
     })
-      .then((res) => {
-        if (res.ok) setResendCooldown(10)
+      .then(async (res) => {
+        if (res.ok) {
+          setResendCooldown(10)
+          return
+        }
+        const data = await res.json().catch(() => null)
+        setError(typeof data?.error === "string" ? data.error : "Could not send the code. Try resend.")
       })
-      .catch(() => {})
+      .catch(() => setError("Could not send the code. Try resend."))
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Countdown timer for resend button

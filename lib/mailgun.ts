@@ -157,6 +157,44 @@ export function isValidEmail(email: string): boolean {
 }
 
 /**
+ * The From Mailgun will actually accept.
+ *
+ * Codes were sent as noreply@storelib.com. The domain Mailgun signs, and the
+ * address every other Storelib email uses, is MAILGUN_FROM_EMAIL on
+ * mg.storelib.com. A From on a different domain is refused or dropped, which
+ * is why a code for a Gmail address or an @storelib.com address never arrived.
+ * A transactional send uses that signed address. Everything else keeps the
+ * From it named, unless that domain is not the sending domain and a signed
+ * address is configured.
+ */
+function fromForSend(requested: string | undefined, transactional?: boolean): string {
+  const sendingDomain = MAILGUN_DOMAIN.toLowerCase()
+  const signedEmail = (process.env.MAILGUN_FROM_EMAIL || "").replace(/[<>"\s]/g, "").trim()
+  const name = (process.env.MAILGUN_FROM_NAME || "Storelib").replace(/[<>"\r\n]/g, "").trim() || "Storelib"
+  const signed = signedEmail.includes("@") ? quotedFrom(withDisplayName(`${name} <${signedEmail}>`)) : ""
+  /* A code uses the address the rest of Storelib's mail already sends from. */
+  if (transactional && signed) return signed
+  const built = quotedFrom(withDisplayName(requested || EMAIL_FROM))
+  const addr = (built.match(/<([^<>\s]+@[^<>\s]+)>/)?.[1] || built).toLowerCase()
+  const fromDomain = addr.split("@")[1] || ""
+  if (signed && fromDomain && sendingDomain && fromDomain !== sendingDomain) return signed
+  return built
+}
+
+/** Take one address off the bounce list so the next send is attempted. Never throws. */
+async function clearBounce(email: string): Promise<void> {
+  if (!MAILGUN_API_KEY || !MAILGUN_DOMAIN) return
+  try {
+    await fetch(`${MAILGUN_BASE_URL}/v3/${MAILGUN_DOMAIN}/bounces/${encodeURIComponent(email)}`, {
+      method: "DELETE",
+      headers: { Authorization: `Basic ${Buffer.from(`api:${MAILGUN_API_KEY}`).toString("base64")}` },
+    })
+  } catch {
+    /* A missing bounce is a 404. Either way the send goes ahead. */
+  }
+}
+
+/**
  * Check Mailgun suppression list before sending
  */
 async function isEmailSuppressed(email: string): Promise<boolean> {
@@ -225,8 +263,12 @@ export async function sendMailgunEmail(options: MailgunSendOptions): Promise<Mai
     }
   }
 
-  const fromAddress = quotedFrom(withDisplayName(options.from || EMAIL_FROM))
+  const fromAddress = fromForSend(options.from, options.transactional)
   const replyTo = options.replyTo || EMAIL_REPLY_TO
+  /* A code they just asked for must not die on a stale bounce. Mailgun
+     drops those after it has already answered "queued", so the page looks
+     sent and the inbox stays empty. A complaint is left in place. */
+  if (options.transactional) await clearBounce(options.to)
 
   // Build form data for Mailgun API
   const formData = new FormData()
