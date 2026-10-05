@@ -12,13 +12,13 @@ export default async function CommunityMembersPage({ params, searchParams }: { p
   const ctx = await sectionPage(id, "remove_member")
   if (!ctx) return null
   const query = { ...parseMemberQuery(sp), q: "", cursor: null }
-  const canEmail = can(ctx.role, "manage_members")
+  const canEmail = can(ctx.role, "manage_members", ctx.viewer.perms)
   const [head, page, counts, tiers, invites, badges] = await Promise.all([
     communityHead(ctx),
     listMembers(ctx.db, ctx.community.id, query, { withEmail: canEmail }),
     memberCounts(ctx.db, ctx.community.id),
     ctx.db.from("community_tiers").select("id, name, kind").eq("community_id", ctx.community.id).is("archived_at", null).order("position", { ascending: true }).limit(50),
-    can(ctx.role, "invite") ? listInvites(ctx.db, ctx.community.id, null) : Promise.resolve({ rows: [], next: null }),
+    can(ctx.role, "invite", ctx.viewer.perms) ? listInvites(ctx.db, ctx.community.id, null) : Promise.resolve({ rows: [], next: null }),
     ctx.community.gamification_enabled ? loadBadges(ctx.db, ctx.community.id) : Promise.resolve([]),
   ])
   return (
@@ -31,7 +31,7 @@ export default async function CommunityMembersPage({ params, searchParams }: { p
       tiers={(tiers.data as { id: string; name: string; kind: string }[] | null) ?? []}
       canEmail={canEmail}
       invites={invites}
-      openInvite={sp.invite === "1" && can(ctx.role, "invite")}
+      openInvite={sp.invite === "1" && can(ctx.role, "invite", ctx.viewer.perms)}
       badges={badges}
     />
   )

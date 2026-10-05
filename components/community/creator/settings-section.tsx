@@ -338,8 +338,8 @@ function Features({ head, data }: { head: CommunityHead; data: SettingsData }) {
     <div className="space-y-4" data-features="">
       <Section title="Sections" hint="Turned off, a section is hidden from members. Nothing in it is deleted.">
         <div className="-my-1 divide-y divide-[#f1f2f4]">
-          <Toggle checked={features.classroomEnabled} onChange={(v) => void flip("classroomEnabled", v)} title="Classroom" hint="Your courses, inside the community." />
-          <Toggle checked={features.eventsEnabled} onChange={(v) => void flip("eventsEnabled", v)} title="Events" hint="Calls, workshops and meetups with RSVPs." />
+          <Toggle checked={features.classroomEnabled} onChange={(v) => void flip("classroomEnabled", v)} title="Learn" hint="Your programs and lessons, inside the community." />
+          <Toggle checked={features.eventsEnabled} onChange={(v) => void flip("eventsEnabled", v)} title="Calendar" hint="Calls, workshops and meetups with RSVPs." />
           <Toggle checked={features.chatEnabled} onChange={(v) => void flip("chatEnabled", v)} title="Chat" hint="Spaces of the chat kind, and messages between members." />
           <Toggle checked={features.directoryEnabled} onChange={(v) => void flip("directoryEnabled", v)} title="Member directory" hint="Members can see who else is here." />
         </div>

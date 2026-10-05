@@ -42,7 +42,7 @@ export async function PATCH(request: Request, { params }: Params) {
     if (!saved.ok) return NextResponse.json({ error: saved.error }, { status: saved.status, headers: noStore })
   }
   if (typeof body.enabled === "boolean") {
-    const done = await updateSettings(db, { community: gate.community, role: gate.role, actorId: gate.ctx.userId, creatorId: gate.ctx.creatorId, body: { gamificationEnabled: body.enabled } })
+    const done = await updateSettings(db, { community: gate.community, role: gate.role, perms: gate.viewer.perms, actorId: gate.ctx.userId, creatorId: gate.ctx.creatorId, body: { gamificationEnabled: body.enabled } })
     if (!done.ok) return NextResponse.json({ error: done.error }, { status: done.status, headers: noStore })
   }
   return NextResponse.json({ ok: true }, { headers: noStore })

@@ -23,7 +23,7 @@ import "server-only"
  * above them (canActOn), and that includes their posts; and every action is
  * written to the audit log.
  */
-import { assignableRoles, can, canActOn, ROLE_RANK, type CommunityAction } from "../permissions"
+import { assignableRoles, can, canActOn, ROLE_RANK, type CommunityAction, type RolePermissions } from "../permissions"
 import { MEMBER_COLUMNS, REPORT_STATUSES, isOneOf, type CommunityRow, type MemberRow, type MemberSource, type MemberStatus, type ReportReason, type ReportStatus, type ReportTarget, type Role } from "../types"
 import { decodeCursor, encodeCursor, isUuid, keysetOr } from "@/components/community/creator/logic"
 import type { AuditView, ReportView } from "@/components/community/creator/view-types"
@@ -32,6 +32,7 @@ import { grantMembership, memberOf, revokeMembership } from "./membership"
 import { notifyMember } from "./notify"
 import { sendCommunityEmail } from "./email"
 import { missing, nowIso, reasonOf, type Db } from "./db"
+import { staffPermissions } from "./creator-roles"
 
 export type Outcome<T = unknown> = ({ ok: true } & T) | { ok: false; error: string; status: number }
 
@@ -40,6 +41,14 @@ const no = (status: number, error: string) => ({ ok: false as const, status, err
 export interface Actor {
   userId: string
   role: Role
+  /** What the owner lets this admin or moderator do (./creator-roles.ts); read here when the caller did not pass it. */
+  perms?: RolePermissions | null
+}
+
+/** Whether this actor may take this action in this community, with the owner's choices for their role. */
+async function actorMay(db: Db, communityId: string, actor: Actor, action: CommunityAction): Promise<{ ok: boolean; perms: RolePermissions | null }> {
+  const perms = actor.perms !== undefined ? actor.perms : await staffPermissions(db, communityId, actor.role)
+  return { ok: can(actor.role, action, perms), perms }
 }
 
 /* ── People, as the screens name them ───────────────────────────────────── */
@@ -138,7 +147,7 @@ export interface ContentActInput {
 export async function actOnContent(db: Db, a: ContentActInput): Promise<Outcome<{ status: string }>> {
   if (!isUuid(a.targetId)) return no(404, "not_found")
   if (!contentActionFits(a.action, a.targetType)) return no(400, "That cannot be done to this.")
-  if (!can(a.actor.role, contentActionNeeds(a.action))) return no(403, "forbidden")
+  if (!(await actorMay(db, a.community.id, a.actor, contentActionNeeds(a.action))).ok) return no(403, "forbidden")
   const table = TABLE[a.targetType]
   const cols = a.targetType === "post" ? "id, community_id, author_id, status, pinned, locked, featured, space_id, title, body_text" : a.targetType === "comment" ? "id, community_id, author_id, status, body, post_id" : "id, community_id, author_id, status, body, space_id"
   const { data: row, error } = await db.from(table).select(cols).eq("id", a.targetId).eq("community_id", a.community.id).maybeSingle()
@@ -266,7 +275,8 @@ export interface MemberActInput {
 
 export async function actOnMember(db: Db, a: MemberActInput): Promise<Outcome<{ member: MemberRow | null }>> {
   if (!isUuid(a.userId)) return no(404, "not_found")
-  if (!can(a.actor.role, memberActionNeeds(a.action))) return no(403, "forbidden")
+  const may = await actorMay(db, a.community.id, a.actor, memberActionNeeds(a.action))
+  if (!may.ok) return no(403, "forbidden")
   if (a.userId === a.actor.userId) return no(409, "You cannot do that to yourself.")
   const target = await memberOf(db, a.community.id, a.userId)
   if (!target) return no(404, "not_found")
@@ -337,7 +347,7 @@ export async function actOnMember(db: Db, a: MemberActInput): Promise<Outcome<{ 
       return { ok: true, member: await revokeMembership(db, { communityId: a.community.id, userId: a.userId, status: "cancelled", reason: reason ?? "request declined", actorId: a.actor.userId }) }
     case "role": {
       const role = a.role
-      if (!assignableRoles(a.actor.role).some((r) => r === role)) return no(403, "forbidden")
+      if (!assignableRoles(a.actor.role, may.perms).some((r) => r === role)) return no(403, "forbidden")
       if (target.status !== "active") return no(409, "Only an active member can be given a role.")
       if (target.role === role) return { ok: true, member: target }
       const { data, error } = await db.from("community_members").update({ role }).eq("id", target.id).select(MEMBER_COLUMNS).single()
@@ -447,7 +457,7 @@ export async function listReports(db: Db, communityId: string, opts: { status: "
 }
 
 export async function updateReport(db: Db, a: { community: CommunityRow; actor: Actor; id: string; status: unknown; resolution?: unknown }): Promise<Outcome> {
-  if (!can(a.actor.role, "review_reports")) return no(403, "forbidden")
+  if (!(await actorMay(db, a.community.id, a.actor, "review_reports")).ok) return no(403, "forbidden")
   if (!isUuid(a.id)) return no(404, "not_found")
   if (!isOneOf(REPORT_STATUSES, a.status)) return no(400, "Pick a status.")
   const { data: row } = await db.from("community_reports").select("id, status, target_type, target_id").eq("id", a.id).eq("community_id", a.community.id).maybeSingle()

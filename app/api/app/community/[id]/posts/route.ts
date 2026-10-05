@@ -37,7 +37,7 @@ export async function POST(request: Request, { params }: Params) {
   const limited = await rateLimit({ bucket: rateBucket("post"), subjects: [`user:${gate.ctx.userId}`], windows: RATE_LIMITS.post, message: "That is a lot of posts at once. Try again in a few minutes." })
   if (limited) return limited
   const body = await readJson(request)
-  const done = await createCreatorPost(gate.ctx.admin, { community: gate.community, role: gate.role, actorId: gate.ctx.userId, spaceId: body.spaceId, title: body.title, body: body.body, pin: body.pin === true })
+  const done = await createCreatorPost(gate.ctx.admin, { community: gate.community, role: gate.role, perms: gate.viewer.perms, actorId: gate.ctx.userId, spaceId: body.spaceId, title: body.title, body: body.body, pin: body.pin === true })
   if (!done.ok) return NextResponse.json({ error: done.error, field: done.field }, { status: done.status, headers: noStore })
   return NextResponse.json({ id: done.id }, { status: 201, headers: noStore })
 }
