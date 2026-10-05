@@ -472,7 +472,7 @@ async function main() {
   const B = "components/notifications/notification-bell.tsx"
   const bell = code(B)
   /* Round 11: and a least height for its phone sheet (a community's bar asks for half the screen). */
-  check("a client component exporting NotificationBell({ className, sheetMin, tabBadge })", read(B).startsWith('"use client"') && /export function NotificationBell\(\{ className, sheetMin, tabBadge = false \}: \{\s*className\?: string[\s\S]{0,400}sheetMin\?: string[\s\S]{0,400}tabBadge\?: boolean\s*\}\)/.test(bell))
+  check("a client component exporting NotificationBell({ className, sheetMin, tabBadge })", read(B).startsWith('"use client"') && /export function NotificationBell\(\{ className, sheetMin, tabBadge = false \}: \{\s*className\?: string[\s\S]{0,400}tabBadge\?: boolean[\s\S]{0,400}sheetMin\?: string\s*\}\)/.test(bell))
   check("it imports nothing from the server", !/server-only|next\/headers|lib\/communities\/server|lib\/notifications\/user-inbox"|lib\/supabase\/(server|admin)|lib\/admin-blog-auth/.test(bell))
   check("it reads the inbox and marks read through the two routes", /"\/api\/notifications\/inbox"/.test(bell) && /"\/api\/notifications\/read"/.test(bell))
   check("realtime on both tables, joined after setAuth", /await realtimeAuth\(supabase\)\s*if \(gone\) return\s*for \(const table of \["user_notifications", "community_notifications"\]\)/.test(bell) && /filter: `user_id=eq\.\$\{userId\}`/.test(bell))
