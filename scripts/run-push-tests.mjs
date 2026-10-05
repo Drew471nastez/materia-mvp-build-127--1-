@@ -424,6 +424,7 @@ const SUITES = [
   "tests/communities-safety.test.ts",
   "tests/communities-safety2.test.ts",
   "tests/communities-posts12.test.ts",
+  "tests/communities-admin13.test.ts",
   "tests/communities-notify-budget.test.ts",
   "tests/profiles-follows.test.ts",
   "tests/profile-one-page.test.ts",

@@ -11,7 +11,7 @@ export default async function CommunityFeedAdminPage({ params, searchParams }: {
   if (!ctx) return null
   const [head, rows, spaces] = await Promise.all([communityHead(ctx), loadFeedRows(ctx.db, ctx.community.id, { cursor: null, show: "all" }), loadSpaces(ctx.db, ctx.community.id)])
   const postable = spaces
-    .filter((s) => !s.archived && s.kind !== "chat" && meetsRole(ctx.role, s.postRole) && (s.kind !== "announcements" || can(ctx.role, "announce")))
+    .filter((s) => !s.archived && s.kind !== "chat" && meetsRole(ctx.role, s.postRole) && (s.kind !== "announcements" || can(ctx.role, "announce", ctx.viewer.perms)))
     .map((s) => ({ id: s.id, name: s.name, announcements: s.kind === "announcements" }))
   return <FeedSection head={head} initial={rows} spaces={postable} compose={query.compose ?? null} />
 }

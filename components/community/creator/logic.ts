@@ -504,7 +504,7 @@ export function nextSteps(f: NextStepFacts, base: string): NextStep[] {
   if (!f.published) steps.push({ id: "publish", title: "Publish your community", detail: "It is a draft. Only you can see it until you publish.", href: `${base}/settings?tab=advanced`, action: "Publish" })
   if (f.members <= 1 && f.invites === 0) steps.push({ id: "invite", title: "Invite your first members", detail: "Send an invite by email or share a link.", href: `${base}/members?invite=1`, action: "Invite" })
   if (f.posts === 0) steps.push({ id: "welcome", title: "Write a welcome post", detail: "Say who it is for and how to get started.", href: `${base}/feed?compose=welcome`, action: "Write" })
-  if (f.classroomEnabled && f.courses === 0) steps.push({ id: "course", title: "Add a course", detail: "Attach a course you sell, or make a new one.", href: `${base}/classroom`, action: "Add" })
+  if (f.classroomEnabled && f.courses === 0) steps.push({ id: "course", title: "Add something to Learn", detail: "A program of lessons, or a course you already sell.", href: `${base}/classroom`, action: "Add" })
   if (f.eventsEnabled && f.events === 0) steps.push({ id: "event", title: "Schedule an event", detail: "A call, a workshop or a Q&A.", href: `${base}/events?new=1`, action: "Schedule" })
   if (!f.customized) steps.push({ id: "customize", title: "Customize the page", detail: "Add pictures, a video and what members get.", href: `${base}/settings?tab=page`, action: "Edit" })
   if (f.rules === 0) steps.push({ id: "rules", title: "Write the rules", detail: "Members see them before they join and when they post.", href: `${base}/moderation?tab=rules`, action: "Write" })
@@ -828,7 +828,7 @@ export function memberConfirmText(choice: MemberChoice, name: string): { title: 
 
 /* ── Settings tabs ──────────────────────────────────────────────────────── */
 
-export type SettingsTab = "page" | "access" | "features" | "gamification" | "notifications" | "advanced"
+export type SettingsTab = "page" | "access" | "features" | "policies" | "roles" | "gamification" | "notifications" | "advanced"
 
 /** A tab asked for by name, old names included, as the tab that holds it now. */
 export function settingsTabOf(raw: string | undefined | null): SettingsTab {
@@ -839,6 +839,11 @@ export function settingsTabOf(raw: string | undefined | null): SettingsTab {
     case "features":
     case "welcome":
       return "features"
+    case "policies":
+    case "rules":
+    case "contact":
+      return "policies"
+    case "roles":
     case "gamification":
     case "notifications":
     case "advanced":
@@ -848,3 +853,18 @@ export function settingsTabOf(raw: string | undefined | null): SettingsTab {
   }
 }
 
+
+/* ── Reports Storelib opened itself (round 13) ──────────────────────────── */
+
+/**
+ * What a report with no reporter is about, from the note the safety rules
+ * wrote (lib/communities/server/safety.ts joinAlarm and pauseInvite): a
+ * join alarm, an invite link turned off after a burst, or null for any
+ * other (a post held back is told by its removed state instead).
+ */
+export function systemReportKind(note: string | null | undefined): "join_alarm" | "invite_paused" | null {
+  const n = (note ?? "").trim()
+  if (n.startsWith("Join alarm:")) return "join_alarm"
+  if (n.startsWith("Invite link turned off:")) return "invite_paused"
+  return null
+}

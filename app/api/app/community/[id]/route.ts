@@ -3,6 +3,8 @@ import { requireCommunitiesOn } from "@/lib/communities/flag"
 import { requireCreatorCommunity } from "@/lib/communities/server/context"
 import { noStore, readJson } from "@/lib/email-campaigns/route-auth"
 import { manageLimit, setPublished, updateMyNotify, updateSettings } from "@/lib/communities/server/creator"
+import { savePolicies } from "@/lib/communities/server/creator-policies"
+import { saveRolePermissions } from "@/lib/communities/server/creator-roles"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -16,6 +18,10 @@ type Params = { params: Promise<{ id: string }> }
  *       anything else is settings (name, tagline, description, slug, logoUrl, coverUrl, category,
  *       rules, faq, benefits, links, onboarding, the on/off switches, seo, visibility, type), each
  *       checked against the permission it needs (who may join is the owner's: manage_pricing).
+ *       { roles: { admin: {group: bool}, moderator: {group: bool} } } what admins and moderators may
+ *       do (owner only, run-now part 100; 503 needs_update before it has run);
+ *       { policies: { refundPolicy?, contactEmail?, contactEmailPublic? } } the refund policy and how
+ *       members reach the owner (owner only, worker M's run-now part 101).
  */
 export async function GET(_request: Request, { params }: Params) {
   const off = await requireCommunitiesOn()
@@ -43,13 +49,23 @@ export async function PATCH(request: Request, { params }: Params) {
     if (!done.ok) return NextResponse.json({ error: done.error }, { status: done.status, headers: noStore })
     return NextResponse.json({ status: done.community.status }, { headers: noStore })
   }
+  if (body.roles !== undefined) {
+    const done = await saveRolePermissions(db, { communityId: gate.community.id, communityName: gate.community.name, actorId: gate.ctx.userId, role: gate.role, body: body.roles })
+    if (!done.ok) return NextResponse.json({ error: done.error }, { status: done.status, headers: noStore })
+    return NextResponse.json({ ok: true, roles: done.roles }, { headers: noStore })
+  }
+  if (body.policies !== undefined) {
+    const done = await savePolicies(db, { community: gate.community, role: gate.role, actorId: gate.ctx.userId, body: body.policies })
+    if (!done.ok) return NextResponse.json({ error: done.error, field: done.field }, { status: done.status, headers: noStore })
+    return NextResponse.json({ ok: true, policies: done.policies }, { headers: noStore })
+  }
   if (body.notify !== undefined) {
     const notify = body.notify && typeof body.notify === "object" ? (body.notify as Record<string, unknown>) : {}
     const done = await updateMyNotify(db, { communityId: gate.community.id, userId: gate.ctx.userId, body: notify })
     if (!done.ok) return NextResponse.json({ error: done.error, field: done.field }, { status: done.status, headers: noStore })
     return NextResponse.json({ ok: true }, { headers: noStore })
   }
-  const done = await updateSettings(db, { community: gate.community, role: gate.role, actorId: gate.ctx.userId, creatorId: gate.ctx.creatorId, body })
+  const done = await updateSettings(db, { community: gate.community, role: gate.role, perms: gate.viewer.perms, actorId: gate.ctx.userId, creatorId: gate.ctx.creatorId, body })
   if (!done.ok) return NextResponse.json({ error: done.error, field: done.field }, { status: done.status, headers: noStore })
   return NextResponse.json({ ok: true, slug: done.community.slug, status: done.community.status }, { headers: noStore })
 }

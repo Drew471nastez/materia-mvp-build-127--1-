@@ -124,6 +124,8 @@ const settings: SettingsData = {
   ],
   galleryReady: params.get("gallery") !== "missing",
   galleryVideos: { "11111111-1111-4111-8111-111111111111": { status: "ready", thumbnailUrl: null, durationSeconds: 94 } },
+  roles: null,
+  policies: null,
 }
 
 const series = (n: number, f: (i: number) => number) => Array.from({ length: n }, (_, i) => ({ day: new Date(NOW - (n - i) * 86_400_000).toISOString().slice(0, 10), value: Math.max(0, Math.round(f(i))) }))
@@ -176,10 +178,11 @@ function App() {
           <CommunityList
             available
             rows={[
-              { id: ID, slug: "morning-writers", name: "The Morning Writers", logoUrl: null, status: "published", access: "paid", visibility: "public", memberCount: 1284, postCount: 3412, role: "owner", priceLine: "$19/month", createdAt: ago(100) },
-              { id: "x2", slug: "poetry", name: "Poetry Lab", logoUrl: null, status: "draft", access: "free", visibility: "public", memberCount: 1, postCount: 0, role: "owner", priceLine: "Free", createdAt: ago(1) },
-              { id: "x3", slug: "studio", name: "Studio Circle", logoUrl: null, status: "published", access: "invite_only", visibility: "private", memberCount: 48, postCount: 220, role: "moderator", priceLine: "Invite only", createdAt: ago(300) },
+              { id: ID, slug: "morning-writers", name: "The Morning Writers", logoUrl: null, status: "published", access: "paid", visibility: "public", memberCount: 1284, postCount: 3412, role: "owner", priceLine: "$19/month", createdAt: ago(100), tagline: null, coverUrl: null, mrrCents: null, currency: "usd", archived: false, can: { edit: true, analytics: true, archive: true, duplicate: true } },
+              { id: "x2", slug: "poetry", name: "Poetry Lab", logoUrl: null, status: "draft", access: "free", visibility: "public", memberCount: 1, postCount: 0, role: "owner", priceLine: "Free", createdAt: ago(1), tagline: null, coverUrl: null, mrrCents: null, currency: "usd", archived: false, can: { edit: true, analytics: true, archive: true, duplicate: true } },
+              { id: "x3", slug: "studio", name: "Studio Circle", logoUrl: null, status: "published", access: "invite_only", visibility: "private", memberCount: 48, postCount: 220, role: "moderator", priceLine: "Invite only", createdAt: ago(300), tagline: null, coverUrl: null, mrrCents: null, currency: "usd", archived: false, can: { edit: true, analytics: true, archive: true, duplicate: true } },
             ]}
+            limit={{ max: null, owned: 2 }}
           />
         </Frame>
       )

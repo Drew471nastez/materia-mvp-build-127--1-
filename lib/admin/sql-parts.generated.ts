@@ -93,6 +93,7 @@ export const SQL_PARTS: ReadonlyArray<{ part: string; file: string; sha256: stri
   { part: "96", file: "96_community_comment_media.sql", sha256: "34f5255622c1791735326810dd62444d9f573445f0c8a4bd2448215cdd8ac575" },
   { part: "97", file: "97_profile_provider_photos.sql", sha256: "120b7b95a33c9b2a567711a87fafa5ddaeb52b7c597143253b7109a45e2aa83b" },
   { part: "98", file: "98_community_leave_reasons_and_location.sql", sha256: "b128f52ea3b0b9a937c3633ac205e46dd2a1bdf10993c8285d11f5fa59b58461" },
+  { part: "100", file: "100_community_role_permissions.sql", sha256: "7f20889ff537d55f061eb4793044e4f19c9dd729c30010de900ac8c9e28415be" },
   { part: "101", file: "101_community_membership_lifecycle.sql", sha256: "85ea0190839586904572635654e5092aa09c3356aa0179700fcf70b3b27605f2" },
   { part: "103", file: "103_profile_display_names.sql", sha256: "27eef081507c7f64bbf7e8cc53869e3a61b6295c8e8d72d8c6f96b2e8faf4dfb" },
   { part: "104", file: "104_community_deleted_rows_kept.sql", sha256: "140184506fa105728521677c94de617c4800355fcc6c1ce23873f1c6028f89ae" },
