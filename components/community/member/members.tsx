@@ -17,10 +17,11 @@
  */
 import Link from "next/link"
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
-import { Search } from "lucide-react"
+import { ChevronDown, Search } from "lucide-react"
 import { ChatRoundDotsIcon } from "@solar-icons/react/linear/chat-round-dots"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { memberCountLabel } from "@/lib/communities/format"
+import { COUNTRIES } from "@/lib/checkout/countries"
 import type { MemberView, Role } from "@/lib/communities/types"
 import { api, apiBase } from "./api"
 import { PageTitle } from "./headers"
@@ -33,9 +34,11 @@ import { RoleBadge } from "./role-badge"
 
 type Filter = "all" | "admin" | "moderator"
 
-export function MembersDirectory({ communityId, slug, memberCount, initial, meId = null, canMessage = false }: { communityId: string; slug: string; memberCount: number; initial: { members: MemberView[]; nextCursor: string | null }; meId?: string | null; canMessage?: boolean }) {
+export function MembersDirectory({ communityId, slug, memberCount, initial, meId = null, canMessage = false, countryFilter = false }: { communityId: string; slug: string; memberCount: number; initial: { members: MemberView[]; nextCursor: string | null }; meId?: string | null; canMessage?: boolean; /** Profiles can say where people are from (part 98): offer the country filter. */ countryFilter?: boolean }) {
   const [q, setQ] = useState("")
   const [filter, setFilter] = useState<Filter>("all")
+  /* A two letter code, or "" for everywhere (round 12). */
+  const [country, setCountry] = useState("")
   const [members, setMembers] = useState(initial.members)
   const [cursor, setCursor] = useState(initial.nextCursor)
   const [loading, setLoading] = useState(false)
@@ -57,10 +60,11 @@ export function MembersDirectory({ communityId, slug, memberCount, initial, meId
       const p = new URLSearchParams()
       if (q.trim()) p.set("q", q.trim())
       if (filter !== "all") p.set("role", filter)
+      if (country) p.set("country", country)
       if (c) p.set("cursor", c)
       return `${apiBase(communityId)}/members?${p}`
     },
-    [communityId, q, filter],
+    [communityId, q, filter, country],
   )
 
   useEffect(() => {
@@ -121,6 +125,7 @@ export function MembersDirectory({ communityId, slug, memberCount, initial, meId
             </span>
           ) : null}
         </label>
+        {countryFilter ? <CountrySelect value={country} onChange={setCountry} /> : null}
         <div className="flex items-center gap-0.5 self-start rounded-[11px] border border-[#e6e8eb] bg-[#f1f2f4] p-0.5 sm:self-auto" role="group" aria-label="Who to show">
           {filters.map((f) => (
             <button
@@ -143,8 +148,8 @@ export function MembersDirectory({ communityId, slug, memberCount, initial, meId
             compact
             data-member-empty=""
             place="members"
-            title={q ? "Nobody by that name" : filter === "all" ? "No members yet" : filter === "admin" ? "No admins besides the owner" : "No moderators yet"}
-            line={q ? "Try a first name or a username." : "People show up here as they join."}
+            title={q ? "Nobody by that name" : country ? "Nobody from there yet" : filter === "all" ? "No members yet" : filter === "admin" ? "No admins besides the owner" : "No moderators yet"}
+            line={q ? "Try a first name or a username." : country ? "Only people who added their country to their profile show up here." : "People show up here as they join."}
           />
         </div>
       ) : (
@@ -167,7 +172,7 @@ export function MembersDirectory({ communityId, slug, memberCount, initial, meId
   )
 }
 
-export function MemberRow({ m, slug, canMessage = false }: { m: Pick<MemberView, "userId" | "name" | "username" | "avatarUrl" | "role" | "level" | "levelName" | "bio" | "hasStorefront">; slug: string; canMessage?: boolean }) {
+export function MemberRow({ m, slug, canMessage = false }: { m: Pick<MemberView, "userId" | "name" | "username" | "avatarUrl" | "role" | "level" | "levelName" | "bio" | "hasStorefront" | "location">; slug: string; canMessage?: boolean }) {
   return (
     <div className="flex items-center pr-2 transition-colors [@media(hover:hover)]:hover:bg-[#f8f9fa] sm:pr-3">
     <Link href={memberHref(slug, { id: m.userId, username: m.username, hasStorefront: m.hasStorefront })} data-person-link="" data-person-id={m.userId} className="flex min-h-[64px] min-w-0 flex-1 items-center gap-3 py-3 pl-4 pr-2 sm:pl-5">
@@ -178,6 +183,12 @@ export function MemberRow({ m, slug, canMessage = false }: { m: Pick<MemberView,
           <RoleBadge role={m.role as Role} />
         </span>
         <span className="block truncate text-[13px] text-[#6b7280]">{m.bio || (m.username ? `@${m.username}` : `Level ${m.level}${m.levelName ? ` · ${m.levelName}` : ""}`)}</span>
+        {/* Where they are from, in quiet text (round 12): the country's full name, no flag. */}
+        {m.location ? (
+          <span className="mt-px block truncate text-[12.5px] text-[#9ca3af]" data-member-location="">
+            {m.location}
+          </span>
+        ) : null}
       </span>
       <span className="hidden shrink-0 text-[12.5px] text-[#8a8f98] sm:block">Level {m.level}</span>
     </Link>
@@ -187,5 +198,35 @@ export function MemberRow({ m, slug, canMessage = false }: { m: Pick<MemberView,
       </button>
     ) : null}
     </div>
+  )
+}
+
+/**
+ * THE COUNTRY FILTER (round 12, ask 15): the phone's own picker (a native
+ * select, the wheel on iOS), in Storelib's field: squared, a hairline and the
+ * light depth of the search beside it. Every country by its full name; the
+ * names are the browser's own (Intl), so the list is filled once the page is
+ * in the browser and the server draws "All countries" alone.
+ */
+function CountrySelect({ value, onChange }: { value: string; onChange: (code: string) => void }) {
+  const [list, setList] = useState<{ code: string; name: string }[]>([])
+  useEffect(() => setList(COUNTRIES), [])
+  return (
+    <label className="relative block sm:w-[200px]" data-member-country="">
+      <span className="sr-only">Country</span>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={`h-11 w-full appearance-none rounded-xl border border-[#e1e4e8] bg-white pl-3.5 pr-9 text-[16px] shadow-[0_1px_2px_rgba(16,24,40,0.05)] outline-none transition-[border-color,box-shadow] duration-150 focus:border-[#c9ccd3] focus:shadow-[0_0_0_3px_rgba(26,26,46,0.06)] sm:h-10 sm:text-[14px] ${value ? "text-[#1a1a2e]" : "text-[#6b7280]"}`}
+      >
+        <option value="">All countries</option>
+        {list.map((c) => (
+          <option key={c.code} value={c.code}>
+            {c.name}
+          </option>
+        ))}
+      </select>
+      <ChevronDown aria-hidden className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9ca3af]" strokeWidth={2} />
+    </label>
   )
 }

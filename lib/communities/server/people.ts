@@ -25,6 +25,7 @@ import "server-only"
  */
 import { personHref } from "@/lib/profile/person-href"
 import type { PersonCardView } from "@/components/community/member/view-types"
+import { placeLine } from "../location"
 import type { CommunityRow, Role } from "../types"
 import type { Viewer } from "./context"
 import { missing, reasonOf, type Db } from "./db"
@@ -66,16 +67,18 @@ async function memberRow(db: Db, communityId: string, userId: string): Promise<C
 }
 
 /** Their Storelib bio and whether they show their memberships (on until part 85 adds the switch). */
-async function profileExtras(db: Db, userId: string): Promise<{ bio: string | null; showCommunities: boolean }> {
+async function profileExtras(db: Db, userId: string): Promise<{ bio: string | null; showCommunities: boolean; location: string | null }> {
   const read = (cols: string) => db.from("profiles").select(cols).eq("id", userId).maybeSingle()
   try {
-    let { data, error } = await read("bio, show_communities")
+    /* Where they are from comes with part 98 (round 12); each read without what is not there yet. */
+    let { data, error } = await read("bio, show_communities, location_city, location_country")
+    if (error && MISSING_COLUMN.has(String(error.code ?? ""))) ({ data, error } = await read("bio, show_communities"))
     if (error && MISSING_COLUMN.has(String(error.code ?? ""))) ({ data, error } = await read("bio"))
-    if (error) return { bio: null, showCommunities: true }
-    const row = (data ?? {}) as { bio?: string | null; show_communities?: boolean | null }
-    return { bio: (row.bio || "").trim() || null, showCommunities: row.show_communities !== false }
+    if (error) return { bio: null, showCommunities: true, location: null }
+    const row = (data ?? {}) as { bio?: string | null; show_communities?: boolean | null; location_city?: string | null; location_country?: string | null }
+    return { bio: (row.bio || "").trim() || null, showCommunities: row.show_communities !== false, location: placeLine(row.location_city, row.location_country) }
   } catch {
-    return { bio: null, showCommunities: true }
+    return { bio: null, showCommunities: true, location: null }
   }
 }
 
@@ -159,6 +162,7 @@ export async function personCard(db: Db, community: CommunityRow, viewer: Pick<V
       avatarUrl: author.avatarUrl,
       href: personHref({ username: author.username, hasStorefront: !!author.hasStorefront }),
       bio: extras.bio ?? ((row.bio || "").trim() || null),
+      location: extras.location,
       role: row.role,
       level,
       levelName: level ? (levels.get(level) ?? null) : null,

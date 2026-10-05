@@ -1,32 +1,17 @@
 "use client"
 
 /**
- * A space's icon: the emoji the creator chose, or one of the few line icons
- * a space can name (the defaults are messages-square, megaphone and hand).
- * Anything else is a plain hash.
+ * A space's icon where a space is drawn on its own (the chat's head): the
+ * emoji its admin set, or its kind's, the same rule as the chips and the
+ * dashboard (space-glyph.ts, round 12). It used to draw a line icon for the
+ * word names, which is not what the admin sees for that space.
  */
-import { BookOpen, Hand, Hash, Lightbulb, Megaphone, MessageCircle, MessagesSquare, Sparkles, Trophy } from "lucide-react"
+import { spaceGlyph } from "./space-glyph"
 
-const ICONS = {
-  "messages-square": MessagesSquare,
-  "message-circle": MessageCircle,
-  megaphone: Megaphone,
-  hand: Hand,
-  "book-open": BookOpen,
-  lightbulb: Lightbulb,
-  sparkles: Sparkles,
-  trophy: Trophy,
-} as const
-
-export function SpaceIcon({ icon, kind, className = "h-[17px] w-[17px]" }: { icon: string | null; kind?: string; className?: string }) {
-  const value = (icon || "").trim()
-  if (value && !/^[a-z0-9-]+$/i.test(value)) {
-    return (
-      <span aria-hidden className="inline-flex w-[18px] justify-center text-[15px] leading-none">
-        {Array.from(value).slice(0, 2).join("")}
-      </span>
-    )
-  }
-  const Icon = ICONS[value as keyof typeof ICONS] ?? (kind === "chat" ? MessageCircle : kind === "announcements" ? Megaphone : Hash)
-  return <Icon aria-hidden className={className} strokeWidth={1.75} />
+export function SpaceIcon({ icon, kind, className = "" }: { icon: string | null; kind?: string; className?: string }) {
+  return (
+    <span aria-hidden className={`inline-flex w-[18px] justify-center text-[15px] leading-none ${className}`} data-space-glyph="">
+      {spaceGlyph(icon, kind)}
+    </span>
+  )
 }

@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic"
 type Params = { params: Promise<{ communityId: string }> }
 
 /**
- * GET ?q=&role=&level=&cursor=&limit=: { members, nextCursor }, active
+ * GET ?q=&role=&level=&country=&cursor=&limit=: { members, nextCursor }, active
  * members newest first. Names, pictures, roles and levels only; never an
  * email or how anyone pays. With the directory switched off only staff
  * (manage_members) list members, except a short name search (limit <= 8) so
@@ -40,6 +40,8 @@ export async function GET(request: Request, { params }: Params) {
     level: Number(sp.get("level")) || null,
     cursor: sp.get("cursor"),
     limit,
+    /* Round 12: members from one country (a two letter code; anything else is no filter). */
+    country: sp.get("country"),
   })
   return NextResponse.json(page, { headers: NO_STORE })
 }

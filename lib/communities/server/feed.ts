@@ -318,7 +318,7 @@ export async function hydratePosts(db: Db, rows: PostRow[], h: Hydration): Promi
     return {
       id: r.id,
       communityId: r.community_id,
-      space: space ? { id: space.id, slug: space.slug, name: space.name } : null,
+      space: space ? { id: space.id, slug: space.slug, name: space.name, icon: space.icon, kind: space.kind } : null,
       kind: r.kind,
       title: r.title,
       body: r.status === "published" && !h.lean ? r.body : "",
