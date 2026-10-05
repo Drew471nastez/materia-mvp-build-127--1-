@@ -36,7 +36,8 @@
  *   a double tap (any two downs under 280ms apart) and zoomed the picture
  *   instead of sliding. A double tap is now two TAPS (no movement past the
  *   slop), close together in time and place.
- *   NEIGHBOURS READY. Two pictures either side are mounted (was one), and
+ *   NEIGHBOURS READY. Two pictures either side are mounted (was one; one
+ *   while it opens, so the open's frames decode no more than before), and
  *   each mounted picture is decoded ahead (HTMLImageElement.decode) once the
  *   slide has come to rest, so a swipe never lands on a picture still being
  *   decoded on the main thread, and the picture mounted after a slide is not
@@ -552,7 +553,7 @@ export function Lightbox({
         >
           {items.map((item, i) => (
             <div key={i} className="relative flex h-full items-center justify-center px-0 sm:px-16" style={{ width: `${100 / n}%` }} onClick={(e) => e.target === e.currentTarget && finish()} data-lightbox-slide={i}>
-              {Math.abs(i - index) <= LIGHTBOX_AHEAD ? <Slide item={item} communityId={communityId} active={i === index} autoplay={autoplay && i === start} zoom={i === index ? zoom : null} /> : null}
+              {Math.abs(i - index) <= (phase === "open" ? LIGHTBOX_AHEAD : 1) ? <Slide item={item} communityId={communityId} active={i === index} autoplay={autoplay && i === start} zoom={i === index ? zoom : null} /> : null}
             </div>
           ))}
         </div>

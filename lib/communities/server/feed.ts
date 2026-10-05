@@ -38,7 +38,7 @@ import { plainTextToHtml } from "@/lib/rich-text/html"
 import { evaluateAccess, isOpenRule, type AccessViewer } from "../access"
 import { LENGTHS, MAX_MEDIA_PER_POST, POLL_OPTIONS_MAX, POLL_OPTIONS_MIN, mentionsEveryone } from "../limits"
 import { MAX_EMBEDS, MAX_GIFS, embedThumbUrl, giphyUrl, postEmbedFromUrl } from "../post-media"
-import { can, meetsRole } from "../permissions"
+import { can, meetsRole, type RolePermissions } from "../permissions"
 import {
   POST_COLUMNS,
   SPACE_COLUMNS,
@@ -84,6 +84,15 @@ function byActivity(order: FeedOrder): boolean {
   return order === "default" || order === "unread"
 }
 
+/**
+ * THE OWNER'S CHOICES FOR ADMINS AND MODERATORS (round 13, part 100): every can() here is asked with them, so a
+ * switch the owner turned off (moderators may not close comments, say) is off for posts and comments too. Read
+ * from the viewer when it carries them; none (an older viewer, a member) is the defaults.
+ */
+export function permsOf(v: unknown): RolePermissions | null {
+  return ((v as { perms?: RolePermissions | null } | null)?.perms ?? null) || null
+}
+
 /** What a member is in the eyes of an access rule. */
 export function accessOf(v: Viewer): AccessViewer {
   return { role: v.role, active: v.active, tierId: v.tierId, ownedProductIds: v.ownedProductIds, level: v.level }
@@ -119,9 +128,9 @@ export function canSeeSpace(space: Pick<SpaceRow, "view_access">, v: AccessViewe
 /** Whether this viewer may start a post (or a chat message) in this space. */
 export function canPostIn(space: Pick<SpaceRow, "view_access" | "post_role" | "kind">, v: Viewer, chatEnabled = true): boolean {
   if (!canSeeSpace(space, accessOf(v))) return false
-  if (space.kind === "chat") return chatEnabled && can(v.role, "chat")
-  if (space.kind === "announcements" && !can(v.role, "announce")) return false
-  return can(v.role, "post") && meetsRole(v.role, space.post_role)
+  if (space.kind === "chat") return chatEnabled && can(v.role, "chat", permsOf(v))
+  if (space.kind === "announcements" && !can(v.role, "announce", permsOf(v))) return false
+  return can(v.role, "post", permsOf(v)) && meetsRole(v.role, space.post_role)
 }
 
 /** The spaces this viewer may see, as the shell and the composer draw them. */
@@ -314,7 +323,7 @@ export async function hydratePosts(db: Db, rows: PostRow[], h: Hydration): Promi
   const person = (id: string) => authors.get(id) ?? faces.get(id) ?? null
   const showLevel = h.community.gamification_enabled !== false
   const spaceById = new Map(h.spaces.map((s) => [s.id, s]))
-  const moderator = can(h.viewer.role, "moderate_content")
+  const moderator = can(h.viewer.role, "moderate_content", permsOf(h.viewer))
   return rows.map((r) => {
     const space = r.space_id ? spaceById.get(r.space_id) : null
     return {
@@ -487,7 +496,7 @@ export async function visiblePostRow(db: Db, community: Pick<CommunityRow, "id">
   if (error || !data) return null
   const row = data as PostRow
   if (row.status === "deleted") return null
-  if (row.status === "removed" && !can(viewer.role, "moderate_content")) return null
+  if (row.status === "removed" && !can(viewer.role, "moderate_content", permsOf(viewer))) return null
   const all = spaces ?? (await listSpaces(db, community.id))
   if (row.space_id) {
     const space = all.find((s) => s.id === row.space_id)
@@ -810,7 +819,7 @@ export async function createPost(w: WriteContext, input: PostInput): Promise<Che
     return { ok: false, error: space.kind === "announcements" ? "Only admins post announcements." : "You cannot post in this space.", status: 403 }
   }
   const text = `${input.title}\n${input.body}`
-  if (mentionsEveryone(text) && !everyoneAllowed(text, viewer.role)) return { ok: false, error: "Only admins can mention everyone.", status: 403 }
+  if (mentionsEveryone(text) && !everyoneAllowed(text, viewer.role, permsOf(viewer))) return { ok: false, error: "Only admins can mention everyone.", status: 403 }
   const owned = await ownedMedia(db, community, viewer, input.media)
   if (!owned.ok) return refused(owned, 400)
   const screen = await screenWrite(w, "post", { text, media: input.media })
@@ -986,7 +995,7 @@ export async function updatePost(w: WriteContext, postId: string, raw: unknown):
   const pollEdit = pollEditOf(r)
   if (!pollEdit.ok) return refused(pollEdit, 400)
   const text = `${title}\n${body}`
-  if (mentionsEveryone(text) && !mentionsEveryone(`${found.row.title ?? ""}\n${found.row.body_text}`) && !everyoneAllowed(text, viewer.role)) {
+  if (mentionsEveryone(text) && !mentionsEveryone(`${found.row.title ?? ""}\n${found.row.body_text}`) && !everyoneAllowed(text, viewer.role, permsOf(viewer))) {
     return { ok: false, error: "Only admins can mention everyone.", status: 403 }
   }
   const edited = await screenEdit(w, "post", { text, media, before: `${found.row.title ?? ""}\n${found.row.body_text}`, beforeMedia: found.row.media })

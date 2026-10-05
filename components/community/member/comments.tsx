@@ -423,7 +423,7 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
       if (p.change !== "edit") return
       void (async () => {
         const r = await api<{ comment: CommentView }>(`${apiBase(post.communityId)}/comments/${encodeURIComponent(id)}`)
-        if (!r.ok && (r as { status?: number }).status === 404) return gone(id)
+        if (r.ok === false && r.status === 404) return gone(id)
         if (!r.ok || !r.data.comment) return
         const c = r.data.comment
         update(id, (x) => ({ ...x, body: c.body, editedAt: c.editedAt, media: c.media }))

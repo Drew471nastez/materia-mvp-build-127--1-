@@ -261,7 +261,7 @@ async function main() {
   const card = code("components/community/member/post-card.tsx")
   /* Round 13 took the unread dot off cards entirely (tests/communities-posts13.test.ts). */
   check("the card: thumbnail, faces, New comment, level badge", /<PostThumb media=\{media\} className="max-sm:hidden" \/>/.test(card) && /const media = useMemo\(\(\) => withBodyEmbeds\(post\.media, post\.bodyText\)/.test(card) && /data-commenters=""/.test(card) && /\{newCommentLabel\(fresh\)\}/.test(card) && /data-level-badge=""/.test(card) && /line-clamp-2/.test(card))
-  check("the card's props are the ones the feed already passes", /export interface PostCardProps \{\s*post: FeedPostView\s*slug: string\s*viewer: ViewerView\s*update: PostUpdate\s*full\?: boolean\s*readOnly\?: boolean\s*onComment\?: \(\) => void\s*\}/.test(card.replace(/\/\*\*[^]*?\*\//g, "")))
+  check("the card's props are the ones the feed already passes (round 13: autoEdit, the post page's ?edit=1)", /export interface PostCardProps \{\s*post: FeedPostView\s*slug: string\s*viewer: ViewerView\s*update: PostUpdate\s*full\?: boolean\s*readOnly\?: boolean\s*onComment\?: \(\) => void\s*(autoEdit\?: boolean\s*)?\}/.test(card.replace(/\/\*\*[^]*?\*\//g, "")))
   check("pressing the card opens the post over the feed; links and buttons inside do their own thing", /onClick=\{openPost\}/.test(card) && /closest\("a, button, input, textarea, select, label/.test(card) && /<PostOverlay/.test(card))
   check("a press with a modifier key is a plain link", /e\.metaKey \|\| e\.ctrlKey \|\| e\.shiftKey \|\| e\.altKey/.test(card))
   const overlay = code("components/community/member/post-overlay.tsx")

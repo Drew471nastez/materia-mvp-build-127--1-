@@ -195,7 +195,7 @@ export function FeedLive({ communityId, viewerId, feedKey, target, sort, onView 
       if (payload.change !== "edit") return
       void (async () => {
         const r = await api<{ post: FeedPostView }>(`${apiBase(communityId)}/posts/${encodeURIComponent(id)}`)
-        if (!r.ok && (r as { status?: number }).status === 404) return apply(id, () => null)
+        if (r.ok === false && r.status === 404) return apply(id, () => null)
         if (!r.ok || !r.data.post) return
         const like = intentOf(`like:${id}`)
         const save = intentOf(`save:${id}`)

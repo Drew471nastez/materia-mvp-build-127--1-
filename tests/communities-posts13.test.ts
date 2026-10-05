@@ -38,6 +38,8 @@ import { STAFF_BOOST_MS, boostStaff, pollChoicesChanged, pollEditOf, POLL_VOTED 
 import { announceCommentChange, announcePostChange } from "@/lib/communities/server/realtime"
 import { mentionAt, mentionChoices } from "@/components/community/member/mention-pick"
 import { relativeTime } from "@/lib/communities/format"
+import { commentsOpen } from "@/lib/communities/server/comments"
+import { everyoneAllowed } from "@/lib/communities/server/mentions"
 
 let passed = 0
 let failed = 0
@@ -112,7 +114,7 @@ async function main() {
   check("the post route announces an edit and a delete after answering", /after\(\(\) => announcePostChange\(communityId, \{ id: post\.id, spaceId: post\.space\?\.id \?\? null, change: "edit" \}\)\)/.test(postRoute) && /after\(\(\) => announcePostChange\(communityId, \{ id: postId, change: "delete" \}\)\)/.test(postRoute))
   check("the comment route too, the delete with the post it was under", /change: "edit" \}\)\)/.test(commentRoute) && /const \{ postId \} = result\.value[\s\S]{0,80}change: "delete"/.test(commentRoute) && /Promise<Checked<\{ postId: string \}>>/.test(serverComments))
   check("the browser listens for both", /const FEED_EVENTS = \["post", "post-change"\]/.test(liveTs) && /const POST_EVENTS = \["comment", "comment-change", "typing"\]/.test(liveTs))
-  check("the feed takes a deleted post out of every list and folds its card away; an edit is read again through the gate (a 404 takes it away)", /listenLive\(communityId, null, "post-change"/.test(live) && /if \(payload\.change === "delete"\) return apply\(id, \(\) => null\)/.test(live) && /if \(!r\.ok && \(r as \{ status\?: number \}\)\.status === 404\) return apply\(id, \(\) => null\)/.test(live) && /patchPost\(communityId, id, fn, key\)/.test(live) && /foldAway\(id\)/.test(live))
+  check("the feed takes a deleted post out of every list and folds its card away; an edit is read again through the gate (a 404 takes it away)", /listenLive\(communityId, null, "post-change"/.test(live) && /if \(payload\.change === "delete"\) return apply\(id, \(\) => null\)/.test(live) && /if \(r\.ok === false && r\.status === 404\) return apply\(id, \(\) => null\)/.test(live) && /patchPost\(communityId, id, fn, key\)/.test(live) && /foldAway\(id\)/.test(live))
   check("an open post hears its comments edited and deleted", /listenLive\(post\.communityId, post\.id, "comment-change"/.test(comments) && /if \(p\.change === "delete"\) return gone\(id\)/.test(comments))
 
   /* ── 4 ─────────────────────────────────────────────────────────────── */
@@ -228,6 +230,15 @@ async function main() {
   console.log("\n17. Sounds in /account/settings")
   const settings = code("components/account/account-settings.tsx")
   check("Preferences has a Sounds row with the switch (likes, comments and posts)", /<PrivacyRow id="sounds" title="Sounds" detail=\{SOUNDS_DETAIL\}/.test(settings) && /const \[sounds, setSounds\] = useSounds\(\)/.test(settings) && /export const SOUNDS_DETAIL = "Likes, comments and posts"/.test(heart))
+
+  /* ── Part 100: the owner's switches for admins and moderators ────────── */
+  console.log("\nThe owner's role switches reach posts and comments")
+  const locked = { status: "published" as const, locked: true }
+  check("a moderator may comment on a closed post by default", commentsOpen(locked, true, { role: "moderator" }) === null)
+  check("with the owner's \"close comments\" switch off for moderators, a moderator may not", commentsOpen(locked, true, { role: "moderator", perms: { moderator: { content: false } } }) === "Comments are closed on this post.")
+  check("@everyone: an admin may by default, not with the owner's Announcements switch off for admins", everyoneAllowed("Hello @everyone", "admin") && !everyoneAllowed("Hello @everyone", "admin", { admin: { announce: false } }) && everyoneAllowed("Hello all", "admin", { admin: { announce: false } }))
+  const calls = [serverFeed, serverComments, code("lib/communities/server/mentions.ts")].flatMap((src) => src.match(/\bcan\([^()]*(\([^()]*\)[^()]*)*\)/g) ?? [])
+  check("every can() in the feed, the comments and the mentions is asked with the owner's choices", calls.length >= 12 && calls.every((c) => c.split(",").length >= 3), calls.filter((c) => c.split(",").length < 3).join(" | "))
 
   /* ── Hygiene ───────────────────────────────────────────────────────── */
   console.log("\nHygiene")
