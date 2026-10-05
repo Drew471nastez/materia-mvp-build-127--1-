@@ -44,7 +44,7 @@ import { EmailChangeFlow, PrivacyPanel, SecurityPanel } from "@/components/app/s
 import { NotificationPreferencesPanel } from "@/components/app/settings/notification-preferences"
 import { useShellAvatar } from "@/lib/account/avatar-store"
 import { applyBusinessSession } from "@/lib/businesses/switch-client"
-import { ownerAddress } from "@/lib/businesses/email-alias"
+import { displayEmail } from "@/lib/businesses/email-alias"
 import { countWord } from "@/lib/businesses/rules"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 import { ShippingSettings } from "@/components/physical/shipping-settings"
@@ -425,7 +425,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
 
   // Email fields
   /* A second business's address is its owner's with a tag (lib/businesses/email-alias); the owner's is the one shown, and the one its codes are sent to. */
-  const [currentEmail, setCurrentEmail] = useState(ownerAddress(profile.email) || profile.email || "")
+  const [currentEmail, setCurrentEmail] = useState(displayEmail(profile.email) || "")
   const [emailVerified] = useState(true)
 
   // Address fields

@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { LayoutDashboard, Settings, LogOut, Library, Sparkles } from "lucide-react"
 import type { User } from "@supabase/supabase-js"
+import { displayEmail } from "@/lib/businesses/email-alias"
 
 interface UserNavProps {
   user: User
@@ -57,7 +58,8 @@ export function UserNav({ user, profile, isCreator }: UserNavProps) {
         <div className="flex items-center justify-start gap-2 p-2">
           <div className="flex flex-col space-y-1 leading-none">
             {profile.display_name && <p className="font-medium">{profile.display_name}</p>}
-            <p className="w-[200px] truncate text-sm text-muted-foreground">{user.email}</p>
+            {/* Their own address, never the tag (lib/businesses/email-alias.ts displayEmail). */}
+            <p className="w-[200px] truncate text-sm text-muted-foreground">{displayEmail(user.email)}</p>
           </div>
         </div>
         <DropdownMenuSeparator />

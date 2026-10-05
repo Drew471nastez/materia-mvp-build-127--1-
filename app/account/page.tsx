@@ -7,6 +7,8 @@ import { accountLoginPath } from "@/lib/account/account-tabs"
 import { activityFor } from "@/lib/profile/activity-page"
 import { readPrivacy } from "@/lib/profile/privacy"
 import { ProfileActivity } from "@/components/profile/profile-activity"
+import { AccountAbout } from "@/components/profile/account-about"
+import { ACCOUNT_REFRESH_SCOPE } from "@/lib/profile/refresh-scope"
 import { OverviewSkeleton } from "@/components/account/account-skeleton"
 import { accountCommunitiesBody } from "@/components/account/account-communities-body"
 import { secondaryDepth } from "@/components/ui/depth-button"
@@ -21,8 +23,10 @@ export const dynamic = "force-dynamic"
 /**
  * Your activity, exactly as the Activity tab of your public profile lists
  * it (lib/profile/activity-page.ts with you as the viewer, so a list you
- * chose to hide is still yours to see, with a line saying so). It always
- * ends on the day you joined, so it is never an empty box.
+ * chose to hide is still yours to see, with a line saying so). Real
+ * activity only: it used to end on "Joined Storelib", which is not
+ * something anybody did, and the day you joined is said under About
+ * instead (components/profile/account-about.tsx).
  */
 async function activityBody(user: User) {
   const db = createAdminClient()
@@ -36,7 +40,7 @@ async function activityBody(user: User) {
       initial={page.items}
       initialNext={page.next}
       now={Date.now()}
-      joinedAt={user.created_at || null}
+      refreshScope={ACCOUNT_REFRESH_SCOPE}
       hiddenNote={
         privacy.showActivity ? undefined : (
           <p className="mb-3 flex flex-wrap items-center justify-center gap-x-1.5 rounded-xl bg-[#f1f2f4] px-4 py-2.5 text-center text-[13px] leading-[1.45] text-[#4b5563]" data-profile-only-you="">
@@ -87,10 +91,17 @@ export default async function AccountActivityRoute() {
   if (!user) return null
   /* The layout asked the same question for the pills; cached for the request, so this is no second read. */
   const creator = await accountIsCreator(user.id)
+  const name = (await profileForRequest(user.id))?.display_name || user.user_metadata?.full_name || user.user_metadata?.name || "you"
   return (
-    <Suspense fallback={<OverviewSkeleton />}>
-      {/* A promise as the child, as app/app/payouts/page.tsx does: React waits for it inside this boundary. */}
-      {creator ? creatorBody(user) : activityBody(user)}
-    </Suspense>
+    <>
+      <Suspense fallback={<OverviewSkeleton />}>
+        {/* A promise as the child, as app/app/payouts/page.tsx does: React waits for it inside this boundary. */}
+        {creator ? creatorBody(user) : activityBody(user)}
+      </Suspense>
+      {/* The page ends the way /@handle ends: who this person is, in facts. Streamed, so it never holds the list up. */}
+      <Suspense fallback={null}>
+        <AccountAbout userId={user.id} name={name} joinedAt={user.created_at || null} />
+      </Suspense>
+    </>
   )
 }

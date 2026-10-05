@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import { ArrowDownToLine, ArrowRight, Check, Copy, FileText, Loader2, Mail, PlayCircle, Printer } from "lucide-react"
 import { downloadEntitledFile } from "@/components/download-button"
 import { downloadFile, downloadKey } from "@/lib/downloads/download-file"
+import { displayEmail } from "@/lib/businesses/email-alias"
 import { percentOf, useDownloadJob } from "@/lib/downloads/download-store"
 import { ReceiptReview } from "@/components/reviews/receipt-review"
 import { BackControl } from "@/components/navigation/back-control"
@@ -311,7 +312,8 @@ export function ReceiptView({
   /* An order on the signed-in buyer's own account: Resend goes to the
      account's email, and a copy can go anywhere else, once. A guest order
      keeps "Wrong address?", which moves the order's address. */
-  const accountEmail = !receipt.buyer.unclaimed && viewer.isBuyer && viewer.email ? viewer.email : null
+  /* Their own address, never the tag (lib/businesses/email-alias.ts). The copy is asked for as "account", so what it is really sent to is the server's to decide. */
+  const accountEmail = !receipt.buyer.unclaimed && viewer.isBuyer && viewer.email ? displayEmail(viewer.email) : null
 
   const resend = async () => {
     setEmailState("sending")
