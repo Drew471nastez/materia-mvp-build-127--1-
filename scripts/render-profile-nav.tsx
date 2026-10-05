@@ -6,7 +6,7 @@
  *                 community feed the profile is opened from)
  *   the skeleton  app/(marketing)/member/[username]/loading.tsx, for as long
  *                 as ?wait=<ms> says the server takes
- *   the profile   MemberProfileShell + MemberProfilePage, reached from the
+ *   the profile   MemberProfilePage (round 12: the creator page template, no shell), reached from the
  *                 feed (backShown), its cover and photo from a host the probe
  *                 answers slowly (https://img.test), so they arrive after the
  *                 page as they do on a phone
@@ -17,7 +17,6 @@
 import { useEffect, useState } from "react"
 import { createRoot } from "react-dom/client"
 import MemberProfileSkeleton from "@/app/(marketing)/member/[username]/loading"
-import { MemberProfileShell } from "@/components/profile/member-profile-shell"
 import { MemberProfilePage } from "@/components/profile/member-profile-page"
 import type { MemberProfileData } from "@/lib/profile/member-profile-data"
 
@@ -90,14 +89,14 @@ function App() {
   if (at === "loading") return <MemberProfileSkeleton />
   return (
     <main className="explore-ground min-h-screen bg-[#f8f9fa]">
-      <MemberProfileShell>
+      <>
         <MemberProfilePage
           profile={sam}
           viewerId="00000000-0000-4000-8000-0000000000a1"
           viewerFollowing={false}
           extras={{ activity: { items: [], next: null, hidden: false }, communities: { enabled: true, owned: [], member: [] }, backShown: true, now: Date.parse("2026-10-03T12:00:00Z") }}
         />
-      </MemberProfileShell>
+      </>
     </main>
   )
 }

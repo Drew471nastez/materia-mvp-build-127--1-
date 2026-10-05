@@ -29,7 +29,6 @@ import { PlatformSettingsProvider } from "@/components/platform/platform-setting
 import { ConditionalHeader } from "@/components/marketing/conditional-header"
 import { BuyerTabBar } from "@/components/nav/buyer-tab-bar"
 import { MemberProfilePage } from "@/components/profile/member-profile-page"
-import { MemberProfileShell } from "@/components/profile/member-profile-shell"
 import { ProfileSocial } from "@/components/profile/profile-social"
 import { StorefrontTabs } from "@/components/storefront/storefront-tabs"
 import { FirstProductPrompt, drawableSections, sectionsWithoutProducts, tabsWithoutProducts } from "@/components/storefront/no-products"
@@ -105,7 +104,7 @@ function Profile() {
   ]
   return (
     <main className="explore-ground min-h-screen bg-[#f8f9fa]" data-probe-route="profile">
-      <MemberProfileShell>
+      <>
         <MemberProfilePage
           profile={profile}
           viewerId="00000000-0000-4000-8000-0000000000b2"
@@ -122,7 +121,7 @@ function Profile() {
             now,
           }}
         />
-      </MemberProfileShell>
+      </>
     </main>
   )
 }

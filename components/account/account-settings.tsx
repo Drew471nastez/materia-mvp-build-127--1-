@@ -77,6 +77,8 @@ import { SaveBar } from "@/components/account/save-bar"
 import { useShellAvatar } from "@/lib/account/avatar-store"
 import { isValidUsername } from "@/lib/reserved-words"
 import { normalizeHandle } from "@/lib/profile/username-rules"
+import { LocationFields } from "@/components/profile/location-fields"
+import { cleanCity, cleanCountry, type ProfileLocation } from "@/lib/profile/location"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
 import { clearAuthSnapshot, readAuthSnapshot, writeAuthSnapshot } from "@/lib/auth/auth-snapshot"
 import { nativeLogOut } from "@/lib/native-bridge"
@@ -229,11 +231,14 @@ function ProfileSection({
   username: initialUsername,
   usernameEditable,
   cover,
+  location = { city: null, country: null, supported: false },
 }: {
   userId: string
   name: string
   bio: string
   bioSupported: boolean
+  /** profiles.location_city / location_country (run-now part 98); the fields are not drawn before it runs. */
+  location?: ProfileLocation & { supported: boolean }
   avatarUrl: string | null
   /** profiles.cover_url and whether the column is there (components/account/cover-field.tsx). */
   cover: { url: string | null; supported: boolean }
@@ -253,19 +258,27 @@ function ProfileSection({
   const [name, setName] = useState(initialName)
   const [bio, setBio] = useState(initialBio)
   const [handle, setHandle] = useState(initialUsername)
+  /* Where they are from: the city as typed, the country as its code ("" for none). */
+  const [savedCity, setSavedCity] = useState(location.city ?? "")
+  const [savedCountry, setSavedCountry] = useState(location.country ?? "")
+  const [city, setCity] = useState(location.city ?? "")
+  const [country, setCountry] = useState(location.country ?? "")
+  const placeChanged = location.supported && ((cleanCity(city) ?? "") !== (cleanCity(savedCity) ?? "") || country !== savedCountry)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [savedAt, setSavedAt] = useState(0)
   const handleCheck = useHandleCheck(savedHandle, handle)
   const handleChanged = usernameEditable && handleCheck.state !== "same"
   const handleBlocked = handleChanged && handleCheck.state !== "available"
-  const changed = name.trim() !== savedName.trim() || (bioSupported && bio.trim() !== savedBio.trim()) || handleChanged
+  const changed = name.trim() !== savedName.trim() || (bioSupported && bio.trim() !== savedBio.trim()) || handleChanged || placeChanged
 
   /* Back to what is saved: the bar goes down with it. */
   const discard = () => {
     setName(savedName)
     setBio(savedBio)
     setHandle(savedHandle)
+    setCity(savedCity)
+    setCountry(savedCountry)
     setError(null)
   }
 
@@ -294,6 +307,13 @@ function ProfileSection({
       const supabase = createClient()
       const patch: Record<string, string | null> = { display_name: nextName }
       if (bioSupported) patch.bio = nextBio || null
+      /* Only once the columns are there (part 98): an empty field is no location, never an empty string the database refuses. */
+      const nextCity = cleanCity(city)
+      const nextCountry = cleanCountry(country)
+      if (placeChanged) {
+        patch.location_city = nextCity
+        patch.location_country = nextCountry
+      }
       const { error: updateError } = await supabase.from("profiles").update(patch).eq("id", userId)
       if (updateError) throw updateError
       /* The copies of the name elsewhere follow it (the same call /app Settings makes). */
@@ -311,6 +331,12 @@ function ProfileSection({
       setSavedBio(nextBio)
       setName(nextName)
       setBio(nextBio)
+      if (placeChanged) {
+        setSavedCity(nextCity ?? "")
+        setSavedCountry(nextCountry ?? "")
+        setCity(nextCity ?? "")
+        setCountry(nextCountry ?? "")
+      }
       setSavedAt(Date.now())
       router.refresh()
     } catch {
@@ -480,6 +506,9 @@ function ProfileSection({
             <span className={HELP}>Shown under your name on your profile.</span>
           </div>
         ) : null}
+
+        {/* Where you are from (round 12): only once the columns are there, else nothing to save it in. */}
+        {location.supported ? <LocationFields city={city} country={country} onCity={setCity} onCountry={setCountry} /> : null}
 
       </div>
 
@@ -948,6 +977,7 @@ export function AccountSettings({
   privacy = { showActivity: true, showCommunities: true, supported: false },
   creator = false,
   cover = { url: null, supported: false },
+  location,
   initialSection = "profile",
 }: {
   userId: string
@@ -972,6 +1002,8 @@ export function AccountSettings({
   creator?: boolean
   /** The profile's own cover (profiles.cover_url); not offered where the column is not there. */
   cover?: { url: string | null; supported: boolean }
+  /** Where they are from (lib/profile/location.ts); `supported` false before run-now part 98. */
+  location?: ProfileLocation & { supported: boolean }
   /** From ?section=, so the profile's Settings pill lands on Account. */
   initialSection?: SectionKey
 }) {
@@ -1041,6 +1073,7 @@ export function AccountSettings({
             username={username}
             usernameEditable={usernameEditable}
             cover={cover}
+            location={location}
           />
         ) : null}
         {section === "account" ? (

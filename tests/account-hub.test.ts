@@ -75,7 +75,8 @@ console.log("\nThe header, as on the library, at every width")
   /* "The profile page reached from Explore needs to have the header on it." The rule that kept it off a phone, and the wrapper that applied it, are both gone. */
   check("nothing hides it on a phone any more: no rule, no wrapper", !/hidesHeaderOnPhone/.test(header) && !/data-header-phone/.test(header))
   /* Round 5: the cover runs edge to edge, so the column is drawn under it by the hub (components/account/account-column.tsx), not around everything by the layout. */
-  check("the column is the profile's own width, the one /@handle draws at", /max-w-\[960px\] pb-10/.test(read("components/account/account-column.tsx")) && /"pt-4 sm:pt-6"/.test(read("components/account/account-column.tsx")) && /<AccountColumn>\{children\}<\/AccountColumn>/.test(layout) && /max-w-\[960px\]/.test(read("components/profile/member-profile-page.tsx")))
+  /* Round 12: /@handle is the creator page's template now (components/profile/member-profile-page.tsx), so /account keeps its own 960 column. */
+  check("the column is the profile's own width", /max-w-\[960px\] pb-10/.test(read("components/account/account-column.tsx")) && /"pt-4 sm:pt-6"/.test(read("components/account/account-column.tsx")) && /<AccountColumn>\{children\}<\/AccountColumn>/.test(layout) )
 }
 
 console.log("\nThe hub: your own profile page, as everybody sees it, with your pills")
@@ -85,7 +86,8 @@ console.log("\nThe hub: your own profile page, as everybody sees it, with your p
   const layout = code("app/account/layout.tsx")
   check("in the layout, so the person stays put while the page changes", /<AccountHub identity=\{identity\} communities=\{communities\}>/.test(layout))
   /* "it is MY profile page, exactly the same page others see (same header, cover, avatar ...)" */
-  check("the header is the one /@handle draws (ProfileHero), with the cover", /<ProfileHero\b/.test(hub) && /<ProfileHero\b/.test(code("components/profile/member-profile-page.tsx")) && /coverUrl: identity\.coverUrl/.test(hub))
+  /* Round 12: /@handle draws the creator page's header (ShopHeaderRenderer); /account keeps ProfileHero. */
+  check("the header is ProfileHero, with the cover; /@handle draws the creator header", /<ProfileHero\b/.test(hub) && /<ShopHeaderRenderer\b/.test(code("components/profile/member-profile-page.tsx")) && /coverUrl: identity\.coverUrl/.test(hub))
   /* Round 5: no "Joined <month year>" line under the name any more (the activity ends on that day anyway). */
   check("photo, name, @username, the bio, the follower counts, and no Joined line", /useShellAvatar\(identity\.avatarUrl\)/.test(hub) && /@\{person\.username\}/.test(hero) && !/Joined \{/.test(hero) && !/memberSince/.test(hero + hub + layout) && /data-profile-bio=""/.test(hero) && /<ProfileSocial\b/.test(hero))
   check("the photo is the account's live copy and opens in the creator page's lightbox", /<AvatarLightbox src=\{shown\} name=\{name\}>/.test(hub) && /<AccountAvatar\s+src=\{shown\}/.test(hub) && /cursor-zoom-in/.test(hero) && /className=\{PROFILE_AVATAR_CLASS\}/.test(hub))

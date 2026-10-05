@@ -74,7 +74,8 @@ const CALL_SITES: [file: string, draws: RegExp][] = [
   ["components/explore/explore-communities-results.tsx", /<ExploreCommunityGrid cards=\{count < items\.length \? items\.slice\(0, count\) : items\} priorityCount=\{1\} \/>/],
   ["components/explore/explore-page-client.tsx", /<ExploreCommunityGrid cards=\{communityResults\} \/>/],
   ["components/community/public/storefront-communities.tsx", /<ExploreCommunityGrid cards=\{cards\} surface="storefront" phone=\{phone\}/],
-  ["components/profile/member-profile-page.tsx", /<ExploreCommunityCard card=\{c\} priority=\{i < 2\} \/>/],
+  /* Round 12: a person's communities are the compact rows (a person without a store has no Explore grid on their page). */
+  ["components/profile/profile-community-list.tsx", /<ExploreCommunityCard card=\{c\} layout="row" priority=\{i < 3\} \/>/],
   ["components/community/public/library-list.tsx", /<ExploreCommunityCard card=\{r\.card\} layout="row" standing=\{standingOf\(r\)\}/],
 ]
 

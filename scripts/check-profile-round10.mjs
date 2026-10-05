@@ -201,7 +201,8 @@ const LETTERS = (scope) => [...(scope || document).querySelectorAll("[data-app-a
 
 try {
   /* ── PROFILE ─────────────────────────────────────────────────────────── */
-  if (only("profile")) for (const [label, vp] of VPS) {
+  /* Round 12 replaced this page: /@maya is the creator page's template now, without Storelib's header and with the creator header's band. scripts/check-profile-round12.mjs measures it; this part is kept for the record, off unless asked for by name. */
+  if (process.env.PROBE_ONLY?.split(",").includes("profile")) for (const [label, vp] of VPS) {
     for (const photo of ["yes", "no"]) {
       const name = `profile-${label}-photo-${photo}`
       console.log(`\n${name}`)

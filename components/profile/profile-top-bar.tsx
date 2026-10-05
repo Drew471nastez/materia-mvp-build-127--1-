@@ -142,6 +142,7 @@ export function ProfileTopBar({
   colors,
   fallback,
   width = "max-w-[960px]",
+  always = false,
 }: {
   initiallyShown: boolean
   name: string
@@ -150,19 +151,27 @@ export function ProfileTopBar({
   fallback?: string
   /** The row's width: the page's own column, so the chevron lines up with what is under it. */
   width?: string
+  /**
+   * THE BAR IS THE PAGE'S OWN TOP BAR, drawn whether or not there is a way
+   * back (round 12). A person without a store has the creator page's
+   * template, and a creator page always opens on its newsletter bar; a
+   * person has no newsletter, so their top bar is this one, the photo and
+   * the name, with the chevron in front only when they came from somewhere.
+   */
+  always?: boolean
 }) {
   const shown = useCameFromSomewhere(initiallyShown)
-  if (!shown) return null
+  if (!shown && !always) return null
   return (
     <div
       data-profile-top-bar=""
-      data-profile-back=""
+      data-profile-back={shown ? "" : undefined}
       /* The page's top surface: in the app, when no Storelib header is above it, it pads itself under the clock (app/globals.css .native-top-surface); a hairline at its foot and no shadow, one surface with the white band. */
       className="native-top-surface w-full border-b border-black/[0.06]"
       style={{ backgroundColor: colors?.background || "#ffffff", color: colors?.text || "#1a1a2e" }}
     >
       <div className={cn("mx-auto flex h-14 w-full items-center gap-2.5 px-3 sm:px-4", width)}>
-        <BackChevron fallback={fallback} />
+        {shown ? <BackChevron fallback={fallback} /> : null}
         <AppAvatar src={avatarUrl} name={name} size={32} className="h-8 w-8 shrink-0" />
         <p className="min-w-0 truncate text-[15px] font-semibold" data-profile-top-bar-name="">
           {name}

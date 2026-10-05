@@ -83,9 +83,10 @@ async function main() {
     /<main className="flex-1">\{children\}<\/main>/.test(marketing) && (marketing.match(/<Suspense/g) ?? []).length === 1 && /<Suspense fallback=\{null\}>\s*<ConditionalFooter \/>/.test(marketing) && !/<Suspense/.test(readCode("app/layout.tsx")))
 
   const header = readCode("components/marketing/conditional-header.tsx")
-  check("a profile has Storelib's header from the first paint on storelib.com", /\(isProfilePath\(pathname\) && onPlatformDomain\)/.test(header))
-  check("  decided before the seller rule, which reads /@name as a creator's address", header.indexOf("if (isProfilePath(pathname))") > 0 && header.indexOf("if (isProfilePath(pathname))") < header.indexOf("const isSellerPath = isSellerPage(pathname)"))
-  check("  and never on a creator's own domain", header.indexOf("if (isOnCustomDomain)") < header.indexOf("if (isProfilePath(pathname))"))
+  /* Round 12: a person's page is the creator page's template with its own top bar, so Storelib's header is not drawn over /@ or /member (it is one of the screens with their own chrome, decided first, on every domain). */
+  check("a profile has no Storelib header, from the first paint, on any domain", /p\.startsWith\("\/community\/"\) \|\| isProfilePath\(p\)/.test(header) && !/isProfilePath\(pathname\) && onPlatformDomain/.test(header))
+  check("  decided before every host rule (isOwnScreen first)", header.indexOf("if (isOwnScreen(pathname))") > 0 && header.indexOf("if (isOwnScreen(pathname))") < header.indexOf("if (isOnCustomDomain)"))
+  check("  and never switched on for a profile anywhere", !/if \(isProfilePath\(pathname\)\) \{\s*setShowPlatformHeader\(true\)/.test(header))
 
   console.log("\nA profile in search and in a shared link")
   const facts = { name: "Maya Ortiz", username: "maya", bio: "Ceramics, glaze notes and a weekly studio.", avatarUrl: null, coverUrl: null, followers: 12, indexable: true }
@@ -246,7 +247,8 @@ async function main() {
 
   console.log("\nThe cover in /account and in Settings, taller")
   check("157 / 233 / 312 (128 / 192 / 256 plus fifteen percent, then about six percent more)", PROFILE_COVER_HEIGHTS.phone === 157 && PROFILE_COVER_HEIGHTS.sm === 233 && PROFILE_COVER_HEIGHTS.lg === 312)
-  check("the band draws those heights, and the profile's skeleton holds them", /relative h-\[157px\] sm:h-\[233px\] lg:h-\[312px\]/.test(readCode("components/profile/profile-hero.tsx")) && /h-\[157px\] w-full bg-\[#eceef1\] sm:h-\[233px\] lg:h-\[312px\]/.test(readCode("app/(marketing)/member/[username]/loading.tsx")))
+  /* Round 12: /@handle draws the creator header, so only /account's band holds these heights; the profile's skeleton is the creator page's (its colour and its top bar). */
+  check("the band draws those heights", /relative h-\[157px\] sm:h-\[233px\] lg:h-\[312px\]/.test(readCode("components/profile/profile-hero.tsx")))
   check("Settings' frame takes the new shape on its own", profileBandAspect(390) === Math.round((390 / 157) * 1000) / 1000 && profileBandAspect(1440) === Math.round((1440 / 312) * 1000) / 1000)
 
   console.log(`\n${passed} passed, ${failed} failed`)
