@@ -440,7 +440,7 @@ function CommunitiesCard({ communities, live }: { communities: CommunityChoice[]
         Communities
       </h2>
       <p className="mb-2 text-[13px] leading-[1.45] text-[#6b7280]">How much each community tells you, and what it may push.</p>
-      <ul className="-mx-2 divide-y divide-[#f0f1f3]">
+      <ul className="divide-y divide-[#f0f1f3]">
         {communities.map((c) => (
           <CommunityRow key={c.id} c={c} open={open === c.id} onToggle={() => setOpen((o) => (o === c.id ? null : c.id))} live={live} />
         ))}
@@ -498,7 +498,7 @@ function CommunityRow({ c, open, onToggle, live }: { c: CommunityChoice; open: b
         onClick={onToggle}
         aria-expanded={open}
         aria-controls={panelId}
-        className="flex min-h-[52px] w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition-colors hover:bg-[#f9fafb] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#111113]/20"
+        className="-mx-2 flex min-h-[52px] w-[calc(100%+1rem)] items-center gap-3 rounded-xl px-2 py-2 text-left transition-colors hover:bg-[#f9fafb] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#111113]/20"
         data-notify-community-toggle=""
       >
         <CommunityMark c={c} />
@@ -513,7 +513,7 @@ function CommunityRow({ c, open, onToggle, live }: { c: CommunityChoice; open: b
         <ChevronDown aria-hidden="true" className={cn("h-4 w-4 shrink-0 text-[#9ca3af] transition-[rotate] duration-200 motion-reduce:transition-none", open && "rotate-180")} />
       </button>
       <div id={panelId} className={cn("grid transition-[grid-template-rows,opacity] duration-200 ease-out motion-reduce:transition-none", open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0")} aria-hidden={!open} inert={!open} data-community-panel={open ? "open" : "closed"}>
-        <div className="overflow-hidden px-2">
+        <div className="overflow-hidden">
           {open || drawn ? (
             <div className="mb-3 mt-1 rounded-xl bg-[#f8f9fa] px-3.5 py-3 shadow-[inset_0_0_0_1px_rgba(229,231,235,0.7)]">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -567,7 +567,7 @@ function CommunityKindRow({ communityId, kind, initial, live, onValue }: { commu
 export const BROWSER_WORDS: Record<"blocked" | "iphone" | "idle" | "on", string> = {
   blocked: "Blocked in this browser's settings for storelib.com. Allow notifications there (the icon beside the address), then turn this on.",
   iphone: "Safari on iPhone shows them once Storelib is on your Home Screen, or in the Storelib app.",
-  idle: "Get your notifications on this computer, even with Storelib closed.",
+  idle: "Get your notifications on this device, even with Storelib closed.",
   on: "This browser gets your notifications.",
 }
 

@@ -143,7 +143,7 @@ export function WebPushPrompt({
       )}
       style={placement === "floating" ? { bottom: `calc(${bottom}px + env(safe-area-inset-bottom, 0px))` } : undefined}
     >
-      <div className="relative flex gap-3 rounded-2xl border border-[#e5e7eb]/70 bg-white p-3.5 pr-11 shadow-[0_1px_3px_rgba(15,23,42,0.05),0_8px_24px_-12px_rgba(15,23,42,0.18)] sm:p-4 sm:pr-12">
+      <div className="relative flex gap-3 rounded-2xl border border-[#e5e7eb]/70 bg-white p-3.5 pr-12 shadow-[0_1px_3px_rgba(15,23,42,0.05),0_8px_24px_-12px_rgba(15,23,42,0.18)] sm:p-4 sm:pr-12">
         <span aria-hidden="true" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#f3f4f6] text-[#1a1a2e]">
           {phase === "on" ? <Check className="h-[18px] w-[18px] text-[#15803d]" strokeWidth={2} /> : <BellRing className="h-[18px] w-[18px]" strokeWidth={1.75} />}
         </span>
