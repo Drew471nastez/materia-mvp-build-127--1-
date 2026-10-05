@@ -136,7 +136,7 @@ async function main() {
     const r = await searchCommunity(db, { id: C, slug: "club", chat_enabled: false, directory_enabled: false, classroom_enabled: true, events_enabled: true } as never, viewer, "glaze")
     const lessonIds = (r.lessons ?? []).map((l) => l.id).sort()
     check("the open course and its lesson, never the locked course or its lessons", lessonIds.join() === "course:prod-open,lesson:l-open", lessonIds)
-    check("a lesson opens in its course, at the lesson", (r.lessons ?? []).find((l) => l.kind === "lesson")?.href === "/community/club/classroom/prod-open?lesson=l-open")
+    check("a lesson opens in its course, at the lesson", (r.lessons ?? []).find((l) => l.kind === "lesson")?.href === "/community/club/learn/prod-open?lesson=l-open")
     check("events: scheduled and open to this member only", (r.events ?? []).map((e) => e.id).join() === "e-open", r.events)
     const off = await searchCommunity(fakeDb(tables as never), { id: C, slug: "club", chat_enabled: false, directory_enabled: false, classroom_enabled: false, events_enabled: false } as never, viewer, "glaze")
     check("with the classroom and events off, neither is searched", (off.lessons ?? []).length === 0 && (off.events ?? []).length === 0)
