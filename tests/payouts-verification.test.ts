@@ -90,7 +90,7 @@ check("Identity really switched on: Identity's own screen", verifyWay({ identity
   check("  only what Stripe asks for today, never what it may ask for later", /collection_options: \{ fields: "currently_due", future_requirements: "omit" \}/.test(hosted))
   check("  account_update once Stripe has the details, account_onboarding before that", /account\.details_submitted \? "account_update" : "account_onboarding"/.test(hosted))
   check("  it comes back to Storelib, and so does an expired link", /return_url: where\.returnUrl/.test(hosted) && /refresh_url: where\.refreshUrl/.test(hosted))
-  check("Identity is tried first, and standing down is not a dead end", /if \(await identityOnForPlatform\(\)\)/.test(hosted) && /going through Connect/.test(hosted) && /way: "connect"/.test(hosted))
+  check("Identity is tried first, and standing down is not a dead end", /verifyWay\(\{ identityOn: await identityOnForPlatform\(\) \}\) === "identity"/.test(hosted) && /going through Connect/.test(hosted) && /way: "connect"/.test(hosted))
   check("  except 'Stripe is not asking for your ID', which is an answer", /if \(identity\.reason === "nothing_to_verify"\) return \{ ok: false, reason: "nothing_to_verify" \}/.test(hosted))
 }
 

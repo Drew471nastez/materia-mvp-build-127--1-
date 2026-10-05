@@ -171,7 +171,7 @@ const verifyWords = readFileSync("lib/payments/verify-id.ts", "utf8")
 const hosted = readFileSync("lib/payments/stripe/hosted-verification.ts", "utf8")
 check("Verify ID runs through Connect's own hosted verification", /stripe\.accountLinks\.create\(/.test(hosted) && /collection_options: \{ fields: "currently_due"/.test(hosted) && /account\.details_submitted \? "account_update" : "account_onboarding"/.test(hosted))
 check("  and it comes back to Storelib, on the step that is left", /return_url: where\.returnUrl/.test(hosted) && /refresh_url: where\.refreshUrl/.test(hosted) && /\/app\/payouts\?setup=1/.test(route))
-check("  Stripe Identity is tried first and falls through quietly when it is not there", /if \(await identityOnForPlatform\(\)\)/.test(hosted) && /way: "connect"/.test(hosted))
+check("  Stripe Identity is tried first and falls through quietly when it is not there", /verifyWay\(\{ identityOn: await identityOnForPlatform\(\) \}\) === "identity"/.test(hosted) && /way: "connect"/.test(hosted))
 check("  a check that will not open says one Storelib sentence, never Stripe's", /setIdProblem\(verifyLine\(r\.reason\)\)/.test(flow) && !/would not start the check/.test(flow) && !/not switched on for Storelib/.test(flow))
 check("  and no Stripe word or code can reach a creator through it", /account_not_set_up/.test(verifyWords) && /account admin/.test(verifyWords) && /readsLikeStripe/.test(flow))
 /*

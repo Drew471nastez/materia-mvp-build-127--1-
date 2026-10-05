@@ -29,7 +29,7 @@ import { readCreatorStripe, runsInStorelib, syncStripeAccount, type PaymentsCrea
 import { documentDue, identityOnForPlatform, identityStatus, startIdentity, type IdentityStatus } from "./identity"
 import { stripeErrorMessage } from "./setup-errors"
 import { idOutstanding } from "./status"
-import type { VerifyReason, VerifyWay } from "../verify-id"
+import { verifyWay, type VerifyReason, type VerifyWay } from "../verify-id"
 
 /** Stripe's words with every run of digits taken out, for a log line that can carry no ID. */
 function quiet(error: unknown): string {
@@ -108,7 +108,7 @@ async function connectLink(account: Stripe.Account, where: VerifyReturn): Promis
  * otherwise, and one word back when neither can run.
  */
 export async function startVerification(creator: PaymentsCreatorRef, where: VerifyReturn): Promise<VerifyStart | VerifyStop> {
-  if (await identityOnForPlatform()) {
+  if (verifyWay({ identityOn: await identityOnForPlatform() }) === "identity") {
     const identity = await startIdentity(creator, where.returnUrl)
     if (identity.ok) {
       return { ok: true, way: "identity", url: identity.url, clientSecret: identity.clientSecret, publishableKey: identity.publishableKey }
@@ -140,7 +140,7 @@ export interface VerifyView {
  * step done, and anything else is simply not back yet.
  */
 export async function verificationStatus(creator: PaymentsCreatorRef): Promise<VerifyView> {
-  if (await identityOnForPlatform()) return identityStatus(creator)
+  if (verifyWay({ identityOn: await identityOnForPlatform() }) === "identity") return identityStatus(creator)
   await syncStripeAccount(creator.id, "creator").catch(() => undefined)
   const account = await accountOf(creator)
   if ("ok" in account) return { status: "none", problem: null }
