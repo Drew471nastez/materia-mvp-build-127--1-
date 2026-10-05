@@ -53,7 +53,7 @@ import { lockFor } from "./classroom"
 import { missing, nowIso, reasonOf, type Db } from "./db"
 import { notifyMember, queueJob } from "./notify"
 import { recordActivity } from "./activity"
-import { refundPolicyFor, ticketsOf, ticketsReady } from "./event-tickets"
+import { readPricedEvent, refundPolicyFor, ticketsOf, ticketsReady } from "./event-tickets"
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 export const EVENTS_PAGE = 20
@@ -301,15 +301,14 @@ export async function monthEvents(db: Db, community: CommunityRow, viewer: Viewe
 
 /* ── One event ──────────────────────────────────────────────────────────── */
 
-/** An event of THIS community, or null. */
+/**
+ * An event of THIS community, or null. The money columns come with it once
+ * run-now part 105 has run, through readPricedEvent, which falls back to
+ * the old column list on a database that has not had the update.
+ */
 export async function readEvent(db: Db, communityId: string, eventId: string): Promise<EventRow | null> {
   if (!isEventId(eventId)) return null
-  const { data, error } = await db.from("community_events").select(await eventColumns(db)).eq("id", eventId).eq("community_id", communityId).maybeSingle()
-  if (error) {
-    if (!missing(error)) console.error(`[communities] event read: ${reasonOf(error)}`)
-    return null
-  }
-  return (data as EventRow | null) ?? null
+  return readPricedEvent(db, communityId, eventId)
 }
 
 async function people(db: Db, ids: string[]): Promise<Map<string, EventHost>> {

@@ -145,7 +145,7 @@ export function TicketCheckoutSheet({ communityId, communityName, eventId, title
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-white" data-ticket-checkout-body>
           {phase.kind === "done" ? (
-            <Done title={title} whenLabel={whenLabel} onClose={onClose} />
+            <Done whenLabel={whenLabel} onClose={onClose} />
           ) : phase.kind === "error" ? (
             <div className="px-6 py-10 text-center">
               <p className="text-[15px] font-semibold text-[#1a1a2e]">That did not work</p>
@@ -188,7 +188,7 @@ export function TicketCheckoutSheet({ communityId, communityName, eventId, title
   )
 }
 
-function Done({ title, whenLabel, onClose }: { title: string; whenLabel: string; onClose: () => void }) {
+function Done({ whenLabel, onClose }: { whenLabel: string; onClose: () => void }) {
   return (
     <div className="px-6 py-12 text-center" data-ticket-bought>
       <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#1a1a2e] text-white">
@@ -196,7 +196,7 @@ function Done({ title, whenLabel, onClose }: { title: string; whenLabel: string;
       </span>
       <p className="mt-4 text-[17px] font-semibold text-[#1a1a2e]">You are going</p>
       <p className="mx-auto mt-1 max-w-[320px] text-[14px] leading-6 text-[#6b7280]">
-        {title} is on {whenLabel}. The receipt is in your email, and the joining details are on the event page.
+        It is on {whenLabel}. The receipt is in your email, and the joining details are on the event page.
       </p>
       <button type="button" className={`${BTN_PRIMARY} mt-6 h-11 w-full max-w-[280px] sm:h-10`} onClick={onClose}>
         See the details
