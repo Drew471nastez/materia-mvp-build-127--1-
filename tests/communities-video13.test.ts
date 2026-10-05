@@ -224,6 +224,7 @@ async function main() {
     } finally {
       globalThis.fetch = before
     }
+    check("a file over storage's one upload limit says so, not 'try again'", /reject\(new VideoUploadError\(putFailure\(xhr\.status, xhr\.responseText \|\| ""\)\)\)/.test(code("lib/video/upload-client.ts")))
     const composer = code("components/community/member/composer.tsx")
     const upload = code("components/community/member/media-upload.ts")
     check("the composer sends a video with uploadPostVideo, its key, progress and the processing step", /uploadPostVideo\(\{ communityId, file, key: k, onProgress: \(p\) => patch\(k, \{ progress: p \}\), onProcessing: \(\) => patch\(k, \{ progress: 100 \}\) \}\)/.test(composer))

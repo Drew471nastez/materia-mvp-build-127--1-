@@ -11,6 +11,7 @@
  *   player     a post's video (poster, preview, then the community player)
  *   portrait   the same with a portrait video (a 4:5 box)
  *   cover      the About page's gallery led by an uploaded cover video
+ *   coverfield the creator's Cover field (?has=upload: an uploaded cover video already)
  */
 import React, { useState } from "react"
 import { createRoot } from "react-dom/client"
@@ -19,6 +20,8 @@ import { AttachmentTray, moveKey, type TrayItem } from "@/components/community/m
 import { StorelibVideo } from "@/components/video/storelib-video"
 import { CommunityGallery } from "@/components/community/public/gallery-view"
 import { LocaleProvider } from "@/components/locale-provider"
+import { CoverField } from "@/components/community/creator/gallery-editor"
+import type { GalleryItem } from "@/components/community/creator/logic"
 
 const CID = "6f1c2a1e-0000-4000-8000-000000000001"
 const VID = "33333333-0000-4000-8000-000000000001"
@@ -66,7 +69,26 @@ function TrayCase() {
   )
 }
 
+function CoverFieldCase() {
+  const has = params.get("has") === "upload"
+  const [state, setState] = useState<{ coverUrl: string | null; gallery: GalleryItem[] }>(
+    has ? { coverUrl: picture("#1f2a3a", "#4b6b8a", 1280, 720), gallery: [{ type: "video", videoId: VID, cover: true }] } : { coverUrl: picture("#e9e4dc", "#c8b9a6", 1280, 720), gallery: [] },
+  )
+  const [busy, setBusy] = useState(false)
+  ;(window as unknown as { __cover: () => unknown }).__cover = () => ({ ...state, busy })
+  return (
+    <div className="mx-auto max-w-[720px] bg-white p-4 sm:mt-10 sm:rounded-2xl sm:border sm:border-[#e5e7eb]/60 sm:p-6">
+      <p className="mb-1.5 text-[13px] font-medium text-[#1a1a2e]">Cover</p>
+      <CoverField communityId={CID} coverUrl={state.coverUrl} gallery={state.gallery} onChange={setState} onBusy={setBusy} onError={(m) => ((window as unknown as { __coverError: string }).__coverError = m)} />
+      <p className="mt-4 text-[12.5px] text-[#6b7280]" data-cover-busy={busy ? "yes" : "no"}>
+        {busy ? "Save waits" : "Save ready"}
+      </p>
+    </div>
+  )
+}
+
 function App() {
+  if (which === "coverfield") return <CoverFieldCase />
   if (which === "tray") return <TrayCase />
   if (which === "player" || which === "portrait")
     return (

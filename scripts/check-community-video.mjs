@@ -201,6 +201,8 @@ async function open(name, query, vp, opts = {}) {
         if (opts.fail && statusAsks >= 2) return reply({ video: view("failed", "Mux could not read a video track in this file") }, 200, 80)
         return reply({ video: view(statusAsks >= 3 ? "ready" : "processing") }, 200, 80)
       }
+      if (short === `/api/app/community/${CID}/videos` && sent.action === "prepare") return reply({ ticket: { videoId: NEW_VID, provider: "storage", method: "storage", url: `${ORIGIN}/upload/storage`, path: "x", token: "t", headers: {} } }, 200, 150)
+      if (short === `/api/app/community/${CID}/videos` && sent.action === "complete") return reply({ video: { ...view("ready"), provider: "storage", thumbnailUrl: "https://placeholder.supabase.co/storage/v1/object/public/still.jpg" } }, 200, 150)
       if (short.endsWith("/posts") && method === "POST") return reply({ post: { id: "p-new", title: sent.title, media: sent.media } }, 201, 200)
       return reply({})
     }
@@ -492,6 +494,28 @@ try {
       const box = await p.$eval("[data-storelib-video]", (e) => { const r = e.getBoundingClientRect(); return { w: Math.round(r.width), h: Math.round(r.height) } })
       expect(Math.abs(box.w / box.h - 0.8) < 0.02, "a portrait phone video keeps a 4:5 box", box)
       await p.screenshot({ path: join(shots, `${label}-portrait.png`) })
+      expect(errors.length === 0, "no page error", errors)
+      await p.close()
+    }
+
+    /* ── COVERFIELD: the creator's Cover field takes an uploaded video ── */
+    if (want("coverfield")) {
+      const { p, errors } = await open("coverfield", "", vp)
+      await p.screenshot({ path: join(shots, `${label}-coverfield-picture.png`) })
+      expect(!!(await p.$("[data-cover-upload-video]")) && !!(await p.$("[data-cover-use-link]")), "the cover offers a picture, Upload a video, or a link")
+      await (await p.$("[data-cover-video-input]")).uploadFile(clipPath)
+      await p.waitForSelector("[data-cover-sending]", { timeout: 3000 }).catch(() => {})
+      const busy = await p.$eval("[data-cover-busy]", (e) => e.getAttribute("data-cover-busy"))
+      await p.screenshot({ path: join(shots, `${label}-coverfield-sending.png`) })
+      expect(busy === "yes", "Save waits while the cover video is on its way", busy)
+      await p.waitForSelector('[data-cover-video="upload"]', { timeout: 15000 }).catch(() => {})
+      const state = await p.evaluate(() => window.__cover())
+      expect(state.gallery[0]?.type === "video" && state.gallery[0].cover === true && state.gallery[0].videoId === "44444444-0000-4000-8000-000000000001" && !!state.coverUrl && !state.busy, "the video is the cover (first, marked), its still the cover picture, Save free again", state)
+      await p.screenshot({ path: join(shots, `${label}-coverfield-video.png`) })
+      if (phone) {
+        const small = await smallTargets(p, "[data-cover-video]")
+        expect(small.length === 0, "every control is at least 40px", small)
+      }
       expect(errors.length === 0, "no page error", errors)
       await p.close()
     }

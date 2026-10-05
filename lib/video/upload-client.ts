@@ -20,6 +20,7 @@
  *
  * Browser only; imports nothing from the server.
  */
+import { putFailure } from "@/lib/courses/upload-client"
 import type { UploadTicket, VideoStatusView } from "./types"
 
 export class VideoUploadError extends Error {}
@@ -72,7 +73,8 @@ function send(method: "PUT" | "POST" | "PATCH", url: string, body: Blob | FormDa
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
     xhr.upload.addEventListener("progress", (e) => onProgress(e.loaded))
-    xhr.addEventListener("load", () => (xhr.status >= 200 && xhr.status < 300 ? resolve(xhr) : reject(new VideoUploadError("The upload did not finish. Try again."))))
+    /* What storage or the service said, in a sentence to act on: a file over storage's one upload limit says so (putFailure, the lesson upload's words). */
+    xhr.addEventListener("load", () => (xhr.status >= 200 && xhr.status < 300 ? resolve(xhr) : reject(new VideoUploadError(putFailure(xhr.status, xhr.responseText || "")))))
     xhr.addEventListener("error", () => reject(new VideoUploadError("The upload stopped. Check your connection and try again.")))
     xhr.addEventListener("abort", () => reject(new VideoUploadError("Upload stopped")))
     if (signal?.aborted) return reject(new VideoUploadError("Upload stopped"))

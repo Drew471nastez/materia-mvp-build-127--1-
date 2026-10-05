@@ -480,7 +480,7 @@ export function CoverField({
           setSending((x) => (x ? { ...x, still: local } : x))
           const uploader = new DirectUploader({ file: new File([still.blob], "cover.jpg", { type: "image/jpeg" }), folder: "product-images" })
           try {
-            return (await uploader.start()).publicUrl ?? null
+            return (await uploader.start()).publicUrl || null
           } catch {
             return null
           } finally {
@@ -490,7 +490,7 @@ export function CoverField({
       ])
       const now = latest.current
       const others = after(now.gallery).filter((x) => !(x.type === "video" && x.videoId === ready.id))
-      onChange({ coverUrl: stillUrl ?? ready.thumbnailUrl ?? now.coverUrl, gallery: [{ type: "video", videoId: ready.id, cover: true }, ...others] })
+      onChange({ coverUrl: stillUrl || ready.thumbnailUrl || now.coverUrl, gallery: [{ type: "video", videoId: ready.id, cover: true }, ...others] })
     } catch (e) {
       onError?.((e as { message?: string })?.message || "The video did not upload. Try again.")
     } finally {
