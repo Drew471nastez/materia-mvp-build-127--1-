@@ -83,6 +83,7 @@
  * once a minute (POST /presence), so "Online" on the community is a real
  * heartbeat and never a guess.
  */
+import { WebPushPrompt } from "@/components/notifications/web-push-prompt"
 import Link from "next/link"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
@@ -307,7 +308,7 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
   /* What the bar is handed, the same objects from place to place, so the memoised bar is not drawn again. */
   const onMessages = useCallback(() => setChat((c) => (c ? null : {})), [])
   const searchProp = useMemo(() => ({ communityId: community.id }), [community.id])
-  const menu = useMemo(() => ({ onInvite: community.archived ? null : openInvite, savedHref: `/community/${community.slug}/saved` }), [community.archived, community.slug, openInvite])
+  const menu = useMemo(() => ({ onInvite: community.archived ? null : openInvite, savedHref: `/community/${community.slug}/saved`, membershipHref: `/community/${community.slug}/membership` }), [community.archived, community.slug, openInvite])
   const tabs = useMemo(() => <SectionTabs entries={entries} />, [entries])
 
   /*
@@ -325,6 +326,26 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
         void preloadSearchIndex(community.id)
       }),
     [hrefs, router, community.id],
+  )
+
+  /*
+    KEPT WARM FOR THE WAY BACK (round 13, ask 23: "back to the community from anywhere is quick"). The frame goes when the member
+    leaves the community (a profile, the library, a creator's page); at that moment the community's home is asked for in full once
+    more, so the router holds a fresh copy for its five minutes (next.config.mjs staleTimes) and Home, Back or a link into the
+    community swaps it in on the next frame with no spinner. The feed's own lists stay in memory for the visit (feed-cache.ts).
+  */
+  const homeHref = `/community/${community.slug}`
+  useEffect(
+    () => () => {
+      window.setTimeout(() => {
+        try {
+          router.prefetch(homeHref, { kind: FULL })
+        } catch {
+          /* A router that has gone with the page: the next visit reads it as usual. */
+        }
+      }, 0)
+    },
+    [homeHref, router],
   )
 
   return (
@@ -375,6 +396,7 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
         {community.archived ? null : <InviteSheet open={inviting} onClose={() => setInviting(false)} community={community} staff={canInvite} manageHref={manageInvites} />}
         <PersonCardLayer communityId={community.id} canMessage={canMessage} />
         {canMessage ? <MessagesPanel communityId={community.id} slug={community.slug} userId={viewer.userId} open={!!chat} start={chat} onClose={() => setChat(null)} onRead={refreshMessages} /> : null}
+        {viewer.active ? <WebPushPrompt communityName={community.name} joinedAt={viewer.joinedAt ?? null} placement="floating" /> : null}
         <Toasts />
       </div>
     </PlaceContext.Provider>

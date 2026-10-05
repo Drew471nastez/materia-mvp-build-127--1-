@@ -54,6 +54,7 @@
  * /account by the client hub. Everything interactive in it is a client
  * component already (the lightbox, the counts and Follow).
  */
+import { personName } from "@/lib/profile/display-name"
 import Link from "next/link"
 import type { ReactNode } from "react"
 import { AppAvatar } from "@/components/app/app-avatar"
@@ -207,7 +208,7 @@ export function ProfileHero({
           </AvatarLightbox>
         )}
         <h1 className="mt-3 line-clamp-2 max-w-full text-[22px] font-bold leading-[1.2] tracking-[-0.015em] text-[#1a1a2e] [overflow-wrap:anywhere] sm:text-[26px]" data-profile-name="">
-          {person.name || "Your profile"}
+          {personName({ name: person.name, username: person.username })}
         </h1>
         {person.username ? (
           <p className="mt-1 max-w-full text-[13px] leading-[1.45] text-[#4b5563] [overflow-wrap:anywhere]" data-profile-handle="">

@@ -45,6 +45,7 @@ import { audit } from "./audit"
 import { admin, missing, nowIso, reasonOf, type Db } from "./db"
 import { creatorTakesPayments, optionsFor, readPlans, readProducts, readTiers } from "./public"
 import { watchJoin } from "./safety"
+import { noteInviteJoin } from "./invite-joins"
 
 /* ── Rate limits ────────────────────────────────────────────────────────── */
 
@@ -309,6 +310,8 @@ export async function redeemInvite(db: Db, communityId: string, userId: string, 
   if (row.status !== "active") return { ok: false, status: 403, error: "banned", message: "You can't join this community." }
   await audit(db, { communityId: community.id, actorId: userId, actorKind: "member", action: "invite.redeemed", targetType: "invite", targetId: refs.inviteId, detail: { new: r.new ?? null } })
   if (r.new !== false) await watchJoin(db, community, userId, { inviteId: refs.inviteId })
+  /* Whoever shared the link hears about it once a day, quietly (round 13, invite-joins.ts). */
+  if (r.new !== false) await noteInviteJoin(db, { communityId: community.id, slug: community.slug, inviterId: refs.invitedBy, joinerId: userId })
   await welcome(db, community, userId, row.id)
   return { ok: true, state: "member", url, already: false }
 }

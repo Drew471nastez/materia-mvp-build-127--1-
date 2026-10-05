@@ -1,5 +1,6 @@
 "use client"
 
+import { personName } from "@/lib/profile/display-name"
 import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -112,7 +113,7 @@ export function CoursePlayer({
             Back to courses
           </Link>
           <h2 className="font-semibold">{product.title}</h2>
-          <p className="mt-1 text-sm text-muted-foreground">by {creator.profile?.display_name || "Creator"}</p>
+          <p className="mt-1 text-sm text-muted-foreground">by {personName({ name: (creator.profile as { display_name?: string | null } | null)?.display_name })}</p>
 
           {/* Progress bar */}
           <div className="mt-4">

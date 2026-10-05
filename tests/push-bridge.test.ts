@@ -148,6 +148,9 @@ function pg(tables: Record<string, Row[]>, opts: { refuse?: Record<string, { cod
   return { from, tables, rpc: async () => ({ data: [], error: null }) }
 }
 
+/* The five minute windows alone (round 13 also counts each push for the day, bucket "push-day"). */
+const gates = (db: { tables: Record<string, Row[]> }) => db.tables.rate_limit_hits.filter((r) => r.bucket === PUSH_GATE_BUCKET)
+
 const U = (n: number) => `00000000-0000-4000-a000-${String(n).padStart(12, "0")}`
 const C1 = "00000000-0000-4000-b000-000000000001"
 const MARA = U(1)
@@ -237,7 +240,7 @@ async function main() {
     check("level none: nothing", (await pushCommunityRow(db, { ...row, level: "none" })) === "skipped" && sent.length === 1)
     check("mentions only: a like is not pushed, a reply is", (await pushCommunityRow(db, { ...row, kind: "reaction", level: "mentions" })) === "skipped" && (await pushCommunityRow(db, { ...row, level: "mentions" })) === "sent" && sent.length === 2)
     db.tables.push_tokens = db.tables.push_tokens.filter((t) => t.user_id !== IOANA)
-    check("nobody with a device: nothing is decided or counted", (await pushCommunityRow(db, { ...row, userId: IOANA, kind: "reaction" })) === "skipped" && db.tables.rate_limit_hits.length === 0)
+    check("nobody with a device: nothing is decided or counted", (await pushCommunityRow(db, { ...row, userId: IOANA, kind: "reaction" })) === "skipped" && !db.tables.rate_limit_hits.some((r) => r.subject.startsWith(IOANA)))
     setPushBridgeDeps({ sender: fakeSender(sent).sender, communitiesOn: async () => false })
     check("communities switched off: nothing (the link would 404)", (await pushCommunityRow(db, row)) === "skipped" && sent.length === 2)
     setPushBridgeDeps({ sender: fakeSender(sent).sender, communitiesOn: async () => true })
@@ -251,7 +254,7 @@ async function main() {
     setPushBridgeDeps({ sender: fakeSender(sent).sender, communitiesOn: async () => true })
     const db = pg(baseTables())
     const like = (n: number) => ({ userId: BEN, communityId: C1, kind: "reaction" as const, actorId: U(10 + n), title: `Member ${n} liked your post`, body: null, url: "/community/film-loft/post/p1", dedupeKey: `reaction:post:p1:${n}`, level: "all" as const })
-    check("the first like pushes at once and opens a window", (await pushCommunityRow(db, like(1))) === "sent" && sent.length === 1 && db.tables.rate_limit_hits.length === 1 && db.tables.rate_limit_hits[0].bucket === PUSH_GATE_BUCKET && db.tables.rate_limit_hits[0].subject === `${BEN}|c:${C1}`)
+    check("the first like pushes at once and opens a window", (await pushCommunityRow(db, like(1))) === "sent" && sent.length === 1 && gates(db).length === 1 && gates(db)[0].subject === `${BEN}|c:${C1}`)
     const second = await pushCommunityRow(db, like(2))
     const third = await pushCommunityRow(db, like(3))
     const digests = db.tables.community_jobs.filter((j) => j.kind === "push_digest")
@@ -280,7 +283,7 @@ async function main() {
     const out = await runPushDigest(db2, { userId: BEN, group: `c:${C1}`, since })
     const d = sent[sent.length - 1]
     check("the digest: \"3 new likes and 2 new comments\" under the community's name", !out && sent.length === before + 1 && d.title === "Film Loft" && d.body === "3 new likes and 2 new comments" && d.data.url === "/community/film-loft/notifications" && d.data.kind === "digest", d)
-    check("and it opens a new window", db2.tables.rate_limit_hits.length === 1)
+    check("and it opens a new window", gates(db2).length === 1)
     db2.tables.rate_limit_hits[0].created_at = new Date(Date.now() - 1000).toISOString()
     const again = await runPushDigest(db2, { userId: BEN, group: `c:${C1}`, since })
     check("a newer window opened since: it waits for that one instead of pushing", !!again && "again" in again && sent.length === before + 1 && (again as any).again.payload.anchor === db2.tables.rate_limit_hits[0].created_at)

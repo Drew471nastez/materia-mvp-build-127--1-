@@ -31,10 +31,13 @@
  * beside their name (the "..." is not their photo, so the menu says who), as
  * the phone's sheet always has; and it is the short community list on a
  * computer too (scripts/check-community-frame12.mjs MENU reads both widths).
+ *
+ * Round 13: a member's third row is "Membership", their own page in this
+ * community (what they hear about, their plan, leaving).
  */
 import { useRouter } from "next/navigation"
 import { useCallback, useMemo, useState } from "react"
-import { Bookmark, MoreHorizontal, UserPlus } from "lucide-react"
+import { Bookmark, IdCard, MoreHorizontal, UserPlus } from "lucide-react"
 import { SHEET_CLOSE_MS } from "@/components/ui/bottom-sheet"
 import { AccountSheet, DesktopAccountMenu, endStorelibSession, type AccountExtraRow, type HeaderLink } from "@/components/platform/platform-header-client"
 import { useShellAvatar } from "@/lib/account/avatar-store"
@@ -60,9 +63,11 @@ export interface CommunityMenuRows {
   onInvite?: (() => void) | null
   /** The member's saved posts in this community; left out for somebody who is not a member. */
   savedHref?: string | null
+  /** The member's own Membership page here (round 13: notifications, leave, the plan); left out for somebody who is not a member. */
+  membershipHref?: string | null
 }
 
-export function CommunityAccountMenu({ me, className, onInvite = null, savedHref = null }: { me: NonNullable<TopBarData["me"]>; className?: string } & CommunityMenuRows) {
+export function CommunityAccountMenu({ me, className, onInvite = null, savedHref = null, membershipHref = null }: { me: NonNullable<TopBarData["me"]>; className?: string } & CommunityMenuRows) {
   const router = useRouter()
   const [sheet, setSheet] = useState(false)
   const logOut = useCallback(async () => {
@@ -78,9 +83,10 @@ export function CommunityAccountMenu({ me, className, onInvite = null, savedHref
       const out: AccountExtraRow[] = []
       if (onInvite) out.push({ item: "invite", label: "Invite people", icon: UserPlus, onSelect: phone ? () => window.setTimeout(onInvite, SHEET_HANDOFF_MS) : onInvite })
       if (savedHref) out.push({ item: "saved", label: "Saved posts", icon: Bookmark, href: savedHref })
+      if (membershipHref) out.push({ item: "membership", label: "Membership", icon: IdCard, href: membershipHref })
       return out
     },
-    [onInvite, savedHref],
+    [onInvite, savedHref, membershipHref],
   )
   const desktopRows = useMemo(() => rows(false), [rows])
   const phoneRows = useMemo(() => rows(true), [rows])

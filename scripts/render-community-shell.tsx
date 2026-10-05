@@ -51,6 +51,13 @@
  * The person card on a name is the frame's own (PersonCardLayer); its facts
  * come from the probe's answer to /people/<id>/card. ?dm=<id> on any case
  * opens that conversation, as a profile's Message button does.
+ *
+ * Round 13 (scripts/check-community-frame13.mjs):
+ *   ?case=membership       /community/clay-studio/membership, a paying member (Manage subscription, notifications, leave)
+ *   ?case=membership-free  the same for a free member (Leave community)
+ *   ?case=contrib          a profile's contributions: their own posts (Edit) and a shared community's (stats line)
+ *   &cover=only            the about cases: the creator chose no gallery, so the media is the cover picture alone
+ *   &extras=1              the about cases: the server's extra facts (posts in 30 days, courses, since, a bio)
  */
 import React from "react"
 import { createRoot } from "react-dom/client"
@@ -76,6 +83,9 @@ import type { JoinOption, PublicCommunityView, SalesPageData } from "@/component
 import { allowedActions } from "@/lib/communities/permissions"
 import type { FeedPostView, MemberView, Role, ViewerView } from "@/lib/communities/types"
 import type { ShellCommunity, SpaceView, TopBarData, WallData } from "@/components/community/member/view-types"
+import { MembershipPage } from "@/components/community/member/membership"
+import { CommunityContributions } from "@/components/profile/community-contributions"
+import type { ContributionSection } from "@/lib/profile/shared-view"
 
 const NOW = Date.now()
 const HOUR = 3_600_000
@@ -441,8 +451,12 @@ function classroomPage(courses: ClassroomCourse[]) {
 function eventsPage(events: EventCardView[]) {
   return <EventsPage communityId={CID} initial={{ events, nextCursor: null }} month={monthOf(events)} fallbackZone="Europe/Lisbon" manageHref={manage ? `${manage}/events?new=1` : null} />
 }
+/* Round 13: &cover=only (no gallery chosen: the media is the cover alone), &extras=1 (the server's extra facts). */
+const coverOnly = params.get("cover") === "only"
+const EXTRAS = params.get("extras") === "1" ? { activity: { posts30: 186, active7: 402, since: "2024-03-02T00:00:00Z" }, classroom: { total: 9, courses: [] }, creatorBio: "Potter for twelve years. I run a small studio in Lisbon and teach wheel throwing to adults who never thought they could." } : null
+const withCover = (c: PublicCommunityView): PublicCommunityView => (coverOnly ? { ...c, gallery: c.coverUrl ? [{ type: "image", url: c.coverUrl }] : [] } : c)
 function aboutPage() {
-  const data: SalesPageData = { community: studio, join: facts(studio, { active: true, role: "member", status: "active" }), notice: null, askWhy: params.get("ask") !== "0" }
+  const data: SalesPageData = { community: withCover(studio), join: facts(studio, { active: true, role: "member", status: "active" }), notice: null, askWhy: params.get("ask") !== "0", extras: EXTRAS }
   return <CommunitySalesPage data={data} />
 }
 
@@ -543,14 +557,38 @@ function Screen() {
         initial={MEMBERS.slice(0, 4).map((m, i) => ({ rank: i + 1, userId: m.userId, points: 400 - i * 90, level: m.level, levelName: m.levelName, name: m.name, username: m.username, avatarUrl: m.avatarUrl, hasStorefront: m.hasStorefront }))}
       />,
     )
+  if (which === "membership" || which === "membership-free") {
+    const paying = which === "membership"
+    const join = facts(studio, paying ? { active: true, role: "member", status: "active", source: "subscription", membershipId: "ms-1" } : { active: true, role: "member", status: "active", source: "free" })
+    return shell(
+      <MembershipPage
+        community={studio}
+        join={join}
+        askWhy
+        facts={{ role: "member", source: paying ? "subscription" : "free", joinedAt: iso(NOW - 140 * DAY), expiresAt: paying ? iso(NOW + 12 * DAY) : null, planName: paying ? "Studio members" : null, notifyLevel: "important" }}
+      />,
+    )
+  }
+  if (which === "contrib") {
+    const post = (id: string, title: string, at: number, extra: Partial<ContributionSection["page"]["posts"][number]> = {}) => ({ id, title, excerpt: null, space: "Critique", at: iso(at), reactions: 4, comments: 2, href: `/community/clay-studio/post/${id}`, imageUrl: null, ...extra })
+    const sections: ContributionSection[] = [
+      { community: { id: CID, slug: "clay-studio", name: "Clay Studio", logoUrl: LOGO }, own: true, stats: { posts: 12, level: 3, points: 84 }, page: { posts: [post("p1", "First bowl off the wheel that I am not ashamed of", NOW - 2 * HOUR, { imageUrl: SHOTS[0], excerpt: "Trimmed it this morning. The foot is still a bit thick." }), post("p2", "Which clay body for a beginner at cone 6?", NOW - 3 * DAY)], next: "c2", total: 12 } },
+      { community: { id: "c2", slug: "night-runners", name: "Night Runners", logoUrl: null }, own: false, stats: { posts: 3, level: null, points: null }, page: { posts: [post("p9", "Thursday loop with the river lights", NOW - 5 * DAY, { space: null })], next: null, total: 3 } },
+    ]
+    return (
+      <div className="mx-auto max-w-[760px] px-4 py-8" data-probe-contrib="">
+        <CommunityContributions userId="u-me" firstName="Sam" initial={sections} tone="platform" now={NOW} />
+      </div>
+    )
+  }
   if (which === "about-member") {
-    const data: SalesPageData = { community: studio, join: facts(studio, { active: true, role: "member", status: "active" }), notice: null, askWhy: params.get("ask") !== "0" }
+    const data: SalesPageData = { community: withCover(studio), join: facts(studio, { active: true, role: "member", status: "active" }), notice: null, askWhy: params.get("ask") !== "0", extras: EXTRAS }
     return shell(<CommunitySalesPage data={data} />)
   }
   /* ?case=about-free: a signed in visitor on a free community, who can join with one press (round 12: the join's moment). */
   if (which === "about" || which === "about-visitor" || which === "about-free") {
-    const c = which === "about" ? studio : freeOne
-    const data: SalesPageData = { community: c, join: facts(c, which === "about-visitor" ? { signedIn: false } : {}), notice: null }
+    const c = withCover(which === "about" ? studio : freeOne)
+    const data: SalesPageData = { community: c, join: facts(c, which === "about-visitor" ? { signedIn: false } : {}), notice: null, extras: EXTRAS }
     /* The visitor's frame has the member frame's columns since round 12, with the community's card on the left. */
     const card = { community: { ...community, id: c.id, slug: c.slug, name: c.name, tagline: c.tagline, logoUrl: c.logoUrl, coverUrl: c.coverUrl, memberCount: c.memberCount }, card: { stats: { members: c.memberCount, online: null, admins: null }, faces: [], more: 0, settingsHref: null } }
     return (
@@ -570,7 +608,10 @@ try {
   /* fine */
 }
 /* The root layout's LocaleProvider, which the Storelib account menu (round 7, behind "...") reads its words from. */
-createRoot(document.getElementById("app")!).render(
+const root = createRoot(document.getElementById("app")!)
+/* Round 13 (WARM): the probe takes the whole frame away, as leaving the community does. */
+;(window as unknown as { __unmount?: () => void }).__unmount = () => root.unmount()
+root.render(
   <LocaleProvider>
     <Screen />
   </LocaleProvider>,

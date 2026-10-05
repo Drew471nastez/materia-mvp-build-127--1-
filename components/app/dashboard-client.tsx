@@ -3,7 +3,7 @@
 import { TAB_STRIP_STYLE, useTabStrip } from "@/components/app/use-tab-strip"
 import { MetricTab } from "@/components/app/metric-tab"
 import { memo, useState, useEffect, useLayoutEffect, useMemo, useRef, useCallback, type ReactNode } from "react"
-import { PULL_TO_REFRESH, usePullToRefresh } from "@/hooks/use-pull-to-refresh"
+import { SPOKES_HOLD, usePullToRefresh } from "@/hooks/use-pull-to-refresh"
 import { PullToRefreshIndicator } from "./pull-to-refresh-indicator"
 import { useHideNativeSplash } from "@/hooks/use-hide-native-splash"
 import Link from "next/link"
@@ -1085,7 +1085,8 @@ export function DashboardClient({
    * literal 10px against this 34, which was never actually centred and would
    * have drifted silently the moment either number was touched.
    */
-  const REFRESH_HOLD = PULL_TO_REFRESH.refreshHold
+  /* The room iOS's spinner turns in (round 13: the community's spokes, components/app/pull-to-refresh-indicator). */
+  const REFRESH_HOLD = SPOKES_HOLD
 
   /**
    * THE PULL DOES NOT RENDER THIS PAGE.

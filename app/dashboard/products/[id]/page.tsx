@@ -1,3 +1,4 @@
+import { personName } from "@/lib/profile/display-name"
 import { notFound, redirect } from "next/navigation"
 import Link from "next/link"
 import Image from "next/image"
@@ -90,7 +91,7 @@ export default async function ProductAccessPage({ params }: ProductAccessPagePro
               href={getStoreUrl(creatorUsername)}
               className="mt-1 inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
             >
-              by {entitlement.creator?.profile?.display_name || "Creator"}
+              by {personName({ name: entitlement.creator?.profile?.display_name, slug: entitlement.creator?.slug })}
               <ExternalLink className="ml-1 h-3 w-3" />
             </a>
             {entitlement.product?.description && (

@@ -190,7 +190,7 @@ async function main() {
     const plain = /export const PLAIN_ICON_BTN =\s*"([^"]+)"/.exec(ui)?.[1] ?? ""
     check("nothing pill shaped: the icons are plain 40px icon buttons with no disc, squared at 10px", !!plain && /h-10 w-10/.test(plain) && /rounded-\[10px\] bg-transparent/.test(plain) && /hover:bg-transparent hover:text-\[#1a1a2e\]/.test(plain) && !/rounded-full/.test(plain), plain)
     /* Round 12, reversing round 8: the counts are the red notification bubble, round, the same on Messages and the bell. */
-    check("Messages and the bell use it; the counts are the red bubble", /className=\{cn\(PLAIN_ICON_BTN, "relative"/.test(bar) && /const BELL = `\$\{PLAIN_ICON_BTN\} \[&_svg\.lucide-bell\]/.test(bar) && !/data-bell-badge\]\]:rounded/.test(bar) && /<NotificationBell className=\{BELL\} sheetMin="50dvh" \/>/.test(bar) && /\$\{NOTIFICATION_BADGE\}/.test(bar) && !/\bICON_BTN\b/.test(bar))
+    check("Messages and the bell use it; the counts are the red bubble", /className=\{cn\(PLAIN_ICON_BTN, "relative"/.test(bar) && /const BELL = `\$\{PLAIN_ICON_BTN\} \[&_svg\.lucide-bell\]/.test(bar) && !/data-bell-badge\]\]:rounded/.test(bar) && /<NotificationBell className=\{BELL\} sheetMin="50dvh"( tabBadge)? \/>/.test(bar) && /\$\{NOTIFICATION_BADGE\}/.test(bar) && !/\bICON_BTN\b/.test(bar))
     /* Round 7, ask 5: the hamburger and the "..." carry "extremely little depth": a faint grey ground, a hairline, a one pixel shadow, squared at 10px. */
     const depthIcon = /export const DEPTH_ICON_BTN =\s*"([^"]+)"/.exec(ui)?.[1] ?? ""
     check("round 7: DEPTH_ICON_BTN is a 40px square at 10px with a faint grey ground, a hairline and a one pixel shadow (not a pill)", /h-10 w-10/.test(depthIcon) && /rounded-\[10px\]/.test(depthIcon) && /border border-\[#e6e8eb\] bg-\[#f8f9fa\]/.test(depthIcon) && /shadow-\[0_1px_1px_rgba\(16,24,40,0\.04\)\]/.test(depthIcon) && !/rounded-full/.test(depthIcon), depthIcon)
@@ -461,15 +461,15 @@ async function main() {
   console.log("\nThe about page's shape")
   {
     const page = code("components/community/public/sales-page.tsx")
-    /* Round 11 (ask 23): the facts are a quiet line under the name, the figures one panel under the media. */
-    check("title, the quiet facts line, rating, then the gallery, then the figures and the description", page.indexOf("<h1") < page.indexOf("<FactsLine") && page.indexOf("<FactsLine") < page.indexOf("data-community-rating") && page.indexOf("data-community-rating") < page.indexOf("<CommunityGallery") && page.indexOf("<CommunityGallery") < page.indexOf("<Figures cells={figures} />") && page.indexOf("<Figures cells={figures} />") < page.indexOf("data-community-description"))
-    check("the facts line: visibility, since when, By creator; no price and no icon beside each fact", /data-info="visibility"/.test(page) && /data-info="since"/.test(page) && /data-info="creator"/.test(page) && !/data-info="price"/.test(page) && !/from "lucide-react"[^\n]*(Globe|Tag|CalendarDays|UsersRound)/.test(page))
+    /* Round 13 (ask 22): no facts line under the name and no figures panel; the facts are one quiet list after the description (and in the side card). */
+    check("title, rating, then the gallery, then the description, then the facts list", page.indexOf("<h1") < page.indexOf("data-community-rating") && page.indexOf("data-community-rating") < page.indexOf("<CommunityGallery") && page.indexOf("<CommunityGallery") < page.indexOf("data-community-description") && page.indexOf("data-community-description") < page.indexOf("data-about-facts-sheet") && !/<FactsLine/.test(page) && !/<Figures /.test(page))
+    check("the facts list: no price and no icon beside each fact", !/data-info="price"/.test(page) && !/from "lucide-react"[^\n]*(Globe|Tag|CalendarDays|UsersRound)/.test(page))
     check("Still a paying member is drawn only when the server says so", /\{r\.payingFor \? <span data-review-paying=""> · Still a paying member after \{r\.payingFor\}<\/span> : null\}/.test(page))
     check("the card's content flows under the media on a phone, and the bar sticks at the bottom", page.indexOf("<JoinSummaryPhone") > page.indexOf("<CommunityGallery") && /<JoinBarPhone \/>/.test(page))
     const controls = code("components/community/public/join-controls.tsx")
     /* Round 10: the card is the decision (the price, Monthly and Yearly, the button); the figures moved into the sheet, under the facts line. */
     check("the card sticks under the community's bar, with the price, the interval switch and the button", /sticky top-\[calc\(var\(--community-top,65px\)\+24px\)\]/.test(controls) && /<PriceLine className="mt-4" \/>\s*<IntervalSwitch className="mt-3" full \/>/.test(controls) && /<PrimaryAction className="mt-4 w-full" \/>/.test(controls))
-    check("the sheet draws its counted figures (aboutFigures) as one panel", /const figures = aboutFigures\(c\.stats, extras\)/.test(page) && /<Figures cells=\{figures\} \/>/.test(page))
+    check("the sheet and the side card draw the counted facts (aboutFacts) as one list", /const facts = aboutFacts\(c, c\.stats, extras\)/.test(page) && /<JoinCard facts=\{<FactsList facts=\{facts\} \/>\} \/>/.test(page))
     check("the sales page calls no client function on the server", !/from "\.\/join-controls"[\s\S]*intervalPrice/.test(page))
   }
 

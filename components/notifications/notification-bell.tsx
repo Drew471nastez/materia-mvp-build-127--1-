@@ -85,6 +85,7 @@ import { createClient } from "@/lib/supabase/client"
 import { readAuthSnapshot } from "@/lib/auth/auth-snapshot"
 import { cn } from "@/lib/utils"
 import { NOTIFICATION_BADGE } from "./badge-tone"
+import { useTabBadge } from "./tab-badge"
 
 const INBOX = "/api/notifications/inbox"
 const READ = "/api/notifications/read"
@@ -238,8 +239,14 @@ let warm: { userId: string; at: number; items: InboxItem[]; nextCursor: string |
  */
 const SHEET_CHROME_PX = 115
 
-export function NotificationBell({ className, sheetMin }: {
+export function NotificationBell({ className, sheetMin, tabBadge = false }: {
   className?: string
+  /**
+   * This bell owns the browser tab (a community's bar, round 13): the unread
+   * count goes in front of the tab's title and a red dot on its icon
+   * (tab-badge.ts), and both clear when everything is read.
+   */
+  tabBadge?: boolean
   /**
    * The phone's sheet is at least this tall (a community's bar: half the
    * screen, round 11), so one notification does not make a sliver of a
@@ -251,6 +258,7 @@ export function NotificationBell({ className, sheetMin }: {
   const [userId, setUserId] = useState<string | null>(null)
   const unread = useSyncExternalStore(subscribeUnread, () => sharedUnread, () => 0)
   const setUnread = setSharedUnread
+  useTabBadge(userId ? unread : 0, tabBadge)
   const [open, setOpen] = useState(false)
   /* The list is built once (idle, a pointer near the bell, or the click itself) and kept. */
   const [built, setBuilt] = useState(false)
@@ -657,7 +665,7 @@ function BellPanel({
           <RowsLoading />
         )
       ) : items.length === 0 ? (
-        <Quiet empty>Nothing new</Quiet>
+        <EmptyInbox filter={filter} />
       ) : (
         /*
           A HAIRLINE BETWEEN TWO ROWS THAT STARTS WHERE THE WORDS DO, not a
@@ -917,6 +925,33 @@ function Quiet({ children, empty }: { children: React.ReactNode; empty?: boolean
         </span>
       ) : null}
       <p className="text-[14px] text-[#6b7280]">{children}</p>
+    </div>
+  )
+}
+
+/**
+ * WHEN THE LIST HAS NOTHING IN IT (round 13, ask 24: not "Nothing new").
+ * A calm, specific line: what this list is for and what will land in it,
+ * for the filter that is on, under a quiet tile with the bell (white, a
+ * hairline and a one pixel shadow, Storelib's light depth; no grey disc).
+ * It says "yet": an empty list is somebody new, not somebody behind.
+ */
+export const EMPTY_INBOX: Record<InboxFilter, { title: string; line: string }> = {
+  all: { title: "No notifications yet", line: "Replies, mentions, new followers and posts from your communities will show up here." },
+  communities: { title: "Nothing from your communities yet", line: "Replies to you, mentions and new posts in communities you joined will show up here." },
+  following: { title: "Nothing from people you follow yet", line: "New products and communities from creators you follow will show up here." },
+  purchases: { title: "No purchase updates yet", line: "New products from creators you bought from and posts in memberships you pay for will show up here." },
+}
+
+function EmptyInbox({ filter }: { filter: InboxFilter }) {
+  const says = EMPTY_INBOX[filter] ?? EMPTY_INBOX.all
+  return (
+    <div className="flex flex-col items-center justify-center px-8 py-14 text-center" data-bell-empty="" data-bell-empty-filter={filter}>
+      <span className="mb-4 flex h-11 w-11 items-center justify-center rounded-[12px] border border-[#e6e8eb] bg-white text-[#4b5563] shadow-[0_1px_2px_rgba(16,24,40,0.06)]" data-bell-empty-icon="">
+        <Bell className="h-[19px] w-[19px]" strokeWidth={1.75} aria-hidden />
+      </span>
+      <p className="text-[15px] font-semibold text-[#1a1a2e]">{says.title}</p>
+      <p className="mt-1 max-w-[290px] text-[13.5px] leading-[1.45] text-[#6b7280]">{says.line}</p>
     </div>
   )
 }

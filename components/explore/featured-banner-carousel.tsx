@@ -1,5 +1,6 @@
 "use client"
 
+import { personName } from "@/lib/profile/display-name"
 import { useState, useEffect, useCallback, useRef, TouchEvent, ReactNode } from "react"
 import Image from "next/image"
 import Link from "next/link"
@@ -167,7 +168,7 @@ export function FeaturedBannerCarousel({ products, overlay }: FeaturedBannerCaro
   const currentProduct = featuredProducts[currentIndex]
   // Only use profile.username — it's what /u/[username] routes look up.
   const creatorUsername = currentProduct?.creator?.profile?.username || ""
-  const creatorName = currentProduct?.creator?.profile?.display_name || "Creator"
+  const creatorName = personName({ name: currentProduct?.creator?.profile?.display_name, slug: currentProduct?.creator?.slug })
   const creatorAvatar = currentProduct?.creator?.profile?.avatar_url
   const baseProductUrl = getProductUrl(creatorUsername, currentProduct?.slug || "")
   const productUrl = `${baseProductUrl}${baseProductUrl.includes("?") ? "&" : "?"}layout=discover&recommended=1`

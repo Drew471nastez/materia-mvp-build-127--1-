@@ -144,6 +144,14 @@ const ENTRIES: Record<NotificationType, Entry> = {
     the person can turn it off in account settings (lib/notifications/push-kinds.ts, emailOff), checked before it is raised.
   */
   COMMUNITY_REPORT_DIGEST: E({ category: "account", priority: "normal", requirement: "required_service", recipient: "creator", channels: ["email"], template: "base", defaultOn: true, cooldownSeconds: 0 }),
+  /*
+    The week in the person's communities, asked for in account settings (off unless they turn it on, push-kinds.ts
+    emailOn), one a week per account across all their communities. Optional: it carries the unsubscribe link and counts
+    against the daily limits. Its category is "tips", which nothing else sends, so the link in its footer turns off this
+    digest alone; turning it on in Settings turns that category back on. To the person (a creator template: it is about
+    their account, not one purchase).
+  */
+  COMMUNITY_WEEKLY_DIGEST: E({ category: "tips", priority: "info", requirement: "optional_product", recipient: "creator", channels: ["email"], template: "base", defaultOn: true, cooldownSeconds: 6 * DAY }),
 }
 
 export const REGISTRY: Record<NotificationType, RegistryEntry> = Object.fromEntries(

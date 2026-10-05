@@ -170,6 +170,9 @@ const nextConfig = {
     return {
       beforeFiles: [
         { source: "/@:handle", destination: "/member/:handle" },
+        /* The app links files, built from env vars (lib/platform/app-links.ts): before the public folder, which no longer holds them. */
+        { source: "/.well-known/apple-app-site-association", destination: "/api/app-links/apple-app-site-association" },
+        { source: "/.well-known/assetlinks.json", destination: "/api/app-links/assetlinks" },
         ...(storage ? [{ source: "/media/:path*", destination: `${storage}/storage/v1/object/public/:path*` }] : []),
       ],
     }

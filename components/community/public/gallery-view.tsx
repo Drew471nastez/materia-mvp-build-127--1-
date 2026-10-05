@@ -141,11 +141,50 @@ export function CommunityGallery({ communityId, name, items }: { communityId: st
     [swiperRef],
   )
 
+  /*
+    THE SWIPE IS NEVER WAITING FOR REACT (round 13, ask 22: "gallery swipe
+    smoother"). Swiper says the index changed as the settle begins; drawing
+    the strip, the arrows and the slides' attributes again then is work on
+    the main thread in the middle of the glide, and on a slow phone it
+    dropped frames there. The index is a transition now, so React does it
+    in the gaps between the glide's frames and the picture never stalls.
+  */
   const moved = React.useCallback((i: number) => {
-    setIndex(i)
-    setPlaying(null)
-    setFailed(null)
+    React.startTransition(() => {
+      setIndex(i)
+      setPlaying(null)
+      setFailed(null)
+    })
   }, [])
+
+  /*
+    THE NEIGHBOURS ARE DECODED AHEAD. A picture that is fetched but not yet
+    decoded is decoded on the frame it first shows, which is a hitch under
+    the finger. Whenever the index settles, the pictures either side (and
+    the one after next, where a flick lands) are decoded in the background,
+    when the main thread is idle, so a swipe always lands on a ready one.
+  */
+  const frame = React.useRef<HTMLDivElement>(null)
+  React.useEffect(() => {
+    const root = frame.current
+    if (!root || count < 2) return
+    const slides = root.querySelectorAll<HTMLElement>("[data-gallery-slide]")
+    const run = () => {
+      for (const i of [at + 1, at - 1, at + 2]) {
+        const img = slides[i]?.querySelector<HTMLImageElement>("img")
+        if (!img) continue
+        if (img.loading === "lazy") img.loading = "eager"
+        img.decode?.().catch(() => {})
+      }
+    }
+    const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void }
+    if (w.requestIdleCallback) {
+      const id = w.requestIdleCallback(run, { timeout: 600 })
+      return () => w.cancelIdleCallback?.(id)
+    }
+    const t = window.setTimeout(run, 120)
+    return () => window.clearTimeout(t)
+  }, [at, count])
 
   if (count === 0) return null
 
@@ -188,6 +227,7 @@ export function CommunityGallery({ communityId, name, items }: { communityId: st
   return (
     <div data-community-gallery="" data-gallery-count={count}>
       <div
+        ref={frame}
         role="region"
         aria-roledescription="carousel"
         aria-label={`${name}: pictures and videos`}

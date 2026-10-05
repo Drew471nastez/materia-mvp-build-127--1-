@@ -115,7 +115,9 @@ function main() {
     /style=\{\{ translate: `\$\{progressWidth - 100\}% 0`, transition: `translate 480ms \$\{MOTION_EASE\}` \}\}/.test(creator) && /data-onboarding-progress-fill=""\s*className="[^"]*motion-reduce:!transition-none"/.test(creator)
       && !/transition-\[width\]/.test(creator))
   check("one row of buttons on every step, each fading with its step, so nothing pops in and the panel never resizes as setup begins",
-    (creator.match(/data-onboarding-footer=""/g) ?? []).length === 1 && /style=\{fadeWith\(currentStep >= 2 && currentStep <= 4/.test(creator) && /style=\{fadeWith\(currentStep <= 3\)\}/.test(creator)
+    (creator.match(/data-onboarding-footer=""/g) ?? []).length === 1
+      /* Round 13: Back wherever there is a step to go back to (the store's 2 to 4, and the new account's question and join branch), Skip and Next on the store's first three and the join steps. */
+      && /style=\{fadeWith\(backFrom\(currentStep\) !== null/.test(creator) && /style=\{fadeWith\(\(currentStep >= 1 && currentStep <= 3\) \|\| isJoinStep\(currentStep\)\)\}/.test(creator)
       && !/<div className="h-16" \/>/.test(creator))
 
   /* "in the store category step, make sure the Other button is next to See more, not in the bar at the bottom with Back, Skip, Next." */
@@ -126,7 +128,8 @@ function main() {
     /const CATEGORY_ON = "bg-\[#1a1a2e\] text-white shadow-\[0_0_0_1px_#1a1a2e/.test(creator) && /aria-pressed=\{selectedCategory === category\}/.test(creator))
   /* "text font size better, the heading, subheading ... cohesive." */
   check("one heading and one line under it on every step, in the app's own ink",
-    (creator.match(/<h1 className=\{HEADING\}>/g) ?? []).length === 4 && (creator.match(/<p className=\{SUBHEADING\}>/g) ?? []).length === 4
+    /* The store's four steps, and round 13's question, name, photo and notifications steps. */
+    (creator.match(/<h1 className=\{HEADING\}>/g) ?? []).length === 8 && (creator.match(/<p className=\{SUBHEADING\}>/g) ?? []).length === 8
       && /const HEADING = "text-\[26px\] font-bold leading-\[1\.15\] tracking-\[-0\.02em\] text-\[#1a1a2e\] sm:text-\[36px\]"/.test(creator)
       && /const SUBHEADING = "mt-2 text-\[15px\]/.test(creator) && !/text-gray-500 text-xs sm:text-base/.test(creator))
   /* "cutted there, up": the plans ran into the top row and the Back button in a hard line. */

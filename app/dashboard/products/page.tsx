@@ -1,3 +1,4 @@
+import { personName } from "@/lib/profile/display-name"
 import Link from "next/link"
 import Image from "next/image"
 import { createClient } from "@/lib/supabase/server"
@@ -59,7 +60,7 @@ export default async function DashboardProductsPage() {
               </div>
               <div className="p-4">
                 <h3 className="font-medium group-hover:text-primary">{e.product?.title}</h3>
-                <p className="mt-1 text-sm text-muted-foreground">by {e.creator?.profile?.display_name || "Creator"}</p>
+                <p className="mt-1 text-sm text-muted-foreground">by {personName({ name: e.creator?.profile?.display_name, slug: e.creator?.slug })}</p>
                 <div className="mt-3 flex items-center gap-1 text-sm text-muted-foreground">
                   <Download className="h-4 w-4" />
                   <span>Download available</span>

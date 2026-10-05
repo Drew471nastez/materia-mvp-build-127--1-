@@ -179,6 +179,7 @@ export function viewerView(v: Viewer): ViewerView {
     isOwner: v.isOwner,
     isCreatorAccount: v.isCreatorAccount,
     mutedUntil: v.mutedUntil,
+    joinedAt: v.member?.joined_at ?? null,
     can: allowedActions(v.role),
   }
 }

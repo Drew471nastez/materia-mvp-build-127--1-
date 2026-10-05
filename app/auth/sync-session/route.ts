@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server"
 import { NextResponse, after } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { keepProviderPhoto, type ProviderPhotoDb } from "@/lib/profile/provider-photo"
+import { keepProfileName, type KeepNameDb } from "@/lib/profile/keep-name"
 import { classifyOAuthError, describeForLog, loginErrorQuery } from "@/lib/auth/oauth-errors"
 import { CONTINUE_PATH, sameOriginPath } from "@/lib/auth/continue"
 
@@ -76,6 +77,8 @@ export async function GET(request: Request) {
   */
   const signedIn = data.user
   if (signedIn) after(() => keepProviderPhoto(createAdminClient() as unknown as ProviderPhotoDb, signedIn).then(() => undefined))
+  /* And the provider's name over a made up one, the same way (lib/profile/keep-name). */
+  if (signedIn) after(() => keepProfileName(createAdminClient() as unknown as KeepNameDb, signedIn).then(() => undefined))
 
   // Cookies are now written via Set-Cookie on this redirect response.
   // The WebView stores them and sends them on the next request to /app.

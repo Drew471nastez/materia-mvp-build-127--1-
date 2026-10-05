@@ -1,5 +1,6 @@
 "use client"
 
+import { personName } from "@/lib/profile/display-name"
 import type React from "react"
 // `import type React` gives the TYPES only — `React.Fragment` off that binding
 // is undefined at runtime, which is a blank page, not a type error. The meta
@@ -2862,7 +2863,7 @@ export function UnifiedShopHeader({
             return isOptimizableImage(coverImageUrl) ? (
               <Image
                 src={coverImageUrl}
-                alt={`${profile?.display_name || "Creator"} cover`}
+                alt={`${personName({ name: profile?.display_name, username: profile?.username })} cover`}
                 fill
                 sizes={coverSizes(crop.zoom)}
                 quality={PORTRAIT_QUALITY}
@@ -2873,7 +2874,7 @@ export function UnifiedShopHeader({
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={coverImageUrl}
-                alt={`${profile?.display_name || "Creator"} cover`}
+                alt={`${personName({ name: profile?.display_name, username: profile?.username })} cover`}
                 style={coverStyle}
               />
             )
@@ -3164,7 +3165,7 @@ export function UnifiedShopHeader({
             )}
             style={{ color: headingColor }}
           >
-            {profile?.display_name || "Creator"}
+            {personName({ name: profile?.display_name, username: profile?.username })}
             {globalSettings?.verifiedBadgeEnabled && (
               <TooltipProvider delayDuration={100}>
                 <Tooltip>
@@ -3746,7 +3747,7 @@ export function UnifiedProductPage({
                         )}
                         style={{ color: themeTextColor }}
                       >
-                        {profile?.display_name || "Creator"}
+                        {personName({ name: profile?.display_name, username: profile?.username })}
                       </p>
                       {(settings.showRatingNextToSeller ?? true) && reviewsCount > 0 && (
                         <div className="flex items-center gap-1.5 shrink-0 whitespace-nowrap">
@@ -4029,7 +4030,7 @@ export function UnifiedProductPage({
                             className={cn("font-medium truncate text-sm", !themeTextColor && "text-foreground")}
                             style={{ color: themeTextColor }}
                           >
-                            {profile?.display_name || "Creator"}
+                            {personName({ name: profile?.display_name, username: profile?.username })}
                           </p>
                           {(settings.showRatingNextToSeller ?? true) && reviewsCount > 0 && (
                             <div className="flex items-center gap-1 shrink-0 whitespace-nowrap">
