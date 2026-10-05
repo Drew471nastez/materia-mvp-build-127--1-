@@ -156,7 +156,23 @@ check("Stripe's own check is the ID step, in the app as well", /if \(isNativeApp
 check("  the app opens it in its own sheet, and waits for the sheet to close", /@capacitor\/browser/.test(idClient) && /browserFinished/.test(idClient) && /__storelibSheet/.test(idClient))
 /* The owner, October 2026: "we should not be able to use our camera, only the KYC verification of ID of Stripe." */
 check("  and Storelib's camera is gone from the ID step entirely", !/data-id-use-camera|IdCamera|data-id-camera-open/.test(flow) && !/openCamera\(/.test(flow))
-check("  a check Stripe will not start says why, and opens nothing", /function whyNoCheck/.test(flow) && /not switched on for Storelib/.test(flow) && /setIdProblem\(whyNoCheck\(r\.reason\)\)/.test(flow))
+check("  a check Stripe will not start says why, and opens nothing", /function whyNoCheck/.test(flow) && /not switched on for Storelib/.test(flow) && /setIdProblem\(whyNoCheck\(r\.reason, r\.detail\)\)/.test(flow))
+/*
+  The owner, October 2026, kept being told "Stripe's ID check is not switched
+  on". It was a guess. The old test for it answered yes to any Stripe error
+  with the word "identity" in it, which is nearly all of them, so a parameter
+  Stripe refused was reported as Identity being off and the real cause never
+  surfaced. What Stripe refused was ours: options.document.require_live_capture
+  on a related_person session, which Stripe's own example does not send.
+*/
+const identitySrc = readFileSync("lib/payments/stripe/identity.ts", "utf8")
+/* The code only: the comments name the parameter that caused this, on purpose. */
+const identityCode = identitySrc.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "")
+check("the session is created exactly as Stripe documents it: type, related_person, no options", /type: "document",[\s\S]{0,160}related_person: \{ account: account\.id, person: personId \}/.test(identityCode) && !/require_live_capture/.test(identityCode))
+check("  a selfie is only asked for where the requirement is proof_of_liveness", /liveness \? \{ options: \{ document: \{ require_matching_selfie: true \} \} \} : \{\}/.test(identityCode))
+check("  'not switched on' needs Stripe to say so, not just the word identity", /unknown parameter\|invalid/.test(identityCode) && /not activated\|not enabled/.test(identityCode))
+check("  and anything else carries Stripe's own sentence, with ids stripped out", /function safeDetail/.test(identityCode) && /\(acct\|vs\|req\|cs\|pi\|file\|person\|ba\|sk\|pk\|rk\)_/.test(identityCode))
+check("Stripe Identity is only used for what it can fill, never an additional document", /individual\\\.verification\\\.\(document\|proof_of_liveness\)/.test(identityCode))
 check("the step waits while Stripe's sheet is open, not after it closes", /setIdState\("waiting"\)\s*\n\s*const how = await openIdentity/.test(flow))
 check("every Stripe call in a photo upload is bounded, so the page is never left hanging", /timeout: 20_000, maxNetworkRetries: 1/.test(own))
 check("  and a sheet that cannot open says so, rather than opening something else", /if \(how === "no_way"\) \{\s*\n\s*setIdState\("idle"\)\s*\n\s*setIdProblem\(/.test(flow))

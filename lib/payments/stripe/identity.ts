@@ -39,6 +39,18 @@ import { idOutstanding } from "./status"
 /** Why there is no Stripe Identity for this creator; the form falls back to its own camera. */
 export type IdentityUnavailable = "not_enabled" | "no_account" | "not_ours" | "no_person" | "nothing_to_verify" | "failed"
 
+/** Stripe's own sentence, with every id, token and secret taken out, short enough to read on a step. */
+function safeDetail(error: unknown): string | undefined {
+  const raw = stripeErrorMessage(error)
+  if (!raw) return undefined
+  const clean = raw
+    .replace(/\b(acct|vs|req|cs|pi|file|person|ba|sk|pk|rk)_[A-Za-z0-9_]+/g, "")
+    .replace(/https?:\/\/\S+/g, "")
+    .replace(/\s{2,}/g, " ")
+    .trim()
+  return clean.length > 2 ? clean.slice(0, 180) : undefined
+}
+
 export interface IdentityStart {
   ok: true
   /** Stripe's modal, on the web. */
@@ -82,10 +94,20 @@ function quiet(error: unknown): string {
   return stripeErrorMessage(error).replace(/\d{2,}/g, "#").replace(/\s+/g, " ").slice(0, 160)
 }
 
-/** Identity has to be switched on for the platform; Stripe says so in the error. */
+/**
+ * IS IT REALLY "IDENTITY IS NOT SWITCHED ON"?
+ *
+ * This used to answer yes to any error with the word "identity" in it, which
+ * is nearly every error the Identity API can return, including a parameter
+ * Stripe did not like. So a wrong parameter was reported to the creator as
+ * "Stripe's ID check is not switched on for Storelib", and the real cause
+ * never reached anybody. It now wants Stripe to actually say the account is
+ * not activated or not permitted, and everything else keeps its own words.
+ */
 function notEnabled(error: unknown): boolean {
   const message = stripeErrorMessage(error).toLowerCase()
-  return /identity|not activated|not enabled|enable.*verification|permission/.test(message)
+  if (/unknown parameter|invalid|not a valid|must be|cannot be used|no longer supported/.test(message)) return false
+  return /not activated|not enabled|activate .*identity|identity .*(is not|isn't) (activated|enabled)|enable .*identity|permission|not allowed to use/.test(message)
 }
 
 async function accountAndPerson(creator: PaymentsCreatorRef): Promise<{ account: Stripe.Account; personId: string } | IdentityUnavailable> {
@@ -115,7 +137,8 @@ function documentDue(account: Stripe.Account): boolean {
   /* The ID check is the last step of setup, so it may start as soon as Stripe lists the document, even under eventually_due (lib/payments/stripe/own-form.ts viewOf). */
   const due = new Set([...(req?.past_due ?? []), ...(req?.currently_due ?? []), ...(req?.eventually_due ?? [])])
   const pending = new Set(req?.pending_verification ?? [])
-  const isDoc = (k: string) => /^individual\.verification\.(document|additional_document)$/.test(k) && !pending.has(k)
+  /* Stripe Identity fills individual.verification.document and proof_of_liveness, and nothing else: an additional_document or a company document it cannot (docs.stripe.com/connect/handling-api-verification). */
+  const isDoc = (k: string) => /^individual\.verification\.(document|proof_of_liveness)$/.test(k) && !pending.has(k)
   if ([...due].some(isDoc)) return true
   /* Verify ID is always step two of setup, until Stripe holds an ID (lib/payments/stripe/status.ts idOutstanding). */
   if (idOutstanding(account)) return true
@@ -142,7 +165,7 @@ async function openSession(creatorId: string): Promise<Stripe.Identity.Verificat
  * Start (or carry on) the live check. `returnUrl` is where Stripe's hosted
  * page sends the person when they are done, for the phone app's sheet.
  */
-export async function startIdentity(creator: PaymentsCreatorRef, returnUrl: string): Promise<IdentityStart | { ok: false; reason: IdentityUnavailable }> {
+export async function startIdentity(creator: PaymentsCreatorRef, returnUrl: string): Promise<IdentityStart | { ok: false; reason: IdentityUnavailable; detail?: string }> {
   const found = await accountAndPerson(creator)
   if (typeof found === "string") return { ok: false, reason: found }
   const { account, personId } = found
@@ -154,23 +177,39 @@ export async function startIdentity(creator: PaymentsCreatorRef, returnUrl: stri
   }
 
   try {
+    /*
+     * EXACTLY WHAT STRIPE DOCUMENTS, AND NOTHING MORE.
+     * docs.stripe.com/connect/handling-api-verification, "Hosted document
+     * collection with Stripe Identity": type, related_person, and that is
+     * all. We used to send
+     * options.document.require_live_capture/require_matching_selfie as well.
+     * Stripe decides how to check a person it already has requirements for,
+     * and those options made the create fail; the failure said "identity" in
+     * it, which the check above read as Identity being switched off. A
+     * selfie is only ours to ask for where the requirement is
+     * proof_of_liveness, which is what Stripe's own example for that one
+     * shows.
+     */
+    const liveness = [...(account.requirements?.past_due ?? []), ...(account.requirements?.currently_due ?? []), ...(account.requirements?.eventually_due ?? [])].some((k) =>
+      /^individual\.verification\.proof_of_liveness$/.test(k),
+    )
     const session = await stripe.identity.verificationSessions.create(
       {
         type: "document",
         client_reference_id: creator.id,
         related_person: { account: account.id, person: personId },
-        /* The whole point: the document is scanned live, and the face has to match it. */
-        options: { document: { require_live_capture: true, require_matching_selfie: true } },
+        ...(liveness ? { options: { document: { require_matching_selfie: true } } } : {}),
         return_url: returnUrl,
         metadata: { storelib_creator_id: creator.id },
       },
-      { idempotencyKey: `storelib:identity:${creator.id}:${Math.floor(Date.now() / 60000)}` },
+      { idempotencyKey: `storelib:identity:${creator.id}:${Math.floor(Date.now() / 60000)}`, timeout: 20_000, maxNetworkRetries: 1 },
     )
     return { ok: true, clientSecret: session.client_secret ?? null, url: session.url ?? null, publishableKey: publishableKeyForSession(), status: "requires_input" }
   } catch (error) {
     const reason: IdentityUnavailable = notEnabled(error) ? "not_enabled" : "failed"
     console.error(`[identity] session not made (${reason})`, quiet(error))
-    return { ok: false, reason }
+    /* What Stripe said, trimmed and stripped of ids, so the step can name the real cause instead of guessing. */
+    return { ok: false, reason, detail: reason === "failed" ? safeDetail(error) : undefined }
   }
 }
 

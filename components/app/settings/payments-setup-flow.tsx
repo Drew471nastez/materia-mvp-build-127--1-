@@ -997,12 +997,13 @@ function useDetailsForm() {
  * matters, "not_enabled", is Stripe Identity being switched off for the
  * platform, which nobody can fix from inside setup.
  */
-function whyNoCheck(reason: string | undefined): string {
-  if (reason === "not_enabled") return "Stripe's ID check is not switched on for Storelib yet. We have been told; write to support@storelib.com if you need payouts today."
+function whyNoCheck(reason: string | undefined, detail?: string): string {
+  if (reason === "not_enabled") return "Stripe's ID check is not switched on for Storelib yet. Turn on Stripe Identity in the Stripe dashboard, under Settings, then try again."
   if (reason === "nothing_to_verify") return "Stripe is not asking for your ID right now. Press Continue to carry on."
   if (reason === "no_account" || reason === "not_ours") return "Your payments account is not ready for this yet. Go back a step, then try again."
   if (reason === "no_person") return "Your name and date of birth have to be in before Stripe can check your ID. Go back a step and finish those."
-  return "Stripe could not start the check just now. Try again in a moment."
+  /* Stripe's own sentence beats a guess: it names the real cause, which a guess hid for days. */
+  return detail ? `Stripe would not start the check: ${detail}` : "Stripe could not start the check just now. Try again in a moment."
 }
 
 function FormWaiting({ error, onRetry }: { error: string | null; onRetry: () => void }) {
@@ -1379,7 +1380,7 @@ function DetailsStep({
     setIdProblem(null)
     setIdState("opening")
     try {
-      const r = await post<{ ok?: boolean; reason?: string; clientSecret?: string | null; url?: string | null; publishableKey?: string }>("identity", {})
+      const r = await post<{ ok?: boolean; reason?: string; detail?: string; clientSecret?: string | null; url?: string | null; publishableKey?: string }>("identity", {})
       if (!r.ok) {
         /*
          * Stripe would not start one. It used to open Storelib's camera
@@ -1387,7 +1388,7 @@ function DetailsStep({
          * our camera, and hid the only thing worth knowing: why.
          */
         setIdState("idle")
-        setIdProblem(whyNoCheck(r.reason))
+        setIdProblem(whyNoCheck(r.reason, r.detail))
         return
       }
       /*
