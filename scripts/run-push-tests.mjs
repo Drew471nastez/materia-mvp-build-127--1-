@@ -167,6 +167,7 @@ const SUITES = [
   "tests/quick-access-urls.test.ts",
   "tests/header-link-navigates.test.ts",
   "tests/header-buttons.test.ts",
+  "tests/header-flex.test.ts",
   "tests/search-strip-entrance.test.ts",
   "tests/site-autosave-safety.test.ts",
   "tests/site-nav-destinations.test.ts",

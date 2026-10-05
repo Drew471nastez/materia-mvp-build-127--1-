@@ -9,6 +9,8 @@
  *
  *   menu                    which links the nav shows
  *   mobile_menu_style       where the phone menu comes from
+ *   desktop_menu            links in the row, or a menu button and a drawer
+ *   search_behaviour        a field in the header, a window, or the page
  *   header_transparent_scope which pages the header is see-through on
  */
 import type { Menu, MenuLink } from "@/lib/storelib-theme/values"
@@ -61,11 +63,71 @@ export function headerMenuBlocks(handle: string, menus: Record<string, Menu>): N
   return out
 }
 
-export type MobileMenuStyle = "left" | "right" | "full"
+export type MobileMenuStyle = "left" | "right" | "top" | "full"
 
 /** Header › Menu on phones. Anything unknown is the menu every site had: from the left. */
 export function mobileMenuStyle(value: unknown): MobileMenuStyle {
-  return value === "right" || value === "full" ? value : "left"
+  return value === "right" || value === "top" || value === "full" ? value : "left"
+}
+
+/**
+ * Header › Menu on larger screens. The links in the header row is what every
+ * header drew, and stays the answer for a header that never set this. The
+ * other three put a menu button in the row instead, which opens the same
+ * drawer a phone gets, from the edge named.
+ */
+export type DesktopMenu = "inline" | "drawer_left" | "drawer_right" | "drawer_top"
+
+export function desktopMenu(value: unknown): DesktopMenu {
+  return value === "drawer_left" || value === "drawer_right" || value === "drawer_top" ? value : "inline"
+}
+
+/** The edge a larger screen's drawer comes from, or null when the links are in the row. */
+export function desktopDrawerEdge(menu: DesktopMenu): MobileMenuStyle | null {
+  if (menu === "drawer_left") return "left"
+  if (menu === "drawer_right") return "right"
+  if (menu === "drawer_top") return "top"
+  return null
+}
+
+/**
+ * Where the menu drawer rests while closed, as a transform, so the slide is
+ * the compositor's alone. Covers the screen comes in from the left, as it
+ * always did. From the top it drops from under the header, inside a frame
+ * that clips it there, so it never travels across the header itself.
+ */
+export function drawerClosedTransform(style: MobileMenuStyle): string {
+  if (style === "right") return "translate3d(101%, 0, 0)"
+  if (style === "top") return "translate3d(0, -101%, 0)"
+  return "translate3d(-101%, 0, 0)"
+}
+
+/**
+ * Header › When search is clicked.
+ *
+ *   header  a field opens over the header row (what it always did)
+ *   modal   a window opens over the page, with the field and live results
+ *   page    the icon is a link to the search page
+ */
+export type SearchMode = "header" | "modal" | "page"
+
+export function searchMode(value: unknown): SearchMode {
+  return value === "modal" || value === "page" ? value : "header"
+}
+
+/**
+ * A header link is a plain link, or a button that opens the links under it.
+ *
+ * A link with sub-links and no address of its own, or the `#` a menu uses
+ * for "nowhere", has nothing to go to, so it is a button: pressing it opens
+ * its links as a dropdown on a computer, and in the drawer on a phone. A
+ * link with an address goes there, and its sub-links open as the pointer
+ * rests on it, as they always did. A link with no sub-links is a link.
+ */
+export function isMenuButton(url: unknown, childCount: number): boolean {
+  if (childCount <= 0) return false
+  const v = typeof url === "string" ? url.trim() : ""
+  return v === "" || v === "#"
 }
 
 /**
