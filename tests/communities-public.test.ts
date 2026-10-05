@@ -406,7 +406,7 @@ async function main() {
       const src = code(r)
       check(`${r}: the switch first`, /export async function POST\([^)]*\)[^{]*\{\s*const off = await requireCommunitiesOn\(\)\s*if \(off\) return off/.test(src))
       check(`${r}: a signed in person, never a user id from the body`, /auth\.getUser\(\)/.test(src) && !/body\.(userId|user_id|role|price)/.test(src))
-      check(`${r}: rate limited`, /const limited = await joinRateLimit\(/.test(src) && /if \(limited\) return limited/.test(src))
+      check(`${r}: rate limited`, /const limited = \(?await joinRateLimit\(/.test(src) && /if \(limited\) return limited/.test(src))
       check(`${r}: no store`, /Cache-Control": "no-store"/.test(src))
     }
     check("onboarding is for an active member (requireMember)", /const gate = await requireMember\(db, communityId, user\?\.id \?\? null, "view"\)\s*if \(gate instanceof NextResponse\) return gate/.test(code("app/api/community/[communityId]/onboarding/route.ts")))

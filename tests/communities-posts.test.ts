@@ -472,7 +472,7 @@ async function main() {
     const commentsRoute = code("app/api/community/[communityId]/posts/[postId]/comments/route.ts")
     const oneComment = code("app/api/community/[communityId]/comments/[commentId]/route.ts")
     const liveRoute = code("app/api/community/[communityId]/live/route.ts")
-    check("the routes broadcast after the answer (after()), once the write succeeded", /after\(\(\) => announcePost\(communityId, \{ id: post\.id/.test(postsRoute) && /if \(!result\.ok\)[\s\S]{0,200}after\(\(\) => announcePost/.test(postsRoute) && /after\(\(\) => announceComment\(communityId/.test(commentsRoute))
+    check("the routes broadcast after the answer (after()), once the write succeeded", /after\(\(\) => announcePost\(communityId, \{ id: post\.id/.test(postsRoute) && /if \(!result\.ok\)[\s\S]{0,400}after\(\(\) => announcePost/.test(postsRoute) && /if \(isHeld\(result\)\)[^\n]*status: 202[\s\S]{0,80}after\(\(\) => announcePost/.test(postsRoute) && /after\(\(\) => announceComment\(communityId/.test(commentsRoute))
     check("the channel name is handed to active members only, after the switch", /requireCommunitiesOn\(\)[\s\S]{0,200}requireMember\(db, communityId, await sessionUserId\(\), "view"\)[\s\S]{0,200}liveTopic\(gate\.community\.id\)/.test(liveRoute))
     check("one comment is read through the member gate and the post's visibility", /export async function GET[\s\S]{0,400}requireMember\(db, communityId, await sessionUserId\(\), "view"\)[\s\S]{0,200}getCommentView\(db, gate\.community, gate\.viewer, commentId\)/.test(oneComment) && /eq\("community_id", community\.id\)[\s\S]{0,200}status !== "published"[\s\S]{0,200}visiblePostRow\(db, community, viewer, row\.post_id\)/.test(code("lib/communities/server/comments.ts")))
 
