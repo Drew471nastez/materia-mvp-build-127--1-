@@ -218,7 +218,7 @@ async function main() {
   )
   check(
     "the layout reads the user agent while the auth request is in flight",
-    /await Promise\.all\(\[\s*\n\s*isCapacitorWebView\(\)/.test(layout),
+    /await Promise\.all\(\[\s*isCapacitorWebView\(\), currentUserForRequest\(\)/.test(layout),
   )
 
   console.log(`\n  ${passed} passed, ${failed} failed`)
