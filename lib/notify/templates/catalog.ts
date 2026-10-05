@@ -1802,7 +1802,7 @@ const COMMUNITY_ENTRIES: Record<
       action: { label: "Open the event", path },
       calendar: calendarFile(d, ctx, path),
       greet: false,
-      inApp: { title: title ? `You are going to ${title}` : "You are going", body: when || (c.name ? `In ${c.name}.` : ""), actionLabel: "Open", actionPath: path },
+      inApp: { title: title ? `You are going to ${title}` : "You are going", body: when || (c.name ? `In ${c.name}.` : "Your seat is booked."), actionLabel: "Open", actionPath: path },
     }
   },
 
@@ -1836,7 +1836,7 @@ const COMMUNITY_ENTRIES: Record<
       action: { label: "Open the event", path },
       calendar: calendarFile(d, ctx, path),
       greet: false,
-      inApp: { title: title ? `A seat at ${title}` : "A seat is yours", body: when || (c.name ? `In ${c.name}.` : ""), actionLabel: "Open", actionPath: path },
+      inApp: { title: title ? `A seat at ${title}` : "A seat is yours", body: when || (c.name ? `In ${c.name}.` : "Your seat is booked."), actionLabel: "Open", actionPath: path },
     }
   },
 
@@ -1864,7 +1864,7 @@ const COMMUNITY_ENTRIES: Record<
       facts: [["Event", title], ["Refunded", back], ["Community", c.name]],
       action: { label: "See the event", path },
       greet: false,
-      inApp: { title: back ? `${back} refunded` : "Ticket refunded", body: title || "", actionLabel: "Open", actionPath: path },
+      inApp: { title: back ? `${back} refunded` : "Ticket refunded", body: title ? `For ${title}.` : "The money is on its way back.", actionLabel: "Open", actionPath: path },
     }
   },
 
@@ -1892,7 +1892,7 @@ const COMMUNITY_ENTRIES: Record<
       facts: [["Event", title], ["Was", when], ["Coming back", back], ["Community", c.name]],
       action: { label: "See what else is on", path: c.slug ? PATHS.community(c.slug, "/events") : c.home },
       greet: false,
-      inApp: { title: title ? `${title} is cancelled` : "An event is cancelled", body: back ? `${back} is coming back.` : "", actionLabel: "Open", actionPath: path },
+      inApp: { title: title ? `${title} is cancelled` : "An event is cancelled", body: back ? `${back} is coming back.` : "It is not going ahead.", actionLabel: "Open", actionPath: path },
     }
   },
 

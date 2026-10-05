@@ -581,8 +581,8 @@ async function main() {
     ...walk("app/api/community").filter((f) => /\/(classroom|events|videos)\//.test(f)),
     ...walk("app/api/app/community").filter((f) => f.includes("/videos/")),
   ].filter((f) => f.endsWith("route.ts"))
-  /* Round 13 added the composer's status route (videos/[videoId]/route.ts). */
-  check("all my routes are there", routes.length === 11, routes)
+  /* Round 13 added the composer's status route (videos/[videoId]/route.ts); round 14 the four an event's tickets need (checkout, its confirm, the holder's ticket, and the free invite). */
+  check("all my routes are there", routes.length === 15, routes)
   for (const f of routes) {
     const src = code(f)
     const handlers = [...src.matchAll(/export async function (GET|POST|PATCH|DELETE)\([^)]*\)[^{]*\{\s*([^\n]+)\n\s*([^\n]+)/g)]

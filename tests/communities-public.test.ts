@@ -342,7 +342,8 @@ async function main() {
     const route = code("app/api/community/[communityId]/invite/redeem/route.ts")
     check("the route answers the invite's own reasons as { ok: false, reason }, the shape the invite landing reads", /if \(INVITE_REASONS\.has\(answer\.error\) && answer\.status !== 404\) return NextResponse\.json\(\{ ok: false, reason: answer\.error, message: answer\.message \}/.test(route) && /ok: true, state: "member"/.test(route))
     const landing = existsSync("components/community/member/invite-landing.tsx") ? read("components/community/member/invite-landing.tsx") : ""
-    check("and the member area's invite landing posts the token to this route", !landing || (/\/invite\/redeem`, \{ body: \{ token \} \}/.test(landing) && /r\.data\.reason/.test(landing)))
+    /* Round 14: an invite made for a paid event posts the event and its signature beside the token. */
+    check("and the member area's invite landing posts the token to this route", !landing || (/\/invite\/redeem`, \{\s*body: eventId && eventTag \? \{ token, event: eventId, et: eventTag \} : \{ token \},/.test(landing) && /r\.data\.reason/.test(landing)))
   }
 
   /* ── The page ────────────────────────────────────────────────────────── */
