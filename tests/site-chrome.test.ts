@@ -214,7 +214,7 @@ async function main() {
       nameOf: (s: SectionInstance) => s.name,
       selectedId: null,
       onSelect: noop, onToggleHide: noop, onDuplicate: noop, onRemove: noop, onMove: noop, onAdd: noop,
-      dnd: { sensors: [], modifiers: [], draggingId: null, onDragStart: noop, onDragOver: noop, onDragCancel: noop, onDragEnd: noop },
+      dnd: { onReorder: noop },
     }),
   )
   const groups = [...html.matchAll(/data-section-group="([a-z]+)"/g)].map((m) => m[1])

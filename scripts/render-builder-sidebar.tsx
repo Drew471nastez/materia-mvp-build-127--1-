@@ -61,7 +61,7 @@ function App() {
             onRemove={(id) => { window.__removed.push(id); setSections((all) => all.filter((s) => s.id !== id)) }}
             onMove={noop}
             onAdd={(at) => window.__added.push(at)}
-            dnd={{ sensors: [], modifiers: [], draggingId: null, onDragStart: noop, onDragOver: noop, onDragCancel: noop, onDragEnd: noop }}
+            dnd={{ onReorder: noop }}
           />
         </aside>
         <aside id="panel" style={{ width: 288, background: "#fff", borderRadius: 12, padding: 14 }}>

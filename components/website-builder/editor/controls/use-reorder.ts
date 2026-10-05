@@ -16,6 +16,18 @@
  * slot the other way. The order is committed once, on release, through
  * `onMove`, which is the same save path as any other edit.
  *
+ * PAINT, NOT RENDERS. The transforms are written straight onto the rows, once
+ * a frame, and React hears about the drag only when the slot it would land in
+ * changes. A drag used to re-render the whole list on every pointer event,
+ * which is what a phone felt as lag. Positions are read from layout
+ * (`offsetTop`, which a transform does not move) in the scroller's own
+ * coordinates, so they stay right when an open row closes as the drag
+ * starts, and while the scroller scrolls under the finger.
+ *
+ * THE DROP LANDS WHERE IT WAS LET GO. On release the new order renders in the
+ * same frame (`flushSync`) and the row glides the last few pixels from where
+ * the finger left it into its slot, instead of jumping there.
+ *
  * Near the top or bottom edge of the scroller the scroller scrolls, and the
  * lifted row stays under the pointer while it does.
  *
@@ -23,33 +35,37 @@
  * list can sit inside a row of another list without the two mixing.
  */
 import * as React from "react"
+import { flushSync } from "react-dom"
 
 import { hapticTap } from "@/lib/native-bridge"
 
+/** What React needs to know about a drag: which row is up, where it would land, and whether it would nest. */
 interface Drag {
   from: number
   to: number
-  /** How far the lifted row has moved from its place, scrolling included. */
-  dy: number
-  /** How far the pointer has gone sideways, for a list whose rows nest. */
-  dx: number
-  /** How far a passed row slides: the lifted row's height plus the gap. */
-  shift: number
+  nesting: 1 | -1 | 0
 }
 
 interface Live {
   from: number
   to: number
+  nesting: 1 | -1 | 0
   pointerId: number
   grip: HTMLElement
+  /** The lifted row itself, kept so the drop can find it wherever React put it. */
+  el: HTMLElement
+  /** Pointer in content coordinates (client + scroll) when it went down. */
   startY: number
   lastY: number
   startX: number
   lastX: number
   scroller: HTMLElement | null
-  startScroll: number
-  rects: { top: number; bottom: number }[]
+  /** The lifted row's layout top when the pointer went down, in content coordinates. */
+  baseTop: number
+  /** Content coordinates = offsetTop + this. Fixed for the drag: offsetTop and scrollTop are both layout. */
+  offsetToContent: number
   raf: number
+  dirty: boolean
 }
 
 /**
@@ -72,6 +88,8 @@ const nestThreshold = (step: number) => Math.max(24, step * 0.7)
 
 const EDGE = 56
 const MAX_SPEED = 14
+const SLIDE = "transform 200ms cubic-bezier(0.2, 0, 0, 1)"
+const DROP_MS = 180
 
 function scrollerOf(el: HTMLElement): HTMLElement | null {
   const marked = el.closest<HTMLElement>("[data-sheet-scroll], [data-wb-sidebar-scroll]")
@@ -86,6 +104,15 @@ function scrollerOf(el: HTMLElement): HTMLElement | null {
 }
 
 const scrollTopOf = (s: HTMLElement | null) => (s ? s.scrollTop : window.scrollY)
+
+const reducedMotion = () =>
+  typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+
+function clear(el: HTMLElement) {
+  el.style.removeProperty("transform")
+  el.style.removeProperty("transition")
+  el.style.removeProperty("will-change")
+}
 
 export function useReorder<T extends HTMLElement = HTMLDivElement>({
   count,
@@ -106,82 +133,150 @@ export function useReorder<T extends HTMLElement = HTMLDivElement>({
   const nestRef = React.useRef(nest)
   nestRef.current = nest
 
-  const rows = () => {
+  const rows = React.useCallback(() => {
     const list = listRef.current
     return list ? [...list.querySelectorAll<HTMLElement>(":scope > [data-reorder-row]")] : []
+  }, [])
+
+  /** How far the lifted row sits sideways, and whether letting go now would nest it. */
+  const sideways = (d: Live): { x: number; nesting: 1 | -1 | 0 } => {
+    const n = nestRef.current
+    const dx = d.lastX - d.startX
+    if (!n || d.to !== d.from || dx === 0) return { x: 0, nesting: 0 }
+    const dir = dx > 0 ? 1 : -1
+    if (!n.can(d.from, dir)) return { x: Math.max(-6, Math.min(6, dx * 0.12)), nesting: 0 }
+    return { x: Math.max(-n.step, Math.min(n.step, dx)), nesting: Math.abs(dx) >= nestThreshold(n.step) ? dir : 0 }
   }
 
-  /** Where the lifted row is now, and the slot it would land in. */
-  const measure = React.useCallback(() => {
+  /** One frame of the drag: read layout, pick the slot, write the transforms. */
+  const paint = React.useCallback(() => {
     const d = live.current
     if (!d) return
-    const dy = d.lastY - d.startY + (scrollTopOf(d.scroller) - d.startScroll)
-    const me = d.rects[d.from]
-    const top = me.top + dy
-    const bottom = me.bottom + dy
+    const list = rows()
+    const me = list[d.from]
+    if (!me) return
+    const k = d.offsetToContent
+    const lay = list.map((r) => ({ top: r.offsetTop + k, h: r.offsetHeight }))
+    const mine = lay[d.from]
+    /* Where the finger has carried the row: from where it was when the pointer went down, not where layout put it since. */
+    const top = d.baseTop + (d.lastY - d.startY)
+    const bottom = top + mine.h
+
     let to = d.from
     for (let i = d.from - 1; i >= 0; i--) {
-      const mid = (d.rects[i].top + d.rects[i].bottom) / 2
-      if (top < mid) to = i
+      if (top < lay[i].top + lay[i].h / 2) to = i
       else break
     }
-    for (let i = d.from + 1; i < d.rects.length; i++) {
-      const mid = (d.rects[i].top + d.rects[i].bottom) / 2
-      if (bottom > mid) to = i
+    for (let i = d.from + 1; i < lay.length; i++) {
+      if (bottom > lay[i].top + lay[i].h / 2) to = i
       else break
     }
+
+    const gap = lay.length > 1 ? Math.max(0, lay[1].top - (lay[0].top + lay[0].h)) : 0
+    const shift = mine.h + gap
     if (to !== d.to) {
       d.to = to
       hapticTap("light")
     }
-    const gap = d.rects.length > 1 ? Math.max(0, d.rects[1].top - d.rects[0].bottom) : 8
-    setDrag({ from: d.from, to, dy, dx: d.lastX - d.startX, shift: me.bottom - me.top + gap })
-  }, [])
+    const side = sideways(d)
+
+    me.style.transform = `translate3d(${side.x}px, ${top - mine.top}px, 0)`
+    list.forEach((r, i) => {
+      if (i === d.from) return
+      let y = 0
+      if (to > d.from && i > d.from && i <= to) y = -shift
+      else if (to < d.from && i < d.from && i >= to) y = shift
+      const t = `translate3d(0, ${y}px, 0)`
+      if (r.style.transform !== t) r.style.transform = t
+    })
+
+    if (side.nesting !== d.nesting) d.nesting = side.nesting
+    setDrag((prev) =>
+      prev && prev.from === d.from && prev.to === d.to && prev.nesting === d.nesting
+        ? prev
+        : { from: d.from, to: d.to, nesting: d.nesting },
+    )
+  }, [rows])
 
   const tick = React.useCallback(() => {
     const d = live.current
     if (!d) return
     const box = d.scroller ? d.scroller.getBoundingClientRect() : { top: 0, bottom: window.innerHeight }
+    const clientY = d.lastY - scrollTopOf(d.scroller)
     let speed = 0
-    if (d.lastY < box.top + EDGE) speed = -MAX_SPEED * Math.min(1, (box.top + EDGE - d.lastY) / EDGE)
-    else if (d.lastY > box.bottom - EDGE) speed = MAX_SPEED * Math.min(1, (d.lastY - (box.bottom - EDGE)) / EDGE)
+    if (clientY < box.top + EDGE) speed = -MAX_SPEED * Math.min(1, (box.top + EDGE - clientY) / EDGE)
+    else if (clientY > box.bottom - EDGE) speed = MAX_SPEED * Math.min(1, (clientY - (box.bottom - EDGE)) / EDGE)
     if (speed) {
       const before = scrollTopOf(d.scroller)
       if (d.scroller) d.scroller.scrollTop += speed
       else window.scrollBy(0, speed)
-      if (scrollTopOf(d.scroller) !== before) measure()
-    }
-    d.raf = requestAnimationFrame(tick)
-  }, [measure])
-
-  const finish = React.useCallback((commit: boolean) => {
-    const d = live.current
-    if (!d) return
-    live.current = null
-    cancelAnimationFrame(d.raf)
-    try {
-      d.grip.releasePointerCapture(d.pointerId)
-    } catch {
-      /* already gone */
-    }
-    document.body.style.removeProperty("user-select")
-    document.body.style.removeProperty("-webkit-user-select")
-    setDrag(null)
-    if (commit && d.to !== d.from) {
-      hapticTap("medium")
-      onMoveRef.current(d.from, d.to)
-      return
-    }
-    const n = nestRef.current
-    const dx = d.lastX - d.startX
-    if (commit && n && Math.abs(dx) >= nestThreshold(n.step)) {
-      const dir = dx > 0 ? 1 : -1
-      if (n.can(d.from, dir)) {
-        hapticTap("medium")
-        n.onNest(d.from, dir)
+      const moved = scrollTopOf(d.scroller) - before
+      /* The finger has not moved on the glass, so in content coordinates it moved with the scroll. */
+      if (moved) {
+        d.lastY += moved
+        d.dirty = true
       }
     }
-  }, [])
+    if (d.dirty) {
+      d.dirty = false
+      paint()
+    }
+    d.raf = requestAnimationFrame(tick)
+  }, [paint])
+
+  const finish = React.useCallback(
+    (commit: boolean) => {
+      const d = live.current
+      if (!d) return
+      live.current = null
+      cancelAnimationFrame(d.raf)
+      try {
+        d.grip.releasePointerCapture(d.pointerId)
+      } catch {
+        /* already gone */
+      }
+      document.body.style.removeProperty("user-select")
+      document.body.style.removeProperty("-webkit-user-select")
+      const list = rows()
+      const n = nestRef.current
+      const dx = d.lastX - d.startX
+      const reorder = commit && d.to !== d.from
+      const nestDir: 1 | -1 | 0 =
+        commit && !reorder && n && Math.abs(dx) >= nestThreshold(n.step) && n.can(d.from, dx > 0 ? 1 : -1) ? (dx > 0 ? 1 : -1) : 0
+
+      if (!reorder && !nestDir) {
+        /* Nothing changes: everything eases back to where it was. */
+        const still = reducedMotion()
+        list.forEach((r) => {
+          r.style.transition = still ? "none" : SLIDE
+          r.style.transform = "translate3d(0, 0, 0)"
+        })
+        setDrag(null)
+        window.setTimeout(() => list.forEach((r) => !live.current && clear(r)), still ? 0 : 220)
+        return
+      }
+
+      /* Where the row is on screen now, so it can glide from there into its slot. */
+      const before = d.el.getBoundingClientRect()
+      list.forEach(clear)
+      hapticTap("medium")
+      flushSync(() => {
+        setDrag(null)
+        if (reorder) onMoveRef.current(d.from, d.to)
+        else if (n && nestDir) n.onNest(d.from, nestDir)
+      })
+      if (!d.el.isConnected || reducedMotion()) return
+      const after = d.el.getBoundingClientRect()
+      const ox = before.left - after.left
+      const oy = before.top - after.top
+      if (Math.abs(ox) < 1 && Math.abs(oy) < 1) return
+      d.el.animate(
+        [{ transform: `translate3d(${ox}px, ${oy}px, 0)` }, { transform: "translate3d(0, 0, 0)" }],
+        { duration: DROP_MS, easing: "cubic-bezier(0.2, 0, 0, 1)" },
+      )
+    },
+    [rows],
+  )
 
   React.useEffect(() => () => finish(false), [finish])
 
@@ -189,7 +284,8 @@ export function useReorder<T extends HTMLElement = HTMLDivElement>({
     /* A row alone in its list has nowhere to go, unless it can go in or out a level. */
     if (e.button !== 0 || live.current || (count < 2 && !nestRef.current)) return
     const list = rows()
-    if (!list[index]) return
+    const el = list[index]
+    if (!el) return
     e.preventDefault()
     e.stopPropagation()
     const grip = e.currentTarget
@@ -198,51 +294,58 @@ export function useReorder<T extends HTMLElement = HTMLDivElement>({
     } catch {
       /* a synthetic pointer cannot be captured; the listeners below still work */
     }
-    onStart?.()
-    /* Measured after onStart, which may close an open row and change heights. */
-    requestAnimationFrame(() => {
-      if (live.current?.pointerId !== e.pointerId) return
-      live.current.rects = rows().map((r) => {
-        const b = r.getBoundingClientRect()
-        return { top: b.top, bottom: b.bottom }
-      })
-      live.current.startScroll = scrollTopOf(live.current.scroller)
-      measure()
-    })
     const scroller = scrollerOf(grip)
+    const scroll = scrollTopOf(scroller)
+    /* Measured before onStart, which may close an open row: the row stays under the finger whatever moves above it. */
+    const rect = el.getBoundingClientRect()
+    const baseTop = rect.top + scroll
     live.current = {
       from: index,
       to: index,
+      nesting: 0,
       pointerId: e.pointerId,
       grip,
-      startY: e.clientY,
-      lastY: e.clientY,
+      el,
+      startY: e.clientY + scroll,
+      lastY: e.clientY + scroll,
       startX: e.clientX,
       lastX: e.clientX,
       scroller,
-      startScroll: scrollTopOf(scroller),
-      rects: list.map((r) => {
-        const b = r.getBoundingClientRect()
-        return { top: b.top, bottom: b.bottom }
-      }),
+      baseTop,
+      offsetToContent: baseTop - el.offsetTop,
       raf: 0,
+      dirty: true,
     }
+    list.forEach((r, i) => {
+      r.style.willChange = "transform"
+      r.style.transition = i === index ? "none" : SLIDE
+    })
     document.body.style.setProperty("user-select", "none")
     document.body.style.setProperty("-webkit-user-select", "none")
     hapticTap("medium")
+    onStart?.()
+    setDrag({ from: index, to: index, nesting: 0 })
     live.current.raf = requestAnimationFrame(tick)
 
     const move = (ev: PointerEvent) => {
-      if (ev.pointerId !== live.current?.pointerId) return
-      live.current.lastY = ev.clientY
-      live.current.lastX = ev.clientX
-      measure()
+      const d = live.current
+      if (ev.pointerId !== d?.pointerId) return
+      d.lastY = ev.clientY + scrollTopOf(d.scroller)
+      d.lastX = ev.clientX
+      d.dirty = true
     }
     const up = (ev: PointerEvent) => {
       if (ev.pointerId !== e.pointerId) return
       grip.removeEventListener("pointermove", move)
       grip.removeEventListener("pointerup", up)
       grip.removeEventListener("pointercancel", up)
+      const d = live.current
+      if (d && ev.type === "pointerup") {
+        /* The last position counts, even if it arrived after the last frame. */
+        d.lastY = ev.clientY + scrollTopOf(d.scroller)
+        d.lastX = ev.clientX
+        paint()
+      }
       finish(ev.type === "pointerup")
     }
     grip.addEventListener("pointermove", move)
@@ -277,37 +380,15 @@ export function useReorder<T extends HTMLElement = HTMLDivElement>({
     style: { touchAction: "none" } as React.CSSProperties,
   })
 
-  /**
-   * How far the lifted row sits sideways: with the pointer, up to one step,
-   * where it may go a level in or out and has not moved up or down; a few
-   * pixels of give where it may not; none in a list that does not nest.
-   */
-  const liftedX = (d: Drag): number => {
-    const n = nest
-    if (!n || d.to !== d.from || d.dx === 0) return 0
-    const dir = d.dx > 0 ? 1 : -1
-    if (n.can(d.from, dir)) return Math.max(-n.step, Math.min(n.step, d.dx))
-    return Math.max(-6, Math.min(6, d.dx * 0.12))
-  }
-
   /** Whether a held row, let go now, would go a level in (1) or out (-1). */
-  const nesting: 1 | -1 | 0 = (() => {
-    if (!drag || !nest || drag.to !== drag.from || Math.abs(drag.dx) < nestThreshold(nest.step)) return 0
-    const dir = drag.dx > 0 ? 1 : -1
-    return nest.can(drag.from, dir) ? dir : 0
-  })()
+  const nesting: 1 | -1 | 0 = drag?.nesting ?? 0
 
-  /** The transform for row `index`: the lifted row follows, the rest step aside. */
-  const rowStyle = (index: number): React.CSSProperties | undefined => {
-    if (!drag) return undefined
-    if (index === drag.from) {
-      return { transform: `translate3d(${liftedX(drag)}px, ${drag.dy}px, 0)`, zIndex: 20, position: "relative", transition: "box-shadow 150ms" }
-    }
-    let y = 0
-    if (drag.to > drag.from && index > drag.from && index <= drag.to) y = -drag.shift
-    else if (drag.to < drag.from && index < drag.from && index >= drag.to) y = drag.shift
-    return { transform: `translate3d(0, ${y}px, 0)`, transition: "transform 180ms cubic-bezier(0.2, 0, 0, 1)" }
-  }
+  /**
+   * The lifted row sits above the rest. Only that: the transforms are written
+   * by the drag itself, so a render in the middle of one never fights them.
+   */
+  const rowStyle = (index: number): React.CSSProperties | undefined =>
+    drag && index === drag.from ? { zIndex: 20, position: "relative" } : undefined
 
   return { listRef, drag, gripProps, rowStyle, nesting }
 }

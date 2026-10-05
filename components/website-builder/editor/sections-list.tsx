@@ -41,23 +41,10 @@
  */
 
 import * as React from "react"
-import {
-  DndContext,
-  DragOverlay,
-  MeasuringStrategy,
-  closestCenter,
-  type DragEndEvent,
-  type DragOverEvent,
-  type DragStartEvent,
-  type Modifier,
-  type SensorDescriptor,
-  type SensorOptions,
-} from "@dnd-kit/core"
-import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable"
-import { CSS } from "@dnd-kit/utilities"
 import { ArrowDown, ArrowUp, Copy, Eye, EyeOff, GripVertical, Megaphone, MoreHorizontal, PanelBottom, PanelTop, Plus, RectangleHorizontal, Trash2 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { useReorder } from "./controls/use-reorder"
 import { ROW_PAD, TREE_NAME, TREE_ROW, TreeAddRow, TreeSpacer, TreeTwisty } from "./tree-parts"
 import type { SectionInstance } from "@/lib/website-builder/types"
 import { GROUP_LABELS, isKind, splitGroups, type KindOfType, type SectionGroup } from "@/lib/storelib-theme/section-groups"
@@ -69,14 +56,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 
+/**
+ * How the page's sections are reordered: the row dragged, and the row whose
+ * place it takes. The same drag as blocks and menu links
+ * (controls/use-reorder.ts), so all three feel the same under a finger.
+ */
 export interface SectionsDnd {
-  sensors: SensorDescriptor<SensorOptions>[]
-  modifiers: Modifier[]
-  draggingId: string | null
-  onDragStart: (e: DragStartEvent) => void
-  onDragOver: (e: DragOverEvent) => void
-  onDragCancel: () => void
-  onDragEnd: (e: DragEndEvent) => void
+  onReorder: (fromId: string, toId: string) => void
 }
 
 export interface SectionsListProps {
@@ -276,11 +262,17 @@ export function SectionRow({
         /* The grip, always drawn: the list should look reorderable at rest. */
         <span
           {...(dragHandleProps ?? {})}
+          role="button"
+          tabIndex={0}
           aria-label={`Drag ${displayName} to reorder`}
           className={cn(
             "relative flex h-6 w-5 shrink-0 touch-none cursor-grab items-center justify-center rounded transition-colors active:cursor-grabbing max-sm:h-8",
-            /* A thumb's grab area without a thumb's column: the box grows, the grid does not. */
-            "after:absolute after:-inset-x-1.5 after:-inset-y-1 after:content-[''] max-sm:after:-inset-x-2",
+            /*
+             * A thumb's grab area without a thumb's column: the box grows, the
+             * grid does not. To the right only: grown to the left too, it sat
+             * over the chevron beside it and took most of its taps.
+             */
+            "after:absolute after:left-0 after:-right-1.5 after:-inset-y-1 after:content-[''] max-sm:after:-right-2 max-sm:after:-inset-y-1.5",
             "hover:bg-black/[0.06]",
           )}
           onClick={(e) => e.stopPropagation()}
@@ -359,24 +351,6 @@ export function SectionRow({
   )
 }
 
-function SortableSectionRow({ under, ...props }: SectionRowProps & { under?: React.ReactNode }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: props.section.id })
-  /* The overlay draws the row in the air; what stays here is the gap it left. */
-  const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0 : 1,
-    willChange: transform ? "transform" : undefined,
-  }
-  return (
-    <div ref={setNodeRef} style={style}>
-      <SectionRow {...props} dragHandleProps={{ ...attributes, ...listeners }} />
-      {/* Its blocks travel with it: they are part of the row being moved. */}
-      {under}
-    </div>
-  )
-}
-
 /* ── The list ────────────────────────────────────────────────────────────── */
 
 export function SectionsList({
@@ -408,7 +382,24 @@ export function SectionsList({
     }
   }
   const body = groups.template
-  const dragging = dnd.draggingId ? sections.find((s) => s.id === dnd.draggingId) : undefined
+  const bodyRef = React.useRef(body)
+  bodyRef.current = body
+  /**
+   * THE PAGE'S SECTIONS MOVE BY THEIR GRIP, with the drag the blocks and the
+   * menu links use: the lifted row follows the finger exactly, the rows it
+   * passes slide aside, and the order is saved once, on release. A section
+   * that is open carries its blocks with it. dnd-kit drew a copy of the row
+   * in the air and waited 220ms before a finger counted; the grip owns its
+   * finger now, so a press on it is a drag straight away and a swipe
+   * anywhere else still scrolls.
+   */
+  const { listRef, drag, gripProps, rowStyle } = useReorder<HTMLDivElement>({
+    count: body.length,
+    onMove: (from, to) => {
+      const list = bodyRef.current
+      if (list[from] && list[to]) dnd.onReorder(list[from].id, list[to].id)
+    },
+  })
 
   /**
    * A row of the Header or Footer group. The header (or footer) itself wears
@@ -458,28 +449,25 @@ export function SectionsList({
 
       <div data-section-group="template">
         <GroupLabel>{GROUP_LABELS.template}</GroupLabel>
-        <DndContext
-          sensors={dnd.sensors}
-          collisionDetection={closestCenter}
-          modifiers={dnd.modifiers}
-          /* Re-measured through the drag: the rows move under the finger, and a snapshot taken at the start drifts. */
-          measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
-          onDragStart={dnd.onDragStart}
-          onDragOver={dnd.onDragOver}
-          onDragCancel={dnd.onDragCancel}
-          onDragEnd={dnd.onDragEnd}
-        >
-          <SortableContext items={body.map((s) => s.id)} strategy={verticalListSortingStrategy}>
-            {body.length === 0 ? (
-              <p className="px-1 py-1.5 pl-[50px] text-[12px] text-[#6b7280]">No sections on this page yet.</p>
-            ) : (
-              <div>
-                <InsertSectionDivider onClick={() => onAdd(0, "template")} />
-                {body.map((s, i) => {
-                  const t = tree(s)
-                  return (
-                  <div key={s.id}>
-                    <SortableSectionRow
+        {body.length === 0 ? (
+          <p className="px-1 py-1.5 pl-[50px] text-[12px] text-[#6b7280]">No sections on this page yet.</p>
+        ) : (
+          <>
+            <InsertSectionDivider onClick={() => onAdd(0, "template")} />
+            <div ref={listRef} data-section-drag-list="">
+              {body.map((s, i) => {
+                const t = tree(s)
+                const lifted = drag?.from === i
+                return (
+                  /* One row of the drag: the section, its open blocks and the gap after it travel together. */
+                  <div
+                    key={s.id}
+                    data-reorder-row=""
+                    data-section-lifted={lifted ? "" : undefined}
+                    style={rowStyle(i)}
+                    className={cn("rounded-md", lifted && "wb-drag-lift bg-white")}
+                  >
+                    <SectionRow
                       section={s}
                       displayName={nameOf(s)}
                       isSelected={selectedId === s.id}
@@ -489,27 +477,19 @@ export function SectionsList({
                       onRemove={() => onRemove(s.id)}
                       onMoveUp={i > 0 ? () => onMove(s.id, -1) : undefined}
                       onMoveDown={i < body.length - 1 ? () => onMove(s.id, 1) : undefined}
+                      dragHandleProps={gripProps(i)}
                       expandable={t.expandable}
                       expanded={t.expanded}
                       onToggleExpand={t.onToggleExpand}
-                      under={t.under}
                     />
+                    {t.under}
                     <InsertSectionDivider onClick={() => onAdd(i + 1, "template")} />
                   </div>
-                  )
-                })}
-              </div>
-            )}
-          </SortableContext>
-          {/* The row in the air is its own layer, so the finger has something that tracks it exactly. */}
-          <DragOverlay>
-            {dragging ? (
-              <div className="wb-drag-lift rounded-md bg-white">
-                <SectionRow section={dragging} displayName={nameOf(dragging)} isSelected={false} onSelect={() => {}} onToggleHide={() => {}} />
-              </div>
-            ) : null}
-          </DragOverlay>
-        </DndContext>
+                )
+              })}
+            </div>
+          </>
+        )}
         <AddSectionButton onClick={() => onAdd(null, "template")} />
       </div>
 

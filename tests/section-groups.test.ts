@@ -288,7 +288,7 @@ async function main() {
     selectedId: null,
     kindOfType: codedKinds,
     onSelect: noop, onToggleHide: noop, onDuplicate: noop, onRemove: noop, onMove: noop, onAdd: noop,
-    dnd: { sensors: [], modifiers: [], draggingId: null, onDragStart: noop, onDragOver: noop, onDragCancel: noop, onDragEnd: noop },
+    dnd: { onReorder: noop },
   }))
   const headerHtml = sidebar.slice(sidebar.indexOf('data-section-group="header"'), sidebar.indexOf('data-section-group="template"'))
   const pageHtml = sidebar.slice(sidebar.indexOf('data-section-group="template"'), sidebar.indexOf('data-section-group="footer"'))

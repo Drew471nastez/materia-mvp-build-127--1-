@@ -74,7 +74,11 @@ export function TreeTwisty({
         e.stopPropagation()
         onToggle()
       }}
-      className="flex h-6 w-5 shrink-0 items-center justify-center rounded text-[#6b7280] transition-colors hover:text-[#1a1a2e] max-sm:h-8"
+      className={cn(
+        "relative flex h-6 w-5 shrink-0 items-center justify-center rounded text-[#6b7280] transition-colors hover:text-[#1a1a2e] max-sm:h-8",
+        /* A thumb's target without a thumb's column: the box reaches the row's full height and into the padding on its left, never over the grip on its right. */
+        "after:absolute after:-left-1 after:right-0 after:-inset-y-1 after:content-[''] max-sm:after:-left-2 max-sm:after:-inset-y-1.5",
+      )}
       {...rest}
     >
       <ChevronRight className={cn("h-3.5 w-3.5 transition-transform duration-150", expanded && "rotate-90")} strokeWidth={2.25} />

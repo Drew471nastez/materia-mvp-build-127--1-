@@ -30,7 +30,7 @@
  * may hold and how many, is still decided by the page through `ops`.
  */
 import * as React from "react"
-import { Eye, EyeOff, GripVertical } from "lucide-react"
+import { Eye, EyeOff, GripVertical, Trash2 } from "lucide-react"
 
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { cn } from "@/lib/utils"
@@ -60,6 +60,7 @@ export function BlockTreeLevel<B extends TreeBlock>({
   onSelect,
   onReorder,
   onToggleHidden,
+  onRemove,
   children,
   hasChildren,
   add,
@@ -76,6 +77,12 @@ export function BlockTreeLevel<B extends TreeBlock>({
   onSelect: (key: string) => void
   onReorder: (next: B[]) => void
   onToggleHidden?: (key: string, block: B) => void
+  /**
+   * Delete a block from its row, as a section is deleted from its own: the
+   * bin under the pointer, and on the selected row on a phone. Grey, like
+   * every other row action; undo brings it back. Static blocks have none.
+   */
+  onRemove?: (key: string, block: B) => void
   /** The level inside a block that holds blocks, or null. */
   children?: (block: B) => React.ReactNode
   hasChildren?: (block: B) => boolean
@@ -133,7 +140,7 @@ export function BlockTreeLevel<B extends TreeBlock>({
             selected ? "bg-[#ebecef] text-[#111827]" : "text-[#374151] hover:bg-[#f3f4f6]",
             lifted && "bg-white shadow-[0_6px_20px_rgba(0,0,0,0.12)]",
           )}
-          style={{ ...(style ?? {}), paddingLeft: rowIndent(depth) }}
+          style={{ paddingLeft: rowIndent(depth) }}
         >
           {/* The chevron column, empty on a block that holds nothing: the marks below still line up. */}
           {holds ? (
@@ -198,6 +205,25 @@ export function BlockTreeLevel<B extends TreeBlock>({
               )}
             >
               {block.hidden ? <EyeOff className="h-3.5 w-3.5" strokeWidth={1.75} /> : <Eye className="h-3.5 w-3.5" strokeWidth={1.75} />}
+            </button>
+          )}
+          {onRemove && !still && (
+            <button
+              type="button"
+              aria-label={`Delete ${detail || name}`}
+              title="Delete"
+              data-block-remove=""
+              onClick={(e) => {
+                e.stopPropagation()
+                onRemove(key, block)
+              }}
+              className={cn(
+                "h-6 w-6 shrink-0 items-center justify-center rounded-md transition-[background-color,scale] duration-150 active:scale-90 max-sm:h-8 max-sm:w-8",
+                selected ? "flex" : "hidden group-hover/block:flex group-focus-within/block:flex",
+                "text-[#4b5563] hover:bg-black/[0.06] hover:text-[#1a1a2e]",
+              )}
+            >
+              <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
             </button>
           )}
         </div>

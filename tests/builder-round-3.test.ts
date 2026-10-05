@@ -201,7 +201,7 @@ async function main() {
     check("the sidebar list reads the schema", /\{sectionDisplayName\(section, librarySchemas\)\}/.test(editor))
     /* The rows are components/website-builder/editor/sections-list.tsx, handed the resolver by the editor. */
     const list = read("components/website-builder/editor/sections-list.tsx")
-    check("every row is handed a resolved name", /nameOf=\{\(s\) => sectionDisplayName\(s, librarySchemas\)\}/.test(editor) && (list.match(/displayName=\{nameOf\(/g) ?? []).length === 3)
+    check("every row is handed a resolved name", /nameOf=\{\(s\) => sectionDisplayName\(s, librarySchemas\)\}/.test(editor) && (list.match(/displayName=\{nameOf\(/g) ?? []).length === 2)
     check("and the row itself no longer reads the stale copy", !/\{section\.name\}/.test(editor) && !/\{section\.name\}/.test(list) && /\{displayName\}/.test(list))
     check("including what a screen reader is told", !/\$\{section\.name\}/.test(editor))
 

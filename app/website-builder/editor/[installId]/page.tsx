@@ -7,21 +7,7 @@ import { useRouter } from "next/navigation"
 import {
   ArrowLeft, Plug, Monitor, Smartphone, Maximize2, Loader2, Code2, ChevronDown, Plus, Eye, EyeOff, Trash2, Copy, Settings, Check, Layers, X, RotateCcw, Layout, AlignLeft, Image, MessageSquare, HelpCircle, Megaphone, BarChart2, Grid, Award, LayoutGrid, DollarSign, LayoutTemplate, Video, Users, MapPin, Mail, Clock, BookOpen, Shirt, Columns, Play, Star, Timer, Shield, Rss, SlidersHorizontal, Code, Bell, ChevronRight, Menu as MenuIcon, Package, Undo2, Redo2, ExternalLink, Search, FileText, ArrowRight, FolderOpen, MoreHorizontal, Upload, Info, Crop, CheckCircle, Type, Square, Rows3, Grid3x3, MousePointerClick, MoveHorizontal, Hash, Columns2, LayoutDashboard, Badge as BadgeIcon, ArrowUp, ArrowDown,
 } from "lucide-react"
-import {
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  TouchSensor,
-  type DragEndEvent,
-  type DragOverEvent,
-  type DragStartEvent,
-  type Modifier,
-} from "@dnd-kit/core"
-import {
-  arrayMove,
-  sortableKeyboardCoordinates,
-} from "@dnd-kit/sortable"
+import { arrayMove } from "@dnd-kit/sortable"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -2324,7 +2310,7 @@ function BlockTreeFor({
   selectedKey: string | null
   onSelect: (key: string) => void
   canHide: boolean
-  ops: Pick<BlockOps, "add" | "reorder" | "toggleHidden">
+  ops: Pick<BlockOps, "add" | "reorder" | "toggleHidden" | "remove">
 }) {
   const parentKey = parent.length ? pathKey(parent) : null
   const defOf = (type: string) => (parent.length === 0 ? blockSchemaIn(schema, catalog, type) : catalog[type])
@@ -2349,6 +2335,7 @@ function BlockTreeFor({
       onSelect={onSelect}
       onReorder={(next) => ops.reorder(next, parentKey)}
       onToggleHidden={canHide ? (key, b) => ops.toggleHidden(key, b.static && !stored(b) ? b.type : undefined) : undefined}
+      onRemove={(key) => ops.remove(key)}
       hasChildren={holds}
       children={(block) => {
         const def = defOf(block.type)
@@ -3227,77 +3214,6 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     setIsDirty(true)
   }, [snapshotNow])
 
-  // dnd-kit sensors
-  /**
-   * THREE WAYS TO PICK A SECTION UP.
-   *
-   * A mouse starts dragging after three pixels rather than five — five is far
-   * enough that a short deliberate drag reads as a click that did nothing. A
-   * finger needs a different rule entirely: any distance threshold competes
-   * with scrolling the list, so touch waits 160ms in place instead, which is
-   * a press rather than a swipe and leaves scrolling alone. The keyboard
-   * reorders with the arrow keys.
-   */
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 3 } }),
-    /**
-     * 220ms, up from 160, with a 10px tolerance.
-     *
-     * The delay is what separates "I am about to drag this" from "I am about
-     * to scroll the list", and at 160ms an ordinary flick through a long list
-     * of sections could be taken for a press. The tolerance is how far the
-     * finger may travel during the wait before the gesture is given back to
-     * the scroller; 8px is inside the noise a thumb makes resting on glass,
-     * so a still finger sometimes lost its own press.
-     */
-    useSensor(TouchSensor, { activationConstraint: { delay: 220, tolerance: 10 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  )
-
-  /**
-   * A list reorders vertically, so the drag does too.
-   *
-   * Two pixels of horizontal drift on every vertical move is the difference
-   * between a row that tracks the finger and a row that wobbles under it, and
-   * a thumb never travels straight. Written here rather than pulled in from
-   * @dnd-kit/modifiers, since the whole of it is "throw away x".
-   */
-  const restrictToVerticalAxis: Modifier = useCallback(({ transform }) => ({ ...transform, x: 0 }), [])
-  // One array, not a fresh literal on every render: DndContext compares the
-  // list it is given, and a new array every time is a new list every time.
-  const dragModifiers = useMemo(() => [restrictToVerticalAxis], [restrictToVerticalAxis])
-
-  /** The row currently in the air, drawn by the overlay. */
-  const [draggingId, setDraggingId] = useState<string | null>(null)
-  /** What it was last over, so the tick fires on a change and not per frame. */
-  const lastOverId = useRef<string | null>(null)
-
-  /**
-   * The taps a reorder is worth. Picking up is the moment that needs
-   * confirming — on a phone the finger is over the row it has just lifted, so
-   * the tap is the only signal that the press was taken as a press. Every
-   * time the order actually changes under the finger gets a light tick, which
-   * is what makes a reorder feel like it is happening rather than like it is
-   * being computed. Dropping gets one too. Silent where there are no haptics.
-   */
-  const handleDragStart = useCallback((event: DragStartEvent) => {
-    setDraggingId(String(event.active.id))
-    lastOverId.current = String(event.active.id)
-    hapticTap("medium")
-  }, [])
-
-  const handleDragOver = useCallback((event: DragOverEvent) => {
-    const over = event.over ? String(event.over.id) : null
-    if (over === lastOverId.current) return
-    lastOverId.current = over
-    if (over) hapticTap("light")
-  }, [])
-
-  const handleDragCancel = useCallback(() => {
-    setDraggingId(null)
-    lastOverId.current = null
-  }, [])
-
   /**
    * Bring a section into the CANVAS, and only when none of it is on screen.
    *
@@ -3320,21 +3236,21 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     }, 80)
   }, [])
 
-  // Drag end — reorder body sections (keep header/footer pinned)
-  const handleDragEnd = useCallback((event: DragEndEvent) => {
-    setDraggingId(null)
-    lastOverId.current = null
-    hapticTap("light")
-    const { active, over } = event
-    if (!over || active.id === over.id) return
+  /**
+   * A page section dragged onto another's place (sections-list.tsx, through
+   * controls/use-reorder.ts, which also gives the taps: medium on pick up, a
+   * light one each time the slot changes, medium on the drop).
+   */
+  const reorderSection = useCallback((fromId: string, toId: string) => {
+    if (fromId === toId) return
     // After the no-op check, so a drag that lands back where it started is
     // not an undo step that undoes nothing.
     pushUndo()
     setSections(prev => {
       /* The page's own sections move; the Header and Footer groups keep their places around them. */
       const g = splitGroups(prev)
-      const oldIdx = g.template.findIndex(s => s.id === active.id)
-      const newIdx = g.template.findIndex(s => s.id === over.id)
+      const oldIdx = g.template.findIndex(s => s.id === fromId)
+      const newIdx = g.template.findIndex(s => s.id === toId)
       if (oldIdx === -1 || newIdx === -1) return prev
       return [...g.header, ...arrayMove(g.template, oldIdx, newIdx), ...g.footer]
     })
@@ -6248,6 +6164,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                         add: (choice, parentKey) => addBlock(s.id, choice.type, {}, { parent: parentKey, preset: choice.preset }),
                         reorder: (next, parentKey) => reorderBlocks(s.id, next, parentKey),
                         toggleHidden: (key, staticType) => toggleBlockHidden(s.id, key, staticType),
+                        remove: (key) => removeBlock(s.id, key),
                       }}
                     />
                   )
@@ -6264,15 +6181,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   setCanvasInsertAt(null)
                   setAddSectionOpen(true)
                 }}
-                dnd={{
-                  sensors,
-                  modifiers: dragModifiers,
-                  draggingId,
-                  onDragStart: handleDragStart,
-                  onDragOver: handleDragOver,
-                  onDragCancel: handleDragCancel,
-                  onDragEnd: handleDragEnd,
-                }}
+                dnd={{ onReorder: reorderSection }}
               />
             </div>
           )}

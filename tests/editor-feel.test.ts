@@ -50,5 +50,27 @@ console.log("\nSmall things that were off\n")
   check("Storelib AI is heard: -11 dBFS, the limiter 10 dB above it", /export const PEAK_DBFS = -11/.test(read("lib/website-builder/ask-sounds.ts")))
 }
 
+console.log("\nDragging a row: sections, blocks and menu links, one engine\n")
+{
+  const hook = read("components/website-builder/editor/controls/use-reorder.ts")
+  const list = read("components/website-builder/editor/sections-list.tsx")
+  const blocks = read("components/website-builder/editor/block-tree-rows.tsx")
+  const tree = read("components/website-builder/editor/tree-parts.tsx")
+  check("positions come from layout, which a transform does not move", /r\.offsetTop \+ k/.test(hook) && /offsetToContent: baseTop - el\.offsetTop/.test(hook))
+  check("  the lifted row is placed from where the pointer went down, before an open row closes", /const top = d\.baseTop \+ \(d\.lastY - d\.startY\)/.test(hook) && hook.indexOf("const baseTop = rect.top + scroll") < hook.indexOf("onStart?.()"))
+  check("  transforms are written to the rows once a frame, not rendered", /me\.style\.transform = `translate3d/.test(hook) && /if \(d\.dirty\) \{\s*d\.dirty = false\s*paint\(\)/.test(hook))
+  check("  React hears only when the slot changes", /prev && prev\.from === d\.from && prev\.to === d\.to && prev\.nesting === d\.nesting\s*\?\s*prev/.test(hook))
+  check("  the row style is a layer, never a transform", /\{ zIndex: 20, position: "relative" \} : undefined/.test(hook))
+  check("  the drop renders at once and glides the last pixels", /flushSync\(\(\) => \{/.test(hook) && /d\.el\.animate\(/.test(hook))
+  check("  a tap for picking up, each new slot, and the drop", /hapticTap\("medium"\)/.test(hook) && /hapticTap\("light"\)/.test(hook))
+  check("a block's offset is applied once, on its row, not again on the line inside it", !/\.\.\.\(style \?\? \{\}\), paddingLeft/.test(blocks))
+  check("the page's sections use the same drag, not dnd-kit", /useReorder<HTMLDivElement>\(\{\s*count: body\.length/.test(list) && !/@dnd-kit/.test(list) && !/DragOverlay/.test(list))
+  check("  a row, its open blocks and the insert line after it move as one", /data-reorder-row=""\s*data-section-lifted/.test(list))
+  check("the grip's wider touch area grows to the right only, so it never covers the chevron", /after:left-0 after:-right-1\.5/.test(list) && !/after:-inset-x-1\.5/.test(list))
+  check("  and the chevron's own target reaches the row's height and its left padding", /after:-left-1 after:right-0 after:-inset-y-1/.test(tree) && /max-sm:after:-left-2 max-sm:after:-inset-y-1\.5/.test(tree))
+  check("a block can be deleted from its row, in grey, never on a static block", /data-block-remove=""/.test(blocks) && /onRemove && !still/.test(blocks) && !/text-red|bg-red|destructive/.test(blocks))
+  check("  wired to the editor's own removeBlock, which undo covers", /remove: \(key\) => removeBlock\(s\.id, key\)/.test(editor) && /onRemove=\{\(key\) => ops\.remove\(key\)\}/.test(editor))
+}
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed) process.exit(1)

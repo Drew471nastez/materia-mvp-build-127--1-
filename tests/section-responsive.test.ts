@@ -917,7 +917,7 @@ check(
     // the three that were missing
     /pushUndo\(\)\s*\n\s*\/\*[^*]*\*\/\s*\n\s*setSections\(prev => toggleShown\(prev, sectionId, kindOfType\)\)/.test(editor) &&
     /if \(from === -1 \|\| to < 0 \|\| to >= body\.length\) return\s*\n\s*pushUndo\(\)/.test(editor) &&
-    /if \(!over \|\| active\.id === over\.id\) return\s*\n[\s\S]{0,180}?pushUndo\(\)/.test(editor) &&
+    /if \(fromId === toId\) return\s*\n[\s\S]{0,180}?pushUndo\(\)/.test(editor) &&
     // and both handlers read the stack from a ref rather than a stale closure
     /const stack = undoRef\.current/.test(editor) &&
     /const stack = redoRef\.current/.test(editor),
@@ -1457,7 +1457,7 @@ check(
    * above the first section.
    */
   /<GroupLabel>\{GROUP_LABELS\.header\}<\/GroupLabel>[\s\S]{0,240}?<AddSectionButton onClick=\{\(\) => onAdd\(null, "header"\)\} \/>/.test(sectionsList) &&
-    /<\/DndContext>\s*\n\s*<AddSectionButton onClick=\{\(\) => onAdd\(null, "template"\)\} \/>/.test(sectionsList) &&
+    /data-section-drag-list=""[\s\S]*?\n\s*\)\}\s*\n\s*<AddSectionButton onClick=\{\(\) => onAdd\(null, "template"\)\} \/>/.test(sectionsList) &&
     /<AddSectionButton onClick=\{\(\) => onAdd\(null, "footer"\)\} \/>/.test(sectionsList) &&
     /<InsertSectionDivider onClick=\{\(\) => onAdd\(0, "template"\)\} \/>/.test(sectionsList) &&
     (sectionsList.match(/<AddSectionButton /g) ?? []).length === 3 &&
@@ -2251,20 +2251,20 @@ check(
 
 check(
   "a section can be dragged with a mouse, a finger or the keyboard, and the taps say when",
-  /useSensor\(PointerSensor, \{ activationConstraint: \{ distance: 3 \} \}\)/.test(editor) &&
-    /useSensor\(TouchSensor, \{ activationConstraint: \{ delay: 220, tolerance: 10 \} \}\)/.test(editor) &&
-    /<DragOverlay>/.test(sectionsList) &&
-    /measuring=\{\{ droppable: \{ strategy: MeasuringStrategy\.Always \} \}\}/.test(sectionsList) &&
-    /modifiers=\{dnd\.modifiers\}/.test(sectionsList) &&
-    /modifiers: dragModifiers,/.test(editor) &&
-    /const dragModifiers = useMemo\(\(\) => \[restrictToVerticalAxis\], \[restrictToVerticalAxis\]\)/.test(editor) &&
-    /const restrictToVerticalAxis: Modifier = useCallback\(\(\{ transform \}\) => \(\{ \.\.\.transform, x: 0 \}\), \[\]\)/.test(editor) &&
-    /if \(over === lastOverId\.current\) return/.test(editor) &&
-    /onDragOver=\{dnd\.onDragOver\}/.test(sectionsList) &&
-    /onDragOver: handleDragOver,/.test(editor) &&
-    /hapticTap\("medium"\)/.test(editor) &&
-    /hapticTap\("light"\)/.test(editor) &&
-    /opacity: isDragging \? 0 : 1/.test(sectionsList) &&
+  /**
+   * The page's sections use the drag blocks and menu links use
+   * (controls/use-reorder.ts): the grip owns its finger, the row follows it
+   * exactly, the taps come from that one place, and the editor only hears
+   * which section took whose place.
+   */
+  /import \{ useReorder \} from "\.\/controls\/use-reorder"/.test(sectionsList) &&
+    /dragHandleProps=\{gripProps\(i\)\}/.test(sectionsList) &&
+    /data-reorder-row=""/.test(sectionsList) &&
+    !/@dnd-kit/.test(sectionsList) &&
+    /dnd=\{\{ onReorder: reorderSection \}\}/.test(editor) &&
+    /const reorderSection = useCallback\(\(fromId: string, toId: string\) =>/.test(editor) &&
+    !/useSensor\(TouchSensor/.test(editor) &&
+    /hapticTap\("light"\)/.test(readFileSync(join(root, "components/website-builder/editor/controls/use-reorder.ts"), "utf8")) &&
     /import \{ hapticTap \} from "@\/lib\/native-bridge"/.test(editor) &&
     !/navigator\.vibrate/.test(editor),
 )
@@ -2316,7 +2316,8 @@ check(
     /aria-label=\{`Drag \$\{displayName\} to reorder`\}/.test(sectionsList) &&
     /* One mark column, 20px wide, the width every row's mark takes; the grab area grows past it without moving the grid. */
     /relative flex h-6 w-5 shrink-0 touch-none cursor-grab items-center justify-center rounded transition-colors active:cursor-grabbing/.test(sectionsList) &&
-    /after:absolute after:-inset-x-1\.5 after:-inset-y-1/.test(sectionsList) &&
+    /* To the right only, so it never sits over the chevron beside it. */
+    /after:absolute after:left-0 after:-right-1\.5 after:-inset-y-1/.test(sectionsList) &&
     /shown \? "flex" : "hidden group-hover\/row:flex group-focus-within\/row:flex"/.test(sectionsList) &&
     /isSelected \|\| menuOpen \? "flex" : "hidden group-hover\/row:flex group-focus-within\/row:flex"/.test(sectionsList) &&
     !/opacity-0 group-hover/.test(sectionsList),
