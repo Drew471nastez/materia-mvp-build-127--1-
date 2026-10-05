@@ -478,7 +478,24 @@ export function DesktopAccountMenu({
             open && (dark ? "ring-2 ring-white/30" : "ring-2 ring-[#1a1a2e]/15"),
           )}
         >
-          <AppAvatar src={avatarUrl} name={name.trim()} alt="" size={42} className="border border-gray-200" />
+          {/*
+            A LITTLE DEPTH ON THE PHOTO, so it sits on the bar beside the
+            Dashboard button (which has its own one pixel shadow) rather than
+            being printed on it: a hairline ring outside the picture and a
+            soft shadow under it, in the bar's own ink. The ring is outside
+            the circle, so the photo keeps its full 42px.
+          */}
+          <AppAvatar
+            src={avatarUrl}
+            name={name.trim()}
+            alt=""
+            size={42}
+            className={
+              dark
+                ? "ring-1 ring-white/15 shadow-[0_1px_2px_rgba(0,0,0,0.35),0_4px_10px_-4px_rgba(0,0,0,0.5)]"
+                : "ring-1 ring-[rgba(16,18,27,0.1)] shadow-[0_1px_2px_rgba(16,18,27,0.08),0_4px_10px_-4px_rgba(16,18,27,0.18)]"
+            }
+          />
         </button>
       )}
       {present ? (
