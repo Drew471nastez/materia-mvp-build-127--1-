@@ -441,7 +441,10 @@ export interface RefundsSummary {
 /** How many of the community's payments were refunded, and how much went back. Read from the orders (any refund, from here, Orders or Stripe). Null when the orders cannot be read. */
 export async function refundsFor(db: Db, communityId: string, opts: { since?: string; limit?: number } = {}): Promise<RefundsSummary | null> {
   const limit = Math.max(1, Math.min(100, opts.limit ?? 10))
-  const ids = (await communityProducts(db, communityId)).map((p) => p.id)
+  /* The products made for the community, and the ones its paid tiers sell: a tier can sell a product that names no community. */
+  const [made, tiers] = await Promise.all([communityProducts(db, communityId), db.from("community_tiers").select("product_id").eq("community_id", communityId).eq("kind", "paid").limit(50)])
+  const tierIds = ((tiers.data as { product_id: string | null }[] | null) ?? []).map((t) => t.product_id).filter((id): id is string => !!id)
+  const ids = [...new Set([...made.map((p) => p.id), ...tierIds])]
   if (ids.length === 0) return { count: 0, totalCents: 0, currency: "usd", items: [] }
   try {
     let q = db.from("orders").select("id, amount_cents, refund_amount_cents, currency, refunded_at, refund_reason").in("product_id", ids).eq("status", "refunded")

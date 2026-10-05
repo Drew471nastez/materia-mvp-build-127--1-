@@ -251,6 +251,8 @@ const NOUNS: Record<string, readonly [string, string]> = {
   membership: ["membership update", "membership updates"],
 }
 
+const ADDRESSED_FIRST: readonly string[] = ["mention", "reply", "message from the admins", "announcement", "event reminder"]
+
 /** "3 new likes", "3 new likes and 2 new comments", "3 new likes, 2 new comments and 1 new event". */
 export function summaryLine(kinds: readonly string[]): string {
   const counts = new Map<string, { n: number; nouns: readonly [string, string] }>()
@@ -260,7 +262,12 @@ export function summaryLine(kinds: readonly string[]): string {
     const had = counts.get(key)
     counts.set(key, { n: (had?.n ?? 0) + 1, nouns })
   }
-  const parts = [...counts.values()].sort((a, b) => b.n - a.n).map((c) => `${c.n} ${c.n === 1 ? c.nouns[0] : c.nouns[1]}`)
+  /* The most first; at a tie, what was addressed to them before the rest, so the line reads the same whatever order the rows came in. */
+  const rank = (c: { nouns: readonly [string, string] }) => {
+    const i = ADDRESSED_FIRST.indexOf(c.nouns[0])
+    return i < 0 ? ADDRESSED_FIRST.length : i
+  }
+  const parts = [...counts.values()].sort((a, b) => b.n - a.n || rank(a) - rank(b)).map((c) => `${c.n} ${c.n === 1 ? c.nouns[0] : c.nouns[1]}`)
   if (parts.length <= 1) return parts[0] ?? ""
   return `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`
 }

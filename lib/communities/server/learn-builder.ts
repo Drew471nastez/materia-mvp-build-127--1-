@@ -1,3 +1,4 @@
+import "server-only"
 import type { LearnBuilderData } from "@/components/community/learn/model"
 import type { CommunityRow } from "../types"
 import type { Db } from "./db"

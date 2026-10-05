@@ -287,7 +287,7 @@ async function main() {
   check("new subscribers in the period, an unfinished checkout is not one", r?.newSubscribers === 1)
   check("cancellations in the period", r?.cancellations === 1)
   check("the churn rate from those rows", r?.churnRate === Math.round((1 / (3 + 1 - 1)) * 1000) / 10)
-  check("refunds in the period from refunded orders while M's record is not there", r?.refunds.count === 1 && r?.refunds.totalCents === 9900)
+  check("refunds in the period from the refunded orders of the products its tiers sell", r?.refunds.count === 1 && r?.refunds.totalCents === 9900)
   check("joins by source, the owner's own row is not a join", stats.joins.total === 4 && stats.joins.bySource[0]?.source === "free" && stats.joins.bySource[0]?.count === 2 && !stats.joins.bySource.some((x) => x.source === "owner"))
   check("the invite link that brought someone in", stats.joins.invites.length === 1 && stats.joins.invites[0].uses === 1 && stats.joins.invites[0].label === "Link made Sep 20")
   check("active members in 7 and 30 days", stats.active.last7 === 3 && stats.active.last30 === 4, JSON.stringify(stats.active))

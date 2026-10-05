@@ -215,10 +215,12 @@ async function sweepFiles(admin: SupabaseClient, summary: OrphanSummary, stopAt:
         }
         const fileId = match[4].toLowerCase()
         /* A post carries it, or an older comment or chat message (comments took files before round 12). */
+        /* As JSON text: handed an array of objects, supabase-js writes `cs.{[object Object]}`, every read errors, and nothing is ever let go. */
+        const carries = JSON.stringify([{ assetId: fileId }])
         const reads = await Promise.all([
-          admin.from("community_feed_posts").select("id").eq("community_id", c.id).contains("media", [{ assetId: fileId }]).limit(1),
-          admin.from("community_feed_comments").select("id").eq("community_id", c.id).contains("media", [{ assetId: fileId }]).limit(1),
-          admin.from("community_messages").select("id").eq("community_id", c.id).contains("attachments", [{ assetId: fileId }]).limit(1),
+          admin.from("community_feed_posts").select("id").eq("community_id", c.id).contains("media", carries).limit(1),
+          admin.from("community_feed_comments").select("id").eq("community_id", c.id).contains("media", carries).limit(1),
+          admin.from("community_messages").select("id").eq("community_id", c.id).contains("attachments", carries).limit(1),
         ])
         if (reads.some((r) => r.error || !Array.isArray(r.data) || r.data.length)) {
           summary.files.kept++
