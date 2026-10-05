@@ -853,3 +853,18 @@ export function settingsTabOf(raw: string | undefined | null): SettingsTab {
   }
 }
 
+
+/* ── Reports Storelib opened itself (round 13) ──────────────────────────── */
+
+/**
+ * What a report with no reporter is about, from the note the safety rules
+ * wrote (lib/communities/server/safety.ts joinAlarm and pauseInvite): a
+ * join alarm, an invite link turned off after a burst, or null for any
+ * other (a post held back is told by its removed state instead).
+ */
+export function systemReportKind(note: string | null | undefined): "join_alarm" | "invite_paused" | null {
+  const n = (note ?? "").trim()
+  if (n.startsWith("Join alarm:")) return "join_alarm"
+  if (n.startsWith("Invite link turned off:")) return "invite_paused"
+  return null
+}

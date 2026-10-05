@@ -37,7 +37,7 @@ export async function PATCH(request: Request, { params }: Params) {
   const limited = await manageLimit(gate.ctx.userId)
   if (limited) return limited
   const body = await readJson(request)
-  const done = await updateReport(gate.ctx.admin, { community: gate.community, actor: { userId: gate.ctx.userId, role: gate.role }, id: String(body.id ?? ""), status: body.status, resolution: body.resolution })
+  const done = await updateReport(gate.ctx.admin, { community: gate.community, actor: { userId: gate.ctx.userId, role: gate.role, perms: gate.viewer.perms ?? null }, id: String(body.id ?? ""), status: body.status, resolution: body.resolution })
   if (!done.ok) return NextResponse.json({ error: done.error }, { status: done.status, headers: noStore })
   return NextResponse.json({ ok: true }, { headers: noStore })
 }
@@ -54,7 +54,7 @@ export async function POST(request: Request, { params }: Params) {
   if (limited) return limited
   const done = await actOnContent(gate.ctx.admin, {
     community: gate.community,
-    actor: { userId: gate.ctx.userId, role: gate.role },
+    actor: { userId: gate.ctx.userId, role: gate.role, perms: gate.viewer.perms ?? null },
     action: body.action,
     targetType: body.targetType,
     targetId: String(body.targetId ?? ""),

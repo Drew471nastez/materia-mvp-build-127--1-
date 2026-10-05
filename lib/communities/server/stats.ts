@@ -31,7 +31,6 @@ import type { JoinStats, MoneyAndGrowth, RevenueStats } from "@/components/commu
 
 export type { JoinStats, MoneyAndGrowth, RevenueStats }
 import { cancellationsWithReasons, refundsFor } from "./membership-lifecycle"
-import { recurringProductIds } from "./tiers"
 import { missing, reasonOf, type Db } from "./db"
 
 const DAY = 86_400_000
@@ -49,7 +48,7 @@ async function sellingProducts(db: Db, communityId: string): Promise<{ recurring
   const { data } = await db.from("community_tiers").select("product_id, billing").eq("community_id", communityId).eq("kind", "paid").limit(50)
   const rows = ((data as { product_id: string | null; billing: string | null }[] | null) ?? []).filter((t) => t.product_id)
   const recurring = rows.filter((t) => t.billing === "recurring").map((t) => t.product_id as string)
-  return { recurring: recurring.length ? recurring : await recurringProductIds(db, communityId), all: rows.map((t) => t.product_id as string) }
+  return { recurring, all: rows.map((t) => t.product_id as string) }
 }
 
 async function mrrOf(db: Db, productIds: string[]): Promise<{ cents: number; currency: string; active: number }> {
@@ -150,7 +149,7 @@ async function joinStats(db: Db, communityId: string, since: string): Promise<Jo
   /* The links that brought people in: the uses in the period, a page at most, grouped by link. */
   const invites: JoinStats["invites"] = []
   type Invite = { id: string; email: string | null; created_at: string; max_uses: number | null; revoked_at: string | null }
-  const { data: links, error } = await db.from("community_invites").select("id, email, created_at, max_uses, revoked_at").eq("community_id", communityId).gt("uses", 0).order("created_at", { ascending: false }).limit(200)
+  const { data: links, error } = await db.from("community_invites").select("id, email, created_at, max_uses, revoked_at").eq("community_id", communityId).gte("uses", 1).order("created_at", { ascending: false }).limit(200)
   const byId = new Map(((links as Invite[] | null) ?? []).map((r) => [r.id, r]))
   if (!error && byId.size) {
     const { data: uses } = await db.from("community_invite_uses").select("invite_id").in("invite_id", [...byId.keys()]).gte("used_at", since).limit(5000)

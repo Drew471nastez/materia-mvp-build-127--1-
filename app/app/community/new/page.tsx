@@ -4,7 +4,7 @@ import { pageUser } from "@/lib/auth/page-user"
 import { creatorForRequest } from "@/lib/auth/request-scope"
 import { communitiesEnabled } from "@/lib/communities/flag"
 import { admin } from "@/lib/communities/server/db"
-import { communityRoom } from "@/lib/communities/server/creator"
+import { communityRoom } from "@/lib/communities/server/creator-policies"
 import { CreateCommunity } from "@/components/community/creator/create-flow"
 
 export const dynamic = "force-dynamic"
