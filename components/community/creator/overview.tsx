@@ -127,6 +127,12 @@ export function Overview({ head, data, created }: { head: CommunityHead; data: O
               ) : null
             }
           >
+            {/* ROUND 14: a price nobody can pay is said once. The checklist above says it when this person sees the checklist. */}
+            {(data.pricedEventsUnsellable ?? 0) > 0 && !data.steps.some((s) => s.id === "event_payouts") ? (
+              <p className="mb-3 rounded-xl border border-[#f1e3bd] bg-[#fdf8ea] px-3.5 py-2.5 text-[13px] leading-5 text-[#6b4e00]" data-events-unsellable="">
+                {data.pricedEventsUnsellable === 1 ? "One event has a ticket price, but payouts are not connected, so nobody can buy it." : `${data.pricedEventsUnsellable} events have a ticket price, but payouts are not connected, so nobody can buy them.`}
+              </p>
+            ) : null}
             {data.upcoming.length === 0 ? (
               <p className="text-[13.5px] text-[#6b7280]">
                 No events scheduled.{" "}

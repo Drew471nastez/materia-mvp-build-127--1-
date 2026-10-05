@@ -16,6 +16,10 @@ import "server-only"
  *                subscription, purchase, invite, added by hand...), and the
  *                invite links that brought the most.
  *   ACTIVE       members who opened the community in the last 7 and 30 days.
+ *   TICKETS      what the events took in the period (round 14): tickets
+ *                bought, free ones given, gross, refunded and what is left,
+ *                added up from the ticket rows. Absent until run-now part
+ *                105 has run, and absent while nothing has ever been sold.
  *
  * Every number is counted from rows. Counts are head requests; the two
  * sums (MRR, refunds) read a page of 1000 at a time and only the columns
@@ -27,9 +31,9 @@ import "server-only"
  */
 import { monthlyValue } from "@/lib/memberships/state"
 import { MEMBER_SOURCES } from "../types"
-import type { JoinStats, MoneyAndGrowth, RevenueStats } from "@/components/community/creator/view-types"
+import type { EventMoneyStats, JoinStats, MoneyAndGrowth, RevenueStats } from "@/components/community/creator/view-types"
 
-export type { JoinStats, MoneyAndGrowth, RevenueStats }
+export type { EventMoneyStats, JoinStats, MoneyAndGrowth, RevenueStats }
 import { cancellationsWithReasons, refundsFor } from "./membership-lifecycle"
 import { missing, reasonOf, type Db } from "./db"
 
@@ -134,6 +138,67 @@ async function revenueStats(db: Db, communityId: string, since: string): Promise
   }
 }
 
+/* ── Event tickets (round 14, run-now part 105) ────────────────────── */
+
+type TicketSums = { rows: number; cents: number; currency: string | null; invited: number; events: Set<string> }
+
+/**
+ * The ticket rows of one community in the period, added up a page of 1000 at
+ * a time, by whichever date the caller asks for: `paid_at` for what was
+ * taken, `refunded_at` for what went back. Null when part 105 has not run,
+ * which is how the screen knows to say nothing about tickets at all.
+ */
+async function ticketSums(db: Db, communityId: string, since: string, column: "paid_at" | "refunded_at"): Promise<TicketSums | null> {
+  const out: TicketSums = { rows: 0, cents: 0, currency: null, invited: 0, events: new Set<string>() }
+  let after: string | null = null
+  for (let page = 0; page < MAX_PAGES; page++) {
+    let q = db.from("community_event_tickets").select("id, event_id, source, amount_cents, currency").eq("community_id", communityId).gte(column, since)
+    if (after) q = q.gt("id", after)
+    const { data, error } = await q.order("id", { ascending: true }).limit(PAGE)
+    if (error) {
+      if (missing(error)) return null
+      console.error(`[communities] ticket sums: ${reasonOf(error)}`)
+      break
+    }
+    const rows = (data as { id: string; event_id: string; source: string; amount_cents: number | null; currency: string | null }[] | null) ?? []
+    for (const t of rows) {
+      const cents = Math.max(0, t.amount_cents ?? 0)
+      if (t.source === "purchase") {
+        out.rows += 1
+        out.cents += cents
+        if (cents > 0) out.events.add(t.event_id)
+      } else out.invited += 1
+      if (!out.currency && t.currency) out.currency = t.currency
+    }
+    if (rows.length < PAGE) break
+    after = rows[rows.length - 1].id
+  }
+  return out
+}
+
+/**
+ * What the events took in the period: tickets bought, free ones given,
+ * gross, refunded and what is left. Counted from the ticket rows, never
+ * from a price times a count. Null while part 105 has not run, or when
+ * nothing has ever been sold, so the Analytics screen stays as it was.
+ */
+export async function loadEventMoney(db: Db, communityId: string, since: string): Promise<EventMoneyStats | null> {
+  const [took, back] = await Promise.all([ticketSums(db, communityId, since, "paid_at"), ticketSums(db, communityId, since, "refunded_at")])
+  if (!took) return null
+  const refundedCents = back?.cents ?? 0
+  if (took.rows === 0 && took.invited === 0 && refundedCents === 0) return null
+  return {
+    sold: took.rows,
+    invited: took.invited,
+    grossCents: took.cents,
+    refundedCents,
+    netCents: Math.max(0, took.cents - refundedCents),
+    refunds: back?.rows ?? 0,
+    events: took.events.size,
+    currency: took.currency ?? back?.currency ?? "usd",
+  }
+}
+
 /** A name for an invite on the screen: who it was for, or which link it was. */
 export function inviteLabel(i: { email: string | null; created_at: string; max_uses: number | null }): string {
   if (i.email) return `Invite to ${i.email}`
@@ -167,6 +232,12 @@ async function joinStats(db: Db, communityId: string, since: string): Promise<Jo
 export async function loadMoneyAndGrowth(db: Db, communityId: string, days: number, now: number = Date.now()): Promise<MoneyAndGrowth> {
   const since = new Date(now - days * DAY).toISOString()
   const active = (d: number) => headCount(db.from("community_members").select("id", { count: "exact", head: true }).eq("community_id", communityId).eq("status", "active").gte("last_active_at", new Date(now - d * DAY).toISOString()))
-  const [revenue, joins, last7, last30] = await Promise.all([revenueStats(db, communityId, since).catch((e) => (console.error(`[communities] stats revenue: ${reasonOf(e)}`), null)), joinStats(db, communityId, since), active(7), active(30)])
-  return { days, revenue, joins, active: { last7, last30 } }
+  const [revenue, joins, last7, last30, events] = await Promise.all([
+    revenueStats(db, communityId, since).catch((e) => (console.error(`[communities] stats revenue: ${reasonOf(e)}`), null)),
+    joinStats(db, communityId, since),
+    active(7),
+    active(30),
+    loadEventMoney(db, communityId, since).catch(() => null),
+  ])
+  return { days, revenue, joins, active: { last7, last30 }, events }
 }
