@@ -336,6 +336,13 @@ function InviteFree({ open, onClose, communityId, eventId, onDone }: { open: boo
       }
     >
       <div className="space-y-3.5" data-invite-free-sheet="">
+        {/* WHAT HAPPENED FIRST, at the top where it is read without scrolling on a phone. */}
+        {done ? (
+          <p className="rounded-xl border border-[#cfe7d8] bg-[#f3faf6] px-3.5 py-2.5 text-[13.5px] leading-5 text-[#15724b]" data-invite-done="" role="status">
+            {done}
+          </p>
+        ) : null}
+        {error ? <Notice>{error}</Notice> : null}
         <p className="text-[13.5px] leading-relaxed text-[#4b5563]">They get in without paying, and they are told what the ticket would have cost.</p>
         <div>
           <label htmlFor="invite-find" className={label}>
@@ -378,12 +385,6 @@ function InviteFree({ open, onClose, communityId, eventId, onDone }: { open: boo
           </label>
           <input id="invite-note" value={note} onChange={(e) => setNote(e.target.value.slice(0, 300))} placeholder="Hope you can make it" className={cn(field, "h-11 sm:h-10")} />
         </div>
-        {error ? <Notice>{error}</Notice> : null}
-        {done ? (
-          <p className="rounded-xl border border-[#cfe7d8] bg-[#f3faf6] px-3.5 py-2.5 text-[13.5px] leading-5 text-[#15724b]" data-invite-done="" role="status">
-            {done}
-          </p>
-        ) : null}
       </div>
     </Dialog>
   )
