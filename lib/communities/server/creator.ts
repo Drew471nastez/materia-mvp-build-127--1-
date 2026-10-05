@@ -84,7 +84,7 @@ import { createCommunity } from "./create"
 import { loadCommunity, viewerContext, type Viewer } from "./context"
 import { grantMembership, memberOf, revokeMembership } from "./membership"
 import { awardPoints } from "./points"
-import { queueJob } from "./notify"
+import { notifyEventChanged, queueJob } from "./notify"
 import { recordActivity } from "./activity"
 import { eventScheduled } from "./events"
 import { admin, missing, nowIso, reasonOf, type Db } from "./db"
@@ -1086,6 +1086,8 @@ export async function updateEvent(db: Db, a: { community: CommunityRow; creatorI
   if (error || !data) return no(500, "The event could not be saved. Try again.")
   await audit(db, { communityId: a.community.id, actorId: a.actorId, actorKind: "member", action: "event.updated", targetType: "event", targetId: e.id, targetLabel: a.input.title, detail: { moved: patch.starts_at !== e.starts_at } })
   if (patch.starts_at !== e.starts_at) await eventScheduled(db, data as EventRow, { announce: false })
+  /* Members who are going hear that it moved (worker N2's fan out, lib/communities/server/notify.ts). */
+  if (patch.starts_at !== e.starts_at) await notifyEventChanged(db, { eventId: e.id, communityId: a.community.id, change: "moved", startsAt: (data as EventRow).starts_at, actorId: a.actorId })
   return { ok: true, event: eventView(data as EventRow) }
 }
 
@@ -1096,6 +1098,7 @@ export async function setEventCancelled(db: Db, a: { communityId: string; eventI
   if (error) return no(500, "That did not save. Try again.")
   await audit(db, { communityId: a.communityId, actorId: a.actorId, actorKind: "member", action: a.cancelled ? "event.cancelled" : "event.restored", targetType: "event", targetId: e.id, targetLabel: e.title })
   if (!a.cancelled) await eventScheduled(db, { ...e, status: "scheduled" }, { announce: false })
+  else await notifyEventChanged(db, { eventId: e.id, communityId: a.communityId, change: "cancelled", actorId: a.actorId })
   return { ok: true }
 }
 
