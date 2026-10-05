@@ -15,9 +15,10 @@ import { galleryEmbed } from "@/components/community/creator/logic"
  * player in place on a press (lib/communities/post-media embedPlayerSrc).
  */
 export type GalleryEmbedView = { type: "embed"; provider: "youtube" | "vimeo"; id: string; hash?: string; thumb: string | null }
-export type GalleryItemView = { type: "image"; url: string } | { type: "video"; videoId: string; posterUrl: string | null } | GalleryEmbedView
+/** An uploaded video; `cover` (round 13) when it is the community's cover video, the page's hero. */
+export type GalleryItemView = { type: "image"; url: string } | { type: "video"; videoId: string; posterUrl: string | null; cover?: true } | GalleryEmbedView
 
-type StoredItem = { type: "image"; url: string } | { type: "video"; videoId: string } | GalleryEmbedView
+type StoredItem = { type: "image"; url: string } | { type: "video"; videoId: string; cover?: true } | GalleryEmbedView
 
 export const GALLERY_MAX = 12
 
@@ -60,7 +61,7 @@ export function parseGallery(raw: unknown): StoredItem[] {
       }
     } else if (it.type === "video" && typeof it.videoId === "string" && UUID.test(it.videoId) && !seen.has(it.videoId)) {
       seen.add(it.videoId)
-      out.push({ type: "video", videoId: it.videoId })
+      out.push({ type: "video", videoId: it.videoId, ...(it.cover === true && out.length === 0 ? { cover: true as const } : {}) })
     } else if (it.type === "embed") {
       const e = galleryEmbed(it)
       const key = e ? `${e.provider}:${e.id}` : ""

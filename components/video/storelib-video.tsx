@@ -265,7 +265,19 @@ export function StorelibVideo({ communityId, videoId, poster, durationSeconds, t
  * the pointer leaves, it scrolls away or another one starts. Nothing is
  * asked of the server until it starts.
  */
-function PreviewLoop({ communityId, videoId }: { communityId: string; videoId: string }) {
+export function PreviewLoop({
+  communityId,
+  videoId,
+  mode = "auto",
+  seconds = PREVIEW_SECONDS,
+}: {
+  communityId: string
+  videoId: string
+  /** "auto": a resting pointer on a computer, on screen on a phone. "visible": on screen everywhere (the About page's cover video). */
+  mode?: "auto" | "visible"
+  /** How much of the start loops. */
+  seconds?: number
+}) {
   const box = useRef<HTMLDivElement>(null)
   const vid = useRef<HTMLVideoElement>(null)
   const me = useId()
@@ -277,7 +289,7 @@ function PreviewLoop({ communityId, videoId }: { communityId: string; videoId: s
   useEffect(() => {
     const el = box.current?.parentElement
     if (!el || !previewAllowed()) return
-    const fine = window.matchMedia?.("(hover: hover) and (pointer: fine)").matches
+    const fine = mode === "auto" && window.matchMedia?.("(hover: hover) and (pointer: fine)").matches
     let timer = 0
     if (fine) {
       const enter = () => {
@@ -310,7 +322,7 @@ function PreviewLoop({ communityId, videoId }: { communityId: string; videoId: s
       window.clearTimeout(timer)
       io.disconnect()
     }
-  }, [])
+  }, [mode])
 
   /* One preview on the page at a time: a newer one puts this one away. */
   useEffect(() => {
@@ -360,7 +372,7 @@ function PreviewLoop({ communityId, videoId }: { communityId: string; videoId: s
           onPlaying={() => want && setShown(true)}
           onTimeUpdate={(e) => {
             const el = e.currentTarget
-            if (el.currentTime >= PREVIEW_SECONDS || (el.duration > 0 && el.currentTime >= el.duration - 0.1)) {
+            if (el.currentTime >= seconds || (el.duration > 0 && el.currentTime >= el.duration - 0.1)) {
               el.currentTime = 0
               void el.play().catch(() => undefined)
             }

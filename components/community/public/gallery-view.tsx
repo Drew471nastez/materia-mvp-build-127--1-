@@ -23,8 +23,10 @@
  *
  * VIDEOS: an upload shows its poster and a play button; pressed, it asks the
  * server for a signed address (the cover video and gallery videos of a
- * published community play for anyone) and plays in place with the
- * browser's own controls. A YouTube or Vimeo video (round 11) shows its
+ * published community play for anyone) and plays in place in the community
+ * player (components/media/video-player.tsx, round 13). An uploaded cover
+ * video, the page's hero, loops its first seconds muted over its still
+ * while it is on screen; any other upload does under a resting pointer. A YouTube or Vimeo video (round 11) shows its
  * still the same way and, pressed, becomes the service's privacy player
  * (youtube-nocookie, Vimeo with do not track), playing in place. A player
  * is never swiped away by accident (`swiper-no-swiping`), and moving to
@@ -38,11 +40,16 @@ import { ChevronLeft, ChevronRight, Play } from "lucide-react"
 import { MediaSwiper, SwiperSlide, useMediaSwiper, type SwiperClass } from "@/components/product/media-swiper"
 import { embedPlayerSrc } from "@/lib/communities/post-media"
 import { ActivitySpinner } from "@/components/ui/activity-spinner"
+import { VideoPlayer } from "@/components/media/video-player"
+import { PreviewLoop, fetchPlayback } from "@/components/video/storelib-video"
 import { optimizedImageUrl, optimizedSrcSet } from "@/lib/images/optimized-url"
 import { cn } from "@/lib/utils"
 import { galleryStill, type GalleryItemView } from "./gallery"
 
-type Playback = { url: string; poster?: string | null; mime?: string | null }
+type Playback = { url: string; expiresAt?: number; poster?: string | null; mime?: string | null; captions?: string | null }
+
+/** How much of an uploaded cover video loops, muted, over its still. */
+const COVER_LOOP_SECONDS = 8
 
 const PROVIDER = { youtube: "YouTube", vimeo: "Vimeo" } as const
 
@@ -211,15 +218,21 @@ export function CommunityGallery({ communityId, name, items }: { communityId: st
                   // eslint-disable-next-line @next/next/no-img-element
                   <img {...frameImage(g.url)} alt={i === 0 ? name : ""} draggable={false} loading={near ? "eager" : "lazy"} fetchPriority={priority} decoding="async" className="pointer-events-none absolute inset-0 h-full w-full select-none object-cover" />
                 ) : live && g.type === "video" && playing?.playback ? (
-                  <video
-                    src={playing.playback.url}
-                    poster={playing.playback.poster ?? g.posterUrl ?? undefined}
-                    controls
-                    autoPlay
-                    playsInline
-                    className="swiper-no-swiping absolute inset-0 h-full w-full bg-black object-contain"
-                    data-gallery-video=""
-                  />
+                  /* The community player (round 13), in the frame's own box: Storelib's controls, never the browser's. */
+                  <div className="swiper-no-swiping absolute inset-0 bg-black" data-gallery-video="">
+                    <VideoPlayer
+                      source={{ url: playing.playback.url, expiresAt: Number(playing.playback.expiresAt) || Date.now() + 3_000_000, mime: playing.playback.mime ?? null, captions: playing.playback.captions ?? null }}
+                      poster={playing.playback.poster ?? g.posterUrl ?? null}
+                      autoPlay
+                      rounded={false}
+                      ratio={16 / 9}
+                      title={name}
+                      renew={async () => {
+                        const got = await fetchPlayback(communityId, g.videoId, { fresh: true })
+                        return got.ok ? { url: got.playback.url, expiresAt: Number(got.playback.expiresAt), mime: got.playback.mime, captions: got.playback.captions } : null
+                      }}
+                    />
+                  </div>
                 ) : live && g.type === "embed" ? (
                   <iframe
                     src={embedPlayerSrc(g)}
@@ -243,6 +256,8 @@ export function CommunityGallery({ communityId, name, items }: { communityId: st
                       // eslint-disable-next-line @next/next/no-img-element
                       <img {...frameImage(still)} alt="" draggable={false} loading={near ? "eager" : "lazy"} fetchPriority={priority} decoding="async" className="pointer-events-none absolute inset-0 h-full w-full select-none object-cover" data-gallery-poster="" />
                     ) : null}
+                    {/* An uploaded video moves quietly over its still: the cover video while it is on screen, any other under a resting pointer (round 13). */}
+                    {g.type === "video" && i === at ? <PreviewLoop communityId={communityId} videoId={g.videoId} mode={g.cover ? "visible" : "auto"} seconds={g.cover ? COVER_LOOP_SECONDS : undefined} /> : null}
                     <PlayMark busy={g.type === "video" && loading === g.videoId} />
                     {g.type === "embed" ? <span className="pointer-events-none absolute bottom-3 left-3 rounded-md bg-black/55 px-1.5 py-0.5 text-[11.5px] font-medium text-white/95">{PROVIDER[g.provider]}</span> : null}
                   </button>
