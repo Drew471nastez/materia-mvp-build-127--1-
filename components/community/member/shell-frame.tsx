@@ -99,6 +99,7 @@ import { preloadSearchIndex } from "./search"
 import { PRESS_PROPS, TAB, TAB_OFF, TAB_ON } from "./ui"
 import type { ShellCommunity, ShellSection, TopBarData, WallData } from "./view-types"
 import { PlaceContext, plainClick, WallCommunityCard, WallContributorsCard, WallPlaces, WallUpcoming, type PlaceState } from "./wall"
+import { useCommunityLanding } from "./landing"
 
 export { CommunityMark } from "./top-bar"
 
@@ -201,6 +202,13 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
   usePresenceHeartbeat(community.id, viewer.userId)
   /* The bar is white, so the browser's bar and the phone's status bar are too. */
   useLightChrome(true)
+  /*
+    Opened from Discover or anywhere outside (landing.ts): the middle
+    column's spinner waits as the app's slow page does. The frame itself
+    gets no second fade here: its columns already land (LAND, LAND_LATE),
+    and a fade on the frame as well would multiply the two.
+  */
+  const landing = useCommunityLanding()
 
   /* "Message" on a person's card or a member row opens the panel. */
   useEffect(() => {
@@ -277,7 +285,11 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
     /* The header's real heights until it is measured (56 + 40 of tabs + its hairline below 1024px, one 64px row + 1 from 1024px): no jump on the first frame. */
     <PlaceContext.Provider value={place}>
       <style>{GUTTER}</style>
-      <div data-community-shell="" className="min-h-svh bg-[#f8f9fa] [--community-top:97px] lg:[--community-top:65px]">
+      <div
+        data-community-shell=""
+        data-community-landing={landing ? "" : undefined}
+        className="min-h-svh bg-[#f8f9fa] [--community-top:97px] lg:[--community-top:65px]"
+      >
         <CommunityTopBar data={topBar} messages={canMessage ? messages : null} messagesOpen={!!chat} onMessages={onMessages} search={searchProp} menu={menu}>
           {tabs}
         </CommunityTopBar>

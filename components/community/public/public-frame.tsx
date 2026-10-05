@@ -16,14 +16,21 @@
 import { CommunityTopBar } from "@/components/community/member/top-bar"
 import type { TopBarData } from "@/components/community/member/view-types"
 import { useLightChrome } from "@/lib/ui/light-chrome"
+import { useCommunityLanding } from "@/components/community/member/landing"
 
 /** What arrives under the bar fades in: the member frame's own (shell-frame.tsx ARRIVE), named here so this frame does not load that one. */
 const ARRIVE = "[&>*]:animate-[fade-in_200ms_cubic-bezier(0.32,0.72,0,1)] motion-reduce:[&>*]:animate-none"
 
 export function CommunityPublicFrame({ topBar, children }: { topBar: TopBarData; children: React.ReactNode }) {
   useLightChrome(true)
+  /* Opened from Discover: the frame lands as an /app page does (components/community/member/landing.ts). */
+  const landing = useCommunityLanding()
   return (
-    <div data-community-public="" className="min-h-svh bg-[#f8f9fa] [--community-top:57px] lg:[--community-top:65px]">
+    <div
+      data-community-public=""
+      data-community-landing={landing ? "" : undefined}
+      className={`min-h-svh bg-[#f8f9fa] [--community-top:57px] lg:[--community-top:65px]${landing ? " community-land" : ""}`}
+    >
       <CommunityTopBar data={topBar} />
       <div className={ARRIVE} data-community-body="">
         {children}

@@ -29,6 +29,7 @@
  * list are asked for without the subcategory.
  */
 import * as React from "react"
+import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import type { CommunityCard } from "@/lib/communities/types"
 import { communitiesQuery } from "@/lib/explore/communities-mode"
@@ -76,6 +77,28 @@ export function ExploreCommunitiesResults({
   ahead?: string[]
 }) {
   const query = communitiesQuery({ q, category, sub, srt, price })
+  /*
+    A COMMUNITY ABOUT TO BE OPENED IS ASKED FOR WHOLE. Its route is dynamic,
+    so the link's own prefetch stops at the community's loading screen; a
+    pointer resting on a card (a mouse) or pressing it (a finger) asks for
+    the whole page ("full", as the community's own places do in
+    shell-frame.tsx), once per card, so the click usually finds it here and
+    the community lands in one piece, with no spinner in its middle.
+  */
+  const router = useRouter()
+  const warmed = React.useRef(new Set<string>())
+  const warm = (e: React.PointerEvent<HTMLElement>) => {
+    const link = e.target instanceof Element ? e.target.closest<HTMLAnchorElement>("a[data-explore-community]") : null
+    const href = link?.getAttribute("href")
+    if (!href || !href.startsWith("/") || warmed.current.has(href)) return
+    if (e.type === "pointerover" && e.pointerType !== "mouse") return
+    warmed.current.add(href)
+    try {
+      router.prefetch(href, { kind: "full" } as never)
+    } catch {
+      /* a prefetch that fails is a click that waits, nothing worse */
+    }
+  }
   /* The server's first page is kept as if it had been asked for, before the first render reads the cache. */
   if (initial) seedCommunities(initial.query, { items: initial.items, next: initial.next, broadened: initial.broadened === true })
   /*
@@ -225,6 +248,8 @@ export function ExploreCommunitiesResults({
       data-communities-results=""
       data-communities-pending={pending ? "" : undefined}
       aria-busy={pending || undefined}
+      onPointerOver={warm}
+      onPointerDown={warm}
       /*
         The previous answer while the next is on its way: still there, still
         readable, a step quieter, and only after 160ms, so an answer from
