@@ -39,7 +39,7 @@ import { StatusBadge } from "@/app/app/orders/order-parts"
 import { centsFromInput } from "@/lib/memberships/plan"
 import type { CommunityFaq, CommunityLink, NotifyLevel } from "@/lib/communities/types"
 import type { CommunityHead, PoliciesView, RolesView, SettingsData, TierView } from "./view-types"
-import { GALLERY_MAX, coverVideo as coverOf, typeOf, type CommunityType, type GalleryItem, type PriceInterval, type SettingsTab } from "./logic"
+import { GALLERY_MAX, coverItem as coverOf, typeOf, type CommunityType, type GalleryItem, type PriceInterval, type SettingsTab } from "./logic"
 import { COMMUNITY_CATEGORIES, communityCategoryId } from "@/lib/explore/communities-mode"
 
 export type { SettingsTab }
@@ -179,7 +179,10 @@ function PageSettings({ head, data }: { head: CommunityHead; data: SettingsData 
   const [s, setS] = React.useState(start)
   const [saved, setSaved] = React.useState(JSON.stringify(start))
   const [busy, setBusy] = React.useState(false)
-  const [uploading, setUploading] = React.useState(false)
+  const [galleryUploading, setUploading] = React.useState(false)
+  /* The cover's own upload (round 13), held apart so the gallery finishing first does not release Save. */
+  const [coverUploading, setCoverUploading] = React.useState(false)
+  const uploading = galleryUploading || coverUploading
   const [error, setError] = React.useState<string | null>(null)
   const dirty = JSON.stringify(s) !== saved
   const set = <K extends keyof PageState>(k: K, v: PageState[K]) => {
@@ -237,6 +240,8 @@ function PageSettings({ head, data }: { head: CommunityHead; data: SettingsData 
               <p className={label}>Cover</p>
               {/* A picture, or a YouTube or Vimeo video (round 11): then the gallery's first item, and its still the cover picture on Save. */}
               <CoverField
+                communityId={head.id}
+                onBusy={setCoverUploading}
                 coverUrl={s.coverUrl}
                 gallery={s.gallery}
                 onChange={(next) => {
