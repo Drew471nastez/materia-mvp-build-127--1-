@@ -91,6 +91,7 @@ export class MailgunEmailProvider implements EmailProvider {
       tags: email.tags,
       metadata: email.variables,
       messageId: email.messageId,
+      attachments: email.attachments,
     })
     return resultOf(answer)
   }

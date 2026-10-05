@@ -25,6 +25,11 @@ import "server-only"
  *   event_reminder    only while the member's email_events is on
  *   join_approved     the person whose request it was, active or approved
  *                     and waiting to pay
+ *   event_ticket_invite
+ *                     an active member a free ticket was given to
+ *   event_ticket, event_refund, event_cancelled
+ *                     a ticket holder, whatever their switches say and
+ *                     whatever state their membership is in: it is money
  *   invite            an address (email), member or not
  *   report_digest     an active member, once a day at most per community,
  *                     about new reports (jobs/report_digest.ts checks the
@@ -43,7 +48,7 @@ import type { DomainEventName } from "@/lib/notify/types"
 import { communitiesEnabled } from "../flag"
 import { missing, nowIso, reasonOf, type Db } from "./db"
 
-export const COMMUNITY_EMAIL_KINDS = ["welcome", "announcement", "event_reminder", "invite", "course_available", "join_approved", "report_digest"] as const
+export const COMMUNITY_EMAIL_KINDS = ["welcome", "announcement", "event_reminder", "invite", "course_available", "join_approved", "report_digest", "event_ticket", "event_ticket_invite", "event_refund", "event_cancelled"] as const
 export type CommunityEmailKind = (typeof COMMUNITY_EMAIL_KINDS)[number]
 
 export type CommunityEmailOutcome = "queued" | "duplicate" | "unavailable"
@@ -71,6 +76,14 @@ export interface CommunityEmailInput {
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const EMAIL = /^[^\s@<>"',;]{1,64}@[^\s@<>"',;]{1,190}\.[a-z]{2,24}$/i
 
+/**
+ * A TICKET IS MONEY ADDRESSED TO THE PERSON, so a receipt, a refund and an
+ * event called off are sent whatever the member asked to hear and whatever
+ * state their membership is in; the row only has to say they belong to this
+ * community. A free ticket somebody gave them is for a member who is in.
+ */
+const MONEY_KINDS: readonly CommunityEmailKind[] = ["event_ticket", "event_refund", "event_cancelled"]
+
 /** Kinds sent only to an active member, and the member's own switch for each, when it has one. */
 const MEMBER_ONLY: Partial<Record<CommunityEmailKind, "email_announcements" | "email_events" | null>> = {
   welcome: null,
@@ -78,6 +91,7 @@ const MEMBER_ONLY: Partial<Record<CommunityEmailKind, "email_announcements" | "e
   event_reminder: "email_events",
   course_available: null,
   report_digest: null,
+  event_ticket_invite: null,
 }
 
 /** "welcome" or "community.welcome", as the kind it is. */
@@ -184,6 +198,8 @@ export async function sendCommunityEmail(
       if (!member) return "unavailable"
       if (kind === "join_approved") {
         if (member.status !== "active" && member.status !== "pending") return "unavailable"
+      } else if (MONEY_KINDS.includes(kind)) {
+        /* Nothing to check here: they paid, so they hear about their own money. */
       } else if (kind in MEMBER_ONLY) {
         if (member.status !== "active") return "unavailable"
         const wish = MEMBER_ONLY[kind]

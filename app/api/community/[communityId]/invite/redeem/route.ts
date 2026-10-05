@@ -3,6 +3,8 @@ import { requireCommunitiesOn } from "@/lib/communities/flag"
 import { admin } from "@/lib/communities/server/db"
 import { joinRateLimit, redeemInvite } from "@/lib/communities/server/join"
 import { guardInvite, joinAddressLimit } from "@/lib/communities/server/safety"
+import { loadCommunity } from "@/lib/communities/server/context"
+import { grantTicketOnJoin } from "@/lib/communities/server/jobs/event_ticket_invite"
 import { createClient } from "@/lib/supabase/server"
 
 export const runtime = "nodejs"
@@ -16,7 +18,15 @@ const noStore = { "Cache-Control": "no-store" }
  * The raw token from an invite link (/community/<slug>/join?invite=<token>).
  * Only its sha256 is looked up, and only an invite of THIS community is
  * redeemed (public.community_redeem_invite counts the use atomically, once
- * per person). Answers
+ * per person).
+ *
+ * A LINK THAT CARRIES A PAID EVENT ({ event, et }, made by the event's own
+ * invite route): once they are a member the free ticket is granted and the
+ * url is the event's page, so they land where the invite was about. The
+ * signature `et` is checked first, so an event cannot be added to somebody
+ * else's invite link.
+ *
+ * Answers
  *   { state: "member", url, already }   in (already: they were a member)
  *   { state: "checkout", url }          an invite to a paid tier that is not
  *                                       complimentary: approved, now pay
@@ -50,5 +60,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ com
     if (INVITE_REASONS.has(answer.error) && answer.status !== 404) return NextResponse.json({ ok: false, reason: answer.error, message: answer.message }, { headers: noStore })
     return NextResponse.json({ error: answer.error, message: answer.message }, { status: answer.status, headers: noStore })
   }
-  return NextResponse.json(answer.state === "member" ? { ok: true, state: "member", url: answer.url, already: answer.already } : { ok: true, state: "checkout", url: answer.url }, { headers: noStore })
+  if (answer.state !== "member") return NextResponse.json({ ok: true, state: "checkout", url: answer.url }, { headers: noStore })
+  /* The invite was for one paid event: the seat is theirs, and the event's page is where they land. */
+  let url = answer.url
+  const community = body.event ? await loadCommunity(admin(), { id: communityId }) : null
+  if (community) {
+    const ticket = await grantTicketOnJoin(admin(), { community, userId: user.id, token: body.token, eventId: body.event, tag: body.et, enabled: true })
+    if (ticket) url = ticket.url
+  }
+  return NextResponse.json({ ok: true, state: "member", url, already: answer.already }, { headers: noStore })
 }

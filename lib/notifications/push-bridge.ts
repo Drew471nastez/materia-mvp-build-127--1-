@@ -41,6 +41,13 @@ import "server-only"
  * afternoon is one push and then "4 new posts", and a like on your post is
  * never held behind somebody else's post.
  *
+ * A TICKET FOR A PAID EVENT (part 105) reaches the person who bought or was
+ * given one at once, as "ticket", and is never held by the daily cap: it is
+ * their seat and their money. The receipt email says the same thing once, so
+ * the two together are one message to a person, not two. Whoever runs the
+ * community hears sales coalesced instead ("4 tickets for Paid workshop"),
+ * and hears nothing at all for a free event.
+ *
  * QUIET HOURS AND THE DAILY CAP (push-budget.ts). After everything above
  * says yes: inside the person's quiet hours nothing pushes, and one summary
  * goes when they end ("While you were away: 2 mentions and 5 new likes");
@@ -96,7 +103,14 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /* ── The rules, pure ────────────────────────────────────────────────────── */
 
-export type PushKind = NotificationKind | UserNotificationKind | "dm" | "post" | "admin_post"
+/**
+ * Beside the bell's own kinds, four that exist only as a push: a new post
+ * (which has no bell row), and the two about a ticket for a paid event. A
+ * ticket row lands in the bell as an "event" (the one kind the table allows
+ * for an event), and pushes as a "ticket", so a seat of their own reads and
+ * is counted as what it is.
+ */
+export type PushKind = NotificationKind | UserNotificationKind | "dm" | "post" | "admin_post" | "ticket" | "ticket_sale"
 export type PushPriority = "now" | "coalesce"
 
 /** One push per person per group for low priority kinds in this long. */
@@ -116,10 +130,10 @@ export const PUSH_TITLE_MAX = 60
 export const PUSH_BODY_MAX = 180
 
 /** The kinds that push at once, every time. */
-export const IMMEDIATE_KINDS: readonly PushKind[] = ["mention", "reply", "dm", "announcement", "event_reminder", "membership", "admin_message"]
+export const IMMEDIATE_KINDS: readonly PushKind[] = ["mention", "reply", "dm", "announcement", "event_reminder", "membership", "admin_message", "ticket"]
 
 /** What "mentions only" still pushes: what is addressed to the person. */
-export const ADDRESSED_KINDS: readonly PushKind[] = ["mention", "reply", "admin_message", "membership", "dm"]
+export const ADDRESSED_KINDS: readonly PushKind[] = ["mention", "reply", "admin_message", "membership", "dm", "ticket"]
 
 export function pushPriority(kind: string, dedupeKey?: string | null): PushPriority {
   if ((IMMEDIATE_KINDS as readonly string[]).includes(kind)) return "now"
@@ -232,6 +246,8 @@ const NOUNS: Record<string, readonly [string, string]> = {
   reaction: ["new like", "new likes"],
   comment: ["new comment", "new comments"],
   event: ["new event", "new events"],
+  ticket: ["ticket", "tickets"],
+  ticket_sale: ["ticket sold", "tickets sold"],
   course_available: ["new program or lesson", "new programs and lessons"],
   level_up: ["level up", "level ups"],
   report: ["new report", "new reports"],
@@ -823,7 +839,7 @@ export async function pushOne(db: Db, item: PushItem, now: number = Date.now()):
 
 /** A community row a job wrote, as a push item. */
 export function communityPushItem(
-  r: { userId: string; communityId: string; kind: NotificationKind; actorId?: string | null; title: string; body?: string | null; url: string; dedupeKey?: string | null; level?: NotifyLevel | null },
+  r: { userId: string; communityId: string; kind: PushKind; actorId?: string | null; title: string; body?: string | null; url: string; dedupeKey?: string | null; level?: NotifyLevel | null },
   communityName: string | null,
 ): PushItem | null {
   const content = communityPushContent({ kind: r.kind, title: r.title, body: r.body, url: r.url }, communityName)
@@ -878,7 +894,7 @@ async function communityName(db: Db, communityId: string): Promise<{ name: strin
 /** After notifyMember wrote a new row. */
 export async function pushCommunityRow(
   db: Db,
-  n: { userId: string; communityId: string; kind: NotificationKind; actorId?: string | null; title: string; body?: string | null; url: string; dedupeKey: string; level: NotifyLevel | null },
+  n: { userId: string; communityId: string; kind: PushKind; actorId?: string | null; title: string; body?: string | null; url: string; dedupeKey: string; level: NotifyLevel | null },
 ): Promise<PushOutcome> {
   if (n.actorId && n.actorId === n.userId) return "skipped"
   if (!levelAllowsPush(n.level, n.kind)) return "skipped"

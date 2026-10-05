@@ -9,10 +9,13 @@
  * URL rules from escape.ts. A template may also name who the email is from
  * (a review request is the seller's ask, not Storelib's): renderEmail gives
  * back that display name and reply-to, and the email channel hands them to
- * the provider, which keeps Storelib's own verified sending address. An action is always ctx.baseUrl plus a path the
- * catalog wrote (the in-app half keeps the path, as the bell's links do). The
- * footer's unsubscribe and preferences links are used only when they point at
- * Storelib, and never on a security or receipt email.
+ * the provider, which keeps Storelib's own verified sending address. A
+ * template may also hand back one file, the event's calendar file on a
+ * ticket receipt, which the channel sends as an attachment. An action is
+ * always ctx.baseUrl plus a path the catalog wrote (the in-app half keeps
+ * the path, as the bell's links do). The footer's unsubscribe and
+ * preferences links are used only when they point at Storelib, and never on
+ * a security or receipt email.
  */
 import { emailImageSrc } from "@/lib/email-campaigns/sender"
 import type { InAppContent, NotificationType, RenderedEmail, TemplateContext } from "../types"
@@ -93,6 +96,8 @@ export function renderEmail(type: NotificationType, data: Record<string, unknown
   /* Who the inbox shows as the sender. Only a template that asks for one; everything else stays Storelib. */
   const name = senderName(m.sender?.name)
   const sender = name ? { fromName: name, replyTo: replyAddress(m.sender?.replyTo) } : null
+  /* The one file an email may carry: the event's own calendar file on a ticket email, drawn from the same data as the words. */
+  const calendar = m.calendar && m.calendar.text ? [{ filename: m.calendar.filename, content: new TextEncoder().encode(m.calendar.text), contentType: "text/calendar; charset=utf-8" }] : undefined
   return {
     subject: input.subject,
     preview: input.preview,
@@ -100,6 +105,7 @@ export function renderEmail(type: NotificationType, data: Record<string, unknown
     text: renderText(input),
     fromName: sender?.fromName ?? null,
     replyTo: sender?.replyTo ?? null,
+    ...(calendar ? { attachments: calendar } : {}),
   }
 }
 

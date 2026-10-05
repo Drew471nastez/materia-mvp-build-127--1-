@@ -17,8 +17,9 @@
  * dashes used as punctuation, no emoji, no capitals for shouting, and an
  * exclamation mark only on the first sale and the first product.
  */
+import { eventIcs } from "@/components/community/events/model"
 import type { NotificationType, TemplateContext, TemplateFamily } from "../types"
-import { cleanText, segment } from "./escape"
+import { actionUrl, cleanText, segment } from "./escape"
 import type { Fact, OrderSummary, SummaryRow } from "./layout"
 
 /* ── Data keys ─────────────────────────────────────────────────────────── */
@@ -49,6 +50,15 @@ const MEMBERSHIP_KEYS = [
  * announcement, the event, the course or the invite it is about.
  */
 const COMMUNITY_KEYS = ["communityId", "communityName", "communitySlug", "creatorName"] as const
+
+/**
+ * What a ticket email reads beside the community's own facts
+ * (lib/communities/server/jobs/event_ticket_notify.ts fills them): the event
+ * it is for, when and where it is, and what was paid. `timezone` is the zone
+ * the time is shown in: the holder's own when Storelib knows it, else the
+ * event's. `eventUpdatedAt` dates the calendar file the receipt carries.
+ */
+const TICKET_KEYS = ["eventId", "eventTitle", "startsAt", "endsAt", "timezone", "location", "online", "amountCents", "currency", "eventUpdatedAt", "eventDescription"] as const
 
 /** The data keys each template reads. Workflows fill these; every one is optional. */
 export const DATA_KEYS: Record<NotificationType, readonly string[]> = {
@@ -106,10 +116,14 @@ export const DATA_KEYS: Record<NotificationType, readonly string[]> = {
   MEMBERSHIP_ENDED: [...MEMBERSHIP_KEYS],
   COMMUNITY_WELCOME: [...COMMUNITY_KEYS, "welcomeText"],
   COMMUNITY_JOIN_APPROVED: [...COMMUNITY_KEYS, "needsPayment", "priceLine"],
-  COMMUNITY_INVITE: [...COMMUNITY_KEYS, "inviterName", "inviteCode", "tagline", "expiresAt"],
+  COMMUNITY_INVITE: [...COMMUNITY_KEYS, "inviterName", "inviteCode", "tagline", "expiresAt", "eventId", "eventTitle", "eventTag"],
   COMMUNITY_ANNOUNCEMENT: [...COMMUNITY_KEYS, "postId", "title", "excerpt", "authorName"],
   COMMUNITY_EVENT_REMINDER: [...COMMUNITY_KEYS, "eventId", "eventTitle", "startsAt", "endsAt", "timezone", "lead", "location", "online"],
   COMMUNITY_COURSE_AVAILABLE: [...COMMUNITY_KEYS, "courseTitle", "courseProductId"],
+  COMMUNITY_EVENT_TICKET: [...COMMUNITY_KEYS, ...TICKET_KEYS, "ticketSource", "refundPolicy", "paidAt"],
+  COMMUNITY_EVENT_TICKET_INVITE: [...COMMUNITY_KEYS, ...TICKET_KEYS, "inviterName", "priceCents", "refundPolicy", "message"],
+  COMMUNITY_EVENT_REFUND: [...COMMUNITY_KEYS, ...TICKET_KEYS, "refundedAt", "byHolder"],
+  COMMUNITY_EVENT_CANCELLED: [...COMMUNITY_KEYS, ...TICKET_KEYS, "refundedAt"],
   COMMUNITY_REPORT_DIGEST: [...COMMUNITY_KEYS, "reportCount", "moreCount", "line1", "line2", "line3", "line4", "line5"],
   COMMUNITY_WEEKLY_DIGEST: ["weekOf", "moreCount", ...[1, 2, 3, 4, 5].flatMap((i) => [`c${i}Name`, `c${i}Slug`, `c${i}Line`, `c${i}Top`])],
 }
@@ -341,6 +355,12 @@ export interface Message {
   sender?: { name: string; replyTo?: string | null } | null
   /** What the footer's unsubscribe link says, when it turns off one kind of email only. */
   unsubscribeLabel?: string | null
+  /**
+   * A calendar file to send with the email, drawn from the job's own data
+   * (a ticket receipt). index.ts turns it into the attachment the email
+   * channel hands the provider; nothing else carries a file.
+   */
+  calendar?: { filename: string; text: string } | null
   inApp: { title: string; body: string; actionLabel?: string | null; actionPath?: string | null }
 }
 
@@ -1522,6 +1542,10 @@ export const CATALOG: Record<NotificationType, Entry> = {
   COMMUNITY_ANNOUNCEMENT: (d, ctx) => COMMUNITY_ENTRIES.COMMUNITY_ANNOUNCEMENT(d, ctx),
   COMMUNITY_EVENT_REMINDER: (d, ctx) => COMMUNITY_ENTRIES.COMMUNITY_EVENT_REMINDER(d, ctx),
   COMMUNITY_COURSE_AVAILABLE: (d, ctx) => COMMUNITY_ENTRIES.COMMUNITY_COURSE_AVAILABLE(d, ctx),
+  COMMUNITY_EVENT_TICKET: (d, ctx) => COMMUNITY_ENTRIES.COMMUNITY_EVENT_TICKET(d, ctx),
+  COMMUNITY_EVENT_TICKET_INVITE: (d, ctx) => COMMUNITY_ENTRIES.COMMUNITY_EVENT_TICKET_INVITE(d, ctx),
+  COMMUNITY_EVENT_REFUND: (d, ctx) => COMMUNITY_ENTRIES.COMMUNITY_EVENT_REFUND(d, ctx),
+  COMMUNITY_EVENT_CANCELLED: (d, ctx) => COMMUNITY_ENTRIES.COMMUNITY_EVENT_CANCELLED(d, ctx),
   COMMUNITY_REPORT_DIGEST: (d, ctx) => COMMUNITY_ENTRIES.COMMUNITY_REPORT_DIGEST(d, ctx),
   COMMUNITY_WEEKLY_DIGEST: (d, ctx) => COMMUNITY_ENTRIES.COMMUNITY_WEEKLY_DIGEST(d, ctx),
 }
@@ -1553,10 +1577,63 @@ function eventWhen(d: Data): string {
   return text.replace(/[\u202f\u00a0]/g, " ")
 }
 
+/** "Online", or the place the event names. The sentence about when the link opens is a line of its own. */
+function eventWhere(d: Data): string {
+  return d.bool("online") === true ? "Online" : d.text("location", 120)
+}
+
+/** One event's page in its community, or the community when something is missing. */
+function eventPath(d: Data, c: { slug: string; home: string }): string {
+  const event = d.id("eventId")
+  return event && c.slug ? PATHS.community(c.slug, `/events/${event}`) : c.home
+}
+
+/**
+ * The event as a calendar file, for a ticket email to carry. Drawn from the
+ * job's own data by the same eventIcs the .ics route uses, so the file a
+ * holder gets in their inbox and the one they download are the same. It
+ * holds the event page, never a meeting link.
+ */
+function calendarFile(d: Data, ctx: TemplateContext, path: string): { filename: string; text: string } | null {
+  const id = d.text("eventId", 60)
+  const title = d.text("eventTitle", 120)
+  const starts = d.text("startsAt", 40)
+  if (!id || !title || !Number.isFinite(Date.parse(starts))) return null
+  const url = actionUrl(ctx.baseUrl, path)
+  if (!url) return null
+  const ends = d.text("endsAt", 40)
+  const name = title.replace(/[^A-Za-z0-9 _-]/g, "").trim().slice(0, 60).replace(/\s+/g, "-") || "event"
+  return {
+    filename: `${name}.ics`,
+    text: eventIcs({
+      id,
+      title,
+      startsAt: starts,
+      endsAt: Number.isFinite(Date.parse(ends)) ? ends : null,
+      description: d.text("eventDescription", 600),
+      location: eventWhere(d) || null,
+      url,
+      updatedAt: d.text("eventUpdatedAt", 40) || starts,
+      cancelled: false,
+    }),
+  }
+}
+
 /* ── A member of a community ──────────────────────────────────────────── */
 
 const COMMUNITY_ENTRIES: Record<
-  "COMMUNITY_WELCOME" | "COMMUNITY_JOIN_APPROVED" | "COMMUNITY_INVITE" | "COMMUNITY_ANNOUNCEMENT" | "COMMUNITY_EVENT_REMINDER" | "COMMUNITY_COURSE_AVAILABLE" | "COMMUNITY_REPORT_DIGEST" | "COMMUNITY_WEEKLY_DIGEST",
+  | "COMMUNITY_WELCOME"
+  | "COMMUNITY_JOIN_APPROVED"
+  | "COMMUNITY_INVITE"
+  | "COMMUNITY_ANNOUNCEMENT"
+  | "COMMUNITY_EVENT_REMINDER"
+  | "COMMUNITY_COURSE_AVAILABLE"
+  | "COMMUNITY_EVENT_TICKET"
+  | "COMMUNITY_EVENT_TICKET_INVITE"
+  | "COMMUNITY_EVENT_REFUND"
+  | "COMMUNITY_EVENT_CANCELLED"
+  | "COMMUNITY_REPORT_DIGEST"
+  | "COMMUNITY_WEEKLY_DIGEST",
   Entry
 > = {
   COMMUNITY_WELCOME: (d) => {
@@ -1602,21 +1679,27 @@ const COMMUNITY_ENTRIES: Record<
     const c = communityOf(d)
     const inviter = d.text("inviterName", 40) || c.creator
     const code = d.id("inviteCode")
-    const path = code && c.slug ? PATHS.community(c.slug, `/join?invite=${code}`) : c.home
+    /* AN INVITE FOR ONE PAID EVENT carries it, signed, so accepting grants the free ticket and lands them on the event. */
+    const event = d.id("eventId")
+    const tag = d.text("eventTag", 32)
+    const eventTitle = d.text("eventTitle", 120)
+    const forEvent = Boolean(event && /^[0-9a-f]{32}$/.test(tag))
+    const path = code && c.slug ? PATHS.community(c.slug, `/join?invite=${code}${forEvent ? `&event=${event}&et=${tag}` : ""}`) : c.home
     const until = d.date("expiresAt")
     return {
       family: "base",
       audience: "customer",
-      subject: fitSubject("You are invited to ", c.name, "") || "You are invited to a community",
-      preview: inviter ? `${inviter} invited you to join.` : "You have an invite to join.",
-      heading: c.name ? `Join ${c.name}` : "You are invited",
+      subject: (forEvent ? fitSubject("A free ticket to ", eventTitle, "") : "") || fitSubject("You are invited to ", c.name, "") || "You are invited to a community",
+      preview: forEvent ? "Accept the invite and your seat is booked." : inviter ? `${inviter} invited you to join.` : "You have an invite to join.",
+      heading: forEvent && eventTitle ? `Your seat at ${eventTitle}` : c.name ? `Join ${c.name}` : "You are invited",
       paragraphs: [
         join(inviter ? `${inviter} invited you to join` : "You are invited to join", c.name ? `${c.name} on Storelib.` : "a community on Storelib."),
+        forEvent ? join("A free ticket", eventTitle ? `to ${eventTitle}` : "to their event", "is waiting for you. Accepting the invite books your seat.") : "",
         d.text("tagline", 160),
         until ? `The invite works until ${until}.` : "",
       ].filter(Boolean),
       facts: [["Community", c.name], ["Run by", c.creator]],
-      action: { label: "Accept the invite", path },
+      action: { label: forEvent ? "Accept and get the ticket" : "Accept the invite", path },
       note: "If you were not expecting this, you can ignore it. Nothing happens unless you accept.",
       greet: false,
       inApp: { title: "You are invited", body: c.name ? `Join ${c.name}.` : "You have an invite to a community.", actionLabel: "Open", actionPath: path },
@@ -1687,6 +1770,129 @@ const COMMUNITY_ENTRIES: Record<
       note: memberNote(c, "Learn emails"),
       greet: false,
       inApp: { title: "New program", body: course ? `${course} is open to you.` : "A new program is open to you.", actionLabel: "Start", actionPath: path },
+    }
+  },
+
+  /*
+    A TICKET FOR A PAID EVENT, to the person who bought it, the moment it is theirs (part 105). It is their receipt: the
+    event, when it is in their own zone when Storelib knows it, where, what they paid, this event's refund words and the
+    event as a calendar file. There is no second "you are going" email: this one says it.
+  */
+  COMMUNITY_EVENT_TICKET: (d, ctx) => {
+    const c = communityOf(d)
+    const title = d.text("eventTitle", 120)
+    const when = eventWhen(d)
+    const where = eventWhere(d)
+    const paid = d.money()
+    const path = eventPath(d, c)
+    return {
+      family: "transaction",
+      audience: "customer",
+      subject: fitSubject("Your ticket for ", title, "") || "Your ticket",
+      preview: when ? `You are going. ${when}.` : "You are going.",
+      heading: title ? `You are going to ${title}` : "You are going",
+      paragraphs: [
+        join(paid ? `You paid ${paid} for a ticket` : "Your ticket is booked", title ? `to ${title}` : "", c.name ? `in ${c.name}.` : "."),
+        when ? `It starts ${when}.` : "",
+        "The calendar file is attached, so it can sit in your calendar with everything else.",
+        d.bool("online") === true ? "The meeting link opens on the event page 15 minutes before it starts." : "",
+        d.text("refundPolicy", 600),
+      ].filter(Boolean),
+      facts: [["Event", title], ["When", when], ["Place", where], ["Paid", paid], ["Community", c.name]],
+      action: { label: "Open the event", path },
+      calendar: calendarFile(d, ctx, path),
+      greet: false,
+      inApp: { title: title ? `You are going to ${title}` : "You are going", body: when || (c.name ? `In ${c.name}.` : "Your seat is booked."), actionLabel: "Open", actionPath: path },
+    }
+  },
+
+  /*
+    A FREE TICKET THE PEOPLE RUNNING THE COMMUNITY GAVE THEM. The same facts as a receipt, with who invited them and
+    what a ticket costs instead of a price they paid, so it never reads like a charge.
+  */
+  COMMUNITY_EVENT_TICKET_INVITE: (d, ctx) => {
+    const c = communityOf(d)
+    const title = d.text("eventTitle", 120)
+    const when = eventWhen(d)
+    const where = eventWhere(d)
+    const inviter = d.text("inviterName", 40) || c.creator
+    const price = d.cents("priceCents")
+    const worth = price && price > 0 ? d.format(price) : ""
+    const path = eventPath(d, c)
+    return {
+      family: "success",
+      audience: "customer",
+      subject: fitSubject("You have a ticket for ", title, "") || "You have a ticket",
+      preview: inviter ? `${inviter} gave you a seat.` : "A seat is yours.",
+      heading: title ? `Your seat at ${title}` : "Your seat is booked",
+      paragraphs: [
+        join(inviter ? `${inviter} gave you a ticket` : "You were given a ticket", title ? `to ${title}` : "", c.name ? `in ${c.name}.` : ".", worth ? `A ticket costs ${worth}, and yours is free.` : ""),
+        d.text("message", 400),
+        when ? `It starts ${when}.` : "",
+        "The calendar file is attached, so it can sit in your calendar with everything else.",
+        d.bool("online") === true ? "The meeting link opens on the event page 15 minutes before it starts." : "",
+      ].filter(Boolean),
+      facts: [["Event", title], ["When", when], ["Place", where], ["Invited by", inviter], ["Community", c.name]],
+      action: { label: "Open the event", path },
+      calendar: calendarFile(d, ctx, path),
+      greet: false,
+      inApp: { title: title ? `A seat at ${title}` : "A seat is yours", body: when || (c.name ? `In ${c.name}.` : "Your seat is booked."), actionLabel: "Open", actionPath: path },
+    }
+  },
+
+  /*
+    MONEY BACK FOR ONE TICKET: what came back, that the seat is free again, and how long a card takes. Never sent for an
+    event that was called off, which says both things in one message below.
+  */
+  COMMUNITY_EVENT_REFUND: (d) => {
+    const c = communityOf(d)
+    const title = d.text("eventTitle", 120)
+    const back = d.money()
+    const own = d.bool("byHolder") === true
+    const path = eventPath(d, c)
+    return {
+      family: "transaction",
+      audience: "customer",
+      subject: fitSubject("Refunded: your ticket for ", title, "") || "Your ticket was refunded",
+      preview: back ? `${back} is on its way back.` : "Your ticket was refunded.",
+      heading: back ? `${back} is on its way back` : "Your ticket was refunded",
+      paragraphs: [
+        join(own ? "You gave up your seat" : "Your ticket was refunded", title ? `for ${title}` : "", c.name ? `in ${c.name}.` : ".", back ? `${back} goes back to the card you paid with.` : ""),
+        "Cards usually show it in five to ten days, depending on the bank.",
+        own ? "Your seat is open for somebody else now." : "",
+      ].filter(Boolean),
+      facts: [["Event", title], ["Refunded", back], ["Community", c.name]],
+      action: { label: "See the event", path },
+      greet: false,
+      inApp: { title: back ? `${back} refunded` : "Ticket refunded", body: title ? `For ${title}.` : "The money is on its way back.", actionLabel: "Open", actionPath: path },
+    }
+  },
+
+  /*
+    THE EVENT IS OFF. One message, which says it is cancelled AND that the money is coming back, so nobody holding a
+    ticket is sent two.
+  */
+  COMMUNITY_EVENT_CANCELLED: (d) => {
+    const c = communityOf(d)
+    const title = d.text("eventTitle", 120)
+    const when = eventWhen(d)
+    const back = d.money()
+    const path = eventPath(d, c)
+    return {
+      family: "transaction",
+      audience: "customer",
+      subject: fitSubject("Cancelled: ", title, "") || "An event was cancelled",
+      preview: back ? `It is off, and ${back} is coming back.` : "The event is off.",
+      heading: title ? `${title} is cancelled` : "The event is cancelled",
+      paragraphs: [
+        join(title ? `${title} is not going ahead` : "The event is not going ahead", c.name ? `in ${c.name}.` : ".", when ? `It was set for ${when}.` : ""),
+        back ? `${back} goes back to the card you paid with. Cards usually show it in five to ten days, depending on the bank.` : "",
+        "Nothing else is needed from you.",
+      ].filter(Boolean),
+      facts: [["Event", title], ["Was", when], ["Coming back", back], ["Community", c.name]],
+      action: { label: "See what else is on", path: c.slug ? PATHS.community(c.slug, "/events") : c.home },
+      greet: false,
+      inApp: { title: title ? `${title} is cancelled` : "An event is cancelled", body: back ? `${back} is coming back.` : "It is not going ahead.", actionLabel: "Open", actionPath: path },
     }
   },
 

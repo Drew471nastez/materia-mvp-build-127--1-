@@ -22,6 +22,11 @@ import "server-only"
  *   BIG EVENTS. 200 people a page by user id; out of time, it carries on
  *   from where it was in the next run. When every page is done the event's
  *   reminder_24h_at or reminder_1h_at says so.
+ *   A PAID EVENT (run-now part 105) reminds its TICKET HOLDERS and nobody
+ *   else: the page of people going is checked against the tickets, so a
+ *   refunded or cancelled ticket is told nothing. A free event, and any
+ *   event on a database that has not run part 105, reminds everyone going,
+ *   exactly as today.
  */
 import { wantsNotification } from "../../permissions"
 import { eventTime } from "../../format"
@@ -32,6 +37,7 @@ import { sendCommunityEmail } from "../email"
 import type { JobContext, JobOutcome } from "./index"
 import { emailAllowed } from "@/lib/notify/email-budget"
 import { carryPushes, communityPushItem, pushFanout, type PushItem } from "@/lib/notifications/push-bridge"
+import { eventIsPaid, liveTicketHolders } from "./event_ticket_notify"
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 export const REMINDER_PAGE = 200
@@ -78,6 +84,8 @@ export async function eventReminder(db: Db, job: JobRow, ctx: JobContext): Promi
 
   const path = `/community/${c.slug}/events/${e.id}`
   const when = eventTime(e.starts_at, e.ends_at, { timeZone: e.timezone || undefined })
+  /* A ticket is what a paid event's reminder follows; a free event reminds everyone who said they are going. */
+  const paid = await eventIsPaid(db, e.id)
   let after = cursor
   for (;;) {
     let q = db.from("community_event_rsvps").select("user_id").eq("event_id", e.id).eq("status", "going").order("user_id", { ascending: true }).limit(REMINDER_PAGE)
@@ -87,9 +95,11 @@ export async function eventReminder(db: Db, job: JobRow, ctx: JobContext): Promi
     const ids = ((rsvps as { user_id: string }[] | null) ?? []).map((r) => r.user_id)
     if (ids.length === 0) break
 
+    /* A paid event: only the people whose ticket is still live. Null means the tickets cannot be read, and everyone going is reminded. */
+    const holders = paid ? await liveTicketHolders(db, e.id, ids) : null
     const { data: members } = await db.from("community_members").select("user_id, status, notify_level, email_events").eq("community_id", c.id).in("user_id", ids)
     const wanted = ((members as { user_id: string; status: string; notify_level: NotifyLevel; email_events: boolean }[] | null) ?? []).filter(
-      (m) => m.status === "active" && wantsNotification(m.notify_level, "event_reminder"),
+      (m) => m.status === "active" && wantsNotification(m.notify_level, "event_reminder") && (!holders || holders.has(m.user_id)),
     )
     const notices = wanted.map((m) => ({ userId: m.user_id, title: reminderTitle(window, e.title), body: when, url: path, dedupeKey: `event_reminder:${e.id}:${window}:${e.starts_at}:${m.user_id}` }))
     const fresh = await bulkNotify(db, c.id, "event_reminder", { type: "event", id: e.id }, notices)

@@ -398,6 +398,8 @@ export async function sendMailgunOnce(
   for (const [key, value] of Object.entries(options.headers ?? {})) form.append(`h:${key}`, value)
   for (const tag of options.tags ?? []) form.append("o:tag", tag)
   for (const [key, value] of Object.entries(options.metadata ?? {})) form.append(`v:${key}`, value)
+  /* Files the message carries, the same way sendMailgunEmail does: a ticket receipt's calendar file. */
+  for (const file of options.attachments ?? []) form.append("attachment", new Blob([file.content as BlobPart], { type: file.contentType }), file.filename)
 
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)

@@ -36,15 +36,20 @@ import "server-only"
  * those at Everything), and queueReportDigest plans the one email a day each
  * moderator gets about new reports (jobs/report_digest.ts).
  *
+ * TICKETS SOLD ARE GROUPED TOO (notifyTicketSale): whoever runs the
+ * community hears "4 tickets for Darkroom night" once per window, never one
+ * row per sale, and nothing at all for a free event.
+ *
  * SO DO PROGRAMS, EVENT CHANGES AND THE WEEKLY DIGEST: notifyProgramPublished
  * (Learn calls it), notifyEventChanged (the event editor calls it) and
  * scheduleWeeklyDigest (account settings), each once per key.
  */
 import { wantsNotification } from "../permissions"
+import { formatMoney } from "../membership-policy"
 import { JOB_COLUMNS, type JobKind, type JobRow, type NotificationKind, type NotifyLevel } from "../types"
 import { missing, nowIso, reasonOf, type Db } from "./db"
 import type { JobOutcome } from "./jobs/index"
-import { pushCommunityRow, pushSoon } from "@/lib/notifications/push-bridge"
+import { pushCommunityRow, pushSoon, type PushKind } from "@/lib/notifications/push-bridge"
 import { reportDigestKey, reportDigestPlan } from "@/lib/notifications/report-digest"
 
 export interface NotifyInput {
@@ -58,6 +63,13 @@ export interface NotifyInput {
   url: string
   /** Once per key: "reply:<commentId>:<userId>". A like is grouped instead (likeKey). */
   dedupeKey: string
+  /**
+   * What this is on a phone, when that is not the bell row's own kind: a
+   * ticket for a paid event is an "event" row (the only kind the table
+   * allows for an event) and a "ticket" push, so it reaches them at once
+   * and is never held by the daily cap (lib/notifications/push-bridge.ts).
+   */
+  pushKind?: PushKind
   /** For tests: the time a like is grouped by. */
   now?: number
 }
@@ -135,7 +147,7 @@ export async function notifyMember(db: Db, n: NotifyInput): Promise<NotifyOutcom
       pushCommunityRow(db, {
         userId: n.userId,
         communityId: n.communityId,
-        kind: n.kind,
+        kind: n.pushKind ?? n.kind,
         actorId: n.actorId ?? null,
         title: (n.title || "").trim().slice(0, 200) || "Community update",
         body: n.body ? n.body.trim().slice(0, 500) : null,
@@ -201,6 +213,103 @@ async function notifyLike(db: Db, n: NotifyInput, level: NotifyLevel | null): Pr
     pushCommunityRow(db, { userId: n.userId, communityId: n.communityId, kind: "reaction", actorId: n.actorId ?? null, title, body: n.body ? n.body.trim().slice(0, 500) : null, url: n.url, dedupeKey: key, level }),
   )
   return "sent"
+}
+
+/* ── Tickets sold, grouped for whoever runs the community ─────────────── */
+
+/**
+ * TICKETS ARE GROUPED, the way likes are. A bell row per ticket would be
+ * noise on a busy workshop, so the first ticket of a window writes "1 ticket
+ * for Darkroom night" and every ticket after it in the same window rewrites
+ * that row with the count and what came in, marks it unread again and moves
+ * it to the top. The count and the money are the event's own paid tickets in
+ * the window, read once, so nothing here is an estimate. A free event sells
+ * nothing and says nothing.
+ */
+export const SALES_WINDOW_MS = LIKE_WINDOW_MS
+
+/** The row a sale joins: one per person told, event and window. */
+export function ticketSalesKey(userId: string, eventId: string, now: number): string {
+  return `ticket_sales:${eventId}:${userId}:${Math.floor(now / SALES_WINDOW_MS)}`
+}
+
+/** "1 ticket for Darkroom night", then "4 tickets for Darkroom night". */
+export function ticketSalesTitle(count: number, eventTitle: string): string {
+  const n = Math.max(1, Math.floor(count))
+  return `${n} ${n === 1 ? "ticket" : "tickets"} for ${eventTitle || "your event"}`.slice(0, 200)
+}
+
+export interface TicketSaleInput {
+  communityId: string
+  /** Whoever hears it: the community's owner. */
+  userId: string
+  eventId: string
+  eventTitle: string
+  /** The buyer, who is never told about their own ticket. */
+  buyerId?: string | null
+  currency?: string | null
+  /** For tests: the time the window is counted from. */
+  now?: number
+}
+
+/** The window's paid tickets for one event, and what they came to. */
+async function salesInWindow(db: Db, eventId: string, sinceIso: string): Promise<{ count: number; cents: number } | null> {
+  const { data, error } = await db.from("community_event_tickets").select("amount_cents").eq("event_id", eventId).eq("status", "paid").gte("paid_at", sinceIso).limit(500)
+  if (error) {
+    if (!missing(error)) console.error(`[communities] ticket sales read: ${reasonOf(error)}`)
+    return null
+  }
+  const rows = (data as { amount_cents: number | null }[] | null) ?? []
+  return { count: rows.length, cents: rows.reduce((sum, r) => sum + (typeof r.amount_cents === "number" ? r.amount_cents : 0), 0) }
+}
+
+export async function notifyTicketSale(db: Db, s: TicketSaleInput): Promise<NotifyOutcome> {
+  if (!s.userId || s.buyerId === s.userId) return "skipped"
+  const now = s.now ?? Date.now()
+  try {
+    const { data: member, error: memberError } = await db.from("community_members").select("status, notify_level").eq("community_id", s.communityId).eq("user_id", s.userId).maybeSingle()
+    if (memberError) {
+      if (missing(memberError)) return "unavailable"
+      throw memberError
+    }
+    if (!member || member.status !== "active") return "skipped"
+    const level = (member.notify_level as NotifyLevel | null) ?? null
+    if (!wantsNotification(level, "event")) return "skipped"
+
+    const key = ticketSalesKey(s.userId, s.eventId, now)
+    const sinceIso = new Date(Math.floor(now / SALES_WINDOW_MS) * SALES_WINDOW_MS).toISOString()
+    const url = `/app/community/${s.communityId}/events`
+    const { data, error } = await db
+      .from("community_notifications")
+      .upsert(
+        { user_id: s.userId, community_id: s.communityId, kind: "event", actor_id: null, target_type: "event", target_id: s.eventId, title: ticketSalesTitle(1, s.eventTitle), body: null, url, dedupe_key: key },
+        { onConflict: "dedupe_key", ignoreDuplicates: true },
+      )
+      .select("id")
+    if (error) {
+      if (missing(error)) return "unavailable"
+      throw error
+    }
+    const sold = await salesInWindow(db, s.eventId, sinceIso)
+    const count = Math.max(1, sold?.count ?? 1)
+    const title = ticketSalesTitle(count, s.eventTitle)
+    const body = sold && sold.cents > 0 ? formatMoney(sold.cents, s.currency || "usd") : null
+    if (!(Array.isArray(data) && data.length > 0)) {
+      /* A ticket went in this window before: the row says how many now, and is unread again. */
+      const { error: updateError } = await db.from("community_notifications").update({ title, body, read_at: null, created_at: new Date(now).toISOString() }).eq("dedupe_key", key)
+      if (updateError) {
+        if (missing(updateError)) return "unavailable"
+        throw updateError
+      }
+    } else if (body) {
+      await db.from("community_notifications").update({ body }).eq("dedupe_key", key)
+    }
+    await pushSoon(() => pushCommunityRow(db, { userId: s.userId, communityId: s.communityId, kind: "ticket_sale", title, body, url, dedupeKey: key, level }))
+    return "sent"
+  } catch (e) {
+    console.error(`[communities] ticket sale notice ${s.eventId}: ${reasonOf(e)}`)
+    return "unavailable"
+  }
 }
 
 /* ── New posts and reports, through the queue ──────────────────────────── */

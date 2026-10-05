@@ -433,6 +433,7 @@ const SUITES = [
   "tests/communities-paid-events.test.ts",
   "tests/communities-notify-budget.test.ts",
   "tests/communities-video13.test.ts",
+  "tests/communities-events-notify.test.ts",
   "tests/profiles-follows.test.ts",
   "tests/profile-one-page.test.ts",
   "tests/profile-seo-round12.test.ts",

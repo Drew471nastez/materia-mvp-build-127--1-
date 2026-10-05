@@ -72,6 +72,11 @@ export const DOMAIN_EVENTS = [
   "community.course_available",
   "community.join_approved",
   "community.report_digest",
+  /* A ticket for a paid event (part 105): the receipt, a free invite, a refund, and an event called off with the money coming back. */
+  "community.event_ticket",
+  "community.event_ticket_invite",
+  "community.event_refund",
+  "community.event_cancelled",
   /* The weekly digest a member asked for in Settings, one per account a week across their communities (lib/communities/server/jobs/weekly_digest.ts). */
   "community.weekly_digest",
   "domain.connected",
@@ -189,6 +194,11 @@ export const NOTIFICATION_TYPES = [
   "COMMUNITY_ANNOUNCEMENT",
   "COMMUNITY_EVENT_REMINDER",
   "COMMUNITY_COURSE_AVAILABLE",
+  /* A ticket for a paid event: the receipt with the calendar file, a free invite, a refund, and the event called off with the money on its way. */
+  "COMMUNITY_EVENT_TICKET",
+  "COMMUNITY_EVENT_TICKET_INVITE",
+  "COMMUNITY_EVENT_REFUND",
+  "COMMUNITY_EVENT_CANCELLED",
   /* The day's new reports in a community, to each of its moderators: at most one a day (lib/notifications/report-digest.ts). */
   "COMMUNITY_REPORT_DIGEST",
   /* The week in the person's communities, only when they asked for it in Settings (lib/communities/server/jobs/weekly_digest.ts). */
@@ -357,6 +367,15 @@ export interface OutgoingEmail {
   variables?: Record<string, string>
   /** A Message-Id this delivery keeps across retries. */
   messageId?: string
+  /** Files sent with the message. Today only a calendar file, drawn by the template from the job's own data. */
+  attachments?: EmailFile[]
+}
+
+/** A file an email carries. `content` is the bytes, ready for the provider. */
+export interface EmailFile {
+  filename: string
+  content: Uint8Array
+  contentType: string
 }
 
 export interface EmailProvider {
@@ -380,6 +399,8 @@ export interface RenderedEmail {
   fromName?: string | null
   /** Where a reply goes: the seller's support inbox when they have one. Null leaves Storelib's. */
   replyTo?: string | null
+  /** What the email carries beside its words: the event's .ics on a ticket receipt. */
+  attachments?: EmailFile[]
 }
 
 export interface TemplateContext {

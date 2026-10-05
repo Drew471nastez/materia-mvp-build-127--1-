@@ -12,6 +12,12 @@
  *   community.announcement       COMMUNITY_ANNOUNCEMENT, once per announcement and member
  *   community.event_reminder     COMMUNITY_EVENT_REMINDER, once per event, reminder and member
  *   community.course_available   COMMUNITY_COURSE_AVAILABLE, once per course and member
+ *   community.event_ticket       COMMUNITY_EVENT_TICKET, the receipt for one ticket, with the event
+ *                                as a calendar file
+ *   community.event_ticket_invite COMMUNITY_EVENT_TICKET_INVITE, a free ticket staff gave them
+ *   community.event_refund       COMMUNITY_EVENT_REFUND, what came back for one ticket
+ *   community.event_cancelled    COMMUNITY_EVENT_CANCELLED, the event is off and the money is on its way,
+ *                                said once, never beside a refund email
  *   community.report_digest      COMMUNITY_REPORT_DIGEST, once per moderator, community and day,
  *                                to the person (a creator template: it opens /app)
  *   community.weekly_digest      COMMUNITY_WEEKLY_DIGEST, once per person and week, to the person
@@ -35,6 +41,10 @@ const TYPE_OF: Partial<Record<string, NotificationType>> = {
   "community.announcement": "COMMUNITY_ANNOUNCEMENT",
   "community.event_reminder": "COMMUNITY_EVENT_REMINDER",
   "community.course_available": "COMMUNITY_COURSE_AVAILABLE",
+  "community.event_ticket": "COMMUNITY_EVENT_TICKET",
+  "community.event_ticket_invite": "COMMUNITY_EVENT_TICKET_INVITE",
+  "community.event_refund": "COMMUNITY_EVENT_REFUND",
+  "community.event_cancelled": "COMMUNITY_EVENT_CANCELLED",
   "community.report_digest": "COMMUNITY_REPORT_DIGEST",
   "community.weekly_digest": "COMMUNITY_WEEKLY_DIGEST",
 }

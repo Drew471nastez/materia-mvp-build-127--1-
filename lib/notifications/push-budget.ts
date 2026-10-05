@@ -17,7 +17,8 @@
  *                 an hour from now when that has passed, never inside quiet
  *                 hours. What is addressed to them (a mention, a reply, a
  *                 direct message, their membership, a message from the
- *                 admins) still goes, and counts.
+ *                 admins) still goes, and counts. So does a ticket for a
+ *                 paid event: their seat and their money.
  *
  * Pushes sent are counted in rate_limit_hits (bucket PUSH_DAY_BUCKET, one
  * row per push, subject the person), kept two days by the sweep in
@@ -36,7 +37,7 @@ export const LATE_HOUR = 22
 export const MORNING_HOUR = 8
 
 /** Kinds addressed to the person: they still go past the cap. */
-export const CAP_EXEMPT_KINDS: readonly string[] = ["mention", "reply", "dm", "membership", "admin_message"]
+export const CAP_EXEMPT_KINDS: readonly string[] = ["mention", "reply", "dm", "membership", "admin_message", "ticket"]
 
 const MINUTE = 60_000
 const DAY_MINUTES = 1440
