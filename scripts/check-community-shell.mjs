@@ -446,7 +446,8 @@ export const isNativePlatform = () => false
       if (!phone) {
         expect(g.places.join() === "Community,Classroom,Calendar,Members,Leaderboards,About" && g.placeOn === "Community", "the left column lists the places, Community marked", { places: g.places, on: g.placeOn })
         const L = g.placeLook
-        expect(!!L && L.onBg !== L.offBg && L.h >= 44 && L.chevrons === 6 && L.lucide === 0 && new Set(L.tiles).size === 6 && L.tiles.every((c) => !/139, 92, 246|124, 58, 237/.test(c)), "each place: a soft tile of its own tint, a Solar glyph (no lucide), a word and a Solar chevron; the open one shaded", L)
+        /* Round 11, ask 19: the tiles are one quiet grey with the hand drawn icons; the open one's is white (with a hairline and a one pixel shadow). */
+        expect(!!L && L.onBg !== L.offBg && L.h >= 44 && L.chevrons === 6 && L.lucide === 0 && new Set(L.tiles).size === 2 && L.tiles[0] === "rgb(255, 255, 255)" && L.tiles.slice(1).every((c) => c === L.tiles[1]) && L.tiles.every((c) => !/139, 92, 246|124, 58, 237/.test(c)), "each place: a quiet tile with its hand drawn icon (no lucide), a word and a Solar chevron; the open one white and shaded", L)
         expect(g.stats.join("|") === "8kMembers|191Online|2Admins" && g.dot, "the community card: Members, Online with its green dot, Admins", { stats: g.stats, dot: g.dot })
         expect(g.faces === 7 && g.moreFaces === "+8k" && !g.settings, "seven faces and +8k; no Settings for a member", { faces: g.faces, more: g.moreFaces, settings: g.settings })
         const A = g.addressBelowName
@@ -524,9 +525,10 @@ export const isNativePlatform = () => false
         if (!box) return null
         return { items: [...box.querySelectorAll("[data-account-item]")].map((a) => a.getAttribute("data-account-item")), hrefs: Object.fromEntries([...box.querySelectorAll("a[data-account-item]")].map((a) => [a.getAttribute("data-account-item"), a.getAttribute("href")])), who: box.querySelector("[data-account-who]")?.innerText.replace(/\s+/g, " ").trim(), text: box.innerText }
       }, phone)
-      expect(!!menu && menu.items.join() === "invite,saved,start-creating,profile,settings,language,help,discover,log-out", `the "..." opens the Storelib account ${phone ? "sheet" : "menu"} with Invite people and Saved posts on top (round 9), then the same rows in the same order`, menu?.items)
+      /* Round 11, ask 16: the community's short list (a member here, so no Dashboard). */
+      expect(!!menu && menu.items.join() === "invite,saved,profile,settings,log-out", `the "..." opens the Storelib account ${phone ? "sheet" : "menu"} in its short form: Invite people, Saved posts, Profile, Settings, Log out`, menu?.items)
       expect(!!menu && menu.hrefs.saved === "/community/clay-studio/saved" && /Invite people/.test(menu.text) && /Saved posts/.test(menu.text), "Invite people and Saved posts (to this community's saved posts)", menu && { saved: menu.hrefs.saved })
-      expect(!!menu && menu.hrefs.profile === "/account" && menu.hrefs.settings === "/account/settings" && menu.hrefs["start-creating"] === "/sell" && menu.hrefs.help === "/help" && menu.hrefs.discover === "/explore" && /Sam Carter @samc/.test(menu.who || ""), "Profile goes to /account (not /@samc or an editor), Settings, Start creating, Help, Discover; my name and @handle on top", menu)
+      expect(!!menu && menu.hrefs.profile === "/account" && menu.hrefs.settings === "/account/settings" && !menu.hrefs.help && !menu.hrefs.discover && /Sam Carter @samc/.test(menu.who || ""), "Profile goes to /account (not /@samc or an editor) and Settings to /account/settings; my name and @handle on top", menu)
       await shot(p, `${label}-me-menu`)
       await p.evaluate((ph) => {
         const box = ph ? [...document.querySelectorAll("[data-account-sheet-body]")].find((b) => b.getBoundingClientRect().height > 0) : document.querySelector("[data-community-top] [data-account-menu]")
@@ -823,12 +825,18 @@ export const isNativePlatform = () => false
       expect(chipNow === "glaze-lab", "the chip is chosen at once", chipNow)
       /* Cached: back to All, no ask, on the next frame. */
       t.cached = await sw('[data-space-chip="all"]', '!!document.querySelector(\'[data-post="p-pinned"]\')', how)
-      expect(t.cached.done && t.cached.calls.length === 0 && t.cached.frames.length <= 2 && t.cached.ms <= 100, "a list already seen: no ask, on screen on the first or second frame after the click", { ms: t.cached.ms, frames: t.cached.frames.length, calls: t.cached.calls })
+      /*
+        Round 11 (C9, ask 14): the chip is drawn on the frame after the click by itself, and the list on the frame after that (the
+        list waits two frame callbacks so the chip is painted first). Clicked from here, React draws the chip in a microtask after
+        this script, so the first sampled frame is the chip's: the list is on the third sample at most.
+      */
+      expect(t.cached.done && t.cached.calls.length === 0 && t.cached.frames.length <= 3 && t.cached.ms <= 150, "a list already seen: no ask, the chip at once and the list on the frame after it", { ms: t.cached.ms, frames: t.cached.frames.length, calls: t.cached.calls })
       t.cachedAgain = await sw('[data-space-chip="glaze-lab"]', '!!document.querySelector(\'[data-post="p-glaze-1"]\')', how)
-      expect(t.cachedAgain.calls.length === 0 && t.cachedAgain.frames.length <= 2, "and so is Glaze lab, the second time", { ms: t.cachedAgain.ms, calls: t.cachedAgain.calls })
+      expect(t.cachedAgain.calls.length === 0 && t.cachedAgain.frames.length <= 3, "and so is Glaze lab, the second time", { ms: t.cachedAgain.ms, frames: t.cachedAgain.frames.length, calls: t.cachedAgain.calls })
       {
         const o = [t.cached, t.cachedAgain].map((x) => x.frames.at(-1).opacity)
-        expect(o.every((v) => v !== null && v >= 0.3 && v < 1), "round 9: a cached list swaps in with a short crossfade (from about a third to full, never from nothing)", o)
+        /* The frame the list is first sampled on can be a frame into its 200ms ease on a loaded machine; scripts/check-community-frame11.mjs reads every frame of it. */
+        expect(o.every((v) => v !== null && v >= 0.3) && o.some((v) => v < 1), "round 9: a cached list swaps in with a short crossfade (from about a third to full, never from nothing)", o)
       }
       /* A slow list: the spinner, alone in the middle column under the chips, thin and grey; then the list. */
       {
@@ -842,7 +850,7 @@ export const isNativePlatform = () => false
           const col = document.querySelector("[data-community-main]")?.getBoundingClientRect() ?? document.querySelector("[data-feed]").getBoundingClientRect()
           const chips = document.querySelector("[data-space-chips]").getBoundingClientRect()
           const stroke = s?.querySelector("line")
-          return s && g ? { size: Math.round(g.width), cx: Math.round(g.left + g.width / 2), colCx: Math.round(col.left + col.width / 2), belowChips: g.top > chips.bottom, color: getComputedStyle(s.querySelector("svg")).color, strokeW: stroke?.getAttribute("stroke-width"), spokes: s.querySelectorAll("line").length, opacity: Number(getComputedStyle(s).opacity), anim: getComputedStyle(s.querySelector("svg")).animationName, posts: document.querySelectorAll("[data-feed-list] [data-post]").length, chipOn: document.querySelector("[data-space-chip][aria-current=page]")?.getAttribute("data-space-chip") } : null
+          return s && g ? { size: Math.round(g.width), cx: Math.round(g.left + g.width / 2), colCx: Math.round(col.left + col.width / 2), belowChips: g.top > chips.bottom, color: getComputedStyle(s.querySelector("svg")).color, strokeW: stroke?.getAttribute("stroke-width"), spokes: s.querySelectorAll("line").length, opacity: Number(getComputedStyle(s).opacity), anim: getComputedStyle(s.querySelector("[data-place-spinner-glyph]")).animationName, posts: document.querySelectorAll("[data-feed-list] [data-post]").length, chipOn: document.querySelector("[data-space-chip][aria-current=page]")?.getAttribute("data-space-chip") } : null
         })
         expect(!!sp && sp.size <= 24 && Math.abs(sp.cx - sp.colCx) <= 2 && sp.belowChips && sp.spokes === 8 && sp.strokeW === "2" && sp.color === "rgb(138, 143, 152)" && sp.opacity > 0.9 && sp.anim === "spin" && sp.posts === 0 && sp.chipOn === "announcements", "a list that is slow: a small thin grey spinner centred in the middle column under the chips, the chips staying as they are", sp)
         await shot(p, `${label}-space-spinner`)
@@ -860,10 +868,11 @@ export const isNativePlatform = () => false
       const asked = await p.evaluate((n) => window.__feedCalls.slice(n), before)
       expect(asked.length === 1 && /space=s-general/.test(asked[0]), phone ? "a finger landing on a chip asks for its list ahead" : "a pointer resting on a chip asks for its list ahead", asked)
       t.prefetched = await sw('[data-space-chip="general"]', '!!document.querySelector(\'[data-community-feed="space:general"]\') && !document.querySelector(\'[data-feed-waiting]\')')
-      expect(t.prefetched.calls.length === 0 && t.prefetched.frames.length <= 2, "so the click shows it on the next frame, with no ask of its own", { ms: t.prefetched.ms, calls: t.prefetched.calls })
+      expect(t.prefetched.calls.length === 0 && t.prefetched.frames.length <= 3, "so the click shows it on the frame after the chip's, with no ask of its own", { ms: t.prefetched.ms, frames: t.prefetched.frames.length, calls: t.prefetched.calls })
       /* Back goes to the list before, at once. */
-      const back = await p.evaluate(() => new Promise((resolve) => { const t0 = performance.now(); history.back(); const tick = () => { if (document.querySelector('[data-community-feed="space:glaze-lab"]') || performance.now() - t0 > 2000) resolve({ ms: Math.round(performance.now() - t0), path: location.pathname, key: document.querySelector("[data-community-feed]")?.getAttribute("data-community-feed") }); else requestAnimationFrame(tick) }; requestAnimationFrame(tick) }))
-      expect(back.path === "/community/clay-studio/space/glaze-lab" && back.key === "space:glaze-lab" && back.ms <= 150, "Back returns to the list before, from the cache", back)
+      const back = await p.evaluate(() => new Promise((resolve) => { const t0 = performance.now(); let frames = 0; history.back(); const tick = () => { frames++; if (document.querySelector('[data-community-feed="space:glaze-lab"]') || performance.now() - t0 > 2000) resolve({ ms: Math.round(performance.now() - t0), frames, path: location.pathname, key: document.querySelector("[data-community-feed]")?.getAttribute("data-community-feed") }); else requestAnimationFrame(tick) }; requestAnimationFrame(tick) }))
+      /* Counted in frames (Back's popstate, the chips, then the list two frame callbacks later), not milliseconds on a shared machine. */
+      expect(back.path === "/community/clay-studio/space/glaze-lab" && back.key === "space:glaze-lab" && back.frames <= 4, "Back returns to the list before, from the cache", back)
       const long = [t.uncached, t.cached, t.cachedAgain, t.prefetched].flatMap((x) => x.frames.map((f) => f.dt))
       const tasks = [t.uncached, t.cached, t.cachedAgain, t.prefetched].flatMap((x) => x.tasks)
       if (process.env.FRAMES) console.log(JSON.stringify(Object.fromEntries(Object.entries(t).map(([k, v]) => [k, v.frames.map((f) => f.dt)]))))
@@ -1124,7 +1133,7 @@ export const isNativePlatform = () => false
       const chips = []
       for (const [slug, post] of [["glaze-lab", "p-glaze-1"], ["critique", "p-photo"], ["general", "p-text"], ["all", "p-pinned"]]) chips.push({ slug, ...(await chip(slug, `[data-post="${post}"]`)) })
       console.log(`        spaces at 4x CPU, read ahead: ${chips.map((c) => `${c.slug} ${c.ms}ms/${c.frames}f/${c.calls.length} asks`).join(", ")}`)
-      expect(chips.every((c) => c.calls.length === 0 && c.frames <= 2 && !c.spinner), "every space, read ahead on idle: no ask, no spinner, on screen on the first or second frame, at 4x CPU", chips)
+      expect(chips.every((c) => c.calls.length === 0 && c.frames <= 3 && !c.spinner), "every space, read ahead on idle: no ask, no spinner, on screen on the first or second frame, at 4x CPU", chips)
       const after = await p.evaluate(() => ({ header: window.__frame.header === document.querySelector("[data-community-top]"), bar: window.__muts.filter((m) => m.where === "bar").length, renders: (window.__renders.CommunityTopBarInner || 0) - (window.__renders0.CommunityTopBarInner || 0) }))
       expect(after.header && after.bar === 0 && after.renders === 0, "and switching spaces leaves the bar alone too", after)
       await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })

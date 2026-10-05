@@ -129,7 +129,7 @@ export function MembersDirectory({ communityId, slug, memberCount, initial, meId
               onClick={() => setFilter(f.key)}
               aria-pressed={filter === f.key}
               data-member-filter={f.key}
-              className={`h-9 touch-manipulation whitespace-nowrap rounded-[9px] px-3.5 text-[13.5px] font-medium outline-none transition-[background-color,color,box-shadow] duration-150 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 motion-reduce:transition-none ${filter === f.key ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.08),0_0_0_0.5px_rgba(16,24,40,0.06)]" : "text-[#6b7280] hover:text-[#1a1a2e] active:text-[#1a1a2e]"}`}
+              className={`h-10 touch-manipulation whitespace-nowrap rounded-[9px] sm:h-9 px-3.5 text-[13.5px] font-medium outline-none transition-[background-color,color,box-shadow] duration-150 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 motion-reduce:transition-none ${filter === f.key ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.08),0_0_0_0.5px_rgba(16,24,40,0.06)]" : "text-[#6b7280] hover:text-[#1a1a2e] active:text-[#1a1a2e]"}`}
             >
               {f.label}
             </button>

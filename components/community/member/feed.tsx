@@ -176,7 +176,8 @@ export function CommunityFeed({ communityId, slug, viewer, spaces, start, initia
   const target = useMemo(() => targetFromId(targetId), [targetId])
   const [list, setList] = useState({ id: targetId, sort })
   const behind = list.id !== targetId || list.sort !== sort
-  useEffect(() => {
+  /* A layout effect, so the first frame callback is asked for before the chip's frame is painted: the list lands on the frame after it, never two. */
+  useLayoutEffect(() => {
     if (!behind) return
     const next = { id: targetId, sort }
     if (typeof requestAnimationFrame !== "function" || document.visibilityState !== "visible") return setList(next)
