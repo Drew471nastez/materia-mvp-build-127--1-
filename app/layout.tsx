@@ -59,6 +59,7 @@ import { NativePlaceKeeper } from "@/components/platform/native-place-keeper"
 import { NativeChrome } from "@/components/platform/native-chrome"
 import { EdgeSwipeBack } from "@/components/platform/edge-swipe-back"
 import { NativePushInit } from "@/components/native-push-init"
+import { NotificationsAsk } from "@/components/platform/notifications-ask"
 import { SWITCH_FIRST_PAINT_SCRIPT } from "@/lib/businesses/switch-screen"
 import { EXPLORE_SCROLL_BOOT_SCRIPT } from "@/lib/explore/explore-scroll-boot"
 import { ExploreMarketplaceRoot } from "@/components/platform/explore-marketplace-root"
@@ -285,6 +286,8 @@ export default function RootLayout({
         {/* In the iPhone app only: a swipe from the left edge drags the page and goes back (lib/navigation/edge-swipe). */}
         <EdgeSwipeBack />
         <NativePushInit /> 
+        {/* After an install or a reinstall the phone has forgotten: ask once, in our own words, before the phone's prompt. */}
+        <NotificationsAsk />
         <CookieConsentBanner />
         {/*
           NativeOAuthBridge owns the appUrlOpen deep link on its own. It used to
