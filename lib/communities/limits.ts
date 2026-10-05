@@ -92,6 +92,8 @@ export const RATE_LIMITS = {
   search: [{ limit: 60, seconds: 60 }, { limit: 600, seconds: 3600 }],
   report: [{ limit: 10, seconds: 3600 }],
   invite: [{ limit: 50, seconds: 86400 }],
+  /** Confirming a ticket's payment and giving a seat up: money, so a few tries and no loop. */
+  ticket: [{ limit: 20, seconds: 600 }, { limit: 60, seconds: 86400 }],
 } as const satisfies Record<string, readonly RateWindowSpec[]>
 
 export type RateBucket = keyof typeof RATE_LIMITS

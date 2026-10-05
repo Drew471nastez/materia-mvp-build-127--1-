@@ -61,7 +61,8 @@ async function main() {
   /* ── Permissions ─────────────────────────────────────────────────────── */
   console.log("\nWho may do what")
   const memberSet: CommunityAction[] = ["view", "post", "comment", "react", "chat", "upload", "report"]
-  const moderatorSet: CommunityAction[] = [...memberSet, "moderate_content", "pin", "lock", "mute", "suspend", "ban", "remove_member", "approve_member", "review_reports", "view_audit"]
+  /* Round 14 added pricing events and refunding tickets, on for a moderator by default because the owner asked for moderators too. */
+  const moderatorSet: CommunityAction[] = [...memberSet, "moderate_content", "pin", "lock", "mute", "suspend", "ban", "remove_member", "approve_member", "review_reports", "view_audit", "price_events", "refund_tickets"]
   const ownerOnly: CommunityAction[] = ["transfer_ownership", "delete", "manage_pricing"]
   check("the owner may do everything", COMMUNITY_ACTIONS.every((a) => can("owner", a)))
   check("an admin may do everything but transfer, delete and pricing", COMMUNITY_ACTIONS.every((a) => can("admin", a) === !ownerOnly.includes(a)))
