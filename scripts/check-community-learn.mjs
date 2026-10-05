@@ -236,7 +236,7 @@ for (const [label, vp, phone] of VIEWPORTS) {
     const { p, errors, calls } = await open(label, vp, "checkout")
     await p.waitForSelector("[data-stripe-stub='form']", { timeout: 5000 }).catch(() => null)
     /* Until the sheet or the dialog has finished arriving. */
-    await p.waitForFunction(() => { const s = document.querySelector("[data-sheet-panel]"); return !s || getComputedStyle(s).position === "absolute" || new DOMMatrixReadOnly(getComputedStyle(s).transform).m42 === 0 }, { timeout: 3000 }).catch(() => null)
+    await p.waitForFunction(() => { const s = document.querySelector("[data-sheet-panel]"); return !s || getComputedStyle(s).position === "absolute" || Math.abs(s.getBoundingClientRect().bottom - innerHeight) < 1 }, { timeout: 3000 }).catch(() => null)
     await sleep(400)
     const g = await p.evaluate(() => {
       const box = document.querySelector("[data-program-checkout]")
