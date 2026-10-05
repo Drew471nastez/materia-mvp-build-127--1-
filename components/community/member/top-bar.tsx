@@ -230,7 +230,8 @@ function CommunityTopBarInner({ data, messages = null, messagesOpen = false, onM
               </span>
             </button>
           ) : null}
-          {me ? <NotificationBell className={BELL} /> : null}
+          {/* Half the screen at least on a phone (round 11): one notification is not a sliver of a sheet. */}
+          {me ? <NotificationBell className={BELL} sheetMin="50dvh" /> : null}
           {me ? <CommunityAccountMenu me={me} className="md:ml-1" onInvite={menu?.onInvite} savedHref={menu?.savedHref} /> : <LogInLink base={base} />}
         </div>
       </div>

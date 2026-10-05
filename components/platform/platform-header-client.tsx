@@ -345,6 +345,16 @@ export interface AccountExtraRow {
   onSelect?: () => void
 }
 
+/**
+ * WHICH OF STORELIB'S ROWS THE MENU CARRIES. "storelib", the header's own,
+ * is every row above. "community" is a community bar's short list (round 11:
+ * "fewer options, keep the essentials"): Profile, Settings, Dashboard for a
+ * seller, and Log out, under the community's own Invite people and Saved
+ * posts; Start creating, Language, Help and Discover stay in Storelib's
+ * header, where somebody who is not inside a community finds them.
+ */
+export type AccountRows = "storelib" | "community"
+
 const ACCOUNT_PANEL =
   "absolute right-0 top-full z-50 mt-2 w-[248px] origin-top-right rounded-xl bg-white p-1 text-left outline-none " +
   "shadow-[0_0_0_1px_rgba(15,23,42,0.06),0_2px_4px_-1px_rgba(15,23,42,0.06),0_16px_36px_-10px_rgba(15,23,42,0.2)] " +
@@ -364,6 +374,7 @@ export function DesktopAccountMenu({
   trigger = "photo",
   triggerClassName,
   extra,
+  rows = "storelib",
 }: {
   avatarUrl?: string
   name: string
@@ -383,6 +394,8 @@ export function DesktopAccountMenu({
   triggerClassName?: string
   /** Rows of the place's own, above Storelib's (AccountExtraRow). */
   extra?: AccountExtraRow[]
+  /** Which of Storelib's rows (AccountRows): all of them, or a community's short list. */
+  rows?: AccountRows
 }) {
   const pathname = usePathname()
   const { t } = useLocale()
@@ -509,7 +522,24 @@ export function DesktopAccountMenu({
               <div className="my-1 h-px bg-[#f0f1f3]" />
             </>
           ) : null}
-          {seller ? (
+          {rows === "community" ? (
+            <>
+              <Link {...go("/account")} role="menuitem" data-account-item="profile" className={ACCOUNT_ROW}>
+                <UserIcon aria-hidden className={icon} strokeWidth={1.75} />
+                Profile
+              </Link>
+              <Link {...go("/account/settings")} role="menuitem" data-account-item="settings" className={ACCOUNT_ROW}>
+                <Settings aria-hidden className={icon} strokeWidth={1.75} />
+                Settings
+              </Link>
+              {seller ? (
+                <Link {...go("/app")} role="menuitem" data-account-item="dashboard" className={ACCOUNT_ROW}>
+                  <LayoutDashboard aria-hidden className={icon} strokeWidth={1.75} />
+                  Dashboard
+                </Link>
+              ) : null}
+            </>
+          ) : seller ? (
             <Link {...go("/app")} role="menuitem" data-account-item="dashboard" className={ACCOUNT_ROW}>
               <LayoutDashboard aria-hidden className={icon} strokeWidth={1.75} />
               Dashboard
@@ -520,32 +550,36 @@ export function DesktopAccountMenu({
               Start creating
             </Link>
           )}
-          <Link {...go("/account")} role="menuitem" data-account-item="profile" className={ACCOUNT_ROW}>
-            <UserIcon aria-hidden className={icon} strokeWidth={1.75} />
-            Profile
-          </Link>
-          <Link {...go("/account/settings")} role="menuitem" data-account-item="settings" className={ACCOUNT_ROW}>
-            <Settings aria-hidden className={icon} strokeWidth={1.75} />
-            Settings
-          </Link>
-          <button
-            type="button"
-            role="menuitem"
-            data-account-item="language"
-            onClick={() => { setOpen(false); onLanguage() }}
-            className={ACCOUNT_ROW}
-          >
-            <Globe aria-hidden className={icon} strokeWidth={1.75} />
-            {t("settings.language")}
-          </button>
-          <Link {...go("/help")} role="menuitem" data-account-item="help" className={ACCOUNT_ROW}>
-            <LifeBuoy aria-hidden className={icon} strokeWidth={1.75} />
-            Help
-          </Link>
-          <Link {...go("/explore")} role="menuitem" data-account-item="discover" className={ACCOUNT_ROW}>
-            <Compass aria-hidden className={icon} strokeWidth={1.75} />
-            Discover
-          </Link>
+          {rows === "community" ? null : (
+            <>
+              <Link {...go("/account")} role="menuitem" data-account-item="profile" className={ACCOUNT_ROW}>
+                <UserIcon aria-hidden className={icon} strokeWidth={1.75} />
+                Profile
+              </Link>
+              <Link {...go("/account/settings")} role="menuitem" data-account-item="settings" className={ACCOUNT_ROW}>
+                <Settings aria-hidden className={icon} strokeWidth={1.75} />
+                Settings
+              </Link>
+              <button
+                type="button"
+                role="menuitem"
+                data-account-item="language"
+                onClick={() => { setOpen(false); onLanguage() }}
+                className={ACCOUNT_ROW}
+              >
+                <Globe aria-hidden className={icon} strokeWidth={1.75} />
+                {t("settings.language")}
+              </button>
+              <Link {...go("/help")} role="menuitem" data-account-item="help" className={ACCOUNT_ROW}>
+                <LifeBuoy aria-hidden className={icon} strokeWidth={1.75} />
+                Help
+              </Link>
+              <Link {...go("/explore")} role="menuitem" data-account-item="discover" className={ACCOUNT_ROW}>
+                <Compass aria-hidden className={icon} strokeWidth={1.75} />
+                Discover
+              </Link>
+            </>
+          )}
           <div className="my-1 h-px bg-[#f0f1f3]" />
           <button
             type="button"
@@ -580,6 +614,7 @@ export function AccountSheet({
   onLanguage,
   onLogout,
   extra,
+  rows = "storelib",
 }: {
   open: boolean
   onClose: () => void
@@ -593,6 +628,8 @@ export function AccountSheet({
   onLogout: () => void
   /** Rows of the place's own, above Storelib's (AccountExtraRow). */
   extra?: AccountExtraRow[]
+  /** Which of Storelib's rows (AccountRows): all of them, or a community's short list. */
+  rows?: AccountRows
 }) {
   const { t } = useLocale()
   return (
@@ -632,16 +669,26 @@ export function AccountSheet({
               <div aria-hidden className="my-1.5 h-px bg-neutral-100" data-account-extra-rule="" />
             </>
           ) : null}
-          {seller ? (
-            <SheetRow {...link("/app")} onDone={onClose} item="dashboard" icon={LayoutDashboard} label="Dashboard" />
+          {rows === "community" ? (
+            <>
+              <SheetRow {...link("/account")} onDone={onClose} item="profile" icon={UserIcon} label="Profile" />
+              <SheetRow {...link("/account/settings")} onDone={onClose} item="settings" icon={Settings} label="Settings" />
+              {seller ? <SheetRow {...link("/app")} onDone={onClose} item="dashboard" icon={LayoutDashboard} label="Dashboard" /> : null}
+            </>
           ) : (
-            <SheetRow {...link("/sell")} onDone={onClose} item="start-creating" icon={Store} label="Start creating" />
+            <>
+              {seller ? (
+                <SheetRow {...link("/app")} onDone={onClose} item="dashboard" icon={LayoutDashboard} label="Dashboard" />
+              ) : (
+                <SheetRow {...link("/sell")} onDone={onClose} item="start-creating" icon={Store} label="Start creating" />
+              )}
+              <SheetRow {...link("/account")} onDone={onClose} item="profile" icon={UserIcon} label="Profile" />
+              <SheetRow {...link("/account/settings")} onDone={onClose} item="settings" icon={Settings} label="Settings" />
+              <SheetRow onDone={() => { onClose(); onLanguage() }} item="language" icon={Globe} label={t("settings.language")} />
+              <SheetRow {...link("/help")} onDone={onClose} item="help" icon={LifeBuoy} label="Help" />
+              <SheetRow {...link("/explore")} onDone={onClose} item="discover" icon={Compass} label="Discover" />
+            </>
           )}
-          <SheetRow {...link("/account")} onDone={onClose} item="profile" icon={UserIcon} label="Profile" />
-          <SheetRow {...link("/account/settings")} onDone={onClose} item="settings" icon={Settings} label="Settings" />
-          <SheetRow onDone={() => { onClose(); onLanguage() }} item="language" icon={Globe} label={t("settings.language")} />
-          <SheetRow {...link("/help")} onDone={onClose} item="help" icon={LifeBuoy} label="Help" />
-          <SheetRow {...link("/explore")} onDone={onClose} item="discover" icon={Compass} label="Discover" />
         </div>
 
         <div aria-hidden className="my-1.5 h-px shrink-0 bg-neutral-100" />
