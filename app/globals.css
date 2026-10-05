@@ -4481,15 +4481,13 @@ html.capacitor body {
 html.capacitor [data-discover-breadcrumb] {
   display: flex !important;
 }
-/* Also visible on web when the product is opened from a discover/recommended URL,
-   but only on mobile — hidden on desktop (≥768px) where browser back exists */
+/* Also visible on the web when the product is opened from Explore (a
+   discover/recommended URL), at every width. It used to be hidden from 768px
+   on the grounds that a computer has the browser's own Back; people on a
+   computer reached for a way back above the pictures, as on a phone, and
+   found none (components/product/discover-back-breadcrumb.tsx). */
 [data-discover-breadcrumb="web"] {
   display: flex !important;
-}
-@media (min-width: 768px) {
-  [data-discover-breadcrumb="web"] {
-    display: none !important;
-  }
 }
 
 /* ── Search top sheet: push content below the safe-area shield ────────────────

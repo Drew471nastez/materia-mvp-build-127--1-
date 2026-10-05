@@ -8,6 +8,11 @@ import { goBackOr, readBackEvidence } from "@/lib/navigation/go-back"
 import { useFirstTap } from "@/lib/navigation/first-tap"
 import { usePressFeedback } from "@/lib/navigation/press-feedback"
 
+/** The header's computer layout starts here (.platform-header-row in app/globals.css). */
+const DESKTOP_QUERY = "(min-width: 768px)"
+/** Where a product opened from Explore goes back to on a computer when nothing of ours is behind it. */
+export const EXPLORE_HREF = "/explore"
+
 /**
  * Drop this into any page that links to product pages so the back breadcrumb
  * on the product page shows that page's name (e.g. "< John's Store").
@@ -56,12 +61,24 @@ export function DiscoverBackBreadcrumb({
   const ref = useRef<HTMLAnchorElement>(null)
   const [backLabel, setBackLabel] = useState("Back")
   const href = fallbackHref(creatorHref)
+  /*
+    ON A COMPUTER, A PRODUCT OPENED FROM EXPLORE GOES BACK TO EXPLORE. The
+    control is drawn there now as on a phone (app/globals.css), and with
+    nothing of ours behind it (a link opened in a new tab) the place this
+    visitor was browsing is Explore, not the creator's page; the creator is
+    one click away in the bar above. A phone and the app keep the creator.
+    Read at the press, so the server's HTML and the first render agree.
+  */
+  const desktopFromExplore = () =>
+    showOnWeb && !document.documentElement.classList.contains("capacitor") && !!window.matchMedia?.(DESKTOP_QUERY).matches
+  const target = () => (desktopFromExplore() ? EXPLORE_HREF : href)
 
   useEffect(() => {
     // Read dynamic back label stored by the previous page, when that page is
-    // really behind this one; otherwise the control goes to the creator.
-    if (planBack(readBackEvidence(), href).kind === "navigate") {
-      if (creatorName) setBackLabel(creatorName)
+    // really behind this one; otherwise the control names where it goes.
+    if (planBack(readBackEvidence(), target()).kind === "navigate") {
+      if (desktopFromExplore()) setBackLabel("Explore")
+      else if (creatorName) setBackLabel(creatorName)
     } else {
       try {
         const stored = sessionStorage.getItem("backPageName")
@@ -70,13 +87,13 @@ export function DiscoverBackBreadcrumb({
     }
 
     if (!ref.current) return
-    // JS backup: force visibility with !important so this overrides any CSS rule.
-    // Skip forcing visibility on desktop (≥768px), the browser back button covers it.
+    // JS backup: force visibility with !important so this overrides any CSS
+    // rule. At every width now: a computer shows it too (see above).
     const isNative = document.documentElement.classList.contains("capacitor")
-    const isDesktop = window.innerWidth >= 768
-    if ((isNative || showOnWeb) && !isDesktop) {
+    if (isNative || showOnWeb) {
       ref.current.style.setProperty("display", "flex", "important")
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showOnWeb, href, creatorName])
 
   /*
@@ -97,7 +114,7 @@ export function DiscoverBackBreadcrumb({
   */
   const press = usePressFeedback<HTMLAnchorElement>()
   const tap = useFirstTap<HTMLAnchorElement>(() => {
-    goBackOr(href, (to) => router.push(to))
+    goBackOr(target(), (to) => router.push(to))
   })
 
   return (
@@ -128,7 +145,9 @@ export function DiscoverBackBreadcrumb({
         /* Pressed is a tint and the ink darkening, never a size change (round 11: no bump). */
         "transition-[background-color,color] duration-200 ease-out",
         "data-[pressed]:bg-[#1a1a2e]/[0.07] data-[pressed]:text-[#1a1a2e] data-[pressed]:duration-0",
-        "[@media(hover:hover)_and_(pointer:fine)]:hover:text-[#1a1a2e]",
+        /* A pointer on a computer gets a hover ground, a keyboard a ring (the control shows at every width now). */
+        "[@media(hover:hover)_and_(pointer:fine)]:hover:text-[#1a1a2e] [@media(hover:hover)_and_(pointer:fine)]:hover:bg-[#1a1a2e]/[0.04]",
+        "outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15",
       ].join(" ")}
     >
       <ChevronLeft className="h-[18px] w-[18px]" strokeWidth={2.25} aria-hidden />
