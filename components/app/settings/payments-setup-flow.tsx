@@ -37,6 +37,7 @@ import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { Shimmer, ShimmerBlock } from "@/components/ui/shimmer"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { CountryPicker, CountryFlag } from "@/components/app/settings/country-picker"
+import { PhoneField } from "@/components/app/settings/phone-field"
 import { useLightChrome } from "@/lib/ui/light-chrome"
 import { countryLabel, countryOf } from "@/lib/account/country"
 import { personalIssues } from "@/lib/payments/stripe/onboarding-steps"
@@ -1535,7 +1536,7 @@ function DetailsStep({
 
         {has("phone") ? (
           <Field label="Phone number" error={issue("phone", phone.replace(/\D/g, "").length < 7, "Enter your phone number, with the country code.")}>
-            <input className={FIELD} type="tel" inputMode="tel" placeholder="+40 712 345 678" autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
+            <PhoneField country={form.country} value={phone} onChange={setPhone} />
           </Field>
         ) : null}
 

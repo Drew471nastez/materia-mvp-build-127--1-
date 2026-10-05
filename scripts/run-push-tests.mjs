@@ -351,6 +351,7 @@ const SUITES = [
   "tests/direct-uploader.test.ts",
   "tests/settings-account-fixes.test.ts",
   "tests/settings-country.test.ts",
+  "tests/payouts-phone.test.ts",
   "tests/avatar-one-source.test.ts",
   "tests/creator-identity.test.ts",
   "tests/onepage-avatar-kept.test.ts",
