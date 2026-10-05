@@ -31,7 +31,7 @@ import "server-only"
  * time). So a post that takes off is one row in the bell, not two hundred.
  *
  * NEW POSTS AND REPORTS go through the queue too: queueNewPost tells the
- * members set to Everything on their phones (jobs/fanout_announcement.ts,
+ * members at Everything or the default level on their phones (jobs/fanout_announcement.ts,
  * reason "post"), and queueReportDigest plans the one email a day each
  * moderator gets about new reports (jobs/report_digest.ts).
  */
@@ -201,7 +201,7 @@ async function notifyLike(db: Db, n: NotifyInput, level: NotifyLevel | null): Pr
 /* ── New posts and reports, through the queue ──────────────────────────── */
 
 /**
- * A new post in an ordinary space: the members set to Everything hear it on
+ * A new post in an ordinary space: the members at Everything or the default level hear it on
  * their phones, a page at a time (jobs/fanout_announcement.ts, reason
  * "post"). An announcement or an @everyone already has its own fan out and
  * is not queued twice. Once per post.

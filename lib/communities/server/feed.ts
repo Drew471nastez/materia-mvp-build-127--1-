@@ -810,7 +810,7 @@ export async function createPost(w: WriteContext, input: PostInput): Promise<Che
   if (kind === "announcement" || mentionsEveryone(text)) {
     await queueEveryone(db, { communityId: community.id, postId: post.id, actorId: viewer.userId, reason: kind === "announcement" ? "announcement" : "everyone" })
   } else {
-    /* Members who set this community to Everything hear about it on their phones (notify.ts queueNewPost). */
+    /* Members at Everything or the default level hear about it on their phones (notify.ts queueNewPost). */
     await queueNewPost(db, { communityId: community.id, postId: post.id, actorId: viewer.userId })
   }
   const [view] = await hydratePosts(db, [post], { community, viewer, spaces })

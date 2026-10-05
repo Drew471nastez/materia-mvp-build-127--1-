@@ -150,6 +150,7 @@ const IOANA = U(3)
 const DAN = U(4)
 const OWNER = U(5)
 const MOD = U(6)
+const EVE = U(7)
 
 interface Sent { userId: string; title: string; body: string; data: Record<string, string> }
 function sender(sent: Sent[]) {
@@ -159,7 +160,7 @@ function sender(sent: Sent[]) {
 }
 
 function tables(): Record<string, Row[]> {
-  const everyone = [MARA, BEN, IOANA, DAN, OWNER, MOD]
+  const everyone = [MARA, BEN, IOANA, DAN, OWNER, MOD, EVE]
   return {
     communities: [{ id: C1, name: "Film Loft", slug: "film-loft", status: "published", deleted_at: null, suspended_at: null, creator_id: "cr1" }],
     creators: [{ id: "cr1", user_id: OWNER, display_name: "Owen" }],
@@ -180,6 +181,7 @@ function tables(): Record<string, Row[]> {
       { community_id: C1, user_id: DAN, status: "active", role: "member", tier_id: null, level: 1, notify_level: "all" },
       { community_id: C1, user_id: OWNER, status: "active", role: "owner", tier_id: null, level: 1, notify_level: "important" },
       { community_id: C1, user_id: MOD, status: "active", role: "moderator", tier_id: null, level: 1, notify_level: "important" },
+      { community_id: C1, user_id: EVE, status: "active", role: "member", tier_id: T1, level: 1, notify_level: "mentions" },
     ],
     community_feed_posts: [],
     community_reactions: [],
@@ -215,7 +217,7 @@ async function main() {
   check("Settings reads every kind with its state", JSON.stringify(kindStates({ pushOff: ["posts"], emailOff: [] })) === JSON.stringify({ posts: false, comments: true, likes: true, mentions: true, messages: true, events: true, followers: true }))
 
   console.log("\nA community's own level")
-  check("a new post pushes only from a community set to Everything", levelAllowsPush("all", "post") && !levelAllowsPush("important", "post") && !levelAllowsPush(null, "post") && !levelAllowsPush("mentions", "post") && !levelAllowsPush("none", "post"))
+  check("a new post pushes at Everything and at the default Everything but likes, never at mentions only or nothing", levelAllowsPush("all", "post") && levelAllowsPush("important", "post") && levelAllowsPush(null, "post") && !levelAllowsPush("mentions", "post") && !levelAllowsPush("none", "post"))
 
   /* ── Likes, grouped ──────────────────────────────────────────────────── */
   console.log("\nLikes: one notification per post per window")
@@ -286,7 +288,7 @@ async function main() {
   }
 
   /* ── New posts ───────────────────────────────────────────────────────── */
-  console.log("\nA new post: Everything only, the space's own audience, never the author")
+  console.log("\nA new post: Everything and the default level, the space's own audience, never the author")
   {
     const sent: Sent[] = []
     setPushBridgeDeps({ sender: sender(sent), communitiesOn: async () => true, defer: (task) => task() })
@@ -297,22 +299,24 @@ async function main() {
     check("  as the fan out with reason post", queued.kind === "fanout_announcement" && queued.payload.reason === "post")
     await fanoutAnnouncement(db as any, job(queued.payload), ctx())
     const to = sent.map((s) => s.userId).sort()
-    check("in a tier space: Ben (Everything, the tier) only; not Mara (author), Ioana (Everything but likes), Dan (no tier)", JSON.stringify(to) === JSON.stringify([BEN]), to)
-    check("  it says who posted and what, and opens the post", sent[0]?.title === "Film Loft" && sent[0]?.body.startsWith("Mara Pop posted") && sent[0]?.body.includes("Night shoot on Friday") && sent[0]?.data.url === "/community/film-loft/post/00000000-0000-4000-e000-000000000001")
+    check("in a tier space: Ben (Everything) and Ioana (the default level) with the tier, and the staff; not Mara (author), Dan (no tier), Eve (mentions only)", JSON.stringify(to) === JSON.stringify([BEN, IOANA, OWNER, MOD].sort()), to)
+    check("  it says who posted and what, and opens the post", sent.length > 0 && sent[0]?.title === "Film Loft" && sent[0]?.body.startsWith("Mara Pop posted") && sent[0]?.body.includes("Night shoot on Friday") && sent[0]?.data.url === "/community/film-loft/post/00000000-0000-4000-e000-000000000001")
     check("  and writes nothing in anybody's bell", db.tables.community_notifications.length === 0)
     db.tables.community_feed_posts.push({ id: "00000000-0000-4000-e000-000000000002", community_id: C1, space_id: S_OPEN, author_id: MARA, title: "Second", body_text: "x", status: "published" })
     await fanoutAnnouncement(db as any, job({ communityId: C1, postId: "00000000-0000-4000-e000-000000000002", actorId: MARA, reason: "post", after: null }), ctx())
-    check("a second post inside five minutes is held, and Dan (open space, Everything) hears it", sent.length === 2 && sent[1].userId === DAN && db.tables.community_jobs.some((j) => j.kind === "push_digest" && j.payload.group === `p:${C1}` && j.payload.userId === BEN), sent.map((s) => s.userId))
+    const heldFor = db.tables.community_jobs.filter((j) => j.kind === "push_digest" && j.payload.group === `p:${C1}`).map((j) => j.payload.userId).sort()
+    check("a second post inside five minutes is held for the four who just heard one (one window per community), and Dan (open space) hears it", sent.length === 5 && sent[4].userId === DAN && JSON.stringify(heldFor) === JSON.stringify([BEN, IOANA, OWNER, MOD].sort()), { sent: sent.map((s) => s.userId), heldFor })
     const held = db.tables.community_jobs.find((j) => j.kind === "push_digest" && j.payload.userId === BEN)!
     for (const p of db.tables.community_feed_posts) p.created_at = new Date(Date.now() + 1000).toISOString()
     await runPushDigest(db as any, held.payload, Date.now() + PUSH_WINDOW_MS + 10_000)
-    check("  and Ben's digest counts the new posts he can see", sent.length === 3 && sent[2].userId === BEN && sent[2].body === "2 new posts" && sent[2].data.url === "/community/film-loft", sent[2])
+    check("  and Ben's digest counts the new posts he can see", sent.length === 6 && sent[5].userId === BEN && sent[5].body === "2 new posts" && sent[5].data.url === "/community/film-loft", sent[5])
     setPushBridgeDeps({ sender: sender(sent), communitiesOn: async () => true, defer: (task) => task() })
     const off = pg(tables(), { [BEN]: { app_metadata: { [NOTIFY_META_KEY]: { pushOff: ["posts"] } } }, [DAN]: {} })
     off.tables.community_feed_posts.push({ id: "00000000-0000-4000-e000-000000000003", community_id: C1, space_id: S_OPEN, author_id: MARA, title: "Third", body_text: "x", status: "published" })
     const before = sent.length
     await fanoutAnnouncement(off as any, job({ communityId: C1, postId: "00000000-0000-4000-e000-000000000003", actorId: MARA, reason: "post", after: null }), ctx())
-    check("new posts turned off: Ben hears nothing, Dan still does", sent.slice(before).map((s) => s.userId).join() === DAN)
+    const heard = sent.slice(before).map((s) => s.userId).sort()
+    check("new posts turned off: Ben hears nothing; Ioana, Dan and the staff still do; Eve (mentions only) never", JSON.stringify(heard) === JSON.stringify([IOANA, DAN, OWNER, MOD].sort()), heard)
     setPushBridgeDeps({ sender: sender(sent), communitiesOn: async () => false, defer: (task) => task() })
     const n = sent.length
     await fanoutAnnouncement(pg(tables()) as any, job({ communityId: C1, postId: "00000000-0000-4000-e000-000000000003", actorId: MARA, reason: "post", after: null }), ctx())
@@ -377,7 +381,7 @@ async function main() {
     check("the key is the community, the person and the day", reportDigestKey(C1, OWNER, at9) === `report_digest:${C1}:${OWNER}:2026-10-05`)
     check("a line says what and why, never who reported", reportLine({ target_type: "post", reason: "spam", note: "selling   followers" }) === 'A post, reported as spam: "selling followers"' && reportLine({ target_type: "member", reason: "off_topic" }) === "A member, reported as off topic" && reportLine({ target_type: "comment", reason: "abuse", note: "x".repeat(400) }).length <= 140)
     const data = reportDigestData(Array.from({ length: 7 }, () => ({ target_type: "post", reason: "spam" })))
-    check("five lines at most, and how many more", data.reportCount === 7 && data.line5 && !("line6" in data) && data.moreCount === 2)
+    check("five lines at most, and how many more", data.reportCount === 7 && !!data.line5 && !("line6" in data) && data.moreCount === 2)
     const event = { id: "e", key: "k", name: "community.report_digest", userId: OWNER, creatorId: null, entityType: "community", entityId: C1, payload: { recipientEmail: "owen@example.com", dedupeKey: "report_digest:2026-10-05", communityId: C1 }, occurredAt: new Date().toISOString() } as any
     const planned = communitiesWorkflow(event, { now: Date.now(), userId: OWNER, creatorId: null })
     check("the engine plans it to the person, as a creator email (it opens /app)", planned?.jobs.length === 1 && planned.jobs[0].type === "COMMUNITY_REPORT_DIGEST" && planned.jobs[0].recipientType === "creator" && planned.jobs[0].recipientUserId === OWNER && REGISTRY.COMMUNITY_REPORT_DIGEST.recipient === "creator")

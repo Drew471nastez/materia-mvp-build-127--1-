@@ -21,7 +21,7 @@
  * so a like turned off for the phone is still in the inbox. And each
  * community's own level (Everything, Everything but likes, Only mentions
  * and replies, Nothing) still applies first: a new post only pushes from a
- * community set to Everything.
+ * community at Everything or the default Everything but likes.
  */
 
 export const PUSH_KIND_KEYS = ["posts", "comments", "likes", "mentions", "messages", "events", "followers"] as const
@@ -42,7 +42,7 @@ export interface KindInfo {
 
 /** In the order Settings shows them. */
 export const PUSH_KINDS: readonly KindInfo[] = [
-  { key: "posts", label: "New posts", detail: "From communities you set to Everything." },
+  { key: "posts", label: "New posts", detail: "From your communities, unless one is set to mentions only or nothing." },
   { key: "comments", label: "Comments and replies", detail: "On your posts, and replies to your comments." },
   { key: "likes", label: "Likes", detail: "Grouped per post, so ten likes is one notification." },
   { key: "mentions", label: "Mentions", detail: "When someone tags you with @." },

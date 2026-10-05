@@ -23,7 +23,8 @@ import "server-only"
  *
  * A NEW POST (reason "post", queued by notify.ts queueNewPost for a post in
  * an ordinary space) is told on phones only, and only to the members who set
- * this community to Everything (notify_level "all") and can see the post's
+ * this community to Everything or left it at the default Everything but
+ * likes (notify_level "all" or "important") and can see the post's
  * space: no bell row, no email. The same pages and cursor, the members read
  * already filtered to that level, and lib/notifications/push-bridge.ts
  * holding a second post inside five minutes for one "3 new posts" push. A
@@ -42,6 +43,8 @@ import { carryPushes, communityPushItem, newPostPushItem, pushFanout, type PushI
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export const FANOUT_PAGE = 500
+/* The levels that hear a new post: Everything, and the default Everything but likes (permissions.ts, push-bridge.ts levelAllowsPush). */
+const POST_LEVELS = ["all", "important"]
 
 /** The inbox rows for one page of members: everyone who wants to hear, never the author. */
 export function fanoutRows(
@@ -147,10 +150,10 @@ export async function fanoutAnnouncement(db: Db, job: JobRow, ctx: JobContext): 
 }
 
 /**
- * A new post to the phones of the members set to Everything who can see its
+ * A new post to the phones of the members at Everything or the default level who can see its
  * space. A page of them at a time by user id, already filtered to that
- * level by the read, so a community of ten thousand where fifty chose
- * Everything is one short page.
+ * level by the read (members at Mentions only or Nothing never leave
+ * the database).
  */
 async function newPostFanout(
   db: Db,
@@ -178,7 +181,7 @@ async function newPostFanout(
       .select("user_id, role, tier_id, level, notify_level")
       .eq("community_id", community.id)
       .eq("status", "active")
-      .eq("notify_level", "all")
+      .in("notify_level", POST_LEVELS)
       .order("user_id", { ascending: true })
       .limit(FANOUT_PAGE)
     if (after) read = read.gt("user_id", after)

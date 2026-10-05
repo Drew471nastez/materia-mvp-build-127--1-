@@ -30,8 +30,9 @@ import "server-only"
  * app_metadata). Anything from a community while communities are switched
  * off, since its link would 404.
  *
- * NEW POSTS push only to members whose level in that community is "all"
- * (Everything), never write a bell row (the feed is where a post is), and
+ * NEW POSTS push to members whose level in that community is "all"
+ * (Everything) or the default "important" (Everything but likes), never to
+ * "mentions" or "none", never write a bell row (the feed is where a post is), and
  * have a window of their own per community (group "p:<id>"), so a busy
  * afternoon is one push and then "4 new posts", and a like on your post is
  * never held behind somebody else's post.
@@ -123,7 +124,7 @@ export function levelAllowsPush(level: NotifyLevel | null | undefined, kind: str
     case "mentions":
       return (ADDRESSED_KINDS as readonly string[]).includes(kind)
     case "important":
-      return kind !== "reaction" && kind !== "post"
+      return kind !== "reaction"
     default:
       return true
   }
@@ -703,7 +704,7 @@ export function communityPushItem(
 }
 
 /**
- * A new post, as a push to one member set to Everything. There is no bell
+ * A new post, as a push to one member who hears it (Everything, or the default Everything but likes). There is no bell
  * row for it: the post is in the feed. Its window is the community's posts
  * (postGroup), so the first post of a quiet spell pushes at once and the
  * rest are counted.
@@ -817,7 +818,7 @@ export function readDigestPayload(v: unknown): DigestPayload | null {
 }
 
 /**
- * The new posts a member set to Everything has not been pushed about since
+ * The new posts a member who hears them has not been pushed about since
  * a window opened, in the spaces they can see. Their posts are not in the
  * bell, so they are read from the feed: published, by someone else, newest
  * first. A space open only through a product is left out here (owning it
