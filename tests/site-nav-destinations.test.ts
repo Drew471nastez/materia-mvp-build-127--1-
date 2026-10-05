@@ -138,12 +138,14 @@ async function main() {
   const backdropZ = Number(frame.match(/DRAWER_BACKDROP_Z = "z-\[(\d+)\]"/)?.[1] ?? 0)
   const panelZ = Number(frame.match(/DRAWER_PANEL_Z = "z-\[(\d+)\]"/)?.[1] ?? 0)
   check("the drawer sits above it", backdropZ > bannerZ && panelZ > backdropZ, `banner ${bannerZ}, backdrop ${backdropZ}, panel ${panelZ}`)
-  /* Twice each in the markup, plus once in the import line. */
+  /* Twice each in the markup, plus once in the import line. The panel's layer
+     a third time: the frame a menu from the top drops inside is fixed, so it is
+     a stacking context and has to carry the panel's layer itself. */
   const body = header.split("\n").filter((line) => !line.startsWith("import ")).join("\n")
   check(
     "and both drawers read the same two constants",
     (body.match(/DRAWER_BACKDROP_Z/g) ?? []).length === 2 &&
-      (body.match(/DRAWER_PANEL_Z/g) ?? []).length === 2,
+      (body.match(/DRAWER_PANEL_Z/g) ?? []).length === 3,
     "the nav drawer and the cart drawer are one surface at two edges",
   )
   check(
