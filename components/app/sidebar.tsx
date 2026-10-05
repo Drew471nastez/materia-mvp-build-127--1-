@@ -331,7 +331,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
   /* Collections under Products, first, for every shop (Shopify's Products › Collections); stock beside them only while physical commerce is on in /admin. */
   mainNavItems.find((item) => item.href === "/app/products")?.children?.unshift(
     ...(physicalCommerce ? [{ href: "/app/inventory", label: "Inventory" }] : []),
-    { href: "/app/collections", label: "Collections" },
+    { href: "/app/products/collections", label: "Collections" },
   )
 
   // Expandable groups (parent nav items with children).
@@ -507,7 +507,8 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
 
   // The setup widget stays off the editors: store-builder, onepage, and the
   // product editor, whether it is a new product or /app/products/<id>.
-  const inProductEditor = /^\/app\/products\/[^/]+/.test(pathname)
+  // Products › Collections is a list under the same address, not an editor.
+  const inProductEditor = /^\/app\/products\/(?!collections(\/|$))[^/]+/.test(pathname)
   const showSetupWidget = setupProgress &&
     setupProgress.completed < setupProgress.total &&
     !pathname.startsWith("/creator-page") &&

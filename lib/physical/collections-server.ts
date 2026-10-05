@@ -136,3 +136,39 @@ export async function productsInCollection(db: Db, creatorId: string, slug: stri
   const sorted = sortProducts(list, (COLLECTION_SORTS as readonly string[]).includes(r.sort) ? r.sort : "manual")
   return { collection: view(r, sorted.map((p) => p.id)), productIds: sorted.map((p) => p.id) }
 }
+
+/**
+ * A product as the collection editor needs it: what the picker shows (the
+ * picture, the name, the kind, whether it is on sale) and what a rule reads
+ * (tags, vendor, prices, stock, weight), so the editor can say which
+ * products a smart collection catches while its rules are being written.
+ */
+export interface CollectionProduct {
+  id: string
+  title: string
+  thumbnail_url: string | null
+  type: string
+  status: string
+  price_cents: number
+  tags?: string[] | null
+  vendor?: string | null
+  compare_at_price_cents?: number | null
+  inventory_count?: number | null
+  weight_grams?: number | null
+}
+
+const PICKER_COLUMNS = "id, title, thumbnail_url, type, status, price_cents"
+const RULE_COLUMNS = `${PICKER_COLUMNS}, tags, vendor, compare_at_price_cents, inventory_count, weight_grams`
+
+/**
+ * The shop's collections and its products, for /app/products/collections
+ * (read on the server, so the page lands whole) and for GET /api/collections.
+ * A database without the rule columns yet still lists the products.
+ */
+export async function collectionsArea(db: Db, creatorId: string): Promise<{ collections: CollectionView[]; products: CollectionProduct[] }> {
+  const products = (columns: string) =>
+    db.from("products").select(columns).eq("creator_id", creatorId).order("created_at", { ascending: false }).limit(1000)
+  const [collections, rich] = await Promise.all([listCollections(db, creatorId), products(RULE_COLUMNS)])
+  const rows = rich.error ? (await products(PICKER_COLUMNS)).data : rich.data
+  return { collections, products: (rows ?? []) as CollectionProduct[] }
+}

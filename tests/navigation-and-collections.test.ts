@@ -79,10 +79,12 @@ console.log("\nCollections, every shop's\n")
   check("Product grid shows a collection", /"value": "collection"/.test(grid2) && /"type": "collection_picker",\s*"id": "collection"/.test(grid2) && /\{% elsif settings\.source == 'collection' %\}/.test(grid2))
   check("  its button goes to the whole collection", /\{% if settings\.source == 'collection' and settings\.collection\.title %\}\s*<div class="s__btns more"><a class="s__btn s__btn--secondary" href="\{\{ settings\.collection \| url \}\}">/.test(grid2))
   check("  the generated sources carry it", /A collection/.test(read("themes/default/sources.generated.ts")))
-  const editor = read("app/app/collections/collections-client.tsx")
-  check("the collection editor speaks every kind: a product type to pick, a kind under each product", /const PRODUCT_KINDS = \[/.test(editor) && /KIND_LABEL\[p\.type\]/.test(editor))
+  /* Collections live under Products now (app/app/products/collections); tests/collections-ui.test.ts checks the screens themselves. */
+  const parts = read("app/app/products/collections/collection-parts.tsx")
+  const editor = read("app/app/products/collections/collection-editor.tsx")
+  check("the collection editor speaks every kind: a product type to pick, a kind under each product", /export const PRODUCT_KINDS = \[/.test(parts) && /KIND_LABEL\[p\.type\]/.test(editor) && /PRODUCT_KINDS\.filter/.test(editor))
   check("  stock and weight rules only where there is stock", /PHYSICAL_RULES/.test(editor) && /usePhysicalCommerceEnabled\(\)/.test(editor))
-  check("Products has a way to Collections", /href="\/app\/collections" data-products-collections/.test(read("app/app/products/products-client.tsx")))
+  check("Products has a way to Collections", /href="\/app\/products\/collections" data-products-collections/.test(read("app/app/products/products-client.tsx")))
 }
 
 console.log("\nOne grid down the sidebar\n")

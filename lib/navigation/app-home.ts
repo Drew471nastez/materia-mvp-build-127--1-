@@ -24,6 +24,8 @@
 export const APP_ROOT_ROUTES = [
   "/app",
   "/app/products",
+  /* A row of its own under Products in the sidebar, as Coupons and Reviews are. */
+  "/app/products/collections",
   "/app/analytics",
   "/app/orders",
   "/app/coupons",
