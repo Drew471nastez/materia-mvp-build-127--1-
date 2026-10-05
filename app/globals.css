@@ -465,18 +465,6 @@ html.capacitor body {
       animation: none;
     }
   }
-  /* Coming back, the list is let go of with a short fade at its place
-     rather than switched on, the /app landing's own curve. Only on the way
-     out of the hold: the hold itself is put on before the page is first
-     painted, so there is nothing to fade from. */
-  html:not(.explore-scroll-restoring) .explore-ground {
-    transition: opacity 180ms cubic-bezier(0.2, 0, 0, 1);
-  }
-  @media (prefers-reduced-motion: reduce) {
-    html:not(.explore-scroll-restoring) .explore-ground {
-      transition: none;
-    }
-  }
   /* `skeleton-reveal` is also the late fade of a part of an /app page that is
      still coming (WaitingArea, components/ui/activity-spinner.tsx): nothing
      for half a second, then the spinner. */
