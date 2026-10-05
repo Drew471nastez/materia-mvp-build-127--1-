@@ -8,7 +8,7 @@
  */
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { memberCountLabel } from "@/lib/communities/format"
 import { api, apiBase } from "./api"
@@ -51,6 +51,25 @@ export function InviteLanding({
     const reason = r.ok ? r.data.reason : undefined
     setError((reason && REASONS[reason]) || (!r.ok ? r.error : null) || "The invite could not be accepted. Try again.")
   }
+
+  /*
+    BACK FROM SIGNING UP WITH ?accept=1 (lib/account/welcome welcomeDone):
+    the invite they followed before they had an account is accepted once,
+    on arrival, so a new member lands in the community rather than one more
+    press away. The flag leaves the address first, so a reload never asks
+    twice.
+  */
+  const autoAccepted = useRef(false)
+  useEffect(() => {
+    if (autoAccepted.current || state === "signed_out" || state === "banned" || !token) return
+    const url = new URL(window.location.href)
+    if (url.searchParams.get("accept") !== "1") return
+    autoAccepted.current = true
+    url.searchParams.delete("accept")
+    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`)
+    void accept()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state, token])
 
   return (
     <div className="min-h-[70svh] bg-[#f8f9fa] px-4 py-14 sm:py-20" data-invite="">
