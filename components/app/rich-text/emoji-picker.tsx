@@ -4,8 +4,10 @@
  * ===========================================================================
  *  EMOJI, FOR THE DESCRIPTION
  * ===========================================================================
- * The toolbar's smile opens it: a popover under the button on a computer,
- * the shared sheet on a phone (components/ui/bottom-sheet). A search on top
+ * The toolbar's smile opens it: a popover under the button on a computer
+ * (over it when there is more room there, never taller than the room it has:
+ * components/ui/popover-fit.ts), the shared sheet on a phone
+ * (components/ui/bottom-sheet). A search on top
  * (by the words in lib/rich-text/emoji.ts), what was picked lately, then the
  * groups, with a row of tabs that jumps to each. A pick goes in where the
  * caret was. On a computer the popover stays open, so a few can go in one
@@ -36,6 +38,7 @@ import * as React from "react"
 import { Search, Smile, X } from "lucide-react"
 import * as PopoverPrimitive from "@radix-ui/react-popover"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
+import { FIT_POPOVER, fitBox } from "@/components/ui/popover-fit"
 import { EMOJI_GROUPS, readRecentEmoji, rememberEmoji, searchEmoji } from "@/lib/rich-text/emoji"
 import { cn } from "@/lib/utils"
 
@@ -196,7 +199,7 @@ function EmojiPanel({ phone, active = true, onPick }: { phone: boolean; active?:
   }, [])
 
   return (
-    <div data-emoji-panel="" className={cn("flex min-h-0 flex-col", phone ? "h-full" : "h-[360px]")}>
+    <div data-emoji-panel="" className="flex h-full min-h-0 flex-col">
       <div className={cn("shrink-0", phone ? "px-4 pb-2" : "p-2 pb-1.5")}>
         <label className={cn("flex cursor-text items-center gap-2 rounded-lg bg-[#f1f2f4] px-3", phone ? "h-11" : "h-9")}>
           <Search aria-hidden className="h-4 w-4 shrink-0 text-[#6b7280]" />
@@ -265,10 +268,13 @@ export function EmojiControl({
   className,
   onBeforeOpen,
   onInsert,
+  size = { w: 344, h: 360 },
 }: {
   className: string
   onBeforeOpen: () => void
   onInsert: (emoji: string) => void
+  /** The popover's width and its tallest; it is never taller than the room it has (components/ui/popover-fit.ts). */
+  size?: { w: number; h: number }
 }) {
   const phone = usePhone()
   const [open, setOpen] = React.useState(false)
@@ -330,11 +336,12 @@ export function EmojiControl({
         <PopoverPrimitive.Content
           align="start"
           sideOffset={6}
-          collisionPadding={12}
+          {...FIT_POPOVER}
+          style={fitBox(size.w, size.h)}
           data-emoji-popover=""
           /* Picking puts the caret back in the text; that is not a reason to close. */
           onFocusOutside={(e) => e.preventDefault()}
-          className="z-[2147483640] w-[344px] overflow-hidden rounded-xl border border-[#e3e4e8] bg-white text-[#1a1a2e] shadow-[0_16px_40px_-12px_rgba(17,24,39,0.28),0_2px_6px_rgba(17,24,39,0.06)] outline-none data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-[0.98] data-[state=closed]:animate-out data-[state=closed]:fade-out-0 duration-150"
+          className="z-[2147483640] overflow-hidden rounded-xl border border-[#e3e4e8] bg-white text-[#1a1a2e] shadow-[0_16px_40px_-12px_rgba(17,24,39,0.28),0_2px_6px_rgba(17,24,39,0.06)] outline-none data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-[0.98] data-[state=closed]:animate-out data-[state=closed]:fade-out-0 duration-150"
         >
           <EmojiPanel phone={false} onPick={pick} />
         </PopoverPrimitive.Content>

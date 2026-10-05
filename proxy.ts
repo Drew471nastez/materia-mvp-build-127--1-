@@ -1623,8 +1623,8 @@ export async function proxy(request: NextRequest) {
       " https://js.stripe.com/v3/link-*" +
       " https://hooks.stripe.com" +
       " https://connect-js.stripe.com" +
-      /* A course lesson that is a YouTube or Vimeo link plays in their player (lib/courses/external.ts). */
-      " https://www.youtube-nocookie.com https://player.vimeo.com",
+      /* A course lesson that is a YouTube or Vimeo link plays in their player (lib/courses/external.ts); a community post's Loom link in Loom's. */
+      " https://www.youtube-nocookie.com https://player.vimeo.com https://www.loom.com",
     )
   }
 

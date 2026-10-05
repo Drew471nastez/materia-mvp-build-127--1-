@@ -32,7 +32,8 @@ import { MediaLinks } from "@/components/community/member/media-viewer"
 import { LocaleProvider } from "@/components/locale-provider"
 import { ViewportVars } from "@/components/viewport-vars"
 import { allowedActions } from "@/lib/communities/permissions"
-import type { FeedPostView, ViewerView } from "@/lib/communities/types"
+import type { FeedPostView, PollView, ViewerView } from "@/lib/communities/types"
+import { compressPostPicture } from "@/components/community/member/media-compress"
 import type { ShellCommunity, SpaceView, TopBarData } from "@/components/community/member/view-types"
 
 const NOW = Date.now()
@@ -175,7 +176,7 @@ export const POSTS: FeedPostView[] = [
     space: { id: "s-crit", slug: "critique", name: "Critique" },
     title: "Shipped the redesign",
     bodyText: "After six weeks of back and forth, it is live. Thank you all for the notes on the empty states.",
-    media: [{ type: "gif", url: picture("#e8f0e4", "#8fb38a", 400, 300), still: picture("#e8f0e4", "#8fb38a", 400, 300), w: 200, h: 150, title: "celebrate" }],
+    media: [{ type: "gif", url: picture("#e8f0e4", "#8fb38a", 400, 300), still: picture("#eeeeee", "#cccccc", 400, 300), w: 200, h: 150, title: "celebrate" }],
     reactionCount: 44,
     reacted: true,
     commentCount: 12,
@@ -235,6 +236,8 @@ export const MEDIA_POSTS: FeedPostView[] = [
       { type: "image", url: picture("#f1e9da", "#d9c3a0"), w: 1200, h: 800 },
     ],
   }),
+  /* Round 12: a Loom link in the words plays under them like YouTube's. */
+  post({ id: "m-loom", title: "A Loom walkthrough", bodyText: "Recorded the onboarding review: https://www.loom.com/share/0123456789abcdef0123456789abcdef", media: [] }),
   post({ id: "m-video", title: "A video alone", bodyText: "Ten minutes on grids.", media: [{ type: "video", videoId: "11111111-0000-4000-8000-000000000003", poster: picture("#283044", "#5c6b8a", 1920, 1080), w: 1920, h: 1080 }] }),
   post({
     id: "m-yt",
@@ -333,6 +336,25 @@ function Screen() {
     ]
     return shell(<FeedColumns main={<PostPage slug={community.slug} viewer={viewer} post={POSTS[0]} comments={{ comments, nextCursor: null }} me={me} />} />)
   }
+  /* Round 12: a post with a one answer poll and one with a several answers poll, on the post page. */
+  if (which === "poll") {
+    const poll = (id: string, multiple: boolean): PollView => ({
+      id,
+      question: multiple ? "Which tools do you use?" : "When should critique night be?",
+      multiple,
+      closesAt: null,
+      closed: false,
+      totalVotes: 6,
+      options: [
+        { id: `${id}-a`, label: multiple ? "Figma" : "Tuesday evening", voteCount: 3, voted: false },
+        { id: `${id}-b`, label: multiple ? "Framer" : "Thursday evening", voteCount: 2, voted: false },
+        { id: `${id}-c`, label: multiple ? "Paper" : "Saturday morning", voteCount: 1, voted: false },
+      ],
+    })
+    const multi = params.get("multiple") === "1"
+    const withPoll = { ...POSTS[4], id: multi ? "p-poll-multi" : "p-poll", title: multi ? "Tools check" : "Pick a night", poll: poll(multi ? "33333333-0000-4000-8000-0000000000b2" : "33333333-0000-4000-8000-0000000000b1", multi) }
+    return shell(<FeedColumns main={<PostPage slug={community.slug} viewer={viewer} post={withPoll} comments={{ comments: [], nextCursor: null }} me={me} />} />)
+  }
   if (which === "post") {
     return shell(<FeedColumns main={<PostPage slug={community.slug} viewer={viewer} post={POSTS[0]} comments={{ comments: [], nextCursor: null }} me={me} />} />)
   }
@@ -369,6 +391,9 @@ function MountBench({ me }: { me: { name: string; avatarUrl: string | null } }) 
     />
   )
 }
+
+/* Round 12: the picture compression, for the probe to run on pictures it makes. */
+;(window as unknown as { __compress: typeof compressPostPicture }).__compress = compressPostPicture
 
 try {
   if (!params.get("keep")) window.localStorage.clear()

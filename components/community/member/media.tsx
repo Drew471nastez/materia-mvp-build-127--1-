@@ -37,14 +37,14 @@
  * the member and the file; videos play from a short lived address, and only
  * once pressed.
  */
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Download, FileText, Film, ImageIcon, Play } from "lucide-react"
 import { StorelibVideo } from "@/components/video/storelib-video"
 import { optimizedImageUrl, optimizedSrcSet } from "@/lib/images/optimized-url"
-import { cardPictures, cardThumb, fileSizeLabel, mediaKindOf, mediaLayout, viewerItems, type CardPicture, type ViewerItem } from "@/lib/communities/post-media"
+import { MAX_COMMENT_EMBEDS, bodyEmbeds, cardPictures, cardThumb, fileSizeLabel, mediaKindOf, mediaLayout, viewerItems, type CardPicture, type ViewerItem } from "@/lib/communities/post-media"
 import type { PostMedia } from "@/lib/communities/types"
 import { apiBase } from "./api"
-import { EmbedPlayer, Lightbox } from "./lightbox"
+import { EmbedPlayer, EmbedPoster, Lightbox } from "./lightbox"
 import { localPicture } from "./media-upload"
 import { openMediaViewer } from "./media-viewer"
 
@@ -60,6 +60,51 @@ export function hostOf(url: string): string {
   }
 }
 
+/**
+ * ===========================================================================
+ *  A GIF MOVES WHILE IT CAN BE SEEN (round 12)
+ * ===========================================================================
+ * In the feed, in an opened post and under a comment a GIF plays on its own,
+ * silent and looping (a GIF is both), but only while it is on screen (or
+ * about to be: 120px of margin): off screen it rests on its still, so a long
+ * feed of GIFs costs nothing while it is scrolled past. One shared
+ * IntersectionObserver for every GIF on the page. With reduced motion the
+ * still stays. The moving picture replaces the still in the same <img>, so
+ * the box never changes and the still shows until the GIF has loaded.
+ */
+const ON_SCREEN = new Map<Element, (on: boolean) => void>()
+let screenWatch: IntersectionObserver | null = null
+function watchOnScreen(el: Element, cb: (on: boolean) => void): () => void {
+  if (typeof IntersectionObserver === "undefined") {
+    cb(true)
+    return () => {}
+  }
+  screenWatch ??= new IntersectionObserver((entries) => {
+    for (const e of entries) ON_SCREEN.get(e.target)?.(e.isIntersecting)
+  }, { rootMargin: "120px 0px" })
+  ON_SCREEN.set(el, cb)
+  screenWatch.observe(el)
+  return () => {
+    ON_SCREEN.delete(el)
+    screenWatch?.unobserve(el)
+  }
+}
+
+export function GifImg({ still, motion, className = "", alt = "", width, height }: { still: string; motion: string; className?: string; alt?: string; width?: number; height?: number }) {
+  const ref = useRef<HTMLImageElement>(null)
+  const [moving, setMoving] = useState(false)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
+    return watchOnScreen(el, setMoving)
+  }, [])
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img ref={ref} src={moving ? motion : still} alt={alt} width={width} height={height} loading="lazy" decoding="async" referrerPolicy="no-referrer" className={className} data-gif-state={moving ? "playing" : "paused"} />
+  )
+}
+
 /** The card's one thumbnail, or nothing. */
 export function PostThumb({ media, className = "" }: { media: PostMedia[]; className?: string }) {
   const thumb = cardThumb(media)
@@ -68,18 +113,22 @@ export function PostThumb({ media, className = "" }: { media: PostMedia[]; class
   const srcSet = thumb.local ? optimizedSrcSet(thumb.url, [96, 128, 256]) : ""
   return (
     <span className={`relative block h-[72px] w-[72px] shrink-0 overflow-hidden rounded-xl bg-[#f1f2f4] sm:h-24 sm:w-24 ${className}`} data-post-thumb={thumb.kind}>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={thumb.local ? optimizedImageUrl(thumb.url, 96) : thumb.url}
-        srcSet={srcSet || undefined}
-        sizes={srcSet ? "(min-width: 640px) 96px, 72px" : undefined}
-        alt=""
-        loading="lazy"
-        decoding="async"
-        referrerPolicy={thumb.local ? undefined : "no-referrer"}
-        className="h-full w-full object-cover"
-        onError={() => setFailed(true)}
-      />
+      {thumb.kind === "gif" && thumb.motion ? (
+        <GifImg still={thumb.url} motion={thumb.motion} className="h-full w-full object-cover" />
+      ) : (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={thumb.local ? optimizedImageUrl(thumb.url, 96) : thumb.url}
+          srcSet={srcSet || undefined}
+          sizes={srcSet ? "(min-width: 640px) 96px, 72px" : undefined}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          referrerPolicy={thumb.local ? undefined : "no-referrer"}
+          className="h-full w-full object-cover"
+          onError={() => setFailed(true)}
+        />
+      )}
       {thumb.kind === "video" ? (
         <span className="absolute inset-0 flex items-center justify-center" aria-hidden>
           <span className="flex h-7 w-7 items-center justify-center rounded-full bg-black/55 text-white">
@@ -104,6 +153,12 @@ export function PostThumb({ media, className = "" }: { media: PostMedia[]; class
  * side, the second saying how many more. Lazy, through the optimizer at the
  * width a phone draws them. The whole card opens the post, so a press here
  * does too; nothing in it is a control of its own.
+ *
+ * ON A COMPUTER TOO WHEN THERE ARE TWO OR MORE (round 12): one thumbnail on
+ * the right said nothing of a post that carries several, so from 640px a
+ * card with two or more pictures draws them here as well, under the words,
+ * two side by side at 4:3 (the phone's squares would be too tall across a
+ * card), the second saying how many more. A GIF plays while it is on screen.
  */
 export function CardMedia({ media, className = "" }: { media: PostMedia[]; className?: string }) {
   const pics = cardPictures(media)
@@ -121,8 +176,8 @@ export function CardMedia({ media, className = "" }: { media: PostMedia[]; class
   return (
     <div className={`grid grid-cols-2 gap-1 overflow-hidden rounded-xl ${className}`} data-card-media="pair">
       {pics.slice(0, 2).map((p, i) => (
-        <div key={i} className="relative aspect-square overflow-hidden bg-[#f1f2f4]">
-          <CardPictureImg p={p} widths={[256, 384, 640]} sizes="50vw" display={384} />
+        <div key={i} className="relative aspect-square overflow-hidden bg-[#f1f2f4] sm:aspect-[4/3]" data-card-media-tile={p.kind}>
+          <CardPictureImg p={p} widths={[256, 384, 640, 828]} sizes="(min-width: 640px) 360px, 50vw" display={384} />
           {i === 1 && more > 0 ? (
             <span className="absolute inset-0 flex items-center justify-center bg-[#0f1115]/45 text-[20px] font-semibold tabular-nums text-white" aria-label={`${more} more`} data-card-media-more="">
               +{more}
@@ -139,7 +194,9 @@ function CardPictureImg({ p, widths, sizes, display }: { p: CardPicture; widths:
   const srcSet = p.local ? optimizedSrcSet(p.url, widths) : ""
   return (
     <>
-      {failed ? null : (
+      {failed ? null : p.kind === "gif" && p.motion ? (
+        <GifImg still={p.url} motion={p.motion} width={p.w} height={p.h} className="absolute inset-0 h-full w-full object-cover" />
+      ) : (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={p.local ? optimizedImageUrl(p.url, display) : p.url}
@@ -294,13 +351,19 @@ export function PostMediaGrid({ media, communityId, postId }: { media: PostMedia
  * picked (media-upload.ts localPicture), so the tile is full from its first
  * frame and stays the same when the server's copy replaces the stand in.
  * While the comment is still on its way (`sending`) nothing opens.
+ * Round 12: a video by link (YouTube, Vimeo, Loom) is a small 16:9 player
+ * under the tiles, its poster first, played where it is; a GIF plays while
+ * on screen. Comments no longer take files; one kept from before still
+ * shows here and downloads.
  */
 export const COMMENT_TILE_H = 96
 
-export function CommentMedia({ media, communityId, commentId, sending = false }: { media: PostMedia[]; communityId: string; commentId: string; sending?: boolean }) {
+export function CommentMedia({ media, text = "", communityId, commentId, sending = false }: { media: PostMedia[]; text?: string; communityId: string; commentId: string; sending?: boolean }) {
   const [open, setOpen] = useState<number | null>(null)
   const rootRef = useRef<HTMLDivElement>(null)
-  if (!media.length) return null
+  /* Round 12: a video by link plays under the words, the one the comment carries or the first named in its words. */
+  const embeds = [...media.filter((m): m is Extract<PostMedia, { type: "embed" }> => m.type === "embed"), ...bodyEmbeds(text, media)].slice(0, MAX_COMMENT_EMBEDS)
+  if (!media.length && !embeds.length) return null
   const pictures = media.filter((m): m is Extract<PostMedia, { type: "image" | "gif" }> => m.type === "image" || m.type === "gif")
   const items: ViewerItem[] = pictures.map((m) => (m.type === "image" ? { kind: "image", url: m.url, w: m.w, h: m.h } : { kind: "gif", url: m.url, still: m.still, w: m.w, h: m.h }))
   const files = media.filter((m): m is Extract<PostMedia, { type: "file" }> => m.type === "file")
@@ -328,17 +391,20 @@ export function CommentMedia({ media, communityId, commentId, sending = false }:
                 className="group/ctile relative block shrink-0 overflow-hidden rounded-[10px] border border-[#e6e8eb] bg-[#eef0f2] shadow-[0_1px_1px_rgba(16,24,40,0.05)] outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/25 [-webkit-tap-highlight-color:transparent]"
                 style={{ height: COMMENT_TILE_H, width: Math.round(COMMENT_TILE_H * ratio) }}
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={src}
-                  width={m.w}
-                  height={m.h}
-                  alt=""
-                  loading="lazy"
-                  decoding="async"
-                  referrerPolicy={m.type === "gif" ? "no-referrer" : undefined}
-                  className="absolute inset-0 h-full w-full object-cover transition-[opacity] duration-150 group-active/ctile:opacity-85 motion-reduce:transition-none"
-                />
+                {m.type === "gif" ? (
+                  <GifImg still={m.still} motion={m.url} width={m.w} height={m.h} className="absolute inset-0 h-full w-full object-cover transition-[opacity] duration-150 group-active/ctile:opacity-85 motion-reduce:transition-none" />
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={src}
+                    width={m.w}
+                    height={m.h}
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                    className="absolute inset-0 h-full w-full object-cover transition-[opacity] duration-150 group-active/ctile:opacity-85 motion-reduce:transition-none"
+                  />
+                )}
                 {m.type === "gif" ? (
                   <span className="absolute bottom-1 left-1 rounded-[5px] bg-black/55 px-1 text-[10px] font-semibold leading-4 text-white" aria-hidden>
                     GIF
@@ -349,6 +415,15 @@ export function CommentMedia({ media, communityId, commentId, sending = false }:
           })}
         </div>
       ) : null}
+      {embeds.map((e) => (
+        <div key={`${e.provider}:${e.id}`} className="max-w-[420px] overflow-hidden rounded-[10px] border border-[#e6e8eb] shadow-[0_1px_1px_rgba(16,24,40,0.05)]" data-comment-embed={e.provider}>
+          {sending ? (
+            <EmbedPoster item={{ kind: "embed", provider: e.provider, id: e.id, hash: e.hash, thumb: e.thumb, title: e.title }} />
+          ) : (
+            <EmbedPlayer item={{ kind: "embed", provider: e.provider, id: e.id, hash: e.hash, thumb: e.thumb, title: e.title }} posterWidth={420} />
+          )}
+        </div>
+      ))}
       {files.map((f) => {
         const kind = mediaKindOf(f.name)
         const at = viewable.findIndex((v) => v.assetId === f.assetId)
@@ -443,7 +518,9 @@ function Tile({ index, item, fit, shape, more = 0, onOpen }: { index: number; it
       } ${isMotion(item) ? "cursor-pointer" : "cursor-zoom-in"}`}
       style={single ? { aspectRatio: String(ratioOf(item)) } : undefined}
     >
-      {picture ? (
+      {item.kind === "gif" ? (
+        <GifImg still={item.still} motion={item.url} width={item.w} height={item.h} className={`absolute inset-0 h-full w-full transition-[scale] duration-300 ease-out group-hover/tile:scale-[1.015] motion-reduce:transition-none ${single ? "object-contain" : "object-cover"}`} />
+      ) : picture ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={local ? optimizedImageUrl(picture, size.display) : picture}

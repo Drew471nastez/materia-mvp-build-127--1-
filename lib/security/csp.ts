@@ -143,6 +143,8 @@ const DIRECTIVES: [string, string[]][] = [
     "https://youtube.com",
     "https://www.youtube-nocookie.com",
     "https://player.vimeo.com",
+    /* A Loom video by link in a community post or comment (lib/communities/post-media.ts loomFromUrl). */
+    "https://www.loom.com",
     "https://open.spotify.com",
     "https://w.soundcloud.com",
     "https://www.google.com",

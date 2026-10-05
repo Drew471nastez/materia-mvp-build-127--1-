@@ -37,7 +37,7 @@ import { publicUrlProblem, fetchPublic } from "@/lib/api/public-fetch"
 import { plainTextToHtml } from "@/lib/rich-text/html"
 import { evaluateAccess, type AccessViewer } from "../access"
 import { LENGTHS, MAX_MEDIA_PER_POST, POLL_OPTIONS_MAX, POLL_OPTIONS_MIN, mentionsEveryone } from "../limits"
-import { MAX_EMBEDS, MAX_GIFS, embedFromUrl, embedThumbUrl, giphyUrl } from "../post-media"
+import { MAX_EMBEDS, MAX_GIFS, embedThumbUrl, giphyUrl, postEmbedFromUrl } from "../post-media"
 import { can, meetsRole } from "../permissions"
 import {
   POST_COLUMNS,
@@ -590,8 +590,8 @@ export function checkMedia(raw: unknown): Checked<PostMedia[]> {
       if (m.poster && !poster) return { ok: false, error: "That video could not be added." }
       out.push({ type: "video", videoId: m.videoId.toLowerCase(), ...(poster ? { poster } : {}), ...dims(m) })
     } else if (m.type === "embed") {
-      const ref = embedFromUrl(m.url)
-      if (!ref || (m.provider !== undefined && m.provider !== ref.provider)) return { ok: false, error: "Only YouTube and Vimeo videos can be added by link." }
+      const ref = postEmbedFromUrl(m.url)
+      if (!ref || (m.provider !== undefined && m.provider !== ref.provider)) return { ok: false, error: "Only YouTube, Vimeo and Loom videos can be added by link." }
       if (++embeds > MAX_EMBEDS) return { ok: false, error: `Up to ${MAX_EMBEDS} videos by link in one post.` }
       const thumb = ref.thumb ?? embedThumbUrl(m.thumb) ?? undefined
       const title = typeof m.title === "string" ? m.title.replace(/\s+/g, " ").trim().slice(0, 200) : ""

@@ -46,29 +46,40 @@
  * lib/communities/server/comments.ts). Under a comment they are small tiles
  * that open the viewer (media.tsx CommentMedia). A comment may be a GIF or
  * a picture alone.
+ *
+ * ROUND 12. No files in comments: the paperclip is now a picture button
+ * (pictures only) and the server refuses a file. Beside it a video by link
+ * (YouTube, Vimeo or Loom, played inline under the comment), emoji (the
+ * app's own picker, put in where the caret is) and GIF. A like plays its
+ * tiny sound (heart.tsx likeSound); Report opens the report sheet.
  * Edit and delete are the author's; report is everybody else's; a moderator
  * removes through the moderation route.
  */
 import Link from "next/link"
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
-import { ArrowUp, FileText, Flag, Loader2, MoreHorizontal, Paperclip, Pencil, Shield, Trash2, X } from "lucide-react"
+import { ArrowUp, Clapperboard, Flag, ImageIcon, Loader2, MoreHorizontal, Pencil, Shield, Trash2, X } from "lucide-react"
+import { EmojiControl } from "@/components/app/rich-text/emoji-picker"
+import { EMOJI_POPOVER } from "@/components/ui/popover-fit"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { relativeTime } from "@/lib/communities/format"
-import { MAX_COMMENT_GIFS, MAX_COMMENT_MEDIA, STAFF_FILE_MAX_BYTES, fileSizeLabel } from "@/lib/communities/post-media"
+import { EMBED_NAMES, MAX_COMMENT_GIFS, MAX_COMMENT_MEDIA } from "@/lib/communities/post-media"
 import type { CommentView, FeedPostView, PostMedia, ViewerView } from "@/lib/communities/types"
 import { api, apiBase } from "./api"
 import { landComment } from "./arrive"
 import { BodyText } from "./body-text"
-import { ConfirmDialog, ReportDialog, type ConfirmState, type ReportTargetRef } from "./dialogs"
-import { LikeHeart } from "./heart"
+import { ConfirmDialog, type ConfirmState, type ReportTargetRef } from "./dialogs"
+import { LikeHeart, likeSound } from "./heart"
 import { CommentMedia } from "./media"
 import { GifButton } from "./media-gif"
-import { localPicture, uploadCommunityFile, uploadKindOf, uploadPicture } from "./media-upload"
+import { LinkField, type LinkPick } from "./media-link"
+import { ProviderMark } from "./media-providers"
+import { localPicture, uploadKindOf, uploadPicture } from "./media-upload"
 import { listenLive, typingLine, useTyping } from "./live"
 import { MentionTextarea, type MentionTextareaHandle } from "./mention-input"
 import { actOnContent } from "./moderation"
 import { press, useIntent } from "./post-intent"
+import { ReportSheet } from "./report-sheet"
 import { toast } from "./toast"
 import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, ICON_BTN } from "./ui"
 import { memberHref } from "./person-href"
@@ -432,7 +443,7 @@ let tempSeq = 0
 /** Something picked for a comment: drawn at once, sent as soon as it is picked, `media` once the upload has it. */
 interface Picked {
   key: string
-  kind: "image" | "gif" | "file"
+  kind: "image" | "gif" | "embed"
   name: string
   preview?: string
   progress: number
@@ -441,8 +452,16 @@ interface Picked {
 
 /** The box's own tools: the glyph alone in a 40px tall target, a tint on hover and on press (never a shrink). */
 const BOX_TOOL =
-  "group/tool -my-1 flex h-10 w-8 shrink-0 cursor-pointer select-none items-center justify-center rounded-[8px] text-[#8a8f98] outline-none transition-colors duration-150 hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 disabled:pointer-events-none disabled:opacity-40 motion-reduce:transition-none [-webkit-tap-highlight-color:transparent] [&>*]:rounded-[7px] [&>*]:transition-colors hover:[&>*]:bg-[#f1f2f4] active:[&>*]:bg-[#eceef1]"
+  "-my-1 flex h-10 w-9 shrink-0 cursor-pointer select-none items-center justify-center rounded-[9px] text-[#8a8f98] outline-none transition-colors duration-150 hover:bg-[#f1f2f4] hover:text-[#1a1a2e] active:bg-[#eceef1] active:duration-0 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 disabled:pointer-events-none disabled:opacity-40 aria-pressed:bg-[#eceef1] aria-pressed:text-[#1a1a2e] motion-reduce:transition-none [-webkit-tap-highlight-color:transparent]"
 
+/**
+ * THE COMMENT BOX (round 12): the words, then its tools: pictures (a member
+ * who may upload), a video by link (YouTube, Vimeo, Loom: the link field
+ * opens under the box, media-link.tsx), emoji and GIF, with Send at the end.
+ * On a computer it is one row; on a phone the tools sit in a row of their
+ * own under the words, always there (focusing never adds it), so the words
+ * keep the width. No files: the paperclip is gone and the server refuses one.
+ */
 function CommentBox({
   communityId,
   postId,
@@ -468,12 +487,23 @@ function CommentBox({
   handleRef?: React.Ref<MentionTextareaHandle>
   placeholder: string
   autoFocus?: boolean
-  /** Pictures and files (a member who may upload); a GIF is anybody's. */
+  /** Pictures (a member who may upload); a GIF, a video link and emoji are anybody's. */
   canUpload?: boolean
 }) {
   const [body, setBody] = useState(initial)
   const [picks, setPicks] = useState<Picked[]>([])
+  const [videoField, setVideoField] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
+  /* The words' own handle (emoji go in where the caret is), handed on to whoever asked for it. */
+  const textRef = useRef<MentionTextareaHandle | null>(null)
+  const setText = useCallback(
+    (h: MentionTextareaHandle | null) => {
+      textRef.current = h
+      if (typeof handleRef === "function") handleRef(h)
+      else if (handleRef) (handleRef as React.MutableRefObject<MentionTextareaHandle | null>).current = h
+    },
+    [handleRef],
+  )
   /* The box's words as they are now, so a refused comment goes back only into an empty box. */
   const current = useRef(body)
   current.current = body
@@ -486,35 +516,25 @@ function CommentBox({
   const patch = (k: string, p: Partial<Picked>) => setPicks((list) => list.map((x) => (x.key === k ? { ...x, ...p } : x)))
   const drop = (k: string) => setPicks((list) => list.filter((x) => x.key !== k))
   const newKey = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`
+  const full = () => picksNow.current.length >= MAX_COMMENT_MEDIA
 
-  const addFiles = async (files: FileList | null) => {
+  const addPictures = async (files: FileList | null) => {
     if (!files?.length || !author.id) return
     const room = MAX_COMMENT_MEDIA - picksNow.current.length
-    const list = Array.from(files).slice(0, Math.max(0, room))
-    if (list.length < files.length) toast(`Up to ${MAX_COMMENT_MEDIA} pictures, GIFs or files in a comment.`)
+    const list = Array.from(files).filter((f) => uploadKindOf(f) === "image")
+    if (list.length < files.length) toast(COMMENT_FILES_SAID)
+    const taken = list.slice(0, Math.max(0, room))
+    if (taken.length < list.length) toast(`Up to ${MAX_COMMENT_MEDIA} pictures, GIFs or videos in a comment.`)
     await Promise.all(
-      list.map(async (file) => {
+      taken.map(async (file) => {
         const k = newKey()
-        if (uploadKindOf(file) === "image") {
-          const preview = URL.createObjectURL(file)
-          setPicks((l) => [...l, { key: k, kind: "image", name: file.name, preview, progress: 10 }])
-          try {
-            patch(k, { progress: 100, media: await uploadPicture(file, author.id, communityId) })
-          } catch (e) {
-            drop(k)
-            toast((e as Error).message || "The picture did not upload.")
-          }
-          return
-        }
-        /* A video goes as a file here: it opens in the viewer from the comment. */
-        if (file.size > STAFF_FILE_MAX_BYTES) return toast(`${file.name} is over ${fileSizeLabel(STAFF_FILE_MAX_BYTES)}.`)
-        setPicks((l) => [...l, { key: k, kind: "file", name: file.name, progress: 0 }])
+        const preview = URL.createObjectURL(file)
+        setPicks((l) => [...l, { key: k, kind: "image", name: file.name, preview, progress: 10 }])
         try {
-          const done = await uploadCommunityFile({ communityId, file, onProgress: (n) => patch(k, { progress: n }) })
-          patch(k, { progress: 100, name: done.name, media: done })
+          patch(k, { progress: 100, media: await uploadPicture(file, author.id, communityId) })
         } catch (e) {
           drop(k)
-          toast((e as Error).message || "The file did not upload.")
+          toast((e as Error).message || "The picture did not upload.")
         }
       }),
     )
@@ -522,8 +542,18 @@ function CommentBox({
   const addGif = (gif: Extract<PostMedia, { type: "gif" }>) => {
     const list = picksNow.current
     if (list.filter((x) => x.kind === "gif").length >= MAX_COMMENT_GIFS) return toast("One GIF per comment.")
-    if (list.length >= MAX_COMMENT_MEDIA) return toast(`Up to ${MAX_COMMENT_MEDIA} pictures, GIFs or files in a comment.`)
+    if (full()) return toast(`Up to ${MAX_COMMENT_MEDIA} pictures, GIFs or videos in a comment.`)
     setPicks((l) => [...l, { key: newKey(), kind: "gif", name: gif.title ?? "GIF", preview: gif.url, progress: 100, media: gif }])
+  }
+  const addVideo = (pick: LinkPick) => {
+    if (!pick.embed) return
+    if (picksNow.current.some((x) => x.kind === "embed")) return toast("One video link per comment.")
+    if (full()) return toast(`Up to ${MAX_COMMENT_MEDIA} pictures, GIFs or videos in a comment.`)
+    const thumb = pick.embed.thumb ?? pick.preview?.image ?? undefined
+    const title = pick.preview?.title?.slice(0, 200)
+    setPicks((l) => [...l, { key: newKey(), kind: "embed", name: title || EMBED_NAMES[pick.embed!.provider], preview: thumb, progress: 100, media: { type: "embed", ...pick.embed!, ...(thumb ? { thumb } : {}), ...(title ? { title } : {}) } }])
+    setVideoField(false)
+    textRef.current?.focus()
   }
 
   const uploading = picks.some((x) => !x.media)
@@ -554,6 +584,7 @@ function CommentBox({
     })
     setBody("")
     setPicks([])
+    setVideoField(false)
     current.current = ""
     onCancel?.()
     const r = await api<{ comment: CommentView }>(`${apiBase(communityId)}/posts/${postId}/comments`, { body: { body: text, parentId, ...(media.length ? { media } : {}) } })
@@ -567,98 +598,113 @@ function CommentBox({
     }
     sending.confirm(tempId, r.data.comment)
   }
+  /* A tool pressed keeps the caret (and a phone its keyboard) in the words. */
+  const keep = { onPointerDown: (e: React.PointerEvent) => e.preventDefault(), onMouseDown: (e: React.MouseEvent) => e.preventDefault() }
   return (
     <div className="flex items-start gap-2.5" data-comment-box={parentId ? "reply" : "comment"} data-keep-in-sight="">
       {me ? <AppAvatar src={me.avatarUrl} name={me.name} alt="" size={parentId ? 28 : 32} markWhileLoading className="mt-1" /> : null}
-      <div
-        className="min-w-0 flex-1 rounded-[10px] border border-[#e3e5e9] bg-white shadow-[0_1px_1px_rgba(16,24,40,0.05)] transition-[border-color,box-shadow] duration-150 focus-within:border-[#c9ccd3] focus-within:shadow-[0_0_0_3px_rgba(26,26,46,0.05),0_1px_1px_rgba(16,24,40,0.05)] motion-reduce:transition-none"
-        data-comment-field=""
-      >
-        {picks.length ? (
-          <div className="flex flex-wrap gap-1.5 px-2 pt-2" data-comment-picks="">
-            {picks.map((x) => (
-              <PickTile key={x.key} pick={x} onRemove={() => drop(x.key)} />
-            ))}
-          </div>
-        ) : null}
-        <div className="flex items-end gap-0.5 py-1 pl-3 pr-1">
-          <div className="min-w-0 flex-1 py-[5px]">
-            <MentionTextarea
-              ref={handleRef}
-              communityId={communityId}
-              value={body}
-              onChange={change}
-              placeholder={placeholder}
-              ariaLabel={placeholder}
-              maxLength={5000}
-              autoFocus={autoFocus}
-              className="min-h-[24px] text-[16px] leading-6 text-[#262633] sm:text-[14.5px]"
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                  e.preventDefault()
-                  void send()
-                }
-                if (e.key === "Escape" && onCancel && !body && !picks.length) onCancel()
-              }}
-            />
-          </div>
-          {canUpload ? (
-            <>
-              <input ref={fileInput} type="file" multiple hidden onChange={(e) => (void addFiles(e.target.files), (e.target.value = ""))} data-comment-file-input="" />
-              <button type="button" aria-label="Add pictures or files" title="Add pictures or files" onPointerDown={(e) => e.preventDefault()} onMouseDown={(e) => e.preventDefault()} onClick={() => fileInput.current?.click()} className={BOX_TOOL} disabled={picks.length >= MAX_COMMENT_MEDIA} data-comment-tool="file">
-                <span className="flex h-8 w-8 items-center justify-center">
-                  <Paperclip className="h-[17px] w-[17px]" strokeWidth={1.75} aria-hidden />
+      <div className="min-w-0 flex-1">
+        <div
+          className="rounded-[10px] border border-[#e3e5e9] bg-white shadow-[0_1px_1px_rgba(16,24,40,0.05)] transition-[border-color,box-shadow] duration-150 focus-within:border-[#c9ccd3] focus-within:shadow-[0_0_0_3px_rgba(26,26,46,0.05),0_1px_1px_rgba(16,24,40,0.05)] motion-reduce:transition-none"
+          data-comment-field=""
+        >
+          {picks.length ? (
+            <div className="flex flex-wrap gap-1.5 px-2 pt-2" data-comment-picks="">
+              {picks.map((x) => (
+                <PickTile key={x.key} pick={x} onRemove={() => drop(x.key)} />
+              ))}
+            </div>
+          ) : null}
+          <div className="flex flex-wrap items-end gap-x-0.5 py-1 pl-3 pr-1 sm:flex-nowrap">
+            <div className="min-w-0 basis-full py-[5px] pr-2 sm:flex-1 sm:basis-auto sm:pr-0">
+              <MentionTextarea
+                ref={setText}
+                communityId={communityId}
+                value={body}
+                onChange={change}
+                placeholder={placeholder}
+                ariaLabel={placeholder}
+                maxLength={5000}
+                autoFocus={autoFocus}
+                className="min-h-[24px] text-[16px] leading-6 text-[#262633] sm:text-[14.5px]"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                    e.preventDefault()
+                    void send()
+                  }
+                  if (e.key === "Escape" && onCancel && !body && !picks.length) onCancel()
+                }}
+              />
+            </div>
+            <div className="-ml-2 flex items-center sm:ml-0" data-comment-tools="">
+              {canUpload ? (
+                <>
+                  <input ref={fileInput} type="file" accept="image/*" multiple hidden onChange={(e) => (void addPictures(e.target.files), (e.target.value = ""))} data-comment-file-input="" />
+                  <button type="button" aria-label="Add pictures" title="Add pictures" {...keep} onClick={() => fileInput.current?.click()} className={BOX_TOOL} disabled={picks.length >= MAX_COMMENT_MEDIA} data-comment-tool="image">
+                    <ImageIcon className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden />
+                  </button>
+                </>
+              ) : null}
+              <button type="button" aria-label="Add a video link" title="Add a video link" aria-pressed={videoField} {...keep} onClick={() => setVideoField((v) => !v)} className={BOX_TOOL} disabled={picks.length >= MAX_COMMENT_MEDIA && !videoField} data-comment-tool="video">
+                <Clapperboard className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden />
+              </button>
+              <span className="contents" data-comment-tool="emoji">
+                <EmojiControl className={`${BOX_TOOL} [&>svg]:h-[18px] [&>svg]:w-[18px]`} size={EMOJI_POPOVER} onBeforeOpen={() => undefined} onInsert={(e) => textRef.current?.insert(e)} />
+              </span>
+              <span className="contents" data-comment-tool="gif">
+                <GifButton communityId={communityId} className={BOX_TOOL} onPick={addGif} disabled={picks.length >= MAX_COMMENT_MEDIA} />
+              </span>
+            </div>
+            <div className="ml-auto flex items-center">
+              {onCancel ? (
+                <button type="button" aria-label="Cancel reply" onClick={onCancel} className={BOX_TOOL} data-comment-cancel="">
+                  <X className="h-4 w-4" strokeWidth={2} aria-hidden />
+                </button>
+              ) : null}
+              {/* Grey with nothing to send, ink with something: one button, its look follows the words (no row added on focus). Pressed is a tint, never a shrink. */}
+              <button
+                type="button"
+                aria-label={parentId ? "Send reply" : "Send comment"}
+                /* The field keeps the caret (and a phone its keyboard) through the press. */
+                onPointerDown={(e) => e.preventDefault()}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={send}
+                className="group/send -my-1 flex h-10 w-9 shrink-0 touch-manipulation items-center justify-center rounded-[8px] outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 disabled:cursor-default [-webkit-tap-highlight-color:transparent]"
+                disabled={!ready}
+                data-comment-send=""
+              >
+                <span className={`flex h-8 w-8 items-center justify-center rounded-[7px] transition-[background-color,color,opacity] duration-150 group-active/send:opacity-80 motion-reduce:transition-none ${ready ? "bg-[#1a1a2e] text-white shadow-[0_1px_1.5px_rgba(16,24,40,0.18)]" : "bg-[#eef0f2] text-[#a3a8b0]"}`}>
+                  {uploading ? <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" strokeWidth={2.25} aria-hidden /> : <ArrowUp className="h-[17px] w-[17px]" strokeWidth={2.25} aria-hidden />}
                 </span>
               </button>
-            </>
-          ) : null}
-          <span className="contents" data-comment-tool="gif">
-            <GifButton communityId={communityId} className={`${BOX_TOOL} [&>span]:flex [&>span]:h-8 [&>span]:w-8 [&>span]:items-center [&>span]:justify-center`} onPick={addGif} disabled={picks.length >= MAX_COMMENT_MEDIA} />
-          </span>
-          {onCancel ? (
-            <button type="button" aria-label="Cancel reply" onClick={onCancel} className="group/cancel -my-1 flex h-10 w-9 shrink-0 items-center justify-center rounded-[8px] text-[#8a8f98] outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 [-webkit-tap-highlight-color:transparent]" data-comment-cancel="">
-              <span className="flex h-8 w-8 items-center justify-center rounded-[7px] transition-colors group-hover/cancel:bg-[#f1f2f4] group-hover/cancel:text-[#1a1a2e]">
-                <X className="h-4 w-4" strokeWidth={2} aria-hidden />
-              </span>
-            </button>
-          ) : null}
-          {/* Grey with nothing to send, ink with something: one button, its look follows the words (no row added on focus). Pressed is a tint, never a shrink. */}
-          <button
-            type="button"
-            aria-label={parentId ? "Send reply" : "Send comment"}
-            /* The field keeps the caret (and a phone its keyboard) through the press. */
-            onPointerDown={(e) => e.preventDefault()}
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={send}
-            className="group/send -my-1 flex h-10 w-9 shrink-0 touch-manipulation items-center justify-center rounded-[8px] outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 disabled:cursor-default [-webkit-tap-highlight-color:transparent]"
-            disabled={!ready}
-            data-comment-send=""
-          >
-            <span className={`flex h-8 w-8 items-center justify-center rounded-[7px] transition-[background-color,color,opacity] duration-150 group-active/send:opacity-80 motion-reduce:transition-none ${ready ? "bg-[#1a1a2e] text-white shadow-[0_1px_1.5px_rgba(16,24,40,0.18)]" : "bg-[#eef0f2] text-[#a3a8b0]"}`}>
-              {uploading ? <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" strokeWidth={2.25} aria-hidden /> : <ArrowUp className="h-[17px] w-[17px]" strokeWidth={2.25} aria-hidden />}
-            </span>
-          </button>
+            </div>
+          </div>
         </div>
+        {videoField ? <LinkField mode="video" communityId={communityId} className="mt-2" onAdd={addVideo} onClose={() => setVideoField(false)} /> : null}
       </div>
     </div>
   )
 }
 
+/** What the box says when a file that is not a picture is picked (comments take no files, round 12). */
+const COMMENT_FILES_SAID = "Comments take pictures, GIFs and video links. Share files in a post."
+
 /** One thing picked for a comment, at the top of the box: a small tile, its upload as a thin bar, an x to take it off. */
 function PickTile({ pick, onRemove }: { pick: Picked; onRemove: () => void }) {
-  const picture = pick.kind === "image" ? (pick.preview ?? (pick.media?.type === "image" ? localPicture(pick.media.url) : null)) : pick.kind === "gif" ? pick.preview : null
+  const picture = pick.kind === "image" ? (pick.preview ?? (pick.media?.type === "image" ? localPicture(pick.media.url) : null)) : pick.preview ?? null
+  const embed = pick.media?.type === "embed" ? pick.media : null
   return (
     <div className="relative shrink-0" data-comment-pick={pick.kind} data-comment-pick-ready={pick.media ? "" : undefined}>
-      <div className="relative h-14 overflow-hidden rounded-[8px] border border-[#e6e8eb] bg-[#f4f5f7]" style={{ width: picture ? 56 : 132 }}>
+      <div className={`relative h-14 overflow-hidden rounded-[8px] border border-[#e6e8eb] ${embed ? "bg-[#1f2230]" : "bg-[#f4f5f7]"}`} style={{ width: embed ? 96 : 56 }}>
         {picture ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={picture} alt="" referrerPolicy={pick.kind === "gif" ? "no-referrer" : undefined} className="absolute inset-0 h-full w-full object-cover" />
-        ) : (
-          <div className="flex h-full items-center gap-2 pl-2 pr-7">
-            <FileText className="h-4 w-4 shrink-0 text-[#6b7280]" strokeWidth={1.75} aria-hidden />
-            <span className="min-w-0 truncate text-[12.5px] font-medium text-[#1a1a2e]">{pick.name}</span>
-          </div>
-        )}
+          <img src={picture} alt="" referrerPolicy={pick.kind === "image" ? undefined : "no-referrer"} className="absolute inset-0 h-full w-full object-cover" />
+        ) : null}
+        {embed ? (
+          <span className="absolute bottom-1 left-1 flex h-5 w-5 items-center justify-center rounded-[5px] bg-white/95 shadow-[0_1px_1px_rgba(0,0,0,0.15)]" aria-label={EMBED_NAMES[embed.provider]} data-comment-pick-site={embed.provider}>
+            <ProviderMark provider={embed.provider} size={14} />
+          </span>
+        ) : null}
         {!pick.media ? (
           <span className="absolute inset-x-1.5 bottom-1.5 h-[3px] overflow-hidden rounded-full bg-black/10" aria-hidden>
             <span className="block h-full origin-left rounded-full bg-[#1a1a2e] transition-[scale] duration-200" style={{ scale: `${Math.max(0.08, pick.progress / 100)} 1` }} />
@@ -778,6 +824,7 @@ function CommentItem({
 
   const like = () => {
     if (c.deleted || c.sending || !viewer.can.react) return
+    likeSound(!reacted)
     press(`comment-like:${c.id}`, { on: reacted, count: reactionCount }, {
       send: (on) => api<{ on: boolean; count: number }>(`${base}/reactions`, { body: { targetType: "comment", targetId: c.id, on } }),
       apply: (t) => update(c.id, (x) => ({ ...x, reacted: t.on, reactionCount: t.count })),
@@ -889,7 +936,7 @@ function CommentItem({
               </>
             )}
           </div>
-          {!c.deleted && c.media?.length ? <CommentMedia media={c.media} communityId={communityId} commentId={c.id} sending={!!c.sending} /> : null}
+          {!c.deleted ? <CommentMedia media={c.media ?? []} text={c.body} communityId={communityId} commentId={c.id} sending={!!c.sending} /> : null}
           {!c.deleted ? (
             /* One row for both states: "Sending..." in the time's place while it goes, the actions kept in their places (hidden), so confirming moves nothing. */
             <div className="flex items-center gap-0.5 pl-1.5 text-[12.5px] text-[#6b7280]">
@@ -939,7 +986,7 @@ function CommentItem({
         </div>
       </div>
       <ConfirmDialog state={confirm} onClose={() => setConfirm(null)} />
-      <ReportDialog communityId={communityId} target={report} onClose={() => setReport(null)} />
+      <ReportSheet communityId={communityId} target={report} onClose={() => setReport(null)} />
     </div>
   )
 }

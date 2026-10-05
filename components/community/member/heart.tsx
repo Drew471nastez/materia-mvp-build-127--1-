@@ -24,7 +24,7 @@
  * same answer: only a change of `on` while drawn beats.
  */
 import { Heart } from "lucide-react"
-import { useLayoutEffect, useRef } from "react"
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
 
 const BEAT_MS = 380
 const FILL_MS = 280
@@ -165,5 +165,109 @@ export function LikeHeart({ on, size = 20, strokeWidth = 1.75 }: { on: boolean; 
         data-heart-fill=""
       />
     </span>
+  )
+}
+
+/**
+ * ===========================================================================
+ *  THE LIKE'S SOUND (round 12)
+ * ===========================================================================
+ * A like plays a tiny sound made on the spot with Web Audio (no file to
+ * load): a soft rising "pop" a little under a fifth of a second long, very
+ * quiet; an unlike is a lower, softer, shorter falling one. One sound per
+ * press, made in the press itself (a browser lets a page start audio only
+ * from a press). Never when the page is hidden, never with reduced motion
+ * (a person who asked for a calmer screen gets a quieter one too), and
+ * never when the member has turned Sounds off: a switch kept in this
+ * browser (SOUNDS_KEY), on unless turned off. SoundsSwitch below is that
+ * switch, for any settings list to show.
+ */
+export const SOUNDS_KEY = "storelib:sounds"
+const SOUNDS_EVENT = "storelib:sounds-change"
+
+export function soundsOn(): boolean {
+  try {
+    return window.localStorage.getItem(SOUNDS_KEY) !== "off"
+  } catch {
+    return true
+  }
+}
+
+export function setSoundsOn(on: boolean) {
+  try {
+    if (on) window.localStorage.removeItem(SOUNDS_KEY)
+    else window.localStorage.setItem(SOUNDS_KEY, "off")
+  } catch {
+    /* Private mode: the switch lasts for this page. */
+  }
+  window.dispatchEvent(new CustomEvent(SOUNDS_EVENT, { detail: { on } }))
+}
+
+let audio: AudioContext | null = null
+
+/** The like's sound, or the unlike's. Answers whether one was played. */
+export function likeSound(on: boolean): boolean {
+  if (typeof window === "undefined" || typeof document === "undefined") return false
+  if (document.visibilityState !== "visible" || !soundsOn() || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return false
+  const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+  if (!Ctx) return false
+  try {
+    audio ??= new Ctx()
+    if (audio.state === "suspended") void audio.resume()
+    const t = audio.currentTime + 0.004
+    const tone = (from: number, to: number, peak: number, length: number, at = t) => {
+      const osc = audio!.createOscillator()
+      const gain = audio!.createGain()
+      osc.type = "sine"
+      osc.frequency.setValueAtTime(from, at)
+      osc.frequency.exponentialRampToValueAtTime(to, at + length * 0.55)
+      gain.gain.setValueAtTime(0.0001, at)
+      gain.gain.exponentialRampToValueAtTime(peak, at + 0.008)
+      gain.gain.exponentialRampToValueAtTime(0.0001, at + length)
+      osc.connect(gain)
+      gain.connect(audio!.destination)
+      osc.start(at)
+      osc.stop(at + length + 0.02)
+      osc.onended = () => {
+        osc.disconnect()
+        gain.disconnect()
+      }
+    }
+    if (on) {
+      tone(660, 990, 0.045, 0.16)
+      tone(1320, 1980, 0.012, 0.1, t + 0.012)
+    } else tone(560, 420, 0.02, 0.11)
+    return true
+  } catch {
+    return false
+  }
+}
+
+/** The Sounds switch, for a settings list: "Sounds", on by default, kept in this browser. */
+export function SoundsSwitch({ className = "" }: { className?: string }) {
+  const [on, setOn] = useState(true)
+  useEffect(() => {
+    setOn(soundsOn())
+    const sync = (e: Event) => setOn((e as CustomEvent<{ on: boolean }>).detail?.on ?? soundsOn())
+    window.addEventListener(SOUNDS_EVENT, sync)
+    return () => window.removeEventListener(SOUNDS_EVENT, sync)
+  }, [])
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      onClick={() => setSoundsOn(!on)}
+      className={`flex min-h-11 w-full items-center gap-3 rounded-[10px] px-3 text-left outline-none transition-colors hover:bg-[#f6f7f8] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 [-webkit-tap-highlight-color:transparent] ${className}`}
+      data-sounds-switch={on ? "on" : "off"}
+    >
+      <span className="min-w-0 flex-1">
+        <span className="block text-[14.5px] font-medium text-[#1a1a2e]">Sounds</span>
+        <span className="block text-[12.5px] text-[#6b7280]">A soft sound when you like something</span>
+      </span>
+      <span className={`relative h-6 w-10 shrink-0 rounded-full transition-colors duration-200 motion-reduce:transition-none ${on ? "bg-[#1a1a2e]" : "bg-[#d9dce1]"}`} aria-hidden>
+        <span className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow-[0_1px_2px_rgba(16,24,40,0.2)] transition-[translate] duration-200 ease-out motion-reduce:transition-none ${on ? "translate-x-4" : "translate-x-0"}`} />
+      </span>
+    </button>
   )
 }

@@ -6,8 +6,10 @@
  * ===========================================================================
  * A search over Giphy, through Storelib's own route (/api/community/<id>/gifs,
  * which holds the key): what is trending when the box is empty, results a
- * moment after typing stops. A popover under the button on a computer, the
- * shared sheet on a phone. A pick goes into the post as a GIF with its still.
+ * moment after typing stops. A popover by the button on a computer, about
+ * 340 by 380 and never more than the room it has (round 12,
+ * components/ui/popover-fit.ts), the shared sheet on a phone. A pick goes
+ * into the post as a GIF with its still.
  *
  * Without GIPHY_API_KEY the route answers `connected: false`: the button is
  * drawn quieter and opening it says GIFs are not connected, nothing more.
@@ -16,6 +18,7 @@ import * as PopoverPrimitive from "@radix-ui/react-popover"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { Search } from "lucide-react"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
+import { FIT_POPOVER, GIF_POPOVER, fitBox } from "@/components/ui/popover-fit"
 import type { PostMedia } from "@/lib/communities/types"
 import { api, apiBase } from "./api"
 
@@ -126,9 +129,10 @@ export function GifButton({ communityId, className, onPick, disabled = false }: 
           align="start"
           side="top"
           sideOffset={8}
-          collisionPadding={12}
+          {...FIT_POPOVER}
+          style={fitBox(GIF_POPOVER.w, GIF_POPOVER.h)}
           data-gif-popover=""
-          className="z-[2147483640] flex h-[420px] w-[360px] flex-col overflow-hidden rounded-xl border border-[#e3e4e8] bg-white shadow-[0_16px_40px_-12px_rgba(17,24,39,0.28),0_2px_6px_rgba(17,24,39,0.06)] outline-none data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 duration-150"
+          className="z-[2147483640] flex flex-col overflow-hidden rounded-xl border border-[#e3e4e8] bg-white shadow-[0_16px_40px_-12px_rgba(17,24,39,0.28),0_2px_6px_rgba(17,24,39,0.06)] outline-none data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 duration-150"
         >
           {panel}
         </PopoverPrimitive.Content>
