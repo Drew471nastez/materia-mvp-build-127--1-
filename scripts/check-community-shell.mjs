@@ -531,7 +531,7 @@ export const isNativePlatform = () => false
         return { items: [...box.querySelectorAll("[data-account-item]")].map((a) => a.getAttribute("data-account-item")), hrefs: Object.fromEntries([...box.querySelectorAll("a[data-account-item]")].map((a) => [a.getAttribute("data-account-item"), a.getAttribute("href")])), who: box.querySelector("[data-account-who]")?.innerText.replace(/\s+/g, " ").trim(), text: box.innerText }
       }, phone)
       /* Round 11, ask 16: the community's short list (a member here, so no Dashboard). */
-      expect(!!menu && menu.items.join() === "invite,saved,profile,settings,log-out", `the "..." opens the Storelib account ${phone ? "sheet" : "menu"} in its short form: Invite people, Saved posts, Profile, Settings, Log out`, menu?.items)
+      expect(!!menu && menu.items.join() === "invite,saved,membership,profile,settings,log-out", `the "..." opens the Storelib account ${phone ? "sheet" : "menu"} in its short form: Invite people, Saved posts, Membership (round 13), Profile, Settings, Log out`, menu?.items)
       expect(!!menu && menu.hrefs.saved === "/community/clay-studio/saved" && /Invite people/.test(menu.text) && /Saved posts/.test(menu.text), "Invite people and Saved posts (to this community's saved posts)", menu && { saved: menu.hrefs.saved })
       expect(!!menu && menu.hrefs.profile === "/account" && menu.hrefs.settings === "/account/settings" && !menu.hrefs.help && !menu.hrefs.discover && /Sam Carter @samc/.test(menu.who || ""), "Profile goes to /account (not /@samc or an editor) and Settings to /account/settings; my name and @handle on top", menu)
       await shot(p, `${label}-me-menu`)
@@ -1162,22 +1162,22 @@ export const isNativePlatform = () => false
           rating: document.querySelector("[data-community-rating]")?.textContent,
           thumbs: document.querySelectorAll("[data-gallery-thumb]").length,
           main: document.querySelector("[data-gallery-main]")?.getAttribute("data-gallery-main"),
-          /* Round 11: the facts are quiet words under the name (no price, no members); the figures one panel under the media. */
-          info: [...document.querySelectorAll("[data-community-info] [data-info]")].map((li) => li.textContent.replace(/\s+/g, " ").trim()),
+          /* Round 13: no facts line and no figures panel; the facts are one quiet list (the side card from 1280px, the sheet below). */
+          info: [...document.querySelectorAll("[data-about-facts] [data-fact]")].filter((f) => f.getClientRects().length).map((f) => f.getAttribute("data-fact") + "=" + f.querySelector("dd").textContent.trim()),
           stats: [...document.querySelectorAll("[data-community-sheet] [data-stat]")].map((d) => d.textContent.trim()),
           paying: [...document.querySelectorAll("[data-review-paying]")].map((s) => s.textContent.trim()),
           reviewLinks: [...document.querySelectorAll("[data-review] [data-person-link]")].map((a) => a.getAttribute("href")),
-          order: { gallery: y("[data-community-gallery]"), info: y("[data-community-info]"), stats: y("[data-community-sheet] [data-community-stats]"), description: y("[data-community-description]") },
+          order: { gallery: y("[data-community-gallery]"), description: y("[data-community-description]") },
         }
       })
       expect(!a.pills, "a visitor gets the bar without the member's tabs", a.pills)
       expect(a.title === "Clay Studio" && /4\.9 · 121 reviews/.test(a.rating || ""), "the title, then stars and the review count", a.rating)
       expect(a.main === "image" && a.thumbs === 6, "the gallery: a large picture and a strip of six", { main: a.main, thumbs: a.thumbs })
-      expect(a.info[0] === "Private community" && a.info.at(-1) === "ByMara Lindqvist" && !a.info.some((t) => /\$|members/.test(t)), "the facts line: private, By creator, no price and no member count", a.info)
-      expect(a.stats.join("|") === "8,012Members|191Online now", "Members and Online now in the sheet", a.stats)
+      expect(a.info[0] === "members=8,012" && a.info.includes("visibility=Private") && a.info.at(-1) === "creator=Mara Lindqvist" && !a.info.some((t) => /\$|active|online/i.test(t)), "the facts list: members, private, run by; no price, no active or online", a.info)
+      expect(a.stats.length === 0, "no row of figures in the sheet", a.stats)
       expect(a.paying.join("|") === "· Still a paying member after 3 months|· Still a paying member after 4 days", "Still a paying member only where it is true", a.paying)
       expect(a.reviewLinks.join() === "/@ayla,/joemoss", "a reviewer's name opens their page (none for no username)", a.reviewLinks)
-      expect(a.order.info < a.order.gallery && a.order.gallery < a.order.stats && a.order.stats < a.order.description, "the facts line under the name, then the gallery, the figures and the description", a.order)
+      expect(a.order.gallery < a.order.description, "the gallery, then the description", a.order)
 
       /* A thumbnail changes the picture; the video plays in place. */
       const before = await p.evaluate(() => document.querySelector("[data-gallery-main] .swiper-slide-active img")?.getAttribute("src"))
@@ -1241,8 +1241,9 @@ export const isNativePlatform = () => false
         messages: !!document.querySelector("[data-community-messages-button]"),
         bell: !!document.querySelector("[data-notification-bell]"),
         gallery: !!document.querySelector("[data-community-gallery]"),
-        stats: [...document.querySelectorAll("[data-community-sheet] [data-stat]")].map((d) => d.getAttribute("data-stat")),
-        creator: document.querySelector("[data-info=creator] a")?.getAttribute("href"),
+        /* Round 13: the facts are one list; Online is never among them. */
+        stats: [...document.querySelectorAll("[data-about-facts] [data-fact]")].filter((f) => f.getClientRects().length).map((d) => d.getAttribute("data-fact")).filter((k) => k === "members" || k === "online"),
+        creator: [...document.querySelectorAll('[data-fact="creator"] a')].find((a) => a.getClientRects().length)?.getAttribute("href"),
       }))
       expect(/^\/login\?next=/.test(v.login || "") && !v.messages && !v.bell, "signed out: Log in, no Messages, no bell", v)
       const vgeo = await barGeometry(p)

@@ -15,7 +15,7 @@ import { isFollowing } from "@/lib/profile/follows"
 import { activityFor } from "@/lib/profile/activity-page"
 import { profileCommunities } from "@/lib/profile/profile-communities"
 import { cameFromElsewhere, refererPath } from "@/lib/profile/back"
-import { sharedCommunities, sharedPostsPage } from "@/lib/profile/shared-posts"
+import { contributionsFor } from "@/lib/profile/contributions"
 import { locationLine, readProfileLocation } from "@/lib/profile/location"
 import { MemberProfilePage } from "@/components/profile/member-profile-page"
 
@@ -68,12 +68,14 @@ async function renamedTo(handle: string): Promise<string | null> {
   }
 }
 
-/** The communities the viewer shares with them, each with the first page of their posts there. A failed read is no section, never an error page. */
+/**
+ * Their contributions per community (round 13, ask 30): the communities the viewer shares with them, or their own when it is
+ * them, each with what they gave it and the first page of their posts there (lib/profile/contributions.ts). A failed read is
+ * no section, never an error page.
+ */
 async function sharedSections(db: ReturnType<typeof createAdminClient>, viewerId: string, targetId: string) {
   try {
-    const list = await sharedCommunities(db, viewerId, targetId)
-    const pages = await Promise.all(list.map((community) => sharedPostsPage(db, { communityId: community.id, viewerId, targetId }).catch(() => null)))
-    return list.flatMap((community, i) => (pages[i] ? [{ community, page: pages[i]! }] : []))
+    return await contributionsFor(db, { viewerId, targetId })
   } catch {
     return []
   }
@@ -126,7 +128,7 @@ export default async function MemberProfileRoute({ params, searchParams }: Props
     communitiesOn
       ? profileCommunities(db, profile.userId, { includeMemberships: !creator && (profile.privacy.showCommunities || isSelf) }).catch(() => ({ owned: [], member: [] }))
       : Promise.resolve({ owned: [], member: [] }),
-    communitiesOn && viewerId && !isSelf && !creator ? sharedSections(db, viewerId, profile.userId) : Promise.resolve([]),
+    communitiesOn && viewerId && !creator ? sharedSections(db, viewerId, profile.userId) : Promise.resolve([]),
     /* Where they are from, under their name (run-now part 98; nothing before it runs). */
     placeOf(profile.userId),
   ])

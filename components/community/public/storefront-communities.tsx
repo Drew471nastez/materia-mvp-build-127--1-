@@ -24,12 +24,13 @@ import { ExploreCommunityGrid } from "@/components/explore/community-card"
 */
 const COLUMN = "mx-auto w-full max-w-[1180px] px-3 py-8 sm:px-4 sm:py-10 lg:px-6"
 
-export function StorefrontCommunities({ cards, phone = false }: { cards: CommunityCard[]; phone?: boolean }) {
+export function StorefrontCommunities({ cards, phone = false, children = null }: { cards: CommunityCard[]; phone?: boolean; /** Under the cards: the creator's contributions (round 13, components/profile/community-contributions.tsx). */ children?: React.ReactNode }) {
   return (
     <div className={COLUMN}>
       <div data-storefront-communities="">
         <ExploreCommunityGrid cards={cards} surface="storefront" phone={phone} priorityCount={2} />
       </div>
+      {children ? <div className="mx-auto mt-10 max-w-[760px] empty:hidden">{children}</div> : null}
     </div>
   )
 }
