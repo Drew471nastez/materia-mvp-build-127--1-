@@ -30,6 +30,7 @@ import type {
   TierBilling,
   TierKind,
 } from "@/lib/communities/types"
+import type { TicketSource, TicketStatus } from "@/lib/communities/event-tickets"
 import type { GalleryItem, NextStep } from "./logic"
 
 /** The sections under a community's name, in order. */
@@ -124,6 +125,8 @@ export interface OverviewData {
   steps: NextStep[]
   /** Whether the community sells anything (a paid tier). Revenue figures only mean something then. */
   sells: boolean
+  /** Scheduled events carrying a price while payouts are not connected: nobody can buy those tickets. */
+  pricedEventsUnsellable?: number
   publicUrl: string
 }
 
@@ -255,6 +258,93 @@ export interface EventEditView {
   access: AccessRuleJson
   replayVideoId: string | null
   status: EventStatus
+  /* ── Tickets (round 14, run-now part 105; all null or 0 until it runs) ── */
+  priceCents: number | null
+  currency: string | null
+  salesCloseAt: string | null
+  refundWindowHours: number | null
+  /** This event's own refund policy; empty falls back to the community's. */
+  refundPolicy: string | null
+  ticketsSold: number
+  /** What this event took, from its ticket rows. Null for an event that was never priced. */
+  money: EventTicketMoney | null
+}
+
+/** The money line on an event in the creator's list, and the head of its Tickets panel. */
+export interface EventTicketMoney {
+  sold: number
+  invited: number
+  grossCents: number
+  refundedCents: number
+  currency: string
+}
+
+/**
+ * What the Tickets card in the event editor needs to know about selling:
+ * whether the database update has run, the currency every charge is made
+ * in, whether payouts take payments, and the community's own refund policy
+ * as the fallback for an event without one.
+ */
+/**
+ * One holder in the Tickets panel. The same fields worker E's
+ * eventTickets() answers, written here so a client screen never has to
+ * import a server module for a type.
+ */
+export interface TicketHolderView {
+  ticketId: string
+  userId: string
+  name: string
+  username: string | null
+  avatarUrl: string | null
+  /** Only for somebody who may see member emails. */
+  email: string | null
+  status: TicketStatus
+  source: TicketSource
+  amountCents: number | null
+  currency: string | null
+  paidAt: string | null
+  refundedAt: string | null
+  attendedAt: string | null
+  invitedByName: string | null
+  createdAt: string
+}
+
+/** What the Tickets panel of one event shows: the money, the seats, and a page of holders. */
+export interface EventTicketPanelView {
+  eventId: string
+  title: string
+  startsAt: string
+  cancelled: boolean
+  priceCents: number | null
+  currency: string | null
+  capacity: number | null
+  ticketsSold: number
+  seatsLeft: number | null
+  money: EventTicketMoney
+  rows: TicketHolderView[]
+  nextCursor: string | null
+  /** A search read as many matches as it may; more means "type more of the name". */
+  capped: boolean
+  /** Whether run-now part 105 has run. */
+  ready: boolean
+}
+
+/** One member in the Invite free picker: already holding a ticket is said, never hidden. */
+export interface InvitePickMember {
+  userId: string
+  name: string
+  username: string | null
+  avatarUrl: string | null
+  /** Only for somebody who may see member emails. */
+  email: string | null
+  hasTicket: boolean
+}
+
+export interface EventTicketSetup {
+  ready: boolean
+  currency: string
+  canSell: boolean
+  communityPolicy: string | null
 }
 
 export interface MemberRowView {
@@ -381,12 +471,30 @@ export interface JoinStats {
   invites: { id: string; label: string; uses: number; revoked: boolean }[]
 }
 
+/** What the events took in a period, counted from the ticket rows (round 14). */
+export interface EventMoneyStats {
+  /** Tickets bought in the period. */
+  sold: number
+  /** Free tickets given in the period (invites and grants). */
+  invited: number
+  grossCents: number
+  refundedCents: number
+  netCents: number
+  /** How many refunds went out in the period. */
+  refunds: number
+  /** Events that took money in the period. */
+  events: number
+  currency: string
+}
+
 export interface MoneyAndGrowth {
   days: number
   /** Null for a community that sells nothing. */
   revenue: RevenueStats | null
   joins: JoinStats
   active: { last7: number; last30: number }
+  /** Null until run-now part 105 has run, and while no ticket was ever sold. */
+  events?: EventMoneyStats | null
 }
 
 export interface AnalyticsView {

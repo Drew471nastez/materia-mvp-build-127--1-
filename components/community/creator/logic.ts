@@ -13,6 +13,7 @@
  * all of it.
  */
 import { centsFromInput } from "@/lib/memberships/plan"
+import { cleanRefundPolicy } from "@/lib/communities/membership-policy"
 import { assignableRoles, canActOn } from "@/lib/communities/permissions"
 import { LENGTHS, MAX_BENEFITS, MAX_FAQ, MAX_LEVELS, MAX_LINKS, MAX_RULES } from "@/lib/communities/limits"
 import { embedFromUrl, embedThumbUrl, type EmbedRef } from "@/lib/communities/post-media"
@@ -387,6 +388,69 @@ export function checkEvent(raw: unknown): Checked<EventInput> {
   }
 }
 
+/* ── Tickets on an event (round 14, run-now part 105) ───────────────── */
+
+/** The least a ticket may cost, the same floor the Learn price uses. */
+export const EVENT_PRICE_MIN_CENTS = 50
+/** Part 105's CHECK on price_cents. */
+export const EVENT_PRICE_MAX_CENTS = 99_999_999
+/** Part 105's CHECK on refund_window_hours: a year. */
+export const EVENT_REFUND_WINDOW_MAX_HOURS = 8760
+
+/** What the Tickets card sends: free as every event used to be, or a price. */
+export interface EventTicketInput {
+  priceCents: number | null
+  salesCloseAt: string | null
+  refundWindowHours: number | null
+  refundPolicy: string | null
+}
+
+/**
+ * The Tickets card from the editor, checked by the card before it sends and
+ * by the route before it writes. Free means every field is cleared, so
+ * taking a price off an event leaves nothing behind. Sales close when the
+ * event starts unless a date and time are typed, in the event's own zone
+ * like its start, and they have to fall before it starts.
+ */
+export function checkEventTickets(raw: unknown, event: { startsAt: string; timezone: string }): Checked<EventTicketInput> {
+  const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>
+  const free = { ok: true as const, value: { priceCents: null, salesCloseAt: null, refundWindowHours: null, refundPolicy: null } }
+  if (r.priceMode !== "paid") return free
+  const cents = centsFromInput(r.price)
+  if (cents === null || Number.isNaN(cents)) return { ok: false, field: "price", error: "Type the ticket price, like 25 or 25.50." }
+  if (cents < EVENT_PRICE_MIN_CENTS) return { ok: false, field: "price", error: "A ticket is at least 0.50." }
+  if (cents > EVENT_PRICE_MAX_CENTS) return { ok: false, field: "price", error: "That price is too high." }
+  let salesCloseAt: string | null = null
+  const closeDate = typeof r.salesCloseDate === "string" ? r.salesCloseDate : ""
+  const closeTime = typeof r.salesCloseTime === "string" ? r.salesCloseTime : ""
+  if (closeDate || closeTime) {
+    if (!closeDate || !closeTime) return { ok: false, field: "salesClose", error: "Give both a date and a time for when sales close." }
+    salesCloseAt = zonedTimeToUtc(closeDate, closeTime, event.timezone)
+    if (!salesCloseAt) return { ok: false, field: "salesClose", error: "That is not a date and time." }
+    if (Date.parse(salesCloseAt) > Date.parse(event.startsAt)) return { ok: false, field: "salesClose", error: "Sales have to close by the time it starts." }
+  }
+  let refundWindowHours: number | null = null
+  if (r.refundWindow !== undefined && r.refundWindow !== null && r.refundWindow !== "") {
+    const n = Number(r.refundWindow)
+    if (!Number.isInteger(n) || n < 0 || n > EVENT_REFUND_WINDOW_MAX_HOURS) return { ok: false, field: "refundWindow", error: `A refund window is a whole number of hours, up to ${EVENT_REFUND_WINDOW_MAX_HOURS}.` }
+    refundWindowHours = n
+  }
+  return { ok: true, value: { priceCents: cents, salesCloseAt, refundWindowHours, refundPolicy: cleanRefundPolicy(r.refundPolicy) } }
+}
+
+/**
+ * The refund window in words, for the line under the field and for the
+ * holder's own page: hours up to a day, then days.
+ */
+export function refundWindowWords(hours: number | null): string | null {
+  if (hours === null) return null
+  if (hours === 0) return "until it starts"
+  if (hours === 1) return "until an hour before it starts"
+  if (hours < 48) return `until ${hours} hours before it starts`
+  const days = Math.round(hours / 24)
+  return `until ${days} days before it starts`
+}
+
 /** A replay as pasted: a Storelib video id, or any link with one in it. */
 export function replayVideoId(raw: unknown): string | null | false {
   const s = typeof raw === "string" ? raw.trim() : ""
@@ -482,9 +546,11 @@ export interface NextStepFacts {
   rules: number
   classroomEnabled: boolean
   eventsEnabled: boolean
+  /** Round 14: an event carries a ticket price but payouts are not connected, so nobody can buy one. */
+  pricedEventsUnsellable?: number
 }
 
-export type NextStepId = "publish" | "payouts" | "invite" | "welcome" | "course" | "event" | "customize" | "rules"
+export type NextStepId = "publish" | "payouts" | "invite" | "welcome" | "course" | "event" | "event_payouts" | "customize" | "rules"
 
 export interface NextStep {
   id: NextStepId
@@ -506,6 +572,14 @@ export function nextSteps(f: NextStepFacts, base: string): NextStep[] {
   if (f.posts === 0) steps.push({ id: "welcome", title: "Write a welcome post", detail: "Say who it is for and how to get started.", href: `${base}/feed?compose=welcome`, action: "Write" })
   if (f.classroomEnabled && f.courses === 0) steps.push({ id: "course", title: "Add something to Learn", detail: "A program of lessons, or a course you already sell.", href: `${base}/learn`, action: "Add" })
   if (f.eventsEnabled && f.events === 0) steps.push({ id: "event", title: "Schedule an event", detail: "A call, a workshop or a Q&A.", href: `${base}/events?new=1`, action: "Schedule" })
+  if (f.eventsEnabled && !f.paymentsReady && (f.pricedEventsUnsellable ?? 0) > 0)
+    steps.push({
+      id: "event_payouts",
+      title: (f.pricedEventsUnsellable ?? 0) === 1 ? "Connect payouts to sell that ticket" : "Connect payouts to sell those tickets",
+      detail: (f.pricedEventsUnsellable ?? 0) === 1 ? "One event has a price, and nobody can buy a ticket until payouts are connected." : `${f.pricedEventsUnsellable} events have a price, and nobody can buy a ticket until payouts are connected.`,
+      href: "/app/settings?tab=payments",
+      action: "Connect",
+    })
   if (!f.customized) steps.push({ id: "customize", title: "Customize the page", detail: "Add pictures, a video and what members get.", href: `${base}/settings?tab=page`, action: "Edit" })
   if (f.rules === 0) steps.push({ id: "rules", title: "Write the rules", detail: "Members see them before they join and when they post.", href: `${base}/moderation?tab=rules`, action: "Write" })
   return steps

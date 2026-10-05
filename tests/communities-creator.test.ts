@@ -158,7 +158,8 @@ async function main() {
   check("members are read a page at a time, never by offset", /limit\(MEMBERS_PAGE \+ 1\)/.test(creatorSrc) && !/\.range\(/.test(creatorSrc) && !/offset/i.test(creatorSrc))
   check("the export streams pages of 500 into a ReadableStream", /new ReadableStream<Uint8Array>/.test(creatorSrc) && /limit\(500\)/.test(creatorSrc) && /async pull\(controller\)/.test(creatorSrc))
   check("the export route answers the stream as CSV", /new Response\(stream/.test(code("app/api/app/community/[id]/members/export/route.ts")) && /text\/csv/.test(read("app/api/app/community/[id]/members/export/route.ts")))
-  check("a member search reads at most 300 accounts and then says so", /SEARCH_CAP = 300/.test(creatorSrc) && /capped/.test(creatorSrc))
+  /* Round 14 moved the cleaning and the cap into lib/communities/search.ts, where the ticket holder search reads them too. */
+  check("a member search reads at most 300 accounts and then says so", /SEARCH_CAP = 300/.test(code("lib/communities/search.ts")) && /SEARCH_CAP/.test(creatorSrc) && /capped/.test(creatorSrc))
   check("monthly revenue reads memberships 1000 at a time, three columns, by monthlyValue", /monthlyValue\(m\)/.test(creatorSrc) && /\.limit\(1000\)/.test(creatorSrc) && /select\("id, status, billing_interval, amount_cents, currency"\)/.test(creatorSrc))
 
   /* ── Time ────────────────────────────────────────────────────────────── */

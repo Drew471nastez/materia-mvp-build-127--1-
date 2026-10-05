@@ -64,6 +64,16 @@ export function errorText(error: string | undefined, fallback = "That did not sa
       return "Communities are switched off on Storelib right now."
     case "sign_in":
       return "Sign in again to continue."
+    case "not_allowed":
+      return "Your role in this community cannot do that."
+    case "not_set_up":
+      return "Tickets need the database update (run-now part 105)."
+    case "full":
+      return "That event is full. Raise the capacity first."
+    case "no_payment":
+      return "There is no payment on that ticket to give back."
+    case "refund_failed":
+      return "Stripe refused the refund. Try again, or check the payment in Stripe."
     case undefined:
     case "":
       return fallback

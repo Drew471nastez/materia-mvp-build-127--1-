@@ -2,9 +2,11 @@
  * An in-memory stand-in for the Supabase admin client, enough of PostgREST's
  * query builder for a route handler to run against: select (with a count,
  * and one level of embedded rows such as `product:products(title)`), eq,
- * neq, in, is, gte, lte, order, limit, range, maybeSingle, single, insert,
- * update, delete. Every call is written to `log`, so a suite can say what a
- * route read and wrote, not only what it answered.
+ * neq, in, is, gt, lt, gte, lte, ilike, not, or (PostgREST's `or=(...)`,
+ * with and(...) groups, as the keyset cursors and the searches write it),
+ * order, limit, range, maybeSingle, single, insert, update, delete. Every
+ * call is written to `log`, so a suite can say what a route read and wrote,
+ * not only what it answered.
  *
  * `unique` makes an insert fail with 23505 the way a unique index would, and
  * `failWith` makes every read of a table fail, for the "database is not there
@@ -62,39 +64,80 @@ export function fakeDb(tables: Record<string, Row[]>, options: FakeDbOptions = {
       returning: boolean
     } = { op: "select", filters: [], select: null, count: false, head: false, limit: null, single: null, payload: null, returning: false }
 
-    const matches = (row: Row) =>
-      state.filters.every(([kind, col, val]) => {
-        const v = row[col]
-        switch (kind) {
-          case "eq":
-            return v === val
-          case "neq":
-            return v !== val
-          case "in":
-            return (val as unknown[]).includes(v)
-          case "is":
-            return val === null ? v === null || v === undefined : v === val
-          case "gte":
-            return String(v ?? "") >= String(val)
-          case "lte":
-            return String(v ?? "") <= String(val)
-          case "ilike": {
-            /* PostgREST's ilike: case insensitive, % for any run of characters, _ for one, and a backslash makes the next one literal, as in Postgres. */
-            let pattern = ""
-            const raw = String(val)
-            for (let i = 0; i < raw.length; i++) {
-              const c = raw[i]
-              if (c === "\\" && i + 1 < raw.length) pattern += raw[++i].replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
-              else if (c === "%") pattern += ".*"
-              else if (c === "_") pattern += "."
-              else pattern += c.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
-            }
-            return typeof v === "string" && new RegExp(`^${pattern}$`, "i").test(v)
+    /** One condition against one row, the way PostgREST reads it. */
+    const one = (kind: string, col: string, val: unknown, row: Row): boolean => {
+      const v = row[col]
+      switch (kind) {
+        case "eq":
+          return String(v) === String(val)
+        case "neq":
+          return String(v) !== String(val)
+        case "in":
+          return (Array.isArray(val) ? val : String(val).replace(/^\(|\)$/g, "").split(",")).map(String).includes(String(v))
+        case "is":
+          return val === null || val === "null" ? v === null || v === undefined : v === val
+        case "gt":
+          return v !== null && v !== undefined && String(v) > String(val)
+        case "lt":
+          return v !== null && v !== undefined && String(v) < String(val)
+        case "gte":
+          return String(v ?? "") >= String(val)
+        case "lte":
+          return String(v ?? "") <= String(val)
+        case "not.is":
+          return !(val === null || val === "null" ? v === null || v === undefined : v === val)
+        case "ilike":
+        case "like": {
+          /* PostgREST's ilike: case insensitive, % (or *) for any run of characters, _ for one, and a backslash makes the next one literal, as in Postgres. */
+          let pattern = ""
+          const raw = String(val)
+          for (let i = 0; i < raw.length; i++) {
+            const c = raw[i]
+            if (c === "\\" && i + 1 < raw.length) pattern += raw[++i].replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+            else if (c === "%" || c === "*") pattern += ".*"
+            else if (c === "_") pattern += "."
+            else pattern += c.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
           }
-          default:
-            return true
+          return typeof v === "string" && new RegExp(`^${pattern}$`, kind === "ilike" ? "i" : "").test(v)
         }
-      })
+        default:
+          return true
+      }
+    }
+
+    /** `a.eq.1,and(b.lt."x",c.gt.2)` as PostgREST reads it: the commas are or, an and(...) group is all of it. */
+    const terms = (expr: string): string[] => {
+      const out: string[] = []
+      let depth = 0
+      let at = 0
+      for (let i = 0; i < expr.length; i++) {
+        const c = expr[i]
+        if (c === "(") depth++
+        else if (c === ")") depth--
+        else if (c === "," && depth === 0) {
+          out.push(expr.slice(at, i))
+          at = i + 1
+        }
+      }
+      out.push(expr.slice(at))
+      return out.map((t) => t.trim()).filter(Boolean)
+    }
+
+    const unquote = (v: string) => (v.startsWith('"') && v.endsWith('"') ? v.slice(1, -1) : v)
+
+    const condition = (term: string, row: Row): boolean => {
+      const group = /^(and|or)\((.*)\)$/s.exec(term)
+      if (group) {
+        const inner = terms(group[2])
+        return group[1] === "and" ? inner.every((t) => condition(t, row)) : inner.some((t) => condition(t, row))
+      }
+      const m = /^([\w.]+?)\.(not\.is|eq|neq|in|is|gte|lte|gt|lt|ilike|like)\.(.*)$/s.exec(term)
+      if (!m) return true
+      return one(m[2], m[1], unquote(m[3]), row)
+    }
+
+    const matches = (row: Row) =>
+      state.filters.every(([kind, col, val]) => (kind === "or" ? terms(String(val)).some((t) => condition(t, row)) : one(kind, col, val, row)))
 
     function run(): { data: any; error: any; count?: number | null } {
       log.push({ table, op: state.op, filters: [...state.filters], payload: state.payload ?? undefined })
@@ -184,6 +227,11 @@ export function fakeDb(tables: Record<string, Row[]>, options: FakeDbOptions = {
       gte: (c: string, v: unknown) => (state.filters.push(["gte", c, v]), builder),
       lte: (c: string, v: unknown) => (state.filters.push(["lte", c, v]), builder),
       ilike: (c: string, v: unknown) => (state.filters.push(["ilike", c, v]), builder),
+      gt: (c: string, v: unknown) => (state.filters.push(["gt", c, v]), builder),
+      lt: (c: string, v: unknown) => (state.filters.push(["lt", c, v]), builder),
+      not: (c: string, op: string, v: unknown) => (state.filters.push([`not.${op}`, c, v], builder), builder),
+      /** PostgREST's `or=(...)`: the keyset cursors and the member search both use one. */
+      or: (expr: string) => (state.filters.push(["or", "", expr]), builder),
       order: () => builder,
       range: (a: number, b: number) => ((state.limit = b - a + 1), builder),
       limit: (n: number) => ((state.limit = n), builder),

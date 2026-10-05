@@ -16,7 +16,7 @@ import { money } from "@/lib/memberships/state"
 import { MetricTab } from "@/components/app/metric-tab"
 import { TAB_STRIP_STYLE, useTabStrip } from "@/components/app/use-tab-strip"
 import { HelpLabel } from "@/components/app/help-label"
-import type { AnalyticsView, CommunityHead, MoneyAndGrowth, RevenueStats } from "./view-types"
+import type { AnalyticsView, CommunityHead, EventMoneyStats, MoneyAndGrowth, RevenueStats } from "./view-types"
 import { FilterTabs, Notice, card, errorText, send } from "./parts"
 
 const LINE = "#8b5cf6"
@@ -171,6 +171,7 @@ export function AnalyticsSection({ head, initial }: { head: CommunityHead; initi
       {!data.rolledUp ? <Notice tone="info">The daily figures start after the first nightly count. Today&rsquo;s numbers below are live.</Notice> : null}
 
       {data.money?.revenue ? <RevenueCard revenue={data.money.revenue} days={data.days} /> : null}
+      {data.money?.events ? <EventMoneyCard events={data.money.events} days={data.days} /> : null}
 
       <section className={cn(card, "overflow-hidden")} aria-label="Totals">
         <div className="grid grid-cols-2 gap-px bg-[#f1f2f4] sm:grid-cols-3 lg:grid-cols-6">
@@ -292,6 +293,41 @@ function RevenueCard({ revenue: r, days }: { revenue: RevenueStats; days: number
         {tab === "churn" ? <p>{r.churnRate === null ? "There were no paying members at the start of this period, so there is no rate yet." : `${n(r.cancellations)} of the members paying at the start of the last ${period} cancelled.`}</p> : null}
         {tab === "refunds" ? <p>{r.refunds.count === 0 ? `No refunds in the last ${period}.` : `${n(r.refunds.count)} ${r.refunds.count === 1 ? "payment" : "payments"} refunded in the last ${period}, ${cash(r.refunds.totalCents)} in all.`}</p> : null}
       </div>
+    </section>
+  )
+}
+
+/*
+  EVENT TICKETS. The same hairline grid of figures as Totals above, so money
+  from tickets reads beside the membership figures rather than as a second
+  dashboard. Every number is a sum of ticket rows; the line under them says
+  in words what the period took.
+*/
+function EventMoneyCard({ events: e, days }: { events: EventMoneyStats; days: number }) {
+  const cash = (cents: number) => money(cents, e.currency)
+  const n = (v: number) => v.toLocaleString("en-US")
+  const figures = [
+    { label: "Tickets sold", value: n(e.sold), sub: e.invited > 0 ? `${n(e.invited)} given free` : e.events === 1 ? "1 event" : `${n(e.events)} events` },
+    { label: "Ticket revenue", value: cash(e.grossCents), sub: `In ${days} days` },
+    { label: "Refunded", value: cash(e.refundedCents), sub: e.refunds === 1 ? "1 refund" : `${n(e.refunds)} refunds` },
+    { label: "Kept", value: cash(e.netCents), sub: "Gross less refunds" },
+  ]
+  return (
+    <section className={cn(card, "overflow-hidden")} aria-label="Event tickets" data-event-money="">
+      <div className="grid grid-cols-2 gap-px bg-[#f1f2f4] sm:grid-cols-4">
+        {figures.map((x) => (
+          <div key={x.label} className="bg-white px-4 py-3.5" data-event-figure={x.label}>
+            <p className="truncate text-[12.5px] font-medium text-[#6b7280]">{x.label}</p>
+            <p className="mt-1 text-[22px] font-semibold leading-7 tabular-nums text-[#1a1a2e]">{x.value}</p>
+            <p className="mt-0.5 truncate text-[12px] text-[#9ca3af]">{x.sub}</p>
+          </div>
+        ))}
+      </div>
+      <p className="border-t border-[#e5e7eb]/60 px-4 py-3 text-[13.5px] leading-relaxed text-[#4b5563] sm:px-5">
+        {e.sold === 0
+          ? `No tickets were bought in the last ${days} days.`
+          : `${n(e.sold)} ${e.sold === 1 ? "ticket" : "tickets"} bought in the last ${days} days${e.invited > 0 ? `, and ${n(e.invited)} given free` : ""}. Money reaches your payouts the way a membership does.`}
+      </p>
     </section>
   )
 }

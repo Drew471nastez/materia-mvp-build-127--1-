@@ -32,11 +32,12 @@ import { sanitizeDescription } from "@/lib/rich-text/sanitize"
 import { communityCategoryId } from "@/lib/explore/communities-mode"
 import { queueCommunityFanout } from "@/lib/notifications/fanout"
 import { parseAccessRule } from "../access"
+import { SEARCH_CAP, safeSearch } from "../search"
 import { priceLine } from "../format"
 import { LENGTHS, MAX_SPACES } from "../limits"
 import { allowedActions, can, meetsRole, type CommunityAction, type RolePermissions } from "../permissions"
 import { slugify, slugWithSuffix, validSlug, validSpaceSlug } from "../slug"
-import { COMMUNITY_COLUMNS, COMMUNITY_VISIBILITIES, EVENT_COLUMNS, MEMBER_COLUMNS, NOTIFY_LEVELS, PAID_SOURCES, SPACE_COLUMNS, isOneOf, type AccessRuleJson, type CommunityRow, type EventRow, type MemberRow, type Role, type SpaceRow } from "../types"
+import { COMMUNITY_COLUMNS, COMMUNITY_VISIBILITIES, EVENT_COLUMNS, EVENT_COLUMNS_PRICED, MEMBER_COLUMNS, NOTIFY_LEVELS, PAID_SOURCES, SPACE_COLUMNS, isOneOf, type AccessRuleJson, type CommunityRow, type EventRow, type MemberRow, type Role, type SpaceRow } from "../types"
 import {
   accessForType,
   checkBenefits,
@@ -57,6 +58,7 @@ import {
   type CommunityType,
   type CreateInput,
   type EventInput,
+  type EventTicketInput,
   type GalleryItem,
   type LevelInput,
   type MemberQuery,
@@ -69,6 +71,8 @@ import type {
   CommunityListRow,
   CourseView,
   EventEditView,
+  EventTicketMoney,
+  EventTicketSetup,
   FeedRowView,
   LevelView,
   MemberPage,
@@ -87,6 +91,9 @@ import { awardPoints } from "./points"
 import { notifyEventChanged, queueJob } from "./notify"
 import { recordActivity } from "./activity"
 import { eventScheduled } from "./events"
+import { ticketsReady } from "./event-tickets"
+import { eventPriceColumns, eventReadColumns, eventsTicketMoney, priceChangeRefusal, pricedEventCount } from "./event-admin"
+import { eventTicketSetup } from "./event-ticket-setup"
 import { admin, missing, nowIso, reasonOf, type Db } from "./db"
 import { inviteCount } from "./invites"
 import { slugHeldByAnother } from "./slug-history"
@@ -118,6 +125,9 @@ export function manageLimit(userId: string) {
 /* ── Pictures: only our own storage (./gallery.ts ownPicture, shared with the gallery) ── */
 
 export { ownPicture }
+
+/* The member search's cleaning, where the screens and the other server files already look for it. */
+export { safeSearch }
 
 /* ── The page gate ──────────────────────────────────────────────────────── */
 
@@ -400,6 +410,8 @@ export async function loadOverview(ctx: CreatorPageContext): Promise<OverviewDat
     db.from("community_events").select("id, title, starts_at, ends_at, timezone, going_count, capacity, kind").eq("community_id", c.id).eq("status", "scheduled").gte("starts_at", nowIso(now - 60 * 60_000)).order("starts_at", { ascending: true }).limit(3),
     count(db.from("community_tiers").select("id", { count: "exact", head: true }).eq("community_id", c.id).eq("kind", "paid")),
   ])
+  /* AN EVENT WITH A PRICE NOBODY CAN PAY (round 14): said once, where the creator will see it. */
+  const pricedEvents = ctx.paymentsReady ? 0 : await pricedEventCount(db, c.id)
   const base = `/app/community/${c.id}`
   const upcoming: UpcomingEvent[] = ((upcomingRows.data as { id: string; title: string; starts_at: string; ends_at: string | null; timezone: string; going_count: number; capacity: number | null; kind: UpcomingEvent["kind"] }[] | null) ?? []).map((e) => ({
     id: e.id,
@@ -427,6 +439,7 @@ export async function loadOverview(ctx: CreatorPageContext): Promise<OverviewDat
     },
     upcoming,
     sells: sells > 0,
+    pricedEventsUnsellable: pricedEvents,
     publicUrl: `/community/${c.slug}`,
     steps:
       ctx.role === "owner" || ctx.role === "admin"
@@ -444,6 +457,7 @@ export async function loadOverview(ctx: CreatorPageContext): Promise<OverviewDat
               rules: Array.isArray(c.rules) ? c.rules.length : 0,
               classroomEnabled: c.classroom_enabled,
               eventsEnabled: c.events_enabled,
+              pricedEventsUnsellable: pricedEvents,
             },
             base,
           ).filter((s) => s.id !== "payouts" || ctx.role === "owner")
@@ -986,7 +1000,15 @@ export async function detachCourse(db: Db, a: { communityId: string; productId: 
 
 /* ── Events ─────────────────────────────────────────────────────────────── */
 
-function eventView(e: EventRow): EventEditView {
+/*
+  TICKETS ON AN EVENT (round 14, run-now part 105). The price and its
+  settings live on the event row, so they are read and written with it. The
+  columns only exist once part 105 has run, which is why every read asks
+  worker E's ticketsReady() first and falls back to the columns events have
+  always had: without the update every event is free and the editor says so
+  rather than offering a price nobody could pay.
+*/
+function eventView(e: EventRow, money: EventTicketMoney | null = null): EventEditView {
   return {
     id: e.id,
     title: e.title,
@@ -1004,17 +1026,32 @@ function eventView(e: EventRow): EventEditView {
     access: parseAccessRule(e.access),
     replayVideoId: e.replay_video_id,
     status: e.status,
+    priceCents: e.price_cents ?? null,
+    currency: e.currency ?? null,
+    salesCloseAt: e.sales_close_at ?? null,
+    refundWindowHours: e.refund_window_hours ?? null,
+    refundPolicy: e.refund_policy ?? null,
+    ticketsSold: e.tickets_sold ?? 0,
+    money,
   }
 }
 
-/** Upcoming events oldest first, and the latest past ones. */
-export async function loadEvents(db: Db, communityId: string): Promise<{ upcoming: EventEditView[]; past: EventEditView[] }> {
+/** Upcoming events oldest first, and the latest past ones, with what each took. */
+export async function loadEvents(db: Db, communityId: string): Promise<{ upcoming: EventEditView[]; past: EventEditView[]; tickets: EventTicketSetup }> {
   const cut = nowIso(Date.now() - 2 * 60 * 60_000)
+  const columns = await eventReadColumns(db)
   const [up, past] = await Promise.all([
-    db.from("community_events").select(EVENT_COLUMNS).eq("community_id", communityId).gte("starts_at", cut).order("starts_at", { ascending: true }).limit(100),
-    db.from("community_events").select(EVENT_COLUMNS).eq("community_id", communityId).lt("starts_at", cut).order("starts_at", { ascending: false }).limit(30),
+    db.from("community_events").select(columns).eq("community_id", communityId).gte("starts_at", cut).order("starts_at", { ascending: true }).limit(100),
+    db.from("community_events").select(columns).eq("community_id", communityId).lt("starts_at", cut).order("starts_at", { ascending: false }).limit(30),
   ])
-  return { upcoming: ((up.data as EventRow[] | null) ?? []).map(eventView), past: ((past.data as EventRow[] | null) ?? []).map(eventView) }
+  const upRows = (up.data as EventRow[] | null) ?? []
+  const pastRows = (past.data as EventRow[] | null) ?? []
+  const money = (await ticketsReady(db)) ? await eventsTicketMoney(db, communityId, [...upRows, ...pastRows]) : new Map<string, EventTicketMoney>()
+  return {
+    upcoming: upRows.map((e) => eventView(e, money.get(e.id) ?? null)),
+    past: pastRows.map((e) => eventView(e, money.get(e.id) ?? null)),
+    tickets: await eventTicketSetup(db, communityId),
+  }
 }
 
 function eventColumns(input: EventInput): Record<string, unknown> {
@@ -1033,11 +1070,23 @@ function eventColumns(input: EventInput): Record<string, unknown> {
   }
 }
 
-export async function createEvent(db: Db, a: { community: CommunityRow; actorId: string; input: EventInput }): Promise<Result<{ event: EventEditView }>> {
+export async function createEvent(db: Db, a: { community: CommunityRow; actorId: string; input: EventInput; tickets?: EventTicketInput | null; role?: Role; perms?: RolePermissions | null }): Promise<Result<{ event: EventEditView }>> {
+  /* A PRICE IS ITS OWN PERMISSION, decided here as well as in the route, so hiding the card is never the only gate. */
+  const refused = priceChangeRefusal({ role: a.role, perms: a.perms, tickets: a.tickets ?? null })
+  if (refused) return refused
+  const setup = a.tickets ? await eventTicketSetup(db, a.community.id) : null
   const { data, error } = await db
     .from("community_events")
-    .insert({ community_id: a.community.id, ...eventColumns(a.input), access: await ownRule(db, a.community.id, a.input.access), host_id: a.actorId, created_by: a.actorId, status: "scheduled" })
-    .select(EVENT_COLUMNS)
+    .insert({
+      community_id: a.community.id,
+      ...eventColumns(a.input),
+      ...(await eventPriceColumns(db, a.tickets ?? null, setup?.currency ?? "usd")),
+      access: await ownRule(db, a.community.id, a.input.access),
+      host_id: a.actorId,
+      created_by: a.actorId,
+      status: "scheduled",
+    })
+    .select(await eventReadColumns(db))
     .single()
   if (error || !data) {
     if (missing(error)) return no(503, "Communities are not set up on Storelib yet.")
@@ -1045,7 +1094,7 @@ export async function createEvent(db: Db, a: { community: CommunityRow; actorId:
     return no(500, "The event could not be saved. Try again.")
   }
   const e = data as EventRow
-  await audit(db, { communityId: a.community.id, actorId: a.actorId, actorKind: "member", action: "event.created", targetType: "event", targetId: e.id, targetLabel: e.title, detail: { startsAt: e.starts_at } })
+  await audit(db, { communityId: a.community.id, actorId: a.actorId, actorKind: "member", action: "event.created", targetType: "event", targetId: e.id, targetLabel: e.title, detail: { startsAt: e.starts_at, priceCents: e.price_cents ?? null } })
   /* Members hear about it (the event fan out) and the reminders are set (lib/communities/server/events.ts). */
   await eventScheduled(db, e, { announce: true })
   return { ok: true, event: eventView(e) }
@@ -1053,7 +1102,7 @@ export async function createEvent(db: Db, a: { community: CommunityRow; actorId:
 
 async function eventOf(db: Db, communityId: string, eventId: string): Promise<EventRow | null> {
   if (!isUuid(eventId)) return null
-  const { data } = await db.from("community_events").select(EVENT_COLUMNS).eq("id", eventId).eq("community_id", communityId).maybeSingle()
+  const { data } = await db.from("community_events").select(await eventReadColumns(db)).eq("id", eventId).eq("community_id", communityId).maybeSingle()
   return (data as EventRow | null) ?? null
 }
 
@@ -1067,10 +1116,14 @@ async function checkReplay(db: Db, creatorId: string, communityId: string, raw: 
   return data.status === "failed" ? false : data.id
 }
 
-export async function updateEvent(db: Db, a: { community: CommunityRow; creatorId: string; eventId: string; actorId: string; input: EventInput; replay?: unknown }): Promise<Result<{ event: EventEditView }>> {
+export async function updateEvent(db: Db, a: { community: CommunityRow; creatorId: string; eventId: string; actorId: string; input: EventInput; replay?: unknown; tickets?: EventTicketInput | null; role?: Role; perms?: RolePermissions | null }): Promise<Result<{ event: EventEditView }>> {
   const e = await eventOf(db, a.community.id, a.eventId)
   if (!e) return no(404, "That event is not in this community.")
-  const patch: Record<string, unknown> = { ...eventColumns(a.input), access: await ownRule(db, a.community.id, a.input.access) }
+  /* THE PRICE'S OWN RULES: the permission, and never taking a price off under somebody who paid. */
+  const refused = priceChangeRefusal({ role: a.role, perms: a.perms, tickets: a.tickets ?? null, event: e })
+  if (refused) return refused
+  const setup = a.tickets ? await eventTicketSetup(db, a.community.id) : null
+  const patch: Record<string, unknown> = { ...eventColumns(a.input), ...(await eventPriceColumns(db, a.tickets ?? null, setup?.currency ?? e.currency ?? "usd")), access: await ownRule(db, a.community.id, a.input.access) }
   if (a.input.coverUrl === null && e.cover_url && !ownPicture(a.input.coverUrl)) patch.cover_url = null
   if (a.replay !== undefined) {
     const replay = await checkReplay(db, a.creatorId, a.community.id, a.replay)
@@ -1082,7 +1135,7 @@ export async function updateEvent(db: Db, a: { community: CommunityRow; creatorI
     patch.reminder_24h_at = null
     patch.reminder_1h_at = null
   }
-  const { data, error } = await db.from("community_events").update(patch).eq("id", e.id).eq("community_id", a.community.id).select(EVENT_COLUMNS).single()
+  const { data, error } = await db.from("community_events").update(patch).eq("id", e.id).eq("community_id", a.community.id).select(await eventReadColumns(db)).single()
   if (error || !data) return no(500, "The event could not be saved. Try again.")
   await audit(db, { communityId: a.community.id, actorId: a.actorId, actorKind: "member", action: "event.updated", targetType: "event", targetId: e.id, targetLabel: a.input.title, detail: { moved: patch.starts_at !== e.starts_at } })
   if (patch.starts_at !== e.starts_at) await eventScheduled(db, data as EventRow, { announce: false })
@@ -1264,13 +1317,6 @@ export async function givePoints(db: Db, a: { communityId: string; userId: strin
 
 const LIST_MEMBER_COLUMNS = "id, user_id, status, role, tier_id, source, joined_at, requested_at, request_note, last_active_at, muted_until, points, level, approved_by, created_at"
 type ListMember = Pick<MemberRow, "id" | "user_id" | "status" | "role" | "tier_id" | "source" | "joined_at" | "requested_at" | "request_note" | "last_active_at" | "muted_until" | "points" | "level" | "approved_by" | "created_at">
-
-/** Letters, digits, spaces and the few marks in names and emails; nothing PostgREST reads as syntax. */
-export function safeSearch(q: string): string {
-  return q.replace(/[^\p{L}\p{N}@.\-' ]/gu, "").trim().slice(0, 60)
-}
-
-const SEARCH_CAP = 300
 
 async function searchUserIds(db: Db, q: string, withEmail: boolean): Promise<{ ids: string[]; capped: boolean }> {
   const s = safeSearch(q)
