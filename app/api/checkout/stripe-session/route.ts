@@ -198,7 +198,7 @@ export async function POST(request: Request) {
     product_title: String(product.title || "").slice(0, 480),
     product_type: String(product.type || ""),
     creator_id: creator.id,
-    creator_name: personName({ name: creatorProfile?.display_name || creator.display_name, username: creatorProfile?.username, slug: creator.slug }).slice(0, 200),
+    creator_name: personName({ name: creatorProfile?.display_name || creator.display_name }).slice(0, 200),
     buyer_id: user?.id || "",
     buyer_first_name: firstName,
     buyer_last_name: lastName,

@@ -113,7 +113,7 @@ export function CoursePlayer({
             Back to courses
           </Link>
           <h2 className="font-semibold">{product.title}</h2>
-          <p className="mt-1 text-sm text-muted-foreground">by {personName({ name: creator.profile?.display_name, slug: creator.slug })}</p>
+          <p className="mt-1 text-sm text-muted-foreground">by {personName({ name: (creator.profile as { display_name?: string | null } | null)?.display_name })}</p>
 
           {/* Progress bar */}
           <div className="mt-4">
