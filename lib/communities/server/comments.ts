@@ -15,17 +15,30 @@ import "server-only"
  *
  * Writing one tells the post's author (comment) and, for a reply, the
  * comment's author (reply), then everyone mentioned, each once.
+ *
+ * WHAT A COMMENT CARRIES (round 11): pictures, a GIF and files under its
+ * words, kept in `media` (run-now part 96). Through the same checks as a
+ * post's media (feed.ts checkMedia), then only what lib/communities/post-media.ts
+ * allows a comment, and every picture and file must be the commenter's own
+ * upload for this community, still there: a picture in their own folder of
+ * the picture bucket, a file in their folder of the community's files.
+ * Until part 96 has run, comments read and write as before and one that
+ * carries something is refused with a sentence.
  */
+import type { SupabaseClient } from "@supabase/supabase-js"
+import { storedObjectSize } from "@/lib/storage/upload-guard"
 import { LENGTHS, mentionsEveryone } from "../limits"
 import { can } from "../permissions"
-import { COMMENT_COLUMNS, type CommentRow, type CommentView, type CommunityRow, type PostRow } from "../types"
+import { COMMENT_MEDIA_TYPES, MAX_COMMENT_GIFS, MAX_COMMENT_MEDIA, PICTURE_BUCKET, memberPictureFolder, picturePathOf } from "../post-media"
+import { COMMENT_COLUMNS, type CommentRow, type CommentView, type CommunityRow, type PostMedia, type PostRow } from "../types"
 import { recordActivity } from "./activity"
 import type { Viewer } from "./context"
-import { missing, nowIso, reasonOf, type Db } from "./db"
+import { missing, nowIso, reasonOf, type Db, type DbError } from "./db"
 import { authorViews } from "./directory"
-import { cleanText, refused, visiblePostRow, type Checked, type WriteContext } from "./feed"
+import { checkMedia, cleanText, refused, visiblePostRow, type Checked, type WriteContext } from "./feed"
 import { notifyMentions, snippet } from "./mentions"
 import { notifyMember } from "./notify"
+import { communityFilesExist } from "./post-files"
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -51,6 +64,103 @@ export function decodeCommentCursor(raw: string | null | undefined): CommentCurs
   } catch {
     return null
   }
+}
+
+/*
+  THE MEDIA COLUMN MAY NOT BE THERE YET. Every read and write asks for
+  `media` with the rest; when the database says it has no such column (part
+  96 not run: Postgres 42703 on a read, PostgREST PGRST204 on a write) it is
+  asked again without it, and that answer is remembered for a few minutes so
+  the next requests do not pay twice. A failed request changed nothing
+  (PostgREST runs each in a transaction), so asking again is safe.
+*/
+const MEDIA_COLUMNS = `${COMMENT_COLUMNS}, media`
+const MEDIA_RECHECK_MS = 5 * 60_000
+let mediaColumn: { there: boolean; at: number } | null = null
+
+export function noMediaColumn(error: unknown): boolean {
+  const e = (error ?? null) as { code?: string; message?: string } | null
+  return !!e && (e.code === "42703" || e.code === "PGRST204") && /\bmedia\b/.test(String(e.message ?? ""))
+}
+
+function columnsNow(): string {
+  return mediaColumn && !mediaColumn.there && Date.now() - mediaColumn.at < MEDIA_RECHECK_MS ? COMMENT_COLUMNS : MEDIA_COLUMNS
+}
+
+/** What a read hands back, as far as this module looks at it. */
+export type CommentAnswer = { data: unknown; error: unknown }
+
+/** Runs a read (or a write that reads back) with the media column, and again without it when the database has none. */
+export async function withCommentColumns(run: (columns: string) => PromiseLike<CommentAnswer>): Promise<CommentAnswer> {
+  const columns = columnsNow()
+  const first = await run(columns)
+  if (columns !== MEDIA_COLUMNS) return first
+  if (noMediaColumn(first.error)) {
+    mediaColumn = { there: false, at: Date.now() }
+    return run(COMMENT_COLUMNS)
+  }
+  if (!first.error) mediaColumn = { there: true, at: Date.now() }
+  return first
+}
+
+/** For the probes and the suite: forget what was learnt about the column. */
+export function resetMediaColumn(): void {
+  mediaColumn = null
+}
+
+function storageHost(): string | null {
+  try {
+    return process.env.NEXT_PUBLIC_SUPABASE_URL ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).hostname.toLowerCase() : null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * What a comment may carry, checked: the shapes and hosts a post's media
+ * must have (checkMedia), only the kinds a comment takes, four at most and
+ * one GIF, and every picture and file the commenter's own upload for this
+ * community that is still there. Answers the media as it will be kept (a
+ * file named with the extension it was checked with).
+ */
+export async function checkCommentMedia(db: Db, community: Pick<CommunityRow, "id" | "creator_id">, viewer: Pick<Viewer, "userId" | "role">, raw: unknown): Promise<Checked<PostMedia[]>> {
+  if (raw === undefined || raw === null) return { ok: true, value: [] }
+  if (!Array.isArray(raw)) return { ok: false, error: "That could not be added to the comment.", status: 400 }
+  if (!raw.length) return { ok: true, value: [] }
+  if (raw.length > MAX_COMMENT_MEDIA) return { ok: false, error: `Up to ${MAX_COMMENT_MEDIA} pictures, GIFs or files in a comment.`, status: 400 }
+  const checked = checkMedia(raw)
+  if (!checked.ok) return refused(checked, 400)
+  const media = checked.value
+  /* checkMedia leaves out a kind it does not know; a comment says so instead. */
+  if (media.length !== raw.length || media.some((m) => !COMMENT_MEDIA_TYPES.includes(m.type))) return { ok: false, error: "A comment can carry pictures, a GIF and files.", status: 400 }
+  if (media.filter((m) => m.type === "gif").length > MAX_COMMENT_GIFS) return { ok: false, error: "One GIF per comment.", status: 400 }
+  const pictures = media.filter((m): m is Extract<PostMedia, { type: "image" }> => m.type === "image")
+  const files = media.filter((m): m is Extract<PostMedia, { type: "file" }> => m.type === "file")
+  if (pictures.length + files.length === 0) return { ok: true, value: media }
+  if (!viewer.userId || !can(viewer.role, "upload")) return { ok: false, error: "You cannot add pictures or files here.", status: 403 }
+  if (files.some((f) => f.store !== "community")) return { ok: false, error: "That file could not be added. Upload it again.", status: 400 }
+  /* A picture: on this project's storage, in the commenter's own folder for this community, and there. */
+  const host = storageHost()
+  const folder = memberPictureFolder(viewer.userId, community.id)
+  const paths: string[] = []
+  for (const p of pictures) {
+    const h = new URL(p.url).hostname.toLowerCase()
+    const path = picturePathOf(p.url)
+    if (!(host ? h === host : h.endsWith(".supabase.co")) || !path || !path.startsWith(folder) || path.slice(folder.length).includes("/")) {
+      return { ok: false, error: "That picture could not be added. Upload it again.", status: 400 }
+    }
+    paths.push(path)
+  }
+  const sizes = await Promise.all(paths.map((path) => storedObjectSize(db as SupabaseClient, PICTURE_BUCKET, path).catch(() => null)))
+  if (sizes.some((size) => size === null)) return { ok: false, error: "That picture could not be added. Upload it again.", status: 400 }
+  /* A file: in the commenter's folder of this community's files, under the extension it was checked with. */
+  let named = new Map<string, string>()
+  if (files.length) {
+    const found = await communityFilesExist(db, community, viewer.userId, files.map((f) => ({ fileId: f.assetId, name: f.name })))
+    if (!found.ok) return refused(found, 400)
+    named = found.value
+  }
+  return { ok: true, value: media.map((m) => (m.type === "file" && named.has(m.assetId) ? { ...m, name: named.get(m.assetId)! } : m)) }
 }
 
 /**
@@ -80,6 +190,7 @@ export function buildThread(
       replies: children,
       canEdit: !gone && !!opts.viewerId && r.author_id === opts.viewerId,
       canModerate: !gone && opts.moderator,
+      ...(!gone && Array.isArray(r.media) && r.media.length ? { media: r.media } : {}),
     }
   }
   const byParent = new Map<string, CommentRow[]>()
@@ -101,15 +212,17 @@ export function buildThread(
 
 async function threadFor(db: Db, community: Pick<CommunityRow, "id">, viewer: Viewer, parents: CommentRow[]): Promise<CommentView[]> {
   if (!parents.length) return []
-  const { data: replyRows } = await db
-    .from("community_feed_comments")
-    .select(COMMENT_COLUMNS)
-    .in(
-      "parent_id",
-      parents.map((p) => p.id),
-    )
-    .order("created_at", { ascending: true })
-    .limit(REPLIES_MAX)
+  const { data: replyRows } = await withCommentColumns((columns) =>
+    db
+      .from("community_feed_comments")
+      .select(columns)
+      .in(
+        "parent_id",
+        parents.map((p) => p.id),
+      )
+      .order("created_at", { ascending: true })
+      .limit(REPLIES_MAX),
+  )
   const replies = (replyRows as CommentRow[] | null) ?? []
   const all = [...parents, ...replies]
   const [authors, reacted] = await Promise.all([
@@ -155,12 +268,14 @@ export async function listComments(db: Db, community: CommunityRow, viewer: View
     return { commentsEnabled: space ? space.comments_enabled : true, me: me ? { name: me.name, avatarUrl: me.avatarUrl } : null }
   }
   try {
-    let q = db.from("community_feed_comments").select(COMMENT_COLUMNS).eq("post_id", postId).eq("community_id", community.id).is("parent_id", null)
     const cur = decodeCommentCursor(cursor)
-    if (cur) q = q.or(`created_at.gt."${cur.c}",and(created_at.eq."${cur.c}",id.gt.${cur.i})`)
-    const { data, error } = await q.order("created_at", { ascending: true }).order("id", { ascending: true }).limit(COMMENT_PAGE + 1)
+    const { data, error } = await withCommentColumns((columns) => {
+      let q = db.from("community_feed_comments").select(columns).eq("post_id", postId).eq("community_id", community.id).is("parent_id", null)
+      if (cur) q = q.or(`created_at.gt."${cur.c}",and(created_at.eq."${cur.c}",id.gt.${cur.i})`)
+      return q.order("created_at", { ascending: true }).order("id", { ascending: true }).limit(COMMENT_PAGE + 1)
+    })
     if (error) {
-      if (!missing(error)) console.error(`[communities] comments read: ${reasonOf(error)}`)
+      if (!missing(error as DbError | null)) console.error(`[communities] comments read: ${reasonOf(error)}`)
       return { ok: true, value: { comments: [], nextCursor: null } }
     }
     const rows = (data as CommentRow[] | null) ?? []
@@ -191,7 +306,7 @@ export async function listComments(db: Db, community: CommunityRow, viewer: View
  */
 export async function getCommentView(db: Db, community: CommunityRow, viewer: Viewer, commentId: string): Promise<CommentView | null> {
   if (!UUID.test(commentId)) return null
-  const { data } = await db.from("community_feed_comments").select(COMMENT_COLUMNS).eq("id", commentId).eq("community_id", community.id).maybeSingle()
+  const { data } = await withCommentColumns((columns) => db.from("community_feed_comments").select(columns).eq("id", commentId).eq("community_id", community.id).maybeSingle())
   const row = (data as CommentRow | null) ?? null
   if (!row || row.status !== "published") return null
   const found = await visiblePostRow(db, community, viewer, row.post_id)
@@ -220,12 +335,22 @@ export function commentsOpen(post: Pick<PostRow, "status" | "locked">, spaceComm
   return null
 }
 
+/** What a notification says for a comment with no words: what it carries. */
+export function mediaLine(media: PostMedia[]): string {
+  if (media.some((m) => m.type === "gif")) return "Sent a GIF"
+  const pictures = media.filter((m) => m.type === "image").length
+  if (pictures) return pictures === 1 ? "Sent a picture" : `Sent ${pictures} pictures`
+  return media.length ? (media.length === 1 ? "Sent a file" : `Sent ${media.length} files`) : ""
+}
+
 export async function createComment(w: WriteContext, postId: string, raw: unknown): Promise<Checked<CommentView>> {
   const { db, community, viewer } = w
   if (!viewer.userId) return { ok: false, error: "Sign in to comment.", status: 401 }
   const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>
   const body = cleanText(r.body, LENGTHS.commentBody.max)
-  if (!body) return { ok: false, error: "Write a comment first.", status: 400 }
+  const hasMedia = Array.isArray(r.media) && r.media.length > 0
+  /* Words, or something under them (a GIF on its own is a whole answer). */
+  if (!body && !hasMedia) return { ok: false, error: "Write a comment first.", status: 400 }
   if (body.length > LENGTHS.commentBody.max) return { ok: false, error: "Keep the comment under 5,000 characters.", status: 400 }
   if (mentionsEveryone(body) && !can(viewer.role, "mention_everyone")) return { ok: false, error: "Only admins can mention everyone.", status: 403 }
 
@@ -244,14 +369,21 @@ export async function createComment(w: WriteContext, postId: string, raw: unknow
   /* One reply level: a reply to a reply is kept under the top level comment. */
   const topId = parent ? (parent.parent_id ?? parent.id) : null
 
-  const { data, error } = await db
-    .from("community_feed_comments")
-    .insert({ post_id: postId, community_id: community.id, parent_id: topId, author_id: viewer.userId, body })
-    .select(COMMENT_COLUMNS)
-    .single()
+  const media = await checkCommentMedia(db, community, viewer, r.media)
+  if (!media.ok) return refused(media)
+  const carried = (media as { value: PostMedia[] }).value
+  const { data, error } = await withCommentColumns((columns) =>
+    db
+      .from("community_feed_comments")
+      .insert({ post_id: postId, community_id: community.id, parent_id: topId, author_id: viewer.userId, body, ...(carried.length ? { media: carried } : {}) })
+      .select(columns)
+      .single(),
+  )
+  /* Part 96 not run: the words alone went up above (asked again without the column); something to carry cannot. */
+  if (carried.length && noMediaColumn(error)) return { ok: false, error: "Pictures and files in comments are not switched on yet. Send the words alone for now.", status: 503 }
   if (error || !data) {
     console.error(`[communities] comment not written: ${reasonOf(error)}`)
-    return { ok: false, error: "The comment did not go up. Try again.", status: missing(error) ? 503 : 500 }
+    return { ok: false, error: "The comment did not go up. Try again.", status: missing(error as DbError | null) ? 503 : 500 }
   }
   const row = data as CommentRow
   await recordActivity(db, { communityId: community.id, userId: viewer.userId, kind: "comment", targetType: "comment", targetId: row.id })
@@ -268,7 +400,7 @@ export async function createComment(w: WriteContext, postId: string, raw: unknow
       actorId: viewer.userId,
       target: { type: "comment", id: row.id },
       title: `${actorName} replied to your comment`,
-      body: snippet(body),
+      body: snippet(body || mediaLine(carried)),
       url,
       dedupeKey: `reply:${row.id}:${parent.author_id}`,
     })
@@ -282,7 +414,7 @@ export async function createComment(w: WriteContext, postId: string, raw: unknow
       actorId: viewer.userId,
       target: { type: "comment", id: row.id },
       title: `${actorName} commented on your post`,
-      body: snippet(body),
+      body: snippet(body || mediaLine(carried)),
       url,
       dedupeKey: `comment:${row.id}:${found.row.author_id}`,
     })
@@ -307,7 +439,7 @@ export async function createComment(w: WriteContext, postId: string, raw: unknow
 async function ownComment(w: WriteContext, commentId: string): Promise<Checked<CommentRow>> {
   const { db, community, viewer } = w
   if (!UUID.test(commentId)) return { ok: false, error: "That comment is gone.", status: 404 }
-  const { data } = await db.from("community_feed_comments").select(COMMENT_COLUMNS).eq("id", commentId).eq("community_id", community.id).maybeSingle()
+  const { data } = await withCommentColumns((columns) => db.from("community_feed_comments").select(columns).eq("id", commentId).eq("community_id", community.id).maybeSingle())
   const row = (data as CommentRow | null) ?? null
   if (!row || row.status !== "published") return { ok: false, error: "That comment is gone.", status: 404 }
   if (row.author_id !== viewer.userId) return { ok: false, error: "Only the author can change a comment.", status: 403 }
@@ -322,16 +454,19 @@ export async function updateComment(w: WriteContext, commentId: string, raw: unk
   const ownRow = (own as { value: CommentRow }).value
   const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>
   const body = cleanText(r.body, LENGTHS.commentBody.max)
-  if (!body) return { ok: false, error: "Write a comment first.", status: 400 }
+  /* What it carries stays as it is; a comment that carries something may lose its words. */
+  if (!body && !(Array.isArray(ownRow.media) && ownRow.media.length)) return { ok: false, error: "Write a comment first.", status: 400 }
   if (body.length > LENGTHS.commentBody.max) return { ok: false, error: "Keep the comment under 5,000 characters.", status: 400 }
   if (mentionsEveryone(body) && !mentionsEveryone(ownRow.body) && !can(w.viewer.role, "mention_everyone")) return { ok: false, error: "Only admins can mention everyone.", status: 403 }
-  const { data, error } = await w.db
-    .from("community_feed_comments")
-    .update({ body, edited_at: nowIso() })
-    .eq("id", commentId)
-    .eq("author_id", w.viewer.userId)
-    .select(COMMENT_COLUMNS)
-    .single()
+  const { data, error } = await withCommentColumns((columns) =>
+    w.db
+      .from("community_feed_comments")
+      .update({ body, edited_at: nowIso() })
+      .eq("id", commentId)
+      .eq("author_id", w.viewer.userId)
+      .select(columns)
+      .single(),
+  )
   if (error || !data) return { ok: false, error: "The change did not save. Try again.", status: 500 }
   const row = data as CommentRow
   const authors = await authorViews(w.db, w.community.id, [w.viewer.userId])

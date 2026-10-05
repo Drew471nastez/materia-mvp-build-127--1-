@@ -336,6 +336,8 @@ export interface CommentRow {
   created_at: string
   updated_at: string
   deleted_at: string | null
+  /** Pictures, GIFs and files under the words (round 11, run-now part 96); missing until that part has run. */
+  media?: PostMedia[] | null
 }
 
 export interface ReactionRow {
@@ -706,6 +708,8 @@ export interface CommentView {
   replies: CommentView[]
   canEdit: boolean
   canModerate: boolean
+  /** Pictures, GIFs and files under the words (round 11): only `image`, `gif` and the member's own `file`; none on a gone comment. */
+  media?: PostMedia[]
 }
 
 export interface MemberView {
