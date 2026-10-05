@@ -78,7 +78,8 @@ const status = (r: unknown) => (r as { status?: number }).status
 async function main() {
   /* ── Roles: the pure rules ───────────────────────────────────────────── */
   console.log("\nroles")
-  const OLD_MODERATOR: CommunityAction[] = ["view", "post", "comment", "react", "chat", "upload", "report", "moderate_content", "pin", "lock", "mute", "suspend", "ban", "remove_member", "approve_member", "review_reports", "view_audit"]
+  /* Round 14 put the tickets group on for a moderator as well, so a moderator may price an event and refund a ticket with nothing chosen. */
+  const OLD_MODERATOR: CommunityAction[] = ["view", "post", "comment", "react", "chat", "upload", "report", "moderate_content", "pin", "lock", "mute", "suspend", "ban", "remove_member", "approve_member", "review_reports", "view_audit", "price_events", "refund_tickets"]
   check("with nothing chosen a moderator may do exactly what a moderator always could", Object.keys(allowedActions("moderator")).sort().join() === [...OLD_MODERATOR].sort().join())
   check("with nothing chosen an admin may do everything but money, deleting and handing over", Object.keys(allowedActions("admin")).length === Object.keys(allowedActions("owner")).length - OWNER_ONLY_ACTIONS.length && OWNER_ONLY_ACTIONS.every((a) => !can("admin", a)))
   check("every staff action belongs to exactly one group", (() => {
@@ -86,7 +87,7 @@ async function main() {
     const staffOnly = Object.keys(allowedActions("admin")).filter((a) => !["view", "post", "comment", "react", "chat", "upload", "report"].includes(a))
     return staffOnly.every((a) => grouped.filter((x) => x === a).length === 1) && grouped.length === new Set(grouped).size
   })())
-  check("the defaults: admins every group, moderators content, members, reports and the audit log", PERMISSION_KEYS.every((k) => DEFAULT_ROLE_PERMISSIONS.admin[k]) && PERMISSION_KEYS.filter((k) => DEFAULT_ROLE_PERMISSIONS.moderator[k]).sort().join() === ["audit", "content", "members", "reports"].join())
+  check("the defaults: admins every group, moderators content, members, reports, the audit log and tickets", PERMISSION_KEYS.every((k) => DEFAULT_ROLE_PERMISSIONS.admin[k]) && PERMISSION_KEYS.filter((k) => DEFAULT_ROLE_PERMISSIONS.moderator[k]).sort().join() === ["audit", "content", "members", "reports", "tickets"].join())
   const noContent = parseRolePermissions({ moderator: { content: false } })
   check("an owner can take removing posts away from moderators", !can("moderator", "moderate_content", noContent) && !can("moderator", "pin", noContent) && !can("moderator", "lock", noContent) && can("moderator", "ban", noContent))
   const modsAnnounce = parseRolePermissions({ moderator: { announce: true, analytics: true } })

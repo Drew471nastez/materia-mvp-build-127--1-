@@ -24,7 +24,8 @@ import "server-only"
  * Nothing here trusts a price or an event id from a page: the rows are read
  * here and the amounts come from the event's own row inside the functions.
  */
-import type { TicketSource, TicketStatus, TicketView } from "../event-tickets"
+import type { EventPricing, TicketSource, TicketStatus, TicketView } from "../event-tickets"
+import { EVENT_COLUMNS, EVENT_COLUMNS_PRICED, type EventRow } from "../types"
 import { missing, reasonOf, type Db } from "./db"
 import { peopleOf } from "./moderation"
 
@@ -175,6 +176,41 @@ export async function ticketsOf(db: Db, userId: string | null, eventIds: string[
     console.error(`[communities] tickets read: ${reasonOf(e)}`)
   }
   return out
+}
+
+/**
+ * ONE EVENT, WITH ITS PRICE, read from the community in the URL. Before
+ * part 105 the priced columns are not there, so the plain columns are read
+ * instead and the event comes back free, exactly as it is today.
+ */
+export async function readPricedEvent(db: Db, communityId: string, eventId: string): Promise<EventRow | null> {
+  if (!isUuid(eventId) || !isUuid(communityId)) return null
+  const columns = (await ticketsReady(db)) ? EVENT_COLUMNS_PRICED : EVENT_COLUMNS
+  try {
+    const { data, error } = await db.from("community_events").select(columns).eq("id", eventId).eq("community_id", communityId).maybeSingle()
+    if (error) {
+      forgetIfMissing(error)
+      if (!missing(error)) console.error(`[communities] priced event read: ${reasonOf(error)}`)
+      if (!missing(error) || columns === EVENT_COLUMNS) return null
+      const plain = await db.from("community_events").select(EVENT_COLUMNS).eq("id", eventId).eq("community_id", communityId).maybeSingle()
+      return (plain.data as EventRow | null) ?? null
+    }
+    return (data as EventRow | null) ?? null
+  } catch (e) {
+    console.error(`[communities] priced event read: ${reasonOf(e)}`)
+    return null
+  }
+}
+
+/** An event's pricing, as the pure rules want it. A free event answers nulls. */
+export function pricingOf(e: EventRow): EventPricing {
+  return {
+    priceCents: typeof e.price_cents === "number" ? e.price_cents : null,
+    currency: e.currency ?? null,
+    salesCloseAt: e.sales_close_at ?? null,
+    refundWindowHours: typeof e.refund_window_hours === "number" ? e.refund_window_hours : null,
+    refundPolicy: e.refund_policy ?? null,
+  }
 }
 
 /* ── The creator's panel ────────────────────────────────────────────────── */
