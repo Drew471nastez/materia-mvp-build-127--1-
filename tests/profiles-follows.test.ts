@@ -564,7 +564,7 @@ async function main() {
     check("  sales sit in About with Joined and Products, above the payment methods", /Sales/.test(about) && /Joined/.test(about) && /Products/.test(about) && header.indexOf("Stats - Sales and Joined") < header.indexOf("Accepted payment methods"))
     check("  and the creator's Sales count switch decides the About figure", /sellerTotalSales=\{salesShown \? totalSales : 0\}/.test(creator) && /const salesShown = \(headerSettings\?\.showTotalSalesBadge \?\? true\) && \(creator\.show_total_sales_badge \?\? true\)/.test(creator))
     check("the creator photo is five percent bigger: 158 and 124", avatarSizeMap.medium === 158 && avatarSizeMap.large === 158 && avatarSizeMap.small === 124)
-    check("  and so is every profile's (118 / 134 from 112 / 128), /account sharing the same class", PROFILE_AVATAR_PX.phone === 118 && PROFILE_AVATAR_PX.wide === 134 && /className=\{PROFILE_AVATAR_CLASS\}/.test(read("components/account/account-hub.tsx")) && /className=\{PROFILE_AVATAR_CLASS\}/.test(read("components/profile/profile-hero.tsx")))
+    check("  and so is every profile's (118 / 134 from 112 / 128, then 125 / 142 in round 11), /account sharing the same class", PROFILE_AVATAR_PX.phone === 125 && PROFILE_AVATAR_PX.wide === 142 && /className=\{PROFILE_AVATAR_CLASS\}/.test(read("components/account/account-hub.tsx")) && /className=\{PROFILE_AVATAR_CLASS\}/.test(read("components/profile/profile-hero.tsx")))
     for (const key of ["default", "sage", "astrid"] as const) {
       const c = resolveStorefrontChrome(key)
       check(`the ring is the page's own background (${key})`, c.avatarBorder === c.pageBackground)

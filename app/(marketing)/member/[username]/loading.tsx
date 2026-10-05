@@ -18,9 +18,9 @@ export default function MemberProfileSkeleton() {
     <main className="explore-ground min-h-screen bg-[#f8f9fa]" aria-busy="true" aria-label="Loading profile">
       <div className="skeleton-deferred">
         <div className="h-[57px] w-full border-b border-black/[0.06] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.03)]" data-profile-skeleton-bar="" />
-        <div className="h-[148px] w-full bg-[#eceef1] sm:h-[220px] lg:h-[294px]" />
+        <div className="h-[157px] w-full bg-[#eceef1] sm:h-[233px] lg:h-[312px]" />
         <div className="mx-auto flex w-full max-w-[960px] flex-col items-center px-4 sm:px-6 lg:px-0">
-          <span className="-mt-[59px] block h-[118px] w-[118px] rounded-full bg-[#e3e5e9] ring-2 ring-[#f8f9fa] sm:-mt-[67px] sm:h-[134px] sm:w-[134px]" />
+          <span className="-mt-[62.5px] block h-[125px] w-[125px] rounded-full bg-[#e3e5e9] ring-2 ring-[#f8f9fa] sm:-mt-[71px] sm:h-[142px] sm:w-[142px]" />
           <span className="mt-4 block h-6 w-44 rounded-md bg-[#e8eaee]" />
           <span className="mt-2.5 block h-3.5 w-28 rounded bg-[#eceef1]" />
           <div className="mt-10 flex w-full items-end gap-6 border-b border-[#e5e7eb] pb-3 sm:mt-12">
