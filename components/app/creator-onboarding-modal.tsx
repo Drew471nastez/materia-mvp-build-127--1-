@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import { AVATAR_CHOSEN, onboardingPhoto } from "@/lib/account/avatar"
 import { announceAvatar } from "@/lib/account/avatar-store"
+import { readAuthSnapshot, writeAuthSnapshot } from "@/lib/auth/auth-snapshot"
 import {
   ArrowLeft,
   Check,
@@ -565,7 +566,15 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
   const [joinSaving, setJoinSaving] = useState(false)
   const [pushAnswer, setPushAnswer] = useState<PushPermission | null>(null)
   const [askingPush, setAskingPush] = useState(false)
-  const joinSteps = [JOIN_NAME, JOIN_NOTIFY]
+  /*
+    Notifications are a phone question. The browser onboarding is only the
+    profile; iOS and Android (the Capacitor app) get the second step.
+  */
+  const [joinNotify, setJoinNotify] = useState(false)
+  useLayoutEffect(() => {
+    setJoinNotify(inNativeApp())
+  }, [])
+  const joinSteps = joinNotify ? [JOIN_NAME, JOIN_NOTIFY] : [JOIN_NAME]
   const lastJoinStep = joinSteps[joinSteps.length - 1]
   useEffect(() => {
     if (!start) return
@@ -640,11 +649,29 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
     ])
     const done = welcomeDone(start?.next ?? null)
     try {
-      startRouteLoading({ cover: true })
-      router.replace(done)
+      const { data } = await createClient().auth.getSession().catch(() => ({ data: { session: null } }))
+      const id = data.session?.user?.id
+      if (id) {
+        const snap = readAuthSnapshot()
+        writeAuthSnapshot({
+          signedIn: true,
+          userId: id,
+          avatarUrl: snap?.avatarUrl ?? null,
+          displayName: cleanName(joinName) || snap?.displayName || null,
+          username: normalizeHandle(joinHandle) || snap?.username || null,
+          isSeller: !!snap?.isSeller,
+        })
+      }
     } catch {
-      window.location.replace(done)
+      /* the community frame writes the same record if this did not */
     }
+    document.body.style.overflow = ""
+    document.body.style.paddingRight = ""
+    document.body.style.touchAction = ""
+    document.body.removeAttribute("data-scroll-locked")
+    document.documentElement.style.overflow = ""
+    /* A full load, so the community is the server's frame: tab bar, section row and columns, not whatever the onboarding left on the page. */
+    window.location.replace(done)
   }
 
   /**
@@ -1131,6 +1158,10 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
       if (currentStep === JOIN_NOTIFY) {
         await allowNotifications()
         return finishJoin()
+      }
+      if (currentStep === JOIN_NAME && (joinNotify || inNativeApp())) {
+        goToStep(JOIN_NOTIFY, "right")
+        return
       }
       if (currentStep === lastJoinStep) return finishJoin()
       goToStep(joinSteps[joinSteps.indexOf(currentStep) + 1], "right")

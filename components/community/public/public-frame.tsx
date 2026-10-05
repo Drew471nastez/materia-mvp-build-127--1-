@@ -32,6 +32,9 @@ import { useCommunityTheme } from "@/components/community/use-community-theme"
 import "../community-theme.css"
 import { useCommunityLanding } from "@/components/community/member/landing"
 import { CommunityPullRefresh } from "@/components/community/member/community-pull-refresh"
+import { readAuthSnapshot, writeAuthSnapshot } from "@/lib/auth/auth-snapshot"
+import { createClient } from "@/lib/supabase/client"
+import { useEffect } from "react"
 import { CommunityFixedFootWatch } from "@/components/community/fixed-foot-watch"
 
 /** What arrives under the bar fades in (opacity only: a visitor never moves between places, so nothing rises). */
@@ -52,6 +55,28 @@ export function CommunityPublicFrame({ topBar, card = null, children }: { topBar
   const slug = card?.community.slug ?? topBar.community.slug
   /* Opened from Discover: the frame lands as an /app page does (components/community/member/landing.ts). */
   const landing = useCommunityLanding()
+  const me = topBar.me
+  useEffect(() => {
+    if (!me) return
+    if (readAuthSnapshot()?.signedIn) return
+    let stop = false
+    void createClient().auth.getSession().then(({ data }) => {
+      if (stop) return
+      const id = data.session?.user?.id
+      if (!id || readAuthSnapshot()?.signedIn) return
+      writeAuthSnapshot({
+        signedIn: true,
+        userId: id,
+        avatarUrl: me.avatarUrl,
+        displayName: me.name,
+        username: me.username ?? null,
+        isSeller: !!me.seller,
+      })
+    })
+    return () => {
+      stop = true
+    }
+  }, [me])
   return (
     <div
       data-community-public=""

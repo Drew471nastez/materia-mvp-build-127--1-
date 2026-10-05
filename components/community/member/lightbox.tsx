@@ -63,6 +63,9 @@ import { curveCss, releaseVelocity, rubberBand, snapMotion, snapTarget, type Sam
  * post is a second entry. The entry carries Next's own state with it, so
  * the router sees the page it already has and loads nothing.
  */
+/** True while this layer is putting the address back, so that pop is not a second close. */
+let historyLayerRestoring = false
+
 export function useHistoryLayer(open: boolean, onClose: () => void, url?: string | null): void {
   const close = useRef(onClose)
   useEffect(() => {
@@ -78,6 +81,7 @@ export function useHistoryLayer(open: boolean, onClose: () => void, url?: string
       mine = false
     }
     const onPop = () => {
+      if (historyLayerRestoring) return
       if ((window.history.state as { storelibLayer?: string } | null)?.storelibLayer === marker) return
       mine = false
       close.current()
@@ -85,7 +89,13 @@ export function useHistoryLayer(open: boolean, onClose: () => void, url?: string
     window.addEventListener("popstate", onPop)
     return () => {
       window.removeEventListener("popstate", onPop)
-      if (mine && (window.history.state as { storelibLayer?: string } | null)?.storelibLayer === marker) window.history.back()
+      if (!mine) return
+      if ((window.history.state as { storelibLayer?: string } | null)?.storelibLayer !== marker) return
+      historyLayerRestoring = true
+      window.history.back()
+      window.setTimeout(() => {
+        historyLayerRestoring = false
+      }, 80)
     }
   }, [open, url])
 }

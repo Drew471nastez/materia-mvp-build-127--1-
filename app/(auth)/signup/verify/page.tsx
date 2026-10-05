@@ -78,6 +78,13 @@ function VerifyContent() {
   // Auto-send email on mount if not already sent (e.g. direct navigation to this URL)
   useEffect(() => {
     if (sent || !userId || !email) return
+    const onceKey = `storelib-code-sent:${userId}:${email}`
+    try {
+      if (sessionStorage.getItem(onceKey) === "1") return
+      sessionStorage.setItem(onceKey, "1")
+    } catch {
+      /* private mode: the server still refuses a second send in the same moment */
+    }
     fetch("/api/auth/verify-email", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

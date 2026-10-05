@@ -105,6 +105,7 @@ import { PlaceContext, plainClick, WallCommunityCard, WallContributorsCard, Wall
 import { useCommunityLanding } from "./landing"
 import { useReturnScroll } from "./return-scroll"
 import { JOINED_KEY } from "@/components/community/public/paths"
+import { readAuthSnapshot, writeAuthSnapshot } from "@/lib/auth/auth-snapshot"
 import { CommunityPullRefresh } from "./community-pull-refresh"
 import { CommunityFixedFootWatch } from "@/components/community/fixed-foot-watch"
 
@@ -227,6 +228,25 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
   const manageInvites = canInvite && (viewer.isOwner || viewer.isCreatorAccount) ? `/app/community/${community.id}/members` : null
 
   usePresenceHeartbeat(community.id, viewer.userId)
+  /*
+    A brand-new account lands here straight from signup. The platform header
+    (the thing that usually writes who is signed in) is not on a community
+    page, so the phone tab bar stayed hidden and the section row sat in the
+    wrong place. The member frame already knows they are signed in.
+  */
+  useEffect(() => {
+    if (!viewer.userId || !viewer.signedIn) return
+    const snap = readAuthSnapshot()
+    if (snap?.signedIn && snap.userId === viewer.userId) return
+    writeAuthSnapshot({
+      signedIn: true,
+      userId: viewer.userId,
+      avatarUrl: snap?.avatarUrl ?? null,
+      displayName: snap?.displayName ?? null,
+      username: snap?.username ?? null,
+      isSeller: snap?.isSeller ?? !!viewer.isCreatorAccount,
+    })
+  }, [viewer.userId, viewer.signedIn, viewer.isCreatorAccount])
   /* Back from a creator's page (or any page outside) lands where the community was left (return-scroll.ts, round 12). */
   useReturnScroll(pathname || "")
   /* The bar is white, so the browser's bar and the phone's status bar are too. */

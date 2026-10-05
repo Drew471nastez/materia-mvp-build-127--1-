@@ -684,6 +684,8 @@ export function usePullToRefresh(
       /* Sheet overlays are children of the scroll container (iOS needs them to
          be, for position:fixed), so their touches bubble here. Not ours. */
       if ((e.target as Element | null)?.closest("[data-dashboard-sheet]")) return
+      /* A post sheet or any phone sheet is open: this pull is not the page's, and starting one under it leaves the page translated when Back closes the sheet. */
+      if (document.querySelector("[data-app-sheet='open'], [data-post-overlay-root], [data-sheet-panel]")) return
       if (el.scrollTop !== 0 || phaseRef.current === "refreshing") return
       /* A sheet or a dialog holds the page (react-remove-scroll's mark): the touch is the sheet's. */
       if (isDocument && document.documentElement.hasAttribute("data-scroll-locked")) return

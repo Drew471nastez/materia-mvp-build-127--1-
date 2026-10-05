@@ -33,4 +33,23 @@ export function verificationLimitPaused(now = Date.now()): boolean {
   return now < VERIFICATION_LIMIT_PAUSED_UNTIL
 }
 
+/**
+ * One verification email per address in this window. Signup and the verify
+ * page both call the send route, and React can run that effect twice; the
+ * second call must not mail a second code.
+ */
+const verificationSends = new Map<string, number>()
+
+export function claimVerificationSend(key: string, windowMs = 20_000, now = Date.now()): boolean {
+  const prev = verificationSends.get(key)
+  if (prev !== undefined && now - prev < windowMs) return false
+  verificationSends.set(key, now)
+  if (verificationSends.size > 500) {
+    for (const [k, at] of verificationSends) {
+      if (now - at >= windowMs) verificationSends.delete(k)
+    }
+  }
+  return true
+}
+
 export const SIGNED_URL_EXPIRY_SECONDS = 300 // 5 minutes

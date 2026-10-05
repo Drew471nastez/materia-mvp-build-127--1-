@@ -210,9 +210,13 @@ export function PostOverlay({ post: given, slug, viewer, readOnly = false, updat
     if (!phone) return
     const html = document.documentElement
     const prev = html.style.overflow
+    const prevOverscroll = html.style.overscrollBehavior
     html.style.overflow = "hidden"
+    /* A scroll that runs past the sheet must not chain into the page or the browser's Back. */
+    html.style.overscrollBehavior = "none"
     return () => {
       html.style.overflow = prev
+      html.style.overscrollBehavior = prevOverscroll
     }
   }, [phone])
 

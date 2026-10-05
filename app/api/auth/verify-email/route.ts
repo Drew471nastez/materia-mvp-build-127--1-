@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { sendEmail, isSmtpConfigured, EMAIL_FROM, EMAIL_REPLY_TO } from "@/lib/mail"
-import { generateVerificationCode, VERIFICATION_CODE_EXPIRY_MINUTES, verificationLimitPaused } from "@/lib/security"
+import { claimVerificationSend, generateVerificationCode, VERIFICATION_CODE_EXPIRY_MINUTES, verificationLimitPaused } from "@/lib/security"
 import { maskEmail } from "@/lib/privacy/mask-email"
 import { codeEmail } from "@/lib/account/code-email"
 
@@ -48,6 +48,23 @@ export async function POST(request: Request) {
         { error: "Too many verification attempts. Please try again in 15 minutes." },
         { status: 429 },
       )
+    }
+
+    const sendKey = `${userId}:${email}`
+    if (!claimVerificationSend(sendKey)) {
+      return NextResponse.json({ success: true, alreadySent: true, message: "Verification code already sent" })
+    }
+
+    const twentySecondsAgo = new Date(Date.now() - 20_000).toISOString()
+    const { data: justSent } = await admin
+      .from("verification_codes")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("email", email)
+      .gte("created_at", twentySecondsAgo)
+      .limit(1)
+    if (justSent && justSent.length > 0) {
+      return NextResponse.json({ success: true, alreadySent: true, message: "Verification code already sent" })
     }
 
     // Generate verification code

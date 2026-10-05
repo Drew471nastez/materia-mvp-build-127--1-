@@ -962,8 +962,16 @@ export function BottomSheet({
         /* Sideways is a row of tabs or chips scrolling, not the sheet. */
         if (Math.abs(dx) > Math.abs(dy)) return
         const scroller = scrollerRef.current
-        /* A list that can scroll the way the finger went gets the finger; one that cannot hands it to the sheet. */
-        if (!fromHandleRef.current && canScroll(scroller, dy)) return
+        /*
+          A list keeps the finger, including the overscroll at its ends.
+          Handing that pull to the sheet closed the post while the person was
+          only scrolling, and the history step behind it then jumped the page.
+          Only the handle dismisses by drag.
+        */
+        if (!fromHandleRef.current && scroller) {
+          if (!canScroll(scroller, dy) && e.cancelable && Math.abs(dy) >= Math.abs(dx)) e.preventDefault()
+          return
+        }
         draggingRef.current = true
         sheet.style.willChange = "transform"
       }
