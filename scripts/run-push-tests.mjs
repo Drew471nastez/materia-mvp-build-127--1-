@@ -162,6 +162,7 @@ const SUITES = [
   "tests/route-loading-bar.test.ts",
   "tests/back-plan.test.ts",
   "tests/back-never-stalls.test.ts",
+  "tests/edge-swipe-back.test.ts",
   "tests/avatar-grounds.test.ts",
   "tests/brand-logo.test.ts",
   "tests/quick-access-urls.test.ts",
