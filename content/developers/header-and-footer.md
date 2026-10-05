@@ -32,11 +32,14 @@ The header and footer can be hidden, which hides them on every page, but not dra
 
 ## What the header does
 
-- **Logo or store name.** The logo image, its height, a separate logo for phones, and a nudge left or right. With no logo it prints the store name from Theme settings › Branding.
+- **Logo or store name.** The logo image (the header's own, or Theme settings › Branding's `logo_url`, kept within Branding's `logo_width`), its height, a separate logo for phones, and a nudge left or right. With no logo it prints the store name from Theme settings › Branding. With no favicon set, the logo is also the site's icon in the browser tab.
 - **Links.** Its own links (its `nav_link` blocks, each with a label, an address and up to one level of sub-links), or one of the site's menus. Both are edited in Website settings › Navigation, and the links in the header's own panel too.
-- **Layouts.** Five on a computer and two on a phone. On a phone the menu slides in from the left or the right, or covers the screen, with each sub-menu pushed in over the top level.
+- **A link, or a button that opens its links.** A link with sub-links goes to its address and shows its sub-links under a resting pointer. Set to open its sub-links instead (When pressed, Opens its sub-links, stored as the address `#`), it is a button: pressing it opens them as a dropdown on a computer and in the drawer on a phone. Escape, a press elsewhere or choosing a link closes it.
+- **Layouts.** Five on a computer and two on a phone. On a phone the menu slides in from the left or the right, drops down from the top, or covers the screen, with each sub-menu pushed in over the top level.
+- **Menu on larger screens.** The links in the header row, or a menu button beside the logo that opens the same drawer from the left, the right or the top (`desktop_menu`).
+- **Drawers.** The menu, the cart and the search window open and close on transform and opacity alone, on the same curve both ways, starting on a frame the browser has painted. A tap on the dark backdrop, Escape, or pushing the panel back toward its edge closes it. With reduced motion asked for, they appear and go without moving.
 - **Sticky.** Normal (scrolls away), always on top, or on top only while scrolling up. Optionally transparent over the top of the page, on every page or on the home page only.
-- **Icons.** Search (opens a search box in the header, or goes to `/search`), account, wishlist and cart. The cart opens the cart drawer with the visitor's basket and its count, and checkout from there.
+- **Icons.** Search (`search_behaviour`: a field over the header row, a search window over the page with live results from the store's products, or a link to `/search`), account, wishlist and cart. The cart opens the cart drawer with the visitor's basket and its count, and checkout from there.
 - **A button**, with its own words and link, painted from the scheme's primary button.
 - **Its colours** come from its colour scheme, with Advanced colors for this section alone, and the drop-down menus are painted by the same scheme.
 
@@ -98,7 +101,53 @@ When the creator asks for a header (or footer) that the built-in one cannot be c
 - Its menu is a `link_list` setting, defaulting to `main-menu`, so the creator keeps editing links in Website settings › Navigation. Never `link_1_label`, `link_1_url` pairs.
 - Its logo is an `image_picker` setting, or `theme.logo.url` with `{{ theme.logo.text }}` when there is no picture. Never a text box holding an address.
 - Each element it draws has a colour setting that follows the scheme. See [Styling](/developers/styling#a-colour-setting-for-each-element).
-- It has what you build into it and nothing more: the built-in header's cart drawer, search, account and phone menu are not in it unless you write them. That is why the built-in one is the first answer.
+- It has what you build into it, and it reaches the site's own drawers by attribute: see [The site's drawers](#the-sites-drawers) below. The built-in header is still the first answer: everything above is already in it.
+
+### The site's drawers
+
+A header of your own draws its own buttons, and the page opens the same cart, search window and menu drawer the built-in header does, with the same motion, in the builder and on the live site. Mark the element and the page handles it. A section's script is not needed and could not do it: it runs in a sandbox with no access to the visitor's cart.
+
+| Attribute | On | Does |
+| --- | --- | --- |
+| `data-storelib-menu` | a button | Opens the menu drawer with the menu its value names, usually `{{ settings.menu.handle }}`. Empty means `main-menu`. Pressed again, it closes. |
+| `data-storelib-menu-from` | the same button | `left` (the default), `right` or `top`: where the drawer comes from. |
+| `data-storelib-cart` | a button or link | Opens the cart drawer. |
+| `data-storelib-cart-count` | any element | The page writes the cart's count into it, and sets `data-count` to the number, so `[data-count="0"] { display: none }` hides an empty badge. |
+| `data-storelib-search` | a button or link | Opens the search window, with live results from the store's products. Its value, if any, is the field's placeholder. |
+
+The page also sets `aria-expanded` on each of these triggers while its drawer is open, so a menu icon can turn into a close with CSS alone. Use a `<button>`, or a link to the page it stands for, so it still works before the page's script has loaded: `routes.cart_url` and `routes.search_url`. The account is a link: `routes.account_url` opens the account for a signed-in visitor and the sign in page for anybody else.
+
+```storelib
+<header class="hdr">
+  <button type="button" class="hdr__menu" data-storelib-menu="{{ settings.menu.handle }}" data-storelib-menu-from="left" aria-label="Menu">
+    <span></span><span></span>
+  </button>
+  <a class="hdr__logo" href="{{ routes.root_url }}">{% if theme.logo.url %}<img src="{{ theme.logo.url }}" alt="{{ shop.name }}">{% else %}{{ shop.name }}{% endif %}</a>
+  <nav class="hdr__links">
+    {% for link in settings.menu.links %}<a href="{{ link.url }}">{{ link.title }}</a>{% endfor %}
+  </nav>
+  <a class="hdr__icon" href="{{ routes.search_url }}" data-storelib-search="Search the shop" aria-label="Search">Search</a>
+  <a class="hdr__icon" href="{{ routes.account_url }}" aria-label="Account">Account</a>
+  <a class="hdr__icon" href="{{ routes.cart_url }}" data-storelib-cart aria-label="Cart">
+    Cart <span class="hdr__count" data-storelib-cart-count></span>
+  </a>
+</header>
+```
+
+```css
+.hdr { display: flex; align-items: center; gap: 16px; padding: 12px 20px; }
+.hdr__links { display: none; gap: 20px; margin-right: auto; }
+.hdr__count[data-count="0"] { display: none; }
+.hdr__menu span { display: block; width: 20px; height: 2px; margin: 4px 0; background: currentColor; transition: transform 200ms ease; }
+.hdr__menu[aria-expanded="true"] span:first-child { transform: translateY(3px) rotate(45deg); }
+.hdr__menu[aria-expanded="true"] span:last-child { transform: translateY(-3px) rotate(-45deg); }
+@media (min-width: 768px) {
+  .hdr__menu { display: none; }
+  .hdr__links { display: flex; }
+}
+```
+
+The menu drawer draws the menu's links with their sub-links, two levels deep; a menu by that name that does not exist falls back to the links inside the section's own `<nav>`. Only what the markup asks for is mounted, and the cart drawer is drawn once a page whoever asks for it.
 
 ## Above the header
 

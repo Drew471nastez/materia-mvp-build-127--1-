@@ -353,6 +353,31 @@ export function ChoiceAction({ compact, onClick, children, aside }: { compact: b
   )
 }
 
+/** How tall a list sheet opens with the keyboard down. */
+export const CHOICE_SHEET_HEIGHT = "min(80dvh, 640px)"
+/** The least room left for the title, the search and two rows above a keyboard. */
+const KEYBOARD_ROOM_PX = 220
+/**
+ * THE SHEET STAYS WHERE IT OPENED WHEN THE KEYBOARD COMES UP. Focusing the
+ * search on an iPhone grew the sheet by the keyboard's height: the shared
+ * sheet (components/ui/bottom-sheet, lib/ui/keyboard-safe-sheet
+ * sheetOverKeyboard) adds the keyboard to the height it is given, so a
+ * 640px sheet became 976px, held only by "the visible screen less 24px",
+ * and its top went up under the clock. Here the height it is given is the
+ * opening height LESS the keyboard, never less than room for the title, the
+ * search and a few rows: the helper adds the keyboard back, so the top stays
+ * where it was and the list under the search is what gets shorter, the way
+ * a phone's own sheets behave. Only a keyboard taller than the sheet leaves
+ * room for lifts it, and never past the safe area at the top
+ * (SHEET_UNDER_CLOCK). scripts/check-setup-country.mjs measures it with a
+ * keyboard and the clock's safe area simulated.
+ */
+export function sheetAboveKeyboardHeight(height: string): string {
+  return `max(calc(${height} - var(--kb-inset, 0px)), ${KEYBOARD_ROOM_PX}px)`
+}
+/** At most the screen under the clock's safe area and 12px more, keyboard or not (the helper adds the keyboard back). */
+export const SHEET_UNDER_CLOCK = "calc(100dvh - env(safe-area-inset-top, 0px) - 12px - var(--kb-inset, 0px))"
+
 /**
  * The list in the shared phone sheet: the grabber, a title, the search
  * pinned under it, the rows scrolling beneath. No X: the scrim, a pull down
@@ -371,6 +396,7 @@ export function ChoiceSheet({
   uniform = false,
   scrollClassName,
   sheetZIndex,
+  sheetHeight = CHOICE_SHEET_HEIGHT,
 }: {
   open: boolean
   onClose: () => void
@@ -389,6 +415,8 @@ export function ChoiceSheet({
    * sheet sits where every other sheet sits.
    */
   sheetZIndex?: number
+  /** How tall the sheet opens, keyboard down (the country list is a little shorter than the rest). */
+  sheetHeight?: string
 }) {
   const [query, setQuery] = React.useState("")
   const [prevOpen, setPrevOpen] = React.useState(open)
@@ -409,7 +437,8 @@ export function ChoiceSheet({
       onClose={onClose}
       label={title}
       aboveKeyboard
-      height="min(80dvh, 640px)"
+      height={sheetAboveKeyboardHeight(sheetHeight)}
+      maxHeight={SHEET_UNDER_CLOCK}
       scrollKey={query}
       zIndex={sheetZIndex}
       header={
@@ -448,6 +477,7 @@ export function ChoicePicker({
   id,
   scrollClassName,
   sheetZIndex,
+  sheetHeight,
   fieldClassName,
 }: {
   title: string
@@ -477,6 +507,8 @@ export function ChoicePicker({
    * sheet sits where every other sheet sits.
    */
   sheetZIndex?: number
+  /** How tall the phone sheet opens (ChoiceSheet). */
+  sheetHeight?: string
   /** The field's look, for a form whose own fields are drawn differently (Set up payments). */
   fieldClassName?: string
 }) {
@@ -516,7 +548,7 @@ export function ChoicePicker({
     return (
       <>
         {trigger}
-        <ChoiceSheet open={open} onClose={() => setOpen(false)} title={title} choices={list} value={value} onPick={pick} placeholder={placeholder} lead={leadFor} leading={leading} uniform={uniform} scrollClassName={scrollClassName} sheetZIndex={sheetZIndex} />
+        <ChoiceSheet open={open} onClose={() => setOpen(false)} title={title} choices={list} value={value} onPick={pick} placeholder={placeholder} lead={leadFor} leading={leading} uniform={uniform} scrollClassName={scrollClassName} sheetZIndex={sheetZIndex} sheetHeight={sheetHeight} />
       </>
     )
   }

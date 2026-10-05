@@ -22,6 +22,7 @@
 import * as React from "react"
 import { ChoicePicker } from "@/components/ui/choice-list"
 import { countryChoices, countryLabel, countryOf, countryToSave } from "@/lib/account/country"
+import { FLAG_CODES, FLAG_SPRITE } from "@/lib/account/flag-sprite"
 import { cn } from "@/lib/utils"
 
 /* One observer per list scroller, shared by every flag in it. */
@@ -60,24 +61,46 @@ function whenNear(el: Element, go: () => void): () => void {
 }
 
 /**
- * A COUNTRY'S FLAG: the SVG in public/flags (country-flag-icons, MIT), at
- * 3:2, as Analytics draws its countries: a hairline edge so a white flag
- * keeps its shape, and a faint light from above. About 700 bytes each, but
- * each is an SVG document the browser has to build, so only the flags on
- * screen when the list opens are asked for then (`near`), and the others when
- * they are scrolled close. A flag that fails is the same size in plain grey,
- * so the names stay in one column.
+ * Ask for the sprite once, early: the first field on screen warms the cache
+ * at idle, so the list opens with every flag already there instead of a
+ * request starting as it rises.
+ */
+let warmed = false
+function warmSprite() {
+  if (warmed || typeof window === "undefined") return
+  warmed = true
+  const go = () => void fetch(FLAG_SPRITE, { credentials: "same-origin" }).catch(() => { warmed = false })
+  const idle = (window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback
+  if (idle) idle(go, { timeout: 1500 })
+  else window.setTimeout(go, 200)
+}
+
+/**
+ * A COUNTRY'S FLAG, from one sprite of every flag (public/flags/sprite.svg,
+ * country-flag-icons, MIT, built by scripts/build-flag-sprite.mjs), at 3:2,
+ * as Analytics draws its countries: a hairline edge so a white flag keeps
+ * its shape, and a faint light from above. Round 12 ("country flags load
+ * fast"): it was a file per flag, a dozen requests as the list opened and
+ * more with every scroll, the flags arriving one by one after the names.
+ * Now one cached file, asked for while the field is on screen, and a flag
+ * is a <use> of its symbol: nothing to wait for. Rows far below the screen
+ * still draw theirs only when scrolled close (`near`), which keeps the list's
+ * first frame light. The box is the same size with or without its flag
+ * (grey until then, and for a code the sprite has no flag for), so nothing
+ * in the row ever moves.
  */
 export function CountryFlag({ code, near = true, className }: { code: string; near?: boolean; className?: string }) {
   const cc = (code || "").toUpperCase()
-  const [failed, setFailed] = React.useState(false)
   const [shown, setShown] = React.useState(near)
   const ref = React.useRef<HTMLSpanElement>(null)
+  React.useEffect(() => {
+    warmSprite()
+  }, [])
   React.useEffect(() => {
     if (shown || !ref.current) return
     return whenNear(ref.current, () => setShown(true))
   }, [shown])
-  const ok = /^[A-Z]{2}$/.test(cc) && !failed
+  const ok = FLAG_CODES.has(cc)
   return (
     <span
       ref={ref}
@@ -89,17 +112,9 @@ export function CountryFlag({ code, near = true, className }: { code: string; ne
       )}
     >
       {ok && shown ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={`/flags/${cc}.svg`}
-          alt=""
-          width={21}
-          height={14}
-          decoding="async"
-          draggable={false}
-          onError={() => setFailed(true)}
-          className="block h-full w-full object-cover"
-        />
+        <svg width="100%" height="100%" className="block h-full w-full" focusable="false">
+          <use href={`${FLAG_SPRITE}#${cc}`} width="100%" height="100%" />
+        </svg>
       ) : null}
       <span className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.22)_0%,rgba(255,255,255,0)_48%,rgba(0,0,0,0.06)_100%)]" />
     </span>
@@ -122,6 +137,10 @@ export function CountryPicker({
 }) {
   const code = countryOf(value)
   const shown = countryLabel(value)
+  /* The field on screen is the moment to fetch the flags, not the tap that opens the list. */
+  React.useEffect(() => {
+    warmSprite()
+  }, [])
   return (
     <ChoicePicker
       id={id}
@@ -138,6 +157,8 @@ export function CountryPicker({
       uniform
       scrollClassName="max-h-[min(440px,min(52dvh,560px))]"
       sheetZIndex={sheetZIndex}
+      /* A little shorter than the other lists (round 12): 580px at most, from 640, and 72% of the screen, from 80. */
+      sheetHeight="min(72dvh, 580px)"
       fieldClassName={fieldClassName}
     />
   )

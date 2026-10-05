@@ -266,6 +266,13 @@ const nextConfig = {
         ],
       },
       {
+        // Country flags. The sprite's address carries its hash (lib/account/flag-sprite.ts), so a week in the cache is safe; the single flags change about never.
+        source: '/flags/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=604800, stale-while-revalidate=2592000' },
+        ],
+      },
+      {
         // Android App Links verification — must be 200 + application/json, no redirects
         source: '/.well-known/assetlinks.json',
         headers: [

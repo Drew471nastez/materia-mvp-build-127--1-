@@ -32,7 +32,7 @@
  */
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
-import { PULL_REFRESH_EVENT, type PullRefreshDetail } from "@/components/ui/pull-to-refresh"
+import { PULL_REFRESH_EVENT, RouterPullToRefresh, type PullRefreshDetail } from "@/components/ui/pull-to-refresh"
 import { useSearchParams } from "next/navigation"
 import { TrendingDown, TrendingUp } from "lucide-react"
 import { useLanguage } from "@/lib/i18n"
@@ -279,8 +279,8 @@ export function AnalyticsClient({ products, userId, properties }: AnalyticsClien
     viewer: userId,
   })
   /*
-    PULLED DOWN TO REFRESH (components/ui/pull-to-refresh.tsx, around this
-    page in page.tsx): the same question as the minute's refresh, asked now,
+    PULLED DOWN TO REFRESH (components/ui/pull-to-refresh.tsx, around the
+    page under its purple bar, below): the same question as the minute's refresh, asked now,
     and the ring turns until its answer is in. The figures stay on screen
     and change in place, as they do every minute.
   */
@@ -411,6 +411,17 @@ export function AnalyticsClient({ products, userId, properties }: AnalyticsClien
       {/* Try Pro at the top of the page (components/app/announcement-bar-mobile). */}
       <TryProStrip />
 
+      {/*
+        PULLED DOWN, THE PAGE UNDER THE PURPLE BAR MOVES, NOT THE BAR. The
+        pull wrapped the whole page in page.tsx, the bar included, so a pull
+        slid the bar down the screen and the spinner turned above it, over
+        the gap it left. Round 12: "the pull to refresh indicator sits BELOW
+        the purple announcement bar, like the /app home dashboard". The bar
+        stays put; the room the pull opens, and the spinner in it, are under
+        it. It still asks the server again (RouterPullToRefresh) and this
+        page's figures (the "app-analytics" event above).
+      */}
+      <RouterPullToRefresh scope="app-analytics">
       <div className="app-gutter py-6 max-w-[1200px] mx-auto space-y-6">
         <h1 className="text-[24px] sm:text-[28px] font-bold text-[#1a1a2e]">{t("analytics.title")}</h1>
 
@@ -502,6 +513,7 @@ export function AnalyticsClient({ products, userId, properties }: AnalyticsClien
         {/* Units, shipping, what is waiting to ship and stock: only while physical commerce is on. */}
         <PhysicalAnalyticsCard />
       </div>
+      </RouterPullToRefresh>
 
     </div>
     </CompareContext.Provider>

@@ -13,6 +13,7 @@
  * address on every published site was a 404. Sub-pages were work a creator
  * could do and no visitor could see.
  */
+import { siteIcons } from "@/lib/website-builder/site-icon"
 import { sanitizeSections } from "@/lib/website-builder/sanitize-sections"
 import { notFound, permanentRedirect, redirect } from "next/navigation"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -118,9 +119,8 @@ export async function siteMetadata(
   const description = own.description ?? (typeof settings.seo_description === "string" && settings.seo_description
     ? settings.seo_description
     : `Visit ${brand}'s website on Storelib`)
-  const favicon = typeof settings.favicon_url === "string" && settings.favicon_url
-    ? settings.favicon_url
-    : undefined
+  /* The favicon, or the store's logo when there is none (lib/website-builder/site-icon.ts). */
+  const icons = siteIcons(settings as Record<string, unknown>, found.site.pages.home ?? found.site.sections)
 
   /**
    * ONE ADDRESS PER PAGE. The same page answers at `<name>.storelib.com` and
@@ -151,7 +151,7 @@ export async function siteMetadata(
     title: { absolute: rawTitle },
     description,
     alternates: { canonical: url },
-    icons: favicon ? { icon: favicon, shortcut: favicon, apple: favicon } : undefined,
+    icons,
     // The share image, the card type and — the one that matters — whether the
     // page may be indexed at all. All three were in the panel and read by
     // nothing, so "noindex" was a setting somebody trusted and did not have.

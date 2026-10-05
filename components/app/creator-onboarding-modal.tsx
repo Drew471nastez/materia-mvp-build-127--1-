@@ -43,6 +43,10 @@ import type { OnboardingResume } from "@/lib/account/onboarding-resume"
 const STEP_IN_MS = 280
 const STEP_OUT_MS = 160
 const STEP_SHIFT = 16
+/** Each piece of the setup screen rising into place (see SETUP ARRIVES). */
+const SETUP_RISE_MS = 520
+/** The blur of each 16px band at the foot of the panel, top to bottom (see THE FOOT OF THE PANEL). */
+const VEIL_BLURS = [0.5, 1, 1.5, 2]
 const MOTION_EASE = "cubic-bezier(0.22, 1, 0.36, 1)"
 /** A button or group that comes and goes with the step: it fades, and is gone for a press or a tab once it has. */
 const fadeWith = (on: boolean, extra = ""): CSSProperties => ({
@@ -439,6 +443,8 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
   const [leavingStep, setLeavingStep] = useState<{ step: number; offset: number } | null>(null)
   /** The panel the steps are drawn in, so the next one starts at its top. */
   const stepScrollRef = useRef<HTMLDivElement | null>(null)
+  /** The soft white over the foot of the panel, shown while there is more below (see THE FOOT OF THE PANEL). */
+  const veilRef = useRef<HTMLDivElement | null>(null)
   const stepTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const stepEnterRef = useRef<HTMLDivElement | null>(null)
   const stepLeaveRef = useRef<HTMLDivElement | null>(null)
@@ -455,6 +461,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
     const below = el.scrollTop + el.clientHeight < el.scrollHeight - 1
     el.style.setProperty("--fade-top", above ? "20px" : "0px")
     el.style.setProperty("--fade-bottom", below ? "20px" : "0px")
+    veilRef.current?.style.setProperty("--veil", below ? "1" : "0")
   }, [])
   useEffect(() => {
     const el = stepScrollRef.current
@@ -905,6 +912,29 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
     const direction = stepMoveRef.current
     stepMoveRef.current = null
     if (!direction) return
+    if (currentStep === 5) {
+      /*
+        SETUP ARRIVES, IT DOES NOT SLIDE IN. The plans were pushed sideways
+        like a step of the form, and the mark, the line and the marks under
+        it landed as one flat page. Now the plans settle back and fade, and
+        the setup screen rises into place a piece at a time: the mark, then
+        its line, then the marks, 70ms apart, each from a little lower and a
+        little smaller. Opacity, translate and scale only.
+      */
+      stepLeaveRef.current?.animate(
+        [{ opacity: 1, scale: "1" }, { opacity: 0, scale: "0.97" }],
+        { duration: STEP_OUT_MS + 40, easing: MOTION_EASE, fill: "forwards" },
+      )
+      stepEnterRef.current?.querySelectorAll<HTMLElement>("[data-setup-rise]").forEach((el, i) => {
+        el.animate(
+          [{ opacity: 0, translate: "0 12px", scale: "0.94" }, { opacity: 1, translate: "0 0", scale: "1" }],
+          { duration: SETUP_RISE_MS, delay: 80 + i * 70, easing: MOTION_EASE, fill: "backwards" },
+        )
+      })
+      if (stepTimerRef.current) clearTimeout(stepTimerRef.current)
+      stepTimerRef.current = setTimeout(() => setLeavingStep(null), STEP_IN_MS)
+      return
+    }
     const dx = direction === "right" ? STEP_SHIFT : -STEP_SHIFT
     stepEnterRef.current?.animate(
       [{ opacity: 0, translate: `${dx}px 0` }, { opacity: 1, translate: "0 0" }],
@@ -1577,8 +1607,15 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
           const reached = state === "done" ? 3 : state === "almost" ? 2 : state === "applying" ? 1 : 0
           return (
             <div data-onboarding-setup={state} className="flex h-full min-h-[300px] flex-col items-center justify-center px-4 pb-6 text-center sm:min-h-[360px]">
-              {/* 5% under the 64 and 72px it was ("make the logo icon about 5% smaller"), as a size, not a scale. */}
-              <StorelibLogo size={68} fluid className="h-[61px] w-[61px] sm:h-[68px] sm:w-[68px]" />
+              {/*
+                A little smaller again (54px on a phone, 62 from 640, from 61
+                and 68) and lifted a little off the page: a soft shadow under
+                the mark's own 7px corner, on a box around it, so the mark
+                keeps the one hairline every logo has.
+              */}
+              <span data-setup-rise="" data-onboarding-setup-mark-box="" className="block rounded-[7px] shadow-[0_10px_22px_-10px_rgba(26,26,46,0.30),0_3px_8px_-4px_rgba(26,26,46,0.12)]">
+                <StorelibLogo size={62} fluid className="block h-[54px] w-[54px] sm:h-[62px] sm:w-[62px]" />
+              </span>
               {/*
                 Every phase's line is laid out in one cell and crossfades to
                 the next with a short roll (components/ui/text-swap): the new
@@ -1586,11 +1623,13 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                 and the cell is the size of the longest, so nothing under it
                 moves. The marks and Try again share a cell the same way.
               */}
-              <div className="mt-6" aria-live="polite">
+              <div data-setup-rise="" className="mt-6" aria-live="polite">
                 <TextSwap
                   as="div"
                   align="center"
                   value={state}
+                  /* Half a line of roll, not a third: the line going and the one coming pass each other instead of sitting on top of each other mid way. */
+                  lift="0.55em"
                   items={{
                     creating: <h1 className={SETUP_LINE}>Creating your store</h1>,
                     applying: <h1 className={SETUP_LINE}>Applying your settings</h1>,
@@ -1612,11 +1651,11 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                   }}
                 />
               </div>
+              <div data-setup-rise="" className="mt-2">
               <TextSwap
                 as="div"
                 align="center"
                 lift="6px"
-                className="mt-2"
                 value={state === "error" ? "retry" : "progress"}
                 items={{
                   progress: (
@@ -1647,6 +1686,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                   ),
                 }}
               />
+              </div>
             </div>
           )
         })()}
@@ -1824,6 +1864,40 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                 {renderStep(currentStep)}
               </div>
             </div>
+            </div>
+
+            {/*
+              THE FOOT OF THE PANEL: A SOFT WHITE, LIGHTLY BLURRED. The plans
+              ran into a flat white bar over the Back button, cut 20px above
+              it. Over the last 64px of the panel the page now goes softly to
+              white, and what is under it is blurred a little more the lower
+              it is: four 16px bands at 0.5, 1, 1.5 and 2px, so no band is
+              more than half a pixel of blur from the next and there is no
+              line where the blur starts. (One blurred box faded with a mask
+              would be simpler, but Chrome draws the blur under a mask
+              whole, with a hard top edge.) The white is on top of the
+              bands. It takes no room (its negative margin gives back its
+              height), it never takes a tap, and it is only there while there
+              is more to scroll to.
+            */}
+            <div
+              ref={veilRef}
+              aria-hidden="true"
+              data-onboarding-veil=""
+              className="pointer-events-none relative z-10 -mt-16 h-16 shrink-0"
+            >
+              {VEIL_BLURS.map((blur, i) => (
+                <div
+                  key={blur}
+                  data-onboarding-veil-band=""
+                  className="absolute inset-x-0 h-4 motion-reduce:!transition-none"
+                  style={{ top: i * 16, opacity: "var(--veil, 0)", transition: `opacity 220ms ${MOTION_EASE}`, backdropFilter: `blur(${blur}px)`, WebkitBackdropFilter: `blur(${blur}px)` }}
+                />
+              ))}
+              <div
+                className="absolute inset-0 motion-reduce:!transition-none"
+                style={{ opacity: "var(--veil, 0)", transition: `opacity 220ms ${MOTION_EASE}`, background: "linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0.45) 50%, rgba(255,255,255,0.88) 82%, #fff 100%)" }}
+              />
             </div>
 
             {/*
