@@ -94,7 +94,6 @@ import { EmojiControl } from "@/components/app/rich-text/emoji-picker"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { EMOJI_POPOVER } from "@/components/ui/popover-fit"
 import { SHEET_CLOSE_EASE, SHEET_CLOSE_MS, SHEET_EASE, SHEET_OPEN_MS } from "@/components/ui/bottom-sheet"
-import { uploadCommunityVideo } from "@/lib/video/upload-client"
 import { MAX_MEDIA_PER_POST, POLL_OPTIONS_MAX } from "@/lib/communities/limits"
 import { EMBED_NAMES, MAX_EMBEDS, MAX_GIFS, STAFF_FILE_MAX_BYTES, fileSizeLabel, postEmbedFromUrl } from "@/lib/communities/post-media"
 import type { FeedPostView, PostMedia } from "@/lib/communities/types"
@@ -106,7 +105,7 @@ import { useKeepFieldInSight } from "./keep-in-sight"
 import { GifButton } from "./media-gif"
 import { LinkField, type LinkPick } from "./media-link"
 import { ProviderMark } from "./media-providers"
-import { uploadCommunityFile, uploadKindOf, uploadPicture, uploadVideoPoster } from "./media-upload"
+import { uploadCommunityFile, uploadKindOf, uploadPicture, uploadPostVideo, uploadVideoPoster } from "./media-upload"
 import { MentionTextarea, type MentionTextareaHandle } from "./mention-input"
 import { toast } from "./toast"
 import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, CARD, DEPTH, DEPTH_PRESS, ICON_BTN } from "./ui"
@@ -136,6 +135,8 @@ interface Attachment {
   preview?: string
   progress: number
   media?: PostMedia
+  /** Why it did not upload or process; the tray says so and Post waits until it is taken off. */
+  error?: string
 }
 
 interface PollDraft {
@@ -494,16 +495,16 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
     const k = newKey()
     add({ key: k, kind: "video", name: file.name, size: file.size, progress: 0 })
     try {
+      /* Post waits until the video plays: sent, then processed on a video service (media-upload.ts uploadPostVideo). */
       const [video, still] = await Promise.all([
-        uploadCommunityVideo({ endpoint: `${apiBase(communityId)}/videos`, file, onProgress: (p) => patch(k, { progress: Math.min(99, p) }) }),
-        uploadVideoPoster(file, userId, communityId),
+        uploadPostVideo({ communityId, file, key: k, onProgress: (p) => patch(k, { progress: p }), onProcessing: () => patch(k, { progress: 100 }) }),
+        uploadVideoPoster(file, userId, communityId).then((s) => (s && patch(k, { preview: s.poster }), s)),
       ])
-      if (video.status === "failed") throw new Error(video.error || "The video could not be processed.")
-      if (video.status !== "ready") throw new Error("The video is still processing. Add it again in a few minutes.")
       patch(k, { progress: 100, preview: still?.poster, media: { type: "video", videoId: video.id, ...(still ? { poster: still.poster, w: still.w, h: still.h } : {}) } })
     } catch (e) {
-      drop(k)
-      toast((e as { message?: string })?.message || "The video did not upload.")
+      const message = (e as { message?: string })?.message || "The video did not upload."
+      if (message === "Upload stopped") return drop(k)
+      patch(k, { error: message })
     }
   }
 
