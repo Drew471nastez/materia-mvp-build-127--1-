@@ -14,18 +14,30 @@
  * What is public is the server's decision (lib/profile/activity.ts); this
  * only draws it.
  *
- * NEVER EMPTY. The list always ends where the person started: "Joined
- * Storelib", on the day the account was made, once there is nothing older
- * to show. Somebody who has done nothing public yet still has that one
- * true line rather than a blank box.
+ * REAL ACTIVITY ONLY. The list used to end on "Joined Storelib", on the day
+ * the account was made, so that it was never blank. Joining the platform is
+ * not something somebody did, and the owner asked for it gone. The day they
+ * joined is a fact about the person and is said once, under "About <name>"
+ * (components/profile/person-about.tsx). "Joined <community>" stays: that is
+ * a real thing somebody did, on a real day, in a real place.
+ *
+ * So a page with nothing public on it says so, in one line, rather than
+ * carrying a line nobody did.
+ *
+ * A PULL ON A PHONE ASKS AGAIN. The page's own pull to refresh
+ * (components/ui/pull-to-refresh.tsx) names a scope; with `refreshScope`
+ * this list answers it by reading its first page again, so pages somebody
+ * opened with "Show more" are replaced by what the server has now, and the
+ * spinner turns until that lands.
  *
  * On a creator's page it is drawn in the page's scheme (tone "storefront":
  * the design tokens storefront-chrome rebinds there).
  */
 import Link from "next/link"
-import { useState } from "react"
-import { Loader2, Sparkles, Star } from "lucide-react"
+import { useEffect, useRef, useState } from "react"
+import { Loader2, Star } from "lucide-react"
 import { relativeTime } from "@/lib/communities/format"
+import { PULL_REFRESH_EVENT, type PullRefreshDetail } from "@/components/ui/pull-to-refresh"
 import { secondaryDepth } from "@/components/ui/depth-button"
 import { cn } from "@/lib/utils"
 
@@ -128,24 +140,6 @@ function Row({ item, now, tone }: { item: ActivityItemView; now: number; tone: T
   )
 }
 
-/** The last line of everybody's activity: the day they joined. */
-function JoinedRow({ at, now, tone }: { at: string; now: number; tone: Tone }) {
-  const look = LOOK[tone]
-  return (
-    <li data-profile-activity-item="joined_storelib" className="flex items-center gap-3 py-3">
-      <span className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border", look.thumb)}>
-        <Sparkles className="h-[18px] w-[18px]" aria-hidden />
-      </span>
-      <span className={cn("min-w-0 flex-1 text-[14px] leading-[1.4]", look.body)}>
-        Joined <span className={cn("font-semibold", look.ink)}>Storelib</span>
-      </span>
-      <time dateTime={at} className={cn("shrink-0 text-[12px] tabular-nums", look.faint)}>
-        {relativeTime(at, now, "UTC")}
-      </time>
-    </li>
-  )
-}
-
 export function ProfileActivity({
   userId,
   initial,
@@ -153,8 +147,8 @@ export function ProfileActivity({
   now,
   hiddenNote,
   emptyText,
-  joinedAt = null,
   tone = "platform",
+  refreshScope,
   lead,
 }: {
   userId: string
@@ -165,9 +159,9 @@ export function ProfileActivity({
   /** Shown above the list on your own profile when it is hidden from everyone else. */
   hiddenNote?: React.ReactNode
   emptyText: string
-  /** When the account was made (ISO): the list's last line, so it is never empty. */
-  joinedAt?: string | null
   tone?: Tone
+  /** The pull to refresh's scope: on a pull this list reads its first page again. */
+  refreshScope?: string
   /** Drawn above the list: the "In <community>" sections on somebody else's profile. */
   lead?: React.ReactNode
 }) {
@@ -191,20 +185,54 @@ export function ProfileActivity({
     }
   }
 
+  /*
+    A PULL AT THE TOP OF THE PAGE: the first page again, in place of
+    whatever "Show more" had grown the list to. The page's own refresh
+    (components/ui/pull-to-refresh.tsx) hands the event a promise to wait
+    for, so the spinner turns until the new list is on screen. A failed read
+    leaves the list exactly as it was, and says nothing: the page is still
+    true, only not newer.
+  */
+  const first = useRef<() => Promise<void>>(() => Promise.resolve())
+  first.current = async () => {
+    try {
+      const res = await fetch(`/api/profile/activity?${new URLSearchParams({ userId })}`, { credentials: "include", cache: "no-store" })
+      if (!res.ok) return
+      const data = (await res.json()) as { items?: ActivityItemView[]; next?: string | null }
+      /* An answer that is not a page is not a page: keep what is on screen rather than emptying the list. */
+      if (!Array.isArray(data.items)) return
+      setItems(data.items)
+      setNext(data.next ?? null)
+      setState("idle")
+    } catch {
+      /* keep what is on screen */
+    }
+  }
+  useEffect(() => {
+    if (!refreshScope) return
+    const onPull = (event: Event) => {
+      const detail = (event as CustomEvent<PullRefreshDetail>).detail
+      if (!detail || detail.scope !== refreshScope) return
+      detail.done = first.current()
+    }
+    window.addEventListener(PULL_REFRESH_EVENT, onPull)
+    return () => window.removeEventListener(PULL_REFRESH_EVENT, onPull)
+  }, [refreshScope])
+
   return (
     <div className="mx-auto w-full max-w-[680px]" data-profile-activity="">
       {lead ? <div className="mb-8 space-y-8">{lead}</div> : null}
       {hiddenNote}
-      {items.length === 0 && !(joinedAt && !next) ? (
-        <p className={cn("rounded-2xl border border-dashed px-6 py-10 text-center text-[14px]", tone === "platform" ? "border-[#e5e7eb] text-[#6b7280]" : "border-border text-muted-foreground")} data-profile-activity-empty="">
-          {emptyText}
-        </p>
+      {items.length === 0 ? (
+        /* NOTHING YET IS NOT A BROKEN BOX: the list's own card, one line in it, centred, at the height a row would have had. */
+        <div className={cn(look.list, "px-6 py-12 text-center")} data-profile-activity-empty="">
+          <p className={cn("mx-auto max-w-[36ch] text-[14px] leading-[1.55]", look.muted)}>{emptyText}</p>
+        </div>
       ) : (
         <ul className={cn(look.list, "px-4 sm:px-5")}>
           {items.map((it) => (
             <Row key={it.key} item={it} now={now} tone={tone} />
           ))}
-          {joinedAt && !next ? <JoinedRow at={joinedAt} now={now} tone={tone} /> : null}
         </ul>
       )}
       {state === "error" ? (
