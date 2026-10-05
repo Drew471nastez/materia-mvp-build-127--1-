@@ -22,7 +22,7 @@ import Link from "next/link"
 import { useEffect, useState } from "react"
 import { Check, Loader2 } from "lucide-react"
 import { api, apiBase, type ApiResult } from "@/components/community/member/api"
-import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, CARD, FIELD } from "@/components/community/member/ui"
+import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, CARD_RAISED, FIELD } from "@/components/community/member/ui"
 import { CANCEL_NOTE_MAX, CANCEL_REASONS, formatDay, formatMoney, membershipStatusLine, type CancelReason, type CommunityMembershipView } from "@/lib/communities/membership-policy"
 import { MembershipSheet } from "./sheet"
 
@@ -102,7 +102,7 @@ export function CancelMembership({
 
   if (!view) {
     if (loadError || variant === "inline") return null
-    return <div aria-hidden className={`${CARD} h-[132px] animate-pulse bg-[#fbfbfc] motion-reduce:animate-none`} data-membership-card="loading" />
+    return <div aria-hidden className={`${CARD_RAISED} h-[132px] animate-pulse bg-[#fbfbfc] motion-reduce:animate-none`} data-membership-card="loading" />
   }
   if (view.kind === "none") return null
 
@@ -198,7 +198,7 @@ export function CancelMembership({
           </p>
         ) : null}
         {view.canResume ? (
-          <button type="button" className={BTN_PRIMARY} onClick={() => void act("resume")} disabled={!!busy} data-membership-resume="">
+          <button type="button" className={`${BTN_PRIMARY} order-last`} onClick={() => void act("resume")} disabled={!!busy} data-membership-resume="">
             {busy === "resume" ? <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" aria-hidden /> : null}
             {busy === "resume" ? "Resuming" : "Resume membership"}
           </button>
@@ -206,7 +206,7 @@ export function CancelMembership({
         {view.canCancel ? (
           <button
             type="button"
-            className={BTN_SECONDARY}
+            className={`${BTN_SECONDARY} order-last`}
             onClick={() => {
               setReason(null)
               setNote("")
@@ -224,7 +224,7 @@ export function CancelMembership({
   }
 
   return (
-    <section className={`${CARD} p-4 sm:p-5`} aria-labelledby="membership-plan-title" data-membership-card={view.kind} data-membership-status={view.status ?? ""}>
+    <section className={`${CARD_RAISED} p-4 sm:p-5`} aria-labelledby="membership-plan-title" data-membership-card={view.kind} data-membership-status={view.status ?? ""}>
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <h2 id="membership-plan-title" className="text-[13px] font-medium text-[#6b7280]">

@@ -16,7 +16,7 @@
 import { useState } from "react"
 import { Check, Copy, Loader2 } from "lucide-react"
 import { api, apiBase } from "@/components/community/member/api"
-import { BTN_GHOST, BTN_PRIMARY, CARD, FIELD } from "@/components/community/member/ui"
+import { BTN_GHOST, BTN_PRIMARY, CARD_RAISED, FIELD } from "@/components/community/member/ui"
 import { useMembershipView } from "./cancel-membership"
 import { CONTACT_MESSAGE_MAX, CONTACT_MESSAGE_MIN, CONTACT_SUBJECT_MAX, cleanContactMessage } from "@/lib/communities/membership-policy"
 
@@ -89,11 +89,11 @@ function ContactOwnerForm({
   const left = CONTACT_MESSAGE_MAX - message.length
 
   return (
-    <section className={`${CARD} p-4 sm:p-5`} aria-labelledby="contact-owner-title" data-contact-owner="">
-      <h2 id="contact-owner-title" className="text-[15px] font-semibold text-[#1a1a2e]">
+    <section className={`${CARD_RAISED} p-4 sm:p-5`} aria-labelledby="contact-owner-title" data-contact-owner="">
+      <h2 id="contact-owner-title" className="text-[16px] font-semibold text-[#1a1a2e]">
         Contact {who}
       </h2>
-      <p className="mt-1 text-[14px] leading-relaxed text-[#6b7280]">Questions about your membership, a payment or the community. {who === "the owner" ? "They reply" : `${who.split(" ")[0]} replies`} to your email.</p>
+      <p className="mt-0.5 text-[13.5px] leading-snug text-[#6b7280]">Questions about your membership, a payment or the community. {who === "the owner" ? "They reply" : `${who.split(" ")[0]} replies`} to your email.</p>
 
       {publicEmail ? (
         <div className="mt-3 flex min-h-11 items-center justify-between gap-2 rounded-xl border border-[#eceef1] bg-[#f8f9fa] pl-3.5 pr-1" data-contact-public="">
@@ -179,7 +179,7 @@ function ContactOwnerForm({
 export function MembershipRefundPolicy({ text }: { text: string | null | undefined }) {
   if (!text) return null
   return (
-    <details className={`${CARD} group/policy`} data-membership-refund-policy="">
+    <details className={`${CARD_RAISED} group/policy`} data-membership-refund-policy="">
       <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-4 text-[14.5px] font-medium text-[#1a1a2e] outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 sm:px-5 [&::-webkit-details-marker]:hidden">
         Refund policy
         <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 shrink-0 text-[#6b7280] transition-[rotate] duration-150 group-open/policy:rotate-180 motion-reduce:transition-none">

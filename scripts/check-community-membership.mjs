@@ -126,6 +126,7 @@ export function StripePay(p) { return React.createElement("div", { "data-stripe-
         const post = r.method() === "POST" ? r.postData() : null
         const respond = (status, body) => r.respond({ status, contentType: "application/json", body: JSON.stringify(body) })
         if (post) void p.evaluate((u, b) => (window.__posts ||= []).push([u, JSON.parse(b)]), short, post).catch(() => {})
+        if (short.endsWith("/membership") && !post) return void respond(200, { membership: { ...cancelledView, status: "active", cancelAtPeriodEnd: false, canCancel: true, canResume: false } })
         if (short.endsWith("/membership") && post) return void setTimeout(() => respond(200, { membership: JSON.parse(post).action === "cancel" ? cancelledView : { ...cancelledView, status: "active", canCancel: true, canResume: false } }), 350)
         if (short.endsWith("/contact")) return void setTimeout(() => (contact === "ok" ? respond(200, { sent: true }) : respond(429, { error: "You have written to the owner a few times already. Give them time to reply." })), 300)
         if (short.includes("/payments")) return void respond(200, { payments: PAYMENTS })
@@ -295,6 +296,39 @@ export function StripePay(p) { return React.createElement("div", { "data-stripe-
     if (state === "purchase") expect(!got.cancel && !got.resume, "phone-390 purchase: nothing to cancel", got)
     await shot(p, `phone-390-state-${state}`)
     expect(errors.length === 0, `phone-390 ${state}: no page errors`, errors)
+    await p.close()
+  }
+
+  /* ── Worker F2's Membership page, with these parts in its slots ─────── */
+  console.log("\nPAGE: F2's Membership page with Cancel and Contact mounted")
+  for (const [name, vp] of [DESKTOP, PHONE]) {
+    const phone = name.startsWith("phone")
+    const { p, errors } = await open(`/community/clay-studio/membership?case=page`, vp)
+    await sleep(300)
+    const got = await p.evaluate(() => {
+      const billing = document.querySelector("[data-membership-billing]")
+      const manage = billing?.querySelector("[data-membership-manage]")
+      const cancel = billing?.querySelector("[data-membership-cancel]")
+      const a = manage?.getBoundingClientRect()
+      const b = cancel?.getBoundingClientRect()
+      return { manage: !!manage, cancel: !!cancel, sameRow: !!a && !!b && Math.abs(a.top - b.top) < 2, cancelAfter: !!a && !!b && (b.top > a.top + 2 || b.left > a.left), overlap: !!a && !!b && a.right > b.left && b.right > a.left && a.bottom > b.top && b.bottom > a.top, contact: !!document.querySelector("[data-contact-owner]"), order: [...document.querySelectorAll("[data-membership-page] > section")].map((x) => x.getAttribute("aria-labelledby") || "") }
+    })
+    expect(got.manage && got.cancel && !got.overlap && (phone || got.sameRow) && got.cancelAfter, `${name}: Cancel membership comes after Manage subscription (${phone ? "wrapping on a phone" : "on one row"}), never over it`, got)
+    expect(got.contact && got.order.indexOf("contact-owner-title") > got.order.indexOf("membership-notify") && got.order.indexOf("contact-owner-title") < got.order.length - 1, `${name}: the contact form is its own section after Notifications, before Leave`, got.order)
+    expect((await sideScroll(p)) <= 0, `${name}: nothing scrolls sideways`)
+    if (phone) {
+      const small = await smallTargets(p, "[data-membership-page]")
+      expect(small.length === 0, `${name}: every control 40px or taller`, small)
+    }
+    await shot(p, `${name}-f2-page`, true)
+    await p.click("[data-membership-billing] [data-membership-cancel]")
+    await sleep(700)
+    await p.click("[data-membership-confirm]")
+    await sleep(900)
+    const after = await p.evaluate(() => ({ line: document.querySelector("[data-membership-billing] [data-membership-line]")?.textContent?.trim(), resume: !!document.querySelector("[data-membership-billing] [data-membership-resume]") }))
+    expect(after.line === "Your membership ends on Oct 31, 2026. No further charges." && after.resume, `${name}: cancelled in place: the line and Resume beside Manage subscription`, after)
+    await shot(p, `${name}-f2-page-cancelled`)
+    expect(errors.length === 0, `${name}: no page errors`, errors)
     await p.close()
   }
 

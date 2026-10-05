@@ -9,6 +9,10 @@
  *                    ?public=1 shows the owner's chosen address.
  *   ?case=refund     the owner's Payments on /app's Members (PaymentsSection
  *                    and its RefundDialog) in the /app container.
+ *   ?case=page       worker F2's real Membership page (components/community/
+ *                    member/membership.tsx) with Cancel inline beside Manage
+ *                    subscription and the contact form in their slots; the
+ *                    parts read GET /membership (answered by the probe).
  *   ?case=checkout   a community's membership checkout
  *                    (app/checkout/membership-checkout.tsx) with the refund
  *                    policy and the EU waiver; ?locale=de-DE&currency=eur
@@ -24,6 +28,9 @@ import { MembershipSection } from "@/components/community/membership"
 import { PaymentsSection } from "@/components/community/membership/refund-dialog"
 import MembershipCheckout from "@/app/checkout/membership-checkout"
 import type { CommunityMembershipView } from "@/lib/communities/membership-policy"
+import { MembershipPage } from "@/components/community/member/membership"
+import { decideJoin } from "@/components/community/public/join-state"
+import type { PublicCommunityView } from "@/components/community/public/types"
 
 const params = new URLSearchParams(location.search)
 const which = params.get("case") || "member"
@@ -60,7 +67,51 @@ function view(): CommunityMembershipView {
   return base
 }
 
+const studio = {
+  id: CID,
+  slug: "clay-studio",
+  name: "Clay Studio",
+  tagline: "A working studio for people learning wheel throwing.",
+  logoUrl: null,
+  coverUrl: null,
+  category: "education",
+  visibility: "private",
+  access: "paid",
+  status: "published",
+  approvalRequired: false,
+  memberCount: 8012,
+  descriptionHtml: "<p>Weekly critiques.</p>",
+  descriptionText: null,
+  benefits: [],
+  rules: [],
+  faq: [],
+  creator: { name: "Mara Lindqvist", username: "mara", avatarUrl: null, href: "/mara" },
+  options: [],
+  accessProducts: [],
+  reviews: null,
+  url: "/community/clay-studio",
+  address: "storelib.com/community/clay-studio",
+  gallery: [],
+  stats: { members: 8012, online: null, admins: 2 },
+} as unknown as PublicCommunityView
+
 function Screen() {
+  if (which === "page") {
+    const join = decideJoin({
+      community: { slug: studio.slug, status: studio.status, access: studio.access, approvalRequired: false, suspended: false, archived: false, creatorName: "Mara Lindqvist" },
+      viewer: { signedIn: true, active: true, status: "active", role: "member", isOwner: false, banned: false, approved: false, source: "subscription", membershipId: "m1" } as never,
+      options: [],
+      accessProducts: [],
+      canTakePayments: true,
+    } as never)
+    return (
+      <div className="min-h-screen bg-[#f8f9fa]">
+        <main className="mx-auto w-full max-w-[720px] px-4 py-6 sm:py-10" data-probe-frame="">
+          <MembershipPage community={studio} join={join} askWhy facts={{ role: "member", source: "subscription", joinedAt: "2026-05-18T10:00:00Z", expiresAt: ends, planName: "Studio members", notifyLevel: "important" }} />
+        </main>
+      </div>
+    )
+  }
   if (which === "refund") {
     return (
       <div className="min-h-screen bg-[#f8f9fa]">

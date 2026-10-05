@@ -33,6 +33,8 @@ import { api, apiBase } from "./api"
 import { PageTitle } from "./headers"
 import { toast } from "./toast"
 import { BTN_SECONDARY, CARD_RAISED } from "./ui"
+import { CancelMembership } from "@/components/community/membership/cancel-membership"
+import { ContactOwner } from "@/components/community/membership/contact-owner"
 
 export interface MembershipFacts {
   role: Role
@@ -201,11 +203,8 @@ export function MembershipPage({ community, join, askWhy, facts }: { community: 
           </dl>
           {paying ? (
             <div className="mt-3.5 flex flex-wrap gap-2" data-membership-billing="">
-              {/*
-                SLOT: CancelMembership (worker M, components/community/membership/**). When it is in this branch it is mounted here,
-                beside Manage subscription: <CancelMembership communityId={community.id} slug={community.slug} endsAt={facts.expiresAt} />.
-                Until then Manage subscription is where a plan is cancelled (the member's subscription page in their library).
-              */}
+              {/* Worker M (round 13, ask 39): Cancel at the end of the period, with a reason, beside Manage subscription (card and invoices). */}
+              <CancelMembership communityId={community.id} slug={community.slug} endsAt={facts.expiresAt} variant="inline" />
               <Link href={join.manageHref!} className={BTN_SECONDARY} data-membership-manage="">
                 Manage subscription
               </Link>
@@ -221,11 +220,8 @@ export function MembershipPage({ community, join, askWhy, facts }: { community: 
           <NotifyChoices communityId={community.id} initial={facts.notifyLevel} />
         </section>
 
-        {/*
-          SLOT: ContactOwner (worker M, components/community/membership/**): a section here, "Contact the owner", with the form
-          (subject and message, delivered to the owner's inbox) and their public contact email when they chose to show it:
-          <ContactOwner communityId={community.id} ownerName={community.creator?.name ?? null} />. Nothing is drawn until it is in.
-        */}
+        {/* Worker M (round 13, ask 42): the form to the owner's inbox, and their public address when they chose to show it. */}
+        <ContactOwner communityId={community.id} ownerName={community.creator?.name ?? null} />
 
         <LeaveSection paying={paying} manageHref={join.manageHref} name={community.name} />
       </div>
