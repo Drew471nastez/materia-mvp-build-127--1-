@@ -19,7 +19,7 @@ import Link from "next/link"
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { ChevronDown, Search } from "lucide-react"
 import { ChatRoundDotsIcon } from "@solar-icons/react/linear/chat-round-dots"
-import { AppAvatar } from "@/components/app/app-avatar"
+import { AppAvatar, preloadAvatar } from "@/components/app/app-avatar"
 import { memberCountLabel } from "@/lib/communities/format"
 import { COUNTRIES } from "@/lib/checkout/countries"
 import type { MemberView, Role } from "@/lib/communities/types"
@@ -43,6 +43,9 @@ export function MembersDirectory({ communityId, slug, memberCount, initial, meId
   const [cursor, setCursor] = useState(initial.nextCursor)
   const [loading, setLoading] = useState(false)
   const first = useRef(true)
+  useEffect(() => {
+    for (const m of members.slice(0, 16)) preloadAvatar(m.avatarUrl, 44)
+  }, [members])
   /* Each answer to a search or a filter is a new list: it eases in (opacity, on the compositor); a page added at the end does not. */
   const [answer, setAnswer] = useState(0)
   const listRef = useRef<HTMLUListElement>(null)

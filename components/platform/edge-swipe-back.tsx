@@ -132,6 +132,44 @@ function installEdgeSwipe(waiting: (host: HTMLElement | null) => void) {
   let leftPath = ""
   let onPop: (() => void) | null = null
   let reveal: Animation | null = null
+  let drawRaf = 0
+
+  /** Anything left on <html> from a missed cleanup (a route change mid drag, a tab backgrounded). */
+  function clearEdgeSwipeStyles() {
+    win.clearTimeout(timer)
+    win.clearTimeout(drawRaf)
+    drawRaf = 0
+    if (saved.length) restore()
+    html.style.removeProperty("translate")
+    html.style.removeProperty("transition")
+    html.style.removeProperty("will-change")
+    html.style.removeProperty("height")
+    html.style.removeProperty("overflow")
+    html.style.removeProperty("scroll-behavior")
+    body.style.removeProperty("height")
+    body.style.removeProperty("overflow-x")
+    body.style.removeProperty("overflow-y")
+    body.style.removeProperty("scroll-behavior")
+    if (tab) {
+      tab.style.removeProperty("translate")
+      tab.style.removeProperty("transition")
+      tab.style.removeProperty("will-change")
+    }
+    tab = null
+    saved = []
+    offset = 0
+    html.removeAttribute("data-edge-swipe")
+    hideBackdrop()
+    waiting(null)
+    reveal?.cancel()
+    reveal = null
+    if (onPop) {
+      win.removeEventListener("popstate", onPop)
+      onPop = null
+    }
+    phase = "idle"
+    disabled = false
+  }
 
   /* ── The stand in for the page behind ──────────────────────────────────── */
   let parts: { root: HTMLDivElement; band: HTMLDivElement; dim: HTMLDivElement; shadow: HTMLDivElement } | null = null
@@ -266,8 +304,16 @@ function installEdgeSwipe(waiting: (host: HTMLElement | null) => void) {
 
   /** Everything put back: the window scrolls again, from where it was. */
   function leave() {
+    win.clearTimeout(drawRaf)
+    drawRaf = 0
     muteScroll()
     restore()
+    html.style.removeProperty("translate")
+    html.style.removeProperty("transition")
+    if (tab) {
+      tab.style.removeProperty("translate")
+      tab.style.removeProperty("transition")
+    }
     /* At once, whatever the stylesheet says about smooth scrolling. */
     const own = html.style.scrollBehavior
     html.style.scrollBehavior = "auto"
@@ -277,7 +323,7 @@ function installEdgeSwipe(waiting: (host: HTMLElement | null) => void) {
     tab = null
   }
 
-  function draw(x: number) {
+  function applyDraw(x: number) {
     offset = x
     html.style.translate = `${x}px 0px`
     if (tab) tab.style.translate = `${-x}px 0px`
@@ -286,6 +332,18 @@ function installEdgeSwipe(waiting: (host: HTMLElement | null) => void) {
       parts.dim.style.opacity = String(dimOpacity(p))
       parts.shadow.style.opacity = String(shadowOpacity(p))
     }
+  }
+
+  function draw(x: number) {
+    if (phase !== "drag" && phase !== "settle") return
+    if (drawRaf) {
+      win.cancelAnimationFrame(drawRaf)
+      drawRaf = 0
+    }
+    drawRaf = win.requestAnimationFrame(() => {
+      drawRaf = 0
+      applyDraw(x)
+    })
   }
 
   /* ── The touch ─────────────────────────────────────────────────────────── */
@@ -349,7 +407,7 @@ function installEdgeSwipe(waiting: (host: HTMLElement | null) => void) {
     const t = touchOf(e)
     if (t) {
       samples.push([e.timeStamp, t.clientX])
-      draw(pageOffset(t.clientX - startX, width))
+      applyDraw(pageOffset(t.clientX - startX, width))
     }
     if (shouldComplete(offset, width, releaseVelocity(samples))) slideOut()
     else springBack()
@@ -361,6 +419,8 @@ function installEdgeSwipe(waiting: (host: HTMLElement | null) => void) {
     html.setAttribute("data-edge-swipe", "settle")
     /* The values the transitions start from are the ones on screen. */
     void getComputedStyle(html).getPropertyValue("translate")
+    win.cancelAnimationFrame(drawRaf)
+    drawRaf = 0
     const move = `translate ${ms}ms ${ease}`
     const fade = `opacity ${ms}ms ${ease}`
     html.style.transition = move
@@ -370,7 +430,7 @@ function installEdgeSwipe(waiting: (host: HTMLElement | null) => void) {
       parts.dim.style.transition = fade
       parts.shadow.style.transition = fade
     }
-    draw(to)
+    applyDraw(to)
     win.clearTimeout(timer)
     timer = win.setTimeout(then, ms + 34)
   }
@@ -455,6 +515,10 @@ function installEdgeSwipe(waiting: (host: HTMLElement | null) => void) {
     }
     /* Something else moved the page while a finger was on it: put everything back. */
     if (phase === "armed" || phase === "drag" || phase === "settle") abort()
+    if (phase === "reveal") return
+    /* A missed cleanup must never leave the shell shifted sideways. */
+    if (html.getAttribute("data-edge-swipe") || html.style.translate) clearEdgeSwipeStyles()
+    else disabled = false
   }
 
   const onHide = () => {
@@ -472,6 +536,7 @@ function installEdgeSwipe(waiting: (host: HTMLElement | null) => void) {
     pathChanged,
     dispose() {
       abort()
+      clearEdgeSwipeStyles()
       if (phase === "wait" || phase === "reveal") {
         waiting(null)
         reveal?.cancel()

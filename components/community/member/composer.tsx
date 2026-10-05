@@ -103,6 +103,7 @@ import { useRouter } from "next/navigation"
 import { createPortal, flushSync } from "react-dom"
 import { BarChart3, Check, ChevronDown, Clapperboard, GripVertical, Link2, Loader2, Paperclip, Plus, X } from "lucide-react"
 import { AppAvatar } from "@/components/app/app-avatar"
+import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { EmojiControl } from "@/components/app/rich-text/emoji-picker"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { EMOJI_POPOVER } from "@/components/ui/popover-fit"
@@ -910,23 +911,33 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
     setAsking(null)
   }
   /* Over the phone's editor screen too (it sits at z 125), so not the member area's Modal (z 80). */
-  const leaveDialog = (
+  const leaveActions = (
+    <div className={`flex gap-2 ${phone ? "mt-6 flex-col-reverse" : "mt-5 justify-end"}`} data-leave-dialog="">
+      <button type="button" className={`${BTN_GHOST} ${phone ? "h-12 w-full justify-center text-[15px]" : ""}`} onClick={() => answer(false)} data-leave-stay="" autoFocus>
+        Keep writing
+      </button>
+      <button type="button" className={`${BTN_PRIMARY} ${phone ? "h-12 w-full justify-center text-[15px]" : ""}`} onClick={() => answer(true)} data-leave-go="">
+        Leave
+      </button>
+    </div>
+  )
+  const leaveDialog = phone ? (
+    <BottomSheet isOpen={!!asking} onClose={() => answer(false)} label="Leave post" hideFrom={null} zIndex={150} height="min(44vh, 340px)" maxHeight="min(52vh, 400px)">
+      <div className="px-5 pb-2 pt-1" data-leave-sheet="">
+        <p className="text-[17px] font-semibold leading-snug text-[#1a1a2e]">{LEAVE_QUESTION}</p>
+        {leaveActions}
+      </div>
+    </BottomSheet>
+  ) : (
     <DialogPrimitive.Root open={!!asking} onOpenChange={(o) => (!o ? answer(false) : undefined)}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-[150] bg-[#0f1115]/40 data-[state=open]:animate-in data-[state=open]:fade-in-0" />
         <DialogPrimitive.Content
           aria-describedby={undefined}
-          className="fixed inset-x-0 bottom-0 z-[151] mx-auto w-full max-w-[440px] rounded-t-[20px] bg-white p-5 pb-[calc(20px+env(safe-area-inset-bottom))] shadow-[0_20px_60px_-12px_rgba(17,24,39,0.35)] outline-none data-[state=open]:animate-in data-[state=open]:fade-in-0 sm:bottom-auto sm:top-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:pb-5"
+          className="fixed left-1/2 top-1/2 z-[151] w-[min(100vw-2rem,440px)] -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-white p-5 shadow-[0_20px_60px_-12px_rgba(17,24,39,0.35)] outline-none data-[state=open]:animate-in data-[state=open]:fade-in-0"
         >
           <DialogPrimitive.Title className="text-[17px] font-semibold leading-snug text-[#1a1a2e]">{LEAVE_QUESTION}</DialogPrimitive.Title>
-          <div className="mt-5 flex justify-end gap-2" data-leave-dialog="">
-            <button type="button" className={BTN_GHOST} onClick={() => answer(false)} data-leave-stay="" autoFocus>
-              Keep writing
-            </button>
-            <button type="button" className={BTN_PRIMARY} onClick={() => answer(true)} data-leave-go="">
-              Leave
-            </button>
-          </div>
+          {leaveActions}
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>

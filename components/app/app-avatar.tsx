@@ -292,7 +292,7 @@ export function AppAvatar({
       className={cn("relative inline-flex shrink-0 select-none items-center justify-center overflow-hidden rounded-full", GROUND[tone], className)}
       style={sizedByClass ? style : { width: widthPx, height: widthPx, ...style }}
     >
-      {!photo || (!loaded && (markWhileLoading || waited)) ? (
+      {!photo || (!loaded && (markWhileLoading || waited || who === "person")) ? (
         who === "person" || !initialsOf(name) ? <DefaultAvatarGlyph fill /> : <AvatarMark name={name} size={size} kind="mark" />
       ) : null}
       {photo ? (
@@ -306,7 +306,8 @@ export function AppAvatar({
           width={size}
           height={size}
           decoding="async"
-          loading={lazy ? "lazy" : undefined}
+          loading={lazy ? "lazy" : "eager"}
+          fetchPriority={lazy ? "low" : "high"}
           /* A provider's photo (Google's) is loaded from its own host: no referrer, which it can refuse on. */
           referrerPolicy={optimized ? undefined : "no-referrer"}
           draggable={false}

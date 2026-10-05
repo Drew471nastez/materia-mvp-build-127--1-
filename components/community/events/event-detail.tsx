@@ -31,7 +31,7 @@ import { useRouter } from "next/navigation"
 import { useCallback, useEffect, useState } from "react"
 import { ArrowLeft, CalendarDays, CalendarPlus, Check, Clock3, Lock, MapPin, Share2, Ticket, Users, Video } from "lucide-react"
 import { Spinner } from "@/components/community/member/place-spinner"
-import { AppAvatar } from "@/components/app/app-avatar"
+import { AppAvatar, preloadAvatar } from "@/components/app/app-avatar"
 import { CARD, PRIMARY, SECONDARY } from "@/components/library/library-ui"
 import { StorelibVideo } from "@/components/video/storelib-video"
 import { ConfirmDialog, type ConfirmState } from "@/components/community/member/dialogs"
@@ -89,6 +89,11 @@ export function EventDetail({ event: initial, eventsHref, aboutHref }: EventDeta
   const [now, setNow] = useState(() => Date.now())
   const [confirm, setConfirm] = useState<ConfirmState | null>(null)
   const [shareNote, setShareNote] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (event.host) preloadAvatar(event.host.avatarUrl, 40)
+    for (const a of event.attendees ?? []) preloadAvatar(a.avatarUrl, 28)
+  }, [event.host, event.attendees])
 
   const shareEvent = async () => {
     const url = window.location.href
@@ -259,7 +264,7 @@ export function EventDetail({ event: initial, eventsHref, aboutHref }: EventDeta
             </li>
             {event.host ? (
               <li className="flex gap-3">
-                <AppAvatar src={event.host.avatarUrl} name={event.host.name} size={40} alt="" className="shrink-0" />
+                <AppAvatar src={event.host.avatarUrl} name={event.host.name} size={40} alt="" className="shrink-0" markWhileLoading />
                 <span className="min-w-0 pt-0.5">
                   <span className="block truncate text-[15px] font-semibold text-[#1a1a2e]">{event.host.name}</span>
                   <span className="block text-[13px] text-[#6b7280]">Host</span>
