@@ -450,7 +450,8 @@ async function main() {
   check("neither takes a person from the request", !/body\.userId|searchParams\.get\("user/.test(inboxRoute + readRoute))
   check("the creator's /app bell route is left as it was", /seller_notifications/.test(code("app/api/notifications/route.ts")) && !/user_notifications/.test(code("app/api/notifications/route.ts")))
   const cron = code("app/api/cron/community/route.ts")
-  check("the cron runs the platform kinds alone while communities are off", /const on = await communitiesEnabled\(\)/.test(cron) && /on \? \{ budgetMs: RUN_BUDGET_MS \} : \{ budgetMs: RUN_BUDGET_MS, kinds: PLATFORM_JOB_KINDS \}/.test(cron) && /on \? summary : \{ \.\.\.summary, skipped: "communities_off" \}/.test(cron))
+  /* Round 14 added the held seats the run freed to the answer, so the off branch is checked by itself. */
+  check("the cron runs the platform kinds alone while communities are off", /const on = await communitiesEnabled\(\)/.test(cron) && /on \? \{ budgetMs: RUN_BUDGET_MS \} : \{ budgetMs: RUN_BUDGET_MS, kinds: PLATFORM_JOB_KINDS \}/.test(cron) && /\{ \.\.\.summary, skipped: "communities_off" \}/.test(cron))
   const index = code("lib/communities/server/jobs/index.ts")
   check("one line each in the job index", /fanout_followers: \(db, job, ctx\) => import\("\.\/fanout_followers"\)/.test(index) && /fanout_membership_post: \(db, job, ctx\) => import\("\.\/fanout_membership_post"\)/.test(index))
 
