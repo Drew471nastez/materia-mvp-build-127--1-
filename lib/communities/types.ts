@@ -769,6 +769,8 @@ export interface ViewerView {
   isOwner: boolean
   isCreatorAccount: boolean
   mutedUntil: string | null
+  /** When they joined: the post-join web push prompt (components/notifications/web-push-prompt.tsx) waits for it. */
+  joinedAt?: string | null
   can: Partial<Record<CommunityAction, boolean>>
 }
 

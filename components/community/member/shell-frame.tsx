@@ -83,6 +83,7 @@
  * once a minute (POST /presence), so "Online" on the community is a real
  * heartbeat and never a guess.
  */
+import { WebPushPrompt } from "@/components/notifications/web-push-prompt"
 import Link from "next/link"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
@@ -395,6 +396,7 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
         {community.archived ? null : <InviteSheet open={inviting} onClose={() => setInviting(false)} community={community} staff={canInvite} manageHref={manageInvites} />}
         <PersonCardLayer communityId={community.id} canMessage={canMessage} />
         {canMessage ? <MessagesPanel communityId={community.id} slug={community.slug} userId={viewer.userId} open={!!chat} start={chat} onClose={() => setChat(null)} onRead={refreshMessages} /> : null}
+        {viewer.active ? <WebPushPrompt communityName={community.name} joinedAt={viewer.joinedAt ?? null} placement="floating" /> : null}
         <Toasts />
       </div>
     </PlaceContext.Provider>
