@@ -65,6 +65,7 @@ import { useHistoryLayer } from "./lightbox"
 import type { MentionTextareaHandle } from "./mention-input"
 import { intentOf } from "./post-intent"
 import { markSeen } from "./post-seen"
+import { postPath } from "@/lib/communities/post-url"
 
 const IN_MS = 240
 const OUT_MS = 180
@@ -138,7 +139,7 @@ export function PostOverlay({ post: given, slug, viewer, readOnly = false, updat
     hear the address change), and that work belongs after the slide, not in
     its first frames.
   */
-  useHistoryLayer(true, close, `/community/${slug}/post/${given.id}`)
+  useHistoryLayer(true, close, postPath(slug, given))
 
   /* The comments are asked for now, while the post slides in; they are drawn once it has. */
   useEffect(() => {
@@ -367,10 +368,8 @@ function PostPanel({
     const fromAt = from.translate === "none" ? "0 0" : from.translate
     const scrimFrom = Number(getComputedStyle(scrim).opacity)
     for (const x of [...panel.getAnimations(), ...scrim.getAnimations()]) x.cancel()
-    panel.style.opacity = "0"
-    scrim.style.opacity = "0"
-    const a = panel.animate([{ opacity: fromOpacity, translate: fromAt }, { opacity: 0, translate: "0 12px" }], { duration: OUT_MS, easing: SHEET_CLOSE_EASE })
-    scrim.animate([{ opacity: scrimFrom }, { opacity: 0 }], { duration: OUT_MS, easing: "ease-out" })
+    const a = panel.animate([{ opacity: fromOpacity, translate: fromAt }, { opacity: 0, translate: "0 12px" }], { duration: OUT_MS, easing: SHEET_CLOSE_EASE, fill: "forwards" })
+    scrim.animate([{ opacity: scrimFrom }, { opacity: 0 }], { duration: OUT_MS, easing: "ease-out", fill: "forwards" })
     let gone = false
     const end = () => {
       if (gone) return

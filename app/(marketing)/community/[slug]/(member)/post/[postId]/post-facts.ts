@@ -17,23 +17,23 @@ import { communitiesEnabled } from "@/lib/communities/flag"
 import { loadCommunity } from "@/lib/communities/server/context"
 import { admin } from "@/lib/communities/server/db"
 import type { CommunityRow, PostMedia } from "@/lib/communities/types"
+import { parsePostParam } from "@/lib/communities/post-url"
 import type { PostFacts } from "./post-seo"
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
-export const postFacts = cache(async (slug: string, postId: string): Promise<(PostFacts & { communityRow: CommunityRow }) | null> => {
-  if (!UUID.test(postId)) return null
+export const postFacts = cache(async (slug: string, postIdParam: string): Promise<(PostFacts & { communityRow: CommunityRow }) | null> => {
+  const parsed = parsePostParam(postIdParam)
+  if (!parsed) return null
   try {
     if (!(await communitiesEnabled())) return null
     const db = admin()
     const community = await loadCommunity(db, { slug: decodeURIComponent(slug || "").toLowerCase() })
     if (!community) return null
-    const { data: row, error } = await db
+    let q = db
       .from("community_feed_posts")
       .select("id, community_id, space_id, author_id, title, body_text, media, status, deleted_at, created_at, edited_at, comment_count")
-      .eq("id", postId)
       .eq("community_id", community.id)
-      .maybeSingle()
+    q = parsed.kind === "uuid" ? q.eq("id", parsed.id) : q.ilike("id", `${parsed.short}%`)
+    const { data: row, error } = await q.limit(1).maybeSingle()
     if (error || !row) return null
     const post = row as {
       id: string

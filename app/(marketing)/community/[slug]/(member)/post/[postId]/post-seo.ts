@@ -37,6 +37,7 @@
 import type { Metadata } from "next"
 import { plainSummary } from "@/lib/html-entities"
 import { isOpenRule } from "@/lib/communities/access"
+import { postPath as postPublicPath, postShortId } from "@/lib/communities/post-url"
 import type { AccessRuleJson, CommunityRow, PostMedia } from "@/lib/communities/types"
 
 const SITE = "https://storelib.com"
@@ -73,8 +74,14 @@ export function publicPost(f: PostFacts): boolean {
   return communityOpen && spaceOpen && postOpen
 }
 
-export function postPath(slug: string, postId: string): string {
-  return `/community/${slug}/post/${postId}`
+/** Canonical path for a post (readable slug + short id). */
+export function postPath(slug: string, post: { id: string; title?: string | null; bodyText?: string | null }): string {
+  return postPublicPath(slug, post)
+}
+
+/** Share image route segment: always the short id (stable when the title changes). */
+export function postShareRouteId(postId: string): string {
+  return postShortId(postId)
 }
 
 /** The post's first picture, for the card and the structured data: a photo, else a GIF's still, a video's poster, an embed's or a link's picture. */
@@ -105,7 +112,7 @@ export function postShareVersion(parts: ReadonlyArray<string | number | boolean 
 }
 
 export function postShareImageUrl(slug: string, postId: string, version: string | null | undefined): string {
-  return `${SITE}${postPath(slug, postId)}/share.png${version ? `?v=${version}` : ""}`
+  return `${SITE}/community/${slug}/post/${postShareRouteId(postId)}/share.png${version ? `?v=${version}` : ""}`
 }
 
 function fingerprint(f: PostFacts, open: boolean): string {
@@ -116,7 +123,7 @@ function fingerprint(f: PostFacts, open: boolean): string {
 
 export function postMetadata(f: PostFacts): Metadata {
   const open = publicPost(f)
-  const url = `${SITE}${postPath(f.community.slug, f.post.id)}`
+  const url = `${SITE}${postPath(f.community.slug, f.post)}`
   const image = postShareImageUrl(f.community.slug, f.post.id, fingerprint(f, open))
   const images = [{ url: image, width: POST_SHARE_WIDTH, height: POST_SHARE_HEIGHT, alt: open ? postHeadline(f) || f.community.name : f.community.name, type: "image/png" }]
   if (!open) {
@@ -164,7 +171,7 @@ export function postMetadata(f: PostFacts): Metadata {
  */
 export function postArticleJsonLd(f: PostFacts): Record<string, unknown> | null {
   if (!publicPost(f)) return null
-  const url = `${SITE}${postPath(f.community.slug, f.post.id)}`
+  const url = `${SITE}${postPath(f.community.slug, f.post)}`
   const picture = firstPicture(f.post.media)
   const headline = postHeadline(f) || `A post in ${f.community.name}`
   const words = plainSummary(f.post.bodyText, 300)

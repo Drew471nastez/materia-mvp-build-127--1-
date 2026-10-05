@@ -42,6 +42,7 @@ import { createPortal, flushSync } from "react-dom"
 import { CalendarDays, GraduationCap, MessageSquareText, PlayCircle, Search, X } from "lucide-react"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { relativeTime } from "@/lib/communities/format"
+import { postPath } from "@/lib/communities/post-url"
 import { registerCommunitySearch } from "@/lib/nav/community-search-bridge"
 import { api, apiBase } from "./api"
 import { PLAIN_ICON_BTN } from "./ui"
@@ -82,7 +83,7 @@ export function searchOptions(r: SearchResults | null, slug: string): SearchOpti
   if (!r) return []
   const base = `/community/${slug}`
   return [
-    ...r.posts.map((p) => ({ key: `post:${p.id}`, group: "posts" as const, href: `${base}/post/${p.id}` })),
+    ...r.posts.map((p) => ({ key: `post:${p.id}`, group: "posts" as const, href: postPath(slug, { id: p.id, title: p.title, bodyText: p.snippet }) })),
     ...r.members.map((m) => ({ key: `member:${m.id}`, group: "members" as const, href: m.href })),
     ...r.spaces.map((s) => ({ key: `space:${s.id}`, group: "spaces" as const, href: `${base}/space/${s.slug}` })),
     ...(r.lessons ?? []).map((l) => ({ key: `lesson:${l.id}`, group: "lessons" as const, href: l.href })),

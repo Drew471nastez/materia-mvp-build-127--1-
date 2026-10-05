@@ -28,6 +28,7 @@ import { CommentsSection } from "./comments"
 import type { MentionTextareaHandle } from "./mention-input"
 import { PostCard } from "./post-card"
 import { markSeen } from "./post-seen"
+import { postPath } from "@/lib/communities/post-url"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { BTN_PRIMARY, CARD, DEPTH_PRESS } from "./ui"
 
@@ -96,6 +97,21 @@ export function PostPage({ slug, viewer, post: initialPost, comments: initial, m
   const backHref = post.space ? `/community/${slug}/space/${post.space.slug}` : `/community/${slug}`
   const backLabel = post.space ? post.space.name : "Home"
 
+  useEffect(() => {
+    try {
+      router.prefetch(backHref)
+    } catch {
+      /* prefetch is best effort */
+    }
+  }, [router, backHref])
+
+  /* Old uuid links become the readable address without a reload. */
+  useEffect(() => {
+    const pretty = postPath(slug, post)
+    const here = window.location.pathname
+    if (here !== pretty) window.history.replaceState(window.history.state, "", `${pretty}${window.location.search}${window.location.hash}`)
+  }, [slug, post.id, post.title, post.bodyText])
+
   return (
     <div className={`space-y-3 ${visitor ? "pb-28" : "pb-10"}`} data-post-page={visitor ? "visitor" : "member"}>
       {visitor ? null : <PostPageBack href={backHref} label={backLabel} />}
@@ -137,7 +153,8 @@ function PostPageBack({ href, label }: { href: string; label: string }) {
   }, [router, href])
   const tap = useFirstTap<HTMLAnchorElement>(() => {
     if (!canReturnTo(href)) return false
-    backThen(() => router.push(href))
+    backThen(() => router.replace(href, { scroll: false }))
+    return true
   })
   return (
     <div className="-mx-1 mb-0.5 flex h-11 items-center" data-post-page-back="">

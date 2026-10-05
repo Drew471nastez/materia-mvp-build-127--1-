@@ -4,6 +4,7 @@ import { viewerContext, viewerView } from "@/lib/communities/server/context"
 import { admin } from "@/lib/communities/server/db"
 import { getPostView, getPublicPostView } from "@/lib/communities/server/feed"
 import { listComments } from "@/lib/communities/server/comments"
+import { resolvePostId } from "@/lib/communities/server/post-resolve"
 import { FeedColumns } from "@/components/community/member/columns"
 import { meOf, memberPage, shellData } from "@/components/community/member/data"
 import { PostPage } from "@/components/community/member/post-page"
@@ -35,9 +36,11 @@ export default async function CommunityPostPage({ params }: { params: Promise<{ 
     const db = admin()
     const community = page.community
     const reader = page.viewer ?? (await viewerContext(db, community, null))
-    const post = await getPublicPostView(db, community, reader, postId)
+    const id = await resolvePostId(db, community.id, postId)
+    if (!id) notFound()
+    const post = await getPublicPostView(db, community, reader, id)
     if (!post) notFound()
-    const comments = await listComments(db, community, reader, postId, null, { publicRead: true })
+    const comments = await listComments(db, community, reader, id, null, { publicRead: true })
     const article = postArticleJsonLd(facts)
     return (
       <>
@@ -61,10 +64,12 @@ export default async function CommunityPostPage({ params }: { params: Promise<{ 
   if (page.state !== "member" || !page.community || !page.viewer) notFound()
   const { community, viewer } = page
   const db = admin()
-  const post = await getPostView(db, community, viewer, postId)
+  const id = await resolvePostId(db, community.id, postId)
+  if (!id) notFound()
+  const post = await getPostView(db, community, viewer, id)
   if (!post) notFound()
   /* The Article's facts with the rest (post-seo), shared with generateMetadata's read (post-facts is cached per request). */
-  const [comments, me, shell, facts] = await Promise.all([listComments(db, community, viewer, postId, null), meOf(community.id, viewer), shellData(community.id, viewer, community), postFacts(slug, postId)])
+  const [comments, me, shell, facts] = await Promise.all([listComments(db, community, viewer, id, null), meOf(community.id, viewer), shellData(community.id, viewer, community), postFacts(slug, postId)])
   const space = post.space ? shell.spaces.find((s) => s.id === post.space?.id) : null
   /* Only for a public post; nothing for any other. */
   const article = facts ? postArticleJsonLd(facts) : null

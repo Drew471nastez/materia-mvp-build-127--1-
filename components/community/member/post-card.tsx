@@ -87,7 +87,8 @@ import type { ComposerSpace } from "./view-types"
 import { LikeHeart, likeSound } from "./heart"
 import { CardMedia, PostMediaGrid, PostThumb } from "./media"
 import { REOPEN, actOnContent, actOnMember, moderationMenu, muteUntil } from "./moderation"
-import { PollBlock } from "./poll"
+import { PollBlock, pollFitsInline } from "./poll"
+import { postPath } from "@/lib/communities/post-url"
 import { readAheadComments } from "./comments"
 import { PostOverlay } from "./post-overlay"
 import { intentOf, press, useIntent } from "./post-intent"
@@ -263,7 +264,7 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
   })
   const update: PostUpdate = useCallback((id, fn) => latest.current(id, fn), [])
   const base = `/community/${slug}`
-  const href = `${base}/post/${post.id}`
+  const href = postPath(slug, post)
   /*
     While a press is on its way, what the member asked for wins over a copy
     of the post read before it. Only the buttons below draw it as it moves
@@ -272,6 +273,7 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
   */
   const bookmarked = intentOf(`save:${post.id}`)?.on ?? post.bookmarked
   const media = useMemo(() => withBodyEmbeds(post.media, post.bodyText), [post.media, post.bodyText])
+  const inlinePoll = !full && post.poll && pollFitsInline(post.poll)
   const [editing, setEditing] = useState(false)
   const [confirm, setConfirm] = useState<ConfirmState | null>(null)
   const [report, setReport] = useState<ReportTargetRef | null>(null)
@@ -588,21 +590,30 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
                   {inline(post.bodyText.replace(/\s+/g, " ").slice(0, 400))}
                 </p>
               ) : null}
-              {post.poll || files ? (
+              {post.poll && !inlinePoll ? (
                 <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-[#6b7280]">
-                  {post.poll ? (
-                    <span className="inline-flex items-center gap-1.5" data-card-poll="">
-                      <BarChart3 className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
-                      Poll · {post.poll.totalVotes === 1 ? "1 vote" : `${post.poll.totalVotes} votes`}
-                    </span>
-                  ) : null}
-                  {files ? (
-                    <span className="inline-flex items-center gap-1.5">
-                      <Paperclip className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
-                      {files === 1 ? "1 file" : `${files} files`}
-                    </span>
-                  ) : null}
+                  <span className="inline-flex items-center gap-1.5" data-card-poll="">
+                    <BarChart3 className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+                    Poll · {post.poll.totalVotes === 1 ? "1 vote" : `${post.poll.totalVotes} votes`}
+                  </span>
                 </div>
+              ) : null}
+              {files ? (
+                <div className={`flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-[#6b7280] ${post.poll && !inlinePoll ? "" : "mt-2"}`}>
+                  <span className="inline-flex items-center gap-1.5">
+                    <Paperclip className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+                    {files === 1 ? "1 file" : `${files} files`}
+                  </span>
+                </div>
+              ) : null}
+              {inlinePoll && post.poll ? (
+                <PollBlock
+                  poll={post.poll}
+                  communityId={post.communityId}
+                  canVote={!readOnly && !!viewer.can.react}
+                  embed
+                  onChange={(poll: PollView) => update(post.id, (p) => ({ ...p, poll }))}
+                />
               ) : null}
               {/* A phone draws the pictures here, under the words; a computer too when there are two or more, else its thumbnail on the right. */}
               <CardMedia media={media} className={several ? "mt-3" : "mt-3 sm:hidden"} />
@@ -695,9 +706,14 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
           </span>
         ) : null}
         {canShare ? (
-          <button type="button" onClick={() => void share()} className={`${BTN_GHOST} gap-2 ${viewer.active ? "" : "-mr-2 ml-auto"}`} data-share-post="">
+          <button
+            type="button"
+            onClick={() => void share()}
+            aria-label="Share post"
+            className={`${BTN_GHOST} ${viewer.active ? "" : "-mr-2 ml-auto"} !px-2.5`}
+            data-share-post=""
+          >
             <ShareIcon size={18} aria-hidden />
-            <span>Share</span>
           </button>
         ) : null}
         {viewer.active ? <SaveButton post={post} onPress={() => save(false)} /> : null}

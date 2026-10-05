@@ -15,7 +15,7 @@ import { publicPost } from "./post/[postId]/post-seo"
  * a calm Join bar (the post page draws that). Every other page here, and
  * every other post, stays members only.
  */
-const POST_PATH = /^\/community\/[^/?#]+\/post\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/?(?:[?#].*)?$/i
+const POST_PATH = /^\/community\/[^/?#]+\/post\/([^/?#]+)\/?(?:[?#].*)?$/i
 
 async function publicPostOpen(slug: string): Promise<boolean> {
   const path = (await headers()).get(COMMUNITY_PATH_HEADER) ?? ""
