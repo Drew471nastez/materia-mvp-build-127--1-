@@ -471,8 +471,9 @@ async function main() {
     check("history back with Explore as the fallback", /backThen\(\(\) => router\.push\(fallback\)\)/.test(bar) && /fallback = "\/explore"/.test(bar))
     /* "The back control lives in the top bar next to the person's avatar ... not as a pill under it." */
     check("the way back is a chevron in a top bar, never a pill", /export function TopBarBack/.test(bar) && /export function ProfileTopBar/.test(bar) && /aria-label="Back"/.test(bar) && !/>\s*Back\s*</.test(bar))
-    check("  the slim bar puts it right before the person's photo and name", /<BackChevron[^>]*\/>\s*<AppAvatar/.test(bar) && /data-profile-top-bar-name/.test(bar))
-    check("  only when arrived from somewhere: another page of ours, not this one, not sign in", /if \(!shown\) return null/.test(bar) && /cameFromElsewhere\(from, window\.location\.pathname\)/.test(bar))
+    /* Round 12: the slim bar is a person's page's own top bar too, drawn always; the chevron goes in front only when they came from somewhere. */
+    check("  the slim bar puts it right before the person's photo and name", /\{shown \? <BackChevron fallback=\{fallback\} \/> : null\}\s*<AppAvatar/.test(bar) && /data-profile-top-bar-name/.test(bar))
+    check("  only when arrived from somewhere: another page of ours, not this one, not sign in", /if \(!shown && !always\) return null/.test(bar) && /cameFromElsewhere\(from, window\.location\.pathname\)/.test(bar))
     check("arrived from another page: shown", cameFromElsewhere("/library", "/maya") && cameFromElsewhere("/community/x", ["/maya", "/u/maya"]) && cameFromElsewhere("/p/glaze", "/maya"))
     check("a reload of the same page, a sign in, nothing or another site: not shown", !cameFromElsewhere("/maya/", ["/maya", "/u/maya"]) && !cameFromElsewhere("/U/Maya?x=1", ["/maya", "/u/maya"]) && !cameFromElsewhere("/login", "/maya") && !cameFromElsewhere(null, "/maya") && !cameFromElsewhere("//evil.example/x", "/maya"))
     const creatorPage = read("app/(marketing)/u/[username]/page.tsx")
@@ -520,12 +521,14 @@ async function main() {
     const page = read("components/profile/member-profile-page.tsx")
     const route = read("app/(marketing)/member/[username]/page.tsx")
     check("the member profile reads follows, not the old table", !/profile_follows/.test(read("lib/profile/member-profile-data.ts")) && !/profile_follows/.test(route))
-    check("owner pills only on your own profile, which is /account's own view (a creator's own view in round 6 has no Activity)", /(\{|: )isSelf \? \(/.test(page) && /\{isSelf && creator \? \(/.test(page) && /<ProfileOwnerPills communities=\{communities\.enabled\} active="activity"/.test(page))
+    /* Round 12: /@handle is the creator page's template; your own is it too, with Edit profile on the cover where a creator's sits. The pills are /account's. */
+    check("owner pills only on /account; your own /@handle has Edit profile on the cover", !/ProfileOwnerPills/.test(page) && /ownerActions=\{isSelf \? <PersonOwnerActions \/> : null\}/.test(page) && /<ProfileOwnerPills\b/.test(read("components/account/account-hub.tsx")))
     const pills = read("lib/profile/owner-pills.ts") + read("components/profile/profile-owner-pills.tsx")
     /* Round 5: Edit profile is a button on the cover (components/profile/profile-hero.tsx), not a pill. */
     check("the pills: Activity, Communities, Library, Settings; Edit profile on the cover instead", ["Activity", "Communities", "Library", "Settings"].every((w) => pills.includes(`label: "${w}"`)) && !pills.includes(`label: "Edit profile"`) && /Edit profile/.test(read("components/profile/profile-hero.tsx")))
     check("no selling UI on a buyer's profile", !/Start selling|Become a seller|Sell on Storelib|\/app\/onboarding/.test(page + pills))
-    check("Products only with a live store", /profile\.hasStorefront && profile\.products\.length > 0/.test(page))
+    /* Round 12: a person without a store sells nothing; a creator's /@handle is their creator page (a 308), which has the products. */
+    check("Products only with a live store: never on a person's page", !/label: "Products"|ProductGrid/.test(page) && /permanentRedirect\(target\)/.test(read("app/(marketing)/member/[username]/layout.tsx")))
     check("memberships only when shown, or to themselves", /showCommunities \|\| isSelf/.test(page) && /showCommunities \|\| isSelf/.test(route))
     /* Round 9: "Remove the Message button on profiles and creator pages for now: only Follow." */
     const socialSrc = read("components/profile/profile-social.tsx")
@@ -546,8 +549,9 @@ async function main() {
     check("  a plain profile (/@handle) keeps its Activity tab and the communities they are in", /id: "activity", label: "Activity"/.test(page) && /<ProfileCommunityList owned=\{communities\.owned\} member=\{memberCards\} \/>/.test(page))
     /* Round 6: "In creator pages or creator profiles there should be no activity." Their /@handle and their own /account too. */
     const pageCode = stripComments(page)
-    check("a creator's /@handle (a live store): no Activity tab, no In <community> posts, only the communities they made", /const creator = profile\.hasStorefront/.test(pageCode) && /const tabs: StorefrontTab\[\] = creator \? \[\] : \[\{ id: "activity", label: "Activity", panel: activityPanel \}\]/.test(pageCode) && /const showMemberships = !creator && /.test(pageCode) && /const shared = creator \? \[\] :/.test(pageCode))
-    check("  their own /@handle: the pills without Activity, then what visitors see", /isSelf && creator \? \([\s\S]{0,40}<ProfileOwnerPills communities=\{communities\.enabled\} creator active=\{null\}[\s\S]{0,200}<StorefrontTabs tabs=\{tabs\} \/>/.test(pageCode))
+    /* Round 12: a creator's /@handle never draws this page (the layout's 308 to their creator page), so it holds no creator branch. */
+    check("a creator's /@handle (a live store) is their creator page, so this page has no creator branch", !/hasStorefront/.test(pageCode) && /hasActiveStorefront\(creator\)/.test(read("app/(marketing)/member/[username]/layout.tsx")))
+    check("  their own creator page has the owner's controls (Edit profile, the menu), not pills", /<EditProfileButton\b/.test(creator) && /<OwnerMenu embedded=\{embedded\} \/>/.test(creator))
     const routeCode = stripComments(route)
     check("  the route reads no activity, no shared posts and no memberships for them", /const creator = profile\.hasStorefront/.test(routeCode) && /creator\s*\?\s*Promise\.resolve\(\{ items: \[\], next: null, hidden: false \}\)\s*:\s*activityFor\(/.test(routeCode) && /includeMemberships: !creator && /.test(routeCode) && /!isSelf && !creator \? sharedSections\(/.test(routeCode))
     check("  and the activity gate answers nothing for anybody with a store, so Show more or the API cannot bring it back", /if \(creator\) return \{ items: \[\], next: null, hidden: false \}/.test(stripComments(read("lib/profile/activity-page.ts"))))
@@ -685,7 +689,8 @@ async function main() {
   console.log("\nOpening a profile")
   {
     const skeleton = read("app/(marketing)/member/[username]/loading.tsx")
-    check("the skeleton holds the top bar's 57px, so the profile lands where it stood", /h-\[57px\][^"]*border-b/.test(skeleton) && /"mx-auto flex h-14 w-full items-center/.test(read("components/profile/profile-top-bar.tsx")) && /border-b border-black\/\[0\.06\]/.test(read("components/profile/profile-top-bar.tsx")))
+    /* Round 12: the top bar is always there now, so the skeleton holds it: 56px and its hairline. */
+    check("the skeleton holds the top bar's 57px, so the profile lands where it stood", /border-b border-black\/\[0\.06\][^"]*"[\s\S]{0,80}<div className="h-14" \/>/.test(skeleton) && /"mx-auto flex h-14 w-full items-center/.test(read("components/profile/profile-top-bar.tsx")) && /border-b border-black\/\[0\.06\]/.test(read("components/profile/profile-top-bar.tsx")))
     const cover = read("components/profile/profile-cover-image.tsx")
     check("the cover fades in once loaded when opened in the app, is there at once when already loaded or drawn on the server", /"use client"/.test(cover) && /useSyncExternalStore\(never, \(\) => false, \(\) => true\)/.test(cover) && /img\.current\?\.complete/.test(cover) && /transition-opacity duration-200/.test(cover) && /<ProfileCoverImage /.test(read("components/profile/profile-hero.tsx")))
   }

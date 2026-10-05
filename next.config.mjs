@@ -62,6 +62,8 @@ const nextConfig = {
     '/community/*/share.png': ['./lib/checkout/fonts/**'],
     /* A shared profile's picture, the same Inter (app/(marketing)/member/[username]/share.png). */
     '/member/*/share.png': ['./lib/checkout/fonts/**'],
+    /* A shared community post's picture, the same Inter (app/(marketing)/community/[slug]/(member)/post/[postId]/share.png). */
+    '/community/*/post/*/share.png': ['./lib/checkout/fonts/**'],
   },
   typescript: {
     ignoreBuildErrors: true,
@@ -261,6 +263,13 @@ const nextConfig = {
         source: '/images/:path*',
         headers: [
           { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+        ],
+      },
+      {
+        // Country flags. The sprite's address carries its hash (lib/account/flag-sprite.ts), so a week in the cache is safe; the single flags change about never.
+        source: '/flags/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=604800, stale-while-revalidate=2592000' },
         ],
       },
       {

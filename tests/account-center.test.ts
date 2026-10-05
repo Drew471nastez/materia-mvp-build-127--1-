@@ -93,7 +93,8 @@ console.log("\nThe profile center's pills")
   const pills = read("components/profile/profile-owner-pills.tsx")
   check("the pressed pill answers the press, its fill fading in where it is", /setPressed\(p\.key\)/.test(pills) && /transition-\[opacity,scale\]/.test(pills) && /scale-100 opacity-100" : "scale-\[0\.96\] opacity-0"/.test(pills))
   const member = read("components/profile/member-profile-page.tsx")
-  check("/@<my handle> for me is the same owner view: the pills, Activity lit, my activity under them, no Follow (a creator: no Activity, round 6)", /(\{|: )isSelf \? \(/.test(member) && /\{isSelf && creator \? \(/.test(member) && /active="activity"/.test(member) && /isSelf=\{isSelf\}/.test(member))
+  /* Round 12: /@handle is the creator page's template; on your own, Edit profile sits on the cover as a creator's does, and Follow is not there. The pills stay /account's. */
+  check("/@<my handle> for me: Edit profile on the cover, my activity, no Follow", /ownerActions=\{isSelf \? <PersonOwnerActions \/> : null\}/.test(member) && /isSelf=\{isSelf\}/.test(member) && /label: "Activity"/.test(member))
 }
 
 console.log("\nThe cover, Edit profile, and the person under them (round 5)")
@@ -103,7 +104,8 @@ console.log("\nThe cover, Edit profile, and the person under them (round 5)")
   check("the cover runs edge to edge: no card, no rounding, no border, taller than the creator page's (round 10 about +15%, round 11 about +6% more)", /className="relative w-full overflow-hidden bg-\[#eceef1\]"/.test(hero) && !/rounded-2xl/.test(cover) && !/border-\[#e5e7eb\]/.test(cover) && /h-\[157px\] sm:h-\[233px\] lg:h-\[312px\]/.test(hero))
   check("  so the hero is drawn outside the 960px column and keeps one of its own for the person", /<header className=\{cn\(COLUMN, "relative -mt-\[62\.5px\]/.test(hero) && /const COLUMN = "mx-auto w-full max-w-\[960px\]"/.test(hero))
   check("  /account draws the column under the hero, and around a page without one", /<AccountColumn top=\{false\}>/.test(code("components/account/account-hub.tsx")) && /<AccountColumn>\{children\}<\/AccountColumn>/.test(code("components/account/account-hub.tsx")) && !/max-w-\[960px\]/.test(code("app/account/layout.tsx")))
-  check("  and /@handle draws the hero before its column too", (() => { const m = code("components/profile/member-profile-page.tsx"); return m.indexOf("<ProfileHero") < m.indexOf('max-w-[960px] px-4') })())
+  /* Round 12: /@handle draws the creator header edge to edge, then the creator page's column. */
+  check("  and /@handle draws the creator header before its column too", (() => { const m = code("components/profile/member-profile-page.tsx"); return m.indexOf("<ShopHeaderRenderer") > 0 && m.indexOf("<ShopHeaderRenderer") < m.indexOf("<div data-profile-tabs") })())
   check("no Joined line under the name", !/Joined/.test(hero) && !/memberSince/.test(hero))
   check("a lighter ring on the photo: 2px, a softer shadow", /ring-2 ring-\[#f8f9fa\]/.test(hero) && !/ring-4/.test(hero))
   check("Edit profile is a Storelib button on the cover, to /account/settings", EDIT_PROFILE_HREF === "/account/settings" && /<Link href=\{EDIT_PROFILE_HREF\}[^>]*className=\{cn\(secondaryDepth, "h-10 rounded-\[10px\] px-4 text-\[14px\]"\)\}>\s*Edit profile\s*<\/Link>/.test(hero))

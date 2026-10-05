@@ -6,8 +6,11 @@
  * /@handle, 1200 by 630: the person's cover across the top (a quiet band
  * when they have none), their photo over its edge (the default face when
  * they have none, never initials), the name, @handle and the first words of
- * their bio, then their followers and the communities they are in, with one
- * dark Follow at the right, as the page's own button reads. The same order
+ * their bio, then their followers and the communities they are in (a
+ * creator: their products), with one dark Follow at the right, as the
+ * page's own button reads. Round 12: the same card for a creator's page and
+ * for a person without a store, so a shared link to either reads the same,
+ * with where they are from after the handle when they said. The same order
  * as a shared community's card (components/community/public/share-card.tsx),
  * so the two read as one family in a chat.
  *
@@ -34,8 +37,12 @@ export interface ProfileShareModel {
   username: string
   bio: string | null
   followers: number
-  /** Null when they keep the communities they are in private. */
+  /** Null when they keep the communities they are in private, and for a creator (their page lists what they made, not what they joined). */
   communities: number | null
+  /** A creator's published products; null for a person without a store (round 12: one card for both). */
+  products?: number | null
+  /** Where they are from, one line (lib/profile/location.ts), drawn after the handle; null when they never said. */
+  location?: string | null
 }
 
 /** The default face (components/app/app-avatar.tsx DefaultAvatarGlyph), drawn for next/og: a soft circle and a plain person. */
@@ -56,7 +63,9 @@ export function ProfileShareArt({ model, coverSrc, avatarSrc, fontFamily = "Inte
   const name = clip(model.name || model.username, long ? 44 : 26)
   const bio = model.bio ? clip(model.bio, long ? 70 : 120) : null
   const facts = [
-    `${compactCount(model.followers)} ${model.followers === 1 ? "follower" : "followers"}`,
+    /* "0 followers" says nothing worth a line on a new account's card: absent beats zero. */
+    model.followers > 0 ? `${compactCount(model.followers)} ${model.followers === 1 ? "follower" : "followers"}` : null,
+    model.products ? `${compactCount(model.products)} ${model.products === 1 ? "product" : "products"}` : null,
     model.communities ? `In ${compactCount(model.communities)} ${model.communities === 1 ? "community" : "communities"}` : null,
   ].filter((x): x is string => Boolean(x))
 
@@ -75,7 +84,9 @@ export function ProfileShareArt({ model, coverSrc, avatarSrc, fontFamily = "Inte
         <div style={{ display: "flex", alignItems: "baseline", maxWidth: PROFILE_SHARE_WIDTH - SIDE * 2 }}>
           <div style={{ display: "flex", fontSize: long ? 50 : 62, fontWeight: 600, color: INK, lineHeight: 1.08, letterSpacing: "-0.02em" }}>{name}</div>
         </div>
-        <div style={{ display: "flex", marginTop: 8, fontSize: 27, color: MUTED }}>@{clip(model.username, 40)}</div>
+        <div style={{ display: "flex", marginTop: 8, fontSize: 27, color: MUTED }}>
+          {`@${clip(model.username, 40)}${model.location ? `  ·  ${clip(model.location, 44)}` : ""}`}
+        </div>
         {bio ? <div style={{ display: "flex", marginTop: 12, fontSize: 26, color: "#374151", lineHeight: 1.35, maxWidth: 980 }}>{bio}</div> : null}
 
         <div style={{ display: "flex", alignItems: "center", marginTop: "auto", width: PROFILE_SHARE_WIDTH - SIDE * 2 }}>
@@ -87,7 +98,7 @@ export function ProfileShareArt({ model, coverSrc, avatarSrc, fontFamily = "Inte
               </div>
             ))}
             <div style={{ display: "flex", alignItems: "center" }}>
-              <div style={{ display: "flex", margin: "0 16px", color: "#b5b9c1" }}>·</div>
+              {facts.length ? <div style={{ display: "flex", margin: "0 16px", color: "#b5b9c1" }}>·</div> : null}
               <div style={{ display: "flex", color: INK, fontWeight: 600 }}>Storelib</div>
             </div>
           </div>

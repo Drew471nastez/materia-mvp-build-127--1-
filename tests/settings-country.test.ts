@@ -70,7 +70,16 @@ check("Settings draws the country field, and the old modal and its list are gone
   /<CountryPicker id="country" value=\{country\} onChange=\{setCountry\} \/>/.test(form) && !/CountrySelectorModal|showCountryModal|const COUNTRIES = \[/.test(form))
 check("it is the shared field: a popover on a computer, the shared sheet on a phone", /<ChoicePicker/.test(picker) && /uniform/.test(picker))
 check("with the flag in the field and before each name", /fieldLeading=\{code \? <CountryFlag code=\{code\} \/> : null\}/.test(picker) && /leading=\{\(choice, near\) => <CountryFlag code=\{choice\.value\} near=\{near\} \/>\}/.test(picker))
-check("a flag is the SVG in public/flags, asked for only when its row is near the screen", /src=\{`\/flags\/\$\{cc\}\.svg`\}/.test(picker) && /new IntersectionObserver\(/.test(picker) && /whenNear\(ref\.current/.test(picker))
+/* Round 12, ask 35: "country flags load fast (an optimized sprite or inline SVG set, lazy below the fold, no layout shift)". */
+const spriteFile = readCode("public/flags/sprite.svg")
+const spriteTs = readCode("lib/account/flag-sprite.ts")
+check("a flag is a <use> of its symbol in one sprite of every flag, drawn only when its row is near the screen",
+  /<use href=\{`\$\{FLAG_SPRITE\}#\$\{cc\}`\}/.test(picker) && /new IntersectionObserver\(/.test(picker) && /whenNear\(ref\.current/.test(picker) && !/src=\{`\/flags\//.test(picker))
+check("the sprite has a symbol for every country in the list, and its address carries its hash",
+  countryChoices().every((c) => spriteFile.includes(`<symbol id="${c.value}"`)) && /export const FLAG_SPRITE = "\/flags\/sprite\.svg\?v=[0-9a-f]{10}"/.test(spriteTs) && !/\sid="(?![A-Z]{2}")/.test(spriteFile))
+check("it is fetched while the field is on screen, not when the list opens", /function warmSprite\(\)/.test(picker) && /React\.useEffect\(\(\) => \{\s*warmSprite\(\)\s*\}, \[\]\)/.test(picker))
+check("and the box is the same size with or without its flag, so nothing in a row moves", /relative block h-\[14px\] w-\[21px\] shrink-0/.test(picker))
+check("the flags are kept a week in the cache", /source: '\/flags\/:path\*'[\s\S]{0,120}max-age=604800/.test(readCode("next.config.mjs")))
 check("what a pick saves is lib/account/country's", /onChange=\{\(next\) => onChange\(countryToSave\(next\)\)\}/.test(picker))
 
 console.log("\n5. The shared list the field is")
@@ -84,6 +93,12 @@ check("a uniform list opens with the rows around the chosen one, between spacers
 check("and the rest arrive after the first frame, in a transition", /requestAnimationFrame\(\(\) => \{\s*timer = window\.setTimeout\(\(\) => React\.startTransition\(\(\) => setWhole\(true\)\), 0\)/.test(choice))
 check("in one keyed list, so the first rows are kept when the rest arrive", /<div key="__above"/.test(choice) && /<div key="__below"/.test(choice))
 check("the rows are the heights the spacers stand for", /const ROW_PX = \{ compact: 48, regular: 40 \} as const/.test(choice) && /min-h-\[48px\]/.test(choice) && /min-h-\[40px\]/.test(choice))
+
+console.log("\n5b. The sheet and the keyboard (round 12)")
+check("the country sheet is a little shorter than the other lists", /sheetHeight="min\(72dvh, 580px\)"/.test(picker) && /export const CHOICE_SHEET_HEIGHT = "min\(80dvh, 640px\)"/.test(choice))
+check("focusing the search keeps the sheet's top where it opened: it is given its height less the keyboard, which the shared sheet adds back",
+  /return `max\(calc\(\$\{height\} - var\(--kb-inset, 0px\)\), \$\{KEYBOARD_ROOM_PX\}px\)`/.test(choice) && /height=\{sheetAboveKeyboardHeight\(sheetHeight\)\}/.test(choice))
+check("and it never reaches under the clock's safe area", /export const SHEET_UNDER_CLOCK = "calc\(100dvh - env\(safe-area-inset-top, 0px\) - 12px - var\(--kb-inset, 0px\)\)"/.test(choice) && /maxHeight=\{SHEET_UNDER_CLOCK\}/.test(choice))
 
 console.log("\n6. The header on a phone")
 const header = form.slice(form.indexOf('data-settings-header=""'), form.indexOf("data-settings-tabs"))

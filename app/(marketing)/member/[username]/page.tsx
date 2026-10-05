@@ -1,10 +1,12 @@
 import type { Metadata } from "next"
+import { cache } from "react"
 import { headers } from "next/headers"
 import { notFound, permanentRedirect } from "next/navigation"
 import { isReservedRootSegment } from "@/lib/routes/reserved-segments"
 import { loadMemberProfile } from "@/lib/profile/member-profile-data"
 import { memberProfilePublicPath } from "@/lib/profile/member-url"
-import { profileMetadata } from "@/lib/profile/profile-seo"
+import { personJsonLd, profileMetadata } from "@/lib/profile/profile-seo"
+import { jsonLdScript } from "@/lib/seo/json-ld"
 import { scoreSignup } from "@/lib/security/spam-signals"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { currentUserForRequest } from "@/lib/auth/request-scope"
@@ -14,10 +16,13 @@ import { activityFor } from "@/lib/profile/activity-page"
 import { profileCommunities } from "@/lib/profile/profile-communities"
 import { cameFromElsewhere, refererPath } from "@/lib/profile/back"
 import { sharedCommunities, sharedPostsPage } from "@/lib/profile/shared-posts"
+import { locationLine, readProfileLocation } from "@/lib/profile/location"
 import { MemberProfilePage } from "@/components/profile/member-profile-page"
-import { MemberProfileShell } from "@/components/profile/member-profile-shell"
 
 export const dynamic = "force-dynamic"
+
+/* Where they are from, read once per request for the metadata and the page both. */
+const placeOf = cache((userId: string) => readProfileLocation(createAdminClient(), userId))
 
 type Props = { params: Promise<{ username: string }>; searchParams: Promise<{ from?: string }> }
 
@@ -33,8 +38,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!handle) return { title: "Profile not found" }
   const profile = await loadMemberProfile(handle)
   if (!profile) return { title: "Profile not found" }
+  const place = await placeOf(profile.userId)
   /* Their own words in search and a picture drawn from their page in a shared link (lib/profile/profile-seo.ts). */
   return profileMetadata({
+    location: locationLine(place),
     name: profile.name,
     username: profile.username,
     bio: profile.bio,
@@ -73,7 +80,8 @@ async function sharedSections(db: ReturnType<typeof createAdminClient>, viewerId
 }
 
 /**
- * /@handle: a person's profile (components/profile/member-profile-page.tsx).
+ * /@handle: a person's profile, the creator page's template without the
+ * products (components/profile/member-profile-page.tsx, round 12).
  * Somebody without a store: a creator's /@handle never gets here, its
  * layout answers a 308 to their creator page (lib/profile/profile-redirect).
  * Everything private is decided here, on the server: whether their activity
@@ -105,7 +113,7 @@ export default async function MemberProfileRoute({ params, searchParams }: Props
   /* A person with a store has no activity on any of their pages, and lists only the communities they made (components/profile/member-profile-page.tsx). Nothing of it is read. */
   const creator = profile.hasStorefront
   const db = createAdminClient()
-  const [following, activity, communities, shared] = await Promise.all([
+  const [following, activity, communities, shared, place] = await Promise.all([
     isFollowing(db, viewerId, profile.userId),
     creator
       ? Promise.resolve({ items: [], next: null, hidden: false })
@@ -119,28 +127,32 @@ export default async function MemberProfileRoute({ params, searchParams }: Props
       ? profileCommunities(db, profile.userId, { includeMemberships: !creator && (profile.privacy.showCommunities || isSelf) }).catch(() => ({ owned: [], member: [] }))
       : Promise.resolve({ owned: [], member: [] }),
     communitiesOn && viewerId && !isSelf && !creator ? sharedSections(db, viewerId, profile.userId) : Promise.resolve([]),
+    /* Where they are from, under their name (run-now part 98; nothing before it runs). */
+    placeOf(profile.userId),
   ])
 
   /* Arrived from any other page of ours (not a reload of this one): the way back in the top bar. */
   const ownPaths = [`/@${handle}`, `/member/${handle}`, ...(profile.username ? [`/@${profile.username}`, `/member/${profile.username}`] : [])]
   const backShown = from === "community" || from === "explore" || cameFromElsewhere(refererPath(head.get("referer"), head.get("host")), ownPaths)
 
+  /* Who the page is about, for search, when it is in search at all (as generateMetadata decides); then the creator page's template without the products. */
+  const indexable = !scoreSignup({ handle: profile.username }).blocked
   return (
-    <main className="explore-ground min-h-screen bg-[#f8f9fa]" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
-      <MemberProfileShell>
-        <MemberProfilePage
-          profile={profile}
-          viewerId={viewerId}
-          viewerFollowing={following}
-          extras={{
-            activity,
-            communities: { enabled: communitiesOn, owned: communities.owned, member: communities.member },
-            shared,
-            backShown,
-            now: Date.now(),
-          }}
-        />
-      </MemberProfileShell>
-    </main>
+    <>
+      {indexable ? <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(personJsonLd(profile)) }} /> : null}
+      <MemberProfilePage
+        profile={profile}
+        viewerId={viewerId}
+        viewerFollowing={following}
+        extras={{
+          activity,
+          communities: { enabled: communitiesOn, owned: communities.owned, member: communities.member },
+          shared,
+          backShown,
+          now: Date.now(),
+          location: locationLine(place),
+        }}
+      />
+    </>
   )
 }

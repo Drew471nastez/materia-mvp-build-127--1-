@@ -372,13 +372,20 @@ export function PlanCards({
           <IntervalSwitch value={interval} onChange={pick} size="small" />
         </div>
       ) : (
-        <div className={`flex justify-center ${compact ? "mb-3" : "mb-5 sm:mb-6"}`}>
+        /*
+          IN THE ONBOARDING (compact) THE PILL HAS ROOM UNDER IT and the cards
+          are a hair narrower: 12px under the pill read as the pill sitting on
+          the cards, and two 354px cards filled the step from edge to edge. Now
+          20px (24 on a computer) and 668px for the pair, with 6px more air
+          each side on a phone. Billing and the pricing page keep theirs.
+        */
+        <div data-plan-interval-row="" className="flex justify-center mb-5 sm:mb-6">
           <IntervalSwitch value={interval} onChange={pick} />
         </div>
       )}
       <div
         data-plan-cards
-        className={`${inSection ? "" : "mx-auto max-w-[720px]"} grid w-full grid-cols-1 md:grid-cols-2 items-stretch ${compact ? "gap-3" : "gap-5"} ${className}`}
+        className={`${inSection ? "" : compact ? "mx-auto max-w-[668px] max-md:px-1.5" : "mx-auto max-w-[720px]"} grid w-full grid-cols-1 md:grid-cols-2 items-stretch ${compact ? "gap-3" : "gap-5"} ${className}`}
       >
         {OFFERED_PLANS.map((plan) => (
           <div key={plan.id} data-plan-slot={plan.id} className={`flex ${lead === plan.id ? "order-first md:order-none" : ""}`}>

@@ -55,7 +55,8 @@ console.log("\n3. The cover and the photo, a little bigger")
   const hero = read("components/profile/profile-hero.tsx")
   check("the cover 157 / 233 / 312 (148 / 220 / 294 plus about six percent)", PROFILE_COVER_HEIGHTS.phone === 157 && PROFILE_COVER_HEIGHTS.sm === 233 && PROFILE_COVER_HEIGHTS.lg === 312 && /h-\[157px\] sm:h-\[233px\] lg:h-\[312px\]/.test(hero))
   check("the photo 125 / 142 (118 / 134 plus about six percent), half over the band's edge", /PROFILE_AVATAR_PX = \{ phone: 125, wide: 142 \}/.test(hero) && /h-\[125px\] w-\[125px\]/.test(hero) && /sm:h-\[142px\] sm:w-\[142px\]/.test(hero) && /-mt-\[62\.5px\]/.test(hero) && /sm:-mt-\[71px\]/.test(hero))
-  check("the profile's loading shape holds the same sizes", /h-\[157px\] w-full/.test(read("app/(marketing)/member/[username]/loading.tsx")) && /h-\[125px\] w-\[125px\]/.test(read("app/(marketing)/member/[username]/loading.tsx")))
+  /* Round 12: /@handle is the creator page's template, so its loading is the creator page's (the page's colour) plus its top bar; the hero sizes are /account's. */
+  check("the profile's loading shape is the creator page's: the ground and the top bar, nothing guessed", /PERSON_CHROME\.pageBackground/.test(read("app/(marketing)/member/[username]/loading.tsx")) && /<div className="h-14" \/>/.test(read("app/(marketing)/member/[username]/loading.tsx")))
 }
 
 console.log("\n5. Save changes, a bar of its own")

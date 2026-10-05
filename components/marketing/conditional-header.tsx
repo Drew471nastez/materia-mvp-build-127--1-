@@ -47,9 +47,16 @@ function HeaderPlaceholder({ buyerHeaderLight = false }: { buyerHeaderLight?: bo
  * is, a switcher back out to Explore), so Storelib's bar is never above it
  * (app/(marketing)/community/[slug]/layout.tsx). Bare /community is only a
  * redirect to Explore.
+ *
+ * A PERSON'S PROFILE, /@handle (and /member/<handle>, which it is rewritten
+ * to), is a creator page without the products since round 12: "the creator
+ * page's own top bar, hero, tabs and About, no Storelib header with
+ * wishlist/library icons" (components/profile/member-profile-page.tsx). It
+ * draws its own top bar, as a creator page does, so this header is not
+ * drawn above it on any domain.
  */
 function isOwnScreen(p: string): boolean {
-  return p === "/creator-page" || p.startsWith("/creator-page/") || p.startsWith("/community/")
+  return p === "/creator-page" || p.startsWith("/creator-page/") || p.startsWith("/community/") || isProfilePath(p)
 }
 
 /** Paths that are always platform pages (never custom-domain seller pages). */
@@ -135,7 +142,7 @@ export function ConditionalHeader({
   // "/" is intentionally excluded (ambiguous: could be a custom-domain home).
   // Seller paths (/u/ /p/ /l/) are excluded; host-based check below handles them.
   const [showPlatformHeader, setShowPlatformHeader] = useState(
-    () => !isOwnScreen(pathname) && (isKnownPlatformPath(pathname) || (pathname === "/" && onPlatformDomain) || (isProfilePath(pathname) && onPlatformDomain))
+    () => !isOwnScreen(pathname) && (isKnownPlatformPath(pathname) || (pathname === "/" && onPlatformDomain))
   )
 
   useEffect(() => {
@@ -157,18 +164,6 @@ export function ConditionalHeader({
     // Never show platform header on custom domains
     if (isOnCustomDomain) {
       setShowPlatformHeader(false)
-      return
-    }
-
-    /*
-      A PERSON'S PROFILE, /@handle, IS STORELIB'S PAGE ABOUT THEM, not a
-      creator's surface (a creator's /@handle is a redirect to their page,
-      lib/profile/profile-redirect.ts), so it has Storelib's header and the
-      person is never stranded on it. Asked before the seller rule below,
-      which reads "/@name" as a one segment creator address.
-    */
-    if (isProfilePath(pathname)) {
-      setShowPlatformHeader(true)
       return
     }
 

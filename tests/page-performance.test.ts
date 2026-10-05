@@ -1489,7 +1489,8 @@ check(
      * is exercised above; this checks the page still goes through it.
      */
     const chrome = read("lib/store-builder/storefront-chrome.ts")
-    if (!/background: chrome\.pageBackground/.test(page))
+    /* Round 12: through the template a person's page shares (components/storefront/storefront-template.tsx). */
+    if (!/style=\{storefrontRootStyle\(chrome\)\}/.test(page) || !/background: chrome\.pageBackground/.test(read("components/storefront/storefront-template.tsx")))
       missing.push("the page background no longer comes from the resolved chrome")
     if (!/storefrontPageBackground\(/.test(chrome))
       missing.push("the chrome no longer goes through the surface rule — theme white will paint slabs again")

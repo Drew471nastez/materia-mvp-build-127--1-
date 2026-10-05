@@ -100,8 +100,9 @@ async function main() {
       }
     }
     check("no component draws a whole listPrice() result", offenders.length === 0, offenders.join(" | "))
+    /* Round 12: a profile is somebody without a store and sells nothing, so it draws no price at all (components/profile/member-profile-page.tsx). */
     const member = readFileSync(join(root, "components/profile/member-profile-page.tsx"), "utf8")
-    check("the member profile's card draws the price's text", /\{price\.main\}/.test(member))
+    check("the member profile draws no price at all (it sells nothing)", !/listPrice|price\.main/.test(member))
   }
 
   console.log("\nThe payments overview counts with filters after select")

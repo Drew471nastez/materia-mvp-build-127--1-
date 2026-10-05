@@ -29,6 +29,8 @@ import { EditAboutButton } from "@/components/storefront/edit-about-button"
 import { OwnerMenu } from "@/components/storefront/owner-menu"
 import { EmbeddedNavigation } from "@/components/storefront/embedded-navigation"
 import { StorefrontTabs, type StorefrontTab } from "@/components/storefront/storefront-tabs"
+/* The scheme handed to the header, the tabs and the footer, shared with a person's page (round 12). */
+import { storefrontFooterSurface, storefrontHeaderSurface, storefrontRootStyle, storefrontTabsSurface } from "@/components/storefront/storefront-template"
 import { creatorCommunitiesPanel } from "@/components/profile/creator-communities-tab"
 import { communitiesEnabled } from "@/lib/communities/flag"
 import { withoutCommunityProducts } from "@/lib/communities/listing"
@@ -41,6 +43,8 @@ import { headers } from "next/headers"
 import { ProfileSocial } from "@/components/profile/profile-social"
 import { ProfileTopBar, TopBarBack } from "@/components/profile/profile-top-bar"
 import { cameFromElsewhere, refererPath } from "@/lib/profile/back"
+import { locationLine, readProfileLocation } from "@/lib/profile/location"
+import { profileShareImageUrl, profileShareVersion } from "@/lib/profile/profile-seo"
 import type { ActionScheme } from "@/components/profile/follow-button"
 
 /**
@@ -199,7 +203,7 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
   ])
 
   let faviconUrl: string | undefined
-  let socialPreviewImage: string | undefined
+  let socialPreviewImage: string
   /* The creator's own words for search results, from the page builder's SEO tab. */
   let ownTitle: string | undefined
   let ownDescription: string | undefined
@@ -219,22 +223,33 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
     const avatarFromHeader = keptPhoto(headerSettings?.avatarUrl) ?? undefined
 
     /*
-      The picture the share card uses:
+      The picture a shared link shows (round 12: "a dynamic social image
+      built from the avatar, name, handle (and cover when set) for both
+      creators and people without a store"):
         1) the Social image chosen in SEO settings, which is a picture of the
            shop and not of the person, so it is its own thing and wins
-        2) the profile photo, the one face the whole platform shows
-           (lib/account/identity)
-        3) the header's copy of it, for a page whose profile has none
-      The header used to come second, so a copy left in it by an editor was
-      the face on every shared link long after the person had changed theirs.
+        2) the card drawn for them (/member/<handle>/share.png, the same one
+           a person without a store gets: lib/profile/profile-seo.ts), from
+           their photo (the profile's, the one face the whole platform
+           shows, else the header's copy), name, @handle, bio and cover
+      The bare photo used to be the second choice: a square face cropped
+      into a wide card, with nothing saying whose page it was.
     */
+    const chosenImage = globalSettings?.socialImageUrl && globalSettings.socialImageUrl !== "" ? globalSettings.socialImageUrl : undefined
     socialPreviewImage =
-      (globalSettings?.socialImageUrl && globalSettings.socialImageUrl !== "" ? globalSettings.socialImageUrl : undefined) ||
-      profile.avatar_url ||
-      avatarFromHeader ||
-      undefined
+      chosenImage ||
+      profileShareImageUrl(
+        handle,
+        profileShareVersion([
+          profile.display_name,
+          handle,
+          headerBio || creator.bio,
+          profile.avatar_url || avatarFromHeader,
+          headerSettings?.coverImageUrl || creator.cover_url,
+        ]),
+      )
   } else {
-    socialPreviewImage = profile.avatar_url || undefined
+    socialPreviewImage = profileShareImageUrl(handle, profileShareVersion([profile.display_name, handle, profile.bio, profile.avatar_url]))
   }
 
   /*
@@ -270,22 +285,20 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
       type: "website",
       siteName: "Storelib",
       url: pageUrl,
-      images: socialPreviewImage
-        ? [
-            {
-              url: socialPreviewImage,
-              width: 1200,
-              height: 630,
-              alt: `${profile.display_name || profile.username || "Store"} social preview`,
-            },
-          ]
-        : undefined,
+      images: [
+        {
+          url: socialPreviewImage,
+          width: 1200,
+          height: 630,
+          alt: `${profile.display_name || profile.username || "Store"} on Storelib`,
+        },
+      ],
     },
     twitter: {
-      card: socialPreviewImage ? "summary_large_image" : "summary",
+      card: "summary_large_image",
       title,
       description,
-      images: socialPreviewImage ? [socialPreviewImage] : undefined,
+      images: [socialPreviewImage],
     },
     alternates: {
       canonical: pageUrl,
@@ -579,12 +592,14 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
     batch has just settled. No Message: the owner asked for only Follow on
     creator pages for now, so nothing looks for a shared community.
   */
-  const [{ count: followingCount }, viewerFollowsCreator, requestHeaders] = await Promise.all([
+  const [{ count: followingCount }, viewerFollowsCreator, requestHeaders, place] = await Promise.all([
     supabase.from("follows").select("id", { count: "exact", head: true }).eq("follower_id", profile.id),
     viewer && viewer.id !== profile.id
       ? supabase.from("follows").select("id").eq("follower_id", viewer.id).eq("following_id", profile.id).maybeSingle().then((r) => !!r.data)
       : Promise.resolve(false),
     headers(),
+    /* Where they are from, under their name (round 12, run-now part 98); none before it runs (lib/profile/location). */
+    readProfileLocation(createAdminClient(), profile.id),
   ])
   /*
     Arrived from somewhere (any other page of ours): the way back in the top
@@ -713,6 +728,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         signedIn={!!viewer}
         isSelf={viewerIsOwner}
         showCounts={showCounts}
+        location={locationLine(place)}
         /* Follow in the creator's own button colours, the scheme they picked in the page editor. */
         scheme={scheme ?? null}
       />
@@ -1257,11 +1273,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
            * inside this subtree mean what the creator's scheme says rather
            * than what the Storelib app says. See storefront-chrome.ts.
            */
-          style={{
-            background: chrome.pageBackground,
-            color: chrome.text,
-            ...(chrome.tokens as React.CSSProperties),
-          }}
+          style={storefrontRootStyle(chrome)}
         >
           {/* Where this visit came from, for an order or a sign-up that starts here (lib/attribution). */}
           <CaptureTouch creatorId={creator.id} property="creator_page" />
@@ -1368,7 +1380,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
            * save — so a creator on a dark scheme got their own name in black
            * on black, which is the screenshot that started this.
            */
-          surface={{ textColor: chrome.text, mutedColor: chrome.muted, avatarBorderColor: chrome.avatarBorder }}
+          surface={storefrontHeaderSurface(chrome)}
         />
         {(() => {
           // Separate About section to render last
@@ -1575,7 +1587,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
               {tabs.length ? (
                 <StorefrontTabs
                   tabs={tabs}
-                  surface={{ textColor: chrome.text, mutedColor: chrome.muted, borderColor: chrome.border }}
+                  surface={storefrontTabsSurface(chrome)}
                 />
               ) : null}
               {/*
@@ -1595,14 +1607,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         })()}
 
         <SafeRegion name="footer">
-          <SellerFooter
-            surface={{
-              backgroundColor: chrome.footerBackground,
-              textColor: chrome.footerText,
-              mutedColor: chrome.footerMuted,
-              borderColor: chrome.border,
-            }}
-          />
+          <SellerFooter surface={storefrontFooterSurface(chrome)} />
         </SafeRegion>
       </div>
       </>

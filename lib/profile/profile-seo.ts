@@ -27,6 +27,7 @@
 import type { Metadata } from "next"
 import { plainSummary } from "@/lib/html-entities"
 import { memberProfilePublicPath } from "@/lib/profile/member-url"
+import { profilePageJsonLd } from "@/lib/seo/structured-data"
 
 const SITE = "https://storelib.com"
 export const PROFILE_SHARE_IMAGE = { width: 1200, height: 630 } as const
@@ -55,6 +56,8 @@ export interface ProfileSeoFacts {
   followers: number
   /** False for a handle the sign up guard blocks: kept out of search. */
   indexable: boolean
+  /** Where they are from, one line (lib/profile/location.ts); the picture draws it, so it is part of its fingerprint. */
+  location?: string | null
 }
 
 export function profileMetadata(f: ProfileSeoFacts): Metadata {
@@ -62,7 +65,7 @@ export function profileMetadata(f: ProfileSeoFacts): Metadata {
   const title = `${name} (@${f.username})`
   const description = plainSummary(f.bio || "", 200) || `${name} is on Storelib. See the communities they are in and what they share.`
   const canonical = memberProfilePublicPath(f.username)
-  const image = profileShareImageUrl(f.username, profileShareVersion([f.name, f.username, f.bio, f.avatarUrl, f.coverUrl, f.followers]))
+  const image = profileShareImageUrl(f.username, profileShareVersion([f.name, f.username, f.bio, f.avatarUrl, f.coverUrl, f.followers, ...(f.location ? [f.location] : [])]))
   const robots = f.indexable
     ? { index: true, follow: true, googleBot: { index: true, follow: true, "max-image-preview": "large" as const } }
     : { index: false, follow: false, googleBot: { index: false, follow: false } }
@@ -82,4 +85,19 @@ export function profileMetadata(f: ProfileSeoFacts): Metadata {
     twitter: { card: "summary_large_image", title, description, images: [image] },
     robots,
   }
+}
+
+/**
+ * WHO THE PAGE IS ABOUT, for search: a ProfilePage whose main entity is the
+ * Person (lib/seo/structured-data, the creator page's own shape, without
+ * products). Printed only when the page is indexable, as the creator page
+ * does. No `sameAs`: a person's page carries no link a visitor typed.
+ */
+export function personJsonLd(f: Pick<ProfileSeoFacts, "name" | "username" | "bio" | "avatarUrl">) {
+  return profilePageJsonLd({
+    url: `${SITE}${memberProfilePublicPath(f.username)}`,
+    name: f.name.trim() || f.username,
+    image: f.avatarUrl,
+    description: f.bio,
+  })
 }

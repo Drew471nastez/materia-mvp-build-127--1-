@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { AnalyticsClient } from "./analytics-client"
-import { RouterPullToRefresh } from "@/components/ui/pull-to-refresh"
 import { pageUser } from "@/lib/auth/page-user"
 import { creatorProperties } from "@/lib/analytics/report-read"
 import type { CreatorProperties } from "@/lib/analytics/properties"
@@ -51,10 +50,6 @@ export default async function AnalyticsPage() {
     creatorProperties(adminSupabase, creator.id, user.id).catch((): CreatorProperties => ({ onePageId: null, websites: [], defaultWebsite: null })),
   ])
 
-  /* Pulled down on a phone, the page asks again in place: the products here, the figures in the client (components/ui/pull-to-refresh.tsx). */
-  return (
-    <RouterPullToRefresh scope="app-analytics" fill>
-      <AnalyticsClient creatorId={creator.id} userId={user.id} products={productsData || []} properties={properties} />
-    </RouterPullToRefresh>
-  )
+  /* Pulled down on a phone, the page asks again in place, under its purple bar: the products here, the figures in the client (analytics-client.tsx). */
+  return <AnalyticsClient creatorId={creator.id} userId={user.id} products={productsData || []} properties={properties} />
 }

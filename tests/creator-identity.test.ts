@@ -252,7 +252,8 @@ async function main() {
 
     const creatorPage = readCode("app/(marketing)/u/[username]/page.tsx")
     check("the creator page's share card passes over a provider's picture in the header", creatorPage.includes("keptPhoto(headerSettings?.avatarUrl)"))
-    check("but keeps the profile's own photo, whatever it is", creatorPage.includes("socialPreviewImage = profile.avatar_url || undefined"))
+    /* Round 12: the share card is drawn (/member/<handle>/share.png) from the profile's own photo, whatever it is. */
+    check("but keeps the profile's own photo, whatever it is", creatorPage.includes("profile.avatar_url || avatarFromHeader"))
 
     const site = readCode("lib/website-builder/published-site.ts")
     check("a website's name prefers the live profile too", /displayName: p\.display_name \|\| c\.display_name/.test(site))

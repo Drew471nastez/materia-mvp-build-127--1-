@@ -10,6 +10,7 @@ import { ensureUsername } from "@/lib/profile/ensure-username"
 import { readPrivacy } from "@/lib/profile/privacy"
 import { accountIsCreator } from "@/lib/profile/account-creator"
 import { missingCoverColumn } from "@/lib/profile/cover"
+import { readProfileLocation } from "@/lib/profile/location"
 
 /** ?section= from a link: the profile's Settings pill (account), "Change" on a hidden list (privacy). */
 const SECTION_KEYS = ["profile", "account", "privacy", "preferences"] as const
@@ -40,6 +41,8 @@ export default async function AccountSettingsRoute({ searchParams }: { searchPar
   if (!user) return null
 
   const admin = createAdminClient()
+  /* Where they are from (run-now part 98): started with the batch below, not in it; unsupported before the part runs, and the fields are then not drawn. */
+  const locationRead = readProfileLocation(admin, user.id)
   const [profile, bio, access, newsletter, personalized, username, privacy, handleOwner, cover, { section }, creator] = await Promise.all([
     profileForRequest(user.id),
     /* THE BIO, AND WHETHER THERE IS ANYWHERE TO PUT ONE. profiles.bio comes
@@ -134,6 +137,7 @@ export default async function AccountSettingsRoute({ searchParams }: { searchPar
       privacy={privacy}
       creator={creator}
       cover={cover}
+      location={await locationRead}
       initialSection={sectionFrom(section)}
     />
   )
