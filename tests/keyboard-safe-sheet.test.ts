@@ -62,6 +62,8 @@ import {
   keyboardInsetFrom,
   needsKeyboardEstimate,
   sheetAboveKeyboard,
+  sheetFoot,
+  sheetOverKeyboard,
 } from "@/lib/ui/keyboard-safe-sheet"
 
 let passed = 0
@@ -363,8 +365,8 @@ function main() {
      the same floored number, when it is asked to sit on the keyboard. */
   check(
     "bottom-sheet.tsx: the product form's sheet sits on the keyboard through the published inset",
-    /\.\.\.\(aboveKeyboard \? bottomAboveKeyboard\(\) : \{\}\)/.test(read("components/ui/bottom-sheet.tsx"))
-      && /calc\(var\(--vv-h, 100dvh\) - 24px\)/.test(read("components/ui/bottom-sheet.tsx"))
+    /\.\.\.\(aboveKeyboard \? sheetOverKeyboard\(maxHeight, height\) : \{ \.\.\.sheetFoot\(\), maxHeight, height \}\)/.test(read("components/ui/bottom-sheet.tsx"))
+      && /calc\(var\(--vv-h, 100dvh\) - 24px\)/.test(read("lib/ui/keyboard-safe-sheet.ts"))
       && /<BottomSheet isOpen=\{isOpen\} onClose=\{onClose\} maxHeight=\{maxHeight \?\? "85dvh"\} aboveKeyboard keepMounted=\{kept\}>/.test(read("app/app/products/new/product-editor.tsx")),
   )
   /* The guard's own height variable has to follow the same number, or the
@@ -516,6 +518,75 @@ function main() {
   const picker = read("app/app/products/new/category-picker.tsx")
   check("category-picker.tsx: the typed-into sheet is the shared one, on the keyboard",
     /<BottomSheet[\s\S]{0,200}aboveKeyboard/.test(picker) && !read("app/app/products/new/product-editor.tsx").includes("sheetAboveKeyboard("))
+
+  /*
+    ═════════════════════════════════════════════════════════════════════════
+     IMAGE 66: A SHEET ON THE KEYBOARD STILL PAINTS TO THE FOOT OF THE SCREEN
+    ═════════════════════════════════════════════════════════════════════════
+    A community post open in the phone sheet, the comment field tapped, and
+    between the bottom edge of the sheet and the top of the keys a strip of
+    the page showing through. Nothing was wrong with the measurement: Safari's
+    visual viewport stops above the floating form accessory bar, so the inset
+    is the keys PLUS that bar, and the bar is a pill the page is drawn around.
+
+    So a lifted panel is never right. The panel stays at the foot of the
+    screen and the keyboard's room is taken out of its CONTENT instead, with
+    the box grown by the same amount, so the column is where a lifted panel
+    put it and the error costs a strip of the sheet's own white.
+
+    scripts/check-sheet-keyboard-gap.mjs measures it on three modelled
+    platforms; these are the rules it measures against.
+  */
+  console.log("\nAnd a sheet on the keyboard never leaves the foot of the screen")
+
+  const over = sheetOverKeyboard("min(86dvh, 720px)")
+  check("the panel is not lifted: it stays at the bottom", over.bottom === "0px")
+  check(
+    "the keyboard's room comes out of the content instead",
+    over.paddingBottom === "calc(max(env(safe-area-inset-bottom), 12px) + var(--kb-inset, 0px))",
+    over.paddingBottom,
+  )
+  check(
+    "and the box is grown by the same amount, so the column keeps the size it asked for",
+    over.maxHeight === "calc(min(min(86dvh, 720px), calc(var(--vv-h, 100dvh) - 24px)) + var(--kb-inset, 0px))",
+    over.maxHeight,
+  )
+  check("a sheet with no height of its own is given none", over.height === undefined)
+  check(
+    "a sheet with one has the inset added to it too",
+    sheetOverKeyboard("90dvh", "min(70dvh, 560px)").height === "calc(min(70dvh, 560px) + var(--kb-inset, 0px))",
+    sheetOverKeyboard("90dvh", "min(70dvh, 560px)").height,
+  )
+  check(
+    "with no keyboard the inset is 0px, so every one of these is the number it always was",
+    over.paddingBottom.includes("max(env(safe-area-inset-bottom), 12px)") && sheetFoot().paddingBottom === "max(env(safe-area-inset-bottom), 12px)",
+  )
+  check(
+    "no sheet in the shared component is lifted off the bottom any more",
+    !/bottomAboveKeyboard\(\)/.test(read("components/ui/bottom-sheet.tsx")) && !/bottom: "var\(--kb-inset/.test(read("components/ui/bottom-sheet.tsx")),
+  )
+  check(
+    "and what used to move the panel now moves what is inside it",
+    /const KEYBOARD_MOVE = "padding-bottom 250ms/.test(read("components/ui/bottom-sheet.tsx")),
+  )
+  /* The drag, the scrim's fade and the close's length are the sheet anybody
+     can see, not the box that paints it: measured against the box, a sheet
+     with the keyboard up would want a longer pull to close. */
+  check(
+    "the drag measures the column, not the painted box",
+    /heightRef\.current = Math\.max\(1, goneRef\.current - panelLift\(aboveKbRef\.current\)\)/.test(read("components/ui/bottom-sheet.tsx")),
+  )
+  check(
+    "and only the distance that takes the panel off the screen is the whole box",
+    /const from = fresh \? goneRef\.current : readY\(sheet\)/.test(read("components/ui/bottom-sheet.tsx")) && /glide\(from, gone, ms, \(\) => \{/.test(read("components/ui/bottom-sheet.tsx")),
+  )
+  /* The panel pinned at both ends in the one-page editor is a different
+     shape: it has no page behind it to show through, and its bottom edge is
+     where its own scroller has to end. It keeps the lift. */
+  check(
+    "the one-page editor's panel, which is pinned at both ends, still lifts",
+    bottomAboveKeyboard().bottom === "var(--kb-inset, 0px)" && read("components/onepage/onepage-editor.tsx").includes("bottomAboveKeyboard()"),
+  )
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }

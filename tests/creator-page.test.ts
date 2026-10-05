@@ -1877,10 +1877,14 @@ function main() {
       the room it leaves, so the footer with Cancel and Save is always on it.
     */
     check("Cancel and Save ride on the keyboard", sheet.includes("aboveKeyboard"))
+    /* The panel is not lifted off the foot of the screen any more: the
+       keyboard's room comes out of its content and the box grows by the same
+       amount, so nothing of the page can show under it (image 66, and the
+       note in lib/ui/keyboard-safe-sheet). */
     check(
       "and the sheet reads the published keyboard, not a model of it",
-      code("components/ui/bottom-sheet.tsx").includes("bottomAboveKeyboard()") &&
-        code("components/ui/bottom-sheet.tsx").includes("calc(var(--vv-h, 100dvh) - 24px)"),
+      code("components/ui/bottom-sheet.tsx").includes("sheetOverKeyboard(maxHeight, height)") &&
+        code("lib/ui/keyboard-safe-sheet.ts").includes("calc(var(--vv-h, 100dvh) - 24px)"),
     )
 
     /*
