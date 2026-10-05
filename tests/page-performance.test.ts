@@ -639,9 +639,9 @@ check(
     // One write per frame, not one per move.
     if (!/if \(!queued\) queued = requestAnimationFrame\(draw\)/.test(hook))
       bad.push("hook: touchmove paints directly again instead of coalescing to a frame")
-    /* At rest nothing at all (round 10: a moved ancestor pins fixed children), moving on the compositor. */
-    if (!/style\.transform = (y === 0 \? "" : )?`translate3d\(0, \$\{y\}px, 0\)`/.test(hook))
-      bad.push("hook: the content wrapper is not moved on the compositor")
+    /* One paint: padding, never a transform (iOS paints a transformed child of a scroller twice). */
+    if (!/el\.style\.transform = "none"/.test(hook) || !/el\.style\.paddingTop = y > 0 \? `\$\{y\}px` : ""/.test(hook))
+      bad.push("hook: the content wrapper is still moved with a transform")
     // The indicator must be markup only: no prop it recomputes per frame.
     if (/pullDistance/.test(indicator)) bad.push("indicator: it takes a per-frame prop again")
     if (/useState|useEffect/.test(indicator)) bad.push("indicator: it has state again")

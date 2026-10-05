@@ -211,6 +211,8 @@ const ARM = `(async () => {
   /* Off the inline style: a string parse, never a layout, so watching the
      drag cannot slow the drag down. */
   const inlineY = () => {
+    const pad = parseFloat(contentEl.style.paddingTop || "")
+    if (pad) return pad
     const m = /translate(?:3d|Y)?\\(([^)]*)\\)/.exec(contentEl.style.transform || "")
     if (!m) return 0
     const parts = m[1].split(",")
@@ -227,6 +229,8 @@ const ARM = `(async () => {
     frame, which is why it is only used while the finger is up.
   */
   const computedY = () => {
+    const pad = parseFloat(getComputedStyle(contentEl).paddingTop || "")
+    if (pad) return pad
     const t = getComputedStyle(contentEl).transform
     if (!t || t === "none") return 0
     const nums = t.slice(t.indexOf("(") + 1, -1).split(",").map((x) => parseFloat(x))
@@ -720,8 +724,8 @@ if (runs.after) {
      through a two second drag, which is its business and not the pull's. What
      matters is that nothing renders PER FRAME. */
   expect(a.drag.jsx < a.drag.frames, "nothing on the page renders once per frame of the drag", `${a.drag.jsx} elements over ${a.drag.frames} frames`)
-  const props = Object.keys(a.drag.props).filter((p) => p !== "transform" && p !== "opacity" && p !== "will-change" && p !== "@stroke-dasharray")
-  expect(props.length === 0, "the drag writes transform and opacity only", props.length ? props.join(", ") : "transform, opacity")
+  const props = Object.keys(a.drag.props).filter((p) => p !== "transform" && p !== "opacity" && p !== "will-change" && p !== "padding-top" && p !== "@stroke-dasharray")
+  expect(props.length === 0, "the drag writes padding, transform and opacity only", props.length ? props.join(", ") : "padding-top, transform, opacity")
   expect((a.drag.long || []).filter((x) => x > 50).length === 0, "no long task during the drag", `${(a.drag.long || []).filter((x) => x > 50).length}`)
   const curve = a.curve
   expect(curve.every((c, i) => i === 0 || c.offset > curve[i - 1].offset), "the offset never stops following the finger")

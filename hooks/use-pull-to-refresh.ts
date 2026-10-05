@@ -276,7 +276,10 @@ export function usePullToRefresh(
       if (!node) return
       node.setAttribute("data-ptr-phase", phaseRef.current)
       const y = offsetRef.current
-      if (y > 0 || phaseRef.current === "refreshing") node.style.transform = `translate3d(0, ${y}px, 0)`
+      if (y > 0 || phaseRef.current === "refreshing") {
+        node.style.transform = "none"
+        node.style.paddingTop = `${y > 0 ? y : 0}px`
+      }
     },
     [],
   )
@@ -327,12 +330,18 @@ export function usePullToRefresh(
   const heldTurnRef = useRef<number | null>(null)
 
   /* At rest the content is NOT translated: a moved ancestor pins every
-     position:fixed element inside it to itself instead of the screen,
-     and a feed or a page wrapped by components/ui/pull-to-refresh.tsx has
-     fixed things inside it (a sheet, a "new posts" pill). */
+     position:fixed element inside it to itself instead of the screen.
+
+     THE OFFSET IS PADDING, NOT A TRANSFORM. Translating a child of an
+     overflow scroller paints it twice on iOS: the header stays in the gap
+     and is drawn again below it (/app home, Analytics). Padding moves the
+     content in layout, one paint, still without a React render. */
   const paintContent = useCallback((y: number) => {
     const el = contentRef.current
-    if (el) el.style.transform = y === 0 ? "" : `translate3d(0, ${y}px, 0)`
+    if (!el) return
+    el.style.transform = "none"
+    el.style.willChange = ""
+    el.style.paddingTop = y > 0 ? `${y}px` : ""
   }, [])
 
   const paintRing = useCallback(
@@ -400,8 +409,9 @@ export function usePullToRefresh(
      whole life of the page for the sake of a gesture almost nobody makes. */
   const setLifted = useCallback(
     (on: boolean) => {
+      /* The page itself is not a transform layer (that is what painted twice). */
       const c = contentRef.current
-      if (c) c.style.willChange = on ? "transform" : ""
+      if (c) c.style.willChange = ""
       const p = parts()
       if (p) {
         p.root.style.willChange = on ? "transform, opacity" : ""
@@ -411,16 +421,36 @@ export function usePullToRefresh(
     [parts]
   )
 
+  const overflowHold = useRef<{ el: HTMLElement; overflowY: string; overscroll: string } | null>(null)
+  const holdScroller = useCallback((on: boolean) => {
+    const el = containerRef.current
+    if (!el) return
+    if (on) {
+      if (overflowHold.current) return
+      overflowHold.current = { el, overflowY: el.style.overflowY, overscroll: el.style.overscrollBehavior }
+      /* Native rubber-band of this scroller is the other way the top of the page paints twice. */
+      el.style.overflowY = "hidden"
+      el.style.overscrollBehavior = "none"
+    } else if (overflowHold.current && overflowHold.current.el === el) {
+      const held = overflowHold.current
+      overflowHold.current = null
+      held.el.style.overflowY = held.overflowY
+      held.el.style.overscrollBehavior = held.overscroll
+    }
+  }, [containerRef])
+
   const setPhase = useCallback((next: PullPhase) => {
     const prev = phaseRef.current
     if (prev === next) return
     if (prev === "idle" && next !== "idle") pullVisualActiveCount++
     if (prev !== "idle" && next === "idle") pullVisualActiveCount = Math.max(0, pullVisualActiveCount - 1)
+    if (next === "idle") holdScroller(false)
+    else if (prev === "idle") holdScroller(true)
     phaseRef.current = next
     const c = contentRef.current
     if (c) c.setAttribute("data-ptr-phase", next)
     phaseCbRef.current?.(next)
-  }, [])
+  }, [holdScroller])
 
   /* A React commit must not leave the wrapper at translate(0) while the finger or the spring still holds it open. */
   useLayoutEffect(() => {
@@ -771,6 +801,12 @@ export function usePullToRefresh(
         pullVisualActiveCount = Math.max(0, pullVisualActiveCount - 1)
         phaseRef.current = "idle"
       }
+      if (overflowHold.current) {
+        const held = overflowHold.current
+        overflowHold.current = null
+        held.el.style.overflowY = held.overflowY
+        held.el.style.overscrollBehavior = held.overscroll
+      }
       io?.disconnect()
       top?.remove()
       target.removeEventListener("touchstart", onTouchStart)
@@ -793,6 +829,7 @@ export function usePullToRefresh(
     settle,
     setLifted,
     setPhase,
+    holdScroller,
     cancelFrame,
   ])
 

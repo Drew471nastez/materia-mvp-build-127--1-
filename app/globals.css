@@ -580,10 +580,14 @@ html.capacitor body {
   }
 
   /*
-    PULL TO REFRESH: nothing under the sliding wrapper may run its own enter
-    or rise while the page is held open, or stale and fresh trees read as two
-    headers on top of each other (/app home, Analytics).
+    PULL TO REFRESH: the sliding wrapper is moved with padding, never a
+    transform. A transform inside an overflow scroller paints the top of the
+    page twice on iOS (the greeting left in the gap and again below it).
   */
+  [data-pull-content] {
+    transform: none !important;
+    will-change: auto !important;
+  }
   [data-pull-content][data-ptr-phase]:not([data-ptr-phase="idle"]) {
     animation: none !important;
   }
