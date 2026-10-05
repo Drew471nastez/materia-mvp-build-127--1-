@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { usePathname, useSearchParams } from "next/navigation"
 import { PageSpinner } from "@/components/ui/activity-spinner"
+import { pullRefreshVisualActive } from "@/hooks/use-pull-to-refresh"
 import {
   endAppNavigation,
   getAppNavigation,
@@ -305,7 +306,7 @@ export function AppStage() {
       const s = scrollers()
       /* A page that comes back exactly as it was left asked for no landing
          (lib/ui/app-navigation holdLanding): the Emails list on a Back. */
-      if (!s || layered || document.documentElement.dataset.layerMotion || isLandingHeld()) return
+      if (!s || layered || document.documentElement.dataset.layerMotion || isLandingHeld() || pullRefreshVisualActive()) return
       playEntrance(s.outer, { fade: !slowSurfaceIsUp() })
     })
   }, [key, pathname, search])

@@ -1,10 +1,18 @@
 "use client"
 
-import { useCallback, useEffect, useRef } from "react"
+import { useCallback, useEffect, useLayoutEffect, useRef } from "react"
 
 import { hapticTap } from "@/lib/native-bridge"
 
 export type PullPhase = "idle" | "pulling" | "ready" | "refreshing"
+
+/** How many pull gestures are active in this tab (finger down, refreshing, or settling). */
+let pullVisualActiveCount = 0
+
+/** True while any page is mid pull or refresh — the /app shell must not land over it. */
+export function pullRefreshVisualActive(): boolean {
+  return pullVisualActiveCount > 0
+}
 
 /**
  * ===========================================================================
@@ -260,6 +268,16 @@ export function usePullToRefresh(
 
   /** The element that slides down. The caller attaches this. */
   const contentRef = useRef<HTMLDivElement | null>(null)
+  const syncContentRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      contentRef.current = node
+      if (!node) return
+      node.setAttribute("data-ptr-phase", phaseRef.current)
+      const y = offsetRef.current
+      if (y > 0 || phaseRef.current === "refreshing") node.style.transform = `translate3d(0, ${y}px, 0)`
+    },
+    [],
+  )
   /** The indicator's root. The caller attaches this. */
   const indicatorRef = useRef<HTMLDivElement | null>(null)
 
@@ -392,10 +410,21 @@ export function usePullToRefresh(
   )
 
   const setPhase = useCallback((next: PullPhase) => {
-    if (phaseRef.current === next) return
+    const prev = phaseRef.current
+    if (prev === next) return
+    if (prev === "idle" && next !== "idle") pullVisualActiveCount++
+    if (prev !== "idle" && next === "idle") pullVisualActiveCount = Math.max(0, pullVisualActiveCount - 1)
     phaseRef.current = next
+    const c = contentRef.current
+    if (c) c.setAttribute("data-ptr-phase", next)
     phaseCbRef.current?.(next)
   }, [])
+
+  /* A React commit must not leave the wrapper at translate(0) while the finger or the spring still holds it open. */
+  useLayoutEffect(() => {
+    const y = offsetRef.current
+    if (y > 0 || phaseRef.current === "refreshing") paintContent(y > 0 ? y : refreshHold)
+  })
 
   /* ── The settle ────────────────────────────────────────────────────────
      One rAF driver for all three endings. The spring carries the page's
@@ -736,6 +765,10 @@ export function usePullToRefresh(
 
     return () => {
       aliveRef.current = false
+      if (phaseRef.current !== "idle") {
+        pullVisualActiveCount = Math.max(0, pullVisualActiveCount - 1)
+        phaseRef.current = "idle"
+      }
       io?.disconnect()
       top?.remove()
       target.removeEventListener("touchstart", onTouchStart)
@@ -761,5 +794,5 @@ export function usePullToRefresh(
     cancelFrame,
   ])
 
-  return { contentRef, indicatorRef, phaseRef }
+  return { contentRef: syncContentRef, indicatorRef, phaseRef }
 }

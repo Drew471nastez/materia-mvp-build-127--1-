@@ -49,7 +49,7 @@
  *   a vibration on Android, and nothing in Safari (lib/native-bridge.ts).
  */
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useTransition, type ReactNode, type RefObject } from "react"
+import { useCallback, useLayoutEffect, useRef, type ReactNode, type RefObject } from "react"
 import { useRouter } from "next/navigation"
 
 import { SPINNER_SPOKES } from "@/components/community/member/place-spinner"
@@ -196,25 +196,21 @@ export function PullToRefreshEvent({ scope, children, className, fill }: { scope
 
 /**
  * A server rendered page: the pull asks the server for the page's own data
- * again (router.refresh, in a transition, so what is on screen stays until
- * the new answer is in place) and tells any part with data of its own
- * through the same event and `scope`. The ring waits for both.
+ * again (router.refresh) and tells any part with data of its own through the
+ * same event and `scope`. The ring waits for both.
+ *
+ * NOT IN A TRANSITION WHILE THE PAGE IS HELD OPEN. startTransition kept the
+ * old tree on screen until the new one was ready; with the content wrapper
+ * translated down for the spinner that read as two copies of the same header
+ * stacked on each other (/app home, Analytics, account).
  */
 export function RouterPullToRefresh({ scope, children, className, fill }: { scope: string; children: ReactNode; className?: string; fill?: boolean }) {
   const router = useRouter()
-  const [pending, startTransition] = useTransition()
-  const waiting = useRef<(() => void) | null>(null)
-  useEffect(() => {
-    if (!pending && waiting.current) {
-      waiting.current()
-      waiting.current = null
-    }
-  }, [pending])
   const onRefresh = useCallback(() => {
     const server = new Promise<void>((resolve) => {
-      waiting.current = resolve
-      startTransition(() => router.refresh())
-      /* A transition that never reported itself pending still lets the ring go. */
+      router.refresh()
+      /* One frame for the refresh to commit without overlapping stale UI under a pull transform. */
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
       window.setTimeout(resolve, 6000)
     })
     return Promise.all([server, dispatchPullRefresh(scope)])

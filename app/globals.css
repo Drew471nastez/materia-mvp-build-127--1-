@@ -575,6 +575,18 @@ html.capacitor body {
   }
 
   /*
+    PULL TO REFRESH: nothing under the sliding wrapper may run its own enter
+    or rise while the page is held open, or stale and fresh trees read as two
+    headers on top of each other (/app home, Analytics).
+  */
+  [data-pull-content][data-ptr-phase]:not([data-ptr-phase="idle"]) {
+    animation: none !important;
+  }
+  [data-pull-content][data-ptr-phase]:not([data-ptr-phase="idle"]) * {
+    animation: none !important;
+  }
+
+  /*
     A COMMUNITY OPENED FROM DISCOVER LANDS AS AN /app PAGE DOES: opacity and
     a 2px rise over 180ms on the same curve (lib/ui/app-navigation
     NAV_ENTER_*), once, when its frame arrives (components/community/member/

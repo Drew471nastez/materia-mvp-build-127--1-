@@ -630,8 +630,10 @@ check(
 
     if (/useState/.test(hook)) bad.push("hook: React state is back in the gesture")
     if (/setPullDistance/.test(hook)) bad.push("hook: a distance setter is back in the gesture")
-    if (!/return \{ contentRef, indicatorRef, phaseRef \}/.test(hook))
+    if (!/return \{ contentRef: syncContentRef, indicatorRef, phaseRef \}/.test(hook))
       bad.push("hook: it returns something other than refs, so the caller subscribes again")
+    if (!/pullRefreshVisualActive/.test(hook) || !/useLayoutEffect\(\(\) => \{[\s\S]*paintContent/.test(hook))
+      bad.push("hook: a React commit must not drop the pull transform or land /app over an active pull")
     // The phase is a ref and a callback, so a caller can know without subscribing.
     if (!/phaseRef/.test(hook)) bad.push("hook: no way left to read the phase")
     // One write per frame, not one per move.

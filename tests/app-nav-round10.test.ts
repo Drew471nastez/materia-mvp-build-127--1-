@@ -124,6 +124,7 @@ const ptr = code("components/ui/pull-to-refresh.tsx")
 check("one component on the /app home's own engine (the hook; the spokes in their own room)", /usePullToRefresh\(scrollerRef/.test(ptr) && /<PullSpokes ref=\{indicatorRef\} \/>/.test(ptr))
 check("it finds the scroller: inside (a page scroll box), around (/app), or the document", /\[data-pull-scroller\], \.page-scroll/.test(ptr) && /closest<HTMLElement>\("\.app-content-scroll"\)/.test(ptr) && /document\.scrollingElement/.test(ptr))
 check("the event contract: storelib:pull-refresh with a scope, waiting on detail.done", /export const PULL_REFRESH_EVENT = "storelib:pull-refresh"/.test(ptr) && /new CustomEvent<PullRefreshDetail>\(PULL_REFRESH_EVENT, \{ detail \}\)/.test(ptr) && /Promise\.resolve\(detail\.done\)/.test(ptr))
+check("router.refresh on a pull is not wrapped in startTransition (no stacked duplicate UI under a transform)", !/startTransition\(\(\) => router\.refresh/.test(ptr) && /router\.refresh\(\)/.test(ptr))
 check("a refresh that never ends still lets the ring go", /REFRESH_MAX_MS = 10_000/.test(ptr))
 const hook = code("hooks/use-pull-to-refresh.ts")
 check("the hook takes a document scroller: touches on the page's own wrapper, its top watched against the viewport", /listenOn\?: React\.RefObject/.test(hook) && /root: isDocument \? null : el/.test(hook) && /target\.addEventListener\("touchstart"/.test(hook))
@@ -132,7 +133,7 @@ check("the blocking listener is still only on while the top is on screen", /targ
 check("nothing at rest: the page is not moved once home", /el\.style\.transform = y === 0 \? "" :/.test(hook))
 /* Round 12, ask 37: "the pull to refresh indicator sits BELOW the purple announcement bar, like the /app home dashboard". */
 check("used on /app analytics (refreshing its figures in place), around the page under its purple bar, not around the bar",
-  /<TryProStrip \/>\s*(\{\s*(\/\*[\s\S]*?\*\/)?\s*\}\s*)?<RouterPullToRefresh scope="app-analytics">/.test(code("app/app/analytics/analytics-client.tsx")) && !/RouterPullToRefresh/.test(code("app/app/analytics/page.tsx"))
+  /<TryProStrip \/>\s*(\{\s*(\/\*[\s\S]*?\*\/)?\s*\}\s*)?<PullToRefreshEvent scope="app-analytics">/.test(code("app/app/analytics/analytics-client.tsx")) && !/RouterPullToRefresh/.test(code("app/app/analytics/page.tsx"))
     && /detail\?\.scope !== "app-analytics"/.test(code("app/app/analytics/analytics-client.tsx")) && /setTick\(\(n\) => n \+ 1\)/.test(code("app/app/analytics/analytics-client.tsx")))
 check("and the pull finds the page's scroll box around it", /const own = root\.closest<HTMLElement>\("\[data-pull-scroller\], \.page-scroll"\)/.test(ptr))
 check("the /app home has had it all along, on the same engine", /usePullToRefresh\(scrollRef, handlePullRefresh/.test(code("components/app/dashboard-client.tsx")))

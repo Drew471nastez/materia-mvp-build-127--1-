@@ -911,8 +911,9 @@ export function DashboardClient({
    * dropped rather than drawn over the new one.
    */
   const chartRequestRef = useRef(0)
-  const fetchPeriodEvents = async () => {
+  const fetchPeriodEvents = async (opts?: { pull?: boolean }) => {
     const request = ++chartRequestRef.current
+    const fromPull = opts?.pull === true
     setIsChartLoading(true)
     const { window: span, previous, key } = homeQuestion(period, dashTimeZone, reportNow(Date.now() + (askPastKept.current ? NOW_STEP_MS : 0)))
     askPastKept.current = false
@@ -928,8 +929,10 @@ export function DashboardClient({
     /* A period answered before is drawn from what was kept, sharp, and asked again quietly behind it.
        Otherwise the figures go soft, and a chart already drawn for another period stays, blurred,
        until this one's numbers land (First load: isRefreshing is already true, seeded in useState). */
-    setIsRefreshing(!kept)
-    setChartStale(!kept)
+    if (!fromPull) {
+      setIsRefreshing(!kept)
+      setChartStale(!kept)
+    }
     try {
       const answer = await new Promise<Record<string, unknown>>((resolve, reject) => {
         const asked = askReport(key, (quick) => resolve(quick))
@@ -1075,7 +1078,7 @@ export function DashboardClient({
   // with { passive: false } — the only reliable way to block iOS rubber-band
   // bounce on a child overflow-scroll element.
   const handlePullRefresh = useCallback(async () => {
-    await fetchPeriodEvents()
+    await fetchPeriodEvents({ pull: true })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [periodKey])
 
@@ -1138,7 +1141,7 @@ export function DashboardClient({
 
         {/* What slides down. The hook owns its transform and its will-change;
             neither is written here, so neither costs a render. */}
-        <div ref={contentRef}>
+        <div ref={contentRef} data-pull-content="" data-keep-transform="">
 
       <div className="app-gutter py-6 max-w-[1200px] mx-auto">
 

@@ -32,7 +32,7 @@
  */
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
-import { PULL_REFRESH_EVENT, RouterPullToRefresh, type PullRefreshDetail } from "@/components/ui/pull-to-refresh"
+import { PULL_REFRESH_EVENT, PullToRefreshEvent, type PullRefreshDetail } from "@/components/ui/pull-to-refresh"
 import { useSearchParams } from "next/navigation"
 import { TrendingDown, TrendingUp } from "lucide-react"
 import { useLanguage } from "@/lib/i18n"
@@ -418,10 +418,11 @@ export function AnalyticsClient({ products, userId, properties }: AnalyticsClien
         the gap it left. Round 12: "the pull to refresh indicator sits BELOW
         the purple announcement bar, like the /app home dashboard". The bar
         stays put; the room the pull opens, and the spinner in it, are under
-        it. It still asks the server again (RouterPullToRefresh) and this
-        page's figures (the "app-analytics" event above).
+        page's figures through the "app-analytics" event (no router.refresh
+        here: a transition while the wrapper is translated duplicated the
+        header and tabs).
       */}
-      <RouterPullToRefresh scope="app-analytics">
+      <PullToRefreshEvent scope="app-analytics">
       <div className="app-gutter py-6 max-w-[1200px] mx-auto space-y-6">
         <h1 className="text-[24px] sm:text-[28px] font-bold text-[#1a1a2e]">{t("analytics.title")}</h1>
 
@@ -513,7 +514,7 @@ export function AnalyticsClient({ products, userId, properties }: AnalyticsClien
         {/* Units, shipping, what is waiting to ship and stock: only while physical commerce is on. */}
         <PhysicalAnalyticsCard />
       </div>
-      </RouterPullToRefresh>
+      </PullToRefreshEvent>
 
     </div>
     </CompareContext.Provider>
