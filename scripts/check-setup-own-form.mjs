@@ -386,6 +386,7 @@ try {
         const action = u.slice("http://probe.test/api/payments/".length)
         asked.push(action)
         if (action === "details-form") return json({ ...form(idNeeds), active: true })
+        if (action === "identity") return json({ ok: true, clientSecret: "vs_secret", url: "https://verify.stripe.com/start/abc", publishableKey: "pk_test_1" })
         return json({})
       }
       if (/stripe\.com/.test(u)) opened.push(u)
@@ -397,17 +398,29 @@ try {
     await p.setViewport({ width: 390, height: 844, deviceScaleFactor: 1, isMobile: true, hasTouch: true })
     await p.goto("http://probe.test/app/payouts")
     await p.waitForSelector("[data-id-photo]", { timeout: 8000 })
+    /*
+      The owner, October 2026: our own upload to Stripe hung on "Stripe is
+      saving it" and timed out, over and over, so Stripe's own check does the
+      ID now, in the app too. In the app it opens in the sheet over the app
+      (Capacitor's browser, which this probe has no bridge for), so what is
+      pinned here is that the app asks Stripe for the session and that
+      nothing takes the page itself to Stripe.
+    */
     const press = await p.evaluate(() => {
-      const el = document.querySelector("[data-identity-open]") ?? document.querySelector("[data-id-camera-open]")
+      const el = document.querySelector("[data-identity-open]")
       el?.dispatchEvent(new MouseEvent("click", { bubbles: true }))
-      return el?.getAttribute("data-identity-open") === "" ? "stripe" : "camera"
+      return !!el
     })
-    await new Promise((r) => setTimeout(r, 1200))
-    const after = await p.evaluate(() => ({ camera: !!document.querySelector("[data-id-camera]"), panel: !!document.querySelector("[data-payments-setup-panel]") }))
-    expect(after.camera, "the app's own camera opens, in the app", { press, ...after })
-    expect(after.panel, "and the setup page is still the page", after)
-    expect(!asked.includes("identity"), "no Stripe Identity session is even asked for in the app", asked)
-    expect(opened.length === 0, "nothing at Stripe is opened, in a sheet or anywhere else", opened.slice(0, 2))
+    await new Promise((r) => setTimeout(r, 1500))
+    const after = await p.evaluate(() => {
+      const t = document.querySelector("[data-payments-setup-panel]")?.textContent ?? ""
+      return { panel: !!document.querySelector("[data-payments-setup-panel]"), here: location.host, waiting: /Waiting for Stripe/.test(t), other: !!document.querySelector("[data-id-use-camera]") }
+    })
+    expect(press, "Verify with Stripe is the way in, in the app too")
+    expect(asked.includes("identity"), "the app asks the server for Stripe's own check", asked)
+    expect(after.panel && after.here === "probe.test", "and the setup page itself never leaves for Stripe", after)
+    expect(after.waiting, "the step waits for Stripe, and says so", after)
+    expect(after.other, "  with Storelib's camera still there as the other way", after)
     expect(errors.length === 0, "nothing threw", errors.slice(0, 1))
     await p.screenshot({ path: join(out, "native-id-390.png") })
     await p.close()
@@ -792,6 +805,9 @@ try {
     await p.setViewport({ width: 1280, height: 860, deviceScaleFactor: 1 })
     await p.goto("http://probe.test/app/payouts")
     await pastDetails(p)
+    /* Stripe's check is the way in; the QR code is what "use your camera instead" means on a computer. */
+    await p.waitForSelector("[data-id-use-camera]", { timeout: 8000 }).catch(() => {})
+    await p.evaluate(() => document.querySelector("[data-id-use-camera]")?.click())
     await p.waitForSelector("[data-id-qr] img", { timeout: 10000 }).catch(() => {})
     const qr = await p.evaluate(() => ({
       img: !!document.querySelector("[data-id-qr] img")?.getAttribute("src")?.startsWith("data:image/png"),

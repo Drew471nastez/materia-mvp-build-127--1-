@@ -142,8 +142,22 @@ check("  the next step reads the overview the write returned, with no second syn
 check("  the checking screen waits with them instead of promising days", /function Outcome\([\s\S]*?"Checking your ID"/.test(flow) && !/line:[^\n]*business days/.test(flow))
 check("    and it asks again while it is open, becoming active by itself", /outcome !== "checking"\) return[\s\S]*?post<Overview>\("refresh"/.test(flow) && /onChecked/.test(flow))
 /* The owner, October 2026: the ID check "takes me outside to Stripe on iOS and Capacitor apps instead of opening there in the app". */
-check("the phone app never leaves for the ID check", /if \(isNativeApp\(\)\) return "no_way"/.test(readFileSync("lib/payments/identity-client.ts", "utf8")) && !/openInApp/.test(readFileSync("lib/payments/identity-client.ts", "utf8")))
-check("  and does not even make a Stripe session it could not open", /if \(isNativeApp\(\)\) \{\s*\n\s*setIdWay\("camera"\)/.test(flow))
+/*
+  The owner, October 2026: Storelib's own camera sent the photo through
+  Storelib's server to Stripe, and that upload hung on "Stripe is saving it"
+  and timed out, again and again. So Stripe's own check does the ID now,
+  everywhere: its screen opens the camera and the document goes to Stripe
+  directly. "You can embed the Stripe verification thing with the ID exactly
+  of Stripe, only in the verify ID." In the app it is the sheet that slides
+  over the app, which has a camera where a cross origin frame does not.
+*/
+const idClient = readFileSync("lib/payments/identity-client.ts", "utf8")
+check("Stripe's own check is the ID step, in the app as well", /if \(isNativeApp\(\)\) \{\s*\n\s*if \(opening\.url\) return openSheet\(opening\.url\)/.test(idClient) && /verifyIdentity\(opening\.clientSecret\)/.test(idClient))
+check("  the app opens it in its own sheet, and waits for the sheet to close", /@capacitor\/browser/.test(idClient) && /browserFinished/.test(idClient) && /__storelibSheet/.test(idClient))
+check("  with Storelib's camera still there as the other way", /data-id-use-camera/.test(flow) && /setIdWay\("camera"\)/.test(flow))
+check("the step waits while Stripe's sheet is open, not after it closes", /setIdState\("waiting"\)\s*\n\s*const how = await openIdentity/.test(flow))
+check("every Stripe call in a photo upload is bounded, so the page is never left hanging", /timeout: 20_000, maxNetworkRetries: 1/.test(own))
+check("  and a sheet that cannot open falls back to Storelib's camera, never to nothing", /if \(how === "no_way"\) \{\s*\n\s*setIdWay\("camera"\)/.test(flow))
 check("  verifying is never shown while Stripe is still asking for something", /const stepFor = \(form: DetailsForm \| null\): Step \| null/.test(flow) && /if \(target !== null && target !== step\)/.test(flow))
 /* The owner, October 2026: finish it properly. Every way out of settle has to land somewhere. */
 check("  what is still owed decides the step, so no Continue leads nowhere", /if \(detailsLeft\) return 1/.test(flow) && /if \(idLeft\) return 2/.test(flow) && /if \(needs\.bank\) return 3/.test(flow))

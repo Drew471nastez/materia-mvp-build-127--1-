@@ -73,7 +73,7 @@ async function ownAccount(creator: PaymentsCreatorRef): Promise<Stripe.Account> 
   if (!row?.stripe_account_id) throw new PaymentsProblem("Start with your country and name first.")
   let account: Stripe.Account
   try {
-    account = await stripe.accounts.retrieve(row.stripe_account_id)
+    account = await stripe.accounts.retrieve(row.stripe_account_id, { timeout: 20_000, maxNetworkRetries: 1 })
   } catch (error) {
     console.error("[payments own form] account read", quiet(error))
     throw new PaymentsProblem("We could not reach our payment partner just now. Try again in a moment.", 502)
@@ -310,19 +310,32 @@ export async function uploadDocument(creator: PaymentsCreatorRef, input: { which
   if (!row?.stripe_account_id) throw new PaymentsProblem("Start with your country and name first.")
   const data = Buffer.from(await file.arrayBuffer())
   try {
+    /*
+     * EVERY CALL IS BOUNDED. Stripe's own client waits eighty seconds and
+     * retries, which is longer than the request itself is allowed to live:
+     * the page sat on "Stripe is saving it" until it gave up, with nothing
+     * said about why. Twenty seconds each, one retry, so the answer is
+     * either the photo or a sentence, always well inside the minute.
+     */
+    const limits = { timeout: 20_000, maxNetworkRetries: 1 }
     const [account, uploaded] = await Promise.all([
       ownAccount(creator),
       stripe.files.create(
         { purpose: which === "document" ? "identity_document" : "additional_verification", file: { data, name: `${which}-${side}`, type: file.type } },
-        { stripeAccount: row.stripe_account_id },
+        { stripeAccount: row.stripe_account_id, ...limits },
       ),
     ])
-    const saved = await stripe.accounts.update(account.id, { individual: { verification: { [which]: { [side]: uploaded.id } } } as Stripe.AccountUpdateParams.Individual })
+    const saved = await stripe.accounts.update(account.id, { individual: { verification: { [which]: { [side]: uploaded.id } } } as Stripe.AccountUpdateParams.Individual }, limits)
     after(() => syncStripeAccount(creator.id, "creator").then(() => undefined, () => undefined))
     return viewOf(creator, saved)
   } catch (error) {
     if (error instanceof PaymentsProblem) throw error
     console.error("[payments own form] document", quiet(error))
+    /* Stripe did not answer in time: say that, rather than blaming the photo. */
+    const code = (error as { type?: string; code?: string })?.type
+    if (code === "StripeConnectionError" || (error as { code?: string })?.code === "ETIMEDOUT") {
+      throw new PaymentsProblem("Our payment partner did not answer in time. Try once more, or use Verify with Stripe instead.", 504)
+    }
     throw new PaymentsProblem(sentence(error, "That photo did not upload. Try again with a clear photo."))
   }
 }
