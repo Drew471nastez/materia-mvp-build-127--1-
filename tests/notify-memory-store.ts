@@ -310,7 +310,8 @@ export class MemoryNotifyStore implements NotifyStore {
         d.requirement !== null &&
         q.requirements.includes(d.requirement) &&
         d.created_at >= q.sinceIso &&
-        (!q.categories || (d.category !== null && q.categories.includes(d.category))),
+        (!q.categories || (d.category !== null && q.categories.includes(d.category))) &&
+        (!q.types || q.types.includes(d.type as string)),
     ).length
   }
 
