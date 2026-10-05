@@ -5,6 +5,7 @@
  *
  *   npx tsx tests/editor-feel.test.ts
  */
+import { iconLabel } from "@/components/website-builder/icon-picker"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 
@@ -78,6 +79,16 @@ console.log("\nAdd section shows the section as it will arrive\n")
   check("cards are drawn with the site's own theme, not a stock one", /theme=\{job\.theme\}/.test(lib) && /theme=\{settingsDraft\}\s*\n\s*\/>/.test(editor))
   check("  and a change of colours or type draws them again, nothing else does", /const LOOK = \/color\|colour\|scheme\|font/.test(lib) && /previewKey\(type, i, w, `\$\{own\.has\(type\) \? sourcesTag : ""\}\$\{lookTag\}`\)/.test(lib))
   check("  a preset's settings and blocks are both the card and what is added", /settings: preset\?\.settings \?\? \{\},\s*\n\s*blocks: preset\?\.blocks \?\? \[\]/.test(lib) && /blocks: freshBlocks\(preset\?\.blocks, newBlockId\)/.test(editor))
+}
+
+console.log("\nThe icon picker looks like the rest of the builder\n")
+{
+  const ip = read("components/website-builder/icon-picker.tsx")
+  check("names are words, not code: shopping-bag reads Shopping bag", iconLabel("shopping-bag") === "Shopping bag" && iconLabel("building2") === "Building")
+  check("  the chosen icon is on the sidebar's soft grey, never a black square", /TILE_ON = "bg-\[#ebecef\]/.test(ip) && !/bg-foreground text-background/.test(ip))
+  check("  no shouting group headings; the groups are chips that narrow the grid", !/uppercase tracking-wide/.test(ip) && /data-icon-groups=""/.test(ip))
+  check("  No icon is a tile like the others", /data-icon-none=""/.test(ip))
+  check("  on a phone it is the app's bottom sheet, with the search at its top", /<FieldPopover[\s\S]{0,80}float[\s\S]{0,80}sheetLabel="Choose an icon"[\s\S]{0,40}sheetHeader=\{search\}/.test(ip))
 }
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

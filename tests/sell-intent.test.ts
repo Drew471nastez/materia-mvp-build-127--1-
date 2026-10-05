@@ -202,13 +202,14 @@ function main() {
     /withCarry\(`\/signup\/verify\?userId=\$\{data\.user\.id\}[^`]*`, carry\)/.test(signup) && /const loginHref = withCarry\("\/login", carry\)/.test(signup))
   check("signup: nobody is sent to the creator or buyer question, and a new profile is a buyer",
     !/signup\/success/.test(signup) && /welcome_completed: true/.test(signup) && /goOnAfterAuth\(carry, session\)/.test(signup))
-  check("signup: the native Apple sheet remembers it", /rememberNativeCarry\(carry\)[\s\S]{0,80}Browser\.open/.test(signup))
+  /* The browser sheet is opened through one helper now (lib/auth/native-sign-in.ts), not Browser.open on each page. */
+  check("signup: the native Apple sheet remembers it", /rememberNativeCarry\(carry\)\s*await openAuthSheet\(data\.url\)/.test(signup))
 
   const login = code("app/(auth)/login/page.tsx")
   check("login: Sign up, Forgot password, Google and Apple all carry it",
     /withCarry\("\/signup", carry\)/.test(login) && /withCarry\("\/request", carry\)/.test(login)
       && /withCarry\("\/auth\/start\?provider=google", carry\)/.test(login) && /withCarry\("\/auth\/start\?provider=apple", carry\)/.test(login))
-  check("login: both native sheets remember it", (login.match(/rememberNativeCarry\(carry\)\s*await Browser\.open/g) ?? []).length === 2)
+  check("login: both native sheets remember it", (login.match(/rememberNativeCarry\(carry\)\s*await openAuthSheet\(data\.url\)/g) ?? []).length === 2)
   check("login: signed in (either way) ends at /auth/continue, not a client side guess",
     /goOnAfterAuth\(carry, gateSession\)/.test(login) && /goOnAfterAuth\(carry, data\.session\)/.test(login)
       && !/signup\/success/.test(login) && !/from\("creators"\)/.test(login) && !/next=\/app/.test(login))
@@ -234,7 +235,8 @@ function main() {
 
   const native = code("lib/native-oauth.ts")
   check("native OAuth hands the carry to /auth/continue through sync-session",
-    /const carry = takeNativeCarry\(\)/.test(native) && /const nextPath = continueHref\(carry\)/.test(native) && !/nextPath = "\/signup\/success"/.test(native))
+    /* Through the one place both native paths finish (lib/auth/native-session.ts). */
+    /continueHref\(takeNativeCarry\(\)\)/.test(code("lib/auth/native-session.ts")) && /completeNativeSession\(supabase/.test(native) && !/signup\/success/.test(native))
   check("the app's cold start: seller to /app, anybody else to the library (a home the installed offline shell knows)",
     /hasSellerAccess\(await readSellerAccess\(supabase, session\.user\.id\)\) \? "\/app" : "\/library"/.test(code("app/native-start/page.tsx"))
       && !/safeRedirect\("\/signup\/success"\)/.test(code("app/native-start/page.tsx")))
