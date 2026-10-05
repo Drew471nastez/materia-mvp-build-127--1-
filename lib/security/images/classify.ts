@@ -233,8 +233,12 @@ export interface PictureVerdict {
  * member (an undecodable file is how a check is dodged) and let through for
  * anybody else. The team is never held, only refused.
  */
-export function judgePicture(reading: PictureReading | null, who: { fresh: boolean; team: boolean }): PictureVerdict {
-  if (!reading) return who.fresh && !who.team ? { action: "hold", code: "unreadable" } : { action: "ok", code: "unreadable" }
+export function judgePicture(reading: PictureReading | null, who: { fresh: boolean; team: boolean; undecodable?: boolean; classifierOn?: boolean }): PictureVerdict {
+  if (!reading) {
+    /* The bytes were there and would not decode, with the classifier on: a way round it (a HEIC Safari shows), so held for anybody. */
+    const hold = !who.team && (who.fresh || (who.undecodable === true && who.classifierOn === true))
+    return { action: hold ? "hold" : "ok", code: "unreadable" }
+  }
   const c = reading.classes
   if (c) {
     const explicit = explicitOf(c)

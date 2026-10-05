@@ -103,6 +103,25 @@ export const imageCheckDeps = {
   now: () => Date.now(),
 }
 
+const TIMED_OUT = Symbol("timed out")
+
+/** A promise's value, or TIMED_OUT when it takes longer than this (it is left to finish on its own). */
+function withinMs<T>(p: Promise<T>, ms: number): Promise<T | typeof TIMED_OUT> {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => resolve(TIMED_OUT), ms)
+    p.then(
+      (v) => {
+        clearTimeout(t)
+        resolve(v)
+      },
+      (e) => {
+        clearTimeout(t)
+        reject(e)
+      },
+    )
+  })
+}
+
 export interface PictureScreen {
   /** The write must not go up. */
   refuse: boolean
@@ -125,15 +144,23 @@ export async function screenPictures(db: Db, who: { communityId: string; userId:
   const hold = new Set<string>()
   for (const pic of pictures) {
     let reading: PictureReading | null = null
-    if (imageCheckDeps.now() < stopAt) {
+    let undecodable = false
+    const left = stopAt - imageCheckDeps.now()
+    if (left > 0) {
       try {
-        const bytes = await imageCheckDeps.download(db, pic.path)
-        reading = bytes ? await imageCheckDeps.read(bytes, classifier) : null
+        /* One slow read never holds the write past the budget. */
+        const bytes = await withinMs(imageCheckDeps.download(db, pic.path), left)
+        if (bytes && bytes !== TIMED_OUT) {
+          const read = await withinMs(imageCheckDeps.read(bytes, classifier), Math.max(1, stopAt - imageCheckDeps.now()))
+          /* Slow is not the same as not a picture: only bytes that would not decode count as undecodable. */
+          reading = read === TIMED_OUT ? null : read
+          undecodable = read === null
+        }
       } catch (e) {
         console.error(`[image-check] picture not read: ${reasonOf(e)}`)
       }
     }
-    const verdict = judgePicture(reading, { fresh: who.fresh, team: who.team })
+    const verdict = judgePicture(reading, { fresh: who.fresh, team: who.team, undecodable, classifierOn: classifier !== null })
     if (verdict.action === "ok") continue
     await imageCheckDeps
       .log(db, {

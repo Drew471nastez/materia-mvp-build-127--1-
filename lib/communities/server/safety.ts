@@ -444,8 +444,10 @@ async function logWordRefusal(w: Writer, kind: WriteKind, refuse: { list: string
   if ((await countHits(db, SAFETY_BUCKETS.words, subject, SAFETY.wordsLogSeconds)) > 0) return
   await addHits(db, [{ bucket: SAFETY_BUCKETS.words, subject }])
   const platform = refuse.list !== "community"
+  /* A direct message is private between two members: the team's log says one was refused, never what it said. */
+  const quiet = refuse.list === "hate" || kind === "dm"
   const shown = refuse.list === "hate" ? "a slur" : quoteWords(refuse.entries)
-  const reason = platform ? `Refused: Storelib's word list (${refuse.list === "minors" ? "sexual content involving children" : refuse.list === "hate" ? "slurs" : "selling sexual content"})` : `Refused: the community's word list (${shown})`
+  const reason = platform ? `Refused: Storelib's word list (${refuse.list === "minors" ? "sexual content involving children" : refuse.list === "hate" ? "slurs" : "selling sexual content"})` : `Refused: the community's word list${quiet ? "" : ` (${shown})`}`
   await audit(db, {
     communityId: community.id,
     actorId: null,
@@ -453,9 +455,9 @@ async function logWordRefusal(w: Writer, kind: WriteKind, refuse: { list: string
     action: `${kind === "dm" ? "message" : kind}.refused`,
     targetType: kind === "dm" ? "message" : kind,
     targetId: null,
-    targetLabel: refuse.list === "hate" ? "Words not shown" : text.replace(/\s+/g, " ").trim().slice(0, 120) || kind,
+    targetLabel: kind === "dm" ? "A direct message" : refuse.list === "hate" ? "Words not shown" : text.replace(/\s+/g, " ").trim().slice(0, 120) || kind,
     reason,
-    detail: { authorId: viewer.userId, list: refuse.list, ...(refuse.list === "hate" ? {} : { words: refuse.entries.slice(0, 10) }) },
+    detail: { authorId: viewer.userId, list: refuse.list, ...(quiet ? {} : { words: refuse.entries.slice(0, 10) }) },
   })
   if (platform) {
     await logSecurityEvent(db as unknown as Parameters<typeof logSecurityEvent>[0], {

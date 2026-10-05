@@ -24,8 +24,9 @@ import "server-only"
  *   FILES     in the private file bucket, the community's folder
  *             (<creator>/community-files/<community>/<member>/<file id>.<ext>,
  *             ./post-files.ts): one older than ORPHANS.graceDays that no
- *             post of the community carries (media {type:"file", assetId}),
- *             any status, is removed. A seventh of the communities a day,
+ *             post, comment or chat message of the community carries
+ *             ({type:"file", assetId}), any status, is removed (a comments
+ *             table without its media column keeps every file). A seventh of the communities a day,
  *             so each is looked at once a week.
  *
  * WHY THE GRACE IS LONG. A draft keeps its pictures' addresses in the
@@ -111,6 +112,8 @@ async function referencesSince(admin: SupabaseClient, communityId: string, autho
     commentRows = again.data as unknown[]
   } else if (comments.error) return null
   if (mine.error || orphaned.error || messages.error) return null
+  /* A read that came back full may have left a reference out: keep everything rather than guess. */
+  if ([mine.data, orphaned.data, commentRows, messages.data].some((d) => Array.isArray(d) && d.length >= 5000)) return null
   return JSON.stringify([mine.data ?? [], orphaned.data ?? [], commentRows ?? [], messages.data ?? []])
 }
 
@@ -211,8 +214,13 @@ async function sweepFiles(admin: SupabaseClient, summary: OrphanSummary, stopAt:
           continue
         }
         const fileId = match[4].toLowerCase()
-        const { data: used, error: usedError } = await admin.from("community_feed_posts").select("id").eq("community_id", c.id).contains("media", [{ assetId: fileId }]).limit(1)
-        if (usedError || !Array.isArray(used) || used.length) {
+        /* A post carries it, or an older comment or chat message (comments took files before round 12). */
+        const reads = await Promise.all([
+          admin.from("community_feed_posts").select("id").eq("community_id", c.id).contains("media", [{ assetId: fileId }]).limit(1),
+          admin.from("community_feed_comments").select("id").eq("community_id", c.id).contains("media", [{ assetId: fileId }]).limit(1),
+          admin.from("community_messages").select("id").eq("community_id", c.id).contains("attachments", [{ assetId: fileId }]).limit(1),
+        ])
+        if (reads.some((r) => r.error || !Array.isArray(r.data) || r.data.length)) {
           summary.files.kept++
           continue
         }

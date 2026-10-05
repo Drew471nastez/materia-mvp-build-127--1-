@@ -206,8 +206,10 @@ export function splitWordInput(text: string): string[] {
 
 /** A whole list from a settings body: each entry cleaned, repeats dropped, or the first entry that cannot be kept. */
 export function cleanWordList(raw: unknown): { ok: true; value: string[] } | { ok: false; error: string } {
-  const list = typeof raw === "string" ? splitWordInput(raw) : Array.isArray(raw) ? raw : null
+  const list = typeof raw === "string" ? splitWordInput(raw.slice(0, WORD_LIST_MAX * (WORD_MAX_CHARS + 2))) : Array.isArray(raw) ? raw : null
   if (!list) return { ok: false, error: "Send the words as a list." }
+  /* Refused before any work: a body of a million entries costs nothing to answer. */
+  if (list.length > WORD_LIST_MAX * 2) return { ok: false, error: `Up to ${WORD_LIST_MAX} words or phrases.` }
   const out: string[] = []
   for (const item of list) {
     if (typeof item !== "string" || !item.trim()) continue
