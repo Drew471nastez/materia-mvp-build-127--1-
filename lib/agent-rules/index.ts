@@ -108,6 +108,7 @@ export const AGENT_RULE_GROUPS: RuleGroup[] = [
       "Ask one short question with two to four options to pick from, then wait for the answer. In the builder that is ask_creator; over MCP or GitHub, ask the person you are working with.",
       "Never ask what the page, the theme, the store or the conversation already answers, never ask about taste you can decide, and never ask twice for the same thing. A picture with nothing typed is the request: build it, and ask only if you cannot read it.",
       "A skipped question is a decision to leave it to you: pick the most plausible option and say in your summary what you chose.",
+      "A whole new page or section asked for in a few words (\"make me a landing page\", \"add something about me\") is the usual time to ask: if what it is for is not plain from the request, the page or the store, ask that one thing first (sell a product, collect emails, tell the creator's story, show work) and build from the answer.",
     ],
   },
   {

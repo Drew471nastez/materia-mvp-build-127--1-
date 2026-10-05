@@ -567,6 +567,9 @@ async function main() {
      */
     const budget = (name: string, text: string, maxChars: number) =>
       check(`${name} stays under ~${Math.round(maxChars / 4 / 100) / 10}k tokens`, text.length <= maxChars, `${text.length} chars`)
+    /* Blocks only for a list the creator grows; single-purpose sections are plain settings, and arrive with the theme's motion. */
+    check("the writer is told a hero is plain settings, not blocks", /One of each thing \(a hero, a banner, a call to action\) is plain settings, NO blocks/.test(writeSectionRules()))
+    check("  and that sections already fade in, so it writes no entrance of its own", /Sections already fade in from the theme/.test(writeSectionRules()))
     budget("the page assistant's shared rules", pageAgentRules(), 10_000)
     /* 11,000 until the framework's own lists grew: eight setting types and the
        `lines` filter, which CORE_FORMAT names from the registry. Still a budget. */

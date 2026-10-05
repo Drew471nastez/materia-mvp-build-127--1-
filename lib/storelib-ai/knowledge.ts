@@ -78,7 +78,7 @@ const TOPICS: Topic[] = [
   {
     id: "blocks",
     triggers: /block|repeat|item|entry|question|tier|testimonial|logo|slide|card|list|faq|accordion|gallery/i,
-    text: `REPEATED CONTENT IS BLOCKS, never question_1 / question_2. Declare a block type in the schema with its own settings, and loop over \`blocks\` in the template. Put data-block-id="{{ block.id }}" on each one so clicking it in the builder selects it. A preset with two or three blocks in it is what makes the section arrive with something in it rather than empty. Block settings are read as block.settings.<id> and must be declared on that block type.`,
+    text: `BLOCKS ONLY FOR A LIST THE CREATOR GROWS (questions, testimonials, slides, logos, tiers): declare the type, loop over \`blocks\`, data-block-id="{{ block.id }}" on each, preset 2 or 3, never question_1 / question_2. One of each thing (a hero, a banner, a call to action) is plain settings, NO blocks; no @theme blocks unless asked. Sections already fade in from the theme: no entrance animation unless asked (CSS with its own animation replaces it).`,
   },
   {
     id: "theme-blocks",
@@ -130,7 +130,7 @@ const TOPICS: Topic[] = [
   {
     id: "animation",
     triggers: /anim|transition|smooth|fade|slide|ease|motion|hover|open|close|expand|collapse/i,
-    text: `ANIMATION IS CSS FIRST. Transition the properties that are cheap to animate: opacity and transform. Height from 0 to auto does not transition; use grid-template-rows 0fr to 1fr, or max-height, or transform. Anything that moves must be wrapped so it stops for people who have asked it to: @media (prefers-reduced-motion: reduce) { … } with the transition or animation set to none. That media query is about the visitor's own setting, not about width, so it is the one place @media is right.`,
+    text: `EVERY SECTION ALREADY ARRIVES WITH MOTION. The theme fades each section in as it scrolls into view (Theme settings › Animations, and a section's own "animation" select when it has one), so a new section needs no entrance animation of its own: do not write one unless the creator asks for one. A section whose CSS declares its own @keyframes or animation is left alone by the theme's reveal, which is how a custom entrance overrides the default. ANIMATION IS CSS FIRST. Transition the properties that are cheap to animate: opacity and transform. Height from 0 to auto does not transition; use grid-template-rows 0fr to 1fr, or max-height, or transform. Anything that moves must be wrapped so it stops for people who have asked it to: @media (prefers-reduced-motion: reduce) { … } with the transition or animation set to none. That media query is about the visitor's own setting, not about width, so it is the one place @media is right.`,
   },
   {
     id: "assets",
@@ -184,8 +184,9 @@ export function knowledgeBlock(request: string, opts: { limit?: number } = {}): 
  * Named topics, in the order asked for.
  *
  * Writing a WHOLE section from nothing needs some of these every time rather
- * than when a word happens to match: a new file always declares blocks, always
- * takes a colour scheme, always has to be responsive. Composing them from the
+ * than when a word happens to match: a new file has to decide whether it has
+ * blocks at all (most single-purpose sections do not), always takes a colour
+ * scheme, always has to be responsive, and arrives with the theme's motion. Composing them from the
  * same array is what stops the authoring prompt and the retrieved reference
  * drifting into two different accounts of the same format.
  */
