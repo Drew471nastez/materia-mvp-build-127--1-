@@ -83,7 +83,7 @@ import { relativeTime } from "@/lib/communities/format"
 import { EMBED_NAMES, MAX_COMMENT_GIFS, MAX_COMMENT_MEDIA } from "@/lib/communities/post-media"
 import type { CommentView, FeedPostView, PostMedia, ViewerView } from "@/lib/communities/types"
 import { api, apiBase } from "./api"
-import { landComment } from "./arrive"
+import { landComment, scrollCommentIntoView } from "./arrive"
 import { BodyText } from "./body-text"
 import type { ConfirmState, ReportTargetRef } from "./dialogs"
 import { ConfirmSheet } from "./report-confirm"
@@ -899,28 +899,13 @@ function CommentItem({
   useLayoutEffect(() => {
     if (!lands) return
     landComment(rowRef.current)
-    /*
-      The member's own, brought into sight with a mouse and a keyboard only: on
-      a touch screen the box being typed in stays under the finger (and above
-      the on screen keyboard), never scrolled away from it. Somebody else's
-      never moves the reader.
-    */
+    /* The member's own: scroll it into sight once it has started to land (touch and desktop). */
     const el = rowRef.current
-    if (el && lands === "mine" && window.matchMedia?.("(hover: hover) and (pointer: fine)").matches && document.documentElement.dataset.keyboard !== "open") {
-      /*
-        Only the post's own scroller (the sheet's, the panel's) or the page is
-        moved, never scrollIntoView: that also scrolls the clipped boxes a
-        sheet is made of, and slid the phone's sheet off its own bottom.
-      */
-      const box = el.closest<HTMLElement>("[data-sheet-scroll], [data-post-overlay-scroll]")
-      const r = el.getBoundingClientRect()
-      const view = box ? box.getBoundingClientRect() : { top: 0, bottom: window.innerHeight }
-      const below = r.bottom - (view.bottom - 12)
-      if (below > 0) {
-        const opts: ScrollToOptions = { top: Math.min(below, r.top - view.top - 12), behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }
-        if (box) box.scrollBy(opts)
-        else window.scrollBy(opts)
-      }
+    if (el && lands === "mine") {
+      const run = () => scrollCommentIntoView(el)
+      const reduce = !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+      if (reduce) run()
+      else window.setTimeout(run, 80)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])

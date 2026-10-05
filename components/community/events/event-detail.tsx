@@ -29,7 +29,12 @@
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useCallback, useEffect, useState } from "react"
-import { ArrowLeft, CalendarDays, CalendarPlus, Check, Clock3, Lock, MapPin, Share2, Ticket, Users, Video } from "lucide-react"
+import { CalendarDays, CalendarPlus, Check, ChevronLeft, Clock3, Lock, MapPin, Share2, Ticket, Users, Video } from "lucide-react"
+import { ReturnLink } from "@/components/navigation/return-link"
+import { useFirstTap } from "@/lib/navigation/first-tap"
+import { backThen } from "@/lib/navigation/go-back"
+import { canReturnTo } from "@/lib/navigation/in-app-history"
+import { usePressFeedback } from "@/lib/navigation/press-feedback"
 import { Spinner } from "@/components/community/member/place-spinner"
 import { MemberAvatar, warmMemberFaces } from "@/components/community/member/member-avatar"
 import { CARD, PRIMARY, SECONDARY } from "@/components/library/library-ui"
@@ -41,7 +46,7 @@ import type { RsvpStatus } from "@/lib/communities/types"
 import { KIND_WORDS, goingLabel, isLive, isOver, whenLine, type EventDetailView } from "./model"
 import { TicketCheckoutSheet } from "./ticket-checkout"
 import { clockIn, useViewerZone, zoneCity } from "./use-zone"
-import { STACK, STACK_FACE } from "@/components/community/member/ui"
+import { DEPTH_PRESS, STACK, STACK_FACE } from "@/components/community/member/ui"
 
 export interface EventDetailProps {
   event: EventDetailView
@@ -203,10 +208,7 @@ export function EventDetail({ event: initial, eventsHref, aboutHref }: EventDeta
   return (
     <article data-event-page={event.id} className="pb-10">
       <div className="mb-4 flex items-center justify-between gap-3">
-        <Link href={eventsHref} className="inline-flex h-10 items-center gap-1.5 rounded-[10px] pr-2 text-[14px] font-medium text-[#4b5563] hover:text-[#1a1a2e]">
-          <ArrowLeft className="h-4 w-4" />
-          Events
-        </Link>
+        <EventBack href={eventsHref} />
         <button type="button" onClick={() => void shareEvent()} data-event-share="" className="inline-flex h-10 items-center gap-1.5 rounded-full border border-[#e4e7ec] bg-white px-3.5 text-[14px] font-medium text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.05)] hover:bg-[#f7f8fa]">
           <Share2 className="h-4 w-4" aria-hidden />
           Share
@@ -543,6 +545,59 @@ function TicketGatePanel({ event, zone, joinHref, now }: { event: EventDetailVie
           <li>{refundWords}</li>
         </ul>
       ) : null}
+    </div>
+  )
+}
+
+/** Back to the events list: same pill, prefetch and history pop as the post page. */
+function EventBack({ href }: { href: string }) {
+  const router = useRouter()
+  const press = usePressFeedback<HTMLAnchorElement>()
+  const warm = useCallback(() => {
+    try {
+      router.prefetch(href, { kind: "full" } as never)
+    } catch {
+      /* a prefetch that fails is a tap that waits */
+    }
+  }, [router, href])
+  const tap = useFirstTap<HTMLAnchorElement>(() => {
+    if (!canReturnTo(href)) return false
+    backThen(() => router.replace(href, { scroll: false }))
+    return true
+  })
+  return (
+    <div className="-mx-1 flex h-11 min-w-0 flex-1 items-center" data-event-page-back="">
+      <ReturnLink
+        href={href}
+        scroll={false}
+        prefetch
+        aria-label="Back to Events"
+        onPointerEnter={warm}
+        onFocus={warm}
+        onClick={tap.onClick}
+        onPointerDown={(e) => {
+          warm()
+          press.onPointerDown(e)
+          tap.onPointerDown(e)
+        }}
+        onPointerUp={(e) => {
+          press.onPointerUp()
+          tap.onPointerUp(e)
+        }}
+        onPointerCancel={() => {
+          press.onPointerUp()
+          tap.onPointerCancel()
+        }}
+        onPointerLeave={press.onPointerUp}
+        className="group/back inline-flex h-11 min-w-[44px] items-center rounded-full pl-1 pr-2 outline-none [-webkit-tap-highlight-color:transparent] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15"
+      >
+        <span
+          className={`inline-flex h-9 max-w-[min(100vw-2rem,280px)] items-center gap-0.5 rounded-full border border-[#e4e7ec] bg-white pl-2 pr-3.5 text-[14px] font-medium text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.05)] transition-[background-color,border-color,scale] duration-150 ease-out group-hover/back:border-[#d7dadf] group-active/back:scale-[0.96] group-active/back:bg-[#eef0f3] motion-reduce:transition-none ${DEPTH_PRESS}`}
+        >
+          <ChevronLeft className="h-[18px] w-[18px] shrink-0 text-[#4b5563] transition-[translate] duration-150 ease-out group-hover/back:-translate-x-0.5" strokeWidth={2.25} aria-hidden />
+          <span className="truncate">Events</span>
+        </span>
+      </ReturnLink>
     </div>
   )
 }

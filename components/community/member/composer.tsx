@@ -125,6 +125,7 @@ import { postSound, primeSounds } from "./heart"
 import { spaceGlyph } from "./space-glyph"
 import { toast } from "./toast"
 import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, CARD, DEPTH, DEPTH_PRESS, ICON_BTN } from "./ui"
+import { hapticTap } from "@/lib/native-bridge"
 import type { ComposerSpace, LinkPreview } from "./view-types"
 
 export interface ComposerProps {
@@ -621,6 +622,37 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
   const pollReady = !poll || (poll.question.trim() && poll.options.filter((o) => o.trim()).length >= 2)
   const space = spaces.find((s) => s.id === spaceId) ?? null
   const ready = !!title.trim() && !!body.trim() && !!spaceId && !uploading && !items.some((u) => u.error) && !!pollReady
+  const nudgeRing = (el: HTMLElement | null) => {
+    if (!el || typeof el.animate !== "function") return
+    el.animate(
+      [{ boxShadow: "0 0 0 0 rgba(26,26,46,0)" }, { boxShadow: "0 0 0 3px rgba(26,26,46,0.07)" }, { boxShadow: "0 0 0 0 rgba(26,26,46,0)" }],
+      { duration: 520, easing: "ease-out" },
+    )
+  }
+  const nudgePost = () => {
+    if (ready || busy || sent) return
+    hapticTap("light")
+    if (!title.trim()) {
+      titleRef.current?.focus({ preventScroll: true })
+      nudgeRing(titleRef.current)
+      return
+    }
+    if (!body.trim()) {
+      textRef.current?.focus()
+      return
+    }
+    if (!spaceId) {
+      const btn = cardRef.current?.querySelector<HTMLButtonElement>("button[data-composer-space]")
+      nudgeRing(btn)
+      btn?.focus({ preventScroll: true })
+      return
+    }
+    if (!pollReady) {
+      const q = cardRef.current?.querySelector<HTMLElement>("[data-poll-question]")
+      nudgeRing(q)
+      q?.focus({ preventScroll: true })
+    }
+  }
   const sheet = open && phone
   openRef.current = open
 
@@ -808,7 +840,8 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
 
   /* Edit post: the change sent, the check shown, the editor folded, then the post as it now is handed back. */
   const save = async () => {
-    if (!edit || busy || sent || !ready) return
+    if (!edit || busy || sent) return
+    if (!ready) return nudgePost()
     if (!dirty) return shut()
     setBusy(true)
     const all = linkMedia ? [...media, linkMedia] : media
@@ -832,7 +865,8 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
 
   const submit = async () => {
     if (editing) return save()
-    if (busy || sent || !ready) return
+    if (busy || sent) return
+    if (!ready) return nudgePost()
     setBusy(true)
     /* The whoosh is made ready in the press (a browser starts sound only from one) and played once the post is up. */
     primeSounds()
@@ -1222,7 +1256,16 @@ function PostButton({ busy, sent, ready, onClick, className = "", label = "Post"
   const state = sent ? "sent" : busy ? "busy" : "idle"
   const said = label === "Save" ? { sent: "Saved", busy: "Saving" } : { sent: "Posted", busy: "Posting" }
   return (
-    <button type="button" className={`${BTN_PRIMARY} ${className} ${busy || sent ? "disabled:opacity-100" : ""}`} onClick={onClick} disabled={busy || sent || !ready} aria-label={sent ? said.sent : busy ? said.busy : undefined} data-composer-post="" data-post-state={state}>
+    <button
+      type="button"
+      className={`${BTN_PRIMARY} ${className} ${busy || sent ? "disabled:opacity-100" : ""} ${!ready && !busy && !sent ? "opacity-90" : ""}`}
+      onClick={onClick}
+      disabled={busy || sent}
+      aria-label={sent ? said.sent : busy ? said.busy : !ready ? `${label}: add what's missing` : undefined}
+      data-composer-post=""
+      data-post-state={state}
+      data-post-ready={ready ? "true" : "false"}
+    >
       <span className="grid">
         <span className={face(state === "idle")}>{label}</span>
         <span className={face(state === "busy")} aria-hidden>

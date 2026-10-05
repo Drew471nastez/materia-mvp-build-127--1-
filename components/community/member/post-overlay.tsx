@@ -292,7 +292,12 @@ function OverlayFrame({ phone, post, open, phase, setPhase, close, onGone, conte
           </div>
         }
       >
-        <div ref={contentRef} data-post-overlay="phone" data-post-overlay-phase={phase}>
+        <div
+          ref={contentRef}
+          data-post-overlay="phone"
+          data-post-overlay-phase={phase}
+          className="min-h-full bg-white pb-[var(--kb-inset,0px)] transition-[padding-bottom] duration-[250ms] ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none"
+        >
           {content}
         </div>
       </BottomSheet>

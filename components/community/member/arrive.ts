@@ -219,3 +219,28 @@ export function landComment(el: HTMLElement | null) {
   move.onfinish = done
   move.oncancel = done
 }
+
+const SCROLL_PAD = 12
+
+/**
+ * Brings a comment row into the post's scroller (sheet or panel) or the page,
+ * without scrollIntoView (that also scrolls clipped ancestors and moved phone
+ * sheets). Used after the member's own comment lands.
+ */
+export function scrollCommentIntoView(el: HTMLElement) {
+  const box = el.closest<HTMLElement>("[data-sheet-scroll], [data-post-overlay-scroll]")
+  const r = el.getBoundingClientRect()
+  const view = box ? box.getBoundingClientRect() : { top: 0, bottom: window.innerHeight }
+  const behavior: ScrollBehavior = reduced() ? "auto" : "smooth"
+  const below = r.bottom - (view.bottom - SCROLL_PAD)
+  if (below > 0) {
+    if (box) box.scrollBy({ top: below, behavior })
+    else window.scrollBy({ top: below, behavior })
+    return
+  }
+  const above = r.top - (view.top + SCROLL_PAD)
+  if (above < 0) {
+    if (box) box.scrollBy({ top: above, behavior })
+    else window.scrollBy({ top: above, behavior })
+  }
+}

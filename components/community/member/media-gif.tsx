@@ -115,7 +115,17 @@ export function GifButton({ communityId, className, onPick, disabled = false }: 
     return (
       <>
         {trigger}
-        <BottomSheet isOpen={open} onClose={() => setOpen(false)} label="GIFs" height="min(70dvh, 560px)" maxHeight="min(70dvh, 560px)" fill aboveKeyboard>
+        <BottomSheet
+          isOpen={open}
+          onClose={() => setOpen(false)}
+          label="GIFs"
+          /* Tied to the visible viewport so the sheet and keyboard resize together (no jump on search focus). */
+          height="calc(var(--vv-h, 100dvh) * 0.72)"
+          maxHeight="calc(var(--vv-h, 100dvh) * 0.72)"
+          fill
+          aboveKeyboard
+          zIndex={140}
+        >
           {panel}
         </BottomSheet>
       </>
