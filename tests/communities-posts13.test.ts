@@ -148,7 +148,7 @@ async function main() {
   /* ── 6 ─────────────────────────────────────────────────────────────── */
   console.log("\n6. The lightbox")
   check("a double tap is two taps close in time and place, never two quick swipes", /const DOUBLE_TAP_MS = 300/.test(lightbox) && /Math\.hypot\(e\.clientX - tap\.x, e\.clientY - tap\.y\) < DOUBLE_TAP_PX/.test(lightbox) && /lastTap\.current = d && !g\.axis/.test(lightbox))
-  check("two pictures either side are mounted and decoded ahead once the slide rests", /export const LIGHTBOX_AHEAD = 2/.test(lightbox) && /Math\.abs\(i - index\) <= LIGHTBOX_AHEAD/.test(lightbox) && /img\.decode\(\)/.test(lightbox))
+  check("two pictures either side are mounted and decoded ahead once the slide rests", /export const LIGHTBOX_AHEAD = 2/.test(lightbox) && /Math\.abs\(i - index\) <= \(phase === "open" \? LIGHTBOX_AHEAD : 1\)/.test(lightbox) && /img\.decode\(\)/.test(lightbox))
 
   /* ── 7 ─────────────────────────────────────────────────────────────── */
   console.log("\n7. Share")
