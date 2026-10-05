@@ -85,21 +85,27 @@ type ProductRow = {
   page hands its sections an explicit subset (`productData` below), so nothing
   more reaches the browser.
 */
-const fetchProductBySlug = cache(async function fetchProductBySlug(slug: string): Promise<ProductRow | null> {
+const fetchProductBySlug = cache(async function fetchProductBySlug(slug: string, creatorId?: string): Promise<ProductRow | null> {
   const supabase = await createClient()
 
-  // Try current slug first
-  const { data } = await supabase
-    .from("products")
-    .select("*")
-    .eq("slug", slug)
-    .eq("status", "published")
-    .maybeSingle()
+  /*
+    ONE ROW, EVEN WHEN TWO SHOPS USE THE SAME SLUG. A slug is unique per
+    creator, not across Storelib: two creators can both sell an `ebook`.
+    This read was `.maybeSingle()` on the slug alone, which answers an error
+    and no row when two match, so the product page on BOTH websites was a
+    404. On a website the address names its owner, so the read is held to
+    that creator; storelib.com/products/<slug> has no owner to go by and
+    takes the oldest, which is the one that slug first belonged to.
+  */
+  let query = supabase.from("products").select("*").eq("slug", slug).eq("status", "published")
+  if (creatorId) query = query.eq("creator_id", creatorId)
+  const { data: rows } = await query.order("created_at", { ascending: true }).limit(1)
+  const data = Array.isArray(rows) ? rows[0] : null
 
   /* Storelib's own address for every picture and file, never the storage host's (lib/storage/media-url.ts). */
   if (data) return withMediaUrls(data) as ProductRow
 
-  // Fall back to renamed slugs
+  // Fall back to renamed slugs, held to the same owner.
   const { data: history } = await supabase
     .from("product_slug_history")
     .select(`
@@ -107,10 +113,13 @@ const fetchProductBySlug = cache(async function fetchProductBySlug(slug: string)
       products!inner ( * )
     `)
     .eq("old_slug", slug)
-    .maybeSingle()
+    .order("created_at", { ascending: false })
+    .limit(10)
 
-  const p: any = history?.products
-  if (p && p.status === "published") return withMediaUrls(p) as ProductRow
+  const found = ((history ?? []) as { products?: unknown }[])
+    .map((h) => (Array.isArray(h.products) ? h.products[0] : h.products) as { status?: string; creator_id?: string } | undefined)
+    .find((p) => p && p.status === "published" && (!creatorId || p.creator_id === creatorId))
+  if (found) return withMediaUrls(found) as ProductRow
   return null
 })
 
@@ -130,9 +139,9 @@ const fetchProductBySlug = cache(async function fetchProductBySlug(slug: string)
  */
 export async function productMetadata(
   slug: string,
-  where?: { url: string; brand: string; indexable: boolean } | { platform: true },
+  where?: { url: string; brand: string; indexable: boolean; creatorId?: string; locale?: string } | { platform: true },
 ): Promise<Metadata> {
-  const product = await fetchProductBySlug(slug)
+  const product = await fetchProductBySlug(slug, where && "creatorId" in where ? where.creatorId : undefined)
   if (!product) return { title: "Product Not Found", robots: { index: false, follow: false } }
 
   const ogImage = (product.gallery_urls?.[0]) || product.thumbnail_url || undefined
@@ -164,6 +173,8 @@ export async function productMetadata(
       description,
       ...(canonical ? { url: canonical } : {}),
       ...(site ? { siteName: site.brand } : {}),
+      /* The website's own language (Website Settings › General), as every other page of it says. */
+      ...(site?.locale ? { locale: site.locale } : {}),
       ...(ogImage && { images: [{ url: ogImage }] }),
     },
     twitter: {
@@ -176,8 +187,8 @@ export async function productMetadata(
 }
 
 /** A product's structured data on a creator's website, as a script body, or null. */
-export async function productStructuredData(slug: string, site: { url: string; seller: string }): Promise<string | null> {
-  const product = await fetchProductBySlug(slug)
+export async function productStructuredData(slug: string, site: { url: string; seller: string; creatorId?: string }): Promise<string | null> {
+  const product = await fetchProductBySlug(slug, site.creatorId)
   if (!product) return null
   const images = [product.thumbnail_url, ...(product.gallery_urls ?? [])].filter((u): u is string => typeof u === "string" && /^https?:\/\//.test(u))
   return jsonLdScript(
@@ -212,7 +223,7 @@ export async function renderProduct(
    */
   previewToken?: string,
 ) {
-  const product = await fetchProductBySlug(slug)
+  const product = await fetchProductBySlug(slug, owner?.creatorId)
   if (!product || !product.creator_id) notFound()
   if (owner && product.creator_id !== owner.creatorId) notFound()
 

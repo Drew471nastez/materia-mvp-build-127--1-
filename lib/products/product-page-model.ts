@@ -248,10 +248,20 @@ export function swatchColor(value: string): string | null {
 
 /* ── Price ────────────────────────────────────────────────────────────────── */
 
-/** `price_cents` is USD cents. One place, so every block agrees. */
-export function money(cents: number): string {
-  const v = Math.max(0, Math.round(cents)) / 100
-  return Number.isInteger(v) ? `$${v.toLocaleString("en-US")}` : `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+/** The shop's currency, as every card and checkout states it (lib/website-builder/shop-products.ts SHOP_CURRENCY). */
+export const PRODUCT_CURRENCY_CODE = "USD"
+
+/**
+ * `price_cents` as the shop prints a price. One place, so every block agrees,
+ * and agreeing with the product cards around it: "$48.00", "$1,250.00".
+ * This printed "$48" while a card for the same product on the same page
+ * said "$48.00". `code` is Theme settings › Currency format › Show currency
+ * codes, which the cards already followed: "$48.00 USD".
+ */
+export function money(cents: number, opts: { code?: boolean } = {}): string {
+  const v = Math.max(0, Math.round(Number(cents) || 0)) / 100
+  const text = `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  return opts.code ? `${text} ${PRODUCT_CURRENCY_CODE}` : text
 }
 
 /** The highest amount a buyer may name: the same ceiling checkout holds (MAX_PWYW_CENTS). */

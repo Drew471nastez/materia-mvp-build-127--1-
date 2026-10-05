@@ -277,7 +277,8 @@ section("The page")
   const page = read("app/app/website-builder/page.tsx")
   const client = stripComments(read("app/app/website-builder/website-builder-client.tsx"))
   check("the route is a server component", !/^\s*"use client"/m.test(page) && /export default async function/.test(page))
-  check("the server reads installs itself and seeds a first-time creator in the same request", /store_theme_installs/.test(page) && /initialize_creator_themes/.test(page))
+  /* The seed is the default theme as a draft now (lib/website-builder/starter-website.ts), not the database function that published one. */
+  check("the server reads installs itself and seeds a first-time creator in the same request", /store_theme_installs/.test(page) && /ensureStarterWebsite\(/.test(page) && !/initialize_creator_themes/.test(page))
   /*
     PAGES' TIMESTAMPS, NEVER THEIR SECTIONS. The list needs to know when each
     site was last edited, to tell a cover that is older than the site from

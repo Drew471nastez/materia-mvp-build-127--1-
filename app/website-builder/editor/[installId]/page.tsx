@@ -90,7 +90,7 @@ import { PIN_AFTER_SELECT_MS, PIN_WHILE_OPENING_MS, pinScroll, resetClippedAnces
 import { scrollToHash, themeRootOf } from "@/lib/website-builder/section-motion"
 import { SITE_DRAWER_OPEN_ATTRIBUTE } from "@/components/website-builder/drawer-frame"
 import { LEAVING_SEEN_MS, navigateWithCeiling } from "@/lib/website-builder/navigate-ceiling"
-import { isCanvasNavigationLink, isTypingTarget, leavesThePage, type ClickTargetLike } from "@/lib/website-builder/canvas-intercept"
+import { fileLinkHref, isCanvasNavigationLink, isTypingTarget, leavesThePage, type ClickTargetLike } from "@/lib/website-builder/canvas-intercept"
 import { FIELD_FLASH_MS, chainFrom, clickTarget, type ClickTarget, type ElementLike } from "@/lib/website-builder/click-to-edit"
 
 import { watchKeyboard } from "@/lib/website-builder/keyboard-watch"
@@ -8708,6 +8708,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               const internal = href.startsWith("/") && !/^\/\//.test(href)
 
               if (leavesThePage(e.target as unknown as ClickTargetLike | null)) e.preventDefault()
+
+              /* A download in the preview opens the file in a tab of its own (canvas-intercept.ts, fileLinkHref). */
+              const file = inspectorRef.current ? null : fileLinkHref(e.target as unknown as ClickTargetLike | null)
+              if (file) {
+                window.open(new URL(file, window.location.href).href, "_blank", "noopener,noreferrer")
+                return
+              }
 
               if (inNav && internal && !ownsItsExit) {
                 e.stopPropagation()

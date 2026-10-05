@@ -131,7 +131,7 @@ console.log("\nWired")
   check("the home page carries the website's structured data", /pageKey === "home" \? await homeStructuredData\(site, username\)/.test(render))
   const product = read("app/(site)/w/[username]/products/[slug]/page.tsx")
   check("a product page names its canonical address, respects a hidden site, and carries its structured data",
-    /productMetadata\(slug, \{ url: productUrl\(origin, slug\), brand, indexable: builtSiteIndexable\(settings, username\) \}\)/.test(product) && /application\/ld\+json/.test(product))
+    /productMetadata\(slug, \{ url: productUrl\(origin, slug\), brand, indexable: builtSiteIndexable\(settings, username\), creatorId: creator\.creatorId, locale: siteLocale\(settings\) \}\)/.test(product) && /application\/ld\+json/.test(product))
   /* The website's own primary domain, read through lib/custom-domains/store.ts, once it is live. */
   check("the canonical is the connected domain when there is one", /primaryHostFor\(creatorId, "website"\)/.test(read("lib/website-builder/site-seo-data.ts")) && /r\.status === "active"/.test(read("lib/custom-domains/store.ts")))
 }

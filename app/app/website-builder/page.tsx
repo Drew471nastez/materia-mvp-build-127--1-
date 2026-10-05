@@ -14,6 +14,7 @@ import {
   mobilePartner,
 } from "@/lib/website-builder/snapshot"
 import { pageUser } from "@/lib/auth/page-user"
+import { ensureStarterWebsite } from "@/lib/website-builder/starter-website"
 
 export const metadata: Metadata = {
   title: "Website",
@@ -32,8 +33,8 @@ export const metadata: Metadata = {
  * a list of three names.
  *
  * Now the server reads the installs once (settings only, no pages: the cover
- * is a picture, not a render), initialises a first-time creator in the same
- * request, and hands the client component a small, flat list. There is no
+ * is a picture, not a render), gives a creator with no website the default
+ * theme as a draft in the same request, and hands the client component a small, flat list. There is no
  * loading state inside the page and no route skeleton: a slow server render
  * is the app's stage to cover, the same way on every page in /app.
  */
@@ -131,12 +132,16 @@ export default async function WebsiteBuilderPage() {
   const handle = websiteHandleOf(creator.id)
   let { data: rows } = await load()
 
-  if (!rows || rows.length === 0) {
-    // First visit: the same idempotent seed the old page called from the
-    // browser, done here so the creator never sees an empty page first.
-    const admin = createAdminClient()
-    await admin.rpc("initialize_creator_themes", { p_creator_id: creator.id })
-    ;({ data: rows } = await load())
+  if (rows && rows.length === 0) {
+    /*
+      An empty library: Storelib Default goes in as a draft, so there is a
+      website to open and nothing is live until the creator publishes it.
+      Idempotent, and never twice (lib/website-builder/starter-website.ts).
+      Not on a read that failed: `rows` is null then, and a library that
+      could not be read is not an empty one.
+    */
+    const { installId } = await ensureStarterWebsite(createAdminClient(), creator.id)
+    if (installId) ({ data: rows } = await load())
   }
 
   const installs = await withStoredCovers(

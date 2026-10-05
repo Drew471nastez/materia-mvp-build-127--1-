@@ -105,3 +105,45 @@ export function isCanvasNavigationLink(target: ClickTargetLike | null): boolean 
   // all, so there is nothing for a press to be in the way of.
   return href.startsWith("/") && !href.startsWith("//")
 }
+
+/**
+ * ===========================================================================
+ *  A DOWNLOAD IN THE PREVIEW OPENS THE FILE
+ * ===========================================================================
+ * The canvas blocks every link's default, and a download is a link: a button
+ * pointing at the PDF a creator uploaded, a link with `download` on it, the
+ * receipt page an order's Download goes to. In the preview each of those did
+ * nothing at all, which reads as a broken button on the one thing a buyer
+ * pays for.
+ *
+ * A file is not a page of the site, so following it cannot take the builder
+ * anywhere: it opens in a tab of its own and the editor stays where it is.
+ * This says which links are files. The canvas asks it only with the inspector
+ * off, the preview you click through; with the inspector on a tap selects,
+ * as it does for every other link in a section.
+ *
+ * Pure, like the rest of this file. Returns the address to open, or null.
+ */
+const FILE_EXTENSION =
+  /\.(pdf|zip|rar|7z|epub|mobi|azw3|mp3|wav|m4a|aac|flac|ogg|mp4|mov|m4v|webm|psd|ai|eps|indd|sketch|fig|xd|txt|rtf|csv|xls|xlsx|doc|docx|ppt|pptx|key|pages|numbers|ttf|otf|woff|woff2|lrtemplate|xmp|dng|cube|3dl|stl|obj|fbx|blend|procreate|brushset|abr|atn|dmg|pkg|exe|msi|apk)$/i
+
+/** Paths on Storelib that are a purchase's files: the receipt is the download page, and the download route itself. */
+const DOWNLOAD_PATH = /^\/(receipt|downloads?)(\/|$)|^\/api\/download(\/|$)/i
+
+/** The path of an address, without its origin, query or fragment. */
+function pathOf(href: string): string {
+  const cut = href.split(/[?#]/)[0]
+  const m = cut.match(/^(?:https?:)?\/\/[^/]+(\/.*)?$/i)
+  return m ? (m[1] ?? "/") : cut
+}
+
+export function fileLinkHref(target: ClickTargetLike | null): string | null {
+  const anchor = target?.closest?.("a[href]")
+  if (!anchor) return null
+  const href = (anchor.getAttribute("href") ?? "").trim()
+  if (!href || href.startsWith("#") || /^(javascript|mailto|tel|sms|data):/i.test(href)) return null
+  if (anchor.getAttribute("download") !== null || anchor.getAttribute("data-download") !== null) return href
+  const path = pathOf(href)
+  if (FILE_EXTENSION.test(path) || DOWNLOAD_PATH.test(path)) return href
+  return null
+}

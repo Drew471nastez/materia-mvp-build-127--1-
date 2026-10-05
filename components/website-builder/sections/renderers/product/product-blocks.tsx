@@ -36,7 +36,6 @@ import {
   isColorOption,
   isNew,
   lowStock,
-  money,
   pickerOptions,
   stockLeft,
   suggestedAmounts,
@@ -75,6 +74,8 @@ export interface ProductCtx {
   wishlist: { saved: boolean; toggle: () => void }
   radius: string
   buttonRadius: CSSProperties
+  /** A price as the shop prints it, with the currency code when the theme shows codes. */
+  money: (cents: number) => string
 }
 
 type S = Record<string, unknown>
@@ -184,14 +185,14 @@ function Price({ s, ctx }: { s: S; ctx: ProductCtx }) {
   const sale = on(s.show_compare, true) && facts.compareAtCents !== null && facts.compareAtCents > facts.priceCents
   const pct = sale ? Math.round(((facts.compareAtCents! - facts.priceCents) / facts.compareAtCents!) * 100) : 0
   let main: string
-  if (facts.payWhatYouWant) main = facts.minCents > 0 ? `${str(s.pwyw_prefix, "From")} ${money(facts.minCents)}`.trim() : "Pay what you want"
-  else main = facts.priceCents === 0 ? str(s.free_label, "Free") : money(facts.priceCents)
+  if (facts.payWhatYouWant) main = facts.minCents > 0 ? `${str(s.pwyw_prefix, "From")} ${ctx.money(facts.minCents)}`.trim() : "Pay what you want"
+  else main = facts.priceCents === 0 ? str(s.free_label, "Free") : ctx.money(facts.priceCents)
   return (
     <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1" style={{ justifyContent: JUSTIFY[alignOf(s.align)] }} data-product-price="">
       <span className="font-semibold tabular-nums" style={{ fontSize: size, color }}>{main}</span>
       {sale ? (
         <>
-          <s className="tabular-nums" style={{ fontSize: Math.max(12, Math.round(size * 0.66)), color: ctx.palette.text_muted ?? ctx.palette.paragraph }}>{money(facts.compareAtCents!)}</s>
+          <s className="tabular-nums" style={{ fontSize: Math.max(12, Math.round(size * 0.66)), color: ctx.palette.text_muted ?? ctx.palette.paragraph }}>{ctx.money(facts.compareAtCents!)}</s>
           {on(s.show_saving, true) && pct > 0 ? <span className="text-[13px] font-semibold" style={{ color: colorOf(s.sale_color, ctx.palette, "accent") }}>Save {pct}%</span> : null}
         </>
       ) : null}
@@ -352,7 +353,7 @@ function PayWhatYouWant({ s, ctx }: { s: S; ctx: ProductCtx }) {
                 className="h-10 border px-4 text-[14px] font-medium tabular-nums"
                 style={{ borderRadius: ctx.radius, borderColor: chosen ? accent : ctx.palette.border, background: chosen ? accent : "transparent", color: chosen ? ctx.palette.background : ink }}
               >
-                {money(c)}
+                {ctx.money(c)}
               </button>
             )
           })}
@@ -375,7 +376,7 @@ function PayWhatYouWant({ s, ctx }: { s: S; ctx: ProductCtx }) {
         />
       </div>
       <p id="pwyw-help" className="text-[13px]" style={{ color: ctx.pwywError ? "#dc2626" : ctx.palette.text_muted ?? ctx.palette.paragraph }}>
-        {ctx.pwywError ?? (on(s.show_minimum, true) ? (facts.minCents > 0 ? `${money(facts.minCents)} or more` : "Any amount, including nothing") : "")}
+        {ctx.pwywError ?? (on(s.show_minimum, true) ? (facts.minCents > 0 ? `${ctx.money(facts.minCents)} or more` : "Any amount, including nothing") : "")}
       </p>
     </div>
   )

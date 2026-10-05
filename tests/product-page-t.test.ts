@@ -177,7 +177,7 @@ async function main() {
     const f = priceFacts(p, null)
     check("the price shown is the minimum", f.payWhatYouWant && f.priceCents === 500 && f.minCents === 500 && f.suggestedCents === 1200, f)
     check("typed amounts read as cents", amountToCents("12") === 1200 && amountToCents("$12.5") === 1250 && amountToCents("1,200") === 120000 && amountToCents("abc") === null && amountToCents("1.234") === null)
-    check("under the minimum is refused, with the minimum", checkPwyw(400, 500).ok === false && (checkPwyw(400, 500) as { error: string }).error === "The lowest price is $5.")
+    check("under the minimum is refused, with the minimum", checkPwyw(400, 500).ok === false && (checkPwyw(400, 500) as { error: string }).error === "The lowest price is $5.00.")
     check("over the ceiling is refused", checkPwyw(PWYW_MAX_CENTS + 1, 0).ok === false && PWYW_MAX_CENTS === MAX_PWYW_CENTS)
     check("the minimum itself is allowed", checkPwyw(500, 500).ok === true)
     check("suggested amounts: the block's own, never under the minimum", suggestedAmounts("3, 10, 25", 500, null).join() === "1000,2500")

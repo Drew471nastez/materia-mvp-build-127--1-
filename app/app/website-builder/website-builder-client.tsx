@@ -521,6 +521,8 @@ function ViewLabel() {
   )
 }
 const MORE_ON_CARD = cn(iconDepth, "h-11 w-11 rounded-xl px-0 text-[#4b5563]")
+/** Publish beside Customize on a draft's card: the same depth as the title's buttons, as tall as Customize. */
+const PUBLISH_ON_CARD = cn(secondaryDepth, "h-11 shrink-0 rounded-xl px-4 text-[14px] font-semibold text-[#1a1a2e]")
 /**
  * A library row's three dots: the same depth, 40px on a phone with an
  * invisible band to 48, and 36 from 640px, beside Publish and Edit.
@@ -738,7 +740,15 @@ export function WebsiteBuilderClient({
     : ([...installs]
         .filter((i) => i.status === "unpublished")
         .sort((a, b) => (Date.parse(b.published_at ?? "") || 0) - (Date.parse(a.published_at ?? "") || 0))[0] ?? null)
-  const library = installs.filter((i) => i.status !== "published")
+  /**
+   * NOTHING LIVE, AND NOTHING THAT WAS: the draft to open and publish takes
+   * the big card. That is the website a new account starts with (Storelib
+   * Default, installed as a draft by the server: lib/website-builder/
+   * starter-website.ts), or the first draft in the library. "Nothing is
+   * live" over a list somewhere below was a dead end with no door in it.
+   */
+  const starter = live || offline ? null : (installs.find((i) => i.status === "draft") ?? null)
+  const library = installs.filter((i) => i.status !== "published" && i.id !== starter?.id)
   const installedThemeIds = React.useMemo(() => new Set(installs.map((i) => i.theme_id)), [installs])
   const slotsUsed = installs.length
   const slotsLeft = Math.max(0, THEME_INSTALL_LIMIT - slotsUsed)
@@ -1073,7 +1083,10 @@ export function WebsiteBuilderClient({
     )
     if (i.status === "published") {
       items.push({ label: "Take offline", icon: <EyeOff />, onClick: () => setUnpublishing(i), variant: "warning", separatorBefore: true })
-    } else {
+    } else if (installs.length > 1) {
+      /* Not the only website: an empty library is given the default theme
+         again on the next visit, so removing the last one would only put a
+         fresh copy back. */
       items.push({ label: "Remove", icon: <Trash2 />, onClick: () => setDeleting(i), variant: "destructive", separatorBefore: true })
     }
     return items
@@ -1293,6 +1306,100 @@ export function WebsiteBuilderClient({
                   </div>
                 </div>
               </>
+            ) : starter ? (
+              /* A draft and nothing live: its picture, its name, and the two
+                 things to do with it, Customize first and Publish beside it. */
+              <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]" data-starter-card="">
+                <div className="min-w-0 p-4 pb-3 lg:pb-4 lg:pr-2">
+                  <button
+                    type="button"
+                    onClick={() => go(editorHref(username, starter.id))}
+                    aria-label={`Customize ${starter.name}`}
+                    data-cover=""
+                    data-picture-press=""
+                    className={COVER_FRAME}
+                  >
+                    <WebsiteCover install={starter} eager preparing={!!preparing[starter.id]} />
+                  </button>
+                </div>
+                <div className="flex min-w-0 flex-col px-4 pb-4 pt-2 lg:p-6 lg:pl-4">
+                  {/* Said as what it is, not as "Draft", a word that reads as a fault here. */}
+                  <span className="inline-flex items-center gap-1.5 text-[12px] font-semibold text-[#6b7280]" data-starter-status="">
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#9ca3af]" />
+                    Not published yet
+                  </span>
+                  <h2 id="live-heading" className="mt-2 truncate text-[20px] font-semibold tracking-tight text-[#1a1a2e]">
+                    {starter.name}
+                  </h2>
+                  <dl className="mt-4 divide-y divide-[#f0f1f3] border-y border-[#f0f1f3] text-[13px]">
+                    <div className="flex items-center justify-between gap-4 py-2.5">
+                      <dt className="text-[#6b7280]">Last edited</dt>
+                      <dd className="text-right font-medium text-[#1a1a2e]">{since(starter.saved_at)}</dd>
+                    </div>
+                    {starter.theme && starter.theme.name !== starter.name && (
+                      <div className="flex items-center justify-between gap-4 py-2.5">
+                        <dt className="text-[#6b7280]">Theme</dt>
+                        <dd className="min-w-0 truncate text-right font-medium text-[#1a1a2e]">{starter.theme.name}</dd>
+                      </div>
+                    )}
+                  </dl>
+                  <div className="mt-auto flex gap-2 pt-5" data-card-actions="">
+                    <Button
+                      onClick={() => go(editorHref(username, starter.id))}
+                      className="h-11 min-w-0 flex-1 rounded-xl bg-[#1a1a2e] text-[14px] font-semibold text-white hover:bg-[#2d2d44]"
+                      data-control="customize"
+                    >
+                      Customize
+                    </Button>
+                    <button
+                      type="button"
+                      onClick={() => setPublishing(starter)}
+                      disabled={busy === `${starter.id}:publish`}
+                      data-control="publish"
+                      className={PUBLISH_ON_CARD}
+                    >
+                      {busy === `${starter.id}:publish` ? <Loader2 className="h-4 w-4 animate-spin" /> : <Rocket className="h-4 w-4 text-[#4b5563]" strokeWidth={1.9} />}
+                      Publish
+                    </button>
+                    <ResponsiveActionMenu
+                      title={starter.name}
+                      items={menuFor(starter)}
+                      menuWidth="w-56"
+                      trigger={
+                        <button type="button" aria-label={`More actions for ${starter.name}`} data-more-button="" className={MORE_ON_CARD}>
+                          {busy?.startsWith(starter.id) && busy !== `${starter.id}:publish` ? (
+                            <Loader2 className="h-4 w-4 animate-spin text-[#6b7280]" />
+                          ) : (
+                            <MoreHorizontal className="h-4 w-4 text-[#4b5563]" strokeWidth={1.9} />
+                          )}
+                        </button>
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
+            ) : installs.length === 0 && !offline ? (
+              /* No website at all: the server could not make the first one
+                 (lib/website-builder/starter-website.ts). One press adds it. */
+              <div className="flex flex-col items-center gap-2 px-6 py-12 text-center" data-live-empty="first">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#f3f4f6] text-[#6b7280]">
+                  <Rocket className="h-4.5 w-4.5" />
+                </span>
+                <h2 id="live-heading" className="text-[15px] font-semibold text-[#1a1a2e]">
+                  No website yet
+                </h2>
+                <p className="max-w-[320px] text-[13px] text-[#6b7280]">Start from a theme, change what you like, and publish when it is ready.</p>
+                {explore[0] && (
+                  <Button
+                    onClick={() => void addTheme(explore[0])}
+                    disabled={making}
+                    className="mt-2 h-11 rounded-xl bg-[#1a1a2e] px-4 text-[14px] font-semibold text-white hover:bg-[#2d2d44] sm:h-10"
+                  >
+                    {making && <Loader2 className="h-4 w-4 animate-spin" />}
+                    Add {explore[0].name}
+                  </Button>
+                )}
+              </div>
             ) : (
               /* Nothing live. When a website was, the card says which and puts it back
                  in one press, at every width: on a phone the title has no

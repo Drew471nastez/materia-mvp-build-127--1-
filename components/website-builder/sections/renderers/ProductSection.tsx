@@ -51,6 +51,7 @@ import {
   choose as chooseValue,
   imageIndexForVariant,
   initialChoice,
+  money,
   priceFacts,
   productImages,
   purchasable,
@@ -218,6 +219,8 @@ export function ProductSection({ section: raw, theme, isEditing, isSelected, onC
     wishlist: { saved, toggle: () => { if (product.id) wishlistStore.toggle(product.id) } },
     radius,
     buttonRadius,
+    /* Theme settings › Currency format › Show currency codes, as the product cards on the same page follow it. */
+    money: (cents: number) => money(cents, { code: theme.currency_code_enabled === true }),
   }
 
   /* ── Layout ── */

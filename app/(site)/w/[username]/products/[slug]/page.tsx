@@ -5,6 +5,7 @@ import { creatorByName, publishedShopByName } from "@/lib/website-builder/publis
 import { productUrl } from "@/lib/website-builder/site-seo"
 import { builtSiteIndexable } from "@/lib/seo/indexing"
 import { siteOrigin } from "@/lib/website-builder/site-seo-data"
+import { siteLocale } from "@/lib/website-builder/site-language"
 
 /**
  * RENDERED PER REQUEST, unlike the pages of the site around it.
@@ -29,7 +30,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const settings = found.kind === "site" ? (found.site.themeSettings as Record<string, unknown>) : {}
   const brand = typeof settings.brand_name === "string" && settings.brand_name.trim() ? settings.brand_name.trim() : creator.displayName
   /* The site's own rule: its switch, and not under a handle the spam rules hold back. */
-  return productMetadata(slug, { url: productUrl(origin, slug), brand, indexable: builtSiteIndexable(settings, username) })
+  return productMetadata(slug, { url: productUrl(origin, slug), brand, indexable: builtSiteIndexable(settings, username), creatorId: creator.creatorId, locale: siteLocale(settings) })
 }
 
 /**
@@ -53,7 +54,7 @@ export default async function SiteProductPage({ params }: PageProps) {
   const origin = await siteOrigin(creator.creatorId, username)
   const [page, structured] = await Promise.all([
     renderProduct(slug, { creatorId: creator.creatorId }),
-    productStructuredData(slug, { url: productUrl(origin, slug), seller: creator.displayName }),
+    productStructuredData(slug, { url: productUrl(origin, slug), seller: creator.displayName, creatorId: creator.creatorId }),
   ])
   return (
     <>

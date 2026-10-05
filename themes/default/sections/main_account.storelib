@@ -206,6 +206,8 @@ a.item__row:hover .item__title { text-decoration: underline; text-underline-offs
 @container (min-width: 560px) { .addrs { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .addr { display: flex; flex-direction: column; padding: 16px 0; border-bottom: 1px solid var(--s-border); font-size: var(--section-text-size, 15px); line-height: 1.5; color: var(--s-heading); overflow-wrap: anywhere; }
 .addr.is-sample { color: var(--s-para); }
+/* One address takes the whole row, so its hairline runs the width of the others on the page. */
+.addr:only-child { grid-column: 1 / -1; }
 
 .entry {
   display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 56px;

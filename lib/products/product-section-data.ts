@@ -27,6 +27,7 @@
 import { cleanStoredHtml, looksLikeHtml, plainTextToHtml } from "@/lib/rich-text/html"
 import { variantSoldOut } from "@/lib/checkout/pricing"
 import { SAY_LEFT_FROM, liveVariant, physicalStock } from "@/lib/physical/storefront-stock"
+import { mediaUrl } from "@/lib/storage/media-url"
 import { uniqueImages, type ProductOptionData, type ProductSectionData, type ProductVariantData } from "./product-page-model"
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -171,7 +172,10 @@ export async function productSectionData(db: Db, row: ProductSectionRow, opts: {
       options: [v.option1 ?? null, v.option2 ?? null, v.option3 ?? null],
       price_cents: price,
       compare_at_cents: compare > price ? compare : null,
-      image_url: typeof v.image_url === "string" && v.image_url.trim() ? v.image_url.trim() : null,
+      /* Storelib's own address, as the product's own pictures already are:
+         the storage host's address for the same file was a second copy of
+         it in the gallery, and the variant's picture was never found there. */
+      image_url: typeof v.image_url === "string" && v.image_url.trim() ? mediaUrl(v.image_url.trim()) : null,
       available: !productSoldOut && !limited.has(v.id) && !(s?.soldOut ?? false),
       left: s ? s.left : null,
       max_quantity: s ? s.maxQuantity : type === "digital" ? 1 : 99,
@@ -181,8 +185,8 @@ export async function productSectionData(db: Db, row: ProductSectionRow, opts: {
     }
   })
 
-  const gallery = Array.isArray(row.gallery_urls) ? (row.gallery_urls as unknown[]).filter((u): u is string => typeof u === "string") : []
-  const thumbnail = row.thumbnail_url ?? ""
+  const gallery = Array.isArray(row.gallery_urls) ? (row.gallery_urls as unknown[]).filter((u): u is string => typeof u === "string").map((u) => mediaUrl(u)) : []
+  const thumbnail = mediaUrl(row.thumbnail_url ?? "") ?? ""
   const images = uniqueImages([thumbnail, ...gallery, ...variants.map((v) => v.image_url)])
 
   return {

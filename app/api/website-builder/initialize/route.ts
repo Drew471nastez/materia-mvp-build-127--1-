@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { mainProductSection } from "@/lib/website-builder/product-page"
+import { ensureStarterWebsite } from "@/lib/website-builder/starter-website"
 
 // Default product page template sections
 const DEFAULT_PRODUCT_SECTIONS = [
@@ -131,7 +132,7 @@ const DEFAULT_PRODUCT_SECTIONS = [
 ]
 
 // POST /api/website-builder/initialize
-// Idempotently seeds the 3 built-in theme installs for the current creator.
+// Idempotently gives a creator with no website the default theme, as a draft.
 // Also ensures product page templates exist for all installs.
 export async function POST() {
   const supabase = await createClient()
@@ -148,16 +149,9 @@ export async function POST() {
 
   if (!creator) return NextResponse.json({ error: "Creator not found" }, { status: 404 })
 
-  // Call the DB function — it's idempotent (no-op if already initialized)
-  const { error } = await admin.rpc("initialize_creator_themes", {
-    p_creator_id: creator.id,
-  })
-
-  if (error) {
-    /* The code only: the database's own words stay out of the log's readers and the browser. */
-    console.error("[initialize] initialize_creator_themes failed", { code: error.code })
-    return NextResponse.json({ error: "Could not set up your website. Try again." }, { status: 500 })
-  }
+  /* The default theme as a draft when the library is empty, never published
+     here: the same seed the website page runs (lib/website-builder/starter-website.ts). */
+  await ensureStarterWebsite(admin, creator.id)
 
   // Ensure product page templates exist for all installs
   const { data: installs } = await admin
