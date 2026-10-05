@@ -369,6 +369,7 @@ const SUITES = [
   "tests/sql-run-four.test.ts",
   "tests/buy-extras.test.ts",
   "tests/business-accounts.test.ts",
+  "tests/shown-email.test.ts",
   "tests/business-switch-flow.test.ts",
   "tests/push-recipients.test.ts",
   "tests/onboarding-polish.test.ts",
