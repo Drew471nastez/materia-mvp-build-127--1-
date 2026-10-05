@@ -112,7 +112,10 @@ function swallowEchoClicks(): () => void {
   }
   const arm = () => {
     window.clearTimeout(timer)
-    timer = window.setTimeout(() => window.removeEventListener("click", eat, true), until - Date.now() + 50)
+    /* The page (or a test's stand-in window) may be gone by the time this fires: nothing left to unhook then. */
+    timer = window.setTimeout(() => {
+      if (typeof window !== "undefined") window.removeEventListener("click", eat, true)
+    }, until - Date.now() + 50)
   }
   window.addEventListener("click", eat, true)
   arm()
