@@ -118,7 +118,7 @@ import { PHONE_ROW } from "./post-card"
 import { useKeepFieldInSight } from "./keep-in-sight"
 import { GifButton } from "./media-gif"
 import { LinkField, type LinkPick } from "./media-link"
-import { uploadCommunityFile, uploadKindOf, uploadPicture, uploadPostVideo, uploadVideoPoster } from "./media-upload"
+import { stopUpload, uploadCommunityFile, uploadKindOf, uploadPicture, uploadPostVideo, uploadVideoPoster } from "./media-upload"
 import { MentionTextarea, type MentionTextareaHandle } from "./mention-input"
 import { postSound, primeSounds } from "./heart"
 import { spaceGlyph } from "./space-glyph"
@@ -565,13 +565,14 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
         const kind = uploadKindOf(file)
         const k = newKey()
         if (kind === "image") {
-          add({ key: k, kind, name: file.name, size: file.size, preview: URL.createObjectURL(file), progress: 10 })
+          add({ key: k, kind, name: file.name, size: file.size, preview: URL.createObjectURL(file), progress: 0 })
           try {
-            const pic = await uploadPicture(file, userId, communityId)
+            const pic = await uploadPicture(file, userId, communityId, { key: k, onProgress: (p) => patch(k, { progress: p }) })
             patch(k, { progress: 100, media: pic })
           } catch (e) {
-            drop(k)
-            toast((e as Error).message || "The picture did not upload.")
+            const message = (e as Error).message || "The picture did not upload."
+            if (message === "Upload stopped") return drop(k)
+            patch(k, { error: message })
           }
           return
         }
@@ -582,8 +583,9 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
           const done = await uploadCommunityFile({ communityId, file, onProgress: (p) => patch(k, { progress: p }) })
           patch(k, { progress: 100, name: done.name, media: done })
         } catch (e) {
-          drop(k)
-          toast((e as Error).message || "The file did not upload.")
+          const message = (e as Error).message || "The file did not upload."
+          if (message === "Upload stopped") return drop(k)
+          patch(k, { error: message })
         }
       }),
     )
@@ -596,6 +598,7 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
   }
 
   const removeItem = (a: Attachment) => {
+    stopUpload(a.key)
     const m = a.media
     if (m?.type === "embed") {
       /* Taken off, it stays off: the address in the words does not bring it back. */
@@ -613,10 +616,10 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
       JSON.stringify(poll) !== JSON.stringify(pollDraftOf(was.poll)) ||
       JSON.stringify(linkMedia ? [...media, linkMedia] : media) !== JSON.stringify(was.media.filter((m) => m.type !== "link").concat(wasLink ? [wasLink] : []))
     : !!(title.trim() || body.trim() || items.length || poll || linkMedia)
-  const uploading = items.some((u) => !u.media)
+  const uploading = items.some((u) => !u.media && !u.error)
   const pollReady = !poll || (poll.question.trim() && poll.options.filter((o) => o.trim()).length >= 2)
   const space = spaces.find((s) => s.id === spaceId) ?? null
-  const ready = !!title.trim() && !!body.trim() && !!spaceId && !uploading && !!pollReady
+  const ready = !!title.trim() && !!body.trim() && !!spaceId && !uploading && !items.some((u) => u.error) && !!pollReady
   const sheet = open && phone
   openRef.current = open
 

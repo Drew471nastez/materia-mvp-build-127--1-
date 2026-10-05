@@ -25,17 +25,23 @@ export interface UploadOptions {
   contentType?: string
   /** 0 to 100, from the request's own upload events. */
   onProgress?: (percent: number) => void
+  /** When aborted, the in-flight request is cancelled. */
+  signal?: AbortSignal
 }
 
 class HttpError extends Error {}
 
 function viaXhr(url: string, token: string, file: Blob, o: UploadOptions): Promise<void> {
   return new Promise((resolve, reject) => {
+    if (o.signal?.aborted) return reject(new Error("Upload stopped"))
     const xhr = new XMLHttpRequest()
+    const onAbort = () => xhr.abort()
+    o.signal?.addEventListener("abort", onAbort, { once: true })
     xhr.upload.addEventListener("progress", (event) => {
       if (event.lengthComputable && event.total > 0) o.onProgress?.(Math.round((event.loaded / event.total) * 100))
     })
     xhr.addEventListener("load", () => {
+      o.signal?.removeEventListener("abort", onAbort)
       if (xhr.status >= 200 && xhr.status < 300) return resolve()
       let message = `Upload failed (${xhr.status})`
       try {
@@ -46,8 +52,14 @@ function viaXhr(url: string, token: string, file: Blob, o: UploadOptions): Promi
       }
       reject(new HttpError(message))
     })
-    xhr.addEventListener("error", () => reject(new Error("network")))
-    xhr.addEventListener("abort", () => reject(new Error("network")))
+    xhr.addEventListener("error", () => {
+      o.signal?.removeEventListener("abort", onAbort)
+      reject(new Error("network"))
+    })
+    xhr.addEventListener("abort", () => {
+      o.signal?.removeEventListener("abort", onAbort)
+      reject(new Error(o.signal?.aborted ? "Upload stopped" : "network"))
+    })
     xhr.open("POST", url)
     xhr.setRequestHeader("Authorization", `Bearer ${token}`)
     const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -60,10 +72,12 @@ function viaXhr(url: string, token: string, file: Blob, o: UploadOptions): Promi
 }
 
 export async function uploadWithProgress(bucket: string, path: string, file: Blob, o: UploadOptions = {}): Promise<void> {
+  if (o.signal?.aborted) throw new Error("Upload stopped")
   const supabase = createClient()
   const base = process.env.NEXT_PUBLIC_SUPABASE_URL
   const { data } = await supabase.auth.getSession()
   const token = data.session?.access_token
+  if (!token) throw new Error("Sign in again to upload.")
   if (base && token && typeof XMLHttpRequest !== "undefined") {
     try {
       const encoded = path.split("/").map(encodeURIComponent).join("/")
@@ -72,7 +86,7 @@ export async function uploadWithProgress(bucket: string, path: string, file: Blo
       return
     } catch (err) {
       /* Storage answered and said no: that is the answer, not a reason to try again. */
-      if (err instanceof HttpError) throw err
+      if (err instanceof HttpError || (err instanceof Error && err.message === "Upload stopped")) throw err
     }
   }
   const { error } = await supabase.storage.from(bucket).upload(path, file, {

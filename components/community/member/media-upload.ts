@@ -20,6 +20,7 @@
  */
 import { createClient } from "@/lib/supabase/client"
 import { confirmUpload } from "@/lib/storage/confirm-upload"
+import { uploadWithProgress } from "@/lib/storage/upload-with-progress"
 import { PICTURE_BUCKET, memberPictureFolder } from "@/lib/communities/post-media"
 import type { PostMedia } from "@/lib/communities/types"
 import { uploadCommunityVideo, waitUntilPlayable } from "@/lib/video/upload-client"
@@ -61,28 +62,62 @@ export function localPicture(url: string): string | null {
   return LOCAL.get(url) ?? null
 }
 
+/** Uploads under way, by the composer's key for each, so taking one off the post stops its upload. */
+const SENDING = new Map<string, AbortController>()
+
+/** Stops the upload (or the wait) for this key, if there is one. */
+export function stopUpload(key: string): void {
+  SENDING.get(key)?.abort()
+  SENDING.delete(key)
+}
+
+export interface PictureUploadOptions {
+  key?: string
+  onProgress?: (percent: number) => void
+}
+
 /** A picture into the member's own folder of the picture bucket. */
-export async function uploadPicture(file: File, userId: string, communityId: string): Promise<Extract<PostMedia, { type: "image" }>> {
+export async function uploadPicture(file: File, userId: string, communityId: string, input: PictureUploadOptions = {}): Promise<Extract<PostMedia, { type: "image" }>> {
   if (uploadKindOf(file) !== "image") throw new Error("That file is not a picture.")
   if (file.size > 25 * 1024 * 1024) throw new Error("That picture is over 25 MB.")
-  /* Lighter first: 2560px at most, WebP (or JPEG) at 0.85, no EXIF; a GIF keeps its frames (media-compress.ts). */
-  const upload = await compressPostPicture(file)
-  const size = await pictureSize(upload)
-  const supabase = createClient()
-  const ext = (upload.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg"
-  /* The member's own folder first: storage only lets a person write there. */
-  /* The same folder a comment's picture is checked against on the server (comments.ts checkCommentMedia). */
-  const path = `${memberPictureFolder(userId, communityId)}${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`
-  const { error } = await supabase.storage.from(PICTURE_BUCKET).upload(path, upload, { cacheControl: "31536000", contentType: upload.type, upsert: false })
-  if (error) throw new Error("The picture did not upload. Check the connection and try again.")
-  confirmUpload(PICTURE_BUCKET, path)
-  const { data } = supabase.storage.from(PICTURE_BUCKET).getPublicUrl(path)
+  const ctrl = new AbortController()
+  if (input.key) SENDING.set(input.key, ctrl)
+  const bump = (p: number) => input.onProgress?.(Math.max(0, Math.min(100, Math.round(p))))
   try {
-    LOCAL.set(data.publicUrl, URL.createObjectURL(upload))
-  } catch {
-    /* No object addresses here: the stored copy is drawn instead. */
+    bump(4)
+    /* Lighter first: 2560px at most, WebP (or JPEG) at 0.85, no EXIF; a GIF keeps its frames (media-compress.ts). */
+    const upload = await compressPostPicture(file)
+    if (ctrl.signal.aborted) throw new Error("Upload stopped")
+    bump(18)
+    const size = await pictureSize(upload)
+    const supabase = createClient()
+    const ext = (upload.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg"
+    /* The member's own folder first: storage only lets a person write there. */
+    /* The same folder a comment's picture is checked against on the server (comments.ts checkCommentMedia). */
+    const path = `${memberPictureFolder(userId, communityId)}${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`
+    await uploadWithProgress(PICTURE_BUCKET, path, upload, {
+      cacheControl: "31536000",
+      contentType: upload.type || "image/jpeg",
+      upsert: false,
+      signal: ctrl.signal,
+      onProgress: (p) => bump(20 + (p * 78) / 100),
+    })
+    confirmUpload(PICTURE_BUCKET, path)
+    const { data } = supabase.storage.from(PICTURE_BUCKET).getPublicUrl(path)
+    try {
+      LOCAL.set(data.publicUrl, URL.createObjectURL(upload))
+    } catch {
+      /* No object addresses here: the stored copy is drawn instead. */
+    }
+    bump(100)
+    return { type: "image", url: data.publicUrl, ...(size.w ? { w: size.w, h: size.h } : {}) }
+  } catch (e) {
+    const message = e instanceof Error ? e.message : ""
+    if (message === "Upload stopped") throw new Error("Upload stopped")
+    throw new Error(message && message.includes(" ") ? message : "The picture did not upload. Check the connection and try again.")
+  } finally {
+    if (input.key && SENDING.get(input.key) === ctrl) SENDING.delete(input.key)
   }
-  return { type: "image", url: data.publicUrl, ...(size.w ? { w: size.w, h: size.h } : {}) }
 }
 
 /**
@@ -159,15 +194,6 @@ export async function uploadPostVideo(input: { communityId: string; file: File; 
   } finally {
     if (input.key && SENDING.get(input.key) === ctrl) SENDING.delete(input.key)
   }
-}
-
-/** Uploads under way, by the composer's key for each, so taking one off the post stops its upload. */
-const SENDING = new Map<string, AbortController>()
-
-/** Stops the upload (or the wait) for this key, if there is one. */
-export function stopUpload(key: string): void {
-  SENDING.get(key)?.abort()
-  SENDING.delete(key)
 }
 
 export class FileUploadError extends Error {}

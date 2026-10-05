@@ -615,12 +615,14 @@ function CommentBox({
       taken.map(async (file) => {
         const k = newKey()
         const preview = URL.createObjectURL(file)
-        setPicks((l) => [...l, { key: k, kind: "image", name: file.name, preview, progress: 10 }])
+        setPicks((l) => [...l, { key: k, kind: "image", name: file.name, preview, progress: 0 }])
         try {
-          patch(k, { progress: 100, media: await uploadPicture(file, author.id, communityId) })
+          const media = await uploadPicture(file, author.id, communityId, { key: k, onProgress: (p) => patch(k, { progress: p }) })
+          patch(k, { progress: 100, media })
         } catch (e) {
-          drop(k)
-          toast((e as Error).message || "The picture did not upload.")
+          const message = (e as Error).message || "The picture did not upload."
+          if (message === "Upload stopped") return drop(k)
+          patch(k, { error: message })
         }
       }),
     )

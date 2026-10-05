@@ -21,6 +21,7 @@
  */
 import { useCallback, useLayoutEffect, useRef } from "react"
 import { SHEET_EASE } from "@/components/ui/bottom-sheet"
+import { hapticTap } from "@/lib/native-bridge"
 
 export const SLIDE_MS = 420
 export const FADE_IN_MS = 260
@@ -118,6 +119,7 @@ export function animateArrival(els: HTMLElement[], opts: ArriveOptions = {}) {
   if (opts.mine) {
     highlight(first)
     bringIntoSight(first)
+    hapticTap("light")
   }
   if (reduced() || typeof first.animate !== "function") return
   /*
@@ -140,7 +142,14 @@ export function animateArrival(els: HTMLElement[], opts: ArriveOptions = {}) {
     if (x.getBoundingClientRect().top - pushed > window.innerHeight) break
     followers.push(x)
   }
-  for (const el of els) el.animate([{ opacity: 0, translate: "0 -6px" }, { opacity: 1, translate: "0 0" }], { duration: FADE_IN_MS, delay: 60, easing: "ease-out", fill: "backwards" })
+  const mineEase = opts.mine ? "cubic-bezier(0.22, 1, 0.36, 1)" : "ease-out"
+  for (const el of els)
+    el.animate(
+      opts.mine
+        ? [{ opacity: 0, translate: "0 -10px", scale: "0.985" }, { opacity: 1, translate: "0 0", scale: "1" }]
+        : [{ opacity: 0, translate: "0 -6px" }, { opacity: 1, translate: "0 0" }],
+      { duration: FADE_IN_MS, delay: opts.mine ? 40 : 60, easing: mineEase, fill: "backwards" },
+    )
   for (const x of followers) x.animate([{ translate: `0 ${-pushed}px` }, { translate: "0 0" }], { duration: SLIDE_MS, easing: SHEET_EASE })
 }
 

@@ -53,8 +53,8 @@ export const MOUSE_LIFT_PX = 4
 /** A finger that moves this far before the hold is over is scrolling. */
 export const TOUCH_SLOP_PX = 8
 /** How long the neighbours take to slide, and the tile to settle. */
-export const SLIDE_MS = 200
-export const SETTLE_MS = 180
+export const SLIDE_MS = 160
+export const SETTLE_MS = 150
 export const LIFT_SCALE = 1.06
 const EASE = "cubic-bezier(0.2, 0.8, 0.2, 1)"
 
@@ -129,6 +129,8 @@ export function AttachmentTray<T extends TrayItem>({
 }) {
   const strip = useRef<HTMLDivElement>(null)
   const drag = useRef<Drag | null>(null)
+  const placeRaf = useRef(0)
+  const placePending = useRef<{ d: Drag; x: number; y: number } | null>(null)
   const [held, setHeld] = useState<string | null>(null)
   const [said, setSaid] = useState("")
   const failed = items.find((x) => x.error)
@@ -136,7 +138,13 @@ export function AttachmentTray<T extends TrayItem>({
   /* Settling after a drop: a new drag waits for it. */
   const settling = useRef(false)
   /* The tray going away mid drag: its window listeners go with it. */
-  useEffect(() => () => drag.current?.off(), [])
+  useEffect(
+    () => () => {
+      if (placeRaf.current) cancelAnimationFrame(placeRaf.current)
+      drag.current?.off()
+    },
+    [],
+  )
 
   const tiles = () => Array.from(strip.current?.querySelectorAll<HTMLElement>(":scope > [data-tray-tile]") ?? [])
 
@@ -172,7 +180,7 @@ export function AttachmentTray<T extends TrayItem>({
     if (d.touch) hapticTap("soft")
   }
 
-  function place(d: Drag, x: number, y: number) {
+  function applyPlace(d: Drag, x: number, y: number) {
     const dx = x - d.startX
     const dy = y - d.startY
     d.els[d.from].style.translate = `${dx}px ${dy}px`
@@ -185,6 +193,17 @@ export function AttachmentTray<T extends TrayItem>({
       if (i === d.from) return
       const s = slotWhileMoving(i, d.from, to)
       el.style.translate = s === i ? "0px 0px" : `${d.rects[s].left - d.rects[i].left}px ${d.rects[s].top - d.rects[i].top}px`
+    })
+  }
+
+  function place(d: Drag, x: number, y: number) {
+    placePending.current = { d, x, y }
+    if (placeRaf.current) return
+    placeRaf.current = requestAnimationFrame(() => {
+      placeRaf.current = 0
+      const p = placePending.current
+      if (!p || drag.current !== p.d || !p.d.lifted) return
+      applyPlace(p.d, p.x, p.y)
     })
   }
 
@@ -300,7 +319,7 @@ export function AttachmentTray<T extends TrayItem>({
             onPointerDown={(e) => onPointerDown(e, i, item.key)}
             onKeyDown={(e) => onKeyDown(e, i, item)}
             onContextMenu={(e) => drag.current && e.preventDefault()}
-            className={`relative h-[84px] w-[84px] shrink-0 select-none rounded-xl outline-none [-webkit-touch-callout:none] [-webkit-tap-highlight-color:transparent] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/25 ${items.length > 1 ? (held === item.key ? "cursor-grabbing" : "cursor-grab") : ""}`}
+            className={`relative h-[84px] w-[84px] shrink-0 select-none rounded-[10px] outline-none touch-manipulation [-webkit-touch-callout:none] [-webkit-tap-highlight-color:transparent] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/25 ${items.length > 1 ? (held === item.key ? "cursor-grabbing" : "cursor-grab") : ""}`}
             data-tray-tile={item.kind}
             data-attachment={item.kind}
             data-key={item.key}
@@ -326,7 +345,7 @@ export function AttachmentTray<T extends TrayItem>({
             type="button"
             onClick={onAdd}
             aria-label="Add more"
-            className="flex h-[84px] w-[84px] shrink-0 flex-col items-center justify-center gap-1 rounded-xl border border-[#e3e5e9] bg-white text-[#6b7280] shadow-[0_1px_1px_rgba(16,24,40,0.04)] outline-none transition-colors hover:bg-[#f6f7f8] hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 [-webkit-tap-highlight-color:transparent]"
+            className="flex h-[84px] w-[84px] shrink-0 flex-col items-center justify-center gap-1 rounded-[10px] border border-[#e3e5e9] bg-white text-[#6b7280] shadow-[0_1px_1px_rgba(16,24,40,0.04)] outline-none transition-colors hover:bg-[#f6f7f8] hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 touch-manipulation [-webkit-tap-highlight-color:transparent]"
             data-tray-add=""
           >
             <Plus className="h-5 w-5" strokeWidth={1.75} aria-hidden />
@@ -372,8 +391,9 @@ function Tile({ item }: { item: TrayItem }) {
     )
   }
   const motion = item.kind === "video" || item.kind === "embed"
+  const showUpload = sending && (item.kind === "video" || item.kind === "image" || item.kind === "gif")
   return (
-    <div className="relative h-full w-full overflow-hidden rounded-xl bg-[#eef0f2] ring-1 ring-inset ring-black/[0.06]">
+    <div className="relative h-full w-full overflow-hidden rounded-[10px] bg-[#eef0f2] ring-1 ring-inset ring-black/[0.06]">
       {item.preview ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -399,7 +419,7 @@ function Tile({ item }: { item: TrayItem }) {
           <ProviderMark provider={item.media.provider} size={14} />
         </span>
       ) : null}
-      {sending && item.kind === "video" ? (
+      {showUpload ? (
         <span className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/35 text-white" aria-label={processing ? "Processing" : `Uploading, ${Math.round(item.progress)}%`} data-tray-progress={processing ? "processing" : "uploading"}>
           {processing ? (
             <>
@@ -411,7 +431,7 @@ function Tile({ item }: { item: TrayItem }) {
           )}
           {!processing ? (
             <span className="absolute inset-x-2 bottom-2 h-[3px] overflow-hidden rounded-full bg-white/30">
-              <span className="block h-full origin-left rounded-full bg-white transition-[scale] duration-200 ease-out motion-reduce:transition-none" style={{ scale: `${Math.max(0.02, item.progress / 100)} 1` }} />
+              <span className="block h-full origin-left rounded-full bg-white will-change-[scale] motion-reduce:transition-none" style={{ scale: `${Math.max(0.02, item.progress / 100)} 1`, transition: "scale 80ms linear" }} />
             </span>
           ) : null}
         </span>

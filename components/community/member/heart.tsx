@@ -270,8 +270,8 @@ export function postSound(): boolean {
   const ctx = soundContext()
   if (!ctx) return false
   try {
-    const length = 0.34
-    const t = ctx.currentTime + 0.004
+    const length = 0.28
+    const t = ctx.currentTime + 0.003
     const frames = Math.ceil(ctx.sampleRate * length)
     const buffer = ctx.createBuffer(1, frames, ctx.sampleRate)
     const data = buffer.getChannelData(0)
@@ -280,12 +280,12 @@ export function postSound(): boolean {
     noise.buffer = buffer
     const band = ctx.createBiquadFilter()
     band.type = "bandpass"
-    band.Q.setValueAtTime(1.1, t)
-    band.frequency.setValueAtTime(420, t)
-    band.frequency.exponentialRampToValueAtTime(2600, t + length * 0.8)
+    band.Q.setValueAtTime(0.95, t)
+    band.frequency.setValueAtTime(520, t)
+    band.frequency.exponentialRampToValueAtTime(2200, t + length * 0.72)
     const gain = ctx.createGain()
     gain.gain.setValueAtTime(0.0001, t)
-    gain.gain.exponentialRampToValueAtTime(0.05, t + length * 0.35)
+    gain.gain.exponentialRampToValueAtTime(0.038, t + length * 0.28)
     gain.gain.exponentialRampToValueAtTime(0.0001, t + length)
     noise.connect(band)
     band.connect(gain)
