@@ -135,6 +135,35 @@ const PIN_TWEEN_MS = 220
 /** How long the ring takes to fade out once the refresh is done. */
 const EXIT_FADE_MS = 260
 
+/* ── The spokes ────────────────────────────────────────────────────────────
+   Round 11 (components/ui/pull-to-refresh.tsx): the shared component's
+   indicator is iOS's activity spinner, eight spokes, instead of the ring.
+   Its numbers live here because the hook paints it too.
+
+   IT NEVER OVERLAPS ANYTHING. The spinner lives in the gap the pull opens
+   above the content and nowhere else: its centre is the gap's middle and
+   its drawn size is the gap less SPOKES_MARGIN at each end, up to its full
+   size. While the gap is small it is small; while the page springs home it
+   shrinks with the gap. So on every frame its box sits inside [0, gap],
+   which is exactly where the content is not (measured on every frame by
+   scripts/check-community-frame11.mjs PULL).
+
+   THE SPOKES COME ONE BY ONE WITH THE PULL, clockwise from twelve, all the
+   same quiet grey, the eighth landing as the pull reaches the line where
+   letting go refreshes. Refreshing, they take the spinner's fading tail and
+   turn (a CSS animation on their own box, the compositor's), until the
+   refresh settles. */
+/** The spinner's full size, and the room kept clear above and below it. */
+export const SPOKES_SIZE = 24
+export const SPOKES_MARGIN = 6
+/** The gap held open while refreshing: the spinner and its room. */
+export const SPOKES_HOLD = SPOKES_SIZE + 2 * SPOKES_MARGIN + 8
+/** Where the first spoke shows: a gap any smaller draws nothing. */
+const SPOKES_FIRST_PX = 12
+/** One turn while refreshing. */
+export const SPOKES_SPIN = "ptr-spokes-spin 0.9s linear infinite"
+const SPOKES_PULL_OPACITY = 0.72
+
 interface Options {
   /** Offset in px that arms a refresh (default: PULL_TO_REFRESH.threshold) */
   threshold?: number
@@ -233,8 +262,10 @@ export function usePullToRefresh(
   const partsRef = useRef<{
     root: HTMLElement
     turn: HTMLElement | SVGElement
-    spin: SVGElement
-    arc: SVGCircleElement
+    spin: HTMLElement | SVGElement
+    arc: SVGCircleElement | null
+    /** The spokes' indicator (components/ui/pull-to-refresh.tsx), when that is the one drawn: its eight lines, and their resting opacities while spinning. */
+    spokes: { lines: SVGElement[]; rest: number[] } | null
   } | null>(null)
 
   const parts = useCallback(() => {
@@ -244,8 +275,9 @@ export function usePullToRefresh(
     const turn = root.querySelector<SVGElement>("[data-ptr-turn]")
     const spin = root.querySelector<SVGElement>("[data-ptr-spin]")
     const arc = root.querySelector<SVGCircleElement>("[data-ptr-arc]")
-    if (!turn || !spin || !arc) return null
-    partsRef.current = { root, turn, spin, arc }
+    const lines = [...root.querySelectorAll<SVGElement>("[data-ptr-spoke]")]
+    if (!turn || !spin || (!arc && !lines.length)) return null
+    partsRef.current = { root, turn, spin, arc, spokes: lines.length ? { lines, rest: lines.map((l) => Number(l.getAttribute("data-rest") || 1)) } : null }
     return partsRef.current
   }, [])
 
@@ -270,7 +302,7 @@ export function usePullToRefresh(
   const paintRing = useCallback(
     (o: { y: number; opacity: number; scale: number; turn: number; dash: number }) => {
       const p = parts()
-      if (!p) return
+      if (!p || !p.arc) return
       p.root.style.transform = `translate3d(0, ${o.y}px, 0) scale(${o.scale})`
       p.root.style.opacity = String(o.opacity)
       p.turn.style.transform = `rotate(${o.turn}deg)`
@@ -278,6 +310,28 @@ export function usePullToRefresh(
     },
     [parts]
   )
+
+  /**
+   * The spokes for a gap of `gap` px: centred in it and never larger than
+   * it allows (THE SPOKES above). `spinning` draws the spinner's tail (each
+   * spoke at its resting opacity) rather than the pull's count of spokes;
+   * `fade` (0 to 1) dims the whole thing on the way out.
+   */
+  const paintSpokes = useCallback(
+    (gap: number, spinning: boolean, fade = 0) => {
+      const p = parts()
+      if (!p?.spokes) return
+      const scale = Math.max(0, Math.min(1, (gap - 2 * SPOKES_MARGIN) / SPOKES_SIZE))
+      p.root.style.transform = `translate3d(0, ${(gap - SPOKES_SIZE) / 2}px, 0) scale(${scale})`
+      p.root.style.opacity = String(scale > 0.02 ? 1 - fade : 0)
+      const shown = spinning ? 8 : Math.max(0, Math.min(1, (gap - SPOKES_FIRST_PX) / (threshold - SPOKES_FIRST_PX))) * 8
+      p.spokes.lines.forEach((l, i) => {
+        l.style.opacity = String(spinning ? p.spokes!.rest[i] : Math.max(0, Math.min(1, shown - i)) * SPOKES_PULL_OPACITY)
+      })
+    },
+    [parts, threshold]
+  )
+  const spokesDrawn = useCallback(() => !!parts()?.spokes, [parts])
 
   /** Everything the ring looks like at a given pull offset. */
   const ringAt = useCallback(
@@ -298,9 +352,10 @@ export function usePullToRefresh(
     (offset: number) => {
       offsetRef.current = offset
       paintContent(offset)
-      paintRing(ringAt(offset))
+      if (spokesDrawn()) paintSpokes(offset, false)
+      else paintRing(ringAt(offset))
     },
-    [paintContent, paintRing, ringAt]
+    [paintContent, paintRing, paintSpokes, ringAt, spokesDrawn]
   )
 
   /* ── will-change, only while something is moving ───────────────────────
@@ -350,7 +405,8 @@ export function usePullToRefresh(
       if (reducedMotion()) {
         offsetRef.current = to
         paintContent(to)
-        if (mode === "pin") paintRing({ y: restingY, opacity: 1, scale: 1, turn: heldTurnRef.current ?? PULL_TURN_DEG, dash: endDash })
+        if (spokesDrawn()) paintSpokes(to, mode !== "release", mode === "exit" ? 1 : 0)
+        else if (mode === "pin") paintRing({ y: restingY, opacity: 1, scale: 1, turn: heldTurnRef.current ?? PULL_TURN_DEG, dash: endDash })
         else if (mode === "exit") paintRing({ y: restingY, opacity: 0, scale: IDLE_SCALE, turn: heldTurnRef.current ?? 0, dash: endDash })
         else paintRing(ringAt(to))
         done?.()
@@ -381,7 +437,10 @@ export function usePullToRefresh(
         paintContent(x)
 
         const elapsed = now - started
-        if (mode === "release") {
+        if (spokesDrawn()) {
+          /* The spokes follow the gap in every ending, so they are never outside it; on the way out they also dim. */
+          paintSpokes(x, mode !== "release", mode === "exit" ? Math.min(elapsed / EXIT_FADE_MS, 1) : 0)
+        } else if (mode === "release") {
           paintRing(ringAt(x))
         } else if (mode === "pin") {
           const u = Math.min(elapsed / PIN_TWEEN_MS, 1)
@@ -417,7 +476,7 @@ export function usePullToRefresh(
       }
       frameRef.current = requestAnimationFrame(step)
     },
-    [cancelFrame, paintContent, paintRing, ringAt, restingY, threshold]
+    [cancelFrame, paintContent, paintRing, paintSpokes, ringAt, restingY, spokesDrawn, threshold]
   )
 
   /* ── Refresh ───────────────────────────────────────────────────────────── */
@@ -430,7 +489,7 @@ export function usePullToRefresh(
     /* The spin is a CSS animation on a node INSIDE the one holding the pull
        rotation, so it starts from the angle the pull left behind instead of
        snapping to zero, and the two compose into one continuous turn. */
-    if (p) p.spin.style.animation = "ptr-spin 0.75s linear infinite"
+    if (p) p.spin.style.animation = p.spokes ? SPOKES_SPIN : "ptr-spin 0.75s linear infinite"
     settle(refreshHold, "pin")
 
     const started = performance.now()

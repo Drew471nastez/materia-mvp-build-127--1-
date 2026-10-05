@@ -8,12 +8,20 @@
  *
  * At the top of the page, pull down: the page follows the finger on a rubber
  * band (UIScrollView's curve: one for one at first, heavier and heavier,
- * never a hard stop), a thin grey ring draws itself in the room the pull
- * opens, the phone gives one light tick as the pull crosses the line where
- * letting go refreshes, and the page rests a ring's height down, the ring
- * turning, until onRefresh settles; then it springs home.
+ * never a hard stop), iOS's spinner appears in the room the pull opens, its
+ * spokes one by one as the pull grows (round 11), the phone gives one light
+ * tick as the pull crosses the line where letting go refreshes, and the
+ * page rests a spinner's height down, the spinner turning, until onRefresh
+ * settles; then it springs home.
  *
- * ONE ENGINE. The gesture, the spring and the ring are the /app home's own
+ * THE SPINNER HAS ITS OWN ROOM (round 11: "it never overlaps any
+ * container"). It is drawn only inside the gap between the top of the page
+ * and the content the pull moved down, sized to that gap, so it never sits
+ * on the content (a feed's chips, a card) at any frame: while the gap is
+ * small it is small, and it shrinks with the gap as the page springs home
+ * (hooks/use-pull-to-refresh.ts THE SPOKES).
+ *
+ * ONE ENGINE. The gesture and the spring are the /app home's own
  * (hooks/use-pull-to-refresh.ts, measured by scripts/check-pull-refresh.mjs):
  * this wraps them so any page can have them without copying a line. What it
  * adds is finding the page's scroller, which is one of three things:
@@ -43,8 +51,8 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useTransition, type ReactNode, type RefObject } from "react"
 import { useRouter } from "next/navigation"
 
-import { PullToRefreshIndicator } from "@/components/app/pull-to-refresh-indicator"
-import { PULL_TO_REFRESH, usePullToRefresh } from "@/hooks/use-pull-to-refresh"
+import { SPINNER_SPOKES } from "@/components/community/member/place-spinner"
+import { SPOKES_HOLD, SPOKES_SIZE, usePullToRefresh } from "@/hooks/use-pull-to-refresh"
 import { cn } from "@/lib/utils"
 
 /** Longest the ring waits for a refresh before the page comes home anyway. */
@@ -94,7 +102,7 @@ export function PullToRefresh({
   }, [])
 
   const { contentRef, indicatorRef } = usePullToRefresh(scrollerRef as RefObject<HTMLElement | null>, run, {
-    refreshHold: PULL_TO_REFRESH.refreshHold,
+    refreshHold: SPOKES_HOLD,
     listenOn: rootRef,
     /* Whatever is inside is somebody else's: a sideways row keeps its swipe without having to be named. */
     axisFirst: true,
@@ -102,10 +110,46 @@ export function PullToRefresh({
 
   return (
     <div ref={rootRef} data-pull-to-refresh="" className={cn("relative", fill && "h-full", className)}>
-      <PullToRefreshIndicator ref={indicatorRef} topOffset={0} refreshHold={PULL_TO_REFRESH.refreshHold} />
+      <PullSpokes ref={indicatorRef} />
       <div ref={contentRef} data-pull-content="" data-keep-transform="" className={fill ? "h-full" : undefined}>
         {children}
       </div>
+    </div>
+  )
+}
+
+/**
+ * THE SPINNER IN THE PULL'S ROOM: the community's own spinner
+ * (member/place-spinner.tsx, its eight spokes and their fading tail), drawn
+ * once and painted by the hook, one write per frame, never through React:
+ *
+ *   [data-ptr-indicator]  where it sits and how large (transform), opacity
+ *   [data-ptr-turn]       the box will-change is put on while it moves
+ *   [data-ptr-spin]       the turn while refreshing (a CSS animation)
+ *   [data-ptr-spoke]      each spoke's opacity: one by one with the pull,
+ *                         their resting tail (data-rest) while it turns
+ *
+ * At rest it is invisible, at the top of the room, and takes no space.
+ */
+function PullSpokes({ ref }: { ref: React.Ref<HTMLDivElement> }) {
+  return (
+    <div
+      ref={ref}
+      aria-hidden
+      data-ptr-indicator=""
+      className="pointer-events-none absolute left-1/2 top-0 z-20 -ml-[12px] origin-center text-[#8a8f98]"
+      style={{ width: SPOKES_SIZE, height: SPOKES_SIZE, transform: "translate3d(0, 0, 0) scale(0)", opacity: 0 }}
+    >
+      <span data-ptr-turn="" className="block h-full w-full">
+        <span data-ptr-spin="" className="block h-full w-full">
+          <svg viewBox="0 0 24 24" width={SPOKES_SIZE} height={SPOKES_SIZE} className="block">
+            {SPINNER_SPOKES.map((l, i) => (
+              <line key={i} data-ptr-spoke="" data-rest={l.opacity} x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} stroke="currentColor" strokeWidth="2" strokeLinecap="round" style={{ opacity: 0 }} />
+            ))}
+          </svg>
+        </span>
+      </span>
+      <style>{"@keyframes ptr-spokes-spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}"}</style>
     </div>
   )
 }
