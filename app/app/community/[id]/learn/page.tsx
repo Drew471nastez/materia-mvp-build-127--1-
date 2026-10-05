@@ -1,5 +1,5 @@
 import { sectionPage } from "@/lib/communities/server/creator"
-import { learnBuilderFor } from "@/lib/communities/server/learn"
+import { learnBuilderFor } from "@/lib/communities/server/learn-builder"
 import { LearnBuilder } from "@/components/community/learn/learn-builder"
 
 export const dynamic = "force-dynamic"

@@ -20,11 +20,12 @@ import "server-only"
 import { NextResponse } from "next/server"
 import { requireCreator, type CreatorContext } from "@/lib/email-campaigns/route-auth"
 import { parseAccessRule } from "../access"
-import { allowedActions, can, type CommunityAction } from "../permissions"
+import { allowedActions, can, type CommunityAction, type RolePermissions } from "../permissions"
 import { COMMUNITY_COLUMNS, type CommunityRow, type MemberRow, type MemberStatus, type Role, type ViewerView } from "../types"
 import { grantMembership, ownedProductIds, reconcileAccess } from "./membership"
 import { admin, missing, reasonOf, type Db } from "./db"
 import { communityIdForOldSlug } from "./slug-history"
+import { staffPermissions } from "./creator-roles"
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -43,6 +44,12 @@ export interface Viewer {
   isCreatorAccount: boolean
   banned: boolean
   mutedUntil: string | null
+  /**
+   * What the owner lets this admin or moderator do (run-now part 100,
+   * ./creator-roles.ts), handed to every can() about them; null for
+   * everybody else, and the defaults before the part has run.
+   */
+  perms?: RolePermissions | null
 }
 
 const NOBODY: Viewer = {
@@ -148,6 +155,7 @@ export async function viewerContext(db: Db, community: CommunityRow, userId: str
 
   const active = member?.status === "active"
   const role: Role | null = active ? (member?.role ?? null) : null
+  const perms = await staffPermissions(db, community.id, role)
   return {
     userId,
     member,
@@ -162,6 +170,7 @@ export async function viewerContext(db: Db, community: CommunityRow, userId: str
     isCreatorAccount,
     banned: member?.status === "banned" || Boolean(member?.banned_at),
     mutedUntil: member?.muted_until && Date.parse(member.muted_until) > Date.now() ? member.muted_until : null,
+    perms,
   }
 }
 
@@ -180,7 +189,7 @@ export function viewerView(v: Viewer): ViewerView {
     isCreatorAccount: v.isCreatorAccount,
     mutedUntil: v.mutedUntil,
     joinedAt: v.member?.joined_at ?? null,
-    can: allowedActions(v.role),
+    can: allowedActions(v.role, v.perms),
   }
 }
 
@@ -217,7 +226,7 @@ export async function requireMember(db: Db, communityId: string, userId: string 
   if (!viewer.active) return answer(403, viewer.banned ? "banned" : viewer.status === "pending" ? "pending" : "not_member")
   if (viewer.mutedUntil && MUTED_ACTIONS.includes(action)) return answer(403, "muted", { until: viewer.mutedUntil })
   if ((community.status === "archived" || community.archived_at) && ARCHIVED_READ_ONLY.includes(action)) return answer(403, "archived")
-  if (!can(viewer.role, action)) return answer(403, "forbidden")
+  if (!can(viewer.role, action, viewer.perms)) return answer(403, "forbidden")
   return { ok: true, viewer, community }
 }
 
@@ -246,6 +255,6 @@ export async function requireCreatorCommunity(communityId: string, action: Commu
   const ownsIt = community.creator_id === ctx.creatorId || community.owner_user_id === ctx.userId
   const role: Role | null = ownsIt ? "owner" : viewer.role
   if (!role || role === "member") return answer(404, "not_found")
-  if (!can(role, action)) return answer(403, "forbidden")
+  if (!can(role, action, viewer.perms)) return answer(403, "forbidden")
   return { ok: true, ctx, community, viewer: ownsIt ? { ...viewer, role: "owner", active: true } : viewer, role }
 }
