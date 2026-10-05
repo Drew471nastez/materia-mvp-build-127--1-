@@ -192,7 +192,8 @@ function baseTables(): Record<string, Row[]> {
 async function main() {
   /* ── The rules ────────────────────────────────────────────────────────── */
   console.log("\nWhich kinds push at once, and which are held")
-  check("mentions, replies, messages, announcements, event reminders, approvals and admin messages go at once", ["mention", "reply", "dm", "announcement", "event_reminder", "membership", "admin_message"].every((k) => pushPriority(k) === "now") && IMMEDIATE_KINDS.length === 7)
+  /* Round 14 adds a ticket for a paid event: their seat and their money, so it goes at once too. */
+  check("mentions, replies, messages, announcements, event reminders, approvals, admin messages and a ticket go at once", ["mention", "reply", "dm", "announcement", "event_reminder", "membership", "admin_message", "ticket"].every((k) => pushPriority(k) === "now") && IMMEDIATE_KINDS.length === 8)
   check("a waitlist spot opening is about the person alone: at once", pushPriority("event", "event_promoted:e1:u1:2026") === "now" && pushPriority("event", "event_new:e1:u1") === "coalesce")
   check("likes, comments, new events, level ups, new followers and followed creators' products are held", ["reaction", "comment", "event", "level_up", "course_available", "join_request", "report", "new_follower", "followed_new_product", "followed_new_community", "purchased_creator_new_product", "membership_post"].every((k) => pushPriority(k) === "coalesce"))
   check("the window is five minutes", PUSH_WINDOW_MS === 300_000)
