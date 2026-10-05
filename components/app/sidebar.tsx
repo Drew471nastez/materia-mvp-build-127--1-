@@ -1,5 +1,6 @@
 "use client"
 
+import { personName } from "@/lib/profile/display-name"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
@@ -392,7 +393,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
   const avatarSrc = toOriginalImageUrl(useShellAvatar(avatarUrl))
 
   const storeUrl = username || creatorSlug
-  const userDisplayName = displayName || username || creatorSlug || "User"
+  const userDisplayName = personName({ name: displayName, username, slug: creatorSlug })
 
   /*
     SubNavItem, NavItem and the imperative Collapsible used to be here.

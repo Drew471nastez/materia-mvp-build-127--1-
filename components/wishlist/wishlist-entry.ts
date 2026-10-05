@@ -1,3 +1,4 @@
+import { personName } from "@/lib/profile/display-name"
 import { listPrice, usd, type PriceInterval } from "@/lib/pricing/list-price"
 
 /**
@@ -84,7 +85,7 @@ export function entryOf(row: Row, extra: { plan?: Plan | null; hasOptions?: bool
     owned: !!extra.owned,
     thumbnailUrl: str(p.thumbnail_url),
     creator: {
-      name: str(profile?.display_name) ?? str(profile?.username) ?? str(creators?.slug) ?? "Creator",
+      name: personName({ name: str(profile?.display_name), username: str(profile?.username), slug: str(creators?.slug) }),
       username: str(profile?.username) ?? str(creators?.slug),
       avatarUrl: str(profile?.avatar_url),
     },

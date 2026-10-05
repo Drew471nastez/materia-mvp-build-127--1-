@@ -1,5 +1,6 @@
 "use client"
 
+import { personName } from "@/lib/profile/display-name"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { Badge } from "@/components/ui/badge"
 import { getStoreUrl } from "@/lib/url-helpers"
@@ -45,7 +46,7 @@ export function CreatorCard({ creator }: CreatorCardProps) {
         />
         <div className="flex-1 overflow-hidden">
           <h3 className="truncate font-medium">
-            {creator.profile?.display_name || "Creator"}
+            {personName({ name: creator.profile?.display_name, username: creator.profile?.username, slug: creator.slug })}
           </h3>
           {creator.headline && <p className="mt-0.5 truncate text-sm text-muted-foreground">{creator.headline}</p>}
         </div>

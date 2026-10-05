@@ -13,6 +13,7 @@
  * hold every one of them in their email) and nothing else that works as a
  * credential. No storage paths, no other buyer's anything.
  */
+import { personName } from "@/lib/profile/display-name"
 import { accessStateOf, canDeliver, decideAccess, orderNumberOf, overallState, sumMoney, type AccessState } from "@/lib/receipts/rules"
 import type { DownloadRow } from "./get-library-downloads"
 
@@ -218,7 +219,7 @@ export function assembleLibrary(downloads: DownloadRow[], extras: LibraryExtras)
       purchasedAt: row.createdAt,
       creator: {
         id: row.creatorId,
-        name: row.creatorName || extra?.name || "Creator",
+        name: personName({ name: row.creatorName || extra?.name }),
         slug: row.creatorSlug || extra?.slug || null,
         avatarUrl: row.creatorAvatarUrl || extra?.avatarUrl || null,
       },

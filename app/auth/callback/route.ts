@@ -1,12 +1,15 @@
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { NextResponse } from "next/server"
+import { NextResponse, after } from "next/server"
 import { classifyOAuthError, describeForLog, loginErrorQuery } from "@/lib/auth/oauth-errors"
 import { AVATAR_CHOSEN } from "@/lib/account/avatar"
 import { providerPhotoOf, providerPhotoWanted } from "@/lib/profile/provider-photo"
+import { nameFromEmail, providerNameOf } from "@/lib/profile/display-name"
+import { keepProfileName, type KeepNameDb } from "@/lib/profile/keep-name"
 import { cookies } from "next/headers"
 import { getMainDomain } from "@/lib/url-helpers"
-import { readSellerAccess } from "@/lib/account/seller-access"
+import { hasSellerAccess, readSellerAccess } from "@/lib/account/seller-access"
+import { throughWelcome } from "@/lib/account/welcome"
 import { CARRY_COOKIE, CONTINUE_PATH, decodeCarry, destinationAfterAuth } from "@/lib/auth/continue"
 
 /**
@@ -104,8 +107,8 @@ export async function GET(request: Request) {
 
   // 2. Upsert profile
   const admin = createAdminClient()
-  const { full_name, name } = data.user.user_metadata ?? {}
-  const displayName = full_name || name || data.user.email?.split("@")[0] || "User"
+  /* The name Google or Apple sent, else words from the email; never a placeholder (lib/profile/display-name). */
+  const initialName = providerNameOf(data.user.user_metadata) ?? nameFromEmail(data.user.email) ?? data.user.email?.split("@")[0] ?? null
   /* The picture Google sent (Apple sends none), for a profile that has no photo: lib/profile/provider-photo.ts. */
   const providerPhoto = providerPhotoOf(data.user.user_metadata)
   const avatarChosen = data.user.user_metadata?.[AVATAR_CHOSEN] === true
@@ -120,7 +123,7 @@ export async function GET(request: Request) {
     await admin.from("profiles").insert({
       id: data.user.id,
       email: data.user.email,
-      display_name: displayName,
+      display_name: initialName,
       avatar_url: providerPhotoWanted({ profileAvatar: null, providerAvatar: providerPhoto, chosen: avatarChosen }) ? providerPhoto : null,
       is_creator: false,
       /* No creator or buyer question after sign up any more: a new account is a buyer. */
@@ -143,6 +146,9 @@ export async function GET(request: Request) {
     if (Object.keys(updates).length > 0) {
       await admin.from("profiles").update(updates).eq("id", data.user.id)
     }
+    /* The provider's name over the email's letters the new user trigger wrote, on every sign in, after the answer (lib/profile/keep-name). */
+    const signedIn = data.user
+    after(() => keepProfileName(admin as unknown as KeepNameDb, signedIn).then(() => undefined))
   }
 
   // 3. Determine destination
@@ -156,7 +162,8 @@ export async function GET(request: Request) {
   const carry = decodeCarry(jar.get(CARRY_COOKIE)?.value, getMainDomain())
   jar.delete(CARRY_COOKIE)
   const access = existingProfile ? await readSellerAccess(admin, data.user.id) : { state: "none" as const }
-  const destination = destinationAfterAuth(carry, access)
+  /* A new account is asked once what brought it here, on its way (lib/account/welcome). */
+  const destination = throughWelcome(destinationAfterAuth(carry, access), { createdAt: data.user.created_at, meta: data.user.user_metadata, seller: hasSellerAccess(access), intent: carry.intent })
 
   return NextResponse.redirect(new URL(destination, origin))
 }

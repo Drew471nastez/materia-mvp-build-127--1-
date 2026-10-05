@@ -1,3 +1,4 @@
+import { personName } from "@/lib/profile/display-name"
 import { Suspense } from "react"
 import { MAX_PWYW_CENTS } from "@/lib/checkout/pricing"
 import { notFound, redirect } from "next/navigation"
@@ -188,7 +189,7 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
       }}
       creator={{
         id: creator?.id || "",
-        name: creatorProfile?.display_name || "Creator",
+        name: personName({ name: creatorProfile?.display_name, username: creatorProfile?.username, slug: creator?.slug }),
         avatar_url: creatorProfile?.avatar_url || null,
         username: creatorUsername,
       }}
@@ -238,7 +239,7 @@ async function membershipCheckoutContent({ product, interval, returnTo = null }:
   return (
     <MembershipCheckout
       product={{ id: product.id, title: product.title, slug: product.slug, thumbnail_url: product.thumbnail_url ?? null }}
-      creator={{ id: creator?.id || "", name: profile?.display_name || "Creator", avatar_url: profile?.avatar_url || null, username: profile?.username || creator?.slug || "" }}
+      creator={{ id: creator?.id || "", name: personName({ name: profile?.display_name, username: profile?.username, slug: creator?.slug }), avatar_url: profile?.avatar_url || null, username: profile?.username || creator?.slug || "" }}
       plan={{
         monthlyPriceCents: plan?.monthly_price_cents ?? null,
         yearlyPriceCents: plan?.yearly_price_cents ?? null,

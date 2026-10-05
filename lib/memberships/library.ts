@@ -1,3 +1,4 @@
+import { personName } from "@/lib/profile/display-name"
 import "server-only"
 
 /**
@@ -37,7 +38,7 @@ async function creatorsOf(admin: Db, ids: string[]): Promise<Map<string, Creator
   const byUser = new Map(((profiles as { id: string; display_name: string | null; username: string | null; avatar_url: string | null }[] | null) ?? []).map((p) => [p.id, p]))
   for (const c of rows) {
     const p = c.user_id ? byUser.get(c.user_id) : undefined
-    out.set(c.id, { id: c.id, name: (p?.display_name || p?.username || c.slug || "Creator").trim(), avatarUrl: p?.avatar_url ?? null, handle: p?.username || c.slug || null })
+    out.set(c.id, { id: c.id, name: personName({ name: p?.display_name, username: p?.username, slug: c.slug }), avatarUrl: p?.avatar_url ?? null, handle: p?.username || c.slug || null })
   }
   return out
 }
@@ -82,7 +83,7 @@ export async function loadLibraryMemberships(admin: Db, viewer: Viewer): Promise
       productId: r.product_id,
       title: product?.title || r.title || "Membership",
       cover: product?.thumbnail_url ?? null,
-      creator: (r.creator_id && creators.get(r.creator_id)) || { id: r.creator_id, name: "Creator", avatarUrl: null, handle: null },
+      creator: (r.creator_id && creators.get(r.creator_id)) || { id: r.creator_id, name: personName(null), avatarUrl: null, handle: null },
       status: r.status,
       view: describeStatus(r),
       access: grantsAccess(r),
@@ -195,7 +196,7 @@ export async function loadMembershipPage(admin: Db, viewer: Viewer, id: string):
       product: { id: product?.id ?? null, slug: product?.slug ?? null, description: descriptionText(product?.description ?? null), cover: product?.thumbnail_url ?? null },
       benefits: Array.isArray(plan?.benefits) ? plan!.benefits!.filter((b) => typeof b === "string" && b.trim()) : [],
       included,
-      creator: (row.creator_id && creators.get(row.creator_id)) || { id: row.creator_id, name: "Creator", avatarUrl: null, handle: null },
+      creator: (row.creator_id && creators.get(row.creator_id)) || { id: row.creator_id, name: personName(null), avatarUrl: null, handle: null },
       posts: feed.posts,
       hasOlder: feed.hasOlder,
       invoices: ((invoicesRead.data as { stripe_invoice_id: string; amount_cents: number; currency: string; status: string; paid_at: string | null; created_at: string; hosted_invoice_url: string | null }[] | null) ?? []).map((i) => ({

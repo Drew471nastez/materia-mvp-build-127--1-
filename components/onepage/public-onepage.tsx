@@ -1,5 +1,6 @@
 "use client"
 
+import { personName } from "@/lib/profile/display-name"
 import type React from "react"
 
 import type {
@@ -1271,7 +1272,7 @@ export function PublicOnePage({ onepage }: PublicOnePageProps) {
     settings,
     seller_id,
   } = onepage
-  const sellerName = title || "Creator"
+  const sellerName = personName({ name: title })
 
   // Modal visibility state - to hide buttons when fullscreen modals are open
   const [isAnyModalOpen, setIsAnyModalOpen] = useState(false)
