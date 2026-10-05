@@ -92,6 +92,7 @@ import { slugHeldByAnother } from "./slug-history"
 import { openReportCount, peopleOf } from "./moderation"
 import { createPaidTier, loadTiers, pickableProducts, recurringProductIds, syncTierProducts } from "./tiers"
 import { checkGalleryForCommunity, coverAfterGallery, loadGallery, ownPicture, saveGallery } from "./gallery"
+import { keptSafety, slowModeChoice, withSlowMode } from "./safety"
 
 export type Result<T = unknown> = ({ ok: true } & T) | { ok: false; error: string; status: number; field?: string }
 const no = (status: number, error: string, field?: string) => ({ ok: false as const, status, error, field })
@@ -573,7 +574,13 @@ export async function updateSettings(db: Db, a: { community: CommunityRow; role:
   if (b.onboarding !== undefined) {
     const o = (b.onboarding && typeof b.onboarding === "object" ? b.onboarding : {}) as Record<string, unknown>
     const welcome = typeof o.welcome === "string" ? o.welcome.trim().slice(0, 2000) : ""
-    patch.onboarding = { enabled: o.enabled === true, welcome, askIntro: o.askIntro !== false, showRules: o.showRules !== false }
+    patch.onboarding = { ...keptSafety(c.onboarding), enabled: o.enabled === true, welcome, askIntro: o.askIntro !== false, showRules: o.showRules !== false }
+  }
+  /* Slow mode lives beside the welcome steps (./safety.ts), so no column is needed. */
+  if (b.slowMode !== undefined) {
+    const seconds = slowModeChoice(b.slowMode)
+    if (seconds === null) return no(400, "Pick a slow mode.", "slowMode")
+    patch.onboarding = withSlowMode(patch.onboarding ?? c.onboarding, seconds)
   }
   for (const [key, column] of Object.entries(SETTING_FLAGS)) {
     if (b[key] === undefined) continue

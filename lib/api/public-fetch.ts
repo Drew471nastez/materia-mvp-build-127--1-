@@ -220,3 +220,17 @@ export async function fetchPublic(raw: string, opts: PublicFetchOptions): Promis
     current = new URL(answer.redirect, current).toString()
   }
 }
+
+/**
+ * WHERE ONE ADDRESS SENDS YOU, without going there. For a short link
+ * (lib/communities/server/safety.ts): the same public-only checks as
+ * fetchPublic, one request, a tiny body limit, and the Location header made
+ * absolute. Null when the answer is not a redirect; rejects when the address
+ * is not public or does not answer in time.
+ */
+export async function redirectTarget(raw: string, opts: { timeoutMs?: number } = {}): Promise<string | null> {
+  const problem = publicUrlProblem(raw)
+  if (problem) throw new Error(`Refused: ${problem}`)
+  const answer = await once(new URL(raw), { maxBytes: 64 * 1024, timeoutMs: opts.timeoutMs ?? 3000 }, false)
+  return "redirect" in answer ? new URL(answer.redirect, raw).toString() : null
+}
