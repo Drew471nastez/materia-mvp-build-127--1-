@@ -29,6 +29,7 @@ import { isUniqueViolation, missing, reasonOf } from "./db"
 import { chatSpace } from "./chat"
 import { cleanText, visiblePostRow, type Checked, type WriteContext } from "./feed"
 import { notifyMember, queueReportDigest } from "./notify"
+import { hideAfterReports } from "./safety"
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -102,6 +103,7 @@ export async function createReport(w: WriteContext, input: ReportInput): Promise
     if (!missing(error)) console.error(`[communities] report not written: ${reasonOf(error)}`)
     return { ok: false, error: "The report did not send. Try again.", status: missing(error) ? 503 : 500 }
   }
+  await hideAfterReports(db, community, input)
 
   try {
     const { data: staff } = await db

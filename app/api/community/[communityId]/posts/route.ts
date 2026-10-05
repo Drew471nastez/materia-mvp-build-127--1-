@@ -6,6 +6,7 @@ import { requireMember } from "@/lib/communities/server/context"
 import { admin } from "@/lib/communities/server/db"
 import { NO_STORE, checkPostInput, createPost, feedSort, listFeed, memberSubject, readJson, sessionUserId } from "@/lib/communities/server/feed"
 import { announcePost } from "@/lib/communities/server/realtime"
+import { HELD_MESSAGE, isHeld } from "@/lib/communities/server/safety"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -63,6 +64,7 @@ export async function POST(request: Request, { params }: Params) {
   const result = await createPost({ db, community: gate.community, viewer: gate.viewer }, input.value)
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status ?? 400, headers: NO_STORE })
   const post = result.value
+  if (isHeld(result)) return NextResponse.json({ post, held: true, message: HELD_MESSAGE }, { status: 202, headers: NO_STORE })
   after(() => announcePost(communityId, { id: post.id, spaceId: post.space?.id ?? null, authorId: post.author?.id ?? null }))
   return NextResponse.json({ post }, { status: 201, headers: NO_STORE })
 }

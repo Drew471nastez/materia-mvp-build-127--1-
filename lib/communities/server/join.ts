@@ -44,6 +44,7 @@ import { sendCommunityEmail } from "./email"
 import { audit } from "./audit"
 import { admin, missing, nowIso, reasonOf, type Db } from "./db"
 import { creatorTakesPayments, optionsFor, readPlans, readProducts, readTiers } from "./public"
+import { watchJoin } from "./safety"
 
 /* ── Rate limits ────────────────────────────────────────────────────────── */
 
@@ -168,6 +169,7 @@ export async function joinCommunity(db: Db, communityId: string, userId: string,
     if (!row) return refuse(503, "not_set_up", "Communities are not set up on Storelib yet. Try again later.")
     if (row.status !== "active") return refuse(403, "removed", "You can't join this community.")
     await welcome(db, community, userId, row.id)
+    await watchJoin(db, community, userId)
     return { ok: true, state: "member", url }
   }
 
@@ -306,6 +308,7 @@ export async function redeemInvite(db: Db, communityId: string, userId: string, 
   if (!row) return { ok: false, status: 503, error: "not_set_up", message: "Communities are not set up on Storelib yet." }
   if (row.status !== "active") return { ok: false, status: 403, error: "banned", message: "You can't join this community." }
   await audit(db, { communityId: community.id, actorId: userId, actorKind: "member", action: "invite.redeemed", targetType: "invite", targetId: refs.inviteId, detail: { new: r.new ?? null } })
+  if (r.new !== false) await watchJoin(db, community, userId, { inviteId: refs.inviteId })
   await welcome(db, community, userId, row.id)
   return { ok: true, state: "member", url, already: false }
 }

@@ -416,6 +416,7 @@ const SUITES = [
   "tests/communities-frame11.test.ts",
   "tests/communities-about11.test.ts",
   "tests/communities-posts.test.ts",
+  "tests/communities-safety.test.ts",
   "tests/profiles-follows.test.ts",
   "tests/profile-one-page.test.ts",
   "tests/profile-seo-round12.test.ts",

@@ -58,6 +58,7 @@ import { authorViews, displayName } from "./directory"
 import { everyoneAllowed, notifyMentions, queueEveryone } from "./mentions"
 import { queueNewPost } from "./notify"
 import { communityFilesExist } from "./post-files"
+import { heldColumns, holdForReview, screenEdit, screenWrite } from "./safety"
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -753,6 +754,8 @@ export async function createPost(w: WriteContext, input: PostInput): Promise<Che
   if (mentionsEveryone(text) && !everyoneAllowed(text, viewer.role)) return { ok: false, error: "Only admins can mention everyone.", status: 403 }
   const owned = await ownedMedia(db, community, viewer, input.media)
   if (!owned.ok) return refused(owned, 400)
+  const screen = await screenWrite(w, "post", { text, media: input.media })
+  if (!screen.ok) return refused(screen)
 
   const kind = kindFor(space, !!input.poll)
   const now = nowIso()
@@ -768,6 +771,7 @@ export async function createPost(w: WriteContext, input: PostInput): Promise<Che
       body_text: input.body,
       media: owned.value,
       last_activity_at: now,
+      ...heldColumns(screen, "post"),
     })
     .select(POST_COLUMNS)
     .single()
@@ -794,6 +798,7 @@ export async function createPost(w: WriteContext, input: PostInput): Promise<Che
     }
   }
 
+  if (screen.hold.length) return holdForReview(w, { type: "post", id: post.id, text }, screen, async () => (await hydratePosts(db, [{ ...post, status: "published" }], { community, viewer, spaces }))[0])
   await recordActivity(db, { communityId: community.id, userId: viewer.userId, kind: "post", targetType: "post", targetId: post.id })
   const [author] = (await authorViews(db, community.id, [viewer.userId])).values()
   await notifyMentions(db, {
@@ -842,6 +847,8 @@ export async function updatePost(w: WriteContext, postId: string, raw: unknown):
   if (mentionsEveryone(text) && !mentionsEveryone(`${found.row.title ?? ""}\n${found.row.body_text}`) && !everyoneAllowed(text, viewer.role)) {
     return { ok: false, error: "Only admins can mention everyone.", status: 403 }
   }
+  const edited = await screenEdit(w, "post", { text, media, before: `${found.row.title ?? ""}\n${found.row.body_text}`, beforeMedia: found.row.media })
+  if (!edited.ok) return refused(edited)
   const { data, error } = await db
     .from("community_feed_posts")
     .update({ title: title || null, body: plainTextToHtml(body), body_text: body, media, edited_at: nowIso() })

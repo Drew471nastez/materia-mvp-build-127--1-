@@ -26,8 +26,9 @@ import { audit } from "./audit"
 import type { Viewer } from "./context"
 import { missing, nowIso, reasonOf, type Db } from "./db"
 import { authorViews } from "./directory"
-import { accessOf, canPostIn, canSeeSpace, cleanText, listSpaces, type Checked, type WriteContext } from "./feed"
+import { accessOf, canPostIn, canSeeSpace, cleanText, listSpaces, refused, type Checked, type WriteContext } from "./feed"
 import { touchMember } from "./activity"
+import { screenEdit, screenWrite } from "./safety"
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -126,6 +127,8 @@ export async function postMessage(w: WriteContext, space: SpaceRow, raw: unknown
     const { data } = await db.from("community_messages").select("id, space_id, status").eq("id", r.replyToId).maybeSingle()
     if (data && data.space_id === space.id && data.status === "published") replyTo = data.id
   }
+  const screen = await screenWrite(w, "message", { text: body })
+  if (!screen.ok) return refused(screen)
   const { data, error } = await db
     .from("community_messages")
     .insert({ community_id: community.id, space_id: space.id, author_id: viewer.userId, body, reply_to_id: replyTo })
@@ -158,6 +161,8 @@ export async function editMessage(w: WriteContext, messageId: string, raw: unkno
   const body = cleanText(r.body, LENGTHS.messageBody.max)
   if (!body) return { ok: false, error: "Write a message first.", status: 400 }
   if (body.length > LENGTHS.messageBody.max) return { ok: false, error: "Keep the message under 4,000 characters.", status: 400 }
+  const edited = await screenEdit(w, "message", { text: body, before: found.row.body })
+  if (!edited.ok) return refused(edited)
   const { data, error } = await w.db
     .from("community_messages")
     .update({ body, edited_at: nowIso() })

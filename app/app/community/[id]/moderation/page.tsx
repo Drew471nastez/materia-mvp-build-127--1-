@@ -1,6 +1,7 @@
 import { can } from "@/lib/communities/permissions"
 import { communityHead, listMembers, loadBadges, sectionPage } from "@/lib/communities/server/creator"
 import { auditLog, listReports } from "@/lib/communities/server/moderation"
+import { slowModeOf } from "@/lib/communities/server/safety"
 import { ModerationSection, type ModerationTab } from "@/components/community/creator/moderation-section"
 
 export const dynamic = "force-dynamic"
@@ -42,6 +43,7 @@ export default async function CommunityModerationPage({ params, searchParams }: 
       restricted={muted && paused && banned ? { muted, paused, banned } : null}
       tiers={(tiers.data as { id: string; name: string; kind: string }[] | null) ?? []}
       badges={badges}
+      slowMode={slowModeOf(c)}
     />
   )
 }

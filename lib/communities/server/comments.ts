@@ -37,6 +37,7 @@ import { missing, nowIso, reasonOf, type Db, type DbError } from "./db"
 import { authorViews } from "./directory"
 import { checkMedia, cleanText, refused, visiblePostRow, type Checked, type WriteContext } from "./feed"
 import { notifyMentions, snippet } from "./mentions"
+import { heldColumns, holdForReview, screenEdit, screenWrite } from "./safety"
 import { notifyMember } from "./notify"
 import { communityFilesExist } from "./post-files"
 
@@ -372,10 +373,12 @@ export async function createComment(w: WriteContext, postId: string, raw: unknow
   const media = await checkCommentMedia(db, community, viewer, r.media)
   if (!media.ok) return refused(media)
   const carried = (media as { value: PostMedia[] }).value
+  const screen = await screenWrite(w, "comment", { text: body, media: carried })
+  if (!screen.ok) return refused(screen)
   const { data, error } = await withCommentColumns((columns) =>
     db
       .from("community_feed_comments")
-      .insert({ post_id: postId, community_id: community.id, parent_id: topId, author_id: viewer.userId, body, ...(carried.length ? { media: carried } : {}) })
+      .insert({ post_id: postId, community_id: community.id, parent_id: topId, author_id: viewer.userId, body, ...(carried.length ? { media: carried } : {}), ...heldColumns(screen, "comment") })
       .select(columns)
       .single(),
   )
@@ -386,6 +389,7 @@ export async function createComment(w: WriteContext, postId: string, raw: unknow
     return { ok: false, error: "The comment did not go up. Try again.", status: missing(error as DbError | null) ? 503 : 500 }
   }
   const row = data as CommentRow
+  if (screen.hold.length) return holdForReview(w, { type: "comment", id: row.id, text: body }, screen, async () => ({ ...buildThread([{ ...row, status: "published", parent_id: null }], [], { viewerId: viewer.userId, moderator: false, authors: await authorViews(db, community.id, [viewer.userId]), reacted: new Set() })[0], parentId: topId }))
   await recordActivity(db, { communityId: community.id, userId: viewer.userId, kind: "comment", targetType: "comment", targetId: row.id })
 
   const authors = await authorViews(db, community.id, [viewer.userId])
@@ -458,6 +462,8 @@ export async function updateComment(w: WriteContext, commentId: string, raw: unk
   if (!body && !(Array.isArray(ownRow.media) && ownRow.media.length)) return { ok: false, error: "Write a comment first.", status: 400 }
   if (body.length > LENGTHS.commentBody.max) return { ok: false, error: "Keep the comment under 5,000 characters.", status: 400 }
   if (mentionsEveryone(body) && !mentionsEveryone(ownRow.body) && !can(w.viewer.role, "mention_everyone")) return { ok: false, error: "Only admins can mention everyone.", status: 403 }
+  const edited = await screenEdit(w, "comment", { text: body, before: ownRow.body })
+  if (!edited.ok) return refused(edited)
   const { data, error } = await withCommentColumns((columns) =>
     w.db
       .from("community_feed_comments")

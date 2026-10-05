@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { requireCommunitiesOn } from "@/lib/communities/flag"
 import { admin } from "@/lib/communities/server/db"
 import { joinRateLimit, redeemInvite } from "@/lib/communities/server/join"
+import { guardInvite, joinAddressLimit } from "@/lib/communities/server/safety"
 import { createClient } from "@/lib/supabase/server"
 
 export const runtime = "nodejs"
@@ -35,7 +36,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ com
     data: { user },
   } = await (await createClient()).auth.getUser()
   if (!user) return NextResponse.json({ error: "sign_in", message: "Sign in to use this invite." }, { status: 401, headers: noStore })
-  const limited = await joinRateLimit(user.id)
+  const limited = (await joinRateLimit(user.id)) ?? (await joinAddressLimit(request))
   if (limited) return limited
   let body: Record<string, unknown> = {}
   try {
@@ -43,7 +44,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ com
   } catch {
     body = {}
   }
-  const answer = await redeemInvite(admin(), communityId, user.id, body.token)
+  const answer = await guardInvite(request, user.id, () => redeemInvite(admin(), communityId, user.id, body.token))
   if (!answer.ok) {
     /* The invite itself said no (and the community is real): the reason, for the landing to put in words. */
     if (INVITE_REASONS.has(answer.error) && answer.status !== 404) return NextResponse.json({ ok: false, reason: answer.error, message: answer.message }, { headers: noStore })

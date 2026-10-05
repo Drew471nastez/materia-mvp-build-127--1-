@@ -27,9 +27,10 @@ import type { AuthorView, CommunityRow } from "../types"
 import type { Viewer } from "./context"
 import { missing, nowIso, reasonOf, type Db } from "./db"
 import { authorViews } from "./directory"
-import { cleanText, type Checked } from "./feed"
+import { cleanText, refused, type Checked } from "./feed"
 import { touchMember } from "./activity"
 import { pushDirectMessage, pushSoon } from "@/lib/notifications/push-bridge"
+import { screenWrite } from "./safety"
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 export const DM_PAGE = 50
@@ -284,6 +285,8 @@ export async function sendDirectMessage(db: Db, community: CommunityRow, viewer:
   if (body.length > LENGTHS.messageBody.max) return { ok: false, error: "Keep the message under 4,000 characters.", status: 400 }
   const other = otherOf(conversation, viewer.userId)
   if (!(await activeMember(db, community.id, other))) return { ok: false, error: "That member is no longer in this community.", status: 403 }
+  const screen = await screenWrite({ db, community, viewer }, "dm", { text: body })
+  if (!screen.ok) return refused(screen)
   const { data, error } = await db
     .from("community_direct_messages")
     .insert({ conversation_id: conversation.id, community_id: community.id, author_id: viewer.userId, body })

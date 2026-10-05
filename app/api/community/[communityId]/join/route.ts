@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { requireCommunitiesOn } from "@/lib/communities/flag"
 import { admin } from "@/lib/communities/server/db"
 import { joinCommunity, joinRateLimit } from "@/lib/communities/server/join"
+import { joinAddressLimit } from "@/lib/communities/server/safety"
 import { createClient } from "@/lib/supabase/server"
 
 export const runtime = "nodejs"
@@ -28,7 +29,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ com
     data: { user },
   } = await (await createClient()).auth.getUser()
   if (!user) return NextResponse.json({ error: "sign_in", message: "Sign in to join this community." }, { status: 401, headers: noStore })
-  const limited = await joinRateLimit(user.id)
+  const limited = (await joinRateLimit(user.id)) ?? (await joinAddressLimit(request))
   if (limited) return limited
   let body: Record<string, unknown> = {}
   try {
