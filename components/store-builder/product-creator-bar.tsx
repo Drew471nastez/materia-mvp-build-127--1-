@@ -668,21 +668,30 @@ function BackControl({ onBack, href, label, pending }: { onBack: () => void; hre
         runs the target to the edge of the screen, which is where a thumb
         reaching for "back" actually lands.
       */
-      className="relative -my-2 -ml-4 -mr-2 inline-flex h-[52px] w-[56px] shrink-0 items-center justify-center select-none outline-none"
+      className="group/back relative -my-2 -ml-4 -mr-2 inline-flex h-[52px] w-[56px] shrink-0 items-center justify-center select-none outline-none"
       style={{ color: "inherit", WebkitTapHighlightColor: "transparent", WebkitTouchCallout: "none" }}
+      data-back-control=""
     >
-      <span
-        className={cn(
-          "relative inline-flex h-9 w-9 items-center justify-center rounded-full",
-          pressed ? "bar-control-pressed" : "bar-control",
-        )}
-      >
+      <span className="relative inline-flex h-9 w-9 items-center justify-center rounded-full" data-back-disc-host="">
         {/*
-          The disc is its own element rather than a background on the button, so
-          it can arrive from the centre while the button sinks. A background
-          colour can only appear; this comes up under the finger.
+          A BACK DOES NOT BUMP (round 11: "no bump on press, iOS native feel").
+          The bar's other controls sink to 0.95 and their disc swells in from
+          the centre with an overshoot (bar-control-pressed, the
+          bar-control-press keyframe); on the way back that read as a little
+          jump. Here the disc is simply there, full size, on the frame the
+          finger lands, at the same 16% of the bar's own colour, and fades
+          out over 200ms on the lift. Nothing changes size.
         */}
-        <span aria-hidden className={cn("bar-control-disc", pressed && "is-on")} />
+        <span
+          aria-hidden
+          data-back-disc=""
+          className={cn(
+            "pointer-events-none absolute inset-0 rounded-full bg-current transition-opacity ease-out",
+            pressed
+              ? "opacity-[0.16] duration-0"
+              : "opacity-0 duration-200 [@media(hover:hover)_and_(pointer:fine)]:group-hover/back:opacity-[0.08]",
+          )}
+        />
         {/*
           One box, two icons on the same centre. Laying them out in flow would
           move the arrow by a pixel as the spinner mounted, which is exactly the

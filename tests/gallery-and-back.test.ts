@@ -223,11 +223,19 @@ console.log("\nThe back arrow\n")
   */
   check(
     "the back target is a 56 x 52 box, not the 36px disc",
-    /className="relative -my-2 -ml-4 -mr-2 inline-flex h-\[52px\] w-\[56px\] shrink-0 items-center justify-center select-none outline-none"/.test(bar),
+    /className="(group\/back )?relative -my-2 -ml-4 -mr-2 inline-flex h-\[52px\] w-\[56px\] shrink-0 items-center justify-center select-none outline-none"/.test(bar),
   )
+  /*
+    CHANGED ON PURPOSE (round 11, "no bump on press"): the back no longer
+    sinks to 0.95 or swells its disc in with an overshoot. The disc is
+    centred in the box as before and is simply there at 16% on the press,
+    fading out on the lift; nothing changes size.
+  */
   check(
-    "and the disc is centred inside it with its press classes intact",
-    /"relative inline-flex h-9 w-9 items-center justify-center rounded-full",\s*\n\s*pressed \? "bar-control-pressed" : "bar-control",/.test(bar),
+    "and the disc is centred inside it, a tint that never changes size",
+    /<span className="relative inline-flex h-9 w-9 items-center justify-center rounded-full" data-back-disc-host="">/.test(bar) &&
+      /data-back-disc=""/.test(bar) &&
+      /pressed\s*\?\s*"opacity-\[0\.16\] duration-0"/.test(bar),
   )
   /* The bar is #1a1a1a. A light grey avatar ground on it is a bright disc that
      paints before the photo and vanishes under it: a flash in the header on

@@ -8,8 +8,9 @@
  * goes back where the person came from, or to `fallback` when nothing of
  * ours is behind (a receipt opened from an email, settings opened cold).
  *
- *   ON THE FRAME THE FINGER LANDS it darkens and gives a little
- *   (lib/navigation/press-feedback.ts), with no render behind it.
+ *   ON THE FRAME THE FINGER LANDS its ground darkens, and nothing about
+ *   its size or place changes (lib/navigation/press-feedback.ts), with no
+ *   render behind it.
  *   ON THE LIFT OF THE FIRST TAP it goes (lib/navigation/first-tap.ts), so a
  *   tap iOS does not turn into a click still counts, and the second tap of
  *   a double tap is the same press (lib/navigation/go-back.ts holds it).
@@ -27,7 +28,7 @@ import { useRouter } from "next/navigation"
 import { ChevronLeft } from "lucide-react"
 
 import { useFirstTap } from "@/lib/navigation/first-tap"
-import { backInFlight, goBackOr } from "@/lib/navigation/go-back"
+import { goBackOr, pushBackOnce } from "@/lib/navigation/go-back"
 import { previousPath } from "@/lib/navigation/in-app-history"
 import { usePressFeedback } from "@/lib/navigation/press-feedback"
 import { cn } from "@/lib/utils"
@@ -60,7 +61,7 @@ export function BackControl({
   const tap = useFirstTap<HTMLAnchorElement>(() => {
     const behind = previousPath() ?? referrerPath()
     if (behind && skipBack?.(behind)) {
-      if (!backInFlight()) router.push(fallback)
+      pushBackOnce(fallback, (to) => router.push(to))
       return
     }
     goBackOr(fallback, (to) => router.push(to))
@@ -92,11 +93,18 @@ export function BackControl({
         "touch-manipulation [-webkit-tap-highlight-color:transparent]",
         /* 44px of reach around a 40px circle. */
         "before:absolute before:-inset-[3px] before:rounded-full before:content-['']",
-        "transition-[background-color,scale,box-shadow] duration-150 ease-out",
-        "data-[pressed]:scale-[0.94] data-[pressed]:bg-[#f1f2f4] data-[pressed]:shadow-none data-[pressed]:duration-0",
+        /*
+          PRESSED IS A TINT, NOTHING MOVES (round 11: "no bump on press").
+          It shrank to 0.94 and lost its shadow, which on a 40px circle is a
+          visible hop in and back out. Now only the ground darkens, on the
+          frame the finger lands, and eases back over 200ms on the lift; the
+          size, the hairline's place and the shadow never change.
+        */
+        "transition-[background-color,border-color] duration-200 ease-out",
+        "data-[pressed]:border-[#dcdfe4] data-[pressed]:bg-[#eceef1] data-[pressed]:duration-0",
         "[@media(hover:hover)_and_(pointer:fine)]:hover:bg-[#f7f8fa]",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20",
-        "motion-reduce:data-[pressed]:scale-100 print:hidden",
+        "print:hidden",
         className,
       )}
     >
