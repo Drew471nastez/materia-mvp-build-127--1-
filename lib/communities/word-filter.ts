@@ -148,7 +148,9 @@ export function readText(text: string): ReadText {
     run = []
   }
   for (const t of tokens) {
-    if ([...t].length === 1) run.push(t)
+    /* "p-o-r-n!": the sentence's own ! after the last letter does not end the run. */
+    const bare = [...t].length > 1 ? t.replace(/!+$/, "") : t
+    if ([...bare].length === 1) run.push(bare)
     else flush()
   }
   flush()
