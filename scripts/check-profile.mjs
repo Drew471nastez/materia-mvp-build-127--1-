@@ -274,9 +274,10 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       await p.click("[data-profile-activity-more]")
       await new Promise((r) => setTimeout(r, 300))
       const n1 = await p.evaluate(() => ({ n: document.querySelectorAll("[data-profile-activity-item]").length, more: !!document.querySelector("[data-profile-activity-more]") }))
-      expect(n0 === 5 && n1.n === 7 && !n1.more, "Activity: Show more adds the next page, and the list ends on Joined Storelib", { n0, n1 })
+      expect(n0 === 5 && n1.n === 6 && !n1.more, "Activity: Show more adds the next page", { n0, n1 })
+      /* Round 13: no Joined Storelib row at the end. The day they joined is a row under About instead (components/profile/person-about.tsx). */
       const last = await p.evaluate(() => [...document.querySelectorAll("[data-profile-activity-item]")].pop()?.getAttribute("data-profile-activity-item"))
-      expect(last === "joined_storelib", "the last line is the day they joined", last)
+      expect(last !== "joined_storelib", "and nothing in it says Joined Storelib", last)
 
       /* The Communities tab. */
       await p.evaluate(() => [...document.querySelectorAll("[role=tab]")].find((t) => t.textContent.trim() === "Communities").click())

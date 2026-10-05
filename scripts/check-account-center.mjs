@@ -234,14 +234,15 @@ try {
       expect(!!m.avatar && m.avatar.top < m.cover.bottom && m.avatar.bottom > m.cover.bottom && m.avatar.w === (phone ? 125 : 142), "the photo straddles the cover's edge, 125 / 142px", m.avatar)
       expect(/0px 0px 0px 2px/.test(m.ring || "") && !/0px 0px 0px 4px/.test(m.ring || ""), "  with a thin 2px ring", m.ring)
       expect(!/Joined/.test(m.heroText || ""), "no Joined line under the name", m.heroText)
-      expect(!!m.edit && m.edit.text === "Edit profile" && m.edit.href === "/account/settings" && m.edit.h === 40 && m.edit.bg === "rgb(255, 255, 255)", "Edit profile is a white Storelib button, 40px, to /account/settings", m.edit)
+      expect(!!m.edit && /Edit profile/.test(m.edit.text) && m.edit.href === "/account/settings" && m.edit.h === 40 && m.edit.bg === "rgb(255, 255, 255)", "Edit profile is a white Storelib button, 40px, to /account/settings (\"Edit\" under 640px, so it clears the centred photo)", m.edit)
       expect(!!m.edit && m.edit.top >= m.cover.top && m.edit.bottom <= m.cover.bottom, "  on the cover", { edit: m.edit, cover: m.cover })
       expect(!m.camera, "  and nothing beside it: no camera button for the cover (it is placed in Settings)", m.camera)
-      if (phone) expect(m.edit.top - m.cover.top <= 16, "  top right on a phone, clear of the photo", { edit: m.edit, avatar: m.avatar })
-      else expect(m.cover.bottom - m.edit.bottom <= 20 && m.edit.right <= (m.width + 960) / 2, "  at the foot of the band, inside the profile's column", { edit: m.edit, cover: m.cover })
+      /* Round 13: the button is pinned 12px under the real header at every width and holds that place while the cover is on screen (scripts/check-profile-band.mjs measures the whole travel). */
+      expect(m.edit.top - m.cover.top <= 16 && m.edit.right <= (m.width + 960) / 2, "  pinned just inside the band's top, inside the profile's column", { edit: m.edit, cover: m.cover, avatar: m.avatar })
       expect(m.owner.map((x) => x[0]).join() === "Activity,Communities,Library,Settings" && m.owner[0][1] === "true", "the four owner pills, Activity lit, no Edit profile pill", m.owner)
       expect(!m.follow, "no Follow on your own page", m.follow)
-      expect(m.last === "joined_storelib", "the activity ends on the day you joined", m.last)
+      /* Round 13: the list carries only things somebody did. The day you joined is a row under About instead (components/profile/person-about.tsx). */
+      expect(m.last !== "joined_storelib", "the activity has no Joined Storelib row", m.last)
       if (phone) {
         expect(m.small.length === 0, "every pill and control is at least 40px", m.small)
         expect(!!m.more && m.more.w === 42 && m.more.h === 42, "the phone bar: a 42px \"...\" at the right, the size of the icons it replaces", m.more)

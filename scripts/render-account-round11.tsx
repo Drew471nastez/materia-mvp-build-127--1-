@@ -74,7 +74,7 @@ function Account() {
             privacy={{ showActivity: true, showCommunities: true, supported: true }}
           />
         ) : (
-          <ProfileActivity userId="user-1" initial={ACTIVITY} initialNext={null} now={NOW} joinedAt="2025-03-14T10:00:00Z" emptyText="Nothing here yet." />
+          <ProfileActivity userId="user-1" initial={ACTIVITY} initialNext={null} now={NOW} emptyText="Nothing here yet." />
         )}
       </AccountHub>
     </AccountNavFade>
@@ -85,7 +85,7 @@ function Shell() {
   return (
     <div className="flex min-h-svh flex-col bg-[#fafafa]" data-page="account">
       <ConditionalHeader onPlatformDomain />
-      <main className="flex-1 overflow-x-hidden">
+      <main className="flex-1 overflow-x-clip">
         <Account />
       </main>
       {/* The site footer's place (app/account/layout.tsx draws ConditionalFooter here, in a relative isolate). */}
