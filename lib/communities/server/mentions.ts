@@ -16,7 +16,7 @@ import "server-only"
  * writes the inbox rows a page of members at a time.
  */
 import { extractMentions, mentionsEveryone } from "../limits"
-import { can } from "../permissions"
+import { can, type RolePermissions } from "../permissions"
 import type { Role } from "../types"
 import { missing, reasonOf, type Db } from "./db"
 import { notifyMember, queueJob } from "./notify"
@@ -51,9 +51,9 @@ export async function resolveMentions(db: Db, communityId: string, usernames: st
   return out
 }
 
-/** Whether this text may be sent by this role: @everyone needs mention_everyone. */
-export function everyoneAllowed(text: string, role: Role | null): boolean {
-  return !mentionsEveryone(text) || can(role, "mention_everyone")
+/** Whether this text may be sent by this role: @everyone needs mention_everyone, as the owner set it for admins and moderators (`perms`, part 100). */
+export function everyoneAllowed(text: string, role: Role | null, perms?: RolePermissions | null): boolean {
+  return !mentionsEveryone(text) || can(role, "mention_everyone", perms)
 }
 
 export interface MentionSource {

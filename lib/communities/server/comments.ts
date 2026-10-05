@@ -29,14 +29,14 @@ import "server-only"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { storedObjectSize } from "@/lib/storage/upload-guard"
 import { LENGTHS, mentionsEveryone } from "../limits"
-import { can } from "../permissions"
+import { can, type RolePermissions } from "../permissions"
 import { COMMENT_MEDIA_TYPES, MAX_COMMENT_EMBEDS, MAX_COMMENT_GIFS, MAX_COMMENT_MEDIA, PICTURE_BUCKET, memberPictureFolder, picturePathOf } from "../post-media"
 import { COMMENT_COLUMNS, type CommentRow, type CommentView, type CommunityRow, type PostMedia, type PostRow } from "../types"
 import { recordActivity } from "./activity"
 import type { Viewer } from "./context"
 import { missing, nowIso, reasonOf, type Db, type DbError } from "./db"
 import { authorViews } from "./directory"
-import { checkMedia, cleanText, refused, visiblePostRow, type Checked, type WriteContext } from "./feed"
+import { checkMedia, cleanText, permsOf, publicPostRow, refused, visiblePostRow, type Checked, type WriteContext } from "./feed"
 import { notifyMentions, snippet } from "./mentions"
 import { heldColumns, holdForReview, screenEdit, screenWrite } from "./safety"
 import { notifyMember } from "./notify"
@@ -104,6 +104,11 @@ export async function withCommentColumns(run: (columns: string) => PromiseLike<C
   return first
 }
 
+/** Whether comments can carry pictures, GIFs and videos here (part 96 has run): null until a read has found out. */
+export function commentMediaReady(): boolean | null {
+  return mediaColumn ? mediaColumn.there : null
+}
+
 /** For the probes and the suite: forget what was learnt about the column. */
 export function resetMediaColumn(): void {
   mediaColumn = null
@@ -140,7 +145,7 @@ export async function checkCommentMedia(db: Db, community: Pick<CommunityRow, "i
   if (media.filter((m) => m.type === "embed").length > MAX_COMMENT_EMBEDS) return { ok: false, error: "One video link per comment.", status: 400 }
   const pictures = media.filter((m): m is Extract<PostMedia, { type: "image" }> => m.type === "image")
   if (pictures.length === 0) return { ok: true, value: media }
-  if (!viewer.userId || !can(viewer.role, "upload")) return { ok: false, error: "You cannot add pictures here.", status: 403 }
+  if (!viewer.userId || !can(viewer.role, "upload", permsOf(viewer))) return { ok: false, error: "You cannot add pictures here.", status: 403 }
   /* A picture: on this project's storage, in the commenter's own folder for this community, and there. */
   const host = storageHost()
   const folder = memberPictureFolder(viewer.userId, community.id)
@@ -242,7 +247,7 @@ async function threadFor(db: Db, community: Pick<CommunityRow, "id">, viewer: Vi
           .then((r: { data: { target_id: string }[] | null }) => new Set((r.data ?? []).map((x) => x.target_id)), () => new Set<string>())
       : new Set<string>(),
   ])
-  return buildThread(parents, replies, { viewerId: viewer.userId, moderator: can(viewer.role, "moderate_content"), authors, reacted: reacted as Set<string> })
+  return buildThread(parents, replies, { viewerId: viewer.userId, moderator: can(viewer.role, "moderate_content", permsOf(viewer)), authors, reacted: reacted as Set<string> })
 }
 
 export interface CommentsPage {
@@ -252,11 +257,21 @@ export interface CommentsPage {
   commentsEnabled?: boolean
   /** First page only: the viewer's own name and picture, for the comment box. */
   me?: { name: string; avatarUrl: string | null } | null
+  /**
+   * First page only (round 13): false when the database has no media column for comments yet (run-now part 96):
+   * the box then offers words only, and staff see a note saying what to run.
+   */
+  mediaReady?: boolean
 }
 
-/** A page of a post's comments, oldest first, with their replies. */
-export async function listComments(db: Db, community: CommunityRow, viewer: Viewer, postId: string, cursor: string | null): Promise<Checked<CommentsPage>> {
-  const found = await visiblePostRow(db, community, viewer, postId)
+/**
+ * A page of a post's comments, oldest first, with their replies. `publicRead`
+ * (round 13): the post's own page for a reader who is not a member, read only,
+ * when the post is public (feed.ts publicPostRow; the page has already asked
+ * post-seo publicPost of the community).
+ */
+export async function listComments(db: Db, community: CommunityRow, viewer: Viewer, postId: string, cursor: string | null, opts: { publicRead?: boolean } = {}): Promise<Checked<CommentsPage>> {
+  const found = opts.publicRead ? await publicPostRow(db, community, postId) : await visiblePostRow(db, community, viewer, postId)
   if (!found) return { ok: false, error: "That post is gone.", status: 404 }
   const first = !cursor
   const space = found.row.space_id ? found.spaces.find((s) => s.id === found.row.space_id) : null
@@ -286,6 +301,7 @@ export async function listComments(db: Db, community: CommunityRow, viewer: View
         comments,
         nextCursor: rows.length > COMMENT_PAGE && last ? encodeCommentCursor({ c: last.created_at, i: last.id }) : null,
         ...more,
+        ...(first ? { mediaReady: commentMediaReady() !== false } : {}),
       },
     }
   } catch (e) {
@@ -321,15 +337,15 @@ export async function getCommentView(db: Db, community: CommunityRow, viewer: Vi
           .then((r: { data: { target_id: string }[] | null }) => new Set((r.data ?? []).map((x) => x.target_id)), () => new Set<string>())
       : new Set<string>(),
   ])
-  const [view] = buildThread([{ ...row, parent_id: null }], [], { viewerId: viewer.userId, moderator: can(viewer.role, "moderate_content"), authors, reacted: reacted as Set<string> })
+  const [view] = buildThread([{ ...row, parent_id: null }], [], { viewerId: viewer.userId, moderator: can(viewer.role, "moderate_content", permsOf(viewer)), authors, reacted: reacted as Set<string> })
   return view ? { ...view, parentId: row.parent_id } : null
 }
 
 /** Whether a new comment may go under this post: published, comments on in its space, not locked (moderators may still). */
-export function commentsOpen(post: Pick<PostRow, "status" | "locked">, spaceCommentsEnabled: boolean, viewer: Pick<Viewer, "role">): string | null {
+export function commentsOpen(post: Pick<PostRow, "status" | "locked">, spaceCommentsEnabled: boolean, viewer: Pick<Viewer, "role"> & { perms?: RolePermissions | null }): string | null {
   if (post.status !== "published") return "That post is gone."
   if (!spaceCommentsEnabled) return "Comments are off in this space."
-  if (post.locked && !can(viewer.role, "lock")) return "Comments are closed on this post."
+  if (post.locked && !can(viewer.role, "lock", permsOf(viewer))) return "Comments are closed on this post."
   return null
 }
 
@@ -351,7 +367,7 @@ export async function createComment(w: WriteContext, postId: string, raw: unknow
   /* Words, or something under them (a GIF on its own is a whole answer). */
   if (!body && !hasMedia) return { ok: false, error: "Write a comment first.", status: 400 }
   if (body.length > LENGTHS.commentBody.max) return { ok: false, error: "Keep the comment under 5,000 characters.", status: 400 }
-  if (mentionsEveryone(body) && !can(viewer.role, "mention_everyone")) return { ok: false, error: "Only admins can mention everyone.", status: 403 }
+  if (mentionsEveryone(body) && !can(viewer.role, "mention_everyone", permsOf(viewer))) return { ok: false, error: "Only admins can mention everyone.", status: 403 }
 
   const found = await visiblePostRow(db, community, viewer, postId)
   if (!found) return { ok: false, error: "That post is gone.", status: 404 }
@@ -434,7 +450,7 @@ export async function createComment(w: WriteContext, postId: string, raw: unknow
     text: body,
     skip: told,
   })
-  const [view] = buildThread([{ ...row, parent_id: null }], [], { viewerId: viewer.userId, moderator: can(viewer.role, "moderate_content"), authors, reacted: new Set() })
+  const [view] = buildThread([{ ...row, parent_id: null }], [], { viewerId: viewer.userId, moderator: can(viewer.role, "moderate_content", permsOf(viewer)), authors, reacted: new Set() })
   return { ok: true, value: { ...view, parentId: topId } }
 }
 
@@ -459,7 +475,7 @@ export async function updateComment(w: WriteContext, commentId: string, raw: unk
   /* What it carries stays as it is; a comment that carries something may lose its words. */
   if (!body && !(Array.isArray(ownRow.media) && ownRow.media.length)) return { ok: false, error: "Write a comment first.", status: 400 }
   if (body.length > LENGTHS.commentBody.max) return { ok: false, error: "Keep the comment under 5,000 characters.", status: 400 }
-  if (mentionsEveryone(body) && !mentionsEveryone(ownRow.body) && !can(w.viewer.role, "mention_everyone")) return { ok: false, error: "Only admins can mention everyone.", status: 403 }
+  if (mentionsEveryone(body) && !mentionsEveryone(ownRow.body) && !can(w.viewer.role, "mention_everyone", permsOf(w.viewer))) return { ok: false, error: "Only admins can mention everyone.", status: 403 }
   const edited = await screenEdit(w, "comment", { text: body, before: ownRow.body })
   if (!edited.ok) return refused(edited)
   const { data, error } = await withCommentColumns((columns) =>
@@ -485,19 +501,20 @@ export async function updateComment(w: WriteContext, commentId: string, raw: unk
     postId: row.post_id,
     text: body,
   })
-  const [view] = buildThread([{ ...row, parent_id: null }], [], { viewerId: w.viewer.userId, moderator: can(w.viewer.role, "moderate_content"), authors, reacted: new Set() })
+  const [view] = buildThread([{ ...row, parent_id: null }], [], { viewerId: w.viewer.userId, moderator: can(w.viewer.role, "moderate_content", permsOf(w.viewer)), authors, reacted: new Set() })
   return { ok: true, value: { ...view, parentId: row.parent_id } }
 }
 
-/** The author deletes their comment: its words go, the row stays so its replies keep their place. */
-export async function deleteComment(w: WriteContext, commentId: string): Promise<Checked<true>> {
+/** The author deletes their comment: its words go, the row stays so its replies keep their place. Answers the post it was under (the live channel's). */
+export async function deleteComment(w: WriteContext, commentId: string): Promise<Checked<{ postId: string }>> {
   const own = await ownComment(w, commentId)
   if (!own.ok) return refused(own)
+  const postId = (own as { value: CommentRow }).value.post_id
   const { error } = await w.db
     .from("community_feed_comments")
     .update({ status: "deleted", deleted_at: nowIso(), body: "" })
     .eq("id", commentId)
     .eq("author_id", w.viewer.userId)
   if (error) return { ok: false, error: "The comment was not deleted. Try again.", status: 500 }
-  return { ok: true, value: true }
+  return { ok: true, value: { postId } }
 }

@@ -35,10 +35,40 @@
  * A YouTube or Vimeo address in the words plays under them in the opened
  * post and gives the card its thumbnail when nothing else does
  * (post-media.ts withBodyEmbeds).
+ *
+ * ROUND 13.
+ *   NO UNREAD DOT. The black dot before a title is gone from cards entirely
+ *   (Unread in the sort menu is where "new to me" lives).
+ *   PINNED reads as pinned: a quiet line above the post ("Pinned", the pin
+ *   glyph) and a card a shade firmer (a slightly darker hairline and the
+ *   light shadow), the same at every width.
+ *   THE SPACE'S GLYPH before its name on the space line (space-glyph.ts).
+ *   SHARE: the system share sheet (the app's Share plugin when the app has
+ *   it, else navigator.share) with the post's address, title and words; a
+ *   browser without one copies the link. Copy link stays beside it. The
+ *   shared link's preview is the post's own picture card (post-seo.ts).
+ *   EDIT POST is the composer itself (composer.tsx `edit`), in place of the
+ *   post's words on a computer and as its screen on a phone; the spaces it
+ *   may move to come from the feed (EditSpacesContext). The cards under it
+ *   slide to their new places as it opens and closes.
+ *   DELETE, REMOVE, BAN ask in Storelib's own sheet, above an opened post
+ *   (report-confirm.tsx); a deleted card fades and the cards under it close
+ *   the gap (feed-live.tsx foldAway).
+ *   Dates: "57m", "3d" up to a week, then "Feb 23" (with the year when it
+ *   is not this year): lib/communities/format.ts relativeTime.
  */
 import Link from "next/link"
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { BarChart3, Bookmark, Link2, Lock, MessageCircle, MoreHorizontal, Paperclip, Pencil, Pin, Shield, Trash2, Flag, VolumeX, Ban } from "lucide-react"
+import { createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { BarChart3, Bookmark, Lock, MessageCircle, Paperclip, VolumeX, Ban } from "lucide-react"
+import { FlagIcon } from "@solar-icons/react/linear/flag"
+import { LinkRoundIcon } from "@solar-icons/react/linear/link-round"
+import { MenuDotsIcon } from "@solar-icons/react/linear/menu-dots"
+import { PenIcon } from "@solar-icons/react/linear/pen"
+import { PinIcon } from "@solar-icons/react/linear/pin"
+import { PinIcon as PinBold } from "@solar-icons/react/bold/pin"
+import { ShareIcon } from "@solar-icons/react/linear/share"
+import { ShieldIcon } from "@solar-icons/react/linear/shield"
+import { TrashBinMinimalisticIcon } from "@solar-icons/react/linear/trash-bin-minimalistic"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { relativeTime } from "@/lib/communities/format"
@@ -46,8 +76,13 @@ import { cardPictures, withBodyEmbeds } from "@/lib/communities/post-media"
 import type { FeedPostView, PollView, ViewerView } from "@/lib/communities/types"
 import { api, apiBase } from "./api"
 import { BodyText, inline } from "./body-text"
-import { ConfirmDialog, type ConfirmState, type ReportTargetRef } from "./dialogs"
+import { Composer } from "./composer"
+import type { ConfirmState, ReportTargetRef } from "./dialogs"
+import { foldAway } from "./feed-live"
+import { ConfirmSheet } from "./report-confirm"
 import { ReportSheet } from "./report-sheet"
+import { spaceGlyph } from "./space-glyph"
+import type { ComposerSpace } from "./view-types"
 import { LikeHeart, likeSound } from "./heart"
 import { CardMedia, PostMediaGrid, PostThumb } from "./media"
 import { REOPEN, actOnContent, actOnMember, moderationMenu, muteUntil } from "./moderation"
@@ -55,10 +90,8 @@ import { PollBlock } from "./poll"
 import { readAheadComments } from "./comments"
 import { PostOverlay } from "./post-overlay"
 import { intentOf, press, useIntent } from "./post-intent"
-import { SEEN_EVENT, isUnread, readSeen } from "./post-seen"
 import { toast } from "./toast"
-import { BTN_GHOST, BTN_PRIMARY, CARD, FIELD, ICON_BTN } from "./ui"
-import { STACK, STACK_FACE } from "./ui"
+import { BTN_GHOST, CARD, ICON_BTN, STACK, STACK_FACE } from "./ui"
 import { memberHref } from "./person-href"
 import { RoleBadge } from "./role-badge"
 
@@ -70,6 +103,48 @@ export function newCommentLabel(iso: string, now = Date.now()): string {
 
 export type PostUpdate = (id: string, fn: (p: FeedPostView) => FeedPostView | null) => void
 
+/** The spaces a post may be moved to in Edit post: the feed's composer spaces (feed.tsx provides them; a lone post page has none). */
+export const EditSpacesContext = createContext<ComposerSpace[] | null>(null)
+
+/**
+ * SHARING A POST (round 13): the app's own Share plugin when the app has it,
+ * the browser's share sheet when it has one, else the link copied. Answers
+ * what happened ("shared", "copied", "cancelled" or "failed").
+ */
+export async function sharePost(url: string, title: string | null, text: string): Promise<"shared" | "copied" | "cancelled" | "failed"> {
+  const words = text.replace(/\s+/g, " ").trim().slice(0, 140)
+  const native = (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean; Plugins?: { Share?: { share: (o: { title?: string; text?: string; url: string; dialogTitle?: string }) => Promise<unknown> } } } }).Capacitor
+  try {
+    if (native?.isNativePlatform?.() && native.Plugins?.Share) {
+      await native.Plugins.Share.share({ title: title ?? undefined, text: words || undefined, url, dialogTitle: "Share post" })
+      return "shared"
+    }
+    if (typeof navigator.share === "function") {
+      await navigator.share({ title: title ?? undefined, text: words || undefined, url })
+      return "shared"
+    }
+  } catch (e) {
+    if ((e as { name?: string })?.name === "AbortError") return "cancelled"
+    /* A share sheet that failed: the link copied instead. */
+  }
+  try {
+    await navigator.clipboard.writeText(url)
+    return "copied"
+  } catch {
+    return "failed"
+  }
+}
+
+/** Whether this browser (or the app) has a share sheet, read after the first paint. */
+function useCanShare(): boolean {
+  const [can, setCan] = useState(false)
+  useEffect(() => {
+    const native = (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean; Plugins?: { Share?: unknown } } }).Capacitor
+    setCan(typeof navigator.share === "function" || !!(native?.isNativePlatform?.() && native.Plugins?.Share))
+  }, [])
+  return can
+}
+
 export interface PostCardProps {
   post: FeedPostView
   slug: string
@@ -80,6 +155,8 @@ export interface PostCardProps {
   readOnly?: boolean
   /** Where the comment button goes; the permalink passes a function that focuses its box. */
   onComment?: () => void
+  /** Open Edit post at once (the post page with ?edit=1, round 13); ignored unless the viewer may edit it. */
+  autoEdit?: boolean
 }
 
 /**
@@ -140,7 +217,18 @@ export function PostCardPlaceholder({ post }: { post: FeedPostView }) {
   return <div className={`${CARD} ${PHONE_ROW}`} style={{ height: heightOf(post.id) }} data-post-placeholder={post.id} aria-hidden />
 }
 
-/** "5h", "3d", or "Sep 11": the last kind (an Intl format, the costly one) once per date. */
+/** The cards after this one in its list, which slide to their new places when it changes height (Edit post opening and closing). */
+function followers(el: HTMLElement | null): HTMLElement[] {
+  const out: HTMLElement[] = []
+  for (let x = el?.nextElementSibling ?? null; x; x = x.nextElementSibling) {
+    if (!(x instanceof HTMLElement)) continue
+    if (x.getBoundingClientRect().top > window.innerHeight) break
+    out.push(x)
+  }
+  return out
+}
+
+/** "57m", "3d", or "Sep 11" (lib/communities/format.ts relativeTime): the last kind (an Intl format, the costly one) once per date. */
 const OLD_DATES = new Map<string, string>()
 function whenLabel(iso: string): string {
   const have = OLD_DATES.get(iso)
@@ -157,9 +245,9 @@ function whenLabel(iso: string): string {
   draws again only when its own post (or how it is shown) changes, and calls
   the feed's latest `update` through a ref.
 */
-export const PostCard = memo(PostCardView, (a, b) => a.post === b.post && a.slug === b.slug && a.viewer === b.viewer && a.full === b.full && a.readOnly === b.readOnly && a.onComment === b.onComment)
+export const PostCard = memo(PostCardView, (a, b) => a.post === b.post && a.slug === b.slug && a.viewer === b.viewer && a.full === b.full && a.readOnly === b.readOnly && a.onComment === b.onComment && a.autoEdit === b.autoEdit)
 
-function PostCardView({ post, slug, viewer, update: given, full = false, readOnly = false, onComment }: PostCardProps) {
+function PostCardView({ post, slug, viewer, update: given, full = false, readOnly = false, onComment, autoEdit = false }: PostCardProps) {
   const latest = useRef(given)
   useEffect(() => {
     latest.current = given
@@ -179,13 +267,13 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
   const [confirm, setConfirm] = useState<ConfirmState | null>(null)
   const [report, setReport] = useState<ReportTargetRef | null>(null)
   const [opened, setOpened] = useState(false)
-  const [unread, setUnread] = useState(false)
+  const canShare = useCanShare()
   /* The dialogs are built the first time one is asked for, then kept (so they can animate out). */
   const asked = useRef(false)
   if (confirm || report) asked.current = true
   const dialogs = asked.current ? (
     <>
-      <ConfirmDialog state={confirm} onClose={() => setConfirm(null)} />
+      <ConfirmSheet state={confirm} onClose={() => setConfirm(null)} />
       <ReportSheet communityId={post.communityId} target={report} onClose={() => setReport(null)} />
     </>
   ) : null
@@ -198,18 +286,36 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
   const mod = moderationMenu(viewer, post.author ? { id: post.author.id, role: post.author.role } : null)
   const own = post.canEdit
 
-  /* New to me? Read after the first paint (it lives in this browser), and again when any card or page marks a post seen. */
+  /*
+    EDIT POST OPENS AND CLOSES IN PLACE, SMOOTHLY. The card's height before the change is read as it is asked for; once the
+    card is drawn the other way, the cards under it start where they were and slide to their new places (translate, on the
+    compositor), and what is now in the card fades in. With reduced motion it simply changes.
+  */
+  const heightBefore = useRef<number | null>(null)
+  const contentRef = useRef<HTMLDivElement>(null)
+  const startEdit = () => {
+    heightBefore.current = cardRef.current?.offsetHeight ?? null
+    setEditing(true)
+  }
+  const endEdit = () => {
+    heightBefore.current = cardRef.current?.offsetHeight ?? null
+    setEditing(false)
+  }
+  /* ?edit=1 (a profile's Edit link): Edit post opens at once, only for its author and never read only. */
   useEffect(() => {
-    if (full) return
-    const read = () => setUnread(isUnread(post, viewer.userId, readSeen(post.communityId, viewer.userId)))
-    read()
-    const on = (e: Event) => {
-      const d = (e as CustomEvent<{ postId?: string }>).detail
-      if (!d?.postId || d.postId === post.id) read()
-    }
-    window.addEventListener(SEEN_EVENT, on)
-    return () => window.removeEventListener(SEEN_EVENT, on)
-  }, [full, post, viewer.userId])
+    if (autoEdit && own && !readOnly) setEditing(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoEdit])
+  useLayoutEffect(() => {
+    const before = heightBefore.current
+    heightBefore.current = null
+    const el = cardRef.current
+    if (before == null || !el || typeof el.animate !== "function" || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
+    if (!editing) contentRef.current?.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 220, easing: "cubic-bezier(0, 0, 0.2, 1)" })
+    const d = el.offsetHeight - before
+    if (Math.abs(d) < 1 || full) return
+    for (const x of followers(el)) x.animate([{ translate: `0 ${-d}px` }, { translate: "0 0" }], { duration: 260, easing: "cubic-bezier(0.22, 1, 0.36, 1)" })
+  }, [editing, full])
 
   /* The card opens its post over the feed; a link or a button inside it does its own thing. */
   const openPost = (e: React.MouseEvent) => {
@@ -254,6 +360,12 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
       toast(url)
     }
   }
+  const share = async () => {
+    const url = `${window.location.origin}${href}`
+    const how = await sharePost(url, post.title, post.bodyText)
+    if (how === "copied") toast("Link copied")
+    else if (how === "failed") toast(url)
+  }
 
   const moderate = (action: "pin" | "unpin" | "lock" | typeof REOPEN, done: (p: FeedPostView) => FeedPostView, said: string) => async () => {
     const r = await actOnContent(post.communityId, { action, targetType: "post", targetId: post.id })
@@ -262,13 +374,15 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
     toast(said)
   }
 
-  const items: ActionMenuItem[] = [{ label: "Copy link", icon: <Link2 className="h-4 w-4" />, onClick: copyLink }]
-  if (!full) items.push({ label: bookmarked ? "Remove from Saved" : "Save post", icon: <Bookmark className="h-4 w-4" />, onClick: () => save() })
+  const items: ActionMenuItem[] = []
+  if (canShare) items.push({ label: "Share post", icon: <ShareIcon size={16} />, onClick: () => void share() })
+  items.push({ label: "Copy link", icon: <LinkRoundIcon size={16} />, onClick: copyLink })
+  if (!full && viewer.active) items.push({ label: bookmarked ? "Remove from Saved" : "Save post", icon: <Bookmark className="h-4 w-4" strokeWidth={1.75} />, onClick: () => save() })
   if (own && !readOnly) {
-    items.push({ label: "Edit post", icon: <Pencil className="h-4 w-4" />, onClick: () => setEditing(true) })
+    items.push({ label: "Edit post", icon: <PenIcon size={16} />, onClick: startEdit })
     items.push({
       label: "Delete post",
-      icon: <Trash2 className="h-4 w-4" />,
+      icon: <TrashBinMinimalisticIcon size={16} />,
       variant: "destructive",
       onClick: () =>
         setConfirm({
@@ -282,6 +396,7 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
               toast(r.error)
               return false
             }
+            foldAway(post.id)
             update(post.id, () => null)
             toast("Post deleted")
             return true
@@ -289,14 +404,14 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
         }),
     })
   }
-  if (!own && viewer.can.report) items.push({ label: "Report post", icon: <Flag className="h-4 w-4" />, onClick: () => setReport({ type: "post", id: post.id, what: "post" }) })
+  if (!own && viewer.can.report) items.push({ label: "Report post", icon: <FlagIcon size={16} />, onClick: () => setReport({ type: "post", id: post.id, what: "post" }) })
   const modItems: ActionMenuItem[] = []
-  if (mod.pin) modItems.push({ label: post.pinned ? "Unpin" : "Pin to top", icon: <Pin className="h-4 w-4" />, onClick: post.pinned ? moderate("unpin", (p) => ({ ...p, pinned: false }), "Unpinned") : moderate("pin", (p) => ({ ...p, pinned: true }), "Pinned to the top") })
+  if (mod.pin) modItems.push({ label: post.pinned ? "Unpin" : "Pin to top", icon: <PinIcon size={16} />, onClick: post.pinned ? moderate("unpin", (p) => ({ ...p, pinned: false }), "Unpinned") : moderate("pin", (p) => ({ ...p, pinned: true }), "Pinned to the top") })
   if (mod.lock) modItems.push({ label: post.locked ? "Open comments" : "Close comments", icon: <Lock className="h-4 w-4" />, onClick: post.locked ? moderate(REOPEN, (p) => ({ ...p, locked: false }), "Comments open") : moderate("lock", (p) => ({ ...p, locked: true }), "Comments closed") })
   if (mod.remove && !own)
     modItems.push({
       label: "Remove post",
-      icon: <Shield className="h-4 w-4" />,
+      icon: <ShieldIcon size={16} />,
       variant: "destructive",
       onClick: () =>
         setConfirm({
@@ -311,6 +426,7 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
               toast(r.error)
               return false
             }
+            foldAway(post.id)
             update(post.id, () => null)
             toast("Post removed")
             return true
@@ -398,32 +514,38 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
           {post.space ? (
             <>
               <span aria-hidden>·</span>
-              <Link href={`${base}/space/${post.space.slug}`} className="max-w-[180px] truncate font-medium text-[#4b5563] transition-colors hover:text-[#1a1a2e] hover:underline" data-post-space="">
-                {post.space.name}
+              <Link href={`${base}/space/${post.space.slug}`} className="inline-flex min-w-0 max-w-[200px] items-center gap-1 font-medium text-[#4b5563] transition-colors hover:text-[#1a1a2e] hover:underline" data-post-space="">
+                <span aria-hidden className="shrink-0 text-[12px] leading-none no-underline" data-space-glyph="">
+                  {spaceGlyph(post.space.icon, post.space.kind)}
+                </span>
+                <span className="truncate">{post.space.name}</span>
               </Link>
             </>
           ) : null}
         </div>
       </div>
       <div className="-mr-2 -mt-1 flex shrink-0 items-center">
-        {post.pinned ? (
-          <span className="mr-1 inline-flex items-center gap-1 text-[12.5px] font-medium text-[#6b7280]" data-pin-mark="">
-            <Pin className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
-            Pinned
-          </span>
-        ) : null}
         <ResponsiveActionMenu
           title="Post"
           items={[...items, ...modItems]}
           trigger={
-            <button type="button" aria-label="More" className={ICON_BTN}>
-              <MoreHorizontal className="h-5 w-5" strokeWidth={1.75} />
+            <button type="button" aria-label="More" className={ICON_BTN} data-post-more="">
+              <MenuDotsIcon size={20} />
             </button>
           }
         />
       </div>
     </header>
   )
+  /* PINNED (round 13): a quiet line above the post, the same open and in the feed. */
+  const pinnedLine = post.pinned ? (
+    <div className="-mt-0.5 mb-2.5 flex items-center gap-1.5 text-[12.5px] font-semibold text-[#4b5563]" data-pin-mark="">
+      <PinBold size={14} className="text-[#1a1a2e]" aria-hidden />
+      Pinned
+    </div>
+  ) : null
+  /* Edit post: the composer, in place of the words on a computer, its own screen on a phone (the words stay under it). */
+  const editor = editing ? <EditInCard post={post} viewer={viewer} update={update} onDone={endEdit} /> : null
 
   const likeButton = <LikeButton post={post} full={full} disabled={readOnly || !viewer.can.react} onPress={like} />
 
@@ -431,30 +553,26 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
     return (
       <article
         ref={cardRef}
-        className={`${CARD} ${PHONE_ROW} group/post cursor-pointer px-4 pb-2 pt-4 transition-[border-color,box-shadow] duration-150 [content-visibility:auto] sm:px-5 sm:pt-5 sm:hover:border-[#dfe2e6] sm:hover:shadow-[0_1px_3px_rgba(17,24,39,0.05)]`}
+        className={`${CARD} ${PHONE_ROW} group/post cursor-pointer px-4 pb-2 pt-4 transition-[border-color,box-shadow] duration-150 [content-visibility:auto] sm:px-5 sm:pt-5 sm:hover:border-[#dfe2e6] sm:hover:shadow-[0_1px_3px_rgba(17,24,39,0.05)] ${post.pinned ? PINNED : ""}`}
         style={{ containIntrinsicSize: `auto ${heightOf(post.id)}px` }}
         data-post={post.id}
         data-pinned={post.pinned ? "true" : undefined}
-        data-unread={unread ? "true" : undefined}
-        onClick={openPost}
+        onClick={editing ? undefined : openPost}
         /* The comments are asked for as the finger lands, so they are usually here before the post has finished opening. */
         onPointerDown={(e) => {
           if (e.button === 0 && !(e.target as HTMLElement).closest("button, [role=menu]")) void readAheadComments(post.communityId, post.id)
         }}
       >
+        {pinnedLine}
         {head}
         {removed ? <p className="mt-3 rounded-lg bg-[#fff6e0] px-3 py-2 text-[13px] text-[#8a5a00]">Removed by a moderator. Only moderators see it.</p> : null}
-        {editing ? (
-          <div data-no-open="">
-            <EditPost post={post} onDone={() => setEditing(false)} update={update} />
-          </div>
-        ) : (
-          <div className="mt-3 flex items-start gap-4">
+        {editor}
+        {editing && !phoneNow() ? null : (
+          <div ref={contentRef} className="mt-3 flex items-start gap-4">
             <div className="min-w-0 flex-1">
               {post.kind === "announcement" ? <div className="mb-1 text-[12.5px] font-medium text-[#6b7280]">Announcement</div> : null}
               {post.title ? (
-                <h2 className="flex items-start gap-2 text-[17px] font-semibold leading-snug tracking-[-0.005em] text-[#1a1a2e] sm:text-[18px]">
-                  {unread ? <span className="mt-[9px] h-2 w-2 shrink-0 rounded-full bg-[#1a1a2e]" aria-label="New" data-unread-dot="" /> : null}
+                <h2 className="text-[17px] font-semibold leading-snug tracking-[-0.005em] text-[#1a1a2e] sm:text-[18px]">
                   <Link href={href} className="min-w-0 [overflow-wrap:anywhere] hover:underline" data-post-open="" onClick={openPost}>
                     {post.title}
                   </Link>
@@ -533,14 +651,14 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
   }
 
   return (
-    <article className={`${CARD} px-4 pb-2 pt-4 sm:px-5 sm:pt-5`} data-post={post.id} data-pinned={post.pinned ? "true" : undefined}>
+    <article ref={cardRef} className={`${CARD} px-4 pb-2 pt-4 sm:px-5 sm:pt-5`} data-post={post.id} data-pinned={post.pinned ? "true" : undefined}>
+      {pinnedLine}
       {head}
       {removed ? <p className="mt-3 rounded-lg bg-[#fff6e0] px-3 py-2 text-[13px] text-[#8a5a00]">Removed by a moderator. Only moderators see it.</p> : null}
 
-      {editing ? (
-        <EditPost post={post} onDone={() => setEditing(false)} update={update} />
-      ) : (
-        <div className="mt-3">
+      {editor}
+      {editing && !phoneNow() ? null : (
+        <div ref={contentRef} className="mt-3">
           {post.kind === "announcement" ? <div className="mb-1 text-[12.5px] font-medium text-[#6b7280]">Announcement</div> : null}
           {post.title ? <h1 className="pr-8 text-[19px] font-semibold leading-snug text-[#1a1a2e] [overflow-wrap:anywhere] sm:text-[21px]">{post.title}</h1> : null}
           {post.bodyText ? <BodyText text={post.bodyText} clamp={false} className={post.title ? "mt-1.5" : ""} /> : null}
@@ -551,7 +669,8 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
         </div>
       )}
 
-      <footer className="mt-2 flex items-center gap-1 border-t border-[#f0f1f3] pt-1 sm:mt-3">
+      {/* While Edit post is open in place its own Save is the one on screen: the footer (with the bookmark's "Save") waits. */}
+      <footer className={`mt-2 flex items-center gap-1 border-t border-[#f0f1f3] pt-1 sm:mt-3 ${editing ? "sm:hidden" : ""}`}>
         {likeButton}
         {onComment ? (
           <button type="button" onClick={onComment} className={`${BTN_GHOST} gap-2`} data-comment-button="">
@@ -570,7 +689,13 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
             Comments closed
           </span>
         ) : null}
-        <SaveButton post={post} onPress={() => save(false)} />
+        {canShare ? (
+          <button type="button" onClick={() => void share()} className={`${BTN_GHOST} gap-2 ${viewer.active ? "" : "-mr-2 ml-auto"}`} data-share-post="">
+            <ShareIcon size={18} aria-hidden />
+            <span>Share</span>
+          </button>
+        ) : null}
+        {viewer.active ? <SaveButton post={post} onPress={() => save(false)} /> : null}
       </footer>
 
       {dialogs}
@@ -626,30 +751,45 @@ function SavedMark({ post }: { post: FeedPostView }) {
   return <Bookmark className={`ml-auto h-4 w-4 shrink-0 fill-current text-[#1a1a2e] ${on ? "" : "hidden"}`} aria-label={on ? "Saved" : undefined} aria-hidden={on ? undefined : true} data-saved-mark={on ? "" : undefined} />
 }
 
-function EditPost({ post, onDone, update }: { post: FeedPostView; onDone: () => void; update: PostUpdate }) {
-  const [title, setTitle] = useState(post.title ?? "")
-  const [body, setBody] = useState(post.bodyText)
-  const [busy, setBusy] = useState(false)
-  const save = async () => {
-    setBusy(true)
-    const r = await api<{ post: FeedPostView }>(`${apiBase(post.communityId)}/posts/${post.id}`, { method: "PATCH", body: { title, body } })
-    setBusy(false)
-    if (!r.ok) return toast(r.error)
-    update(post.id, () => r.data.post)
-    onDone()
-  }
+/** A pinned card: a shade firmer edge and the light shadow (round 13). */
+const PINNED = "border-[#dcdfe4] shadow-[0_1px_3px_rgba(16,24,40,0.06)]"
+
+/** Whether the screen is a phone's now (Edit post draws its screen there, the words staying in the card). */
+function phoneNow(): boolean {
+  return typeof window !== "undefined" && !!window.matchMedia?.("(max-width: 639px)").matches
+}
+
+/** Edit post: the composer with this post in it (composer.tsx `edit`). */
+function EditInCard({ post, viewer, update, onDone }: { post: FeedPostView; viewer: ViewerView; update: PostUpdate; onDone: () => void }) {
+  const given = useContext(EditSpacesContext)
+  /* The spaces it may move to; the one it is in is always there (a lone post page knows no other). */
+  const spaces = useMemo<ComposerSpace[]>(() => {
+    const list = [...(given ?? [])]
+    if (post.space && !list.some((x) => x.id === post.space!.id)) list.unshift({ id: post.space.id, name: post.space.name, kind: post.space.kind ?? "feed", icon: post.space.icon ?? null })
+    return list
+  }, [given, post.space])
+  const edit = useMemo(
+    () => ({
+      post,
+      onSaved: (p: FeedPostView) => {
+        update(post.id, (x) => ({ ...x, ...p, reacted: x.reacted, reactionCount: x.reactionCount, bookmarked: x.bookmarked }))
+        onDone()
+        toast("Post updated")
+      },
+      onClose: onDone,
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [post.id],
+  )
   return (
-    <div className="mt-3 space-y-2">
-      <input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={200} placeholder="Title" aria-label="Title" className={`${FIELD} font-semibold`} />
-      <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={Math.min(14, Math.max(4, body.split("\n").length + 1))} maxLength={20000} className={`${FIELD} resize-y leading-relaxed`} />
-      <div className="flex justify-end gap-2">
-        <button type="button" className={BTN_GHOST} onClick={onDone} disabled={busy}>
-          Cancel
-        </button>
-        <button type="button" className={BTN_PRIMARY} onClick={save} disabled={busy || !title.trim() || !body.trim()}>
-          {busy ? "Saving..." : "Save"}
-        </button>
-      </div>
-    </div>
+    <Composer
+      communityId={post.communityId}
+      userId={viewer.userId ?? ""}
+      me={{ name: post.author?.name ?? "You", avatarUrl: post.author?.avatarUrl ?? null }}
+      spaces={spaces}
+      fixedSpaceId={spaces.length <= 1 ? (post.space?.id ?? null) : null}
+      edit={edit}
+      onPosted={() => undefined}
+    />
   )
 }
