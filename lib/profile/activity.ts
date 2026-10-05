@@ -187,7 +187,7 @@ async function communitySource(db: Db, userId: string, after: Position | null, l
     } else if (r.kind === "course_completed") {
       const course = r.target_id ? courseById.get(r.target_id) : undefined
       if (!course) continue
-      items.push({ ...base, kind: "completed_course", title: course.title?.trim() || "A course", context: c.name, href: `/community/${c.slug}/classroom`, imageUrl: course.thumbnail_url })
+      items.push({ ...base, kind: "completed_course", title: course.title?.trim() || "A course", context: c.name, href: `/community/${c.slug}/learn`, imageUrl: course.thumbnail_url })
     }
   }
   const last = rows[rows.length - 1]

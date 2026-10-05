@@ -36,9 +36,9 @@ import type { ClassroomCourse, CourseLock } from "@/components/community/classro
 import { opensOnLabel } from "@/components/community/classroom/model"
 import type { Viewer } from "./context"
 import { missing, reasonOf, type Db } from "./db"
-import { ownedProductIds } from "./membership"
 import { recordActivity } from "./activity"
 import { awardPoints } from "./points"
+import { attachedCourseOpen } from "./learn"
 
 export const COURSE_COMPLETED_POINTS = 10
 const DAY_MS = 86_400_000
@@ -134,7 +134,8 @@ export async function attachedCourses(db: Db, communityId: string): Promise<Atta
     if (!missing(error)) console.error(`[communities] classroom read: ${reasonOf(error)}`)
     return []
   }
-  return ((data as { product_id: string; position: number; access: unknown; drip_days: number | null }[] | null) ?? []).map((r) => ({
+  /* A program made in the community (part 102) has no product: it is not an attached course. */
+  return ((data as { product_id: string | null; position: number; access: unknown; drip_days: number | null }[] | null) ?? []).filter((r): r is { product_id: string; position: number; access: unknown; drip_days: number | null } => !!r.product_id).map((r) => ({
     productId: r.product_id,
     position: r.position,
     access: r.access,
@@ -200,7 +201,7 @@ export async function listClassroom(db: Db, community: CommunityRow, viewer: Vie
       status,
       totalSeconds: own.reduce((s, l) => s + (Number(l.duration_seconds) || 0), 0),
       locked: denial ? lockFor(denial as { reason: string; need?: string; opensAt?: string }, names, opts.timeZone) : null,
-      href: `/community/${community.slug}/classroom/${a.productId}${resume}`,
+      href: `/community/${community.slug}/learn/${a.productId}${resume}`,
     })
   }
   return out
@@ -220,39 +221,12 @@ export async function classroomCourse(db: Db, community: CommunityRow, viewer: V
  */
 export async function communityGrantsCourse(db: Db, userId: string, productId: string, opts: { enabled?: boolean; now?: number } = {}): Promise<boolean> {
   try {
-    const { data: links, error } = await db.from("community_courses").select("community_id, access, drip_days").eq("product_id", productId).limit(50)
+    const { data: links, error } = await db.from("community_courses").select("community_id").eq("product_id", productId).limit(1)
     if (error || !links || (links as unknown[]).length === 0) return false
     const enabled = opts.enabled ?? (await communitiesEnabled())
     if (!enabled) return false
-    const rows = links as { community_id: string; access: unknown; drip_days: number | null }[]
-    const { data: memberRows } = await db
-      .from("community_members")
-      .select("community_id, role, tier_id, level, joined_at, created_at, status")
-      .eq("user_id", userId)
-      .eq("status", "active")
-      .in("community_id", rows.map((r) => r.community_id))
-    const members = (memberRows as { community_id: string; role: Role; tier_id: string | null; level: number; joined_at: string | null; created_at: string; status: string }[] | null) ?? []
-    if (members.length === 0) return false
-    const { data: communityRows } = await db.from("communities").select("id, status, suspended_at, deleted_at").in("id", members.map((m) => m.community_id))
-    const open = new Set(
-      ((communityRows as { id: string; status: string; suspended_at: string | null; deleted_at: string | null }[] | null) ?? [])
-        .filter((c) => !c.deleted_at && !c.suspended_at && c.status !== "suspended")
-        .map((c) => c.id),
-    )
-    for (const m of members) {
-      if (!open.has(m.community_id)) continue
-      const link = rows.find((r) => r.community_id === m.community_id)
-      if (!link) continue
-      const rule = parseAccessRule(link.access)
-      const owned = rule.productIds?.length ? await ownedProductIds(db, userId, rule.productIds) : []
-      const denial = courseDenial(
-        { access: rule, dripDays: link.drip_days },
-        { role: m.role, active: true, tierId: m.tier_id, ownedProductIds: owned, level: m.level || 1, joinedAt: m.joined_at ?? m.created_at },
-        opts.now,
-      )
-      if (!denial) return true
-    }
-    return false
+    /* The same gate the Learn page uses (lib/communities/learn.ts): a draft, a price not paid, a level or a drip day all say no. */
+    return await attachedCourseOpen(db, userId, productId, { now: opts.now })
   } catch (e) {
     console.error(`[communities] course grant ${productId}: ${reasonOf(e)}`)
     return false

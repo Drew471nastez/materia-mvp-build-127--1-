@@ -338,7 +338,7 @@ async function main() {
   check("switched off places are not drawn", off.map((e) => e.key).join() === "home,about", off.map((e) => e.key).join())
   const allOn = navEntries({ slug: "s", classroomEnabled: true, eventsEnabled: true, directoryEnabled: false, gamificationEnabled: true }, true)
   check("staff see Members even with the directory off", allOn.map((e) => e.key).join() === "home,classroom,events,members,leaderboard,about")
-  check("the pills say Community, Classroom, Calendar, Members, Leaderboards, About", allOn.map((e) => e.label).join() === "Community,Classroom,Calendar,Members,Leaderboards,About")
+  check("the pills say Community, Learn, Calendar, Members, Leaderboards, About (round 13: the Classroom is Learn)", allOn.map((e) => e.label).join() === "Community,Learn,Calendar,Members,Leaderboards,About")
   const modView = { can: allowedActions("moderator"), role: "moderator" as Role, userId: "me" }
   check("a moderator's menu: remove, pin, lock, mute and ban a member", JSON.stringify(moderationMenu(modView, { id: "x", role: "member" })) === JSON.stringify({ remove: true, pin: true, lock: true, mute: true, ban: true }))
   check("but never mute or ban an admin, or themselves", !moderationMenu(modView, { id: "x", role: "admin" }).ban && !moderationMenu(modView, { id: "me", role: "member" }).mute)

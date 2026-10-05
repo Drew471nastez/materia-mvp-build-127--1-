@@ -12,7 +12,7 @@ import "server-only"
 
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { getProductInternalPath, getStoreInternalPath } from "@/lib/url-helpers"
-import { isUuid, lessonAccess } from "./access"
+import { isUuid, lessonAccess, type ProductLevel } from "./access"
 import { lessonNumber, progressMap, resumeLesson, summarize } from "./progress"
 import {
   outlineOf,
@@ -52,10 +52,47 @@ export async function loadCoursePlayer(db: Db, userId: string | null, productId:
   if (!tree) return level === "public" ? { state: "locked", productHref } : { state: "not-found" }
 
   const outline = outlineOf(tree)
-  const lessonIds = outline.flatMap((m) => m.lessons.map((l) => l.id))
   const hasPreview = outline.some((m) => m.lessons.some((l) => l.isPreview))
   if (level === "public" && !hasPreview) return { state: "locked", productHref }
 
+  return {
+    state: "ok",
+    data: await playerFromTree(db, {
+      userId,
+      tree,
+      level,
+      askedLessonId,
+      meta: {
+        productId: product.id,
+        title: product.title || "Course",
+        thumbnailUrl: product.thumbnail_url,
+        productHref,
+        creator: { name: creator?.name ?? "The creator", avatarUrl: creator?.avatarUrl ?? null, storeHref: storeHref(creator?.handle ?? null) },
+      },
+    }),
+  }
+}
+
+/**
+ * THE PLAYER'S DATA FROM A COURSE'S TREE, once who is asking has been
+ * decided: the lessons (a lesson a preview visitor may not open has no
+ * notes and no files), their files, the person's own progress and where
+ * they left off. The library's course page and a community's program
+ * (lib/communities/server/learn.ts, a program has no product) both end here.
+ */
+export async function playerFromTree(
+  db: Db,
+  input: {
+    userId: string | null
+    tree: CourseTree
+    level: ProductLevel
+    askedLessonId?: string | null
+    meta: Pick<PlayerData, "productId" | "title" | "thumbnailUrl" | "productHref" | "creator"> & { contact?: boolean }
+  },
+): Promise<PlayerData> {
+  const { userId, tree, level, askedLessonId, meta } = input
+  const outline = outlineOf(tree)
+  const lessonIds = outline.flatMap((m) => m.lessons.map((l) => l.id))
   const owner = level === "creator" || level === "owner"
   const [attachments, progress, enrollment] = await Promise.all([
     readAttachments(db, lessonIds),
@@ -89,20 +126,18 @@ export async function loadCoursePlayer(db: Db, userId: string | null, productId:
   const initial = asked ?? (resume ? all.find((l) => l.id === resume.id) : undefined) ?? all.find((l) => !l.locked) ?? null
 
   return {
-    state: "ok",
-    data: {
-      productId: product.id,
-      courseId: tree.course.id,
-      title: product.title || "Course",
-      thumbnailUrl: product.thumbnail_url,
-      productHref,
-      creator: { name: creator?.name ?? "The creator", avatarUrl: creator?.avatarUrl ?? null, storeHref: storeHref(creator?.handle ?? null) },
-      modules,
-      progress,
-      initialLessonId: initial?.id ?? null,
-      access: level === "creator" ? "creator" : level === "owner" ? "owner" : "preview",
-      emailsOff: !!enrollment?.emails_off,
-    },
+    productId: meta.productId,
+    courseId: tree.course.id,
+    title: meta.title,
+    thumbnailUrl: meta.thumbnailUrl,
+    productHref: meta.productHref,
+    creator: meta.creator,
+    modules,
+    progress,
+    initialLessonId: initial?.id ?? null,
+    access: level === "creator" ? "creator" : level === "owner" ? "owner" : "preview",
+    emailsOff: !!enrollment?.emails_off,
+    ...(meta.contact === false ? { contact: false } : {}),
   }
 }
 

@@ -1674,19 +1674,19 @@ const COMMUNITY_ENTRIES: Record<
     const c = communityOf(d)
     const course = d.text("courseTitle", 80)
     const id = d.id("courseProductId")
-    const path = id && c.slug ? PATHS.community(c.slug, `/classroom/${id}`) : c.slug ? PATHS.community(c.slug, "/classroom") : c.home
+    const path = id && c.slug ? PATHS.community(c.slug, `/learn/${id}`) : c.slug ? PATHS.community(c.slug, "/learn") : c.home
     return {
       family: "base",
       audience: "customer",
-      subject: fitSubject("", course, " is open in your classroom") || fitSubject("A new course in ", c.name, "") || "A new course is open to you",
-      preview: c.name ? `In the ${c.name} classroom.` : "In your community's classroom.",
-      heading: course ? `${course} is open to you` : "A new course is open to you",
-      paragraphs: [join(course ? `${course} is` : "A course is", "now open to you", c.name ? `in the ${c.name} classroom.` : "in your community's classroom."), "Your progress is saved as you go, so you can stop and pick it up any time."],
-      facts: [["Course", course], ["Community", c.name]],
-      action: { label: "Start the course", path },
-      note: memberNote(c, "classroom emails"),
+      subject: fitSubject("", course, " is open to you") || fitSubject("A new program in ", c.name, "") || "A new program is open to you",
+      preview: c.name ? `In ${c.name}, under Learn.` : "In your community, under Learn.",
+      heading: course ? `${course} is open to you` : "A new program is open to you",
+      paragraphs: [join(course ? `${course} is` : "A program is", "now open to you", c.name ? `in ${c.name}, under Learn.` : "in your community, under Learn."), "Your progress is saved as you go, so you can stop and pick it up any time."],
+      facts: [["Program", course], ["Community", c.name]],
+      action: { label: "Start", path },
+      note: memberNote(c, "Learn emails"),
       greet: false,
-      inApp: { title: "New course", body: course ? `${course} is open to you.` : "A new course is open to you.", actionLabel: "Start", actionPath: path },
+      inApp: { title: "New program", body: course ? `${course} is open to you.` : "A new program is open to you.", actionLabel: "Start", actionPath: path },
     }
   },
 

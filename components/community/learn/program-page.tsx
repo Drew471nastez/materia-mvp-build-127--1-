@@ -1,0 +1,192 @@
+/**
+ * ===========================================================================
+ *  ONE PROGRAM, INSIDE THE COMMUNITY
+ * ===========================================================================
+ * /community/<slug>/learn/<programId>. An open program is the course
+ * player itself (components/courses/course-player.tsx): the same lessons,
+ * signed videos and progress a buyer of a course gets, its arrow going back
+ * to Learn. A program the member cannot open yet says why in a sentence and
+ * shows what is inside it; one sold on its own has the price on its button,
+ * and paying happens right here, in a sheet (./program-checkout.tsx).
+ */
+import Image from "next/image"
+import Link from "next/link"
+import { ArrowLeft, Lock } from "lucide-react"
+import { CoursePlayer } from "@/components/courses/course-player"
+import { PlaceIcon } from "@/components/community/member/place-icons"
+import { BTN_PRIMARY, BTN_SECONDARY } from "@/components/community/member/ui"
+import type { PlayerData } from "@/lib/courses/types"
+import { lessonsLabel, opensOnLabel, type ProgramCard } from "./model"
+import { BuyProgram } from "./program-checkout"
+
+export function ProgramPlayer({ data, learnHref }: { data: PlayerData; learnHref: string }) {
+  return <CoursePlayer data={data} backHref={learnHref} backLabel="Learn" />
+}
+
+/** What is inside, for a program the member cannot open yet: each module with its lesson titles. */
+export interface ProgramOutline {
+  modules: { id: string; title: string; lessons: string[] }[]
+}
+
+function sentence(p: ProgramCard, timeZone?: string): string {
+  const l = p.locked
+  if (!l) return ""
+  switch (l.reason) {
+    case "paid":
+      return "This program is sold on its own. Buy it once and it stays in your Learn for as long as you are a member."
+    case "drip":
+      return `${l.opensAt ? opensOnLabel(l.opensAt, timeZone) : "It opens soon"}. Programs like this open a set number of days after you join.`
+    case "level":
+      return `This program opens at ${l.label.toLowerCase()}. Levels come from taking part in the community.`
+    case "tier":
+      return `This program is for ${l.label}.`
+    case "product":
+      return `This program is for ${l.label.charAt(0).toLowerCase()}${l.label.slice(1)}.`
+    case "role":
+      return `This program is for ${l.label.toLowerCase()} of the community.`
+    default:
+      return "This program is for members."
+  }
+}
+
+function Back({ href }: { href: string }) {
+  return (
+    <Link href={href} className="mb-4 inline-flex h-10 items-center gap-1.5 rounded-[10px] pr-2 text-[14px] font-medium text-[#4b5563] hover:text-[#1a1a2e]">
+      <ArrowLeft className="h-4 w-4" />
+      Learn
+    </Link>
+  )
+}
+
+function Cover({ url, dim }: { url: string | null; dim: boolean }) {
+  return (
+    <div className="relative aspect-[16/9] w-full bg-[#f1f2f4]">
+      {url ? (
+        <Image src={url} alt="" fill sizes="(min-width: 640px) 600px, 100vw" className={`object-cover ${dim ? "saturate-[0.6]" : ""}`} priority />
+      ) : (
+        <span className="flex h-full w-full items-center justify-center">
+          <PlaceIcon place="classroom" size={32} className="text-[#c4c6cc]" />
+        </span>
+      )}
+    </div>
+  )
+}
+
+export function LockedProgram({
+  program,
+  outline,
+  learnHref,
+  aboutHref,
+  communityId,
+  communityName,
+  timeZone,
+}: {
+  program: ProgramCard
+  outline: ProgramOutline | null
+  learnHref: string
+  aboutHref: string
+  communityId: string
+  communityName: string
+  timeZone?: string
+}) {
+  const reason = program.locked?.reason
+  const paid = reason === "paid"
+  const upgrade = reason === "tier" || reason === "product"
+  return (
+    <div data-locked-program={reason ?? ""} className="mx-auto w-full max-w-[600px]">
+      <Back href={learnHref} />
+      <article className="overflow-hidden rounded-2xl border border-[#e4e7ec]/80 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04),0_3px_8px_-2px_rgba(16,24,40,0.05)]">
+        <Cover url={program.coverUrl} dim={!paid} />
+        <div className="px-4 pb-5 pt-4 sm:px-6 sm:pb-6">
+          <p className="flex items-center gap-1.5 text-[13px] tabular-nums text-[#6b7280]">
+            <Lock className="h-3.5 w-3.5" aria-hidden />
+            {lessonsLabel(program.lessons)}
+            {paid && program.priceLabel ? <span aria-hidden>·</span> : null}
+            {paid && program.priceLabel ? <span className="font-semibold text-[#1a1a2e]">{program.priceLabel}</span> : null}
+          </p>
+          <h1 className="mt-1 text-[21px] font-bold leading-snug tracking-[-0.01em] text-[#1a1a2e] sm:text-[24px]">{program.title}</h1>
+          {program.summary ? <p className="mt-2 whitespace-pre-line text-[15px] leading-6 text-[#374151]">{program.summary}</p> : null}
+          <p className="mt-3 text-[14px] leading-6 text-[#6b7280]" data-lock-sentence>
+            {sentence(program, timeZone)}
+          </p>
+          <div className="mt-5 flex flex-col gap-2 min-[420px]:flex-row">
+            {paid && program.locked?.priceCents ? (
+              <BuyProgram
+                communityId={communityId}
+                communityName={communityName}
+                programId={program.id}
+                title={program.title}
+                priceLabel={program.priceLabel ?? program.locked.label}
+                coverUrl={program.coverUrl}
+                className={`${BTN_PRIMARY} h-11 min-[420px]:flex-1 sm:h-10`}
+              />
+            ) : null}
+            {upgrade ? (
+              <Link href={aboutHref} className={`${BTN_PRIMARY} h-11 min-[420px]:flex-1 sm:h-10`}>
+                See membership options
+              </Link>
+            ) : null}
+            <Link href={learnHref} className={`${BTN_SECONDARY} h-11 min-[420px]:flex-1 sm:h-10`}>
+              Back to Learn
+            </Link>
+          </div>
+        </div>
+        {outline && outline.modules.length ? <Outline outline={outline} /> : null}
+      </article>
+    </div>
+  )
+}
+
+/** The modules and their lesson titles: what a member would get. Titles only, nothing to open. */
+function Outline({ outline }: { outline: ProgramOutline }) {
+  return (
+    <section aria-label="What is inside" className="border-t border-[#eef0f2] px-4 pb-4 pt-4 sm:px-6 sm:pb-5" data-program-outline>
+      <h2 className="text-[13px] font-semibold uppercase tracking-[0.04em] text-[#6b7280]">Inside</h2>
+      <ol className="mt-2 divide-y divide-[#f0f1f3]">
+        {outline.modules.map((m, i) => (
+          <li key={m.id} className="py-2.5">
+            <p className="flex items-baseline justify-between gap-3">
+              <span className="min-w-0 truncate text-[14.5px] font-semibold text-[#1a1a2e]">
+                <span className="mr-2 tabular-nums text-[#9ca3af]">{i + 1}</span>
+                {m.title}
+              </span>
+              <span className="shrink-0 text-[12.5px] tabular-nums text-[#6b7280]">{lessonsLabel(m.lessons.length)}</span>
+            </p>
+            {m.lessons.length ? (
+              <ul className="mt-1 space-y-0.5 pl-[22px]">
+                {m.lessons.slice(0, 4).map((t, j) => (
+                  <li key={j} className="truncate text-[13.5px] leading-6 text-[#4b5563]">
+                    {t}
+                  </li>
+                ))}
+                {m.lessons.length > 4 ? <li className="text-[13px] leading-6 text-[#9ca3af]">and {m.lessons.length - 4} more</li> : null}
+              </ul>
+            ) : null}
+          </li>
+        ))}
+      </ol>
+    </section>
+  )
+}
+
+/** An open program with no lessons yet: the people who run Learn get the way to add them. */
+export function EmptyProgram({ program, learnHref, manageHref }: { program: ProgramCard; learnHref: string; manageHref: string | null }) {
+  return (
+    <div data-empty-program className="mx-auto w-full max-w-[600px]">
+      <Back href={learnHref} />
+      <article className="overflow-hidden rounded-2xl border border-[#e4e7ec]/80 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04),0_3px_8px_-2px_rgba(16,24,40,0.05)]">
+        <Cover url={program.coverUrl} dim={false} />
+        <div className="px-4 pb-5 pt-4 sm:px-6 sm:pb-6">
+          <h1 className="text-[21px] font-bold leading-snug tracking-[-0.01em] text-[#1a1a2e] sm:text-[24px]">{program.title}</h1>
+          {program.summary ? <p className="mt-2 whitespace-pre-line text-[15px] leading-6 text-[#374151]">{program.summary}</p> : null}
+          <p className="mt-3 text-[14px] leading-6 text-[#6b7280]">{manageHref ? "Add the first module and its lessons, and they show up here." : "The lessons show up here as soon as they are added."}</p>
+          {manageHref ? (
+            <Link href={manageHref} className={`${BTN_PRIMARY} mt-5 h-11 sm:h-10`}>
+              Add lessons
+            </Link>
+          ) : null}
+        </div>
+      </article>
+    </div>
+  )
+}

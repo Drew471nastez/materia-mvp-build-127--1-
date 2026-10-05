@@ -95,6 +95,7 @@ export const SQL_PARTS: ReadonlyArray<{ part: string; file: string; sha256: stri
   { part: "98", file: "98_community_leave_reasons_and_location.sql", sha256: "b128f52ea3b0b9a937c3633ac205e46dd2a1bdf10993c8285d11f5fa59b58461" },
   { part: "100", file: "100_community_role_permissions.sql", sha256: "7f20889ff537d55f061eb4793044e4f19c9dd729c30010de900ac8c9e28415be" },
   { part: "101", file: "101_community_membership_lifecycle.sql", sha256: "85ea0190839586904572635654e5092aa09c3356aa0179700fcf70b3b27605f2" },
+  { part: "102", file: "102_community_programs.sql", sha256: "c35f28cb0e8b6f17eba426fabb8eee5ba46b2c45fa5e96ac24cdbd416ce2fc36" },
   { part: "103", file: "103_profile_display_names.sql", sha256: "27eef081507c7f64bbf7e8cc53869e3a61b6295c8e8d72d8c6f96b2e8faf4dfb" },
   { part: "104", file: "104_community_deleted_rows_kept.sql", sha256: "140184506fa105728521677c94de617c4800355fcc6c1ce23873f1c6028f89ae" },
 ]

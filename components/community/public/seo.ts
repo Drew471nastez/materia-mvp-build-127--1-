@@ -218,7 +218,7 @@ export function tabIconInitial(name: string): string {
   return (ch ?? "S").toLocaleUpperCase("en-US")
 }
 
-/** The tab's title for every page inside a community: its own page's word, then the community ("Classroom · Clay Studio"). */
+/** The tab's title for every page inside a community: its own page's word, then the community ("Learn · Clay Studio"). */
 export function communityTitle(name: string): { default: string; template: string } {
   const n = name.slice(0, 100)
   return { default: n, template: `%s · ${n}` }

@@ -5,5 +5,5 @@ import { PlaceSpinner } from "@/components/community/member/place-spinner"
   moment (components/community/member/place-spinner.tsx), never a skeleton and never over the bar or the side columns (round 9).
 */
 export default function Loading() {
-  return <PlaceSpinner label="Loading the classroom" />
+  return <PlaceSpinner label="Loading the program" />
 }
