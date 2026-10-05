@@ -68,6 +68,9 @@ export interface RateLimitOptions {
 /** One in this many calls also clears out what nothing will read again. */
 const SWEEP_ODDS = 50
 
+/** What the sweep keeps: two days, longer than the longest window any bucket counts (a day). */
+export const SWEEP_KEEP_SECONDS = 2 * 86_400
+
 /**
  * The address the request came from, as the platform reports it.
  *
@@ -160,9 +163,15 @@ export async function rateLimit(options: RateLimitOptions): Promise<NextResponse
       And now and then, throw away what no window can still reach. Doing it
       here rather than on a schedule means it cannot be forgotten, and one
       delete in fifty requests is cheaper than the row it removes.
+
+      The sweep is by time alone, across EVERY bucket, so its cutoff must be
+      past the longest window any bucket uses, not this call's own: a ten
+      minute limit used to delete everything older than an hour, which
+      quietly turned every daily limit (50 posts a day, 10 emails a day) into
+      an hourly one. SWEEP_KEEP_SECONDS is above every window in the code.
     */
     if (Math.random() * SWEEP_ODDS < 1) {
-      const cutoff = new Date(Date.now() - Math.max(longest, 3600) * 1000).toISOString()
+      const cutoff = new Date(Date.now() - Math.max(longest, SWEEP_KEEP_SECONDS) * 1000).toISOString()
       await admin.from("rate_limit_hits").delete().lt("created_at", cutoff)
     }
 
