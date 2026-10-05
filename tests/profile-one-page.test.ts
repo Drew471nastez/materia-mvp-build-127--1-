@@ -231,7 +231,7 @@ async function main() {
     /p\.avatar_url IS NULL OR btrim\(p\.avatar_url\) = ''/.test(lines[1]) && /storelib_avatar_chosen', ''\) <> 'true'/.test(lines[1]) && /'\^https:\/\/\[\^\[:space:\]\]\+\$'/.test(lines[1]))
   check("  skips itself where auth.users cannot be read", /EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE/.test(lines[1]))
   check("  its migration copy is the same text", raw("supabase/migrations/20261113_profile_provider_photos.sql") === part)
-  check("  a README row and a check column", /\| `97_profile_provider_photos\.sql` \|/.test(raw("supabase/sql/run-now/README.md")) && / as p97_profile_provider_photos;$/m.test(raw("supabase/sql/run-now/99_check_after.sql").trimEnd()))
+  check("  a README row and a check column", /\| `97_profile_provider_photos\.sql` \|/.test(raw("supabase/sql/run-now/README.md")) && / as p97_profile_provider_photos[,;]/.test(raw("supabase/sql/run-now/99_check_after.sql")))
   check("  folded into the files the owner runs", raw("supabase/sql/all-in-two/1_of_2_everything.sql").includes(lines[1]) && raw("supabase/sql/run-four/3_of_4_latest.sql").includes(lines[1]))
 
   /* ── 18. Settings ────────────────────────────────────────────────────── */
