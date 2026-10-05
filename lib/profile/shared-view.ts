@@ -34,6 +34,42 @@ export interface SharedPostView {
 export interface SharedPostsPage {
   posts: SharedPostView[]
   next: string | null
+  /** How many posts of theirs the viewer may read there in all; on the first page only, null when it was not counted. */
+  total?: number | null
+}
+
+/**
+ * WHAT THEY GIVE TO A COMMUNITY (round 13, ask 30: "on a person's profile,
+ * their contributions per community and their posts"). Real figures only:
+ * the posts of theirs the viewer may read there, and their level and points
+ * where the community keeps points (null otherwise, and then not drawn).
+ */
+export interface ContributionStats {
+  posts: number | null
+  level: number | null
+  points: number | null
+}
+
+/** One community's section on a profile: the community, what they gave it, their first page of posts, and whether these are the viewer's own (then each post can be edited). */
+export interface ContributionSection {
+  community: SharedCommunity
+  stats: ContributionStats
+  page: SharedPostsPage
+  own: boolean
+}
+
+/** "Level 3 · 84 points · 12 posts", each part only when it is known; the empty string when nothing is. */
+export function contributionLine(s: ContributionStats): string {
+  const parts: string[] = []
+  if (s.level && s.level > 0) parts.push(`Level ${s.level}`)
+  if (s.points !== null && s.points > 0) parts.push(`${s.points.toLocaleString("en-US")} ${s.points === 1 ? "point" : "points"}`)
+  if (s.posts !== null) parts.push(`${s.posts.toLocaleString("en-US")} ${s.posts === 1 ? "post" : "posts"}`)
+  return parts.join(" · ")
+}
+
+/** Where an own post opens for editing: the post, with the editor asked for (the post page opens its composer on ?edit=1). */
+export function editHref(href: string): string {
+  return `${href}${href.includes("?") ? "&" : "?"}edit=1`
 }
 
 const clip = (text: string, max: number) => (text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text)

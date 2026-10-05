@@ -56,7 +56,7 @@ import { defaultShopHeaderSettings } from "@/lib/store-builder/defaults"
 import type { ShopHeaderSettings } from "@/lib/store-builder/types"
 import type { MemberProfileData } from "@/lib/profile/member-profile-data"
 import type { CommunityCard } from "@/lib/communities/types"
-import type { SharedCommunity, SharedPostsPage } from "@/lib/profile/shared-view"
+import type { ContributionSection, SharedCommunity, SharedPostsPage } from "@/lib/profile/shared-view"
 import { parseProfileCover } from "@/lib/profile/cover"
 import { ProfileActivity, type ActivityItemView } from "./profile-activity"
 import { ProfileCommunityList } from "./profile-community-list"
@@ -70,7 +70,8 @@ export interface ProfilePageExtras {
   activity: { items: ActivityItemView[]; next: string | null; hidden: boolean }
   communities: { enabled: boolean; owned: CommunityCard[]; member: CommunityCard[] }
   /** The communities the viewer shares with them, each with the first page of their posts there. */
-  shared?: { community: SharedCommunity; page: SharedPostsPage }[]
+  /** Their contributions per community the viewer may read them in (round 13: with what they gave it, and the viewer's own posts editable). */
+  shared?: (ContributionSection | { community: SharedCommunity; page: SharedPostsPage })[]
   backShown: boolean
   now: number
   /** Where they are from, one line (lib/profile/location.ts locationLine); null when they never said. */
@@ -131,7 +132,7 @@ export function MemberProfilePage({ profile, viewerId, viewerFollowing, extras }
             shared.length ? (
               <>
                 {shared.map((s) => (
-                  <SharedCommunityPosts key={s.community.id} userId={profile.userId} community={s.community} initial={s.page} now={extras.now} firstName={first} />
+                  <SharedCommunityPosts key={s.community.id} userId={profile.userId} community={s.community} initial={s.page} now={extras.now} firstName={first} stats={"stats" in s ? s.stats : null} own={"own" in s ? s.own : false} />
                 ))}
               </>
             ) : undefined

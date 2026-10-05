@@ -361,13 +361,15 @@ async function main() {
     check("the welcome and an approval are required, the rest optional", REGISTRY.COMMUNITY_WELCOME.requirement === "required_service" && REGISTRY.COMMUNITY_JOIN_APPROVED.requirement === "required_service" && ["COMMUNITY_INVITE", "COMMUNITY_ANNOUNCEMENT", "COMMUNITY_EVENT_REMINDER", "COMMUNITY_COURSE_AVAILABLE"].every((t) => REGISTRY[t as (typeof types)[number]].requirement === "optional_product"))
     check("none is a lifecycle nudge held to one a day", types.every((t) => REGISTRY[t].category !== "lifecycle"))
 
+    /* Round 13 (lib/notify/email-budget.ts): announcements and reminders are the bell and the phone, never an email; an invite still is. */
     const event = { id: "e1", name: "community.announcement" as const, key: "k1", userId: U1, entityType: "community" as const, entityId: C1, payload: { recipientEmail: "Ana@Example.com", dedupeKey: "announcement:p1", title: "Long run Sunday", communitySlug: "morning-runners" }, occurredAt: new Date(NOW).toISOString() }
-    const planned = handle(event, { now: NOW, userId: null, creatorId: null })
+    check("an announcement plans no email", handle(event, { now: NOW, userId: null, creatorId: null }).jobs.length === 0)
+    const invite = { ...event, name: "community.invite" as const, payload: { ...event.payload, dedupeKey: "invite:i1" } }
+    const planned = handle(invite, { now: NOW, userId: null, creatorId: null })
     const job = planned.jobs[0]
-    check("an announcement plans one email to the member's address", planned.jobs.length === 1 && job.type === "COMMUNITY_ANNOUNCEMENT" && job.recipientEmail === "ana@example.com" && job.recipientType === "customer")
-    check("keyed by the caller's key, so twice is once", job.idempotencyKey === "COMMUNITY_ANNOUNCEMENT:e:ana@example.com:" + C1 + ":announcement:p1" && handle(event, { now: NOW + 5000, userId: null, creatorId: null }).jobs[0].idempotencyKey === job.idempotencyKey)
-    const rem = handle({ ...event, name: "community.event_reminder", payload: { recipientEmail: "a@b.co", dedupeKey: "event:e9:1h", startsAt: new Date(NOW + 3_600_000).toISOString() } }, { now: NOW, userId: null, creatorId: null }).jobs[0]
-    check("a reminder expires when its event starts", rem.type === "COMMUNITY_EVENT_REMINDER" && rem.expiresAt === new Date(NOW + 3_600_000).toISOString())
+    check("an invite plans one email to the address", planned.jobs.length === 1 && job.type === "COMMUNITY_INVITE" && job.recipientEmail === "ana@example.com" && job.recipientType === "customer")
+    check("keyed by the caller's key, so twice is once", job.idempotencyKey === "COMMUNITY_INVITE:e:ana@example.com:" + C1 + ":invite:i1" && handle(invite, { now: NOW + 5000, userId: null, creatorId: null }).jobs[0].idempotencyKey === job.idempotencyKey)
+    check("a reminder plans no email", handle({ ...event, name: "community.event_reminder", payload: { recipientEmail: "a@b.co", dedupeKey: "event:e9:1h", startsAt: new Date(NOW + 3_600_000).toISOString() } }, { now: NOW, userId: null, creatorId: null }).jobs.length === 0)
     check("no address, no job", handle({ ...event, payload: { dedupeKey: "x" } }, { now: NOW, userId: null, creatorId: null }).jobs.length === 0)
 
     const ctx = { baseUrl: "https://storelib.com" }
@@ -419,7 +421,8 @@ async function main() {
       return last.payload.courseTitle === "Base miles" && !("nested" in last.payload)
     })())
     const fan = code("lib/communities/server/jobs/fanout_announcement.ts")
-    check("the announcement fan out emails through sendCommunityEmail, once per member and post", /sendCommunityEmail\(\s*db,\s*"community\.announcement"/.test(fan) && /key: `announce:\$\{postId\}:\$\{userId\}`/.test(fan) && /if \(reason === "announcement"\)/.test(fan))
+    /* Round 13: only while the email list (lib/notify/email-budget.ts) lets an announcement be an email, which today it does not. */
+    check("the announcement fan out emails only when the email list allows it, once per member and post", /sendCommunityEmail\(\s*db,\s*"community\.announcement"/.test(fan) && /key: `announce:\$\{postId\}:\$\{userId\}`/.test(fan) && /if \(reason === "announcement" && emailAllowed\("COMMUNITY_ANNOUNCEMENT"\)\)/.test(fan))
     check("only to members with announcement emails on and notifications not off, never the author", announcementEmailees([
       { user_id: "a", notify_level: "all", email_announcements: true },
       { user_id: "b", notify_level: "none", email_announcements: true },

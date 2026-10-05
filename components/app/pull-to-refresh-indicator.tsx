@@ -1,9 +1,7 @@
 "use client"
 
-import {
-  PULL_TO_REFRESH,
-  RING_CIRCUMFERENCE,
-} from "@/hooks/use-pull-to-refresh"
+import { SPINNER_SPOKES } from "@/components/community/member/place-spinner"
+import { SPOKES_HOLD, SPOKES_SIZE } from "@/hooks/use-pull-to-refresh"
 
 interface Props {
   /**
@@ -13,13 +11,13 @@ interface Props {
   ref?: React.Ref<HTMLDivElement>
   /**
    * Pixels from the top of the scroll container to anchor the indicator.
-   * Use this to push the ring below a fixed bar (e.g. the announcement bar)
+   * Use this to push the spinner below a fixed bar (e.g. the announcement bar)
    * so it never overlaps it. Default: 0.
    */
   topOffset?: number
   /**
    * The gap, in px, that the page holds open while refreshing — the same value
-   * the caller translates its content by. The ring centres itself in it.
+   * the caller translates its content by. The spinner centres itself in it.
    *
    * Passed in rather than hardcoded so the two cannot drift: the position used
    * to be a literal 10px against a 34px gap, which was never actually centred
@@ -30,115 +28,66 @@ interface Props {
 
 /**
  * ===========================================================================
- *  THE RING. IT RENDERS ONCE.
+ *  iOS'S SPINNER, THE COMMUNITY'S OWN. IT RENDERS ONCE.
  * ===========================================================================
+ * Round 13: "the iOS spinner the community uses" on the /app home. It was a
+ * ring that drew itself round as the page was pulled; it is now the eight
+ * spokes of components/community/member/place-spinner, appearing one by one
+ * with the pull and turning with their fading tail while the page refreshes,
+ * exactly as components/ui/pull-to-refresh.tsx draws them for /app analytics
+ * and the community, so the three pulls are one.
  *
- * This used to take `pullDistance` and `phase` and recompute a transform, an
- * opacity, a scale and a strokeDasharray on every render — which meant React
- * ran, and the dashboard around it re-rendered, on every frame of a drag.
+ * Nothing here is derived from a prop that changes. The markup is static;
+ * usePullToRefresh holds a ref to it and writes, one write per frame, never
+ * through React:
  *
- * Nothing here is derived from a prop that changes any more. The markup is
- * static; usePullToRefresh holds a ref to it and writes:
+ *   [data-ptr-indicator]  where it sits in the room the pull opens, how
+ *                         large (never larger than that room), how visible
+ *   [data-ptr-turn]       the box will-change is put on while it moves
+ *   [data-ptr-spin]       the turn while refreshing (a CSS animation)
+ *   [data-ptr-spoke]      each spoke's opacity
  *
- *   [data-ptr-indicator]  transform (translate + scale), opacity
- *   [data-ptr-turn]       the rotation the pull itself puts on the ring
- *   [data-ptr-spin]       the CSS spin, started when the refresh starts
- *   [data-ptr-arc]        stroke-dasharray, the only per-frame attribute
- *
- * THE TWO ROTATIONS ARE NESTED ON PURPOSE. The spin is a keyframe animation
- * on `transform`, so it overwrites whatever inline rotation it lands on. When
- * they shared one element, starting the spin threw away the angle the pull had
- * reached and the ring visibly jumped; ending it threw the angle back to zero
- * and the ring jerked backwards while it was still fading out. Nested, the
- * pull's angle sits on the outer node and stays put, the spin runs on the
- * inner one, and the two compose into one continuous turn from the first
- * millimetre of the drag to the last frame of the fade.
+ * The light tick as the pull crosses the line is the hook's (hapticTap:
+ * @capacitor/haptics in the app, a vibration on Android, nothing in an
+ * iPhone's browser).
  */
 export function PullToRefreshIndicator({
   ref,
   topOffset = 0,
-  refreshHold = PULL_TO_REFRESH.refreshHold,
+  refreshHold = SPOKES_HOLD,
 }: Props) {
-  const size = PULL_TO_REFRESH.ringSize
-  const strokeWidth = 2
-  const radius = (size - strokeWidth) / 2
-
-  /**
-   * Where the ring sits with nothing happening, which is also where a refresh
-   * leaves it and where it fades out from — so the exit involves no vertical
-   * movement at all. Clamped at 0, so no phase can place it above its anchor
-   * and over the bar sitting there.
-   */
-  const restingY = Math.max((refreshHold - size) / 2, 0)
-
+  /* The hold the hook was given: the spokes are drawn inside it, never larger (hooks/use-pull-to-refresh THE SPOKES). */
+  void refreshHold
   return (
     <div
       ref={ref}
       aria-hidden
       data-ptr-indicator=""
-      className="absolute left-0 right-0 flex justify-center pointer-events-none z-20"
+      className="absolute left-1/2 pointer-events-none z-20 -ml-[12px] origin-center text-[#8a8f98]"
       style={{
         top: topOffset,
-        /* The first frame, before a finger has touched anything. The hook owns
-           every frame after it. No will-change here: it is added while a pull
-           or a settle is in flight and taken off again, rather than holding a
-           compositor layer for the whole life of the page. */
-        transform: `translate3d(0, ${restingY}px, 0) scale(0.82)`,
+        width: SPOKES_SIZE,
+        height: SPOKES_SIZE,
+        /* The first frame, before a finger has touched anything: nothing, at the top of the room. The hook owns every frame after it. */
+        transform: "translate3d(0, 0, 0) scale(0)",
         opacity: 0,
       }}
     >
-      <svg
-        data-ptr-turn=""
-        width={size}
-        height={size}
-        viewBox={`0 0 ${size} ${size}`}
-        fill="none"
-      >
-        {/* Track */}
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          stroke="#e5e7eb"
-          strokeWidth={strokeWidth}
-        />
-        {/* Arc. Starts at twelve o'clock and grows clockwise with the pull. */}
-        <g
-          data-ptr-spin=""
-          style={{ transformOrigin: `${size / 2}px ${size / 2}px` }}
-        >
-          <circle
-            data-ptr-arc=""
-            cx={size / 2}
-            cy={size / 2}
-            r={radius}
-            stroke="#9ca3af"
-            strokeWidth={strokeWidth}
-            strokeLinecap="round"
-            strokeDasharray={`0 ${RING_CIRCUMFERENCE}`}
-            strokeDashoffset={0}
-            style={{
-              transformOrigin: `${size / 2}px ${size / 2}px`,
-              transform: "rotate(-90deg)",
-            }}
-          />
-        </g>
-      </svg>
-
+      <span data-ptr-turn="" className="block h-full w-full">
+        <span data-ptr-spin="" className="block h-full w-full">
+          <svg viewBox="0 0 24 24" width={SPOKES_SIZE} height={SPOKES_SIZE} className="block">
+            {SPINNER_SPOKES.map((l, i) => (
+              <line key={i} data-ptr-spoke="" data-rest={l.opacity} x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} stroke="currentColor" strokeWidth="2" strokeLinecap="round" style={{ opacity: 0 }} />
+            ))}
+          </svg>
+        </span>
+      </span>
       {/*
-        The spin keeps running under prefers-reduced-motion, and that is the
-        right way round: it is the only sign that the page is fetching
-        anything, and a 19px ring turning in place is not the motion that
-        setting is there to stop. What it does stop is the page's own travel,
-        which usePullToRefresh handles by putting the content where it belongs
-        in one step instead of springing it there.
+        The spin keeps running under prefers-reduced-motion: it is the only
+        sign that the page is fetching anything. What that setting stops is
+        the page's own travel, which the hook puts in place in one step.
       */}
-      <style>{`
-        @keyframes ptr-spin {
-          from { transform: rotate(0deg); }
-          to   { transform: rotate(360deg); }
-        }
-      `}</style>
+      <style>{"@keyframes ptr-spokes-spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}"}</style>
     </div>
   )
 }

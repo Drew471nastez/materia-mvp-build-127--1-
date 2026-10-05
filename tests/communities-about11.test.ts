@@ -126,12 +126,14 @@ async function main() {
   console.log("\nThe figures")
   {
     const all = aboutFigures({ members: 1284, online: 14, admins: 2 }, { activity: { posts30: 186, active7: 402, since: null }, classroom: { total: 9, courses: [] }, creatorBio: null })
-    check("members, active this week, posts in 30 days, courses: four, in that order", all.map((c) => `${c.key}:${c.value}`).join() === "members:1284,active:402,posts:186,courses:9", all)
+    /* Round 13 (ask 22): no "Active this week" anywhere; Online now fills the place it left. */
+    check("members, posts in 30 days, courses, then Online now: no active this week", all.map((c) => `${c.key}:${c.value}`).join() === "members:1284,posts:186,courses:9,online:14", all)
     const few = aboutFigures({ members: 86, online: 3, admins: 1 }, { activity: { posts30: 23, active7: null, since: null }, classroom: null, creatorBio: null })
     check("nothing that is zero; Online now only fills a place, only when someone is", few.map((c) => c.key).join() === "members,posts,online", few)
     check("no heartbeat, nothing else: members alone", aboutFigures({ members: 1, online: null, admins: null }, null).map((c) => `${c.key}:${c.label}`).join() === "members:Member")
     const page = code("components/community/public/sales-page.tsx")
-    check("the panel: one surface, a hairline and a 1px shadow, cells split by hairlines", /grid gap-px overflow-hidden rounded-xl bg-\[#eceef1\] shadow-\[0_0_0_1px_rgba\(16,24,40,0\.07\),0_1px_2px_rgba\(16,24,40,0\.05\)\]/.test(page) && /data-community-stats=""/.test(page))
+    /* Round 13 (ask 22): the row of figures is gone from the sheet; the facts are one quiet list (facts-list.tsx). */
+    check("the sheet has no row of figures; the facts are one list", !/data-community-stats=""/.test(page) && /<FactsList facts=\{facts\} \/>/.test(page))
     const about = code("lib/communities/server/about.ts")
     check("active this week is counted on last_active_at over seven days", /ACTIVE_DAYS = 7/.test(about) && /\.gte\("last_active_at", week\)/.test(about))
   }
@@ -144,7 +146,8 @@ async function main() {
     const page = code("components/community/public/sales-page.tsx")
     const controls = code("components/community/public/join-controls.tsx")
     check("what members get and the pricing card both use it", /<CheckDot className="mt-px" \/>/.test(page) && /<CheckDot className="-mt-px" \/>/.test(controls) && !/import \{ Check[, ]/.test(page))
-    check("who runs it: View profile in the row's third column, centred, at its right from 640px; under the line on a phone", /sm:grid-cols-\[56px_minmax\(0,1fr\)_auto\]/.test(page) && /items-center/.test(page) && /col-start-2 row-start-3 mt-3[^"]*sm:col-start-3 sm:row-start-1 sm:mt-0[^"]*sm:justify-self-end/.test(page))
+    /* Round 13 (ask 22): on a phone too, View profile ends the row; the creator's line runs under the whole row. */
+    check("who runs it: View profile in the row's third column, at its right at every width; the line under the row", /grid-cols-\[48px_minmax\(0,1fr\)_auto\][^"]*sm:grid-cols-\[56px_minmax\(0,1fr\)_auto\]/.test(page) && /col-start-3 row-start-1[^"]*justify-self-end/.test(page) && /col-span-3 col-start-1 row-start-2/.test(page))
     const status = controls.slice(controls.indexOf("function Status()"), controls.indexOf("const ROW_BUTTON"))
     check("Leave is no longer a link under Open community", !/Leave community/.test(status) && !/setLeaveOpen/.test(status) && !/manageHref/.test(status))
     check("it is a row in Your membership at the page's foot, for a member who is not the owner", /export function MembershipRow\(\)/.test(controls) && /if \(join\.kind !== "open" \|\| join\.isOwner\) return null/.test(controls) && /data-community-your-membership=""[\s\S]*<MembershipRow \/>/.test(page) && page.indexOf("<MembershipRow />") > page.indexOf('aria-labelledby="community-faq"'))
@@ -163,7 +166,7 @@ async function main() {
     check("the arrows sit inside the engine's container, so a drag that starts on one still moves it", /<div slot="container-end" className="contents">/.test(view))
     check("a press at the end of a drag is not a play", /if \(!carousel\.clickAllowed\(\) \|\| loading\) return/.test(view))
     check("a linked video plays in place in the privacy player; a player is never swiped away", /src=\{embedPlayerSrc\(g\)\}/.test(view) && (view.match(/swiper-no-swiping/g) ?? []).length >= 2 && /allow="autoplay; encrypted-media; picture-in-picture; fullscreen"/.test(view))
-    check("moving on stops what was playing", /const moved = React\.useCallback\(\(i: number\) => \{\s*setIndex\(i\)\s*setPlaying\(null\)/.test(view))
+    check("moving on stops what was playing (in a transition, round 13)", /const moved = React\.useCallback\(\(i: number\) => \{\s*React\.startTransition\(\(\) => \{\s*setIndex\(i\)\s*setPlaying\(null\)/.test(view))
     check("the browser's parts import no server code", ["components/community/public/gallery-view.tsx", "components/community/public/gallery.ts", "components/community/creator/gallery-editor.tsx", "components/community/creator/logic.ts"].every((f) => !/server-only|next\/headers|lib\/communities\/server/.test(code(f))))
   }
 

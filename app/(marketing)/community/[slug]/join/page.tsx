@@ -47,7 +47,8 @@ export default async function CommunityJoinPage({ params, searchParams }: { para
       community={{ id: c.id, slug: c.slug, name: c.name, tagline: c.tagline, logoUrl: c.logo_url, memberCount: c.member_count }}
       token={token}
       state={page.state}
-      loginHref={`/login?next=${encodeURIComponent(here)}`}
+      /* Back from signing in (or up) the invite is accepted on arrival (?accept=1, invite-landing), so they land in the community. */
+      loginHref={`/login?next=${encodeURIComponent(token ? `${here}&accept=1` : here)}`}
     />
   )
 }

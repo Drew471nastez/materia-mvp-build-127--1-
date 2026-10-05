@@ -26,7 +26,7 @@ import { readFileSync } from "node:fs"
 
 import { stripComments } from "./_source"
 import { PUSH_WINDOW_MS, runPushDigest, setPushBridgeDeps, levelAllowsPush, digestContent, readChoices } from "@/lib/notifications/push-bridge"
-import { NOTIFY_META_KEY, PUSH_KIND_KEYS, applyNotifyChange, kindAllowed, kindStates, pushKindOf, readNotifyChoice } from "@/lib/notifications/push-kinds"
+import { NOTIFY_META_KEY, PUSH_KIND_KEYS, applyNotifyChange, emptyChoice, kindAllowed, kindStates, pushKindOf, readNotifyChoice } from "@/lib/notifications/push-kinds"
 import { REPORT_DIGEST_DELAY_MS, reportDigestData, reportDigestKey, reportDigestPlan, reportLine, utcDay } from "@/lib/notifications/report-digest"
 import { LIKE_WINDOW_MS, likeKey, likeTitle, notifyMember, queueNewPost, queueReportDigest } from "@/lib/communities/server/notify"
 import { fanoutAnnouncement } from "@/lib/communities/server/jobs/fanout_announcement"
@@ -204,20 +204,22 @@ const ctx = () => ({ deadline: Date.now() + 60_000, now: Date.now() })
 async function main() {
   /* ── The kinds, pure ─────────────────────────────────────────────────── */
   console.log("\nThe kinds a person can switch")
-  check("seven kinds, in the order Settings shows them", PUSH_KIND_KEYS.join(",") === "posts,comments,likes,mentions,messages,events,followers")
+  /* Round 13 added owners' posts and programs, and put what is addressed to the person first (tests/communities-notify-budget.test.ts holds the rest). */
+  check("nine kinds, in the order Settings shows them", PUSH_KIND_KEYS.join(",") === "mentions,comments,admin_posts,posts,events,programs,likes,messages,followers")
   check("each notification kind sits under its switch", pushKindOf("post") === "posts" && pushKindOf("comment") === "comments" && pushKindOf("reply") === "comments" && pushKindOf("reaction") === "likes" && pushKindOf("mention") === "mentions" && pushKindOf("dm") === "messages" && pushKindOf("event") === "events" && pushKindOf("event_reminder") === "events" && pushKindOf("new_follower") === "followers")
   check("announcements, approvals and admin messages answer only to the main switch", pushKindOf("announcement") === null && pushKindOf("membership") === null && pushKindOf("admin_message") === null)
   const choice = readNotifyChoice({ [NOTIFY_META_KEY]: { pushOff: ["likes", "nonsense", "likes", 7], emailOff: ["report_digest", "x"] } })
-  check("a stored choice is read safely: unknown words dropped, each once", JSON.stringify(choice) === JSON.stringify({ pushOff: ["likes"], emailOff: ["report_digest"] }))
-  check("nothing stored is everything on", JSON.stringify(readNotifyChoice({})) === JSON.stringify({ pushOff: [], emailOff: [] }) && JSON.stringify(readNotifyChoice(null)) === JSON.stringify({ pushOff: [], emailOff: [] }))
+  check("a stored choice is read safely: unknown words dropped, each once", JSON.stringify(choice.pushOff) === '["likes"]' && JSON.stringify(choice.emailOff) === '["report_digest"]')
+  check("nothing stored is everything on", JSON.stringify(readNotifyChoice({})) === JSON.stringify(emptyChoice()) && JSON.stringify(readNotifyChoice(null)) === JSON.stringify(emptyChoice()) && emptyChoice().pushOff.length === 0)
   check("a kind turned off is refused, the rest allowed", !kindAllowed(choice, "reaction") && kindAllowed(choice, "reply") && kindAllowed(choice, "announcement") && kindAllowed(null, "reaction"))
-  const changed = applyNotifyChange({ pushOff: ["likes"], emailOff: [] }, { push: { likes: true, posts: false, bogus: false }, email: { report_digest: false } })
-  check("a change turns kinds on and off and keeps the order", JSON.stringify(changed) === JSON.stringify({ pushOff: ["posts"], emailOff: ["report_digest"] }))
-  check("a change that names nothing it may change is refused", applyNotifyChange({ pushOff: [], emailOff: [] }, { push: { likes: "no" } }) === null && applyNotifyChange({ pushOff: [], emailOff: [] }, null) === null)
-  check("Settings reads every kind with its state", JSON.stringify(kindStates({ pushOff: ["posts"], emailOff: [] })) === JSON.stringify({ posts: false, comments: true, likes: true, mentions: true, messages: true, events: true, followers: true }))
+  const changed = applyNotifyChange({ ...emptyChoice(), pushOff: ["likes"] }, { push: { likes: true, posts: false, bogus: false }, email: { report_digest: false } })
+  check("a change turns kinds on and off and keeps the order", JSON.stringify(changed?.pushOff) === '["posts"]' && JSON.stringify(changed?.emailOff) === '["report_digest"]')
+  check("a change that names nothing it may change is refused", applyNotifyChange(emptyChoice(), { push: { likes: "no" } }) === null && applyNotifyChange(emptyChoice(), null) === null)
+  check("Settings reads every kind with its state", JSON.stringify(kindStates({ ...emptyChoice(), pushOff: ["posts"] })) === JSON.stringify({ mentions: true, comments: true, admin_posts: true, posts: false, events: true, programs: true, likes: true, messages: true, followers: true }))
 
   console.log("\nA community's own level")
-  check("a new post pushes at Everything and at the default Everything but likes, never at mentions only or nothing", levelAllowsPush("all", "post") && levelAllowsPush("important", "post") && levelAllowsPush(null, "post") && !levelAllowsPush("mentions", "post") && !levelAllowsPush("none", "post"))
+  /* Round 13: a member's post pushes only at Everything; the owner's and admins' posts also at the default level. */
+  check("a member's post pushes at Everything only; an owner's or admin's also at the default, never at mentions only or nothing", levelAllowsPush("all", "post") && !levelAllowsPush("important", "post") && !levelAllowsPush(null, "post") && levelAllowsPush("important", "admin_post") && levelAllowsPush(null, "admin_post") && !levelAllowsPush("mentions", "post") && !levelAllowsPush("mentions", "admin_post") && !levelAllowsPush("none", "admin_post"))
 
   /* ── Likes, grouped ──────────────────────────────────────────────────── */
   console.log("\nLikes: one notification per post per window")
@@ -279,7 +281,7 @@ async function main() {
       { kind: "reaction", title: "Ana liked your post", body: null, url: "/community/film-loft/post/p1" },
       { kind: "comment", title: "Ana commented", body: null, url: "/community/film-loft/post/p2" },
     ]
-    check("a digest is built from what is left after the switches", digestContent(rows.filter((r) => kindAllowed({ pushOff: ["likes"], emailOff: [] }, r.kind)), { group: `c:${C1}`, communityName: "Film Loft", communitySlug: "film-loft" })?.body.startsWith("Ana commented") === true)
+    check("a digest is built from what is left after the switches", digestContent(rows.filter((r) => kindAllowed({ ...emptyChoice(), pushOff: ["likes"] }, r.kind)), { group: `c:${C1}`, communityName: "Film Loft", communitySlug: "film-loft" })?.body.startsWith("Ana commented") === true)
     const cdb = pg(tables(), { [IOANA]: { app_metadata: { [NOTIFY_META_KEY]: { pushOff: ["likes"] } } } })
     const r0 = cdb.auth.admin.reads
     await readChoices(cdb as any, [IOANA, IOANA, DAN])
@@ -292,7 +294,18 @@ async function main() {
   {
     const sent: Sent[] = []
     setPushBridgeDeps({ sender: sender(sent), communitiesOn: async () => true, defer: (task) => task() })
-    const db = pg(tables())
+    /* Round 13: a member's post reaches only Everything, so this audience is an admin's post (Mara is an admin here). */
+    const asAdmin = (t: Record<string, any[]>) => {
+      t.community_members.find((m) => m.user_id === MARA).role = "admin"
+      return t
+    }
+    const memberDb = pg(tables())
+    memberDb.tables.community_feed_posts.push({ id: "00000000-0000-4000-e000-000000000009", community_id: C1, space_id: S_TIER, author_id: MARA, title: "A member's post", body_text: "x", status: "published" })
+    await fanoutAnnouncement(memberDb as any, job({ communityId: C1, postId: "00000000-0000-4000-e000-000000000009", actorId: MARA, reason: "post", after: null }), ctx())
+    check("a member's post: only Everything with the tier (Ben); the default level does not hear it", JSON.stringify(sent.map((x) => x.userId)) === JSON.stringify([BEN]), sent.map((x) => x.userId))
+    sent.length = 0
+    setPushBridgeDeps({ sender: sender(sent), communitiesOn: async () => true, defer: (task) => task() })
+    const db = pg(asAdmin(tables()))
     db.tables.community_feed_posts.push({ id: "00000000-0000-4000-e000-000000000001", community_id: C1, space_id: S_TIER, author_id: MARA, title: "Night shoot on Friday", body_text: "Bring a tripod.", status: "published" })
     check("an ordinary post is queued once", (await queueNewPost(db as any, { communityId: C1, postId: "00000000-0000-4000-e000-000000000001", actorId: MARA })) === "queued" && (await queueNewPost(db as any, { communityId: C1, postId: "00000000-0000-4000-e000-000000000001", actorId: MARA })) === "exists")
     const queued = db.tables.community_jobs[0]
@@ -311,7 +324,7 @@ async function main() {
     await runPushDigest(db as any, held.payload, Date.now() + PUSH_WINDOW_MS + 10_000)
     check("  and Ben's digest counts the new posts he can see", sent.length === 6 && sent[5].userId === BEN && sent[5].body === "2 new posts" && sent[5].data.url === "/community/film-loft", sent[5])
     setPushBridgeDeps({ sender: sender(sent), communitiesOn: async () => true, defer: (task) => task() })
-    const off = pg(tables(), { [BEN]: { app_metadata: { [NOTIFY_META_KEY]: { pushOff: ["posts"] } } }, [DAN]: {} })
+    const off = pg(asAdmin(tables()), { [BEN]: { app_metadata: { [NOTIFY_META_KEY]: { pushOff: ["admin_posts"] } } }, [DAN]: {} })
     off.tables.community_feed_posts.push({ id: "00000000-0000-4000-e000-000000000003", community_id: C1, space_id: S_OPEN, author_id: MARA, title: "Third", body_text: "x", status: "published" })
     const before = sent.length
     await fanoutAnnouncement(off as any, job({ communityId: C1, postId: "00000000-0000-4000-e000-000000000003", actorId: MARA, reason: "post", after: null }), ctx())
@@ -410,14 +423,14 @@ async function main() {
   console.log("\nSettings, Notifications")
   {
     const route = code("app/api/me/push/route.ts")
-    check("GET says the switch, the devices, every kind, the report email and whether they moderate", /NextResponse\.json\(\{ enabled, devices, kinds: kindStates\(choice\), emails: \{ report_digest: [^}]+\}, moderates \}/.test(route))
-    check("PATCH { push, email } changes only the person's own choice, rate limited like the switch", /if \(body\.push !== undefined \|\| body\.email !== undefined\)/.test(route) && /saveChoice\(db, userId, next\)/.test(route) && route.indexOf("rateLimit(") < route.indexOf("body.push !== undefined"))
+    check("GET says the switch, the devices, every kind, the report email and whether they moderate", /NextResponse\.json\(\{ enabled, devices, kinds: kindStates\(choice\), emails: emailStates\(choice\), moderates,/.test(route))
+    check("PATCH { push, email } changes only the person's own choice, rate limited like the switch", /if \(body\.push !== undefined \|\| body\.email !== undefined/.test(route) && /saveChoice\(db, userId, next\)/.test(route) && route.indexOf("rateLimit(") < route.indexOf("body.push !== undefined"))
     const page = read("components/account/account-settings.tsx")
     check("a Notifications section between Privacy and Preferences", /\{ key: "privacy", label: "Privacy" \},\s*\{ key: "notifications", label: "Notifications" \},\s*\{ key: "preferences", label: "Preferences" \}/.test(page) && /section === "notifications" \? <NotificationSettings \/> : null/.test(page))
     check("?section=notifications opens it", /SECTION_KEYS = \["profile", "account", "privacy", "notifications", "preferences"\]/.test(read("app/account/settings/page.tsx")))
     const settings = code("components/account/notification-settings.tsx")
     check("the kinds are live only while push is on, and save one at a time", /checked=\{live && s\.value\} disabled=\{!live\}/.test(settings) && /chain = run\.catch/.test(settings))
-    check("the report email is offered only to someone who moderates", /initial\.moderates \? \(/.test(settings))
+    check("the report email is offered only to someone who moderates", /initial\.moderates \? <EmailRow/.test(settings))
     for (const f of ["components/account/notification-settings.tsx", "components/account/push-switch-row.tsx", "lib/notifications/push-kinds.ts", "lib/notifications/report-digest.ts", "lib/native-push.ts", "lib/communities/server/jobs/report_digest.ts"]) {
       const t = read(f)
       check(`${f}: no em dashes, none of the banned words`, !/[—–]/.test(t) && !/\b(unlock|elevate|seamless|powerful|effortless(ly)?|supercharge|transform)\b/i.test(t))

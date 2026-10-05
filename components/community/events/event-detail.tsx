@@ -29,6 +29,7 @@ import { eventTime } from "@/lib/communities/format"
 import type { RsvpStatus } from "@/lib/communities/types"
 import { KIND_WORDS, goingLabel, isLive, isOver, type EventDetailView } from "./model"
 import { clockIn, useViewerZone, zoneCity } from "./use-zone"
+import { STACK, STACK_FACE } from "@/components/community/member/ui"
 
 export interface EventDetailProps {
   event: EventDetailView
@@ -273,9 +274,9 @@ export function EventDetail({ event: initial, eventsHref, aboutHref }: EventDeta
 
               {event.attendees.length ? (
                 <div className="mt-4 flex items-center gap-2.5 border-t border-[#eef0f3] pt-3.5" data-attendees>
-                  <span className="flex -space-x-1">
+                  <span className={STACK} data-avatar-stack="">
                     {event.attendees.slice(0, 5).map((a, i) => (
-                      <AppAvatar key={i} src={a.avatarUrl} name={a.name} size={28} alt={a.name} className="ring-2 ring-white" />
+                      <AppAvatar key={i} src={a.avatarUrl} name={a.name} size={28} alt={a.name} className={STACK_FACE} />
                     ))}
                   </span>
                   <span className="flex items-center gap-1 text-[13px] text-[#6b7280]">

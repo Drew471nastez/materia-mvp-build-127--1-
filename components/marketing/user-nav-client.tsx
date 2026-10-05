@@ -1,5 +1,6 @@
 "use client"
 
+import { personName } from "@/lib/profile/display-name"
 import { AppAvatar } from "@/components/app/app-avatar"
 import {
   DropdownMenu,
@@ -64,7 +65,7 @@ export function UserNavClient({ user, profile, isCreator }: UserNavClientProps) 
       <DropdownMenuContent className="w-56" align="end" forceMount>
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">{profile?.display_name || "User"}</p>
+            <p className="text-sm font-medium leading-none">{personName({ name: profile?.display_name, username: profile?.username })}</p>
             <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
           </div>
         </DropdownMenuLabel>

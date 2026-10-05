@@ -37,6 +37,7 @@ import type { SupabaseClient } from "@supabase/supabase-js"
 import { logUploadVerdict } from "@/lib/security/uploads/audit"
 import { precheckUpload } from "@/lib/security/uploads/inspect"
 import { inspectStoredObject } from "@/lib/security/uploads/stored"
+import { scanStoredAfterResponse } from "@/lib/security/uploads/engine-after"
 import { STORAGE_BUCKET } from "@/lib/storage/plans"
 import { generateSignedDownloadUrl, SIGNED_DOWNLOAD_SECONDS } from "@/lib/storage/download"
 import { storedObjectSize } from "@/lib/storage/upload-guard"
@@ -135,6 +136,8 @@ export async function completeCommunityFile(
     await remove()
     return { ok: false, error: verdict.userMessage || "We couldn't accept this file. Try another file.", status: 415 }
   }
+  /* A malware engine, when one is switched on, reads it after the answer; an infected file is deleted (lib/security/uploads/engine-after.ts). */
+  scanStoredAfterResponse(db as SupabaseClient, { bucket: STORAGE_BUCKET, path, fileName: name, size, context: FILE_CONTEXT, userId: input.viewer.userId, creatorId: input.community.creator_id })
   return { ok: true, value: { type: "file", assetId: input.fileId.toLowerCase(), name, size, store: "community" } }
 }
 

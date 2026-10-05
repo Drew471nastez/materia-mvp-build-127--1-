@@ -1,3 +1,4 @@
+import { personName } from "@/lib/profile/display-name"
 import { notFound } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -90,7 +91,7 @@ export default async function ProductAccessPage({ params }: ProductAccessPagePro
   const { data: creatorProfile } = creator?.user_id
     ? await admin.from("profiles").select("display_name, avatar_url").eq("id", creator.user_id).maybeSingle()
     : { data: null as any }
-  const creatorName: string = creatorProfile?.display_name || creator?.display_name || creator?.slug || "Creator"
+  const creatorName: string = personName({ name: creatorProfile?.display_name || creator?.display_name, slug: creator?.slug })
 
   const variantFiles = new Map<string, string[]>()
   for (const m of (((variantRes as any)?.error ? [] : (variantRes as any)?.data) ?? []) as any[]) {

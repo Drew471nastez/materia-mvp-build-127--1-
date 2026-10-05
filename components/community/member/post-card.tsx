@@ -91,7 +91,7 @@ import { readAheadComments } from "./comments"
 import { PostOverlay } from "./post-overlay"
 import { intentOf, press, useIntent } from "./post-intent"
 import { toast } from "./toast"
-import { BTN_GHOST, CARD, ICON_BTN } from "./ui"
+import { BTN_GHOST, CARD, ICON_BTN, STACK, STACK_FACE } from "./ui"
 import { memberHref } from "./person-href"
 import { RoleBadge } from "./role-badge"
 
@@ -612,10 +612,10 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
             <span className="tabular-nums">{post.commentCount}</span>
           </button>
           {post.recentCommenters?.length ? (
-            <span className="ml-1 flex shrink-0 -space-x-1.5" data-commenters="">
+            <span className={`ml-1 shrink-0 ${STACK}`} data-commenters="" data-avatar-stack="">
               {/* Three faces; two on a narrow phone, so "New comment 2d ago" keeps its words. */}
               {post.recentCommenters.slice(0, 3).map((c, i) => (
-                <AppAvatar key={c.id} src={c.avatarUrl} name={c.name} alt="" size={24} markWhileLoading className={`ring-2 ring-white ${i === 2 ? "max-[399px]:hidden" : ""}`} />
+                <AppAvatar key={c.id} src={c.avatarUrl} name={c.name} alt="" size={24} markWhileLoading className={`${STACK_FACE} ${i === 2 ? "max-[399px]:hidden" : ""}`} />
               ))}
             </span>
           ) : null}

@@ -36,7 +36,7 @@ import { PlaceIcon } from "./place-icons"
 import { memberHref } from "./person-href"
 import { EventWhen } from "./time"
 import { CommunityMark } from "./community-mark"
-import { CARD, DEPTH, DEPTH_PRESS, PRESS_PROPS } from "./ui"
+import { CARD, CARD_RAISED, DEPTH, DEPTH_PRESS, PRESS_PROPS, STACK, STACK_FACE } from "./ui"
 import type { ShellCommunity, WallCardData, WallContributors, WallEvent } from "./view-types"
 
 /* ── The community card ────────────────────────────────────────────────── */
@@ -145,20 +145,20 @@ function WallCommunityCardInner({ community, card, membersHref }: { community: S
 
         {faces.length ? (
           <div className="mt-3.5 flex items-center" data-wall-faces="">
-            <div className="flex -space-x-2">
+            <div className={STACK} data-avatar-stack="">
               {faces.map((f) => (
-                <Link key={f.id} href={memberHref(community.slug, f)} className="relative rounded-full ring-2 ring-white transition-[translate] duration-150 hover:-translate-y-0.5 motion-reduce:transition-none" data-person-link="" data-person-id={f.id} aria-label={f.name}>
+                <Link key={f.id} href={memberHref(community.slug, f)} className={`${STACK_FACE} h-8 w-8 transition-[translate] duration-150 hover:-translate-y-0.5 motion-reduce:transition-none`} data-person-link="" data-person-id={f.id} aria-label={f.name}>
                   <AppAvatar src={f.avatarUrl} name={f.name} alt="" size={32} markWhileLoading />
                 </Link>
               ))}
             </div>
             {more > 0 ? (
               membersHref ? (
-                <Link href={membersHref} className="relative -ml-2 flex h-8 min-w-8 items-center justify-center rounded-full bg-[#f1f2f4] px-2 text-[12px] font-semibold tabular-nums text-[#4b5563] ring-2 ring-white hover:bg-[#e9ebee]" aria-label={`${more} more members`} data-wall-more="">
+                <Link href={membersHref} className="relative -ml-2 flex h-8 min-w-8 items-center justify-center rounded-full bg-[#f1f2f4] px-2 text-[12px] font-semibold tabular-nums text-[#4b5563] shadow-[0_0_0_2px_#fff] hover:bg-[#e9ebee]" aria-label={`${more} more members`} data-wall-more="">
                   {moreLabel}
                 </Link>
               ) : (
-                <span className="relative -ml-2 flex h-8 min-w-8 items-center justify-center rounded-full bg-[#f1f2f4] px-2 text-[12px] font-semibold tabular-nums text-[#4b5563] ring-2 ring-white" data-wall-more="">
+                <span className="relative -ml-2 flex h-8 min-w-8 items-center justify-center rounded-full bg-[#f1f2f4] px-2 text-[12px] font-semibold tabular-nums text-[#4b5563] shadow-[0_0_0_2px_#fff]" data-wall-more="">
                   {moreLabel}
                 </span>
               )
@@ -283,7 +283,7 @@ function WallUpcomingInner({ slug, event }: { slug: string; event: WallEvent }) 
   const base = `/community/${slug}`
   const href = `${base}/events/${event.id}`
   return (
-    <section className={`${CARD} p-4`} data-wall-upcoming="" aria-label="Upcoming event">
+    <section className={`${CARD_RAISED} p-4`} data-wall-upcoming="" aria-label="Upcoming event">
       <CardHead title="Upcoming event" href={`${base}/events`} />
       <Link href={href} className="group/event mt-3 flex gap-3 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15">
         <DateTile startsAt={event.startsAt} />
@@ -323,12 +323,13 @@ export function contributorsDetail(data: Pick<WallContributors, "basis" | "since
 function WallContributorsCardInner({ slug, data, viewAllHref }: { slug: string; data: WallContributors; viewAllHref: string | null }) {
   const points = data.basis === "points"
   return (
-    <section className={`${CARD} p-4`} data-wall-contributors={data.basis} aria-label={points ? "Top contributors" : "Most active"}>
+    <section className={`${CARD_RAISED} p-4`} data-wall-contributors={data.basis} aria-label={points ? "Top contributors" : "Most active"}>
       <CardHead title={points ? "Top contributors" : "Most active"} detail={contributorsDetail(data)} href={viewAllHref} />
-      <ol className="mt-2.5 space-y-0.5">
+      {/* Rows split by hairlines, each rank a small white tile with Polaris depth (round 13). */}
+      <ol className="mt-2 divide-y divide-[#f0f1f3]" data-wall-contributors-list="">
         {data.rows.map((r) => (
           <li key={r.userId} className="flex h-12 items-center gap-3" data-wall-contributor={r.userId}>
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#f3f4f6] text-[12.5px] font-semibold tabular-nums text-[#4b5563]" data-wall-rank="">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[7px] border border-[#e3e5e9] bg-white text-[12px] font-semibold tabular-nums text-[#4b5563] shadow-[0_1px_1px_rgba(16,24,40,0.06)]" data-wall-rank="">
               {r.rank}
             </span>
             <Link href={memberHref(slug, { id: r.userId, username: r.username, hasStorefront: r.hasStorefront })} className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15" data-person-link="" data-person-id={r.userId}>

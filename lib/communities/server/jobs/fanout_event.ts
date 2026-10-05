@@ -11,6 +11,14 @@ import "server-only"
  * 500 members a page by user id, one read and one insert per page; out of
  * time, it carries on from the cursor in the next run. An event that was
  * cancelled or has started by then is not announced.
+ *
+ * A CHANGE (payload.change "moved", "updated" or "cancelled", queued by
+ * notify.ts notifyEventChanged once per change) is told only to the people
+ * going, a page of RSVPs at a time: "Event moved: Darkroom night" with the
+ * new time, "Event cancelled: ...", "Event updated: ...". It is about their
+ * own plans, so it pushes at once (push-bridge.ts pushPriority, the
+ * event_change: key), under their Events switch. Once per change: the key
+ * names the change and its stamp (the new start, or the moment it was made).
  */
 import { evaluateAccess, parseAccessRule } from "../../access"
 import { wantsNotification } from "../../permissions"
@@ -32,6 +40,7 @@ export async function fanoutEvent(db: Db, job: JobRow, ctx: JobContext): Promise
   const payload = carried.payload
   const eventId = typeof payload.eventId === "string" ? payload.eventId : ""
   if (!UUID.test(eventId)) throw new Error("fanout_event needs payload.eventId")
+  if (isEventChange(payload.change)) return eventChangeFanout(db, payload, eventId, payload.change, ctx)
   let after = typeof payload.cursor === "string" && UUID.test(payload.cursor) ? payload.cursor : null
 
   const { data: row, error } = await db.from("community_events").select(EVENT_COLUMNS).eq("id", eventId).maybeSingle()
@@ -79,6 +88,65 @@ export async function fanoutEvent(db: Db, job: JobRow, ctx: JobContext): Promise
     after = page[page.length - 1].user_id
     if (left.length) return { again: { payload: { ...payload, cursor: after, pushLeft: left } } }
     if (page.length < FANOUT_PAGE) break
+    if (Date.now() >= ctx.deadline - 8_000) return { again: { payload: { ...payload, cursor: after } } }
+  }
+}
+
+/* ── A change to an event, told to the people going ─────────────────────── */
+
+export const EVENT_CHANGES = ["moved", "updated", "cancelled"] as const
+export type EventChange = (typeof EVENT_CHANGES)[number]
+const RSVP_PAGE = 200
+
+export function isEventChange(v: unknown): v is EventChange {
+  return typeof v === "string" && (EVENT_CHANGES as readonly string[]).includes(v)
+}
+
+/** "Event moved: Darkroom night". */
+export function eventChangeTitle(change: EventChange, title: string): string {
+  const what = change === "moved" ? "Event moved" : change === "cancelled" ? "Event cancelled" : "Event updated"
+  return `${what}: ${title}`.slice(0, 200)
+}
+
+async function eventChangeFanout(db: Db, payload: Record<string, unknown>, eventId: string, change: EventChange, ctx: JobContext): Promise<JobOutcome | void> {
+  const stamp = typeof payload.stamp === "string" ? payload.stamp.slice(0, 40) : ""
+  let after = typeof payload.cursor === "string" && UUID.test(payload.cursor) ? payload.cursor : null
+  const { data: row, error } = await db.from("community_events").select(EVENT_COLUMNS).eq("id", eventId).maybeSingle()
+  if (error) throw new Error(`event read: ${reasonOf(error)}`)
+  const e = row as EventRow | null
+  if (!e) return
+  /* Told as it is now: a change undone before the job ran is not news (restored, or moved back). */
+  if ((change === "cancelled") !== (e.status === "cancelled")) return
+  if (change === "moved" && stamp && new Date(e.starts_at).toISOString() !== stamp) return
+  if (change !== "cancelled" && Date.parse(e.starts_at) <= ctx.now) return
+  const { data: community } = await db.from("communities").select("id, slug, name, status, suspended_at, deleted_at").eq("id", e.community_id).maybeSingle()
+  const c = community as { id: string; slug: string; name?: string | null; status: string; suspended_at: string | null; deleted_at: string | null } | null
+  if (!c || c.deleted_at || c.suspended_at || c.status === "suspended" || c.status === "archived") return
+
+  const when = eventTime(e.starts_at, e.ends_at, { timeZone: e.timezone || undefined })
+  const title = eventChangeTitle(change, e.title)
+  const body = change === "cancelled" ? `It was set for ${when}.` : when
+  const url = `/community/${c.slug}/events/${e.id}`
+  for (;;) {
+    let q = db.from("community_event_rsvps").select("user_id").eq("event_id", e.id).eq("status", "going").order("user_id", { ascending: true }).limit(RSVP_PAGE)
+    if (after) q = q.gt("user_id", after)
+    const { data: rsvps, error: rsvpError } = await q
+    if (rsvpError) throw new Error(`rsvps read: ${reasonOf(rsvpError)}`)
+    const ids = ((rsvps as { user_id: string }[] | null) ?? []).map((r) => r.user_id)
+    if (ids.length === 0) return
+    const { data: members } = await db.from("community_members").select("user_id, status, notify_level").eq("community_id", c.id).in("user_id", ids)
+    const wanted = ((members as { user_id: string; status: string; notify_level: NotifyLevel }[] | null) ?? []).filter((m) => m.status === "active" && m.user_id !== payload.actorId && wantsNotification(m.notify_level, "event"))
+    const notices = wanted.map((m) => ({ userId: m.user_id, title, body, url, dedupeKey: `event_change:${e.id}:${change}:${stamp}:${m.user_id}` }))
+    const fresh = await bulkNotify(db, c.id, "event", { type: "event", id: e.id }, notices)
+    const levels = new Map(wanted.map((m) => [m.user_id, m.notify_level]))
+    const items = notices
+      .filter((n) => fresh.has(n.userId))
+      .map((n) => communityPushItem({ userId: n.userId, communityId: c.id, kind: "event", actorId: typeof payload.actorId === "string" ? payload.actorId : null, title: n.title, body: n.body, url: n.url, dedupeKey: n.dedupeKey, level: levels.get(n.userId) ?? null }, c.name ?? null))
+      .filter((i): i is PushItem => !!i)
+    const left = await pushFanout(db, items, { deadline: ctx.deadline })
+    after = ids[ids.length - 1]
+    if (left.length) return { again: { payload: { ...payload, cursor: after, pushLeft: left } } }
+    if (ids.length < RSVP_PAGE) return
     if (Date.now() >= ctx.deadline - 8_000) return { again: { payload: { ...payload, cursor: after } } }
   }
 }

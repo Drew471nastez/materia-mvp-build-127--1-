@@ -33,6 +33,7 @@
  * page: one bar on the screen, never two stacked.
  */
 
+import { personName } from "@/lib/profile/display-name"
 import { usePathname } from "next/navigation"
 import type { ReactNode } from "react"
 import { useShellAvatar } from "@/lib/account/avatar-store"
@@ -62,7 +63,7 @@ export interface AccountIdentity {
 export function AccountHub({ identity, communities = false, children }: { identity: AccountIdentity; communities?: boolean; children: ReactNode }) {
   const pathname = usePathname()
   const shown = useShellAvatar(identity.avatarUrl)
-  const name = identity.name || "Your profile"
+  const name = personName({ name: identity.name, username: identity.username })
 
   if (!showsProfileHeader(pathname)) return <AccountColumn>{children}</AccountColumn>
 

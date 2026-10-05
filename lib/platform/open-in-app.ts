@@ -47,13 +47,65 @@ export function appLink(phone: Phone, path: string): string {
   return `intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;package=${APP_PACKAGE};S.browser_fallback_url=${encodeURIComponent(PLAY_URL)};end`
 }
 
-/** Inside the app: the page an "open" link asks for, or null for any other link. */
+/**
+ * A storelib.com link the phone handed to the app (a Universal Link or an
+ * App Link, lib/platform/app-links.ts) that is a page to show. The sign in
+ * and password reset returns are not: lib/native-oauth.ts has its own
+ * handling for those, which a second navigation would race.
+ */
+const HANDLED_ELSEWHERE = /^\/(?:app\/)?(?:auth\/|reset-password)|^\/app\/settings\/billing/
+
+/** Inside the app: the page an "open" link or a storelib.com link asks for, or null for any other link. */
 export function openTarget(url: string): string | null {
   const m = /^(?:com\.storelib\.app|storelib):\/\/open\/?\?(.*)$/i.exec(url || "")
-  if (!m) return null
-  try {
-    return sitePath(new URLSearchParams(m[1]).get("path"))
-  } catch {
-    return null
+  if (m) {
+    try {
+      return sitePath(new URLSearchParams(m[1]).get("path"))
+    } catch {
+      return null
+    }
   }
+  const web = /^https:\/\/(?:www\.)?storelib\.com(\/[^#]*)?(?:#.*)?$/i.exec(url || "")
+  if (!web) return null
+  const path = sitePath(web[1] || "/")
+  if (!path || HANDLED_ELSEWHERE.test(path)) return null
+  return path
 }
+
+/**
+ * ===========================================================================
+ *  THE "OPEN IN THE APP" PILL ON A COMMUNITY (components/community/
+ *  open-in-app-pill.tsx)
+ * ===========================================================================
+ * The address that opens this very page in the app:
+ *
+ *   iPhone    the app's scheme with the page (com.storelib.app://open?path=),
+ *             the App Store when nothing answers; iOS never opens a
+ *             Universal Link for a tap on the site it is already on
+ *   Android   the page itself as an intent for the app's package: with App
+ *             Links verified (lib/platform/app-links.ts) the app opens on it,
+ *             and Chrome falls back to the Play Store when it is not there
+ */
+export function pageAppLink(phone: Phone, path: string, host = "storelib.com"): string {
+  const safe = sitePath(path) ?? "/"
+  if (phone === "ios") return `${APP_PACKAGE}://open?path=${encodeURIComponent(safe)}`
+  return `intent://${host}${safe}#Intent;scheme=https;package=${APP_PACKAGE};S.browser_fallback_url=${encodeURIComponent(PLAY_URL)};end`
+}
+
+/**
+ * Whether the pill is drawn, and for which phone. Never in the app, never
+ * on a computer; on an iPhone's Safari only when the system's own Smart App
+ * Banner is not there to do it (no App Store id configured), since two
+ * banners for one app is one too many. Chrome and Firefox on an iPhone have
+ * no Smart App Banner, so they get the pill.
+ */
+export function pillPhone(ua: string, smartBanner: boolean): Phone | null {
+  if (isAppWebView(ua)) return null
+  const phone = phoneOf(ua)
+  if (phone === "ios" && smartBanner && !/CriOS|FxiOS|EdgiOS|OPiOS/.test(ua)) return null
+  return phone
+}
+
+/** The pill's own quiet time once closed. */
+export const APP_PILL_KEY = "storelib:app-pill-closed"
+export const APP_PILL_QUIET_DAYS = 30

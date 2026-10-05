@@ -1,5 +1,6 @@
 "use client"
 
+import { personName } from "@/lib/profile/display-name"
 import * as React from "react"
 
 import { Banner, Panel } from "../../_console/ui"
@@ -47,7 +48,7 @@ export default function DisputesPage() {
                 return (
                   <tr key={String(c.disputeId)} className="border-t border-white/[0.06] align-top">
                     <td className="px-3 py-1.5 font-mono text-[11px]">{String(c.disputeId)}</td>
-                    <td className="px-3 py-1.5">{creator?.display_name || creator?.slug || "Unknown"}</td>
+                    <td className="px-3 py-1.5">{personName({ name: creator?.display_name, slug: creator?.slug })}</td>
                     <td className="px-3 py-1.5 tabular-nums">{(Number(c.amount) / 100).toFixed(2)} {String(c.currency)}</td>
                     <td className="px-3 py-1.5">{c.inquiry ? "Inquiry, " : ""}{String(c.outcome ?? c.status)}</td>
                     <td className="px-3 py-1.5 tabular-nums">{c.closed ? "Closed" : due}</td>

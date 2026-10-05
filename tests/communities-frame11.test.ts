@@ -67,7 +67,7 @@ async function main() {
   {
     const bell = code("components/notifications/notification-bell.tsx")
     check("the bell's sheet takes a least height, its list given that minus the sheet's own parts", /sheetMin\?: string/.test(bell) && /minHeight: `calc\(\$\{sheetMin\} - \$\{SHEET_CHROME_PX\}px\)`/.test(bell))
-    check("the community's bell asks for half the screen", /<NotificationBell className=\{BELL\} sheetMin="50dvh" \/>/.test(code("components/community/member/top-bar.tsx")))
+    check("the community's bell asks for half the screen", /<NotificationBell className=\{BELL\} sheetMin="50dvh"( tabBadge)? \/>/.test(code("components/community/member/top-bar.tsx")))
     const header = code("components/platform/platform-header-client.tsx")
     check("the account menu and sheet take a short community list", (header.match(/rows === "community"/g) ?? []).length >= 3 && /export type AccountRows = "storelib" \| "community"/.test(header))
     const short = header.split('rows === "community" ? (')[1]?.split(") : ")[0] ?? ""

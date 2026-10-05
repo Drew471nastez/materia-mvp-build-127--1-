@@ -589,7 +589,8 @@ check(
     // The ring must centre in the SAME gap the page holds open.
     if (!/refreshHold/.test(indicator) || !/refreshHold=\{REFRESH_HOLD\}/.test(dash))
       missing.push("dashboard/indicator: refresh gap not shared, positions can drift")
-    if (!/const REFRESH_HOLD = PULL_TO_REFRESH\.refreshHold/.test(dash))
+    /* Round 13: the hold is the spokes' room (SPOKES_HOLD), still one shared constant rather than a literal. */
+    if (!/const REFRESH_HOLD = SPOKES_HOLD/.test(dash))
       missing.push("dashboard: the hold distance is a second literal again")
     if (missing.length) console.log("        " + missing.join("\n        "))
     return missing.length === 0
@@ -2489,7 +2490,8 @@ check(
     const header = code("components/store-builder/unified-section-renderer.tsx")
     const missing: string[] = []
 
-    if (!/src=\{coverImageUrl\}\s*\n\s*alt=\{`\$\{profile\?\.display_name \|\| "Creator"\} cover`\}\s*\n\s*fill/.test(header))
+    /* Round 13: the name in the alt is the one name rule (lib/profile/display-name), never "Creator". */
+    if (!/src=\{coverImageUrl\}\s*\n\s*alt=\{`\$\{personName\(\{ name: profile\?\.display_name, username: profile\?\.username \}\)\} cover`\}\s*\n\s*fill/.test(header))
       missing.push("the cover is not rendered through next/image any more")
     /* `sizes` follows the zoom now (lib/images/cover-crop coverSizes): 100vw at
        zoom 1, more for a zoomed cover. Still resized, still preloaded. */

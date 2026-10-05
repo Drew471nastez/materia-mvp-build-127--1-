@@ -136,6 +136,42 @@
                     android:host="www.storelib.com"
                     android:pathPrefix="/app/settings/billing" />
             </intent-filter>
+
+            <!--
+                App Links for pages people share (lib/platform/app-links.ts):
+                a community, a profile (/@handle, /member, /u) and a product
+                (/p) open in the app when it is installed. Verified against
+                /.well-known/assetlinks.json, which is built from the
+                ANDROID_PACKAGE_NAME and ANDROID_SHA256_CERT_FINGERPRINTS env
+                vars. A creator page (storelib.com/<handle>) is one segment
+                with no prefix of its own, which an intent filter cannot tell
+                from Storelib's own pages, so it stays in the browser here.
+                The app goes to the page through components/platform/
+                app-link-opener.tsx (appUrlOpen).
+            -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="storelib.com" />
+                <data android:pathPrefix="/community/" />
+                <data android:pathPrefix="/@" />
+                <data android:pathPrefix="/member/" />
+                <data android:pathPrefix="/u/" />
+                <data android:pathPrefix="/p/" />
+            </intent-filter>
+
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="www.storelib.com" />
+                <data android:pathPrefix="/community/" />
+                <data android:pathPrefix="/@" />
+                <data android:pathPrefix="/member/" />
+                <data android:pathPrefix="/u/" />
+                <data android:pathPrefix="/p/" />
+            </intent-filter>
         </activity>
 
         <provider

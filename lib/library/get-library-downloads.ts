@@ -1,3 +1,4 @@
+import { personName } from "@/lib/profile/display-name"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { fillOwnedProducts } from "@/lib/library/owned-products"
@@ -157,7 +158,7 @@ export async function getLibraryDownloads(
 
     ;(creators || []).forEach((creator: any) => {
       const profile: any = profileByUserId.get(creator.user_id)
-      creatorProfileMap.set(creator.id, profile?.display_name || creator.display_name || creator.slug || "Creator")
+      creatorProfileMap.set(creator.id, personName({ name: profile?.display_name || creator.display_name, slug: creator.slug }))
       creatorCardMap.set(creator.id, { slug: creator.slug || null, avatarUrl: profile?.avatar_url || null })
     })
   }
