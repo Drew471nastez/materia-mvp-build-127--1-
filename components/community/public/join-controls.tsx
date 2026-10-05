@@ -490,11 +490,25 @@ export function MembershipRow() {
 }
 
 /**
+ * LEAVING FROM ANOTHER PAGE (round 13: the member's Membership page). The
+ * same confirm that asks why (LeaveDialog), opened by whatever button the
+ * page draws; whether this member may leave at all, and whether the dialog
+ * is on its way. Inside a JoinProvider.
+ */
+export function useLeave(): { canLeave: boolean; open: () => void; busy: boolean; error: string | null } {
+  const { join, setLeaveOpen, busy, error } = useJoin()
+  const open = React.useCallback(() => setLeaveOpen(true), [setLeaveOpen])
+  return { canLeave: join.kind === "open" && join.canLeave, open, busy, error }
+}
+
+/**
  * The sticky card, from 1280px, in the frame's right column (round 12): the
  * name, its address, the price with Monthly and Yearly, and the button. No
  * cover: the community's card in the left column has it, a column away.
+ * Under the button, the page's facts as one quiet list (round 13, ask 22:
+ * `facts`, sales-page.tsx draws it), where the member count line was.
  */
-export function JoinCard() {
+export function JoinCard({ facts = null }: { facts?: React.ReactNode }) {
   const { community, join } = useJoin()
   return (
     <aside data-join-card="" className="hidden xl:block">
@@ -513,9 +527,15 @@ export function JoinCard() {
             )}
             <PrimaryAction className="mt-4 w-full" />
             <Status />
-            <p className="mt-4 border-t border-[#eef0f2] pt-3.5 text-[13px] tabular-nums text-[#6b7280]" data-join-card-members="">
-              {memberCountLabel(community.memberCount)}
-            </p>
+            {facts ? (
+              <div className="-mb-2 mt-4 border-t border-[#eef0f2] pt-1" data-join-card-facts="">
+                {facts}
+              </div>
+            ) : (
+              <p className="mt-4 border-t border-[#eef0f2] pt-3.5 text-[13px] tabular-nums text-[#6b7280]" data-join-card-members="">
+                {memberCountLabel(community.memberCount)}
+              </p>
+            )}
           </div>
         </div>
       </div>

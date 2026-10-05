@@ -236,8 +236,9 @@ function CommunityTopBarInner({ data, messages = null, messagesOpen = false, onM
             </button>
           ) : null}
           {/* Half the screen at least on a phone (round 11): one notification is not a sliver of a sheet. */}
-          {me ? <NotificationBell className={BELL} sheetMin="50dvh" /> : null}
-          {me ? <CommunityAccountMenu me={me} className="md:ml-1" onInvite={menu?.onInvite} savedHref={menu?.savedHref} /> : <LogInLink base={base} />}
+          {/* The bell owns the tab here (round 13): "(3) Clay Studio" and a red dot on the community's icon while something is unread. */}
+          {me ? <NotificationBell className={BELL} sheetMin="50dvh" tabBadge /> : null}
+          {me ? <CommunityAccountMenu me={me} className="md:ml-1" onInvite={menu?.onInvite} savedHref={menu?.savedHref} membershipHref={menu?.membershipHref} /> : <LogInLink base={base} />}
         </div>
       </div>
     </header>
