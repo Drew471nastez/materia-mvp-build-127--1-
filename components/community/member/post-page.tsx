@@ -65,6 +65,21 @@ export function PostPage({ slug, viewer, post: initialPost, comments: initial, m
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [post.id])
 
+  /*
+    ?edit=1 (round 13: the Edit link on a person's own posts in their profile): Edit post opens at once when this viewer may
+    edit the post (ignored otherwise), and the parameter leaves the address as it opens, so a reload or Back does not open it
+    again. Next's own history state is kept.
+  */
+  const [autoEdit, setAutoEdit] = useState(false)
+  useEffect(() => {
+    const url = new URL(window.location.href)
+    if (url.searchParams.get("edit") !== "1") return
+    url.searchParams.delete("edit")
+    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`)
+    if (wantsEdit(post, readOnly, visitor)) setAutoEdit(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   /* Arriving at #comments or #c-<id> scrolls there. */
   useEffect(() => {
     const hash = window.location.hash.slice(1)
@@ -81,7 +96,7 @@ export function PostPage({ slug, viewer, post: initialPost, comments: initial, m
           {post.space ? post.space.name : "Home"}
         </Link>
       )}
-      <PostCard post={post} slug={slug} viewer={viewer} update={updatePost} full readOnly={readOnly} onComment={() => (open ? box.current?.focus() : document.getElementById("comments")?.scrollIntoView({ block: "start" }))} />
+      <PostCard post={post} slug={slug} viewer={viewer} update={updatePost} full readOnly={readOnly} autoEdit={autoEdit} onComment={() => (open ? box.current?.focus() : document.getElementById("comments")?.scrollIntoView({ block: "start" }))} />
 
       <section id="comments" className={`${CARD} px-4 py-4 sm:px-5`} aria-label="Comments" data-comments="">
         <CommentsSection
@@ -100,6 +115,11 @@ export function PostPage({ slug, viewer, post: initialPost, comments: initial, m
       {visitor ? <VisitorJoinBar slug={slug} {...visitor} /> : null}
     </div>
   )
+}
+
+/** Whether ?edit=1 opens Edit post: the viewer's own post, not read only, never for a visitor. */
+export function wantsEdit(post: Pick<FeedPostView, "canEdit" | "status">, readOnly: boolean, visitor: unknown): boolean {
+  return !!post.canEdit && post.status === "published" && !readOnly && !visitor
 }
 
 /**

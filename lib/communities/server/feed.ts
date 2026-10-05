@@ -907,7 +907,7 @@ export function pollEditOf(raw: Record<string, unknown>, now = Date.now()): Chec
 }
 
 /** Whether a voted poll would change what was voted on: its question or its choices, in order. */
-export function pollChoicesChanged(before: Pick<PollView, "question" | "options">, after: Pick<PollInput, "question" | "options">): boolean {
+export function pollChoicesChanged(before: { question: string; options: { label: string }[] }, after: Pick<PollInput, "question" | "options">): boolean {
   if (before.question.trim() !== after.question.trim()) return true
   const a = before.options.map((o) => o.label.trim())
   const b = after.options.map((o) => o.trim())

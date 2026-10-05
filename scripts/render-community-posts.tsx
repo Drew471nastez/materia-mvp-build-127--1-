@@ -389,7 +389,14 @@ function Screen() {
       window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
         const url = String(input instanceof Request ? input.url : input)
         if (/\/posts\?/.test(url) && (!init?.method || init.method === "GET")) {
-          return new Promise((done) => setTimeout(() => done(new Response(JSON.stringify({ pinned: POSTS.filter((p) => p.pinned), posts: list, nextCursor: null }), { status: 200, headers: { "content-type": "application/json" } })), 120))
+          /* ?more=1: every page has a next one (twenty new posts each), so the probe can watch the list stop asking by itself at 60. */
+          const more = params.get("more") === "1"
+          const cursor = new URL(url, location.href).searchParams.get("cursor")
+          const n = cursor ? Number(cursor.slice(1)) : 0
+          const page = more && cursor ? Array.from({ length: 20 }, (_, i) => ({ ...list[i % list.length], id: `p-more-${n}-${i}`, pinned: false })) : list
+          const body = { pinned: cursor ? [] : POSTS.filter((p) => p.pinned), posts: page, nextCursor: more ? `c${n + 1}` : null }
+          ;(window as unknown as { __pages?: number }).__pages = ((window as unknown as { __pages?: number }).__pages ?? 0) + (cursor ? 1 : 0)
+          return new Promise((done) => setTimeout(() => done(new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } })), 120))
         }
         return real(input, init)
       }
@@ -403,13 +410,18 @@ function Screen() {
             viewer={viewer}
             spaces={spaces.map((s) => ({ ...s, kind: s.kind as "feed" }))}
             start={{ kind: "all" }}
-            initial={{ pinned: POSTS.filter((p) => p.pinned), posts: list, nextCursor: null }}
+            initial={{ pinned: POSTS.filter((p) => p.pinned), posts: list, nextCursor: params.get("more") === "1" ? "c0" : null }}
             servedAt={Date.now()}
             compose={{ userId: self.id, me, fileProductId: null }}
           />
         }
       />,
     )
+  }
+  /* Round 13: the member's own post on its page, for ?edit=1 (a profile's Edit link). */
+  if (which === "mine") {
+    const own = { ...POSTS[3], id: "p-mine", canEdit: true }
+    return shell(<FeedColumns main={<PostPage slug={community.slug} viewer={viewer} post={own} comments={{ comments: [], nextCursor: null }} me={me} />} />)
   }
   if (which === "visitor") {
     const reader: ViewerView = { ...viewer, userId: null, signedIn: false, role: null, status: null, active: false, can: allowedActions(null) }

@@ -3708,6 +3708,41 @@ try {
       await p.close()
     }
 
+    /* ── R13 EDITURL: ?edit=1 opens Edit post on the post page for its author, and leaves the address ── */
+    if (want("r13editurl")) {
+      const a = await open("mine", "/community/studio-notes/post/p-mine?edit=1", vp)
+      await sleep(phone ? 900 : 400)
+      const r = await a.p.evaluate(() => ({ editor: document.querySelector('[data-composer="edit"], [data-composer="sheet"][data-composer-edit]')?.getAttribute("data-composer") ?? null, search: location.search, title: document.querySelector("[data-composer-title]")?.value ?? null }))
+      expect(r.editor === (phone ? "sheet" : "edit") && r.title === "Best thing I read on empty states", "R13 EDIT LINK: ?edit=1 opens Edit post at once on the author's own post", r)
+      expect(!/edit=/.test(r.search), "and ?edit=1 leaves the address", r.search)
+      await shot(a.p, `${label}-r13-edit-url`)
+      expect(a.errors.length === 0, "no page error", a.errors)
+      await a.p.close()
+      const b = await open("post", "/community/studio-notes/post/p-intro?edit=1", vp)
+      await sleep(600)
+      const n = await b.p.evaluate(() => ({ editor: !!document.querySelector('[data-composer="edit"], [data-composer="sheet"]'), search: location.search }))
+      expect(!n.editor && !/edit=/.test(n.search), "somebody else's post ignores it (and drops it from the address)", n)
+      await b.p.close()
+    }
+
+    /* ── R13 MORE (2): the list asks for more by itself up to 60 posts, then "Load more posts" ── */
+    if (want("r13more")) {
+      const { p, errors } = await open("switch", "/community/studio-notes?more=1", vp)
+      for (let i = 0; i < 12; i++) {
+        await p.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
+        await sleep(450)
+      }
+      const r = await p.evaluate(() => ({ cards: document.querySelectorAll("[data-feed-list] > [data-post], [data-feed-list] > [data-post-placeholder]").length, pages: window.__pages ?? 0, button: document.querySelector("[data-feed-more]")?.textContent?.trim() ?? null }))
+      expect(r.cards >= 60 && r.cards < 80 && r.button === "Load more posts", "R13 MORE: scrolling loads pages by itself until about 60 posts, then stops", r)
+      await press(p, "[data-feed-more]")
+      await sleep(700)
+      const r2 = await p.evaluate(() => document.querySelectorAll("[data-feed-list] > [data-post], [data-feed-list] > [data-post-placeholder]").length)
+      expect(r2 === r.cards + 20, "\"Load more posts\" brings the next page when asked", { before: r.cards, after: r2 })
+      await shot(p, `${label}-r13-more`)
+      expect(errors.length === 0, "no page error", errors)
+      await p.close()
+    }
+
     /* ── R13 CARDS (5, 9, 10, 16): dates, no dot, pinned, the grid, soft pictures, SDR ── */
     if (want("r13cards")) {
       /* What the first picture of the member's post looks like on the first frames it is drawn, from the page's start. */

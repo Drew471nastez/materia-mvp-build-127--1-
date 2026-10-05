@@ -112,7 +112,7 @@ async function main() {
   check("the post route announces an edit and a delete after answering", /after\(\(\) => announcePostChange\(communityId, \{ id: post\.id, spaceId: post\.space\?\.id \?\? null, change: "edit" \}\)\)/.test(postRoute) && /after\(\(\) => announcePostChange\(communityId, \{ id: postId, change: "delete" \}\)\)/.test(postRoute))
   check("the comment route too, the delete with the post it was under", /change: "edit" \}\)\)/.test(commentRoute) && /const \{ postId \} = result\.value[\s\S]{0,80}change: "delete"/.test(commentRoute) && /Promise<Checked<\{ postId: string \}>>/.test(serverComments))
   check("the browser listens for both", /const FEED_EVENTS = \["post", "post-change"\]/.test(liveTs) && /const POST_EVENTS = \["comment", "comment-change", "typing"\]/.test(liveTs))
-  check("the feed takes a deleted post out of every list and folds its card away; an edit is read again through the gate (a 404 takes it away)", /listenLive\(communityId, null, "post-change"/.test(live) && /if \(payload\.change === "delete"\) return apply\(id, \(\) => null\)/.test(live) && /if \(!r\.ok && r\.status === 404\) return apply\(id, \(\) => null\)/.test(live) && /patchPost\(communityId, id, fn, key\)/.test(live) && /foldAway\(id\)/.test(live))
+  check("the feed takes a deleted post out of every list and folds its card away; an edit is read again through the gate (a 404 takes it away)", /listenLive\(communityId, null, "post-change"/.test(live) && /if \(payload\.change === "delete"\) return apply\(id, \(\) => null\)/.test(live) && /if \(!r\.ok && \(r as \{ status\?: number \}\)\.status === 404\) return apply\(id, \(\) => null\)/.test(live) && /patchPost\(communityId, id, fn, key\)/.test(live) && /foldAway\(id\)/.test(live))
   check("an open post hears its comments edited and deleted", /listenLive\(post\.communityId, post\.id, "comment-change"/.test(comments) && /if \(p\.change === "delete"\) return gone\(id\)/.test(comments))
 
   /* ── 4 ─────────────────────────────────────────────────────────────── */
@@ -124,6 +124,7 @@ async function main() {
   check("an edit is never written to the draft store, and never restores one", /if \(!open \|\| editing\) return/.test(composer) && /if \(editing\) return\s*const d = readDraft\(key\)/.test(composer))
   check("on a phone Edit post opens over an opened post", /editing \? "z-\[135\]" : "z-\[125\]"/.test(composer))
   check("the attachment tray has its own slot for worker V", /THE ATTACHMENT TRAY SLOT/.test(read(`${M}/composer.tsx`)))
+  check("?edit=1 on the post page opens Edit post for its author only, and leaves the address", /if \(url\.searchParams\.get\("edit"\) !== "1"\) return/.test(page) && /window\.history\.replaceState\(window\.history\.state, ""/.test(page) && /if \(wantsEdit\(post, readOnly, visitor\)\) setAutoEdit\(true\)/.test(page) && /if \(autoEdit && own && !readOnly\) setEditing\(true\)/.test(card))
   check("delete asks in Storelib's sheet, above an opened post", /<ConfirmSheet state=\{confirm\}/.test(card) && /export const CONFIRM_Z = 150/.test(confirm) && /zIndex=\{CONFIRM_Z\}/.test(confirm))
   const edit = (raw: Record<string, unknown>) => pollEditOf(raw, Date.parse("2026-10-05T00:00:00Z"))
   const set = edit({ poll: { question: "Which?", options: ["A", "B"], multiple: false, closesAt: "keep" } })

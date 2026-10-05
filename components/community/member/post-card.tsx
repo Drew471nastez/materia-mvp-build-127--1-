@@ -155,6 +155,8 @@ export interface PostCardProps {
   readOnly?: boolean
   /** Where the comment button goes; the permalink passes a function that focuses its box. */
   onComment?: () => void
+  /** Open Edit post at once (the post page with ?edit=1, round 13); ignored unless the viewer may edit it. */
+  autoEdit?: boolean
 }
 
 /**
@@ -243,9 +245,9 @@ function whenLabel(iso: string): string {
   draws again only when its own post (or how it is shown) changes, and calls
   the feed's latest `update` through a ref.
 */
-export const PostCard = memo(PostCardView, (a, b) => a.post === b.post && a.slug === b.slug && a.viewer === b.viewer && a.full === b.full && a.readOnly === b.readOnly && a.onComment === b.onComment)
+export const PostCard = memo(PostCardView, (a, b) => a.post === b.post && a.slug === b.slug && a.viewer === b.viewer && a.full === b.full && a.readOnly === b.readOnly && a.onComment === b.onComment && a.autoEdit === b.autoEdit)
 
-function PostCardView({ post, slug, viewer, update: given, full = false, readOnly = false, onComment }: PostCardProps) {
+function PostCardView({ post, slug, viewer, update: given, full = false, readOnly = false, onComment, autoEdit = false }: PostCardProps) {
   const latest = useRef(given)
   useEffect(() => {
     latest.current = given
@@ -299,6 +301,11 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
     heightBefore.current = cardRef.current?.offsetHeight ?? null
     setEditing(false)
   }
+  /* ?edit=1 (a profile's Edit link): Edit post opens at once, only for its author and never read only. */
+  useEffect(() => {
+    if (autoEdit && own && !readOnly) setEditing(true)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoEdit])
   useLayoutEffect(() => {
     const before = heightBefore.current
     heightBefore.current = null
@@ -662,7 +669,8 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
         </div>
       )}
 
-      <footer className="mt-2 flex items-center gap-1 border-t border-[#f0f1f3] pt-1 sm:mt-3">
+      {/* While Edit post is open in place its own Save is the one on screen: the footer (with the bookmark's "Save") waits. */}
+      <footer className={`mt-2 flex items-center gap-1 border-t border-[#f0f1f3] pt-1 sm:mt-3 ${editing ? "sm:hidden" : ""}`}>
         {likeButton}
         {onComment ? (
           <button type="button" onClick={onComment} className={`${BTN_GHOST} gap-2`} data-comment-button="">
