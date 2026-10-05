@@ -36,7 +36,6 @@ import {
   ArrowUpRight,
   Check,
   ChevronDown,
-  ChevronRight,
   Code2,
   Copy,
   Download,
@@ -45,7 +44,6 @@ import {
   Globe,
   Layers,
   Loader2,
-  Menu as MenuIcon,
   MoreHorizontal,
   Pencil,
   Plus,
@@ -1323,25 +1321,6 @@ export function WebsiteBuilderClient({
             )}
           </div>
         </section>
-
-        {/* ── Navigation ─────────────────────────────────────────── */}
-        {/* The store's menus, outside any one theme (Shopify's Content › Menus). */}
-        <Link
-          href="/app/website-builder/navigation"
-          onClick={() => startNavigationLoading()}
-          data-page-block
-          data-website-navigation=""
-          className="flex items-center gap-3 rounded-xl border border-[#e5e7eb] bg-white px-4 py-3.5 shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition-colors duration-150 hover:bg-[#fafafa] [-webkit-tap-highlight-color:transparent]"
-        >
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#f3f4f6] text-[#4b5563]">
-            <MenuIcon className="h-[18px] w-[18px]" strokeWidth={1.9} />
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-[14.5px] font-semibold text-[#1a1a2e]">Navigation</span>
-            <span className="block truncate text-[13px] text-[#6b7280]">Menus for your header and footer, the same on every theme</span>
-          </span>
-          <ChevronRight className="h-4 w-4 shrink-0 text-[#9ca3af]" aria-hidden />
-        </Link>
 
         {/* ── Library ────────────────────────────────────────────── */}
         <section aria-labelledby="library-heading" className="space-y-3" data-page-block>

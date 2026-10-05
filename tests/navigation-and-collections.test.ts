@@ -27,16 +27,14 @@ function check(name: string, ok: boolean, detail?: unknown) {
 }
 const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
 
-console.log("\nNavigation, a place of its own\n")
+console.log("\nNavigation lives in the builder\n")
 {
-  const page = "app/app/website-builder/navigation/page.tsx"
-  const client = "app/app/website-builder/navigation/navigation-client.tsx"
-  check("/app/website-builder/navigation exists", existsSync(page) && existsSync(client))
-  const c = read(client)
-  check("  it edits the store's menus with the builder's own editor", /<MenusEditor plain value=\{menus\} onChange=\{setMenus\}/.test(c))
-  check("  and saves them to the store as they change", /fetch\("\/api\/website-builder\/menus", \{\s*method: "PUT"/.test(c) && /SAVE_AFTER_MS/.test(c))
-  check("  says where each menu shows, changed in the builder", /Where menus show/.test(c) && /\?settings=navigation/.test(c))
-  check("the Website page has a way in", /href="\/app\/website-builder\/navigation"/.test(read("app/app/website-builder/website-builder-client.tsx")))
+  /* Menus are edited where they are seen, in the builder: the old dashboard address only opens it there. */
+  const page = read("app/app/website-builder/navigation/page.tsx")
+  check("/app/website-builder/navigation opens the builder's Navigation, on the live site", /\?panel=navigation/.test(page) && /status === "published"/.test(page) && !existsSync("app/app/website-builder/navigation/navigation-client.tsx"))
+  const editor = read("app/website-builder/editor/[installId]/page.tsx")
+  check("  the builder lands on the menus from that address, once loaded, and forgets it", /searchParams\.get\("panel"\) !== "navigation"/.test(editor) && /url\.searchParams\.delete\("panel"\)/.test(editor) && /\[loading, openMenus\]/.test(editor))
+  check("the Website page no longer carries a Navigation card", !/data-website-navigation/.test(read("app/app/website-builder/website-builder-client.tsx")))
   const nav = read("components/website-builder/website-settings/navigation.tsx")
   check("Website Settings › Navigation lists menus, never edits their links inline", !/<MenusEditor/.test(nav) && /data-nav-menu-row/.test(nav))
   check("General settings has no Menus group", /THEME_SETTINGS_GROUPS\.filter\(group => group\.id !== "colors" && group\.id !== "menus"\)/.test(read("app/website-builder/editor/[installId]/page.tsx")))

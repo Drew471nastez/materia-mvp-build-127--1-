@@ -6748,6 +6748,22 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     if (isMobileViewRef.current) setMobileSidebarOpen(true)
   }, [])
   /**
+   * `?panel=navigation` lands straight on the store's menus: it is where
+   * /app/website-builder/navigation sends people. Read once the page has
+   * loaded, so nothing that settles the first panel can take it back, and
+   * taken off the address so a reload opens the page, not the menus again.
+   */
+  useEffect(() => {
+    if (loading) return
+    const url = new URL(window.location.href)
+    if (url.searchParams.get("panel") !== "navigation") return
+    setSidebarMode("sections")
+    setPageBrowserOpen(false)
+    openMenus()
+    url.searchParams.delete("panel")
+    window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash)
+  }, [loading, openMenus])
+  /**
    * A CHANGE TO THE MENUS IS SAVED TO THE STORE, on its own and soon after
    * the typing stops, whichever way it came: the Navigation panel, a header
    * picking the Main menu, Ask Storelib, Undo. It goes live on every theme,
