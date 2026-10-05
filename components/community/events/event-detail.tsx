@@ -155,9 +155,10 @@ export function EventDetail({ event: initial, eventsHref, aboutHref }: EventDeta
       credentials: "same-origin",
       body: JSON.stringify({ reason }),
     }).catch(() => null)
-    const body = (await res?.json().catch(() => ({}))) as { ok?: boolean; refundedCents?: number; message?: string; error?: string }
+    const body = (await res?.json().catch(() => ({}))) as { ok?: boolean; refundedCents?: number; message?: string; error?: string; refundPolicy?: string | null }
     if (!res?.ok || !body.ok) {
-      setError(body.message || (body.error === "refund_closed" ? "It is too late to give this seat up." : "That did not work. Try again."))
+      /* Outside the window the route answers with the event's own words, which say more than any sentence here would. */
+      setError(body.error === "refund_closed" ? body.refundPolicy || "It is too late to give this seat up." : body.message || "That did not work. Try again.")
       return false
     }
     await refresh()

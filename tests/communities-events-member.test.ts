@@ -294,7 +294,7 @@ async function main() {
     check("the page opens as it always did", detail?.gate.open === true && detail?.location === ADDRESS && detail?.description?.includes("4417") === true)
     check("and the calendar file is there", typeof detail?.icsUrl === "string")
     const src = code("lib/communities/server/events.ts")
-    check("the money columns ride on ticketsReady, so PostgREST is never asked for a column that is not there", /ticketsReady\(db\)\) \? `\$\{EVENT_COLUMNS\}, \$\{PRICE_COLUMNS\}` : EVENT_COLUMNS/.test(src))
+    check("the money columns ride on ticketsReady, so PostgREST is never asked for a column that is not there", /ticketsReady\(db\)\) \? EVENT_COLUMNS_PRICED : EVENT_COLUMNS/.test(src))
   }
 
   /* ── A paid event is answered by its ticket ─────────────────────────────── */

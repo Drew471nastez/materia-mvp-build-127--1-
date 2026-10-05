@@ -45,7 +45,7 @@ import { evaluateAccess, parseAccessRule } from "../access"
 import { can } from "../permissions"
 import { eventTime } from "../format"
 import { eventPriceMode, ticketGate, type EventPricing, type TicketGate, type TicketView } from "../event-tickets"
-import { EVENT_COLUMNS, type CommunityRow, type EventRow, type RsvpStatus } from "../types"
+import { EVENT_COLUMNS, EVENT_COLUMNS_PRICED, type CommunityRow, type EventRow, type RsvpStatus } from "../types"
 import { JOIN_OPENS_MS, endOf, eventTeaser, googleCalendarUrl, isOver, joinWindowOpen, monthRange, type EventCardView, type EventDetailView, type EventHost } from "@/components/community/events/model"
 import type { CourseLock } from "@/components/community/classroom/model"
 import type { Viewer } from "./context"
@@ -53,8 +53,7 @@ import { lockFor } from "./classroom"
 import { missing, nowIso, reasonOf, type Db } from "./db"
 import { notifyMember, queueJob } from "./notify"
 import { recordActivity } from "./activity"
-import { ticketsOf, ticketsReady } from "./event-tickets"
-import { communityPolicy } from "./membership-lifecycle"
+import { refundPolicyFor, ticketsOf, ticketsReady } from "./event-tickets"
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 export const EVENTS_PAGE = 20
@@ -81,34 +80,18 @@ function runsEvents(viewer: Viewer): boolean {
 /* ── Money on an event (part 105) ───────────────────────────────────────── */
 
 /**
- * The money columns part 105 adds. They are only asked for once that part
- * has run: PostgREST refuses a whole select naming a column that is not
- * there, so adding them to EVENT_COLUMNS would empty every events list on
- * a database that has not had the update yet.
- */
-const PRICE_COLUMNS = "price_cents, currency, sales_close_at, refund_window_hours, refund_policy, tickets_sold"
-
-/** An event row, with the money columns when they were read. */
-type PricedEventRow = EventRow &
-  Partial<{
-    price_cents: number | null
-    currency: string | null
-    sales_close_at: string | null
-    refund_window_hours: number | null
-    refund_policy: string | null
-    tickets_sold: number | null
-  }>
-
-/**
- * The columns to select for an event: the money ones too once part 105 has
- * run. Exported because the replay check reads events of its own and has to
- * apply the same gate (lib/communities/server/videos.ts).
+ * The columns to select for an event: the money ones part 105 adds only
+ * once that part has run. PostgREST refuses a whole select naming a column
+ * that is not there, so asking for them unconditionally would empty every
+ * events list on a database without the update. Exported because the replay
+ * check reads events of its own and has to apply the same gate
+ * (lib/communities/server/videos.ts).
  */
 export async function eventColumns(db: Db): Promise<string> {
-  return (await ticketsReady(db)) ? `${EVENT_COLUMNS}, ${PRICE_COLUMNS}` : EVENT_COLUMNS
+  return (await ticketsReady(db)) ? EVENT_COLUMNS_PRICED : EVENT_COLUMNS
 }
 
-function pricingOf(e: PricedEventRow): EventPricing {
+function pricingOf(e: EventRow): EventPricing {
   return {
     priceCents: typeof e.price_cents === "number" ? e.price_cents : null,
     currency: typeof e.currency === "string" ? e.currency : null,
@@ -118,12 +101,12 @@ function pricingOf(e: PricedEventRow): EventPricing {
   }
 }
 
-function soldOf(e: PricedEventRow): number {
+function soldOf(e: EventRow): number {
   return Math.max(0, typeof e.tickets_sold === "number" ? e.tickets_sold : 0)
 }
 
 /** True for an event somebody has to buy a ticket for. */
-export function isPaidEvent(e: PricedEventRow): boolean {
+export function isPaidEvent(e: EventRow): boolean {
   return eventPriceMode(pricingOf(e)) === "paid"
 }
 
@@ -133,7 +116,7 @@ export function isPaidEvent(e: PricedEventRow): boolean {
  * a paid one opens for staff who run events and for the people holding a
  * ticket. The view, the .ics route and the replay check all ask here.
  */
-export function eventGateFor(e: PricedEventRow, viewer: Viewer, ticket: TicketView | null, now: number = Date.now()): TicketGate {
+export function eventGateFor(e: EventRow, viewer: Viewer, ticket: TicketView | null, now: number = Date.now()): TicketGate {
   return ticketGate(
     { ...pricingOf(e), startsAt: e.starts_at, cancelled: e.status === "cancelled", capacity: e.capacity, ticketsSold: soldOf(e) },
     { active: viewer.active, staff: runsEvents(viewer), ticket },
@@ -146,7 +129,7 @@ export function eventGateFor(e: PricedEventRow, viewer: Viewer, ticket: TicketVi
  * attendees, calendar file and replay. One ticket read, for the callers
  * outside a page's own view (the .ics route, the replay check).
  */
-export async function eventDetailsOpen(db: Db, e: PricedEventRow, viewer: Viewer, now: number = Date.now()): Promise<boolean> {
+export async function eventDetailsOpen(db: Db, e: EventRow, viewer: Viewer, now: number = Date.now()): Promise<boolean> {
   if (!isPaidEvent(e)) return true
   const tickets = await ticketsOf(db, viewer.userId, [e.id])
   return eventGateFor(e, viewer, tickets.get(e.id) ?? null, now).open
@@ -208,7 +191,7 @@ async function locksFor(db: Db, communityId: string, viewer: Viewer, rows: Event
   return new Map(denials.map(([id, d]) => [id, lockFor(d, names)]))
 }
 
-function cardOf(community: CommunityRow, e: PricedEventRow, myRsvp: RsvpStatus | null, locked: CourseLock | null, ticket: TicketView | null, gate: TicketGate): EventCardView {
+function cardOf(community: CommunityRow, e: EventRow, myRsvp: RsvpStatus | null, locked: CourseLock | null, ticket: TicketView | null, gate: TicketGate): EventCardView {
   const paid = isPaidEvent(e)
   const sold = soldOf(e)
   const seatsLeft = paid && e.capacity ? Math.max(0, e.capacity - sold) : null
@@ -245,7 +228,7 @@ function cardOf(community: CommunityRow, e: PricedEventRow, myRsvp: RsvpStatus |
  * one, and their tickets in ONE for the whole page (never one per card),
  * asked for only when something on the page costs money.
  */
-async function cards(db: Db, community: CommunityRow, viewer: Viewer, rows: PricedEventRow[], now: number = Date.now()): Promise<EventCardView[]> {
+async function cards(db: Db, community: CommunityRow, viewer: Viewer, rows: EventRow[], now: number = Date.now()): Promise<EventCardView[]> {
   const paidIds = rows.filter((r) => isPaidEvent(r)).map((r) => r.id)
   const [rsvps, locks, tickets] = await Promise.all([
     rsvpsOf(db, viewer.userId, rows.map((r) => r.id)),
@@ -292,7 +275,7 @@ export async function listEvents(
     if (!missing(error)) console.error(`[communities] events list: ${reasonOf(error)}`)
     return { events: [], nextCursor: null }
   }
-  const rows = (data as PricedEventRow[] | null) ?? []
+  const rows = (data as EventRow[] | null) ?? []
   const page = rows.slice(0, limit)
   const last = page[page.length - 1]
   return { events: await cards(db, community, viewer, page, now), nextCursor: rows.length > limit && last ? encodeEventCursor(last.starts_at, last.id) : null }
@@ -313,20 +296,20 @@ export async function monthEvents(db: Db, community: CommunityRow, viewer: Viewe
     if (!missing(error)) console.error(`[communities] events month: ${reasonOf(error)}`)
     return []
   }
-  return cards(db, community, viewer, (data as PricedEventRow[] | null) ?? [])
+  return cards(db, community, viewer, (data as EventRow[] | null) ?? [])
 }
 
 /* ── One event ──────────────────────────────────────────────────────────── */
 
 /** An event of THIS community, or null. */
-export async function readEvent(db: Db, communityId: string, eventId: string): Promise<PricedEventRow | null> {
+export async function readEvent(db: Db, communityId: string, eventId: string): Promise<EventRow | null> {
   if (!isEventId(eventId)) return null
   const { data, error } = await db.from("community_events").select(await eventColumns(db)).eq("id", eventId).eq("community_id", communityId).maybeSingle()
   if (error) {
     if (!missing(error)) console.error(`[communities] event read: ${reasonOf(error)}`)
     return null
   }
-  return (data as PricedEventRow | null) ?? null
+  return (data as EventRow | null) ?? null
 }
 
 async function people(db: Db, ids: string[]): Promise<Map<string, EventHost>> {
@@ -380,7 +363,7 @@ export async function eventDetail(db: Db, community: CommunityRow, viewer: Viewe
   const who = await people(db, [...new Set([...(e.host_id ? [e.host_id] : []), ...goingIds])])
   const pageUrl = siteUrl(card.href)
   /* The event's own refund words, else the community's (part 101); only worth a read for a paid event. */
-  const refundPolicyText = paid ? (pricing.refundPolicy?.trim() || (await communityPolicy(db, community.id)).refundPolicy) : null
+  const refundPolicyText = paid ? await refundPolicyFor(db, community.id, e) : null
   return {
     ...card,
     description: allowed ? (e.description ? sanitizeDescription(e.description) : null) : eventTeaser(e.description),
@@ -398,7 +381,7 @@ export async function eventDetail(db: Db, community: CommunityRow, viewer: Viewe
     pricing,
     gate,
     ticketsSold: soldOf(e),
-    refundPolicyText: refundPolicyText || null,
+    refundPolicyText,
   }
 }
 
