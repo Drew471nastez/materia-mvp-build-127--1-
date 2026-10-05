@@ -62,10 +62,26 @@ export function openCount(state: DrawerState): number {
  *   editor, phone preview      yes
  *   editor, desktop or tablet  no: the desktop layout has its links in the row
  *   published (no device)      yes, and CSS hides it at the tablet breakpoint
+ *
+ * Unless Header › Menu on larger screens asks for a menu button: then the
+ * larger layout opens a drawer too, and it exists on every surface.
  */
-export function menuDrawerExists(deviceMode?: "desktop" | "tablet" | "mobile"): boolean {
+export function menuDrawerExists(deviceMode?: "desktop" | "tablet" | "mobile", drawerOnDesktop: boolean = false): boolean {
+  if (drawerOnDesktop) return true
   /* No device named: the published page, which serves every width. */
   return deviceMode ? deviceMode === "mobile" : true
+}
+
+/**
+ * Which edge the drawer comes from on this surface. The phone's setting on a
+ * phone, the larger screen's on a larger one. Published there is no device,
+ * so the edge follows the window: `wide` says which side of the breakpoint
+ * the visitor is on when they open it.
+ */
+export function drawerEdgeHere<T extends string>(phoneEdge: T, desktopEdge: T | null, deviceMode: "desktop" | "tablet" | "mobile" | undefined, wide: boolean): T {
+  if (!desktopEdge) return phoneEdge
+  if (deviceMode) return deviceMode === "mobile" ? phoneEdge : desktopEdge
+  return wide ? desktopEdge : phoneEdge
 }
 
 /** The published breakpoint the header swaps its two shells at, Tailwind's `md`. */
