@@ -128,8 +128,12 @@ export function CommunityPayments({ communityId, userId = null, locale = "en-US"
                 <p className="truncate text-[14.5px] font-medium text-[#1a1a2e]">{p.buyerName}</p>
                 <p className="truncate text-[13px] text-[#6b7280]">
                   {p.kind === "membership" ? "Membership" : p.productTitle} · {formatDay(p.createdAt, locale)}
-                  {state ? ` · ${state}` : ""}
                 </p>
+                {state ? (
+                  <p className={`truncate text-[13px] ${p.status === "disputed" ? "text-[#b42318]" : "text-[#6b7280]"}`} data-payment-state="">
+                    {state}
+                  </p>
+                ) : null}
                 {done[p.orderId] ? (
                   <p className="mt-0.5 flex items-center gap-1.5 text-[13px] text-[#15803d]" role="status">
                     <Check className="h-3.5 w-3.5" aria-hidden />
@@ -143,7 +147,7 @@ export function CommunityPayments({ communityId, userId = null, locale = "en-US"
                   Refund
                 </button>
               ) : (
-                <span className="w-[68px] shrink-0" aria-hidden />
+                <span className="hidden w-[68px] shrink-0 sm:block" aria-hidden />
               )}
             </li>
           )
