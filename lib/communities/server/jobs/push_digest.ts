@@ -16,7 +16,11 @@ import "server-only"
  * are off.
  *
  * THE DAILY REPORT EMAIL is a digest too, and the queue's kinds are fixed in
- * SQL, so it rides this kind with payload.report true (jobs/report_digest.ts).
+ * SQL, so it rides this kind with payload.report true (jobs/report_digest.ts),
+ * as does the weekly community digest with payload.weekly true
+ * (jobs/weekly_digest.ts). The summaries after quiet hours and after the
+ * day's cap are push digests with group "z:quiet" and "z:daily"
+ * (push-bridge.ts runPushSummary).
  */
 import { runPushDigest } from "@/lib/notifications/push-bridge"
 import type { JobRow } from "../../types"
@@ -24,6 +28,11 @@ import type { Db } from "../db"
 import type { JobContext, JobOutcome } from "./index"
 
 export async function pushDigest(db: Db, job: JobRow, ctx: JobContext): Promise<JobOutcome | void> {
+  if ((job.payload as Record<string, unknown> | null)?.weekly === true) {
+    const { runWeeklyDigest } = await import("./weekly_digest")
+    await runWeeklyDigest(db, job.payload, ctx.now)
+    return
+  }
   if ((job.payload as Record<string, unknown> | null)?.report === true) {
     const { runReportDigest } = await import("./report_digest")
     await runReportDigest(db, job.payload, ctx.now)

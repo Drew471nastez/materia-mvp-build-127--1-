@@ -3,7 +3,9 @@ import "server-only"
 /**
  * EVENT_REMINDER: tells everyone going to an event that it starts tomorrow
  * (window "24h") or in an hour (window "1h"): a row in their community
- * inbox, and an email for members who keep event emails on, sent through
+ * inbox and a push. An email only while lib/notify/email-budget.ts lets an
+ * event reminder be one (today it does not: reminders are the bell and the
+ * phone), then for members who keep event emails on, through
  * lib/communities/server/email.ts sendCommunityEmail (community.event_reminder,
  * key event:<eventId>:<window>:<startsAt>).
  * Payload { eventId, window, startsAt, cursor? }, queued by
@@ -28,6 +30,7 @@ import { nowIso, reasonOf, type Db } from "../db"
 import { REMINDER_WINDOWS, bulkNotify, ensureReminders, type ReminderWindow } from "../events"
 import { sendCommunityEmail } from "../email"
 import type { JobContext, JobOutcome } from "./index"
+import { emailAllowed } from "@/lib/notify/email-budget"
 import { carryPushes, communityPushItem, pushFanout, type PushItem } from "@/lib/notifications/push-bridge"
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -90,7 +93,7 @@ export async function eventReminder(db: Db, job: JobRow, ctx: JobContext): Promi
     )
     const notices = wanted.map((m) => ({ userId: m.user_id, title: reminderTitle(window, e.title), body: when, url: path, dedupeKey: `event_reminder:${e.id}:${window}:${e.starts_at}:${m.user_id}` }))
     const fresh = await bulkNotify(db, c.id, "event_reminder", { type: "event", id: e.id }, notices)
-    const emailTo = wanted.filter((m) => fresh.has(m.user_id) && m.email_events !== false).map((m) => m.user_id)
+    const emailTo = emailAllowed("COMMUNITY_EVENT_REMINDER") ? wanted.filter((m) => fresh.has(m.user_id) && m.email_events !== false).map((m) => m.user_id) : []
     /* Only members whose inbox row this run wrote: a job run again sends no second email, and the key makes it once besides. */
     for (const userId of emailTo) {
       await sendCommunityEmail(

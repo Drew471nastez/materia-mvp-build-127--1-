@@ -14,11 +14,17 @@
  *   community.course_available   COMMUNITY_COURSE_AVAILABLE, once per course and member
  *   community.report_digest      COMMUNITY_REPORT_DIGEST, once per moderator, community and day,
  *                                to the person (a creator template: it opens /app)
+ *   community.weekly_digest      COMMUNITY_WEEKLY_DIGEST, once per person and week, to the person
+ *
+ * ONLY WHAT MAY BE AN EMAIL. lib/notify/email-budget.ts is the list: a type
+ * that is never an email (an announcement, an event reminder, a new program)
+ * plans nothing, so no job waits for an email that would not go.
  *
  * The step is the caller's own key, so the same announcement told twice
  * plans one job. A reminder is no use once its event has started, so it
  * expires then. Nothing here is raised for an ordinary feed post.
  */
+import { emailAllowed } from "../email-budget"
 import type { NotificationType } from "../types"
 import { HOUR_MS, job, plan, str, type Workflow } from "./common"
 
@@ -30,11 +36,12 @@ const TYPE_OF: Partial<Record<string, NotificationType>> = {
   "community.event_reminder": "COMMUNITY_EVENT_REMINDER",
   "community.course_available": "COMMUNITY_COURSE_AVAILABLE",
   "community.report_digest": "COMMUNITY_REPORT_DIGEST",
+  "community.weekly_digest": "COMMUNITY_WEEKLY_DIGEST",
 }
 
 export const communities: Workflow = (event, ctx) => {
   const type = TYPE_OF[event.name]
-  if (!type) return null
+  if (!type || !emailAllowed(type)) return null
   const email = str(event.payload.recipientEmail)
   if (!email || !email.includes("@")) return null
   const communityId = event.entityType === "community" ? event.entityId : str(event.payload.communityId)
@@ -44,7 +51,7 @@ export const communities: Workflow = (event, ctx) => {
     const starts = Date.parse(str(event.payload.startsAt) ?? "")
     expiresInMs = Number.isFinite(starts) && starts > ctx.now ? starts - ctx.now : HOUR_MS
   }
-  const toPerson = type === "COMMUNITY_REPORT_DIGEST"
+  const toPerson = type === "COMMUNITY_REPORT_DIGEST" || type === "COMMUNITY_WEEKLY_DIGEST"
   return plan([
     job(type, event, ctx, {
       recipientType: toPerson ? "creator" : "customer",
