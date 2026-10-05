@@ -47,6 +47,8 @@ import { SWRProvider } from "@/lib/swr-config"
 import { PrefetchLinks } from "@/components/shared/prefetch-links"
 import NativeOAuthBridge from "@/app/NativeOAuthBridge"
 import { CapacitorBounceGuard } from "@/components/platform/capacitor-bounce-guard"
+import { ElasticOverscroll } from "@/components/ui/elastic-overscroll"
+import { NavLanding } from "@/components/ui/nav-landing"
 import { StuckLayerGuard } from "@/components/platform/stuck-layer-guard"
 import { KeyboardGuard } from "@/components/platform/keyboard-guard"
 import { RotationGuard } from "@/components/platform/rotation-guard"
@@ -264,6 +266,10 @@ export default function RootLayout({
         <ViewportVars />
         <NativeCookieKillSwitch />
         <CapacitorBounceGuard />
+        {/* The buyer's pages bounce at their ends again, and the bounce shows the page's own ground rather than white behind a dark bar (lib/ui/elastic-overscroll.ts). */}
+        <ElasticOverscroll />
+        {/* And they land on the app's one landing rather than cutting to the new page (lib/ui/landing.ts). */}
+        <NavLanding />
         <StuckLayerGuard />
         <KeyboardGuard />
         <RotationGuard />

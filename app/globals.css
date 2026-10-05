@@ -7583,3 +7583,263 @@ html.capacitor .home-card li > :is(a, button):active {
   }
 }
 
+
+/* ════════════════════════════════════════════════════════════════════════════
+   THE BUYER PAGES BOUNCE AGAIN, AND THE BOUNCE SHOWS THEIR OWN GROUND
+   ════════════════════════════════════════════════════════════════════════════
+   "In the library page I scroll but it hits the top and that hitting of the
+   top is not flexible. You know the kind of flexibility that happens in
+   Safari browsers on websites."
+
+   Three rules earlier in this file refused every bounce in the native shell,
+   and all three gave the same two reasons:
+
+     html.capacitor, html.capacitor body     "bouncing at the top/bottom
+                                              reveals the body background
+                                              (white) behind dark
+                                              headers/footers"
+     html.capacitor (with the canvas)        "what a rubber-band bounce ...
+                                              shows there is the header's own
+                                              colour, never a black strip"
+     html.capacitor body (with #f5f5f5)      "Prevent pull-to-refresh and
+                                              overscroll bounce"
+
+   Both reasons are still met, and neither of them needed the bounce gone.
+
+   PULL TO REFRESH: `contain`, NOT `none`. A root element that contains its
+   overscroll keeps the browser's pull to refresh off and keeps a flick that
+   reaches the end from chaining anywhere, and leaves WebKit's rubber band
+   alone. `none` is the only one of the three that also takes the band. The
+   horizontal axis stays `none`, because there it is the browser's back
+   gesture that `none` is holding off, and nothing asked for that back.
+
+   NO WHITE BEHIND A DARK BAR: the white showed because the canvas, the
+   surface a band exposes, was ONE colour for both ends of the page. It is
+   two now. The band's colour (--native-band, the header's own, which the
+   whole app already agrees on: lib/native-chrome.ts) covers everything down
+   to the foot of the viewport, so the top of the page is unchanged: the same
+   colour under the clock, the same colour on a frame before the page paints,
+   and the same colour revealed above the top. Below the foot of the viewport
+   (which is only ever seen while a band is pulled at the BOTTOM) it is the
+   page's own ground, measured off the page itself
+   (lib/ui/elastic-overscroll.ts, because a person's page carries whatever
+   scheme its owner chose and no stylesheet can know it).
+
+   WHERE THE TWO COLOURS MEET IS THE BOTTOM EDGE OF THE SCREEN. <html> is a
+   scroll container here (`overflow-x: hidden` near the top of this file
+   forces `overflow-y: auto` on it), so its background positioning area is
+   the scrollport, which is the viewport: `100%` is one screen tall. Measured,
+   not assumed: the canvas reads the band at the top of a 2600px page and
+   still the band at its foot, so it is the screen the tile is hung from and
+   not the document. The tile is three screens tall and starts one screen
+   above the top of this one:
+
+     a screen above the top    the band, which is what a pull at the TOP
+                               reveals
+     the screen itself         the band, so the strip under the clock, the
+                               frame before the page paints and the canvas
+                               behind a page that does not fill the screen
+                               are all the colour they already were
+     a screen below it         the page's own ground, which is what a pull at
+                               the BOTTOM reveals and the only part of this
+                               that is new
+
+   `calc(100% + 200vh)` RATHER THAN `300vh`, and it is the same number here.
+   Written against `100%` it stays right if <html> ever stops being a scroll
+   container: the tile then covers the document plus a screen at each end, and
+   the band and the ground still land at the two ends. `background-color` is
+   the ground as well, for whatever the tile cannot reach. And no
+   `background-attachment: fixed`, which is what the switch screen's canvas
+   uses and why that one is excluded here rather than fought with.
+
+   WHERE THERE IS NO BOUNCE, NOTHING CHANGES. `contain` and `none` differ only
+   in what an engine does past the end of a scroll, so a browser that does not
+   bounce does the same nothing under either, and the canvas above is the
+   colour it already was.
+
+   AND ONLY THESE PAGES. /app and its scrollers, the auth pages, the website
+   builder and landscape keep `overscroll-behavior: none` untouched: the class
+   below is put on <html> only on the surfaces listed in
+   lib/ui/elastic-overscroll.ts.
+   ──────────────────────────────────────────────────────────────────────── */
+html.elastic-scroll,
+html.capacitor.elastic-scroll {
+  overscroll-behavior-x: none;
+  overscroll-behavior-y: contain;
+}
+html.elastic-scroll body,
+html.capacitor.elastic-scroll body {
+  overscroll-behavior-x: none;
+  overscroll-behavior-y: contain;
+}
+
+html.elastic-scroll:not(.switch-arriving) {
+  background-color: var(--bounce-ground, #ffffff);
+  background-image: linear-gradient(
+    var(--native-band, #ffffff) 0,
+    var(--native-band, #ffffff) 200vh,
+    var(--bounce-ground, #ffffff) 200vh,
+    var(--bounce-ground, #ffffff) 100%
+  );
+  background-repeat: no-repeat;
+  background-position: 0 -100vh;
+  background-size: 100% calc(100% + 200vh);
+}
+
+/*
+  THE PULL TO REFRESH BEING ADDED TO THE PROFILE STILL HAS ITS GESTURE. A
+  hook that watches touchmove at the top of the page needs the gesture to
+  reach it, which `none` and `contain` both allow and neither consumes. What
+  it must NOT have to fight is the browser's own refresh, and `contain` is
+  what keeps that off. Nothing here cancels a touch.
+*/
+
+/* ════════════════════════════════════════════════════════════════════════════
+   ONE LANDING, AND EVERY BUYER PAGE ARRIVES ON IT
+   ════════════════════════════════════════════════════════════════════════════
+   "It should feel more iOS native." "Make sure it is very smooth and clean,
+   the elements appearing smooth and clean."
+
+   The app already had the landing and only /app and a community were using
+   it: opacity and a 2px rise over 180ms on one curve (NAV_ENTER_* in
+   lib/ui/app-navigation.ts). These rules reuse that keyframe set and those
+   numbers rather than adding a second idiom. lib/ui/landing.ts is the one
+   place the classes and the timing are named.
+
+   A BOX OF ITS OWN GETS THE RISE. `.page-land` is for a box this code
+   writes, the one the profile centre swaps its pages inside
+   (components/account/account-nav-fade.tsx), so `position: relative` here
+   changes nothing about what is inside it. The rise is `top` rather than a
+   transform for the reason given on `.community-land` above: a transform
+   would make the box the containing block for anything fixed inside it.
+   ──────────────────────────────────────────────────────────────────────── */
+.page-land {
+  position: relative;
+  animation: community-land 180ms cubic-bezier(0.2, 0, 0, 1) backwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .page-land {
+    animation: none;
+  }
+}
+
+/*
+  AND THE PAGES WHOSE OUTERMOST BOX THIS CODE DOES NOT WRITE FADE ONLY.
+  A person's page, a creator's page and Explore each land on their own root
+  element, and that element's `position` is not ours to change: an absolutely
+  positioned descendant resolves against the nearest positioned ancestor, so
+  turning a page's root from static to relative for the length of a landing
+  could move something, and "nothing may shift layout" is the rule. So these
+  take the fade and not the rise, which is the part that does the work
+  anyway: the note on NAV_ENTER_RISE_PX says that at 2px the page "only
+  settles, and the fade does the work". Same duration, same curve, the
+  keyframes already in this file.
+
+  NOT INSIDE /app: the storefront is also drawn in the website builder, which
+  lives in the dashboard shell and has a landing of its own.
+
+  NOT WHILE EXPLORE IS PUTTING ITS SCROLL BACK: coming back from a product,
+  `html.explore-scroll-restoring` holds the listing hidden and
+  `html.explore-scroll-settling` gives it its own short fade from most of the
+  way there. Those two already say what that arrival looks like.
+*/
+html.nav-landing:not(.app-layout) [data-member-profile],
+html.nav-landing:not(.app-layout) [data-storefront-root],
+html.nav-landing:not(.explore-scroll-restoring):not(.explore-scroll-settling) .explore-ground {
+  animation: app-page-enter 180ms cubic-bezier(0.2, 0, 0, 1) backwards;
+}
+/*
+  THE SAME SELECTORS, to the letter. A shorter one loses the cascade to the
+  rule above it, and losing here means the page animates for somebody who
+  asked it not to.
+*/
+@media (prefers-reduced-motion: reduce) {
+  html.nav-landing:not(.app-layout) [data-member-profile],
+  html.nav-landing:not(.app-layout) [data-storefront-root],
+  html.nav-landing:not(.explore-scroll-restoring):not(.explore-scroll-settling) .explore-ground {
+    animation: none;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   THE PROFILE PICTURE OPENING, AND CLOSING THE SAME WAY
+   ════════════════════════════════════════════════════════════════════════════
+   "Clicking on a profile, opening the profile picture viewer, make sure it is
+   more smooth and clean on open and on close, when I click away or click the
+   X button."
+
+   It opened on the dialog's own `zoom-in-95`, and the panel of this dialog is
+   the whole viewport (components/storefront/avatar-lightbox.tsx says why), so
+   the zoom scaled the screen rather than the photograph: the X in the corner
+   grew with it, and the picture arrived from nowhere in particular.
+
+   Now the panel only fades, which is what carries the X, and the photograph
+   travels: it rises and grows out of the circle in the page, from the rect
+   that circle actually occupies, measured on the press
+   (--lightbox-dx / --lightbox-dy / --lightbox-scale). Closing is the same
+   move backwards, on the X, on a press on the ground and on Escape alike,
+   because all three are one state change and the exit is declared on the
+   state.
+
+   TRANSFORM AND OPACITY ONLY, so it is the compositor's work. The panel is
+   `position: fixed` and the photograph has nothing fixed inside it, so the
+   containing block a transform creates reaches nothing.
+
+   THE PANEL'S FADE OUTLASTS THE PHOTOGRAPH'S MOVE on purpose: Radix keeps a
+   closing dialog mounted only while the panel itself still has an animation
+   to finish (see the note in components/ui/dialog.tsx), so the panel is what
+   holds the door open for the picture.
+   ──────────────────────────────────────────────────────────────────────── */
+@keyframes lightbox-ground-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes lightbox-ground-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+@keyframes lightbox-photo-in {
+  from {
+    opacity: 0;
+    transform: translate3d(var(--lightbox-dx, 0px), var(--lightbox-dy, 12px), 0) scale(var(--lightbox-scale, 0.86));
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+@keyframes lightbox-photo-out {
+  from {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translate3d(var(--lightbox-dx, 0px), var(--lightbox-dy, 12px), 0) scale(var(--lightbox-scale, 0.86));
+  }
+}
+
+[data-avatar-lightbox][data-state="open"] {
+  animation: lightbox-ground-in 240ms cubic-bezier(0.2, 0, 0, 1) both;
+}
+[data-avatar-lightbox][data-state="closed"] {
+  animation: lightbox-ground-out 220ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+[data-avatar-lightbox][data-state="open"] [data-avatar-lightbox-photo] {
+  animation: lightbox-photo-in 240ms cubic-bezier(0.2, 0, 0, 1) both;
+}
+[data-avatar-lightbox][data-state="closed"] [data-avatar-lightbox-photo] {
+  animation: lightbox-photo-out 180ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+/*
+  REDUCED MOTION: it appears and it goes. The panel keeps a fade of its own
+  so there is still something for the dialog to wait on while it closes, and
+  the photograph does not travel at all.
+*/
+@media (prefers-reduced-motion: reduce) {
+  [data-avatar-lightbox][data-state="open"] [data-avatar-lightbox-photo],
+  [data-avatar-lightbox][data-state="closed"] [data-avatar-lightbox-photo] {
+    animation: none;
+  }
+}
