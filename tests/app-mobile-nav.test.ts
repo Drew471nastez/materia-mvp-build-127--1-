@@ -517,7 +517,7 @@ async function main() {
   check("and a drag picks the slot under the finger, carrying no momentum past it",
     !/PROJECT_MS \*/.test(nav) && !/slotNearest\(/.test(nav) && /const picked = slotAt\(e\.clientX\)/.test(nav))
   check("and it ticks once per slot crossed, not once per frame",
-    /if \(lastRef\.current !== next\) \{[\s\S]{0,1600}?hapticTap\(first \? "light" : "soft"\)/.test(nav))
+    /if \(lastRef\.current !== next\) \{[\s\S]{0,3000}?hapticTap\(first \? "light" : "soft"\)/.test(nav))
   /*
     A DRAG lands, and landing is worth a tick of its own. A TAP already ticked
     at the better moment, when the finger arrived — firing again sixty
@@ -607,8 +607,16 @@ async function main() {
       && /dot\.style\.translate = `\$\{x\}px 0`/.test(nav)
       && !/translate: `/.test(strip(nav)) && !/transform: `translateX\(\$\{x\}px\)/.test(strip(nav)),
     "a position prop would fight the loop, or on the lift be a string React already rendered and never written")
-  check("a render happens when the slot changes, not on every move",
-    /if \(lastRef\.current !== next\) \{[\s\S]{0,900}?setAt\(next\)/.test(nav)
+  /*
+    CHANGED (nav feel round): a render happens on the PRESS, and not at all
+    on a slot crossed under a drag. It used to render once per slot crossed,
+    which is not per move but is still a full React render inside the
+    gesture, and it changed nothing on the screen: the glass is written
+    straight to the element by the frame loop and the glyphs wait for the
+    pick. tests/nav-feel.test.ts says why.
+  */
+  check("a render happens on the press, and never on a slot crossed under a drag",
+    /if \(lastRef\.current !== next\) \{[\s\S]{0,2000}?if \(!movedRef\.current\) setAt\(next\)/.test(nav)
       && !/^\s*setAt\(next\)\s*$/m.test(strip(nav).split("const move")[1].split("if (lastRef")[0]))
   /*
     But a press is not a drag, and aiming a press at the fingertip is what the
@@ -998,17 +1006,18 @@ async function main() {
         && /nav-\$\{w\}-closed\.png/.test(widths) && /Emulation\.setSafeAreaInsetsOverride/.test(widths))
   }
   check("5% more blur in the glass", /backdropFilter: "blur\(25px\) saturate\(120%\)"/.test(nav))
-  /* Stretched along the way it moves, by its smoothed speed, to at most
-     about 1.12 wide with the lift: the probe reads 1.068 on a slow slide and
-     1.104 on a flick. */
-  check("under a finger the lens stretches with its speed, like a drop, never past about 1.12",
-    /const STRETCH_MAX = 0\.08/.test(nav) && /const STRETCH_AT = 0\.6/.test(nav)
+  /* Stretched along the way it moves, by its smoothed speed. CHANGED (nav
+     feel round): the cap is 0.11 rather than 0.08 and an ordinary slide now
+     reaches it (STRETCH_AT 0.5 rather than 0.6), so the widest it gets with
+     the lift is about 1.15. "That bubble liquid more flowing." */
+  check("under a finger the lens stretches with its speed, like a drop, never past about 1.15",
+    /const STRETCH_MAX = 0\.11/.test(nav) && /const STRETCH_AT = 0\.5/.test(nav)
       && /scale\(\$\{Math\.round\(\(1 \+ d\) \* 1000\) \/ 1000\}, \$\{Math\.round\(\(1 - d \* 0\.5\) \* 1000\) \/ 1000\}\)`/.test(nav)
       && /drop\.d = Math\.max\(-SQUASH_MAX, Math\.min\(STRETCH_MAX, drop\.d \+ drop\.dv \* dt\)\)/.test(nav)
       && /speedRef\.current \+= \(\(next - posRef\.current\) \/ dt - speedRef\.current\) \* blend/.test(nav))
   /* "Make the glassy bubble a bit more fluid, like a drop of water stretching slightly in the drag direction and settling." The stretch has a small underdamped spring of its own, leans the way it goes, and runs on into a slight squash when the finger stops; the probe reads 0.994x narrowest after a slow slide, and 1x at rest. */
   check("the stretch is a drop with a body: its own soft spring, leaning the way it goes, a slight squash as it stops, settling round",
-    /const DROP_SPRING = \{ stiffness: 420, damping: 9 \}/.test(nav) && /const SQUASH_MAX = 0\.03/.test(nav) && /const DROP_LEAD = 0\.2/.test(nav)
+    /const DROP_SPRING = \{ stiffness: 360, damping: 8 \}/.test(nav) && /const SQUASH_MAX = 0\.03/.test(nav) && /const DROP_LEAD = 0\.26/.test(nav)
       && /stepDrop\(dropRef\.current, speedRef\.current, dt\)/.test(nav) && /translateX\(\$\{lead\}px\) scale\(/.test(nav))
   check("and rounds off again on the spring as it lets go, the drop's own spring riding along", /dotRef\.current\.style\.transform = ""/.test(nav) && /transform: dropStyle\(drop, dot\)/.test(nav) && /stepDrop\(drop, v \/ 1000, dt \* 1000\)/.test(nav))
   /* "Make tapping an icon feel a touch more satisfying (subtle press scale/spring, nothing big)." One fixed animation from the touch, the same every tap, on the glyph's own `scale`, never the lens. */

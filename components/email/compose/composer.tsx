@@ -33,6 +33,7 @@ import { ArrowLeft, MoreHorizontal } from "lucide-react"
 import { PaneBar, LIST_WIDTH, GUTTER } from "@/app/app/orders/order-parts"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { createClient } from "@/lib/supabase/client"
+import { displayEmail } from "@/lib/businesses/email-alias"
 import { cn } from "@/lib/utils"
 import { Switch } from "@/components/ui/switch"
 import { blockIssues, hasRealContent, newBlock, renderBlocks, storeBlocks } from "@/lib/email-campaigns/blocks"
@@ -171,8 +172,13 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
         name: (profile?.display_name || profile?.username || "").trim() || "You",
         username: profile?.username ?? null,
         avatarUrl: profile?.avatar_url ?? null,
-        email: user.email ?? null,
-        replyTo: (creator?.support_email || user.email || "").trim().toLowerCase() || null,
+        /* Shown, so their own address and never the tag a second business's
+           account carries (lib/businesses/email-alias.ts). Neither is posted:
+           what a test is really sent to, and what replies really go to, are
+           worked out on the server (app/api/email/send-test/route.ts,
+           lib/email-campaigns/queue.ts). */
+        email: displayEmail(user.email),
+        replyTo: (creator?.support_email || displayEmail(user.email) || "").trim().toLowerCase() || null,
       })))
     })()
     fetch("/api/email/audience", { cache: "no-store" })

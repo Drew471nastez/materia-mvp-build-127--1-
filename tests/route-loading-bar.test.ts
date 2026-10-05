@@ -204,7 +204,7 @@ function main() {
     carried no line at all: a way back off either that the router had to fetch
     said nothing, however long it took.
   */
-  check("so do the library and the checkout, which had none", /<RouteLoadingBar \/>/.test(read("app/library/layout.tsx")) && /<RouteLoadingBar \/>/.test(read("app/checkout/page.tsx")))
+  check("so do the library and the checkout, which had none", /<RouteLoadingBar \/>/.test(/* The library is inside /account; its layout carries the bar. */ read("app/account/layout.tsx")) && /<RouteLoadingBar \/>/.test(read("app/checkout/page.tsx")))
   check("and the profile, so leaving it for another tab is answered too", /<RouteLoadingBar \/>/.test(read("app/account/layout.tsx")) && read("app/account/layout.tsx").indexOf("<RouteLoadingBar />") < read("app/account/layout.tsx").indexOf("<ConditionalHeader"))
   check("a push the click never carried can start it, and ask the surface to cover a page that draws its own wait", /export function startRouteLoading\(/.test(bar) && /storelib-route-loading/.test(bar) && /DRAWS_ITS_OWN_WAIT\.test\(from\) && !cover/.test(bar) && /closest\?\.\("\[data-buyer-tab-bar\]"\)/.test(bar))
   check("and it is visible on their light tops, not white on white", /html\.with-page-checkout,\s*\nhtml\.with-page-library \{\s*\n\s*--route-bar-ink: rgba\(26, 26, 46, 0\.78\);/.test(css) && /background: var\(--route-bar-ink, rgba\(255, 255, 255, 0\.85\)\)/.test(css))

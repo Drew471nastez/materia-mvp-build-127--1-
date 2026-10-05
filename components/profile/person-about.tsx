@@ -4,18 +4,35 @@
  * ===========================================================================
  * Every creator page ends with its About block (UnifiedAboutSection in
  * components/store-builder/unified-section-renderer.tsx): a rule, "About
- * <name>" with a row of small facts under it, a second rule. A person
- * without a store gets the same block in the same place, measured to the
- * same column, spacing and type, with only what is true of somebody who sells
- * nothing: the year they joined and how many communities they are in (when
- * they show them). No sales, no products, no payment methods and no "Returns
+ * <name>" with a row of small facts under it, their own words beside them, a
+ * second rule. A person without a store gets the same block in the same
+ * place, measured to the same column, spacing and type, and so does the
+ * owner's own page at /account (app/account/page.tsx, through
+ * components/profile/account-about.tsx).
+ *
+ * WHAT IT SAYS. The day they joined, where they are from, and how many
+ * communities they are in (lib/profile/person-facts.ts), with the line they
+ * wrote about themselves beside those, as the creator's story sits beside
+ * theirs. One row per value that exists and nothing for a value nothing
+ * knows: a person who never said where they are from has no "From" row, not
+ * an empty one. No sales, no products, no payment methods and no "Returns
  * & exchanges", which the creator's block always draws and which would be a
  * promise about a shop that does not exist.
  *
- * In the page's scheme colours (components/storefront/storefront-template),
- * so it reads as the creator page's own About. No "use client".
+ * THE DAY THEY JOINED IS SAID HERE, NOT IN ACTIVITY. The activity list used
+ * to end on "Joined Storelib" (components/profile/profile-activity.tsx);
+ * joining the platform is not something somebody did, it is a fact about
+ * them, so it is one row here instead.
+ *
+ * NO FOLLOWER COUNTS. They are already under the name, in the header
+ * (components/profile/profile-social.tsx), and a number said twice on one
+ * page reads as a dashboard rather than as a person.
+ *
+ * In the page's scheme colours on /@handle (components/storefront/
+ * storefront-template), in the account's ink on /account. No "use client".
  */
 import type { StorefrontChrome } from "@/lib/store-builder/storefront-chrome"
+import { personFacts } from "@/lib/profile/person-facts"
 
 function Fact({ label, value, ink }: { label: string; value: string; ink: string }) {
   return (
@@ -23,7 +40,7 @@ function Fact({ label, value, ink }: { label: string; value: string; ink: string
       <p className="mb-1 text-xs uppercase tracking-wide" style={{ color: `${ink}80` }}>
         {label}
       </p>
-      <p className="text-xl font-semibold md:text-2xl" style={{ color: ink }}>
+      <p className="text-[17px] font-semibold md:text-[19px]" style={{ color: ink }}>
         {value}
       </p>
     </div>
@@ -33,25 +50,36 @@ function Fact({ label, value, ink }: { label: string; value: string; ink: string
 export function PersonAbout({
   name,
   joinedAt,
+  bio = null,
+  location = null,
   communities,
   chrome,
+  inset = true,
 }: {
   name: string
   joinedAt: string | null
+  /** The line they wrote about themselves, beside the facts. Null when there is none. */
+  bio?: string | null
+  /** Where they are from, one line (lib/profile/location.ts locationLine); null when they never said. */
+  location?: string | null
   /** How many communities they are in, null when they keep that private (or communities are off). */
   communities: number | null
   chrome: Pick<StorefrontChrome, "text">
+  /**
+   * Whether the block brings the creator page's own column with it. False
+   * for a caller that is already inside a column (/account's, components/
+   * account/account-column.tsx), so the rules keep the page's left edge
+   * instead of sitting a gutter inside it.
+   */
+  inset?: boolean
 }) {
   const ink = chrome.text
-  const year = joinedAt ? new Date(joinedAt).getUTCFullYear() : NaN
-  const facts = [
-    Number.isFinite(year) ? { label: "Joined", value: String(year) } : null,
-    communities && communities > 0 ? { label: "Communities", value: String(communities) } : null,
-  ].filter((f): f is { label: string; value: string } => !!f)
+  const facts = personFacts({ joinedAt, location, communities })
+  const story = (bio || "").trim()
   return (
     /* The creator's About is a section with 48px above and below it (defaultAboutSettings spacing). */
     <section style={{ paddingTop: 48, paddingBottom: 48 }} aria-labelledby="person-about-heading" data-person-about="">
-      <div className="mx-auto w-full max-w-[1180px] px-3 sm:px-4 lg:px-6">
+      <div className={inset ? "mx-auto w-full max-w-[1180px] px-3 sm:px-4 lg:px-6" : "w-full"}>
         <div className="w-full pt-2 sm:pt-4">
           <div className="mb-8 h-px w-full" style={{ backgroundColor: `${ink}20` }} />
           <div className="mx-auto flex w-full max-w-[1180px] flex-col gap-6 md:flex-row md:gap-12">
@@ -60,13 +88,21 @@ export function PersonAbout({
                 About {name}
               </h3>
               {facts.length ? (
-                <div className="flex gap-8">
+                <div className="flex flex-wrap gap-x-8 gap-y-5">
                   {facts.map((f) => (
                     <Fact key={f.label} label={f.label} value={f.value} ink={ink} />
                   ))}
                 </div>
               ) : null}
             </div>
+            {story ? (
+              /* Their own words, where a creator's story sits: one column, never clamped. */
+              <div className="min-w-0 flex-1">
+                <p className="max-w-[640px] whitespace-pre-line text-[15px] leading-[1.6] [overflow-wrap:anywhere]" style={{ color: `${ink}cc` }} data-person-about-bio="">
+                  {story}
+                </p>
+              </div>
+            ) : null}
           </div>
           <div className="mt-8 h-px w-full" style={{ backgroundColor: `${ink}20` }} />
         </div>

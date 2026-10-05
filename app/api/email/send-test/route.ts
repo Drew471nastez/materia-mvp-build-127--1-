@@ -19,6 +19,7 @@ import { sendMailgunOnce } from "@/lib/mailgun"
 import { rateLimit } from "@/lib/api/rate-limit"
 import { maskEmail } from "@/lib/privacy/mask-email"
 import { normalizeAddress } from "@/lib/email-campaigns/address"
+import { ownerAddress } from "@/lib/businesses/email-alias"
 import { loadSender, prepareContent } from "@/lib/email-campaigns/queue"
 import { buildEmail, emailText, personalizeHtml, personalizeSubject } from "@/lib/email-campaigns/template"
 import { renderBlocks } from "@/lib/email-campaigns/blocks"
@@ -39,9 +40,22 @@ export async function POST(request: Request) {
   const sender = await loadSender(ctx.admin, ctx.creatorId)
   if (!sender) return NextResponse.json({ error: "Set up your store before sending email." }, { status: 404 })
 
-  /* The account's own addresses, and nothing else. */
+  /*
+    The account's own addresses, and nothing else. A second business's account
+    address carries a tag Storelib made up, so the owner's own address counts
+    as theirs too (lib/businesses/email-alias.ts ownerAddress): it is where
+    the tagged one delivers anyway, and it is the one the composer shows them,
+    so typing what they can see is not refused. It also leads the list, so a
+    test with nothing typed goes there and the refusal below names it rather
+    than a tag they never wrote.
+  */
   const { data: creator } = await ctx.admin.from("creators").select("support_email").eq("id", ctx.creatorId).maybeSingle()
-  const ownAddresses = [normalizeAddress(ctx.userEmail), sender.accountEmail, normalizeAddress(creator?.support_email)].filter((x): x is string => !!x)
+  const ownAddresses = [
+    normalizeAddress(ownerAddress(ctx.userEmail)),
+    normalizeAddress(ctx.userEmail),
+    sender.accountEmail,
+    normalizeAddress(creator?.support_email),
+  ].filter((x): x is string => !!x)
   const asked = typeof body.test_email === "string" && body.test_email.trim() ? normalizeAddress(body.test_email) : ownAddresses[0] ?? null
   if (!asked) return NextResponse.json({ error: "Add an email address to your account to send tests to it." }, { status: 400 })
   if (!ownAddresses.includes(asked)) {
