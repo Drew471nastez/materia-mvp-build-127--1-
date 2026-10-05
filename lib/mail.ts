@@ -44,6 +44,8 @@ export interface SendEmailOptions {
   headers?: Record<string, string>
   tags?: Array<{ name: string; value: string }> // Legacy format, converted for Mailgun
   attachments?: MailAttachment[]
+  /** A code or other mail they just asked for: no tracking, sent on the first request. */
+  transactional?: boolean
 }
 
 // Email send result
@@ -96,6 +98,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
     headers: options.headers,
     tags,
     attachments: options.attachments,
+    transactional: options.transactional,
   })
 
   if (result.success) {

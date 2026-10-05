@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { sendEmail, isSmtpConfigured } from "@/lib/mail"
+import { sendEmail, isSmtpConfigured, EMAIL_FROM, EMAIL_REPLY_TO } from "@/lib/mail"
 import { generateVerificationCode, VERIFICATION_CODE_EXPIRY_MINUTES } from "@/lib/security"
 import { maskEmail } from "@/lib/privacy/mask-email"
+import { codeEmail } from "@/lib/account/code-email"
 
 export const runtime = "nodejs"
 
@@ -67,130 +68,26 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Failed to generate verification code" }, { status: 500 })
     }
 
-    console.log("[verify-email] Verification code saved to database, sending email via SMTP...")
+    console.log("[verify-email] Verification code saved to database, sending email...")
 
-    // Format the code with spaces for better readability
-    const formattedCode = code.split("").join(" ")
+    const letter = codeEmail({
+      heading: "Your verification code",
+      lead: "Enter this code on Storelib to finish creating your account.",
+      code,
+      minutes: VERIFICATION_CODE_EXPIRY_MINUTES,
+      footer: "If you did not sign up for Storelib, you can ignore this email.",
+    })
 
     try {
       const result = await sendEmail({
-        from: "Storelib <noreply@storelib.com>",
+        from: EMAIL_FROM,
+        replyTo: EMAIL_REPLY_TO,
         to: email,
-        subject: `${code} is your Storelib verification code`,
-        headers: {
-          "X-Priority": "1",
-          "X-MSMail-Priority": "High",
-          "Importance": "high",
-        },
-        html: `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <meta name="format-detection" content="telephone=no,date=no,address=no,email=no">
-  <meta name="x-apple-disable-message-reformatting">
-  <title>Verify your email</title>
-  <!--[if mso]>
-  <noscript>
-    <xml>
-      <o:OfficeDocumentSettings>
-        <o:PixelsPerInch>96</o:PixelsPerInch>
-      </o:OfficeDocumentSettings>
-    </xml>
-  </noscript>
-  <![endif]-->
-</head>
-<body style="margin: 0; padding: 0; background-color: #f5f5f5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; -webkit-font-smoothing: antialiased;">
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color: #f5f5f5;">
-    <tr>
-      <td align="center" style="padding: 40px 20px;">
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width: 480px; background-color: #ffffff; border-radius: 16px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
-          <!-- Header -->
-          <tr>
-            <td align="center" style="padding: 40px 40px 24px 40px;">
-              <span style="font-size: 28px; font-weight: 700; color: #10b981; letter-spacing: -0.5px;">Storelib*</span>
-            </td>
-          </tr>
-
-          <!-- Content -->
-          <tr>
-            <td style="padding: 0 40px;">
-              <h1 style="margin: 0 0 8px 0; font-size: 24px; font-weight: 700; color: #171717; text-align: center;">
-                Verify your email
-              </h1>
-              <p style="margin: 0 0 32px 0; font-size: 15px; color: #737373; text-align: center; line-height: 1.5;">
-                Enter this code to complete your signup
-              </p>
-            </td>
-          </tr>
-
-          <!-- Code Box -->
-          <tr>
-            <td style="padding: 0 40px;">
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
-                <tr>
-                  <td align="center" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); border-radius: 12px; padding: 24px;">
-                    <p style="margin: 0 0 8px 0; font-size: 13px; color: rgba(255,255,255,0.8); text-transform: uppercase; letter-spacing: 1px;">
-                      Your verification code
-                    </p>
-                    <div style="font-size: 36px; font-weight: 700; letter-spacing: 8px; color: #ffffff; font-family: 'SF Mono', 'Roboto Mono', Consolas, monospace;">
-                      ${code}
-                    </div>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-
-          <!-- Copy instruction -->
-          <tr>
-            <td align="center" style="padding: 16px 40px 0 40px;">
-              <p style="margin: 0; font-size: 13px; color: #737373;">
-                Copy and paste this code in the verification page
-              </p>
-            </td>
-          </tr>
-
-          <!-- Expiry Note -->
-          <tr>
-            <td align="center" style="padding: 8px 40px 0 40px;">
-              <p style="margin: 0; font-size: 13px; color: #a3a3a3;">
-                This code expires in ${VERIFICATION_CODE_EXPIRY_MINUTES} minutes
-              </p>
-            </td>
-          </tr>
-
-          <!-- Footer -->
-          <tr>
-            <td style="padding: 32px 40px 40px 40px;">
-              <p style="margin: 0; font-size: 13px; color: #a3a3a3; text-align: center; line-height: 1.6;">
-                If you didn't create a Storelib account, you can safely ignore this email.
-              </p>
-            </td>
-          </tr>
-        </table>
-
-        <!-- Bottom text -->
-        <p style="margin: 24px 0 0 0; font-size: 12px; color: #a3a3a3; text-align: center;">
-          Sent by Storelib • Build your digital storefront
-        </p>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
-        `,
-        text: `Your Storelib verification code is: ${code}
-
-Copy and paste this code in the verification page.
-
-This code expires in ${VERIFICATION_CODE_EXPIRY_MINUTES} minutes.
-
-If you didn't create a Storelib account, you can safely ignore this email.
-
-Sent by Storelib`,
+        /* The code in the subject is what Gmail and Outlook show before the message is opened. */
+        subject: `${code} is your Storelib code`,
+        transactional: true,
+        html: letter.html,
+        text: letter.text,
       })
 
       console.log("[verify-email] SMTP result:", JSON.stringify(result))

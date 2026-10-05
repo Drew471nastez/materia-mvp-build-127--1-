@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
-import { sendEmail, isSmtpConfigured } from "@/lib/mail"
+import { sendEmail, isSmtpConfigured, EMAIL_FROM, EMAIL_REPLY_TO } from "@/lib/mail"
+import { codeEmail } from "@/lib/account/code-email"
 import { generateVerificationCode, VERIFICATION_CODE_EXPIRY_MINUTES } from "@/lib/security"
 import { maskEmail } from "@/lib/privacy/mask-email"
 
@@ -246,41 +247,21 @@ export async function POST(request: Request) {
     try {
       console.log("[verify-email] Sending verification email to:", maskEmail(email))
 
+      const letter = codeEmail({
+        heading: "Verify your device",
+        lead: `Enter this code to open your download for ${productTitle} on this device.`,
+        code,
+        minutes: VERIFICATION_CODE_EXPIRY_MINUTES,
+        footer: "If you did not ask for this, you can ignore the email. The download stays locked until the code is entered.",
+      })
       const result = await sendEmail({
-        from: "Storelib Security <noreply@storelib.com>",
+        from: EMAIL_FROM,
+        replyTo: EMAIL_REPLY_TO,
         to: email,
-        subject: "Verify your device to download",
-        html: `
-          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-            <h1 style="font-size: 24px; font-weight: 600; margin-bottom: 16px;">Verify your device</h1>
-            <p style="color: #666; margin-bottom: 24px;">
-              We noticed you're trying to access your download for <strong>${productTitle}</strong> from a new device.
-            </p>
-
-            <div style="background: #f5f5f5; border-radius: 8px; padding: 24px; margin-bottom: 24px; text-align: center;">
-              <p style="margin: 0 0 8px 0; color: #666; font-size: 14px;">Your verification code:</p>
-              <div style="font-size: 32px; font-weight: 700; letter-spacing: 0.1em; color: #000;">
-                ${code}
-              </div>
-              <p style="margin: 16px 0 0 0; color: #999; font-size: 12px;">
-                This code expires in ${VERIFICATION_CODE_EXPIRY_MINUTES} minutes
-              </p>
-            </div>
-
-            <p style="color: #666; font-size: 14px;">
-              If you didn't request this code, someone may have your download link. Your purchase is secure and only accessible after verification.
-            </p>
-          </div>
-        `,
-        text: `Verify your device
-
-We noticed you're trying to access your download for "${productTitle}" from a new device.
-
-Your verification code: ${code}
-
-This code expires in ${VERIFICATION_CODE_EXPIRY_MINUTES} minutes.
-
-If you didn't request this code, someone may have your download link. Your purchase is secure and only accessible after verification.`,
+        subject: `${code} is your Storelib code`,
+        transactional: true,
+        html: letter.html,
+        text: letter.text,
       })
 
       if (!result.success) {

@@ -3,7 +3,7 @@
 import { Suspense, useState, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp"
-import { Loader2, Mail } from "lucide-react"
+import { Loader2, ShieldCheck } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
 import { AuthLogo } from "@/components/auth/auth-logo"
@@ -49,7 +49,8 @@ function VerifyContent() {
   const [isVerifying, setIsVerifying] = useState(false)
   const [isRedirecting, setIsRedirecting] = useState(false)
   const [isResending, setIsResending] = useState(false)
-  const [resendCooldown, setResendCooldown] = useState(sent ? 60 : 0) // cooldown only if email was already sent
+  /* Short on purpose: the code is already on its way, and a long lock made resend feel broken. */
+  const [resendCooldown, setResendCooldown] = useState(sent ? 10 : 0)
 
   // Sign out and go back to signup (user wants a different email)
   const handleBackToSignup = async () => {
@@ -81,7 +82,11 @@ function VerifyContent() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId, email }),
-    }).then(() => setResendCooldown(60)).catch(() => {})
+    })
+      .then((res) => {
+        if (res.ok) setResendCooldown(10)
+      })
+      .catch(() => {})
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Countdown timer for resend button
@@ -148,7 +153,7 @@ function VerifyContent() {
         throw new Error(data.error || "Failed to resend code")
       }
 
-      setResendCooldown(60)
+      setResendCooldown(10)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to resend code")
     } finally {
@@ -191,17 +196,17 @@ function VerifyContent() {
         <div className="mx-auto w-full max-w-[400px] py-2 sm:py-3 lg:py-4">
           <AuthLogo />
 
-          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
-            <Mail className="h-8 w-8 text-emerald-600" />
+          <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-2xl border border-[#e6e8eb] bg-[#f8f9fa] text-[#1a1a2e]">
+            <ShieldCheck className="h-6 w-6" strokeWidth={1.75} aria-hidden />
           </div>
 
-          <h1 className="mb-2 text-[32px] font-bold tracking-tight text-neutral-900 text-center">
+          <h1 className="mb-2 text-center text-[26px] font-semibold tracking-tight text-[#1a1a2e] sm:text-[32px]">
             Check your email
           </h1>
-          <p className="mb-2 text-[15px] text-neutral-500 text-center">
-            We sent a 6 digit code to
+          <p className="mb-2 text-center text-[15px] text-[#6b7280]">
+            We sent a 6-digit code to
           </p>
-          <p className="mb-8 text-[15px] font-medium text-neutral-900 text-center">
+          <p className="mb-7 break-all text-center text-[15px] font-medium text-[#1a1a2e]">
             {maskedEmail}
           </p>
 
@@ -218,7 +223,7 @@ function VerifyContent() {
                     <InputOTPSlot
                       key={index}
                       index={index}
-                      className="h-14 w-12 rounded-lg border-neutral-200 bg-neutral-50 text-xl font-semibold text-center focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/20"
+                      className="h-12 w-10 rounded-xl border border-[#e6e8eb] bg-white text-[20px] font-semibold text-[#1a1a2e] shadow-[0_1px_1px_rgba(16,24,40,0.04)] first:rounded-xl first:border last:rounded-xl data-[active=true]:z-10 data-[active=true]:border-[#1a1a2e] data-[active=true]:ring-2 data-[active=true]:ring-[#1a1a2e]/10 sm:h-14 sm:w-12 sm:text-[22px]"
                     />
                   ))}
                 </InputOTPGroup>
@@ -246,7 +251,7 @@ function VerifyContent() {
                 type="button"
                 onClick={handleResend}
                 disabled={resendCooldown > 0 || isResending}
-                className="text-[14px] font-medium text-emerald-600 hover:text-emerald-700 disabled:text-neutral-400 disabled:cursor-not-allowed"
+                className="text-[14px] font-semibold text-[#1a1a2e] underline decoration-[#1a1a2e]/25 underline-offset-4 hover:decoration-[#1a1a2e] disabled:text-[#9ca3af] disabled:no-underline disabled:cursor-not-allowed"
               >
                 {isResending ? (
                   <span className="flex items-center justify-center gap-2">

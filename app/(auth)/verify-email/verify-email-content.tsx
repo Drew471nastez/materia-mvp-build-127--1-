@@ -4,7 +4,7 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { useState, useEffect } from "react"
-import { Loader2, CheckCircle2, Mail, AlertCircle } from "lucide-react"
+import { Loader2, CheckCircle2, ShieldCheck, AlertCircle } from "lucide-react"
 import Image from "next/image"
 import { createClient } from "@/lib/supabase/client"
 import { AuthLogo } from "@/components/auth/auth-logo"
@@ -32,7 +32,7 @@ export default function VerifyEmailContent() {
   // Start countdown if code was already sent
   useEffect(() => {
     if (codeSent) {
-      setResendCountdown(60)
+      setResendCountdown(10)
       setInitialSendStatus("sent")
     }
   }, [codeSent])
@@ -79,7 +79,7 @@ export default function VerifyEmailContent() {
         return
       }
 
-      setResendCountdown(60)
+      setResendCountdown(10)
       setInitialSendStatus("sent")
     } catch (err) {
       console.error("[VerifyEmail] Error sending verification code:", err)
@@ -184,19 +184,19 @@ export default function VerifyEmailContent() {
 
           {success ? (
             <div className="text-center">
-              <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100">
-                <CheckCircle2 className="h-10 w-10 text-emerald-600" />
+              <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-2xl border border-[#e6e8eb] bg-[#f8f9fa] text-[#1a1a2e]">
+                <CheckCircle2 className="h-7 w-7" strokeWidth={1.75} />
               </div>
               <h1 className="mb-2 text-[32px] font-bold tracking-tight text-neutral-900">Email Verified!</h1>
               <p className="text-[15px] text-neutral-500">Redirecting you to your dashboard...</p>
             </div>
           ) : (
             <>
-              <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
-                <Mail className="h-8 w-8 text-emerald-600" />
+              <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-2xl border border-[#e6e8eb] bg-[#f8f9fa] text-[#1a1a2e]">
+                <ShieldCheck className="h-6 w-6" strokeWidth={1.75} aria-hidden />
               </div>
 
-              <h1 className="mb-2 text-[32px] font-bold tracking-tight text-neutral-900 text-center">
+              <h1 className="mb-2 text-center text-[26px] font-semibold tracking-tight text-[#1a1a2e] sm:text-[32px]">
                 Check your email
               </h1>
               <p className="mb-2 text-[15px] text-neutral-500 text-center">We sent a 6 digit code to</p>
@@ -215,7 +215,7 @@ export default function VerifyEmailContent() {
                         <InputOTPSlot
                           key={index}
                           index={index}
-                          className="h-14 w-12 rounded-lg border-neutral-200 bg-neutral-50 text-xl font-semibold text-center focus:border-emerald-500 focus:bg-white focus:ring-2 focus:ring-emerald-500/20"
+                          className="h-12 w-10 rounded-xl border border-[#e6e8eb] bg-white text-[20px] font-semibold text-[#1a1a2e] shadow-[0_1px_1px_rgba(16,24,40,0.04)] first:rounded-xl first:border last:rounded-xl data-[active=true]:z-10 data-[active=true]:border-[#1a1a2e] data-[active=true]:ring-2 data-[active=true]:ring-[#1a1a2e]/10 sm:h-14 sm:w-12 sm:text-[22px]"
                         />
                       ))}
                     </InputOTPGroup>
@@ -254,7 +254,7 @@ export default function VerifyEmailContent() {
                     type="button"
                     onClick={handleResendCode}
                     disabled={resendCountdown > 0 || resendLoading}
-                    className="text-[14px] font-medium text-emerald-600 hover:text-emerald-700 disabled:text-neutral-400 disabled:cursor-not-allowed"
+                    className="text-[14px] font-semibold text-[#1a1a2e] underline decoration-[#1a1a2e]/25 underline-offset-4 hover:decoration-[#1a1a2e] disabled:cursor-not-allowed disabled:text-[#9ca3af] disabled:no-underline"
                   >
                     {resendLoading ? (
                       <span className="flex items-center justify-center gap-2">

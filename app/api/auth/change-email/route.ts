@@ -113,7 +113,7 @@ export async function POST(request: Request) {
       minutes: VERIFICATION_CODE_EXPIRY_MINUTES,
       footer: "If you did not ask for this, ignore this email. Nothing changes.",
     })
-    const sentNew = await sendEmail({ from: "Storelib <noreply@storelib.com>", to: cleanEmail, subject: "Confirm your new email", ...toNew })
+    const sentNew = await sendEmail({ from: "Storelib <noreply@storelib.com>", to: cleanEmail, subject: `${code} is your Storelib code`, transactional: true, ...toNew })
     if (!sentNew.success) {
       console.error("[change-email] could not send to the new address:", sentNew.error)
       return NextResponse.json({ error: "We could not send the code. Check the address and try again." }, { status: 502 })
@@ -127,7 +127,7 @@ export async function POST(request: Request) {
         minutes: VERIFICATION_CODE_EXPIRY_MINUTES,
         footer: "If this was not you, do not share this code. Change your password in Settings, Security.",
       })
-      const sentCurrent = await sendEmail({ from: "Storelib <noreply@storelib.com>", to: user.email, subject: "Confirm your email change", ...toCurrent })
+      const sentCurrent = await sendEmail({ from: "Storelib <noreply@storelib.com>", to: user.email, subject: `${currentCode} confirms your Storelib email change`, transactional: true, ...toCurrent })
       if (!sentCurrent.success) {
         console.error("[change-email] could not send to the current address:", sentCurrent.error)
         return NextResponse.json({ error: "We could not send the code to your current email. Try again in a moment." }, { status: 502 })

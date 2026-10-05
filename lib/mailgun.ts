@@ -95,6 +95,12 @@ export interface MailgunSendOptions {
   headers?: Record<string, string>
   /** Files sent with the message, such as a buyer's invoice as a PDF. */
   attachments?: MailAttachment[]
+  /**
+   * A one-time code or other mail the person just asked for. No open or click
+   * tracking (rewritten links hurt delivery), and no bounce lookup before the
+   * send, so the message leaves on the first request.
+   */
+  transactional?: boolean
 }
 
 export interface MailAttachment {
@@ -208,8 +214,10 @@ export async function sendMailgunEmail(options: MailgunSendOptions): Promise<Mai
     }
   }
 
-  // Check suppression list before sending
-  const suppressed = await isEmailSuppressed(options.to)
+  // A code the person just asked for leaves at once. A bounce or complaint
+  // lookup is two extra round trips before the send, which is what made the
+  // verification email feel late.
+  const suppressed = options.transactional ? false : await isEmailSuppressed(options.to)
   if (suppressed) {
     return {
       success: false,
@@ -240,6 +248,13 @@ export async function sendMailgunEmail(options: MailgunSendOptions): Promise<Mai
     for (const [key, value] of Object.entries(options.headers)) {
       formData.append(`h:${key}`, value)
     }
+  }
+
+  if (options.transactional) {
+    formData.append("o:tracking", "no")
+    formData.append("o:tracking-clicks", "no")
+    formData.append("o:tracking-opens", "no")
+    formData.append("o:tag", "transactional")
   }
 
   // Add tags for tracking
