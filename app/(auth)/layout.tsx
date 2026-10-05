@@ -33,5 +33,10 @@ export default function AuthLayout({
 }: {
   children: React.ReactNode
 }) {
-  return <div className="bg-white" data-page="auth"><HtmlClass name="with-page-auth" />{children}</div>
+  return (
+    <div className="min-h-svh bg-white animate-in fade-in duration-300 motion-reduce:animate-none" data-page="auth">
+      <HtmlClass name="with-page-auth" />
+      {children}
+    </div>
+  )
 }

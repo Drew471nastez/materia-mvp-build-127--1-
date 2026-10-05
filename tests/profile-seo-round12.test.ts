@@ -108,7 +108,8 @@ async function main() {
 
   const pm = postMetadata(base)
   const pog = pm.openGraph as { type: string; url: string; images: Array<{ url: string; width: number; height: number }>; publishedTime: string; authors: string[]; section: string }
-  check("its own title (the post's, then the community), a description from its words", pm.title === "First bowl that did not collapse · Clay Studio" && typeof pm.description === "string" && pm.description.startsWith("Three weeks of practice"))
+  const pmTitle = typeof pm.title === "string" ? pm.title : pm.title?.absolute
+  check("its own title (the post's, then the community), a description from its words", pmTitle === "First bowl that did not collapse · Clay Studio" && typeof pm.description === "string" && pm.description.startsWith("Three weeks of practice"))
   check("canonical /community/<slug>/post/<slug>-<shortId>, indexed with a large picture", (pm.alternates as { canonical: string }).canonical === "https://storelib.com/community/clay-studio/post/first-bowl-that-did-not-collapse-11111111" && JSON.stringify(pm.robots).includes('"index":true') && JSON.stringify(pm.robots).includes('"max-image-preview":"large"'))
   check("an article, with its date, author and space", pog.type === "article" && pog.publishedTime === "2026-10-03T09:00:00Z" && pog.authors[0] === "https://storelib.com/@maya" && pog.section === "Wins")
   check("its own picture, 1200 by 630, the address changing with an edit", pog.images[0].url.startsWith("https://storelib.com/community/clay-studio/post/11111111/share.png?v=") && pog.images[0].width === 1200 && pog.images[0].height === 630 && (postMetadata(with_({}, undefined, { title: "Edited" })).openGraph as typeof pog).images[0].url !== pog.images[0].url && (pm.twitter as { card: string }).card === "summary_large_image")

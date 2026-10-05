@@ -49,6 +49,7 @@ import { memberCountLabel } from "@/lib/communities/format"
 import { money, pricePer, yearlySaving } from "@/lib/memberships/state"
 import { cn } from "@/lib/utils"
 import { CheckDot } from "./check-dot"
+import { goJoinAuth, isJoinAuthHref, prefetchJoinAuth } from "./join-nav"
 import { communityPath, JOINED_KEY } from "./paths"
 import type { JoinOption, JoinStateView, PublicCommunityView } from "./types"
 
@@ -171,7 +172,12 @@ export function JoinProvider({ community, join, askWhy = false, children }: { co
   const [leaveOpen, setLeaveOpen] = React.useState(false)
   const api = `/api/community/${community.id}`
 
-  const go = React.useCallback((href: string) => router.push(href), [router])
+  const go = React.useCallback((href: string) => goJoinAuth(router, href), [router])
+
+  React.useEffect(() => {
+    if (join.signedIn) return
+    prefetchJoinAuth(router, join.href)
+  }, [join.signedIn, join.href, router])
 
   /*
     THE FEED ARRIVES AT THE TOP. When the member's page takes this one's place (after "You're in"), the window is put back at the top
@@ -225,7 +231,13 @@ export function JoinProvider({ community, join, askWhy = false, children }: { co
 
   const press = React.useCallback(() => {
     if (busy || phase !== "idle") return
-    if (join.href && (join.kind === "open" || join.kind === "product" || !join.signedIn)) return go(join.href)
+    if (join.href && (join.kind === "open" || join.kind === "product" || !join.signedIn)) {
+      if (!join.signedIn && isJoinAuthHref(join.href)) {
+        setPhase("joining")
+        setError(null)
+      }
+      return go(join.href)
+    }
     if (join.kind === "join_free") return void joinNow()
     if (join.kind === "request") return setRequestOpen(true)
     if (join.kind === "checkout") {
@@ -336,7 +348,7 @@ function PrimaryAction({ className, short = false }: { className?: string; /** B
           {phase === "joining" ? (
             <>
               <Spinner size={18} className="!text-white" />
-              Joining
+              {!join.signedIn && join.href && isJoinAuthHref(join.href) ? "Continue" : "Joining"}
             </>
           ) : (
             <>

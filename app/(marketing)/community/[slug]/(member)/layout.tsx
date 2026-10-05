@@ -37,8 +37,12 @@ async function publicPostOpen(slug: string): Promise<boolean> {
  * approval, a ban, or a paused community each get one plain screen. Every
  * page here is for members only, so none of it is indexed.
  */
-/* The title is the community's layout's (its name, after each page's own word, round 12): nothing to add here but noindex. */
-export const metadata: Metadata = { robots: { index: false, follow: false } }
+/* Public post pages own their metadata (post-seo.ts); everything else here stays noindex. */
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params
+  if (await publicPostOpen(slug)) return {}
+  return { robots: { index: false, follow: false } }
+}
 
 export default async function CommunityMemberLayout({ children, params }: { children: React.ReactNode; params: Promise<{ slug: string }> }) {
   await connection()

@@ -101,6 +101,16 @@ export function postHeadline(f: Pick<PostFacts, "post">): string {
   return plainSummary(f.post.bodyText, 90)
 }
 
+/** Title and blurb for the system share sheet (matches what link previews show). */
+export function postSharePayload(f: Pick<PostFacts, "post" | "community" | "author">): { title: string; text: string } {
+  const headline = postHeadline(f) || `A post in ${f.community.name}`
+  const title = `${headline} · ${f.community.name}`
+  const excerpt = plainSummary(f.post.bodyText, 200)
+  const fallback = f.author ? `${f.author.name} in ${f.community.name} on Storelib.` : `A post in ${f.community.name} on Storelib.`
+  const text = excerpt && excerpt !== headline ? excerpt : fallback
+  return { title, text }
+}
+
 /** A short fingerprint of what the picture is drawn from (FNV-1a), so its address changes when it would. */
 export function postShareVersion(parts: ReadonlyArray<string | number | boolean | null | undefined>): string {
   let h = 0x811c9dc5
@@ -140,26 +150,33 @@ export function postMetadata(f: PostFacts): Metadata {
   }
   const headline = postHeadline(f) || `A post in ${f.community.name}`
   const title = `${headline} · ${f.community.name}`
-  const words = plainSummary(f.post.bodyText, 200)
-  const description = words && words !== headline ? words : f.author ? `${f.author.name} in ${f.community.name} on Storelib.` : `A post in ${f.community.name} on Storelib.`
+  const { text: description } = postSharePayload(f)
+  const picture = firstPicture(f.post.media)
   return {
-    title,
+    title: { absolute: title },
     description,
     alternates: { canonical: url },
     openGraph: {
       type: "article",
       url,
       siteName: "Storelib",
+      locale: "en_US",
       title: headline,
       description,
       publishedTime: f.post.createdAt,
       ...(f.post.editedAt ? { modifiedTime: f.post.editedAt } : {}),
-      ...(f.author?.username ? { authors: [`${SITE}/@${f.author.username}`] } : {}),
-      ...(f.space ? { section: f.space.name } : {}),
+      ...(f.author?.username ? { authors: [`${SITE}/@${f.author.username}`] } : f.author ? { authors: [f.author.name] } : {}),
+      ...(f.space?.name ? { section: f.space.name } : {}),
       images,
     },
-    twitter: { card: "summary_large_image", title: headline, description, images: [image] },
+    twitter: {
+      card: "summary_large_image",
+      title: headline,
+      description,
+      images: [{ url: image, alt: headline }],
+    },
     robots: { index: true, follow: true, googleBot: { index: true, follow: true, "max-image-preview": "large" } },
+    ...(picture ? { other: { "og:image:secure_url": picture } } : {}),
   }
 }
 
