@@ -148,12 +148,13 @@ async function main() {
   const bare = communityMetadata({ ...facts, coverUrl: null })
   const bog = bare.openGraph as { images?: { url: string; width?: number; height?: number }[] }
   check("without a cover the page names the drawn picture, 1200 by 630", bog.images?.[0]?.url === "https://storelib.com/community/clay-studio/share.png?v=abc" && bog.images?.[0]?.width === SHARE_IMAGE_WIDTH && bog.images?.[0]?.height === SHARE_IMAGE_HEIGHT)
-  check("title and description from the community", meta.title === "Clay Studio" && meta.description === "Wheel throwing at home.")
+  /* Round 12: absolute, since the community's layout puts its name after every page's own word. */
+  check("title and description from the community", JSON.stringify(meta.title) === JSON.stringify({ absolute: "Clay Studio" }) && meta.description === "Wheel throwing at home.")
   const legacy = communityMetadata({ ...facts, shareVersion: undefined })
   check("without a drawn picture the cover is still the preview", ((legacy.openGraph as { images?: { url: string }[] }).images?.[0]?.url) === "https://x/c.jpg")
   const invite = inviteMetadata({ ...facts, coverUrl: null })
   const iog = invite.openGraph as { images?: { url: string }[]; url?: string }
-  check("an invite link: Join <name>, \"You're invited\", the invite's picture, never indexed", invite.title === "Join Clay Studio" && /^You're invited to Clay Studio on Storelib\./.test(String(invite.description)) && iog.images?.[0]?.url === "https://storelib.com/community/clay-studio/share.png?v=abc&invite=1" && JSON.stringify(invite.robots) === JSON.stringify({ index: false, follow: false }))
+  check("an invite link: Join <name>, \"You're invited\", the invite's picture, never indexed", JSON.stringify(invite.title) === JSON.stringify({ absolute: "Join Clay Studio" }) && invite.openGraph?.title === "Join Clay Studio" && /^You're invited to Clay Studio on Storelib\./.test(String(invite.description)) && iog.images?.[0]?.url === "https://storelib.com/community/clay-studio/share.png?v=abc&invite=1" && JSON.stringify(invite.robots) === JSON.stringify({ index: false, follow: false }))
   check("an invite link to a community with a cover shows the cover", ((inviteMetadata(facts).openGraph as { images?: { url: string }[] }).images?.[0]?.url) === "https://storelib.com/community/clay-studio/cover.jpg?v=abc")
   check("  its preview address is the community's own, so the invite is not repeated into anything that keeps previews", iog.url === "https://storelib.com/community/clay-studio" && !/invite=/.test(JSON.stringify(invite).replaceAll("share.png?v=abc&invite=1", "")))
   check("the picture's address changes when what it is drawn from does", shareImageVersion(["a", 1]) !== shareImageVersion(["a", 2]) && shareImageVersion(["a", 1]) === shareImageVersion(["a", 1]) && shareImageUrl("x", null) === "https://storelib.com/community/x/share.png")

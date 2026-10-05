@@ -9,6 +9,8 @@ import { createRoot } from "react-dom/client"
 import { LibraryTabs } from "@/components/library/library-tabs"
 import { LibraryPanel } from "@/components/library/library-panel"
 import { OpenInApp } from "@/components/library/open-in-app"
+import { AccountColumn } from "@/components/account/account-column"
+import { TAB_BAR_BODY } from "@/components/nav/buyer-tab-bar"
 import { TAB_SKELETON } from "@/app/account/library/loading"
 import { skeletonFor } from "@/components/library/library-skeletons"
 import { WishlistContent } from "@/components/wishlist/wishlist-content"
@@ -92,6 +94,29 @@ const banner = bannerPhone(navigator.userAgent || "", (document.cookie.match(/(?
 
 /* The layout's column, as app/library/layout.tsx draws it: the app banner, then the stage with the pills over the screen. */
 function Shell({ children, tabs = true }: { children: React.ReactNode; tabs?: boolean }) {
+  /*
+    window.__accountShell: the library as app/account/layout.tsx and app/account/library/layout.tsx really draw it on a phone (round 12,
+    the page that scrolled with nothing to scroll): the profile's min-h-svh column, the header's room, a main that grows, the account
+    column, the library's own div, and the tab bar's room at the end. No footer: the library has none.
+  */
+  if ((window as unknown as { __accountShell?: boolean }).__accountShell)
+    return (
+      <div className="flex min-h-svh flex-col bg-[#fafafa]" data-page="account">
+        <div className="sticky top-0 z-40 w-full bg-white" style={{ minHeight: "max(64.6px, calc(env(safe-area-inset-top, 0px) + 53.3px))" }} data-fake-header="" />
+        <main className="flex-1 overflow-x-hidden">
+          <AccountColumn>
+            <div data-page="library">
+              <LibraryPanel head={tabs ? <LibraryTabs /> : null}>{children}</LibraryPanel>
+              <OpenInApp phone={banner} />
+            </div>
+          </AccountColumn>
+        </main>
+        <div className="relative isolate" />
+        <div aria-hidden data-buyer-tabs-room="" className="shrink-0 md:hidden" style={{ height: "var(--buyer-tabs-room)" }} />
+        {/* The tab bar's own word on the body's padding (components/nav/buyer-tab-bar.tsx); window.__before leaves it out, as before round 12. */}
+        {(window as unknown as { __before?: boolean }).__before ? null : <style>{TAB_BAR_BODY}</style>}
+      </div>
+    )
   return (
     <div className="flex min-h-svh flex-col bg-[#fafafa]" data-page="library">
       <div className="sticky top-0 z-40 h-14 border-b border-black/10 bg-[#0b0b10]" data-fake-header="" />

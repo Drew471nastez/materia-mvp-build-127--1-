@@ -26,12 +26,18 @@
  * Language, Help and Discover stay in Storelib's own header. The phone's
  * sheet is built once the bar is idle and kept (keepMounted), so a press
  * only slides it up, like the bell's.
+ *
+ * Round 12 (69.webp): the menu on a computer shows the person's real picture
+ * beside their name (the "..." is not their photo, so the menu says who), as
+ * the phone's sheet always has; and it is the short community list on a
+ * computer too (scripts/check-community-frame12.mjs MENU reads both widths).
  */
 import { useRouter } from "next/navigation"
 import { useCallback, useMemo, useState } from "react"
 import { Bookmark, MoreHorizontal, UserPlus } from "lucide-react"
 import { SHEET_CLOSE_MS } from "@/components/ui/bottom-sheet"
 import { AccountSheet, DesktopAccountMenu, endStorelibSession, type AccountExtraRow, type HeaderLink } from "@/components/platform/platform-header-client"
+import { useShellAvatar } from "@/lib/account/avatar-store"
 import { cn } from "@/lib/utils"
 import { FLAT_ICON_BTN } from "./ui"
 import type { TopBarData } from "./view-types"
@@ -64,6 +70,8 @@ export function CommunityAccountMenu({ me, className, onInvite = null, savedHref
     await endStorelibSession(router)
   }, [router])
   const seller = !!me.seller
+  /* The real picture beside the name (round 12, 69.webp), the one the Storelib header shows, kept in step when it is changed in Settings. */
+  const avatarUrl = useShellAvatar(me.avatarUrl) || undefined
   /* The community's rows: on a computer the menu closes and the dialog opens; on a phone the sheet goes first. */
   const rows = useCallback(
     (phone: boolean): AccountExtraRow[] => {
@@ -81,7 +89,7 @@ export function CommunityAccountMenu({ me, className, onInvite = null, savedHref
       {/* A computer: the header's own dropdown, opened by "..." instead of the photo. */}
       <div className="hidden md:block">
         <DesktopAccountMenu
-          avatarUrl={me.avatarUrl ?? undefined}
+          avatarUrl={avatarUrl}
           name={me.name}
           username={me.username ?? null}
           seller={seller}
@@ -112,7 +120,7 @@ export function CommunityAccountMenu({ me, className, onInvite = null, savedHref
         onClose={() => setSheet(false)}
         keepMounted
         rows="community"
-        avatarUrl={me.avatarUrl ?? undefined}
+        avatarUrl={avatarUrl}
         name={me.name}
         username={me.username ?? null}
         seller={seller}

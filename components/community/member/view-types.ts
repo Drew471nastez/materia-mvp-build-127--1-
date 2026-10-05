@@ -143,6 +143,8 @@ export interface SearchSpaceHit {
   slug: string
   name: string
   kind: SpaceKind
+  /** The admin's emoji or an old word name (space-glyph.ts reads either). */
+  icon?: string | null
   description: string | null
 }
 
@@ -152,7 +154,7 @@ export interface SearchPostHit {
   /** A short piece of the text around the match. */
   snippet: string
   createdAt: string
-  space: { slug: string; name: string } | null
+  space: { slug: string; name: string; icon?: string | null; kind?: string } | null
   author: { name: string; avatarUrl: string | null } | null
 }
 
@@ -284,6 +286,8 @@ export interface PersonCardView {
   href: string
   /** Their Storelib bio, else the line they wrote for this community. */
   bio: string | null
+  /** "Lisbon, Portugal" from their profile (round 12, part 98); null when they have not said. */
+  location?: string | null
   role: Role | null
   /** Their level here, only while the community counts points. */
   level: number | null

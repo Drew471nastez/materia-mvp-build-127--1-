@@ -24,6 +24,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { ArrowUp, ChevronLeft, PenSquare, Search, Trash2, X } from "lucide-react"
+import { Spinner } from "./place-spinner"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { createClient } from "@/lib/supabase/client"
 import type { MemberView } from "@/lib/communities/types"
@@ -532,7 +533,7 @@ function NewMessage({ communityId, userId, onBack, onPick, back }: { communityId
                       </span>
                       {m.username ? <span className="block truncate text-[12.5px] text-[#9ca3af]">@{m.username}</span> : null}
                     </span>
-                    {opening === m.userId ? <span aria-hidden className="h-4 w-4 animate-spin rounded-full border-2 border-[#1a1a2e]/15 border-t-[#1a1a2e]" /> : null}
+                    {opening === m.userId ? <Spinner size={16} /> : null}
                   </button>
                 </li>
               )
@@ -727,7 +728,7 @@ function Thread({ communityId, slug, userId, id, other, onBack, onClose, onRead,
       >
         {messages === null ? (
           <div className="flex h-full items-center justify-center">
-            <span aria-label="Loading" className="h-5 w-5 animate-spin rounded-full border-2 border-[#1a1a2e]/10 border-t-[#1a1a2e]/60" />
+            <Spinner label="Loading" />
           </div>
         ) : null}
         {hasMore ? (

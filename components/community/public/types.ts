@@ -170,6 +170,8 @@ export interface SalesPageData {
   notice: string | null
   /** The About page's extra facts (round 10); left out, those parts are not drawn. */
   extras?: AboutExtras | null
+  /** Leaving asks why (round 12): true once part 98 has made community_leave_reasons, for a member who can leave. */
+  askWhy?: boolean
 }
 
 /** A row in /library/communities. */

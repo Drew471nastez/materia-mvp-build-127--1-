@@ -149,7 +149,7 @@ async function main() {
     check("Leave is no longer a link under Open community", !/Leave community/.test(status) && !/setLeaveOpen/.test(status) && !/manageHref/.test(status))
     check("it is a row in Your membership at the page's foot, for a member who is not the owner", /export function MembershipRow\(\)/.test(controls) && /if \(join\.kind !== "open" \|\| join\.isOwner\) return null/.test(controls) && /data-community-your-membership=""[\s\S]*<MembershipRow \/>/.test(page) && page.indexOf("<MembershipRow />") > page.indexOf('aria-labelledby="community-faq"'))
     check("Leave asks first, in Storelib's sheet or dialog", /onClick=\{\(\) => setLeaveOpen\(true\)\}[^>]*data-membership-leave=""/.test(controls) && /function LeaveDialog\(\)/.test(controls) && /<SheetDialog open=\{leaveOpen\}/.test(controls))
-    check("the confirm answers at once (Leaving with a spinner) and a second press does nothing", /if \(!busy\) leave\(\)/.test(controls) && /<Spinner size=\{16\} className="!text-white" \/>\s*Leaving/.test(controls))
+    check("the confirm answers at once (Leaving with a spinner) and a second press does nothing", /if \(!busy\) leave\(askWhy \? \{ reason, note \} : undefined\)/.test(controls) && /<Spinner size=\{16\} className="!text-white" \/>\s*Leaving/.test(controls))
     check("no bump on press: the main button darkens, it does not scale", !/active:scale/.test(controls) && /active:bg-\[#10101d\]/.test(controls))
   }
 

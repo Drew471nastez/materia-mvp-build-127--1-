@@ -37,7 +37,8 @@ import * as React from "react"
 import { ChevronLeft, ChevronRight, Play } from "lucide-react"
 import { MediaSwiper, SwiperSlide, useMediaSwiper, type SwiperClass } from "@/components/product/media-swiper"
 import { embedPlayerSrc } from "@/lib/communities/post-media"
-import { optimizedImageUrl } from "@/lib/images/optimized-url"
+import { ActivitySpinner } from "@/components/ui/activity-spinner"
+import { optimizedImageUrl, optimizedSrcSet } from "@/lib/images/optimized-url"
 import { cn } from "@/lib/utils"
 import { galleryStill, type GalleryItemView } from "./gallery"
 
@@ -45,13 +46,35 @@ type Playback = { url: string; poster?: string | null; mime?: string | null }
 
 const PROVIDER = { youtube: "YouTube", vimeo: "Vimeo" } as const
 
+/*
+  THE RIGHT SIZE, FIRST THINGS FIRST (round 12, ask 11). A picture used to be
+  asked for at twice 1200px, which the optimizer rounds up to a 3840px file,
+  for a frame never wider than about 700px; the strip's at twice 240px for
+  a 112px tile. Now the frame offers its widths and says how wide it is drawn
+  (the About sheet's column on a computer, the screen on a phone), so a phone
+  takes a 828px file and a computer about 1200px; the first picture is asked
+  for first (fetchpriority high, eager), the one on screen eager, every
+  other one lazy, and the strip's tiles at their own size.
+*/
+const FRAME_WIDTHS = [640, 750, 828, 1080, 1200, 1920]
+const FRAME_SIZES = "(min-width: 1024px) 720px, 100vw"
+const frameImage = (src: string) => ({ src: optimizedImageUrl(src, 640), srcSet: optimizedSrcSet(src, FRAME_WIDTHS) || undefined, sizes: FRAME_SIZES })
+
+/*
+  A LITTLE DEPTH (round 12, ask 11): the frame and each tile sit on the sheet
+  with Storelib's hairline (an inset ring, so it is drawn over the picture's
+  edge and never shifts it) and a soft one pixel shadow under them.
+*/
+const FRAME_DEPTH = "shadow-[0_1px_2px_rgba(16,24,40,0.06),0_4px_14px_-8px_rgba(16,24,40,0.16)]"
+const HAIRLINE = "pointer-events-none absolute inset-0 z-10 rounded-[inherit] shadow-[inset_0_0_0_1px_rgba(16,24,40,0.08)]"
+
 const keyOf = (g: GalleryItemView) => (g.type === "image" ? `i:${g.url}` : g.type === "video" ? `v:${g.videoId}` : `e:${g.provider}:${g.id}`)
 
 /** The round play button over a still: ink, a hairline of white, its own soft shadow; pressed, a deeper ink (never a jump). */
 function PlayMark({ busy }: { busy?: boolean }) {
   return (
     <span className="relative flex h-16 w-16 items-center justify-center rounded-full bg-[#1a1a2e]/80 text-white shadow-[0_8px_24px_-8px_rgba(0,0,0,0.5),inset_0_0_0_1px_rgba(255,255,255,0.14)] transition-[background-color] duration-150 group-hover/play:bg-[#1a1a2e]/90 group-active/play:bg-[#1a1a2e] group-focus-visible/play:ring-4 group-focus-visible/play:ring-white/60">
-      {busy ? <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/40 border-t-white" /> : <Play className="ml-1 h-7 w-7 fill-white" aria-hidden />}
+      {busy ? <ActivitySpinner size={22} label="Loading" className="text-white" /> : <Play className="ml-1 h-7 w-7 fill-white" aria-hidden />}
     </span>
   )
 }
@@ -170,7 +193,7 @@ export function CommunityGallery({ communityId, name, items }: { communityId: st
         aria-label={`${name}: pictures and videos`}
         tabIndex={count > 1 ? 0 : undefined}
         onKeyDown={(e) => onKey(e, false)}
-        className="group/gal relative aspect-[16/9] w-full overflow-hidden rounded-xl bg-[#eceef1] outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/25 focus-visible:ring-offset-2"
+        className={`group/gal relative aspect-[16/9] w-full overflow-hidden rounded-xl bg-[#eceef1] outline-none ${FRAME_DEPTH} focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/25 focus-visible:ring-offset-2`}
         data-gallery-main={items[at].type}
         data-gallery-index={at}
       >
@@ -179,13 +202,14 @@ export function CommunityGallery({ communityId, name, items }: { communityId: st
             const key = keyOf(g)
             const live = playing?.key === key && i === at
             const still = galleryStill(g)
-            /* The picture shown and the ones either side are fetched now; the rest when they come near. */
+            /* The picture on screen is fetched now (the first ahead of everything else), the ones either side quietly after it so a swipe never lands on grey, the rest only when they come near. */
             const near = Math.abs(i - at) <= 1
+            const priority = i === 0 ? "high" : i === at ? "auto" : "low"
             return (
               <SwiperSlide key={key} className="relative h-full w-full overflow-hidden bg-[#eceef1]" data-gallery-slide={g.type}>
                 {g.type === "image" ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={optimizedImageUrl(g.url, 1200)} alt={i === 0 ? name : ""} draggable={false} loading={near ? "eager" : "lazy"} fetchPriority={i === 0 ? "high" : "auto"} decoding="async" className="pointer-events-none absolute inset-0 h-full w-full select-none object-cover" />
+                  <img {...frameImage(g.url)} alt={i === 0 ? name : ""} draggable={false} loading={near ? "eager" : "lazy"} fetchPriority={priority} decoding="async" className="pointer-events-none absolute inset-0 h-full w-full select-none object-cover" />
                 ) : live && g.type === "video" && playing?.playback ? (
                   <video
                     src={playing.playback.url}
@@ -217,7 +241,7 @@ export function CommunityGallery({ communityId, name, items }: { communityId: st
                   >
                     {still ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={optimizedImageUrl(still, 1200)} alt="" draggable={false} loading={near ? "eager" : "lazy"} decoding="async" className="pointer-events-none absolute inset-0 h-full w-full select-none object-cover" data-gallery-poster="" />
+                      <img {...frameImage(still)} alt="" draggable={false} loading={near ? "eager" : "lazy"} fetchPriority={priority} decoding="async" className="pointer-events-none absolute inset-0 h-full w-full select-none object-cover" data-gallery-poster="" />
                     ) : null}
                     <PlayMark busy={g.type === "video" && loading === g.videoId} />
                     {g.type === "embed" ? <span className="pointer-events-none absolute bottom-3 left-3 rounded-md bg-black/55 px-1.5 py-0.5 text-[11.5px] font-medium text-white/95">{PROVIDER[g.provider]}</span> : null}
@@ -236,6 +260,7 @@ export function CommunityGallery({ communityId, name, items }: { communityId: st
             ) : null}
           </div>
         </MediaSwiper>
+        <span aria-hidden className={HAIRLINE} data-gallery-hairline="" />
         {failed ? (
           <p className="absolute inset-x-3 bottom-3 z-30 rounded-lg bg-white/95 px-3 py-2 text-center text-[13px] text-[#b42318]" role="alert">
             {failed}
@@ -268,7 +293,7 @@ export function CommunityGallery({ communityId, name, items }: { communityId: st
                 onClick={() => choose(i)}
                 data-gallery-thumb=""
                 className={cn(
-                  "relative aspect-[16/9] w-[92px] shrink-0 overflow-hidden rounded-lg bg-[#eceef1] outline-none transition-[opacity,box-shadow] duration-150 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/40 [-webkit-tap-highlight-color:transparent]",
+                  "relative aspect-[16/9] w-[92px] shrink-0 overflow-hidden rounded-lg bg-[#eceef1] shadow-[0_1px_2px_rgba(16,24,40,0.08)] outline-none transition-[opacity,box-shadow] duration-150 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/40 [-webkit-tap-highlight-color:transparent]",
                   count <= 6 ? "sm:w-auto" : "sm:w-[112px]",
                   on ? "ring-2 ring-[#1a1a2e] ring-offset-2 ring-offset-white" : "opacity-75 hover:opacity-100",
                   !src && g.type !== "image" && "bg-[#1a1a2e]",
@@ -276,8 +301,9 @@ export function CommunityGallery({ communityId, name, items }: { communityId: st
               >
                 {src ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={optimizedImageUrl(src, 240)} alt="" loading="lazy" draggable={false} className="absolute inset-0 h-full w-full object-cover" />
+                  <img src={optimizedImageUrl(src, 112)} alt="" loading="lazy" decoding="async" draggable={false} className="absolute inset-0 h-full w-full object-cover" />
                 ) : null}
+                <span aria-hidden className={HAIRLINE} />
                 {g.type !== "image" ? (
                   <span className="absolute inset-0 flex items-center justify-center">
                     <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#1a1a2e]/75 text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.14)]">

@@ -124,7 +124,7 @@ function inSpacesFilter(readable: { id: string }[]): string {
 }
 
 /** Posts as hits, with their space and author, read for these rows only. */
-async function postHits(db: Db, communityId: string, rows: PostHitRow[], bySpace: Map<string, { slug: string; name: string }>, q: string, snippetMax = 120): Promise<(SearchPostHit & { text: string })[]> {
+async function postHits(db: Db, communityId: string, rows: PostHitRow[], bySpace: Map<string, { slug: string; name: string; icon?: string | null; kind?: string }>, q: string, snippetMax = 120): Promise<(SearchPostHit & { text: string })[]> {
   const authors = await authorViews(db, communityId, rows.map((r) => r.author_id))
   return rows.map((r) => {
     const space = r.space_id ? bySpace.get(r.space_id) : null
@@ -135,7 +135,7 @@ async function postHits(db: Db, communityId: string, rows: PostHitRow[], bySpace
       snippet: snippetAround(r.body_text, q, snippetMax),
       text: excerpt(r.body_text, 400),
       createdAt: r.created_at,
-      space: space ? { slug: space.slug, name: space.name } : null,
+      space: space ? { slug: space.slug, name: space.name, icon: space.icon ?? null, kind: space.kind } : null,
       author: a ? { name: a.name, avatarUrl: a.avatarUrl } : null,
     }
   })
@@ -228,7 +228,7 @@ export async function searchCommunity(db: Db, community: SearchCommunityRow, vie
   const longest = [...words].sort((a, b) => b.length - a.length)[0]
   const spaces = await visibleSpaces(db, community, viewer)
 
-  const spaceHits: SearchSpaceHit[] = rankAll(spaces, (s) => rankItem([{ text: s.name, weight: 3 }, { text: s.description, weight: 1 }], words), SEARCH_SPACES).map((s) => ({ id: s.id, slug: s.slug, name: s.name, kind: s.kind, description: s.description }))
+  const spaceHits: SearchSpaceHit[] = rankAll(spaces, (s) => rankItem([{ text: s.name, weight: 3 }, { text: s.description, weight: 1 }], words), SEARCH_SPACES).map((s) => ({ id: s.id, slug: s.slug, name: s.name, kind: s.kind, icon: s.icon ?? null, description: s.description }))
 
   const readable = spaces.filter((s) => s.kind !== "chat")
   const bySpace = new Map(readable.map((s) => [s.id, s]))
@@ -326,7 +326,7 @@ export async function searchIndex(db: Db, community: SearchCommunityRow, viewer:
   ])
   return {
     at: Date.now(),
-    spaces: spaces.map((s) => ({ id: s.id, slug: s.slug, name: s.name, kind: s.kind, description: s.description })),
+    spaces: spaces.map((s) => ({ id: s.id, slug: s.slug, name: s.name, kind: s.kind, icon: s.icon ?? null, description: s.description })),
     posts: postRows,
     members: memberRows,
     lessons,

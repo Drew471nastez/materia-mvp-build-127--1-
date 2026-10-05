@@ -7,6 +7,7 @@ import { COMMUNITY_PATH_HEADER, movedCommunityPath } from "@/lib/communities/slu
 import { meetsRole } from "@/lib/communities/permissions"
 import { memberPage, type MemberPage } from "@/components/community/member/data"
 import { CommunityPublicShell, CommunityShell } from "@/components/community/member/shell"
+import { communityTitle, tabIconUrl } from "@/components/community/public/seo"
 
 /**
  * EVERY PAGE INSIDE A COMMUNITY IS FOR ITS MEMBERS, so none of them is
@@ -29,7 +30,23 @@ import { CommunityPublicShell, CommunityShell } from "@/components/community/mem
  * this is a 404 or a plain state screen, and the bar (with the community's
  * name and picture on it) is not drawn around it.
  */
-export const metadata: Metadata = { robots: { index: false, follow: false } }
+/*
+ * THE TAB IS THE COMMUNITY'S (round 12, ask 8): its own mark as the tab's
+ * icon (tab-icon.png, its address fingerprinted by the logo and the name, so
+ * a new logo shows at once) and its name in the title, after each page's
+ * own word ("Classroom · Clay Studio"). Read per request, so a rename or a
+ * new logo is what the next page shows. Nothing of a community somebody may
+ * not see.
+ */
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const robots = { index: false, follow: false }
+  const { slug } = await params
+  const page = await memberPage(slug)
+  if (!page.community || !barVisible(page)) return { robots }
+  const c = page.community
+  const icon = tabIconUrl(c.slug, c.logo_url, c.name)
+  return { robots, title: communityTitle(c.name), icons: { icon: [{ url: icon, type: "image/png", sizes: "64x64" }], shortcut: [icon], apple: [{ url: icon, sizes: "64x64" }] } }
+}
 
 /** Whether this viewer may see the community's bar at all. */
 function barVisible(page: MemberPage): boolean {

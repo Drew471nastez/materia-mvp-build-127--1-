@@ -91,7 +91,7 @@ import { useLightChrome } from "@/lib/ui/light-chrome"
 import { MessagesPanel, MESSAGES_EVENT, useUnreadMessages } from "./messages"
 import { FULL_ON_HOVER, navEntries, sectionFromPath, tabFor, TABS_STILL_MS, tabsFollowTarget, type NavEntry, type TabKey } from "./nav"
 import { PersonCardLayer } from "./person-card"
-import { Toasts } from "./toast"
+import { toast, Toasts } from "./toast"
 import { CommunityTopBar } from "./top-bar"
 import { whenIdle } from "./feed-cache"
 import { InviteSheet } from "./invite-sheet"
@@ -100,6 +100,8 @@ import { PRESS_PROPS, TAB, TAB_OFF, TAB_ON } from "./ui"
 import type { ShellCommunity, ShellSection, TopBarData, WallData } from "./view-types"
 import { PlaceContext, plainClick, WallCommunityCard, WallContributorsCard, WallPlaces, WallUpcoming, type PlaceState } from "./wall"
 import { useCommunityLanding } from "./landing"
+import { useReturnScroll } from "./return-scroll"
+import { JOINED_KEY } from "@/components/community/public/paths"
 
 export { CommunityMark } from "./top-bar"
 
@@ -122,24 +124,44 @@ export const HEARTBEAT_MS = 60_000
 const FULL = "full" as never
 
 /**
- * A page arriving in the middle column fades in: a CSS animation on what is
+ * A page arriving in the middle column lands: a CSS animation on what is
  * put there, so a place that swaps in (cached, read ahead, or after the
  * spinner) eases in, while the same page drawing again (a refresh, a space
  * switched in place) changes nothing, because nothing new is inserted.
- * Opacity only (globals.css fade-in, never a move or a scale: either on
- * the page's box, even for 200ms, would make it the box a fixed bar inside
- * the page is placed in, the About page's join bar on a phone); none for
+ *
+ * ROUND 12, ask 2: "switching Community / Classroom / Calendar / Members /
+ * About: smoother landing (content fades and rises a few px), never
+ * abrupt". So it fades in and rises 6px over 260ms on a curve that settles
+ * (community-place-in, PLACE_KEYFRAMES below), by opacity and `translate`,
+ * which the compositor runs. A translate on the page's box would make it the
+ * box a fixed bar inside the page is placed in for those 260ms; the one
+ * there was (About's join bar on a phone) is portalled to the body now
+ * (components/community/public/join-controls.tsx JoinBarPhone), so nothing
+ * fixed rides the page. Not filled after it ends (no `both`), so the page is
+ * no stacking context or containing block once it has landed. None for
  * reduced motion.
+ *
+ * ONLY ONCE THE MEMBER HAS MOVED. The first page of a visit is drawn with
+ * the frame, which lands on its own (LAND, LAND_LATE), and in the server's
+ * HTML before anything is hydrated; it gets no second landing. From the
+ * first move to another place (Classroom, Members...) every page that
+ * arrives lands this way. A space switched in place is not a move.
  */
-export const ARRIVE = "[&>*]:animate-[fade-in_200ms_cubic-bezier(0.32,0.72,0,1)] motion-reduce:[&>*]:animate-none"
+export const ARRIVE = "[&>*]:animate-[community-place-in_260ms_cubic-bezier(0.22,1,0.36,1)] motion-reduce:[&>*]:animate-none"
+
+/** The landing's keyframes, printed with the frame (and the visitor's frame, public-frame.tsx), so no stylesheet has to carry them. */
+export const PLACE_KEYFRAMES = "@keyframes community-place-in{from{opacity:0;translate:0 6px}to{opacity:1;translate:0 0}}"
 
 /** The side columns' landing, once per visit (opacity only); the middle follows a beat later (LAND_LATE). */
 const LAND = "motion-safe:animate-[fade-in_260ms_cubic-bezier(0.22,1,0.36,1)_both]"
 const LAND_LATE = "motion-safe:animate-[fade-in_260ms_cubic-bezier(0.22,1,0.36,1)_60ms_both]"
 
-/** About's sheet pads itself (sales-page.tsx: none, then 24px from 640px, 32px from 1024px, and as much on top): its box steps out of the column's padding by as much. */
-/* Its ground is see-through here: the box reaches 8px past the column gap at the left, over the edge of the community card. */
-const ABOUT_BOX = "-mx-4 -mt-4 sm:-mx-6 lg:-mx-8 lg:-mt-8 [&>[data-community-sales]]:bg-transparent"
+/**
+ * About's sheet is edge to edge on a phone (as it always was): its box steps out of the column's padding there. From 640px it sits in
+ * the columns like any page (round 12: it no longer pads or centres itself, components/community/public/sales-page.tsx). Its ground is
+ * see-through here.
+ */
+const ABOUT_BOX = "max-sm:-mx-4 max-sm:-mt-4 [&>[data-community-sales]]:bg-transparent"
 
 /** The scrollbar's room kept on every page of the frame, so a short page and a long one centre the frame on the same line. */
 const GUTTER = "html{scrollbar-gutter:stable}"
@@ -200,6 +222,8 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
   const manageInvites = canInvite && (viewer.isOwner || viewer.isCreatorAccount) ? `/app/community/${community.id}/members` : null
 
   usePresenceHeartbeat(community.id, viewer.userId)
+  /* Back from a creator's page (or any page outside) lands where the community was left (return-scroll.ts, round 12). */
+  useReturnScroll(pathname || "")
   /* The bar is white, so the browser's bar and the phone's status bar are too. */
   useLightChrome(true)
   /*
@@ -209,6 +233,24 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
     and a fade on the frame as well would multiply the two.
   */
   const landing = useCommunityLanding()
+
+  /*
+    JUST JOINED (round 12, ask 13): the join button set this as it asked for the member's frame
+    (components/community/public/join-controls.tsx enterCommunity). Once the frame has landed, one quiet line says welcome, and
+    the note is forgotten, so a reload says nothing.
+  */
+  useEffect(() => {
+    let joined: string | null = null
+    try {
+      joined = window.sessionStorage.getItem(JOINED_KEY)
+      if (joined === community.slug) window.sessionStorage.removeItem(JOINED_KEY)
+    } catch {
+      return
+    }
+    if (joined !== community.slug) return
+    const t = window.setTimeout(() => toast(`Welcome to ${community.name}`), 420)
+    return () => window.clearTimeout(t)
+  }, [community.slug, community.name])
 
   /* "Message" on a person's card or a member row opens the panel. */
   useEffect(() => {
@@ -251,6 +293,10 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
   const goTo = useCallback((key: TabKey) => setGoing({ key, from: pathRef.current }), [])
   const about = current === "about"
   const tab = going?.key ?? tabFor(current)
+  /* Moved to another place since the visit began: pages that arrive from now on land (ARRIVE). Set in the render that brings the new page. */
+  const firstTab = useRef(tabFor(current))
+  const [moved, setMoved] = useState(false)
+  if (!moved && tabFor(current) !== firstTab.current) setMoved(true)
   const place = useMemo<PlaceState>(() => ({ tab, onGo: goTo }), [tab, goTo])
   const membersHref = entries.find((e) => e.key === "members")?.href ?? null
   /* The right column is the community's, the same on every place (round 9): the next event and who takes part. */
@@ -284,7 +330,7 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
   return (
     /* The header's real heights until it is measured (56 + 40 of tabs + its hairline below 1024px, one 64px row + 1 from 1024px): no jump on the first frame. */
     <PlaceContext.Provider value={place}>
-      <style>{GUTTER}</style>
+      <style>{GUTTER + PLACE_KEYFRAMES}</style>
       <div
         data-community-shell=""
         data-community-landing={landing ? "" : undefined}
@@ -319,7 +365,7 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
               ) : null}
             </aside>
             <div className={`min-w-0 lg:row-span-2 lg:row-start-1 ${about ? "lg:col-start-2 xl:col-span-2" : "lg:col-start-2"} ${LAND_LATE}`} data-community-main="">
-              <div className={`${ARRIVE} ${about ? ABOUT_BOX : ""}`} data-community-body="">
+              <div className={`${moved ? ARRIVE : ""} ${about ? ABOUT_BOX : ""}`} data-community-body="" data-community-moved={moved ? "" : undefined}>
                 {children}
               </div>
             </div>

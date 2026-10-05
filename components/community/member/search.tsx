@@ -39,7 +39,7 @@
 import { useRouter } from "next/navigation"
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { createPortal, flushSync } from "react-dom"
-import { CalendarDays, GraduationCap, Hash, MessageSquareText, MessagesSquare, PlayCircle, Search, X } from "lucide-react"
+import { CalendarDays, GraduationCap, MessageSquareText, PlayCircle, Search, X } from "lucide-react"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { relativeTime } from "@/lib/communities/format"
 import { registerCommunitySearch } from "@/lib/nav/community-search-bridge"
@@ -47,6 +47,7 @@ import { api, apiBase } from "./api"
 import { PLAIN_ICON_BTN } from "./ui"
 import type { SearchIndex, SearchResults } from "./view-types"
 import { RoleBadge } from "./role-badge"
+import { spaceGlyph } from "./space-glyph"
 import { fold, markRanges, rankAll, rankItem, searchWords } from "./search-rank"
 
 /** Mirrors the server: shorter than this is not searched. */
@@ -57,7 +58,16 @@ export const SEARCH_PLACEHOLDER = "Search discussions, members, or content..."
 export const SEARCH_PLACEHOLDER_SHORT = "Search this community"
 const SHORT_BELOW_PX = 380
 /** How long the phone's search screen takes to go when closed. */
-export const SCREEN_OUT_MS = 150
+export const SCREEN_OUT_MS = 180
+
+/*
+  THE SCREEN'S MOTION (round 12, ask 1). Its white surface never fades in, so the page is never seen through it; the field row and
+  the results rise 8px and settle, a beat apart. Cancel: the whole screen sinks 6px and fades over SCREEN_OUT_MS on a curve that
+  leaves, and only then goes. Translate and opacity only, on the compositor.
+*/
+const SCREEN_KEYFRAMES =
+  "@keyframes community-search-rise{from{opacity:0;translate:0 8px}to{opacity:1;translate:0 0}}" +
+  "@keyframes community-search-out{from{opacity:1;translate:0 0}to{opacity:0;translate:0 6px}}"
 
 type Status = "idle" | "loading" | "done" | "error" | "busy"
 
@@ -343,8 +353,9 @@ function ResultList({
           <p className="px-2.5 pb-1 pt-2 text-[12px] font-medium text-[#8a8f98]">{GROUP_TITLE.spaces}</p>
           {results.spaces.map((s) => (
             <div key={s.id} {...optionProps(`space:${s.id}`)}>
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#f3f4f6] text-[#6b7280]">
-                {s.kind === "chat" ? <MessagesSquare className="h-4 w-4" strokeWidth={1.9} aria-hidden /> : <Hash className="h-4 w-4" strokeWidth={1.9} aria-hidden />}
+              {/* The space's own icon, as its chip and the dashboard show it (space-glyph.ts, round 12). */}
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#f3f4f6] text-[15px] leading-none" data-space-glyph="">
+                {spaceGlyph(s.icon, s.kind)}
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-[14px] text-[#262633]">
@@ -660,7 +671,12 @@ export function CommunitySearchButton({ communityId, slug, className = "", trigg
               role="dialog"
               aria-modal="true"
               aria-label="Search this community"
-              className={`fixed inset-0 z-[80] flex flex-col bg-white pt-[env(safe-area-inset-top)] motion-reduce:animate-none ${leaving ? "pointer-events-none animate-out fade-out-0 slide-out-to-bottom-2 fill-mode-forwards duration-150 ease-in" : "animate-in fade-in-0 slide-in-from-bottom-2 duration-200 ease-sheet"}`}
+              /*
+                ONE OPAQUE WHITE SCREEN (round 12): the surface is white from its first frame to its last, so nothing of the page shows
+                through while it comes or goes; what is on it (the field and the results) rises in and settles, and on Cancel sinks and
+                fades while the surface goes with it at the end (SCREEN_OUT_MS).
+              */
+              className={`fixed inset-0 z-[80] flex flex-col bg-white pt-[calc(env(safe-area-inset-top)+10px)] motion-reduce:animate-none ${leaving ? "pointer-events-none animate-[community-search-out_180ms_cubic-bezier(0.4,0,1,1)_forwards]" : ""}`}
               data-leaving={leaving ? "" : undefined}
               data-community-search-screen=""
               onKeyDown={(e) => {
@@ -670,8 +686,10 @@ export function CommunitySearchButton({ communityId, slug, className = "", trigg
                 }
               }}
             >
-              <div className="flex items-center gap-2 border-b border-[#eceef1] px-3 py-2">
-                <label className="relative flex h-11 min-w-0 flex-1 items-center rounded-xl bg-[#f3f4f6]">
+              <style>{SCREEN_KEYFRAMES}</style>
+              <div className={`flex items-center gap-2 border-b border-[#eceef1] px-3 pb-2.5 pt-1.5 ${leaving ? "" : "motion-safe:animate-[community-search-rise_260ms_cubic-bezier(0.22,1,0.36,1)_both]"}`} data-community-search-head="">
+                {/* A little depth (round 12): a white field on a hairline with a soft one pixel shadow, Storelib's fields. */}
+                <label className="relative flex h-11 min-w-0 flex-1 items-center rounded-xl border border-[#e3e5e9] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.06),0_2px_8px_-4px_rgba(16,24,40,0.08)] transition-[border-color,box-shadow] duration-150 focus-within:border-[#c9ccd2] focus-within:shadow-[0_0_0_3px_rgba(26,26,46,0.06),0_1px_2px_rgba(16,24,40,0.06)]" data-community-search-field="">
                   <Search className="pointer-events-none absolute left-3 h-[18px] w-[18px] text-[#8a8f98]" strokeWidth={2} aria-hidden />
                   <input
                     ref={input}
@@ -698,7 +716,7 @@ export function CommunitySearchButton({ communityId, slug, className = "", trigg
                   Cancel
                 </button>
               </div>
-              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pb-[calc(env(safe-area-inset-bottom)+16px)] pt-1">
+              <div className={`min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pb-[calc(env(safe-area-inset-bottom)+16px)] pt-1 ${leaving ? "" : "motion-safe:animate-[community-search-rise_300ms_cubic-bezier(0.22,1,0.36,1)_40ms_both]"}`}>
                 <ResultList listId={listId} slug={slug} results={s.results} status={s.status} term={s.term} active={active} onHover={setActive} onPick={go} touch stale={s.stale} />
               </div>
             </div>,

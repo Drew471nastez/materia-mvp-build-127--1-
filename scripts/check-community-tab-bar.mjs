@@ -272,6 +272,29 @@ export const isNativePlatform = () => false
     await p.close()
   }
 
+  /* ── CONTEXT (round 12) ───────────────────────────────────────────── */
+  console.log("\nphone 390, the community stays Home from Profile and Library, in one tab")
+  {
+    const { p, errors } = await open("/community/clay-studio?case=feed&signedin=1", PHONE)
+    await sleep(400)
+    for (const path of ["/account", "/account/library", "/explore/search"]) {
+      await p.goto(`${ORIGIN}${path}?case=feed&signedin=1`, { waitUntil: "load" })
+      await sleep(700)
+      const s = await bar(p)
+      const stored = await p.evaluate(() => sessionStorage.getItem("storelib:community-context"))
+      expect(s && s.shown && s.hrefs[0] === "/community/clay-studio" && stored === "clay-studio", `${path}: Home is still the community's`, s && { home: s.hrefs[0], current: s.current, stored })
+    }
+    /* The navigator's Explore ends it: the next page's Home is Storelib's again. */
+    await p.evaluate(() => sessionStorage.removeItem("storelib:community-context"))
+    await p.goto(`${ORIGIN}/account?case=feed&signedin=1`, { waitUntil: "load" })
+    await sleep(700)
+    const after = await bar(p)
+    expect(after && after.hrefs[0] === "/explore", "once it has ended, Home is Explore again", after && { home: after.hrefs[0] })
+    await p.screenshot({ path: join(shots, "phone-context-account.png") })
+    expect(errors.length === 0, "no page error", errors)
+    await p.close()
+  }
+
   /* ── DESKTOP ───────────────────────────────────────────────────────── */
   console.log("\n1440, inside a community")
   {

@@ -19,7 +19,8 @@
  */
 import Link from "next/link"
 import { useCallback, useEffect, useState } from "react"
-import { ArrowLeft, CalendarDays, CalendarPlus, Check, Clock3, Loader2, Lock, MapPin, Users, Video } from "lucide-react"
+import { ArrowLeft, CalendarDays, CalendarPlus, Check, Clock3, Lock, MapPin, Users, Video } from "lucide-react"
+import { Spinner } from "@/components/community/member/place-spinner"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { CARD, PRIMARY, SECONDARY } from "@/components/library/library-ui"
 import { StorelibVideo } from "@/components/video/storelib-video"
@@ -253,12 +254,12 @@ export function EventDetail({ event: initial, eventsHref, aboutHref }: EventDeta
                 ) : null}
                 {rsvp.status ? (
                   <button type="button" onClick={() => void answer(false)} disabled={busy} className={`${SECONDARY} w-full`} data-rsvp="cancel">
-                    {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                    {busy ? <Spinner size={16} className="text-current" /> : null}
                     {rsvp.status === "waitlist" ? "Leave the waitlist" : "I can't go"}
                   </button>
                 ) : (
                   <button type="button" onClick={() => void answer(true)} disabled={busy} className={`${event.meetingUrl ? SECONDARY : PRIMARY} w-full`} data-rsvp="going">
-                    {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                    {busy ? <Spinner size={16} className="text-current" /> : null}
                     {full ? "Join the waitlist" : "Going"}
                   </button>
                 )}

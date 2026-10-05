@@ -18,6 +18,7 @@ import { evaluateAccess, type AccessViewer } from "../access"
 import type { AuthorView, MemberView, Role } from "../types"
 import type { MemberProfileView } from "@/components/community/member/view-types"
 import { ensureUsernames } from "@/lib/profile/ensure-username"
+import { isCountryCode, placeLine } from "../location"
 import { missing, reasonOf, type Db } from "./db"
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -29,6 +30,46 @@ interface ProfileRow {
   username: string | null
   display_name: string | null
   avatar_url: string | null
+  /** Part 98; absent before it runs. */
+  location_city?: string | null
+  location_country?: string | null
+}
+
+/*
+  WHERE PEOPLE ARE FROM (round 12, part 98). profiles.location_city and
+  location_country are read with the names once part 98 has added them;
+  before that the read without them is the read it always was. Whether they
+  are there is remembered for the process (looked for again after a few
+  minutes while they are not), so a page of people is still one read.
+*/
+const PROFILE_BASE = "id, username, display_name, avatar_url"
+const PROFILE_WITH_PLACE = `${PROFILE_BASE}, location_city, location_country`
+const PLACE_RECHECK_MS = 5 * 60_000
+let placeColumns: boolean | null = null
+let placeCheckedAt = 0
+
+/** A column part 98 adds that is not there yet (42703, or PostgREST's PGRST204). */
+function columnMissing(error: unknown): boolean {
+  const code = (error as { code?: string } | null)?.code
+  return code === "42703" || code === "PGRST204"
+}
+
+function placeColumnsWorthAsking(): boolean {
+  return placeColumns !== false || Date.now() - placeCheckedAt > PLACE_RECHECK_MS
+}
+
+/** Whether profiles can say where people are from (part 98 has run): the directory's country filter is offered only then. */
+export async function locationsReady(db: Db): Promise<boolean> {
+  if (placeColumns !== null && !(placeColumns === false && placeColumnsWorthAsking())) return placeColumns
+  try {
+    const { error } = await db.from("profiles").select("location_country").limit(1)
+    placeColumns = !error
+    placeCheckedAt = Date.now()
+  } catch {
+    placeColumns = false
+    placeCheckedAt = Date.now()
+  }
+  return placeColumns === true
 }
 
 /** The name a person goes by: their display name, their username, or "Member". */
@@ -48,7 +89,15 @@ async function profilesOf(db: Db, ids: string[]): Promise<Map<string, ProfileRow
   const list = [...new Set(ids.filter((id) => typeof id === "string" && UUID.test(id)))]
   if (!list.length) return out
   try {
-    const { data, error } = await db.from("profiles").select("id, username, display_name, avatar_url").in("id", list)
+    const withPlace = placeColumnsWorthAsking()
+    let { data, error } = await db.from("profiles").select(withPlace ? PROFILE_WITH_PLACE : PROFILE_BASE).in("id", list)
+    if (withPlace) {
+      if (error && columnMissing(error)) {
+        placeColumns = false
+        placeCheckedAt = Date.now()
+        ;({ data, error } = await db.from("profiles").select(PROFILE_BASE).in("id", list))
+      } else if (!error) placeColumns = true
+    }
     if (error) {
       if (!missing(error)) console.error(`[communities] profiles read: ${reasonOf(error)}`)
       return out
@@ -229,6 +278,7 @@ async function toMemberViews(db: Db, communityId: string, rows: MemberRowLite[])
       joinedAt: r.joined_at,
       lastActiveAt: r.last_active_at,
       hasStorefront: stores.has(r.user_id),
+      location: placeLine(p?.location_city, p?.location_country),
     }
   })
 }
@@ -239,6 +289,61 @@ export interface DirectoryQuery {
   level?: number | null
   cursor?: string | null
   limit?: number
+  /** Only members whose profile says this country (a two letter code, part 98). */
+  country?: string | null
+}
+
+/** Members looked at per read while filtering by country, and at most per request: bounded however few match. */
+export const COUNTRY_SCAN_CHUNK = 200
+export const COUNTRY_SCAN_MAX = 2000
+
+/**
+ * THE COUNTRY FILTER (round 12, ask 15). Where somebody is from lives on
+ * profiles, which cannot be joined to the members here in one read, and a
+ * country's people across all of Storelib are far too many to list first.
+ * So the members' own keyset is walked in chunks (COUNTRY_SCAN_CHUNK), each
+ * chunk's people looked up in profiles by id and country, until a page is
+ * full or COUNTRY_SCAN_MAX members have been looked at; the cursor is where
+ * the walk stopped, so "Show more" carries on from there. Bounded the same
+ * for ten members or ten thousand. Without part 98 nobody matches.
+ */
+async function byCountry(
+  db: Db,
+  communityId: string,
+  country: string,
+  from: DirectoryCursor | null,
+  limit: number,
+  readPage: (after: DirectoryCursor | null, size: number) => PromiseLike<{ data: unknown; error: unknown }>,
+): Promise<{ members: MemberView[]; nextCursor: string | null }> {
+  if (!(await locationsReady(db))) return { members: [], nextCursor: null }
+  const found: MemberRowLite[] = []
+  let after = from
+  let scanned = 0
+  let more = true
+  while (found.length < limit && scanned < COUNTRY_SCAN_MAX && more) {
+    const { data, error } = await readPage(after, COUNTRY_SCAN_CHUNK)
+    if (error) {
+      if (!missing(error as never)) console.error(`[communities] members by country: ${reasonOf(error)}`)
+      return { members: [], nextCursor: null }
+    }
+    const rows = (data as MemberRowLite[] | null) ?? []
+    more = rows.length === COUNTRY_SCAN_CHUNK
+    if (!rows.length) break
+    const { data: hits, error: hitError } = await db.from("profiles").select("id").in("id", rows.map((r) => r.user_id)).eq("location_country", country)
+    if (hitError) return { members: [], nextCursor: null }
+    const here = new Set(((hits as { id: string }[] | null) ?? []).map((h) => h.id))
+    for (const r of rows) {
+      scanned++
+      after = { j: r.joined_at ?? "", i: r.id }
+      if (here.has(r.user_id)) found.push(r)
+      if (found.length >= limit) {
+        /* Full: the walk stops at this member, and the next page starts after them. */
+        more = more || r !== rows[rows.length - 1]
+        break
+      }
+    }
+  }
+  return { members: await toMemberViews(db, communityId, found), nextCursor: more && after ? encodeDirectoryCursor(after) : null }
 }
 
 /**
@@ -260,20 +365,23 @@ export async function listMembers(db: Db, communityId: string, query: DirectoryQ
       matchIds = ((data as { id: string }[] | null) ?? []).map((r) => r.id)
       if (!matchIds.length) return { members: [], nextCursor: null }
     }
-    let read = db.from("community_members").select(MEMBER_LITE).eq("community_id", communityId).eq("status", "active")
-    if (matchIds) read = read.in("user_id", matchIds)
-    if (query.role) read = read.eq("role", query.role)
-    if (query.level && query.level > 1) read = read.gte("level", Math.min(20, Math.floor(query.level)))
-    const cursor = decodeDirectoryCursor(query.cursor)
-    if (cursor) {
-      read = cursor.j
-        ? read.or(`joined_at.lt."${cursor.j}",and(joined_at.eq."${cursor.j}",id.lt.${cursor.i}),joined_at.is.null`)
-        : read.is("joined_at", null).lt("id", cursor.i)
+    /* One page of the members' keyset, from a cursor: the plain directory reads one, the country filter reads several. */
+    const readPage = (after: DirectoryCursor | null, size: number) => {
+      let read = db.from("community_members").select(MEMBER_LITE).eq("community_id", communityId).eq("status", "active")
+      if (matchIds) read = read.in("user_id", matchIds)
+      if (query.role) read = read.eq("role", query.role)
+      if (query.level && query.level > 1) read = read.gte("level", Math.min(20, Math.floor(query.level)))
+      if (after) {
+        read = after.j
+          ? read.or(`joined_at.lt."${after.j}",and(joined_at.eq."${after.j}",id.lt.${after.i}),joined_at.is.null`)
+          : read.is("joined_at", null).lt("id", after.i)
+      }
+      return read.order("joined_at", { ascending: false, nullsFirst: false }).order("id", { ascending: false }).limit(size)
     }
-    const { data, error } = await read
-      .order("joined_at", { ascending: false, nullsFirst: false })
-      .order("id", { ascending: false })
-      .limit(limit + 1)
+    const cursor = decodeDirectoryCursor(query.cursor)
+    const country = isCountryCode(query.country) ? query.country : null
+    if (country) return await byCountry(db, communityId, country, cursor, limit, readPage)
+    const { data, error } = await readPage(cursor, limit + 1)
     if (error) {
       if (!missing(error)) console.error(`[communities] members read: ${reasonOf(error)}`)
       return { members: [], nextCursor: null }

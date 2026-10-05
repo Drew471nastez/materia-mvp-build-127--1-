@@ -23,9 +23,11 @@
  *   YOUR MEMBERSHIP  for a member: manage it, or leave (round 11: Leave is
  *                 a row here with a confirm, not a link under the button)
  *
- * From 1024px the decision also sits beside it in a sticky card (the cover,
- * the name, the price and the button); on a phone the button is a bar at the
- * bottom with its own white, down to the screen's foot (join-controls.tsx).
+ * From 1280px the decision also sits beside it in a sticky card in the
+ * frame's right column (the name, the price and the button; the cover is the
+ * community card's, in the left column); below that the button is a bar at
+ * the bottom with its own white, down to the screen's foot
+ * (join-controls.tsx).
  *
  * NOTHING HERE IS MADE UP. The member count is the trigger kept count of
  * active members, active this week is members whose last_active_at is in
@@ -42,6 +44,7 @@ import { AppAvatar } from "@/components/app/app-avatar"
 import { compactCount, relativeTime } from "@/lib/communities/format"
 import { cn } from "@/lib/utils"
 import { CommunityGallery } from "./gallery-view"
+import { FULL_ON_HOVER } from "@/components/community/member/nav"
 import { optimizedImageUrl } from "@/lib/images/optimized-url"
 import { CheckDot } from "./check-dot"
 import { JoinBarPhone, JoinCard, JoinProvider, JoinSummaryPhone, MembershipRow, PricingCard } from "./join-controls"
@@ -278,6 +281,7 @@ function CreatorBlock({ creator, bio }: { creator: NonNullable<PublicCommunityVi
         {creator.href ? (
           <Link
             href={creator.href}
+            {...FULL_ON_HOVER}
             className="col-start-2 row-start-3 mt-3 inline-flex h-10 items-center justify-self-start rounded-[10px] border border-[#e3e5e9] bg-white px-3.5 text-[13.5px] font-medium text-[#1a1a2e] shadow-[0_1px_1px_rgba(16,24,40,0.05)] outline-none transition-[background-color,box-shadow] duration-150 hover:bg-[#f6f7f8] active:bg-[#eef0f2] active:shadow-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 sm:col-start-3 sm:row-start-1 sm:mt-0 sm:h-9 sm:justify-self-end"
             data-creator-page=""
           >
@@ -340,16 +344,21 @@ export function CommunitySalesPage({ data }: { data: SalesPageData }) {
     ) : null
 
   return (
-    <JoinProvider community={c} join={join}>
+    <JoinProvider community={c} join={join} askWhy={!!data.askWhy}>
       <div data-community-sales={c.slug} className="bg-[#f8f9fa]">
         {notice ? (
           <div role="status" className="border-b border-[#f0e2b6] bg-[#fdf7e7] px-4 py-2.5 text-center text-[13.5px] text-[#6b5409]">
             {notice}
           </div>
         ) : null}
-        {/* Edge to edge on a phone, a sheet on the page from 640px. */}
-        <div className="mx-auto w-full max-w-[1080px] pb-10 sm:px-6 sm:pt-6 lg:px-8 lg:pb-20 lg:pt-8">
-          <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-8 xl:gap-10">
+        {/*
+          Edge to edge on a phone, a sheet on the page from 640px. It no longer pads or centres itself (round 12): the frame it is in
+          (the member's, shell-frame.tsx, or a visitor's, public-frame.tsx, the same columns) places it in the middle and right columns,
+          and from 1280px its own two columns are exactly those: the sheet the middle column's width, the side card the right column's
+          300px, 24px apart, so About lines up with every other page of the community.
+        */}
+        <div className="w-full pb-10 lg:pb-20" data-community-sales-columns="">
+          <div className="xl:grid xl:grid-cols-[minmax(0,1fr)_300px] xl:gap-6">
             <main className="min-w-0">
               <article className="overflow-hidden border-b border-[#e5e7eb]/70 bg-white sm:rounded-2xl sm:border sm:shadow-[0_1px_3px_rgba(0,0,0,0.04)]" data-community-sheet="">
                 <header className={cn(PAD, "pt-6 sm:pt-8")}>
@@ -377,7 +386,7 @@ export function CommunitySalesPage({ data }: { data: SalesPageData }) {
                 ) : null}
 
                 {/* On a phone, under the media: only what happened (an error, a request waiting), when there is something. */}
-                <div className={cn(PAD, "mt-5 empty:hidden lg:hidden")}>
+                <div className={cn(PAD, "mt-5 empty:hidden xl:hidden")}>
                   <JoinSummaryPhone />
                 </div>
 

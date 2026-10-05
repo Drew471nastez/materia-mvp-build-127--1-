@@ -33,8 +33,8 @@
  * (DEPTH_ICON_BTN, "extremely little depth"); the "..." is flat (round 9,
  * FLAT_ICON_BTN: a tint on hover only); Messages and the bell are plain
  * icons that darken on hover; the search field is squared at 12px; Log in
- * is a word; the counts are small squared tags; the only round things are
- * the pictures of people.
+ * is a word; the only round things are the pictures of people and the red
+ * notification bubbles (round 12).
  *
  * ONE OPAQUE WHITE SURFACE WITH THE STATUS BAR (round 9). The bar's white
  * reaches up through env(safe-area-inset-top), so in the phone app the band
@@ -55,10 +55,12 @@ import { ChatRoundDotsIcon as ChatBold } from "@solar-icons/react/bold/chat-roun
 import { CommunityMark } from "./community-mark"
 import { cn } from "@/lib/utils"
 import { NotificationBell } from "@/components/notifications/notification-bell"
+import { NOTIFICATION_BADGE } from "@/components/notifications/badge-tone"
 import { CommunityAccountMenu, type CommunityMenuRows } from "./account-menu"
 import { PlaceNavigator } from "./place-navigator"
 import { CommunitySearchButton, CommunitySearchField } from "./search"
 import { DEPTH_ICON_BTN, PLAIN_ICON_BTN } from "./ui"
+import { FULL_ON_HOVER } from "./nav"
 import type { TopBarData } from "./view-types"
 
 export interface TopBarProps {
@@ -74,25 +76,26 @@ export interface TopBarProps {
   tabsOnDesktop?: boolean
   /** The community's own rows in the "..." menu (Invite people, Saved posts), for a member. */
   menu?: CommunityMenuRows | null
+  /** Lined up with the frame's three columns (1360px). Left out: a member's bar is, anybody else's is the 1080px sheet's. */
+  wide?: boolean
 }
 
 /**
- * The small count on an icon: Storelib's ink with white figures (round 8:
- * not red), squared off rather than a round blob, so nothing in this bar is
- * a pill. The bell's own count is
- * drawn the same way here (BELL below), so the two read as one pair.
+ * The small count on an icon: the red notification bubble with white figures
+ * (round 12, reversing round 8's ink; components/notifications/badge-tone.ts),
+ * round like the bell's own, so Messages and the bell read as one pair and as
+ * the same bubble the Storelib header and the dashboard draw.
  */
-const COUNT = "rounded-[5px]"
 function Badge({ n }: { n: number }) {
   return (
-    <span aria-hidden className={`pointer-events-none absolute -right-2 -top-1.5 box-border flex h-[18px] min-w-[18px] items-center justify-center ${COUNT} bg-[#1a1a2e] px-[5px] text-white`} data-count-badge="">
+    <span aria-hidden className={`pointer-events-none absolute -right-2 -top-1.5 box-border flex h-[18px] min-w-[18px] items-center justify-center px-[5px] ${NOTIFICATION_BADGE}`} data-count-badge="">
       <span className="block text-[10px] font-semibold leading-none tabular-nums">{n > 99 ? "99+" : String(n)}</span>
     </span>
   )
 }
 
-/** Storelib's bell, made a plain icon button here, its glyph 24px (round 7: "a bit bigger"), its count squared like Messages'. */
-const BELL = `${PLAIN_ICON_BTN} [&_[data-bell-badge]]:rounded-[5px] [&_svg.lucide-bell]:h-6 [&_svg.lucide-bell]:w-6`
+/** Storelib's bell, made a plain icon button here, its glyph 24px (round 7: "a bit bigger"), its count the same red bubble as Messages'. */
+const BELL = `${PLAIN_ICON_BTN} [&_svg.lucide-bell]:h-6 [&_svg.lucide-bell]:w-6`
 
 /**
  * The hamburger: three even 2px lines, 18px wide and 4px apart, on whole
@@ -145,12 +148,12 @@ function LogInLink({ base }: { base: string }) {
   )
 }
 
-function CommunityTopBarInner({ data, messages = null, messagesOpen = false, onMessages, search = null, children, tabsOnDesktop = false, menu = null }: TopBarProps) {
+function CommunityTopBarInner({ data, messages = null, messagesOpen = false, onMessages, search = null, children, tabsOnDesktop = false, menu = null, wide: wideProp }: TopBarProps) {
   const ref = useRef<HTMLElement>(null)
   useCommunityTop(ref)
   const { community, creator, me } = data
-  /* The member's frame lines the bar up with its three columns (1360px); a visitor's page and About keep the sheet's 1080px. */
-  const wide = !!search && !tabsOnDesktop
+  /* The frames line the bar up with their three columns (1360px), the visitor's too since round 12 (public-frame.tsx). */
+  const wide = (wideProp ?? !!search) && !tabsOnDesktop
   const base = `/community/${community.slug}`
 
   return (
@@ -183,7 +186,8 @@ function CommunityTopBarInner({ data, messages = null, messagesOpen = false, onM
               <p className="hidden truncate text-[12.5px] leading-[1.35] text-[#6b7280] md:block" data-community-by="">
                 By{" "}
                 {creator.href ? (
-                  <Link href={creator.href} className="font-medium text-[#4b5563] outline-none hover:text-[#1a1a2e] hover:underline focus-visible:underline" data-person-link="" data-community-creator="">
+                  /* Their page read whole the moment a pointer rests on it (round 12), so it lands at once. */
+                  <Link href={creator.href} {...FULL_ON_HOVER} className="font-medium text-[#4b5563] outline-none hover:text-[#1a1a2e] hover:underline focus-visible:underline" data-person-link="" data-community-creator="">
                     {creator.name}
                   </Link>
                 ) : (

@@ -662,7 +662,8 @@ export interface PollView {
 export interface FeedPostView {
   id: string
   communityId: string
-  space: { id: string; slug: string; name: string } | null
+  /** Its space; `icon` and `kind` give its icon (components/community/member/space-glyph.ts spaceGlyph). */
+  space: { id: string; slug: string; name: string; icon?: string | null; kind?: SpaceKind } | null
   kind: PostKind
   title: string | null
   /** Sanitized html. */
@@ -729,6 +730,8 @@ export interface MemberView {
   lastActiveAt: string | null
   /** They sell on Storelib, so their page is /<handle> rather than /@handle. */
   hasStorefront?: boolean
+  /** "Lisbon, Portugal" from their profile (part 98, lib/communities/location.ts); null when they have not said. */
+  location?: string | null
 }
 
 export interface EventView {

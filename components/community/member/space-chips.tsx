@@ -31,8 +31,13 @@
  * and their last 24px fade out, over padding when everything fits, so the
  * fade only ever shows when there is more. No hooks, so the server pages
  * draw it.
+ *
+ * EVERY CHIP CARRIES ITS SPACE'S ICON (round 12): the emoji the admin set,
+ * or its kind's when the space still has the word name every community
+ * starts with (space-glyph.ts), so a chip shows what the dashboard shows.
  */
 import Link from "next/link"
+import { spaceGlyph } from "./space-glyph"
 import { press, PRESS_PROPS } from "./ui"
 import type { SpaceView } from "./view-types"
 
@@ -45,12 +50,6 @@ const CHIP_OFF =
 
 /** What a chip (or the sort menu's Saved posts) opens, for a feed that switches in place: All, one feed space, or Saved. */
 export type ChipPick = { kind: "all" } | { kind: "space"; slug: string } | { kind: "saved" }
-
-/** An emoji the creator chose for a space goes in front of its name; the line icon names do not. */
-function emojiOf(icon: string | null): string | null {
-  const v = (icon || "").trim()
-  return v && !/^[a-z0-9-]+$/i.test(v) ? Array.from(v).slice(0, 2).join("") : null
-}
 
 /** A click that should stay in place: the main button, no key held (those open a new tab or window). */
 function inPlace(e: React.MouseEvent): boolean {
@@ -151,7 +150,7 @@ export function SpaceChips({ slug, spaces, active, savedOn = false, onPick, onIn
           </Link>
           {spaces.map((s) => {
             const on = active === s.slug
-            const emoji = emojiOf(s.icon)
+            const glyph = spaceGlyph(s.icon, s.kind)
             return (
               <Link
                 key={s.id}
@@ -161,7 +160,8 @@ export function SpaceChips({ slug, spaces, active, savedOn = false, onPick, onIn
                 className={`${CHIP} ${on ? CHIP_ON : CHIP_OFF}`}
                 {...(s.kind === "chat" ? {} : switching({ kind: "space", slug: s.slug }))}
               >
-                {emoji ? <span aria-hidden className="text-[14px] leading-none">{emoji}</span> : null}
+                {/* The icon the admin set, or the kind's, as their own list shows it (space-glyph.ts, round 12). */}
+                <span aria-hidden className="text-[14px] leading-none" data-space-glyph="">{glyph}</span>
                 <span className="max-w-[180px] truncate">{s.name}</span>
                 {s.unread > 0 && !on ? <span aria-label={`${s.unread} unread`} className="h-1.5 w-1.5 rounded-full bg-[#1a1a2e]" /> : null}
               </Link>

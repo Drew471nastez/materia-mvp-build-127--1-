@@ -271,11 +271,12 @@ const member = (p: Person, extra: Partial<MemberView> = {}): MemberView => ({
   hasStorefront: p.hasStorefront,
   ...extra,
 })
+/* Round 12: where people are from, as the server words it (lib/communities/location.ts placeLine). */
 const MEMBERS: MemberView[] = [
-  member(people.mara, { bio: "Runs Clay Studio. Twelve years running a pottery workshop." }),
-  member(people.priya, { bio: "Glaze chemistry nerd." }),
-  member(people.me),
-  member(people.jonas, { bio: "Weekend potter, Lisbon." }),
+  member(people.mara, { bio: "Runs Clay Studio. Twelve years running a pottery workshop.", location: "Lisbon, Portugal" }),
+  member(people.priya, { bio: "Glaze chemistry nerd.", location: "Bengaluru, India" }),
+  member(people.me, { location: "United Kingdom" }),
+  member(people.jonas, { bio: "Weekend potter, Lisbon.", location: "Porto, Portugal" }),
   member(people.leo),
 ]
 
@@ -441,7 +442,7 @@ function eventsPage(events: EventCardView[]) {
   return <EventsPage communityId={CID} initial={{ events, nextCursor: null }} month={monthOf(events)} fallbackZone="Europe/Lisbon" manageHref={manage ? `${manage}/events?new=1` : null} />
 }
 function aboutPage() {
-  const data: SalesPageData = { community: studio, join: facts(studio, { active: true, role: "member", status: "active" }), notice: null }
+  const data: SalesPageData = { community: studio, join: facts(studio, { active: true, role: "member", status: "active" }), notice: null, askWhy: params.get("ask") !== "0" }
   return <CommunitySalesPage data={data} />
 }
 
@@ -463,7 +464,7 @@ if (which === "nav") {
 
 function placePage(path: string, feed: (space: SpaceView | null) => React.ReactNode) {
   const section = sectionFromPath(path, community.slug)
-  if (section === "members") return <MembersDirectory communityId={CID} slug={community.slug} memberCount={community.memberCount} initial={{ members: MEMBERS, nextCursor: null }} meId="u-me" canMessage />
+  if (section === "members") return <MembersDirectory communityId={CID} slug={community.slug} memberCount={community.memberCount} initial={{ members: MEMBERS, nextCursor: null }} meId="u-me" canMessage countryFilter />
   if (section === "leaderboard")
     return (
       <Leaderboard
@@ -531,7 +532,7 @@ function Screen() {
   if (which === "events-empty") return shell(eventsPage([]))
   if (which === "events") return shell(eventsPage(EVENTS))
   if (which === "members-empty") return shell(<MembersDirectory communityId={CID} slug={community.slug} memberCount={2} initial={{ members: MEMBERS.slice(0, 2), nextCursor: null }} meId="u-me" canMessage />)
-  if (which === "members") return shell(<MembersDirectory communityId={CID} slug={community.slug} memberCount={community.memberCount} initial={{ members: MEMBERS, nextCursor: null }} meId="u-me" canMessage />)
+  if (which === "members") return shell(<MembersDirectory communityId={CID} slug={community.slug} memberCount={community.memberCount} initial={{ members: MEMBERS, nextCursor: null }} meId="u-me" canMessage countryFilter />)
   if (which === "leaderboard")
     return shell(
       <Leaderboard
@@ -543,14 +544,17 @@ function Screen() {
       />,
     )
   if (which === "about-member") {
-    const data: SalesPageData = { community: studio, join: facts(studio, { active: true, role: "member", status: "active" }), notice: null }
+    const data: SalesPageData = { community: studio, join: facts(studio, { active: true, role: "member", status: "active" }), notice: null, askWhy: params.get("ask") !== "0" }
     return shell(<CommunitySalesPage data={data} />)
   }
-  if (which === "about" || which === "about-visitor") {
+  /* ?case=about-free: a signed in visitor on a free community, who can join with one press (round 12: the join's moment). */
+  if (which === "about" || which === "about-visitor" || which === "about-free") {
     const c = which === "about" ? studio : freeOne
-    const data: SalesPageData = { community: c, join: facts(c, which === "about" ? {} : { signedIn: false }), notice: null }
+    const data: SalesPageData = { community: c, join: facts(c, which === "about-visitor" ? { signedIn: false } : {}), notice: null }
+    /* The visitor's frame has the member frame's columns since round 12, with the community's card on the left. */
+    const card = { community: { ...community, id: c.id, slug: c.slug, name: c.name, tagline: c.tagline, logoUrl: c.logoUrl, coverUrl: c.coverUrl, memberCount: c.memberCount }, card: { stats: { members: c.memberCount, online: null, admins: null }, faces: [], more: 0, settingsHref: null } }
     return (
-      <CommunityPublicFrame topBar={{ ...topBar(which === "about"), community: { id: c.id, slug: c.slug, name: c.name, logoUrl: c.logoUrl }, creator: { name: c.creator?.name ?? "", href: c.creator?.href ?? null } }}>
+      <CommunityPublicFrame card={card} topBar={{ ...topBar(which !== "about-visitor"), community: { id: c.id, slug: c.slug, name: c.name, logoUrl: c.logoUrl }, creator: { name: c.creator?.name ?? "", href: c.creator?.href ?? null } }}>
         <CommunitySalesPage data={data} />
       </CommunityPublicFrame>
     )

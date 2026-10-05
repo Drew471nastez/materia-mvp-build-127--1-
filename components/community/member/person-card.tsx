@@ -374,6 +374,12 @@ function PersonCard({ anchor, person, leaving, canMessage, onFollowed, onDone, r
           <p className="truncate text-[13px] leading-5 text-[#6b7280]">
             {[person.username ? `@${person.username}` : null, person.level ? `Level ${person.level}${person.levelName ? ` ${person.levelName}` : ""}` : null].filter(Boolean).join(" · ")}
           </p>
+          {/* Where they are from, quietly (round 12): "Lisbon, Portugal", no flag. */}
+          {person.location ? (
+            <p className="truncate text-[12.5px] leading-5 text-[#8a8f98]" data-person-card-location="">
+              {person.location}
+            </p>
+          ) : null}
           {active ? (
             <p className="mt-1 flex items-center gap-1.5 text-[12.5px] leading-5 text-[#6b7280]" data-person-card-active="">
               {active === "Online now" ? <span className="h-2 w-2 rounded-full bg-[#16a34a]" aria-hidden /> : <Clock3 className="h-3.5 w-3.5 text-[#9ca3af]" strokeWidth={2} aria-hidden />}

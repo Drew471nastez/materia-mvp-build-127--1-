@@ -95,11 +95,15 @@ import { readAuthSnapshot, subscribeAuthSnapshot } from "@/lib/auth/auth-snapsho
 import { useExploreMarketplaceEnabled } from "@/components/platform/explore-marketplace-context"
 import { SIGNED_OUT_PROFILE_HREF, buyerTabFor, buyerTabsAt, buyerTabsBelongOn, communityOf } from "@/lib/nav/buyer-tabs"
 import { openCommunitySearch, refocusCommunitySearch } from "@/lib/nav/community-search-bridge"
+import { enterCommunityContext, useCommunityContext } from "@/lib/nav/community-context"
 import { useBuyerTabsWhere } from "@/lib/nav/use-buyer-tabs-where"
 import { prefetchHref, prefetchOnIdle } from "@/lib/nav/prefetch-policy"
 import { noteTabScroll, prepareTabArrival, restoreTabScroll } from "@/lib/navigation/tab-scroll"
 
 /* ── The look ────────────────────────────────────────────────────────────── */
+
+/** While the bar is on screen (below 768px) its room holds the home indicator's inset, so the body does not pad for it as well. */
+export const TAB_BAR_BODY = "@media (max-width: 767px){body{padding-bottom:0}}"
 
 /** Ink on the tab you are on, and on the others: the pill's two. */
 const ACTIVE_TEXT = "#1a1a2e"
@@ -249,8 +253,17 @@ function TabBar({
     community opens.
   */
   const community = communityOf(pathname)
-  const tabs = buyerTabsAt(pathname, exploreMarketplaceEnabled)
-  const current = buyerTabFor(pathname, { query: query !== "", sellerSurface, exploreMarketplaceEnabled })
+  /*
+    THE COMMUNITY STAYS HOME (round 12, lib/nav/community-context.ts). Inside
+    a community it becomes the context; outside one, Home still leads back to
+    it from Profile, Library and Search, until the navigator's Explore,
+    Discover communities or Dashboard ends it.
+  */
+  const context = useCommunityContext()
+  useEffect(() => enterCommunityContext(community), [community])
+  const homeCommunity = community ? null : context
+  const tabs = buyerTabsAt(pathname, exploreMarketplaceEnabled, homeCommunity)
+  const current = buyerTabFor(pathname, { query: query !== "", sellerSurface, exploreMarketplaceEnabled, homeCommunity })
 
   /*
     WHERE A PRESS IS GOING, until the address says it has arrived. The /app
@@ -267,7 +280,7 @@ function TabBar({
 
   const hrefOf = (index: number): string => {
     const tab = tabs[index]
-    if (!tab) return community ? `/community/${community}` : exploreMarketplaceEnabled ? "/explore" : "/account/library"
+    if (!tab) return community || homeCommunity ? `/community/${community || homeCommunity}` : exploreMarketplaceEnabled ? "/explore" : "/account/library"
     return tab.key === "profile" && !signedIn ? SIGNED_OUT_PROFILE_HREF : tab.href
   }
 
@@ -382,6 +395,14 @@ function TabBar({
     <>
       {/* The room at the end of the page, so nothing ends under the bar. */}
       <div aria-hidden="true" data-buyer-tabs-room="" className="shrink-0 md:hidden" style={{ height: "var(--buyer-tabs-room)" }} />
+      {/*
+        THE HOME INDICATOR'S ROOM, COUNTED ONCE (round 12: "the library on a phone scrolls when there is nothing to scroll"). The body
+        pads itself by env(safe-area-inset-bottom) (app/globals.css), and the room above already holds that inset under the bar. A page
+        as tall as the screen (the profile's min-h-svh column: header, page, this room) was therefore the inset taller than the screen,
+        34px on an iPhone, and scrolled by that much. Where the bar is drawn the body gives its padding up; printed with the bar, so it
+        is in the first paint and goes with the bar.
+      */}
+      <style>{TAB_BAR_BODY}</style>
       <Suspense fallback={null}>
         <QueryWatch onChange={setQuery} />
       </Suspense>

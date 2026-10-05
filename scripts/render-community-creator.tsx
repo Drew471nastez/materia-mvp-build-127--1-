@@ -16,6 +16,7 @@ import { CommunityShell } from "@/components/community/creator/community-shell"
 import { CommunityList } from "@/components/community/creator/community-list"
 import { CreateCommunity } from "@/components/community/creator/create-flow"
 import { Overview } from "@/components/community/creator/overview"
+import { LeaveReasonsCard } from "@/components/community/creator/leave-reasons-card"
 import { MembersSection } from "@/components/community/creator/members-section"
 import { SettingsSection } from "@/components/community/creator/settings-section"
 import { FeedSection } from "@/components/community/creator/feed-section"
@@ -322,6 +323,30 @@ function App() {
       return (
         <Shell section="analytics">
           <AnalyticsSection head={head} initial={analytics} />
+        </Shell>
+      )
+    /* Round 12: the overview with the card of why people left under it, as app/app/community/[id]/page.tsx draws it for an admin. */
+    case "overview-left":
+      return (
+        <Shell section="">
+          <LeaveReasonsCard
+            summary={{
+              total: 37,
+              counts: [
+                { reason: "not_for_me", count: 9 },
+                { reason: "too_busy", count: 14 },
+                { reason: "too_expensive", count: 6 },
+                { reason: "content", count: 5 },
+                { reason: "people", count: 0 },
+                { reason: "other", count: 3 },
+              ],
+              notes: [
+                { reason: "too_busy", note: "New job, no time for writing until spring. I'll be back.", createdAt: ago(0.4) },
+                { reason: "content", note: "Hoped for more on editing, less on daily pages.", createdAt: ago(3) },
+                { reason: "other", note: "Moving to a group in my own language.", createdAt: ago(9) },
+              ],
+            }}
+          />
         </Shell>
       )
     default:
