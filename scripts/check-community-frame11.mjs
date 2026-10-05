@@ -124,7 +124,7 @@ export const isNativePlatform = () => false
   const js = readFileSync(join(stubs, "app.js"), "utf8")
   /* A real scrollbar on the computer (no --hide-scrollbars): a page that is shorter than the window must not move the frame. */
   const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${fonts}${css}</style><style>body{margin:0;font-family:Inter,system-ui,sans-serif}</style></head><body><div id="app"></div><script>${js.replace(/<\/script/gi, "<\\/script")}</script></body></html>`
-  const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox"], protocolTimeout: 240_000 })
+  const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox"], ignoreDefaultArgs: ["--hide-scrollbars"], protocolTimeout: 240_000 })
   const PHONE = { width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }
   const DESK = { width: 1440, height: 900, deviceScaleFactor: 1 }
 
@@ -355,6 +355,197 @@ export const isNativePlatform = () => false
         await p.close()
       }
     }
+  }
+
+  /* ── SPINNER ─────────────────────────────────────────────────────────── */
+  if (want("SPINNER") || want("ENTER")) {
+    console.log("\nSPINNER and ENTER: a community landing, and a place that is slow to come")
+    const errors = []
+    /* A fresh page, sampled from its very first frames (the script runs before the frame mounts). */
+    const q = await browser.newPage()
+    await q.setViewport(DESK)
+    await q.evaluateOnNewDocument(() => {
+      window.__land = []
+      const tick = () => {
+        const l = document.querySelector("[data-community-left]")
+        const m = document.querySelector("[data-community-main]")
+        if (l && m) window.__land.push([+Number(getComputedStyle(l).opacity).toFixed(2), +Number(getComputedStyle(m).opacity).toFixed(2)])
+        if (window.__land.length < 40) requestAnimationFrame(tick)
+      }
+      requestAnimationFrame(tick)
+    })
+    await q.setRequestInterception(true)
+    q.on("request", (r) => {
+      const url = r.url()
+      if (url.startsWith(`${ORIGIN}/api/`)) return r.respond({ status: 200, contentType: "application/json", body: url.includes("presence") ? '{"ok":true,"ready":true}' : url.includes("/notifications") ? '{"unread":0,"items":[],"nextCursor":null,"available":true}' : "{}" })
+      if (url.startsWith(`${ORIGIN}/`)) return r.respond({ status: 200, contentType: "text/html", body: html })
+      if (url.startsWith("data:")) return r.continue()
+      return r.respond({ status: 204, body: "" })
+    })
+    await q.goto(`${ORIGIN}/community/clay-studio?case=feed`, { waitUntil: "load" })
+    await sleep(1200)
+    const landed = await q.evaluate(() => window.__land)
+    const lefts = landed.map(([l]) => l).filter((o, i, a) => i === 0 || o !== a[i - 1])
+    const mains = landed.map(([, m]) => m).filter((o, i, a) => i === 0 || o !== a[i - 1])
+    expect(lefts.length >= 4 && lefts[0] < 0.5 && lefts.at(-1) === 1, "ENTER: the side columns come in by opacity over several frames", lefts)
+    expect(mains.length >= 4 && mains[0] <= lefts[0] && mains.at(-1) === 1, "and the middle a beat after them", mains)
+    await q.close()
+
+    /* SPINNER: a place that is not here yet (9s away): the spinner, then the page's thread blocked while the compositor's frames are watched. */
+    const r = await browser.newPage()
+    r.on("pageerror", (e) => errors.push(String(e).slice(0, 300)))
+    await r.setViewport(PHONE)
+    await r.setRequestInterception(true)
+    r.on("request", (req) => {
+      const url = req.url()
+      if (url.startsWith(`${ORIGIN}/api/`)) return req.respond({ status: 200, contentType: "application/json", body: "{}" })
+      if (url.startsWith(`${ORIGIN}/`)) return req.respond({ status: 200, contentType: "text/html", body: html })
+      if (url.startsWith("data:")) return req.continue()
+      return req.respond({ status: 204, body: "" })
+    })
+    await r.goto(`${ORIGIN}/community/clay-studio?case=nav&latency=9000&cold=members&idle=0`, { waitUntil: "load" })
+    await sleep(600)
+    await r.evaluate(() => window.__navigate("/community/clay-studio/members"))
+    await sleep(900)
+    const glyph = await r.evaluate(() => {
+      const g = document.querySelector("[data-place-spinner] [data-place-spinner-glyph]")
+      if (!g) return null
+      const cs = getComputedStyle(g)
+      return { name: cs.animationName, timing: cs.animationTimingFunction, tag: g.tagName, duration: cs.animationDuration }
+    })
+    expect(!!glyph && glyph.name === "spin" && glyph.timing === "linear", "the spinner turns continuously (linear, not a spoke at a time)", glyph)
+    const rcdp = await r.target().createCDPSession()
+    const frames = []
+    rcdp.on("Page.screencastFrame", (f) => {
+      frames.push({ t: Date.now(), data: f.data })
+      void rcdp.send("Page.screencastFrameAck", { sessionId: f.sessionId }).catch(() => {})
+    })
+    await rcdp.send("Page.startScreencast", { format: "jpeg", quality: 60, everyNthFrame: 1 })
+    await sleep(300)
+    const t0 = Date.now()
+    /* The page's thread busy for 700ms: nothing it draws can change in that time. */
+    await r.evaluate(() => { const s = performance.now(); while (performance.now() - s < 700) {} })
+    const t1 = Date.now()
+    await sleep(200)
+    await rcdp.send("Page.stopScreencast")
+    const during = frames.filter((f) => f.t > t0 + 50 && f.t < t1 - 30)
+    const distinct = new Set(during.map((f) => f.data)).size
+    expect(during.length >= 6 && distinct >= 6, "on the compositor: with the page's thread blocked for 700ms it keeps turning (distinct frames)", { frames: during.length, distinct })
+    await r.screenshot({ path: join(shots, "spinner-390.png") })
+    expect(errors.length === 0, "no page errors", errors)
+    await r.close()
+  }
+
+  /* ── PLACES ──────────────────────────────────────────────────────────── */
+  if (want("PLACES")) {
+    console.log("\nPLACES: 1440 with a real scrollbar, every place in turn, every frame measured")
+    const { p, errors } = await open("/community/clay-studio?case=nav&latency=250", DESK)
+    await sleep(1500)
+    await p.evaluate(() => {
+      window.__geo = []
+      window.__geoOn = true
+      const r = (sel) => { const e = document.querySelector(sel); if (!e) return null; const b = e.getBoundingClientRect(); return [Math.round(b.left * 10) / 10, Math.round(b.width * 10) / 10] }
+      const tick = () => {
+        window.__geo.push({ gutter: getComputedStyle(document.documentElement).scrollbarGutter, ov: getComputedStyle(document.documentElement).overflowY + "/" + getComputedStyle(document.body).overflowY, path: location.pathname, about: !!document.querySelector("[data-community-place=about]") || !document.querySelector("[data-community-left]")?.offsetWidth, client: document.documentElement.clientWidth, bar: r("[data-community-top-row]"), name: r("[data-community-identity]"), left: r("[data-community-left]"), main: r("[data-community-main]"), barH: Math.round(document.querySelector("[data-community-top]").getBoundingClientRect().height) })
+        if (window.__geoOn) requestAnimationFrame(tick)
+      }
+      requestAnimationFrame(tick)
+    })
+    const order = ["Classroom", "Calendar", "Members", "About", "Leaderboards", "Community", "About", "Members"]
+    for (const name of order) {
+      const wall = await p.evaluate((name) => !!document.querySelector(`[data-wall-places] [data-community-nav="${name}"]`)?.offsetWidth, name)
+      await p.click(wall ? `[data-wall-places] [data-community-nav="${name}"]` : `[data-community-tabs] [data-community-nav="${name}"]`)
+      await sleep(700)
+      await p.screenshot({ path: join(shots, `place-1440-${name.toLowerCase()}.png`) })
+    }
+    const geo = await p.evaluate(() => { window.__geoOn = false; return window.__geo })
+    const uniq = (k) => [...new Set(geo.map((g) => JSON.stringify(g[k])))]
+    const getComputedStyleGutter = [...new Set(geo.map((g) => `${g.client} ${g.gutter} ${g.ov}`))]
+    const paths = [...new Set(geo.map((g) => g.path))]
+    expect(paths.length >= 6, "every place was on screen", paths)
+    /* Chrome reports the root's clientWidth without a stable gutter while nothing overflows, so the layout itself is what is measured: where the bar's centred row starts. */
+    console.log(`        root clientWidth seen: ${uniq("client").join(", ")} (scrollbar-gutter ${geo[0].gutter})`)
+    expect(uniq("bar").length === 1 && uniq("name").length === 1 && uniq("barH").length === 1, "the bar's row, the community's name and the bar's height are the same on every frame", { bar: uniq("bar"), name: uniq("name"), h: uniq("barH") })
+    expect(uniq("left").length === 1, "the left column (card and places) never moves or goes", uniq("left"))
+    const mains = geo.filter((g) => !g.about).map((g) => JSON.stringify(g.main))
+    expect(new Set(mains).size === 1, "the middle column starts on the same line on every other place", [...new Set(mains)])
+    console.log(`        ${geo.length} frames, scrollbar room kept: ${1440 - geo[0].client}px`)
+    expect(errors.length === 0, "no page errors", errors)
+    await p.close()
+  }
+
+  /* ── EMPTY and ICONS (pictures) ──────────────────────────────────────── */
+  if (want("EMPTY") || want("ICONS")) {
+    console.log("\nEMPTY: the classroom, the calendar and the members with nothing in them")
+    for (const [vp, name] of [[PHONE, "390"], [DESK, "1440"]]) {
+      for (const [c, staff] of [["classroom-empty", true], ["classroom-empty", false], ["events-empty", true], ["events", false], ["members-empty", false]]) {
+        const { p, errors } = await open(`/community/clay-studio/${c.startsWith("classroom") ? "classroom" : c.startsWith("events") ? "events" : "members"}?case=${c}${staff ? "&staff=1" : ""}`, vp)
+        await sleep(400)
+        const m = await p.evaluate(() => ({ overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth, empty: !!document.querySelector("[data-classroom-empty],[data-events-empty],[data-member-empty],[data-member-list],[data-event-list]"), action: document.querySelector("[data-place-empty-action]")?.textContent ?? null, small: [...document.querySelectorAll("[data-community-body] a, [data-community-body] button")].filter((e) => { const b = e.getBoundingClientRect(); return b.width > 0 && b.height > 0 && b.height < 36 }).map((e) => e.textContent.trim().slice(0, 20)) }))
+        expect(m.overflow <= 0 && m.empty, `${name} ${c}${staff ? " (staff)" : ""}: drawn, no sideways overflow`, m)
+        await p.screenshot({ path: join(shots, `empty-${name}-${c}${staff ? "-staff" : ""}.png`) })
+        expect(errors.length === 0, "no page errors", errors)
+        await p.close()
+      }
+    }
+    const { p } = await open("/community/clay-studio/members?case=members", { ...DESK, deviceScaleFactor: 2 })
+    await sleep(1500)
+    const box = await p.evaluate(() => { const b = document.querySelector("[data-wall-places]").getBoundingClientRect(); return { x: b.left, y: b.top, width: b.width, height: b.height } })
+    await p.screenshot({ path: join(shots, "icons-places.png"), clip: box })
+    await p.close()
+  }
+
+  /* ── PULL ────────────────────────────────────────────────────────────── */
+  if (want("PULL")) {
+    console.log("\nPULL: pull to refresh on the feed at 390, every frame measured")
+    const { p, errors } = await open("/community/clay-studio?case=feed&pull=1", PHONE)
+    const cdp = await p.target().createCDPSession()
+    await p.evaluate(() => {
+      window.__feedLatency = 900
+      window.__pull = []
+      window.__pullOn = true
+      const tick = () => {
+        const ind = document.querySelector("[data-ptr-indicator]")
+        const content = document.querySelector("[data-pull-content]")
+        const spin = document.querySelector("[data-ptr-spin]")
+        const a = ind.getBoundingClientRect()
+        const c = content.getBoundingClientRect()
+        const root = document.querySelector("[data-pull-to-refresh]").getBoundingClientRect()
+        const spokes = [...document.querySelectorAll("[data-ptr-spoke]")].map((l) => +Number(l.style.opacity || 0).toFixed(2))
+        window.__pull.push({ t: performance.now(), top: +(a.top - root.top).toFixed(1), bottom: +(a.bottom - root.top).toFixed(1), h: +a.height.toFixed(1), opacity: +Number(getComputedStyle(ind).opacity).toFixed(2), gap: +(c.top - root.top).toFixed(1), shown: spokes.filter((o) => o > 0.05).length, spinning: getComputedStyle(spin).animationName !== "none" })
+        if (window.__pullOn) requestAnimationFrame(tick)
+      }
+      requestAnimationFrame(tick)
+    })
+    const x = 200
+    let y = 420
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y, radiusX: 6, radiusY: 6, force: 1 }] })
+    for (let i = 0; i < 26; i++) {
+      y += 7
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x, y, radiusX: 6, radiusY: 6, force: 1 }] })
+      await sleep(16)
+    }
+    await sleep(120)
+    await p.screenshot({ path: join(shots, "pull-390-pulled.png") })
+    const pulledAt = await p.evaluate(() => window.__pull.length)
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] })
+    await sleep(350)
+    await p.screenshot({ path: join(shots, "pull-390-refreshing.png") })
+    await sleep(2200)
+    const f = await p.evaluate(() => { window.__pullOn = false; return window.__pull })
+    const visible = f.filter((r) => r.opacity > 0.02 && r.h > 0.5)
+    const overlaps = visible.filter((r) => r.top < -0.5 || r.bottom > r.gap + 0.5)
+    const pulling = f.slice(0, pulledAt).filter((r) => r.gap > 0)
+    const counts = pulling.map((r) => r.shown).filter((n, i, a) => i === 0 || n !== a[i - 1])
+    expect(pulling.length > 5 && Math.max(...pulling.map((r) => r.gap)) >= 48, "the content follows the finger down", { frames: pulling.length, gap: Math.max(...pulling.map((r) => r.gap)) })
+    expect(counts.length >= 5 && counts.every((n, i) => i === 0 || n > counts[i - 1]) && counts.at(-1) === 8, "the spokes appear one by one with the pull, up to all eight", counts)
+    const spun = f.slice(pulledAt).filter((r) => r.spinning && r.opacity > 0.5)
+    expect(spun.length >= 10 && spun.some((r) => r.gap >= 40), "let go past the line: it holds a spinner's room open and turns while refreshing", { frames: spun.length, gap: spun[0]?.gap })
+    expect(overlaps.length === 0, "on every frame (pull, refresh, spring home) the spinner sits inside its own room, never over the content", { frames: visible.length, overlaps: overlaps.slice(0, 4) })
+    const end = f.at(-1)
+    expect(end.gap === 0 && end.opacity === 0, "and the page is home at the end, the spinner gone", end)
+    expect(errors.length === 0, "no page errors", errors)
+    await p.close()
   }
 
   await browser.close()

@@ -18,6 +18,12 @@
  *   ?case=leaderboard     /community/clay-studio/leaderboard
  *   ?case=classroom       a page that is not a feed (the same columns)
  *   ?case=nav             round 9: the frame drawn ONCE with the places switched inside it, as the app router does (below)
+ *   ?case=classroom-empty, events-empty, members-empty   round 11: the classroom, the calendar and the members with
+ *                         nothing (or almost nothing) in them, the real components; &staff=1 for the creator's view
+ *   ?case=events          the calendar with events in it
+ *
+ * Round 11: in ?case=nav, Classroom, Calendar and About are the real pages (the classroom with its courses, the calendar
+ * with its events, About for a member), so moving between them measures what really draws.
  *
  * The wall's right column on the feed follows ?wall=: both (default), event
  * (only the next event), contributors (only the top contributors), activity
@@ -55,7 +61,12 @@ import { sectionFromPath } from "@/components/community/member/nav"
 import { usePathname } from "next/navigation"
 import { openCommunitySearch } from "@/lib/nav/community-search-bridge"
 import { CommunityFeed } from "@/components/community/member/feed"
+import { PullToRefreshEvent } from "@/components/ui/pull-to-refresh"
 import { MembersDirectory } from "@/components/community/member/members"
+import { ClassroomLibrary } from "@/components/community/classroom/classroom-library"
+import type { ClassroomCourse } from "@/components/community/classroom/model"
+import { EventsPage } from "@/components/community/events/events-page"
+import type { EventCardView } from "@/components/community/events/model"
 import { Leaderboard } from "@/components/community/member/leaderboard"
 import { CommunityPublicFrame } from "@/components/community/public/public-frame"
 import { CommunitySalesPage } from "@/components/community/public/sales-page"
@@ -380,6 +391,60 @@ const facts = (c: PublicCommunityView, v: Record<string, unknown> = {}) =>
     canTakePayments: true,
   })
 
+/* ── The classroom and the calendar ───────────────────────────────────── */
+
+const course = (over: Partial<ClassroomCourse> & { productId: string; title: string }): ClassroomCourse => ({
+  coverUrl: null,
+  lessons: 12,
+  completedLessons: 0,
+  percent: 0,
+  status: "not_started",
+  totalSeconds: 3 * 3600,
+  locked: null,
+  href: `/community/clay-studio/classroom/${over.productId}`,
+  ...over,
+})
+const COURSES: ClassroomCourse[] = [
+  course({ productId: "co-1", title: "Trimming feet that look made", coverUrl: SHOTS[4], completedLessons: 5, percent: 42, status: "in_progress" }),
+  course({ productId: "co-2", title: "Glazes without fear", coverUrl: SHOTS[1], lessons: 9 }),
+  course({ productId: "co-3", title: "Firing at a shared kiln", coverUrl: SHOTS[3], locked: { reason: "tier", label: "Studio members", opensAt: null } }),
+]
+const event = (over: Partial<EventCardView> & { id: string; title: string; startsAt: string }): EventCardView => ({
+  coverUrl: null,
+  kind: "live",
+  endsAt: null,
+  timezone: "Europe/Lisbon",
+  location: null,
+  online: true,
+  capacity: null,
+  goingCount: 0,
+  cancelled: false,
+  myRsvp: null,
+  locked: null,
+  hasReplay: false,
+  href: `/community/clay-studio/events/${over.id}`,
+  ...over,
+} as EventCardView)
+const EVENTS: EventCardView[] = [
+  event({ id: "e1", title: "Live critique: trimming feet", startsAt: iso(NOW + 4 * DAY), endsAt: iso(NOW + 4 * DAY + 90 * 60_000), goingCount: 128, myRsvp: "going", coverUrl: SHOTS[4] }),
+  event({ id: "e2", title: "Café crawl and kiln tour", startsAt: iso(NOW + 11 * DAY), online: false, location: "Lisbon, Rua da Prata 12", goingCount: 14, capacity: 20 }),
+]
+const monthOf = (events: EventCardView[]) => {
+  const d = new Date()
+  return { year: d.getUTCFullYear(), month: d.getUTCMonth(), events }
+}
+const manage = staff ? `/app/community/${CID}` : null
+function classroomPage(courses: ClassroomCourse[]) {
+  return <ClassroomLibrary courses={courses} manageHref={manage ? `${manage}/classroom` : null} />
+}
+function eventsPage(events: EventCardView[]) {
+  return <EventsPage communityId={CID} initial={{ events, nextCursor: null }} month={monthOf(events)} fallbackZone="Europe/Lisbon" manageHref={manage ? `${manage}/events?new=1` : null} />
+}
+function aboutPage() {
+  const data: SalesPageData = { community: studio, join: facts(studio, { active: true, role: "member", status: "active" }), notice: null }
+  return <CommunitySalesPage data={data} />
+}
+
 /* ── ?case=nav: the places switched inside one frame ─────────────────── */
 
 const latency = Number(params.get("latency") || 600)
@@ -409,13 +474,9 @@ function placePage(path: string, feed: (space: SpaceView | null) => React.ReactN
         initial={MEMBERS.slice(0, 4).map((m, i) => ({ rank: i + 1, userId: m.userId, points: 400 - i * 90, level: m.level, levelName: m.levelName, name: m.name, username: m.username, avatarUrl: m.avatarUrl, hasStorefront: m.hasStorefront }))}
       />
     )
-  if (section === "classroom" || section === "events")
-    return (
-      <div data-probe-place={section}>
-        <h1 className="text-[24px] font-bold text-[#1a1a2e]">{section === "classroom" ? "Classroom" : "Calendar"}</h1>
-        <p className="mt-1 text-[14px] text-[#6b7280]">{section === "classroom" ? "The classroom's own page draws here." : "The calendar's own page draws here."}</p>
-      </div>
-    )
+  if (section === "classroom") return classroomPage(COURSES)
+  if (section === "events") return eventsPage(EVENTS)
+  if (section === "about") return aboutPage()
   return feed(null)
 }
 
@@ -466,6 +527,10 @@ function Screen() {
         <p className="mt-1 text-[14px] text-[#6b7280]">The classroom's own page draws here.</p>
       </div>,
     )
+  if (which === "classroom-empty") return shell(classroomPage([]))
+  if (which === "events-empty") return shell(eventsPage([]))
+  if (which === "events") return shell(eventsPage(EVENTS))
+  if (which === "members-empty") return shell(<MembersDirectory communityId={CID} slug={community.slug} memberCount={2} initial={{ members: MEMBERS.slice(0, 2), nextCursor: null }} meId="u-me" canMessage />)
   if (which === "members") return shell(<MembersDirectory communityId={CID} slug={community.slug} memberCount={community.memberCount} initial={{ members: MEMBERS, nextCursor: null }} meId="u-me" canMessage />)
   if (which === "leaderboard")
     return shell(
@@ -490,6 +555,8 @@ function Screen() {
       </CommunityPublicFrame>
     )
   }
+  /* &pull=1: the feed as its page draws it, inside the pull to refresh (app/(marketing)/community/[slug]/page.tsx). */
+  if (params.get("pull") === "1") return shell(<PullToRefreshEvent scope="community-feed">{feed(null)}</PullToRefreshEvent>)
   return shell(feed(null))
 }
 
