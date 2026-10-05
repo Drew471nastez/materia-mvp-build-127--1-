@@ -114,6 +114,8 @@ async function main() {
     const client = code("components/explore/explore-page-client.tsx")
     check("the chip's switcher and the headline control only while communities are on", /onModeChange=\{communitiesEnabled \? handleModeChange : undefined\}/.test(client) && /discoverHeadlineSegmentEnabled=\{communitiesEnabled && discoverHeadlineSegmentEnabled\}/.test(client))
     check("the client never starts in communities mode while off", /if \(!communitiesEnabled\) return "products"/.test(client))
+    check("the address always carries ?type=products or ?type=communities while communities are on", /if \(communitiesEnabled\) params\.set\("type", forMode === "communities" \? "communities" : "products"\)/.test(client))
+    check("switching catalogue writes the cookie and updates the address at once", /writeDiscoverModeCookie\(next\)/.test(client) && /replaceAddress\(href\)/.test(client) && /handleModeChange[\s\S]{0,400}replaceAddress\(href\)/.test(client))
     check("communities mode no longer reads membership products", !/isCommunity/.test(client) && !/type === "membership"/.test(client))
     check("communities mode draws ExploreCommunitiesResults with the pill, subcategory, word, order and price", /<ExploreCommunitiesResults[\s\S]{0,200}initial=\{initialCommunities\}[\s\S]{0,200}category=\{gridCategory\}\s*sub=\{gridSub\}\s*subLabel=\{selectedSubcategoryLabel\}\s*srt=\{deferredSort\}[\s\S]{0,40}price=\{deferredPrice\}/.test(client))
     /* Round 8: the products' row and the products' More in communities mode, whole tree and subcategories. */

@@ -427,6 +427,17 @@ export function ExplorePageClient({
     if (fromUrl === "products") return "products"
     return initialDiscoverMode
   })
+  /* Back from /account or a shared link: the address is the truth again (cookie on the server, ?type= on the URL). */
+  useEffect(() => {
+    if (!communitiesEnabled) return
+    const fromUrl = searchParams.get("type")
+    if (fromUrl === "communities" || fromUrl === "products") {
+      setMode(fromUrl)
+      writeDiscoverModeCookie(fromUrl)
+      return
+    }
+    setMode(initialDiscoverMode)
+  }, [searchParams, initialDiscoverMode, communitiesEnabled])
   const communities = mode === "communities"
 
   // Main category (for Recommended section)
@@ -865,14 +876,14 @@ export function ExplorePageClient({
   const exploreHref = useCallback(
     (categoryId: string, sort: string = sortBy, forMode: DiscoverMode = mode, price: string = priceFilter) => {
       const params = new URLSearchParams()
-      if (forMode === "communities") params.set("type", "communities")
+      if (communitiesEnabled) params.set("type", forMode === "communities" ? "communities" : "products")
       if (categoryId && categoryId !== "all" && categoryId !== FOR_YOU_ID) params.set("c", categoryId)
       params.set("lang", language)
       params.set("srt", sort)
       if (price && price !== "all") params.set("price", price)
       return `/explore?${params.toString()}`
     },
-    [language, sortBy, mode, priceFilter],
+    [language, sortBy, mode, priceFilter, communitiesEnabled],
   )
 
   /*
@@ -940,8 +951,8 @@ export function ExplorePageClient({
     chosenCategoryRef.current = firstCategory
     let href = exploreHref("all", DEFAULT_SORT, next, "all")
     if (urlSearchQuery) href += `&q=${encodeURIComponent(urlSearchQuery)}`
-    scheduleAddress(href)
-  }, [interests.enough, exploreHref, urlSearchQuery, scheduleAddress])
+    replaceAddress(href)
+  }, [interests.enough, exploreHref, urlSearchQuery, replaceAddress])
 
   const goToPage = useCallback((page: number) => {
     const next = Math.max(1, Math.min(totalPages, page))

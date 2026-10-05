@@ -5,6 +5,7 @@ import { cookies, headers } from "next/headers"
 import { currentUserForRequest, profileForRequest } from "@/lib/auth/request-scope"
 import { LibraryTabs } from "@/components/library/library-tabs"
 import { LibraryPanel } from "@/components/library/library-panel"
+import { LibraryPullRefresh } from "@/components/library/library-pull-refresh"
 import { OpenInApp } from "@/components/library/open-in-app"
 import { PurchaseSyncProvider } from "@/components/checkout/purchase-sync-provider"
 import { NativeAuthGate } from "@/components/native-auth-gate"
@@ -88,7 +89,9 @@ export default async function LibraryLayout({ children }: { children: React.Reac
       <HtmlClass name="with-page-library" />
       <PurchaseSyncProvider />
       {/* The sub pills and the screen under them, which cross fades from one to the next (library-panel.tsx). */}
-      <LibraryPanel head={<LibraryTabs communities={communities} />}>{children}</LibraryPanel>
+      <LibraryPullRefresh>
+        <LibraryPanel head={<LibraryTabs communities={communities} />}>{children}</LibraryPanel>
+      </LibraryPullRefresh>
       {/*
         THE APP'S BANNER SITS UNDER THE LIBRARY, NOT OVER IT: "do not use
         the banner above the library, use it under, at the page". Outside

@@ -79,7 +79,7 @@ console.log("\nThe new places")
   check("the pills are drawn on the lists, not on a purchase", showsLibraryTabs("/account/library/") && showsLibraryTabs("/account/library/receipts") && !showsLibraryTabs("/account/library/products/p1") && isLibraryProduct("/account/library/products/p1?x=1") && !isLibraryProduct("/library/products/p1"))
   check("isLibraryPath knows the whole library and nothing else", isLibraryPath("/account/library") && isLibraryPath("/account/library/courses/c1") && !isLibraryPath("/account/libraryx") && !isLibraryPath("/account"))
   const lib = code("app/account/library/layout.tsx")
-  check("the library keeps its gates, its purchase sync, its stage with the sub pills and the app banner", /email_verified/.test(lib) && /<PurchaseSyncProvider \/>/.test(lib) && /<LibraryPanel head=\{<LibraryTabs communities=\{communities\} \/>\}>/.test(lib) && /<OpenInApp phone=\{bannerFor\} \/>/.test(lib) && /NativeAuthGate requireAuth/.test(lib))
+  check("the library keeps its gates, its purchase sync, its stage with the sub pills and the app banner", /email_verified/.test(lib) && /<PurchaseSyncProvider \/>/.test(lib) && /<LibraryPullRefresh>/.test(lib) && /<LibraryPanel head=\{<LibraryTabs communities=\{communities\} \/>\}>/.test(lib) && /<OpenInApp phone=\{bannerFor\} \/>/.test(lib) && /NativeAuthGate requireAuth/.test(lib))
 }
 
 console.log("\nThe profile center's pills")

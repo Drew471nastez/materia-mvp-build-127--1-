@@ -29,7 +29,7 @@ import { patchJob, percentOf, removeJob, useDownloadJobs, type DownloadJob } fro
  */
 
 const CARD =
-  "pointer-events-auto rounded-2xl border border-[#e4e7ec] bg-white px-3.5 py-3 shadow-[0_1px_2px_rgba(16,24,40,0.04),0_12px_32px_-10px_rgba(16,24,40,0.28)]"
+  "pointer-events-auto rounded-2xl border border-[#e4e7ec] bg-white px-3.5 py-3 shadow-[0_1px_2px_rgba(16,24,40,0.04),0_12px_32px_-10px_rgba(16,24,40,0.28)] motion-safe:animate-[download-tray-in_280ms_cubic-bezier(0.22,1,0.36,1)_both] motion-reduce:animate-none"
 const PRIMARY =
   "inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-[10px] border border-[#0f0f1c] bg-[#1a1a2e] px-3.5 text-[13px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_1px_2px_rgba(16,24,40,0.24)] transition-[background-color,translate] duration-150 active:translate-y-px active:bg-[#12121f]"
 const QUIET =
@@ -166,6 +166,8 @@ export function DownloadTray() {
   const jobs = useDownloadJobs()
   if (jobs.length === 0) return null
   return (
+    <>
+    <style>{"@keyframes download-tray-in{from{opacity:0;translate:0 12px}to{opacity:1;translate:0 0}}"}</style>
     <div
       data-download-tray=""
       className="pointer-events-none fixed inset-x-0 z-[2147483000] flex flex-col items-stretch gap-2 px-4 print:hidden sm:items-end sm:px-6"
@@ -179,6 +181,7 @@ export function DownloadTray() {
         </div>
       ))}
     </div>
+    </>
   )
 }
 

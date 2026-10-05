@@ -50,11 +50,14 @@ import {
   type AppPlatform,
   type IosDownloadEvent,
 } from "./native"
+import { hapticTap } from "@/lib/native-bridge"
 import { downloadJob, isBusy, patchJob, startJob, type DownloadJob } from "./download-store"
 
 export type DownloadTarget =
   | { assetId: string; receiptToken?: string | null; fileName?: string | null }
   | { url: string; fileName: string }
+  /** A member-only community route that answers with a redirect to storage (posts and comments). */
+  | { memberApi: string; fileName: string }
 
 export interface DownloadResult {
   success: boolean
@@ -78,7 +81,9 @@ const SAVE_FAILED = "The file did not finish downloading. Try again."
 
 /** The key a job and a button share. */
 export function downloadKey(target: DownloadTarget): string {
-  return "assetId" in target ? `asset:${target.assetId}` : `url:${target.url}`
+  if ("assetId" in target) return `asset:${target.assetId}`
+  if ("memberApi" in target) return `member:${target.memberApi}`
+  return `url:${target.url}`
 }
 
 interface Resolved {
@@ -90,10 +95,39 @@ interface Resolved {
 
 type Failure = { failed: DownloadResult }
 
+/** Community (or comment) file route: session cookie, then a redirect to a signed storage address. */
+async function resolveMemberApi(apiPath: string, fileName: string): Promise<Resolved | Failure> {
+  const absolute = new URL(apiPath, window.location.href).toString()
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 30000)
+  try {
+    const response = await fetch(absolute, { signal: controller.signal, cache: "no-store", credentials: "same-origin", redirect: "manual" })
+    if (response.status >= 300 && response.status < 400) {
+      const loc = response.headers.get("Location")
+      if (loc) {
+        const name = fileName || "download"
+        return { url: loc, fileName: name, size: null, type: typeFromName(name) }
+      }
+    }
+    if (!response.ok) {
+      const data = (await response.json().catch(() => ({}))) as { error?: string }
+      return { failed: { success: false, error: typeof data.error === "string" && data.error ? data.error : UNAVAILABLE } }
+    }
+    return { failed: { success: false, error: UNAVAILABLE } }
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") return { failed: { success: false, error: TOO_SLOW } }
+    return { failed: { success: false, error: UNAVAILABLE } }
+  } finally {
+    clearTimeout(timeoutId)
+  }
+}
+
 /** The signed address for an asset, asked for once per press and never kept. */
 async function resolveTarget(target: DownloadTarget): Promise<Resolved | Failure> {
+  if ("memberApi" in target) return resolveMemberApi(target.memberApi, target.fileName)
   if (!("assetId" in target)) {
     const absolute = new URL(target.url, window.location.href).toString()
+    if (/\/api\/community\/[^/]+\/(posts|comments)\/[^/]+\/files\//.test(absolute)) return resolveMemberApi(absolute, target.fileName)
     return { url: absolute, fileName: target.fileName, size: null, type: typeFromName(target.fileName) }
   }
   let apiUrl = `/api/download/${encodeURIComponent(target.assetId)}`
@@ -187,7 +221,7 @@ export async function downloadFile(target: DownloadTarget): Promise<DownloadResu
  * would cancel the download) and then removed.
  */
 async function downloadInBrowser(target: DownloadTarget): Promise<DownloadResult> {
-  if (!("assetId" in target)) {
+  if (!("assetId" in target) && !("memberApi" in target)) {
     const url = new URL(target.url, window.location.href).toString()
     if (anchorCanSave(url)) {
       clickDownloadLink(url, target.fileName)
@@ -333,6 +367,7 @@ function viaAndroid(key: string, bridge: NonNullable<ReturnType<typeof androidDo
       if (status.state === "done") {
         window.clearInterval(timer)
         patchJob(key, { phase: "saved", loaded: status.total || status.loaded, total: status.total || status.loaded, message: "Saved to Downloads", cancel: undefined })
+        hapticTap("light")
         resolve({ success: true, openedIn: "app" })
         return
       }

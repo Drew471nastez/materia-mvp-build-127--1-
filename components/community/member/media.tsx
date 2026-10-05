@@ -38,7 +38,8 @@
  * once pressed.
  */
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
-import { Download, FileText, Film, ImageIcon, Play } from "lucide-react"
+import { Play } from "lucide-react"
+import { CommunityFileAttachment, CommunityFileAttachmentSplit } from "./community-file-attachment"
 import { StorelibVideo } from "@/components/video/storelib-video"
 import { optimizedImageUrl, optimizedSrcSet } from "@/lib/images/optimized-url"
 import { MAX_COMMENT_EMBEDS, bodyEmbeds, cardPictures, cardThumb, fileSizeLabel, mediaKindOf, mediaLayout, viewerItems, type CardPicture, type ViewerItem } from "@/lib/communities/post-media"
@@ -385,41 +386,19 @@ export function PostMediaGrid({ media, communityId, postId }: { media: PostMedia
       {files.map((f) => {
         const kind = mediaKindOf(f.name)
         const at = viewable.findIndex((v) => v.assetId === f.assetId)
-        const Icon = kind === "image" ? ImageIcon : kind === "video" ? Film : FileText
-        const inner = (
-          <>
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#f1f2f4] text-[#4b5563]">
-              <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden />
-            </span>
-            <span className="min-w-0 flex-1 text-left">
-              <span className="block truncate text-[14px] font-medium text-[#1a1a2e]">{f.name}</span>
-              {f.size ? <span className="block text-[12.5px] text-[#6b7280]">{fileSizeLabel(f.size)}</span> : null}
-            </span>
-          </>
-        )
+        const href = fileUrl(f.assetId)
         if (at === -1) {
-          return (
-            <a key={f.assetId} href={fileUrl(f.assetId)} download={f.name} className="flex min-h-12 max-w-[520px] items-center gap-3 rounded-xl border border-[#e8e9ec] px-3 py-2 transition-colors hover:bg-[#f8f9fa]" data-post-file="">
-              {inner}
-              <Download className="h-[18px] w-[18px] shrink-0 text-[#6b7280]" strokeWidth={1.75} aria-label="Download" />
-            </a>
-          )
+          return <CommunityFileAttachment key={f.assetId} apiPath={href} fileName={f.name} size={f.size} />
         }
         return (
-          <div key={f.assetId} className="flex min-h-12 max-w-[520px] items-center rounded-xl border border-[#e8e9ec] transition-colors hover:bg-[#f8f9fa]" data-post-file={kind ?? ""}>
-            <button
-              type="button"
-              onClick={() => openMediaViewer(viewable.map((v) => v.item), at, { communityId, autoplay: kind === "video" })}
-              className="flex min-h-12 min-w-0 flex-1 cursor-zoom-in items-center gap-3 rounded-l-xl px-3 py-2 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#1a1a2e]/20"
-              aria-label={`Open ${f.name}`}
-              data-post-file-open=""
-            >
-              {inner}
-            </button>
-            <a href={fileUrl(f.assetId)} download={f.name} aria-label={`Download ${f.name}`} className="mr-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-[#6b7280] transition-colors hover:bg-[#eef0f2] hover:text-[#1a1a2e]" data-no-viewer="">
-              <Download className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden />
-            </a>
-          </div>
+          <CommunityFileAttachmentSplit
+            key={f.assetId}
+            apiPath={href}
+            fileName={f.name}
+            size={f.size}
+            openLabel={`Open ${f.name}`}
+            onOpen={() => openMediaViewer(viewable.map((v) => v.item), at, { communityId, autoplay: kind === "video" })}
+          />
         )
       })}
       {open !== null ? (
@@ -524,38 +503,26 @@ export function CommentMedia({ media, text = "", communityId, commentId, sending
       {files.map((f) => {
         const kind = mediaKindOf(f.name)
         const at = viewable.findIndex((v) => v.assetId === f.assetId)
-        const Icon = kind === "image" ? ImageIcon : kind === "video" ? Film : FileText
-        const row = "flex min-h-11 max-w-[360px] items-center gap-2.5 rounded-[10px] border border-[#e6e8eb] bg-white px-2.5 py-1.5 shadow-[0_1px_1px_rgba(16,24,40,0.04)] transition-colors hover:bg-[#f8f9fa]"
-        const inner = (
-          <>
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] bg-[#f1f2f4] text-[#4b5563]">
-              <Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-            </span>
-            <span className="min-w-0 flex-1 text-left">
-              <span className="block truncate text-[13.5px] font-medium leading-5 text-[#1a1a2e]">{f.name}</span>
-              {f.size ? <span className="block text-[12px] leading-4 text-[#6b7280]">{fileSizeLabel(f.size)}</span> : null}
-            </span>
-          </>
-        )
+        const href = fileUrl(f.assetId)
         if (sending) {
           return (
-            <div key={f.assetId} className={row} data-comment-file="">
-              {inner}
+            <div key={f.assetId} className="flex min-h-11 max-w-[360px] items-center gap-2.5 rounded-[10px] border border-[#e6e8eb] bg-white px-2.5 py-1.5 opacity-70" data-comment-file="">
+              <span className="truncate text-[13.5px] font-medium text-[#1a1a2e]">{f.name}</span>
             </div>
           )
         }
         if (at === -1) {
-          return (
-            <a key={f.assetId} href={fileUrl(f.assetId)} download={f.name} className={row} data-comment-file="">
-              {inner}
-              <Download className="h-4 w-4 shrink-0 text-[#6b7280]" strokeWidth={1.75} aria-label="Download" />
-            </a>
-          )
+          return <CommunityFileAttachment key={f.assetId} apiPath={href} fileName={f.name} size={f.size} compact className="max-w-[360px]" />
         }
         return (
-          <button key={f.assetId} type="button" onClick={() => openMediaViewer(viewable.map((v) => v.item), at, { communityId, autoplay: kind === "video" })} className={`${row} w-full cursor-zoom-in outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20`} aria-label={`Open ${f.name}`} data-comment-file={kind ?? ""}>
-            {inner}
-          </button>
+          <CommunityFileAttachmentSplit
+            key={f.assetId}
+            apiPath={href}
+            fileName={f.name}
+            size={f.size}
+            openLabel={`Open ${f.name}`}
+            onOpen={() => openMediaViewer(viewable.map((v) => v.item), at, { communityId, autoplay: kind === "video" })}
+          />
         )
       })}
       {open !== null ? (

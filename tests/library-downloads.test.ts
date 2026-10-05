@@ -412,7 +412,11 @@ function screenCases() {
   check("every tab route is prefetched whole", /router\.prefetch\(tab\.href, \{ kind: FULL \}\)/.test(tabs) && (/onPointerEnter=\{\(\) => warm/.test(tabs) || (/onPointerEnter=\{onWarm\}/.test(tabs) && /onWarm=\{\(\) => warm\(tab\.href\)\}/.test(tabs))))
   /* The library moved into the profile (lib/library/paths.ts): its layout and loading screens are under app/account/library now. */
   const layout = read("app/account/library/layout.tsx")
-  check("the pills and the screen under them are one stage", /<LibraryPanel head=\{<LibraryTabs( communities=\{communities\})? \/>\}>\{children\}<\/LibraryPanel>/.test(layout))
+  check("the pills and the screen under them are one stage", /<LibraryPullRefresh>[\s\S]*<LibraryPanel head=\{<LibraryTabs( communities=\{communities\})? \/>\}>\{children\}<\/LibraryPanel>[\s\S]*<\/LibraryPullRefresh>/.test(layout))
+  check("pull at the top refreshes the library like the community feed", /RouterPullToRefresh scope=\{LIBRARY_REFRESH_SCOPE\}/.test(read("components/library/library-pull-refresh.tsx")))
+  const dl = read("lib/downloads/download-file.ts")
+  check("community attachments resolve the member file route before the native downloader runs", /memberApi/.test(dl) && /resolveMemberApi/.test(dl) && /redirect: "manual"/.test(dl))
+  check("post attachments download through the shared path", /memberApi: apiPath/.test(read("components/community/member/community-file-attachment.tsx")))
   const panel = read("components/library/library-panel.tsx")
   check("a press cross fades in place: the old screen fades over the next one's shape, which is drawn at once",
     /skeletonFor\(pending\.href, true\)/.test(panel) && /\[\{ opacity: 1 \}, \{ opacity: 0 \}\]/.test(panel) && /data-library-leaving/.test(panel) && !/opacity: 0\.2/.test(panel))
