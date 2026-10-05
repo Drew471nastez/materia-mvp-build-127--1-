@@ -28,7 +28,7 @@
  */
 import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from "react"
 import { flushSync } from "react-dom"
-import { AlertCircle, FileText, Loader2, Play, Plus, X } from "lucide-react"
+import { AlertCircle, FileText, GripVertical, Loader2, Play, Plus, X } from "lucide-react"
 import { EMBED_NAMES, fileSizeLabel } from "@/lib/communities/post-media"
 import { hapticTap } from "@/lib/native-bridge"
 import type { PostMedia } from "@/lib/communities/types"
@@ -47,11 +47,11 @@ export interface TrayItem {
 }
 
 /** A finger holds this long before a tile lifts; moving sooner is a scroll. */
-export const LIFT_HOLD_MS = 200
+export const LIFT_HOLD_MS = 150
 /** A mouse lifts a tile once it has moved this far. */
 export const MOUSE_LIFT_PX = 4
 /** A finger that moves this far before the hold is over is scrolling. */
-export const TOUCH_SLOP_PX = 8
+export const TOUCH_SLOP_PX = 10
 /** How long the neighbours take to slide, and the tile to settle. */
 export const SLIDE_MS = 160
 export const SETTLE_MS = 150
@@ -106,6 +106,7 @@ interface Drag {
   startY: number
   lifted: boolean
   timer: number
+  tile: HTMLElement
   els: HTMLElement[]
   rects: DOMRect[]
   /** Lets go of the window listeners and the hold timer. */
@@ -220,7 +221,10 @@ export function AttachmentTray<T extends TrayItem>({
       /* The order and the tiles' places change in one frame: the new order is drawn where the tiles already are. */
       flushSync(() => {
         setHeld(null)
-        if (to !== d.from) onMove(d.key, to)
+        if (to !== d.from) {
+        onMove(d.key, to)
+        if (d.touch) hapticTap("light")
+      }
       })
       clearStyles(d.els)
       if (to !== d.from) setSaid(`Moved to ${to + 1} of ${d.els.length}`)
@@ -257,6 +261,7 @@ export function AttachmentTray<T extends TrayItem>({
     const cancel = (ev: PointerEvent) => ev.pointerId === d.pointerId && end(d, false)
     /* While a tile is lifted by a finger the page must not scroll under it. */
     const still = (ev: TouchEvent) => d.lifted && ev.cancelable && ev.preventDefault()
+    const tile = e.currentTarget
     const d: Drag = {
       key,
       from: index,
@@ -267,6 +272,7 @@ export function AttachmentTray<T extends TrayItem>({
       startY: e.clientY,
       lifted: false,
       timer: 0,
+      tile,
       els: [],
       rects: [],
       off: () => {
@@ -275,11 +281,22 @@ export function AttachmentTray<T extends TrayItem>({
         window.removeEventListener("pointerup", up)
         window.removeEventListener("pointercancel", cancel)
         window.removeEventListener("touchmove", still)
+        try {
+          if (tile.hasPointerCapture(d.pointerId)) tile.releasePointerCapture(d.pointerId)
+        } catch {
+          /* gone with the tile */
+        }
       },
     }
     drag.current = d
-    if (touch) d.timer = window.setTimeout(() => drag.current === d && lift(d), LIFT_HOLD_MS)
-    else e.preventDefault()
+    if (touch) {
+      try {
+        tile.setPointerCapture(e.pointerId)
+      } catch {
+        /* older webviews */
+      }
+      d.timer = window.setTimeout(() => drag.current === d && lift(d), LIFT_HOLD_MS)
+    } else e.preventDefault()
     window.addEventListener("pointermove", move)
     window.addEventListener("pointerup", up)
     window.addEventListener("pointercancel", cancel)
@@ -309,7 +326,13 @@ export function AttachmentTray<T extends TrayItem>({
 
   return (
     <div className={className} data-attachment-tray="">
-      <div ref={strip} role="list" aria-label="Attachments" className="flex flex-wrap gap-2" data-composer-uploads="">
+      <div
+        ref={strip}
+        role="list"
+        aria-label="Attachments"
+        className={`flex gap-2 ${items.length > 2 ? "max-sm:flex-nowrap max-sm:overflow-x-auto max-sm:overscroll-x-contain max-sm:pb-0.5 max-sm:scrollbar-hide max-sm:snap-x max-sm:snap-mandatory" : "flex-wrap"} sm:flex-wrap`}
+        data-composer-uploads=""
+      >
         {items.map((item, i) => (
           <div
             key={item.key}
@@ -319,7 +342,8 @@ export function AttachmentTray<T extends TrayItem>({
             onPointerDown={(e) => onPointerDown(e, i, item.key)}
             onKeyDown={(e) => onKeyDown(e, i, item)}
             onContextMenu={(e) => drag.current && e.preventDefault()}
-            className={`relative h-[84px] w-[84px] shrink-0 select-none rounded-[10px] outline-none touch-manipulation [-webkit-touch-callout:none] [-webkit-tap-highlight-color:transparent] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/25 ${items.length > 1 ? (held === item.key ? "cursor-grabbing" : "cursor-grab") : ""}`}
+            className={`relative h-[88px] w-[88px] shrink-0 select-none rounded-[10px] outline-none [-webkit-touch-callout:none] [-webkit-tap-highlight-color:transparent] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/25 max-sm:snap-start sm:h-[84px] sm:w-[84px] ${items.length > 1 ? (held === item.key ? "cursor-grabbing touch-none" : "cursor-grab touch-manipulation") : "touch-manipulation"}`}
+            style={items.length > 1 ? ({ touchAction: held === item.key ? "none" : "manipulation" } as const) : undefined}
             data-tray-tile={item.kind}
             data-attachment={item.kind}
             data-key={item.key}
@@ -327,6 +351,11 @@ export function AttachmentTray<T extends TrayItem>({
             data-lifted={held === item.key ? "" : undefined}
           >
             <Tile item={item} />
+            {items.length > 1 && held !== item.key ? (
+              <span className="pointer-events-none absolute bottom-1 left-1/2 flex -translate-x-1/2 items-center gap-0.5 rounded-[6px] bg-black/40 px-1 py-0.5 text-white/90 sm:hidden" aria-hidden data-tray-grip="">
+                <GripVertical className="h-3 w-3" strokeWidth={2.5} />
+              </span>
+            ) : null}
             <button
               type="button"
               onClick={() => remove(item)}
@@ -345,7 +374,7 @@ export function AttachmentTray<T extends TrayItem>({
             type="button"
             onClick={onAdd}
             aria-label="Add more"
-            className="flex h-[84px] w-[84px] shrink-0 flex-col items-center justify-center gap-1 rounded-[10px] border border-[#e3e5e9] bg-white text-[#6b7280] shadow-[0_1px_1px_rgba(16,24,40,0.04)] outline-none transition-colors hover:bg-[#f6f7f8] hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 touch-manipulation [-webkit-tap-highlight-color:transparent]"
+            className="flex h-[88px] w-[88px] shrink-0 flex-col items-center justify-center gap-1 rounded-[10px] border border-[#e3e5e9] bg-white text-[#6b7280] shadow-[0_1px_1px_rgba(16,24,40,0.04)] outline-none transition-colors hover:bg-[#f6f7f8] hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 touch-manipulation max-sm:snap-start sm:h-[84px] sm:w-[84px] [-webkit-tap-highlight-color:transparent]"
             data-tray-add=""
           >
             <Plus className="h-5 w-5" strokeWidth={1.75} aria-hidden />

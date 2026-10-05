@@ -101,7 +101,7 @@ export function OpenInAppPill() {
           style={{ bottom: "max(calc(16px + env(safe-area-inset-bottom)), calc(var(--buyer-tabs-h, 0px) + 12px))" }}
         >
           <div
-            className="pointer-events-auto flex h-11 items-center rounded-full bg-white pl-1.5 pr-1 shadow-[0_0_0_1px_rgba(17,24,39,0.07),0_2px_4px_rgba(17,24,39,0.05),0_8px_24px_-8px_rgba(17,24,39,0.18)] transition-[opacity,translate] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
+            className="pointer-events-auto flex h-11 max-w-[calc(100vw-32px)] items-center rounded-[10px] bg-white pl-1.5 pr-1 shadow-[0_0_0_1px_rgba(17,24,39,0.07),0_2px_4px_rgba(17,24,39,0.05),0_8px_24px_-8px_rgba(17,24,39,0.18)] transition-[opacity,translate] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
             style={{ opacity: shown ? 1 : 0, translate: shown ? "0 0" : "0 12px" }}
             aria-hidden={!shown}
           >
@@ -110,7 +110,7 @@ export function OpenInAppPill() {
               onClick={open}
               data-open-app-pill-open=""
               tabIndex={shown ? 0 : -1}
-              className="flex h-11 items-center gap-2 rounded-full pr-2 text-[13.5px] font-semibold text-[#1a1a2e] transition-[scale] duration-100 active:scale-[0.97] [-webkit-tap-highlight-color:transparent]"
+              className="flex h-11 min-w-0 items-center gap-2 rounded-[10px] pr-2 text-[13px] font-semibold leading-tight text-[#1a1a2e] transition-[scale] duration-100 active:scale-[0.97] [-webkit-tap-highlight-color:transparent] sm:text-[13.5px]"
             >
               <StorelibLogo size={28} alt="" className="block h-7 w-7" />
               Open in the Storelib app
@@ -122,7 +122,7 @@ export function OpenInAppPill() {
               aria-label="Close"
               data-open-app-pill-close=""
               tabIndex={shown ? 0 : -1}
-              className="flex h-10 w-10 items-center justify-center rounded-full text-[#9ca3af] transition-colors duration-100 active:bg-[#f3f4f6] active:text-[#4b5563] [-webkit-tap-highlight-color:transparent]"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] text-[#9ca3af] transition-colors duration-100 active:bg-[#f3f4f6] active:text-[#4b5563] [-webkit-tap-highlight-color:transparent]"
             >
               <X className="h-4 w-4" strokeWidth={2.25} />
             </button>

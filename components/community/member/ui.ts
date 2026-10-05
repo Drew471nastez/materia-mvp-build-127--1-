@@ -47,7 +47,7 @@ export const FLAT_ICON_BTN =
 
 /* Pressed, a button dims on the first frame and comes back when it lifts: no scale, so nothing bumps (round 11). */
 export const BTN =
-  "inline-flex shrink-0 touch-manipulation select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-full text-[14px] font-medium outline-none transition-[background-color,color,opacity,box-shadow] duration-150 active:opacity-80 active:duration-0 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none [-webkit-tap-highlight-color:transparent]"
+  "inline-flex shrink-0 touch-manipulation select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-[10px] text-[14px] font-medium outline-none transition-[background-color,color,opacity,box-shadow] duration-150 active:opacity-80 active:duration-0 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none [-webkit-tap-highlight-color:transparent]"
 export const BTN_PRIMARY = `${BTN} h-10 ${DEPTH_INK} px-4 text-white hover:bg-[#2b2b42] sm:h-9`
 export const BTN_SECONDARY = `${BTN} h-10 ${DEPTH} ${DEPTH_PRESS} px-4 text-[#1a1a2e] hover:bg-[#f6f7f8] sm:h-9`
 export const BTN_GHOST = `${BTN} h-10 px-3 text-[#4b5563] hover:bg-[#f1f2f4] hover:text-[#1a1a2e] sm:h-9`

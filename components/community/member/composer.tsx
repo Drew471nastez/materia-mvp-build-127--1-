@@ -996,7 +996,7 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
         trigger={
           <button
             type="button"
-            className={`inline-flex h-10 max-w-[200px] shrink-0 items-center gap-1 rounded-full ${DEPTH} ${DEPTH_PRESS} px-3 text-[14px] font-medium outline-none transition-colors hover:bg-[#f6f7f8] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 sm:h-9 ${space ? "text-[#1a1a2e]" : "text-[#6b7280]"}`}
+            className={`inline-flex h-10 max-w-[200px] shrink-0 items-center gap-1 rounded-[10px] ${DEPTH} ${DEPTH_PRESS} px-3 text-[14px] font-medium outline-none transition-colors hover:bg-[#f6f7f8] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 sm:h-9 ${space ? "text-[#1a1a2e]" : "text-[#6b7280]"}`}
             data-composer-space={space ? space.id : ""}
           >
             {space ? (

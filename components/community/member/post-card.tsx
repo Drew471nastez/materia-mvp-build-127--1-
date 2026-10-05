@@ -70,6 +70,7 @@ import { ShareIcon } from "@solar-icons/react/linear/share"
 import { ShieldIcon } from "@solar-icons/react/linear/shield"
 import { TrashBinMinimalisticIcon } from "@solar-icons/react/linear/trash-bin-minimalistic"
 import { AppAvatar } from "@/components/app/app-avatar"
+import { LevelBadge } from "./level-badge"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { relativeTime } from "@/lib/communities/format"
 import { cardPictures, withBodyEmbeds } from "@/lib/communities/post-media"
@@ -494,11 +495,7 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
         ) : (
           <AppAvatar src={null} name="Former member" alt="" size={40} markWhileLoading />
         )}
-        {level ? (
-          <span className="pointer-events-none absolute -bottom-1 -right-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#1a1a2e] px-1 text-[10.5px] font-semibold tabular-nums leading-none text-white ring-2 ring-white" aria-label={`Level ${level}`} data-level-badge="">
-            {level}
-          </span>
-        ) : null}
+        {level ? <LevelBadge level={level} /> : null}
       </span>
       <div className="min-w-0 flex-1 pt-0.5">
         {/* One line: a long name is cut short before the role ever drops under it. */}

@@ -32,6 +32,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { createPortal } from "react-dom"
 import { Check, Clock3 } from "lucide-react"
 import { AppAvatar } from "@/components/app/app-avatar"
+import { LevelBadge } from "./level-badge"
 import { useFollow } from "@/components/profile/follow-button"
 import { api, apiBase } from "./api"
 import { activeLabel, CARD_GRACE_MS, CARD_OPEN_MS, CARD_TTL_MS, communitiesLine, hoverPointer, ownerLine } from "./person-card-facts"
@@ -357,13 +358,7 @@ function PersonCard({ anchor, person, leaving, canMessage, onFollowed, onDone, r
         <span className="relative shrink-0 self-start">
           <AppAvatar src={person.avatarUrl} name={person.name} alt="" size={64} markWhileLoading />
           {person.level ? (
-            <span
-              className="absolute -bottom-0.5 -right-0.5 flex h-[22px] min-w-[22px] items-center justify-center rounded-full bg-[#1a1a2e] px-1 text-[11.5px] font-semibold tabular-nums text-white ring-2 ring-white"
-              title={`Level ${person.level}${person.levelName ? `, ${person.levelName}` : ""}`}
-              data-person-card-level=""
-            >
-              {person.level}
-            </span>
+            <LevelBadge level={person.level} size="md" title={`Level ${person.level}${person.levelName ? `, ${person.levelName}` : ""}`} data-person-card-level="" />
           ) : null}
         </span>
         <div className="min-w-0 flex-1 pt-0.5">
