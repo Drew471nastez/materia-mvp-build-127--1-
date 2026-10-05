@@ -107,7 +107,7 @@ export function OpenInApp({ phone }: { phone: Phone | null }) {
         <aside
           aria-label="Storelib app"
           data-open-in-app-banner=""
-          className="flex h-[60px] items-center gap-2.5 rounded-2xl border border-[#e4e7ec]/80 bg-white pl-1 pr-2.5 shadow-[0_1px_2px_rgba(16,24,40,0.04),0_3px_8px_-2px_rgba(16,24,40,0.05)] duration-300 animate-in fade-in-0 slide-in-from-bottom-1 motion-reduce:animate-none"
+          className="flex h-[60px] items-center gap-2.5 rounded-[10px] border border-[#e4e7ec]/90 bg-white pl-1 pr-2.5 shadow-[0_0_0_1px_rgba(16,24,40,0.04),0_2px_6px_-2px_rgba(16,24,40,0.08),0_6px_16px_-6px_rgba(16,24,40,0.06)] duration-300 animate-in fade-in-0 slide-in-from-bottom-1 motion-reduce:animate-none"
         >
           <button
             type="button"
@@ -127,7 +127,7 @@ export function OpenInApp({ phone }: { phone: Phone | null }) {
             href={appLink(phone, pathname)}
             onClick={open}
             data-open-in-app-open=""
-            className="inline-flex h-8 shrink-0 items-center rounded-full bg-[#1a1a2e] px-4 text-[13px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_1px_2px_rgba(16,24,40,0.24)] transition-[scale,background-color] duration-100 active:scale-[0.96] active:bg-[#12121f] [-webkit-tap-highlight-color:transparent]"
+            className="inline-flex h-8 shrink-0 items-center rounded-[10px] bg-[#1a1a2e] px-4 text-[13px] font-semibold text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_1px_2px_rgba(16,24,40,0.24)] transition-[scale,background-color] duration-100 active:scale-[0.96] active:bg-[#12121f] [-webkit-tap-highlight-color:transparent]"
           >
             Open
           </a>

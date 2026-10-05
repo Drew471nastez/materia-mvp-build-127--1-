@@ -19,6 +19,7 @@ import { switchKnob, switchTrack } from "@/components/ui/switch-style"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
 import { DirectUploader } from "@/lib/storage/chunked-upload"
+import { optimizedImageUrl } from "@/lib/images/optimized-url"
 import { PickSheet, type PickOption } from "@/app/app/products/pick-sheet"
 import { SAVED_CHECK_MS, SaveButton, barButton, type SavePhase } from "@/app/app/products/new/editor-buttons"
 
@@ -447,7 +448,7 @@ export function PicturePick({ value, onChange, shape, name, onError }: { value: 
       >
         {value ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={value} alt="" className="absolute inset-0 h-full w-full object-cover" />
+          <img src={optimizedImageUrl(value, shape === "square" ? 160 : 640)} alt="" className="absolute inset-0 h-full w-full object-cover" decoding="async" />
         ) : busy ? (
           <Loader2 aria-hidden className="h-5 w-5 animate-spin" />
         ) : (

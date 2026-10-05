@@ -68,8 +68,10 @@ interface ImageUploadProps {
   reposition?: {
     value: CoverCrop | null | undefined
     onChange: (next: CoverCrop) => void
-    /** Whether a finger moves the picture. Off, the frame shows the crop and a press replaces it. */
+    /** Whether a finger moves the picture. Off, the frame shows the crop and a press may replace it. */
     editable?: boolean
+    /** When `editable` is false, a tap on the frame opens the file picker. Off, only the corner controls do. */
+    replaceOnTap?: boolean
     /**
      * The shape of the band this picture will really be drawn into, measured
      * from the page rather than assumed. A crop depends only on the ratio of
@@ -533,7 +535,8 @@ export function ImageUpload({
     /* A picture on its way up is drawn from the middle at its own size, as it will be saved. */
     const showingPending = !!pending && !pending.handedOver
     const crop = showingPending ? DEFAULT_COVER_CROP : reposition.value ?? DEFAULT_COVER_CROP
-    const editable = reposition.editable !== false && !showingPending
+    const editable = reposition.editable === true && !showingPending
+    const replaceOnTap = reposition.replaceOnTap !== false
     /* 44px to a thumb, 32px to the eye: the disc is small, its target is not. */
     const disc =
       "relative flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white transition-colors before:absolute before:-inset-1.5 before:content-[''] pointer-fine:hover:bg-black/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
@@ -543,7 +546,7 @@ export function ImageUpload({
           src={showingPending || !value ? pending!.url : coverEditorSrc(value)}
           crop={crop}
           onChange={editable && !uploading ? reposition.onChange : undefined}
-          onActivate={editable ? undefined : () => !uploading && inputRef.current?.click()}
+          onActivate={editable || !replaceOnTap ? undefined : () => !uploading && inputRef.current?.click()}
           aspect={reposition.aspect ?? 3}
           label={replaceLabel}
         >

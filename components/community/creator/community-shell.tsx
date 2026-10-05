@@ -140,7 +140,7 @@ export function CommunityShell({ head, children }: { head: CommunityHead; childr
       <div className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa]" data-community-shell="" data-section={active}>
         <PaneBar width={SECTION_WIDTH} className="pt-2.5 lg:pt-3.5">
           <div className="flex min-h-[48px] items-center gap-2.5">
-            <Link href="/app/community" aria-label="All communities" className="-ml-1.5 grid h-10 w-10 shrink-0 place-items-center rounded-lg text-[#1a1a2e] hover:bg-[#eceef1] sm:h-9 sm:w-9">
+            <Link href="/app/community" aria-label="All communities" scroll={false} className="-ml-1.5 grid h-10 w-10 shrink-0 place-items-center rounded-lg text-[#1a1a2e] transition-[background-color,opacity] duration-150 hover:bg-[#eceef1] active:opacity-70 sm:h-9 sm:w-9">
               <ArrowLeft aria-hidden className="h-[18px] w-[18px]" />
             </Link>
             {head.logoUrl ? (
@@ -153,9 +153,7 @@ export function CommunityShell({ head, children }: { head: CommunityHead; childr
             )}
             <div className="flex min-w-0 flex-1 items-center gap-2">
               <h1 className="min-w-0 truncate text-[19px] font-bold leading-7 text-[#1a1a2e] sm:text-[22px] lg:text-[24px]">{head.name}</h1>
-              <span className="max-sm:hidden">
-                <StateBadge head={head} />
-              </span>
+              <StateBadge head={head} />
             </div>
             <div className="flex shrink-0 items-center gap-1.5">
               {head.status === "published" || head.can.manage_settings ? (

@@ -91,7 +91,11 @@ export function PostPage({ slug, viewer, post: initialPost, comments: initial, m
   return (
     <div className={`space-y-3 ${visitor ? "pb-28" : "pb-10"}`} data-post-page={visitor ? "visitor" : "member"}>
       {visitor ? null : (
-        <Link href={post.space ? `/community/${slug}/space/${post.space.slug}` : `/community/${slug}`} className={`${BTN_GHOST} -ml-3 text-[13.5px]`}>
+        <Link
+          href={post.space ? `/community/${slug}/space/${post.space.slug}` : `/community/${slug}`}
+          scroll={false}
+          className={`${BTN_GHOST} -ml-3 text-[13.5px] transition-opacity duration-150 active:opacity-70`}
+        >
           <ArrowLeft className="h-4 w-4" aria-hidden />
           {post.space ? post.space.name : "Home"}
         </Link>

@@ -2805,6 +2805,17 @@ html.keyboard-open [data-page="library"] main {
   overflow-anchor: auto;
 }
 
+/* Community member area: do not keep a full svh box under the keyboard (Safari
+   and Capacitor leave a blank band when min-height stays on the shell). */
+html.keyboard-open [data-community-shell] {
+  min-height: var(--vv-h, 100dvh) !important;
+  max-height: var(--vv-h, 100dvh);
+  overflow: hidden;
+}
+html.keyboard-open [data-community-shell] [data-community-body] {
+  min-height: 0 !important;
+}
+
 /* ── Scroll-margin for inputs: prevent content sliding under the fixed header ──
  *
  * On mobile (iOS/Android), focusing an input triggers the browser's built-in

@@ -166,10 +166,10 @@ function CommunityTopBarInner({ data, messages = null, messagesOpen = false, onM
         <div className={cn("flex h-14 min-w-0 flex-1 items-center gap-1.5 min-[400px]:gap-2 md:gap-3 lg:h-16", search ? "md:max-w-[320px] md:flex-none" : "lg:max-w-[360px] lg:flex-none", wide && "lg:w-[260px] lg:max-w-none xl:w-[280px]")} data-community-top-lead="">
           <Link href={base} aria-label={`${community.name}, home`} className="flex shrink-0 rounded-[10px] outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15" data-community-mark="">
             <span className="flex md:hidden">
-              <CommunityMark community={community} size={36} />
+              <CommunityMark community={community} size={36} priority />
             </span>
             <span className="hidden md:flex">
-              <CommunityMark community={community} size={40} />
+              <CommunityMark community={community} size={40} priority />
             </span>
           </Link>
           <div className="min-w-0 leading-tight" data-community-identity="">

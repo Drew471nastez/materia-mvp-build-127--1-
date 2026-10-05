@@ -17,11 +17,11 @@ export function Modal({ open, onClose, title, children, label }: { open: boolean
   return (
     <DialogPrimitive.Root open={open} onOpenChange={(o) => (!o ? onClose() : undefined)}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-[80] bg-[#0f1115]/40 data-[state=open]:animate-in data-[state=open]:fade-in-0" />
+        <DialogPrimitive.Overlay className="fixed inset-0 z-[80] bg-[#0f1115]/42 backdrop-blur-[1px] data-[state=open]:animate-in data-[state=open]:fade-in-0" />
         <DialogPrimitive.Content
           aria-describedby={undefined}
           aria-label={label}
-          className="fixed inset-x-0 bottom-0 z-[81] mx-auto w-full max-w-[440px] rounded-t-[20px] bg-white p-5 pb-[calc(20px+env(safe-area-inset-bottom))] shadow-[0_20px_60px_-12px_rgba(17,24,39,0.35)] outline-none sm:bottom-auto sm:top-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:pb-5"
+          className="fixed inset-x-0 bottom-0 z-[81] mx-auto w-full max-w-[440px] rounded-t-[18px] border border-[#e5e7eb]/70 bg-white p-5 pb-[calc(20px+env(safe-area-inset-bottom))] shadow-[0_0_0_1px_rgba(16,24,40,0.04),0_-12px_40px_-10px_rgba(17,24,39,0.28),0_24px_48px_-20px_rgba(17,24,39,0.18)] outline-none sm:bottom-auto sm:top-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:border sm:pb-5 sm:shadow-[0_0_0_1px_rgba(16,24,40,0.05),0_24px_64px_-20px_rgba(17,24,39,0.35),0_2px_8px_rgba(17,24,39,0.06)]"
         >
           <DialogPrimitive.Title className="text-[17px] font-semibold text-[#1a1a2e]">{title}</DialogPrimitive.Title>
           {children}

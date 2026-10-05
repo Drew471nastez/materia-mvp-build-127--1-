@@ -26,6 +26,7 @@
  */
 import { useRouter } from "next/navigation"
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { Pencil } from "lucide-react"
 import { ImageUpload } from "@/components/app/image-upload"
 import { DEFAULT_COVER_CROP, isDefaultCrop, type CoverCrop } from "@/lib/images/cover-crop"
 import { parseProfileCover, profileBandAspect } from "@/lib/profile/cover"
@@ -71,6 +72,7 @@ export function CoverField({ initial, labelClass, helpClass }: { initial: string
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
   const aspect = useBandAspect()
+  const [editingCrop, setEditingCrop] = useState(false)
   /* The crop the server has, to put back if a save fails. */
   const savedCrop = useRef<CoverCrop>(start.crop)
   const cropTimer = useRef<number | null>(null)
@@ -132,18 +134,44 @@ export function CoverField({ initial, labelClass, helpClass }: { initial: string
     [done],
   )
 
-  const reposition = useMemo(() => ({ value: crop, onChange: changeCrop, aspect, editable: !!cover }), [crop, changeCrop, aspect, cover])
+  const reposition = useMemo(
+    () => ({ value: crop, onChange: changeCrop, aspect, editable: editingCrop, replaceOnTap: false }),
+    [crop, changeCrop, aspect, editingCrop],
+  )
 
   return (
     <div id="cover" className="scroll-mt-24" data-account-cover-field="" data-cover-crop={isDefaultCrop(crop) ? "default" : `${crop.x},${crop.y},${crop.zoom}`}>
-      <div className="mb-1.5 flex items-baseline justify-between gap-3">
+      <div className="mb-1.5 flex items-center justify-between gap-3">
         <span className={labelClass}>Cover</span>
-        {/* What the frame does, said once, as the creator editor says it (no pill over the picture). */}
         {cover ? (
-          <span className="text-right text-[12px] text-[#6b7280]" data-account-cover-hint="">
-            <span className="pointer-fine:hidden">Drag to move, pinch to zoom</span>
-            <span className="hidden pointer-fine:inline">Drag to move, pinch or ctrl + scroll to zoom</span>
-          </span>
+          <div className="flex shrink-0 items-center gap-2">
+            {editingCrop ? (
+              <>
+                <span className="hidden text-[12px] text-[#6b7280] sm:inline" data-account-cover-hint="">
+                  Drag to move, pinch or ctrl + scroll to zoom
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setEditingCrop(false)}
+                  className="inline-flex h-8 items-center rounded-lg border border-[#e1e3e7] bg-white px-2.5 text-[12.5px] font-medium text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition-colors hover:bg-[#f7f7f8]"
+                  data-account-cover-done=""
+                >
+                  Done
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setEditingCrop(true)}
+                aria-label="Adjust cover position and zoom"
+                className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#e1e3e7] bg-white px-2.5 text-[12.5px] font-medium text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition-colors hover:bg-[#f7f7f8]"
+                data-account-cover-edit=""
+              >
+                <Pencil className="h-3.5 w-3.5 text-[#6b7280]" strokeWidth={2.25} aria-hidden />
+                Adjust
+              </button>
+            )}
+          </div>
         ) : null}
       </div>
       <ImageUpload

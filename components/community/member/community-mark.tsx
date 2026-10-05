@@ -7,6 +7,28 @@
 import { AppAvatar } from "@/components/app/app-avatar"
 import type { TopBarCommunity } from "./view-types"
 
-export function CommunityMark({ community, size }: { community: Pick<TopBarCommunity, "name" | "logoUrl">; size: number }) {
-  return <AppAvatar src={community.logoUrl} name={community.name} alt="" size={size} className="shrink-0 rounded-[10px]" markWhileLoading />
+const MARK_DEPTH = "shadow-[0_0_0_1px_rgba(16,24,40,0.07),0_1px_2px_rgba(16,24,40,0.1)]"
+
+export function CommunityMark({
+  community,
+  size,
+  priority = false,
+}: {
+  community: Pick<TopBarCommunity, "name" | "logoUrl">
+  size: number
+  /** In the bar: fetch at once rather than as the mark nears the screen. */
+  priority?: boolean
+}) {
+  return (
+    <AppAvatar
+      src={community.logoUrl}
+      name={community.name}
+      alt=""
+      size={size}
+      className={`shrink-0 rounded-[10px] bg-[#f1f2f4] ${MARK_DEPTH}`}
+      markWhileLoading
+      kind="mark"
+      lazy={!priority}
+    />
+  )
 }

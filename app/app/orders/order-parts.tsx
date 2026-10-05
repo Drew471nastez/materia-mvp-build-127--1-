@@ -102,10 +102,10 @@ export function formatMoney(cents: number): string {
 type Tone = "neutral" | "attention" | "critical" | "success"
 
 const TONE: Record<Tone, string> = {
-  neutral: "bg-[#f1f2f4] text-[#3f3f46]",
-  attention: "bg-[#fff1c2] text-[#5c4300]",
-  critical: "bg-[#fde8e7] text-[#8a1c0f]",
-  success: "bg-[#e3f5e9] text-[#14532d]",
+  neutral: "bg-[#f1f2f4] text-[#3f3f46] shadow-[inset_0_1px_0_rgba(255,255,255,0.7),0_0_0_1px_rgba(16,24,40,0.05)]",
+  attention: "bg-[#fff1c2] text-[#5c4300] shadow-[inset_0_1px_0_rgba(255,255,255,0.55),0_0_0_1px_rgba(92,67,0,0.08)]",
+  critical: "bg-[#fde8e7] text-[#8a1c0f] shadow-[inset_0_1px_0_rgba(255,255,255,0.55),0_0_0_1px_rgba(138,28,15,0.1)]",
+  success: "bg-[#e3f5e9] text-[#14532d] shadow-[inset_0_1px_0_rgba(255,255,255,0.65),0_0_0_1px_rgba(20,83,45,0.12),0_1px_2px_rgba(16,24,40,0.04)]",
 }
 
 /**

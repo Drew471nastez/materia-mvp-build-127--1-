@@ -29,7 +29,7 @@ import { CopyIcon as CopyLine } from "@solar-icons/react/linear/copy"
 import { CupStarIcon as CupBold } from "@solar-icons/react/bold/cup-star"
 import { createContext, memo, useCallback, useContext, useEffect, useRef, useState } from "react"
 import { AppAvatar } from "@/components/app/app-avatar"
-import { optimizedImageUrl } from "@/lib/images/optimized-url"
+import { optimizedImageUrl, optimizedSrcSet } from "@/lib/images/optimized-url"
 import { compactCount, eventDateBadge } from "@/lib/communities/format"
 import { FULL_ON_HOVER, type NavEntry, type TabKey } from "./nav"
 import { PlaceIcon } from "./place-icons"
@@ -125,7 +125,18 @@ function WallCommunityCardInner({ community, card, membersHref }: { community: S
       {community.coverUrl ? (
         <Link href={base} tabIndex={-1} aria-hidden className="block">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={optimizedImageUrl(community.coverUrl, 640)} alt="" className="aspect-[16/9] w-full bg-[#f1f2f4] object-cover" data-wall-cover="" />
+          <img
+            src={optimizedImageUrl(community.coverUrl, 560)}
+            srcSet={optimizedSrcSet(community.coverUrl, [320, 480, 560, 720, 960]) || undefined}
+            sizes="(max-width: 1023px) 100vw, 280px"
+            alt=""
+            width={560}
+            height={315}
+            loading="lazy"
+            decoding="async"
+            className="aspect-[16/9] w-full bg-[#f1f2f4] object-cover"
+            data-wall-cover=""
+          />
         </Link>
       ) : null}
       <div className="px-4 pb-4 pt-3.5">
