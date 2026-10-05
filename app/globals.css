@@ -4329,9 +4329,25 @@ html.capacitor {
   box-shadow: var(--bar-depth-dark);
 }
 
-/* The light bar has no depth: it is the white of the band above it, opaque,
-   with its hairline (lib/platform/header-chrome.ts headerBorder) and nothing
-   under that, so the strip under the clock and the bar read as one surface. */
+/* The light bar has no depth on a phone: it is the white of the band above
+   it, opaque, with its hairline (lib/platform/header-chrome.ts headerBorder)
+   and nothing under that, so the strip under the clock and the bar read as
+   one surface. */
+
+/*
+  ON A COMPUTER THE BAR SITS A LITTLE OVER THE PAGE. There is no band under
+  a clock to be one surface with there, and a hairline alone read as the
+  top strip of the page rather than as a bar the page scrolls under. The
+  light bar takes the shared --bar-depth (the creator and product bars'
+  own value) under its hairline, as the dark bar already takes
+  --bar-depth-dark above. From the header's own desktop breakpoint
+  (.platform-header-row below), so a phone is exactly as it was.
+*/
+@media (min-width: 768px) {
+  .platform-header-light {
+    box-shadow: var(--bar-depth);
+  }
+}
 
 .platform-header-row {
   /*
