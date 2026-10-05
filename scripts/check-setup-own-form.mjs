@@ -104,23 +104,6 @@ writeFileSync(
   `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${inter}</style><style>${css}</style><style>body{margin:0;font-family:Inter,system-ui,sans-serif}</style></head><body><div id="app"></div><script>${readFileSync(join(stubs, "country.js"), "utf8").replace(/<\/script/gi, "<\\/script")}</script></body></html>`,
 )
 
-/* A third bundle: the phone page a computer's QR code opens. */
-await build({
-  entryPoints: [join(root, "scripts/render-verify-id-phone.tsx")],
-  bundle: true,
-  format: "iife",
-  jsx: "automatic",
-  define: { "process.env.NODE_ENV": '"production"' },
-  alias: { "@": ".", react: compiled("react"), "react-dom": compiled("react-dom"), "next/navigation": join(stubs, "navigation.js") },
-  banner: { js: "var process={env:{NODE_ENV:'production'}};" },
-  loader: { ".css": "empty" },
-  outfile: join(stubs, "phone.js"),
-  logLevel: "error",
-  absWorkingDir: root,
-  nodePaths: [join(root, "node_modules")],
-})
-const phoneHtml = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${inter}</style><style>${css}</style><style>body{margin:0;font-family:Inter,system-ui,sans-serif}</style></head><body><div id="app"></div><script>${readFileSync(join(stubs, "phone.js"), "utf8").replace(/<\/script/gi, "<\\/script")}</script></body></html>`
-
 const out = join(root, ".setup-own-form-probe")
 mkdirSync(out, { recursive: true })
 const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox", "--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream", "--unsafely-treat-insecure-origin-as-secure=http://probe.test"] })
@@ -420,7 +403,7 @@ try {
     expect(asked.includes("identity"), "the app asks the server for Stripe's own check", asked)
     expect(after.panel && after.here === "probe.test", "and the setup page itself never leaves for Stripe", after)
     expect(after.waiting, "the step waits for Stripe, and says so", after)
-    expect(after.other, "  with Storelib's camera still there as the other way", after)
+    expect(!after.other, "  and Storelib's camera is not offered at all: Stripe's check is the only way", after)
     expect(errors.length === 0, "nothing threw", errors.slice(0, 1))
     await p.screenshot({ path: join(out, "native-id-390.png") })
     await p.close()
@@ -570,7 +553,7 @@ try {
       }))
       if (enabled) {
         expect(shown.stripeFirst && shown.says, "Stripe's live check is the way in, and says what it does", shown)
-        expect(shown.other, "with Storelib's camera offered underneath")
+        expect(!shown.other, "and Storelib's camera is nowhere on the step", shown)
         await p.screenshot({ path: join(out, "identity-390.png") })
         /* Opening it on the web asks the server, then watches for Stripe's answer. */
         await p.evaluate(() => { window.open = () => null })
@@ -587,291 +570,23 @@ try {
         expect(shown.stripeFirst, "it offers Stripe's check before knowing whether there is one")
         await p.click("[data-identity-open]")
         await new Promise((r) => setTimeout(r, 700))
-        const fell = await p.evaluate(() => ({ camera: !!document.querySelector("[data-id-camera]"), noFuss: !/not_enabled|went wrong/i.test(document.querySelector("[data-payments-setup-panel]")?.textContent ?? "") }))
-        expect(fell.camera, "with Stripe Identity off, the press opens Storelib's own camera instead", fell)
-        expect(fell.noFuss, "and says nothing about why")
+        /*
+          The owner, October 2026: "I used verify with Stripe instead, it
+          opened the same camera model". It used to fall through to our
+          camera without a word, which looked exactly like that. Now it says
+          what is wrong, in words, and opens nothing.
+        */
+        const fell = await p.evaluate(() => ({
+          camera: !!document.querySelector("[data-id-camera]"),
+          why: document.querySelector("[data-identity-problem]")?.textContent ?? "",
+          noCode: !/not_enabled|undefined|went wrong/i.test(document.querySelector("[data-payments-setup-panel]")?.textContent ?? ""),
+        }))
+        expect(!fell.camera, "with Stripe Identity off, nothing of ours opens", fell)
+        expect(/not switched on/.test(fell.why) && fell.noCode, "  it says so in words, with no Stripe code in them", fell)
       }
       expect(errors.length === 0, `nothing threw (${enabled ? "Stripe on" : "Stripe off"})`, errors.slice(0, 2))
       await p.close()
     }
-  }
-  {
-    /* The CNP or a photo of the ID, the way Stripe allows for Romania: the camera first, the number optional. */
-    console.log("\nThe ID camera, with the CNP optional (390px)")
-    const p = await browser.newPage()
-    const errors = []
-    const sent = {}
-    p.on("pageerror", (e) => errors.push(e.message))
-    await p.setRequestInterception(true)
-    const eitherNeeds = { ...needsNow, fields: ["dob", "address", "document"], either: [{ original: ["idNumber"], alternative: ["document"] }], offered: ["document"], given: [], handover: [] }
-    p.on("request", (r) => {
-      const u = r.url()
-      const json = (body) => r.respond({ status: 200, contentType: "application/json", body: JSON.stringify(body) })
-      if (u.startsWith("http://probe.test/__file")) return r.respond({ status: 200, contentType: "font/woff2", body: readFileSync(decodeURIComponent(u.slice("http://probe.test/__file".length))) })
-      if (u.startsWith("http://probe.test/app/payouts")) return r.respond({ status: 200, contentType: "text/html", body: html })
-      if (u.startsWith("http://probe.test/api/payments/")) {
-        const action = u.slice("http://probe.test/api/payments/".length)
-        sent[action] = (sent[action] ?? 0) + 1
-        if (action === "details") sent.detailsBody = r.postData()
-        if (action === "document") sent.documentType = r.headers()["content-type"] ?? ""
-        if (action === "identity") return json({ ok: false, reason: "not_enabled" })
-        /*
-          Stripe as it really answers: the details stop being due once they
-          are sent, and the document reads as given once it is on file. A
-          fixture that keeps naming fields it already has makes the ID step
-          hand back a list of things nobody still owes.
-        */
-        const left = sent.details ? ["document"] : ["dob", "address", "document"]
-        const withDoc = { ...eitherNeeds, fields: left, tos: sent.details ? false : eitherNeeds.tos, bank: sent.bank ? false : eitherNeeds.bank, given: sent.document ? ["document"] : [] }
-        if (action === "details-form" || action === "document") return json(action === "document" ? { form: form(withDoc) } : form(withDoc))
-        if (action === "details") return json({ form: form({ ...needsNow, fields: [], tos: false }), overview: { ...doneOverview, beat: "bank", paymentsStatus: { status: "BANK_REQUIRED", action: "bank" }, payoutDestination: null } })
-        if (action === "bank") return json({ form: form({ ...needsNow, fields: [], tos: false, bank: false }), overview: doneOverview })
-        return json({})
-      }
-      if (u.startsWith("data:") || u.startsWith("blob:")) return r.continue()
-      r.abort()
-    })
-    await p.bringToFront()
-    await p.setViewport({ width: 390, height: 844, deviceScaleFactor: 1, isMobile: true, hasTouch: true })
-    await p.goto("http://probe.test/app/payouts")
-    await pastDetails(p)
-    await p.waitForSelector("[data-id-photo]", { timeout: 8000 })
-    /* Stripe Identity is not on in this one, so the press falls to Storelib's camera. */
-    await p.evaluate(() => document.querySelector("[data-identity-open]")?.click())
-    await p.waitForSelector("[data-id-camera]", { timeout: 6000 }).catch(() => {})
-    await new Promise((r) => setTimeout(r, 300))
-    await p.evaluate(() => document.querySelector("[data-id-camera] [aria-label=Close]")?.click())
-    await new Promise((r) => setTimeout(r, 300))
-    await p.waitForSelector("[data-id-camera-open]", { timeout: 6000 })
-    await new Promise((r) => setTimeout(r, 300))
-    const start = await p.evaluate(() => ({
-      cnpHidden: ![...document.querySelectorAll("label")].some((l) => l.textContent?.includes("CNP")),
-      noDetails: !document.querySelector('[autocomplete="bday-day"]'),
-      photoFirst: document.body.textContent?.includes("Verify with your ID"),
-    }))
-    expect(start.photoFirst && start.cnpHidden && start.noDetails, "the ID check is a step of its own, with no CNP and no details on it", start)
-    await p.screenshot({ path: join(out, "id-choice-390.png") })
-
-    await p.evaluate(() => document.querySelector("[data-id-camera-open]")?.click())
-    await p.waitForSelector('[data-id-camera="live"]', { timeout: 6000 }).catch(() => {})
-    await new Promise((r) => setTimeout(r, 900))
-    const live = await p.evaluate(() => {
-      const v = document.querySelector("[data-id-camera] video")
-      return { phase: document.querySelector("[data-id-camera]")?.getAttribute("data-id-camera"), playing: !!v && v.videoWidth > 0, inline: v?.hasAttribute("playsinline") }
-    })
-    expect(live.phase === "live" && live.playing, "the camera opens inside the page, live", live)
-    expect(live.inline === true, "and plays inline, as iOS needs in the app")
-    await p.screenshot({ path: join(out, "camera-live-390.png") })
-    await p.evaluate(() => document.querySelector('[aria-label="Take photo"]')?.click())
-    await p.waitForSelector('[data-id-camera="review"]', { timeout: 4000 }).catch(() => {})
-    await new Promise((r) => setTimeout(r, 300))
-    expect(await p.evaluate(() => document.querySelector("[data-id-camera]")?.getAttribute("data-id-camera") === "review"), "the shutter shows the photo to check")
-    await p.screenshot({ path: join(out, "camera-review-390.png") })
-    await p.evaluate(() => [...document.querySelectorAll("[data-id-camera] button")].find((b) => b.textContent?.includes("Use photo"))?.click())
-    await new Promise((r) => setTimeout(r, 900))
-    expect(sent.document === 1 && /multipart\/form-data/.test(sent.documentType), "Use photo sends it to the server as a file", { calls: sent.document, type: sent.documentType })
-    expect(await p.evaluate(() => /Back of your ID/.test(document.querySelector("[data-id-camera]")?.textContent ?? "")), "and the camera turns to the back")
-    await p.evaluate(() => [...document.querySelectorAll("[data-id-camera] button")].find((b) => b.textContent?.includes("No back"))?.click())
-    await new Promise((r) => setTimeout(r, 400))
-    const closed = await p.evaluate(() => ({ closed: !document.querySelector("[data-id-camera]"), text: document.querySelector("[data-id-photo]")?.textContent ?? "" }))
-    expect(closed.closed && /Added/.test(closed.text) && /passport/.test(closed.text), "No back closes it, front added, back not needed", closed)
-    await p.screenshot({ path: join(out, "id-added-390.png") })
-
-    /*
-      The details went in before this step (pastDetails), and without a CNP:
-      where Stripe takes the document instead, the number is never asked for
-      on the way through. After the ID comes the bank, never the details again.
-    */
-    const body = sent.detailsBody ? JSON.parse(sent.detailsBody) : null
-    expect(!!body && body.idNumber === undefined, "the details went without a CNP, because the ID answers for it", body && { idNumber: body.idNumber ?? null })
-    expect(!!body && body.dob?.year === 1994 && body.address?.city === "Bucharest", "and with everything that was typed", body && { dob: body.dob, city: body.address?.city })
-    await p.evaluate(() => document.querySelector('button[type="submit"]')?.click())
-    await new Promise((r) => setTimeout(r, 800))
-    expect(
-      await p.evaluate(() => !document.querySelector('[autocomplete="bday-day"]') && !!document.querySelector("[data-bank-step]")),
-      "and after the ID it never hands back to the details: the bank is next",
-    )
-    expect(errors.length === 0, "nothing threw", errors.slice(0, 2))
-    await p.close()
-  }
-  {
-    /*
-      The owner, October 2026: after the camera, "nothing happens, no
-      feedback, Continue is blocked". Take the front, close the camera on the
-      back: the step says the front is in, Continue says what is left, and
-      "It's a passport" lets it through to the bank.
-    */
-    console.log("\nClosing the camera after the front (390px)")
-    const p = await browser.newPage()
-    const errors = []
-    const sent = {}
-    p.on("pageerror", (e) => errors.push(e.message))
-    await p.setRequestInterception(true)
-    const idNeeds = { ...needsNow, fields: ["dob", "address", "document"] }
-    p.on("request", (r) => {
-      const u = r.url()
-      const json = (body) => r.respond({ status: 200, contentType: "application/json", body: JSON.stringify(body) })
-      if (u.startsWith("http://probe.test/__file")) return r.respond({ status: 200, contentType: "font/woff2", body: readFileSync(decodeURIComponent(u.slice("http://probe.test/__file".length))) })
-      if (u.startsWith("http://probe.test/app/payouts")) return r.respond({ status: 200, contentType: "text/html", body: html })
-      if (u.startsWith("http://probe.test/api/payments/")) {
-        const action = u.slice("http://probe.test/api/payments/".length)
-        sent[action] = (sent[action] ?? 0) + 1
-        if (action === "identity") return json({ ok: false, reason: "not_enabled" })
-        const left = { ...idNeeds, fields: sent.details ? ["document"] : idNeeds.fields, tos: sent.details ? false : true, given: [] }
-        if (action === "details-form") return json(form(left))
-        /* Stripe's copy lags: the upload answers without "given" yet. The step must still move on. */
-        if (action === "document") return json({ form: form(left) })
-        if (action === "details") return json({ form: form({ ...needsNow, fields: ["document"], tos: false }), overview: { ...doneOverview, beat: "verification", paymentsStatus: { status: "INCOMPLETE", action: "onboarding" }, payoutDestination: null } })
-        return json({})
-      }
-      if (u.startsWith("data:") || u.startsWith("blob:")) return r.continue()
-      r.abort()
-    })
-    await p.bringToFront()
-    await p.setViewport({ width: 390, height: 844, deviceScaleFactor: 1, isMobile: true, hasTouch: true })
-    await p.goto("http://probe.test/app/payouts")
-    await pastDetails(p)
-    await p.waitForSelector("[data-id-photo]", { timeout: 8000 })
-    await p.evaluate(() => document.querySelector("[data-identity-open]")?.click())
-    await p.waitForSelector('[data-id-camera="live"]', { timeout: 8000 }).catch(() => {})
-    await new Promise((r) => setTimeout(r, 700))
-    const cam = await p.evaluate(() => {
-      const t = document.querySelector("[data-id-camera]")?.textContent ?? ""
-      return { noUpload: !/Upload|Choose a photo/.test(t) }
-    })
-    expect(cam.noUpload, "the camera offers no 'upload a photo' way round it", cam)
-    await p.evaluate(() => document.querySelector('[aria-label="Take photo"]')?.click())
-    await p.waitForSelector('[data-id-camera="review"]', { timeout: 4000 }).catch(() => {})
-    await p.evaluate(() => [...document.querySelectorAll("[data-id-camera] button")].find((b) => b.textContent?.includes("Use photo"))?.click())
-    await new Promise((r) => setTimeout(r, 400))
-    /* Now on the back: close it, as somebody going back would. */
-    await p.evaluate(() => document.querySelector("[data-id-camera] [aria-label=Close]")?.click())
-    await new Promise((r) => setTimeout(r, 900))
-    const after = await p.evaluate(() => ({
-      closed: !document.querySelector("[data-id-camera]"),
-      note: document.querySelector("[data-id-note]")?.textContent ?? "",
-      noPhotoLink: !/No camera\? Use a photo/.test(document.body.textContent ?? ""),
-      passport: !!document.querySelector("[data-id-passport]"),
-    }))
-    expect(after.closed && /Front added/.test(after.note), "back on the step, it says the front is in", after)
-    expect(after.noPhotoLink, "and there is no 'No camera? Use a photo' link", after)
-    await p.evaluate(() => document.querySelector('button[type="submit"]')?.click())
-    await new Promise((r) => setTimeout(r, 300))
-    const blocked = await p.evaluate(() => document.querySelector("[data-id-error]")?.textContent ?? "")
-    expect(/back of your ID/.test(blocked) && after.passport, "Continue says the back is missing, beside the photos, with 'It's a passport'", blocked)
-    await p.screenshot({ path: join(out, "id-back-missing-390.png") })
-    await p.evaluate(() => document.querySelector("[data-id-passport]")?.click())
-    await new Promise((r) => setTimeout(r, 200))
-    await p.evaluate(() => document.querySelector('button[type="submit"]')?.click())
-    await p.waitForSelector("[data-bank-step]", { timeout: 6000 }).catch(() => {})
-    expect(await p.evaluate(() => !!document.querySelector("[data-bank-step]")), "then Continue goes on to the bank, even with Stripe's copy lagging")
-    expect(errors.length === 0, "nothing threw", errors.slice(0, 2))
-    await p.close()
-  }
-  {
-    /* On a computer: a QR code for the phone, and the step catches the photos as they arrive. */
-    console.log("\nVerify ID on a computer: the QR code (1280px)")
-    const p = await browser.newPage()
-    const errors = []
-    let polls = 0
-    let detailsIn = false
-    p.on("pageerror", (e) => errors.push(e.message))
-    await p.setRequestInterception(true)
-    const idNeeds = { ...needsNow, fields: ["dob", "address", "document"] }
-    p.on("request", (r) => {
-      const u = r.url()
-      const json = (body) => r.respond({ status: 200, contentType: "application/json", body: JSON.stringify(body) })
-      if (u.startsWith("http://probe.test/__file")) return r.respond({ status: 200, contentType: "font/woff2", body: readFileSync(decodeURIComponent(u.slice("http://probe.test/__file".length))) })
-      if (u.startsWith("http://probe.test/app/payouts")) return r.respond({ status: 200, contentType: "text/html", body: html })
-      if (u.startsWith("http://probe.test/api/payments/")) {
-        const action = u.slice("http://probe.test/api/payments/".length)
-        if (action === "handoff") return json({ url: "http://probe.test/verify-id/abc.def" })
-        if (action === "details-form") {
-          if (!detailsIn) return json(form(idNeeds))
-          polls += 1
-          const sides = { front: polls > 2, back: polls > 3 }
-          return json({ ...form({ ...needsNow, fields: ["document"], tos: false, given: sides.front ? ["document"] : [] }), idSides: sides })
-        }
-        if (action === "details") {
-          detailsIn = true
-          return json({ form: form({ ...needsNow, fields: ["document"], tos: false }), overview: { ...doneOverview, beat: "verification", paymentsStatus: { status: "INCOMPLETE", action: "onboarding" }, payoutDestination: null } })
-        }
-        return json({})
-      }
-      if (u.startsWith("data:")) return r.continue()
-      r.abort()
-    })
-    await p.bringToFront()
-    await p.setViewport({ width: 1280, height: 860, deviceScaleFactor: 1 })
-    await p.goto("http://probe.test/app/payouts")
-    await pastDetails(p)
-    /* Stripe's check is the way in; the QR code is what "use your camera instead" means on a computer. */
-    await p.waitForSelector("[data-id-use-camera]", { timeout: 8000 }).catch(() => {})
-    await p.evaluate(() => document.querySelector("[data-id-use-camera]")?.click())
-    await p.waitForSelector("[data-id-qr] img", { timeout: 10000 }).catch(() => {})
-    const qr = await p.evaluate(() => ({
-      img: !!document.querySelector("[data-id-qr] img")?.getAttribute("src")?.startsWith("data:image/png"),
-      words: /Scan with your phone/.test(document.querySelector("[data-payments-setup-panel]")?.textContent ?? ""),
-      here: !!document.querySelector("[data-id-here]"),
-    }))
-    expect(qr.img && qr.words, "a QR code to verify on the phone", qr)
-    expect(qr.here, "  with 'Use this computer instead' under it", qr)
-    await p.screenshot({ path: join(out, "id-qr-1280.png") })
-    /* The panel, not the body: the body holds the page's own script, words and all. */
-    await p.waitForFunction(() => /Added from your phone/.test(document.querySelector("[data-payments-setup-panel]")?.textContent ?? ""), { timeout: 20000, polling: 500 }).catch(() => {})
-    const got = await p.evaluate(() => (document.querySelector("[data-id-photo='phone-done']")?.textContent ?? ""))
-    expect(/Front/.test(got) && /Added from your phone/.test(got), "the photos taken on the phone show up here by themselves", got.slice(0, 120))
-    await p.screenshot({ path: join(out, "id-qr-arrived-1280.png") })
-    expect(errors.length === 0, "nothing threw", errors.slice(0, 2))
-    await p.close()
-  }
-  {
-    /* The phone page the QR code opens: front, back, a percentage while it sends, then "All done". */
-    console.log("\nThe phone page from the QR code (390px)")
-    const p = await browser.newPage()
-    const errors = []
-    let sides = { front: false, back: false }
-    const posted = []
-    p.on("pageerror", (e) => errors.push(e.message))
-    await p.setRequestInterception(true)
-    p.on("request", (r) => {
-      const u = r.url()
-      const json = (body, status = 200) => r.respond({ status, contentType: "application/json", body: JSON.stringify(body) })
-      if (u.startsWith("http://probe.test/__file")) return r.respond({ status: 200, contentType: "font/woff2", body: readFileSync(decodeURIComponent(u.slice("http://probe.test/__file".length))) })
-      if (u.startsWith("http://probe.test/verify-id")) return r.respond({ status: 200, contentType: "text/html", body: phoneHtml })
-      if (u.startsWith("http://probe.test/api/payments/handoff")) {
-        if (r.method() === "GET") return json({ ...sides, wanted: true })
-        /* A multipart body with a photo in it does not reach the probe as text: the order says the side. */
-        const side = posted.length === 0 ? "front" : "back"
-        posted.push({ side, multipart: /multipart\/form-data/.test(r.headers()["content-type"] ?? "") })
-        sides = { ...sides, [side]: true }
-        return json(sides)
-      }
-      if (u.startsWith("data:") || u.startsWith("blob:")) return r.continue()
-      r.abort()
-    })
-    await p.bringToFront()
-    await p.setViewport({ width: 390, height: 844, deviceScaleFactor: 1, isMobile: true, hasTouch: true })
-    await p.goto("http://probe.test/verify-id/probe.token")
-    await p.waitForFunction(() => /Open the camera/.test(document.querySelector("main")?.textContent ?? ""), { timeout: 8000, polling: 200 }).catch(() => {})
-    expect(await p.evaluate(() => /Verify your ID/.test(document.querySelector("main")?.textContent ?? "")), "it opens on Verify your ID, no sign in")
-    await p.evaluate(() => [...document.querySelectorAll("main button")].find((b) => /Open the camera/.test(b.textContent ?? ""))?.click())
-    for (const side of ["front", "back"]) {
-      await p.waitForSelector('[data-id-camera="live"]', { timeout: 8000 }).catch(() => {})
-      await new Promise((r) => setTimeout(r, 600))
-      await p.evaluate(() => document.querySelector('[aria-label="Take photo"]')?.click())
-      await p.waitForSelector('[data-id-camera="review"]', { timeout: 4000 }).catch(() => {})
-      await p.evaluate(() => [...document.querySelectorAll("[data-id-camera] button")].find((b) => b.textContent?.includes("Use photo"))?.click())
-      await new Promise((r) => setTimeout(r, 900))
-      void side
-    }
-    await p.waitForFunction(() => /All done/.test(document.querySelector("main")?.textContent ?? ""), { timeout: 8000, polling: 200 }).catch(() => {})
-    const end = await p.evaluate(() => document.querySelector("main")?.textContent ?? "")
-    expect(posted.length === 2 && posted[0].side === "front" && posted[1].side === "back" && posted.every((x) => x.multipart), "front then back go up as photos", posted)
-    expect(/All done/.test(end) && /computer/.test(end), "and it ends on All done, go back to your computer", end.slice(0, 120))
-    await p.screenshot({ path: join(out, "phone-page-done-390.png") })
-    expect(errors.length === 0, "nothing threw", errors.slice(0, 2))
-    await p.close()
   }
   for (const width of [390, 1280]) {
     const later = false

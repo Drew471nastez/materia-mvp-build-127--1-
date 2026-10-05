@@ -154,10 +154,12 @@ check("    and it asks again while it is open, becoming active by itself", /outc
 const idClient = readFileSync("lib/payments/identity-client.ts", "utf8")
 check("Stripe's own check is the ID step, in the app as well", /if \(isNativeApp\(\)\) \{\s*\n\s*if \(opening\.url\) return openSheet\(opening\.url\)/.test(idClient) && /verifyIdentity\(opening\.clientSecret\)/.test(idClient))
 check("  the app opens it in its own sheet, and waits for the sheet to close", /@capacitor\/browser/.test(idClient) && /browserFinished/.test(idClient) && /__storelibSheet/.test(idClient))
-check("  with Storelib's camera still there as the other way", /data-id-use-camera/.test(flow) && /setIdWay\("camera"\)/.test(flow))
+/* The owner, October 2026: "we should not be able to use our camera, only the KYC verification of ID of Stripe." */
+check("  and Storelib's camera is gone from the ID step entirely", !/data-id-use-camera|IdCamera|data-id-camera-open/.test(flow) && !/openCamera\(/.test(flow))
+check("  a check Stripe will not start says why, and opens nothing", /function whyNoCheck/.test(flow) && /not switched on for Storelib/.test(flow) && /setIdProblem\(whyNoCheck\(r\.reason\)\)/.test(flow))
 check("the step waits while Stripe's sheet is open, not after it closes", /setIdState\("waiting"\)\s*\n\s*const how = await openIdentity/.test(flow))
 check("every Stripe call in a photo upload is bounded, so the page is never left hanging", /timeout: 20_000, maxNetworkRetries: 1/.test(own))
-check("  and a sheet that cannot open falls back to Storelib's camera, never to nothing", /if \(how === "no_way"\) \{\s*\n\s*setIdWay\("camera"\)/.test(flow))
+check("  and a sheet that cannot open says so, rather than opening something else", /if \(how === "no_way"\) \{\s*\n\s*setIdState\("idle"\)\s*\n\s*setIdProblem\(/.test(flow))
 check("  verifying is never shown while Stripe is still asking for something", /const stepFor = \(form: DetailsForm \| null\): Step \| null/.test(flow) && /if \(target !== null && target !== step\)/.test(flow))
 /* The owner, October 2026: finish it properly. Every way out of settle has to land somewhere. */
 check("  what is still owed decides the step, so no Continue leads nowhere", /if \(detailsLeft\) return 1/.test(flow) && /if \(idLeft\) return 2/.test(flow) && /if \(needs\.bank\) return 3/.test(flow))

@@ -387,21 +387,3 @@ export async function addBank(creator: PaymentsCreatorRef, raw: unknown): Promis
   const view = await viewOf(creator, account)
   return { ...view, bank: { ...view.bank, currency: currency.toUpperCase(), last4: added?.last4 ?? view.bank.last4, currencies: allowed.map((c) => c.toUpperCase()) } }
 }
-
-/**
- * VERIFY ID FROM A PHONE (lib/payments/stripe/id-handoff.ts). The phone is
- * not signed in: all it may learn is which sides are already in and whether
- * the ID is still wanted, never a detail of the account.
- */
-export async function idHandoffStatus(creator: PaymentsCreatorRef): Promise<{ front: boolean; back: boolean; wanted: boolean }> {
-  const account = await ownAccount(creator)
-  const doc = account.individual?.verification?.document
-  const view = await viewOf(creator, account)
-  return { front: !!doc?.front, back: !!doc?.back, wanted: view.needs.fields.includes("document") || !!doc?.front }
-}
-
-/** The phone's photos, through the same upload as the setup page. Only the ID document: nothing else can be sent this way. */
-export async function idHandoffUpload(creator: PaymentsCreatorRef, input: { side: string; file: File | null }): Promise<{ front: boolean; back: boolean }> {
-  const view = await uploadDocument(creator, { which: "document", side: input.side, file: input.file })
-  return { front: view.idSides.front, back: view.idSides.back }
-}
