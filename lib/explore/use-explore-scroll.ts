@@ -76,16 +76,25 @@ export function exploreScrollRestoreActive(): boolean {
 }
 
 /**
- * First client render on explore after leaving for a product: hold and scroll
- * before paint (pairs with explore-scroll-boot in the root layout).
+ * Explore after leaving for a product: hold (only when the page is not yet
+ * tall enough to stand at the saved place) and scroll, before paint (pairs
+ * with explore-scroll-boot in the root layout for a document load).
+ *
+ * NOT DURING RENDER (round 11). This ran in the render of the incoming page,
+ * when the page on screen is still the product: it scrolled the PRODUCT to
+ * Explore's saved place and put `overflow: hidden` on <html> (the hold),
+ * which on a computer takes the scrollbar away and shifts the product
+ * sideways, all before Explore had even committed. It is called from the
+ * layout effect now, where the DOM is Explore's.
  */
-export function primeExploreScrollRestore(): void {
-  if (typeof window === "undefined" || !isExploreSurface(window.location.pathname)) return
-  if (!peekRestorePending() && !backTraversal) return
+export function primeExploreScrollRestore(): boolean {
+  if (typeof window === "undefined" || !isExploreSurface(window.location.pathname)) return false
   const target = readSavedScroll()
-  if (target == null || target <= 0) return
+  if (target == null || target <= 0) return false
+  setSettling(true)
+  if (scrollToSaved(target)) return true
   setExploreHold(true)
-  scrollToSaved(target)
+  return false
 }
 
 function shouldRestoreOnEnter(): boolean {
@@ -120,36 +129,92 @@ function setExploreHold(on: boolean) {
   document.documentElement.classList.toggle(HOLD_CLASS, on)
 }
 
-function restoreScrollPosition(onDone?: () => void): void {
+/*
+  ===========================================================================
+   COMING BACK IS ONE STILL PICTURE, THEN A GENTLE FADE
+  ===========================================================================
+  Filmed on the way back from a product (round 11): Explore's first frame
+  stood at 1516 with the card the visitor had left at 291px showing at
+  275px, and the next frame jumped it back to 1500. Nothing of ours scrolled
+  to 1516: it was the browser's scroll anchoring, nudging the page while
+  parts above the fold settled, and the restore loop then pulling it back.
+  With anchoring off the same back lands at 1500, card at 291, on its first
+  frame. So while Explore is putting itself back (and for a moment after,
+  while the pictures above settle) anchoring is off, and the page comes in
+  with a short fade from most of the way there rather than a hard cut.
+  (globals.css: html.explore-scroll-settling.)
+*/
+const SETTLE_CLASS = "explore-scroll-settling"
+/** Long enough for the fade (220ms) and the first pictures above to settle. */
+export const EXPLORE_SETTLE_MS = 420
+let settleTimer = 0
+
+function setSettling(on: boolean) {
+  window.clearTimeout(settleTimer)
+  document.documentElement.classList.toggle(SETTLE_CLASS, on)
+  if (on) settleTimer = window.setTimeout(() => document.documentElement.classList.remove(SETTLE_CLASS), EXPLORE_SETTLE_MS)
+}
+
+/**
+ * Puts Explore back at the saved place, trying each frame while the page is
+ * still growing. Returns the cancel.
+ *
+ * IT STOPS THE MOMENT IT IS NOT WANTED. It used to try for 48 frames
+ * whatever happened, so a quick press on a card while it was still trying
+ * opened the product and the loop went on scrolling the PRODUCT to
+ * Explore's place ("the product page lands mid scroll"), and a finger
+ * scrolling Explore in those frames was pulled back. Now it stops when the
+ * address is no longer Explore's, when a finger, a wheel or a key moves the
+ * page, and when Explore unmounts.
+ */
+function restoreScrollPosition(onDone?: () => void): () => void {
   const target = readSavedScroll()
   if (target == null || target <= 0) {
     setExploreHold(false)
     onDone?.()
-    return
+    return () => {}
   }
 
-  setExploreHold(true)
-  scrollToSaved(target)
+  primeExploreScrollRestore()
 
   let attempts = 0
-  const finish = () => {
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        setExploreHold(false)
-        onDone?.()
-      })
-    })
-  }
-  const tryOnce = () => {
-    attempts += 1
-    if (scrollToSaved(target) || attempts >= 48) {
-      finish()
-      return
+  let frame = 0
+  let timer = 0
+  let over = false
+  const path = window.location.pathname
+  const stopEvents = ["touchstart", "wheel", "keydown"] as const
+  const finish = (reveal: boolean) => {
+    if (over) return
+    over = true
+    cancelAnimationFrame(frame)
+    window.clearTimeout(timer)
+    for (const t of stopEvents) window.removeEventListener(t, stop)
+    const root = document.documentElement
+    const held = root.classList.contains(HOLD_CLASS)
+    setExploreHold(false)
+    if (reveal) {
+      /* Held out of sight while the page grew: the fade starts now, as it shows, not back when it was hidden. */
+      if (held) {
+        root.classList.remove(SETTLE_CLASS)
+        void root.offsetWidth
+      }
+      setSettling(true)
     }
-    requestAnimationFrame(tryOnce)
+    onDone?.()
   }
-  requestAnimationFrame(tryOnce)
-  window.setTimeout(finish, 700)
+  const stop = () => finish(true)
+  const tryOnce = () => {
+    if (over) return
+    if (window.location.pathname !== path) return finish(false)
+    attempts += 1
+    if (scrollToSaved(target) || attempts >= 48) return finish(true)
+    frame = requestAnimationFrame(tryOnce)
+  }
+  for (const t of stopEvents) window.addEventListener(t, stop, { passive: true })
+  frame = requestAnimationFrame(tryOnce)
+  timer = window.setTimeout(stop, 700)
+  /* Explore unmounting (a card pressed while it was still trying): stop, and show nothing of it. */
+  return () => finish(false)
 }
 
 /**
@@ -172,13 +237,7 @@ export function saveExploreScrollNow(): void {
  */
 export function useExploreScrollRestore(): void {
   const restoringRef = useRef(false)
-  const primed = useRef(false)
   const [, bump] = useState(0)
-
-  if (typeof window !== "undefined" && !primed.current) {
-    primed.current = true
-    primeExploreScrollRestore()
-  }
 
   /* Before paint: scroll back to where you were so the top of Explore never flashes. */
   useLayoutEffect(() => {
@@ -191,10 +250,11 @@ export function useExploreScrollRestore(): void {
     }
 
     restoringRef.current = true
-    restoreScrollPosition(() => {
+    const cancel = restoreScrollPosition(() => {
       restoringRef.current = false
       bump((n) => n + 1)
     })
+    return cancel
   }, [])
 
   useEffect(() => {

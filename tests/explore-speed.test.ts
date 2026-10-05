@@ -19,8 +19,9 @@
  *             one); pictures at the size the grid draws them, one preloaded.
  *   ITEM 12   the header's field keeps the hero's look, its depth scaled to
  *             end inside the bar; the hero's is unchanged.
- *   ITEM 13   the categories icon is Explore's own (chips), not a grid and
- *             not a sparkle, in both fields through the one button.
+ *   ITEM 13   the categories icon is Explore's own, not a grid and not a
+ *             sparkle, in both fields through the one button (round 11
+ *             changed the glyph to a plain list: tests/explore-round11).
  *   ITEM 14   the card's stat wells are 22px squares with a 7px corner and
  *             a quieter depth.
  *
@@ -177,9 +178,10 @@ async function main() {
   {
     const icon = code("components/explore/categories-icon.tsx")
     const button = code("components/explore/search-categories-button.tsx")
-    check("its own glyph: two staggered rows of chips (a pill and a dot, a dot and a pill), outline only", (icon.match(/<rect /g) ?? []).length === 2 && (icon.match(/<circle /g) ?? []).length === 2 && /fill="none"/.test(icon) && /strokeLinecap="round"/.test(icon))
-    check("not a 2x2 grid of squares (the pills are wider than tall) and no sparkle", [...icon.matchAll(/<rect x="[\d.]+" y="[\d.]+" width="([\d.]+)" height="([\d.]+)"/g)].every((m) => parseFloat(m[1]) > parseFloat(m[2]) * 1.4) && !/<(LayoutGrid|Grid2X2|Sparkles?)\b/.test(icon + button))
-    check("the one button draws it, so the hero's field and the header's both have it", /<CategoriesIcon aria-hidden className=\{size === "hero" \? "h-5 w-5" : "h-\[18px\] w-\[18px\]"\} strokeWidth=\{1\.8\} \/>/.test(button))
+    /* Round 11 asked for a simpler, more regular glyph: a plain list now (tests/explore-round11 holds its shape). */
+    check("its own glyph, outline only, with round caps", /fill="none"/.test(icon) && /strokeLinecap="round"/.test(icon))
+    check("not a 2x2 grid of squares and no sparkle", !/<rect /.test(icon) && !/<(LayoutGrid|Grid2X2|Sparkles?)\b/.test(icon + button))
+    check("the one button draws it, so the hero's field and the header's both have it", /<CategoriesIcon aria-hidden className=\{size === "hero" \? "h-5 w-5" : "h-\[18px\] w-\[18px\]"\} strokeWidth=\{2\} \/>/.test(button))
   }
 
   console.log("\nItem 14: the stat wells")
