@@ -125,7 +125,7 @@ export function themeVars(theme: ThemeSettingsValues): Record<string, string> {
      */
     "--theme-spacing-scale": String(num(t.spacing_scale, 1)),
     "--theme-radius": `${radius}px`,
-    "--theme-card-shadow": SHADOWS[str(t.card_shadow, "sm")] ?? SHADOWS.sm,
+    "--theme-card-shadow": SHADOWS[str(t.card_shadow, "none")] ?? "none",
     "--theme-image-radius": `${num(t.image_border_radius, 8)}px`,
 
     // ── Buttons ───────────────────────────────────────────────────────────
@@ -133,7 +133,12 @@ export function themeVars(theme: ThemeSettingsValues): Record<string, string> {
     "--theme-button-padding": buttonSize.padding,
     "--theme-button-size": buttonSize.size,
     "--theme-button-weight": typo.styles.button.weight,
-    "--theme-button-shadow": SHADOWS[str(t.button_shadow, "none")] ?? "none",
+    /*
+      Buttons › Button shadow is a switch, saved as `true`. It was read as a
+      shadow NAME, so `true` fell through to "none" and the switch did
+      nothing. On is the small shadow; an older saved name still works.
+    */
+    "--theme-button-shadow": t.button_shadow === true ? SHADOWS.sm : SHADOWS[str(t.button_shadow, "none")] ?? "none",
 
     // ── Motion ────────────────────────────────────────────────────────────
     "--theme-animation-duration": `${num(t.animation_duration, 600)}ms`,
@@ -228,6 +233,13 @@ export function parityVars(t: Record<string, unknown>): Record<string, string> {
   px("container_radius", "--theme-container-radius", 8, 40)
   px("container_border", "--theme-container-border", 0, 4)
   shadow("container_shadow", "--theme-container-shadow")
+  /*
+    Layout › Card shadow IS the cards' shadow. It used to be written as
+    --theme-card-shadow and read by nothing; the boxes a section marks
+    `[data-container]` (a feature card, a pricing plan) are the cards it
+    meant. An older Content containers shadow, where one was saved, wins.
+  */
+  if (!isSet(t, "container_shadow")) shadow("card_shadow", "--theme-container-shadow")
 
   px("media_border", "--theme-media-border", 0, 4)
   shadow("media_shadow", "--theme-media-shadow")

@@ -546,4 +546,10 @@ export interface ThemeSettingsGroup {
   label: string
   icon: string
   fields: SchemaField[]
+  /**
+   * A setting that must be `true` for the group to be drawn at all. For a
+   * retired group a site may still have switched on: it shows only to that
+   * site, so it can be switched off, and to nobody else.
+   */
+  shownWhen?: string
 }

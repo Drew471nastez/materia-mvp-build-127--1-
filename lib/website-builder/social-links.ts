@@ -11,7 +11,8 @@
  * ONLY AN ADDRESS A VISITOR CAN OPEN. A field that says `javascript:` or
  * anything else that is not http(s) is left out rather than drawn as a link.
  * A bare `instagram.com/name` is given its https, since that is what
- * somebody typing it meant.
+ * somebody typing it meant. Email is the one exception: an address, with or
+ * without `mailto:`, becomes a `mailto:` link and nothing else does.
  */
 
 export const SOCIAL_PLATFORMS = [
@@ -23,12 +24,17 @@ export const SOCIAL_PLATFORMS = [
   { key: "social_linkedin", label: "LinkedIn", placeholder: "https://linkedin.com/in/name" },
   { key: "social_pinterest", label: "Pinterest", placeholder: "https://pinterest.com/username" },
   { key: "social_threads", label: "Threads", placeholder: "https://threads.net/@username" },
+  { key: "social_spotify", label: "Spotify", placeholder: "https://open.spotify.com/artist/id" },
+  { key: "social_soundcloud", label: "SoundCloud", placeholder: "https://soundcloud.com/name" },
   { key: "social_snapchat", label: "Snapchat", placeholder: "https://snapchat.com/add/username" },
   { key: "social_bluesky", label: "Bluesky", placeholder: "https://bsky.app/profile/name" },
   { key: "social_whatsapp", label: "WhatsApp", placeholder: "https://wa.me/15551234567" },
   { key: "social_discord", label: "Discord", placeholder: "https://discord.gg/invite" },
   { key: "social_twitch", label: "Twitch", placeholder: "https://twitch.tv/channel" },
   { key: "social_github", label: "GitHub", placeholder: "https://github.com/name" },
+  /* Not a network, but where a visitor looks for the same thing: the creator's own site and inbox. */
+  { key: "social_website", label: "Website", placeholder: "https://example.com" },
+  { key: "social_email", label: "Email", placeholder: "hello@example.com" },
 ] as const
 
 export type SocialKey = (typeof SOCIAL_PLATFORMS)[number]["key"]
@@ -52,6 +58,22 @@ export function socialUrl(value: unknown): string {
   return ""
 }
 
+const EMAIL = /^[^\s@<>"'()]+@[^\s@<>"'()]+\.[a-z]{2,}$/i
+
+/**
+ * The Email field's link: `mailto:` and the address, whether it was typed
+ * with the scheme or without. Anything that is not one address is "".
+ */
+export function socialEmailUrl(value: unknown): string {
+  const raw = typeof value === "string" ? value.trim().replace(/^mailto:/i, "") : ""
+  return EMAIL.test(raw) ? `mailto:${raw}` : ""
+}
+
+/** The link for one platform's field: an email address for Email, a web address for the rest. */
+export function socialHref(key: string, value: unknown): string {
+  return key === "social_email" ? socialEmailUrl(value) : socialUrl(value)
+}
+
 /**
  * The links to draw, in the platforms' order. `overrides` is a section's own
  * fields with the same keys (the footer has five), and a link typed there
@@ -63,7 +85,7 @@ export function socialLinks(
 ): SocialLink[] {
   const out: SocialLink[] = []
   for (const p of SOCIAL_PLATFORMS) {
-    const url = socialUrl(overrides[p.key]) || socialUrl(theme[p.key])
+    const url = socialHref(p.key, overrides[p.key]) || socialHref(p.key, theme[p.key])
     if (url) out.push({ key: p.key, label: p.label, url })
   }
   return out

@@ -33,9 +33,9 @@ check("a creator's site speaks in its own default sentence, not storelib.com's",
 check("colours only when the creator asked for their own", /const bg = ownColours \? str\(t\.cookie_bg, ""\) : ""/.test(page))
 check("Website Settings shows and hides the banner with the switch it names", /onChange=\{\(on\) => ctx\.onSettingChange\("cookie_banner_show", on\)\} label="Show the cookie banner"/.test(settings) && /const showBanner = ctx\.settings\.cookie_banner_show !== false/.test(settings))
 check("and its words are there to edit from the start", /: SITE_COOKIE_TEXT\}/.test(settings) && /: COOKIE_ACCEPT_TEXT\}/.test(settings) && /: COOKIE_DECLINE_TEXT\}/.test(settings))
-const cookies = THEME_SETTINGS_GROUPS.find((g) => g.id === "cookies")
-const ids = (cookies?.fields ?? []).map((f) => f.id)
-check("the builder's theme settings hold the same settings, the switch first", ids[0] === "cookie_banner_show" && ["cookie_banner_text", "cookie_accept_text", "cookie_decline_text", "cookie_banner_enabled"].every((id) => ids.includes(id)), ids.join(", "))
+/* One place for the banner: Website Settings › Policies. General settings showed the same seven controls a second time. */
+const ids = THEME_SETTINGS_GROUPS.flatMap((g) => g.fields.map((f) => f.id))
+check("the cookie banner is set in Policies only, not twice", !THEME_SETTINGS_GROUPS.some((g) => g.id === "cookies") && !ids.some((id) => id.startsWith("cookie_")) && /cookie_banner_enabled/.test(settings), ids.filter((id) => id.startsWith("cookie_")).join(", "))
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }

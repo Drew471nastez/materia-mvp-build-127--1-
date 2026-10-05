@@ -47,11 +47,13 @@ const ownSection = [sec("h", "header"), sec("b", "breadcrumbs"), sec("x", "rich_
 check("a page with a Breadcrumbs section of its own gets no second bar", withThemeBreadcrumbs(ownSection, {}, "page") === ownSection)
 check("placing twice places once", withThemeBreadcrumbs(placed, {}, "page.search") === placed)
 
-const group = THEME_SETTINGS_GROUPS.find((g) => g.id === "breadcrumbs")
-check("Theme settings › Breadcrumbs: show, and the separator", !!group && group.fields.map((f) => f.id).join() === "breadcrumbs_enabled,breadcrumbs_separator")
+/* Breadcrumbs are a part of Layout now, under their own heading (tests/settings-cleanup.test.ts). */
+const layout = THEME_SETTINGS_GROUPS.find((g) => g.id === "layout")
+const crumbs = (layout?.fields ?? []).filter((f) => f.id.startsWith("breadcrumbs_")).map((f) => f.id).join()
+check("Theme settings › Layout › Breadcrumbs: show, and the separator", crumbs === "breadcrumbs_enabled,breadcrumbs_separator" && (layout?.fields ?? []).some((f) => f.type === "header" && f.label === "Breadcrumbs"))
 check("every storefront page gets it through dressPage", /withDynamicSources\(withThemeBreadcrumbs\(searchListsTheShop\(sections\), site\.themeSettings, template\)/.test(read("lib/website-builder/published-site.ts")))
 const editor = read("app/website-builder/editor/[installId]/page.tsx")
-check("the editor's canvas draws it too, and a click on it opens its setting", /withThemeBreadcrumbs\(\s*withDynamicSources\(searchListsTheShop\(canvasSections\),/.test(editor) && /sectionId === THEME_BREADCRUMBS_ID[\s\S]{0,300}setExpandedSettings\("breadcrumbs"\)/.test(editor))
+check("the editor's canvas draws it too, and a click on it opens its setting", /withThemeBreadcrumbs\(\s*withDynamicSources\(searchListsTheShop\(canvasSections\),/.test(editor) && /sectionId === THEME_BREADCRUMBS_ID[\s\S]{0,300}setExpandedSettings\("layout"\)/.test(editor))
 
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed) process.exit(1)

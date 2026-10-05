@@ -977,6 +977,8 @@ const EMPTY_SOURCES: Record<string, string> = {}
 */
 
 // ── Branding Tab Panel — logo/favicon/tagline with header sync ──
+/** The branding group's fields BrandingTabPanel draws itself; the rest of the group is drawn as usual. */
+const BRANDING_PANEL_FIELDS = new Set(["brand_name", "logo_url", "logo_width", "favicon_url", "tagline"])
 function BrandingTabPanel({
   settingsDraft,
   updateSetting,
@@ -5308,7 +5310,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         setSidebarMode("settings")
         setPageBrowserOpen(false)
         setSelectedPanel({ type: "theme_settings" })
-        setExpandedSettings("breadcrumbs")
+        /* Breadcrumbs are under Layout now. */
+        setExpandedSettings("layout")
         if (isMobileViewRef.current) setMobileSidebarOpen(true)
         return
       }
@@ -6005,7 +6008,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               <p className="text-xs text-muted-foreground mt-0.5">Colors, fonts, buttons, spacing</p>
             </div>
             <div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll p-2">
-              {THEME_SETTINGS_GROUPS.filter(group => group.id !== "colors" && group.id !== "menus").map(group => (
+              {THEME_SETTINGS_GROUPS.filter(group => group.id !== "colors" && group.id !== "menus").filter(group => !group.shownWhen || settingsDraft[group.shownWhen as keyof ThemeSettingsValues] === true).map(group => (
                 <div key={group.id} data-theme-group={group.id} className="mb-0.5">
                   <button
                     aria-expanded={expandedSettings === group.id}
@@ -6065,14 +6068,16 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                             />
                           ))}
                         />
-                      ) : group.id === "branding" ? (
-                        <BrandingTabPanel
-                          settingsDraft={settingsDraft}
-                          updateSetting={updateSetting}
-                        />
                       ) : (
-                        /* All other groups use modern Wb* components */
-                        group.fields.map(field => {
+                        <>
+                        {group.id === "branding" && (
+                          <BrandingTabPanel
+                            settingsDraft={settingsDraft}
+                            updateSetting={updateSetting}
+                          />
+                        )}
+                        {/* All other groups, and the branding group's fields BrandingTabPanel does not draw, use modern Wb* components */}
+                        {group.fields.filter(field => group.id !== "branding" || !BRANDING_PANEL_FIELDS.has(field.id)).map(field => {
                           const val = settingsDraft[field.id as keyof ThemeSettingsValues] ?? field.default
                           return (
                             <div key={field.id}>
@@ -6131,7 +6136,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                               )}
                             </div>
                           )
-                        })
+                        })}
+                        </>
                       )}
                     </>
                     )}
@@ -6588,7 +6594,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             <span className="text-[15px] font-semibold md:text-sm">Theme settings</span>
           </PanelBack>
           <div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll p-3">
-            {THEME_SETTINGS_GROUPS.filter(group => group.id !== "menus").map(group => (
+            {THEME_SETTINGS_GROUPS.filter(group => group.id !== "menus" && (!group.shownWhen || settingsDraft[group.shownWhen as keyof ThemeSettingsValues] === true)).map(group => (
               <div key={group.id} data-theme-group={group.id} className="mb-1">
                 <button
                   aria-expanded={expandedSettings === group.id}

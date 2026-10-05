@@ -587,9 +587,8 @@ function TypeStyleFields({
       </div>
       <div>
         <p className="text-sm font-medium text-foreground mb-1.5">Size</p>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 gap-2">
           <NumberField label="Desktop" unit="px" min={8} max={200} value={value.size.desktop} onChange={(n) => set({ size: { ...value.size, desktop: n } })} />
-          <NumberField label="Tablet" unit="px" min={8} max={200} value={value.size.tablet} onChange={(n) => set({ size: { ...value.size, tablet: n } })} />
           <NumberField label="Phone" unit="px" min={8} max={200} value={value.size.mobile} onChange={(n) => set({ size: { ...value.size, mobile: n } })} />
         </div>
       </div>
@@ -1062,7 +1061,7 @@ export function TypographyPanel({
                 <span className="flex-1 min-w-0">
                   <span className="block text-sm font-medium text-foreground">{TYPE_STYLE_LABELS[key]}</span>
                   <span className="block text-[11px] text-muted-foreground truncate">
-                    {family} {st.weight} · {st.size.desktop}/{st.size.tablet}/{st.size.mobile}px · {st.line_height}
+                    {family} {st.weight} · {st.size.desktop}/{st.size.mobile}px · {st.line_height}
                   </span>
                 </span>
                 {changed && <span className="h-1.5 w-1.5 rounded-full bg-[#8b5cf6] shrink-0" />}

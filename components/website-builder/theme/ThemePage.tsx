@@ -31,7 +31,7 @@ import { SITE_COOKIE_TEXT } from "@/lib/consent/copy"
 import { setSiteConsentTheme } from "@/lib/consent/site-theme"
 import { StorefrontProvider, type Storefront } from "./storefront-context"
 import { SectionSandboxProvider } from "../sections/section-sandbox"
-import { SiteCartProvider } from "../site-cart"
+import { SiteCartProvider, useSiteCart } from "../site-cart"
 import { SiteWishlistProvider } from "../site-wishlist"
 import { CartNotice } from "./cart-notice"
 import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react"
@@ -292,24 +292,15 @@ function AnnouncementBar({ theme }: { theme: ThemeSettingsValues }) {
  * controls read by nothing. A creator setting a $75 threshold got no bar and
  * no mention of it anywhere on their site.
  *
- * It listens on the same cart channel the header does, so it can say how much
- * further somebody has to go rather than only stating the rule.
+ * It reads the site's own cart (../site-cart), which wraps the page, so it
+ * says how much further somebody has to go rather than only stating the
+ * rule. It listened for a `storelib:cart-count` event once, which nothing
+ * sent, so the bar said "Spend $75 more" over a full basket.
  */
 function FreeShippingBar({ theme }: { theme: ThemeSettingsValues }) {
   const t = theme as Record<string, unknown>
   const threshold = typeof t.free_shipping_threshold === "number" ? t.free_shipping_threshold : 0
-  const [subtotal, setSubtotal] = useState(0)
-
-  useEffect(() => {
-    const onUpdate = (e: Event) => {
-      const detail = (e as CustomEvent<number | { subtotalCents?: number }>).detail
-      if (detail && typeof detail === "object" && typeof detail.subtotalCents === "number") {
-        setSubtotal(detail.subtotalCents / 100)
-      }
-    }
-    window.addEventListener("storelib:cart-count", onUpdate as EventListener)
-    return () => window.removeEventListener("storelib:cart-count", onUpdate as EventListener)
-  }, [])
+  const subtotal = useSiteCart().subtotalCents / 100
 
   if (t.free_shipping_bar !== true || threshold <= 0) return null
 

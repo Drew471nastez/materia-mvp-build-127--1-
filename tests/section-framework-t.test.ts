@@ -249,8 +249,6 @@ function main() {
       [empty.buttons.style, field("button_style"), "button_style"],
       [empty.buttons.shape, field("button_shape"), "button_shape"],
       [empty.buttons.radius, field("button_border_radius"), "button_border_radius"],
-      [empty.buttons.size, field("button_size"), "button_size"],
-      [empty.buttons.weight, field("button_font_weight"), "button_font_weight"],
       [empty.buttons.hover, field("button_transition"), "button_transition"],
       [empty.layout.page_width, field("page_width"), "page_width"],
       [empty.layout.padding_x, field("content_padding_x"), "content_padding_x"],
@@ -275,7 +273,7 @@ function main() {
     const c = compiled(GLOBALS, "sections/globals_band.storelib")
     const html = renderSection({ compiled: c, id: "g", instance: { type: c.type }, theme: { logo_url: "https://cdn.test/logo.png", logo_width: 40, brand_name: "Luca", social_linkedin: "https://linkedin.com/in/luca", button_style: "outline" }, page: { template: "home" } }).html
     check("a section prints the logo with its width and the store name", html.includes('src="https://cdn.test/logo.png"') && html.includes('alt="Luca"') && html.includes('width="40"'), html.slice(0, 500))
-    check("the button style, layout and animation", html.includes('data-style="outline"') && html.includes('data-w="1240"') && html.includes('data-anim="fade-up"'), html.slice(0, 600))
+    check("the button style, layout and animation", html.includes('data-style="outline"') && html.includes('data-w="1280"') && html.includes('data-anim="fade-up"'), html.slice(0, 600))
     check("and the social links", html.includes('href="https://linkedin.com/in/luca">LinkedIn'), html.slice(0, 600))
     const bare = renderSection({ compiled: c, id: "g", instance: { type: c.type }, theme: { brand_name: "Luca" }, page: { template: "home" } }).html
     check("with no logo, the store name instead", /class="brand"[^>]*>Luca<\/a>/.test(bare), bare.slice(0, 400))

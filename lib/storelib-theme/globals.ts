@@ -24,7 +24,7 @@
  * Pure and dependency free: the engine renders on the server, in the builder
  * and in tests with the same answer.
  */
-import { SOCIAL_PLATFORMS } from "@/lib/website-builder/social-links"
+import { SOCIAL_PLATFORMS, socialEmailUrl } from "@/lib/website-builder/social-links"
 
 export interface SocialLink {
   key: string
@@ -142,7 +142,8 @@ function linkable(v: unknown): string {
 /** The `shop` object for a page, from the theme's own settings and what the server added. */
 export function shopObject(theme: Record<string, unknown>, extra: Partial<ShopObject> = {}): ShopObject {
   const socials = SOCIALS.flatMap(([key, label]) => {
-    const url = linkable(theme[key])
+    /* Email is a mailto: link; every other platform is a web address. */
+    const url = key === "social_email" ? socialEmailUrl(theme[key]) : linkable(theme[key])
     return url ? [{ key: key.replace(/^social_/, ""), label, url }] : []
   })
   const email = text(extra.email)

@@ -231,10 +231,15 @@ async function main() {
   section("4. The new theme settings compile to custom properties, once set")
   // ═══════════════════════════════════════════════════════════════════════
   {
-    const groups = THEME_SETTINGS_GROUPS.map((g) => g.id)
-    check("Shopify's groups are in the panel", ["variant_pills", "inputs", "product_cards", "collection_cards", "content_containers", "media", "popups", "badges", "brand", "currency", "custom_css"].every((g) => groups.includes(g)), groups)
-    check("in Shopify's order: after Animations, before the announcement bar", groups.indexOf("animations") < groups.indexOf("variant_pills") && groups.indexOf("brand") < groups.indexOf("announcement"))
-    check("Image border radius moved to Media and is still one setting", THEME_SETTINGS_GROUPS.flatMap((g) => g.fields).filter((f) => f.id === "image_border_radius").length === 1 && THEME_SETTINGS_GROUPS.find((g) => g.id === "media")!.fields.some((f) => f.id === "image_border_radius"))
+    /*
+      The groups were merged into fewer (tests/settings-cleanup.test.ts):
+      Shopify's settings are all still in the panel, each under the group
+      a creator would look in for it.
+    */
+    const inGroup = (group: string, ids: string[]) => ids.every((id) => (THEME_SETTINGS_GROUPS.find((g) => g.id === group)?.fields ?? []).some((f) => f.id === id))
+    check("Shopify's settings are in the panel", inGroup("buttons", ["pill_radius", "input_radius"]) && inGroup("product_cards", ["product_card_style", "collection_card_style", "badge_position", "currency_code_enabled"]) && inGroup("layout", ["container_border", "media_border", "popup_radius"]) && inGroup("branding", ["brand_headline"]) && inGroup("custom_css", ["custom_css"]))
+    check("variant pills and text boxes sit with Buttons, cards and badges with Products and cart", inGroup("buttons", ["pill_border_width", "input_border_opacity"]) && inGroup("product_cards", ["product_card_shadow", "collection_card_shadow", "badge_sale_bg"]))
+    check("Image border radius is in Layout and is still one setting", THEME_SETTINGS_GROUPS.flatMap((g) => g.fields).filter((f) => f.id === "image_border_radius").length === 1 && inGroup("layout", ["image_border_radius"]))
 
     const unset = themeVars({} as ThemeSettingsValues)
     check("a site that never opened them gets none of their properties", !Object.keys(unset).some((k) => /--theme-(input|pill|product-card|collection-card|container|media|popup|badge)/.test(k)))

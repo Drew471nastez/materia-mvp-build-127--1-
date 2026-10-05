@@ -356,7 +356,7 @@ export function FooterSection({
           size={18}
           className={cn("m-0 mt-4 flex list-none flex-wrap items-center gap-x-4 gap-y-2 p-0", centered && "justify-center")}
           linkClassName="flex h-6 w-6 items-center justify-center transition-opacity hover:opacity-70"
-          linkStyle={{ color: headingColor }}
+          linkStyle={{ color: textColor }}
         />
       )}
     </div>

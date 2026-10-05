@@ -5,12 +5,18 @@
  * A theme names a heading font, a body font and, if it wants one, an accent
  * font. On top of those it defines nine text styles: H1 to H4, Body large,
  * Body, Body small, Button and Caption. Each style is a font, a weight, a
- * size at three widths, a line height, a letter spacing and a transform.
+ * size for desktop and one for phones, a line height, a letter spacing and
+ * a transform.
+ *
+ * TWO SIZES, NOT THREE. There was a tablet size between them; the owner
+ * asked for desktop and phone only. A saved tablet size is read as the
+ * phone size when no phone size was saved (which is what a phone drew
+ * then), and otherwise ignored; the stored form no longer writes one.
  *
  * The styles compile to custom properties (`--type-h1-size`, and so on) on
- * the page root, with the tablet and mobile sizes taking over inside a
- * container query, so a section that is 390px wide draws its heading at the
- * mobile size whether that is a phone or the editor's phone preview.
+ * the page root, with the phone size taking over inside a container query,
+ * so a section that is 390px wide draws its heading at the phone size
+ * whether that is a phone or the editor's phone preview.
  *
  * A section does not pick fonts. It says which style its heading is
  * (`heading_style: "h2"`) and which its body is (`body_style: "body"`), or
@@ -49,7 +55,7 @@ export type TextTransform = (typeof TEXT_TRANSFORMS)[number]
 
 export interface ResponsiveSize {
   desktop: number
-  tablet: number
+  /** The phone size: a section 767px wide or less. */
   mobile: number
 }
 
@@ -77,23 +83,23 @@ export interface ThemeTypography {
   styles: Record<TypeStyleKey, TypeStyle>
 }
 
-/** The widths at which the tablet and mobile sizes take over. */
-export const TYPE_BREAKPOINTS = { tablet: 1023, mobile: 767 } as const
+/** The width at which the phone size takes over. */
+export const TYPE_BREAKPOINTS = { mobile: 767 } as const
 
-function style(font: FontRole, weight: string, size: [number, number, number], line_height: number, letter_spacing = 0, transform: TextTransform = "none"): TypeStyle {
-  return { font, weight, size: { desktop: size[0], tablet: size[1], mobile: size[2] }, line_height, letter_spacing, transform }
+function style(font: FontRole, weight: string, size: [number, number], line_height: number, letter_spacing = 0, transform: TextTransform = "none"): TypeStyle {
+  return { font, weight, size: { desktop: size[0], mobile: size[1] }, line_height, letter_spacing, transform }
 }
 
 export const DEFAULT_TYPE_STYLES: Record<TypeStyleKey, TypeStyle> = {
-  h1: style("heading", "700", [56, 44, 36], 1.1, -1),
-  h2: style("heading", "700", [36, 32, 30], 1.15, -0.5),
-  h3: style("heading", "600", [24, 22, 20], 1.25),
-  h4: style("heading", "600", [18, 17, 16], 1.35),
-  body_large: style("body", "400", [18, 17, 17], 1.6),
-  body: style("body", "400", [16, 16, 16], 1.6),
-  body_small: style("body", "400", [14, 14, 14], 1.5),
-  button: style("body", "600", [14, 14, 14], 1.2),
-  caption: style("body", "500", [12, 12, 12], 1.4, 0.3),
+  h1: style("heading", "700", [56, 36], 1.1, -1),
+  h2: style("heading", "700", [36, 30], 1.15, -0.5),
+  h3: style("heading", "600", [24, 20], 1.25),
+  h4: style("heading", "600", [18, 16], 1.35),
+  body_large: style("body", "400", [18, 17], 1.6),
+  body: style("body", "400", [16, 16], 1.6),
+  body_small: style("body", "400", [14, 14], 1.5),
+  button: style("body", "600", [14, 14], 1.2),
+  caption: style("body", "500", [12, 12], 1.4, 0.3),
 }
 
 const HEADING_STYLES: TypeStyleKey[] = ["h1", "h2", "h3", "h4"]
@@ -123,19 +129,24 @@ function fontRole(v: unknown, fallback: FontRole): FontRole {
   return typeof v === "string" && (FONT_ROLES as readonly string[]).includes(v) ? (v as FontRole) : fallback
 }
 
-/** A size saved as one number, or as `{desktop, tablet, mobile}` with any of them missing. */
+/**
+ * A size saved as one number, or as `{desktop, mobile}` with either missing.
+ * An older `{desktop, tablet, mobile}` reads as its desktop and phone sizes;
+ * a tablet size with no phone size beside it was what a phone drew, so it
+ * stands in for the phone size, and is otherwise dropped.
+ */
 export function responsiveSize(v: unknown, fallback: ResponsiveSize): ResponsiveSize {
   if (isPlain(v)) {
     const desktop = num(v.desktop, fallback.desktop)
-    const tablet = num(v.tablet, v.desktop === undefined ? fallback.tablet : desktop)
-    const mobile = num(v.mobile, v.desktop === undefined && v.tablet === undefined ? fallback.mobile : tablet)
-    return { desktop, tablet, mobile }
+    const phoneFallback = v.tablet !== undefined ? num(v.tablet, desktop) : v.desktop === undefined ? fallback.mobile : desktop
+    const mobile = num(v.mobile, phoneFallback)
+    return { desktop, mobile }
   }
   if (v !== undefined && v !== null && v !== "") {
     const one = num(v, fallback.desktop)
-    return { desktop: one, tablet: one, mobile: one }
+    return { desktop: one, mobile: one }
   }
-  return { ...fallback }
+  return { desktop: fallback.desktop, mobile: fallback.mobile }
 }
 
 /** A saved style, whatever is missing filled from `base`. */
@@ -169,7 +180,7 @@ export function baseTypeStyles(theme: Record<string, unknown> | undefined | null
     if (headingTracking !== null) out[key].letter_spacing = headingTracking
   }
   const bodySize = t.font_size_base !== undefined ? num(t.font_size_base, 16) : null
-  if (bodySize !== null) out.body.size = { desktop: bodySize, tablet: bodySize, mobile: bodySize }
+  if (bodySize !== null) out.body.size = { desktop: bodySize, mobile: bodySize }
   const bodyLine = t.line_height_base !== undefined ? num(t.line_height_base, 1.6) : null
   if (bodyLine !== null) { out.body.line_height = bodyLine; out.body_large.line_height = bodyLine }
   const buttonWeight = str(t.button_font_weight, "")
@@ -194,8 +205,8 @@ export function stripTypeStyleDefaults(s: TypeStyle, base: TypeStyle): Record<st
   const out: Record<string, unknown> = {}
   if (s.font !== base.font) out.font = s.font
   if (s.weight !== base.weight) out.weight = s.weight
-  if (s.size.desktop !== base.size.desktop || s.size.tablet !== base.size.tablet || s.size.mobile !== base.size.mobile) {
-    out.size = s.size.desktop === s.size.tablet && s.size.tablet === s.size.mobile ? s.size.desktop : { ...s.size }
+  if (s.size.desktop !== base.size.desktop || s.size.mobile !== base.size.mobile) {
+    out.size = s.size.desktop === s.size.mobile ? s.size.desktop : { desktop: s.size.desktop, mobile: s.size.mobile }
   }
   if (s.line_height !== base.line_height) out.line_height = s.line_height
   if (s.letter_spacing !== base.letter_spacing) out.letter_spacing = s.letter_spacing
@@ -234,8 +245,8 @@ export function typographyVars(typo: ThemeTypography): Record<string, string> {
   return out
 }
 
-/** Only the sizes that differ at a narrower width. */
-export function typographySizeVars(typo: ThemeTypography, width: "tablet" | "mobile"): Record<string, string> {
+/** Only the sizes that differ on a phone. */
+export function typographySizeVars(typo: ThemeTypography, width: "mobile" = "mobile"): Record<string, string> {
   const out: Record<string, string> = {}
   for (const key of TYPE_STYLE_KEYS) {
     const s = typo.styles[key]
@@ -261,7 +272,6 @@ function customVars(prefix: string, raw: unknown, base: TypeStyle): Record<strin
   const out: Record<string, string> = {
     [`--custom-${prefix}-font`]: fontFor(s.font),
     [`--custom-${prefix}-size`]: `${s.size.desktop}px`,
-    [`--custom-${prefix}-size-tablet`]: `${s.size.tablet}px`,
     [`--custom-${prefix}-size-mobile`]: `${s.size.mobile}px`,
     [`--custom-${prefix}-weight`]: s.weight,
     [`--custom-${prefix}-line-height`]: String(s.line_height),
@@ -412,13 +422,10 @@ export function typographyStylesheet(root: string, typo: ThemeTypography): strin
      the same thing and for what it cost. */
   rules.push(`${buttonSelector(root, (sel) => `:where(${sel})`)}{font-family:var(--type-button-font);letter-spacing:var(--type-button-tracking);text-transform:var(--type-button-transform);}`)
 
-  // Narrower widths. The query is against the section's container, which is
-  // the width the section actually has, in the editor's phone preview too.
-  for (const width of ["tablet", "mobile"] as const) {
-    const sizes = typographySizeVars(typo, width)
-    const decls = Object.entries(sizes).map(([k, v]) => `${k}:${v}`)
-    decls.push(`--custom-heading-size:var(--custom-heading-size-${width})`, `--custom-body-size:var(--custom-body-size-${width})`)
-    rules.push(`@container (max-width:${TYPE_BREAKPOINTS[width]}px){${sect}{${decls.join(";")};}}`)
-  }
+  // Phones. The query is against the section's container, which is the
+  // width the section actually has, in the editor's phone preview too.
+  const decls = Object.entries(typographySizeVars(typo, "mobile")).map(([k, v]) => `${k}:${v}`)
+  decls.push("--custom-heading-size:var(--custom-heading-size-mobile)", "--custom-body-size:var(--custom-body-size-mobile)")
+  rules.push(`@container (max-width:${TYPE_BREAKPOINTS.mobile}px){${sect}{${decls.join(";")};}}`)
   return rules.join("\n")
 }

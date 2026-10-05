@@ -173,27 +173,15 @@ export const THEME_SETTING_DOCS: Record<string, { does: string; as?: Partial<Spe
   brand_name: { does: "The store's name, used by the header when there is no logo and in the page title." },
   logo_url: { does: "The logo in the header. Kept in step with the header's own Store Logo." },
   logo_width: {
-    does: "How tall the logo is drawn. The Branding panel shows it as Logo height.",
+    does: "How tall the logo is drawn. The Logo and brand panel shows it as Logo height.",
     as: { label: "Logo height", min: 24, max: 120, value: 40, unit: "px" },
   },
   favicon_url: { does: "The small icon in the browser tab. A square image, 64 by 64 or larger." },
   tagline: { does: "A line under the store's name, where a section or the footer shows it." },
 
-  primary_color: { does: "The page's main colour, outside any section." },
-  primary_hover_color: { does: "The main colour under the pointer." },
-  secondary_color: { does: "A second colour for the page's own parts." },
-  accent_color: { does: "Small highlights outside sections." },
-  background_color: { does: "The page behind every section." },
-  surface_color: { does: "Cards and panels outside sections." },
-  surface_alt_color: { does: "A second, slightly different surface." },
-  text_color: { does: "Headings outside sections." },
-  text_secondary_color: { does: "Body text outside sections." },
-  text_muted_color: { does: "Captions and quiet text outside sections." },
-  border_color: { does: "Lines and borders outside sections." },
-  link_color: { does: "Links outside any section." },
-  link_hover_color: { does: "Those links under the pointer." },
-  success_color: { does: "Confirmations, such as a sign-up that went through." },
-  error_color: { does: "Errors, such as a form that needs fixing." },
+  primary_color: { does: "The colour of the page's own parts outside any section: the cart notice's button, the free shipping bar and the cookie banner's accent." },
+  background_color: { does: "The page behind every section, and the browser's own background around it on a phone." },
+  text_color: { does: "Text on the page outside any section. Each section's text is its colour scheme's." },
 
   font_heading: { does: "The font every heading style uses unless a style says otherwise." },
   font_body: { does: "The font for body text and buttons." },
@@ -201,19 +189,17 @@ export const THEME_SETTING_DOCS: Record<string, { does: string; as?: Partial<Spe
 
   button_style: { does: "What a button looks like before a section changes it: filled, outlined or text only." },
   button_shape: { does: "Square corners, rounded, or fully round ends." },
-  button_border_radius: { does: "Exactly how round a rounded button is." },
-  button_size: { does: "The default padding and text size of a button." },
-  button_font_weight: { does: "How heavy button text is." },
-  button_shadow: { does: "A soft shadow under every button." },
+  button_border_radius: { does: "Exactly how round a button is when Button shape is Rounded." },
+  button_shadow: { does: "A small shadow under every button." },
   button_transition: { does: "What a button does under the pointer." },
 
   page_width: { does: "The widest the content of a section gets on a large screen." },
   content_padding_x: { does: "The space between content and the screen's edges." },
   section_gap: { does: "Space added between every two sections." },
   spacing_scale: { does: "Multiplies every section's own spacing: below 1 tighter, above 1 roomier." },
-  border_radius: { does: "How round the corners of cards are." },
-  card_shadow: { does: "How much shadow a card casts." },
-  image_border_radius: { does: "How round the corners of pictures and videos are. In Media, where Shopify files it." },
+  border_radius: { does: "How round the corners of cards and boxes in sections are, read as `theme.radius.medium`." },
+  card_shadow: { does: "How much shadow a card casts: the boxes a section marks `[data-container]`, such as a feature card or a plan. None until you pick one." },
+  image_border_radius: { does: "How round the corners of pictures and videos in sections are, on every `[data-media]`." },
 
   breadcrumbs_enabled: { does: "A Home > Shop > product trail under the header on every page but the home page. A page with breadcrumbs of its own keeps those instead." },
   breadcrumbs_separator: { does: "What sits between the steps of the trail: a slash, a chevron or a dot." },
@@ -244,9 +230,7 @@ export const THEME_SETTING_DOCS: Record<string, { does: string; as?: Partial<Spe
   collection_card_border: { does: "The thickness of a collection card's outline." },
   collection_card_shadow: { does: "How much shadow a collection card casts." },
 
-  container_radius: { does: "How round boxes that hold text are, such as a feature card or a plan. On every `[data-container]`." },
-  container_border: { does: "The thickness of their outline." },
-  container_shadow: { does: "How much shadow they cast." },
+  container_border: { does: "The thickness of a card's outline, on every `[data-container]`. 0 is none." },
 
   media_border: { does: "An outline round pictures and videos in sections, on every `[data-media]`." },
   media_shadow: { does: "How much shadow they cast." },
@@ -267,18 +251,8 @@ export const THEME_SETTING_DOCS: Record<string, { does: string; as?: Partial<Spe
   brand_headline: { does: "A line about the shop. Any text setting can show it with Insert shop data, `{{ shop.brand_headline }}`, and a section reads it as `theme.brand.headline`." },
   brand_description: { does: "A few lines about the shop, `{{ shop.brand_description }}` or `theme.brand.description`." },
   brand_image: { does: "A picture for the brand, `{{ shop.brand_image }}` or `theme.brand.image`." },
-  brand_image_width: { does: "How wide a section draws that picture, `theme.brand.image_width`." },
 
-  announcement_bar_enabled: { does: "A thin bar across the top of every page." },
-  announcement_bar_text: { does: "What the bar says." },
-  announcement_bar_messages: { does: "More messages, one per line. With more than one, the bar shows them in turn, with arrows to move between them; it stops while the pointer or the keyboard is on it, and does not move by itself for a visitor who asks their device for less motion." },
-  announcement_bar_rotate: { does: "How long each message stays before the next one." },
-  announcement_bar_link_text: { does: "The words of the link at the end of the bar." },
-  announcement_bar_link_url: { does: "Where that link goes." },
-  announcement_bar_bg: { does: "The bar's colour." },
-  announcement_bar_color: { does: "The colour of the bar's text." },
-  announcement_bar_scrolling: { does: "The message moves across the bar instead of standing still." },
-  announcement_bar_dismissible: { does: "Visitors can close the bar with an X." },
+  announcement_bar_enabled: { does: "The old bar above the header, shown only to a site that still has it on. The Announcement bar section in the Header group replaced it; turn this off once you have added one." },
 
   social_twitter: { does: "Your X profile, for the social icons." },
   social_instagram: { does: "Your Instagram profile." },
@@ -294,27 +268,19 @@ export const THEME_SETTING_DOCS: Record<string, { does: string; as?: Partial<Spe
   social_snapchat: { does: "Your Snapchat profile." },
   social_bluesky: { does: "Your Bluesky profile." },
   social_whatsapp: { does: "A wa.me link that opens a chat with you on WhatsApp." },
-  social_show_in_header: { does: "Shows an icon for each filled-in profile in the header." },
-  social_show_in_footer: { does: "Shows them in the footer." },
+  social_spotify: { does: "Your Spotify artist page, show or playlist." },
+  social_soundcloud: { does: "Your SoundCloud profile." },
+  social_website: { does: "Another website of yours, drawn as a globe." },
+  social_email: { does: "An email address, drawn as an envelope that opens the visitor's mail app. Type the address; `mailto:` is added for you." },
+  social_show_in_header: { does: "Shows the same icons in the header." },
+  social_show_in_footer: { does: "Shows an icon for each filled-in link in the footer, in the footer's text colour, each named for its platform for screen readers. On unless switched off." },
 
   cart_type: { does: "What Add to cart does: open the cart drawer, go to the cart page, or show a short notice. Read as `theme.cart.type` and as `data-cart-type` on the page." },
   currency_code_enabled: { does: "Prices read $48.00 USD rather than $48.00, on every price a section draws from the shop." },
   free_shipping_threshold: { does: "The order total above which shipping is free. 0 turns it off." },
   free_shipping_bar: { does: "Shows the cart how far it is from free shipping." },
 
-  seo_title: { does: "The title search results and browser tabs show when a page has none of its own." },
-  seo_description: { does: "The sentence search results show under the title." },
-  seo_og_image: { does: "The picture a link to your site shows when it is shared." },
-  seo_twitter_card: { does: "A small or a large picture when a link is shared on X." },
-  seo_robots: { does: "Off asks search engines not to list the site." },
 
-  cookie_banner_show: { does: "Shows the cookie banner, which asks visitors before storing anything optional. Off: no banner, and nothing optional is stored for the site's visitors. On unless switched off." },
-  cookie_banner_enabled: { does: "Use my own colours: the banner takes the two colours below instead of Storelib's white." },
-  cookie_banner_text: { does: "What the banner says. Starts as the site's default sentence." },
-  cookie_accept_text: { does: "The words on the accept button." },
-  cookie_decline_text: { does: "The words on the reject button." },
-  cookie_bg: { does: "The banner's colour." },
-  cookie_text_color: { does: "The banner's text colour." },
 
   custom_css: {
     does: "Your own CSS for every page of the site. Each rule is kept inside the page, so it cannot reach the builder; `@import`, scripts in values and addresses that are not https are left out, and the box says which.",
@@ -355,13 +321,13 @@ export function themeSettingGroups(): { id: string; label: string; items: Specim
   return THEME_SETTINGS_GROUPS.filter((g) => g.fields.length > 0).map((g) => ({
     id: g.id,
     label: g.label,
-    items: g.fields.map(fieldSpecimen),
+    items: g.fields.filter((f) => f.type !== "header").map(fieldSpecimen),
   }))
 }
 
 /** Every theme setting id, for the test that every one is described. */
 export function themeSettingIds(): string[] {
-  return THEME_SETTINGS_GROUPS.flatMap((g) => g.fields.map((f) => f.id))
+  return THEME_SETTINGS_GROUPS.flatMap((g) => g.fields.filter((f) => f.type !== "header").map((f) => f.id))
 }
 
 /* ── the built-in schemes and text styles ───────────────────────────── */
@@ -380,9 +346,7 @@ export function builtInSchemes(): SchemeSwatch[] {
 export function typeStyleRows(): string[][] {
   return TYPE_STYLE_KEYS.map((k) => {
     const s = DEFAULT_TYPE_STYLES[k]
-    const size = s.size.desktop === s.size.tablet && s.size.tablet === s.size.mobile
-      ? `${s.size.desktop}`
-      : `${s.size.desktop} / ${s.size.tablet} / ${s.size.mobile}`
+    const size = s.size.desktop === s.size.mobile ? `${s.size.desktop}` : `${s.size.desktop} / ${s.size.mobile}`
     return [TYPE_STYLE_LABELS[k], `\`${k}\``, s.font, s.weight, size, String(s.line_height), s.letter_spacing ? String(s.letter_spacing) : "0"]
   })
 }

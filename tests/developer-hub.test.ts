@@ -257,7 +257,7 @@ function main() {
   check("every theme setting is drawn", themeSettingIds().every((id) => drawn.includes(id)))
   check("and every built-in colour scheme", guide.some((n) => n.kind === "schemes" && n.schemes.length === 5))
   check("a select's default is drawn as the option it names, not the stored value",
-    themeSettingGroups().flatMap((g) => g.items).find((it) => it.id === "button_size")?.value === "Medium")
+    themeSettingGroups().flatMap((g) => g.items).find((it) => it.id === "popup_shadow")?.value === "Medium")
   check("the drawings are pictures, not controls: hidden from a screen reader and untouchable",
     /aria-hidden="true" className="pointer-events-none select-none/.test(read("components/developers/specimens.tsx"))
       && !/<input|<button|<select/.test(read("components/developers/specimens.tsx")))

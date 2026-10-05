@@ -446,7 +446,7 @@ export function expandDirective(name: string, arg?: string): DocNode[] {
         head: ["Path", "When the theme sets nothing", "Comes from"],
         rows: [
           ...themeTokenLeaves().map(([path, value]) => [code(`theme.${path}`), code(value === "" ? "\"\"" : typeof value === "string" ? value : String(value)), THEME_TOKEN_DOCS[path] ?? ""]),
-          [code("theme.typography.styles.<style>"), "the text style", "Typography › the nine text styles, each with `font`, `weight`, `size.desktop`, `size.tablet`, `size.mobile`, `line_height`, `letter_spacing` and `transform`"],
+          [code("theme.typography.styles.<style>"), "the text style", "Typography › the nine text styles, each with `font`, `weight`, `size.desktop`, `size.mobile`, `line_height`, `letter_spacing` and `transform`"],
           [code("theme.schemes.<key>.<colour>"), "every scheme", "Colors: each scheme by key, under the same names `scheme` has"],
           [code("theme.settings.<id>"), "as saved", "Every theme setting, as stored. See [Themes](/developers/themes#theme-settings)."],
         ],
@@ -520,7 +520,7 @@ export function expandDirective(name: string, arg?: string): DocNode[] {
         head: ["Group", "Settings"],
         rows: THEME_SETTINGS_GROUPS.map((g) => [
           g.label,
-          g.fields.length ? g.fields.map((f) => code(f.id)).join(", ") : GROUP_WITHOUT_FIELDS[g.id] ?? "",
+          g.fields.length ? g.fields.filter((f) => f.type !== "header").map((f) => code(f.id)).join(", ") : GROUP_WITHOUT_FIELDS[g.id] ?? "",
         ]),
       }]
 
@@ -653,7 +653,7 @@ export function expandDirective(name: string, arg?: string): DocNode[] {
     case "builder-type-styles":
       return [{
         kind: "table",
-        head: ["Style", "Key", "Font", "Weight", "Size, px (desktop / tablet / phone)", "Line height", "Letter spacing, px"],
+        head: ["Style", "Key", "Font", "Weight", "Size, px (desktop / phone)", "Line height", "Letter spacing, px"],
         rows: typeStyleRows(),
       }]
 

@@ -215,8 +215,9 @@ section("Typography compiles to tokens at three widths")
   const own = themeVars({ typography_styles: { h1: { size: { desktop: 72, mobile: 40 }, transform: "uppercase" } } } as ThemeSettingsValues)
   check("a style the theme set wins", own["--type-h1-size"] === "72px" && own["--type-h1-transform"] === "uppercase")
 
+  /* Desktop and phone only now (tests/settings-cleanup.test.ts): a saved tablet size is not drawn. */
   const css = themeStylesheet({ typography_styles: { h1: { size: { desktop: 72, tablet: 60, mobile: 40 } } } } as ThemeSettingsValues)
-  check("tablet and phone sizes take over inside a container query", /@container \(max-width:1023px\)\{[^}]*--type-h1-size:60px/.test(css) && /@container \(max-width:767px\)\{[^}]*--type-h1-size:40px/.test(css))
+  check("the phone size takes over inside a container query, and an old tablet size is not drawn", /@container \(max-width:767px\)\{[^}]*--type-h1-size:40px/.test(css) && !/1023px/.test(css) && !/--type-h1-size:60px/.test(css))
   const unscoped = css
     .split("\n")
     .filter((line) => line.trim() && !line.trim().startsWith("@"))
