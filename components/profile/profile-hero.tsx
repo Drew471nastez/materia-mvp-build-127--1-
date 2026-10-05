@@ -156,7 +156,7 @@ export function ProfileHero({
               THE BUTTON'S TRACK: 12px inside the band's top, down to its
               foot, so the row's travel is the band's height less that and
               the button's: 101px on a phone, 169 and 248 wider up. Measured
-              (scripts/check-profile-band.mjs), that is a few pixels longer
+              (scripts/check-account-center.mjs), that is a few pixels longer
               than it takes for the photo itself to reach the bar, so the
               button holds its place for exactly as long as the photo it
               belongs to is on screen, and the two leave together.
