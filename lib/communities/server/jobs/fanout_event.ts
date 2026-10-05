@@ -19,6 +19,13 @@ import "server-only"
  * own plans, so it pushes at once (push-bridge.ts pushPriority, the
  * event_change: key), under their Events switch. Once per change: the key
  * names the change and its stamp (the new start, or the moment it was made).
+ *
+ * A PAID EVENT THAT WAS CALLED OFF (run-now part 105) is told to its ticket
+ * HOLDERS instead of to the people going, because refunding a ticket takes
+ * that answer away: each holder gets the one message that says the event is
+ * off and that the money is on its way (event_ticket_notify.ts), never two,
+ * and never a cancellation with nothing about their money. A free event, and
+ * any event on a database without part 105, is told exactly as today.
  */
 import { evaluateAccess, parseAccessRule } from "../../access"
 import { wantsNotification } from "../../permissions"
@@ -29,6 +36,7 @@ import { bulkNotify } from "../events"
 import { ownedProductIds } from "../membership"
 import type { JobContext, JobOutcome } from "./index"
 import { carryPushes, communityPushItem, pushFanout, type PushItem } from "@/lib/notifications/push-bridge"
+import { cancelledHolderNotice, eventIsPaid, ticketNoticeContext } from "./event_ticket_notify"
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 export const FANOUT_PAGE = 500
@@ -122,6 +130,8 @@ async function eventChangeFanout(db: Db, payload: Record<string, unknown>, event
   const { data: community } = await db.from("communities").select("id, slug, name, status, suspended_at, deleted_at").eq("id", e.community_id).maybeSingle()
   const c = community as { id: string; slug: string; name?: string | null; status: string; suspended_at: string | null; deleted_at: string | null } | null
   if (!c || c.deleted_at || c.suspended_at || c.status === "suspended" || c.status === "archived") return
+  /* A paid event called off: its holders, with their money in the same message. */
+  if (change === "cancelled" && (await eventIsPaid(db, e.id))) return cancelledTicketFanout(db, payload, e.id, c.id, ctx)
 
   const when = eventTime(e.starts_at, e.ends_at, { timeZone: e.timezone || undefined })
   const title = eventChangeTitle(change, e.title)
@@ -147,6 +157,43 @@ async function eventChangeFanout(db: Db, payload: Record<string, unknown>, event
     after = ids[ids.length - 1]
     if (left.length) return { again: { payload: { ...payload, cursor: after, pushLeft: left } } }
     if (ids.length < RSVP_PAGE) return
+    if (Date.now() >= ctx.deadline - 8_000) return { again: { payload: { ...payload, cursor: after } } }
+  }
+}
+
+/* ── A paid event called off, told to the people holding tickets ───────── */
+
+export const TICKET_PAGE = 100
+
+/**
+ * Each holder of a cancelled paid event, a page at a time by user id: one
+ * row and one email that says the event is off and that the money is coming
+ * back. Keyed per event and person, and the refund path uses the same keys,
+ * so whichever gets there first is the only message that goes. Out of time,
+ * it carries on from its cursor in the next run.
+ */
+async function cancelledTicketFanout(db: Db, payload: Record<string, unknown>, eventId: string, communityId: string, ctx: JobContext): Promise<JobOutcome | void> {
+  const notice = await ticketNoticeContext(db, communityId, eventId)
+  if (!notice) return
+  let after = typeof payload.cursor === "string" && UUID.test(payload.cursor) ? payload.cursor : null
+  for (;;) {
+    let q = db
+      .from("community_event_tickets")
+      .select("user_id, amount_cents, currency, status")
+      .eq("event_id", eventId)
+      .in("status", ["paid", "refunded"])
+      .order("user_id", { ascending: true })
+      .limit(TICKET_PAGE)
+    if (after) q = q.gt("user_id", after)
+    const { data, error } = await q
+    if (error) throw new Error(`tickets read: ${reasonOf(error)}`)
+    const rows = (data as { user_id: string; amount_cents: number | null; currency: string | null; status: string }[] | null) ?? []
+    if (rows.length === 0) return
+    for (const r of rows) {
+      await cancelledHolderNotice(db, notice, { userId: r.user_id, amountCents: r.amount_cents, currency: r.currency, now: ctx.now })
+    }
+    after = rows[rows.length - 1].user_id
+    if (rows.length < TICKET_PAGE) return
     if (Date.now() >= ctx.deadline - 8_000) return { again: { payload: { ...payload, cursor: after } } }
   }
 }
