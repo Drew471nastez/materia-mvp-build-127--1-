@@ -16,11 +16,23 @@
  * (components/library/library-tabs.tsx), so a slow page never leaves the
  * old pill lit under the finger. Plain links underneath, so they work
  * before any script has loaded.
+ *
+ * AND SETTINGS IS ALREADY HERE WHEN IT IS PRESSED (round 11: "the settings
+ * pill ... loads smoothly (prefetch, keep warm, no skeleton flash)"). It
+ * was the one pill not read ahead, and Settings has no loading screen (its
+ * sign in redirect has to be decided first, app/account/layout.tsx), so a
+ * press waited for the whole page with the old one on screen. Now, once the
+ * profile has settled, Settings (the pill's address and Edit profile's)
+ * and the other pills' pages are read ahead as the device and network
+ * allow (lib/nav/prefetch-policy.ts), and a finger landing on a pill reads
+ * its page at once if that has not happened yet. The router keeps them warm
+ * for staleTimes (next.config.mjs).
  */
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
-import { ownerPillFor, ownerPillLinks, type OwnerPillKey } from "@/lib/profile/owner-pills"
+import { EDIT_PROFILE_HREF, ownerPillFor, ownerPillLinks, type OwnerPillKey } from "@/lib/profile/owner-pills"
+import { prefetchHref, prefetchOnIdle } from "@/lib/nav/prefetch-policy"
 import { cn } from "@/lib/utils"
 
 export { ownerPillLinks } from "@/lib/profile/owner-pills"
@@ -39,12 +51,25 @@ export function ProfileOwnerPills({ communities, creator = false, active: fixed,
   const [pressed, setPressed] = useState<OwnerPillKey | null>(null)
   useEffect(() => setPressed(null), [fromPath])
   const active = pressed ?? fromPath
+  const router = useRouter()
+  const pills = ownerPillLinks(communities, creator)
+
+  /* Read ahead once the page is idle: Settings first (the pill, then Edit profile's address), then the pills Next does not read itself. */
+  const ahead = [
+    ...pills.filter((p) => p.key === "settings" && p.key !== fromPath).map((p) => p.href),
+    ...(fromPath === "settings" ? [] : [EDIT_PROFILE_HREF]),
+    ...pills.filter((p) => p.key === "activity" && p.key !== fromPath).map((p) => p.href),
+  ].join(" ")
+  useEffect(() => {
+    if (!ahead) return
+    return prefetchOnIdle(router, ahead.split(" "))
+  }, [ahead, router])
 
   return (
     <nav aria-label="Your pages" className={cn("-mx-4 sm:mx-0", className)} data-profile-owner-pills="">
       <div className="overflow-x-auto overscroll-x-contain px-4 py-0.5 scrollbar-hide sm:px-0">
         <div className="mx-auto flex w-max items-center gap-2">
-          {ownerPillLinks(communities, creator).map((p) => {
+          {pills.map((p) => {
             const on = p.key === active
             return (
               <Link
@@ -55,6 +80,9 @@ export function ProfileOwnerPills({ communities, creator = false, active: fixed,
                 aria-current={p.key === fromPath ? "page" : undefined}
                 data-profile-owner-pill={p.key}
                 data-active={on ? "true" : "false"}
+                onPointerDown={() => {
+                  if (p.key !== fromPath) prefetchHref(router, p.href, "press")
+                }}
                 onClick={(e) => {
                   if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return
                   if (p.key !== fromPath) setPressed(p.key)

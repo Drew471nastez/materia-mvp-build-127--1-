@@ -230,7 +230,7 @@ try {
       expect(m.sideways <= 0 && errors.length === 0, "nothing sideways, no errors", { sideways: m.sideways, errors })
       expect(!!m.cover && m.cover.left === 0 && m.cover.w === m.width && m.coverRadius === "0px", "the cover runs edge to edge: the window's whole width, square corners", { cover: m.cover, radius: m.coverRadius })
       expect(!!m.cover && !!m.header && Math.abs(m.cover.top - m.header.bottom) <= 1, "  and starts right under the site header", { cover: m.cover?.top, header: m.header?.bottom })
-      expect(!!m.cover && m.cover.h === (phone ? 128 : 256), "  the creator page's band height", m.cover?.h)
+      expect(!!m.cover && m.cover.h === (phone ? 157 : 312), "  the profile band's height (lib/profile/cover.ts, round 11)", m.cover?.h)
       expect(!!m.avatar && m.avatar.top < m.cover.bottom && m.avatar.bottom > m.cover.bottom && m.avatar.w === (phone ? 125 : 142), "the photo straddles the cover's edge, 125 / 142px", m.avatar)
       expect(/0px 0px 0px 2px/.test(m.ring || "") && !/0px 0px 0px 4px/.test(m.ring || ""), "  with a thin 2px ring", m.ring)
       expect(!/Joined/.test(m.heroText || ""), "no Joined line under the name", m.heroText)

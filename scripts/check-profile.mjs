@@ -172,7 +172,7 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
           col: (() => { const m = r("[data-member-profile]"); return m && Math.round(m.left + m.width / 2) })(),
         }
       })
-      expect(!!geo.cover && geo.cover.left === 0 && geo.cover.w === geo.win && geo.cover.radius === "0px" && geo.cover.h === (phone ? 128 : 256), "the band runs edge to edge, square, the creator page's height", geo.cover)
+      expect(!!geo.cover && geo.cover.left === 0 && geo.cover.w === geo.win && geo.cover.radius === "0px" && geo.cover.h === (phone ? 157 : 312), "the band runs edge to edge, square, the profile band's height (round 11)", geo.cover)
       expect(!geo.joined && /0px 0px 0px 2px/.test(geo.ring || "") && !geo.ownerControls, "no Joined line, a thin 2px ring, no owner controls on somebody else's band", { joined: geo.joined, ring: geo.ring, owner: geo.ownerControls })
       expect(!!geo.avatar && geo.avatar.top < geo.cover.bottom && geo.avatar.bottom > geo.cover.bottom, "the photo straddles the band's lower edge", geo)
       expect(geo.avatar && Math.abs(geo.avatar.w - (phone ? 125 : 142)) <= 1, `the photo is ${phone ? 125 : 142}px (112 / 128, plus five percent, plus about six)`, geo.avatar?.w)
