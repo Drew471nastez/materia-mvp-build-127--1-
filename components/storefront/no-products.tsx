@@ -180,23 +180,35 @@ function fillVars(scheme: ActionScheme | null | undefined): React.CSSProperties 
 
 /**
  * The owner's line on their own page while nothing is published: what is
- * true, and the button that changes it, in the page's own colours. Quiet on
- * purpose: one hairline row in the page's column, not a banner.
+ * true, and the button that changes it, in the page's own colours.
+ *
+ * It was a row the full width of the column, and the owner, with a
+ * screenshot: a banner across the page that "looks very ugly". A page with
+ * nothing on it does not want a strip of chrome over the emptiness; it wants
+ * something standing in the empty place. So it is a small card in the middle
+ * of the column, the width of a card rather than of the page, holding a
+ * glyph, the line and the button, like every other "nothing here yet" panel
+ * on Storelib. Visitors never see it.
  */
 export function FirstProductPrompt({ scheme }: { scheme?: ActionScheme | null }) {
   return (
     <div className={`${COLUMN} pt-4 sm:pt-6`} data-first-product="">
-      <div className="flex flex-col gap-3 rounded-2xl border border-border bg-card px-4 py-3.5 text-card-foreground sm:flex-row sm:items-center sm:justify-between sm:gap-6 sm:px-5 sm:py-4">
-        <div className="min-w-0">
+      <div className="mx-auto flex w-full max-w-[420px] flex-col items-center gap-3 rounded-2xl border border-border bg-card px-5 py-6 text-center text-card-foreground">
+        <span aria-hidden="true" className="flex h-9 w-9 items-center justify-center rounded-full border border-border text-muted-foreground">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" className="h-[18px] w-[18px]">
+            <path d="M12 6v12M6 12h12" />
+          </svg>
+        </span>
+        <div>
           <p className="text-[15px] font-semibold leading-snug">No products on your page yet</p>
-          <p className="mt-0.5 text-[13.5px] leading-snug text-muted-foreground">Only you see this. Publish one and it shows here.</p>
+          <p className="mx-auto mt-1 max-w-[300px] text-[13.5px] leading-snug text-muted-foreground">Only you see this. Publish one and it shows here.</p>
         </div>
         <Link
           href={NEW_PRODUCT_HREF}
           prefetch={false}
           data-first-product-add=""
           style={fillVars(scheme)}
-          className="inline-flex h-10 shrink-0 items-center justify-center self-start whitespace-nowrap rounded-xl border border-transparent bg-[var(--sf-bg,var(--foreground))] px-4 text-[14px] font-semibold text-[var(--sf-ink,var(--background))] shadow-[inset_0_1px_0_rgba(255,255,255,0.14),inset_0_-1px_0_rgba(0,0,0,0.3),0_1px_2px_rgba(16,24,40,0.2)] outline-none transition-[background-color] duration-100 [-webkit-tap-highlight-color:transparent] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--sf-bg,var(--foreground))] sm:self-auto pointer-fine:hover:bg-[var(--sf-hover,var(--foreground))] active:bg-[var(--sf-press,var(--foreground))]"
+          className="inline-flex h-10 shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-transparent bg-[var(--sf-bg,var(--foreground))] px-4 text-[14px] font-semibold text-[var(--sf-ink,var(--background))] shadow-[inset_0_1px_0_rgba(255,255,255,0.14),inset_0_-1px_0_rgba(0,0,0,0.3),0_1px_2px_rgba(16,24,40,0.2)] outline-none transition-[background-color] duration-100 [-webkit-tap-highlight-color:transparent] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--sf-bg,var(--foreground))] pointer-fine:hover:bg-[var(--sf-hover,var(--foreground))] active:bg-[var(--sf-press,var(--foreground))]"
         >
           Add a product
         </Link>

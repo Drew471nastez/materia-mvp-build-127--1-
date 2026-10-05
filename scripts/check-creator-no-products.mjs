@@ -104,6 +104,8 @@ try {
       /* The first thing drawn under the follow row: the owner's line, a tab strip, a heading, a section, else About's rule. */
       const firstInk = (() => {
         const cands = [...(cat?.querySelectorAll("p, h2, h3, [role=tab], a, img") ?? [])].filter((el) => r(el).height > 0)
+        /* The owner's card is itself what comes next: its own top edge, not the line inside it. */
+        if (prompt?.firstElementChild) cands.push(prompt.firstElementChild)
         const tops = cands.map((el) => r(el).top)
         return tops.length ? Math.min(...tops) : r(aboutRule)?.top ?? null
       })()
@@ -120,7 +122,19 @@ try {
         cards: document.querySelectorAll("[data-storefront-communities] a[href^='/community/']").length,
         emptyPanel: /No communities yet/.test(document.body.innerText),
         featured: /Featured/.test(cat?.innerText || ""),
-        prompt: prompt ? { text: prompt.innerText.replace(/\s+/g, " ").trim(), bg: cs(box).backgroundColor, border: cs(box).borderTopColor, ink: cs(box.querySelector("p")).color } : null,
+        prompt: prompt
+          ? {
+              text: prompt.innerText.replace(/\s+/g, " ").trim(),
+              bg: cs(box).backgroundColor,
+              border: cs(box).borderTopColor,
+              ink: cs(box.querySelector("p")).color,
+              /* Round 10: a card standing in the empty place, not a banner across the page. */
+              w: Math.round(r(box).width),
+              colW: Math.round(r(prompt).width),
+              left: Math.round(r(box).left - r(prompt).left),
+              right: Math.round(r(prompt).right - r(box).right),
+            }
+          : null,
         add: add ? { href: add.getAttribute("href"), h: Math.round(r(add).height), bg: cs(add).backgroundColor, color: cs(add).color } : null,
         page: cs(document.querySelector("[data-storefront-root]")).backgroundColor,
         text: cs(document.querySelector("[data-storefront-root]")).color,
@@ -156,6 +170,7 @@ try {
           if (view === "owner") {
             expect(!!m.prompt && m.prompt.text === "No products on your page yet Only you see this. Publish one and it shows here. Add a product" && m.add?.href === "/app/products/new", "the owner's line, and Add a product to the new product page", { prompt: m.prompt?.text, add: m.add?.href })
             expect(m.prompt.bg !== "rgba(0, 0, 0, 0)" && m.prompt.bg !== m.page && m.prompt.ink === m.cardInk, "  a card a step off the page, in the scheme's card colours", { prompt: m.prompt, page: m.page, cardInk: m.cardInk })
+            expect(m.prompt.w <= 420 && m.prompt.w < m.prompt.colW - 1 && Math.abs(m.prompt.left - m.prompt.right) <= 2, "  a card in the middle of the column, never a banner across it", m.prompt)
             expect(m.add.bg === SCHEMES[scheme], "  the button in the scheme's buy colour, as Follow is", m.add)
             if (phone) expect(m.add.h >= 40, "  40px to a thumb", m.add.h)
           } else {

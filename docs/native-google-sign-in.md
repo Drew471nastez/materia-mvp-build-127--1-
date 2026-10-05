@@ -58,52 +58,60 @@ plenty of cases (`disallowed_useragent`). Both pages take the same path now.
 
 ## What the next native release needs for step 1
 
-A plugin is native code, so the web layer cannot add one: it needs a build and
-a store release. Until then the app uses step 2, and nothing is broken.
+The plugin is already a dependency: `@capgo/capacitor-social-login`, which is
+Credential Manager's bottom sheet on Android and Google's own sheet on iOS.
+Three things are left, and only the first cannot be done from this repository,
+because it is made in your Google Cloud project.
 
-1. Install one of the three the code already speaks to. The first is the one
-   to pick for a new build; the others are recognised because a build may
-   already carry them.
+**1. Make the client ids.** Google Cloud → APIs & Services → Credentials, in
+the same project the Supabase Google provider already uses:
 
-   | Plugin | Android | iOS |
-   | --- | --- | --- |
-   | `@capgo/capacitor-social-login` (`SocialLogin`) | Credential Manager, the bottom sheet | Google's sheet |
-   | `@codetrix-studio/capacitor-google-auth` (`GoogleAuth`) | Google Sign-In | Google Sign-In |
-   | `@byteowls/capacitor-oauth2` (`OAuth2Client`) | Custom Tab | ASWebAuthenticationSession, Safari's cookies shared |
-   | `@capacitor-firebase/authentication` (`FirebaseAuthentication`) | Firebase + Google | Firebase + Google |
+| Kind | For |
+| --- | --- |
+| **Web** | the id the token is minted for, and the one Supabase checks |
+| **iOS** | bundle `com.storelib.app` |
+| **Android** | package `com.storelib.app`, with the release certificate's SHA-1 |
 
-   `OAuth2Client` is the small one: no Google SDK, no Play Services, and on
-   iOS it is the system sheet that already knows the person. It needs the iOS
-   client id, because the answer comes back to that id reversed, as a URL
-   scheme. The others give Android its bottom sheet as well.
+**2. Run one command**, with the iOS id:
 
-2. Make the client IDs in Google Cloud (the same project the Supabase Google
-   provider uses):
-   - a **Web** client ID — this is the one the token is minted for, and the
-     one Supabase checks;
-   - an **iOS** client ID for the bundle `com.storelib.app`;
-   - an **Android** client ID for the package `com.storelib.app`, with the
-     release signing certificate's SHA-1.
+```
+node scripts/native-google-setup.mjs 123456-abcdef.apps.googleusercontent.com
+```
 
-3. Give the web layer the two public ones, in Vercel's environment:
+It writes the one line of iOS configuration that cannot be guessed — Google
+answers an iOS app by opening its client id backwards as a URL scheme, and
+that scheme has to be in `Info.plist` or the sheet opens, the person picks
+their account, and nothing comes back. It then prints the rest. Android needs
+nothing here: the plugin is handed the web client id at runtime.
 
-   ```
-   NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID=…apps.googleusercontent.com
-   NEXT_PUBLIC_GOOGLE_IOS_CLIENT_ID=…apps.googleusercontent.com
-   ```
+**3. Set two values in Vercel** (Production and Preview) and redeploy:
 
-   Missing or wrong, the plugin cannot start, and the app falls to step 2
-   rather than failing.
+```
+NEXT_PUBLIC_GOOGLE_WEB_CLIENT_ID=…apps.googleusercontent.com
+NEXT_PUBLIC_GOOGLE_IOS_CLIENT_ID=…apps.googleusercontent.com
+```
 
-4. Native side:
-   - iOS: the reversed iOS client ID as a URL scheme in `Info.plist`;
-   - Android: nothing beyond the plugin, which reads the web client ID handed
-     to it.
-   - `npx cap sync`, then build and release.
+Missing or wrong, the plugin cannot start, and the app falls back to the
+browser sheet rather than failing.
 
-5. Supabase: **Authentication → Providers → Google → Authorized Client IDs**
-   must list the web, iOS and Android client IDs, or `signInWithIdToken` is
-   refused.
+**And in Supabase**: Authentication → Providers → Google → the Authorized Client IDs
+box must list the web, iOS and Android ids, or `signInWithIdToken`
+is refused.
+
+Then `npx cap sync`, build in Xcode and Android Studio, and release. The web
+layer needs no further change: it looks the plugin up at runtime and takes it
+the moment it is there.
+
+### Other plugins it also recognises
+
+A build that already carries one of these is used instead, in this order:
+
+| Plugin | Android | iOS |
+| --- | --- | --- |
+| `@capgo/capacitor-social-login` (`SocialLogin`) | Credential Manager, the bottom sheet | Google's sheet |
+| `@codetrix-studio/capacitor-google-auth` (`GoogleAuth`) | Google Sign-In | Google Sign-In |
+| `@byteowls/capacitor-oauth2` (`OAuth2Client`) | Custom Tab | ASWebAuthenticationSession, Safari's cookies shared |
+| `@capacitor-firebase/authentication` (`FirebaseAuthentication`) | Firebase + Google | Firebase + Google |
 
 ## What stays true either way
 
