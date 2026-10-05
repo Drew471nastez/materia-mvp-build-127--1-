@@ -302,7 +302,7 @@ export function CoursePlayer({ data, backHref = "/account/library/courses", back
             </div>
           ) : null}
 
-          <CreatorBlock data={data} lessonTitle={lesson?.title ?? null} emailsOff={emailsOff} onToggleEmails={keeps && data.access === "owner" ? toggleEmails : null} />
+          {data.contact !== false ? <CreatorBlock data={data} lessonTitle={lesson?.title ?? null} emailsOff={emailsOff} onToggleEmails={keeps && data.access === "owner" ? toggleEmails : null} /> : null}
         </div>
 
         {/* The curriculum: beside the lesson on a computer */}

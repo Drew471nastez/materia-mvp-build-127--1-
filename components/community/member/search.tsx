@@ -233,7 +233,7 @@ function useCommunitySearch(communityId: string) {
   return { q, setQ, results, status, term, stale: !!results && shownFor !== term }
 }
 
-const GROUP_TITLE = { posts: "Posts", members: "Members", spaces: "Spaces", lessons: "Classroom", events: "Events" } as const
+const GROUP_TITLE = { posts: "Posts", members: "Members", spaces: "Spaces", lessons: "Learn", events: "Events" } as const
 const EVENT_DATE = new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric" })
 
 /** The grouped list, for the dropdown and the phone screen alike. */

@@ -71,9 +71,10 @@ export async function runCourseEmails(db: Db, deadline: number, now = new Date()
 
   const quietSince = new Date(now.getTime() - QUIET_DAYS * 86_400_000).toISOString()
   const finishedSince = new Date(now.getTime() - FINISHED_WITHIN_DAYS * 86_400_000).toISOString()
+  /* A community's own program (part 102) has no product and sends none of these: only rows with a product are read. */
   const [quiet, finished] = await Promise.all([
-    db.from("course_enrollments").select("*").is("completed_at", null).eq("emails_off", false).gt("percent", 0).lt("last_activity_at", quietSince).order("last_activity_at", { ascending: true }).limit(BATCH * 4),
-    db.from("course_enrollments").select("*").is("completion_emailed_at", null).eq("emails_off", false).gte("completed_at", finishedSince).limit(BATCH),
+    db.from("course_enrollments").select("*").not("product_id", "is", null).is("completed_at", null).eq("emails_off", false).gt("percent", 0).lt("last_activity_at", quietSince).order("last_activity_at", { ascending: true }).limit(BATCH * 4),
+    db.from("course_enrollments").select("*").not("product_id", "is", null).is("completion_emailed_at", null).eq("emails_off", false).gte("completed_at", finishedSince).limit(BATCH),
   ])
   if (quiet.error || finished.error) return { ...summary, available: false }
 

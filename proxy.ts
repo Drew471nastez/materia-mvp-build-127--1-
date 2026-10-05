@@ -13,6 +13,7 @@ import { oldAddressRedirect, resolveOnePageAddress, type OldAddressRedirect } fr
 import { supabaseOnePageLookup } from "@/lib/onepage/address-lookup"
 import { createSiteGate } from "@/lib/site-password/proxy-gate"
 import { passCookieName } from "@/lib/site-password/pass"
+import { learnAddressFor } from "@/lib/communities/learn"
 
 /*
   A refused refresh ("Invalid Refresh Token: Already Used") is a person who
@@ -720,7 +721,12 @@ export async function proxy(request: NextRequest) {
     Written for every /community/ request, so whatever a visitor sends under
     that name is replaced; no lookup, nothing else reads it.
   */
-  if (pathname.startsWith("/community/")) request.headers.set(COMMUNITY_PATH_HEADER, `${pathname}${search}`)
+  if (pathname.startsWith("/community/")) {
+    /* Round 13: the Classroom is Learn. Its old addresses answer a 308 to the same place under /learn, the query kept (lib/communities/learn.ts). */
+    const learn = pathname.includes("/classroom") ? learnAddressFor(pathname) : null
+    if (learn) return NextResponse.redirect(new URL(`${learn}${search}`, request.url), 308)
+    request.headers.set(COMMUNITY_PATH_HEADER, `${pathname}${search}`)
+  }
   /* And a profile, for the same reason: a creator's /@handle answers a 308 to their page with the query kept, from its layout (lib/profile/profile-redirect.ts). */
   if (isProfilePath(pathname)) request.headers.set(PROFILE_PATH_HEADER, `${pathname}${search}`)
 

@@ -62,13 +62,29 @@ export interface Owner {
   userId: string
   creatorId: string
   planId: string | null
+  /** The product, or for a community's own program (part 102) the program's id. */
   productId: string
+  /** Set for a community's own program: it has no product, and its course hangs off its community_courses row. */
+  programId?: string | null
 }
 
-/** The product's creator, or a refusal. The same answer for "not yours" and "not there". */
+/**
+ * The product's creator, or a refusal. The same answer for "not yours" and
+ * "not there". The builder of a community's Learn (components/community/
+ * learn) sends a program's id where a product's would be: a program has no
+ * product, so when no product has the id, a program is looked for, and the
+ * person must be someone who runs Learn in that community. Its files count
+ * against the community creator's storage, under their folder.
+ */
 export async function ownerOf(db: Db, userId: string, productId: unknown): Promise<Owner> {
   if (!isUuid(productId)) throw new ManageError("Product not found", 404)
   const { data: product } = await db.from("products").select("id, creator_id").eq("id", productId).maybeSingle()
+  if (!product) {
+    const { programManager } = await import("@/lib/communities/server/learn")
+    const program = await programManager(db, userId, productId)
+    if (!program) throw new ManageError("Product not found", 404)
+    return { userId, creatorId: program.creatorId, planId: program.planId, productId, programId: productId }
+  }
   const creatorId = (product as { creator_id?: string | null } | null)?.creator_id
   if (!creatorId) throw new ManageError("Product not found", 404)
   const { data: creator } = await db.from("creators").select("id, user_id, subscription_plan_id").eq("id", creatorId).maybeSingle()
@@ -109,6 +125,7 @@ function title(raw: unknown, fallback: string): string {
 }
 
 async function ensureCourse(db: Db, o: Owner): Promise<string> {
+  if (o.programId) return ensureProgramCourse(db, o.programId)
   const { data: existing } = await db.from("courses").select("id").eq("product_id", o.productId).maybeSingle()
   if (existing) return (existing as { id: string }).id
   /* A course is what makes the product a course: the product editor saves the type too. */
@@ -116,6 +133,26 @@ async function ensureCourse(db: Db, o: Owner): Promise<string> {
   const { data, error } = await db.from("courses").upsert({ product_id: o.productId }, { onConflict: "product_id" }).select("id").single()
   if (error || !data) throw new ManageError("The course could not be started. Try again.", 500)
   return (data as { id: string }).id
+}
+
+/*
+  A PROGRAM'S COURSE: made the first time a module is added, with no
+  product, and named on the program's row. Two first modules at once both
+  make one; only the first is named (the row is only written while it has
+  none), and the other is removed again.
+*/
+async function ensureProgramCourse(db: Db, programId: string): Promise<string> {
+  const read = async () => ((await db.from("community_courses").select("course_id").eq("id", programId).maybeSingle()).data as { course_id?: string | null } | null)?.course_id ?? null
+  const existing = await read()
+  if (existing) return existing
+  const { data, error } = await db.from("courses").insert({ product_id: null }).select("id").single()
+  if (error || !data) throw new ManageError("The program could not be started. Try again.", 500)
+  const made = (data as { id: string }).id
+  await db.from("community_courses").update({ course_id: made }).eq("id", programId).is("course_id", null)
+  const named = await read()
+  if (named !== made) await db.from("courses").delete().eq("id", made)
+  if (!named) throw new ManageError("The program could not be started. Try again.", 500)
+  return named
 }
 
 /** A module of this creator's course, or a refusal. */
@@ -146,13 +183,12 @@ async function lessonFiles(db: Db, lesson: LessonRow): Promise<string[]> {
   return [lesson.video_path, lesson.captions_path, ...((data ?? []) as Array<{ file_path: string }>).map((a) => a.file_path)].filter((p): p is string => !!p)
 }
 
-/** Bytes this creator's courses hold, for the plan's quota beside their product files. */
+/** Bytes this creator's courses hold, for the plan's quota beside their product files. Their communities' own programs count too. */
 export async function courseMediaBytes(db: Db, creatorId: string): Promise<number> {
   const { data: products } = await db.from("products").select("id").eq("creator_id", creatorId).eq("type", "course")
   const productIds = ((products ?? []) as Array<{ id: string }>).map((p) => p.id)
-  if (!productIds.length) return 0
-  const { data: courses } = await db.from("courses").select("id").in("product_id", productIds)
-  const courseIds = ((courses ?? []) as Array<{ id: string }>).map((c) => c.id)
+  const { data: courses } = productIds.length ? await db.from("courses").select("id").in("product_id", productIds) : { data: [] }
+  const courseIds = [...((courses ?? []) as Array<{ id: string }>).map((c) => c.id), ...(await programCourseIds(db, creatorId))]
   if (!courseIds.length) return 0
   const { data: modules } = await db.from("course_modules").select("id").in("course_id", courseIds)
   const moduleIds = ((modules ?? []) as Array<{ id: string }>).map((m) => m.id)
@@ -375,5 +411,19 @@ export async function applyAction(db: Db, o: Owner, action: string, body: Record
     }
     default:
       throw new ManageError("Bad request")
+  }
+}
+
+/* The courses of this creator's communities' own programs (part 102). None before it, or with no communities. */
+async function programCourseIds(db: Db, creatorId: string): Promise<string[]> {
+  try {
+    const { data: communities } = await db.from("communities").select("id").eq("creator_id", creatorId).limit(50)
+    const ids = ((communities ?? []) as Array<{ id: string }>).map((c) => c.id)
+    if (!ids.length) return []
+    const { data, error } = await db.from("community_courses").select("course_id").in("community_id", ids).is("product_id", null).limit(1000)
+    if (error) return []
+    return ((data ?? []) as Array<{ course_id: string | null }>).map((r) => r.course_id).filter((id): id is string => !!id)
+  } catch {
+    return []
   }
 }
