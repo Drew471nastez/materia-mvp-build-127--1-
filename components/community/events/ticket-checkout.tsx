@@ -81,11 +81,15 @@ export function TicketCheckoutSheet({ communityId, communityName, eventId, title
   const session = React.useRef<string | null>(null)
   const base = `/api/community/${communityId}/events/${eventId}/checkout`
 
+  /*
+    THE KEY MOVES ON WHEN THE SHEET CLOSES, not when it opens. Bumping it on
+    the way in made React mount Stripe's provider, then remount it with the
+    new key, so the server was asked for two sessions and the first seat
+    hold was wasted.
+  */
   React.useEffect(() => {
-    if (open) {
-      setPhase({ kind: "form" })
-      setAttempt((n) => n + 1)
-    }
+    if (open) setPhase({ kind: "form" })
+    else setAttempt((n) => n + 1)
   }, [open])
 
   const fetchClientSecret = React.useCallback(async () => {

@@ -220,7 +220,7 @@ function EventRow({ event, zone, past }: { event: EventCardView; zone: string | 
               {event.online ? <Video className="h-3.5 w-3.5 shrink-0" aria-hidden /> : <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden />}
               <span className="truncate">{event.online ? "Online" : event.location || event.locationHint || "In person"}</span>
             </span>
-            {!past && !event.cancelled && (event.goingCount > 0 || event.capacity) ? <span className="tabular-nums">{goingLabel(event.goingCount, event.capacity)}</span> : null}
+            {!past && !event.cancelled && !soldOut && (event.goingCount > 0 || event.capacity) ? <span className="tabular-nums">{goingLabel(event.goingCount, event.capacity)}</span> : null}
             {soldOut ? (
               <span className="font-medium text-[#4b5563]" data-event-sold-out="">
                 Sold out
@@ -352,11 +352,13 @@ function MonthCalendar({ communityId, initial, zone }: { communityId: string; in
                 {c.day}
               </span>
               <ul className="space-y-1">
-                {events.slice(0, PER_DAY).map((e) => (
+                {events.slice(0, PER_DAY).map((e) => {
+                  const cellPrice = e.priceCents && e.ticket?.status !== "paid" && !e.cancelled ? eventPriceLabel(e.priceCents, e.currency) : null
+                  return (
                   <li key={e.id}>
                     <Link
                       href={e.href}
-                      title={e.title}
+                      title={`${e.title} · ${clockIn(e.startsAt, zone)}${cellPrice ? ` · ${cellPrice}` : ""}`}
                       data-calendar-event={e.id}
                       className={`block truncate rounded-md px-1.5 py-1 text-[12px] leading-4 transition-colors ${
                         e.cancelled
@@ -366,16 +368,19 @@ function MonthCalendar({ communityId, initial, zone }: { communityId: string; in
                             : "bg-[#f1f2f4] text-[#1a1a2e] hover:bg-[#e7e9ed]"
                       }`}
                     >
-                      <span className="tabular-nums opacity-70">{clockIn(e.startsAt, zone).replace(":00 ", " ")}</span> {e.title}
-                      {e.priceCents && e.ticket?.status !== "paid" && !e.cancelled ? (
+                      {/* A cell is a glance: the price is the fact that decides a paid event, so it stands where the time would. */}
+                      {cellPrice ? (
                         <span className="tabular-nums opacity-70" data-calendar-price="">
-                          {" "}
-                          · {eventPriceLabel(e.priceCents, e.currency)}
+                          {cellPrice}
                         </span>
-                      ) : null}
+                      ) : (
+                        <span className="tabular-nums opacity-70">{clockIn(e.startsAt, zone).replace(":00 ", " ")}</span>
+                      )}{" "}
+                      {e.title}
                     </Link>
                   </li>
-                ))}
+                  )
+                })}
                 {events.length > PER_DAY ? <li className="px-1.5 text-[12px] text-[#6b7280]">{events.length - PER_DAY} more</li> : null}
               </ul>
             </div>

@@ -509,7 +509,7 @@ function TicketGatePanel({ event, zone, joinHref, now }: { event: EventDetailVie
       {gate.reason === "pay" ? (
         <ul className="mt-4 space-y-1.5 border-t border-[#eef0f3] pt-3.5 text-[13px] leading-6 text-[#6b7280]" data-ticket-terms="">
           <li>A seat at this event, and the details on this page.</li>
-          {event.joinOpensAt ? <li>The meeting link opens here 15 minutes before the start.</li> : <li>The exact address comes with your ticket.</li>}
+          {event.joinOpensAt ? <li>The meeting link opens here 15 minutes before the start.</li> : <li>The exact address, and who else is coming.</li>}
           <li>{refundWords}</li>
         </ul>
       ) : null}
