@@ -72,6 +72,36 @@ export function endCommunityContext() {
 /** The navigator's rows that end the context. */
 export const ENDS_COMMUNITY_CONTEXT: ReadonlySet<string> = new Set(["explore", "discover-communities", "dashboard"])
 
+/**
+ * ===========================================================================
+ *  AND HOME IS THE COMMUNITY'S BEFORE THE PAGE IS AWAKE
+ * ===========================================================================
+ * THIS IS WHY THE CONTEXT DID NOT WORK. The community is held in the browser
+ * alone, so the SERVER, which renders the bar for every load that is not a
+ * step inside the app, cannot know it: `useCommunityContext` answers null on
+ * the server and again on the first (hydrating) render, so the Home tab is
+ * served as <a href="/explore">. The store only corrects it a moment later,
+ * on a passive effect. Measured on a phone's CPU: 227ms from the first paint,
+ * and that is in a bare page. The tabs are real links the whole of that time,
+ * so a reload of /account, a link opened into it, or the phone app's own full
+ * loads all serve a Home that goes to Explore, and a thumb that arrives
+ * before the page has woken up follows it.
+ *
+ * So the press is answered before anything of React is running: one capture
+ * listener, printed with the bar, that reads the same key and sends a press
+ * on Home to the community instead. It is INERT the moment the bar has
+ * caught up, because by then the link's own href is the community's, and it
+ * does nothing at all when there is no community to go back to. Nothing in
+ * the document is touched, so there is no mark on the page for React to
+ * disagree with when it hydrates.
+ *
+ * The same shape as the explore scroll's boot script (lib/explore/explore-
+ * scroll-boot.ts): small, wrapped in try, and guarded so the copy React
+ * re-inserts on the next page does not add a second listener.
+ */
+export const COMMUNITY_HOME_BOOT_FLAG = "__storelibCommunityHome"
+export const COMMUNITY_HOME_BOOT = `(function(){try{var w=window;if(w.${COMMUNITY_HOME_BOOT_FLAG})return;w.${COMMUNITY_HOME_BOOT_FLAG}=1;var K=${JSON.stringify(COMMUNITY_CONTEXT_KEY)},S=/^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/;addEventListener("click",function(e){if(e.defaultPrevented||e.button||e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return;var t=e.target,a=t&&t.closest?t.closest('a[data-buyer-tab="home"]'):null;if(!a)return;var h=a.getAttribute("href")||"";if(h.indexOf("/community/")===0)return;var s=null;try{s=sessionStorage.getItem(K)}catch(x){}if(!s||!S.test(s))return;e.preventDefault();location.href="/community/"+s},true)}catch(x){}})();`
+
 function subscribe(f: () => void) {
   listeners.add(f)
   return () => {
