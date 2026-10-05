@@ -37,7 +37,7 @@ import { getCreatorStorageUsage } from "@/lib/storage/quota"
 import { readStoredHead, storedObjectSize } from "@/lib/storage/upload-guard"
 import { inspectHead, precheckUpload } from "@/lib/security/uploads/inspect"
 import { CAPTION_MAX_BYTES, isCaptionName, looksLikeCaptions } from "@/lib/courses/captions"
-import { activeProvider, adapterFor, isProviderName } from "@/lib/video/provider"
+import { activeProvider, adapterFor, isProviderName, type PlaybackQuality } from "@/lib/video/provider"
 import { communityMediaPath, isCommunityMediaPath } from "@/lib/video/storage"
 import { MEMBER_VIDEO_MAX_BYTES, PLAYBACK_SECONDS, STAFF_VIDEO_MAX_BYTES, cleanDimension, cleanDuration, type UploadTicket, type VideoPlayback, type VideoProviderName, type VideoStatusView } from "@/lib/video/types"
 import { evaluateAccess, parseAccessRule } from "../access"
@@ -279,13 +279,22 @@ export async function videoAccess(db: Db, community: CommunityRow, viewer: Viewe
     return { ok: true, use: "event" }
   }
 
-  const { data: posts } = await db
+  /*
+    THE FILTER GOES AS JSON TEXT, NEVER AS AN ARRAY (round 13). supabase-js
+    writes an array value as a Postgres array literal, so [{ videoId }]
+    went out as cs.{[object Object]}: Postgres refused it as JSON, the read
+    came back empty, and every member who was not staff got "This video is
+    not available" on a video they could see. The JSON text is the jsonb
+    containment media @> '[{"videoId": "<id>"}]' the index answers.
+  */
+  const { data: posts, error: postsError } = await db
     .from("community_feed_posts")
     .select("id, space_id")
     .eq("community_id", community.id)
     .eq("status", "published")
-    .contains("media", [{ videoId: video.id }])
+    .contains("media", postVideoFilter(video.id))
     .limit(5)
+  if (postsError) console.error(`[communities] video ${video.id} posts read: ${reasonOf(postsError)}`)
   const list = (posts as { id: string; space_id: string | null }[] | null) ?? []
   if (list.length) {
     const spaceIds = [...new Set(list.map((p) => p.space_id).filter((s): s is string => !!s))]
@@ -298,11 +307,18 @@ export async function videoAccess(db: Db, community: CommunityRow, viewer: Viewe
   return { ok: false, reason: "forbidden" }
 }
 
+/** The jsonb containment value for "a post whose media carries this video", as the JSON text PostgREST reads. */
+export function postVideoFilter(videoId: string): string {
+  return JSON.stringify([{ videoId: videoId.toLowerCase() }])
+}
+
 /** A playback address for a ready video, good for PLAYBACK_SECONDS, or null. */
-export async function videoPlayback(db: Db, video: MediaVideoRow, env?: Record<string, string | undefined>): Promise<VideoPlayback | null> {
+export async function videoPlayback(db: Db, video: MediaVideoRow, env?: Record<string, string | undefined>, quality: PlaybackQuality = "auto"): Promise<VideoPlayback | null> {
   if (video.status !== "ready" || !isProviderName(video.provider)) return null
   try {
-    const address = await adapterFor(video.provider).playback(db, video, PLAYBACK_SECONDS, env)
+    let address = await adapterFor(video.provider).playback(db, video, PLAYBACK_SECONDS, env, quality)
+    /* A lighter file the service does not keep: the usual one. */
+    if (!address && quality === "low") address = await adapterFor(video.provider).playback(db, video, PLAYBACK_SECONDS, env)
     if (!address) return null
     return {
       url: address.url,
@@ -392,6 +408,33 @@ export async function pollVideo(db: Db, videoId: string, env?: Record<string, st
     if (safe.status === "ready" || safe.status === "failed") return "settled"
   }
   return "waiting"
+}
+
+/**
+ * WHERE A VIDEO IS NOW, FOR THE COMPOSER THAT IS WAITING ON IT (round 13).
+ * The Post button waits until the video plays. A video on Storelib's
+ * storage is ready the moment its upload is checked; a video on a service
+ * is asked about here as well as by its webhook and the video_poll job,
+ * at most once every VIDEO_STATUS_ASK_MS, so a composer that asks every
+ * couple of seconds never turns into a call to the service every couple of
+ * seconds. A service that cannot be reached leaves the row as it was.
+ */
+export const VIDEO_STATUS_ASK_MS = 4_000
+
+export async function refreshVideoStatus(db: Db, community: CommunityRow, videoId: unknown, env?: Record<string, string | undefined>, now: number = Date.now()): Promise<VideoStatusView | null> {
+  const video = typeof videoId === "string" ? await readCommunityVideo(db, community.id, videoId) : null
+  if (!video) return null
+  if (video.status === "ready" || video.status === "failed" || video.provider === "storage" || !isProviderName(video.provider)) return videoStatusView(video)
+  const last = Date.parse(video.updated_at || video.created_at)
+  if (Number.isFinite(last) && now - last < VIDEO_STATUS_ASK_MS) return videoStatusView(video)
+  try {
+    await pollVideo(db, video.id, env)
+  } catch (e) {
+    console.error(`[communities] video ${video.id} status (${video.provider}): ${reasonOf(e)}`)
+    return videoStatusView(video)
+  }
+  const again = await readCommunityVideo(db, community.id, video.id)
+  return videoStatusView(again ?? video)
 }
 
 /* ── The creator's list ─────────────────────────────────────────────────── */

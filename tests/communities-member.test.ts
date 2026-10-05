@@ -163,7 +163,13 @@ async function main() {
   check("at most ten pictures and files", !checkMedia(Array.from({ length: 11 }, () => ({ type: "image", url: "https://storelib.com/a.png" }))).ok)
   check("unknown media kinds are dropped, not stored", (checkMedia([{ type: "script", src: "x" }]) as { value: unknown[] }).value.length === 0)
   check("a video must be this community's and ready", /from\("media_videos"\)[\s\S]{0,300}r\.status === "ready"/.test(feedSrc))
-  check("the composer uploads a video through the community's video route and plays it with StorelibVideo", /uploadCommunityVideo\(\{ endpoint: `\$\{apiBase\(communityId\)\}\/videos`/.test(code("components/community/member/composer.tsx")) && /<StorelibVideo communityId=\{communityId\} videoId=\{item\.videoId\}/.test(code("components/community/member/lightbox.tsx")))
+  /* Round 13: through uploadPostVideo (media-upload.ts), which sends it on the same route and waits until it plays. */
+  check(
+    "the composer uploads a video through the community's video route and plays it with StorelibVideo",
+    /uploadPostVideo\(\{ communityId, file/.test(code("components/community/member/composer.tsx")) &&
+      /const endpoint = `\$\{apiBase\(input\.communityId\)\}\/videos`[\s\S]*uploadCommunityVideo\(\{ endpoint/.test(code("components/community/member/media-upload.ts")) &&
+      /<StorelibVideo communityId=\{communityId\} videoId=\{item\.videoId\}/.test(code("components/community/member/lightbox.tsx")),
+  )
   check("createPost keeps only files and videos that are the poster's own, for this community", /\.eq\("uploaded_by", viewer\.userId\)/.test(feedSrc) && /from\("media_videos"\)[\s\S]{0,200}\.eq\("community_id", community\.id\)/.test(feedSrc))
 
   console.log("\nPolls")

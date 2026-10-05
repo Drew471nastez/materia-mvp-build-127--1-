@@ -35,8 +35,9 @@ import { ArrowLeft, ArrowRight, ImagePlus, Link2, Loader2, MoreHorizontal, Play,
 import { cn } from "@/lib/utils"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { DirectUploader } from "@/lib/storage/chunked-upload"
-import { uploadCommunityVideo } from "@/lib/video/upload-client"
-import { GALLERY_MAX, coverVideo, galleryEmbed, galleryKey, moveItem, type GalleryEmbed, type GalleryItem } from "./logic"
+import { uploadCommunityVideo, waitUntilPlayable } from "@/lib/video/upload-client"
+import { videoStill } from "@/components/community/member/media-upload"
+import { GALLERY_MAX, coverItem, coverUpload, coverVideo, galleryEmbed, galleryKey, moveItem, type GalleryEmbed, type GalleryItem } from "./logic"
 import type { GalleryVideoView } from "./view-types"
 import { PicturePick, buttonPrimary, buttonSecondary, field } from "./parts"
 
@@ -404,42 +405,146 @@ export function VideoLinkField({ onAdd, onCancel, className, submitLabel = "Add"
 }
 
 /**
- * THE COVER: A PICTURE, OR A YOUTUBE OR VIMEO VIDEO (round 11, ask 27). A
- * picture is the logo's upload (PicturePick). A video link makes that video
- * the gallery's first item, marked as the cover: the page leads with it, and
- * on Save the route makes its still the cover picture, so Explore, the cards
- * and a shared link keep showing a still (Vimeo's still arrives with the
- * save). Removing it takes it out of the gallery and leaves no cover.
+ * THE COVER: A PICTURE, AN UPLOADED VIDEO, OR A YOUTUBE OR VIMEO VIDEO
+ * (round 11, ask 27; the upload round 13, ask 21). A picture is the logo's
+ * upload (PicturePick). A video makes that video the gallery's first item,
+ * marked as the cover: the About page leads with it, a short muted loop
+ * while it is on screen and the community player on a press.
+ *
+ *   UPLOADED   through the community's video upload, waited on until it
+ *              plays (a video service processes it first); a still taken
+ *              from the file goes up beside it as the cover picture, so
+ *              Explore, the cards and a shared link keep a picture.
+ *   LINKED     YouTube or Vimeo: on Save the route makes its still the
+ *              cover picture (Vimeo's arrives with the save).
+ *
+ * Save waits while a cover video is on its way (onBusy). Removing a linked
+ * video leaves no cover; removing an uploaded one keeps its still as the
+ * cover picture, which can then be changed like any picture.
  */
-export function CoverField({ coverUrl, gallery, onChange, onError }: { coverUrl: string | null; gallery: GalleryItem[]; onChange: (next: { coverUrl: string | null; gallery: GalleryItem[] }) => void; onError?: (message: string) => void }) {
+export function CoverField({
+  communityId,
+  coverUrl,
+  gallery,
+  onChange,
+  onError,
+  onBusy,
+}: {
+  communityId?: string
+  coverUrl: string | null
+  gallery: GalleryItem[]
+  onChange: (next: { coverUrl: string | null; gallery: GalleryItem[] }) => void
+  onError?: (message: string) => void
+  onBusy?: (busy: boolean) => void
+}) {
   const video = coverVideo(gallery)
+  const upload = coverUpload(gallery)
   const [linking, setLinking] = React.useState(false)
+  const [sending, setSending] = React.useState<{ percent: number; processing: boolean; still: string | null } | null>(null)
+  const picker = React.useRef<HTMLInputElement>(null)
+  /* The newest gallery and picture, for an upload that finishes after other changes. */
+  const latest = React.useRef({ gallery, coverUrl })
+  latest.current = { gallery, coverUrl }
+  const after = (list: GalleryItem[]) => (coverItem(list) ? list.slice(1) : list)
+
+  React.useEffect(() => {
+    onBusy?.(!!sending)
+  }, [sending, onBusy])
+
   const setVideo = (embed: GalleryEmbed): string | null => {
-    const rest = (video ? gallery.slice(1) : gallery).filter((x) => keyOf(x) !== keyOf(embed))
+    const rest = after(gallery).filter((x) => keyOf(x) !== keyOf(embed))
     if (rest.length >= GALLERY_MAX) return `The gallery is full (${GALLERY_MAX}). Remove one first.`
     onChange({ coverUrl: null, gallery: [{ ...embed, cover: true }, ...rest] })
     setLinking(false)
     return null
   }
-  if (video)
+
+  const uploadVideo = async (file: File | undefined) => {
+    if (!file || !communityId || sending) return
+    if (!file.type.startsWith("video/")) return onError?.("That file is not a video.")
+    if (after(gallery).length >= GALLERY_MAX) return onError?.(`The gallery is full (${GALLERY_MAX}). Remove one first.`)
+    setLinking(false)
+    setSending({ percent: 0, processing: false, still: null })
+    const endpoint = `/api/app/community/${communityId}/videos`
+    try {
+      const [ready, stillUrl] = await Promise.all([
+        uploadCommunityVideo({ endpoint, file, onProgress: (p) => setSending((x) => (x ? { ...x, percent: Math.min(99, p) } : x)) }).then((v) => {
+          if (v.status === "ready") return v
+          setSending((x) => (x ? { ...x, percent: 100, processing: true } : x))
+          return waitUntilPlayable({ endpoint, video: v })
+        }),
+        /* The still: shown at once, and kept as the cover picture. */
+        videoStill(file).then(async (still) => {
+          if (!still) return null
+          const local = URL.createObjectURL(still.blob)
+          setSending((x) => (x ? { ...x, still: local } : x))
+          const uploader = new DirectUploader({ file: new File([still.blob], "cover.jpg", { type: "image/jpeg" }), folder: "product-images" })
+          try {
+            return (await uploader.start()).publicUrl || null
+          } catch {
+            return null
+          } finally {
+            uploader.destroy()
+          }
+        }),
+      ])
+      const now = latest.current
+      const others = after(now.gallery).filter((x) => !(x.type === "video" && x.videoId === ready.id))
+      onChange({ coverUrl: stillUrl || ready.thumbnailUrl || now.coverUrl, gallery: [{ type: "video", videoId: ready.id, cover: true }, ...others] })
+    } catch (e) {
+      onError?.((e as { message?: string })?.message || "The video did not upload. Try again.")
+    } finally {
+      setSending((x) => {
+        if (x?.still) URL.revokeObjectURL(x.still)
+        return null
+      })
+    }
+  }
+
+  const fileInput = (
+    <input ref={picker} type="file" accept="video/mp4,video/quicktime,video/webm" hidden onChange={(e) => (void uploadVideo(e.target.files?.[0]), (e.target.value = ""))} data-cover-video-input="" />
+  )
+  const quietLink = "inline-flex min-h-10 items-center gap-1.5 px-0.5 text-[12.5px] font-medium text-[#4b5563] underline-offset-2 hover:text-[#1a1a2e] hover:underline sm:min-h-8"
+
+  if (sending)
     return (
-      <div className="min-w-0" data-cover-video={video.provider}>
+      <div className="min-w-0" data-cover-sending={sending.processing ? "processing" : "uploading"}>
         <div className="flex min-w-0 items-center gap-3">
-          <span className="relative grid h-16 w-full max-w-[208px] shrink-0 place-items-center overflow-hidden rounded-xl bg-[#1a1a2e] sm:w-[208px]">
-            {video.thumb ? (
+          <span className="relative grid h-[117px] w-full max-w-[208px] shrink-0 place-items-center overflow-hidden rounded-xl bg-[#1a1a2e] sm:w-[208px]">
+            {sending.still ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={video.thumb} alt="" className="absolute inset-0 h-full w-full object-cover" />
+              <img src={sending.still} alt="" className="absolute inset-0 h-full w-full object-cover opacity-60" />
             ) : null}
-            <span className="relative grid h-7 w-7 place-items-center rounded-full bg-black/50 text-white">
+            <span className="relative flex flex-col items-center gap-1 text-white">
+              <Loader2 aria-hidden className="h-5 w-5 animate-spin" />
+              <span className="text-[12px] font-semibold tabular-nums">{sending.processing ? "Processing" : `${sending.percent}%`}</span>
+            </span>
+          </span>
+          <p className="text-[12.5px] leading-snug text-[#6b7280]">{sending.processing ? "Getting the video ready to play." : "Uploading the video."}</p>
+        </div>
+      </div>
+    )
+
+  if (video || upload)
+    return (
+      <div className="min-w-0" data-cover-video={video ? video.provider : "upload"}>
+        {fileInput}
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="relative grid h-[117px] w-full max-w-[208px] shrink-0 place-items-center overflow-hidden rounded-xl bg-[#1a1a2e] sm:w-[208px]">
+            {(video ? video.thumb : coverUrl) ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={(video ? video.thumb : coverUrl) as string} alt="" className="absolute inset-0 h-full w-full object-cover" />
+            ) : null}
+            <span className="relative grid h-8 w-8 place-items-center rounded-full bg-black/50 text-white">
               <Play aria-hidden className="ml-0.5 h-3.5 w-3.5 fill-current" />
             </span>
-            <span className="absolute bottom-1 left-1 rounded bg-black/55 px-1 py-px text-[10.5px] font-medium text-white">{PROVIDER[video.provider]}</span>
+            <span className="absolute bottom-1.5 left-1.5 rounded bg-black/55 px-1 py-px text-[10.5px] font-medium text-white">{video ? PROVIDER[video.provider] : "Video"}</span>
           </span>
           <div className="flex min-w-0 flex-col items-start gap-1">
-            <button type="button" onClick={() => setLinking(true)} className={cn(buttonSecondary, "h-10 sm:h-8")}>
+            <button type="button" onClick={() => (video ? setLinking(true) : picker.current?.click())} className={cn(buttonSecondary, "h-10 sm:h-8")} data-cover-change="">
               Change
             </button>
-            <button type="button" onClick={() => onChange({ coverUrl: null, gallery: gallery.slice(1) })} className="inline-flex min-h-10 items-center gap-1 px-0.5 text-[12.5px] font-medium text-[#6b7280] hover:text-[#1a1a2e] sm:min-h-8" data-cover-remove="">
+            <button type="button" onClick={() => onChange({ coverUrl: video ? null : coverUrl, gallery: gallery.slice(1) })} className="inline-flex min-h-10 items-center gap-1 px-0.5 text-[12.5px] font-medium text-[#6b7280] hover:text-[#1a1a2e] sm:min-h-8" data-cover-remove="">
               <X aria-hidden className="h-3.5 w-3.5" />
               Remove
             </button>
@@ -450,14 +555,23 @@ export function CoverField({ coverUrl, gallery, onChange, onError }: { coverUrl:
     )
   return (
     <div className="min-w-0" data-cover-picture="">
+      {fileInput}
       <PicturePick value={coverUrl} onChange={(v) => onChange({ coverUrl: v, gallery })} shape="wide" name="cover" onError={onError} />
       {linking ? (
         <VideoLinkField className="mt-3" submitLabel="Use" onCancel={() => setLinking(false)} onAdd={setVideo} />
       ) : (
-        <button type="button" onClick={() => setLinking(true)} className="mt-1 inline-flex min-h-10 items-center gap-1.5 px-0.5 text-[12.5px] font-medium text-[#4b5563] underline-offset-2 hover:text-[#1a1a2e] hover:underline sm:min-h-8" data-cover-use-link="">
-          <Link2 aria-hidden className="h-3.5 w-3.5" />
-          Use a YouTube or Vimeo video instead
-        </button>
+        <div className="mt-1 flex flex-wrap items-center gap-x-4">
+          {communityId ? (
+            <button type="button" onClick={() => picker.current?.click()} className={quietLink} data-cover-upload-video="">
+              <Video aria-hidden className="h-3.5 w-3.5" />
+              Upload a video
+            </button>
+          ) : null}
+          <button type="button" onClick={() => setLinking(true)} className={quietLink} data-cover-use-link="">
+            <Link2 aria-hidden className="h-3.5 w-3.5" />
+            {communityId ? "Use a YouTube or Vimeo link" : "Use a YouTube or Vimeo video instead"}
+          </button>
+        </div>
       )}
     </div>
   )

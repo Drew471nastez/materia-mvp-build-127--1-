@@ -423,7 +423,7 @@ export async function communityGallery(db: Db, community: Pick<CommunityRow, "id
   const out: GalleryItemView[] = []
   for (const g of wanted) {
     if (g.type === "image" || g.type === "embed") out.push(g)
-    else if (posters.has(g.videoId)) out.push({ type: "video", videoId: g.videoId, posterUrl: posters.get(g.videoId) ?? community.cover_url ?? null })
+    else if (posters.has(g.videoId)) out.push({ type: "video", videoId: g.videoId, posterUrl: posters.get(g.videoId) ?? community.cover_url ?? null, ...("cover" in g && g.cover ? { cover: true as const } : {}) })
   }
   if (fallback && community.cover_url) out.push({ type: "image", url: community.cover_url })
   return out

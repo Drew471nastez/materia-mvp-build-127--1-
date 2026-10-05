@@ -615,7 +615,14 @@ export const GALLERY_MAX = 12
  */
 export type GalleryEmbed = { type: "embed"; provider: "youtube" | "vimeo"; id: string; hash?: string; thumb?: string; cover?: true }
 
-export type GalleryItem = { type: "image"; url: string } | { type: "video"; videoId: string } | GalleryEmbed
+/**
+ * A video uploaded to this community (round 13: `cover`, only ever on the
+ * first item, makes it the community's cover video, the About page's hero;
+ * its still, taken from the file when it was chosen, is the cover picture).
+ */
+export type GalleryUpload = { type: "video"; videoId: string; cover?: true }
+
+export type GalleryItem = { type: "image"; url: string } | GalleryUpload | GalleryEmbed
 
 /** The one string an item is known by: its picture, its upload's id, or the service and id of a linked video. */
 export function galleryKey(i: GalleryItem): string {
@@ -645,10 +652,21 @@ export function galleryEmbed(raw: unknown): GalleryEmbed | null {
   return { type: "embed", provider: ref.provider, id: ref.id, ...(ref.hash ? { hash: ref.hash } : {}), ...(thumb ? { thumb } : {}), ...(stored.cover === true ? { cover: true as const } : {}) }
 }
 
-/** The cover video, when the first item is one. */
+/** The cover video, when the first item is a YouTube or Vimeo one. */
 export function coverVideo(items: readonly GalleryItem[]): GalleryEmbed | null {
   const first = items[0]
   return first && first.type === "embed" && first.cover ? first : null
+}
+
+/** The cover video, when the first item is one uploaded to the community (round 13). */
+export function coverUpload(items: readonly GalleryItem[]): GalleryUpload | null {
+  const first = items[0]
+  return first && first.type === "video" && first.cover ? first : null
+}
+
+/** The cover item, either kind: the gallery editor shows what follows it. */
+export function coverItem(items: readonly GalleryItem[]): GalleryEmbed | GalleryUpload | null {
+  return coverVideo(items) ?? coverUpload(items)
 }
 
 /**
@@ -677,7 +695,7 @@ export function checkGallery(raw: unknown, ownUrl: (url: unknown) => string | nu
       const id = item.videoId.toLowerCase()
       if (seen.has(id)) continue
       seen.add(id)
-      out.push({ type: "video", videoId: id })
+      out.push({ type: "video", videoId: id, ...(item.cover === true && out.length === 0 ? { cover: true as const } : {}) })
     } else if (item.type === "embed") {
       const embed = galleryEmbed(item)
       if (!embed) return { ok: false, field: "gallery", error: "Only YouTube and Vimeo links can be added as a video." }
