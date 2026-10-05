@@ -313,19 +313,20 @@ export async function eventTicketMoney(db: Db, eventId: string): Promise<{ sold:
   const out = { ...empty }
   try {
     const page = 500
-    for (let from = 0; ; from += page) {
-      const { data, error } = await db
-        .from(TABLE)
-        .select("status, source, amount_cents, currency")
-        .eq("event_id", eventId)
-        .order("created_at", { ascending: true })
-        .range(from, from + page - 1)
+    let after: { at: string; id: string } | null = null
+    /* A keyset on (created_at, id), never an offset: a big event counts in pages on the index. */
+    for (let round = 0; round < 2000; round += 1) {
+      let q = db.from(TABLE).select("id, created_at, status, source, amount_cents, currency").eq("event_id", eventId)
+      if (after) q = q.or(`created_at.gt."${after.at}",and(created_at.eq."${after.at}",id.gt.${after.id})`)
+      const { data, error } = await q.order("created_at", { ascending: true }).order("id", { ascending: true }).limit(page)
       if (error) {
         forgetIfMissing(error)
         if (!missing(error)) console.error(`[communities] event ticket money: ${reasonOf(error)}`)
         return out
       }
-      const rows = (data as { status: TicketStatus; source: TicketSource; amount_cents: number | null; currency: string | null }[] | null) ?? []
+      const rows = (data as { id: string; created_at: string; status: TicketStatus; source: TicketSource; amount_cents: number | null; currency: string | null }[] | null) ?? []
+      const last = rows[rows.length - 1]
+      after = last ? { at: last.created_at, id: last.id } : after
       for (const r of rows) {
         if (r.currency) out.currency = r.currency
         const amount = Math.max(0, r.amount_cents ?? 0)
