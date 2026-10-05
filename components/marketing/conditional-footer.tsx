@@ -131,7 +131,8 @@ export function ConditionalFooter() {
       <>
         {footer ? <div className="lg:hidden">{footer}</div> : null}
         <div className="hidden lg:block" data-explore-desktop-footer="">
-          <SellerFooter />
+          {/* As wide as the header above the page, not a creator page's 6xl (SellerFooter headerWidth). */}
+          <SellerFooter headerWidth />
         </div>
       </>
     )

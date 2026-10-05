@@ -181,7 +181,7 @@ async function main() {
   check("a plain press is taken over, any other press opens the link", /if \(!isPlainClick\(e\)\) return\s+e\.preventDefault\(\)/.test(bar))
   check("the bar decides through back-plan and never calls history.back itself", /goBackOr\(target/.test(bar) && !/window\.history\.back\(\)/.test(bar) && !/router\.back\(\)/.test(bar))
   check("a push that never lands loads the creator's page as a document", /window\.location\.assign\(href\), PUSH_GIVE_UP_MS/.test(bar))
-  check("the app's breadcrumb is a link too, with the same decision", /<a\s+ref=\{ref\}\s+href=\{href\}/.test(crumb) && /goBackOr\(href/.test(crumb) && !/router\.back\(\)/.test(crumb))
+  check("the app's breadcrumb is a link too, with the same decision", /<a\s+ref=\{ref\}\s+href=\{href\}/.test(crumb) && /goBackOr\(target\(\)/.test(crumb) && !/router\.back\(\)/.test(crumb))
   const tracker = code("components/platform/app-history-tracker.tsx")
   check("a route that replaced its entry is not counted as a page behind",
     /if \(!grew && !poppedOnce\.current\) \{\s*lastPath\.current = pathname\s*return/.test(tracker) && tracker.indexOf("!grew && !poppedOnce") < tracker.indexOf("noteClientNavigation(lastPath.current)"))

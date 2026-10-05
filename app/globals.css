@@ -574,6 +574,42 @@ html.capacitor body {
     animation: none;
   }
 
+  /*
+    A COMMUNITY OPENED FROM DISCOVER LANDS AS AN /app PAGE DOES: opacity and
+    a 2px rise over 180ms on the same curve (lib/ui/app-navigation
+    NAV_ENTER_*), once, when its frame arrives (components/community/member/
+    landing.ts). The rise is `top` on a relatively positioned box, NOT a
+    transform: a transform on the frame would make it the containing block
+    of the join bar fixed to the bottom of a phone, and that bar would ride
+    the page for those 180ms. `backwards`, not `both`, for the stacking
+    reason given for .app-page-enter above.
+  */
+  @keyframes community-land {
+    from { opacity: 0; top: 2px; }
+    to   { opacity: 1; top: 0; }
+  }
+  .community-land {
+    position: relative;
+    animation: community-land 180ms cubic-bezier(0.2, 0, 0, 1) backwards;
+  }
+  /* While it lands, the middle column waits as the app's slow page does
+     before its spinner (NAV_PHONE_SPINNER_AFTER_MS, NAV_SPINNER_AFTER_MS):
+     a page that comes quickly is never preceded by one. The room stays
+     held either way (the spinner's box keeps its height). */
+  [data-community-landing] [data-place-spinner="page"] {
+    animation-delay: 500ms !important;
+  }
+  @media (min-width: 768px) {
+    [data-community-landing] [data-place-spinner="page"] {
+      animation-delay: 1000ms !important;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .community-land {
+      animation: none;
+    }
+  }
+
 
 
 
@@ -4329,9 +4365,25 @@ html.capacitor {
   box-shadow: var(--bar-depth-dark);
 }
 
-/* The light bar has no depth: it is the white of the band above it, opaque,
-   with its hairline (lib/platform/header-chrome.ts headerBorder) and nothing
-   under that, so the strip under the clock and the bar read as one surface. */
+/* The light bar has no depth on a phone: it is the white of the band above
+   it, opaque, with its hairline (lib/platform/header-chrome.ts headerBorder)
+   and nothing under that, so the strip under the clock and the bar read as
+   one surface. */
+
+/*
+  ON A COMPUTER THE BAR SITS A LITTLE OVER THE PAGE. There is no band under
+  a clock to be one surface with there, and a hairline alone read as the
+  top strip of the page rather than as a bar the page scrolls under. The
+  light bar takes the shared --bar-depth (the creator and product bars'
+  own value) under its hairline, as the dark bar already takes
+  --bar-depth-dark above. From the header's own desktop breakpoint
+  (.platform-header-row below), so a phone is exactly as it was.
+*/
+@media (min-width: 768px) {
+  .platform-header-light {
+    box-shadow: var(--bar-depth);
+  }
+}
 
 .platform-header-row {
   /*
@@ -4465,15 +4517,13 @@ html.capacitor body {
 html.capacitor [data-discover-breadcrumb] {
   display: flex !important;
 }
-/* Also visible on web when the product is opened from a discover/recommended URL,
-   but only on mobile — hidden on desktop (≥768px) where browser back exists */
+/* Also visible on the web when the product is opened from Explore (a
+   discover/recommended URL), at every width. It used to be hidden from 768px
+   on the grounds that a computer has the browser's own Back; people on a
+   computer reached for a way back above the pictures, as on a phone, and
+   found none (components/product/discover-back-breadcrumb.tsx). */
 [data-discover-breadcrumb="web"] {
   display: flex !important;
-}
-@media (min-width: 768px) {
-  [data-discover-breadcrumb="web"] {
-    display: none !important;
-  }
 }
 
 /* ── Search top sheet: push content below the safe-area shield ────────────────

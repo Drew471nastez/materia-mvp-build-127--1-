@@ -26,6 +26,13 @@ interface SellerFooterProps {
    * render this without a surface.
    */
   surface?: SellerFooterSurface
+  /**
+   * The platform header's width (max-w-[1400px] with its own gutters) rather
+   * than a creator page's 6xl. Explore ends with this footer on a computer,
+   * under Storelib's header, and a row narrower than the bar above the page
+   * read as belonging to something else.
+   */
+  headerWidth?: boolean
 }
 
 /**
@@ -64,7 +71,7 @@ const LINKS_ROW: Record<Layout, string> = {
   responsive: "flex w-full flex-wrap items-baseline justify-center gap-x-4 gap-y-1 sm:w-auto sm:justify-end sm:gap-x-6",
 }
 
-export function SellerFooter({ isMobile, surface }: SellerFooterProps = {}) {
+export function SellerFooter({ isMobile, surface, headerWidth = false }: SellerFooterProps = {}) {
   /**
    * An inline colour only when there is one, so an unthemed footer keeps
    * exactly the classes it had rather than being handed a second opinion.
@@ -182,7 +189,14 @@ export function SellerFooter({ isMobile, surface }: SellerFooterProps = {}) {
           </div>
         </>
       ) : (
-        <div className="mx-auto flex w-full max-w-6xl flex-col items-center gap-3 px-4 py-5 sm:flex-row sm:justify-between sm:gap-6 sm:px-6 sm:py-4">
+        <div
+          className={cn(
+            "mx-auto flex w-full flex-col items-center gap-3 px-4 py-5 sm:flex-row sm:justify-between sm:gap-6 sm:px-6 sm:py-4",
+            /* The header's own container (components/platform/platform-header-client.tsx): the same width and the same gutters. */
+            headerWidth ? "max-w-[1400px] lg:px-8" : "max-w-6xl",
+          )}
+          data-footer-width={headerWidth ? "header" : undefined}
+        >
           {poweredBy("responsive")}
           {links("responsive")}
         </div>

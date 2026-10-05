@@ -416,7 +416,7 @@ async function main() {
   console.log("\nFooter")
   {
     const footer = code("components/marketing/conditional-footer.tsx")
-    check("Explore's browse pages on the web: the creator page footer from 1024px", /setExploreDesktop\(!isNativeApp\(\) && isExploreBrowsePage\(pathname\)\)/.test(footer) && /<div className="hidden lg:block" data-explore-desktop-footer="">\s*<SellerFooter \/>/.test(footer))
+    check("Explore's browse pages on the web: the creator page footer from 1024px", /setExploreDesktop\(!isNativeApp\(\) && isExploreBrowsePage\(pathname\)\)/.test(footer) && /<div className="hidden lg:block" data-explore-desktop-footer="">\s*(\{\}\s*)?<SellerFooter headerWidth \/>/.test(footer))
     check("below 1024px, what was there before", /\{footer \? <div className="lg:hidden">\{footer\}<\/div> : null\}/.test(footer))
   }
 

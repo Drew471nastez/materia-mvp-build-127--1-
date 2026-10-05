@@ -29,10 +29,11 @@
  * list are asked for without the subcategory.
  */
 import * as React from "react"
+import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import type { CommunityCard } from "@/lib/communities/types"
 import { communitiesQuery } from "@/lib/explore/communities-mode"
-import { cachedCommunities, COMMUNITIES_PAGE, loadCommunities, prefetchCommunities, seedCommunities, type CommunitiesPage } from "@/lib/explore/communities-cache"
+import { cachedCommunities, COMMUNITIES_PAGE, hasMoreThanFirstPage, keepMoreCommunities, loadCommunities, prefetchCommunities, seedCommunities, type CommunitiesPage } from "@/lib/explore/communities-cache"
 import { prefetchBudget, whenIdle } from "@/lib/explore/prefetch-budget"
 import { useProgressiveCount } from "@/lib/explore/use-progressive-count"
 import { ProductCardSkeleton } from "./product-card-skeleton"
@@ -76,6 +77,28 @@ export function ExploreCommunitiesResults({
   ahead?: string[]
 }) {
   const query = communitiesQuery({ q, category, sub, srt, price })
+  /*
+    A COMMUNITY ABOUT TO BE OPENED IS ASKED FOR WHOLE. Its route is dynamic,
+    so the link's own prefetch stops at the community's loading screen; a
+    pointer resting on a card (a mouse) or pressing it (a finger) asks for
+    the whole page ("full", as the community's own places do in
+    shell-frame.tsx), once per card, so the click usually finds it here and
+    the community lands in one piece, with no spinner in its middle.
+  */
+  const router = useRouter()
+  const warmed = React.useRef(new Set<string>())
+  const warm = (e: React.PointerEvent<HTMLElement>) => {
+    const link = e.target instanceof Element ? e.target.closest<HTMLAnchorElement>("a[data-explore-community]") : null
+    const href = link?.getAttribute("href")
+    if (!href || !href.startsWith("/") || warmed.current.has(href)) return
+    if (e.type === "pointerover" && e.pointerType !== "mouse") return
+    warmed.current.add(href)
+    try {
+      router.prefetch(href, { kind: "full" } as never)
+    } catch {
+      /* a prefetch that fails is a click that waits, nothing worse */
+    }
+  }
   /* The server's first page is kept as if it had been asked for, before the first render reads the cache. */
   if (initial) seedCommunities(initial.query, { items: initial.items, next: initial.next, broadened: initial.broadened === true })
   /*
@@ -96,7 +119,8 @@ export function ExploreCommunitiesResults({
     if (hit) {
       setShown({ query, items: hit.items, next: hit.next, broadened: hit.broadened })
       setFailed(false)
-      if (!hit.stale) return
+      /* A list the visitor paged through with Show more is theirs: an older answer is not swapped for a first page under them (keepMoreCommunities). */
+      if (!hit.stale || hasMoreThanFirstPage(hit)) return
     }
     loadCommunities(query).then(
       (page) => {
@@ -164,6 +188,11 @@ export function ExploreCommunitiesResults({
       const res = await fetch(`/api/explore/communities?${pageQuery}${pageQuery ? "&" : ""}limit=${COMMUNITIES_PAGE}&cursor=${encodeURIComponent(next)}`)
       if (!res.ok) throw new Error(String(res.status))
       const body = (await res.json()) as { items: CommunityCard[]; next: string | null }
+      /* The longer list is kept for the way back too (keepMoreCommunities). */
+      if (shown && shown.query === query) {
+        const seen = new Set(shown.items.map((c) => c.id))
+        keepMoreCommunities(query, { items: [...shown.items, ...body.items.filter((c) => !seen.has(c.id))], next: body.next, broadened: shown.broadened })
+      }
       setShown((was) => {
         if (!was || was.query !== query) return was
         const seen = new Set(was.items.map((c) => c.id))
@@ -219,6 +248,8 @@ export function ExploreCommunitiesResults({
       data-communities-results=""
       data-communities-pending={pending ? "" : undefined}
       aria-busy={pending || undefined}
+      onPointerOver={warm}
+      onPointerDown={warm}
       /*
         The previous answer while the next is on its way: still there, still
         readable, a step quieter, and only after 160ms, so an answer from

@@ -67,6 +67,22 @@ export function seedCommunities(query: string, page: CommunitiesPage) {
   if (!cache.has(query)) remember(query, page)
 }
 
+/**
+ * THE PAGES SHOWN WITH "SHOW MORE" ARE KEPT WITH THE FIRST. They lived only
+ * in the grid's state, so a community opened from the third page and then
+ * Back found the first page alone: the list was a third as tall and the
+ * scroll Explore puts back landed at its end. Kept under the same question,
+ * the whole list the visitor had is there again on the way back.
+ */
+export function keepMoreCommunities(query: string, page: CommunitiesPage) {
+  remember(query, page)
+}
+
+/** More than the first page has been read for this question (keepMoreCommunities): asking again would take the visitor's list away from them. */
+export function hasMoreThanFirstPage(page: CommunitiesPage): boolean {
+  return page.items.length > COMMUNITIES_PAGE
+}
+
 /** Asks the route (once, however many callers), keeps the answer, and returns it. */
 export function loadCommunities(query: string): Promise<CommunitiesPage> {
   const going = inflight.get(query)

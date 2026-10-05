@@ -93,7 +93,7 @@ check("the product's own dark bar is hidden in the app from the first paint, kep
 check("and in the app the buy bar does not wait on a top bar that is not there", /setProductTopBarRevealed\(isNativeApp\(\) \? false : visible\)/.test(wrapper))
 const crumb = code("components/product/discover-back-breadcrumb.tsx")
 check("the one back is a 44px target with padding, pulled back so the words stay put", /min-h-\[44px\]/.test(crumb) && /-ml-3/.test(crumb) && /pl-3/.test(crumb) && /before:-inset-y-1\.5/.test(crumb))
-check("it answers on the frame the finger lands and acts on the first tap's lift", /usePressFeedback/.test(crumb) && /useFirstTap/.test(crumb) && /data-\[pressed\]:bg-/.test(crumb) && /goBackOr\(href/.test(crumb))
+check("it answers on the frame the finger lands and acts on the first tap's lift", /usePressFeedback/.test(crumb) && /useFirstTap/.test(crumb) && /data-\[pressed\]:bg-/.test(crumb) && /goBackOr\(target\(\)/.test(crumb))
 const header = code("components/platform/platform-header-client.tsx")
 check("the header has no library and no heart in the app (by the capacitor class, so the first frame is right)",
   /const appHidden = "\[html\.capacitor_&\]:hidden"/.test(header) && (header.match(/data-header-wishlist=""/g) ?? []).length === 2 && (header.match(/data-header-library=""/g) ?? []).length === 2 && (header.match(/chrome\.iconBtn, appHidden\)/g) ?? []).length === 4)

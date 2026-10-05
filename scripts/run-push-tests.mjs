@@ -156,6 +156,7 @@ const SUITES = [
   "tests/explore-communities.test.ts",
   "tests/explore-speed.test.ts",
   "tests/explore-round11.test.ts",
+  "tests/explore-polish.test.ts",
   "tests/community-cards.test.ts",
   "tests/route-loading-bar.test.ts",
   "tests/back-plan.test.ts",
