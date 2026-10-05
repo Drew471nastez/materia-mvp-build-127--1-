@@ -23,13 +23,15 @@
  *                  library-tabs.tsx, which are Explore's chips): white on a
  *                  hairline, the chosen one pressed into a grey fill that
  *                  fades in and grows from 96% where it is over 150ms.
- *                  They scroll sideways on a narrow phone. Four sections,
- *                  because four is what there is:
+ *                  They scroll sideways on a narrow phone. Five sections,
+ *                  because five is what there is:
  *
- *                    Profile      the photo, the name, the username, the bio
- *                    Account      email, password, logging out, deleting
- *                    Privacy      what the public profile shows
- *                    Preferences  language, newsletter, recommendations
+ *                    Profile        the photo, the name, the username, the bio
+ *                    Account        email, password, logging out, deleting
+ *                    Privacy        what the public profile shows
+ *                    Notifications  push, kind by kind, the phone's permission
+ *                                   (components/account/notification-settings.tsx)
+ *                    Preferences    language, newsletter, recommendations
  *
  *   THE FIELDS     a label over the input, the input as /app Settings and
  *                  the checkout draw one (a #e5e7eb hairline, an 11px tall
@@ -71,7 +73,7 @@ import { LanguageModal } from "@/components/platform/language-modal"
 import { useLocale } from "@/components/locale-provider"
 import { secondaryDepth } from "@/components/ui/depth-button"
 import { AccountAvatar, useAccountPhoto } from "@/components/account/account-photo"
-import { PushSwitchRow } from "@/components/account/push-switch-row"
+import { NotificationSettings } from "@/components/account/notification-settings"
 import { CoverField } from "@/components/account/cover-field"
 import { SaveBar } from "@/components/account/save-bar"
 import { useShellAvatar } from "@/lib/account/avatar-store"
@@ -113,6 +115,7 @@ const SECTIONS = [
   { key: "profile", label: "Profile" },
   { key: "account", label: "Account" },
   { key: "privacy", label: "Privacy" },
+  { key: "notifications", label: "Notifications" },
   { key: "preferences", label: "Preferences" },
 ] as const
 
@@ -917,8 +920,6 @@ function PreferencesSection({ email, newsletter: initialNewsletter, personalized
           }
           control={<Switch label="Recommendations for you" checked={personalized.value} busy={personalized.busy} onChange={personalized.change} />}
         />
-        {/* Drawn only once GET /api/me/push answers with the saved choice (components/account/push-switch-row.tsx). */}
-        <PushSwitchRow />
       </div>
       <LanguageModal open={languageOpen} onOpenChange={setLanguageOpen} />
     </section>
@@ -1051,6 +1052,7 @@ export function AccountSettings({
           </>
         ) : null}
         {section === "privacy" ? <PrivacySection username={username} privacy={privacy} creator={creator} /> : null}
+        {section === "notifications" ? <NotificationSettings /> : null}
         {section === "preferences" ? <PreferencesSection email={email} newsletter={newsletter} personalized={personalized} /> : null}
       </SectionSwap>
     </div>
