@@ -71,7 +71,7 @@ export function ReportSheet({ communityId, target, onClose }: { communityId: str
     setBusy(true)
     const r = await api<{ ok: boolean; already: boolean }>(`${apiBase(communityId)}/reports`, { body: { targetType: target.type, targetId: target.id, reason, note: note.trim() || undefined } })
     setBusy(false)
-    if (!r.ok) return toast(r.error)
+    if (r.ok === false) return toast(r.error)
     onClose()
     toast(r.data.already ? REPORT_AGAIN : REPORT_THANKS)
   }

@@ -59,7 +59,7 @@ export function PollBlock({ poll, communityId, canVote, onChange }: { poll: Poll
     const r = await api<{ poll: PollView }>(`${apiBase(communityId)}/polls/${poll.id}/vote`, { body: { optionIds: ids } })
     if (n !== ask.current) return
     setBusy(false)
-    if (!r.ok) {
+    if (r.ok === false) {
       setView(sure.current)
       return toast(r.error)
     }

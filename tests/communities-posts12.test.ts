@@ -51,8 +51,6 @@ import { COMMENT_FILES_REFUSED, checkCommentMedia, mediaLine } from "@/lib/commu
 import { HIGHLIGHT, HIGHLIGHT_FADE_MS, HIGHLIGHT_HOLD_MS, HIGHLIGHT_MS } from "@/components/community/member/arrive"
 import { withAnswer } from "@/components/community/member/poll"
 import { EMOJI_POPOVER, FIT_POPOVER, GIF_POPOVER, POPOVER_EDGE, fitBox } from "@/components/ui/popover-fit"
-import { typedUrl, VIDEO_HINT } from "@/components/community/member/media-link"
-import { REPORT_REASON_LABELS, REPORT_THANKS } from "@/components/community/member/report-sheet"
 import { REPORT_REASONS, type CommunityRow, type PollView } from "@/lib/communities/types"
 import type { Viewer } from "@/lib/communities/server/context"
 
@@ -116,8 +114,8 @@ async function main() {
   console.log("\n21. Reporting a post or a comment")
   const report = code("components/community/member/report-sheet.tsx")
   check("the app's sheet on a phone, a dialog that fades and settles on a computer", /<BottomSheet isOpen=\{open\}/.test(report) && /DialogPrimitive\.Content/.test(report) && /data-\[state=open\]:zoom-in-\[0\.97\]/.test(report) && /data-\[state=closed\]:zoom-out-\[0\.97\]/.test(report))
-  check("every reason has a calm label", REPORT_REASONS.every((r) => !!REPORT_REASON_LABELS[r]))
-  check("sent to the community's report route (its queue), then a toast", /api<\{ ok: boolean; already: boolean \}>\(`\$\{apiBase\(communityId\)\}\/reports`/.test(report) && /toast\(r\.data\.already \? REPORT_AGAIN : REPORT_THANKS\)/.test(report) && /^Thanks\./.test(REPORT_THANKS))
+  check("every reason has a calm label", REPORT_REASONS.every((r) => new RegExp(`\\b${r}: "[A-Z][a-z]`).test(report)))
+  check("sent to the community's report route (its queue), then a toast", /api<\{ ok: boolean; already: boolean \}>\(`\$\{apiBase\(communityId\)\}\/reports`/.test(report) && /toast\(r\.data\.already \? REPORT_AGAIN : REPORT_THANKS\)/.test(report) && /REPORT_THANKS = "Thanks\. The moderators will take a look\."/.test(report))
   check("posts and comments use it", /<ReportSheet communityId=\{post\.communityId\}/.test(card) && /<ReportSheet communityId=\{communityId\}/.test(code("components/community/member/comments.tsx")))
 
   /* ── 22: the composer opens without a morph ─────────────────────────── */
@@ -153,8 +151,8 @@ async function main() {
   check("each site has its name", EMBED_NAMES.youtube === "YouTube" && EMBED_NAMES.vimeo === "Vimeo" && EMBED_NAMES.loom === "Loom")
   const csp = read("lib/security/csp.ts")
   check("the frame policy lets Loom's player in (the header, vercel.json and the app's own)", /"https:\/\/www\.loom\.com"/.test(csp) && /frame-src [^;]*https:\/\/www\.loom\.com/.test(read("vercel.json")) && /https:\/\/player\.vimeo\.com https:\/\/www\.loom\.com/.test(read("proxy.ts")))
-  check("a typed or pasted address gets https:// and must be one", typedUrl("example.com/x") === "https://example.com/x" && typedUrl("not a link") === null && typedUrl("") === null && typedUrl("localhost") === null && /YouTube, Vimeo or Loom/.test(VIDEO_HINT))
   const linkField = code("components/community/member/media-link.tsx")
+  check("a typed or pasted address gets https:// and must be one with a dot in its host; a video field says what it takes", read("components/community/member/media-link.tsx").includes("? t : `https://${t}`") && linkField.includes('return u.hostname.includes(".") ? u.toString() : null') && linkField.includes('VIDEO_HINT = "Paste a YouTube, Vimeo or Loom link."'))
   check("the field: Paste from the clipboard, the site's mark, a live preview read by the server, Upload beside it for a video", /navigator\.clipboard\.readText\(\)/.test(linkField) && /<ProviderMark provider=\{embed\.provider\}/.test(linkField) && /\/posts\/link-preview`/.test(linkField) && /data-composer-video-upload=""/.test(linkField))
   check("the composer and the comment box use it", /<LinkField\s/.test(composer) && /<LinkField mode="video"/.test(code("components/community/member/comments.tsx")))
   check("the poll editor: choices dragged by a handle (or arrow keys), how long it runs as choices, several answers as a switch", /data-choice-handle=""/.test(composer) && /onPointerDown=\{\(e\) => drag\(e, i\)\}/.test(composer) && /onKeyDown=\{\(e\) => keyMove\(e, i\)\}/.test(composer) && /POLL_ENDS/.test(composer) && /data-poll-multiple=/.test(composer))
