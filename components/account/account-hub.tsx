@@ -31,6 +31,15 @@
  *
  * The site header stays above all of it at every width, as on every buyer
  * page: one bar on the screen, never two stacked.
+ *
+ * A PULL AT THE TOP ASKS THE SERVER AGAIN. On a touch screen the whole page
+ * follows the finger on the rubber band every other Storelib page uses
+ * (components/ui/pull-to-refresh.tsx, the /app home's engine), iOS's
+ * spinner turns in the room the pull opens, and letting go past the line
+ * asks for the page again (router.refresh) and tells the Activity list to
+ * read its first page again, under the scope below. Reduced motion, a
+ * normal scroll and a page already scrolled down are the engine's own
+ * business, and it leaves all three alone.
  */
 
 import { personName } from "@/lib/profile/display-name"
@@ -43,6 +52,8 @@ import { AvatarLightbox } from "@/components/storefront/avatar-lightbox"
 import { PROFILE_AVATAR_CLASS, PROFILE_AVATAR_PX, ProfileHero } from "@/components/profile/profile-hero"
 import { ProfileOwnerPills } from "@/components/profile/profile-owner-pills"
 import { AccountColumn } from "@/components/account/account-column"
+import { RouterPullToRefresh } from "@/components/ui/pull-to-refresh"
+import { ACCOUNT_REFRESH_SCOPE } from "@/lib/profile/refresh-scope"
 
 export interface AccountIdentity {
   /** Whose profile: Settings uploads a new photo under this folder. */
@@ -68,6 +79,7 @@ export function AccountHub({ identity, communities = false, children }: { identi
   if (!showsProfileHeader(pathname)) return <AccountColumn>{children}</AccountColumn>
 
   return (
+    <RouterPullToRefresh scope={ACCOUNT_REFRESH_SCOPE}>
     <div data-account-hub="">
       <ProfileHero
         person={{
@@ -100,5 +112,6 @@ export function AccountHub({ identity, communities = false, children }: { identi
         </div>
       </AccountColumn>
     </div>
+    </RouterPullToRefresh>
   )
 }

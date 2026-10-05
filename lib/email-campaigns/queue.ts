@@ -52,6 +52,7 @@
 import "server-only"
 
 import { EMAIL_FROM, EMAIL_REPLY_TO } from "@/lib/mail"
+import { ownerAddress } from "@/lib/businesses/email-alias"
 import { mailgunDomain, sendMailgunOnce, type MailgunOnceResult } from "@/lib/mailgun"
 import { maskEmail } from "@/lib/privacy/mask-email"
 import { scoreSignup } from "@/lib/security/spam-signals"
@@ -163,7 +164,15 @@ export async function loadSender(db: Db, creatorId: string, fromName?: string | 
     .eq("id", creator.user_id)
     .maybeSingle()
   const name = safeDisplayName(fromName || profile?.display_name || profile?.username || creator.headline || creator.slug, "Storelib")
-  const replyTo = normalizeAddress(creator.support_email) || normalizeAddress(profile?.email) || EMAIL_REPLY_TO
+  /*
+    Replies reach the person, which for a second business is the owner's own
+    inbox and never the tag Storelib made up (lib/businesses/email-alias.ts
+    ownerAddress): deliverable on any provider, and the same string the
+    composer shows for "replies go to". An account made for a phone sign in
+    has no inbox at all, so that falls through to Storelib's own address
+    rather than to a name that bounces.
+  */
+  const replyTo = normalizeAddress(creator.support_email) || normalizeAddress(ownerAddress(profile?.email)) || EMAIL_REPLY_TO
   const verdict = scoreSignup({ handle: profile?.username, email: profile?.email, displayName: profile?.display_name })
   const brand = await loadBrand(db, creatorId)
   return {

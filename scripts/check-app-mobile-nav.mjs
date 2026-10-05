@@ -1201,7 +1201,7 @@ await ev("window.__went = null; true")
  *               springs back about its own centre (to about 0.9, through
  *               about 1.03, to exactly 1); no other icon changes size.
  *
- * And the stretch: never more than about 1.12 wide, lift included, and a
+ * And the stretch: never more than about 1.15 wide, lift included, and a
  * drop's settle when the finger stops: a slight squash, then round
  * (DROP_TRACE=1 prints the drop's own width, frame by frame).
  */
@@ -2185,7 +2185,10 @@ must(glass.trackingMedianPx <= 1, "under a finger the lens is where the finger i
   `it was ${glass.trackingMedianPx}px from the finger at the median`)
 must(glass.trackingWorstPx <= 7, "and never more than a frame of the finger's own travel behind it",
   `it was ${glass.trackingWorstPx}px behind at worst`)
-must(glass.widestStretch >= 1.05 && glass.widestStretch <= 1.13, "it stretches along the way it moves, to about 1.12 and no more",
+/* CHANGED (nav feel round): the stretch's cap went from 0.08 to 0.11 and an
+   ordinary slide reaches more of it (STRETCH_AT), so the widest the glass
+   gets, lift included, is 1.04 x 1.11 = about 1.15 rather than about 1.12. */
+must(glass.widestStretch >= 1.05 && glass.widestStretch <= 1.16, "it stretches along the way it moves, to about 1.15 and no more",
   `it was ${glass.widestStretch}x as wide as it is round`)
 if (glass.trace) console.log(glass.trace)
 console.log(`              the drop's own shape: ${glass.squash.widest}x at its widest, ${glass.squash.narrowest}x at its narrowest once the finger stopped, ${glass.squash.last}x at rest`)
@@ -2197,7 +2200,7 @@ console.log(`              ${flick.pastSlotPx}px past it, still after ${flick.se
 must(flick.landedOffPx <= 0.5, "a flick lands on a slot's exact centre too", `${flick.landedOffPx}px off it`)
 must(flick.went === "/app/products" && flick.landedSlot === 2, "the slot the finger was over, with no momentum carried past it",
   `it went to ${flick.went}, slot ${flick.landedSlot + 1}`)
-must(flick.widest <= 1.13, "stretched no more than about 1.12 however fast", `${flick.widest}x`)
+must(flick.widest <= 1.16, "stretched no more than about 1.15 however fast", `${flick.widest}x`)
 must(flick.settledMs <= 600, "and it is still within about half a second", `it was still moving ${flick.settledMs}ms after the lift`)
 must(glass.landedOffPx.dx <= 0.5 && glass.landedOffPx.dy <= 0.5, "and lands on the slot's exact centre",
   `it came to rest ${glass.landedOffPx.dx}px across and ${glass.landedOffPx.dy}px down from the slot's centre`)

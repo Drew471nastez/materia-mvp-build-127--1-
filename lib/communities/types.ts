@@ -447,6 +447,16 @@ export interface EventRow {
   created_by: string | null
   created_at: string
   updated_at: string
+  /* WHAT THE EVENT COSTS (run-now part 105). Absent until that part has run, and
+     then still empty on every event nobody priced, which is what free means. Read
+     them with EVENT_COLUMNS_PRICED and fall back to EVENT_COLUMNS, the way
+     lib/communities/server/learn.ts falls back for a program's own columns. */
+  price_cents?: number | null
+  currency?: string | null
+  sales_close_at?: string | null
+  refund_window_hours?: number | null
+  refund_policy?: string | null
+  tickets_sold?: number | null
 }
 
 export interface RsvpRow {
@@ -604,6 +614,9 @@ export const COMMENT_COLUMNS =
 
 export const EVENT_COLUMNS =
   "id, community_id, title, description, cover_url, kind, starts_at, ends_at, timezone, location, meeting_url, livestream_url, capacity, going_count, access, host_id, replay_video_id, status, reminder_24h_at, reminder_1h_at, created_by, created_at, updated_at"
+
+/** The same event with its price, for a database where run-now part 105 has run. */
+export const EVENT_COLUMNS_PRICED = `${EVENT_COLUMNS}, price_cents, currency, sales_close_at, refund_window_hours, refund_policy, tickets_sold`
 
 export const MESSAGE_COLUMNS = "id, community_id, space_id, author_id, body, reply_to_id, attachments, status, reaction_count, edited_at, created_at, deleted_at"
 

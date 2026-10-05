@@ -12,7 +12,8 @@
  *              manage_pricing.
  *   moderator  keeps the place in order: removes, pins and locks content,
  *              mutes, suspends, bans and removes members ranked below them,
- *              approves requests, reviews reports and reads the audit log.
+ *              approves requests, reviews reports, reads the audit log, and
+ *              prices events and refunds tickets.
  *   member     reads, posts, comments, reacts, chats, uploads and reports.
  *
  * The owner can narrow or widen what admins and moderators may do, a group
@@ -47,6 +48,8 @@ export const COMMUNITY_ACTIONS = [
   "review_reports",
   "manage_spaces",
   "manage_events",
+  "price_events",
+  "refund_tickets",
   "manage_classroom",
   "manage_members",
   "change_role",
@@ -77,6 +80,8 @@ const MODERATOR_ACTIONS: readonly CommunityAction[] = [
   "approve_member",
   "review_reports",
   "view_audit",
+  "price_events",
+  "refund_tickets",
 ]
 
 /** What only the owner may do: the money, and the community's existence. */
@@ -98,7 +103,8 @@ const ALLOWED: Readonly<Record<Role, ReadonlySet<CommunityAction>>> = {
   A community that never changed anything (or a database without the column)
   has the defaults below, which are exactly the roles as they were:
     admin      every group
-    moderator  posts and comments, members, reports and the audit log
+    moderator  posts and comments, members, reports, the audit log, and
+               pricing events and refunding tickets
 */
 export const STAFF_ROLES = ["admin", "moderator"] as const
 export type StaffRole = (typeof STAFF_ROLES)[number]
@@ -114,6 +120,7 @@ export const PERMISSION_GROUPS = [
   { key: "spaces", label: "Manage spaces", detail: "Add, rename, order and archive spaces.", actions: ["manage_spaces"] },
   { key: "learn", label: "Manage Learn", detail: "Programs, modules and lessons.", actions: ["manage_classroom"] },
   { key: "events", label: "Manage the calendar", detail: "Add, change and cancel events.", actions: ["manage_events"] },
+  { key: "tickets", label: "Price events and refund tickets", detail: "Set what an event costs, invite people free, and give money back.", actions: ["price_events", "refund_tickets"] },
   { key: "settings", label: "Change settings", detail: "The page, features, points and levels, and archiving.", actions: ["manage_settings", "manage_gamification", "award_points", "archive"] },
   { key: "analytics", label: "See analytics", detail: "Members, activity and revenue.", actions: ["view_analytics"] },
 ] as const satisfies readonly { key: string; label: string; detail: string; actions: readonly CommunityAction[] }[]
@@ -129,7 +136,7 @@ const GROUP_OF = new Map<CommunityAction, PermissionKey>(PERMISSION_GROUPS.flatM
 /** The groups each staff role has when the owner changed nothing: the roles as they were before round 13. */
 export const DEFAULT_ROLE_PERMISSIONS: Readonly<Record<StaffRole, Readonly<Record<PermissionKey, boolean>>>> = {
   admin: Object.fromEntries(PERMISSION_KEYS.map((k) => [k, true])) as Record<PermissionKey, boolean>,
-  moderator: Object.fromEntries(PERMISSION_KEYS.map((k) => [k, ["content", "members", "reports", "audit"].includes(k)])) as Record<PermissionKey, boolean>,
+  moderator: Object.fromEntries(PERMISSION_KEYS.map((k) => [k, ["content", "members", "reports", "audit", "tickets"].includes(k)])) as Record<PermissionKey, boolean>,
 }
 
 /**
