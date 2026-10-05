@@ -95,7 +95,7 @@ import { readAuthSnapshot, subscribeAuthSnapshot } from "@/lib/auth/auth-snapsho
 import { useExploreMarketplaceEnabled } from "@/components/platform/explore-marketplace-context"
 import { SIGNED_OUT_PROFILE_HREF, buyerTabFor, buyerTabsAt, buyerTabsBelongOn, communityOf } from "@/lib/nav/buyer-tabs"
 import { openCommunitySearch, refocusCommunitySearch } from "@/lib/nav/community-search-bridge"
-import { COMMUNITY_HOME_BOOT, communityContext, enterCommunityContext, useCommunityContext } from "@/lib/nav/community-context"
+import { COMMUNITY_HOME_BOOT, COMMUNITY_HOME_LIVE_FLAG, communityContext, enterCommunityContext, useCommunityContext } from "@/lib/nav/community-context"
 import { useBuyerTabsWhere } from "@/lib/nav/use-buyer-tabs-where"
 import { prefetchHref, prefetchOnIdle } from "@/lib/nav/prefetch-policy"
 import { noteTabScroll, prepareTabArrival, restoreTabScroll } from "@/lib/navigation/tab-scroll"
@@ -285,6 +285,22 @@ function TabBar({
   */
   const context = useCommunityContext()
   useEffect(() => enterCommunityContext(community), [community])
+  /*
+    AND THE PRINTED LISTENER STANDS DOWN while this bar is mounted: from here
+    on the press is answered by the gesture, from the context as it stands
+    (AND THE PRESS READS THE CONTEXT AGAIN, below), and the listener would
+    only answer it a second time with a whole page load. In a layout effect,
+    so the flag is up in the same commit the bar hydrates in rather than a
+    paint later, which is where the seam would otherwise be (AND IT STANDS
+    DOWN THE MOMENT THE BAR IS LIVE in lib/nav/community-context).
+  */
+  useLayoutEffect(() => {
+    const w = window as unknown as Record<string, unknown>
+    w[COMMUNITY_HOME_LIVE_FLAG] = 1
+    return () => {
+      delete w[COMMUNITY_HOME_LIVE_FLAG]
+    }
+  }, [])
   const homeCommunity = community ? null : context
   const tabs = buyerTabsAt(pathname, exploreMarketplaceEnabled, homeCommunity)
   /*

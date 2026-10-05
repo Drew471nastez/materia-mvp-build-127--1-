@@ -24,6 +24,7 @@ import {
   COMMUNITY_CONTEXT_KEY,
   COMMUNITY_HOME_BOOT,
   COMMUNITY_HOME_BOOT_FLAG,
+  COMMUNITY_HOME_LIVE_FLAG,
   ENDS_COMMUNITY_CONTEXT,
 } from "@/lib/nav/community-context"
 
@@ -98,11 +99,12 @@ console.log("\nHOME: the boot script, run")
    * that lands before any of React is running, which on a phone is the whole
    * of a cold load. Four globals, nothing else.
    */
-  function run(stored: string | null, fresh = true) {
+  function run(stored: string | null, fresh = true, barLive = false) {
     const clicks: ((e: unknown) => void)[] = []
     let went: string | null = null
     const win: Record<string, unknown> = {}
     if (!fresh) win[COMMUNITY_HOME_BOOT_FLAG] = 1
+    if (barLive) win[COMMUNITY_HOME_LIVE_FLAG] = 1
     const addEventListener = (type: string, f: (e: unknown) => void, capture?: boolean) => {
       if (type === "click" && capture === true) clicks.push(f)
     }
@@ -140,6 +142,18 @@ console.log("\nHOME: the boot script, run")
   const mod = run("clay-studio").press("/explore", "home", { button: 1, prevented: false })
   check("nor a middle click, nor a press the page has already answered", mod.went === null && run("clay-studio").press("/explore", "home", { button: 0, prevented: true }).went === null)
   check("the copy React re-inserts on the next page adds no second listener", run("clay-studio", false).listeners() === 0)
+
+  /*
+    AND THE SEAM: the bar hydrates a moment before the store corrects the
+    href, and in that moment the bar's own gesture answers the press. Both
+    answering it would mean a whole page load thrown over a step inside the
+    app, to the same place. So a mounted bar raises a flag and the listener
+    yields to it, href or no href.
+  */
+  const seam = run("clay-studio", true, true).press("/explore")
+  check("a bar that is mounted answers its own press: the listener yields even on a stale href", seam.went === null && !seam.prevented, seam)
+  check("  the flag is read on every press, not once when the script runs", new RegExp(`addEventListener\\("click",function\\(e\\)\\{if\\(w\\.${COMMUNITY_HOME_LIVE_FLAG}\\)return;`).test(COMMUNITY_HOME_BOOT))
+  check("  and the bar raises it in a layout effect, in the commit it hydrates in", /useLayoutEffect\(\(\) => \{\n\s+const w = window as unknown as Record<string, unknown>\n\s+w\[COMMUNITY_HOME_LIVE_FLAG\] = 1/.test(bar) && /delete w\[COMMUNITY_HOME_LIVE_FLAG\]/.test(bar))
 }
 
 /* ───────────────────────────────────────────────────────────────────────────

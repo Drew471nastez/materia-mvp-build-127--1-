@@ -89,18 +89,31 @@ export const ENDS_COMMUNITY_CONTEXT: ReadonlySet<string> = new Set(["explore", "
  *
  * So the press is answered before anything of React is running: one capture
  * listener, printed with the bar, that reads the same key and sends a press
- * on Home to the community instead. It is INERT the moment the bar has
- * caught up, because by then the link's own href is the community's, and it
- * does nothing at all when there is no community to go back to. Nothing in
- * the document is touched, so there is no mark on the page for React to
- * disagree with when it hydrates.
+ * on Home to the community instead. It does nothing at all when there is no
+ * community to go back to, and nothing in the document is touched, so there
+ * is no mark on the page for React to disagree with when it hydrates.
+ *
+ * AND IT STANDS DOWN THE MOMENT THE BAR IS LIVE, by two separate things,
+ * because one of them has a seam in it. The link's own href becomes the
+ * community's once the store has corrected it, and the listener leaves a
+ * `/community/...` href alone; but the bar hydrates a moment BEFORE that
+ * correction lands, and in that moment the bar's own gesture answers the
+ * press (from the context as it stands, AND THE PRESS READS THE CONTEXT
+ * AGAIN in components/nav/buyer-tab-bar) while the href still says
+ * /explore. Both would then answer the same press, with the same
+ * destination, the listener's whole page load throwing away the bar's step
+ * inside the app. So the bar raises a flag on itself while it is mounted and
+ * the listener yields to it. The listener is then exactly what it is for:
+ * the press that lands before the page is awake, and nothing else.
  *
  * The same shape as the explore scroll's boot script (lib/explore/explore-
  * scroll-boot.ts): small, wrapped in try, and guarded so the copy React
  * re-inserts on the next page does not add a second listener.
  */
 export const COMMUNITY_HOME_BOOT_FLAG = "__storelibCommunityHome"
-export const COMMUNITY_HOME_BOOT = `(function(){try{var w=window;if(w.${COMMUNITY_HOME_BOOT_FLAG})return;w.${COMMUNITY_HOME_BOOT_FLAG}=1;var K=${JSON.stringify(COMMUNITY_CONTEXT_KEY)},S=/^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/;addEventListener("click",function(e){if(e.defaultPrevented||e.button||e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return;var t=e.target,a=t&&t.closest?t.closest('a[data-buyer-tab="home"]'):null;if(!a)return;var h=a.getAttribute("href")||"";if(h.indexOf("/community/")===0)return;var s=null;try{s=sessionStorage.getItem(K)}catch(x){}if(!s||!S.test(s))return;e.preventDefault();location.href="/community/"+s},true)}catch(x){}})();`
+/** Raised by the bar while it is mounted; the listener yields to it (AND IT STANDS DOWN, above). */
+export const COMMUNITY_HOME_LIVE_FLAG = "__storelibTabBarLive"
+export const COMMUNITY_HOME_BOOT = `(function(){try{var w=window;if(w.${COMMUNITY_HOME_BOOT_FLAG})return;w.${COMMUNITY_HOME_BOOT_FLAG}=1;var K=${JSON.stringify(COMMUNITY_CONTEXT_KEY)},S=/^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/;addEventListener("click",function(e){if(w.${COMMUNITY_HOME_LIVE_FLAG})return;if(e.defaultPrevented||e.button||e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return;var t=e.target,a=t&&t.closest?t.closest('a[data-buyer-tab="home"]'):null;if(!a)return;var h=a.getAttribute("href")||"";if(h.indexOf("/community/")===0)return;var s=null;try{s=sessionStorage.getItem(K)}catch(x){}if(!s||!S.test(s))return;e.preventDefault();location.href="/community/"+s},true)}catch(x){}})();`
 
 function subscribe(f: () => void) {
   listeners.add(f)
