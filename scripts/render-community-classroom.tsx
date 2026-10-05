@@ -82,6 +82,12 @@ function card(id: string, over: Partial<EventCardView>): EventCardView {
     locked: null,
     hasReplay: false,
     href: `/community/makers/events/${id}`,
+    locationHint: null,
+    priceCents: null,
+    currency: null,
+    ticket: null,
+    seatsLeft: null,
+    soldOut: false,
     ...over,
   }
 }
@@ -118,6 +124,10 @@ function detail(over: Partial<EventDetailView>): EventDetailView {
     googleUrl: "https://calendar.google.com/calendar/render?action=TEMPLATE",
     icsUrl: `/api/community/${COMMUNITY}/events/e1/ics`,
     pageUrl: "https://storelib.com/community/makers/events/e1",
+    pricing: { priceCents: null, currency: null, salesCloseAt: null, refundWindowHours: null, refundPolicy: null },
+    gate: { open: true, via: "free" },
+    ticketsSold: 0,
+    refundPolicyText: null,
     ...over,
   }
 }
