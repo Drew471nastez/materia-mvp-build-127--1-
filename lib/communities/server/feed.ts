@@ -35,7 +35,7 @@ import "server-only"
 import { decodeHtmlEntities } from "@/lib/html-entities"
 import { publicUrlProblem, fetchPublic } from "@/lib/api/public-fetch"
 import { plainTextToHtml } from "@/lib/rich-text/html"
-import { evaluateAccess, type AccessViewer } from "../access"
+import { evaluateAccess, isOpenRule, type AccessViewer } from "../access"
 import { LENGTHS, MAX_MEDIA_PER_POST, POLL_OPTIONS_MAX, POLL_OPTIONS_MIN, mentionsEveryone } from "../limits"
 import { MAX_EMBEDS, MAX_GIFS, embedThumbUrl, giphyUrl, postEmbedFromUrl } from "../post-media"
 import { can, meetsRole } from "../permissions"
@@ -391,6 +391,30 @@ export function unreadSince(viewer: Pick<Viewer, "member">): string | null {
   return at && Number.isFinite(Date.parse(at)) ? new Date(at).toISOString() : null
 }
 
+/**
+ * ===========================================================================
+ *  THE OWNER'S AND ADMINS' POSTS, A LITTLE HIGHER (round 13)
+ * ===========================================================================
+ * In Default, a post by the owner or an admin counts as STAFF_BOOST_MS newer
+ * than its last activity when its page is put in order. Only inside the page
+ * the keyset already read: the pages themselves (and so what Show more
+ * brings) are exactly the ones without the boost, so no post is ever skipped
+ * or shown twice, and a member's post is never hidden, only passed by a
+ * staff post that is at most a few hours older. The name line already says
+ * who they are (RoleBadge: Owner, Admin).
+ */
+export const STAFF_BOOST_MS = 6 * 60 * 60 * 1000
+const BOOSTED_ROLES = new Set(["owner", "admin"])
+
+export function boostStaff<T extends { id: string; lastActivityAt?: string | null; createdAt: string; author: { role?: string | null } | null }>(page: T[], boost = STAFF_BOOST_MS): T[] {
+  if (page.length < 2 || !page.some((p) => BOOSTED_ROLES.has(p.author?.role ?? ""))) return page
+  const at = (p: T) => Date.parse(p.lastActivityAt || p.createdAt) || 0
+  return page
+    .map((p, i) => ({ p, i, score: at(p) + (BOOSTED_ROLES.has(p.author?.role ?? "") ? boost : 0) }))
+    .sort((a, b) => b.score - a.score || a.i - b.i)
+    .map((x) => x.p)
+}
+
 export async function listFeed(db: Db, community: CommunityRow, viewer: Viewer, req: FeedRequest): Promise<FeedPage> {
   const empty: FeedPage = { pinned: [], posts: [], nextCursor: null }
   const order = feedSort(req.sort)
@@ -446,7 +470,9 @@ export async function listFeed(db: Db, community: CommunityRow, viewer: Viewer, 
     const page = rows.slice(0, limit)
     const last = page[page.length - 1]
     const h = { community, viewer, spaces }
-    const [pinned, posts] = await Promise.all([hydratePosts(db, pinnedRows, { ...h, lean: true }), hydratePosts(db, page, { ...h, lean: true })])
+    const [pinned, hydrated] = await Promise.all([hydratePosts(db, pinnedRows, { ...h, lean: true }), hydratePosts(db, page, { ...h, lean: true })])
+    /* The cursor is the page's last row as read, before the boost reorders it (THE OWNER'S AND ADMINS' POSTS). */
+    const posts = order === "default" ? boostStaff(hydrated) : hydrated
     return { pinned, posts, nextCursor: rows.length > limit && last ? cursorAfter(order, last) : null }
   } catch (e) {
     console.error(`[communities] feed read: ${reasonOf(e)}`)
@@ -469,6 +495,39 @@ export async function visiblePostRow(db: Db, community: Pick<CommunityRow, "id">
     if (!space || !canSeeSpace(space, accessOf(viewer))) return null
   }
   return { row, spaces: all }
+}
+
+/**
+ * A POST ANYBODY MAY READ (round 13): published, in a space with no access
+ * rule (or none), in a community the caller already found public and free
+ * (post-seo.ts publicPost decides that from the same rows). For the signed
+ * out reader and a search engine on the post's own page: read only.
+ */
+export async function publicPostRow(db: Db, community: Pick<CommunityRow, "id">, postId: string): Promise<{ row: PostRow; spaces: SpaceRow[] } | null> {
+  if (!UUID.test(postId)) return null
+  const { data, error } = await db.from("community_feed_posts").select(POST_COLUMNS).eq("id", postId).eq("community_id", community.id).maybeSingle()
+  if (error || !data) return null
+  const row = data as PostRow
+  if (row.status !== "published") return null
+  const spaces = await listSpaces(db, community.id)
+  if (row.space_id) {
+    const space = spaces.find((s) => s.id === row.space_id)
+    if (!space || space.kind === "chat" || !isOpenRule(space.view_access)) return null
+  }
+  return { row, spaces }
+}
+
+/** The public post as a page draws it, for a reader who is not a member (read only: nothing of theirs is read). */
+export async function getPublicPostView(db: Db, community: CommunityRow, viewer: Viewer, postId: string): Promise<FeedPostView | null> {
+  try {
+    const found = await publicPostRow(db, community, postId)
+    if (!found) return null
+    const [view] = await hydratePosts(db, [found.row], { community, viewer: { ...viewer, role: null, active: false }, spaces: found.spaces })
+    return view ? { ...view, canEdit: false, canModerate: false } : null
+  } catch (e) {
+    console.error(`[communities] public post ${postId}: ${reasonOf(e)}`)
+    return null
+  }
 }
 
 export async function getPostView(db: Db, community: CommunityRow, viewer: Viewer, postId: string): Promise<FeedPostView | null> {
@@ -822,7 +881,79 @@ export async function createPost(w: WriteContext, input: PostInput): Promise<Che
   return { ok: true, value: view }
 }
 
-/** The author edits their own post: title, text and media. A poll's choices stay as voted on. */
+/**
+ * ===========================================================================
+ *  EDITING A POLL (round 13)
+ * ===========================================================================
+ * Edit post opens the same composer as a new post, poll included, so an edit
+ * may add a poll, take it off, or change it. Once somebody has voted, the
+ * question and the choices are what they voted on: they stay, and only when
+ * it ends may change. `keep` is what a poll already ending is sent back with
+ * when the member did not touch its end ("closesAt": "keep").
+ */
+export const POLL_VOTED = "People have voted, so the question and the choices stay as they are."
+
+export type PollEdit = { kind: "same" } | { kind: "remove" } | { kind: "set"; poll: PollInput; keepCloses: boolean }
+
+/** What an edit asks of the post's poll: nothing (left out), to take it off (null), or this poll. */
+export function pollEditOf(raw: Record<string, unknown>, now = Date.now()): Checked<PollEdit> {
+  if (!("poll" in raw) || raw.poll === undefined) return { ok: true, value: { kind: "same" } }
+  if (raw.poll === null || raw.poll === false) return { ok: true, value: { kind: "remove" } }
+  const r = (typeof raw.poll === "object" ? raw.poll : {}) as Record<string, unknown>
+  const keepCloses = r.closesAt === "keep"
+  const checked = checkPoll(keepCloses ? { ...r, closesAt: null } : r, now)
+  if (!checked.ok) return refused(checked, 400)
+  return { ok: true, value: { kind: "set", poll: checked.value!, keepCloses } }
+}
+
+/** Whether a voted poll would change what was voted on: its question or its choices, in order. */
+export function pollChoicesChanged(before: Pick<PollView, "question" | "options">, after: Pick<PollInput, "question" | "options">): boolean {
+  if (before.question.trim() !== after.question.trim()) return true
+  const a = before.options.map((o) => o.label.trim())
+  const b = after.options.map((o) => o.trim())
+  return a.length !== b.length || a.some((x, i) => x !== b[i])
+}
+
+async function writePollEdit(db: Db, community: CommunityRow, postId: string, edit: PollEdit, userId: string | null): Promise<Checked<true>> {
+  if (edit.kind === "same") return { ok: true, value: true }
+  const have = (await pollsFor(db, [postId], userId)).get(postId) ?? null
+  if (edit.kind === "remove") {
+    if (!have) return { ok: true, value: true }
+    const { error } = await db.from("community_polls").delete().eq("id", have.id).eq("post_id", postId)
+    return error ? { ok: false, error: "The poll was not taken off. Try again.", status: 500 } : { ok: true, value: true }
+  }
+  const p = edit.poll
+  if (!have) {
+    const { data: poll, error } = await db.from("community_polls").insert({ post_id: postId, community_id: community.id, question: p.question, multiple: p.multiple, closes_at: p.closesAt }).select("id").single()
+    const optionsError = poll ? (await db.from("community_poll_options").insert(p.options.map((label, position) => ({ poll_id: poll.id, label, position })))).error : error
+    if (!poll || optionsError) {
+      if (poll) await db.from("community_polls").delete().eq("id", poll.id)
+      return { ok: false, error: "The poll did not save. Try again.", status: 500 }
+    }
+    return { ok: true, value: true }
+  }
+  const closes = edit.keepCloses ? have.closesAt : p.closesAt
+  if (have.totalVotes > 0) {
+    if (pollChoicesChanged(have, p) || p.multiple !== have.multiple) return { ok: false, error: POLL_VOTED, status: 409 }
+    if (closes === have.closesAt) return { ok: true, value: true }
+    const { error } = await db.from("community_polls").update({ closes_at: closes }).eq("id", have.id)
+    return error ? { ok: false, error: "The poll did not save. Try again.", status: 500 } : { ok: true, value: true }
+  }
+  const { error } = await db.from("community_polls").update({ question: p.question, multiple: p.multiple, closes_at: closes }).eq("id", have.id)
+  if (error) return { ok: false, error: "The poll did not save. Try again.", status: 500 }
+  if (pollChoicesChanged(have, p)) {
+    const gone = await db.from("community_poll_options").delete().eq("poll_id", have.id)
+    const added = gone.error ? gone : await db.from("community_poll_options").insert(p.options.map((label, position) => ({ poll_id: have.id, label, position })))
+    if (added.error) return { ok: false, error: "The poll did not save. Try again.", status: 500 }
+  }
+  return { ok: true, value: true }
+}
+
+/**
+ * The author edits their own post: title, text, media (added, taken off,
+ * reordered), the poll (POLL above) and, round 13, the space it is in: any
+ * feed space this member may post in, like a new post.
+ */
 export async function updatePost(w: WriteContext, postId: string, raw: unknown): Promise<Checked<FeedPostView>> {
   const { db, community, viewer } = w
   const found = await visiblePostRow(db, community, viewer, postId)
@@ -843,15 +974,35 @@ export async function updatePost(w: WriteContext, postId: string, raw: unknown):
     if (!owned.ok) return refused(owned, 400)
     media = owned.value
   }
+  /* Moved to another space: one this member may post in, never a chat. */
+  let spaceId = found.row.space_id
+  let space = spaceId ? (found.spaces.find((s) => s.id === spaceId) ?? null) : null
+  if (typeof r.spaceId === "string" && r.spaceId !== found.row.space_id) {
+    const next = UUID.test(r.spaceId) ? found.spaces.find((s) => s.id === r.spaceId) : undefined
+    if (!next || next.kind === "chat" || !canPostIn(next, viewer, community.chat_enabled)) return { ok: false, error: "You cannot post in that space.", status: 403 }
+    spaceId = next.id
+    space = next
+  }
+  const pollEdit = pollEditOf(r)
+  if (!pollEdit.ok) return refused(pollEdit, 400)
   const text = `${title}\n${body}`
   if (mentionsEveryone(text) && !mentionsEveryone(`${found.row.title ?? ""}\n${found.row.body_text}`) && !everyoneAllowed(text, viewer.role)) {
     return { ok: false, error: "Only admins can mention everyone.", status: 403 }
   }
   const edited = await screenEdit(w, "post", { text, media, before: `${found.row.title ?? ""}\n${found.row.body_text}`, beforeMedia: found.row.media })
   if (!edited.ok) return refused(edited)
+  const polled = await writePollEdit(db, community, postId, pollEdit.value, viewer.userId)
+  if (!polled.ok) return refused(polled)
+  /* The kind follows the space and the poll, only when either changed (a post kept where it was keeps its kind). */
+  const moved = spaceId !== found.row.space_id
+  let kind = found.row.kind
+  if (space && (moved || pollEdit.value.kind !== "same")) {
+    const hasPoll = pollEdit.value.kind === "set" || (pollEdit.value.kind === "same" && (await pollsFor(db, [postId], null)).has(postId))
+    kind = kindFor(space, hasPoll)
+  }
   const { data, error } = await db
     .from("community_feed_posts")
-    .update({ title: title || null, body: plainTextToHtml(body), body_text: body, media, edited_at: nowIso() })
+    .update({ title: title || null, body: plainTextToHtml(body), body_text: body, media, space_id: spaceId, kind, edited_at: nowIso() })
     .eq("id", postId)
     .eq("community_id", community.id)
     .eq("author_id", viewer.userId)

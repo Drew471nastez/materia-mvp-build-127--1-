@@ -36,7 +36,7 @@ import { recordActivity } from "./activity"
 import type { Viewer } from "./context"
 import { missing, nowIso, reasonOf, type Db, type DbError } from "./db"
 import { authorViews } from "./directory"
-import { checkMedia, cleanText, refused, visiblePostRow, type Checked, type WriteContext } from "./feed"
+import { checkMedia, cleanText, publicPostRow, refused, visiblePostRow, type Checked, type WriteContext } from "./feed"
 import { notifyMentions, snippet } from "./mentions"
 import { heldColumns, holdForReview, screenEdit, screenWrite } from "./safety"
 import { notifyMember } from "./notify"
@@ -254,9 +254,14 @@ export interface CommentsPage {
   me?: { name: string; avatarUrl: string | null } | null
 }
 
-/** A page of a post's comments, oldest first, with their replies. */
-export async function listComments(db: Db, community: CommunityRow, viewer: Viewer, postId: string, cursor: string | null): Promise<Checked<CommentsPage>> {
-  const found = await visiblePostRow(db, community, viewer, postId)
+/**
+ * A page of a post's comments, oldest first, with their replies. `publicRead`
+ * (round 13): the post's own page for a reader who is not a member, read only,
+ * when the post is public (feed.ts publicPostRow; the page has already asked
+ * post-seo publicPost of the community).
+ */
+export async function listComments(db: Db, community: CommunityRow, viewer: Viewer, postId: string, cursor: string | null, opts: { publicRead?: boolean } = {}): Promise<Checked<CommentsPage>> {
+  const found = opts.publicRead ? await publicPostRow(db, community, postId) : await visiblePostRow(db, community, viewer, postId)
   if (!found) return { ok: false, error: "That post is gone.", status: 404 }
   const first = !cursor
   const space = found.row.space_id ? found.spaces.find((s) => s.id === found.row.space_id) : null
@@ -489,15 +494,16 @@ export async function updateComment(w: WriteContext, commentId: string, raw: unk
   return { ok: true, value: { ...view, parentId: row.parent_id } }
 }
 
-/** The author deletes their comment: its words go, the row stays so its replies keep their place. */
-export async function deleteComment(w: WriteContext, commentId: string): Promise<Checked<true>> {
+/** The author deletes their comment: its words go, the row stays so its replies keep their place. Answers the post it was under (the live channel's). */
+export async function deleteComment(w: WriteContext, commentId: string): Promise<Checked<{ postId: string }>> {
   const own = await ownComment(w, commentId)
   if (!own.ok) return refused(own)
+  const postId = (own as { value: CommentRow }).value.post_id
   const { error } = await w.db
     .from("community_feed_comments")
     .update({ status: "deleted", deleted_at: nowIso(), body: "" })
     .eq("id", commentId)
     .eq("author_id", w.viewer.userId)
   if (error) return { ok: false, error: "The comment was not deleted. Try again.", status: 500 }
-  return { ok: true, value: true }
+  return { ok: true, value: { postId } }
 }

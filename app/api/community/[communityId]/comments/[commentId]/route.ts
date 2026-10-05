@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server"
+import { NextResponse, after } from "next/server"
 import { rateLimit } from "@/lib/api/rate-limit"
 import { requireCommunitiesOn } from "@/lib/communities/flag"
 import { RATE_LIMITS, rateBucket } from "@/lib/communities/limits"
@@ -6,6 +6,7 @@ import { deleteComment, getCommentView, updateComment } from "@/lib/communities/
 import { requireMember } from "@/lib/communities/server/context"
 import { admin } from "@/lib/communities/server/db"
 import { NO_STORE, memberSubject, readJson, sessionUserId } from "@/lib/communities/server/feed"
+import { announceCommentChange } from "@/lib/communities/server/realtime"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -29,7 +30,7 @@ export async function GET(_request: Request, { params }: Params) {
   return NextResponse.json({ comment }, { headers: NO_STORE })
 }
 
-/** PATCH { body }: the author edits their comment. */
+/** PATCH { body }: the author edits their comment; whoever has its post open reads it again (realtime "edit"). */
 export async function PATCH(request: Request, { params }: Params) {
   const off = await requireCommunitiesOn()
   if (off) return off
@@ -41,10 +42,12 @@ export async function PATCH(request: Request, { params }: Params) {
   if (limited) return limited
   const result = await updateComment({ db, community: gate.community, viewer: gate.viewer }, commentId, await readJson(request))
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status ?? 400, headers: NO_STORE })
-  return NextResponse.json({ comment: result.value }, { headers: NO_STORE })
+  const comment = result.value
+  after(() => announceCommentChange(communityId, { id: comment.id, postId: comment.postId, change: "edit" }))
+  return NextResponse.json({ comment }, { headers: NO_STORE })
 }
 
-/** DELETE: the author deletes their comment; its replies stay under "Deleted". */
+/** DELETE: the author deletes their comment; its replies stay under "Deleted"; whoever has its post open sees it go. */
 export async function DELETE(_request: Request, { params }: Params) {
   const off = await requireCommunitiesOn()
   if (off) return off
@@ -56,5 +59,7 @@ export async function DELETE(_request: Request, { params }: Params) {
   if (limited) return limited
   const result = await deleteComment({ db, community: gate.community, viewer: gate.viewer }, commentId)
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: result.status ?? 400, headers: NO_STORE })
+  const { postId } = result.value
+  after(() => announceCommentChange(communityId, { id: commentId, postId, change: "delete" }))
   return NextResponse.json({ ok: true }, { headers: NO_STORE })
 }
