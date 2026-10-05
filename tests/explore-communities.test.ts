@@ -422,6 +422,19 @@ async function main() {
     check("below 1024px, what was there before", /\{footer \? <div className="lg:hidden">\{footer\}<\/div> : null\}/.test(footer))
   }
 
+  console.log("\nPull to refresh")
+  {
+    check(
+      "pull at the top refreshes Explore like the community feed",
+      /RouterPullToRefresh scope=\{EXPLORE_REFRESH_SCOPE\}/.test(read("components/explore/explore-pull-refresh.tsx")) && /<ExplorePullRefresh>/.test(read("app/(marketing)/explore/page.tsx")),
+    )
+    const grid = code("components/explore/explore-communities-results.tsx")
+    check(
+      "communities mode listens for the explore scope and reads again on a pull",
+      /EXPLORE_REFRESH_SCOPE/.test(grid) && /forgetCommunities\(qNow\)/.test(grid) && /detail\.done = loadCommunities\(qNow\)/.test(grid),
+    )
+  }
+
   console.log("\nCopy and the browser boundary")
   {
     const mine = [

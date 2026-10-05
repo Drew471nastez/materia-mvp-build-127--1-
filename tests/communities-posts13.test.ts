@@ -127,6 +127,7 @@ async function main() {
   check("on a phone Edit post opens over an opened post", /editing \? "z-\[135\]" : "z-\[125\]"/.test(composer))
   check("the attachment tray has its own slot for worker V", /THE ATTACHMENT TRAY SLOT/.test(read(`${M}/composer.tsx`)))
   check("?edit=1 on the post page opens Edit post for its author only, and leaves the address", /if \(url\.searchParams\.get\("edit"\) !== "1"\) return/.test(page) && /window\.history\.replaceState\(window\.history\.state, ""/.test(page) && /if \(wantsEdit\(post, readOnly, visitor\)\) setAutoEdit\(true\)/.test(page) && /if \(autoEdit && own && !readOnly\) setEditing\(true\)/.test(card))
+  check("the post page back is a wide ReturnLink pill with first-tap and prefetch", /data-post-page-back=""/.test(page) && /<ReturnLink/.test(page) && /useFirstTap/.test(page) && /router\.prefetch\(href, \{ kind: "full" \}/.test(page) && /h-11/.test(page))
   check("delete asks in Storelib's sheet, above an opened post", /<ConfirmSheet state=\{confirm\}/.test(card) && /export const CONFIRM_Z = 150/.test(confirm) && /zIndex=\{CONFIRM_Z\}/.test(confirm))
   const edit = (raw: Record<string, unknown>) => pollEditOf(raw, Date.parse("2026-10-05T00:00:00Z"))
   const set = edit({ poll: { question: "Which?", options: ["A", "B"], multiple: false, closesAt: "keep" } })

@@ -17,14 +17,19 @@
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useCallback, useEffect, useRef, useState } from "react"
-import { ArrowLeft } from "lucide-react"
+import { ChevronLeft } from "lucide-react"
+import { ReturnLink } from "@/components/navigation/return-link"
+import { useFirstTap } from "@/lib/navigation/first-tap"
+import { backThen } from "@/lib/navigation/go-back"
+import { canReturnTo } from "@/lib/navigation/in-app-history"
+import { usePressFeedback } from "@/lib/navigation/press-feedback"
 import type { CommentView, FeedPostView, ViewerView } from "@/lib/communities/types"
 import { CommentsSection } from "./comments"
 import type { MentionTextareaHandle } from "./mention-input"
 import { PostCard } from "./post-card"
 import { markSeen } from "./post-seen"
 import { AppAvatar } from "@/components/app/app-avatar"
-import { BTN_GHOST, BTN_PRIMARY, CARD } from "./ui"
+import { BTN_PRIMARY, CARD, DEPTH_PRESS } from "./ui"
 
 export interface PostPageProps {
   slug: string
@@ -88,18 +93,12 @@ export function PostPage({ slug, viewer, post: initialPost, comments: initial, m
     if (el) requestAnimationFrame(() => el.scrollIntoView({ block: "center" }))
   }, [])
 
+  const backHref = post.space ? `/community/${slug}/space/${post.space.slug}` : `/community/${slug}`
+  const backLabel = post.space ? post.space.name : "Home"
+
   return (
     <div className={`space-y-3 ${visitor ? "pb-28" : "pb-10"}`} data-post-page={visitor ? "visitor" : "member"}>
-      {visitor ? null : (
-        <Link
-          href={post.space ? `/community/${slug}/space/${post.space.slug}` : `/community/${slug}`}
-          scroll={false}
-          className={`${BTN_GHOST} -ml-3 text-[13.5px] transition-opacity duration-150 active:opacity-70`}
-        >
-          <ArrowLeft className="h-4 w-4" aria-hidden />
-          {post.space ? post.space.name : "Home"}
-        </Link>
-      )}
+      {visitor ? null : <PostPageBack href={backHref} label={backLabel} />}
       <PostCard post={post} slug={slug} viewer={viewer} update={updatePost} full readOnly={readOnly} autoEdit={autoEdit} onComment={() => (open ? box.current?.focus() : document.getElementById("comments")?.scrollIntoView({ block: "start" }))} />
 
       <section id="comments" className={`${CARD} px-4 py-4 sm:px-5`} aria-label="Comments" data-comments="">
@@ -117,6 +116,62 @@ export function PostPage({ slug, viewer, post: initialPost, comments: initial, m
         />
       </section>
       {visitor ? <VisitorJoinBar slug={slug} {...visitor} /> : null}
+    </div>
+  )
+}
+
+/**
+ * BACK TO THE FEED OR SPACE: a full 44px row, the library's pill shape, returns
+ * with history when that is where the reader came from, and warms the route on
+ * intent so Back usually lands in one piece.
+ */
+function PostPageBack({ href, label }: { href: string; label: string }) {
+  const router = useRouter()
+  const press = usePressFeedback<HTMLAnchorElement>()
+  const warm = useCallback(() => {
+    try {
+      router.prefetch(href, { kind: "full" } as never)
+    } catch {
+      /* a prefetch that fails is a tap that waits */
+    }
+  }, [router, href])
+  const tap = useFirstTap<HTMLAnchorElement>(() => {
+    if (!canReturnTo(href)) return false
+    backThen(() => router.push(href))
+  })
+  return (
+    <div className="-mx-1 mb-0.5 flex h-11 items-center" data-post-page-back="">
+      <ReturnLink
+        href={href}
+        scroll={false}
+        prefetch
+        aria-label={`Back to ${label}`}
+        onPointerEnter={warm}
+        onFocus={warm}
+        onClick={tap.onClick}
+        onPointerDown={(e) => {
+          warm()
+          press.onPointerDown(e)
+          tap.onPointerDown(e)
+        }}
+        onPointerUp={(e) => {
+          press.onPointerUp()
+          tap.onPointerUp(e)
+        }}
+        onPointerCancel={() => {
+          press.onPointerUp()
+          tap.onPointerCancel()
+        }}
+        onPointerLeave={press.onPointerUp}
+        className="group/back inline-flex h-11 min-w-[44px] items-center rounded-full pl-1 pr-2 outline-none [-webkit-tap-highlight-color:transparent] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15"
+      >
+        <span
+          className={`inline-flex h-9 max-w-[min(100vw-2rem,280px)] items-center gap-0.5 rounded-full border border-[#e4e7ec] bg-white pl-2 pr-3.5 text-[14px] font-medium text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.05)] transition-[background-color,border-color,scale] duration-150 ease-out group-hover/back:border-[#d7dadf] group-active/back:scale-[0.96] group-active/back:bg-[#eef0f3] motion-reduce:transition-none ${DEPTH_PRESS}`}
+        >
+          <ChevronLeft className="h-[18px] w-[18px] shrink-0 text-[#4b5563] transition-[translate] duration-150 ease-out group-hover/back:-translate-x-0.5" strokeWidth={2.25} aria-hidden />
+          <span className="truncate">{label}</span>
+        </span>
+      </ReturnLink>
     </div>
   )
 }

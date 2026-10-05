@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { EMPTY_INTERESTS, type Interests } from "@/lib/explore/interests"
 import { readInterests } from "@/lib/explore/read-interests"
 import { ExplorePageClient } from "@/components/explore/explore-page-client"
+import { ExplorePullRefresh } from "@/components/explore/explore-pull-refresh"
 import { VALID_SUBCATEGORY_IDS } from "@/lib/marketplace/categories"
 import { MostPopularSection } from "@/components/explore/most-popular-section"
 import { jsonLdScript } from "@/lib/seo/json-ld"
@@ -297,6 +298,7 @@ export default async function ExplorePage({
       />
 
       {/* Semantic page structure for SEO - matches header max-width (1400px) */}
+      <ExplorePullRefresh>
       <div className="mx-auto max-w-[1400px] px-4 sm:px-6 lg:px-8 pt-4 pb-6 sm:pt-5 sm:pb-8">
         {/* Hidden H1 for SEO - visible to screen readers and crawlers */}
         <h1 className="sr-only">
@@ -327,6 +329,7 @@ export default async function ExplorePage({
           <MostPopularSection products={productsWithCreators} />
         </Suspense>
       </div>
+      </ExplorePullRefresh>
     </main>
   )
 }

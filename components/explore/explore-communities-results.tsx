@@ -33,7 +33,9 @@ import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import type { CommunityCard } from "@/lib/communities/types"
 import { communitiesQuery } from "@/lib/explore/communities-mode"
-import { cachedCommunities, COMMUNITIES_PAGE, hasMoreThanFirstPage, keepMoreCommunities, loadCommunities, prefetchCommunities, seedCommunities, type CommunitiesPage } from "@/lib/explore/communities-cache"
+import { cachedCommunities, COMMUNITIES_PAGE, forgetCommunities, hasMoreThanFirstPage, keepMoreCommunities, loadCommunities, prefetchCommunities, seedCommunities, type CommunitiesPage } from "@/lib/explore/communities-cache"
+import { EXPLORE_REFRESH_SCOPE } from "@/lib/explore/refresh-scope"
+import { PULL_REFRESH_EVENT, type PullRefreshDetail } from "@/components/ui/pull-to-refresh"
 import { prefetchBudget, whenIdle } from "@/lib/explore/prefetch-budget"
 import { useProgressiveCount } from "@/lib/explore/use-progressive-count"
 import { ProductCardSkeleton } from "./product-card-skeleton"
@@ -77,6 +79,8 @@ export function ExploreCommunitiesResults({
   ahead?: string[]
 }) {
   const query = communitiesQuery({ q, category, sub, srt, price })
+  const queryRef = React.useRef(query)
+  queryRef.current = query
   /*
     A COMMUNITY ABOUT TO BE OPENED IS ASKED FOR WHOLE. Its route is dynamic,
     so the link's own prefetch stops at the community's loading screen; a
@@ -138,6 +142,25 @@ export function ExploreCommunitiesResults({
       live = false
     }
   }, [query])
+
+  /* Pulled down on Explore: read this question again and wait for the ring (RouterPullToRefresh + scope "explore"). */
+  React.useEffect(() => {
+    const onPull = (event: Event) => {
+      const detail = (event as CustomEvent<PullRefreshDetail>).detail
+      if (!detail || detail.scope !== EXPLORE_REFRESH_SCOPE) return
+      const qNow = queryRef.current
+      forgetCommunities(qNow)
+      detail.done = loadCommunities(qNow).then(
+        (page) => {
+          setShown({ query: qNow, ...page })
+          setFailed(false)
+        },
+        () => undefined,
+      )
+    }
+    window.addEventListener(PULL_REFRESH_EVENT, onPull)
+    return () => window.removeEventListener(PULL_REFRESH_EVENT, onPull)
+  }, [])
 
   /* The next likely questions, once this one is answered and the page is idle, one at a time. */
   const aheadKey = ahead.join("|")

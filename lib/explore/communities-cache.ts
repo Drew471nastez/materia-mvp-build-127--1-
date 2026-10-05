@@ -112,6 +112,12 @@ export function prefetchCommunities(query: string): Promise<void> {
   )
 }
 
+/** Drop one question so the next read is from the server (pull to refresh). */
+export function forgetCommunities(query: string) {
+  cache.delete(query)
+  inflight.delete(query)
+}
+
 /** For tests and probes: forget everything. */
 export function clearCommunitiesCache() {
   cache.clear()
