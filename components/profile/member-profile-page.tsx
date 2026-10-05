@@ -27,9 +27,16 @@
  *                 Communities (the ones they run and, when they show them,
  *                 the ones they are in). One tab draws no strip; it gets a
  *                 heading instead, as a creator page's lone Communities does.
- *   ABOUT         "About <name>" with the year they joined and how many
- *                 communities they are in (components/profile/person-about).
+ *   ABOUT         "About <name>" with the day they joined, where they are
+ *                 from, how many communities they are in and the line they
+ *                 wrote about themselves (components/profile/person-about).
+ *                 The day they joined used to be the last line of their
+ *                 Activity ("Joined Storelib"), which is not activity.
  *   THE FOOTER    "Powered by Storelib", the creator page's own.
+ *
+ * A PULL AT THE TOP, on a touch screen, asks the server for the page again
+ * and the Activity list for its first page again (components/ui/
+ * pull-to-refresh.tsx, the engine every other Storelib page pulls with).
  *
  * When they open a store this page is not changed into anything: the address
  * starts answering a 308 to their creator page, which is this same page with
@@ -58,6 +65,8 @@ import type { MemberProfileData } from "@/lib/profile/member-profile-data"
 import type { CommunityCard } from "@/lib/communities/types"
 import type { ContributionSection, SharedCommunity, SharedPostsPage } from "@/lib/profile/shared-view"
 import { parseProfileCover } from "@/lib/profile/cover"
+import { MEMBER_REFRESH_SCOPE } from "@/lib/profile/refresh-scope"
+import { RouterPullToRefresh } from "@/components/ui/pull-to-refresh"
 import { ProfileActivity, type ActivityItemView } from "./profile-activity"
 import { ProfileCommunityList } from "./profile-community-list"
 import { ProfileSocial } from "./profile-social"
@@ -146,9 +155,8 @@ export function MemberProfilePage({ profile, viewerId, viewerFollowing, extras }
               </p>
             ) : undefined
           }
-          /* A hidden list still ends on the day they joined, which their profile says anyway. */
-          joinedAt={profile.joinedAt}
-          emptyText={isSelf ? "Nothing here yet. Join a community or review something you bought and it shows up here." : "No public activity yet."}
+          refreshScope={MEMBER_REFRESH_SCOPE}
+          emptyText={isSelf ? "Nothing here yet. Join a community or review something you bought and it shows up here." : `${first} has nothing public here yet.`}
         />
       </div>
     </div>
@@ -188,6 +196,7 @@ export function MemberProfilePage({ profile, viewerId, viewerFollowing, extras }
   const shownCommunities = !communities.enabled ? null : communities.owned.length + memberCards.length
 
   return (
+    <RouterPullToRefresh scope={MEMBER_REFRESH_SCOPE}>
     <div className="min-h-screen overflow-x-hidden" style={storefrontRootStyle(chrome)} data-storefront-root="" data-member-profile="" data-profile-self={isSelf ? "true" : "false"}>
       {/* The page's own top bar: the photo and the name, and the way back in front of them when they came from somewhere. */}
       <ProfileTopBar always initiallyShown={extras.backShown} name={profile.name} avatarUrl={profile.avatarUrl} width="max-w-[1150px]" />
@@ -233,9 +242,17 @@ export function MemberProfilePage({ profile, viewerId, viewerFollowing, extras }
         )}
       </div>
 
-      <PersonAbout name={profile.name} joinedAt={profile.joinedAt} communities={shownCommunities} chrome={chrome} />
+      <PersonAbout
+        name={profile.name}
+        joinedAt={profile.joinedAt}
+        bio={profile.bio}
+        location={extras.location ?? null}
+        communities={shownCommunities}
+        chrome={chrome}
+      />
 
       <SellerFooter surface={storefrontFooterSurface(chrome)} />
     </div>
+    </RouterPullToRefresh>
   )
 }

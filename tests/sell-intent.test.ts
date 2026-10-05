@@ -254,7 +254,7 @@ function main() {
   const app = code("app/app/layout.tsx")
   check("/app: no seller access goes to /sell, and the role gate is gone",
     /if \(!creator \|\| !hasSellerAccess\(sellerAccessFrom\(\{ creator, profile: gateCheck \}\)\)\) \{\s*redirect\("\/sell"\)/.test(app) && !/roleSelected/.test(app) && !/signup\/success/.test(app))
-  for (const layout of ["app/library/layout.tsx", "app/dashboard/layout.tsx", "app/creator-page/layout.tsx"]) {
+  for (const layout of ["app/account/library/layout.tsx", "app/dashboard/layout.tsx", "app/creator-page/layout.tsx"]) {
     check(`${layout}: a buyer is not sent to the creator or buyer question`, !/roleSelected/.test(code(layout)) && !/signup\/success/.test(code(layout)))
   }
   check("/app pages with no creator row go to /sell, not the old chooser",

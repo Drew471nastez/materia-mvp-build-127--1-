@@ -24,7 +24,7 @@ function Shell() {
   return (
     <div className="flex min-h-svh flex-col bg-[#fafafa]" data-page="account">
       <PlatformHeaderClient />
-      <main className="flex-1 overflow-x-hidden">
+      <main className="flex-1 overflow-x-clip">
         <AccountDemo />
       </main>
       <footer className="bg-[#111] px-4 py-10 text-[13px] text-white/70">Storelib</footer>

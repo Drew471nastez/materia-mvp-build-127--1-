@@ -28,11 +28,61 @@
  * the picture or the close control, closes it. Both halves are checked so
  * that dragging off the photograph and releasing does not count as a press
  * on the ground.
+ *
+ * ===========================================================================
+ *  IT OPENS OUT OF THE CIRCLE IT WAS, AND CLOSES BACK INTO IT
+ * ===========================================================================
+ * "Make sure it is more smooth and clean on open and on close, when I click
+ * away or click the X button."
+ *
+ * The dialog's own entrance is `zoom-in-95` on the panel, and this panel is
+ * the whole viewport (see below), so the zoom scaled the SCREEN: the X in the
+ * corner grew with the photograph, and the photograph itself arrived from
+ * nowhere in particular.
+ *
+ * The panel's default animations are off now and it only fades, which is what
+ * carries the X. The photograph gets the move: it rises and grows out of the
+ * circle in the page, from the rectangle that circle actually occupies on the
+ * press, and on the way out it goes back into it. One state change drives
+ * both ends, so the X, a press on the ground and Escape all close the same
+ * way. Transform and opacity only. The keyframes, and why the panel's fade
+ * outlasts the picture's move, are in app/globals.css.
  */
 import * as React from "react"
 import { X } from "lucide-react"
 
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
+
+/**
+ * Where the picture comes from and how much it has to grow, as the three
+ * numbers the keyframes read. Null when there is nothing to measure, and the
+ * stylesheet's own defaults (a small rise and a scale) then stand.
+ */
+type Origin = { dx: number; dy: number; scale: number }
+
+/**
+ * The circle in the page, as a transform from the open picture's final
+ * place. The open picture is centred in the viewport by the panel's flex, so
+ * its centre is the viewport's centre and the move is the difference between
+ * the two centres plus the ratio of the two widths.
+ *
+ * THE BUTTON HAS NO BOX OF ITS OWN. It is `display: contents` so the
+ * header's measurements are unchanged by it (see below), and an element with
+ * no box measures as nothing at all, so the thing measured is the avatar
+ * inside it.
+ */
+function originOf(trigger: HTMLElement | null, openWidth: number): Origin | null {
+  if (!trigger || typeof window === "undefined") return null
+  const box = (trigger.firstElementChild as HTMLElement | null) ?? trigger
+  const r = box.getBoundingClientRect()
+  if (r.width < 1 || r.height < 1 || openWidth < 1) return null
+  const dx = Math.round(r.left + r.width / 2 - window.innerWidth / 2)
+  const dy = Math.round(r.top + r.height / 2 - window.innerHeight / 2)
+  /* Clamped: a 24px avatar beside a 320px picture is a scale that reads as
+     the photograph arriving from a point rather than from the circle. */
+  const scale = Math.min(1, Math.max(0.3, Math.round((r.width / openWidth) * 1000) / 1000))
+  return { dx, dy, scale }
+}
 
 export function AvatarLightbox({
   src,
@@ -48,6 +98,9 @@ export function AvatarLightbox({
   disabled?: boolean
 }) {
   const [open, setOpen] = React.useState(false)
+  const [origin, setOrigin] = React.useState<Origin | null>(null)
+  const triggerRef = React.useRef<HTMLButtonElement>(null)
+  const photoRef = React.useRef<HTMLImageElement>(null)
   /**
    * Whether the press that is in progress began on empty ground.
    *
@@ -57,6 +110,21 @@ export function AvatarLightbox({
    * a drag anywhere outside the picture would close it.
    */
   const pressStartedOnGround = React.useRef(false)
+
+  /**
+   * MEASURED ON THE PRESS, not after the dialog has mounted. The circle is
+   * where it is on the frame the press lands; once the dialog is up the page
+   * behind it has been locked and the scrollbar may be gone, which moves it.
+   * The open picture's own width is read off the picture when there is one to
+   * read (a second opening), and from the same `min()` the style below sets
+   * on the first.
+   */
+  function openFrom() {
+    const measured = photoRef.current?.getBoundingClientRect().width ?? 0
+    const openWidth = measured > 1 ? measured : Math.min(window.innerWidth * 0.72, window.innerHeight * 0.56, 320)
+    setOrigin(originOf(triggerRef.current, openWidth))
+    setOpen(true)
+  }
 
   if (!src || disabled) return <>{children}</>
 
@@ -70,8 +138,9 @@ export function AvatarLightbox({
         all — are the same as when the avatar was bare.
       */}
       <button
+        ref={triggerRef}
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={openFrom}
         aria-label={name ? `View ${name}'s profile picture` : "View profile picture"}
         /* A pointer, not a magnifier. This opens a picture, it does not zoom
            into the page, and the lupa read as a browser control. */
@@ -112,11 +181,31 @@ export function AvatarLightbox({
 
           `inset-0` is measured against the same box the overlay uses, so the
           two now agree and the corner is a corner.
+
+          NO DEFAULT ANIMATIONS ON THE PANEL, AND THE OVERLAY KEEPS ITS OWN.
+          `disableDefaultAnimations` takes the dialog's zoom off a panel that
+          is the size of the screen; `disableOverlayDefaultAnimations={false}`
+          leaves the dark ground fading in and out as every other dialog's
+          does. What replaces the zoom is declared on `data-avatar-lightbox`
+          in app/globals.css, which is also what keeps a closing dialog
+          mounted long enough for the picture to leave.
         */}
         <DialogContent
           showCloseButton={false}
+          disableDefaultAnimations
+          disableOverlayDefaultAnimations={false}
           overlayClassName="bg-black/80"
-          className="inset-0 flex h-auto w-auto max-w-none translate-x-0 translate-y-0 items-center justify-center gap-0 border-0 bg-transparent p-0 shadow-none sm:max-w-none"
+          data-avatar-lightbox=""
+          className="inset-0 flex h-auto w-auto max-w-none translate-x-0 translate-y-0 items-center justify-center gap-0 border-0 bg-transparent p-0 shadow-none [will-change:opacity] sm:max-w-none"
+          style={
+            origin
+              ? ({
+                  "--lightbox-dx": `${origin.dx}px`,
+                  "--lightbox-dy": `${origin.dy}px`,
+                  "--lightbox-scale": String(origin.scale),
+                } as React.CSSProperties)
+              : undefined
+          }
           onPointerDown={(e) => {
             pressStartedOnGround.current = e.target === e.currentTarget
           }}
@@ -180,17 +269,15 @@ export function AvatarLightbox({
             read as a picture on a page. The phone barely moves: 296px to
             281px, because nobody complained about the phone.
 
-            The height stays at 56vh because a phone held sideways is only
-            390px tall, and anything less than that leaves a circle smaller
-            than the one already on the page.
-
             Measured by scripts/check-avatar-lightbox, which reads this very
             expression out of this file and lays it out at five sizes.
           */}
           <img
+            ref={photoRef}
+            data-avatar-lightbox-photo=""
             src={src}
             alt={name ? `${name}'s profile picture` : "Profile picture"}
-            className="pointer-events-auto aspect-square h-auto rounded-full object-cover"
+            className="pointer-events-auto aspect-square h-auto rounded-full object-cover [will-change:transform,opacity]"
             style={{ width: "min(72vw, 56vh, 320px)" }}
           />
         </DialogContent>

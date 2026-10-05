@@ -1,5 +1,6 @@
 "use client"
 
+import { displayEmail, emailLocalPart } from "@/lib/businesses/email-alias"
 import { hasConsent } from "@/lib/consent/client"
 import type React from "react"
 
@@ -1454,7 +1455,9 @@ export function PlatformHeaderClient({
     profile?.display_name ||
     profile?.username ||
     ((user?.user_metadata as any)?.full_name as string | undefined) ||
-    (user?.email ? user.email.split("@")[0] : "User")
+    /* Never the "+slb-" tag a second business's address carries (lib/businesses/email-alias.ts). */
+    emailLocalPart(user?.email) ||
+    "User"
 
   async function handleLogout() {
     setMobileProfileOpen(false)
@@ -2490,7 +2493,7 @@ export function PlatformHeaderClient({
                 <AppAvatar src={avatarUrl} name={(displayName || "").trim()} alt="" size={42} className="border border-gray-200" />
                 <span className="flex-1 min-w-0">
                   <span className="block text-sm font-medium text-gray-900 truncate">{displayName}</span>
-                  <span className="block text-xs text-gray-500 truncate">{user.email || "Your account"}</span>
+                  <span className="block text-xs text-gray-500 truncate">{displayEmail(user.email) || "Your account"}</span>
                 </span>
                 <ChevronRight aria-hidden className="h-5 w-5 text-gray-400" />
               </Link>

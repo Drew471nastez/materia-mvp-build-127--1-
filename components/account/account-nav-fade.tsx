@@ -1,9 +1,8 @@
 "use client"
 
 import { usePathname } from "next/navigation"
-import { useLayoutEffect, useRef } from "react"
-import { accountTabFor } from "@/lib/account/account-tabs"
 import { showsLibraryTabs } from "@/components/library/library-tab-list"
+import { LANDING_CLASS, useLandingOnMove } from "@/lib/ui/landing"
 
 /**
  * WHICH ADDRESSES ARE ONE PAGE. The wrapper below is keyed, so a new key
@@ -19,33 +18,40 @@ export function navFadeKey(pathname: string | null): string {
 }
 
 /**
- * A very small ease when moving between /account and /account/settings so
- * the swap does not read as a hard cut. Reduced motion and the first paint
- * are left alone.
+ * ===========================================================================
+ *  THE PROFILE CENTRE LANDS THE WAY THE REST OF THE APP LANDS
+ * ===========================================================================
+ * "The back from the account settings back to the profile account is too
+ * direct, so things need to be smoother." "When I click on settings and land
+ * on the settings page, make sure it is very smooth and clean and not so
+ * direct. It is already preloaded in the background ... but that does not
+ * mean it should not be smooth when I see the content of the page."
+ *
+ * This used to tween opacity from 0.97 to 1 over 280ms on its own curve, an
+ * idiom nothing else in the app used and too small to read as anything. It is
+ * the app's one landing now: opacity and a 2px rise over 180ms on
+ * NAV_ENTER_EASE, the same arrival /app and a community play
+ * (lib/ui/landing.ts, app/globals.css `.page-land`).
+ *
+ * THE KEY IS WHAT REPLAYS IT, which is also what keeps it to one page's worth
+ * of movement: the key changes when the ADDRESS changes, so Settings
+ * arriving, Settings leaving and the library's own screens each land once,
+ * and a pill press inside the library (one key for all of them, see above)
+ * lands nothing.
+ *
+ * `useLandingOnMove` is above the keyed box, so it survives the remount and
+ * can tell a client navigation from the document's own first paint. On a
+ * reload, a cold start or a link opened fresh there is no class at all, and
+ * `.library-content-enter`, the hand over from loading.tsx, which is a
+ * layered rule and so loses to `.page-land` when both are there, is what
+ * that first paint keeps.
  */
 export function AccountNavFade({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
-  const settings = accountTabFor(pathname) === 1
-  const ref = useRef<HTMLDivElement>(null)
-  const seen = useRef(false)
-  const wasSettings = useRef(settings)
-
-  useLayoutEffect(() => {
-    if (!seen.current) {
-      seen.current = true
-      wasSettings.current = settings
-      return
-    }
-    if (wasSettings.current === settings) return
-    wasSettings.current = settings
-    const el = ref.current
-    if (!el || typeof el.animate !== "function") return
-    if (typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
-    el.animate([{ opacity: 0.97 }, { opacity: 1 }], { duration: 280, easing: "cubic-bezier(0.22, 1, 0.36, 1)", fill: "both" })
-  }, [settings])
+  const landing = useLandingOnMove(navFadeKey(pathname))
 
   return (
-    <div key={navFadeKey(pathname)} ref={ref} className="library-content-enter min-w-0">
+    <div key={navFadeKey(pathname)} className={`library-content-enter min-w-0${landing ? ` ${LANDING_CLASS}` : ""}`}>
       {children}
     </div>
   )
