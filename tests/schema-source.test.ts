@@ -26,19 +26,21 @@ function check(label: string, ok: boolean, detail?: string) {
 }
 const read = (p: string) => readFileSync(p, "utf8")
 const RN = "supabase/sql/run-now"
-const parts = readdirSync(RN).filter((f) => /^\d\d_.*\.sql$/.test(f)).sort()
-const numbered = parts.filter((f) => f.slice(0, 2) >= "01" && f.slice(0, 2) <= "90")
+/* Two digit parts, then 100 and up (98 was the last two digit number free): ordered by value. */
+const num = (f: string) => Number(f.split("_")[0])
+const parts = readdirSync(RN).filter((f) => /^\d{2,3}_.*\.sql$/.test(f)).sort((a, b) => num(a) - num(b))
+const numbered = parts.filter((f) => (num(f) >= 1 && num(f) <= 90) || num(f) >= 100)
 
 console.log("\nEvery part, from 62 on, the same everywhere")
 {
   const migrations = readdirSync("supabase/migrations").map((f) => read(`supabase/migrations/${f}`))
   const readme = read(`${RN}/README.md`)
   const after = read(`${RN}/99_check_after.sql`)
-  for (const f of numbered.filter((f) => f.slice(0, 2) >= "62" && f.slice(0, 2) < "90")) {
+  for (const f of numbered.filter((f) => (num(f) >= 62 && num(f) < 90) || num(f) >= 100)) {
     const text = read(`${RN}/${f}`)
     check(`${f}: a byte for byte copy in migrations`, migrations.includes(text))
     check(`${f}: its README row`, readme.includes(`| \`${f}\` |`))
-    check(`${f}: its column in the check after`, new RegExp(`as p${f.slice(0, 2)}_\\w+[,;]`).test(after))
+    check(`${f}: its column in the check after`, new RegExp(`as p${f.split("_")[0]}_\\w+[,;]`).test(after))
     const lines = text.split("\n")
     check(`${f}: opens with a closed summary and ends by reloading the API`, lines[0].startsWith("/* ") && lines[0].endsWith("*/") && text.trimEnd().endsWith("notify pgrst, 'reload schema';"))
     check(`${f}: no -- comment inside`, !lines.slice(1).some((l) => l.trimStart().startsWith("--")))
@@ -50,7 +52,7 @@ console.log("\nThe database's own record of what ran")
   const gen = new Map(SQL_PARTS.map((p) => [p.part, p]))
   for (const f of numbered) {
     const want = createHash("sha256").update(readFileSync(`${RN}/${f}`)).digest("hex")
-    const have = gen.get(f.slice(0, 2))
+    const have = gen.get(f.split("_")[0])
     check(`${f}: listed with the SHA-256 of its text`, !!have && have.file === f && have.sha256 === want, have ? `${have.sha256.slice(0, 12)} vs ${want.slice(0, 12)}: run python3 scripts/build-run-four.py` : "missing")
   }
   const built = ["run-four/1_of_4_core.sql", "run-four/2_of_4_library_checkout_uploads.sql", "run-four/3_of_4_latest.sql", "run-four/4_of_4_storage_policies_and_check.sql"].map((f) => read(`supabase/sql/${f}`)).join("\n")
@@ -67,7 +69,7 @@ console.log("\nThe database's own record of what ran")
 
 console.log("\nA new column on creators or profiles is decided, not left open")
 {
-  for (const f of numbered.filter((f) => f.slice(0, 2) >= "64" && f.slice(0, 2) < "90")) {
+  for (const f of numbered.filter((f) => (num(f) >= 64 && num(f) < 90) || num(f) >= 100)) {
     const text = read(`${RN}/${f}`)
     const adds = /ALTER TABLE (IF EXISTS )?public\.(creators|profiles) ADD COLUMN/i.test(text)
     check(`${f}: ${adds ? "shares its new column or lists it private" : "adds no column to creators or profiles"}`, !adds || /storelib_share_public_columns\(\)/.test(text))

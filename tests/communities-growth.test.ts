@@ -135,7 +135,7 @@ async function main() {
   const sha = createHash("sha256").update(readFileSync(`${RN}/94_community_slug_history.sql`)).digest("hex")
   check("listed for the admin with the SHA-256 of its text", SQL_PARTS.some((p) => p.part === "94" && p.file === "94_community_slug_history.sql" && p.sha256 === sha))
   check("folded into the built files after 89, recording itself, so the harness runs it twice with the rest", ["all-in-two/1_of_2_everything.sql", "run-four/3_of_4_latest.sql", "all-in-three/2_of_3_latest.sql"].every((f) => { const t = read(`supabase/sql/${f}`); return t.indexOf("-- part 94_community_slug_history.sql") > t.indexOf("-- part 89_") && t.includes(`VALUES ('94', '94_community_slug_history.sql', '${sha}')`) }))
-  check("the build script folds 93 to 98 in, and keeps 90, 91 and 92 on their own", /return '20'<=p<='89' or '93'<=p<='98'/.test(read("scripts/build-run-four.py")) && /\{'00','90','91','92','99'\}/.test(read("scripts/build-run-four.py")))
+  check("the build script folds 93 to 98 in, and keeps 90, 91 and 92 on their own", /return 20<=N\(p\)<=89 or 93<=N\(p\)<=98 or N\(p\)>=100/.test(read("scripts/build-run-four.py")) && /\{'00','90','91','92','99'\}/.test(read("scripts/build-run-four.py")))
 
   /* ── Shared links ────────────────────────────────────────────────────── */
   console.log("\nShared links preview richly")

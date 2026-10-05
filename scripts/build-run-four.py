@@ -9,15 +9,17 @@ GROUPS=[
  ('2_of_4_library_checkout_uploads.sql','2 of 4','Agent MCP, library limit and privacy, checkout contacts, product bundles, upload safety, storage buckets, private digital files, storage cleanup, variant policies.',['11','12','13','14','15','16','17','18','19']),
  ('3_of_4_latest.sql','3 of 4','Saved cards, bounces and exec_sql closed, email sending, domains for a website or creator page, browser notifications and time zone, Ask Storelib conversations and pictures, Analytics speed, business accounts, creator badges, Ask Storelib reports, notification rules, website accounts and contact forms, discount code holds, orders kept with their creator, customer accounts on websites, product variant columns, company details on orders, a creator\'s own AI keys, up to three businesses on one login, the notification engine and its admin counts, receipt email records made server only, a deleted product leaving the OnePage that named it, one home for a creator\'s name and photo, the website builder agent\'s document and questions, an archived product never also published, one review per buyer per product, reviews complete (guest reviews, seller replies, reports, ratings from published reviews), one profile photo everywhere, one OnePage address in any case, the malware scan log, email records for a buyer\'s message to the seller, the picture a shared OnePage link shows, a OnePage\'s old addresses followed, the file security log, where a sale or a sign-up came from, Analytics counted the same way on every page, and money rows (orders, library, ledger, payouts, plans) written by the server only, and private columns of accounts and creators kept private with server owned ones guarded, the seller balance changed once per event in one locked step, and a deleted account that keeps its buyers\' purchases and the money records, a copy of every deleted row kept for 90 days, the record of which parts ran, and errors and scheduled job runs written down.',None),
 ]
-parts={f[:2]:f for f in os.listdir(RN) if re.match(r'\d\d_.*\.sql$',f)}
+# Two digit parts, then three (100 and up, after 98 ran out); keyed by the number as written, ordered by its value.
+parts={m.group(1):f for f in os.listdir(RN) for m in [re.match(r'(\d{2,3})_.*\.sql$',f)] if m}
+N=int
 # PARTS AFTER THE STORAGE ONES. 90 (storage), 91 and 92 keep their own
 # place (README); a part numbered 93 to 98 is an ordinary part that was
 # numbered after them, so it is folded in after 89 like any other, and the
 # harness proves it with the rest (scripts/sql-harness).
 def latest(p):
-    return '20'<=p<='89' or '93'<=p<='98'
+    return 20<=N(p)<=89 or 93<=N(p)<=98 or N(p)>=100
 # File 3 takes every part from 20 up to 89 (and 93 to 98), so a new part lands there without editing this list.
-GROUPS[2]=GROUPS[2][:3]+(sorted(p for p in parts if latest(p)),)
+GROUPS[2]=GROUPS[2][:3]+(sorted((p for p in parts if latest(p)),key=N),)
 HOW="""-- HOW: select all of this file, copy, paste into a NEW query tab in the Supabase
 -- SQL editor, press Run. Run the four files in order, one at a time.
 -- Safe to run again: every statement checks before it changes anything, so a
@@ -110,8 +112,8 @@ for f in sorted(os.listdir(OUT)):
 THREE=ROOT+'supabase/sql/all-in-three/'
 os.makedirs(THREE,exist_ok=True)
 GROUPS3=[
- ('1_of_3_core_library_checkout.sql','1 of 3','Rate limits, newsletter, agent connections and GitHub, refunds recorded once, event and email types, order source, site speed, website addresses, coupons and the admin console, email automations, agent MCP, library limit and privacy, checkout contacts, product bundles, upload safety, storage buckets, private digital files, storage cleanup, variant policies.',sorted(p for p in parts if '01'<=p<='19')),
- ('2_of_3_latest.sql','2 of 3',GROUPS[2][2],sorted(p for p in parts if latest(p))),
+ ('1_of_3_core_library_checkout.sql','1 of 3','Rate limits, newsletter, agent connections and GitHub, refunds recorded once, event and email types, order source, site speed, website addresses, coupons and the admin console, email automations, agent MCP, library limit and privacy, checkout contacts, product bundles, upload safety, storage buckets, private digital files, storage cleanup, variant policies.',sorted((p for p in parts if 1<=N(p)<=19),key=N)),
+ ('2_of_3_latest.sql','2 of 3',GROUPS[2][2],sorted((p for p in parts if latest(p)),key=N)),
 ]
 for name,label,what,ps in GROUPS3:
     out=[f"-- STORELIB DATABASE, FILE {label}", f"-- {what}", HOW.replace('Run the four files','Run the three files'), "", "set local statement_timeout = 0;", "-- the record of which parts ran (part 67)"]+BOOTSTRAP+[""]
@@ -139,7 +141,7 @@ for f in sorted(os.listdir(THREE)):
 # the SQL editor in one go, or run it with psql.
 TWO=ROOT+'supabase/sql/all-in-two/'
 os.makedirs(TWO,exist_ok=True)
-_all=sorted(p for p in parts if '01'<=p<='19' or latest(p))
+_all=sorted((p for p in parts if 1<=N(p)<=19 or latest(p)),key=N)
 out=["-- STORELIB DATABASE, FILE 1 of 2", "-- Every part from "+_all[0]+" to "+_all[-1]+": the whole database Storelib's code expects, apart from the storage policies and the check, which are file 2.", HOW.replace('Run the four files','Run the two files'), "", "set local statement_timeout = 0;", "-- the record of which parts ran (part 67)"]+BOOTSTRAP+[""]
 for q in _all:
     head,rest=body(q)
@@ -162,7 +164,7 @@ for f in sorted(os.listdir(TWO)):
 # when a part was added, so all four disagreed with each other and with
 # run-now/. The numbers come from the parts themselves now.
 import re as _re
-_numbered=sorted(p for p in parts if p.isdigit() and '01'<=p<'90')
+_numbered=sorted((p for p in parts if p.isdigit() and 1<=N(p)<90),key=N)
 _span=f"{_numbered[0]} to {_numbered[-1]}"
 for _folder in ('run-four','all-last-three-days','all-last-14-days','all-in-three','all-in-two'):
     _path=ROOT+'supabase/sql/'+_folder+'/README.md'
@@ -179,7 +181,7 @@ for _folder in ('run-four','all-last-three-days','all-last-14-days','all-in-thre
 # into the database when it runs.
 _gen=["/* Generated by scripts/build-run-four.py from supabase/sql/run-now. Do not edit. */",
       "export const SQL_PARTS: ReadonlyArray<{ part: string; file: string; sha256: string }> = ["]
-for _p in sorted(p for p in parts if p.isdigit() and ('01'<=p<'90' or p=='90' or latest(p))):
+for _p in sorted((p for p in parts if p.isdigit() and (1<=N(p)<=90 or latest(p))),key=N):
     _gen.append(f'  {{ part: "{_p}", file: "{parts[_p]}", sha256: "{part_sha(_p)}" }},')
 _gen.append("]")
 open(ROOT+'lib/admin/sql-parts.generated.ts','w').write("\n".join(_gen)+"\n")

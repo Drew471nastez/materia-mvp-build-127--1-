@@ -159,7 +159,7 @@ check("the community's search is opened by its slug, and only while it is on the
   openCommunitySearch("mara-club") && opened === 1 && !openCommunitySearch("other-club") && !openCommunitySearch(null) && (off(), !openCommunitySearch("mara-club")))
 const bar = code("components/nav/buyer-tab-bar.tsx")
 check("the bar takes the community's tabs and opens its search first, the site's when there is none",
-  /const community = communityOf\(pathname\)/.test(bar) && /const tabs = buyerTabsAt\(pathname, exploreMarketplaceEnabled\)/.test(bar)
+  /const community = communityOf\(pathname\)/.test(bar) && /const tabs = buyerTabsAt\(pathname, exploreMarketplaceEnabled(, homeCommunity)?\)/.test(bar)
     && /if \(tab\.key === "search" && community && openCommunitySearch\(community\)\) return\s*if \(tab\.key === "search" && openSearchOverlay\(query\)\) return/.test(bar) && /refocusCommunitySearch\(community\)/.test(bar))
 const search = code("components/community/member/search.tsx")
 check("the community's search button lends its screen to the bar, opened inside the tap", /registerCommunitySearch\(slug, \{\s*open: \(\) => \{\s*flushSync\(\(\) => setOpen\(true\)\)\s*input\.current\?\.focus\(\)/.test(search))
