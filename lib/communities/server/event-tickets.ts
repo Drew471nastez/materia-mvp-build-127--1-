@@ -24,7 +24,7 @@ import "server-only"
  * Nothing here trusts a price or an event id from a page: the rows are read
  * here and the amounts come from the event's own row inside the functions.
  */
-import type { EventPricing, TicketSource, TicketStatus, TicketView } from "../event-tickets"
+import { TICKET_HOLD_MINUTES, type EventPricing, type TicketSource, type TicketStatus, type TicketView } from "../event-tickets"
 import { EVENT_COLUMNS, EVENT_COLUMNS_PRICED, type EventRow } from "../types"
 import { missing, reasonOf, type Db } from "./db"
 import { peopleOf } from "./moderation"
@@ -213,6 +213,25 @@ export function pricingOf(e: EventRow): EventPricing {
   }
 }
 
+/**
+ * THE WORDS THIS EVENT REFUNDS BY: its own if it has any, else the
+ * community's (run-now part 101), else nothing. Null means the event says
+ * nothing about refunds, and the page says nothing either.
+ */
+export async function refundPolicyFor(db: Db, communityId: string, event: Pick<EventRow, "refund_policy">): Promise<string | null> {
+  const own = (event.refund_policy ?? "").trim()
+  if (own) return own.slice(0, 2000)
+  if (!isUuid(communityId)) return null
+  try {
+    const { data, error } = await db.from("communities").select("refund_policy").eq("id", communityId).maybeSingle()
+    if (error) return null
+    const text = ((data as { refund_policy?: string | null } | null)?.refund_policy ?? "").trim()
+    return text ? text.slice(0, 2000) : null
+  } catch {
+    return null
+  }
+}
+
 /* ── The creator's panel ────────────────────────────────────────────────── */
 
 const encodeCursor = (createdAt: string, id: string): string => Buffer.from(`${createdAt}|${id}`, "utf8").toString("base64url")
@@ -294,19 +313,20 @@ export async function eventTicketMoney(db: Db, eventId: string): Promise<{ sold:
   const out = { ...empty }
   try {
     const page = 500
-    for (let from = 0; ; from += page) {
-      const { data, error } = await db
-        .from(TABLE)
-        .select("status, source, amount_cents, currency")
-        .eq("event_id", eventId)
-        .order("created_at", { ascending: true })
-        .range(from, from + page - 1)
+    let after: { at: string; id: string } | null = null
+    /* A keyset on (created_at, id), never an offset: a big event counts in pages on the index. */
+    for (let round = 0; round < 2000; round += 1) {
+      let q = db.from(TABLE).select("id, created_at, status, source, amount_cents, currency").eq("event_id", eventId)
+      if (after) q = q.or(`created_at.gt."${after.at}",and(created_at.eq."${after.at}",id.gt.${after.id})`)
+      const { data, error } = await q.order("created_at", { ascending: true }).order("id", { ascending: true }).limit(page)
       if (error) {
         forgetIfMissing(error)
         if (!missing(error)) console.error(`[communities] event ticket money: ${reasonOf(error)}`)
         return out
       }
-      const rows = (data as { status: TicketStatus; source: TicketSource; amount_cents: number | null; currency: string | null }[] | null) ?? []
+      const rows = (data as { id: string; created_at: string; status: TicketStatus; source: TicketSource; amount_cents: number | null; currency: string | null }[] | null) ?? []
+      const last = rows[rows.length - 1]
+      after = last ? { at: last.created_at, id: last.id } : after
       for (const r of rows) {
         if (r.currency) out.currency = r.currency
         const amount = Math.max(0, r.amount_cents ?? 0)
@@ -391,6 +411,111 @@ export async function grantTicket(
     return { ok: true, created: answer.created === true, ticketId: answer.ticket_id }
   } catch (e) {
     console.error(`[communities] ticket grant: ${reasonOf(e)}`)
+    return refuse(500, "failed")
+  }
+}
+
+/**
+ * A SEAT KEPT WHILE SOMEBODY PAYS FOR IT. The checkout holds one before it
+ * asks Stripe for a session, so two people cannot buy the last seat at
+ * once. `session` is a token of this attempt; the real Stripe session id
+ * replaces it once Stripe has given one (claimHoldSession below).
+ */
+export async function holdSeat(
+  db: Db,
+  a: { eventId: string; userId: string; session: string; minutes?: number },
+): Promise<{ ok: true; ticketId: string; heldUntil: string | null; amountCents: number | null; currency: string | null; seatsLeft: number | null } | Refusal> {
+  if (!isUuid(a.eventId) || !isUuid(a.userId)) return refuse(404, "not_found")
+  if (!(await ticketsReady(db))) return refuse(409, "free")
+  try {
+    const { data, error } = await db.rpc("community_event_ticket_hold", {
+      p_event: a.eventId,
+      p_user: a.userId,
+      p_session: a.session,
+      p_minutes: Math.max(5, Math.min(180, Math.floor(a.minutes ?? TICKET_HOLD_MINUTES))),
+    })
+    if (error) {
+      forgetIfMissing(error)
+      if (missing(error)) return refuse(409, "free")
+      console.error(`[communities] ticket hold: ${reasonOf(error)}`)
+      return refuse(500, "failed")
+    }
+    const answer = (data ?? {}) as { ok?: boolean; reason?: string; ticket_id?: string; held_until?: string | null; amount_cents?: number | null; currency?: string | null; seats_left?: number | null }
+    if (!answer.ok) {
+      const reason = answer.reason ?? "failed"
+      const status = reason === "not_found" ? 404 : reason === "failed" ? 500 : 409
+      return refuse(status, reason)
+    }
+    if (!answer.ticket_id) return refuse(500, "failed")
+    return {
+      ok: true,
+      ticketId: answer.ticket_id,
+      heldUntil: answer.held_until ?? null,
+      amountCents: typeof answer.amount_cents === "number" ? answer.amount_cents : null,
+      currency: answer.currency ?? null,
+      seatsLeft: typeof answer.seats_left === "number" ? answer.seats_left : null,
+    }
+  } catch (e) {
+    console.error(`[communities] ticket hold: ${reasonOf(e)}`)
+    return refuse(500, "failed")
+  }
+}
+
+/** The real Stripe session id onto the held seat, once Stripe has given one. */
+export async function claimHoldSession(db: Db, ticketId: string, sessionId: string): Promise<boolean> {
+  if (!isUuid(ticketId) || !sessionId) return false
+  try {
+    const { error } = await db.from(TABLE).update({ checkout_session_id: sessionId, updated_at: new Date().toISOString() }).eq("id", ticketId).eq("status", "held")
+    if (error) {
+      if (!missing(error)) console.error(`[communities] ticket hold session: ${reasonOf(error)}`)
+      return false
+    }
+    return true
+  } catch (e) {
+    console.error(`[communities] ticket hold session: ${reasonOf(e)}`)
+    return false
+  }
+}
+
+/**
+ * ONE PAYMENT IS EXACTLY ONE TICKET. Both the webhook and the sheet's own
+ * confirm call this, whichever is first; the SQL answers created:false the
+ * second time and changes nothing, so nobody is charged twice and nobody
+ * gets two seats.
+ */
+export async function payTicket(
+  db: Db,
+  a: { sessionId: string | null; eventId: string; userId: string; paymentIntentId: string | null; amountCents: number | null; currency: string | null; platformFeeCents: number | null },
+): Promise<{ ok: true; created: boolean; ticketId: string; amountCents: number | null; currency: string | null } | Refusal> {
+  if (!isUuid(a.eventId) || !isUuid(a.userId)) return refuse(404, "not_found")
+  if (!(await ticketsReady(db))) return refuse(409, "not_set_up")
+  try {
+    const { data, error } = await db.rpc("community_event_ticket_pay", {
+      p_session: a.sessionId,
+      p_event: a.eventId,
+      p_user: a.userId,
+      p_intent: a.paymentIntentId,
+      p_amount: typeof a.amountCents === "number" ? a.amountCents : null,
+      p_currency: a.currency ? a.currency.toLowerCase() : null,
+      p_fee: typeof a.platformFeeCents === "number" ? a.platformFeeCents : null,
+    })
+    if (error) {
+      forgetIfMissing(error)
+      if (missing(error)) return refuse(409, "not_set_up")
+      console.error(`[communities] ticket pay: ${reasonOf(error)}`)
+      return refuse(500, "failed")
+    }
+    const answer = (data ?? {}) as { ok?: boolean; created?: boolean; ticket_id?: string; amount_cents?: number | null; currency?: string | null; reason?: string }
+    if (!answer.ok || !answer.ticket_id) return refuse(answer.reason === "not_found" ? 404 : 500, answer.reason ?? "failed")
+    return {
+      ok: true,
+      created: answer.created === true,
+      ticketId: answer.ticket_id,
+      amountCents: typeof answer.amount_cents === "number" ? answer.amount_cents : null,
+      currency: answer.currency ?? null,
+    }
+  } catch (e) {
+    console.error(`[communities] ticket pay: ${reasonOf(e)}`)
     return refuse(500, "failed")
   }
 }

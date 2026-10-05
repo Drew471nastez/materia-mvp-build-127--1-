@@ -151,7 +151,7 @@ async function main() {
     }
     check("nothing that can send to /login reads getUser() and drops its error", direct.length === 0, direct.join(", "))
 
-    for (const layout of ["app/app/layout.tsx", "app/library/layout.tsx", "app/dashboard/layout.tsx", "app/creator-page/layout.tsx", "app/website-builder/layout.tsx"]) {
+    for (const layout of ["app/app/layout.tsx", "app/account/library/layout.tsx", "app/dashboard/layout.tsx", "app/creator-page/layout.tsx", "app/website-builder/layout.tsx"]) {
       const code = readCode(layout)
       check(`${layout} recovers an undetermined session instead of redirecting`, /current\.state === "indeterminate"/.test(code))
     }

@@ -1,4 +1,5 @@
 import type { Metadata } from "next"
+import { displayEmail } from "@/lib/businesses/email-alias"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { pageUser } from "@/lib/auth/page-user"
@@ -118,7 +119,8 @@ export default async function AccountSettingsRoute({ searchParams }: { searchPar
   return (
     <AccountSettings
       userId={user.id}
-      email={user.email || ""}
+      /* Never the "+slb-" tag a second business carries (lib/businesses/email-alias.ts). */
+      email={displayEmail(user.email) || ""}
       name={profile?.display_name || user.user_metadata?.full_name || user.user_metadata?.name || ""}
       bio={bio.text}
       bioSupported={bio.supported}
