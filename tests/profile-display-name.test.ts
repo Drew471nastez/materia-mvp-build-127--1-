@@ -31,6 +31,12 @@ import {
   providerNameOf,
 } from "../lib/profile/display-name"
 import { keepProfileName, type KeepNameDb } from "../lib/profile/keep-name"
+import { WELCOME_PATH, WELCOMED_KEY, throughWelcome, welcomeDone, welcomeHref, welcomeWanted } from "../lib/account/welcome"
+import { safeNext } from "../lib/auth/continue"
+import { APP_PATHS, DEFAULT_ANDROID_FINGERPRINTS, DEFAULT_TEAM_ID, WEB_ONLY_SEGMENTS, appLinkConfig, appleAppSiteAssociation, assetLinks, opensInApp } from "../lib/platform/app-links"
+import { openTarget, pageAppLink, pillPhone } from "../lib/platform/open-in-app"
+import { readdirSync, statSync } from "node:fs"
+import { join } from "node:path"
 
 let passed = 0
 let failed = 0
@@ -184,6 +190,93 @@ async function main() {
   check("  and keeps it on every sign in, after the answer", /after\(\(\) => keepProfileName\(/.test(callback))
   check("/auth/continue (a password, the email code, the app) keeps it too", /after\(\(\) => keepProfileName\(/.test(cont))
   check("the app's sign in (sync-session) keeps it beside the photo", /keepProfileName\(createAdminClient\(\)/.test(sync) && /keepProviderPhoto\(/.test(sync))
+
+  console.log("\nA new account is asked once what brought it here (lib/account/welcome)")
+  const now = Date.parse("2026-10-05T12:00:00Z")
+  const fresh = "2026-10-05T11:50:00Z"
+  check("a new buyer is asked", welcomeWanted({ createdAt: fresh, meta: {}, seller: false, intent: null, now }))
+  check("a seller never", !welcomeWanted({ createdAt: fresh, meta: {}, seller: true, intent: null, now }))
+  check("Sell on Storelib never (it is the selling branch already)", !welcomeWanted({ createdAt: fresh, meta: {}, seller: false, intent: "sell", now }))
+  check("answered before never", !welcomeWanted({ createdAt: fresh, meta: { [WELCOMED_KEY]: true }, seller: false, intent: null, now }))
+  check("an account from before this existed never", !welcomeWanted({ createdAt: "2026-09-01T00:00:00Z", meta: {}, seller: false, intent: null, now }) && !welcomeWanted({ createdAt: null, meta: {}, seller: false, intent: null, now }))
+  check("it carries where they were going, Discover needs no carrying", welcomeHref("/community/clay?join=1") === `${WELCOME_PATH}?next=%2Fcommunity%2Fclay%3Fjoin%3D1` && welcomeHref("/explore") === WELCOME_PATH)
+  check("throughWelcome leaves everybody else's way alone", throughWelcome("/app", { createdAt: fresh, meta: {}, seller: true, intent: null, now }) === "/app")
+  check("the onboarding is an auth screen, never somebody's next", safeNext("/onboarding/start", "storelib.com") === null)
+  check("the join branch ends in the community, joined by its own ?join=1", welcomeDone("/community/clay?join=1") === "/community/clay?join=1")
+  check("  an invite they followed is accepted on arrival", welcomeDone("/community/clay/join?invite=abcdefghijklmnop") === "/community/clay/join?invite=abcdefghijklmnop&accept=1")
+  check("  and with nowhere to go, Discover, never their profile", welcomeDone(null) === "/explore" && welcomeDone("//evil.com") === "/explore")
+  const startPage = readCode("app/(auth)/onboarding/start/page.tsx")
+  check("the start page sends a seller to /app and an answered account on its way", /hasSellerAccess\(access\)\) redirect/.test(startPage) && /WELCOMED_KEY\] === true\) redirect\(welcomeDone/.test(startPage))
+  const modal = readCode("components/app/creator-onboarding-modal.tsx")
+  check("the onboarding opens on the question only for a new account", /useState\(start \? BRANCH_STEP : 1\)/.test(modal))
+  check("  the join branch is a name, a photo and, in the app only, notifications", /nativeFullScreen \? \[JOIN_NAME, JOIN_PHOTO, JOIN_NOTIFY\] : \[JOIN_NAME, JOIN_PHOTO\]/.test(modal))
+  check("  no store field in it (no category, no socials, no plan)", (() => { const a = modal.indexOf("step === JOIN_NAME &&"); const b = modal.indexOf("{step === 1 && ("); const part = modal.slice(a, b); return a > 0 && b > a && !/socials|selectedCategory|PricingSection/.test(part) })())
+  check("  the phone is asked only from the button (askPushPermission)", /onClick=\{allowNotifications\}/.test(modal) && /setPushAnswer\(await askPushPermission\(\)\)/.test(modal))
+  check("  the handle goes through the one handle rule, the name through /api/account/welcome", /\/api\/profile\/username/.test(modal) && /\/api\/account\/welcome/.test(modal))
+  const api = readCode("app/api/account/welcome/route.ts")
+  check("the welcome API cleans the name, refuses an address, is rate limited and writes only the session's own row", /cleanName\(body\.name\)/.test(api) && /name\.includes\("@"\)/.test(api) && /rateLimit\(/.test(api) && /\.eq\("id", user\.id\)/.test(api))
+  const invite = readCode("components/community/member/invite-landing.tsx")
+  check("an invite's landing accepts once on arrival with ?accept=1, and drops the flag first", /get\("accept"\) !== "1"/.test(invite) && /searchParams\.delete\("accept"\)/.test(invite) && /autoAccepted\.current = true/.test(invite))
+
+  console.log("\nPull to refresh on the /app home: the community's spinner (scripts/check-app-pull.mjs measures it)")
+  const indicator = readCode("components/app/pull-to-refresh-indicator.tsx")
+  const dash = readCode("components/app/dashboard-client.tsx")
+  check("the indicator draws the eight spokes, not the ring", /SPINNER_SPOKES\.map/.test(indicator) && /data-ptr-spoke/.test(indicator) && !/data-ptr-arc/.test(indicator))
+  check("  in the room the spokes need", /const REFRESH_HOLD = SPOKES_HOLD/.test(dash))
+
+  console.log("\nApp links (lib/platform/app-links)")
+  const cfg = appLinkConfig({})
+  check("without env vars, exactly what the files held", cfg.teamId === DEFAULT_TEAM_ID && cfg.bundleId === "com.storelib.app" && cfg.fingerprints.join() === DEFAULT_ANDROID_FINGERPRINTS.join())
+  const custom = appLinkConfig({ APPLE_TEAM_ID: "abcde12345", IOS_BUNDLE_ID: "com.example.app", ANDROID_PACKAGE_NAME: "com.example.app", ANDROID_SHA256_CERT_FINGERPRINTS: `${"aa:".repeat(31)}aa, ${"BB:".repeat(31)}BB` })
+  check("from env vars, each checked (case, several fingerprints)", custom.teamId === "ABCDE12345" && custom.bundleId === "com.example.app" && custom.fingerprints.length === 2 && custom.fingerprints[0] === `${"AA:".repeat(31)}AA`)
+  check("a malformed value is the default, never a broken file", appLinkConfig({ APPLE_TEAM_ID: "nope", ANDROID_SHA256_CERT_FINGERPRINTS: "zz" }).teamId === DEFAULT_TEAM_ID && appLinkConfig({ ANDROID_SHA256_CERT_FINGERPRINTS: "zz" }).fingerprints.join() === DEFAULT_ANDROID_FINGERPRINTS.join())
+  const aasa = appleAppSiteAssociation(custom)
+  check("the AASA names the app for links and passwords", aasa.applinks.details[0].appIDs[0] === "ABCDE12345.com.example.app" && aasa.webcredentials.apps[0] === "ABCDE12345.com.example.app")
+  check("assetlinks names the package and keys", assetLinks(custom)[0].target.package_name === "com.example.app" && assetLinks(custom)[0].target.sha256_cert_fingerprints.length === 2)
+  const opens = ["/community/clay", "/community/clay/post/1", "/@ana", "/member/ana", "/u/ana", "/p/a-thing", "/andrewrullz", "/andrewrullz/a-product", "/auth/callback"]
+  const stays = ["/", "/app", "/app/products", "/checkout", "/receipt/1", "/purchase/success", "/login", "/signup", "/explore", "/api/x", "/admin", "/onboarding/start", "/community", "/robots.txt", "/icon.png", "/sitemap.xml"]
+  check("communities, profiles, creator pages and products open the app", opens.every(opensInApp), opens.filter((p) => !opensInApp(p)))
+  check("checkout, sign in, /app and the platform's own pages stay in the browser", stays.every((p) => !opensInApp(p)), stays.filter(opensInApp))
+  /* Every top level route under app/ is either one of the app's paths or the platform's own, so no new page is ever taken for a creator page. */
+  const segs = new Set<string>()
+  const walk = (d: string) => {
+    for (const f of readdirSync(d)) {
+      const full = join(d, f)
+      if (!statSync(full).isDirectory()) continue
+      if (/^\(.*\)$/.test(f)) walk(full)
+      else if (!f.startsWith("[") && !f.startsWith("_")) segs.add(f)
+    }
+  }
+  walk(join(process.cwd(), "app"))
+  const known = new Set<string>([...WEB_ONLY_SEGMENTS, ...APP_PATHS.map((p) => p.split("/")[1].replace(/\*$/, ""))])
+  const unknown = [...segs].filter((s) => !known.has(s) && !/\./.test(s))
+  check("every top level route is the app's or the platform's own", unknown.length === 0, unknown)
+  const cfgFile = readCode("next.config.mjs")
+  check("the two addresses are served by the routes (rewritten before the public folder)", /source: "\/\.well-known\/apple-app-site-association", destination: "\/api\/app-links\/apple-app-site-association"/.test(cfgFile) && /source: "\/\.well-known\/assetlinks\.json", destination: "\/api\/app-links\/assetlinks"/.test(cfgFile))
+  {
+    const { GET: aasaGet } = await import("../app/api/app-links/apple-app-site-association/route")
+    const { GET: linksGet } = await import("../app/api/app-links/assetlinks/route")
+    const a = aasaGet()
+    const l = linksGet()
+    check("served as application/json with a 200", a.status === 200 && a.headers.get("content-type") === "application/json" && l.status === 200 && l.headers.get("content-type") === "application/json")
+    const body = JSON.parse(await a.text())
+    check("  and the body parses to the association", body.applinks.details[0].components.length > 10 && Array.isArray(JSON.parse(await l.text())))
+  }
+  check("a storelib.com link the phone hands the app is its page", openTarget("https://storelib.com/community/clay?x=1") === "/community/clay?x=1" && openTarget("https://www.storelib.com/@ana") === "/@ana")
+  check("  the sign in and reset returns are left to their own handler", openTarget("https://storelib.com/auth/callback?code=1") === null && openTarget("https://storelib.com/app/auth/callback?code=1") === null && openTarget("https://storelib.com/reset-password#t") === null)
+  check("  another site never", openTarget("https://storelib.com.evil.com/x") === null && openTarget("https://evil.com/community/x") === null)
+  const opener = readCode("components/platform/app-link-opener.tsx")
+  check("the app follows the launch link once per run, not on every page load", /sessionStorage\.getItem\(LAUNCH_KEY\)/.test(opener) && /if \(seen !== launch\) go\(launch\)/.test(opener))
+  check("the root layout mounts it", /<AppLinkOpener \/>/.test(readCode("app/layout.tsx")))
+  const manifest = readCode("android/app/src/main/AndroidManifest.xml")
+  check("Android declares the shared pages as verified App Links", /android:autoVerify="true"[\s\S]*?android:pathPrefix="\/community\/"[\s\S]*?android:pathPrefix="\/@"/.test(manifest))
+
+  console.log("\nThe Open in the app pill (scripts/check-open-app-pill.mjs measures it)")
+  check("Android opens this page in the app, the Play Store as the fallback", /^intent:\/\/storelib\.com\/community\/clay#Intent;scheme=https;package=com\.storelib\.app;S\.browser_fallback_url=/.test(pageAppLink("android", "/community/clay")))
+  check("an iPhone opens the app's scheme with the page", pageAppLink("ios", "/community/clay") === "com.storelib.app://open?path=%2Fcommunity%2Fclay")
+  const ua = { safari: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Version/18.0 Mobile/15E148 Safari/604.1", chrome: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) CriOS/129.0 Mobile/15E148", android: "Mozilla/5.0 (Linux; Android 14) Chrome/129.0 Mobile Safari/537.36", app: "Mozilla/5.0 (iPhone) Capacitor", mac: "Mozilla/5.0 (Macintosh) Safari/605" }
+  check("Safari with the Smart App Banner gets no pill; without one it does", pillPhone(ua.safari, true) === null && pillPhone(ua.safari, false) === "ios")
+  check("Chrome on an iPhone and Android get the pill; the app and a computer never", pillPhone(ua.chrome, true) === "ios" && pillPhone(ua.android, true) === "android" && pillPhone(ua.app, false) === null && pillPhone(ua.mac, false) === null)
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) {

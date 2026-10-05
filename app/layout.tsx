@@ -52,6 +52,7 @@ import { KeyboardGuard } from "@/components/platform/keyboard-guard"
 import { RotationGuard } from "@/components/platform/rotation-guard"
 import { AppHistoryTracker } from "@/components/platform/app-history-tracker"
 import { NativeLinkGuard } from "@/components/platform/native-link-guard"
+import { AppLinkOpener } from "@/components/platform/app-link-opener"
 import { NativePlaceKeeper } from "@/components/platform/native-place-keeper"
 import { NativeChrome } from "@/components/platform/native-chrome"
 import { EdgeSwipeBack } from "@/components/platform/edge-swipe-back"
@@ -270,6 +271,8 @@ export default function RootLayout({
         <AppHistoryTracker />
         {/* Inside the phone app only: Storelib links stay in the app, and the page is kept for the next start. */}
         <NativeLinkGuard />
+        {/* Inside the phone app only: a storelib.com link the phone opened in the app goes to its page (lib/platform/app-links). */}
+        <AppLinkOpener />
         <NativePlaceKeeper />
         {/* The strip under the clock, the browser's bar and the status bar's text in the page's own top colour; the launch screen down on the first steady frame. */}
         <NativeChrome />
