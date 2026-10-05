@@ -130,7 +130,11 @@ check("the hook takes a document scroller: touches on the page's own wrapper, it
 check("every gesture inside the shared component is judged by its first pixels, so a sideways row keeps its swipe", /axisFirst: true/.test(ptr) && /if \(held === 0 && axisFirst\) lateral = true/.test(hook))
 check("the blocking listener is still only on while the top is on screen", /target\.addEventListener\("touchmove", onTouchMove, \{ passive: false \}\)/.test(hook) && /new IntersectionObserver/.test(hook))
 check("nothing at rest: the page is not moved once home", /el\.style\.transform = y === 0 \? "" :/.test(hook))
-check("used on /app analytics (refreshing its figures in place)", /<RouterPullToRefresh scope="app-analytics" fill>/.test(code("app/app/analytics/page.tsx")) && /detail\?\.scope !== "app-analytics"/.test(code("app/app/analytics/analytics-client.tsx")) && /setTick\(\(n\) => n \+ 1\)/.test(code("app/app/analytics/analytics-client.tsx")))
+/* Round 12, ask 37: "the pull to refresh indicator sits BELOW the purple announcement bar, like the /app home dashboard". */
+check("used on /app analytics (refreshing its figures in place), around the page under its purple bar, not around the bar",
+  /<TryProStrip \/>\s*(\{\s*(\/\*[\s\S]*?\*\/)?\s*\}\s*)?<RouterPullToRefresh scope="app-analytics">/.test(code("app/app/analytics/analytics-client.tsx")) && !/RouterPullToRefresh/.test(code("app/app/analytics/page.tsx"))
+    && /detail\?\.scope !== "app-analytics"/.test(code("app/app/analytics/analytics-client.tsx")) && /setTick\(\(n\) => n \+ 1\)/.test(code("app/app/analytics/analytics-client.tsx")))
+check("and the pull finds the page's scroll box around it", /const own = root\.closest<HTMLElement>\("\[data-pull-scroller\], \.page-scroll"\)/.test(ptr))
 check("the /app home has had it all along, on the same engine", /usePullToRefresh\(scrollRef, handlePullRefresh/.test(code("components/app/dashboard-client.tsx")))
 check("the community feed pages dispatch the event for the feed", /<PullToRefreshEvent scope="community-feed">/.test(code("app/(marketing)/community/[slug]/page.tsx")) && /<PullToRefreshEvent scope="community-feed">/.test(code("app/(marketing)/community/[slug]/(member)/space/[space]/page.tsx")))
 const bridge = code("lib/native-bridge.ts")

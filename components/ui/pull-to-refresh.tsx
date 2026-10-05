@@ -26,9 +26,10 @@
  * this wraps them so any page can have them without copying a line. What it
  * adds is finding the page's scroller, which is one of three things:
  *
- *   inside the children   a page that is its own scroll box (/app's
- *                         analytics: `.page-scroll`), or anything marked
- *                         data-pull-scroller
+ *   inside the children   a page that is its own scroll box, or anything
+ *                         marked data-pull-scroller
+ *   just outside it       the same, when the pull wraps only the part under
+ *                         a bar that stays put (/app analytics)
  *   around it             /app's `.app-content-scroll`
  *   the document          every page that scrolls the window (a community)
  *
@@ -61,6 +62,9 @@ export const REFRESH_MAX_MS = 10_000
 function scrollerFor(root: HTMLElement): HTMLElement {
   const inside = root.querySelector<HTMLElement>("[data-pull-scroller], .page-scroll")
   if (inside) return inside
+  /* Inside a page's own scroll box, under something that stays put (/app analytics' purple bar): that box. */
+  const own = root.closest<HTMLElement>("[data-pull-scroller], .page-scroll")
+  if (own) return own
   const around = root.closest<HTMLElement>(".app-content-scroll")
   if (around) return around
   return (document.scrollingElement as HTMLElement | null) ?? document.documentElement

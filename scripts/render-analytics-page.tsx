@@ -27,6 +27,7 @@ import { createRoot } from "react-dom/client"
 import { AnalyticsClient } from "@/app/app/analytics/analytics-client"
 import { AnalyticsSummaryFact, AnalyticsSummaryLine } from "@/components/app/analytics-summary-line"
 import { LanguageProvider } from "@/lib/i18n/context"
+import { RouterPullToRefresh } from "@/components/ui/pull-to-refresh"
 import { buildReports, moneyOf, salesFor, wireFromRows, type StepRow, type SubscriberRow, type ViewRow } from "@/lib/analytics/reports"
 import { parseProperty, type CreatorProperties } from "@/lib/analytics/properties"
 import { summaryHref } from "@/lib/analytics/summary"
@@ -228,7 +229,14 @@ const page = () =>
   ) : (
     <LanguageProvider>
       <div style={{ height: "100vh" }}>
-        <AnalyticsClient creatorId="c1" userId="u1" products={products} properties={PLACES} />
+        {/* ?outer=1: the pull wrapped round the whole page, as page.tsx did before round 12, for scripts/check-analytics-pull.mjs to compare. */}
+        {params.get("outer") === "1" ? (
+          <RouterPullToRefresh scope="app-analytics" fill>
+            <AnalyticsClient creatorId="c1" userId="u1" products={products} properties={PLACES} />
+          </RouterPullToRefresh>
+        ) : (
+          <AnalyticsClient creatorId="c1" userId="u1" products={products} properties={PLACES} />
+        )}
       </div>
     </LanguageProvider>
   )
