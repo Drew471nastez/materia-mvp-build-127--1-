@@ -1,0 +1,26 @@
+  FAIL  Log in is outlined, to /login, and only where asked for
+  FAIL  a thin vertical rule first
+  FAIL  and the account layout mounts it, as the library's does
+  FAIL  app/admin/payments/accounts/[id]/page.tsx asks for the admin session on the server
+  FAIL  app/admin/payments/accounts/page.tsx asks for the admin session on the server
+  FAIL  app/admin/payments/configuration/page.tsx asks for the admin session on the server
+  FAIL  app/admin/payments/disputes/page.tsx asks for the admin session on the server
+  FAIL  app/admin/payments/fees/page.tsx asks for the admin session on the server
+  FAIL  app/admin/payments/page.tsx asks for the admin session on the server
+  FAIL  app/admin/payments/payouts/page.tsx asks for the admin session on the server
+  FAIL  app/admin/payments/simulator/page.tsx asks for the admin session on the server
+  FAIL  app/admin/payments/transactions/page.tsx asks for the admin session on the server
+  FAIL  app/admin/payments/webhooks/page.tsx asks for the admin session on the server
+  FAIL  both computer rows wait with an invisible copy of the logged out row
+  FAIL  every skeleton loading screen is deferred
+  FAIL  its fee still resolves to 1.5%
+  FAIL  its highlights describe its own fee: 3% + $0.25 per sale ($4+); 9.25% under $4
+  FAIL  login: both native sheets remember it
+  FAIL  native OAuth hands the carry to /auth/continue through sync-session
+  FAIL  no admin query asks orders for creator_id or seller_id
+  FAIL  no transition animates `transform` on something that moves with translate or scale
+  FAIL  signup: the native Apple sheet remembers it
+  FAIL  the header has depth
+  FAIL  the marketing menu has Discover
+  FAIL  the menu button has slack around it
+  FAIL  the skeleton only exists while something the visitor started is pending
