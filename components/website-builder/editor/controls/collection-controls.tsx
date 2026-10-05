@@ -122,7 +122,7 @@ function Unavailable({ list }: { list: PickerCollection[] | null | undefined }) 
   return (
     <div className="space-y-1">
       <p className={NOTE}>You have no collections yet. Make one in Products › Collections, from any of your products.</p>
-      <a href="/app/collections" target="_blank" rel="noopener" className={TEXT_BUTTON}>Create a collection</a>
+      <a href="/app/products/collections" target="_blank" rel="noopener" className={TEXT_BUTTON}>Create a collection</a>
     </div>
   )
 }

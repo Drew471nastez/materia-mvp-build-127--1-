@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { shopCaller, physicalJson, readBody } from "@/lib/physical/auth"
-import { listCollections, saveCollection } from "@/lib/physical/collections-server"
+import { collectionsArea, listCollections, saveCollection } from "@/lib/physical/collections-server"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -8,11 +8,7 @@ export const dynamic = "force-dynamic"
 export async function GET() {
   const c = await shopCaller()
   if (c instanceof NextResponse) return c
-  const [collections, { data: products }] = await Promise.all([
-    listCollections(c.db, c.creatorId),
-    c.db.from("products").select("id, title, thumbnail_url, type, status, price_cents").eq("creator_id", c.creatorId).order("created_at", { ascending: false }).limit(1000),
-  ])
-  return physicalJson({ collections, products: products ?? [] })
+  return physicalJson(await collectionsArea(c.db, c.creatorId))
 }
 
 export async function POST(request: Request) {

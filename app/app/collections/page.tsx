@@ -1,15 +1,6 @@
-import { redirect } from "next/navigation"
-import { currentCreatorId } from "@/lib/creators/current"
-import { CollectionsClient } from "./collections-client"
+import { permanentRedirect } from "next/navigation"
 
-export const dynamic = "force-dynamic"
-export const revalidate = 0
-
-export const metadata = { title: "Collections" }
-
-/** Groups of products, picked or matched by rules, of every kind: Products › Collections. */
-export default async function CollectionsPage() {
-  const creatorId = await currentCreatorId()
-  if (!creatorId) redirect("/sell")
-  return <CollectionsClient />
+/** Collections moved under Products (Shopify's Products › Collections); the old address keeps working. */
+export default function CollectionsMoved() {
+  permanentRedirect("/app/products/collections")
 }

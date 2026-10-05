@@ -16,7 +16,7 @@ import { PhysicalProductCards, type PhysicalEditorHandle } from "@/components/ph
 import { InventoryClient } from "@/app/app/inventory/inventory-client"
 import { PhysicalOrderPanel } from "@/components/physical/order-panel"
 import { OrderStatusView } from "@/app/checkout/physical/order/[token]/order-status-view"
-import { CollectionsClient } from "@/app/app/collections/collections-client"
+import { CollectionsClient } from "@/app/app/products/collections/collections-client"
 import { ArticleBody } from "@/components/help/help-parts"
 import { helpArticle } from "@/lib/help/articles"
 
@@ -61,7 +61,11 @@ function App() {
     case "collections":
       return (
         <div className="h-screen">
-          <CollectionsClient />
+          {/* The page reads these on the server (app/app/products/collections/page.tsx); here they are handed over as it would. */}
+          <CollectionsClient
+            initialCollections={[{ id: "c1", title: "Summer", slug: "summer", description: null, imageUrl: null, kind: "smart", rules: [{ field: "tag", op: "equals", value: "summer" }], match: "all", sort: "manual", published: true, productIds: [SHOP] }]}
+            products={[{ id: SHOP, title: "Linen shirt", thumbnail_url: null, type: "physical", status: "published", price_cents: 4500, tags: ["summer"] }]}
+          />
         </div>
       )
     case "order":
