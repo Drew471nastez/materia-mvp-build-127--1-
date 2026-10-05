@@ -3646,7 +3646,12 @@ try {
     }
     const menuItem = async (p, words) => {
       await sleep(450)
-      const item = await p.evaluateHandle((w) => [...document.querySelectorAll('[role="menuitem"], [data-sheet] button, button')].find((b) => b.textContent.trim() === w && b.getBoundingClientRect().width > 0) ?? null, words)
+      /* A row's words, its glyph (an emoji, a space's) before them or not. */
+      const item = await p.evaluateHandle((w) => {
+        const fits = (b) => (b.textContent.trim() === w || b.textContent.trim().endsWith(w)) && b.textContent.trim().length <= w.length + 3 && b.getBoundingClientRect().width > 0
+        /* A menu's own rows first (a chip in the page can carry the same words). */
+        return [...document.querySelectorAll('[role="menuitem"]')].find(fits) ?? [...document.querySelectorAll('[role="dialog"] button, [data-sheet] button')].find(fits) ?? [...document.querySelectorAll("button")].find(fits) ?? null
+      }, words)
       const el = item.asElement()
       if (!el) return false
       await el.click().catch(() => el.evaluate((e) => e.click()))
@@ -3663,9 +3668,7 @@ try {
 
     /* ── R13 SWITCH (1): All and a space holding the same posts: the same card nodes, no fade ── */
     if (want("r13switch")) {
-      const { p, errors, live } = await open("switch", "/community/studio-notes", vp)
-      const posts = await p.evaluate(() => window.__FEED_POSTS)
-      live.feedPage = { pinned: [], posts, nextCursor: null }
+      const { p, errors } = await open("switch", "/community/studio-notes", vp)
       await sleep(300)
       const mark = () => p.evaluate(() => {
         let n = 0
@@ -3707,13 +3710,23 @@ try {
 
     /* ── R13 CARDS (5, 9, 10, 16): dates, no dot, pinned, the grid, soft pictures, SDR ── */
     if (want("r13cards")) {
-      const { p, errors } = await open("edit", "/community/studio-notes", vp, { imageWait: 700 })
-      await sleep(80)
-      const early = await p.evaluate(() => {
-        const t = document.querySelector('[data-post="p-mine"] [data-card-media-tile] [data-soft-img]')
-        const blur = document.querySelector('[data-post="p-mine"] [data-card-media-tile] [data-soft-blur]')
-        return { img: t?.getAttribute("data-soft-img"), opacity: t ? getComputedStyle(t).opacity : null, blur: blur ? getComputedStyle(blur).backgroundImage.slice(0, 40) : null }
-      })
+      /* What the first picture of the member's post looks like on the first frames it is drawn, from the page's start. */
+      const watchSoft = () => {
+        window.__soft = []
+        const look = () => {
+          const t = document.querySelector('[data-post="p-mine"] [data-card-media-tile] [data-soft-img]')
+          if (t && window.__soft.length < 120) {
+            const blur = t.parentElement.querySelector("[data-soft-blur]")
+            window.__soft.push({ img: t.getAttribute("data-soft-img"), opacity: getComputedStyle(t).opacity, blur: blur ? getComputedStyle(blur).backgroundImage.slice(0, 40) : null })
+          }
+          requestAnimationFrame(look)
+        }
+        requestAnimationFrame(look)
+      }
+      const { p, errors } = await open("edit", "/community/studio-notes", vp, { imageWait: 900, before: watchSoft })
+      await sleep(1000)
+      const softFrames = await p.evaluate(() => window.__soft)
+      const early = softFrames[0] ?? {}
       await sleep(1200)
       const c = await p.evaluate(() => {
         const card = (id) => document.querySelector(`[data-post="${id}"]`)
@@ -3737,6 +3750,8 @@ try {
       expect(c.grid?.kind === "grid" && c.grid.tiles === 3 && c.grid.more === "+1" && c.grid.edge && !c.grid.thumb, "R13 GRID: four pictures are a grid in the card (first large, two stacked, +1), a hairline edge, no right thumbnail", c.grid)
       expect(Math.abs((c.grid?.ratio ?? 0) - (phone ? 2 : 8 / 3)) < 0.05, `the grid is one box of a fixed shape (${phone ? "2:1" : "8:3"})`, c.grid?.ratio)
       expect(early.img === "wait" && early.opacity === "0" && /url\(/.test(early.blur ?? ""), "R13 SOFT: before a picture arrives its box shows a blurred 32px copy, the picture still transparent", early)
+      const ops = softFrames.map((f) => Number(f.opacity)).filter((o, i, a) => i === 0 || o !== a[i - 1])
+      expect(ops.length >= 3 && ops[0] === 0 && ops.at(-1) === 1, "and it fades in over several frames when it arrives (no pop)", ops.slice(0, 8))
       expect(c.late?.state === "in" && c.late.opacity === "1" && c.late.sdr, "then it fades in (opacity), drawn in standard dynamic range", c.late)
       expect(c.role === "Owner", "R13 ADMIN MARKER: the owner's post carries its quiet role line", c.role)
       await shot(p, `${label}-r13-cards`)
@@ -3766,12 +3781,14 @@ try {
         const next = document.querySelector('[data-post="p-text"]')?.previousElementSibling
         const loop = () => {
           const gone = !document.querySelector('[data-feed-list] > [data-post="p-text"]')
-          const ghost = [...document.body.children].find((x) => x.getAttribute?.("aria-hidden") === "true" && x.style?.position === "fixed")
+          const ghost = document.querySelector("[data-fold-ghost]")
           window.__lv.push({ gone, ghost: ghost ? Number(getComputedStyle(ghost).opacity).toFixed(2) : null })
           if (window.__lv.length < 40) requestAnimationFrame(loop)
         }
         requestAnimationFrame(loop)
       })
+      await p.evaluate(() => document.querySelector('[data-post="p-text"]')?.scrollIntoView({ block: "center" }))
+      await sleep(300)
       await p.evaluate(() => window.__broadcast("community-live:probe", "post-change", { postId: "p-text", spaceId: "s-general", change: "delete" }))
       await sleep(900)
       const after = await p.evaluate(() => ({ ids: [...document.querySelectorAll("[data-feed-list] > [data-post]")].map((e) => e.getAttribute("data-post")), frames: window.__lv }))
@@ -3791,9 +3808,9 @@ try {
       }
       const { p, errors } = await open("feed", "/community/studio-notes", vp, { before: shareStub })
       await press(p, '[data-post="p-text"] [data-post-more]')
-      const items = await p.evaluate(() => new Promise((r) => setTimeout(() => r([...document.querySelectorAll('[role="menuitem"], [data-sheet] button')].map((b) => b.textContent.trim()).filter(Boolean)), 450)))
+      const items = await p.evaluate(() => new Promise((r) => setTimeout(() => r([...document.querySelectorAll('[role="menuitem"], button')].filter((b) => b.getBoundingClientRect().width > 0).map((b) => b.textContent.trim()).filter(Boolean)), 450)))
       const ok = await menuItem(p, "Share post")
-      await sleep(300)
+      await sleep(900)
       const shared = await p.evaluate(() => window.__shared)
       expect(items.includes("Share post") && items.includes("Copy link"), "R13 SHARE: the post's menu has Share post and Copy link", items)
       expect(ok && shared.length === 1 && /\/community\/studio-notes\/post\/p-text$/.test(shared[0].url) && shared[0].title === "Paid discovery week instead of a free pitch" && /paid discovery/.test(shared[0].text), "Share post opens the system share sheet with the post's address, title and words", shared)
@@ -3833,7 +3850,7 @@ try {
       /* Take a picture off, change the title, save. */
       await p.evaluate(() => document.querySelector('[data-composer="edit"] [data-attachment] [aria-label="Remove"], [data-composer="sheet"] [data-attachment] [aria-label="Remove"]')?.click())
       const t = await p.$('[data-composer="edit"] [data-composer-title], [data-composer="sheet"] [data-composer-title]')
-      await t.click({ clickCount: 3 })
+      await t.evaluate((el) => (el.focus(), el.select()))
       await t.type("Studio wall, after")
       await p.evaluate(() => {
         window.__btn = []
@@ -3946,8 +3963,10 @@ try {
       const rep = await onTop(p, phone ? "[data-report-sheet]" : "[data-report-dialog]")
       expect(!!rep?.top, "R13 REPORT: opens ABOVE the post", rep)
       await shot(p, `${label}-r13-report-over-post`)
-      await p.keyboard.press("Escape")
-      await sleep(500)
+      /* Closed by its own way out: Escape on a computer, a press on its scrim (over the post) on a phone. */
+      if (phone) await p.mouse.click(vp.width / 2, 12)
+      else await p.keyboard.press("Escape")
+      await sleep(600)
       /* Delete my own comment: the confirm above the post. */
       const own = await p.evaluate(() => [...document.querySelectorAll("[data-comment]")].map((e) => e.getAttribute("data-comment")).find((id) => /^c-new|^sending/.test(id)))
       await press(p, `[data-comment="${own}"] [data-comment-more]`)
@@ -4038,9 +4057,10 @@ try {
       if (await p.evaluate(() => document.querySelector("[data-composer-space]")?.getAttribute("data-composer-space") === "")) {
         await space.click()
         await menuItem(p, "General")
-        await sleep(300)
+        /* A phone's menu is a sheet: the choice lands once it has slid away. */
+        await sleep(phone ? 900 : 300)
       }
-      const glyph2 = await p.evaluate(() => document.querySelector("[data-composer-space] [data-space-glyph]")?.textContent ?? null)
+      const glyph2 = await p.evaluate(() => document.querySelector('[data-composer="sheet"] [data-composer-space] [data-space-glyph], [data-composer="open"] [data-composer-space] [data-space-glyph]')?.textContent ?? null)
       const n0 = await p.evaluate(() => window.__sounds.noise)
       await press(p, "[data-composer-post]")
       await sleep(1500)

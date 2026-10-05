@@ -100,6 +100,7 @@ export function foldAway(id: string) {
   const ghost = card.cloneNode(true) as HTMLElement
   ghost.removeAttribute("data-post")
   ghost.setAttribute("aria-hidden", "true")
+  ghost.setAttribute("data-fold-ghost", "")
   Object.assign(ghost.style, { position: "fixed", left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${r.height}px`, margin: "0", zIndex: "1", pointerEvents: "none" })
   document.body.appendChild(ghost)
   ghost.animate([{ opacity: 1, scale: "1" }, { opacity: 0, scale: "0.98" }], { duration: 200, easing: "cubic-bezier(0.4, 0, 1, 1)", fill: "forwards" }).onfinish = () => ghost.remove()
@@ -176,9 +177,10 @@ export function FeedLive({ communityId, viewerId, feedKey, target, sort, onView 
   /* AN EDIT OR A DELETE: every cached list, then the one on screen. */
   useEffect(() => {
     const apply = (id: string, fn: (p: FeedPostView) => FeedPostView | null) => {
-      patchPost(communityId, id, fn)
-      setWaiting((w) => (w.some((p) => p.id === id) ? w.flatMap((p) => (p.id === id ? (fn(p) ? [fn(p)!] : []) : [p])) : w))
       const key = now.current.feedKey
+      /* Every other list in the cache; the one on screen below, so it is drawn (and its card folds away) from what it held. */
+      patchPost(communityId, id, fn, key)
+      setWaiting((w) => (w.some((p) => p.id === id) ? w.flatMap((p) => (p.id === id ? (fn(p) ? [fn(p)!] : []) : [p])) : w))
       const view = readView(key)
       if (!view?.posts.some((p) => p.id === id)) return
       if (!fn(view.posts.find((p) => p.id === id)!)) foldAway(id)

@@ -90,8 +90,9 @@ export function announceComment(communityId: string, comment: { id: string; post
 /*
   AN EDIT OR A DELETE, LIVE (round 13). Whoever has the community open hears
   that a post changed ("edit") or went ("delete"), by id only, like a new
-  one: an edit is read again through the gated route (a member who may not
-  see it gets a 404 and nothing changes), a delete takes the card away.
+  one: an edit is read again through the gated route (a member who may no
+  longer see it gets a 404, and it leaves their screen), a delete takes the
+  card away.
   A comment's edit or delete goes to whoever has its post open.
 */
 export type LiveChange = "edit" | "delete"

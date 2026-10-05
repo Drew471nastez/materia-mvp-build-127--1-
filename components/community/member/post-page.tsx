@@ -115,9 +115,9 @@ function VisitorJoinBar({ slug, name, logoUrl, signedIn }: { slug: string; name:
         <AppAvatar src={logoUrl} name={name} alt="" size={36} className="rounded-[10px]" />
         <p className="min-w-0 flex-1 text-[14px] leading-snug text-[#4b5563]">
           <span className="block truncate font-semibold text-[#1a1a2e]">{name}</span>
-          <span className="block truncate">{signedIn ? "Join to like, comment and post." : "Join free to like, comment and post."}</span>
+          <span className="block truncate">{signedIn ? "Join to like and comment." : "Join free to like and comment."}</span>
         </p>
-        <Link href={`/community/${slug}/about`} className={`${BTN_PRIMARY} shrink-0 px-5`} data-visitor-join-button="">
+        <Link href={`/community/${slug}/about`} className={`${BTN_PRIMARY} h-10 shrink-0 px-5 sm:h-10`} data-visitor-join-button="">
           Join
         </Link>
       </div>

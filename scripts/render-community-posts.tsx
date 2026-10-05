@@ -371,9 +371,10 @@ function Screen() {
       canEdit: true,
       title: "Studio wall, before and after",
       bodyText: "Two weekends of painting. Which corner works better for critique night?",
+      /* Pictures on "storage", so they come through the optimizer (slowed by the probe) with their 32px copy first. */
       media: [
-        { type: "image", url: picture("#e3d9c6", "#b49a6a", 1200, 900), w: 1200, h: 900 },
-        { type: "image", url: picture("#cfd9e6", "#6d84a3", 1200, 900), w: 1200, h: 900 },
+        { type: "image", url: `${STORAGE}/wall-before.jpg`, w: 1200, h: 900 },
+        { type: "image", url: `${STORAGE}/wall-after.jpg`, w: 1200, h: 900 },
       ],
       poll: { id: "33333333-0000-4000-8000-0000000000e1", question: "Which corner?", multiple: false, closesAt: null, closed: false, totalVotes: 0, options: [{ id: "e1-a", label: "By the window", voteCount: 0, voted: false }, { id: "e1-b", label: "By the shelves", voteCount: 0, voted: false }] },
       createdAt: iso(NOW - 57 * MIN),
@@ -381,6 +382,18 @@ function Screen() {
     })
     const list = which === "edit" ? [mine, ...POSTS.filter((p) => !p.pinned)] : POSTS.filter((p) => !p.pinned)
     ;(window as unknown as { __FEED_POSTS: FeedPostView[] }).__FEED_POSTS = list
+    /* A space's page (and All's again) is the same posts: answered here, before the feed reads any list ahead. */
+    if (which === "switch" && !(window as unknown as { __echo?: boolean }).__echo) {
+      ;(window as unknown as { __echo?: boolean }).__echo = true
+      const real = window.fetch.bind(window)
+      window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input instanceof Request ? input.url : input)
+        if (/\/posts\?/.test(url) && (!init?.method || init.method === "GET")) {
+          return new Promise((done) => setTimeout(() => done(new Response(JSON.stringify({ pinned: POSTS.filter((p) => p.pinned), posts: list, nextCursor: null }), { status: 200, headers: { "content-type": "application/json" } })), 120))
+        }
+        return real(input, init)
+      }
+    }
     return shell(
       <FeedColumns
         main={

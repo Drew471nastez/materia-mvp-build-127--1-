@@ -1055,6 +1055,7 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
         onChange={setBody}
         placeholder="Write something..."
         ariaLabel="Post"
+        caretAtEnd={editing}
         minRows={sheet ? 6 : 4}
         maxLength={20000}
         className="mt-2 text-[16px] leading-[1.55] text-[#262633] sm:text-[15px]"
@@ -1110,6 +1111,12 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
   const actionLabel = editing ? "Save" : "Post"
   const editorBlock = (
     <div ref={editorRef} className={editing ? "pt-3" : "px-4 pb-4 pt-0.5 sm:px-5"} data-composer-editor="">
+      {editing ? (
+        /* In place, a quiet word that the post is being edited (the fields look like the post itself). */
+        <p className="mb-2 text-[12.5px] font-medium text-[#6b7280]" data-composer-editing="">
+          Editing your post
+        </p>
+      ) : null}
       {fields}
       <div className="mt-3 flex flex-wrap items-center gap-x-1 gap-y-2 border-t border-[#f0f1f3] pt-2.5">
         {tools}
