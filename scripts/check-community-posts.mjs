@@ -311,6 +311,12 @@ async function open(name, path, vp, opts = {}) {
           r.respond({ status: refuse ? 403 : 200, contentType: "application/json", body: JSON.stringify(refuse ? { error: "muted" } : toggle.startsWith("like:") ? { on: sent.on, count: (opts.likeBase ?? 0) + (sent.on ? 1 : 0) } : { on: sent.on }) })
         }, opts.wait ?? 300)
       }
+      /* Round 12: the safety checks hold it for a moderator (202, held, the server's own words). */
+      if (opts.held && method === "POST" && (short.endsWith("/posts") || /\/posts\/[^/]+\/comments$/.test(short))) {
+        live.held = [...(live.held || []), short]
+        const post = short.endsWith("/posts")
+        return reply(post ? { post: { id: "p-held", title: sent.title }, held: true, message: "Your post is waiting for a moderator. You will hear when it is up." } : { comment: { id: "c-held", body: sent.body }, held: true, message: "Your comment is waiting for a moderator." }, 202, 200)
+      }
       if (/\/posts\/[^/]+\/comments$/.test(short) && method === "POST") {
         const refuse = /refuse/.test(sent.body || "")
         const n = ++live.comments
@@ -3482,6 +3488,44 @@ try {
       console.log(`  info  HIGHLIGHT frames (ms from first, post x tint): ${JSON.stringify(seen.filter((_, i) => i % 4 === 0).slice(0, 30).map((f) => [Math.round(f.t - seen[0].t), f.eff]))}`)
       expect(errors.length === 0, "no page error", errors)
       await p.close()
+    }
+
+    /* ── R12 HELD: a post or a comment held for a moderator (202) ── */
+    if (want("r12held")) {
+      const { p, errors } = await open("feed", "/community/studio-notes", vp, { held: true })
+      await press(p, "[data-composer-open]")
+      await sleep(700)
+      await p.type("[data-composer-title]", "My first link")
+      await p.type('[aria-label="Post"]', "Have a look at https://example.com/offer")
+      await press(p, "[data-composer-space]")
+      await sleep(350)
+      const spaceItem = await p.evaluateHandle(() => [...document.querySelectorAll('[role="menuitem"], [data-sheet] button, button')].find((b) => b.textContent.trim() === "General" && b.closest('[role="menu"], [role="dialog"]')))
+      await spaceItem.asElement()?.click()
+      await sleep(400)
+      await press(p, "[data-composer-post]")
+      await sleep(1400)
+      const after = await p.evaluate(() => ({ inFeed: !!document.querySelector('[data-post="p-held"]'), closed: !!document.querySelector('[data-composer="closed"]'), field: document.querySelector("[data-composer-open]")?.textContent?.trim() ?? null, toast: document.querySelector("[data-community-toast]")?.textContent ?? null, highlight: !!document.querySelector("[data-post-highlight]") }))
+      expect(!after.inFeed && !after.highlight && after.closed, "R12 HELD: a post held for a moderator closes the editor and is not put in the feed as if published", after)
+      expect(after.toast === "Your post is waiting for a moderator. You will hear when it is up.", "a calm toast says the server's own words", after.toast)
+      expect(after.field === "Continue: My first link", "what was written is kept as a draft to change", after.field)
+      await shot(p, `${label}-r12-held-post`)
+      await press(p, "[data-composer-open]")
+      await sleep(700)
+      const back = await p.evaluate(() => ({ title: document.querySelector("[data-composer-title]")?.value, note: document.querySelector('[data-composer-restored="held"]')?.textContent ?? null }))
+      expect(back.title === "My first link" && /waiting for a moderator/.test(back.note ?? ""), "opened again, the words are there with a note that this is a copy", back)
+      expect(errors.length === 0, "no page error", errors)
+      await p.close()
+      const c = await open("post", "/community/studio-notes/post/p-intro", vp, { held: true })
+      const box = '[data-comment-box="comment"]'
+      await c.p.evaluate((s) => document.querySelector(s).scrollIntoView({ block: "center" }), box)
+      await c.p.type(`${box} textarea`, "Join my group at https://example.com/x")
+      const before = await c.p.evaluate(() => document.querySelectorAll("[data-comment]").length)
+      await press(c.p, `${box} [data-comment-send]`)
+      await sleep(900)
+      const cafter = await c.p.evaluate((s) => ({ rows: document.querySelectorAll("[data-comment]").length, words: document.querySelector(`${s} textarea`).value, toast: document.querySelector("[data-community-toast]")?.textContent ?? null }), box)
+      expect(cafter.rows === before && cafter.words === "Join my group at https://example.com/x" && cafter.toast === "Your comment is waiting for a moderator.", "a held comment is not left in the thread, its words come back into the box, and the toast says why", cafter)
+      expect(c.errors.length === 0, "no page error", c.errors)
+      await c.p.close()
     }
 
     /* ── R12 COMPRESS: pictures made lighter in the browser ── */

@@ -587,7 +587,20 @@ function CommentBox({
     setVideoField(false)
     current.current = ""
     onCancel?.()
-    const r = await api<{ comment: CommentView }>(`${apiBase(communityId)}/posts/${postId}/comments`, { body: { body: text, parentId, ...(media.length ? { media } : {}) } })
+    const r = await api<{ comment: CommentView; held?: boolean; message?: string }>(`${apiBase(communityId)}/posts/${postId}/comments`, { body: { body: text, parentId, ...(media.length ? { media } : {}) } })
+    /*
+      HELD FOR A MODERATOR (202): the stand in goes (it is not published), the
+      words and what it carried come back into the box when it is still empty,
+      so they can be changed, and a toast says what the server said.
+    */
+    if (r.ok && r.data.held) {
+      sending.drop(tempId)
+      if (!current.current.trim() && !picksNow.current.length) {
+        setBody(text)
+        setPicks(kept)
+      }
+      return toast(r.data.message || HELD_COMMENT)
+    }
     if (!r.ok) {
       sending.drop(tempId)
       if (!current.current.trim() && !picksNow.current.length) {
@@ -685,6 +698,9 @@ function CommentBox({
     </div>
   )
 }
+
+/** Said when the server holds a comment for a moderator and gives no words of its own. */
+export const HELD_COMMENT = "Your comment is waiting for a moderator."
 
 /** What the box says when a file that is not a picture is picked (comments take no files, round 12). */
 const COMMENT_FILES_SAID = "Comments take pictures, GIFs and video links. Share files in a post."

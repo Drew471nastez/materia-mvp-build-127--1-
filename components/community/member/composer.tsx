@@ -153,6 +153,9 @@ interface Draft {
   media: PostMedia[]
 }
 
+/** Said when the server holds a post for a moderator and gives no words of its own. */
+export const HELD_POST = "Your post is waiting for a moderator."
+
 export const LEAVE_QUESTION = "You haven't finished your post yet. Leave without posting?"
 
 /** One tool in the editor's row: a 40px target, the glyph alone, no box until hovered. */
@@ -355,6 +358,8 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
   const afterClose = useRef<(() => void) | null>(null)
   const arrive = useArrivals()
   const [restored, setRestored] = useState(false)
+  /* The last post was held for a moderator; what is here is a copy of it. */
+  const [heldCopy, setHeldCopy] = useState(false)
   const [asking, setAsking] = useState<((leave: boolean) => void) | null>(null)
   const textRef = useRef<MentionTextareaHandle>(null)
   const titleRef = useRef<HTMLInputElement>(null)
@@ -568,6 +573,7 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
     setDismissed([])
     setLinkField(null)
     setRestored(false)
+    setHeldCopy(false)
     if (!fixedSpaceId && spaces.length !== 1) setSpaceId(null)
     try {
       window.localStorage.removeItem(key)
@@ -717,7 +723,7 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
     setBusy(true)
     const all = linkMedia ? [...media, linkMedia] : media
     const closesAt = poll?.closesIn ? new Date(Date.now() + Number(poll.closesIn) * 86_400_000).toISOString() : null
-    const r = await api<{ post: FeedPostView }>(`${apiBase(communityId)}/posts`, {
+    const r = await api<{ post: FeedPostView; held?: boolean; message?: string }>(`${apiBase(communityId)}/posts`, {
       body: {
         spaceId,
         title: title.trim(),
@@ -728,6 +734,31 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
     })
     setBusy(false)
     if (!r.ok) return toast(r.error)
+    /*
+      HELD FOR A MODERATOR (202, the community's safety checks: a new member's
+      first links, a lookalike link, the same words again). The editor closes
+      as usual but nothing goes into the feed as if it were published; a toast
+      says what the server said, and what was written stays here as a draft
+      ("Continue: ...") in case the member wants to change it.
+    */
+    if (r.data.held) {
+      const said = r.data.message || HELD_POST
+      try {
+        window.localStorage.setItem(key, JSON.stringify({ title, body, spaceId, poll, media: linkMedia ? [...media, linkMedia] : media } satisfies Draft))
+      } catch {
+        /* nothing kept */
+      }
+      setSent(true)
+      afterClose.current = () => {
+        setSent(false)
+        setRestored(true)
+        setHeldCopy(true)
+        toast(said)
+      }
+      window.setTimeout(shut, reducedMotion() ? 0 : SENT_HOLD_MS)
+      return
+    }
+    setHeldCopy(false)
     const post = r.data.post
     /* Kept no longer: a reload from here on starts empty. */
     try {
@@ -908,7 +939,11 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
           }
         }}
       />
-      {restored ? <p className="mt-1 text-[12.5px] text-[#8a8f98]">Your draft is back where you left it.</p> : null}
+      {restored ? (
+        <p className="mt-1 text-[12.5px] text-[#8a8f98]" data-composer-restored={heldCopy ? "held" : ""}>
+          {heldCopy ? "Your post is waiting for a moderator. This is a copy, in case you want to change it." : "Your draft is back where you left it."}
+        </p>
+      ) : null}
 
       {linkField ? (
         /* The file picker opens inside the Upload press: a browser only opens one from a press it is still handling. */

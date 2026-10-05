@@ -187,6 +187,11 @@ async function main() {
   check("never bigger than it came, never thrown: the original without its metadata instead", /scale === 1 && blob\.size >= file\.size\) return \(await withoutMetadata\(file\)\)/.test(compress) && /catch \{\s*return \(await withoutMetadata\(file\)\) as File/.test(compress))
   check("every picture for a post or a comment goes through it", /const upload = await compressPostPicture\(file\)/.test(code("components/community/member/media-upload.ts")))
 
+  /* ── Held for a moderator (worker T's 202 answer) ───────────────────── */
+  console.log("\nHeld for a moderator (202)")
+  check("a held post closes the editor without going into the feed, says the server's words, and stays a draft to change", /if \(r\.data\.held\) \{[\s\S]{0,200}const said = r\.data\.message \|\| HELD_POST[\s\S]{0,300}localStorage\.setItem\(key,[\s\S]{0,300}setRestored\(true\)[\s\S]{0,80}toast\(said\)[\s\S]{0,120}window\.setTimeout\(shut,[\s\S]{0,60}return\s*\}/.test(composer) && !/if \(r\.data\.held\) \{[\s\S]{0,700}onPosted\(/.test(composer))
+  check("a held comment is taken out of the thread, its words go back in the box, and the toast says why", /if \(r\.ok && r\.data\.held\) \{\s*sending\.drop\(tempId\)[\s\S]{0,200}setBody\(text\)[\s\S]{0,80}return toast\(r\.data\.message \|\| HELD_COMMENT\)/.test(comments))
+
   /* ── Copy and boundaries ────────────────────────────────────────────── */
   console.log("\nCopy and boundaries")
   const mine = [
