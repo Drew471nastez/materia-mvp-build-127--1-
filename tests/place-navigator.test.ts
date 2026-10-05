@@ -45,6 +45,7 @@
  * scripts/check-place-navigator.mjs.
  */
 import { readSource, readCode } from "./_source"
+import { communityAppearance, withAppearance } from "@/lib/communities/appearance"
 import {
   KIND_HINT,
   lastTouched,
@@ -101,6 +102,13 @@ const keys = (m: ReturnType<typeof navigatorModel>) => [
   ...m.links.map((r) => r.key),
   ...m.actions.map((a) => `${a.key}:${a.href}`),
 ]
+
+console.log("\n0. A community's look")
+{
+  check("missing is white", communityAppearance(null) === "light" && communityAppearance({}) === "light" && communityAppearance({ appearance: "nope" }) === "light")
+  check("only dark is dark", communityAppearance({ appearance: "dark" }) === "dark")
+  check("setting the look keeps the rest of the settings", withAppearance({ enabled: true, safety: { slowModeSeconds: 30 } }, "dark").appearance === "dark" && (withAppearance({ enabled: true, appearance: "dark" }, "light") as { appearance?: string }).appearance === undefined && (withAppearance({ enabled: true, appearance: "dark" }, "light") as { enabled?: boolean }).enabled === true)
+}
 
 console.log("\n1. Communities: the last touched first")
 {
@@ -166,7 +174,7 @@ console.log("\n2b. One recent list: courses, digital products and communities, t
   check("productHref is the one rule for both kinds of thing", productHref({ kind: "product", id: "x" }) === "/account/library/products/x" && productHref({ kind: "course", id: "y" }) === "/account/library/courses/y")
   check("nothing: the list is empty (not drawn, nor the rule under it)", navigatorModel(me({ recent: [] })).recent.length === 0)
   const many = navigatorModel(me({ recent: Array.from({ length: 30 }, (_, i) => (i % 2 ? community(`c${i}`) : thing(`p${i}`))) }))
-  check(`at most ${RECENT_LIMIT} rows`, RECENT_LIMIT === 12 && many.recent.length === 12, many.recent.length)
+  check(`at most ${RECENT_LIMIT} rows, communities and things together`, RECENT_LIMIT === 5 && many.recent.length === 5, many.recent.length)
 
   const merged = mergeRecent(
     [{ item: thing("course-opened-today", "course"), at: Date.parse("2026-10-04T09:00:00Z") }, { item: thing("downloaded-tuesday"), at: Date.parse("2026-09-29T00:00:00Z") }],

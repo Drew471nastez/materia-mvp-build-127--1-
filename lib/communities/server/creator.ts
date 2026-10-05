@@ -105,6 +105,7 @@ import { openReportCount, peopleOf } from "./moderation"
 import { createPaidTier, loadTiers, pickableProducts, recurringProductIds, syncTierProducts } from "./tiers"
 import { checkGalleryForCommunity, coverAfterGallery, loadGallery, ownPicture, saveGallery } from "./gallery"
 import { keptSafety, slowModeChoice, withSlowMode } from "./safety"
+import { communityAppearance, withAppearance } from "../appearance"
 import { rolePermissionsOf, rolesView, staffPermissionsFor } from "./creator-roles"
 import { communityRoom, loadPolicies } from "./creator-policies"
 import { creatorSitePlan } from "@/lib/sites/plan-server"
@@ -633,7 +634,13 @@ export async function updateSettings(db: Db, a: { community: CommunityRow; role:
   if (b.onboarding !== undefined) {
     const o = (b.onboarding && typeof b.onboarding === "object" ? b.onboarding : {}) as Record<string, unknown>
     const welcome = typeof o.welcome === "string" ? o.welcome.trim().slice(0, 2000) : ""
-    patch.onboarding = { ...keptSafety(c.onboarding), enabled: o.enabled === true, welcome, askIntro: o.askIntro !== false, showRules: o.showRules !== false }
+    /* The look lives beside the welcome steps, so saving one never drops the other. */
+    const look = communityAppearance(c.onboarding)
+    patch.onboarding = { ...keptSafety(c.onboarding), ...(look === "dark" ? { appearance: "dark" as const } : {}), enabled: o.enabled === true, welcome, askIntro: o.askIntro !== false, showRules: o.showRules !== false }
+  }
+  if (b.appearance !== undefined) {
+    if (b.appearance !== "light" && b.appearance !== "dark") return no(400, "Pick a look.", "appearance")
+    patch.onboarding = withAppearance(patch.onboarding ?? c.onboarding, b.appearance)
   }
   /* Slow mode lives beside the welcome steps (./safety.ts), so no column is needed. */
   if (b.slowMode !== undefined) {

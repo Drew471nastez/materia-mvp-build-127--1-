@@ -47,6 +47,8 @@ export interface ShellCommunity {
   visibility?: CommunityVisibility
   /** Joining waits for an admin's yes. */
   approvalRequired?: boolean
+  /** White or dark. Missing is white. */
+  appearance?: "light" | "dark"
 }
 
 /** A community as the top bar and its switcher draw it. */

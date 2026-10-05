@@ -1,0 +1,122 @@
+/**
+ * A community set to dark (lib/communities/appearance). White stays the
+ * default and is the classes as written. Dark remaps the surfaces, ink,
+ * hairlines and the near-black buttons those classes draw, inside the
+ * community frame only. Pictures, video and the lightbox stay as they are.
+ */
+[data-community-theme="dark"] {
+  color-scheme: dark;
+  background-color: #0e1014;
+  color: #f3f4f6;
+  --community-page: #0e1014;
+  --community-surface: #171a21;
+  --community-raised: #1e222b;
+  --community-ink: #f4f5f7;
+  --community-muted: #a1a6b2;
+  --community-line: #2c313c;
+}
+
+[data-community-theme="dark"] .bg-white,
+[data-community-theme="dark"] .bg-\[\#fff\],
+[data-community-theme="dark"] .bg-\[\#ffffff\] {
+  background-color: #171a21;
+}
+
+[data-community-theme="dark"] .bg-\[\#f8f9fa\],
+[data-community-theme="dark"] .bg-\[\#f6f7f8\],
+[data-community-theme="dark"] .bg-\[\#f7f8f9\],
+[data-community-theme="dark"] .bg-\[\#f9fafb\],
+[data-community-theme="dark"] .bg-\[\#fafafa\],
+[data-community-theme="dark"] .bg-\[\#fafbfc\] {
+  background-color: #0e1014;
+}
+
+[data-community-theme="dark"] .bg-\[\#f1f2f4\],
+[data-community-theme="dark"] .bg-\[\#f0f1f3\],
+[data-community-theme="dark"] .bg-\[\#f3f4f6\],
+[data-community-theme="dark"] .bg-\[\#f4f4f5\],
+[data-community-theme="dark"] .bg-\[\#eef0f2\],
+[data-community-theme="dark"] .bg-\[\#eef0f3\],
+[data-community-theme="dark"] .bg-\[\#eceef1\],
+[data-community-theme="dark"] .bg-\[\#e2e4e8\] {
+  background-color: #242833;
+}
+
+[data-community-theme="dark"] .hover\:bg-\[\#f1f2f4\]:hover,
+[data-community-theme="dark"] .hover\:bg-\[\#f3f4f6\]:hover,
+[data-community-theme="dark"] .hover\:bg-\[\#f6f7f8\]:hover,
+[data-community-theme="dark"] .hover\:bg-\[\#f9fafb\]:hover,
+[data-community-theme="dark"] .hover\:bg-white:hover,
+[data-community-theme="dark"] .data-\[state\=open\]\:bg-\[\#f1f2f4\][data-state="open"] {
+  background-color: #2a2f3a;
+}
+
+[data-community-theme="dark"] .text-\[\#1a1a2e\],
+[data-community-theme="dark"] .text-\[\#111827\],
+[data-community-theme="dark"] .text-\[\#0a0a0a\],
+[data-community-theme="dark"] .text-black,
+[data-community-theme="dark"] .hover\:text-\[\#1a1a2e\]:hover {
+  color: #f4f5f7;
+}
+
+[data-community-theme="dark"] .text-\[\#4b5563\],
+[data-community-theme="dark"] .text-\[\#6b7280\],
+[data-community-theme="dark"] .text-\[\#374151\] {
+  color: #c5c9d2;
+}
+
+[data-community-theme="dark"] .text-\[\#9ca3af\],
+[data-community-theme="dark"] .text-\[\#8a8f98\] {
+  color: #8b919c;
+}
+
+[data-community-theme="dark"] .border-\[\#e5e7eb\],
+[data-community-theme="dark"] .border-\[\#e4e7ec\],
+[data-community-theme="dark"] .border-\[\#e3e5e9\],
+[data-community-theme="dark"] .border-\[\#e3e4e8\],
+[data-community-theme="dark"] .border-\[\#e1e4e8\],
+[data-community-theme="dark"] .border-\[\#e6e8eb\],
+[data-community-theme="dark"] .border-\[\#e6e8ec\],
+[data-community-theme="dark"] .border-\[\#eceef1\],
+[data-community-theme="dark"] .border-\[\#d7dadf\],
+[data-community-theme="dark"] .border-\[\#d5d8de\],
+[data-community-theme="dark"] .border-\[\#dcdfe3\],
+[data-community-theme="dark"] .border-\[\#c9ccd3\],
+[data-community-theme="dark"] .divide-\[\#f1f2f4\] > :not([hidden]) ~ :not([hidden]),
+[data-community-theme="dark"] .divide-\[\#eef0f3\] > :not([hidden]) ~ :not([hidden]),
+[data-community-theme="dark"] .divide-\[\#eceef1\] > :not([hidden]) ~ :not([hidden]) {
+  border-color: #2c313c;
+}
+
+/* The filled near-black control becomes a light one, so it still reads. */
+[data-community-theme="dark"] .bg-\[\#1a1a2e\] {
+  background-color: #f4f5f7;
+  color: #12141a;
+  border-color: #f4f5f7;
+}
+
+[data-community-theme="dark"] .hover\:bg-\[\#2b2b42\]:hover,
+[data-community-theme="dark"] .hover\:bg-\[\#2a2a40\]:hover {
+  background-color: #e4e6ea;
+}
+
+[data-community-theme="dark"] .bg-\[\#1a1a2e\] .text-white,
+[data-community-theme="dark"] .bg-\[\#1a1a2e\].text-white {
+  color: #12141a;
+}
+
+[data-community-theme="dark"] input,
+[data-community-theme="dark"] textarea,
+[data-community-theme="dark"] select {
+  color: #f4f5f7;
+}
+
+[data-community-theme="dark"] input::placeholder,
+[data-community-theme="dark"] textarea::placeholder {
+  color: #8b919c;
+}
+
+[data-community-theme="dark"] .shadow-\[0_0_0_2px_\#fff\] {
+  --tw-shadow: 0 0 0 2px #171a21;
+  box-shadow: var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000), var(--tw-shadow);
+}

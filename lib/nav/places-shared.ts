@@ -55,8 +55,13 @@ export const SIGNED_OUT_PLACES: PlacesResponse = {
 /** A time as milliseconds; a missing or unreadable one is the oldest there is. */
 export const at = (v: string | null | undefined) => (v ? Date.parse(v) || 0 : 0)
 
-/** How many rows the recent list has at most: a glance, not the library. Past eight or so it scrolls inside the panel. */
-export const RECENT_LIMIT = 12
+/**
+ * How many rows the recent list has at most, in the phone sheet and the
+ * desktop panel alike: communities, courses and digital products together.
+ * Five is a glance. The rest stay where they already live (Library, the
+ * communities list, Explore).
+ */
+export const RECENT_LIMIT = 5
 
 /** How many things from the library are considered for it. */
 export const PRODUCTS_LIMIT = 8

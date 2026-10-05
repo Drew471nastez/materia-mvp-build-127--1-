@@ -154,6 +154,8 @@ export interface CommunityOnboarding {
   welcome?: string
   askIntro?: boolean
   showRules?: boolean
+  /** "dark" is the dark look. Anything else, including missing, is white. */
+  appearance?: "light" | "dark"
 }
 
 export interface CommunityRow {

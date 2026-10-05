@@ -89,6 +89,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import type { ViewerView } from "@/lib/communities/types"
 import { useLightChrome } from "@/lib/ui/light-chrome"
+import { useCommunityTheme } from "@/components/community/use-community-theme"
+import "./community-theme.css"
 import { MessagesPanel, MESSAGES_EVENT, useUnreadMessages } from "./messages"
 import { FULL_ON_HOVER, navEntries, sectionFromPath, tabFor, TABS_STILL_MS, tabsFollowTarget, type NavEntry, type TabKey } from "./nav"
 import { PersonCardLayer } from "./person-card"
@@ -228,7 +230,9 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
   /* Back from a creator's page (or any page outside) lands where the community was left (return-scroll.ts, round 12). */
   useReturnScroll(pathname || "")
   /* The bar is white, so the browser's bar and the phone's status bar are too. */
-  useLightChrome(true)
+  const appearance = community.appearance === "dark" ? "dark" : "light"
+  useCommunityTheme(appearance)
+  useLightChrome(true, appearance === "dark" ? "#0e1014" : "#f8f9fa")
   /*
     Opened from Discover or anywhere outside (landing.ts): the middle
     column's spinner waits as the app's slow page does. The frame itself
@@ -373,8 +377,9 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
       <CommunityFixedFootWatch />
       <div
         data-community-shell=""
+        data-community-theme={appearance}
         data-community-landing={landing ? "" : undefined}
-        className="min-h-svh bg-[#f8f9fa] [--community-top:97px] lg:[--community-top:65px]"
+        className="min-h-svh bg-[#f8f9fa] text-[#1a1a2e] transition-[background-color,color] duration-300 motion-reduce:transition-none [--community-top:97px] lg:[--community-top:65px]"
       >
         <CommunityTopBar data={topBar} messages={canMessage ? messages : null} messagesOpen={!!chat} onMessages={onMessages} search={searchProp} menu={menu}>
           {tabs}

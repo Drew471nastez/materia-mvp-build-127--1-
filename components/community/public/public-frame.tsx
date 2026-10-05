@@ -28,6 +28,8 @@ import { CommunityTopBar } from "@/components/community/member/top-bar"
 import type { ShellCommunity, TopBarData, WallCardData } from "@/components/community/member/view-types"
 import { WallCommunityCard } from "@/components/community/member/wall"
 import { useLightChrome } from "@/lib/ui/light-chrome"
+import { useCommunityTheme } from "@/components/community/use-community-theme"
+import "../member/community-theme.css"
 import { useCommunityLanding } from "@/components/community/member/landing"
 import { CommunityPullRefresh } from "@/components/community/member/community-pull-refresh"
 import { CommunityFixedFootWatch } from "@/components/community/fixed-foot-watch"
@@ -44,15 +46,18 @@ export interface PublicFrameCard {
 }
 
 export function CommunityPublicFrame({ topBar, card = null, children }: { topBar: TopBarData; /** The community's card for the left column; left out, the page has the columns alone. */ card?: PublicFrameCard | null; children: React.ReactNode }) {
-  useLightChrome(true)
+  const appearance = card?.community.appearance === "dark" ? "dark" : "light"
+  useCommunityTheme(appearance)
+  useLightChrome(true, appearance === "dark" ? "#0e1014" : "#f8f9fa")
   const slug = card?.community.slug ?? topBar.community.slug
   /* Opened from Discover: the frame lands as an /app page does (components/community/member/landing.ts). */
   const landing = useCommunityLanding()
   return (
     <div
       data-community-public=""
+      data-community-theme={appearance}
       data-community-landing={landing ? "" : undefined}
-      className={`min-h-svh bg-[#f8f9fa] [--community-top:57px] lg:[--community-top:65px]${landing ? " community-land" : ""}`}
+      className={`min-h-svh bg-[#f8f9fa] text-[#1a1a2e] transition-[background-color,color] duration-300 motion-reduce:transition-none [--community-top:57px] lg:[--community-top:65px]${landing ? " community-land" : ""}`}
     >
       <style>{GUTTER}</style>
       <CommunityFixedFootWatch />

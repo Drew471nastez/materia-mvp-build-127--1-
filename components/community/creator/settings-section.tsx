@@ -42,6 +42,7 @@ import type { CommunityHead, PoliciesView, RolesView, SettingsData, TierView } f
 import { GALLERY_MAX, accessChoiceOf, coverItem as coverOf, type GalleryItem, type PriceInterval, type SettingsTab } from "./logic"
 import { accessSummary, privacyTitle, type CommunityPricing, type CommunityPrivacy } from "@/lib/communities/access-model"
 import { COMMUNITY_CATEGORIES, communityCategoryId } from "@/lib/explore/communities-mode"
+import { communityAppearance, type CommunityAppearance } from "@/lib/communities/appearance"
 
 export type { SettingsTab }
 import { GamificationPanel } from "./gamification-panel"
@@ -161,6 +162,9 @@ interface PageState {
 function PageSettings({ head, data }: { head: CommunityHead; data: SettingsData }) {
   const router = useRouter()
   const toast = useToast()
+  const instant = useInstant(head)
+  const [look, setLook] = React.useState<CommunityAppearance>(communityAppearance(data.onboarding))
+  const [lookBusy, setLookBusy] = React.useState(false)
   const start = React.useMemo<PageState>(
     () => ({
       name: head.name,
@@ -298,6 +302,27 @@ function PageSettings({ head, data }: { head: CommunityHead; data: SettingsData 
 
           <EditorCard title="Logo">
             <PicturePick value={s.logoUrl} onChange={(v) => set("logoUrl", v)} shape="square" name="logo" onError={setError} />
+          </EditorCard>
+
+          <EditorCard title="Look" hint="White or dark, everywhere in this community.">
+            <Segmented
+              label="Look"
+              value={look}
+              options={[
+                { value: "light", label: "White" },
+                { value: "dark", label: "Dark" },
+              ]}
+              onChange={(next) => {
+                if (lookBusy || next === look) return
+                const prev = look
+                setLook(next)
+                setLookBusy(true)
+                void instant({ appearance: next }, next === "dark" ? "Dark look on" : "White look on").then((ok) => {
+                  setLookBusy(false)
+                  if (!ok) setLook(prev)
+                })
+              }}
+            />
           </EditorCard>
 
           <EditorCard title="Category" hint="Where it shows up in Explore.">

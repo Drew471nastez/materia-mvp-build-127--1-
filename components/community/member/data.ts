@@ -16,6 +16,7 @@ import { unreadConversations } from "@/lib/communities/server/direct"
 import { currentUserForRequest } from "@/lib/auth/request-scope"
 export { eventHrefFor } from "@/lib/communities/server/wall"
 import type { CommunityRow, SpaceRow } from "@/lib/communities/types"
+import { communityAppearance } from "@/lib/communities/appearance"
 import type { ShellCommunity, SpaceView } from "./view-types"
 
 export type MemberState = "off" | "missing" | "closed" | "signed_out" | "unknown" | "member" | "pending" | "banned" | "not_member"
@@ -64,6 +65,7 @@ export function toShellCommunity(c: CommunityRow): ShellCommunity {
     access: c.access,
     visibility: c.visibility,
     approvalRequired: c.approval_required,
+    appearance: communityAppearance(c.onboarding),
   }
 }
 
