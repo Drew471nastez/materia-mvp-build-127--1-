@@ -22,7 +22,7 @@ import { InviteLanding } from "@/components/community/member/invite-landing"
  * ?invite=1), never indexed, and nothing an invite lets in. The token is not
  * read here: a preview never learns whether it is valid.
  */
-export async function generateMetadata({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ invite?: string }> }): Promise<Metadata> {
+export async function generateMetadata({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ invite?: string; event?: string; et?: string }> }): Promise<Metadata> {
   const plainJoin: Metadata = { title: "Join", robots: { index: false, follow: false } }
   await connection()
   if (!(await communitiesEnabled())) return plainJoin
@@ -32,20 +32,31 @@ export async function generateMetadata({ params, searchParams }: { params: Promi
   return typeof invite === "string" && invite ? inviteMetadata(seoFacts(community)) : { ...communityMetadata(seoFacts(community)), title: { absolute: `Join ${community.name}` }, robots: { index: false, follow: false } }
 }
 
-export default async function CommunityJoinPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ invite?: string }> }) {
+export default async function CommunityJoinPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ invite?: string; event?: string; et?: string }> }) {
   await connection()
   const { slug } = await params
-  const { invite } = await searchParams
+  const { invite, event, et } = await searchParams
   const page = await memberPage(slug)
   if (page.state === "off" || page.state === "missing" || !page.community) notFound()
   const c = page.community
   if (page.state === "member") redirect(`/community/${c.slug}`)
   const token = typeof invite === "string" && /^[A-Za-z0-9_-]{16,128}$/.test(invite) ? invite : null
-  const here = `/community/${c.slug}/join${token ? `?invite=${encodeURIComponent(token)}` : ""}`
+  /*
+    AN INVITE FOR ONE PAID EVENT carries the event and a signature over it
+    and the token (lib/communities/server/jobs/event_ticket_invite.ts). Both
+    travel on to the redeem route, which checks the signature, grants the
+    free ticket and answers with the event's page.
+  */
+  const eventId = typeof event === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(event) ? event : null
+  const eventTag = eventId && typeof et === "string" && /^[0-9a-f]{32}$/.test(et) ? et : null
+  const forEvent = eventId && eventTag ? `&event=${encodeURIComponent(eventId)}&et=${eventTag}` : ""
+  const here = `/community/${c.slug}/join${token ? `?invite=${encodeURIComponent(token)}${forEvent}` : ""}`
   return (
     <InviteLanding
       community={{ id: c.id, slug: c.slug, name: c.name, tagline: c.tagline, logoUrl: c.logo_url, memberCount: c.member_count }}
       token={token}
+      eventId={forEvent ? eventId : null}
+      eventTag={eventTag}
       state={page.state}
       /* Back from signing in (or up) the invite is accepted on arrival (?accept=1, invite-landing), so they land in the community. */
       loginHref={`/login?next=${encodeURIComponent(token ? `${here}&accept=1` : here)}`}

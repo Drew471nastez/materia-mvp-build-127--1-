@@ -5,6 +5,10 @@
  * `POST /api/community/<id>/invite/redeem { token }`) checks the token,
  * its limits and its email, and makes the membership; this page only says
  * what happened in words and sends the new member in.
+ *
+ * An invite made for one paid event carries the event and its signature
+ * (round 14): they travel with the token, the route grants the free ticket
+ * and answers with the event's page, and that is where the press lands.
  */
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -28,11 +32,16 @@ export function InviteLanding({
   token,
   state,
   loginHref,
+  eventId = null,
+  eventTag = null,
 }: {
   community: { id: string; slug: string; name: string; tagline: string | null; logoUrl: string | null; memberCount: number }
   token: string | null
   state: string
   loginHref: string
+  /** An invite for one paid event: the free ticket is granted on arrival and they land on the event. */
+  eventId?: string | null
+  eventTag?: string | null
 }) {
   const router = useRouter()
   const [busy, setBusy] = useState(false)
@@ -42,9 +51,13 @@ export function InviteLanding({
     if (!token || busy) return
     setBusy(true)
     setError(null)
-    const r = await api<{ ok?: boolean; reason?: string; error?: string }>(`${apiBase(community.id)}/invite/redeem`, { body: { token } })
+    const r = await api<{ ok?: boolean; reason?: string; error?: string; url?: string }>(`${apiBase(community.id)}/invite/redeem`, {
+      body: eventId && eventTag ? { token, event: eventId, et: eventTag } : { token },
+    })
     if (r.ok && r.data.ok !== false) {
-      router.push(`/community/${community.slug}?welcome=1`)
+      /* An invite for an event lands on the event; an ordinary one on the community, as it always has. */
+      const url = typeof r.data.url === "string" && r.data.url.startsWith(`/community/${community.slug}/events/`) ? r.data.url : `/community/${community.slug}?welcome=1`
+      router.push(url)
       return
     }
     setBusy(false)

@@ -112,7 +112,21 @@ export interface MadeInvite {
  */
 export async function createInvite(
   db: Db,
-  a: { community: CommunityRow; createdBy: string; inviterName: string; input: InviteInput },
+  a: {
+    community: CommunityRow
+    createdBy: string
+    inviterName: string
+    input: InviteInput
+    /**
+     * A PAID EVENT THIS INVITE IS FOR (round 14): the link and the email
+     * carry the event, signed, so that accepting the invite makes them a
+     * member, grants the free ticket and lands them on the event's page
+     * (lib/communities/server/jobs/event_ticket_invite.ts).
+     */
+    event?: { id: string; title: string } | null
+    /** True when the caller already knows the communities switch is on, so the email does not read it again. */
+    enabled?: boolean
+  },
 ): Promise<{ ok: true; made: MadeInvite } | { ok: false; error: string; status: number }> {
   let tierId: string | null = null
   if (a.input.tierId) {
@@ -146,7 +160,16 @@ export async function createInvite(
     console.error(`[communities] invite: ${reasonOf(error)}`)
     return { ok: false, error: "The invite could not be made. Try again.", status: 500 }
   }
-  const url = inviteUrl(a.community.slug, token)
+  let url = inviteUrl(a.community.slug, token)
+  let eventData: Record<string, string> = {}
+  if (a.event?.id) {
+    const { eventInviteQuery, eventInviteTag } = await import("./jobs/event_ticket_invite")
+    const tag = eventInviteTag(token, a.event.id)
+    if (tag) {
+      url += eventInviteQuery(token, a.event.id)
+      eventData = { eventId: a.event.id, eventTitle: a.event.title.slice(0, 120), eventTag: tag }
+    }
+  }
   let sent: boolean | null = null
   if (a.input.email) {
     /*
@@ -157,9 +180,9 @@ export async function createInvite(
     const outcome = await sendCommunityEmail(db, "community.invite", {
       email: a.input.email,
       communityId: a.community.id,
-      data: { inviterName: a.inviterName, inviteCode: token, tagline: a.community.tagline ?? "", expiresAt: expiresAt ?? "" },
+      data: { inviterName: a.inviterName, inviteCode: token, tagline: a.community.tagline ?? "", expiresAt: expiresAt ?? "", ...eventData },
       key: `invite:${data.id}:${a.input.email.toLowerCase()}`,
-    })
+    }, { enabled: a.enabled })
     sent = outcome !== "unavailable"
   }
   await audit(db, {
