@@ -41,15 +41,17 @@ import { cn } from "@/lib/utils"
 import { isNativeApp } from "@/lib/platform-utils"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { HtmlClass } from "@/components/platform/html-class"
-import { money as moneyExact, pricePer, yearlySaving, type BillingInterval } from "@/lib/memberships/state"
+import { money as moneyOf, yearlySaving, type BillingInterval } from "@/lib/memberships/state"
 import { CheckRow, ErrorBanner, Field, PayButton, PoweredByStripe, SectionTitle, TextInput } from "./parts/ui"
 import { EMPTY_CARD, NativeCardFields, nativeCardComplete, type NativeCard } from "./parts/native-card"
 import { StripePay, type IntentResult } from "./parts/stripe-pay"
+import { CommunityRefundPolicy, waiverSentence, type CommunityCheckoutTerms } from "@/components/community/membership/checkout-policy"
+import { formatMoney } from "@/lib/communities/membership-policy"
 
 export interface MembershipCheckoutProps {
   product: { id: string; title: string; slug: string; thumbnail_url: string | null }
   creator: { id: string; name: string; avatar_url: string | null; username: string }
-  plan: { monthlyPriceCents: number | null; yearlyPriceCents: number | null; trialDays: number; benefits: string[] }
+  plan: { monthlyPriceCents: number | null; yearlyPriceCents: number | null; trialDays: number; benefits: string[]; currency?: string }
   userEmail: string | null
   isLoggedIn: boolean
   initialInterval?: BillingInterval
@@ -57,6 +59,8 @@ export interface MembershipCheckoutProps {
   unavailable?: boolean
   /** Where a signed in member lands once paid, instead of the membership: its community (app/checkout/page.tsx). */
   returnTo?: string | null
+  /** A community's membership: its refund policy, the EU withdrawal waiver where it applies, and the buyer's locale for money (round 13). */
+  communityTerms?: CommunityCheckoutTerms | null
 }
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -75,8 +79,13 @@ function trialEndsOn(days: number): string {
   return new Date(Date.now() + days * 86_400_000).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
 }
 
-export default function MembershipCheckout({ product, creator, plan, userEmail, isLoggedIn, initialInterval, unavailable = false, returnTo = null }: MembershipCheckoutProps) {
+export default function MembershipCheckout({ product, creator, plan, userEmail, isLoggedIn, initialInterval, unavailable = false, returnTo = null, communityTerms = null }: MembershipCheckoutProps) {
   const router = useRouter()
+  /* In the plan's own currency; a community's in the buyer's way of writing money (round 13, ask 43). */
+  const currency = plan.currency || "usd"
+  const moneyExact = (cents: number) => (communityTerms ? formatMoney(cents, currency, communityTerms.locale) : moneyOf(cents, currency))
+  const pricePer = (cents: number, per: BillingInterval) => `${moneyExact(cents)}/${per === "year" ? "year" : "month"}`
+  const waiver = waiverSentence(communityTerms)
   const searchParams = useSearchParams()
   const offers: BillingInterval[] = [plan.monthlyPriceCents ? "month" : null, plan.yearlyPriceCents ? "year" : null].filter(Boolean) as BillingInterval[]
   const [interval, setInterval] = React.useState<BillingInterval>(initialInterval && offers.includes(initialInterval) ? initialInterval : offers[0] ?? "month")
@@ -194,6 +203,8 @@ export default function MembershipCheckout({ product, creator, plan, userEmail, 
       agreedToTerms: agreed,
       paymentMethods: methods,
       paymentMethodId,
+      /* The EU withdrawal waiver was in the consent they ticked (round 13): kept on the subscription, and said again in the welcome email. */
+      withdrawalWaiver: !!waiver,
     })
     if (!res.ok || !res.data.clientSecret || !res.data.subscriptionId) {
       if (res.data.code === "already_member") {
@@ -297,9 +308,10 @@ export default function MembershipCheckout({ product, creator, plan, userEmail, 
           <Link href="/terms" target="_blank" className="font-medium text-[#1a1a2e] underline decoration-[#c9ccd2] underline-offset-2 hover:decoration-[#1a1a2e]">
             Terms and Conditions
           </Link>{" "}
-          and to be charged {trial ? "after the trial " : ""}until I cancel
+          and to be charged {trial ? "after the trial " : ""}until I cancel{waiver ? `. ${waiver}` : ""}
         </CheckRow>
       </div>
+      <CommunityRefundPolicy terms={communityTerms} />
       {error ? (
         <ErrorBanner>
           {error}

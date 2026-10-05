@@ -40,7 +40,7 @@ const SALE_KEYS = [
  * the card's last four digits when a payment failed.
  */
 const MEMBERSHIP_KEYS = [
-  "membershipId", "membershipTitle", "creatorName", "amountCents", "currency", "interval", "periodEnd", "endsAt", "trialEnd", "graceEndsAt", "cardLast4",
+  "membershipId", "membershipTitle", "creatorName", "amountCents", "currency", "interval", "periodEnd", "endsAt", "trialEnd", "graceEndsAt", "cardLast4", "withdrawalWaiver",
 ] as const
 
 /**
@@ -1413,7 +1413,11 @@ export const CATALOG: Record<NotificationType, Entry> = {
       ],
       facts: [["Membership", m.title], ["By", m.creator], ["Price", m.price], [trial ? "First payment" : "Next payment", trial || m.next]],
       action: { label: "Open your membership", path: m.path },
-      note: "You can cancel any time from your membership page. You keep access until the end of the period you paid for.",
+      note: join(
+        "You can cancel any time from your membership page. You keep access until the end of the period you paid for.",
+        /* The EU withdrawal waiver, confirmed on a durable medium as the law asks (round 13, ask 43); the same words as lib/communities/membership-policy WITHDRAWAL_WAIVER_RECORD. */
+        d.bool("withdrawalWaiver") ? "You asked for access to start right away and acknowledged that the 14 day right of withdrawal ends once it does." : "",
+      ),
       inApp: { title: "You are a member", body: m.title ? `Welcome to ${m.title}.` : "Your membership has started.", actionLabel: "Open", actionPath: m.path },
     }
   },
@@ -1473,18 +1477,19 @@ export const CATALOG: Record<NotificationType, Entry> = {
     }
   },
 
+  /* Round 13, ask 39: the confirmation says the one thing the member wants to know, "Your membership ends on <date>. No further charges." */
   MEMBERSHIP_CANCELED: (d) => {
     const m = membershipOf(d)
     const ends = d.date("endsAt") || m.next
     return {
       family: "transaction",
       audience: "customer",
-      subject: fitSubject("", m.title, " is cancelled") || "Your membership is cancelled",
-      preview: ends ? `You keep access until ${ends}.` : "You will not be charged again.",
-      heading: "Your membership is cancelled",
+      subject: (ends ? fitSubject("", m.title, ` ends on ${d.date("endsAt", true) || d.date("periodEnd", true)}`) : fitSubject("", m.title, " is cancelled")) || (ends ? `Your membership ends on ${ends}` : "Your membership is cancelled"),
+      preview: ends ? `Your membership ends on ${ends}. No further charges.` : "No further charges.",
+      heading: ends ? `Your membership ends on ${ends}` : "Your membership is cancelled",
       paragraphs: [
-        join("You will not be charged again", m.title ? `for ${m.title}.` : "."),
-        ends ? `You keep access to everything until ${ends}. Changed your mind? Resume it from your membership page before then.` : "Changed your mind? Resume it from your membership page.",
+        join(ends ? `Your membership${m.title ? ` of ${m.title}` : ""} ends on ${ends}.` : `Your membership${m.title ? ` of ${m.title}` : ""} is cancelled.`, "No further charges."),
+        ends ? `You keep access to everything until then. Changed your mind? Resume it from your membership page before ${ends}.` : "Changed your mind? Resume it from your membership page.",
       ],
       facts: [["Membership", m.title], ["Access until", ends]],
       action: { label: "Open your membership", path: m.path },
