@@ -29,7 +29,7 @@ import type { MentionTextareaHandle } from "./mention-input"
 import { PostCard } from "./post-card"
 import { markSeen } from "./post-seen"
 import { postPath } from "@/lib/communities/post-url"
-import { AppAvatar } from "@/components/app/app-avatar"
+import { CommunityMark } from "./community-mark"
 import { BTN_PRIMARY, CARD, DEPTH_PRESS } from "./ui"
 
 export interface PostPageProps {
@@ -208,7 +208,7 @@ function VisitorJoinBar({ slug, name, logoUrl, signedIn }: { slug: string; name:
   return (
     <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[#e8e9ec] bg-white/[0.98] pb-[env(safe-area-inset-bottom)] shadow-[0_-6px_20px_-12px_rgba(17,24,39,0.18)] animate-in fade-in-0 slide-in-from-bottom-2 duration-300 motion-reduce:animate-none" data-visitor-join="">
       <div className="mx-auto flex min-h-16 max-w-[760px] items-center gap-3 px-4 py-2.5 sm:px-6">
-        <AppAvatar src={logoUrl} name={name} alt="" size={36} className="rounded-[10px]" />
+        <CommunityMark community={{ name, logoUrl }} size={36} priority />
         <p className="min-w-0 flex-1 text-[14px] leading-snug text-[#4b5563]">
           <span className="block truncate font-semibold text-[#1a1a2e]">{name}</span>
           <span className="block truncate">{signedIn ? "Join to like and comment." : "Join free to like and comment."}</span>

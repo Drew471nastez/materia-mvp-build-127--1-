@@ -102,7 +102,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { useRouter } from "next/navigation"
 import { createPortal, flushSync } from "react-dom"
 import { BarChart3, Check, ChevronDown, Clapperboard, GripVertical, Link2, Loader2, Paperclip, Plus, X } from "lucide-react"
-import { AppAvatar } from "@/components/app/app-avatar"
+import { MemberAvatar } from "./member-avatar"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { EmojiControl } from "@/components/app/rich-text/emoji-picker"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
@@ -952,7 +952,7 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
   const row = (
     <div className="flex items-center gap-3 px-4 py-3 sm:px-5 sm:py-3.5" data-composer-row="">
       <span className="flex shrink-0" data-composer-avatar="">
-        <AppAvatar src={me.avatarUrl} name={me.name} alt="" size={40} markWhileLoading />
+        <MemberAvatar src={me.avatarUrl} name={me.name} alt="" size={40} />
       </span>
       <div className="grid min-w-0 flex-1">
         <button
@@ -1194,7 +1194,7 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
                 </div>
                 <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4 pt-3" data-composer-scroll="">
                   <div className="mb-3 flex min-w-0 items-center gap-2">
-                    <AppAvatar src={me.avatarUrl} name={me.name} alt="" size={32} markWhileLoading />
+                    <MemberAvatar src={me.avatarUrl} name={me.name} alt="" size={32} />
                     <span className="shrink-0 text-[14px] text-[#6b7280]">Posting in</span>
                     <span className="min-w-0">{spacePicker}</span>
                   </div>

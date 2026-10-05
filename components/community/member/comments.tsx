@@ -77,7 +77,7 @@ import { ShieldIcon } from "@solar-icons/react/linear/shield"
 import { TrashBinMinimalisticIcon } from "@solar-icons/react/linear/trash-bin-minimalistic"
 import { EmojiControl } from "@/components/app/rich-text/emoji-picker"
 import { EMOJI_POPOVER } from "@/components/ui/popover-fit"
-import { AppAvatar } from "@/components/app/app-avatar"
+import { MemberAvatar } from "./member-avatar"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { relativeTime } from "@/lib/communities/format"
 import { EMBED_NAMES, MAX_COMMENT_GIFS, MAX_COMMENT_MEDIA } from "@/lib/communities/post-media"
@@ -705,7 +705,7 @@ function CommentBox({
   const keep = { onPointerDown: (e: React.PointerEvent) => e.preventDefault(), onMouseDown: (e: React.MouseEvent) => e.preventDefault() }
   return (
     <div className="flex items-start gap-2.5" data-comment-box={parentId ? "reply" : "comment"} data-keep-in-sight="">
-      {me ? <AppAvatar src={me.avatarUrl} name={me.name} alt="" size={parentId ? 28 : 32} markWhileLoading className="mt-1" /> : null}
+      {me ? <MemberAvatar src={me.avatarUrl} name={me.name} alt="" size={parentId ? 28 : 32} className="mt-1" /> : null}
       <div className="min-w-0 flex-1">
         <div
           className="rounded-[10px] border border-[#e3e5e9] bg-white shadow-[0_1px_1px_rgba(16,24,40,0.05)] transition-[border-color,box-shadow] duration-150 focus-within:border-[#c9ccd3] focus-within:shadow-[0_0_0_3px_rgba(26,26,46,0.05),0_1px_1px_rgba(16,24,40,0.05)] motion-reduce:transition-none"
@@ -1010,7 +1010,7 @@ function CommentItem({
       <div className="flex items-start gap-2.5">
         {c.author ? (
           <Link href={memberHref(slug, c.author)} className="mt-0.5 shrink-0 rounded-full" data-person-link="" data-person-id={c.author.id}>
-            <AppAvatar src={c.author.avatarUrl} name={c.author.name} alt="" size={small ? 28 : 32} markWhileLoading />
+            <MemberAvatar src={c.author.avatarUrl} name={c.author.name} alt="" size={small ? 28 : 32} lazy />
           </Link>
         ) : (
           <span className={`mt-0.5 shrink-0 rounded-full bg-[#eceef1] ${small ? "h-7 w-7" : "h-8 w-8"}`} aria-hidden />

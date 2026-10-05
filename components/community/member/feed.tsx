@@ -64,6 +64,7 @@ import {
 } from "./feed-cache"
 import { sectionFromPath } from "./nav"
 import { PlaceSpinner, Spinner, WAIT_MS } from "./place-spinner"
+import { warmPostFaces } from "./member-avatar"
 import { EditSpacesContext, FIRST_CARDS, PostCard, PostCardPlaceholder, type PostUpdate } from "./post-card"
 import { SortMenu } from "./sort-menu"
 import { followChosenChip, SpaceChips, type ChipPick } from "./space-chips"
@@ -465,6 +466,10 @@ export function CommunityFeed({ communityId, slug, viewer, spaces, start, initia
   const editSpaces = useMemo(() => (spaces ? composerSpacesOf(spaces) : null), [spaces])
   const lead = listSort === "default" && listTarget.kind !== "saved"
   const posts = useMemo(() => (lead ? [...view.posts.filter((p) => p.pinned), ...view.posts.filter((p) => !p.pinned)] : view.posts), [lead, view.posts])
+
+  useEffect(() => {
+    warmPostFaces(posts)
+  }, [posts])
 
   return (
     <EditSpacesContext.Provider value={editSpaces}>

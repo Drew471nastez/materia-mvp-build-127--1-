@@ -25,7 +25,7 @@
  *   is never wider than the box.
  */
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from "react"
-import { AppAvatar } from "@/components/app/app-avatar"
+import { MemberAvatar } from "./member-avatar"
 import type { MemberView } from "@/lib/communities/types"
 import { api, apiBase } from "./api"
 import { mentionAt, mentionChoices, type MentionPerson } from "./mention-pick"
@@ -222,7 +222,7 @@ export const MentionTextarea = forwardRef<MentionTextareaHandle, Props>(function
                 className={`flex min-h-11 w-full items-center gap-2.5 px-3 text-left outline-none transition-colors duration-100 [-webkit-tap-highlight-color:transparent] ${i === index ? "bg-[#f1f2f4]" : ""}`}
                 data-mention-option={m.username}
               >
-                <AppAvatar src={m.avatarUrl} name={m.name} alt="" size={28} markWhileLoading />
+                <MemberAvatar src={m.avatarUrl} name={m.name} alt="" size={28} />
                 <span className="min-w-0">
                   <span className="block truncate text-[14px] font-medium text-[#1a1a2e]">{m.name}</span>
                   <span className="block truncate text-[12px] text-[#6b7280]">@{m.username}</span>

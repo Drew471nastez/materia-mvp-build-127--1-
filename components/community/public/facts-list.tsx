@@ -6,7 +6,7 @@
  * server's sheet and the side card both draw it.
  */
 import Link from "next/link"
-import { AppAvatar } from "@/components/app/app-avatar"
+import { MemberAvatar } from "@/components/community/member/member-avatar"
 import { cn } from "@/lib/utils"
 import type { AboutFact } from "./about-facts"
 
@@ -20,7 +20,7 @@ export function FactsList({ facts, className }: { facts: AboutFact[]; className?
           <dd className="flex min-w-0 items-center justify-end gap-2 text-right text-[13.5px] font-medium tabular-nums text-[#1a1a2e]">
             {f.key === "creator" ? (
               <>
-                <AppAvatar src={f.creator.avatarUrl} name={f.creator.name} alt="" size={22} className="shrink-0" />
+                <MemberAvatar src={f.creator.avatarUrl} name={f.creator.name} alt="" size={22} className="shrink-0" />
                 {f.creator.href ? (
                   /* 40px to a thumb, without taking that room in the row. */
                   <Link href={f.creator.href} className="-my-2.5 min-w-0 truncate py-2.5 underline-offset-2 hover:underline" data-person-link="">

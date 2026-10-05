@@ -583,7 +583,7 @@ function faces() {
     host that hangs is not a hole on any surface; see tests/avatar-one-rule.
   */
   check("  the review surfaces keep the mark under a photo that has not arrived, so no circle is ever blank",
-    /markWhileLoading\?: boolean/.test(avatar) && /\{!photo \|\| \(!loaded && \(markWhileLoading \|\| waited\)\) \? \(\s*who === "person" \|\| !initialsOf\(name\) \? <DefaultAvatarGlyph fill \/> : <AvatarMark name=\{name\} size=\{size\} kind="mark" \/>\s*\) : null\}/.test(avatar))
+    /markWhileLoading\?: boolean/.test(avatar) && /\{!photo \|\| \(!loaded && \(markWhileLoading \|\| waited \|\| who === "person"\)\) \? \(\s*who === "person" \|\| !initialsOf\(name\) \? <DefaultAvatarGlyph fill \/> : <AvatarMark name=\{name\} size=\{size\} kind="mark" \/>\s*\) : null\}/.test(avatar))
   check("  and a page with its own theme gets a circle mixed from its own text colour",
     /theme: "bg-foreground\/\[0\.10\] text-foreground"/.test(avatar))
 

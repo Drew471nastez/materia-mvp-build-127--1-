@@ -31,7 +31,7 @@ import Link from "next/link"
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { Check, Clock3 } from "lucide-react"
-import { AppAvatar } from "@/components/app/app-avatar"
+import { MemberAvatar } from "./member-avatar"
 import { LevelBadge } from "./level-badge"
 import { useFollow } from "@/components/profile/follow-button"
 import { api, apiBase } from "./api"
@@ -356,7 +356,7 @@ function PersonCard({ anchor, person, leaving, canMessage, onFollowed, onDone, r
     >
       <div className="flex gap-3.5">
         <span className="relative shrink-0 self-start">
-          <AppAvatar src={person.avatarUrl} name={person.name} alt="" size={64} markWhileLoading />
+          <MemberAvatar src={person.avatarUrl} name={person.name} alt="" size={64} />
           {person.level ? (
             <LevelBadge level={person.level} size="md" title={`Level ${person.level}${person.levelName ? `, ${person.levelName}` : ""}`} data-person-card-level="" />
           ) : null}

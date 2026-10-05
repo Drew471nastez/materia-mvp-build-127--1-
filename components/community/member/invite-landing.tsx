@@ -18,7 +18,7 @@
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
-import { AppAvatar } from "@/components/app/app-avatar"
+import { CommunityMark } from "./community-mark"
 import { memberCountLabel } from "@/lib/communities/format"
 import { api, apiBase } from "./api"
 import { BTN_PRIMARY, BTN_SECONDARY, CARD } from "./ui"
@@ -97,7 +97,9 @@ export function InviteLanding({
   return (
     <div className="min-h-[70svh] bg-[#f8f9fa] px-4 py-14 sm:py-20" data-invite="">
       <div className={`${CARD} mx-auto max-w-[440px] px-6 py-9 text-center`}>
-        <AppAvatar src={community.logoUrl} name={community.name} alt="" size={64} className="mx-auto rounded-2xl" markWhileLoading />
+        <div className="mx-auto w-fit">
+          <CommunityMark community={community} size={64} priority />
+        </div>
         <p className="mt-4 text-[13.5px] text-[#6b7280]">You are invited to join</p>
         <h1 className="mt-1 text-[22px] font-bold text-[#1a1a2e]">{community.name}</h1>
         {community.tagline ? <p className="mt-2 text-[14.5px] leading-relaxed text-[#4b5563]">{community.tagline}</p> : null}

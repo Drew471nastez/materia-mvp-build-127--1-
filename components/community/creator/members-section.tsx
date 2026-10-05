@@ -27,7 +27,7 @@
 import * as React from "react"
 import { Download, Link2, Mail, UserPlus } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { AppAvatar } from "@/components/app/app-avatar"
+import { MemberAvatar } from "@/components/community/member/member-avatar"
 import { StatusBadge } from "@/app/app/orders/order-parts"
 import { relativeTime } from "@/lib/communities/format"
 import type { BadgeView, CommunityHead, InviteView, MemberPage, MemberRowView } from "./view-types"
@@ -256,7 +256,7 @@ export function MembersSection(p: Props) {
                   <tr key={m.userId} className="group/row hover:bg-[#fafbfb]" data-member-row="">
                     <td className="h-[58px] border-b border-[#f1f2f4] pl-4 pr-3 group-last/row:border-b-0">
                       <div className="flex min-w-0 items-center gap-3">
-                        <AppAvatar src={m.avatarUrl ?? undefined} name={m.name} size={32} className="h-8 w-8 shrink-0 rounded-full" />
+                        <MemberAvatar src={m.avatarUrl ?? undefined} name={m.name} size={32} className="h-8 w-8 shrink-0 rounded-full" lazy />
                         <div className="min-w-0">
                           <p className="flex min-w-0 items-center gap-1.5 text-[13.5px] font-medium text-[#1a1a2e]">
                             <span className="truncate">{m.name}</span>
@@ -295,7 +295,7 @@ export function MembersSection(p: Props) {
             <ul className="divide-y divide-[#f1f2f4] md:hidden">
               {rows.map((m) => (
                 <li key={m.userId} className="flex min-h-[64px] items-center gap-3 py-2.5 pl-4 pr-2" data-member-row="">
-                  <AppAvatar src={m.avatarUrl ?? undefined} name={m.name} size={36} className="h-9 w-9 shrink-0 rounded-full" />
+                  <MemberAvatar src={m.avatarUrl ?? undefined} name={m.name} size={36} className="h-9 w-9 shrink-0 rounded-full" lazy />
                   <div className="min-w-0 flex-1">
                     <p className="flex min-w-0 items-center gap-1.5 text-[14.5px] font-medium text-[#1a1a2e]">
                       <span className="truncate">{m.name}</span>

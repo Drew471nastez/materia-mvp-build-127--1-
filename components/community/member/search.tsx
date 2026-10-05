@@ -40,7 +40,7 @@ import { useRouter } from "next/navigation"
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { createPortal, flushSync } from "react-dom"
 import { CalendarDays, GraduationCap, MessageSquareText, PlayCircle, Search, X } from "lucide-react"
-import { AppAvatar } from "@/components/app/app-avatar"
+import { MemberAvatar } from "./member-avatar"
 import { relativeTime } from "@/lib/communities/format"
 import { postPath } from "@/lib/communities/post-url"
 import { registerCommunitySearch } from "@/lib/nav/community-search-bridge"
@@ -332,7 +332,7 @@ function ResultList({
           {results.members.map((m) => {
             return (
               <div key={m.id} {...optionProps(`member:${m.id}`)}>
-                <AppAvatar src={m.avatarUrl} name={m.name} alt="" size={32} markWhileLoading />
+                <MemberAvatar src={m.avatarUrl} name={m.name} alt="" size={32} />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[14px] text-[#262633]">
                     <Marked text={m.name} q={term} />

@@ -91,7 +91,7 @@ console.log("\nNo face is a question mark")
     "it never waits more than BLANK_LIMIT_MS with the circle blank",
     /const BLANK_LIMIT_MS = 600/.test(avatar)
       && /setTimeout\(\(\) => setWaited\(true\), BLANK_LIMIT_MS\)/.test(avatar)
-      && /\{!photo \|\| \(!loaded && \(markWhileLoading \|\| waited\)\) \? \(\s*who === "person" \|\| !initialsOf\(name\) \? <DefaultAvatarGlyph fill \/> : <AvatarMark/.test(avatar),
+      && /\{!photo \|\| \(!loaded && \(markWhileLoading \|\| waited \|\| who === "person"\)\) \? \(\s*who === "person" \|\| !initialsOf\(name\) \? <DefaultAvatarGlyph fill \/> : <AvatarMark/.test(avatar),
     "a host that never answers left a hole where a face goes",
   )
   check(

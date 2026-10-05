@@ -20,7 +20,7 @@
 import Link from "next/link"
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { Flag, MoreHorizontal, Pencil, Shield, Trash2 } from "lucide-react"
-import { AppAvatar } from "@/components/app/app-avatar"
+import { MemberAvatar } from "./member-avatar"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { createClient } from "@/lib/supabase/client"
 import { realtimeAuth } from "./realtime"
@@ -315,7 +315,7 @@ export function ChatView({ communityId, slug, space, viewer, initial, readOnly =
                     {start ? (
                       m.author ? (
                         <Link href={memberHref(slug, m.author)} data-person-link="" data-person-id={m.author.id}>
-                          <AppAvatar src={m.author.avatarUrl} name={m.author.name} alt="" size={36} markWhileLoading />
+                          <MemberAvatar src={m.author.avatarUrl} name={m.author.name} alt="" size={36} lazy />
                         </Link>
                       ) : (
                         <span className="block h-9 w-9 rounded-full bg-[#eceef1]" />

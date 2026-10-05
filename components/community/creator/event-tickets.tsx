@@ -24,7 +24,7 @@
 import * as React from "react"
 import { ArrowLeft, Check, Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { AppAvatar } from "@/components/app/app-avatar"
+import { MemberAvatar } from "@/components/community/member/member-avatar"
 import { StatusBadge } from "@/app/app/orders/order-parts"
 import { eventTime } from "@/lib/communities/format"
 import { eventPriceLabel } from "@/lib/communities/event-tickets"
@@ -185,7 +185,7 @@ export function EventTicketsPanel({ head, event, currency, onBack }: { head: Com
           <ul className="divide-y divide-[#f1f2f4]">
             {rows.map((t) => (
               <li key={t.ticketId} className="flex min-h-[64px] flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2.5 sm:px-5" data-ticket-row={t.ticketId}>
-                <AppAvatar src={t.avatarUrl ?? undefined} name={t.name} size={36} className="h-9 w-9 shrink-0 rounded-full" />
+                <MemberAvatar src={t.avatarUrl ?? undefined} name={t.name} size={36} className="h-9 w-9 shrink-0 rounded-full" lazy />
                 <div className="min-w-0 flex-1">
                   <p className="flex min-w-0 items-center gap-1.5 text-[14px] font-medium text-[#1a1a2e]">
                     <span className="truncate">{t.name}</span>
@@ -356,7 +356,7 @@ function InviteFree({ open, onClose, communityId, eventId, onDone }: { open: boo
                 return (
                   <li key={m.userId} className="border-b border-[#f1f2f4] last:border-b-0">
                     <button type="button" onClick={() => toggle(m)} disabled={m.hasTicket} className="flex min-h-11 w-full items-center gap-2.5 px-3 py-2 text-left hover:bg-[#fafbfb] disabled:opacity-60" data-invite-pick={m.userId}>
-                      <AppAvatar src={m.avatarUrl ?? undefined} name={m.name} size={28} className="h-7 w-7 shrink-0 rounded-full" />
+                      <MemberAvatar src={m.avatarUrl ?? undefined} name={m.name} size={28} className="h-7 w-7 shrink-0 rounded-full" lazy />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-[13.5px] font-medium text-[#1a1a2e]">{m.name}</span>
                         {m.email ? <span className="block truncate text-[12px] text-[#6b7280]">{m.email}</span> : null}

@@ -8,9 +8,9 @@
  * duplicate top-three card is hidden on this page).
  */
 import Link from "next/link"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { ChevronDown } from "lucide-react"
-import { AppAvatar } from "@/components/app/app-avatar"
+import { MemberAvatar, warmMemberFaces } from "./member-avatar"
 import { api, apiBase } from "./api"
 import { PageTitle } from "./headers"
 import { toast } from "./toast"
@@ -88,6 +88,9 @@ export function Leaderboard({
   const [period, setPeriod] = useState<Period>("30d")
   const [rows, setRows] = useState(initial)
   const [loading, setLoading] = useState(false)
+  useEffect(() => {
+    warmMemberFaces(rows, 40, 40)
+  }, [rows])
   const choose = async (p: Period) => {
     if (p === period || loading) return
     setPeriod(p)
@@ -123,7 +126,7 @@ export function Leaderboard({
                 className={`flex min-h-[60px] items-center gap-3 px-4 py-2.5 hover:bg-[#f8f9fa] sm:px-5 ${r.userId === me.userId ? "bg-[#f8f9fa]" : ""}`}
               >
                 <span className={`flex h-7 w-7 shrink-0 items-center justify-center text-[15px] font-semibold tabular-nums ${r.rank <= 3 ? "text-[#1a1a2e]" : "text-[#9ca3af]"}`}>{r.rank}</span>
-                <AppAvatar src={r.avatarUrl} name={r.name} alt="" size={40} markWhileLoading />
+                <MemberAvatar src={r.avatarUrl} name={r.name} alt="" size={40} warm={false} />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[15px] font-semibold text-[#1a1a2e]">
                     {r.name}

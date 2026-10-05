@@ -30,7 +30,7 @@ import * as React from "react"
 import { useRouter } from "next/navigation"
 import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { AppAvatar } from "@/components/app/app-avatar"
+import { MemberAvatar } from "@/components/community/member/member-avatar"
 import { StatusBadge } from "@/app/app/orders/order-parts"
 import { relativeTime } from "@/lib/communities/format"
 import { canActOn } from "@/lib/communities/permissions"
@@ -493,7 +493,7 @@ function Restricted({ lists, loading, people }: { lists: RestrictedLists | null;
                 const undo = choices.find((c) => c.action === g.undo)
                 return (
                   <li key={m.userId} className="flex min-h-[60px] items-center gap-3 py-2 pl-4 pr-2 sm:pl-5 sm:pr-3" data-restricted-row={g.key}>
-                    <AppAvatar src={m.avatarUrl ?? undefined} name={m.name} size={32} className="h-8 w-8 shrink-0 rounded-full" />
+                    <MemberAvatar src={m.avatarUrl ?? undefined} name={m.name} size={32} className="h-8 w-8 shrink-0 rounded-full" lazy />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[14px] font-medium text-[#1a1a2e]">{m.name}</p>
                       <p className="truncate text-[12.5px] text-[#6b7280]">{g.line(m)}</p>

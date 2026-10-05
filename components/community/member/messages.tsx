@@ -25,7 +25,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { createPortal } from "react-dom"
 import { ArrowUp, ChevronLeft, PenSquare, Search, Trash2, X } from "lucide-react"
 import { Spinner } from "./place-spinner"
-import { AppAvatar } from "@/components/app/app-avatar"
+import { MemberAvatar } from "./member-avatar"
 import { createClient } from "@/lib/supabase/client"
 import type { MemberView } from "@/lib/communities/types"
 import { useLightChrome } from "@/lib/ui/light-chrome"
@@ -435,7 +435,7 @@ function Inbox({ communityId, userId, onClose, onNew, onOpen, back, phone }: { c
                   data-conversation={c.id}
                   className="flex w-full cursor-pointer items-center gap-3 rounded-xl px-2.5 py-2.5 text-left outline-none transition-colors hover:bg-[#f6f7f8] active:bg-[#f1f2f4] focus-visible:bg-[#f6f7f8]"
                 >
-                  <AppAvatar src={c.other?.avatarUrl ?? null} name={c.other?.name ?? "Member"} alt="" size={44} markWhileLoading />
+                  <MemberAvatar src={c.other?.avatarUrl ?? null} name={c.other?.name ?? "Member"} alt="" size={44} />
                   <span className="min-w-0 flex-1">
                     <span className="flex items-baseline gap-2">
                       <span className={`min-w-0 flex-1 truncate text-[14.5px] ${c.unread ? "font-semibold text-[#1a1a2e]" : "font-medium text-[#1a1a2e]"}`}>{c.other?.name ?? "Former member"}</span>
@@ -525,7 +525,7 @@ function NewMessage({ communityId, userId, onBack, onPick, back }: { communityId
               return (
                 <li key={m.userId}>
                   <button type="button" onClick={() => void pick(m)} disabled={!!opening} className="flex w-full cursor-pointer items-center gap-3 rounded-xl px-2.5 py-2 text-left outline-none transition-colors hover:bg-[#f6f7f8] focus-visible:bg-[#f6f7f8] disabled:cursor-default">
-                    <AppAvatar src={m.avatarUrl} name={m.name} alt="" size={40} markWhileLoading />
+                    <MemberAvatar src={m.avatarUrl} name={m.name} alt="" size={40} />
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center gap-1.5">
                         <span className="truncate text-[14.5px] font-medium text-[#1a1a2e]">{m.name}</span>
@@ -700,7 +700,7 @@ function Thread({ communityId, slug, userId, id, other, onBack, onClose, onRead,
         title={
           other ? (
             <a href={memberHref(slug, { id: other.id, username: other.username })} data-person-link="" className="flex min-w-0 items-center gap-2.5 rounded-lg px-1 py-1 outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15">
-              <AppAvatar src={other.avatarUrl} name={other.name} alt="" size={32} markWhileLoading />
+              <MemberAvatar src={other.avatarUrl} name={other.name} alt="" size={32} />
               <span className="min-w-0">
                 <span className="flex items-center gap-1.5">
                   <span className="truncate text-[15px] font-semibold text-[#1a1a2e]">{other.name}</span>
@@ -740,7 +740,7 @@ function Thread({ communityId, slug, userId, id, other, onBack, onClose, onRead,
         ) : null}
         {messages !== null && all.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center px-6 text-center">
-            {other ? <AppAvatar src={other.avatarUrl} name={other.name} alt="" size={64} /> : null}
+            {other ? <MemberAvatar src={other.avatarUrl} name={other.name} alt="" size={64} /> : null}
             <p className="mt-3 text-[15px] font-semibold text-[#1a1a2e]">{other ? other.name : "Former member"}</p>
             <p className="mt-1 text-[13.5px] text-[#6b7280]">Say hello. Only the two of you see this conversation.</p>
           </div>

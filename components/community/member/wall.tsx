@@ -28,7 +28,7 @@ import { CheckCircleIcon as CheckLine } from "@solar-icons/react/linear/check-ci
 import { CopyIcon as CopyLine } from "@solar-icons/react/linear/copy"
 import { CupStarIcon as CupBold } from "@solar-icons/react/bold/cup-star"
 import { createContext, memo, useCallback, useContext, useEffect, useRef, useState } from "react"
-import { AppAvatar } from "@/components/app/app-avatar"
+import { MemberAvatar } from "./member-avatar"
 import { optimizedImageUrl, optimizedSrcSet } from "@/lib/images/optimized-url"
 import { compactCount, eventDateBadge } from "@/lib/communities/format"
 import { FULL_ON_HOVER, type NavEntry, type TabKey } from "./nav"
@@ -159,7 +159,7 @@ function WallCommunityCardInner({ community, card, membersHref }: { community: S
             <div className={STACK} data-avatar-stack="">
               {faces.map((f) => (
                 <Link key={f.id} href={memberHref(community.slug, f)} className={`${STACK_FACE} h-8 w-8 transition-[translate] duration-150 hover:-translate-y-0.5 motion-reduce:transition-none`} data-person-link="" data-person-id={f.id} aria-label={f.name}>
-                  <AppAvatar src={f.avatarUrl} name={f.name} alt="" size={32} markWhileLoading />
+                  <MemberAvatar src={f.avatarUrl} name={f.name} alt="" size={32} />
                 </Link>
               ))}
             </div>
@@ -344,7 +344,7 @@ function WallContributorsCardInner({ slug, data, viewAllHref }: { slug: string; 
               {r.rank}
             </span>
             <Link href={memberHref(slug, { id: r.userId, username: r.username, hasStorefront: r.hasStorefront })} className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15" data-person-link="" data-person-id={r.userId}>
-              <AppAvatar src={r.avatarUrl} name={r.name} alt="" size={34} markWhileLoading />
+              <MemberAvatar src={r.avatarUrl} name={r.name} alt="" size={34} />
               <span className="truncate text-[14.5px] font-medium text-[#1a1a2e] hover:underline">{r.name}</span>
             </Link>
             <span className="inline-flex shrink-0 items-center gap-1 text-[13.5px] font-semibold tabular-nums text-[#374151]" data-wall-value="" aria-label={points ? `${r.value} points` : `${r.value} posts and comments`}>

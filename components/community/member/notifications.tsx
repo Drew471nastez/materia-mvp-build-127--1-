@@ -11,7 +11,7 @@
 import Link from "next/link"
 import { useEffect, useState } from "react"
 import { Bell } from "lucide-react"
-import { AppAvatar } from "@/components/app/app-avatar"
+import { MemberAvatar } from "./member-avatar"
 import { relativeTime } from "@/lib/communities/format"
 import type { NotifyLevel } from "@/lib/communities/types"
 import { createClient } from "@/lib/supabase/client"
@@ -123,7 +123,7 @@ export function NotificationsList({
             <>
               <span className="relative shrink-0">
                 {n.actor ? (
-                  <AppAvatar src={n.actor.avatarUrl} name={n.actor.name} alt="" size={40} markWhileLoading />
+                  <MemberAvatar src={n.actor.avatarUrl} name={n.actor.name} alt="" size={40} lazy />
                 ) : (
                   <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#eef0f3] text-[#6b7280]">
                     <Bell className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden />

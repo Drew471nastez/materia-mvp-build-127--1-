@@ -43,7 +43,7 @@
 import Link from "next/link"
 import { Star } from "lucide-react"
 import { PlaceIcon } from "@/components/community/member/place-icons"
-import { AppAvatar } from "@/components/app/app-avatar"
+import { MemberAvatar } from "@/components/community/member/member-avatar"
 import { relativeTime } from "@/lib/communities/format"
 import { cn } from "@/lib/utils"
 import { CommunityGallery } from "./gallery-view"
@@ -86,10 +86,10 @@ function Review({ r }: { r: PublicReviewView }) {
     <li className="flex gap-3 sm:gap-4" data-review={r.id}>
       {r.href ? (
         <Link href={r.href} className="shrink-0 self-start rounded-full" tabIndex={-1} aria-hidden>
-          <AppAvatar src={r.avatarUrl} name={r.name} alt="" size={40} />
+          <MemberAvatar src={r.avatarUrl} name={r.name} alt="" size={40} />
         </Link>
       ) : (
-        <AppAvatar src={r.avatarUrl} name={r.name} alt="" size={40} className="shrink-0" />
+        <MemberAvatar src={r.avatarUrl} name={r.name} alt="" size={40} className="shrink-0" />
       )}
       <div className="min-w-0 flex-1 rounded-2xl border border-[#eceef1] bg-[#fafbfb] px-4 py-3 sm:px-5 sm:py-3.5">
         <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1 text-[15px]">
@@ -198,10 +198,10 @@ function CreatorBlock({ creator, bio }: { creator: NonNullable<PublicCommunityVi
       <div className="mt-4 grid grid-cols-[48px_minmax(0,1fr)_auto] items-center gap-x-3.5 sm:grid-cols-[56px_minmax(0,1fr)_auto] sm:gap-x-4" data-creator-row="">
         {creator.href ? (
           <Link href={creator.href} className="shrink-0 rounded-full" tabIndex={-1} aria-hidden>
-            <AppAvatar src={creator.avatarUrl} name={creator.name} alt="" size={56} sizedByClass className="h-12 w-12 sm:h-14 sm:w-14" />
+            <MemberAvatar src={creator.avatarUrl} name={creator.name} alt="" size={56} sizedByClass className="h-12 w-12 sm:h-14 sm:w-14" />
           </Link>
         ) : (
-          <AppAvatar src={creator.avatarUrl} name={creator.name} alt="" size={56} sizedByClass className="h-12 w-12 shrink-0 sm:h-14 sm:w-14" />
+          <MemberAvatar src={creator.avatarUrl} name={creator.name} alt="" size={56} sizedByClass className="h-12 w-12 shrink-0 sm:h-14 sm:w-14" />
         )}
         <div className="min-w-0">
           <p className="truncate text-[16px] font-semibold leading-snug text-[#1a1a2e]">

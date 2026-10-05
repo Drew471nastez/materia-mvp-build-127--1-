@@ -31,7 +31,7 @@ import { useRouter } from "next/navigation"
 import { useCallback, useEffect, useState } from "react"
 import { ArrowLeft, CalendarDays, CalendarPlus, Check, Clock3, Lock, MapPin, Share2, Ticket, Users, Video } from "lucide-react"
 import { Spinner } from "@/components/community/member/place-spinner"
-import { AppAvatar, preloadAvatar } from "@/components/app/app-avatar"
+import { MemberAvatar, warmMemberFaces } from "@/components/community/member/member-avatar"
 import { CARD, PRIMARY, SECONDARY } from "@/components/library/library-ui"
 import { StorelibVideo } from "@/components/video/storelib-video"
 import { ConfirmDialog, type ConfirmState } from "@/components/community/member/dialogs"
@@ -91,8 +91,8 @@ export function EventDetail({ event: initial, eventsHref, aboutHref }: EventDeta
   const [shareNote, setShareNote] = useState<string | null>(null)
 
   useEffect(() => {
-    if (event.host) preloadAvatar(event.host.avatarUrl, 40)
-    for (const a of event.attendees ?? []) preloadAvatar(a.avatarUrl, 28)
+    if (event.host) warmMemberFaces([event.host], 40, 1)
+    warmMemberFaces(event.attendees ?? [], 28, 8)
   }, [event.host, event.attendees])
 
   const shareEvent = async () => {
@@ -264,7 +264,7 @@ export function EventDetail({ event: initial, eventsHref, aboutHref }: EventDeta
             </li>
             {event.host ? (
               <li className="flex gap-3">
-                <AppAvatar src={event.host.avatarUrl} name={event.host.name} size={40} alt="" className="shrink-0" markWhileLoading />
+                <MemberAvatar src={event.host.avatarUrl} name={event.host.name} size={40} alt="" className="shrink-0" warm={false} />
                 <span className="min-w-0 pt-0.5">
                   <span className="block truncate text-[15px] font-semibold text-[#1a1a2e]">{event.host.name}</span>
                   <span className="block text-[13px] text-[#6b7280]">Host</span>
@@ -401,7 +401,7 @@ export function EventDetail({ event: initial, eventsHref, aboutHref }: EventDeta
                 <div className="mt-4 flex items-center gap-2.5 border-t border-[#eef0f3] pt-3.5" data-attendees>
                   <span className={STACK} data-avatar-stack="">
                     {event.attendees.slice(0, 5).map((a, i) => (
-                      <AppAvatar key={i} src={a.avatarUrl} name={a.name} size={28} alt={a.name} className={STACK_FACE} />
+                      <MemberAvatar key={i} src={a.avatarUrl} name={a.name} size={28} alt={a.name} warm={false} className={STACK_FACE} />
                     ))}
                   </span>
                   <span className="flex items-center gap-1 text-[13px] text-[#6b7280]">

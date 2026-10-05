@@ -69,7 +69,7 @@ import { PinIcon as PinBold } from "@solar-icons/react/bold/pin"
 import { ShareIcon } from "@solar-icons/react/linear/share"
 import { ShieldIcon } from "@solar-icons/react/linear/shield"
 import { TrashBinMinimalisticIcon } from "@solar-icons/react/linear/trash-bin-minimalistic"
-import { AppAvatar } from "@/components/app/app-avatar"
+import { MemberAvatar } from "./member-avatar"
 import { LevelBadge } from "./level-badge"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { relativeTime } from "@/lib/communities/format"
@@ -492,10 +492,10 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
       <span className="relative shrink-0">
         {author ? (
           <Link href={memberHref(slug, author)} className="block rounded-full" data-person-link="" data-person-id={author.id}>
-            <AppAvatar src={author.avatarUrl} name={author.name} alt="" size={40} markWhileLoading />
+            <MemberAvatar src={author.avatarUrl} name={author.name} alt="" size={40} />
           </Link>
         ) : (
-          <AppAvatar src={null} name="Former member" alt="" size={40} markWhileLoading />
+          <MemberAvatar src={null} name="Former member" alt="" size={40} warm={false} />
         )}
         {level ? <LevelBadge level={level} /> : null}
       </span>
@@ -631,7 +631,7 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
             <span className={`ml-1 shrink-0 ${STACK}`} data-commenters="" data-avatar-stack="">
               {/* Three faces; two on a narrow phone, so "New comment 2d ago" keeps its words. */}
               {post.recentCommenters.slice(0, 3).map((c, i) => (
-                <AppAvatar key={c.id} src={c.avatarUrl} name={c.name} alt="" size={24} markWhileLoading className={`${STACK_FACE} ${i === 2 ? "max-[399px]:hidden" : ""}`} />
+                <MemberAvatar key={c.id} src={c.avatarUrl} name={c.name} alt="" size={24} warm={false} className={`${STACK_FACE} ${i === 2 ? "max-[399px]:hidden" : ""}`} />
               ))}
             </span>
           ) : null}
