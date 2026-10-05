@@ -38,7 +38,7 @@ import { MAX_RULES } from "@/lib/communities/limits"
 import type { CommunityRule, ReportReason } from "@/lib/communities/types"
 import type { ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import type { AuditView, BadgeView, CommunityHead, MemberPage, MemberRowView, ReportView } from "./view-types"
-import { checkRules, moveItem, systemReportKind, type MemberChoice } from "./logic"
+import { checkRules, moveItem, systemReportKind, takenAwayLine, type MemberChoice } from "./logic"
 import { useMemberActions, type ActOnPerson } from "./member-actions"
 import { BlockedWords } from "@/components/community/creator/blocked-words"
 import type { WordSettings } from "@/lib/communities/word-filter"
@@ -121,6 +121,8 @@ export interface RestrictedLists {
   muted: MemberPage
   paused: MemberPage
   banned: MemberPage
+  /** Removed members, which had no way back before (round 14). */
+  removed: MemberPage
 }
 
 export function ModerationSection({
@@ -181,10 +183,11 @@ export function ModerationSection({
   }
   const loadRestricted = async () => {
     setLoading(true)
-    const [muted, paused, banned] = await Promise.all((["muted", "paused", "banned"] as const).map((s) => send<MemberPage>(`${base}/members?status=${s}`, "GET")))
+    const [muted, paused, banned, removed] = await Promise.all((["muted", "paused", "banned", "removed"] as const).map((s) => send<MemberPage>(`${base}/members?status=${s}`, "GET")))
     setLoading(false)
     if (!muted.ok || !paused.ok || !banned.ok) return toast(errorText((muted.ok ? paused.ok ? banned : paused : muted).data.error, "The list could not be loaded."))
-    setRestricted({ muted: muted.data, paused: paused.data, banned: banned.data })
+    const page = (r: typeof muted): MemberPage => ({ rows: r.ok ? (r.data.rows ?? []) : [], next: r.ok ? (r.data.next ?? null) : null, capped: r.ok ? Boolean(r.data.capped) : false })
+    setRestricted({ muted: page(muted), paused: page(paused), banned: page(banned), removed: page(removed) })
   }
 
   const choose = (t: ModerationTab) => {
@@ -466,13 +469,15 @@ export function ModerationSection({
 
 function Restricted({ lists, loading, people }: { lists: RestrictedLists | null; loading: boolean; people: ReturnType<typeof useMemberActions> }) {
   if (!lists) return <p className="px-6 py-10 text-center text-[13.5px] text-[#6b7280]">{loading ? "Loading" : "Nobody is restricted."}</p>
-  const groups: { key: "muted" | "paused" | "banned"; title: string; undo: MemberChoice["action"]; undoLabel: string; line: (m: MemberRowView) => string }[] = [
-    { key: "muted", title: "Muted", undo: "unmute", undoLabel: "Unmute", line: (m) => (m.mutedUntil ? `Until ${shortDate(m.mutedUntil)}, ${new Date(m.mutedUntil).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}` : "") },
-    { key: "paused", title: "Suspended", undo: "unsuspend", undoLabel: "Bring back", line: (m) => (m.tierName ? m.tierName : "") },
-    { key: "banned", title: "Banned", undo: "unban", undoLabel: "Unban", line: (m) => (m.email ?? (m.username ? `@${m.username}` : "")) },
+  /* Who did it, when and why under each name, from the one helper the Members view uses too (./logic.ts). */
+  const groups: { key: "muted" | "paused" | "banned" | "removed"; title: string; undo: MemberChoice["action"]; undoLabel: string; line: (m: MemberRowView) => string }[] = [
+    { key: "muted", title: "Muted", undo: "unmute", undoLabel: "Unmute", line: takenAwayLine },
+    { key: "paused", title: "Suspended", undo: "unsuspend", undoLabel: "Bring back", line: takenAwayLine },
+    { key: "banned", title: "Banned", undo: "unban", undoLabel: "Unban", line: takenAwayLine },
+    { key: "removed", title: "Removed", undo: "reinstate", undoLabel: "Let them back in", line: takenAwayLine },
   ]
   const any = groups.some((g) => lists[g.key].rows.length > 0)
-  if (!any) return <Empty title="Nobody is restricted." detail="Muted, suspended and banned members show here, with the button that lets them back." />
+  if (!any) return <Empty title="Nobody is restricted." detail="Muted, suspended, banned and removed members show here, with the button that lets them back." />
   return (
     <div data-restricted="">
       {groups.map((g) =>
@@ -483,7 +488,7 @@ function Restricted({ lists, loading, people }: { lists: RestrictedLists | null;
             </h3>
             <ul className="divide-y divide-[#f1f2f4]">
               {lists[g.key].rows.map((m) => {
-                const who: ActOnPerson = { userId: m.userId, name: m.name, role: m.role, status: m.status, source: m.source, mutedUntil: m.mutedUntil }
+                const who: ActOnPerson = { userId: m.userId, name: m.name, role: m.role, status: m.status, source: m.source, mutedUntil: m.mutedUntil, acted: m.acted ?? null }
                 const choices = people.choicesFor(who)
                 const undo = choices.find((c) => c.action === g.undo)
                 return (

@@ -257,6 +257,23 @@ export interface EventEditView {
   status: EventStatus
 }
 
+/**
+ * WHO TOOK SOMEBODY'S ACCESS AWAY, WHEN, AND WHY, for the views that are not
+ * active. `byRole` is their role now, which is what the undo's rank rule
+ * reads: a moderator never undoes an action taken by somebody above them
+ * (lib/communities/server/moderation.ts mayUndo).
+ */
+export interface MemberActionTaken {
+  kind: "banned" | "removed" | "suspended" | "muted"
+  byUserId: string | null
+  byName: string | null
+  byRole: Role | null
+  at: string | null
+  reason: string | null
+  /** When a mute ends; null for the rest. */
+  until: string | null
+}
+
 export interface MemberRowView {
   userId: string
   name: string
@@ -277,6 +294,8 @@ export interface MemberRowView {
   lastActiveAt: string | null
   mutedUntil: string | null
   approved: boolean
+  /** Only on a person who is not active, or is muted. */
+  acted?: MemberActionTaken | null
 }
 
 export interface MemberPage {

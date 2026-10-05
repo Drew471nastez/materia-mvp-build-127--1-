@@ -36,9 +36,12 @@ import { priceLine } from "../format"
 import { LENGTHS, MAX_SPACES } from "../limits"
 import { allowedActions, can, meetsRole, type CommunityAction, type RolePermissions } from "../permissions"
 import { slugify, slugWithSuffix, validSlug, validSpaceSlug } from "../slug"
-import { COMMUNITY_COLUMNS, COMMUNITY_VISIBILITIES, EVENT_COLUMNS, MEMBER_COLUMNS, NOTIFY_LEVELS, PAID_SOURCES, SPACE_COLUMNS, isOneOf, type AccessRuleJson, type CommunityRow, type EventRow, type MemberRow, type Role, type SpaceRow } from "../types"
+import { COMMUNITY_COLUMNS, COMMUNITY_VISIBILITIES, EVENT_COLUMNS, MEMBER_COLUMNS, NOTIFY_LEVELS, PAID_SOURCES, SPACE_COLUMNS, isOneOf, type AccessRuleJson, type CommunityRow, type EventRow, type MemberRow, type MemberStatus, type Role, type SpaceRow } from "../types"
+import { accessColumnsFor, accessWords, privacyOf } from "../access-model"
 import {
+  accessChoiceOf,
   accessForType,
+  checkAccessChoice,
   checkBenefits,
   checkFaq,
   checkLinks,
@@ -71,6 +74,7 @@ import type {
   EventEditView,
   FeedRowView,
   LevelView,
+  MemberActionTaken,
   MemberPage,
   MemberRowView,
   OverviewData,
@@ -297,7 +301,8 @@ export async function loadCreatorCommunities(db: Db, creatorId: string, userId: 
         memberCount: c.member_count,
         postCount: c.post_count,
         role: c.role,
-        priceLine: c.access === "paid" ? (prices.get(c.id) ?? null) : c.access === "invite_only" ? "Invite only" : "Free",
+        /* The two facts as two facts: "Invite only · $19/month" where a private community charges (../access-model.ts). */
+        priceLine: accessWords(privacyOf(c), c.access === "paid" ? (prices.get(c.id) ?? null) : "Free"),
         createdAt: c.created_at,
         archived: c.status === "archived" || Boolean(c.archived_at),
         mrrCents: mrr.get(c.id)?.cents ?? null,
@@ -641,16 +646,30 @@ export async function updateSettings(db: Db, a: { community: CommunityRow; role:
     if (!isOneOf(COMMUNITY_VISIBILITIES, b.visibility)) return no(400, "Pick who can find it.", "visibility")
     patch.visibility = b.visibility
   }
-  if (b.type !== undefined) {
-    const type = b.type as CommunityType
-    if (type !== "free" && type !== "paid" && type !== "private") return no(400, "Pick who can join.", "type")
-    const { access, visibility } = accessForType(type)
-    if (type === "paid") {
+  /*
+    WHO CAN GET IN, AND WHAT IT COSTS. Settings sends the two facts apart
+    (privacy, pricing), which is what lets a private community charge; the
+    create flow still sends one `type`, and an older screen may too, so both
+    are read and both land in the same two columns
+    (lib/communities/access-model.ts accessColumnsFor).
+  */
+  if (b.privacy !== undefined || b.pricing !== undefined || b.type !== undefined) {
+    const asked =
+      b.privacy !== undefined || b.pricing !== undefined
+        ? checkAccessChoice(b, accessChoiceOf(c))
+        : (() => {
+            const type = b.type
+            if (type !== "free" && type !== "paid" && type !== "private") return { ok: false as const, error: "Pick who can join.", field: "type" }
+            return { ok: true as const, value: accessChoiceOf(accessForType(type)) }
+          })()
+    if (!asked.ok) return no(400, asked.error, asked.field)
+    if (asked.value.pricing === "paid") {
       const { count: paid } = await db.from("community_tiers").select("id", { count: "exact", head: true }).eq("community_id", c.id).eq("kind", "paid").is("archived_at", null)
-      if (!paid) return no(409, "Add a paid tier with a price first.", "type")
+      if (!paid) return no(409, "Add a paid tier with a price first.", "pricing")
     } else {
       await ensureFreeDefault(db, c.id)
     }
+    const { access, visibility } = accessColumnsFor(asked.value.privacy, asked.value.pricing)
     patch.access = access
     if (b.visibility === undefined) patch.visibility = visibility
   }
@@ -1262,8 +1281,96 @@ export async function givePoints(db: Db, a: { communityId: string; userId: strin
 
 /* ── Members ────────────────────────────────────────────────────────────── */
 
-const LIST_MEMBER_COLUMNS = "id, user_id, status, role, tier_id, source, joined_at, requested_at, request_note, last_active_at, muted_until, points, level, approved_by, created_at"
-type ListMember = Pick<MemberRow, "id" | "user_id" | "status" | "role" | "tier_id" | "source" | "joined_at" | "requested_at" | "request_note" | "last_active_at" | "muted_until" | "points" | "level" | "approved_by" | "created_at">
+const LIST_MEMBER_COLUMNS =
+  "id, user_id, status, role, tier_id, source, joined_at, requested_at, request_note, last_active_at, muted_until, points, level, approved_by, banned_at, ban_reason, banned_by, removed_at, created_at"
+type ListMember = Pick<
+  MemberRow,
+  | "id"
+  | "user_id"
+  | "status"
+  | "role"
+  | "tier_id"
+  | "source"
+  | "joined_at"
+  | "requested_at"
+  | "request_note"
+  | "last_active_at"
+  | "muted_until"
+  | "points"
+  | "level"
+  | "approved_by"
+  | "banned_at"
+  | "ban_reason"
+  | "banned_by"
+  | "removed_at"
+  | "created_at"
+>
+
+/* ── Who took somebody's access away, when, and why ─────────────────────── */
+
+/** The statuses the "Not active" view holds: everybody a moderator took out. */
+const RESTRICTED_STATUSES = ["paused", "banned", "removed"] as const
+
+/** The audit entry behind each of them (./membership.ts revokeMembership, ./moderation.ts mute). */
+const TAKEN_AWAY_ACTIONS = ["member.banned", "member.removed", "member.paused", "member.muted"] as const
+
+const TAKEN_AWAY_KIND: Record<string, MemberActionTaken["kind"]> = {
+  "member.banned": "banned",
+  "member.removed": "removed",
+  "member.paused": "suspended",
+  "member.muted": "muted",
+}
+
+/**
+ * WHO DID IT, WHEN AND WHY, for a page of people who are not active. The ban
+ * carries its own three columns; a removal, a suspension and a mute leave
+ * only the audit log, so the newest entry about each person is read in one
+ * pass (never one read per row) and the actor's name and role come with it.
+ * The role is what the screen and the server both use for the rule that a
+ * moderator never undoes an action taken by somebody ranked above them.
+ */
+async function takenAway(db: Db, communityId: string, rows: ListMember[]): Promise<Map<string, MemberActionTaken>> {
+  const out = new Map<string, MemberActionTaken>()
+  const ids = [...new Set(rows.filter((r) => r.status !== "active" || r.muted_until).map((r) => r.user_id))]
+  if (ids.length === 0) return out
+  const { data, error } = await db
+    .from("community_audit_log")
+    .select("id, actor_id, actor_kind, action, target_id, reason, created_at")
+    .eq("community_id", communityId)
+    .eq("target_type", "member")
+    .in("target_id", ids.slice(0, 200))
+    .in("action", [...TAKEN_AWAY_ACTIONS])
+    .order("id", { ascending: false })
+    .limit(400)
+  if (error && !missing(error)) console.error(`[communities] who acted read: ${reasonOf(error)}`)
+  type Entry = { actor_id: string | null; actor_kind: string; action: string; target_id: string; reason: string | null; created_at: string }
+  const newest = new Map<string, Entry>()
+  for (const e of ((data as Entry[] | null) ?? [])) {
+    const key = `${e.target_id}:${TAKEN_AWAY_KIND[e.action] ?? ""}`
+    if (!newest.has(key)) newest.set(key, e)
+  }
+  const [people, staff] = await Promise.all([
+    peopleOf(db, [...newest.values()].map((e) => e.actor_id).filter((x): x is string => Boolean(x))),
+    db.from("community_members").select("user_id, role, status").eq("community_id", communityId).in("user_id", [...new Set([...newest.values()].map((e) => e.actor_id).filter((x): x is string => Boolean(x)))].slice(0, 100)),
+  ])
+  const roleOfActor = new Map(((staff.data as { user_id: string; role: Role; status: MemberStatus }[] | null) ?? []).map((m) => [m.user_id, m.status === "active" ? m.role : null]))
+  for (const r of rows) {
+    const kind: MemberActionTaken["kind"] | null = r.status === "banned" ? "banned" : r.status === "removed" ? "removed" : r.status === "paused" ? "suspended" : r.muted_until ? "muted" : null
+    if (!kind) continue
+    const entry = newest.get(`${r.user_id}:${kind}`) ?? null
+    const byUserId = kind === "banned" ? (r.banned_by ?? entry?.actor_id ?? null) : (entry?.actor_id ?? null)
+    out.set(r.user_id, {
+      kind,
+      byUserId,
+      byName: byUserId ? (people.get(byUserId)?.name ?? null) : entry?.actor_kind === "platform" ? "Storelib" : null,
+      byRole: byUserId ? (roleOfActor.get(byUserId) ?? null) : null,
+      at: kind === "banned" ? (r.banned_at ?? entry?.created_at ?? null) : kind === "removed" ? (r.removed_at ?? entry?.created_at ?? null) : (entry?.created_at ?? null),
+      reason: kind === "banned" ? (r.ban_reason ?? entry?.reason ?? null) : (entry?.reason ?? null),
+      until: kind === "muted" ? (r.muted_until ?? null) : null,
+    })
+  }
+  return out
+}
 
 /** Letters, digits, spaces and the few marks in names and emails; nothing PostgREST reads as syntax. */
 export function safeSearch(q: string): string {
@@ -1290,9 +1397,20 @@ function sortColumn(status: MemberQuery["status"]): "joined_at" | "requested_at"
 }
 
 function memberQuery(db: Db, communityId: string, query: Pick<MemberQuery, "status" | "role" | "tierId">) {
-  /* Muted is not a status: active members whose mute has not run out. */
-  let q = db.from("community_members").select(LIST_MEMBER_COLUMNS).eq("community_id", communityId).eq("status", query.status === "muted" ? "active" : query.status)
-  if (query.status === "muted") q = q.gt("muted_until", nowIso())
+  let q = db.from("community_members").select(LIST_MEMBER_COLUMNS).eq("community_id", communityId)
+  if (query.status === "restricted") {
+    /*
+      EVERYBODY A MODERATOR TOOK OUT, in one view: removed, banned, suspended,
+      and the muted, who are still active rows with a mute that has not run
+      out. One `or` of four branches, which PostgREST ands with the keyset's
+      own `or` below.
+    */
+    q = q.or([...RESTRICTED_STATUSES.map((st) => `status.eq.${st}`), `and(status.eq.active,muted_until.gt."${nowIso()}")`].join(","))
+  } else {
+    /* Muted is not a status: active members whose mute has not run out. */
+    q = q.eq("status", query.status === "muted" ? "active" : query.status)
+    if (query.status === "muted") q = q.gt("muted_until", nowIso())
+  }
   if (query.role) q = q.eq("role", query.role)
   if (query.tierId) q = q.eq("tier_id", query.tierId)
   const col = sortColumn(query.status)
@@ -1301,9 +1419,10 @@ function memberQuery(db: Db, communityId: string, query: Pick<MemberQuery, "stat
 }
 
 async function memberViews(db: Db, communityId: string, rows: ListMember[], withEmail: boolean): Promise<MemberRowView[]> {
-  const [people, tiers] = await Promise.all([
+  const [people, tiers, acted] = await Promise.all([
     peopleOf(db, rows.map((r) => r.user_id), { email: withEmail }),
     db.from("community_tiers").select("id, name").eq("community_id", communityId).limit(50),
+    takenAway(db, communityId, rows),
   ])
   const tierName = new Map(((tiers.data as { id: string; name: string }[] | null) ?? []).map((t) => [t.id, t.name]))
   return rows.map((r) => {
@@ -1327,6 +1446,7 @@ async function memberViews(db: Db, communityId: string, rows: ListMember[], with
       lastActiveAt: r.last_active_at,
       mutedUntil: r.muted_until && Date.parse(r.muted_until) > Date.now() ? r.muted_until : null,
       approved: Boolean(r.approved_by),
+      acted: acted.get(r.user_id) ?? null,
     }
   })
 }
@@ -1371,7 +1491,10 @@ export async function memberCounts(db: Db, communityId: string): Promise<Record<
   const statuses = ["active", "pending", "paused", "banned", "removed", "expired", "cancelled"] as const
   const head = () => db.from("community_members").select("id", { count: "exact", head: true }).eq("community_id", communityId)
   const [counts, muted] = await Promise.all([Promise.all(statuses.map((s) => count(head().eq("status", s)))), count(head().eq("status", "active").gt("muted_until", nowIso()))])
-  return { ...Object.fromEntries(statuses.map((s, i) => [s, counts[i]])), muted }
+  const by = Object.fromEntries(statuses.map((s, i) => [s, counts[i]])) as Record<string, number>
+  /* The one view that holds them all, counted from the four it is made of rather than a fifth read. */
+  const restricted = by.paused + by.banned + by.removed + muted
+  return { ...by, muted, restricted }
 }
 
 /**

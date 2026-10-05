@@ -10,12 +10,14 @@
  *   which      memberChoices (./logic), the same rules the server applies
  *              (can() and never on somebody ranked the same or above)
  *   where      PATCH /api/app/community/<id>/members/<userId> for mute,
- *              unmute, suspend, unsuspend, ban, unban, remove, approve,
- *              reject and role; POST .../members for complimentary access;
+ *              unmute, suspend, unsuspend, ban, unban, remove, reinstate,
+ *              approve, reject and role; POST .../members for complimentary access;
  *              POST .../gamification/points and .../badges/<id> for points
  *              and badges
  *   asking     a confirmation with an optional reason (kept in the audit
- *              log) before a decline, a suspension, a removal or a ban; a
+ *              log) before a decline, a suspension, a removal or a ban, and
+ *              before each undo, which says what the person gets back (and
+ *              that a paid tier nobody pays for comes back as free); a
  *              small sheet to pick how long a mute lasts
  *
  * `onDone` hears every change, so the list it came from can read itself
@@ -25,7 +27,7 @@ import * as React from "react"
 import { cn } from "@/lib/utils"
 import type { ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import type { Role } from "@/lib/communities/types"
-import type { BadgeView, CommunityHead } from "./view-types"
+import type { BadgeView, CommunityHead, MemberActionTaken } from "./view-types"
 import { MUTE_CHOICES, memberChoices, memberConfirmText, memberDoneText, type MemberChoice } from "./logic"
 import { Confirm, Dialog, Notice, Segmented, buttonPrimary, buttonSecondary, errorText, field, label, selectField, send, useToast } from "./parts"
 
@@ -38,6 +40,8 @@ export interface ActOnPerson {
   mutedUntil: string | null
   approved?: boolean
   points?: number
+  /** Who took their access away, when and why: what the undo's rank rule reads. */
+  acted?: MemberActionTaken | null
 }
 
 type Open =
@@ -106,7 +110,7 @@ export function useMemberActions({ head, meId, tiers, badges, onDone }: { head: 
           open
           onClose={() => setOpen(null)}
           {...(() => {
-            const t = memberConfirmText(open.choice, open.person.name)
+            const t = memberConfirmText(open.choice, open.person.name, { source: open.person.source })
             return { title: t.title, detail: t.detail, action: t.verb }
           })()}
           danger={open.choice.danger}

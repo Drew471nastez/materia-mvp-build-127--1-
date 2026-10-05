@@ -13,10 +13,14 @@
  * all of it.
  */
 import { centsFromInput } from "@/lib/memberships/plan"
-import { assignableRoles, canActOn } from "@/lib/communities/permissions"
+import { isPricing, isPrivacy, pricingOf, privacyOf, type AccessColumns, type CommunityPricing, type CommunityPrivacy } from "@/lib/communities/access-model"
+import { assignableRoles, canActOn, ROLE_RANK } from "@/lib/communities/permissions"
 import { LENGTHS, MAX_BENEFITS, MAX_FAQ, MAX_LEVELS, MAX_LINKS, MAX_RULES } from "@/lib/communities/limits"
+import { relativeTime } from "@/lib/communities/format"
 import { embedFromUrl, embedThumbUrl, type EmbedRef } from "@/lib/communities/post-media"
 import { EVENT_KINDS, POST_ROLES, ROLES, SPACE_KINDS, isOneOf, type AccessRuleJson, type CommunityAccess, type CommunityFaq, type CommunityLink, type CommunityRule, type CommunityVisibility, type EventKind, type PostRole, type Role, type SpaceKind } from "@/lib/communities/types"
+
+import type { MemberActionTaken } from "./view-types"
 
 export type Checked<T> = { ok: true; value: T } | { ok: false; error: string; field: string }
 
@@ -51,6 +55,36 @@ export function typeOf(c: { access: CommunityAccess; visibility: CommunityVisibi
   if (c.access === "paid" || c.access === "product") return "paid"
   if (c.access === "invite_only" || c.visibility === "private") return "private"
   return "free"
+}
+
+/* ── Who can get in, and what it costs: two facts, one card ────────────── */
+
+/**
+ * THE SETTINGS CARD'S TWO CHOICES, which replace the one "type" switch for
+ * everything but the create flow. Privacy says who can find it and enter,
+ * pricing says what joining costs, and the pair is stored in the two columns
+ * that already exist (lib/communities/access-model.ts accessColumnsFor). A
+ * private community with a paid tier is the combination that was impossible
+ * before: only people with the link get in, and it costs money.
+ */
+export interface AccessChoice {
+  privacy: CommunityPrivacy
+  pricing: CommunityPricing
+}
+
+/** The pair a stored community reads as, for the card's two controls. */
+export function accessChoiceOf(c: AccessColumns): AccessChoice {
+  return { privacy: privacyOf(c), pricing: pricingOf(c) }
+}
+
+/** What the screen sent, checked the way the route checks it. */
+export function checkAccessChoice(raw: unknown, current: AccessChoice): Checked<AccessChoice> {
+  const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>
+  const privacy = r.privacy === undefined ? current.privacy : r.privacy
+  const pricing = r.pricing === undefined ? current.pricing : r.pricing
+  if (!isPrivacy(privacy)) return { ok: false, field: "privacy", error: "Pick who can get in." }
+  if (!isPricing(pricing)) return { ok: false, field: "pricing", error: "Pick what joining costs." }
+  return { ok: true, value: { privacy, pricing } }
 }
 
 export const PRICE_INTERVALS = ["month", "year", "once"] as const
@@ -536,7 +570,12 @@ export function fillDays(rows: { day: string; value: number }[], days: number, t
  * The member list's views. Each is a member status, except "muted": active
  * members whose mute has not run out yet (a mute is a time, not a status).
  */
-export const MEMBER_STATUS_FILTERS = ["active", "pending", "muted", "paused", "banned", "removed", "expired", "cancelled"] as const
+/**
+ * The Members views. "restricted" is the one that holds everybody a
+ * moderator took out (removed, banned, suspended and muted) with who did it
+ * beside them, so bringing somebody back is one place rather than four.
+ */
+export const MEMBER_STATUS_FILTERS = ["active", "pending", "restricted", "muted", "paused", "banned", "removed", "expired", "cancelled"] as const
 export type MemberStatusFilter = (typeof MEMBER_STATUS_FILTERS)[number]
 
 export const MEMBERS_PAGE = 50
@@ -572,6 +611,13 @@ export interface InviteInput {
   maxUses: number | null
   expiresInDays: number | null
   tierId: string | null
+  /**
+   * Said outright: true gives the tier without paying, false sends them to
+   * the price. Left out, the server decides from the community (a private
+   * community that charges sends them to pay; everywhere else an invite is
+   * the gift it has always been).
+   */
+  complimentary: boolean | null
 }
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -592,7 +638,16 @@ export function checkInvite(raw: unknown): Checked<InviteInput> {
     if (!Number.isInteger(n) || n < 1 || n > 365) return { ok: false, field: "expires", error: "An invite lasts 1 to 365 days." }
     expiresInDays = n
   }
-  return { ok: true, value: { email, maxUses: email ? 1 : maxUses, expiresInDays: email && expiresInDays === null ? 30 : expiresInDays, tierId: isUuid(r.tierId) ? r.tierId : null } }
+  return {
+    ok: true,
+    value: {
+      email,
+      maxUses: email ? 1 : maxUses,
+      expiresInDays: email && expiresInDays === null ? 30 : expiresInDays,
+      tierId: isUuid(r.tierId) ? r.tierId : null,
+      complimentary: typeof r.complimentary === "boolean" ? r.complimentary : null,
+    },
+  }
 }
 
 /** Space kinds as the editor names them. */
@@ -739,7 +794,7 @@ export const MUTE_CHOICES = [
 export interface MemberChoice {
   key: string
   label: string
-  action: "mute" | "unmute" | "suspend" | "unsuspend" | "ban" | "unban" | "remove" | "approve" | "reject" | "role" | "complimentary" | "end_complimentary" | "points" | "badge"
+  action: "mute" | "unmute" | "suspend" | "unsuspend" | "ban" | "unban" | "remove" | "reinstate" | "approve" | "reject" | "role" | "complimentary" | "end_complimentary" | "points" | "badge"
   role?: Role
   hours?: number
   confirm?: boolean
@@ -761,7 +816,7 @@ export interface ChoiceActor {
  * `actor.can`, and never to somebody ranked the same or above: canActOn).
  * Nothing for themselves or the owner.
  */
-export function memberChoices(actor: ChoiceActor, m: { userId: string; role: Role; status: string; source: string; mutedUntil: string | null; approved?: boolean }): MemberChoice[] {
+export function memberChoices(actor: ChoiceActor, m: { userId: string; role: Role; status: string; source: string; mutedUntil: string | null; approved?: boolean; acted?: MemberActionTaken | null }): MemberChoice[] {
   if (m.userId === actor.userId || m.role === "owner") return []
   if (!canActOn(actor.role, m.role)) return []
   const c = actor.can
@@ -794,10 +849,40 @@ export function memberChoices(actor: ChoiceActor, m: { userId: string; role: Rol
     if (c.ban) out.push({ key: "ban", label: "Ban", action: "ban", confirm: true, danger: true, section: "Moderate" })
     return out
   }
-  if (m.status === "paused" && c.suspend) out.push({ key: "unsuspend", label: "Bring back", action: "unsuspend" })
+  /*
+    THE OTHER HALF: putting it back. Each undo needs the permission that took
+    the action away, and none of them is offered when the person who took it
+    is ranked above this actor, which is the rule the server applies too
+    (lib/communities/server/moderation.ts mayUndo).
+  */
+  const theirs = m.acted ?? null
+  const mayUndoHere = !theirs?.byRole || theirs.byUserId === actor.userId || ROLE_RANK[theirs.byRole] <= ROLE_RANK[actor.role]
+  if (m.status === "paused" && c.suspend && mayUndoHere) out.push({ key: "unsuspend", label: "Bring back", action: "unsuspend", confirm: true })
   if (m.status === "paused" && c.ban) out.push({ key: "ban", label: "Ban", action: "ban", confirm: true, danger: true })
-  if (m.status === "banned" && c.ban) out.push({ key: "unban", label: "Unban", action: "unban" })
+  if (m.status === "banned" && c.ban && mayUndoHere) out.push({ key: "unban", label: "Unban", action: "unban", confirm: true })
+  if (m.status === "removed" && c.remove_member && mayUndoHere) out.push({ key: "reinstate", label: "Let them back in", action: "reinstate", confirm: true })
   return out
+}
+
+/** "Mar 4", in the reader's own zone; empty for anything that is not a time. */
+function dayAndMonth(iso: string): string {
+  const t = Date.parse(iso)
+  if (!Number.isFinite(t)) return ""
+  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(t)
+}
+
+/**
+ * The line a row in the "Not active" view reads: what happened, who did it,
+ * when, and the reason when there is one.
+ */
+export function takenAwayLine(m: { status: string; mutedUntil?: string | null; acted?: MemberActionTaken | null }, now: number = Date.now()): string {
+  const a = m.acted ?? null
+  const what = a?.kind === "banned" ? "Banned" : a?.kind === "removed" ? "Removed" : a?.kind === "suspended" ? "Suspended" : a?.kind === "muted" ? "Muted" : m.status === "banned" ? "Banned" : m.status === "removed" ? "Removed" : m.status === "paused" ? "Suspended" : "Muted"
+  const parts = [a?.byName ? `${what} by ${a.byName}` : what]
+  if (a?.at) parts.push(relativeTime(a.at, now))
+  if (a?.kind === "muted" && (a.until || m.mutedUntil)) parts.push(`ends ${dayAndMonth(a.until ?? m.mutedUntil ?? "")}`)
+  if (a?.reason) parts.push(a.reason)
+  return parts.filter(Boolean).join(" · ")
 }
 
 /** What a member action is called once it is done, for the toast. */
@@ -817,6 +902,8 @@ export function memberDoneText(choice: MemberChoice, name: string): string {
       return `${name} is suspended`
     case "unsuspend":
       return `${name} is back`
+    case "reinstate":
+      return `${name} is back in`
     case "ban":
       return `${name} is banned`
     case "unban":
@@ -831,10 +918,18 @@ export function memberDoneText(choice: MemberChoice, name: string): string {
 }
 
 /** The line a confirmation shows before a member action that cannot simply be undone. */
-export function memberConfirmText(choice: MemberChoice, name: string): { title: string; detail: string; verb: string } {
+export function memberConfirmText(choice: MemberChoice, name: string, person?: { source?: string; paying?: boolean }): { title: string; detail: string; verb: string } {
+  /* A paid way in that nobody is paying for any more comes back as the free tier, and the confirm says so before it is pressed. */
+  const toFree = person && ["subscription", "purchase", "product"].includes(person.source ?? "") && person.paying !== true ? " Their paid membership has ended, so they come back on the free tier." : ""
   switch (choice.action) {
     case "reject":
       return { title: `Decline ${name}?`, detail: "They can ask again later.", verb: "Decline" }
+    case "reinstate":
+      return { title: `Let ${name} back in?`, detail: `They get access again now, and keep their points, level and posts.${toFree}`, verb: "Let them in" }
+    case "unban":
+      return { title: `Unban ${name}?`, detail: `They can open the community and post again, and keep their points, level and posts.${toFree}`, verb: "Unban" }
+    case "unsuspend":
+      return { title: `Bring ${name} back?`, detail: `Their access starts again now, with their points, level and posts as they were.${toFree}`, verb: "Bring them back" }
     case "suspend":
       return { title: `Suspend ${name}?`, detail: "They lose access until you bring them back. Their posts stay.", verb: "Suspend" }
     case "remove":
