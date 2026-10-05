@@ -156,7 +156,24 @@ check("Stripe's own check is the ID step, in the app as well", /if \(isNativeApp
 check("  the app opens it in its own sheet, and waits for the sheet to close", /@capacitor\/browser/.test(idClient) && /browserFinished/.test(idClient) && /__storelibSheet/.test(idClient))
 /* The owner, October 2026: "we should not be able to use our camera, only the KYC verification of ID of Stripe." */
 check("  and Storelib's camera is gone from the ID step entirely", !/data-id-use-camera|IdCamera|data-id-camera-open/.test(flow) && !/openCamera\(/.test(flow))
-check("  a check Stripe will not start says why, and opens nothing", /function whyNoCheck/.test(flow) && /not switched on for Storelib/.test(flow) && /setIdProblem\(whyNoCheck\(r\.reason, r\.detail\)\)/.test(flow))
+/*
+  Round 14, the owner with a screenshot of step two: "Stripe would not start
+  the check: Your account is not set up to use Identity. Please have an
+  account admin visit to get started. Get rid of this and make sure it
+  works." Stripe Identity is a separate Stripe product an account admin has
+  to switch on, and it is billed per check. A Connect account already carries
+  its own identity verification, on Stripe's own hosted page, at no extra
+  cost, so that is the path that runs. Identity is kept for where it is
+  really there, probed once and remembered, and every refusal falls through
+  to Connect without a word to the creator.
+*/
+const verifyWords = readFileSync("lib/payments/verify-id.ts", "utf8")
+const hosted = readFileSync("lib/payments/stripe/hosted-verification.ts", "utf8")
+check("Verify ID runs through Connect's own hosted verification", /stripe\.accountLinks\.create\(/.test(hosted) && /collection_options: \{ fields: "currently_due"/.test(hosted) && /account\.details_submitted \? "account_update" : "account_onboarding"/.test(hosted))
+check("  and it comes back to Storelib, on the step that is left", /return_url: where\.returnUrl/.test(hosted) && /refresh_url: where\.refreshUrl/.test(hosted) && /\/app\/payouts\?setup=1/.test(route))
+check("  Stripe Identity is tried first and falls through quietly when it is not there", /if \(await identityOnForPlatform\(\)\)/.test(hosted) && /way: "connect"/.test(hosted))
+check("  a check that will not open says one Storelib sentence, never Stripe's", /setIdProblem\(verifyLine\(r\.reason\)\)/.test(flow) && !/would not start the check/.test(flow) && !/not switched on for Storelib/.test(flow))
+check("  and no Stripe word or code can reach a creator through it", /account_not_set_up/.test(verifyWords) && /account admin/.test(verifyWords) && /readsLikeStripe/.test(flow))
 /*
   The owner, October 2026, kept being told "Stripe's ID check is not switched
   on". It was a guess. The old test for it answered yes to any Stripe error
@@ -170,10 +187,11 @@ const identitySrc = readFileSync("lib/payments/stripe/identity.ts", "utf8")
 const identityCode = identitySrc.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "")
 check("the session is created exactly as Stripe documents it: type, related_person, no options", /type: "document",[\s\S]{0,160}related_person: \{ account: account\.id, person: personId \}/.test(identityCode) && !/require_live_capture/.test(identityCode))
 check("  a selfie is only asked for where the requirement is proof_of_liveness", /liveness \? \{ options: \{ document: \{ require_matching_selfie: true \} \} \} : \{\}/.test(identityCode))
-check("  'not switched on' needs Stripe to say so, not just the word identity", /unknown parameter\|invalid/.test(identityCode) && /not activated\|not enabled/.test(identityCode))
-check("  and anything else carries Stripe's own sentence, with ids stripped out", /function safeDetail/.test(identityCode) && /\(acct\|vs\|req\|cs\|pi\|file\|person\|ba\|sk\|pk\|rk\)_/.test(identityCode))
+check("  Identity is never called when it is known to refuse", /if \(!\(await identityOnForPlatform\(\)\)\) return \{ ok: false, reason: "not_enabled" \}/.test(identityCode) && /STRIPE_IDENTITY/.test(identityCode))
+check("  a refusal is remembered, so the next creator does not wait on the same dead call", /if \(reason === "not_enabled"\) identityOffered = false/.test(identityCode))
+check("  and nothing Stripe said is ever handed back to the page", !/detail/.test(identityCode) && /return \{ ok: false, reason \}/.test(identityCode))
 check("Stripe Identity is only used for what it can fill, never an additional document", /individual\\\.verification\\\.\(document\|proof_of_liveness\)/.test(identityCode))
-check("the step waits while Stripe's sheet is open, not after it closes", /setIdState\("waiting"\)\s*\n\s*const how = await openIdentity/.test(flow))
+check("the step waits while Stripe's screen is open, not after it closes", /setIdState\("waiting"\)\s*\n\s*const how =\s*\n?\s*r\.way === "connect"/.test(flow))
 check("every Stripe call in a photo upload is bounded, so the page is never left hanging", /timeout: 20_000, maxNetworkRetries: 1/.test(own))
 check("  and a sheet that cannot open says so, rather than opening something else", /if \(how === "no_way"\) \{\s*\n\s*setIdState\("idle"\)\s*\n\s*setIdProblem\(/.test(flow))
 check("  verifying is never shown while Stripe is still asking for something", /const stepFor = \(form: DetailsForm \| null\): Step \| null/.test(flow) && /if \(target !== null && target !== step\)/.test(flow))
