@@ -95,7 +95,14 @@ const COVER_WIDTHS = [384, 640, 828, 1080]
 export const GRID_SIZES = "(max-width: 639px) 100vw, (max-width: 1023px) 50vw, 440px"
 
 const MARK_PX = 56
-const MARK_CLASS = "h-12 w-12 rounded-[12px]"
+/*
+  THE MARK'S DEPTH (round 11: "a very little more depth"). It sat flat on the
+  card. Storelib's light depth: a hairline drawn as a 1px ring in the shadow
+  (so it adds nothing to the size and follows the corner) and a 1px soft drop
+  under it, both in the ink of the page's other shadows.
+*/
+const MARK_DEPTH = "shadow-[0_0_0_1px_rgba(16,24,40,0.07),0_1px_2px_rgba(16,24,40,0.1)]"
+const MARK_CLASS = `h-12 w-12 rounded-[12px] ${MARK_DEPTH}`
 const MARK_CLASS_WIDE = "sm:h-14 sm:w-14 sm:rounded-[14px]"
 
 /** The logo, else (in a row) its cover, else the initials of its name on a quiet ground: never an empty square. */
@@ -169,7 +176,8 @@ function Well({ storefront, children }: { storefront: boolean; children: ReactNo
 }
 
 /*
-  THE FOOT ROW: the price first, a step larger than the facts, then a slim
+  THE FOOT ROW: the price first, a step larger than the facts (16px, round
+  11: "the price / Free a very little bigger"), then a slim
   hairline, then the facts. Each fact is a count of real rows: members, all
   time views where they are known, and the stars only when somebody has
   reviewed it (the average, no count). No "Launched": the owner took it off.
@@ -181,7 +189,7 @@ function Facts({ card, storefront }: { card: CommunityCard; storefront: boolean 
     <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-[13px] leading-[22px] text-muted-foreground tabular-nums" data-community-stats="">
       {card.priceLine ? (
         <>
-          <span className="whitespace-nowrap text-[15px] font-semibold leading-[22px] text-foreground" data-community-price="">
+          <span className="whitespace-nowrap text-[16px] font-semibold leading-[22px] text-foreground" data-community-price="">
             {card.priceLine}
           </span>
           {/* A hairline, not a bullet: 1px wide, 14px tall, in the border colour, so it parts the price from the facts without a mark of its own. */}
@@ -321,7 +329,7 @@ export function ExploreCommunityCard({
           />
         ) : (
           <div className={cn("absolute inset-0 flex items-center justify-center", storefront ? "bg-muted" : "bg-[#f1f2f4]")}>
-            <Mark card={card} size={72} eager={priority} className="h-[72px] w-[72px] rounded-[16px] shadow-[0_1px_2px_rgba(16,24,40,0.08)]" />
+            <Mark card={card} size={72} eager={priority} className={`h-[72px] w-[72px] rounded-[16px] ${MARK_DEPTH}`} />
           </div>
         )}
       </div>

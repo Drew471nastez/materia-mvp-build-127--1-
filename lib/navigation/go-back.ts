@@ -42,9 +42,50 @@ export const BACK_HOLD_MS = 400
 let backPending = false
 let backStartedAt = -Infinity
 
+/*
+  AND A BACK THAT IS A PUSH HOLDS UNTIL IT HAS LEFT (round 11). With nothing
+  of ours behind, "back" is a push to the fallback (the creator's page, the
+  profile), a server render that can take a second or two. BACK_HOLD_MS
+  covered only the first 400ms of it, so a second tap landing later (a slow
+  phone, filmed at 4x CPU: the second tap of a double tap reached the page
+  after the hold) pushed the page a second time, and the next Back then
+  needed two presses. So a push holds every other back for as long as this
+  page is still the one on screen, up to PUSH_HOLD_MS.
+*/
+export const PUSH_HOLD_MS = 3000
+let pushedFrom: string | null = null
+let pushedAt = -Infinity
+
+function pushStillLeaving(now: number): boolean {
+  if (pushedFrom === null || typeof window === "undefined") return false
+  if (window.location.pathname !== pushedFrom || now - pushedAt >= PUSH_HOLD_MS) {
+    pushedFrom = null
+    return false
+  }
+  return true
+}
+
 /** A back from here is on its way, so another press is the same press. */
 export function backInFlight(now: number = Date.now()): boolean {
-  return backPending || now - backStartedAt < BACK_HOLD_MS
+  return backPending || now - backStartedAt < BACK_HOLD_MS || pushStillLeaving(now)
+}
+
+/**
+ * A back that has to be a push (nothing of ours behind, or a page behind that
+ * must not be gone back to): once, however many times the finger lands,
+ * until this page has gone. Returns whether it pushed.
+ */
+export function pushBackOnce(href: string, navigate: (href: string) => void): boolean {
+  if (typeof window !== "undefined") {
+    const now = Date.now()
+    if (backInFlight(now)) return false
+    backStartedAt = now
+    pushedFrom = window.location.pathname
+    pushedAt = now
+    swallowEchoClicks()
+  }
+  navigate(href)
+  return true
 }
 
 /**
@@ -71,7 +112,10 @@ function swallowEchoClicks(): () => void {
   }
   const arm = () => {
     window.clearTimeout(timer)
-    timer = window.setTimeout(() => window.removeEventListener("click", eat, true), until - Date.now() + 50)
+    /* The page (or a test's stand-in window) may be gone by the time this fires: nothing left to unhook then. */
+    timer = window.setTimeout(() => {
+      if (typeof window !== "undefined") window.removeEventListener("click", eat, true)
+    }, until - Date.now() + 50)
   }
   window.addEventListener("click", eat, true)
   arm()
@@ -86,6 +130,8 @@ function swallowEchoClicks(): () => void {
 export function resetBackHold(): void {
   backPending = false
   backStartedAt = -Infinity
+  pushedFrom = null
+  pushedAt = -Infinity
 }
 
 type NavigationLike = { canGoBack?: boolean; addEventListener?: (t: string, f: () => void) => void; removeEventListener?: (t: string, f: () => void) => void }
@@ -180,13 +226,8 @@ export function backThen(fallback: () => void, watchMs: number = BACK_WATCH_MS):
 export function goBackOr(creatorHref: string | null | undefined, navigate: (href: string) => void): BackPlan {
   const plan = planBack(readBackEvidence(), creatorHref)
   if (plan.kind === "navigate") {
-    /* The same hold as a history back: a double tap pushes the page once. */
-    if (typeof window !== "undefined") {
-      if (backInFlight()) return plan
-      backStartedAt = Date.now()
-      swallowEchoClicks()
-    }
-    navigate(plan.href)
+    /* The same hold as a history back, and on until the page has gone: a double tap pushes the page once. */
+    pushBackOnce(plan.href, navigate)
     return plan
   }
   backThen(() => navigate(fallbackHref(creatorHref)))

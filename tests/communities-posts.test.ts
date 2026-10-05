@@ -54,6 +54,13 @@
  *   FEEL        the heart fills on the icon only; the composer's sent state,
  *               its finish and the toolbar riding the keyboard; comments land
  *
+ * Round 11 (C10):
+ *   MEDIA       comments carry pictures, a GIF and files: the post's checks,
+ *               then the member's own uploads only; part 96, and comments
+ *               still work before it has run; the comment's file route
+ *   FEEL        the composer is one card (no swap, no fade from nothing),
+ *               the like's burst, the comment box and a comment's landing
+ *
  * Run with:  npm run test:push
  */
 import { readFileSync } from "node:fs"
@@ -76,12 +83,17 @@ import {
   bodyEmbeds,
   mediaKindOf,
   mediaLayout,
+  MAX_COMMENT_MEDIA,
+  memberPictureFolder,
+  picturePathOf,
   viewerItemForUrl,
   viewerItems,
   withBodyEmbeds,
 } from "@/lib/communities/post-media"
 import { intentOf, press, type Toggle } from "@/components/community/member/post-intent"
 import { checkMedia, checkPostInput, commentersByPost, COMMENTER_FACES } from "@/lib/communities/server/feed"
+import { buildThread, checkCommentMedia, mediaLine, noMediaColumn, resetMediaColumn, withCommentColumns } from "@/lib/communities/server/comments"
+import { BURST_COUNT, BURST_MS, burstPaths } from "@/components/community/member/heart"
 import { cleanGifQuery, giphyKey, parseGiphy } from "@/lib/communities/server/gifs"
 import { communityFilesExist, fileLimitFor, prepareCommunityFile } from "@/lib/communities/server/post-files"
 import { isUnread, type SeenStore } from "@/components/community/member/post-seen"
@@ -343,15 +355,15 @@ async function main() {
   check("a card draws again only when its own post changes, not for every like in the feed", /export const PostCard = memo\(PostCardView, \(a, b\) => a\.post === b\.post/.test(card))
   check("the opened post keeps a pressed like or save over a copy it reads meanwhile, and sets the page's overflow once, before its first frame", /const like = intentOf\(`like:\$\{given\.id\}`\)/.test(overlay) && /useLayoutEffect\(\(\) => \{\s*const html = document\.documentElement[\s\S]{0,300}html\.style\.overflow = "hidden"[\s\S]{0,200}\}, \[\]\)/.test(overlay) && /const close = useCallback\(\(\) => setOpen\(false\), \[\]\)/.test(overlay))
   const comments = code("components/community/member/comments.tsx")
-  check("a comment is drawn before the server is asked, the box empties at once, Send is only off while empty", /sending\.start\(\{[\s\S]{0,600}\}\)\s*setBody\(""\)[\s\S]{0,120}await api</.test(comments) && /disabled=\{!body\.trim\(\)\} data-comment-send=""/.test(comments) && /Sending\.\.\./.test(comments))
-  check("a refused comment comes out with its words back in an empty box and the count put back", /sending\.drop\(tempId\)\s*if \(!current\.current\.trim\(\)\) setBody\(text\)/.test(comments) && /onCount\?\.\(-1\)/.test(comments))
+  check("a comment is drawn before the server is asked, the box empties at once, Send is only off while there is nothing to send or an upload is on its way", /sending\.start\(\{[\s\S]{0,800}\}\)\s*setBody\(""\)[\s\S]{0,160}await api</.test(comments) && /const ready = \(!!body\.trim\(\) \|\| picks\.length > 0\) && !uploading/.test(comments) && /disabled=\{!ready\}\s*data-comment-send=""/.test(comments) && /Sending\.\.\./.test(comments))
+  check("a refused comment comes out with its words (and what it carried) back in an empty box and the count put back", /sending\.drop\(tempId\)\s*if \(!current\.current\.trim\(\) && !picksNow\.current\.length\) \{\s*setBody\(text\)\s*setPicks\(kept\)/.test(comments) && /onCount\?\.\(-1\)/.test(comments))
   check("no router refresh in a post, a card or the comments", ![card, overlay, comments, code("components/community/member/post-page.tsx")].some((f) => /router\.refresh\(\)/.test(f)))
 
   /* ── Composer ───────────────────────────────────────────────────────── */
   console.log("\nThe composer")
   const composer = code("components/community/member/composer.tsx")
-  check("closed it is one field, Share something...", /data-composer="closed"/.test(composer) && /"Share something\.\.\."/.test(composer) && !/data-composer-action=/.test(composer))
-  check("a computer edits in place, a phone in a screen of its own", /data-composer="open"/.test(composer) && /data-composer="sheet"/.test(composer))
+  check("closed it is one field, Share something...", /data-composer=\{inPlace \? "open" : "closed"\}/.test(composer) && /"Share something\.\.\."/.test(composer) && !/data-composer-action=/.test(composer))
+  check("a computer edits in place, a phone in a screen of its own", /const inPlace = open && !phone/.test(composer) && /data-composer=\{inPlace \? "open" : "closed"\}/.test(composer) && /data-composer="sheet"/.test(composer))
   check("Post waits for a title, words, a space and every upload", /const ready = !!title\.trim\(\) && !!body\.trim\(\) && !!spaceId && !uploading && !!pollReady/.test(composer) && /disabled=\{busy \|\| sent \|\| !ready\}/.test(composer))
   check("the space list is only where the member may post", /composerSpacesOf\(spaces\)/.test(code("components/community/member/feed.tsx")) && /s\.canPost && s\.kind !== "chat"/.test(code("components/community/member/feed.tsx")))
   check("the emoji picker is the app's own", /from "@\/components\/app\/rich-text\/emoji-picker"/.test(composer) && /<EmojiControl /.test(composer))
@@ -378,7 +390,7 @@ async function main() {
   const card9 = code("components/community/member/post-card.tsx")
   const media9 = code("components/community/member/media.tsx")
   check("ROWS: on a phone a post is the screen's full width (worked out from the viewport), no card edge, an 8px #f1f2f4 band under it", /export const PHONE_ROW =\s*"max-sm:mx-\[calc\(50%-50vw\)\] max-sm:mb-0 max-sm:w-screen max-sm:rounded-none max-sm:border-x-0 max-sm:border-t-0 max-sm:border-b-8 max-sm:border-b-\[#f1f2f4\]"/.test(card9) && /\$\{CARD\} \$\{PHONE_ROW\} group\/post/.test(card9))
-  check("the composer above the posts is a row the same way; a computer's hover stays a computer's", /\$\{CARD\} \$\{PHONE_ROW\} px-4 py-3/.test(code("components/community/member/composer.tsx")) && /sm:hover:border-\[#dfe2e6\]/.test(card9) && !/ hover:border-\[#dfe2e6\]/.test(card9))
+  check("the composer above the posts is a row the same way; a computer's hover stays a computer's", /\$\{CARD\} \$\{PHONE_ROW\} relative/.test(code("components/community/member/composer.tsx")) && /"px-4 py-3 sm:py-3\.5"/.test(code("components/community/member/composer.tsx")) && /sm:hover:border-\[#dfe2e6\]/.test(card9) && !/ hover:border-\[#dfe2e6\]/.test(card9))
   check("on a phone the pictures are under the words, the row's width; a computer keeps the thumbnail", /<CardMedia media=\{media\} className="mt-3 sm:hidden" \/>/.test(card9) && /<PostThumb media=\{media\} className="max-sm:hidden" \/>/.test(card9))
   check("one picture keeps its shape between square and 2:1 (16:9 unknown), two or more are two squares with how many more, lazy, through the optimizer", /Math\.min\(Math\.max\(p\.w \/ p\.h, 1\), 2\) : 16 \/ 9/.test(media9) && /data-card-media="pair"/.test(media9) && /aspect-square/.test(media9) && /\+\{more\}/.test(media9) && /function CardPictureImg[\s\S]{0,700}loading="lazy"/.test(media9) && /optimizedSrcSet\(p\.url, widths\)/.test(media9) && /rounded-xl/.test(media9))
   const overlay9 = code("components/community/member/post-overlay.tsx")
@@ -391,7 +403,7 @@ async function main() {
   check("their room is kept from the post's count, still (no shimmer), and they fade into it", /export function commentsRoom\(expected: number\)/.test(comments9) && /<CommentsPlaceholder expected=\{post\.commentCount\} \/>/.test(overlay9) && /expected=\{post\.commentCount\}\s+fadeIn/.test(overlay9) && /animate-in fade-in-0 duration-200/.test(comments9) && !/animate-pulse/.test(comments9))
   const composer9 = code("components/community/member/composer.tsx")
   check("EDITOR: the phone's screen slides as a Web Animation on the app's sheet curves, from its first frame", /el\.animate\(\[\{ translate: "0 100%" \}, \{ translate: "0 0" \}\], \{ duration: SHEET_OPEN_MS, easing: SHEET_EASE \}\)/.test(composer9) && /duration: SHEET_CLOSE_MS, easing: SHEET_CLOSE_EASE/.test(composer9) && !/transition: "translate 280ms/.test(composer9))
-  check("in place, the posts slide to make room and the editor fades (no layout or paint per frame)", /x\.animate\(\[\{ translate: `0 \$\{-d\}px` \}, \{ translate: "0 0" \}\], timing\)/.test(composer9) && !/clipPath/.test(composer9) && /key="closed"/.test(composer9) && /key="open"/.test(composer9))
+  check("in place, the posts slide to make room and the editor's content fades inside the one card (no layout or paint per frame)", /x\.animate\(\[\{ translate: `0 \$\{-d\}px` \}, \{ translate: "0 0" \}\], timing\)/.test(composer9) && !/clipPath/.test(composer9) && !/key="closed"/.test(composer9) && !/key="open"/.test(composer9))
   check("the phone's screen is white under the keyboard and its column is the visible part", /className="fixed inset-0 z-\[125\] bg-white"/.test(composer9) && /absolute inset-x-0 top-\[var\(--vv-top,0px\)\] flex h-\[var\(--vv-h,100dvh\)\] flex-col/.test(composer9) && /useKeepFieldInSight\(sheet, \(\) => scrollRef\.current\)/.test(composer9))
   check("the caret goes in once the screen has arrived, and Cancel keeps it until the screen has gone", /const arrived = \(\) => \{\s*setSheetIn\(true\)\s*focusFirst\(\)/.test(composer9) && /onPointerDown=\{\(e\) => e\.preventDefault\(\)\} onMouseDown=\{\(e\) => e\.preventDefault\(\)\} onClick=\{\(\) => void cancel\(\)\}/.test(composer9))
   const keep = code("components/community/member/keep-in-sight.ts")
@@ -493,6 +505,66 @@ async function main() {
     check("stepping back over the composer's history step never restores an old scroll", /window\.history\.scrollRestoration = "manual"\s*const push = /.test(composer))
   }
 
+  /* ── Round 11 (C10) ─────────────────────────────────────────────────── */
+  console.log("\nRound 11: comment media, the one card, the burst, the comment box")
+  process.env.NEXT_PUBLIC_SUPABASE_URL = "https://abc.supabase.co"
+  const PIC = (path: string, host = "abc.supabase.co") => `https://${host}/storage/v1/object/public/product-images/${path}`
+  const myFolder = memberPictureFolder(U(1), U(900))
+  check("a member's pictures for a community live in their own folder of the picture bucket", myFolder === `${U(1)}/community/${U(900)}/` && /memberPictureFolder\(userId, communityId\)/.test(code("components/community/member/media-upload.ts")))
+  check("a picture's path is read from its public address only", picturePathOf(PIC(`${myFolder}a.jpg`)) === `${myFolder}a.jpg` && !picturePathOf(`${PIC(`${myFolder}a.jpg`)}?x=1`) && !picturePathOf(PIC(`${myFolder}x%2F..%2F..%2Fa.jpg`)) && picturePathOf(PIC(`${myFolder}../x/a.jpg`)) === `${U(1)}/community/x/a.jpg` && !picturePathOf("https://abc.supabase.co/storage/v1/object/public/other/a.jpg") && !picturePathOf("http://abc.supabase.co/storage/v1/object/public/product-images/a.jpg"))
+  const picStore = storageStub({ [`${U(1)}/community/${U(900)}/a.jpg`]: 5000, [`${U(800)}/community-files/${U(900)}/${U(1)}/${U(7)}.pdf`]: 1000, [`${U(800)}/community-files/${U(900)}/${U(2)}/${U(8)}.pdf`]: 1000 })
+  const cm = (raw: unknown, v: Partial<Viewer> = {}) => checkCommentMedia(picStore as never, community, viewer(v), raw)
+  const gifItem = { type: "gif", url: GIF, still: STILL, w: 200, h: 150 }
+  const ownPic = { type: "image", url: PIC(`${myFolder}a.jpg`), w: 1200, h: 800 }
+  const ownFile = { type: "file", assetId: U(7), name: "Plan.pdf", size: 1000, store: "community" }
+  const okAll = await cm([ownPic, ownFile, gifItem])
+  check("COMMENT MEDIA: the member's own picture, own file and a GIF are kept, the file under its checked name", okAll.ok && okAll.value.map((m) => m.type).join() === "image,file,gif" && (okAll.value[1] as { name: string }).name === "Plan.pdf")
+  check("nothing to carry is fine", (await cm(undefined)).ok && (await cm([])).ok)
+  check("a picture in somebody else's folder is refused", !(await cm([{ type: "image", url: PIC(`${U(2)}/community/${U(900)}/a.jpg`) }])).ok)
+  check("a picture of mine for another community is refused", !(await cm([{ type: "image", url: PIC(`${U(1)}/community/${U(901)}/a.jpg`) }])).ok)
+  check("a picture in my folder that is not there is refused", !(await cm([{ type: "image", url: PIC(`${myFolder}gone.jpg`) }])).ok)
+  check("a picture in a deeper folder, or on another host, is refused", !(await cm([{ type: "image", url: PIC(`${myFolder}x/a.jpg`) }])).ok && !(await cm([{ type: "image", url: PIC(`${myFolder}a.jpg`, "evil.example") }])).ok && !(await cm([{ type: "image", url: PIC(`${myFolder}a.jpg`, "other.supabase.co") }])).ok)
+  check("somebody else's file is refused, and a file that is not a community one", !(await cm([{ ...ownFile, assetId: U(8) }])).ok && !(await cm([{ type: "file", assetId: U(7), name: "Plan.pdf" }])).ok)
+  check("a GIF only from Giphy, one per comment", !(await cm([{ ...gifItem, url: "https://evil.example/a.gif" }])).ok && !(await cm([gifItem, gifItem])).ok)
+  check(`at most ${MAX_COMMENT_MEDIA} things, and no videos, links or unknown kinds`, !(await cm([ownPic, ownPic, ownPic, ownPic, gifItem])).ok && !(await cm([{ type: "embed", url: "https://youtu.be/dQw4w9WgXcQ" }])).ok && !(await cm([{ type: "link", url: "https://example.com" }])).ok && !(await cm([{ type: "nothing" }])).ok && !(await cm("x")).ok)
+  check("pictures and files need the upload right; a GIF does not", !(await cm([ownPic], { role: null })).ok && (await cm([gifItem], { role: null })).ok)
+  const rowOf = (o: Record<string, unknown>) => ({ id: U(50), post_id: U(60), community_id: U(900), parent_id: null, author_id: U(1), body: "hi", status: "published", reaction_count: 0, removed_by: null, removed_reason: null, edited_at: null, created_at: "2026-10-01T00:00:00Z", updated_at: "2026-10-01T00:00:00Z", deleted_at: null, ...o }) as never
+  const opts = { viewerId: U(1), moderator: false, authors: new Map(), reacted: new Set<string>() }
+  const [live1] = buildThread([rowOf({ media: [ownPic] })], [], opts)
+  const [gone1] = buildThread([rowOf({ id: U(51), media: [ownPic], status: "deleted" })], [rowOf({ id: U(52), parent_id: U(51) })], opts)
+  check("a comment's media is drawn with it, and never with a deleted one", live1.media?.length === 1 && !gone1.media && !("media" in buildThread([rowOf({})], [], opts)[0]))
+  check("a notification for a comment with no words says what it carries", mediaLine([gifItem as never]) === "Sent a GIF" && mediaLine([ownPic, ownPic] as never) === "Sent 2 pictures" && mediaLine([ownFile as never]) === "Sent a file")
+  resetMediaColumn()
+  const asked: string[] = []
+  const fake = (columns: string) => {
+    asked.push(columns)
+    return Promise.resolve(/media/.test(columns) ? { data: null, error: { code: "42703", message: "column community_feed_comments.media does not exist" } } : { data: [1], error: null })
+  }
+  const first = await withCommentColumns(fake)
+  const second = await withCommentColumns(fake)
+  check("PART 96 NOT RUN: comments are read without the column, asked again at once, then remembered", first.error === null && second.error === null && asked.length === 3 && /media/.test(asked[0]) && !/media/.test(asked[1]) && !/media/.test(asked[2]))
+  resetMediaColumn()
+  check("a missing column is told apart from any other error", noMediaColumn({ code: "PGRST204", message: "Could not find the 'media' column of 'community_feed_comments' in the schema cache" }) && !noMediaColumn({ code: "42703", message: "column x.other does not exist" }) && !noMediaColumn({ code: "23505", message: "media" }))
+  const comments11 = code("lib/communities/server/comments.ts")
+  check("createComment checks what a comment carries before it writes, and refuses media in words when part 96 has not run", /const media = await checkCommentMedia\(db, community, viewer, r\.media\)/.test(comments11) && /if \(carried\.length && noMediaColumn\(error\)\) return \{ ok: false/.test(comments11) && /\.\.\.\(carried\.length \? \{ media: carried \} : \{\}\)/.test(comments11))
+  check("the media checks are the post's own first (checkMedia), then the member's own uploads (storage, the community's files)", /const checked = checkMedia\(raw\)/.test(comments11) && /storedObjectSize\(db as SupabaseClient, PICTURE_BUCKET, path\)/.test(comments11) && /communityFilesExist\(db, community, viewer\.userId,/.test(comments11))
+  const cfile = code("app/api/community/[communityId]/comments/[commentId]/files/[assetId]/route.ts")
+  check("a comment's file downloads only through the member gate: communities on, a member who may see the post, the file named on the comment as the commenter's own", /requireCommunitiesOn\(\)\s*if \(off\) return off/.test(cfile) && /requireMember\(db, communityId, await sessionUserId\(\), "view"\)/.test(cfile) && /\.eq\("community_id", gate\.community\.id\)/.test(cfile) && /visiblePostRow\(db, gate\.community, gate\.viewer, row\.post_id\)/.test(cfile) && /named\.store !== "community"/.test(cfile) && /signCommunityFile\(db, gate\.community, row\.author_id,/.test(cfile))
+  const p96 = read("supabase/sql/run-now/96_community_comment_media.sql")
+  const p96lines = p96.trimEnd().split("\n")
+  check("SQL PART 96: three lines, one statement each, safe to run again, the reload last", p96lines.length === 3 && p96lines[0].startsWith("/*") && /ADD COLUMN IF NOT EXISTS media jsonb NOT NULL DEFAULT '\[\]'::jsonb/.test(p96lines[1]) && /IF NOT EXISTS \(SELECT 1 FROM pg_constraint WHERE conname = 'community_feed_comments_media_shape'/.test(p96lines[1]) && /^DO \$do\$ .* END \$do\$;$/.test(p96lines[1]) && p96lines[2] === "notify pgrst, 'reload schema';")
+  check("its copy in migrations is the same, the README has its row and the check after has its column", read("supabase/migrations/20261114_community_comment_media.sql") === p96 && /`96_community_comment_media\.sql`/.test(read("supabase/sql/run-now/README.md")) && /as p96_community_comment_media/.test(read("supabase/sql/run-now/99_check_after.sql")))
+  const heart11 = code("components/community/member/heart.tsx")
+  check("BURST: 6 to 10 tiny hearts, done within 500ms, on a like only", BURST_COUNT >= 6 && BURST_COUNT <= 10 && burstPaths(20).length === BURST_COUNT && BURST_MS < 500 && /if \(!on\) \{[\s\S]{0,120}return\s*\}[\s\S]{0,900}burst\(el, size\)/.test(heart11))
+  check("the tiny hearts move by translate, scale, rotate and opacity only, and leave the page after", !/(left|top|width|height|margin):\s*`?\$\{[^}]*\}`?\s*,?\s*opacity/.test(heart11) && /\{ translate: at\(0\), scale:/.test(heart11) && /layer\.remove\(\)/.test(heart11) && /window\.setTimeout\(gone, BURST_MS \+ 120\)/.test(heart11) && /requestAnimationFrame\(\(\) => burst\(el, size\)\)/.test(heart11) && /position:fixed;/.test(heart11))
+  const box11 = code("components/community/member/comments.tsx")
+  check("THE COMMENT BOX: a 10px corner, a hairline, a 1px shadow, a soft ring with the caret; pressed by a tint, never a shrink", /rounded-\[10px\] border border-\[#e3e5e9\] bg-white shadow-\[0_1px_1px_rgba\(16,24,40,0\.05\)\]/.test(box11) && /focus-within:shadow-\[0_0_0_3px/.test(box11) && !/group-active\/send:scale/.test(box11) && /group-active\/send:opacity-80/.test(box11))
+  check("pictures, files and a GIF go in through the composer's own pipeline", /uploadPicture\(file, author\.id, communityId\)/.test(box11) && /uploadCommunityFile\(\{ communityId, file/.test(box11) && /<GifButton communityId=\{communityId\}/.test(box11) && /<CommentMedia media=\{c\.media\}/.test(box11))
+  const composer11 = code("components/community/member/composer.tsx")
+  check("THE ONE CARD: the composer is one element whatever its state (no key swap, its own opacity never animated), cleared only once closed", /<div ref=\{cardRef\} className=\{`\$\{CARD\} \$\{PHONE_ROW\} relative/.test(composer11) && !/cardRef\.current\.animate\(\[\{ opacity/.test(composer11) && /clearAfter\.current = true\s*shut\(\)/.test(composer11) && /if \(clearAfter\.current\) \{\s*clearAfter\.current = false\s*clear\(\)/.test(composer11))
+  check("the closed row and the editor crossfade without a dip (the one coming eases out, the one going eases in)", /rowRef\.current\?\.animate\(\[\{ opacity: 1 \}, \{ opacity: 0 \}\], \{ duration: ROW_OUT_MS, easing: FADE_GOING \}\)/.test(composer11) && /editorRef\.current\?\.animate\(\[\{ opacity: 0 \}, \{ opacity: 1 \}\], \{ duration: FADE_IN_MS, easing: FADE_COMING \}\)/.test(composer11))
+  check("a comment lands by translate, scale and opacity, its layer only for the move", /el\.animate\(\[\{ translate: "0 14px", scale: "0\.985" \}, \{ translate: "0 0", scale: "1" \}\], \{ duration: LAND_MS, easing: LAND_EASE \}\)/.test(code("components/community/member/arrive.ts")) && /el\.style\.willChange = ""/.test(code("components/community/member/arrive.ts")))
+
   console.log("\nCopy and boundaries")
   const mine = [
     "lib/communities/post-media.ts",
@@ -519,6 +591,9 @@ async function main() {
     "components/community/member/heart.tsx",
     "lib/communities/server/realtime.ts",
     "app/api/community/[communityId]/live/route.ts",
+    "app/api/community/[communityId]/comments/[commentId]/files/[assetId]/route.ts",
+    "lib/communities/server/comments.ts",
+    "supabase/sql/run-now/96_community_comment_media.sql",
     "components/community/member/messages.tsx",
     "components/community/member/messages-setup-note.tsx",
     "scripts/check-community-posts.mjs",

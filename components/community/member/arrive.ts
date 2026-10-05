@@ -175,9 +175,27 @@ export function useArrivals(): (ids: string[], opts?: ArriveOptions) => void {
   }, [])
 }
 
-/** A comment landing at the end of its list: up a few pixels into place as it fades in. */
+/** How long a comment takes to land. */
+export const LAND_MS = 420
+/** iOS's own settle: a quick start, a long soft finish, no overshoot. */
+const LAND_EASE = "cubic-bezier(0.22, 1, 0.36, 1)"
+
+/**
+ * A comment landing at the end of its list (round 11): it rises into place
+ * from just under it, settling to its full size, as it fades in over
+ * the first part of the move, so it reads as placed rather than popped. The
+ * row's own layer only for the move (will-change set and taken off), so the
+ * rest of the list is not drawn again for it.
+ */
 export function landComment(el: HTMLElement | null) {
   if (!el || reduced() || typeof el.animate !== "function") return
-  /* No end value for opacity: it lands on whatever the row is (lighter while "Sending"). */
-  el.animate([{ opacity: 0, translate: "0 10px", scale: "0.985" }, { translate: "0 0", scale: "1" }], { duration: 320, easing: SHEET_EASE })
+  el.style.willChange = "translate, scale, opacity"
+  /* Opacity ends on whatever the row is (lighter while "Sending"): its one keyframe is the start, the end is the row's own. */
+  el.animate([{ opacity: 0, offset: 0 }], { duration: LAND_MS * 0.6, easing: "ease-out" })
+  const move = el.animate([{ translate: "0 14px", scale: "0.985" }, { translate: "0 0", scale: "1" }], { duration: LAND_MS, easing: LAND_EASE })
+  const done = () => {
+    el.style.willChange = ""
+  }
+  move.onfinish = done
+  move.oncancel = done
 }

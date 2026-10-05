@@ -2310,15 +2310,29 @@ export function PlatformHeaderClient({
               {/* The person's notifications: a full screen sheet on a phone. */}
               {user ? <NotificationBell className={chrome.iconBtn} /> : null}
 
-              {/* Mobile Avatar or Sign In button — use h-[42px] w-[42px] wrapper for 44px tap target */}
+              {/* Mobile Avatar or Sign In button — use h-[42px] w-[42px] wrapper for 44px tap target.
+                  ROUND 11: 34px (it was 32) with Storelib's light depth, a hairline drawn as a 1px ring
+                  in the shadow and a 1px soft drop under it, so the photo keeps its full circle (the old
+                  border took a pixel off every side) and the circle sits on the bar rather than in it. */}
               {user ? (
                 <button
                   type="button"
                   onClick={() => setMobileProfileOpen(true)}
                   className="flex h-[42px] w-[42px] items-center justify-center rounded-full cursor-pointer"
                   aria-label="Open profile menu"
+                  data-phone-header-avatar=""
                 >
-                  <AppAvatar src={avatarUrl} name={(displayName || "").trim()} alt="" size={32} className="border border-gray-200" />
+                  <AppAvatar
+                    src={avatarUrl}
+                    name={(displayName || "").trim()}
+                    alt=""
+                    size={34}
+                    className={
+                      buyerHeaderLight
+                        ? "shadow-[0_0_0_1px_rgba(16,24,40,0.08),0_1px_2px_rgba(16,24,40,0.14)]"
+                        : "shadow-[0_0_0_1px_rgba(255,255,255,0.16),0_1px_2px_rgba(0,0,0,0.5)]"
+                    }
+                  />
                 </button>
               ) : (
                 /* The white Sign in the owner asked to keep on a phone. One link,

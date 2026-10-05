@@ -88,8 +88,8 @@ export function DiscoverBackBreadcrumb({
     of grey text with a 16px chevron: a target a thumb misses. The link is
     now a 44px tall pill with padding all round, pulled back by its own
     padding so the words sit exactly where they did, and a few more pixels
-    of invisible reach around that. It darkens under the finger on the
-    frame it lands (lib/navigation/press-feedback.ts), and it acts on the
+    of invisible reach around that. It tints under the finger on the frame
+    it lands, without changing size (lib/navigation/press-feedback.ts), and it acts on the
     lift of the first tap (lib/navigation/first-tap.ts), so a tap that iOS
     turns into no click, or a second tap of a double tap, can never need a
     second go or go back twice. The page behind is the router's own kept
@@ -125,10 +125,10 @@ export function DiscoverBackBreadcrumb({
         "cursor-pointer touch-manipulation text-[#6b7280] [-webkit-tap-highlight-color:transparent]",
         /* A little more reach than it shows, for a thumb that lands near it. */
         "before:absolute before:-inset-x-1 before:-inset-y-1.5 before:content-['']",
-        "transition-[background-color,color,scale] duration-150 ease-out",
-        "data-[pressed]:scale-[0.97] data-[pressed]:bg-[#1a1a2e]/[0.06] data-[pressed]:text-[#1a1a2e] data-[pressed]:duration-0",
+        /* Pressed is a tint and the ink darkening, never a size change (round 11: no bump). */
+        "transition-[background-color,color] duration-200 ease-out",
+        "data-[pressed]:bg-[#1a1a2e]/[0.07] data-[pressed]:text-[#1a1a2e] data-[pressed]:duration-0",
         "[@media(hover:hover)_and_(pointer:fine)]:hover:text-[#1a1a2e]",
-        "motion-reduce:data-[pressed]:scale-100",
       ].join(" ")}
     >
       <ChevronLeft className="h-[18px] w-[18px]" strokeWidth={2.25} aria-hidden />

@@ -27,7 +27,9 @@ export async function GET(request: Request, { params }: Params) {
 }
 
 /**
- * POST { body, parentId? }: { comment }. A reply to a reply is kept under its top level comment.
+ * POST { body, parentId?, media? }: { comment }. A reply to a reply is kept under its top level comment.
+ * `media` (round 11): pictures, one GIF and files the member uploaded for this community, checked
+ * like a post's and then as theirs and still there (lib/communities/server/comments.ts checkCommentMedia).
  * Once answered, whoever has the post open hears of it by id (lib/communities/server/realtime.ts).
  */
 export async function POST(request: Request, { params }: Params) {

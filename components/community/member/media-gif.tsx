@@ -58,19 +58,27 @@ function GifMark() {
 type GifPage = { connected: boolean; gifs: Gif[]; next: number | null }
 const seen = new Map<string, GifPage>()
 const seenKey = (communityId: string, q: string) => `${communityId}:${q.toLowerCase()}`
+/** The communities whose GIFs are not connected, as the route said this page. */
+const offFor = new Set<string>()
 
 export function GifButton({ communityId, className, onPick, disabled = false }: { communityId: string; className: string; onPick: (gif: Extract<PostMedia, { type: "gif" }>) => void; disabled?: boolean }) {
   const phone = usePhone()
   const [open, setOpen] = useState(false)
-  const [connected, setConnected] = useState<boolean | null>(() => seen.get(seenKey(communityId, ""))?.connected ?? null)
+  const [connected, setConnected] = useState<boolean | null>(() => (offFor.has(communityId) ? false : (seen.get(seenKey(communityId, ""))?.connected ?? null)))
 
-  /* Asked once while the editor is open, so the button knows whether GIFs are connected before it is pressed (and the trending ones are here for the picker). */
+  /*
+    Asked once while the editor is open, so the button knows whether GIFs are connected before it is pressed (and the
+    trending ones are here for the picker). Once per page for a community (round 11): every comment box on a post has
+    a GIF button too, and the first answer serves them all.
+  */
   useEffect(() => {
+    if (seen.has(seenKey(communityId, "")) || offFor.has(communityId)) return
     let stop = false
     void api<GifPage>(`${apiBase(communityId)}/gifs`).then((r) => {
       if (stop || !r.ok) return
       setConnected(r.data.connected)
       if (r.data.connected) seen.set(seenKey(communityId, ""), { connected: true, gifs: r.data.gifs ?? [], next: r.data.next ?? null })
+      else offFor.add(communityId)
     })
     return () => {
       stop = true

@@ -20,6 +20,7 @@
 import { createClient } from "@/lib/supabase/client"
 import { confirmUpload } from "@/lib/storage/confirm-upload"
 import { COMPRESS_PROFILES, compressImage } from "@/lib/images/compress"
+import { PICTURE_BUCKET, memberPictureFolder } from "@/lib/communities/post-media"
 import type { PostMedia } from "@/lib/communities/types"
 import { apiBase } from "./api"
 
@@ -45,6 +46,18 @@ async function pictureSize(blob: Blob): Promise<{ w: number; h: number }> {
   }
 }
 
+/**
+ * THE PICTURE ALREADY IN THIS BROWSER (round 11). A picture just sent is
+ * drawn from the file the member picked, under its stored address, for the
+ * life of the page: a comment that carries it shows it at once while it is
+ * sent and keeps showing the same pixels when the server's copy replaces it,
+ * never a blank box that loads again.
+ */
+const LOCAL = new Map<string, string>()
+export function localPicture(url: string): string | null {
+  return LOCAL.get(url) ?? null
+}
+
 /** A picture into the member's own folder of the picture bucket. */
 export async function uploadPicture(file: File, userId: string, communityId: string): Promise<Extract<PostMedia, { type: "image" }>> {
   if (uploadKindOf(file) !== "image") throw new Error("That file is not a picture.")
@@ -55,11 +68,17 @@ export async function uploadPicture(file: File, userId: string, communityId: str
   const supabase = createClient()
   const ext = (upload.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg"
   /* The member's own folder first: storage only lets a person write there. */
-  const path = `${userId}/community/${communityId}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`
-  const { error } = await supabase.storage.from("product-images").upload(path, upload, { cacheControl: "31536000", contentType: upload.type, upsert: false })
+  /* The same folder a comment's picture is checked against on the server (comments.ts checkCommentMedia). */
+  const path = `${memberPictureFolder(userId, communityId)}${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`
+  const { error } = await supabase.storage.from(PICTURE_BUCKET).upload(path, upload, { cacheControl: "31536000", contentType: upload.type, upsert: false })
   if (error) throw new Error("The picture did not upload. Check the connection and try again.")
-  confirmUpload("product-images", path)
-  const { data } = supabase.storage.from("product-images").getPublicUrl(path)
+  confirmUpload(PICTURE_BUCKET, path)
+  const { data } = supabase.storage.from(PICTURE_BUCKET).getPublicUrl(path)
+  try {
+    LOCAL.set(data.publicUrl, URL.createObjectURL(upload))
+  } catch {
+    /* No object addresses here: the stored copy is drawn instead. */
+  }
   return { type: "image", url: data.publicUrl, ...(size.w ? { w: size.w, h: size.h } : {}) }
 }
 

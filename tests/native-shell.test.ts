@@ -120,7 +120,8 @@ console.log("\n4. ONE BACK PER PRESS")
   check("a back on its way holds every other one, for at least BACK_HOLD_MS", /export const BACK_HOLD_MS = 400/.test(goBack) && /if \(backInFlight\(\)\) return \(\) => \{\}/.test(goBack))
   check("it lets go when the back shows itself or gives up", /function done\(\) \{\s*settled = true\s*backPending = false/.test(goBack))
   check("and the second tap does not open what is under it on the page that came back", /swallowEchoClicks\(\)/.test(goBack) && /window\.addEventListener\("click", eat, true\)/.test(goBack))
-  check("a pushed fallback is held the same way", /if \(backInFlight\(\)\) return plan/.test(goBack))
+  /* Round 11: and on until the page has gone (pushBackOnce), not only for BACK_HOLD_MS. */
+  check("a pushed fallback is held the same way", /pushBackOnce\(plan\.href, navigate\)/.test(goBack) && /if \(backInFlight\(now\)\) return false/.test(goBack))
 
   /* Run for real, with a window that only counts. */
   const listeners: Record<string, Array<(e: unknown) => void>> = {}

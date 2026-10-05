@@ -5,8 +5,8 @@
  *  THE CATEGORIES ICON AT THE RIGHT END OF A SEARCH FIELD
  * ===========================================================================
  * It said "Categories" with a chevron; the owner asked for the icon alone.
- * The icon is Explore's own (./categories-icon: two staggered rows of chips,
- * round 10, in place of the generic four square grid), it is named
+ * The icon is Explore's own (./categories-icon: a plain three row list, round
+ * 11, drawn at the search glyph's own stroke), it is named
  * "Categories" for a screen reader, and on a computer the word appears under
  * it on hover and keyboard focus.
  *
@@ -54,7 +54,7 @@ export function SearchCategoriesButton({
         open ? "bg-neutral-100 text-[#1a1a2e]" : "text-neutral-500 hover:bg-neutral-100/80 hover:text-[#1a1a2e] active:bg-neutral-100",
       )}
     >
-      <CategoriesIcon aria-hidden className={size === "hero" ? "h-5 w-5" : "h-[18px] w-[18px]"} strokeWidth={1.8} />
+      <CategoriesIcon aria-hidden className={size === "hero" ? "h-5 w-5" : "h-[18px] w-[18px]"} strokeWidth={2} />
     </ExploreCategoryPicker>
   )
 }
