@@ -34,7 +34,7 @@ import { CourseEditor } from "@/app/app/products/new/course-editor"
 import { LeaveButton, SaveButton, SAVED_CHECK_MS, type SavePhase } from "@/app/app/products/new/editor-buttons"
 import { SWITCH_GROUP, Segmented, SwitchRow } from "@/app/app/products/new/editor-controls"
 import { useConfirm } from "@/app/app/products/new/confirm-sheet"
-import { criticalDepth } from "@/components/ui/depth-button"
+import { secondaryDepth } from "@/components/ui/depth-button"
 import { MAX_LEVEL, PROGRAM_SUMMARY_MAX, PROGRAM_TITLE_MAX, centsFromTyped, programPrice, typedFromCents, type ProgramMode, type ProgramStatus } from "@/lib/communities/learn"
 import type { BuilderProgram, LearnBuilderData } from "./model"
 import { StatusPill, learnRequest } from "./builder-parts"
@@ -371,7 +371,7 @@ export function ProgramEditor({
         </section>
 
         <div className="flex justify-start pt-1">
-          <button type="button" onClick={() => void remove()} className={cn(criticalDepth, "h-10 rounded-[10px] px-3.5 text-[14px] sm:h-9 sm:rounded-lg sm:text-[13.5px]")}>
+          <button type="button" onClick={() => void remove()} className={cn(secondaryDepth, "h-10 rounded-[10px] px-3.5 text-[14px] text-[#b42318] sm:h-9 sm:rounded-lg sm:text-[13.5px]")}>
             {program.kind === "course" ? "Take out of Learn" : "Delete program"}
           </button>
         </div>
@@ -420,7 +420,7 @@ function CoverPick({ url, uploading, onPick, onClear }: { url: string | null; up
         {uploading !== null ? `Uploading ${uploading}%` : url ? "Change" : "Add a cover, 16:9"}
       </button>
       {url && uploading === null ? (
-        <button type="button" onClick={onClear} aria-label="Remove the cover" className="absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/95 text-[#1a1a2e] shadow-[0_1px_3px_rgba(0,0,0,0.2)]">
+        <button type="button" onClick={onClear} aria-label="Remove the cover" className="absolute right-2 top-2 inline-flex h-10 w-10 items-center justify-center rounded-full sm:h-8 sm:w-8 bg-white/95 text-[#1a1a2e] shadow-[0_1px_3px_rgba(0,0,0,0.2)]">
           <X className="h-4 w-4" />
         </button>
       ) : null}

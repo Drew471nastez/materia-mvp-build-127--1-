@@ -33,7 +33,7 @@ import { PlaceIcon } from "@/components/community/member/place-icons"
 import { programPrice } from "@/lib/communities/learn"
 import { lessonsLabel, type BuilderProgram, type LearnBuilderData } from "./model"
 import { ProgramEditor } from "./program-editor"
-import { StatusPill, learnRequest, usePhone } from "./builder-parts"
+import { learnRequest, usePhone } from "./builder-parts"
 
 const CARD = "rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
 const BTN = "h-10 rounded-[10px] px-3.5 text-[14px] sm:h-9 sm:rounded-lg sm:px-3 sm:text-[13.5px]"
@@ -199,13 +199,13 @@ export function LearnBuilder({ communityId, initial = null, initialOpenId = null
                     )}
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="flex min-w-0 items-center gap-2">
-                      <span className="truncate text-[15px] font-semibold leading-5 text-[#1a1a2e]">{p.title}</span>
-                      <StatusPill status={p.status} />
-                    </span>
-                    <span className="mt-0.5 block truncate text-[13px] tabular-nums text-[#6b7280]">
-                      {lessonsLabel(p.lessons)} · {accessLine(p, levelName(p.level))}
-                      {p.kind === "course" ? " · a course you sell" : ""}
+                    <span className="line-clamp-2 text-[15px] font-semibold leading-5 text-[#1a1a2e] sm:line-clamp-1">{p.title}</span>
+                    <span className="mt-1 line-clamp-2 text-[13px] leading-[18px] tabular-nums text-[#6b7280] sm:line-clamp-1">
+                      <StatusDot status={p.status} />
+                      <span data-program-line>
+                        {lessonsLabel(p.lessons)} · {accessLine(p, levelName(p.level))}
+                        {p.kind === "course" ? " · a course you sell" : ""}
+                      </span>
                     </span>
                   </span>
                   <ChevronRight className="hidden h-4 w-4 shrink-0 text-[#9ca3af] sm:block" aria-hidden />
@@ -259,6 +259,17 @@ export function LearnBuilder({ communityId, initial = null, initialOpenId = null
       />
       {confirmSheet}
     </div>
+  )
+}
+
+/* The state, quietly, at the start of the row's line: a dot and the word, not another pill. */
+function StatusDot({ status }: { status: "draft" | "published" }) {
+  return (
+    <span className={cn("font-medium", status === "published" ? "text-[#1d6b45]" : "text-[#8a5a00]")} data-status={status}>
+      <span aria-hidden className={cn("mr-1.5 inline-block h-1.5 w-1.5 rounded-full align-[2px]", status === "published" ? "bg-[#22a06b]" : "bg-[#e0a100]")} />
+      {status === "published" ? "Published" : "Draft"}
+      <span aria-hidden className="font-normal text-[#6b7280]"> · </span>
+    </span>
   )
 }
 

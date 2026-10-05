@@ -144,7 +144,7 @@ export async function startProgramCheckout(db: Db, deps: CheckoutDeps, a: { comm
   const owned = await ownedPrograms(db, viewer.userId, [program.id])
   const gate = programGate(program, programViewer(viewer, owned.has(program.id)))
   if (gate.open) return refuse(409, "already_yours", "This program is already yours.")
-  if (gate.reason !== "paid") return refuse(403, "closed", "This program is not open to you.")
+  if ((gate as { reason?: string }).reason !== "paid") return refuse(403, "closed", "This program is not open to you.")
   if (program.currency && program.currency !== deps.chargeCurrency) return refuse(409, "price_changed", "This program's price is being updated. Try again later.")
   if (!community.creator_id) return refuse(409, "seller_unavailable", "This community cannot take payments right now.")
   const { data: creator } = await db.from("creators").select("id, stripe_account_id").eq("id", community.creator_id).maybeSingle()

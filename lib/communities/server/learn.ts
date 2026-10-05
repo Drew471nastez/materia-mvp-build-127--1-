@@ -154,7 +154,7 @@ const ROLE_WORDS: Record<Role, string> = { owner: "The owner", admin: "Admins", 
 type Names = { tier: Map<string, string>; product: Map<string, string> }
 
 async function lockNames(db: Db, communityId: string, gates: ProgramGate[]): Promise<Names> {
-  const need = (reason: string) => [...new Set(gates.filter((g) => !g.open && g.reason === reason).map((g) => (g as { need?: string | null }).need).filter((n): n is string => !!n))]
+  const need = (reason: string) => [...new Set(gates.filter((g) => !g.open && (g as { reason?: string }).reason === reason).map((g) => (g as { need?: string | null }).need).filter((n): n is string => !!n))]
   const tierIds = need("tier")
   const productIds = need("product")
   const [tiers, products] = await Promise.all([
@@ -168,8 +168,10 @@ async function lockNames(db: Db, communityId: string, gates: ProgramGate[]): Pro
 }
 
 /** The lock as words, or null when the program is open. A draft never gets here for a member: it is not listed. */
-export function lockOf(gate: ProgramGate, names: Names, program: Pick<ProgramRow, "currency">, timeZone?: string): ProgramLock | null {
-  if (gate.open) return null
+export function lockOf(open: ProgramGate, names: Names, program: Pick<ProgramRow, "currency">, timeZone?: string): ProgramLock | null {
+  if (open.open) return null
+  /* Narrowed by hand: the test build compiles without strict, where a boolean tag does not narrow. */
+  const gate = open as Exclude<ProgramGate, { open: true }>
   const base = { opensAt: null, priceCents: null, currency: null }
   switch (gate.reason) {
     case "level":
@@ -577,13 +579,6 @@ export async function loadLearnBuilder(db: Db, community: CommunityRow, opts: { 
       .filter((p) => !attached.has(p.id))
       .map((p) => ({ id: p.id, title: p.title || "Course", coverUrl: p.thumbnail_url, status: p.status })),
   }
-}
-
-/** The builder's data with what it needs about selling: the currency every charge is made in, and whether the creator's payouts take payments. */
-export async function learnBuilderFor(db: Db, community: CommunityRow): Promise<LearnBuilderData> {
-  const [{ platformChargeCurrency }, { checkoutReadyForCreator }] = await Promise.all([import("@/lib/payments/fees/currency-rules"), import("@/lib/payments/service")])
-  const canSell = community.creator_id ? await checkoutReadyForCreator(community.creator_id).catch(() => false) : false
-  return loadLearnBuilder(db, community, { currency: platformChargeCurrency(), canSell })
 }
 
 async function buyerCounts(db: Db, programIds: string[]): Promise<Map<string, number>> {

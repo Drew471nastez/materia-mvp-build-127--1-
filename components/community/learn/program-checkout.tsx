@@ -124,6 +124,7 @@ export function ProgramCheckoutSheet({ communityId, communityName, programId, ti
       }}
       phone={phone}
       label={`Buy ${title}`}
+      onOpenAutoFocus={(e) => e.preventDefault()}
       className="flex max-h-[min(860px,calc(100dvh-48px))] w-full max-w-[520px] flex-col gap-0 overflow-hidden rounded-2xl p-0"
       sheet={{ height: "calc(var(--vv-h, 100dvh) * 0.92)", maxHeight: "calc(var(--vv-h, 100dvh) * 0.92)", dismissible: !busy, aboveKeyboard: false }}
     >

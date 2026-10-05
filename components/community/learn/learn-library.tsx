@@ -86,7 +86,7 @@ function ProgramTile({ program: p, timeZone }: { program: ProgramCard; timeZone?
             <PlaceIcon place="classroom" className="h-5 w-5 text-[#b0b4bb] min-[520px]:h-7 min-[520px]:w-7" />
           </span>
         )}
-        {lock && !paid ? <span className="absolute inset-0 bg-[#1a1a2e]/35" aria-hidden /> : null}
+        {lock && !paid && p.coverUrl ? <span className="absolute inset-0 bg-[#1a1a2e]/35" aria-hidden /> : null}
         {lock ? (
           <span className="absolute bottom-2.5 left-2.5 hidden max-w-[calc(100%-20px)] items-center gap-1.5 rounded-full bg-white/95 py-1 pl-2 pr-2.5 text-[12px] font-semibold text-[#1a1a2e] shadow-[0_1px_3px_rgba(0,0,0,0.18)] min-[520px]:inline-flex" data-lock-label>
             <Lock className="h-3 w-3 shrink-0" aria-hidden />

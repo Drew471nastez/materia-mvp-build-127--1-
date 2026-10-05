@@ -198,7 +198,7 @@ export function CoursePlayer({ data, backHref = "/account/library/courses", back
         <Link
           href={backHref}
           aria-label={backLabel}
-          className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#e5e7eb] bg-white text-[#1a1a2e] hover:bg-[#f8f9fa]"
+          className="mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-[#e5e7eb] bg-white text-[#1a1a2e] hover:bg-[#f8f9fa] sm:h-9 sm:w-9"
         >
           <ArrowLeft className="h-4 w-4" />
         </Link>

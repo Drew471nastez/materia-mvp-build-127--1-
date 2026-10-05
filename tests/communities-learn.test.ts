@@ -327,9 +327,9 @@ async function main() {
     check("bought: owner", (await level(ALICE)) === "owner")
     const found = await programLessonLevel(db, ALICE, COURSE_PAID, { enabled: true })
     check("the program stands in for a product: its id and the community's creator", found?.product.id === PAID && found?.creatorId === CREATOR && found?.programId === PAID)
-    const ctx = await lessonContext(db, ALICE, LESSON_PAID_1)
+    const ctx = await lessonContext(db as any, ALICE, LESSON_PAID_1)
     check("lessonContext asks the community for a program's lesson (no product), and says no while the switch is off", ctx !== null && ctx.programId === PAID && ctx.access === "none")
-    const tree = await readCourseTree(db, PAID)
+    const tree = await readCourseTree(db as any, PAID)
     check("readCourseTree finds a program's lessons by the program's id", tree?.course.id === COURSE_PAID && tree.modules[0]?.lessons.length === 2)
   }
 
