@@ -8,15 +8,16 @@
  * cover, its name with its address under it, storelib.com/community/<slug>,
  * which copies itself when pressed, Members / Online / Admins, the faces of
  * the members here most recently, Settings for the people who run it) and
- * right under it the places in the community, each a soft coloured tile
- * with a Solar line glyph (bold when it is the open one), a word and a
- * chevron. Right: the next event, then the top contributors (or the most
+ * right under it the places in the community, each a quiet grey tile with
+ * its icon (place-icons.tsx, drawn by hand on one grid in round 11; the open
+ * one's tile is white with a hairline and a one pixel shadow, its icon a
+ * touch heavier), a word and a chevron. Right: the next event, then the top contributors (or the most
  * active), each only when there is something real to show (lib/communities/
  * server/wall.ts). From 1024px to 1279px all of it stacks in the left
  * column. Invite is in the bar's "..." menu now, not on the card.
  *
  * Calm on purpose: white cards on the page's #f8f9fa, hairlines, ink for
- * words, the tiles in quiet tints of a few hues, no violet. A face, a name
+ * words and icons, no colour that is not the community's own, no violet. A face, a name
  * and a contributor open the person's page and, resting on them on a
  * computer, their card (person-card.tsx), like every name in the community.
  */
@@ -25,23 +26,13 @@ import { MessageSquareText, Settings, Users } from "lucide-react"
 import { AltArrowRightIcon as ChevronLine } from "@solar-icons/react/linear/alt-arrow-right"
 import { CheckCircleIcon as CheckLine } from "@solar-icons/react/linear/check-circle"
 import { CopyIcon as CopyLine } from "@solar-icons/react/linear/copy"
-import { CalendarIcon as CalendarLine } from "@solar-icons/react/linear/calendar"
-import { CalendarIcon as CalendarBold } from "@solar-icons/react/bold/calendar"
-import { CupStarIcon as CupLine } from "@solar-icons/react/linear/cup-star"
 import { CupStarIcon as CupBold } from "@solar-icons/react/bold/cup-star"
-import { HomeSmileIcon as HomeLine } from "@solar-icons/react/linear/home-smile"
-import { HomeSmileIcon as HomeBold } from "@solar-icons/react/bold/home-smile"
-import { InfoCircleIcon as InfoLine } from "@solar-icons/react/linear/info-circle"
-import { InfoCircleIcon as InfoBold } from "@solar-icons/react/bold/info-circle"
-import { SquareAcademicCapIcon as CapLine } from "@solar-icons/react/linear/square-academic-cap"
-import { SquareAcademicCapIcon as CapBold } from "@solar-icons/react/bold/square-academic-cap"
-import { UsersGroupRoundedIcon as UsersLine } from "@solar-icons/react/linear/users-group-rounded"
-import { UsersGroupRoundedIcon as UsersBold } from "@solar-icons/react/bold/users-group-rounded"
 import { createContext, memo, useCallback, useContext, useEffect, useRef, useState } from "react"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { optimizedImageUrl } from "@/lib/images/optimized-url"
 import { compactCount, eventDateBadge } from "@/lib/communities/format"
 import { FULL_ON_HOVER, type NavEntry, type TabKey } from "./nav"
+import { PlaceIcon } from "./place-icons"
 import { memberHref } from "./person-href"
 import { EventWhen } from "./time"
 import { CommunityMark } from "./community-mark"
@@ -194,17 +185,10 @@ export const WallCommunityCard = memo(WallCommunityCardInner)
 
 /* ── The places ────────────────────────────────────────────────────────── */
 
-type SolarIcon = React.ComponentType<{ size?: number; className?: string }>
-
-/** Each place's tile: a quiet tint and a deeper shade of the same hue for the glyph. */
-const PLACE_LOOK: Record<TabKey, { line: SolarIcon; bold: SolarIcon; tile: string; ink: string }> = {
-  home: { line: HomeLine, bold: HomeBold, tile: "bg-[#eef1f5]", ink: "text-[#475569]" },
-  classroom: { line: CapLine, bold: CapBold, tile: "bg-[#eaf1fb]", ink: "text-[#2f5f9e]" },
-  events: { line: CalendarLine, bold: CalendarBold, tile: "bg-[#fcefee]", ink: "text-[#b4483c]" },
-  members: { line: UsersLine, bold: UsersBold, tile: "bg-[#e8f4ed]", ink: "text-[#2f7a55]" },
-  leaderboard: { line: CupLine, bold: CupBold, tile: "bg-[#fbf3dc]", ink: "text-[#a16207]" },
-  about: { line: InfoLine, bold: InfoBold, tile: "bg-[#e7f3f3]", ink: "text-[#2c7a7b]" },
-}
+/** A place's tile: quiet grey with a grey icon; the open place's is white on a hairline with a one pixel shadow, its icon in ink. */
+const TILE = "flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border transition-[background-color,border-color,box-shadow,color] duration-150 motion-reduce:transition-none"
+const TILE_OFF = "border-transparent bg-[#f1f2f4] text-[#5b616e]"
+const TILE_ON = "border-[#e3e5e9] bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.07)]"
 
 /**
  * WHICH PLACE IS MARKED, shared by the frame (shell-frame.tsx) with the two
@@ -236,8 +220,6 @@ export function WallPlaces({ entries, current: currentProp, onGo: onGoProp }: { 
       <ul className="space-y-0.5">
         {entries.map((e) => {
           const on = e.key === current
-          const look = PLACE_LOOK[e.key]
-          const Icon = on ? look.bold : look.line
           return (
             <li key={e.key}>
               <Link
@@ -251,8 +233,8 @@ export function WallPlaces({ entries, current: currentProp, onGo: onGoProp }: { 
                 data-on={on ? "true" : "false"}
                 className={`group/place flex h-12 touch-manipulation items-center gap-3 rounded-xl px-2 outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 motion-reduce:transition-none active:bg-[#eef0f2] active:duration-0 data-[pressed]:bg-[#eef0f2] data-[pressed]:duration-0 ${on ? "bg-[#f3f4f6]" : "hover:bg-[#f8f9fa]"}`}
               >
-                <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] ${look.tile} ${look.ink}`} data-place-tile="">
-                  <Icon size={20} />
+                <span className={`${TILE} ${on ? TILE_ON : TILE_OFF}`} data-place-tile="">
+                  <PlaceIcon place={e.key} on={on} size={20} />
                 </span>
                 <span className={`min-w-0 flex-1 truncate text-[15px] ${on ? "font-semibold text-[#1a1a2e]" : "font-medium text-[#262633]"}`}>{e.label}</span>
                 <span aria-hidden data-place-chevron="" className={`inline-flex shrink-0 transition-[translate,color] duration-150 motion-reduce:transition-none ${on ? "text-[#6b7280]" : "text-[#b0b4bb] group-hover/place:translate-x-0.5 group-hover/place:text-[#6b7280]"}`}>
@@ -319,7 +301,7 @@ function WallUpcomingInner({ slug, event }: { slug: string; event: WallEvent }) 
         </span>
       </Link>
       <Link href={href} className={`mt-3.5 flex h-10 w-full items-center justify-center gap-2 rounded-xl ${DEPTH} ${DEPTH_PRESS} text-[14px] font-medium text-[#1a1a2e] transition-[background-color,box-shadow] hover:bg-[#f6f7f8]`} data-wall-view-event="">
-        <CalendarLine size={17} className="text-[#4b5563]" />
+        <PlaceIcon place="events" size={17} className="text-[#4b5563]" />
         View event
       </Link>
     </section>
