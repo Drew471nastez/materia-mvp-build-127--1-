@@ -12,11 +12,19 @@
  * The first page of Upcoming and the current month come with the page;
  * Past and other months are asked for when opened
  * (GET /api/community/<id>/events).
+ *
+ * Round 11, CLEANER: the page is called what its place is called (Calendar,
+ * not Events under a Calendar tab), the views are Upcoming, Past and Month,
+ * a wait is the community's own spinner rather than a generic one, and a
+ * view with nothing in it is the community's empty card (member/
+ * place-empty.tsx) with, for the people who run events, Schedule an event.
  */
 import Link from "next/link"
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { CalendarDays, Check, ChevronLeft, ChevronRight, Clock3, Loader2, Lock, MapPin, PlayCircle, Video } from "lucide-react"
+import { Check, ChevronLeft, ChevronRight, Clock3, Lock, MapPin, PlayCircle, Video } from "lucide-react"
 import { CARD, SECONDARY } from "@/components/library/library-ui"
+import { PlaceEmpty } from "@/components/community/member/place-empty"
+import { Spinner } from "@/components/community/member/place-spinner"
 import { eventDateBadge } from "@/lib/communities/format"
 import { dayKey, goingLabel, isLive, monthGrid, monthKey, monthTitle, type EventCardView } from "./model"
 import { clockIn, useViewerZone } from "./use-zone"
@@ -37,6 +45,8 @@ export interface EventsPageProps {
   month: { year: number; month: number; events: EventCardView[] }
   /** The zone times are drawn in until the browser's own is known. */
   fallbackZone: string
+  /** The creator side's new event form, for somebody who may run events; null for everybody else. */
+  manageHref?: string | null
 }
 
 async function getJson(url: string): Promise<Record<string, unknown> | null> {
@@ -48,7 +58,7 @@ async function getJson(url: string): Promise<Record<string, unknown> | null> {
   }
 }
 
-export function EventsPage({ communityId, initial, month, fallbackZone }: EventsPageProps) {
+export function EventsPage({ communityId, initial, month, fallbackZone, manageHref = null }: EventsPageProps) {
   const zone = useViewerZone(fallbackZone)
   const [tab, setTab] = useState<Tab>("upcoming")
   const [lists, setLists] = useState<Record<"upcoming" | "past", ListState>>({
@@ -81,14 +91,14 @@ export function EventsPage({ communityId, initial, month, fallbackZone }: Events
     <section data-events aria-labelledby="events-title">
       <header className="mb-4 flex flex-wrap items-center justify-between gap-3 sm:mb-5">
         <h1 id="events-title" className="text-[22px] font-bold tracking-[-0.01em] text-[#1a1a2e] sm:text-[24px]">
-          Events
+          Calendar
         </h1>
-        <div className="flex items-center gap-0.5 rounded-[10px] bg-[#eef0f3] p-0.5" role="tablist" aria-label="Which events">
+        <div className="flex items-center gap-0.5 rounded-[11px] border border-[#e6e8eb] bg-[#f1f2f4] p-0.5" role="tablist" aria-label="Which events">
           {(
             [
               ["upcoming", "Upcoming"],
               ["past", "Past"],
-              ["calendar", "Calendar"],
+              ["calendar", "Month"],
             ] as const
           ).map(([id, label]) => (
             <button
@@ -98,9 +108,9 @@ export function EventsPage({ communityId, initial, month, fallbackZone }: Events
               aria-selected={tab === id}
               data-events-tab={id}
               onClick={() => setTab(id)}
-              className={`h-10 whitespace-nowrap rounded-[8px] px-3.5 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 sm:h-9 ${
+              className={`h-10 touch-manipulation whitespace-nowrap rounded-[9px] sm:h-9 px-3.5 text-[13.5px] font-medium transition-[background-color,color,box-shadow] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 motion-reduce:transition-none ${
                 id === "calendar" ? "hidden lg:block" : ""
-              } ${tab === id ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(0,0,0,0.08)]" : "text-[#6b7280] hover:text-[#1a1a2e]"}`}
+              } ${tab === id ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.08),0_0_0_0.5px_rgba(16,24,40,0.06)]" : "text-[#6b7280] hover:text-[#1a1a2e] active:text-[#1a1a2e]"}`}
             >
               {label}
             </button>
@@ -116,27 +126,38 @@ export function EventsPage({ communityId, initial, month, fallbackZone }: Events
 
       {/* The list; with Calendar picked on a narrow screen (no grid there), Upcoming. */}
       <div className={tab === "calendar" ? "lg:hidden" : ""}>
-        <EventList state={list} past={listTab === "past"} zone={zone} onMore={() => void loadMore(listTab, list.nextCursor)} />
+        <EventList state={list} past={listTab === "past"} zone={zone} onMore={() => void loadMore(listTab, list.nextCursor)} manageHref={manageHref} />
       </div>
     </section>
   )
 }
 
-function EventList({ state, past, zone, onMore }: { state: ListState; past: boolean; zone: string | undefined; onMore: () => void }) {
+function EventList({ state, past, zone, onMore, manageHref = null }: { state: ListState; past: boolean; zone: string | undefined; onMore: () => void; manageHref?: string | null }) {
   if (!state.loaded) {
     return (
-      <div className={`${CARD} flex items-center justify-center py-14`} data-events-loading>
-        <Loader2 className="h-5 w-5 animate-spin text-[#9ca3af]" aria-label="Loading" />
+      <div className="flex h-[220px] items-center justify-center" role="status" aria-label="Loading" data-events-loading>
+        <Spinner />
       </div>
     )
   }
   if (state.events.length === 0) {
-    return (
-      <div data-events-empty className="rounded-2xl border border-dashed border-[#d9dce1] bg-white/60 px-5 py-12 text-center">
-        <CalendarDays className="mx-auto h-6 w-6 text-[#b0b3ba]" aria-hidden />
-        <p className="mt-2 text-[15px] font-semibold text-[#1a1a2e]">{past ? "No past events." : "No events scheduled."}</p>
-        {state.error ? <p className="mt-1 text-[13px] text-[#b42318]">{state.error}</p> : null}
-      </div>
+    if (state.error) {
+      return (
+        <div className={`${CARD} px-5 py-10 text-center`} data-events-empty>
+          <p className="text-[14px] text-[#b42318]">{state.error}</p>
+        </div>
+      )
+    }
+    return past ? (
+      <PlaceEmpty data-events-empty="" place="events" title="No past events yet" line="Events that have ended stay here, with their recordings when there are some." />
+    ) : (
+      <PlaceEmpty
+        data-events-empty=""
+        place="events"
+        title="Nothing coming up"
+        line={manageHref ? "Schedule a live session, a meetup or a workshop, and members see it here in their own time zone." : "Live sessions and meetups show up here, in your own time zone, as soon as they are planned."}
+        action={manageHref ? { href: manageHref, label: "Schedule an event" } : null}
+      />
     )
   }
   return (
@@ -149,7 +170,7 @@ function EventList({ state, past, zone, onMore }: { state: ListState; past: bool
       {state.error ? <p className="mt-3 text-center text-[13px] text-[#b42318]">{state.error}</p> : null}
       {state.nextCursor ? (
         <button type="button" onClick={onMore} disabled={state.loading} className={`${SECONDARY} mt-3 w-full`} data-events-more>
-          {state.loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+          {state.loading ? <Spinner size={16} /> : null}
           {past ? "Show earlier events" : "Show later events"}
         </button>
       ) : null}
@@ -169,7 +190,7 @@ function EventRow({ event, zone, past }: { event: EventCardView; zone: string | 
           className={`flex w-12 shrink-0 flex-col items-center rounded-xl border pb-1.5 pt-1 ${past || event.cancelled ? "border-[#eceef1] bg-[#f8f9fa]" : "border-[#e4e7ec] bg-white"}`}
           data-date-badge
         >
-          <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#6b7280]">{badge.month}</span>
+          <span className={`text-[11px] font-semibold uppercase tracking-[0.06em] ${past || event.cancelled ? "text-[#9ca3af]" : "text-[#c4290c]"}`}>{badge.month}</span>
           <span className={`text-[20px] font-bold leading-6 tabular-nums ${past || event.cancelled ? "text-[#6b7280]" : "text-[#1a1a2e]"}`}>{badge.day}</span>
         </span>
 
@@ -272,7 +293,7 @@ function MonthCalendar({ communityId, initial, zone }: { communityId: string; in
       <div className="flex items-center justify-between gap-3 border-b border-[#eef0f3] px-4 py-2.5">
         <h2 className="flex items-center gap-2 text-[16px] font-semibold text-[#1a1a2e]" aria-live="polite">
           {monthTitle(at.year, at.month)}
-          {loading ? <Loader2 className="h-4 w-4 animate-spin text-[#9ca3af]" aria-label="Loading" /> : null}
+          {loading ? <Spinner size={16} /> : null}
         </h2>
         <div className="flex items-center gap-1">
           <button type="button" onClick={goToday} className="h-9 rounded-[10px] px-3 text-[13px] font-medium text-[#4b5563] hover:bg-[#f3f4f6] hover:text-[#1a1a2e]">

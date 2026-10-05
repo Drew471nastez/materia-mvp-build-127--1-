@@ -4,6 +4,7 @@ import { EventsPage } from "@/components/community/events/events-page"
 import { admin } from "@/lib/communities/server/db"
 import { openMemberPage } from "@/lib/communities/server/classroom"
 import { listEvents, monthEvents } from "@/lib/communities/server/events"
+import { eventHrefFor } from "@/lib/communities/server/wall"
 
 export const dynamic = "force-dynamic"
 
@@ -26,5 +27,6 @@ export default async function CommunityEventsPage({ params }: { params: Promise<
   const month = now.getUTCMonth()
   const [upcoming, monthList] = await Promise.all([listEvents(db, open.community, open.viewer, { when: "upcoming" }), monthEvents(db, open.community, open.viewer, year, month)])
   const fallbackZone = upcoming.events[0]?.timezone || monthList[0]?.timezone || "UTC"
-  return <EventsPage communityId={open.community.id} initial={upcoming} month={{ year, month, events: monthList }} fallbackZone={fallbackZone} />
+  /* The people who run events get Schedule an event when there are none (round 11). */
+  return <EventsPage communityId={open.community.id} initial={upcoming} month={{ year, month, events: monthList }} fallbackZone={fallbackZone} manageHref={eventHrefFor(open.community, open.viewer)} />
 }

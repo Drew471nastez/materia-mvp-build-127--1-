@@ -7,9 +7,16 @@
  * the short bio they wrote here; it opens their page across Storelib (their
  * storefront, or their profile), and Message beside it opens a conversation
  * here when the community has chat on.
+ *
+ * Round 11, CALM WHILE IT LOADS: the search field is squared like
+ * Storelib's fields with the community's light depth, and while a search is
+ * on its way the community's spinner turns inside it, the list staying as it
+ * was (no dimming); the answer eases in by opacity. Who to show is a
+ * segmented control rather than a row of pills. Nobody found is the
+ * community's empty card, not a line in a box.
  */
 import Link from "next/link"
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { Search } from "lucide-react"
 import { ChatRoundDotsIcon } from "@solar-icons/react/linear/chat-round-dots"
 import { AppAvatar } from "@/components/app/app-avatar"
@@ -19,7 +26,9 @@ import { api, apiBase } from "./api"
 import { PageTitle } from "./headers"
 import { openMessages } from "./messages"
 import { memberHref } from "./person-href"
-import { BTN_SECONDARY, CARD, ICON_BTN, PILL, PILL_OFF, PILL_ON } from "./ui"
+import { PlaceEmpty } from "./place-empty"
+import { Spinner } from "./place-spinner"
+import { BTN_SECONDARY, CARD, ICON_BTN } from "./ui"
 import { RoleBadge } from "./role-badge"
 
 type Filter = "all" | "admin" | "moderator"
@@ -31,6 +40,17 @@ export function MembersDirectory({ communityId, slug, memberCount, initial, meId
   const [cursor, setCursor] = useState(initial.nextCursor)
   const [loading, setLoading] = useState(false)
   const first = useRef(true)
+  /* Each answer to a search or a filter is a new list: it eases in (opacity, on the compositor); a page added at the end does not. */
+  const [answer, setAnswer] = useState(0)
+  const listRef = useRef<HTMLUListElement>(null)
+  const shownAnswer = useRef(answer)
+  useLayoutEffect(() => {
+    if (shownAnswer.current === answer) return
+    shownAnswer.current = answer
+    const el = listRef.current
+    if (!el || typeof el.animate !== "function" || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
+    el.animate([{ opacity: 0.4 }, { opacity: 1 }], { duration: 200, easing: "cubic-bezier(0.22, 1, 0.36, 1)" })
+  }, [answer])
 
   const url = useCallback(
     (c: string | null) => {
@@ -56,6 +76,7 @@ export function MembersDirectory({ communityId, slug, memberCount, initial, meId
       if (r.ok) {
         setMembers(r.data.members)
         setCursor(r.data.nextCursor)
+        setAnswer((n) => n + 1)
       }
     }, 220)
     return () => {
@@ -91,26 +112,50 @@ export function MembersDirectory({ communityId, slug, memberCount, initial, meId
             onChange={(e) => setQ(e.target.value)}
             placeholder="Search members"
             aria-label="Search members"
-            className="h-11 w-full rounded-full border border-[#e3e4e8] bg-white pl-10 pr-4 text-[16px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] focus:border-[#c9ccd3] sm:h-10 sm:text-[14px]"
+            className="h-11 w-full rounded-xl border border-[#e1e4e8] bg-white pl-10 pr-10 text-[16px] text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.05)] outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-[#9ca3af] focus:border-[#c9ccd3] focus:shadow-[0_0_0_3px_rgba(26,26,46,0.06)] sm:h-10 sm:text-[14px]"
+            data-member-search=""
           />
+          {loading && !cursor ? (
+            <span className="pointer-events-none absolute right-3 top-1/2 flex -translate-y-1/2" data-member-search-busy="">
+              <Spinner size={16} />
+            </span>
+          ) : null}
         </label>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-0.5 self-start rounded-[11px] border border-[#e6e8eb] bg-[#f1f2f4] p-0.5 sm:self-auto" role="group" aria-label="Who to show">
           {filters.map((f) => (
-            <button key={f.key} type="button" onClick={() => setFilter(f.key)} aria-pressed={filter === f.key} className={`${PILL} ${filter === f.key ? PILL_ON : PILL_OFF}`}>
+            <button
+              key={f.key}
+              type="button"
+              onClick={() => setFilter(f.key)}
+              aria-pressed={filter === f.key}
+              data-member-filter={f.key}
+              className={`h-10 touch-manipulation whitespace-nowrap rounded-[9px] sm:h-9 px-3.5 text-[13.5px] font-medium outline-none transition-[background-color,color,box-shadow] duration-150 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 motion-reduce:transition-none ${filter === f.key ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.08),0_0_0_0.5px_rgba(16,24,40,0.06)]" : "text-[#6b7280] hover:text-[#1a1a2e] active:text-[#1a1a2e]"}`}
+            >
               {f.label}
             </button>
           ))}
         </div>
       </div>
 
-      <ul className={`${CARD} mt-4 divide-y divide-[#f0f1f3] overflow-hidden transition-opacity ${loading && !cursor ? "opacity-60" : ""}`} data-member-list="">
-        {members.map((m) => (
-          <li key={m.userId}>
-            <MemberRow m={m} slug={slug} canMessage={canMessage && m.userId !== meId} />
-          </li>
-        ))}
-        {members.length === 0 ? <li className="px-5 py-10 text-center text-[14px] text-[#6b7280]">{q ? "Nobody by that name here." : "No members yet."}</li> : null}
-      </ul>
+      {members.length === 0 ? (
+        <div className="mt-4">
+          <PlaceEmpty
+            compact
+            data-member-empty=""
+            place="members"
+            title={q ? "Nobody by that name" : filter === "all" ? "No members yet" : filter === "admin" ? "No admins besides the owner" : "No moderators yet"}
+            line={q ? "Try a first name or a username." : "People show up here as they join."}
+          />
+        </div>
+      ) : (
+        <ul ref={listRef} className={`${CARD} mt-4 divide-y divide-[#f0f1f3] overflow-hidden shadow-[0_1px_2px_rgba(16,24,40,0.04)]`} data-member-list="">
+          {members.map((m) => (
+            <li key={m.userId}>
+              <MemberRow m={m} slug={slug} canMessage={canMessage && m.userId !== meId} />
+            </li>
+          ))}
+        </ul>
+      )}
       {cursor ? (
         <div className="mt-4 flex justify-center">
           <button type="button" className={BTN_SECONDARY} onClick={more} disabled={loading}>
@@ -124,7 +169,7 @@ export function MembersDirectory({ communityId, slug, memberCount, initial, meId
 
 export function MemberRow({ m, slug, canMessage = false }: { m: Pick<MemberView, "userId" | "name" | "username" | "avatarUrl" | "role" | "level" | "levelName" | "bio" | "hasStorefront">; slug: string; canMessage?: boolean }) {
   return (
-    <div className="flex items-center pr-2 transition-colors hover:bg-[#f8f9fa] sm:pr-3">
+    <div className="flex items-center pr-2 transition-colors [@media(hover:hover)]:hover:bg-[#f8f9fa] sm:pr-3">
     <Link href={memberHref(slug, { id: m.userId, username: m.username, hasStorefront: m.hasStorefront })} data-person-link="" data-person-id={m.userId} className="flex min-h-[64px] min-w-0 flex-1 items-center gap-3 py-3 pl-4 pr-2 sm:pl-5">
       <AppAvatar src={m.avatarUrl} name={m.name} alt="" size={44} markWhileLoading />
       <span className="min-w-0 flex-1">

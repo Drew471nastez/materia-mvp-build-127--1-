@@ -37,7 +37,8 @@
  */
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { startTransition, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { memo, startTransition, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { flushSync } from "react-dom"
 import type { FeedPostView, ViewerView } from "@/lib/communities/types"
 import { api, apiBase } from "./api"
 import { Composer, type ComposerProps } from "./composer"
@@ -95,6 +96,8 @@ function composerSpacesOf(spaces: SpaceView[]) {
 /** How an arriving list eases in: from a little under full when it replaces another list, from nothing after the spinner. */
 const ARRIVE_MS = 200
 const ARRIVE_EASE = "cubic-bezier(0.22, 1, 0.36, 1)"
+/** Cards drawn on the frame a switched list comes in (the rest stand in at their height and follow in a transition): a phone's screenful and a little more. */
+const SWAP_CARDS = 4
 
 export interface CommunityFeedProps {
   communityId: string
@@ -135,6 +138,14 @@ function sameTarget(a: FeedTarget, b: FeedTarget): boolean {
   return a.kind === b.kind && (a.kind !== "space" || a.id === (b as { id: string }).id)
 }
 
+/** A list as a string, so the chips and the list can each hold one without a new object every render: "all", "saved" or "space:<id>". */
+function targetIdOf(t: FeedTarget): string {
+  return t.kind === "space" ? `space:${t.id}` : t.kind
+}
+function targetFromId(id: string): FeedTarget {
+  return id.startsWith("space:") ? { kind: "space", id: id.slice(6) } : id === "saved" ? { kind: "saved" } : { kind: "all" }
+}
+
 export function CommunityFeed({ communityId, slug, viewer, spaces, start, initial, servedAt, readOnly = false, onboarding = null, compose = null, composer = null, emptyText }: CommunityFeedProps) {
   const base = `/community/${slug}`
   const pathname = usePathname()
@@ -150,9 +161,41 @@ export function CommunityFeed({ communityId, slug, viewer, spaces, start, initia
   /* A click marks its list at once; the address catching up clears the mark. */
   const [picked, setPicked] = useState<{ target: FeedTarget; from: string } | null>(null)
   if (picked && picked.from !== (livePath || pathname)) setPicked(null)
-  const target = picked?.target ?? fromPath
   const [sort, setSort] = useState<FeedSortValue>("default")
-  const key = viewKey(communityId, target, sort)
+
+  /*
+    THE CHIP ON THE NEXT FRAME, THE LIST ON THE ONE AFTER (round 11). Measured at 4x CPU, a tap drew the chosen chip and the new
+    list in one piece of work (eight post cards and a composer), 135 to 360ms after the finger lifted: the chip looked dead, and the
+    list's fade was eaten by the same stall. Now the chips (and the address) follow `target` at once, in a render that costs a row
+    of chips; the list follows `listId`, which takes the new value two animation frames later (one for the chip's frame to be
+    painted, one to draw the list in), drawn in one go at the start of that frame. A second tap before then cancels the first's
+    handover, so quick taps never queue lists nobody will see, and never wait behind one. Everything below the chips reads
+    `listTarget` and `listSort` and is one memoised block (FeedBody), so the chip's render never touches it.
+  */
+  const targetId = targetIdOf(picked?.target ?? fromPath)
+  const target = useMemo(() => targetFromId(targetId), [targetId])
+  const [list, setList] = useState({ id: targetId, sort })
+  const behind = list.id !== targetId || list.sort !== sort
+  /* A layout effect, so the first frame callback is asked for before the chip's frame is painted: the list lands on the frame after it, never two. */
+  useLayoutEffect(() => {
+    if (!behind) return
+    const next = { id: targetId, sort }
+    if (typeof requestAnimationFrame !== "function" || document.visibilityState !== "visible") return setList(next)
+    let second = 0
+    const first = requestAnimationFrame(() => {
+      second = requestAnimationFrame(() => flushSync(() => setList(next)))
+    })
+    return () => {
+      cancelAnimationFrame(first)
+      cancelAnimationFrame(second)
+    }
+  }, [behind, targetId, sort])
+  const listTarget = useMemo(() => targetFromId(list.id), [list.id])
+  const listSort = list.sort
+  const key = viewKey(communityId, listTarget, listSort)
+  /* A list swapped in after the first (rather than the one the page came with) draws fewer cards on its first frame: a phone's screenful. */
+  const firstKey = useRef(key)
+  const firstCards = firstKey.current === key ? FIRST_CARDS : SWAP_CARDS
 
   /* The server's first page goes into the cache, unless the cache already holds a newer copy (likes and saves made since). */
   /*
@@ -195,7 +238,7 @@ export function CommunityFeed({ communityId, slug, viewer, spaces, start, initia
     if (have) {
       setShown((s) => (s.key === key && s.view === have ? s : { key, view: have }))
       if (Date.now() - have.at > FRESH_MS && have.pages <= 1) {
-        void loadView(communityId, target, sort).then((fresh) => {
+        void loadView(communityId, listTarget, listSort).then((fresh) => {
           if (fresh && keyRef.current === key) setShown({ key, view: fresh })
         })
       }
@@ -203,7 +246,7 @@ export function CommunityFeed({ communityId, slug, viewer, spaces, start, initia
     }
     setFailedKey(null)
     let live = true
-    void loadView(communityId, target, sort).then((fresh) => {
+    void loadView(communityId, listTarget, listSort).then((fresh) => {
       if (!live || keyRef.current !== key) return
       if (fresh) setShown({ key, view: fresh })
       else setFailedKey(key)
@@ -216,7 +259,6 @@ export function CommunityFeed({ communityId, slug, viewer, spaces, start, initia
 
   /* The chosen chip in view inside its row (Back to a space far along it, say), by scrolling the row only, never the page. */
   const rootRef = useRef<HTMLDivElement>(null)
-  const targetId = target.kind === "space" ? target.id : target.kind
   useEffect(() => followChosenChip(rootRef.current), [targetId])
 
   /* The spinner, only when the next list is slow to come: a quick answer swaps the lists and nothing else. */
@@ -300,7 +342,7 @@ export function CommunityFeed({ communityId, slug, viewer, spaces, start, initia
     const from = readView(k) ?? (shown.key === k ? shown.view : null)
     if (!from?.cursor || more === "loading") return
     setMore("loading")
-    const r = await api<FeedPageData>(viewUrl(communityId, target, sort, from.cursor))
+    const r = await api<FeedPageData>(viewUrl(communityId, listTarget, listSort, from.cursor))
     if (keyRef.current !== k) return
     if (!r.ok) return setMore("failed")
     setMore("idle")
@@ -309,7 +351,7 @@ export function CommunityFeed({ communityId, slug, viewer, spaces, start, initia
     const next: CachedView = { ...now, posts: [...now.posts, ...(r.data.posts ?? []).filter((p) => !seen.has(p.id))], cursor: r.data.nextCursor ?? null, pages: now.pages + 1 }
     writeView(k, next)
     setShown({ key: k, view: next })
-  }, [communityId, key, more, shown, sort, target])
+  }, [communityId, key, more, shown, listSort, listTarget])
 
   /* The next page, as the end comes near. */
   const sentinel = useRef<HTMLDivElement>(null)
@@ -331,7 +373,7 @@ export function CommunityFeed({ communityId, slug, viewer, spaces, start, initia
       const posts = current.posts.flatMap((p) => {
         if (p.id !== id) return [p]
         const next = fn(p)
-        if (!next || (target.kind === "saved" && !next.bookmarked)) return []
+        if (!next || (listTarget.kind === "saved" && !next.bookmarked)) return []
         return [next]
       })
       const after = posts.find((p) => p.id === id)
@@ -339,123 +381,201 @@ export function CommunityFeed({ communityId, slug, viewer, spaces, start, initia
       writeView(k, next)
       setShown({ key: k, view: next })
       patchPost(communityId, id, fn, k)
-      if (target.kind !== "saved" && before && (!after || before.bookmarked !== after.bookmarked)) dropSaved(communityId)
+      if (listTarget.kind !== "saved" && before && (!after || before.bookmarked !== after.bookmarked)) dropSaved(communityId)
     },
-    [communityId, shown.view, target.kind],
+    [communityId, shown.view, listTarget.kind],
   )
 
-  const onPosted = (p: FeedPostView) => {
-    if (p.space && target.kind === "space" && p.space.id !== target.id) return toast(`Posted in ${p.space.name}`)
-    addPost(communityId, p)
-    const now = readView(key)
-    if (now) setShown({ key, view: now })
-  }
+  const onPosted = useCallback(
+    (p: FeedPostView) => {
+      if (p.space && listTarget.kind === "space" && p.space.id !== listTarget.id) return toast(`Posted in ${p.space.name}`)
+      addPost(communityId, p)
+      const now = readView(key)
+      if (now) setShown({ key, view: now })
+    },
+    [communityId, key, listTarget],
+  )
+  const onRetry = useCallback(() => {
+    setFailedKey(null)
+    void loadView(communityId, listTarget, listSort).then((fresh) => {
+      if (keyRef.current !== key) return
+      if (fresh) setShown({ key, view: fresh })
+      else setFailedKey(key)
+    })
+  }, [communityId, key, listSort, listTarget])
+  const onLive = useCallback((v: CachedView) => setShown({ key, view: v }), [key])
 
-  /* What follows the list on screen: the space's line, the composer, the empty words. */
-  const space = target.kind === "space" ? (spaces?.find((s) => s.id === target.id) ?? null) : null
+  /* What follows the list on screen: the space's line, the composer, the empty words; all of the list's, so they change with it. */
+  const space = listTarget.kind === "space" ? (spaces?.find((s) => s.id === listTarget.id) ?? null) : null
+  const chipSpace = target.kind === "space" ? (spaces?.find((s) => s.id === target.id) ?? null) : null
   const composerProps: Omit<ComposerProps, "onPosted"> | null = useMemo(() => {
     if (readOnly) return null
     if (composer) return composer
-    if (!compose || !spaces || target.kind === "saved") return null
+    if (!compose || !spaces || listTarget.kind === "saved") return null
     if (space) return space.canPost ? { communityId, ...compose, spaces: composerSpacesOf([space]), fixedSpaceId: space.id } : null
     const all = composerSpacesOf(spaces)
     return all.length ? { communityId, ...compose, spaces: all } : null
-  }, [readOnly, composer, compose, spaces, target.kind, space, communityId])
+  }, [readOnly, composer, compose, spaces, listTarget.kind, space, communityId])
   const empty =
-    emptyText && sameTarget(target, start)
+    emptyText && sameTarget(listTarget, start)
       ? emptyText
-      : target.kind === "saved"
+      : listTarget.kind === "saved"
         ? "Save a post with the bookmark and it waits here."
-        : sort === "unread"
+        : listSort === "unread"
           ? "Nothing new since you were last here."
           : space
             ? space.canPost && !readOnly
               ? "Be the first to post here."
               : "Nothing here yet."
             : "Start the conversation."
-  const lead = sort === "default" && target.kind !== "saved"
-  const posts = lead ? [...view.posts.filter((p) => p.pinned), ...view.posts.filter((p) => !p.pinned)] : view.posts
+  const emptyTitle = listTarget.kind === "saved" ? "Nothing saved yet." : listSort === "unread" ? "You are all caught up." : "No posts yet."
+  const lead = listSort === "default" && listTarget.kind !== "saved"
+  const posts = useMemo(() => (lead ? [...view.posts.filter((p) => p.pinned), ...view.posts.filter((p) => !p.pinned)] : view.posts), [lead, view.posts])
 
   return (
-    <div ref={rootRef} className="w-full min-w-0" data-community-feed={target.kind === "space" ? `space:${space?.slug ?? ""}` : target.kind} data-feed-key={key} data-feed-waiting={waiting ? "" : undefined}>
+    <div ref={rootRef} className="w-full min-w-0" data-community-feed={listTarget.kind === "space" ? `space:${space?.slug ?? ""}` : listTarget.kind} data-feed-key={key} data-feed-waiting={waiting ? "" : undefined}>
       {spaces ? (
-        <>
-          <SpaceChips
-            slug={slug}
-            spaces={spaces}
-            active={space?.slug ?? null}
-            savedOn={target.kind === "saved"}
-            onPick={pick}
-            onIntent={intent}
-            sort={<SortMenu value={sort} onChange={onSort} saved={target.kind === "saved"} onSaved={toggleSaved} />}
-          />
-          {space?.description ? (
-            <p className="-mt-0.5 mb-3 px-1 text-[13.5px] leading-relaxed text-[#6b7280]" data-space-description="">
-              {space.description}
-            </p>
-          ) : target.kind === "saved" ? (
-            /* Saved has no chip of its own (round 9), so it says what it is, in the space line's place. */
-            <p className="-mt-0.5 mb-3 px-1 text-[13.5px] leading-relaxed text-[#6b7280]" data-saved-line="">
-              <span className="font-semibold text-[#1a1a2e]">Saved posts</span> · only you see these
-            </p>
-          ) : null}
-        </>
+        <SpaceChips
+          slug={slug}
+          spaces={spaces}
+          active={chipSpace?.slug ?? null}
+          savedOn={target.kind === "saved"}
+          onPick={pick}
+          onIntent={intent}
+          sort={<SortMenu value={sort} onChange={onSort} saved={target.kind === "saved"} onSaved={toggleSaved} />}
+        />
       ) : null}
 
-      <FeedLive communityId={communityId} viewerId={viewer.userId} feedKey={key} target={target} sort={sort} onView={(v) => setShown({ key, view: v })} />
-      <div className="space-y-3" data-feed={target.kind === "saved" ? "saved" : "feed"}>
-        {onboarding && target.kind === "all" ? <Onboarding communityId={communityId} data={onboarding} /> : null}
-        {composerProps ? <Composer key={target.kind === "space" ? target.id : target.kind} {...composerProps} onPosted={onPosted} /> : null}
-
-        {failedKey === key ? (
-          <div className={`${CARD} px-6 py-10 text-center`} data-feed-failed="">
-            <p className="text-[15px] font-semibold text-[#1a1a2e]">These posts did not load.</p>
-            <button
-              type="button"
-              className={`${BTN_SECONDARY} mt-3`}
-              onClick={() => {
-                setFailedKey(null)
-                void loadView(communityId, target, sort).then((fresh) => {
-                  if (keyRef.current !== key) return
-                  if (fresh) setShown({ key, view: fresh })
-                  else setFailedKey(key)
-                })
-              }}
-            >
-              Try again
-            </button>
-          </div>
-        ) : slow && waiting ? (
-          <PlaceSpinner compact label="Loading posts" />
-        ) : (
-          <div ref={listRef} className="space-y-3" aria-busy={waiting || undefined} data-feed-list="">
-            {posts.map((p, i) =>
-              i < FIRST_CARDS || whole ? <PostCard key={p.id} post={p} slug={slug} viewer={viewer} update={update} readOnly={readOnly} /> : <PostCardPlaceholder key={p.id} post={p} />,
-            )}
-          </div>
-        )}
-
-        {posts.length === 0 && !waiting && failedKey !== key ? (
-          <div className={`${CARD} px-6 py-12 text-center`} data-feed-empty="">
-            <p className="text-[16px] font-semibold text-[#1a1a2e]">{target.kind === "saved" ? "Nothing saved yet." : sort === "unread" ? "You are all caught up." : "No posts yet."}</p>
-            <p className="mt-1 text-[14px] text-[#6b7280]">{empty}</p>
-          </div>
-        ) : null}
-
-        <div ref={sentinel} aria-hidden className="h-px" />
-        {cursor ? (
-          <div className="flex justify-center pb-4 pt-1">
-            <button type="button" onClick={loadMore} disabled={more === "loading"} className={BTN_SECONDARY} data-feed-more="">
-              {more === "loading" ? "Loading..." : more === "failed" ? "Try again" : "Show more posts"}
-            </button>
-          </div>
-        ) : !waiting && posts.length > 4 ? (
-          <p className="pb-6 pt-2 text-center text-[13px] text-[#9ca3af]">You are all caught up.</p>
-        ) : null}
-      </div>
+      <FeedLive communityId={communityId} viewerId={viewer.userId} feedKey={key} target={listTarget} sort={listSort} onView={onLive} />
+      <FeedBody
+        line={spaces ? (space?.description ? { kind: "space", text: space.description } : listTarget.kind === "saved" ? { kind: "saved" } : null) : null}
+        saved={listTarget.kind === "saved"}
+        onboarding={onboarding && listTarget.kind === "all" ? { communityId, data: onboarding } : null}
+        composerProps={composerProps}
+        composerKey={listTarget.kind === "space" ? listTarget.id : listTarget.kind}
+        onPosted={onPosted}
+        failed={failedKey === key}
+        onRetry={onRetry}
+        spinner={slow && waiting}
+        listRef={listRef}
+        waiting={waiting}
+        posts={posts}
+        whole={whole}
+        firstCards={firstCards}
+        slug={slug}
+        viewer={viewer}
+        update={update}
+        readOnly={readOnly}
+        emptyTitle={emptyTitle}
+        empty={empty}
+        sentinel={sentinel}
+        cursor={cursor}
+        more={more}
+        loadMore={loadMore}
+      />
     </div>
   )
 }
+
+interface FeedBodyProps {
+  line: { kind: "space"; text: string } | { kind: "saved" } | null
+  saved: boolean
+  onboarding: { communityId: string; data: OnboardingView } | null
+  composerProps: Omit<ComposerProps, "onPosted"> | null
+  composerKey: string
+  onPosted: (p: FeedPostView) => void
+  failed: boolean
+  onRetry: () => void
+  spinner: boolean
+  listRef: React.RefObject<HTMLDivElement | null>
+  waiting: boolean
+  posts: FeedPostView[]
+  whole: boolean
+  firstCards: number
+  slug: string
+  viewer: ViewerView
+  update: PostUpdate
+  readOnly: boolean
+  emptyTitle: string
+  empty: string
+  sentinel: React.RefObject<HTMLDivElement | null>
+  cursor: string | null
+  more: "idle" | "loading" | "failed"
+  loadMore: () => void
+}
+
+/**
+ * EVERYTHING UNDER THE CHIPS, drawn again only when the list's own facts change (round 11): a tap on a chip redraws the row of
+ * chips alone on its first frame, and this follows when the deferred list does. `onboarding` is a fresh object when the list is
+ * All, so it is compared by what is in it.
+ */
+const FeedBody = memo(
+  function FeedBody({ line, saved, onboarding, composerProps, composerKey, onPosted, failed, onRetry, spinner, listRef, waiting, posts, whole, firstCards, slug, viewer, update, readOnly, emptyTitle, empty, sentinel, cursor, more, loadMore }: FeedBodyProps) {
+    return (
+      <>
+        {line?.kind === "space" ? (
+          <p className="-mt-0.5 mb-3 px-1 text-[13.5px] leading-relaxed text-[#6b7280]" data-space-description="">
+            {line.text}
+          </p>
+        ) : line?.kind === "saved" ? (
+          /* Saved has no chip of its own (round 9), so it says what it is, in the space line's place. */
+          <p className="-mt-0.5 mb-3 px-1 text-[13.5px] leading-relaxed text-[#6b7280]" data-saved-line="">
+            <span className="font-semibold text-[#1a1a2e]">Saved posts</span> · only you see these
+          </p>
+        ) : null}
+        <div className="space-y-3" data-feed={saved ? "saved" : "feed"}>
+          {onboarding ? <Onboarding communityId={onboarding.communityId} data={onboarding.data} /> : null}
+          {composerProps ? <Composer key={composerKey} {...composerProps} onPosted={onPosted} /> : null}
+
+          {failed ? (
+            <div className={`${CARD} px-6 py-10 text-center`} data-feed-failed="">
+              <p className="text-[15px] font-semibold text-[#1a1a2e]">These posts did not load.</p>
+              <button type="button" className={`${BTN_SECONDARY} mt-3`} onClick={onRetry}>
+                Try again
+              </button>
+            </div>
+          ) : spinner ? (
+            <PlaceSpinner compact label="Loading posts" />
+          ) : (
+            <div ref={listRef} className="space-y-3" aria-busy={waiting || undefined} data-feed-list="">
+              {posts.map((p, i) =>
+                i < firstCards || whole ? <PostCard key={p.id} post={p} slug={slug} viewer={viewer} update={update} readOnly={readOnly} /> : <PostCardPlaceholder key={p.id} post={p} />,
+              )}
+            </div>
+          )}
+
+          {posts.length === 0 && !waiting && !failed ? (
+            <div className={`${CARD} px-6 py-12 text-center`} data-feed-empty="">
+              <p className="text-[16px] font-semibold text-[#1a1a2e]">{emptyTitle}</p>
+              <p className="mt-1 text-[14px] text-[#6b7280]">{empty}</p>
+            </div>
+          ) : null}
+
+          <div ref={sentinel} aria-hidden className="h-px" />
+          {cursor ? (
+            <div className="flex justify-center pb-4 pt-1">
+              <button type="button" onClick={loadMore} disabled={more === "loading"} className={BTN_SECONDARY} data-feed-more="">
+                {more === "loading" ? "Loading..." : more === "failed" ? "Try again" : "Show more posts"}
+              </button>
+            </div>
+          ) : !waiting && posts.length > 4 ? (
+            <p className="pb-6 pt-2 text-center text-[13px] text-[#9ca3af]">You are all caught up.</p>
+          ) : null}
+        </div>
+      </>
+    )
+  },
+  (a, b) => {
+    for (const k of Object.keys(a) as (keyof FeedBodyProps)[]) {
+      if (k === "onboarding") {
+        if (a.onboarding?.data !== b.onboarding?.data || a.onboarding?.communityId !== b.onboarding?.communityId) return false
+      } else if (k === "line") {
+        if (a.line?.kind !== b.line?.kind || (a.line?.kind === "space" && b.line?.kind === "space" && a.line.text !== b.line.text)) return false
+      } else if (a[k] !== b[k]) return false
+    }
+    return true
+  },
+)
 
 export interface FeedViewProps {
   communityId: string

@@ -37,8 +37,9 @@ export const DEPTH_ICON_BTN =
 export const FLAT_ICON_BTN =
   "inline-flex h-10 w-10 shrink-0 cursor-pointer select-none items-center justify-center rounded-[10px] bg-transparent text-[#4b5563] outline-none transition-[background-color,color] duration-150 hover:bg-[#f1f2f4] hover:text-[#1a1a2e] data-[state=open]:bg-[#f1f2f4] data-[state=open]:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 motion-reduce:transition-none [-webkit-tap-highlight-color:transparent]"
 
+/* Pressed, a button dims on the first frame and comes back when it lifts: no scale, so nothing bumps (round 11). */
 export const BTN =
-  "inline-flex shrink-0 select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-full text-[14px] font-medium outline-none transition-[background-color,color,scale,box-shadow] active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none [-webkit-tap-highlight-color:transparent]"
+  "inline-flex shrink-0 touch-manipulation select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-full text-[14px] font-medium outline-none transition-[background-color,color,opacity,box-shadow] duration-150 active:opacity-80 active:duration-0 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 disabled:pointer-events-none disabled:opacity-50 motion-reduce:transition-none [-webkit-tap-highlight-color:transparent]"
 export const BTN_PRIMARY = `${BTN} h-10 ${DEPTH_INK} px-4 text-white hover:bg-[#2b2b42] sm:h-9`
 export const BTN_SECONDARY = `${BTN} h-10 ${DEPTH} ${DEPTH_PRESS} px-4 text-[#1a1a2e] hover:bg-[#f6f7f8] sm:h-9`
 export const BTN_GHOST = `${BTN} h-10 px-3 text-[#4b5563] hover:bg-[#f1f2f4] hover:text-[#1a1a2e] sm:h-9`
@@ -47,7 +48,7 @@ export const ICON_BTN = `${BTN} h-10 w-10 text-[#6b7280] hover:bg-[#f1f2f4] hove
 
 /** Library's pill (components/library/library-tabs.tsx PILL), white on a hairline, the chosen one pressed in. */
 export const PILL =
-  "relative inline-flex h-10 shrink-0 cursor-pointer select-none items-center justify-center gap-1 whitespace-nowrap rounded-full border px-4 text-[14px] font-medium outline-none transition-[color,scale] lg:h-9 lg:text-[13px] active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 motion-reduce:transition-none [-webkit-tap-highlight-color:transparent]"
+  "relative inline-flex h-10 shrink-0 cursor-pointer touch-manipulation select-none items-center justify-center gap-1 whitespace-nowrap rounded-full border px-4 text-[14px] font-medium outline-none transition-[color,background-color,box-shadow] duration-150 lg:h-9 lg:text-[13px] active:bg-[#f0f1f3] active:duration-0 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 motion-reduce:transition-none [-webkit-tap-highlight-color:transparent]"
 export const PILL_ON = "border-[#d7dadf] bg-[#e2e4e8] text-[#1a1a2e] shadow-[inset_0_1px_1.5px_rgba(15,23,42,0.07),inset_0_-1px_0_rgba(255,255,255,0.45)]"
 export const PILL_OFF = "border-[#e4e7ec] bg-white text-[#6b7280] shadow-[0_1px_1px_rgba(16,24,40,0.05)] hover:text-[#1a1a2e]"
 
@@ -60,7 +61,7 @@ export const PILL_OFF = "border-[#e4e7ec] bg-white text-[#6b7280] shadow-[0_1px_
  * from 1024px the places are the list in the left column (wall.tsx).
  */
 export const TAB =
-  "group/tab relative inline-flex h-10 shrink-0 cursor-pointer select-none items-center whitespace-nowrap px-0.5 text-[14.5px] font-medium outline-none transition-colors duration-150 active:opacity-55 data-[pressed]:opacity-55 focus-visible:text-[#1a1a2e] focus-visible:underline focus-visible:decoration-[#1a1a2e]/30 focus-visible:underline-offset-4 motion-reduce:transition-none [-webkit-tap-highlight-color:transparent] sm:text-[14px]"
+  "group/tab relative inline-flex h-10 shrink-0 cursor-pointer touch-manipulation select-none items-center whitespace-nowrap px-0.5 text-[14.5px] font-medium outline-none transition-colors duration-150 active:opacity-55 data-[pressed]:opacity-55 focus-visible:text-[#1a1a2e] focus-visible:underline focus-visible:decoration-[#1a1a2e]/30 focus-visible:underline-offset-4 motion-reduce:transition-none [-webkit-tap-highlight-color:transparent] sm:text-[14px]"
 export const TAB_ON = "text-[#1a1a2e]"
 export const TAB_OFF = "text-[#6b7280] hover:text-[#1a1a2e]"
 

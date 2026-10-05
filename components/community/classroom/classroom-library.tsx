@@ -9,15 +9,23 @@
  * members", "Level 3", "Opens on Mar 4"), so the classroom shows what there
  * is to grow into instead of hiding it.
  *
+ * EMPTY IS A NORMAL STATE (round 11: "not 'No courses yet': a classroom is
+ * more than courses"). With nothing in it the classroom says what will be
+ * here (courses, lessons and recordings) in the community's own empty card
+ * (member/place-empty.tsx), and the people who run it get the one button
+ * that fills it, Add a course, to the creator side's classroom.
+ *
  * No state, so it renders on the server.
  */
 import Image from "next/image"
 import Link from "next/link"
-import { BookOpen, Check, Lock } from "lucide-react"
+import { Check, Lock } from "lucide-react"
 import { lengthInWords } from "@/lib/courses/progress"
+import { PlaceEmpty } from "@/components/community/member/place-empty"
+import { PlaceIcon } from "@/components/community/member/place-icons"
 import { lessonsLabel, opensOnLabel, type ClassroomCourse } from "./model"
 
-export function ClassroomLibrary({ courses, timeZone }: { courses: ClassroomCourse[]; timeZone?: string }) {
+export function ClassroomLibrary({ courses, timeZone, manageHref = null }: { courses: ClassroomCourse[]; timeZone?: string; /** The creator side's classroom, for somebody who may change it; null for everybody else. */ manageHref?: string | null }) {
   return (
     <section data-classroom aria-labelledby="classroom-title">
       <header className="mb-4 flex items-baseline justify-between gap-3 sm:mb-5">
@@ -32,10 +40,13 @@ export function ClassroomLibrary({ courses, timeZone }: { courses: ClassroomCour
       </header>
 
       {courses.length === 0 ? (
-        <div data-classroom-empty className="rounded-2xl border border-dashed border-[#d9dce1] bg-white/60 px-5 py-12 text-center">
-          <BookOpen className="mx-auto h-6 w-6 text-[#b0b3ba]" aria-hidden />
-          <p className="mt-2 text-[15px] font-semibold text-[#1a1a2e]">No courses yet.</p>
-        </div>
+        <PlaceEmpty
+          data-classroom-empty=""
+          place="classroom"
+          title="Nothing in the classroom yet"
+          line={manageHref ? "Courses, lessons and recordings you add show up here for your members." : "Courses, lessons and recordings show up here as soon as they are added."}
+          action={manageHref ? { href: manageHref, label: "Add a course" } : null}
+        />
       ) : (
         <ul className="grid grid-cols-1 gap-3 min-[520px]:grid-cols-2 sm:gap-4 xl:grid-cols-3" data-course-grid>
           {courses.map((c) => (
@@ -76,7 +87,7 @@ function CourseCard({ course, timeZone }: { course: ClassroomCourse; timeZone?: 
           <Image src={course.coverUrl} alt="" fill sizes="(min-width: 1280px) 320px, (min-width: 520px) 50vw, 116px" className={`object-cover ${lock ? "saturate-[0.6]" : ""}`} />
         ) : (
           <span className="flex h-full w-full items-center justify-center">
-            <BookOpen className="h-5 w-5 text-[#c4c6cc] min-[520px]:h-7 min-[520px]:w-7" aria-hidden />
+            <PlaceIcon place="classroom" className="h-5 w-5 text-[#b0b4bb] min-[520px]:h-7 min-[520px]:w-7" />
           </span>
         )}
         {lock ? <span className="absolute inset-0 bg-[#1a1a2e]/35" aria-hidden /> : null}

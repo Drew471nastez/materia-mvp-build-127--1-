@@ -228,7 +228,25 @@ function useOnScreen(ref: React.RefObject<HTMLElement | null>, ready: boolean): 
 const FRESH_MS = 30_000
 let warm: { userId: string; at: number; items: InboxItem[]; nextCursor: string | null } | null = null
 
-export function NotificationBell({ className }: { className?: string }) {
+/**
+ * What a phone's sheet carries besides its list: the handle (18px), the two
+ * rows of its header (40px and 44px, and a hairline) and the 12px under the
+ * list (components/ui/bottom-sheet.tsx). A sheet's least height
+ * (`sheetMin`) is the whole sheet's, so its list is given that minus these
+ * (scripts/check-community-frame11.mjs measures the sheet).
+ */
+const SHEET_CHROME_PX = 115
+
+export function NotificationBell({ className, sheetMin }: {
+  className?: string
+  /**
+   * The phone's sheet is at least this tall (a community's bar: half the
+   * screen, round 11), so one notification does not make a sliver of a
+   * sheet; the rows still start at its top. Left out, it is as tall as its
+   * rows.
+   */
+  sheetMin?: string
+}) {
   const [userId, setUserId] = useState<string | null>(null)
   const unread = useSyncExternalStore(subscribeUnread, () => sharedUnread, () => 0)
   const setUnread = setSharedUnread
@@ -497,6 +515,7 @@ export function NotificationBell({ className }: { className?: string }) {
           onMore={loadMore}
           onRetry={() => void loadFirst(filterRef.current)}
           onArrived={onArrived}
+          sheetMin={sheetMin}
         />
       ) : null}
     </>
@@ -521,6 +540,7 @@ function BellPanel({
   onMore,
   onRetry,
   onArrived,
+  sheetMin,
 }: {
   phone: boolean
   /** False while it is closed: kept in the page, invisible and inert. */
@@ -539,6 +559,7 @@ function BellPanel({
   onRetry: () => void
   /** The phone's sheet has finished sliding up. */
   onArrived: () => void
+  sheetMin?: string
 }) {
   const panelRef = useRef<HTMLDivElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
@@ -690,6 +711,7 @@ function BellPanel({
           aria-labelledby={titleId}
           data-notification-panel="sheet"
           data-state={open ? "open" : "closed"}
+          style={sheetMin ? { minHeight: `calc(${sheetMin} - ${SHEET_CHROME_PX}px)` } : undefined}
           className="flex min-h-0 flex-1 flex-col"
         >
           {list}

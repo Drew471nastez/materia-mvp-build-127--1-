@@ -16,8 +16,15 @@
  * chat space is always a page of its own, and every chip is still a real
  * link for a new tab or a reload.
  *
- * "EXTREMELY LITTLE" DEPTH: a chip is white on a hairline with a one pixel
- * soft shadow, the chosen one ink with a slightly deeper one (ui.ts DEPTH).
+ * "EXTREMELY LITTLE" DEPTH, A TOUCH MORE (round 11): a chip is white on a
+ * hairline with a soft two pixel shadow under it, the chosen one ink with a
+ * deeper one and the faintest light along its top edge. A press sinks it
+ * (a grey ground and the shadow drawn inside) on the frame the finger lands,
+ * and lets go over 180ms; nothing scales, so nothing bumps. Every chip is
+ * touch-action: manipulation, so iOS never holds a quick second tap back to
+ * see whether it is a double tap to zoom (one of the taps the owner found
+ * lost), and the colours ease between chosen and not (no hover:border class
+ * here: app/globals.css drops transitions from those on touch screens).
  *
  * ONE ROW at every width: the chips scroll sideways when they do not fit
  * (a thumb, a trackpad, or Tab, which scrolls the focused chip into view),
@@ -26,14 +33,15 @@
  * draw it.
  */
 import Link from "next/link"
-import { DEPTH, DEPTH_INK, DEPTH_PRESS, press, PRESS_PROPS } from "./ui"
+import { press, PRESS_PROPS } from "./ui"
 import type { SpaceView } from "./view-types"
 
 const CHIP =
-  "relative inline-flex h-10 shrink-0 select-none items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 text-[14px] font-medium outline-none transition-[color,background-color,border-color,box-shadow] duration-150 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 sm:h-9 sm:text-[13.5px] [-webkit-tap-highlight-color:transparent]"
-const CHIP_ON = `${DEPTH_INK} text-white`
-/* Pressed, a chip goes a step darker on the first frame (no easing in), so the finger sees it took (round 10). */
-const CHIP_OFF = `${DEPTH} ${DEPTH_PRESS} text-[#4b5563] hover:border-[#d5d8de] hover:text-[#1a1a2e] active:bg-[#eef0f2] active:duration-0 data-[pressed]:bg-[#eef0f2] data-[pressed]:duration-0`
+  "relative inline-flex h-10 shrink-0 touch-manipulation select-none items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 text-[14px] font-medium outline-none transition-[color,background-color,border-color,box-shadow] duration-[180ms] ease-out focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 motion-reduce:transition-none sm:h-9 sm:text-[13.5px] [-webkit-tap-highlight-color:transparent]"
+const CHIP_ON = "border-[#1a1a2e] bg-[#1a1a2e] text-white shadow-[0_1px_2px_rgba(16,24,40,0.2),0_2px_5px_-2px_rgba(16,24,40,0.22),inset_0_1px_0_rgba(255,255,255,0.09)]"
+/* Pressed, a chip sinks on the first frame (no easing in), so the finger sees it took (round 10), and eases back when it lifts. */
+const CHIP_OFF =
+  "border-[#e1e4e8] bg-white text-[#4b5563] shadow-[0_1px_2px_rgba(16,24,40,0.07),0_1px_1px_rgba(16,24,40,0.03)] [@media(hover:hover)]:hover:bg-[#fafbfc] [@media(hover:hover)]:hover:text-[#1a1a2e] active:bg-[#f0f1f3] active:shadow-[inset_0_1px_2px_rgba(16,24,40,0.08)] active:duration-0 data-[pressed]:bg-[#f0f1f3] data-[pressed]:text-[#1a1a2e] data-[pressed]:shadow-[inset_0_1px_2px_rgba(16,24,40,0.08)] data-[pressed]:duration-0"
 
 /** What a chip (or the sort menu's Saved posts) opens, for a feed that switches in place: All, one feed space, or Saved. */
 export type ChipPick = { kind: "all" } | { kind: "space"; slug: string } | { kind: "saved" }

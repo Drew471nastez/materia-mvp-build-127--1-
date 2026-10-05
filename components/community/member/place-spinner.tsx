@@ -4,10 +4,16 @@
  * ===========================================================================
  * Round 9: "while a not yet loaded one is fetched a small iOS style spinner
  * (thin, grey, centred in the content area only) instead of a skeleton".
- * Eight thin spokes with round ends, each a step fainter than the one before,
- * turned a spoke at a time (steps), as the system's activity indicator is:
+ * Eight thin spokes with round ends, each a step fainter than the one before:
  * no grey shapes pretending to be the page, nothing over the frame around it
  * (the bar, the columns, the chips stay as they were).
+ *
+ * TURNING ON THE COMPOSITOR (round 11: "smooth rotation on the compositor").
+ * It turned a spoke at a time (steps) on the <svg> itself; now a plain box
+ * around the glyph turns, continuously and linearly, by a rotation the
+ * compositor runs on its own: while the page's thread is busy drawing what
+ * the spinner waits for, it keeps turning (scripts/check-community-frame11.mjs
+ * SPINNER blocks the thread and watches the compositor's frames).
  *
  * It waits before it shows (WAIT_MS, then a short fade), so a place that
  * arrives quickly never shows it at all. Every member page's loading.tsx
@@ -30,22 +36,28 @@ const LINES = Array.from({ length: SPOKES }, (_, i) => {
   return { x1, y1, x2, y2, opacity: +(1 - (i * 0.85) / SPOKES).toFixed(3) }
 })
 
+/** One turn: a little slower than a second, the pace of the system's own. */
+export const SPIN_MS = 900
+
 export function Spinner({ size = 22, className = "" }: { size?: number; className?: string }) {
   return (
-    <svg
-      viewBox="0 0 24 24"
-      width={size}
-      height={size}
+    <span
       aria-hidden
-      className={`text-[#8a8f98] motion-safe:animate-[spin_0.8s_steps(8,end)_infinite] ${className}`}
+      className={`inline-flex shrink-0 text-[#8a8f98] motion-safe:animate-[spin_var(--spin-ms)_linear_infinite] ${className}`}
+      style={{ width: size, height: size, ["--spin-ms" as string]: `${SPIN_MS}ms` }}
       data-place-spinner-glyph=""
     >
-      {LINES.map((l, i) => (
-        <line key={i} x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} stroke="currentColor" strokeWidth="2" strokeLinecap="round" opacity={l.opacity} />
-      ))}
-    </svg>
+      <svg viewBox="0 0 24 24" width={size} height={size} className="block">
+        {LINES.map((l, i) => (
+          <line key={i} x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} stroke="currentColor" strokeWidth="2" strokeLinecap="round" opacity={l.opacity} />
+        ))}
+      </svg>
+    </span>
   )
 }
+
+/** The spokes for a caller that draws them itself (components/ui/pull-to-refresh.tsx): where each runs and how faint it is. */
+export const SPINNER_SPOKES = LINES
 
 /**
  * The spinner in the middle of the content column, in a box tall enough

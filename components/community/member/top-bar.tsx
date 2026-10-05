@@ -17,10 +17,11 @@
  * the community's search screen (search.tsx, drawn here without its icon).
  * At the right, for a member, Messages (the conversations panel, with how
  * many have something unread); for anybody signed in, Storelib's bell
- * (components/notifications/notification-bell.tsx) and a flat "..." that
- * opens exactly the Storelib header's account menu (account-menu.tsx:
- * Profile is always /account), with the community's "Invite people" and
- * "Saved posts" above Storelib's rows; for a visitor, Log in.
+ * (components/notifications/notification-bell.tsx; its phone sheet at least
+ * half the screen, round 11) and a flat "..." that opens the Storelib
+ * header's account menu in its short form (account-menu.tsx, round 11:
+ * Invite people, Saved posts, Profile, Settings, Dashboard for a seller,
+ * Log out); for a visitor, Log in.
  *
  * ONE COMFORTABLE BAR (round 7: "taller, not fat"): 64px on a computer, 56px
  * on a phone and a tablet; the community's picture 40px (36px on a phone),
@@ -230,7 +231,8 @@ function CommunityTopBarInner({ data, messages = null, messagesOpen = false, onM
               </span>
             </button>
           ) : null}
-          {me ? <NotificationBell className={BELL} /> : null}
+          {/* Half the screen at least on a phone (round 11): one notification is not a sliver of a sheet. */}
+          {me ? <NotificationBell className={BELL} sheetMin="50dvh" /> : null}
           {me ? <CommunityAccountMenu me={me} className="md:ml-1" onInvite={menu?.onInvite} savedHref={menu?.savedHref} /> : <LogInLink base={base} />}
         </div>
       </div>

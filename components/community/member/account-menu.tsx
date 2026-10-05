@@ -19,11 +19,17 @@
  * invite sheet, which used to be a button on the card and at the end of the
  * tabs) and "Saved posts" (which used to be a chip beside the sort button),
  * through the menu's `extra` rows, so it is still that one menu.
+ *
+ * Round 11: FEWER ROWS ("keep the essentials"). Inside a community the menu
+ * is Invite people and Saved posts, then Profile, Settings, Dashboard for a
+ * seller, and Log out (the menu's `rows="community"`); Start creating,
+ * Language, Help and Discover stay in Storelib's own header. The phone's
+ * sheet is built once the bar is idle and kept (keepMounted), so a press
+ * only slides it up, like the bell's.
  */
 import { useRouter } from "next/navigation"
 import { useCallback, useMemo, useState } from "react"
 import { Bookmark, MoreHorizontal, UserPlus } from "lucide-react"
-import { LanguageModal } from "@/components/platform/language-modal"
 import { SHEET_CLOSE_MS } from "@/components/ui/bottom-sheet"
 import { AccountSheet, DesktopAccountMenu, endStorelibSession, type AccountExtraRow, type HeaderLink } from "@/components/platform/platform-header-client"
 import { cn } from "@/lib/utils"
@@ -38,6 +44,9 @@ const link: HeaderLink = (path) => ({ href: path, onClick: () => {} })
  * way down (components/ui/bottom-sheet.tsx SHEET_CLOSE_MS), so the two
  * never stack and the hand over still reads as one motion.
  */
+/** Language is not in the community's short list, so its handler is never called. */
+const noop = () => {}
+
 const SHEET_HANDOFF_MS = Math.round(SHEET_CLOSE_MS * 0.6)
 
 export interface CommunityMenuRows {
@@ -50,7 +59,6 @@ export interface CommunityMenuRows {
 export function CommunityAccountMenu({ me, className, onInvite = null, savedHref = null }: { me: NonNullable<TopBarData["me"]>; className?: string } & CommunityMenuRows) {
   const router = useRouter()
   const [sheet, setSheet] = useState(false)
-  const [language, setLanguage] = useState(false)
   const logOut = useCallback(async () => {
     setSheet(false)
     await endStorelibSession(router)
@@ -78,8 +86,9 @@ export function CommunityAccountMenu({ me, className, onInvite = null, savedHref
           username={me.username ?? null}
           seller={seller}
           link={link}
-          onLanguage={() => setLanguage(true)}
+          onLanguage={noop}
           onLogout={() => void logOut()}
+          rows="community"
           trigger="more"
           triggerClassName={FLAT_ICON_BTN}
           extra={desktopRows}
@@ -101,16 +110,17 @@ export function CommunityAccountMenu({ me, className, onInvite = null, savedHref
       <AccountSheet
         open={sheet}
         onClose={() => setSheet(false)}
+        keepMounted
+        rows="community"
         avatarUrl={me.avatarUrl ?? undefined}
         name={me.name}
         username={me.username ?? null}
         seller={seller}
         link={link}
-        onLanguage={() => setLanguage(true)}
+        onLanguage={noop}
         onLogout={() => void logOut()}
         extra={phoneRows}
       />
-      <LanguageModal open={language} onOpenChange={setLanguage} />
     </div>
   )
 }
