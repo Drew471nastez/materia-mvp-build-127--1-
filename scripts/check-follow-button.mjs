@@ -35,6 +35,12 @@
  *                  fails once (tried again, the button never moves back) and
  *                  one that fails twice (back, with a line saying so). A
  *                  filmstrip of the five taps goes to SHOTS_DIR.
+ *   ROUND 11      the check draws itself on Following (its stroke, frame by
+ *                  frame, only forward, whole within half a second), the
+ *                  arriving face lands a shade off and settles (opacity
+ *                  only), going back nothing is seen undoing itself, and a
+ *                  filmstrip of every case at 4x CPU and a tenth speed is
+ *                  one size on every frame (SHOTS_DIR, *-FILMSTRIP.png)
  *   REDUCED MOTION the switch lands on the next frame, the face never scales
  *
  *   PROBE_CSS=source node scripts/check-follow-button.mjs   (FOLLOW_ONLY=rapid: that section alone)
@@ -69,7 +75,11 @@ const SAMPLER = () => {
   const fillFollowing = btn.querySelector("[data-follow-fill=following]")
   const lFollow = btn.querySelector("[data-follow-label=follow]")
   const lFollowing = btn.querySelector("[data-follow-label=following]")
-  const parts = [btn, face, lFollow, lFollowing, fillFollow, fillFollowing]
+  const checkSvg = btn.querySelector("[data-follow-check]")
+  const checkPath = checkSvg?.querySelector("path")
+  const settleFollow = btn.querySelector("[data-follow-settle=follow]")
+  const settleFollowing = btn.querySelector("[data-follow-settle=following]")
+  const parts = [btn, face, lFollow, lFollowing, fillFollow, fillFollowing, checkSvg, settleFollow, settleFollowing].filter(Boolean)
   const events = []
   /* When the page's own handler ran (performance.now in a capture listener), not the event's stamp: a frame's rAF time is when the frame began, which can be before an event that frame still shows. */
   for (const type of ["pointerdown", "pointerup", "click"]) document.addEventListener(type, () => events.push({ type, t: performance.now() }), { capture: true })
@@ -91,6 +101,11 @@ const SAMPLER = () => {
       bgFollowing: getComputedStyle(fillFollowing).backgroundColor,
       lFollow: Number(getComputedStyle(lFollow).opacity),
       lFollowing: Number(getComputedStyle(lFollowing).opacity),
+      /* Round 11: the check's stroke (1 is nothing drawn, 0 all of it) and the settle layers over each face. */
+      check: checkPath ? Math.round(parseFloat(getComputedStyle(checkPath).strokeDashoffset) * 1000) / 1000 : null,
+      checkBox: checkSvg ? Math.round(checkSvg.getBoundingClientRect().width * 100) / 100 : null,
+      sFollow: settleFollow ? Number(getComputedStyle(settleFollow).opacity) : null,
+      sFollowing: settleFollowing ? Number(getComputedStyle(settleFollowing).opacity) : null,
       w: Math.round(r.width * 100) / 100,
       h: Math.round(r.height * 100) / 100,
       x: Math.round(r.left * 100) / 100,
@@ -130,8 +145,8 @@ try {
     join(stubs, "index.html"),
     `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${css}</style><style>body{margin:0;font-family:Inter,system-ui,sans-serif}</style></head><body><div id="app"></div><script>${js.replace(/<\/script/gi, "<\\/script")}</script></body></html>`,
   )
-  const browser = await puppeteer.launch({ executablePath: CHROMIUM, headless: true, args: ["--no-sandbox", "--hide-scrollbars", "--blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4"] })
-  const touchBrowser = await puppeteer.launch({ executablePath: CHROMIUM, headless: true, args: ["--no-sandbox", "--hide-scrollbars"] })
+  const browser = await puppeteer.launch({ executablePath: CHROMIUM, headless: true, protocolTimeout: 240000, args: ["--no-sandbox", "--hide-scrollbars", "--blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4"] })
+  const touchBrowser = await puppeteer.launch({ executablePath: CHROMIUM, headless: true, protocolTimeout: 240000, args: ["--no-sandbox", "--hide-scrollbars"] })
 
   const open = async (b, vp, which, { reduce = false, capacitor = false } = {}) => {
     const p = await b.newPage()
@@ -193,7 +208,9 @@ try {
       ys: [...new Set(samples.map((s) => s.y))],
       movedFrames: samples.filter((s) => s.moved).length,
       mid: afterClick.slice(2, 8).map((s) => [Math.round(s.lFollow * 100) / 100, Math.round(s.lFollowing * 100) / 100]),
-      end: { state: last.state, lFollow: last.lFollow, lFollowing: last.lFollowing, fillFollow: last.fillFollow, fillFollowing: last.fillFollowing, scale: last.scale },
+      end: { state: last.state, lFollow: last.lFollow, lFollowing: last.lFollowing, fillFollow: last.fillFollow, fillFollowing: last.fillFollowing, scale: last.scale, check: last.check, sFollow: last.sFollow, sFollowing: last.sFollowing },
+      /* From the click on: the check's stroke, the arriving face's settle, and the label leaving, frame by frame. */
+      after: afterClick.map((s) => ({ ms: Math.round(s.t - click.t), check: s.check, sFollow: s.sFollow, sFollowing: s.sFollowing, lFollowing: s.lFollowing, box: s.checkBox })),
       clicked: !!click,
     }
   }
@@ -241,6 +258,20 @@ try {
       expect(runs.every((r) => r.movedFrames === 0 && r.hs.length === 1) && a.movedFrames === 0, "  and on no frame of any of the seven switches is any part of it scaled or drawn at another size", runs.map((r) => r.movedFrames).concat(a.movedFrames))
       expect(a.mid.some(([f, g]) => f > 0.02 && f < 0.98 && g > 0.02 && g < 0.98), "the labels crossfade (both part visible mid way), not a cut", a.mid)
       expect(a.end.state === "following" && a.end.lFollow === 0 && a.end.lFollowing === 1 && a.end.fillFollowing === 1 && a.end.fillFollow === 0 && a.end.scale === 1, "it lands on Following, at full size", a.end)
+      /* ROUND 11: the check draws itself, the arriving face settles, nothing changes size. */
+      {
+        const seq = a.after.map((f) => f.check)
+        const drawing = seq.filter((c) => c > 0.02 && c < 0.98).length
+        const never = seq.every((c, i) => i === 0 || c <= seq[i - 1] + 0.001)
+        const doneAt = a.after.find((f) => f.check === 0)?.ms ?? null
+        console.log(`  info  check stroke after the click: ${seq.slice(0, 24).join(" ")} (drawn by ${doneAt}ms)`)
+        expect(seq[0] > 0.9 && drawing >= 3 && never && a.end.check === 0, "the check draws itself on Following: from nothing, over several frames, only ever forward", { first: seq[0], drawing, never, end: a.end.check })
+        expect(doneAt !== null && doneAt <= 520, "  and is whole within about half a second", doneAt)
+        const settle = a.after.map((f) => f.sFollowing)
+        const easing = settle.filter((o) => o > 0.05 && o < 0.95).length
+        expect(settle[0] > 0.8 && easing >= 4 && settle.every((o, i) => i === 0 || o <= settle[i - 1] + 0.001) && a.end.sFollowing === 0, "Following lands a shade grey and settles to its own white (opacity only, never back up)", { first: settle[0], easing, end: a.end.sFollowing })
+        expect(new Set(a.after.map((f) => f.box)).size === 1, "  the check's box is one size on every frame", [...new Set(a.after.map((f) => f.box))])
+      }
       await p.screenshot({ path: join(shots, `${label}-${which}-2-following.png`), clip })
 
       /* No Unfollow: a pointer over Following is a shade, nothing else. */
@@ -261,6 +292,13 @@ try {
       /* Following -> Follow: the same switch the other way. */
       const back = analyse(await pressAndSwitch(p, cdp, finger))
       console.log(`  info  back: press frame ${back.pressFrames} (${back.pressMs}ms), switch frame ${back.switchFrames} (${back.switchMs}ms), longest frame ${back.maxGap}ms`)
+      {
+        /* Going back nothing is seen undoing itself: the check stays whole while Following can still be seen, and Follow settles in. */
+        const seen = back.after.filter((f) => f.lFollowing > 0.04)
+        expect(seen.length > 0 && seen.every((f) => f.check === 0), "going back to Follow the check is never seen rubbed out (it goes once its label has faded)", seen.map((f) => [f.ms, f.lFollowing, f.check]).slice(0, 8))
+        const settleF = back.after.map((f) => f.sFollow)
+        expect(settleF[0] > 0.8 && settleF.filter((o) => o > 0.05 && o < 0.95).length >= 4 && back.end.sFollow === 0, "  Follow lands a touch lighter and settles to its own colour", { first: settleF[0], end: back.end.sFollow })
+      }
       expect(back.pressFrames === 1 && back.switchFrames === 1 && (back.maxGap <= 20 || (late.length === 0 && back.maxGap <= 34)) && back.widths.length === 1 && back.hs.length === 1 && back.movedFrames === 0 && back.widths[0] === a.widths[0] && back.end.state === "follow" && back.end.lFollow === 1 && back.end.lFollowing === 0, "pressing Following goes straight back to Follow, as smoothly", { press: back.pressFrames, sw: back.switchFrames, gap: back.maxGap, w: back.widths, end: back.end })
       if (finger) {
         const dim = await p.evaluate(() => getComputedStyle(document.querySelector("[data-follow-button]")).opacity)
@@ -270,10 +308,9 @@ try {
       const reqs = await p.evaluate(() => window.__followLog.map((r) => r.follow))
       expect(reqs.join() === "true,false", "one request each way, after the presses", reqs)
       expect(errors.length === 0, "no errors", errors)
-      await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
 
-      /* A filmstrip of the switch at a tenth of its speed, to look at. */
-      if (which !== "platform" || !finger) {
+      /* A filmstrip of the switch at a tenth of its speed, the CPU still slowed four times, to look at: one strip per case. */
+      {
         await cdp.send("Animation.enable")
         await cdp.send("Animation.setPlaybackRate", { playbackRate: 0.1 })
         const pt = await centre(p)
@@ -283,12 +320,27 @@ try {
         await p.screenshot({ path: join(shots, `${label}-${which}-film-0-pressed.png`), clip })
         if (finger) await touch(cdp, "touchEnd", pt)
         else await p.mouse.up()
-        for (const [i, ms] of [[1, 450], [2, 500], [3, 600]]) {
-          await wait(ms)
-          await p.screenshot({ path: join(shots, `${label}-${which}-film-${i}.png`), clip })
+        const film = [join(shots, `${label}-${which}-film-0-pressed.png`)]
+        const boxes = []
+        for (let i = 1; i <= 9; i++) {
+          await wait(i === 1 ? 250 : 480)
+          const f = join(shots, `${label}-${which}-film-${i}.png`)
+          await p.screenshot({ path: f, clip })
+          film.push(f)
+          boxes.push(await p.evaluate(() => { const r = document.querySelector("[data-follow-button]").getBoundingClientRect(); return `${Math.round(r.width * 100) / 100}x${Math.round(r.height * 100) / 100}` }))
         }
         await cdp.send("Animation.setPlaybackRate", { playbackRate: 1 })
+        expect(new Set(boxes).size === 1, "  filmstrip: the button is one size on every frame of the slowed switch", [...new Set(boxes)])
+        /* One picture of the strip, top to bottom, to look at. */
+        const sharp = (await import("sharp")).default
+        const metas = await Promise.all(film.map((f) => sharp(f).metadata()))
+        const w = Math.max(...metas.map((m) => m.width))
+        const h = metas.reduce((t, m) => t + m.height + 4, 0)
+        let y = 0
+        const layers = film.map((f, i) => { const top = y; y += metas[i].height + 4; return { input: f, top, left: 0 } })
+        await sharp({ create: { width: w, height: h, channels: 3, background: "#ffffff" } }).composite(layers).png().toFile(join(shots, `${label}-${which}-FILMSTRIP.png`))
       }
+      await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
       await p.close()
     }
   }
