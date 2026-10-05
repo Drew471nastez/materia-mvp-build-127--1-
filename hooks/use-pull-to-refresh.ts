@@ -164,6 +164,22 @@ const SPOKES_FIRST_PX = 12
 export const SPOKES_SPIN = "ptr-spokes-spin 0.9s linear infinite"
 const SPOKES_PULL_OPACITY = 0.72
 
+/**
+ * The spinner for a gap of `gap` px, as numbers: how far its box is moved
+ * down (its centre on the gap's middle), how much of its full size it is
+ * drawn at (never more than the gap less the margins allows), and how many
+ * spokes the pull has brought in (eight from `threshold`). Pure, so the
+ * suite can prove the box stays inside the gap at every gap.
+ */
+export function spokesAt(gap: number, threshold: number = PULL_TO_REFRESH.threshold): { y: number; scale: number; shown: number } {
+  const g = Math.max(0, gap)
+  return {
+    y: (g - SPOKES_SIZE) / 2,
+    scale: Math.max(0, Math.min(1, (g - 2 * SPOKES_MARGIN) / SPOKES_SIZE)),
+    shown: Math.max(0, Math.min(1, (g - SPOKES_FIRST_PX) / (threshold - SPOKES_FIRST_PX))) * 8,
+  }
+}
+
 interface Options {
   /** Offset in px that arms a refresh (default: PULL_TO_REFRESH.threshold) */
   threshold?: number
@@ -321,10 +337,11 @@ export function usePullToRefresh(
     (gap: number, spinning: boolean, fade = 0) => {
       const p = parts()
       if (!p?.spokes) return
-      const scale = Math.max(0, Math.min(1, (gap - 2 * SPOKES_MARGIN) / SPOKES_SIZE))
-      p.root.style.transform = `translate3d(0, ${(gap - SPOKES_SIZE) / 2}px, 0) scale(${scale})`
+      const at = spokesAt(gap, threshold)
+      const scale = at.scale
+      p.root.style.transform = `translate3d(0, ${at.y}px, 0) scale(${scale})`
       p.root.style.opacity = String(scale > 0.02 ? 1 - fade : 0)
-      const shown = spinning ? 8 : Math.max(0, Math.min(1, (gap - SPOKES_FIRST_PX) / (threshold - SPOKES_FIRST_PX))) * 8
+      const shown = spinning ? 8 : at.shown
       p.spokes.lines.forEach((l, i) => {
         l.style.opacity = String(spinning ? p.spokes!.rest[i] : Math.max(0, Math.min(1, shown - i)) * SPOKES_PULL_OPACITY)
       })

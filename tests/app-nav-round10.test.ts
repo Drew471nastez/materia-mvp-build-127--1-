@@ -120,7 +120,8 @@ for (const f of ["components/app/sidebar.tsx", "components/app/mobile-account-me
 
 console.log("\n9. Pull to refresh")
 const ptr = code("components/ui/pull-to-refresh.tsx")
-check("one component on the /app home's own engine (the hook and its ring)", /usePullToRefresh\(scrollerRef/.test(ptr) && /<PullToRefreshIndicator/.test(ptr))
+/* Round 11 (C9, ask 18): the shared component draws iOS's spokes in the pull's own room; the /app home keeps its ring on the same hook. */
+check("one component on the /app home's own engine (the hook; the spokes in their own room)", /usePullToRefresh\(scrollerRef/.test(ptr) && /<PullSpokes ref=\{indicatorRef\} \/>/.test(ptr))
 check("it finds the scroller: inside (a page scroll box), around (/app), or the document", /\[data-pull-scroller\], \.page-scroll/.test(ptr) && /closest<HTMLElement>\("\.app-content-scroll"\)/.test(ptr) && /document\.scrollingElement/.test(ptr))
 check("the event contract: storelib:pull-refresh with a scope, waiting on detail.done", /export const PULL_REFRESH_EVENT = "storelib:pull-refresh"/.test(ptr) && /new CustomEvent<PullRefreshDetail>\(PULL_REFRESH_EVENT, \{ detail \}\)/.test(ptr) && /Promise\.resolve\(detail\.done\)/.test(ptr))
 check("a refresh that never ends still lets the ring go", /REFRESH_MAX_MS = 10_000/.test(ptr))

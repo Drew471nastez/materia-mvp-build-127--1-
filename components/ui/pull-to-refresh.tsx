@@ -123,7 +123,7 @@ export function PullToRefresh({
  * (member/place-spinner.tsx, its eight spokes and their fading tail), drawn
  * once and painted by the hook, one write per frame, never through React:
  *
- *   [data-ptr-indicator]  where it sits and how large (transform), opacity
+ *   [data-ptr-indicator]  where it sits, how large, how visible
  *   [data-ptr-turn]       the box will-change is put on while it moves
  *   [data-ptr-spin]       the turn while refreshing (a CSS animation)
  *   [data-ptr-spoke]      each spoke's opacity: one by one with the pull,

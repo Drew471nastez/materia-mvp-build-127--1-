@@ -488,6 +488,16 @@ export const isNativePlatform = () => false
         await p.close()
       }
     }
+    /* About for a member, inside the frame, at the three widths it has a layout for. */
+    for (const [vp, name] of [[PHONE, "390"], [{ width: 1200, height: 900 }, "1200"], [DESK, "1440"]]) {
+      const { p, errors } = await open("/community/clay-studio/about?case=about-member", vp)
+      await sleep(500)
+      const m = await p.evaluate(() => ({ overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth, sheet: Math.round(document.querySelector("[data-community-sheet]").getBoundingClientRect().left), left: !!document.querySelector("[data-community-left]")?.offsetWidth }))
+      expect(m.overflow <= 0, `About for a member at ${name}: no sideways overflow`, m)
+      await p.screenshot({ path: join(shots, `about-member-${name}.png`) })
+      expect(errors.length === 0, "no page errors", errors)
+      await p.close()
+    }
     const { p } = await open("/community/clay-studio/members?case=members", { ...DESK, deviceScaleFactor: 2 })
     await sleep(1500)
     const box = await p.evaluate(() => { const b = document.querySelector("[data-wall-places]").getBoundingClientRect(); return { x: b.left, y: b.top, width: b.width, height: b.height } })

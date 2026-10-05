@@ -10,7 +10,7 @@
  *
  * TURNING ON THE COMPOSITOR (round 11: "smooth rotation on the compositor").
  * It turned a spoke at a time (steps) on the <svg> itself; now a plain box
- * around the glyph turns, continuously and linearly, by a transform the
+ * around the glyph turns, continuously and linearly, by a rotation the
  * compositor runs on its own: while the page's thread is busy drawing what
  * the spinner waits for, it keeps turning (scripts/check-community-frame11.mjs
  * SPINNER blocks the thread and watches the compositor's frames).
@@ -43,7 +43,7 @@ export function Spinner({ size = 22, className = "" }: { size?: number; classNam
   return (
     <span
       aria-hidden
-      className={`inline-flex shrink-0 text-[#8a8f98] motion-safe:animate-[spin_var(--spin-ms)_linear_infinite] motion-safe:[will-change:transform] ${className}`}
+      className={`inline-flex shrink-0 text-[#8a8f98] motion-safe:animate-[spin_var(--spin-ms)_linear_infinite] ${className}`}
       style={{ width: size, height: size, ["--spin-ms" as string]: `${SPIN_MS}ms` }}
       data-place-spinner-glyph=""
     >

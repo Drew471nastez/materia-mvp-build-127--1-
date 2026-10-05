@@ -115,9 +115,17 @@ console.log("\n6. signed in")
     (creators, /app), then Profile (/account), Settings, Language, Help,
     Discover (/explore), and Log out last."
   */
+  /*
+    ROUND 11: a community's bar asks for the short list (rows="community": Profile, Settings, Dashboard for a seller); the
+    Storelib header's own menu is every row below, unchanged. The community's branch is set aside to read the header's.
+  */
+  const storelibRows = (src: string) => src.replace(/\{rows === "community" \? \(\s*<>[\s\S]*?<\/>\s*\) : /g, "{").replace(/\{rows === "community" \? null : \(/g, "{(")
   {
-    const menu = fn(header, "DesktopAccountMenu")
+    const full = fn(header, "DesktopAccountMenu")
+    const menu = storelibRows(full)
     const order = [...menu.matchAll(/data-account-item="([a-z-]+)"/g)].map((m) => m[1])
+    const short = /\{rows === "community" \? \(\s*<>([\s\S]*?)<\/>/.exec(full)?.[1] ?? ""
+    check("round 11: a community's short list is Profile, Settings and Dashboard for a seller", [...short.matchAll(/data-account-item="([a-z-]+)"/g)].map((m) => m[1]).join(",") === "profile,settings,dashboard" && /rows = "storelib"/.test(full))
     check("on a computer the photo opens a menu, not a page", /aria-haspopup="menu"/.test(menu) && /data-header-avatar=""/.test(menu) && /role="menu"/.test(menu) && !/<Link\s+\{\.\.\.headerLink\("\/account"\)\}\s+aria-label="Your account"/.test(header))
     check("in the owner's order: Dashboard or Start creating, Profile, Settings, Language, Help, Discover, Log out", order.join(",") === "dashboard,start-creating,profile,settings,language,help,discover,log-out", order)
     check("Dashboard for a seller and Start creating for anybody else", /\{seller \? \(\s*<Link \{\.\.\.go\("\/app"\)\}[\s\S]{0,200}Dashboard[\s\S]{0,80}\) : \(\s*<Link \{\.\.\.go\("\/sell"\)\}[\s\S]{0,200}Start creating/.test(menu))
@@ -132,7 +140,7 @@ console.log("\n6. signed in")
   {
     /* Round 7: the sheet is AccountSheet, drawn by the header with its own link, language picker and log out, and by a community's bar. */
     const sheetFn = fn(header, "AccountSheet")
-    const sheet = sheetFn.slice(sheetFn.indexOf('data-account-sheet=""'))
+    const sheet = storelibRows(sheetFn.slice(sheetFn.indexOf('data-account-sheet=""')))
     const order = [...sheet.matchAll(/item="([a-z-]+)"|data-account-item="([a-z-]+)"|<(SheetLogOut) /g)].map((m) => m[1] || m[2] || (m[3] && "log-out"))
     check("the phone's account sheet: Dashboard or Start creating, Profile, Settings, Language, Help, Discover, Log out", order.join(",") === "dashboard,start-creating,profile,settings,language,help,discover,log-out", order)
     /*
