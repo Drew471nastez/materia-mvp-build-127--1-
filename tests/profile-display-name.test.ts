@@ -277,6 +277,12 @@ async function main() {
   const ua = { safari: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Version/18.0 Mobile/15E148 Safari/604.1", chrome: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) CriOS/129.0 Mobile/15E148", android: "Mozilla/5.0 (Linux; Android 14) Chrome/129.0 Mobile Safari/537.36", app: "Mozilla/5.0 (iPhone) Capacitor", mac: "Mozilla/5.0 (Macintosh) Safari/605" }
   check("Safari with the Smart App Banner gets no pill; without one it does", pillPhone(ua.safari, true) === null && pillPhone(ua.safari, false) === "ios")
   check("Chrome on an iPhone and Android get the pill; the app and a computer never", pillPhone(ua.chrome, true) === "ios" && pillPhone(ua.android, true) === "android" && pillPhone(ua.app, false) === null && pillPhone(ua.mac, false) === null)
+  const pill = readCode("components/community/open-in-app-pill.tsx")
+  const join = readCode("components/community/public/join-controls.tsx")
+  check(
+    "the pill floats above the join bar and buyer tabs, not over them",
+    /COMMUNITY_FLOAT_BOTTOM/.test(pill) && /data-community-fixed-foot/.test(join) && /CommunityFixedFootWatch/.test(readCode("components/community/member/shell-frame.tsx")),
+  )
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) {

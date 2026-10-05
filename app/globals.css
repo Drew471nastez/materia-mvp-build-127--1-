@@ -7642,6 +7642,10 @@ html.capacitor .home-card li > :is(a, button):active {
   }
 }
 
+/* Community join bars (data-community-fixed-foot) publish their height as
+   --community-fixed-foot-h via fixed-foot-chrome.ts so the open-in-app pill
+   and toasts float above them, never over Join or pricing actions. */
+
 
 /* ════════════════════════════════════════════════════════════════════════════
    THE BUYER PAGES BOUNCE AGAIN, AND THE BOUNCE SHOWS THEIR OWN GROUND

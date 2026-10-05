@@ -653,6 +653,7 @@ export function JoinBarPhone() {
     <div
       ref={ref}
       data-join-bar=""
+      data-community-fixed-foot=""
       /* Until the side card takes over (1280px); a member's "Open community" only on a phone and a tablet, where there is no left column. */
       className={cn("fixed inset-x-0 bottom-0 z-40 border-t border-[#e5e7eb] bg-white px-4 pt-3 shadow-[0_-4px_16px_-8px_rgba(16,24,40,0.12)]", join.kind === "open" ? "lg:hidden" : "xl:hidden")}
       /* Down to the screen's foot: under the tab bar where there is one, above the home indicator where there is not. */

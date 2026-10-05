@@ -104,6 +104,7 @@ import { useCommunityLanding } from "./landing"
 import { useReturnScroll } from "./return-scroll"
 import { JOINED_KEY } from "@/components/community/public/paths"
 import { CommunityPullRefresh } from "./community-pull-refresh"
+import { CommunityFixedFootWatch } from "@/components/community/fixed-foot-watch"
 
 export { CommunityMark } from "./top-bar"
 
@@ -354,6 +355,7 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
     /* The header's real heights until it is measured (56 + 40 of tabs + its hairline below 1024px, one 64px row + 1 from 1024px): no jump on the first frame. */
     <PlaceContext.Provider value={place}>
       <style>{GUTTER + PLACE_KEYFRAMES}</style>
+      <CommunityFixedFootWatch />
       <div
         data-community-shell=""
         data-community-landing={landing ? "" : undefined}

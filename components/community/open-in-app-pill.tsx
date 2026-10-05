@@ -34,6 +34,7 @@ import { usePathname } from "next/navigation"
 import { X } from "lucide-react"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { isNativeApp } from "@/lib/platform-utils"
+import { COMMUNITY_FLOAT_BOTTOM, startCommunityFixedFootWatch } from "@/components/community/fixed-foot-chrome"
 import { APP_PILL_KEY, APP_PILL_QUIET_DAYS, pageAppLink, pillPhone, type Phone } from "@/lib/platform/open-in-app"
 
 const APP_STORE_ID = (process.env.NEXT_PUBLIC_IOS_APP_STORE_ID || "").trim()
@@ -63,8 +64,12 @@ export function OpenInAppPill() {
     const which = pillPhone(navigator.userAgent || "", /^\d+$/.test(APP_STORE_ID))
     if (!which) return
     setPhone(which)
+    const stopFoot = startCommunityFixedFootWatch()
     const t = window.setTimeout(() => setShown(true), PILL_DELAY_MS)
-    return () => window.clearTimeout(t)
+    return () => {
+      window.clearTimeout(t)
+      stopFoot()
+    }
   }, [])
 
   const close = () => {
@@ -98,7 +103,7 @@ export function OpenInAppPill() {
           data-open-app-pill={phone}
           data-state={shown ? "shown" : "hidden"}
           className="pointer-events-none fixed inset-x-0 z-[70] flex justify-center px-4 [html.capacitor_&]:hidden"
-          style={{ bottom: "max(calc(16px + env(safe-area-inset-bottom)), calc(var(--buyer-tabs-h, 0px) + 12px))" }}
+          style={{ bottom: COMMUNITY_FLOAT_BOTTOM }}
         >
           <div
             className="pointer-events-auto flex h-11 max-w-[calc(100vw-32px)] items-center rounded-[10px] bg-white pl-1.5 pr-1 shadow-[0_0_0_1px_rgba(17,24,39,0.07),0_2px_4px_rgba(17,24,39,0.05),0_8px_24px_-8px_rgba(17,24,39,0.18)] transition-[opacity,translate] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"

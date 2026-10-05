@@ -206,7 +206,7 @@ export function wantsEdit(post: Pick<FeedPostView, "canEdit" | "status">, readOn
  */
 function VisitorJoinBar({ slug, name, logoUrl, signedIn }: { slug: string; name: string; logoUrl: string | null; signedIn: boolean }) {
   return (
-    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[#e8e9ec] bg-white/[0.98] pb-[env(safe-area-inset-bottom)] shadow-[0_-6px_20px_-12px_rgba(17,24,39,0.18)] animate-in fade-in-0 slide-in-from-bottom-2 duration-300 motion-reduce:animate-none" data-visitor-join="">
+    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[#e8e9ec] bg-white/[0.98] pb-[env(safe-area-inset-bottom)] shadow-[0_-6px_20px_-12px_rgba(17,24,39,0.18)] animate-in fade-in-0 slide-in-from-bottom-2 duration-300 motion-reduce:animate-none" data-visitor-join="" data-community-fixed-foot="">
       <div className="mx-auto flex min-h-16 max-w-[760px] items-center gap-3 px-4 py-2.5 sm:px-6">
         <CommunityMark community={{ name, logoUrl }} size={36} priority />
         <p className="min-w-0 flex-1 text-[14px] leading-snug text-[#4b5563]">

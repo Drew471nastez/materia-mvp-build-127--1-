@@ -30,6 +30,7 @@ import { WallCommunityCard } from "@/components/community/member/wall"
 import { useLightChrome } from "@/lib/ui/light-chrome"
 import { useCommunityLanding } from "@/components/community/member/landing"
 import { CommunityPullRefresh } from "@/components/community/member/community-pull-refresh"
+import { CommunityFixedFootWatch } from "@/components/community/fixed-foot-watch"
 
 /** What arrives under the bar fades in (opacity only: a visitor never moves between places, so nothing rises). */
 const ARRIVE = "[&>*]:animate-[fade-in_200ms_cubic-bezier(0.32,0.72,0,1)] motion-reduce:[&>*]:animate-none"
@@ -54,6 +55,7 @@ export function CommunityPublicFrame({ topBar, card = null, children }: { topBar
       className={`min-h-svh bg-[#f8f9fa] [--community-top:57px] lg:[--community-top:65px]${landing ? " community-land" : ""}`}
     >
       <style>{GUTTER}</style>
+      <CommunityFixedFootWatch />
       <CommunityTopBar data={topBar} wide />
       <div className="mx-auto w-full max-w-[1360px] px-4 sm:px-6 lg:px-8">
         <div data-community-columns="public" className="pb-16 pt-4 lg:grid lg:grid-cols-[260px_minmax(0,1fr)] lg:items-start lg:gap-x-6 lg:pt-6 xl:grid-cols-[280px_minmax(0,1fr)_300px]">

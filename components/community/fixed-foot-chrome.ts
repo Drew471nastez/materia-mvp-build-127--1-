@@ -1,0 +1,65 @@
+"use client"
+
+/**
+ * Fixed foot chrome on community pages (join bar, visitor join, etc.).
+ * Measured height is written to --community-fixed-foot-h so floating UI
+ * (open-in-app pill, toasts) never covers primary actions.
+ */
+export const COMMUNITY_FIXED_FOOT_ATTR = "data-community-fixed-foot"
+export const COMMUNITY_FIXED_FOOT_VAR = "--community-fixed-foot-h"
+
+/** CSS bottom offset for a pill/toast above join bars and buyer tabs. */
+export const COMMUNITY_FLOAT_BOTTOM = `max(calc(16px + env(safe-area-inset-bottom, 0px)), calc(var(${COMMUNITY_FIXED_FOOT_VAR}, 0px) + 12px), calc(var(--buyer-tabs-h, 0px) + 12px))`
+
+let observers = 0
+let ro: ResizeObserver | null = null
+let mo: MutationObserver | null = null
+
+function footElements(): HTMLElement[] {
+  return [...document.querySelectorAll<HTMLElement>(`[${COMMUNITY_FIXED_FOOT_ATTR}]`)]
+}
+
+function measureFoot(): number {
+  let max = 0
+  for (const el of footElements()) {
+    const st = getComputedStyle(el)
+    if (st.display === "none" || st.visibility === "hidden") continue
+    const h = el.getBoundingClientRect().height
+    if (h > 0) max = Math.max(max, h)
+  }
+  return max
+}
+
+function syncFootVar() {
+  document.documentElement.style.setProperty(COMMUNITY_FIXED_FOOT_VAR, `${measureFoot()}px`)
+}
+
+function watchFoot() {
+  ro?.disconnect()
+  ro = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(syncFootVar)
+  for (const el of footElements()) ro?.observe(el)
+  syncFootVar()
+}
+
+/** Start measuring fixed foot chrome (idempotent). */
+export function startCommunityFixedFootWatch() {
+  if (typeof document === "undefined") return () => {}
+  observers += 1
+  if (observers > 1) return () => stopCommunityFixedFootWatch()
+  watchFoot()
+  mo = new MutationObserver(watchFoot)
+  mo.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class", "style", "hidden"] })
+  window.addEventListener("resize", syncFootVar)
+  return stopCommunityFixedFootWatch
+}
+
+function stopCommunityFixedFootWatch() {
+  observers = Math.max(0, observers - 1)
+  if (observers > 0) return
+  mo?.disconnect()
+  mo = null
+  ro?.disconnect()
+  ro = null
+  window.removeEventListener("resize", syncFootVar)
+  document.documentElement.style.removeProperty(COMMUNITY_FIXED_FOOT_VAR)
+}
