@@ -38,7 +38,8 @@ import { LetterIcon } from "@solar-icons/react/linear/letter"
 import { LinkMinimalistic2Icon } from "@solar-icons/react/linear/link-minimalistic-2"
 import { ShareIcon } from "@solar-icons/react/linear/share"
 import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
-import type { CommunityAccess } from "@/lib/communities/types"
+import { joinCosts, needsInvite } from "@/lib/communities/access-model"
+import type { CommunityAccess, CommunityVisibility } from "@/lib/communities/types"
 import { cn } from "@/lib/utils"
 import { api, apiBase } from "./api"
 import { CommunityMark } from "./community-mark"
@@ -50,8 +51,12 @@ export interface InviteSheetCommunity {
   name: string
   logoUrl: string | null
   access?: CommunityAccess
+  visibility?: CommunityVisibility
   approvalRequired?: boolean
 }
+
+/** The two stored facts, with the defaults a caller that only passed `access` means. */
+const columns = (c: Pick<InviteSheetCommunity, "access" | "visibility">) => ({ access: c.access ?? "free", visibility: c.visibility ?? "public" })
 
 /** The address a shared link carries: the community's canonical one, never the page the person is on. */
 export function communityShareUrl(slug: string): string {
@@ -59,8 +64,11 @@ export function communityShareUrl(slug: string): string {
 }
 
 /** What the shared link does for whoever opens it, in a few words (round 10: fewer words). */
-export function shareLinkLine(c: Pick<InviteSheetCommunity, "access" | "approvalRequired">): string {
-  if (c.access === "invite_only") return "This community is invite only. People need an invite from an admin."
+export function shareLinkLine(c: Pick<InviteSheetCommunity, "access" | "visibility" | "approvalRequired">): string {
+  const cols = columns(c)
+  if (needsInvite(cols)) {
+    return joinCosts(cols) ? "This community is invite only. People need an invite, and they pay to join." : "This community is invite only. People need an invite from an admin."
+  }
   if (c.approvalRequired) return "People with the link ask to join, and an admin approves."
   if (c.access === "paid") return "People with the link see the price and pay to join."
   if (c.access === "product" || c.access === "custom") return "People with the link see how to get in."
@@ -68,9 +76,12 @@ export function shareLinkLine(c: Pick<InviteSheetCommunity, "access" | "approval
 }
 
 /** What a staff invite does here, in one line. */
-export function staffInviteLine(c: Pick<InviteSheetCommunity, "access" | "approvalRequired">): string {
+export function staffInviteLine(c: Pick<InviteSheetCommunity, "access" | "visibility" | "approvalRequired">): string {
+  const cols = columns(c)
+  /* A private community that charges: the link is the way in, and the price is still theirs to pay unless a tier is named. */
+  if (needsInvite(cols) && joinCosts(cols)) return "An invite is the way in. They see the price and pay, unless you pick a tier to give them."
   if (c.access === "paid" || c.access === "product" || c.access === "custom") return "An invite lets someone in without paying."
-  if (c.access === "invite_only" || c.approvalRequired) return "An invite lets someone in without a request."
+  if (needsInvite(cols) || c.approvalRequired) return "An invite lets someone in without a request."
   return "An invite lets someone in directly, on your default tier."
 }
 

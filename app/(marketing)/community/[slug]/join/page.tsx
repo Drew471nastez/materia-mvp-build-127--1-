@@ -2,7 +2,8 @@ import type { Metadata } from "next"
 import { notFound, redirect } from "next/navigation"
 import { connection } from "next/server"
 import { communitiesEnabled } from "@/lib/communities/flag"
-import { communityBySlug, seoFacts, sharePreviewable } from "@/lib/communities/server/public"
+import { communityBySlug, joinPrice, seoFacts, sharePreviewable } from "@/lib/communities/server/public"
+import { admin } from "@/lib/communities/server/db"
 import { communityMetadata, inviteMetadata } from "@/components/community/public/seo"
 import { memberPage } from "@/components/community/member/data"
 import { InviteLanding } from "@/components/community/member/invite-landing"
@@ -51,9 +52,11 @@ export default async function CommunityJoinPage({ params, searchParams }: { para
   const eventTag = eventId && typeof et === "string" && /^[0-9a-f]{32}$/.test(et) ? et : null
   const forEvent = eventId && eventTag ? `&event=${encodeURIComponent(eventId)}&et=${eventTag}` : ""
   const here = `/community/${c.slug}/join${token ? `?invite=${encodeURIComponent(token)}${forEvent}` : ""}`
+  /* The price before they press, because a private community can charge now (lib/communities/access-model.ts). */
+  const price = await joinPrice(admin(), c)
   return (
     <InviteLanding
-      community={{ id: c.id, slug: c.slug, name: c.name, tagline: c.tagline, logoUrl: c.logo_url, memberCount: c.member_count }}
+      community={{ id: c.id, slug: c.slug, name: c.name, tagline: c.tagline, logoUrl: c.logo_url, memberCount: c.member_count, priceLine: price }}
       token={token}
       eventId={forEvent ? eventId : null}
       eventTag={eventTag}

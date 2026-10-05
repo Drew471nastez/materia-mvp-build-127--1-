@@ -21,6 +21,7 @@ import "server-only"
  * empty; the section still draws.
  */
 import { isOpenRule } from "../access"
+import { isAccessColumns, needsInvite } from "../access-model"
 import { BLOCK_LIMITS, DEFAULT_BLOCK_TOGGLES, excerptOf, firstName, isCommunityId, whyHidden, type CommunityBlockData, type CommunityBlockPerson, type CommunityBlockToggles, type CommunityChoice } from "../blocks"
 import { communitiesEnabled } from "../flag"
 import { joinButtonLabel, memberCountLabel, priceLine } from "../format"
@@ -235,7 +236,8 @@ export async function loadCommunityBlock(
     coverUrl: safeImage(row.cover_url),
     url: `/community/${encodeURIComponent(slug)}`,
     priceLine: price,
-    joinLabel: row.access === "invite_only" ? "See the community" : joinButtonLabel({ isMember: false, approvalRequired: row.approval_required === true, priceLine: price }),
+    /* A private community is not joined from a creator's page at any price: the card leads to it, the price is on the card (../access-model.ts). */
+    joinLabel: isAccessColumns(row) && needsInvite(row) ? "See the community" : joinButtonLabel({ isMember: false, approvalRequired: row.approval_required === true, priceLine: price }),
     memberCount: num(row.member_count),
     postCount: num(row.post_count),
     upcomingEventCount: events ? events.count : null,

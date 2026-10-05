@@ -9,6 +9,11 @@
  * An invite made for one paid event carries the event and its signature
  * (round 14): they travel with the token, the route grants the free ticket
  * and answers with the event's page, and that is where the press lands.
+ *
+ * A PRIVATE COMMUNITY CAN CHARGE (lib/communities/access-model.ts), so the
+ * price is said before the press and the answer may be "checkout": the
+ * invite is the approval, the payment is still theirs to make, and the
+ * invite is only spent once it lands.
  */
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -35,7 +40,7 @@ export function InviteLanding({
   eventId = null,
   eventTag = null,
 }: {
-  community: { id: string; slug: string; name: string; tagline: string | null; logoUrl: string | null; memberCount: number }
+  community: { id: string; slug: string; name: string; tagline: string | null; logoUrl: string | null; memberCount: number; priceLine?: string | null }
   token: string | null
   state: string
   loginHref: string
@@ -51,12 +56,17 @@ export function InviteLanding({
     if (!token || busy) return
     setBusy(true)
     setError(null)
-    const r = await api<{ ok?: boolean; reason?: string; error?: string; url?: string }>(`${apiBase(community.id)}/invite/redeem`, {
+    const r = await api<{ ok?: boolean; reason?: string; error?: string; state?: string; url?: string }>(`${apiBase(community.id)}/invite/redeem`, {
       body: eventId && eventTag ? { token, event: eventId, et: eventTag } : { token },
     })
     if (r.ok && r.data.ok !== false) {
-      /* An invite for an event lands on the event; an ordinary one on the community, as it always has. */
-      const url = typeof r.data.url === "string" && r.data.url.startsWith(`/community/${community.slug}/events/`) ? r.data.url : `/community/${community.slug}?welcome=1`
+      /* Where the press lands: where to pay when the community charges, else the event an invite was made for, else the community. */
+      const url =
+        r.data.state === "checkout" && typeof r.data.url === "string"
+          ? r.data.url
+          : typeof r.data.url === "string" && r.data.url.startsWith(`/community/${community.slug}/events/`)
+            ? r.data.url
+            : `/community/${community.slug}?welcome=1`
       router.push(url)
       return
     }
@@ -92,6 +102,11 @@ export function InviteLanding({
         <h1 className="mt-1 text-[22px] font-bold text-[#1a1a2e]">{community.name}</h1>
         {community.tagline ? <p className="mt-2 text-[14.5px] leading-relaxed text-[#4b5563]">{community.tagline}</p> : null}
         <p className="mt-2 text-[13px] text-[#8a8f98]">{memberCountLabel(community.memberCount)}</p>
+        {community.priceLine ? (
+          <p className="mt-4 text-[14px] text-[#1a1a2e]" data-invite-price="">
+            <span className="font-semibold">{community.priceLine}</span> to join
+          </p>
+        ) : null}
         {error ? <p className="mt-5 rounded-xl bg-[#fef1ee] px-3.5 py-2.5 text-[14px] text-[#9f2a12]">{error}</p> : null}
         <div className="mt-6 flex flex-col gap-2">
           {state === "signed_out" ? (
@@ -100,7 +115,7 @@ export function InviteLanding({
             </Link>
           ) : token && state !== "banned" ? (
             <button type="button" className={BTN_PRIMARY} onClick={accept} disabled={busy}>
-              {busy ? "Joining..." : "Accept invite"}
+              {busy ? "Joining..." : community.priceLine ? "Accept and pay" : "Accept invite"}
             </button>
           ) : null}
           <Link href={`/community/${community.slug}/about`} className={BTN_SECONDARY}>

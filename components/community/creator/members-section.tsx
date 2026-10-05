@@ -31,7 +31,8 @@ import { AppAvatar } from "@/components/app/app-avatar"
 import { StatusBadge } from "@/app/app/orders/order-parts"
 import { relativeTime } from "@/lib/communities/format"
 import type { BadgeView, CommunityHead, InviteView, MemberPage, MemberRowView } from "./view-types"
-import { MEMBER_STATUS_FILTERS, ROLE_LABEL, type MemberStatusFilter } from "./logic"
+import { MEMBER_STATUS_FILTERS, ROLE_LABEL, takenAwayLine, type MemberStatusFilter } from "./logic"
+import { joinCosts, needsInvite } from "@/lib/communities/access-model"
 import { useMemberActions, type ActOnPerson } from "./member-actions"
 import { PaymentsSection } from "@/components/community/membership/refund-dialog"
 import { Dialog, Empty, FilterTabs, ListCard, ListNote, Notice, PickButton, RowMenu, SearchField, Segmented, ToolbarDivider, buttonPrimary, buttonSecondary, errorText, field, label, selectField, send, shortDate, useToast } from "./parts"
@@ -39,6 +40,7 @@ import { Dialog, Empty, FilterTabs, ListCard, ListNote, Notice, PickButton, RowM
 const STATUS_LABEL: Record<MemberStatusFilter, string> = {
   active: "Active",
   pending: "Requests",
+  restricted: "Not active",
   muted: "Muted",
   paused: "Suspended",
   banned: "Banned",
@@ -46,6 +48,9 @@ const STATUS_LABEL: Record<MemberStatusFilter, string> = {
   expired: "Expired",
   cancelled: "Left",
 }
+
+/** The views that hold people a moderator took out, where each row carries its undo. */
+const UNDO_VIEWS: MemberStatusFilter[] = ["restricted", "muted", "paused", "banned", "removed"]
 
 interface Props {
   head: CommunityHead
@@ -60,7 +65,7 @@ interface Props {
   badges: BadgeView[]
 }
 
-const person = (m: MemberRowView): ActOnPerson => ({ userId: m.userId, name: m.name, role: m.role, status: m.status, source: m.source, mutedUntil: m.mutedUntil, approved: m.approved, points: m.points })
+const person = (m: MemberRowView): ActOnPerson => ({ userId: m.userId, name: m.name, role: m.role, status: m.status, source: m.source, mutedUntil: m.mutedUntil, approved: m.approved, points: m.points, acted: m.acted ?? null })
 
 export function MembersSection(p: Props) {
   const base = `/api/app/community/${p.head.id}`
@@ -135,18 +140,21 @@ export function MembersSection(p: Props) {
 
   const actions = useMemberActions({ head: p.head, meId: p.meId, tiers: p.tiers, badges: p.badges, onDone: () => void load(true) })
 
-  const statuses = MEMBER_STATUS_FILTERS.filter((s) => s === "active" || s === "pending" || (counts[s] ?? 0) > 0 || s === status)
+  /* The per status views stay reachable by address; the tabs show Active, Requests and the one view that holds everybody who is not. */
+  const statuses = MEMBER_STATUS_FILTERS.filter((s) => s === "active" || s === "pending" || s === status || ((s === "restricted" || s === "expired" || s === "cancelled") && (counts[s] ?? 0) > 0))
   const showLevel = p.head.gamificationEnabled
   const rows = page.rows
   const pending = status === "pending"
+  const restricted = UNDO_VIEWS.includes(status)
   const roleOptions = [{ value: "", label: "All roles" }, ...(["owner", "admin", "moderator", "member"] as const).map((r) => ({ value: r, label: `${ROLE_LABEL[r]}s` }))]
   const tierOptions = [{ value: "", label: "All tiers" }, ...p.tiers.map((t) => ({ value: t.id, label: t.name }))]
 
-  /* Approve and Decline sit on a request's row; the rest are in its menu. */
+  /* Approve and Decline sit on a request's row, and the undo sits on a row that is not active; the rest are in the menu. */
   const rowActions = (m: MemberRowView, phone: boolean) => {
     const choices = actions.choicesFor(person(m))
     const approve = choices.find((c) => c.action === "approve")
     const reject = choices.find((c) => c.action === "reject")
+    const undo = restricted ? choices.find((c) => c.action === "unsuspend" || c.action === "unban" || c.action === "reinstate" || c.action === "unmute") : undefined
     return (
       <span className="inline-flex items-center justify-end gap-1.5">
         {reject && !phone ? (
@@ -159,7 +167,12 @@ export function MembersSection(p: Props) {
             Approve
           </button>
         ) : null}
-        <RowMenu items={actions.menuItems(person(m), phone ? ["approve"] : ["approve", "reject"])} label={`Actions for ${m.name}`} />
+        {undo ? (
+          <button type="button" disabled={actions.busy} onClick={() => actions.run(undo, person(m))} className={cn(buttonSecondary, phone && "h-10 whitespace-nowrap px-3")} data-undo="">
+            {phone ? (undo.shortLabel ?? undo.label) : undo.label}
+          </button>
+        ) : null}
+        <RowMenu keepSpace={restricted && !phone} items={actions.menuItems(person(m), [...(phone ? ["approve"] : ["approve", "reject"]), ...(undo ? [undo.key] : [])])} label={`Actions for ${m.name}`} />
       </span>
     )
   }
@@ -167,7 +180,9 @@ export function MembersSection(p: Props) {
   const line = (m: MemberRowView) =>
     pending
       ? [m.requestNote || (m.approved ? "Approved, waiting for payment" : null), shortDate(m.requestedAt)].filter(Boolean).join(" · ")
-      : [m.role !== "member" ? ROLE_LABEL[m.role] : null, m.tierName, showLevel ? `Level ${m.level}` : null, m.email, `Joined ${shortDate(m.joinedAt)}`].filter(Boolean).join(" · ")
+      : restricted
+        ? takenAwayLine(m)
+        : [m.role !== "member" ? ROLE_LABEL[m.role] : null, m.tierName, showLevel ? `Level ${m.level}` : null, m.email, `Joined ${shortDate(m.joinedAt)}`].filter(Boolean).join(" · ")
 
   return (
     <div className="space-y-4" data-members="">
@@ -217,6 +232,8 @@ export function MembersSection(p: Props) {
             </Empty>
           ) : pending ? (
             <Empty title="No requests to join." />
+          ) : status === "restricted" ? (
+            <Empty title="Nobody is shut out." detail="Anyone you remove, ban, suspend or mute shows up here, with a way back." />
           ) : (
             <Empty title={`Nobody ${STATUS_LABEL[status].toLowerCase()}.`} />
           )
@@ -225,13 +242,13 @@ export function MembersSection(p: Props) {
             <table className="hidden w-full table-fixed border-separate border-spacing-0 md:table">
               <thead>
                 <tr className="h-9 text-left text-[12px] text-[#6b7280]">
-                  <th className="w-[38%] border-b border-[#eef0f2] pl-4 pr-3 font-medium">Member</th>
-                  <th className="border-b border-[#eef0f2] px-3 font-medium">{pending ? "Note" : "Role"}</th>
-                  {!pending ? <th className="border-b border-[#eef0f2] px-3 font-medium">Tier</th> : null}
-                  {showLevel && !pending ? <th className="w-[96px] border-b border-[#eef0f2] px-3 font-medium">Level</th> : null}
-                  <th className="w-[104px] border-b border-[#eef0f2] px-3 font-medium">{pending ? "Asked" : "Joined"}</th>
-                  {!pending ? <th className="w-[104px] border-b border-[#eef0f2] px-3 font-medium">Last active</th> : null}
-                  <th className={cn("border-b border-[#eef0f2] pr-3", pending ? "w-[208px]" : "w-[56px]")} aria-label="Actions" />
+                  <th className={cn("border-b border-[#eef0f2] pl-4 pr-3 font-medium", restricted ? "w-[30%]" : "w-[38%]")}>Member</th>
+                  <th className="border-b border-[#eef0f2] px-3 font-medium">{pending ? "Note" : restricted ? "What happened" : "Role"}</th>
+                  {!pending && !restricted ? <th className="border-b border-[#eef0f2] px-3 font-medium">Tier</th> : null}
+                  {showLevel && !pending && !restricted ? <th className="w-[96px] border-b border-[#eef0f2] px-3 font-medium">Level</th> : null}
+                  {!restricted ? <th className="w-[104px] border-b border-[#eef0f2] px-3 font-medium">{pending ? "Asked" : "Joined"}</th> : null}
+                  {!pending && !restricted ? <th className="w-[104px] border-b border-[#eef0f2] px-3 font-medium">Last active</th> : null}
+                  <th className={cn("border-b border-[#eef0f2] pr-3", pending ? "w-[208px]" : restricted ? "w-[216px]" : "w-[56px]")} aria-label="Actions" />
                 </tr>
               </thead>
               <tbody>
@@ -250,15 +267,25 @@ export function MembersSection(p: Props) {
                         </div>
                       </div>
                     </td>
-                    <td className="truncate border-b border-[#f1f2f4] px-3 text-[13px] text-[#1a1a2e] group-last/row:border-b-0">{pending ? <span className="text-[#4b5563]">{m.requestNote || (m.approved ? "Approved, waiting for payment" : "")}</span> : ROLE_LABEL[m.role]}</td>
-                    {!pending ? <td className="truncate border-b border-[#f1f2f4] px-3 text-[13px] text-[#4b5563] group-last/row:border-b-0">{m.tierName ?? ""}</td> : null}
-                    {showLevel && !pending ? (
+                    <td className="truncate border-b border-[#f1f2f4] px-3 text-[13px] text-[#1a1a2e] group-last/row:border-b-0">
+                      {pending ? (
+                        <span className="text-[#4b5563]">{m.requestNote || (m.approved ? "Approved, waiting for payment" : "")}</span>
+                      ) : restricted ? (
+                        <span className="text-[#4b5563]" title={takenAwayLine(m)}>
+                          {takenAwayLine(m)}
+                        </span>
+                      ) : (
+                        ROLE_LABEL[m.role]
+                      )}
+                    </td>
+                    {!pending && !restricted ? <td className="truncate border-b border-[#f1f2f4] px-3 text-[13px] text-[#4b5563] group-last/row:border-b-0">{m.tierName ?? ""}</td> : null}
+                    {showLevel && !pending && !restricted ? (
                       <td className="border-b border-[#f1f2f4] px-3 text-[13px] tabular-nums text-[#4b5563] group-last/row:border-b-0">
                         {m.level} <span className="text-[#9ca3af]">· {m.points}</span>
                       </td>
                     ) : null}
-                    <td className="whitespace-nowrap border-b border-[#f1f2f4] px-3 text-[13px] text-[#4b5563] group-last/row:border-b-0">{shortDate(pending ? m.requestedAt : m.joinedAt)}</td>
-                    {!pending ? <td className="whitespace-nowrap border-b border-[#f1f2f4] px-3 text-[13px] text-[#4b5563] group-last/row:border-b-0">{m.lastActiveAt ? relativeTime(m.lastActiveAt) : ""}</td> : null}
+                    {!restricted ? <td className="whitespace-nowrap border-b border-[#f1f2f4] px-3 text-[13px] text-[#4b5563] group-last/row:border-b-0">{shortDate(pending ? m.requestedAt : m.joinedAt)}</td> : null}
+                    {!pending && !restricted ? <td className="whitespace-nowrap border-b border-[#f1f2f4] px-3 text-[13px] text-[#4b5563] group-last/row:border-b-0">{m.lastActiveAt ? relativeTime(m.lastActiveAt) : ""}</td> : null}
                     <td className="border-b border-[#f1f2f4] pr-3 text-right group-last/row:border-b-0">{rowActions(m, false)}</td>
                   </tr>
                 ))}
@@ -302,6 +329,7 @@ export function MembersSection(p: Props) {
         open={inviteOpen}
         onClose={() => setInviteOpen(false)}
         base={base}
+        head={p.head}
         tiers={p.tiers}
         canAdd={p.head.can.manage_members === true}
         onMade={(inv) => setInvites((x) => ({ ...x, rows: [inv, ...x.rows] }))}
@@ -397,7 +425,7 @@ function CopyField({ value }: { value: string }) {
   )
 }
 
-function InviteDialog({ open, onClose, base, tiers, canAdd, onMade, onAdded }: { open: boolean; onClose: () => void; base: string; tiers: { id: string; name: string; kind: string }[]; canAdd: boolean; onMade: (i: InviteView) => void; onAdded: () => void }) {
+function InviteDialog({ open, onClose, base, head, tiers, canAdd, onMade, onAdded }: { open: boolean; onClose: () => void; base: string; head: CommunityHead; tiers: { id: string; name: string; kind: string }[]; canAdd: boolean; onMade: (i: InviteView) => void; onAdded: () => void }) {
   type Mode = "email" | "link" | "add"
   const [mode, setMode] = React.useState<Mode>("email")
   const [email, setEmail] = React.useState("")
@@ -493,6 +521,12 @@ function InviteDialog({ open, onClose, base, tiers, canAdd, onMade, onAdded }: {
           ]}
         />
         {mode === "add" ? <p className="text-[13px] leading-snug text-[#6b7280]">Somebody with a Storelib account joins right away, without paying.</p> : null}
+        {/* A private community that charges: the link is the way in, and the price is still theirs to pay (lib/communities/access-model.ts). */}
+        {mode !== "add" && needsInvite(head) && joinCosts(head) ? (
+          <p className="text-[13px] leading-snug text-[#6b7280]" data-invite-price-note="">
+            Whoever follows this sees the price and pays to join. To give somebody access without paying, use Add directly.
+          </p>
+        ) : null}
         {mode !== "link" ? (
           <div>
             <label htmlFor="inv-email" className={label}>

@@ -24,11 +24,11 @@ import "server-only"
  * written to the audit log.
  */
 import { assignableRoles, can, canActOn, ROLE_RANK, type CommunityAction, type RolePermissions } from "../permissions"
-import { MEMBER_COLUMNS, REPORT_STATUSES, isOneOf, type CommunityRow, type MemberRow, type MemberSource, type MemberStatus, type ReportReason, type ReportStatus, type ReportTarget, type Role } from "../types"
+import { MEMBER_COLUMNS, PAID_SOURCES, REPORT_STATUSES, isOneOf, type CommunityRow, type MemberRow, type MemberSource, type MemberStatus, type ReportReason, type ReportStatus, type ReportTarget, type Role } from "../types"
 import { decodeCursor, encodeCursor, isUuid, keysetOr } from "@/components/community/creator/logic"
 import type { AuditView, ReportView } from "@/components/community/creator/view-types"
 import { audit } from "./audit"
-import { grantMembership, memberOf, revokeMembership } from "./membership"
+import { grantMembership, memberOf, ownedProductIds, revokeMembership } from "./membership"
 import { notifyMember } from "./notify"
 import { sendCommunityEmail } from "./email"
 import { missing, nowIso, reasonOf, type Db } from "./db"
@@ -219,7 +219,7 @@ export async function actOnContent(db: Db, a: ContentActInput): Promise<Outcome<
 
 /* ── Members ────────────────────────────────────────────────────────────── */
 
-export const MEMBER_ACTIONS = ["mute", "unmute", "suspend", "unsuspend", "ban", "unban", "remove", "approve", "reject", "role"] as const
+export const MEMBER_ACTIONS = ["mute", "unmute", "suspend", "unsuspend", "ban", "unban", "remove", "reinstate", "approve", "reject", "role"] as const
 export type MemberAction = (typeof MEMBER_ACTIONS)[number]
 
 export function memberActionNeeds(action: MemberAction): CommunityAction {
@@ -234,6 +234,7 @@ export function memberActionNeeds(action: MemberAction): CommunityAction {
     case "unban":
       return "ban"
     case "remove":
+    case "reinstate":
       return "remove_member"
     case "approve":
     case "reject":
@@ -241,6 +242,110 @@ export function memberActionNeeds(action: MemberAction): CommunityAction {
     default:
       return "change_role"
   }
+}
+
+/* ── Putting somebody back ──────────────────────────────────────────────── */
+
+/**
+ * EVERY ACTION THAT PUTS SOMETHING BACK, AND WHAT IT UNDOES. Each one needs
+ * the same permission as the action it undoes (memberActionNeeds above), and
+ * each one is refused when the person who took the action is ranked above
+ * the one undoing it, so a moderator never reverses an admin or the owner.
+ */
+export const UNDO_ACTIONS = { unmute: "mute", unsuspend: "suspend", unban: "ban", reinstate: "remove" } as const
+export type UndoAction = keyof typeof UNDO_ACTIONS
+
+export const isUndoAction = (a: MemberAction): a is UndoAction => a in UNDO_ACTIONS
+
+/** The audit entry each taking away writes (./membership.ts revokeMembership, and mute above). */
+const TOOK_AWAY: Record<UndoAction, string> = { unmute: "member.muted", unsuspend: "member.paused", unban: "member.banned", reinstate: "member.removed" }
+
+/**
+ * Who took this away: the ban's own column where there is one, else the
+ * newest audit entry for it. Null when it was Storelib, the system, or
+ * nobody the log remembers.
+ */
+async function tookItAway(db: Db, communityId: string, target: MemberRow, action: UndoAction): Promise<string | null> {
+  if (action === "unban" && target.banned_by) return target.banned_by
+  const { data, error } = await db
+    .from("community_audit_log")
+    .select("actor_id, actor_kind, action, target_type, target_id, created_at, id")
+    .eq("community_id", communityId)
+    .eq("action", TOOK_AWAY[action])
+    .eq("target_type", "member")
+    .eq("target_id", target.user_id)
+    .order("id", { ascending: false })
+    .limit(1)
+  if (error) {
+    if (!missing(error)) console.error(`[communities] who acted: ${reasonOf(error)}`)
+    return null
+  }
+  const row = ((data as { actor_id: string | null; actor_kind: string }[] | null) ?? [])[0]
+  return row && row.actor_kind === "member" ? (row.actor_id ?? null) : null
+}
+
+/**
+ * Whether this actor may undo what was done. Their own decision, a decision
+ * by somebody at their rank or below, or one by somebody who is no longer
+ * staff here: yes. A decision by somebody ranked above them: never.
+ */
+export async function mayUndo(db: Db, communityId: string, actor: Actor, target: MemberRow, action: UndoAction): Promise<boolean> {
+  const by = await tookItAway(db, communityId, target, action)
+  if (!by || by === actor.userId) return true
+  const theirRole = await roleOf(db, communityId, by)
+  if (!theirRole) return true
+  return ROLE_RANK[theirRole] <= ROLE_RANK[actor.role]
+}
+
+/**
+ * Whether anything this person owns still pays for a way into this
+ * community: a library row or a membership that still grants access
+ * (./membership.ts ownedProductIds).
+ */
+async function payingNow(db: Db, communityId: string, userId: string): Promise<boolean> {
+  const { data, error } = await db.from("community_access_products").select("product_id").eq("community_id", communityId)
+  if (error) return false
+  const ids = [...new Set(((data as { product_id: string }[] | null) ?? []).map((r) => r.product_id).filter(Boolean))]
+  if (ids.length === 0) return false
+  return (await ownedProductIds(db, userId, ids)).length > 0
+}
+
+/**
+ * WHAT THEY COME BACK ON. The way in they had, while it is still paid for;
+ * the community's free tier otherwise. Letting somebody back in must never
+ * hand them a paid tier nobody is paying for, and the screen's confirmation
+ * says so before it is pressed (components/community/creator/logic.ts
+ * memberConfirmText).
+ */
+export async function comeBackOn(db: Db, communityId: string, target: MemberRow): Promise<{ source: MemberSource; tierId: string | null; toFree: boolean }> {
+  if (!(PAID_SOURCES as readonly MemberSource[]).includes(target.source)) return { source: target.source, tierId: target.tier_id, toFree: false }
+  if (await payingNow(db, communityId, target.user_id)) return { source: target.source, tierId: target.tier_id, toFree: false }
+  return { source: "free", tierId: await defaultFreeTierId(db, communityId), toFree: true }
+}
+
+/**
+ * TELLING THEM. A quiet bell row, and for somebody who had lost access the
+ * community's own email, so a person who was removed or banned hears that
+ * they are back rather than finding out by trying.
+ */
+async function tellRestored(db: Db, community: CommunityRow, userId: string, actorId: string, action: UndoAction): Promise<void> {
+  const day = nowIso().slice(0, 10)
+  try {
+    await notifyMember(db, {
+      userId,
+      communityId: community.id,
+      kind: "membership",
+      actorId,
+      title: `You can post in ${community.name} again`.slice(0, 200),
+      url: `/community/${community.slug}`,
+      dedupeKey: `restored:${action}:${community.id}:${userId}:${day}`,
+    })
+  } catch (e) {
+    console.error(`[communities] restore notice: ${reasonOf(e)}`)
+  }
+  /* A mute never took their access away, so there is nothing to welcome them back to. */
+  if (action === "unmute") return
+  await sendCommunityEmail(db, "welcome", { userId, communityId: community.id, data: {}, key: `restored:${action}:${day}` })
 }
 
 const MAX_MUTE_MS = 365 * 86_400_000
@@ -273,6 +378,53 @@ export interface MemberActInput {
   role?: unknown
 }
 
+/**
+ * LETTING SOMEBODY BACK IN, AND MEANING IT. The row goes active with its
+ * points, level and posts untouched, and every piece of the read path that
+ * refuses them is cleared in the same step:
+ *
+ *   the membership row   status active again (grantMembership force, which
+ *                        also clears banned_at, ban_reason, banned_by and
+ *                        removed_at: ./membership.ts)
+ *   the mute             a mute left running would still stop them posting,
+ *                        and the notice says they can post again
+ *   the viewer context   read fresh on the next request from the row itself
+ *                        (./context.ts viewerContext), so there is no copy
+ *                        of the old answer to clear
+ *
+ * What they come back on is comeBackOn above: never a paid tier nobody is
+ * paying for.
+ */
+async function letBackIn(
+  db: Db,
+  a: MemberActInput,
+  target: MemberRow,
+  undo: UndoAction,
+  action: string,
+  reason: string | null,
+  base: { communityId: string; actorId: string; actorKind: "member"; targetType: string; targetId: string },
+): Promise<Outcome<{ member: MemberRow | null }>> {
+  const on = await comeBackOn(db, a.community.id, target)
+  const row = await grantMembership(db, {
+    communityId: a.community.id,
+    userId: a.userId,
+    source: on.source,
+    tierId: on.tierId,
+    status: "active",
+    force: true,
+    actorId: a.actor.userId,
+  })
+  if (!row) return no(503, "not_set_up")
+  if (row.status !== "active") return no(500, "That did not save. Try again.")
+  if (row.muted_until) {
+    const { data } = await db.from("community_members").update({ muted_until: null }).eq("id", row.id).select(MEMBER_COLUMNS).maybeSingle()
+    if (data) Object.assign(row, data as MemberRow)
+  }
+  await audit(db, { ...base, action, reason, detail: { from: target.status, source: on.source, tierId: on.tierId, toFree: on.toFree } })
+  await tellRestored(db, a.community, a.userId, a.actor.userId, undo)
+  return { ok: true, member: row }
+}
+
 export async function actOnMember(db: Db, a: MemberActInput): Promise<Outcome<{ member: MemberRow | null }>> {
   if (!isUuid(a.userId)) return no(404, "not_found")
   const may = await actorMay(db, a.community.id, a.actor, memberActionNeeds(a.action))
@@ -281,6 +433,8 @@ export async function actOnMember(db: Db, a: MemberActInput): Promise<Outcome<{ 
   const target = await memberOf(db, a.community.id, a.userId)
   if (!target) return no(404, "not_found")
   if (!canActOn(a.actor.role, target.role)) return no(403, "forbidden")
+  /* Putting something back is refused when the person who took it away outranks whoever is undoing it. */
+  if (isUndoAction(a.action) && !(await mayUndo(db, a.community.id, a.actor, target, a.action))) return no(403, "outranked")
   const reason = a.reason ? String(a.reason).trim().slice(0, 500) : null
   const base = { communityId: a.community.id, actorId: a.actor.userId, actorKind: "member" as const, targetType: "member", targetId: a.userId }
 
@@ -298,6 +452,7 @@ export async function actOnMember(db: Db, a: MemberActInput): Promise<Outcome<{ 
       const { data, error } = await db.from("community_members").update({ muted_until: null }).eq("id", target.id).select(MEMBER_COLUMNS).single()
       if (error) return no(500, "That did not save. Try again.")
       await audit(db, { ...base, action: "member.unmuted", reason })
+      await tellRestored(db, a.community, a.userId, a.actor.userId, "unmute")
       return { ok: true, member: data as MemberRow }
     }
     case "suspend":
@@ -305,23 +460,24 @@ export async function actOnMember(db: Db, a: MemberActInput): Promise<Outcome<{ 
       return { ok: true, member: await revokeMembership(db, { communityId: a.community.id, userId: a.userId, status: "paused", reason: reason ?? "suspended", actorId: a.actor.userId }) }
     case "unsuspend": {
       if (target.status !== "paused") return no(409, "They are not suspended.")
-      const row = await grantMembership(db, { communityId: a.community.id, userId: a.userId, source: target.source, tierId: target.tier_id, status: "active", actorId: a.actor.userId })
-      await audit(db, { ...base, action: "member.unsuspended", reason })
-      return { ok: true, member: row }
+      return letBackIn(db, a, target, "unsuspend", "member.unsuspended", reason, base)
     }
     case "ban":
       if (target.status === "banned") return { ok: true, member: target }
       return { ok: true, member: await revokeMembership(db, { communityId: a.community.id, userId: a.userId, status: "banned", reason: reason ?? "banned", actorId: a.actor.userId }) }
     case "unban": {
       if (target.status !== "banned" && !target.banned_at) return no(409, "They are not banned.")
-      /* Back in on the way they had; a paid way in that has ended is put right by the next reconcile. */
-      const row = await grantMembership(db, { communityId: a.community.id, userId: a.userId, source: target.source, tierId: target.tier_id, status: "active", force: true, actorId: a.actor.userId })
-      await audit(db, { ...base, action: "member.unbanned", reason })
-      return { ok: true, member: row }
+      return letBackIn(db, a, target, "unban", "member.unbanned", reason, base)
+    }
+    case "reinstate": {
+      /* The other half of Remove, which had none: their row, their points, their posts, back as they were. */
+      if (target.status !== "removed" && !target.removed_at) return no(409, "They were not removed.")
+      return letBackIn(db, a, target, "reinstate", "member.reinstated", reason, base)
     }
     case "remove":
       if (target.status === "removed") return { ok: true, member: target }
       return { ok: true, member: await revokeMembership(db, { communityId: a.community.id, userId: a.userId, status: "removed", reason: reason ?? "removed", actorId: a.actor.userId }) }
+
     case "approve": {
       if (target.status !== "pending") return no(409, "There is no request to approve.")
       const freeTier = await defaultFreeTierId(db, a.community.id)

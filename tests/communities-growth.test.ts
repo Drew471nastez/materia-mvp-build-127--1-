@@ -201,7 +201,8 @@ async function main() {
   const inviteRoute = code("app/api/community/[communityId]/invites/route.ts")
   check("POST /api/community/<id>/invites: the switch first, a member who may invite, rate limited, the existing invites code", inviteRoute.indexOf("requireCommunitiesOn()") < inviteRoute.indexOf("requireMember(") && /requireMember\(db, communityId, await sessionUserId\(\), "invite"\)/.test(inviteRoute) && /rateLimit\(\{\s*bucket: rateBucket\("invite"\)/.test(inviteRoute) && /createInvite\(db, \{ community: gate\.community, createdBy: userId/.test(inviteRoute) && /checkInvite\(await readJson\(request\)\)/.test(inviteRoute))
   check("  never trusts a client's community, user or role", !/body\.(communityId|userId|role|createdBy)/.test(inviteRoute))
-  check("the shell community carries its access, for the sheet's words", /access: c\.access,\s*approvalRequired: c\.approval_required,/.test(code("components/community/member/data.ts")))
+  /* Round 14: the visibility travels with it, because privacy and price are two facts now (lib/communities/access-model.ts). */
+  check("the shell community carries its access and visibility, for the sheet's words", /access: c\.access,\s*visibility: c\.visibility,\s*approvalRequired: c\.approval_required,/.test(code("components/community/member/data.ts")))
 
   /* ── RoleBadge, the stray Members ────────────────────────────────────── */
   console.log("\nRole badge and the stray Members")

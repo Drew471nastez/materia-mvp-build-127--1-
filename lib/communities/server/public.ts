@@ -36,9 +36,10 @@ import { personHref } from "@/lib/profile/person-href"
 import type { TopBarCommunity, TopBarData } from "@/components/community/member/view-types"
 import { parseGallery, payingTenure, type GalleryItemView } from "@/components/community/public/gallery"
 import { checkoutPath, communityPath } from "@/components/community/public/paths"
-import { decideJoin } from "@/components/community/public/join-state"
+import { decideJoin, primaryOption } from "@/components/community/public/join-state"
 import { shareImageVersion, type SeoFacts } from "@/components/community/public/seo"
 import type { AccessProductLink, JoinOption, LibraryCommunityRow, PublicCommunityView, PublicCreatorView, PublicReviewView, SalesPageData } from "@/components/community/public/types"
+import { accessWords, privacyOf } from "../access-model"
 import { compactCount, priceLine } from "../format"
 import { can, meetsRole } from "../permissions"
 import { TIER_COLUMNS, type CommunityCard, type CommunityRow, type Role, type TierRow } from "../types"
@@ -188,6 +189,26 @@ export function optionsFor(slug: string, tiers: TierRow[], products: Map<string,
   })
 }
 
+/**
+ * WHAT JOINING COSTS, in the words the rest of the product uses ("$19/month"),
+ * or null when it is free. The invite landing asks for this, so somebody who
+ * follows a private community's link reads the price before they press
+ * (app/(marketing)/community/[slug]/join/page.tsx).
+ */
+export async function joinPrice(db: Db, community: Pick<CommunityRow, "id" | "slug" | "access" | "creator_id">): Promise<string | null> {
+  const tiers = await readTiers(db, [community.id])
+  const productIds = tiers.map((t) => t.product_id).filter((x): x is string => Boolean(x))
+  const [products, plans, creator] = await Promise.all([
+    readProducts(db, productIds),
+    readPlans(db, productIds),
+    community.creator_id ? db.from("creators").select("stripe_account_id, stripe_onboarding_status, charges_enabled").eq("id", community.creator_id).maybeSingle() : Promise.resolve({ data: null }),
+  ])
+  const options = optionsFor(community.slug, tiers, products, plans, creatorTakesPayments(creator.data as CreatorLite | null))
+  const option = primaryOption(options, community.access, true)
+  if (!option || option.kind !== "paid") return null
+  return option.priceLine || null
+}
+
 /* ── Creators ───────────────────────────────────────────────────────────── */
 
 async function readCreators(db: Db, creatorIds: (string | null | undefined)[]): Promise<Map<string, { creator: CreatorLite; profile: ProfileLite | null }>> {
@@ -210,13 +231,17 @@ function creatorView(entry: { creator: CreatorLite; profile: ProfileLite | null 
 
 /* ── Cards ──────────────────────────────────────────────────────────────── */
 
-/** The price a card says: the free tier where there is one, else the first paid tier's. */
-function cardPrice(access: CommunityRow["access"], options: JoinOption[]): string | null {
-  if (access === "invite_only") return "Invite only"
+/**
+ * The price a card says: the free tier where there is one, else the first
+ * paid tier's. A private community says "Invite only" in front of it, so a
+ * private community that charges says both ("Invite only · $19/month")
+ * rather than hiding the price behind the privacy (../access-model.ts).
+ */
+function cardPrice(c: Pick<CommunityRow, "access" | "visibility">, options: JoinOption[]): string | null {
   const free = options.find((o) => o.kind === "free")
-  if (free && access !== "paid") return "Free"
   const paid = options.find((o) => o.kind === "paid" && o.priceLine)
-  return paid?.priceLine || (free ? "Free" : null)
+  const price = free && c.access !== "paid" ? "Free" : paid?.priceLine || (free ? "Free" : null)
+  return accessWords(privacyOf(c), price)
 }
 
 /**
@@ -308,7 +333,7 @@ export async function cardsFor(db: Db, list: CardRow[]): Promise<CommunityCard[]
       access: c.access,
       visibility: c.visibility,
       memberCount: Math.max(0, c.member_count ?? 0),
-      priceLine: cardPrice(c.access, options),
+      priceLine: cardPrice(c, options),
       creator: who ? { id: c.creator_id, name: who.name, username: who.username, avatarUrl: who.avatarUrl } : null,
       url: communityPath(c.slug),
       viewCount: viewsOf(c.view_count !== undefined ? c.view_count : views?.get(c.id)),
@@ -579,6 +604,7 @@ export async function loadSalesPage(slug: string, userId: string | null, given?:
       slug: community.slug,
       status: community.status,
       access: community.access,
+      visibility: community.visibility,
       approvalRequired: community.approval_required,
       suspended,
       archived: Boolean(community.archived_at) || community.status === "archived",
@@ -592,6 +618,8 @@ export async function loadSalesPage(slug: string, userId: string | null, given?:
       isOwner: viewer.isOwner,
       banned: viewer.banned,
       approved: member?.status === "pending" && Boolean(member.approved_by),
+      /* An invite they accepted: a private community's door is open to them, at whatever it costs. */
+      invited: Boolean(member?.invite_id),
       source: member?.source ?? null,
       membershipId: member?.source_membership_id ?? null,
     },

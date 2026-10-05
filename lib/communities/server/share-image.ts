@@ -17,6 +17,7 @@ import { readFile } from "node:fs/promises"
 import { join } from "node:path"
 import { fetchImageBytes } from "@/lib/onepage/share-image"
 import type { CommunityShareModel } from "@/components/community/public/share-card"
+import { needsInvite } from "../access-model"
 import type { CommunityRow } from "../types"
 import { cardsFor, type CardRow } from "./public"
 import type { Db } from "./db"
@@ -31,7 +32,7 @@ export async function shareModel(db: Db, community: CommunityRow, invite: boolea
       creatorName: card?.creator?.name ?? null,
       memberCount: Math.max(0, community.member_count ?? 0),
       priceLine: card?.priceLine ?? null,
-      inviteOnly: community.access === "invite_only",
+      inviteOnly: needsInvite(community),
       invite,
     },
     pictures: { cover: community.cover_url, logo: community.logo_url, avatar: card?.creator?.avatarUrl ?? null },

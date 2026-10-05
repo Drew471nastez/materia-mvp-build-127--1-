@@ -39,7 +39,8 @@ import { StatusBadge } from "@/app/app/orders/order-parts"
 import { centsFromInput } from "@/lib/memberships/plan"
 import type { CommunityFaq, CommunityLink, NotifyLevel } from "@/lib/communities/types"
 import type { CommunityHead, PoliciesView, RolesView, SettingsData, TierView } from "./view-types"
-import { GALLERY_MAX, coverItem as coverOf, typeOf, type CommunityType, type GalleryItem, type PriceInterval, type SettingsTab } from "./logic"
+import { GALLERY_MAX, accessChoiceOf, coverItem as coverOf, type GalleryItem, type PriceInterval, type SettingsTab } from "./logic"
+import { accessSummary, privacyTitle, type CommunityPricing, type CommunityPrivacy } from "@/lib/communities/access-model"
 import { COMMUNITY_CATEGORIES, communityCategoryId } from "@/lib/explore/communities-mode"
 
 export type { SettingsTab }
@@ -436,10 +437,20 @@ function PairEditor({ items, onChange, max, aPlaceholder, bPlaceholder, addLabel
 
 /* ── Access & pricing ───────────────────────────────────────────────────── */
 
-const TYPE_OPTIONS: { value: CommunityType; title: string; detail: string }[] = [
-  { value: "free", title: "Free", detail: "Anyone can join." },
-  { value: "paid", title: "Paid membership", detail: "Members pay to join." },
-  { value: "private", title: "Private", detail: "Invite only. Hidden from Explore." },
+/*
+  WHO CAN GET IN, AND WHAT IT COSTS: two facts, two controls, one card. They
+  used to be one switch, which is why a private community could never charge
+  (lib/communities/access-model.ts).
+*/
+const PRIVACY_OPTIONS: { value: CommunityPrivacy; title: string; detail: string }[] = [
+  { value: "public", title: "Anyone", detail: "Found in Explore and on your page." },
+  { value: "unlisted", title: "People with the link", detail: "Not in Explore. Anyone who has the link can join." },
+  { value: "private", title: "Only people you invite", detail: "An invite link is the only way in." },
+]
+
+const PRICING_OPTIONS: { value: CommunityPricing; title: string; detail: string }[] = [
+  { value: "free", title: "Free", detail: "Joining costs nothing." },
+  { value: "paid", title: "Paid", detail: "Members pay for a tier to join." },
 ]
 
 const dollars = (cents: number | null) => (cents ? String(cents % 100 === 0 ? cents / 100 : (cents / 100).toFixed(2)) : "")
@@ -449,27 +460,34 @@ function Access({ head, data }: { head: CommunityHead; data: SettingsData }) {
   const toast = useToast()
   const instant = useInstant(head)
   const owner = head.can.manage_pricing === true
-  const [type, setType] = React.useState<CommunityType>(typeOf(head))
+  const stored = accessChoiceOf(head)
+  const [privacy, setPrivacy] = React.useState<CommunityPrivacy>(stored.privacy)
+  const [pricing, setPricing] = React.useState<CommunityPricing>(stored.pricing)
   const [approval, setApproval] = React.useState(data.approvalRequired)
   const [adding, setAdding] = React.useState(false)
   const [typeError, setTypeError] = React.useState<string | null>(null)
   const tiers = data.tiers
   const live = tiers.filter((t) => !t.archived)
   const archived = tiers.filter((t) => t.archived)
+  const paidTier = live.find((t) => t.kind === "paid")
+  const priceOfTier = paidTier?.priceLine && paidTier.priceLine !== "Free" ? paidTier.priceLine : null
 
-  const changeType = async (t: CommunityType) => {
-    if (t === type) return
+  const change = async (next: { privacy?: CommunityPrivacy; pricing?: CommunityPricing }) => {
+    const want = { privacy: next.privacy ?? privacy, pricing: next.pricing ?? pricing }
+    if (want.privacy === privacy && want.pricing === pricing) return
     setTypeError(null)
-    if (t === "paid" && !live.some((x) => x.kind === "paid")) {
+    if (want.pricing === "paid" && !paidTier) {
       setTypeError("Add a paid tier with a price first, then switch to paid.")
       setAdding(true)
       return
     }
-    const before = type
-    setType(t)
-    const res = await send(`/api/app/community/${head.id}`, "PATCH", { type: t })
+    const before = { privacy, pricing }
+    setPrivacy(want.privacy)
+    setPricing(want.pricing)
+    const res = await send(`/api/app/community/${head.id}`, "PATCH", want)
     if (!res.ok) {
-      setType(before)
+      setPrivacy(before.privacy)
+      setPricing(before.pricing)
       return setTypeError(errorText(res.data.error))
     }
     toast("Saved")
@@ -478,7 +496,7 @@ function Access({ head, data }: { head: CommunityHead; data: SettingsData }) {
 
   return (
     <div className="space-y-4" data-access="">
-      {!data.paymentsReady && owner && (type === "paid" || live.some((t) => t.kind === "paid")) ? (
+      {!data.paymentsReady && owner && (pricing === "paid" || live.some((t) => t.kind === "paid")) ? (
         <Notice tone="warn">
           Connect payouts before members can pay: people pay you through Stripe.{" "}
           <a href="/app/settings?tab=payments" className="font-semibold underline">
@@ -487,8 +505,22 @@ function Access({ head, data }: { head: CommunityHead; data: SettingsData }) {
         </Notice>
       ) : null}
 
-      <Section title="Who can join">
-        {owner ? <ChoiceCards rows value={type} onChange={(t) => void changeType(t)} options={TYPE_OPTIONS} label="Who can join" /> : <p className="text-[14px] text-[#1a1a2e]">{TYPE_OPTIONS.find((o) => o.value === type)?.title}. Only the owner changes this.</p>}
+      <Section title="Who can get in, and what it costs">
+        {owner ? (
+          <>
+            <p className={cn(label, "mb-1")}>Who can get in</p>
+            <ChoiceCards rows value={privacy} onChange={(v) => void change({ privacy: v })} options={PRIVACY_OPTIONS} label="Who can get in" />
+            <p className={cn(label, "mb-1 mt-4 border-t border-[#f1f2f4] pt-3")}>What joining costs</p>
+            <ChoiceCards rows value={pricing} onChange={(v) => void change({ pricing: v })} options={PRICING_OPTIONS} label="What joining costs" />
+          </>
+        ) : (
+          <p className="text-[14px] text-[#1a1a2e]">
+            {privacyTitle(privacy)}, {pricing === "paid" ? "paid" : "free"}. Only the owner changes this.
+          </p>
+        )}
+        <p className="mt-3 text-[13px] leading-snug text-[#4b5563]" data-access-summary="">
+          {accessSummary(privacy, pricing, priceOfTier)}
+        </p>
         {typeError ? (
           <p role="alert" className="mt-2 text-[13px] text-[#b91c1c]">
             {typeError}
@@ -502,7 +534,7 @@ function Access({ head, data }: { head: CommunityHead; data: SettingsData }) {
               if (!(await instant({ approvalRequired: v }, v ? "Requests need your approval" : "People join straight away"))) setApproval(!v)
             }}
             title="Approve each request"
-            hint={type === "paid" ? "People ask first; once you approve, they can pay." : "People ask to join and you approve them under Members."}
+            hint={privacy === "private" ? "An invite is already an approval, so this only applies to anyone who asks without one." : pricing === "paid" ? "People ask first; once you approve, they can pay." : "People ask to join and you approve them under Members."}
           />
         </div>
       </Section>
