@@ -37,7 +37,7 @@ import { getCreatorStorageUsage } from "@/lib/storage/quota"
 import { readStoredHead, storedObjectSize } from "@/lib/storage/upload-guard"
 import { inspectHead, precheckUpload } from "@/lib/security/uploads/inspect"
 import { CAPTION_MAX_BYTES, isCaptionName, looksLikeCaptions } from "@/lib/courses/captions"
-import { activeProvider, adapterFor, isProviderName } from "@/lib/video/provider"
+import { activeProvider, adapterFor, isProviderName, type PlaybackQuality } from "@/lib/video/provider"
 import { communityMediaPath, isCommunityMediaPath } from "@/lib/video/storage"
 import { MEMBER_VIDEO_MAX_BYTES, PLAYBACK_SECONDS, STAFF_VIDEO_MAX_BYTES, cleanDimension, cleanDuration, type UploadTicket, type VideoPlayback, type VideoProviderName, type VideoStatusView } from "@/lib/video/types"
 import { evaluateAccess, parseAccessRule } from "../access"
@@ -313,10 +313,12 @@ export function postVideoFilter(videoId: string): string {
 }
 
 /** A playback address for a ready video, good for PLAYBACK_SECONDS, or null. */
-export async function videoPlayback(db: Db, video: MediaVideoRow, env?: Record<string, string | undefined>): Promise<VideoPlayback | null> {
+export async function videoPlayback(db: Db, video: MediaVideoRow, env?: Record<string, string | undefined>, quality: PlaybackQuality = "auto"): Promise<VideoPlayback | null> {
   if (video.status !== "ready" || !isProviderName(video.provider)) return null
   try {
-    const address = await adapterFor(video.provider).playback(db, video, PLAYBACK_SECONDS, env)
+    let address = await adapterFor(video.provider).playback(db, video, PLAYBACK_SECONDS, env, quality)
+    /* A lighter file the service does not keep: the usual one. */
+    if (!address && quality === "low") address = await adapterFor(video.provider).playback(db, video, PLAYBACK_SECONDS, env)
     if (!address) return null
     return {
       url: address.url,
