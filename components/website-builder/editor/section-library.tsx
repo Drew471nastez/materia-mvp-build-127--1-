@@ -117,6 +117,23 @@ const PREVIEW_THEME: ThemeSettingsValues = {
   font_body: "Inter",
 }
 
+/**
+ * WHAT A THEME LOOKS LIKE, FOR A PREVIEW. Only the settings a section is drawn
+ * with: colours, schemes, type, buttons and corners. The logo, the favicon or
+ * a social link changing is no reason to draw ninety cards again.
+ */
+const LOOK = /color|colour|scheme|font|type_|heading|body|button|radius|corner|shadow|spacing|width/i
+
+/** A short tag for the look of a theme, so a card drawn in last week's colours is never shown in this week's. */
+export function themeLookTag(theme: ThemeSettingsValues | undefined): string {
+  if (!theme) return ""
+  const keys = Object.keys(theme).filter((k) => LOOK.test(k)).sort()
+  const text = JSON.stringify(keys.map((k) => [k, (theme as Record<string, unknown>)[k]]))
+  let h = 0
+  for (let i = 0; i < text.length; i++) h = (Math.imul(h, 31) + text.charCodeAt(i)) | 0
+  return (h >>> 0).toString(36)
+}
+
 export function buildPreviewSection(type: string, presetIndex: number, schema: SectionSchema): SectionInstance {
   const preset = schema.presets?.[presetIndex] ?? schema.presets?.[0]
   return {
@@ -185,6 +202,8 @@ interface Job {
   schema: SectionSchema
   width: number
   sources: Record<string, string>
+  /** The site's own theme, so a card is the section as it will be added, in this site's colours and type. */
+  theme: ThemeSettingsValues
 }
 
 const queue: Job[] = []
@@ -229,7 +248,7 @@ function drawOne(job: Job): string {
         <Capture onCapture={(h) => { html = h }}>
           <SectionRenderer
             section={section}
-            theme={PREVIEW_THEME}
+            theme={job.theme}
             isEditing={false}
             isSelected={false}
             deviceMode={job.width <= PREVIEW_RENDER_WIDTH_MOBILE ? "mobile" : "desktop"}
@@ -652,6 +671,7 @@ export const SectionLibrary = memo(function SectionLibrary({
   addable,
   ownTypes,
   sources,
+  theme,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -663,6 +683,13 @@ export const SectionLibrary = memo(function SectionLibrary({
   ownTypes: string[]
   /** Every .storelib file this install has saved, so the cards can draw them. */
   sources: Record<string, string>
+  /**
+   * The site's theme settings. A card used to be drawn in a stock indigo
+   * theme, so what was picked never looked like what arrived on the page;
+   * now it is drawn with the colours, schemes and fonts the section will
+   * actually get.
+   */
+  theme?: ThemeSettingsValues
 }) {
   const [phone, setPhone] = useState(false)
   useEffect(() => {
@@ -700,6 +727,11 @@ export const SectionLibrary = memo(function SectionLibrary({
     return (h >>> 0).toString(36)
   }, [sources])
 
+  const lookTag = useMemo(() => themeLookTag(theme), [theme])
+  /* The look, not the object: a new settings object with the same colours draws nothing again. */
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const previewTheme = useMemo<ThemeSettingsValues>(() => ({ ...PREVIEW_THEME, ...(theme ?? {}) }), [lookTag])
+
   /**
    * ONE CARD PER PRESET. A section's presets are the different things it can
    * first appear as, and each is its own card with its own preview.
@@ -724,12 +756,12 @@ export const SectionLibrary = memo(function SectionLibrary({
           schema,
           category,
           haystack: `${name} ${schema.name} ${label} ${schema.description ?? ""} ${type}`.toLowerCase(),
-          keyFor: (w) => previewKey(type, i, w, own.has(type) ? sourcesTag : ""),
+          keyFor: (w) => previewKey(type, i, w, `${own.has(type) ? sourcesTag : ""}${lookTag}`),
         })
       }
     }
     return out
-  }, [addable, schemas, own, sourcesTag])
+  }, [addable, schemas, own, sourcesTag, lookTag])
 
   /**
    * The creator's own sections FIRST, then everything, then the theme's own
@@ -772,8 +804,8 @@ export const SectionLibrary = memo(function SectionLibrary({
 
   /* ── The previews, drawn ahead ── */
   const jobs = useMemo(
-    () => entries.map((e) => ({ key: e.keyFor(renderWidth), type: e.type, presetIndex: e.presetIndex, schema: e.schema, width: renderWidth, sources })),
-    [entries, renderWidth, sources],
+    () => entries.map((e) => ({ key: e.keyFor(renderWidth), type: e.type, presetIndex: e.presetIndex, schema: e.schema, width: renderWidth, sources, theme: previewTheme })),
+    [entries, renderWidth, sources, previewTheme],
   )
   /**
    * The cards are built the first time the library is opened, or once the

@@ -8916,6 +8916,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         addable={libraryAddable}
         ownTypes={libraryOwnTypes}
         sources={storelibSources}
+        theme={settingsDraft}
       />
 
       {/* ── Add Custom Page Modal ── */}

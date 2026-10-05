@@ -72,5 +72,13 @@ console.log("\nDragging a row: sections, blocks and menu links, one engine\n")
   check("  wired to the editor's own removeBlock, which undo covers", /remove: \(key\) => removeBlock\(s\.id, key\)/.test(editor) && /onRemove=\{\(key\) => ops\.remove\(key\)\}/.test(editor))
 }
 
+console.log("\nAdd section shows the section as it will arrive\n")
+{
+  const lib = read("components/website-builder/editor/section-library.tsx")
+  check("cards are drawn with the site's own theme, not a stock one", /theme=\{job\.theme\}/.test(lib) && /theme=\{settingsDraft\}\s*\n\s*\/>/.test(editor))
+  check("  and a change of colours or type draws them again, nothing else does", /const LOOK = \/color\|colour\|scheme\|font/.test(lib) && /previewKey\(type, i, w, `\$\{own\.has\(type\) \? sourcesTag : ""\}\$\{lookTag\}`\)/.test(lib))
+  check("  a preset's settings and blocks are both the card and what is added", /settings: preset\?\.settings \?\? \{\},\s*\n\s*blocks: preset\?\.blocks \?\? \[\]/.test(lib) && /blocks: freshBlocks\(preset\?\.blocks, newBlockId\)/.test(editor))
+}
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed) process.exit(1)
