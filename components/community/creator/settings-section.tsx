@@ -367,7 +367,7 @@ function Features({ head, data }: { head: CommunityHead; data: SettingsData }) {
         {w.enabled ? (
           <div className="mt-2 space-y-1">
             <textarea value={w.welcome} onChange={(e) => setW({ ...w, welcome: e.target.value.slice(0, 2000) })} rows={3} placeholder="Glad you are here. Start by introducing yourself." aria-label="Welcome message" className={cn(field, "resize-y py-2.5 leading-relaxed")} />
-            <Toggle checked={w.showRules} onChange={(v) => setW({ ...w, showRules: v })} title="Ask them to read the rules" hint={data.rules.length ? `${data.rules.length} ${data.rules.length === 1 ? "rule" : "rules"}, written in Moderation.` : "There are no rules yet. Write them in Moderation."} />
+            <Toggle checked={w.showRules} onChange={(v) => setW({ ...w, showRules: v })} title="Ask them to read the rules" hint={data.rules.length ? `${data.rules.length} ${data.rules.length === 1 ? "rule" : "rules"}, in Rules and policies.` : "There are no rules yet. Write them in Rules and policies."} />
             <Toggle checked={w.askIntro} onChange={(v) => setW({ ...w, askIntro: v })} title="Ask them to introduce themselves" />
           </div>
         ) : null}

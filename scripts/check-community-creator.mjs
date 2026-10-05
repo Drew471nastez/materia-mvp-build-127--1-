@@ -110,6 +110,8 @@ export default React.forwardRef(function Link({ href, children, prefetch, ...res
       expect(errors.length === 0, "renders without an error", errors)
 
       if (c === "create-paid") {
+        /* Round 13: the form has the product editor's foot bar from 1024px, so the choice is brought up from under it first. */
+        await p.$eval('[data-choice="paid"]', (el) => el.scrollIntoView({ block: "center" }))
         await p.click('[data-choice="paid"]')
         await sleep(150)
       }
@@ -129,7 +131,10 @@ export default React.forwardRef(function Link({ href, children, prefetch, ...res
             if (r.width === 0 || r.height === 0 || style.visibility === "hidden" || el.closest("[hidden],[aria-hidden=true]")) continue
             if (el.matches("input[type=file]")) continue
             if (el.closest("p") && el.tagName === "A") continue
-            if (r.height < 40 || (r.width < 40 && el.tagName !== "TEXTAREA")) out.push(`${el.tagName.toLowerCase()} "${(el.getAttribute("aria-label") || el.textContent || el.getAttribute("placeholder") || "").trim().slice(0, 30)}" ${Math.round(r.width)}x${Math.round(r.height)}`)
+            /* A press drawn smaller and grown by an invisible ::after (the Products list's pattern, round 13's cards) counts at its press size. */
+            const after = getComputedStyle(el, "::after")
+            const grow = after.content !== "none" && after.position === "absolute" ? Math.max(0, -parseFloat(after.top || "0")) * 2 : 0
+            if (r.height + grow < 40 || (r.width + grow < 40 && el.tagName !== "TEXTAREA")) out.push(`${el.tagName.toLowerCase()} "${(el.getAttribute("aria-label") || el.textContent || el.getAttribute("placeholder") || "").trim().slice(0, 30)}" ${Math.round(r.width)}x${Math.round(r.height)}`)
           }
           return out
         })
@@ -215,8 +220,9 @@ export default React.forwardRef(function Link({ href, children, prefetch, ...res
         await p.focus("#g-tagline")
         await p.keyboard.type(" Every day.")
         await sleep(120)
+        /* Round 13: the product editor's save foot is always there; a change makes it say so (data-state dirty). */
         const bar = await p.evaluate(() => {
-          const b = document.querySelector("[data-save-bar]")
+          const b = document.querySelector('[data-editor-foot][data-state="dirty"]')
           if (!b) return null
           const r = b.getBoundingClientRect()
           return { bottom: Math.round(r.bottom), top: Math.round(r.top) }
@@ -257,7 +263,7 @@ export default React.forwardRef(function Link({ href, children, prefetch, ...res
         const g0 = await p.evaluate(() => ({ items: [...document.querySelectorAll("[data-gallery-item]")].map((x) => x.dataset.galleryItem), add: !!document.querySelector("[data-gallery-add]"), bar: !!document.querySelector("[data-save-bar]") }))
         expect(g0.items.length === 5 && g0.add, "GALLERY: five tiles and the add tile", g0)
         /* Discard the tagline edit first so the bar only comes back for the gallery. */
-        await p.evaluate(() => [...document.querySelectorAll("[data-save-bar] button")].find((b) => b.textContent.trim() === "Discard")?.click())
+        await p.evaluate(() => document.querySelector("[data-foot-cancel]")?.click())
         await sleep(100)
         /* A computer: the arrow on the tile. A phone: the tile's one menu button, then the sheet's row. */
         const pickInSheet = async (index, word) => {
@@ -271,7 +277,7 @@ export default React.forwardRef(function Link({ href, children, prefetch, ...res
         if (phone) await pickInSheet(1, "Move later")
         else await p.evaluate(() => document.querySelector('[aria-label="Move 2 later"]').click())
         await sleep(120)
-        const g1 = await p.evaluate(() => ({ items: [...document.querySelectorAll("[data-gallery-item]")].map((x) => x.dataset.galleryItem), bar: !!document.querySelector("[data-save-bar]") }))
+        const g1 = await p.evaluate(() => ({ items: [...document.querySelectorAll("[data-gallery-item]")].map((x) => x.dataset.galleryItem), bar: !!document.querySelector('[data-editor-foot][data-state="dirty"]') }))
         expect(g1.items.join(",") === "image,image,video,image,image" && g1.bar, "GALLERY: moving the video one later reorders it and brings the Save bar", g1)
         if (phone) await pickInSheet(0, "Remove")
         else await p.evaluate(() => document.querySelector('[aria-label="Remove picture 1"]').click())
@@ -336,7 +342,7 @@ export default React.forwardRef(function Link({ href, children, prefetch, ...res
           return { row: !!row, value: select?.value ?? null, options: select ? [...select.options].map((o) => o.value).join() : "", height: select ? Math.round(select.getBoundingClientRect().height) : 0, overflow: document.documentElement.scrollWidth - window.innerWidth }
         })
         expect(slow.row && slow.value === "300" && slow.options === "0,30,60,300,900,3600" && slow.height >= 40 && slow.overflow <= 0, "MODERATE: slow mode sits above the rules with its six choices", slow)
-        await p.evaluate(() => [...document.querySelectorAll("[data-save-bar] button")].find((b) => b.textContent.trim() === "Discard")?.click())
+        await p.evaluate(() => document.querySelector("[data-foot-cancel]")?.click())
         await sleep(100)
       }
       if (c === "settings-features") {
