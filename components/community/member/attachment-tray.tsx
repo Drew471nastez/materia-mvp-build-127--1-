@@ -313,8 +313,8 @@ export function AttachmentTray<T extends TrayItem>({
               className="absolute -right-1.5 -top-1.5 flex h-10 w-10 items-center justify-center outline-none [-webkit-tap-highlight-color:transparent]"
               data-tray-remove=""
             >
-              <span className="flex h-[22px] w-[22px] items-center justify-center rounded-full bg-[#1a1a2e]/80 text-white shadow-[0_1px_2px_rgba(0,0,0,0.2)] ring-2 ring-white transition-colors hover:bg-[#1a1a2e]">
-                <X className="h-3 w-3" strokeWidth={2.75} aria-hidden />
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#1a1a2e]/75 text-white shadow-[0_1px_2px_rgba(0,0,0,0.2)] ring-[1.5px] ring-white transition-colors hover:bg-[#1a1a2e]">
+                <X className="h-[11px] w-[11px]" strokeWidth={3} aria-hidden />
               </span>
             </button>
           </div>
@@ -363,7 +363,7 @@ function Tile({ item }: { item: TrayItem }) {
       <div className={`flex h-full w-full flex-col justify-between overflow-hidden rounded-xl border bg-white p-2 ${item.error ? "border-[#f3c4bf]" : "border-[#e8e9ec]"}`}>
         <FileText className={`h-5 w-5 ${item.error ? "text-[#b42318]" : "text-[#6b7280]"}`} strokeWidth={1.75} aria-hidden />
         <span className="min-w-0">
-          <span className="line-clamp-2 break-all text-[11.5px] font-medium leading-[14px] text-[#1a1a2e]">{item.name}</span>
+          <span className="line-clamp-2 break-words text-[11.5px] font-medium leading-[14px] text-[#1a1a2e]">{item.name}</span>
           <span className="mt-0.5 block text-[11px] tabular-nums text-[#6b7280]">{item.error ? "Failed" : sending ? `${Math.round(item.progress)}%` : fileSizeLabel(item.size)}</span>
         </span>
       </div>
@@ -421,8 +421,10 @@ function Tile({ item }: { item: TrayItem }) {
         </span>
       ) : null}
       {item.error ? (
-        <span className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1 bg-[#b42318]/75 text-white" data-tray-failed="">
-          <AlertCircle className="h-4 w-4" strokeWidth={2.25} aria-hidden />
+        <span className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1 rounded-xl bg-black/55 text-white ring-2 ring-inset ring-[#e5484d]" data-tray-failed="">
+          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#e5484d]">
+            <AlertCircle className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden />
+          </span>
           <span className="text-[11px] font-semibold">Failed</span>
         </span>
       ) : null}
