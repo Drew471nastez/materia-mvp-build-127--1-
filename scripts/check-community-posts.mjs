@@ -74,6 +74,7 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { deflateSync } from "node:zlib"
 import puppeteer from "puppeteer-core"
 import { appCss, interFaces } from "./probe-css.mjs"
 
@@ -310,7 +311,10 @@ async function open(name, path, vp, opts = {}) {
       if (/\/posts\/[^/]+\/comments$/.test(short) && method === "POST") {
         const refuse = /refuse/.test(sent.body || "")
         const n = ++live.comments
-        return setTimeout(() => r.respond({ status: refuse ? 403 : 201, contentType: "application/json", body: JSON.stringify(refuse ? { error: "muted" } : { comment: { id: `c-new-${n}`, postId: "x", parentId: sent.parentId ?? null, body: sent.body, status: "published", deleted: false, author: { id: "u-me", name: "Sam Carter", username: "samc", avatarUrl: null, role: "moderator", level: 3 }, reactionCount: 0, reacted: false, createdAt: new Date().toISOString(), editedAt: null, replies: [], canEdit: true, canModerate: true } }) }), opts.commentWait ?? 400)
+        /* Round 11: what a comment carries comes back as sent; "not mine" is the server refusing a picture that is not the member's own upload. */
+        const notMine = /not mine/.test(sent.body || "")
+        live.commentBodies = [...(live.commentBodies || []), sent]
+        return setTimeout(() => r.respond({ status: refuse ? 403 : notMine ? 400 : 201, contentType: "application/json", body: JSON.stringify(refuse ? { error: "muted" } : notMine ? { error: "That picture could not be added. Upload it again." } : { comment: { id: `c-new-${n}`, postId: "x", parentId: sent.parentId ?? null, body: sent.body, status: "published", deleted: false, author: { id: "u-me", name: "Sam Carter", username: "samc", avatarUrl: null, role: "moderator", level: 3 }, reactionCount: 0, reacted: false, createdAt: new Date().toISOString(), editedAt: null, replies: [], canEdit: true, canModerate: true, ...(sent.media ? { media: sent.media } : {}) } }) }), opts.commentWait ?? 400)
       }
       if (short.includes("/gifs") && opts.giphy) {
         const u = new URL(url)
@@ -412,6 +416,35 @@ function dmAnswer(as, short, method, sent, reply) {
       }, { id: msg.id, conversation_id: id, community_id: CID, status: "published" }, { id, community_id: CID }).catch(() => {})
     }
   }, 40)
+}
+
+/** A real PNG of one colour, for an upload (round 11). */
+function solidPng(w, h, [r, g, b]) {
+  const crcTable = Array.from({ length: 256 }, (_, n) => {
+    let c = n
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1
+    return c >>> 0
+  })
+  const crc = (buf) => {
+    let c = 0xffffffff
+    for (const x of buf) c = crcTable[(c ^ x) & 0xff] ^ (c >>> 8)
+    return (c ^ 0xffffffff) >>> 0
+  }
+  const chunk = (type, data) => {
+    const len = Buffer.alloc(4)
+    len.writeUInt32BE(data.length)
+    const td = Buffer.concat([Buffer.from(type), data])
+    const c = Buffer.alloc(4)
+    c.writeUInt32BE(crc(td))
+    return Buffer.concat([len, td, c])
+  }
+  const ihdr = Buffer.alloc(13)
+  ihdr.writeUInt32BE(w, 0)
+  ihdr.writeUInt32BE(h, 4)
+  ihdr.set([8, 2, 0, 0, 0], 8)
+  const raw = Buffer.alloc((w * 3 + 1) * h)
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) raw.set([r, g, b], y * (w * 3 + 1) + 1 + x * 3)
+  return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk("IHDR", ihdr), chunk("IDAT", deflateSync(raw)), chunk("IEND", Buffer.alloc(0))])
 }
 
 /** A press that waits for its target to be visible, falling back to a DOM click when puppeteer finds no point to press. */
@@ -1689,7 +1722,9 @@ try {
               return t === "none" ? 0 : parseFloat(t.split(" ")[1] ?? "0") || 0
             }
             /* Style reads (and the editor screen's own box, which nothing lays out again while it slides), so the measuring does not slow what it measures. */
-            window.__cf.push({ t: performance.now(), sheetY: sheet ? Math.round(sheet.getBoundingClientRect().top) : null, op: ed ? Number(getComputedStyle(ed).opacity) : null, nextTop: next ? Math.round(ty(next)) : null, edH: ed ? 1 : null })
+            /* Round 11: the card itself never fades; what fades in is the editor's content inside it. */
+            const content = document.querySelector("[data-composer-editor]")
+            window.__cf.push({ t: performance.now(), sheetY: sheet ? Math.round(sheet.getBoundingClientRect().top) : null, op: content ? Number(getComputedStyle(content).opacity) : null, nextTop: next ? Math.round(ty(next)) : null, edH: ed ? 1 : null })
             window.__cfr = requestAnimationFrame(loop)
           }
           window.__cfr = requestAnimationFrame(loop)
@@ -1778,13 +1813,246 @@ try {
         const fr = o.opened.filter((f) => f.edH !== null)
         const ops = fr.map((f) => Math.round(f.op * 100) / 100)
         const tops = fr.map((f) => f.nextTop)
-        expect(ops[0] < 0.5 && ops.every((v, i) => i === 0 || v >= ops[i - 1]) && ops.at(-1) === 1, "MOTION: in place, the editor fades in from its first frame", ops)
+        expect(ops[0] < 0.5 && ops.every((v, i) => i === 0 || v >= ops[i - 1]) && ops.at(-1) === 1, "MOTION: in place, the editor's content fades in from its first frame (inside the card, which never fades)", ops)
         expect(tops.every((t, i) => i === 0 || t >= tops[i - 1]) && tops[0] < -100 && tops.at(-1) === 0, "while the posts under it slide down to make room (their offset from where they rest, rising to 0), never back up", tops)
         const ctops = c.closed.filter((f) => f.ed).map((f) => f.nextTop)
         expect(ctops.at(-1) < -100 && ctops.every((t, i) => i === 0 || t <= ctops[i - 1] + 0.5), "closing, they slide back up over it, never down again", ctops)
       }
       expect(runs.map((r) => r.mount).sort((a, b) => a - b)[1] < 300, "the editor is on screen within 300ms of the press at 4x CPU (middle of three)", runs.map((r) => r.mount))
       expect(Math.max(0, ...o.openGaps) <= 34 && Math.max(0, ...c.closeGaps) <= 34, "every frame of the open and the close is drawn at 4x CPU (no gap over two frames, middle of three)", runs.map((r) => ({ open: Math.round(Math.max(0, ...r.openGaps)), close: Math.round(Math.max(0, ...r.closeGaps)), firstFrame: r.firstFrame, openFrames: r.openGaps.length, closeFrames: r.closeGaps.length })))
+      expect(errors.length === 0, "no page error", errors)
+      await p.close()
+    }
+
+    /* ── FLASH (round 11): open and Cancel are one continuous move ── */
+    if (want("flash")) {
+      const { p, errors } = await open("feed", "/community/studio-notes", vp)
+      const cdp = await p.target().createCDPSession()
+      /* The closed card and its row, tagged: every frame after must show these same nodes. */
+      await p.evaluate(() => {
+        window.__card = document.querySelector("[data-composer]")
+        window.__row = document.querySelector("[data-composer-row]")
+      })
+      const sample = () =>
+        p.evaluate(() => {
+          window.__ff = []
+          const ty = (e) => {
+            if (!e) return null
+            const t = getComputedStyle(e).translate
+            return t === "none" ? 0 : parseFloat(t.split(" ")[1] ?? "0") || 0
+          }
+          const loop = () => {
+            const card = document.querySelector("[data-composer]")
+            const row = document.querySelector("[data-composer-row]")
+            const ed = document.querySelector("[data-composer-editor]")
+            const sheet = document.querySelector("[data-composer=sheet]")
+            const cs = card ? getComputedStyle(card) : null
+            const rowOp = row ? Number(getComputedStyle(row).opacity) : 0
+            const edOp = ed ? Number(getComputedStyle(ed).opacity) : 0
+            window.__ff.push({
+              t: performance.now(),
+              same: card === window.__card && row === window.__row,
+              state: card?.getAttribute("data-composer") ?? null,
+              cardOp: cs ? Number(cs.opacity) : 0,
+              cardH: card ? card.offsetHeight : 0,
+              rowOp,
+              edOp,
+              shown: Math.round((1 - (1 - rowOp) * (1 - edOp)) * 100) / 100,
+              next: card ? Math.round(ty(card.nextElementSibling) ?? 0) : null,
+              sheet: sheet ? Math.round(sheet.getBoundingClientRect().top) : null,
+              sheetNode: sheet ? (sheet.__id ||= Math.random()) : null,
+            })
+            window.__ffr = requestAnimationFrame(loop)
+          }
+          window.__ffr = requestAnimationFrame(loop)
+        })
+      const stop = () => p.evaluate(() => (cancelAnimationFrame(window.__ffr), window.__ff))
+      /* A filmstrip: every frame the compositor draws, as the page shows it, at 4x CPU. */
+      const film = []
+      cdp.on("Page.screencastFrame", (f) => {
+        film.push({ t: f.metadata.timestamp, data: f.data })
+        cdp.send("Page.screencastFrameAck", { sessionId: f.sessionId }).catch(() => {})
+      })
+      const runs = {}
+      for (const leg of ["open", "close"]) {
+        await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 })
+        const at = film.length
+        await cdp.send("Page.startScreencast", { format: "jpeg", quality: 75, maxWidth: phone ? 390 : 1440, maxHeight: phone ? 844 : 900, everyNthFrame: 1 })
+        await sample()
+        /* A press as a hand makes one: down, about a tenth of a second, up (a click is both in the same millisecond). */
+        const sel = leg === "open" ? "[data-composer-open]" : "[data-composer-cancel]"
+        if (phone) await p.tap(sel)
+        else {
+          const box = await (await p.$(sel)).boundingBox()
+          await p.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+          await p.mouse.down()
+          await sleep(90)
+          await p.mouse.up()
+        }
+        await sleep(phone ? 900 : 700)
+        runs[leg] = await stop()
+        await cdp.send("Page.stopScreencast")
+        await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
+        runs[leg + "Film"] = film.slice(at)
+        await sleep(300)
+      }
+      /* The filmstrip as one picture to look at: the frames of each leg in a grid, in order (a computer's cropped to the feed column). */
+      const strip = await browser.newPage()
+      await strip.setViewport({ width: phone ? 1300 : 1460, height: 900, deviceScaleFactor: 1 })
+      for (const leg of ["open", "close"]) {
+        const frames = runs[leg + "Film"].slice(0, phone ? 18 : 12)
+        const cell = (f) => (phone ? `<img style="width:100%;display:block" src="data:image/jpeg;base64,${f.data}">` : `<div style="width:600px;height:330px;overflow:hidden;position:relative"><img style="position:absolute;left:-400px;top:-40px;width:1440px" src="data:image/jpeg;base64,${f.data}"></div>`)
+        await strip.setContent(`<body style="margin:0;background:#222;font:12px system-ui;color:#fff"><div style="display:grid;grid-template-columns:repeat(${phone ? 6 : 2},max-content);gap:6px;padding:4px">${frames.map((f, i) => `<div><div>${leg} ${i} +${Math.round((f.t - frames[0].t) * 1000)}ms</div>${cell(f)}</div>`).join("")}</div></body>`)
+        await strip.screenshot({ path: join(shots, `${label}-flash-${leg}-film.png`), fullPage: true })
+      }
+      await strip.close()
+      const o = runs.open
+      const c = runs.close
+      expect(o.every((f) => f.same) && c.every((f) => f.same), "FLASH: the composer's card and its row are the same nodes on every frame of the open and the Cancel (nothing taken out and put back)", { open: o.filter((f) => !f.same).length, close: c.filter((f) => !f.same).length })
+      expect(o.every((f) => f.cardOp === 1) && c.every((f) => f.cardOp === 1), "the card's own opacity never moves (no fade from nothing)", [...new Set([...o, ...c].map((f) => f.cardOp))])
+      if (phone) {
+        const os = o.filter((f) => f.sheet !== null)
+        const first = o.findIndex((f) => f.sheet !== null)
+        expect(first >= 0 && o.slice(first).every((f) => f.sheet !== null) && new Set(os.map((f) => f.sheetNode)).size === 1, "the phone's screen, once there, stays the same one until it has arrived", { frames: os.length, nodes: new Set(os.map((f) => f.sheetNode)).size })
+        const cs = c.filter((f) => f.sheet !== null)
+        const gone = c.findIndex((f, i) => i > 0 && f.sheet === null && c[i - 1].sheet !== null)
+        expect(gone > 0 && c.slice(gone).every((f) => f.sheet === null) && new Set(cs.map((f) => f.sheetNode)).size === 1, "closing, the same screen slides away once and is gone (never back)", { frames: cs.length, gone })
+        expect([...o, ...c].every((f) => f.state === "closed" && f.rowOp === 1), "the closed field under it stays as it is the whole time", [...new Set([...o, ...c].map((f) => `${f.state}:${f.rowOp}`))])
+      } else {
+        const moving = o.filter((f) => f.state === "open")
+        expect(Math.min(...[...o, ...c].map((f) => f.shown)) >= 0.6, "its content never empties: the closed row and the editor crossfade without a dip (combined, every frame)", { open: Math.min(...o.map((f) => f.shown)), close: Math.min(...c.map((f) => f.shown)) })
+        const tops = moving.map((f) => f.next)
+        expect(tops[0] < -100 && tops.every((v, i) => i === 0 || v >= tops[i - 1]) && tops.at(-1) === 0, "opening, the posts under it start where they were and only ever slide down", tops)
+        const ct = c.filter((f) => f.state === "open").map((f) => f.next)
+        expect(ct.every((v, i) => i === 0 || v <= ct[i - 1] + 0.5) && ct.at(-1) < -100, "folding, they only ever slide back up over it", ct)
+        const after = c.at(-1)
+        expect(after.state === "closed" && after.rowOp === 1 && after.cardH < 90, "then it is the closed field again, in the same card", { state: after.state, rowOp: after.rowOp, h: after.cardH })
+        console.log(`  info  FLASH frames (ms, posts' offset, row, editor): open ${JSON.stringify(moving.slice(0, 12).map((f) => [Math.round(f.t - o[0].t), f.next, f.rowOp.toFixed(2), f.edOp.toFixed(2)]))}`)
+      }
+      expect(runs.openFilm.length >= 6 && runs.closeFilm.length >= 6, "a filmstrip of each leg was recorded", { open: runs.openFilm.length, close: runs.closeFilm.length })
+      expect(errors.length === 0, "no page error", errors)
+      await p.close()
+    }
+
+    /* ── COMMENT BOX AND COMMENT MEDIA (round 11) ─────────────────── */
+    if (want("cmedia")) {
+      const { p, errors, live, calls } = await open("cmedia", "/community/studio-notes/post/p-intro", vp, { commentWait: 500 })
+      /* The box: a Storelib field (about a 10px corner, a hairline, a 1px shadow). */
+      const field = await p.evaluate(() => {
+        const f = document.querySelector('[data-comment-box="comment"] [data-comment-field]')
+        const cs = getComputedStyle(f)
+        const send = getComputedStyle(document.querySelector('[data-comment-box="comment"] [data-comment-send] > span'))
+        return { radius: cs.borderTopLeftRadius, border: cs.borderTopColor, width: cs.borderTopWidth, shadow: cs.boxShadow, sendRadius: send.borderTopLeftRadius, h: Math.round(f.getBoundingClientRect().height) }
+      })
+      expect(parseFloat(field.radius) >= 9 && parseFloat(field.radius) <= 12, "COMMENT BOX: a Storelib field's corner, about 10px (was 20px)", field.radius)
+      expect(field.width === "1px" && /rgba?\(/.test(field.shadow) && field.shadow !== "none", "a hairline and a 1px soft shadow", { border: field.border, shadow: field.shadow })
+      expect(parseFloat(field.sendRadius) <= 8, "the send button inside it follows the corner", field.sendRadius)
+      const scope = '[data-comment-box="comment"]'
+      await p.evaluate((s) => document.querySelector(s).scrollIntoView({ block: "center" }), scope)
+      await sleep(200)
+      await p.screenshot({ path: join(shots, `${label}-r11-comment-box.png`), captureBeyondViewport: false })
+      /* The comment already there: its pictures and GIF as small tiles, its file as a row. */
+      const shown = await p.evaluate(() => {
+        const m = document.querySelector('[data-comment="c-media-1"] [data-comment-media]')
+        const tiles = [...(m?.querySelectorAll("[data-comment-tile]") ?? [])].map((t) => ({ kind: t.getAttribute("data-comment-tile"), h: Math.round(t.getBoundingClientRect().height), w: Math.round(t.getBoundingClientRect().width), radius: getComputedStyle(t).borderTopLeftRadius }))
+        const file = m?.querySelector("[data-comment-file]")
+        return { tiles, file: file ? { text: file.textContent, href: file.getAttribute("href") } : null, gifOnly: !!document.querySelector('[data-comment="c-media-2"] [data-comment-tile="gif"]') }
+      })
+      expect(shown.tiles.length === 3 && shown.tiles.every((t) => t.h === 96 && t.w >= 72 && t.w <= 176), "COMMENT MEDIA: pictures and a GIF under the words as small tiles (96px tall, each in its shape)", shown.tiles)
+      expect(!!shown.file && /Friday notes\.pdf/.test(shown.file.text) && /\/comments\/c-media-1\/files\/33333333-0000-4000-8000-000000000009$/.test(shown.file.href || ""), "a file as a row that downloads through the comment's own member route", shown.file)
+      expect(shown.gifOnly, "a comment can be a GIF alone", shown.gifOnly)
+      await p.evaluate(() => document.querySelector('[data-comment="c-media-1"]').scrollIntoView({ block: "center" }))
+      await sleep(250)
+      await p.screenshot({ path: join(shots, `${label}-r11-comment-media.png`), captureBeyondViewport: false })
+      await press(p, '[data-comment="c-media-1"] [data-comment-tile="image"]')
+      await p.waitForSelector("[data-lightbox]", { timeout: 3000 }).catch(() => null)
+      await sleep(450)
+      const viewer = await p.evaluate(() => ({ open: !!document.querySelector("[data-lightbox]"), slides: document.querySelectorAll("[data-lightbox-slide]").length }))
+      expect(viewer.open && viewer.slides === 3, "a tile opens the viewer, with the comment's other pictures and GIF a swipe away", viewer)
+      await shot(p, `${label}-r11-comment-viewer`)
+      await p.keyboard.press("Escape")
+      await sleep(500)
+      expect(!(await p.$("[data-lightbox]")), "Escape closes it", null)
+
+      /* Sending one with a picture, a file and a GIF. */
+      const dir = join(stubs, "files")
+      mkdirSync(dir, { recursive: true })
+      const png = join(dir, "board.png")
+      writeFileSync(png, solidPng(160, 120, [196, 178, 140]))
+      const pdf = join(dir, "notes.pdf")
+      writeFileSync(pdf, "%PDF-1.4\n%probe\n")
+      await p.evaluate((s) => document.querySelector(s).scrollIntoView({ block: "center" }), scope)
+      const input = await p.$(`${scope} [data-comment-file-input]`)
+      await input.uploadFile(png, pdf)
+      await p.waitForFunction((s) => document.querySelectorAll(`${s} [data-comment-pick][data-comment-pick-ready]`).length === 2, { timeout: 6000 }, scope).catch(() => {})
+      await press(p, `${scope} [data-comment-tool="gif"] button`)
+      await p.waitForSelector("[data-gif]", { visible: true, timeout: 4000 }).catch(() => null)
+      await sleep(300)
+      await press(p, "[data-gif]")
+      await sleep(phone ? 500 : 250)
+      const picks = await p.evaluate((s) => [...document.querySelectorAll(`${s} [data-comment-pick]`)].map((x) => x.getAttribute("data-comment-pick")), scope)
+      expect(picks.join(",") === "image,file,gif", "a picture, a file and a GIF wait at the top of the box", picks)
+      const filesRoute = calls.filter((c) => /\/files$/.test(c.url) && c.method === "POST").length
+      expect(filesRoute === 2, "the file went through the community's file route (asked, then checked)", filesRoute)
+      await p.type(`${scope} textarea`, "Boards attached")
+      await sleep(150)
+      await p.evaluate((s) => document.querySelector(s).scrollIntoView({ block: "center" }), scope)
+      await sleep(150)
+      await p.screenshot({ path: join(shots, `${label}-r11-comment-picks.png`), captureBeyondViewport: false })
+      /* The landing, frame by frame at 4x CPU: the new row rises into place as it fades in, nothing jumps. */
+      const cdp = await p.target().createCDPSession()
+      await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 })
+      await p.evaluate(() => {
+        window.__lf = []
+        const known = new Set([...document.querySelectorAll("[data-comment]")].map((e) => e.getAttribute("data-comment")))
+        const loop = () => {
+          const row = [...document.querySelectorAll("[data-comment]")].find((e) => !known.has(e.getAttribute("data-comment")) || e.hasAttribute("data-comment-sending"))
+          if (row) {
+            const cs = getComputedStyle(row)
+            const ty = cs.translate === "none" ? 0 : parseFloat(cs.translate.split(" ")[1] ?? "0") || 0
+            window.__lf.push({ t: performance.now(), op: Number(cs.opacity), ty: Math.round(ty * 10) / 10, sc: cs.scale === "none" ? 1 : Number(cs.scale), media: !!row.querySelector("[data-comment-media]") })
+          }
+          window.__lfr = requestAnimationFrame(loop)
+        }
+        window.__lfr = requestAnimationFrame(loop)
+      })
+      await press(p, `${scope} [data-comment-send]`)
+      await sleep(1400)
+      const land = await p.evaluate(() => (cancelAnimationFrame(window.__lfr), window.__lf))
+      await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
+      const tys = land.map((f) => f.ty)
+      expect(land.length > 4 && tys[0] > 6 && tys.every((v, i) => i === 0 || v <= tys[i - 1] + 0.05) && tys.at(-1) === 0, "LANDING: the sent comment rises into its place, never back down", tys.slice(0, 16))
+      expect(land[0].op < 0.5 && land.at(-1).op === 1 && land[0].media, "it fades in from its first frame with what it carries, and ends whole once confirmed", { first: land[0].op, last: land.at(-1).op })
+      const sentBody = live.commentBodies?.at(-1)
+      expect(JSON.stringify((sentBody?.media || []).map((m) => m.type)) === JSON.stringify(["image", "file", "gif"]) && sentBody.media[1].store === "community", "the POST carries the picture, the file (the member's own, in the community's folder) and the GIF", (sentBody?.media || []).map((m) => m.type))
+      const mine = await p.evaluate(() => {
+        const rows = [...document.querySelectorAll("[data-comment]")]
+        const last = rows.at(-1)
+        return { id: last.getAttribute("data-comment"), tiles: last.querySelectorAll("[data-comment-tile]").length, files: last.querySelectorAll("[data-comment-file]").length, boxEmpty: !document.querySelector('[data-comment-box="comment"] [data-comment-pick]') }
+      })
+      expect(/^c-new-/.test(mine.id) && mine.tiles === 2 && mine.files === 1 && mine.boxEmpty, "posted: confirmed with its picture, GIF and file under it, the box empty for the next", mine)
+      await p.evaluate(() => [...document.querySelectorAll("[data-comment]")].at(-1).scrollIntoView({ block: "center" }))
+      await sleep(250)
+      await p.screenshot({ path: join(shots, `${label}-r11-comment-sent.png`), captureBeyondViewport: false })
+      await p.evaluate(() => [...document.querySelectorAll("[data-comment]")].at(-1).querySelector('[data-comment-tile="image"]').click())
+      await p.waitForSelector("[data-lightbox]", { timeout: 3000 }).catch(() => null)
+      expect(!!(await p.$("[data-lightbox]")), "its picture opens the viewer", null)
+      await p.keyboard.press("Escape")
+      await sleep(500)
+
+      /* Refused by the server (a picture that is not the member's own upload): taken out, what was in the box comes back, the reason said. */
+      await p.evaluate((s) => document.querySelector(s).scrollIntoView({ block: "center" }), scope)
+      await (await p.$(`${scope} [data-comment-file-input]`)).uploadFile(png)
+      await p.waitForFunction((s) => document.querySelectorAll(`${s} [data-comment-pick][data-comment-pick-ready]`).length === 1, { timeout: 6000 }, scope).catch(() => {})
+      await p.type(`${scope} textarea`, "not mine")
+      const before = await p.evaluate(() => document.querySelectorAll("[data-comment]").length)
+      await press(p, `${scope} [data-comment-send]`)
+      await sleep(1000)
+      const refused = await p.evaluate((s) => ({ rows: document.querySelectorAll("[data-comment]").length, picks: document.querySelectorAll(`${s} [data-comment-pick]`).length, words: document.querySelector(`${s} textarea`).value, toast: [...document.querySelectorAll('[role="status"]')].map((t) => t.textContent).join(" | ") }), scope)
+      expect(refused.rows === before && refused.picks === 1 && refused.words === "not mine" && /could not be added/.test(refused.toast), "REFUSED: a picture that is not the member's own is taken back out, the box gets it back, and the reason is said", refused)
+      const small = await smallTargets(p, scope)
+      if (phone) expect(small.length === 0, "the box's controls are at least 40px tall on a phone", small)
+      expect((await sideScroll(p)).scroll <= (phone ? 390 : 1440), "nothing scrolls sideways", await sideScroll(p))
       expect(errors.length === 0, "no page error", errors)
       await p.close()
     }
@@ -2299,6 +2567,29 @@ try {
         window.__hf = []
         window.__changes = 0
         new MutationObserver((ms) => ms.forEach((m) => m.attributeName === "aria-pressed" && window.__changes++)).observe(b, { attributes: true })
+        /* Round 11: every burst, when it came and went, what the button said then, and what its tiny hearts animate. */
+        window.__bursts = []
+        new MutationObserver((ms) => {
+          for (const m of ms) {
+            for (const n of m.addedNodes) {
+              if (!(n instanceof Element) || !n.hasAttribute("data-heart-burst")) continue
+              const parts = [...n.querySelectorAll("[data-heart-particle]")]
+              const props = new Set()
+              let longest = 0
+              for (const el of parts)
+                for (const a of el.getAnimations()) {
+                  for (const k of a.effect.getKeyframes()) Object.keys(k).forEach((key) => !["offset", "easing", "composite", "computedOffset"].includes(key) && props.add(key))
+                  const t = a.effect.getComputedTiming()
+                  longest = Math.max(longest, t.endTime)
+                }
+              window.__bursts.push({ at: performance.now(), on: b.getAttribute("aria-pressed"), particles: parts.length, props: [...props], longest, node: n })
+            }
+            for (const n of m.removedNodes) {
+              const rec = window.__bursts.find((x) => x.node === n)
+              if (rec) rec.gone = performance.now()
+            }
+          }
+        }).observe(document.body, { childList: true })
         const loop = (t) => {
           const r = b.getBoundingClientRect()
           const heart = b.querySelector("[data-heart]")
@@ -2317,7 +2608,7 @@ try {
         await sleep(450)
       }
       await sleep(500)
-      const hf = await p.evaluate(() => (cancelAnimationFrame(window.__hfr), { frames: window.__hf, changes: window.__changes }))
+      const hf = await p.evaluate(() => (cancelAnimationFrame(window.__hfr), { frames: window.__hf, changes: window.__changes, bursts: window.__bursts.map(({ node, ...b }) => ({ ...b, life: b.gone ? Math.round(b.gone - b.at) : null })) }))
       await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
       const fr = hf.frames
       const boxes = new Set(fr.map((f) => f.box))
@@ -2335,7 +2626,36 @@ try {
       expect([...counts].every((c) => c === "24" || c === "25"), "the count only ever shows 24 or 25", [...counts])
       expect(fr[0].size === 20, "the heart is 20px (a little bigger than the 18px icons beside it)", fr[0].size)
       console.log(`  info  HEART at 4x CPU: longest frame ${Math.round(Math.max(...gaps))}ms, ${gaps.filter((g) => g > 34).length} over 34ms, requests ${live.sent.length}`)
+      /* Round 11: five taps are three likes and two unlikes. */
+      const bursts = hf.bursts
+      expect(bursts.length === 3 && bursts.every((b) => b.on === "true"), "BURST: one burst per like (three likes in five taps), none on an unlike", bursts.map((b) => b.on))
+      expect(bursts.every((b) => b.particles >= 6 && b.particles <= 10), "each burst is 6 to 10 tiny hearts", bursts.map((b) => b.particles))
+      expect(bursts.every((b) => b.props.length && b.props.every((k) => ["translate", "scale", "rotate", "opacity"].includes(k))), "the tiny hearts animate translate, scale, rotate and opacity only (the compositor's)", [...new Set(bursts.flatMap((b) => b.props))])
+      expect(bursts.every((b) => b.longest > 0 && b.longest < 500), "every burst is done within 500ms", bursts.map((b) => Math.round(b.longest)))
+      /* Taken out of the page once done: within 500ms and a few 4x frames (or when the unlike tap came first). */
+      expect(bursts.every((b) => b.life !== null && b.life < 700), "and taken out of the page after (at 4x CPU, its life in ms)", bursts.map((b) => b.life))
       await shot(p, `${label}-r10-heart`)
+      /* The burst in the middle of its flight, close up: unlike, then like, and a picture 130ms in. */
+      await p.evaluate((sel) => document.querySelector(sel).click(), LIKE)
+      await sleep(400)
+      const hb = await p.evaluate((sel) => {
+        const r = document.querySelector(sel).querySelector("[data-heart]").getBoundingClientRect()
+        return { x: r.left + r.width / 2 + window.scrollX, y: r.top + r.height / 2 + window.scrollY }
+      }, LIKE)
+      await p.evaluate((sel) => document.querySelector(sel).click(), LIKE)
+      await sleep(60)
+      /* Held 150ms into its flight (a screenshot takes longer than the burst lasts), then let go. */
+      const held = await p.evaluate((sel) => {
+        const all = [...document.querySelector(sel).querySelector("[data-heart]").getAnimations({ subtree: true }), ...[...document.querySelectorAll("[data-heart-burst]")].flatMap((l) => l.getAnimations({ subtree: true }))]
+        for (const a of all) {
+          a.pause()
+          a.currentTime = 150
+        }
+        return all.length
+      }, LIKE)
+      expect(held >= 8, "the burst can be held mid flight for its picture", held)
+      await p.screenshot({ path: join(shots, `${label}-r11-heart-burst.png`), captureBeyondViewport: false, clip: { x: Math.max(0, hb.x - 60), y: Math.max(0, hb.y - 45), width: 160, height: 90 } })
+      await p.evaluate(() => document.getAnimations().forEach((a) => a.playState === "paused" && a.play()))
       expect(errors.length === 0, "no page error", errors)
       await p.close()
     }
