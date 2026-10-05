@@ -83,9 +83,10 @@ export function weeklyData(weeks: readonly CommunityWeek[], weekOf: string): Rec
   return out
 }
 
-/** Queues the next week's digest, once (a key per person and week). */
-async function queueNext(db: Db, userId: string, now: number, tz: string | null): Promise<void> {
-  const { error } = await db.from("community_jobs").upsert(weeklyJob(userId, now + 60_000, tz), { onConflict: "idempotency_key", ignoreDuplicates: true })
+/** Queues the week after this one, once (a key per person and week), even when this one ran early or late. */
+async function queueNext(db: Db, userId: string, week: string, now: number, tz: string | null): Promise<void> {
+  const after = Math.max(now, Date.parse(`${week}T12:00:00Z`) + 86_400_000)
+  const { error } = await db.from("community_jobs").upsert(weeklyJob(userId, after, tz), { onConflict: "idempotency_key", ignoreDuplicates: true })
   if (error) console.error(`[communities] next weekly digest not queued: ${reasonOf(error)}`)
 }
 
@@ -99,7 +100,7 @@ export async function runWeeklyDigest(db: Db, raw: unknown, now: number = Date.n
   const { data: pref } = await db.from("notification_preferences").select("enabled").eq("user_id", p.userId).eq("category", "tips").eq("channel", "email").maybeSingle()
   if ((pref as { enabled: boolean } | null)?.enabled === false) return "unsubscribed"
   /* Asked for and not stopped: next week is queued whatever this week holds. */
-  await queueNext(db, p.userId, now, choice.tz)
+  await queueNext(db, p.userId, p.week, now, choice.tz)
   if (!(opts.enabled ?? (await communitiesEnabled()))) return "off"
 
   const since = new Date(now - WEEK_MS).toISOString()

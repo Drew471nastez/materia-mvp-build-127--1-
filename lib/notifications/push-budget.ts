@@ -136,16 +136,17 @@ export function dailySummaryAt(now: number, tz: string | null | undefined, q: Qu
   return at
 }
 
-export type BudgetDecision = { send: true } | { send: false; hold: "quiet" | "daily" }
+/** "send", or which summary the push waits for. */
+export type BudgetDecision = "send" | "quiet" | "daily"
 
 /**
  * Whether one push goes now, from the person's quiet hours, their zone, how
  * many they had today and what kind it is.
  */
 export function budgetDecision(a: { kind: string; quiet: Quiet | null | undefined; tz: string | null | undefined; sentToday: number; now: number }): BudgetDecision {
-  if (inQuietHours(a.quiet, a.now, a.tz)) return { send: false, hold: "quiet" }
-  if (a.sentToday >= DAILY_PUSH_CAP && !CAP_EXEMPT_KINDS.includes(a.kind)) return { send: false, hold: "daily" }
-  return { send: true }
+  if (inQuietHours(a.quiet, a.now, a.tz)) return "quiet"
+  if (a.sentToday >= DAILY_PUSH_CAP && !CAP_EXEMPT_KINDS.includes(a.kind)) return "daily"
+  return "send"
 }
 
 /** How many of these push times fall in the person's day so far. */

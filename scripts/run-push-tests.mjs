@@ -420,6 +420,7 @@ const SUITES = [
   "tests/communities-posts.test.ts",
   "tests/communities-safety.test.ts",
   "tests/communities-posts12.test.ts",
+  "tests/communities-notify-budget.test.ts",
   "tests/profiles-follows.test.ts",
   "tests/profile-one-page.test.ts",
   "tests/profile-seo-round12.test.ts",

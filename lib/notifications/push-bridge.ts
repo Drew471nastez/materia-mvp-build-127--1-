@@ -739,8 +739,8 @@ export async function pushFanout(db: Db, items: readonly PushItem[], opts: { dea
       const choice = choices.get(i.userId) ?? null
       const sent = today.get(i.userId) ?? 0
       const budget = budgetDecision({ kind: i.kind, quiet: choice?.quiet, tz: choice?.tz, sentToday: sent, now })
-      if (!budget.send) {
-        summaries.push({ userId: i.userId, hold: budget.hold })
+      if (budget !== "send") {
+        summaries.push({ userId: i.userId, hold: budget })
         continue
       }
       if (pushPriority(i.kind, i.dedupeKey) === "now") {
@@ -792,8 +792,8 @@ export async function pushOne(db: Db, item: PushItem, now: number = Date.now()):
     const choice = choices.get(item.userId) ?? null
     const today = await pushesToday(db, [item.userId], choices, now)
     const budget = budgetDecision({ kind: item.kind, quiet: choice?.quiet, tz: choice?.tz, sentToday: today.get(item.userId) ?? 0, now })
-    if (!budget.send) {
-      await holdForSummary(db, [{ userId: item.userId, hold: budget.hold }], choices, now)
+    if (budget !== "send") {
+      await holdForSummary(db, [{ userId: item.userId, hold: budget }], choices, now)
       return "held"
     }
     if (pushPriority(item.kind, item.dedupeKey) === "coalesce") {
@@ -1017,8 +1017,8 @@ export async function runPushDigest(db: Db, raw: unknown, now: number = Date.now
   const choices = await readChoices(db, [d.userId], now)
   const choice = choices.get(d.userId) ?? null
   const budget = budgetDecision({ kind: "digest", quiet: choice?.quiet, tz: choice?.tz, sentToday: (await pushesToday(db, [d.userId], choices, now)).get(d.userId) ?? 0, now })
-  if (!budget.send) {
-    await holdForSummary(db, [{ userId: d.userId, hold: budget.hold }], choices, now)
+  if (budget !== "send") {
+    await holdForSummary(db, [{ userId: d.userId, hold: budget }], choices, now)
     return
   }
 
