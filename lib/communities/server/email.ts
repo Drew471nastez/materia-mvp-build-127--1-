@@ -26,6 +26,9 @@ import "server-only"
  *   join_approved     the person whose request it was, active or approved
  *                     and waiting to pay
  *   invite            an address (email), member or not
+ *   report_digest     an active member, once a day at most per community,
+ *                     about new reports (jobs/report_digest.ts checks the
+ *                     role and the person's own switch first)
  * Nothing is sent while the communities switch is off, or for a community
  * that is suspended or deleted. NEVER one email per feed post: only an
  * announcement, which a moderator chose to make, is emailed.
@@ -40,7 +43,7 @@ import type { DomainEventName } from "@/lib/notify/types"
 import { communitiesEnabled } from "../flag"
 import { missing, nowIso, reasonOf, type Db } from "./db"
 
-export const COMMUNITY_EMAIL_KINDS = ["welcome", "announcement", "event_reminder", "invite", "course_available", "join_approved"] as const
+export const COMMUNITY_EMAIL_KINDS = ["welcome", "announcement", "event_reminder", "invite", "course_available", "join_approved", "report_digest"] as const
 export type CommunityEmailKind = (typeof COMMUNITY_EMAIL_KINDS)[number]
 
 export type CommunityEmailOutcome = "queued" | "duplicate" | "unavailable"
@@ -74,6 +77,7 @@ const MEMBER_ONLY: Partial<Record<CommunityEmailKind, "email_announcements" | "e
   announcement: "email_announcements",
   event_reminder: "email_events",
   course_available: null,
+  report_digest: null,
 }
 
 /** "welcome" or "community.welcome", as the kind it is. */

@@ -5,9 +5,17 @@ import { pushTapTarget } from "./tap"
 
 /**
  * Initialise push notifications for the native app.
- * Safe to call on every mount — exits immediately on web.
+ * Safe to call on every mount: exits immediately on web.
  *
  * Call once after the user is authenticated (e.g. inside AppLayoutWrapper).
+ *
+ * NEVER ASKS. The iOS and Android permission prompt appears only when the
+ * person turns push on in Settings, Notifications (lib/native-push.ts
+ * askPushPermission, from that tap). Here the permission is only read: if
+ * it was already given, the device is registered (a new token after a
+ * reinstall reaches us); if not, nothing happens and nothing is shown. An
+ * app that opens with a system prompt before the person has seen anything
+ * is asking for a "Don't Allow" it can never take back.
  *
  * iOS token flow:
  *   1. Capacitor registers with APNs  → 'registration' event fires with raw APNs hex token
@@ -20,11 +28,11 @@ import { pushTapTarget } from "./tap"
  *   @capacitor/push-notifications already returns the FCM token via the 'registration' event.
  */
 export async function initPushNotifications(): Promise<void> {
-  // ── 0. Entry point log — confirms the function was actually called ─────────
-  console.log("[push] initPushNotifications() called — platform:", Capacitor.getPlatform(), "isNative:", Capacitor.isNativePlatform())
+  // ── 0. Entry point log: confirms the function was actually called ─────────
+  console.log("[push] initPushNotifications() called: platform:", Capacitor.getPlatform(), "isNative:", Capacitor.isNativePlatform())
 
   if (!Capacitor.isNativePlatform()) {
-    console.log("[push] Not a native platform — skipping push setup")
+    console.log("[push] Not a native platform: skipping push setup")
     return
   }
 
@@ -32,14 +40,28 @@ export async function initPushNotifications(): Promise<void> {
   const { PushNotifications } = await import("@capacitor/push-notifications")
   console.log("[push] PushNotifications plugin loaded")
 
-  // ── 1. Request permission ──────────────────────────────────────────────────
-  const permResult = await PushNotifications.requestPermissions()
-  console.log("[push] Permission result:", permResult.receive)
+  // ── 1. Read the permission; asking is Settings' job (lib/native-push.ts) ─
+  const permResult = await PushNotifications.checkPermissions()
+  console.log("[push] Permission state:", permResult.receive)
   if (permResult.receive !== "granted") {
-    console.log("[push] Permission not granted — aborting registration")
+    console.log("[push] Not granted yet; waiting for the person to turn push on in Settings")
     return
   }
-  console.log("[push] Permission granted — attaching listeners before register()")
+  await registerDevice()
+}
+
+let deviceRegistered = false
+
+/**
+ * Listeners, then register(), once per app launch: after a permission that
+ * was already given (above), or right after the person allowed it in
+ * Settings (lib/native-push.ts).
+ */
+export async function registerDevice(): Promise<void> {
+  if (!Capacitor.isNativePlatform() || deviceRegistered) return
+  deviceRegistered = true
+  const { PushNotifications } = await import("@capacitor/push-notifications")
+  console.log("[push] Permission granted: attaching listeners before register()")
 
   const platform = Capacitor.getPlatform() as "ios" | "android"
 
@@ -80,14 +102,14 @@ export async function initPushNotifications(): Promise<void> {
   console.log("[push] Attaching listeners now...")
 
   PushNotifications.addListener("registration", ({ value: token }) => {
-    console.log("[push] *** registration callback FIRED *** — this confirms APNs/FCM returned a token")
+    console.log("[push] *** registration callback FIRED ***: this confirms APNs/FCM returned a token")
 
     if (platform === "ios") {
       // On iOS @capacitor/push-notifications returns the raw APNs device token (hex string).
       // Firebase Admin requires an FCM registration token, so we must NOT send this to the
       // backend. The FCM token arrives separately via the 'fcmTokenReady' window event
       // dispatched by AppDelegate's MessagingDelegate callback.
-      console.log(`[push] APNs token received (not sent to backend — waiting for FCM token)`)
+      console.log(`[push] APNs token received (not sent to backend: waiting for FCM token)`)
     } else {
       // On Android @capacitor/push-notifications returns the FCM registration token directly.
       console.log(`[push] FCM token received`)
@@ -96,11 +118,11 @@ export async function initPushNotifications(): Promise<void> {
   })
 
   PushNotifications.addListener("registrationError", (err) => {
-    console.error("[push] *** registrationError callback FIRED *** — APNs/FCM rejected registration:", err.error)
+    console.error("[push] *** registrationError callback FIRED ***: APNs/FCM rejected registration:", err.error)
   })
 
   PushNotifications.addListener("pushNotificationReceived", (notification) => {
-    // App is in foreground — notification is delivered silently
+    // App is in foreground: notification is delivered silently
     console.log("[push] Received foreground notification:", notification.title)
   })
 
@@ -140,11 +162,11 @@ export async function initPushNotifications(): Promise<void> {
   }
 
   // ── Log that all listeners are attached before register() is called ────────
-  console.log("[push] All listeners attached — calling PushNotifications.register() now")
+  console.log("[push] All listeners attached: calling PushNotifications.register() now")
 
   // ── 4. Register with APNs / FCM (after listeners are in place) ───────────
   await PushNotifications.register()
   // Note: on iOS the 'registration' event fires asynchronously after register()
-  // returns — the token will arrive via the listener above, not here.
+  // returns: the token will arrive via the listener above, not here.
   console.log("[push] PushNotifications.register() call returned (token will arrive via listener)")
 }

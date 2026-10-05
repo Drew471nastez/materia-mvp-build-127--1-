@@ -12,6 +12,15 @@ import "server-only"
  * The target must be in this community and visible to the reporter. The
  * owner, admins and moderators each hear about it in their inbox, once per
  * report; a community has a handful of them, so this is a short loop.
+ *
+ * WHERE THEIR BELL OPENS. The moderation queue (/app/community/<id>/
+ * moderation) for those who can open /app (they have a store); the
+ * reported thing itself for a moderator who does not. On their phones it
+ * is a low priority kind: the first report pushes, more within five
+ * minutes are one "3 new reports".
+ *
+ * AND ONE EMAIL A DAY AT MOST (notify.ts queueReportDigest, lib/
+ * notifications/report-digest.ts): never an email per report.
  */
 import { LENGTHS } from "../limits"
 import { can } from "../permissions"
@@ -19,7 +28,7 @@ import { REPORT_REASONS, isOneOf, type ReportReason, type ReportTarget, type Rol
 import { isUniqueViolation, missing, reasonOf } from "./db"
 import { chatSpace } from "./chat"
 import { cleanText, visiblePostRow, type Checked, type WriteContext } from "./feed"
-import { notifyMember } from "./notify"
+import { notifyMember, queueReportDigest } from "./notify"
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -102,8 +111,11 @@ export async function createReport(w: WriteContext, input: ReportInput): Promise
       .eq("status", "active")
       .in("role", ["owner", "admin", "moderator"])
       .limit(STAFF_MAX)
-    for (const s of (staff as { user_id: string; role: Role }[] | null) ?? []) {
-      if (!can(s.role, "review_reports")) continue
+    const reviewers = ((staff as { user_id: string; role: Role }[] | null) ?? []).filter((s) => can(s.role, "review_reports") && s.user_id !== viewer.userId)
+    const { data: stores } = reviewers.length ? await db.from("creators").select("user_id").in("user_id", reviewers.map((s) => s.user_id)) : { data: [] }
+    const withApp = new Set(((stores as { user_id: string }[] | null) ?? []).map((r) => r.user_id))
+    const queue = `/app/community/${community.id}/moderation`
+    for (const s of reviewers) {
       await notifyMember(db, {
         userId: s.user_id,
         communityId: community.id,
@@ -112,10 +124,11 @@ export async function createReport(w: WriteContext, input: ReportInput): Promise
         target: { type: input.targetType, id: input.targetId },
         title: `A ${input.targetType} was reported: ${REPORT_LABELS[input.reason].toLowerCase()}`,
         body: input.note,
-        url,
+        url: withApp.has(s.user_id) ? queue : url,
         dedupeKey: `report:${data.id}:${s.user_id}`,
       })
     }
+    await queueReportDigest(db, { communityId: community.id, userIds: reviewers.map((s) => s.user_id) })
   } catch (e) {
     console.error(`[communities] report notice: ${reasonOf(e)}`)
   }

@@ -12,8 +12,8 @@ import { accountIsCreator } from "@/lib/profile/account-creator"
 import { missingCoverColumn } from "@/lib/profile/cover"
 import { readProfileLocation } from "@/lib/profile/location"
 
-/** ?section= from a link: the profile's Settings pill (account), "Change" on a hidden list (privacy). */
-const SECTION_KEYS = ["profile", "account", "privacy", "preferences"] as const
+/** ?section= from a link: the profile's Settings pill (account), "Change" on a hidden list (privacy), straight to Notifications (notifications). */
+const SECTION_KEYS = ["profile", "account", "privacy", "notifications", "preferences"] as const
 type SectionKey = (typeof SECTION_KEYS)[number]
 function sectionFrom(value: unknown): SectionKey {
   return SECTION_KEYS.includes(value as SectionKey) ? (value as SectionKey) : "profile"

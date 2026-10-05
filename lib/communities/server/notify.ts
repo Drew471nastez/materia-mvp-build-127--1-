@@ -21,12 +21,26 @@ import "server-only"
  *
  * The handler for each kind lives in lib/communities/server/jobs/<kind>.ts
  * and is listed in jobs/index.ts.
+ *
+ * LIKES ARE GROUPED. A like does not add a row per person: the first like
+ * on a post in a window (LIKE_WINDOW_MS, counted from the epoch so every
+ * server agrees) writes "Mara liked your post", and each one after it in
+ * the same window rewrites that row as "7 people liked your post", marks it
+ * unread again and moves it to the top. The count is the post's likes from
+ * other people in the window, read once (community_reactions has the
+ * time). So a post that takes off is one row in the bell, not two hundred.
+ *
+ * NEW POSTS AND REPORTS go through the queue too: queueNewPost tells the
+ * members at Everything or the default level on their phones (jobs/fanout_announcement.ts,
+ * reason "post"), and queueReportDigest plans the one email a day each
+ * moderator gets about new reports (jobs/report_digest.ts).
  */
 import { wantsNotification } from "../permissions"
 import { JOB_COLUMNS, type JobKind, type JobRow, type NotificationKind, type NotifyLevel } from "../types"
 import { missing, nowIso, reasonOf, type Db } from "./db"
 import type { JobOutcome } from "./jobs/index"
 import { pushCommunityRow, pushSoon } from "@/lib/notifications/push-bridge"
+import { reportDigestKey, reportDigestPlan } from "@/lib/notifications/report-digest"
 
 export interface NotifyInput {
   userId: string
@@ -37,8 +51,35 @@ export interface NotifyInput {
   title: string
   body?: string | null
   url: string
-  /** Once per key: "reply:<commentId>:<userId>". */
+  /** Once per key: "reply:<commentId>:<userId>". A like is grouped instead (likeKey). */
   dedupeKey: string
+  /** For tests: the time a like is grouped by. */
+  now?: number
+}
+
+/** One bell row per post (or comment, or message) per window of this long, for likes. */
+export const LIKE_WINDOW_MS = 6 * 60 * 60_000
+
+/** The row a like joins: one per person, liked thing and window. */
+export function likeKey(userId: string, target: { type: string; id: string }, now: number): string {
+  return `likes:${target.type}:${target.id}:${userId}:${Math.floor(now / LIKE_WINDOW_MS)}`
+}
+
+/** "Mara Pop liked your post", then "7 people liked your post". */
+export function likeTitle(count: number, actorName: string, noun: string): string {
+  return count <= 1 ? `${actorName || "A member"} liked your ${noun}` : `${count} people liked your ${noun}`
+}
+
+/** The liked thing's name as a title says it, from the title reactions.ts wrote: "post", "comment", "message". */
+function likedNoun(title: string, type: string): string {
+  const m = /liked your (\w+)/.exec(title)
+  return m ? m[1] : type
+}
+
+/** The actor's name as reactions.ts wrote it at the front of the title. */
+function likedBy(title: string): string {
+  const at = title.indexOf(" liked your ")
+  return at > 0 ? title.slice(0, at) : ""
 }
 
 export type NotifyOutcome = "sent" | "duplicate" | "skipped" | "unavailable"
@@ -60,6 +101,7 @@ export async function notifyMember(db: Db, n: NotifyInput): Promise<NotifyOutcom
     /* News about their own membership reaches them whatever its state; everything else needs an active member. */
     if (member.status !== "active" && n.kind !== "membership") return "skipped"
     if (!wantsNotification(member.notify_level as NotifyLevel, n.kind)) return "skipped"
+    if (n.kind === "reaction" && n.target) return await notifyLike(db, n, (member.notify_level as NotifyLevel | null) ?? null)
     const { data, error } = await db
       .from("community_notifications")
       .upsert(
@@ -102,6 +144,102 @@ export async function notifyMember(db: Db, n: NotifyInput): Promise<NotifyOutcom
     console.error(`[communities] notification ${n.dedupeKey}: ${reasonOf(e)}`)
     return "unavailable"
   }
+}
+
+/**
+ * A like, grouped (see LIKES ARE GROUPED above). New row: told as any new
+ * row is. Existing row: rewritten with the count, unread again, and handed
+ * to the phone the same way, where the five minute window decides whether
+ * it pushes now or is held for the digest.
+ */
+async function notifyLike(db: Db, n: NotifyInput, level: NotifyLevel | null): Promise<NotifyOutcome> {
+  const target = n.target!
+  const now = n.now ?? Date.now()
+  const key = likeKey(n.userId, target, now)
+  const noun = likedNoun(n.title || "", target.type)
+  const actorName = likedBy(n.title || "")
+  const first = likeTitle(1, actorName, noun)
+  const { data, error } = await db
+    .from("community_notifications")
+    .upsert(
+      { user_id: n.userId, community_id: n.communityId, kind: "reaction", actor_id: n.actorId ?? null, target_type: target.type, target_id: target.id, title: first.slice(0, 200), body: n.body ? n.body.trim().slice(0, 500) : null, url: n.url, dedupe_key: key },
+      { onConflict: "dedupe_key", ignoreDuplicates: true },
+    )
+    .select("id")
+  if (error) {
+    if (missing(error)) return "unavailable"
+    throw error
+  }
+  let title = first
+  if (!(Array.isArray(data) && data.length > 0)) {
+    /* Somebody liked it before in this window: the row says how many now. */
+    const windowStart = new Date(Math.floor(now / LIKE_WINDOW_MS) * LIKE_WINDOW_MS).toISOString()
+    const { count, error: countError } = await db
+      .from("community_reactions")
+      .select("id", { count: "exact", head: true })
+      .eq("target_type", target.type)
+      .eq("target_id", target.id)
+      .neq("user_id", n.userId)
+      .gte("created_at", windowStart)
+    if (countError && !missing(countError)) throw countError
+    title = likeTitle(Math.max(2, count ?? 2), actorName, noun)
+    const { error: updateError } = await db
+      .from("community_notifications")
+      .update({ title: title.slice(0, 200), actor_id: n.actorId ?? null, read_at: null, created_at: new Date(now).toISOString() })
+      .eq("dedupe_key", key)
+    if (updateError) {
+      if (missing(updateError)) return "unavailable"
+      throw updateError
+    }
+  }
+  await pushSoon(() =>
+    pushCommunityRow(db, { userId: n.userId, communityId: n.communityId, kind: "reaction", actorId: n.actorId ?? null, title, body: n.body ? n.body.trim().slice(0, 500) : null, url: n.url, dedupeKey: key, level }),
+  )
+  return "sent"
+}
+
+/* ── New posts and reports, through the queue ──────────────────────────── */
+
+/**
+ * A new post in an ordinary space: the members at Everything or the default level hear it on
+ * their phones, a page at a time (jobs/fanout_announcement.ts, reason
+ * "post"). An announcement or an @everyone already has its own fan out and
+ * is not queued twice. Once per post.
+ */
+export async function queueNewPost(db: Db, p: { communityId: string; postId: string; actorId: string }): Promise<QueueOutcome> {
+  return queueJob(db, {
+    kind: "fanout_announcement",
+    payload: { communityId: p.communityId, postId: p.postId, actorId: p.actorId, reason: "post", after: null },
+    idempotencyKey: `fanout_post:${p.postId}`,
+  })
+}
+
+/**
+ * A report came in: each moderator who reviews reports is owed one email
+ * about it, at most once a day per community, never one per report
+ * (lib/notifications/report-digest.ts says when). The first report of a quiet day
+ * queues today's email an hour later, so a burst arrives as one; a report
+ * after today's email went waits for tomorrow's. The job is a push_digest
+ * row with report: true (the queue takes no new kind without SQL), handled
+ * by jobs/report_digest.ts.
+ */
+export async function queueReportDigest(db: Db, r: { communityId: string; userIds: readonly string[]; now?: number }): Promise<number> {
+  const now = r.now ?? Date.now()
+  let queued = 0
+  for (const userId of new Set(r.userIds)) {
+    const today = reportDigestKey(r.communityId, userId, now)
+    const { data: had } = await db.from("community_jobs").select("state").eq("idempotency_key", today).maybeSingle()
+    const plan = reportDigestPlan(now, (had as { state: string } | null)?.state ?? null)
+    if (!plan) continue
+    const outcome = await queueJob(db, {
+      kind: "push_digest",
+      payload: { report: true, userId, communityId: r.communityId, since: new Date(now - 5_000).toISOString(), day: plan.day },
+      runAt: new Date(plan.runAt),
+      idempotencyKey: reportDigestKey(r.communityId, userId, plan.dayStart),
+    })
+    if (outcome === "queued") queued++
+  }
+  return queued
 }
 
 /* ── The job queue ──────────────────────────────────────────────────────── */

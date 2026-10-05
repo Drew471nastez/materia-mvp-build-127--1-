@@ -381,7 +381,7 @@ async function main() {
     const approved = renderEmail("COMMUNITY_JOIN_APPROVED", { communityName: "Paid Club", communitySlug: "paid-club", needsPayment: true, priceLine: "$19/month" }, ctx)
     check("an approval for a paid community says to finish joining", /Finish joining/.test(approved.text) && approved.text.includes("$19/month"))
 
-    check("sendCommunityEmail takes the six kinds, with or without the prefix", COMMUNITY_EMAIL_KINDS.length === 6 && communityEmailKind("community.welcome") === "welcome" && communityEmailKind("post") === null)
+    check("sendCommunityEmail takes the seven kinds (the daily report email since round 12), with or without the prefix", COMMUNITY_EMAIL_KINDS.length === 7 && COMMUNITY_EMAIL_KINDS.includes("report_digest") && communityEmailKind("community.welcome") === "welcome" && communityEmailKind("post") === null)
     check("its key names the kind, the community, the recipient and the caller's key", communityEmailKey("announcement", C1, `u:${U1}`, "announcement:p1") === `community.announcement:${C1}:u:${U1}:announcement:p1`)
 
     const db = fake(

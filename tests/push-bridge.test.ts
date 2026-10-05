@@ -422,8 +422,8 @@ async function main() {
 
   console.log("\nGET and PATCH /api/me/push")
   const route = code("app/api/me/push/route.ts")
-  check("the session decides who; nothing else is read from the body but enabled", /const userId = await sessionUserId\(\)/.test(route) && /typeof body\.enabled !== "boolean"/.test(route) && /setPushEnabled\(admin\(\), userId, body\.enabled\)/.test(route) && !/body\.userId/.test(route))
-  check("PATCH is rate limited, GET says enabled and devices", /rateLimit\(\{ bucket: "me-push"/.test(route) && /export async function GET/.test(route) && /\{ enabled, devices \}/.test(route) && /export async function PATCH/.test(route))
+  check("the session decides who; nothing else is read from the body but enabled (and the kinds, round 12)", /const userId = await sessionUserId\(\)/.test(route) && /typeof body\.enabled !== "boolean"/.test(route) && /setPushEnabled\(admin\(\), userId, body\.enabled\)/.test(route) && !/body\.userId/.test(route))
+  check("PATCH is rate limited, GET says enabled and devices", /rateLimit\(\{ bucket: "me-push"/.test(route) && /export async function GET/.test(route) && /\{ enabled, devices[ ,}]/.test(route) && /export async function PATCH/.test(route))
   check("before part 86 PATCH says not_set_up", /saved === "not_set_up"\) return NextResponse\.json\(\{ error: "not_set_up" \}, \{ status: 503/.test(route))
 
   console.log("\nPart 86, as run-now wants a part")

@@ -138,6 +138,12 @@ const ENTRIES: Record<NotificationType, Entry> = {
   COMMUNITY_ANNOUNCEMENT: E({ category: "product_and_store", priority: "normal", requirement: "optional_product", recipient: "customer", channels: ["email"], template: "base", defaultOn: true, cooldownSeconds: 0 }),
   COMMUNITY_EVENT_REMINDER: E({ category: "product_and_store", priority: "normal", requirement: "optional_product", recipient: "customer", channels: ["email"], template: "transaction", defaultOn: true, cooldownSeconds: 0 }),
   COMMUNITY_COURSE_AVAILABLE: E({ category: "product_and_store", priority: "info", requirement: "optional_product", recipient: "customer", channels: ["email"], template: "base", defaultOn: true, cooldownSeconds: 0 }),
+  /*
+    The day's new reports, to a moderator who runs the community from /app. Keeping a community safe is part of running
+    it, so it is not counted against the three optional emails a day; it is at most one a day per community already, and
+    the person can turn it off in account settings (lib/notifications/push-kinds.ts, emailOff), checked before it is raised.
+  */
+  COMMUNITY_REPORT_DIGEST: E({ category: "account", priority: "normal", requirement: "required_service", recipient: "creator", channels: ["email"], template: "base", defaultOn: true, cooldownSeconds: 0 }),
 }
 
 export const REGISTRY: Record<NotificationType, RegistryEntry> = Object.fromEntries(

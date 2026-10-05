@@ -185,8 +185,9 @@ console.log("\nPush notifications: one switch, only where the route is")
   check("a 200 with the saved choice is the switch", pushStateFrom(200, { enabled: true, devices: 2 }) === true && pushStateFrom(200, { enabled: false, devices: 0 }) === false)
   check("anything else is no row", pushStateFrom(200, { enabled: "yes" }) === null && pushStateFrom(500, null) === null)
   const row = read("components/account/push-switch-row.tsx")
-  check("labelled for what it is, and says sale and payout alerts are not affected", /Push notifications from communities and people/.test(row) && /Sale and payout alerts are not affected/.test(row))
-  check("it saves with PATCH { enabled } and is in Preferences", /method: "PATCH"/.test(row) && /JSON\.stringify\(\{ enabled \}\)/.test(row) && /<PushSwitchRow \/>/.test(read("components/account/account-settings.tsx")))
+  check("labelled for what it is, and says sale and payout alerts are not affected", /PUSH_TITLE = "Allow push notifications"/.test(row) && /From your communities and the people you follow/.test(row) && /Sale and payout alerts are not affected/.test(row))
+  /* Round 12: it moved from Preferences to its own Notifications section, with the kinds under it. */
+  check("it saves with PATCH { enabled } and heads Settings, Notifications", /method: "PATCH"/.test(row) && /JSON\.stringify\(\{ enabled \}\)/.test(row) && /<PushSwitchRow initial=/.test(read("components/account/notification-settings.tsx")) && /<NotificationSettings \/>/.test(read("components/account/account-settings.tsx")))
 }
 
 console.log("\nThe cover you place in Settings, drawn where you put it (round 8)")
