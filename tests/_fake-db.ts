@@ -62,7 +62,9 @@ export function fakeDb(tables: Record<string, Row[]>, options: FakeDbOptions = {
       single: "one" | "maybe" | null
       payload: any
       returning: boolean
-    } = { op: "select", filters: [], select: null, count: false, head: false, limit: null, single: null, payload: null, returning: false }
+      conflict: string[] | null
+      ignoreDuplicates: boolean
+    } = { op: "select", filters: [], select: null, count: false, head: false, limit: null, single: null, payload: null, returning: false, conflict: null, ignoreDuplicates: true }
 
     /** One condition against one row, the way PostgREST reads it. */
     const one = (kind: string, col: string, val: unknown, row: Row): boolean => {
@@ -154,10 +156,19 @@ export function fakeDb(tables: Record<string, Row[]>, options: FakeDbOptions = {
           ...r,
         }))
         for (const r of list) {
+          /* An upsert meets the row that is there: kept as it is, or merged, and never a second row. */
+          const clash = state.conflict ? rows.find((x) => state.conflict!.every((c) => x[c] === r[c])) : undefined
+          if (clash) {
+            if (!state.ignoreDuplicates) Object.assign(clash, r)
+            continue
+          }
+          let duplicate = false
           for (const cols of options.unique?.[table] ?? []) {
-            if (rows.some((x) => cols.every((c) => x[c] === r[c]))) {
-              return { data: null, error: { code: "23505", message: `duplicate key value violates unique constraint on ${table}` } }
-            }
+            if (rows.some((x) => cols.every((c) => x[c] === r[c]))) duplicate = true
+          }
+          if (duplicate) {
+            if (state.conflict) continue
+            return { data: null, error: { code: "23505", message: `duplicate key value violates unique constraint on ${table}` } }
           }
           rows.push(r)
         }
@@ -209,6 +220,14 @@ export function fakeDb(tables: Record<string, Row[]>, options: FakeDbOptions = {
       insert(payload: any) {
         state.op = "insert"
         state.payload = payload
+        return builder
+      },
+      /** PostgREST's upsert: `onConflict` names the columns, `ignoreDuplicates` keeps the row that is there. */
+      upsert(payload: any, opts?: { onConflict?: string; ignoreDuplicates?: boolean }) {
+        state.op = "insert"
+        state.payload = payload
+        state.conflict = (opts?.onConflict ?? "id").split(",").map((c) => c.trim()).filter(Boolean)
+        state.ignoreDuplicates = opts?.ignoreDuplicates !== false
         return builder
       },
       update(payload: any) {
