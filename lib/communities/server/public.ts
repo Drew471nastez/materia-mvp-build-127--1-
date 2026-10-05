@@ -526,7 +526,10 @@ export function sharePreviewable(c: Pick<CommunityRow, "status" | "suspended_at"
  * such community, deleted, or a draft or suspended one seen by somebody who
  * is not its staff).
  */
-export async function loadSalesPage(slug: string, userId: string | null, given?: Db): Promise<SalesPageLoad | null> {
+/** Skip reviews, gallery and live stats: enough for the member's Membership settings page. */
+export type LoadSalesPageOpts = { light?: boolean }
+
+export async function loadSalesPage(slug: string, userId: string | null, given?: Db, opts?: LoadSalesPageOpts): Promise<SalesPageLoad | null> {
   /* The page's own read is shared with its metadata (communityBySlug); a caller with its own database reads its own. */
   const db: Db = given ?? admin()
   const community = given ? await loadCommunity(db, { slug }) : await communityBySlug(slug)
@@ -563,11 +566,13 @@ export async function loadSalesPage(slug: string, userId: string | null, given?:
       return { productId: p.id, title: p.title || "Product", href: getProductInternalPath(p.slug as string, creator?.username ?? undefined), priceLine: line }
     })
 
-  const [reviews, gallery, stats] = await Promise.all([
-    readReviews(db, community.id, tierProductIds.map((id) => products.get(id)).filter((p): p is ProductLite => !!p && p.status === "published")),
-    communityGallery(db, community),
-    communityStats(db, community),
-  ])
+  const [reviews, gallery, stats] = opts?.light
+    ? ([[], [] as GalleryItemView[], { members: Math.max(0, community.member_count ?? 0), online: null, admins: null }] as const)
+    : await Promise.all([
+        readReviews(db, community.id, tierProductIds.map((id) => products.get(id)).filter((p): p is ProductLite => !!p && p.status === "published")),
+        communityGallery(db, community),
+        communityStats(db, community),
+      ])
 
   const raw = community.description ?? ""
   const view: PublicCommunityView = {

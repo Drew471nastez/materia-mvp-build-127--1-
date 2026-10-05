@@ -25,6 +25,8 @@
  */
 import Link from "next/link"
 import { useState } from "react"
+import { RouterPullToRefresh } from "@/components/ui/pull-to-refresh"
+import { COMMUNITY_MEMBERSHIP_REFRESH_SCOPE } from "@/lib/communities/refresh-scope"
 import { relativeTime } from "@/lib/communities/format"
 import type { MemberSource, NotifyLevel, Role } from "@/lib/communities/types"
 import { JoinProvider, useLeave } from "@/components/community/public/join-controls"
@@ -176,6 +178,7 @@ export function MembershipPage({ community, join, askWhy, facts }: { community: 
   const until = longDate(facts.expiresAt)
   return (
     <JoinProvider community={community} join={join} askWhy={askWhy}>
+      <RouterPullToRefresh scope={COMMUNITY_MEMBERSHIP_REFRESH_SCOPE}>
       <div className="max-w-[720px] space-y-3" data-membership-page="">
         <PageTitle title="Membership" detail={community.name} />
 
@@ -225,6 +228,7 @@ export function MembershipPage({ community, join, askWhy, facts }: { community: 
 
         <LeaveSection paying={paying} manageHref={join.manageHref} name={community.name} />
       </div>
+      </RouterPullToRefresh>
     </JoinProvider>
   )
 }

@@ -63,7 +63,7 @@ import {
   type FeedTarget,
 } from "./feed-cache"
 import { sectionFromPath } from "./nav"
-import { PlaceSpinner, WAIT_MS } from "./place-spinner"
+import { PlaceSpinner, Spinner, WAIT_MS } from "./place-spinner"
 import { EditSpacesContext, FIRST_CARDS, PostCard, PostCardPlaceholder, type PostUpdate } from "./post-card"
 import { SortMenu } from "./sort-menu"
 import { followChosenChip, SpaceChips, type ChipPick } from "./space-chips"
@@ -96,6 +96,8 @@ function composerSpacesOf(spaces: SpaceView[]) {
 /** How an arriving list eases in: from a little under full when it replaces another list, from nothing after the spinner. */
 const ARRIVE_MS = 200
 const ARRIVE_EASE = "cubic-bezier(0.22, 1, 0.36, 1)"
+/** How long to wait before marking a list swap as slow when posts are still on screen (stale list stays visible). */
+const LIST_SPIN_MS = 320
 /** Cards drawn on the frame a switched list comes in (the rest stand in at their height and follow in a transition): a phone's screenful and a little more. */
 const SWAP_CARDS = 4
 /**
@@ -274,12 +276,13 @@ export function CommunityFeed({ communityId, slug, viewer, spaces, start, initia
   const afterSpinner = useRef(false)
   useEffect(() => {
     if (!waiting) return setSlow(false)
+    const empty = view.posts.length === 0
     const t = window.setTimeout(() => {
-      afterSpinner.current = true
+      afterSpinner.current = empty
       setSlow(true)
-    }, WAIT_MS)
+    }, empty ? WAIT_MS : LIST_SPIN_MS)
     return () => window.clearTimeout(t)
-  }, [waiting, key])
+  }, [waiting, key, view.posts.length])
 
   /*
     THE SWAP EASES IN. The list drawn changes (another space, another sort, or the one that was waited for): it comes in by opacity
@@ -570,13 +573,27 @@ const FeedBody = memo(
                 Try again
               </button>
             </div>
-          ) : spinner ? (
+          ) : spinner && posts.length === 0 ? (
             <PlaceSpinner compact label="Loading posts" />
           ) : (
-            <div ref={listRef} className="space-y-3" aria-busy={waiting || undefined} data-feed-list="">
-              {posts.map((p, i) =>
-                i < firstCards || whole || onScreen.current.has(p.id) ? <PostCard key={p.id} post={p} slug={slug} viewer={viewer} update={update} readOnly={readOnly} /> : <PostCardPlaceholder key={p.id} post={p} />,
-              )}
+            <div className="relative">
+              {waiting && spinner ? (
+                <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center pt-0.5" aria-hidden data-feed-loading="">
+                  <Spinner size={20} label="Loading posts" />
+                </div>
+              ) : null}
+              <div
+                ref={listRef}
+                className="space-y-3 transition-opacity duration-200 motion-reduce:transition-none"
+                style={waiting && spinner && posts.length > 0 ? { opacity: 0.88 } : undefined}
+                aria-busy={waiting || undefined}
+                data-feed-list=""
+                data-feed-list-stale={waiting && posts.length > 0 ? "" : undefined}
+              >
+                {posts.map((p, i) =>
+                  i < firstCards || whole || onScreen.current.has(p.id) ? <PostCard key={p.id} post={p} slug={slug} viewer={viewer} update={update} readOnly={readOnly} /> : <PostCardPlaceholder key={p.id} post={p} />,
+                )}
+              </div>
             </div>
           )}
 

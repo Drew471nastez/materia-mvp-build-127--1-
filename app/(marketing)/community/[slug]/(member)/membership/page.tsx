@@ -23,7 +23,7 @@ export default async function CommunityMembershipPage({ params }: { params: Prom
   const page = await memberPage(slug)
   if (page.state !== "member" || !page.community || !page.viewer?.userId) notFound()
   const { community, viewer } = page
-  const [load, askWhy] = await Promise.all([loadSalesPage(community.slug, viewer.userId), leaveReasonsReady(admin())])
+  const [load, askWhy] = await Promise.all([loadSalesPage(community.slug, viewer.userId, undefined, { light: true }), leaveReasonsReady(admin())])
   if (!load) notFound()
   const m = viewer.member
   const facts: MembershipFacts = {

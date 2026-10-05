@@ -71,7 +71,8 @@
  * nothing is redrawn in the middle of the slide.
  */
 import Link from "next/link"
-import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react"
+import { useRouter } from "next/navigation"
+import { startTransition, useCallback, useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react"
 import { createPortal } from "react-dom"
 import { Bell, Check, ChevronDown } from "lucide-react"
 
@@ -770,8 +771,19 @@ function MarkAll({ unread, onMarkAll }: { unread: number; onMarkAll: () => void 
 }
 
 function Row({ n, onOpen }: { n: InboxItem; onOpen: (n: InboxItem) => void }) {
+  const router = useRouter()
   const { lead, rest } = splitTitle(n.title, n.actor?.name)
   const when = relativeTime(n.createdAt)
+  const href = n.url
+  const prefetch = () => {
+    if (href?.startsWith("/")) router.prefetch(href)
+  }
+  const go = (e: React.MouseEvent) => {
+    onOpen(n)
+    if (!href) return
+    e.preventDefault()
+    startTransition(() => router.push(href))
+  }
   const inner = (
     <>
       <Face n={n} />
@@ -793,8 +805,16 @@ function Row({ n, onOpen }: { n: InboxItem; onOpen: (n: InboxItem) => void }) {
     </>
   )
   const cls = "flex min-h-[64px] w-full items-start gap-3 px-4 py-3 text-left outline-none transition-colors hover:bg-[#f8f9fa] focus-visible:bg-[#f4f5f7] active:bg-[#f4f5f7] sm:px-5"
-  return n.url ? (
-    <Link href={n.url} prefetch={false} onClick={() => onOpen(n)} className={cls} data-notification-row={n.read ? "read" : "unread"}>
+  return href ? (
+    <Link
+      href={href}
+      prefetch={false}
+      onPointerEnter={prefetch}
+      onFocus={prefetch}
+      onClick={go}
+      className={cls}
+      data-notification-row={n.read ? "read" : "unread"}
+    >
       {inner}
     </Link>
   ) : (

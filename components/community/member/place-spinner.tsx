@@ -25,7 +25,7 @@
 import { ActivitySpinner, SPINNER_SIZE } from "@/components/ui/activity-spinner"
 
 /** How long a wait goes unmarked: most places arrive before this. */
-export const WAIT_MS = 160
+export const WAIT_MS = 240
 
 /** One turn: the app spinner's (app/globals.css .activity-spinner, one turn a second). */
 export const SPIN_MS = 1000

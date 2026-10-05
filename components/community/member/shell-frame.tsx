@@ -317,7 +317,7 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
     community: each place's page is asked for in full, and the router keeps it for five minutes, so a click on Classroom or Members
     swaps it in on the next frame. The place on screen is not asked for again.
   */
-  const hrefs = useMemo(() => entries.map((e) => e.href), [entries])
+  const hrefs = useMemo(() => [...entries.map((e) => e.href), `/community/${community.slug}/membership`], [entries, community.slug])
   useEffect(
     () =>
       whenIdle(() => {

@@ -162,6 +162,8 @@ async function main() {
     const menu = code("components/community/member/account-menu.tsx")
     check("\"Membership\" in the \"...\" menu, after Saved posts", /if \(savedHref\) out\.push[^\n]+\n\s*if \(membershipHref\) out\.push\(\{ item: "membership", label: "Membership"/.test(menu))
     check("the frame hands the bar its address", /membershipHref: `\/community\/\$\{community\.slug\}\/membership`/.test(code("components/community/member/shell-frame.tsx")))
+    check("membership is read ahead with the other places", /\/community\/\$\{community\.slug\}\/membership`/.test(code("components/community/member/shell-frame.tsx")) && /entries\.map\(\(e\) => e\.href\), `\/community\/\$\{community\.slug\}\/membership`/.test(code("components/community/member/shell-frame.tsx")))
+    check("the membership page pulls to refresh and loads without reviews or gallery", /RouterPullToRefresh scope=\{COMMUNITY_MEMBERSHIP_REFRESH_SCOPE\}/.test(code("components/community/member/membership.tsx")) && /loadSalesPage\(community\.slug, viewer\.userId, undefined, \{ light: true \}\)/.test(code("app/(marketing)/community/[slug]/(member)/membership/page.tsx")))
     const m = code("components/community/member/membership.tsx")
     check("the four levels, saved on the press through PATCH /me", /role="radiogroup"/.test(m) && /api\(`\$\{apiBase\(communityId\)\}\/me`, \{ method: "PATCH", body: \{ notifyLevel: next \} \}\)/.test(m) && (m.match(/\{ key: "(all|important|mentions|none)"/g) || []).length === 4)
     check("leaving is the About page's confirm (it asks why)", /<JoinProvider community=\{community\} join=\{join\} askWhy=\{askWhy\}>/.test(m) && /const \{ canLeave, open, busy, error \} = useLeave\(\)/.test(m))
