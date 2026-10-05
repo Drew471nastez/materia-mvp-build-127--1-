@@ -351,6 +351,12 @@ check("a post shares the canonical address, not the host the reader happens to b
 check("the invite sheet shares the community's own address", /return `https:\/\/storelib\.com\/community\/\$\{slug\}`/.test(code("components/community/member/invite-sheet.tsx")))
 check("a creator's community list does too", /https:\/\/storelib\.com\/community\/\$\{slug\}/.test(code("components/community/creator/community-list.tsx")) && !/window\.location\.origin.*community/.test(code("components/community/creator/community-list.tsx")))
 check("the community's address on the wall is copied whole", /https:\/\/storelib\.com\$\{path\}/.test(code("components/community/member/wall.tsx")))
+check("a creator page's share copies the address it shows, storelib.com, not the host the workspace is open on",
+  /const absolute = `https:\/\/storelib\.com\$\{path\}`/.test(code("components/app/creator-page-share.tsx")) && !/window\.location\.origin/.test(code("components/app/creator-page-share.tsx")))
+check("a profile has its own Open Graph title, description and picture", (() => {
+  const seo = read("lib/profile/profile-seo.ts")
+  return /openGraph/.test(seo) && /description/.test(seo) && /images/.test(seo)
+})())
 check("a product shares getProductShareUrl's canonical address, never window.location", /getProductShareUrl\(/.test(code("components/product/share-button.tsx")) && !/window\.location\.href/.test(code("components/product/share-button.tsx")))
 check("nothing in the product shares the app's scheme or a tracking wrapper",
   ["components/community/member/post-card.tsx", "components/community/member/invite-sheet.tsx", "components/community/creator/community-list.tsx", "components/product/share-button.tsx"].every(

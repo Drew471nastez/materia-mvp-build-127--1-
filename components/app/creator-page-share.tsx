@@ -68,7 +68,13 @@ export function CreatorPageShare({
 
   const path = `/${encodeURIComponent(handle)}`
   const display = `storelib.com/${handle}`
-  const absolute = typeof window === "undefined" ? display : `${window.location.origin}${path}`
+  /*
+    THE ADDRESS COPIED IS THE ONE ON SCREEN: storelib.com, never the host
+    the workspace happens to be open on. Only a storelib.com address opens
+    the Storelib app (lib/platform/app-links.ts), and the card said one
+    thing while the clipboard held another.
+  */
+  const absolute = `https://storelib.com${path}`
 
   /* Asked for only when the card is opened: nobody needs this on page load. */
   useEffect(() => {
