@@ -226,7 +226,16 @@ export const SearchScreen = forwardRef<SearchScreenHandle, {
   return (
     <div className="flex h-full min-h-0 flex-col bg-white" data-search-screen="">
       {/* ── THE TOP: the title, the way out, the field ── */}
-      <div className="shrink-0 px-4 sm:px-6" style={{ paddingTop: "max(10px, env(safe-area-inset-top, 0px))" }}>
+      {/*
+        ABOVE THE ROWS, SO ITS SHADOW IS NEVER CUT (round 11). The field's
+        shadow reaches 20px under it (9px down, 27px of blur, 16px pulled in)
+        and the room under the form is 12px, so the rows' white pane, painted
+        after it, sliced the last 8px off flat: the clipped bottom edge the
+        owner saw on /explore/search. Lifted over the pane, the shadow fades
+        out whole across the top of the rows, and rows scrolling up pass under
+        it, as content does under any bar.
+      */}
+      <div className="relative z-[1] shrink-0 px-4 sm:px-6" style={{ paddingTop: "max(10px, env(safe-area-inset-top, 0px))" }} data-search-top="">
         <div className="mx-auto flex w-full max-w-[720px] items-center justify-between pt-2">
           <h1 id={`${ids}-title`} className="text-[30px] font-bold leading-[1.15] tracking-[-0.02em]" style={{ color: INK }}>
             Search
@@ -244,10 +253,9 @@ export const SearchScreen = forwardRef<SearchScreenHandle, {
         <form
           role="search"
           /*
-            ROOM UNDER IT FOR ITS OWN SHADOW. The field's soft shadow falls
-            about eleven pixels below it; twelve of padding here clears the
-            whole shadow before the rows' opaque pane is painted, so the
-            bottom edge of the field is never sliced flat.
+            ROOM UNDER IT. Twelve pixels between the field and the rows; the
+            field's shadow reaches further (20px) and is drawn over the rows'
+            pane, which this block sits above (see the note on it).
           */
           className="relative mx-auto mt-3 w-full max-w-[720px] pb-3"
           onSubmit={(e) => {
