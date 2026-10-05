@@ -33,6 +33,7 @@ import { relativeTime } from "@/lib/communities/format"
 import type { BadgeView, CommunityHead, InviteView, MemberPage, MemberRowView } from "./view-types"
 import { MEMBER_STATUS_FILTERS, ROLE_LABEL, type MemberStatusFilter } from "./logic"
 import { useMemberActions, type ActOnPerson } from "./member-actions"
+import { PaymentsSection } from "@/components/community/membership/refund-dialog"
 import { Dialog, Empty, FilterTabs, ListCard, ListNote, Notice, PickButton, RowMenu, SearchField, Segmented, ToolbarDivider, buttonPrimary, buttonSecondary, errorText, field, label, selectField, send, shortDate, useToast } from "./parts"
 
 const STATUS_LABEL: Record<MemberStatusFilter, string> = {
@@ -293,6 +294,9 @@ export function MembersSection(p: Props) {
       ) : null}
 
       {p.head.can.invite && invites.rows.length > 0 ? <InvitesList base={base} invites={invites} setInvites={setInvites} /> : null}
+
+      {/* Round 13 (ask 41): the community's payments, each with Refund, for the owner only (money stays with the owner). */}
+      {p.head.can.manage_pricing ? <PaymentsSection communityId={p.head.id} /> : null}
 
       <InviteDialog
         open={inviteOpen}

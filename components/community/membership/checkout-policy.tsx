@@ -36,7 +36,7 @@ export function CommunityRefundPolicy({ terms }: { terms: CommunityCheckoutTerms
     <details data-community-refund-policy="" className="group/policy rounded-[8px] border border-black/[0.06] bg-white text-[13.5px] leading-relaxed text-[#4b5563]">
       <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-3.5 font-medium text-[#1a1a2e] outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 [&::-webkit-details-marker]:hidden">
         <span className="min-w-0 truncate">Refund policy of {terms.communityName}</span>
-        <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 shrink-0 text-[#6b7280] transition-transform duration-150 group-open/policy:rotate-180 motion-reduce:transition-none">
+        <svg aria-hidden viewBox="0 0 16 16" className="h-4 w-4 shrink-0 text-[#6b7280] transition-[rotate] duration-150 group-open/policy:rotate-180 motion-reduce:transition-none">
           <path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </summary>

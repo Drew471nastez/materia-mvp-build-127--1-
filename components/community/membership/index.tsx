@@ -21,7 +21,7 @@ import { ContactOwner, MembershipRefundPolicy } from "./contact-owner"
 
 export { CancelMembership, useMembershipView } from "./cancel-membership"
 export { ContactOwner, MembershipRefundPolicy } from "./contact-owner"
-export { CommunityPayments, RefundDialog, type CommunityPaymentView, type RefundResult } from "./refund-dialog"
+export { CommunityPayments, PaymentsSection, RefundDialog, type CommunityPaymentView, type RefundResult } from "./refund-dialog"
 export { CommunityRefundPolicy, waiverSentence, type CommunityCheckoutTerms } from "./checkout-policy"
 
 export function MembershipSection({ communityId, initial, locale = "en-US" }: { communityId: string; initial?: CommunityMembershipView | null; locale?: string }) {

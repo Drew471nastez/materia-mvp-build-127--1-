@@ -656,7 +656,7 @@ export async function refundCommunityPayment(db: Db, input: RefundInput, deps: R
   if (!order.stripe_payment_intent_id) return fail(409, "not_stripe", "This payment was not made by card through Stripe. Refund it from Orders.")
   const already = order.status === "refunded" ? Math.max(0, Number(order.refund_amount_cents) || 0) : 0
   const amount = parseRefundAmount(input.amountCents, refundableCents(order))
-  if (!amount.ok) return fail(400, "bad_amount", amount.error)
+  if (amount.ok === false) return fail(400, "bad_amount", amount.error)
   const reason = cleanRefundReason(input.reason)
   const total = Math.max(0, Number(order.amount_cents) || 0)
   const full = already + amount.cents >= total

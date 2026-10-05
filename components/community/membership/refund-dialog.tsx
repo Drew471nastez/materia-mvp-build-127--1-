@@ -67,6 +67,33 @@ async function call<T>(url: string, body?: unknown): Promise<{ ok: true; data: T
   }
 }
 
+/**
+ * The owner's "Payments" block (mounted on /app's Members): the heading and
+ * the list, drawn only once there is a payment, so a free community shows
+ * nothing and nothing flashes while it loads.
+ */
+export function PaymentsSection({ communityId, locale = "en-US" }: { communityId: string; locale?: string }) {
+  const [payments, setPayments] = useState<CommunityPaymentView[] | null>(null)
+  useEffect(() => {
+    let live = true
+    void call<{ payments: CommunityPaymentView[] }>(`/api/app/community/${communityId}/payments`).then((r) => {
+      if (live && r.ok) setPayments(r.data.payments)
+    })
+    return () => {
+      live = false
+    }
+  }, [communityId])
+  if (!payments || payments.length === 0) return null
+  return (
+    <section aria-labelledby="community-payments-title" className="space-y-2.5" data-community-payments="">
+      <h2 id="community-payments-title" className="px-1 text-[15px] font-semibold text-[#1a1a2e]">
+        Payments
+      </h2>
+      <CommunityPayments communityId={communityId} locale={locale} initial={payments} />
+    </section>
+  )
+}
+
 export function CommunityPayments({ communityId, userId = null, locale = "en-US", initial = null }: { communityId: string; userId?: string | null; locale?: string; initial?: CommunityPaymentView[] | null }) {
   const [payments, setPayments] = useState<CommunityPaymentView[] | null>(initial)
   const [error, setError] = useState<string | null>(null)
