@@ -45,6 +45,7 @@ import { COMMUNITY_CATEGORIES, communityCategoryId } from "@/lib/explore/communi
 export type { SettingsTab }
 import { GamificationPanel } from "./gamification-panel"
 import { RulesEditor } from "./moderation-section"
+import { BlockedWords } from "./blocked-words"
 import { PERMISSION_GROUPS, type PermissionKey } from "@/lib/communities/permissions"
 import { REFUND_POLICY_MAX } from "@/lib/communities/membership-policy"
 import { CoverField, GalleryEditor } from "./gallery-editor"
@@ -911,6 +912,10 @@ function Policies({ head, data }: { head: CommunityHead; data: SettingsData }) {
           <h2 className="text-[15px] font-semibold text-[#1a1a2e]">Rules</h2>
         </div>
         <RulesEditor head={head} initial={data.rules} onSaved={() => {}} />
+      </section>
+      {/* The words a post or comment may not use (worker T2), beside the rules they back up; it reads its own list. */}
+      <section className={cn(card, "overflow-hidden")} data-policies-words="">
+        <BlockedWords communityId={head.id} canEdit={head.can.manage_settings === true} />
       </section>
       {data.policies ? <PolicyForm head={head} initial={data.policies} /> : null}
     </div>

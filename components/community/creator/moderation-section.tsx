@@ -40,6 +40,8 @@ import type { ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import type { AuditView, BadgeView, CommunityHead, MemberPage, MemberRowView, ReportView } from "./view-types"
 import { checkRules, moveItem, systemReportKind, type MemberChoice } from "./logic"
 import { useMemberActions, type ActOnPerson } from "./member-actions"
+import { BlockedWords } from "@/components/community/creator/blocked-words"
+import type { WordSettings } from "@/lib/communities/word-filter"
 import { Confirm, EditorFoot, Empty, FilterTabs, ListCard, Notice, RowMenu, buttonPrimary, buttonSecondary, card, errorText, field, selectField, send, shortDate, useToast } from "./parts"
 
 const REASON: Record<ReportReason, string> = { spam: "Spam", abuse: "Abuse", harassment: "Harassment", off_topic: "Off topic", illegal: "Illegal", other: "Other" }
@@ -108,6 +110,8 @@ export function auditSentence(action: string): string {
     roles_changed: "Changed what admins and moderators may do in",
     policies_changed: "Changed the refund policy or contact of",
     duplicated: "Copied the settings into",
+    refused: "Refused",
+    words_updated: "Changed the blocked words of",
   }
   const v = verbs[verb] ?? verb?.replace(/_/g, " ") ?? action
   return `${v} ${thing === "invite" && verb === "link_created" ? "an invite link" : (nouns[thing] ?? thing)}`
@@ -130,6 +134,7 @@ export function ModerationSection({
   tiers = [],
   badges = [],
   slowMode = 0,
+  blockedWords,
 }: {
   head: CommunityHead
   meId: string
@@ -142,6 +147,8 @@ export function ModerationSection({
   badges?: BadgeView[]
   /** Seconds between a member's posts, comments and chat messages (lib/communities/server/safety.ts); 0 is off. */
   slowMode?: number
+  /** The community's blocked words (worker T2, lib/communities/word-filter.ts wordSettingsOf). */
+  blockedWords?: WordSettings
 }) {
   const toast = useToast()
   const base = `/api/app/community/${head.id}`
@@ -401,6 +408,7 @@ export function ModerationSection({
         {tab === "rules" ? (
           <>
             <SlowMode head={head} initial={slowMode} />
+            <BlockedWords communityId={head.id} canEdit={head.can.manage_settings === true} initial={blockedWords} />
             <RulesEditor head={head} initial={rules} onSaved={setRuleCount} />
           </>
         ) : null}
