@@ -118,7 +118,7 @@ async function main() {
   check("its track runs from the band's top to its foot, so it holds while the cover does", /absolute inset-x-0 bottom-1 top-3/.test(hero))
   check("the clipping moved to the picture's own box, so the sticky row can stick", /h-\[157px\] sm:h-\[233px\] lg:h-\[312px\] overflow-hidden/.test(hero) && !/relative w-full overflow-hidden bg-\[#eceef1\]/.test(hero))
   check("the track takes no touches, the button does", /pointer-events-none absolute inset-x-0 bottom-1/.test(hero) && /pointer-events-auto h-10/.test(hero))
-  check("a short label on a phone, so it clears the centred photo at 320px", /<span className="sm:hidden">Edit<\/span>/.test(hero) && /<span className="hidden sm:inline">Edit profile<\/span>/.test(hero))
+  check("the full label wherever it fits, a short one only on a narrow phone", /<span className="min-\[390px\]:hidden">Edit<\/span>/.test(hero) && /<span className="hidden min-\[390px\]:inline">Edit profile<\/span>/.test(hero) && /aria-label="Edit profile"/.test(hero))
   check("and it is still called Edit profile to a screen reader", /aria-label="Edit profile"/.test(hero))
   check("the page it sits in clips sideways without becoming a scroll box", /overflow-x-clip/.test(readCode("app/account/layout.tsx")) && !/overflow-x-hidden/.test(readCode("app/account/layout.tsx")))
 

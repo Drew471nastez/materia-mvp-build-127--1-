@@ -234,7 +234,7 @@ try {
       expect(!!m.avatar && m.avatar.top < m.cover.bottom && m.avatar.bottom > m.cover.bottom && m.avatar.w === (phone ? 125 : 142), "the photo straddles the cover's edge, 125 / 142px", m.avatar)
       expect(/0px 0px 0px 2px/.test(m.ring || "") && !/0px 0px 0px 4px/.test(m.ring || ""), "  with a thin 2px ring", m.ring)
       expect(!/Joined/.test(m.heroText || ""), "no Joined line under the name", m.heroText)
-      expect(!!m.edit && /Edit profile/.test(m.edit.text) && m.edit.href === "/account/settings" && m.edit.h === 40 && m.edit.bg === "rgb(255, 255, 255)", "Edit profile is a white Storelib button, 40px, to /account/settings (\"Edit\" under 640px, so it clears the centred photo)", m.edit)
+      expect(!!m.edit && /Edit profile/.test(m.edit.text) && m.edit.href === "/account/settings" && m.edit.h === 40 && m.edit.bg === "rgb(255, 255, 255)", "Edit profile is a white Storelib button, 40px, to /account/settings (just \"Edit\" under 390px, where the centred photo leaves no room for the words)", m.edit)
       expect(!!m.edit && m.edit.top >= m.cover.top && m.edit.bottom <= m.cover.bottom, "  on the cover", { edit: m.edit, cover: m.cover })
       expect(!m.camera, "  and nothing beside it: no camera button for the cover (it is placed in Settings)", m.camera)
       /* Round 13: the button is pinned 12px under the real header at every width and holds that place while the cover is on screen (scripts/check-profile-band.mjs measures the whole travel). */

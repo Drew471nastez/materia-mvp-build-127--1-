@@ -174,8 +174,17 @@ export function ProfileHero({
                     data-profile-edit=""
                     className={cn(secondaryDepth, "pointer-events-auto h-10 rounded-[10px] px-4 text-[14px]")}
                   >
-                    <span className="sm:hidden">Edit</span>
-                    <span className="hidden sm:inline">Edit profile</span>
+                    {/*
+                      "Edit profile" everywhere it fits, which is every phone
+                      from 390px up. Narrower than that the centred 125px
+                      photo and a 106px button cannot both clear the gutters
+                      for the whole of the pinned travel: the collision is at
+                      viewport < 369px + margin, so 390 is the first common
+                      width with room to spare (about 10px at 390, 30 at 430).
+                      The accessible name is "Edit profile" at every width.
+                    */}
+                    <span className="min-[390px]:hidden">Edit</span>
+                    <span className="hidden min-[390px]:inline">Edit profile</span>
                   </Link>
                 </div>
               </div>
