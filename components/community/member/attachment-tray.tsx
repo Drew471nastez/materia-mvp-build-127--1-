@@ -30,6 +30,7 @@ import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, 
 import { flushSync } from "react-dom"
 import { AlertCircle, FileText, Loader2, Play, Plus, X } from "lucide-react"
 import { EMBED_NAMES, fileSizeLabel } from "@/lib/communities/post-media"
+import { hapticTap } from "@/lib/native-bridge"
 import type { PostMedia } from "@/lib/communities/types"
 import { ProviderMark } from "./media-providers"
 import { stopUpload } from "./media-upload"
@@ -167,7 +168,8 @@ export function AttachmentTray<T extends TrayItem>({
       }
     })
     setHeld(d.key)
-    if (d.touch && typeof navigator !== "undefined" && typeof navigator.vibrate === "function") navigator.vibrate(8)
+    /* The lift is felt as well as seen: Capacitor Haptics in the app, a short buzz on Android, nothing on an iPhone's browser. */
+    if (d.touch) hapticTap("soft")
   }
 
   function place(d: Drag, x: number, y: number) {
