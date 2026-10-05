@@ -108,9 +108,24 @@ async function recordRefund(db: Db, a: { communityId: string; ticket: TicketRow;
  * holder asks for their own, and only inside the event's refund window. The
  * amount is the ticket's own, never anything a page sent.
  */
+/* What came back, to the person it came back to: the plain refund email, or the one message that says the event is off and the money is coming. */
+async function tellTheHolder(db: Db, a: { community: CommunityRow; byHolder?: boolean; cancelled?: boolean }, ticket: TicketRow, amountCents: number, currency: string | null): Promise<void> {
+  const { ticketRefundedNotice } = await import("./jobs/event_ticket_notify")
+  await ticketRefundedNotice(db, {
+    communityId: a.community.id,
+    eventId: ticket.event_id,
+    ticketId: ticket.id,
+    userId: ticket.user_id,
+    amountCents,
+    currency,
+    byHolder: a.byHolder === true,
+    because: a.cancelled === true ? "event_cancelled" : "refund",
+  }).catch(() => "skipped" as const)
+}
+
 export async function refundTicket(
   db: Db,
-  a: { community: CommunityRow; ticketId: string; actorId: string; reason?: string | null; byHolder?: boolean },
+  a: { community: CommunityRow; ticketId: string; actorId: string; reason?: string | null; byHolder?: boolean; cancelled?: boolean },
   deps: TicketRefundDeps = defaultTicketRefundDeps(db),
 ): Promise<{ ok: true; amountCents: number; userId: string } | Refusal> {
   if (!(await ticketsReady(db))) return refuse(409, "not_set_up")
@@ -154,6 +169,7 @@ export async function refundTicket(
       reason,
       detail: { eventId: ticket.event_id, userId: ticket.user_id, amountCents: 0, byHolder: a.byHolder === true },
     })
+    await tellTheHolder(db, a, ticket, 0, ticket.currency)
     return { ok: true, amountCents: 0, userId: ticket.user_id }
   }
 
@@ -201,6 +217,7 @@ export async function refundTicket(
     reason,
     detail: { eventId: ticket.event_id, userId: ticket.user_id, amountCents, currency, refundId: refund.id, byHolder: a.byHolder === true, at: nowIso() },
   })
+  await tellTheHolder(db, a, ticket, amountCents, currency)
   return { ok: true, amountCents, userId: ticket.user_id }
 }
 
@@ -244,7 +261,7 @@ export async function refundEveryTicket(
     if (ids.length === 0) break
     for (const id of ids) {
       tried.add(id)
-      const done = await refundTicket(db, { community: a.community, ticketId: id, actorId: a.actorId, reason: a.reason ?? "the event was cancelled" }, deps)
+      const done = await refundTicket(db, { community: a.community, ticketId: id, actorId: a.actorId, reason: a.reason ?? "the event was cancelled", cancelled: true }, deps)
       if (done.ok) {
         out.refunded += 1
         out.totalCents += done.amountCents

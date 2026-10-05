@@ -205,6 +205,19 @@ export async function grantFromSession(db: Db, session: Stripe.Checkout.Session,
     platformFeeCents: Number.isFinite(fee) ? fee : null,
   })
   if (done.ok === false) return { ok: false, status: done.status, error: done.error }
+  /* The receipt and the "you're going" row, once per ticket: the webhook and the sheet both land here, and only the one that created it tells anybody. */
+  if (done.created) {
+    const { ticketPaidNotice } = await import("./jobs/event_ticket_notify")
+    await ticketPaidNotice(db, {
+      communityId: m.community_id,
+      eventId: event.id,
+      ticketId: done.ticketId,
+      userId: m.buyer_id,
+      amountCents: typeof session.amount_total === "number" ? session.amount_total : null,
+      currency: session.currency ?? null,
+      source: "purchase",
+    }).catch(() => "skipped" as const)
+  }
   return { ok: true, created: done.created, eventId: event.id, ticketId: done.ticketId }
 }
 

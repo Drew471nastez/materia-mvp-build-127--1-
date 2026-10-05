@@ -18,6 +18,11 @@
  * a wait is the community's own spinner rather than a generic one, and a
  * view with nothing in it is the community's empty card (member/
  * place-empty.tsx) with, for the people who run events, Schedule an event.
+ *
+ * Round 14, MONEY: an event with a price says it once, in ink, where the
+ * other facts are; a free event says nothing, exactly as before. A seat
+ * already bought reads Going, the same mark a free event's answer gets, and
+ * a full paid event reads Sold out.
  */
 import Link from "next/link"
 import { useCallback, useEffect, useMemo, useState } from "react"
@@ -26,6 +31,7 @@ import { CARD, SECONDARY } from "@/components/library/library-ui"
 import { PlaceEmpty } from "@/components/community/member/place-empty"
 import { Spinner } from "@/components/community/member/place-spinner"
 import { eventDateBadge } from "@/lib/communities/format"
+import { eventPriceLabel } from "@/lib/communities/event-tickets"
 import { dayKey, goingLabel, isLive, monthGrid, monthKey, monthTitle, type EventCardView } from "./model"
 import { clockIn, useViewerZone } from "./use-zone"
 
@@ -182,6 +188,11 @@ function EventRow({ event, zone, past }: { event: EventCardView; zone: string | 
   const badge = eventDateBadge(event.startsAt, zone)
   const live = !event.cancelled && isLive(event)
   const end = event.endsAt ? ` to ${clockIn(event.endsAt, zone)}` : ""
+  /* A free event says nothing about money; a paid one says the price once, until the seat is theirs. */
+  const hasTicket = event.ticket?.status === "paid"
+  const price = event.priceCents && !hasTicket && !past && !event.cancelled ? eventPriceLabel(event.priceCents, event.currency) : null
+  const soldOut = event.soldOut && !hasTicket && !past && !event.cancelled
+  const going = hasTicket || event.myRsvp === "going"
   return (
     <li data-event-row={event.id}>
       <Link href={event.href} className="flex items-start gap-3.5 px-3.5 py-3.5 transition-colors hover:bg-[#fafafb] focus-visible:bg-[#fafafb] focus-visible:outline-none sm:gap-4 sm:px-4">
@@ -207,15 +218,24 @@ function EventRow({ event, zone, past }: { event: EventCardView; zone: string | 
           <span className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] text-[#6b7280]">
             <span className="inline-flex min-w-0 items-center gap-1">
               {event.online ? <Video className="h-3.5 w-3.5 shrink-0" aria-hidden /> : <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden />}
-              <span className="truncate">{event.online ? "Online" : event.location}</span>
+              <span className="truncate">{event.online ? "Online" : event.location || event.locationHint || "In person"}</span>
             </span>
-            {!past && !event.cancelled && (event.goingCount > 0 || event.capacity) ? <span className="tabular-nums">{goingLabel(event.goingCount, event.capacity)}</span> : null}
+            {!past && !event.cancelled && !soldOut && (event.goingCount > 0 || event.capacity) ? <span className="tabular-nums">{goingLabel(event.goingCount, event.capacity)}</span> : null}
+            {soldOut ? (
+              <span className="font-medium text-[#4b5563]" data-event-sold-out="">
+                Sold out
+              </span>
+            ) : price ? (
+              <span className="font-semibold tabular-nums text-[#1a1a2e]" data-event-price="">
+                {price}
+              </span>
+            ) : null}
             {event.locked ? (
               <span className="inline-flex items-center gap-1 font-medium text-[#4b5563]" data-event-lock>
                 <Lock className="h-3.5 w-3.5" aria-hidden />
                 {event.locked.label}
               </span>
-            ) : event.myRsvp === "going" && !past ? (
+            ) : going && !past ? (
               <span className="inline-flex items-center gap-1 font-semibold text-[#1a1a2e]" data-my-rsvp="going">
                 <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden />
                 Going
@@ -332,24 +352,35 @@ function MonthCalendar({ communityId, initial, zone }: { communityId: string; in
                 {c.day}
               </span>
               <ul className="space-y-1">
-                {events.slice(0, PER_DAY).map((e) => (
+                {events.slice(0, PER_DAY).map((e) => {
+                  const cellPrice = e.priceCents && e.ticket?.status !== "paid" && !e.cancelled ? eventPriceLabel(e.priceCents, e.currency) : null
+                  return (
                   <li key={e.id}>
                     <Link
                       href={e.href}
-                      title={e.title}
+                      title={`${e.title} · ${clockIn(e.startsAt, zone)}${cellPrice ? ` · ${cellPrice}` : ""}`}
                       data-calendar-event={e.id}
                       className={`block truncate rounded-md px-1.5 py-1 text-[12px] leading-4 transition-colors ${
                         e.cancelled
                           ? "bg-[#f8f9fa] text-[#9ca3af] line-through"
-                          : e.myRsvp === "going"
+                          : e.myRsvp === "going" || e.ticket?.status === "paid"
                             ? "bg-[#1a1a2e] text-white hover:bg-[#262640]"
                             : "bg-[#f1f2f4] text-[#1a1a2e] hover:bg-[#e7e9ed]"
                       }`}
                     >
-                      <span className="tabular-nums opacity-70">{clockIn(e.startsAt, zone).replace(":00 ", " ")}</span> {e.title}
+                      {/* A cell is a glance: the price is the fact that decides a paid event, so it stands where the time would. */}
+                      {cellPrice ? (
+                        <span className="tabular-nums opacity-70" data-calendar-price="">
+                          {cellPrice}
+                        </span>
+                      ) : (
+                        <span className="tabular-nums opacity-70">{clockIn(e.startsAt, zone).replace(":00 ", " ")}</span>
+                      )}{" "}
+                      {e.title}
                     </Link>
                   </li>
-                ))}
+                  )
+                })}
                 {events.length > PER_DAY ? <li className="px-1.5 text-[12px] text-[#6b7280]">{events.length - PER_DAY} more</li> : null}
               </ul>
             </div>

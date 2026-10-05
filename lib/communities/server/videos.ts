@@ -42,7 +42,7 @@ import { communityMediaPath, isCommunityMediaPath } from "@/lib/video/storage"
 import { MEMBER_VIDEO_MAX_BYTES, PLAYBACK_SECONDS, STAFF_VIDEO_MAX_BYTES, cleanDimension, cleanDuration, type UploadTicket, type VideoPlayback, type VideoProviderName, type VideoStatusView } from "@/lib/video/types"
 import { evaluateAccess, parseAccessRule } from "../access"
 import { meetsRole } from "../permissions"
-import type { CommunityRow, MediaVideoRow } from "../types"
+import type { CommunityRow, EventRow, MediaVideoRow } from "../types"
 import type { Viewer } from "./context"
 import { isUniqueViolation, missing, nowIso, reasonOf, type Db } from "./db"
 import { queueJob } from "./notify"
@@ -266,14 +266,17 @@ export async function videoAccess(db: Db, community: CommunityRow, viewer: Viewe
   const accessViewer = { role: viewer.role, active: viewer.active, tierId: viewer.tierId, ownedProductIds: viewer.ownedProductIds, level: viewer.level }
   if (community.cover_video_id === video.id) return { ok: true, use: "cover" }
 
+  const { eventColumns, eventDetailsOpen } = await import("./events")
   const { data: events } = await db
     .from("community_events")
-    .select("id, access, starts_at, ends_at, status")
+    .select(await eventColumns(db))
     .eq("community_id", community.id)
     .eq("replay_video_id", video.id)
     .limit(5)
-  for (const e of (events as { access: unknown; starts_at: string; ends_at: string | null; status: string }[] | null) ?? []) {
+  for (const e of (events as EventRow[] | null) ?? []) {
     if (!evaluateAccess(parseAccessRule(e.access), accessViewer).ok) continue
+    /* A PAID EVENT'S REPLAY IS FOR ITS TICKET HOLDERS: the same gate the event page applies (round 14). */
+    if (!(await eventDetailsOpen(db, e, viewer, now))) return { ok: false, reason: "forbidden" }
     const over = Date.parse(e.ends_at ?? e.starts_at) + (e.ends_at ? 0 : 60 * 60_000)
     if (now < over) return { ok: false, reason: "not_yet" }
     return { ok: true, use: "event" }

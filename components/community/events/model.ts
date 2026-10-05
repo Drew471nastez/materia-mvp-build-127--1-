@@ -9,8 +9,15 @@
  * Every time is the stored instant (timestamptz); a page formats it in the
  * viewer's own zone. The event's own zone is the creator's choice and is
  * shown beside it only when it differs.
+ *
+ * Round 14 added money: an event may carry a price, and then a ticket is
+ * what opens its details. The rules themselves live in
+ * lib/communities/event-tickets.ts; the views below only carry the figures
+ * and the one gate answer the server worked out.
  */
 import type { EventKind, RsvpStatus } from "@/lib/communities/types"
+import type { EventPricing, TicketGate, TicketView } from "@/lib/communities/event-tickets"
+import { htmlToPlainText } from "@/lib/rich-text/html"
 import type { CourseLock } from "../classroom/model"
 
 /** The meeting link opens this long before the start. */
@@ -31,7 +38,10 @@ export interface EventCardView {
   startsAt: string
   endsAt: string | null
   timezone: string
+  /** The exact address. Null for a paid event this viewer holds no ticket for. */
   location: string | null
+  /** A town for a paid event nobody has a ticket for, when the address names one. */
+  locationHint: string | null
   online: boolean
   capacity: number | null
   goingCount: number
@@ -40,10 +50,21 @@ export interface EventCardView {
   locked: CourseLock | null
   hasReplay: boolean
   href: string
+  /** Null or 0 is a free event, as every event was before round 14. */
+  priceCents: number | null
+  currency: string | null
+  /** This viewer's own ticket, when they hold one. */
+  ticket: TicketView | null
+  /** Seats still for sale, from the capacity and the tickets sold; null when the event has no capacity. */
+  seatsLeft: number | null
+  soldOut: boolean
 }
 
 export interface EventDetailView extends EventCardView {
-  /** Sanitized html. */
+  /**
+   * Sanitized html, or, for a paid event this viewer holds no ticket for,
+   * a short plain teaser of it (the locked rule: see eventTeaser).
+   */
   description: string | null
   host: EventHost | null
   /** Only for a member the rule lets in, and only from JOIN_OPENS_MS before the start until it ends. */
@@ -57,8 +78,45 @@ export interface EventDetailView extends EventCardView {
   /** A few of the people going (real rows) for the avatars row. */
   attendees: EventHost[]
   googleUrl: string
-  icsUrl: string
+  /** Null for a paid event this viewer holds no ticket for: the .ics route refuses them too. */
+  icsUrl: string | null
   pageUrl: string
+  /** What this event costs and how its sales and refunds work. */
+  pricing: EventPricing
+  /** The one answer that decides whether the details below are filled in. */
+  gate: TicketGate
+  ticketsSold: number
+  /** This event's refund words, or the community's when it has none. */
+  refundPolicyText: string | null
+}
+
+/** How much of a paid event's description a reader without a ticket sees. */
+export const TEASER_CHARS = 280
+
+/**
+ * A paid event's description for somebody who holds no ticket: plain words,
+ * cut at a sentence or a word near TEASER_CHARS, with no html and so no
+ * links or addresses hidden inside it.
+ */
+export function eventTeaser(html: string | null | undefined, max: number = TEASER_CHARS): string | null {
+  const text = htmlToPlainText(html).replace(/\s+/g, " ").trim()
+  if (!text) return null
+  if (text.length <= max) return text
+  const cut = text.slice(0, max)
+  const stop = Math.max(cut.lastIndexOf(". "), cut.lastIndexOf("! "), cut.lastIndexOf("? "))
+  if (stop > max * 0.5) return cut.slice(0, stop + 1)
+  const space = cut.lastIndexOf(" ")
+  return `${(space > max * 0.5 ? cut.slice(0, space) : cut).replace(/[\s,;:]+$/, "")}...`
+}
+
+/** "Thursday, October 8, 6:00 PM" for the top of the checkout sheet. */
+export function whenLine(iso: string, timeZone?: string): string {
+  const t = Date.parse(iso)
+  try {
+    return new Intl.DateTimeFormat("en-US", { weekday: "long", month: "long", day: "numeric", hour: "numeric", minute: "2-digit", timeZone }).format(t)
+  } catch {
+    return new Intl.DateTimeFormat("en-US", { weekday: "long", month: "long", day: "numeric", hour: "numeric", minute: "2-digit" }).format(t)
+  }
 }
 
 export function endOf(e: { startsAt: string; endsAt: string | null }): number {
