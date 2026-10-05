@@ -341,7 +341,7 @@ export default function (root) {
 ```
 
 Capabilities are declared in the schema and checked at compile time:
-`navigation`, `commerce`, `analytics`, `forms`, `timers`, `embed`. A script
+`navigation`, `commerce`, `analytics`, `forms`, `timers`, `embed`, `database`. A script
 that calls something it has not declared does not compile.
 
 Most sections need no script. `<details>` and `<summary>` give an accordion

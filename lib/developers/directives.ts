@@ -85,6 +85,7 @@ export const CAPABILITY_DOCS: Record<string, { grants: string; now: boolean }> =
   analytics: { grants: "`storelib.analytics.track(event, props)`. Declaring it is accepted; the function is not on `storelib` yet.", now: false },
   forms: { grants: "`storelib.forms.submit(name, fields)`, not on `storelib` yet. A sign-up form needs no script and no capability at all; see Forms.", now: false },
   timers: { grants: "The names `setTimeout`, `setInterval` and `requestAnimationFrame`.", now: true },
+  database: { grants: "`storelib.database.select(table, query)`, `.insert(table, row)` and `.rpc(fn, args)` against the site's own Supabase, once its owner connects one in Website Settings › Connections. Public key only; the project's Row Level Security decides what it can reach. Absent when nothing is connected.", now: true },
 }
 
 export const LIMIT_DOCS: Record<keyof typeof LIMITS, string> = {

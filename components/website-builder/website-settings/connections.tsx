@@ -5,6 +5,7 @@ import { AgentConnectionRow, useAgentConnections } from "@/components/website-bu
 import { GitHubSyncPanel } from "@/components/website-builder/github-sync-panel"
 import { InlineButton } from "./connection-row"
 import { OwnAiSettings } from "./own-ai"
+import { OwnDatabaseSettings } from "./own-database"
 import { Card, Lead, PageTitle, Row, buttonClass } from "./parts"
 import type { SettingsContext } from "./types"
 
@@ -91,6 +92,9 @@ export function ConnectionsSettings({ ctx }: { ctx: SettingsContext }) {
           </a>
         </Row>
       </Card>
+
+      {/* Advanced and opt-in: a creator's own Supabase, for sections that declare it. */}
+      <OwnDatabaseSettings ctx={ctx} />
     </>
   )
 }

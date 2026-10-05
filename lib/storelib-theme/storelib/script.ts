@@ -52,7 +52,7 @@ export const FORBIDDEN_IDENTIFIERS = [
 /** The names the script IS given. Anything else free at the top level is a mistake. */
 export const SCRIPT_CONTEXT = ["root", "settings", "blocks", "theme", "page", "storelib"] as const
 
-export const CAPABILITIES = ["navigation", "commerce", "analytics", "forms", "timers", "embed"] as const
+export const CAPABILITIES = ["navigation", "commerce", "analytics", "forms", "timers", "embed", "database"] as const
 export type Capability = (typeof CAPABILITIES)[number]
 
 /** A capability unlocks a name. `timers` is the one that returns a browser API. */
@@ -64,6 +64,8 @@ const CAPABILITY_UNLOCKS: Record<Capability, readonly string[]> = {
   timers: ["setTimeout", "setInterval", "requestAnimationFrame"],
   /** Markup, not script: it lets the template open one allow-listed <iframe>. */
   embed: [],
+  /** `storelib.database`, the site's own Supabase when one is connected: no browser API of its own. */
+  database: [],
 }
 
 export interface ScriptOptions {

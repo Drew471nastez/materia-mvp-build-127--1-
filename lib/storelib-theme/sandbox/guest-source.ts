@@ -184,7 +184,56 @@ export const GUEST_SOURCE = `
    * The one thing the page does that the copy cannot: it is the copy that
    * is scrolled, so scrolling is asked for rather than observed.
    */
-  function storelibFor(section, capabilities, inEditor) {
+  /*
+    storelib.database: the site's own Supabase, for a section that declared
+    "database" on a site that connected one (lib/website-builder/own-database.ts).
+    Only that project, only its REST and RPC, only with its public key: the
+    script cannot name a host, and fetch itself is not a name it is given.
+  */
+  var NAME = /^[A-Za-z_][A-Za-z0-9_]{0,62}$/;
+  function databaseFor(db) {
+    function call(path, init) {
+      return fetch(db.url + path, init).then(function (res) {
+        return res.text().then(function (text) {
+          var body = null;
+          try { body = text ? JSON.parse(text) : null; } catch (e) { body = text; }
+          if (!res.ok) {
+            var msg = body && typeof body === "object" && body.message ? body.message : "The database answered " + res.status;
+            throw new Error(String(msg));
+          }
+          return body;
+        });
+      });
+    }
+    function headers(extra) {
+      var h = { apikey: db.key, Authorization: "Bearer " + db.key, "Content-Type": "application/json", Accept: "application/json" };
+      for (var k in extra) h[k] = extra[k];
+      return h;
+    }
+    function query(q) {
+      if (q === undefined || q === null || q === "") return "";
+      q = String(q);
+      if (q.length > 1000 || /[#\\s]/.test(q)) throw new Error("A query is the part after ? in a Supabase REST address, such as select=name,score&order=score.desc&limit=10.");
+      return "?" + q.replace(/^\\?/, "");
+    }
+    function name(n, what) {
+      if (!NAME.test(String(n))) throw new Error("That is not a " + what + " name.");
+      return String(n);
+    }
+    return Object.freeze({
+      select: function (table, q) {
+        return call("/rest/v1/" + name(table, "table") + query(q), { method: "GET", headers: headers({}) });
+      },
+      insert: function (table, row) {
+        return call("/rest/v1/" + name(table, "table"), { method: "POST", headers: headers({ Prefer: "return=representation" }), body: JSON.stringify(row) });
+      },
+      rpc: function (fn, args) {
+        return call("/rest/v1/rpc/" + name(fn, "function"), { method: "POST", headers: headers({}), body: JSON.stringify(args || {}) });
+      },
+    });
+  }
+
+  function storelibFor(section, capabilities, inEditor, database) {
     var api = {
       capabilities: capabilities.slice(),
       inEditor: inEditor,
@@ -199,6 +248,9 @@ export const GUEST_SOURCE = `
        before it acts: a message is not a permission. */
     if (capabilities.indexOf("navigation") !== -1) {
       api.navigate = function (path) { post({ k: "navigate", id: section.id, path: String(path) }); };
+    }
+    if (capabilities.indexOf("database") !== -1 && database && typeof database.url === "string" && typeof database.key === "string") {
+      api.database = databaseFor(database);
     }
     return Object.freeze(api);
   }
@@ -227,7 +279,7 @@ export const GUEST_SOURCE = `
       return;
     }
     try {
-      fn(section.rootEl, msg.settings, msg.blocks, msg.theme, msg.page, storelibFor(section, msg.capabilities || [], !!msg.inEditor));
+      fn(section.rootEl, msg.settings, msg.blocks, msg.theme, msg.page, storelibFor(section, msg.capabilities || [], !!msg.inEditor, msg.database || null));
     } catch (e) {
       post({ k: "error", id: msg.id, message: (e && e.message) || "The script stopped with an error." });
     }

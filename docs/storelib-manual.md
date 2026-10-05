@@ -1240,10 +1240,26 @@ Six, declared in the schema and shown in the editor.
 | `forms` | Accepted. `storelib.forms.submit` is not on `storelib` yet; a sign-up form needs no script. |
 | `timers` | Working `setTimeout`, `setInterval` and `requestAnimationFrame`. Not `queueMicrotask`, which stays out. |
 | `embed` | Markup rather than script: it lets the template open one allow-listed iframe. |
+| `database` | `storelib.database`, when the site's owner connected their own Supabase in Website Settings › Connections: `select(table, query)`, `insert(table, row)` and `rpc(fn, args)`, each a promise of the JSON Supabase answers. Only the project URL and its public anon or publishable key are ever stored or handed over; the project's Row Level Security decides what they can read and write. On a site with nothing connected, `storelib.database` is absent. |
 
 An unknown capability is refused with the list of real ones. Everything a
-capability exposes goes to Storelib's own endpoints for this site. A section
-never gets an arbitrary host.
+capability exposes goes to Storelib's own endpoints for this site, or, for
+`database`, to the one Supabase project the site's owner connected. A
+section never gets an arbitrary host.
+
+```js
+// "capabilities": ["database"], a list with <li data-row hidden> placeholders
+if (storelib.database) {
+  storelib.database.select("scores", "select=name,score&order=score.desc&limit=5").then(function (rows) {
+    var slots = root.querySelectorAll("[data-row]")
+    rows.forEach(function (row, i) {
+      if (!slots[i]) return
+      slots[i].textContent = row.name + " " + row.score
+      slots[i].hidden = false
+    })
+  })
+}
+```
 
 `embed` is the one capability that changes what the template may contain:
 

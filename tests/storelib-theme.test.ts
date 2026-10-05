@@ -211,7 +211,7 @@ section("Scripts")
   const timer = checkScript(`setTimeout(() => 1, 10)`)
   const timerOk = checkScript(`setTimeout(() => 1, 10)`, { capabilities: ["timers"] })
   check("timers need the capability, and the capability grants them", timer.ok === false && timerOk.ok === true && timerOk.value.capabilities.includes("timers"))
-  const badCap = checkScript(`1`, { capabilities: ["database"] })
+  const badCap = checkScript(`1`, { capabilities: ["telepathy"] })
   check("an unknown capability is refused", badCap.ok === false && /not a capability/.test(badCap.errors[0].message))
 }
 

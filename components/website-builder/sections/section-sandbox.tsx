@@ -36,6 +36,7 @@ import {
   type Patch,
 } from "@/lib/storelib-theme/sandbox/protocol"
 import { GUEST_SOURCE } from "@/lib/storelib-theme/sandbox/guest-source"
+import { ownDatabase } from "@/lib/website-builder/own-database"
 
 export interface SandboxSection {
   id: string
@@ -221,6 +222,8 @@ export function SectionSandboxProvider({
         page: section.page,
         capabilities: section.capabilities,
         inEditor,
+        /* Decided here, not by the section: only a declared capability and a public key get through. */
+        database: section.capabilities.includes("database") ? ownDatabase(section.theme) : null,
       })
 
       return () => {

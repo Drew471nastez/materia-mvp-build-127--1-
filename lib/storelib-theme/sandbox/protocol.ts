@@ -99,6 +99,8 @@ export type HostMessage =
       capabilities: string[]
       /** True in the builder's canvas, so a script can behave while designing. */
       inEditor: boolean
+      /** The site's own Supabase, public key only, for a section that declared "database" (lib/website-builder/own-database.ts). */
+      database?: { url: string; key: string } | null
     }
   | { k: "stop"; id: string }
   | { k: "event"; id: string; i: number; type: string; detail: Record<string, unknown> }

@@ -224,6 +224,7 @@ const SUITES = [
   "tests/native-google-sign-in.test.ts",
   "tests/editor-feel.test.ts",
   "tests/code-backups.test.ts",
+  "tests/own-database.test.ts",
   "tests/builder-click-edit.test.ts",
   "tests/policy-editing.test.ts",
   "tests/web-vitals.test.ts",
