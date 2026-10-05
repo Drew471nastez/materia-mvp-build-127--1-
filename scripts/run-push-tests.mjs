@@ -410,6 +410,7 @@ const SUITES = [
   "tests/communities-security.test.ts",
   "tests/communities-member.test.ts",
   "tests/communities-classroom.test.ts",
+  "tests/communities-learn.test.ts",
   "tests/communities-creator.test.ts",
   "tests/communities-shell.test.ts",
   "tests/communities-growth.test.ts",
