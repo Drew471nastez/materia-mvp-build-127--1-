@@ -211,7 +211,7 @@ check("the wishlist counts only what is still on sale", /\.eq\("products\.status
 check("log out here or everywhere, and the header forgets the session at once", /signOut\(\{ scope \}\)/.test(account) && /clearAuthSnapshot\(\)/.test(account))
 check("deleting is the existing flow: a code, then the code", /action: "send-code"/.test(account) && /action: "verify", code/.test(account))
 check("no em dashes in what a person reads", ["components/account/account-settings.tsx", "components/account/account-hub.tsx", "components/nav/buyer-tab-bar.tsx", "components/nav/buyer-tab-icons.tsx", "components/search/search-screen.tsx", "components/search/search-overlay.tsx"].every((f) => !/\u2014/.test(read(f))))
-check("/library/settings is the profile's Settings now", legacyLibraryTarget("/library/settings") === "/account/settings" && !existsSync(join(process.cwd(), "app/library/settings")))
+check("/library/settings is the profile's Settings now", legacyLibraryTarget("/library/settings") === "/account/settings" && !existsSync(join(process.cwd(), "app/library/settings")) && !existsSync(join(process.cwd(), "app/account/library/settings")))
 
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) process.exit(1)

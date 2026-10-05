@@ -90,7 +90,7 @@ console.log("\n2. One profile photo")
 
   const settings = readCode("app/app/settings/_server.ts")
   check("Settings reads no other photo to fall back to", !/googleAvatarUrl|storeBuilderAvatarUrl|onepageAvatarUrl/.test(settings + form) && /useShellAvatar\(profile\.avatar_url\) \?\? ""/.test(form))
-  for (const f of ["app/library/page.tsx", "app/library/settings/page.tsx", "components/marketing/header.tsx", "components/marketing/header-client.tsx", "components/platform/platform-header-client.tsx"]) {
+  for (const f of ["app/account/library/page.tsx", "app/account/library/settings/page.tsx", "components/marketing/header.tsx", "components/marketing/header-client.tsx", "components/platform/platform-header-client.tsx"]) {
     check(`${f}: no Google fallback either`, !/user_metadata\??\.(avatar_url|picture)|googleAvatar/.test(readCode(f)))
   }
 }

@@ -51,8 +51,9 @@ async function membershipPrices() {
     ["app/(marketing)/p/[slug]/page.tsx", /price_interval: membershipInfo\?\.interval/],
     ["components/store-builder/sticky-add-to-cart.tsx", /barPriceText\(product\)/],
     ["lib/nav/quick-search.ts", /withPriceIntervals\(client, found\)/],
-    ["components/platform/platform-header-client.tsx", /listPrice\(product\)\.main/],
-    ["components/profile/member-profile-page.tsx", /listPrice\(\{[\s\S]*?\}\)[\s\S]*\{price\.main\}/],
+    /* The header's results draw the price quick-search already worked out (listPrice, above); the drawing moved out of the header itself. */
+    ["components/platform/header-search-results.tsx", /\{hit\.price\}/],
+    /* A person without a store has no products to price (components/profile/member-profile-page.tsx passes products={[]}); a creator's are the storefront card's, already checked above. */
     ["components/explore/featured-banner-carousel.tsx", /perInterval\(/],
     ["components/onepage/public-onepage.tsx", /perInterval\(/],
     ["lib/onepage/live-products.ts", /product_price_interval/],
@@ -87,10 +88,10 @@ console.log("\nOne heading on every library tab (scripts/check-course-player.mjs
 {
   const courses = code("components/courses/courses-index.tsx")
   check("the courses list draws no heading of its own under Library", !/<h1\b|<h2\b/.test(courses))
-  check("and its skeleton draws no heading block either", !/h-7 w-32/.test(code("app/library/courses/loading.tsx")))
+  check("and its skeleton draws no heading block either", !/h-7 w-32/.test(code("app/account/library/courses/loading.tsx")))
   const wishlist = code("components/wishlist/wishlist-content.tsx")
   check("the library's wishlist has no heading of its own either", !/<h1\b/.test(wishlist) && !/Nothing saved yet<\/h2>/.test(wishlist))
-  check("and waits in its own shape, not a spinner or a header card", /<WishlistSkeleton \/>/.test(wishlist) && !/animate-spin/.test(wishlist) && !/Header card skeleton/.test(read("app/library/wishlist/loading.tsx")))
+  check("and waits in its own shape, not a spinner or a header card", /<WishlistSkeleton \/>/.test(wishlist) && !/animate-spin/.test(wishlist) && !/Header card skeleton/.test(read("app/account/library/wishlist/loading.tsx")))
 }
 
 console.log("\nSMALL really is 36px (scripts/check-buyer-library.mjs measures it)")

@@ -140,7 +140,7 @@ function main() {
     const css = read("app/globals.css")
     check("nothing inside the copy can be reached or moves on its own", /\[data-leaving-still\],\n\[data-leaving-still\] \* \{\s*pointer-events: none !important;/.test(css) && !/data-checkout-motion/.test(css))
     /* The buyer's loading line was mounted on the marketing pages alone, so a slow way back off the checkout said nothing at all. */
-    check("and a back off the checkout that has to be fetched says so", /<RouteLoadingBar \/>/.test(read("app/checkout/page.tsx")) && /<RouteLoadingBar \/>/.test(read("app/library/layout.tsx")))
+    check("and a back off the checkout that has to be fetched says so", /<RouteLoadingBar \/>/.test(read("app/checkout/page.tsx")) && /<RouteLoadingBar \/>/.test(read("app/account/library/layout.tsx")))
     check("Back is a quiet rounded square, not a raised circle", /data-back-face=""\s*className=\{cn\(\s*"relative grid h-9 w-9 place-items-center rounded-\[10px\]/.test(client))
     check("a Back through another document is the browser's own, watched the same way", /if \(cameFrom !== null && cameFrom === target && window\.history\.length > 1\) \{\s*leaveWithFade\(\(\) => backThen\(\(\) => window\.location\.replace\(productUrl\)\)\)/.test(client))
   }
