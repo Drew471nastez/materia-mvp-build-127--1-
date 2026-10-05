@@ -29,7 +29,7 @@ import type { ShellCommunity, TopBarData, WallCardData } from "@/components/comm
 import { WallCommunityCard } from "@/components/community/member/wall"
 import { useLightChrome } from "@/lib/ui/light-chrome"
 import { useCommunityTheme } from "@/components/community/use-community-theme"
-import "../member/community-theme.css"
+import "../community-theme.css"
 import { useCommunityLanding } from "@/components/community/member/landing"
 import { CommunityPullRefresh } from "@/components/community/member/community-pull-refresh"
 import { CommunityFixedFootWatch } from "@/components/community/fixed-foot-watch"

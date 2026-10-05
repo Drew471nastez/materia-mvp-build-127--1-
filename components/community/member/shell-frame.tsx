@@ -90,7 +90,7 @@ import { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, u
 import type { ViewerView } from "@/lib/communities/types"
 import { useLightChrome } from "@/lib/ui/light-chrome"
 import { useCommunityTheme } from "@/components/community/use-community-theme"
-import "./community-theme.css"
+import "../community-theme.css"
 import { MessagesPanel, MESSAGES_EVENT, useUnreadMessages } from "./messages"
 import { FULL_ON_HOVER, navEntries, sectionFromPath, tabFor, TABS_STILL_MS, tabsFollowTarget, type NavEntry, type TabKey } from "./nav"
 import { PersonCardLayer } from "./person-card"

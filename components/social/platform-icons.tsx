@@ -23,10 +23,10 @@
  */
 
 import type { IconType } from "react-icons"
+import { FaLinkedin } from "react-icons/fa6"
 import {
   SiFacebook,
   SiInstagram,
-  SiLinkedin,
   SiSpotify,
   SiTiktok,
   SiTwitch,
@@ -77,7 +77,7 @@ export const SOCIAL_ICONS: Record<SocialPlatformKey, PlatformIcon> = {
   instagram: wrap(SiInstagram),
   facebook: wrap(SiFacebook),
   youtube: wrap(SiYoutube),
-  linkedin: wrap(SiLinkedin),
+  linkedin: wrap(FaLinkedin),
   twitter: wrap(SiX),
   twitch: wrap(SiTwitch),
   spotify: wrap(SiSpotify),

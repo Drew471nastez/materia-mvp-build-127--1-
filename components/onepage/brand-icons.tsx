@@ -37,6 +37,7 @@
 
 import type React from "react"
 import type { IconType } from "react-icons"
+import { FaLinkedin } from "react-icons/fa6"
 import {
   SiApplemusic,
   SiCalendly,
@@ -45,7 +46,6 @@ import {
   SiGithub,
   SiInstagram,
   SiKick,
-  SiLinkedin,
   SiNotion,
   SiPatreon,
   SiPinterest,
@@ -120,7 +120,7 @@ const SOCIAL_MARKS: Record<OnePageSocialPlatform, Drawing> = {
   discord: { brand: SiDiscord },
   github: { brand: SiGithub },
   kick: { brand: SiKick },
-  linkedin: { brand: SiLinkedin },
+  linkedin: { brand: FaLinkedin },
   patreon: { brand: SiPatreon },
   pinterest: { brand: SiPinterest },
   soundcloud: { brand: SiSoundcloud },
@@ -140,7 +140,7 @@ const LINK_BRAND_MARKS: Record<LinkBrandIcon, IconType> = {
   tiktok: SiTiktok,
   spotify: SiSpotify,
   facebook: SiFacebook,
-  linkedin: SiLinkedin,
+  linkedin: FaLinkedin,
   twitch: SiTwitch,
   discord: SiDiscord,
   telegram: SiTelegram,
