@@ -191,10 +191,10 @@ export const isNativePlatform = () => false
         dots: document.querySelectorAll("[data-benefit] [data-check-dot]").length,
         benefits: document.querySelectorAll("[data-benefit]").length,
         dot: ds ? { w: Math.round(dot.getBoundingClientRect().width), radius: ds.borderRadius, bg: ds.backgroundColor, shadow: ds.boxShadow } : null,
-        figures: [...document.querySelectorAll("[data-community-stats] [data-stat]")].map((s) => `${s.getAttribute("data-stat")}=${s.querySelector("dd").textContent}`),
-        panelShadow: getComputedStyle(document.querySelector("[data-community-stats]")).boxShadow,
-        facts: [...document.querySelectorAll("[data-community-info] [data-info]")].map((e) => e.textContent.replace(/\s+/g, " ").trim()).join(" · "),
-        factIcons: document.querySelectorAll("[data-community-info] svg").length,
+        /* Round 13 (ask 22): the figures panel and the facts line are gone; the facts are one quiet list in the side card. */
+        figures: [...document.querySelectorAll("[data-join-card-facts] [data-fact]")].map((s) => `${s.getAttribute("data-fact")}=${s.querySelector("dd").textContent.trim()}`),
+        panel: !!document.querySelector("[data-community-sheet] [data-community-stats]"),
+        facts: document.querySelector("[data-community-info]") ? "a facts line" : "",
         row: r("[data-creator-row]"),
         avatar: r("[data-creator-row] > :first-child"),
         button: r("[data-creator-page]"),
@@ -206,9 +206,8 @@ export const isNativePlatform = () => false
     })
     expect(look.dots === look.benefits && look.benefits === 4, "every benefit has its check in a circle", look.dots)
     expect(look.dot && look.dot.w === 20 && look.dot.radius !== "0px" && look.dot.bg !== "rgba(0, 0, 0, 0)" && /rgba\(16, 24, 40, 0\.08\) 0px 0px 0px 1px/.test(look.dot.shadow) && /0px 1px 1px/.test(look.dot.shadow), "the check circle: 20px, filled, a hairline and a 1px shadow", look.dot)
-    expect(look.figures.join() === "members=1,284,active=402,posts=186,courses=9", "the figures are the fixture's real ones: members, active this week, posts, courses", look.figures)
-    expect(/1px/.test(look.panelShadow), "the figures sit in one panel with a hairline and a 1px shadow", look.panelShadow)
-    expect(look.facts === "Public community · Since Mar 2025 · ByMara Lindqvist" && look.factIcons === 0, "the facts line: quiet words, no price, no icons", look.facts)
+    expect(look.figures.slice(0, 3).join() === "members=1,284,posts=186,courses=9" && !look.figures.some((f) => f.startsWith("active")), "the facts are the fixture's real ones: members, posts, courses; no active this week", look.figures)
+    expect(!look.panel && look.facts === "", "no row of figures and no facts line under the name (round 13)", { panel: look.panel, facts: look.facts })
     const rightGap = look.sheet.r - look.button.r
     expect(rightGap >= 28 && rightGap <= 36 && Math.abs(look.button.cy - look.avatar.cy) <= 2, "View profile at the card's right (the sheet's padding from its edge), centred on the avatar", { rightGap, button: look.button.cy, avatar: look.avatar.cy })
     expect(!look.cardLinks.some((t) => /leave/i.test(t)), "nothing about leaving under Open community", look.cardLinks)
@@ -328,7 +327,8 @@ export const isNativePlatform = () => false
 
     /* Who runs it: the button under the line on a phone. */
     const who = await p.evaluate(() => { const b = document.querySelector("[data-creator-page]").getBoundingClientRect(); const bio = document.querySelector("[data-creator-bio]").getBoundingClientRect(); return { buttonTop: Math.round(b.top), bioBottom: Math.round(bio.bottom), h: Math.round(b.height) } })
-    expect(who.buttonTop >= who.bioBottom && who.h >= 40, "on a phone View profile sits under the line, 40px tall", who)
+    /* Round 13 (ask 22): on a phone View profile ends the row beside the name; the creator's line runs under the whole row. */
+    expect(who.buttonTop < who.bioBottom && who.h >= 40, "on a phone View profile sits at the row's end, above the line, 40px tall", who)
     await p.evaluate(() => document.querySelector("[data-community-creator-card]").scrollIntoView({ block: "center" }))
     await sleep(200)
     await p.screenshot({ path: join(shots, "phone-who-runs-it.png") })

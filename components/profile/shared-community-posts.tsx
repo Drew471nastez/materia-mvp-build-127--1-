@@ -17,13 +17,19 @@
  *
  * Two looks: Storelib's own on a profile, and the page's scheme on a
  * creator's page (the design tokens storefront-chrome rebinds there).
+ *
+ * ROUND 13 (ask 30): THEIR CONTRIBUTION, AND THEIR OWN POSTS. Under the
+ * community's name, what they gave it in one quiet line (level, points,
+ * posts: real figures, each only when known, lib/profile/shared-view.ts
+ * contributionLine). On the person's own profile the posts are theirs, and
+ * each has an Edit beside it that opens the post with its editor.
  */
 import Link from "next/link"
 import { useRef, useState } from "react"
-import { ChevronLeft, ChevronRight, Heart, Loader2, MessageCircle } from "lucide-react"
+import { ChevronLeft, ChevronRight, Heart, Loader2, MessageCircle, PenLine } from "lucide-react"
 import { relativeTime } from "@/lib/communities/format"
 import { optimizedImageUrl } from "@/lib/images/optimized-url"
-import type { SharedCommunity, SharedPostsPage, SharedPostView } from "@/lib/profile/shared-view"
+import { contributionLine, editHref, type ContributionStats, type SharedCommunity, type SharedPostsPage, type SharedPostView } from "@/lib/profile/shared-view"
 import { cn } from "@/lib/utils"
 
 type Tone = "platform" | "storefront"
@@ -60,11 +66,11 @@ function Logo({ community }: { community: SharedCommunity }) {
   )
 }
 
-function PostRow({ post, now, tone }: { post: SharedPostView; now: number; tone: Tone }) {
+function PostRow({ post, now, tone, own = false }: { post: SharedPostView; now: number; tone: Tone; own?: boolean }) {
   const look = LOOK[tone]
   return (
-    <li data-shared-post="">
-      <Link href={post.href} className={cn("-mx-2 flex gap-3 rounded-xl px-2 py-3 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-current/20", look.hover)}>
+    <li data-shared-post="" className={own ? "flex items-center gap-1" : undefined}>
+      <Link href={post.href} className={cn("-mx-2 flex min-w-0 flex-1 gap-3 rounded-xl px-2 py-3 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-current/20", look.hover)}>
         <span className="min-w-0 flex-1">
           <span className={cn("line-clamp-2 text-[14.5px] font-semibold leading-[1.4] [overflow-wrap:anywhere]", look.ink)}>{post.title}</span>
           {post.excerpt ? <span className={cn("mt-0.5 line-clamp-2 text-[13.5px] leading-[1.5]", look.muted)}>{post.excerpt}</span> : null}
@@ -91,6 +97,18 @@ function PostRow({ post, now, tone }: { post: SharedPostView; now: number; tone:
           <img src={optimizedImageUrl(post.imageUrl, 128)} alt="" width={64} height={64} loading="lazy" decoding="async" className="h-16 w-16 shrink-0 rounded-lg object-cover" />
         ) : null}
       </Link>
+      {own ? (
+        /* Their own post: Edit opens it with the editor (?edit=1), a 40px target beside the row. */
+        <Link
+          href={editHref(post.href)}
+          aria-label={`Edit "${post.title}"`}
+          className={cn("-mr-2 inline-flex h-10 shrink-0 items-center gap-1.5 rounded-xl px-2.5 text-[13px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-current/20", look.muted, look.hover)}
+          data-shared-edit=""
+        >
+          <PenLine className="h-4 w-4" strokeWidth={1.8} aria-hidden />
+          Edit
+        </Link>
+      ) : null}
     </li>
   )
 }
@@ -102,6 +120,8 @@ export function SharedCommunityPosts({
   now,
   firstName,
   tone = "platform",
+  stats = null,
+  own = false,
 }: {
   userId: string
   community: SharedCommunity
@@ -110,6 +130,10 @@ export function SharedCommunityPosts({
   now: number
   firstName: string
   tone?: Tone
+  /** What they gave this community (round 13); left out, no line. */
+  stats?: ContributionStats | null
+  /** These are the viewer's own posts: each can be edited from here. */
+  own?: boolean
 }) {
   const look = LOOK[tone]
   /* Every page seen so far, by its cursor; `at` is the one showing. */
@@ -159,15 +183,20 @@ export function SharedCommunityPosts({
           </span>
         </Link>
       </h2>
+      {stats && contributionLine(stats) ? (
+        <p className={cn("-mt-1 mb-2 pl-[42px] text-[13px] tabular-nums", look.muted)} data-shared-contribution="">
+          {contributionLine(stats)}
+        </p>
+      ) : null}
       <div className={cn(look.card, "px-4 sm:px-5")}>
         {page.posts.length === 0 ? (
           <p className={cn("py-6 text-center text-[14px]", look.muted)} data-shared-empty="">
-            {firstName} has not posted here yet.
+            {own ? "You have not posted here yet." : `${firstName} has not posted here yet.`}
           </p>
         ) : (
           <ul ref={listRef} className={cn("divide-y", look.rule, state === "loading" && "opacity-60 transition-opacity")} style={hold ? { minHeight: hold } : undefined} aria-busy={state === "loading" || undefined}>
             {page.posts.map((post) => (
-              <PostRow key={post.id} post={post} now={now} tone={tone} />
+              <PostRow key={post.id} post={post} now={now} tone={tone} own={own} />
             ))}
           </ul>
         )}

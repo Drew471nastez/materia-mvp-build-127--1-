@@ -657,7 +657,34 @@ html.capacitor body {
     Left alone, the platform floats its own bar over the content and reserves
     nothing. The slim bar stays where it belongs: `.wb-slim-scroll`, on the
     editor's own light panels, where a reserved column is invisible.
+
+    Round 13 brings a slim bar back for pointer screens only, by the two
+    standard properties and nothing else (the rule under this note): the
+    owner asked for one slim, light grey bar everywhere, the same one /app's
+    scrollers already draw.
   */
+
+  /*
+    THE PAGE'S SCROLLBAR: SLIM, LIGHT GREY, NO TRACK (round 13, ask 26: "the
+    page scrollbar everywhere: slim, light grey, modern, and the post
+    panel's"). Where a pointer drives the page, the window's bar (and the
+    opened post's panel, and the notifications list) is the thin one in a
+    light grey on a clear track, by the two standard properties only. No
+    ::-webkit-scrollbar rules: those are what took a classic, full width bar
+    with a reserved column, and a browser that knows the standard pair
+    ignores them anyway. A page that has nothing to scroll still reserves
+    nothing (`overflow-y: auto` above); the community's frame keeps its
+    own stable gutter so its columns never move. Touch screens keep no bar
+    at all (the rule under this one).
+  */
+  @media (hover: hover) and (pointer: fine) {
+    html,
+    [data-post-overlay-scroll],
+    [data-bell-list] {
+      scrollbar-width: thin;
+      scrollbar-color: rgba(156, 163, 175, 0.5) transparent;
+    }
+  }
 
   /* Mobile: hide the persistent scrollbar — touch devices don't need it visible */
   @media (max-width: 768px) {

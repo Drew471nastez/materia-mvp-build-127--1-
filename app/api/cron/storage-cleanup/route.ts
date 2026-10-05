@@ -4,13 +4,15 @@ import { requireBearerSecret } from "@/lib/api/require-secret"
 import { runStorageCleanup } from "@/lib/storage/cleanup"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { recordCronRun } from "@/lib/observability/report"
+import { sweepCommunityOrphans } from "@/lib/communities/server/orphans"
 
 /**
  * GET /api/cron/storage-cleanup
  *
  * Removes files nothing refers to any more (lib/storage/cleanup.ts): abandoned
  * theme packages, unfinished uploads, description pictures and product photos
- * that were taken out, stale download ZIPs. Then gives older product files
+ * that were taken out, stale download ZIPs, and community pictures and files
+ * taken out of drafts two weeks ago (lib/communities/server/orphans.ts). Then gives older product files
  * their first check and a SHA-256, a few a run, and trims the security log.
  *
  * Query, for a person running it by hand with the secret:
@@ -51,7 +53,10 @@ async function runJob(request: Request) {
       const ops = await createAdminClient().rpc("storelib_purge_ops_logs", {})
       if (ops.error && ops.error.code !== "PGRST202") console.error("[storage-cleanup] job and error logs not purged:", ops.error.message)
     }
-    return NextResponse.json({ ...summary, deletedRowsForgotten }, { headers: { "Cache-Control": "no-store" } })
+    /* Community pictures and files taken out of drafts and never posted (lib/communities/server/orphans.ts). */
+    const communityOrphans = await sweepCommunityOrphans(createAdminClient(), { dryRun: url.searchParams.get("dry") === "1" })
+    if (communityOrphans.errors.length > 0) console.error("[storage-cleanup] community uploads:", communityOrphans.errors.join("; "))
+    return NextResponse.json({ ...summary, deletedRowsForgotten, communityOrphans }, { headers: { "Cache-Control": "no-store" } })
   } catch (error) {
     console.error("[storage-cleanup]", error)
     return NextResponse.json({ error: "Cleanup failed" }, { status: 500 })

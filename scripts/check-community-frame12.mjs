@@ -393,7 +393,8 @@ export const isNativePlatform = () => false
           const img = who?.querySelector("img")
           return { rows: [...root.querySelectorAll("[data-account-item]")].map((r) => r.getAttribute("data-account-item")), avatar: img ? { src: img.getAttribute("src")?.slice(0, 22), w: Math.round(img.getBoundingClientRect().width) } : null }
         }, scope)
-        const wantRows = ["invite", "saved", "profile", "settings", ...(staff ? ["dashboard"] : []), "log-out"]
+        /* Round 13: Membership, the member's own page here, after Saved posts. */
+        const wantRows = ["invite", "saved", "membership", "profile", "settings", ...(staff ? ["dashboard"] : []), "log-out"]
         expect(JSON.stringify(m.rows) === JSON.stringify(wantRows), `${name}${staff ? ", a seller" : ""}: only the essentials, in order`, m.rows)
         expect(!!m.avatar && m.avatar.w >= 30, `${name}: the real picture beside the name`, m.avatar)
         await p.screenshot({ path: join(shots, `menu-${name}${staff ? "-seller" : ""}.png`) })
