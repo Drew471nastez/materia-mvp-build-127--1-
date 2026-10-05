@@ -25,7 +25,7 @@ import "server-only"
  */
 import type Stripe from "stripe"
 import { stripe } from "@/lib/stripe"
-import { readCreatorStripe, runsInStorelib, syncStripeAccount, type PaymentsCreatorRef } from "./connect"
+import { readCreatorStripe, syncStripeAccount, type PaymentsCreatorRef } from "./connect"
 import { documentDue, identityOnForPlatform, identityStatus, startIdentity, type IdentityStatus } from "./identity"
 import { stripeErrorMessage } from "./setup-errors"
 import { idOutstanding } from "./status"
@@ -123,7 +123,8 @@ export async function startVerification(creator: PaymentsCreatorRef, where: Veri
   if (!verificationOwed(account)) return { ok: false, reason: "nothing_to_verify" }
 
   const url = await connectLink(account, where)
-  if (!url) return { ok: false, reason: runsInStorelib(account) ? "link_failed" : "not_ours" }
+  /* Stripe would not make the page. Whatever the cause, the creator's move is the same one. */
+  if (!url) return { ok: false, reason: "link_failed" }
   return { ok: true, way: "connect", url, clientSecret: null, publishableKey: "" }
 }
 
