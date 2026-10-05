@@ -1183,18 +1183,14 @@ function DetailsStep({
   const [routing, setRouting] = useDraft("routing")
   /* Stripe's own live check: the way in, until Stripe says there is none for this account. */
   /*
-   * WHAT THE ID STEP SAYS IT WILL DO HAS TO BE WHAT IT DOES. In the app the
-   * check is Storelib's own camera, because the app never hands anybody to a
-   * browser mid setup (lib/payments/identity-client). Left at "stripe" the
-   * step promised "Verify with Stripe: Stripe scans your ID and matches a
-   * selfie to it" and then opened our camera, which takes no selfie. Set
-   * after mount rather than at first render, so the server and the browser
-   * draw the same thing and nothing flickers.
+   * STRIPE DOES THE ID CHECK, IN THE APP TOO. Storelib's own camera took the
+   * photo and sent it through Storelib's server to Stripe, and that upload
+   * was the thing that hung: "Stripe is saving it" and then a timeout, over
+   * and over. Stripe's own check takes the photo on Stripe's screen and
+   * sends it to Stripe, so the one part that kept failing is not in the way
+   * any more. Our camera stays underneath as the other way.
    */
   const [idWay, setIdWay] = React.useState<"stripe" | "camera">("stripe")
-  React.useEffect(() => {
-    if (isNativeApp()) setIdWay("camera")
-  }, [])
   const [idState, setIdState] = React.useState<"idle" | "opening" | "waiting" | "checking" | "done">("idle")
   const [idProblem, setIdProblem] = React.useState<string | null>(null)
   const [noBack, setNoBack] = React.useState(false)
@@ -1244,23 +1240,31 @@ function DetailsStep({
   React.useEffect(() => {
     if (idState !== "waiting") return
     asks.current = 0
+    let timer = 0
+    /*
+     * Stripe's check is open in its own modal, or in the sheet over the app,
+     * and the page behind it polls while it is. Quickly for the first
+     * minute, because Stripe is usually done before the person is back, then
+     * every ten seconds for ten minutes, which is longer than anybody spends
+     * on it. Giving up after two minutes left somebody who took their time
+     * looking at a step that had forgotten what it was doing.
+     */
     const tick = () => {
       asks.current += 1
-      if (asks.current > 48) {
+      if (asks.current > 78) {
         setIdState("idle")
         return
       }
       void askStripe()
+      timer = window.setTimeout(tick, asks.current < 24 ? 2500 : 10_000)
     }
-    /* Stripe is often done before the person is back: ask once, soon, then keep asking. */
-    const first = window.setTimeout(tick, 800)
-    const t = window.setInterval(tick, 2500)
-    const onBack = () => document.visibilityState === "visible" && tick()
+    timer = window.setTimeout(tick, 800)
+    /* Back from Stripe's sheet or tab: ask at once rather than on the next beat. */
+    const onBack = () => document.visibilityState === "visible" && void askStripe()
     document.addEventListener("visibilitychange", onBack)
     window.addEventListener("focus", onBack)
     return () => {
-      window.clearTimeout(first)
-      window.clearInterval(t)
+      window.clearTimeout(timer)
       document.removeEventListener("visibilitychange", onBack)
       window.removeEventListener("focus", onBack)
     }
@@ -1518,18 +1522,6 @@ function DetailsStep({
 
   const runIdentity = async () => {
     setIdProblem(null)
-    /*
-     * IN THE APP, THE CAMERA IS THE CHECK. Asking the server for a Stripe
-     * Identity session here would make one (which Stripe charges for) and
-     * then find there is nothing to open with it, because the app does not
-     * hand anybody to a browser mid setup (lib/payments/identity-client).
-     */
-    if (isNativeApp()) {
-      setIdWay("camera")
-      setIdState("idle")
-      openCamera("front")
-      return
-    }
     setIdState("opening")
     try {
       const r = await post<{ ok?: boolean; reason?: string; clientSecret?: string | null; url?: string | null; publishableKey?: string }>("identity", {})
@@ -1540,6 +1532,13 @@ function DetailsStep({
         openCamera("front")
         return
       }
+      /*
+       * Waiting BEFORE it opens, not after. Stripe's sheet sits over the app
+       * until the person closes it, so a page that only started polling
+       * afterwards sat on "Opening Stripe" the whole time, and a sheet
+       * dismissed by a swipe left it there for good.
+       */
+      setIdState("waiting")
       const how = await openIdentity({ clientSecret: r.clientSecret ?? null, url: r.url ?? null, publishableKey: r.publishableKey ?? "" })
       if (how === "no_way") {
         setIdWay("camera")
@@ -1547,8 +1546,7 @@ function DetailsStep({
         openCamera("front")
         return
       }
-      setIdState("waiting")
-      /* The modal closed: Stripe usually knows at once. */
+      /* The modal or the app's sheet closed: Stripe usually knows at once. */
       if (how === "closed") {
         window.setTimeout(() => void askStripe(), 400)
       }
@@ -1672,21 +1670,26 @@ function DetailsStep({
    * (not switched on, a country it does not cover) the press falls through
    * to Storelib's camera without saying anything clever about it.
    */
+  /*
+   * Stripe's check first, everywhere. Only once somebody asks for Storelib's
+   * camera instead does the other way draw: on a computer that is the QR
+   * code for their phone, on a phone the camera itself.
+   */
   const idPhoto = has("document")
-    ? desktop && !hereInstead && !uploaded["document-front"] && !idVerified && !docGivenAtOpen && !isNativeApp()
-      ? (
-          <PhoneHandoff
-            sides={form.idSides ?? { front: false, back: false }}
-            onArrived={(next) => {
-              setForm((f) => (f ? { ...next, needs: { ...next.needs, fields: f.needs.fields } } : next))
-              setIdNote(next.idSides?.back ? "Front and back added from your phone." : "Added from your phone.")
-              playAskSound("done")
-            }}
-            onHere={() => setHereInstead(true)}
-          />
-        )
-      : idWay === "camera"
-      ? cameraPhoto
+    ? idWay === "camera"
+      ? desktop && !hereInstead && !uploaded["document-front"] && !idVerified && !docGivenAtOpen && !isNativeApp()
+        ? (
+            <PhoneHandoff
+              sides={form.idSides ?? { front: false, back: false }}
+              onArrived={(next) => {
+                setForm((f) => (f ? { ...next, needs: { ...next.needs, fields: f.needs.fields } } : next))
+                setIdNote(next.idSides?.back ? "Front and back added from your phone." : "Added from your phone.")
+                playAskSound("done")
+              }}
+              onHere={() => setHereInstead(true)}
+            />
+          )
+        : cameraPhoto
       : (
           <div className="space-y-2" data-id-photo="stripe">
             {only === "id" ? null : <span className="block text-[13px] font-medium text-[#1a1a2e]">{idEither ? "Verify with your ID" : "Verify who you are"}</span>}
@@ -1721,10 +1724,8 @@ function DetailsStep({
                     </span>
                     <span className="mt-0.5 block text-[12.5px] leading-[17px] text-[#6b7280]">
                       {idState === "waiting"
-                        ? "Finish the check with Stripe, then come back here."
-                        : form.needs.offered.includes("document")
-                          ? "Stripe scans your ID and matches a selfie to it. A minute now, and your payouts never pause for it later."
-                          : "Stripe scans your ID and matches a selfie to it. About a minute, and Storelib never sees either."}
+                        ? "Finish the check with Stripe, then come back here. This page knows the moment it is done."
+                        : "Stripe opens its camera, scans your ID and matches a selfie to it. About a minute, and Storelib never sees either."}
                     </span>
                   </span>
                 </button>
@@ -1737,8 +1738,10 @@ function DetailsStep({
                   type="button"
                   onClick={() => {
                     setIdWay("camera")
-                    openCamera("front")
+                    /* On a computer the other way is the phone (the QR code), so nothing opens here. */
+                    if (!desktop || isNativeApp()) openCamera("front")
                   }}
+                  data-id-use-camera=""
                   className="text-[13px] font-medium text-[#4b5563] underline-offset-2 outline-none hover:text-[#1a1a2e] hover:underline focus-visible:underline"
                 >
                   Use your camera instead

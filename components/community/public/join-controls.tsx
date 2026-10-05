@@ -47,6 +47,7 @@ import { memberCountLabel } from "@/lib/communities/format"
 import { money, pricePer, yearlySaving } from "@/lib/memberships/state"
 import { optimizedImageUrl } from "@/lib/images/optimized-url"
 import { cn } from "@/lib/utils"
+import { CheckDot } from "./check-dot"
 import { communityPath } from "./paths"
 import type { JoinOption, JoinStateView, PublicCommunityView } from "./types"
 
@@ -281,8 +282,8 @@ export function JoinProvider({ community, join, children }: { community: PublicC
 /* ── Pieces ─────────────────────────────────────────────────────────────── */
 
 const PRIMARY =
-  "inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-[#1a1a2e] bg-[#1a1a2e] px-5 text-[15px] font-semibold text-white shadow-[0_1px_1.5px_rgba(16,24,40,0.18),inset_0_1px_0_rgba(255,255,255,0.08)] outline-none transition-[background-color,scale,box-shadow] duration-150 hover:bg-[#2a2a40] active:scale-[0.98] active:shadow-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/30 focus-visible:ring-offset-2 disabled:cursor-default disabled:border-[#e5e7eb] disabled:bg-[#e5e7eb] disabled:text-[#6b7280] disabled:shadow-none motion-reduce:transition-none [-webkit-tap-highlight-color:transparent]"
-/* A quiet second action: text, but a 40px target, so a thumb finds it. */
+  "inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-[#1a1a2e] bg-[#1a1a2e] px-5 text-[15px] font-semibold text-white shadow-[0_1px_1.5px_rgba(16,24,40,0.18),inset_0_1px_0_rgba(255,255,255,0.08)] outline-none transition-[background-color,box-shadow] duration-150 hover:bg-[#2a2a40] active:bg-[#10101d] active:shadow-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/30 focus-visible:ring-offset-2 disabled:cursor-default disabled:border-[#e5e7eb] disabled:bg-[#e5e7eb] disabled:text-[#6b7280] disabled:shadow-none motion-reduce:transition-none [-webkit-tap-highlight-color:transparent]"
+/* A quiet second action: text, but a 40px target, so a thumb finds it. Pressed: no bump (round 11), the button only darkens. */
 const QUIET = "-mx-1 inline-flex min-h-10 items-center px-1 text-[13px] font-medium text-[#6b7280] underline-offset-2 outline-none hover:text-[#1a1a2e] hover:underline focus-visible:underline disabled:opacity-60"
 
 /** The button itself, or the sentence when there is nothing to press. */
@@ -405,7 +406,7 @@ function PriceLine({ className }: { className?: string }) {
 }
 
 function Status() {
-  const { join, error, busy, withdraw, setLeaveOpen } = useJoin()
+  const { join, error, busy, withdraw } = useJoin()
   return (
     <>
       {error ? (
@@ -419,17 +420,43 @@ function Status() {
           Withdraw request
         </button>
       ) : null}
-      {join.kind === "open" && join.manageHref ? (
-        <Link href={join.manageHref} className={cn(QUIET, "mt-1")}>
-          Manage your membership
+    </>
+  )
+}
+
+/** A quiet button in the membership row: white, a hairline and a 1px shadow, pressed by tint alone. */
+const ROW_BUTTON =
+  "inline-flex h-10 shrink-0 items-center justify-center rounded-[10px] border border-[#e3e5e9] bg-white px-3.5 text-[13.5px] font-medium shadow-[0_1px_1px_rgba(16,24,40,0.05)] outline-none transition-[background-color,box-shadow] duration-150 hover:bg-[#f6f7f8] active:bg-[#eef0f2] active:shadow-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 sm:h-9 [-webkit-tap-highlight-color:transparent]"
+
+/**
+ * YOUR MEMBERSHIP (round 11, ask 25, 67.webp): where a member manages or
+ * leaves, at the foot of the About page, rather than a bare "Leave
+ * community" link under Open community. One row: what they are, and the one
+ * thing to do: Manage for a subscription (leaving is cancelling there), else
+ * Leave, which asks first (LeaveDialog).
+ */
+export function MembershipRow() {
+  const { community, join, setLeaveOpen } = useJoin()
+  if (join.kind !== "open" || join.isOwner) return null
+  const what = join.role === "admin" ? "You're an admin" : join.role === "moderator" ? "You're a moderator" : "You're a member"
+  return (
+    <div className="mt-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-3 rounded-xl border border-[#eceef1] bg-[#fafbfb] px-4 py-3.5 sm:px-5" data-membership-row="">
+      <div className="min-w-0">
+        <p className="text-[15px] font-medium text-[#1a1a2e]">
+          {what} of {community.name}.
+        </p>
+        <p className="mt-0.5 text-[13.5px] text-[#6b7280]">{join.manageHref ? "Change or cancel your plan from your library." : "Your posts stay if you leave."}</p>
+      </div>
+      {join.manageHref ? (
+        <Link href={join.manageHref} className={cn(ROW_BUTTON, "text-[#1a1a2e]")} data-membership-manage="">
+          Manage membership
         </Link>
-      ) : null}
-      {join.kind === "open" && join.canLeave && !join.manageHref ? (
-        <button type="button" onClick={() => setLeaveOpen(true)} className={cn(QUIET, "mt-1")}>
+      ) : join.canLeave ? (
+        <button type="button" onClick={() => setLeaveOpen(true)} className={cn(ROW_BUTTON, "text-[#b42318]")} data-membership-leave="">
           Leave community
         </button>
       ) : null}
-    </>
+    </div>
   )
 }
 
@@ -498,7 +525,7 @@ export function PricingCard({ others }: { others?: React.ReactNode }) {
           <ul className="mt-4 grid gap-x-6 gap-y-2 sm:grid-cols-2" data-pricing-includes="">
             {includes.map((b, i) => (
               <li key={i} className="flex gap-2.5 text-[14px] leading-snug text-[#374151]">
-                <Check aria-hidden className="mt-[2px] h-4 w-4 shrink-0 text-[#1a1a2e]" strokeWidth={2.25} />
+                <CheckDot className="-mt-px" />
                 <span className="min-w-0 break-words">{b}</span>
               </li>
             ))}
@@ -512,10 +539,10 @@ export function PricingCard({ others }: { others?: React.ReactNode }) {
   )
 }
 
-/** On a phone, under the media: only what happened (an error, a note, Withdraw or Leave), when there is something to say. */
+/** On a phone, under the media: only what happened (an error, a note, Withdraw), when there is something to say. Leave is in Your membership. */
 export function JoinSummaryPhone() {
   const { join, error } = useJoin()
-  const something = !!error || join.kind === "pending" || (join.kind === "open" && (!!join.manageHref || join.canLeave))
+  const something = !!error || join.kind === "pending"
   if (!something) return null
   return (
     <div className="lg:hidden [&>*:first-child]:mt-0" data-join-summary="">
@@ -651,20 +678,36 @@ function LeaveDialog() {
   const phone = usePhone()
   return (
     <SheetDialog open={leaveOpen} onClose={() => setLeaveOpen(false)} phone={phone} label={`Leave ${community.name}`} className="max-w-[420px] gap-0 rounded-2xl p-6">
-      <div className={phone ? "px-5 pb-[calc(20px+env(safe-area-inset-bottom,0px))] pt-1" : ""}>
+      <div className={phone ? "px-5 pb-[calc(20px+env(safe-area-inset-bottom,0px))] pt-1" : ""} data-leave-dialog="">
         <SheetDialogTitle className="text-[18px] font-semibold text-[#1a1a2e]">Leave {community.name}?</SheetDialogTitle>
-        <p className="mt-2 text-[14px] leading-relaxed text-[#6b7280]">You won't see its posts or get its notifications. Your posts stay. You can join again later.</p>
+        <p className="mt-2 text-[14px] leading-relaxed text-[#6b7280]">You won&apos;t see its posts or get its notifications. Your posts stay, and you can join again later.</p>
         {error ? (
           <p role="alert" className="mt-3 text-[13px] text-[#b42318]">
             {error}
           </p>
         ) : null}
         <div className="mt-5 flex gap-2.5">
-          <button type="button" onClick={() => setLeaveOpen(false)} className="inline-flex h-11 flex-1 items-center justify-center rounded-xl border border-[#e5e7eb] bg-white text-[15px] font-medium text-[#1a1a2e] outline-none hover:bg-[#f8f9fa] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20">
+          <button type="button" onClick={() => setLeaveOpen(false)} className="inline-flex h-11 flex-1 items-center justify-center rounded-xl border border-[#e3e5e9] bg-white text-[15px] font-medium text-[#1a1a2e] shadow-[0_1px_1px_rgba(16,24,40,0.05)] outline-none transition-[background-color] duration-150 hover:bg-[#f8f9fa] active:bg-[#eef0f2] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 [-webkit-tap-highlight-color:transparent]">
             Stay
           </button>
-          <button type="button" onClick={leave} disabled={busy} className="inline-flex h-11 flex-1 items-center justify-center rounded-xl bg-[#b42318] text-[15px] font-semibold text-white outline-none hover:bg-[#9b1d14] focus-visible:ring-2 focus-visible:ring-[#b42318]/30 disabled:opacity-60">
-            {busy ? "Leaving" : "Leave"}
+          {/* The press answers at once: Leaving with a spinner, the same size and colour, and a second press does nothing. */}
+          <button
+            type="button"
+            onClick={() => {
+              if (!busy) leave()
+            }}
+            aria-busy={busy}
+            data-leave-confirm=""
+            className="inline-flex h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-[#a61f15] bg-[#b42318] text-[15px] font-semibold text-white shadow-[0_1px_1.5px_rgba(16,24,40,0.18),inset_0_1px_0_rgba(255,255,255,0.10)] outline-none transition-[background-color] duration-150 hover:bg-[#a11f15] active:bg-[#8f1b12] focus-visible:ring-2 focus-visible:ring-[#b42318]/30 [-webkit-tap-highlight-color:transparent]"
+          >
+            {busy ? (
+              <>
+                <Spinner size={16} className="!text-white" />
+                Leaving
+              </>
+            ) : (
+              "Leave"
+            )}
           </button>
         </div>
       </div>

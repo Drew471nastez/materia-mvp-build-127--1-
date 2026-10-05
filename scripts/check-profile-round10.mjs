@@ -20,12 +20,10 @@
  *   AVATARS     people without a photo in the header (signed in), comments,
  *               the members list and a profile: the default face, never
  *               letters; a community's square mark keeps its letters
- *   SETTINGS    a picture chosen: the crop sheet slides up (frames sampled:
- *               only rises, compositor only), the page under it does not
- *               move, a drag moves the picture, Use photo puts it in the
- *               circle at once with a progress ring and nothing on the page
- *               moves at any point
- *   COVER       /account's band 148 / 220 / 294 tall, and Settings' frame
+ *   SETTINGS    a picture chosen goes straight up (round 11: no crop
+ *               sheet): in the circle at once with a progress ring, and
+ *               nothing on the page moves at any point
+ *   COVER       /account's band 157 / 233 / 312 tall (round 11), and Settings' frame
  *               the band's new shape
  *
  *   PROBE_CSS=source node scripts/check-profile-round10.mjs
@@ -228,7 +226,7 @@ try {
       expect(m.header > 40, "Storelib's header is over the profile", m.header)
       if (label === "phone") expect(m.bar, "  and the phone tab bar under it", m.bar)
       expect(m.sideways <= 0 && errors.length === 0, "nothing sideways, no errors", { sideways: m.sideways, errors })
-      expect(m.band === (label === "phone" ? 148 : 294), "the band at its new height", m.band)
+      expect(m.band === (label === "phone" ? 157 : 312), "the band at its new height", m.band)
       expect(m.tabs.join() === "Activity,Communities", "Activity and Communities, nothing bought", m.tabs)
       if (photo === "no") expect(m.heroDefault && !m.heroLetters, "no photo: the default face, no letters", m)
       expect(m.letters === 0, "no person drawn as letters anywhere on the page", m.letters)
@@ -337,53 +335,10 @@ try {
     const { p, errors } = await open(vp, "/account/settings?case=settings")
     await p.screenshot({ path: join(shots, `settings-${label}-before.png`) })
     const before = { row: await rect(p, "[data-account-photo-row]"), under: await rect(p, "[data-probe-under-photo]") }
-    /* Choose the picture, then watch the sheet arrive frame by frame. */
+    /* Round 11: no crop sheet. The picture chosen is in the circle at once, the ring filling, nothing moving. */
     const input = await p.$("[data-account-photo-input]")
-    await p.evaluate(() => {
-      window.__frames = []
-      const watch = () => {
-        const panel = document.querySelector("[data-photo-crop-panel]")
-        if (panel) {
-          const cs = getComputedStyle(panel)
-          window.__frames.push({ t: performance.now(), top: panel.getBoundingClientRect().top, translate: cs.translate, opacity: cs.opacity })
-        }
-        if (window.__frames.length < 40) requestAnimationFrame(watch)
-      }
-      requestAnimationFrame(watch)
-    })
-    await input.uploadFile(picture)
-    await p.waitForSelector("[data-photo-crop-panel]", { timeout: 4000 })
-    await sleep(600)
-    const frames = await p.evaluate(() => window.__frames)
-    const tops = frames.map((f) => Math.round(f.top))
-    const rises = tops.every((t, i) => i === 0 || t <= tops[i - 1] + 0.5)
-    expect(frames.length > 5 && rises, "the sheet only rises into place (frames sampled), never jumps back", tops.slice(0, 14))
-    await p.screenshot({ path: join(shots, `settings-${label}-crop.png`) })
-    const during = { row: await rect(p, "[data-account-photo-row]"), under: await rect(p, "[data-probe-under-photo]") }
-    expect(JSON.stringify(before) === JSON.stringify(during), "the page under the sheet does not move", { before, during })
-    const stage = await rect(p, "[data-photo-crop-stage]")
-    const circle = await rect(p, "[data-photo-crop-circle]")
-    expect(stage && circle && Math.abs(circle.w - (stage.w - 40)) <= 1, "the circle is the stage less 20px each side", { stage, circle })
-    const buttons = await p.evaluate(() => [...document.querySelectorAll("[data-photo-crop] button")].map((b) => Math.round(b.getBoundingClientRect().height)))
-    expect(buttons.every((h) => h >= 40), "every control 40px or more", buttons)
-    /* Drag the picture left by 120px: the face on the right comes into the circle. */
-    const t0 = await p.evaluate(() => getComputedStyle(document.querySelector("[data-photo-crop-image]")).transform)
-    const cx = stage.x + stage.w / 2
-    const cy = stage.y - (await p.evaluate(() => scrollY)) + stage.h / 2
-    await p.mouse.move(cx, cy)
-    await p.mouse.down()
-    for (let i = 1; i <= 8; i++) await p.mouse.move(cx - i * 15, cy, { steps: 1 })
-    await p.mouse.up()
-    await sleep(120)
-    const t1 = await p.evaluate(() => getComputedStyle(document.querySelector("[data-photo-crop-image]")).transform)
-    const tx = (t) => Number((t.match(/matrix\(([^)]+)\)/)?.[1] || "").split(",")[4] || 0)
-    /* 1200x800 under a circle 320 across: 80px of picture either side, so a 120px drag stops at 80, and never further. */
-    const room = Math.round(((1200 * (circle.w / 800)) - circle.w) / 2)
-    expect(Math.abs(tx(t1) - (tx(t0) - room)) <= 1, "a drag moves the picture (on the compositor), and stops where the circle would show an edge", { before: tx(t0), after: tx(t1), room })
-    await p.screenshot({ path: join(shots, `settings-${label}-crop-moved.png`) })
-    /* Use photo: in the circle at once, the ring filling, nothing moving. */
     await p.evaluate(() => { window.__ring = []; const watch = () => { const r = document.querySelector("[data-photo-progress]"); if (r) window.__ring.push(r.getAttribute("data-photo-progress")); if (window.__ring.length < 200) requestAnimationFrame(watch) }; requestAnimationFrame(watch) })
-    await p.click("[data-photo-crop-save]")
+    await input.uploadFile(picture)
     await p.waitForSelector("[data-photo-preview]", { timeout: 4000 })
     await sleep(120)
     await p.screenshot({ path: join(shots, `settings-${label}-uploading.png`) })
@@ -406,7 +361,7 @@ try {
       const r = (el || img).getBoundingClientRect()
       return { w: Math.round(r.width), h: Math.round(r.height) }
     })
-    const bandH = label === "phone" ? 148 : 294
+    const bandH = label === "phone" ? 157 : 312
     const vw = label === "phone" ? 390 : 1440
     const want = Math.round(frame.w / (vw / bandH))
     expect(Math.abs(frame.h - want) <= 2, `Settings' cover frame takes the taller band's shape (${frame.w}x${frame.h}, was ${Math.round(frame.w / (vw / (label === "phone" ? 128 : 256)))} tall)`, { frame, want })
@@ -414,7 +369,7 @@ try {
   }
 
   /* ── /account's band ─────────────────────────────────────────────────── */
-  if (only("hub")) for (const [w, want] of [[390, 148], [800, 220], [1440, 294]]) {
+  if (only("hub")) for (const [w, want] of [[390, 157], [800, 233], [1440, 312]]) {
     const { p } = await open({ width: w, height: 900, deviceScaleFactor: 1, isMobile: w < 640, hasTouch: w < 640 }, "/account?case=hub")
     const band = await rect(p, "[data-profile-cover-band]")
     expect(band?.h === want, `/account at ${w}: the cover ${want}px tall (fifteen percent over before)`, band)

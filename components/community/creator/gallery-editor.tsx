@@ -15,6 +15,13 @@
  *   (/api/app/community/<id>/videos, lib/video/upload-client.ts), the same
  *   path as an event's replay: Storelib storage by default, or the video
  *   service that is connected.
+ *   A YOUTUBE OR VIMEO LINK (round 11) is pasted into a field: it is read at
+ *   once with the composer's own parser (embedFromUrl), so a link that is
+ *   not a video says so before anything is saved, and the route checks it
+ *   again and asks Vimeo for the still (lib/communities/server/gallery.ts).
+ *   THE COVER can be one of those videos too (CoverField below): it is then
+ *   the gallery's first item, marked as the cover, and its still stands in
+ *   for the cover picture wherever one is drawn.
  *   ORDER by dragging a tile onto another on a computer, or with the arrows
  *   that show on a tile under the pointer or the keyboard. On a phone each
  *   tile has one button, its menu (move earlier, later, first, remove), so
@@ -24,14 +31,14 @@
  * of the gallery until it is done, so Save never sends half a file.
  */
 import * as React from "react"
-import { ArrowLeft, ArrowRight, ImagePlus, Loader2, MoreHorizontal, Play, Video, X } from "lucide-react"
+import { ArrowLeft, ArrowRight, ImagePlus, Link2, Loader2, MoreHorizontal, Play, Video, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { DirectUploader } from "@/lib/storage/chunked-upload"
 import { uploadCommunityVideo } from "@/lib/video/upload-client"
-import { GALLERY_MAX, moveItem, type GalleryItem } from "./logic"
+import { GALLERY_MAX, coverVideo, galleryEmbed, galleryKey, moveItem, type GalleryEmbed, type GalleryItem } from "./logic"
 import type { GalleryVideoView } from "./view-types"
-import { buttonSecondary } from "./parts"
+import { PicturePick, buttonPrimary, buttonSecondary, field } from "./parts"
 
 interface Uploading {
   key: string
@@ -41,7 +48,8 @@ interface Uploading {
   preview: string | null
 }
 
-const keyOf = (i: GalleryItem) => (i.type === "image" ? i.url : i.videoId)
+const keyOf = galleryKey
+const PROVIDER = { youtube: "YouTube", vimeo: "Vimeo" } as const
 
 function duration(s: number | null): string {
   if (!s) return ""
@@ -57,6 +65,7 @@ export function GalleryEditor({
   ready,
   onError,
   onBusy,
+  max = GALLERY_MAX,
 }: {
   communityId: string
   value: GalleryItem[]
@@ -66,6 +75,8 @@ export function GalleryEditor({
   onError: (message: string) => void
   /** True while a file is on its way, so the page can hold Save. */
   onBusy?: (busy: boolean) => void
+  /** Room in the list (twelve, less one while a cover video is the first item). */
+  max?: number
 }) {
   const pictures = React.useRef<HTMLInputElement>(null)
   const movie = React.useRef<HTMLInputElement>(null)
@@ -73,10 +84,11 @@ export function GalleryEditor({
   const [videos, setVideos] = React.useState(initialVideos)
   const [dragging, setDragging] = React.useState<number | null>(null)
   const [over, setOver] = React.useState<number | null>(null)
+  const [linking, setLinking] = React.useState(false)
   /* The newest list, for an upload that finishes after other changes were made. */
   const latest = React.useRef(value)
   latest.current = value
-  const room = GALLERY_MAX - value.length - uploading.length
+  const room = max - value.length - uploading.length
 
   React.useEffect(() => {
     onBusy?.(uploading.length > 0)
@@ -90,7 +102,7 @@ export function GalleryEditor({
       return u.filter((x) => x.key !== key)
     })
   const add = (item: GalleryItem) => {
-    if (latest.current.length >= GALLERY_MAX) return
+    if (latest.current.length >= max) return
     const next = [...latest.current, item]
     latest.current = next
     onChange(next)
@@ -98,7 +110,7 @@ export function GalleryEditor({
 
   const uploadPictures = async (files: File[]) => {
     const take = files.slice(0, Math.max(0, room))
-    if (files.length > take.length) onError(`A gallery holds ${GALLERY_MAX}. The first ${take.length} were added.`)
+    if (files.length > take.length) onError(`A gallery holds ${max}. The first ${take.length} were added.`)
     const jobs = take.map((file) => ({ file, key: `${Date.now()}-${Math.random().toString(36).slice(2)}` }))
     setUploading((u) => [...u, ...jobs.map((j) => ({ key: j.key, kind: "image" as const, name: j.file.name, percent: 0, preview: URL.createObjectURL(j.file) }))])
     /* One after another: a phone on a slow line finishes the first picture before it starts the next. */
@@ -118,7 +130,7 @@ export function GalleryEditor({
   }
 
   const uploadVideo = async (file: File) => {
-    if (room <= 0) return onError(`A gallery holds ${GALLERY_MAX}.`)
+    if (room <= 0) return onError(`A gallery holds ${max}.`)
     const key = `${Date.now()}-v`
     setUploading((u) => [...u, { key, kind: "video", name: file.name, percent: 0, preview: null }])
     try {
@@ -184,13 +196,20 @@ export function GalleryEditor({
               {item.type === "image" ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={item.url} alt="" draggable={false} className="absolute inset-0 h-full w-full object-cover" />
+              ) : item.type === "embed" ? (
+                item.thumb ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={item.thumb} alt="" draggable={false} className="absolute inset-0 h-full w-full object-cover" />
+                ) : (
+                  <span aria-hidden className="absolute inset-0 bg-[#1a1a2e]" />
+                )
               ) : v?.thumbnailUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={v.thumbnailUrl} alt="" draggable={false} className="absolute inset-0 h-full w-full object-cover" />
               ) : (
                 <span aria-hidden className="absolute inset-0 bg-[#1a1a2e]" />
               )}
-              {item.type === "video" ? (
+              {item.type !== "image" ? (
                 <span aria-hidden className="pointer-events-none absolute inset-0 grid place-items-center">
                   <span className="grid h-9 w-9 place-items-center rounded-full bg-black/45 text-white">
                     <Play className="ml-0.5 h-4 w-4 fill-current" />
@@ -200,6 +219,7 @@ export function GalleryEditor({
               <span className="pointer-events-none absolute left-2 top-2 flex items-center gap-1">
                 {i === 0 ? <span className="rounded-md bg-white/90 px-1.5 py-0.5 text-[11.5px] font-medium text-[#1a1a2e]">First</span> : null}
                 {item.type === "video" && v && v.status !== "ready" ? <span className="rounded-md bg-white/90 px-1.5 py-0.5 text-[11.5px] font-medium text-[#92400e]">{v.status === "failed" ? "Failed" : "Processing"}</span> : null}
+                {item.type === "embed" ? <span className="rounded-md bg-black/55 px-1.5 py-0.5 text-[11.5px] font-medium text-white">{PROVIDER[item.provider]}</span> : null}
                 {item.type === "video" && v?.durationSeconds ? <span className="rounded-md bg-black/55 px-1.5 py-0.5 text-[11.5px] font-medium tabular-nums text-white">{duration(v.durationSeconds)}</span> : null}
               </span>
               {/* A computer: the arrows and remove, when the pointer or the keyboard is on the tile. */}
@@ -294,6 +314,10 @@ export function GalleryEditor({
               <Video aria-hidden className="h-4 w-4" />
               Add a video
             </button>
+            <button type="button" onClick={() => setLinking(true)} aria-expanded={linking} className={cn(buttonSecondary, "h-10 sm:h-8")} data-gallery-add-link="">
+              <Link2 aria-hidden className="h-4 w-4" />
+              Add a video link
+            </button>
           </>
         ) : null}
         <span className="text-[12.5px] tabular-nums text-[#6b7280]">
@@ -301,6 +325,140 @@ export function GalleryEditor({
           <span className="max-md:hidden">. Drag to reorder. Wide pictures look best.</span>
         </span>
       </div>
+      {linking && room > 0 ? (
+        <VideoLinkField
+          className="mt-3"
+          onCancel={() => setLinking(false)}
+          onAdd={(embed) => {
+            if (latest.current.some((x) => keyOf(x) === keyOf(embed))) return "That video is already in the gallery."
+            add(embed)
+            setLinking(false)
+            return null
+          }}
+        />
+      ) : null}
+    </div>
+  )
+}
+
+/**
+ * A YOUTUBE OR VIMEO LINK, pasted. Read on the spot with the composer's own
+ * parser, so "Add" either takes it or says what is wrong in one line under
+ * the field (nothing is saved until the page's Save). Enter adds, Escape
+ * closes.
+ */
+export function VideoLinkField({ onAdd, onCancel, className, submitLabel = "Add" }: { onAdd: (embed: GalleryEmbed) => string | null; onCancel: () => void; className?: string; submitLabel?: string }) {
+  const [text, setText] = React.useState("")
+  const [error, setError] = React.useState<string | null>(null)
+  const input = React.useRef<HTMLInputElement>(null)
+  React.useEffect(() => {
+    input.current?.focus()
+  }, [])
+  const submit = () => {
+    const embed = galleryEmbed(text.trim())
+    if (!embed) return setError(text.trim() ? "That is not a YouTube or Vimeo video link." : "Paste a YouTube or Vimeo link.")
+    const refused = onAdd(embed)
+    if (refused) return setError(refused)
+    setText("")
+    setError(null)
+  }
+  return (
+    <div className={cn("max-w-[560px]", className)} data-video-link="">
+      <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
+        <input
+          ref={input}
+          type="url"
+          inputMode="url"
+          value={text}
+          onChange={(e) => {
+            setText(e.target.value.slice(0, 500))
+            setError(null)
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault()
+              submit()
+            } else if (e.key === "Escape") onCancel()
+          }}
+          placeholder="https://youtube.com/watch?v=… or vimeo.com/…"
+          aria-label="YouTube or Vimeo link"
+          aria-invalid={!!error}
+          className={cn(field, "h-11 min-w-0 flex-1 basis-full sm:h-9 sm:basis-auto", error && "border-[#f1b4ae]")}
+        />
+        <button type="button" onClick={submit} className={cn(buttonPrimary, "h-10 sm:h-9")} data-video-link-add="">
+          {submitLabel}
+        </button>
+        <button type="button" onClick={onCancel} className={cn(buttonSecondary, "h-10 sm:h-9")}>
+          Cancel
+        </button>
+      </div>
+      {error ? (
+        <p role="alert" className="mt-1.5 text-[12.5px] text-[#b42318]" data-video-link-error="">
+          {error}
+        </p>
+      ) : (
+        <p className="mt-1.5 text-[12px] text-[#6b7280]">It plays on your page in the YouTube or Vimeo player.</p>
+      )}
+    </div>
+  )
+}
+
+/**
+ * THE COVER: A PICTURE, OR A YOUTUBE OR VIMEO VIDEO (round 11, ask 27). A
+ * picture is the logo's upload (PicturePick). A video link makes that video
+ * the gallery's first item, marked as the cover: the page leads with it, and
+ * on Save the route makes its still the cover picture, so Explore, the cards
+ * and a shared link keep showing a still (Vimeo's still arrives with the
+ * save). Removing it takes it out of the gallery and leaves no cover.
+ */
+export function CoverField({ coverUrl, gallery, onChange, onError }: { coverUrl: string | null; gallery: GalleryItem[]; onChange: (next: { coverUrl: string | null; gallery: GalleryItem[] }) => void; onError?: (message: string) => void }) {
+  const video = coverVideo(gallery)
+  const [linking, setLinking] = React.useState(false)
+  const setVideo = (embed: GalleryEmbed): string | null => {
+    const rest = (video ? gallery.slice(1) : gallery).filter((x) => keyOf(x) !== keyOf(embed))
+    if (rest.length >= GALLERY_MAX) return `The gallery is full (${GALLERY_MAX}). Remove one first.`
+    onChange({ coverUrl: null, gallery: [{ ...embed, cover: true }, ...rest] })
+    setLinking(false)
+    return null
+  }
+  if (video)
+    return (
+      <div className="min-w-0" data-cover-video={video.provider}>
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="relative grid h-16 w-full max-w-[208px] shrink-0 place-items-center overflow-hidden rounded-xl bg-[#1a1a2e] sm:w-[208px]">
+            {video.thumb ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={video.thumb} alt="" className="absolute inset-0 h-full w-full object-cover" />
+            ) : null}
+            <span className="relative grid h-7 w-7 place-items-center rounded-full bg-black/50 text-white">
+              <Play aria-hidden className="ml-0.5 h-3.5 w-3.5 fill-current" />
+            </span>
+            <span className="absolute bottom-1 left-1 rounded bg-black/55 px-1 py-px text-[10.5px] font-medium text-white">{PROVIDER[video.provider]}</span>
+          </span>
+          <div className="flex min-w-0 flex-col items-start gap-1">
+            <button type="button" onClick={() => setLinking(true)} className={cn(buttonSecondary, "h-10 sm:h-8")}>
+              Change
+            </button>
+            <button type="button" onClick={() => onChange({ coverUrl: null, gallery: gallery.slice(1) })} className="inline-flex min-h-10 items-center gap-1 px-0.5 text-[12.5px] font-medium text-[#6b7280] hover:text-[#1a1a2e] sm:min-h-8" data-cover-remove="">
+              <X aria-hidden className="h-3.5 w-3.5" />
+              Remove
+            </button>
+          </div>
+        </div>
+        {linking ? <VideoLinkField className="mt-3" submitLabel="Use" onCancel={() => setLinking(false)} onAdd={setVideo} /> : null}
+      </div>
+    )
+  return (
+    <div className="min-w-0" data-cover-picture="">
+      <PicturePick value={coverUrl} onChange={(v) => onChange({ coverUrl: v, gallery })} shape="wide" name="cover" onError={onError} />
+      {linking ? (
+        <VideoLinkField className="mt-3" submitLabel="Use" onCancel={() => setLinking(false)} onAdd={setVideo} />
+      ) : (
+        <button type="button" onClick={() => setLinking(true)} className="mt-1 inline-flex min-h-10 items-center gap-1.5 px-0.5 text-[12.5px] font-medium text-[#4b5563] underline-offset-2 hover:text-[#1a1a2e] hover:underline sm:min-h-8" data-cover-use-link="">
+          <Link2 aria-hidden className="h-3.5 w-3.5" />
+          Use a YouTube or Vimeo video instead
+        </button>
+      )}
     </div>
   )
 }

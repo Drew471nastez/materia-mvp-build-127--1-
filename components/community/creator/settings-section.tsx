@@ -34,12 +34,12 @@ import { StatusBadge } from "@/app/app/orders/order-parts"
 import { centsFromInput } from "@/lib/memberships/plan"
 import type { CommunityFaq, CommunityLink, NotifyLevel } from "@/lib/communities/types"
 import type { CommunityHead, SettingsData, TierView } from "./view-types"
-import { typeOf, type CommunityType, type GalleryItem, type PriceInterval, type SettingsTab } from "./logic"
+import { GALLERY_MAX, coverVideo as coverOf, typeOf, type CommunityType, type GalleryItem, type PriceInterval, type SettingsTab } from "./logic"
 import { COMMUNITY_CATEGORIES, communityCategoryId } from "@/lib/explore/communities-mode"
 
 export type { SettingsTab }
 import { GamificationPanel } from "./gamification-panel"
-import { GalleryEditor } from "./gallery-editor"
+import { CoverField, GalleryEditor } from "./gallery-editor"
 import { VideoProviders, type ProviderLine } from "@/components/video/video-providers"
 import { ChoiceCards, Confirm, Dialog, Notice, PicturePick, PriceInput, Section, Segmented, Toggle, buttonPrimary, buttonSecondary, card, errorText, field, label, selectField, send, useToast } from "./parts"
 
@@ -248,14 +248,36 @@ function PageSettings({ head, data }: { head: CommunityHead; data: SettingsData 
             </div>
             <div className="min-w-0">
               <p className={label}>Cover</p>
-              <PicturePick value={s.coverUrl} onChange={(v) => set("coverUrl", v)} shape="wide" name="cover" onError={setError} />
+              {/* A picture, or a YouTube or Vimeo video (round 11): then the gallery's first item, and its still the cover picture on Save. */}
+              <CoverField
+                coverUrl={s.coverUrl}
+                gallery={s.gallery}
+                onChange={(next) => {
+                  setS((x) => ({ ...x, coverUrl: next.coverUrl, gallery: next.gallery }))
+                  setError(null)
+                }}
+                onError={setError}
+              />
             </div>
           </div>
         </div>
       </Section>
 
       <Section title="Gallery" hint="Pictures and videos at the top of your page, the first one shown first." id="gallery">
-        <GalleryEditor communityId={head.id} value={s.gallery} onChange={(v) => set("gallery", v)} videos={data.galleryVideos} ready={data.galleryReady} onError={setError} onBusy={setUploading} />
+        {/* The cover video, when there is one, is the cover's to change; the gallery edits what follows it. */}
+        <GalleryEditor
+          communityId={head.id}
+          value={coverOf(s.gallery) ? s.gallery.slice(1) : s.gallery}
+          onChange={(v) => {
+            const cover = coverOf(s.gallery)
+            set("gallery", cover ? [cover, ...v] : v)
+          }}
+          max={coverOf(s.gallery) ? GALLERY_MAX - 1 : GALLERY_MAX}
+          videos={data.galleryVideos}
+          ready={data.galleryReady}
+          onError={setError}
+          onBusy={setUploading}
+        />
       </Section>
 
       <Section title="What members get" hint="A line each, on the community's page.">

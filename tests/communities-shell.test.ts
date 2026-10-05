@@ -459,14 +459,15 @@ async function main() {
   console.log("\nThe about page's shape")
   {
     const page = code("components/community/public/sales-page.tsx")
-    check("title, then rating, then the gallery, then the facts line and the description", page.indexOf("<h1") < page.indexOf("data-community-rating") && page.indexOf("data-community-rating") < page.indexOf("<CommunityGallery") && page.indexOf("<CommunityGallery") < page.indexOf("<InfoRow") && page.indexOf("<InfoRow") < page.indexOf("data-community-description"))
-    check("the facts line: visibility, members, price, By creator", /data-info="visibility"/.test(page) && /data-info="members"/.test(page) && /data-info="price"/.test(page) && /data-info="creator"/.test(page))
+    /* Round 11 (ask 23): the facts are a quiet line under the name, the figures one panel under the media. */
+    check("title, the quiet facts line, rating, then the gallery, then the figures and the description", page.indexOf("<h1") < page.indexOf("<FactsLine") && page.indexOf("<FactsLine") < page.indexOf("data-community-rating") && page.indexOf("data-community-rating") < page.indexOf("<CommunityGallery") && page.indexOf("<CommunityGallery") < page.indexOf("<Figures cells={figures} />") && page.indexOf("<Figures cells={figures} />") < page.indexOf("data-community-description"))
+    check("the facts line: visibility, since when, By creator; no price and no icon beside each fact", /data-info="visibility"/.test(page) && /data-info="since"/.test(page) && /data-info="creator"/.test(page) && !/data-info="price"/.test(page) && !/from "lucide-react"[^\n]*(Globe|Tag|CalendarDays|UsersRound)/.test(page))
     check("Still a paying member is drawn only when the server says so", /\{r\.payingFor \? <span data-review-paying=""> · Still a paying member after \{r\.payingFor\}<\/span> : null\}/.test(page))
     check("the card's content flows under the media on a phone, and the bar sticks at the bottom", page.indexOf("<JoinSummaryPhone") > page.indexOf("<CommunityGallery") && /<JoinBarPhone \/>/.test(page))
     const controls = code("components/community/public/join-controls.tsx")
     /* Round 10: the card is the decision (the price, Monthly and Yearly, the button); the figures moved into the sheet, under the facts line. */
     check("the card sticks under the community's bar, with the price, the interval switch and the button", /sticky top-\[calc\(var\(--community-top,65px\)\+24px\)\]/.test(controls) && /<PriceLine className="mt-4" \/>\s*<IntervalSwitch className="mt-3" full \/>/.test(controls) && /<PrimaryAction className="mt-4 w-full" \/>/.test(controls))
-    check("the sheet draws Members / Online and its own counted figures under the facts line", /<InfoRow [^>]*\/>\s*<StatsRow stats=\{c\.stats\} admins=\{false\} extra=\{figures\}/.test(page))
+    check("the sheet draws its counted figures (aboutFigures) as one panel", /const figures = aboutFigures\(c\.stats, extras\)/.test(page) && /<Figures cells=\{figures\} \/>/.test(page))
     check("the sales page calls no client function on the server", !/from "\.\/join-controls"[\s\S]*intervalPrice/.test(page))
   }
 

@@ -12,9 +12,10 @@
  * THE BAND RUNS EDGE TO EDGE, as a creator page's does: "the cover is full
  * bleed like creator pages (not a rounded card)". So this header is drawn
  * outside the page's column, and keeps a column of its own for the person
- * under the band. The band is 148px on a phone, 220 and then 294 wider up
- * (lib/profile/cover.ts PROFILE_COVER_HEIGHTS, fifteen percent over the
- * creator page's 128 / 192 / 256, as the owner asked of /account). No "Joined" line under the name: the activity
+ * under the band. The band is 157px on a phone, 233 and then 312 wider up
+ * (lib/profile/cover.ts PROFILE_COVER_HEIGHTS: fifteen percent over the
+ * creator page's 128 / 192 / 256 in round 10, then about six percent more
+ * in round 11, as the owner asked of /account and Settings). No "Joined" line under the name: the activity
  * already ends on the day they joined, and the owner asked for it gone.
  *
  * The owner sees their own page with nothing to follow; on the band they
@@ -62,9 +63,10 @@ export interface ProfileHeroPerson {
 
 /**
  * THE PHOTO'S SIZE AND RING, shared with /account's live copy of it
- * (components/account/account-hub.tsx) so the two never drift. 118px on a
- * phone and 134px wider up: five percent over the 112 / 128 it was, as the
- * owner asked of every creator page and profile. The ring is the page's own
+ * (components/account/account-hub.tsx) so the two never drift. 125px on a
+ * phone and 142px wider up: the 112 / 128 it was, five percent up in round
+ * 10 (every creator page and profile), then "a touch bigger (about +6%)" in
+ * round 11, asked of /account, which is this same page. The ring is the page's own
  * ground (#f8f9fa, the Storelib page every profile sits on), so the photo
  * reads as cut out of the page where it crosses the cover.
  *
@@ -72,9 +74,9 @@ export interface ProfileHeroPerson {
  * it was 4, and a shadow about half as dark, so the photo sits on the band
  * rather than being framed on it.
  */
-export const PROFILE_AVATAR_PX = { phone: 118, wide: 134 } as const
+export const PROFILE_AVATAR_PX = { phone: 125, wide: 142 } as const
 export const PROFILE_AVATAR_CLASS =
-  "h-[118px] w-[118px] cursor-zoom-in shadow-[0_1px_2px_rgba(16,24,40,0.06),0_6px_16px_-10px_rgba(16,24,40,0.2)] ring-2 ring-[#f8f9fa] sm:h-[134px] sm:w-[134px]"
+  "h-[125px] w-[125px] cursor-zoom-in shadow-[0_1px_2px_rgba(16,24,40,0.06),0_6px_16px_-10px_rgba(16,24,40,0.2)] ring-2 ring-[#f8f9fa] sm:h-[142px] sm:w-[142px]"
 
 /** The person's column under the band: the profile's own width and the account's side padding. */
 const COLUMN = "mx-auto w-full max-w-[960px]"
@@ -101,7 +103,7 @@ export function ProfileHero({
     <div className={className} data-profile-hero="">
       {/* The band, edge to edge, and the photo across its lower edge, as a creator page opens. */}
       <div className="relative w-full overflow-hidden bg-[#eceef1]" data-profile-cover={cover.url ? "image" : "plain"}>
-        <div className="relative h-[148px] sm:h-[220px] lg:h-[294px]" data-profile-cover-band="">
+        <div className="relative h-[157px] sm:h-[233px] lg:h-[312px]" data-profile-cover-band="">
           {cover.url ? (
             /* Fades in on the band's grey when the page is opened in the app, rather than landing in one frame. */
             <ProfileCoverImage src={optimizedImageUrl(cover.url, 1600)} style={coverCropStyle(cover.crop)} />
@@ -121,7 +123,7 @@ export function ProfileHero({
       </div>
 
       {/* Half the photo over the band's lower edge, at both sizes. */}
-      <header className={cn(COLUMN, "relative -mt-[59px] flex flex-col items-center text-center sm:-mt-[67px]")} style={GUTTERS} data-profile-header="">
+      <header className={cn(COLUMN, "relative -mt-[62.5px] flex flex-col items-center text-center sm:-mt-[71px]")} style={GUTTERS} data-profile-header="">
         {avatar ?? (
           <AvatarLightbox src={person.avatarUrl} name={person.name}>
             <AppAvatar

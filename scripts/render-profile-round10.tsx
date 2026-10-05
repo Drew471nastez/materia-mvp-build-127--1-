@@ -19,7 +19,7 @@
  *                                       photo), comments, the members list,
  *                                       a profile, and a community's mark
  *   ?case=settings                      the account's Profile settings photo
- *                                       row and cover, with the crop sheet
+ *                                       row and cover (straight upload)
  *   ?case=hub                           /account's band
  */
 import React, { Suspense } from "react"

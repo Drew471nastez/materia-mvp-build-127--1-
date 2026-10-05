@@ -151,8 +151,8 @@ export interface AboutExtras {
   activity: {
     /** Posts published in the last 30 days, or null for none (or unknown). */
     posts30: number | null
-    /** Members active in the last 30 days, or null for none (or unknown). */
-    active30: number | null
+    /** Members active in the last 7 days (round 11: "active this week"), or null for none (or unknown). */
+    active7: number | null
     /** When the community was made. */
     since: string | null
   }

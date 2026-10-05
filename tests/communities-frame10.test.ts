@@ -34,7 +34,7 @@ import { PRESS_PROPS } from "@/components/community/member/ui"
 import { shareLinkLine } from "@/components/community/member/invite-sheet"
 import { communityMetadata, inviteMetadata, previewImages, shareCoverUrl, type SeoFacts } from "@/components/community/public/seo"
 import { bothIntervals, priceParts } from "@/components/community/public/join-controls"
-import { extraFigures, sinceLabel } from "@/components/community/public/sales-page"
+import { aboutFigures, sinceLabel } from "@/components/community/public/about-facts"
 import type { JoinOption } from "@/components/community/public/types"
 import type { SearchIndex } from "@/components/community/member/view-types"
 import { aboutExtras } from "@/lib/communities/server/about"
@@ -175,7 +175,7 @@ async function main() {
     check("with a cover: the cover, 1200 by 630 JPEG, for Open Graph and X alike", JSON.stringify(withCover?.twitter) === JSON.stringify([shareCoverUrl("clay", "v1")]) && shareCoverUrl("clay", "v1") === "https://storelib.com/community/clay/cover.jpg?v=v1" && (withCover?.og as { type?: string }[])[0].type === "image/jpeg")
     check("without one: the drawn card (with the invite's words on an invite)", (communityMetadata({ ...facts, coverUrl: null }).openGraph as { images: { url: string }[] }).images[0].url.endsWith("/share.png?v=v1") && (inviteMetadata({ ...facts, coverUrl: null }).openGraph as { images: { url: string }[] }).images[0].url.endsWith("share.png?v=v1&invite=1"))
     const route = code("app/(marketing)/community/[slug]/cover.jpg/route.ts")
-    check("cover.jpg: the switch first, nothing for a draft or a suspended one, the drawn card when the cover cannot be read", existsSync("app/(marketing)/community/[slug]/cover.jpg/route.ts") && route.indexOf("communitiesEnabled()") < route.indexOf("loadCommunity(") && /if \(!community \|\| !sharePreviewable\(community\)\) return notFound\(\)/.test(route) && /if \(!base64\) return drawnCard\(request, community\.slug\)/.test(route) && /sharePicture\(community\.cover_url, SHARE_IMAGE_WIDTH, SHARE_IMAGE_HEIGHT, "jpeg"\)/.test(route))
+    check("cover.jpg: the switch first, nothing for a draft or a suspended one, the drawn card when the cover cannot be read", existsSync("app/(marketing)/community/[slug]/cover.jpg/route.ts") && route.indexOf("communitiesEnabled()") < route.indexOf("loadCommunity(") && /if \(!community \|\| !sharePreviewable\(community\)\) return notFound\(\)/.test(route) && /if \(!base64\) return drawnCard\(request, community\.slug\)/.test(route) && /for \(const source of coverSources\(community\.cover_url\)\)/.test(route) && /sharePicture\(source, SHARE_IMAGE_WIDTH, SHARE_IMAGE_HEIGHT, "jpeg"\)/.test(route))
   }
 
   /* ── The About page and the join ─────────────────────────────────────── */
@@ -184,7 +184,8 @@ async function main() {
     const paid = { kind: "paid", billing: "recurring", monthlyCents: 1900, yearlyCents: 19000, priceCents: null, currency: "usd", priceLine: "$19/month", checkout: { month: "/m", year: "/y", once: null } } as unknown as JoinOption
     check("the price apart from what it is per, following the interval", JSON.stringify(priceParts(paid, "month")) === JSON.stringify({ amount: "$19", per: "/month" }) && JSON.stringify(priceParts(paid, "year")) === JSON.stringify({ amount: "$190", per: "/year" }) && bothIntervals(paid))
     check("once and free", JSON.stringify(priceParts({ ...paid, billing: "one_time", priceCents: 24900, monthlyCents: null, yearlyCents: null } as JoinOption, "month")) === JSON.stringify({ amount: "$249", per: "once" }) && priceParts({ ...paid, kind: "free" } as JoinOption, "month")?.amount === "Free")
-    check("the page's own figures: posts, members active only without the heartbeat, courses; none when zero", JSON.stringify(extraFigures({ activity: { posts30: 12, active30: 40, since: null }, classroom: { total: 3, courses: [] }, creatorBio: null }).map((c) => [c.key, !!c.withoutHeartbeat])) === JSON.stringify([["posts", false], ["active", true], ["courses", false]]) && extraFigures({ activity: { posts30: null, active30: null, since: null }, classroom: null, creatorBio: null }).length === 0)
+    /* Round 11 (ask 23): members, active this week, posts in 30 days, courses; Online now only fills a place left empty. */
+    check("the page's figures: members, active this week, posts, courses; none of the others when zero", JSON.stringify(aboutFigures({ members: 40, online: 3, admins: 1 }, { activity: { posts30: 12, active7: 9, since: null }, classroom: { total: 3, courses: [] }, creatorBio: null }).map((c) => c.key)) === JSON.stringify(["members", "active", "posts", "courses"]) && JSON.stringify(aboutFigures({ members: 4, online: 0, admins: null }, { activity: { posts30: null, active7: null, since: null }, classroom: null, creatorBio: null }).map((c) => c.key)) === JSON.stringify(["members"]))
     check("since: the month it started", sinceLabel("2025-03-02T00:00:00Z") === "Mar 2025" && sinceLabel(null) === null)
     const C = "c0000000-0000-4000-8000-0000000000b1"
     const recent = new Date(Date.now() - 2 * DAY).toISOString()
@@ -201,7 +202,7 @@ async function main() {
       profiles: [{ id: "u-cr", bio: "  Potter   and teacher. " }],
     } as never)
     const extras = await aboutExtras(db, { id: C, creator_id: "cr1", created_at: "2025-03-02T00:00:00Z", classroom_enabled: true } as never)
-    check("counted from real rows: published posts and active members in 30 days", extras.activity.posts30 === 1 && extras.activity.active30 === 1, extras.activity)
+    check("counted from real rows: published posts in 30 days, members active this week", extras.activity.posts30 === 1 && extras.activity.active7 === 1, extras.activity)
     check("the classroom's published courses with their lessons, never a draft", extras.classroom?.total === 1 && extras.classroom.courses[0].title === "Throwing" && extras.classroom.courses[0].lessons === 2, extras.classroom)
     check("the creator's own line, tidied", extras.creatorBio === "Potter and teacher.")
     check("the module says server-only", /^import "server-only"/m.test(readSource("lib/communities/server/about.ts")))

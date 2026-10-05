@@ -15,17 +15,20 @@
  * picker, and Change photo and Remove sit where Edit profile was. Settings'
  * Profile card keeps the name and nothing else.
  *
- * WHAT HAPPENS TO A PICTURE. The owner: "smooth and modern (picker, crop to
- * circle, upload progress, instant preview, no layout jump)". The picker,
- * then the picture under a circle to move and zoom (components/account/
- * photo-crop.tsx), cut there at 512px in the browser. Use photo puts it in
- * the circle at once, and a thin ring fills round its edge as the bytes go
- * up (lib/storage/upload-with-progress, the real number from the request)
- * under the owner's own folder; then it is saved through the one photo
- * route (app/api/account/avatar) and announced to every avatar in the shell
- * (lib/account/avatar-store.ts). A failure puts the old photo back and says
- * so under the buttons. The circle never empties, and the crop is a sheet
- * over the page, so nothing on the page moves.
+ * WHAT HAPPENS TO A PICTURE. The owner, round 11: "Remove the photo
+ * cropper: choosing a photo uploads it straight away (instant preview in
+ * the circle, upload progress ring, no sheet in between)". So the picker,
+ * and on the frame the file comes back the picture is in the circle (the
+ * file itself, drawn object-cover, which is the same middle square the
+ * upload cuts), with a thin ring filling round its edge as the bytes go up
+ * (lib/storage/upload-with-progress, the real number from the request).
+ * What goes up is the middle square of the picture at 512px, cut in the
+ * browser while the ring starts, so a 12MB phone photo is a small JPEG on
+ * the wire. It goes under the owner's own folder, is saved through the one
+ * photo route (app/api/account/avatar) and announced to every avatar in the
+ * shell (lib/account/avatar-store.ts). A failure puts the old photo back
+ * and says so under the buttons. The circle never empties and nothing is
+ * drawn over the page, so nothing on the page moves.
  */
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
@@ -36,7 +39,7 @@ import { createClient } from "@/lib/supabase/client"
 import { uploadWithProgress } from "@/lib/storage/upload-with-progress"
 import { announceAvatar } from "@/lib/account/avatar-store"
 import { cn } from "@/lib/utils"
-import { PhotoCropSheet } from "./photo-crop"
+import { PHOTO_SIDE, centreSquare } from "@/lib/profile/photo-square"
 
 /** The progress ring's length (2 * pi * 35). */
 const RING = 219.91
@@ -44,6 +47,27 @@ const RING = 219.91
 /** The picture as the browser can draw it, orientation from the file honoured (a phone's portrait stays upright). */
 async function bitmapOf(file: File): Promise<ImageBitmap> {
   return await createImageBitmap(file, { imageOrientation: "from-image" } as ImageBitmapOptions)
+}
+
+/** The middle square at PHOTO_SIDE as a JPEG on white (a transparent PNG does not go black). */
+async function squareJpeg(file: File): Promise<Blob> {
+  const bitmap = await bitmapOf(file)
+  try {
+    const square = centreSquare(bitmap.width, bitmap.height)
+    const out = Math.min(PHOTO_SIDE, square.side)
+    const canvas = document.createElement("canvas")
+    canvas.width = out
+    canvas.height = out
+    const ctx = canvas.getContext("2d")
+    if (!ctx) throw new Error("no canvas")
+    ctx.imageSmoothingQuality = "high"
+    ctx.fillStyle = "#ffffff"
+    ctx.fillRect(0, 0, out, out)
+    ctx.drawImage(bitmap, square.sx, square.sy, square.side, square.side, 0, 0, out, out)
+    return await new Promise<Blob>((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("no blob"))), "image/jpeg", 0.9))
+  } finally {
+    bitmap.close?.()
+  }
 }
 
 /** The one photo route, which also marks the account as having chosen (lib/account/avatar). */
@@ -70,7 +94,7 @@ export interface AccountPhoto {
   /** Opens the file picker. */
   pick: () => void
   remove: () => Promise<void>
-  /** The hidden file input and the crop sheet when it is open; render it once. */
+  /** The hidden file input; render it once. */
   input: ReactNode
 }
 
@@ -89,18 +113,12 @@ export function useAccountPhoto(userId: string, onChanged: () => void): AccountP
   }
 
   const [progress, setProgress] = useState<number | null>(null)
-  /* The picture being placed in the crop sheet, while it is open. */
-  const [placing, setPlacing] = useState<{ bitmap: ImageBitmap; src: string } | null>(null)
-  const closePlacing = useCallback(() => {
-    setPlacing((current) => {
-      if (current) {
-        URL.revokeObjectURL(current.src)
-        current.bitmap.close?.()
-      }
-      return null
-    })
-  }, [])
 
+  /*
+    CHOSEN, SO IT GOES. The file is in the circle on this frame and the ring
+    is at its start; the square is cut and sent behind it. Nothing in
+    between asks anything of the person.
+  */
   const choose = async (file: File | undefined) => {
     if (!file || busy) return
     setError(null)
@@ -112,20 +130,19 @@ export function useAccountPhoto(userId: string, onChanged: () => void): AccountP
       setError("That picture is over 15MB. Choose a smaller one.")
       return
     }
-    try {
-      const bitmap = await bitmapOf(file)
-      setPlacing({ bitmap, src: URL.createObjectURL(file) })
-    } catch {
-      setError("That picture could not be read. Try a JPG or PNG.")
-    }
-  }
-
-  /* Use photo: in the circle at once, then up, with the ring filling as it goes. */
-  const upload = async (blob: Blob) => {
-    closePlacing()
-    showPreview(URL.createObjectURL(blob))
+    showPreview(URL.createObjectURL(file))
     setBusy("upload")
     setProgress(0)
+    let blob: Blob
+    try {
+      blob = await squareJpeg(file)
+    } catch {
+      showPreview(null)
+      setBusy(null)
+      setProgress(null)
+      setError("That picture could not be read. Try a JPG or PNG.")
+      return
+    }
     try {
       /* The owner's folder first: storage only lets a person write there. */
       const path = `${userId}/avatar-${Date.now()}.jpg`
@@ -180,7 +197,6 @@ export function useAccountPhoto(userId: string, onChanged: () => void): AccountP
           void choose(file)
         }}
       />
-      {placing ? <PhotoCropSheet bitmap={placing.bitmap} src={placing.src} onCancel={closePlacing} onDone={(blob) => void upload(blob)} /> : null}
     </>
   )
 

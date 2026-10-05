@@ -163,7 +163,7 @@ const placement = (page, frameSel, imgSel) =>
     imgSel,
   )
 
-const bandAspect = (w) => Math.min(12, Math.max(1.5, w / (w >= 1024 ? 256 : w >= 640 ? 192 : 128)))
+const bandAspect = (w) => Math.min(12, Math.max(1.5, w / (w >= 1024 ? 312 : w >= 640 ? 233 : 157)))
 
 for (const [label, vp] of [["1440", DESK], ["390", PHONE]]) {
   const touch = !!vp.hasTouch

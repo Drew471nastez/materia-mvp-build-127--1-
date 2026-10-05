@@ -16,8 +16,19 @@
  *                the element directly, no React render in between
  *   click        the state flips at once: the two faces (the solid Follow
  *                and the quiet Following) and their labels crossfade over
- *                160ms, opacity only, so the compositor does all of it and
+ *                220ms, opacity only, so the compositor does all of it and
  *                the main thread is free
+ *   and after    the face that arrived settles: it lands a shade off its
+ *                own colour (Following on the grey a press leaves, Follow a
+ *                touch lighter) and eases to it over 420ms, and on
+ *                Following the check draws itself, one stroke over 300ms
+ *
+ * SMOOTHER AND MORE SATISFYING, NOT BIGGER (round 11): "a soft crossfade
+ * with a gentle colour settle, maybe a tiny check that draws itself on
+ * Following; no bump". The settle is one more layer in each face, opacity
+ * only; the check is the stroke's own dash offset. Going back the other way
+ * the settle layer and the check are put back only once their face has
+ * faded out, so nothing is seen undoing itself.
  * No scale, no bounce, no spring: the owner asked for "no bump" between
  * Follow and Following. The box is the same box in both states and while
  * pressed (scripts/check-follow-button.mjs measures it on every frame of a
@@ -63,7 +74,6 @@
  * double tap zoom, and the box is 40px tall.
  */
 import { useCallback, useEffect, useRef, useState } from "react"
-import { Check } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 export type FollowTone = "platform" | "storefront"
@@ -226,14 +236,32 @@ export function schemeVars(scheme: ActionScheme | null | undefined): React.CSSPr
  * the frame right after the press would show nothing yet; with it, that
  * frame is already a part of the way across.
  */
-const SWAP = "transition-opacity duration-[160ms] [transition-delay:-24ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none"
+const SWAP = "transition-opacity duration-[220ms] [transition-delay:-24ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none"
+
+/**
+ * THE SETTLE. A layer over the arriving face, a shade off its colour, that
+ * eases away (420ms) once its face is there; put back with no fade 240ms
+ * after its face has started to go, by when the face is no longer seen.
+ */
+const SETTLE = "pointer-events-none absolute inset-0 rounded-[inherit] motion-reduce:transition-none"
+const SETTLING = "opacity-0 transition-opacity duration-[420ms] ease-[cubic-bezier(0.25,0.1,0.25,1)]"
+const UNSETTLED = "opacity-100 transition-opacity duration-0 delay-[240ms]"
+
+/**
+ * THE CHECK THAT DRAWS ITSELF: lucide's check, as one path measured as 1
+ * (pathLength), so a dash offset of 1 is nothing drawn and 0 is all of it.
+ * It starts 70ms in, once Following is on its way, and takes 300ms; going
+ * back it is rubbed out only after the label has faded.
+ */
+const CHECK_DRAWN = "[transition:stroke-dashoffset_300ms_cubic-bezier(0.65,0,0.35,1)_70ms] motion-reduce:[transition:none]"
+const CHECK_HIDDEN = "[transition:stroke-dashoffset_0s_linear_240ms] motion-reduce:[transition:none]"
 
 /**
  * A label that is not the state goes invisible once it has faded, so the
  * button's text (and a find in page) is only the state. Visibility steps:
  * shown at the start of a fade in, hidden at the end of a fade out.
  */
-const LABEL = "relative col-start-1 row-start-1 inline-flex items-center gap-1.5 whitespace-nowrap transition-[opacity,visibility] duration-[160ms] [transition-delay:-24ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none"
+const LABEL = "relative col-start-1 row-start-1 inline-flex items-center gap-1.5 whitespace-nowrap transition-[opacity,visibility] duration-[220ms] [transition-delay:-24ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none"
 
 /**
  * NOTHING TO WORK OUT ON A PRESS. cn() runs tailwind-merge, which parses
@@ -266,6 +294,9 @@ const PLATFORM = {
   solidInk: "text-white",
   /* Medium, as Storelib's quiet secondary is (secondaryDepth). */
   quietInk: "text-[#1a1a2e] font-medium",
+  /* Where each face lands before it settles: Follow a touch lighter, Following on the grey a press leaves. */
+  solidSettle: "bg-white/[0.12]",
+  quietSettle: "bg-[#eef0f3]",
 }
 
 /** The same pair in the creator's scheme, as faces: Follow in their buy colour, Following a surface a step off their page. Without a scheme the quiet face falls back to the page's text colour, so it is never a white box on a dark page. */
@@ -282,6 +313,8 @@ const SCHEME = {
   ),
   solidInk: "text-[var(--sf-ink)]",
   quietInk: "text-[var(--sq-ink,currentColor)]",
+  solidSettle: "bg-white/[0.12]",
+  quietSettle: "bg-[var(--sq-press,color-mix(in_srgb,currentColor_9%,transparent))]",
 }
 
 export function FollowButton({
@@ -308,6 +341,7 @@ export function FollowButton({
   /* A creator page without a scheme draws Follow in the quiet face too, in the page's own text colour. */
   const solid = storefront && !scheme ? SCHEME.quiet : look.solid
   const solidInk = storefront && !scheme ? SCHEME.quietInk : look.solidInk
+  const solidSettle = storefront && !scheme ? SCHEME.quietSettle : look.solidSettle
   const release = (e: React.PointerEvent<HTMLButtonElement>) => {
     delete e.currentTarget.dataset.pressed
   }
@@ -338,8 +372,12 @@ export function FollowButton({
     >
       {/* The face: one box for both states; a press shades it and a switch crossfades it. */}
       <span className={FACE_BOX} data-follow-face="">
-        <span aria-hidden className={join(solid, SWAP, following ? "opacity-0" : "opacity-100")} data-follow-fill="follow" />
-        <span aria-hidden className={join(look.quiet, SWAP, following ? "opacity-100" : "opacity-0")} data-follow-fill="following" />
+        <span aria-hidden className={join(solid, SWAP, following ? "opacity-0" : "opacity-100")} data-follow-fill="follow">
+          <span className={join(SETTLE, solidSettle, following ? UNSETTLED : SETTLING)} data-follow-settle="follow" />
+        </span>
+        <span aria-hidden className={join(look.quiet, SWAP, following ? "opacity-100" : "opacity-0")} data-follow-fill="following">
+          <span className={join(SETTLE, look.quietSettle, following ? SETTLING : UNSETTLED)} data-follow-settle="following" />
+        </span>
         {/* Both labels in one cell, always laid out: the button is the width of the wider one in both states. */}
         <span
           className={join(LABEL, solidInk, following ? "invisible opacity-0" : "visible opacity-100")}
@@ -353,7 +391,15 @@ export function FollowButton({
           aria-hidden={!following || undefined}
           data-follow-label="following"
         >
-          <Check className="h-4 w-4" strokeWidth={2.25} aria-hidden />
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.25} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0" aria-hidden data-follow-check="">
+            <path
+              d="M20 6 9 17l-5-5"
+              pathLength={1}
+              strokeDasharray={1}
+              style={{ strokeDashoffset: following ? 0 : 1 }}
+              className={following ? CHECK_DRAWN : CHECK_HIDDEN}
+            />
+          </svg>
           Following
         </span>
       </span>

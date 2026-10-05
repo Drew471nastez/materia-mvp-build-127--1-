@@ -296,3 +296,76 @@ export function keyboardInsetFrom(m: {
 export function keyboardInset(innerHeight: number, vvTop: number, vvHeight: number): number {
   return Math.max(0, Math.round(innerHeight - vvTop - vvHeight))
 }
+
+/**
+ * ===========================================================================
+ *  A SHEET ON THE KEYBOARD STILL PAINTS TO THE FOOT OF THE SCREEN
+ * ===========================================================================
+ * Image 66, an iPhone on storelib.com: a community post open in the phone
+ * sheet, "Write a comment..." tapped, the keyboard up. The sheet was lifted
+ * clear of the keys, and between its bottom edge and the top of the keyboard
+ * a strip of the page showed through: the post's own media, dark, undimmed.
+ * Measured off the screenshot (iPhone 16 Pro, 402x874pt, 2.288 image px per
+ * point):
+ *
+ *     sheet's painted bottom        466pt      = 408pt above the screen's foot
+ *     top of the keys               540pt      = 334pt above it
+ *     the strip of page between     74pt
+ *
+ * Nothing was broken in the measurement. 408 is what the platform reported:
+ * Safari's visual viewport stops above the floating form accessory bar (the
+ * passwords/card/location pills and the dismiss button), not at the keys,
+ * so `--kb-inset` is the keys PLUS that bar. The bar is a pill. It does not
+ * fill the width, and the page is drawn around it.
+ *
+ * The lesson is not "measure better". It is that MOVING THE WHOLE PANEL UP
+ * stakes the sheet on the inset being exactly right, and the forfeit is a
+ * window onto the page. There is no number this file can compute that is
+ * right on every phone, in every browser, with every third-party keyboard
+ * and every floating bar a vendor adds next year.
+ *
+ * So the panel stops moving. It stays at `bottom: 0`, painting its own white
+ * down to the lowest point a fixed element reaches, and its CONTENT is
+ * pushed up by the inset instead, with the box grown by the same amount so
+ * the content column keeps exactly the size, and the top edge exactly the
+ * place, it had when the panel was lifted. The visible sheet is identical to
+ * the pixel. What changed is what is underneath it: the sheet's own colour
+ * rather than a hole.
+ *
+ * Any error in the inset now costs a strip of the sheet's own white between
+ * the content and the keys, which reads as a margin, instead of a strip of
+ * the page, which reads as broken.
+ */
+
+/** Room under a sheet's content: the phone's own, never less than a little. */
+const SHEET_FOOT = "max(env(safe-area-inset-bottom), 12px)"
+
+/**
+ * Geometry for a bottom sheet whose content must clear the keyboard.
+ *
+ * @param maxHeight What the sheet asked for, in the room the keyboard leaves.
+ * @param height A fixed height in that same room, for a sheet that sets one.
+ *
+ * Both are grown by the inset, and the same inset is added under the content,
+ * so the content column is `maxHeight`/`height` tall and ends at the top of
+ * the keyboard while the box carries on to the foot of the screen.
+ */
+export function sheetOverKeyboard(maxHeight: string, height?: string): {
+  bottom: string
+  maxHeight: string
+  height?: string
+  paddingBottom: string
+} {
+  const room = `min(${maxHeight}, calc(var(--vv-h, 100dvh) - 24px))`
+  return {
+    bottom: "0px",
+    maxHeight: `calc(${room} + var(--kb-inset, 0px))`,
+    ...(height ? { height: `calc(${height} + var(--kb-inset, 0px))` } : null),
+    paddingBottom: `calc(${SHEET_FOOT} + var(--kb-inset, 0px))`,
+  }
+}
+
+/** Room under a sheet that is not on the keyboard: the phone's own, as before. */
+export function sheetFoot(): { paddingBottom: string } {
+  return { paddingBottom: SHEET_FOOT }
+}

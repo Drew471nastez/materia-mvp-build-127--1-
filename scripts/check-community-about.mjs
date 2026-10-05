@@ -187,7 +187,7 @@ export const isNativePlatform = () => false
     if (which === "paid") {
       expect(shape.switches === 2, "Monthly / Yearly in the card and in the pricing card", shape.switches)
       expect(shape.classroom === 4 && shape.creator && /Gothenburg/.test(shape.bio || ""), "the classroom's first four courses, the creator with their line", shape)
-      expect(shape.stats.join() === "members,online,posts,courses" && /^Since Mar 2025$/.test(shape.since || ""), "the figures: members, online, posts in 30 days, courses; and since when", shape)
+      expect(shape.stats.join() === "members,active,posts,courses" && /^Since Mar 2025$/.test(shape.since || ""), "the figures: members, active this week, posts in 30 days, courses; and since when", shape)
       /* THE SWITCH: Yearly moves every price, and the thumb slides over several frames. */
       const slide = await p.evaluate(async () => {
         const thumb = document.querySelector("[data-pricing-card] [data-interval-thumb]")
@@ -210,7 +210,7 @@ export const isNativePlatform = () => false
       expect(slide.steps >= 5, "the thumb slides over several frames, not a jump", slide.steps)
       await p.screenshot({ path: join(shots, "desktop-paid-yearly-pricing.png"), clip: await p.evaluate(() => { const r = document.querySelector("[data-community-membership]").getBoundingClientRect(); return { x: r.left, y: r.top + scrollY, width: r.width, height: r.height } }) })
     }
-    if (which === "free") expect(shape.stats.join() === "members,posts,active" && shape.classroom === 0, "no heartbeat known: members, posts and active members, no classroom", shape)
+    if (which === "free") expect(shape.stats.join() === "members,active,posts" && shape.classroom === 0, "no heartbeat known: members, active this week, posts, no classroom", shape)
     await p.screenshot({ path: join(shots, `desktop-${which}.png`) })
     const before = await p.evaluate(() => Math.round(document.querySelector("[data-join-card-sticky]").getBoundingClientRect().top))
     await p.evaluate(() => window.scrollTo(0, 900))

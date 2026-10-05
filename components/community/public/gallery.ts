@@ -6,8 +6,18 @@
  * values, the page draws what comes back, and the tests call them directly.
  */
 
-/** One thing in the gallery, as the page draws it. */
-export type GalleryItemView = { type: "image"; url: string } | { type: "video"; videoId: string; posterUrl: string | null }
+import { galleryEmbed } from "@/components/community/creator/logic"
+
+/**
+ * One thing in the gallery, as the page draws it. A YouTube or Vimeo video
+ * (round 11) is its service, id, Vimeo's private hash and its still; the
+ * page shows the still with a play button and starts the service's privacy
+ * player in place on a press (lib/communities/post-media embedPlayerSrc).
+ */
+export type GalleryEmbedView = { type: "embed"; provider: "youtube" | "vimeo"; id: string; hash?: string; thumb: string | null }
+export type GalleryItemView = { type: "image"; url: string } | { type: "video"; videoId: string; posterUrl: string | null } | GalleryEmbedView
+
+type StoredItem = { type: "image"; url: string } | { type: "video"; videoId: string } | GalleryEmbedView
 
 export const GALLERY_MAX = 12
 
@@ -28,13 +38,15 @@ export function safeImageUrl(v: unknown): string | null {
 
 /**
  * communities.gallery (part 85: `[{ type: "image", url } | { type: "video",
- * videoId }]`, at most 12) read defensively: anything that is not one of
- * those two shapes is dropped, never drawn. Videos keep their id; whether
- * one is ready, and its poster, is the server's to add.
+ * videoId } | { type: "embed", provider, id, hash?, thumb? }]`, at most 12)
+ * read defensively: anything that is not one of those shapes is dropped,
+ * never drawn. Videos keep their id; whether one is ready, and its poster,
+ * is the server's to add. A linked video is only one embedFromUrl accepts
+ * again here, with a still only from YouTube's or Vimeo's picture hosts.
  */
-export function parseGallery(raw: unknown): ({ type: "image"; url: string } | { type: "video"; videoId: string })[] {
+export function parseGallery(raw: unknown): StoredItem[] {
   if (!Array.isArray(raw)) return []
-  const out: ({ type: "image"; url: string } | { type: "video"; videoId: string })[] = []
+  const out: StoredItem[] = []
   const seen = new Set<string>()
   for (const item of raw) {
     if (out.length >= GALLERY_MAX) break
@@ -49,9 +61,21 @@ export function parseGallery(raw: unknown): ({ type: "image"; url: string } | { 
     } else if (it.type === "video" && typeof it.videoId === "string" && UUID.test(it.videoId) && !seen.has(it.videoId)) {
       seen.add(it.videoId)
       out.push({ type: "video", videoId: it.videoId })
+    } else if (it.type === "embed") {
+      const e = galleryEmbed(it)
+      const key = e ? `${e.provider}:${e.id}` : ""
+      if (e && !seen.has(key)) {
+        seen.add(key)
+        out.push({ type: "embed", provider: e.provider, id: e.id, ...(e.hash ? { hash: e.hash } : {}), thumb: e.thumb ?? null })
+      }
     }
   }
   return out
+}
+
+/** The still a gallery item shows before it plays: the picture, the upload's poster, the linked video's still. */
+export function galleryStill(g: GalleryItemView): string | null {
+  return g.type === "image" ? g.url : g.type === "video" ? g.posterUrl : g.thumb
 }
 
 /**
