@@ -71,6 +71,18 @@ console.log("\nWhere a person lands is decided once\n")
     syncSessionHref({ access_token: "a b", refresh_token: "r" }, "/app?x=1") === "/auth/sync-session?access_token=a%20b&refresh_token=r&next=%2Fapp%3Fx%3D1")
 }
 
+console.log("\nThe plugin is in the repository, and so is the one native step\n")
+{
+  const pkg = JSON.parse(read("package.json")) as { dependencies?: Record<string, string> }
+  check("@capgo/capacitor-social-login is a dependency, so a sync wires it in", !!pkg.dependencies?.["@capgo/capacitor-social-login"])
+  const setup = read("scripts/native-google-setup.mjs")
+  check("one command writes the URL scheme Google answers to: the client id, backwards", /iosClientId\.split\("\."\)\.reverse\(\)\.join\("\."\)/.test(setup) && /CFBundleURLSchemes/.test(setup))
+  check("  it refuses anything that is not a client id, and says where to find one", /apps\\\.googleusercontent\\\.com\$/.test(setup) && /APIs & Services/.test(setup))
+  check("  and says nothing twice", /already lists/.test(setup))
+  check("no test client id was left in the app", !/googleusercontent/.test(read("ios/App/App/Info.plist")))
+  check("a dismissal is read off the plugin's code, not only its words", /\(err as \{ code\?: unknown \}\)\?\.code/.test(sign) && isCancelled("USER_CANCELLED "))
+}
+
 console.log("\nWritten down for the native release\n")
 {
   const doc = read("docs/native-google-sign-in.md")

@@ -82,7 +82,12 @@ export function isCancelled(message: string): boolean {
   return /cancel|dismiss|12501|user_?cancell?ed|aborted|no credential|closed by user/i.test(message)
 }
 
-/** The ID token from whichever native Google plugin this build carries, or null when it carries none. */
+/**
+ * The ID token from whichever native Google plugin this build carries, or
+ * null when it carries none. @capgo/capacitor-social-login is a dependency,
+ * so a synced native build has `SocialLogin` and takes the first branch; the
+ * others are here because a build may already carry one of them.
+ */
 async function nativeGoogleIdToken(): Promise<string | null> {
   const p = plugins()
 
@@ -173,7 +178,9 @@ export async function signInWithNativeGoogle(
     return { result: "done", href: await completeNativeSession(supabase, data.session) }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err ?? "")
-    if (isCancelled(message)) return { result: "cancelled" }
+    /* SocialLogin rejects a dismissal with `code: "USER_CANCELLED"` and a message that may say nothing. */
+    const code = typeof (err as { code?: unknown })?.code === "string" ? (err as { code: string }).code : ""
+    if (isCancelled(`${code} ${message}`)) return { result: "cancelled" }
     /* A plugin that is there but cannot run (no client id, no Play services) is the sheet's job now. */
     return { result: "unavailable", message }
   }
