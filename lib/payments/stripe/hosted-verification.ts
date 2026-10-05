@@ -98,7 +98,19 @@ async function connectLink(account: Stripe.Account, where: VerifyReturn): Promis
     )
     return link.url || null
   } catch (error) {
-    console.error("[verify id] account link", quiet(error))
+    /*
+     * ONE SETTING CAN STOP ALL OF THIS, so it is named in the log rather than
+     * left as another refusal. Stripe will not build a hosted page for a
+     * connected account until the platform's Connect branding (an icon and a
+     * colour) is saved in the Stripe dashboard, under Settings, Connect,
+     * Branding. It is set once and it is the only hint we would get.
+     */
+    const why = stripeErrorMessage(error)
+    if (/branding|icon|logo|platform profile|business profile/i.test(why)) {
+      console.error("[verify id] Stripe will not make the verification page until the platform's Connect branding is saved in the Stripe dashboard (Settings, Connect, Branding)", quiet(error))
+    } else {
+      console.error("[verify id] account link", quiet(error))
+    }
     return null
   }
 }
