@@ -72,6 +72,8 @@ export const DOMAIN_EVENTS = [
   "community.course_available",
   "community.join_approved",
   "community.report_digest",
+  /* The weekly digest a member asked for in Settings, one per account a week across their communities (lib/communities/server/jobs/weekly_digest.ts). */
+  "community.weekly_digest",
   "domain.connected",
   "domain.connection_failed",
   "team.invitation_created",
@@ -189,6 +191,8 @@ export const NOTIFICATION_TYPES = [
   "COMMUNITY_COURSE_AVAILABLE",
   /* The day's new reports in a community, to each of its moderators: at most one a day (lib/notifications/report-digest.ts). */
   "COMMUNITY_REPORT_DIGEST",
+  /* The week in the person's communities, only when they asked for it in Settings (lib/communities/server/jobs/weekly_digest.ts). */
+  "COMMUNITY_WEEKLY_DIGEST",
 ] as const
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number]
@@ -294,8 +298,10 @@ export type SkipReason =
   | "NO_RECIPIENT"
   | "WRONG_RECIPIENT_TYPE"
   | "EMAIL_SENT_ELSEWHERE"
-  /** Optional email over the daily limit (3 a day, one lifecycle nudge a day). */
+  /** Optional email over the daily limit (3 a day, one lifecycle nudge a day, ACCOUNT_DAILY_EMAIL_CAP budgeted). */
   | "DAILY_CAP"
+  /** Not a type that may be an email (lib/notify/email-budget.ts): the bell and the phone carry it. */
+  | "EMAIL_BUDGET"
 
 /** One job the orchestrator plans: a notification to one person, now or later. */
 export interface PlannedJob {

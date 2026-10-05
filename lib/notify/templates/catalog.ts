@@ -111,6 +111,7 @@ export const DATA_KEYS: Record<NotificationType, readonly string[]> = {
   COMMUNITY_EVENT_REMINDER: [...COMMUNITY_KEYS, "eventId", "eventTitle", "startsAt", "endsAt", "timezone", "lead", "location", "online"],
   COMMUNITY_COURSE_AVAILABLE: [...COMMUNITY_KEYS, "courseTitle", "courseProductId"],
   COMMUNITY_REPORT_DIGEST: [...COMMUNITY_KEYS, "reportCount", "moreCount", "line1", "line2", "line3", "line4", "line5"],
+  COMMUNITY_WEEKLY_DIGEST: ["weekOf", "moreCount", ...[1, 2, 3, 4, 5].flatMap((i) => [`c${i}Name`, `c${i}Slug`, `c${i}Line`, `c${i}Top`])],
 }
 
 /* ── Canonical paths ───────────────────────────────────────────────────── */
@@ -1517,6 +1518,7 @@ export const CATALOG: Record<NotificationType, Entry> = {
   COMMUNITY_EVENT_REMINDER: (d, ctx) => COMMUNITY_ENTRIES.COMMUNITY_EVENT_REMINDER(d, ctx),
   COMMUNITY_COURSE_AVAILABLE: (d, ctx) => COMMUNITY_ENTRIES.COMMUNITY_COURSE_AVAILABLE(d, ctx),
   COMMUNITY_REPORT_DIGEST: (d, ctx) => COMMUNITY_ENTRIES.COMMUNITY_REPORT_DIGEST(d, ctx),
+  COMMUNITY_WEEKLY_DIGEST: (d, ctx) => COMMUNITY_ENTRIES.COMMUNITY_WEEKLY_DIGEST(d, ctx),
 }
 
 /** What every community email says the same way: its name, who runs it, and its address. */
@@ -1549,7 +1551,7 @@ function eventWhen(d: Data): string {
 /* ── A member of a community ──────────────────────────────────────────── */
 
 const COMMUNITY_ENTRIES: Record<
-  "COMMUNITY_WELCOME" | "COMMUNITY_JOIN_APPROVED" | "COMMUNITY_INVITE" | "COMMUNITY_ANNOUNCEMENT" | "COMMUNITY_EVENT_REMINDER" | "COMMUNITY_COURSE_AVAILABLE" | "COMMUNITY_REPORT_DIGEST",
+  "COMMUNITY_WELCOME" | "COMMUNITY_JOIN_APPROVED" | "COMMUNITY_INVITE" | "COMMUNITY_ANNOUNCEMENT" | "COMMUNITY_EVENT_REMINDER" | "COMMUNITY_COURSE_AVAILABLE" | "COMMUNITY_REPORT_DIGEST" | "COMMUNITY_WEEKLY_DIGEST",
   Entry
 > = {
   COMMUNITY_WELCOME: (d) => {
@@ -1711,6 +1713,36 @@ const COMMUNITY_ENTRIES: Record<
       note: "One email a day at most, and only when there is something new. You can turn it off in Settings, under Notifications.",
       greet: false,
       inApp: { title: c.name ? `${what} in ${c.name}` : what, body: lines[0] || "Members flagged something for you to look at.", actionLabel: "Review", actionPath: path },
+    }
+  },
+
+  /*
+    THE WEEK IN THE PERSON'S COMMUNITIES, which they asked for in Settings: one email a week for all of them, a short
+    paragraph per community (what happened, and the post people liked most), busiest first, at most five. The button
+    opens the busiest one. Only real figures from the job (lib/communities/server/jobs/weekly_digest.ts); a community
+    with nothing new is left out there, and a week with nothing anywhere sends nothing.
+  */
+  COMMUNITY_WEEKLY_DIGEST: (d) => {
+    const parts = [1, 2, 3, 4, 5]
+      .map((i) => ({ name: d.text(`c${i}Name`, 60), slug: d.id(`c${i}Slug`), line: d.text(`c${i}Line`, 160), top: d.text(`c${i}Top`, 120) }))
+      .filter((p) => p.name && p.line)
+    const more = d.count("moreCount") ?? 0
+    const first = parts[0]
+    const week = d.date("weekOf", true)
+    const paragraphs = parts.map((p) => join(`${p.name}: ${p.line}.`, p.top ? `Most liked: "${p.top}".` : ""))
+    if (more) paragraphs.push(more === 1 ? "And 1 more community with something new." : `And ${more} more communities with something new.`)
+    return {
+      family: "base",
+      audience: "creator",
+      subject: parts.length === 1 ? fitSubject("This week in ", first.name, "") || "This week in your community" : "This week in your communities",
+      preview: first ? `${first.name}: ${first.line}` : "What happened in your communities this week.",
+      heading: week ? `Your week, from ${week}` : "Your week in your communities",
+      paragraphs: paragraphs.length ? paragraphs : ["A quiet week in your communities."],
+      action: { label: parts.length === 1 ? "Open the community" : `Open ${first?.name ?? "your communities"}`, path: PATHS.community(first?.slug ?? "") },
+      note: "You get this because you turned on the weekly digest. You can turn it off in Settings, under Notifications.",
+      unsubscribeLabel: "Stop the weekly digest",
+      greet: false,
+      inApp: { title: "Your week in your communities", body: first ? `${first.name}: ${first.line}` : "What happened this week.", actionLabel: "Open", actionPath: PATHS.community(first?.slug ?? "") },
     }
   },
 }

@@ -30,10 +30,15 @@ import "server-only"
  * other people in the window, read once (community_reactions has the
  * time). So a post that takes off is one row in the bell, not two hundred.
  *
- * NEW POSTS AND REPORTS go through the queue too: queueNewPost tells the
- * members at Everything or the default level on their phones (jobs/fanout_announcement.ts,
- * reason "post"), and queueReportDigest plans the one email a day each
+ * NEW POSTS AND REPORTS go through the queue too: queueNewPost tells
+ * members on their phones (jobs/fanout_announcement.ts, reason "post": the
+ * owner's and admins' posts reach the default level, a member's post only
+ * those at Everything), and queueReportDigest plans the one email a day each
  * moderator gets about new reports (jobs/report_digest.ts).
+ *
+ * SO DO PROGRAMS, EVENT CHANGES AND THE WEEKLY DIGEST: notifyProgramPublished
+ * (Learn calls it), notifyEventChanged (the event editor calls it) and
+ * scheduleWeeklyDigest (account settings), each once per key.
  */
 import { wantsNotification } from "../permissions"
 import { JOB_COLUMNS, type JobKind, type JobRow, type NotificationKind, type NotifyLevel } from "../types"
@@ -240,6 +245,84 @@ export async function queueReportDigest(db: Db, r: { communityId: string; userId
     if (outcome === "queued") queued++
   }
   return queued
+}
+
+/* ── Programs, event changes and the weekly digest, through the queue ─── */
+
+export interface ProgramPublished {
+  communityId: string
+  /** The program's id (a uuid, or a slug of letters, digits, _ and -). */
+  programId: string
+  /** Set when one lesson of an existing program opened, rather than the program itself. */
+  lessonId?: string | null
+  /** The program's title. */
+  title: string
+  lessonTitle?: string | null
+  /** Its page in this community: "/community/<slug>/learn/<program>" (anything else tells nobody). */
+  url: string
+  /** Who published it: never told. */
+  actorId?: string | null
+  /**
+   * Who may see it, as an access rule (tierIds, productIds, minLevel, roles):
+   * a program open from a member level or to a tier. Left out, every member
+   * hears (a free program, or one sold on its own that anyone can buy).
+   */
+  access?: Record<string, unknown> | null
+}
+
+/**
+ * A NEW PROGRAM OR LESSON in Learn: every member who can see it gets one
+ * bell row and, under their "Programs and lessons" switch, a push
+ * (jobs/fanout_program.ts). Learn calls this when a program is published,
+ * and with lessonId when a lesson is added to a published program. Once per
+ * program, and once per lesson: publishing again tells nobody twice.
+ */
+export async function notifyProgramPublished(db: Db, p: ProgramPublished): Promise<QueueOutcome> {
+  const lesson = p.lessonId ? `:${p.lessonId}` : ""
+  return queueJob(db, {
+    kind: "fanout_announcement",
+    payload: {
+      reason: "program",
+      communityId: p.communityId,
+      programId: p.programId,
+      lessonId: p.lessonId ?? null,
+      title: String(p.title ?? "").slice(0, 120),
+      lessonTitle: p.lessonTitle ? String(p.lessonTitle).slice(0, 120) : null,
+      url: p.url,
+      actorId: p.actorId ?? null,
+      access: p.access ?? null,
+      after: null,
+    },
+    idempotencyKey: `fanout_program:${p.programId}${lesson}`,
+  })
+}
+
+/**
+ * AN EVENT THAT CHANGED, told to the people going (jobs/fanout_event.ts):
+ * "moved" when its start changed, "cancelled", or "updated" for a change
+ * worth telling them (the place, the link). Pushes at once. Once per change:
+ * a move is keyed by its new start, the rest by `stamp` (the event's
+ * updated_at, or now), so saving twice tells nobody twice.
+ */
+export async function notifyEventChanged(db: Db, e: { eventId: string; communityId: string; change: "moved" | "updated" | "cancelled"; startsAt?: string | null; stamp?: string | null; actorId?: string | null }): Promise<QueueOutcome> {
+  const stamp = e.change === "moved" && e.startsAt ? new Date(e.startsAt).toISOString() : (e.stamp ?? new Date().toISOString()).slice(0, 40)
+  return queueJob(db, {
+    kind: "fanout_event",
+    payload: { eventId: e.eventId, communityId: e.communityId, change: e.change, stamp, actorId: e.actorId ?? null },
+    idempotencyKey: `fanout_event_change:${e.eventId}:${e.change}:${stamp}`,
+  })
+}
+
+/**
+ * THE WEEKLY DIGEST, the first of it: queued when the person turns it on in
+ * Settings (and again whenever Settings reads it on, harmlessly), for the
+ * coming Monday morning in their time; each one queues the next
+ * (jobs/weekly_digest.ts).
+ */
+export async function scheduleWeeklyDigest(db: Db, userId: string, tz: string | null, now: number = Date.now()): Promise<QueueOutcome> {
+  const { weeklyJob } = await import("./jobs/weekly_digest")
+  const j = weeklyJob(userId, now, tz)
+  return queueJob(db, { kind: j.kind, payload: j.payload, runAt: j.run_at, idempotencyKey: j.idempotency_key })
 }
 
 /* ── The job queue ──────────────────────────────────────────────────────── */
