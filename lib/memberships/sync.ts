@@ -31,6 +31,7 @@ import { paymentFacts, recordCustomer, recordSale } from "@/lib/checkout/fulfil-
 import { fieldsFromSubscription, graceEndsAt, grantsAccess, isMembershipSubscription, transitions, type Transition } from "./state"
 import { MEMBERSHIP_COLUMNS, receiptTokenFor, siteUrl, type Db, type MembershipRow } from "./server"
 import { communityAccessAfterMembership } from "@/lib/communities/server/payment-hooks"
+import { communityCancellationAfterMembership } from "@/lib/communities/server/membership-lifecycle"
 
 export async function retrieveSubscription(id: string): Promise<Stripe.Subscription> {
   return stripe.subscriptions.retrieve(id, { expand: ["default_payment_method", "pending_setup_intent"] })
@@ -87,13 +88,13 @@ export async function syncSubscription(admin: Db, subscriptionId: string, opts: 
   }
 
   const changed = transitions(before, row, now)
-  await applyEffects(admin, before, row, changed)
+  await applyEffects(admin, before, row, changed, { withdrawalWaiver: sub.metadata?.withdrawal_waiver === "accepted" })
   return { row, transitions: changed }
 }
 
 /* ── What a change causes ───────────────────────────────────────────────── */
 
-async function applyEffects(admin: Db, before: MembershipRow | null, row: MembershipRow, changed: Transition[]) {
+async function applyEffects(admin: Db, before: MembershipRow | null, row: MembershipRow, changed: Transition[], facts: { withdrawalWaiver?: boolean } = {}) {
   const quietly = async (what: string, fn: () => Promise<unknown>) => {
     try {
       await fn()
@@ -109,7 +110,8 @@ async function applyEffects(admin: Db, before: MembershipRow | null, row: Member
   */
   if (changed.includes("access_on")) await quietly("granting included products", () => grantIncluded(admin, row))
   if (!grantsAccess(row)) await quietly("removing included products", () => revokeIncluded(admin, row.id))
-  if (changed.includes("started")) await quietly("welcome", () => notice(admin, row, "membership.started", `membership:${row.id}:started`))
+  /* The welcome is the durable record of the EU withdrawal waiver when checkout asked for it (a community's checkout, round 13). */
+  if (changed.includes("started")) await quietly("welcome", () => notice(admin, row, "membership.started", `membership:${row.id}:started`, facts.withdrawalWaiver ? { withdrawalWaiver: true } : {}))
   if (changed.includes("cancel_scheduled"))
     await quietly("cancel notice", () => notice(admin, row, "membership.canceled", `membership:${row.id}:canceled:${row.current_period_end ?? "now"}`, { endsAt: row.current_period_end }))
   if (changed.includes("ended")) await quietly("ended notice", () => notice(admin, row, "membership.ended", `membership:${row.id}:ended`))
@@ -121,6 +123,9 @@ async function applyEffects(admin: Db, before: MembershipRow | null, row: Member
     community can never stop a membership from syncing.
   */
   await quietly("community access", () => communityAccessAfterMembership(admin, row, { fresh: changed.includes("access_on") }))
+  /* A cancellation of a community's membership is counted for its owner's analytics, from whichever page it was made (never throws). */
+  if (changed.includes("cancel_scheduled") || changed.includes("resumed"))
+    await quietly("community cancellation", () => communityCancellationAfterMembership(admin, row, changed.includes("resumed") ? "resumed" : "cancelled"))
   void before
 }
 

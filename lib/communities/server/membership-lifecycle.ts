@@ -818,7 +818,7 @@ async function refundEmail(
     },
     { baseUrl: deps.baseUrl(), recipientName: [r.order.buyer_first_name, r.order.buyer_last_name].filter(Boolean).join(" ") || null },
   )
-  return { subject: rendered.subject, html: rendered.html, text: rendered.text, fromName: rendered.fromName ?? r.communityName, replyTo: rendered.replyTo }
+  return { subject: rendered.subject, html: rendered.html, text: rendered.text, fromName: rendered.fromName ?? r.communityName, replyTo: rendered.replyTo ?? null }
 }
 
 async function creatorNameOf(db: Db, creatorId: string): Promise<string | null> {

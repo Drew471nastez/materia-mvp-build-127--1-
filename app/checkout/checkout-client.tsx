@@ -50,6 +50,7 @@ import { StripePay, type IntentResult } from "./parts/stripe-pay"
 import { RETURN_PARAM, forgetSecret, redirectToAirwallex, takeSecret } from "./parts/airwallex-redirect"
 import { HtmlClass } from "@/components/platform/html-class"
 import { AppAvatar } from "@/components/app/app-avatar"
+import { CommunityRefundPolicy, waiverSentence, type CommunityCheckoutTerms } from "@/components/community/membership/checkout-policy"
 
 interface CheckoutPageClientProps {
   product: {
@@ -87,6 +88,8 @@ interface CheckoutPageClientProps {
    * payment page the buyer goes to after pressing Pay.
    */
   paymentProvider?: "stripe" | "airwallex"
+  /** A product that sells a community tier: the community's refund policy and the EU withdrawal waiver where it applies (round 13). */
+  communityTerms?: CommunityCheckoutTerms | null
 }
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -138,6 +141,7 @@ export default function CheckoutPageClient({
   customPriceCents,
   allVariants = [],
   paymentProvider = "stripe",
+  communityTerms = null,
 }: CheckoutPageClientProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -1025,7 +1029,13 @@ export default function CheckoutPageClient({
         <Link href="/refund-policy" target="_blank" className="font-medium text-[#1a1a2e] underline decoration-[#c9ccd2] underline-offset-2 hover:decoration-[#1a1a2e]">
           Refund policy
         </Link>
+        {waiverSentence(communityTerms) ? `. ${waiverSentence(communityTerms)}` : null}
       </CheckRow>
+      {communityTerms?.refundPolicy ? (
+        <div className="mt-3">
+          <CommunityRefundPolicy terms={communityTerms} />
+        </div>
+      ) : null}
     </div>
   )
 

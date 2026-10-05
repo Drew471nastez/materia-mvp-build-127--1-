@@ -157,6 +157,8 @@ export async function POST(request: Request) {
         fee_cents: String(fee.cents),
         plan_used: fee.planId,
         email_opt_in: body.emailOptIn === true ? "true" : "false",
+        /* A community's checkout asked for the EU withdrawal waiver inside the consent (round 13): the record of it. */
+        ...(body.withdrawalWaiver === true ? { withdrawal_waiver: "accepted" } : {}),
       },
     })
     const { row } = await syncSubscription(admin, created.subscription.id, { subscription: created.subscription })

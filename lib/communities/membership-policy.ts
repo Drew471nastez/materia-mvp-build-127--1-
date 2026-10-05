@@ -131,7 +131,7 @@ export function buyerLocale(value: string | null | undefined): string {
   const first = (value || "").split(",")[0]?.split(";")[0]?.trim() ?? ""
   if (!first || first === "*") return "en-US"
   try {
-    return Intl.getCanonicalLocales(first)[0] || "en-US"
+    return Intl.NumberFormat.supportedLocalesOf([first])[0] || "en-US"
   } catch {
     return "en-US"
   }
@@ -144,16 +144,19 @@ export function buyerLocale(value: string | null | undefined): string {
  */
 export function formatMoney(cents: number, currency = "usd", locale = "en-US"): string {
   const code = (currency || "usd").toUpperCase()
-  const value = (Number.isFinite(cents) ? cents : 0) / 100
-  const whole = Math.round(value * 100) % 100 === 0
-  const opts: Intl.NumberFormatOptions = { style: "currency", currency: code, minimumFractionDigits: whole ? 0 : 2, maximumFractionDigits: 2 }
+  /* Stripe's amounts are in the currency's smallest unit: cents for USD and EUR, whole yen for JPY. */
+  const decimals = currencyDecimals(code)
+  const minor = Math.round(Number.isFinite(cents) ? cents : 0)
+  const value = minor / 10 ** decimals
+  const whole = decimals === 0 || minor % 10 ** decimals === 0
+  const opts: Intl.NumberFormatOptions = { style: "currency", currency: code, minimumFractionDigits: whole ? 0 : decimals, maximumFractionDigits: decimals }
   try {
     return new Intl.NumberFormat(locale, opts).format(value).replace(/[  ]/g, " ")
   } catch {
     try {
       return new Intl.NumberFormat("en-US", opts).format(value)
     } catch {
-      return `${value.toFixed(whole ? 0 : 2)} ${code}`
+      return `${value.toFixed(whole ? 0 : decimals)} ${code}`
     }
   }
 }
@@ -282,4 +285,32 @@ export function membershipStatusLine(v: Pick<CommunityMembershipView, "kind" | "
     default:
       return "Your membership has ended."
   }
+}
+
+/** How many decimals a currency is written with (2 for USD and EUR, 0 for JPY). */
+export function currencyDecimals(currency = "usd"): number {
+  try {
+    return new Intl.NumberFormat("en-US", { style: "currency", currency: (currency || "usd").toUpperCase() }).resolvedOptions().maximumFractionDigits ?? 2
+  } catch {
+    return 2
+  }
+}
+
+/**
+ * What the owner typed in the refund amount ("12.50", "12,50", "$12"), in
+ * the currency's smallest unit, or null when it is not an amount. Stripe's
+ * amounts are in that unit: cents for USD, whole yen for JPY.
+ */
+export function centsFromAmount(text: string, currency = "usd"): number | null {
+  const t = (text || "").replace(/[^\d.,]/g, "")
+  if (!t) return null
+  const decimals = currencyDecimals(currency)
+  /* The last separator followed by one or two digits is the decimal point; any other is a thousands mark. */
+  const m = /^(.*?)(?:[.,](\d{1,2}))?$/.exec(t)
+  if (!m) return null
+  const whole = (m[1] || "0").replace(/[.,]/g, "")
+  if (!/^\d+$/.test(whole)) return null
+  const frac = (m[2] || "").padEnd(decimals, "0").slice(0, decimals)
+  const n = Number(whole) * 10 ** decimals + (decimals ? Number(frac || "0") : 0)
+  return Number.isFinite(n) && n > 0 ? n : null
 }
