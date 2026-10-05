@@ -323,7 +323,7 @@ function main() {
       /data-plan-heading-row="" className="mb-4 flex flex-wrap items-center justify-between/.test(cards) && /<IntervalSwitch value=\{interval\} onChange=\{pick\} size="small" \/>/.test(cards))
     check("the small pill is 32px (26px options in 3px of padding) with 13px words, each option a 44px press",
       /small \? "p-\[3px\]"/.test(cards) && /"h-\[26px\] gap-1\.5 px-3 after:absolute after:inset-x-0 after:-inset-y-\[9px\]/.test(cards) && /text-\[13px\] font-semibold/.test(cards))
-    check("without one, the pill stays centred over the cards (upgrade page, landing page, onboarding)", /<div className=\{`flex justify-center \$\{compact/.test(cards))
+    check("without one, the pill stays centred over the cards (upgrade page, landing page, onboarding)", /<div data-plan-interval-row="" className="flex justify-center mb-5 sm:mb-6">/.test(cards))
 
     /* The switch: nothing is remounted, nothing is laid out again, and only position and opacity move. */
     check("nothing in the cards is keyed to the interval, so the switch remounts nothing", !/key=\{(interval|value|`\$\{interval)/.test(cards))
