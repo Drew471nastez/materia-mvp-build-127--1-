@@ -285,18 +285,20 @@ const CommunityCard = React.memo(function CommunityCard({
   )
 })
 
-/** The cover across the top at 2:1, or a quiet grey field with the name's first letter when there is none. */
+/**
+ * The cover across the top, 5:2 on a phone (a column of cards is not a
+ * column of posters) and 2:1 from 640px; a quiet grey field when there is
+ * none, the logo below it already says whose it is. An archived community's
+ * cover goes grey and a little faint.
+ */
 function Cover({ row: r }: { row: CommunityListRow }) {
   const src = r.coverUrl
-  const letter = (Array.from(r.name.trim())[0] || "C").toUpperCase()
   return (
-    <div aria-hidden className="pointer-events-none relative aspect-[2/1] w-full overflow-hidden bg-[#eef0f2] after:absolute after:inset-x-0 after:bottom-0 after:h-px after:bg-[rgba(17,24,39,0.06)] after:content-['']" data-card-cover="">
+    <div aria-hidden className={cn("pointer-events-none relative aspect-[5/2] w-full overflow-hidden bg-[#eef0f2] after:absolute after:inset-x-0 after:bottom-0 after:h-px after:bg-[rgba(17,24,39,0.06)] after:content-[''] sm:aspect-[2/1]", r.archived && "opacity-70 grayscale")} data-card-cover="">
       {src ? (
         // eslint-disable-next-line @next/next/no-img-element -- the srcset is chosen here, as the Products list does
-        <img src={optimizedImageUrl(src, 480)} srcSet={optimizedSrcSet(src, [400, 640, 960])} sizes="(min-width: 1024px) 380px, (min-width: 640px) 50vw, 100vw" alt="" loading="lazy" decoding="async" draggable={false} className="h-full w-full object-cover" />
-      ) : (
-        <span className="grid h-full w-full place-items-center text-[40px] font-semibold text-[#d5d8de]">{letter}</span>
-      )}
+        <img src={optimizedImageUrl(src, 480)} srcSet={optimizedSrcSet(src, [384, 640, 1080])} sizes="(min-width: 1024px) 380px, (min-width: 640px) 50vw, 100vw" alt="" loading="lazy" decoding="async" draggable={false} className="h-full w-full object-cover" />
+      ) : null}
     </div>
   )
 }
@@ -308,7 +310,7 @@ function Logo({ row: r }: { row: CommunityListRow }) {
     <span className="relative grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-[13px] bg-[#1a1a2e] shadow-[0_0_0_3px_#fff,0_1px_3px_rgba(16,24,40,0.12)]" data-card-logo="">
       {r.logoUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={optimizedImageUrl(r.logoUrl, 48)} srcSet={optimizedSrcSet(r.logoUrl, [48, 96, 144])} sizes="48px" alt="" width={48} height={48} loading="lazy" decoding="async" className="h-full w-full object-cover" />
+        <img src={optimizedImageUrl(r.logoUrl, 48)} srcSet={optimizedSrcSet(r.logoUrl, [48, 96, 128])} sizes="48px" alt="" width={48} height={48} loading="lazy" decoding="async" className="h-full w-full object-cover" />
       ) : (
         <span aria-hidden className="text-[18px] font-semibold text-white">
           {letter}

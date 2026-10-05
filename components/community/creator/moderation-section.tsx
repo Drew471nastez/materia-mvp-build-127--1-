@@ -338,10 +338,10 @@ export function ModerationSection({
                           {r.status === "reviewing" ? <StatusBadge tone="neutral">Reviewing</StatusBadge> : null}
                           {held ? <StatusBadge tone="attention">Held for review</StatusBadge> : r.targetState === "removed" ? <StatusBadge tone="neutral">Already removed</StatusBadge> : r.targetState === "deleted" || r.targetState === "missing" ? <StatusBadge tone="neutral">Deleted</StatusBadge> : null}
                         </div>
-                        <p className="mt-1.5 line-clamp-3 text-[14px] leading-relaxed text-[#1a1a2e]">{r.preview || "(no text)"}</p>
+                        {system ? null : <p className="mt-1.5 line-clamp-3 text-[14px] leading-relaxed text-[#1a1a2e]">{r.preview || "(no text)"}</p>}
                         {r.note && !r.reporterName ? (
                           <p className="mt-1 text-[13px] text-[#4b5563]" data-report-system="">
-                            {held ? r.note.replace(/^Held for review: /, "").replace(/^./, (c) => c.toUpperCase()) : r.note}
+                            {held ? r.note.replace(/^Held for review: /, "").replace(/^./, (c) => c.toUpperCase()) : system ? r.note.replace(/^(Join alarm|Invite link turned off): /, "").replace(/^./, (c) => c.toUpperCase()) : r.note}
                           </p>
                         ) : r.note ? (
                           <p className="mt-1 text-[13px] text-[#4b5563]">

@@ -66,7 +66,9 @@ function CreateButton({ busy, onCreate }: { busy: boolean; onCreate: () => void 
       data-create-submit=""
       className={cn(primaryDepth, "relative h-10 rounded-[10px] px-4 text-[15px] sm:h-8 sm:rounded-lg sm:px-3 sm:text-[13px]", busy && "cursor-default")}
     >
-      <span className={cn(busy && "opacity-0")}>Create community</span>
+      <span className={cn(busy && "opacity-0")}>
+        Create<span className="max-sm:hidden"> community</span>
+      </span>
       {busy ? (
         <span aria-hidden className="absolute inset-0 grid place-items-center">
           <ActivitySpinner size={16} label="Creating" className="text-white" />

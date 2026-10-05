@@ -40,7 +40,7 @@ export function UpgradeSheet({ open, onClose }: { open: boolean; onClose: () => 
     >
       <div data-upgrade-sheet="">
         <p className="text-[14px] leading-relaxed text-[#4b5563]">
-          The Free plan includes {FREE_COMMUNITY_LIMIT} communities, and you have made both. On {pro.name} there is no limit, and every community keeps its members, posts and prices.
+          The Free plan includes {FREE_COMMUNITY_LIMIT} communities. On {pro.name} there is no limit, and every community you have keeps its members, posts and prices.
         </p>
         <div className="mt-4 rounded-xl border border-[#e5e7eb] px-4 py-3.5">
           <div className="flex items-baseline justify-between gap-3">

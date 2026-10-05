@@ -72,9 +72,18 @@ export function SettingsSection({ head, data, tab: initialTab, videoProviders = 
     url.searchParams.set("tab", t)
     window.history.replaceState(window.history.state, "", url.pathname + url.search)
   }
+  /* The tab you are on is in view on a phone, where the row scrolls sideways (Roles sits past the edge). */
+  const strip = React.useRef<HTMLDivElement>(null)
+  React.useEffect(() => {
+    const s = strip.current
+    const el = s?.querySelector<HTMLElement>('[aria-selected="true"]')
+    if (!s || !el) return
+    const left = el.offsetLeft - s.offsetLeft
+    if (left < s.scrollLeft || left + el.offsetWidth > s.scrollLeft + s.clientWidth) s.scrollTo({ left: Math.max(0, left - 24), behavior: "auto" })
+  }, [tab])
   return (
     <div data-settings="" data-tab={tab}>
-      <div role="tablist" aria-label="Settings" className="app-gutter-bleed mb-4 flex items-center gap-1 overflow-x-auto pb-0.5 scrollbar-hide md:mx-0 md:px-0">
+      <div ref={strip} role="tablist" aria-label="Settings" className="app-gutter-bleed mb-4 flex items-center gap-1 overflow-x-auto pb-0.5 scrollbar-hide md:mx-0 md:px-0">
         {tabs.map((t) => (
           <button
             key={t.value}
@@ -265,7 +274,7 @@ function PageSettings({ head, data }: { head: CommunityHead; data: SettingsData 
           </EditorCard>
         </div>
 
-        <div className="min-w-0 space-y-4 lg:sticky lg:top-4">
+        <div className="min-w-0 space-y-4">
           <EditorCard title="Address" id="address">
             <div>
               <label htmlFor="g-slug" className="sr-only">
