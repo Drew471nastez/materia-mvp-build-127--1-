@@ -29,13 +29,12 @@
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useCallback, useEffect, useState } from "react"
-import { ArrowLeft, CalendarDays, CalendarPlus, Check, Clock3, Lock, MapPin, Ticket, Users, Video } from "lucide-react"
+import { ArrowLeft, CalendarDays, CalendarPlus, Check, Clock3, Lock, MapPin, Share2, Ticket, Users, Video } from "lucide-react"
 import { Spinner } from "@/components/community/member/place-spinner"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { CARD, PRIMARY, SECONDARY } from "@/components/library/library-ui"
 import { StorelibVideo } from "@/components/video/storelib-video"
 import { ConfirmDialog, type ConfirmState } from "@/components/community/member/dialogs"
-import { cn } from "@/lib/utils"
 import { eventTime } from "@/lib/communities/format"
 import { eventPriceLabel, refundWindowOpen, seatsLeftLabel } from "@/lib/communities/event-tickets"
 import type { RsvpStatus } from "@/lib/communities/types"
@@ -89,6 +88,26 @@ export function EventDetail({ event: initial, eventsHref, aboutHref }: EventDeta
   const [error, setError] = useState<string | null>(null)
   const [now, setNow] = useState(() => Date.now())
   const [confirm, setConfirm] = useState<ConfirmState | null>(null)
+  const [shareNote, setShareNote] = useState<string | null>(null)
+
+  const shareEvent = async () => {
+    const url = window.location.href
+    try {
+      if (typeof navigator.share === "function") {
+        await navigator.share({ title: event.title, url })
+        return
+      }
+    } catch (error) {
+      if ((error as { name?: string } | null)?.name === "AbortError") return
+    }
+    try {
+      await navigator.clipboard.writeText(url)
+      setShareNote("Link copied")
+    } catch {
+      setShareNote("Could not copy the link")
+    }
+    window.setTimeout(() => setShareNote(null), 2200)
+  }
 
   const refresh = useCallback(async () => {
     try {
@@ -178,13 +197,20 @@ export function EventDetail({ event: initial, eventsHref, aboutHref }: EventDeta
 
   return (
     <article data-event-page={event.id} className="pb-10">
-      <Link href={eventsHref} className="mb-3 inline-flex h-10 items-center gap-1.5 rounded-[10px] pr-2 text-[14px] font-medium text-[#4b5563] hover:text-[#1a1a2e]">
-        <ArrowLeft className="h-4 w-4" />
-        Events
-      </Link>
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <Link href={eventsHref} className="inline-flex h-10 items-center gap-1.5 rounded-[10px] pr-2 text-[14px] font-medium text-[#4b5563] hover:text-[#1a1a2e]">
+          <ArrowLeft className="h-4 w-4" />
+          Events
+        </Link>
+        <button type="button" onClick={() => void shareEvent()} data-event-share="" className="inline-flex h-10 items-center gap-1.5 rounded-full border border-[#e4e7ec] bg-white px-3.5 text-[14px] font-medium text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.05)] hover:bg-[#f7f8fa]">
+          <Share2 className="h-4 w-4" aria-hidden />
+          Share
+        </button>
+      </div>
+      {shareNote ? <p className="mb-3 text-[13px] text-[#4b5563]" data-event-share-note="">{shareNote}</p> : null}
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start lg:gap-6">
-        <div className="min-w-0 lg:col-start-1 lg:row-start-1">
+      <div className="flex flex-col gap-6" data-event-layout="stack">
+        <div className="min-w-0">
           {event.replayVideoId ? (
             <div className="-mx-4 mb-5 sm:mx-0" data-event-replay>
               <StorelibVideo communityId={event.communityId} videoId={event.replayVideoId} poster={event.coverUrl} title={`${event.title} replay`} eager />
@@ -244,7 +270,7 @@ export function EventDetail({ event: initial, eventsHref, aboutHref }: EventDeta
         </div>
 
         {/* What to do: beside the event on a computer, under its facts on a phone. */}
-        <aside className={`${CARD} p-4 lg:sticky lg:top-4 lg:col-start-2 lg:row-span-2 lg:row-start-1`} data-event-actions aria-label="Your answer">
+        <aside className={`${CARD} p-4 sm:p-5`} data-event-actions aria-label="Your answer">
           {event.cancelled ? (
             <div>
               <p className="text-[15px] font-semibold text-[#1a1a2e]">This event was cancelled.</p>
@@ -381,21 +407,19 @@ export function EventDetail({ event: initial, eventsHref, aboutHref }: EventDeta
               ) : null}
 
               {start > now ? (
-                <div className="mt-4 border-t border-[#eef0f3] pt-3.5" data-add-to-calendar>
-                  <p className="mb-2 flex items-center gap-1.5 text-[13px] font-medium text-[#4b5563]">
+                <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-[#eef0f3] pt-3.5" data-add-to-calendar>
+                  <p className="flex items-center gap-1.5 text-[13px] font-medium text-[#4b5563]">
                     <CalendarPlus className="h-3.5 w-3.5" aria-hidden />
                     Add to calendar
                   </p>
-                  <div className="grid grid-cols-2 gap-2">
-                    <a href={event.googleUrl} target="_blank" rel="noopener noreferrer" className={cn(SECONDARY, "whitespace-nowrap px-2 text-[13px]")} data-google-calendar>
-                      Google
+                  <a href={event.googleUrl} target="_blank" rel="noopener noreferrer" className="text-[14px] font-medium text-[#1a1a2e] underline-offset-2 hover:underline" data-google-calendar>
+                    Google
+                  </a>
+                  {event.icsUrl ? (
+                    <a href={event.icsUrl} download className="text-[14px] font-medium text-[#1a1a2e] underline-offset-2 hover:underline" data-ics>
+                      Apple, Outlook
                     </a>
-                    {event.icsUrl ? (
-                      <a href={event.icsUrl} download className={cn(SECONDARY, "whitespace-nowrap px-2 text-[13px]")} data-ics>
-                        Apple, Outlook
-                      </a>
-                    ) : null}
-                  </div>
+                  ) : null}
                 </div>
               ) : null}
             </div>
@@ -403,7 +427,7 @@ export function EventDetail({ event: initial, eventsHref, aboutHref }: EventDeta
         </aside>
 
         {event.description ? (
-          <div className="min-w-0 lg:col-start-1 lg:row-start-2" data-event-description>
+          <div className="min-w-0" data-event-description>
             <h2 className="mb-2 text-[15px] font-semibold text-[#1a1a2e]">About this event</h2>
             {/* With no ticket the server sends plain teaser words, not html. */}
             {event.gate.open ? (

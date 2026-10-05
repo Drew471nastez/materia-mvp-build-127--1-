@@ -5,10 +5,17 @@ import { EventDetail } from "@/components/community/events/event-detail"
 import { admin } from "@/lib/communities/server/db"
 import { openMemberPage } from "@/lib/communities/server/classroom"
 import { eventDetail, isEventId } from "@/lib/communities/server/events"
+import { eventFacts } from "./event-facts"
+import { eventMetadata } from "./event-seo"
 
 export const dynamic = "force-dynamic"
 
-export const metadata: Metadata = { title: "Event", robots: { index: false, follow: false } }
+export async function generateMetadata({ params }: { params: Promise<{ slug: string; eventId: string }> }): Promise<Metadata> {
+  const { slug, eventId } = await params
+  const facts = await eventFacts(slug, eventId)
+  if (!facts) return { title: "Event", robots: { index: false, follow: false } }
+  return eventMetadata(facts)
+}
 
 /**
  * /community/<slug>/events/<eventId>: one event of this community (another
