@@ -16,11 +16,16 @@
  *                  that let somebody in; then who can find it: Explore,
  *                  visibility, search words.
  *   Features       which sections are on, and the welcome a new member sees.
+ *   Rules and      the rules (the same editor as Moderation's), and for the
+ *   policies       owner the refund policy and how members reach them
+ *                  (worker M's columns, run-now part 101).
+ *   Roles          the owner's: what admins and moderators may do, a group
+ *                  of actions at a time (run-now part 100).
  *   Gamification   points, levels, badges.
  *   Notifications  what you hear about in this community.
  *   Advanced       publish, videos, archive, delete (the name typed back).
  *
- * The rules are written in Moderation, beside the reports they are used on.
+ * The rules are written here and in Moderation, beside the reports.
  * Older links (?tab=general, ?tab=discovery) land on the tab that now holds
  * what they pointed at. A switch saves when it is flipped; a form saves
  * with its Save bar.
@@ -33,20 +38,26 @@ import { cn } from "@/lib/utils"
 import { StatusBadge } from "@/app/app/orders/order-parts"
 import { centsFromInput } from "@/lib/memberships/plan"
 import type { CommunityFaq, CommunityLink, NotifyLevel } from "@/lib/communities/types"
-import type { CommunityHead, SettingsData, TierView } from "./view-types"
+import type { CommunityHead, PoliciesView, RolesView, SettingsData, TierView } from "./view-types"
 import { GALLERY_MAX, coverVideo as coverOf, typeOf, type CommunityType, type GalleryItem, type PriceInterval, type SettingsTab } from "./logic"
 import { COMMUNITY_CATEGORIES, communityCategoryId } from "@/lib/explore/communities-mode"
 
 export type { SettingsTab }
 import { GamificationPanel } from "./gamification-panel"
+import { RulesEditor } from "./moderation-section"
+import { PERMISSION_GROUPS, type PermissionKey } from "@/lib/communities/permissions"
+import { REFUND_POLICY_MAX } from "@/lib/communities/membership-policy"
 import { CoverField, GalleryEditor } from "./gallery-editor"
 import { VideoProviders, type ProviderLine } from "@/components/video/video-providers"
-import { ChoiceCards, Confirm, Dialog, Notice, PicturePick, PriceInput, Section, Segmented, Toggle, buttonPrimary, buttonSecondary, card, errorText, field, label, selectField, send, useToast } from "./parts"
+import { ChoiceCards, Confirm, Dialog, EditorCard, EditorFoot, Notice, PicturePick, PriceInput, Section, Segmented, Toggle, buttonPrimary, buttonSecondary, card, errorText, field, label, selectField, send, useToast } from "./parts"
 
 const TABS: { value: SettingsTab; label: string; needs: keyof CommunityHead["can"] }[] = [
   { value: "page", label: "Page", needs: "manage_settings" },
   { value: "access", label: "Access", needs: "manage_settings" },
   { value: "features", label: "Features", needs: "manage_settings" },
+  { value: "policies", label: "Rules and policies", needs: "manage_settings" },
+  /* What admins and moderators may do: the owner's alone (transfer_ownership is the action only an owner has). */
+  { value: "roles", label: "Roles", needs: "transfer_ownership" },
   { value: "gamification", label: "Gamification", needs: "manage_gamification" },
   { value: "notifications", label: "Notifications", needs: "view" },
   { value: "advanced", label: "Advanced", needs: "archive" },
@@ -89,6 +100,8 @@ export function SettingsSection({ head, data, tab: initialTab, videoProviders = 
         </div>
       ) : null}
       {tab === "features" ? <Features head={head} data={data} /> : null}
+      {tab === "policies" ? <Policies head={head} data={data} /> : null}
+      {tab === "roles" && data.roles ? <Roles head={head} roles={data.roles} /> : null}
       {tab === "notifications" ? <Notifications head={head} data={data} /> : null}
       {tab === "gamification" ? <GamificationPanel head={head} levels={data.levels} badges={data.badges} /> : null}
       {tab === "advanced" ? <Advanced head={head} videoProviders={videoProviders} /> : null}
@@ -113,22 +126,8 @@ function useInstant(head: CommunityHead) {
 }
 
 function SaveBar({ dirty, busy, onSave, onReset, error, busyText }: { dirty: boolean; busy: boolean; onSave: () => void; onReset: () => void; error: string | null; busyText?: string }) {
-  if (!dirty && !error) return null
-  return (
-    <div className="sticky bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-10 max-md:bottom-[calc(var(--app-nav-room,0px)+0.75rem)]" data-save-bar="">
-      <div className={cn(card, "flex items-center gap-2 px-3 py-2.5 shadow-[0_8px_24px_-8px_rgba(17,24,39,0.18)]")}>
-        <p role="status" className={cn("min-w-0 flex-1 truncate px-1 text-[13px]", error ? "text-[#b91c1c]" : "text-[#6b7280]")}>
-          {error ?? "Unsaved changes"}
-        </p>
-        <button type="button" onClick={onReset} disabled={busy} className={cn(buttonSecondary, "h-10 sm:h-9")}>
-          Discard
-        </button>
-        <button type="button" onClick={onSave} disabled={busy || !dirty} className={cn(buttonPrimary, "h-10 px-4 sm:h-9")} data-settings-save="">
-          {busyText ?? (busy ? "Saving" : "Save")}
-        </button>
-      </div>
-    </div>
-  )
+  /* The product editor's foot (./parts EditorFoot): always there, Cancel and Save at its right. */
+  return <EditorFoot dirty={dirty} busy={busy && !busyText} busyText={busyText} error={error} onSave={onSave} onCancel={onReset} />
 }
 
 /* ── Page ───────────────────────────────────────────────────────────────── */
@@ -191,11 +190,18 @@ function PageSettings({ head, data }: { head: CommunityHead; data: SettingsData 
     router.refresh()
   }
 
+  /*
+    THE PRODUCT EDITOR'S PAGE (app/app/products/new): one column of cards
+    under 1024px, in the order the page reads; from 1024px the community
+    itself on the left (what it is called and says, its pictures, what
+    members get, questions, links) and how it is found on the right (its
+    address, logo and Explore category), with the save foot under both.
+  */
   return (
-    <div className="space-y-4" data-page-settings="">
-      <Section title="Basics">
-        <div className="space-y-3.5">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+    <div data-page-settings="">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start lg:gap-5">
+        <div className="min-w-0 space-y-4">
+          <EditorCard title="About" id="about">
             <div>
               <label htmlFor="g-name" className={label}>
                 Name
@@ -203,49 +209,20 @@ function PageSettings({ head, data }: { head: CommunityHead; data: SettingsData 
               <input id="g-name" value={s.name} onChange={(e) => set("name", e.target.value.slice(0, 80))} className={cn(field, "h-11 sm:h-10")} />
             </div>
             <div>
-              <label htmlFor="g-slug" className={label}>
-                Address
+              <label htmlFor="g-tagline" className={label}>
+                Tagline
               </label>
-              <div className="flex h-11 items-center overflow-hidden rounded-lg border border-[#e1e3e7] bg-white focus-within:border-[#1a1a2e]/50 sm:h-10">
-                <span className="shrink-0 pl-3 text-[13px] text-[#9ca3af]"><span className="max-sm:hidden">storelib.com</span>/community/</span>
-                <input id="g-slug" value={s.slug} onChange={(e) => set("slug", e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "").slice(0, 48))} className="h-full min-w-0 flex-1 bg-transparent pr-3 text-[16px] text-[#1a1a2e] outline-none sm:text-[14px]" />
-              </div>
-              {/* The old address is kept (run-now part 94): a shared link opens the community at its new address. */}
-              {s.slug !== start.slug && head.status === "published" ? <p className="mt-1 text-[12px] text-[#6b7280]" data-slug-note="">Links to /community/{start.slug} will open the new address.</p> : null}
+              <input id="g-tagline" value={s.tagline} onChange={(e) => set("tagline", e.target.value.slice(0, 160))} placeholder="One line on cards and in Explore" className={cn(field, "h-11 sm:h-10")} />
             </div>
-          </div>
-          <div>
-            <label htmlFor="g-tagline" className={label}>
-              Tagline
-            </label>
-            <input id="g-tagline" value={s.tagline} onChange={(e) => set("tagline", e.target.value.slice(0, 160))} placeholder="One line on cards and in Explore" className={cn(field, "h-11 sm:h-10")} />
-          </div>
-          <div>
-            <label htmlFor="g-category" className={label}>
-              Category
-            </label>
-            {/* The same list as Explore's category pills: the one picked here is the pill it is found under. */}
-            <select id="g-category" value={s.category} onChange={(e) => set("category", e.target.value)} className={cn(selectField, "sm:max-w-[320px]")} data-category-select="">
-              <option value="">No category</option>
-              {COMMUNITY_CATEGORIES.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.label}
-                </option>
-              ))}
-            </select>
-            <p className="mt-1 text-[12px] text-[#6b7280]">Where it shows up in Explore.</p>
-          </div>
-          <div>
-            <label htmlFor="g-desc" className={label}>
-              Description
-            </label>
-            <textarea id="g-desc" value={s.description} onChange={(e) => set("description", e.target.value.slice(0, 10_000))} rows={5} className={cn(field, "resize-y py-2.5 leading-relaxed")} />
-          </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-[auto_1fr] sm:gap-8">
             <div>
-              <p className={label}>Logo</p>
-              <PicturePick value={s.logoUrl} onChange={(v) => set("logoUrl", v)} shape="square" name="logo" onError={setError} />
+              <label htmlFor="g-desc" className={label}>
+                Description
+              </label>
+              <textarea id="g-desc" value={s.description} onChange={(e) => set("description", e.target.value.slice(0, 10_000))} rows={6} className={cn(field, "resize-y py-2.5 leading-relaxed")} />
             </div>
+          </EditorCard>
+
+          <EditorCard title="Photos and video" hint="The cover, then pictures and videos at the top of your page, the first one shown first." id="gallery">
             <div className="min-w-0">
               <p className={label}>Cover</p>
               {/* A picture, or a YouTube or Vimeo video (round 11): then the gallery's first item, and its still the cover picture on Save. */}
@@ -259,46 +236,77 @@ function PageSettings({ head, data }: { head: CommunityHead; data: SettingsData 
                 onError={setError}
               />
             </div>
-          </div>
+            {/* The cover video, when there is one, is the cover's to change; the gallery edits what follows it. */}
+            <GalleryEditor
+              communityId={head.id}
+              value={coverOf(s.gallery) ? s.gallery.slice(1) : s.gallery}
+              onChange={(v) => {
+                const cover = coverOf(s.gallery)
+                set("gallery", cover ? [cover, ...v] : v)
+              }}
+              max={coverOf(s.gallery) ? GALLERY_MAX - 1 : GALLERY_MAX}
+              videos={data.galleryVideos}
+              ready={data.galleryReady}
+              onError={setError}
+              onBusy={setUploading}
+            />
+          </EditorCard>
+
+          <EditorCard title="What members get" hint="A line each, on the community's page.">
+            <ListEditor items={s.benefits} onChange={(v) => set("benefits", v)} max={12} placeholder="A live call every week" addLabel="Add a line" />
+          </EditorCard>
+
+          <EditorCard title="Questions" hint="Answers to what people ask before joining.">
+            <PairEditor items={s.faq.map((r) => ({ a: r.q, b: r.a }))} onChange={(v) => set("faq", v.map((x) => ({ q: x.a, a: x.b })))} max={20} aPlaceholder="Who is it for?" bPlaceholder="The answer" addLabel="Add a question" />
+          </EditorCard>
+
+          <EditorCard title="Links">
+            <PairEditor items={s.links.map((r) => ({ a: r.label, b: r.url }))} onChange={(v) => set("links", v.map((x) => ({ label: x.a, url: x.b })))} max={6} aPlaceholder="Website" bPlaceholder="https://" addLabel="Add a link" singleLine />
+          </EditorCard>
         </div>
-      </Section>
 
-      <Section title="Gallery" hint="Pictures and videos at the top of your page, the first one shown first." id="gallery">
-        {/* The cover video, when there is one, is the cover's to change; the gallery edits what follows it. */}
-        <GalleryEditor
-          communityId={head.id}
-          value={coverOf(s.gallery) ? s.gallery.slice(1) : s.gallery}
-          onChange={(v) => {
-            const cover = coverOf(s.gallery)
-            set("gallery", cover ? [cover, ...v] : v)
-          }}
-          max={coverOf(s.gallery) ? GALLERY_MAX - 1 : GALLERY_MAX}
-          videos={data.galleryVideos}
-          ready={data.galleryReady}
-          onError={setError}
-          onBusy={setUploading}
-        />
-      </Section>
+        <div className="min-w-0 space-y-4 lg:sticky lg:top-4">
+          <EditorCard title="Address" id="address">
+            <div>
+              <label htmlFor="g-slug" className="sr-only">
+                Address
+              </label>
+              <div className="flex h-11 items-center overflow-hidden rounded-lg border border-[#e1e3e7] bg-white focus-within:border-[#1a1a2e]/50 sm:h-10">
+                <span className="shrink-0 pl-3 text-[13px] text-[#9ca3af]">/community/</span>
+                <input id="g-slug" value={s.slug} onChange={(e) => set("slug", e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "").slice(0, 48))} className="h-full min-w-0 flex-1 bg-transparent pr-3 text-[16px] text-[#1a1a2e] outline-none sm:text-[14px]" />
+              </div>
+              {/* The old address is kept (run-now part 94): a shared link opens the community at its new address. */}
+              {s.slug !== start.slug && head.status === "published" ? <p className="mt-1 text-[12px] text-[#6b7280]" data-slug-note="">Links to /community/{start.slug} will open the new address.</p> : <p className="mt-1 truncate text-[12px] text-[#9ca3af]">storelib.com/community/{s.slug || "..."}</p>}
+            </div>
+          </EditorCard>
 
-      <Section title="What members get" hint="A line each, on the community's page.">
-        <ListEditor items={s.benefits} onChange={(v) => set("benefits", v)} max={12} placeholder="A live call every week" addLabel="Add a line" />
-      </Section>
+          <EditorCard title="Logo">
+            <PicturePick value={s.logoUrl} onChange={(v) => set("logoUrl", v)} shape="square" name="logo" onError={setError} />
+          </EditorCard>
 
-      <Section title="Questions" hint="Answers to what people ask before joining.">
-        <PairEditor items={s.faq.map((r) => ({ a: r.q, b: r.a }))} onChange={(v) => set("faq", v.map((x) => ({ q: x.a, a: x.b })))} max={20} aPlaceholder="Who is it for?" bPlaceholder="The answer" addLabel="Add a question" />
-      </Section>
+          <EditorCard title="Category" hint="Where it shows up in Explore.">
+            {/* The same list as Explore's category pills: the one picked here is the pill it is found under. */}
+            <select id="g-category" aria-label="Category" value={s.category} onChange={(e) => set("category", e.target.value)} className={selectField} data-category-select="">
+              <option value="">No category</option>
+              {COMMUNITY_CATEGORIES.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </EditorCard>
 
-      <Section title="Links">
-        <PairEditor items={s.links.map((r) => ({ a: r.label, b: r.url }))} onChange={(v) => set("links", v.map((x) => ({ label: x.a, url: x.b })))} max={6} aPlaceholder="Website" bPlaceholder="https://" addLabel="Add a link" singleLine />
-      </Section>
-
-      <p className="px-1 text-[13px] text-[#6b7280]">
-        The rules are in{" "}
-        <Link href={`/app/community/${head.id}/moderation?tab=rules`} className="font-medium text-[#1a1a2e] underline-offset-2 hover:underline">
-          Moderation
-        </Link>
-        , next to the reports.
-      </p>
+          {head.can.manage_settings ? (
+            <p className="px-1 text-[13px] text-[#6b7280]">
+              Rules and the refund policy are in{" "}
+              <Link href={`/app/community/${head.id}/settings?tab=policies`} className="font-medium text-[#1a1a2e] underline-offset-2 hover:underline">
+                Rules and policies
+              </Link>
+              .
+            </p>
+          ) : null}
+        </div>
+      </div>
 
       <SaveBar dirty={dirty} busy={busy || uploading} busyText={uploading ? "Uploading" : undefined} error={error} onSave={() => void save()} onReset={() => { setS(JSON.parse(saved)); setError(null) }} />
     </div>
@@ -880,6 +888,146 @@ function Notifications({ head, data }: { head: CommunityHead; data: SettingsData
           <Toggle checked={n.emailEvents} onChange={(v) => void save({ ...n, emailEvents: v })} title="Event reminders" />
         </div>
       </Section>
+    </div>
+  )
+}
+
+/* ── Rules and policies ─────────────────────────────────────────────────── */
+
+function Policies({ head, data }: { head: CommunityHead; data: SettingsData }) {
+  return (
+    <div className="space-y-4" data-policies="">
+      <section className={cn(card)} data-policies-rules="">
+        <div className="px-4 pb-1 pt-4 sm:px-5 sm:pt-5">
+          <h2 className="text-[15px] font-semibold text-[#1a1a2e]">Rules</h2>
+        </div>
+        <RulesEditor head={head} initial={data.rules} onSaved={() => {}} />
+      </section>
+      {data.policies ? <PolicyForm head={head} initial={data.policies} /> : null}
+    </div>
+  )
+}
+
+function PolicyForm({ head, initial }: { head: CommunityHead; initial: PoliciesView }) {
+  const router = useRouter()
+  const toast = useToast()
+  const start = React.useMemo(() => ({ refundPolicy: initial.refundPolicy, contactEmail: initial.contactEmail, contactEmailPublic: initial.contactEmailPublic }), [initial])
+  const [p, setP] = React.useState(start)
+  const [saved, setSaved] = React.useState(JSON.stringify(start))
+  const [busy, setBusy] = React.useState(false)
+  const [error, setError] = React.useState<{ text: string; field?: string } | null>(null)
+  const dirty = JSON.stringify(p) !== saved
+  const ready = initial.ready
+  const save = async () => {
+    setBusy(true)
+    const res = await send<{ policies?: PoliciesView }>(`/api/app/community/${head.id}`, "PATCH", { policies: p })
+    setBusy(false)
+    if (!res.ok) return setError({ text: res.data.error === "needs_update" ? "This needs a Storelib update first. Try again later." : errorText(res.data.error), field: res.data.field })
+    const next = res.data.policies ? { refundPolicy: res.data.policies.refundPolicy, contactEmail: res.data.policies.contactEmail, contactEmailPublic: res.data.policies.contactEmailPublic } : p
+    setP(next)
+    setSaved(JSON.stringify(next))
+    setError(null)
+    toast("Saved")
+    router.refresh()
+  }
+  return (
+    <>
+      {!ready ? <Notice tone="info">The refund policy and contact settings arrive with a Storelib update. They can be saved once it is in.</Notice> : null}
+      <EditorCard title="Refund policy" hint="Shown at checkout and on each member's Membership page. Plain words: when you refund, and how to ask." id="refund">
+        <div>
+          <textarea
+            id="p-refund"
+            aria-label="Refund policy"
+            value={p.refundPolicy}
+            disabled={!ready}
+            onChange={(e) => {
+              setP({ ...p, refundPolicy: e.target.value.slice(0, REFUND_POLICY_MAX) })
+              setError(null)
+            }}
+            rows={5}
+            placeholder="Cancel any time and keep access until the end of the period you paid for. Write to me within 14 days of a payment for a full refund."
+            aria-invalid={error?.field === "refundPolicy" || undefined}
+            className={cn(field, "resize-y py-2.5 leading-relaxed", error?.field === "refundPolicy" && "border-[#dc2626]")}
+          />
+          <p className="mt-1 text-right text-[12px] tabular-nums text-[#9ca3af]">
+            {p.refundPolicy.length.toLocaleString("en-US")} / {REFUND_POLICY_MAX.toLocaleString("en-US")}
+          </p>
+        </div>
+      </EditorCard>
+      <EditorCard title="Contact" hint="Members write to you from the community. Messages reach your inbox and this email; it stays private unless you show it." id="contact">
+        <div>
+          <label htmlFor="p-email" className={label}>
+            Email for members
+          </label>
+          <input
+            id="p-email"
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            value={p.contactEmail}
+            disabled={!ready}
+            onChange={(e) => {
+              setP({ ...p, contactEmail: e.target.value.slice(0, 254), contactEmailPublic: e.target.value.trim() ? p.contactEmailPublic : false })
+              setError(null)
+            }}
+            placeholder="you@example.com"
+            aria-invalid={error?.field === "contactEmail" || undefined}
+            className={cn(field, "h-11 sm:h-10 sm:max-w-[360px]", error?.field === "contactEmail" && "border-[#dc2626]")}
+          />
+        </div>
+        <Toggle checked={p.contactEmailPublic} disabled={!ready || !p.contactEmail.trim()} onChange={(v) => setP({ ...p, contactEmailPublic: v })} title="Show this email on the community" hint="On the About page and in Membership, beside the contact form." />
+      </EditorCard>
+      <SaveBar dirty={dirty} busy={busy} error={error?.text ?? null} onSave={() => void save()} onReset={() => { setP(JSON.parse(saved)); setError(null) }} />
+    </>
+  )
+}
+
+/* ── Roles ──────────────────────────────────────────────────────────────── */
+
+const ROLE_COPY = {
+  admin: { title: "Admins", hint: "People who help you run the community." },
+  moderator: { title: "Moderators", hint: "People who keep conversations in order." },
+} as const
+
+function Roles({ head, roles }: { head: CommunityHead; roles: RolesView }) {
+  const router = useRouter()
+  const toast = useToast()
+  const start = React.useMemo(() => ({ admin: roles.admin, moderator: roles.moderator }), [roles])
+  const [r, setR] = React.useState(start)
+  const [saved, setSaved] = React.useState(JSON.stringify(start))
+  const [busy, setBusy] = React.useState(false)
+  const [error, setError] = React.useState<string | null>(null)
+  const dirty = JSON.stringify(r) !== saved
+  const flip = (role: "admin" | "moderator", key: PermissionKey, on: boolean) => {
+    setR((x) => ({ ...x, [role]: { ...x[role], [key]: on } }))
+    setError(null)
+  }
+  const save = async () => {
+    setBusy(true)
+    const res = await send(`/api/app/community/${head.id}`, "PATCH", { roles: r })
+    setBusy(false)
+    if (!res.ok) return setError(res.data.error === "needs_update" ? "This needs a Storelib update first. Try again later." : errorText(res.data.error))
+    setSaved(JSON.stringify(r))
+    setError(null)
+    toast("Roles saved")
+    router.refresh()
+  }
+  return (
+    <div className="space-y-4" data-roles="">
+      {!roles.ready ? <Notice tone="info">Choosing what each role may do arrives with a Storelib update. Until then admins and moderators have the usual permissions shown below.</Notice> : null}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {(["admin", "moderator"] as const).map((role) => (
+          <EditorCard key={role} title={ROLE_COPY[role].title} hint={ROLE_COPY[role].hint} id={`role-${role}`}>
+            <div className="-my-1 divide-y divide-[#f1f2f4]" data-role-groups={role}>
+              {PERMISSION_GROUPS.map((g) => (
+                <Toggle key={g.key} id={`${role}-${g.key}`} checked={r[role][g.key]} disabled={!roles.ready} onChange={(v) => flip(role, g.key, v)} title={g.label} hint={g.detail} />
+              ))}
+            </div>
+          </EditorCard>
+        ))}
+      </div>
+      <p className="px-1 text-[13px] leading-relaxed text-[#6b7280]">Prices, payouts, deleting the community and handing it over always stay with you. Nobody can act on someone ranked the same or above them.</p>
+      <SaveBar dirty={dirty} busy={busy} error={error} onSave={() => void save()} onReset={() => { setR(JSON.parse(saved)); setError(null) }} />
     </div>
   )
 }

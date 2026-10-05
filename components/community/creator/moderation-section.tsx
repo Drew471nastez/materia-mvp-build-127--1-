@@ -40,7 +40,7 @@ import type { ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import type { AuditView, BadgeView, CommunityHead, MemberPage, MemberRowView, ReportView } from "./view-types"
 import { checkRules, moveItem, type MemberChoice } from "./logic"
 import { useMemberActions, type ActOnPerson } from "./member-actions"
-import { Confirm, Empty, FilterTabs, ListCard, Notice, RowMenu, buttonPrimary, buttonSecondary, card, errorText, field, selectField, send, shortDate, useToast } from "./parts"
+import { Confirm, EditorFoot, Empty, FilterTabs, ListCard, Notice, RowMenu, buttonPrimary, buttonSecondary, card, errorText, field, selectField, send, shortDate, useToast } from "./parts"
 
 const REASON: Record<ReportReason, string> = { spam: "Spam", abuse: "Abuse", harassment: "Harassment", off_topic: "Off topic", illegal: "Illegal", other: "Other" }
 const TARGET: Record<ReportView["targetType"], string> = { post: "Post", comment: "Comment", message: "Chat message", member: "Member" }
@@ -527,7 +527,7 @@ function SlowMode({ head, initial }: { head: CommunityHead; initial: number }) {
 
 /* ── Rules ──────────────────────────────────────────────────────────────── */
 
-function RulesEditor({ head, initial, onSaved }: { head: CommunityHead; initial: CommunityRule[]; onSaved: (n: number) => void }) {
+export function RulesEditor({ head, initial, onSaved }: { head: CommunityHead; initial: CommunityRule[]; onSaved: (n: number) => void }) {
   const router = useRouter()
   const toast = useToast()
   const canEdit = head.can.manage_settings === true
@@ -613,18 +613,8 @@ function RulesEditor({ head, initial, onSaved }: { head: CommunityHead; initial:
         </span>
       </div>
       {dirty || error ? (
-        <div className="sticky bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-10 px-3 pb-3 max-md:bottom-[calc(var(--app-nav-room,0px)+0.75rem)]" data-save-bar="">
-          <div className={cn(card, "flex items-center gap-2 px-3 py-2.5 shadow-[0_8px_24px_-8px_rgba(17,24,39,0.18)]")}>
-            <p role="status" className={cn("min-w-0 flex-1 truncate px-1 text-[13px]", error ? "text-[#b91c1c]" : "text-[#6b7280]")}>
-              {error ?? "Unsaved changes"}
-            </p>
-            <button type="button" onClick={() => { setRules(JSON.parse(saved)); setError(null) }} disabled={busy} className={cn(buttonSecondary, "h-10 sm:h-9")}>
-              Discard
-            </button>
-            <button type="button" onClick={() => void save()} disabled={busy || !dirty} className={cn(buttonPrimary, "h-10 px-4 sm:h-9")} data-rules-save="">
-              {busy ? "Saving" : "Save"}
-            </button>
-          </div>
+        <div className="px-3 pb-3" data-save-bar="">
+          <EditorFoot dirty={dirty} busy={busy} error={error} onSave={() => void save()} onCancel={() => { setRules(JSON.parse(saved)); setError(null) }} />
         </div>
       ) : null}
     </div>
