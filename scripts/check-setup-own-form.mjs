@@ -530,7 +530,7 @@ try {
           const action = u.slice("http://probe.test/api/payments/".length)
           calls.push(action)
           if (action === "details-form") return json({ ...form(needs), active: true })
-          if (action === "identity") return json(enabled ? { ok: true, clientSecret: null, url: "http://probe.test/stripe-identity", publishableKey: "pk_test_x" } : { ok: false, reason: "not_enabled" })
+          if (action === "identity") return json(enabled ? { ok: true, way: "identity", clientSecret: null, url: "http://probe.test/stripe-identity", publishableKey: "pk_test_x" } : { ok: false, reason: "link_failed" })
           if (action === "identity-status") {
             const was = status
             status = "verified"
@@ -548,7 +548,7 @@ try {
       await new Promise((r) => setTimeout(r, 300))
       const shown = await p.evaluate(() => ({
         stripeFirst: document.querySelector("[data-id-photo]")?.getAttribute("data-id-photo") === "stripe",
-        says: document.body.textContent?.includes("matches a selfie to it"),
+        says: document.body.textContent?.includes("brings you straight back here"),
         other: document.body.textContent?.includes("Use your camera instead"),
       }))
       if (enabled) {
@@ -573,16 +573,17 @@ try {
         /*
           The owner, October 2026: "I used verify with Stripe instead, it
           opened the same camera model". It used to fall through to our
-          camera without a word, which looked exactly like that. Now it says
-          what is wrong, in words, and opens nothing.
+          camera without a word, which looked exactly like that. And when
+          Stripe refused, Stripe's own sentence was printed here. Neither
+          now: nothing of ours opens, and the line is Storelib's.
         */
         const fell = await p.evaluate(() => ({
           camera: !!document.querySelector("[data-id-camera]"),
           why: document.querySelector("[data-identity-problem]")?.textContent ?? "",
-          noCode: !/not_enabled|undefined|went wrong/i.test(document.querySelector("[data-payments-setup-panel]")?.textContent ?? ""),
+          noCode: !/link_failed|not_enabled|undefined|Identity|account admin|went wrong/i.test(document.querySelector("[data-payments-setup-panel]")?.textContent ?? ""),
         }))
-        expect(!fell.camera, "with Stripe Identity off, nothing of ours opens", fell)
-        expect(/not switched on/.test(fell.why) && fell.noCode, "  it says so in words, with no Stripe code in them", fell)
+        expect(!fell.camera, "when the check will not open, nothing of ours opens", fell)
+        expect(/Try again in a moment/.test(fell.why) && fell.noCode, "  one calm sentence, with no Stripe code or Stripe words in it", fell)
       }
       expect(errors.length === 0, `nothing threw (${enabled ? "Stripe on" : "Stripe off"})`, errors.slice(0, 2))
       await p.close()

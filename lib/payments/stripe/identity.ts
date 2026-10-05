@@ -24,32 +24,28 @@ import "server-only"
  *                   cross-origin frame in a web view is the sort of thing
  *                   that broke setup here before, so the app takes the page.
  *
- * IT IS NEVER THE ONLY WAY. Identity has to be switched on for the platform
- * and does not cover every country. When a session cannot be made, this says
- * why in one word and the form falls back to Storelib's own camera, which is
- * the path Stripe accepts as an uploaded document.
+ * IT IS NEVER THE PATH THAT RUNS. Stripe Identity is a separate Stripe
+ * product: an account admin has to switch it on in the Stripe dashboard, and
+ * it is billed per check. Until then every call comes back "Your account is
+ * not set up to use Identity", which is how a creator ended up reading that
+ * sentence on step two of Set up payouts.
+ *
+ * So Identity runs only where it is genuinely there. `identityOnForPlatform`
+ * probes it once and remembers the answer (or reads STRIPE_IDENTITY), every
+ * refusal counts as "not there", and Verify ID goes down Connect's own hosted
+ * verification instead (lib/payments/stripe/hosted-verification.ts). Nothing
+ * about any of that reaches the creator.
  */
 import type Stripe from "stripe"
 import { stripe } from "@/lib/stripe"
 import { PaymentsProblem } from "../errors"
 import { publishableKeyForSession, readCreatorStripe, runsInStorelib, syncStripeAccount, type PaymentsCreatorRef } from "./connect"
 import { stripeErrorMessage } from "./setup-errors"
+import { identityUnavailable } from "../verify-id"
 import { idOutstanding } from "./status"
 
 /** Why there is no Stripe Identity for this creator; the form falls back to its own camera. */
 export type IdentityUnavailable = "not_enabled" | "no_account" | "not_ours" | "no_person" | "nothing_to_verify" | "failed"
-
-/** Stripe's own sentence, with every id, token and secret taken out, short enough to read on a step. */
-function safeDetail(error: unknown): string | undefined {
-  const raw = stripeErrorMessage(error)
-  if (!raw) return undefined
-  const clean = raw
-    .replace(/\b(acct|vs|req|cs|pi|file|person|ba|sk|pk|rk)_[A-Za-z0-9_]+/g, "")
-    .replace(/https?:\/\/\S+/g, "")
-    .replace(/\s{2,}/g, " ")
-    .trim()
-  return clean.length > 2 ? clean.slice(0, 180) : undefined
-}
 
 export interface IdentityStart {
   ok: true
@@ -95,19 +91,38 @@ function quiet(error: unknown): string {
 }
 
 /**
- * IS IT REALLY "IDENTITY IS NOT SWITCHED ON"?
+ * STRIPE IDENTITY, PROBED ONCE AND REMEMBERED.
  *
- * This used to answer yes to any error with the word "identity" in it, which
- * is nearly every error the Identity API can return, including a parameter
- * Stripe did not like. So a wrong parameter was reported to the creator as
- * "Stripe's ID check is not switched on for Storelib", and the real cause
- * never reached anybody. It now wants Stripe to actually say the account is
- * not activated or not permitted, and everything else keeps its own words.
+ * Asking Stripe for one Identity session is the only honest way to know
+ * whether the product is switched on for this platform, and the answer does
+ * not change between requests, so it is kept for the life of the server.
+ * STRIPE_IDENTITY settles it without asking at all: "on" to use Identity,
+ * "off" to leave it alone.
+ *
+ * A probe that fails for any other reason (a timeout, a blip) answers "not
+ * there" for this request without being remembered. Connect's own hosted
+ * verification works either way, so nobody waits on this.
  */
-function notEnabled(error: unknown): boolean {
-  const message = stripeErrorMessage(error).toLowerCase()
-  if (/unknown parameter|invalid|not a valid|must be|cannot be used|no longer supported/.test(message)) return false
-  return /not activated|not enabled|activate .*identity|identity .*(is not|isn't) (activated|enabled)|enable .*identity|permission|not allowed to use/.test(message)
+let identityOffered: boolean | null = null
+
+export async function identityOnForPlatform(): Promise<boolean> {
+  const flag = (process.env.STRIPE_IDENTITY ?? "").trim().toLowerCase()
+  if (flag === "off" || flag === "0" || flag === "false" || flag === "no") return false
+  if (flag === "on" || flag === "1" || flag === "true" || flag === "yes") return true
+  if (identityOffered !== null) return identityOffered
+  try {
+    await stripe.identity.verificationSessions.list({ limit: 1 }, { timeout: 8_000, maxNetworkRetries: 0 })
+    identityOffered = true
+    return true
+  } catch (error) {
+    if (identityUnavailable(error)) {
+      identityOffered = false
+      console.warn("[identity] Stripe Identity is not available here; Verify ID runs through Connect", quiet(error))
+      return false
+    }
+    console.error("[identity] availability probe", quiet(error))
+    return false
+  }
 }
 
 async function accountAndPerson(creator: PaymentsCreatorRef): Promise<{ account: Stripe.Account; personId: string } | IdentityUnavailable> {
@@ -132,7 +147,7 @@ async function accountAndPerson(creator: PaymentsCreatorRef): Promise<{ account:
  * alternative to something due today (the national ID number, or the ID).
  * Not eventually_due: a check, and its cost, only when Stripe asks for it.
  */
-function documentDue(account: Stripe.Account): boolean {
+export function documentDue(account: Stripe.Account): boolean {
   const req = account.requirements
   /* The ID check is the last step of setup, so it may start as soon as Stripe lists the document, even under eventually_due (lib/payments/stripe/own-form.ts viewOf). */
   const due = new Set([...(req?.past_due ?? []), ...(req?.currently_due ?? []), ...(req?.eventually_due ?? [])])
@@ -165,7 +180,9 @@ async function openSession(creatorId: string): Promise<Stripe.Identity.Verificat
  * Start (or carry on) the live check. `returnUrl` is where Stripe's hosted
  * page sends the person when they are done, for the phone app's sheet.
  */
-export async function startIdentity(creator: PaymentsCreatorRef, returnUrl: string): Promise<IdentityStart | { ok: false; reason: IdentityUnavailable; detail?: string }> {
+export async function startIdentity(creator: PaymentsCreatorRef, returnUrl: string): Promise<IdentityStart | { ok: false; reason: IdentityUnavailable }> {
+  /* Never a call that is known to come back refused: that refusal is what a creator was reading on step two. */
+  if (!(await identityOnForPlatform())) return { ok: false, reason: "not_enabled" }
   const found = await accountAndPerson(creator)
   if (typeof found === "string") return { ok: false, reason: found }
   const { account, personId } = found
@@ -206,15 +223,18 @@ export async function startIdentity(creator: PaymentsCreatorRef, returnUrl: stri
     )
     return { ok: true, clientSecret: session.client_secret ?? null, url: session.url ?? null, publishableKey: publishableKeyForSession(), status: "requires_input" }
   } catch (error) {
-    const reason: IdentityUnavailable = notEnabled(error) ? "not_enabled" : "failed"
+    const reason: IdentityUnavailable = identityUnavailable(error) ? "not_enabled" : "failed"
+    /* A refusal is remembered, so the next creator is not made to wait on the same dead call. */
+    if (reason === "not_enabled") identityOffered = false
     console.error(`[identity] session not made (${reason})`, quiet(error))
-    /* What Stripe said, trimmed and stripped of ids, so the step can name the real cause instead of guessing. */
-    return { ok: false, reason, detail: reason === "failed" ? safeDetail(error) : undefined }
+    return { ok: false, reason }
   }
 }
 
 /** Where the check has got to, and why it stopped if it did. Syncs the account so the form sees the requirement clear. */
 export async function identityStatus(creator: PaymentsCreatorRef): Promise<IdentityView> {
+  /* No Identity here means no sessions to read: asking would only be another refusal in the log. */
+  if (!(await identityOnForPlatform())) return { status: "none", problem: null }
   try {
     const list = await stripe.identity.verificationSessions.list({ client_reference_id: creator.id, limit: 3 })
     const latest = list.data[0]

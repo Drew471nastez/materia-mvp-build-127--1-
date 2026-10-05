@@ -12,10 +12,16 @@ import { cachedOverview, fetchOverview, rememberOverview } from "@/lib/payments/
 import { StorelibPaymentsCard, StorelibPaymentsCardLoading } from "@/components/app/settings/storelib-payments-card"
 import { PaymentsPanelWaiting, PaymentsSetupFlow, type SetupMode } from "@/components/app/settings/payments-setup-flow"
 import { money, type Overview } from "@/components/app/settings/payments-hub-shared"
+import { readsLikeStripe } from "@/lib/payments/verify-id"
 import { cn } from "@/lib/utils"
 
+/*
+ * One rule for the whole of payments (lib/payments/verify-id.ts
+ * readsLikeStripe), plus the two shapes only this card can be handed: a
+ * stack trace and a body that came back as JSON rather than a sentence.
+ */
 function safeError(message: string): string {
-  if (/invalid_request|acct_|accs_|req_|pi_|ch_|capability|requirement|sk_|rk_|pk_|whsec|\n\s+at\s|\{\s*"/i.test(message)) {
+  if (!message.trim() || readsLikeStripe(message) || /\n\s+at\s|\{\s*"/.test(message)) {
     return "Something went wrong. Try again in a moment."
   }
   return message

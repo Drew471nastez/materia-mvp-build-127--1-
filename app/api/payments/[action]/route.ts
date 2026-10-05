@@ -25,8 +25,9 @@
  *   POST document        multipart { which, side, file }: an ID photo or proof of
  *                        address, uploaded to Stripe and attached in one call
  *   POST bank            { holderName, iban } or { holderName, accountNumber, routingNumber }
- *   POST identity        starts (or carries on) Stripe's own live ID check and
- *                        returns its modal secret and hosted page, or why there is none
+ *   POST identity        opens Stripe's own ID check for this account: Connect's
+ *                        hosted verification, or Stripe Identity where it is there
+ *                        (lib/payments/stripe/hosted-verification)
  *   POST identity-status where that check has got to
  *
  * Errors are one sentence for the creator. Airwallex's own codes and
@@ -37,7 +38,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { LIMITS, callerAddress, rateLimit } from "@/lib/api/rate-limit"
 import { addBank, detailsForm, submitDetails, uploadDocument } from "@/lib/payments/stripe/own-form"
-import { identityStatus, startIdentity } from "@/lib/payments/stripe/identity"
+import { startVerification, verificationStatus } from "@/lib/payments/stripe/hosted-verification"
 import {
   addPayoutAccount,
   componentAuth,
@@ -219,12 +220,22 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
       case "identity": {
         if (provider !== "stripe") return NextResponse.json({ error: "Not found." }, { status: 404, headers: NO_STORE })
         await prepareVerification(creator)
-        const started = await startIdentity(creator, `${originOf(request)}/app/payouts/identity-done`)
+        /*
+         * WHERE STRIPE SENDS THEM BACK TO. A browser goes to Payouts with
+         * ?setup=1, which reopens the panel on the step that is left. The
+         * phone app runs the page in its own sheet, so it comes back to the
+         * small page the app closes behind it.
+         */
+        const origin = originOf(request)
+        const started = await startVerification(creator, {
+          returnUrl: body.inApp === true ? `${origin}/app/payouts/identity-done` : `${origin}/app/payouts?setup=1`,
+          refreshUrl: `${origin}/app/payouts?setup=1`,
+        })
         return NextResponse.json(started, { headers: NO_STORE })
       }
       case "identity-status": {
         if (provider !== "stripe") return NextResponse.json({ error: "Not found." }, { status: 404, headers: NO_STORE })
-        const view = await identityStatus(creator)
+        const view = await verificationStatus(creator)
         return NextResponse.json({ ...view, form: await detailsForm(creator) }, { headers: NO_STORE })
       }
       case "prepare": {
