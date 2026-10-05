@@ -216,8 +216,8 @@ export function PostOverlay({ post: given, slug, viewer, readOnly = false, updat
     }
   }, [phone])
 
-  /* On a phone, the comment box stays in sight above the keyboard (keep-in-sight.ts). */
-  useKeepFieldInSight(phone, () => contentRef.current?.closest<HTMLElement>("[data-sheet-scroll]") ?? null)
+  /* On a phone the composer is pinned to the sheet foot (comments.tsx pinComposer); desktop panel still scrolls the field into view. */
+  useKeepFieldInSight(!phone, () => contentRef.current?.closest<HTMLElement>("[data-post-overlay-scroll]") ?? contentRef.current?.closest<HTMLElement>("[data-sheet-scroll]") ?? null)
 
   const onComment = useCallback(() => {
     const el = box.current
@@ -230,7 +230,7 @@ export function PostOverlay({ post: given, slug, viewer, readOnly = false, updat
   const drawn = useMemo(() => renderPost(post, local, onComment), [post, local, onComment])
   if (typeof document === "undefined") return null
 
-  return <OverlayFrame phone={phone} post={post} open={open} phase={phase} setPhase={setPhase} close={close} onGone={() => onCloseRef.current()} contentRef={contentRef} content={<OverlayContent drawn={drawn} settled={settled} post={post} slug={slug} viewer={viewer} readOnly={readOnly} box={box} local={local} />} />
+  return <OverlayFrame phone={phone} post={post} open={open} phase={phase} setPhase={setPhase} close={close} onGone={() => onCloseRef.current()} contentRef={contentRef} content={<OverlayContent drawn={drawn} settled={settled} post={post} slug={slug} viewer={viewer} readOnly={readOnly} box={box} local={local} pinComposer={phone} />} />
 }
 
 /*
@@ -238,7 +238,7 @@ export function PostOverlay({ post: given, slug, viewer, readOnly = false, updat
   overlay starts to close: a close that drew every comment again (each with
   its menu) cost the first frames of its own slide.
 */
-const OverlayContent = memo(function OverlayContent({ drawn, settled, post, slug, viewer, readOnly, box, local }: { drawn: React.ReactNode; settled: boolean; post: FeedPostView; slug: string; viewer: ViewerView; readOnly: boolean; box: React.RefObject<MentionTextareaHandle | null>; local: PostUpdateFn }) {
+const OverlayContent = memo(function OverlayContent({ drawn, settled, post, slug, viewer, readOnly, box, local, pinComposer }: { drawn: React.ReactNode; settled: boolean; post: FeedPostView; slug: string; viewer: ViewerView; readOnly: boolean; box: React.RefObject<MentionTextareaHandle | null>; local: PostUpdateFn; pinComposer: boolean }) {
   return (
     <>
       {/* The post whole, without a card's edge: the panel is the card. */}
@@ -256,6 +256,7 @@ const OverlayContent = memo(function OverlayContent({ drawn, settled, post, slug
             boxRef={box}
             expected={post.commentCount}
             fadeIn
+            pinComposer={pinComposer}
             onCount={(d) => local(post.id, (p) => ({ ...p, commentCount: Math.max(0, p.commentCount + d) }))}
           />
         ) : (

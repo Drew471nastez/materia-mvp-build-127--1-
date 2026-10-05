@@ -162,6 +162,12 @@ export interface CommentsSectionProps {
   fadeIn?: boolean
   /** A reader who is not a member (a public post): no box, nothing live. */
   visitor?: boolean
+  /**
+   * Phone post sheet: the composer sits at the bottom of the scroller and rides
+   * the keyboard inset, so focusing it does not leave a tall empty white band
+   * above the keys (sheetOverKeyboard padding on the panel).
+   */
+  pinComposer?: boolean
 }
 
 /**
@@ -228,7 +234,7 @@ export function CommentsPlaceholder({ expected }: { expected: number }) {
   )
 }
 
-export function CommentsSection({ post, slug, viewer, initial, me: givenMe = null, readOnly = false, commentsEnabled: givenEnabled = true, boxRef, onCount, expected = 0, fadeIn = false, visitor = false }: CommentsSectionProps) {
+export function CommentsSection({ post, slug, viewer, initial, me: givenMe = null, readOnly = false, commentsEnabled: givenEnabled = true, boxRef, onCount, expected = 0, fadeIn = false, visitor = false, pinComposer = false }: CommentsSectionProps) {
   /* Handed a first page, or one read ahead (COMMENTS READ AHEAD): drawn on the first frame, no waiting state. */
   const [ahead] = useState(() => (initial ? null : aheadOf(post.communityId, post.id)))
   const first = initial ?? ahead?.data ?? null
@@ -465,20 +471,40 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
   const author: Author = { id: viewer.userId ?? "", name: me?.name ?? "You", avatarUrl: me?.avatarUrl ?? null }
   const staff = viewer.role === "owner" || viewer.role === "admin" || viewer.role === "moderator"
 
+  const composer =
+    open ? (
+      <div
+        className={
+          pinComposer
+            ? "sticky bottom-0 z-[3] -mx-4 border-t border-[#f0f1f3] bg-white px-4 pt-2 shadow-[0_-10px_28px_-18px_rgba(16,24,40,0.14)] sm:mx-0"
+            : "relative"
+        }
+        style={
+          pinComposer
+            ? {
+                marginBottom: "calc(-1 * var(--kb-inset, 0px))",
+                paddingBottom: "calc(var(--kb-inset, 0px) + max(env(safe-area-inset-bottom), 12px))",
+              }
+            : undefined
+        }
+        data-comments-composer={pinComposer ? "pin" : "top"}
+      >
+        <CommentBox communityId={post.communityId} postId={post.id} me={me} author={author} handleRef={boxRef} sending={sending} placeholder="Write a comment..." canUpload={!!viewer.can.upload} media={mediaReady} nearby={nearby} />
+        <TypingLine names={typing.writers.map((w) => w.name)} />
+      </div>
+    ) : (
+      <p className="text-[13.5px] text-[#6b7280]" data-comments-closed="">
+        {visitor ? "Join the community to comment." : post.locked ? "Comments are closed on this post." : !enabled ? "Comments are off in this space." : "You cannot comment here right now."}
+      </p>
+    )
+
+  const listGap = open && !pinComposer ? "mt-6" : "mt-4"
+
   return (
-    <div data-comments-list="">
-      {open ? (
-        <div className="relative">
-          <CommentBox communityId={post.communityId} postId={post.id} me={me} author={author} handleRef={boxRef} sending={sending} placeholder="Write a comment..." canUpload={!!viewer.can.upload} media={mediaReady} nearby={nearby} />
-          <TypingLine names={typing.writers.map((w) => w.name)} />
-        </div>
-      ) : (
-        <p className="text-[13.5px] text-[#6b7280]" data-comments-closed="">
-          {visitor ? "Join the community to comment." : post.locked ? "Comments are closed on this post." : !enabled ? "Comments are off in this space." : "You cannot comment here right now."}
-        </p>
-      )}
+    <div data-comments-list="" data-comments-composer-pin={pinComposer ? "" : undefined}>
+      {!pinComposer ? composer : null}
       {open && !mediaReady && staff ? (
-        <p className="mt-7 rounded-[10px] border border-[#f0e2bf] bg-[#fffaf0] px-3 py-2 text-[12.5px] leading-relaxed text-[#7a5a12]" data-comments-media-note="">
+        <p className={`${pinComposer ? "mt-4" : "mt-7"} rounded-[10px] border border-[#f0e2bf] bg-[#fffaf0] px-3 py-2 text-[12.5px] leading-relaxed text-[#7a5a12]" data-comments-media-note="">
           {MEDIA_STAFF_NOTE}
         </p>
       ) : null}
@@ -492,10 +518,10 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
           </div>
         ) : (
           /* The room the comments will take, kept still (no shimmer); they fade into it. */
-          <div style={{ minHeight: commentsRoom(expected) - 44 }} aria-label="Loading comments" data-comments-loading="" />
+          <div style={{ minHeight: pinComposer ? commentsRoom(expected) : commentsRoom(expected) - 44 }} aria-label="Loading comments" data-comments-loading="" />
         )
       ) : comments.length ? (
-        <ul className={`${open ? "mt-6" : "mt-4"} space-y-4 ${arrived ? "animate-in fade-in-0 duration-200 ease-out motion-reduce:animate-none" : ""}`} data-comments-rows="">
+        <ul className={`${listGap} space-y-4 ${arrived ? "animate-in fade-in-0 duration-200 ease-out motion-reduce:animate-none" : ""}`} data-comments-rows="">
           {comments.map((c) => (
             <li key={rows.keyOf(c.id)}>
               <CommentItem c={c} slug={slug} communityId={post.communityId} postId={post.id} viewer={viewer} me={me} author={author} update={update} canReply={open} sending={sending} rows={rows} />
@@ -503,7 +529,7 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
           ))}
         </ul>
       ) : (
-        <p className={`${open ? "mt-6" : "mt-4"} text-[14px] text-[#8a8f98] ${arrived ? "animate-in fade-in-0 duration-200 ease-out motion-reduce:animate-none" : ""}`} data-comments-empty="">
+        <p className={`${listGap} text-[14px] text-[#8a8f98] ${arrived ? "animate-in fade-in-0 duration-200 ease-out motion-reduce:animate-none" : ""}`} data-comments-empty="">
           No comments yet.{open ? " Say something first." : ""}
         </p>
       )}
@@ -514,6 +540,7 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
           </button>
         </div>
       ) : null}
+      {pinComposer ? composer : null}
     </div>
   )
 }
