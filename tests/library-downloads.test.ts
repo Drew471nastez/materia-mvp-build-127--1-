@@ -185,11 +185,11 @@ function wishlistCases() {
     seconds"). It is inside a Suspense boundary now, as the account
     overview is: the tab commits as soon as it knows who is asking.
   */
-  const wishPage = read("app/library/wishlist/page.tsx")
+  const wishPage = read("app/account/library/wishlist/page.tsx")
   check("the library's tab reads the list on the server", /loadWishlist\(userId\)/.test(wishPage) && /initialItems=\{await loadWishlist\(userId\)\}/.test(wishPage))
-  check("  and streams it, so the tab is on screen before the cards are", /<Suspense$/m.test(wishPage) && /\{savedBody\(user\.id\)\}/.test(wishPage) && /LibraryRouteSkeleton path="\/library\/wishlist"/.test(wishPage))
+  check("  and streams it, so the tab is on screen before the cards are", /<Suspense fallback=/.test(wishPage) && /\{savedBody\(user\.id\)\}/.test(wishPage) && /LibraryRouteSkeleton path="\/account\/library\/wishlist"/.test(wishPage))
   /* A second full read of the list only for the one failure another query can fix. */
-  const wishLoad = read("app/library/wishlist/load-wishlist.ts")
+  const wishLoad = read("app/account/library/wishlist/load-wishlist.ts")
   check("  and a slow first read is not paid for twice", /if \(error && missingPwywColumn\(error\)\)/.test(wishLoad) && /error\.code === "42703"/.test(wishLoad))
   check("and never imports server code into the browser", !/load-wishlist|next\/headers|server-only/.test(content) && !/next\/headers|server-only/.test(read("components/wishlist/wishlist-entry.ts")))
 }

@@ -218,7 +218,9 @@ export async function refundEveryTicket(
   const out = { refunded: 0, failed: 0, totalCents: 0 }
   if (!(await ticketsReady(db))) return out
   const PAGE = 50
-  /* A refunded ticket leaves the 'paid' set, so the first page is always the next work: no cursor, no loop. */
+  /* A refunded ticket leaves the 'paid' set, so the first page is always the next work: no cursor.
+     A ticket Stripe refused stays paid, so the ones already tried are remembered and never tried twice. */
+  const tried = new Set<string>()
   for (let round = 0; round < 400; round += 1) {
     let ids: string[] = []
     try {
@@ -234,25 +236,22 @@ export async function refundEveryTicket(
         if (!missing(error)) console.error(`[communities] refund every ticket: ${reasonOf(error)}`)
         return out
       }
-      ids = ((data as { id: string }[] | null) ?? []).map((r) => r.id)
+      ids = ((data as { id: string }[] | null) ?? []).map((r) => r.id).filter((id) => !tried.has(id))
     } catch (e) {
       console.error(`[communities] refund every ticket: ${reasonOf(e)}`)
       return out
     }
     if (ids.length === 0) break
-    let changed = 0
     for (const id of ids) {
+      tried.add(id)
       const done = await refundTicket(db, { community: a.community, ticketId: id, actorId: a.actorId, reason: a.reason ?? "the event was cancelled" }, deps)
       if (done.ok) {
         out.refunded += 1
         out.totalCents += done.amountCents
-        changed += 1
       } else {
         out.failed += 1
       }
     }
-    /* Nothing on this page could be refunded: a second round would read the same rows for ever. */
-    if (changed === 0) break
   }
   return out
 }

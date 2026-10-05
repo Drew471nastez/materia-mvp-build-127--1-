@@ -716,14 +716,24 @@ async function main() {
     check("Settings uses the creator cover's own control (bucket covers, the frame that repositions)", /<ImageUpload\s+bucket="covers"\s+aspectRatio="cover"/.test(read("components/account/cover-field.tsx")) && /reposition=\{reposition\}/.test(read("components/account/cover-field.tsx")))
     check("visitors see it: the page reads it with the service role", /select\("cover_url"\)/.test(read("lib/profile/member-profile-data.ts")) && /coverUrl: cover \|\| creatorRow\?\.cover_url/.test(read("lib/profile/member-profile-data.ts")))
     /* Round 8: "Remove the camera icon button next to Edit profile on the profile cover." Edit profile alone, only on your own band; the cover is changed in Settings. */
-    check("the owner's band offers Edit profile alone, nobody else's does", /isSelf \? \(\s*<div className="absolute inset-x-0 top-3 sm:bottom-4 sm:top-auto" data-profile-cover-actions="">[\s\S]{0,200}<Link href=\{EDIT_PROFILE_HREF\}/.test(read("components/profile/profile-hero.tsx")) && !/<Camera|COVER_SETTINGS_HREF|data-profile-cover-edit/.test(read("components/profile/profile-hero.tsx")))
+    /* Round 13: the row is sticky, pinned under the measured header, so it no longer slides under the bar (components/profile/profile-chrome-var.tsx). Still one button, still only on your own band. */
+    check("the owner's band offers Edit profile alone, nobody else's does", /isSelf \? \([\s\S]{0,1600}data-profile-cover-actions="">[\s\S]{0,400}<Link\s+href=\{EDIT_PROFILE_HREF\}/.test(read("components/profile/profile-hero.tsx")) && !/<Camera|COVER_SETTINGS_HREF|data-profile-cover-edit/.test(read("components/profile/profile-hero.tsx")))
   }
 
-  console.log("\nNever empty")
+  /*
+    ROUND 13, CHANGED ON PURPOSE. The list used to end on "Joined Storelib"
+    so that it was never empty. The owner: "in the activity, make sure there
+    cannot be things such as 'Joined Storelib'. Eliminate that kind of shit."
+    Joining the platform is not something somebody did; the day is a fact
+    about the person and is said once, under About (components/profile/
+    person-about.tsx). An empty list says it is empty instead.
+    tests/profile-page-s.test.ts holds the new rule.
+  */
+  console.log("\nActivity is activity")
   {
     const act = read("components/profile/profile-activity.tsx")
-    check("the activity always ends on the day they joined", /function JoinedRow/.test(act) && /\{joinedAt && !next \? <JoinedRow/.test(act))
-    check("the profile and /account both hand it the join date", /joinedAt=\{profile\.joinedAt\}/.test(read("components/profile/member-profile-page.tsx")) && /joinedAt=\{user\.created_at/.test(read("app/account/page.tsx")))
+    check("no Joined Storelib row, and no join date reaching the list", !/JoinedRow/.test(act) && !/joinedAt/.test(act))
+    check("About carries the day instead, on a profile and on /account", /<PersonAbout[\s\S]{0,200}joinedAt=\{profile\.joinedAt\}/.test(read("components/profile/member-profile-page.tsx")) && /<AccountAbout[^>]*joinedAt=\{user\.created_at/.test(read("app/account/page.tsx")))
   }
 
   console.log("\nCopy")
