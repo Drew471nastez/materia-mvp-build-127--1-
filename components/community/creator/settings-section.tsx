@@ -295,7 +295,7 @@ function PageSettings({ head, data }: { head: CommunityHead; data: SettingsData 
 
           <EditorCard title="Category" hint="Where it shows up in Explore.">
             {/* The same list as Explore's category pills: the one picked here is the pill it is found under. */}
-            <select id="g-category" aria-label="Category" value={s.category} onChange={(e) => set("category", e.target.value)} className={selectField} data-category-select="">
+            <select id="g-category" value={s.category} aria-label="Category" onChange={(e) => set("category", e.target.value)} className={selectField} data-category-select="">
               <option value="">No category</option>
               {COMMUNITY_CATEGORIES.map((c) => (
                 <option key={c.id} value={c.id}>
