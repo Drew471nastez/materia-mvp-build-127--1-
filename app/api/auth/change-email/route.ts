@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { sendEmail, isSmtpConfigured } from "@/lib/mail"
-import { VERIFICATION_CODE_EXPIRY_MINUTES } from "@/lib/security"
+import { VERIFICATION_CODE_EXPIRY_MINUTES, verificationLimitPaused } from "@/lib/security"
 import { readCurrentUser } from "@/lib/auth/current-user"
 import { newCode } from "@/lib/account/codes"
 import { codeEmail } from "@/lib/account/code-email"
@@ -78,7 +78,7 @@ export async function POST(request: Request) {
       .select("id")
       .eq("user_id", user.id)
       .gte("created_at", fifteenMinutesAgo)
-    if (recentCodes && recentCodes.length >= 3) {
+    if (!verificationLimitPaused() && recentCodes && recentCodes.length >= 3) {
       return NextResponse.json({ error: "Too many tries in a short time. Wait 15 minutes and try again." }, { status: 429 })
     }
 

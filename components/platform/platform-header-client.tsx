@@ -299,6 +299,10 @@ function SheetLogOut({ onPress }: { onPress: () => void }) {
  * photo go, then the app's welcome or the home page. The header's menus and a
  * community's own bar (components/community/member/account-menu.tsx) both
  * call it.
+ *
+ * ON A COMMUNITY PAGE, in the browser, stay there. The address does not
+ * change; the page is asked again and draws as a logged-out visitor. The
+ * native app still opens welcome.
  */
 export async function endStorelibSession(router: { push: (href: string) => void; refresh: () => void }) {
   const supabase = createClient()
@@ -307,10 +311,14 @@ export async function endStorelibSession(router: { push: (href: string) => void;
   try { localStorage.removeItem("_sl_avatar") } catch {}
   if (isNativePlatform()) {
     window.location.replace("/welcome")
-  } else {
-    router.push("/")
-    router.refresh()
+    return
   }
+  if (window.location.pathname.startsWith("/community/")) {
+    window.location.reload()
+    return
+  }
+  router.push("/")
+  router.refresh()
 }
 
 /*

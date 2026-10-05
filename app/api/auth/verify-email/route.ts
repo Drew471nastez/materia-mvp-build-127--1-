@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { sendEmail, isSmtpConfigured, EMAIL_FROM, EMAIL_REPLY_TO } from "@/lib/mail"
-import { generateVerificationCode, VERIFICATION_CODE_EXPIRY_MINUTES } from "@/lib/security"
+import { generateVerificationCode, VERIFICATION_CODE_EXPIRY_MINUTES, verificationLimitPaused } from "@/lib/security"
 import { maskEmail } from "@/lib/privacy/mask-email"
 import { codeEmail } from "@/lib/account/code-email"
 
@@ -42,7 +42,7 @@ export async function POST(request: Request) {
       console.error("[verify-email] Error checking rate limit:", recentError)
     }
 
-    if (!recentError && recentCodes && recentCodes.length >= 8) {
+    if (!verificationLimitPaused() && !recentError && recentCodes && recentCodes.length >= 8) {
       console.log("[verify-email] Rate limit exceeded for user:", userId.slice(0, 8) + "...")
       return NextResponse.json(
         { error: "Too many verification attempts. Please try again in 15 minutes." },
