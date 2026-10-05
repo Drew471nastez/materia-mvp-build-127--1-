@@ -144,8 +144,15 @@ check("and forgotten on log out: /welcome, and both log out helpers", /if \(path
 
 /* ── 4. The tab bar in a community ────────────────────────────────────── */
 console.log("\nThe tab bar inside a community")
-check("a community's pages have the bar", ["/community/mara-club", "/community/mara-club/space/general", "/community/mara-club/post/1", "/community/mara-club/members", "/community/mara-club/about"].every((p) => buyerTabsBelongOn(p)))
-check("  Discover off too: Home and Search here are the community's", buyerTabsBelongOn("/community/mara-club", { exploreMarketplaceEnabled: false }) && buyerTabsAt("/community/mara-club", false).length === 4)
+check(
+  "a community's pages have the bar for signed-in members",
+  ["/community/mara-club", "/community/mara-club/space/general", "/community/mara-club/post/1", "/community/mara-club/members", "/community/mara-club/about"].every((p) => buyerTabsBelongOn(p, { signedIn: true })),
+)
+check(
+  "signed-out visitors on a community see no tab bar",
+  ["/community/mara-club", "/community/mara-club/about"].every((p) => !buyerTabsBelongOn(p, { signedIn: false })),
+)
+check("  Discover off too: Home and Search here are the community's", buyerTabsBelongOn("/community/mara-club", { exploreMarketplaceEnabled: false, signedIn: true }) && buyerTabsAt("/community/mara-club", false).length === 4)
 check("  /community alone keeps none, and nor does a creator's own host", !buyerTabsBelongOn("/community") && !buyerTabsBelongOn("/community/mara-club", { customDomain: true }) && !buyerTabsBelongOn("/community/mara-club", { sellerSite: true }))
 check("the community from the address, and nothing that is not a slug", communityOf("/community/mara-club/post/1") === "mara-club" && communityOf("/community/mara-club") === "mara-club" && communityOf("/community") === null && communityOf("/community/Bad_Slug") === null && communityOf("/explore") === null)
 const inside = buyerTabsAt("/community/mara-club/space/general")

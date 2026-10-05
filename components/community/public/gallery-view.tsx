@@ -37,7 +37,7 @@
  */
 import * as React from "react"
 import { ChevronLeft, ChevronRight, Play } from "lucide-react"
-import { MediaSwiper, SwiperSlide, useMediaSwiper, type SwiperClass } from "@/components/product/media-swiper"
+import { MediaSwiper, SLIDE_SPEED_MS, SwiperSlide, useMediaSwiper, type SwiperClass } from "@/components/product/media-swiper"
 import { embedPlayerSrc } from "@/lib/communities/post-media"
 import { ActivitySpinner } from "@/components/ui/activity-spinner"
 import { VideoPlayer } from "@/components/media/video-player"
@@ -128,8 +128,15 @@ export function CommunityGallery({ communityId, name, items }: { communityId: st
 
   /* The engine owns the position, this owns the index (the strip, the arrows and the players read it); each checks before it writes. */
   React.useEffect(() => {
-    carousel.slideToIndex(at, swiperRef.current?.activeIndex ?? at)
-  }, [at, carousel, swiperRef])
+    const swiper = swiperRef.current
+    if (!swiper || swiper.destroyed) return
+    const from = swiper.activeIndex
+    if (from === at) return
+    /* Neighbours slide; a jump across the strip cuts. Last→first and first→last still slide. */
+    const wrap = count > 1 && ((from === count - 1 && at === 0) || (from === 0 && at === count - 1))
+    const dist = Math.abs(at - from)
+    swiper.slideTo(at, wrap || dist === 1 ? SLIDE_SPEED_MS : 0)
+  }, [at, count, swiperRef])
 
   /* The chosen thumbnail is brought into the strip's view by the strip's own scroll, never the page's. */
   React.useEffect(() => {

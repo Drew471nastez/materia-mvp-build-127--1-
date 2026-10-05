@@ -133,15 +133,24 @@ export function buyerTabsBelongOn(
   pathname: string,
   /* `sellerSurface` is taken but not read here: it is what lights Home on the bar
      (buyerTabFor below), and callers hand this the whole answer from useBuyerTabsWhere. */
-  where: { sellerSurface?: boolean; sellerProduct?: boolean; sellerStore?: boolean; sellerSite?: boolean; customDomain?: boolean; exploreMarketplaceEnabled?: boolean } = {},
+  where: {
+    sellerSurface?: boolean
+    sellerProduct?: boolean
+    sellerStore?: boolean
+    sellerSite?: boolean
+    customDomain?: boolean
+    exploreMarketplaceEnabled?: boolean
+    /** False on a phone browser: a visitor reads About/join without Storelib's tab bar over it. */
+    signedIn?: boolean
+  } = {},
 ): boolean {
   const exploreOn = where.exploreMarketplaceEnabled !== false
   if (where.customDomain) return false
   /* /account/continue is a redirect, never a page anybody sees. */
   if (under(pathname, "/account/continue")) return false
   if (where.sellerSite) return false
-  /* Inside a community, the bar, made the community's (communityTabs above). /community alone keeps none. */
-  if (communityOf(pathname)) return true
+  /* Inside a community, the bar for signed-in members only; visitors keep the join page clear. */
+  if (communityOf(pathname)) return where.signedIn !== false
   if (under(pathname, "/community")) return false
   if (where.sellerProduct) return false
   if (where.sellerStore) return true

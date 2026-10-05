@@ -404,7 +404,10 @@ async function main() {
   /* Round 2: still a platform path, but every community page is its own screen with the community's own bar, so Storelib's is not drawn there. */
   check("a platform path, drawn without the platform header (the community's own bar instead)", /p === "\/community" \|\|\s*p\.startsWith\("\/community\/"\)/.test(code("components/marketing/conditional-header.tsx")) && /function isOwnScreen\(p: string\): boolean \{[^}]*p\.startsWith\("\/community\/"\)/.test(code("components/marketing/conditional-header.tsx")))
   /* Round 7: the owner asked for the phone's tab bar inside a community, made the community's (tests/native-app-links.test.ts); /community alone still has none. */
-  check("the buyer tab bar is inside a community, never on /community alone", buyerTabsBelongOn("/community/makers") && !buyerTabsBelongOn("/community") && buyerTabsBelongOn("/community/makers/events", { sellerStore: true }) && buyerTabsBelongOn("/account/library"))
+  check(
+    "the buyer tab bar is inside a community for members, never on /community alone",
+    buyerTabsBelongOn("/community/makers", { signedIn: true }) && !buyerTabsBelongOn("/community") && buyerTabsBelongOn("/community/makers/events", { sellerStore: true, signedIn: true }) && buyerTabsBelongOn("/account/library"),
+  )
   const index = code("app/(marketing)/community/page.tsx")
   check("/community: Explore's communities when on, a 404 when off, read per request", /await connection\(\)\s*if \(!\(await communitiesEnabled\(\)\)\) notFound\(\)\s*redirect\("\/explore\?type=communities"\)/.test(index))
   /* /app/community is the new creator area now (W1); what must be gone is the old feed it used to render. */

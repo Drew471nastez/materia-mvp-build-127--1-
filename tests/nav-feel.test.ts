@@ -72,7 +72,7 @@ console.log("\nHOME: the sequence the owner reported, step by step")
   check("Profile, Search, the library, the wishlist and a receipt all keep the community as Home", homes.every((h) => h === `/community/${slug}`), homes)
   const lit = after.map((p) => buyerTabFor(p, { homeCommunity: slug }))
   check("and each lights its own tab, not Home", JSON.stringify(lit) === JSON.stringify([3, 1, 2, 2, 2]), lit)
-  check("the bar is drawn on every one of them, which is what records the community", [`/community/${slug}`, ...after].every((p) => buyerTabsBelongOn(p, { exploreMarketplaceEnabled: true })))
+  check("the bar is drawn on every one of them for signed-in members", [`/community/${slug}`, ...after].every((p) => buyerTabsBelongOn(p, { exploreMarketplaceEnabled: true, signedIn: true })))
   check("only the navigator's three ways out end it", ["explore", "discover-communities", "dashboard"].every((k) => ENDS_COMMUNITY_CONTEXT.has(k)) && !["start-creating", "log-in"].some((k) => ENDS_COMMUNITY_CONTEXT.has(k)))
 }
 

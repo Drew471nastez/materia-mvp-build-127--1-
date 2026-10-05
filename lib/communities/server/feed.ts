@@ -477,7 +477,7 @@ export async function listFeed(db: Db, community: CommunityRow, viewer: Viewer, 
     const candidates = rows.slice(0, candidateCap)
     let page: PostRow[] = candidates.slice(0, limit)
     if (rankDefault && candidates.length) {
-      const ctx = await buildFeedRankContext(db, community.id, viewer, candidates)
+      const ctx = await buildFeedRankContext(db, community.id, viewer, candidates, undefined, Date.now(), community.member_count ?? 0)
       page = rankPostRows(candidates, ctx, limit)
     } else if (!rankDefault) {
       page = candidates.slice(0, limit)

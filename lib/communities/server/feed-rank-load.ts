@@ -5,7 +5,7 @@ import "server-only"
  */
 import type { PostRow } from "../types"
 import type { FeedRankAuthor, FeedRankContext, FeedRankWeights } from "../feed-rank"
-import { FEED_RANK_COLD_START_BATCH, FEED_RANK_WEIGHTS } from "../feed-rank"
+import { FEED_RANK_COLD_START_BATCH, FEED_RANK_SMALL_COMMUNITY_MEMBERS, FEED_RANK_WEIGHTS } from "../feed-rank"
 import type { Viewer } from "./context"
 import { authorViews } from "./directory"
 import { missing, reasonOf, type Db } from "./db"
@@ -67,6 +67,7 @@ export async function buildFeedRankContext(
   rows: PostRow[],
   weights: FeedRankWeights = FEED_RANK_WEIGHTS,
   now = Date.now(),
+  memberCount = 0,
 ): Promise<FeedRankContext> {
   const postIds = rows.map((r) => r.id)
   const authorIds = rows.map((r) => r.author_id)
@@ -103,5 +104,6 @@ export async function buildFeedRankContext(
     viewerTierId: viewer.tierId,
     weights,
     coldStart: rows.length < FEED_RANK_COLD_START_BATCH,
+    smallCommunity: memberCount > 0 && memberCount <= FEED_RANK_SMALL_COMMUNITY_MEMBERS,
   }
 }

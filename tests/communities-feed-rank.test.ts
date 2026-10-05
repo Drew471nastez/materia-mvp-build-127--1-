@@ -58,6 +58,7 @@ function ctx(overrides: Partial<import("@/lib/communities/feed-rank").FeedRankCo
     viewerTierId: "tier-a",
     weights: FEED_RANK_WEIGHTS,
     coldStart: false,
+    smallCommunity: false,
     ...overrides,
   }
 }
@@ -68,7 +69,7 @@ async function main() {
   check("enabled unless COMMUNITY_FEED_RANK=0", feedRankEnabled() === (process.env.COMMUNITY_FEED_RANK !== "0"))
 
   const recent = row({ id: "r1", last_activity_at: at(0), reaction_count: 1 })
-  const stale = row({ id: "s1", reaction_count: 1, created_at: at(120), last_activity_at: at(120) })
+  const stale = row({ id: "s1", reaction_count: 1, created_at: at(3), last_activity_at: at(3) })
   const scoredRecent = scorePostRow(recent, null, ctx(), 1)
   const scoredStale = scorePostRow(stale, null, ctx(), 1)
   check("equal engagement ranks newer activity higher", scoredRecent > scoredStale, `${scoredRecent} vs ${scoredStale}`)

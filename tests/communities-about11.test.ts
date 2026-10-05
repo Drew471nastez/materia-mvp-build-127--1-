@@ -161,7 +161,7 @@ async function main() {
   {
     const view = code("components/community/public/gallery-view.tsx")
     check("it is the product gallery's engine, imported and not copied", /import \{ MediaSwiper, SwiperSlide, useMediaSwiper, type SwiperClass \} from "@\/components\/product\/media-swiper"/.test(view) && !/from "swiper\/react"/.test(view))
-    check("the engine owns the position, the page the index", /carousel\.slideToIndex\(at, swiperRef\.current\?\.activeIndex \?\? at\)/.test(view) && /onIndexChange=\{moved\}/.test(view))
+    check("the engine owns the position, the page the index", /swiper\.slideTo\(at, wrap \|\| dist === 1 \? SLIDE_SPEED_MS : 0\)/.test(view) && /onIndexChange=\{moved\}/.test(view))
     check("arrows on a computer only, hidden at the end they cannot pass, pressed by tint", /sm:flex \[@media\(pointer:coarse\)\]:hidden/.test(view) && /hidden=\{at === 0\}/.test(view) && /hidden=\{at === count - 1\}/.test(view) && /active:bg-\[#eef0f2\]/.test(view) && !/scale-/.test(view.slice(view.indexOf("function Arrow"), view.indexOf("export function CommunityGallery"))))
     check("the arrows sit inside the engine's container, so a drag that starts on one still moves it", /<div slot="container-end" className="contents">/.test(view))
     check("a press at the end of a drag is not a play", /if \(!carousel\.clickAllowed\(\) \|\| loading\) return/.test(view))

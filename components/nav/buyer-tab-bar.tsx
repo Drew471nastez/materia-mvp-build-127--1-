@@ -243,7 +243,8 @@ export function BuyerTabBar() {
   const exploreMarketplaceEnabled = useExploreMarketplaceEnabled()
   /* Where this is, as the header asks it too (lib/nav/use-buyer-tabs-where). */
   const where = useBuyerTabsWhere(pathname)
-  const whereWithExplore = { ...where, exploreMarketplaceEnabled }
+  const signedIn = useSignedIn()
+  const whereWithExplore = { ...where, exploreMarketplaceEnabled, signedIn }
   return (
     <>
       {buyerTabsBelongOn(pathname, whereWithExplore) ? (

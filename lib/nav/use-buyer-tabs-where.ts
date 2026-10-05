@@ -25,9 +25,10 @@
  * draws its phone row.
  */
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useSyncExternalStore } from "react"
 
 import { useExploreMarketplaceEnabled } from "@/components/platform/explore-marketplace-context"
+import { readAuthSnapshot, subscribeAuthSnapshot } from "@/lib/auth/auth-snapshot"
 import { buyerTabsBelongOn } from "@/lib/nav/buyer-tabs"
 import { extractUsernameFromHost, isCustomDomain, isSellerPage, isSellerProductPath } from "@/lib/url-helpers"
 
@@ -62,8 +63,11 @@ export function useBuyerTabsWhere(pathname: string): BuyerTabsWhere {
   }
 }
 
+const readSignedIn = () => !!readAuthSnapshot()?.signedIn
+
 /** The same question, answered: true where the bar is drawn. */
 export function useBuyerTabsHere(pathname: string): boolean {
   const exploreMarketplaceEnabled = useExploreMarketplaceEnabled()
-  return buyerTabsBelongOn(pathname, { ...useBuyerTabsWhere(pathname), exploreMarketplaceEnabled })
+  const signedIn = useSyncExternalStore(subscribeAuthSnapshot, readSignedIn, () => false)
+  return buyerTabsBelongOn(pathname, { ...useBuyerTabsWhere(pathname), exploreMarketplaceEnabled, signedIn })
 }

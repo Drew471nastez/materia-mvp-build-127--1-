@@ -44,6 +44,15 @@ export type FeedRankWeights = typeof FEED_RANK_WEIGHTS
 /** Below this many published posts in the batch, ranking stays mostly chronological. */
 export const FEED_RANK_COLD_START_BATCH = 8
 
+/** Communities this size or smaller stay chronological-first in Default. */
+export const FEED_RANK_SMALL_COMMUNITY_MEMBERS = 100
+
+/** New posts with little engagement sort by recency for this long (minutes). */
+export const FEED_FRESH_LOW_ENGAGEMENT_MAX_MINUTES = 72 * 60
+
+/** Reactions + comments at or below this count count as "little engagement". */
+export const FEED_FRESH_LOW_ENGAGEMENT_MAX = 4
+
 /** Max posts read for one ranked page (before hydrate). */
 export const FEED_RANK_MAX_CANDIDATES = 100
 
@@ -70,6 +79,7 @@ export interface FeedRankContext {
   viewerTierId: string | null
   weights: FeedRankWeights
   coldStart: boolean
+  smallCommunity: boolean
 }
 
 export function feedRankEnabled(): boolean {
@@ -127,8 +137,13 @@ export function scorePostRow(row: PostRow, author: FeedRankAuthor | null, ctx: F
   const w = ctx.weights
   const activityAt = row.last_activity_at ?? row.created_at
   const recency = Math.max(0, 1_000_000 - minutesSince(activityAt, ctx.now) * w.recencyPerMinute)
-  if (ctx.coldStart) {
-    return recency + staffBoost(author?.role, w)
+  const chronological =
+    ctx.coldStart ||
+    ctx.smallCommunity ||
+    (minutesSince(row.created_at, ctx.now) <= FEED_FRESH_LOW_ENGAGEMENT_MAX_MINUTES &&
+      (Number(row.reaction_count) || 0) + (Number(row.comment_count) || 0) <= FEED_FRESH_LOW_ENGAGEMENT_MAX)
+  if (chronological) {
+    return recency + staffBoost(author?.role, w) + (row.featured ? w.featured : 0)
   }
   const reactions = log1p(Number(row.reaction_count) || 0)
   const comments = log1p(Number(row.comment_count) || 0)
@@ -181,6 +196,7 @@ export function compareRanked(a: { row: PostRow; score: number }, b: { row: Post
 export function rankPostRows(rows: PostRow[], ctx: FeedRankContext, limit: number): PostRow[] {
   if (!rows.length || limit <= 0) return []
   const counts = authorCounts(rows)
+  const diversify = !ctx.coldStart && !ctx.smallCommunity
   const scored = rows
     .filter((r) => !r.author_id || !ctx.blockedAuthors.has(r.author_id))
     .map((row) => {
@@ -196,7 +212,7 @@ export function rankPostRows(rows: PostRow[], ctx: FeedRankContext, limit: numbe
     if (out.length >= limit) break
     const aid = row.author_id ?? ""
     const c = aid ? taken.get(aid) ?? 0 : 0
-    if (aid && c >= FEED_RANK_MAX_PER_AUTHOR) continue
+    if (diversify && aid && c >= FEED_RANK_MAX_PER_AUTHOR) continue
     out.push(row)
     used.add(row.id)
     if (aid) taken.set(aid, c + 1)
