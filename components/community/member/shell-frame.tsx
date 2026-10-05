@@ -45,11 +45,11 @@
  * the header's width or moves other elements"). It had a frame of its own:
  * no left column, the bar narrowed to 1080px with the tabs under it, so
  * every visit to it moved the bar, the name and the columns. Now it sits in
- * the same columns with the same bar: from 1280px the left column stays and
- * the page (the same sheet a visitor reads, with its own card) takes the
- * middle and right columns, where the wall's cards would be. From 1024px to
- * 1279px it takes the whole width (beside a 260px column, its own card would
- * leave its words a phone's width). The sheet brings its own padding, so
+ * the same columns with the same bar: the left column stays (it is the way
+ * to the other places from 1024px, where the row of tabs is not drawn), and
+ * from 1280px the page (the same sheet a visitor reads, with its own card)
+ * takes the middle and right columns, where the wall's cards would be; from
+ * 1024px to 1279px the middle one. The sheet brings its own padding, so
  * its box steps out of the column's by exactly that much (ABOUT_BOX): on a
  * phone it is edge to edge as it always was, and on a computer its words
  * start on the same line as every other page's.
@@ -293,7 +293,7 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
             className="pb-16 pt-4 lg:grid lg:grid-cols-[260px_minmax(0,1fr)] lg:grid-rows-[auto_1fr] lg:items-start lg:gap-x-6 lg:pt-6 xl:grid-cols-[280px_minmax(0,1fr)_300px]"
           >
             {/* LEFT: the community card, and the places right under it (round 9). */}
-            <div className={`hidden min-w-0 space-y-3 lg:col-start-1 lg:row-start-1 ${about ? "xl:block" : "lg:block"} ${LAND}`} data-community-left="">
+            <div className={`hidden min-w-0 space-y-3 lg:col-start-1 lg:row-start-1 lg:block ${LAND}`} data-community-left="">
               {wall ? <WallCommunityCard community={community} card={wall.card} membersHref={membersHref} /> : null}
               <WallPlaces entries={entries} />
             </div>
@@ -306,7 +306,7 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
                 </div>
               ) : null}
             </aside>
-            <div className={`min-w-0 lg:row-span-2 lg:row-start-1 ${about ? "lg:col-span-2 lg:col-start-1 xl:col-start-2" : "lg:col-start-2"} ${LAND_LATE}`} data-community-main="">
+            <div className={`min-w-0 lg:row-span-2 lg:row-start-1 ${about ? "lg:col-start-2 xl:col-span-2" : "lg:col-start-2"} ${LAND_LATE}`} data-community-main="">
               <div className={`${ARRIVE} ${about ? ABOUT_BOX : ""}`} data-community-body="">
                 {children}
               </div>

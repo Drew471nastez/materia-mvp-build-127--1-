@@ -84,7 +84,7 @@ async function main() {
     check("eight spokes, each fainter than the one before", SPINNER_SPOKES.length === 8 && SPINNER_SPOKES.every((l, i) => i === 0 || l.opacity < SPINNER_SPOKES[i - 1].opacity))
     const frame = code("components/community/member/shell-frame.tsx")
     check("the frame keeps the scrollbar's room on every page", /html\{scrollbar-gutter:stable\}/.test(frame) && /<style>\{GUTTER\}<\/style>/.test(frame))
-    check("About sits in the same columns under the same bar (no narrower frame, no tabs on a computer)", !/tabsOnDesktop=\{about\}/.test(frame) && /lg:\[--community-top:65px\]/.test(frame) && !/lg:\[--community-top:105px\]/.test(frame) && /xl:col-start-2/.test(frame))
+    check("About sits in the same columns under the same bar (no narrower frame, no tabs on a computer)", !/tabsOnDesktop=\{about\}/.test(frame) && /lg:\[--community-top:65px\]/.test(frame) && !/lg:\[--community-top:105px\]/.test(frame) && /about \? "lg:col-start-2 xl:col-span-2"/.test(frame) && /lg:col-start-1 lg:row-start-1 lg:block \$\{LAND\}/.test(frame))
     check("entering, the side columns and then the middle come in by opacity", /const LAND = "motion-safe:animate-\[fade-in_/.test(frame) && /const LAND_LATE = "motion-safe:animate-\[fade-in_[^"]*_60ms_both\]"/.test(frame))
   }
 

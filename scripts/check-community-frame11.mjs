@@ -35,7 +35,7 @@
  *   PROBE_CSS=source node scripts/check-community-frame11.mjs [section ...]
  *   Pictures go to SHOTS_DIR (a temp folder by default).
  */
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs"
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import puppeteer from "puppeteer-core"
@@ -47,6 +47,8 @@ const only = new Set(process.argv.slice(2).map((s) => s.toUpperCase()))
 const want = (s) => only.size === 0 || only.has(s)
 const css = await appCss(root)
 const fonts = interFaces(root)
+/* About's gallery is the product gallery's Swiper, whose stylesheet its component imports (left out of the bundle here). */
+const swiperCss = readFileSync(join(realpathSync(join(root, "node_modules/swiper")), "swiper.css"), "utf8")
 const stubs = join(root, ".community-frame11-probe")
 mkdirSync(stubs, { recursive: true })
 const shots = process.env.SHOTS_DIR || join(mkdtempSync(join(tmpdir(), "storelib-community-frame11-")), "shots")
@@ -123,7 +125,7 @@ export const isNativePlatform = () => false
   })
   const js = readFileSync(join(stubs, "app.js"), "utf8")
   /* A real scrollbar on the computer (no --hide-scrollbars): a page that is shorter than the window must not move the frame. */
-  const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${fonts}${css}</style><style>body{margin:0;font-family:Inter,system-ui,sans-serif}</style></head><body><div id="app"></div><script>${js.replace(/<\/script/gi, "<\\/script")}</script></body></html>`
+  const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${fonts}${css}</style><style>${swiperCss}</style><style>body{margin:0;font-family:Inter,system-ui,sans-serif}</style></head><body><div id="app"></div><script>${js.replace(/<\/script/gi, "<\\/script")}</script></body></html>`
   const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox"], ignoreDefaultArgs: ["--hide-scrollbars"], protocolTimeout: 240_000 })
   const PHONE = { width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 2 }
   const DESK = { width: 1440, height: 900, deviceScaleFactor: 1 }
