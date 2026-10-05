@@ -45,6 +45,7 @@ import { cardPictures, cardThumb, fileSizeLabel, mediaKindOf, mediaLayout, viewe
 import type { PostMedia } from "@/lib/communities/types"
 import { apiBase } from "./api"
 import { EmbedPlayer, Lightbox } from "./lightbox"
+import { localPicture } from "./media-upload"
 import { openMediaViewer } from "./media-viewer"
 
 export function fileSize(bytes?: number): string {
@@ -272,6 +273,125 @@ export function PostMediaGrid({ media, communityId, postId }: { media: PostMedia
           autoplay={open.play}
           onClose={() => setOpen(null)}
           /* The tile each one is drawn in, so the viewer grows out of it and goes back into it. */
+          originOf={(i) => rootRef.current?.querySelector<HTMLElement>(`[data-media-index="${i}"]`) ?? null}
+        />
+      ) : null}
+    </div>
+  )
+}
+
+/**
+ * ===========================================================================
+ *  WHAT A COMMENT CARRIES (round 11)
+ * ===========================================================================
+ * Under the comment's words: its pictures and its GIF as small tiles in a
+ * row (one height, each in its own shape within reason, a hairline and a
+ * 1px shadow), then its files as compact rows. A tile opens the viewer at
+ * itself and grows out of it; a file that is a picture or a video opens the
+ * viewer too, any other file downloads through the comment's own member
+ * route (/api/community/<id>/comments/<commentId>/files/<assetId>).
+ * A picture just sent from this browser is drawn from the file the member
+ * picked (media-upload.ts localPicture), so the tile is full from its first
+ * frame and stays the same when the server's copy replaces the stand in.
+ * While the comment is still on its way (`sending`) nothing opens.
+ */
+export const COMMENT_TILE_H = 96
+
+export function CommentMedia({ media, communityId, commentId, sending = false }: { media: PostMedia[]; communityId: string; commentId: string; sending?: boolean }) {
+  const [open, setOpen] = useState<number | null>(null)
+  const rootRef = useRef<HTMLDivElement>(null)
+  if (!media.length) return null
+  const pictures = media.filter((m): m is Extract<PostMedia, { type: "image" | "gif" }> => m.type === "image" || m.type === "gif")
+  const items: ViewerItem[] = pictures.map((m) => (m.type === "image" ? { kind: "image", url: m.url, w: m.w, h: m.h } : { kind: "gif", url: m.url, still: m.still, w: m.w, h: m.h }))
+  const files = media.filter((m): m is Extract<PostMedia, { type: "file" }> => m.type === "file")
+  const fileUrl = (assetId: string) => `${apiBase(communityId)}/comments/${commentId}/files/${assetId}`
+  const viewable = files.flatMap((f) => {
+    const kind = mediaKindOf(f.name)
+    return kind ? [{ assetId: f.assetId, item: (kind === "image" ? { kind: "image", url: fileUrl(f.assetId), raw: true } : { kind: "clip", url: fileUrl(f.assetId) }) as ViewerItem }] : []
+  })
+  return (
+    <div ref={rootRef} className="mt-1.5 space-y-1.5" data-comment-media="">
+      {pictures.length ? (
+        <div className="flex flex-wrap gap-1.5" data-comment-pictures="">
+          {pictures.map((m, i) => {
+            const ratio = m.w && m.h ? Math.min(Math.max(m.w / m.h, 0.75), 1.8) : m.type === "gif" ? 4 / 3 : 1
+            const local = m.type === "image" ? localPicture(m.url) : null
+            const src = local ?? (m.type === "image" ? optimizedImageUrl(m.url, 384) : m.url)
+            return (
+              <button
+                key={`${m.url}:${i}`}
+                type="button"
+                onClick={() => !sending && setOpen(i)}
+                aria-label={m.type === "gif" ? "Open GIF" : "Open picture"}
+                data-media-index={i}
+                data-comment-tile={m.type}
+                className="group/ctile relative block shrink-0 overflow-hidden rounded-[10px] border border-[#e6e8eb] bg-[#eef0f2] shadow-[0_1px_1px_rgba(16,24,40,0.05)] outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/25 [-webkit-tap-highlight-color:transparent]"
+                style={{ height: COMMENT_TILE_H, width: Math.round(COMMENT_TILE_H * ratio) }}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={src}
+                  width={m.w}
+                  height={m.h}
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                  referrerPolicy={m.type === "gif" ? "no-referrer" : undefined}
+                  className="absolute inset-0 h-full w-full object-cover transition-[opacity] duration-150 group-active/ctile:opacity-85 motion-reduce:transition-none"
+                />
+                {m.type === "gif" ? (
+                  <span className="absolute bottom-1 left-1 rounded-[5px] bg-black/55 px-1 text-[10px] font-semibold leading-4 text-white" aria-hidden>
+                    GIF
+                  </span>
+                ) : null}
+              </button>
+            )
+          })}
+        </div>
+      ) : null}
+      {files.map((f) => {
+        const kind = mediaKindOf(f.name)
+        const at = viewable.findIndex((v) => v.assetId === f.assetId)
+        const Icon = kind === "image" ? ImageIcon : kind === "video" ? Film : FileText
+        const row = "flex min-h-11 max-w-[360px] items-center gap-2.5 rounded-[10px] border border-[#e6e8eb] bg-white px-2.5 py-1.5 shadow-[0_1px_1px_rgba(16,24,40,0.04)] transition-colors hover:bg-[#f8f9fa]"
+        const inner = (
+          <>
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] bg-[#f1f2f4] text-[#4b5563]">
+              <Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+            </span>
+            <span className="min-w-0 flex-1 text-left">
+              <span className="block truncate text-[13.5px] font-medium leading-5 text-[#1a1a2e]">{f.name}</span>
+              {f.size ? <span className="block text-[12px] leading-4 text-[#6b7280]">{fileSizeLabel(f.size)}</span> : null}
+            </span>
+          </>
+        )
+        if (sending) {
+          return (
+            <div key={f.assetId} className={row} data-comment-file="">
+              {inner}
+            </div>
+          )
+        }
+        if (at === -1) {
+          return (
+            <a key={f.assetId} href={fileUrl(f.assetId)} download={f.name} className={row} data-comment-file="">
+              {inner}
+              <Download className="h-4 w-4 shrink-0 text-[#6b7280]" strokeWidth={1.75} aria-label="Download" />
+            </a>
+          )
+        }
+        return (
+          <button key={f.assetId} type="button" onClick={() => openMediaViewer(viewable.map((v) => v.item), at, { communityId, autoplay: kind === "video" })} className={`${row} w-full cursor-zoom-in outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20`} aria-label={`Open ${f.name}`} data-comment-file={kind ?? ""}>
+            {inner}
+          </button>
+        )
+      })}
+      {open !== null ? (
+        <Lightbox
+          items={items}
+          start={open}
+          communityId={communityId}
+          onClose={() => setOpen(null)}
           originOf={(i) => rootRef.current?.querySelector<HTMLElement>(`[data-media-index="${i}"]`) ?? null}
         />
       ) : null}

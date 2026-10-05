@@ -35,21 +35,36 @@
  * so focusing the box never adds a row under it. A sent comment keeps its
  * place (its key stays the stand in's when the server's copy replaces it),
  * so it does not flash as it is confirmed.
+ *
+ * ROUND 11. The box is a Storelib field: a 10px corner, a hairline and a 1px
+ * shadow, a soft ring when it has the caret; the send button is pressed by a
+ * tint, never a shrink. Beside it a paperclip (pictures and files, for a
+ * member who may upload) and GIF: what is picked shows as small tiles at the
+ * top of the box while it is sent, Send waits for the uploads, and the
+ * comment carries them (media-upload.ts and media-gif.tsx, the composer's
+ * own; the server checks them like a post's, and as the member's own,
+ * lib/communities/server/comments.ts). Under a comment they are small tiles
+ * that open the viewer (media.tsx CommentMedia). A comment may be a GIF or
+ * a picture alone.
  * Edit and delete are the author's; report is everybody else's; a moderator
  * removes through the moderation route.
  */
 import Link from "next/link"
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
-import { ArrowUp, Flag, MoreHorizontal, Pencil, Shield, Trash2, X } from "lucide-react"
+import { ArrowUp, FileText, Flag, Loader2, MoreHorizontal, Paperclip, Pencil, Shield, Trash2, X } from "lucide-react"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { relativeTime } from "@/lib/communities/format"
-import type { CommentView, FeedPostView, ViewerView } from "@/lib/communities/types"
+import { MAX_COMMENT_GIFS, MAX_COMMENT_MEDIA, STAFF_FILE_MAX_BYTES, fileSizeLabel } from "@/lib/communities/post-media"
+import type { CommentView, FeedPostView, PostMedia, ViewerView } from "@/lib/communities/types"
 import { api, apiBase } from "./api"
 import { landComment } from "./arrive"
 import { BodyText } from "./body-text"
 import { ConfirmDialog, ReportDialog, type ConfirmState, type ReportTargetRef } from "./dialogs"
 import { LikeHeart } from "./heart"
+import { CommentMedia } from "./media"
+import { GifButton } from "./media-gif"
+import { localPicture, uploadCommunityFile, uploadKindOf, uploadPicture } from "./media-upload"
 import { listenLive, typingLine, useTyping } from "./live"
 import { MentionTextarea, type MentionTextareaHandle } from "./mention-input"
 import { actOnContent } from "./moderation"
@@ -167,7 +182,7 @@ export function CommentsPlaceholder({ expected }: { expected: number }) {
     <div style={{ minHeight: commentsRoom(expected) }} aria-hidden data-comments-loading="">
       <div className="flex items-start gap-2.5">
         <span className="mt-1 h-8 w-8 shrink-0 rounded-full bg-[#f1f2f4]" />
-        <span className="h-[42px] flex-1 rounded-2xl border border-[#eceef1]" />
+        <span className="h-[42px] flex-1 rounded-[10px] border border-[#eceef1]" />
       </div>
     </div>
   )
@@ -370,7 +385,7 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
     <div data-comments-list="">
       {open ? (
         <div className="relative">
-          <CommentBox communityId={post.communityId} postId={post.id} me={me} author={author} handleRef={boxRef} sending={sending} placeholder="Write a comment..." />
+          <CommentBox communityId={post.communityId} postId={post.id} me={me} author={author} handleRef={boxRef} sending={sending} placeholder="Write a comment..." canUpload={!!viewer.can.upload} />
           <TypingLine names={typing.writers.map((w) => w.name)} />
         </div>
       ) : (
@@ -414,6 +429,20 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
 
 let tempSeq = 0
 
+/** Something picked for a comment: drawn at once, sent as soon as it is picked, `media` once the upload has it. */
+interface Picked {
+  key: string
+  kind: "image" | "gif" | "file"
+  name: string
+  preview?: string
+  progress: number
+  media?: PostMedia
+}
+
+/** The box's own tools: the glyph alone in a 40px tall target, a tint on hover and on press (never a shrink). */
+const BOX_TOOL =
+  "group/tool -my-1 flex h-10 w-8 shrink-0 cursor-pointer select-none items-center justify-center rounded-[8px] text-[#8a8f98] outline-none transition-colors duration-150 hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 disabled:pointer-events-none disabled:opacity-40 motion-reduce:transition-none [-webkit-tap-highlight-color:transparent] [&>*]:rounded-[7px] [&>*]:transition-colors hover:[&>*]:bg-[#f1f2f4] active:[&>*]:bg-[#eceef1]"
+
 function CommentBox({
   communityId,
   postId,
@@ -426,6 +455,7 @@ function CommentBox({
   handleRef,
   placeholder,
   autoFocus,
+  canUpload = false,
 }: {
   communityId: string
   postId: string
@@ -438,18 +468,71 @@ function CommentBox({
   handleRef?: React.Ref<MentionTextareaHandle>
   placeholder: string
   autoFocus?: boolean
+  /** Pictures and files (a member who may upload); a GIF is anybody's. */
+  canUpload?: boolean
 }) {
   const [body, setBody] = useState(initial)
+  const [picks, setPicks] = useState<Picked[]>([])
+  const fileInput = useRef<HTMLInputElement>(null)
   /* The box's words as they are now, so a refused comment goes back only into an empty box. */
   const current = useRef(body)
   current.current = body
+  const picksNow = useRef(picks)
+  picksNow.current = picks
   const change = (words: string) => {
     setBody(words)
     sending.typed?.(words)
   }
+  const patch = (k: string, p: Partial<Picked>) => setPicks((list) => list.map((x) => (x.key === k ? { ...x, ...p } : x)))
+  const drop = (k: string) => setPicks((list) => list.filter((x) => x.key !== k))
+  const newKey = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`
+
+  const addFiles = async (files: FileList | null) => {
+    if (!files?.length || !author.id) return
+    const room = MAX_COMMENT_MEDIA - picksNow.current.length
+    const list = Array.from(files).slice(0, Math.max(0, room))
+    if (list.length < files.length) toast(`Up to ${MAX_COMMENT_MEDIA} pictures, GIFs or files in a comment.`)
+    await Promise.all(
+      list.map(async (file) => {
+        const k = newKey()
+        if (uploadKindOf(file) === "image") {
+          const preview = URL.createObjectURL(file)
+          setPicks((l) => [...l, { key: k, kind: "image", name: file.name, preview, progress: 10 }])
+          try {
+            patch(k, { progress: 100, media: await uploadPicture(file, author.id, communityId) })
+          } catch (e) {
+            drop(k)
+            toast((e as Error).message || "The picture did not upload.")
+          }
+          return
+        }
+        /* A video goes as a file here: it opens in the viewer from the comment. */
+        if (file.size > STAFF_FILE_MAX_BYTES) return toast(`${file.name} is over ${fileSizeLabel(STAFF_FILE_MAX_BYTES)}.`)
+        setPicks((l) => [...l, { key: k, kind: "file", name: file.name, progress: 0 }])
+        try {
+          const done = await uploadCommunityFile({ communityId, file, onProgress: (n) => patch(k, { progress: n }) })
+          patch(k, { progress: 100, name: done.name, media: done })
+        } catch (e) {
+          drop(k)
+          toast((e as Error).message || "The file did not upload.")
+        }
+      }),
+    )
+  }
+  const addGif = (gif: Extract<PostMedia, { type: "gif" }>) => {
+    const list = picksNow.current
+    if (list.filter((x) => x.kind === "gif").length >= MAX_COMMENT_GIFS) return toast("One GIF per comment.")
+    if (list.length >= MAX_COMMENT_MEDIA) return toast(`Up to ${MAX_COMMENT_MEDIA} pictures, GIFs or files in a comment.`)
+    setPicks((l) => [...l, { key: newKey(), kind: "gif", name: gif.title ?? "GIF", preview: gif.url, progress: 100, media: gif }])
+  }
+
+  const uploading = picks.some((x) => !x.media)
+  const ready = (!!body.trim() || picks.length > 0) && !uploading
   const send = async () => {
     const text = body.trim()
-    if (!text) return
+    if (!ready) return
+    const media = picks.map((x) => x.media).filter((m): m is PostMedia => !!m)
+    const kept = picks
     const tempId = `sending-${Date.now().toString(36)}-${++tempSeq}`
     sending.start({
       id: tempId,
@@ -466,67 +549,128 @@ function CommentBox({
       replies: [],
       canEdit: false,
       canModerate: false,
+      ...(media.length ? { media } : {}),
       sending: true,
     })
     setBody("")
+    setPicks([])
     current.current = ""
     onCancel?.()
-    const r = await api<{ comment: CommentView }>(`${apiBase(communityId)}/posts/${postId}/comments`, { body: { body: text, parentId } })
+    const r = await api<{ comment: CommentView }>(`${apiBase(communityId)}/posts/${postId}/comments`, { body: { body: text, parentId, ...(media.length ? { media } : {}) } })
     if (!r.ok) {
       sending.drop(tempId)
-      if (!current.current.trim()) setBody(text)
+      if (!current.current.trim() && !picksNow.current.length) {
+        setBody(text)
+        setPicks(kept)
+      }
       return toast(r.error)
     }
     sending.confirm(tempId, r.data.comment)
   }
-  const ready = !!body.trim()
   return (
     <div className="flex items-start gap-2.5" data-comment-box={parentId ? "reply" : "comment"} data-keep-in-sight="">
       {me ? <AppAvatar src={me.avatarUrl} name={me.name} alt="" size={parentId ? 28 : 32} markWhileLoading className="mt-1" /> : null}
-      <div className="flex min-w-0 flex-1 items-end gap-1 rounded-[20px] border border-[#e3e4e8] bg-white py-1 pl-3.5 pr-1 transition-[border-color] duration-150 focus-within:border-[#c9ccd3]">
-        <div className="min-w-0 flex-1 py-[5px]">
-          <MentionTextarea
-            ref={handleRef}
-            communityId={communityId}
-            value={body}
-            onChange={change}
-            placeholder={placeholder}
-            ariaLabel={placeholder}
-            maxLength={5000}
-            autoFocus={autoFocus}
-            className="min-h-[24px] text-[16px] leading-6 text-[#262633] sm:text-[14.5px]"
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                e.preventDefault()
-                void send()
-              }
-              if (e.key === "Escape" && onCancel && !body) onCancel()
-            }}
-          />
-        </div>
-        {onCancel ? (
-          <button type="button" aria-label="Cancel reply" onClick={onCancel} className="group/cancel -my-1 flex h-10 w-9 shrink-0 items-center justify-center rounded-full text-[#8a8f98] outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 [-webkit-tap-highlight-color:transparent]" data-comment-cancel="">
-            <span className="flex h-8 w-8 items-center justify-center rounded-full transition-colors group-hover/cancel:bg-[#f1f2f4] group-hover/cancel:text-[#1a1a2e]">
-              <X className="h-4 w-4" strokeWidth={2} aria-hidden />
+      <div
+        className="min-w-0 flex-1 rounded-[10px] border border-[#e3e5e9] bg-white shadow-[0_1px_1px_rgba(16,24,40,0.05)] transition-[border-color,box-shadow] duration-150 focus-within:border-[#c9ccd3] focus-within:shadow-[0_0_0_3px_rgba(26,26,46,0.05),0_1px_1px_rgba(16,24,40,0.05)] motion-reduce:transition-none"
+        data-comment-field=""
+      >
+        {picks.length ? (
+          <div className="flex flex-wrap gap-1.5 px-2 pt-2" data-comment-picks="">
+            {picks.map((x) => (
+              <PickTile key={x.key} pick={x} onRemove={() => drop(x.key)} />
+            ))}
+          </div>
+        ) : null}
+        <div className="flex items-end gap-0.5 py-1 pl-3 pr-1">
+          <div className="min-w-0 flex-1 py-[5px]">
+            <MentionTextarea
+              ref={handleRef}
+              communityId={communityId}
+              value={body}
+              onChange={change}
+              placeholder={placeholder}
+              ariaLabel={placeholder}
+              maxLength={5000}
+              autoFocus={autoFocus}
+              className="min-h-[24px] text-[16px] leading-6 text-[#262633] sm:text-[14.5px]"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                  e.preventDefault()
+                  void send()
+                }
+                if (e.key === "Escape" && onCancel && !body && !picks.length) onCancel()
+              }}
+            />
+          </div>
+          {canUpload ? (
+            <>
+              <input ref={fileInput} type="file" multiple hidden onChange={(e) => (void addFiles(e.target.files), (e.target.value = ""))} data-comment-file-input="" />
+              <button type="button" aria-label="Add pictures or files" title="Add pictures or files" onPointerDown={(e) => e.preventDefault()} onMouseDown={(e) => e.preventDefault()} onClick={() => fileInput.current?.click()} className={BOX_TOOL} disabled={picks.length >= MAX_COMMENT_MEDIA} data-comment-tool="file">
+                <span className="flex h-8 w-8 items-center justify-center">
+                  <Paperclip className="h-[17px] w-[17px]" strokeWidth={1.75} aria-hidden />
+                </span>
+              </button>
+            </>
+          ) : null}
+          <span className="contents" data-comment-tool="gif">
+            <GifButton communityId={communityId} className={`${BOX_TOOL} [&>span]:flex [&>span]:h-8 [&>span]:w-8 [&>span]:items-center [&>span]:justify-center`} onPick={addGif} disabled={picks.length >= MAX_COMMENT_MEDIA} />
+          </span>
+          {onCancel ? (
+            <button type="button" aria-label="Cancel reply" onClick={onCancel} className="group/cancel -my-1 flex h-10 w-9 shrink-0 items-center justify-center rounded-[8px] text-[#8a8f98] outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 [-webkit-tap-highlight-color:transparent]" data-comment-cancel="">
+              <span className="flex h-8 w-8 items-center justify-center rounded-[7px] transition-colors group-hover/cancel:bg-[#f1f2f4] group-hover/cancel:text-[#1a1a2e]">
+                <X className="h-4 w-4" strokeWidth={2} aria-hidden />
+              </span>
+            </button>
+          ) : null}
+          {/* Grey with nothing to send, ink with something: one button, its look follows the words (no row added on focus). Pressed is a tint, never a shrink. */}
+          <button
+            type="button"
+            aria-label={parentId ? "Send reply" : "Send comment"}
+            /* The field keeps the caret (and a phone its keyboard) through the press. */
+            onPointerDown={(e) => e.preventDefault()}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={send}
+            className="group/send -my-1 flex h-10 w-9 shrink-0 touch-manipulation items-center justify-center rounded-[8px] outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 disabled:cursor-default [-webkit-tap-highlight-color:transparent]"
+            disabled={!ready}
+            data-comment-send=""
+          >
+            <span className={`flex h-8 w-8 items-center justify-center rounded-[7px] transition-[background-color,color,opacity] duration-150 group-active/send:opacity-80 motion-reduce:transition-none ${ready ? "bg-[#1a1a2e] text-white shadow-[0_1px_1.5px_rgba(16,24,40,0.18)]" : "bg-[#eef0f2] text-[#a3a8b0]"}`}>
+              {uploading ? <Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" strokeWidth={2.25} aria-hidden /> : <ArrowUp className="h-[17px] w-[17px]" strokeWidth={2.25} aria-hidden />}
             </span>
           </button>
-        ) : null}
-        {/* Grey with nothing to send, ink with something: one button, its look follows the words (no row added on focus). */}
-        <button
-          type="button"
-          aria-label={parentId ? "Send reply" : "Send comment"}
-          /* The field keeps the caret (and a phone its keyboard) through the press. */
-          onPointerDown={(e) => e.preventDefault()}
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={send}
-          className="group/send -my-1 flex h-10 w-9 shrink-0 touch-manipulation items-center justify-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 disabled:cursor-default [-webkit-tap-highlight-color:transparent]"
-          disabled={!body.trim()} data-comment-send=""
-        >
-          <span className={`flex h-8 w-8 items-center justify-center rounded-full transition-[background-color,color,scale] duration-150 group-active/send:scale-90 motion-reduce:transition-none ${ready ? "bg-[#1a1a2e] text-white shadow-[0_1px_1.5px_rgba(16,24,40,0.18)]" : "bg-[#eef0f2] text-[#a3a8b0]"}`}>
-            <ArrowUp className="h-[17px] w-[17px]" strokeWidth={2.25} aria-hidden />
-          </span>
-        </button>
+        </div>
       </div>
+    </div>
+  )
+}
+
+/** One thing picked for a comment, at the top of the box: a small tile, its upload as a thin bar, an x to take it off. */
+function PickTile({ pick, onRemove }: { pick: Picked; onRemove: () => void }) {
+  const picture = pick.kind === "image" ? (pick.preview ?? (pick.media?.type === "image" ? localPicture(pick.media.url) : null)) : pick.kind === "gif" ? pick.preview : null
+  return (
+    <div className="relative shrink-0" data-comment-pick={pick.kind} data-comment-pick-ready={pick.media ? "" : undefined}>
+      <div className="relative h-14 overflow-hidden rounded-[8px] border border-[#e6e8eb] bg-[#f4f5f7]" style={{ width: picture ? 56 : 132 }}>
+        {picture ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={picture} alt="" referrerPolicy={pick.kind === "gif" ? "no-referrer" : undefined} className="absolute inset-0 h-full w-full object-cover" />
+        ) : (
+          <div className="flex h-full items-center gap-2 pl-2 pr-7">
+            <FileText className="h-4 w-4 shrink-0 text-[#6b7280]" strokeWidth={1.75} aria-hidden />
+            <span className="min-w-0 truncate text-[12.5px] font-medium text-[#1a1a2e]">{pick.name}</span>
+          </div>
+        )}
+        {!pick.media ? (
+          <span className="absolute inset-x-1.5 bottom-1.5 h-[3px] overflow-hidden rounded-full bg-black/10" aria-hidden>
+            <span className="block h-full origin-left rounded-full bg-[#1a1a2e] transition-[scale] duration-200" style={{ scale: `${Math.max(0.08, pick.progress / 100)} 1` }} />
+          </span>
+        ) : null}
+      </div>
+      {/* A 40px target over the tile's corner, the visible x a small dark circle in it. */}
+      <button type="button" aria-label={`Remove ${pick.name}`} onClick={onRemove} className="group/rm absolute -right-2 -top-2 flex h-10 w-10 items-start justify-end p-1 outline-none [-webkit-tap-highlight-color:transparent]" data-comment-pick-remove="">
+        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#0f1115]/60 text-white transition-colors group-hover/rm:bg-[#0f1115]/75 group-focus-visible/rm:ring-2 group-focus-visible/rm:ring-[#1a1a2e]/30">
+          <X className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden />
+        </span>
+      </button>
     </div>
   )
 }
@@ -711,7 +855,8 @@ function CommentItem({
           <span className={`mt-0.5 shrink-0 rounded-full bg-[#eceef1] ${small ? "h-7 w-7" : "h-8 w-8"}`} aria-hidden />
         )}
         <div className="min-w-0 flex-1">
-          <div className={`rounded-2xl px-3.5 py-2 ${c.deleted ? "bg-transparent px-0" : "bg-[#f4f5f7]"}`}>
+          {/* Words, or only what it carries (a GIF on its own): then the bubble is just the name's width. */}
+          <div className={`rounded-2xl px-3.5 py-2 ${c.deleted ? "bg-transparent px-0" : "bg-[#f4f5f7]"} ${!c.deleted && !c.body && !editing ? "w-fit max-w-full" : ""}`}>
             {c.deleted ? (
               <p className="text-[14px] italic text-[#8a8f98]">{c.body}</p>
             ) : (
@@ -733,17 +878,18 @@ function CommentItem({
                       <button type="button" className={BTN_GHOST} onClick={() => setEditing(false)}>
                         Cancel
                       </button>
-                      <button type="button" className={BTN_PRIMARY} onClick={saveEdit} disabled={!draft.trim()}>
+                      <button type="button" className={BTN_PRIMARY} onClick={saveEdit} disabled={!draft.trim() && !c.media?.length}>
                         Save
                       </button>
                     </div>
                   </div>
-                ) : (
+                ) : c.body ? (
                   <BodyText text={c.body} className="mt-0.5 [&_div]:text-[14.5px] [&_div]:leading-[1.55]" />
-                )}
+                ) : null}
               </>
             )}
           </div>
+          {!c.deleted && c.media?.length ? <CommentMedia media={c.media} communityId={communityId} commentId={c.id} sending={!!c.sending} /> : null}
           {!c.deleted ? (
             /* One row for both states: "Sending..." in the time's place while it goes, the actions kept in their places (hidden), so confirming moves nothing. */
             <div className="flex items-center gap-0.5 pl-1.5 text-[12.5px] text-[#6b7280]">
@@ -787,7 +933,7 @@ function CommentItem({
           ) : null}
           {replying !== null ? (
             <div className="mt-2">
-              <CommentBox communityId={communityId} postId={postId} me={me} author={author} parentId={parent ? parent.id : c.id} initial={replying} sending={sending} onCancel={() => setReplying(null)} placeholder={`Reply to ${c.author?.name ?? "this comment"}...`} autoFocus />
+              <CommentBox communityId={communityId} postId={postId} me={me} author={author} parentId={parent ? parent.id : c.id} initial={replying} sending={sending} onCancel={() => setReplying(null)} placeholder={`Reply to ${c.author?.name ?? "this comment"}...`} autoFocus canUpload={!!viewer.can.upload} />
             </div>
           ) : null}
         </div>
