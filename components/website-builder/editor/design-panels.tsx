@@ -168,6 +168,9 @@ function Swatch({ scheme, size = "md" }: { scheme: ColorScheme; size?: "sm" | "m
 
 // ── Scheme picker ────────────────────────────────────────────
 
+/** How long the scheme list takes to leave: a touch quicker than it arrives, as a dismissal should be. */
+const SCHEME_LIST_OUT_MS = 140
+
 export function SchemePicker({
   value,
   onChange,
@@ -182,7 +185,26 @@ export function SchemePicker({
   onEdit?: (key: string) => void
   size?: "sm" | "md"
 }) {
-  const [open, setOpen] = useState(false)
+  const [open, setOpenRaw] = useState(false)
+  /*
+   * OPEN AND CLOSE ARE BOTH MOTIONS. The list used to animate in and vanish
+   * on the next frame going out, which reads as a glitch. It stays drawn for
+   * the length of its exit (`closing`), then leaves.
+   */
+  const [closing, setClosing] = useState(false)
+  const closeTimer = useRef<number | null>(null)
+  const setOpen = (next: boolean | ((o: boolean) => boolean)) => {
+    const want = typeof next === "function" ? next(open) : next
+    if (closeTimer.current) window.clearTimeout(closeTimer.current)
+    if (open && !want) {
+      setClosing(true)
+      closeTimer.current = window.setTimeout(() => setClosing(false), SCHEME_LIST_OUT_MS)
+    } else if (want) {
+      setClosing(false)
+    }
+    setOpenRaw(want)
+  }
+  useEffect(() => () => { if (closeTimer.current) window.clearTimeout(closeTimer.current) }, [])
   const rootRef = useRef<HTMLDivElement>(null)
   const schemes = themeColorSchemes(asRecord(theme))
   const activeKey = schemes[value] ? value : defaultSchemeKey(asRecord(theme), schemes)
@@ -233,15 +255,31 @@ export function SchemePicker({
         </span>
       </button>
 
-      {open && (
+      {(open || closing) && (
         <div
-          className="absolute left-0 right-0 top-full mt-2 z-50 rounded-xl border border-neutral-200 bg-popover shadow-lg p-1.5 space-y-1 origin-top max-h-[320px] overflow-y-auto wb-slim-scroll"
-          style={{ animation: "scheme-dropdown-in 180ms cubic-bezier(0.32, 0.72, 0, 1) both" }}
+          data-scheme-list={open ? "open" : "closing"}
+          className={cn(
+            "absolute left-0 right-0 top-full mt-2 z-50 rounded-xl border border-neutral-200 bg-popover shadow-lg p-1.5 space-y-1 origin-top max-h-[320px] overflow-y-auto wb-slim-scroll",
+            !open && "pointer-events-none",
+          )}
+          style={{
+            /* Transform and opacity only: the compositor's, so a busy sidebar never stutters it. No scaleY: it squashed the text. */
+            animation: open
+              ? "scheme-dropdown-in 200ms cubic-bezier(0.32, 0.72, 0, 1) both"
+              : `scheme-dropdown-out ${SCHEME_LIST_OUT_MS}ms cubic-bezier(0.4, 0, 1, 1) both`,
+          }}
         >
           <style jsx>{`
             @keyframes scheme-dropdown-in {
-              from { opacity: 0; transform: translateY(-4px) scaleY(0.98); }
-              to   { opacity: 1; transform: translateY(0) scaleY(1); }
+              from { opacity: 0; transform: translateY(-6px); }
+              to   { opacity: 1; transform: translateY(0); }
+            }
+            @keyframes scheme-dropdown-out {
+              from { opacity: 1; transform: translateY(0); }
+              to   { opacity: 0; transform: translateY(-4px); }
+            }
+            @media (prefers-reduced-motion: reduce) {
+              div { animation-duration: 1ms !important; }
             }
           `}</style>
           {Object.entries(schemes).map(([key, sc]) => {

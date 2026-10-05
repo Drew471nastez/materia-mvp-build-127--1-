@@ -45,7 +45,7 @@
  *             together can never clip.
  *
  * SYNTHESISED, NOT FILES. Nothing to download, nothing to decode, the same
- * on every device. Every sound peaks at about -16 dBFS (PEAK_GAIN),
+ * on every device. Every sound peaks at about -11 dBFS (PEAK_GAIN),
  * rendered offline in Chromium and measured by scripts/check-ask-sounds.mjs
  * (peak, RMS, spectral centroid, the tail to -60 dB).
  *
@@ -73,8 +73,13 @@ export type AskSound = "record-start" | "record-stop" | "sent" | "upload" | "que
 
 export const ASK_SOUNDS: readonly AskSound[] = ["record-start", "record-stop", "sent", "upload", "question", "done", "error"]
 
-/** The loudest any sound gets, after the room and the limiter: -16 dBFS. */
-export const PEAK_DBFS = -16
+/**
+ * The loudest any sound gets, after the room and the limiter: -11 dBFS. It
+ * was -16, and on a laptop's speakers at an ordinary volume the send was
+ * easy to miss; "make the sound of the AI when it's sending louder". Five
+ * decibels up is clearly louder without turning a soft cue into an alert.
+ */
+export const PEAK_DBFS = -11
 export const PEAK_GAIN = Math.pow(10, PEAK_DBFS / 20)
 
 /** Remembered per browser; on unless somebody turned them off. */
@@ -160,8 +165,8 @@ export const ROOM_HIGH_CUT = 3200
 /** The high pass on the master: nothing under it but rumble that reads as mud on laptop speakers. */
 export const HIGH_PASS = 60
 
-/** The limiter. Set 10 dB above PEAK_GAIN, so it only ever catches two sounds landing together. */
-export const LIMITER = { threshold: -6, knee: 0, ratio: 12, attack: 0.002, release: 0.12 } as const
+/** The limiter. Set 10 dB above PEAK_GAIN, so it only ever catches two sounds landing together, and moved up with it. */
+export const LIMITER = { threshold: -1, knee: 0, ratio: 12, attack: 0.002, release: 0.12 } as const
 
 /**
  * A new compressor starts about 10 dB down and comes up over its first

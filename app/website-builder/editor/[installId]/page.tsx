@@ -7787,7 +7787,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                     data-wb-full-screen-switch=""
                     aria-pressed={fullView}
                     onClick={() => go(next.key)}
-                    className="hidden sm:flex h-8 w-9 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-[var(--wb-chrome-fg)] transition-[background-color,color] duration-150 hover:bg-white/[0.1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/25"
+                    className="hidden sm:flex h-8 w-8 aspect-square shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-[var(--wb-chrome-fg)] transition-[background-color,color] duration-150 hover:bg-white/[0.1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/25"
                   >
                     <now.Icon key={now.key} className="h-[15px] w-[15px] animate-in fade-in zoom-in-90 duration-150" strokeWidth={1.75} />
                   </button>

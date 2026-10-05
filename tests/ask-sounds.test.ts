@@ -334,7 +334,7 @@ section("Every strike, made the same careful way: nothing glides, nothing wobble
     check(`${sound}: every oscillator a sine with its frequency set once: no glide, no vibrato, no detuned pair to beat`, moving.length === 0 && r.oscillators.every((o) => o.type === "sine"), `${moving.length} moving`)
   }
   check("every sound's level modest before the room: 0.2 or less, the probe measures the rest", ASK_SOUNDS.every((s) => SOUND_DESIGN[s].gain > 0 && SOUND_DESIGN[s].gain <= 0.2))
-  check("and the target after it all is -16 dBFS", PEAK_DBFS === -16 && Math.abs(20 * Math.log10(PEAK_GAIN) - PEAK_DBFS) < 1e-9)
+  check("and the target after it all is -11 dBFS, five up from -16 so the send is heard", PEAK_DBFS === -11 && Math.abs(20 * Math.log10(PEAK_GAIN) - PEAK_DBFS) < 1e-9)
   const n1 = clickNoise(48000)
   check("the click's noise is 30ms, made once per sample rate and kept", n1 === clickNoise(48000) && n1.length === Math.round(48000 * 0.03) && n1.some((v) => v !== 0))
 }
@@ -383,11 +383,11 @@ section("The room: small, tight and dark; the master: a high pass and a limiter"
     !!highPass && highPass.frequency.value === HIGH_PASS && HIGH_PASS === 60 && highPass.outputs[0] === limiter && reaches(convolver, highPass) && r.strikes.every((s) => reaches(s.tone, highPass)),
   )
   check(
-    "one limiter after it: -6 dBFS, ratio 12, fast",
+    "one limiter after it: -1 dBFS, ratio 12, fast",
     r.compressors.length === 1 && limiter.threshold.value === LIMITER.threshold && limiter.ratio.value >= 10 && limiter.attack.value <= 0.005 && reaches(convolver, limiter),
   )
   const trim = limiter.outputs[0] as Gain
-  check("its makeup gain taken back out, so below the threshold the chain is unity", trim instanceof Gain && near(trim.gain.value * limiterMakeup(), 1, 1e-9) && near(limiterMakeup(), 1.4625, 0.001), String(limiterMakeup()))
+  check("its makeup gain taken back out, so below the threshold the chain is unity", trim instanceof Gain && near(trim.gain.value * limiterMakeup(), 1, 1e-9) && near(limiterMakeup(), 1.0654, 0.001), String(limiterMakeup()))
   check("well above the loudest sound: 10 dB of room", LIMITER.threshold - PEAK_DBFS >= 10)
 
   const fresh = new StubContext()
