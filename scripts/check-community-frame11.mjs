@@ -411,12 +411,13 @@ export const isNativePlatform = () => false
     await r.evaluate(() => window.__navigate("/community/clay-studio/members"))
     await sleep(900)
     const glyph = await r.evaluate(() => {
-      const g = document.querySelector("[data-place-spinner] [data-place-spinner-glyph]")
+      /* Round 12: the turning box is the app spinner's own (components/ui/activity-spinner.tsx). */
+      const g = document.querySelector("[data-place-spinner] [data-activity-spinner]")
       if (!g) return null
       const cs = getComputedStyle(g)
       return { name: cs.animationName, timing: cs.animationTimingFunction, tag: g.tagName, duration: cs.animationDuration }
     })
-    expect(!!glyph && glyph.name === "spin" && glyph.timing === "linear", "the spinner turns continuously (linear, not a spoke at a time)", glyph)
+    expect(!!glyph && glyph.name === "activity-spin" && glyph.timing === "linear", "the spinner turns continuously (linear, not a spoke at a time)", glyph)
     const rcdp = await r.target().createCDPSession()
     const frames = []
     rcdp.on("Page.screencastFrame", (f) => {

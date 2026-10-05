@@ -416,7 +416,9 @@ export const isNativePlatform = () => false
         expect(T.bg === "rgb(248, 249, 250)" && /^1px rgb\(230, 232, 235\)$/.test(T.border) && T.shadow !== "none" && T.radius === "10px" && T.w === 40, "in a 40px button with the faintest grey ground, a hairline and a one pixel shadow, squared at 10px (not a pill)", T)
       }
       const pills = await pillsInBar(p)
-      expect(pills.pills.length === 0 && pills.seen > 10, `nothing in the bar is pill shaped at rest (${pills.seen} elements looked at)`, pills.pills)
+      /* Round 12: the notification bubbles are round and red again, by the owner's choice; nothing else in the bar is a pill. */
+      const notBubbles = pills.pills.filter((x) => !/data-(count|bell)-badge/.test(x.el))
+      expect(notBubbles.length === 0 && pills.seen > 10, `nothing in the bar but the notification bubbles is pill shaped at rest (${pills.seen} elements looked at)`, pills.pills)
       if (!phone) {
         /* Headless Chromium answers (hover: none), so Tailwind's hover rules (inside @media (hover: hover)) never apply; this page is a computer, so they are let out of that guard for what follows. */
         const lifted = await p.evaluate(() => { let n = 0; for (const st of document.querySelectorAll("style")) { const t = st.textContent; if (t.includes("@media (hover: hover)")) { st.textContent = t.replaceAll("@media (hover: hover)", "@media all"); n++ } } return n && matchMedia("(hover: hover)").matches === false })
@@ -435,7 +437,8 @@ export const isNativePlatform = () => false
       if (phone) expect(!g.switcher && g.rowOrder.nav >= 0 && g.rowOrder.nav < g.rowOrder.logo && g.rowOrder.logo < g.rowOrder.name, "no chevron switcher; on a phone the hamburger, the picture, then the name", g.rowOrder)
       else expect(!g.switcher && g.rowOrder.logo >= 0 && g.rowOrder.logo < g.rowOrder.name && g.rowOrder.name < g.rowOrder.nav, "no chevron switcher; the picture, the name, then the hamburger", g.rowOrder)
       expect(g.shadow === "none" && /^1px /.test(g.hairline) && g.barBg === "rgb(255, 255, 255)", "round 9: one opaque white surface with a hairline at its bottom only (no shadow, no tint)", { shadow: g.shadow, hairline: g.hairline, bg: g.barBg })
-      expect(g.chips.join() === "All,General,Announcements,🏺Critique,Glaze lab,Kiln room" && g.chipOn === "all" && g.chipAll === "rgb(26, 26, 46)", "round 9: the spaces as chips, All chosen in near black, no Saved chip", { chips: g.chips, all: g.chipAll })
+      /* Round 12: every space chip carries its icon, the admin's emoji or its kind's (space-glyph.ts). */
+      expect(g.chips.join() === "All,💬General,📣Announcements,🏺Critique,💬Glaze lab,⚡Kiln room" && g.chipOn === "all" && g.chipAll === "rgb(26, 26, 46)", "round 9: the spaces as chips, All chosen in near black, no Saved chip", { chips: g.chips, all: g.chipAll })
       expect(g.invites.length === 0, "round 9: no Invite button on the card or at the end of the tabs (it is in the \"...\" menu)", g.invites)
       expect(g.messages === "2" && g.bell === "4" && g.more === 1 && g.myPicture === 0, "Messages and Storelib's bell with their counts, then a \"...\" (round 7: no picture of me in the bar)", { messages: g.messages, bell: g.bell, more: g.more, picture: g.myPicture })
       expect(phone ? !g.searchButton && !g.searchField : g.searchField && !g.searchButton && g.placeholder === "Search discussions, members, or content...", phone ? "round 9: no search icon in the bar on a phone (the tab bar's Search opens it)" : "the search field: Search discussions, members, or content..., and no search icon", { field: g.searchField, button: g.searchButton, placeholder: g.placeholder })
@@ -844,17 +847,19 @@ export const isNativePlatform = () => false
       {
         await p.evaluate(() => { window.__feedLatency = 1500 })
         await p.evaluate((how) => { const el = document.querySelector('[data-space-chip="announcements"]'); if (how === "tap") el.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerType: "touch" })); el.click() }, how)
-        await sleep(450)
+        /* Past the feed's wait (WAIT_MS) and the spinner's own fade in, with room for a slow machine. */
+        await sleep(650)
         const sp = await p.evaluate(() => {
           const s = document.querySelector('[data-place-spinner="list"]')
           const g0 = s?.querySelector("svg")?.getBoundingClientRect()
           const g = g0 && { width: Number(s.querySelector("svg").getAttribute("width")), left: g0.left + g0.width / 2 - Number(s.querySelector("svg").getAttribute("width")) / 2, top: g0.top }
           const col = document.querySelector("[data-community-main]")?.getBoundingClientRect() ?? document.querySelector("[data-feed]").getBoundingClientRect()
           const chips = document.querySelector("[data-space-chips]").getBoundingClientRect()
-          const stroke = s?.querySelector("line")
-          return s && g ? { size: Math.round(g.width), cx: Math.round(g.left + g.width / 2), colCx: Math.round(col.left + col.width / 2), belowChips: g.top > chips.bottom, color: getComputedStyle(s.querySelector("svg")).color, strokeW: stroke?.getAttribute("stroke-width"), spokes: s.querySelectorAll("line").length, opacity: Number(getComputedStyle(s).opacity), anim: getComputedStyle(s.querySelector("[data-place-spinner-glyph]")).animationName, posts: document.querySelectorAll("[data-feed-list] [data-post]").length, chipOn: document.querySelector("[data-space-chip][aria-current=page]")?.getAttribute("data-space-chip") } : null
+          /* Round 12: the app's own spinner (components/ui/activity-spinner.tsx): eight rounded spokes, 26px, grey, one linear turn a second. */
+          const turn = s?.querySelector("[data-activity-spinner]")
+          return s && g ? { size: Math.round(g.width), cx: Math.round(g.left + g.width / 2), colCx: Math.round(col.left + col.width / 2), belowChips: g.top > chips.bottom, color: getComputedStyle(s.querySelector("svg")).color, spokes: s.querySelectorAll("rect").length, opacity: Number(getComputedStyle(s).opacity), anim: turn ? getComputedStyle(turn).animationName : null, posts: document.querySelectorAll("[data-feed-list] [data-post]").length, chipOn: document.querySelector("[data-space-chip][aria-current=page]")?.getAttribute("data-space-chip") } : null
         })
-        expect(!!sp && sp.size <= 24 && Math.abs(sp.cx - sp.colCx) <= 2 && sp.belowChips && sp.spokes === 8 && sp.strokeW === "2" && sp.color === "rgb(138, 143, 152)" && sp.opacity > 0.9 && sp.anim === "spin" && sp.posts === 0 && sp.chipOn === "announcements", "a list that is slow: a small thin grey spinner centred in the middle column under the chips, the chips staying as they are", sp)
+        expect(!!sp && sp.size === 26 && Math.abs(sp.cx - sp.colCx) <= 2 && sp.belowChips && sp.spokes === 8 && sp.color === "rgb(156, 163, 175)" && sp.opacity > 0.9 && sp.anim === "activity-spin" && sp.posts === 0 && sp.chipOn === "announcements", "a list that is slow: the app's grey spinner centred in the middle column under the chips, the chips staying as they are", sp)
         await shot(p, `${label}-space-spinner`)
         await p.waitForSelector('[data-community-feed="space:announcements"]:not([data-feed-waiting])', { timeout: 4000 })
         await p.evaluate(() => { window.__feedLatency = 250 })
@@ -1078,7 +1083,7 @@ export const isNativePlatform = () => false
         report.push(`Leaderboards (cold, 700ms network) ${F[first]?.at}ms, spinner from ${shown[0]?.at}ms`)
         expect(F[0].mark === "Leaderboards" && F.every((f) => !f.skeleton) && first > 0, "a place not read ahead: marked at once, its loading screen in the middle, no skeleton", { mark: F[0].mark, first })
         expect(F.filter((f) => f.at < 140).every((f) => f.spinner === null || f.spinner < 0.05) && shown.length > 0 && shown[0].at >= 150, "the spinner shows only after a moment (~160ms), so a quick place never flashes it", { firstShown: shown[0]?.at, early: F.filter((f) => f.at < 140).map((f) => f.spinner) })
-        expect(!!spinBox && spinBox.w <= 24 && spinBox.inMain && Math.abs(spinBox.cx - spinBox.mainCx) <= 2 && spinBox.top > spinBox.barBottom, "a small spinner (22px), centred in the middle column only, under the bar", spinBox)
+        expect(!!spinBox && spinBox.w === 26 && spinBox.inMain && Math.abs(spinBox.cx - spinBox.mainCx) <= 2 && spinBox.top > spinBox.barBottom, "the app's spinner (26px, round 12), centred in the middle column only, under the bar", spinBox)
         expect(first > 0 && F[first].opacity < 1 && F.at(-1).opacity === 1, "then the page fades in where the spinner was", { opacity: F[first]?.opacity, last: F.at(-1).opacity })
       }
       const home = await go("Community")

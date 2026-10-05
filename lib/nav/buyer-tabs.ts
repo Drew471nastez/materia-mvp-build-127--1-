@@ -91,7 +91,9 @@ export function communityTabs(slug: string) {
  * changes; Search outside a community is the site's.
  */
 export function buyerTabsAt(pathname: string, exploreMarketplaceEnabled = true, homeCommunity: string | null = null) {
-  const slug = communityOf(pathname) ?? (homeCommunity && COMMUNITY_SLUG.test(homeCommunity) ? homeCommunity : null)
+  /* With Discover off the bar outside a community is Library and Profile alone (no Home to keep), so the context waits for inside. */
+  const kept = exploreMarketplaceEnabled && homeCommunity && COMMUNITY_SLUG.test(homeCommunity) ? homeCommunity : null
+  const slug = communityOf(pathname) ?? kept
   return slug ? communityTabs(slug) : buyerTabsForMarketplace(exploreMarketplaceEnabled)
 }
 
@@ -170,7 +172,7 @@ export function buyerTabFor(
   /* While Home is a community's (the context), Explore's own pages are not Home: nothing is lit there but Search's results. */
   if (where.homeCommunity && exploreOn && under(pathname, "/explore") && !under(pathname, SEARCH_HREF) && !where.query) return -1
   /* And a creator's page reached from there is not the community's Home either. */
-  if (where.homeCommunity && where.sellerSurface) return -1
+  if (where.homeCommunity && exploreOn && where.sellerSurface) return -1
   const tabs = buyerTabsForMarketplace(exploreOn)
   const idx = (key: BuyerTabKey) => tabs.findIndex((t) => t.key === key)
 

@@ -273,6 +273,17 @@ export const isNativePlatform = () => false
         await p.evaluate(() => {
           window.__land = []
           window.__landOn = true
+          /* The landing as it is attached to the page that arrives (what the compositor then runs, whatever the page's thread is doing). */
+          window.__inserted = []
+          window.__mo?.disconnect()
+          window.__mo = new MutationObserver((list) => {
+            for (const m of list) for (const n of m.addedNodes) {
+              if (!(n instanceof HTMLElement)) continue
+              const a = n.getAnimations().find((x) => x.animationName === "community-place-in")
+              window.__inserted.push({ spinner: n.hasAttribute("data-place-spinner"), anim: a ? Math.round(a.effect.getTiming().duration) : null })
+            }
+          })
+          window.__mo.observe(document.querySelector("[data-community-body]"), { childList: true })
           const r = (sel) => { const e = document.querySelector(sel); if (!e) return null; const b = e.getBoundingClientRect(); return Math.round(b.left * 10) / 10 + "/" + Math.round(b.width * 10) / 10 }
           const tick = () => {
             const kid = document.querySelector("[data-community-body] > *")
@@ -295,10 +306,13 @@ export const isNativePlatform = () => false
         const motion = run.slice(0, end + 1)
         const ys = motion.map((x) => parseFloat(String(x.tr).split(" ")[1] || "0")).filter((y) => !Number.isNaN(y))
         const opsSeq = motion.map((x) => x.op)
-        expect(motion.length >= 3 && Math.max(...ys) >= 2 && Math.max(...ys) <= 8 && opsSeq[0] < 0.6, `${place}: fades in and rises a few px over ${motion.length} frames`, { frames: motion.length, ys: ys.slice(0, 8), ops: opsSeq.slice(0, 8) })
+        const inserted = await p.evaluate(() => window.__inserted)
+        const landed = inserted.filter((x) => !x.spinner)
+        expect(landed.length >= 1 && landed.every((x) => x.anim === 260), `${place}: the page that arrives carries the 260ms landing`, inserted)
+        /* Sampled from the page's thread: a heavy page (About at 4x CPU) can hold that thread through the start, so the frames are a lower bound. */
+        expect(motion.length === 0 || (Math.max(...ys) <= 6 && opsSeq.every((o, i) => i === 0 || o >= opsSeq[i - 1] - 0.01)), `${place}: what was sampled only rises and brightens (${motion.length} frames)`, { frames: motion.length, ys: ys.slice(0, 8), ops: opsSeq.slice(0, 8) })
         /* The landing's own length (the compositor runs it; a busy page thread only delays the frames sampled here). */
         const timing = await p.evaluate(() => { const a = document.querySelector("[data-community-body] > *")?.getAnimations?.().find((x) => x.animationName === "community-place-in"); return a ? { duration: a.effect.getTiming().duration, state: a.playState } : null })
-        expect(motion.length >= 4 ? true : !!timing, `${place}: path ${f.at(-1)?.path}`, f.at(-1)?.path)
         const ms = motion.length ? Math.round(motion.at(-1).t - motion[0].t) : 0
         console.log(`        ${place}: ${ms}ms of sampled frames, the animation ${JSON.stringify(timing)}`)
         expect(new Set(f.map((x) => x.bar)).size === 1 && new Set(f.map((x) => x.left)).size === 1, `${place}: the bar and the left column never move`, { bar: [...new Set(f.map((x) => x.bar))], left: [...new Set(f.map((x) => x.left))] })
@@ -353,8 +367,8 @@ export const isNativePlatform = () => false
       const s = document.querySelector("[data-place-spinner] [data-activity-spinner]")
       if (!s) return null
       const cs = getComputedStyle(s)
-      const b = s.getBoundingClientRect()
-      return { cls: s.className, name: cs.animationName, duration: cs.animationDuration, timing: cs.animationTimingFunction, size: Math.round(b.width), spokes: s.querySelectorAll("rect").length }
+      /* Its layout size (a turning box's bounding rect is the rotated one). */
+      return { cls: s.className, name: cs.animationName, duration: cs.animationDuration, timing: cs.animationTimingFunction, size: s.offsetWidth, spokes: s.querySelectorAll("rect").length }
     })
     expect(!!g && g.cls.includes("activity-spinner") && g.name === "activity-spin" && g.duration === "1s" && g.timing === "linear" && g.size === 26 && g.spokes === 8, "the /app spinner itself: activity-spinner, 26px, eight spokes, one linear turn a second", g)
     await p.screenshot({ path: join(shots, "spinner-390.png") })
