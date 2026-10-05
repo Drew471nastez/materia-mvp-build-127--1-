@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import { usePathname } from "next/navigation"
 import {
   ARRIVAL_CAP_MS,
@@ -28,6 +29,7 @@ import {
 } from "@/lib/navigation/edge-swipe"
 import { backInFlight, backThen, readBackEvidence } from "@/lib/navigation/go-back"
 import { planBack } from "@/lib/navigation/back-plan"
+import { ActivitySpinner, SPINNER_WAIT_MS } from "@/components/ui/activity-spinner"
 
 /**
  * ===========================================================================
@@ -65,11 +67,15 @@ import { planBack } from "@/lib/navigation/back-plan"
  * bar, the page goes back to scrolling the window where it was, and
  * backThen (lib/navigation/go-back) goes back once: the back hold, the echo
  * click guard and the watch that falls back when a back does nothing are
- * all its own. When the page behind has arrived, the stand in fades off it.
+ * all its own. When the page behind has arrived, the stand in fades off it;
+ * if it takes longer than SPINNER_WAIT_MS (a page the router has to fetch),
+ * the app's own spinner shows on the stand in meanwhile.
  */
 export function EdgeSwipeBack() {
   const pathname = usePathname() || "/"
   const onPath = useRef<((path: string) => void) | null>(null)
+  /* The stand in while it waits for the page behind: the app's own spinner shows there after SPINNER_WAIT_MS, as on a slow page. */
+  const [waitingIn, setWaitingIn] = useState<HTMLElement | null>(null)
 
   useEffect(() => {
     onPath.current?.(pathname)
@@ -77,7 +83,7 @@ export function EdgeSwipeBack() {
 
   useEffect(() => {
     if (typeof window === "undefined" || !edgeSwipeEnvironment(window)) return
-    const swipe = installEdgeSwipe()
+    const swipe = installEdgeSwipe(setWaitingIn)
     onPath.current = swipe.pathChanged
     return () => {
       onPath.current = null
@@ -85,14 +91,24 @@ export function EdgeSwipeBack() {
     }
   }, [])
 
-  return null
+  if (!waitingIn) return null
+  return createPortal(
+    <div
+      data-edge-swipe-spinner=""
+      className="pointer-events-none absolute inset-x-0 top-[40%] flex justify-center opacity-0"
+      style={{ animation: `skeleton-reveal 150ms ease-out ${SPINNER_WAIT_MS}ms forwards` }}
+    >
+      <ActivitySpinner />
+    </div>,
+    waitingIn,
+  )
 }
 
 type Phase = "idle" | "armed" | "drag" | "settle" | "wait" | "reveal"
 
 type Saved = Array<[CSSStyleDeclaration, string, string, string]>
 
-function installEdgeSwipe() {
+function installEdgeSwipe(waiting: (host: HTMLElement | null) => void) {
   const win = window
   const doc = document
   const html = doc.documentElement
@@ -382,6 +398,7 @@ function installEdgeSwipe() {
       }
       win.addEventListener("popstate", onPop)
       capTimer = win.setTimeout(arrive, ARRIVAL_CAP_MS)
+      if (parts) waiting(parts.root)
       /* The one back. A back already on its way (it cannot be: the finger was here) is waited for the same way. */
       if (!backInFlight()) backThen(arrive)
     })
@@ -391,6 +408,7 @@ function installEdgeSwipe() {
   function arrive() {
     if (phase !== "wait") return
     phase = "reveal"
+    waiting(null)
     win.clearTimeout(capTimer)
     if (onPop) win.removeEventListener("popstate", onPop)
     onPop = null
@@ -455,6 +473,7 @@ function installEdgeSwipe() {
     dispose() {
       abort()
       if (phase === "wait" || phase === "reveal") {
+        waiting(null)
         reveal?.cancel()
         html.removeAttribute("data-edge-swipe")
         phase = "idle"

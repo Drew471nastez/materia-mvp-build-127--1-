@@ -93,6 +93,7 @@ check("never on a row that scrolls sideways, a Swiper, a pan-y gallery, a slider
 check("moves by the translate property and opacity only (the compositor's)", /html\.style\.translate = `\$\{x\}px 0px`/.test(comp) && /tab\.style\.translate = `\$\{-x\}px 0px`/.test(comp) && !/\.style\.(left|top|width|marginLeft) = `\$\{x/.test(comp))
 check("every inline style it sets is put back as it was", /function put\(/.test(comp) && /function restore\(\)/.test(comp) && /restore\(\)/.test(comp.slice(comp.indexOf("function leave()"))))
 check("the window's scroll events from the hand over are kept from the page", /function muteScroll\(\)/.test(comp) && /stopImmediatePropagation/.test(comp))
+check("a slow page behind: the app's own spinner on the stand in, after the same half second as a slow page", /ActivitySpinner, SPINNER_WAIT_MS/.test(comp) && /\$\{SPINNER_WAIT_MS\}ms forwards/.test(comp))
 check("no client module imports server code", !/next\/headers|server-only|lib\/communities\/server|admin-blog-auth/.test(comp + lib))
 check("no banned words or em dashes", !/—|\bunlock|\belevate|seamless|powerful|effortless|supercharge|transform/i.test(comp + lib))
 
