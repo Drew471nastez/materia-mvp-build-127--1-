@@ -249,6 +249,41 @@ export function LinkPicker({
   }, [searching, targets, query, entry, menu, drill, drillList])
 
   const showList = open && rows.length > 0
+  /*
+   * ON A PHONE THE LIST IS A SHEET (field-popover.tsx), so it stays open with
+   * nothing matching: an address being typed is still something to use. At
+   * a computer the panel hangs from the field and shuts when nothing matches.
+   */
+  const sheet = phone
+  const panelOpen = sheet ? open : showList
+  /** What was typed, when it is an address that can be used as it is. */
+  const typedAddress = typed && draft.trim() ? normalizeLinkAddress(draft.trim()) : null
+  const canUseTyped = !!typedAddress && typedAddress.ok === true
+
+  /*
+   * A LIST OF ANOTHER LENGTH GROWS AND SHRINKS TO IT, it does not snap. Going
+   * into Collections (two rows) from the first list (nine) cut the panel's
+   * height in one frame, "too direct and glitchy". The listbox's height is
+   * read before and after the new list is drawn and the change is played on
+   * it, over the same curve the rows slide on. Not while typing: a search
+   * that re-lists on every key would wobble.
+   */
+  const boxRef = React.useRef<HTMLDivElement>(null)
+  const lastHeight = React.useRef<number | null>(null)
+  const listKey = searching ? "search" : drill ? `sections:${drill.href}:${drillList === null ? "loading" : drillList.length}` : (level ?? "top")
+  React.useLayoutEffect(() => {
+    const el = boxRef.current
+    if (!panelOpen || !el) {
+      lastHeight.current = null
+      return
+    }
+    const now = el.getBoundingClientRect().height
+    const was = lastHeight.current
+    lastHeight.current = now
+    if (was === null || Math.abs(was - now) < 2) return
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
+    el.animate([{ height: `${was}px` }, { height: `${now}px` }], { duration: 240, easing: "cubic-bezier(0.32, 0.72, 0, 1)" })
+  }, [listKey, panelOpen])
 
   /**
    * A LINKED PAGE IS SELECTED WHOLE when the cursor arrives, so typing
@@ -514,11 +549,61 @@ export function LinkPicker({
     <div data-link-picker="">
       <FieldPopover
         float
-        open={showList}
+        open={panelOpen}
         onOpenChange={(next) => {
-          if (!next) close()
+          if (next) return
+          /* The sheet swiped away with an address typed in it: that address is the answer, as a blur is at a computer. */
+          if (sheet) commit()
+          close()
         }}
         onEscape={onEscape}
+        sheetLabel="Choose where this link goes"
+        sheetHeader={
+          sheet ? (
+            <div className="shrink-0 px-3 pb-2 pt-1">
+              <div className="flex h-11 items-center rounded-xl border border-border bg-background focus-within:border-neutral-400 focus-within:ring-2 focus-within:ring-neutral-900/10">
+                <Search className="ml-3 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+                <input
+                  type="text"
+                  inputMode="url"
+                  autoComplete="off"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  data-link-sheet-search=""
+                  aria-label="Search pages and products, or paste an address"
+                  placeholder="Search, or paste an address"
+                  value={typed ? draft : ""}
+                  onChange={(e) => {
+                    setDraft(e.target.value)
+                    setTyped(true)
+                    setError(null)
+                    setLevel(null)
+                    setActive(-1)
+                  }}
+                  onKeyDown={onKeyDown}
+                  className="h-full min-w-0 flex-1 bg-transparent px-2.5 text-[16px] text-foreground outline-none placeholder:text-muted-foreground"
+                />
+              </div>
+              {canUseTyped && (
+                <button
+                  type="button"
+                  data-link-use-typed=""
+                  onClick={() => {
+                    commit()
+                    close()
+                  }}
+                  className="mt-2 flex h-11 w-full items-center gap-2.5 rounded-xl bg-neutral-100 px-3 text-left text-[15px] text-foreground transition-colors active:bg-neutral-200"
+                >
+                  <Link2 className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+                  <span className="min-w-0 flex-1 truncate">
+                    Use <span className="font-medium">{typedAddress && typedAddress.ok ? typedAddress.href : ""}</span>
+                  </span>
+                </button>
+              )}
+            </div>
+          ) : undefined
+        }
         trigger={
           <div
             className={cn(
@@ -547,6 +632,16 @@ export function LinkPicker({
               title={known && !focused ? known.href : undefined}
               value={shown}
               placeholder={placeholder || "Type an address or pick a page"}
+              /* On a phone the field is a door to the sheet: typing happens in the sheet's own box, above the keyboard. */
+              readOnly={sheet}
+              onClick={() => {
+                if (!sheet) return
+                setDraft(value)
+                setTyped(false)
+                setLevel(null)
+                setActive(-1)
+                setOpen(true)
+              }}
               onMouseDown={(e) => {
                 /* A press would drop a caret into the name that is about to
                    become a path. Focus it here instead, and select it whole. */
@@ -555,7 +650,11 @@ export function LinkPicker({
                 selectAll.current = true
                 e.currentTarget.focus({ preventScroll: true })
               }}
-              onFocus={() => {
+              onFocus={(e) => {
+                if (sheet) {
+                  e.currentTarget.blur()
+                  return
+                }
                 if (known) selectAll.current = true
                 setFocused(true)
                 setDraft(value)
@@ -564,6 +663,7 @@ export function LinkPicker({
                 if (!phone) setOpen(true)
               }}
               onBlur={(e) => {
+                if (sheet) return
                 /* Moving to the chevron or the list is not leaving. */
                 if (e.relatedTarget instanceof Node && e.currentTarget.closest("[data-link-picker]")?.contains(e.relatedTarget)) return
                 setFocused(false)
@@ -618,7 +718,8 @@ export function LinkPicker({
           role="listbox"
           aria-label={drill ? `Sections on ${drill.label}` : entry ? entry.category.label : "Pages and products"}
           onMouseDown={(e) => e.preventDefault()}
-          className="flex min-h-0 flex-col"
+          ref={boxRef}
+          className="flex min-h-0 flex-col overflow-hidden"
         >
           {back && (
             <div
@@ -639,7 +740,7 @@ export function LinkPicker({
               </div>
             </div>
           )}
-          <div className={cn("relative flex min-h-0 flex-col", phone && "max-h-[min(352px,50dvh)]")}>
+          <div className={cn("relative flex min-h-0 flex-col", phone && "max-h-[min(460px,58dvh)]")}>
             <div
               ref={listRef}
               data-float-scroll=""

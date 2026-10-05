@@ -4,6 +4,7 @@ import * as React from "react"
 import { createPortal } from "react-dom"
 
 import { cn } from "@/lib/utils"
+import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { useSheetExpand } from "@/components/website-builder/mobile-editor-sheet"
 
 /**
@@ -26,7 +27,9 @@ import { useSheetExpand } from "@/components/website-builder/mobile-editor-sheet
  * hangs from the field instead (FloatingFieldPanel, at the foot of this
  * file): the owner wanted Shopify's, and a list that pushed every setting
  * under it down and back up was the sidebar jumping twice per link. On a
- * phone it is in the flow as described here, whatever it asked for.
+ * phone a `float` panel opens in the app's bottom sheet instead (the owner:
+ * "on mobile it doesn't act as an inline modal, it opens as a mobile bottom
+ * sheet"), and only the other pickers stay in the flow as described here.
  *
  * Closing is Escape, a click outside, or picking something. Not a hover:
  * these are chosen deliberately, and a panel that vanishes when the pointer
@@ -75,6 +78,8 @@ export function FieldPopover({
   className,
   float = false,
   onEscape,
+  sheetHeader,
+  sheetLabel,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -89,8 +94,38 @@ export function FieldPopover({
   float?: boolean
   /** Asked first on Escape: true when the panel used it (a list going back a level), so it stays open. */
   onEscape?: () => boolean
+  /**
+   * On a phone, a `float` panel opens in the app's own bottom sheet rather
+   * than in the flow of the sidebar: drawn above the editor, with the pill to
+   * drag it away, the way every other choice on a phone is made. This goes at
+   * the top of the sheet (the link picker's search box, which in the sidebar
+   * is the field itself and would be behind the sheet).
+   */
+  sheetHeader?: React.ReactNode
+  /** What the sheet is called, for a screen reader: it has no visible title. */
+  sheetLabel?: string
 }) {
   const phone = usePhoneLayout()
+  if (float && phone) {
+    return (
+      <div className={className}>
+        {trigger}
+        <BottomSheet
+          isOpen={open}
+          onClose={() => onOpenChange(false)}
+          label={sheetLabel ?? "Choose"}
+          hideFrom="sm"
+          aboveKeyboard
+          maxHeight="min(80dvh, 640px)"
+        >
+          <div data-field-sheet="" className="flex min-h-0 flex-col pb-[max(8px,env(safe-area-inset-bottom))]">
+            {sheetHeader}
+            {children}
+          </div>
+        </BottomSheet>
+      </div>
+    )
+  }
   if (float && !phone) {
     return (
       <FloatingFieldPanel open={open} onOpenChange={onOpenChange} trigger={trigger} className={className} onEscape={onEscape}>

@@ -263,7 +263,7 @@ export function SchemePicker({
             !open && "pointer-events-none",
           )}
           style={{
-            /* Transform and opacity only: the compositor's, so a busy sidebar never stutters it. No scaleY: it squashed the text. */
+            /* Transform and opacity only: the compositor's, so a busy sidebar never stutters it. No vertical squash on the way in: it bent the text. */
             animation: open
               ? "scheme-dropdown-in 200ms cubic-bezier(0.32, 0.72, 0, 1) both"
               : `scheme-dropdown-out ${SCHEME_LIST_OUT_MS}ms cubic-bezier(0.4, 0, 1, 1) both`,

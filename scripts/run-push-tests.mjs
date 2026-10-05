@@ -220,6 +220,7 @@ const SUITES = [
   "tests/media-url.test.ts",
   "tests/navigation-and-collections.test.ts",
   "tests/native-google-sign-in.test.ts",
+  "tests/editor-feel.test.ts",
   "tests/builder-click-edit.test.ts",
   "tests/policy-editing.test.ts",
   "tests/web-vitals.test.ts",
