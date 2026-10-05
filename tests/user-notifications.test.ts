@@ -472,7 +472,7 @@ async function main() {
   const B = "components/notifications/notification-bell.tsx"
   const bell = code(B)
   /* Round 11: and a least height for its phone sheet (a community's bar asks for half the screen). */
-  check("a client component exporting NotificationBell({ className, sheetMin })", read(B).startsWith('"use client"') && /export function NotificationBell\(\{ className, sheetMin \}: \{\s*className\?: string[\s\S]{0,400}sheetMin\?: string\s*\}\)/.test(bell))
+  check("a client component exporting NotificationBell({ className, sheetMin, tabBadge })", read(B).startsWith('"use client"') && /export function NotificationBell\(\{ className, sheetMin, tabBadge = false \}: \{\s*className\?: string[\s\S]{0,400}sheetMin\?: string[\s\S]{0,400}tabBadge\?: boolean\s*\}\)/.test(bell))
   check("it imports nothing from the server", !/server-only|next\/headers|lib\/communities\/server|lib\/notifications\/user-inbox"|lib\/supabase\/(server|admin)|lib\/admin-blog-auth/.test(bell))
   check("it reads the inbox and marks read through the two routes", /"\/api\/notifications\/inbox"/.test(bell) && /"\/api\/notifications\/read"/.test(bell))
   check("realtime on both tables, joined after setAuth", /await realtimeAuth\(supabase\)\s*if \(gone\) return\s*for \(const table of \["user_notifications", "community_notifications"\]\)/.test(bell) && /filter: `user_id=eq\.\$\{userId\}`/.test(bell))
@@ -484,7 +484,8 @@ async function main() {
   /* Round 12: red again, white figures (components/notifications/badge-tone.ts), reversing round 8. */
   check("the count is the red bubble with white figures", /data-bell-badge=""[\s\S]{0,400}NOTIFICATION_BADGE/.test(bell) && /import \{ NOTIFICATION_BADGE \} from "\.\/badge-tone"/.test(bell))
   check("the same filter and Mark all as read on a phone, under the title", /data-bell-sheet-header=""[\s\S]{0,300}<FilterMenu value=\{filter\} onChange=\{onFilter\} align="left" \/>\s*<MarkAll unread=\{unread\} onMarkAll=\{onMarkAll\} \/>/.test(bell))
-  check("Notifications, Mark all as read, the filter, and Nothing new", />\s*Notifications\s*</.test(bell) && />\s*Mark all as read\s*</.test(bell) && /INBOX_FILTERS\.map/.test(bell) && />Nothing new</.test(bell))
+  /* Round 13 (ask 24): an empty list says what lands there, per filter, never "Nothing new". */
+  check("Notifications, Mark all as read, the filter, and a calm empty state", />\s*Notifications\s*</.test(bell) && />\s*Mark all as read\s*</.test(bell) && /INBOX_FILTERS\.map/.test(bell) && /<EmptyInbox filter=\{filter\} \/>/.test(bell) && !/>Nothing new</.test(bell))
   check("tapping a row marks it read on the way, and the mark outlives the page", /void postRead\(\{ ids: \[n\.id\] \}\)/.test(bell) && /keepalive: true/.test(bell))
   const header = code("components/platform/platform-header-client.tsx")
   check("in the platform header: both computer rows and the phone row, signed in only", (header.match(/<NotificationBell className=\{chrome\.iconBtn\} \/>\s*\{sellerDashboardButton\}\s*\{desktopAccountMenu\}/g) ?? []).length === 2 && /\{user \? <NotificationBell className=\{chrome\.iconBtn\} \/> : null\}/.test(header))
