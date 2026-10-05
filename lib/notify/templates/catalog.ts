@@ -110,6 +110,7 @@ export const DATA_KEYS: Record<NotificationType, readonly string[]> = {
   COMMUNITY_ANNOUNCEMENT: [...COMMUNITY_KEYS, "postId", "title", "excerpt", "authorName"],
   COMMUNITY_EVENT_REMINDER: [...COMMUNITY_KEYS, "eventId", "eventTitle", "startsAt", "endsAt", "timezone", "lead", "location", "online"],
   COMMUNITY_COURSE_AVAILABLE: [...COMMUNITY_KEYS, "courseTitle", "courseProductId"],
+  COMMUNITY_REPORT_DIGEST: [...COMMUNITY_KEYS, "reportCount", "moreCount", "line1", "line2", "line3", "line4", "line5"],
 }
 
 /* ── Canonical paths ───────────────────────────────────────────────────── */
@@ -1515,6 +1516,7 @@ export const CATALOG: Record<NotificationType, Entry> = {
   COMMUNITY_ANNOUNCEMENT: (d, ctx) => COMMUNITY_ENTRIES.COMMUNITY_ANNOUNCEMENT(d, ctx),
   COMMUNITY_EVENT_REMINDER: (d, ctx) => COMMUNITY_ENTRIES.COMMUNITY_EVENT_REMINDER(d, ctx),
   COMMUNITY_COURSE_AVAILABLE: (d, ctx) => COMMUNITY_ENTRIES.COMMUNITY_COURSE_AVAILABLE(d, ctx),
+  COMMUNITY_REPORT_DIGEST: (d, ctx) => COMMUNITY_ENTRIES.COMMUNITY_REPORT_DIGEST(d, ctx),
 }
 
 /** What every community email says the same way: its name, who runs it, and its address. */
@@ -1547,7 +1549,7 @@ function eventWhen(d: Data): string {
 /* ── A member of a community ──────────────────────────────────────────── */
 
 const COMMUNITY_ENTRIES: Record<
-  "COMMUNITY_WELCOME" | "COMMUNITY_JOIN_APPROVED" | "COMMUNITY_INVITE" | "COMMUNITY_ANNOUNCEMENT" | "COMMUNITY_EVENT_REMINDER" | "COMMUNITY_COURSE_AVAILABLE",
+  "COMMUNITY_WELCOME" | "COMMUNITY_JOIN_APPROVED" | "COMMUNITY_INVITE" | "COMMUNITY_ANNOUNCEMENT" | "COMMUNITY_EVENT_REMINDER" | "COMMUNITY_COURSE_AVAILABLE" | "COMMUNITY_REPORT_DIGEST",
   Entry
 > = {
   COMMUNITY_WELCOME: (d) => {
@@ -1678,6 +1680,37 @@ const COMMUNITY_ENTRIES: Record<
       note: memberNote(c, "classroom emails"),
       greet: false,
       inApp: { title: "New course", body: course ? `${course} is open to you.` : "A new course is open to you.", actionLabel: "Start", actionPath: path },
+    }
+  },
+
+  /*
+    THE DAY'S REPORTS, to a moderator: how many, what each was (up to five lines), and one button to the queue in /app
+    where they are dealt with. Never the reporter's name, and never more than the note they wrote. At most one a day per
+    community (lib/notifications/report-digest.ts).
+  */
+  COMMUNITY_REPORT_DIGEST: (d) => {
+    const c = communityOf(d)
+    const n = d.count("reportCount") ?? 0
+    const more = d.count("moreCount") ?? 0
+    const id = d.id("communityId")
+    const path = id ? `/app/community/${id}/moderation` : "/app/community"
+    const what = n === 1 ? "1 new report" : n > 1 ? `${n} new reports` : "New reports"
+    const lines = [1, 2, 3, 4, 5].map((i) => d.text(`line${i}`, 140)).filter(Boolean)
+    return {
+      family: "base",
+      audience: "creator",
+      subject: fitSubject(`${what} in `, c.name, "") || `${what} in your community`,
+      preview: lines[0] || "Members flagged something for you to look at.",
+      heading: c.name ? `${what} in ${c.name}` : `${what} in your community`,
+      paragraphs: [
+        "Members flagged these for you to look at:",
+        ...lines,
+        more ? `And ${more} more in the queue.` : "",
+      ].filter(Boolean),
+      action: { label: "Open the moderation queue", path },
+      note: "One email a day at most, and only when there is something new. You can turn it off in Settings, under Notifications.",
+      greet: false,
+      inApp: { title: c.name ? `${what} in ${c.name}` : what, body: lines[0] || "Members flagged something for you to look at.", actionLabel: "Review", actionPath: path },
     }
   },
 }

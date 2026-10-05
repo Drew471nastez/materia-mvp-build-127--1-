@@ -126,9 +126,14 @@ interface NotificationRowLite {
   created_at: string
 }
 
-/** Only a path inside this community is kept as a notification's link. */
-export function inboxUrl(url: string | null, slug: string): string | null {
+/**
+ * Only a path inside this community is kept as a notification's link, or
+ * this community's moderation queue in /app (a report, for staff with a
+ * store: lib/communities/server/reports.ts).
+ */
+export function inboxUrl(url: string | null, slug: string, communityId?: string): string | null {
   if (!url || typeof url !== "string") return null
+  if (communityId && url === `/app/community/${communityId}/moderation`) return url
   return url.startsWith(`/community/${slug}`) ? url : null
 }
 
@@ -172,7 +177,7 @@ export async function listNotifications(
         kind: r.kind,
         title: r.title,
         body: r.body,
-        url: inboxUrl(r.url, community.slug),
+        url: inboxUrl(r.url, community.slug, community.id),
         read: !!r.read_at,
         createdAt: r.created_at,
         actor: r.actor_id ? (actors.get(r.actor_id) ?? null) : null,

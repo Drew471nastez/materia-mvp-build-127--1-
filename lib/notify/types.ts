@@ -71,6 +71,7 @@ export const DOMAIN_EVENTS = [
   "community.invite",
   "community.course_available",
   "community.join_approved",
+  "community.report_digest",
   "domain.connected",
   "domain.connection_failed",
   "team.invitation_created",
@@ -186,6 +187,8 @@ export const NOTIFICATION_TYPES = [
   "COMMUNITY_ANNOUNCEMENT",
   "COMMUNITY_EVENT_REMINDER",
   "COMMUNITY_COURSE_AVAILABLE",
+  /* The day's new reports in a community, to each of its moderators: at most one a day (lib/notifications/report-digest.ts). */
+  "COMMUNITY_REPORT_DIGEST",
 ] as const
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number]

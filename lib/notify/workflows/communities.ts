@@ -12,6 +12,8 @@
  *   community.announcement       COMMUNITY_ANNOUNCEMENT, once per announcement and member
  *   community.event_reminder     COMMUNITY_EVENT_REMINDER, once per event, reminder and member
  *   community.course_available   COMMUNITY_COURSE_AVAILABLE, once per course and member
+ *   community.report_digest      COMMUNITY_REPORT_DIGEST, once per moderator, community and day,
+ *                                to the person (a creator template: it opens /app)
  *
  * The step is the caller's own key, so the same announcement told twice
  * plans one job. A reminder is no use once its event has started, so it
@@ -27,6 +29,7 @@ const TYPE_OF: Partial<Record<string, NotificationType>> = {
   "community.announcement": "COMMUNITY_ANNOUNCEMENT",
   "community.event_reminder": "COMMUNITY_EVENT_REMINDER",
   "community.course_available": "COMMUNITY_COURSE_AVAILABLE",
+  "community.report_digest": "COMMUNITY_REPORT_DIGEST",
 }
 
 export const communities: Workflow = (event, ctx) => {
@@ -41,10 +44,11 @@ export const communities: Workflow = (event, ctx) => {
     const starts = Date.parse(str(event.payload.startsAt) ?? "")
     expiresInMs = Number.isFinite(starts) && starts > ctx.now ? starts - ctx.now : HOUR_MS
   }
+  const toPerson = type === "COMMUNITY_REPORT_DIGEST"
   return plan([
     job(type, event, ctx, {
-      recipientType: "customer",
-      recipientUserId: null,
+      recipientType: toPerson ? "creator" : "customer",
+      recipientUserId: toPerson ? (event.userId ?? null) : null,
       recipientEmail: email,
       entityType: "community",
       entityId: communityId ?? null,
