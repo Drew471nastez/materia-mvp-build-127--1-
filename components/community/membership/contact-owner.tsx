@@ -17,9 +17,28 @@ import { useState } from "react"
 import { Check, Copy, Loader2 } from "lucide-react"
 import { api, apiBase } from "@/components/community/member/api"
 import { BTN_GHOST, BTN_PRIMARY, CARD, FIELD } from "@/components/community/member/ui"
+import { useMembershipView } from "./cancel-membership"
 import { CONTACT_MESSAGE_MAX, CONTACT_MESSAGE_MIN, CONTACT_SUBJECT_MAX, cleanContactMessage } from "@/lib/communities/membership-policy"
 
-export function ContactOwner({
+/**
+ * With `enabled` and `publicEmail` given (MembershipSection passes the
+ * server's view), the form draws at once. With neither (the Membership
+ * page's slot: communityId and ownerName only), it asks
+ * GET /api/community/<id>/membership first and draws nothing until it knows
+ * whether the owner takes messages and shows an address.
+ */
+export function ContactOwner(props: { communityId: string; ownerName?: string | null; publicEmail?: string | null; enabled?: boolean }) {
+  if (props.enabled === undefined && props.publicEmail === undefined) return <ContactOwnerLoaded communityId={props.communityId} ownerName={props.ownerName ?? null} />
+  return <ContactOwnerForm {...props} />
+}
+
+function ContactOwnerLoaded({ communityId, ownerName }: { communityId: string; ownerName: string | null }) {
+  const { view } = useMembershipView(communityId, null)
+  if (!view) return null
+  return <ContactOwnerForm communityId={communityId} ownerName={view.contact.ownerName ?? ownerName} publicEmail={view.contact.publicEmail} enabled={view.contact.form} />
+}
+
+function ContactOwnerForm({
   communityId,
   ownerName,
   publicEmail = null,
