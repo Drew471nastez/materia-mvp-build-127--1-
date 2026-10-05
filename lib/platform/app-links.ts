@@ -39,6 +39,44 @@
  * there. The OAuth and password reset returns open the app, as before.
  *
  * Pure: the routes and the tests read the same function.
+ *
+ * ---------------------------------------------------------------------------
+ *  THE NATIVE CHECKLIST (round 14). What is in the repo today, and what a
+ *  build still has to carry. Everything here ships with an App Store and
+ *  Play release, not with a deploy.
+ * ---------------------------------------------------------------------------
+ *   WORKS THE MOMENT THIS DEPLOYS, no native release:
+ *     - the hand off card inside Instagram's, WhatsApp's and the other
+ *       in-app browsers (components/platform/open-in-app-card.tsx)
+ *     - the scheme hand off on an iPhone: com.storelib.app is already
+ *       registered in ios/App/App/Info.plist (CFBundleURLSchemes), and
+ *       components/platform/app-link-opener.tsx already routes it
+ *     - the Play Store and App Store fallbacks, and the Play `referrer`
+ *       carrying the path
+ *
+ *   NEEDS THE NEXT BUILD:
+ *     - iOS Associated Domains. There is no .entitlements file in ios/ and
+ *       no Xcode project in the repo, so Universal Links are not on: add the
+ *       Associated Domains capability with `applinks:storelib.com` and
+ *       `applinks:www.storelib.com`, and the matching App ID capability in
+ *       the Apple Developer portal. Until then an iPhone opens a
+ *       storelib.com link in Safari, and only the card hands it over.
+ *     - the Android scheme filters for com.storelib.app://open and
+ *       storelib://open (added to android/app/src/main/AndroidManifest.xml
+ *       in this round, so this is a release away, not a change away).
+ *     - the Android Install Referrer read on first launch, for a link that
+ *       sent somebody to Play: Play passes `referrer=utm_content=<path>`
+ *       through (lib/platform/open-in-app storeLink), and the app has to
+ *       read it with com.android.installreferrer once, on the first run, and
+ *       hand the path to openTarget. iOS has no equivalent without a paid
+ *       service, so the card says to tap the link again there instead.
+ *     - `npx cap sync` after any of the above, then a release on both stores.
+ *
+ *   ENV VARS: APPLE_TEAM_ID, IOS_BUNDLE_ID, ANDROID_PACKAGE_NAME,
+ *   ANDROID_SHA256_CERT_FINGERPRINTS (above), and
+ *   NEXT_PUBLIC_IOS_APP_STORE_ID, the numeric App Store id. Without that
+ *   last one an iPhone has no App Store address to fall back to, and the
+ *   card says to search the App Store rather than following a broken one.
  */
 
 export const DEFAULT_TEAM_ID = "A746FHGY53"

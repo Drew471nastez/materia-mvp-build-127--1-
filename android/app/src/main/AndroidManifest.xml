@@ -172,6 +172,40 @@
                 <data android:pathPrefix="/u/" />
                 <data android:pathPrefix="/p/" />
             </intent-filter>
+
+            <!--
+                THE WAY OUT OF INSTAGRAM'S AND WHATSAPP'S OWN BROWSER
+                (round 14, components/platform/open-in-app-card.tsx).
+                An App Link above is only honoured where the tap happens:
+                Chrome, Gmail, Messages, a Chrome Custom Tab. Inside the web
+                view Instagram, WhatsApp, TikTok and the rest open links in,
+                neither an App Link nor an `intent://` gets out, and only a
+                custom scheme does. The card navigates to
+
+                    com.storelib.app://open?path=%2Fcommunity%2Fclay
+
+                and these two filters are what makes Android answer it. The
+                app reads the path from the launch URL and goes there
+                (components/platform/app-link-opener.tsx, openTarget, which
+                accepts both of these schemes). Until a release carries this,
+                Android falls back to the Play Store after 1.4s, so nobody
+                is left on a broken address; iOS already registers the same
+                scheme in ios/App/App/Info.plist (CFBundleURLSchemes) and
+                needs no release for it.
+            -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="com.storelib.app" android:host="open" />
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="storelib" android:host="open" />
+            </intent-filter>
         </activity>
 
         <provider
