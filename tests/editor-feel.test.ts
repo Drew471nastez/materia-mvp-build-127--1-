@@ -91,5 +91,18 @@ console.log("\nThe icon picker looks like the rest of the builder\n")
   check("  on a phone it is the app's bottom sheet, with the search at its top", /<FieldPopover[\s\S]{0,80}float[\s\S]{0,80}sheetLabel="Choose an icon"[\s\S]{0,40}sheetHeader=\{search\}/.test(ip))
 }
 
+console.log("\nShop data in a sentence is a chip\n")
+{
+  const ct = read("components/website-builder/editor/controls/chip-text-input.tsx")
+  const ds = read("components/website-builder/editor/controls/dynamic-source-field.tsx")
+  check("a plain text setting with a source in it is drawn as words and grey chips", /chipped \? \(\s*<ChipTextInput/.test(ds) && /target === "text" && named\.length > 0/.test(ds))
+  check("  and stays that field after its last chip goes, so typing is never cut off", /wasChipped\.current = true/.test(ds))
+  check("  the stored value is still the placeholder string the pages read", /out \+= placeholderFor\(child\.dataset\.chip\)/.test(ct))
+  check("  a chip comes out with its x or Backspace, and pasting brings words only", /data-chip-remove/.test(ct) && /getData\("text\/plain"\)/.test(ct) && /contentEditable = "false"/.test(ct))
+  check("  the line spelling the sentence back is only left under rich text", /named\.length > 0 && !chipped \? placeholderParts\(text\)/.test(ds))
+  check("  the list of shop data says what each one is, under calm group names", /s\.description/.test(ds) && !/uppercase tracking-widest/.test(ds))
+  check("  a connected field is the height of the boxes beside it", /flex h-8 max-sm:h-auto max-sm:min-h-11/.test(ds))
+}
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed) process.exit(1)

@@ -104,7 +104,7 @@ const geometry = (page, id) =>
     const btn = f.querySelector("[data-dynamic-action]")
     return {
       label: r(f.querySelector("label")),
-      input: r(f.querySelector("input, select, [data-dynamic-bound]")),
+      input: r(f.querySelector("input, select, [data-dynamic-bound], [data-chip-input]")),
       button: r(btn),
       opacity: btn ? getComputedStyle(btn).opacity : null,
       transition: btn ? getComputedStyle(btn).transitionProperty : null,
@@ -329,13 +329,15 @@ try {
     expect(value === "Feat {{ product.title }} ured", "the source goes in at the caret", value)
     const inserted = await geometry(page, "eyebrow")
     expect(inserted.label.y === before.label.y && inserted.input.y === before.input.y && inserted.input.h === before.input.h, "inserting moves neither the label nor the field", { before: before.input, after: inserted.input })
-    const note = await page.evaluate(() => {
-      const n = document.querySelector('[data-probe-field="eyebrow"] [data-dynamic-note]')
-      return n ? { text: n.textContent, named: n.querySelector("span")?.textContent } : null
+    /* The source is a grey chip in the sentence now (chip-text-input.tsx), not braces with a line spelling it back. */
+    const chipIn = await page.evaluate(() => {
+      const f = document.querySelector('[data-probe-field="eyebrow"]')
+      const box = f.querySelector("[data-chip-input]")
+      return box ? { text: box.textContent, chip: box.querySelector("[data-chip]")?.dataset.chip, note: !!f.querySelector("[data-dynamic-note]") } : null
     })
-    expect(note?.text === "On the page: Feat Product title ured" && note?.named === "Product title", "the line under it reads the source by its name", note)
-    const refocus = await page.evaluate(() => document.activeElement?.tagName)
-    expect(vp.phone ? refocus === "BUTTON" : refocus === "INPUT", vp.phone ? "focus goes back to the button, so no keyboard comes up" : "focus goes back to the text box after what went in", refocus)
+    expect(chipIn?.chip === "product.title" && /^Feat\s?Product title\s?ured$/.test(chipIn.text) && !chipIn.note, "the source sits in the sentence as a chip with its name", chipIn)
+    const refocus = await page.evaluate(() => (document.activeElement?.hasAttribute("data-chip-input") ? "CHIPS" : document.activeElement?.tagName))
+    expect(vp.phone ? refocus === "BUTTON" : refocus === "CHIPS", vp.phone ? "focus goes back to the button, so no keyboard comes up" : "focus goes back to the text box after what went in", refocus)
     await shoot("inserted")
 
     /* ── A whole source is a chip with an x ─────────────────── */
@@ -423,8 +425,9 @@ try {
 
       /* A picture takes a picture and nothing else. */
       await openList("image")
-      expect(JSON.stringify(await labels("image")) === JSON.stringify(["Creator photo", "Product image"]),
-        "a picture setting is offered the two pictures", await labels("image"))
+      /* Brand image joined the list with Theme settings › Brand information. */
+      expect(JSON.stringify(await labels("image")) === JSON.stringify(["Brand image", "Creator photo", "Product image"]),
+        "a picture setting is offered the pictures, and only pictures", await labels("image"))
       await pickIn("image", "Creator photo")
       expect((await stored("image")) === "{{ creator.avatar }}" && (await drawn("image")) === "https://cdn.example.com/drew.jpg",
         "a connected picture swaps to the new source and the page draws it", { stored: await stored("image"), drawn: await drawn("image") })

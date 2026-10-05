@@ -13,8 +13,9 @@ import { createClient } from "@/lib/supabase/server"
  * the editor) on the live website, or the first one when none is live.
  */
 export default async function NavigationAddress() {
-  const user = await pageUser()
-  if (!user) redirect("/login?next=/app/website-builder")
+  /* Signed out goes to login from pageUser; a session it could not read yet (a blip) is not signed out, so it goes to the builder's own page, which knows how to wait. */
+  const user = await pageUser("/login?next=/app/website-builder")
+  if (user === null) redirect("/app/website-builder")
 
   const supabase = await createClient()
   const { data: creator } = await supabase.from("creators").select("id").eq("user_id", user.id).maybeSingle()

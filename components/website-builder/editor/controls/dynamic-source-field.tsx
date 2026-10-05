@@ -85,6 +85,7 @@ import {
   wholeSource,
   type DynamicSource,
 } from "@/lib/storelib-theme/dynamic"
+import { ChipTextInput, type ChipTextInputHandle } from "./chip-text-input"
 import { useEditorFieldEnv } from "./context"
 import { NOTE } from "./styles"
 
@@ -114,6 +115,8 @@ export function DynamicSourceField({
   const button = React.useRef<HTMLButtonElement>(null)
   const list = React.useRef<HTMLDivElement>(null)
   const body = React.useRef<HTMLDivElement>(null)
+  const chips = React.useRef<ChipTextInputHandle>(null)
+  const wasChipped = React.useRef(false)
   /** Where the caret was in the field's text box, so an insert lands there. */
   const caret = React.useRef<number | null>(null)
   /* Read on every selection change and again as the text box loses focus to the button. */
@@ -160,6 +163,14 @@ export function DynamicSourceField({
   }
 
   const named = bound ? [] : whole ? [] : sourcesIn(text)
+  /**
+   * PLAIN WORDS WITH SOURCES AMONG THEM ARE DRAWN AS CHIPS (chip-text-input.tsx):
+   * "Welcome to [Shop name]" rather than braces. Text and long text only; a
+   * rich text setting keeps its own editor and the line under it.
+   */
+  /* Once a chip field, always one: deleting the last chip must not swap the box being typed in for another. */
+  if (target === "text" && named.length > 0) wasChipped.current = true
+  const chipped = target === "text" && wasChipped.current
   /** Anything of this setting's value that comes from the shop, whole or among words. */
   const connected = !!bound || named.length > 0
 
@@ -181,6 +192,10 @@ export function DynamicSourceField({
     */
     setTimeout(() => {
       requestAnimationFrame(() => {
+        if (!phone && chips.current) {
+          chips.current.focusAt(next.caret)
+          return
+        }
         const input = body.current?.querySelector<HTMLInputElement | HTMLTextAreaElement>("input[type='text'], input:not([type]), textarea")
         if (!phone && input) {
           input.focus({ preventScroll: true })
@@ -258,7 +273,8 @@ export function DynamicSourceField({
   )
 
   const source = bound ? dynamicSource(bound) : undefined
-  const parts = named.length > 0 ? placeholderParts(text) : []
+  /* The sentence spelled back under a rich text field; chips already say it in a plain one. */
+  const parts = named.length > 0 && !chipped ? placeholderParts(text) : []
 
   return (
     <div data-dynamic-field="">
@@ -286,7 +302,7 @@ export function DynamicSourceField({
             >
               {bound ? (
                 <div
-                  className="flex h-9 max-sm:min-h-11 items-center rounded-lg border border-border bg-background px-1.5"
+                  className="flex h-8 max-sm:h-auto max-sm:min-h-11 items-center rounded-md border border-border bg-background px-1"
                   data-dynamic-bound=""
                 >
                   <span className="inline-flex h-6 max-sm:h-8 min-w-0 max-w-full items-center gap-0.5 rounded-md bg-neutral-100 pl-2 pr-0.5 text-[13px] max-sm:text-[15px] font-medium text-foreground">
@@ -301,6 +317,17 @@ export function DynamicSourceField({
                     </button>
                   </span>
                 </div>
+              ) : chipped ? (
+                <ChipTextInput
+                  ref={chips}
+                  value={text}
+                  onChange={(next) => onChange(next)}
+                  multiline={kind === "textarea"}
+                  label={label}
+                  onCaret={(at) => {
+                    caret.current = at
+                  }}
+                />
               ) : (
                 children
               )}
@@ -317,7 +344,7 @@ export function DynamicSourceField({
         >
           {Object.entries(groups).map(([group, items]) => (
             <div key={group} className="py-1" role="group" aria-label={group}>
-              <p className="px-3 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground" aria-hidden>{group}</p>
+              <p className="px-3 pb-1 pt-1.5 text-[12px] font-medium text-[#6b7280]" aria-hidden>{group}</p>
               {items.map((s) => (
                 <button
                   key={s.id}
