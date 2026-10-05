@@ -16,6 +16,22 @@ export function postShortId(id: string): string {
   return id.replace(/-/g, "").slice(0, 8).toLowerCase()
 }
 
+/**
+ * The uuid bounds for a short id. `community_feed_posts.id` is a uuid, and
+ * `ilike` is not an operator on uuid, so a pretty share link
+ * (/post/some-words-a1b2c3d4) and its share.png both failed the lookup and
+ * answered 404. Comparison on uuid is the first bytes, which are these eight
+ * digits, so every id with this prefix sits in [from, to).
+ */
+export function postShortIdRange(short: string): { from: string; to: string | null } {
+  const hex = short.toLowerCase()
+  const from = `${hex}-0000-0000-0000-000000000000`
+  const n = Number.parseInt(hex, 16)
+  if (!Number.isFinite(n) || n >= 0xffffffff) return { from, to: null }
+  const next = (n + 1).toString(16).padStart(8, "0")
+  return { from, to: `${next}-0000-0000-0000-000000000000` }
+}
+
 /** The `post` segment only (slug + short id), not the community slug. */
 export function postLinkSegment(post: PostLinkInput): string {
   const lead = (post.title || post.bodyText || "").trim()

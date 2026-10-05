@@ -155,7 +155,7 @@ async function main() {
 
   /* ── 7 ─────────────────────────────────────────────────────────────── */
   console.log("\n7. Share")
-  check("the app's Share plugin, else navigator.share, else the link copied", /native\.Plugins\.Share\.share\(/.test(card) && /navigator\.share\(\{ title/.test(card) && /navigator\.clipboard\.writeText\(url\)/.test(card) && /"cancelled"/.test(card))
+  check("the app's Share plugin, else navigator.share, else the link copied", /native\.Plugins\.Share\.share\(/.test(card) && /navigator\.share\(ios \? \{ title/.test(card) && /navigator\.clipboard\.writeText\(url\)/.test(card) && /"cancelled"/.test(card))
   check("Share post and Copy link in the menu; Share in the opened post", /label: "Share post"/.test(card) && /label: "Copy link"/.test(card) && /data-share-post=""/.test(card))
   check("the shared link's picture card carries the post's first picture", /sharePicture\(firstPicture\(facts\.post\.media\)/.test(code("app/(marketing)/community/[slug]/(member)/post/[postId]/share.png/route.tsx")))
 

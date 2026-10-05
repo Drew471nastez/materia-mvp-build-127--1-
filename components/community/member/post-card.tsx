@@ -124,13 +124,18 @@ export const SHARE_ORIGIN = "https://storelib.com"
 export async function sharePost(url: string, title: string | null, text: string): Promise<"shared" | "copied" | "cancelled" | "failed"> {
   const words = text.replace(/\s+/g, " ").trim().slice(0, 140)
   const native = (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean; Plugins?: { Share?: { share: (o: { title?: string; text?: string; url: string; dialogTitle?: string }) => Promise<unknown> } } } }).Capacitor
+  /* Android's share sheet (WhatsApp especially) drops the url field and sends
+     only text, so the https address has to be in the text. iOS keeps url as
+     the link and would show it twice if it were also in the text. */
+  const ios = typeof navigator !== "undefined" && /iPad|iPhone|iPod/.test(navigator.userAgent)
+  const message = ios ? words || undefined : [words, url].filter(Boolean).join("\n\n")
   try {
     if (native?.isNativePlatform?.() && native.Plugins?.Share) {
-      await native.Plugins.Share.share({ title: title ?? undefined, text: words || undefined, url, dialogTitle: "Share post" })
+      await native.Plugins.Share.share({ title: title ?? undefined, text: message, url, dialogTitle: "Share post" })
       return "shared"
     }
     if (typeof navigator.share === "function") {
-      await navigator.share({ title: title ?? undefined, text: words || undefined, url })
+      await navigator.share(ios ? { title: title ?? undefined, text: words || undefined, url } : { title: title ?? undefined, text: message })
       return "shared"
     }
   } catch (e) {

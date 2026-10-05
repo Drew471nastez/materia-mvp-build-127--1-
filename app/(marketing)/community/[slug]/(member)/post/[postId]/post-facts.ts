@@ -17,7 +17,7 @@ import { communitiesEnabled } from "@/lib/communities/flag"
 import { loadCommunity } from "@/lib/communities/server/context"
 import { admin } from "@/lib/communities/server/db"
 import type { CommunityRow, PostMedia } from "@/lib/communities/types"
-import { parsePostParam } from "@/lib/communities/post-url"
+import { parsePostParam, postShortIdRange } from "@/lib/communities/post-url"
 import type { PostFacts } from "./post-seo"
 
 export const postFacts = cache(async (slug: string, postIdParam: string): Promise<(PostFacts & { communityRow: CommunityRow }) | null> => {
@@ -32,7 +32,12 @@ export const postFacts = cache(async (slug: string, postIdParam: string): Promis
       .from("community_feed_posts")
       .select("id, community_id, space_id, author_id, title, body_text, media, status, deleted_at, created_at, edited_at, comment_count")
       .eq("community_id", community.id)
-    q = parsed.kind === "uuid" ? q.eq("id", parsed.id) : q.ilike("id", `${parsed.short}%`)
+    if (parsed.kind === "uuid") q = q.eq("id", parsed.id)
+    else {
+      const range = postShortIdRange(parsed.short)
+      q = q.gte("id", range.from)
+      if (range.to) q = q.lt("id", range.to)
+    }
     const { data: row, error } = await q.limit(1).maybeSingle()
     if (error || !row) return null
     const post = row as {
