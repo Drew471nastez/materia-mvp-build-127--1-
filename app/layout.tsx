@@ -54,6 +54,7 @@ import { AppHistoryTracker } from "@/components/platform/app-history-tracker"
 import { NativeLinkGuard } from "@/components/platform/native-link-guard"
 import { NativePlaceKeeper } from "@/components/platform/native-place-keeper"
 import { NativeChrome } from "@/components/platform/native-chrome"
+import { EdgeSwipeBack } from "@/components/platform/edge-swipe-back"
 import { NativePushInit } from "@/components/native-push-init"
 import { SWITCH_FIRST_PAINT_SCRIPT } from "@/lib/businesses/switch-screen"
 import { EXPLORE_SCROLL_BOOT_SCRIPT } from "@/lib/explore/explore-scroll-boot"
@@ -272,6 +273,8 @@ export default function RootLayout({
         <NativePlaceKeeper />
         {/* The strip under the clock, the browser's bar and the status bar's text in the page's own top colour; the launch screen down on the first steady frame. */}
         <NativeChrome />
+        {/* In the iPhone app only: a swipe from the left edge drags the page and goes back (lib/navigation/edge-swipe). */}
+        <EdgeSwipeBack />
         <NativePushInit /> 
         <CookieConsentBanner />
         {/*
