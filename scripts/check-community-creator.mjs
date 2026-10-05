@@ -297,7 +297,15 @@ export default React.forwardRef(function Link({ href, children, prefetch, ...res
       }
       if (c === "moderation") {
         const r = await p.evaluate(() => ({ rows: document.querySelectorAll("[data-report]").length, remove: document.querySelectorAll("[data-report-remove]").length, views: document.querySelectorAll("[data-list-head] [data-filter]").length }))
-        expect(r.rows === 2 && r.remove === 2 && r.views === 5, "MODERATE: two reports, Remove on each, five views", r)
+        expect(r.rows === 3 && r.remove === 2 && r.views === 5, "MODERATE: three reports, Remove on the two that are up, five views", r)
+        /* Round 12: a post the safety rules held waits with Approve and Keep hidden, its note in plain words (lib/communities/server/safety.ts). */
+        const held = await p.evaluate(() => {
+          const row = [...document.querySelectorAll("[data-report]")].find((x) => x.querySelector("[data-report-approve]"))
+          const buttons = row ? [...row.querySelectorAll("button")].map((b) => b.textContent.trim()).filter(Boolean) : []
+          const tap = row ? [...row.querySelectorAll("[data-report-approve], [data-report-keep]")].map((b) => Math.round(b.getBoundingClientRect().height)) : []
+          return { found: !!row, badge: row?.textContent.includes("Held for review") ?? false, note: row?.querySelector("[data-report-system]")?.textContent.trim() ?? "", buttons, tap, overflow: document.documentElement.scrollWidth - window.innerWidth }
+        })
+        expect(held.found && held.badge && held.buttons.includes("Approve") && held.buttons.includes("Keep hidden") && !held.buttons.includes("Dismiss") && /^A link that imitates a known brand \(paypal\)$/.test(held.note) && held.overflow <= 0 && held.tap.every((h) => h >= (phone ? 40 : 32)), "MODERATE: a held post has Approve and Keep hidden, the rule's note unquoted", held)
         await p.click('[data-report] [aria-label="Report actions"]')
         await sleep(450)
         const items = await p.evaluate(() => [...document.querySelectorAll('[role="menuitem"], [role="dialog"] button, [role="dialog"] a')].map((x) => x.textContent.trim()).filter(Boolean))
@@ -322,6 +330,12 @@ export default React.forwardRef(function Link({ href, children, prefetch, ...res
         await sleep(120)
         const after = await p.evaluate(() => ({ rules: document.querySelectorAll("[data-rule]").length, bar: !!document.querySelector("[data-save-bar]") }))
         expect(before.rules === 2 && !before.bar && after.rules === 3 && after.bar, "MODERATE: two rules, Add a rule makes a third and brings the Save bar", { before, after })
+        const slow = await p.evaluate(() => {
+          const row = document.querySelector("[data-slow-mode]")
+          const select = row?.querySelector("select")
+          return { row: !!row, value: select?.value ?? null, options: select ? [...select.options].map((o) => o.value).join() : "", height: select ? Math.round(select.getBoundingClientRect().height) : 0, overflow: document.documentElement.scrollWidth - window.innerWidth }
+        })
+        expect(slow.row && slow.value === "300" && slow.options === "0,30,60,300,900,3600" && slow.height >= 40 && slow.overflow <= 0, "MODERATE: slow mode sits above the rules with its six choices", slow)
         await p.evaluate(() => [...document.querySelectorAll("[data-save-bar] button")].find((b) => b.textContent.trim() === "Discard")?.click())
         await sleep(100)
       }

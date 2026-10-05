@@ -297,9 +297,11 @@ function App() {
               banned: { rows: [member(9, { status: "banned", name: "Spam Account", email: "spam@example.com" })], next: null, capped: false },
             }}
             tiers={[{ id: "t1", name: "Members", kind: "paid" }]}
+            slowMode={300}
             initialAudit={{
               next: null,
               rows: [
+                { id: 4, action: "post.held", actorName: null, actorKind: "system", targetType: "post", targetLabel: "Your payout is waiting, verify here", reason: "Held for review: a link that imitates a known brand (paypal)", createdAt: ago(0.05) },
                 { id: 3, action: "post.removed", actorName: "Priya Raman", actorKind: "member", targetType: "post", targetLabel: "Buy my course", reason: "Spam", createdAt: ago(0.1) },
                 { id: 2, action: "member.muted", actorName: "Ana Popescu", actorKind: "member", targetType: "member", targetLabel: null, reason: null, createdAt: ago(0.5) },
                 { id: 1, action: "community.settings_changed", actorName: "Ana Popescu", actorKind: "member", targetType: "community", targetLabel: "The Morning Writers", reason: null, createdAt: ago(3) },
@@ -310,6 +312,7 @@ function App() {
               rows: [
                 { id: "r1", targetType: "post", targetId: "p3", reason: "spam", note: "Same post in every space", status: "open", createdAt: ago(0.1), reporterName: "Priya Raman", preview: "Buy my course, link in bio", subject: { userId: "00000000-0000-4000-8000-000000000099", name: "Spam Account", role: "member", member: { role: "member", status: "active", source: "free", mutedUntil: null } }, targetState: "published", resolution: null },
                 { id: "r2", targetType: "comment", targetId: "c1", reason: "harassment", note: null, status: "reviewing", createdAt: ago(1), reporterName: "Jonah Brooks", preview: "Nobody wants to read this.", subject: { userId: "00000000-0000-4000-8000-000000000098", name: "Lukas Novak", role: "member", member: { role: "member", status: "active", source: "free", mutedUntil: null } }, targetState: "published", resolution: null },
+                { id: "r3", targetType: "post", targetId: "p4", reason: "spam", note: "Held for review: a link that imitates a known brand (paypal)", status: "open", createdAt: ago(0.05), reporterName: null, preview: "Your payout is waiting, verify here https://paypa1-secure.com", subject: { userId: "00000000-0000-4000-8000-000000000097", name: "New Account", role: "member", member: { role: "member", status: "active", source: "free", mutedUntil: null } }, targetState: "removed", resolution: null },
               ],
             }}
           />
