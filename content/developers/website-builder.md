@@ -66,7 +66,7 @@ Click a section, in the canvas or the list, and its settings open in the sidebar
 
 - **Colour scheme** comes first: pick one of the website's schemes and every colour in the section follows it. **Advanced colors** overrides single colours (background, text, heading, accent, border, and each button's fill, text, hover fill and hover text) for this section only. A hover colour says Auto until you pick one. **Reset all to scheme** undoes that.
 - **The section's own colours**, when its file declares any (stars, a timeline's dot, the scrim over a photo), are rows among its settings. Each says Scheme, Default or Auto until you pick a colour for this section alone, and the arrow beside it puts it back. See [Styling](/developers/styling#colours-of-the-sections-own).
-- **Text** picks the heading style and the body style from the theme's text styles, or **Custom** to set font, weight, size per screen, line height, letter spacing and case for this section.
+- **Text** picks the heading style and the body style from the theme's text styles, or **Custom** to set font, weight, a desktop and a phone size, line height, letter spacing and case for this section.
 - **The section's own settings** follow, in the order its file declares them, each with its help text. A setting marked responsive has a Desktop, Tablet, Phone switch above it.
 - **Blocks**, if it has any. Each block has a grip to drag it up or down with a mouse or a finger, or with the arrow keys. It can also be duplicated, deleted, and opened to edit its own settings. **Add** adds another, until the section's `limit` for that kind of block or its `max_blocks`. Clicking a block in the canvas opens it in the list.
 - **Hide**, **Duplicate** and **Delete** are pinned along the bottom.
@@ -87,11 +87,21 @@ The header has a panel of its own, in three parts.
 - **Navigation Links**: up to eight links, each with a label, where it goes, and whether it opens in a new tab. Drag to reorder. Each link can hold one level of sub-links. Once the site has menus of its own, **Links** at the top can show one of them instead; the links here are kept for when you switch back. The same links and menus are in Website settings › Navigation.
 - **Header Settings**: the layout on a computer (logo left, nav inline, nav centred, or logo centred) and on a phone; **Menu on phones**, which slides in from the left or the right or covers the screen; the colour scheme; how menu links react to the pointer; width and spacing; sticky behaviour (always, or only when scrolling up); a transparent header, on every page or on the home page only; a bottom border and shadow; which icons show (search, account, wishlist, cart); and an optional button with its own text and link.
 
-The header and the announcement bar are the same on every page. The announcement bar is set in General Settings.
+The header and the sections in the Header group, such as an announcement bar, are the same on every page.
 
 ## Theme settings
 
 The settings that belong to the whole website, under the **Theme** tab of the sidebar, where the panel is called General Settings. **Theme settings** in the **…** menu opens it too. How they are stored is in [Themes](/developers/themes#theme-settings).
+
+The panel has nine groups. Every setting in them changes something a visitor sees, on the live site and in the canvas alike. Settings that used to be here and now live elsewhere are listed at the end.
+
+### Logo and brand
+
+The store's name, logo and its height, an optional smaller logo for phones, the favicon and a tagline. The logo is kept in step with the header's Store Logo: change it in either place.
+
+**Brand information**, under it, is a headline, a description and a picture about the shop. Any text setting can show them with **Insert shop data**, and a section reads them as `theme.brand`.
+
+@[theme-settings:branding]
 
 ### Colors
 
@@ -101,15 +111,9 @@ Every section picks one **colour scheme**. Change a scheme here and every sectio
 
 Pick a scheme to edit it: its name, whether new sections start on it, and its twenty-one colours in five groups (surface, text, primary button, secondary button, inputs). Each button has a colour on hover, worked out from the button until you set one. If a pair of colours is hard to read, it says so and by how much. A scheme can also lay a gradient over its background. **Add scheme** makes another; a scheme you made can be deleted, and the sections on it move to another.
 
-**Page colors**, under Colors, are the colours of the page itself, behind and between sections:
+**Page colors**, under Colors, are the colours of the page itself, behind and around sections: its background, its text, and the primary colour of the parts that are not a section (the cart notice's button, the free shipping bar, the cookie banner's accent). How a section picks its scheme, and how one section can change a colour for itself, is in [Styling](/developers/styling#colour-schemes).
 
 @[theme-settings:colors]
-
-### Branding
-
-The store's name, logo and its height, an optional smaller logo for phones, the favicon and a tagline. The logo is kept in step with the header's Store Logo: change it in either place.
-
-@[theme-settings:branding]
 
 ### Typography
 
@@ -117,89 +121,55 @@ Three fonts, and nine text styles every section uses unless it sets its own.
 
 @[theme-settings:typography]
 
-The text styles, with their defaults. Each can be changed: font, weight, a size for desktop, tablet and phone, line height, letter spacing and case. A dot marks a style you changed, and **Reset style** puts it back.
+The text styles, with their defaults. Each can be changed: font, weight, a size for desktop and one for phones, line height, letter spacing and case. The phone size applies when the section is 767px wide or less, so the canvas's phone preview shows it. A dot marks a style you changed, and **Reset style** puts it back.
 
 @[builder-type-styles]
 
-### Buttons
+### Buttons and inputs
+
+Every button a section draws (its style, shape, corner radius, shadow and what it does under the pointer), then **Variant pills**, the buttons a product's options are picked with, and **Text boxes**: every text box, dropdown and text area a section draws, such as search, sign in, newsletter and contact.
 
 @[theme-settings:buttons]
 
 ### Layout
 
+The page's frame: how wide the content gets, the space at its sides, the space between sections, and **Spacing scale**, which multiplies every section's own top and bottom padding. Then the corners and shadows of what sits in a section:
+
+- **Cards**: the corner radius every section's cards and boxes use, a shadow and an outline for the boxes a section marks as cards (a feature card, a plan).
+- **Images and video**: corners, outline and shadow of pictures and videos in sections.
+- **Dropdowns and pop-ups**: menus that drop down from the header, and boxes that open over the page.
+- **Breadcrumbs**: Home > Shop > the product, Home > Search, a bar under the header on every page except the home page, on the colours of the section under it. A page that already shows breadcrumbs (a Breadcrumbs section, or the product section's Breadcrumbs block) keeps its own and gets no second bar. In the editor, clicking the bar opens this group.
+
 @[theme-settings:layout]
 
-### Breadcrumbs
+Card shadow, card border, the image outline and shadow, and the dropdown settings change a page only once a value is chosen: a site that never opens them looks as it always did.
 
-Home > Shop > the product, Home > Search: a bar under the header on every page except the home page, on the colours of the section under it. A page that already shows breadcrumbs (a Breadcrumbs section, or the product section's Breadcrumbs block) keeps its own and gets no second bar. In the editor, clicking the bar opens this group.
+### Products and cart
 
-@[theme-settings:breadcrumbs]
+- **Product cards**: a product in a grid, a featured collection, the 404 page's suggestions. **Standard** puts the corners, outline and shadow on the picture; **Card** puts them round the whole card, on a faint fill of its own text colour, with the words inset.
+- **Collection cards**: the same choices, for a collection in a Collection list.
+- **Badges**: the Sale label on a product with a price to compare against, and the Sold out label on one whose stock has run out.
+- **Cart**: what Add to cart does, the free shipping bar, which counts down from the threshold as the cart fills, and whether prices show their currency code.
+
+@[theme-settings:product_cards]
+
+The card and badge settings change a page only once a value is chosen.
+
+### Social links
+
+One address per platform. The footer draws an icon for each one that is filled in, in the platform's own mark, in the footer's text colour, each named for its platform for screen readers; empty ones are left out. **Show icons in header** puts the same row in the header. Type an address the way you would in a browser: `instagram.com/name` is given its `https://`, and Email takes an address, which becomes a link that opens the visitor's mail app. A footer can also hold its own Instagram, X, Facebook, TikTok and YouTube links, which win over these for that footer.
+
+@[theme-settings:social]
 
 ### Animations
 
 @[theme-settings:animations]
 
-### Variant pills
+### Custom CSS
 
-The buttons a product's options are picked with.
+Your own CSS for every page of the site, as Shopify's Custom CSS. A rule is kept inside the page: `.card__title { … }` styles the cards on your site and cannot reach the builder. `html`, `body` and `:root` mean the page itself. Left out, and listed under the box: `@import`, `@font-face`, the `<` character, backslash escapes, `expression()`, and any `url()` that is not https or one of your own paths. A media query that asks only about width becomes the same container query, so the phone preview shows your phone rules.
 
-@[theme-settings:variant_pills]
-
-### Inputs
-
-Every text box, dropdown and text area a section draws: search, sign in, newsletter, contact.
-
-@[theme-settings:inputs]
-
-### Product cards
-
-A product in a grid, a featured collection, the 404 page's suggestions. **Standard** puts the corners, outline and shadow on the picture; **Card** puts them round the whole card, on a faint fill of its own text colour, with the words inset.
-
-@[theme-settings:product_cards]
-
-### Collection cards
-
-The same choices, for a collection in a Collection list.
-
-@[theme-settings:collection_cards]
-
-### Content containers
-
-Boxes that hold text, such as a feature card or a plan.
-
-@[theme-settings:content_containers]
-
-### Media
-
-Pictures and videos in sections.
-
-@[theme-settings:media]
-
-### Dropdowns and pop-ups
-
-Menus that drop down from the header, and boxes that open over the page.
-
-@[theme-settings:popups]
-
-### Badges
-
-The Sale label on a product with a price to compare against, and the Sold out label on one whose stock has run out.
-
-@[theme-settings:badges]
-
-### Brand information
-
-A headline, a description and a picture about the shop. Any text setting can show them with **Insert shop data**, and a section reads them as `theme.brand`.
-
-@[theme-settings:brand]
-
-The groups from Variant pills to Badges change a page only once a value is chosen: a site that never opens them looks as it always did.
-
-### Announcement bar
-
-A bar above the header on every page. With more than one message, the messages take turns, with arrows to move between them. The bar stops while the pointer or the keyboard is on it and does not move by itself for a visitor whose device asks for less motion.
-
-@[theme-settings:announcement]
+@[theme-settings:custom_css]
 
 ### Menus
 
@@ -209,33 +179,18 @@ Menus belong to the store, not to one theme, the way Shopify's Navigation does. 
 
 @[theme-settings:menus]
 
-### Social links
+### Settings that moved
 
-@[theme-settings:social]
+- **SEO**: the site title, description, share image, share card size and whether search engines may list the site are in Website settings › **SEO & Social**.
+- **Cookie and privacy**: the cookie banner is in Website settings › **Policies**.
+- **Announcement bar**: the bar is a section now, **Announcement bar**, added in the Header group, with its own messages and colours. A site that still has the old bar switched on sees **Old announcement bar** in this panel, holding only the switch, until it is turned off.
+- **Favicon** is also in Website settings › **General**. Both edit the same setting.
 
-### Cart
+The old announcement bar's switch, as that site sees it:
 
-What Add to cart does, and the free shipping bar.
+@[theme-settings:announcement]
 
-@[theme-settings:cart]
-
-### Currency format
-
-@[theme-settings:currency]
-
-### SEO
-
-@[theme-settings:seo]
-
-### Cookie and privacy
-
-@[theme-settings:cookies]
-
-### Custom CSS
-
-Your own CSS for every page of the site, as Shopify's Custom CSS. A rule is kept inside the page: `.card__title { … }` styles the cards on your site and cannot reach the builder. `html`, `body` and `:root` mean the page itself. Left out, and listed under the box: `@import`, `@font-face`, the `<` character, backslash escapes, `expression()`, and any `url()` that is not https or one of your own paths. A media query that asks only about width becomes the same container query, so the phone preview shows your phone rules.
-
-@[theme-settings:custom_css]
+Values saved under the old settings are kept, and the live site keeps reading them where it did. See [Themes](/developers/themes#settings-taken-out-of-the-panel).
 
 ## The canvas
 

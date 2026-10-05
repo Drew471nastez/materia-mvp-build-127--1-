@@ -46,18 +46,29 @@ A template reads theme settings through `theme`: the tokens under `theme.colors`
 
 ### Settings that reach a section by attribute
 
-Inputs, Variant pills, Product cards, Collection cards, Content containers, Media, Dropdowns and pop-ups and Badges are drawn by the theme, not by each section. The theme's stylesheet puts them on elements a section marks with an attribute, and only once a value is set, so a site that never opened the groups looks as it always did:
+Some settings are drawn by the theme, not by each section. The theme's stylesheet puts them on elements a section marks with an attribute, and only once a value is set, so a site that never chose one looks as it always did:
 
-| Group | Reaches | Custom properties |
+| Group › setting | Reaches | Custom properties |
 | --- | --- | --- |
-| Inputs | every `input`, `select` and `textarea` in a section | `--theme-input-radius`, `--theme-input-border-width`, `--theme-input-border-opacity` |
-| Variant pills | `[data-variant-pill]` | `--theme-pill-radius`, `--theme-pill-border-width` |
-| Product cards | `[data-card="product"]` and its `[data-card-media]` | `--theme-product-card-radius`, `-border`, `-shadow`, `-image-padding` |
-| Collection cards | `[data-card="collection"]` and its `[data-card-media]` | `--theme-collection-card-radius`, `-border`, `-shadow`, `-image-padding` |
-| Content containers | `[data-container]` | `--theme-container-radius`, `-border`, `-shadow` |
-| Media | `[data-media]` | `--theme-image-radius`, `--theme-media-border`, `--theme-media-shadow` |
-| Dropdowns and pop-ups | `[data-popup]` and the header's dropdown | `--theme-popup-radius`, `-border`, `-shadow` |
-| Badges | `[data-badges]` and each `[data-badge="sale"]`, `"soldout"` or `"tag"` | `--theme-badge-radius`, `--theme-badge-top`, `-bottom`, `-left`, `-right`, `--theme-badge-sale-bg`, `-color`, `--theme-badge-soldout-bg`, `-color` |
+| Buttons and inputs › Text boxes | every `input`, `select` and `textarea` in a section | `--theme-input-radius`, `--theme-input-border-width`, `--theme-input-border-opacity` |
+| Buttons and inputs › Variant pills | `[data-variant-pill]` | `--theme-pill-radius`, `--theme-pill-border-width` |
+| Layout › Cards (shadow, border) | `[data-container]` | `--theme-container-shadow`, `--theme-container-border` |
+| Layout › Images and video | `[data-media]` | `--theme-image-radius`, `--theme-media-border`, `--theme-media-shadow` |
+| Layout › Dropdowns and pop-ups | `[data-popup]` and the header's dropdown | `--theme-popup-radius`, `-border`, `-shadow` |
+| Products and cart › Product cards | `[data-card="product"]` and its `[data-card-media]` | `--theme-product-card-radius`, `-border`, `-shadow`, `-image-padding` |
+| Products and cart › Collection cards | `[data-card="collection"]` and its `[data-card-media]` | `--theme-collection-card-radius`, `-border`, `-shadow`, `-image-padding` |
+| Products and cart › Badges | `[data-badges]` and each `[data-badge="sale"]`, `"soldout"` or `"tag"` | `--theme-badge-radius`, `--theme-badge-top`, `-bottom`, `-left`, `-right`, `--theme-badge-sale-bg`, `-color`, `--theme-badge-soldout-bg`, `-color` |
+
+Card corner radius is not one of them: every section reads it as `{{ theme.radius.medium }}px`, so it reaches the cards and boxes of every section at once. A `container_radius` or `container_shadow` saved by the older Content containers group still wins over Layout's for `[data-container]`.
+
+The page's frame reaches every section through custom properties on the page root:
+
+| Setting | Custom property | What reads it |
+| --- | --- | --- |
+| Max page width | `--theme-page-width` | the `max-width` of a section's inner box |
+| Side padding | `--theme-padding-x` | a section's inline padding |
+| Spacing scale | `--theme-spacing-scale` | multiplies a section's `padding_top` and `padding_bottom` |
+| Section gap | `--theme-section-gap` | a margin between every two sections in the page body, never above the first, below the last, or beside the header and footer |
 
 A section of your own gets them by marking its elements the same way:
 
@@ -72,9 +83,27 @@ A section of your own gets them by marking its elements the same way:
 </article>
 ```
 
-**Currency format.** With Show currency codes on, every price the page hands a section reads `$48.00 USD`: `products`, a product list, a collection's products.
+**Show currency codes.** With it on, every price the page hands a section reads `$48.00 USD`: `products`, a product list, a collection's products.
+
+**Social links.** One address per platform, under `social_<platform>`: `instagram`, `tiktok`, `youtube`, `twitter` (X), `facebook`, `linkedin`, `pinterest`, `threads`, `spotify`, `soundcloud`, `snapchat`, `bluesky`, `whatsapp`, `discord`, `twitch`, `github`, `website` and `email`. A web address must be http or https; a bare `instagram.com/name` is given its `https://`, and anything else (`javascript:`, `data:`) is left out. `social_email` takes an address and becomes a `mailto:` link. The footer draws each filled-in one as the platform's mark, in `currentColor`, named for its platform with `aria-label`; a template reads them as `shop.socials` and `theme.socials`.
 
 **Custom CSS.** Theme settings › Custom CSS is CSS for every page of the site, kept inside the page root: each selector is put under it, `html`, `body` and `:root` mean the root itself, and a media query that asks only about width becomes a container query, so the builder's phone preview shows the phone rules. Left out, and named under the box: `@import`, `@font-face`, `@charset`, `@namespace`, the `<` character, backslash escapes, `expression()`, `behavior`, `-moz-binding`, and any `url()` that is not https or one of the site's own paths. What was typed is stored as typed, so nothing is lost; what is drawn is the cleaned copy, in its own `<style>` after every section.
+
+### Settings taken out of the panel
+
+These were in General settings and are not any more. A saved value is kept, never deleted, and is still read where it was read, so a published site does not change:
+
+| Keys | Where they are now |
+| --- | --- |
+| `seo_title`, `seo_description`, `seo_og_image`, `seo_twitter_card`, `seo_robots` | Website settings › SEO & Social, which writes the same keys. |
+| `cookie_banner_show`, `cookie_banner_text`, `cookie_accept_text`, `cookie_decline_text`, `cookie_banner_enabled`, `cookie_bg`, `cookie_text_color` | Website settings › Policies, which writes the same keys. |
+| `announcement_bar_*` | The Announcement bar section, in the Header group. The page still draws the old bar while `announcement_bar_enabled` is `true`, and only then does the panel show its switch, as **Old announcement bar**. |
+| `primary_hover_color`, `secondary_color`, `accent_color`, `surface_color`, `surface_alt_color`, `text_secondary_color`, `text_muted_color`, `border_color`, `link_color`, `link_hover_color`, `success_color`, `error_color` | A section paints with its colour scheme. These are still written to the page root as `--theme-*` properties, for custom CSS that uses them. |
+| `button_size` | Nothing: no button ever read it. |
+| `button_font_weight` | Typography › Button, whose weight it still sets when the style has none of its own. |
+| `brand_image_width` | Nothing in the shipped theme. Still `theme.brand.image_width` for a section that reads it. |
+| `container_radius`, `container_shadow` | Layout › Card corner radius and Card shadow. A saved value still wins for `[data-container]`. |
+| A text style's `size.tablet` | Typography has a desktop and a phone size. A saved tablet size is read as the phone size when there is no phone size, and is otherwise ignored. |
 
 ## Colour schemes
 
@@ -94,7 +123,7 @@ A theme has three fonts and nine text styles.
 
 @[font-options]
 
-Each text style has a font role (heading, body or accent), a weight, a size for desktop, tablet and phone, a line height, a letter spacing and a case. The tablet size applies when the section itself is 1023px wide or less, and the phone size at 767px or less, measured on the section rather than the window, so the builder's phone preview draws phone sizes.
+Each text style has a font role (heading, body or accent), a weight, a size for desktop and one for phones, a line height, a letter spacing and a case. The phone size applies when the section itself is 767px wide or less, measured on the section rather than the window, so the builder's phone preview draws phone sizes. A style is stored under `typography_styles.<style>` with only what differs from its default; a size is one number, or `{ "desktop": 40, "mobile": 30 }`. An older `tablet` size in a saved theme is read as the phone size when no phone size was saved, and is otherwise ignored.
 
 @[builder-type-styles]
 

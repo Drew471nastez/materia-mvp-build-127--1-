@@ -101,7 +101,30 @@ A section does not choose colours. It chooses a **colour scheme**, and the creat
 
 Declare a `color_scheme` setting, then read the scheme. In CSS, read the custom properties the renderer sets on the section's root. In the template, read `scheme.<key>`.
 
+```json
+{ "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "white" }
+```
+
+### How a section picks its scheme
+
+The section stores the scheme's **key** (`white`, `dark`, or a key the creator made) as `settings.color_scheme`, never its colours. When the page is drawn, the key is looked up in the theme's `color_schemes`:
+
+1. The key the section stores, when the theme has that scheme.
+2. When it does not (the scheme was deleted), the scheme its sections were moved to when it was deleted (`color_scheme_remaps`).
+3. Then the theme's `default_color_scheme`, which is also what a new section starts on.
+4. Then `white`.
+
+So a section can never end up with no colours, and deleting a scheme moves its sections rather than breaking them.
+
+### Every scheme colour
+
+A scheme has twenty-one colours and a gradient. Each is a template value and a custom property on the section's root:
+
 @[scheme-vars]
+
+`--scheme-gradient` is the gradient when the scheme has one, and the background colour when it does not, so `background: var(--scheme-gradient)` is always safe. Older templates read short names, such as `scheme.bg` and `scheme.primary_btn_bg`; they are the same colours:
+
+@[scheme-names]
 
 ```css
 .card { background: var(--scheme-background-secondary); border: 1px solid var(--scheme-border); }
@@ -129,9 +152,21 @@ Five schemes are built in. Their keys are `white`, `light`, `dark`, `black` and 
 
 **Never hard-code a hex value the scheme already answers.** A hard-coded colour stops responding to the creator's theme, and on a dark scheme it is usually unreadable. Before publishing a new section, switch it between a light and a dark scheme in the builder and read it on both. The builder's AI reviews contrast in what it writes; the code editor does not do it for you.
 
+### Which colour wins
+
+A section's colours are decided in this order, each one over the one before:
+
+| Order | Where it is set | Stored as | Reaches |
+| --- | --- | --- | --- |
+| 1 | The scheme, in Theme settings › Colors | `color_schemes.<key>` in the theme | every section on that scheme |
+| 2 | **Advanced colors**, in the section's panel | `settings.color_overrides`, by scheme colour name | this section's `scheme.*` and `--scheme-*`, so all of its CSS |
+| 3 | A colour setting of the section's own, such as Stars | `settings.<id>`, a hex | only the rules that print that setting |
+
+The page's own colours (Theme settings › Colors › Page colors) are not in this order: they paint the page behind and around sections, not a section.
+
 ### A section's own colour overrides
 
-Behind **Advanced colors** in the builder, a creator can override a few of a section's colours without leaving the scheme. The override is applied on top of the scheme by the renderer, so your CSS keeps reading the same variables. Say which slots your section allows:
+Behind **Advanced colors** in the builder, a creator can override a few of a section's colours without leaving the scheme: background, text, heading, accent, border, and the fill, text, hover fill and hover text of both buttons. The override is applied on top of the scheme by the renderer, so `scheme.heading` and `var(--scheme-heading)` already answer with the override and your CSS keeps reading the same names. Changing a button's colour without its hover colour gives the hover of the new colour, worked out the same way the scheme's is, and overriding the background drops the scheme's gradient. **Reset all to scheme** clears `color_overrides`. Say which slots your section allows:
 
 ```json
 "supports_color_overrides": ["background", "heading", "text"]
@@ -186,7 +221,7 @@ A theme block declares colours the same way, and they follow the scheme of the s
 
 ## Type
 
-The theme has three font roles and nine text styles, each with its own size at desktop, tablet and phone width, weight, line height, letter spacing and case.
+The theme has three font roles and nine text styles, each with a desktop size and a phone size, a weight, a line height, a letter spacing and a case. A creator sets them in Theme settings › Typography; a section never sets a style's values, it picks a style.
 
 @[type-styles]
 
@@ -207,7 +242,17 @@ A section chooses a heading style and a body style, and the theme turns the choi
 }
 ```
 
-Name a font family inside a section only as a fallback after the theme's variable. The tablet and phone sizes take over inside the section's own container, so the builder's phone preview draws phone sizes.
+Name a font family inside a section only as a fallback after the theme's variable. The phone size takes over when the section's own container is 767px wide or less, so the builder's phone preview draws phone sizes.
+
+| Custom property | Holds |
+| --- | --- |
+| `--type-<style>-size`, `-font`, `-weight`, `-line-height`, `-tracking`, `-transform` | each text style, on the page root, `<style>` being `h1` to `h4`, `body-large`, `body`, `body-small`, `button` or `caption` |
+| `--section-heading-*` | the style the section's heading uses: its choice, or Heading 2 |
+| `--section-body-*` | the style its body uses: its choice, or Body |
+| `--section-text-*` | the body style, only once the section chose one, so `var(--section-text-size, 17px)` keeps your own size until then |
+| `--theme-font-heading`, `--theme-font-body`, `--theme-font-accent` | the three fonts |
+
+**Custom** stores the section's own style as `settings.custom_heading` or `settings.custom_body`, the same shape as a text style, sizes included: `{ "desktop": 48, "mobile": 32 }`.
 
 Set `"supports_typography_overrides": false` on a section that has its own size control, such as a hero with a heading size slider, so the builder does not offer two controls for one thing.
 

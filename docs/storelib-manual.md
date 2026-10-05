@@ -986,8 +986,9 @@ with no colour setting is handed back with the list of elements that need one.
 
 A theme names three fonts, heading, body and accent, and nine text styles: H1
 to H4, Body large, Body, Body small, Button and Caption. Each style is a font
-role, a weight, a size at desktop, tablet and phone width, a line height, a
-letter spacing and a transform.
+role, a weight, a size for desktop and one for phones, a line height, a
+letter spacing and a transform. An older saved tablet size is read as the
+phone size when no phone size was saved, and is otherwise ignored.
 
 They compile to custom properties on the page root:
 
@@ -997,9 +998,9 @@ They compile to custom properties on the page root:
 ```
 
 and the same for `h2`, `h3`, `h4`, `body-large`, `body`, `body-small`,
-`button` and `caption`. The tablet and phone sizes take over inside container queries at
-1023px and 767px, measured against the section's own container, so the phone
-size is what the editor's phone preview draws.
+`button` and `caption`. The phone size takes over inside a container query at
+767px, measured against the section's own container, so the phone size is
+what the editor's phone preview draws.
 
 A section does not pick fonts. It says which style its heading is and which its
 body is, and the choice arrives in its CSS:
@@ -1377,8 +1378,10 @@ What a merchant sees maps directly onto what a schema declares.
   `header`, `paragraph` and `divider` settings organise that list.
 - **Colour** is not in that list. It is the scheme picker at the top, with the
   section's own overrides behind Advanced colors.
-- **Theme settings** holds Colors and Typography, then buttons, layout,
-  animations, the announcement bar, social links and the cart.
+- **Theme settings** holds nine groups: Logo and brand, Colors, Typography,
+  Buttons and inputs, Layout, Products and cart, Social links, Animations and
+  Custom CSS. SEO and the cookie banner are in Website settings; the
+  announcement bar is a section in the Header group.
 - The **code editor** opens the theme's files, with the merchant's own sections
   under `sections/`, and writes a revision on every save.
 
@@ -1754,7 +1757,7 @@ Written only once the creator sets the setting behind them:
 --theme-product-card-shadow  --theme-product-card-image-padding
 --theme-collection-card-radius  --theme-collection-card-border
 --theme-collection-card-shadow  --theme-collection-card-image-padding
---theme-container-radius  --theme-container-border  --theme-container-shadow
+--theme-container-border  --theme-container-shadow   (Layout › Cards)
 --theme-media-border  --theme-media-shadow
 --theme-popup-radius  --theme-popup-border  --theme-popup-shadow
 --theme-badge-radius  --theme-badge-top  --theme-badge-bottom
