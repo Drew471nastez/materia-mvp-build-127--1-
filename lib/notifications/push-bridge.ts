@@ -24,8 +24,23 @@ import "server-only"
  * to them (a mention, a reply, a message from the admins, news about their
  * own membership, a direct message). Somebody who turned the push switch off
  * (GET and PATCH /api/me/push; stored in notification_preferences as the
- * category "social" on the channel "push", part 86). Anything from a
- * community while communities are switched off, since its link would 404.
+ * category "social" on the channel "push", part 86), or turned off that
+ * kind alone (new posts, comments, likes, mentions, messages, events, new
+ * followers: lib/notifications/push-kinds.ts, kept on the account's
+ * app_metadata). Anything from a community while communities are switched
+ * off, since its link would 404.
+ *
+ * NEW POSTS push only to members whose level in that community is "all"
+ * (Everything), never write a bell row (the feed is where a post is), and
+ * have a window of their own per community (group "p:<id>"), so a busy
+ * afternoon is one push and then "4 new posts", and a like on your post is
+ * never held behind somebody else's post.
+ *
+ * LIKES are one bell row per post per window (lib/communities/server/
+ * notify.ts): "7 people liked your post". The row is new for the first like
+ * and rewritten for the rest, and each rewrite takes the same road as a new
+ * row here, so the phone hears "Mara liked your post" at once and "7 people
+ * liked your post" when the five minutes close.
  *
  * RIGHT AWAY OR ONE AT A TIME. Mentions, replies, direct messages,
  * announcements, event reminders, a waitlist spot opening, approvals and
@@ -58,15 +73,17 @@ import "server-only"
 import { after } from "next/server"
 
 import type { PushPayload } from "@/lib/push/sender"
-import type { NotificationKind, NotifyLevel } from "@/lib/communities/types"
+import type { AccessRuleJson, NotificationKind, NotifyLevel, Role } from "@/lib/communities/types"
+import { evaluateAccess, type AccessViewer } from "@/lib/communities/access"
 import { missing, reasonOf, type Db } from "@/lib/communities/server/db"
 import type { UserNotificationKind, UserNotificationSource } from "./user-inbox-shared"
+import { NOTIFY_META_KEY, kindAllowed, pushKindOf, readNotifyChoice, type NotifyChoice } from "./push-kinds"
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 /* ── The rules, pure ────────────────────────────────────────────────────── */
 
-export type PushKind = NotificationKind | UserNotificationKind | "dm"
+export type PushKind = NotificationKind | UserNotificationKind | "dm" | "post"
 export type PushPriority = "now" | "coalesce"
 
 /** One push per person per group for low priority kinds in this long. */
@@ -106,7 +123,7 @@ export function levelAllowsPush(level: NotifyLevel | null | undefined, kind: str
     case "mentions":
       return (ADDRESSED_KINDS as readonly string[]).includes(kind)
     case "important":
-      return kind !== "reaction"
+      return kind !== "reaction" && kind !== "post"
     default:
       return true
   }
@@ -115,6 +132,10 @@ export function levelAllowsPush(level: NotifyLevel | null | undefined, kind: str
 /** The group a window is counted in: a community, a source of the bell, a conversation. */
 export function communityGroup(communityId: string): string {
   return `c:${communityId}`
+}
+/** A community's new posts: a window of their own, apart from the community's other news. */
+export function postGroup(communityId: string): string {
+  return `p:${communityId}`
 }
 export function sourceGroup(source: UserNotificationSource): string {
   return `s:${source}`
@@ -202,6 +223,7 @@ const NOUNS: Record<string, readonly [string, string]> = {
   purchased_creator_new_product: ["new product", "new products"],
   followed_new_community: ["new community", "new communities"],
   membership_post: ["new post", "new posts"],
+  post: ["new post", "new posts"],
 }
 
 /** "3 new likes", "3 new likes and 2 new comments", "3 new likes, 2 new comments and 1 new event". */
@@ -233,7 +255,7 @@ export interface HeldRow {
 export function digestContent(rows: readonly HeldRow[], scope: { group: string; communityName?: string | null; communitySlug?: string | null }): PushContent | null {
   const usable = rows.filter((r) => safePushUrl(r.url))
   if (usable.length === 0) return null
-  const community = scope.group.startsWith("c:")
+  const community = /^[cp]:/.test(scope.group)
   if (usable.length === 1) {
     const r = usable[0]
     return community ? communityPushContent({ kind: r.kind, title: r.title, body: r.body, url: r.url! }, scope.communityName ?? null) : userPushContent({ kind: r.kind, title: r.title, body: r.body, url: r.url! })
@@ -243,7 +265,9 @@ export function digestContent(rows: readonly HeldRow[], scope: { group: string; 
     urls.size === 1
       ? usable[0].url!
       : community && scope.communitySlug
-        ? `/community/${scope.communitySlug}/notifications`
+        ? scope.group.startsWith("p:")
+          ? `/community/${scope.communitySlug}`
+          : `/community/${scope.communitySlug}/notifications`
         : usable[0].url!
   const title = community ? oneLine(scope.communityName) || "Storelib" : "Storelib"
   return { title: clip(title, PUSH_TITLE_MAX), body: clip(summaryLine(usable.map((r) => r.kind)), PUSH_BODY_MAX), url: safePushUrl(url) ?? usable[0].url!, kind: "digest", collapseKey: `digest:${scope.group}` }
@@ -278,9 +302,10 @@ const DEFAULTS: Deps = {
 
 let deps: Deps = DEFAULTS
 
-/** For tests: a fake sender and switch. Null puts the real ones back. */
+/** For tests: a fake sender and switch, and nothing remembered from before. Null puts the real ones back. */
 export function setPushBridgeDeps(next: Partial<Deps> | null): void {
   deps = next ? { ...DEFAULTS, ...next } : DEFAULTS
+  choiceCache.clear()
 }
 
 /**
@@ -371,6 +396,86 @@ export async function reachable(db: Db, userIds: readonly string[]): Promise<Set
   for (const r of (asOwner.data as { owner_id: string }[] | null) ?? []) out.add(r.owner_id)
   for (const r of (asMember.data as { member_id: string }[] | null) ?? []) out.add(r.member_id)
   return out
+}
+
+/* ── The person's kinds (lib/notifications/push-kinds.ts) ──────────────── */
+
+/** A choice read from an account is trusted this long in one server instance; Settings forgets its own at once. */
+export const CHOICE_TTL_MS = 30_000
+/** Accounts read at once for a page of pushes. */
+const CHOICE_READS_AT_ONCE = 10
+
+const choiceCache = new Map<string, { at: number; choice: NotifyChoice | null }>()
+
+/** Forgets what was read for this person (Settings just changed it). */
+export function forgetChoice(userId: string): void {
+  choiceCache.delete(userId)
+}
+
+async function readOneChoice(db: Db, userId: string): Promise<NotifyChoice | null> {
+  if (typeof db?.auth?.admin?.getUserById !== "function") return null
+  try {
+    const { data, error } = await db.auth.admin.getUserById(userId)
+    if (error) throw error
+    return readNotifyChoice(data?.user?.app_metadata)
+  } catch (e) {
+    /*
+      FAILS OPEN. The kinds are a refinement of the main switch, which is a
+      real row and fails closed (pushSwitchedOff). An auth hiccup must not
+      silence a reply for everyone who never touched these switches.
+    */
+    console.error(`[push-bridge] kinds for ${userId}: ${reasonOf(e)}`)
+    return null
+  }
+}
+
+/** What each of these people turned off, read from their accounts a few at a time, kept for a moment. Null: nothing turned off (or unreadable). */
+export async function readChoices(db: Db, userIds: readonly string[], now: number = Date.now()): Promise<Map<string, NotifyChoice | null>> {
+  const out = new Map<string, NotifyChoice | null>()
+  const todo: string[] = []
+  for (const id of unique(userIds)) {
+    const hit = choiceCache.get(id)
+    if (hit && now - hit.at < CHOICE_TTL_MS) out.set(id, hit.choice)
+    else todo.push(id)
+  }
+  for (let i = 0; i < todo.length; i += CHOICE_READS_AT_ONCE) {
+    const batch = todo.slice(i, i + CHOICE_READS_AT_ONCE)
+    const read = await Promise.all(batch.map((id) => readOneChoice(db, id)))
+    batch.forEach((id, j) => {
+      out.set(id, read[j])
+      choiceCache.set(id, { at: now, choice: read[j] })
+    })
+  }
+  if (choiceCache.size > 5000) choiceCache.clear()
+  return out
+}
+
+/** The person's own choice, fresh, for Settings. */
+export async function readChoice(db: Db, userId: string): Promise<NotifyChoice> {
+  forgetChoice(userId)
+  return (await readOneChoice(db, userId)) ?? { pushOff: [], emailOff: [] }
+}
+
+/** Saves the person's choice on their account. Only the server can write app_metadata. */
+export async function saveChoice(db: Db, userId: string, choice: NotifyChoice): Promise<boolean> {
+  if (!UUID.test(userId) || typeof db?.auth?.admin?.updateUserById !== "function") return false
+  try {
+    const { error } = await db.auth.admin.updateUserById(userId, { app_metadata: { [NOTIFY_META_KEY]: { pushOff: choice.pushOff, emailOff: choice.emailOff } } })
+    forgetChoice(userId)
+    if (error) throw error
+    return true
+  } catch (e) {
+    console.error(`[push-bridge] kinds not saved: ${reasonOf(e)}`)
+    return false
+  }
+}
+
+/** Keeps only the items whose kind the person still wants on their phone. One read per person, only for kinds a switch governs. */
+async function byKind<T extends { userId: string; kind: string }>(db: Db, items: T[]): Promise<T[]> {
+  const governed = items.filter((i) => pushKindOf(i.kind)).map((i) => i.userId)
+  if (governed.length === 0) return items
+  const choices = await readChoices(db, governed)
+  return items.filter((i) => kindAllowed(choices.get(i.userId), i.kind))
 }
 
 /** The last push in each window still open, by subject. */
@@ -497,7 +602,7 @@ export interface PushItem {
 
 /** A push whose link is a community page: only while communities are switched on (it would answer 404). */
 function needsCommunities(i: Pick<PushItem, "group" | "kind">): boolean {
-  return i.group.startsWith("c:") || i.group.startsWith("dm:") || i.kind === "followed_new_community" || (i.group === "s:communities")
+  return i.group.startsWith("c:") || i.group.startsWith("p:") || i.group.startsWith("dm:") || i.kind === "followed_new_community" || i.kind === "post" || i.group === "s:communities"
 }
 
 /**
@@ -517,6 +622,8 @@ export async function pushFanout(db: Db, items: readonly PushItem[], opts: { dea
     if (list.length === 0) return []
     const off = await pushSwitchedOff(db, list.map((i) => i.userId))
     list = list.filter((i) => !off.has(i.userId))
+    if (list.length === 0) return []
+    list = await byKind(db, list)
     if (list.length === 0) return []
 
     const coalesced = list.filter((i) => pushPriority(i.kind, i.dedupeKey) === "coalesce")
@@ -567,6 +674,7 @@ export async function pushOne(db: Db, item: PushItem, now: number = Date.now()):
     if (!(await reachable(db, [item.userId])).has(item.userId)) return "skipped"
     if (needsCommunities(item) && !(await deps.communitiesOn())) return "skipped"
     if ((await pushSwitchedOff(db, [item.userId])).has(item.userId)) return "skipped"
+    if ((await byKind(db, [item])).length === 0) return "skipped"
     if (pushPriority(item.kind, item.dedupeKey) === "coalesce") {
       const subject = gateSubject(item.userId, item.group)
       const since = (await openWindows(db, [subject], now)).get(subject)
@@ -592,6 +700,21 @@ export function communityPushItem(
   const content = communityPushContent({ kind: r.kind, title: r.title, body: r.body, url: r.url }, communityName)
   if (!content) return null
   return { userId: r.userId, kind: r.kind, group: communityGroup(r.communityId), actorId: r.actorId ?? null, dedupeKey: r.dedupeKey ?? null, level: r.level === undefined ? undefined : r.level, content }
+}
+
+/**
+ * A new post, as a push to one member set to Everything. There is no bell
+ * row for it: the post is in the feed. Its window is the community's posts
+ * (postGroup), so the first post of a quiet spell pushes at once and the
+ * rest are counted.
+ */
+export function newPostPushItem(
+  r: { userId: string; communityId: string; communitySlug: string; postId: string; actorId: string | null; authorName: string; heading: string; text: string; level: NotifyLevel | null },
+  communityName: string | null,
+): PushItem | null {
+  const content = communityPushContent({ kind: "post", title: `${oneLine(r.authorName) || "A member"} posted`, body: oneLine(r.heading) || oneLine(r.text) || null, url: `/community/${r.communitySlug}/post/${r.postId}` }, communityName)
+  if (!content) return null
+  return { userId: r.userId, kind: "post", group: postGroup(r.communityId), actorId: r.actorId, dedupeKey: `post:${r.postId}:${r.userId}`, level: r.level, content }
 }
 
 /** A row of the person's own inbox a job wrote, as a push item. */
@@ -686,11 +809,48 @@ export interface DigestPayload {
 export function readDigestPayload(v: unknown): DigestPayload | null {
   const p = (v ?? {}) as Record<string, unknown>
   const userId = typeof p.userId === "string" && UUID.test(p.userId) ? p.userId : null
-  const group = typeof p.group === "string" && /^(c:[0-9a-f-]{36}|s:(following|purchases|communities|system))$/i.test(p.group) ? p.group : null
+  const group = typeof p.group === "string" && /^([cp]:[0-9a-f-]{36}|s:(following|purchases|communities|system))$/i.test(p.group) ? p.group : null
   const since = typeof p.since === "string" && Number.isFinite(Date.parse(p.since)) ? p.since : null
   if (!userId || !group || !since) return null
   const anchor = typeof p.anchor === "string" && Number.isFinite(Date.parse(p.anchor)) ? p.anchor : undefined
   return { userId, group, since, ...(anchor ? { anchor } : {}) }
+}
+
+/**
+ * The new posts a member set to Everything has not been pushed about since
+ * a window opened, in the spaces they can see. Their posts are not in the
+ * bell, so they are read from the feed: published, by someone else, newest
+ * first. A space open only through a product is left out here (owning it
+ * would be one more read per member); staff and tier members see theirs.
+ * Null when the member no longer hears new posts from this community.
+ */
+async function heldPosts(db: Db, communityId: string, userId: string, since: string): Promise<{ rows: HeldRow[]; name: string; slug: string } | null> {
+  const [{ data: member }, c, { data: spaces }] = await Promise.all([
+    db.from("community_members").select("status, notify_level, role, tier_id, level").eq("community_id", communityId).eq("user_id", userId).maybeSingle(),
+    communityName(db, communityId),
+    db.from("community_spaces").select("id, kind, view_access, archived_at").eq("community_id", communityId),
+  ])
+  const m = member as { status: string; notify_level: NotifyLevel | null; role: Role | null; tier_id: string | null; level: number | null } | null
+  if (!m || m.status !== "active" || !c || !levelAllowsPush(m.notify_level, "post")) return null
+  const viewer: AccessViewer = { role: m.role ?? "member", active: true, tierId: m.tier_id ?? null, ownedProductIds: [], level: m.level ?? 1 }
+  const open = ((spaces as { id: string; kind: string; view_access: unknown; archived_at: string | null }[] | null) ?? [])
+    .filter((s) => !s.archived_at && s.kind !== "chat" && evaluateAccess(s.view_access as AccessRuleJson, viewer).ok)
+    .map((s) => s.id)
+  if (open.length === 0) return null
+  const { data, error } = await db
+    .from("community_feed_posts")
+    .select("id, author_id, title, body_text, created_at")
+    .eq("community_id", communityId)
+    .eq("status", "published")
+    .in("space_id", open)
+    .gt("created_at", since)
+    .order("created_at", { ascending: false })
+    .limit(DIGEST_READ)
+  if (error) throw new Error(`held posts: ${reasonOf(error)}`)
+  const rows = ((data as { id: string; author_id: string | null; title: string | null; body_text: string | null }[] | null) ?? [])
+    .filter((p) => p.author_id !== userId)
+    .map((p) => ({ kind: "post", title: oneLine(p.title) || clip(oneLine(p.body_text), 100) || "New post", body: null, url: `/community/${c.slug}/post/${p.id}` }))
+  return { rows, name: c.name, slug: c.slug }
 }
 
 /**
@@ -702,7 +862,8 @@ export async function runPushDigest(db: Db, raw: unknown, now: number = Date.now
   const d = readDigestPayload(raw)
   if (!d) throw new Error("push_digest needs payload.userId, payload.group and payload.since")
   const community = d.group.startsWith("c:")
-  if ((community || d.group === "s:communities") && !(await deps.communitiesOn())) return
+  const posts = d.group.startsWith("p:")
+  if ((community || posts || d.group === "s:communities") && !(await deps.communitiesOn())) return
   if ((await pushSwitchedOff(db, [d.userId])).has(d.userId)) return
 
   const subject = gateSubject(d.userId, d.group)
@@ -714,7 +875,12 @@ export async function runPushDigest(db: Db, raw: unknown, now: number = Date.now
 
   let rows: HeldRow[] = []
   let scope: { group: string; communityName?: string | null; communitySlug?: string | null } = { group: d.group }
-  if (community) {
+  if (posts) {
+    const held = await heldPosts(db, d.group.slice(2), d.userId, d.since)
+    if (!held) return
+    rows = held.rows
+    scope = { group: d.group, communityName: held.name, communitySlug: held.slug }
+  } else if (community) {
     const communityId = d.group.slice(2)
     const [{ data: member }, c] = await Promise.all([
       db.from("community_members").select("status, notify_level").eq("community_id", communityId).eq("user_id", d.userId).maybeSingle(),
@@ -752,6 +918,7 @@ export async function runPushDigest(db: Db, raw: unknown, now: number = Date.now
     /* A followed creator's new community is only told while communities are on. */
     if (rows.some((r) => r.kind === "followed_new_community") && !(await deps.communitiesOn())) rows = rows.filter((r) => r.kind !== "followed_new_community")
   }
+  rows = await byKind(db, rows.map((r) => ({ ...r, userId: d.userId })))
   const content = digestContent(rows, scope)
   if (!content) return
   await openWindowsFor(db, [subject])

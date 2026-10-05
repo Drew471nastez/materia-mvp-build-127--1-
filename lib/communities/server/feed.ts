@@ -56,6 +56,7 @@ import type { Viewer } from "./context"
 import { missing, nowIso, reasonOf, type Db } from "./db"
 import { authorViews, displayName } from "./directory"
 import { everyoneAllowed, notifyMentions, queueEveryone } from "./mentions"
+import { queueNewPost } from "./notify"
 import { communityFilesExist } from "./post-files"
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -808,6 +809,9 @@ export async function createPost(w: WriteContext, input: PostInput): Promise<Che
   })
   if (kind === "announcement" || mentionsEveryone(text)) {
     await queueEveryone(db, { communityId: community.id, postId: post.id, actorId: viewer.userId, reason: kind === "announcement" ? "announcement" : "everyone" })
+  } else {
+    /* Members who set this community to Everything hear about it on their phones (notify.ts queueNewPost). */
+    await queueNewPost(db, { communityId: community.id, postId: post.id, actorId: viewer.userId })
   }
   const [view] = await hydratePosts(db, [post], { community, viewer, spaces })
   return { ok: true, value: view }
