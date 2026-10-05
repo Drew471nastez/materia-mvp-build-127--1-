@@ -28,6 +28,7 @@ import "server-only"
  * once the member already has their post.
  */
 import { createHmac } from "node:crypto"
+import type { Db } from "./db"
 
 /** How long a broadcast may take before it is given up (it is a courtesy, the next read shows the post anyway). */
 const SEND_TIMEOUT_MS = 2500
@@ -109,4 +110,19 @@ export function announceCommentChange(communityId: string, comment: { id: string
   const topic = postTopic(communityId, comment.postId)
   if (!topic || !UUID.test(comment.id)) return Promise.resolve(false)
   return broadcastLive([{ topic, event: "comment-change", payload: { commentId: comment.id, postId: comment.postId, change: comment.change } }], fetcher)
+}
+
+/**
+ * A moderator's action on a post or a comment, as the open screens hear it:
+ * removed reads as deleted (the card folds away), anything else (restored,
+ * pinned, locked, moved) as edited, so the card reads itself again. Chat
+ * messages have their own channel.
+ */
+export async function announceModeration(db: Db, communityId: string, target: { type: string; id: string; action: string }): Promise<boolean> {
+  const change: LiveChange = target.action === "remove" ? "delete" : "edit"
+  if (target.type === "post") return announcePostChange(communityId, { id: target.id, change })
+  if (target.type !== "comment" || !UUID.test(target.id)) return false
+  const { data } = await db.from("community_feed_comments").select("post_id").eq("id", target.id).eq("community_id", communityId).maybeSingle()
+  const postId = (data as { post_id: string | null } | null)?.post_id
+  return postId ? announceCommentChange(communityId, { id: target.id, postId, change }) : false
 }
