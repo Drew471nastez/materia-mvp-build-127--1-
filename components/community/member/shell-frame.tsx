@@ -39,10 +39,33 @@
  * member page's loading.tsx), never a skeleton and never over the frame.
  *
  * Below 1024px there is one column, and the places are one row of plain
- * text tabs under the bar (scrolling sideways on a phone). About is the
- * community's own page, the same sheet a visitor reads with its own card at
- * the right, so it has no left column and keeps the row of tabs at every
- * width.
+ * text tabs under the bar (scrolling sideways on a phone).
+ *
+ * ABOUT IS A PLACE LIKE THE OTHERS (round 11: "opening About never changes
+ * the header's width or moves other elements"). It had a frame of its own:
+ * no left column, the bar narrowed to 1080px with the tabs under it, so
+ * every visit to it moved the bar, the name and the columns. Now it sits in
+ * the same columns with the same bar: from 1280px the left column stays and
+ * the page (the same sheet a visitor reads, with its own card) takes the
+ * middle and right columns, where the wall's cards would be. From 1024px to
+ * 1279px it takes the whole width (beside a 260px column, its own card would
+ * leave its words a phone's width). The sheet brings its own padding, so
+ * its box steps out of the column's by exactly that much (ABOUT_BOX): on a
+ * phone it is edge to edge as it always was, and on a computer its words
+ * start on the same line as every other page's.
+ *
+ * NO SCROLLBAR JUMP. A short page (Members with a few people, an empty
+ * classroom) has no scrollbar and a long one has one, and on a computer
+ * with a classic scrollbar that moved the whole centred frame by half its
+ * width between two places. The frame keeps the scrollbar's room at all
+ * times (scrollbar-gutter: stable on the page, drawn with the frame and
+ * gone with it), measured on every frame by scripts/check-community-frame11.mjs.
+ *
+ * LANDING (round 11). Entering a community (from Explore, a card, the
+ * navigator), the side columns come in by opacity over a moment, the
+ * middle a beat after them, so the frame lands rather than appearing in one
+ * cut; moving between places inside it never replays that, because the
+ * frame stays mounted.
  *
  * The bar (and the tabs under it) stick together at the top. Their height
  * is measured once (ResizeObserver) and shared as --community-top with
@@ -108,6 +131,17 @@ const FULL = "full" as never
  * reduced motion.
  */
 export const ARRIVE = "[&>*]:animate-[fade-in_200ms_cubic-bezier(0.32,0.72,0,1)] motion-reduce:[&>*]:animate-none"
+
+/** The side columns' landing, once per visit (opacity only); the middle follows a beat later (LAND_LATE). */
+const LAND = "motion-safe:animate-[fade-in_260ms_cubic-bezier(0.22,1,0.36,1)_both]"
+const LAND_LATE = "motion-safe:animate-[fade-in_260ms_cubic-bezier(0.22,1,0.36,1)_60ms_both]"
+
+/** About's sheet pads itself (sales-page.tsx: none, then 24px from 640px, 32px from 1024px, and as much on top): its box steps out of the column's padding by as much. */
+/* Its ground is see-through here: the box reaches 8px past the column gap at the left, over the edge of the community card. */
+const ABOUT_BOX = "-mx-4 -mt-4 sm:-mx-6 lg:-mx-8 lg:-mt-8 [&>[data-community-sales]]:bg-transparent"
+
+/** The scrollbar's room kept on every page of the frame, so a short page and a long one centre the frame on the same line. */
+const GUTTER = "html{scrollbar-gutter:stable}"
 
 /** What ?dm= may carry: an id's characters and nothing else. The server checks it is somebody here. */
 const DM_TARGET = /^[0-9a-z-]{1,64}$/i
@@ -220,7 +254,7 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
   const onMessages = useCallback(() => setChat((c) => (c ? null : {})), [])
   const searchProp = useMemo(() => ({ communityId: community.id }), [community.id])
   const menu = useMemo(() => ({ onInvite: community.archived ? null : openInvite, savedHref: `/community/${community.slug}/saved` }), [community.archived, community.slug, openInvite])
-  const tabs = useMemo(() => <SectionTabs entries={entries} wide={!about} />, [entries, about])
+  const tabs = useMemo(() => <SectionTabs entries={entries} />, [entries])
 
   /*
     EVERY PLACE, READ AHEAD ONCE THE FRAME IS IDLE (round 9). The frame stays mounted for the whole visit, so this runs once per
@@ -240,49 +274,45 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
   )
 
   return (
-    /* The header's real heights until it is measured (56 + 40 of tabs + its hairline below 1024px, one 64px row + 1 from 1024px, About keeps its tabs): no jump on the first frame. */
+    /* The header's real heights until it is measured (56 + 40 of tabs + its hairline below 1024px, one 64px row + 1 from 1024px): no jump on the first frame. */
     <PlaceContext.Provider value={place}>
-      <div data-community-shell="" className={`min-h-svh bg-[#f8f9fa] [--community-top:97px] ${about ? "lg:[--community-top:105px]" : "lg:[--community-top:65px]"}`}>
-        <CommunityTopBar data={topBar} messages={canMessage ? messages : null} messagesOpen={!!chat} onMessages={onMessages} search={searchProp} tabsOnDesktop={about} menu={menu}>
+      <style>{GUTTER}</style>
+      <div data-community-shell="" className="min-h-svh bg-[#f8f9fa] [--community-top:97px] lg:[--community-top:65px]">
+        <CommunityTopBar data={topBar} messages={canMessage ? messages : null} messagesOpen={!!chat} onMessages={onMessages} search={searchProp} menu={menu}>
           {tabs}
         </CommunityTopBar>
 
         {/*
-          About brings its own width and its own card; every other page sits in the middle column, the classroom and events pages (their
-          own worker's) included. What arrives there fades in (ARRIVE); the columns either side are not touched.
+          Every page sits in the middle column (About across the middle and the right from 1280px, with its own card), the classroom
+          and events pages included. What arrives there fades in (ARRIVE); the columns either side are not touched.
         */}
-        {about ? (
-          <div className={ARRIVE} data-community-body="">
-            {children}
-          </div>
-        ) : (
-          <div className="mx-auto w-full max-w-[1360px] px-4 sm:px-6 lg:px-8">
-            <div
-              data-community-columns="three"
-              className="pb-16 pt-4 lg:grid lg:grid-cols-[260px_minmax(0,1fr)] lg:grid-rows-[auto_1fr] lg:items-start lg:gap-x-6 lg:pt-6 xl:grid-cols-[280px_minmax(0,1fr)_300px]"
-            >
-              {/* LEFT: the community card, and the places right under it (round 9). */}
-              <div className="hidden min-w-0 space-y-3 lg:col-start-1 lg:row-start-1 lg:block" data-community-left="">
-                {wall ? <WallCommunityCard community={community} card={wall.card} membersHref={membersHref} /> : null}
-                <WallPlaces entries={entries} />
-              </div>
-              {/* RIGHT from 1280px (under the places from 1024px): the next event, then who takes part, sticking under the bar. */}
-              <aside className="hidden min-w-0 lg:col-start-1 lg:row-start-2 lg:mt-3 lg:block xl:col-start-3 xl:row-span-2 xl:row-start-1 xl:mt-0 xl:self-stretch" data-community-right="">
-                {upcoming || contributors ? (
-                  <div className="space-y-3 xl:sticky xl:top-[calc(var(--community-top,65px)+24px)]" data-community-right-cards="">
-                    {upcoming ? <WallUpcoming slug={community.slug} event={upcoming} /> : null}
-                    {contributors ? <WallContributorsCard slug={community.slug} data={contributors} viewAllHref={contributorsAll} /> : null}
-                  </div>
-                ) : null}
-              </aside>
-              <div className="min-w-0 lg:col-start-2 lg:row-span-2 lg:row-start-1" data-community-main="">
-                <div className={ARRIVE} data-community-body="">
-                  {children}
+        <div className="mx-auto w-full max-w-[1360px] px-4 sm:px-6 lg:px-8">
+          <div
+            data-community-columns="three"
+            data-community-place={about ? "about" : undefined}
+            className="pb-16 pt-4 lg:grid lg:grid-cols-[260px_minmax(0,1fr)] lg:grid-rows-[auto_1fr] lg:items-start lg:gap-x-6 lg:pt-6 xl:grid-cols-[280px_minmax(0,1fr)_300px]"
+          >
+            {/* LEFT: the community card, and the places right under it (round 9). */}
+            <div className={`hidden min-w-0 space-y-3 lg:col-start-1 lg:row-start-1 ${about ? "xl:block" : "lg:block"} ${LAND}`} data-community-left="">
+              {wall ? <WallCommunityCard community={community} card={wall.card} membersHref={membersHref} /> : null}
+              <WallPlaces entries={entries} />
+            </div>
+            {/* RIGHT from 1280px (under the places from 1024px): the next event, then who takes part, sticking under the bar. About has its own card there. */}
+            <aside className={`hidden min-w-0 lg:col-start-1 lg:row-start-2 lg:mt-3 xl:col-start-3 xl:row-span-2 xl:row-start-1 xl:mt-0 xl:self-stretch ${about ? "" : "lg:block"} ${LAND}`} data-community-right="">
+              {upcoming || contributors ? (
+                <div className="space-y-3 xl:sticky xl:top-[calc(var(--community-top,65px)+24px)]" data-community-right-cards="">
+                  {upcoming ? <WallUpcoming slug={community.slug} event={upcoming} /> : null}
+                  {contributors ? <WallContributorsCard slug={community.slug} data={contributors} viewAllHref={contributorsAll} /> : null}
                 </div>
+              ) : null}
+            </aside>
+            <div className={`min-w-0 lg:row-span-2 lg:row-start-1 ${about ? "lg:col-span-2 lg:col-start-1 xl:col-start-2" : "lg:col-start-2"} ${LAND_LATE}`} data-community-main="">
+              <div className={`${ARRIVE} ${about ? ABOUT_BOX : ""}`} data-community-body="">
+                {children}
               </div>
             </div>
           </div>
-        )}
+        </div>
 
         {community.archived ? null : <InviteSheet open={inviting} onClose={() => setInviting(false)} community={community} staff={canInvite} manageHref={manageInvites} />}
         <PersonCardLayer communityId={community.id} canMessage={canMessage} />
@@ -310,7 +340,7 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
  * within a moment of the last scroll, so the follow can never fight a fling.
  * The first draw puts it in view at once (nothing to glide from).
  */
-export function SectionTabs({ entries, current: currentProp, wide = true, onGo: onGoProp }: { entries: NavEntry[]; /** Left out, the frame's PlaceContext says. */ current?: TabKey; wide?: boolean; onGo?: (key: TabKey) => void }) {
+export function SectionTabs({ entries, current: currentProp, wide = true, onGo: onGoProp }: { entries: NavEntry[]; /** Left out, the frame's PlaceContext says. */ current?: TabKey; /** The row lines up with the 1360px frame; false for a 1080px page. */ wide?: boolean; onGo?: (key: TabKey) => void }) {
   const place = useContext(PlaceContext)
   const current = currentProp ?? place.tab
   const onGo = onGoProp ?? place.onGo
