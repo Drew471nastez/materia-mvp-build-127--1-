@@ -166,7 +166,8 @@ async function main() {
     check("the four levels, saved on the press through PATCH /me", /role="radiogroup"/.test(m) && /api\(`\$\{apiBase\(communityId\)\}\/me`, \{ method: "PATCH", body: \{ notifyLevel: next \} \}\)/.test(m) && (m.match(/\{ key: "(all|important|mentions|none)"/g) || []).length === 4)
     check("leaving is the About page's confirm (it asks why)", /<JoinProvider community=\{community\} join=\{join\} askWhy=\{askWhy\}>/.test(m) && /const \{ canLeave, open, busy, error \} = useLeave\(\)/.test(m))
     const withComments = readSource("components/community/member/membership.tsx")
-    check("worker M's CancelMembership and ContactOwner have named slots", /SLOT: CancelMembership/.test(withComments) && /SLOT: ContactOwner/.test(withComments))
+    /* Round 13: worker M's parts are in their slots now (the coordinator's merge), not only named. */
+    check("worker M's CancelMembership and ContactOwner are mounted in their slots", /<CancelMembership communityId=\{community\.id\} slug=\{community\.slug\} endsAt=\{facts\.expiresAt\} variant="inline" \/>/.test(withComments) && /<ContactOwner communityId=\{community\.id\} ownerName=\{community\.creator\?\.name \?\? null\} \/>/.test(withComments))
   }
 
   /* ── CONTRIB ────────────────────────────────────────────────────────── */

@@ -12,7 +12,11 @@
  */
 import * as React from "react"
 import { cn } from "@/lib/utils"
-import type { AnalyticsView, CommunityHead } from "./view-types"
+import { money } from "@/lib/memberships/state"
+import { MetricTab } from "@/components/app/metric-tab"
+import { TAB_STRIP_STYLE, useTabStrip } from "@/components/app/use-tab-strip"
+import { HelpLabel } from "@/components/app/help-label"
+import type { AnalyticsView, CommunityHead, MoneyAndGrowth, RevenueStats } from "./view-types"
 import { FilterTabs, Notice, card, errorText, send } from "./parts"
 
 const LINE = "#8b5cf6"
@@ -149,11 +153,12 @@ export function AnalyticsSection({ head, initial }: { head: CommunityHead; initi
   const t = data.totals
   const tiles = [
     { label: "Members now", value: data.live.members, sub: data.live.newToday ? `${data.live.newToday} joined today` : "None joined today yet" },
+    ...(data.money ? [{ label: "Active members", value: data.money.active.last30, sub: `${data.money.active.last7.toLocaleString("en-US")} in the last 7 days` }] : []),
     { label: "Joined", value: t.newMembers, sub: `${t.left} left` },
     { label: "Posts", value: t.posts, sub: `${data.live.postsToday} today` },
     { label: "Comments", value: t.comments, sub: `${data.live.commentsToday} today` },
     { label: "Reactions", value: t.reactions },
-    { label: "RSVPs", value: t.rsvps },
+    ...(data.money ? [] : [{ label: "RSVPs", value: t.rsvps }]),
   ]
 
   return (
@@ -164,6 +169,8 @@ export function AnalyticsSection({ head, initial }: { head: CommunityHead; initi
       </div>
       {error ? <Notice>{error}</Notice> : null}
       {!data.rolledUp ? <Notice tone="info">The daily figures start after the first nightly count. Today&rsquo;s numbers below are live.</Notice> : null}
+
+      {data.money?.revenue ? <RevenueCard revenue={data.money.revenue} days={data.days} /> : null}
 
       <section className={cn(card, "overflow-hidden")} aria-label="Totals">
         <div className="grid grid-cols-2 gap-px bg-[#f1f2f4] sm:grid-cols-3 lg:grid-cols-6">
@@ -194,6 +201,8 @@ export function AnalyticsSection({ head, initial }: { head: CommunityHead; initi
         </div>
       ) : null}
 
+      {data.money ? <JoinsCards money={data.money} /> : null}
+
       <section className={cn(card, "px-4 py-4 sm:px-5")}>
         <h2 className="text-[14px] font-semibold text-[#1a1a2e]">Most liked posts</h2>
         {data.topPosts.length === 0 ? (
@@ -214,6 +223,126 @@ export function AnalyticsSection({ head, initial }: { head: CommunityHead; initi
           </ol>
         )}
       </section>
+    </div>
+  )
+}
+
+/* ── Revenue and joins (round 13, lib/communities/server/stats.ts) ──────── */
+
+/*
+  THE /app ANALYTICS LOOK. The revenue strip is the Analytics page's own
+  figure tabs (components/app/metric-tab, in the strip that scrolls sideways
+  on a phone, components/app/use-tab-strip), and the lists under it draw
+  their rows the way that page's reports do (app/app/analytics/analytics-
+  reports.tsx Row: a quiet grey bar behind the name, the figure at the end).
+  A tab chooses what the panel under the strip explains, so every tab does
+  something: there is no daily revenue series to chart.
+*/
+const REVENUE_TABS = ["mrr", "subscribers", "new", "cancellations", "churn", "refunds"] as const
+type RevenueTab = (typeof REVENUE_TABS)[number]
+
+const SOURCE_LABEL: Record<string, string> = {
+  free: "Joined for free",
+  subscription: "Paid membership",
+  purchase: "One time purchase",
+  product: "Owns a product that includes it",
+  invite: "Invite",
+  manual: "Added by you or your team",
+  platform: "Added by Storelib",
+}
+
+const REASON_LABEL: Record<string, string> = {
+  too_expensive: "Too expensive",
+  not_using: "Not using it enough",
+  missing_features: "Missing something they wanted",
+  content: "The content",
+  found_alternative: "Found something else",
+  temporary: "Taking a break",
+  other: "Other",
+  none: "No reason given",
+}
+
+export function reasonLabel(reason: string): string {
+  return REASON_LABEL[reason] ?? reason.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase())
+}
+
+const STRIP_TAB = "flex-shrink-0 min-w-[132px] md:min-w-0"
+
+function RevenueCard({ revenue: r, days }: { revenue: RevenueStats; days: number }) {
+  const [tab, setTab] = React.useState<RevenueTab>("mrr")
+  const strip = useTabStrip<HTMLDivElement>(tab, REVENUE_TABS)
+  const cash = (cents: number) => money(cents, r.currency)
+  const n = (v: number) => v.toLocaleString("en-US")
+  const period = `${days} days`
+  return (
+    <section className={cn(card, "overflow-hidden")} aria-label="Revenue" data-revenue="">
+      <div ref={strip} role="tablist" aria-label="Revenue figures" data-scroll-x="" className="relative flex divide-x divide-[#e5e7eb]/60 overflow-x-auto scrollbar-hide md:grid md:grid-cols-6" style={TAB_STRIP_STYLE}>
+        <MetricTab tab="mrr" className={STRIP_TAB} label="Monthly revenue" value={cash(r.mrrCents)} foot="Recurring, today" selected={tab === "mrr"} onSelect={() => setTab("mrr")} />
+        <MetricTab tab="subscribers" className={STRIP_TAB} label="Active subscribers" value={n(r.activeSubscribers)} foot="Paying now" selected={tab === "subscribers"} onSelect={() => setTab("subscribers")} />
+        <MetricTab tab="new" className={STRIP_TAB} label="New" value={n(r.newSubscribers)} foot={`In ${period}`} selected={tab === "new"} onSelect={() => setTab("new")} />
+        <MetricTab tab="cancellations" className={STRIP_TAB} label="Cancellations" value={n(r.cancellations)} foot={`In ${period}`} selected={tab === "cancellations"} onSelect={() => setTab("cancellations")} />
+        <MetricTab tab="churn" className={STRIP_TAB} label="Churn rate" value={r.churnRate === null ? "–" : `${r.churnRate}%`} foot={`Over ${period}`} selected={tab === "churn"} onSelect={() => setTab("churn")} />
+        <MetricTab tab="refunds" className={STRIP_TAB} label="Refunds" value={cash(r.refunds.totalCents)} foot={r.refunds.count === 1 ? "1 refund" : `${n(r.refunds.count)} refunds`} selected={tab === "refunds"} onSelect={() => setTab("refunds")} />
+      </div>
+      <div className="border-t border-[#e5e7eb]/60 px-4 py-3.5 text-[13.5px] leading-relaxed text-[#4b5563] sm:px-5" data-revenue-detail={tab}>
+        {tab === "mrr" ? <p>What the {n(r.activeSubscribers)} active subscriptions bring in a month. A yearly plan counts as a twelfth of its price.</p> : null}
+        {tab === "subscribers" ? <p>Members paying now, including anyone whose card is being retried. Somebody who cancelled keeps access until their period ends and is not counted.</p> : null}
+        {tab === "new" ? <p>{r.newSubscribers === 0 ? `Nobody started a paid membership in the last ${period}.` : `${n(r.newSubscribers)} paid ${r.newSubscribers === 1 ? "membership" : "memberships"} started in the last ${period}.`}</p> : null}
+        {tab === "cancellations" ? <Reasons revenue={r} period={period} /> : null}
+        {tab === "churn" ? <p>{r.churnRate === null ? "There were no paying members at the start of this period, so there is no rate yet." : `${n(r.cancellations)} of the members paying at the start of the last ${period} cancelled.`}</p> : null}
+        {tab === "refunds" ? <p>{r.refunds.count === 0 ? `No refunds in the last ${period}.` : `${n(r.refunds.count)} ${r.refunds.count === 1 ? "payment" : "payments"} refunded in the last ${period}, ${cash(r.refunds.totalCents)} in all.`}</p> : null}
+      </div>
+    </section>
+  )
+}
+
+function Reasons({ revenue: r, period }: { revenue: RevenueStats; period: string }) {
+  if (r.cancellations === 0) return <p>Nobody cancelled in the last {period}.</p>
+  if (r.reasons.length === 0) return <p>{r.cancellations.toLocaleString("en-US")} cancelled in the last {period}. Nobody said why.</p>
+  return <BarList rows={r.reasons.map((x) => ({ key: x.reason, label: reasonLabel(x.reason), value: x.count }))} />
+}
+
+function BarList({ rows, empty }: { rows: { key: string; label: string; value: number; note?: string }[]; empty?: string }) {
+  if (rows.length === 0) return <p className="py-4 text-center text-[13px] text-[#6b7280]">{empty}</p>
+  const max = Math.max(1, ...rows.map((r) => r.value))
+  return (
+    <ol data-bar-list="">
+      {rows.map((r) => (
+        <li key={r.key} className="flex h-10 items-center gap-3" data-row-key={r.key}>
+          <div className="relative flex h-8 min-w-0 flex-1 items-center">
+            <div aria-hidden className="absolute inset-y-0 left-0 rounded-md bg-[linear-gradient(180deg,#f8f9fb_0%,#eff1f4_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.95),inset_0_0_0_1px_rgba(16,24,40,0.045),0_1px_2px_rgba(16,24,40,0.05)]" style={{ width: `${Math.max(2, (r.value / max) * 100)}%` }} />
+            <span className="relative min-w-0 truncate pl-2.5 text-[13px] text-[#303036]" title={r.label}>
+              {r.label}
+            </span>
+            {r.note ? <span className="relative shrink-0 truncate pl-2 pr-2 text-[12px] text-[#9ca3af]">{r.note}</span> : null}
+          </div>
+          <span className="shrink-0 text-[13px] font-medium tabular-nums text-[#1a1a2e]">{r.value.toLocaleString("en-US")}</span>
+        </li>
+      ))}
+    </ol>
+  )
+}
+
+function ListCard({ title, help, children, name }: { title: string; help: string; children: React.ReactNode; name: string }) {
+  return (
+    <section data-card={name} className={cn(card, "flex min-w-0 flex-col")}>
+      <header className="flex min-h-[48px] items-center px-4 pt-3.5 sm:px-5">
+        <HelpLabel as="h3" label={title} description={help} className="max-w-full truncate text-[14px] font-semibold text-[#1a1a2e]" />
+      </header>
+      <div className="flex min-h-0 flex-1 flex-col px-4 pb-4 pt-1 sm:px-5">{children}</div>
+    </section>
+  )
+}
+
+function JoinsCards({ money: m }: { money: MoneyAndGrowth }) {
+  return (
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2" data-joins="">
+      <ListCard name="joins" title="How people joined" help={`Everyone who joined in the last ${m.days} days, by how they came in.`}>
+        <BarList rows={m.joins.bySource.map((x) => ({ key: x.source, label: SOURCE_LABEL[x.source] ?? x.source, value: x.count }))} empty={`Nobody joined in the last ${m.days} days.`} />
+      </ListCard>
+      <ListCard name="invites" title="Invite links" help={`The links that brought the most people in during the last ${m.days} days.`}>
+        <BarList rows={m.joins.invites.map((x) => ({ key: x.id, label: x.label, value: x.uses, note: x.revoked ? "Turned off" : undefined }))} empty="No one joined through an invite in this period." />
+      </ListCard>
     </div>
   )
 }

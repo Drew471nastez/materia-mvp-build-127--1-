@@ -16,11 +16,13 @@ export function sectionFromPath(pathname: string | null | undefined, slug: strin
   const [first, second] = path.slice(base.length).split("/").filter(Boolean)
   if (!first) return "home"
   if (first === "space" && second) return `space:${decodeURIComponent(second)}`
+  /* Learn (round 13) is the place once called the Classroom: its key stays "classroom", like the switch that turns it on. */
+  if (first === "learn") return "classroom"
   if ((SECTIONS as readonly string[]).includes(first)) return first as ShellSection
   return "home"
 }
 
-/** The places: Community, Classroom, Calendar, Members, Leaderboards, About. */
+/** The places: Community, Learn, Calendar, Members, Leaderboards, About. */
 export type TabKey = "home" | "classroom" | "events" | "members" | "leaderboard" | "about"
 
 export interface NavEntry {
@@ -37,7 +39,7 @@ export interface NavEntry {
 export function navEntries(c: { slug: string; classroomEnabled: boolean; eventsEnabled: boolean; directoryEnabled: boolean; gamificationEnabled: boolean }, staff: boolean): NavEntry[] {
   const base = `/community/${c.slug}`
   const out: NavEntry[] = [{ key: "home", label: "Community", href: base }]
-  if (c.classroomEnabled) out.push({ key: "classroom", label: "Classroom", href: `${base}/classroom` })
+  if (c.classroomEnabled) out.push({ key: "classroom", label: "Learn", href: `${base}/learn` })
   if (c.eventsEnabled) out.push({ key: "events", label: "Calendar", href: `${base}/events` })
   if (c.directoryEnabled || staff) out.push({ key: "members", label: "Members", href: `${base}/members` })
   if (c.gamificationEnabled) out.push({ key: "leaderboard", label: "Leaderboards", href: `${base}/leaderboard` })

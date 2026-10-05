@@ -51,7 +51,7 @@ async function toViews(db: Db, community: Pick<CommunityRow, "id">, viewer: View
     community.id,
     rows.map((r) => r.author_id),
   )
-  const moderator = can(viewer.role, "moderate_content")
+  const moderator = can(viewer.role, "moderate_content", viewer.perms)
   return rows.map((r) => ({
     id: r.id,
     spaceId: r.space_id,
@@ -183,7 +183,7 @@ export async function deleteMessage(w: WriteContext, messageId: string, reason?:
   const found = await messageInCommunity(w.db, w.community, w.viewer, messageId)
   if (!found) return { ok: false, error: "That message is gone.", status: 404 }
   const own = found.row.author_id === w.viewer.userId
-  if (!own && !can(w.viewer.role, "moderate_content")) return { ok: false, error: "Only the author can delete a message.", status: 403 }
+  if (!own && !can(w.viewer.role, "moderate_content", w.viewer.perms)) return { ok: false, error: "Only the author can delete a message.", status: 403 }
   const patch = own ? { status: "deleted", body: "", deleted_at: nowIso() } : { status: "removed", body: "", deleted_at: nowIso() }
   const { error } = await w.db.from("community_messages").update(patch).eq("id", messageId).eq("community_id", w.community.id)
   if (error) return { ok: false, error: "The message was not deleted. Try again.", status: 500 }

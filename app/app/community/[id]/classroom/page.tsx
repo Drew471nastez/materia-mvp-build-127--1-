@@ -1,13 +1,9 @@
-import { communityHead, loadClassroom, ruleOptions, sectionPage } from "@/lib/communities/server/creator"
-import { ClassroomSection } from "@/components/community/creator/classroom-section"
+import { notFound, permanentRedirect } from "next/navigation"
+import { communitiesEnabled } from "@/lib/communities/flag"
 
-export const dynamic = "force-dynamic"
-
-/** /app/community/<id>/classroom: the creator's courses, attached to the community. */
+/** /app/community/<id>/classroom was Learn's old address: links and bookmarks land on Learn. */
 export default async function CommunityClassroomAdminPage({ params }: { params: Promise<{ id: string }> }) {
+  if (!(await communitiesEnabled())) notFound()
   const { id } = await params
-  const ctx = await sectionPage(id, "manage_classroom")
-  if (!ctx) return null
-  const [head, classroom, options] = await Promise.all([communityHead(ctx), loadClassroom(ctx.db, ctx.community.id, ctx.creatorId), ruleOptions(ctx.db, ctx.community.id)])
-  return <ClassroomSection head={head} initial={classroom} options={options} />
+  permanentRedirect(`/app/community/${encodeURIComponent(id)}/learn`)
 }

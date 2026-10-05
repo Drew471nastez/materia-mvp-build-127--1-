@@ -236,8 +236,8 @@ async function main() {
   console.log("\nOne row of section tabs, spaces as chips")
   {
     const all = navEntries({ slug: "s", classroomEnabled: true, eventsEnabled: true, directoryEnabled: true, gamificationEnabled: true }, false)
-    check("Community, Classroom, Calendar, Members, Leaderboards, About", all.map((e) => e.label).join() === "Community,Classroom,Calendar,Members,Leaderboards,About", all.map((e) => e.label))
-    check("each to its own address", all.map((e) => e.href).join() === "/community/s,/community/s/classroom,/community/s/events,/community/s/members,/community/s/leaderboard,/community/s/about")
+    check("Community, Learn, Calendar, Members, Leaderboards, About (round 13: the Classroom is Learn)", all.map((e) => e.label).join() === "Community,Learn,Calendar,Members,Leaderboards,About", all.map((e) => e.label))
+    check("each to its own address", all.map((e) => e.href).join() === "/community/s,/community/s/learn,/community/s/events,/community/s/members,/community/s/leaderboard,/community/s/about")
     const none = navEntries({ slug: "s", classroomEnabled: false, eventsEnabled: false, directoryEnabled: false, gamificationEnabled: false }, false)
     check("only the places that are on", none.map((e) => e.label).join() === "Community,About")
     check("a space, a post, Saved and the inbox mark Community", ["/community/s/space/x", "/community/s/post/p", "/community/s/saved", "/community/s/notifications", "/community/s"].every((p) => tabFor(sectionFromPath(p, "s")) === "home"))
@@ -687,7 +687,7 @@ async function main() {
     /* Round 7 (the owner's ask 12): closed, only "Share something..."; the toolbar lives in the editor. */
     check("the composer closed is only the field: no Photo, Video, Poll or More row", /data-composer-open=\{inPlace \? undefined : ""\}/.test(composer) && !/data-composer-action=/.test(composer))
     check("the editor's toolbar: files, link, video, poll, emoji, GIF, then the space, Cancel and Post", ["file", "link", "video", "poll", "emoji"].every((t) => new RegExp(`data-composer-tool="${t}"`).test(composer)) && /<GifButton /.test(composer) && /"Select a space"/.test(composer) && /data-composer-cancel=""/.test(composer) && /data-composer-post=""/.test(composer))
-    check("the file pickers stay mounted in both states (round 11: one tree for every state, the pickers first in it)", /return \(\s*<>\s*\{pickers\}\s*<div ref=\{cardRef\}/.test(composer) && /fileInput\.current\?\.click\(\)/.test(composer) && /videoInput\.current\?\.click\(\)/.test(composer))
+    check("the file pickers stay mounted in both states (round 11: one tree for every state, the pickers first in it)", /return \(\s*<>\s*\{pickers\}\s*\{editing \? \([\s\S]{0,400}<div ref=\{cardRef\}/.test(composer) && /fileInput\.current\?\.click\(\)/.test(composer) && /videoInput\.current\?\.click\(\)/.test(composer))
     check("the pages hand the composer the event form only through the server's rule", /eventHref: eventHrefFor\(community, viewer\)/.test(code("components/community/member/feed-page.tsx")) && /eventHref: eventHrefFor\(community, viewer\)/.test(code("app/(marketing)/community/[slug]/(member)/space/[space]/page.tsx")))
     const post = code("components/community/member/post-card.tsx")
     check("a post: its space as a chip, Like and Comment, Save as a word at the far end", /data-post-space=""/.test(post) && /function SaveButton\([\s\S]*?\{on \? "Saved" : "Save"\}/.test(post) && /<SaveButton post=\{post\}/.test(post) && /data-like=""/.test(post) && /data-comment-button=""/.test(post))
@@ -949,7 +949,7 @@ async function main() {
     check("an iOS style spinner: the /app ActivitySpinner itself, at its own size", /import \{ ActivitySpinner, SPINNER_SIZE \} from "@\/components\/ui\/activity-spinner"/.test(spin) && /size = SPINNER_SIZE/.test(spin) && /<ActivitySpinner size=\{size\}/.test(spin) && !/<svg/.test(spin))
     check("it waits ~160ms and fades in, so a quick place never shows it; a status for a screen reader", /export const WAIT_MS = 160/.test(spin) && /skeleton-reveal 200ms cubic-bezier\(0\.22, 1, 0\.36, 1\) \$\{WAIT_MS\}ms both/.test(spin) && /role="status"/.test(spin))
     const base = "app/(marketing)/community/[slug]"
-    const loadings = ["", "/(member)/post/[postId]", "/(member)/classroom", "/(member)/classroom/[courseProductId]", "/(member)/notifications", "/(member)/events", "/(member)/events/[eventId]", "/(member)/members", "/(member)/space/[space]", "/(member)/saved", "/(member)/leaderboard"].map((d) => `${base}${d}/loading.tsx`)
+    const loadings = ["", "/(member)/post/[postId]", "/(member)/learn", "/(member)/learn/[programId]", "/(member)/notifications", "/(member)/events", "/(member)/events/[eventId]", "/(member)/members", "/(member)/space/[space]", "/(member)/saved", "/(member)/leaderboard"].map((d) => `${base}${d}/loading.tsx`)
     const bad = loadings.filter((f) => !existsSync(f) || !/<PlaceSpinner label="[^"]+" \/>/.test(read(f)) || /Skeleton/.test(read(f)))
     check("every member page's loading screen is the spinner, none a skeleton (the community's home too)", bad.length === 0, bad)
     check("the old member skeletons are gone", !existsSync("components/community/member/skeletons.tsx"))

@@ -229,6 +229,30 @@ async function handleStripeEvent(request: Request) {
     }
   }
 
+  /*
+    A COMMUNITY PROGRAM bought in its sheet (lib/communities/server/
+    learn-checkout.ts): its own sessions, marked by metadata.kind
+    "community_program" and never by cart or a product, so nothing below
+    sees them. Paid: the program is the member's, once, whichever of this
+    and the sheet's own confirm comes first. A server failure answers 500
+    so Stripe retries.
+  */
+  if (event.type === "checkout.session.completed" || event.type === "checkout.session.async_payment_succeeded") {
+    const session = event.data.object as Stripe.Checkout.Session
+    if (session.metadata?.kind === "community_program") {
+      const learn = await import("@/lib/communities/server/learn-checkout")
+      if (learn.isProgramSession(session)) {
+        if (session.payment_status !== "paid") return NextResponse.json({ received: true, message: "Program not paid yet" })
+        const done = await learn.grantFromSession(supabaseAdmin, session)
+        if (done.ok === false && done.status >= 500) {
+          console.error("[Webhook] program grant failed:", session.id, done.error)
+          return NextResponse.json({ error: "Program not granted yet" }, { status: 500 })
+        }
+        return NextResponse.json({ received: true })
+      }
+    }
+  }
+
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session
 
@@ -1171,6 +1195,11 @@ async function handleStripeEvent(request: Request) {
     /* Every refund of the charge, split across the order rows it belongs to
        and applied to each once: lib/stripe/refund-sync.ts has the why. */
     const charge = event.data.object as Stripe.Charge
+    /* A community program refunded in full is locked again (lib/communities/server/learn-checkout.ts). */
+    if (charge.refunded && charge.payment_intent) {
+      const { revokeRefundedProgram } = await import("@/lib/communities/server/learn-checkout")
+      await revokeRefundedProgram(supabaseAdmin, typeof charge.payment_intent === "string" ? charge.payment_intent : charge.payment_intent.id)
+    }
     try {
       const done = await syncChargeRefund(supabaseAdmin, stripe, charge)
       console.log("[Webhook] charge.refunded", charge.id, "applied:", done.applied, "already applied:", done.skipped)

@@ -25,7 +25,7 @@ import React, { useEffect, useState } from "react"
 import { createRoot } from "react-dom/client"
 import { ShellFrame } from "@/components/community/member/shell-frame"
 import { FeedColumns } from "@/components/community/member/columns"
-import { FeedView } from "@/components/community/member/feed"
+import { CommunityFeed, FeedView } from "@/components/community/member/feed"
 import { SpaceChips } from "@/components/community/member/space-chips"
 import { PostPage } from "@/components/community/member/post-page"
 import { MediaLinks } from "@/components/community/member/media-viewer"
@@ -357,6 +357,82 @@ function Screen() {
   }
   if (which === "post") {
     return shell(<FeedColumns main={<PostPage slug={community.slug} viewer={viewer} post={POSTS[0]} comments={{ comments: [], nextCursor: null }} me={me} />} />)
+  }
+  /*
+    Round 13: SWITCH, the real feed with its chips (All and the spaces), All's first page from here; the probe answers a space's
+    page with the same posts (a space holding all the recent ones), so the cards on screen can be checked to stay the same nodes.
+    EDIT, the feed with the member's own post carrying pictures and a poll. VISITOR, a public post read by somebody who is not a
+    member (read only, the Join bar).
+  */
+  if (which === "switch" || which === "edit") {
+    const mine = post({
+      id: "p-mine",
+      author: people.me,
+      canEdit: true,
+      title: "Studio wall, before and after",
+      bodyText: "Two weekends of painting. Which corner works better for critique night?",
+      /* Pictures on "storage", so they come through the optimizer (slowed by the probe) with their 32px copy first. */
+      media: [
+        { type: "image", url: `${STORAGE}/wall-before.jpg`, w: 1200, h: 900 },
+        { type: "image", url: `${STORAGE}/wall-after.jpg`, w: 1200, h: 900 },
+      ],
+      poll: { id: "33333333-0000-4000-8000-0000000000e1", question: "Which corner?", multiple: false, closesAt: null, closed: false, totalVotes: 0, options: [{ id: "e1-a", label: "By the window", voteCount: 0, voted: false }, { id: "e1-b", label: "By the shelves", voteCount: 0, voted: false }] },
+      createdAt: iso(NOW - 57 * MIN),
+      lastActivityAt: iso(NOW - 57 * MIN),
+    })
+    const list = which === "edit" ? [mine, ...POSTS.filter((p) => !p.pinned)] : POSTS.filter((p) => !p.pinned)
+    ;(window as unknown as { __FEED_POSTS: FeedPostView[] }).__FEED_POSTS = list
+    /* A space's page (and All's again) is the same posts: answered here, before the feed reads any list ahead. */
+    if (which === "switch" && !(window as unknown as { __echo?: boolean }).__echo) {
+      ;(window as unknown as { __echo?: boolean }).__echo = true
+      const real = window.fetch.bind(window)
+      window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input instanceof Request ? input.url : input)
+        if (/\/posts\?/.test(url) && (!init?.method || init.method === "GET")) {
+          /* ?more=1: every page has a next one (twenty new posts each), so the probe can watch the list stop asking by itself at 60. */
+          const more = params.get("more") === "1"
+          const cursor = new URL(url, location.href).searchParams.get("cursor")
+          const n = cursor ? Number(cursor.slice(1)) : 0
+          const page = more && cursor ? Array.from({ length: 20 }, (_, i) => ({ ...list[i % list.length], id: `p-more-${n}-${i}`, pinned: false })) : list
+          const body = { pinned: cursor ? [] : POSTS.filter((p) => p.pinned), posts: page, nextCursor: more ? `c${n + 1}` : null }
+          ;(window as unknown as { __pages?: number }).__pages = ((window as unknown as { __pages?: number }).__pages ?? 0) + (cursor ? 1 : 0)
+          return new Promise((done) => setTimeout(() => done(new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } })), 120))
+        }
+        return real(input, init)
+      }
+    }
+    return shell(
+      <FeedColumns
+        main={
+          <CommunityFeed
+            communityId={CID}
+            slug={community.slug}
+            viewer={viewer}
+            spaces={spaces.map((s) => ({ ...s, kind: s.kind as "feed" }))}
+            start={{ kind: "all" }}
+            initial={{ pinned: POSTS.filter((p) => p.pinned), posts: list, nextCursor: params.get("more") === "1" ? "c0" : null }}
+            servedAt={Date.now()}
+            compose={{ userId: self.id, me, fileProductId: null }}
+          />
+        }
+      />,
+    )
+  }
+  /* Round 13: the member's own post on its page, for ?edit=1 (a profile's Edit link). */
+  if (which === "mine") {
+    const own = { ...POSTS[3], id: "p-mine", canEdit: true }
+    return shell(<FeedColumns main={<PostPage slug={community.slug} viewer={viewer} post={own} comments={{ comments: [], nextCursor: null }} me={me} />} />)
+  }
+  if (which === "visitor") {
+    const reader: ViewerView = { ...viewer, userId: null, signedIn: false, role: null, status: null, active: false, can: allowedActions(null) }
+    const comments = [
+      { id: "c-v1", postId: POSTS[4].id, parentId: null, body: "Would love the template.", status: "published" as const, deleted: false, author: people.leo, reactionCount: 1, reacted: false, createdAt: iso(NOW - 3 * HOUR), editedAt: null, replies: [], canEdit: false, canModerate: false },
+    ]
+    return shell(
+      <FeedColumns
+        main={<PostPage slug={community.slug} viewer={reader} post={{ ...POSTS[4], canEdit: false, canModerate: false }} comments={{ comments, nextCursor: null }} me={{ name: "", avatarUrl: null }} readOnly visitor={{ name: community.name, logoUrl: community.logoUrl, signedIn: false }} />}
+      />,
+    )
   }
   return shell(
     <FeedColumns

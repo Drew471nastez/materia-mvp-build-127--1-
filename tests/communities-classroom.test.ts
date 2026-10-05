@@ -243,7 +243,7 @@ async function main() {
     check("lessons are counted from the course's own lessons", by(COURSE).lessons === 3 && by(PRO_COURSE).lessons === 1 && by(DRIP_COURSE).lessons === 0)
     check("progress is the member's own course row", by(COURSE).percent === 33 && by(COURSE).completedLessons === 1 && by(COURSE).status === "in_progress")
     check("a course they have not started is 0%", by(PRO_COURSE).percent === 0 && by(PRO_COURSE).status === "not_started")
-    check("an in progress course opens on their last lesson", by(COURSE).href === `/community/makers/classroom/${COURSE}?lesson=${id(71)}`)
+    check("an in progress course opens on their last lesson", by(COURSE).href === `/community/makers/learn/${COURSE}?lesson=${id(71)}`)
     check("the Pro course is locked for a free member, in words", by(PRO_COURSE).locked?.label === "Pro members", by(PRO_COURSE).locked)
     check("the drip course says when it opens", by(DRIP_COURSE).locked?.reason === "drip" && by(DRIP_COURSE).locked?.label === "Opens on Oct 14", by(DRIP_COURSE).locked)
     check("the level course says the level", by(LEVEL_COURSE).locked?.label === "Level 3")
@@ -581,7 +581,8 @@ async function main() {
     ...walk("app/api/community").filter((f) => /\/(classroom|events|videos)\//.test(f)),
     ...walk("app/api/app/community").filter((f) => f.includes("/videos/")),
   ].filter((f) => f.endsWith("route.ts"))
-  check("all my routes are there", routes.length === 10, routes)
+  /* Round 13 added the composer's status route (videos/[videoId]/route.ts). */
+  check("all my routes are there", routes.length === 11, routes)
   for (const f of routes) {
     const src = code(f)
     const handlers = [...src.matchAll(/export async function (GET|POST|PATCH|DELETE)\([^)]*\)[^{]*\{\s*([^\n]+)\n\s*([^\n]+)/g)]
@@ -596,13 +597,14 @@ async function main() {
   const hook = code("app/api/webhooks/video/[provider]/route.ts")
   check("webhook: switch first, signature checked before anything is applied", /requireCommunitiesOn\(\)[\s\S]*adapter\.webhook\([\s\S]*bad_signature[\s\S]*applyVideoWebhook/.test(hook))
   check("webhook: a service not connected answers 404", /if \(!adapter\.connected\(\)\)/.test(hook))
-  const pages = walk("app/(marketing)/community/[slug]/(member)").filter((f) => f.endsWith("page.tsx") && /\/(classroom|events)\//.test(f))
+  const pages = walk("app/(marketing)/community/[slug]/(member)").filter((f) => f.endsWith("page.tsx") && /\/(learn|events)\//.test(f))
   check("four pages", pages.length === 4, pages)
   check("every page checks for itself (openMemberPage), not only the layout", pages.every((f) => /await openMemberPage\(db, slug, "(classroom|events)"/.test(code(f))))
   const gate = code("lib/communities/server/classroom.ts")
   check("the page gate: switch, community, section, sign in, active member", /if \(!\(await on\(\)\)\) return notFound\(\)[\s\S]*communityOpen\(community\)[\s\S]*classroom_enabled[\s\S]*pageUser\([\s\S]*if \(!viewer\.active\) return redirect/.test(gate))
-  const coursePage = code("app/(marketing)/community/[slug]/(member)/classroom/[courseProductId]/page.tsx")
-  check("the course page finds only an attached course, and shows a lock before the player", /classroomCourse\(db, open\.community, open\.viewer, courseProductId\)[\s\S]*if \(!course\) notFound\(\)[\s\S]*if \(course\.locked\)[\s\S]*loadCoursePlayer/.test(coursePage))
+  /* Round 13: the course page is Learn's program page (tests/communities-learn.test.ts holds the rest). */
+  const coursePage = code("app/(marketing)/community/[slug]/(member)/learn/[programId]/page.tsx")
+  check("the program page finds only a program of this community, and shows a lock before the player", /programCard\(db, community, viewer, programId\)[\s\S]*if \(!card \|\| !row\) notFound\(\)[\s\S]*if \(card\.locked\)[\s\S]*loadCoursePlayer\(/.test(coursePage))
   const clients = [...walk("components/community/classroom"), ...walk("components/community/events"), ...walk("components/video"), "lib/video/upload-client.ts", "lib/video/types.ts"].filter((f) => /\.tsx?$/.test(f))
   check("nothing a browser loads imports server code", clients.every((f) => !/server-only|next\/headers|lib\/communities\/server|lib\/supabase\/(server|admin)|lib\/video\/(provider|storage|mux|cloudflare|bunny)/.test(code(f))), clients.filter((f) => /server-only|next\/headers|lib\/communities\/server/.test(code(f))))
   const servers = ["lib/video/provider.ts", "lib/video/storage.ts", "lib/video/mux.ts", "lib/video/cloudflare.ts", "lib/video/bunny.ts", "lib/communities/server/classroom.ts", "lib/communities/server/events.ts", "lib/communities/server/videos.ts", ...walk("lib/communities/server/jobs").filter((f) => /(event_reminder|fanout_event|video_poll)\.ts$/.test(f))]

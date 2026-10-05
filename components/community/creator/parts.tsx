@@ -20,6 +20,7 @@ import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/respo
 import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
 import { DirectUploader } from "@/lib/storage/chunked-upload"
 import { PickSheet, type PickOption } from "@/app/app/products/pick-sheet"
+import { SAVED_CHECK_MS, SaveButton, barButton, type SavePhase } from "@/app/app/products/new/editor-buttons"
 
 /* The app's buttons, 40px tall on a phone so a thumb finds them; 32px on a computer as everywhere in /app. */
 export const buttonPrimary = cn(appPrimary, "max-sm:h-10 max-sm:px-3.5")
@@ -568,4 +569,97 @@ export function shortDate(iso: string | null | undefined): string {
   if (!Number.isFinite(t)) return ""
   const sameYear = new Date(t).getFullYear() === new Date().getFullYear()
   return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", ...(sameYear ? {} : { year: "numeric" }) }).format(t)
+}
+
+/* ── The product editor's cards and save foot (round 13) ────────────────── */
+
+/**
+ * The card and heading of the product editor (app/app/products/new
+ * product-editor.tsx CARD and CARD_TITLE), so New community and the
+ * Settings forms read as the same editor as New product.
+ */
+export const EDITOR_CARD = "scroll-mt-4 space-y-4 rounded-2xl border border-[#e5e7eb]/60 bg-white app-card-x py-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:space-y-5 sm:py-6"
+export const EDITOR_CARD_TITLE = "text-[16px] font-semibold leading-6 text-[#1a1a2e] sm:text-[17px]"
+
+/**
+ * THE SAVE FOOT OF A FORM: the product editor's foot bar (its state dot and
+ * word on the left, Cancel and Save on the right, the editor's own
+ * SaveButton with its spinner and check), as a card that stays at the
+ * bottom of the screen while the form scrolls: above the navigation pill on
+ * a phone, 12px off the bottom on a computer. It is always there, so the
+ * way to save never appears and disappears under a finger; with nothing
+ * changed it says so, Cancel and Save rest grey. Cancel throws the changes
+ * away (nothing is saved yet, so nothing needs asking).
+ */
+export function EditorFoot({
+  dirty,
+  busy,
+  error,
+  onSave,
+  onCancel,
+  busyText,
+  idleText = "No changes",
+}: {
+  dirty: boolean
+  busy: boolean
+  error: string | null
+  onSave: () => void
+  onCancel: () => void
+  /** What the foot says while something other than the save is working (an upload). */
+  busyText?: string
+  idleText?: string
+}) {
+  const [phase, setPhase] = React.useState<SavePhase>("idle")
+  const [savedOnce, setSavedOnce] = React.useState(false)
+  const was = React.useRef(false)
+  /* Saving while the request is out; Saved with the check for a moment when it came back clean. */
+  React.useEffect(() => {
+    if (busy) {
+      was.current = true
+      setPhase("saving")
+      return
+    }
+    if (!was.current) return
+    was.current = false
+    if (error || dirty) return setPhase("idle")
+    setPhase("saved")
+    setSavedOnce(true)
+  }, [busy, error, dirty])
+  React.useEffect(() => {
+    if (phase !== "saved") return
+    const t = window.setTimeout(() => setPhase("idle"), SAVED_CHECK_MS)
+    return () => window.clearTimeout(t)
+  }, [phase])
+  React.useEffect(() => {
+    if (dirty) setSavedOnce(false)
+  }, [dirty])
+  const state = error ? "error" : busyText ? "busy" : dirty ? "dirty" : savedOnce ? "saved" : "idle"
+  const words = error ?? (busyText || (dirty ? "Unsaved changes" : savedOnce ? "Saved" : idleText))
+  return (
+    <div className="sticky bottom-[calc(var(--app-nav-room,0px)+0.75rem)] z-20 mt-4 md:bottom-3" data-editor-foot="" data-state={state}>
+      <div className={cn(card, "flex min-h-14 items-center gap-2 py-2 pl-4 pr-2.5 shadow-[0_10px_28px_-12px_rgba(17,24,39,0.24),0_1px_3px_rgba(0,0,0,0.05)] sm:pr-3")}>
+        <p role="status" className="flex min-w-0 flex-1 items-center gap-2 text-[13.5px] leading-5">
+          <span aria-hidden className={cn("h-1.5 w-1.5 shrink-0 rounded-full", error ? "bg-[#d92d20]" : dirty ? "bg-[#8b5cf6]" : savedOnce ? "bg-[#22a06b]" : "bg-[#b6bac1]")} />
+          <span className={cn("truncate", error ? "text-[#b42318]" : dirty ? "font-medium text-[#1a1a2e]" : "text-[#6b7280]")}>{words}</span>
+        </p>
+        <button type="button" onClick={onCancel} disabled={!dirty || busy} className={cn(barButton, "disabled:cursor-default disabled:opacity-50")} data-foot-cancel="">
+          Cancel
+        </button>
+        <SaveButton phase={phase} disabled={!dirty || !!busyText} saved={savedOnce} onSave={onSave} />
+      </div>
+    </div>
+  )
+}
+
+/** A card of the product editor: its heading, a quiet line under it, then the fields. */
+export function EditorCard({ title, hint, children, id, className }: { title: string; hint?: React.ReactNode; children: React.ReactNode; id?: string; className?: string }) {
+  return (
+    <section id={id} className={cn(EDITOR_CARD, className)} data-editor-card={id ?? ""}>
+      <div>
+        <h2 className={EDITOR_CARD_TITLE}>{title}</h2>
+        {hint ? <p className="mt-0.5 text-[13px] leading-snug text-[#6b7280]">{hint}</p> : null}
+      </div>
+      {children}
+    </section>
+  )
 }

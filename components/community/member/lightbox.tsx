@@ -30,6 +30,18 @@
  * sheets, and the picture grows out of its thumbnail and back (THE SLIDER
  * below). Moves are compositor only (translate, scale, opacity and a clip, as Web
  * Animations), and with reduced motion nothing slides.
+ *
+ * Round 13, smoother swipes, measured at 4x CPU (scripts/check-community-posts.mjs r13lightbox):
+ *   NO ACCIDENTAL ZOOM. Two quick swipes in a row read the second finger as
+ *   a double tap (any two downs under 280ms apart) and zoomed the picture
+ *   instead of sliding. A double tap is now two TAPS (no movement past the
+ *   slop), close together in time and place.
+ *   NEIGHBOURS READY. Two pictures either side are mounted (was one; one
+ *   while it opens, so the open's frames decode no more than before), and
+ *   each mounted picture is decoded ahead (HTMLImageElement.decode) once the
+ *   slide has come to rest, so a swipe never lands on a picture still being
+ *   decoded on the main thread, and the picture mounted after a slide is not
+ *   the next one in line but the one after it.
  */
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
@@ -106,6 +118,11 @@ const SLOP = 8
 const CLOSE_PULL = 110
 const CLOSE_FLICK = 0.45
 const SAMPLES = 12
+/** A double tap: two taps this close in time (ms) and place (px). */
+const DOUBLE_TAP_MS = 300
+const DOUBLE_TAP_PX = 32
+/** Slides mounted either side of the one shown. */
+export const LIGHTBOX_AHEAD = 2
 
 /**
  * Where something is drawn, as the two properties that move it: `translate`
@@ -209,7 +226,9 @@ export function Lightbox({
   const samples = useRef<Sample[]>([])
   const drag = useRef({ x: 0, y: 0 })
   const raf = useRef<number | null>(null)
-  const lastTap = useRef(0)
+  /* The last TAP (a down and an up with no move past the slop): when and where, for a double tap. */
+  const lastTap = useRef<{ t: number; x: number; y: number } | null>(null)
+  const downAt = useRef<{ t: number; x: number; y: number } | null>(null)
   const closing = useRef(false)
   const onCloseRef = useRef(onClose)
   useEffect(() => {
@@ -379,6 +398,24 @@ export function Lightbox({
     [],
   )
 
+  /* NEIGHBOURS READY: once the slide has come to rest (and the open has finished), every mounted picture is decoded ahead. */
+  useEffect(() => {
+    if (phase !== "open") return
+    const track = trackRef.current
+    if (!track) return
+    let stop = false
+    const t = window.setTimeout(() => {
+      for (const img of track.querySelectorAll<HTMLImageElement>("img[data-lightbox-image]")) {
+        if (stop) break
+        if (typeof img.decode === "function") void img.decode().catch(() => undefined)
+      }
+    }, STEP_MS + 40)
+    return () => {
+      stop = true
+      window.clearTimeout(t)
+    }
+  }, [index, phase])
+
   const onPointerDown = (e: React.PointerEvent) => {
     if (closing.current) return
     if ((e.target as HTMLElement).closest("button, a, iframe, video, [data-lightbox-media-control]")) return
@@ -394,13 +431,15 @@ export function Lightbox({
       return
     }
     if (pts.length === 1) {
-      const now = Date.now()
-      if (now - lastTap.current < 280 && items[indexRef.current]?.kind === "image") {
-        lastTap.current = 0
+      const now = e.timeStamp || performance.now()
+      const tap = lastTap.current
+      if (tap && now - tap.t < DOUBLE_TAP_MS && Math.hypot(e.clientX - tap.x, e.clientY - tap.y) < DOUBLE_TAP_PX && items[indexRef.current]?.kind === "image" && !trackRef.current?.getAnimations().length) {
+        lastTap.current = null
+        downAt.current = null
         setZoom((zz) => (zz.s > 1 ? { s: 1, x: 0, y: 0 } : { s: 2.5, x: 0, y: 0 }))
         return
       }
-      lastTap.current = now
+      downAt.current = { t: now, x: e.clientX, y: e.clientY }
       /* Caught mid-slide: the track stops where it is and the finger takes it from there. */
       const track = trackRef.current
       if (track?.getAnimations().length) {
@@ -454,6 +493,10 @@ export function Lightbox({
     if (!pointers.current.has(e.pointerId)) return
     pointers.current.delete(e.pointerId)
     const g = gesture.current
+    /* A tap (no move decided), remembered for a double tap; anything else is not one. */
+    const d = downAt.current
+    lastTap.current = d && !g.axis && e.type !== "pointercancel" && Math.hypot(e.clientX - d.x, e.clientY - d.y) < SLOP ? { t: e.timeStamp || performance.now(), x: e.clientX, y: e.clientY } : null
+    downAt.current = null
     if (g.kind === "swipe" && g.axis) {
       if (raf.current != null) {
         cancelAnimationFrame(raf.current)
@@ -510,7 +553,7 @@ export function Lightbox({
         >
           {items.map((item, i) => (
             <div key={i} className="relative flex h-full items-center justify-center px-0 sm:px-16" style={{ width: `${100 / n}%` }} onClick={(e) => e.target === e.currentTarget && finish()} data-lightbox-slide={i}>
-              {Math.abs(i - index) <= 1 ? <Slide item={item} communityId={communityId} active={i === index} autoplay={autoplay && i === start} zoom={i === index ? zoom : null} /> : null}
+              {Math.abs(i - index) <= (phase === "open" ? LIGHTBOX_AHEAD : 1) ? <Slide item={item} communityId={communityId} active={i === index} autoplay={autoplay && i === start} zoom={i === index ? zoom : null} /> : null}
             </div>
           ))}
         </div>
@@ -566,7 +609,7 @@ function Slide({ item, communityId, active, autoplay, zoom }: { item: ViewerItem
         referrerPolicy={item.kind === "gif" ? "no-referrer" : undefined}
         width={item.w}
         height={item.h}
-        className={shaped ? "block object-contain" : "max-h-[calc(100dvh-112px)] max-w-full object-contain"}
+        className={`${shaped ? "block object-contain" : "max-h-[calc(100dvh-112px)] max-w-full object-contain"} [dynamic-range-limit:standard]`}
         style={{
           /* Its box is the picture, fitted to the screen before it has loaded, so the open can grow it out of the thumbnail from the first frame. */
           ...(shaped ? { width: `min(100%, calc((100dvh - 112px) * ${(item.w! / item.h!).toFixed(5)}))`, height: "auto", aspectRatio: `${item.w} / ${item.h}` } : null),

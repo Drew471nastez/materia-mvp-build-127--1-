@@ -100,7 +100,7 @@ async function main() {
   console.log("\n19. The like's sound")
   const heart = code("components/community/member/heart.tsx")
   check("made with Web Audio on the spot (no file), the like louder than the unlike, both very quiet", /\.createOscillator\(\)/.test(heart) && /tone\(660, 990, 0\.045, 0\.16\)/.test(heart) && /else tone\(560, 420, 0\.02, 0\.11\)/.test(heart))
-  check("never when the page is hidden, with reduced motion, or with Sounds off", /document\.visibilityState !== "visible" \|\| !soundsOn\(\) \|\| window\.matchMedia\?\.\("\(prefers-reduced-motion: reduce\)"\)\.matches\) return false/.test(heart))
+  check("never when the page is hidden, with reduced motion, or with Sounds off", /document\.visibilityState !== "visible" \|\| !soundsOn\(\) \|\| window\.matchMedia\?\.\("\(prefers-reduced-motion: reduce\)"\)\.matches\) return (false|null)/.test(heart))
   check("Sounds is kept in this browser, on unless turned off, with its own switch", /SOUNDS_KEY = "storelib:sounds"/.test(heart) && /getItem\(SOUNDS_KEY\) !== "off"/.test(heart) && /export function SoundsSwitch/.test(heart) && /role="switch"/.test(heart))
   check("one sound per press, in the press, for a post and for a comment", /likeSound\(!now\.on\)\s*press\(`like:\$\{post\.id\}`/.test(code("components/community/member/post-card.tsx")) && /likeSound\(!reacted\)\s*press\(`comment-like:\$\{c\.id\}`/.test(code("components/community/member/comments.tsx")))
 
@@ -108,7 +108,7 @@ async function main() {
   console.log("\n20. A computer's card with several pictures")
   const card = code("components/community/member/post-card.tsx")
   check("two or more pictures: under the words at every width, no thumbnail on the right", /const several = useMemo\(\(\) => cardPictures\(media\)\.length >= 2, \[media\]\)/.test(card) && /className=\{several \? "mt-3" : "mt-3 sm:hidden"\}/.test(card) && /\{several \? null : <PostThumb/.test(card))
-  check("4:3 side by side from 640px (squares on a phone), sized for the card", /aspect-square overflow-hidden bg-\[#f1f2f4\] sm:aspect-\[4\/3\]/.test(media) && /sizes="\(min-width: 640px\) 360px, 50vw"/.test(media))
+  check("round 13: one box of a fixed shape, 8:3 from 640px (2:1 on a phone), sized for the card", /aspect-\[2\/1\] grid-cols-2 gap-\[3px\] bg-white sm:aspect-\[8\/3\]/.test(media) && /"\(min-width: 640px\) 360px, 50vw"/.test(media))
 
   /* ── 21: report ─────────────────────────────────────────────────────── */
   console.log("\n21. Reporting a post or a comment")
@@ -182,7 +182,7 @@ async function main() {
   check("2560px at most, quality 0.85", POST_PICTURE_MAX_EDGE === 2560 && POST_PICTURE_QUALITY === 0.85)
   check("WebP, or JPEG (PNG with see through parts) where the canvas cannot write WebP", /toBlob\(canvas, "image\/webp", opts\.quality\)/.test(compress) && /blob\.type !== "image\/webp"\) blob = seeThrough\(canvas\) \? await toBlob\(canvas, "image\/png"\) : await toBlob\(canvas, "image\/jpeg", opts\.quality\)/.test(compress))
   check("a GIF and an SVG go as they are; the turn in EXIF applied before the rest is dropped", /UNTOUCHED = \/\^image\\\/\(gif\|svg\\\+xml\)\$\/i/.test(compress) && /imageOrientation: "from-image"/.test(compress))
-  check("never bigger than it came, never thrown: the original without its metadata instead", /scale === 1 && blob\.size >= file\.size\) return \(await withoutMetadata\(file\)\)/.test(compress) && /catch \{\s*return \(await withoutMetadata\(file\)\) as File/.test(compress))
+  check("never bigger than it came, never thrown: the original without its metadata instead", /scale === 1 && blob\.size >= file\.size && !MAY_BE_HDR\.test\(file\.type\)\) return \(await withoutMetadata\(file\)\)/.test(compress) && /catch \{\s*return \(await withoutMetadata\(file\)\) as File/.test(compress))
   check("every picture for a post or a comment goes through it", /const upload = await compressPostPicture\(file\)/.test(code("components/community/member/media-upload.ts")))
 
   /* ── Held for a moderator (worker T's 202 answer) ───────────────────── */

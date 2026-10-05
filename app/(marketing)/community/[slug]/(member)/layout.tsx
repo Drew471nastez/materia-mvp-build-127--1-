@@ -1,8 +1,29 @@
 import type { Metadata } from "next"
+import { headers } from "next/headers"
 import { notFound, redirect } from "next/navigation"
 import { connection } from "next/server"
 import { memberPage } from "@/components/community/member/data"
 import { MemberStateScreen } from "@/components/community/member/member-state"
+import { COMMUNITY_PATH_HEADER } from "@/lib/communities/slug-move"
+import { postFacts } from "./post/[postId]/post-facts"
+import { publicPost } from "./post/[postId]/post-seo"
+
+/**
+ * THE ONE PAGE HERE A READER WHO IS NOT A MEMBER MAY OPEN (round 13): a
+ * post that post-seo.ts publicPost says is public (a published, public,
+ * free community; an open space; a published post). It is read only, with
+ * a calm Join bar (the post page draws that). Every other page here, and
+ * every other post, stays members only.
+ */
+const POST_PATH = /^\/community\/[^/?#]+\/post\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/?(?:[?#].*)?$/i
+
+async function publicPostOpen(slug: string): Promise<boolean> {
+  const path = (await headers()).get(COMMUNITY_PATH_HEADER) ?? ""
+  const postId = POST_PATH.exec(path)?.[1]
+  if (!postId) return false
+  const facts = await postFacts(slug, postId)
+  return !!facts && publicPost(facts)
+}
 
 /**
  * THE MEMBER AREA'S DOOR, for every page in this route group: a space,
@@ -26,6 +47,9 @@ export default async function CommunityMemberLayout({ children, params }: { chil
   if (page.state === "off" || page.state === "missing" || !page.community) notFound()
   /* The frame is drawn once, by the community's own layout above this one, so it stays put between pages. */
   if (page.state === "member" && page.viewer) return children
-  if (page.state === "signed_out" || page.state === "not_member") redirect(`/community/${page.community.slug}/about`)
+  if (page.state === "signed_out" || page.state === "not_member") {
+    if (await publicPostOpen(slug)) return children
+    redirect(`/community/${page.community.slug}/about`)
+  }
   return <MemberStateScreen state={page.state} community={page.community} />
 }

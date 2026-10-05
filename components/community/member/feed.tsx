@@ -64,7 +64,7 @@ import {
 } from "./feed-cache"
 import { sectionFromPath } from "./nav"
 import { PlaceSpinner, WAIT_MS } from "./place-spinner"
-import { FIRST_CARDS, PostCard, PostCardPlaceholder, type PostUpdate } from "./post-card"
+import { EditSpacesContext, FIRST_CARDS, PostCard, PostCardPlaceholder, type PostUpdate } from "./post-card"
 import { SortMenu } from "./sort-menu"
 import { followChosenChip, SpaceChips, type ChipPick } from "./space-chips"
 import { toast } from "./toast"
@@ -90,7 +90,7 @@ export interface ComposeBase {
 
 /** The spaces a post may go to from the composer (data.ts composerSpaces, browser side). */
 function composerSpacesOf(spaces: SpaceView[]) {
-  return spaces.filter((s) => s.canPost && s.kind !== "chat").map((s) => ({ id: s.id, name: s.name, kind: s.kind }))
+  return spaces.filter((s) => s.canPost && s.kind !== "chat").map((s) => ({ id: s.id, name: s.name, kind: s.kind, icon: s.icon }))
 }
 
 /** How an arriving list eases in: from a little under full when it replaces another list, from nothing after the spinner. */
@@ -98,6 +98,13 @@ const ARRIVE_MS = 200
 const ARRIVE_EASE = "cubic-bezier(0.22, 1, 0.36, 1)"
 /** Cards drawn on the frame a switched list comes in (the rest stand in at their height and follow in a transition): a phone's screenful and a little more. */
 const SWAP_CARDS = 4
+/**
+ * THE NEXT PAGE COMES BY ITSELF ONLY SO FAR (round 13). Past this many posts
+ * the end of the list no longer asks for more as it comes near: "Load more
+ * posts" stays under the list for whoever wants them, so a long session
+ * never grows a page without end (and the footer can be reached).
+ */
+export const AUTO_POSTS = 60
 
 export interface CommunityFeedProps {
   communityId: string
@@ -282,15 +289,36 @@ export function CommunityFeed({ communityId, slug, viewer, spaces, start, initia
   const listRef = useRef<HTMLDivElement>(null)
   const drawnKey = cached ? key : shown.key
   const lastDrawn = useRef(drawnKey)
+  /*
+    THE SAME POSTS DO NOT MOVE (round 13). All and a space that hold the same posts (a community with one space, a space with all
+    of the recent posts) swap lists with the same cards on screen: each card is the same element before and after (keyed by the
+    post's id in one list), so only a post that was not on screen before eases in, by itself; a list whose posts are all the same
+    does not move at all. `onScreen` is the ids drawn as cards on the last frame, so they are drawn as cards again at once rather
+    than standing in as placeholders for a frame (A SCREENFUL FIRST is for posts new to the screen).
+  */
+  const onScreen = useRef<Set<string>>(new Set())
   useLayoutEffect(() => {
+    const el = listRef.current
+    const before = onScreen.current
+    onScreen.current = new Set(Array.from(el?.querySelectorAll<HTMLElement>(":scope > [data-post]") ?? [], (x) => x.dataset.post ?? "").filter(Boolean))
     if (lastDrawn.current === drawnKey) return
     lastDrawn.current = drawnKey
     const from = afterSpinner.current ? 0 : 0.35
+    const whole = afterSpinner.current || before.size === 0
     afterSpinner.current = false
-    const el = listRef.current
     if (!el || typeof el.animate !== "function" || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
-    el.animate([{ opacity: from }, { opacity: 1 }], { duration: ARRIVE_MS, easing: ARRIVE_EASE })
-  }, [drawnKey])
+    if (whole) {
+      el.animate([{ opacity: from }, { opacity: 1 }], { duration: ARRIVE_MS, easing: ARRIVE_EASE })
+      return
+    }
+    const bottom = window.innerHeight
+    for (const card of el.querySelectorAll<HTMLElement>(":scope > [data-post], :scope > [data-post-placeholder]")) {
+      const id = card.dataset.post ?? card.dataset.postPlaceholder ?? ""
+      if (before.has(id)) continue
+      if (card.getBoundingClientRect().top > bottom) break
+      card.animate([{ opacity: from }, { opacity: 1 }], { duration: ARRIVE_MS, easing: ARRIVE_EASE })
+    }
+  })
 
   /*
     EVERY SPACE'S FIRST PAGE, READ AHEAD ONCE THE FEED IS IDLE (round 9). All and each feed space in the order on screen (the one
@@ -356,13 +384,14 @@ export function CommunityFeed({ communityId, slug, viewer, spaces, start, initia
   /* The next page, as the end comes near. */
   const sentinel = useRef<HTMLDivElement>(null)
   const cursor = waiting ? null : view.cursor
+  const auto = view.posts.length < AUTO_POSTS
   useEffect(() => {
     const el = sentinel.current
-    if (!el || !cursor || typeof IntersectionObserver === "undefined") return
+    if (!el || !cursor || !auto || typeof IntersectionObserver === "undefined") return
     const io = new IntersectionObserver((entries) => entries.some((e) => e.isIntersecting) && void loadMore(), { rootMargin: "600px 0px" })
     io.observe(el)
     return () => io.disconnect()
-  }, [cursor, loadMore])
+  }, [cursor, auto, loadMore])
 
   /* A change to one post: this list, then every other cached list holding it. */
   const update: PostUpdate = useCallback(
@@ -429,10 +458,13 @@ export function CommunityFeed({ communityId, slug, viewer, spaces, start, initia
               : "Nothing here yet."
             : "Start the conversation."
   const emptyTitle = listTarget.kind === "saved" ? "Nothing saved yet." : listSort === "unread" ? "You are all caught up." : "No posts yet."
+  /* The spaces Edit post may move a post to (post-card.tsx EditSpacesContext): every space this member may post in. */
+  const editSpaces = useMemo(() => (spaces ? composerSpacesOf(spaces) : null), [spaces])
   const lead = listSort === "default" && listTarget.kind !== "saved"
   const posts = useMemo(() => (lead ? [...view.posts.filter((p) => p.pinned), ...view.posts.filter((p) => !p.pinned)] : view.posts), [lead, view.posts])
 
   return (
+    <EditSpacesContext.Provider value={editSpaces}>
     <div ref={rootRef} className="w-full min-w-0" data-community-feed={listTarget.kind === "space" ? `space:${space?.slug ?? ""}` : listTarget.kind} data-feed-key={key} data-feed-waiting={waiting ? "" : undefined}>
       {spaces ? (
         <SpaceChips
@@ -462,6 +494,7 @@ export function CommunityFeed({ communityId, slug, viewer, spaces, start, initia
         posts={posts}
         whole={whole}
         firstCards={firstCards}
+        onScreen={onScreen}
         slug={slug}
         viewer={viewer}
         update={update}
@@ -474,6 +507,7 @@ export function CommunityFeed({ communityId, slug, viewer, spaces, start, initia
         loadMore={loadMore}
       />
     </div>
+    </EditSpacesContext.Provider>
   )
 }
 
@@ -492,6 +526,8 @@ interface FeedBodyProps {
   posts: FeedPostView[]
   whole: boolean
   firstCards: number
+  /** The ids drawn as cards on the last frame: drawn as cards again at once (THE SAME POSTS DO NOT MOVE). */
+  onScreen: React.RefObject<Set<string>>
   slug: string
   viewer: ViewerView
   update: PostUpdate
@@ -510,7 +546,7 @@ interface FeedBodyProps {
  * All, so it is compared by what is in it.
  */
 const FeedBody = memo(
-  function FeedBody({ line, saved, onboarding, composerProps, composerKey, onPosted, failed, onRetry, spinner, listRef, waiting, posts, whole, firstCards, slug, viewer, update, readOnly, emptyTitle, empty, sentinel, cursor, more, loadMore }: FeedBodyProps) {
+  function FeedBody({ line, saved, onboarding, composerProps, composerKey, onPosted, failed, onRetry, spinner, listRef, waiting, posts, whole, firstCards, onScreen, slug, viewer, update, readOnly, emptyTitle, empty, sentinel, cursor, more, loadMore }: FeedBodyProps) {
     return (
       <>
         {line?.kind === "space" ? (
@@ -539,7 +575,7 @@ const FeedBody = memo(
           ) : (
             <div ref={listRef} className="space-y-3" aria-busy={waiting || undefined} data-feed-list="">
               {posts.map((p, i) =>
-                i < firstCards || whole ? <PostCard key={p.id} post={p} slug={slug} viewer={viewer} update={update} readOnly={readOnly} /> : <PostCardPlaceholder key={p.id} post={p} />,
+                i < firstCards || whole || onScreen.current.has(p.id) ? <PostCard key={p.id} post={p} slug={slug} viewer={viewer} update={update} readOnly={readOnly} /> : <PostCardPlaceholder key={p.id} post={p} />,
               )}
             </div>
           )}
@@ -555,7 +591,7 @@ const FeedBody = memo(
           {cursor ? (
             <div className="flex justify-center pb-4 pt-1">
               <button type="button" onClick={loadMore} disabled={more === "loading"} className={BTN_SECONDARY} data-feed-more="">
-                {more === "loading" ? "Loading..." : more === "failed" ? "Try again" : "Show more posts"}
+                {more === "loading" ? "Loading..." : more === "failed" ? "Try again" : "Load more posts"}
               </button>
             </div>
           ) : !waiting && posts.length > 4 ? (

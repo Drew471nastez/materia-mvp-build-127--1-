@@ -205,19 +205,113 @@ export function setSoundsOn(on: boolean) {
 
 let audio: AudioContext | null = null
 
-/** The like's sound, or the unlike's. Answers whether one was played. */
-export function likeSound(on: boolean): boolean {
-  if (typeof window === "undefined" || typeof document === "undefined") return false
-  if (document.visibilityState !== "visible" || !soundsOn() || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return false
+/** The page's one audio context, when a sound may play now (SOUNDS above); null when it may not. */
+function soundContext(): AudioContext | null {
+  if (typeof window === "undefined" || typeof document === "undefined") return null
+  if (document.visibilityState !== "visible" || !soundsOn() || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return null
   const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
-  if (!Ctx) return false
+  if (!Ctx) return null
   try {
     audio ??= new Ctx()
     if (audio.state === "suspended") void audio.resume()
-    const t = audio.currentTime + 0.004
+    return audio
+  } catch {
+    return null
+  }
+}
+
+/**
+ * ===========================================================================
+ *  A COMMENT SENT, A POST SENT (round 13)
+ * ===========================================================================
+ * The same switch, the same rules, the same quiet: a comment sent is a soft
+ * two note "tick" (a little under a tenth of a second, lower than a like);
+ * a post sent is a short, soft "whoosh": filtered noise whose band sweeps
+ * up and fades over about a third of a second, very quiet. Both are made on
+ * the spot (no file), in the press itself.
+ */
+export function commentSound(): boolean {
+  const ctx = soundContext()
+  if (!ctx) return false
+  try {
+    const t = ctx.currentTime + 0.004
+    const note = (freq: number, at: number, peak: number, length: number) => {
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.type = "sine"
+      osc.frequency.setValueAtTime(freq, at)
+      gain.gain.setValueAtTime(0.0001, at)
+      gain.gain.exponentialRampToValueAtTime(peak, at + 0.006)
+      gain.gain.exponentialRampToValueAtTime(0.0001, at + length)
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.start(at)
+      osc.stop(at + length + 0.02)
+      osc.onended = () => {
+        osc.disconnect()
+        gain.disconnect()
+      }
+    }
+    note(587, t, 0.03, 0.07)
+    note(880, t + 0.045, 0.024, 0.09)
+    return true
+  } catch {
+    return false
+  }
+}
+
+/** Made ready in a press, for a sound played a moment later (a post's whoosh once the server has it): a browser starts audio only from a press. */
+export function primeSounds(): void {
+  soundContext()
+}
+
+/** The post's whoosh: noise through a band that sweeps up, in and out softly. */
+export function postSound(): boolean {
+  const ctx = soundContext()
+  if (!ctx) return false
+  try {
+    const length = 0.34
+    const t = ctx.currentTime + 0.004
+    const frames = Math.ceil(ctx.sampleRate * length)
+    const buffer = ctx.createBuffer(1, frames, ctx.sampleRate)
+    const data = buffer.getChannelData(0)
+    for (let i = 0; i < frames; i++) data[i] = Math.random() * 2 - 1
+    const noise = ctx.createBufferSource()
+    noise.buffer = buffer
+    const band = ctx.createBiquadFilter()
+    band.type = "bandpass"
+    band.Q.setValueAtTime(1.1, t)
+    band.frequency.setValueAtTime(420, t)
+    band.frequency.exponentialRampToValueAtTime(2600, t + length * 0.8)
+    const gain = ctx.createGain()
+    gain.gain.setValueAtTime(0.0001, t)
+    gain.gain.exponentialRampToValueAtTime(0.05, t + length * 0.35)
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + length)
+    noise.connect(band)
+    band.connect(gain)
+    gain.connect(ctx.destination)
+    noise.start(t)
+    noise.stop(t + length + 0.02)
+    noise.onended = () => {
+      noise.disconnect()
+      band.disconnect()
+      gain.disconnect()
+    }
+    return true
+  } catch {
+    return false
+  }
+}
+
+/** The like's sound, or the unlike's. Answers whether one was played. */
+export function likeSound(on: boolean): boolean {
+  const ctx = soundContext()
+  if (!ctx) return false
+  try {
+    const t = ctx.currentTime + 0.004
     const tone = (from: number, to: number, peak: number, length: number, at = t) => {
-      const osc = audio!.createOscillator()
-      const gain = audio!.createGain()
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
       osc.type = "sine"
       osc.frequency.setValueAtTime(from, at)
       osc.frequency.exponentialRampToValueAtTime(to, at + length * 0.55)
@@ -225,7 +319,7 @@ export function likeSound(on: boolean): boolean {
       gain.gain.exponentialRampToValueAtTime(peak, at + 0.008)
       gain.gain.exponentialRampToValueAtTime(0.0001, at + length)
       osc.connect(gain)
-      gain.connect(audio!.destination)
+      gain.connect(ctx.destination)
       osc.start(at)
       osc.stop(at + length + 0.02)
       osc.onended = () => {
@@ -243,15 +337,31 @@ export function likeSound(on: boolean): boolean {
   }
 }
 
-/** The Sounds switch, for a settings list: "Sounds", on by default, kept in this browser. */
-export function SoundsSwitch({ className = "" }: { className?: string }) {
+/** What the Sounds switch says it covers. */
+export const SOUNDS_DETAIL = "Likes, comments and posts"
+
+/** The Sounds switch's state, kept in step with every other switch on the page (and with another tab's change on its next read). */
+export function useSounds(): [boolean, (on: boolean) => void] {
   const [on, setOn] = useState(true)
   useEffect(() => {
     setOn(soundsOn())
     const sync = (e: Event) => setOn((e as CustomEvent<{ on: boolean }>).detail?.on ?? soundsOn())
+    const storage = (e: StorageEvent) => {
+      if (e.key === SOUNDS_KEY) setOn(soundsOn())
+    }
     window.addEventListener(SOUNDS_EVENT, sync)
-    return () => window.removeEventListener(SOUNDS_EVENT, sync)
+    window.addEventListener("storage", storage)
+    return () => {
+      window.removeEventListener(SOUNDS_EVENT, sync)
+      window.removeEventListener("storage", storage)
+    }
   }, [])
+  return [on, setSoundsOn]
+}
+
+/** The Sounds switch, for a settings list: "Sounds", on by default, kept in this browser. */
+export function SoundsSwitch({ className = "" }: { className?: string }) {
+  const [on] = useSounds()
   return (
     <button
       type="button"
@@ -263,7 +373,7 @@ export function SoundsSwitch({ className = "" }: { className?: string }) {
     >
       <span className="min-w-0 flex-1">
         <span className="block text-[14.5px] font-medium text-[#1a1a2e]">Sounds</span>
-        <span className="block text-[12.5px] text-[#6b7280]">A soft sound when you like something</span>
+        <span className="block text-[12.5px] text-[#6b7280]">{SOUNDS_DETAIL}</span>
       </span>
       <span className={`relative h-6 w-10 shrink-0 rounded-full transition-colors duration-200 motion-reduce:transition-none ${on ? "bg-[#1a1a2e]" : "bg-[#d9dce1]"}`} aria-hidden>
         <span className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow-[0_1px_2px_rgba(16,24,40,0.2)] transition-[translate] duration-200 ease-out motion-reduce:transition-none ${on ? "translate-x-4" : "translate-x-0"}`} />

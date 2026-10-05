@@ -37,7 +37,7 @@
  * the member and the file; videos play from a short lived address, and only
  * once pressed.
  */
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { Download, FileText, Film, ImageIcon, Play } from "lucide-react"
 import { StorelibVideo } from "@/components/video/storelib-video"
 import { optimizedImageUrl, optimizedSrcSet } from "@/lib/images/optimized-url"
@@ -47,6 +47,106 @@ import { apiBase } from "./api"
 import { EmbedPlayer, EmbedPoster, Lightbox } from "./lightbox"
 import { localPicture } from "./media-upload"
 import { openMediaViewer } from "./media-viewer"
+
+/**
+ * ===========================================================================
+ *  PICTURES THAT ARRIVE SOFTLY, AND NEVER OUTSHINE THE PAGE (round 13)
+ * ===========================================================================
+ * NEVER AN EMPTY BOX. A picture on our storage is first a 32px copy from the
+ * image optimizer (a few hundred bytes, there almost at once even on a slow
+ * phone network), stretched and blurred under where the picture will be, so
+ * the box shows the picture's own colours; the picture then fades in over
+ * it (250ms, opacity only). One already in the browser's cache is drawn at
+ * once, with no fade, so a card drawn again (another space, back to the
+ * feed) never blinks. Somebody else's picture (a GIF's still, a link's) has
+ * the quiet grey box and the same fade.
+ *
+ * STANDARD DYNAMIC RANGE. An iPhone photo can carry an HDR gain map, which
+ * Safari and Chrome show brighter than the white page around it, so the
+ * page looked dim next to it (72.webp). Every community picture is drawn
+ * with `dynamic-range-limit: standard` (SDR), and the browser's compression
+ * re-encodes a photo to SDR before it is sent (media-compress.ts).
+ *
+ * A HAIRLINE AND A LITTLE DEPTH around a card's pictures: an inset 1px line
+ * of 6% ink over the picture's edge (a white photo still has an edge) and a
+ * 1px soft shadow under the box.
+ */
+export const SDR = "[dynamic-range-limit:standard]"
+/** The inset hairline over a picture's edge (its parent is the rounded, clipped box). */
+export const PICTURE_EDGE = "pointer-events-none absolute inset-0 rounded-[inherit] ring-1 ring-inset ring-black/[0.06]"
+const FADE_MS = 250
+
+/** The placeholder's copy: the optimizer's smallest file, for our own pictures only. */
+export function blurSrc(url: string, local: boolean): string | null {
+  if (!local || !url || /^(data|blob):/.test(url)) return null
+  const tiny = optimizedImageUrl(url, 16)
+  return tiny === url ? null : tiny
+}
+
+/**
+ * A picture in a box of known shape: the blurred placeholder (or the grey), then the picture fading in when it has loaded,
+ * unless it was already in the cache when it was drawn.
+ */
+export function SoftImg({
+  src,
+  srcSet,
+  sizes,
+  blur,
+  alt = "",
+  width,
+  height,
+  referrerPolicy,
+  className = "",
+  onError,
+  eager = false,
+}: {
+  src: string
+  srcSet?: string
+  sizes?: string
+  blur?: string | null
+  alt?: string
+  width?: number
+  height?: number
+  referrerPolicy?: React.HTMLAttributeReferrerPolicy
+  className?: string
+  onError?: () => void
+  eager?: boolean
+}) {
+  const ref = useRef<HTMLImageElement>(null)
+  /* "cached": drawn at once; "wait": transparent until it loads; "in": fading in. */
+  const [state, setState] = useState<"cached" | "wait" | "in">("wait")
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (el?.complete && el.naturalWidth > 0) setState("cached")
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  const shown = state !== "wait"
+  return (
+    <>
+      {blur && state !== "cached" ? (
+        <span aria-hidden className={`absolute inset-0 scale-110 bg-cover bg-center blur-[10px] ${SDR}`} style={{ backgroundImage: `url("${blur}")` }} data-soft-blur="" />
+      ) : null}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        ref={ref}
+        src={src}
+        srcSet={srcSet || undefined}
+        sizes={srcSet ? sizes : undefined}
+        width={width}
+        height={height}
+        alt={alt}
+        loading={eager ? "eager" : "lazy"}
+        decoding="async"
+        referrerPolicy={referrerPolicy}
+        onLoad={() => setState((s) => (s === "wait" ? "in" : s))}
+        onError={onError}
+        className={`${className} ${SDR} ${state === "cached" ? "" : "transition-opacity ease-out motion-reduce:transition-none"} ${shown ? "opacity-100" : "opacity-0"}`}
+        style={state === "in" ? { transitionDuration: `${FADE_MS}ms` } : undefined}
+        data-soft-img={state}
+      />
+    </>
+  )
+}
 
 export function fileSize(bytes?: number): string {
   return fileSizeLabel(bytes)
@@ -101,7 +201,7 @@ export function GifImg({ still, motion, className = "", alt = "", width, height 
   }, [])
   return (
     // eslint-disable-next-line @next/next/no-img-element
-    <img ref={ref} src={moving ? motion : still} alt={alt} width={width} height={height} loading="lazy" decoding="async" referrerPolicy="no-referrer" className={className} data-gif-state={moving ? "playing" : "paused"} />
+    <img ref={ref} src={moving ? motion : still} alt={alt} width={width} height={height} loading="lazy" decoding="async" referrerPolicy="no-referrer" className={`${className} ${SDR}`} data-gif-state={moving ? "playing" : "paused"} />
   )
 }
 
@@ -112,23 +212,21 @@ export function PostThumb({ media, className = "" }: { media: PostMedia[]; class
   if (!thumb || failed) return null
   const srcSet = thumb.local ? optimizedSrcSet(thumb.url, [96, 128, 256]) : ""
   return (
-    <span className={`relative block h-[72px] w-[72px] shrink-0 overflow-hidden rounded-xl bg-[#f1f2f4] sm:h-24 sm:w-24 ${className}`} data-post-thumb={thumb.kind}>
+    <span className={`relative block h-[72px] w-[72px] shrink-0 overflow-hidden rounded-xl bg-[#f1f2f4] shadow-[0_1px_2px_rgba(16,24,40,0.06)] sm:h-24 sm:w-24 ${className}`} data-post-thumb={thumb.kind}>
       {thumb.kind === "gif" && thumb.motion ? (
         <GifImg still={thumb.url} motion={thumb.motion} className="h-full w-full object-cover" />
       ) : (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
+        <SoftImg
           src={thumb.local ? optimizedImageUrl(thumb.url, 96) : thumb.url}
-          srcSet={srcSet || undefined}
-          sizes={srcSet ? "(min-width: 640px) 96px, 72px" : undefined}
-          alt=""
-          loading="lazy"
-          decoding="async"
+          srcSet={srcSet}
+          sizes="(min-width: 640px) 96px, 72px"
+          blur={blurSrc(thumb.url, thumb.local)}
           referrerPolicy={thumb.local ? undefined : "no-referrer"}
-          className="h-full w-full object-cover"
+          className="absolute inset-0 h-full w-full object-cover"
           onError={() => setFailed(true)}
         />
       )}
+      <span aria-hidden className={PICTURE_EDGE} />
       {thumb.kind === "video" ? (
         <span className="absolute inset-0 flex items-center justify-center" aria-hidden>
           <span className="flex h-7 w-7 items-center justify-center rounded-full bg-black/55 text-white">
@@ -149,42 +247,47 @@ export function PostThumb({ media, className = "" }: { media: PostMedia[]; class
  * feed, image 60): the row's full width rather than a thumbnail beside the
  * title, rounded 12px, in boxes whose shape is known before anything loads.
  * One picture keeps its own shape between square and 2:1 (16:9 when the
- * shape is not known), cropped to fill; two or more are two squares side by
- * side, the second saying how many more. Lazy, through the optimizer at the
- * width a phone draws them. The whole card opens the post, so a press here
- * does too; nothing in it is a control of its own.
+ * shape is not known), cropped to fill. Lazy, through the optimizer at the
+ * width they are drawn. The whole card opens the post, so a press here does
+ * too; nothing in it is a control of its own.
  *
- * ON A COMPUTER TOO WHEN THERE ARE TWO OR MORE (round 12): one thumbnail on
- * the right said nothing of a post that carries several, so from 640px a
- * card with two or more pictures draws them here as well, under the words,
- * two side by side at 4:3 (the phone's squares would be too tall across a
- * card), the second saying how many more. A GIF plays while it is on screen.
+ * TWO OR MORE ARE A GRID, ON A PHONE AND ON A COMPUTER (round 12, round 13):
+ * never a thumbnail on the right. The grid is one box of a fixed shape (2:1
+ * on a phone, 8:3 across a computer's card, so a card with pictures is the
+ * same height whatever it carries): two side by side; three or more the
+ * first large on the left and two stacked on the right, the last saying how
+ * many more. A GIF plays while it is on screen.
  */
 export function CardMedia({ media, className = "" }: { media: PostMedia[]; className?: string }) {
   const pics = cardPictures(media)
   if (!pics.length) return null
+  const box = "relative overflow-hidden rounded-xl bg-[#f1f2f4] shadow-[0_1px_2px_rgba(16,24,40,0.06)]"
   if (pics.length === 1) {
     const p = pics[0]
     const ratio = p.w && p.h ? Math.min(Math.max(p.w / p.h, 1), 2) : 16 / 9
     return (
-      <div className={`relative overflow-hidden rounded-xl bg-[#f1f2f4] ${className}`} style={{ aspectRatio: String(ratio) }} data-card-media="single">
-        <CardPictureImg p={p} widths={[390, 640, 828, 1080]} sizes="100vw" display={640} />
+      <div className={`${box} ${className}`} style={{ aspectRatio: String(ratio) }} data-card-media="single">
+        <CardPictureImg p={p} widths={[390, 640, 828, 1080]} sizes="(min-width: 640px) 600px, 100vw" display={640} />
+        <span aria-hidden className={PICTURE_EDGE} />
       </div>
     )
   }
-  const more = pics.length - 2
+  const three = pics.length >= 3
+  const more = pics.length - (three ? 3 : 2)
+  const shown = pics.slice(0, three ? 3 : 2)
   return (
-    <div className={`grid grid-cols-2 gap-1 overflow-hidden rounded-xl ${className}`} data-card-media="pair">
-      {pics.slice(0, 2).map((p, i) => (
-        <div key={i} className="relative aspect-square overflow-hidden bg-[#f1f2f4] sm:aspect-[4/3]" data-card-media-tile={p.kind}>
-          <CardPictureImg p={p} widths={[256, 384, 640, 828]} sizes="(min-width: 640px) 360px, 50vw" display={384} />
-          {i === 1 && more > 0 ? (
+    <div className={`${box} grid aspect-[2/1] grid-cols-2 gap-[3px] bg-white sm:aspect-[8/3] ${three ? "grid-rows-2" : ""} ${className}`} data-card-media={three ? "grid" : "pair"}>
+      {shown.map((p, i) => (
+        <div key={i} className={`relative min-h-0 overflow-hidden bg-[#f1f2f4] ${three && i === 0 ? "row-span-2" : ""}`} data-card-media-tile={p.kind}>
+          <CardPictureImg p={p} widths={three && i > 0 ? [256, 384, 640] : [256, 384, 640, 828]} sizes={three && i > 0 ? "(min-width: 640px) 300px, 50vw" : "(min-width: 640px) 360px, 50vw"} display={three && i > 0 ? 300 : 384} />
+          {i === shown.length - 1 && more > 0 ? (
             <span className="absolute inset-0 flex items-center justify-center bg-[#0f1115]/45 text-[20px] font-semibold tabular-nums text-white" aria-label={`${more} more`} data-card-media-more="">
               +{more}
             </span>
           ) : null}
         </div>
       ))}
+      <span aria-hidden className={PICTURE_EDGE} />
     </div>
   )
 }
@@ -197,14 +300,11 @@ function CardPictureImg({ p, widths, sizes, display }: { p: CardPicture; widths:
       {failed ? null : p.kind === "gif" && p.motion ? (
         <GifImg still={p.url} motion={p.motion} width={p.w} height={p.h} className="absolute inset-0 h-full w-full object-cover" />
       ) : (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
+        <SoftImg
           src={p.local ? optimizedImageUrl(p.url, display) : p.url}
-          srcSet={srcSet || undefined}
-          sizes={srcSet ? sizes : undefined}
-          alt=""
-          loading="lazy"
-          decoding="async"
+          srcSet={srcSet}
+          sizes={sizes}
+          blur={blurSrc(p.url, p.local)}
           referrerPolicy={p.local ? undefined : "no-referrer"}
           className="absolute inset-0 h-full w-full object-cover"
           onError={() => setFailed(true)}
@@ -394,15 +494,12 @@ export function CommentMedia({ media, text = "", communityId, commentId, sending
                 {m.type === "gif" ? (
                   <GifImg still={m.still} motion={m.url} width={m.w} height={m.h} className="absolute inset-0 h-full w-full object-cover transition-[opacity] duration-150 group-active/ctile:opacity-85 motion-reduce:transition-none" />
                 ) : (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
+                  <SoftImg
                     src={src}
                     width={m.w}
                     height={m.h}
-                    alt=""
-                    loading="lazy"
-                    decoding="async"
-                    className="absolute inset-0 h-full w-full object-cover transition-[opacity] duration-150 group-active/ctile:opacity-85 motion-reduce:transition-none"
+                    blur={local ? null : blurSrc(m.url, true)}
+                    className="absolute inset-0 h-full w-full object-cover group-active/ctile:opacity-85"
                   />
                 )}
                 {m.type === "gif" ? (
@@ -488,7 +585,7 @@ function Single({ item, communityId, onOpen }: { item: ViewerItem; communityId: 
   if (item.kind === "video") {
     return (
       <div className="overflow-hidden rounded-xl bg-black [&_[data-storelib-video]]:rounded-none" data-media-tile="video" data-post-media-grid="single">
-        <StorelibVideo communityId={communityId} videoId={item.videoId} poster={item.poster} />
+        <StorelibVideo communityId={communityId} videoId={item.videoId} poster={item.poster} width={item.w} height={item.h} />
       </div>
     )
   }
@@ -521,18 +618,15 @@ function Tile({ index, item, fit, shape, more = 0, onOpen }: { index: number; it
       {item.kind === "gif" ? (
         <GifImg still={item.still} motion={item.url} width={item.w} height={item.h} className={`absolute inset-0 h-full w-full transition-[scale] duration-300 ease-out group-hover/tile:scale-[1.015] motion-reduce:transition-none ${single ? "object-contain" : "object-cover"}`} />
       ) : picture ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
+        <SoftImg
           src={local ? optimizedImageUrl(picture, size.display) : picture}
-          srcSet={srcSet || undefined}
-          sizes={srcSet ? size.sizes : undefined}
+          srcSet={srcSet}
+          sizes={size.sizes}
+          blur={blurSrc(picture, local)}
           width={"w" in item ? item.w : undefined}
           height={"h" in item ? item.h : undefined}
-          alt=""
-          loading="lazy"
-          decoding="async"
           referrerPolicy={local ? undefined : "no-referrer"}
-          className={`absolute inset-0 h-full w-full transition-[scale] duration-300 ease-out group-hover/tile:scale-[1.015] motion-reduce:transition-none ${single ? "object-contain" : "object-cover"}`}
+          className={`absolute inset-0 h-full w-full transition-[scale,opacity] duration-300 ease-out group-hover/tile:scale-[1.015] motion-reduce:transition-none ${single ? "object-contain" : "object-cover"}`}
         />
       ) : (
         <span className="absolute inset-0 bg-[#1f2230]" aria-hidden />
@@ -562,7 +656,7 @@ export function LinkCard({ url, title, image, onRemove }: { url: string; title: 
       <a href={url} target="_blank" rel="noopener noreferrer nofollow ugc" className="flex min-h-[72px] items-stretch overflow-hidden rounded-xl border border-[#e8e9ec] transition-colors hover:bg-[#f8f9fa]" data-link-card="">
         {image ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={image} alt="" referrerPolicy="no-referrer" loading="lazy" className="w-[88px] shrink-0 bg-[#f1f2f4] object-cover sm:w-[112px]" onError={(e) => ((e.currentTarget as HTMLImageElement).style.display = "none")} />
+          <img src={image} alt="" referrerPolicy="no-referrer" loading="lazy" className={`w-[88px] shrink-0 bg-[#f1f2f4] object-cover sm:w-[112px] ${SDR}`} onError={(e) => ((e.currentTarget as HTMLImageElement).style.display = "none")} />
         ) : null}
         <span className={`flex min-w-0 flex-1 flex-col justify-center px-3.5 py-2.5 ${onRemove ? "pr-11" : ""}`}>
           <span className="truncate text-[12.5px] text-[#6b7280]">{hostOf(url)}</span>

@@ -504,7 +504,7 @@ export function nextSteps(f: NextStepFacts, base: string): NextStep[] {
   if (!f.published) steps.push({ id: "publish", title: "Publish your community", detail: "It is a draft. Only you can see it until you publish.", href: `${base}/settings?tab=advanced`, action: "Publish" })
   if (f.members <= 1 && f.invites === 0) steps.push({ id: "invite", title: "Invite your first members", detail: "Send an invite by email or share a link.", href: `${base}/members?invite=1`, action: "Invite" })
   if (f.posts === 0) steps.push({ id: "welcome", title: "Write a welcome post", detail: "Say who it is for and how to get started.", href: `${base}/feed?compose=welcome`, action: "Write" })
-  if (f.classroomEnabled && f.courses === 0) steps.push({ id: "course", title: "Add a course", detail: "Attach a course you sell, or make a new one.", href: `${base}/classroom`, action: "Add" })
+  if (f.classroomEnabled && f.courses === 0) steps.push({ id: "course", title: "Add something to Learn", detail: "A program of lessons, or a course you already sell.", href: `${base}/learn`, action: "Add" })
   if (f.eventsEnabled && f.events === 0) steps.push({ id: "event", title: "Schedule an event", detail: "A call, a workshop or a Q&A.", href: `${base}/events?new=1`, action: "Schedule" })
   if (!f.customized) steps.push({ id: "customize", title: "Customize the page", detail: "Add pictures, a video and what members get.", href: `${base}/settings?tab=page`, action: "Edit" })
   if (f.rules === 0) steps.push({ id: "rules", title: "Write the rules", detail: "Members see them before they join and when they post.", href: `${base}/moderation?tab=rules`, action: "Write" })
@@ -615,7 +615,14 @@ export const GALLERY_MAX = 12
  */
 export type GalleryEmbed = { type: "embed"; provider: "youtube" | "vimeo"; id: string; hash?: string; thumb?: string; cover?: true }
 
-export type GalleryItem = { type: "image"; url: string } | { type: "video"; videoId: string } | GalleryEmbed
+/**
+ * A video uploaded to this community (round 13: `cover`, only ever on the
+ * first item, makes it the community's cover video, the About page's hero;
+ * its still, taken from the file when it was chosen, is the cover picture).
+ */
+export type GalleryUpload = { type: "video"; videoId: string; cover?: true }
+
+export type GalleryItem = { type: "image"; url: string } | GalleryUpload | GalleryEmbed
 
 /** The one string an item is known by: its picture, its upload's id, or the service and id of a linked video. */
 export function galleryKey(i: GalleryItem): string {
@@ -645,10 +652,21 @@ export function galleryEmbed(raw: unknown): GalleryEmbed | null {
   return { type: "embed", provider: ref.provider, id: ref.id, ...(ref.hash ? { hash: ref.hash } : {}), ...(thumb ? { thumb } : {}), ...(stored.cover === true ? { cover: true as const } : {}) }
 }
 
-/** The cover video, when the first item is one. */
+/** The cover video, when the first item is a YouTube or Vimeo one. */
 export function coverVideo(items: readonly GalleryItem[]): GalleryEmbed | null {
   const first = items[0]
   return first && first.type === "embed" && first.cover ? first : null
+}
+
+/** The cover video, when the first item is one uploaded to the community (round 13). */
+export function coverUpload(items: readonly GalleryItem[]): GalleryUpload | null {
+  const first = items[0]
+  return first && first.type === "video" && first.cover ? first : null
+}
+
+/** The cover item, either kind: the gallery editor shows what follows it. */
+export function coverItem(items: readonly GalleryItem[]): GalleryEmbed | GalleryUpload | null {
+  return coverVideo(items) ?? coverUpload(items)
 }
 
 /**
@@ -677,7 +695,7 @@ export function checkGallery(raw: unknown, ownUrl: (url: unknown) => string | nu
       const id = item.videoId.toLowerCase()
       if (seen.has(id)) continue
       seen.add(id)
-      out.push({ type: "video", videoId: id })
+      out.push({ type: "video", videoId: id, ...(item.cover === true && out.length === 0 ? { cover: true as const } : {}) })
     } else if (item.type === "embed") {
       const embed = galleryEmbed(item)
       if (!embed) return { ok: false, field: "gallery", error: "Only YouTube and Vimeo links can be added as a video." }
@@ -828,7 +846,7 @@ export function memberConfirmText(choice: MemberChoice, name: string): { title: 
 
 /* ── Settings tabs ──────────────────────────────────────────────────────── */
 
-export type SettingsTab = "page" | "access" | "features" | "gamification" | "notifications" | "advanced"
+export type SettingsTab = "page" | "access" | "features" | "policies" | "roles" | "gamification" | "notifications" | "advanced"
 
 /** A tab asked for by name, old names included, as the tab that holds it now. */
 export function settingsTabOf(raw: string | undefined | null): SettingsTab {
@@ -839,6 +857,11 @@ export function settingsTabOf(raw: string | undefined | null): SettingsTab {
     case "features":
     case "welcome":
       return "features"
+    case "policies":
+    case "rules":
+    case "contact":
+      return "policies"
+    case "roles":
     case "gamification":
     case "notifications":
     case "advanced":
@@ -848,3 +871,18 @@ export function settingsTabOf(raw: string | undefined | null): SettingsTab {
   }
 }
 
+
+/* ── Reports Storelib opened itself (round 13) ──────────────────────────── */
+
+/**
+ * What a report with no reporter is about, from the note the safety rules
+ * wrote (lib/communities/server/safety.ts joinAlarm and pauseInvite): a
+ * join alarm, an invite link turned off after a burst, or null for any
+ * other (a post held back is told by its removed state instead).
+ */
+export function systemReportKind(note: string | null | undefined): "join_alarm" | "invite_paused" | null {
+  const n = (note ?? "").trim()
+  if (n.startsWith("Join alarm:")) return "join_alarm"
+  if (n.startsWith("Invite link turned off:")) return "invite_paused"
+  return null
+}

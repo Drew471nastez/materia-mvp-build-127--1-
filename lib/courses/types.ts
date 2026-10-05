@@ -47,6 +47,8 @@ export interface PlayerData {
   initialLessonId: string | null
   access: "creator" | "owner" | "preview"
   emailsOff: boolean
+  /** False for a community's own program: it has no product, so no creator contact form and no reminder emails. */
+  contact?: boolean
 }
 
 export interface MyCourse {

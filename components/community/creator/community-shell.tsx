@@ -13,8 +13,10 @@
  * view.
  *
  * Which tabs appear is the role's (lib/communities/permissions.ts, handed
- * down as `head.can`): a moderator sees what a moderator can do, nothing
- * that would only answer "forbidden". Points, levels and badges are one of
+ * down as `head.can`, with what the owner lets admins and moderators do):
+ * a moderator sees what a moderator can do, nothing that would only answer
+ * "forbidden". Round 13 names: Learn (it was Classroom; worker L renames
+ * the member side) and Calendar (it was Events); the addresses stay. Points, levels and badges are one of
  * Settings' tabs, not a section of their own, so the row stays short.
  */
 import * as React from "react"
@@ -41,8 +43,8 @@ export function sectionTabs(head: CommunityHead): SectionTab[] {
     { id: "overview", label: "Overview", href: base },
     can.moderate_content ? { id: "feed", label: "Feed", href: `${base}/feed` } : null,
     can.manage_spaces ? { id: "spaces", label: "Spaces", href: `${base}/spaces` } : null,
-    can.manage_classroom && head.classroomEnabled ? { id: "classroom", label: "Classroom", href: `${base}/classroom` } : null,
-    can.manage_events && head.eventsEnabled ? { id: "events", label: "Events", href: `${base}/events` } : null,
+    can.manage_classroom && head.classroomEnabled ? { id: "classroom", label: "Learn", href: `${base}/learn` } : null,
+    can.manage_events && head.eventsEnabled ? { id: "events", label: "Calendar", href: `${base}/events` } : null,
     can.remove_member ? { id: "members", label: "Members", href: `${base}/members`, count: head.memberCount } : null,
     can.review_reports ? { id: "moderation", label: "Moderation", href: `${base}/moderation`, count: head.openReports || undefined } : null,
     can.view_analytics ? { id: "analytics", label: "Analytics", href: `${base}/analytics` } : null,
@@ -55,6 +57,7 @@ export function activeSection(pathname: string, id: string): SectionId {
   const rest = pathname.split(`/app/community/${id}`)[1] ?? ""
   const seg = rest.split("/").filter(Boolean)[0]
   if (seg === "gamification") return "settings"
+  if (seg === "learn") return "classroom"
   return (seg as SectionId) || "overview"
 }
 

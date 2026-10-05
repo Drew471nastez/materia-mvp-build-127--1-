@@ -27,7 +27,7 @@ import "server-only"
  * "try again".
  */
 import { ownImageUrl } from "@/lib/memberships/plan"
-import { checkGallery, coverVideo, type GalleryEmbed, type GalleryItem } from "@/components/community/creator/logic"
+import { checkGallery, coverUpload, coverVideo, type GalleryEmbed, type GalleryItem } from "@/components/community/creator/logic"
 import { embedThumbUrl } from "@/lib/communities/post-media"
 import type { GalleryVideoView } from "@/components/community/creator/view-types"
 import { missing, reasonOf, type Db } from "./db"
@@ -118,6 +118,8 @@ export async function checkGalleryForCommunity(db: Db, communityId: string, raw:
  * sets a picture. Answers the new cover_url, or undefined for no change.
  */
 export function coverAfterGallery(current: string | null, coverInSave: boolean, gallery: GalleryItem[]): string | null | undefined {
+  /* An uploaded cover video (round 13): its still is the picture the save carries, already our own. */
+  if (coverUpload(gallery)) return undefined
   const video = coverVideo(gallery)
   if (video) return video.thumb ?? undefined
   if (!coverInSave && current && embedThumbUrl(current)) return null

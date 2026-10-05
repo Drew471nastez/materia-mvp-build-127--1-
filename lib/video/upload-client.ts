@@ -20,6 +20,7 @@
  *
  * Browser only; imports nothing from the server.
  */
+import { putFailure } from "@/lib/courses/upload-client"
 import type { UploadTicket, VideoStatusView } from "./types"
 
 export class VideoUploadError extends Error {}
@@ -72,7 +73,8 @@ function send(method: "PUT" | "POST" | "PATCH", url: string, body: Blob | FormDa
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
     xhr.upload.addEventListener("progress", (e) => onProgress(e.loaded))
-    xhr.addEventListener("load", () => (xhr.status >= 200 && xhr.status < 300 ? resolve(xhr) : reject(new VideoUploadError("The upload did not finish. Try again."))))
+    /* What storage or the service said, in a sentence to act on: a file over storage's one upload limit says so (putFailure, the lesson upload's words). */
+    xhr.addEventListener("load", () => (xhr.status >= 200 && xhr.status < 300 ? resolve(xhr) : reject(new VideoUploadError(putFailure(xhr.status, xhr.responseText || "")))))
     xhr.addEventListener("error", () => reject(new VideoUploadError("The upload stopped. Check your connection and try again.")))
     xhr.addEventListener("abort", () => reject(new VideoUploadError("Upload stopped")))
     if (signal?.aborted) return reject(new VideoUploadError("Upload stopped"))
@@ -120,4 +122,77 @@ export async function uploadCommunityVideo(input: {
 
   const done = await call(input.endpoint, { action: "complete", videoId: ticket.videoId, ...meta })
   return done.video as VideoStatusView
+}
+
+/*
+  WAITING UNTIL IT PLAYS (round 13). A video on a service comes back from
+  "complete" as processing; the composer keeps its Post button waiting and
+  asks where the video is (GET <endpoint>/<videoId>) until it is ready or
+  has failed: quickly at first, then every few seconds, for as long as
+  processing takes (WAIT_GIVE_UP_MS). A dropped connection is asked again,
+  not reported; a failure says the service's own reason when it gave one.
+*/
+
+/** What a failed video says: the service's reason when it gave one. */
+export function processingFailure(reason: string | null | undefined): string {
+  const r = (reason || "").replace(/\s+/g, " ").trim().replace(/\.$/, "")
+  return r ? `This video could not be processed: ${r}.` : PROCESSING_FAILED
+}
+
+/** The waits between two questions: quick at first, then every five seconds. */
+export const WAIT_STEPS_MS = [1500, 2000, 3000, 5000] as const
+/** After this long it stops and says so. */
+export const WAIT_GIVE_UP_MS = 30 * 60_000
+
+export const PROCESSING_FAILED = "This video could not be processed. Try another file."
+export const PROCESSING_TOO_LONG = "This video is taking too long to process. Try again later."
+
+/** The wait before question number `n` (0 based). */
+export function waitStep(n: number): number {
+  return WAIT_STEPS_MS[Math.min(n, WAIT_STEPS_MS.length - 1)]
+}
+
+function pause(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(resolve, ms)
+    signal?.addEventListener(
+      "abort",
+      () => {
+        clearTimeout(t)
+        reject(new VideoUploadError("Upload stopped"))
+      },
+      { once: true },
+    )
+  })
+}
+
+export async function waitUntilPlayable(input: {
+  endpoint: string
+  video: VideoStatusView
+  signal?: AbortSignal
+  /** Tests pass a clock and a quicker pause. */
+  now?: () => number
+  sleep?: (ms: number, signal?: AbortSignal) => Promise<void>
+}): Promise<VideoStatusView> {
+  const now = input.now ?? Date.now
+  const sleep = input.sleep ?? pause
+  const started = now()
+  let video = input.video
+  for (let n = 0; ; n++) {
+    if (video.status === "ready") return video
+    if (video.status === "failed") throw new VideoUploadError(processingFailure(video.error))
+    if (now() - started > WAIT_GIVE_UP_MS) throw new VideoUploadError(PROCESSING_TOO_LONG)
+    await sleep(waitStep(n), input.signal)
+    try {
+      const res = await fetch(`${input.endpoint}/${encodeURIComponent(video.id)}`, { cache: "no-store", credentials: "same-origin", signal: input.signal })
+      if (res.status === 404) throw new VideoUploadError("The video was removed. Add it again.")
+      if (!res.ok) continue
+      const body = (await res.json().catch(() => ({}))) as { video?: VideoStatusView }
+      if (body.video?.id === video.id) video = body.video
+    } catch (e) {
+      if (e instanceof VideoUploadError) throw e
+      if (input.signal?.aborted) throw new VideoUploadError("Upload stopped")
+      /* Offline for a moment: asked again on the next step. */
+    }
+  }
 }

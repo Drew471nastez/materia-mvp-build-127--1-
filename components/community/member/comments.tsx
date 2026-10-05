@@ -54,10 +54,27 @@
  * tiny sound (heart.tsx likeSound); Report opens the report sheet.
  * Edit and delete are the author's; report is everybody else's; a moderator
  * removes through the moderation route.
+ *
+ * ROUND 13. The bubble is a lighter grey with a hairline and a 1px shadow and
+ * a 14px corner; Reply and the dots are Storelib's own glyphs (the Solar set
+ * the community draws with). Reply puts the caret AFTER "@name " so the
+ * answer is typed straight on. Sending plays a soft sound (heart.tsx
+ * commentSound, the same Sounds switch as a like). Delete and Remove ask in
+ * Storelib's own sheet, above an opened post (report-confirm.tsx). An edit
+ * or a delete on somebody else's screen arrives live ("comment-change").
+ * Without the media column (run-now part 96) the box offers words only, and
+ * staff see a note saying so. A reader who is not a member (a public post)
+ * reads the comments with no box and nothing live.
  */
 import Link from "next/link"
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
-import { ArrowUp, Clapperboard, Flag, ImageIcon, Loader2, MoreHorizontal, Pencil, Shield, Trash2, X } from "lucide-react"
+import { ArrowUp, Clapperboard, ImageIcon, Loader2, X } from "lucide-react"
+import { FlagIcon } from "@solar-icons/react/linear/flag"
+import { MenuDotsIcon } from "@solar-icons/react/linear/menu-dots"
+import { PenIcon } from "@solar-icons/react/linear/pen"
+import { ReplyIcon } from "@solar-icons/react/linear/reply"
+import { ShieldIcon } from "@solar-icons/react/linear/shield"
+import { TrashBinMinimalisticIcon } from "@solar-icons/react/linear/trash-bin-minimalistic"
 import { EmojiControl } from "@/components/app/rich-text/emoji-picker"
 import { EMOJI_POPOVER } from "@/components/ui/popover-fit"
 import { AppAvatar } from "@/components/app/app-avatar"
@@ -68,20 +85,21 @@ import type { CommentView, FeedPostView, PostMedia, ViewerView } from "@/lib/com
 import { api, apiBase } from "./api"
 import { landComment } from "./arrive"
 import { BodyText } from "./body-text"
-import { ConfirmDialog, type ConfirmState, type ReportTargetRef } from "./dialogs"
-import { LikeHeart, likeSound } from "./heart"
+import type { ConfirmState, ReportTargetRef } from "./dialogs"
+import { ConfirmSheet } from "./report-confirm"
+import { LikeHeart, commentSound, likeSound } from "./heart"
 import { CommentMedia } from "./media"
 import { GifButton } from "./media-gif"
 import { LinkField, type LinkPick } from "./media-link"
 import { ProviderMark } from "./media-providers"
 import { localPicture, uploadKindOf, uploadPicture } from "./media-upload"
 import { listenLive, typingLine, useTyping } from "./live"
-import { MentionTextarea, type MentionTextareaHandle } from "./mention-input"
+import { MentionTextarea, type MentionPerson, type MentionTextareaHandle } from "./mention-input"
 import { actOnContent } from "./moderation"
 import { press, useIntent } from "./post-intent"
 import { ReportSheet } from "./report-sheet"
 import { toast } from "./toast"
-import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, ICON_BTN } from "./ui"
+import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY } from "./ui"
 import { memberHref } from "./person-href"
 import { RoleBadge } from "./role-badge"
 
@@ -108,6 +126,10 @@ interface Rows {
   keyOf: (id: string) => string
   /** "mine" for one sent from here (it is brought into sight), "live" for somebody else's arriving, null for one read with the page. */
   lands: (id: string) => "mine" | "live" | null
+  /** Whether a reply box offers pictures, GIFs and video links (run-now part 96). */
+  media: boolean
+  /** The people on screen, for "@" in a reply. */
+  nearby: () => MentionPerson[]
 }
 
 export interface CommentsPageData {
@@ -115,7 +137,12 @@ export interface CommentsPageData {
   nextCursor: string | null
   commentsEnabled?: boolean
   me?: Me | null
+  /** False before run-now part 96 (no media column): words only. */
+  mediaReady?: boolean
 }
+
+/** What staff read in the box when comments cannot carry pictures yet. */
+export const MEDIA_STAFF_NOTE = "Pictures, GIFs and videos in comments are off until run-now part 96 (the comments media column) has run. Members can send words meanwhile."
 
 export interface CommentsSectionProps {
   post: Pick<FeedPostView, "id" | "communityId" | "locked">
@@ -133,6 +160,8 @@ export interface CommentsSectionProps {
   expected?: number
   /** The section replaces a room kept for it (an opened post): the comments fade in even when they were already read. */
   fadeIn?: boolean
+  /** A reader who is not a member (a public post): no box, nothing live. */
+  visitor?: boolean
 }
 
 /**
@@ -199,20 +228,21 @@ export function CommentsPlaceholder({ expected }: { expected: number }) {
   )
 }
 
-export function CommentsSection({ post, slug, viewer, initial, me: givenMe = null, readOnly = false, commentsEnabled: givenEnabled = true, boxRef, onCount, expected = 0, fadeIn = false }: CommentsSectionProps) {
+export function CommentsSection({ post, slug, viewer, initial, me: givenMe = null, readOnly = false, commentsEnabled: givenEnabled = true, boxRef, onCount, expected = 0, fadeIn = false, visitor = false }: CommentsSectionProps) {
   /* Handed a first page, or one read ahead (COMMENTS READ AHEAD): drawn on the first frame, no waiting state. */
   const [ahead] = useState(() => (initial ? null : aheadOf(post.communityId, post.id)))
   const first = initial ?? ahead?.data ?? null
   const [comments, setComments] = useState<CommentView[] | null>(first?.comments ?? null)
   const [cursor, setCursor] = useState<string | null>(first?.nextCursor ?? null)
   const [enabled, setEnabled] = useState(first?.commentsEnabled ?? givenEnabled)
+  const [mediaReady, setMediaReady] = useState(first?.mediaReady !== false)
   const [me, setMe] = useState<Me | null>(givenMe ?? first?.me ?? null)
   const [loading, setLoading] = useState(false)
   const [failed, setFailed] = useState(false)
   /* The list fades in only when it arrives after the room for it was drawn. */
   const [arrived, setArrived] = useState(fadeIn)
   const base = apiBase(post.communityId)
-  const open = enabled && !readOnly && !!viewer.can.comment && (!post.locked || !!viewer.can.lock)
+  const open = !visitor && enabled && !readOnly && !!viewer.can.comment && (!post.locked || !!viewer.can.lock)
 
   /*
     A PAGE THAT ARRIVES LATE NEVER TAKES A COMMENT AWAY. The first page can
@@ -239,6 +269,7 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
     })
     setCursor(data.nextCursor)
     if (typeof data.commentsEnabled === "boolean") setEnabled(data.commentsEnabled)
+    if (typeof data.mediaReady === "boolean") setMediaReady(data.mediaReady)
     if (data.me) setMe((m) => m ?? data.me ?? null)
   }, [])
 
@@ -273,8 +304,8 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
   }, [initial, post.id])
 
   /* What was on screen (the member's own comments included) is what the next open shows first. */
-  const shownRef = useRef<{ comments: CommentView[] | null; cursor: string | null; enabled: boolean; me: Me | null }>({ comments, cursor, enabled, me })
-  shownRef.current = { comments, cursor, enabled, me }
+  const shownRef = useRef<{ comments: CommentView[] | null; cursor: string | null; enabled: boolean; me: Me | null; mediaReady: boolean }>({ comments, cursor, enabled, me, mediaReady })
+  shownRef.current = { comments, cursor, enabled, me, mediaReady }
   useEffect(() => {
     if (initial) return
     const k = aheadKey(post.communityId, post.id)
@@ -282,14 +313,14 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
       const now = shownRef.current
       const sent = (now.comments ?? []).some((c) => (c as Shown).sending || c.replies.some((r) => (r as Shown).sending))
       if (!now.comments || sent || AHEAD.get(k)?.promise) return
-      AHEAD.set(k, { at: AHEAD.get(k)?.at ?? Date.now(), data: { comments: now.comments, nextCursor: now.cursor, commentsEnabled: now.enabled, me: now.me } })
+      AHEAD.set(k, { at: AHEAD.get(k)?.at ?? Date.now(), data: { comments: now.comments, nextCursor: now.cursor, commentsEnabled: now.enabled, me: now.me, mediaReady: now.mediaReady } })
     }
   }, [initial, post.communityId, post.id])
 
   /* A confirmed comment keeps the key its stand in had; the ones that arrive (sent or live) land with a small rise. */
   const keys = useRef(new Map<string, string>())
   const landing = useRef(new Map<string, "mine" | "live">())
-  const rows: Rows = { keyOf: (id) => keys.current.get(id) ?? id, lands: (id) => landing.current.get(id) ?? null }
+  const rowsBase = { keyOf: (id: string) => keys.current.get(id) ?? id, lands: (id: string) => landing.current.get(id) ?? null }
 
   /* The names the page already knows, for "<name> is writing...": the commenters on screen. */
   const listRef = useRef(comments)
@@ -301,7 +332,18 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
     }
     return null
   }, [])
-  const typing = useTyping(post.communityId, post.id, viewer.userId, known)
+  const typing = useTyping(post.communityId, post.id, viewer.userId, known, !visitor)
+  /* The people on screen, offered first when "@" is typed (mention-input.tsx), the newest commenters first. */
+  const nearby = useCallback((): MentionPerson[] => {
+    const out: MentionPerson[] = []
+    for (const c of [...(listRef.current ?? [])].reverse()) {
+      for (const a of [...c.replies.map((r) => r.author), c.author].reverse()) {
+        if (a?.username && a.id !== viewer.userId && !out.some((p) => p.id === a.id)) out.push({ id: a.id, name: a.name, username: a.username, avatarUrl: a.avatarUrl })
+      }
+    }
+    return out
+  }, [viewer.userId])
+  const rows: Rows = { ...rowsBase, media: mediaReady, nearby }
 
   /* Somebody else's comment, by id from the post's channel, read through the gate and landed at the end of its list. */
   const cursorRef = useRef(cursor)
@@ -309,6 +351,7 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
   const onCountRef = useRef(onCount)
   onCountRef.current = onCount
   useEffect(() => {
+    if (visitor) return
     const taken = new Set<string>()
     return listenLive(post.communityId, post.id, "comment", (p) => {
       const id = typeof p.commentId === "string" ? p.commentId : ""
@@ -334,7 +377,7 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
         onCountRef.current?.(1)
       })()
     })
-  }, [post.communityId, post.id, viewer.userId])
+  }, [post.communityId, post.id, viewer.userId, visitor])
 
   const update: CommentUpdate = useCallback((id, fn) => {
     setComments((list) =>
@@ -359,6 +402,35 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
       }),
     )
   }, [])
+
+  /*
+    AN EDIT OR A DELETE ON SOMEBODY ELSE'S SCREEN (round 13). An edit is read again through the gate and its words, its media
+    and "edited" change in place; a delete (or an edit the member may no longer read) takes it away the way the author's own
+    delete does: "Deleted" in its place while it has replies, gone otherwise, and the post's count follows.
+  */
+  useEffect(() => {
+    if (visitor) return
+    const gone = (id: string) => {
+      const list = listRef.current
+      if (!list?.some((c) => c.id === id || c.replies.some((r) => r.id === id))) return
+      update(id, (x) => (x.replies.length ? { ...x, deleted: true, body: "Deleted", author: null, media: undefined, canEdit: false, canModerate: false, reactionCount: 0 } : null))
+      onCountRef.current?.(-1)
+    }
+    return listenLive(post.communityId, post.id, "comment-change", (p) => {
+      const id = typeof p.commentId === "string" ? p.commentId : ""
+      if (!id) return
+      if (p.change === "delete") return gone(id)
+      if (p.change !== "edit") return
+      void (async () => {
+        const r = await api<{ comment: CommentView }>(`${apiBase(post.communityId)}/comments/${encodeURIComponent(id)}`)
+        if (r.ok === false && r.status === 404) return gone(id)
+        if (!r.ok || !r.data.comment) return
+        const c = r.data.comment
+        update(id, (x) => ({ ...x, body: c.body, editedAt: c.editedAt, media: c.media }))
+      })()
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [post.communityId, post.id, visitor])
 
   const more = async () => {
     if (!cursor || loading) return
@@ -391,17 +463,25 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
     },
   }
   const author: Author = { id: viewer.userId ?? "", name: me?.name ?? "You", avatarUrl: me?.avatarUrl ?? null }
+  const staff = viewer.role === "owner" || viewer.role === "admin" || viewer.role === "moderator"
 
   return (
     <div data-comments-list="">
       {open ? (
         <div className="relative">
-          <CommentBox communityId={post.communityId} postId={post.id} me={me} author={author} handleRef={boxRef} sending={sending} placeholder="Write a comment..." canUpload={!!viewer.can.upload} />
+          <CommentBox communityId={post.communityId} postId={post.id} me={me} author={author} handleRef={boxRef} sending={sending} placeholder="Write a comment..." canUpload={!!viewer.can.upload} media={mediaReady} nearby={nearby} />
           <TypingLine names={typing.writers.map((w) => w.name)} />
         </div>
       ) : (
-        <p className="text-[13.5px] text-[#6b7280]">{post.locked ? "Comments are closed on this post." : !enabled ? "Comments are off in this space." : "You cannot comment here right now."}</p>
+        <p className="text-[13.5px] text-[#6b7280]" data-comments-closed="">
+          {visitor ? "Join the community to comment." : post.locked ? "Comments are closed on this post." : !enabled ? "Comments are off in this space." : "You cannot comment here right now."}
+        </p>
       )}
+      {open && !mediaReady && staff ? (
+        <p className="mt-7 rounded-[10px] border border-[#f0e2bf] bg-[#fffaf0] px-3 py-2 text-[12.5px] leading-relaxed text-[#7a5a12]" data-comments-media-note="">
+          {MEDIA_STAFF_NOTE}
+        </p>
+      ) : null}
       {comments === null ? (
         failed ? (
           <div className="mt-4 flex items-center gap-3 text-[14px] text-[#6b7280]">
@@ -475,6 +555,8 @@ function CommentBox({
   placeholder,
   autoFocus,
   canUpload = false,
+  media: mediaOn = true,
+  nearby,
 }: {
   communityId: string
   postId: string
@@ -489,6 +571,10 @@ function CommentBox({
   autoFocus?: boolean
   /** Pictures (a member who may upload); a GIF, a video link and emoji are anybody's. */
   canUpload?: boolean
+  /** False before run-now part 96: no pictures, GIFs or video links, words and emoji only. */
+  media?: boolean
+  /** The people on screen, offered first for "@". */
+  nearby?: () => MentionPerson[]
 }) {
   const [body, setBody] = useState(initial)
   const [picks, setPicks] = useState<Picked[]>([])
@@ -582,6 +668,8 @@ function CommentBox({
       ...(media.length ? { media } : {}),
       sending: true,
     })
+    /* A soft sound as it goes, in the press itself (heart.tsx commentSound: the Sounds switch, never hidden, never with reduced motion). */
+    commentSound()
     setBody("")
     setPicks([])
     setVideoField(false)
@@ -639,6 +727,8 @@ function CommentBox({
                 ariaLabel={placeholder}
                 maxLength={5000}
                 autoFocus={autoFocus}
+                caretAtEnd={!!initial}
+                nearby={nearby}
                 className="min-h-[24px] text-[16px] leading-6 text-[#262633] sm:text-[14.5px]"
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
@@ -650,7 +740,7 @@ function CommentBox({
               />
             </div>
             <div className="-ml-2 flex items-center sm:ml-0" data-comment-tools="">
-              {canUpload ? (
+              {canUpload && mediaOn ? (
                 <>
                   <input ref={fileInput} type="file" accept="image/*" multiple hidden onChange={(e) => (void addPictures(e.target.files), (e.target.value = ""))} data-comment-file-input="" />
                   <button type="button" aria-label="Add pictures" title="Add pictures" {...keep} onClick={() => fileInput.current?.click()} className={BOX_TOOL} disabled={picks.length >= MAX_COMMENT_MEDIA} data-comment-tool="image">
@@ -658,15 +748,19 @@ function CommentBox({
                   </button>
                 </>
               ) : null}
-              <button type="button" aria-label="Add a video link" title="Add a video link" aria-pressed={videoField} {...keep} onClick={() => setVideoField((v) => !v)} className={BOX_TOOL} disabled={picks.length >= MAX_COMMENT_MEDIA && !videoField} data-comment-tool="video">
-                <Clapperboard className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden />
-              </button>
+              {mediaOn ? (
+                <button type="button" aria-label="Add a video link" title="Add a video link" aria-pressed={videoField} {...keep} onClick={() => setVideoField((v) => !v)} className={BOX_TOOL} disabled={picks.length >= MAX_COMMENT_MEDIA && !videoField} data-comment-tool="video">
+                  <Clapperboard className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden />
+                </button>
+              ) : null}
               <span className="contents" data-comment-tool="emoji">
                 <EmojiControl className={`${BOX_TOOL} [&>svg]:h-[18px] [&>svg]:w-[18px]`} size={EMOJI_POPOVER} onBeforeOpen={() => undefined} onInsert={(e) => textRef.current?.insert(e)} />
               </span>
-              <span className="contents" data-comment-tool="gif">
-                <GifButton communityId={communityId} className={BOX_TOOL} onPick={addGif} disabled={picks.length >= MAX_COMMENT_MEDIA} />
-              </span>
+              {mediaOn ? (
+                <span className="contents" data-comment-tool="gif">
+                  <GifButton communityId={communityId} className={BOX_TOOL} onPick={addGif} disabled={picks.length >= MAX_COMMENT_MEDIA} />
+                </span>
+              ) : null}
             </div>
             <div className="ml-auto flex items-center">
               {onCancel ? (
@@ -856,10 +950,10 @@ function CommentItem({
 
   const items: ActionMenuItem[] = []
   if (c.canEdit) {
-    items.push({ label: "Edit", icon: <Pencil className="h-4 w-4" />, onClick: () => (setDraft(c.body), setEditing(true)) })
+    items.push({ label: "Edit", icon: <PenIcon size={16} />, onClick: () => (setDraft(c.body), setEditing(true)) })
     items.push({
       label: "Delete",
-      icon: <Trash2 className="h-4 w-4" />,
+      icon: <TrashBinMinimalisticIcon size={16} />,
       variant: "destructive",
       onClick: () =>
         setConfirm({
@@ -873,17 +967,18 @@ function CommentItem({
               return false
             }
             update(c.id, (x) => (x.replies.length ? { ...x, deleted: true, body: "Deleted", author: null, canEdit: false, canModerate: false, reactionCount: 0 } : null))
+            toast("Comment deleted")
             return true
           },
         }),
     })
   } else if (!c.deleted && viewer.can.report) {
-    items.push({ label: "Report", icon: <Flag className="h-4 w-4" />, onClick: () => setReport({ type: "comment", id: c.id, what: "comment" }) })
+    items.push({ label: "Report", icon: <FlagIcon size={16} />, onClick: () => setReport({ type: "comment", id: c.id, what: "comment" }) })
   }
   if (c.canModerate && !c.canEdit) {
     items.push({
       label: "Remove comment",
-      icon: <Shield className="h-4 w-4" />,
+      icon: <ShieldIcon size={16} />,
       variant: "destructive",
       section: "Moderation",
       onClick: () =>
@@ -900,6 +995,7 @@ function CommentItem({
               return false
             }
             update(c.id, (x) => (x.replies.length ? { ...x, deleted: true, body: "Removed by a moderator", author: null, canEdit: false, canModerate: false } : null))
+            toast("Comment removed")
             return true
           },
         }),
@@ -919,7 +1015,7 @@ function CommentItem({
         )}
         <div className="min-w-0 flex-1">
           {/* Words, or only what it carries (a GIF on its own): then the bubble is just the name's width. */}
-          <div className={`rounded-2xl px-3.5 py-2 ${c.deleted ? "bg-transparent px-0" : "bg-[#f4f5f7]"} ${!c.deleted && !c.body && !editing ? "w-fit max-w-full" : ""}`}>
+          <div className={`rounded-[14px] px-3.5 py-2 ${c.deleted ? "bg-transparent px-0" : BUBBLE} ${!c.deleted && !c.body && !editing ? "w-fit max-w-full" : ""}`} data-comment-bubble="">
             {c.deleted ? (
               <p className="text-[14px] italic text-[#8a8f98]">{c.body}</p>
             ) : (
@@ -961,12 +1057,13 @@ function CommentItem({
                 {!c.sending && c.editedAt ? " · edited" : ""}
               </time>
               <span className={`flex items-center gap-0.5 transition-opacity duration-200 ${c.sending ? "pointer-events-none opacity-0" : "opacity-100"}`} aria-hidden={c.sending ? true : undefined}>
-                <button type="button" onClick={like} aria-pressed={reacted} disabled={!viewer.can.react || !!c.sending} className={`group/like inline-flex h-10 touch-manipulation items-center gap-1 rounded-full px-2 font-medium hover:text-[#1a1a2e] ${reacted ? "text-[#c4290c] hover:text-[#c4290c]" : ""}`} data-comment-like="">
+                <button type="button" onClick={like} aria-pressed={reacted} disabled={!viewer.can.react || !!c.sending} className={`group/like ${ACTION} gap-1 px-2 ${reacted ? "text-[#c4290c] hover:text-[#c4290c]" : ""}`} data-comment-like="">
                   <LikeHeart on={reacted} size={15} strokeWidth={2} />
                   <span className="tabular-nums">{reactionCount > 0 ? reactionCount : "Like"}</span>
                 </button>
                 {canReply ? (
-                  <button type="button" onClick={() => setReplying(c.author?.username ? `@${c.author.username} ` : "")} disabled={!!c.sending} className="inline-flex h-10 items-center rounded-full px-2 font-medium hover:text-[#1a1a2e]">
+                  <button type="button" onClick={() => setReplying(replyText(c.author))} disabled={!!c.sending} className={`${ACTION} gap-1 px-2`} data-comment-reply="">
+                    <ReplyIcon size={15} aria-hidden />
                     Reply
                   </button>
                 ) : null}
@@ -975,8 +1072,8 @@ function CommentItem({
                     title="Comment"
                     items={items}
                     trigger={
-                      <button type="button" aria-label="More" className={`${ICON_BTN} h-10 w-10`}>
-                        <MoreHorizontal className="h-4 w-4" />
+                      <button type="button" aria-label="More" className={`${ACTION} w-10 justify-center`} data-comment-more="">
+                        <MenuDotsIcon size={16} aria-hidden />
                       </button>
                     }
                   />
@@ -996,13 +1093,28 @@ function CommentItem({
           ) : null}
           {replying !== null ? (
             <div className="mt-2">
-              <CommentBox communityId={communityId} postId={postId} me={me} author={author} parentId={parent ? parent.id : c.id} initial={replying} sending={sending} onCancel={() => setReplying(null)} placeholder={`Reply to ${c.author?.name ?? "this comment"}...`} autoFocus canUpload={!!viewer.can.upload} />
+              <CommentBox communityId={communityId} postId={postId} me={me} author={author} parentId={parent ? parent.id : c.id} initial={replying} sending={sending} onCancel={() => setReplying(null)} placeholder={`Reply to ${c.author?.name ?? "this comment"}...`} autoFocus canUpload={!!viewer.can.upload} media={rows.media} nearby={rows.nearby} />
             </div>
           ) : null}
         </div>
       </div>
-      <ConfirmDialog state={confirm} onClose={() => setConfirm(null)} />
+      <ConfirmSheet state={confirm} onClose={() => setConfirm(null)} />
       <ReportSheet communityId={communityId} target={report} onClose={() => setReport(null)} />
     </div>
   )
+}
+
+/**
+ * THE BUBBLE (round 13): a lighter grey than before (#f6f7f8 for #f4f5f7),
+ * a hairline and a 1px shadow (the Storelib depth), a 14px corner (was 16).
+ */
+export const BUBBLE = "bg-[#f6f7f8] border border-[#eceef1] shadow-[0_1px_1px_rgba(16,24,40,0.04)]"
+
+/** A comment's actions (Like, Reply, the dots): a 40px tall target, the glyph and the word, a tint on press, never a shrink. */
+const ACTION =
+  "inline-flex h-10 touch-manipulation items-center rounded-full font-medium outline-none transition-colors duration-150 hover:text-[#1a1a2e] active:bg-[#f1f2f4] active:duration-0 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 disabled:opacity-50 motion-reduce:transition-none [-webkit-tap-highlight-color:transparent]"
+
+/** What a reply box starts with: the person's @username and a space, so the caret lands after it (round 13), or nothing. */
+export function replyText(author: { username?: string | null } | null | undefined): string {
+  return author?.username ? `@${author.username} ` : ""
 }

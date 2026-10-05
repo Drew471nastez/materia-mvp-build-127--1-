@@ -10,6 +10,7 @@ import { checkoutReturns } from "@/lib/checkout/site-hosts"
 import MembershipCheckout from "./membership-checkout"
 import { RouteLoadingBar } from "@/components/navigation/route-loading-bar"
 import { providerFor } from "@/lib/payments/service"
+import type { CommunityCheckoutTerms } from "@/components/community/membership/checkout-policy"
 
 interface CheckoutPageProps {
   searchParams: Promise<{ productId?: string; variantId?: string; customPrice?: string; return?: string; cancel?: string; site?: string; interval?: string }>
@@ -45,6 +46,8 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
     community, worked out here, so `return` cannot point anywhere else.
   */
   let communityReturn: { success: string; cancel: string } | null = null
+  /* Round 13 (41, 43): the community's refund policy, the EU withdrawal waiver where it applies, and the buyer's way of writing money. */
+  let communityTerms: CommunityCheckoutTerms | null = null
   if ((product as { community_id?: string | null }).community_id) {
     const { checkoutGate } = await import("@/lib/communities/server/join")
     const {
@@ -55,11 +58,24 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
     if (gate.community) {
       const { communityPath, welcomePath } = await import("@/components/community/public/paths")
       communityReturn = { success: welcomePath(gate.community.slug), cancel: communityPath(gate.community.slug) }
+      const [{ checkoutTermsFor }, { admin }, { buyerLocale, withdrawalWaiverApplies }, { headers }] = await Promise.all([
+        import("@/lib/communities/server/membership-lifecycle"),
+        import("@/lib/communities/server/db"),
+        import("@/lib/communities/membership-policy"),
+        import("next/headers"),
+      ])
+      const [terms, h] = await Promise.all([checkoutTermsFor(admin(), product as { id: string; community_id?: string | null }), headers()])
+      communityTerms = {
+        communityName: terms?.communityName ?? gate.community.name ?? "",
+        refundPolicy: terms?.refundPolicy ?? null,
+        waiver: withdrawalWaiverApplies(h.get("x-vercel-ip-country")),
+        locale: buyerLocale(h.get("accept-language")),
+      }
     }
   }
 
   /* A membership is joined, not bought once: its own checkout (./membership-checkout.tsx). */
-  if (product.type === "membership") return membershipCheckoutContent({ product, interval, returnTo: communityReturn?.success ?? null })
+  if (product.type === "membership") return membershipCheckoutContent({ product, interval, returnTo: communityReturn?.success ?? null, communityTerms })
 
   /*
     EVERYTHING ELSE AT ONCE. The creator, the option asked for, who is
@@ -197,6 +213,7 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
       isLoggedIn={!!user}
       returnTo={communityReturn?.success ?? returns.success}
       backTo={communityReturn?.cancel ?? returns.cancel}
+      communityTerms={communityTerms}
       selectedVariant={selectedVariant ? {
         id: selectedVariant.id,
         name: selectedVariant.name,
@@ -225,17 +242,17 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
  * that cannot be read (part 75 not run yet) draws the page with Join
  * switched off and a sentence saying so.
  */
-async function membershipCheckoutContent({ product, interval, returnTo = null }: { product: Record<string, any>; interval?: string; returnTo?: string | null }) {
+async function membershipCheckoutContent({ product, interval, returnTo = null, communityTerms = null }: { product: Record<string, any>; interval?: string; returnTo?: string | null; communityTerms?: CommunityCheckoutTerms | null }) {
   const supabase = await createClient()
   const [creatorRead, userRead, planRead] = await Promise.all([
     supabase.from("creators").select("id, user_id, slug").eq("id", product.creator_id).single(),
     supabase.auth.getUser(),
-    supabase.from("membership_plans").select("monthly_price_cents, yearly_price_cents, trial_days, benefits").eq("product_id", product.id).maybeSingle(),
+    supabase.from("membership_plans").select("monthly_price_cents, yearly_price_cents, trial_days, benefits, currency").eq("product_id", product.id).maybeSingle(),
   ])
   const creator = creatorRead.data
   const user = userRead.data.user
   const { data: profile } = creator ? await supabase.from("profiles").select("display_name, avatar_url, username").eq("id", creator.user_id).single() : { data: null }
-  const plan = planRead.data as { monthly_price_cents: number | null; yearly_price_cents: number | null; trial_days: number | null; benefits: unknown } | null
+  const plan = planRead.data as { monthly_price_cents: number | null; yearly_price_cents: number | null; trial_days: number | null; benefits: unknown; currency?: string | null } | null
   return (
     <MembershipCheckout
       product={{ id: product.id, title: product.title, slug: product.slug, thumbnail_url: product.thumbnail_url ?? null }}
@@ -245,12 +262,14 @@ async function membershipCheckoutContent({ product, interval, returnTo = null }:
         yearlyPriceCents: plan?.yearly_price_cents ?? null,
         trialDays: plan?.trial_days ?? 0,
         benefits: Array.isArray(plan?.benefits) ? (plan!.benefits as unknown[]).filter((b): b is string => typeof b === "string") : [],
+        currency: (plan?.currency || "usd").toLowerCase(),
       }}
       userEmail={user?.email || null}
       isLoggedIn={!!user}
       initialInterval={interval === "year" ? "year" : interval === "month" ? "month" : undefined}
       unavailable={!!planRead.error || !plan}
       returnTo={returnTo}
+      communityTerms={communityTerms}
     />
   )
 }

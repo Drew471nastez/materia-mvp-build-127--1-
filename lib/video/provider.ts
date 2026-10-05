@@ -57,6 +57,12 @@ export interface UploadPlan {
   patch: Partial<MediaVideoRow>
 }
 
+export type PlaybackQuality = "auto" | "low"
+
+export function playbackQuality(raw: unknown): PlaybackQuality {
+  return raw === "low" ? "low" : "auto"
+}
+
 export interface PlaybackAddress {
   url: string
   expiresAt: number
@@ -81,7 +87,8 @@ export interface VideoAdapter {
   /** The keys it still needs, by name, for the "not connected" line. Never their values. */
   missingKeys(env?: Env): string[]
   createUpload(db: VideoDb, input: UploadInput, env?: Env): Promise<UploadPlan>
-  playback(db: VideoDb, video: MediaVideoRow, seconds: number, env?: Env): Promise<PlaybackAddress | null>
+  /** `quality` "low" asks for the lighter rendition where the service keeps one (Save Data, a slow network, a preview). */
+  playback(db: VideoDb, video: MediaVideoRow, seconds: number, env?: Env, quality?: PlaybackQuality): Promise<PlaybackAddress | null>
   /** Asks the service where a video is now: the repair for a webhook that never came. Null when it cannot say. */
   poll(video: MediaVideoRow, env?: Env): Promise<Partial<MediaVideoRow> | null>
   /** The updates in a webhook, or "bad_signature" when it is not from the service. */

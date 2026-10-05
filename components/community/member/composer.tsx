@@ -83,31 +83,45 @@
  * WHAT IS TYPED IS KEPT. Every change is written to this browser's storage
  * for this community, and comes back if the page is closed, refreshed or
  * crashed before posting. Posting, or choosing Leave, clears it.
+ *
+ * ROUND 13.
+ *   EDIT POST IS THIS SAME EDITOR (`edit`): opened at once with the post in
+ *   it (title, words, media, link, poll and space), in place inside the post
+ *   on a computer and as the same screen on a phone ("Edit post", above an
+ *   opened post). Media can be taken off and added (the attachment tray is
+ *   worker V's, in its own slot below); a poll can be added, taken off or
+ *   changed, and once somebody has voted only its end can change (the server
+ *   says so too: feed.ts POLL_VOTED). Save turns to a spinner, then a check,
+ *   and the editor folds back into the post. Nothing is kept in storage.
+ *   A SOFT WHOOSH ON POST (heart.tsx postSound, the Sounds switch), primed in
+ *   the press and played once the server has the post.
+ *   THE SPACE'S GLYPH beside its name in the space picker (space-glyph.ts).
  */
 import * as DialogPrimitive from "@radix-ui/react-dialog"
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { createPortal, flushSync } from "react-dom"
-import { BarChart3, Check, ChevronDown, Clapperboard, FileText, GripVertical, Link2, Loader2, Paperclip, Play, Plus, X } from "lucide-react"
+import { BarChart3, Check, ChevronDown, Clapperboard, GripVertical, Link2, Loader2, Paperclip, Plus, X } from "lucide-react"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { EmojiControl } from "@/components/app/rich-text/emoji-picker"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { EMOJI_POPOVER } from "@/components/ui/popover-fit"
 import { SHEET_CLOSE_EASE, SHEET_CLOSE_MS, SHEET_EASE, SHEET_OPEN_MS } from "@/components/ui/bottom-sheet"
-import { uploadCommunityVideo } from "@/lib/video/upload-client"
 import { MAX_MEDIA_PER_POST, POLL_OPTIONS_MAX } from "@/lib/communities/limits"
 import { EMBED_NAMES, MAX_EMBEDS, MAX_GIFS, STAFF_FILE_MAX_BYTES, fileSizeLabel, postEmbedFromUrl } from "@/lib/communities/post-media"
 import type { FeedPostView, PostMedia } from "@/lib/communities/types"
 import { api, apiBase } from "./api"
 import { holdAnchor, useArrivals } from "./arrive"
+import { AttachmentTray, moveKey } from "./attachment-tray"
 import { LinkCard } from "./media"
 import { PHONE_ROW } from "./post-card"
 import { useKeepFieldInSight } from "./keep-in-sight"
 import { GifButton } from "./media-gif"
 import { LinkField, type LinkPick } from "./media-link"
-import { ProviderMark } from "./media-providers"
-import { uploadCommunityFile, uploadKindOf, uploadPicture, uploadVideoPoster } from "./media-upload"
+import { uploadCommunityFile, uploadKindOf, uploadPicture, uploadPostVideo, uploadVideoPoster } from "./media-upload"
 import { MentionTextarea, type MentionTextareaHandle } from "./mention-input"
+import { postSound, primeSounds } from "./heart"
+import { spaceGlyph } from "./space-glyph"
 import { toast } from "./toast"
 import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, CARD, DEPTH, DEPTH_PRESS, ICON_BTN } from "./ui"
 import type { ComposerSpace, LinkPreview } from "./view-types"
@@ -124,6 +138,16 @@ export interface ComposerProps {
   /** Kept for the pages that pass it; events are made on the creator side. */
   eventHref?: string | null
   onPosted: (post: FeedPostView) => void
+  /** Edit post (round 13): this post in the editor, opened at once; Save sends the change. */
+  edit?: ComposerEdit | null
+}
+
+export interface ComposerEdit {
+  post: FeedPostView
+  /** The server has the change: the post as it is now. Called once the editor has folded away. */
+  onSaved: (post: FeedPostView) => void
+  /** Closed without saving (Cancel, Escape, Back), once the editor has folded away. */
+  onClose: () => void
 }
 
 type AttachmentKind = "image" | "video" | "file" | "gif" | "embed"
@@ -136,13 +160,32 @@ interface Attachment {
   preview?: string
   progress: number
   media?: PostMedia
+  /** Why it did not upload or process; the tray says so and Post waits until it is taken off. */
+  error?: string
 }
 
 interface PollDraft {
   question: string
   options: string[]
   multiple: boolean
-  closesIn: "" | "1" | "3" | "7"
+  /** "keep": an edited poll's own end, as it was (keepAt). */
+  closesIn: "" | "1" | "3" | "7" | "keep"
+  /** An edited poll's end, when it has one. */
+  keepAt?: string | null
+  /** Votes an edited poll already has: its question and choices then stay as they are. */
+  votes?: number
+}
+
+/** The post's poll as the editor holds it (Edit post). */
+export function pollDraftOf(poll: FeedPostView["poll"]): PollDraft | null {
+  if (!poll) return null
+  return { question: poll.question, options: poll.options.map((o) => o.label), multiple: poll.multiple, closesIn: poll.closesAt ? "keep" : "", keepAt: poll.closesAt, votes: poll.totalVotes }
+}
+
+/** The poll as it is sent: its end as a date, "keep" for an edited poll's own, null for none. */
+export function pollPayload(poll: PollDraft, now = Date.now()) {
+  const closesAt = poll.closesIn === "keep" ? "keep" : poll.closesIn ? new Date(now + Number(poll.closesIn) * 86_400_000).toISOString() : null
+  return { question: poll.question, options: poll.options.filter((o) => o.trim()), multiple: poll.multiple, closesAt }
 }
 
 interface Draft {
@@ -232,7 +275,8 @@ function attachmentOf(m: PostMedia, key: string): Attachment {
 }
 
 function usePhone(): boolean {
-  const [phone, setPhone] = useState(false)
+  /* Read at once in the browser (the closed field draws the same either way, so a server render matches): Edit post opens on its first frame as a phone's screen, never in place for a frame. */
+  const [phone, setPhone] = useState(() => typeof window !== "undefined" && !!window.matchMedia?.("(max-width: 639px)").matches)
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 639px)")
     const on = () => setPhone(mq.matches)
@@ -339,17 +383,21 @@ function useLeaveGuard(opts: { active: boolean; sheet: boolean; ask: () => Promi
   }, [guarding])
 }
 
-export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null, onPosted }: ComposerProps) {
+export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null, onPosted, edit = null }: ComposerProps) {
   const key = draftKey(communityId, fixedSpaceId)
   const phone = usePhone()
-  const [open, setOpen] = useState(false)
+  /* Edit post: the post as it was, read once, for the editor's first state and to tell whether anything changed. */
+  const editing = !!edit
+  const [was] = useState(() => (edit ? edit.post : null))
+  const wasLink = was?.media.find((m): m is Extract<PostMedia, { type: "link" }> => m.type === "link") ?? null
+  const [open, setOpen] = useState(editing)
   const [sheetIn, setSheetIn] = useState(false)
-  const [title, setTitle] = useState("")
-  const [body, setBody] = useState("")
-  const [spaceId, setSpaceId] = useState<string | null>(fixedSpaceId ?? (spaces.length === 1 ? spaces[0].id : null))
-  const [poll, setPoll] = useState<PollDraft | null>(null)
-  const [items, setItems] = useState<Attachment[]>([])
-  const [preview, setPreview] = useState<LinkPreview | null>(null)
+  const [title, setTitle] = useState(was?.title ?? "")
+  const [body, setBody] = useState(was?.bodyText ?? "")
+  const [spaceId, setSpaceId] = useState<string | null>(was ? (was.space?.id ?? null) : (fixedSpaceId ?? (spaces.length === 1 ? spaces[0].id : null)))
+  const [poll, setPoll] = useState<PollDraft | null>(() => pollDraftOf(was?.poll ?? null))
+  const [items, setItems] = useState<Attachment[]>(() => (was ? was.media.filter((m) => m.type !== "link").map((m, i) => attachmentOf(m, `kept-${i}`)) : []))
+  const [preview, setPreview] = useState<LinkPreview | null>(wasLink ? { url: wasLink.url, title: wasLink.title ?? null, image: wasLink.image ?? null, site: null } : null)
   const [dismissed, setDismissed] = useState<string[]>([])
   const [linkField, setLinkField] = useState<null | "link" | "video">(null)
   const [busy, setBusy] = useState(false)
@@ -383,8 +431,9 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
   const clearAfter = useRef(false)
   const openRef = useRef(false)
 
-  /* A draft left here comes back: open in place on a computer, waiting under "Continue" on a phone. */
+  /* A draft left here comes back: open in place on a computer, waiting under "Continue" on a phone. (Never into Edit post.) */
   useEffect(() => {
+    if (editing) return
     const d = readDraft(key)
     if (d && (d.title || d.body || d.poll || d.media.length)) {
       setTitle(d.title)
@@ -402,9 +451,9 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
   const media = items.map((u) => u.media).filter((m): m is PostMedia => !!m)
   const linkMedia: PostMedia | null = preview && !dismissed.includes(preview.url) ? { type: "link", url: preview.url, ...(preview.title ? { title: preview.title } : {}), ...(preview.image ? { image: preview.image } : {}) } : null
 
-  /* Every change kept, a moment after typing stops. */
+  /* Every change kept, a moment after typing stops (a new post only: an edit is the post's own). */
   useEffect(() => {
-    if (!open) return
+    if (!open || editing) return
     const t = window.setTimeout(() => {
       try {
         const all = linkMedia ? [...media, linkMedia] : media
@@ -494,16 +543,16 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
     const k = newKey()
     add({ key: k, kind: "video", name: file.name, size: file.size, progress: 0 })
     try {
+      /* Post waits until the video plays: sent, then processed on a video service (media-upload.ts uploadPostVideo). */
       const [video, still] = await Promise.all([
-        uploadCommunityVideo({ endpoint: `${apiBase(communityId)}/videos`, file, onProgress: (p) => patch(k, { progress: Math.min(99, p) }) }),
-        uploadVideoPoster(file, userId, communityId),
+        uploadPostVideo({ communityId, file, key: k, onProgress: (p) => patch(k, { progress: p }), onProcessing: () => patch(k, { progress: 100 }) }),
+        uploadVideoPoster(file, userId, communityId).then((s) => (s && patch(k, { preview: s.poster }), s)),
       ])
-      if (video.status === "failed") throw new Error(video.error || "The video could not be processed.")
-      if (video.status !== "ready") throw new Error("The video is still processing. Add it again in a few minutes.")
       patch(k, { progress: 100, preview: still?.poster, media: { type: "video", videoId: video.id, ...(still ? { poster: still.poster, w: still.w, h: still.h } : {}) } })
     } catch (e) {
-      drop(k)
-      toast((e as { message?: string })?.message || "The video did not upload.")
+      const message = (e as { message?: string })?.message || "The video did not upload."
+      if (message === "Upload stopped") return drop(k)
+      patch(k, { error: message })
     }
   }
 
@@ -556,7 +605,14 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
     drop(a.key)
   }
 
-  const dirty = !!(title.trim() || body.trim() || items.length || poll || linkMedia)
+  /* Something to lose on Cancel: anything written, or for an edit anything changed from the post. */
+  const dirty = was
+    ? title !== (was.title ?? "") ||
+      body !== was.bodyText ||
+      spaceId !== (was.space?.id ?? null) ||
+      JSON.stringify(poll) !== JSON.stringify(pollDraftOf(was.poll)) ||
+      JSON.stringify(linkMedia ? [...media, linkMedia] : media) !== JSON.stringify(was.media.filter((m) => m.type !== "link").concat(wasLink ? [wasLink] : []))
+    : !!(title.trim() || body.trim() || items.length || poll || linkMedia)
   const uploading = items.some((u) => !u.media)
   const pollReady = !poll || (poll.question.trim() && poll.options.filter((o) => o.trim()).length >= 2)
   const space = spaces.find((s) => s.id === spaceId) ?? null
@@ -582,6 +638,8 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
     }
   }, [fixedSpaceId, spaces.length, key])
 
+  /* Edit post: what happens once the editor has gone (saved, or closed without saving). */
+  const editDone = useRef<(() => void) | null>(null)
   /** Closing, with its move: down off the screen on a phone, folding back into the field in place. */
   const shut = useCallback(() => {
     if (leaving.current) return
@@ -589,7 +647,14 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
       leaving.current = false
       setSheetIn(false)
       setOpen(false)
+      if (edit) {
+        const then = editDone.current ?? edit.onClose
+        editDone.current = null
+        then()
+      }
     }
+    /* In place, an edit hands the post back at once: the post card fades its words in where the editor was (post-card.tsx). */
+    if (edit && !phone) return end()
     const el = phone ? sheetRef.current : cardRef.current
     if (!el || typeof el.animate !== "function" || reducedMotion()) return end()
     leaving.current = true
@@ -622,7 +687,7 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
       ...(fieldRef.current ? [fieldRef.current.animate([{ opacity: 0 }, { opacity: 1 }], { duration: FIELD_BACK_MS, delay: FIELD_BACK_DELAY_MS, easing: FADE_COMING, fill: "both" })] : []),
     ]
     held.current[0]?.addEventListener("finish", finish)
-  }, [phone])
+  }, [phone, edit])
 
   const ask = useCallback(() => new Promise<boolean>((resolve) => setAsking(() => resolve)), [])
 
@@ -636,7 +701,7 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
 
   const cancel = async () => {
     if (dirty && !(await ask())) return
-    clearAfter.current = true
+    if (!editing) clearAfter.current = true
     shut()
   }
 
@@ -645,11 +710,25 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
     sheet,
     ask,
     onLeave: () => {
+      if (edit) return shut()
       clear()
       setSheetIn(false)
       setOpen(false)
     },
     onSheetBack: shut,
+  })
+
+  /* Edit post in place: Escape is Cancel. */
+  useEffect(() => {
+    if (!edit || phone) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !e.defaultPrevented && !document.querySelector("[data-lightbox], [role=alertdialog], [data-state=open][role=dialog]:not([data-post-overlay])")) {
+        e.preventDefault()
+        void cancel()
+      }
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
   })
 
   /* The phone's screen slides up from the first frame it is painted in, on the compositor. */
@@ -701,6 +780,11 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
       return () => window.clearTimeout(t)
     }
     if (phone) return
+    /* Edit post in place: the editor fades in where the post's words were (the card around it is the post's). */
+    if (edit) {
+      editorRef.current?.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: CONTENT_IN_MS, easing: FADE_COMING })
+      return
+    }
     const el = cardRef.current
     if (!el || typeof el.animate !== "function" || reducedMotion() || !closedH.current) return
     const d = el.offsetHeight - closedH.current
@@ -718,18 +802,44 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
   /* The toolbar rides the keyboard on the compositor (THE TOOLBAR ON THE KEYBOARD). */
   useToolbarDock(sheet && sheetIn, visibleRef, toolbarRef)
 
-  const submit = async () => {
-    if (busy || sent || !ready) return
+  /* Edit post: the change sent, the check shown, the editor folded, then the post as it now is handed back. */
+  const save = async () => {
+    if (!edit || busy || sent || !ready) return
+    if (!dirty) return shut()
     setBusy(true)
     const all = linkMedia ? [...media, linkMedia] : media
-    const closesAt = poll?.closesIn ? new Date(Date.now() + Number(poll.closesIn) * 86_400_000).toISOString() : null
+    const r = await api<{ post: FeedPostView }>(`${apiBase(communityId)}/posts/${edit.post.id}`, {
+      method: "PATCH",
+      body: {
+        title: title.trim(),
+        body: body.trim(),
+        media: all,
+        ...(spaceId && spaceId !== (was?.space?.id ?? null) ? { spaceId } : {}),
+        ...(poll ? { poll: pollPayload(poll) } : was?.poll ? { poll: null } : {}),
+      },
+    })
+    setBusy(false)
+    if (!r.ok) return toast(r.error)
+    const saved = r.data.post
+    setSent(true)
+    editDone.current = () => edit.onSaved(saved)
+    window.setTimeout(shut, reducedMotion() ? 0 : SENT_HOLD_MS)
+  }
+
+  const submit = async () => {
+    if (editing) return save()
+    if (busy || sent || !ready) return
+    setBusy(true)
+    /* The whoosh is made ready in the press (a browser starts sound only from one) and played once the post is up. */
+    primeSounds()
+    const all = linkMedia ? [...media, linkMedia] : media
     const r = await api<{ post: FeedPostView; held?: boolean; message?: string }>(`${apiBase(communityId)}/posts`, {
       body: {
         spaceId,
         title: title.trim(),
         body: body.trim(),
         media: all,
-        poll: poll ? { question: poll.question, options: poll.options.filter((o) => o.trim()), multiple: poll.multiple, closesAt } : undefined,
+        poll: poll ? pollPayload({ ...poll, closesIn: poll.closesIn === "keep" ? "" : poll.closesIn }) : undefined,
       },
     })
     setBusy(false)
@@ -760,6 +870,7 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
     }
     setHeldCopy(false)
     const post = r.data.post
+    postSound()
     /* Kept no longer: a reload from here on starts empty. */
     try {
       window.localStorage.removeItem(key)
@@ -870,21 +981,37 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
       <ResponsiveActionMenu
         title="Post in"
         align="start"
-        items={spaces.map((s) => ({ label: s.name, onClick: () => setSpaceId(s.id) }))}
+        items={spaces.map((s) => ({
+          label: s.name,
+          icon: (
+            <span aria-hidden className="inline-flex w-4 justify-center text-[14px] leading-none" data-space-glyph="">
+              {spaceGlyph(s.icon, s.kind)}
+            </span>
+          ),
+          onClick: () => setSpaceId(s.id),
+        }))}
         trigger={
           <button
             type="button"
             className={`inline-flex h-10 max-w-[200px] shrink-0 items-center gap-1 rounded-full ${DEPTH} ${DEPTH_PRESS} px-3 text-[14px] font-medium outline-none transition-colors hover:bg-[#f6f7f8] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 sm:h-9 ${space ? "text-[#1a1a2e]" : "text-[#6b7280]"}`}
             data-composer-space={space ? space.id : ""}
           >
+            {space ? (
+              <span aria-hidden className="shrink-0 text-[13px] leading-none" data-space-glyph="">
+                {spaceGlyph(space.icon, space.kind)}
+              </span>
+            ) : null}
             <span className="truncate">{space ? space.name : "Select a space"}</span>
             <ChevronDown className="h-4 w-4 shrink-0" aria-hidden />
           </button>
         }
       />
     ) : space ? (
-      <span className="truncate px-2 text-[14px] font-medium text-[#4b5563]" data-composer-space={space.id}>
-        {space.name}
+      <span className="inline-flex min-w-0 items-center gap-1.5 truncate px-2 text-[14px] font-medium text-[#4b5563]" data-composer-space={space.id}>
+        <span aria-hidden className="shrink-0 text-[13px] leading-none" data-space-glyph="">
+          {spaceGlyph(space.icon, space.kind)}
+        </span>
+        <span className="truncate">{space.name}</span>
       </span>
     ) : null
 
@@ -929,6 +1056,7 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
         onChange={setBody}
         placeholder="Write something..."
         ariaLabel="Post"
+        caretAtEnd={editing}
         minRows={sheet ? 6 : 4}
         maxLength={20000}
         className="mt-2 text-[16px] leading-[1.55] text-[#262633] sm:text-[15px]"
@@ -958,12 +1086,13 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
         />
       ) : null}
 
+      {/*
+        THE ATTACHMENT TRAY SLOT (round 13: worker V's components/community/member/attachment-tray.tsx takes this block:
+        reorder by drag, remove, add more). `items`, `removeItem` and `setItems` are what it needs; Edit post fills `items`
+        from the post's media, so the tray works the same there.
+      */}
       {items.length ? (
-        <div className="mt-3 flex flex-wrap gap-2" data-composer-uploads="">
-          {items.map((u) => (
-            <AttachmentTile key={u.key} a={u} onRemove={() => removeItem(u)} />
-          ))}
-        </div>
+        <AttachmentTray className="mt-3" items={items} onMove={(k, to) => setItems((list) => moveKey(list, k, to))} onRemove={removeItem} onAdd={items.length < MAX_MEDIA_PER_POST ? () => fileInput.current?.click() : undefined} />
       ) : null}
 
       {linkMedia && preview ? (
@@ -976,39 +1105,58 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
     </>
   )
 
+  const actionLabel = editing ? "Save" : "Post"
+  const editorBlock = (
+    <div ref={editorRef} className={editing ? "pt-3" : "px-4 pb-4 pt-0.5 sm:px-5"} data-composer-editor="">
+      {editing ? (
+        /* In place, a quiet word that the post is being edited (the fields look like the post itself). */
+        <p className="mb-2 text-[12.5px] font-medium text-[#6b7280]" data-composer-editing="">
+          Editing your post
+        </p>
+      ) : null}
+      {fields}
+      <div className="mt-3 flex flex-wrap items-center gap-x-1 gap-y-2 border-t border-[#f0f1f3] pt-2.5">
+        {tools}
+        {spacePicker}
+        <div className="ml-auto flex items-center gap-1.5">
+          <button type="button" className={BTN_SECONDARY} onClick={() => void cancel()} disabled={busy || sent} data-composer-cancel="">
+            Cancel
+          </button>
+          <PostButton busy={busy} sent={sent} ready={ready} onClick={submit} label={actionLabel} />
+        </div>
+      </div>
+    </div>
+  )
+
   /* One tree for every state, so nothing in it is ever taken out and put back by a change of state (ONE CARD, NEVER GONE). */
   return (
     <>
       {pickers}
-      <div ref={cardRef} className={`${CARD} ${PHONE_ROW} relative sm:shadow-[0_1px_2px_rgba(16,24,40,0.04)]`} data-composer={inPlace ? "open" : "closed"}>
-        {row}
-        {inPlace ? (
-          <div ref={editorRef} className="px-4 pb-4 pt-0.5 sm:px-5" data-composer-editor="">
-            {fields}
-            <div className="mt-3 flex flex-wrap items-center gap-x-1 gap-y-2 border-t border-[#f0f1f3] pt-2.5">
-              {tools}
-              {spacePicker}
-              <div className="ml-auto flex items-center gap-1.5">
-                <button type="button" className={BTN_SECONDARY} onClick={() => void cancel()} disabled={busy || sent} data-composer-cancel="">
-                  Cancel
-                </button>
-                <PostButton busy={busy} sent={sent} ready={ready} onClick={submit} />
-              </div>
-            </div>
+      {editing ? (
+        /* Edit post: inside the post's own card on a computer (no card of its own); on a phone only the screen below. */
+        !phone ? (
+          <div ref={cardRef} data-composer="edit" data-no-open="">
+            {inPlace ? editorBlock : null}
           </div>
-        ) : null}
-      </div>
+        ) : null
+      ) : (
+        <div ref={cardRef} className={`${CARD} ${PHONE_ROW} relative sm:shadow-[0_1px_2px_rgba(16,24,40,0.04)]`} data-composer={inPlace ? "open" : "closed"}>
+          {row}
+          {inPlace ? editorBlock : null}
+        </div>
+      )}
       {sheet
         ? createPortal(
               <div
                 ref={sheetRef}
                 role="dialog"
                 aria-modal="true"
-                aria-label="New post"
+                aria-label={editing ? "Edit post" : "New post"}
                 data-composer="sheet"
+                data-composer-edit={editing ? "" : undefined}
                 data-composer-sheet-in={sheetIn ? "true" : "false"}
-                /* The whole window, white, under the keyboard too: nothing behind ever shows as the keyboard comes and goes. */
-                className="fixed inset-0 z-[125] bg-white"
+                /* The whole window, white, under the keyboard too: nothing behind ever shows as the keyboard comes and goes. Edit post opens over an opened post (130), so above it. */
+                className={`fixed inset-0 bg-white ${editing ? "z-[135]" : "z-[125]"}`}
               >
                 <div
                   /* The part that can be seen (THE KEYBOARD ON A PHONE); a keyboard's arrival is carried over 250ms rather than in one frame. */
@@ -1026,8 +1174,8 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
                     <button type="button" onPointerDown={(e) => e.preventDefault()} onMouseDown={(e) => e.preventDefault()} onClick={() => void cancel()} className={`${BTN_SECONDARY} px-3.5`} disabled={sent} data-composer-cancel="">
                       Cancel
                     </button>
-                    <span className="min-w-0 flex-1 truncate text-center text-[16px] font-semibold text-[#1a1a2e]">New post</span>
-                    <PostButton busy={busy} sent={sent} ready={ready} onClick={submit} className="px-4" />
+                    <span className="min-w-0 flex-1 truncate text-center text-[16px] font-semibold text-[#1a1a2e]">{editing ? "Edit post" : "New post"}</span>
+                    <PostButton busy={busy} sent={sent} ready={ready} onClick={submit} className="px-4" label={actionLabel} />
                   </div>
                 </div>
                 <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4 pt-3" data-composer-scroll="">
@@ -1055,13 +1203,14 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
  * the post: three faces in one cell, so the button keeps the width "Post"
  * gives it and the faces crossfade rather than the words changing length.
  */
-function PostButton({ busy, sent, ready, onClick, className = "" }: { busy: boolean; sent: boolean; ready: boolean; onClick: () => void; className?: string }) {
+function PostButton({ busy, sent, ready, onClick, className = "", label = "Post" }: { busy: boolean; sent: boolean; ready: boolean; onClick: () => void; className?: string; label?: "Post" | "Save" }) {
   const face = (on: boolean) => `col-start-1 row-start-1 flex items-center justify-center transition-[opacity,scale] duration-150 ease-out motion-reduce:transition-none ${on ? "opacity-100 scale-100" : "opacity-0 scale-75"}`
   const state = sent ? "sent" : busy ? "busy" : "idle"
+  const said = label === "Save" ? { sent: "Saved", busy: "Saving" } : { sent: "Posted", busy: "Posting" }
   return (
-    <button type="button" className={`${BTN_PRIMARY} ${className} ${busy || sent ? "disabled:opacity-100" : ""}`} onClick={onClick} disabled={busy || sent || !ready} aria-label={sent ? "Posted" : busy ? "Posting" : undefined} data-composer-post="" data-post-state={state}>
+    <button type="button" className={`${BTN_PRIMARY} ${className} ${busy || sent ? "disabled:opacity-100" : ""}`} onClick={onClick} disabled={busy || sent || !ready} aria-label={sent ? said.sent : busy ? said.busy : undefined} data-composer-post="" data-post-state={state}>
       <span className="grid">
-        <span className={face(state === "idle")}>Post</span>
+        <span className={face(state === "idle")}>{label}</span>
         <span className={face(state === "busy")} aria-hidden>
           <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.25} />
         </span>
@@ -1184,63 +1333,6 @@ function useToolbarDock(active: boolean, visible: React.RefObject<HTMLDivElement
   }, [active, visible, toolbar])
 }
 
-function AttachmentTile({ a, onRemove }: { a: Attachment; onRemove: () => void }) {
-  const loading = !a.media
-  if (a.kind === "file") {
-    return (
-      <div className="relative flex h-12 min-w-[180px] max-w-full items-center gap-2 rounded-xl border border-[#e8e9ec] py-1 pl-3 pr-11" data-attachment="file" data-ready={loading ? "false" : "true"}>
-        <FileText className="h-4 w-4 shrink-0 text-[#6b7280]" aria-hidden />
-        <span className="min-w-0">
-          <span className="block max-w-[200px] truncate text-[13px] font-medium text-[#1a1a2e]">{a.name}</span>
-          <span className="block text-[12px] text-[#6b7280]">{loading ? `${Math.round(a.progress)}%` : fileSizeLabel(a.size)}</span>
-        </span>
-        <RemoveButton onClick={onRemove} />
-      </div>
-    )
-  }
-  const video = a.kind === "video" || a.kind === "embed"
-  return (
-    <div className={`relative h-[76px] overflow-hidden rounded-xl bg-[#eef0f2] ${video ? "w-[120px]" : "w-[76px]"}`} data-attachment={a.kind} data-ready={loading ? "false" : "true"}>
-      {a.preview ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={a.preview} alt="" referrerPolicy={a.kind === "gif" || a.kind === "embed" ? "no-referrer" : undefined} className={`h-full w-full object-cover ${loading ? "opacity-60" : ""}`} />
-      ) : video ? (
-        <span className="absolute inset-0 bg-[#1f2230]" aria-hidden />
-      ) : null}
-      {video && !loading ? (
-        <span className="absolute inset-0 flex items-center justify-center" aria-hidden>
-          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-black/55 text-white">
-            <Play className="ml-0.5 h-3.5 w-3.5 fill-current" />
-          </span>
-        </span>
-      ) : null}
-      {a.kind === "gif" ? <span className="absolute bottom-1 left-1 rounded-[5px] bg-black/55 px-1 text-[10px] font-semibold leading-[15px] text-white">GIF</span> : null}
-      {a.media?.type === "embed" ? (
-        <span className="absolute bottom-1 left-1 flex h-5 w-5 items-center justify-center rounded-[5px] bg-white/95 shadow-[0_1px_1px_rgba(0,0,0,0.15)]" aria-label={EMBED_NAMES[a.media.provider]} data-attachment-site={a.media.provider}>
-          <ProviderMark provider={a.media.provider} size={14} />
-        </span>
-      ) : null}
-      {loading ? (
-        <span className="absolute inset-0 flex flex-col items-center justify-center gap-1 text-white" aria-label="Uploading">
-          <Loader2 className="h-5 w-5 animate-spin" />
-          {a.kind === "video" ? <span className="text-[11px] font-medium tabular-nums">{Math.round(a.progress)}%</span> : null}
-        </span>
-      ) : null}
-      <RemoveButton onClick={onRemove} />
-    </div>
-  )
-}
-
-function RemoveButton({ onClick }: { onClick: () => void }) {
-  return (
-    <button type="button" onClick={onClick} aria-label="Remove" className="absolute right-0.5 top-0.5 flex h-10 w-10 items-center justify-center">
-      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-black/55 text-white">
-        <X className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden />
-      </span>
-    </button>
-  )
-}
-
 /** The poll's fields: the Storelib field with its hairline and 1px shadow. */
 const POLL_FIELD =
   "h-11 w-full min-w-0 rounded-[10px] border border-[#e3e5e9] bg-white px-3 text-[16px] text-[#1a1a2e] shadow-[0_1px_1px_rgba(16,24,40,0.04)] outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-[#9ca3af] focus:border-[#c9ccd3] focus:shadow-[0_0_0_3px_rgba(26,26,46,0.05)] motion-reduce:transition-none sm:h-10 sm:text-[14px]"
@@ -1268,6 +1360,9 @@ const newChoiceId = () => `choice-${++choiceSeq}`
  */
 function PollEditor({ poll, onChange, onRemove }: { poll: PollDraft; onChange: (p: PollDraft) => void; onRemove: () => void }) {
   const set = (patch: Partial<PollDraft>) => onChange({ ...poll, ...patch })
+  /* Edit post, after votes: the question and the choices are what people voted on (feed.ts POLL_VOTED); only the end changes. */
+  const voted = (poll.votes ?? 0) > 0
+  const ends: { value: PollDraft["closesIn"]; label: string }[] = poll.keepAt ? [{ value: "keep", label: `Ends ${new Date(poll.keepAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}` }, ...POLL_ENDS] : POLL_ENDS
   /* A key per choice that moves with it, so a dragged field keeps its caret and its place in React. */
   const ids = useRef<string[]>([])
   while (ids.current.length < poll.options.length) ids.current.push(newChoiceId())
@@ -1364,7 +1459,12 @@ function PollEditor({ poll, onChange, onRemove }: { poll: PollDraft; onChange: (
         </button>
       </div>
       <div className="p-3 sm:p-3.5">
-        <input value={poll.question} onChange={(e) => set({ question: e.target.value })} maxLength={200} placeholder="Ask a question" aria-label="Poll question" className={`${POLL_FIELD} font-medium`} data-poll-question="" />
+        {voted ? (
+          <p className="mb-2 text-[12.5px] leading-relaxed text-[#6b7280]" data-poll-voted="">
+            {poll.votes === 1 ? "1 person has" : `${poll.votes} people have`} voted, so the question and the choices stay as they are.
+          </p>
+        ) : null}
+        <input value={poll.question} onChange={(e) => set({ question: e.target.value })} maxLength={200} placeholder="Ask a question" aria-label="Poll question" className={`${POLL_FIELD} font-medium disabled:bg-[#f8f9fa] disabled:text-[#4b5563]`} disabled={voted} data-poll-question="" />
         <ol ref={listRef} className="mt-2.5 space-y-1.5" aria-label="Choices">
           {poll.options.map((o, i) => (
             <li key={ids.current[i]} className="relative flex items-center gap-1 rounded-[10px] bg-white data-[dragging]:shadow-[0_8px_20px_-8px_rgba(17,24,39,0.25)]" data-choice={ids.current[i]}>
@@ -1375,7 +1475,7 @@ function PollEditor({ poll, onChange, onRemove }: { poll: PollDraft; onChange: (
                 onPointerDown={(e) => drag(e, i)}
                 onKeyDown={(e) => keyMove(e, i)}
                 className="flex h-10 w-7 shrink-0 cursor-grab touch-none items-center justify-center rounded-[8px] text-[#a3a8b0] outline-none transition-colors hover:text-[#4b5563] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 active:cursor-grabbing disabled:opacity-30"
-                disabled={poll.options.length < 2}
+                disabled={poll.options.length < 2 || voted}
                 data-choice-handle=""
               >
                 <GripVertical className="h-4 w-4" aria-hidden />
@@ -1386,10 +1486,11 @@ function PollEditor({ poll, onChange, onRemove }: { poll: PollDraft; onChange: (
                 maxLength={100}
                 placeholder={`Choice ${i + 1}`}
                 aria-label={`Choice ${i + 1}`}
-                className={POLL_FIELD}
+                className={`${POLL_FIELD} disabled:bg-[#f8f9fa] disabled:text-[#4b5563]`}
+                disabled={voted}
                 data-poll-choice={i}
               />
-              {poll.options.length > 2 ? (
+              {poll.options.length > 2 && !voted ? (
                 <button
                   type="button"
                   onClick={() => {
@@ -1408,7 +1509,7 @@ function PollEditor({ poll, onChange, onRemove }: { poll: PollDraft; onChange: (
             </li>
           ))}
         </ol>
-        {poll.options.length < POLL_OPTIONS_MAX ? (
+        {poll.options.length < POLL_OPTIONS_MAX && !voted ? (
           <button type="button" onClick={() => set({ options: [...poll.options, ""] })} className={`${BTN_GHOST} mt-1.5 pl-2 text-[13.5px]`} data-poll-add="">
             <Plus className="h-4 w-4" aria-hidden />
             Add a choice
@@ -1418,7 +1519,7 @@ function PollEditor({ poll, onChange, onRemove }: { poll: PollDraft; onChange: (
           <div className="flex items-center gap-2">
             <span className="text-[13px] text-[#6b7280]">Ends</span>
             <div role="radiogroup" aria-label="Poll ends" className="flex items-center gap-1 rounded-full bg-[#f1f2f4] p-0.5">
-              {POLL_ENDS.map((d) => (
+              {ends.map((d) => (
                 <button
                   key={d.value || "never"}
                   type="button"
@@ -1433,7 +1534,7 @@ function PollEditor({ poll, onChange, onRemove }: { poll: PollDraft; onChange: (
               ))}
             </div>
           </div>
-          <button type="button" role="switch" aria-checked={poll.multiple} onClick={() => set({ multiple: !poll.multiple })} className="flex min-h-10 items-center gap-2.5 text-[13.5px] text-[#4b5563] outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15" data-poll-multiple={poll.multiple ? "on" : "off"}>
+          <button type="button" role="switch" aria-checked={poll.multiple} onClick={() => set({ multiple: !poll.multiple })} disabled={voted} className="flex min-h-10 items-center gap-2.5 text-[13.5px] text-[#4b5563] outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 disabled:opacity-50" data-poll-multiple={poll.multiple ? "on" : "off"}>
             More than one answer
             <span className={`relative h-6 w-10 shrink-0 rounded-full transition-colors duration-200 motion-reduce:transition-none ${poll.multiple ? "bg-[#1a1a2e]" : "bg-[#d9dce1]"}`} aria-hidden>
               <span className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow-[0_1px_2px_rgba(16,24,40,0.2)] transition-[translate] duration-200 ease-out motion-reduce:transition-none ${poll.multiple ? "translate-x-4" : "translate-x-0"}`} />

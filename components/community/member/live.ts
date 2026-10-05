@@ -11,9 +11,11 @@
  * server sends them); the words are always read through the gated API.
  *
  *   FEED CHANNEL   the community's secret name (GET .../live, members only),
- *                  event "post" { postId, spaceId, authorId }
+ *                  event "post" { postId, spaceId, authorId }, and since
+ *                  round 13 "post-change" { postId, spaceId, change }
  *   POST CHANNEL   the same name with the post id after it, events
- *                  "comment" { commentId, parentId, authorId } from the
+ *                  "comment" { commentId, parentId, authorId } and
+ *                  "comment-change" { commentId, postId, change } from the
  *                  server and "typing" { userId, on } from the browsers
  *                  with the post open (throttled, see useTyping)
  *
@@ -32,9 +34,13 @@ type Handler = (payload: LivePayload) => void
 type Client = ReturnType<typeof createClient>
 type Channel = ReturnType<Client["channel"]>
 
-/** The events each kind of channel carries; registered before the join, as a channel requires. */
-const FEED_EVENTS = ["post"] as const
-const POST_EVENTS = ["comment", "typing"] as const
+/**
+ * The events each kind of channel carries; registered before the join, as a channel requires. Round 13 adds
+ * "post-change" { postId, spaceId, change: "edit" | "delete" } on the feed's and "comment-change" { commentId,
+ * postId, change } on a post's: an edit is read again through the gate, a delete takes it away.
+ */
+const FEED_EVENTS = ["post", "post-change"] as const
+const POST_EVENTS = ["comment", "comment-change", "typing"] as const
 
 /* The community's channel name, asked once per community for the page's life. */
 const topics = new Map<string, Promise<string | null>>()
@@ -185,7 +191,7 @@ export function typingLine(list: string[]): string | null {
  * Both sides of the line for one open post: `typed(words)` from the member's
  * own box, `sent()` when it went, and `writers` (names, oldest first) to show.
  */
-export function useTyping(communityId: string, postId: string, userId: string | null, known: (id: string) => string | null) {
+export function useTyping(communityId: string, postId: string, userId: string | null, known: (id: string) => string | null, enabled = true) {
   const [writers, setWriters] = useState<{ id: string; name: string }[]>([])
   const timers = useRef(new Map<string, number>())
   const knownRef = useRef(known)
@@ -194,6 +200,7 @@ export function useTyping(communityId: string, postId: string, userId: string | 
   })
 
   useEffect(() => {
+    if (!enabled) return
     const live = timers.current
     const drop = (id: string) => {
       window.clearTimeout(live.get(id))
@@ -221,7 +228,7 @@ export function useTyping(communityId: string, postId: string, userId: string | 
       for (const t of live.values()) window.clearTimeout(t)
       live.clear()
     }
-  }, [communityId, postId, userId])
+  }, [communityId, postId, userId, enabled])
 
   const last = useRef(0)
   const on = useRef(false)

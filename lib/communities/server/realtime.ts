@@ -28,6 +28,7 @@ import "server-only"
  * once the member already has their post.
  */
 import { createHmac } from "node:crypto"
+import type { Db } from "./db"
 
 /** How long a broadcast may take before it is given up (it is a courtesy, the next read shows the post anyway). */
 const SEND_TIMEOUT_MS = 2500
@@ -49,7 +50,7 @@ export function postTopic(communityId: string, postId: string): string | null {
 
 export interface LiveMessage {
   topic: string
-  event: "post" | "comment"
+  event: "post" | "comment" | "post-change" | "comment-change"
   payload: Record<string, string | null>
 }
 
@@ -85,4 +86,43 @@ export function announceComment(communityId: string, comment: { id: string; post
   const topic = postTopic(communityId, comment.postId)
   if (!topic) return Promise.resolve(false)
   return broadcastLive([{ topic, event: "comment", payload: { commentId: comment.id, postId: comment.postId, parentId: comment.parentId, authorId: comment.authorId } }], fetcher)
+}
+
+/*
+  AN EDIT OR A DELETE, LIVE (round 13). Whoever has the community open hears
+  that a post changed ("edit") or went ("delete"), by id only, like a new
+  one: an edit is read again through the gated route (a member who may no
+  longer see it gets a 404, and it leaves their screen), a delete takes the
+  card away.
+  A comment's edit or delete goes to whoever has its post open.
+*/
+export type LiveChange = "edit" | "delete"
+
+/** A post edited or deleted: ids only, to everybody with the community open. */
+export function announcePostChange(communityId: string, post: { id: string; spaceId?: string | null; change: LiveChange }, fetcher?: typeof fetch): Promise<boolean> {
+  const topic = liveTopic(communityId)
+  if (!topic || !UUID.test(post.id)) return Promise.resolve(false)
+  return broadcastLive([{ topic, event: "post-change", payload: { postId: post.id, spaceId: post.spaceId ?? null, change: post.change } }], fetcher)
+}
+
+/** A comment edited or deleted: ids only, to everybody with its post open. */
+export function announceCommentChange(communityId: string, comment: { id: string; postId: string; change: LiveChange }, fetcher?: typeof fetch): Promise<boolean> {
+  const topic = postTopic(communityId, comment.postId)
+  if (!topic || !UUID.test(comment.id)) return Promise.resolve(false)
+  return broadcastLive([{ topic, event: "comment-change", payload: { commentId: comment.id, postId: comment.postId, change: comment.change } }], fetcher)
+}
+
+/**
+ * A moderator's action on a post or a comment, as the open screens hear it:
+ * removed reads as deleted (the card folds away), anything else (restored,
+ * pinned, locked, moved) as edited, so the card reads itself again. Chat
+ * messages have their own channel.
+ */
+export async function announceModeration(db: Db, communityId: string, target: { type: string; id: string; action: string }): Promise<boolean> {
+  const change: LiveChange = target.action === "remove" ? "delete" : "edit"
+  if (target.type === "post") return announcePostChange(communityId, { id: target.id, change })
+  if (target.type !== "comment" || !UUID.test(target.id)) return false
+  const { data } = await db.from("community_feed_comments").select("post_id").eq("id", target.id).eq("community_id", communityId).maybeSingle()
+  const postId = (data as { post_id: string | null } | null)?.post_id
+  return postId ? announceCommentChange(communityId, { id: target.id, postId, change }) : false
 }

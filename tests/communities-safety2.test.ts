@@ -87,8 +87,10 @@ function parseOr(expr: string): ((r: Row) => boolean)[] {
   })
 }
 
-function contains(have: unknown, want: unknown[]): boolean {
-  if (!Array.isArray(have)) return false
+function contains(have: unknown, wanted: unknown): boolean {
+  /* PostgREST reads the value as JSON text, which is how the sweep hands it over. */
+  const want = (typeof wanted === "string" ? JSON.parse(wanted) : wanted) as unknown[]
+  if (!Array.isArray(have) || !Array.isArray(want)) return false
   return want.every((w) => have.some((h) => h && typeof h === "object" && Object.entries(w as Row).every(([k, v]) => (h as Row)[k] === v)))
 }
 
@@ -125,7 +127,7 @@ function pg(tables: Record<string, Row[]> = {}, opts: { broken?: string[]; stora
       not(c: string, op: string, v: unknown) { st.preds.push((r) => !(op === "is" && v === null ? r[c] == null : r[c] === v)); return q },
       gte(c: string, v: unknown) { st.preds.push((r) => r[c] != null && String(r[c]) >= String(v)); return q },
       or(expr: string) { const ps = parseOr(expr); st.preds.push((r) => ps.some((p) => p(r))); return q },
-      contains(c: string, v: unknown[]) { st.preds.push((r) => contains(r[c], v)); return q },
+      contains(c: string, v: unknown) { st.preds.push((r) => contains(r[c], v)); return q },
       order() { return q },
       limit(n: number) { st.limit = n; return q },
       maybeSingle() { st.single = true; return q },

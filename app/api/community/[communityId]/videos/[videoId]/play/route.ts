@@ -6,6 +6,7 @@ import { communityOpen, loadCommunity, requireMember, viewerContext } from "@/li
 import { inPublicGallery } from "@/lib/communities/server/public"
 import { readCommunityVideo, videoAccess, videoPlayback } from "@/lib/communities/server/videos"
 import { sessionUserId } from "@/lib/courses/route-auth"
+import { playbackQuality } from "@/lib/video/provider"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -16,6 +17,7 @@ const notFound = () => NextResponse.json({ error: "not_found" }, { status: 404, 
 /**
  * GET /api/community/<id>/videos/<videoId>/play
  *   -> { url, expiresAt, mime, captions, poster, durationSeconds }   (lib/video/types.ts VideoPlayback)
+ *   ?q=low   the lighter rendition where the service keeps one
  *
  * A signed address that works for an hour, decided afresh on every call
  * (lib/communities/server/videos.ts videoAccess): the community's cover
@@ -31,6 +33,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ comm
   const off = await requireCommunitiesOn()
   if (off) return off
   const { communityId, videoId } = await params
+  /* ?q=low: the lighter file, where the video's service keeps one (Save Data, a slow network, a preview). */
+  const quality = playbackQuality(new URL(request.url).searchParams.get("q"))
   const userId = await sessionUserId()
   const limited = await rateLimit({
     bucket: "community-video-play",
@@ -49,7 +53,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ comm
   /* A gallery video on the about page plays for whoever can see that page. */
   if (community.cover_video_id !== video.id && (await inPublicGallery(db, community, video.id))) {
     if (video.status !== "ready") return NextResponse.json({ error: video.status === "failed" ? "failed" : "not_ready", status: video.status }, { status: 409, headers: noStore })
-    const playback = await videoPlayback(db, video)
+    const playback = await videoPlayback(db, video, undefined, quality)
     if (!playback) return NextResponse.json({ error: "unavailable" }, { status: 502, headers: noStore })
     return NextResponse.json(playback, { headers: noStore })
   }
@@ -65,7 +69,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ comm
   const access = await videoAccess(db, community, viewer, video)
   if (!access.ok) return access.reason === "not_yet" ? NextResponse.json({ error: "not_yet" }, { status: 403, headers: noStore }) : notFound()
   if (video.status !== "ready") return NextResponse.json({ error: video.status === "failed" ? "failed" : "not_ready", status: video.status }, { status: 409, headers: noStore })
-  const playback = await videoPlayback(db, video)
+  const playback = await videoPlayback(db, video, undefined, quality)
   if (!playback) return NextResponse.json({ error: "unavailable" }, { status: 502, headers: noStore })
   return NextResponse.json(playback, { headers: noStore })
 }

@@ -29,7 +29,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (limited) return limited
   const done = await actOnMember(gate.ctx.admin, {
     community: gate.community,
-    actor: { userId: gate.ctx.userId, role: gate.role },
+    actor: { userId: gate.ctx.userId, role: gate.role, perms: gate.viewer.perms ?? null },
     action: body.action,
     userId,
     reason: typeof body.reason === "string" ? body.reason : null,
