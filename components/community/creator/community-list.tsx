@@ -56,9 +56,14 @@ function stateOf(r: CommunityListRow): State {
 const STATE_WORD: Record<State, string> = { live: "Published", draft: "Draft", archived: "Archived", suspended: "Suspended" }
 const STATE_DOT: Record<State, string> = { live: "bg-[#22a06b]", draft: "bg-[#e0a100]", archived: "bg-[#b6bac1]", suspended: "bg-[#d92d20]" }
 
-/** The address a card shares and opens. */
+/**
+ * The address a card shares and opens: storelib.com, always. Only a
+ * storelib.com address opens the Storelib app (lib/platform/app-links.ts),
+ * so a share from a creator's own domain or a preview host would hand out a
+ * link that can never do that.
+ */
 function publicUrl(slug: string): string {
-  return `${typeof window === "undefined" ? "https://storelib.com" : window.location.origin}/community/${slug}`
+  return `https://storelib.com/community/${slug}`
 }
 
 /** The system share sheet where there is one on a touch screen, otherwise the address copied. */

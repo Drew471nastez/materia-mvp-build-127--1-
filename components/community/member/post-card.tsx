@@ -107,6 +107,14 @@ export type PostUpdate = (id: string, fn: (p: FeedPostView) => FeedPostView | nu
 export const EditSpacesContext = createContext<ComposerSpace[] | null>(null)
 
 /**
+ * THE ADDRESS A SHARE CARRIES (round 14). storelib.com, always, never
+ * `window.location.origin`: a community read on a creator's own domain
+ * would otherwise share that domain, and only a storelib.com address opens
+ * the Storelib app (lib/platform/app-links.ts).
+ */
+export const SHARE_ORIGIN = "https://storelib.com"
+
+/**
  * SHARING A POST (round 13): the app's own Share plugin when the app has it,
  * the browser's share sheet when it has one, else the link copied. Answers
  * what happened ("shared", "copied", "cancelled" or "failed").
@@ -352,7 +360,7 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
   }
 
   const copyLink = async () => {
-    const url = `${window.location.origin}${href}`
+    const url = `${SHARE_ORIGIN}${href}`
     try {
       await navigator.clipboard.writeText(url)
       toast("Link copied")
@@ -361,7 +369,7 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
     }
   }
   const share = async () => {
-    const url = `${window.location.origin}${href}`
+    const url = `${SHARE_ORIGIN}${href}`
     const how = await sharePost(url, post.title, post.bodyText)
     if (how === "copied") toast("Link copied")
     else if (how === "failed") toast(url)

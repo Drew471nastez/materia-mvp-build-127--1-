@@ -21,7 +21,7 @@
 import { useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { isNativeApp } from "@/lib/platform-utils"
-import { openTarget } from "@/lib/platform/open-in-app"
+import { APP_SEEN_COOKIE, APP_SEEN_DAYS, openTarget } from "@/lib/platform/open-in-app"
 
 const LAUNCH_KEY = "storelib:launch-link"
 
@@ -32,6 +32,18 @@ export function AppLinkOpener() {
 
   useEffect(() => {
     if (!isNativeApp()) return
+    /*
+      THE APP HAS BEEN HERE. Written on every page the app's own web view
+      loads, and read on the server by app/api/app-links/in-app-browser: it
+      is the only proof the hand off card has that the app is on this phone,
+      and the card attempts the hand off without a tap only with it. A guess
+      would show a system error to everybody without the app.
+    */
+    try {
+      document.cookie = `${APP_SEEN_COOKIE}=1; path=/; max-age=${APP_SEEN_DAYS * 24 * 60 * 60}; samesite=lax`
+    } catch {
+      /* no cookies here: the card asks for one tap instead, which is its default anyway */
+    }
     let handle: { remove: () => void } | null = null
     let gone = false
     const go = (url: string | null | undefined) => {
