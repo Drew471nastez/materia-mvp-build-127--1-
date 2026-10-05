@@ -377,7 +377,7 @@ function ResultList({
                 <span className="block truncate text-[14px] text-[#262633]">
                   <Marked text={l.title} q={term} />
                 </span>
-                <span className="block truncate text-[12.5px] text-[#6b7280]">{l.kind === "course" ? "Course" : l.course ? `Lesson in ${l.course}` : "Lesson"}</span>
+                <span className="block truncate text-[12.5px] text-[#6b7280]">{l.kind === "course" ? "Program" : l.course ? `Lesson in ${l.course}` : "Lesson"}</span>
               </span>
             </div>
           ))}

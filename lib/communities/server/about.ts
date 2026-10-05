@@ -27,7 +27,7 @@ import "server-only"
  */
 import type { AboutExtras } from "@/components/community/public/types"
 import type { CommunityRow } from "../types"
-import { attachedCourses } from "./classroom"
+import { readPrograms } from "./learn"
 import { missing, reasonOf, type Db } from "./db"
 
 /** Courses shown on the About page; the rest are counted. */
@@ -53,24 +53,37 @@ async function headCount(run: () => PromiseLike<{ count: number | null; error: u
   }
 }
 
-/** The published courses attached to the community, the first ABOUT_COURSES with their lesson counts, and how many there are in all. */
+/**
+ * Learn's published programs (round 13: a course product attached to the
+ * community, or a program made in it), the first ABOUT_COURSES with their
+ * lesson counts, and how many there are in all. Never a draft, never an
+ * attached product that is not a published course.
+ */
 export async function aboutClassroom(db: Db, communityId: string): Promise<AboutExtras["classroom"]> {
   try {
-    const attached = await attachedCourses(db, communityId)
-    if (!attached.length) return null
-    const ids = attached.map((a) => a.productId)
-    const { data: productRows, error } = await db.from("products").select("id, title, thumbnail_url, type, status").in("id", ids)
+    const { rows } = await readPrograms(db, communityId)
+    const published = rows.filter((r) => r.status === "published")
+    if (!published.length) return null
+    const ids = published.map((r) => r.productId).filter((id): id is string => !!id)
+    const { data: productRows, error } = ids.length ? await db.from("products").select("id, title, thumbnail_url, type, status").in("id", ids) : { data: [], error: null }
     if (error) {
       if (!missing(error)) console.error(`[communities] about courses: ${reasonOf(error)}`)
       return null
     }
     const products = new Map(((productRows as { id: string; title: string | null; thumbnail_url: string | null; type: string | null; status: string | null }[] | null) ?? []).filter((p) => p.type === "course" && p.status === "published").map((p) => [p.id, p]))
-    const ordered = attached.map((a) => products.get(a.productId)).filter((p): p is NonNullable<typeof p> => !!p)
+    const ordered = published.flatMap((r) => {
+      if (!r.productId) return [{ id: r.id, title: r.title, coverUrl: r.coverUrl, courseId: r.courseId as string | null, productId: null as string | null }]
+      const p = products.get(r.productId)
+      return p ? [{ id: r.id, title: p.title, coverUrl: p.thumbnail_url, courseId: null as string | null, productId: p.id }] : []
+    })
     if (!ordered.length) return null
     const shown = ordered.slice(0, ABOUT_COURSES)
-    const { data: courseRows } = await db.from("courses").select("id, product_id").in("product_id", shown.map((p) => p.id))
-    const courses = (courseRows as { id: string; product_id: string }[] | null) ?? []
-    const { data: moduleRows } = courses.length ? await db.from("course_modules").select("id, course_id").in("course_id", courses.map((c) => c.id)) : { data: [] }
+    const shownProducts = shown.map((p) => p.productId).filter((id): id is string => !!id)
+    const { data: courseRows } = shownProducts.length ? await db.from("courses").select("id, product_id").in("product_id", shownProducts) : { data: [] }
+    const courseOfProduct = new Map(((courseRows as { id: string; product_id: string }[] | null) ?? []).map((c) => [c.product_id, c.id]))
+    const courseOf = (p: (typeof shown)[number]) => (p.productId ? (courseOfProduct.get(p.productId) ?? null) : p.courseId)
+    const courseIds = shown.map(courseOf).filter((id): id is string => !!id)
+    const { data: moduleRows } = courseIds.length ? await db.from("course_modules").select("id, course_id").in("course_id", courseIds) : { data: [] }
     const modules = (moduleRows as { id: string; course_id: string }[] | null) ?? []
     const { data: lessonRows } = modules.length ? await db.from("course_lessons").select("id, module_id").in("module_id", modules.map((m) => m.id)).limit(5000) : { data: [] }
     const lessons = (lessonRows as { id: string; module_id: string }[] | null) ?? []
@@ -83,8 +96,8 @@ export async function aboutClassroom(db: Db, communityId: string): Promise<About
     return {
       total: ordered.length,
       courses: shown.map((p) => {
-        const course = courses.find((c) => c.product_id === p.id)
-        return { productId: p.id, title: p.title?.trim() || "Course", coverUrl: p.thumbnail_url, lessons: course ? lessonsPerCourse.get(course.id) ?? 0 : 0 }
+        const course = courseOf(p)
+        return { productId: p.productId ?? p.id, title: p.title?.trim() || "Program", coverUrl: p.coverUrl, lessons: course ? (lessonsPerCourse.get(course) ?? 0) : 0 }
       }),
     }
   } catch (e) {
