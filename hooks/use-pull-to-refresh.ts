@@ -34,12 +34,13 @@ export const PULL_TO_REFRESH = {
    * is where UIScrollView + UIRefreshControl put it (c = 0.55 against a
    * 844pt scroll view reaches its own 60pt trigger at 117px).
    */
-  threshold: 48,
+  /** A touch lower than 48 so a refresh arms with a shorter, more native pull. */
+  threshold: 44,
   /**
    * The limit the rubber band approaches and never reaches. Close to the old
    * maxPull of 90, so the page opens the same sort of gap at full stretch.
    */
-  maxPull: 98,
+  maxPull: 103,
   /**
    * How closely the offset follows the finger at the very start: the slope of
    * the curve at zero. 0.9 reads as "the page is under my finger" for the
@@ -51,11 +52,11 @@ export const PULL_TO_REFRESH = {
    * would need 290px of finger to reach any sensible threshold, so the limit
    * is small and the tension is high instead of the other way round.
    */
-  tension: 0.9,
+  tension: 0.94,
   /** The gap held open while the refresh runs. */
   refreshHold: 34,
   /** The ring's diameter. */
-  ringSize: 19,
+  ringSize: 20,
   /**
    * The spinner is shown for at least this long. A cached refresh returns in
    * 20ms and a spinner that appears and vanishes inside one frame reads as a
@@ -162,12 +163,13 @@ const EXIT_FADE_MS = 260
    turn (a CSS animation on their own box, the compositor's), until the
    refresh settles. */
 /** The spinner's full size, and the room kept clear above and below it. */
-export const SPOKES_SIZE = 24
+/** Five percent larger than 24px so the spinner reads clearly on every page. */
+export const SPOKES_SIZE = 25
 export const SPOKES_MARGIN = 6
 /** The gap held open while refreshing: the spinner and its room. */
 export const SPOKES_HOLD = SPOKES_SIZE + 2 * SPOKES_MARGIN + 8
 /** Where the first spoke shows: a gap any smaller draws nothing. */
-const SPOKES_FIRST_PX = 12
+const SPOKES_FIRST_PX = 10
 /** One turn while refreshing. */
 export const SPOKES_SPIN = "ptr-spokes-spin 0.9s linear infinite"
 const SPOKES_PULL_OPACITY = 0.72

@@ -1537,9 +1537,10 @@ export function PlatformHeaderClient({
      PROFILE BAR: ON A PHONE, YOUR PROFILE GETS A PLAIN BAR
     ═══════════════════════════════════════════════════════════════════════
     "On phones only, on /account (and /account/* pages that show the
-    profile), the Storelib header turns into a simple bar": the logo at the
-    left and a "..." at the right, nothing else (image 43). No navigator,
-    no heart, no bell, no photo: the profile under it is the photo, and the
+    profile), the Storelib header turns into a simple bar": the navigator
+    (same hamburger as everywhere else) and the logo at the left, a "..."
+    at the right, nothing else (image 43). No heart, no bell, no photo: the
+    profile under it is the photo, and the
     tab bar at the foot still goes everywhere else. The "..." opens a sheet
     with Share profile (the phone's share sheet, else the link copied),
     Settings, Language, Help and Log out.
@@ -2096,14 +2097,14 @@ export function PlatformHeaderClient({
                 phone keeps one sheet. The order is the order in the page,
                 not a CSS reorder, so focus goes where the eye does at both
                 widths: the computer's logo (hidden on a phone), the lines,
-                then the phone's logo (hidden on a computer). On a phone the
+                then the                 phone's logo (hidden on a computer). On a phone the
                 group is pulled 8px into the bar's padding, so the lines
                 start where the old icon's did and the logo follows with the
                 button's own air as the gap; on a computer the lines keep
-                4px from the wordmark. The profile bar draws no lines on a
-                phone, so there the logo keeps its own place at the edge.
+                4px from the wordmark. On the profile bar a phone keeps the
+                same order: hamburger, then the logo.
               */}
-              <div className={cn("flex shrink-0 items-center gap-1", profileBar ? "max-md:gap-0" : "max-md:-ml-2 max-md:gap-0.5")} data-header-left="">
+              <div className={cn("flex shrink-0 items-center gap-1", "max-md:-ml-2 max-md:gap-0.5")} data-header-left="">
                 {/* Logo with Storelib text - links to /explore */}
                 <Link href={buyerLogoHref} onClick={(e) => onCanonicalNav(e, buyerLogoHref)} className="shrink-0 hidden md:flex items-center gap-2" data-header-logo="desk">
                   <StorelibLogo size={HEADER_LOGO.desktop} priority />
@@ -2112,8 +2113,8 @@ export function PlatformHeaderClient({
                 <PlaceNavigator
                   current={{ kind: "storelib" }}
                   onNavigate={(e, href) => onCanonicalNav(e, href)}
-                  /* On a phone the slack runs left to the screen's edge and up and down, where a thumb undershoots; not right, where the logo is a target of its own. A computer's pointer needs none. On a phone's profile bar it is not drawn (PROFILE BAR above). */
-                  className={cn("z-10 before:absolute before:-left-3 before:-top-2 before:-bottom-2 before:right-0 before:content-[''] md:before:content-none", chrome.navigator, profileBar && "max-md:hidden")}
+                  /* On a phone the slack runs left to the screen's edge and up and down, where a thumb undershoots; not right, where the logo is a target of its own. A computer's pointer needs none. */
+                  className={cn("z-10 before:absolute before:-left-3 before:-top-2 before:-bottom-2 before:right-0 before:content-[''] md:before:content-none", chrome.navigator)}
                 />
                 <Link href={buyerLogoHref} onClick={(e) => onCanonicalNav(e, buyerLogoHref)} className="shrink-0 flex items-center gap-1.5 md:hidden" data-header-logo="phone">
                   <StorelibLogo size={HEADER_LOGO.phone} priority />

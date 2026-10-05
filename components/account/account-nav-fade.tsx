@@ -48,10 +48,17 @@ export function navFadeKey(pathname: string | null): string {
  */
 export function AccountNavFade({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
-  const landing = useLandingOnMove(navFadeKey(pathname))
+  const onLibrary = showsLibraryTabs(pathname)
+  const landingOnMove = useLandingOnMove(navFadeKey(pathname))
+  /* The library cross fades under its own pills (library-panel.tsx); a second fade here was empty flashes between tabs and the first paint. */
+  const landing = onLibrary ? false : landingOnMove
 
   return (
-    <div key={navFadeKey(pathname)} className={`library-content-enter min-w-0${landing ? ` ${LANDING_CLASS}` : ""}`}>
+    <div
+      key={navFadeKey(pathname)}
+      className={`min-w-0${onLibrary ? "" : " library-content-enter"}${landing ? ` ${LANDING_CLASS}` : ""}`}
+      data-account-nav-fade={onLibrary ? "library" : "profile"}
+    >
       {children}
     </div>
   )
