@@ -85,7 +85,7 @@ const COVER =
 
 function Page({ path }: { path: string }) {
   if (path === "/account") {
-    return <ProfileActivity userId="u1" initial={ACTIVITY} initialNext={null} now={NOW} joinedAt="2025-03-14T10:00:00Z" emptyText="Nothing here yet." />
+    return <ProfileActivity userId="u1" initial={ACTIVITY} initialNext={null} now={NOW} emptyText="Nothing here yet." />
   }
   if (path.startsWith("/account/library")) {
     const items = libraryItems()

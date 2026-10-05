@@ -95,7 +95,7 @@ import { readAuthSnapshot, subscribeAuthSnapshot } from "@/lib/auth/auth-snapsho
 import { useExploreMarketplaceEnabled } from "@/components/platform/explore-marketplace-context"
 import { SIGNED_OUT_PROFILE_HREF, buyerTabFor, buyerTabsAt, buyerTabsBelongOn, communityOf } from "@/lib/nav/buyer-tabs"
 import { openCommunitySearch, refocusCommunitySearch } from "@/lib/nav/community-search-bridge"
-import { enterCommunityContext, useCommunityContext } from "@/lib/nav/community-context"
+import { COMMUNITY_HOME_BOOT, COMMUNITY_HOME_LIVE_FLAG, communityContext, enterCommunityContext, useCommunityContext } from "@/lib/nav/community-context"
 import { useBuyerTabsWhere } from "@/lib/nav/use-buyer-tabs-where"
 import { prefetchHref, prefetchOnIdle } from "@/lib/nav/prefetch-policy"
 import { noteTabScroll, prepareTabArrival, restoreTabScroll } from "@/lib/navigation/tab-scroll"
@@ -115,9 +115,14 @@ const GLYPH = "24px"
  * here is a quarter of the phone, not 56px, and a circle in the middle of it
  * reads as a dot. Drawn wider than it is tall, like the selection on a
  * phone's own tab bar.
+ *
+ * A TOUCH LARGER (this round): 70x44 rather than 64x42. The glass had less
+ * presence under a thumb than the thumb itself, and on a 390px phone a slot
+ * is 94px wide, so it still leaves 12px of bar either side of it and never
+ * reads as two pieces of glass meeting.
  */
-const LENS_W = 64
-const LENS_H = 42
+const LENS_W = 70
+const LENS_H = 44
 /**
  * The lens's glass, on white. The pill's is white over a frosted white bar
  * and holds its shape by its edge; on a white bar white glass has no edge to
@@ -133,8 +138,27 @@ const DROP_CLEAR = "0 1px 1.5px rgba(16,18,27,0), 0 4px 12px -2px rgba(16,18,27,
  * soft shadows falling upward: close and faint, wide and fainter. "A little
  * depth", which is the difference between a bar and a painted strip, and
  * still nothing like the pill's float.
+ *
+ * REBALANCED, NOT MOVED. The owner asked for a little less of it and a
+ * little more of it in the same breath, which is what you say when the
+ * amount is right and the shape is not. The two shadows were doing the same
+ * job: the close one at 0.05 over 6px and the wide one at 0.10 over 24px
+ * both put their ink in the first few pixels, so the whole of the depth sat
+ * in a band thinner than the hairline's own highlight and read as weight
+ * rather than as height. Measured off a photograph at three times life size,
+ * as darkness above the bar's top edge over a white page:
+ *
+ *            1px   2px   4px   6px   12px  20px  28px
+ *     was     14    11     8     6     3     0     0
+ *     now     11     9     7     7     5     3     2
+ *
+ * So: a little less of the close one (0.05 to 0.042, 6px to 5px), and the
+ * wide one spent differently rather than spent more (0.10 over 24px with a
+ * -12px spread becomes 0.07 over 46px with -5px), which puts the same amount
+ * of ink across thirty pixels instead of six. The hairline is untouched,
+ * because that is the bar's edge and not its depth.
  */
-const BAR_SHADOW = "0 -0.5px 0 rgba(16,18,27,0.09), 0 -2px 6px -2px rgba(16,18,27,0.05), 0 -10px 24px -12px rgba(16,18,27,0.10)"
+const BAR_SHADOW = "0 -0.5px 0 rgba(16,18,27,0.09), 0 -2px 5px -2px rgba(16,18,27,0.042), 0 -6px 46px -5px rgba(16,18,27,0.07)"
 const EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
 
 /**
@@ -261,8 +285,37 @@ function TabBar({
   */
   const context = useCommunityContext()
   useEffect(() => enterCommunityContext(community), [community])
+  /*
+    AND THE PRINTED LISTENER STANDS DOWN while this bar is mounted: from here
+    on the press is answered by the gesture, from the context as it stands
+    (AND THE PRESS READS THE CONTEXT AGAIN, below), and the listener would
+    only answer it a second time with a whole page load. In a layout effect,
+    so the flag is up in the same commit the bar hydrates in rather than a
+    paint later, which is where the seam would otherwise be (AND IT STANDS
+    DOWN THE MOMENT THE BAR IS LIVE in lib/nav/community-context).
+  */
+  useLayoutEffect(() => {
+    const w = window as unknown as Record<string, unknown>
+    w[COMMUNITY_HOME_LIVE_FLAG] = 1
+    return () => {
+      delete w[COMMUNITY_HOME_LIVE_FLAG]
+    }
+  }, [])
   const homeCommunity = community ? null : context
   const tabs = buyerTabsAt(pathname, exploreMarketplaceEnabled, homeCommunity)
+  /*
+    AND THE PRESS READS THE CONTEXT AGAIN, AS IT IS PRESSED. `context` is the
+    store's answer as of this render, and a render can be behind it: on the
+    first (hydrating) render of a page the store answers null by design (the
+    server never knew), and the right answer only arrives on the effect after
+    it. A press that lands in that window must still go to the community, so
+    the press works the tabs out from the context as it stands at the moment
+    the finger lifts rather than from this render's copy. Outside that window
+    the two are the same object's answer and nothing changes.
+    components/nav/buyer-tab-bar's printed boot script answers the window
+    before React is running at all.
+  */
+  const tabsNow = () => (community ? tabs : buyerTabsAt(pathname, exploreMarketplaceEnabled, communityContext()))
   const current = buyerTabFor(pathname, { query: query !== "", sellerSurface, exploreMarketplaceEnabled, homeCommunity })
 
   /*
@@ -278,9 +331,10 @@ function TabBar({
   /* The page a press is taking the bar to, and where on it to land (lib/navigation/tab-scroll.ts). */
   const arrival = useRef<{ href: string; y: number | null } | null>(null)
 
-  const hrefOf = (index: number): string => {
-    const tab = tabs[index]
-    if (!tab) return community || homeCommunity ? `/community/${community || homeCommunity}` : exploreMarketplaceEnabled ? "/explore" : "/account/library"
+  const hrefOf = (index: number, from: ReturnType<typeof buyerTabsAt> = tabs): string => {
+    const tab = from[index]
+    const home = community || (from === tabs ? homeCommunity : communityContext())
+    if (!tab) return home ? `/community/${home}` : exploreMarketplaceEnabled ? "/explore" : "/account/library"
     return tab.key === "profile" && !signedIn ? SIGNED_OUT_PROFILE_HREF : tab.href
   }
 
@@ -290,7 +344,9 @@ function TabBar({
     heading: toward,
     nav: null,
     onPick: (index) => {
-      const tab = tabs[index]
+      /* The tabs as the context stands right now (AND THE PRESS READS THE CONTEXT AGAIN, above). */
+      const now = tabsNow()
+      const tab = now[index]
       if (!tab) return
       /*
         SEARCH OPENS OVER THE PAGE, from inside this press, so the keyboard
@@ -302,7 +358,7 @@ function TabBar({
       */
       if (tab.key === "search" && community && openCommunitySearch(community)) return
       if (tab.key === "search" && openSearchOverlay(query)) return
-      const href = hrefOf(index)
+      const href = hrefOf(index, now)
       /*
         THE TAB YOU ARE ALREADY ON takes you to the top of it, as a phone's
         own tab bar does.
@@ -403,6 +459,10 @@ function TabBar({
         is in the first paint and goes with the bar.
       */}
       <style>{TAB_BAR_BODY}</style>
+      {/* Home leads back to the community from the first byte of the page,
+          before anything of React is running: see AND HOME IS THE
+          COMMUNITY'S BEFORE THE PAGE IS AWAKE in lib/nav/community-context. */}
+      <script dangerouslySetInnerHTML={{ __html: COMMUNITY_HOME_BOOT }} />
       <Suspense fallback={null}>
         <QueryWatch onChange={setQuery} />
       </Suspense>

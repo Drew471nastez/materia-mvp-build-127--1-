@@ -193,8 +193,8 @@ async function main() {
 
   // ── The page and the shell around it ask once between them ───────────
   /** The runner runs compiled tests from the repository root, as the other suites assume. */
-  const page = readFileSync(join("app", "library", "page.tsx"), "utf8")
-  const layout = readFileSync(join("app", "library", "layout.tsx"), "utf8")
+  const page = readFileSync(join("app", "account", "library", "page.tsx"), "utf8")
+  const layout = readFileSync(join("app", "account", "library", "layout.tsx"), "utf8")
 
   check(
     "the library page reads downloads, profile and wishlist together",
@@ -218,7 +218,7 @@ async function main() {
   )
   check(
     "the layout reads the user agent while the auth request is in flight",
-    /await Promise\.all\(\[\s*\n\s*isCapacitorWebView\(\)/.test(layout),
+    /await Promise\.all\(\[\s*isCapacitorWebView\(\), currentUserForRequest\(\)/.test(layout),
   )
 
   console.log(`\n  ${passed} passed, ${failed} failed`)

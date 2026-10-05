@@ -254,14 +254,21 @@ const SPRING = { stiffness: 520, damping: 34 }
  * LIQUID, LIKE A DROP OF GLASS. It stretches along the way it is moving, by
  * how fast it is moving, and rounds off as it slows: up to STRETCH_MAX wider
  * (a little narrower top to bottom, so it reads as the same drop pulled
- * along rather than a bigger one), on top of the lift, for about 1.12 in
+ * along rather than a bigger one), on top of the lift, for about 1.15 in
  * all. From the speed, smoothed over a few frames, so a finger's uneven
  * events do not make it wobble. Stretch is written as `transform`, which
  * composes with `translate` and `scale` without touching either.
  */
-const STRETCH_MAX = 0.08
-/** px per ms of speed for all of STRETCH_MAX: three slots in a quarter of a second, an ordinary slide. */
-const STRETCH_AT = 0.6
+const STRETCH_MAX = 0.11
+/**
+ * px per ms of speed for all of STRETCH_MAX. It was 0.6, three slots in a
+ * quarter of a second, which is a quick slide: an ordinary drag across the
+ * bar reached barely half the stretch, so the glass read as a box being
+ * carried rather than as a drop being pulled. 0.5 puts the whole stretch
+ * within an ordinary slide's reach, and the cap is what keeps a flick from
+ * going further (STRETCH_MAX).
+ */
+const STRETCH_AT = 0.5
 const stretchFor = (speed: number) => Math.min(STRETCH_MAX, (Math.abs(speed) / STRETCH_AT) * STRETCH_MAX)
 
 /**
@@ -280,15 +287,26 @@ const stretchFor = (speed: number) => Math.min(STRETCH_MAX, (Math.abs(speed) / S
  * into a slight squash (at most SQUASH_MAX, a little narrower and taller)
  * and settles in one soft wobble. And it leads: the stretch reaches a touch
  * further ahead of the finger than behind it (DROP_LEAD of it), the way a
- * drop pulled across glass is fuller at its front. All of it is one
+ * drop pulled across glass is fuller at its front, by rather more than it
+ * used to be. All of it is one
  * `transform` on the lens, written once a frame under a finger and sampled
  * into the landing spring's keyframes after it, so it runs on the
  * compositor like the rest. It never passes STRETCH_MAX, so the widest the
  * lens gets is unchanged.
  */
-const DROP_SPRING = { stiffness: 420, damping: 9 }
+/*
+  SOFTER AND LATER (this round: "that bubble liquid more flowing"). 420 was
+  stiff enough that the stretch arrived almost with the finger, so the lean
+  was not read as weight. At 360 with a touch less damping the drop leans in
+  a frame or two behind the finger and runs on a little further when it
+  stops, which is what makes it read as liquid rather than as a shape being
+  redrawn. The clamp (SQUASH_MAX, STRETCH_MAX) is unchanged, so the widest
+  and narrowest it ever gets are the same as before.
+*/
+const DROP_SPRING = { stiffness: 360, damping: 8 }
 const SQUASH_MAX = 0.03
-const DROP_LEAD = 0.2
+/** How far ahead of the finger the stretch reaches: a drop pulled across glass is fuller at its front. */
+const DROP_LEAD = 0.26
 type Drop = { d: number; dv: number; dir: number }
 /** One step of the drop's spring towards the stretch `speed` asks for; `ms` is split so a slow frame stays stable. */
 function stepDrop(drop: Drop, speed: number, ms: number) {
@@ -313,17 +331,25 @@ const dropSettled = (drop: Drop) => Math.abs(drop.d) < 0.002 && Math.abs(drop.dv
 
 /**
  * The spring from `from` (px, with `speed` px/ms) to `to`, as keyframes of
- * position and stretch, one per 1/120s. Semi implicit Euler at that step is
+ * position and stretch, one per 1/240s. Semi implicit Euler at that step is
  * stable for these constants and ends when both the distance and the speed
  * are below what a screen can show.
+ *
+ * SAMPLED FOR A SCREEN FASTER THAN 120Hz. It was one keyframe per 1/120s,
+ * which is exact on a 120Hz phone and interpolated on anything quicker; the
+ * compositor runs between keyframes in a straight line, so on a faster panel
+ * the landing was a chain of short straight segments rather than a curve.
+ * Halving the step costs nothing at run time (the compositor plays the list
+ * either way, and the list is built once per landing) and makes the sampled
+ * spring the shape the numbers describe at any refresh rate.
  */
 function settleSpring(from: number, speed: number, to: number, dot: number, drop: Drop = { d: stretchFor(speed), dv: 0, dir: Math.sign(speed) }): { frames: Keyframe[]; ms: number } {
-  const dt = 1 / 120
+  const dt = 1 / 240
   let x = from - to
   let v = speed * 1000
   const frames: Keyframe[] = []
   let t = 0
-  for (let i = 0; i < 240; i++) {
+  for (let i = 0; i < 480; i++) {
     const place = `${Math.round((to + x) * 100) / 100}px 0`
     /* The drop's shape rides along on its own spring, from the stretch it
        had under the finger: the landing and the settling are one motion. */
@@ -445,7 +471,7 @@ export const PRESS_ON = "background-color 0s, box-shadow 0s"
  * Under a finger the circle LIFTS a little, which is the tell of the newer
  * system bars: the thing you are holding is the thing that is bigger. 4%, so
  * that with the stretch on top (STRETCH_MAX) it is never more than about
- * 1.12 wide.
+ * 1.15 wide.
  */
 export const LIFT = 1.04
 export const LIFT_EASE = `scale 200ms cubic-bezier(0.32, 0.72, 0, 1)`
@@ -502,13 +528,23 @@ export const TAP_PULSE_MS = 420
  * A gesture that has left the bar vertically was never for the bar.
  *
  * The whole strip answers a press, which is what a tab bar does, but a finger
- * that lands on it and then travels 80px up the screen was trying to scroll,
- * or to reach the card above, and navigating on the lift would be a page
- * change nobody asked for. Sideways has no such limit: sideways is the
- * gesture. At module scope because the press that misses the bar entirely is
- * held to the same reach (A PRESS THAT FELL THROUGH THE BAR, below).
+ * that lands on it and then travels right up the screen was trying to reach
+ * the card above, and navigating on the lift would be a page change nobody
+ * asked for. Sideways has no such limit: sideways is the gesture.
+ *
+ * HOW FAR IS FAR ENOUGH. It was 72px, a little over one bar. A thumb
+ * dragging along a bar at the very foot of the screen does not stay inside
+ * 56px of it: the hand rolls, and the glass was following the finger the
+ * whole way and then, on the lift, opening nothing. "More accuracy" is partly
+ * this. The x is clamped into the bar and the y is ignored while the finger
+ * is down (leftFor, move), so tracking never cared; only the lift did. Two
+ * bars' worth (120px) is past anything a drag along the bar does and well
+ * short of a deliberate reach up into the page.
+ *
+ * At module scope because the press that misses the bar entirely is held to
+ * the same reach (A PRESS THAT FELL THROUGH THE BAR, below).
  */
-const ESCAPED = 72
+const ESCAPED = 120
 
 export function useSlide(count: number, onPick: (index: number) => void, onPress?: (index: number) => void) {
   const [at, setAt] = useState<number | null>(null)
@@ -553,11 +589,34 @@ export function useSlide(count: number, onPick: (index: number) => void, onPress
    */
   const [geometry, setGeometry] = useState<Geometry | null>(null)
   const geoRef = useRef<Geometry>({ pad: 0, slot: 0, dot: 0 })
+  /**
+   * ═════════════════════════════════════════════════════════════════════════
+   *  AND THE BAR'S BOX IS NOT MEASURED AGAIN INSIDE THE GESTURE
+   * ═════════════════════════════════════════════════════════════════════════
+   * Where the finger is, in the bar's own coordinates, needs the bar's box.
+   * Both of the functions that want it (`leftFor`, `slotAt`) used to ask the
+   * element for it, and both are called on every pointermove, so a finger
+   * moving at the screen's refresh rate forced the browser to lay the page
+   * out twice a frame, on the main thread, between the finger and the frame
+   * it is drawn in. It is the same box for the whole of a gesture: the bar is
+   * fixed to the foot of the screen and `touch-action: none` means nothing
+   * under it is scrolling. So it is read once, when the finger lands, and
+   * when the bar itself changes size.
+   */
+  const boxRef = useRef<{ left: number; width: number; top: number; bottom: number } | null>(null)
+  const readBox = () => {
+    const bar = barRef.current
+    if (!bar) return null
+    const r = bar.getBoundingClientRect()
+    boxRef.current = { left: r.left, width: r.width, top: r.top, bottom: r.bottom }
+    return boxRef.current
+  }
   useLayoutEffect(() => {
     const bar = barRef.current
     const lens = dotRef.current
     if (!bar || !lens) return
     const read = () => {
+      readBox()
       const tab = bar.querySelector("a")
       if (!tab) return
       const next = {
@@ -628,10 +687,15 @@ export function useSlide(count: number, onPick: (index: number) => void, onPress
       the component uses at rest, so the two cannot disagree by a pixel. */
   const leftForSlot = (index: number): number => slotLeft(index, geoRef.current)
 
-  /** The circle's left edge that puts its centre under a finger, kept inside the bar. */
+  /**
+   * The circle's left edge that puts its centre under a finger, kept inside
+   * the bar. THE Y IS NOT READ: a finger above or below the bar's row is as
+   * accurate as one on it, because only its x is used and that x is clamped
+   * into the bar. From the cached box, so this costs no layout.
+   */
   const leftFor = (clientX: number): number => {
     const { pad, dot } = geoRef.current
-    const box = barRef.current?.getBoundingClientRect()
+    const box = boxRef.current ?? readBox()
     if (!box) return pad
     const centre = Math.max(pad + dot / 2, Math.min(box.width - pad - dot / 2, clientX - box.left))
     return centre - dot / 2
@@ -715,7 +779,7 @@ export function useSlide(count: number, onPick: (index: number) => void, onPress
   }
 
   const slotAt = (clientX: number): number => {
-    const box = barRef.current?.getBoundingClientRect()
+    const box = boxRef.current ?? readBox()
     if (!box) return 0
     const pad = geoRef.current.pad
     const inner = box.width - pad * 2
@@ -726,7 +790,7 @@ export function useSlide(count: number, onPick: (index: number) => void, onPress
      with the projection: the finger's position is the only thing that picks now. */
 
   const escaped = (clientY: number): boolean => {
-    const box = barRef.current?.getBoundingClientRect()
+    const box = boxRef.current ?? readBox()
     if (!box) return false
     return clientY < box.top - ESCAPED || clientY > box.bottom + ESCAPED
   }
@@ -769,8 +833,19 @@ export function useSlide(count: number, onPick: (index: number) => void, onPress
       */
       const first = lastRef.current === null
       lastRef.current = next
-      /* A render only when the slot changes, never per move. */
-      setAt(next)
+      /*
+        A RENDER ONLY FOR THE PRESS, NEVER FOR A SLOT CROSSED UNDER A DRAG.
+        The slot under the finger is what lays the glass down on a press, so
+        the press renders. A DRAG does not: the glass is written straight to
+        the element by the frame loop below, and the glyphs deliberately wait
+        for the pick (THE GLYPHS DO NOT CHANGE UNDER A MOVING FINGER), so a
+        render on each of the three slots a drag across the bar crosses
+        changed nothing on the screen and put a whole React render inside the
+        gesture. That is where the dropped frame in a slow drag came from,
+        measured at 33ms against a 16.7ms budget. The tick still counts the
+        slots off, which is the part a thumb can feel.
+      */
+      if (!movedRef.current) setAt(next)
       /*
         LIGHT IS THE FLOOR, AND THAT IS A PROPERTY OF THE PHONE.
 
@@ -849,6 +924,9 @@ export function useSlide(count: number, onPick: (index: number) => void, onPress
         /* Keeps the moves coming even when the finger leaves the bar, which
            it will: 54px is not much to stay inside of. */
         ;(e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId)
+        /* The one measurement of the gesture (AND THE BAR'S BOX IS NOT
+           MEASURED AGAIN INSIDE THE GESTURE): everything after this reads it. */
+        readBox()
         activeRef.current = true
         /* Left null: the loop paints nothing until a finger proves it is
            dragging, so a press never animates. */
@@ -929,7 +1007,7 @@ export function useSlide(count: number, onPick: (index: number) => void, onPress
  *              remembered once a navigation that is not it ends
  *   onPick     a slot was chosen (the finger lifted on it, or Enter). It
  *              may REFUSE: `false`, or a promise of one, means the pick did
- *              not happen and nothing moves — not the lens, not the route.
+ *              not happen and nothing moves: not the lens, not the route.
  *              The /app pill refuses while the page it is leaving is asking
  *              whether its unsaved work may be thrown away
  *              (lib/ui/leave-guard); a bar with nothing to ask returns
@@ -1046,8 +1124,8 @@ export function useTabLens({
   /**
    * THE LINK IS THE LAST WAY IN. Each tab is a real link whose click this
    * bar prevents, because the POINTER gesture is what decides. A gesture the
-   * browser took back — a pointercancel, because the system claimed it or
-   * the content under the finger changed — never reaches the lift that picks,
+   * browser took back (a pointercancel, because the system claimed it or
+   * the content under the finger changed) never reaches the lift that picks,
    * and that tap did nothing at all. The click still arrives, so it picks
    * when the gesture did not, which is also how Enter and Space on a focused
    * link work (`detail === 0`, a click no pointer made).
@@ -1085,8 +1163,8 @@ export function useTabLens({
    * the document is a photograph and the whole of it is untouchable, the bar
    * included. Measured against the real product editor rising over the real
    * list (scripts/check-pill-nav-from-editor.mjs): from 166ms after the press
-   * on a product to 730ms, document.elementFromPoint at the centre of a tab —
-   * and at the middle of the screen — is <html>, and every event of a tap in
+   * on a product to 730ms, document.elementFromPoint at the centre of a tab,
+   * and at the middle of the screen, is <html>, and every event of a tap in
    * that window is dispatched on <html>. 20 of 20 taps mid-rise went nowhere.
    *
    * So the bar also answers a press that FELL THROUGH it. Three ways in, all
@@ -1109,7 +1187,7 @@ export function useTabLens({
    *   cancel anywhere else ends the gesture as it always did.
    *
    * WHAT COUNTS AS "FELL THROUGH": the press's target CONTAINS the bar, so
-   * nothing inside that element — the bar included — took it. <html> is what
+   * nothing inside that element, the bar included, took it. <html> is what
    * a press on a photograph hits, and an engine that lands on <body> or on
    * the shell's own box says the same thing. Anything drawn OVER the bar on
    * purpose (a sheet's scrim) is a sibling, never an ancestor, and its press
@@ -1159,7 +1237,7 @@ export function useTabLens({
     /* A press that fell through, ours from the moment it landed. */
     let held: number | null = null
     /*
-      And a press that landed ON the bar, which is the bar's — until the bar
+      And a press that landed ON the bar, which is the bar's, until the bar
       lets go of it without answering. It captures the pointer, and a captured
       gesture keeps being delivered even while the document is a photograph;
       but the browser takes the capture back when the element it is on stops

@@ -53,3 +53,33 @@ export function ownerAddress(email: string | null | undefined): string | null {
   if (trimmed.toLowerCase().endsWith(`@${NO_INBOX_DOMAIN}`)) return null
   return trimmed.replace(BUSINESS_TAG_PATTERN, "")
 }
+
+/**
+ * ===========================================================================
+ *  THE ADDRESS A PERSON IS SHOWN
+ * ===========================================================================
+ * The tag is Storelib's bookkeeping, not something anybody typed, and the
+ * owner saw it on their own screen: "sometimes across Storelib there could be
+ * this kind of format for emails, SLB, ADB, 21, CFC, whatever. Make sure
+ * those are never actually showing, because it is bad."
+ *
+ * So every place that PRINTS an address puts it through here first. It is the
+ * reading of `ownerAddress` with one difference: an account made for a person
+ * who signed in by phone has no inbox at all, and the name invented for it
+ * ("slb-1a2b3c4d@businesses.invalid") is not an address to show anybody, so
+ * this answers null and the caller shows whatever it shows for no address.
+ *
+ * Sending still goes through `ownerAddress`: what is written to and what is
+ * shown are the same string for every account that has one.
+ */
+export function displayEmail(email: string | null | undefined): string | null {
+  const own = ownerAddress(email)
+  return own && own.includes("@") ? own : null
+}
+
+/** The part before the @, for a name made out of an address. Never the tag. */
+export function emailLocalPart(email: string | null | undefined): string | null {
+  const shown = displayEmail(email)
+  if (!shown) return null
+  return shown.slice(0, shown.lastIndexOf("@")) || null
+}

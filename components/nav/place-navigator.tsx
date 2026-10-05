@@ -13,8 +13,9 @@
  *                touched first, each with its cover or logo and a small
  *                word for what it is (the community I am looking at
  *                marked); a faint short rule; Discover communities,
- *                Explore, then Dashboard for a seller or Start creating
- *                for anybody else
+ *                Explore, then Dashboard for a seller (one solid button) or,
+ *                for anybody who does not sell, Start creating as a quiet
+ *                grey row under the ways out
  *   signed out   Explore, Discover communities, Log in and Start creating
  *
  * With communities switched off nothing about communities is in it. It no
@@ -45,6 +46,7 @@ import { memo, useCallback, useEffect, useId, useMemo, useRef, useState, useSync
 import { Check } from "lucide-react"
 /* Solar's line icons, the family the tab bar and the app's sidebar draw in. */
 import { CompassIcon } from "@solar-icons/react/linear/compass"
+import { ShopIcon } from "@solar-icons/react/linear/shop"
 import { UsersGroupRoundedIcon } from "@solar-icons/react/linear/users-group-rounded"
 
 import { AppAvatar } from "@/components/app/app-avatar"
@@ -454,6 +456,9 @@ const NavigatorBody = memo(function NavigatorBody({
   const pad = phone ? "px-3" : "p-1.5"
   const pic = phone ? 36 : 32
   const hasRecent = model.recent.length > 0
+  /* A quiet action is a row at the foot; the rest are the buttons they were. */
+  const quiet = model.actions.filter((a) => a.quiet)
+  const loud = model.actions.filter((a) => !a.quiet)
   return (
     <div className={cn("flex min-h-0 flex-col", phone ? "pb-[max(16px,env(safe-area-inset-bottom))] pt-1" : "max-h-[min(560px,calc(100dvh-120px))]")}>
       {loading ? (
@@ -516,24 +521,54 @@ const NavigatorBody = memo(function NavigatorBody({
         })}
       </div>
 
-      <div className={cn("flex shrink-0 gap-2", phone ? "px-3 pt-2" : "p-2.5 pt-1")} data-navigator-actions="">
-        {model.actions.map((a) => (
-          <Link
-            key={a.key}
-            href={a.href}
-            onClick={go(a.href, a.key)}
-            data-navigator-row=""
-            data-navigator-action={a.key}
-            className={cn(
-              "flex flex-1 items-center justify-center whitespace-nowrap rounded-action font-medium outline-none transition-colors duration-100 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/25 focus-visible:ring-offset-2 [-webkit-tap-highlight-color:transparent]",
-              phone ? "h-[46px] text-[16px]" : "h-10 text-[14px]",
-              a.primary ? "bg-[#1a1a2e] text-white hover:bg-[#2a2a40] active:bg-[#2a2a40]" : "border border-[#d9dce1] bg-white text-[#1a1a2e] hover:bg-[#f7f7f9] active:bg-[#f1f2f4]",
-            )}
-          >
-            {a.label}
-          </Link>
-        ))}
-      </div>
+      {/*
+        THE FOOT. A seller's Dashboard is the one solid button in the panel,
+        as it was. Somebody who does not sell gets the same words they always
+        got, drawn quietly: the row shape above, grey, with a shop in the line
+        family, so the panel offers it without asking for it
+        (lib/nav/places-shared.ts, `quiet`). Signed out is unchanged: Log in
+        and Start creating are what a visitor's panel is for.
+      */}
+      {quiet.length ? (
+        <div className={cn("shrink-0", pad, !phone && "pt-0")} data-navigator-quiet="">
+          {quiet.map((a) => (
+            <Link
+              key={a.key}
+              href={a.href}
+              onClick={go(a.href, a.key)}
+              data-navigator-row=""
+              data-navigator-action={a.key}
+              className={cn(row, "text-[#6b7280] hover:text-[#1a1a2e]")}
+            >
+              <span aria-hidden className="flex shrink-0 items-center justify-center text-[#9ca3af]" style={{ width: pic, height: phone ? 24 : 22 }}>
+                <ShopIcon size={phone ? 21 : 19} strokeWidth={1.5} />
+              </span>
+              {a.label}
+            </Link>
+          ))}
+        </div>
+      ) : null}
+
+      {loud.length ? (
+        <div className={cn("flex shrink-0 gap-2", phone ? "px-3 pt-2" : "p-2.5 pt-1")} data-navigator-actions="">
+          {loud.map((a) => (
+            <Link
+              key={a.key}
+              href={a.href}
+              onClick={go(a.href, a.key)}
+              data-navigator-row=""
+              data-navigator-action={a.key}
+              className={cn(
+                "flex flex-1 items-center justify-center whitespace-nowrap rounded-action font-medium outline-none transition-colors duration-100 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/25 focus-visible:ring-offset-2 [-webkit-tap-highlight-color:transparent]",
+                phone ? "h-[46px] text-[16px]" : "h-10 text-[14px]",
+                a.primary ? "bg-[#1a1a2e] text-white hover:bg-[#2a2a40] active:bg-[#2a2a40]" : "border border-[#d9dce1] bg-white text-[#1a1a2e] hover:bg-[#f7f7f9] active:bg-[#f1f2f4]",
+              )}
+            >
+              {a.label}
+            </Link>
+          ))}
+        </div>
+      ) : null}
     </div>
   )
 })
