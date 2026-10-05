@@ -3,6 +3,8 @@ import "server-only"
 import { createHash } from "node:crypto"
 import type { SupabaseClient } from "@supabase/supabase-js"
 
+import { editorContent, recordVersion, saveDraft, type FileRow } from "@/lib/website-builder/theme-file-drafts"
+
 /**
  * ===========================================================================
  *  PROJECT BACKUPS
@@ -36,6 +38,14 @@ export type BackupSource = "ai" | "publish" | "manual" | "restore"
 export interface BackupSnapshot {
   settings: Record<string, unknown>
   pages: { page_key: string; sections: unknown[] }[]
+  /**
+   * THE CODE, TOO. Every file written in the code editor (a custom section,
+   * an edited theme file), as the editor shows it. A backup used to hold the
+   * settings and the pages only, so restoring one brought back sections whose
+   * code had since changed or gone. Absent in backups taken before this, and
+   * a restore of one of those leaves the code as it is.
+   */
+  files?: { path: string; content: string }[]
 }
 
 export interface BackupRow {
@@ -72,7 +82,21 @@ export async function readSnapshot(db: SupabaseClient, installId: string): Promi
     // Stable order, so the same state always hashes the same.
     .sort((a, b) => a.page_key.localeCompare(b.page_key))
 
-  return { settings, pages }
+  /* Before the code files' table exists, a backup is what it always was. */
+  let files: { path: string; content: string }[] | undefined
+  try {
+    const { data, error } = await db.from("store_theme_custom_files").select("path, content, draft_content").eq("install_id", installId)
+    if (!error) {
+      files = ((data ?? []) as FileRow[])
+        .map((f) => ({ path: String(f.path), content: editorContent(f) }))
+        .filter((f) => f.content !== "")
+        .sort((a, b) => a.path.localeCompare(b.path))
+    }
+  } catch {
+    files = undefined
+  }
+
+  return files && files.length ? { settings, pages, files } : { settings, pages }
 }
 
 export function fingerprintOf(snapshot: BackupSnapshot): string {
@@ -174,6 +198,19 @@ export async function applySnapshot(
           .from("store_theme_pages")
           .insert({ install_id: installId, page_key: page.page_key, sections: [], draft_sections: page.sections })
     if (error) return { error: error.message }
+  }
+
+  /*
+    The code goes back as a draft, like everything else here, and each file
+    restored is a version of its own in that file's history, so a restore is
+    itself something the code editor can step back from. Files written since
+    the backup are left alone, for the same reason pages are.
+  */
+  for (const file of snapshot.files ?? []) {
+    if (typeof file?.path !== "string" || typeof file.content !== "string") continue
+    const saved = await saveDraft(db, installId, file.path, file.content)
+    if (!saved.ok) return { error: saved.error }
+    await recordVersion(db, installId, file.path, file.content, "restore")
   }
 
   return { error: null }
