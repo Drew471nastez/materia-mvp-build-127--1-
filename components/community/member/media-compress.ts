@@ -25,6 +25,13 @@
  * up as it was, its metadata taken out of the bytes (lib/images/compress.ts
  * withoutMetadata). Nothing here throws: a picture the browser cannot decode
  * goes up as it came, the upload checks on the server still apply.
+ *
+ * STANDARD DYNAMIC RANGE (round 13). An iPhone photo (JPEG or HEIC, and an
+ * AVIF) can carry an HDR gain map that makes it brighter than the page
+ * around it. Drawn onto an sRGB canvas it is the standard picture alone, and
+ * written again it carries no gain map: so a photo that may carry one is
+ * always written again, even when the copy is a little bigger than the
+ * file (MAY_BE_HDR); only a PNG or a WebP that came out bigger goes as it was.
  */
 import { withoutMetadata } from "@/lib/images/compress"
 import { POST_PICTURE_MAX_EDGE, POST_PICTURE_QUALITY } from "@/lib/communities/post-media"
@@ -38,6 +45,8 @@ export const POST_PICTURE: PictureCompression = { maxEdge: POST_PICTURE_MAX_EDGE
 
 /** Left as they are: a GIF keeps its frames, an SVG is a file, not a picture. */
 const UNTOUCHED = /^image\/(gif|svg\+xml)$/i
+/** The formats a phone writes an HDR gain map into: always drawn again, so what goes up is standard range. */
+export const MAY_BE_HDR = /^image\/(jpeg|jpg|heic|heif|avif)$/i
 
 function renamed(name: string, ext: string): string {
   return `${name.replace(/\.[^./\\]+$/, "") || "picture"}.${ext}`
@@ -88,7 +97,7 @@ function drawAt(source: CanvasImageSource, w: number, h: number, tw: number, th:
   const out = document.createElement("canvas")
   out.width = tw
   out.height = th
-  const ctx = out.getContext("2d")
+  const ctx = out.getContext("2d", { colorSpace: "srgb" }) ?? out.getContext("2d")
   if (!ctx) return null
   ctx.imageSmoothingEnabled = true
   ctx.imageSmoothingQuality = "high"
@@ -131,7 +140,7 @@ export async function compressPostPicture(file: File, opts: PictureCompression =
     if (!blob || blob.type !== "image/webp") blob = seeThrough(canvas) ? await toBlob(canvas, "image/png") : await toBlob(canvas, "image/jpeg", opts.quality)
     if (!blob || !blob.size) return (await withoutMetadata(file)) as File
     /* Already small and lighter as it was: it goes as it came, without its metadata. */
-    if (scale === 1 && blob.size >= file.size) return (await withoutMetadata(file)) as File
+    if (scale === 1 && blob.size >= file.size && !MAY_BE_HDR.test(file.type)) return (await withoutMetadata(file)) as File
     const ext = blob.type === "image/webp" ? "webp" : blob.type === "image/png" ? "png" : "jpg"
     return new File([blob], renamed(file.name, ext), { type: blob.type, lastModified: Date.now() })
   } catch {

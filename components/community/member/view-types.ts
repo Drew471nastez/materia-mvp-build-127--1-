@@ -308,6 +308,8 @@ export interface ComposerSpace {
   id: string
   name: string
   kind: SpaceKind
+  /** The admin's emoji or icon word (space-glyph.ts spaceGlyph), round 13: the composer's space picker shows it. */
+  icon?: string | null
 }
 
 /** What a client may send as a post's media. */

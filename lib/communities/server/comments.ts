@@ -104,6 +104,11 @@ export async function withCommentColumns(run: (columns: string) => PromiseLike<C
   return first
 }
 
+/** Whether comments can carry pictures, GIFs and videos here (part 96 has run): null until a read has found out. */
+export function commentMediaReady(): boolean | null {
+  return mediaColumn ? mediaColumn.there : null
+}
+
 /** For the probes and the suite: forget what was learnt about the column. */
 export function resetMediaColumn(): void {
   mediaColumn = null
@@ -252,6 +257,11 @@ export interface CommentsPage {
   commentsEnabled?: boolean
   /** First page only: the viewer's own name and picture, for the comment box. */
   me?: { name: string; avatarUrl: string | null } | null
+  /**
+   * First page only (round 13): false when the database has no media column for comments yet (run-now part 96):
+   * the box then offers words only, and staff see a note saying what to run.
+   */
+  mediaReady?: boolean
 }
 
 /**
@@ -291,6 +301,7 @@ export async function listComments(db: Db, community: CommunityRow, viewer: View
         comments,
         nextCursor: rows.length > COMMENT_PAGE && last ? encodeCommentCursor({ c: last.created_at, i: last.id }) : null,
         ...more,
+        ...(first ? { mediaReady: commentMediaReady() !== false } : {}),
       },
     }
   } catch (e) {

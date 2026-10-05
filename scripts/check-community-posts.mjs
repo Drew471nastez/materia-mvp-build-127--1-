@@ -292,7 +292,9 @@ async function open(name, path, vp, opts = {}) {
       if (r.isNavigationRequest()) navs.push(url)
       calls.push({ url: url.replace(ORIGIN, ""), method, media: true })
       if (/\.(mp4|pdf)(\?|$)/.test(url) || /22222222-0000-4000-8000-000000000003/.test(url)) return r.respond({ status: 404, body: "" })
-      return r.respond({ status: 200, contentType: "image/svg+xml", body: decodeURIComponent(svg("#dfe5ec", "#8796ab", 1200, 800).split(",")[1]) })
+      /* Round 13: a slow network for the full pictures (the 32px placeholder copy, &w=32, comes at once). */
+      const slow = opts.imageWait && !/[?&]w=32\b/.test(url) ? opts.imageWait : 0
+      return void setTimeout(() => r.respond({ status: 200, contentType: "image/svg+xml", body: decodeURIComponent(svg("#dfe5ec", "#8796ab", 1200, 800).split(",")[1]) }), slow)
     }
     if (url.startsWith(`${ORIGIN}/api/`)) {
       const short = url.replace(ORIGIN, "")
@@ -369,6 +371,23 @@ async function open(name, path, vp, opts = {}) {
       if (/\/posts\?/.test(short) && method === "GET" && live.feedPage) {
         live.feedReadAt = Date.now()
         return reply(live.feedPage, 200, opts.feedWait ?? 300)
+      }
+      /* Round 13: a post read by id (an edit heard live), an edit saved, a delete, a comment deleted. */
+      const byId = /\/posts\/(p-[a-z0-9-]+)$/.exec(short)?.[1]
+      if (byId && method === "GET" && live.posts?.[byId]) return reply({ post: live.posts[byId] }, 200, 60)
+      if (byId && method === "PATCH") {
+        live.patches = [...(live.patches || []), { id: byId, sent }]
+        const base = live.editBase ?? {}
+        const saved = { ...base, title: sent.title, bodyText: sent.body, media: sent.media ?? base.media, poll: sent.poll === null ? null : sent.poll ? { ...(base.poll ?? {}), question: sent.poll.question, options: sent.poll.options.map((label, i) => ({ id: `o${i}`, label, voteCount: 0, voted: false })), multiple: sent.poll.multiple } : base.poll, editedAt: new Date().toISOString() }
+        return reply({ post: saved }, 200, opts.saveWait ?? 350)
+      }
+      if (byId && method === "DELETE") {
+        live.deletes = [...(live.deletes || []), byId]
+        return reply({ ok: true }, 200, 200)
+      }
+      if (/\/comments\/[^/]+$/.test(short) && method === "DELETE") {
+        live.commentDeletes = [...(live.commentDeletes || []), short.split("/").pop()]
+        return reply({ ok: true }, 200, 150)
       }
       if (/\/posts\/p-[a-z0-9-]+$/.test(short) && method === "GET") return reply({ error: "not_found" }, 404)
       if (short.endsWith("/posts") && method === "POST") return reply({ post: { id: "p-new", communityId: CID, space: { id: sent.spaceId, slug: "general", name: "General" }, kind: "post", title: sent.title, body: "", bodyText: sent.body, media: sent.media, pinned: false, featured: false, locked: false, status: "published", author: { id: "u-me", name: "Sam Carter", username: "samc", avatarUrl: null, role: "moderator", level: 3 }, reactionCount: 0, commentCount: 0, reacted: false, bookmarked: false, poll: null, createdAt: new Date().toISOString(), editedAt: null, lastActivityAt: new Date().toISOString(), canEdit: true, canModerate: true, recentCommenters: [], lastCommentAt: null, showLevel: true } }, 201)
@@ -3606,6 +3625,428 @@ try {
       expect(r.diff < 2.5, "and it looks the same (mean difference per channel under 2.5 of 255 against the unencoded picture at 2560px)", r.diff)
       expect(r.gif.same && r.gif.type === "image/gif", "a GIF goes as it is, frames and all", r.gif)
       expect(r.safari.type === "image/jpeg" && r.safari.w === 2560 && !r.safari.exif && r.safari.size < r.inSize / 2, "where the canvas cannot write WebP (Safari), JPEG at the same size, EXIF gone", r.safari)
+      expect(errors.length === 0, "no page error", errors)
+      await p.close()
+    }
+
+    /* ══ ROUND 13 (P2) ══════════════════════════════════════════════════ */
+    const fakeAudio13 = () => {
+      window.__sounds = { osc: 0, noise: 0 }
+      class Param { setValueAtTime() {} exponentialRampToValueAtTime() {} }
+      class Ctx {
+        constructor() { this.state = "running"; this.currentTime = 0; this.destination = {}; this.sampleRate = 8000 }
+        createOscillator() { window.__sounds.osc++; return { type: "sine", frequency: new Param(), connect() {}, disconnect() {}, start() {}, stop() {} } }
+        createGain() { return { gain: new Param(), connect() {}, disconnect() {} } }
+        createBiquadFilter() { return { type: "", Q: new Param(), frequency: new Param(), connect() {}, disconnect() {} } }
+        createBuffer(c, n) { return { getChannelData: () => new Float32Array(n) } }
+        createBufferSource() { window.__sounds.noise++; return { connect() {}, disconnect() {}, start() {}, stop() {} } }
+        resume() { return Promise.resolve() }
+      }
+      window.AudioContext = Ctx
+    }
+    const menuItem = async (p, words) => {
+      await sleep(450)
+      const item = await p.evaluateHandle((w) => [...document.querySelectorAll('[role="menuitem"], [data-sheet] button, button')].find((b) => b.textContent.trim() === w && b.getBoundingClientRect().width > 0) ?? null, words)
+      const el = item.asElement()
+      if (!el) return false
+      await el.click().catch(() => el.evaluate((e) => e.click()))
+      return true
+    }
+    /* What is drawn on top at the middle of an element: whether it is that element (or inside it). */
+    const onTop = (p, sel) => p.evaluate((sel) => {
+      const el = document.querySelector(sel)
+      if (!el) return null
+      const r = el.getBoundingClientRect()
+      const hit = document.elementFromPoint(r.left + r.width / 2, r.top + Math.min(r.height / 2, 40))
+      return { top: !!hit && (el.contains(hit) || hit.contains(el)), z: getComputedStyle(el.closest("[style*=z-index], [class*=z-]") ?? el).zIndex }
+    }, sel)
+
+    /* ── R13 SWITCH (1): All and a space holding the same posts: the same card nodes, no fade ── */
+    if (want("r13switch")) {
+      const { p, errors, live } = await open("switch", "/community/studio-notes", vp)
+      const posts = await p.evaluate(() => window.__FEED_POSTS)
+      live.feedPage = { pinned: [], posts, nextCursor: null }
+      await sleep(300)
+      const mark = () => p.evaluate(() => {
+        let n = 0
+        for (const el of document.querySelectorAll("[data-feed-list] > [data-post]")) el.__mark = ++n
+        window.__placeholders = 0
+        window.__fades = []
+        window.__mo13 = new MutationObserver((ms) => { for (const m of ms) for (const x of m.addedNodes) if (x.nodeType === 1 && (x.matches?.("[data-post-placeholder]") || x.querySelector?.("[data-post-placeholder]"))) window.__placeholders++ })
+        window.__mo13.observe(document.querySelector("[data-feed-list]") ?? document.body, { childList: true, subtree: true })
+        const real = Element.prototype.animate
+        window.__realAnimate ??= real
+        Element.prototype.animate = function (k, o) {
+          if (this.closest?.("[data-feed-list]") || this.matches?.("[data-feed-list]")) window.__fades.push({ el: this.getAttribute("data-post") ?? this.getAttribute("data-feed-list") ?? this.tagName, opacity: JSON.stringify(k).includes("opacity") })
+          return window.__realAnimate.call(this, k, o)
+        }
+        return n
+      })
+      const check = () => p.evaluate(() => {
+        window.__mo13.disconnect()
+        Element.prototype.animate = window.__realAnimate
+        const els = [...document.querySelectorAll("[data-feed-list] > [data-post]")]
+        return { cards: els.length, kept: els.filter((e) => e.__mark).length, placeholders: window.__placeholders, fades: window.__fades.filter((f) => f.opacity), key: document.querySelector("[data-feed-key]")?.getAttribute("data-feed-key") }
+      })
+      const before = await mark()
+      await press(p, '[data-space-chip="general"], a[href$="/space/general"]')
+      await p.waitForFunction(() => /space:s-general/.test(document.querySelector("[data-feed-key]")?.getAttribute("data-feed-key") ?? ""), { timeout: 3000 }).catch(() => {})
+      await sleep(500)
+      const a = await check()
+      expect(a.key?.includes("space:s-general") && a.cards === before && a.kept === before, "R13 SWITCH: All to a space with the same posts keeps every card node (no remount)", { before, ...a })
+      expect(a.placeholders === 0 && a.fades.length === 0, "no stand in, no fade: nothing moves when the list did not change", a)
+      await mark()
+      await press(p, '[data-space-chip="all"], a[href="/community/studio-notes"]')
+      await sleep(500)
+      const b = await check()
+      expect(b.cards === before && b.kept === before && b.fades.length === 0, "and back to All the same", b)
+      await shot(p, `${label}-r13-switch`)
+      expect(errors.length === 0, "no page error", errors)
+      await p.close()
+    }
+
+    /* ── R13 CARDS (5, 9, 10, 16): dates, no dot, pinned, the grid, soft pictures, SDR ── */
+    if (want("r13cards")) {
+      const { p, errors } = await open("edit", "/community/studio-notes", vp, { imageWait: 700 })
+      await sleep(80)
+      const early = await p.evaluate(() => {
+        const t = document.querySelector('[data-post="p-mine"] [data-card-media-tile] [data-soft-img]')
+        const blur = document.querySelector('[data-post="p-mine"] [data-card-media-tile] [data-soft-blur]')
+        return { img: t?.getAttribute("data-soft-img"), opacity: t ? getComputedStyle(t).opacity : null, blur: blur ? getComputedStyle(blur).backgroundImage.slice(0, 40) : null }
+      })
+      await sleep(1200)
+      const c = await p.evaluate(() => {
+        const card = (id) => document.querySelector(`[data-post="${id}"]`)
+        const when = (id) => card(id)?.querySelector("time")?.textContent
+        const grid = card("p-intro")?.querySelector("[data-card-media]")
+        const r = (e) => e.getBoundingClientRect()
+        const img = card("p-mine")?.querySelector("[data-card-media-tile] img")
+        const pinned = card("p-video")
+        return {
+          dates: { mine: when("p-mine"), intro: when("p-intro"), text: when("p-text") },
+          dots: document.querySelectorAll("[data-unread-dot]").length,
+          pin: pinned ? { line: !!pinned.querySelector("[data-pin-mark]"), lineAbove: r(pinned.querySelector("[data-pin-mark]")).bottom <= r(pinned.querySelector("header")).top + 1, border: getComputedStyle(pinned).borderTopColor } : null,
+          grid: grid ? { kind: grid.getAttribute("data-card-media"), tiles: grid.querySelectorAll("[data-card-media-tile]").length, ratio: Math.round((r(grid).width / r(grid).height) * 100) / 100, more: grid.querySelector("[data-card-media-more]")?.textContent, edge: !!grid.querySelector(".ring-inset"), thumb: !!card("p-intro").querySelector("[data-post-thumb]:not(.max-sm\\:hidden)") || [...card("p-intro").querySelectorAll("[data-post-thumb]")].some((x) => getComputedStyle(x).display !== "none") } : null,
+          late: img ? { state: img.getAttribute("data-soft-img"), opacity: getComputedStyle(img).opacity, sdr: img.className.includes("dynamic-range-limit:standard") } : null,
+          role: card("p-video")?.querySelector("[data-role-badge]")?.textContent,
+        }
+      })
+      expect(/^\d+m$/.test(c.dates.mine ?? "") && /^\d+d$/.test(c.dates.text ?? "") && /^[A-Z][a-z]{2} \d{1,2}$/.test(c.dates.intro ?? ""), "R13 DATES: \"57m\", \"2d\", then the date (\"Sep 12\") past a week", c.dates)
+      expect(c.dots === 0, "R13 NO DOT: no unread dot on any card", c.dots)
+      expect(!!c.pin?.line && c.pin.lineAbove, "R13 PINNED: a \"Pinned\" line above the post", c.pin)
+      expect(c.grid?.kind === "grid" && c.grid.tiles === 3 && c.grid.more === "+1" && c.grid.edge && !c.grid.thumb, "R13 GRID: four pictures are a grid in the card (first large, two stacked, +1), a hairline edge, no right thumbnail", c.grid)
+      expect(Math.abs((c.grid?.ratio ?? 0) - (phone ? 2 : 8 / 3)) < 0.05, `the grid is one box of a fixed shape (${phone ? "2:1" : "8:3"})`, c.grid?.ratio)
+      expect(early.img === "wait" && early.opacity === "0" && /url\(/.test(early.blur ?? ""), "R13 SOFT: before a picture arrives its box shows a blurred 32px copy, the picture still transparent", early)
+      expect(c.late?.state === "in" && c.late.opacity === "1" && c.late.sdr, "then it fades in (opacity), drawn in standard dynamic range", c.late)
+      expect(c.role === "Owner", "R13 ADMIN MARKER: the owner's post carries its quiet role line", c.role)
+      await shot(p, `${label}-r13-cards`)
+      await (await p.$('[data-post="p-intro"]')).screenshot({ path: join(shots, `${label}-r13-card-grid.png`) })
+      await (await p.$('[data-post="p-video"]')).screenshot({ path: join(shots, `${label}-r13-card-pinned.png`) })
+      /* Drawn again (another list): a cached picture is drawn at once, no fade. */
+      await p.evaluate(() => window.scrollTo(0, 0))
+      expect(errors.length === 0, "no page error", errors)
+      await p.close()
+    }
+
+    /* ── R13 LIVE (3): an edit and a delete arrive live ── */
+    if (want("r13live")) {
+      const { p, errors, live } = await open("feed", "/community/studio-notes", vp)
+      await sleep(300)
+      const base = await p.evaluate(() => [...document.querySelectorAll("[data-feed-list] > [data-post]")].map((e) => e.getAttribute("data-post")))
+      live.posts = { "p-link": { ...(await p.evaluate(() => null)) } }
+      const link = await p.evaluate(() => ({ title: document.querySelector('[data-post="p-link"] h2')?.textContent }))
+      live.posts["p-link"] = { id: "p-link", communityId: CID, space: { id: "s-general", slug: "general", name: "General" }, kind: "post", title: "Best thing I read on empty states (edited)", body: "", bodyText: "Updated with a second link.", media: [], pinned: false, featured: false, locked: false, status: "published", author: { id: "u-me", name: "Sam Carter", username: "samc", avatarUrl: null, role: "moderator", level: 3 }, reactionCount: 3, commentCount: 0, reacted: false, bookmarked: false, poll: null, createdAt: new Date(Date.now() - 26 * 3600e3).toISOString(), editedAt: new Date().toISOString(), lastActivityAt: new Date().toISOString(), canEdit: true, canModerate: true, recentCommenters: [], lastCommentAt: null, showLevel: true }
+      await p.evaluate(() => window.__broadcast("community-live:probe", "post-change", { postId: "p-link", spaceId: "s-general", change: "edit" }))
+      await sleep(500)
+      const edited = await p.evaluate(() => ({ title: document.querySelector('[data-post="p-link"] h2')?.textContent, edited: /edited/.test(document.querySelector('[data-post="p-link"]')?.textContent ?? "") }))
+      expect(edited.title === "Best thing I read on empty states (edited)" && edited.edited && edited.title !== link.title, "R13 LIVE: an edit by the author shows in place for everyone viewing", edited)
+      /* The delete: the card fades away and the cards under it slide up (sampled each frame). */
+      await p.evaluate(() => {
+        window.__lv = []
+        const next = document.querySelector('[data-post="p-text"]')?.previousElementSibling
+        const loop = () => {
+          const gone = !document.querySelector('[data-feed-list] > [data-post="p-text"]')
+          const ghost = [...document.body.children].find((x) => x.getAttribute?.("aria-hidden") === "true" && x.style?.position === "fixed")
+          window.__lv.push({ gone, ghost: ghost ? Number(getComputedStyle(ghost).opacity).toFixed(2) : null })
+          if (window.__lv.length < 40) requestAnimationFrame(loop)
+        }
+        requestAnimationFrame(loop)
+      })
+      await p.evaluate(() => window.__broadcast("community-live:probe", "post-change", { postId: "p-text", spaceId: "s-general", change: "delete" }))
+      await sleep(900)
+      const after = await p.evaluate(() => ({ ids: [...document.querySelectorAll("[data-feed-list] > [data-post]")].map((e) => e.getAttribute("data-post")), frames: window.__lv }))
+      expect(base.includes("p-text") && !after.ids.includes("p-text") && after.ids.length === base.length - 1, "R13 LIVE: a deleted post leaves every viewer's feed", after.ids)
+      const fading = after.frames.filter((f) => f.ghost !== null).map((f) => f.ghost)
+      expect(fading.length >= 3 && Number(fading[0]) > Number(fading.at(-1)), "it fades out over several frames (no cut)", fading.slice(0, 8))
+      await shot(p, `${label}-r13-live`)
+      expect(errors.length === 0, "no page error", errors)
+      await p.close()
+    }
+
+    /* ── R13 SHARE (7): the system share sheet with the post's address, and Copy link ── */
+    if (want("r13share")) {
+      const shareStub = () => {
+        window.__shared = []
+        navigator.share = (d) => (window.__shared.push(d), Promise.resolve())
+      }
+      const { p, errors } = await open("feed", "/community/studio-notes", vp, { before: shareStub })
+      await press(p, '[data-post="p-text"] [data-post-more]')
+      const items = await p.evaluate(() => new Promise((r) => setTimeout(() => r([...document.querySelectorAll('[role="menuitem"], [data-sheet] button')].map((b) => b.textContent.trim()).filter(Boolean)), 450)))
+      const ok = await menuItem(p, "Share post")
+      await sleep(300)
+      const shared = await p.evaluate(() => window.__shared)
+      expect(items.includes("Share post") && items.includes("Copy link"), "R13 SHARE: the post's menu has Share post and Copy link", items)
+      expect(ok && shared.length === 1 && /\/community\/studio-notes\/post\/p-text$/.test(shared[0].url) && shared[0].title === "Paid discovery week instead of a free pitch" && /paid discovery/.test(shared[0].text), "Share post opens the system share sheet with the post's address, title and words", shared)
+      expect(errors.length === 0, "no page error", errors)
+      await p.close()
+    }
+
+    /* ── R13 EDIT (4): Edit post is the composer, prefilled; Save animates; Delete asks in a Storelib sheet ── */
+    if (want("r13edit")) {
+      const { p, errors, live } = await open("edit", "/community/studio-notes", vp)
+      const fixture = await p.evaluate(() => window.__FEED_POSTS.find((x) => x.id === "p-mine"))
+      live.editBase = fixture
+      await press(p, '[data-post="p-mine"] [data-post-more]')
+      expect(await menuItem(p, "Edit post"), "R13 EDIT: Edit post is in the author's menu")
+      await sleep(phone ? 700 : 300)
+      const ed = await p.evaluate(() => {
+        const box = document.querySelector('[data-composer="edit"], [data-composer="sheet"][data-composer-edit]')
+        if (!box) return null
+        const r = box.getBoundingClientRect()
+        return {
+          where: box.getAttribute("data-composer"),
+          inCard: !!box.closest('[data-post="p-mine"]'),
+          title: box.querySelector("[data-composer-title]")?.value,
+          body: box.querySelector("textarea")?.value,
+          uploads: box.querySelectorAll("[data-attachment]").length,
+          poll: box.querySelector("[data-poll-question]")?.value,
+          space: box.querySelector("[data-composer-space]")?.textContent?.trim(),
+          save: box.querySelector("[data-composer-post]")?.textContent?.trim(),
+          z: getComputedStyle(box).zIndex,
+          whole: r.top >= -1 && r.bottom <= innerHeight + 1,
+        }
+      })
+      expect(!!ed && ed.title === fixture.title && ed.body === fixture.bodyText && ed.uploads === 2 && ed.poll === "Which corner?", "the same composer opens with the title, the words, both pictures and the poll", ed)
+      expect(!!ed && (phone ? ed.where === "sheet" && Number(ed.z) >= 135 : ed.where === "edit" && ed.inCard), phone ? "on a phone it is the composer's screen (\"Edit post\")" : "on a computer it opens in place, inside the post", ed)
+      expect(!!ed && ed.save === "Save" && /General/.test(ed.space ?? ""), "its button says Save, and the space can be changed", ed)
+      await shot(p, `${label}-r13-edit-open`)
+      /* Take a picture off, change the title, save. */
+      await p.evaluate(() => document.querySelector('[data-composer="edit"] [data-attachment] [aria-label="Remove"], [data-composer="sheet"] [data-attachment] [aria-label="Remove"]')?.click())
+      const t = await p.$('[data-composer="edit"] [data-composer-title], [data-composer="sheet"] [data-composer-title]')
+      await t.click({ clickCount: 3 })
+      await t.type("Studio wall, after")
+      await p.evaluate(() => {
+        window.__btn = []
+        const loop = () => {
+          const b = document.querySelector("[data-composer-post]")
+          window.__btn.push(b ? b.getAttribute("data-post-state") : "gone")
+          if (window.__btn.length < 90) requestAnimationFrame(loop)
+        }
+        requestAnimationFrame(loop)
+      })
+      await press(p, '[data-composer="edit"] [data-composer-post], [data-composer="sheet"] [data-composer-post]')
+      await sleep(1500)
+      const sentEdit = live.patches?.at(-1)
+      const after = await p.evaluate(() => ({ title: document.querySelector('[data-post="p-mine"] h2')?.textContent, editor: !!document.querySelector('[data-composer="edit"], [data-composer="sheet"]'), btn: [...new Set(window.__btn)], toast: document.querySelector("[data-community-toast]")?.textContent ?? null }))
+      expect(sentEdit?.id === "p-mine" && sentEdit.sent.title === "Studio wall, after" && sentEdit.sent.media?.length === 1 && sentEdit.sent.poll?.question === "Which corner?", "Save sends the title, one picture fewer, and the poll", sentEdit?.sent && { title: sentEdit.sent.title, media: sentEdit.sent.media?.length, poll: sentEdit.sent.poll })
+      expect(after.btn.includes("busy") && after.btn.includes("sent") && !after.editor && after.title === "Studio wall, after", "Save: a spinner, a check, the editor folds away, the post shows the change", after)
+      await shot(p, `${label}-r13-edit-saved`)
+      /* Delete: Storelib's own sheet / dialog, on top. */
+      await press(p, '[data-post="p-mine"] [data-post-more]')
+      await menuItem(p, "Delete post")
+      await sleep(500)
+      const sheet = phone ? "[data-confirm-sheet]" : "[data-confirm-dialog]"
+      const top = await onTop(p, sheet)
+      expect(!!top?.top, "R13 DELETE: the confirm is Storelib's sheet / dialog, drawn on top", top)
+      await shot(p, `${label}-r13-delete-confirm`)
+      await press(p, `${sheet} [data-confirm]`)
+      await sleep(800)
+      const gone = await p.evaluate(() => !document.querySelector('[data-feed-list] > [data-post="p-mine"]'))
+      expect(gone && live.deletes?.includes("p-mine"), "Delete removes it (the server is asked, the card goes)", live.deletes)
+      expect(errors.length === 0, "no page error", errors)
+      await p.close()
+    }
+
+    /* ── R13 OVERLAY (11, 12): no page shift, slim scrollbar, comments always come, report and confirm on top ── */
+    if (want("r13overlay")) {
+      const { p, errors, live } = await open("feed", "/community/studio-notes", vp, { before: fakeAudio13 })
+      const x0 = await p.evaluate(() => Math.round(document.querySelector('[data-post="p-video"]').getBoundingClientRect().left))
+      /* The open's own animations are cancelled as it starts (a finger catching the sheet): the comments must still come. */
+      await p.evaluate(() => {
+        const mo = new MutationObserver(() => {
+          const el = document.querySelector('[data-post-overlay="panel"], [data-post-overlay="phone"]')
+          if (!el) return
+          mo.disconnect()
+          requestAnimationFrame(() => document.getAnimations().forEach((a) => a.cancel()))
+        })
+        mo.observe(document.body, { childList: true, subtree: true })
+      })
+      await press(p, '[data-post="p-video"] h2 a')
+      await sleep(1200)
+      const o = await p.evaluate(() => {
+        const sc = document.querySelector("[data-post-overlay-scroll]")
+        return {
+          rows: document.querySelectorAll("[data-comments-rows] [data-comment]").length,
+          x: Math.round(document.querySelector('[data-post="p-video"]').getBoundingClientRect().left),
+          overflow: getComputedStyle(document.documentElement).overflow,
+          pad: document.documentElement.style.paddingRight,
+          bar: sc ? getComputedStyle(sc).scrollbarWidth : null,
+        }
+      })
+      expect(o.rows === 4, "R13 COMMENTS: they load even when the open's animation never finishes", o.rows)
+      if (!phone) {
+        expect(o.x === x0 && !o.pad && o.overflow !== "hidden", "R13 NO SHIFT: opening a post leaves the page's scrollbar and every element where they were", { x0, ...o })
+        expect(o.bar === "thin", "the panel's own scrollbar is slim", o.bar)
+      }
+      /* The bubble. */
+      const bub = await p.evaluate(() => {
+        const b = document.querySelector("[data-comment-bubble]")
+        const st = getComputedStyle(b)
+        return { bg: st.backgroundColor, radius: st.borderTopLeftRadius, border: st.borderTopColor, shadow: st.boxShadow !== "none" }
+      })
+      expect(bub.bg === "rgb(246, 247, 248)" && bub.radius === "14px" && bub.shadow, "R13 BUBBLE: lighter grey, a hairline and a 1px shadow, 14px corners", bub)
+      /* Reply: the caret after "@name ". */
+      await press(p, '[data-comment="c-v1"] [data-comment-reply]')
+      await sleep(300)
+      const caret = await p.evaluate(() => {
+        const t = document.querySelector('[data-comment-box="reply"] textarea')
+        return { value: t?.value, start: t?.selectionStart, focused: document.activeElement === t }
+      })
+      expect(caret.value === "@leom " && caret.start === caret.value.length && caret.focused, "R13 REPLY: the box starts \"@name \" with the caret after it", caret)
+      /* @ alone opens the member picker (the people on screen first), chosen with the keyboard. */
+      await p.keyboard.type("@")
+      await sleep(250)
+      const list = await p.evaluate(() => [...document.querySelectorAll("[data-mention-option]")].map((x) => x.getAttribute("data-mention-option")))
+      await p.keyboard.press("ArrowDown")
+      await p.keyboard.press("Enter")
+      await sleep(100)
+      const picked = await p.evaluate(() => {
+        const t = document.querySelector('[data-comment-box="reply"] textarea')
+        return { value: t.value, start: t.selectionStart }
+      })
+      expect(list.length >= 2 && list.includes("jonasb") && list.includes("leom"), "R13 MENTION: \"@\" alone opens the picker with the people on screen", list)
+      expect(/^@leom @\w+ $/.test(picked.value) && picked.start === picked.value.length, "a choice puts @username and a space in, the caret after it", picked)
+      await shot(p, `${label}-r13-reply`)
+      /* Send: a soft sound, then the comment lands. */
+      await p.keyboard.type("thanks")
+      const s0 = await p.evaluate(() => window.__sounds.osc)
+      await press(p, '[data-comment-box="reply"] [data-comment-send]')
+      await sleep(700)
+      const s1 = await p.evaluate(() => window.__sounds.osc)
+      expect(s1 - s0 === 2, "R13 SEND: sending plays the soft two note sound once", s1 - s0)
+      /* A comment deleted elsewhere goes live. */
+      await p.evaluate(() => window.__broadcast("community-live:probe:p-video", "comment-change", { commentId: "c-v2", postId: "p-video", change: "delete" }))
+      await sleep(300)
+      const liveDel = await p.evaluate(() => !document.querySelector('[data-comment="c-v2"]'))
+      expect(liveDel, "R13 LIVE: a comment deleted elsewhere leaves the open post", liveDel)
+      /* Report a comment: above the post. */
+      await press(p, '[data-comment="c-v3"] [data-comment-more]')
+      await menuItem(p, "Report")
+      await sleep(600)
+      const rep = await onTop(p, phone ? "[data-report-sheet]" : "[data-report-dialog]")
+      expect(!!rep?.top, "R13 REPORT: opens ABOVE the post", rep)
+      await shot(p, `${label}-r13-report-over-post`)
+      await p.keyboard.press("Escape")
+      await sleep(500)
+      /* Delete my own comment: the confirm above the post. */
+      const own = await p.evaluate(() => [...document.querySelectorAll("[data-comment]")].map((e) => e.getAttribute("data-comment")).find((id) => /^c-new|^sending/.test(id)))
+      await press(p, `[data-comment="${own}"] [data-comment-more]`)
+      await menuItem(p, "Delete")
+      await sleep(600)
+      const conf = await onTop(p, phone ? "[data-confirm-sheet]" : "[data-confirm-dialog]")
+      expect(!!conf?.top, "R13 CONFIRM: delete comment asks above the post", conf)
+      await press(p, `${phone ? "[data-confirm-sheet]" : "[data-confirm-dialog]"} [data-confirm]`)
+      await sleep(600)
+      expect(live.commentDeletes?.length === 1 && !(await p.evaluate((id) => !!document.querySelector(`[data-comment="${id}"]`), own)), "and the comment goes", live.commentDeletes)
+      expect(errors.length === 0, "no page error", errors)
+      await p.close()
+    }
+
+    /* ── R13 VISITOR (8): a public post read by somebody who is not a member ── */
+    if (want("r13visitor")) {
+      const { p, errors } = await open("visitor", "/community/studio-notes/post/p-text", vp)
+      const v = await p.evaluate(() => {
+        const bar = document.querySelector("[data-visitor-join]")
+        const r = bar?.getBoundingClientRect()
+        const btn = document.querySelector("[data-visitor-join-button]")?.getBoundingClientRect()
+        const last = [...document.querySelectorAll("[data-comment]")].at(-1)?.getBoundingClientRect()
+        return { box: !!document.querySelector("[data-comment-box]"), closed: document.querySelector("[data-comments-closed]")?.textContent, bar: r ? { bottom: Math.round(r.bottom), h: Math.round(r.height) } : null, btn: btn ? Math.round(btn.height) : null, href: document.querySelector("[data-visitor-join-button]")?.getAttribute("href"), save: !!document.querySelector("[data-save]"), comments: document.querySelectorAll("[data-comment]").length }
+      })
+      expect(!v.box && v.closed === "Join the community to comment." && v.comments === 1 && !v.save, "R13 VISITOR: the post and its comments, read only (no box, no Save)", v)
+      expect(!!v.bar && Math.abs(v.bar.bottom - vp.height) <= 1 && v.btn >= 40 && v.href === "/community/studio-notes/about", "a calm Join bar at the bottom, Join goes to the community's page", v)
+      await p.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
+      await sleep(200)
+      const covered = await p.evaluate(() => {
+        const last = [...document.querySelectorAll("[data-comment]")].at(-1).getBoundingClientRect()
+        return Math.round(last.bottom) > Math.round(document.querySelector("[data-visitor-join]").getBoundingClientRect().top)
+      })
+      expect(!covered, "scrolled to the end, the bar never covers the last comment", covered)
+      await shot(p, `${label}-r13-visitor`)
+      expect(errors.length === 0, "no page error", errors)
+      await p.close()
+    }
+
+    /* ── R13 LIGHTBOX (6): quick swipes slide (never a zoom), neighbours mounted, frames at 4x CPU ── */
+    if (want("r13lightbox") && phone) {
+      const { p, errors } = await open("media", "/community/studio-notes/post/m-many?post=m-many", vp)
+      await press(p, '[data-media-index="0"]')
+      await sleep(700)
+      const mounted = await p.evaluate(() => document.querySelectorAll("[data-lightbox-slide] [data-lightbox-media]").length)
+      const cdp = await p.createCDPSession()
+      await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 })
+      const swipe = async () => {
+        await p.touchscreen.touchStart(320, 420)
+        for (let i = 1; i <= 6; i++) await p.touchscreen.touchMove(320 - i * 40, 422)
+        await p.touchscreen.touchEnd()
+      }
+      await p.evaluate(() => {
+        window.__lb = []
+        const loop = (t) => {
+          window.__lb.push(t)
+          if (window.__lb.length < 200) requestAnimationFrame(loop)
+        }
+        requestAnimationFrame(loop)
+      })
+      await swipe()
+      await sleep(60)
+      await swipe()
+      await sleep(1200)
+      await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
+      const after = await p.evaluate(() => {
+        const st = window.__lb
+        const gaps = st.slice(1).map((t, i) => t - st[i])
+        const img = document.querySelector("[data-lightbox-slide] [data-lightbox-image]")
+        return { count: document.querySelector("[data-lightbox-count]")?.textContent, zoomed: [...document.querySelectorAll("[data-lightbox-image]")].some((i) => i.style.scale && i.style.scale !== "1"), max: Math.round(Math.max(...gaps)), over34: gaps.filter((g) => g > 34).length, n: gaps.length }
+      })
+      expect(mounted >= 3, "R13 LIGHTBOX: the shown picture and its neighbours are mounted ahead", mounted)
+      expect(after.count === "3 / 5" && !after.zoomed, "two quick swipes in a row slide twice, never read as a double tap zoom", after)
+      expect(after.over34 <= 4, "frames at 4x CPU while swiping: few gaps over two frames", after)
+      await shot(p, `${label}-r13-lightbox`)
+      expect(errors.length === 0, "no page error", errors)
+      await p.close()
+    }
+
+    /* ── R13 WHOOSH (15): Post plays a soft whoosh once the server has it; the composer's space picker shows the glyph ── */
+    if (want("r13whoosh")) {
+      const { p, errors } = await open("switch", "/community/studio-notes", vp, { before: fakeAudio13 })
+      await press(p, "[data-composer-open]")
+      await sleep(phone ? 900 : 500)
+      const glyph = await p.evaluate(() => document.querySelector("[data-composer-space] [data-space-glyph]")?.textContent ?? null)
+      await p.type("[data-composer-title]", "Open studio hours")
+      await p.type('[data-composer] textarea, [data-composer="sheet"] textarea', "Thursday from six.")
+      const space = await p.$("[data-composer-space]")
+      if (await p.evaluate(() => document.querySelector("[data-composer-space]")?.getAttribute("data-composer-space") === "")) {
+        await space.click()
+        await menuItem(p, "General")
+        await sleep(300)
+      }
+      const glyph2 = await p.evaluate(() => document.querySelector("[data-composer-space] [data-space-glyph]")?.textContent ?? null)
+      const n0 = await p.evaluate(() => window.__sounds.noise)
+      await press(p, "[data-composer-post]")
+      await sleep(1500)
+      const n1 = await p.evaluate(() => window.__sounds.noise)
+      expect(n1 - n0 === 1, "R13 WHOOSH: Post plays one soft whoosh once the post is up", n1 - n0)
+      expect(!!(glyph || glyph2), "R13 GLYPH: the composer's space shows the space's glyph", glyph || glyph2)
       expect(errors.length === 0, "no page error", errors)
       await p.close()
     }

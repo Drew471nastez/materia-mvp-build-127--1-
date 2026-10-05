@@ -31,7 +31,8 @@
  *                    Privacy        what the public profile shows
  *                    Notifications  push, kind by kind, the phone's permission
  *                                   (components/account/notification-settings.tsx)
- *                    Preferences    language, newsletter, recommendations
+ *                    Preferences    language, newsletter, recommendations,
+ *                                   sounds (likes, comments and posts)
  *
  *   THE FIELDS     a label over the input, the input as /app Settings and
  *                  the checkout draw one (a #e5e7eb hairline, an 11px tall
@@ -70,6 +71,7 @@ import {
   useSavedSwitch,
 } from "@/components/app/settings/account-panels"
 import { LanguageModal } from "@/components/platform/language-modal"
+import { SOUNDS_DETAIL, useSounds } from "@/components/community/member/heart"
 import { useLocale } from "@/components/locale-provider"
 import { secondaryDepth } from "@/components/ui/depth-button"
 import { AccountAvatar, useAccountPhoto } from "@/components/account/account-photo"
@@ -900,6 +902,7 @@ function PreferencesSection({ email, newsletter: initialNewsletter, personalized
   const languageName = languages.find((l) => l.code === language)?.label ?? language
   const newsletter = useSavedSwitch(initialNewsletter, useCallback((v: boolean) => savePreference({ newsletter: v }), []))
   const personalized = useSavedSwitch(initialPersonalized, useCallback((v: boolean) => savePreference({ personalizedRecommendations: v }), []))
+  const [sounds, setSounds] = useSounds()
 
   return (
     <section className={CARD} aria-labelledby="account-preferences" data-account-card="preferences">
@@ -949,6 +952,8 @@ function PreferencesSection({ email, newsletter: initialNewsletter, personalized
           }
           control={<Switch label="Recommendations for you" checked={personalized.value} busy={personalized.busy} onChange={personalized.change} />}
         />
+        {/* Round 13: the community Sounds switch (kept in this browser, so it saves on the press with nothing to wait for). */}
+        <PrivacyRow id="sounds" title="Sounds" detail={SOUNDS_DETAIL} control={<Switch label="Sounds" checked={sounds} onChange={setSounds} />} />
       </div>
       <LanguageModal open={languageOpen} onOpenChange={setLanguageOpen} />
     </section>

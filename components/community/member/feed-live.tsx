@@ -25,14 +25,24 @@
  *
  *   THE MEMBER'S OWN POST is put in by the composer (feed.tsx onPosted), so
  *   its broadcast coming back is skipped by id.
+ *
+ *   AN EDIT OR A DELETE, ANYWHERE (round 13). "post-change" says a post was
+ *   edited or deleted. A deleted one leaves every cached list and the list
+ *   on screen (its card folds away, the cards under it closing the gap); an
+ *   edited one is read again through the gate and put in its place in every
+ *   list that holds it, so its new words, pictures, poll or space show where
+ *   it is, without a jump. An edit the member may no longer see (a 404) is
+ *   taken away like a delete. A like or a save pressed while it was read
+ *   stays as pressed (post-intent.ts).
  */
 import { ArrowUp } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import type { FeedPostView } from "@/lib/communities/types"
 import { api, apiBase } from "./api"
 import { useArrivals } from "./arrive"
-import { addPost, loadView, readView, type CachedView, type FeedSortValue, type FeedTarget } from "./feed-cache"
+import { addPost, loadView, patchPost, readView, writeView, type CachedView, type FeedSortValue, type FeedTarget } from "./feed-cache"
 import { listenLive } from "./live"
+import { intentOf } from "./post-intent"
 
 export const PULL_EVENT = "storelib:pull-refresh"
 export const PULL_SCOPE = "community-feed"
@@ -68,6 +78,49 @@ function atTop(): boolean {
   if (!first) return true
   const bar = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--community-top")) || 65
   return first.getBoundingClientRect().top > bar - AWAY_PX
+}
+
+/**
+ * A card going away for good (deleted, here or on somebody else's screen):
+ * it fades and the cards under it slide up into its place, on the
+ * compositor, instead of the list closing the gap in one frame. Called just
+ * before the list is drawn without it; the cards under it are measured now
+ * and moved from where they were once the list has been drawn.
+ */
+export function foldAway(id: string) {
+  if (typeof document === "undefined" || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
+  const card = document.querySelector<HTMLElement>(`[data-feed-list] > [data-post="${CSS.escape(id)}"]`)
+  if (!card || typeof card.animate !== "function") return
+  const r = card.getBoundingClientRect()
+  if (r.bottom < 0 || r.top > window.innerHeight) return
+  const gap = r.height + (parseFloat(getComputedStyle(card).marginBottom) || 0) + 12
+  const below: HTMLElement[] = []
+  for (let x = card.nextElementSibling; x; x = x.nextElementSibling) if (x instanceof HTMLElement) below.push(x)
+  /* A ghost of the card where it was, fading, while the list closes up under it. */
+  const ghost = card.cloneNode(true) as HTMLElement
+  ghost.removeAttribute("data-post")
+  ghost.setAttribute("aria-hidden", "true")
+  Object.assign(ghost.style, { position: "fixed", left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${r.height}px`, margin: "0", zIndex: "1", pointerEvents: "none" })
+  document.body.appendChild(ghost)
+  ghost.animate([{ opacity: 1, scale: "1" }, { opacity: 0, scale: "0.98" }], { duration: 200, easing: "cubic-bezier(0.4, 0, 1, 1)", fill: "forwards" }).onfinish = () => ghost.remove()
+  window.setTimeout(() => ghost.remove(), 600)
+  /* The moment the card leaves the list (a mutation's callback runs before that frame is painted), the cards under it start where they were. */
+  const list = card.parentElement
+  if (!list) return
+  const slide = () => {
+    for (const x of below) {
+      if (!x.isConnected) continue
+      if (x.getBoundingClientRect().top > window.innerHeight) break
+      x.animate([{ translate: `0 ${gap}px` }, { translate: "0 0" }], { duration: 260, easing: "cubic-bezier(0.22, 1, 0.36, 1)" })
+    }
+  }
+  const watch = new MutationObserver(() => {
+    if (card.isConnected) return
+    watch.disconnect()
+    slide()
+  })
+  watch.observe(list, { childList: true })
+  window.setTimeout(() => watch.disconnect(), 1000)
 }
 
 export function FeedLive({ communityId, viewerId, feedKey, target, sort, onView }: FeedLiveProps) {
@@ -119,6 +172,36 @@ export function FeedLive({ communityId, viewerId, feedKey, target, sort, onView 
       })()
     })
   }, [communityId, viewerId])
+
+  /* AN EDIT OR A DELETE: every cached list, then the one on screen. */
+  useEffect(() => {
+    const apply = (id: string, fn: (p: FeedPostView) => FeedPostView | null) => {
+      patchPost(communityId, id, fn)
+      setWaiting((w) => (w.some((p) => p.id === id) ? w.flatMap((p) => (p.id === id ? (fn(p) ? [fn(p)!] : []) : [p])) : w))
+      const key = now.current.feedKey
+      const view = readView(key)
+      if (!view?.posts.some((p) => p.id === id)) return
+      if (!fn(view.posts.find((p) => p.id === id)!)) foldAway(id)
+      const next = { ...view, posts: view.posts.flatMap((p) => (p.id === id ? (fn(p) ? [fn(p)!] : []) : [p])) }
+      writeView(key, next)
+      now.current.onView(next)
+    }
+    return listenLive(communityId, null, "post-change", (payload) => {
+      const id = typeof payload.postId === "string" ? payload.postId : ""
+      if (!id) return
+      if (payload.change === "delete") return apply(id, () => null)
+      if (payload.change !== "edit") return
+      void (async () => {
+        const r = await api<{ post: FeedPostView }>(`${apiBase(communityId)}/posts/${encodeURIComponent(id)}`)
+        if (!r.ok && r.status === 404) return apply(id, () => null)
+        if (!r.ok || !r.data.post) return
+        const like = intentOf(`like:${id}`)
+        const save = intentOf(`save:${id}`)
+        const fresh = { ...r.data.post, ...(like ? { reacted: like.on, reactionCount: like.count } : {}), ...(save ? { bookmarked: save.on } : {}) }
+        apply(id, (p) => ({ ...p, ...fresh }))
+      })()
+    })
+  }, [communityId])
 
   /* Back up to the top on their own: what waited goes in. */
   useEffect(() => {

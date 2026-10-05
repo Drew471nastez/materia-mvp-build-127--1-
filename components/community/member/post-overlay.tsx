@@ -36,6 +36,22 @@
  * and translate (the compositor's, from the very first frame: no waiting
  * frame before the move starts), 240ms in on iOS's curve and 180ms out, and
  * a plain fade with reduced motion.
+ *
+ * ROUND 13.
+ *   THE PAGE NEVER SHIFTS. On a computer the page's scrollbar is no longer
+ *   hidden while a post is open (hiding it, then padding the page by its
+ *   width, moved everything sideways under a page that already keeps its
+ *   gutter: shell-frame.tsx scrollbar-gutter stable). The page stays as it
+ *   is; a wheel over the scrim is simply not given to it, and the panel's
+ *   own scroll never runs on into it (overscroll-behavior: contain). A phone
+ *   still holds the page still under its sheet (no scrollbar there).
+ *   A SLIM SCROLLBAR in the panel: thin, light grey, no track (SLIM_SCROLL).
+ *   THE COMMENTS ALWAYS COME. They were drawn only once the open had
+ *   "finished", told by the sheet's or the panel's animation; a finger that
+ *   caught the phone's sheet while it was still rising (a scroll straight
+ *   away) cancelled that animation, the finish never came, and the comments
+ *   never loaded. Now the open counts as finished at the latest
+ *   SETTLE_LATEST_MS after it started, whatever happened to the move.
  */
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom"
@@ -54,6 +70,11 @@ const IN_MS = 240
 const OUT_MS = 180
 /** After the move has arrived, a moment before the comments are drawn, so their first frame is not the move's last. */
 const SETTLE_MS = 80
+/** The open counts as arrived after this at the latest, even when its animation was cancelled (a finger on the sheet). */
+export const SETTLE_LATEST_MS = 650
+/** The panel's scrollbar: thin, a light grey thumb, no track (standard properties, and WebKit's own for Safari). */
+export const SLIM_SCROLL =
+  "[scrollbar-width:thin] [scrollbar-color:#d3d6db_transparent] [&::-webkit-scrollbar]:w-[8px] [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:border-2 [&::-webkit-scrollbar-thumb]:border-solid [&::-webkit-scrollbar-thumb]:border-white [&::-webkit-scrollbar-thumb]:bg-[#d3d6db] hover:[&::-webkit-scrollbar-thumb]:bg-[#b9bdc4]"
 
 function usePhone(): boolean {
   const [phone, setPhone] = useState(() => typeof window !== "undefined" && window.matchMedia("(max-width: 639px)").matches)
@@ -152,6 +173,11 @@ export function PostOverlay({ post: given, slug, viewer, readOnly = false, updat
     const t = window.setTimeout(() => setSettled(true), reducedMotion() ? 0 : SETTLE_MS)
     return () => window.clearTimeout(t)
   }, [phase])
+  /* THE COMMENTS ALWAYS COME: arrived at the latest after SETTLE_LATEST_MS, whatever happened to the move. */
+  useEffect(() => {
+    const t = window.setTimeout(() => setPhase((p) => (p === "in" ? "shown" : p)), SETTLE_LATEST_MS)
+    return () => window.clearTimeout(t)
+  }, [])
 
   /* The post again from the server, and seen. */
   useEffect(() => {
@@ -175,22 +201,19 @@ export function PostOverlay({ post: given, slug, viewer, readOnly = false, updat
   }, [given.id, settled])
 
   /*
-    The page under it stays still, once for as long as it is open; the
-    scrollbar's width is kept so nothing shifts sideways. Before the first
-    frame is painted: set after it, the page's restyle landed on the second
-    frame of the move (50ms at 4x CPU).
+    THE PAGE UNDER IT STAYS STILL. On a phone, held for as long as the sheet is open, before the first frame is painted (set
+    after it, the page's restyle landed on the second frame of the move, 50ms at 4x CPU). On a computer the page's scrollbar
+    stays where it is (THE PAGE NEVER SHIFTS): the panel takes the wheel over the scrim (PostPanel).
   */
   useLayoutEffect(() => {
+    if (!phone) return
     const html = document.documentElement
-    const bar = window.innerWidth - html.clientWidth
-    const prev = { overflow: html.style.overflow, pad: html.style.paddingRight }
+    const prev = html.style.overflow
     html.style.overflow = "hidden"
-    if (bar > 0) html.style.paddingRight = `${bar}px`
     return () => {
-      html.style.overflow = prev.overflow
-      html.style.paddingRight = prev.pad
+      html.style.overflow = prev
     }
-  }, [])
+  }, [phone])
 
   /* On a phone, the comment box stays in sight above the keyboard (keep-in-sight.ts). */
   useKeepFieldInSight(phone, () => contentRef.current?.closest<HTMLElement>("[data-sheet-scroll]") ?? null)
@@ -360,6 +383,20 @@ function PostPanel({
     return () => window.clearTimeout(t)
   }, [open])
 
+  /* A wheel over the scrim (or the panel's header) is not the page's: it would scroll the feed under the post. */
+  const rootRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const root = rootRef.current
+    if (!root) return
+    const onWheel = (e: WheelEvent) => {
+      if (e.ctrlKey) return
+      const scroller = (e.target as HTMLElement | null)?.closest?.("[data-post-overlay-scroll]")
+      if (!scroller) e.preventDefault()
+    }
+    root.addEventListener("wheel", onWheel, { passive: false })
+    return () => root.removeEventListener("wheel", onWheel)
+  }, [])
+
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => {
@@ -373,7 +410,7 @@ function PostPanel({
   }, [open, close])
 
   return createPortal(
-    <div className="fixed inset-0 z-[130]" data-post-overlay-root="" style={open ? undefined : { pointerEvents: "none" }}>
+    <div ref={rootRef} className="fixed inset-0 z-[130]" data-post-overlay-root="" style={open ? undefined : { pointerEvents: "none" }}>
       <div ref={scrimRef} aria-hidden className="absolute inset-0 bg-[#0f1115]/35" onClick={close} data-post-overlay-scrim="" />
       <div className="pointer-events-none absolute inset-0 flex justify-center overflow-hidden px-6 pt-10 sm:pt-12">
         <div
@@ -391,7 +428,7 @@ function PostPanel({
               <X className="h-5 w-5" />
             </button>
           </div>
-          <div ref={contentRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain" data-post-overlay-scroll="">
+          <div ref={contentRef} className={`min-h-0 flex-1 overflow-y-auto overscroll-contain ${SLIM_SCROLL}`} data-post-overlay-scroll="">
             {children}
           </div>
         </div>
