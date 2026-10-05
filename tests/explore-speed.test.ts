@@ -138,7 +138,7 @@ async function main() {
     check("the server reads the category with the browser's rule", /exploreCategoryFrom\(\{ c: params\?\.c, category: params\?\.category \}\)/.test(page) && !/const VALID_CATEGORIES/.test(page))
 
     const client = code("components/explore/explore-page-client.tsx")
-    check("a pill rewrites the address in place: no server round trip (the router only where the history API throws)", /window\.history\.replaceState\(null, "", href\)/.test(client) && (client.match(/router\.replace\(/g) ?? []).length === 1 && /catch \{\s*router\.replace\(href, \{ scroll: false \}\)/.test(client) && (client.match(/replaceAddress\(/g) ?? []).length >= 4)
+    check("a pill rewrites the address in place: no server round trip (the router only where the history API throws)", /window\.history\.replaceState\(null, "", href\)/.test(client) && (client.match(/router\.replace\(/g) ?? []).length === 1 && /catch \{\s*router\.replace\(href, \{ scroll: false \}\)/.test(client) && /replaceAddress\(href\)/.test(client) && (client.match(/scheduleAddress\(/g) ?? []).length >= 4)
     check("the category is read back from the address, not the server's first prop", /const fromUrl = exploreCategoryFrom\(searchParams\)/.test(client) && /const raw = exploreCategoryFrom\(searchParams\)/.test(client))
     check("the pill answers in the tap's frame; the grid follows deferred", /const gridCategory = useDeferredValue\(mainCategory\)/.test(client) && /const gridSub = useDeferredValue\(selectedSubcategoryId\)/.test(client) && /\}, \[initialProducts, gridCategory, gridSub, /.test(client) && /category=\{gridCategory\}\s*sub=\{gridSub\}/.test(client))
     check("a changed grid draws its first two rows first", /useProgressiveCount\(productsGridToken, paginatedProducts\.length\)/.test(client) && /paginatedProducts\.slice\(0, productsShown\)/.test(client))
@@ -149,7 +149,7 @@ async function main() {
 
     const results = code("components/explore/explore-communities-results.tsx")
     check("communities come from the per pill cache, seeded by the server's first page", /seedCommunities\(initial\.query/.test(results) && /const hit = cachedCommunities\(query\)/.test(results) && /loadCommunities\(query\)/.test(results))
-    check("a stale answer is shown at once and asked for again", /if \(!hit\.stale\) return/.test(results))
+    check("a stale answer is shown at once and asked for again, unless the visitor paged it with Show more", /if \(!hit\.stale \|\| hasMoreThanFirstPage\(hit\)\) return/.test(results))
     check("an answer to a question no longer asked is never drawn", /if \(!live\) return/.test(results) && /live = false/.test(results))
     check("the previous grid stays while the next loads, a step quieter and only after 150ms; no skeleton then", /const pending = !!shown && shown\.query !== query/.test(results) && /pending \? "opacity-60 delay-150 duration-200"/.test(results) && /if \(items === null\) \{/.test(results))
     check("warmed on idle, one at a time, within the budget", /const queue = ahead\.filter\(\(a\) => a !== query\)\.slice\(0, budget\)/.test(results) && /whenIdle\(\(\) => \{\s*void prefetchCommunities\(next\)\.then\(step\)/.test(results))

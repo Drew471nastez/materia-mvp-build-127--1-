@@ -478,7 +478,18 @@ export function ExplorePageClient({
   const hasMountedRef = useRef(false)
 
   // Filter states
-  const [priceFilter, setPriceFilter] = useState<string>("all")
+  /*
+    THE PRICE IS IN THE ADDRESS TOO (?price=), like the order. It was only
+    in this component's state, so Back from a product came to Explore with
+    the price it had been narrowed to forgotten, and the scroll put back
+    into a different list. Read once here, for the catalogue the address
+    names.
+  */
+  const [priceFilter, setPriceFilter] = useState<string>(() => {
+    const price = searchParams.get("price")
+    const options = mode === "communities" ? COMMUNITY_PRICE_FILTERS : PRICE_FILTERS
+    return price && options.some((o) => o.id === price) ? price : "all"
+  })
   /* From the address on the first render, so communities mode asks the server for the order the page was drawn with rather than the default and then again. */
   const [sortBy, setSortBy] = useState<string>(() => {
     const srt = searchParams.get("srt")
@@ -534,10 +545,20 @@ export function ExplorePageClient({
   const [localSearchQuery, setLocalSearchQuery] = useState("")
 
   // Pagination
-  const [currentPage, setCurrentPage] = useState(1)
+  /* The page of the list is in the address as ?pg= (goToPage), so Back comes to the page that was being read, not to page one at its offset. */
+  const [currentPage, setCurrentPage] = useState(() => {
+    const pg = parseInt(searchParams.get("pg") || "", 10)
+    return Number.isFinite(pg) && pg > 1 ? pg : 1
+  })
 
   // Reset page when filters change
+  /* Not on arrival: the page the address names is the page to show. */
+  const pageResetArmed = useRef(false)
   useEffect(() => {
+    if (!pageResetArmed.current) {
+      pageResetArmed.current = true
+      return
+    }
     setCurrentPage(1)
   }, [mode, mainCategory, selectedSubcategoryId, recommendationFilter, priceFilter, sortBy, localSearchQuery])
 
@@ -767,7 +788,9 @@ export function ExplorePageClient({
 
   // Paginated products
   const paginatedProducts = useMemo(() => {
-    const startIndex = (currentPage - 1) * PRODUCTS_PER_PAGE
+    /* A ?pg= past the end (the list is shorter than when it was written) is the last page, never an empty one. */
+    const lastPage = Math.max(1, Math.ceil(recommendedProducts.length / PRODUCTS_PER_PAGE))
+    const startIndex = (Math.min(currentPage, lastPage) - 1) * PRODUCTS_PER_PAGE
     return recommendedProducts.slice(startIndex, startIndex + PRODUCTS_PER_PAGE)
   }, [recommendedProducts, currentPage])
 
@@ -840,16 +863,65 @@ export function ExplorePageClient({
    * link opens in the language it was shared from.
    */
   const exploreHref = useCallback(
-    (categoryId: string, sort: string = sortBy, forMode: DiscoverMode = mode) => {
+    (categoryId: string, sort: string = sortBy, forMode: DiscoverMode = mode, price: string = priceFilter) => {
       const params = new URLSearchParams()
       if (forMode === "communities") params.set("type", "communities")
       if (categoryId && categoryId !== "all" && categoryId !== FOR_YOU_ID) params.set("c", categoryId)
       params.set("lang", language)
       params.set("srt", sort)
+      if (price && price !== "all") params.set("price", price)
       return `/explore?${params.toString()}`
     },
-    [language, sortBy, mode],
+    [language, sortBy, mode, priceFilter],
   )
+
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     THE ADDRESS A BEAT AFTER THE TAP, AND AT ONCE WHEN EXPLORE IS LEFT
+    ═══════════════════════════════════════════════════════════════════════
+    Every change writes the address 250ms after the tap (the reason is at
+    handleCategoryChange). A product or a community opened inside those
+    250ms left this history entry without it, and the timer was cleared as
+    the page went, so Back came to the list as it was before the tap, and
+    the scroll was put back into a different list. The address waiting to
+    be written is kept, and any press on a link writes it first: in the
+    capture phase, before the link's own handler starts the navigation.
+  */
+  const pendingAddressRef = useRef<string | null>(null)
+  const scheduleAddress = useCallback((href: string) => {
+    pendingAddressRef.current = href
+    if (categoryChangeTimeoutRef.current) clearTimeout(categoryChangeTimeoutRef.current)
+    categoryChangeTimeoutRef.current = setTimeout(() => {
+      pendingAddressRef.current = null
+      replaceAddress(href)
+    }, 250)
+  }, [replaceAddress])
+  useEffect(() => {
+    const flush = () => {
+      const href = pendingAddressRef.current
+      if (!href) return
+      pendingAddressRef.current = null
+      if (categoryChangeTimeoutRef.current) clearTimeout(categoryChangeTimeoutRef.current)
+      replaceAddress(href)
+    }
+    const onPress = (e: MouseEvent) => {
+      if ((e.target as Element | null)?.closest?.("a[href]")) flush()
+    }
+    document.addEventListener("click", onPress, true)
+    window.addEventListener("pagehide", flush)
+    return () => {
+      document.removeEventListener("click", onPress, true)
+      window.removeEventListener("pagehide", flush)
+    }
+  }, [replaceAddress])
+  /* The address for the list as it is, with a different order, price or page: the category, subcategory and search stay. */
+  const listHref = useCallback((change: { sort?: string; price?: string; page?: number } = {}) => {
+    let href = exploreHref(mainCategory, change.sort ?? sortBy, mode, change.price ?? priceFilter)
+    if (selectedSubcategoryId) href += `&sub=${selectedSubcategoryId}`
+    if (urlSearchQuery) href += `&q=${encodeURIComponent(urlSearchQuery)}`
+    if (change.page && change.page > 1) href += `&pg=${change.page}`
+    return href
+  }, [exploreHref, mainCategory, sortBy, mode, priceFilter, selectedSubcategoryId, urlSearchQuery])
 
   /* A different catalogue, so the category starts over: All for
      communities, and the usual first pill for products. */
@@ -866,20 +938,28 @@ export function ExplorePageClient({
     setSelectedSubcategoryLabel(null)
     setCurrentPage(1)
     chosenCategoryRef.current = firstCategory
-    if (categoryChangeTimeoutRef.current) clearTimeout(categoryChangeTimeoutRef.current)
-    categoryChangeTimeoutRef.current = setTimeout(() => {
-      let href = exploreHref("all", DEFAULT_SORT, next)
-      if (urlSearchQuery) href += `&q=${encodeURIComponent(urlSearchQuery)}`
-      replaceAddress(href)
-    }, 250)
-  }, [interests.enough, exploreHref, urlSearchQuery, replaceAddress])
+    let href = exploreHref("all", DEFAULT_SORT, next, "all")
+    if (urlSearchQuery) href += `&q=${encodeURIComponent(urlSearchQuery)}`
+    scheduleAddress(href)
+  }, [interests.enough, exploreHref, urlSearchQuery, scheduleAddress])
 
   const goToPage = useCallback((page: number) => {
     const next = Math.max(1, Math.min(totalPages, page))
     if (next === currentPage) return
     setCurrentPage(next)
+    scheduleAddress(listHref({ page: next }))
     smoothScrollToRecommendedSection(categorySectionRef)
-  }, [currentPage, totalPages])
+  }, [currentPage, totalPages, scheduleAddress, listHref])
+
+  /* The Filters panel's order and price, written to the address like a pill (?srt=, ?price=). */
+  const chooseSort = useCallback((sort: string) => {
+    setSortBy(sort)
+    scheduleAddress(listHref({ sort }))
+  }, [scheduleAddress, listHref])
+  const choosePrice = useCallback((price: string) => {
+    setPriceFilter(price)
+    scheduleAddress(listHref({ price }))
+  }, [scheduleAddress, listHref])
 
   // Get products for the Browse by Category section - 2 rows x 3 = 6 products
   const browseSectionProducts = useMemo(() => {
@@ -911,7 +991,8 @@ export function ExplorePageClient({
   const resetFilters = useCallback(() => {
     setPriceFilter("all")
     setSortBy(DEFAULT_SORT)
-  }, [])
+    scheduleAddress(listHref({ sort: DEFAULT_SORT, price: "all" }))
+  }, [scheduleAddress, listHref])
 
   // Get section title - shows subcategory label if selected
   const sectionTitle = useMemo(() => {
@@ -978,14 +1059,11 @@ export function ExplorePageClient({
       the address ends up describing what you are looking at, and Back still
       goes where you came from.
     */
-    if (categoryChangeTimeoutRef.current) clearTimeout(categoryChangeTimeoutRef.current)
-    categoryChangeTimeoutRef.current = setTimeout(() => {
-      let newUrl = exploreHref(categoryId)
-      if (subcategoryId) newUrl += `&sub=${subcategoryId}`
-      if (urlSearchQuery) newUrl += `&q=${urlSearchQuery}`
-      replaceAddress(newUrl)
-    }, 250)
-  }, [replaceAddress, urlSearchQuery, exploreHref])
+    let newUrl = exploreHref(categoryId)
+    if (subcategoryId) newUrl += `&sub=${subcategoryId}`
+    if (urlSearchQuery) newUrl += `&q=${urlSearchQuery}`
+    scheduleAddress(newUrl)
+  }, [scheduleAddress, urlSearchQuery, exploreHref])
 
   // Handle subcategory selection from modal
   const handleSubcategorySelect = useCallback((categoryId: string, subcategoryId: string, subcategoryLabel: string) => {
@@ -1307,10 +1385,7 @@ export function ExplorePageClient({
                         chosenCategoryRef.current = cat.id
                         /* Debounced and replacing, for the reason in
                            handleCategorySelect: a tap is not a page. */
-                        if (categoryChangeTimeoutRef.current) clearTimeout(categoryChangeTimeoutRef.current)
-                        categoryChangeTimeoutRef.current = setTimeout(() => {
-                          replaceAddress(exploreHref(cat.id))
-                        }, 250)
+                        scheduleAddress(exploreHref(cat.id))
                         /* Switching a category changes what the list is, so
                            the list starts again from its top rather than
                            leaving somebody in the middle of a page of
@@ -1365,9 +1440,9 @@ export function ExplorePageClient({
                   priceOptions={communities ? COMMUNITY_PRICE_FILTERS : PRICE_FILTERS}
                   resultLabel={communities ? "Show communities" : undefined}
                   sortBy={sortBy}
-                  setSortBy={setSortBy}
+                  setSortBy={chooseSort}
                   priceFilter={priceFilter}
-                  setPriceFilter={setPriceFilter}
+                  setPriceFilter={choosePrice}
                   activeCount={activeFilterCount}
                   onClear={resetFilters}
                   resultCount={recommendedProducts.length}
@@ -1439,10 +1514,7 @@ export function ExplorePageClient({
                   onClick={() => {
                     setSelectedSubcategoryId(null)
                     setSelectedSubcategoryLabel(null)
-                    if (categoryChangeTimeoutRef.current) clearTimeout(categoryChangeTimeoutRef.current)
-                    categoryChangeTimeoutRef.current = setTimeout(() => {
-                      replaceAddress(exploreHref(mainCategory))
-                    }, 250)
+                    scheduleAddress(exploreHref(mainCategory))
                   }}
                   className="inline-flex items-center gap-1.5 h-8 pl-3 pr-2 rounded-full border border-neutral-200 bg-white text-[13px] font-medium text-[#1a1a2e] shadow-[0_1px_2px_rgba(15,23,42,0.05)] outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 hover:border-neutral-300 transition-colors cursor-pointer"
                 >

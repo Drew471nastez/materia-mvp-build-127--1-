@@ -32,7 +32,7 @@ import * as React from "react"
 import { cn } from "@/lib/utils"
 import type { CommunityCard } from "@/lib/communities/types"
 import { communitiesQuery } from "@/lib/explore/communities-mode"
-import { cachedCommunities, COMMUNITIES_PAGE, loadCommunities, prefetchCommunities, seedCommunities, type CommunitiesPage } from "@/lib/explore/communities-cache"
+import { cachedCommunities, COMMUNITIES_PAGE, hasMoreThanFirstPage, keepMoreCommunities, loadCommunities, prefetchCommunities, seedCommunities, type CommunitiesPage } from "@/lib/explore/communities-cache"
 import { prefetchBudget, whenIdle } from "@/lib/explore/prefetch-budget"
 import { useProgressiveCount } from "@/lib/explore/use-progressive-count"
 import { ProductCardSkeleton } from "./product-card-skeleton"
@@ -96,7 +96,8 @@ export function ExploreCommunitiesResults({
     if (hit) {
       setShown({ query, items: hit.items, next: hit.next, broadened: hit.broadened })
       setFailed(false)
-      if (!hit.stale) return
+      /* A list the visitor paged through with Show more is theirs: an older answer is not swapped for a first page under them (keepMoreCommunities). */
+      if (!hit.stale || hasMoreThanFirstPage(hit)) return
     }
     loadCommunities(query).then(
       (page) => {
@@ -164,6 +165,11 @@ export function ExploreCommunitiesResults({
       const res = await fetch(`/api/explore/communities?${pageQuery}${pageQuery ? "&" : ""}limit=${COMMUNITIES_PAGE}&cursor=${encodeURIComponent(next)}`)
       if (!res.ok) throw new Error(String(res.status))
       const body = (await res.json()) as { items: CommunityCard[]; next: string | null }
+      /* The longer list is kept for the way back too (keepMoreCommunities). */
+      if (shown && shown.query === query) {
+        const seen = new Set(shown.items.map((c) => c.id))
+        keepMoreCommunities(query, { items: [...shown.items, ...body.items.filter((c) => !seen.has(c.id))], next: body.next, broadened: shown.broadened })
+      }
       setShown((was) => {
         if (!was || was.query !== query) return was
         const seen = new Set(was.items.map((c) => c.id))
