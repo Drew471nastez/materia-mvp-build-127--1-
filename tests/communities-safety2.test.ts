@@ -52,6 +52,7 @@ import { IMAGE_RULE, classifierDeps, imageClassifier, judgePicture, readClassifi
 import { SKIN_RULE, isSkinPixel, readSkin } from "@/lib/security/images/skin"
 import { IMAGE_CHECK, PICTURE_REFUSED, imageCheckDeps, picturesOf, screenPictures, uploadedVideoCount } from "@/lib/communities/server/image-check"
 import { COMMUNITY_FILE_PATH, COMMUNITY_PICTURE_PATH, ORPHANS, fileDayShare, orphanDeps, sweepCommunityOrphans } from "@/lib/communities/server/orphans"
+import { engineAfterDeps, scanStoredWithEngines } from "@/lib/security/uploads/engine-after"
 import type { Viewer } from "@/lib/communities/server/context"
 import type { CommunityRow, MemberRow, Role } from "@/lib/communities/types"
 
@@ -482,6 +483,24 @@ async function main() {
     check("an old file no post carries is removed; one a post carries (even removed) and a young one stay", fgone.length === 1 && fgone[0] === `${base}/${ANA}/${fid}.pdf` && sum.files.removed === 1 && sum.files.communities === 1, { fgone, sum })
   }
 
+  console.log("\nMALWARE ENGINE ON POST FILES")
+  {
+    const file = { bucket: "digital-products", path: `${OWNER}/community-files/${C1}/${ANA}/11111111-2222-4333-8444-555555555555.pdf`, fileName: "notes.pdf", size: 1234, context: "link_page_file" as const, userId: ANA, creatorId: OWNER }
+    let db = pg({ file_security_events: [] })
+    engineAfterDeps.providers = () => []
+    check("no engine switched on: nothing read, nothing logged", (await scanStoredWithEngines(db as any, file)) === "skipped" && db.tables.file_security_events.length === 0)
+    const asked: any[] = []
+    engineAfterDeps.providers = () => [{ name: "clamav", isEnabled: () => true, async scan(input: any) { asked.push(input); return { provider: "clamav", status: "infected", threat: "Eicar-Test-Signature", durationMs: 5 } } }]
+    const out = await scanStoredWithEngines(db as any, file)
+    check("an infected post file is deleted and logged as removed, read from storage (never downloaded here)", out === "infected" && db.removed.length === 1 && db.removed[0].paths[0] === file.path && db.tables.file_security_events[0].outcome === "removed" && db.tables.file_security_events[0].code === "provider_infected" && asked[0].stored?.path === file.path)
+    db = pg({ file_security_events: [] })
+    engineAfterDeps.providers = () => [{ name: "clamav", isEnabled: () => true, async scan() { return { provider: "clamav", status: "clean", durationMs: 5 } } }]
+    check("a clean one stays, logged as info", (await scanStoredWithEngines(db as any, file)) === "clean" && db.removed.length === 0 && db.tables.file_security_events[0].outcome === "info")
+    db = pg({ file_security_events: [] })
+    engineAfterDeps.providers = () => [{ name: "clamav", isEnabled: () => true, async scan() { return { provider: "clamav", status: "no_verdict", reason: "timeout", durationMs: 5 } } }]
+    check("no verdict (the engine down) changes nothing and is noted", (await scanStoredWithEngines(db as any, file)) === "no_verdict" && db.removed.length === 0 && db.tables.file_security_events[0].outcome === "noted")
+  }
+
   console.log("\nWIRING")
   {
     const safety = code("lib/communities/server/safety.ts")
@@ -500,6 +519,10 @@ async function main() {
     check("the classifier's packages are loaded at run time, never bundled (the app builds without them)", /webpackIgnore: true/.test(readFileSync("lib/security/images/classify.ts", "utf8")) && !/from "nsfwjs"|from "@tensorflow/.test(classify))
     const comp = readFileSync("components/community/creator/blocked-words.tsx", "utf8")
     check("the settings component is a client module that imports nothing from the server", comp.startsWith('"use client"') && !/server-only|next\/headers|communities\/server\//.test(stripComments(comp)))
+    const pf = code("lib/communities/server/post-files.ts")
+    check("a post file that passed the built-in check goes to the malware engine after the answer", pf.indexOf("scanStoredAfterResponse(") > pf.indexOf("if (!verdict.ok)") && pf.indexOf("scanStoredAfterResponse(") > 0)
+    const pm = code("lib/communities/post-media.ts")
+    check("comments take no files (pictures, a GIF, a video by link only)", /COMMENT_MEDIA_TYPES: readonly PostMedia\["type"\]\[\] = \["image", "gif", "embed"\]/.test(pm))
     const wf = code("lib/communities/word-filter.ts")
     check("the word filter is browser safe (no node modules)", !/from "node:|server-only/.test(wf))
   }
