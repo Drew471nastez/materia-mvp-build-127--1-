@@ -3,11 +3,13 @@
 /**
  * THE LEADERBOARD: who earned the most points in the last 7 or 30 days, or
  * ever. Every number is a sum of real point rows (lib/communities/server/
- * points.ts); ties share a rank. Beside it, the community's levels and where
- * the viewer stands.
+ * points.ts); ties share a rank. On a wide screen the list uses the middle
+ * column; levels and the viewer's standing sit in one aside (the wall's
+ * duplicate top-three card is hidden on this page).
  */
 import Link from "next/link"
 import { useState } from "react"
+import { ChevronDown } from "lucide-react"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { api, apiBase } from "./api"
 import { PageTitle } from "./headers"
@@ -17,11 +19,58 @@ import { memberHref } from "./person-href"
 import type { LeaderboardRow } from "./view-types"
 
 type Period = "7d" | "30d" | "all"
-const PERIODS: { key: Period; label: string }[] = [
-  { key: "7d", label: "7 days" },
-  { key: "30d", label: "30 days" },
-  { key: "all", label: "All time" },
+const PERIODS: { key: Period; label: string; short: string }[] = [
+  { key: "7d", label: "7 days", short: "7d" },
+  { key: "30d", label: "30 days", short: "30d" },
+  { key: "all", label: "All time", short: "All" },
 ]
+
+function periodLabel(p: Period): string {
+  return PERIODS.find((x) => x.key === p)?.label ?? ""
+}
+
+function PeriodSelectDesktop({ period, loading, onChoose }: { period: Period; loading: boolean; onChoose: (p: Period) => void }) {
+  return (
+    <label className="relative shrink-0">
+      <span className="sr-only">Time period</span>
+      <select
+        value={period}
+        disabled={loading}
+        onChange={(e) => onChoose(e.target.value as Period)}
+        className="h-10 min-w-[9.5rem] cursor-pointer appearance-none rounded-[10px] border border-[#e3e4e8] bg-white pl-3 pr-9 text-[14px] font-medium text-[#1a1a2e] shadow-[0_1px_1px_rgba(16,24,40,0.04)] outline-none transition-[border-color,box-shadow] hover:border-[#d5d8de] focus-visible:border-[#1a1a2e]/25 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/10 disabled:cursor-wait disabled:opacity-60"
+        data-leaderboard-period-select=""
+      >
+        {PERIODS.map((p) => (
+          <option key={p.key} value={p.key}>{p.label}</option>
+        ))}
+      </select>
+      <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6b7280]" strokeWidth={2} aria-hidden />
+    </label>
+  )
+}
+
+function PeriodSegmentsMobile({ period, loading, onChoose }: { period: Period; loading: boolean; onChoose: (p: Period) => void }) {
+  return (
+    <div className="flex rounded-[10px] border border-[#e3e4e8] bg-[#f6f7f8] p-0.5" role="tablist" aria-label="Time period" data-leaderboard-period-tabs="">
+      {PERIODS.map((p) => {
+        const on = period === p.key
+        return (
+          <button
+            key={p.key}
+            type="button"
+            role="tab"
+            aria-selected={on}
+            disabled={loading}
+            onClick={() => onChoose(p.key)}
+            className={`h-9 min-w-0 flex-1 rounded-[8px] text-[13px] font-semibold transition-[background-color,color,box-shadow] disabled:opacity-60 ${on ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.08)]" : "text-[#6b7280]"}`}
+          >
+            {p.short}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
 
 export function Leaderboard({
   communityId,
@@ -40,7 +89,7 @@ export function Leaderboard({
   const [rows, setRows] = useState(initial)
   const [loading, setLoading] = useState(false)
   const choose = async (p: Period) => {
-    if (p === period) return
+    if (p === period || loading) return
     setPeriod(p)
     setLoading(true)
     const r = await api<{ entries: LeaderboardRow[] }>(`${apiBase(communityId)}/leaderboard?period=${p}`)
@@ -49,29 +98,31 @@ export function Leaderboard({
     setRows(r.data.entries)
   }
   const myLevel = levels.find((l) => l.level === me.level)
+  const myRow = me.userId ? rows.find((r) => r.userId === me.userId) : null
   return (
-    <div className="flex gap-6" data-leaderboard="">
-      <div className="w-full min-w-0 max-w-[680px] flex-1">
-        <PageTitle title="Leaderboard" detail="Points come from likes on your posts and comments." />
-        <div className="inline-flex rounded-full border border-[#e3e4e8] bg-white p-1" role="tablist" aria-label="Period">
-          {PERIODS.map((p) => (
-            <button
-              key={p.key}
-              type="button"
-              role="tab"
-              aria-selected={period === p.key}
-              onClick={() => choose(p.key)}
-              className={`h-10 rounded-full px-3.5 sm:h-9 text-[13.5px] font-medium transition-colors ${period === p.key ? "bg-[#1a1a2e] text-white" : "text-[#6b7280] hover:text-[#1a1a2e]"}`}
-            >
-              {p.label}
-            </button>
-          ))}
+    <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:gap-8" data-leaderboard="">
+      <div className="min-w-0 flex-1">
+        <PageTitle title="Leaderboard" detail="Points come from likes on your posts and comments.">
+          <div className="hidden sm:block">
+            <PeriodSelectDesktop period={period} loading={loading} onChoose={choose} />
+          </div>
+        </PageTitle>
+        <div className="mb-3 sm:hidden">
+          <PeriodSegmentsMobile period={period} loading={loading} onChoose={choose} />
         </div>
-        <ol className={`${CARD} mt-4 divide-y divide-[#f0f1f3] overflow-hidden transition-opacity ${loading ? "opacity-60" : ""}`} data-leaderboard-list="">
+        <p className="mb-3 hidden text-[13px] text-[#8a8f98] sm:block" data-leaderboard-period-label="">
+          Showing <span className="font-medium text-[#4b5563]">{periodLabel(period)}</span>
+        </p>
+        <ol className={`${CARD} divide-y divide-[#f0f1f3] overflow-hidden transition-opacity ${loading ? "pointer-events-none opacity-60" : ""}`} data-leaderboard-list="" aria-busy={loading}>
           {rows.map((r) => (
             <li key={r.userId}>
-              <Link href={memberHref(slug, { id: r.userId, username: r.username, hasStorefront: r.hasStorefront })} data-person-link="" data-person-id={r.userId} className={`flex min-h-[60px] items-center gap-3 px-4 py-2.5 hover:bg-[#f8f9fa] sm:px-5 ${r.userId === me.userId ? "bg-[#f8f9fa]" : ""}`}>
-                <span className={`w-7 shrink-0 text-center text-[15px] font-semibold tabular-nums ${r.rank <= 3 ? "text-[#1a1a2e]" : "text-[#9ca3af]"}`}>{r.rank}</span>
+              <Link
+                href={memberHref(slug, { id: r.userId, username: r.username, hasStorefront: r.hasStorefront })}
+                data-person-link=""
+                data-person-id={r.userId}
+                className={`flex min-h-[60px] items-center gap-3 px-4 py-2.5 hover:bg-[#f8f9fa] sm:px-5 ${r.userId === me.userId ? "bg-[#f8f9fa]" : ""}`}
+              >
+                <span className={`flex h-7 w-7 shrink-0 items-center justify-center text-[15px] font-semibold tabular-nums ${r.rank <= 3 ? "text-[#1a1a2e]" : "text-[#9ca3af]"}`}>{r.rank}</span>
                 <AppAvatar src={r.avatarUrl} name={r.name} alt="" size={40} markWhileLoading />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[15px] font-semibold text-[#1a1a2e]">
@@ -90,26 +141,33 @@ export function Leaderboard({
               </Link>
             </li>
           ))}
-          {rows.length === 0 ? <li className="px-5 py-10 text-center text-[14px] text-[#6b7280]">No points earned {period === "all" ? "yet" : "in this period"}.</li> : null}
+          {rows.length === 0 ? (
+            <li className="px-5 py-10 text-center text-[14px] text-[#6b7280]">No points earned {period === "all" ? "yet" : "in this period"}.</li>
+          ) : null}
         </ol>
       </div>
-      <aside className="hidden w-[248px] shrink-0 xl:block">
-        <div className={`${CARD} sticky top-[calc(var(--community-top,0px)+24px)] p-4`}>
-          <p className="text-[12.5px] font-medium text-[#8a8f98]">You</p>
-          <p className="mt-1 text-[15px] font-semibold text-[#1a1a2e]">
+      <aside className="min-w-0 xl:w-[260px] xl:shrink-0">
+        <div className={`${CARD} xl:sticky xl:top-[calc(var(--community-top,0px)+24px)] p-4`} data-leaderboard-you="">
+          <p className="text-[12.5px] font-medium uppercase tracking-[0.04em] text-[#8a8f98]">Your standing</p>
+          <p className="mt-2 text-[17px] font-semibold text-[#1a1a2e]">
             Level {me.level}
             {myLevel ? ` · ${myLevel.name}` : ""}
           </p>
-          <p className="text-[13px] tabular-nums text-[#6b7280]">{me.points} points</p>
+          <p className="mt-0.5 text-[14px] tabular-nums text-[#6b7280]">
+            {myRow ? `${myRow.points} pts this period` : `${me.points} points total`}
+          </p>
           {levels.length ? (
-            <ol className="mt-4 space-y-1.5 border-t border-[#f0f1f3] pt-3">
-              {levels.map((l) => (
-                <li key={l.level} className={`flex items-center gap-2 text-[13px] ${l.level === me.level ? "font-semibold text-[#1a1a2e]" : "text-[#6b7280]"}`}>
-                  <span className="w-5 tabular-nums">{l.level}</span>
-                  <span className="truncate">{l.name}</span>
-                </li>
-              ))}
-            </ol>
+            <div className="mt-4 border-t border-[#f0f1f3] pt-3">
+              <p className="text-[12.5px] font-medium text-[#8a8f98]">Levels</p>
+              <ol className="mt-2 max-h-[min(320px,50vh)] space-y-1 overflow-y-auto pr-0.5 [-webkit-overflow-scrolling:touch]">
+                {levels.map((l) => (
+                  <li key={l.level} className={`flex items-center gap-2 rounded-[8px] px-1.5 py-1 text-[13px] ${l.level === me.level ? "bg-[#f3f4f6] font-semibold text-[#1a1a2e]" : "text-[#6b7280]"}`}>
+                    <span className="w-5 shrink-0 tabular-nums">{l.level}</span>
+                    <span className="truncate">{l.name}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
           ) : null}
         </div>
       </aside>

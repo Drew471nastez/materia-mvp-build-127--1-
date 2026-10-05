@@ -304,6 +304,7 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
   const upcoming = wall?.upcoming ?? null
   const contributors = wall?.contributors ?? null
   const contributorsAll = contributors ? (contributors.basis === "points" ? (community.gamificationEnabled ? `/community/${community.slug}/leaderboard` : null) : membersHref) : null
+  const onLeaderboard = current === "leaderboard"
 
   /* What the bar is handed, the same objects from place to place, so the memoised bar is not drawn again. */
   const onMessages = useCallback(() => setChat((c) => (c ? null : {})), [])
@@ -369,7 +370,7 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
           <div
             data-community-columns="three"
             data-community-place={about ? "about" : undefined}
-            className="pb-16 pt-4 lg:grid lg:grid-cols-[260px_minmax(0,1fr)] lg:grid-rows-[auto_1fr] lg:items-start lg:gap-x-6 lg:pt-6 xl:grid-cols-[280px_minmax(0,1fr)_300px]"
+            className={`pb-16 pt-4 lg:grid lg:grid-cols-[260px_minmax(0,1fr)] lg:grid-rows-[auto_1fr] lg:items-start lg:gap-x-6 lg:pt-6 ${onLeaderboard ? "xl:grid-cols-[280px_minmax(0,1fr)]" : "xl:grid-cols-[280px_minmax(0,1fr)_300px]"}`}
           >
             {/* LEFT: the community card, and the places right under it (round 9). */}
             <div className={`hidden min-w-0 space-y-3 lg:col-start-1 lg:row-start-1 lg:block ${LAND}`} data-community-left="">
@@ -377,11 +378,11 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
               <WallPlaces entries={entries} />
             </div>
             {/* RIGHT from 1280px (under the places from 1024px): the next event, then who takes part, sticking under the bar. About has its own card there. */}
-            <aside className={`hidden min-w-0 lg:col-start-1 lg:row-start-2 lg:mt-3 xl:col-start-3 xl:row-span-2 xl:row-start-1 xl:mt-0 xl:self-stretch ${about ? "" : "lg:block"} ${LAND}`} data-community-right="">
-              {upcoming || contributors ? (
+            <aside className={`hidden min-w-0 lg:col-start-1 lg:row-start-2 lg:mt-3 xl:col-start-3 xl:row-span-2 xl:row-start-1 xl:mt-0 xl:self-stretch ${about ? "" : "lg:block"} ${LAND}`} data-community-right="" data-leaderboard-page={onLeaderboard ? "" : undefined}>
+              {upcoming || (contributors && !onLeaderboard) ? (
                 <div className="space-y-3 xl:sticky xl:top-[calc(var(--community-top,65px)+24px)]" data-community-right-cards="">
                   {upcoming ? <WallUpcoming slug={community.slug} event={upcoming} /> : null}
-                  {contributors ? <WallContributorsCard slug={community.slug} data={contributors} viewAllHref={contributorsAll} /> : null}
+                  {contributors && !onLeaderboard ? <WallContributorsCard slug={community.slug} data={contributors} viewAllHref={contributorsAll} /> : null}
                 </div>
               ) : null}
             </aside>
