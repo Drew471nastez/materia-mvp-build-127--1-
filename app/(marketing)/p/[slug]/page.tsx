@@ -985,15 +985,15 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   )
 
   const MainProductContent = (
-    <div className="grid gap-8 lg:grid-cols-5 lg:gap-12 lg:items-start w-full">
+    <div className="w-full">
+      {/* Above both columns on a wide screen, so the gallery and the buy card start on the same line. */}
+      <DiscoverBackBreadcrumb
+        showOnWeb={showDiscoverBreadcrumb}
+        creatorHref={creatorPageHref(creatorUsername)}
+        creatorName={creatorProfile?.display_name || creator?.name || undefined}
+      />
+      <div className="grid gap-8 lg:grid-cols-5 lg:gap-12 lg:items-start w-full">
       <div className="lg:col-span-3 min-w-0 w-full">
-        {/* Back button above product cover image — always visible on Capacitor native,
-            on web only when ?recommended=1 (e.g. clicked from More From Seller section) */}
-        <DiscoverBackBreadcrumb
-          showOnWeb={showDiscoverBreadcrumb}
-          creatorHref={creatorPageHref(creatorUsername)}
-          creatorName={creatorProfile?.display_name || creator?.name || undefined}
-        />
         {galleryImages.length > 0 || videoFileUrl || youtubeUrls.length > 0 ? (
           <ProductGallery
             images={galleryImages}
@@ -1561,6 +1561,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
 
         </div>
       </div>
+    </div>
     </div>
   )
 

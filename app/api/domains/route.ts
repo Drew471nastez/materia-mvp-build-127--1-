@@ -29,6 +29,7 @@ import {
   type DomainRow,
   type Schema,
 } from "@/lib/custom-domains/store"
+import { disableStripePaymentDomains } from "@/lib/custom-domains/stripe-pmd"
 import { HOST_RESERVED_SUFFIXES } from "@/lib/custom-domains/targets"
 import { addDomainHosts, recommendedRecords, removeDomainHosts, vercelConfigured } from "@/lib/custom-domains/vercel"
 import { creatorSitePlan } from "@/lib/sites/plan-server"
@@ -350,6 +351,8 @@ export async function DELETE(request: Request) {
     const domainRecord = rows.find((r) => r.id === domainId)
     if (!domainRecord) return NextResponse.json({ error: "Domain not found" }, { status: 404 })
     const purpose = purposeOf(domainRecord)
+
+    await disableStripePaymentDomains(admin, domainRecord.domain)
 
     const { error } = await admin.from("custom_domains").delete().eq("id", domainId).eq("creator_id", creatorId)
     if (error) {

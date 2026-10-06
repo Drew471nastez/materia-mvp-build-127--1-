@@ -8,6 +8,7 @@ import { CNAME_TARGET, apexOf, isApexHost, recordsFor, servingHost, vercelHostsF
 import { creatorDomainsTag, listCreatorDomains, purposeOf, saveRecords, syncOnepageDomain } from "@/lib/custom-domains/store"
 import { addDomainHosts, httpsAnswers, recommendedRecords, verifyProjectDomain } from "@/lib/custom-domains/vercel"
 import { fixesFor, readRecord, recordFqdn, type RecordCheck } from "@/lib/custom-domains/dns-help"
+import { syncStripePaymentDomains } from "@/lib/custom-domains/stripe-pmd"
 import { LEGACY_CNAMES, SERVING_IPS, isServingCname } from "@/lib/custom-domains/targets"
 
 /**
@@ -170,6 +171,7 @@ export async function POST(request: Request) {
         .eq("creator_id", creatorId)
       revalidateTag(creatorDomainsTag(creatorId), "max")
       if (purpose === "creator_page") await syncOnepageDomain(admin, creatorId, userId)
+      await syncStripePaymentDomains(admin, domainId, domain)
     }
 
     // ============================================================
