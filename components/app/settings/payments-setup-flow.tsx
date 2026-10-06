@@ -840,7 +840,12 @@ const SETUP_COLLECTION = {
   fields: "eventually_due" as const,
   futureRequirements: "omit" as const,
   requirements: {
-    exclude: ["business_type", "individual.verification.proof_of_liveness", "individual.verification.additional_document"],
+    exclude: [
+      "business_type",
+      "individual.verification.proof_of_liveness",
+      "individual.verification.additional_document",
+      "documents.bank_account_ownership_verification",
+    ],
   },
 }
 
@@ -890,7 +895,6 @@ function SetupEmbed({ data, onData, onExit }: { data: Overview; onData: (next: O
   return (
     <div className="flex min-h-full flex-1 flex-col" data-id-embed="">
       <div className="flex-1 px-5 sm:px-7">
-        <StepIntro title="Set up payouts" line="Stripe checks your ID to confirm you are who you say you are. It goes straight to Stripe, and Storelib never sees or keeps the document." />
         <StripeConnectEmbedded
           purpose={existed.current ? "stripe_management" : "stripe_onboarding"}
           collection={SETUP_COLLECTION}

@@ -145,7 +145,7 @@ check("    and it asks again while it is open, becoming active by itself", /outc
 const idClient = readFileSync("lib/payments/identity-client.ts", "utf8")
 check("Stripe's hosted page still exists, and the step does not open it", /openHostedVerification/.test(idClient) && !/openHostedVerification|openIdentity/.test(flow))
 check("  setup is Stripe's embedded form, on this page", /data-id-embed/.test(flow) && /stripe_onboarding/.test(flow) && /stripe_management/.test(flow) && /StripeConnectEmbedded/.test(flow))
-check("  it does not ask what kind of seller you are, or for a live selfie, or for an extra address document", /const SETUP_COLLECTION = \{[\s\S]*?exclude: \["business_type", "individual\.verification\.proof_of_liveness", "individual\.verification\.additional_document"\]/.test(flow))
+check("  it does not ask what kind of seller you are, or for a live selfie, an extra address document, or a bank-ownership file", /business_type",\s*"individual\.verification\.proof_of_liveness",\s*"individual\.verification\.additional_document",\s*"documents\.bank_account_ownership_verification"/.test(flow))
 check("  and the step never leaves for Stripe", !/location\.assign|window\.open|Verify with Stripe|Opening Stripe|openHostedVerification/.test(flow))
 /*
   Round 14, the owner with a screenshot of step two: "Stripe would not start

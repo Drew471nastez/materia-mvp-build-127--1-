@@ -100,8 +100,12 @@ export function StorelibPaymentsSettings({
    * details form with only what it asked for, the way Gumroad comes back for
    * more: it used to fall through to the bank form, because setup was done.
    */
-  const modeFor = (action: StatusAction | undefined): SetupMode =>
-    action === "bank" || action === "change_bank" ? "bank" : action === "onboarding" ? (beat === "done" ? "details" : "setup") : beat === "done" ? "bank" : "setup"
+  /* Until payouts are on, every open is Stripe's embedded setup. Our own fields are only for a finished account: the bank, or a later review. */
+  const modeFor = (action: StatusAction | undefined): SetupMode => {
+    if (beat !== "done") return "setup"
+    if (action === "bank" || action === "change_bank") return "bank"
+    return "details"
+  }
 
   /*
     THE PRESS OPENS IT, NOT THE ANSWER. This used to wait for the overview
@@ -266,9 +270,9 @@ export function StorelibPaymentsSettings({
               title="Payout account"
               line={data.payoutDestination?.last4 ? maskedBank(data.payoutDestination) : "Add a bank account"}
               action={data.payoutDestination?.last4 ? "Change" : "Add"}
-              onClick={() => openPanel("bank")}
+              onClick={() => openPanel(beat === "done" ? "bank" : "setup")}
             />
-            <Row icon={<UserRound className="h-4 w-4" />} title="Account details" line="Name, address and identity" action="Review" onClick={() => openPanel("details")} />
+            <Row icon={<UserRound className="h-4 w-4" />} title="Account details" line="Name, address and identity" action="Review" onClick={() => openPanel(beat === "done" ? "details" : "setup")} />
           </div>
         ) : view?.status === "VERIFYING" || (!view && beat === "review") ? (
           <Empty icon={<Clock className="h-5 w-5" />} title="Verification in progress" line="We're checking your information. No action is needed right now." />
