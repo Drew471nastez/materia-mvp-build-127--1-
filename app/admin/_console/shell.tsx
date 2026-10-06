@@ -40,6 +40,7 @@ export const NAV: { group: string | null; items: NavItem[] }[] = [
       { id: "people", label: "People" },
       { href: "/admin/communities", label: "Communities" },
       { href: "/admin/onboarding", label: "Onboarding" },
+      { href: "/admin/payouts-setup", label: "Payout setup" },
     ],
   },
   {

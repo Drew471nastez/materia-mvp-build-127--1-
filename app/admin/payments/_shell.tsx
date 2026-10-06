@@ -14,6 +14,7 @@ const LINKS = [
   { href: "/admin/payments/disputes", label: "Disputes" },
   { href: "/admin/payments/fees", label: "Fees" },
   { href: "/admin/payments/simulator", label: "Simulator" },
+  { href: "/admin/payouts-setup", label: "Setup" },
   { href: "/admin/payments/webhooks", label: "Webhooks" },
   { href: "/admin/payments/configuration", label: "Configuration" },
 ] as const
