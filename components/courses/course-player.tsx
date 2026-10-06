@@ -555,7 +555,7 @@ function Curriculum({ data, progress, currentId, onPick }: { data: PlayerData; p
                       className={`flex w-full items-center gap-2.5 rounded-[12px] px-2.5 py-3 text-left transition-[background-color] duration-200 ease-out motion-reduce:transition-none ${
                         current
                           ? "bg-[#f4f4f5] shadow-[inset_2px_0_0_0_#1a1a2e]"
-                          : "hover:-translate-y-px hover:bg-[#f7f8f9] hover:shadow-[0_1px_4px_-2px_rgba(16,24,40,0.1)] active:translate-y-0"
+                          : "hover:bg-[#f7f8f9]"
                       } ${l.locked ? "cursor-default opacity-70" : ""}`}
                     >
                       <span className="flex h-5 w-5 shrink-0 items-center justify-center">
