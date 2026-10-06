@@ -144,7 +144,7 @@ check("    and it asks again while it is open, becoming active by itself", /outc
 /* The owner, October 2026: Stripe does not take the photo we send. Verify ID is Stripe's own embedded check, on this page, and it never leaves for Stripe's site. */
 const idClient = readFileSync("lib/payments/identity-client.ts", "utf8")
 check("Stripe's hosted page still exists, and the step does not open it", /openHostedVerification/.test(idClient) && !/openHostedVerification|openIdentity/.test(flow))
-check("  Verify ID is Stripe's embedded component, inside the page", /data-id-embed/.test(flow) && /purpose="stripe_onboarding"/.test(flow) && /StripeConnectEmbedded/.test(flow))
+check("  Verify ID is Stripe's account form, inside the page, not the finished-onboarding screen", /data-id-embed/.test(flow) && /purpose="stripe_management"/.test(flow) && /StripeConnectEmbedded/.test(flow) && !/purpose="stripe_onboarding"/.test(flow))
 check("  it asks only for the ID, not the kind of seller or an extra address document", /const ID_COLLECTION = \{[\s\S]*?only: \["individual\.verification\.document", "individual\.verification\.proof_of_liveness"\]/.test(flow))
 check("  and the step never leaves for Stripe", !/location\.assign|window\.open|Verify with Stripe|Opening Stripe|openHostedVerification/.test(flow))
 /*

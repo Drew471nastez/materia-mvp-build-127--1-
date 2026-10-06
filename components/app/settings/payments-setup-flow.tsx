@@ -751,8 +751,16 @@ export function PaymentsSetupFlow({
         key={`id-${openCount}`}
         onBack={() => go(stepBefore(2))}
         onDone={async () => {
-          const next = await post<Overview>("refresh")
-          const form = await post<DetailsForm>("details-form", {}).catch(() => null)
+          /* The form saves into Stripe on its own. Give that a moment, then read what Stripe holds. */
+          let next = await post<Overview>("refresh")
+          let form = await post<DetailsForm>("details-form", {}).catch(() => null)
+          for (let i = 0; i < 3; i++) {
+            const still = !!form && form.needs.fields.includes("document") && !form.needs.given?.includes("document")
+            if (!still) break
+            await new Promise((r) => setTimeout(r, 700))
+            next = await post<Overview>("refresh")
+            form = await post<DetailsForm>("details-form", {}).catch(() => null)
+          }
           const still = !!form && form.needs.fields.includes("document") && !form.needs.given?.includes("document")
           if (still) return false
           if (form?.needs.given?.includes("document")) idSent.current = true
@@ -847,11 +855,12 @@ export function PaymentsSetupFlow({
   )
 }
 /*
- * VERIFY ID, INSIDE THIS PAGE. Stripe's own embedded check, not a photo we
- * send and not a page on Stripe's site. Only the identity document (and a
- * liveness check where Stripe lists one). What kind of seller you are, and
- * any extra address document, are not in the list, so those steps are not
- * drawn. Personal info and the bank stay Storelib's own forms.
+ * VERIFY ID, INSIDE THIS PAGE. Personal info is already saved, so Stripe's
+ * onboarding component only says the account is done and never asks for the
+ * ID. The account form does: it collects what is still owed, and this list
+ * is only the identity document (and a liveness check where Stripe lists
+ * one). What kind of seller you are, and an extra address document, are not
+ * in it. The page is never left.
  */
 const ID_COLLECTION = {
   fields: "eventually_due" as const,
@@ -873,7 +882,7 @@ function IdEmbedStep({ onBack, onDone }: { onBack: () => void; onDone: () => Pro
     try {
       const left = await onDone()
       if (!left) {
-        setNote("Finish the ID check above. It stays on this page.")
+        setNote("Add your ID in the form, then continue.")
         going.current = false
         setBusy(false)
       }
@@ -888,7 +897,7 @@ function IdEmbedStep({ onBack, onDone }: { onBack: () => void; onDone: () => Pro
       <div className="flex-1 px-5 sm:px-7">
         <StepIntro title="Verify your ID" line="Stripe checks your ID to confirm you are who you say you are. It goes straight to Stripe, and Storelib never sees or keeps the document." />
         <div className="mt-4" data-id-embed="">
-          <StripeConnectEmbedded purpose="stripe_onboarding" collection={ID_COLLECTION} onExit={() => void finish()} />
+          <StripeConnectEmbedded purpose="stripe_management" collection={ID_COLLECTION} />
         </div>
         {note ? <p className="mt-3 text-[13px] leading-5 text-[#6b7280]">{note}</p> : null}
       </div>
