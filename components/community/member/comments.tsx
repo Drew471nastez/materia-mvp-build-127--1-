@@ -492,30 +492,52 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
     return () => mq.removeEventListener("change", sync)
   }, [dockComposer])
   /*
-    The dock is position:fixed and already sits on the keyboard. Scrolling the
-    document to "keep the field in sight" (or letting the browser do it) pans
-    the post away and leaves a blank band above the box.
+    A phone pans the page to reveal a field, even a fixed one, and that pan
+    is what cuts the picture and leaves the white band. Hold the page where
+    it was for as long as the dock is being typed in. The dock itself is
+    portalled onto <html>, so fixing the body does not take the box with it.
   */
   useEffect(() => {
     if (!dockPhone) return
-    const pin = (x: number, y: number) => {
-      const snap = () => {
-        if (window.scrollX !== x || window.scrollY !== y) window.scrollTo(x, y)
-      }
-      requestAnimationFrame(snap)
-      window.setTimeout(snap, 50)
-      window.setTimeout(snap, 280)
-      const vv = window.visualViewport
-      vv?.addEventListener("scroll", snap)
-      window.setTimeout(() => vv?.removeEventListener("scroll", snap), 420)
+    const body = document.body
+    let locked = false
+    let y = 0
+    const lock = () => {
+      if (locked) return
+      y = window.scrollY
+      body.style.position = "fixed"
+      body.style.top = `-${y}px`
+      body.style.left = "0"
+      body.style.right = "0"
+      body.style.width = "100%"
+      locked = true
     }
-    const onFocusIn = (ev: FocusEvent) => {
-      const t = ev.target
-      if (!(t instanceof HTMLElement) || !t.closest("[data-comments-composer='dock']")) return
-      pin(window.scrollX, window.scrollY)
+    const unlock = () => {
+      if (!locked) return
+      body.style.position = ""
+      body.style.top = ""
+      body.style.left = ""
+      body.style.right = ""
+      body.style.width = ""
+      locked = false
+      window.scrollTo(0, y)
     }
-    document.addEventListener("focusin", onFocusIn, true)
-    return () => document.removeEventListener("focusin", onFocusIn, true)
+    const inDock = (node: EventTarget | null) => node instanceof Element && !!node.closest("[data-comments-composer='dock']")
+    const onPointerDown = (ev: Event) => {
+      if (inDock(ev.target)) lock()
+    }
+    const onFocusOut = () => {
+      window.setTimeout(() => {
+        if (!inDock(document.activeElement)) unlock()
+      }, 60)
+    }
+    document.addEventListener("pointerdown", onPointerDown, true)
+    document.addEventListener("focusout", onFocusOut, true)
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown, true)
+      document.removeEventListener("focusout", onFocusOut, true)
+      unlock()
+    }
   }, [dockPhone])
 
   const composer =
@@ -554,7 +576,7 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
     )
 
   const listGap = open && !pinComposer && !(dockComposer && dockPhone) ? "mt-6" : "mt-4"
-  const dockedComposer = dockComposer && dockPhone && typeof document !== "undefined" ? createPortal(composer, document.body) : null
+  const dockedComposer = dockComposer && dockPhone && typeof document !== "undefined" ? createPortal(composer, document.documentElement) : null
   const composerInColumn = !pinComposer && (!dockComposer || !dockPhone)
 
   return (
