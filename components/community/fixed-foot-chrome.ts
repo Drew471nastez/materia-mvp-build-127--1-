@@ -11,12 +11,16 @@ export const COMMUNITY_FIXED_FOOT_VAR = "--community-fixed-foot-h"
 /** CSS bottom offset for a pill/toast above join bars and buyer tabs. */
 export const COMMUNITY_FLOAT_BOTTOM = `max(calc(16px + env(safe-area-inset-bottom, 0px)), calc(var(${COMMUNITY_FIXED_FOOT_VAR}, 0px) + 12px), calc(var(--buyer-tabs-h, 0px) + 12px))`
 
-/** Fixed comment composer on a phone: sits on the tab bar, lifts with the keyboard (--kb-inset). */
-export const COMMENT_COMPOSER_DOCK_BOTTOM = `var(--buyer-tabs-h, 0px)`
-export const COMMENT_COMPOSER_DOCK_LIFT = `translateY(calc(-1 * var(--kb-inset, 0px)))`
+/**
+ * Fixed comment composer on a phone. Its layout box sits on the tab bar, or
+ * on the keyboard when that is taller. Bottom (not a translate) so the field
+ * is already in the visible area and the browser does not pan the post up
+ * under the keys, which left a blank band and cut the picture.
+ */
+export const COMMENT_COMPOSER_DOCK_BOTTOM = `max(var(--buyer-tabs-h, 0px), var(--kb-inset, 0px))`
 
-/** Scroll padding under a docked composer (field + keyboard + tab bar + join bars). */
-export const COMMENT_COMPOSER_DOCK_SCROLL_PAD = `calc(92px + var(--kb-inset, 0px) + var(--buyer-tabs-h, 0px) + var(${COMMUNITY_FIXED_FOOT_VAR}, 0px))`
+/** Room under the comments so the last line clears the dock. Not the keyboard: that box is fixed and must not stretch the page. */
+export const COMMENT_COMPOSER_DOCK_SCROLL_PAD = `calc(100px + var(--buyer-tabs-h, 0px) + var(${COMMUNITY_FIXED_FOOT_VAR}, 0px))`
 
 let observers = 0
 let ro: ResizeObserver | null = null

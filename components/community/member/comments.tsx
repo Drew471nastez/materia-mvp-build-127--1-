@@ -100,8 +100,7 @@ import { actOnContent } from "./moderation"
 import { press, useIntent } from "./post-intent"
 import { ReportSheet } from "./report-sheet"
 import { toast } from "./toast"
-import { COMMENT_COMPOSER_DOCK_BOTTOM, COMMENT_COMPOSER_DOCK_LIFT, COMMENT_COMPOSER_DOCK_SCROLL_PAD } from "@/components/community/fixed-foot-chrome"
-import { useKeepFieldInSight } from "./keep-in-sight"
+import { COMMENT_COMPOSER_DOCK_BOTTOM, COMMENT_COMPOSER_DOCK_SCROLL_PAD } from "@/components/community/fixed-foot-chrome"
 import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY } from "./ui"
 import { memberHref } from "./person-href"
 import { RoleBadge } from "./role-badge"
@@ -492,7 +491,32 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
     mq.addEventListener("change", sync)
     return () => mq.removeEventListener("change", sync)
   }, [dockComposer])
-  useKeepFieldInSight(dockPhone, () => (typeof document === "undefined" ? null : (document.scrollingElement as HTMLElement | null)))
+  /*
+    The dock is position:fixed and already sits on the keyboard. Scrolling the
+    document to "keep the field in sight" (or letting the browser do it) pans
+    the post away and leaves a blank band above the box.
+  */
+  useEffect(() => {
+    if (!dockPhone) return
+    const pin = (x: number, y: number) => {
+      const snap = () => {
+        if (window.scrollX !== x || window.scrollY !== y) window.scrollTo(x, y)
+      }
+      requestAnimationFrame(snap)
+      window.setTimeout(snap, 50)
+      window.setTimeout(snap, 280)
+      const vv = window.visualViewport
+      vv?.addEventListener("scroll", snap)
+      window.setTimeout(() => vv?.removeEventListener("scroll", snap), 420)
+    }
+    const onFocusIn = (ev: FocusEvent) => {
+      const t = ev.target
+      if (!(t instanceof HTMLElement) || !t.closest("[data-comments-composer='dock']")) return
+      pin(window.scrollX, window.scrollY)
+    }
+    document.addEventListener("focusin", onFocusIn, true)
+    return () => document.removeEventListener("focusin", onFocusIn, true)
+  }, [dockPhone])
 
   const composer =
     open ? (
@@ -500,7 +524,7 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
         className={
           dockComposer
             ? dockPhone
-              ? "fixed inset-x-0 bottom-0 z-[80] border-t border-[#f0f1f3] bg-white px-4 pt-2 shadow-[0_-8px_24px_-16px_rgba(16,24,40,0.18)] transition-[translate] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none"
+              ? "fixed inset-x-0 z-[80] border-t border-[#f0f1f3] bg-white px-4 pt-2 shadow-[0_-8px_24px_-16px_rgba(16,24,40,0.18)]"
               : "relative"
             : pinComposer
               ? "sticky bottom-0 z-[3] -mx-4 border-t border-[#f0f1f3] bg-white px-4 pt-2 shadow-[0_-10px_28px_-18px_rgba(16,24,40,0.14)] sm:mx-0"
@@ -510,8 +534,7 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
           dockComposer && dockPhone
             ? {
                 bottom: COMMENT_COMPOSER_DOCK_BOTTOM,
-                translate: COMMENT_COMPOSER_DOCK_LIFT,
-                paddingBottom: "max(env(safe-area-inset-bottom, 0px), 10px)",
+                paddingBottom: "max(10px, calc(env(safe-area-inset-bottom, 0px) - var(--kb-inset, 0px)))",
               }
             : pinComposer
               ? {
