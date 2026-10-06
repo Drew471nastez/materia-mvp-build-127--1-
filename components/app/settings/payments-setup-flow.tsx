@@ -1125,6 +1125,7 @@ function DetailsStep({
   /* Phone: the camera. Computer: a code for the phone. Null until the first paint in the browser. */
   const [idDevice, setIdDevice] = React.useState<"phone" | "desk" | null>(null)
   const [cameraSide, setCameraSide] = React.useState<IdSide | null>(null)
+  const [cameraJob, setCameraJob] = React.useState<"document" | "proofOfAddress">("document")
   /* need, then the back after the front, then sent once Stripe has the photo. */
   const [idPhase, setIdPhase] = React.useState<"need" | "back" | "sent">("need")
   const [handoffUrl, setHandoffUrl] = React.useState("")
@@ -1275,7 +1276,7 @@ function DetailsStep({
       data.set("side", side)
       data.set("file", blob, blob.type === "application/pdf" ? "document.pdf" : "document.jpg")
       setSentPct(0)
-      const res = await sendIdPhoto<{ form: DetailsForm }>("/api/payments/document", data, setSentPct)
+      const res = await sendIdPhoto<{ form: DetailsForm }>("/api/payments/document", data, setSentPct, 30_000)
       setUploaded((u) => ({ ...u, [key]: true }))
       playAskSound("done")
       setForm((f) => (f ? { ...res.form, needs: { ...res.form.needs, fields: f.needs.fields } } : res.form))
@@ -1445,9 +1446,10 @@ function DetailsStep({
     window.setTimeout(() => void askStripe(), 400)
   }
 
-  const openIdCamera = (side: IdSide) => {
+  const openIdCamera = (side: IdSide, job: "document" | "proofOfAddress" = "document") => {
     armCameraSounds()
     setIdProblem(null)
+    setCameraJob(job)
     setCameraSide(side)
     startCamera.current?.()
   }
@@ -1464,7 +1466,7 @@ function DetailsStep({
       data.set("side", side)
       data.set("file", file)
       setSentPct(0)
-      const res = await sendIdPhoto<{ form: DetailsForm }>("/api/payments/document", data, setSentPct)
+      const res = await sendIdPhoto<{ form: DetailsForm }>("/api/payments/document", data, setSentPct, 30_000)
       setUploaded((u) => ({ ...u, [`document-${side}`]: true }))
       playAskSound("done")
       setForm((f) => (f ? { ...res.form, needs: { ...res.form.needs, fields: f.needs.fields } } : res.form))
@@ -1477,7 +1479,7 @@ function DetailsStep({
     } catch (err) {
       playAskSound("error")
       const message = err instanceof Error ? err.message : ""
-      const offline = /No connection|took too long|did not go through/i.test(message)
+      const offline = /No connection|took too long|did not go through|did not answer/i.test(message)
       if (offline) setIdProblem(verifyLine("offline"))
       else setIdProblem(safe(message || "That photo could not be used. Take it again."))
       setIdState("idle")
@@ -1536,10 +1538,14 @@ function DetailsStep({
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-[15px] font-semibold text-[#1a1a2e]">
-                    {sendingId ? `Sending ${sentPct < 99 ? `${sentPct}%` : ""}`.trim() : idPhase === "back" ? "Take the back" : "Take a photo of your ID"}
+                    {sendingId ? (sentPct >= 99 ? "Waiting for Stripe" : `Sending ${sentPct}%`) : idPhase === "back" ? "Take the back" : "Take a photo of your ID"}
                   </span>
                   <span className="mt-0.5 block text-[12.5px] leading-[17px] text-[#6b7280]">
-                    {idPhase === "back" ? "The other side of the card. A passport has no back." : "Your camera opens. Front, then the back. Storelib never sees the document."}
+                    {sendingId
+                      ? "Stripe is saving the photo. If it doesn't answer, take it again."
+                      : idPhase === "back"
+                        ? "The other side of the card. A passport has no back."
+                        : "Your camera opens. Front, then the back. Storelib never sees the document."}
                   </span>
                 </span>
               </button>
@@ -1571,7 +1577,7 @@ function DetailsStep({
         ) : (
           <StepIntro title="Your details" line="Only what Stripe needs to verify you in your country. It goes straight to Stripe and Storelib never keeps it." />
         )}
-        {form.needs.problems.length ? (
+        {only === "id" ? null : form.needs.problems.length ? (
           <div role="status" className="space-y-1 rounded-xl border border-[#fedf89] bg-[#fffcf5] px-3.5 py-3 text-[13px] leading-[19px] text-[#93370d]" data-setup-problems="">
             {form.needs.problems.map((p) => (
               <p key={p}>{p}</p>
@@ -1666,15 +1672,13 @@ function DetailsStep({
           </Field>
         ) : null}
 
-        {has("proofOfAddress") ? (
+        {has("proofOfAddress") && !(has("document") && !idVerified && !docGivenAtOpen) ? (
           <div className="space-y-2">
-            <span className="block text-[13px] font-medium text-[#1a1a2e]">Confirm your address</span>
-            <span className="block text-[12px] leading-[18px] text-[#6b7280]">
-              Stripe could not read your address from the first ID. Add a photo of an ID that shows it, like your national ID card or driving licence.
-            </span>
+            <span className="block text-[13px] font-medium text-[#1a1a2e]">One more photo</span>
+            <span className="block text-[12px] leading-[18px] text-[#6b7280]">An ID that shows your address. The same camera, then you're done.</span>
             <button
               type="button"
-              onClick={() => proofPicker.current?.click()}
+              onClick={() => (idDevice === "phone" ? openIdCamera("front", "proofOfAddress") : proofPicker.current?.click())}
               disabled={!!uploading}
               data-proof-add=""
               className={cn(
@@ -1760,7 +1764,7 @@ function DetailsStep({
         <button type="button" className={SECONDARY} onClick={onBack}>Back</button>
         <button type="submit" className={PRIMARY} disabled={busy || !!uploading}>
           {busy || uploading ? <Spinner /> : null}
-          {busy ? "Saving" : uploading ? `Sending ${sentPct < 99 ? `${sentPct}%` : ""}`.trim() : "Continue"}
+          {busy ? "Saving" : uploading && only !== "id" ? (sentPct >= 99 ? "Waiting for Stripe" : `Sending ${sentPct}%`) : "Continue"}
         </button>
       </Footer>
       <IdCamera
@@ -1772,6 +1776,11 @@ function DetailsStep({
         }}
         onPhoto={(blob) => {
           const side = cameraSide ?? "front"
+          if (cameraJob === "proofOfAddress") {
+            setCameraSide(null)
+            void upload("proofOfAddress", "front", new File([blob], "id.jpg", { type: blob.type || "image/jpeg" }))
+            return
+          }
           void sendDocumentSide(side, blob)
         }}
         onClose={() => setCameraSide(null)}

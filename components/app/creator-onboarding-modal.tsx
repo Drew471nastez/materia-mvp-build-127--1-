@@ -1922,16 +1922,11 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
    * ONE STEP'S CONTENT, BY NUMBER. Drawn for the step on screen and, for
    * the moment a step change takes, for the one leaving beside it.
    */
-  const joinOnboardingLogo = (className?: string) => (
-    <StorelibLogo size={40} className={cn("mb-5 self-start sm:mb-6", className)} style={{ boxShadow: STORELIB_LOGO_SHADOW_JOIN }} />
-  )
-
   const renderStep = (step: number) => (
     <>
         {/* Slide 1: name, photo, socials. Username and bio are the next slide. */}
         {step === JOIN_NAME && (
           <div className="mx-auto flex w-full max-w-[min(100%,600px)] flex-col items-center text-center font-sans" data-onboarding-join="profile">
-            <span className="sm:hidden">{joinOnboardingLogo("self-center")}</span>
             <h1 className="text-[28px] font-bold leading-[1.15] tracking-[-0.03em] text-[#1a1a2e] sm:text-[30px]">Create a profile</h1>
             <p className="mt-1.5 text-[15px] leading-6 text-[#6b7280]">Add a name, photo and links to get started.</p>
             <button
@@ -2598,7 +2593,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
             <div className="grid shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-2 px-3 pt-3 sm:gap-4 sm:px-6 sm:pt-7">
               <div className="flex min-w-0 items-center justify-start">
                 {isJoinStep(currentStep) && currentStep !== JOIN_DONE ? (
-                  <span className="hidden sm:inline-flex" data-onboarding-join-mark="">
+                  <span className="inline-flex shrink-0" data-onboarding-join-mark="">
                     <StorelibLogo size={36} style={{ boxShadow: STORELIB_LOGO_SHADOW_JOIN }} />
                   </span>
                 ) : null}
