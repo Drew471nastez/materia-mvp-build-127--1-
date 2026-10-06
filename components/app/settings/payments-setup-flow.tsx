@@ -726,24 +726,12 @@ export function PaymentsSetupFlow({
         bankOnly={mode === "bank"}
         onData={onData}
         onExit={async () => {
+          /* Stripe's own back and Continue stay in charge until payouts are actually on. */
           const next = await post<Overview>("refresh")
-          const form = await post<DetailsForm>("details-form", {}).catch(() => null)
           onData(next)
-          if (form?.needs.given?.includes("document")) idSent.current = true
-          setCheckingWhat(idSent.current ? "id" : "details")
-          const outcome = outcomeOf(statusOf(next))
-          if (outcome === "done") {
-            onFinished()
-            setEnding("done")
-            return
-          }
-          if (outcome === "bank" && !next.payoutDestination) {
-            setEnding("bank")
-            return
-          }
-          /* The review screen has no Stripe button. Continue has to leave it. */
+          if (outcomeOf(statusOf(next)) !== "done") return
           onFinished()
-          setEnding("checking")
+          setEnding("done")
         }}
       />
     )
@@ -894,22 +882,14 @@ function SetupEmbed({ data, onData, onExit, bankOnly = false }: { data: Overview
       </div>
     )
   }
-  const review = bankOnly || existed.current
   return (
     <div className="flex min-h-full w-full flex-1 flex-col" data-id-embed="">
       <StripeConnectEmbedded
         className="w-full px-3 sm:px-5"
-        purpose={review ? "stripe_management" : "stripe_onboarding"}
+        purpose={bankOnly ? "stripe_management" : "stripe_onboarding"}
         collection={bankOnly ? { fields: "currently_due", futureRequirements: "omit", requirements: { only: ["external_account"] } } : SETUP_COLLECTION}
         onExit={() => void onExit()}
       />
-      {review ? (
-        <div className="sticky bottom-0 z-10 mt-2 shrink-0 border-t border-[#f1f2f4] bg-white px-4 py-3 sm:rounded-b-2xl">
-          <button type="button" className={cn(PRIMARY, "w-full")} onClick={() => void onExit()}>
-            Continue
-          </button>
-        </div>
-      ) : null}
     </div>
   )
 }
