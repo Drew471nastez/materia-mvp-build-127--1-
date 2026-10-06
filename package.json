@@ -129,6 +129,7 @@
     "@types/react-dom": "^19",
     "@types/sanitize-html": "^2.16.1",
     "@types/web-push": "^3.6.4",
+    "baseline-browser-mapping": "^2.11.27",
     "eslint": "10.1.0",
     "postcss": "^8.5",
     "tailwindcss": "^4.1.9",

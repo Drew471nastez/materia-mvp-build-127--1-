@@ -113,7 +113,7 @@ export function PostPage({ slug, viewer, post: initialPost, comments: initial, m
   }, [slug, post.id, post.title, post.bodyText])
 
   return (
-    <div className={`space-y-3 ${visitor ? "pb-28" : "pb-10"}`} data-post-page={visitor ? "visitor" : "member"}>
+    <div className={`space-y-3 ${visitor ? "pb-28" : "max-sm:pb-4 sm:pb-10"}`} data-post-page={visitor ? "visitor" : "member"}>
       {visitor ? null : <PostPageBack href={backHref} label={backLabel} />}
       <PostCard post={post} slug={slug} viewer={viewer} update={updatePost} full readOnly={readOnly} autoEdit={autoEdit} onComment={() => (open ? box.current?.focus() : document.getElementById("comments")?.scrollIntoView({ block: "start" }))} />
 

@@ -56,9 +56,21 @@ function closedRecently(): boolean {
 
 export function OpenInAppPill() {
   const pathname = usePathname() || "/"
+  const onPostPage = /\/post\//.test(pathname.split(/[?#]/)[0])
   const [phone, setPhone] = useState<Phone | null>(null)
   const [shown, setShown] = useState(false)
   const [keyboard, setKeyboard] = useState(false)
+  const [postOpen, setPostOpen] = useState(false)
+  useEffect(() => {
+    const read = () => {
+      const root = document.querySelector<HTMLElement>("[data-post-overlay-root]")
+      setPostOpen(!!root && root.style.pointerEvents !== "none")
+    }
+    read()
+    const mo = new MutationObserver(read)
+    mo.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["style", "data-post-overlay-phase"] })
+    return () => mo.disconnect()
+  }, [])
   useEffect(() => {
     const read = () => {
       const vv = window.visualViewport
@@ -129,7 +141,7 @@ export function OpenInAppPill() {
   return (
     <>
       {/^\d+$/.test(APP_STORE_ID) ? <meta name="apple-itunes-app" content={`app-id=${APP_STORE_ID}, app-argument=https://storelib.com${pathname}`} /> : null}
-      {phone && !keyboard ? (
+      {phone && !keyboard && !onPostPage && !postOpen ? (
         <div
           data-open-app-pill={phone}
           data-state={shown ? "shown" : "hidden"}

@@ -99,6 +99,7 @@ import { actOnContent } from "./moderation"
 import { press, useIntent } from "./post-intent"
 import { ReportSheet } from "./report-sheet"
 import { toast } from "./toast"
+import { COMMENT_COMPOSER_DOCK_BOTTOM, COMMENT_COMPOSER_DOCK_SCROLL_PAD } from "@/components/community/fixed-foot-chrome"
 import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY } from "./ui"
 import { memberHref } from "./person-href"
 import { RoleBadge } from "./role-badge"
@@ -490,13 +491,12 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
         style={
           dockComposer
             ? {
-                bottom: "var(--kb-inset, 0px)",
-                paddingBottom: "max(env(safe-area-inset-bottom), 10px)",
+                bottom: COMMENT_COMPOSER_DOCK_BOTTOM,
+                paddingBottom: "max(env(safe-area-inset-bottom, 0px), 10px)",
               }
             : pinComposer
               ? {
-                  marginBottom: "calc(-1 * var(--kb-inset, 0px))",
-                  paddingBottom: "calc(var(--kb-inset, 0px) + max(env(safe-area-inset-bottom), 12px))",
+                  paddingBottom: "max(env(safe-area-inset-bottom, 0px), 12px)",
                 }
               : undefined
         }
@@ -514,7 +514,12 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
   const listGap = open && !pinComposer ? "mt-6" : "mt-4"
 
   return (
-    <div data-comments-list="" data-comments-composer-pin={pinComposer || dockComposer ? "" : undefined} className={dockComposer ? "max-sm:pb-[calc(76px+env(safe-area-inset-bottom))]" : ""}>
+    <div
+      data-comments-list=""
+      data-comments-composer-pin={pinComposer || dockComposer ? "" : undefined}
+      className={`${pinComposer ? "max-sm:pb-28" : ""} ${dockComposer ? "max-sm:[padding-bottom:var(--comments-dock-pad)]" : ""}`}
+      style={dockComposer ? ({ ["--comments-dock-pad" as string]: COMMENT_COMPOSER_DOCK_SCROLL_PAD } as React.CSSProperties) : undefined}
+    >
       {!pinComposer ? composer : null}
       {open && !mediaReady && staff ? (
         <p className={`${pinComposer ? "mt-4" : "mt-7"} rounded-[10px] border border-[#f0e2bf] bg-[#fffaf0] px-3 py-2 text-[12.5px] leading-relaxed text-[#7a5a12]`} data-comments-media-note="">

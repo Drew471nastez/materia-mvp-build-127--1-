@@ -682,7 +682,7 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
       )}
 
       {/* While Edit post is open in place its own Save is the one on screen: the footer (with the bookmark's "Save") waits. */}
-      <footer className={`mt-2 flex items-center gap-1 border-t border-[#f0f1f3] pt-1 sm:mt-3 ${editing ? "sm:hidden" : ""}`}>
+      <footer className={`mt-2 flex items-center gap-0.5 border-t border-[#f0f1f3] px-0.5 pt-1.5 sm:mt-3 sm:gap-1 sm:px-0 ${editing ? "sm:hidden" : ""}`}>
         {likeButton}
         {onComment ? (
           <button type="button" onClick={onComment} className={`${BTN_GHOST} gap-2`} data-comment-button="">
@@ -712,7 +712,7 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
             <ShareIcon size={18} aria-hidden />
           </button>
         ) : null}
-        {viewer.active ? <SaveButton post={post} onPress={() => save(false)} /> : null}
+        {viewer.active ? <SaveButton post={post} full onPress={() => save(false)} /> : null}
       </footer>
 
       {dialogs}
@@ -750,11 +750,11 @@ function LikeButton({ post, full, disabled, onPress }: { post: FeedPostView; ful
 }
 
 /** Save in the opened post: the one part a save draws again. */
-function SaveButton({ post, onPress }: { post: FeedPostView; onPress: () => void }) {
+function SaveButton({ post, onPress, full = false }: { post: FeedPostView; onPress: () => void; full?: boolean }) {
   const intent = useIntent(`save:${post.id}`)
   const on = intent ? intent.on : post.bookmarked
   return (
-    <button type="button" onClick={onPress} aria-pressed={on} aria-label={on ? "Remove from Saved" : "Save"} className={`${BTN_GHOST} -mr-2 ml-auto gap-2 touch-manipulation ${on ? "text-[#1a1a2e]" : ""}`} data-save="">
+    <button type="button" onClick={onPress} aria-pressed={on} aria-label={on ? "Remove from Saved" : "Save"} className={`${BTN_GHOST} ${full ? "ml-auto pr-1" : "-mr-2 ml-auto"} gap-2 touch-manipulation ${on ? "text-[#1a1a2e]" : ""}`} data-save="">
       <Bookmark className={`h-[18px] w-[18px] ${on ? "fill-current" : ""}`} strokeWidth={1.75} aria-hidden />
       <span>{on ? "Saved" : "Save"}</span>
     </button>

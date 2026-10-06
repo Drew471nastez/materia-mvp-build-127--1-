@@ -1269,7 +1269,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
       case JOIN_NAME:
         return !!cleanName(joinName) && !joinSaving
       case JOIN_SOCIAL:
-        return !!normalizeHandle(joinHandle) && !joinSaving && (joinHandleState === "same" || joinHandleState === "free" || joinHandleState === "checking")
+        return !!normalizeHandle(joinHandle) && !joinSaving && (joinHandleState === "same" || joinHandleState === "free")
       case JOIN_DONE:
         return false
       /* Turn on notifications asks; Not now skips. Neither waits on a second press. */
@@ -1430,7 +1430,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
   }
 
   // Handle skip
-  const handleSkip = () => {
+  const handleSkip = async () => {
     if (!canSkip()) return
     if (isJoinStep(currentStep)) {
       if (currentStep === JOIN_NOTIFY) {

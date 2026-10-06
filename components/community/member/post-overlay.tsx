@@ -246,7 +246,7 @@ const OverlayContent = memo(function OverlayContent({ drawn, settled, post, slug
   return (
     <>
       {/* The post whole, without a card's edge: the panel is the card. */}
-      <div className="[&>article]:mx-0 [&>article]:w-auto [&>article]:rounded-none [&>article]:border-0 [&>article]:shadow-none" data-post-overlay-post="">
+      <div className="[&>article]:mx-0 [&>article]:w-auto [&>article]:overflow-visible [&>article]:rounded-none [&>article]:border-0 [&>article]:shadow-none" data-post-overlay-post="">
         {drawn}
       </div>
       <section id="comments" className="mt-1 border-t border-[#f0f1f3] px-4 pb-6 pt-4 sm:px-5" aria-label="Comments" data-comments="">
