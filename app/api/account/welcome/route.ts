@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { readCurrentUser } from "@/lib/auth/current-user"
 import { rateLimit } from "@/lib/api/rate-limit"
 import { cleanName } from "@/lib/profile/display-name"
-import { WELCOMED_KEY, cleanBio } from "@/lib/account/welcome"
+import { JOIN_STEP_KEY, JOIN_STEP_PROFILE, JOIN_STEP_USERNAME, WELCOMED_KEY, cleanBio } from "@/lib/account/welcome"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -47,7 +47,7 @@ function socialUrl(kind: "instagram" | "tiktok" | "youtube" | "linkedin", handle
 }
 
 export async function POST(request: NextRequest) {
-  let body: { name?: unknown; bio?: unknown; skip?: unknown; done?: unknown; socials?: unknown } | null
+  let body: { name?: unknown; bio?: unknown; skip?: unknown; done?: unknown; socials?: unknown; progress?: unknown } | null
   try {
     body = await request.json()
   } catch {
@@ -65,6 +65,14 @@ export async function POST(request: NextRequest) {
 
   const limited = await rateLimit({ bucket: "account-welcome", subjects: [`user:${user.id}`], windows: [{ limit: 20, seconds: 600 }] })
   if (limited) return limited
+
+  if (body.progress !== undefined) {
+    const step = body.progress && typeof body.progress === "object" ? (body.progress as { step?: unknown }).step : null
+    if (step === JOIN_STEP_PROFILE || step === JOIN_STEP_USERNAME) {
+      await supabase.auth.updateUser({ data: { [JOIN_STEP_KEY]: step } })
+    }
+    return NextResponse.json({ ok: true }, { headers: NO_STORE })
+  }
 
   if (body.socials !== undefined) {
     const raw = body.socials && typeof body.socials === "object" ? (body.socials as Record<string, unknown>) : {}
@@ -123,7 +131,7 @@ export async function POST(request: NextRequest) {
 
   if (body.skip === true || body.done === true) {
     if (user.user_metadata?.[WELCOMED_KEY] !== true) {
-      const { error } = await supabase.auth.updateUser({ data: { [WELCOMED_KEY]: true } })
+      const { error } = await supabase.auth.updateUser({ data: { [WELCOMED_KEY]: true, [JOIN_STEP_KEY]: null } })
       if (error) console.error("[welcome] not marked", error.message)
     }
     return NextResponse.json({ ok: true }, { headers: NO_STORE })

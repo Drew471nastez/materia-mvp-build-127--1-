@@ -3,7 +3,7 @@ import { redirect } from "next/navigation"
 import { currentUserForRequest, profileForRequest, sellerAccessForRequest } from "@/lib/auth/request-scope"
 import { shouldSendToLogin } from "@/lib/auth/current-user"
 import { hasSellerAccess } from "@/lib/account/seller-access"
-import { WELCOMED_KEY, welcomeDone } from "@/lib/account/welcome"
+import { JOIN_STEP_USERNAME, readJoinStep, WELCOMED_KEY, welcomeDone } from "@/lib/account/welcome"
 import { BUYER_HOME, SELLER_HOME, safeNext, withCarry } from "@/lib/auth/continue"
 import { getMainDomain } from "@/lib/url-helpers"
 import { isStandInName, nameFromEmail, personName, providerNameOf } from "@/lib/profile/display-name"
@@ -68,5 +68,7 @@ export default async function StartPage({ searchParams }: { searchParams: Promis
     bio = ""
   }
 
-  return <StartOnboarding next={next} name={name} username={profile?.username?.trim() || null} avatar={avatar} bio={bio} />
+  const joinStep = readJoinStep(meta) ?? (profile?.username?.trim() ? JOIN_STEP_USERNAME : null)
+
+  return <StartOnboarding next={next} name={name} username={profile?.username?.trim() || null} avatar={avatar} bio={bio} joinStep={joinStep} />
 }

@@ -33,8 +33,16 @@ import { TextSwap } from "@/components/ui/text-swap"
 import { AvatarMark, DefaultAvatarGlyph } from "@/components/app/app-avatar"
 import type { OnboardingResume } from "@/lib/account/onboarding-resume"
 import { cleanName } from "@/lib/profile/display-name"
+import { JOIN_STEP_USERNAME, cleanBio, welcomeDone } from "@/lib/account/welcome"
 import { baseHandleFrom, normalizeHandle, slugifyHandle } from "@/lib/profile/username-rules"
-import { cleanBio, welcomeDone } from "@/lib/account/welcome"
+import { DEPTH, DEPTH_PRESS } from "@/components/community/member/ui"
+
+const JOIN_PROGRESS_STORAGE = "storelib_join_progress"
+
+/** Username suggestion from a display name: one clean slug, no extra suffixes. */
+function suggestedJoinHandle(name: string): string {
+  return slugifyHandle(name)
+}
 import { askPushPermission, inNativeApp, nativePlatform, phoneSettingsPath, type PushPermission } from "@/lib/native-push"
 import { startRouteLoading } from "@/components/navigation/route-loading-bar"
 
@@ -91,7 +99,9 @@ const SCROLL_EDGE_MASK = "linear-gradient(to bottom, transparent 0, #000 var(--f
   hairline. No gradients (CLAUDE.md).
 */
 const FIELD_REST = "bg-[#f4f4f5] shadow-[inset_0_0_0_1px_rgba(17,24,39,0.05),inset_0_1px_2px_rgba(17,24,39,0.05)]"
-const FIELD_WELL = "border-2 border-transparent bg-[#f4f4f5] shadow-[inset_0_0_0_1px_rgba(17,24,39,0.05),inset_0_1px_2px_rgba(17,24,39,0.05)] transition-[background-color,border-color,box-shadow] focus-within:border-[#1a1a2e] focus-within:bg-white focus-within:shadow-none"
+const FIELD_WELL = "border-2 border-transparent bg-[#f4f4f5] shadow-[inset_0_0_0_1px_rgba(17,24,39,0.05),inset_0_1px_2px_rgba(17,24,39,0.05)] transition-[background-color,border-color,box-shadow] duration-200 focus-within:border-[#6b7280] focus-within:bg-white focus-within:shadow-[inset_0_0_0_1px_rgba(107,114,128,0.12)]"
+const LOGO_TILE = "inline-flex rounded-[14px] bg-white p-2.5 shadow-[0_0_0_1px_rgba(17,24,39,0.06),0_2px_8px_-2px_rgba(17,24,39,0.12),0_1px_2px_rgba(17,24,39,0.04)]"
+const AVATAR_RING = "shadow-[0_0_0_1px_rgba(17,24,39,0.08),0_2px_8px_-2px_rgba(17,24,39,0.14)]"
 const NEXT_ON = "bg-purple-600 text-white hover:bg-purple-700 shadow-[0_1px_2px_rgba(76,29,149,0.28),0_4px_12px_-4px_rgba(124,58,237,0.45),inset_0_1px_0_rgba(255,255,255,0.18)]"
 const BACK_LOOK = "bg-white text-[#374151] shadow-[0_0_0_1px_#e5e7eb,0_1px_2px_rgba(17,24,39,0.06)] hover:bg-[#f9fafb]"
 const CATEGORY_PILL = "h-11 px-4 sm:px-5 rounded-full text-[14px] font-medium transition-[background-color,color,box-shadow]"
@@ -433,6 +443,8 @@ interface CreatorOnboardingModalProps {
    * and no redirect, so the real onboarding can be walked without a new account.
    */
   preview?: boolean
+  /** Admin simulator: called instead of a real redirect when the join flow finishes in preview. */
+  onPreviewComplete?: (destination: string) => void
   /**
    * A setup begun and not finished (lib/account/onboarding-resume): the store
    * name, bio and category typed last time, and the step it was left on.
@@ -447,6 +459,8 @@ export interface StartBranch {
   username: string | null
   avatar?: string | null
   bio?: string
+  /** Resume on the username slide when the profile step was already saved. */
+  joinStep?: number | null
 }
 
 /*
@@ -462,7 +476,7 @@ const JOIN_NOTIFY = 13
 const JOIN_DONE = 14
 const isJoinStep = (step: number) => step === JOIN_NAME || step === JOIN_SOCIAL || step === JOIN_NOTIFY || step === JOIN_DONE
 
-export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switchBack = null, leave = null, resume = null, start = null, preview = false }: CreatorOnboardingModalProps) {
+export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switchBack = null, leave = null, resume = null, start = null, preview = false, onPreviewComplete = undefined }: CreatorOnboardingModalProps) {
   const router = useRouter()
   /*
     FULL SCREEN IN THE APP, AT EVERY WIDTH. Below 640px the onboarding has
@@ -500,7 +514,8 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
   void onClose
 
   // Step management
-  const [currentStep, setCurrentStep] = useState(start ? JOIN_NAME : 1)
+  const joinStepStart = start?.joinStep === JOIN_STEP_USERNAME ? JOIN_SOCIAL : JOIN_NAME
+  const [currentStep, setCurrentStep] = useState(start ? joinStepStart : 1)
   /** The step on its way out, drawn under the new one while the two crossfade, and how far it was scrolled. */
   const [leavingStep, setLeavingStep] = useState<{ step: number; offset: number } | null>(null)
   /** The panel the steps are drawn in, so the next one starts at its top. */
@@ -593,7 +608,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
   const [joinHandle, setJoinHandle] = useState(() => {
     const fromAccount = normalizeHandle(start?.username ?? "")
     if (fromAccount) return fromAccount
-    return slugifyHandle(start?.name ?? "") || baseHandleFrom({ displayName: start?.name ?? "" })
+    return suggestedJoinHandle(start?.name ?? "")
   })
   const joinHandleEdited = useRef(!!normalizeHandle(start?.username ?? ""))
   const [joinNote, setJoinNote] = useState<string | null>(null)
@@ -617,9 +632,49 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
 
   useEffect(() => {
     if (joinHandleEdited.current) return
-    const next = slugifyHandle(joinName) || baseHandleFrom({ displayName: joinName })
-    if (next) setJoinHandle(next)
+    const next = suggestedJoinHandle(joinName)
+    if (next.length >= 3) setJoinHandle(next)
   }, [joinName])
+
+  /* Same device: restore fields if they left mid-flow without finishing. */
+  useEffect(() => {
+    if (!start || preview) return
+    try {
+      const raw = localStorage.getItem(JOIN_PROGRESS_STORAGE)
+      if (!raw) return
+      const saved = JSON.parse(raw) as {
+        step?: number
+        joinName?: string
+        joinHandle?: string
+        joinBio?: string
+        socials?: typeof socials
+      }
+      if (saved.step === JOIN_SOCIAL || saved.step === JOIN_NAME) setCurrentStep(saved.step)
+      if (saved.joinName) setJoinName(saved.joinName)
+      if (saved.joinBio) setJoinBio(saved.joinBio)
+      if (saved.socials) setSocials(saved.socials)
+      if (saved.joinHandle) {
+        joinHandleEdited.current = true
+        setJoinHandle(saved.joinHandle)
+      }
+    } catch {
+      /* ignore */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    if (!start || preview || !open) return
+    if (currentStep !== JOIN_NAME && currentStep !== JOIN_SOCIAL) return
+    try {
+      localStorage.setItem(
+        JOIN_PROGRESS_STORAGE,
+        JSON.stringify({ step: currentStep, joinName, joinHandle, joinBio, socials }),
+      )
+    } catch {
+      /* ignore */
+    }
+  }, [currentStep, joinName, joinHandle, joinBio, socials, start, preview, open])
 
   useEffect(() => {
     if (!openSocial) return
@@ -693,6 +748,11 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
         setJoinError(data.error || "That did not save. Try again in a moment.")
         return false
       }
+      await fetch("/api/account/welcome", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ progress: { step: JOIN_STEP_USERNAME } }),
+      }).catch(() => null)
       return true
     } catch {
       setJoinError("Could not reach Storelib. Check your connection and try again.")
@@ -738,6 +798,11 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
   /** Leave without a done screen: the card fades, then the page they came from opens. */
   const exitJoin = async () => {
     if (preview) {
+      const dest = welcomeDone(start?.next ?? null)
+      if (onPreviewComplete) {
+        onPreviewComplete(dest)
+        return
+      }
       setJoinNote("Preview only. Nothing was saved.")
       window.setTimeout(() => setJoinNote(null), 2200)
       setCurrentStep(JOIN_NAME)
@@ -800,6 +865,11 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
     document.body.style.touchAction = ""
     document.body.removeAttribute("data-scroll-locked")
     document.documentElement.style.overflow = ""
+    try {
+      localStorage.removeItem(JOIN_PROGRESS_STORAGE)
+    } catch {
+      /* ignore */
+    }
     /* A full load, so the community is the server's frame: tab bar, section row and columns, not whatever the onboarding left on the page. */
     window.location.replace(done)
   }
@@ -1804,7 +1874,9 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
         {/* Slide 1: name, photo, socials. Username and bio are the next slide. */}
         {step === JOIN_NAME && (
           <div className="mx-auto flex w-full max-w-[440px] flex-col font-sans" data-onboarding-join="profile">
-            <StorelibLogo size={40} className="mb-6" />
+            <span className={cn("mb-6 self-start", LOGO_TILE)}>
+              <StorelibLogo size={40} />
+            </span>
             <h1 className="text-[28px] font-bold leading-[1.15] tracking-[-0.03em] text-[#1a1a2e] sm:text-[32px]">Create a profile</h1>
             <p className="mt-2 text-[15px] leading-6 text-[#6b7280]">Add a name, photo and links to get started.</p>
             <button
@@ -1813,21 +1885,22 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
               disabled={uploadingAvatar}
               data-onboarding-join-photo=""
               aria-label={avatarUrl ? "Change photo" : "Add a photo"}
-              className="relative mx-auto mt-6 block h-[72px] w-[72px] overflow-hidden rounded-full bg-[#f3f0ff] text-[#8b5cf6] shadow-[inset_0_0_0_1px_rgba(139,92,246,0.18)] [-webkit-tap-highlight-color:transparent]"
+              className={cn(
+                "relative mx-auto mt-6 block h-[84px] w-[84px] overflow-hidden rounded-full bg-[#eceef1] text-[#9ca3af] transition-[box-shadow,transform] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-[0.98] motion-reduce:transition-none",
+                AVATAR_RING,
+                "[-webkit-tap-highlight-color:transparent]",
+              )}
             >
               {avatarUrl ? (
-                <img src={avatarUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
+                <img src={avatarUrl} alt="" className="absolute inset-0 h-full w-full object-cover motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200" />
               ) : (
-                <span className="absolute inset-0 grid place-items-center">
-                  <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden>
-                    <path d="M4 8.5h2.2l1.2-2h9.2l1.2 2H20a1.5 1.5 0 0 1 1.5 1.5v8A1.5 1.5 0 0 1 20 19.5H4A1.5 1.5 0 0 1 2.5 18v-8A1.5 1.5 0 0 1 4 8.5Z" strokeLinejoin="round" />
-                    <circle cx="12" cy="13.5" r="3.1" />
-                  </svg>
+                <span className="absolute inset-0 text-[#b0b5bd]">
+                  <DefaultAvatarGlyph fill />
                 </span>
               )}
               {uploadingAvatar ? (
-                <span className="absolute inset-0 grid place-items-center bg-white/60">
-                  <ActivitySpinner size={18} className="text-[#1a1a2e]" />
+                <span className="absolute inset-0 grid place-items-center bg-white/70 backdrop-blur-[1px]">
+                  <ActivitySpinner size={22} className="text-[#4b5563]" />
                 </span>
               ) : null}
             </button>
@@ -1845,40 +1918,12 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
               />
             </label>
             <div className="mt-5" data-onboarding-social-row="">
-              <div className="flex items-center justify-between px-1">
-                {(
-                  [
-                    ["tiktok", "TikTok"],
-                    ["instagram", "Instagram"],
-                    ["youtube", "YouTube"],
-                    ["linkedin", "LinkedIn"],
-                  ] as const
-                ).map(([id, label]) => {
-                  const on = openSocial === id
-                  const filled = !!socials[id]
-                  return (
-                    <button
-                      key={id}
-                      type="button"
-                      aria-expanded={on}
-                      aria-label={on ? `Close ${label}` : `Add ${label}`}
-                      onClick={() => setOpenSocial((cur) => (cur === id ? null : id))}
-                      className="relative grid h-14 w-14 place-items-center [-webkit-tap-highlight-color:transparent]"
-                    >
-                      <span className={cn("grid h-12 w-12 place-items-center rounded-full bg-[#f4f4f5] text-[#1a1a2e] shadow-[inset_0_0_0_1px_rgba(17,24,39,0.06)] transition-[box-shadow,transform] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]", on && "shadow-[inset_0_0_0_2px_#1a1a2e]", filled && !on && "shadow-[inset_0_0_0_1.5px_#8b5cf6]")}>
-                        {id === "tiktok" ? <TikTokIcon className="h-5 w-5" /> : null}
-                        {id === "instagram" ? <Instagram className="h-5 w-5" strokeWidth={1.8} /> : null}
-                        {id === "youtube" ? <Youtube className="h-5 w-5" strokeWidth={1.8} /> : null}
-                        {id === "linkedin" ? <LinkedInIcon className="h-5 w-5" /> : null}
-                      </span>
-                      <span className={cn("absolute right-0 top-0 grid h-[18px] w-[18px] place-items-center rounded-full text-[12px] font-bold leading-none shadow-[0_1px_2px_rgba(16,24,40,0.16)] transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]", on ? "rotate-0 bg-[#1a1a2e] text-white" : "bg-white text-[#1a1a2e]")}>
-                        {on ? "–" : "+"}
-                      </span>
-                    </button>
-                  )
-                })}
-              </div>
-              <div className={cn("grid transition-[grid-template-rows,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none", openSocial ? "mt-3 grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0")}>
+              <div
+                className={cn(
+                  "grid transition-[grid-template-rows,opacity,margin] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+                  openSocial ? "mb-3 grid-rows-[1fr] opacity-100" : "mb-0 grid-rows-[0fr] opacity-0",
+                )}
+              >
                 <div className="overflow-hidden">
                   {openSocial ? (
                     <label className={cn("flex h-[52px] items-center gap-1 rounded-[14px] px-4", FIELD_WELL)}>
@@ -1900,6 +1945,55 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                   ) : null}
                 </div>
               </div>
+              <div
+                className={cn(
+                  "flex items-center justify-center gap-2 px-0.5 transition-[translate] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+                  openSocial ? "translate-y-0" : "translate-y-0",
+                )}
+              >
+                {(
+                  [
+                    ["tiktok", "TikTok"],
+                    ["instagram", "Instagram"],
+                    ["youtube", "YouTube"],
+                    ["linkedin", "LinkedIn"],
+                  ] as const
+                ).map(([id, label]) => {
+                  const on = openSocial === id
+                  const filled = !!socials[id]
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      aria-expanded={on}
+                      aria-label={on ? `Close ${label}` : `Add ${label}`}
+                      onClick={() => setOpenSocial((cur) => (cur === id ? null : id))}
+                      className="relative grid h-[52px] w-[52px] shrink-0 place-items-center [-webkit-tap-highlight-color:transparent]"
+                    >
+                      <span
+                        className={cn(
+                          "grid h-11 w-11 place-items-center rounded-full bg-[#f4f4f5] text-[#1a1a2e] shadow-[inset_0_0_0_1px_rgba(17,24,39,0.06)] transition-[box-shadow,transform] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+                          on && "scale-[1.02] shadow-[inset_0_0_0_2px_#6b7280]",
+                          filled && !on && "shadow-[inset_0_0_0_1.5px_#8b5cf6]",
+                        )}
+                      >
+                        {id === "tiktok" ? <TikTokIcon className="h-[19px] w-[19px]" /> : null}
+                        {id === "instagram" ? <Instagram className="h-[19px] w-[19px]" strokeWidth={1.75} /> : null}
+                        {id === "youtube" ? <Youtube className="h-[19px] w-[19px]" strokeWidth={1.75} /> : null}
+                        {id === "linkedin" ? <LinkedInIcon className="h-[19px] w-[19px]" /> : null}
+                      </span>
+                      <span
+                        className={cn(
+                          "absolute right-0.5 top-0.5 grid h-[17px] w-[17px] place-items-center rounded-full text-[11px] font-bold leading-none shadow-[0_1px_2px_rgba(16,24,40,0.14)] transition-[transform,background-color,color] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+                          on ? "scale-100 rotate-0 bg-[#1a1a2e] text-white" : "scale-100 bg-white text-[#1a1a2e]",
+                        )}
+                      >
+                        {on ? "−" : "+"}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
             </div>
             {joinError && <p role="alert" className="mt-3 text-center text-[13px] text-red-600">{joinError}</p>}
           </div>
@@ -1907,8 +2001,8 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
 
         {step === JOIN_SOCIAL && (
           <div className="mx-auto flex w-full max-w-[440px] flex-col items-center font-sans text-center" data-onboarding-join="username">
-            <span className="relative mb-4 block h-16 w-16 overflow-hidden rounded-full bg-[#eceef1] text-[#6b7280]">
-              {avatarUrl ? <img src={avatarUrl} alt="" className="absolute inset-0 h-full w-full object-cover" /> : <DefaultAvatarGlyph fill />}
+            <span className={cn("relative mb-4 block h-[84px] w-[84px] overflow-hidden rounded-full bg-[#eceef1] text-[#9ca3af]", AVATAR_RING)}>
+              {avatarUrl ? <img src={avatarUrl} alt="" className="absolute inset-0 h-full w-full object-cover motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200" /> : <DefaultAvatarGlyph fill />}
             </span>
             <h1 className="text-[28px] font-bold leading-[1.15] tracking-[-0.03em] text-[#1a1a2e] sm:text-[32px]">Pick a username</h1>
             <p className="mt-2 text-[15px] leading-6 text-[#6b7280]">Claim your unique Storelib link.</p>
@@ -2614,36 +2708,71 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
               data-onboarding-footer=""
               aria-hidden={currentStep === 5 || undefined}
               className={cn(
-                /* The same bottom padding on every step: the category step's
-                   was 12px deeper, which made the panel above it 12px
-                   shorter, so a step change resized the box it happened in. */
-                "px-4 sm:px-12 pt-2 flex items-center justify-between shrink-0 max-[384px]:px-3",
-                "pb-5 sm:pb-4",
+                "px-4 sm:px-12 pt-2 shrink-0 max-[384px]:px-3 pb-5 sm:pb-4",
+                isJoinStep(currentStep) && currentStep !== JOIN_DONE
+                  ? "max-sm:flex max-sm:flex-col max-sm:gap-3 sm:flex sm:items-center sm:justify-between"
+                  : "flex items-center justify-between",
               )}
             >
-              {/* Back, on the left */}
-              <div className="flex items-center gap-3 max-[384px]:gap-2">
+              {isJoinStep(currentStep) && currentStep !== JOIN_DONE ? (
+                <button
+                  type="button"
+                  onClick={handleNext}
+                  data-onboarding-next=""
+                  {...(currentStep === JOIN_NOTIFY ? { "data-onboarding-allow-push": "" } : {})}
+                  disabled={!canProceed() && !(joinSaving || askingPush)}
+                  style={{ transition: `background-color 200ms ${MOTION_EASE}, transform 200ms ${MOTION_EASE}, box-shadow 200ms ${MOTION_EASE}` }}
+                  className={cn(
+                    "max-sm:order-1 max-sm:w-full max-sm:min-h-[50px] sm:order-none sm:hidden rounded-xl font-semibold text-[15px] motion-reduce:!transition-none active:scale-[0.98]",
+                    canProceed() || joinSaving || askingPush ? NEXT_ON : "bg-gray-200 text-gray-400 cursor-not-allowed",
+                  )}
+                >
+                  {joinSaving || askingPush ? <ActivitySpinner size={20} className="mx-auto text-white" /> : currentStep === JOIN_NOTIFY ? "Turn on notifications" : "Continue"}
+                </button>
+              ) : null}
+              <div className={cn("flex items-center gap-3 max-[384px]:gap-2", isJoinStep(currentStep) && currentStep !== JOIN_DONE && "max-sm:order-2 max-sm:w-full max-sm:justify-between")}>
                 <button
                   type="button"
                   onClick={handleBack}
                   disabled={backFrom(currentStep) === null || (currentStep === 4 && !!planCheckoutLoading) || joinSaving}
                   data-onboarding-back=""
-                  style={fadeWith(backFrom(currentStep) !== null, `background-color 150ms, box-shadow 150ms, color 150ms`)}
-                  className={cn("px-5 sm:px-6 py-3 sm:py-3 text-sm sm:text-sm font-medium rounded-xl max-[384px]:px-4 disabled:cursor-not-allowed motion-reduce:!transition-none", BACK_LOOK, currentStep === 4 && planCheckoutLoading && "text-[#9ca3af]")}
+                  style={fadeWith(backFrom(currentStep) !== null, `background-color 150ms, box-shadow 150ms, color 150ms, transform 150ms`)}
+                  className={cn(
+                    "inline-flex items-center gap-1 px-4 sm:px-5 py-3 text-sm font-medium rounded-xl disabled:cursor-not-allowed motion-reduce:!transition-none active:scale-[0.98]",
+                    isJoinStep(currentStep) ? cn(DEPTH, DEPTH_PRESS, "text-[#374151] hover:bg-[#f9fafb]") : BACK_LOOK,
+                    currentStep === 4 && planCheckoutLoading && "text-[#9ca3af]",
+                  )}
                 >
+                  <ChevronLeft className="h-4 w-4 shrink-0" strokeWidth={2.25} aria-hidden />
                   Back
                 </button>
+                {isJoinStep(currentStep) && currentStep !== JOIN_DONE ? (
+                  <button
+                    type="button"
+                    onClick={handleSkip}
+                    disabled={!canSkip()}
+                    data-onboarding-skip=""
+                    className="px-3 py-3 text-sm font-medium text-gray-500 hover:text-gray-700 sm:hidden motion-reduce:!transition-none"
+                  >
+                    {currentStep === JOIN_NOTIFY ? "Not now" : "Skip"}
+                  </button>
+                ) : null}
               </div>
 
-              {/* Skip and Next, on the right, for the first three steps */}
-              <div className="flex items-center gap-3 sm:gap-4 max-[384px]:gap-2 motion-reduce:!transition-none" style={fadeWith((currentStep >= 1 && currentStep <= 3) || (isJoinStep(currentStep) && currentStep !== JOIN_DONE))}>
+              <div
+                className={cn(
+                  "flex items-center gap-3 sm:gap-4 max-[384px]:gap-2 motion-reduce:!transition-none",
+                  isJoinStep(currentStep) && currentStep !== JOIN_DONE && "max-sm:order-3 max-sm:hidden sm:flex",
+                )}
+                style={fadeWith((currentStep >= 1 && currentStep <= 3) || (isJoinStep(currentStep) && currentStep !== JOIN_DONE))}
+              >
                 <button
                   type="button"
                   onClick={handleSkip}
                   disabled={!canSkip()}
                   style={fadeWith(canSkip(), "color 150ms")}
                   data-onboarding-skip=""
-                  className="px-4 sm:px-6 py-3 sm:py-3 text-sm sm:text-sm font-medium text-gray-500 hover:text-gray-700 max-[384px]:px-2.5 motion-reduce:!transition-none"
+                  className="px-4 sm:px-6 py-3 text-sm font-medium text-gray-500 hover:text-gray-700 max-[384px]:px-2.5 motion-reduce:!transition-none max-sm:hidden"
                 >
                   {currentStep === JOIN_NOTIFY ? "Not now" : "Skip"}
                 </button>
@@ -2654,18 +2783,20 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                   data-onboarding-next=""
                   {...(currentStep === JOIN_NOTIFY ? { "data-onboarding-allow-push": "" } : {})}
                   disabled={(currentStep > 3 && !isJoinStep(currentStep)) || currentStep < 1 || !canProceed()}
-                  style={{ transition: `background-color 200ms ${MOTION_EASE}, color 200ms ${MOTION_EASE}, box-shadow 200ms ${MOTION_EASE}` }}
+                  style={{ transition: `background-color 200ms ${MOTION_EASE}, transform 200ms ${MOTION_EASE}, box-shadow 200ms ${MOTION_EASE}` }}
                   className={cn(
-                    "px-7 sm:px-8 py-3 sm:py-3 rounded-xl font-semibold text-sm sm:text-sm min-w-[110px] sm:min-w-[140px] max-[384px]:min-w-0 max-[384px]:px-3 max-[384px]:text-[13px] motion-reduce:!transition-none",
+                    "rounded-xl font-semibold text-sm sm:text-sm motion-reduce:!transition-none active:scale-[0.98]",
+                    isJoinStep(currentStep) && currentStep !== JOIN_DONE
+                      ? "max-sm:hidden sm:inline-flex sm:min-w-[140px] sm:px-8 sm:py-3"
+                      : "px-7 sm:px-8 py-3 min-w-[110px] sm:min-w-[140px] max-[384px]:min-w-0 max-[384px]:px-3 max-[384px]:text-[13px]",
                     currentStep === JOIN_NOTIFY && "min-w-0 px-4 sm:px-6",
-                    /* Keeps its colour while it fades out with the plan step coming in. */
                     (currentStep > 3 && !isJoinStep(currentStep)) || canProceed() || (isJoinStep(currentStep) && (joinSaving || askingPush))
                       ? NEXT_ON
-                      : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                      : "bg-gray-200 text-gray-400 cursor-not-allowed",
                   )}
                 >
                   {isJoinStep(currentStep) && (joinSaving || askingPush) ? (
-                    <ActivitySpinner size={18} className="mx-auto text-white" />
+                    <ActivitySpinner size={20} className="mx-auto text-white" />
                   ) : currentStep === JOIN_NOTIFY ? (
                     "Turn on notifications"
                   ) : currentStep === JOIN_NAME || currentStep === JOIN_SOCIAL ? (

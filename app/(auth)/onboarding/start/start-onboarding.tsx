@@ -15,7 +15,7 @@ import { welcomeDone } from "@/lib/account/welcome"
  *
  * "Not now" at the top marks it answered and goes where they were going.
  */
-export function StartOnboarding({ next, name, username, avatar, bio }: { next: string | null; name: string; username: string | null; avatar: string | null; bio: string }) {
+export function StartOnboarding({ next, name, username, avatar, bio, joinStep = null }: { next: string | null; name: string; username: string | null; avatar: string | null; bio: string; joinStep?: number | null }) {
   const [open, setOpen] = useState(false)
   useEffect(() => {
     const id = requestAnimationFrame(() => setOpen(true))
@@ -36,7 +36,7 @@ export function StartOnboarding({ next, name, username, avatar, bio }: { next: s
       <CreatorOnboardingModal
         open={open}
         onClose={() => {}}
-        start={{ next, name, username, avatar, bio }}
+        start={{ next, name, username, avatar, bio, joinStep }}
         leave={{
           label: "Not now",
           href: done,

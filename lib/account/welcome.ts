@@ -37,6 +37,17 @@ export const WELCOME_PATH = "/onboarding/start"
 /** On the account (user_metadata) once the question is answered or put aside, so it is asked once. */
 export const WELCOMED_KEY = "storelib_welcomed"
 
+/** Join onboarding step left off (11 profile, 12 username); cleared when welcomed. */
+export const JOIN_STEP_KEY = "storelib_join_step"
+
+export const JOIN_STEP_PROFILE = 11
+export const JOIN_STEP_USERNAME = 12
+
+export function readJoinStep(meta: Record<string, unknown> | null | undefined): number | null {
+  const n = meta?.[JOIN_STEP_KEY]
+  return n === JOIN_STEP_PROFILE || n === JOIN_STEP_USERNAME ? n : null
+}
+
 /** How new an account is for the question to be asked at all. */
 export const WELCOME_WINDOW_DAYS = 3
 
