@@ -396,23 +396,34 @@ async function createConnectedAccount(
     tos_acceptance: { service_agreement: "recipient" },
   }
   const merchant = { ...shared, capabilities: full }
+  /* Destination charges only need transfers. card_payments is extra, and
+     Stripe refuses it for some countries (Romania included) with a message
+     that sounds like the country itself is unsupported. Transfers, with no
+     recipient agreement, still pays the seller out. */
+  const paidOut = { ...shared, capabilities: transfersOnly }
 
   /* The recipient ToS agreement only exists for cross-border payouts: Stripe
      refuses it when the platform and the creator are in the same country
      ("recipient ToS is not supported for platforms in RO creating accounts in
-     RO"). Same country, then, is merchant accounts only, so a same-country
-     refusal is never dressed up as "that country is not available". */
+     RO"). Same country tries a full account, then transfers only. */
   const storelibAttempts: Stripe.AccountCreateParams[] = crossBorder
-    ? [{ ...recipient, controller: inStorelib }]
-    : [{ ...merchant, controller: inStorelib }]
+    ? [
+        { ...recipient, controller: inStorelib },
+        { ...paidOut, controller: inStorelib },
+      ]
+    : [
+        { ...merchant, controller: inStorelib },
+        { ...paidOut, controller: inStorelib },
+      ]
   const expressAttempts: Stripe.AccountCreateParams[] = crossBorder
     ? [
         { ...recipient, controller: acknowledged },
-        { ...recipient, controller: expressDefault },
+        { ...paidOut, controller: acknowledged },
         { ...recipient, type: "express" },
       ]
     : [
         { ...merchant, controller: acknowledged },
+        { ...paidOut, controller: acknowledged },
         { ...merchant, type: "express" },
       ]
   const attempts = options.storelibOnly ? storelibAttempts : [...storelibAttempts, ...expressAttempts]
@@ -879,7 +890,10 @@ export async function resolveCountryForStart(creator: PaymentsCreatorRef, countr
   const fromForm = countryInput.trim().toUpperCase()
   if (/^[A-Z]{2}$/.test(fromForm)) return fromForm
   const profile = await profileForCreator(creator.userId)
-  return countryCode(profile?.country) ?? "US"
+  const named = countryCode(profile?.country)
+  if (named) return named
+  /* A blank profile must not become a US account. The platform country is Romania. */
+  return platformCountry().catch(() => "RO")
 }
 
 export { STRIPE_REQUESTED_CAPABILITIES }

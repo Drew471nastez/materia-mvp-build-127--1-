@@ -12,7 +12,9 @@ export function paymentsSetupErrorMessage(error: unknown): string {
   if (/account has been rejected/i.test(message)) {
     return "This payments account cannot be opened from here. Write to support@storelib.com and we will sort out your payouts."
   }
-  if (/country.*(not supported|invalid|cannot)|not supported.*country|cross-border/i.test(message)) {
+  /* Only a country Stripe itself will not open. A card_payments or recipient
+     agreement refusal is a different account shape, not "Romania is unsupported". */
+  if (/\bcountry\b.*\b(not supported|is invalid|unknown)\b|\b(not|isn't|is not) supported\b.*\bcountry\b/i.test(message) && !/recipient|card_payments|capability/i.test(message)) {
     return "Payments are not available for that country yet. Choose another country, or write to support@storelib.com."
   }
   if (/email/i.test(message) && /invalid|required/i.test(message)) {

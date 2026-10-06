@@ -45,6 +45,13 @@ check(
   paymentsSetupErrorMessage({ message: "The country AQ is not supported for this account" }) ===
     "Payments are not available for that country yet. Choose another country, or write to support@storelib.com.",
 )
+check(
+  "a Romania card_payments refusal is not reported as the country being closed",
+  paymentsSetupErrorMessage({ message: "You cannot request the card_payments capability for accounts in country RO" }) !==
+    "Payments are not available for that country yet. Choose another country, or write to support@storelib.com." &&
+    paymentsSetupErrorMessage({ message: "recipient ToS is not supported for platforms in RO creating accounts in RO" }) !==
+      "Payments are not available for that country yet. Choose another country, or write to support@storelib.com.",
+)
 
 /* The exact Account Session components: one component per session, and only what that screen uses. */
 const inStorelib = { external_account_collection: true, disable_stripe_user_authentication: true }
