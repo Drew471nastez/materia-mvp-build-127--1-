@@ -2,12 +2,14 @@ import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import { viewerContext, viewerView } from "@/lib/communities/server/context"
 import { admin } from "@/lib/communities/server/db"
-import { getPostView, getPublicPostView } from "@/lib/communities/server/feed"
+import { getPostView, getPublicPostView, listFeed } from "@/lib/communities/server/feed"
 import { listComments } from "@/lib/communities/server/comments"
 import { resolvePostId } from "@/lib/communities/server/post-resolve"
 import { FeedColumns } from "@/components/community/member/columns"
-import { meOf, memberPage, shellData } from "@/components/community/member/data"
+import { eventHrefFor, fileProductFor, meOf, memberPage, onboardingFor, shellData } from "@/components/community/member/data"
+import { CommunityFeed } from "@/components/community/member/feed"
 import { PostPage } from "@/components/community/member/post-page"
+import { SharedPost } from "@/components/community/member/shared-post"
 import { jsonLdScript } from "@/lib/seo/json-ld"
 import { postFacts } from "./post-facts"
 import { postArticleJsonLd, postMetadata, publicPost } from "./post-seo"
@@ -69,26 +71,33 @@ export default async function CommunityPostPage({ params }: { params: Promise<{ 
   const post = await getPostView(db, community, viewer, id)
   if (!post) notFound()
   /* The Article's facts with the rest (post-seo), shared with generateMetadata's read (post-facts is cached per request). */
-  const [comments, me, shell, facts] = await Promise.all([listComments(db, community, viewer, id, null), meOf(community.id, viewer), shellData(community.id, viewer, community), postFacts(slug, postId)])
-  const space = post.space ? shell.spaces.find((s) => s.id === post.space?.id) : null
+  const [feed, me, shell, facts, fileProductId] = await Promise.all([
+    listFeed(db, community, viewer, { sort: "default" }),
+    meOf(community.id, viewer),
+    shellData(community.id, viewer, community),
+    postFacts(slug, postId),
+    fileProductFor(community, viewer),
+  ])
+  const readOnly = shell.community.archived || !!viewer.mutedUntil
   /* Only for a public post; nothing for any other. */
   const article = facts ? postArticleJsonLd(facts) : null
   return (
     <>
       {article ? <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdScript(article) }} /> : null}
-    <FeedColumns
-      main={
-        <PostPage
+      <SharedPost slug={community.slug} post={post} viewer={viewerView(viewer)} readOnly={readOnly}>
+        <CommunityFeed
+          communityId={community.id}
           slug={community.slug}
           viewer={viewerView(viewer)}
-          post={post}
-          comments={comments.ok ? comments.value : { comments: [], nextCursor: null }}
-          me={me}
-          readOnly={shell.community.archived || !!viewer.mutedUntil}
-          commentsEnabled={space ? space.commentsEnabled : true}
+          spaces={shell.spaces}
+          start={{ kind: "all" }}
+          initial={feed}
+          servedAt={Date.now()}
+          readOnly={readOnly}
+          onboarding={onboardingFor(community, viewer, shell.spaces)}
+          compose={viewer.userId ? { userId: viewer.userId, me, fileProductId, eventHref: eventHrefFor(community, viewer) } : null}
         />
-      }
-    />
+      </SharedPost>
     </>
   )
 }

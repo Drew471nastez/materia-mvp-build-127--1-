@@ -105,9 +105,15 @@ export interface PostOverlayProps {
   onClose: () => void
   /** The post drawn whole (the card component, in its full form). */
   renderPost: (post: FeedPostView, update: PostUpdateFn, onComment: () => void) => React.ReactNode
+  /**
+   * False when the address is already this post (a shared link opened over
+   * the feed). Pushing another history entry would make Back land on the
+   * post page again.
+   */
+  history?: boolean
 }
 
-export function PostOverlay({ post: given, slug, viewer, readOnly = false, update, onClose, renderPost }: PostOverlayProps) {
+export function PostOverlay({ post: given, slug, viewer, readOnly = false, update, onClose, renderPost, history = true }: PostOverlayProps) {
   const phone = usePhone()
   const [post, setPost] = useState(given)
   /* "in" while it arrives, "shown" once it has, "out" from the moment it starts to leave. */
@@ -139,7 +145,7 @@ export function PostOverlay({ post: given, slug, viewer, readOnly = false, updat
     hear the address change), and that work belongs after the slide, not in
     its first frames.
   */
-  useHistoryLayer(true, close, postPath(slug, given))
+  useHistoryLayer(history, close, postPath(slug, given))
 
   /* The comments are asked for now, while the post slides in; they are drawn once it has. */
   useEffect(() => {

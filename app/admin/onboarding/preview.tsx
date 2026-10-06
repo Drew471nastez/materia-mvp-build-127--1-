@@ -16,7 +16,7 @@ const DESTINATIONS = [
  * preview mode (same component members see; nothing is saved).
  */
 export function OnboardingPreview() {
-  const [dest, setDest] = useState(DESTINATIONS[0].next)
+  const dest = DESTINATIONS[0].next
   const [open, setOpen] = useState(true)
   const [landed, setLanded] = useState<string | null>(null)
 
@@ -57,21 +57,6 @@ export function OnboardingPreview() {
 
   return (
     <div className="relative min-h-svh bg-[#f8f9fa]">
-      <div className="pointer-events-none fixed inset-x-0 top-0 z-[300] flex justify-center px-4 pt-3">
-        <div className="pointer-events-auto flex max-w-full flex-wrap items-center justify-center gap-2 rounded-full border border-[#e5e7eb] bg-white/95 px-3 py-2 text-[12px] shadow-[0_4px_20px_-8px_rgba(17,24,39,0.2)] backdrop-blur-sm">
-          <span className="font-medium text-[#6b7280]">Land at</span>
-          {DESTINATIONS.map((d) => (
-            <button
-              key={d.next}
-              type="button"
-              onClick={() => setDest(d.next)}
-              className={`rounded-full px-2.5 py-1 font-medium transition-colors ${dest === d.next ? "bg-[#1a1a2e] text-white" : "text-[#4b5563] hover:bg-[#f3f4f6]"}`}
-            >
-              {d.label}
-            </button>
-          ))}
-        </div>
-      </div>
       <CreatorOnboardingModal
         open={open}
         preview

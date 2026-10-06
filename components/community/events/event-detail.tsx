@@ -227,7 +227,7 @@ export function EventDetail({ event: initial, eventsHref, aboutHref }: EventDeta
             <img
               src={event.coverUrl}
               alt=""
-              className="mb-5 aspect-[21/9] w-full max-h-[min(52vw,200px)] rounded-2xl border border-[#e4e7ec]/80 object-cover sm:max-h-[min(44vw,240px)] lg:max-h-[220px] lg:aspect-[2.35/1]"
+              className="mb-5 aspect-[16/9] w-full max-w-[640px] rounded-2xl border border-[#e4e7ec]/80 object-cover"
               data-event-cover
             />
           ) : null}

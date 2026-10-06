@@ -1930,10 +1930,10 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
     <>
         {/* Slide 1: name, photo, socials. Username and bio are the next slide. */}
         {step === JOIN_NAME && (
-          <div className="mx-auto flex w-full max-w-[440px] flex-col font-sans" data-onboarding-join="profile">
-            {joinOnboardingLogo()}
-            <h1 className="text-[28px] font-bold leading-[1.15] tracking-[-0.03em] text-[#1a1a2e] sm:text-[32px]">Create a profile</h1>
-            <p className="mt-2 text-[15px] leading-6 text-[#6b7280]">Add a name, photo and links to get started.</p>
+          <div className="mx-auto flex w-full max-w-[400px] flex-col items-center text-center font-sans" data-onboarding-join="profile">
+            <span className="sm:hidden">{joinOnboardingLogo("self-center")}</span>
+            <h1 className="text-[28px] font-bold leading-[1.15] tracking-[-0.03em] text-[#1a1a2e] sm:text-[30px]">Create a profile</h1>
+            <p className="mt-1.5 text-[15px] leading-6 text-[#6b7280]">Add a name, photo and links to get started.</p>
             <button
               type="button"
               onClick={() => void openJoinPhoto()}
@@ -1941,7 +1941,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
               data-onboarding-join-photo=""
               aria-label={avatarUrl ? "Change photo" : "Add a photo"}
               className={cn(
-                "relative mx-auto mt-6 block h-[84px] w-[84px] overflow-hidden rounded-full bg-[#eceef1] text-[#9ca3af] transition-[box-shadow,transform] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-[0.98] motion-reduce:transition-none",
+                "relative mx-auto mt-5 block h-[84px] w-[84px] overflow-hidden rounded-full bg-[#eceef1] text-[#9ca3af] transition-[box-shadow,transform] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-[0.98] motion-reduce:transition-none",
                 AVATAR_RING,
                 "[-webkit-tap-highlight-color:transparent]",
               )}
@@ -1959,7 +1959,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                 </span>
               ) : null}
             </button>
-            <label className={cn("mt-6 flex h-[52px] items-center rounded-[14px] px-4", FIELD_WELL)}>
+            <label className={cn("mt-5 flex h-[52px] w-full items-center rounded-[14px] px-4 text-left", FIELD_WELL)}>
               <span className="sr-only">Your name</span>
               <input
                 type="text"
@@ -2543,7 +2543,9 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                     side, where there is not (a 1280 by 720 laptop keeps 55px
                     above and below it; a short window keeps 24px).
                   */
-                  "sm:w-[1040px] sm:max-w-[calc(100vw-48px)] sm:h-[610px] sm:max-h-[calc(100dvh-48px)] sm:rounded-[44px]",
+                  isJoinStep(currentStep) && currentStep !== JOIN_DONE
+                    ? "sm:w-[min(640px,calc(100vw-48px))] sm:h-auto sm:max-h-[calc(100dvh-48px)] sm:rounded-[28px]"
+                    : "sm:w-[1040px] sm:max-w-[calc(100vw-48px)] sm:h-[610px] sm:max-h-[calc(100dvh-48px)] sm:rounded-[44px]",
                   // Mobile: true fullscreen experience
                   "w-[calc(100%-24px)] max-w-none max-sm:fixed max-sm:inset-0 max-sm:top-0 max-sm:left-0 max-sm:w-screen max-sm:h-[100dvh] max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none",
                   // Shadow
@@ -2563,7 +2565,10 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
             nativeFullScreen
               ? "max-h-[100dvh] pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]"
               /* The card's own limit, window included: a short window kept the column 610px tall inside a shorter card, and Back and Next were cut off under its edge. */
-              : "sm:max-h-[min(610px,calc(100dvh-48px))] max-sm:max-h-[100dvh] max-sm:pt-[env(safe-area-inset-top)] max-sm:pb-[env(safe-area-inset-bottom)]",
+              : cn(
+                  "max-sm:max-h-[100dvh] max-sm:pt-[env(safe-area-inset-top)] max-sm:pb-[env(safe-area-inset-bottom)]",
+                  isJoinStep(currentStep) && currentStep !== JOIN_DONE ? "sm:h-auto sm:max-h-[calc(100dvh-48px)]" : "sm:max-h-[min(610px,calc(100dvh-48px))]",
+                ),
           )}>
             {/*
               ═══════════════════════════════════════════════════════════════
@@ -2594,6 +2599,11 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
             */}
             <div className="grid shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-2 px-3 pt-3 sm:gap-4 sm:px-6 sm:pt-7">
               <div className="flex min-w-0 items-center justify-start">
+                {isJoinStep(currentStep) && currentStep !== JOIN_DONE ? (
+                  <span className="hidden sm:inline-flex" data-onboarding-join-mark="">
+                    <StorelibLogo size={36} style={{ boxShadow: STORELIB_LOGO_SHADOW_JOIN }} />
+                  </span>
+                ) : null}
                 {!switchBack && leave && (
                   <a
                     href={leave.href}
@@ -2674,7 +2684,8 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
               data-onboarding-scroller=""
               style={{ maskImage: SCROLL_EDGE_MASK, WebkitMaskImage: SCROLL_EDGE_MASK }}
               className={cn(
-                "flex-1 min-h-0 overscroll-contain px-4 pt-5 sm:overflow-hidden sm:px-12 sm:pt-6",
+                "min-h-0 overscroll-contain px-4 pt-5 sm:px-10 sm:pt-4",
+                isJoinStep(currentStep) && currentStep !== JOIN_DONE ? "sm:flex-none sm:overflow-visible" : "flex-1 sm:overflow-hidden",
                 /* A profile step fits. Anything taller may scroll on a phone only, never inside the card on a large screen. */
                 isJoinStep(currentStep) ? "overflow-hidden" : "max-sm:overflow-y-auto",
                 (currentStep === 1 || currentStep === 3 || isJoinStep(currentStep)) && "max-sm:pb-4",
@@ -2771,7 +2782,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
               {isJoinStep(currentStep) && currentStep !== JOIN_DONE ? (
                 <div
                   className={cn(
-                    "flex w-full min-w-0 items-center gap-3 max-sm:grid motion-reduce:transition-none sm:mx-auto sm:max-w-[440px] sm:justify-end",
+                    "flex w-full min-w-0 items-center gap-3 max-sm:grid motion-reduce:transition-none sm:mx-auto sm:max-w-[400px] sm:justify-center",
                     backFrom(currentStep) !== null ? "max-sm:grid-cols-[auto_minmax(0,1fr)]" : "max-sm:grid-cols-[minmax(0,1fr)]",
                   )}
                 >

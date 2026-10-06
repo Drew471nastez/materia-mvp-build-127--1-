@@ -265,7 +265,7 @@ async function main() {
   check("pressing the card opens the post over the feed; links and buttons inside do their own thing", /onClick=\{openPost\}/.test(card) && /closest\("a, button, input, textarea, select, label/.test(card) && /<PostOverlay/.test(card))
   check("a press with a modifier key is a plain link", /e\.metaKey \|\| e\.ctrlKey \|\| e\.shiftKey \|\| e\.altKey/.test(card))
   const overlay = code("components/community/member/post-overlay.tsx")
-  check("the opened post takes the post's own address without loading a page; Back closes it", /useHistoryLayer\(true, close, `\/community\/\$\{slug\}\/post\/\$\{given\.id\}`\)/.test(overlay))
+  check("the opened post takes the post's own address without loading a page; Back closes it", /useHistoryLayer\(history, close, postPath\(slug, given\)\)/.test(overlay))
   /* Round 9 changed this on purpose (the owner asked): the phone's sheet is the app's own draggable one. */
   check("the opened post: a panel on a computer, the app's draggable sheet on a phone", /data-post-overlay="panel"/.test(overlay) && /data-post-overlay="phone"/.test(overlay) && /<BottomSheet\s[\s\S]{0,200}isOpen=\{open\}/.test(overlay))
   check("it reads the comments itself and passes changes to the card underneath", /<CommentsSection\s+post=\{post\}\s+slug=\{slug\}\s+viewer=\{viewer\}\s+initial=\{null\}/.test(overlay) && /update\(id, fn\)/.test(overlay))
@@ -399,7 +399,7 @@ async function main() {
   const overlay9 = code("components/community/member/post-overlay.tsx")
   check("SHEET: the phone's post is the app's BottomSheet, above the page's layers, on the keyboard, nearly the whole screen", /from "@\/components\/ui\/bottom-sheet"/.test(overlay9) && /zIndex=\{130\}/.test(overlay9) && /aboveKeyboard/.test(overlay9) && /height="calc\(var\(--vv-h, 100dvh\) - max\(env\(safe-area-inset-top\), 12px\) - 8px\)"/.test(overlay9) && /data-sheet-close=""/.test(overlay9))
   check("the computer's panel moves as Web Animations started before its first frame, on the app's curves", /panel\.animate\(\[\{ opacity: 0, translate: "0 16px" \}, \{ opacity: 1, translate: "0 0" \}\], \{ duration: IN_MS, easing: SHEET_EASE \}\)/.test(overlay9) && /SHEET_CLOSE_EASE/.test(overlay9) && !/requestAnimationFrame\(\(\) => \{\s*b = requestAnimationFrame/.test(overlay9))
-  check("Back is one step of history for as long as it is on screen; stepping back waits until it has gone", /useHistoryLayer\(true, close,/.test(overlay9) && /onClosed=\{onGone\}/.test(overlay9))
+  check("Back is one step of history for as long as it is on screen; stepping back waits until it has gone", /useHistoryLayer\(history, close,/.test(overlay9) && /onClosed=\{onGone\}/.test(overlay9))
   check("closing does not draw the post and its comments again", /const OverlayContent = memo\(function OverlayContent/.test(overlay9))
   const comments9 = code("components/community/member/comments.tsx")
   check("comments are asked for when the card is pressed and when the post opens, once", /onPointerDown=\{[\s\S]{0,200}readAheadComments\(post\.communityId, post\.id\)/.test(card9) && /void readAheadComments\(given\.communityId, given\.id\)/.test(overlay9) && /if \(have\?\.promise\) return have\.promise/.test(comments9))
