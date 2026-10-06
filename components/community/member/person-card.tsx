@@ -30,10 +30,10 @@
 import Link from "next/link"
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
-import { Check, Clock3 } from "lucide-react"
+import { Clock3 } from "lucide-react"
 import { MemberAvatar } from "./member-avatar"
 import { LevelBadge } from "./level-badge"
-import { useFollow } from "@/components/profile/follow-button"
+import { FollowButton, useFollow } from "@/components/profile/follow-button"
 import { api, apiBase } from "./api"
 import { activeLabel, CARD_GRACE_MS, CARD_OPEN_MS, CARD_TTL_MS, communitiesLine, hoverPointer, ownerLine } from "./person-card-facts"
 import { toast } from "./toast"
@@ -320,24 +320,15 @@ function PersonCard({ anchor, person, leaving, canMessage, onFollowed, onDone, r
     )
   if (!person.isSelf)
     buttons.push(
-      <button
+      <FollowButton
         key="follow"
-        type="button"
+        following={following}
+        busy={follow.busy}
         onClick={follow.toggle}
-        aria-pressed={following}
-        aria-busy={follow.busy || undefined}
-        className={`${BTN} h-9 flex-1 touch-manipulation border px-3 text-[13.5px] ${following ? "border-[#e3e4e8] bg-[#f4f5f7] text-[#1a1a2e] hover:bg-[#eceef1]" : "border-[#e3e4e8] bg-white text-[#1a1a2e] hover:bg-[#f6f7f8]"}`}
+        name={person.name}
+        className="h-9 min-h-9 min-w-0 flex-1 rounded-[10px] px-3 text-[13.5px] font-semibold"
         data-person-card-follow={following ? "following" : "follow"}
-      >
-        {following ? (
-          <>
-            <Check className="h-3.5 w-3.5 shrink-0" strokeWidth={2.4} aria-hidden />
-            Following
-          </>
-        ) : (
-          "Follow"
-        )}
-      </button>,
+      />,
     )
   /* Message is not drawn for now (the owner asked for Follow alone); a conversation starts from the messages panel. */
   void canMessage

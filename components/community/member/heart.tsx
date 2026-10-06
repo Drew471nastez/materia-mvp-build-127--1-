@@ -26,10 +26,11 @@
 import { Heart } from "lucide-react"
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 
-const BEAT_MS = 380
-const FILL_MS = 280
-export const BURST_MS = 440
-export const BURST_COUNT = 8
+const BEAT_MS = 420
+const FILL_MS = 340
+const UNFILL_MS = 220
+export const BURST_MS = 480
+export const BURST_COUNT = 9
 /** The like's own red, set on the tiny hearts rather than taken from the button, whose colour is still settling when they leave. */
 const BURST_COLOR = "#c4290c"
 
@@ -104,10 +105,10 @@ function burst(host: HTMLElement, size: number) {
     runs.push(
       el.animate(
         [
-          { translate: at(0), scale: `${0.3 * p.s}`, rotate: "0deg", opacity: 0, easing: "cubic-bezier(0.2, 0.8, 0.3, 1)" },
-          { translate: at(0.72), scale: `${p.s}`, rotate: `${p.r * 0.5}deg`, opacity: 1, offset: 0.3, easing: "ease-out" },
-          { translate: at(0.92, size * 0.08), scale: `${0.9 * p.s}`, rotate: `${p.r * 0.8}deg`, opacity: 1, offset: 0.58, easing: "ease-in" },
-          { translate: at(1, size * 0.22), scale: `${0.4 * p.s}`, rotate: `${p.r}deg`, opacity: 0 },
+          { translate: at(0), scale: `${0.25 * p.s}`, rotate: "0deg", opacity: 0, easing: "cubic-bezier(0.22, 1, 0.36, 1)" },
+          { translate: at(0.65), scale: `${1.05 * p.s}`, rotate: `${p.r * 0.45}deg`, opacity: 1, offset: 0.28, easing: "cubic-bezier(0.22, 1, 0.36, 1)" },
+          { translate: at(0.88, size * 0.06), scale: `${p.s}`, rotate: `${p.r * 0.75}deg`, opacity: 1, offset: 0.55, easing: "ease-out" },
+          { translate: at(1, size * 0.2), scale: `${0.35 * p.s}`, rotate: `${p.r}deg`, opacity: 0, easing: "cubic-bezier(0.4, 0, 0.2, 1)" },
         ],
         { duration: BURST_MS - p.delay, delay: p.delay, easing: "linear", fill: "both" },
       ),
@@ -146,13 +147,22 @@ export function LikeHeart({ on, size = 20, strokeWidth = 1.75 }: { on: boolean; 
     was.current = on
     const el = box.current
     if (!el) return
+    const fill = el.querySelector<HTMLElement | SVGElement>("[data-heart-fill]")
     if (!on) {
       clearBurst(el)
+      if (typeof el.animate !== "function" || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
+      fill?.animate([{ scale: "1", opacity: 1 }, { scale: "0.82", opacity: 0 }], { duration: UNFILL_MS, easing: "cubic-bezier(0.22, 1, 0.36, 1)" })
       return
     }
     if (typeof el.animate !== "function" || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
-    el.animate([{ scale: "1" }, { scale: "1.2", offset: 0.35 }, { scale: "0.95", offset: 0.7 }, { scale: "1" }], { duration: BEAT_MS, easing: "cubic-bezier(0.2, 0, 0, 1)" })
-    el.querySelector<HTMLElement | SVGElement>("[data-heart-fill]")?.animate([{ scale: "0.4", opacity: 0 }, { scale: "1", opacity: 1 }], { duration: FILL_MS, easing: "cubic-bezier(0.34, 1.56, 0.64, 1)" })
+    el.animate(
+      [{ scale: "1" }, { scale: "1.18", offset: 0.32 }, { scale: "0.96", offset: 0.68 }, { scale: "1" }],
+      { duration: BEAT_MS, easing: "cubic-bezier(0.22, 1, 0.36, 1)" },
+    )
+    fill?.animate(
+      [{ scale: "0.35", opacity: 0 }, { scale: "1.08", opacity: 1, offset: 0.72 }, { scale: "1", opacity: 1 }],
+      { duration: FILL_MS, easing: "cubic-bezier(0.22, 1, 0.36, 1)" },
+    )
     const frame = requestAnimationFrame(() => burst(el, size))
     return () => cancelAnimationFrame(frame)
   }, [on, size])
@@ -160,7 +170,7 @@ export function LikeHeart({ on, size = 20, strokeWidth = 1.75 }: { on: boolean; 
     <span ref={box} className="relative inline-block shrink-0" style={{ width: size, height: size }} aria-hidden data-heart="">
       <Heart className="absolute inset-0 h-full w-full" strokeWidth={strokeWidth} />
       <Heart
-        className="absolute inset-0 h-full w-full scale-[0.85] fill-current opacity-0 transition-[scale,opacity] duration-200 ease-out group-aria-pressed/like:scale-100 group-aria-pressed/like:opacity-100 group-aria-pressed/like:transition-none motion-reduce:transition-none"
+        className="absolute inset-0 h-full w-full scale-[0.88] fill-current opacity-0 transition-[scale,opacity] duration-[220ms] ease-[cubic-bezier(0.22,1,0.36,1)] group-aria-pressed/like:scale-100 group-aria-pressed/like:opacity-100 group-aria-pressed/like:transition-none motion-reduce:transition-none"
         strokeWidth={strokeWidth}
         data-heart-fill=""
       />
@@ -328,9 +338,13 @@ export function likeSound(on: boolean): boolean {
       }
     }
     if (on) {
-      tone(660, 990, 0.045, 0.16)
-      tone(1320, 1980, 0.012, 0.1, t + 0.012)
-    } else tone(560, 420, 0.02, 0.11)
+      tone(523, 784, 0.052, 0.14)
+      tone(1046, 1568, 0.028, 0.11, t + 0.01)
+      tone(2093, 2480, 0.01, 0.07, t + 0.02)
+    } else {
+      tone(440, 330, 0.026, 0.09)
+      tone(220, 165, 0.014, 0.06, t + 0.04)
+    }
     return true
   } catch {
     return false

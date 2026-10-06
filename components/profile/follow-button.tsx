@@ -236,7 +236,7 @@ export function schemeVars(scheme: ActionScheme | null | undefined): React.CSSPr
  * the frame right after the press would show nothing yet; with it, that
  * frame is already a part of the way across.
  */
-const SWAP = "transition-opacity duration-[220ms] [transition-delay:-24ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none"
+const SWAP = "transition-opacity duration-[260ms] [transition-delay:-28ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
 
 /**
  * THE SETTLE. A layer over the arriving face, a shade off its colour, that
@@ -244,8 +244,8 @@ const SWAP = "transition-opacity duration-[220ms] [transition-delay:-24ms] ease-
  * after its face has started to go, by when the face is no longer seen.
  */
 const SETTLE = "pointer-events-none absolute inset-0 rounded-[inherit] motion-reduce:transition-none"
-const SETTLING = "opacity-0 transition-opacity duration-[420ms] ease-[cubic-bezier(0.25,0.1,0.25,1)]"
-const UNSETTLED = "opacity-100 transition-opacity duration-0 delay-[240ms]"
+const SETTLING = "opacity-0 transition-opacity duration-[480ms] ease-[cubic-bezier(0.22,1,0.36,1)]"
+const UNSETTLED = "opacity-100 transition-opacity duration-0 delay-[280ms]"
 
 /**
  * THE CHECK THAT DRAWS ITSELF: lucide's check, as one path measured as 1
@@ -253,15 +253,15 @@ const UNSETTLED = "opacity-100 transition-opacity duration-0 delay-[240ms]"
  * It starts 70ms in, once Following is on its way, and takes 300ms; going
  * back it is rubbed out only after the label has faded.
  */
-const CHECK_DRAWN = "[transition:stroke-dashoffset_300ms_cubic-bezier(0.65,0,0.35,1)_70ms] motion-reduce:[transition:none]"
-const CHECK_HIDDEN = "[transition:stroke-dashoffset_0s_linear_240ms] motion-reduce:[transition:none]"
+const CHECK_DRAWN = "[transition:stroke-dashoffset_340ms_cubic-bezier(0.22,1,0.36,1)_60ms] motion-reduce:[transition:none]"
+const CHECK_HIDDEN = "[transition:stroke-dashoffset_220ms_cubic-bezier(0.22,1,0.36,1)_0ms] motion-reduce:[transition:none]"
 
 /**
  * A label that is not the state goes invisible once it has faded, so the
  * button's text (and a find in page) is only the state. Visibility steps:
  * shown at the start of a fade in, hidden at the end of a fade out.
  */
-const LABEL = "relative col-start-1 row-start-1 inline-flex items-center gap-1.5 whitespace-nowrap transition-[opacity,visibility] duration-[220ms] [transition-delay:-24ms] ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none"
+const LABEL = "relative col-start-1 row-start-1 inline-flex items-center gap-1.5 whitespace-nowrap transition-[opacity,visibility] duration-[260ms] [transition-delay:-28ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
 
 /**
  * NOTHING TO WORK OUT ON A PRESS. cn() runs tailwind-merge, which parses
@@ -325,6 +325,7 @@ export function FollowButton({
   scheme,
   name,
   className,
+  ...rest
 }: {
   following: boolean
   busy?: boolean
@@ -335,7 +336,7 @@ export function FollowButton({
   /** Who, for a screen reader: "Follow Ana". */
   name?: string
   className?: string
-}) {
+} & { [data: `data-${string}`]: string | undefined }) {
   const storefront = tone === "storefront"
   const look = storefront ? SCHEME : PLATFORM
   /* A creator page without a scheme draws Follow in the quiet face too, in the page's own text colour. */
@@ -347,6 +348,7 @@ export function FollowButton({
   }
   return (
     <button
+      {...rest}
       type="button"
       onPointerDown={(e) => {
         /* The pressed shade on this frame, without waiting for React: see IT ANSWERS THE FINGER. */

@@ -37,7 +37,7 @@ export function externalVideo(raw: unknown): ExternalVideo | null {
     }
     if (!id || !YOUTUBE_ID.test(id)) return null
     const start = Number.parseInt(u.searchParams.get("t") ?? u.searchParams.get("start") ?? "", 10)
-    const q = new URLSearchParams({ rel: "0", modestbranding: "1", playsinline: "1" })
+    const q = new URLSearchParams({ rel: "0", modestbranding: "1", playsinline: "1", iv_load_policy: "3", color: "white" })
     if (Number.isFinite(start) && start > 0) q.set("start", String(start))
     return { provider: "youtube", id, embedUrl: `https://www.youtube-nocookie.com/embed/${id}?${q.toString()}` }
   }

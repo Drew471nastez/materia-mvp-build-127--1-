@@ -128,8 +128,8 @@ export function CoursePlayer({
     if (keeps) void sendPlace({ lessonId: lesson.id, opened: true })
     const url = new URL(window.location.href)
     if (url.searchParams.get("lesson") !== lesson.id) {
-      url.searchParams.set("lesson", lesson.id)
-      window.history.replaceState(window.history.state, "", url.toString())
+      url.search = `lesson=${encodeURIComponent(lesson.id)}`
+      window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`)
     }
     return () => {
       cancelled = true
@@ -258,9 +258,11 @@ export function CoursePlayer({
             <div className="mt-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="text-[12px] font-semibold uppercase tracking-[0.06em] text-[#8b5cf6]">
-                    Lesson {lessonNumber(outline, lesson.id)} of {lessons.length}
-                  </p>
+                  {lessons.length > 1 ? (
+                    <p className="text-[12px] font-medium text-[#6b7280]">
+                      Lesson {lessonNumber(outline, lesson.id)} of {lessons.length}
+                    </p>
+                  ) : null}
                   <h2 className="mt-0.5 text-[18px] font-bold leading-snug text-[#1a1a2e] sm:text-[20px]">{lesson.title}</h2>
                 </div>
               </div>
@@ -443,39 +445,43 @@ function ProgressRing({ percent }: { percent: number }) {
   return (
     <div className="relative h-11 w-11 shrink-0" role="img" aria-label={`${percent}% complete`} data-progress-ring>
       <svg viewBox="0 0 44 44" className="h-11 w-11 -rotate-90">
-        <circle cx="22" cy="22" r={r} fill="none" stroke="#ede9fe" strokeWidth="4" />
+        <circle cx="22" cy="22" r={r} fill="none" stroke="#f0f1f3" strokeWidth="3.5" />
         <circle
           cx="22"
           cy="22"
           r={r}
           fill="none"
-          stroke="#8b5cf6"
-          strokeWidth="4"
+          stroke="#1a1a2e"
+          strokeWidth="3.5"
           strokeLinecap="round"
           strokeDasharray={c}
           strokeDashoffset={c * (1 - percent / 100)}
-          className="motion-safe:transition-[stroke-dashoffset] motion-safe:duration-500"
+          className="motion-safe:transition-[stroke-dashoffset] motion-safe:duration-[520ms] motion-safe:ease-[cubic-bezier(0.22,1,0.36,1)]"
         />
       </svg>
-      <span className="absolute inset-0 flex items-center justify-center text-[11px] font-bold tabular-nums text-[#1a1a2e]">{percent}%</span>
+      <span className="absolute inset-0 flex items-center justify-center text-[11px] font-semibold tabular-nums text-[#1a1a2e]">{percent}%</span>
     </div>
   )
 }
 
 function CurriculumHead({ summary, keeps }: { summary: ReturnType<typeof summarize>; keeps: boolean }) {
   const length = lengthInWords(summary.totalSeconds)
+  const doneLabel = keeps ? `${summary.completed} of ${summary.total}` : `${summary.total}`
   return (
-    <div className="border-b border-[#f0f0f2] px-4 py-3.5">
-      <div className="flex items-baseline justify-between gap-3">
-        <p className="text-[15px] font-semibold text-[#1a1a2e]">Lessons</p>
-        <p className="text-[13px] tabular-nums text-[#6b7280]">
-          {keeps ? `${summary.completed} of ${summary.total} done` : `${summary.total} lessons`}
-          {length ? ` · ${length}` : ""}
+    <div className="border-b border-[#f0f1f3] px-4 py-3.5">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-[14px] font-semibold text-[#1a1a2e]">Curriculum</p>
+        <p className="text-[12px] tabular-nums text-[#6b7280]">
+          {doneLabel}
+          {length ? <span className="text-[#9ca3af]"> · {length}</span> : null}
         </p>
       </div>
       {keeps ? (
-        <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-[#ede9fe]" data-progress-bar>
-          <div className="h-full rounded-full bg-[#8b5cf6] motion-safe:transition-[width] motion-safe:duration-500" style={{ width: `${summary.percent}%` }} />
+        <div className="mt-2.5 h-1 overflow-hidden rounded-full bg-[#eceef1]" data-progress-bar>
+          <div
+            className="h-full rounded-full bg-[#1a1a2e] motion-safe:transition-[width] motion-safe:duration-[520ms] motion-safe:ease-[cubic-bezier(0.22,1,0.36,1)]"
+            style={{ width: `${summary.percent}%` }}
+          />
         </div>
       ) : null}
     </div>
@@ -483,24 +489,30 @@ function CurriculumHead({ summary, keeps }: { summary: ReturnType<typeof summari
 }
 
 function Curriculum({ data, progress, currentId, onPick }: { data: PlayerData; progress: Map<string, LessonProgress>; currentId: string | null; onPick: (l: PlayerLesson) => void }) {
+  const totalLessons = data.modules.reduce((n, m) => n + m.lessons.length, 0)
+  const multiModule = data.modules.length > 1
   let n = 0
   return (
-    <ol className="pb-2" data-curriculum>
-      {data.modules.map((m, mi) => {
+    <ol className="space-y-1 px-2 pb-3 pt-1" data-curriculum>
+      {data.modules.map((m) => {
+        const showModule = multiModule || m.lessons.length > 1
         const doneCount = m.lessons.filter((l) => isDone(progress.get(l.id))).length
         return (
           <li key={m.id}>
-            <div className="flex items-baseline justify-between gap-3 px-4 pb-1.5 pt-4">
-              <p className="min-w-0 text-[12px] font-semibold uppercase tracking-[0.06em] text-[#6b7280]">
-                <span className="text-[#9ca3af]">{mi + 1}.</span> {m.title}
-              </p>
-              {data.access !== "preview" ? <span className="shrink-0 text-[12px] tabular-nums text-[#9ca3af]">{doneCount}/{m.lessons.length}</span> : null}
-            </div>
-            <ol>
+            {showModule ? (
+              <div className="flex items-center justify-between gap-2 px-2 pb-1 pt-2.5">
+                <p className="min-w-0 truncate text-[12px] font-medium text-[#6b7280]">{m.title}</p>
+                {data.access !== "preview" && m.lessons.length > 1 ? (
+                  <span className="shrink-0 text-[11px] tabular-nums text-[#9ca3af]">{doneCount}/{m.lessons.length}</span>
+                ) : null}
+              </div>
+            ) : null}
+            <ol className="space-y-0.5">
               {m.lessons.map((l) => {
                 n += 1
                 const current = l.id === currentId
                 const finished = isDone(progress.get(l.id))
+                const label = totalLessons > 1 ? `${n}. ${l.title}` : l.title
                 return (
                   <li key={l.id}>
                     <button
@@ -509,30 +521,33 @@ function Curriculum({ data, progress, currentId, onPick }: { data: PlayerData; p
                       disabled={l.locked}
                       aria-current={current ? "true" : undefined}
                       data-lesson-row={l.id}
-                      className={`flex w-full items-start gap-3 px-4 py-2.5 text-left transition-colors ${current ? "bg-[#f5f3ff]" : "hover:bg-[#f8f9fa]"} ${l.locked ? "cursor-default" : ""}`}
+                      data-lesson-current={current ? "" : undefined}
+                      className={`flex w-full items-center gap-2.5 rounded-[10px] px-2.5 py-2.5 text-left transition-[background-color,box-shadow] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                        current ? "bg-[#f4f4f5] shadow-[inset_2px_0_0_0_#1a1a2e]" : "hover:bg-[#f8f9fa]"
+                      } ${l.locked ? "cursor-default opacity-70" : ""}`}
                     >
-                      <span className="mt-px flex h-5 w-5 shrink-0 items-center justify-center">
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center">
                         {l.locked ? (
                           <Lock className="h-3.5 w-3.5 text-[#9ca3af]" />
                         ) : finished ? (
-                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#8b5cf6] text-white" data-done>
+                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#1a1a2e] text-white" data-done>
                             <Check className="h-3 w-3" strokeWidth={3} />
                           </span>
                         ) : current ? (
-                          <span className="flex h-5 w-5 items-center justify-center rounded-full border-2 border-[#8b5cf6]">
-                            <Play className="ml-px h-2.5 w-2.5 text-[#8b5cf6]" fill="currentColor" />
+                          <span className="flex h-5 w-5 items-center justify-center rounded-full border-2 border-[#1a1a2e]">
+                            <Play className="ml-px h-2.5 w-2.5 text-[#1a1a2e]" fill="currentColor" />
                           </span>
                         ) : (
                           <span className="h-5 w-5 rounded-full border-2 border-[#d1d5db]" />
                         )}
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className={`line-clamp-2 text-[14px] leading-5 ${current ? "font-semibold text-[#1a1a2e]" : l.locked ? "text-[#9ca3af]" : "text-[#374151]"}`}>
-                          {n}. {l.title}
+                        <span className={`line-clamp-2 text-[13.5px] leading-5 ${current ? "font-semibold text-[#1a1a2e]" : l.locked ? "text-[#9ca3af]" : "text-[#374151]"}`}>
+                          {label}
                         </span>
-                        {l.isPreview && data.access !== "owner" ? <span className="mt-0.5 block text-[12px] font-medium text-[#8b5cf6]">Free preview</span> : null}
+                        {l.isPreview && data.access !== "owner" ? <span className="mt-0.5 block text-[11px] font-medium text-[#6b7280]">Preview</span> : null}
                       </span>
-                      {l.durationSeconds ? <span className="mt-px shrink-0 text-[12px] tabular-nums text-[#9ca3af]">{clock(l.durationSeconds)}</span> : null}
+                      {l.durationSeconds ? <span className="shrink-0 text-[11px] tabular-nums text-[#9ca3af]">{clock(l.durationSeconds)}</span> : null}
                     </button>
                   </li>
                 )
