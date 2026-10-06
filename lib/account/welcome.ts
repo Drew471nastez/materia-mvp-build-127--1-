@@ -79,6 +79,12 @@ export function throughWelcome(destination: string, input: Parameters<typeof wel
   return welcomeWanted(input) ? welcomeHref(destination) : destination
 }
 
+/** Where to send someone who has not finished join onboarding, or null when they may stay. */
+export function welcomeGate(here: string, input: Parameters<typeof welcomeWanted>[0]): string | null {
+  if (here.startsWith(WELCOME_PATH)) return null
+  return welcomeWanted(input) ? welcomeHref(here) : null
+}
+
 /**
  * Where the join branch ends. An invite's landing is asked to accept on
  * arrival (?accept=1, components/community/member/invite-landing.tsx), and a

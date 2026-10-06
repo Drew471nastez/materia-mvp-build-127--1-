@@ -216,7 +216,7 @@ async function main() {
     check("the phone's bar: white to the screen's foot, under the tab bar where there is one", /paddingBottom: "calc\(12px \+ var\(--buyer-tabs-h, env\(safe-area-inset-bottom, 0px\)\)\)"/.test(controls) && /fixed inset-x-0 bottom-0 z-40 border-t border-\[#e5e7eb\] bg-white/.test(controls) && !/\[data-join-bar\] \{\s*bottom:/.test(readSource("app/globals.css")))
     check("the body keeps room for the bar above the tab bar only", /body\.style\.paddingBottom = `\$\{Math\.max\(0, el\.offsetHeight - under\)\}px`/.test(controls))
     const page = code("components/community/public/sales-page.tsx")
-    check("the sheet: Membership as a pricing card, the classroom, who runs it", /<PricingCard others=\{others\} \/>/.test(page) && /<ClassroomPreview classroom=\{extras\.classroom\} \/>/.test(page) && /<CreatorBlock creator=\{c\.creator\} bio=\{extras\?\.creatorBio \?\? null\} \/>/.test(page))
+    check("the sheet: Membership as a pricing card, who runs it, no Learn list", /<PricingCard others=\{others\} \/>/.test(page) && !/<ClassroomPreview /.test(page) && /<CreatorBlock creator=\{c\.creator\} bio=\{extras\?\.creatorBio \?\? null\} \/>/.test(page))
     check("both pages read the extras", ["page.tsx", "about/page.tsx"].every((f) => /const \[extras, askWhy\] = await Promise\.all\(\[aboutExtras\(admin\(\), load\.community\)/.test(code(`app/(marketing)/community/[slug]/${f}`))))
   }
 

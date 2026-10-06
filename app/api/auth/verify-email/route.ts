@@ -56,7 +56,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, alreadySent: true, message: "Verification code already sent" })
     }
 
-    const twentySecondsAgo = new Date(Date.now() - 20_000).toISOString()
+    const twentySecondsAgo = new Date(Date.now() - 120_000).toISOString()
     const { data: justSent } = await admin
       .from("verification_codes")
       .select("id")

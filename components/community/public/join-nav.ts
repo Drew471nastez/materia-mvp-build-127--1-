@@ -1,7 +1,6 @@
 "use client"
 
 import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime"
-import { startRouteLoading } from "@/components/navigation/route-loading-bar"
 
 /** Sign-in and sign-up hops from the join button: smooth cover + prefetch. */
 export function isJoinAuthHref(href: string): boolean {
@@ -18,6 +17,5 @@ export function prefetchJoinAuth(router: AppRouterInstance, href: string | null 
 }
 
 export function goJoinAuth(router: AppRouterInstance, href: string) {
-  if (isJoinAuthHref(href)) startRouteLoading({ cover: true })
   router.push(href)
 }

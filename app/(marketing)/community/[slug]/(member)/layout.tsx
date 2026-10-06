@@ -3,6 +3,9 @@ import { headers } from "next/headers"
 import { notFound, redirect } from "next/navigation"
 import { connection } from "next/server"
 import { memberPage } from "@/components/community/member/data"
+import { currentUserForRequest, sellerAccessForRequest } from "@/lib/auth/request-scope"
+import { hasSellerAccess } from "@/lib/account/seller-access"
+import { welcomeGate } from "@/lib/account/welcome"
 import { MemberStateScreen } from "@/components/community/member/member-state"
 import { COMMUNITY_PATH_HEADER } from "@/lib/communities/slug-move"
 import { postFacts } from "./post/[postId]/post-facts"
@@ -50,9 +53,17 @@ export default async function CommunityMemberLayout({ children, params }: { chil
   const page = await memberPage(slug)
   if (page.state === "off" || page.state === "missing" || !page.community) notFound()
   /* The frame is drawn once, by the community's own layout above this one, so it stays put between pages. */
-  if (page.state === "member" && page.viewer) return children
+  if (page.state === "member" && page.viewer) {
+    const session = await currentUserForRequest()
+    const user = session.user
+    if (user) {
+      const seller = hasSellerAccess(await sellerAccessForRequest(user.id))
+      const gate = welcomeGate(`/community/${page.community.slug}`, { createdAt: user.created_at, meta: user.user_metadata as Record<string, unknown>, seller, intent: null })
+      if (gate) redirect(gate)
+    }
+    return children
+  }
   if (page.state === "signed_out" || page.state === "not_member") {
-    if (await publicPostOpen(slug)) return children
     redirect(`/community/${page.community.slug}/about`)
   }
   return <MemberStateScreen state={page.state} community={page.community} />

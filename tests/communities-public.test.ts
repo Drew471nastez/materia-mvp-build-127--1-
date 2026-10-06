@@ -123,9 +123,9 @@ async function main() {
     const signedOut = decideJoin(facts({ viewer: { signedIn: false } }))
     check("signed out: the same words, to sign in first and back with ?join=1", signedOut.kind === "join_free" && signedOut.href === signInToJoinPath("makers") && /join%3D1/.test(signedOut.href ?? ""))
     check(
-      "signed out: the join press prefetches sign in and opens it with the buyer loading cover",
+      "signed out: the join press prefetches sign in and opens it without a stuck full-page cover",
       /goJoinAuth/.test(code("components/community/public/join-controls.tsx")) &&
-        /startRouteLoading\(\{ cover: true \}\)/.test(code("components/community/public/join-nav.ts")) &&
+        !/startRouteLoading\(\{ cover: true \}\)/.test(code("components/community/public/join-nav.ts")) &&
         /prefetchJoinAuth/.test(code("components/community/public/join-controls.tsx")),
     )
     const layout = code("app/(marketing)/community/[slug]/layout.tsx")

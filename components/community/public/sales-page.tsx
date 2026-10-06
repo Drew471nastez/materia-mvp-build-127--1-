@@ -370,7 +370,7 @@ export function CommunitySalesPage({ data }: { data: SalesPageData }) {
                   </section>
                 ) : null}
 
-                {extras?.classroom ? <ClassroomPreview classroom={extras.classroom} /> : null}
+                {null /* Learn, programs and post counts stay off the public page. */}
 
                 {c.creator ? <CreatorBlock creator={c.creator} bio={extras?.creatorBio ?? null} /> : null}
 

@@ -3,7 +3,9 @@ import { notFound, permanentRedirect, redirect } from "next/navigation"
 import { connection } from "next/server"
 import { rememberAppOpen } from "@/lib/account/app-open"
 import { joinCommunity, joinRateLimit } from "@/lib/communities/server/join"
-import { currentUserForRequest } from "@/lib/auth/request-scope"
+import { currentUserForRequest, sellerAccessForRequest } from "@/lib/auth/request-scope"
+import { hasSellerAccess } from "@/lib/account/seller-access"
+import { welcomeGate } from "@/lib/account/welcome"
 import { communitiesEnabled } from "@/lib/communities/flag"
 import { communityBySlug, sharePreviewable, communityIndexable, loadSalesPage, seoFacts } from "@/lib/communities/server/public"
 import { scheduleCommunityView } from "@/lib/communities/server/record-view"
@@ -87,7 +89,14 @@ export default async function CommunityPage({
 
   /* A member's home is the member area's (components/community/member/feed-page.tsx): it draws the shell and the feed. */
   /* Pull to refresh: the member frame wraps the feed (community-pull-refresh.tsx, scope community-feed). */
-  if (load.viewer.active) return <CommunityFeedPage slug={load.community.slug} />
+  if (load.viewer.active) {
+    if (user) {
+      const seller = hasSellerAccess(await sellerAccessForRequest(user.id))
+      const gate = welcomeGate(`/community/${load.community.slug}`, { createdAt: user.created_at, meta: user.user_metadata as Record<string, unknown>, seller, intent: null })
+      if (gate) redirect(gate)
+    }
+    return <CommunityFeedPage slug={load.community.slug} />
+  }
 
   /* The About page's extra facts: who runs it, how alive it is, the classroom (round 10, lib/communities/server/about.ts). */
   /* Leaving asks why once part 98 is in (round 12), for a member who can leave; the check is remembered by the server. */

@@ -26,7 +26,7 @@ export function codeEmail({
   copyHref?: string | null
 }): { html: string; text: string } {
   const digits = code ? escapeHtml(code) : ""
-  const safeCopy = copyHref ? escapeHtml(copyHref) : ""
+  void copyHref
   const codeBlock = code
     ? `<tr>
         <td style="padding:0 32px 8px;">
@@ -34,10 +34,8 @@ export function codeEmail({
             <tr>
               <td align="center" style="padding:22px 16px 20px;">
                 <p style="margin:0 0 8px;font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#6b7280;">Your verification code</p>
-                <p style="margin:0;font-size:34px;font-weight:700;letter-spacing:0.28em;color:#1a1a2e;font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace;-webkit-user-select:all;user-select:all;">${digits}</p>
-                <p style="margin:14px 0 0;font-size:15px;font-weight:600;letter-spacing:0.22em;color:#1a1a2e;font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace;-webkit-user-select:all;user-select:all;">${digits.split("").join(" ")}</p>
-                ${minutes ? `<p style="margin:12px 0 0;font-size:13px;line-height:1.4;color:#6b7280;">This code expires in ${minutes} minutes. Do not share it.</p>` : `<p style="margin:12px 0 0;font-size:13px;line-height:1.4;color:#6b7280;">Do not share this code.</p>`}
-                ${safeCopy ? `<p style="margin:14px 0 0;"><a href="${safeCopy}" style="color:#6d28d9;font-size:14px;font-weight:600;text-decoration:underline;">Enter this code on Storelib</a></p>` : ""}
+                <p style="margin:0;font-size:36px;font-weight:700;letter-spacing:0.32em;color:#1a1a2e;font-family:'SF Mono',ui-monospace,Menlo,Consolas,monospace;-webkit-user-select:all;user-select:all;">${digits}</p>
+                ${minutes ? `<p style="margin:14px 0 0;font-size:13px;line-height:1.4;color:#6b7280;">Select the code to copy it. It expires in ${minutes} minutes.</p>` : `<p style="margin:14px 0 0;font-size:13px;line-height:1.4;color:#6b7280;">Select the code to copy it.</p>`}
               </td>
             </tr>
           </table>

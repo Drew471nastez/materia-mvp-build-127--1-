@@ -72,7 +72,7 @@ const frameImage = (src: string) => ({ src: optimizedImageUrl(src, 640), srcSet:
   with Storelib's hairline (an inset ring, so it is drawn over the picture's
   edge and never shifts it) and a soft one pixel shadow under them.
 */
-const FRAME_DEPTH = "shadow-[0_1px_2px_rgba(16,24,40,0.06),0_4px_14px_-8px_rgba(16,24,40,0.16)]"
+const FRAME_DEPTH = "shadow-[0_1px_2px_rgba(16,24,40,0.08),0_10px_28px_-12px_rgba(16,24,40,0.28),0_2px_6px_-2px_rgba(16,24,40,0.12)]"
 const HAIRLINE = "pointer-events-none absolute inset-0 z-10 rounded-[inherit] shadow-[inset_0_0_0_1px_rgba(16,24,40,0.08)]"
 
 const keyOf = (g: GalleryItemView) => (g.type === "image" ? `i:${g.url}` : g.type === "video" ? `v:${g.videoId}` : `e:${g.provider}:${g.id}`)
@@ -80,8 +80,8 @@ const keyOf = (g: GalleryItemView) => (g.type === "image" ? `i:${g.url}` : g.typ
 /** The round play button over a still: ink, a hairline of white, its own soft shadow; pressed, a deeper ink (never a jump). */
 function PlayMark({ busy }: { busy?: boolean }) {
   return (
-    <span className="relative flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-full bg-white text-[#1a1a2e] shadow-[0_12px_40px_-10px_rgba(0,0,0,0.55)] transition-[transform,background-color] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover/play:scale-[1.06] group-active/play:scale-[0.98] group-focus-visible/play:ring-4 group-focus-visible/play:ring-white/70 motion-reduce:transition-none">
-      {busy ? <ActivitySpinner size={24} label="Loading" className="text-[#1a1a2e]" /> : <Play className="ml-1 h-8 w-8 fill-current" aria-hidden />}
+    <span className="relative flex h-14 w-14 items-center justify-center rounded-full bg-white text-[#1a1a2e] shadow-[0_8px_24px_-8px_rgba(0,0,0,0.45),0_1px_2px_rgba(16,24,40,0.12)] transition-[transform,background-color] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover/play:scale-[1.04] group-active/play:scale-[0.98] group-focus-visible/play:ring-4 group-focus-visible/play:ring-white/70 motion-reduce:transition-none">
+      {busy ? <ActivitySpinner size={20} label="Loading" className="text-[#1a1a2e]" /> : <Play className="ml-0.5 h-6 w-6 fill-current" aria-hidden />}
     </span>
   )
 }

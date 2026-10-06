@@ -2,8 +2,6 @@
 
 import { useEffect, useState } from "react"
 import { CreatorOnboardingModal } from "@/components/app/creator-onboarding-modal"
-import { welcomeDone } from "@/lib/account/welcome"
-
 /**
  * ===========================================================================
  *  A NEW ACCOUNT'S FIRST STEPS, OPENED FROM /onboarding/start
@@ -22,7 +20,14 @@ export function StartOnboarding({ next, name, username, avatar, bio, joinStep = 
     return () => cancelAnimationFrame(id)
   }, [])
 
-  const done = welcomeDone(next)
+  useEffect(() => {
+    const hold = () => {
+      window.history.pushState(null, "", window.location.href)
+    }
+    window.history.pushState(null, "", window.location.href)
+    window.addEventListener("popstate", hold)
+    return () => window.removeEventListener("popstate", hold)
+  }, [])
   return (
     <>
       <div
@@ -37,11 +42,6 @@ export function StartOnboarding({ next, name, username, avatar, bio, joinStep = 
         open={open}
         onClose={() => {}}
         start={{ next, name, username, avatar, bio, joinStep }}
-        leave={{
-          label: "Not now",
-          href: done,
-          onLeave: () => fetch("/api/account/welcome", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ skip: true }) }).then(() => undefined),
-        }}
       />
     </>
   )

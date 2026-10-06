@@ -163,7 +163,7 @@ async function main() {
   console.log("\n8. A public post for somebody who is not a member")
   const layout = code("app/(marketing)/community/[slug]/(member)/layout.tsx")
   const postPage = code("app/(marketing)/community/[slug]/(member)/post/[postId]/page.tsx")
-  check("the member layout lets through only a post that publicPost says is public", /if \(await publicPostOpen\(slug\)\) return children\s*redirect\(/.test(layout) && /return !!facts && publicPost\(facts\)/.test(layout) && /POST_PATH = \/\^\\\/community\\\/\[\^\/\?#\]\+\\\/post\\\//.test(layout))
+  check("a reader who is not a member is sent to About, posts included", /if \(page\.state === "signed_out" \|\| page\.state === "not_member"\) \{\s*redirect\(`\/community\/\$\{page\.community\.slug\}\/about`\)/.test(layout) && /POST_PATH = \/\^\\\/community\\\/\[\^\/\?#\]\+\\\/post\\\//.test(layout))
   check("a public post's metadata is not forced noindex by the member layout", /export async function generateMetadata/.test(layout) && /if \(await publicPostOpen\(slug\)\) return \{\}/.test(layout))
   check("and nothing else: every other page still goes to About", /redirect\(`\/community\/\$\{page\.community\.slug\}\/about`\)/.test(layout))
   check("the page asks publicPost again and reads the post and comments read only", /if \(!facts \|\| !publicPost\(facts\)\) notFound\(\)/.test(postPage) && /getPublicPostView\(db, community, reader, postId\)/.test(postPage) && /\{ publicRead: true \}/.test(postPage) && /readOnly\s*visitor=/.test(postPage))

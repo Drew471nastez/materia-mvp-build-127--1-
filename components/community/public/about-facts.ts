@@ -40,10 +40,6 @@ export type AboutFact = { key: "members" | "posts" | "courses" | "visibility" | 
  */
 export function aboutFacts(c: Pick<PublicCommunityView, "visibility" | "creator">, stats: CommunityStatsView, extras: AboutExtras | null | undefined): AboutFact[] {
   const out: AboutFact[] = [{ key: "members", label: "Members", value: factFigure(stats.members) }]
-  const posts = extras?.activity.posts30
-  if (posts) out.push({ key: "posts", label: "Posts, last 30 days", value: factFigure(posts) })
-  const courses = extras?.classroom?.total
-  if (courses) out.push({ key: "courses", label: "Programs", value: factFigure(courses) })
   out.push({ key: "visibility", label: "Community", value: VISIBILITY[c.visibility] ?? VISIBILITY.public })
   const since = sinceLabel(extras?.activity.since)
   if (since) out.push({ key: "since", label: "Started", value: since })

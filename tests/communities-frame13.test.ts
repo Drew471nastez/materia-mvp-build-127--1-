@@ -79,7 +79,7 @@ async function main() {
     const extras = { activity: { posts30: 186, active7: 402, since: "2024-03-02T00:00:00Z" }, classroom: { total: 9, courses: [] }, creatorBio: null }
     const creator = { name: "Mara Lindqvist", username: "mara", avatarUrl: null, href: "/mara" }
     const facts = aboutFacts({ visibility: "private", creator }, { members: 8012, online: 191, admins: 2 }, extras)
-    check("the facts: members, posts in 30 days, courses, kind, started, run by", facts.map((f) => `${f.key}=${f.value}`).join() === "members=8,012,posts=186,courses=9,visibility=Private,since=Mar 2024,creator=Mara Lindqvist", facts)
+    check("the facts: members, kind, started, run by", facts.map((f) => `${f.key}=${f.value}`).join() === "members=8,012,visibility=Private,since=Mar 2024,creator=Mara Lindqvist", facts)
     check("never active this week, never online now", !facts.some((f) => /active|online/i.test(f.label)))
     const bare = aboutFacts({ visibility: "public", creator: null }, { members: 1, online: null, admins: null }, null)
     check("a community with nothing counted yet: members and its kind alone", bare.map((f) => f.key).join() === "members,visibility", bare)

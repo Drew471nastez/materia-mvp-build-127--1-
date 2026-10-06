@@ -242,10 +242,6 @@ export function JoinProvider({ community, join, askWhy = false, children }: { co
   const press = React.useCallback(() => {
     if (busy || phase !== "idle") return
     if (join.href && (join.kind === "open" || join.kind === "product" || !join.signedIn)) {
-      if (!join.signedIn && isJoinAuthHref(join.href)) {
-        setPhase("joining")
-        setError(null)
-      }
       return go(join.href)
     }
     if (join.kind === "join_free") return void joinNow()
