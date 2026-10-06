@@ -213,7 +213,7 @@ async function main() {
 
   /* ── 15 ────────────────────────────────────────────────────────────── */
   console.log("\n15. The composer")
-  check("a soft whoosh on Post: primed in the press, played once the post is up", /primeSounds\(\)/.test(composer) && /const post = r\.data\.post\s*postSound\(\)/.test(composer) && /createBufferSource\(\)/.test(heart) && /band\.type = "bandpass"/.test(heart))
+  check("a soft whoosh on Post: primed in the press, played once the post is up", /primeSounds\(\)/.test(composer) && /postPressSound\(\)/.test(composer) && /const post = r\.data\.post\s*postSound\(\)/.test(composer) && /createBufferSource\(\)/.test(heart) && /band\.type = "bandpass"/.test(heart))
   check("the same Sounds switch and rules as a like", /function soundContext\(\)[\s\S]{0,300}!soundsOn\(\)/.test(heart) && /export function postSound\(\): boolean \{\s*const ctx = soundContext\(\)/.test(heart))
   check("the space picker and the card's space line show the space's glyph", /spaceGlyph\(s\.icon, s\.kind\)/.test(composer) && /spaceGlyph\(post\.space\.icon, post\.space\.kind\)/.test(card))
 

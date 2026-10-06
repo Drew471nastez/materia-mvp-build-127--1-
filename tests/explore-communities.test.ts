@@ -426,7 +426,9 @@ async function main() {
   {
     check(
       "pull at the top refreshes Explore like the community feed",
-      /RouterPullToRefresh scope=\{EXPLORE_REFRESH_SCOPE\}/.test(read("components/explore/explore-pull-refresh.tsx")) && /<ExplorePullRefresh>/.test(read("app/(marketing)/explore/page.tsx")),
+      /RouterPullToRefresh scope=\{EXPLORE_REFRESH_SCOPE\}/.test(read("components/explore/explore-pull-refresh.tsx")) &&
+        /ExplorePullSync/.test(read("components/explore/explore-pull-refresh.tsx")) &&
+        /<ExplorePullRefresh>/.test(read("app/(marketing)/explore/page.tsx")),
     )
     const grid = code("components/explore/explore-communities-results.tsx")
     check(

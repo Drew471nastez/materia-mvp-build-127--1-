@@ -121,7 +121,7 @@ import { GifButton } from "./media-gif"
 import { LinkField, type LinkPick } from "./media-link"
 import { stopUpload, uploadCommunityFile, uploadKindOf, uploadPicture, uploadPostVideo, uploadVideoPoster } from "./media-upload"
 import { MentionTextarea, type MentionTextareaHandle } from "./mention-input"
-import { postSound, primeSounds } from "./heart"
+import { postPressSound, postSound, primeSounds } from "./heart"
 import { spaceGlyph } from "./space-glyph"
 import { toast } from "./toast"
 import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, CARD, DEPTH, DEPTH_PRESS, ICON_BTN } from "./ui"
@@ -870,6 +870,7 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
     setBusy(true)
     /* The whoosh is made ready in the press (a browser starts sound only from one) and played once the post is up. */
     primeSounds()
+    postPressSound()
     const all = linkMedia ? [...media, linkMedia] : media
     const r = await api<{ post: FeedPostView; held?: boolean; message?: string }>(`${apiBase(communityId)}/posts`, {
       body: {

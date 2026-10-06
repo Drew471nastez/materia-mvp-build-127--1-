@@ -26,11 +26,11 @@
 import { Heart } from "lucide-react"
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 
-const BEAT_MS = 420
-const FILL_MS = 340
-const UNFILL_MS = 220
-export const BURST_MS = 480
-export const BURST_COUNT = 9
+const BEAT_MS = 460
+const FILL_MS = 400
+const UNFILL_MS = 240
+export const BURST_MS = 560
+export const BURST_COUNT = 14
 /** The like's own red, set on the tiny hearts rather than taken from the button, whose colour is still settling when they leave. */
 const BURST_COLOR = "#c4290c"
 
@@ -55,7 +55,13 @@ export function burstPaths(size: number, count = BURST_COUNT): BurstPath[] {
   for (let i = 0; i < count; i++) {
     const a = (i / count) * Math.PI * 2 - Math.PI / 2 + (i % 2 ? 0.18 : -0.12)
     const reach = size * (i % 3 === 0 ? 1.0 : i % 3 === 1 ? 0.86 : 1.12)
-    out.push({ x: Math.cos(a) * reach, y: Math.sin(a) * reach - size * 0.12, s: i % 2 ? 0.75 : 1, r: (i % 2 ? 1 : -1) * (10 + (i % 3) * 6), delay: (i % 4) * 12 })
+    out.push({
+      x: Math.cos(a) * reach,
+      y: Math.sin(a) * reach - size * 0.14,
+      s: i % 3 === 0 ? 0.7 : i % 3 === 1 ? 0.92 : 1.08,
+      r: (i % 2 ? 1 : -1) * (8 + (i % 4) * 5),
+      delay: (i % 5) * 10,
+    })
   }
   return out
 }
@@ -94,7 +100,7 @@ function burst(host: HTMLElement, size: number) {
   layer.setAttribute("data-heart-burst", "")
   layer.setAttribute("aria-hidden", "true")
   layer.style.cssText = `position:fixed;left:${(r.left + r.width / 2).toFixed(1)}px;top:${(r.top + r.height / 2).toFixed(1)}px;width:0;height:0;pointer-events:none;z-index:2147483000;contain:layout style`
-  const dot = Math.max(5, Math.round(size * 0.36))
+  const dot = Math.max(5, Math.round(size * 0.34))
   const paths = burstPaths(size)
   layer.innerHTML = paths.map(() => `<i data-heart-particle="" style="${particleStyle(dot)}"></i>`).join("")
   const runs: Animation[] = []
@@ -105,10 +111,11 @@ function burst(host: HTMLElement, size: number) {
     runs.push(
       el.animate(
         [
-          { translate: at(0), scale: `${0.25 * p.s}`, rotate: "0deg", opacity: 0, easing: "cubic-bezier(0.22, 1, 0.36, 1)" },
-          { translate: at(0.65), scale: `${1.05 * p.s}`, rotate: `${p.r * 0.45}deg`, opacity: 1, offset: 0.28, easing: "cubic-bezier(0.22, 1, 0.36, 1)" },
-          { translate: at(0.88, size * 0.06), scale: `${p.s}`, rotate: `${p.r * 0.75}deg`, opacity: 1, offset: 0.55, easing: "ease-out" },
-          { translate: at(1, size * 0.2), scale: `${0.35 * p.s}`, rotate: `${p.r}deg`, opacity: 0, easing: "cubic-bezier(0.4, 0, 0.2, 1)" },
+          { translate: at(0), scale: `${0.2 * p.s}`, rotate: "0deg", opacity: 0, easing: "cubic-bezier(0.22, 1, 0.36, 1)" },
+          { translate: at(0.35), scale: `${0.72 * p.s}`, rotate: `${p.r * 0.25}deg`, opacity: 0.85, offset: 0.18, easing: "cubic-bezier(0.22, 1, 0.36, 1)" },
+          { translate: at(0.62), scale: `${1.08 * p.s}`, rotate: `${p.r * 0.5}deg`, opacity: 1, offset: 0.38, easing: "cubic-bezier(0.22, 1, 0.36, 1)" },
+          { translate: at(0.82, size * 0.04), scale: `${p.s}`, rotate: `${p.r * 0.72}deg`, opacity: 1, offset: 0.58, easing: "ease-out" },
+          { translate: at(1, size * 0.22), scale: `${0.28 * p.s}`, rotate: `${p.r}deg`, opacity: 0, easing: "cubic-bezier(0.4, 0, 0.2, 1)" },
         ],
         { duration: BURST_MS - p.delay, delay: p.delay, easing: "linear", fill: "both" },
       ),
@@ -156,11 +163,16 @@ export function LikeHeart({ on, size = 20, strokeWidth = 1.75 }: { on: boolean; 
     }
     if (typeof el.animate !== "function" || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
     el.animate(
-      [{ scale: "1" }, { scale: "1.18", offset: 0.32 }, { scale: "0.96", offset: 0.68 }, { scale: "1" }],
+      [{ scale: "1" }, { scale: "1.22", offset: 0.28 }, { scale: "0.94", offset: 0.62 }, { scale: "1.02", offset: 0.82 }, { scale: "1" }],
       { duration: BEAT_MS, easing: "cubic-bezier(0.22, 1, 0.36, 1)" },
     )
     fill?.animate(
-      [{ scale: "0.35", opacity: 0 }, { scale: "1.08", opacity: 1, offset: 0.72 }, { scale: "1", opacity: 1 }],
+      [
+        { scale: "0.28", opacity: 0 },
+        { scale: "0.92", opacity: 0.55, offset: 0.35 },
+        { scale: "1.12", opacity: 1, offset: 0.68 },
+        { scale: "1", opacity: 1 },
+      ],
       { duration: FILL_MS, easing: "cubic-bezier(0.22, 1, 0.36, 1)" },
     )
     const frame = requestAnimationFrame(() => burst(el, size))
@@ -170,7 +182,7 @@ export function LikeHeart({ on, size = 20, strokeWidth = 1.75 }: { on: boolean; 
     <span ref={box} className="relative inline-block shrink-0" style={{ width: size, height: size }} aria-hidden data-heart="">
       <Heart className="absolute inset-0 h-full w-full" strokeWidth={strokeWidth} />
       <Heart
-        className="absolute inset-0 h-full w-full scale-[0.88] fill-current opacity-0 transition-[scale,opacity] duration-[220ms] ease-[cubic-bezier(0.22,1,0.36,1)] group-aria-pressed/like:scale-100 group-aria-pressed/like:opacity-100 group-aria-pressed/like:transition-none motion-reduce:transition-none"
+        className="absolute inset-0 h-full w-full scale-[0.82] fill-current opacity-0 transition-[scale,opacity] duration-[260ms] ease-[cubic-bezier(0.22,1,0.36,1)] group-aria-pressed/like:scale-100 group-aria-pressed/like:opacity-100 group-aria-pressed/like:transition-none motion-reduce:transition-none"
         strokeWidth={strokeWidth}
         data-heart-fill=""
       />
@@ -275,12 +287,40 @@ export function primeSounds(): void {
   soundContext()
 }
 
-/** The post's whoosh: noise through a band that sweeps up, in and out softly. */
+/** A soft tap when Post is pressed, before the network answers. */
+export function postPressSound(): boolean {
+  const ctx = soundContext()
+  if (!ctx) return false
+  try {
+    const t = ctx.currentTime + 0.002
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.type = "triangle"
+    osc.frequency.setValueAtTime(420, t)
+    osc.frequency.exponentialRampToValueAtTime(680, t + 0.07)
+    gain.gain.setValueAtTime(0.0001, t)
+    gain.gain.exponentialRampToValueAtTime(0.028, t + 0.012)
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.09)
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.start(t)
+    osc.stop(t + 0.1)
+    osc.onended = () => {
+      osc.disconnect()
+      gain.disconnect()
+    }
+    return true
+  } catch {
+    return false
+  }
+}
+
+/** The post's whoosh: noise through a band that sweeps up, with a soft chime when it lands. */
 export function postSound(): boolean {
   const ctx = soundContext()
   if (!ctx) return false
   try {
-    const length = 0.28
+    const length = 0.34
     const t = ctx.currentTime + 0.003
     const frames = Math.ceil(ctx.sampleRate * length)
     const buffer = ctx.createBuffer(1, frames, ctx.sampleRate)
@@ -290,22 +330,35 @@ export function postSound(): boolean {
     noise.buffer = buffer
     const band = ctx.createBiquadFilter()
     band.type = "bandpass"
-    band.Q.setValueAtTime(0.95, t)
-    band.frequency.setValueAtTime(520, t)
-    band.frequency.exponentialRampToValueAtTime(2200, t + length * 0.72)
+    band.Q.setValueAtTime(0.85, t)
+    band.frequency.setValueAtTime(480, t)
+    band.frequency.exponentialRampToValueAtTime(2400, t + length * 0.68)
     const gain = ctx.createGain()
     gain.gain.setValueAtTime(0.0001, t)
-    gain.gain.exponentialRampToValueAtTime(0.038, t + length * 0.28)
+    gain.gain.exponentialRampToValueAtTime(0.044, t + length * 0.22)
     gain.gain.exponentialRampToValueAtTime(0.0001, t + length)
+    const chime = ctx.createOscillator()
+    const chimeGain = ctx.createGain()
+    chime.type = "sine"
+    chime.frequency.setValueAtTime(880, t + length * 0.42)
+    chimeGain.gain.setValueAtTime(0.0001, t + length * 0.42)
+    chimeGain.gain.exponentialRampToValueAtTime(0.018, t + length * 0.5)
+    chimeGain.gain.exponentialRampToValueAtTime(0.0001, t + length * 0.92)
     noise.connect(band)
     band.connect(gain)
+    chime.connect(chimeGain)
     gain.connect(ctx.destination)
+    chimeGain.connect(ctx.destination)
     noise.start(t)
+    chime.start(t + length * 0.42)
     noise.stop(t + length + 0.02)
+    chime.stop(t + length + 0.02)
     noise.onended = () => {
       noise.disconnect()
       band.disconnect()
       gain.disconnect()
+      chime.disconnect()
+      chimeGain.disconnect()
     }
     return true
   } catch {
@@ -338,12 +391,12 @@ export function likeSound(on: boolean): boolean {
       }
     }
     if (on) {
-      tone(523, 784, 0.052, 0.14)
-      tone(1046, 1568, 0.028, 0.11, t + 0.01)
-      tone(2093, 2480, 0.01, 0.07, t + 0.02)
+      tone(392, 587, 0.048, 0.16)
+      tone(659, 988, 0.038, 0.13, t + 0.012)
+      tone(1046, 1318, 0.022, 0.1, t + 0.024)
     } else {
-      tone(440, 330, 0.026, 0.09)
-      tone(220, 165, 0.014, 0.06, t + 0.04)
+      tone(440, 349, 0.022, 0.1)
+      tone(262, 196, 0.012, 0.08, t + 0.05)
     }
     return true
   } catch {

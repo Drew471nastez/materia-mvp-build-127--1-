@@ -89,7 +89,7 @@ function ProgramTile({ program: p, timeZone }: { program: ProgramCard; timeZone?
       data-locked={lock ? (p.locked?.reason ?? "yes") : "no"}
       className={cn(
         CARD_RAISED,
-        "group/card flex h-full flex-row gap-3 overflow-hidden p-3 transition-[border-color,box-shadow,translate] duration-200 ease-out hover:border-[#d5d9e0] hover:shadow-[0_1px_0_rgba(16,24,40,0.04),0_2px_6px_rgba(16,24,40,0.08),0_12px_28px_-10px_rgba(16,24,40,0.14),inset_0_-1px_0_rgba(16,24,40,0.05)] hover:-translate-y-0.5 motion-reduce:transition-none motion-reduce:hover:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 min-[520px]:flex-col min-[520px]:gap-0 min-[520px]:p-0 active:scale-[0.995] motion-reduce:active:scale-100",
+        "group/card flex h-full flex-row gap-3 overflow-hidden p-3 transition-[border-color,box-shadow,transform] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-[#d5d9e0] hover:shadow-[0_1px_0_rgba(16,24,40,0.04),0_2px_6px_rgba(16,24,40,0.08),0_12px_28px_-10px_rgba(16,24,40,0.14),inset_0_-1px_0_rgba(16,24,40,0.05)] hover:-translate-y-0.5 motion-reduce:transition-none motion-reduce:hover:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 min-[520px]:flex-col min-[520px]:gap-0 min-[520px]:p-0 active:scale-[0.995] motion-reduce:active:scale-100",
       )}
     >
       <div className="relative aspect-[16/9] w-[116px] shrink-0 self-start overflow-hidden rounded-lg bg-[#f1f2f4] min-[520px]:w-full min-[520px]:rounded-none">

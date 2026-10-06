@@ -163,7 +163,9 @@ export function CoursePlayer({
     setAutoPlay(withPlay)
     setLessonId(l.id)
     setSheet(false)
-    if (typeof window !== "undefined" && window.matchMedia?.("(max-width: 1023px)").matches) window.scrollTo({ top: 0, behavior: "smooth" })
+    if (typeof window !== "undefined" && window.matchMedia?.("(max-width: 1023px)").matches) {
+      window.scrollTo({ top: 0, behavior: "smooth" })
+    }
   }, [])
 
   const onPlace = useCallback(
@@ -217,7 +219,7 @@ export function CoursePlayer({
         <Link
           href={backHref}
           aria-label={backLabel}
-          className={`mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#e6e8ec] bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.06),0_6px_16px_-8px_rgba(16,24,40,0.18)] transition-[box-shadow,background-color] duration-200 hover:bg-[#f8f9fa] hover:shadow-[0_1px_2px_rgba(16,24,40,0.08),0_8px_18px_-8px_rgba(16,24,40,0.22)] sm:h-9 sm:w-9`}
+          className={`mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#e6e8ec] bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.06),0_6px_16px_-8px_rgba(16,24,40,0.18)] transition-[box-shadow,background-color,transform] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-x-0.5 hover:bg-[#f8f9fa] hover:shadow-[0_1px_2px_rgba(16,24,40,0.08),0_8px_18px_-8px_rgba(16,24,40,0.22)] active:scale-[0.97] motion-reduce:transition-none motion-reduce:hover:translate-x-0 sm:h-9 sm:w-9`}
         >
           <ArrowLeft className="h-4 w-4" />
         </Link>
@@ -255,7 +257,10 @@ export function CoursePlayer({
       <div className={grid}>
         <div className={`min-w-0 ${embedded ? "overflow-hidden rounded-2xl border border-[#e6e8ec] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04),0_10px_28px_-16px_rgba(16,24,40,0.12)]" : ""}`}>
           {/* The lesson: edge to edge on a phone in the library; inset in a community */}
-          <div className={embedded ? "" : "-mx-4 sm:mx-0"}>
+          <div
+            key={lessonId ?? "no-lesson"}
+            className={`${embedded ? "" : "-mx-4 sm:mx-0"} motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-300 motion-reduce:animate-none`}
+          >
             <Stage
               embedded={embedded}
               play={play}
@@ -317,7 +322,7 @@ export function CoursePlayer({
                 type="button"
                 onClick={() => setSheet(true)}
                 data-open-lessons
-                className={`mt-3 flex h-12 w-full items-center gap-3 rounded-lg border border-[#e5e7eb] bg-white px-3.5 text-left hover:bg-[#f8f9fa] ${embedded ? "" : "lg:hidden"} ${lessons.length < 2 ? "hidden" : ""}`}
+                className={`mt-3 flex h-12 w-full items-center gap-3 rounded-lg border border-[#e5e7eb] bg-white px-3.5 text-left transition-[background-color,box-shadow,transform] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:bg-[#f8f9fa] hover:shadow-[0_2px_8px_-4px_rgba(16,24,40,0.12)] active:translate-y-0 motion-reduce:transition-none ${embedded ? "" : "lg:hidden"} ${lessons.length < 2 ? "hidden" : ""}`}
               >
                 <ListVideo className="h-4 w-4 shrink-0 text-[#6b7280]" />
                 <span className="flex-1 text-[14px] font-semibold text-[#1a1a2e]">All lessons</span>
@@ -542,8 +547,10 @@ function Curriculum({ data, progress, currentId, onPick }: { data: PlayerData; p
                       aria-current={current ? "true" : undefined}
                       data-lesson-row={l.id}
                       data-lesson-current={current ? "" : undefined}
-                      className={`flex w-full items-center gap-2.5 rounded-[10px] px-2.5 py-2.5 text-left transition-[background-color,box-shadow] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-                        current ? "bg-[#f4f4f5] shadow-[inset_2px_0_0_0_#1a1a2e]" : "hover:bg-[#f8f9fa]"
+                      className={`flex w-full items-center gap-2.5 rounded-[10px] px-2.5 py-2.5 text-left transition-[background-color,box-shadow,transform] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${
+                        current
+                          ? "bg-[#f4f4f5] shadow-[inset_2px_0_0_0_#1a1a2e]"
+                          : "hover:-translate-y-px hover:bg-[#f7f8f9] hover:shadow-[0_1px_4px_-2px_rgba(16,24,40,0.1)] active:translate-y-0"
                       } ${l.locked ? "cursor-default opacity-70" : ""}`}
                     >
                       <span className="flex h-5 w-5 shrink-0 items-center justify-center">
@@ -606,9 +613,9 @@ function LessonSheet({ open, onClose, children }: { open: boolean; onClose: () =
   return (
     /* Above the phone's tab bar, never over it (--buyer-tabs-h, app/globals.css): the bar stays a way out. */
     <div className="fixed inset-x-0 top-0 z-[80] lg:hidden" style={{ bottom: "var(--buyer-tabs-h, 0px)" }} role="dialog" aria-modal="true" aria-label="Lessons" data-lesson-sheet={shown ? "open" : "closed"}>
-      <div className={`absolute inset-0 bg-black/40 transition-opacity duration-200 motion-reduce:transition-none ${shown ? "opacity-100" : "opacity-0"}`} onClick={onClose} />
+      <div className={`absolute inset-0 bg-black/40 transition-opacity duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${shown ? "opacity-100" : "opacity-0"}`} onClick={onClose} />
       <div
-        className={`absolute inset-x-0 bottom-0 flex max-h-[calc(82svh-var(--buyer-tabs-h,0px))] flex-col rounded-t-2xl bg-white shadow-[0_-8px_30px_rgba(0,0,0,0.12)] transition-[translate] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none ${shown ? "translate-y-0" : "translate-y-full"}`}
+        className={`absolute inset-x-0 bottom-0 flex max-h-[calc(82svh-var(--buyer-tabs-h,0px))] flex-col rounded-t-2xl bg-white shadow-[0_-8px_30px_rgba(0,0,0,0.12)] transition-[translate] duration-[340ms] ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none ${shown ? "translate-y-0" : "translate-y-full"}`}
         /* The home indicator's inset is under the tab bar when there is one; only without it does the sheet keep its own. */
         style={{ paddingBottom: "max(0px, env(safe-area-inset-bottom, 0px) - var(--buyer-tabs-h, 0px))" }}
         onTransitionEnd={() => !open && setMounted(false)}

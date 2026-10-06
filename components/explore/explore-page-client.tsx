@@ -27,6 +27,8 @@ import { matchesSubcategory, subcategoryTerms } from "@/lib/explore/subcategory-
 import { useExploreScrollRestore, useExploreScrollRestoring } from "@/lib/explore/use-explore-scroll"
 import { exploreCategoryFrom } from "@/lib/explore/explore-address"
 import { useProgressiveCount } from "@/lib/explore/use-progressive-count"
+import { PULL_REFRESH_EVENT, type PullRefreshDetail } from "@/components/ui/pull-to-refresh"
+import { EXPLORE_REFRESH_SCOPE } from "@/lib/explore/refresh-scope"
 
 // Categories with icons and subcategories - Extended list
 const CATEGORIES = [
@@ -390,6 +392,20 @@ export function ExplorePageClient({
   const router = useRouter()
   const searchParams = useSearchParams()
   const [isPending, startTransition] = useTransition()
+  const [pullGen, setPullGen] = useState(0)
+
+  useEffect(() => {
+    const onPull = (event: Event) => {
+      const detail = (event as CustomEvent<PullRefreshDetail>).detail
+      if (!detail || detail.scope !== EXPLORE_REFRESH_SCOPE) return
+      const prior = detail.done
+      detail.done = Promise.resolve(prior).then(() => {
+        requestAnimationFrame(() => setPullGen((g) => g + 1))
+      })
+    }
+    window.addEventListener(PULL_REFRESH_EVENT, onPull)
+    return () => window.removeEventListener(PULL_REFRESH_EVENT, onPull)
+  }, [])
 
   /*
     ═══════════════════════════════════════════════════════════════════════
@@ -795,7 +811,7 @@ export function ExplorePageClient({
     }
 
     return products
-  }, [initialProducts, gridCategory, gridSub, recommendationFilter, deferredPrice, deferredSort, localSearchQuery, interests])
+  }, [initialProducts, gridCategory, gridSub, recommendationFilter, deferredPrice, deferredSort, localSearchQuery, interests, pullGen])
 
   // Paginated products
   const paginatedProducts = useMemo(() => {
