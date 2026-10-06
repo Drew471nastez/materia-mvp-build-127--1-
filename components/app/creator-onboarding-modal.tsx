@@ -2544,7 +2544,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                     above and below it; a short window keeps 24px).
                   */
                   isJoinStep(currentStep) && currentStep !== JOIN_DONE
-                    ? "sm:w-[min(92vw,760px)] sm:h-auto sm:max-h-[calc(100dvh-48px)] sm:rounded-[36px] min-[1440px]:w-[min(86vw,1280px)] min-[1440px]:h-[min(80vh,800px)] min-[1440px]:min-h-[680px] min-[1440px]:max-h-[800px] min-[1440px]:rounded-[44px]"
+                    ? "sm:w-[min(92vw,760px)] sm:max-w-[min(92vw,760px)] sm:h-auto sm:max-h-[calc(100dvh-48px)] sm:rounded-[36px] lg:w-[min(86vw,1280px)] lg:max-w-[min(86vw,1280px)] lg:h-[min(80vh,800px)] lg:min-h-[min(680px,80vh)] lg:max-h-[800px] lg:rounded-[44px]"
                     : "sm:w-[1040px] sm:max-w-[calc(100vw-48px)] sm:h-[610px] sm:max-h-[calc(100dvh-48px)] sm:rounded-[44px]",
                   // Mobile: true fullscreen experience
                   "w-[calc(100%-24px)] max-w-none max-sm:fixed max-sm:inset-0 max-sm:top-0 max-sm:left-0 max-sm:w-screen max-sm:h-[100dvh] max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none",
@@ -2567,7 +2567,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
               /* The card's own limit, window included: a short window kept the column 610px tall inside a shorter card, and Back and Next were cut off under its edge. */
               : cn(
                   "max-sm:max-h-[100dvh] max-sm:pt-[env(safe-area-inset-top)] max-sm:pb-[env(safe-area-inset-bottom)]",
-                  isJoinStep(currentStep) && currentStep !== JOIN_DONE ? "sm:h-auto sm:max-h-[calc(100dvh-48px)]" : "sm:max-h-[min(610px,calc(100dvh-48px))]",
+                  isJoinStep(currentStep) && currentStep !== JOIN_DONE ? "sm:h-auto sm:max-h-[calc(100dvh-48px)] lg:h-full lg:max-h-none" : "sm:max-h-[min(610px,calc(100dvh-48px))]",
                 ),
           )}>
             {/*
@@ -2685,7 +2685,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
               style={{ maskImage: SCROLL_EDGE_MASK, WebkitMaskImage: SCROLL_EDGE_MASK }}
               className={cn(
                 "min-h-0 overscroll-contain px-4 pt-5 sm:px-10 sm:pt-4",
-                isJoinStep(currentStep) && currentStep !== JOIN_DONE ? "sm:flex-none sm:overflow-visible min-[1440px]:min-h-0 min-[1440px]:flex-1 min-[1440px]:overflow-hidden" : "flex-1 sm:overflow-hidden",
+                isJoinStep(currentStep) && currentStep !== JOIN_DONE ? "sm:flex-none sm:overflow-visible lg:min-h-0 lg:flex-1 lg:overflow-hidden" : "flex-1 sm:overflow-hidden",
                 /* A profile step fits. Anything taller may scroll on a phone only, never inside the card on a large screen. */
                 isJoinStep(currentStep) ? "overflow-hidden" : "max-sm:overflow-y-auto",
                 (currentStep === 1 || currentStep === 3 || isJoinStep(currentStep)) && "max-sm:pb-4",
