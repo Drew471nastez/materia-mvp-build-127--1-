@@ -30,8 +30,23 @@ const NO_STORE = { "Cache-Control": "no-store" }
  * The handle is saved through /api/profile/username, the one rule for a
  * handle. Signed in only, the user from the session, rate limited.
  */
+function socialHandle(raw: unknown): string {
+  if (typeof raw !== "string") return ""
+  let v = raw.trim().replace(/^https?:\/\/(www\.)?/i, "")
+  v = v.replace(/^(instagram\.com|tiktok\.com|youtube\.com|youtu\.be)\//i, "")
+  v = v.replace(/^@+/, "").split(/[/?#]/)[0] ?? ""
+  return v.replace(/[^a-zA-Z0-9._-]/g, "").slice(0, 60)
+}
+
+function socialUrl(kind: "instagram" | "tiktok" | "youtube", handle: string): string | null {
+  if (!handle) return null
+  if (kind === "instagram") return `https://instagram.com/${handle}`
+  if (kind === "tiktok") return `https://www.tiktok.com/@${handle}`
+  return `https://youtube.com/@${handle}`
+}
+
 export async function POST(request: NextRequest) {
-  let body: { name?: unknown; bio?: unknown; skip?: unknown; done?: unknown } | null
+  let body: { name?: unknown; bio?: unknown; skip?: unknown; done?: unknown; socials?: unknown } | null
   try {
     body = await request.json()
   } catch {
@@ -49,6 +64,29 @@ export async function POST(request: NextRequest) {
 
   const limited = await rateLimit({ bucket: "account-welcome", subjects: [`user:${user.id}`], windows: [{ limit: 20, seconds: 600 }] })
   if (limited) return limited
+
+  if (body.socials !== undefined) {
+    const raw = body.socials && typeof body.socials === "object" ? (body.socials as Record<string, unknown>) : {}
+    const instagram = socialHandle(raw.instagram)
+    const tiktok = socialHandle(raw.tiktok)
+    const youtube = socialHandle(raw.youtube)
+    const urls = {
+      instagram_url: socialUrl("instagram", instagram),
+      tiktok_url: socialUrl("tiktok", tiktok),
+      youtube_url: socialUrl("youtube", youtube),
+    }
+    const { error: metaError } = await supabase.auth.updateUser({
+      data: { storelib_socials: { instagram, tiktok, youtube } },
+    })
+    if (metaError) console.error("[welcome] socials not marked", metaError.message)
+    const db = createAdminClient()
+    const { error } = await db.from("profiles").update(urls).eq("id", user.id)
+    /* Those columns are not on every database. The handles are already on the account. */
+    if (error && !/column|schema cache|42703|PGRST204/i.test(`${error.message} ${error.code ?? ""}`)) {
+      console.error("[welcome] socials not saved", error.code, error.message)
+    }
+    return NextResponse.json({ ok: true }, { headers: NO_STORE })
+  }
 
   if (body.name !== undefined) {
     const name = cleanName(body.name)

@@ -117,7 +117,7 @@ function main() {
   check("one row of buttons on every step, each fading with its step, so nothing pops in and the panel never resizes as setup begins",
     (creator.match(/data-onboarding-footer=""/g) ?? []).length === 1
       /* Round 13: Back wherever there is a step to go back to (the store's 2 to 4, and the new account's question and join branch), Skip and Next on the store's first three and the join steps. */
-      && /style=\{fadeWith\(backFrom\(currentStep\) !== null/.test(creator) && /style=\{fadeWith\(\(currentStep >= 1 && currentStep <= 3\) \|\| isJoinStep\(currentStep\)\)\}/.test(creator)
+      && /style=\{fadeWith\(backFrom\(currentStep\) !== null/.test(creator) && /style=\{fadeWith\(\(currentStep >= 1 && currentStep <= 3\) \|\| \(isJoinStep\(currentStep\) && currentStep !== JOIN_DONE\)\)\}/.test(creator)
       && !/<div className="h-16" \/>/.test(creator))
 
   /* "in the store category step, make sure the Other button is next to See more, not in the bar at the bottom with Back, Skip, Next." */

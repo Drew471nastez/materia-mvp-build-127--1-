@@ -504,7 +504,7 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
     <div data-comments-list="" data-comments-composer-pin={pinComposer ? "" : undefined}>
       {!pinComposer ? composer : null}
       {open && !mediaReady && staff ? (
-        <p className={`${pinComposer ? "mt-4" : "mt-7"} rounded-[10px] border border-[#f0e2bf] bg-[#fffaf0] px-3 py-2 text-[12.5px] leading-relaxed text-[#7a5a12]" data-comments-media-note="">
+        <p className={`${pinComposer ? "mt-4" : "mt-7"} rounded-[10px] border border-[#f0e2bf] bg-[#fffaf0] px-3 py-2 text-[12.5px] leading-relaxed text-[#7a5a12]`} data-comments-media-note="">
           {MEDIA_STAFF_NOTE}
         </p>
       ) : null}

@@ -425,13 +425,16 @@ export interface StartBranch {
 
 /*
   THE STEPS BY NUMBER. 1 to 5 are the store setup as it always was. A new
-  account (`start`) is two slides: the profile, then notifications, on the
-  web and in the app. Numbers apart from the store's, so every rule written
-  for 1 to 5 reads the same as before.
+  account (`start`) is the profile, then socials (the OnePage slide), then
+  a short done moment. Notifications are only in the iOS and Android app,
+  between socials and done. Numbers apart from the store's, so every rule
+  written for 1 to 5 reads the same as before.
 */
 const JOIN_NAME = 11
+const JOIN_SOCIAL = 12
 const JOIN_NOTIFY = 13
-const isJoinStep = (step: number) => step === JOIN_NAME || step === JOIN_NOTIFY
+const JOIN_DONE = 14
+const isJoinStep = (step: number) => step === JOIN_NAME || step === JOIN_SOCIAL || step === JOIN_NOTIFY || step === JOIN_DONE
 
 export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switchBack = null, leave = null, resume = null, start = null }: CreatorOnboardingModalProps) {
   const router = useRouter()
@@ -571,11 +574,11 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
     profile; iOS and Android (the Capacitor app) get the second step.
   */
   const [joinNotify, setJoinNotify] = useState(false)
+  const finishOnce = useRef(false)
   useLayoutEffect(() => {
     setJoinNotify(inNativeApp())
   }, [])
-  const joinSteps = joinNotify ? [JOIN_NAME, JOIN_NOTIFY] : [JOIN_NAME]
-  const lastJoinStep = joinSteps[joinSteps.length - 1]
+  const joinSteps = [JOIN_NAME, JOIN_SOCIAL, ...(joinNotify ? [JOIN_NOTIFY] : []), JOIN_DONE]
   useEffect(() => {
     if (!start) return
     const handle = normalizeHandle(joinHandle)
@@ -639,9 +642,26 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
     }
   }
 
+  /** Social handles, just the name. Empty is fine. Saved before the done moment. */
+  const saveJoinSocials = async () => {
+    const clean = (v: string) => v.trim().replace(/^@+/, "").slice(0, 80)
+    await fetch("/api/account/welcome", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        socials: {
+          instagram: clean(socials.instagram),
+          tiktok: clean(socials.tiktok),
+          youtube: clean(socials.youtube),
+        },
+      }),
+    }).catch(() => null)
+  }
+
   /** The last step: the question is answered, and they go where they were going. */
   const finishJoin = async () => {
-    if (joinSaving) return
+    if (joinSaving || finishOnce.current) return
+    finishOnce.current = true
     setJoinSaving(true)
     await Promise.race([
       fetch("/api/account/welcome", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ done: true }) }).catch(() => null),
@@ -673,6 +693,16 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
     /* A full load, so the community is the server's frame: tab bar, section row and columns, not whatever the onboarding left on the page. */
     window.location.replace(done)
   }
+
+  const finishJoinRef = useRef(finishJoin)
+  finishJoinRef.current = finishJoin
+  useEffect(() => {
+    if (currentStep !== JOIN_DONE) return
+    const t = window.setTimeout(() => {
+      void finishJoinRef.current()
+    }, 1500)
+    return () => window.clearTimeout(t)
+  }, [currentStep])
 
   /**
    * The notification question, from the Turn on button only. The app asks
@@ -1010,6 +1040,11 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
         )
       })
 
+      /* The circle shows the crop at once. The upload replaces it when it lands, so the step never sits empty. */
+      const preview = URL.createObjectURL(blob)
+      setAvatarUrl(preview)
+      setShowCropModal(false)
+
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error("Not authenticated")
 
@@ -1036,6 +1071,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
       announceAvatar(publicUrl)
 
       setAvatarUrl(publicUrl)
+      URL.revokeObjectURL(preview)
       setShowCropModal(false)
       if (tempImageUrl) URL.revokeObjectURL(tempImageUrl)
       setTempImageUrl(null)
@@ -1054,6 +1090,10 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
     switch (currentStep) {
       case JOIN_NAME:
         return !!cleanName(joinName) && !!normalizeHandle(joinHandle) && !joinSaving && (joinHandleState === "same" || joinHandleState === "free")
+      case JOIN_SOCIAL:
+        return !joinSaving
+      case JOIN_DONE:
+        return false
       /* Turn on notifications asks; Not now skips. Neither waits on a second press. */
       case JOIN_NOTIFY:
         return !joinSaving && !askingPush
@@ -1072,6 +1112,8 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
   // Check if can skip
   const canSkip = () => {
     switch (currentStep) {
+      case JOIN_SOCIAL:
+        return !joinSaving
       case JOIN_NOTIFY:
         return !joinSaving && !askingPush && pushAnswer === null
       case 1:
@@ -1114,6 +1156,21 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
     const direction = stepMoveRef.current
     stepMoveRef.current = null
     if (!direction) return
+    if (currentStep === JOIN_DONE) {
+      stepLeaveRef.current?.animate(
+        [{ opacity: 1, scale: "1" }, { opacity: 0, scale: "0.97" }],
+        { duration: STEP_OUT_MS + 40, easing: MOTION_EASE, fill: "forwards" },
+      )
+      stepEnterRef.current?.querySelectorAll<HTMLElement>("[data-join-done-rise]").forEach((el, i) => {
+        el.animate(
+          [{ opacity: 0, translate: "0 12px", scale: "0.94" }, { opacity: 1, translate: "0 0", scale: "1" }],
+          { duration: SETUP_RISE_MS, delay: 80 + i * 70, easing: MOTION_EASE, fill: "backwards" },
+        )
+      })
+      if (stepTimerRef.current) clearTimeout(stepTimerRef.current)
+      stepTimerRef.current = setTimeout(() => setLeavingStep(null), STEP_IN_MS)
+      return
+    }
     if (currentStep === 5) {
       /*
         SETUP ARRIVES, IT DOES NOT SLIDE IN. The plans were pushed sideways
@@ -1154,17 +1211,21 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
   const handleNext = async () => {
     if (!canProceed()) return
     if (isJoinStep(currentStep)) {
-      if (currentStep === JOIN_NAME && !(await saveJoinName())) return
-      if (currentStep === JOIN_NOTIFY) {
-        await allowNotifications()
-        return finishJoin()
-      }
-      if (currentStep === JOIN_NAME && (joinNotify || inNativeApp())) {
-        goToStep(JOIN_NOTIFY, "right")
+      if (currentStep === JOIN_NAME) {
+        if (!(await saveJoinName())) return
+        goToStep(JOIN_SOCIAL, "right")
         return
       }
-      if (currentStep === lastJoinStep) return finishJoin()
-      goToStep(joinSteps[joinSteps.indexOf(currentStep) + 1], "right")
+      if (currentStep === JOIN_SOCIAL) {
+        await saveJoinSocials()
+        goToStep(joinNotify || inNativeApp() ? JOIN_NOTIFY : JOIN_DONE, "right")
+        return
+      }
+      if (currentStep === JOIN_NOTIFY) {
+        await allowNotifications()
+        goToStep(JOIN_DONE, "right")
+        return
+      }
       return
     }
     // Steps 1-3 advance normally; step 3 → step 4 (plan selection)
@@ -1174,7 +1235,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
 
   /** The step Back goes to, or null where there is none (the first question, the store's first step without it, the plans' setup). */
   const backFrom = (step: number): number | null => {
-    if (step === JOIN_NAME) return null
+    if (step === JOIN_NAME || step === JOIN_DONE) return null
     if (isJoinStep(step)) return joinSteps[joinSteps.indexOf(step) - 1] ?? JOIN_NAME
     if (step === 1) return null
     if (step >= 2 && step <= 4) return step - 1
@@ -1192,8 +1253,13 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
   const handleSkip = () => {
     if (!canSkip()) return
     if (isJoinStep(currentStep)) {
-      if (currentStep === lastJoinStep) return finishJoin()
-      goToStep(joinSteps[joinSteps.indexOf(currentStep) + 1], "right")
+      if (currentStep === JOIN_SOCIAL) void saveJoinSocials()
+      if (currentStep === JOIN_NOTIFY) {
+        goToStep(JOIN_DONE, "right")
+        return
+      }
+      const next = joinSteps[joinSteps.indexOf(currentStep) + 1]
+      if (next) goToStep(next, "right")
       return
     }
     handleNext()
@@ -1556,30 +1622,13 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
    */
   const renderStep = (step: number) => (
     <>
-        {/* Slide 1 of a new account: photo, name, username, optional bio. Prefilled from the sign-in. */}
+        {/* Slide 1 of a new account: name, username, optional bio. Prefilled from the sign-in. */}
         {step === JOIN_NAME && (
           <div className="flex flex-col items-center" data-onboarding-join="profile">
             <div className={HEADING_BLOCK}>
-              <h1 className={HEADING}>Make it yours</h1>
+              <h1 className={HEADING}>Your profile</h1>
+              <p className={SUBHEADING}>A name, a username, and a short bio if you want one.</p>
             </div>
-            <button
-              type="button"
-              onClick={() => avatarInputRef.current?.click()}
-              data-onboarding-join-photo=""
-              className="group/photo relative mb-5 flex h-[96px] w-[96px] items-center justify-center overflow-hidden rounded-full bg-[#f4f4f5] shadow-[inset_0_0_0_1px_rgba(17,24,39,0.06),0_1px_2px_rgba(17,24,39,0.05)] [-webkit-tap-highlight-color:transparent] sm:mb-6 sm:h-[112px] sm:w-[112px]"
-              aria-label={avatarUrl ? "Change photo" : "Add a photo"}
-            >
-              {avatarUrl ? <img src={avatarUrl} alt="" className="h-full w-full object-cover" /> : <AvatarMark name={joinName} size={112} />}
-              {uploadingAvatar && (
-                <span className="absolute inset-0 flex items-center justify-center bg-white/60">
-                  <Loader2 className="h-6 w-6 animate-spin text-[#1a1a2e]" />
-                </span>
-              )}
-              <span className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full bg-white text-[#374151] shadow-[0_0_0_1px_#e5e7eb,0_1px_2px_rgba(17,24,39,0.08)]">
-                <Pencil className="h-3.5 w-3.5" />
-              </span>
-            </button>
-            <input ref={avatarInputRef} type="file" accept="image/*" onChange={handleAvatarSelect} className="hidden" />
             <div className="w-full max-w-[600px] space-y-3 sm:space-y-4">
               <label className={cn("flex h-[56px] items-center gap-3 rounded-[14px] px-5", FIELD_WELL)}>
                 <User className="h-5 w-5 shrink-0 text-gray-400" />
@@ -1642,6 +1691,99 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
           (the footer). Not now leaves it alone. Same step on the web and
           in the app.
         */}
+        {/* Slide 2: the OnePage socials slide. Handles only, photo beside them. */}
+        {step === JOIN_SOCIAL && (
+          <div className="flex flex-col items-center" data-onboarding-join="socials">
+            <div className={HEADING_BLOCK}>
+              <h1 className={HEADING}>Add your socials</h1>
+              <p className={SUBHEADING}>Optional. Just the name, the same way it is on your profile.</p>
+            </div>
+            <div className="flex w-full max-w-[600px] flex-col gap-4 sm:flex-row sm:gap-8">
+              <div className="flex shrink-0 flex-col items-center">
+                <button
+                  type="button"
+                  onClick={() => avatarInputRef.current?.click()}
+                  disabled={uploadingAvatar}
+                  data-onboarding-join-photo=""
+                  aria-label={avatarUrl ? "Change photo" : "Add a photo"}
+                  className="relative grid h-20 w-20 place-items-center overflow-hidden rounded-full bg-[#F3F3F3] shadow-[inset_0_0_0_1px_rgba(17,24,39,0.08)] [-webkit-tap-highlight-color:transparent] sm:h-24 sm:w-24"
+                >
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <AvatarMark name={joinName} size={96} />
+                  )}
+                  {uploadingAvatar ? (
+                    <span className="absolute inset-0 grid place-items-center bg-white/55">
+                      <Loader2 className="h-5 w-5 animate-spin text-[#1a1a2e]" />
+                    </span>
+                  ) : null}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => avatarInputRef.current?.click()}
+                  disabled={uploadingAvatar}
+                  className="mt-2 flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 disabled:opacity-50 sm:mt-3"
+                >
+                  <Pencil className="h-4 w-4" />
+                  {avatarUrl ? "Edit" : "Add photo"}
+                </button>
+                <input ref={avatarInputRef} type="file" accept="image/*" onChange={handleAvatarSelect} className="hidden" />
+              </div>
+              <div className="min-w-0 flex-1 space-y-3">
+                <label className={cn("flex h-[52px] items-center gap-3 rounded-[14px] px-4 sm:h-[56px] sm:px-5", FIELD_WELL)}>
+                  <Instagram className="h-5 w-5 shrink-0 text-pink-500" />
+                  <span className="sr-only">Instagram</span>
+                  <span className="-mr-2 shrink-0 select-none text-sm text-gray-500 sm:text-base">@</span>
+                  <input
+                    type="text"
+                    value={socials.instagram}
+                    onChange={(e) => setSocials({ ...socials, instagram: e.target.value.replace(/@/g, "") })}
+                    placeholder="yourname"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    data-onboarding-join-instagram=""
+                    className="min-w-0 flex-1 bg-transparent text-sm outline-none sm:text-base"
+                  />
+                </label>
+                <label className={cn("flex h-[52px] items-center gap-3 rounded-[14px] px-4 sm:h-[56px] sm:px-5", FIELD_WELL)}>
+                  <TikTokIcon className="h-5 w-5 shrink-0" />
+                  <span className="sr-only">TikTok</span>
+                  <span className="-mr-2 shrink-0 select-none text-sm text-gray-500 sm:text-base">@</span>
+                  <input
+                    type="text"
+                    value={socials.tiktok}
+                    onChange={(e) => setSocials({ ...socials, tiktok: e.target.value.replace(/@/g, "") })}
+                    placeholder="yourname"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    data-onboarding-join-tiktok=""
+                    className="min-w-0 flex-1 bg-transparent text-sm outline-none sm:text-base"
+                  />
+                </label>
+                <label className={cn("flex h-[52px] items-center gap-3 rounded-[14px] px-4 sm:h-[56px] sm:px-5", FIELD_WELL)}>
+                  <Youtube className="h-5 w-5 shrink-0 text-red-500" />
+                  <span className="sr-only">YouTube</span>
+                  <span className="-mr-2 shrink-0 select-none text-sm text-gray-500 sm:text-base">@</span>
+                  <input
+                    type="text"
+                    value={socials.youtube}
+                    onChange={(e) => setSocials({ ...socials, youtube: e.target.value.replace(/@/g, "") })}
+                    placeholder="yourchannel"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    data-onboarding-join-youtube=""
+                    className="min-w-0 flex-1 bg-transparent text-sm outline-none sm:text-base"
+                  />
+                </label>
+              </div>
+            </div>
+          </div>
+        )}
+
         {step === JOIN_NOTIFY && (
           <div className="flex flex-col items-center text-center" data-onboarding-join="notify" data-push-answer={pushAnswer ?? ""}>
             <span className="mb-5 flex h-16 w-16 items-center justify-center rounded-[18px] bg-[#f4f4f5] text-[#1a1a2e] shadow-[inset_0_0_0_1px_rgba(17,24,39,0.05),0_1px_2px_rgba(17,24,39,0.05)]">
@@ -1663,6 +1805,21 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                 They are off for now. You can turn them on in {phoneSettingsPath(nativePlatform())}.
               </p>
             ) : null}
+          </div>
+        )}
+
+        {step === JOIN_DONE && (
+          <div data-onboarding-join="done" className="flex h-full min-h-[300px] flex-col items-center justify-center px-4 pb-6 text-center sm:min-h-[360px]">
+            <span data-join-done-rise="" className="block rounded-[7px] shadow-[0_10px_22px_-10px_rgba(26,26,46,0.30),0_3px_8px_-4px_rgba(26,26,46,0.12)]">
+              <StorelibLogo size={62} fluid className="block h-[54px] w-[54px] sm:h-[62px] sm:w-[62px]" />
+            </span>
+            <h1 data-join-done-rise="" className={cn(SETUP_LINE, "mt-6 inline-flex items-center gap-2.5")}>
+              You&apos;re all set
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#16a34a] shadow-[0_1px_2px_rgba(22,163,74,0.35)]">
+                <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} />
+              </span>
+            </h1>
+            <p data-join-done-rise="" className="mt-2 text-[15px] leading-[21px] text-[#6b7280]">Taking you there</p>
           </div>
         )}
 
@@ -2299,7 +2456,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
               </div>
 
               {/* Skip and Next, on the right, for the first three steps */}
-              <div className="flex items-center gap-3 sm:gap-4 max-[384px]:gap-2 motion-reduce:!transition-none" style={fadeWith((currentStep >= 1 && currentStep <= 3) || isJoinStep(currentStep))}>
+              <div className="flex items-center gap-3 sm:gap-4 max-[384px]:gap-2 motion-reduce:!transition-none" style={fadeWith((currentStep >= 1 && currentStep <= 3) || (isJoinStep(currentStep) && currentStep !== JOIN_DONE))}>
                 <button
                   type="button"
                   onClick={handleSkip}
@@ -2331,7 +2488,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                     <Loader2 className="mx-auto h-4 w-4 animate-spin" />
                   ) : currentStep === JOIN_NOTIFY ? (
                     "Turn on notifications"
-                  ) : currentStep === JOIN_NAME ? (
+                  ) : currentStep === JOIN_NAME || currentStep === JOIN_SOCIAL ? (
                     "Continue"
                   ) : (
                     "Next"
