@@ -718,16 +718,12 @@ export function PaymentsSetupFlow({
         }}
       />
     )
-  } else if (mode === "bank") {
-    const failed = data.paymentsStatus?.status === "PAYOUT_FAILED"
-    body = <BankForm key={`bank-step-${openCount}`} failed={failed} onBack={onClose} backLabel="Cancel" onDone={(sent) => void settle(sent, null)} onData={onData} />
-  } else if (mode === "details") {
-    body = <DetailsStep key={`details-step-${openCount}`} withBank onBack={onClose} onNext={(left, sent) => void settle(sent ?? data, left)} onData={onData} />
   } else {
     body = (
       <SetupEmbed
         key={`id-${openCount}`}
         data={data}
+        bankOnly={mode === "bank"}
         onData={onData}
         onExit={async (fromStripe) => {
           const next = await post<Overview>("refresh")
@@ -849,7 +845,7 @@ const SETUP_COLLECTION = {
   },
 }
 
-function SetupEmbed({ data, onData, onExit }: { data: Overview; onData: (next: Overview) => void; onExit: (fromStripe: boolean) => void | Promise<void> }) {
+function SetupEmbed({ data, onData, onExit, bankOnly = false }: { data: Overview; onData: (next: Overview) => void; onExit: (fromStripe: boolean) => void | Promise<void>; bankOnly?: boolean }) {
   const existed = React.useRef((data.beat ?? "personal") !== "personal")
   const [ready, setReady] = React.useState(existed.current)
   const [error, setError] = React.useState<string | null>(null)
@@ -896,8 +892,8 @@ function SetupEmbed({ data, onData, onExit }: { data: Overview; onData: (next: O
     <div className="flex min-h-full flex-1 flex-col" data-id-embed="">
       <div className="flex-1 px-5 sm:px-7">
         <StripeConnectEmbedded
-          purpose={existed.current ? "stripe_management" : "stripe_onboarding"}
-          collection={SETUP_COLLECTION}
+          purpose={bankOnly || existed.current ? "stripe_management" : "stripe_onboarding"}
+          collection={bankOnly ? { fields: "currently_due", futureRequirements: "omit", requirements: { only: ["external_account"] } } : SETUP_COLLECTION}
           onExit={() => void onExit(true)}
         />
       </div>

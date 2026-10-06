@@ -122,12 +122,12 @@ check("ID photos go to Stripe as the account's file, attached in the same call",
 check("a bank on file shows its last four and can be replaced", /Current account ending in/.test(flow) && flow.includes("Change bank account") && /createExternalAccount\(account\.id, \{ external_account: bank, default_for_currency: true \}\)/.test(own))
 check("nothing opens a Stripe page or the Stripe dashboard", !/window\.open|dashboard\.stripe|account_links|accountLinks|connect\.stripe\.com\/(setup|express)/i.test(flow + ui + embedded))
 /* The owner, October 2026: like Skool, personal info, verification with the camera, then the bank with its payout currency. */
-check("setup is Stripe's form on this page, and a bank change is still its own step", /\["Personal info", "Verify ID", "Bank account"\]/.test(flow) && /data-bank-step/.test(flow) && /only\?: "id" \| "details"/.test(flow) && /key=\{`bank-step-\$\{openCount\}`\}/.test(flow))
+check("setup is Stripe's form on this page, and our field step is not what opens", /\["Personal info", "Verify ID", "Bank account"\]/.test(flow) && /data-bank-step/.test(flow) && /function SetupEmbed/.test(flow) && !/mode === "details"[\s\S]{0,120}<DetailsStep/.test(flow))
 check("  the bank step picks the payout currency first, from what Stripe pays out to that country", /data-payout-currency/.test(flow) && /countrySpecs\.retrieve\(/.test(own) && /supported_bank_account_currencies/.test(own) && /default_currency: currency/.test(own))
 /* The owner, October 2026: "the kyc photo id needs to be separate step", and the CNP "should not be needed". */
 check("  the ID check is its own step, drawn apart from the details", /only === "id" \? f === "document"/.test(flow))
 /* The owner, October 2026: "verify id is not step 2 is actually 3, so I don't have to re-enter again the details". */
-check("  the ID comes last, so nothing is typed twice when it is left and returned to", /key=\{`details-step-\$\{openCount\}`\}[\s\S]*?key=\{`id-\$\{openCount\}`\}/.test(flow))
+check("  setup opens Stripe's form, not a second pass over Storelib's fields", /<SetupEmbed[\s\S]*?key=\{`id-\$\{openCount\}`\}/.test(flow) && !/<DetailsStep[\s\S]*?key=\{`details-step/.test(flow))
 check("  and what was typed survives walking between the steps", /let detailsDraft: DetailsDraft/.test(flow) && /function useDraft</.test(flow) && /clearDetailsDraft\(\)/.test(flow))
 check("  the draft is memory for this tab only, never storage", !/localStorage|sessionStorage|indexedDB/i.test(flow))
 /* Stripe: "Identity documents are JPG or PNG format", address documents may also be PDF, 10 MB, colour. */
