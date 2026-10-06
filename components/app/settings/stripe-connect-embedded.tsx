@@ -195,13 +195,13 @@ export function StripeConnectEmbedded({
   }
 
   return (
-    <div className={cn("relative min-h-[240px] w-full sm:min-h-[320px]", className)}>
+    <div className={cn("relative w-full", className)}>
       {!ready ? (
-        <div className="absolute inset-0 flex items-center justify-center" aria-live="polite">
+        <div className="absolute inset-x-0 top-0 z-10 flex min-h-[240px] items-center justify-center bg-white" aria-live="polite">
           <WaitingArea className="h-16 sm:h-24" size={18} label="Loading" />
         </div>
       ) : null}
-      <div ref={host} className={cn("w-full min-h-[240px] transition-opacity duration-200 sm:min-h-[320px] [&_iframe]:w-full", ready ? "opacity-100" : "opacity-0")} />
+      <div ref={host} className="w-full pb-10 [&_iframe]:w-full [&_iframe]:min-h-[680px]" />
     </div>
   )
 }

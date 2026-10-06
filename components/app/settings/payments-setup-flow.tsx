@@ -788,7 +788,7 @@ export function PaymentsSetupFlow({
       <div data-setup-scroll="" className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         {/* One narrow column: 560px of card on a computer, the whole width on a phone,
             where it fills the screen so Cancel and Continue sit at the bottom. */}
-        <div className="mx-auto w-full max-w-[560px] max-sm:flex max-sm:min-h-full max-sm:flex-col sm:px-6 sm:pb-16 sm:pt-10">
+        <div className="mx-auto w-full max-w-[560px] px-0 pb-16 max-sm:flex max-sm:min-h-full max-sm:flex-col sm:px-6 sm:pb-24 sm:pt-10">
           {phone ? (
             mode === "setup" && ending ? (
               <div className="px-5 pt-4">
@@ -807,8 +807,8 @@ export function PaymentsSetupFlow({
             </div>
           )}
 
-          <div data-setup-card="" className="bg-white max-sm:flex max-sm:flex-1 max-sm:flex-col sm:rounded-2xl sm:border sm:border-[#e5e7eb]/80 sm:shadow-[0_1px_3px_rgba(16,24,40,0.05),0_12px_32px_-16px_rgba(16,24,40,0.10)]">
-            <div key={`${mode}-${step}-${ending ?? ""}-${openCount}`} className={cn("flex min-h-[360px] flex-col max-sm:flex-1 pt-5 animate-in fade-in-0 duration-300 ease-sheet sm:pt-7", slide)}>
+          <div data-setup-card="" className="overflow-visible bg-white max-sm:flex max-sm:flex-col sm:rounded-2xl sm:border sm:border-[#e5e7eb]/80 sm:shadow-[0_1px_3px_rgba(16,24,40,0.05),0_12px_32px_-16px_rgba(16,24,40,0.10)]">
+            <div key={`${mode}-${step}-${ending ?? ""}-${openCount}`} className={cn("flex flex-col overflow-visible pt-5 animate-in fade-in-0 duration-300 ease-sheet sm:pt-7", slide)}>
               {body}
             </div>
           </div>
