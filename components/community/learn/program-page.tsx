@@ -20,7 +20,7 @@ import { lessonsLabel, opensOnLabel, type ProgramCard } from "./model"
 import { BuyProgram } from "./program-checkout"
 
 export function ProgramPlayer({ data, learnHref }: { data: PlayerData; learnHref: string }) {
-  return <CoursePlayer data={data} backHref={learnHref} backLabel="Learn" />
+  return <CoursePlayer data={data} backHref={learnHref} backLabel="Learn" embedded />
 }
 
 /** What is inside, for a program the member cannot open yet: each module with its lesson titles. */

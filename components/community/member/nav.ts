@@ -9,6 +9,12 @@ import type { ShellSection } from "./view-types"
 
 const SECTIONS = ["classroom", "events", "members", "leaderboard", "saved", "notifications", "about"] as const
 
+/** A program or course lesson player: /learn/<id> or the old /classroom/<id>. */
+export function isLearnLessonPath(pathname: string | null | undefined): boolean {
+  const path = (pathname || "").split(/[?#]/)[0].replace(/\/+$/, "")
+  return /^\/community\/[^/]+\/(?:learn|classroom)\/[^/]+/.test(path)
+}
+
 export function sectionFromPath(pathname: string | null | undefined, slug: string): ShellSection {
   const base = `/community/${slug}`
   const path = (pathname || "").split(/[?#]/)[0].replace(/\/+$/, "")

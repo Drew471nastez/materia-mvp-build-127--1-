@@ -71,6 +71,8 @@ export interface LessonVideoProps {
   /** Once, the first time the video passes 90%. */
   onNearEnd: () => void
   onNext: () => void
+  /** Extra classes on the player shell (e.g. rounded-xl in a community). */
+  className?: string
 }
 
 type Flash = { dir: -1 | 1; key: number } | null
@@ -107,7 +109,7 @@ function typing(target: EventTarget | null): boolean {
   return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || el.isContentEditable || !!el.closest?.("[role=dialog],[data-no-player-keys]")
 }
 
-export function LessonVideo({ source, startAt, autoPlay, poster, next, renew, onPlace, live, onNearEnd, onNext }: LessonVideoProps) {
+export function LessonVideo({ source, startAt, autoPlay, poster, next, renew, onPlace, live, onNearEnd, onNext, className }: LessonVideoProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
   const [url, setUrl] = useState(source.url)
@@ -552,7 +554,7 @@ export function LessonVideo({ source, startAt, autoPlay, poster, next, renew, on
       ref={wrapRef}
       data-lesson-video
       data-controls={controls ? "shown" : "hidden"}
-      className={`group/player relative aspect-video w-full select-none overflow-hidden bg-black ${fullscreen ? "" : "sm:rounded-2xl"} ${controls ? "" : "cursor-none"}`}
+      className={`group/player relative aspect-video w-full select-none overflow-hidden bg-black ${fullscreen ? "" : className ?? "sm:rounded-2xl"} ${controls ? "" : "cursor-none"}`}
       onPointerMove={(e) => e.pointerType === "mouse" && reveal()}
       onMouseLeave={() => playing && setControls(false)}
     >

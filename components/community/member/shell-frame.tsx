@@ -92,7 +92,7 @@ import { useLightChrome } from "@/lib/ui/light-chrome"
 import { useCommunityTheme } from "@/components/community/use-community-theme"
 import "../community-theme.css"
 import { MessagesPanel, MESSAGES_EVENT, useUnreadMessages } from "./messages"
-import { FULL_ON_HOVER, navEntries, sectionFromPath, tabFor, TABS_STILL_MS, tabsFollowTarget, type NavEntry, type TabKey } from "./nav"
+import { FULL_ON_HOVER, isLearnLessonPath, navEntries, sectionFromPath, tabFor, TABS_STILL_MS, tabsFollowTarget, type NavEntry, type TabKey } from "./nav"
 import { PersonCardLayer } from "./person-card"
 import { toast, Toasts } from "./toast"
 import { CommunityTopBar } from "./top-bar"
@@ -334,6 +334,8 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
   pathRef.current = pathname
   const goTo = useCallback((key: TabKey) => setGoing({ key, from: pathRef.current }), [])
   const about = current === "about"
+  /** Lesson player: the middle column takes the right column's room (like About), so the video is not squeezed beside the curriculum. */
+  const wideCenter = about || isLearnLessonPath(pathname)
   const tab = going?.key ?? tabFor(current)
   /* Moved to another place since the visit began: pages that arrive from now on land (ARRIVE). Set in the render that brings the new page. */
   const firstTab = useRef(tabFor(current))
@@ -412,7 +414,7 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
         <div className="mx-auto w-full max-w-[1360px] px-4 sm:px-6 lg:px-8">
           <div
             data-community-columns="three"
-            data-community-place={about ? "about" : undefined}
+            data-community-place={about ? "about" : wideCenter && !about ? "lesson" : undefined}
             className={`pb-16 pt-4 lg:grid lg:grid-cols-[260px_minmax(0,1fr)] lg:grid-rows-[auto_1fr] lg:items-start lg:gap-x-6 lg:pt-6 ${onLeaderboard ? "xl:grid-cols-[280px_minmax(0,1fr)]" : "xl:grid-cols-[280px_minmax(0,1fr)_300px]"}`}
           >
             {/* LEFT: the community card, and the places right under it (round 9). */}
@@ -420,8 +422,8 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
               {wall ? <WallCommunityCard community={community} card={wall.card} membersHref={membersHref} /> : null}
               <WallPlaces entries={entries} />
             </div>
-            {/* RIGHT from 1280px (under the places from 1024px): the next event, then who takes part, sticking under the bar. About has its own card there. */}
-            <aside className={`hidden min-w-0 lg:col-start-1 lg:row-start-2 lg:mt-3 xl:col-start-3 xl:row-span-2 xl:row-start-1 xl:mt-0 xl:self-stretch ${about ? "" : "lg:block"} ${LAND}`} data-community-right="" data-leaderboard-page={onLeaderboard ? "" : undefined}>
+            {/* RIGHT from 1280px (under the places from 1024px): the next event, then who takes part, sticking under the bar. About and the lesson player use the extra width instead. */}
+            <aside className={`hidden min-w-0 lg:col-start-1 lg:row-start-2 lg:mt-3 xl:col-start-3 xl:row-span-2 xl:row-start-1 xl:mt-0 xl:self-stretch ${wideCenter ? "" : "lg:block"} ${LAND}`} data-community-right="" data-leaderboard-page={onLeaderboard ? "" : undefined}>
               {upcoming || (contributors && !onLeaderboard) ? (
                 <div className="space-y-3 xl:sticky xl:top-[calc(var(--community-top,65px)+24px)]" data-community-right-cards="">
                   {upcoming ? <WallUpcoming slug={community.slug} event={upcoming} /> : null}
@@ -429,7 +431,7 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
                 </div>
               ) : null}
             </aside>
-            <div className={`min-w-0 lg:row-span-2 lg:row-start-1 ${about ? "lg:col-start-2 xl:col-span-2" : "lg:col-start-2"} ${LAND_LATE}`} data-community-main="">
+            <div className={`min-w-0 lg:row-span-2 lg:row-start-1 ${wideCenter ? "lg:col-start-2 xl:col-span-2" : "lg:col-start-2"} ${LAND_LATE}`} data-community-main="">
               <div className={`${moved ? ARRIVE : ""} ${about ? ABOUT_BOX : ""}`} data-community-body="" data-community-moved={moved ? "" : undefined}>
                 <CommunityPullRefresh slug={community.slug}>{children}</CommunityPullRefresh>
               </div>

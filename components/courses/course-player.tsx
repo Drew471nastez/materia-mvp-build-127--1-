@@ -70,7 +70,18 @@ function sendPlace(body: Record<string, unknown>, beacon = false): Promise<Recor
 }
 
 /** `backHref` is where the arrow at the top goes: the library, or a community's classroom. */
-export function CoursePlayer({ data, backHref = "/account/library/courses", backLabel = "All courses" }: { data: PlayerData; backHref?: string; backLabel?: string }) {
+export function CoursePlayer({
+  data,
+  backHref = "/account/library/courses",
+  backLabel = "All courses",
+  /** Inside a community shell: wider stage, lighter chrome, curriculum only from lg up. */
+  embedded = false,
+}: {
+  data: PlayerData
+  backHref?: string
+  backLabel?: string
+  embedded?: boolean
+}) {
   const lessons = useMemo(() => data.modules.flatMap((m) => m.lessons), [data.modules])
   const outline = data.modules
   const keeps = data.access !== "preview"
@@ -190,15 +201,18 @@ export function CoursePlayer({ data, backHref = "/account/library/courses", back
   }
 
   const nextInfo = next ? { title: next.title, number: lessonNumber(outline, next.id) } : null
+  const panel = embedded ? "rounded-xl border border-[#eceef1] bg-white" : "overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
+  const notesWrap = embedded ? "mt-6 border-t border-[#f0f1f3] pt-6" : "mt-6 rounded-2xl border border-[#e5e7eb]/60 bg-white px-4 py-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:px-5 sm:py-5"
+  const grid = embedded ? "lg:grid lg:grid-cols-[minmax(0,1fr)_min(280px,32%)] lg:items-start lg:gap-5" : "lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start lg:gap-6"
 
   return (
-    <div data-course-player className="pb-10">
+    <div data-course-player={embedded ? "embedded" : ""} className="pb-8 sm:pb-10">
       {/* The course, who made it, how far through */}
       <div className="mb-4 flex items-start gap-3 sm:mb-5">
         <Link
           href={backHref}
           aria-label={backLabel}
-          className="mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-[#e5e7eb] bg-white text-[#1a1a2e] hover:bg-[#f8f9fa] sm:h-9 sm:w-9"
+          className={`mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-[#1a1a2e] hover:bg-[#f4f4f5] sm:h-9 sm:w-9 ${embedded ? "" : "border border-[#e5e7eb] bg-white hover:bg-[#f8f9fa]"}`}
         >
           <ArrowLeft className="h-4 w-4" />
         </Link>
@@ -218,11 +232,12 @@ export function CoursePlayer({ data, backHref = "/account/library/courses", back
         {keeps ? <ProgressRing percent={summary.percent} /> : null}
       </div>
 
-      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start lg:gap-6">
+      <div className={grid}>
         <div className="min-w-0">
-          {/* The lesson: edge to edge on a phone */}
-          <div className="-mx-4 sm:mx-0">
+          {/* The lesson: edge to edge on a phone in the library; inset in a community */}
+          <div className={embedded ? "" : "-mx-4 sm:mx-0"}>
             <Stage
+              embedded={embedded}
               play={play}
               lesson={lesson}
               productHref={data.productHref}
@@ -289,7 +304,7 @@ export function CoursePlayer({ data, backHref = "/account/library/courses", back
               </button>
 
               {lesson.notes ? (
-                <section className="mt-6 rounded-2xl border border-[#e5e7eb]/60 bg-white px-4 py-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:px-5 sm:py-5">
+                <section className={notesWrap}>
                   <h3 className="mb-2 flex items-center gap-2 text-[14px] font-semibold text-[#1a1a2e]">
                     <FileText className="h-4 w-4 text-[#9ca3af]" />
                     Notes
@@ -298,18 +313,18 @@ export function CoursePlayer({ data, backHref = "/account/library/courses", back
                 </section>
               ) : null}
 
-              {lesson.attachments.length > 0 ? <Attachments lesson={lesson} /> : null}
+              {lesson.attachments.length > 0 ? <Attachments lesson={lesson} embedded={embedded} /> : null}
             </div>
           ) : null}
 
-          {data.contact !== false ? <CreatorBlock data={data} lessonTitle={lesson?.title ?? null} emailsOff={emailsOff} onToggleEmails={keeps && data.access === "owner" ? toggleEmails : null} /> : null}
+          {data.contact !== false ? <CreatorBlock data={data} lessonTitle={lesson?.title ?? null} emailsOff={emailsOff} onToggleEmails={keeps && data.access === "owner" ? toggleEmails : null} embedded={embedded} /> : null}
         </div>
 
         {/* The curriculum: beside the lesson on a computer */}
-        <aside className="hidden lg:sticky lg:top-4 lg:block" aria-label="Lessons">
-          <div className="overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+        <aside className={`hidden lg:sticky lg:block ${embedded ? "lg:top-[calc(var(--community-top,64px)+16px)]" : "lg:top-4"}`} aria-label="Lessons">
+          <div className={panel}>
             <CurriculumHead summary={summary} keeps={keeps} />
-            <div className="max-h-[calc(100svh-180px)] overflow-y-auto overscroll-contain">
+            <div className="max-h-[min(520px,calc(100svh-var(--community-top,64px)-120px))] overflow-y-auto overscroll-contain">
               <Curriculum data={data} progress={progress} currentId={lessonId} onPick={(l) => goTo(l, true)} />
             </div>
           </div>
@@ -325,6 +340,7 @@ export function CoursePlayer({ data, backHref = "/account/library/courses", back
 }
 
 function Stage(props: {
+  embedded?: boolean
   play: Play
   lesson: PlayerLesson | null
   productHref: string | null
@@ -339,20 +355,21 @@ function Stage(props: {
   onNext: () => void
   onRetry: () => void
 }) {
-  const { play, lesson } = props
+  const { play, lesson, embedded } = props
+  const stageRound = embedded ? "rounded-xl" : "sm:rounded-2xl"
   if (!lesson) {
     return <Panel title="This course has no lessons yet" body="The creator is still adding them. They will be here when they are ready." />
   }
   if (play.state === "loading") {
     return (
-      <div className="flex aspect-video w-full items-center justify-center bg-black sm:rounded-2xl">
+      <div className={`flex aspect-video w-full items-center justify-center bg-black ${stageRound}`}>
         <Loader2 className="h-8 w-8 animate-spin text-white/70" aria-label="Loading" />
       </div>
     )
   }
   if (play.state === "locked") {
     return (
-      <div className="flex aspect-video w-full flex-col items-center justify-center gap-3 bg-[#1a1a2e] px-6 text-center text-white sm:rounded-2xl">
+      <div className={`flex aspect-video w-full flex-col items-center justify-center gap-3 bg-[#1a1a2e] px-6 text-center text-white ${stageRound}`}>
         <Lock className="h-6 w-6 text-white/70" />
         <p className="text-[15px] font-semibold">This lesson is part of the full course</p>
         {props.productHref ? (
@@ -365,7 +382,7 @@ function Stage(props: {
   }
   if (play.state === "error") {
     return (
-      <div className="flex aspect-video w-full flex-col items-center justify-center gap-3 bg-black px-6 text-center text-white sm:rounded-2xl">
+      <div className={`flex aspect-video w-full flex-col items-center justify-center gap-3 bg-black px-6 text-center text-white ${stageRound}`}>
         <p className="text-[15px] font-semibold">{play.message}</p>
         <button type="button" onClick={props.onRetry} className="h-10 rounded-lg bg-white px-4 text-[14px] font-semibold text-[#1a1a2e]">
           Try again
@@ -387,12 +404,13 @@ function Stage(props: {
         live={props.live}
         onNearEnd={props.onNearEnd}
         onNext={props.onNext}
+        className={embedded ? "rounded-xl" : undefined}
       />
     )
   }
   if (play.state === "external") {
     return (
-      <div className="relative aspect-video w-full overflow-hidden bg-black sm:rounded-2xl">
+      <div className={`relative aspect-video w-full overflow-hidden bg-black ${stageRound}`}>
         <iframe
           key={lesson.id}
           src={play.embedUrl}
@@ -411,7 +429,7 @@ function Stage(props: {
 
 function Panel({ title, body, icon }: { title: string; body: string; icon?: boolean }) {
   return (
-    <div className="flex min-h-[180px] w-full flex-col items-center justify-center gap-2 border-y border-[#e5e7eb] bg-white px-6 py-10 text-center sm:rounded-2xl sm:border">
+    <div className="flex min-h-[180px] w-full flex-col items-center justify-center gap-2 rounded-xl border border-[#eceef1] bg-[#fafbfb] px-6 py-10 text-center">
       {icon ? <FileText className="h-6 w-6 text-[#9ca3af]" /> : null}
       <p className="text-[15px] font-semibold text-[#1a1a2e]">{title}</p>
       <p className="max-w-[420px] text-[14px] text-[#6b7280]">{body}</p>
@@ -617,11 +635,11 @@ async function viewAttachment(id: string, kind: "image" | "video"): Promise<stri
   }
 }
 
-function Attachments({ lesson }: { lesson: PlayerLesson }) {
+function Attachments({ lesson, embedded }: { lesson: PlayerLesson; embedded?: boolean }) {
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   return (
-    <section className="mt-4 rounded-2xl border border-[#e5e7eb]/60 bg-white px-4 py-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:px-5">
+    <section className={embedded ? "mt-6 border-t border-[#f0f1f3] pt-6" : "mt-4 rounded-2xl border border-[#e5e7eb]/60 bg-white px-4 py-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:px-5"}>
       <h3 className="mb-2 flex items-center gap-2 text-[14px] font-semibold text-[#1a1a2e]">
         <Paperclip className="h-4 w-4 text-[#9ca3af]" />
         Files for this lesson
@@ -676,7 +694,7 @@ function Attachments({ lesson }: { lesson: PlayerLesson }) {
   )
 }
 
-function CreatorBlock({ data, lessonTitle, emailsOff, onToggleEmails }: { data: PlayerData; lessonTitle: string | null; emailsOff: boolean; onToggleEmails: (() => void) | null }) {
+function CreatorBlock({ data, lessonTitle, emailsOff, onToggleEmails, embedded }: { data: PlayerData; lessonTitle: string | null; emailsOff: boolean; onToggleEmails: (() => void) | null; embedded?: boolean }) {
   const [writing, setWriting] = useState(false)
   const [message, setMessage] = useState("")
   const [state, setState] = useState<{ sending: boolean; sent: boolean; error: string | null }>({ sending: false, sent: false, error: null })
@@ -698,7 +716,7 @@ function CreatorBlock({ data, lessonTitle, emailsOff, onToggleEmails }: { data: 
   }
 
   return (
-    <section className="mt-4 rounded-2xl border border-[#e5e7eb]/60 bg-white px-4 py-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:px-5" data-creator-block>
+    <section className={embedded ? "mt-6 border-t border-[#f0f1f3] pt-6" : "mt-4 rounded-2xl border border-[#e5e7eb]/60 bg-white px-4 py-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:px-5"} data-creator-block>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-3">
         <div className="flex min-w-0 flex-1 basis-[200px] items-center gap-3">
           <AppAvatar src={data.creator.avatarUrl} name={data.creator.name} size={44} alt="" />

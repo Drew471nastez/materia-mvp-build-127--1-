@@ -63,7 +63,7 @@ import {
 import { confirmProgramCheckout, grantFromSession, isProgramSession, programCheckoutParams, revokeRefundedProgram, startProgramCheckout, type CheckoutDeps } from "@/lib/communities/server/learn-checkout"
 import { communityGrantsCourse } from "@/lib/communities/server/classroom"
 import { lessonContext, readCourseTree } from "@/lib/courses/server"
-import { navEntries, sectionFromPath } from "@/components/community/member/nav"
+import { isLearnLessonPath, navEntries, sectionFromPath } from "@/components/community/member/nav"
 import { lockHint } from "@/components/community/learn/model"
 import type { Viewer } from "@/lib/communities/server/context"
 import type { CommunityRow, MemberRow, Role } from "@/lib/communities/types"
@@ -273,6 +273,7 @@ async function main() {
     check('the place is called "Learn", at /learn', learn?.label === "Learn" && learn.href === "/community/makers/learn", learn)
     check("no place is called Classroom any more", !entries.some((e) => /classroom/i.test(e.label) || /\/classroom/.test(e.href)))
     check("Learn and a program inside it mark the Learn tab", sectionFromPath("/community/makers/learn", "makers") === "classroom" && sectionFromPath(`/community/makers/learn/${PAID}`, "makers") === "classroom")
+    check("a lesson player address is known for the wide layout", isLearnLessonPath(`/community/makers/learn/${PAID}`) && isLearnLessonPath(`/community/makers/classroom/${PAID}`) && !isLearnLessonPath("/community/makers/learn"))
   }
 
   console.log("\nSERVER: reading and cards")
