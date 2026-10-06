@@ -1,4 +1,15 @@
+import type { Metadata } from "next"
+import { headers } from "next/headers"
 import { personName } from "@/lib/profile/display-name"
+import {
+  checkoutCanonical,
+  checkoutCoverUrl,
+  checkoutOrigin,
+  checkoutShareDescription,
+  checkoutShareImage,
+  checkoutShareTitle,
+  checkoutSiteName,
+} from "@/lib/checkout/share-meta"
 import { Suspense } from "react"
 import { MAX_PWYW_CENTS } from "@/lib/checkout/pricing"
 import { notFound, redirect } from "next/navigation"
@@ -272,6 +283,45 @@ async function membershipCheckoutContent({ product, interval, returnTo = null, c
       communityTerms={communityTerms}
     />
   )
+}
+
+export async function generateMetadata({ searchParams }: CheckoutPageProps): Promise<Metadata> {
+  const params = await searchParams
+  const h = await headers()
+  const origin = checkoutOrigin({ host: h.get("host"), forwardedHost: h.get("x-forwarded-host"), proto: h.get("x-forwarded-proto") })
+  const host = new URL(origin).host
+  const canonical = checkoutCanonical(origin, { productId: params.productId, variantId: params.variantId })
+  const fallback: Metadata = {
+    metadataBase: new URL(origin),
+    title: { absolute: "Storelib" },
+    description: "Checkout",
+    alternates: { canonical },
+    openGraph: { type: "website", url: canonical, siteName: checkoutSiteName(host, null), title: "Storelib", description: "Checkout", images: [{ url: checkoutShareImage(null), alt: "Storelib" }] },
+    twitter: { card: "summary_large_image", title: "Storelib", description: "Checkout", images: [checkoutShareImage(null)] },
+  }
+  if (!params.productId) return fallback
+  try {
+    const supabase = await createClient()
+    const { data: product } = await supabase.from("products").select("title, description, thumbnail_url, gallery_urls, creator_id").eq("id", params.productId).eq("status", "published").maybeSingle()
+    if (!product) return fallback
+    const { data: creator } = await supabase.from("creators").select("user_id, slug").eq("id", product.creator_id).maybeSingle()
+    const { data: profile } = creator ? await supabase.from("profiles").select("display_name, username").eq("id", creator.user_id).maybeSingle() : { data: null }
+    const creatorName = personName({ name: profile?.display_name, username: profile?.username, slug: creator?.slug })
+    const title = checkoutShareTitle(product.title)
+    const description = checkoutShareDescription(product.description, creatorName)
+    const image = checkoutShareImage(checkoutCoverUrl({ thumbnailUrl: product.thumbnail_url, galleryUrls: product.gallery_urls }))
+    const siteName = checkoutSiteName(host, creatorName)
+    return {
+      metadataBase: new URL(origin),
+      title: { absolute: title },
+      description,
+      alternates: { canonical },
+      openGraph: { type: "website", url: canonical, siteName, title, description, images: [{ url: image, alt: title }] },
+      twitter: { card: "summary_large_image", title, description, images: [image] },
+    }
+  } catch {
+    return fallback
+  }
 }
 
 export default async function CheckoutPage(props: CheckoutPageProps) {

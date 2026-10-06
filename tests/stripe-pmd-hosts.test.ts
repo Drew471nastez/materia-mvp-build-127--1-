@@ -4,6 +4,7 @@
  */
 import { readFileSync } from "node:fs"
 import { checkoutHostsFor, isStorelibHost, needsOneValidate, planPaymentDomain } from "@/lib/custom-domains/payment-hosts"
+import { checkoutCanonical, checkoutOrigin, checkoutShareDescription, checkoutShareTitle, checkoutSiteName } from "@/lib/checkout/share-meta"
 
 let passed = 0
 let failed = 0
@@ -20,9 +21,8 @@ function check(label: string, ok: boolean, detail?: unknown) {
 }
 
 check("a path is not a hostname", checkoutHostsFor("https://shop.example.com/checkout?x=1").join() === "shop.example.com")
-check("an apex registers www, the host that serves checkout", checkoutHostsFor("example.com").join() === "www.example.com")
-check("www typed in is the same host, not a second one", checkoutHostsFor("www.example.com").join() === "www.example.com")
-check("a subdomain is its own host", checkoutHostsFor("links.example.co.uk").join() === "links.example.co.uk")
+check("an apex and www are both registered, the apex is not replaced", checkoutHostsFor("example.com").join() === "example.com,www.example.com" && checkoutHostsFor("www.example.com").join() === "example.com,www.example.com")
+check("a subdomain is only itself", checkoutHostsFor("links.example.co.uk").join() === "links.example.co.uk")
 check("storelib.com is left alone", checkoutHostsFor("storelib.com").length === 0 && checkoutHostsFor("https://www.storelib.com/checkout").length === 0 && checkoutHostsFor("shop.storelib.com").length === 0 && isStorelibHost("storelib.com"))
 check("a preview host is not registered", checkoutHostsFor("foo.vercel.app").length === 0)
 
@@ -37,6 +37,9 @@ const remove = readFileSync("app/api/domains/route.ts", "utf8")
 check("a live domain is registered after it is marked active", /await syncStripePaymentDomains\(admin, domainId, domain\)/.test(verify))
 check("disconnect disables the Stripe domain and does not touch storelib.com by name in that call", /await disableStripePaymentDomains\(admin, domainRecord\.domain\)/.test(remove))
 check("DNS checks are still the same route", /const dnsVerified = apex \? aRecordVerified/.test(verify))
+
+check("checkout metadata uses the host that served the page", checkoutOrigin({ forwardedHost: "alexriver.com", proto: "https" }) === "https://alexriver.com" && checkoutCanonical("https://alexriver.com", { productId: "p1" }) === "https://alexriver.com/checkout?productId=p1")
+check("a custom-domain preview is the product, not Storelib", checkoutShareTitle("LinkedIn Content OS") === "LinkedIn Content OS" && checkoutShareDescription("<p>Plan every post.</p>", "Luca Dragoste") === "Plan every post. — Luca Dragoste" && checkoutSiteName("alexriver.com", "Luca Dragoste") === "Luca Dragoste" && checkoutSiteName("alexriver.com", null) === "alexriver.com")
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed) {
