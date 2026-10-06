@@ -5,7 +5,7 @@ import { recordCheckoutStart } from "@/lib/automations/abandoned"
 import { contactSourceOfOrder } from "@/lib/contacts/contact-source"
 import { recordCheckoutContactAndWelcome } from "@/lib/contacts/checkout-welcome"
 import { stripe } from "@/lib/stripe"
-import { getValidatedPlatformStatementDescriptor } from "@/lib/payments/platform-descriptor"
+import { getValidatedPlatformStatementDescriptor, statementDescriptorSuffix } from "@/lib/payments/platform-descriptor"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { nanoid } from "nanoid"
@@ -251,12 +251,7 @@ export async function POST(request: Request) {
      Only the suffix: a full `statement_descriptor` is refused for cards. */
   try {
     getValidatedPlatformStatementDescriptor()
-    const suffix = (creator.statement_descriptor || creator.display_name || "")
-      .toUpperCase()
-      .replace(/[^A-Z0-9 ]/g, "")
-      .replace(/\s+/g, " ")
-      .trim()
-      .slice(0, 22)
+    const suffix = statementDescriptorSuffix(creator.statement_descriptor || creator.display_name || "")
     if (suffix.length >= 2) params.statement_descriptor_suffix = suffix
   } catch {
     /* no platform descriptor configured: Stripe's account default is used */

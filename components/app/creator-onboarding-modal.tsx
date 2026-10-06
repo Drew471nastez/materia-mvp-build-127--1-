@@ -2052,14 +2052,13 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
         )}
 
         {step === JOIN_SOCIAL && (
-          <div className="mx-auto flex w-full max-w-[min(100%,600px)] flex-col items-center font-sans text-center" data-onboarding-join="username">
-            {joinOnboardingLogo("w-full")}
-            <span className={cn("relative mb-4 block h-[84px] w-[84px] overflow-hidden rounded-full bg-[#eceef1] text-[#9ca3af]", AVATAR_RING)}>
+          <div className="mx-auto flex w-full max-w-[min(100%,560px)] flex-col items-center font-sans text-center" data-onboarding-join="username">
+            <span className={cn("relative mb-3 block h-[72px] w-[72px] overflow-hidden rounded-full bg-[#eceef1] text-[#9ca3af]", AVATAR_RING)}>
               {avatarUrl ? <img src={avatarUrl} alt="" className="absolute inset-0 h-full w-full object-cover motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200" /> : <DefaultAvatarGlyph fill />}
             </span>
             <h1 className="text-[28px] font-bold leading-[1.15] tracking-[-0.03em] text-[#1a1a2e] sm:text-[32px]">Pick a username</h1>
-            <p className="mt-2 text-[15px] leading-6 text-[#6b7280]">Claim your unique Storelib link.</p>
-            <label className={cn("mt-6 flex h-[52px] w-full items-center gap-1 rounded-[14px] px-4 text-left", FIELD_WELL)}>
+            <p className="mt-1.5 text-[15px] leading-6 text-[#6b7280]">Claim your unique Storelib link.</p>
+            <label className={cn("mt-4 flex h-[52px] w-full items-center gap-1 rounded-[14px] px-4 text-left", FIELD_WELL)}>
               <span className="sr-only">Username</span>
               <input
                 type="text"
@@ -2101,8 +2100,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
         )}
 
         {step === JOIN_NOTIFY && (
-          <div className="mx-auto flex w-full max-w-[min(100%,600px)] flex-col items-center text-center font-sans" data-onboarding-join="notify" data-push-answer={pushAnswer ?? ""}>
-            {joinOnboardingLogo("w-full")}
+          <div className="mx-auto flex w-full max-w-[min(100%,560px)] flex-col items-center text-center font-sans" data-onboarding-join="notify" data-push-answer={pushAnswer ?? ""}>
             <span className="mb-5 flex h-16 w-16 items-center justify-center rounded-[18px] bg-[#f4f4f5] text-[#1a1a2e] shadow-[inset_0_0_0_1px_rgba(17,24,39,0.05),0_1px_2px_rgba(17,24,39,0.05)]">
               <Bell className="h-7 w-7" strokeWidth={1.8} />
             </span>
@@ -2544,8 +2542,8 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                     above and below it; a short window keeps 24px).
                   */
                   isJoinStep(currentStep) && currentStep !== JOIN_DONE
-                    ? "sm:w-[min(92vw,760px)] sm:max-w-[min(92vw,760px)] sm:h-auto sm:max-h-[calc(100dvh-48px)] sm:rounded-[36px] lg:w-[min(86vw,1280px)] lg:max-w-[min(86vw,1280px)] lg:h-[min(80vh,800px)] lg:min-h-[min(680px,80vh)] lg:max-h-[800px] lg:rounded-[44px]"
-                    : "sm:w-[1040px] sm:max-w-[calc(100vw-48px)] sm:h-[610px] sm:max-h-[calc(100dvh-48px)] sm:rounded-[44px]",
+                    ? "sm:w-[min(930px,calc(100vw-48px))] sm:max-w-[min(930px,calc(100vw-48px))] sm:h-[min(540px,calc(100dvh-48px))] sm:max-h-[calc(100dvh-48px)] sm:rounded-[44px]"
+                    : "sm:w-[min(930px,calc(100vw-48px))] sm:max-w-[min(930px,calc(100vw-48px))] sm:h-[min(540px,calc(100dvh-48px))] sm:max-h-[calc(100dvh-48px)] sm:rounded-[44px]",
                   // Mobile: true fullscreen experience
                   "w-[calc(100%-24px)] max-w-none max-sm:fixed max-sm:inset-0 max-sm:top-0 max-sm:left-0 max-sm:w-screen max-sm:h-[100dvh] max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none",
                   // Shadow
@@ -2567,7 +2565,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
               /* The card's own limit, window included: a short window kept the column 610px tall inside a shorter card, and Back and Next were cut off under its edge. */
               : cn(
                   "max-sm:max-h-[100dvh] max-sm:pt-[env(safe-area-inset-top)] max-sm:pb-[env(safe-area-inset-bottom)]",
-                  isJoinStep(currentStep) && currentStep !== JOIN_DONE ? "sm:h-auto sm:max-h-[calc(100dvh-48px)] lg:h-full lg:max-h-none" : "sm:max-h-[min(610px,calc(100dvh-48px))]",
+                  "sm:h-full sm:max-h-[min(540px,calc(100dvh-48px))]",
                 ),
           )}>
             {/*
@@ -2685,7 +2683,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
               style={{ maskImage: SCROLL_EDGE_MASK, WebkitMaskImage: SCROLL_EDGE_MASK }}
               className={cn(
                 "min-h-0 overscroll-contain px-4 pt-5 sm:px-10 sm:pt-4",
-                isJoinStep(currentStep) && currentStep !== JOIN_DONE ? "sm:flex-none sm:overflow-visible lg:min-h-0 lg:flex-1 lg:overflow-hidden" : "flex-1 sm:overflow-hidden",
+                "flex-1 sm:overflow-hidden",
                 /* A profile step fits. Anything taller may scroll on a phone only, never inside the card on a large screen. */
                 isJoinStep(currentStep) ? "overflow-hidden" : "max-sm:overflow-y-auto",
                 (currentStep === 1 || currentStep === 3 || isJoinStep(currentStep)) && "max-sm:pb-4",

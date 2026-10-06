@@ -83,7 +83,7 @@ function main() {
     /\{switchBackError && \(\s*<p role="alert" className="shrink-0 px-3 pt-1\.5/.test(creator))
   /* "Increase the whole modal a bit so it expands a little more on the screen, but without touching the edges." 930 by 540 became 1040 by 610. */
   check("the card is 1040 by 610 on a computer and never closer than 24px to the window's edges (a 768px tablet once had it 81px off each side)",
-    /sm:w-\[1040px\] sm:max-w-\[calc\(100vw-48px\)\] sm:h-\[610px\] sm:max-h-\[calc\(100dvh-48px\)\]/.test(creator)
+    /sm:w-\[min\(930px,calc\(100vw-48px\)\)\] sm:max-w-\[min\(930px,calc\(100vw-48px\)\)\] sm:h-\[min\(540px,calc\(100dvh-48px\)\)\]/.test(creator)
       && /sm:max-h-\[min\(610px,calc\(100dvh-48px\)\)\]/.test(creator) && !/sm:(w|h|max-h)-\[(930|540)px\]/.test(creator))
   check("the row of buttons gives up padding under 384px, where the roomy one stops fitting",
     (creator.match(/max-\[384px\]:/g) ?? []).length >= 6 && /max-\[384px\]:min-w-\[88px\]/.test(creator))

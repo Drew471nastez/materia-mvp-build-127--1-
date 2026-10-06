@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { getValidatedPlatformStatementDescriptor } from "@/lib/payments/platform-descriptor"
+import { statementDescriptorSuffix } from "@/lib/payments/platform-descriptor"
 
 export async function POST(request: Request) {
   try {
@@ -42,9 +42,7 @@ export async function POST(request: Request) {
 
     // Validate and format statement descriptor suffix (seller part)
     // Platform part "STORELIB" + "*" + suffix will appear on bank statements
-    let descriptorSuffix = (statementDescriptor || creator.display_name || "STORE").trim().toUpperCase().slice(0, 22)
-    // Remove special characters that aren't allowed
-    descriptorSuffix = descriptorSuffix.replace(/[^A-Z0-9\s]/g, "")
+    const descriptorSuffix = statementDescriptorSuffix(statementDescriptor || creator.display_name || "STORE") || "STORE"
 
     // Update payment settings
     await adminSupabase

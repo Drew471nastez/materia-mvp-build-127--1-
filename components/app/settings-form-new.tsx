@@ -38,6 +38,7 @@ import { DomainsPanel, type DomainsData } from "@/components/app/settings/domain
 import { creatorPageHostFrom, websiteHostFrom } from "@/lib/custom-domains/client"
 import { AddressList, type SettingsWebsite } from "@/components/app/settings/addresses"
 import { WaitingArea } from "@/components/ui/activity-spinner"
+import { bankStatementLine, statementDescriptorSuffix } from "@/lib/payments/platform-descriptor"
 import { ShareStorelib } from "@/components/app/share/share-storelib"
 import type { ConnectedPlatform, ShareAddress } from "@/components/app/share/share-data"
 import { EmailChangeFlow, PrivacyPanel, SecurityPanel } from "@/components/app/settings/account-panels"
@@ -279,11 +280,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
   const [supportEmail, setSupportEmail] = useState(creator?.support_email || "")
   const initialSupportEmail = useRef(supportEmail)
 
-  const normalizeStatementDescriptor = (value: string) =>
-    value
-      .toUpperCase()
-      .replace(/[^A-Z0-9\s]/g, "")
-      .slice(0, 22)
+  const normalizeStatementDescriptor = (value: string) => statementDescriptorSuffix(value)
 
   const defaultStatementDescriptor = normalizeStatementDescriptor(
     (creator?.statement_descriptor || profile?.username || (creator as any)?.display_name || "STORE").trim()
@@ -1682,7 +1679,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                     placeholder={defaultStatementDescriptor}
                     className="h-10 rounded-xl border-[#e5e7eb] text-[13px] focus-visible:border-[#8b5cf6] focus-visible:ring-[#8b5cf6]/20"
                   />
-                  <p className="text-[12px] text-[#9ca3af]">Shown in bank apps as the charge descriptor (max 22 characters).</p>
+                  <p className="text-[12px] text-[#9ca3af]">Bank apps show {bankStatementLine(statementDescriptor || defaultStatementDescriptor)}. The whole line is at most 22 characters.</p>
                 </div>
               </div>
 
