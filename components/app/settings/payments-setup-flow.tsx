@@ -675,13 +675,13 @@ export function PaymentsSetupFlow({
   const title = mode === "bank" ? (data.payoutDestination ? "Payout account" : "Add bank account") : mode === "details" ? "Account details" : "Set up payouts"
   /* Back walks past a step that had nothing to ask, so it never lands somewhere that sends it forward again. */
   const stepBefore = (from: Step): Step => (from === 3 ? (idEmpty ? (detailsEmpty ? 0 : 1) : 2) : from === 2 ? (detailsEmpty ? 0 : 1) : 0)
-  const onBack = mode === "setup" && step > 0 && !ending ? () => go(stepBefore(step)) : onClose
+  const onBack = mode === "setup" || !!ending || step === 0 ? onClose : () => go(stepBefore(step))
   const slide = back ? "slide-in-from-left-4" : "slide-in-from-right-4"
   /* The ID step is only a step once Stripe has asked for a document. */
   const labels = idNeeded ? STEP_LABELS : STEP_LABELS_NO_ID
   const last = labels.length - 1
-  /* Account and details are both Personal info; then Verify ID; then Bank account. */
-  const shownStep = ending === "done" || ending === "checking" ? last : step <= 1 ? 0 : step === 2 ? 1 : last
+  /* Stripe draws its own steps inside the form. Ours only marks the result. */
+  const shownStep = ending ? last : 0
 
   let body: React.ReactNode
   if (ending) {
@@ -729,14 +729,19 @@ export function PaymentsSetupFlow({
         key={`id-${openCount}`}
         data={data}
         onData={onData}
-        onExit={async () => {
+        onExit={async (fromStripe) => {
           const next = await post<Overview>("refresh")
+          const form = await post<DetailsForm>("details-form", {}).catch(() => null)
           onData(next)
-          idSent.current = true
-          setCheckingWhat("id")
+          if (form?.needs.given?.includes("document")) idSent.current = true
+          setCheckingWhat(idSent.current ? "id" : "details")
           const outcome = outcomeOf(statusOf(next))
           if (outcome === "done" || outcome === "checking") onFinished()
-          setEnding(outcome === "more" ? null : outcome)
+          if (outcome === "more") {
+            if (fromStripe) setOpenCount((k) => k + 1)
+            return
+          }
+          setEnding(outcome)
         }}
       />
     )
@@ -760,7 +765,7 @@ export function PaymentsSetupFlow({
             <>
               <button
                 type="button"
-                aria-label={mode === "setup" && step > 0 && !ending ? "Back" : "Close"}
+                aria-label={mode === "setup" || !!ending || step === 0 ? "Close" : "Back"}
                 onClick={onBack}
                 className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full text-[#1a1a2e] outline-none transition-colors active:bg-[#f1f2f4] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20"
               >
@@ -795,18 +800,18 @@ export function PaymentsSetupFlow({
             where it fills the screen so Cancel and Continue sit at the bottom. */}
         <div className="mx-auto w-full max-w-[560px] max-sm:flex max-sm:min-h-full max-sm:flex-col sm:px-6 sm:pb-16 sm:pt-10">
           {phone ? (
-            mode === "setup" ? (
+            mode === "setup" && ending ? (
               <div className="px-5 pt-4">
-                <Stepper step={shownStep} labels={labels} done={ending === "done"} />
+                <Stepper step={shownStep} labels={labels} done={ending === "done" || ending === "checking"} />
               </div>
             ) : null
           ) : (
             <div className="mb-6 px-1">
               <h2 className="text-[22px] font-semibold leading-7 tracking-[-0.01em] text-[#1a1a2e]">{title}</h2>
               <p className="mt-1 text-[14px] leading-5 text-[#6b7280]">{subtitle}</p>
-              {mode === "setup" ? (
+              {mode === "setup" && ending ? (
                 <div className="mt-5">
-                  <Stepper step={shownStep} labels={labels} done={ending === "done"} />
+                  <Stepper step={shownStep} labels={labels} done={ending === "done" || ending === "checking"} />
                 </div>
               ) : null}
             </div>
@@ -839,7 +844,7 @@ const SETUP_COLLECTION = {
   },
 }
 
-function SetupEmbed({ data, onData, onExit }: { data: Overview; onData: (next: Overview) => void; onExit: () => void | Promise<void> }) {
+function SetupEmbed({ data, onData, onExit }: { data: Overview; onData: (next: Overview) => void; onExit: (fromStripe: boolean) => void | Promise<void> }) {
   const existed = React.useRef((data.beat ?? "personal") !== "personal")
   const [ready, setReady] = React.useState(existed.current)
   const [error, setError] = React.useState<string | null>(null)
@@ -883,13 +888,20 @@ function SetupEmbed({ data, onData, onExit }: { data: Overview; onData: (next: O
     )
   }
   return (
-    <div className="flex min-h-full flex-1 flex-col px-5 pb-6 sm:px-7" data-id-embed="">
-      <StepIntro title="Set up payouts" line="Stripe checks your ID to confirm you are who you say you are. It goes straight to Stripe, and Storelib never sees or keeps the document." />
-      <StripeConnectEmbedded
-        purpose={existed.current ? "stripe_management" : "stripe_onboarding"}
-        collection={SETUP_COLLECTION}
-        onExit={() => void onExit()}
-      />
+    <div className="flex min-h-full flex-1 flex-col" data-id-embed="">
+      <div className="flex-1 px-5 sm:px-7">
+        <StepIntro title="Set up payouts" line="Stripe checks your ID to confirm you are who you say you are. It goes straight to Stripe, and Storelib never sees or keeps the document." />
+        <StripeConnectEmbedded
+          purpose={existed.current ? "stripe_management" : "stripe_onboarding"}
+          collection={SETUP_COLLECTION}
+          onExit={() => void onExit(true)}
+        />
+      </div>
+      <Footer>
+        <button type="button" className={PRIMARY} onClick={() => void onExit(false)}>
+          Continue
+        </button>
+      </Footer>
     </div>
   )
 }
