@@ -29,12 +29,12 @@ import { lessonsLabel, lockHint, opensOnLabel, type ProgramCard } from "./model"
 export function LearnLibrary({ programs, timeZone, manageHref = null }: { programs: ProgramCard[]; timeZone?: string; /** The builder, for somebody who may change it; null for everybody else. */ manageHref?: string | null }) {
   return (
     <section data-learn aria-labelledby="learn-title">
-      <header className="mb-4 flex items-baseline justify-between gap-3 sm:mb-5">
-        <h1 id="learn-title" className="text-[22px] font-bold tracking-[-0.01em] text-[#1a1a2e] sm:text-[24px]">
+      <header className="mb-3 flex items-baseline justify-between gap-3 sm:mb-4">
+        <h1 id="learn-title" className="text-[19px] font-bold tracking-[-0.01em] text-[#1a1a2e] sm:text-[21px]">
           Learn
         </h1>
         {programs.length ? (
-          <p className="text-[13px] tabular-nums text-[#6b7280]">
+          <p className="text-[12.5px] tabular-nums text-[#6b7280]">
             {programs.length} {programs.length === 1 ? "program" : "programs"}
           </p>
         ) : null}
@@ -51,10 +51,10 @@ export function LearnLibrary({ programs, timeZone, manageHref = null }: { progra
       ) : (
         <ul
           className={cn(
-            "grid gap-4 sm:gap-5",
+            "grid gap-3 sm:gap-4",
             programs.length === 1
-              ? "grid-cols-1 max-w-[min(100%,440px)]"
-              : "grid-cols-1 min-[520px]:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3",
+              ? "grid-cols-1 max-w-[min(100%,340px)]"
+              : "mx-auto grid-cols-1 max-w-[min(100%,920px)] min-[520px]:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3",
           )}
           data-program-grid
         >

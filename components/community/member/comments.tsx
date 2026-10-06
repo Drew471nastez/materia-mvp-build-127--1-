@@ -68,6 +68,7 @@
  */
 import Link from "next/link"
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import { ArrowUp, Clapperboard, ImageIcon, Loader2, X } from "lucide-react"
 import { FlagIcon } from "@solar-icons/react/linear/flag"
 import { MenuDotsIcon } from "@solar-icons/react/linear/menu-dots"
@@ -99,7 +100,8 @@ import { actOnContent } from "./moderation"
 import { press, useIntent } from "./post-intent"
 import { ReportSheet } from "./report-sheet"
 import { toast } from "./toast"
-import { COMMENT_COMPOSER_DOCK_BOTTOM, COMMENT_COMPOSER_DOCK_SCROLL_PAD } from "@/components/community/fixed-foot-chrome"
+import { COMMENT_COMPOSER_DOCK_BOTTOM, COMMENT_COMPOSER_DOCK_LIFT, COMMENT_COMPOSER_DOCK_SCROLL_PAD } from "@/components/community/fixed-foot-chrome"
+import { useKeepFieldInSight } from "./keep-in-sight"
 import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY } from "./ui"
 import { memberHref } from "./person-href"
 import { RoleBadge } from "./role-badge"
@@ -477,13 +479,18 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
   }
   const author: Author = { id: viewer.userId ?? "", name: me?.name ?? "You", avatarUrl: me?.avatarUrl ?? null }
   const staff = viewer.role === "owner" || viewer.role === "admin" || viewer.role === "moderator"
+  const [dockPortal, setDockPortal] = useState(false)
+  useEffect(() => {
+    setDockPortal(dockComposer)
+  }, [dockComposer])
+  useKeepFieldInSight(dockComposer, () => (typeof document === "undefined" ? null : (document.scrollingElement as HTMLElement | null)))
 
   const composer =
     open ? (
       <div
         className={
           dockComposer
-            ? "max-sm:fixed max-sm:inset-x-0 max-sm:z-[80] max-sm:border-t max-sm:border-[#f0f1f3] max-sm:bg-white max-sm:px-4 max-sm:pt-2 max-sm:shadow-[0_-8px_24px_-16px_rgba(16,24,40,0.18)] sm:relative"
+            ? "max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:z-[80] max-sm:border-t max-sm:border-[#f0f1f3] max-sm:bg-white max-sm:px-4 max-sm:pt-2 max-sm:shadow-[0_-8px_24px_-16px_rgba(16,24,40,0.18)] max-sm:transition-[translate] max-sm:duration-200 max-sm:ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:max-sm:transition-none sm:relative"
             : pinComposer
               ? "sticky bottom-0 z-[3] -mx-4 border-t border-[#f0f1f3] bg-white px-4 pt-2 shadow-[0_-10px_28px_-18px_rgba(16,24,40,0.14)] sm:mx-0"
               : "relative"
@@ -492,6 +499,7 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
           dockComposer
             ? {
                 bottom: COMMENT_COMPOSER_DOCK_BOTTOM,
+                translate: COMMENT_COMPOSER_DOCK_LIFT,
                 paddingBottom: "max(env(safe-area-inset-bottom, 0px), 10px)",
               }
             : pinComposer
@@ -511,7 +519,8 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
       </p>
     )
 
-  const listGap = open && !pinComposer ? "mt-6" : "mt-4"
+  const listGap = open && !pinComposer && !dockComposer ? "mt-6" : "mt-4"
+  const dockedComposer = dockComposer && dockPortal && typeof document !== "undefined" ? createPortal(composer, document.body) : null
 
   return (
     <div
@@ -520,7 +529,8 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
       className={`${pinComposer ? "max-sm:pb-28" : ""} ${dockComposer ? "max-sm:[padding-bottom:var(--comments-dock-pad)]" : ""}`}
       style={dockComposer ? ({ ["--comments-dock-pad" as string]: COMMENT_COMPOSER_DOCK_SCROLL_PAD } as React.CSSProperties) : undefined}
     >
-      {!pinComposer ? composer : null}
+      {!pinComposer && !dockComposer ? composer : null}
+      {dockedComposer}
       {open && !mediaReady && staff ? (
         <p className={`${pinComposer ? "mt-4" : "mt-7"} rounded-[10px] border border-[#f0e2bf] bg-[#fffaf0] px-3 py-2 text-[12.5px] leading-relaxed text-[#7a5a12]`} data-comments-media-note="">
           {MEDIA_STAFF_NOTE}

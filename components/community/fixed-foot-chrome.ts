@@ -11,11 +11,12 @@ export const COMMUNITY_FIXED_FOOT_VAR = "--community-fixed-foot-h"
 /** CSS bottom offset for a pill/toast above join bars and buyer tabs. */
 export const COMMUNITY_FLOAT_BOTTOM = `max(calc(16px + env(safe-area-inset-bottom, 0px)), calc(var(${COMMUNITY_FIXED_FOOT_VAR}, 0px) + 12px), calc(var(--buyer-tabs-h, 0px) + 12px))`
 
-/** Fixed comment composer on a phone: above the keyboard or the buyer tab bar. */
-export const COMMENT_COMPOSER_DOCK_BOTTOM = `max(var(--kb-inset, 0px), var(--buyer-tabs-h, 0px))`
+/** Fixed comment composer on a phone: sits on the tab bar, lifts with the keyboard (--kb-inset). */
+export const COMMENT_COMPOSER_DOCK_BOTTOM = `var(--buyer-tabs-h, 0px)`
+export const COMMENT_COMPOSER_DOCK_LIFT = `translateY(calc(-1 * var(--kb-inset, 0px)))`
 
-/** Scroll padding under a docked composer (field + safe area + tab bar). */
-export const COMMENT_COMPOSER_DOCK_SCROLL_PAD = `calc(92px + var(--buyer-tabs-h, 0px) + var(${COMMUNITY_FIXED_FOOT_VAR}, 0px))`
+/** Scroll padding under a docked composer (field + keyboard + tab bar + join bars). */
+export const COMMENT_COMPOSER_DOCK_SCROLL_PAD = `calc(92px + var(--kb-inset, 0px) + var(--buyer-tabs-h, 0px) + var(${COMMUNITY_FIXED_FOOT_VAR}, 0px))`
 
 let observers = 0
 let ro: ResizeObserver | null = null

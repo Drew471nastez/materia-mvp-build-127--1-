@@ -113,7 +113,7 @@ export function PostPage({ slug, viewer, post: initialPost, comments: initial, m
   }, [slug, post.id, post.title, post.bodyText])
 
   return (
-    <div className={`space-y-3 ${visitor ? "pb-28" : "max-sm:pb-4 sm:pb-10"}`} data-post-page={visitor ? "visitor" : "member"}>
+    <div className={`space-y-0 sm:space-y-3 ${visitor ? "pb-28" : "max-sm:pb-4 sm:pb-10"}`} data-post-page={visitor ? "visitor" : "member"}>
       {visitor ? null : <PostPageBack href={backHref} label={backLabel} />}
       <PostCard post={post} slug={slug} viewer={viewer} update={updatePost} full readOnly={readOnly} autoEdit={autoEdit} onComment={() => (open ? box.current?.focus() : document.getElementById("comments")?.scrollIntoView({ block: "start" }))} />
 
@@ -158,7 +158,10 @@ function PostPageBack({ href, label }: { href: string; label: string }) {
     return true
   })
   return (
-    <div className="-mx-1 mb-0.5 flex h-11 items-center" data-post-page-back="">
+    <div
+      className="max-sm:-mx-[calc(50%-50vw)] max-sm:mb-0 max-sm:flex max-sm:h-11 max-sm:w-screen max-sm:items-center max-sm:border-b max-sm:border-[#eceef1] max-sm:bg-white max-sm:px-3 sm:-mx-1 sm:mb-0.5 sm:flex sm:h-11 sm:items-center"
+      data-post-page-back=""
+    >
       <ReturnLink
         href={href}
         scroll={false}

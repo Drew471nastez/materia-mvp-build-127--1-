@@ -21,6 +21,12 @@ export function isLearnLibraryPath(pathname: string | null | undefined): boolean
   return /^\/community\/[^/]+\/learn$/.test(path)
 }
 
+/** Calendar list or an event page: /community/<slug>/events (and /events/<id>). */
+export function isEventsLibraryPath(pathname: string | null | undefined): boolean {
+  const path = (pathname || "").split(/[?#]/)[0].replace(/\/+$/, "")
+  return /^\/community\/[^/]+\/events(?:\/[^/]+)?$/.test(path)
+}
+
 export function sectionFromPath(pathname: string | null | undefined, slug: string): ShellSection {
   const base = `/community/${slug}`
   const path = (pathname || "").split(/[?#]/)[0].replace(/\/+$/, "")
