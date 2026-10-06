@@ -77,6 +77,9 @@ const APPEARANCE = {
 
 const FONTS = [{ cssSrc: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" }]
 
+/** Start the Connect script as soon as this file loads, so opening setup does not wait on it. */
+const connectJs = import("@stripe/connect-js/pure")
+
 /**
  * Stripe's embedded onboarding, account management or payouts, drawn inside
  * Storelib. The caller says what to collect: setup asks for everything the
@@ -120,10 +123,9 @@ export function StripeConnectEmbedded({
     setFailed(null)
     ;(async () => {
       try {
-        const first = await openSession(purpose)
+        const [first, { loadConnectAndInitialize }] = await Promise.all([openSession(purpose), connectJs])
         if (gone) return
         let pending: string | null = first.clientSecret
-        const { loadConnectAndInitialize } = await import("@stripe/connect-js/pure")
         const connect = loadConnectAndInitialize({
           publishableKey: first.publishableKey,
           fetchClientSecret: async () => {
@@ -193,13 +195,13 @@ export function StripeConnectEmbedded({
   }
 
   return (
-    <div className={cn("relative min-h-[320px]", className)}>
+    <div className={cn("relative min-h-[240px] w-full sm:min-h-[320px]", className)}>
       {!ready ? (
         <div className="absolute inset-0 flex items-center justify-center" aria-live="polite">
-          <WaitingArea className="h-24" size={18} label="Loading" />
+          <WaitingArea className="h-16 sm:h-24" size={18} label="Loading" />
         </div>
       ) : null}
-      <div ref={host} className={cn("min-h-[320px] transition-opacity duration-200", ready ? "opacity-100" : "opacity-0")} />
+      <div ref={host} className={cn("w-full min-h-[240px] transition-opacity duration-200 sm:min-h-[320px] [&_iframe]:w-full", ready ? "opacity-100" : "opacity-0")} />
     </div>
   )
 }

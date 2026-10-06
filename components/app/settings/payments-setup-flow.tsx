@@ -889,19 +889,13 @@ function SetupEmbed({ data, onData, onExit, bankOnly = false }: { data: Overview
     )
   }
   return (
-    <div className="flex min-h-full flex-1 flex-col" data-id-embed="">
-      <div className="flex-1 px-5 sm:px-7">
-        <StripeConnectEmbedded
-          purpose={bankOnly || existed.current ? "stripe_management" : "stripe_onboarding"}
-          collection={bankOnly ? { fields: "currently_due", futureRequirements: "omit", requirements: { only: ["external_account"] } } : SETUP_COLLECTION}
-          onExit={() => void onExit(true)}
-        />
-      </div>
-      <Footer>
-        <button type="button" className={PRIMARY} onClick={() => void onExit(false)}>
-          Continue
-        </button>
-      </Footer>
+    <div className="flex min-h-full w-full flex-1 flex-col" data-id-embed="">
+      <StripeConnectEmbedded
+        className="w-full px-3 sm:px-5"
+        purpose={bankOnly || existed.current ? "stripe_management" : "stripe_onboarding"}
+        collection={bankOnly ? { fields: "currently_due", futureRequirements: "omit", requirements: { only: ["external_account"] } } : SETUP_COLLECTION}
+        onExit={() => void onExit(true)}
+      />
     </div>
   )
 }
