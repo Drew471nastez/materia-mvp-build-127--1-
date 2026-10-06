@@ -33,15 +33,16 @@ const NO_STORE = { "Cache-Control": "no-store" }
 function socialHandle(raw: unknown): string {
   if (typeof raw !== "string") return ""
   let v = raw.trim().replace(/^https?:\/\/(www\.)?/i, "")
-  v = v.replace(/^(instagram\.com|tiktok\.com|youtube\.com|youtu\.be)\//i, "")
+  v = v.replace(/^(instagram\.com|tiktok\.com|youtube\.com|youtu\.be|linkedin\.com\/in)\//i, "")
   v = v.replace(/^@+/, "").split(/[/?#]/)[0] ?? ""
   return v.replace(/[^a-zA-Z0-9._-]/g, "").slice(0, 60)
 }
 
-function socialUrl(kind: "instagram" | "tiktok" | "youtube", handle: string): string | null {
+function socialUrl(kind: "instagram" | "tiktok" | "youtube" | "linkedin", handle: string): string | null {
   if (!handle) return null
   if (kind === "instagram") return `https://instagram.com/${handle}`
   if (kind === "tiktok") return `https://www.tiktok.com/@${handle}`
+  if (kind === "linkedin") return `https://www.linkedin.com/in/${handle}`
   return `https://youtube.com/@${handle}`
 }
 
@@ -70,17 +71,23 @@ export async function POST(request: NextRequest) {
     const instagram = socialHandle(raw.instagram)
     const tiktok = socialHandle(raw.tiktok)
     const youtube = socialHandle(raw.youtube)
+    const linkedin = socialHandle(raw.linkedin)
     const urls = {
       instagram_url: socialUrl("instagram", instagram),
       tiktok_url: socialUrl("tiktok", tiktok),
       youtube_url: socialUrl("youtube", youtube),
+      linkedin_url: socialUrl("linkedin", linkedin),
     }
     const { error: metaError } = await supabase.auth.updateUser({
-      data: { storelib_socials: { instagram, tiktok, youtube } },
+      data: { storelib_socials: { instagram, tiktok, youtube, linkedin } },
     })
     if (metaError) console.error("[welcome] socials not marked", metaError.message)
     const db = createAdminClient()
-    const { error } = await db.from("profiles").update(urls).eq("id", user.id)
+    let { error } = await db.from("profiles").update(urls).eq("id", user.id)
+    if (error && /linkedin/i.test(`${error.message} ${error.code ?? ""}`)) {
+      const { linkedin_url: _drop, ...rest } = urls
+      ;({ error } = await db.from("profiles").update(rest).eq("id", user.id))
+    }
     /* Those columns are not on every database. The handles are already on the account. */
     if (error && !/column|schema cache|42703|PGRST204/i.test(`${error.message} ${error.code ?? ""}`)) {
       console.error("[welcome] socials not saved", error.code, error.message)

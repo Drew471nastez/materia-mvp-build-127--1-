@@ -28,6 +28,7 @@ import { PricingSection } from "@/components/marketing/pricing-section"
 import { isNativeApp } from "@/lib/native-bridge"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { ActivitySpinner } from "@/components/ui/activity-spinner"
+import { pickPhoto } from "@/lib/native-camera"
 import { TextSwap } from "@/components/ui/text-swap"
 import { AvatarMark, DefaultAvatarGlyph } from "@/components/app/app-avatar"
 import type { OnboardingResume } from "@/lib/account/onboarding-resume"
@@ -101,6 +102,12 @@ const CATEGORY_ON = "bg-[#1a1a2e] text-white shadow-[0_0_0_1px_#1a1a2e,0_2px_6px
 const TikTokIcon = ({ className }: { className?: string }) => (
   <svg className={className} viewBox="0 0 24 24" fill="currentColor">
     <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-5.2 1.74 2.89 2.89 0 012.31-4.64 2.93 2.93 0 01.88.13V9.4a6.84 6.84 0 00-1-.05A6.33 6.33 0 005 20.1a6.34 6.34 0 0010.86-4.43v-7a8.16 8.16 0 004.77 1.52v-3.4a4.85 4.85 0 01-1-.1z" />
+  </svg>
+)
+
+const LinkedInIcon = ({ className }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+    <path d="M4.98 3.5C4.98 4.88 3.88 6 2.5 6S0 4.88 0 3.5 1.12 1 2.5 1s2.48 1.12 2.48 2.5zM.5 8.5h4V24h-4V8.5zM8.5 8.5h3.8v2.1h.1c.5-1 1.8-2.1 3.8-2.1 4 0 4.8 2.6 4.8 6V24h-4v-7.7c0-1.8 0-4.1-2.5-4.1s-2.9 2-2.9 4V24h-4V8.5z" />
   </svg>
 )
 
@@ -545,8 +552,11 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
   const [socials, setSocials] = useState({
     instagram: "",
     tiktok: "",
-    youtube: ""
+    youtube: "",
+    linkedin: "",
   })
+  const [openSocial, setOpenSocial] = useState<null | "tiktok" | "instagram" | "youtube" | "linkedin">(null)
+  const socialInputRef = useRef<HTMLInputElement>(null)
   const avatarInputRef = useRef<HTMLInputElement>(null)
   const [showCropModal, setShowCropModal] = useState(false)
   const [tempImageUrl, setTempImageUrl] = useState<string | null>(null)
@@ -603,7 +613,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
   useLayoutEffect(() => {
     setJoinNotify(inNativeApp())
   }, [])
-  const joinSteps = [JOIN_NAME, JOIN_SOCIAL, ...(joinNotify ? [JOIN_NOTIFY] : []), JOIN_DONE]
+  const joinSteps = [JOIN_NAME, JOIN_SOCIAL, ...(joinNotify ? [JOIN_NOTIFY] : [])]
 
   useEffect(() => {
     if (joinHandleEdited.current) return
@@ -611,9 +621,21 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
     if (next) setJoinHandle(next)
   }, [joinName])
 
-  const askForPhoto = () => {
-    setJoinNote("Add a profile photo to continue")
-    window.setTimeout(() => setJoinNote((n) => (n === "Add a profile photo to continue" ? null : n)), 2400)
+  useEffect(() => {
+    if (!openSocial) return
+    const id = requestAnimationFrame(() => socialInputRef.current?.focus())
+    return () => cancelAnimationFrame(id)
+  }, [openSocial])
+
+  const openJoinPhoto = async () => {
+    if (uploadingAvatar) return
+    const picked = await pickPhoto("PHOTOS")
+    if (!picked) return
+    if (preview) {
+      setAvatarUrl(picked.dataUrl)
+      return
+    }
+    await uploadAvatarBlob(picked.blob)
   }
 
   useEffect(() => {
@@ -680,6 +702,53 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
     }
   }
 
+  /** Username, bio and socials, saved as the second slide is left. */
+  const saveJoinUsername = async (): Promise<boolean> => {
+    if (preview) return true
+    const handle = normalizeHandle(joinHandle)
+    if (!handle || joinHandleState === "taken") return false
+    setJoinSaving(true)
+    setJoinError(null)
+    try {
+      if (start && handle && joinHandleState === "free") {
+        const res = await fetch("/api/profile/username", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: handle }) })
+        if (!res.ok) {
+          const data = (await res.json().catch(() => ({}))) as { error?: string }
+          setJoinHandleState("taken")
+          setJoinHandleError(data.error || "This username is taken")
+          return false
+        }
+      }
+      const res = await fetch("/api/account/welcome", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: cleanName(joinName), bio: cleanBio(joinBio) }) })
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string }
+        setJoinError(data.error || "That did not save. Try again in a moment.")
+        return false
+      }
+      await saveJoinSocials()
+      return true
+    } catch {
+      setJoinError("Could not reach Storelib. Check your connection and try again.")
+      return false
+    } finally {
+      setJoinSaving(false)
+    }
+  }
+
+  /** Leave without a done screen: the card fades, then the page they came from opens. */
+  const exitJoin = async () => {
+    if (preview) {
+      setJoinNote("Preview only. Nothing was saved.")
+      window.setTimeout(() => setJoinNote(null), 2200)
+      setCurrentStep(JOIN_NAME)
+      return
+    }
+    const card = document.querySelector<HTMLElement>("[data-onboarding-card]")
+    card?.animate([{ opacity: 1 }, { opacity: 0, translate: "0 8px" }], { duration: 320, easing: MOTION_EASE, fill: "forwards" })
+    await new Promise((r) => window.setTimeout(r, 280))
+    await finishJoin()
+  }
+
   /** Social handles, just the name. Empty is fine. Saved before the done moment. */
   const saveJoinSocials = async () => {
     if (preview) return
@@ -692,6 +761,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
           instagram: clean(socials.instagram),
           tiktok: clean(socials.tiktok),
           youtube: clean(socials.youtube),
+          linkedin: clean(socials.linkedin),
         },
       }),
     }).catch(() => null)
@@ -1197,9 +1267,9 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
   const canProceed = () => {
     switch (currentStep) {
       case JOIN_NAME:
-        return !!cleanName(joinName) && !!normalizeHandle(joinHandle) && !joinSaving && (joinHandleState === "same" || joinHandleState === "free")
+        return !!cleanName(joinName) && !joinSaving
       case JOIN_SOCIAL:
-        return !joinSaving
+        return !!normalizeHandle(joinHandle) && !joinSaving && (joinHandleState === "same" || joinHandleState === "free" || joinHandleState === "checking")
       case JOIN_DONE:
         return false
       /* Turn on notifications asks; Not now skips. Neither waits on a second press. */
@@ -1220,8 +1290,6 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
   // Check if can skip
   const canSkip = () => {
     switch (currentStep) {
-      case JOIN_SOCIAL:
-        return !joinSaving
       case JOIN_NOTIFY:
         return !joinSaving && !askingPush && pushAnswer === null
       case 1:
@@ -1325,17 +1393,17 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
         return
       }
       if (currentStep === JOIN_SOCIAL) {
-        if (!avatarUrl) {
-          askForPhoto()
+        if (!(await saveJoinUsername())) return
+        if (joinNotify || inNativeApp()) {
+          goToStep(JOIN_NOTIFY, "right")
           return
         }
-        await saveJoinSocials()
-        goToStep(joinNotify || inNativeApp() ? JOIN_NOTIFY : JOIN_DONE, "right")
+        await exitJoin()
         return
       }
       if (currentStep === JOIN_NOTIFY) {
         await allowNotifications()
-        goToStep(JOIN_DONE, "right")
+        await exitJoin()
         return
       }
       return
@@ -1365,15 +1433,8 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
   const handleSkip = () => {
     if (!canSkip()) return
     if (isJoinStep(currentStep)) {
-      if (currentStep === JOIN_SOCIAL) {
-        if (!avatarUrl) {
-          askForPhoto()
-          return
-        }
-        void saveJoinSocials()
-      }
       if (currentStep === JOIN_NOTIFY) {
-        goToStep(JOIN_DONE, "right")
+        await exitJoin()
         return
       }
       const next = joinSteps[joinSteps.indexOf(currentStep) + 1]
@@ -1740,174 +1801,155 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
    */
   const renderStep = (step: number) => (
     <>
-        {/* Slide 1 of a new account: name, username, optional bio. Prefilled from the sign-in. */}
+        {/* Slide 1: name, photo, socials. Username and bio are the next slide. */}
         {step === JOIN_NAME && (
-          <div className="flex flex-col items-center" data-onboarding-join="profile">
-            <div className={HEADING_BLOCK}>
-              <h1 className={HEADING}>Your profile</h1>
-              <p className={SUBHEADING}>A name, a username, and a short bio if you want one.</p>
-            </div>
-            <div className="w-full max-w-[600px] space-y-3 sm:space-y-4">
-              <label className={cn("flex h-[56px] items-center gap-3 rounded-[14px] px-5", FIELD_WELL)}>
-                <User className="h-5 w-5 shrink-0 text-gray-400" />
-                <span className="sr-only">Display name</span>
-                <input
-                  type="text"
-                  value={joinName}
-                  onChange={(e) => setJoinName(e.target.value)}
-                  placeholder="Display name"
-                  maxLength={60}
-                  autoComplete="name"
-                  data-onboarding-join-name=""
-                  className="min-w-0 flex-1 bg-transparent text-base outline-none"
-                />
-              </label>
-              <div>
-                <label className={cn("flex h-[56px] items-center gap-1 rounded-[14px] px-5", FIELD_WELL)}>
-                  <span className="sr-only">Username</span>
-                  <span className="select-none text-base text-gray-400">@</span>
-                  <input
-                    type="text"
-                    value={joinHandle}
-                    onChange={(e) => {
-                    joinHandleEdited.current = true
-                    setJoinHandle(e.target.value.toLowerCase().replace(/^@+/, "").replace(/[\s_.]+/g, "-").replace(/[^a-z0-9-]/g, ""))
-                  }}
-                    placeholder="username"
-                    maxLength={30}
-                    autoCapitalize="none"
-                    autoCorrect="off"
-                    spellCheck={false}
-                    autoComplete="username"
-                    data-onboarding-join-handle=""
-                    className="min-w-0 flex-1 bg-transparent text-base outline-none"
-                  />
-                  {joinHandleState === "checking" && <Loader2 className="h-5 w-5 shrink-0 animate-spin text-gray-400" />}
-                  {joinHandleState === "free" && <Check className="h-5 w-5 shrink-0 text-green-500" />}
-                  {joinHandleState === "taken" && normalizeHandle(joinHandle) && <X className="h-5 w-5 shrink-0 text-red-500" />}
-                </label>
-                <p className={cn("ml-1 mt-1.5 min-h-[18px] text-[13px] leading-[18px]", joinHandleError ? "text-red-500" : "text-[#8a8f98]")} aria-live="polite">
-                  {joinHandleError ?? (normalizeHandle(joinHandle) ? `storelib.com/@${normalizeHandle(joinHandle)}` : "Pick a username")}
-                </p>
+          <div className="mx-auto flex w-full max-w-[440px] flex-col font-sans" data-onboarding-join="profile">
+            <StorelibLogo size={40} className="mb-6" />
+            <h1 className="text-[28px] font-bold leading-[1.15] tracking-[-0.03em] text-[#1a1a2e] sm:text-[32px]">Create a profile</h1>
+            <p className="mt-2 text-[15px] leading-6 text-[#6b7280]">Add a name, photo and links to get started.</p>
+            <button
+              type="button"
+              onClick={() => void openJoinPhoto()}
+              disabled={uploadingAvatar}
+              data-onboarding-join-photo=""
+              aria-label={avatarUrl ? "Change photo" : "Add a photo"}
+              className="relative mx-auto mt-6 block h-[72px] w-[72px] overflow-hidden rounded-full bg-[#f3f0ff] text-[#8b5cf6] shadow-[inset_0_0_0_1px_rgba(139,92,246,0.18)] [-webkit-tap-highlight-color:transparent]"
+            >
+              {avatarUrl ? (
+                <img src={avatarUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
+              ) : (
+                <span className="absolute inset-0 grid place-items-center">
+                  <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden>
+                    <path d="M4 8.5h2.2l1.2-2h9.2l1.2 2H20a1.5 1.5 0 0 1 1.5 1.5v8A1.5 1.5 0 0 1 20 19.5H4A1.5 1.5 0 0 1 2.5 18v-8A1.5 1.5 0 0 1 4 8.5Z" strokeLinejoin="round" />
+                    <circle cx="12" cy="13.5" r="3.1" />
+                  </svg>
+                </span>
+              )}
+              {uploadingAvatar ? (
+                <span className="absolute inset-0 grid place-items-center bg-white/60">
+                  <ActivitySpinner size={18} className="text-[#1a1a2e]" />
+                </span>
+              ) : null}
+            </button>
+            <label className={cn("mt-6 flex h-[52px] items-center rounded-[14px] px-4", FIELD_WELL)}>
+              <span className="sr-only">Your name</span>
+              <input
+                type="text"
+                value={joinName}
+                onChange={(e) => setJoinName(e.target.value)}
+                placeholder="Your name"
+                maxLength={60}
+                autoComplete="name"
+                data-onboarding-join-name=""
+                className="min-w-0 flex-1 bg-transparent text-[16px] outline-none placeholder:text-[#9ca3af]"
+              />
+            </label>
+            <div className="mt-5" data-onboarding-social-row="">
+              <div className="flex items-center justify-between px-1">
+                {(
+                  [
+                    ["tiktok", "TikTok"],
+                    ["instagram", "Instagram"],
+                    ["youtube", "YouTube"],
+                    ["linkedin", "LinkedIn"],
+                  ] as const
+                ).map(([id, label]) => {
+                  const on = openSocial === id
+                  const filled = !!socials[id]
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      aria-expanded={on}
+                      aria-label={on ? `Close ${label}` : `Add ${label}`}
+                      onClick={() => setOpenSocial((cur) => (cur === id ? null : id))}
+                      className="relative grid h-14 w-14 place-items-center [-webkit-tap-highlight-color:transparent]"
+                    >
+                      <span className={cn("grid h-12 w-12 place-items-center rounded-full bg-[#f4f4f5] text-[#1a1a2e] shadow-[inset_0_0_0_1px_rgba(17,24,39,0.06)] transition-[box-shadow,transform] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]", on && "shadow-[inset_0_0_0_2px_#1a1a2e]", filled && !on && "shadow-[inset_0_0_0_1.5px_#8b5cf6]")}>
+                        {id === "tiktok" ? <TikTokIcon className="h-5 w-5" /> : null}
+                        {id === "instagram" ? <Instagram className="h-5 w-5" strokeWidth={1.8} /> : null}
+                        {id === "youtube" ? <Youtube className="h-5 w-5" strokeWidth={1.8} /> : null}
+                        {id === "linkedin" ? <LinkedInIcon className="h-5 w-5" /> : null}
+                      </span>
+                      <span className={cn("absolute right-0 top-0 grid h-[18px] w-[18px] place-items-center rounded-full text-[12px] font-bold leading-none shadow-[0_1px_2px_rgba(16,24,40,0.16)] transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]", on ? "rotate-0 bg-[#1a1a2e] text-white" : "bg-white text-[#1a1a2e]")}>
+                        {on ? "–" : "+"}
+                      </span>
+                    </button>
+                  )
+                })}
               </div>
-              <label className={cn("flex items-start gap-3 rounded-[14px] px-5 py-4", FIELD_WELL)}>
-                <span className="sr-only">Bio, optional</span>
-                <textarea
-                  value={joinBio}
-                  onChange={(e) => setJoinBio(e.target.value.slice(0, 160))}
-                  placeholder="Short bio, optional"
-                  rows={2}
-                  maxLength={160}
-                  data-onboarding-join-bio=""
-                  className="min-h-[48px] w-full resize-none bg-transparent text-base outline-none"
-                />
-              </label>
-              {joinError && <p role="alert" className="text-center text-[13px] text-red-600">{joinError}</p>}
+              <div className={cn("grid transition-[grid-template-rows,opacity] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none", openSocial ? "mt-3 grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0")}>
+                <div className="overflow-hidden">
+                  {openSocial ? (
+                    <label className={cn("flex h-[52px] items-center gap-1 rounded-[14px] px-4", FIELD_WELL)}>
+                      <span className="sr-only">{openSocial}</span>
+                      <span className="select-none text-[16px] text-[#9ca3af]">@</span>
+                      <input
+                        ref={socialInputRef}
+                        type="text"
+                        value={socials[openSocial]}
+                        onChange={(e) => setSocials({ ...socials, [openSocial]: e.target.value.replace(/@/g, "") })}
+                        placeholder="yourname"
+                        autoCapitalize="none"
+                        autoCorrect="off"
+                        spellCheck={false}
+                        data-onboarding-join-social={openSocial}
+                        className="min-w-0 flex-1 bg-transparent text-[16px] outline-none"
+                      />
+                    </label>
+                  ) : null}
+                </div>
+              </div>
             </div>
+            {joinError && <p role="alert" className="mt-3 text-center text-[13px] text-red-600">{joinError}</p>}
           </div>
         )}
 
-        {/*
-          Slide 2. The permission is asked only from Turn on notifications
-          (the footer). Not now leaves it alone. Same step on the web and
-          in the app.
-        */}
-        {/* Slide 2: the OnePage socials slide. Handles only, photo beside them. */}
         {step === JOIN_SOCIAL && (
-          <div className="flex w-full flex-col items-center" data-onboarding-join="socials">
-            <div className={HEADING_BLOCK}>
-              <h1 className={HEADING}>Add your socials</h1>
-              <p className={SUBHEADING}>Optional. Just the name, the same way it is on your profile.</p>
-            </div>
-            <div className="flex w-full max-w-[600px] flex-col items-center gap-5 sm:flex-row sm:items-start sm:gap-8">
-              <div className="mx-auto flex w-full max-w-[120px] shrink-0 flex-col items-center sm:mx-0">
-                <button
-                  type="button"
-                  onClick={() => avatarInputRef.current?.click()}
-                  disabled={uploadingAvatar}
-                  data-onboarding-join-photo=""
-                  aria-label={avatarUrl ? "Change photo" : "Add a photo"}
-                  className="relative mx-auto block h-20 w-20 overflow-hidden rounded-full bg-[#eceef1] text-[#6b7280] shadow-[inset_0_0_0_1px_rgba(17,24,39,0.08)] [-webkit-tap-highlight-color:transparent] sm:h-[88px] sm:w-[88px]"
-                >
-                  {avatarUrl ? (
-                    <img src={avatarUrl} alt="" className="absolute inset-0 h-full w-full object-cover motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-300" />
-                  ) : (
-                    <DefaultAvatarGlyph fill />
-                  )}
-                  {uploadingAvatar ? (
-                    <span className="absolute inset-0 grid place-items-center bg-white/55">
-                      <Loader2 className="h-5 w-5 animate-spin text-[#1a1a2e]" />
-                    </span>
-                  ) : null}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => avatarInputRef.current?.click()}
-                  disabled={uploadingAvatar}
-                  className="mt-2 flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 disabled:opacity-50 sm:mt-3"
-                >
-                  <Pencil className="h-4 w-4" />
-                  {avatarUrl ? "Edit" : "Add photo"}
-                </button>
-                <input ref={avatarInputRef} type="file" accept="image/*" onChange={handleAvatarSelect} className="hidden" />
-              </div>
-              <div className="min-w-0 w-full flex-1 space-y-3">
-                <label className={cn("flex h-[52px] items-center gap-3 rounded-[14px] px-4 sm:h-[56px] sm:px-5", FIELD_WELL)}>
-                  <SocialIconTile>
-                    <Instagram className="h-[18px] w-[18px] text-[#e1306c]" strokeWidth={2} />
-                  </SocialIconTile>
-                  <span className="sr-only">Instagram</span>
-                  <span className="-mr-2 shrink-0 select-none text-sm text-gray-500 sm:text-base">@</span>
-                  <input
-                    type="text"
-                    value={socials.instagram}
-                    onChange={(e) => setSocials({ ...socials, instagram: e.target.value.replace(/@/g, "") })}
-                    placeholder="yourname"
-                    autoCapitalize="none"
-                    autoCorrect="off"
-                    spellCheck={false}
-                    data-onboarding-join-instagram=""
-                    className="min-w-0 flex-1 bg-transparent text-sm outline-none sm:text-base"
-                  />
-                </label>
-                <label className={cn("flex h-[52px] items-center gap-3 rounded-[14px] px-4 sm:h-[56px] sm:px-5", FIELD_WELL)}>
-                  <SocialIconTile>
-                    <TikTokIcon className="h-[18px] w-[18px] text-[#111827]" />
-                  </SocialIconTile>
-                  <span className="sr-only">TikTok</span>
-                  <span className="-mr-2 shrink-0 select-none text-sm text-gray-500 sm:text-base">@</span>
-                  <input
-                    type="text"
-                    value={socials.tiktok}
-                    onChange={(e) => setSocials({ ...socials, tiktok: e.target.value.replace(/@/g, "") })}
-                    placeholder="yourname"
-                    autoCapitalize="none"
-                    autoCorrect="off"
-                    spellCheck={false}
-                    data-onboarding-join-tiktok=""
-                    className="min-w-0 flex-1 bg-transparent text-sm outline-none sm:text-base"
-                  />
-                </label>
-                <label className={cn("flex h-[52px] items-center gap-3 rounded-[14px] px-4 sm:h-[56px] sm:px-5", FIELD_WELL)}>
-                  <SocialIconTile>
-                    <Youtube className="h-[18px] w-[18px] text-[#ff0000]" strokeWidth={2} />
-                  </SocialIconTile>
-                  <span className="sr-only">YouTube</span>
-                  <span className="-mr-2 shrink-0 select-none text-sm text-gray-500 sm:text-base">@</span>
-                  <input
-                    type="text"
-                    value={socials.youtube}
-                    onChange={(e) => setSocials({ ...socials, youtube: e.target.value.replace(/@/g, "") })}
-                    placeholder="yourchannel"
-                    autoCapitalize="none"
-                    autoCorrect="off"
-                    spellCheck={false}
-                    data-onboarding-join-youtube=""
-                    className="min-w-0 flex-1 bg-transparent text-sm outline-none sm:text-base"
-                  />
-                </label>
-              </div>
-            </div>
+          <div className="mx-auto flex w-full max-w-[440px] flex-col items-center font-sans text-center" data-onboarding-join="username">
+            <span className="relative mb-4 block h-16 w-16 overflow-hidden rounded-full bg-[#eceef1] text-[#6b7280]">
+              {avatarUrl ? <img src={avatarUrl} alt="" className="absolute inset-0 h-full w-full object-cover" /> : <DefaultAvatarGlyph fill />}
+            </span>
+            <h1 className="text-[28px] font-bold leading-[1.15] tracking-[-0.03em] text-[#1a1a2e] sm:text-[32px]">Pick a username</h1>
+            <p className="mt-2 text-[15px] leading-6 text-[#6b7280]">Claim your unique Storelib link.</p>
+            <label className={cn("mt-6 flex h-[52px] w-full items-center gap-1 rounded-[14px] px-4 text-left", FIELD_WELL)}>
+              <span className="sr-only">Username</span>
+              <input
+                type="text"
+                value={joinHandle}
+                onChange={(e) => {
+                  joinHandleEdited.current = true
+                  setJoinHandle(e.target.value.toLowerCase().replace(/^@+/, "").replace(/[\s_.]+/g, "-").replace(/[^a-z0-9-]/g, ""))
+                }}
+                placeholder="username"
+                maxLength={30}
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                autoComplete="username"
+                data-onboarding-join-handle=""
+                className="min-w-0 flex-1 bg-transparent text-[16px] outline-none"
+              />
+              {joinHandleState === "checking" && <Loader2 className="h-5 w-5 shrink-0 animate-spin text-gray-400" />}
+              {joinHandleState === "free" && <Check className="h-5 w-5 shrink-0 text-green-500" />}
+              {joinHandleState === "taken" && normalizeHandle(joinHandle) && <X className="h-5 w-5 shrink-0 text-red-500" />}
+            </label>
+            <p className={cn("mt-2 min-h-[18px] w-full text-left text-[13px] leading-[18px]", joinHandleError ? "text-red-500" : "text-[#6b7280]")} aria-live="polite">
+              {joinHandleError ?? (normalizeHandle(joinHandle) ? `storelib.com/${normalizeHandle(joinHandle)}` : "storelib.com/username")}
+            </p>
+            <label className={cn("mt-3 flex w-full items-start rounded-[14px] px-4 py-3 text-left", FIELD_WELL)}>
+              <span className="sr-only">Bio, optional</span>
+              <textarea
+                value={joinBio}
+                onChange={(e) => setJoinBio(e.target.value.slice(0, 160))}
+                placeholder="Add a short bio, optional"
+                rows={2}
+                maxLength={160}
+                data-onboarding-join-bio=""
+                className="min-h-[44px] w-full resize-none bg-transparent text-[16px] outline-none"
+              />
+            </label>
+            {joinError && <p role="alert" className="mt-3 text-[13px] text-red-600">{joinError}</p>}
           </div>
         )}
 
@@ -2368,7 +2410,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
           onEscapeKeyDown={(e) => e.preventDefault()}
           onOpenAutoFocus={(e) => e.preventDefault()}
         >
-          <div className={cn(
+          <div data-onboarding-card="" className={cn(
             "flex flex-col h-full bg-white",
             nativeFullScreen
               ? "max-h-[100dvh] pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]"
@@ -2623,7 +2665,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                   )}
                 >
                   {isJoinStep(currentStep) && (joinSaving || askingPush) ? (
-                    <Loader2 className="mx-auto h-4 w-4 animate-spin" />
+                    <ActivitySpinner size={18} className="mx-auto text-white" />
                   ) : currentStep === JOIN_NOTIFY ? (
                     "Turn on notifications"
                   ) : currentStep === JOIN_NAME || currentStep === JOIN_SOCIAL ? (
