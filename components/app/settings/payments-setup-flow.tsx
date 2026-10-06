@@ -237,7 +237,7 @@ function Panel({
       data-leaving={leaving ? "" : undefined}
       style={{ zIndex: PANEL_Z }}
       className={cn(
-        "fixed inset-0 flex h-[100dvh] flex-col bg-white ease-sheet [backface-visibility:hidden] sm:bg-[#f6f7f9]",
+        "fixed inset-0 flex h-[100dvh] flex-col bg-white pb-[max(12px,env(safe-area-inset-bottom))] ease-sheet [backface-visibility:hidden] sm:bg-[#f6f7f9] sm:pb-4",
         phone
           ? leaving
             ? "animate-out slide-out-to-right duration-200 [will-change:transform]"
@@ -725,19 +725,25 @@ export function PaymentsSetupFlow({
         data={data}
         bankOnly={mode === "bank"}
         onData={onData}
-        onExit={async (fromStripe) => {
+        onExit={async () => {
           const next = await post<Overview>("refresh")
           const form = await post<DetailsForm>("details-form", {}).catch(() => null)
           onData(next)
           if (form?.needs.given?.includes("document")) idSent.current = true
           setCheckingWhat(idSent.current ? "id" : "details")
           const outcome = outcomeOf(statusOf(next))
-          if (outcome === "done" || outcome === "checking") onFinished()
-          if (outcome === "more") {
-            if (fromStripe) setOpenCount((k) => k + 1)
+          if (outcome === "done") {
+            onFinished()
+            setEnding("done")
             return
           }
-          setEnding(outcome)
+          if (outcome === "bank" && !next.payoutDestination) {
+            setEnding("bank")
+            return
+          }
+          /* The review screen has no Stripe button. Continue has to leave it. */
+          onFinished()
+          setEnding("checking")
         }}
       />
     )
@@ -845,7 +851,7 @@ const SETUP_COLLECTION = {
   },
 }
 
-function SetupEmbed({ data, onData, onExit, bankOnly = false }: { data: Overview; onData: (next: Overview) => void; onExit: (fromStripe: boolean) => void | Promise<void>; bankOnly?: boolean }) {
+function SetupEmbed({ data, onData, onExit, bankOnly = false }: { data: Overview; onData: (next: Overview) => void; onExit: () => void | Promise<void>; bankOnly?: boolean }) {
   const existed = React.useRef((data.beat ?? "personal") !== "personal")
   const [ready, setReady] = React.useState(existed.current)
   const [error, setError] = React.useState<string | null>(null)
@@ -888,14 +894,22 @@ function SetupEmbed({ data, onData, onExit, bankOnly = false }: { data: Overview
       </div>
     )
   }
+  const review = bankOnly || existed.current
   return (
     <div className="flex min-h-full w-full flex-1 flex-col" data-id-embed="">
       <StripeConnectEmbedded
         className="w-full px-3 sm:px-5"
-        purpose={bankOnly || existed.current ? "stripe_management" : "stripe_onboarding"}
+        purpose={review ? "stripe_management" : "stripe_onboarding"}
         collection={bankOnly ? { fields: "currently_due", futureRequirements: "omit", requirements: { only: ["external_account"] } } : SETUP_COLLECTION}
-        onExit={() => void onExit(true)}
+        onExit={() => void onExit()}
       />
+      {review ? (
+        <div className="sticky bottom-0 z-10 mt-2 shrink-0 border-t border-[#f1f2f4] bg-white px-4 py-3 sm:rounded-b-2xl">
+          <button type="button" className={cn(PRIMARY, "w-full")} onClick={() => void onExit()}>
+            Continue
+          </button>
+        </div>
+      ) : null}
     </div>
   )
 }
