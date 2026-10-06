@@ -334,7 +334,7 @@ export async function uploadDocument(creator: PaymentsCreatorRef, input: { which
     /* Stripe did not answer in time: say that, rather than blaming the photo. */
     const code = (error as { type?: string; code?: string })?.type
     if (code === "StripeConnectionError" || (error as { code?: string })?.code === "ETIMEDOUT") {
-      throw new PaymentsProblem("Our payment partner did not answer in time. Try once more, or use Verify with Stripe instead.", 504)
+      throw new PaymentsProblem("Our payment partner did not answer in time. Try once more.", 504)
     }
     throw new PaymentsProblem(sentence(error, "That photo did not upload. Try again with a clear photo."))
   }

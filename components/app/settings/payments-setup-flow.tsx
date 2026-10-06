@@ -5,9 +5,9 @@
  * with three steps:
  *
  *   Account  country and legal name as on the ID (Storelib's form); no business question
- *   Verify   Stripe's embedded onboarding, drawn inside this page: identity
- *            and an ID document are collected now, not left for later, so
- *            payments do not pause the first time Stripe asks
+ *   Verify   a photo of the ID, taken here. A phone opens the camera. A
+ *            computer shows a code to scan with the phone. The photo goes
+ *            to Stripe and the page is never left.
  *   Bank     the payout bank, in Stripe's embedded form; the numbers go from
  *            this browser to Stripe and never to Storelib
  *
@@ -22,16 +22,12 @@
  * step Stripe already has is skipped. Not a Radix dialog: Stripe's form opens
  * its own layer over the page, and a modal focus trap would leave it unclickable.
  *
- * The same three steps run in the phone app. Stripe's forms draw in frames at
- * connect-js.stripe.com, which the app's web view used to refuse (proxy.ts
- * narrows frame-src for the app so Stripe.js cannot navigate the web view
- * away, and that host was missing from the list), so the app sent creators to
- * a browser instead. The host is allowed now and the forms run in the app. A
- * browser is offered only if a form still will not load.
+ * The same three steps run on a phone and in the iOS and Android apps. The
+ * ID photo is the camera on this page, never a page on Stripe's site.
  */
 import * as React from "react"
 import { createPortal } from "react-dom"
-import { Camera, Check, ChevronDown, ChevronLeft, Clock, Info, Landmark, Lock, RotateCcw, ScanFace, X } from "lucide-react"
+import { Camera, Check, ChevronDown, ChevronLeft, Clock, Info, Landmark, Lock, RotateCcw, Smartphone, X } from "lucide-react"
 import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { Shimmer, ShimmerBlock } from "@/components/ui/shimmer"
@@ -44,8 +40,7 @@ import { personalIssues } from "@/lib/payments/stripe/onboarding-steps"
 import { setupStepOf, type StorelibPaymentsStatus } from "@/lib/payments/stripe/status"
 import type { Overview } from "@/components/app/settings/payments-hub-shared"
 import { isNativeApp, openInApp } from "@/lib/native-bridge"
-import { sendIdPhoto, shrinkPhoto } from "@/components/app/settings/id-camera"
-import { openHostedVerification, openIdentity } from "@/lib/payments/identity-client"
+import { armCameraSounds, IdCamera, sendIdPhoto, shrinkPhoto, type IdSide } from "@/components/app/settings/id-camera"
 import { readsLikeStripe, verifyLine } from "@/lib/payments/verify-id"
 import { playAskSound } from "@/lib/website-builder/ask-sounds"
 import { cn } from "@/lib/utils"
@@ -116,6 +111,53 @@ function usePhone(): boolean {
     return () => mq.removeEventListener("change", on)
   }, [])
   return phone
+}
+
+/*
+ * WHERE THE ID PHOTO IS TAKEN. A phone, the iOS app and the Android app open
+ * the camera here. A computer shows a code the phone scans, because a laptop
+ * camera is the wrong tool and the creator should not be sent out to Stripe.
+ * Width alone is not enough: a phone turned sideways is wider than 640px.
+ */
+function idOnThisDevice(): "phone" | "desk" {
+  if (typeof window === "undefined") return "desk"
+  if (isNativeApp()) return "phone"
+  const ua = navigator.userAgent || ""
+  if (/iPhone|iPad|iPod|Android/i.test(ua)) return "phone"
+  const touch = navigator.maxTouchPoints ?? 0
+  if (/Macintosh/i.test(ua) && touch > 1) return "phone"
+  if (window.matchMedia("(pointer: coarse)").matches && window.matchMedia("(max-width: 1024px)").matches) return "phone"
+  return "desk"
+}
+
+/** The code a computer shows so the creator can finish the ID photo on their phone. */
+function IdHandoffQr({ url }: { url: string }) {
+  const [src, setSrc] = React.useState<string | null>(null)
+  React.useEffect(() => {
+    if (!url) return
+    let gone = false
+    void import("qrcode").then((lib) =>
+      lib
+        .toDataURL(url, { width: 360, margin: 1, color: { dark: "#1a1a2e", light: "#ffffff" }, errorCorrectionLevel: "M" })
+        .then((data) => {
+          if (!gone) setSrc(data)
+        })
+        .catch(() => undefined),
+    )
+    return () => {
+      gone = true
+    }
+  }, [url])
+  return (
+    <div className="flex h-[180px] w-[180px] items-center justify-center rounded-2xl border border-[#eceef1] bg-white p-2" data-id-phone-qr="">
+      {src ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={src} alt="Scan with your phone to verify your ID" className="h-full w-full" />
+      ) : (
+        <span className="h-8 w-8 animate-spin rounded-full border-2 border-[#1a1a2e]/10 border-t-[#1a1a2e]/50" />
+      )}
+    </div>
+  )
 }
 
 /*
@@ -539,7 +581,15 @@ export function PaymentsSetupFlow({
     idSent.current = false
     /* A fresh open starts from Stripe's answer, not from what was typed last time. */
     clearDetailsDraft()
-    setStep(firstStep(status))
+    /* The phone scanned the code on the ID step: open that step, not the one before it. */
+    const params = new URLSearchParams(window.location.search)
+    const toId = params.get("id") === "1"
+    if (toId) {
+      params.delete("id")
+      const next = params.toString()
+      window.history.replaceState(window.history.state, "", `${window.location.pathname}${next ? `?${next}` : ""}${window.location.hash}`)
+    }
+    setStep(toId && mode === "setup" ? 2 : firstStep(status))
     setOpenCount((k) => k + 1)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, mode])
@@ -1066,16 +1116,22 @@ function DetailsStep({
   const [iban, setIban] = useDraft("iban")
   const [accountNumber, setAccountNumber] = useDraft("accountNumber")
   const [routing, setRouting] = useDraft("routing")
-  /* Stripe's own live check: the way in, until Stripe says there is none for this account. */
-  const [idState, setIdState] = React.useState<"idle" | "opening" | "waiting" | "checking" | "done">("idle")
+  /* Stripe has the photo, or is looking at it. The camera and the phone code never leave this page. */
+  const [idState, setIdState] = React.useState<"idle" | "checking" | "done">("idle")
   const [idProblem, setIdProblem] = React.useState<string | null>(null)
   const [typeIdInstead, setTypeIdInstead] = React.useState(false)
   /* How far the photo on its way to Stripe has got, so "Sending" always moves. */
   const [sentPct, setSentPct] = React.useState(0)
+  /* Phone: the camera. Computer: a code for the phone. Null until the first paint in the browser. */
+  const [idDevice, setIdDevice] = React.useState<"phone" | "desk" | null>(null)
+  const [cameraSide, setCameraSide] = React.useState<IdSide | null>(null)
+  /* need, then the back after the front, then sent once Stripe has the photo. */
+  const [idPhase, setIdPhase] = React.useState<"need" | "back" | "sent">("need")
+  const [handoffUrl, setHandoffUrl] = React.useState("")
+  const cameraArmed = React.useRef(false)
+  const startCamera = React.useRef<(() => void) | null>(null)
 
   /* Stripe's answer, asked for until it has one. */
-  /* How many times the ID step has asked Stripe since the check was opened. */
-  const asks = React.useRef(0)
   const askStripe = React.useCallback(async () => {
     try {
       const r = await post<{ status: string; problem: string | null; form: DetailsForm }>("identity-status", {})
@@ -1087,7 +1143,7 @@ function DetailsStep({
         return true
       }
       if (r.problem) {
-        setIdProblem(r.problem)
+        setIdProblem(safe(r.problem))
         setIdState("idle")
         return true
       }
@@ -1097,47 +1153,10 @@ function DetailsStep({
     return false
   }, [setForm])
 
-  /*
-   * While Stripe's own screen is open: ask again when the page comes back,
-   * and now and then. It does not ask for ever. A check closed without
-   * finishing leaves Stripe with a session that is simply unfinished and no
-   * reason to report, so nothing here ever changed and the step sat on
-   * "Waiting for Stripe" with its button disabled and Continue refusing:
-   * the only way out was a text link. After a couple of minutes of being
-   * told nothing, the step goes back to offering the check.
-   */
   React.useEffect(() => {
-    if (idState !== "waiting") return
-    asks.current = 0
-    let timer = 0
-    /*
-     * Stripe's check is open in its own modal, or in the sheet over the app,
-     * and the page behind it polls while it is. Quickly for the first
-     * minute, because Stripe is usually done before the person is back, then
-     * every ten seconds for ten minutes, which is longer than anybody spends
-     * on it. Giving up after two minutes left somebody who took their time
-     * looking at a step that had forgotten what it was doing.
-     */
-    const tick = () => {
-      asks.current += 1
-      if (asks.current > 78) {
-        setIdState("idle")
-        return
-      }
-      void askStripe()
-      timer = window.setTimeout(tick, asks.current < 24 ? 2500 : 10_000)
-    }
-    timer = window.setTimeout(tick, 800)
-    /* Back from Stripe's sheet or tab: ask at once rather than on the next beat. */
-    const onBack = () => document.visibilityState === "visible" && void askStripe()
-    document.addEventListener("visibilitychange", onBack)
-    window.addEventListener("focus", onBack)
-    return () => {
-      window.clearTimeout(timer)
-      document.removeEventListener("visibilitychange", onBack)
-      window.removeEventListener("focus", onBack)
-    }
-  }, [idState, askStripe])
+    setIdDevice(idOnThisDevice())
+    setHandoffUrl(`${window.location.origin}/app/payouts?setup=1&id=1`)
+  }, [])
 
   /*
    * WHAT THIS STEP IS FOR. "id" draws the ID check alone, "details"
@@ -1167,6 +1186,47 @@ function DetailsStep({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form])
   const docGivenAtOpen = givenAtOpen.current ?? docGiven
+
+  /*
+   * A computer waits on the phone. The photo is uploaded there, Stripe marks
+   * the document, and this page moves on by itself. It keeps asking while the
+   * code is up, and again the moment the tab is focused.
+   */
+  React.useEffect(() => {
+    if (idDevice !== "desk" || only !== "id" || !form) return
+    if (!form.needs.fields.includes("document") || docGivenAtOpen) return
+    if (idState === "done" || idState === "checking") return
+    let timer = 0
+    let n = 0
+    const tick = () => {
+      n += 1
+      if (n > 160) return
+      void askStripe()
+      timer = window.setTimeout(tick, 3000)
+    }
+    timer = window.setTimeout(tick, 1200)
+    const onBack = () => document.visibilityState === "visible" && void askStripe()
+    document.addEventListener("visibilitychange", onBack)
+    window.addEventListener("focus", onBack)
+    return () => {
+      window.clearTimeout(timer)
+      document.removeEventListener("visibilitychange", onBack)
+      window.removeEventListener("focus", onBack)
+    }
+  }, [idDevice, only, form, docGivenAtOpen, idState, askStripe])
+
+  /* A phone opens the camera as soon as this step is the one on screen. Once: closing it must not pop it straight back. */
+  React.useEffect(() => {
+    if (idDevice !== "phone" || only !== "id" || !form) return
+    if (!form.needs.fields.includes("document") || docGivenAtOpen) return
+    if (idState === "done" || idState === "checking" || idPhase !== "need") return
+    if (cameraArmed.current) return
+    cameraArmed.current = true
+    armCameraSounds()
+    setCameraSide("front")
+    startCamera.current?.()
+  }, [idDevice, only, form, docGivenAtOpen, idState, idPhase])
+
   const sectionFields = form ? form.needs.fields.filter(inSection) : []
   const bankHere = withBank && !!form && form.needs.bank
   const proofAsked = !!form && form.needs.fields.includes("proofOfAddress") && !form.needs.given?.includes("proofOfAddress")
@@ -1233,9 +1293,14 @@ function DetailsStep({
    * the way in and the number is an option behind a link: either one is
    * enough, and Stripe decides which it accepts.
    */
-  const idVerified = idState === "done" || idState === "checking"
-  /* Both sides are Stripe's to take now, on Stripe's own screen. */
-  const front = idVerified || docGiven || !!form.idSides?.front
+  /*
+   * Ready once this visit has sent the photo (front, then back or a passport),
+   * or Stripe already held it when the step opened. A front that just went up
+   * is not enough: the back is still to take, and Stripe's copy of the form
+   * already lists that front as given.
+   */
+  const idVerified = idPhase === "sent" || ((idState === "done" || idState === "checking") && idPhase !== "back")
+  const front = idVerified || docGivenAtOpen
   /* No CNP or ID number is ever typed here: the ID photo is the way (lib/payments/stripe/own-form-rules.ts needsOf). */
   const idEither = false
   const docDue = has("document") && !form.needs.offered.includes("document")
@@ -1293,7 +1358,7 @@ function DetailsStep({
       }
       if (uploading) return
       if (form.needs.fields.includes("document") && !docGivenAtOpen && !front) {
-        setIdProblem("Verify with Stripe to carry on.")
+        setIdProblem(idDevice === "desk" ? "Scan the code with your phone and photograph your ID." : idPhase === "back" ? "Take the back of your ID, or say it's a passport." : "Take a photo of your ID to carry on.")
         return
       }
       if (missingProof) return setError("Add a photo of your ID that shows your address.")
@@ -1310,7 +1375,6 @@ function DetailsStep({
       setError("Check the fields marked in red.")
       return
     }
-    if (idState === "waiting") return setError("Finish the check with Stripe first, or add a photo of your ID instead.")
     if (missingProof) return setError("Add a document that shows your address.")
     if (missingDoc) return setError(idEither ? (only === "details" ? `Enter your ${form.idNumber.label.split(" (")[0]}.` : `Take a photo of your ID, or enter your ${form.idNumber.label.split(" (")[0]} instead.`) : "Add a photo of the front of your ID.")
     setBusy(true)
@@ -1370,111 +1434,126 @@ function DetailsStep({
   }
 
   /*
-   * VERIFY WITH STRIPE. The server says which of Stripe's two checks this
-   * account gets (lib/payments/stripe/hosted-verification.ts): Connect's own
-   * hosted verification, which every connected account has, or Stripe
-   * Identity's modal where that product is really switched on. The step does
-   * not care which, and neither does the creator: either way it is Stripe's
-   * screen and Storelib never sees the document.
-   *
-   * WHEN IT WILL NOT OPEN, one calm sentence with what to do next. It used to
-   * print Stripe's own refusal here ("Your account is not set up to use
-   * Identity. Please have an account admin visit to get started"), which no
-   * creator can act on and which was a note for us, not for them.
+   * THE ID STAYS IN STORELIB. A phone opens the camera and the photo is sent
+   * to Stripe (POST /api/payments/document). A computer shows a code for that
+   * same step on the phone. Nothing here leaves for Stripe's own site.
    */
-  const runIdentity = async () => {
+  const markIdSent = () => {
+    setCameraSide(null)
+    setIdPhase("sent")
+    setIdState("checking")
+    window.setTimeout(() => void askStripe(), 400)
+  }
+
+  const openIdCamera = (side: IdSide) => {
+    armCameraSounds()
     setIdProblem(null)
-    setIdState("opening")
+    setCameraSide(side)
+    startCamera.current?.()
+  }
+
+  const sendDocumentSide = async (side: IdSide, blob: Blob) => {
+    setUploading(`document-${side}`)
+    setError(null)
+    setIdProblem(null)
+    setCameraSide(null)
     try {
-      const r = await post<{ ok?: boolean; way?: string; reason?: string; clientSecret?: string | null; url?: string | null; publishableKey?: string }>("identity", { inApp: isNativeApp() })
-      if (!r.ok) {
-        setIdState("idle")
-        setIdProblem(verifyLine(r.reason))
-        return
+      const file = new File([blob], "id.jpg", { type: blob.type || "image/jpeg" })
+      const data = new FormData()
+      data.set("which", "document")
+      data.set("side", side)
+      data.set("file", file)
+      setSentPct(0)
+      const res = await sendIdPhoto<{ form: DetailsForm }>("/api/payments/document", data, setSentPct)
+      setUploaded((u) => ({ ...u, [`document-${side}`]: true }))
+      playAskSound("done")
+      setForm((f) => (f ? { ...res.form, needs: { ...res.form.needs, fields: f.needs.fields } } : res.form))
+      if (side === "front") {
+        setIdPhase("back")
+        setCameraSide("back")
+      } else {
+        markIdSent()
       }
-      /*
-       * Waiting BEFORE it opens, not after. Stripe's sheet sits over the app
-       * until the person closes it, so a page that only started polling
-       * afterwards sat on "Opening Stripe" the whole time, and a sheet
-       * dismissed by a swipe left it there for good.
-       */
-      setIdState("waiting")
-      const how =
-        r.way === "connect"
-          ? await openHostedVerification(r.url ?? "")
-          : await openIdentity({ clientSecret: r.clientSecret ?? null, url: r.url ?? null, publishableKey: r.publishableKey ?? "" })
-      if (how === "no_way") {
-        setIdState("idle")
-        setIdProblem("Stripe's check could not open on this device. Try again, or open Storelib on your phone and finish it there.")
-        return
-      }
-      /* The modal or the app's sheet closed: Stripe usually knows at once. */
-      if (how === "closed") {
-        window.setTimeout(() => void askStripe(), 400)
-      }
-    } catch {
+    } catch (err) {
+      playAskSound("error")
+      const message = err instanceof Error ? err.message : ""
+      const offline = /No connection|took too long|did not go through/i.test(message)
+      if (offline) setIdProblem(verifyLine("offline"))
+      else setIdProblem(safe(message || "That photo could not be used. Take it again."))
       setIdState("idle")
-      setIdProblem(verifyLine("offline"))
+    } finally {
+      setUploading(null)
     }
   }
 
-  /* The ID photo: the live camera first, a photo from the library as the other way. */
-  /*
-   * STRIPE'S CHECK IS THE ONLY WAY. The owner, October 2026: "we should not
-   * be able to use our camera, only the KYC verification of ID of Stripe".
-   * Storelib's camera sent the photo through Storelib's server, and that
-   * upload is what never finished; a fallback to it was a fallback to the
-   * broken thing, and worse, it was silent, so a Stripe check that could not
-   * start looked like Stripe's check opening our camera. Where Stripe cannot
-   * run one, the step says why instead of quietly doing something else.
-   */
+  const sendingId = uploading === "document-front" || uploading === "document-back"
   const idPhoto = has("document")
     ? (
-          <div className="space-y-2" data-id-photo="stripe">
-            {only === "id" ? null : <span className="block text-[13px] font-medium text-[#1a1a2e]">{idEither ? "Verify with your ID" : "Verify who you are"}</span>}
+          <div className="space-y-2" data-id-photo="storelib">
+            {only === "id" ? null : <span className="block text-[13px] font-medium text-[#1a1a2e]">Verify who you are</span>}
             {idVerified ? (
               <div className="flex items-center gap-3 rounded-2xl border border-[#abefc6] bg-[#f6fef9] px-4 py-3.5" data-identity="done">
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#dcfae6] text-[#067647]">
                   <Check className="h-4 w-4" strokeWidth={3} />
                 </span>
                 <span className="min-w-0">
-                  <span className="block text-[14px] font-medium text-[#1a1a2e]">{idState === "done" ? "Verified by Stripe" : "Stripe is checking it"}</span>
-                  <span className="block text-[12.5px] text-[#6b7280]">{idState === "done" ? "Your ID and selfie matched." : "This usually takes under a minute."}</span>
+                  <span className="block text-[14px] font-medium text-[#1a1a2e]">{idState === "done" ? "Verified" : "ID sent"}</span>
+                  <span className="block text-[12.5px] text-[#6b7280]">{idState === "done" ? "Stripe has your ID." : "Stripe is checking it. This usually takes under a minute."}</span>
+                </span>
+              </div>
+            ) : idDevice === null ? (
+              <div className="flex h-[88px] items-center justify-center rounded-2xl border border-[#e3e5e8] bg-white">
+                <span aria-label="Loading" className="h-5 w-5 animate-spin rounded-full border-2 border-[#1a1a2e]/10 border-t-[#1a1a2e]/60" />
+              </div>
+            ) : idDevice === "desk" ? (
+              <div className="flex flex-col items-center rounded-2xl border border-[#e3e5e8] bg-white px-5 py-6 text-center" data-id-phone-scan="">
+                <IdHandoffQr url={handoffUrl} />
+                <span className="mt-4 inline-flex items-center gap-1.5 text-[15px] font-semibold text-[#1a1a2e]">
+                  <Smartphone className="h-4 w-4" />
+                  Scan with your phone
+                </span>
+                <span className="mt-1.5 max-w-[300px] text-[13px] leading-[18px] text-[#6b7280]">
+                  Point your camera at the code. Photograph your ID on your phone and it goes straight to Stripe. Storelib never sees the document.
+                </span>
+                <span className="mt-3 inline-flex items-center gap-1.5 text-[12.5px] text-[#6b7280]">
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#067647]" />
+                  This page updates when the photo is in
                 </span>
               </div>
             ) : (
-              <>
-                <button
-                  type="button"
-                  onClick={() => void runIdentity()}
-                  disabled={idState === "opening" || idState === "waiting"}
-                  data-identity-open=""
-                  className={cn(
-                    "flex w-full cursor-pointer items-center gap-3.5 rounded-2xl border px-4 py-4 text-left outline-none transition-[border-color,background-color,transform] duration-150 active:scale-[0.99] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 disabled:cursor-default",
-                    tried && missingDoc ? "border-[#f3b8ab] bg-[#fff8f6]" : "border-[#e3e5e8] bg-white hover:border-[#c9ccd3] hover:bg-[#fafafb]",
-                  )}
-                >
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#1a1a2e] text-white">
-                    {idState === "opening" || idState === "waiting" ? <Spinner /> : <ScanFace className="h-5 w-5" />}
+              <button
+                type="button"
+                onClick={() => openIdCamera(idPhase === "back" ? "back" : "front")}
+                disabled={sendingId}
+                data-id-camera-open=""
+                className={cn(
+                  "flex w-full cursor-pointer items-center gap-3.5 rounded-2xl border px-4 py-4 text-left outline-none transition-[border-color,background-color,transform] duration-150 active:scale-[0.99] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 disabled:cursor-default",
+                  tried && missingDoc ? "border-[#f3b8ab] bg-[#fff8f6]" : "border-[#e3e5e8] bg-white hover:border-[#c9ccd3] hover:bg-[#fafafb]",
+                )}
+              >
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#1a1a2e] text-white">
+                  {sendingId ? <Spinner /> : <Camera className="h-5 w-5" />}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[15px] font-semibold text-[#1a1a2e]">
+                    {sendingId ? `Sending ${sentPct < 99 ? `${sentPct}%` : ""}`.trim() : idPhase === "back" ? "Take the back" : "Take a photo of your ID"}
                   </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-[15px] font-semibold text-[#1a1a2e]">
-                      {idState === "waiting" ? "Waiting for Stripe" : idState === "opening" ? "Opening Stripe" : "Verify with Stripe"}
-                    </span>
-                    <span className="mt-0.5 block text-[12.5px] leading-[17px] text-[#6b7280]">
-                      {idState === "waiting"
-                        ? "Finish the check with Stripe, then come back here. This page knows the moment it is done."
-                        : "Stripe opens its own check, takes a photo of your ID and brings you straight back here. About a minute, and Storelib never sees the document."}
-                    </span>
+                  <span className="mt-0.5 block text-[12.5px] leading-[17px] text-[#6b7280]">
+                    {idPhase === "back" ? "The other side of the card. A passport has no back." : "Your camera opens. Front, then the back. Storelib never sees the document."}
                   </span>
-                </button>
-                {idProblem ? (
-                  <p role="status" className="rounded-xl border border-[#fedf89] bg-[#fffcf5] px-3.5 py-2.5 text-[13px] leading-[19px] text-[#93370d]" data-identity-problem="">
-                    {idProblem}
-                  </p>
-                ) : null}
-              </>
+                </span>
+              </button>
             )}
+            {idProblem ? (
+              <p role="status" className="rounded-xl border border-[#fedf89] bg-[#fffcf5] px-3.5 py-2.5 text-[13px] leading-[19px] text-[#93370d]" data-identity-problem="">
+                {idProblem}
+              </p>
+            ) : null}
+            {idDevice === "phone" && idPhase === "back" && !idVerified && !sendingId ? (
+              <button type="button" onClick={markIdSent} className="text-left text-[13px] font-medium text-[#4b5563] underline-offset-2 outline-none hover:text-[#1a1a2e] hover:underline focus-visible:underline" data-id-passport="">
+                It's a passport
+              </button>
+            ) : null}
           </div>
         )
     : null
@@ -1684,6 +1763,31 @@ function DetailsStep({
           {busy ? "Saving" : uploading ? `Sending ${sentPct < 99 ? `${sentPct}%` : ""}`.trim() : "Continue"}
         </button>
       </Footer>
+      <IdCamera
+        open={cameraSide !== null}
+        side={cameraSide ?? "front"}
+        zIndex={PANEL_Z + 30}
+        bindStart={(start) => {
+          startCamera.current = start
+        }}
+        onPhoto={(blob) => {
+          const side = cameraSide ?? "front"
+          void sendDocumentSide(side, blob)
+        }}
+        onClose={() => setCameraSide(null)}
+        onDenied={() => {
+          setCameraSide(null)
+          setIdProblem("Allow the camera for Storelib, then take the photo here.")
+        }}
+        onNoBack={
+          cameraSide === "back"
+            ? () => {
+                setCameraSide(null)
+                markIdSent()
+              }
+            : undefined
+        }
+      />
     </form>
   )
 }

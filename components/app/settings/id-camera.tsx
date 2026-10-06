@@ -52,14 +52,23 @@ interface IdCameraProps {
   onPickFile?: () => void
   /** The back only: there is none (a passport). */
   onNoBack?: () => void
+  /**
+   * Hands the parent a start function it can call inside a tap. iOS only
+   * opens the camera from a user gesture, and a state update is too late.
+   */
+  bindStart?: (start: () => void) => void
+  /** The camera could not start. The page shows its own way to try again. */
+  onDenied?: () => void
 }
 
 type Phase = "starting" | "live" | "review" | "denied" | "none"
 
-export function IdCamera({ open, side, zIndex, onPhoto, onClose, onNoBack }: IdCameraProps) {
+export function IdCamera({ open, side, zIndex, onPhoto, onClose, onNoBack, bindStart, onDenied }: IdCameraProps) {
   const video = React.useRef<HTMLVideoElement>(null)
   const frame = React.useRef<HTMLDivElement>(null)
   const stream = React.useRef<MediaStream | null>(null)
+  const starting = React.useRef(false)
+  const generation = React.useRef(0)
   const [phase, setPhase] = React.useState<Phase>("starting")
   const [hint, setHint] = React.useState<FrameHint>("blur")
   const [steady, setSteady] = React.useState(0)
@@ -67,39 +76,81 @@ export function IdCamera({ open, side, zIndex, onPhoto, onClose, onNoBack }: IdC
   const [flash, setFlash] = React.useState(false)
 
   const stop = React.useCallback(() => {
+    generation.current += 1
+    starting.current = false
     stream.current?.getTracks().forEach((t) => t.stop())
     stream.current = null
   }, [])
 
-  /* The camera: the back one on a phone, at its best resolution. */
+  const attach = React.useCallback(() => {
+    const v = video.current
+    const s = stream.current
+    if (!v || !s || v.srcObject === s) return
+    v.srcObject = s
+    void v.play().catch(() => undefined)
+  }, [])
+
+  /*
+   * THE CAMERA. Called from the effect when the sheet opens, and straight
+   * from a tap (bindStart) so iOS still counts it as the person's gesture.
+   * The back camera on a phone, at its best resolution.
+   */
+  const begin = React.useCallback(async () => {
+    if (stream.current) {
+      setPhase("live")
+      attach()
+      return
+    }
+    if (starting.current) return
+    starting.current = true
+    const gen = generation.current
+    setPhase("starting")
+    try {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        if (gen === generation.current) setPhase("none")
+        return
+      }
+      const s = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+      })
+      if (gen !== generation.current) {
+        s.getTracks().forEach((t) => t.stop())
+        return
+      }
+      stream.current = s
+      setPhase("live")
+    } catch (e) {
+      if (gen !== generation.current) return
+      const name = (e as { name?: string })?.name
+      setPhase(name === "NotAllowedError" || name === "SecurityError" ? "denied" : "none")
+    } finally {
+      if (gen === generation.current) starting.current = false
+    }
+  }, [attach])
+
+  React.useLayoutEffect(() => {
+    bindStart?.(() => {
+      void begin()
+    })
+  }, [bindStart, begin])
+
+  /* Opened: ask for the camera. A tap may already have started it. */
   React.useEffect(() => {
     if (!open || phase !== "starting") return
-    let gone = false
-    const start = async () => {
-      if (!navigator.mediaDevices?.getUserMedia) return setPhase("none")
-      try {
-        const s = await navigator.mediaDevices.getUserMedia({
-          audio: false,
-          video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } },
-        })
-        if (gone) return s.getTracks().forEach((t) => t.stop())
-        stream.current = s
-        const v = video.current
-        if (v) {
-          v.srcObject = s
-          await v.play().catch(() => undefined)
-        }
-        setPhase("live")
-      } catch (e) {
-        const name = (e as { name?: string })?.name
-        setPhase(name === "NotAllowedError" || name === "SecurityError" ? "denied" : "none")
-      }
-    }
-    void start()
-    return () => {
-      gone = true
-    }
-  }, [open, phase])
+    void begin()
+  }, [open, phase, begin])
+
+  /* The video node appears a paint after the stream. Attach it then. */
+  React.useEffect(() => {
+    if (open && phase === "live") attach()
+  }, [open, phase, attach])
+
+  /* No camera, or permission refused: hand it back so the page can ask for a tap. */
+  React.useEffect(() => {
+    if (!open || (phase !== "denied" && phase !== "none")) return
+    onDenied?.()
+  }, [open, phase, onDenied])
 
   /* Closed: the camera light goes off, and the next open starts fresh. */
   React.useEffect(() => {
@@ -304,7 +355,7 @@ export function IdCamera({ open, side, zIndex, onPhoto, onClose, onNoBack }: IdC
             ) : phase === "starting" ? (
               <span className="h-[72px] w-[72px]" />
             ) : (
-              <button type="button" onClick={() => setPhase("starting")} className="flex h-12 cursor-pointer items-center justify-center rounded-xl bg-white px-6 text-[15px] font-semibold text-[#1a1a2e] outline-none">
+              <button type="button" onClick={() => void begin()} className="flex h-12 cursor-pointer items-center justify-center rounded-xl bg-white px-6 text-[15px] font-semibold text-[#1a1a2e] outline-none">
                 Try again
               </button>
             )}
@@ -399,7 +450,7 @@ export function sendIdPhoto<T>(url: string, form: FormData, onProgress: (pct: nu
       }
     }
     xhr.onerror = () => reject(Object.assign(new Error("No connection. Check your internet and take it again."), { status: 0 }))
-    xhr.ontimeout = () => reject(Object.assign(new Error("That took too long. Take it again, or use Verify with Stripe instead."), { status: 0 }))
+    xhr.ontimeout = () => reject(Object.assign(new Error("That took too long. Take it again."), { status: 0 }))
     xhr.send(form)
   })
 }

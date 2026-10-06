@@ -141,21 +141,12 @@ check("  the next step reads the overview the write returned, with no second syn
 /* The owner, October 2026: "it says well notify you in 2 days, that should not be the case once users set up and uploaded their KYC". */
 check("  the checking screen waits with them instead of promising days", /function Outcome\([\s\S]*?"Checking your ID"/.test(flow) && !/line:[^\n]*business days/.test(flow))
 check("    and it asks again while it is open, becoming active by itself", /outcome !== "checking"\) return[\s\S]*?post<Overview>\("refresh"/.test(flow) && /onChecked/.test(flow))
-/* The owner, October 2026: the ID check "takes me outside to Stripe on iOS and Capacitor apps instead of opening there in the app". */
-/*
-  The owner, October 2026: Storelib's own camera sent the photo through
-  Storelib's server to Stripe, and that upload hung on "Stripe is saving it"
-  and timed out, again and again. So Stripe's own check does the ID now,
-  everywhere: its screen opens the camera and the document goes to Stripe
-  directly. "You can embed the Stripe verification thing with the ID exactly
-  of Stripe, only in the verify ID." In the app it is the sheet that slides
-  over the app, which has a camera where a cross origin frame does not.
-*/
+/* The owner, October 2026: the ID check "takes me outside to Stripe" and it should not. Photograph the ID here, then send the file to Stripe. */
 const idClient = readFileSync("lib/payments/identity-client.ts", "utf8")
-check("Stripe's own check is the ID step, in the app as well", /if \(isNativeApp\(\)\) \{\s*\n\s*if \(opening\.url\) return openSheet\(opening\.url\)/.test(idClient) && /verifyIdentity\(opening\.clientSecret\)/.test(idClient))
-check("  the app opens it in its own sheet, and waits for the sheet to close", /@capacitor\/browser/.test(idClient) && /browserFinished/.test(idClient) && /__storelibSheet/.test(idClient))
-/* The owner, October 2026: "we should not be able to use our camera, only the KYC verification of ID of Stripe." */
-check("  and Storelib's camera is gone from the ID step entirely", !/data-id-use-camera|IdCamera|data-id-camera-open/.test(flow) && !/openCamera\(/.test(flow))
+check("Stripe's hosted check still exists for a return, and is not what the step opens", /openHostedVerification/.test(idClient) && !/openHostedVerification|openIdentity/.test(flow))
+check("  a phone opens Storelib's camera and sends the photo to Stripe", /IdCamera/.test(flow) && /data-id-camera-open/.test(flow) && /sendIdPhoto/.test(flow) && /\/api\/payments\/document/.test(flow))
+check("  a computer shows a code for that same step on the phone", /data-id-phone-scan/.test(flow) && /IdHandoffQr/.test(flow) && /\/app\/payouts\?setup=1&id=1/.test(flow) && /params\.get\("id"\) === "1"/.test(flow) && /toId && mode === "setup" \? 2/.test(flow))
+check("  and the step never leaves for Stripe", !/location\.assign|window\.open|Verify with Stripe|Opening Stripe|openHostedVerification/.test(flow))
 /*
   Round 14, the owner with a screenshot of step two: "Stripe would not start
   the check: Your account is not set up to use Identity. Please have an
@@ -172,7 +163,7 @@ const hosted = readFileSync("lib/payments/stripe/hosted-verification.ts", "utf8"
 check("Verify ID runs through Connect's own hosted verification", /stripe\.accountLinks\.create\(/.test(hosted) && /collection_options: \{ fields: "currently_due"/.test(hosted) && /account\.details_submitted \? "account_update" : "account_onboarding"/.test(hosted))
 check("  and it comes back to Storelib, on the step that is left", /return_url: where\.returnUrl/.test(hosted) && /refresh_url: where\.refreshUrl/.test(hosted) && /\/app\/payouts\?setup=1/.test(route))
 check("  Stripe Identity is tried first and falls through quietly when it is not there", /verifyWay\(\{ identityOn: await identityOnForPlatform\(\) \}\) === "identity"/.test(hosted) && /way: "connect"/.test(hosted))
-check("  a check that will not open says one Storelib sentence, never Stripe's", /setIdProblem\(verifyLine\(r\.reason\)\)/.test(flow) && !/would not start the check/.test(flow) && !/not switched on for Storelib/.test(flow))
+check("  a photo that does not go through says one Storelib sentence, never Stripe's", /setIdProblem\(verifyLine\("offline"\)\)/.test(flow) && !/would not start the check/.test(flow) && !/not switched on for Storelib/.test(flow))
 check("  and no Stripe word or code can reach a creator through it", /account_not_set_up/.test(verifyWords) && /account admin/.test(verifyWords) && /readsLikeStripe/.test(flow))
 /*
   The owner, October 2026, kept being told "Stripe's ID check is not switched
@@ -191,9 +182,9 @@ check("  Identity is never called when it is known to refuse", /if \(!\(await id
 check("  a refusal is remembered, so the next creator does not wait on the same dead call", /if \(reason === "not_enabled"\) identityOffered = false/.test(identityCode))
 check("  and nothing Stripe said is ever handed back to the page", !/detail/.test(identityCode) && /return \{ ok: false, reason \}/.test(identityCode))
 check("Stripe Identity is only used for what it can fill, never an additional document", /individual\\\.verification\\\.\(document\|proof_of_liveness\)/.test(identityCode))
-check("the step waits while Stripe's screen is open, not after it closes", /setIdState\("waiting"\)\s*\n\s*const how =\s*\n?\s*r\.way === "connect"/.test(flow))
+check("the computer keeps asking until the phone's photo is in", /idDevice !== "desk" \|\| only !== "id"/.test(flow) && /void askStripe\(\)/.test(flow))
 check("every Stripe call in a photo upload is bounded, so the page is never left hanging", /timeout: 20_000, maxNetworkRetries: 1/.test(own))
-check("  and a sheet that cannot open says so, rather than opening something else", /if \(how === "no_way"\) \{\s*\n\s*setIdState\("idle"\)\s*\n\s*setIdProblem\(/.test(flow))
+check("  and a camera that cannot open stays in Storelib, rather than opening something else", /data-id-camera-open/.test(flow) && !/how === "no_way"/.test(flow))
 check("  verifying is never shown while Stripe is still asking for something", /const stepFor = \(form: DetailsForm \| null\): Step \| null/.test(flow) && /if \(target !== null && target !== step\)/.test(flow))
 /* The owner, October 2026: finish it properly. Every way out of settle has to land somewhere. */
 check("  what is still owed decides the step, so no Continue leads nowhere", /if \(detailsLeft\) return 1/.test(flow) && /if \(idLeft\) return 2/.test(flow) && /if \(needs\.bank\) return 3/.test(flow))
