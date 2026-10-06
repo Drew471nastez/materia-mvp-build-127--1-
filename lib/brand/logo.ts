@@ -75,3 +75,7 @@ export function storelibLogoRadius(size: number): number {
  * shadow at 5% under it. On the dark headers neither shows, which is right.
  */
 export const STORELIB_LOGO_SHADOW = "0 0 0 0.5px rgba(15,23,42,0.06), 0 1px 1.5px rgba(15,23,42,0.05)"
+
+/** A touch more depth on light surfaces (onboarding, join). */
+export const STORELIB_LOGO_SHADOW_JOIN =
+  "0 0 0 0.5px rgba(15,23,42,0.08), 0 1px 2px rgba(15,23,42,0.07), 0 4px 12px -5px rgba(15,23,42,0.14)"

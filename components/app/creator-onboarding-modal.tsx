@@ -17,15 +17,18 @@ import {
   Instagram,
   Youtube,
   Loader2,
+  Minus,
   Pencil,
+  Plus,
   ShoppingBag,
   Search,
   Bell,
   User,
 } from "lucide-react"
 import { useRouter } from "next/navigation"
-import { SiX } from "react-icons/si"
 import { PricingSection } from "@/components/marketing/pricing-section"
+import { JoinSocialBrandIcon } from "@/components/onboarding/join-social-brands"
+import { STORELIB_LOGO_SHADOW_JOIN } from "@/lib/brand/logo"
 import { isNativeApp } from "@/lib/native-bridge"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { ActivitySpinner } from "@/components/ui/activity-spinner"
@@ -35,14 +38,14 @@ import { AvatarMark, DefaultAvatarGlyph } from "@/components/app/app-avatar"
 import type { OnboardingResume } from "@/lib/account/onboarding-resume"
 import { cleanName } from "@/lib/profile/display-name"
 import { JOIN_STEP_USERNAME, cleanBio, welcomeDone } from "@/lib/account/welcome"
-import { baseHandleFrom, normalizeHandle, slugifyHandle } from "@/lib/profile/username-rules"
+import { baseHandleFrom, joinHandleFromDisplayName, normalizeHandle, slugifyHandle } from "@/lib/profile/username-rules"
 import { DEPTH, DEPTH_PRESS } from "@/components/community/member/ui"
 
 const JOIN_PROGRESS_STORAGE = "storelib_join_progress"
 
-/** Username suggestion from a display name: one clean slug, no extra suffixes. */
+/** Username suggestion from a display name: compact, no hyphens when possible. */
 function suggestedJoinHandle(name: string): string {
-  return slugifyHandle(name)
+  return joinHandleFromDisplayName(name)
 }
 import { askPushPermission, inNativeApp, nativePlatform, phoneSettingsPath, type PushPermission } from "@/lib/native-push"
 import { startRouteLoading } from "@/components/navigation/route-loading-bar"
@@ -105,35 +108,46 @@ const AVATAR_RING = "shadow-[0_0_0_1px_rgba(17,24,39,0.08),0_2px_8px_-2px_rgba(1
 const JOIN_STEP_IN_MS = 320
 const JOIN_STEP_SHIFT = 10
 
-type JoinSocialId = "tiktok" | "instagram" | "youtube" | "linkedin" | "twitter"
+type JoinSocialId = "tiktok" | "instagram" | "youtube" | "bluesky" | "twitter"
+
+const SOCIAL_MORPH_MS = 380
+
+function restoreJoinSocials(raw: Record<string, string> | undefined) {
+  if (!raw) return { instagram: "", tiktok: "", youtube: "", bluesky: "", twitter: "" }
+  return {
+    instagram: raw.instagram ?? "",
+    tiktok: raw.tiktok ?? "",
+    youtube: raw.youtube ?? "",
+    bluesky: raw.bluesky ?? raw.linkedin ?? "",
+    twitter: raw.twitter ?? "",
+  }
+}
 
 function SocialToggleBadge({ on }: { on: boolean }) {
   return (
     <span
       className={cn(
-        "absolute right-0.5 top-0.5 grid h-[17px] w-[17px] place-items-center rounded-full bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.14)] transition-[background-color,color,scale] duration-[220ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+        "absolute right-0 top-0 grid h-[18px] w-[18px] place-items-center rounded-full bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.16),0_0_0_1px_rgba(17,24,39,0.06)] transition-[background-color,color,scale] duration-[320ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
         on && "scale-100 bg-[#1a1a2e] text-white",
       )}
     >
-      <span className="relative block h-2.5 w-2.5">
-        <span
+      <span className="relative block h-3 w-3">
+        <Plus
           className={cn(
-            "absolute inset-0 flex items-center justify-center text-[13px] font-bold leading-none transition-[opacity,transform] duration-[220ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+            "absolute inset-0 h-3 w-3 transition-[opacity,transform] duration-[320ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
             on ? "scale-75 rotate-90 opacity-0" : "scale-100 rotate-0 opacity-100",
           )}
+          strokeWidth={2.75}
           aria-hidden
-        >
-          +
-        </span>
-        <span
+        />
+        <Minus
           className={cn(
-            "absolute inset-0 flex items-center justify-center text-[15px] font-bold leading-none transition-[opacity,transform] duration-[220ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+            "absolute inset-0 h-3 w-3 transition-[opacity,transform] duration-[320ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
             on ? "scale-100 rotate-0 opacity-100" : "scale-75 -rotate-90 opacity-0",
           )}
+          strokeWidth={2.75}
           aria-hidden
-        >
-          −
-        </span>
+        />
       </span>
     </span>
   )
@@ -143,33 +157,6 @@ const BACK_LOOK = "bg-white text-[#374151] shadow-[0_0_0_1px_#e5e7eb,0_1px_2px_r
 const CATEGORY_PILL = "h-11 px-4 sm:px-5 rounded-full text-[14px] font-medium transition-[background-color,color,box-shadow]"
 const CATEGORY_OFF = "bg-white text-[#374151] shadow-[0_0_0_1px_#e5e7eb,0_1px_2px_rgba(17,24,39,0.05)] hover:shadow-[0_0_0_1px_#d1d5db,0_1px_2px_rgba(17,24,39,0.08)]"
 const CATEGORY_ON = "bg-[#1a1a2e] text-white shadow-[0_0_0_1px_#1a1a2e,0_2px_6px_-1px_rgba(26,26,46,0.35)]"
-
-// TikTok icon
-const TikTokIcon = ({ className }: { className?: string }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-    <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-5.2 1.74 2.89 2.89 0 012.31-4.64 2.93 2.93 0 01.88.13V9.4a6.84 6.84 0 00-1-.05A6.33 6.33 0 005 20.1a6.34 6.34 0 0010.86-4.43v-7a8.16 8.16 0 004.77 1.52v-3.4a4.85 4.85 0 01-1-.1z" />
-  </svg>
-)
-
-const LinkedInIcon = ({ className }: { className?: string }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-    <path d="M4.98 3.5C4.98 4.88 3.88 6 2.5 6S0 4.88 0 3.5 1.12 1 2.5 1s2.48 1.12 2.48 2.5zM.5 8.5h4V24h-4V8.5zM8.5 8.5h3.8v2.1h.1c.5-1 1.8-2.1 3.8-2.1 4 0 4.8 2.6 4.8 6V24h-4v-7.7c0-1.8 0-4.1-2.5-4.1s-2.9 2-2.9 4V24h-4V8.5z" />
-  </svg>
-)
-
-/** Social logos in a soft tile: a little depth, Storelib matte. */
-function SocialIconTile({ children, className }: { children: ReactNode; className?: string }) {
-  return (
-    <span
-      className={cn(
-        "flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-[#f4f4f5] shadow-[inset_0_0_0_1px_rgba(17,24,39,0.06),0_1px_2px_rgba(17,24,39,0.05)]",
-        className,
-      )}
-    >
-      {children}
-    </span>
-  )
-}
 
 // Primary categories (first 16)
 const PRIMARY_CATEGORIES = [
@@ -604,10 +591,12 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
     instagram: "",
     tiktok: "",
     youtube: "",
-    linkedin: "",
+    bluesky: "",
     twitter: "",
   })
   const [openSocial, setOpenSocial] = useState<null | JoinSocialId>(null)
+  const [socialPanel, setSocialPanel] = useState<null | JoinSocialId>(null)
+  const [socialPanelShown, setSocialPanelShown] = useState(false)
   const socialInputRef = useRef<HTMLInputElement>(null)
   const avatarInputRef = useRef<HTMLInputElement>(null)
   const [showCropModal, setShowCropModal] = useState(false)
@@ -689,7 +678,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
       if (saved.step === JOIN_SOCIAL || saved.step === JOIN_NAME) setCurrentStep(saved.step)
       if (saved.joinName) setJoinName(saved.joinName)
       if (saved.joinBio) setJoinBio(saved.joinBio)
-      if (saved.socials) setSocials(saved.socials)
+      if (saved.socials) setSocials(restoreJoinSocials(saved.socials as Record<string, string>))
       if (saved.joinHandle) {
         joinHandleEdited.current = true
         setJoinHandle(saved.joinHandle)
@@ -714,10 +703,25 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
   }, [currentStep, joinName, joinHandle, joinBio, socials, start, preview, open])
 
   useEffect(() => {
+    if (openSocial) {
+      setSocialPanel(openSocial)
+      const id = requestAnimationFrame(() => setSocialPanelShown(true))
+      return () => cancelAnimationFrame(id)
+    }
+    setSocialPanelShown(false)
+    const t = window.setTimeout(() => setSocialPanel(null), SOCIAL_MORPH_MS)
+    return () => clearTimeout(t)
+  }, [openSocial])
+
+  useEffect(() => {
     if (!openSocial) return
     const id = requestAnimationFrame(() => socialInputRef.current?.focus())
     return () => cancelAnimationFrame(id)
   }, [openSocial])
+
+  const toggleSocial = (id: JoinSocialId) => {
+    setOpenSocial((cur) => (cur === id ? null : id))
+  }
 
   const openJoinPhoto = async () => {
     if (uploadingAvatar) return
@@ -863,7 +867,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
           instagram: clean(socials.instagram),
           tiktok: clean(socials.tiktok),
           youtube: clean(socials.youtube),
-          linkedin: clean(socials.linkedin),
+          bluesky: clean(socials.bluesky),
           twitter: clean(socials.twitter),
         },
       }),
@@ -1036,7 +1040,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
       if (saved.displayName) setDisplayName(saved.displayName)
       if (saved.bio) setBio(saved.bio)
       if (saved.avatarUrl !== undefined) setAvatarUrl(saved.avatarUrl)
-      if (saved.socials) setSocials(saved.socials)
+      if (saved.socials) setSocials(restoreJoinSocials(saved.socials as Record<string, string>))
       if (saved.selectedCategory !== undefined) setSelectedCategory(saved.selectedCategory)
       // Start setup immediately with the saved data so we don't depend on React
       // state being updated synchronously.
@@ -1920,7 +1924,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
         {/* Slide 1: name, photo, socials. Username and bio are the next slide. */}
         {step === JOIN_NAME && (
           <div className="mx-auto flex w-full max-w-[440px] flex-col font-sans" data-onboarding-join="profile">
-            <StorelibLogo size={40} className="mb-6 self-start" />
+            <StorelibLogo size={40} className="mb-6 self-start" style={{ boxShadow: STORELIB_LOGO_SHADOW_JOIN }} />
             <h1 className="text-[28px] font-bold leading-[1.15] tracking-[-0.03em] text-[#1a1a2e] sm:text-[32px]">Create a profile</h1>
             <p className="mt-2 text-[15px] leading-6 text-[#6b7280]">Add a name, photo and links to get started.</p>
             <button
@@ -1964,25 +1968,31 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
             <div className="mt-5" data-onboarding-social-row="">
               <div
                 className={cn(
-                  "grid transition-[grid-template-rows,opacity,margin] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
-                  openSocial ? "mb-3 grid-rows-[1fr] opacity-100" : "mb-0 grid-rows-[0fr] opacity-0",
+                  "grid transition-[grid-template-rows,opacity,margin] duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+                  socialPanelShown ? "mb-3 grid-rows-[1fr] opacity-100" : "mb-0 grid-rows-[0fr] opacity-0",
                 )}
               >
-                <div className="overflow-hidden">
-                  {openSocial ? (
-                    <label className={cn("flex h-[52px] items-center gap-1 rounded-[14px] px-4", FIELD_WELL)}>
-                      <span className="sr-only">{openSocial}</span>
+                <div className="min-h-0 overflow-hidden">
+                  {socialPanel ? (
+                    <label
+                      className={cn(
+                        "flex h-[52px] items-center gap-1 rounded-[14px] px-4 transition-[opacity,transform] duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+                        FIELD_WELL,
+                        socialPanelShown ? "translate-y-0 opacity-100" : "-translate-y-1 opacity-0",
+                      )}
+                    >
+                      <span className="sr-only">{socialPanel}</span>
                       <span className="select-none text-[16px] text-[#9ca3af]">@</span>
                       <input
                         ref={socialInputRef}
                         type="text"
-                        value={socials[openSocial]}
-                        onChange={(e) => setSocials({ ...socials, [openSocial]: e.target.value.replace(/@/g, "") })}
+                        value={socials[socialPanel]}
+                        onChange={(e) => setSocials({ ...socials, [socialPanel]: e.target.value.replace(/@/g, "") })}
                         placeholder="yourname"
                         autoCapitalize="none"
                         autoCorrect="off"
                         spellCheck={false}
-                        data-onboarding-join-social={openSocial}
+                        data-onboarding-join-social={socialPanel}
                         className="min-w-0 flex-1 bg-transparent text-[16px] outline-none"
                       />
                     </label>
@@ -1991,8 +2001,8 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
               </div>
               <div
                 className={cn(
-                  "flex items-center justify-center gap-2 px-0.5 transition-[translate] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
-                  openSocial ? "translate-y-0" : "translate-y-0",
+                  "flex items-center justify-center gap-2 px-0.5 transition-[transform,opacity] duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+                  socialPanelShown ? "translate-y-0 opacity-100" : "translate-y-0 opacity-100",
                 )}
               >
                 {(
@@ -2001,7 +2011,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                     ["instagram", "Instagram"],
                     ["twitter", "X"],
                     ["youtube", "YouTube"],
-                    ["linkedin", "LinkedIn"],
+                    ["bluesky", "Bluesky"],
                   ] as const
                 ).map(([id, label]) => {
                   const on = openSocial === id
@@ -2012,21 +2022,17 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                       type="button"
                       aria-expanded={on}
                       aria-label={on ? `Close ${label}` : `Add ${label}`}
-                      onClick={() => setOpenSocial((cur) => (cur === id ? null : id))}
+                      onClick={() => toggleSocial(id)}
                       className="relative grid h-[48px] w-[48px] shrink-0 place-items-center [-webkit-tap-highlight-color:transparent]"
                     >
                       <span
                         className={cn(
-                          "grid h-10 w-10 place-items-center rounded-full bg-[#f4f4f5] text-[#1a1a2e] shadow-[inset_0_0_0_1px_rgba(17,24,39,0.06)] transition-[box-shadow,transform] duration-[220ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
-                          on && "scale-[1.03] shadow-[inset_0_0_0_2px_#6b7280]",
+                          "grid h-10 w-10 place-items-center rounded-full bg-[#f4f4f5] text-[#1a1a2e] shadow-[inset_0_1px_0_rgba(255,255,255,0.65),inset_0_0_0_1px_rgba(17,24,39,0.07),0_1px_3px_rgba(17,24,39,0.07)] transition-[box-shadow,transform] duration-[320ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+                          on && "scale-[1.04] shadow-[inset_0_0_0_2px_#6b7280,0_2px_6px_-2px_rgba(17,24,39,0.12)]",
                           filled && !on && "shadow-[inset_0_0_0_1.5px_#8b5cf6]",
                         )}
                       >
-                        {id === "tiktok" ? <TikTokIcon className="h-[17px] w-[17px]" /> : null}
-                        {id === "instagram" ? <Instagram className="h-[17px] w-[17px]" strokeWidth={1.75} /> : null}
-                        {id === "twitter" ? <SiX className="h-[17px] w-[17px]" aria-hidden /> : null}
-                        {id === "youtube" ? <Youtube className="h-[17px] w-[17px]" strokeWidth={1.75} /> : null}
-                        {id === "linkedin" ? <LinkedInIcon className="h-[17px] w-[17px]" /> : null}
+                        <JoinSocialBrandIcon id={id} className="h-[18px] w-[18px] shrink-0" />
                       </span>
                       <SocialToggleBadge on={on} />
                     </button>
@@ -2040,7 +2046,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
 
         {step === JOIN_SOCIAL && (
           <div className="mx-auto flex w-full max-w-[440px] flex-col items-center font-sans text-center" data-onboarding-join="username">
-            <span className={cn("relative mb-4 mt-3 block h-[84px] w-[84px] overflow-hidden rounded-full bg-[#eceef1] text-[#9ca3af] sm:mt-4", AVATAR_RING)}>
+            <span className={cn("relative mb-4 mt-5 block h-[84px] w-[84px] overflow-hidden rounded-full bg-[#eceef1] text-[#9ca3af] sm:mt-7", AVATAR_RING)}>
               {avatarUrl ? <img src={avatarUrl} alt="" className="absolute inset-0 h-full w-full object-cover motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200" /> : <DefaultAvatarGlyph fill />}
             </span>
             <h1 className="text-[28px] font-bold leading-[1.15] tracking-[-0.03em] text-[#1a1a2e] sm:text-[32px]">Pick a username</h1>
@@ -2338,7 +2344,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
 
                 {/* TikTok */}
                 <div className={cn("flex items-center gap-3 px-4 sm:px-5 h-[52px] sm:h-[56px] rounded-[14px]", FIELD_WELL)}>
-                  <TikTokIcon className="w-5 h-5 shrink-0" />
+                  <JoinSocialBrandIcon id="tiktok" className="h-5 w-5 shrink-0 text-[#1a1a2e]" />
                   <span className="text-sm sm:text-base text-gray-500 select-none shrink-0 -mr-2">@</span>
                   <input
                     type="text"
@@ -2748,28 +2754,34 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
               aria-hidden={currentStep === 5 || undefined}
               className={cn(
                 "px-4 sm:px-12 pt-2 shrink-0 max-[384px]:px-3 pb-5 sm:pb-4",
-                isJoinStep(currentStep) && currentStep !== JOIN_DONE ? "flex items-center gap-3" : "flex items-center justify-between",
+                isJoinStep(currentStep) && currentStep !== JOIN_DONE ? "" : "flex items-center justify-between",
               )}
             >
               {isJoinStep(currentStep) && currentStep !== JOIN_DONE ? (
-                <>
-                  {backFrom(currentStep) !== null ? (
-                    <button
-                      type="button"
-                      onClick={handleBack}
-                      disabled={joinSaving}
-                      data-onboarding-back=""
-                      className={cn(
-                        "inline-flex shrink-0 items-center gap-1 px-4 py-3 text-sm font-medium rounded-xl disabled:cursor-not-allowed motion-reduce:!transition-none active:scale-[0.98]",
-                        DEPTH,
-                        DEPTH_PRESS,
-                        "text-[#374151] hover:bg-[#f9fafb]",
-                      )}
-                    >
-                      <ChevronLeft className="h-4 w-4 shrink-0" strokeWidth={2.25} aria-hidden />
-                      Back
-                    </button>
-                  ) : null}
+                <div
+                  className={cn(
+                    "grid w-full min-w-0 items-center transition-[grid-template-columns,gap] duration-[340ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+                    backFrom(currentStep) !== null ? "grid-cols-[auto_minmax(0,1fr)] gap-3" : "grid-cols-[minmax(0,1fr)] gap-0",
+                  )}
+                >
+                  <button
+                    type="button"
+                    onClick={handleBack}
+                    disabled={joinSaving || backFrom(currentStep) === null}
+                    data-onboarding-back=""
+                    aria-hidden={backFrom(currentStep) === null}
+                    tabIndex={backFrom(currentStep) === null ? -1 : 0}
+                    className={cn(
+                      "inline-flex min-h-[50px] min-w-0 items-center gap-1 overflow-hidden rounded-xl px-4 py-3 text-sm font-medium transition-[max-width,opacity,padding] duration-[340ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none active:scale-[0.98] disabled:cursor-not-allowed sm:min-h-0",
+                      DEPTH,
+                      DEPTH_PRESS,
+                      "text-[#374151] hover:bg-[#f9fafb]",
+                      backFrom(currentStep) === null ? "pointer-events-none max-w-0 px-0 opacity-0" : "max-w-[120px] opacity-100",
+                    )}
+                  >
+                    <ChevronLeft className="h-4 w-4 shrink-0" strokeWidth={2.25} aria-hidden />
+                    Back
+                  </button>
                   <button
                     type="button"
                     onClick={handleNext}
@@ -2778,8 +2790,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                     disabled={!canProceed() && !(joinSaving || askingPush)}
                     style={{ transition: `background-color 220ms ${MOTION_EASE}, transform 220ms ${MOTION_EASE}, box-shadow 220ms ${MOTION_EASE}` }}
                     className={cn(
-                      "min-h-[50px] min-w-0 rounded-xl font-semibold text-[15px] motion-reduce:!transition-none active:scale-[0.98] sm:min-h-0 sm:px-8 sm:py-3",
-                      backFrom(currentStep) === null ? "w-full flex-none" : "flex-1",
+                      "min-h-[50px] w-full min-w-0 rounded-xl font-semibold text-[15px] motion-reduce:!transition-none active:scale-[0.98] sm:min-h-0 sm:px-8 sm:py-3",
                       canProceed() || joinSaving || askingPush ? NEXT_ON : "bg-gray-200 text-gray-400 cursor-not-allowed",
                     )}
                   >
@@ -2791,7 +2802,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                       "Continue"
                     )}
                   </button>
-                </>
+                </div>
               ) : (
                 <>
                   <div className="flex items-center gap-3 max-[384px]:gap-2">

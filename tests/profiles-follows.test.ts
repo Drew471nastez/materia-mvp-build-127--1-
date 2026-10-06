@@ -32,7 +32,7 @@ import { join } from "node:path"
 
 import { stripComments } from "./_source"
 import { personHref } from "@/lib/profile/person-href"
-import { baseHandleFrom, emailLocalPart, handleCandidates, normalizeHandle, slugifyHandle } from "@/lib/profile/username-rules"
+import { baseHandleFrom, emailLocalPart, handleCandidates, joinHandleFromDisplayName, normalizeHandle, slugifyHandle } from "@/lib/profile/username-rules"
 import { ensureUsername, ensureUsernames, handleAvailable } from "@/lib/profile/ensure-username"
 import { activityKey, afterFilter, decodeCursor, encodeCursor, mergePages, newerThan, sortableTime, type Position } from "@/lib/profile/activity-cursor"
 import { readProfileActivity, type ProfileActivityItem } from "@/lib/profile/activity"
@@ -238,6 +238,7 @@ async function main() {
 
   console.log("\nA handle from what they already gave us")
   {
+    check("join onboarding suggests compact handles without dashes", joinHandleFromDisplayName("Alex Rivera") === "alexrivera" && !joinHandleFromDisplayName("Alex Rivera").includes("-"))
     check("accents fold, spaces become dashes", slugifyHandle("Ana Lucía Pérez") === "ana-lucia-perez")
     check("punctuation collapses, ends trimmed", slugifyHandle("  --Mr. O'Neil!! ") === "mr-o-neil")
     check("long names are cut to leave room for a number", slugifyHandle("a".repeat(60)).length === 24)

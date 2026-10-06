@@ -18,6 +18,17 @@ import { isValidUsername } from "@/lib/reserved-words"
 export const HANDLE_BASE_MAX = 24
 
 /** Lowercase letters, digits and single dashes, accents folded, at most `max` long. */
+/**
+ * Join onboarding suggestion: letters and digits only, no hyphens, so
+ * "Alex Rivera" becomes alexrivera. Falls back to slugifyHandle when too short.
+ */
+export function joinHandleFromDisplayName(raw: string | null | undefined, max = HANDLE_BASE_MAX): string {
+  const compact = slugifyHandle(raw, max).replace(/-/g, "")
+  if (compact.length >= 3 && isValidUsername(compact).valid) return compact
+  const slug = slugifyHandle(raw, max)
+  return slug.length >= 3 ? slug : compact || slug
+}
+
 export function slugifyHandle(raw: string | null | undefined, max = HANDLE_BASE_MAX): string {
   const folded = (raw || "")
     .normalize("NFKD")
