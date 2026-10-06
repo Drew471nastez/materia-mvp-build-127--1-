@@ -13,6 +13,7 @@ import "server-only"
 import type { SupabaseClient } from "@supabase/supabase-js"
 import { getProductInternalPath, getStoreInternalPath } from "@/lib/url-helpers"
 import { isUuid, lessonAccess, type ProductLevel } from "./access"
+import { slugifyHandle } from "@/lib/profile/username-rules"
 import { lessonNumber, progressMap, resumeLesson, summarize } from "./progress"
 import {
   outlineOf,
@@ -121,7 +122,10 @@ export async function playerFromTree(
 
   const map = progressMap(progress)
   const all = modules.flatMap((m) => m.lessons)
-  const asked = askedLessonId ? all.find((l) => l.id === askedLessonId && !l.locked) : undefined
+  const askedKey = (askedLessonId || "").toLowerCase()
+  const asked = askedKey
+    ? all.find((l) => !l.locked && (l.id === askedLessonId || slugifyHandle(l.title, 60) === askedKey || `${slugifyHandle(l.title, 60)}-${l.id.replace(/-/g, "").slice(0, 4)}` === askedKey))
+    : undefined
   const resume = owner ? resumeLesson(outline, map, enrollment?.last_lesson_id) : null
   const initial = asked ?? (resume ? all.find((l) => l.id === resume.id) : undefined) ?? all.find((l) => !l.locked) ?? null
 

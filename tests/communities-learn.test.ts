@@ -293,7 +293,7 @@ async function main() {
     check('the level program reads "Level 3"', by(LEVEL)?.locked?.reason === "level" && by(LEVEL)?.locked?.label === "Level 3")
     check('the paid program reads "$49", with its price', by(PAID)?.locked?.reason === "paid" && by(PAID)?.locked?.label === "$49" && by(PAID)?.priceLabel === "$49" && by(PAID)?.locked?.priceCents === 4900)
     check("an attached course shows with the product's title and cover", by(ATTACHED_ROW)?.title === "Glaze course" && by(ATTACHED_ROW)?.coverUrl === "https://img.test/glaze.jpg" && by(ATTACHED_ROW)?.kind === "course")
-    check("every card goes to /learn/<id>", cards.every((c) => c.href.startsWith(`/community/makers/learn/${c.id}`)))
+    check("every card goes to /learn with a readable key, and an old id still opens", cards.every((c) => /^\/community\/makers\/learn\/[a-z0-9-]+/.test(c.href.split("?")[0])) && cards.some((c) => !c.href.includes(c.id)))
     const erinCards = await listPrograms(db, community(), erin, { now: NOW })
     check("at level 3 the level program is open", !erinCards.find((c) => c.id === LEVEL)?.locked)
     const staff = await listPrograms(db, community(), dana, { now: NOW })

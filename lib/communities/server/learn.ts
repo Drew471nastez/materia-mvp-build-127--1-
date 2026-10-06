@@ -34,7 +34,7 @@ import "server-only"
 import { communitiesEnabled } from "../flag"
 import { can } from "../permissions"
 import { parseAccessRule } from "../access"
-import { MAX_PROGRAMS, accessForMode, checkProgramInput, programGate, programHref, programMode, programPrice, type ProgramGate, type ProgramInput, type ProgramRule, type ProgramStatus, type ProgramViewer } from "../learn"
+import { MAX_PROGRAMS, accessForMode, checkProgramInput, contentKey, programGate, programHref, programMode, programPrice, uniqueContentKey, type ProgramGate, type ProgramInput, type ProgramRule, type ProgramStatus, type ProgramViewer } from "../learn"
 import type { CommunityRow, Role } from "../types"
 import type { BuilderProgram, LearnBuilderData, ProgramCard, ProgramLock } from "@/components/community/learn/model"
 import { opensOnLabel } from "@/components/community/learn/model"
@@ -119,10 +119,21 @@ export async function readPrograms(db: Db, communityId: string): Promise<{ ready
   return { ready: false, rows: ((old.data as RawRow[] | null) ?? []).filter((r) => !!r.product_id).map(toRow) }
 }
 
-/** One program of this community by its own id, or (an old classroom link) by its course product's id. */
+/** One program of this community by its id, an attached course's product id, or its public title key. */
 export async function findProgram(db: Db, communityId: string, id: string): Promise<ProgramRow | null> {
   const { rows } = await readPrograms(db, communityId)
-  return rows.find((r) => r.id === id) ?? rows.find((r) => r.productId === id) ?? null
+  const byId = rows.find((r) => r.id === id) ?? rows.find((r) => r.productId === id)
+  if (byId || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) return byId ?? null
+  const facts = await courseFacts(db, rows)
+  const want = id.toLowerCase()
+  const taken = new Set<string>()
+  for (const r of rows) {
+    const title = facts.get(r.id)?.title || r.title
+    const key = uniqueContentKey(title, r.id, taken)
+    taken.add(key)
+    if (key === want || contentKey(title) === want) return r
+  }
+  return null
 }
 
 /** The programs of these ids this person bought or was given, and still has. Empty before part 102. */
@@ -257,6 +268,7 @@ export async function listPrograms(db: Db, community: CommunityRow, viewer: View
   const names = await lockNames(db, community.id, [...gates.values()])
 
   const out: ProgramCard[] = []
+  const takenKeys = new Set<string>()
   for (const r of rows) {
     const f = facts.get(r.id)
     if (!f) continue
@@ -266,10 +278,13 @@ export async function listPrograms(db: Db, community: CommunityRow, viewer: View
     const gate = gates.get(r.id) as ProgramGate
     const locked = lockOf(gate, names, r, opts.timeZone)
     const resume = !locked && status === "in_progress" ? (enrollment?.last_lesson_id ?? null) : null
+    const title = f.title || (r.productId ? "Course" : "Program")
+    const key = uniqueContentKey(title, r.id, takenKeys)
+    takenKeys.add(key)
     out.push({
       id: r.id,
       kind: r.productId ? "course" : "program",
-      title: f.title || (r.productId ? "Course" : "Program"),
+      title,
       summary: r.summary,
       coverUrl: f.coverUrl,
       lessons: f.lessons.length,
@@ -282,7 +297,7 @@ export async function listPrograms(db: Db, community: CommunityRow, viewer: View
       priceLabel: r.priceCents ? programPrice(r.priceCents, r.currency) : null,
       owned: owned.has(r.id),
       locked,
-      href: programHref(community.slug, r.id, resume),
+      href: programHref(community.slug, key, resume),
     })
   }
   return out

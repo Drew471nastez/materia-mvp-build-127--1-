@@ -71,6 +71,8 @@ export function useHistoryLayer(open: boolean, onClose: () => void, url?: string
   useEffect(() => {
     close.current = onClose
   })
+  const openRef = useRef(open)
+  openRef.current = open
   useEffect(() => {
     if (!open || typeof window === "undefined") return
     const marker = `layer-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
@@ -89,6 +91,8 @@ export function useHistoryLayer(open: boolean, onClose: () => void, url?: string
     window.addEventListener("popstate", onPop)
     return () => {
       window.removeEventListener("popstate", onPop)
+      /* Still open: the page left on its own (a route change). Stepping back here fights that navigation and lands on the post again. */
+      if (openRef.current) return
       if (!mine) return
       if ((window.history.state as { storelibLayer?: string } | null)?.storelibLayer !== marker) return
       historyLayerRestoring = true

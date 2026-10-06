@@ -30,6 +30,7 @@ import { downloadAttachment } from "./download-attachment"
 import { clock, isDone, lengthInWords, lessonNumber, progressMap, resumeAt, summarize, type LessonProgress } from "@/lib/courses/progress"
 import type { PlayerData, PlayerLesson } from "@/lib/courses/types"
 import { mediaKindOf } from "@/lib/communities/post-media"
+import { slugifyHandle } from "@/lib/profile/username-rules"
 
 type Play =
   | { state: "loading" }
@@ -127,8 +128,11 @@ export function CoursePlayer({
     void fetchPlay(lesson.id).then((p) => !cancelled && setPlay(p))
     if (keeps) void sendPlace({ lessonId: lesson.id, opened: true })
     const url = new URL(window.location.href)
-    if (url.searchParams.get("lesson") !== lesson.id) {
-      url.search = `lesson=${encodeURIComponent(lesson.id)}`
+    const base = slugifyHandle(lesson.title, 60) || "lesson"
+    const dup = lessons.some((l) => l.id !== lesson.id && (slugifyHandle(l.title, 60) || "lesson") === base)
+    const lessonKey = dup ? `${base}-${lesson.id.replace(/-/g, "").slice(0, 4)}` : base
+    if (url.searchParams.get("lesson") !== lessonKey) {
+      url.search = `lesson=${encodeURIComponent(lessonKey)}`
       window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`)
     }
     return () => {
@@ -201,12 +205,13 @@ export function CoursePlayer({
   }
 
   const nextInfo = next ? { title: next.title, number: lessonNumber(outline, next.id) } : null
-  const panel = embedded ? "rounded-xl border border-[#eceef1] bg-white" : "overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
-  const notesWrap = embedded ? "mt-6 border-t border-[#f0f1f3] pt-6" : "mt-6 rounded-2xl border border-[#e5e7eb]/60 bg-white px-4 py-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:px-5 sm:py-5"
-  const grid = embedded ? "lg:grid lg:grid-cols-[minmax(0,1fr)_min(280px,32%)] lg:items-start lg:gap-5" : "lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start lg:gap-6"
+  const panel = "overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
+  const notesWrap = embedded ? "mt-5 border-t border-[#f0f1f3] pt-5" : "mt-6 rounded-2xl border border-[#e5e7eb]/60 bg-white px-4 py-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:px-5 sm:py-5"
+  const grid = embedded ? "" : "lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start lg:gap-6"
+  const shell = embedded ? "mx-auto w-full max-w-[880px]" : ""
 
   return (
-    <div data-course-player={embedded ? "embedded" : ""} className="pb-8 sm:pb-10">
+    <div data-course-player={embedded ? "embedded" : ""} className={`pb-8 sm:pb-10 ${shell}`}>
       {/* The course, who made it, how far through */}
       <div className="mb-4 flex items-start gap-3 sm:mb-5">
         <Link
@@ -229,11 +234,26 @@ export function CoursePlayer({
             )}
           </p>
         </div>
-        {keeps ? <ProgressRing percent={summary.percent} /> : null}
+        {keeps ? (
+          embedded ? (
+            <p className="mt-1 shrink-0 text-[13px] font-medium tabular-nums text-[#6b7280]" data-progress-label="">
+              {summary.percent >= 100 ? (
+                <span className="inline-flex items-center gap-1.5 text-[#1a1a2e]">
+                  <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
+                  Completed
+                </span>
+              ) : (
+                `${summary.completed} of ${summary.total}`
+              )}
+            </p>
+          ) : (
+            <ProgressRing percent={summary.percent} />
+          )
+        ) : null}
       </div>
 
       <div className={grid}>
-        <div className="min-w-0">
+        <div className={`min-w-0 ${embedded ? "overflow-hidden rounded-2xl border border-[#e6e8ec] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04),0_10px_28px_-16px_rgba(16,24,40,0.12)]" : ""}`}>
           {/* The lesson: edge to edge on a phone in the library; inset in a community */}
           <div className={embedded ? "" : "-mx-4 sm:mx-0"}>
             <Stage
@@ -255,7 +275,7 @@ export function CoursePlayer({
           </div>
 
           {lesson ? (
-            <div className="mt-4">
+            <div className={embedded ? "px-4 py-4 sm:px-5" : "mt-4"}>
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   {lessons.length > 1 ? (
@@ -297,7 +317,7 @@ export function CoursePlayer({
                 type="button"
                 onClick={() => setSheet(true)}
                 data-open-lessons
-                className="mt-3 flex h-12 w-full items-center gap-3 rounded-lg border border-[#e5e7eb] bg-white px-3.5 text-left hover:bg-[#f8f9fa] lg:hidden"
+                className={`mt-3 flex h-12 w-full items-center gap-3 rounded-lg border border-[#e5e7eb] bg-white px-3.5 text-left hover:bg-[#f8f9fa] ${embedded ? "" : "lg:hidden"} ${lessons.length < 2 ? "hidden" : ""}`}
               >
                 <ListVideo className="h-4 w-4 shrink-0 text-[#6b7280]" />
                 <span className="flex-1 text-[14px] font-semibold text-[#1a1a2e]">All lessons</span>
@@ -322,15 +342,15 @@ export function CoursePlayer({
           {data.contact !== false ? <CreatorBlock data={data} lessonTitle={lesson?.title ?? null} emailsOff={emailsOff} onToggleEmails={keeps && data.access === "owner" ? toggleEmails : null} embedded={embedded} /> : null}
         </div>
 
-        {/* The curriculum: beside the lesson on a computer */}
-        <aside className={`hidden lg:sticky lg:block ${embedded ? "lg:top-[calc(var(--community-top,64px)+16px)]" : "lg:top-4"}`} aria-label="Lessons">
+        {/* The curriculum: beside the lesson on a computer. A community lesson keeps that list in the sheet, not a second card. */}
+        {embedded ? null : <aside className="sticky top-4 hidden lg:block" aria-label="Lessons">
           <div className={panel}>
             <CurriculumHead summary={summary} keeps={keeps} />
             <div className="max-h-[min(520px,calc(100svh-var(--community-top,64px)-120px))] overflow-y-auto overscroll-contain">
               <Curriculum data={data} progress={progress} currentId={lessonId} onPick={(l) => goTo(l, true)} />
             </div>
           </div>
-        </aside>
+        </aside>}
       </div>
 
       <LessonSheet open={sheet} onClose={() => setSheet(false)}>

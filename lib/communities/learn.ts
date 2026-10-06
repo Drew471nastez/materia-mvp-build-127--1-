@@ -34,6 +34,7 @@
  * the tests.
  */
 import { evaluateAccess, parseAccessRule, type AccessRule } from "./access"
+import { slugifyHandle } from "@/lib/profile/username-rules"
 import type { Role } from "./types"
 
 export const PROGRAM_STATUSES = ["draft", "published"] as const
@@ -242,6 +243,20 @@ export function accessForMode(current: unknown, mode: ProgramMode, level?: numbe
 
 export function learnHref(slug: string): string {
   return `/community/${slug}/learn`
+}
+
+/** A readable path segment from a program or lesson title. Empty when the title cannot make one. */
+export function contentKey(title: string | null | undefined): string {
+  const base = slugifyHandle(title, 60)
+  return base.length >= 2 ? base : ""
+}
+
+/** Unique among siblings: the title key, or that key plus a short id when two share a title. */
+export function uniqueContentKey(title: string | null | undefined, id: string, taken: ReadonlySet<string>): string {
+  const base = contentKey(title)
+  if (!base) return id
+  if (!taken.has(base)) return base
+  return `${base}-${id.replace(/-/g, "").slice(0, 4)}`
 }
 
 export function programHref(slug: string, programId: string, lessonId?: string | null): string {

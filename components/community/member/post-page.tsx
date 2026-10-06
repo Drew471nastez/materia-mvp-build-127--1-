@@ -117,7 +117,7 @@ export function PostPage({ slug, viewer, post: initialPost, comments: initial, m
       {visitor ? null : <PostPageBack href={backHref} label={backLabel} />}
       <PostCard post={post} slug={slug} viewer={viewer} update={updatePost} full readOnly={readOnly} autoEdit={autoEdit} onComment={() => (open ? box.current?.focus() : document.getElementById("comments")?.scrollIntoView({ block: "start" }))} />
 
-      <section id="comments" className={`${CARD} px-4 py-4 sm:px-5`} aria-label="Comments" data-comments="">
+      <section id="comments" className={`${CARD} max-sm:mx-[calc(50%-50vw)] max-sm:w-screen max-sm:rounded-none max-sm:border-x-0 px-4 py-4 sm:px-5`} aria-label="Comments" data-comments="">
         <CommentsSection
           post={post}
           slug={slug}
@@ -128,6 +128,7 @@ export function PostPage({ slug, viewer, post: initialPost, comments: initial, m
           commentsEnabled={commentsEnabled}
           boxRef={box}
           visitor={!!visitor}
+          dockComposer={!visitor}
           onCount={(d) => setPost((p) => ({ ...p, commentCount: Math.max(0, p.commentCount + d) }))}
         />
       </section>

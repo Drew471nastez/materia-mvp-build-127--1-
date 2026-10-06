@@ -58,6 +58,22 @@ export function OpenInAppPill() {
   const pathname = usePathname() || "/"
   const [phone, setPhone] = useState<Phone | null>(null)
   const [shown, setShown] = useState(false)
+  const [keyboard, setKeyboard] = useState(false)
+  useEffect(() => {
+    const read = () => {
+      const vv = window.visualViewport
+      const inset = vv ? Math.max(0, window.innerHeight - vv.offsetTop - vv.height) : 0
+      setKeyboard(inset > 80)
+    }
+    read()
+    const vv = window.visualViewport
+    vv?.addEventListener("resize", read)
+    vv?.addEventListener("scroll", read)
+    return () => {
+      vv?.removeEventListener("resize", read)
+      vv?.removeEventListener("scroll", read)
+    }
+  }, [])
 
   useEffect(() => {
     if (isNativeApp() || closedRecently()) return
@@ -113,7 +129,7 @@ export function OpenInAppPill() {
   return (
     <>
       {/^\d+$/.test(APP_STORE_ID) ? <meta name="apple-itunes-app" content={`app-id=${APP_STORE_ID}, app-argument=https://storelib.com${pathname}`} /> : null}
-      {phone ? (
+      {phone && !keyboard ? (
         <div
           data-open-app-pill={phone}
           data-state={shown ? "shown" : "hidden"}

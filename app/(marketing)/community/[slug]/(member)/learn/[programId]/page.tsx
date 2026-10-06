@@ -26,7 +26,7 @@ export const metadata: Metadata = { title: "Program", robots: { index: false, fo
  */
 export default async function ProgramPage({ params, searchParams }: { params: Promise<{ slug: string; programId: string }>; searchParams: Promise<{ lesson?: string }> }) {
   const [{ slug, programId }, { lesson }] = await Promise.all([params, searchParams])
-  if (!isUuid(programId)) notFound()
+  if (!isUuid(programId) && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/i.test(programId)) notFound()
   const db = admin()
   const back = learnHref(slug)
   const open = await openMemberPage(db, slug, "classroom", `${back}/${programId}`)

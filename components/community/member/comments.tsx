@@ -168,6 +168,12 @@ export interface CommentsSectionProps {
    * above the keys (sheetOverKeyboard padding on the panel).
    */
   pinComposer?: boolean
+  /**
+   * The post's own page on a phone: the composer is fixed to the visual
+   * viewport, above the keyboard, instead of sitting in a card that leaves
+   * a blank band under the field.
+   */
+  dockComposer?: boolean
 }
 
 /**
@@ -234,7 +240,7 @@ export function CommentsPlaceholder({ expected }: { expected: number }) {
   )
 }
 
-export function CommentsSection({ post, slug, viewer, initial, me: givenMe = null, readOnly = false, commentsEnabled: givenEnabled = true, boxRef, onCount, expected = 0, fadeIn = false, visitor = false, pinComposer = false }: CommentsSectionProps) {
+export function CommentsSection({ post, slug, viewer, initial, me: givenMe = null, readOnly = false, commentsEnabled: givenEnabled = true, boxRef, onCount, expected = 0, fadeIn = false, visitor = false, pinComposer = false, dockComposer = false }: CommentsSectionProps) {
   /* Handed a first page, or one read ahead (COMMENTS READ AHEAD): drawn on the first frame, no waiting state. */
   const [ahead] = useState(() => (initial ? null : aheadOf(post.communityId, post.id)))
   const first = initial ?? ahead?.data ?? null
@@ -475,19 +481,26 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
     open ? (
       <div
         className={
-          pinComposer
-            ? "sticky bottom-0 z-[3] -mx-4 border-t border-[#f0f1f3] bg-white px-4 pt-2 shadow-[0_-10px_28px_-18px_rgba(16,24,40,0.14)] sm:mx-0"
-            : "relative"
+          dockComposer
+            ? "max-sm:fixed max-sm:inset-x-0 max-sm:z-[80] max-sm:border-t max-sm:border-[#f0f1f3] max-sm:bg-white max-sm:px-4 max-sm:pt-2 max-sm:shadow-[0_-8px_24px_-16px_rgba(16,24,40,0.18)] sm:relative"
+            : pinComposer
+              ? "sticky bottom-0 z-[3] -mx-4 border-t border-[#f0f1f3] bg-white px-4 pt-2 shadow-[0_-10px_28px_-18px_rgba(16,24,40,0.14)] sm:mx-0"
+              : "relative"
         }
         style={
-          pinComposer
+          dockComposer
             ? {
-                marginBottom: "calc(-1 * var(--kb-inset, 0px))",
-                paddingBottom: "calc(var(--kb-inset, 0px) + max(env(safe-area-inset-bottom), 12px))",
+                bottom: "var(--kb-inset, 0px)",
+                paddingBottom: "max(env(safe-area-inset-bottom), 10px)",
               }
-            : undefined
+            : pinComposer
+              ? {
+                  marginBottom: "calc(-1 * var(--kb-inset, 0px))",
+                  paddingBottom: "calc(var(--kb-inset, 0px) + max(env(safe-area-inset-bottom), 12px))",
+                }
+              : undefined
         }
-        data-comments-composer={pinComposer ? "pin" : "top"}
+        data-comments-composer={dockComposer ? "dock" : pinComposer ? "pin" : "top"}
       >
         <CommentBox communityId={post.communityId} postId={post.id} me={me} author={author} handleRef={boxRef} sending={sending} placeholder="Write a comment..." canUpload={!!viewer.can.upload} media={mediaReady} nearby={nearby} />
         <TypingLine names={typing.writers.map((w) => w.name)} />
@@ -501,7 +514,7 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
   const listGap = open && !pinComposer ? "mt-6" : "mt-4"
 
   return (
-    <div data-comments-list="" data-comments-composer-pin={pinComposer ? "" : undefined}>
+    <div data-comments-list="" data-comments-composer-pin={pinComposer || dockComposer ? "" : undefined} className={dockComposer ? "max-sm:pb-[calc(76px+env(safe-area-inset-bottom))]" : ""}>
       {!pinComposer ? composer : null}
       {open && !mediaReady && staff ? (
         <p className={`${pinComposer ? "mt-4" : "mt-7"} rounded-[10px] border border-[#f0e2bf] bg-[#fffaf0] px-3 py-2 text-[12.5px] leading-relaxed text-[#7a5a12]`} data-comments-media-note="">

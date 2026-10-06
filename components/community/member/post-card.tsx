@@ -663,7 +663,7 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
   }
 
   return (
-    <article ref={cardRef} className={`${CARD} px-4 pb-2 pt-4 sm:px-5 sm:pt-5`} data-post={post.id} data-pinned={post.pinned ? "true" : undefined}>
+    <article ref={cardRef} className={`${CARD} ${PHONE_ROW} px-4 pb-2 pt-4 sm:px-5 sm:pt-5`} data-post={post.id} data-pinned={post.pinned ? "true" : undefined}>
       {pinnedLine}
       {head}
       {removed ? <p className="mt-3 rounded-lg bg-[#fff6e0] px-3 py-2 text-[13px] text-[#8a5a00]">Removed by a moderator. Only moderators see it.</p> : null}

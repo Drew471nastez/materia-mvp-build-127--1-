@@ -74,6 +74,7 @@ function ProgramTile({ program: p, timeZone }: { program: ProgramCard; timeZone?
   return (
     <Link
       href={p.href}
+      prefetch
       data-program-card={p.id}
       data-locked={lock ? (p.locked?.reason ?? "yes") : "no"}
       className="group/card flex h-full flex-row gap-3 overflow-hidden rounded-2xl border border-[#e4e7ec]/80 bg-white p-3 shadow-[0_1px_2px_rgba(16,24,40,0.04),0_3px_8px_-2px_rgba(16,24,40,0.05)] transition-[border-color,box-shadow] duration-150 hover:border-[#d5d9e0] hover:shadow-[0_1px_2px_rgba(16,24,40,0.05),0_8px_20px_-6px_rgba(16,24,40,0.12)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 min-[520px]:flex-col min-[520px]:gap-0 min-[520px]:p-0"
