@@ -206,7 +206,7 @@ export function EventDetail({ event: initial, eventsHref, aboutHref }: EventDeta
   }
 
   return (
-    <article data-event-page={event.id} className="pb-10 lg:mx-auto lg:w-full lg:max-w-[720px]">
+    <article data-event-page={event.id} className="pb-10">
       <div className="mb-4 flex items-center justify-between gap-3">
         <EventBack href={eventsHref} />
         <button type="button" onClick={() => void shareEvent()} data-event-share="" className="inline-flex h-10 items-center gap-1.5 rounded-full border border-[#e4e7ec] bg-white px-3.5 text-[14px] font-medium text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.05)] hover:bg-[#f7f8fa]">
@@ -361,7 +361,7 @@ export function EventDetail({ event: initial, eventsHref, aboutHref }: EventDeta
                 </p>
               )}
 
-              <div className="mt-3 flex flex-col gap-2 lg:max-w-[300px]">
+              <div className="mt-3 flex flex-col gap-2 sm:max-w-[360px]">
                 {event.meetingUrl ? (
                   <a href={event.meetingUrl} target="_blank" rel="noopener noreferrer" className={`${PRIMARY} w-full`} data-join-now>
                     <Video className="h-4 w-4" aria-hidden />

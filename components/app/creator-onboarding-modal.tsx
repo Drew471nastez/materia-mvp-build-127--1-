@@ -108,17 +108,18 @@ const AVATAR_RING = "shadow-[0_0_0_1px_rgba(17,24,39,0.08),0_2px_8px_-2px_rgba(1
 const JOIN_STEP_IN_MS = 320
 const JOIN_STEP_SHIFT = 10
 
-type JoinSocialId = "tiktok" | "instagram" | "youtube" | "bluesky" | "twitter"
+type JoinSocialId = "tiktok" | "instagram" | "youtube" | "bluesky" | "twitter" | "linkedin"
 
 const SOCIAL_MORPH_MS = 380
 
 function restoreJoinSocials(raw: Record<string, string> | undefined) {
-  if (!raw) return { instagram: "", tiktok: "", youtube: "", bluesky: "", twitter: "" }
+  if (!raw) return { instagram: "", tiktok: "", youtube: "", bluesky: "", twitter: "", linkedin: "" }
   return {
     instagram: raw.instagram ?? "",
     tiktok: raw.tiktok ?? "",
     youtube: raw.youtube ?? "",
-    bluesky: raw.bluesky ?? raw.linkedin ?? "",
+    bluesky: raw.bluesky ?? "",
+    linkedin: raw.linkedin ?? "",
     twitter: raw.twitter ?? "",
   }
 }
@@ -593,6 +594,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
     youtube: "",
     bluesky: "",
     twitter: "",
+    linkedin: "",
   })
   const [openSocial, setOpenSocial] = useState<null | JoinSocialId>(null)
   const [socialPanel, setSocialPanel] = useState<null | JoinSocialId>(null)
@@ -869,6 +871,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
           youtube: clean(socials.youtube),
           bluesky: clean(socials.bluesky),
           twitter: clean(socials.twitter),
+          linkedin: clean(socials.linkedin),
         },
       }),
     }).catch(() => null)
@@ -1919,12 +1922,16 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
    * ONE STEP'S CONTENT, BY NUMBER. Drawn for the step on screen and, for
    * the moment a step change takes, for the one leaving beside it.
    */
+  const joinOnboardingLogo = (className?: string) => (
+    <StorelibLogo size={40} className={cn("mb-5 self-start sm:mb-6", className)} style={{ boxShadow: STORELIB_LOGO_SHADOW_JOIN }} />
+  )
+
   const renderStep = (step: number) => (
     <>
         {/* Slide 1: name, photo, socials. Username and bio are the next slide. */}
         {step === JOIN_NAME && (
           <div className="mx-auto flex w-full max-w-[440px] flex-col font-sans" data-onboarding-join="profile">
-            <StorelibLogo size={40} className="mb-6 self-start" style={{ boxShadow: STORELIB_LOGO_SHADOW_JOIN }} />
+            {joinOnboardingLogo()}
             <h1 className="text-[28px] font-bold leading-[1.15] tracking-[-0.03em] text-[#1a1a2e] sm:text-[32px]">Create a profile</h1>
             <p className="mt-2 text-[15px] leading-6 text-[#6b7280]">Add a name, photo and links to get started.</p>
             <button
@@ -2001,7 +2008,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
               </div>
               <div
                 className={cn(
-                  "flex items-center justify-center gap-2 px-0.5 transition-[transform,opacity] duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+                  "flex flex-wrap items-center justify-center gap-1.5 px-0.5 sm:gap-2 transition-[transform,opacity] duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
                   socialPanelShown ? "translate-y-0 opacity-100" : "translate-y-0 opacity-100",
                 )}
               >
@@ -2011,6 +2018,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                     ["instagram", "Instagram"],
                     ["twitter", "X"],
                     ["youtube", "YouTube"],
+                    ["linkedin", "LinkedIn"],
                   ] as const
                 ).map(([id, label]) => {
                   const on = openSocial === id
@@ -2045,7 +2053,8 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
 
         {step === JOIN_SOCIAL && (
           <div className="mx-auto flex w-full max-w-[440px] flex-col items-center font-sans text-center" data-onboarding-join="username">
-            <span className={cn("relative mb-4 mt-5 block h-[84px] w-[84px] overflow-hidden rounded-full bg-[#eceef1] text-[#9ca3af] sm:mt-7", AVATAR_RING)}>
+            {joinOnboardingLogo("w-full")}
+            <span className={cn("relative mb-4 block h-[84px] w-[84px] overflow-hidden rounded-full bg-[#eceef1] text-[#9ca3af]", AVATAR_RING)}>
               {avatarUrl ? <img src={avatarUrl} alt="" className="absolute inset-0 h-full w-full object-cover motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200" /> : <DefaultAvatarGlyph fill />}
             </span>
             <h1 className="text-[28px] font-bold leading-[1.15] tracking-[-0.03em] text-[#1a1a2e] sm:text-[32px]">Pick a username</h1>
@@ -2092,7 +2101,8 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
         )}
 
         {step === JOIN_NOTIFY && (
-          <div className="flex flex-col items-center text-center" data-onboarding-join="notify" data-push-answer={pushAnswer ?? ""}>
+          <div className="mx-auto flex w-full max-w-[440px] flex-col items-center text-center font-sans" data-onboarding-join="notify" data-push-answer={pushAnswer ?? ""}>
+            {joinOnboardingLogo("w-full")}
             <span className="mb-5 flex h-16 w-16 items-center justify-center rounded-[18px] bg-[#f4f4f5] text-[#1a1a2e] shadow-[inset_0_0_0_1px_rgba(17,24,39,0.05),0_1px_2px_rgba(17,24,39,0.05)]">
               <Bell className="h-7 w-7" strokeWidth={1.8} />
             </span>

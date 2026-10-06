@@ -27,6 +27,18 @@ export function isEventsLibraryPath(pathname: string | null | undefined): boolea
   return /^\/community\/[^/]+\/events(?:\/[^/]+)?$/.test(path)
 }
 
+/** Calendar index only: /community/<slug>/events (not a single event). */
+export function isEventsListPath(pathname: string | null | undefined): boolean {
+  const path = (pathname || "").split(/[?#]/)[0].replace(/\/+$/, "")
+  return /^\/community\/[^/]+\/events$/.test(path)
+}
+
+/** One event: /community/<slug>/events/<id>. */
+export function isEventDetailPath(pathname: string | null | undefined): boolean {
+  const path = (pathname || "").split(/[?#]/)[0].replace(/\/+$/, "")
+  return /^\/community\/[^/]+\/events\/[^/]+$/.test(path)
+}
+
 export function sectionFromPath(pathname: string | null | undefined, slug: string): ShellSection {
   const base = `/community/${slug}`
   const path = (pathname || "").split(/[?#]/)[0].replace(/\/+$/, "")
