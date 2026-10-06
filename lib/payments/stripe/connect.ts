@@ -701,7 +701,7 @@ export async function createStripeAccountSession(creatorId: string, purpose: Str
    * never asks that. An account with no type yet is a person, which is how
    * every new account is made. A company account is left as it is.
    */
-  if (purpose === "onboarding" && !account.business_type) {
+  if ((purpose === "onboarding" || purpose === "management") && !account.business_type) {
     try {
       account = await stripe.accounts.update(account.id, { business_type: "individual" })
     } catch (error) {

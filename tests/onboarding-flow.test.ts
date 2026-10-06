@@ -91,7 +91,7 @@ const rules = readFileSync("lib/payments/stripe/own-form-rules.ts", "utf8")
   want storelib's own, very simple, clean, not so many steps". So it is gone,
   and the fields it took are drawn here.
 */
-check("personal info and the bank are Storelib's forms; Verify ID is Stripe's form inside this page", /function DetailsStep/.test(flow) && /function BankForm/.test(flow) && /function IdEmbedStep/.test(flow) && /StripeConnectEmbedded/.test(flow) && !/BusinessDetailsStep/.test(flow))
+check("setup is Stripe's embedded steps inside this page; a bank change is still Storelib's form", /function SetupEmbed/.test(flow) && /function BankForm/.test(flow) && /StripeConnectEmbedded/.test(flow) && !/BusinessDetailsStep/.test(flow))
 check("the server keeps none of it: no table write and no value in a log", !/createAdminClient|\.from\("|\.insert\(|\.upsert\(/.test(own) && /replace\(\/\\d\{2,\}\/g, "#"\)/.test(own) && !/console\.(log|error)\([^)]*(iban|idNumber|id_number|account_number|dob)\b/i.test(own))
 check("the account is always the signed-in creator's own, never one from the browser", /readCreatorStripe\(creator\.id\)/.test(own) && !/body\.(account|stripeAccount|accountId)/.test(route))
 /* The owner, October 2026: identity verification is part of setup, required to continue, not left for later. */
@@ -122,7 +122,7 @@ check("ID photos go to Stripe as the account's file, attached in the same call",
 check("a bank on file shows its last four and can be replaced", /Current account ending in/.test(flow) && flow.includes("Change bank account") && /createExternalAccount\(account\.id, \{ external_account: bank, default_for_currency: true \}\)/.test(own))
 check("nothing opens a Stripe page or the Stripe dashboard", !/window\.open|dashboard\.stripe|account_links|accountLinks|connect\.stripe\.com\/(setup|express)/i.test(flow + ui + embedded))
 /* The owner, October 2026: like Skool, personal info, verification with the camera, then the bank with its payout currency. */
-check("setup is Personal info, Verify ID, Bank account, with the bank its own last step", /\["Personal info", "Verify ID", "Bank account"\]/.test(flow) && /data-bank-step/.test(flow) && /only\?: "id" \| "details"/.test(flow) && /key=\{`bank-step-\$\{openCount\}`\}/.test(flow))
+check("setup is Stripe's form on this page, and a bank change is still its own step", /\["Personal info", "Verify ID", "Bank account"\]/.test(flow) && /data-bank-step/.test(flow) && /only\?: "id" \| "details"/.test(flow) && /key=\{`bank-step-\$\{openCount\}`\}/.test(flow))
 check("  the bank step picks the payout currency first, from what Stripe pays out to that country", /data-payout-currency/.test(flow) && /countrySpecs\.retrieve\(/.test(own) && /supported_bank_account_currencies/.test(own) && /default_currency: currency/.test(own))
 /* The owner, October 2026: "the kyc photo id needs to be separate step", and the CNP "should not be needed". */
 check("  the ID check is its own step, drawn apart from the details", /only === "id" \? f === "document"/.test(flow))
@@ -144,8 +144,8 @@ check("    and it asks again while it is open, becoming active by itself", /outc
 /* The owner, October 2026: Stripe does not take the photo we send. Verify ID is Stripe's own embedded check, on this page, and it never leaves for Stripe's site. */
 const idClient = readFileSync("lib/payments/identity-client.ts", "utf8")
 check("Stripe's hosted page still exists, and the step does not open it", /openHostedVerification/.test(idClient) && !/openHostedVerification|openIdentity/.test(flow))
-check("  Verify ID is Stripe's account form, inside the page, not the finished-onboarding screen", /data-id-embed/.test(flow) && /purpose="stripe_management"/.test(flow) && /StripeConnectEmbedded/.test(flow) && !/purpose="stripe_onboarding"/.test(flow))
-check("  it asks only for the ID, not the kind of seller or an extra address document", /const ID_COLLECTION = \{[\s\S]*?only: \["individual\.verification\.document", "individual\.verification\.proof_of_liveness"\]/.test(flow))
+check("  setup is Stripe's embedded form, on this page", /data-id-embed/.test(flow) && /stripe_onboarding/.test(flow) && /stripe_management/.test(flow) && /StripeConnectEmbedded/.test(flow))
+check("  it does not ask what kind of seller you are, or for a live selfie, or for an extra address document", /const SETUP_COLLECTION = \{[\s\S]*?exclude: \["business_type", "individual\.verification\.proof_of_liveness", "individual\.verification\.additional_document"\]/.test(flow))
 check("  and the step never leaves for Stripe", !/location\.assign|window\.open|Verify with Stripe|Opening Stripe|openHostedVerification/.test(flow))
 /*
   Round 14, the owner with a screenshot of step two: "Stripe would not start

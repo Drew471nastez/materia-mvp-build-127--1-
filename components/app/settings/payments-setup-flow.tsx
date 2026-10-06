@@ -720,57 +720,26 @@ export function PaymentsSetupFlow({
     )
   } else if (mode === "bank") {
     const failed = data.paymentsStatus?.status === "PAYOUT_FAILED"
-    body = <BankForm key={`bank-${openCount}`} failed={failed} onBack={onClose} backLabel="Cancel" onDone={(sent) => void settle(sent, null)} onData={onData} />
+    body = <BankForm key={`bank-step-${openCount}`} failed={failed} onBack={onClose} backLabel="Cancel" onDone={(sent) => void settle(sent, null)} onData={onData} />
   } else if (mode === "details") {
-    body = <DetailsStep key={`details-${openCount}`} withBank onBack={onClose} onNext={(left, sent) => void settle(sent ?? data, left)} onData={onData} />
-  } else if (step === 0) {
-    body = (
-      <AccountStep
-        data={data}
-        onBack={onClose}
-        onDone={(next) => {
-          onData(next)
-          go(1)
-        }}
-      />
-    )
-  } else if (step === 1) {
-    body = (
-      <DetailsStep
-        key={`details-step-${openCount}`}
-        only="details"
-        onBack={() => go(0)}
-        onEmpty={() => setDetailsEmpty(true)}
-        onNext={() => go(2)}
-        onData={onData}
-      />
-    )
-  } else if (step === 2) {
-    body = (
-      <IdEmbedStep
-        key={`id-${openCount}`}
-        onBack={() => go(stepBefore(2))}
-        onDone={async () => {
-          /* The form saves into Stripe on its own. Give that a moment, then read what Stripe holds. */
-          let next = await post<Overview>("refresh")
-          let form = await post<DetailsForm>("details-form", {}).catch(() => null)
-          for (let i = 0; i < 3; i++) {
-            const still = !!form && form.needs.fields.includes("document") && !form.needs.given?.includes("document")
-            if (!still) break
-            await new Promise((r) => setTimeout(r, 700))
-            next = await post<Overview>("refresh")
-            form = await post<DetailsForm>("details-form", {}).catch(() => null)
-          }
-          const still = !!form && form.needs.fields.includes("document") && !form.needs.given?.includes("document")
-          if (still) return false
-          if (form?.needs.given?.includes("document")) idSent.current = true
-          void settle(next, form)
-          return true
-        }}
-      />
-    )
+    body = <DetailsStep key={`details-step-${openCount}`} withBank onBack={onClose} onNext={(left, sent) => void settle(sent ?? data, left)} onData={onData} />
   } else {
-    body = <BankForm key={`bank-step-${openCount}`} onBack={() => go(stepBefore(3))} onDone={(sent) => void settle(sent, null)} onData={onData} />
+    body = (
+      <SetupEmbed
+        key={`id-${openCount}`}
+        data={data}
+        onData={onData}
+        onExit={async () => {
+          const next = await post<Overview>("refresh")
+          onData(next)
+          idSent.current = true
+          setCheckingWhat("id")
+          const outcome = outcomeOf(statusOf(next))
+          if (outcome === "done" || outcome === "checking") onFinished()
+          setEnding(outcome === "more" ? null : outcome)
+        }}
+      />
+    )
   }
 
   const subtitle =
@@ -855,59 +824,72 @@ export function PaymentsSetupFlow({
   )
 }
 /*
- * VERIFY ID, INSIDE THIS PAGE. Personal info is already saved, so Stripe's
- * onboarding component only says the account is done and never asks for the
- * ID. The account form does: it collects what is still owed, and this list
- * is only the identity document (and a liveness check where Stripe lists
- * one). What kind of seller you are, and an extra address document, are not
- * in it. The page is never left.
+ * THE WHOLE SETUP, INSIDE THIS PAGE. Stripe's own steps, in Storelib's
+ * frame. We do not collect the fields and send them on. Two of Stripe's
+ * steps are left out: what kind of seller you are (a person, a business, or
+ * a non-profit) and the live selfie. An extra address document is left out
+ * too. The account is opened as a person before the form is drawn, which is
+ * what skips that first question.
  */
-const ID_COLLECTION = {
+const SETUP_COLLECTION = {
   fields: "eventually_due" as const,
   futureRequirements: "omit" as const,
   requirements: {
-    only: ["individual.verification.document", "individual.verification.proof_of_liveness"],
+    exclude: ["business_type", "individual.verification.proof_of_liveness", "individual.verification.additional_document"],
   },
 }
 
-function IdEmbedStep({ onBack, onDone }: { onBack: () => void; onDone: () => Promise<boolean> }) {
-  const [busy, setBusy] = React.useState(false)
-  const [note, setNote] = React.useState<string | null>(null)
-  const going = React.useRef(false)
-  const finish = async () => {
-    if (going.current) return
-    going.current = true
-    setBusy(true)
-    setNote(null)
-    try {
-      const left = await onDone()
-      if (!left) {
-        setNote("Add your ID in the form, then continue.")
-        going.current = false
-        setBusy(false)
+function SetupEmbed({ data, onData, onExit }: { data: Overview; onData: (next: Overview) => void; onExit: () => void | Promise<void> }) {
+  const existed = React.useRef((data.beat ?? "personal") !== "personal")
+  const [ready, setReady] = React.useState(existed.current)
+  const [error, setError] = React.useState<string | null>(null)
+  const [attempt, setAttempt] = React.useState(0)
+  React.useEffect(() => {
+    if (existed.current) return
+    let gone = false
+    void (async () => {
+      try {
+        const next = await post<Overview>("start", {
+          agree: true,
+          kind: "individual",
+          country: data.prefill?.country || data.payoutHint?.country || "",
+        })
+        if (gone) return
+        onData(next)
+        setReady(true)
+      } catch (err) {
+        if (!gone) setError(safe(err instanceof Error ? err.message : "We could not start setup just now."))
       }
-    } catch {
-      setNote("That didn't finish. Try again in a moment.")
-      going.current = false
-      setBusy(false)
+    })()
+    return () => {
+      gone = true
     }
+    // The account is opened once, from the profile already on file.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [attempt])
+  if (error) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center px-6 py-10 text-center">
+        <p className="text-[14px] text-[#6b7280]">{error}</p>
+        <button type="button" className={cn(SECONDARY, "mt-4")} onClick={() => { setError(null); setAttempt((n) => n + 1) }}>Try again</button>
+      </div>
+    )
+  }
+  if (!ready) {
+    return (
+      <div className="flex flex-1 items-center justify-center py-16">
+        <span aria-label="Loading" className="h-5 w-5 animate-spin rounded-full border-2 border-[#1a1a2e]/10 border-t-[#1a1a2e]/60" />
+      </div>
+    )
   }
   return (
-    <div className="flex min-h-full flex-1 flex-col">
-      <div className="flex-1 px-5 sm:px-7">
-        <StepIntro title="Verify your ID" line="Stripe checks your ID to confirm you are who you say you are. It goes straight to Stripe, and Storelib never sees or keeps the document." />
-        <div className="mt-4" data-id-embed="">
-          <StripeConnectEmbedded purpose="stripe_management" collection={ID_COLLECTION} />
-        </div>
-        {note ? <p className="mt-3 text-[13px] leading-5 text-[#6b7280]">{note}</p> : null}
-      </div>
-      <Footer>
-        <button type="button" className={SECONDARY} onClick={onBack}>Back</button>
-        <button type="button" className={PRIMARY} disabled={busy} onClick={() => void finish()}>
-          {busy ? <Spinner /> : null}
-          Continue
-        </button>
-      </Footer>
+    <div className="flex min-h-full flex-1 flex-col px-5 pb-6 sm:px-7" data-id-embed="">
+      <StepIntro title="Set up payouts" line="Stripe checks your ID to confirm you are who you say you are. It goes straight to Stripe, and Storelib never sees or keeps the document." />
+      <StripeConnectEmbedded
+        purpose={existed.current ? "stripe_management" : "stripe_onboarding"}
+        collection={SETUP_COLLECTION}
+        onExit={() => void onExit()}
+      />
     </div>
   )
 }
