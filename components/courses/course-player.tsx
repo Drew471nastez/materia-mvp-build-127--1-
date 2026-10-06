@@ -210,7 +210,7 @@ export function CoursePlayer({
   const panel = "overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
   const notesWrap = embedded ? "mt-5 border-t border-[#f0f1f3] pt-5" : "mt-6 rounded-2xl border border-[#e5e7eb]/60 bg-white px-4 py-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:px-5 sm:py-5"
   const grid = embedded
-    ? "lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(260px,300px)] lg:items-start lg:gap-6 xl:grid-cols-[minmax(0,1fr)_320px]"
+    ? "xl:grid xl:grid-cols-[minmax(0,1fr)_232px] xl:items-start xl:gap-8"
     : "lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start lg:gap-6"
   const shell = embedded ? "w-full min-w-0" : ""
 
@@ -324,7 +324,7 @@ export function CoursePlayer({
                 type="button"
                 onClick={() => setSheet(true)}
                 data-open-lessons
-                className={`mt-3 flex h-12 w-full items-center gap-3 rounded-lg border border-[#e5e7eb] bg-white px-3.5 text-left transition-[background-color,box-shadow,transform] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:bg-[#f8f9fa] hover:shadow-[0_2px_8px_-4px_rgba(16,24,40,0.12)] active:translate-y-0 motion-reduce:transition-none lg:hidden ${lessons.length < 2 ? "hidden" : ""}`}
+                className={`mt-3 flex h-12 w-full items-center gap-3 rounded-lg border border-[#e5e7eb] bg-white px-3.5 text-left transition-[background-color,box-shadow,transform] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:bg-[#f8f9fa] hover:shadow-[0_2px_8px_-4px_rgba(16,24,40,0.12)] active:translate-y-0 motion-reduce:transition-none xl:hidden ${embedded ? "" : "lg:hidden"} ${lessons.length < 2 ? "hidden" : ""}`}
               >
                 <ListVideo className="h-4 w-4 shrink-0 text-[#6b7280]" />
                 <span className="flex-1 text-[14px] font-semibold text-[#1a1a2e]">All lessons</span>
@@ -351,7 +351,7 @@ export function CoursePlayer({
 
         {/* The curriculum: beside the lesson on a computer (community shell uses the wide middle column). */}
         <aside
-          className={`sticky hidden lg:block ${embedded ? "top-[calc(var(--community-top,65px)+20px)]" : "top-4"}`}
+          className={`sticky hidden ${embedded ? "top-[calc(var(--community-top,65px)+20px)] xl:block" : "top-4 lg:block"}`}
           aria-label="Lessons"
         >
           <div className={panel}>
@@ -498,10 +498,10 @@ function CurriculumHead({ summary, keeps }: { summary: ReturnType<typeof summari
   const length = lengthInWords(summary.totalSeconds)
   const doneLabel = keeps ? `${summary.completed} of ${summary.total}` : `${summary.total}`
   return (
-    <div className="border-b border-[#f0f1f3] px-4 py-3.5">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-[14px] font-semibold text-[#1a1a2e]">Curriculum</p>
-        <p className="text-[12px] tabular-nums text-[#6b7280]">
+    <div className="border-b border-[#f3f4f6] px-4 py-4">
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="text-[13px] font-semibold tracking-[-0.01em] text-[#1a1a2e]">Lessons</p>
+        <p className="text-[12px] tabular-nums text-[#9ca3af]">
           {doneLabel}
           {length ? <span className="text-[#9ca3af]"> · {length}</span> : null}
         </p>
@@ -523,7 +523,7 @@ function Curriculum({ data, progress, currentId, onPick }: { data: PlayerData; p
   const multiModule = data.modules.length > 1
   let n = 0
   return (
-    <ol className="space-y-1 px-2 pb-3 pt-1" data-curriculum>
+    <ol className="space-y-1 px-2.5 pb-4 pt-2" data-curriculum>
       {data.modules.map((m) => {
         const showModule = multiModule || m.lessons.length > 1
         const doneCount = m.lessons.filter((l) => isDone(progress.get(l.id))).length
@@ -552,7 +552,7 @@ function Curriculum({ data, progress, currentId, onPick }: { data: PlayerData; p
                       aria-current={current ? "true" : undefined}
                       data-lesson-row={l.id}
                       data-lesson-current={current ? "" : undefined}
-                      className={`flex w-full items-center gap-2.5 rounded-[10px] px-2.5 py-2.5 text-left transition-[background-color,box-shadow,transform] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${
+                      className={`flex w-full items-center gap-2.5 rounded-[12px] px-2.5 py-3 text-left transition-[background-color] duration-200 ease-out motion-reduce:transition-none ${
                         current
                           ? "bg-[#f4f4f5] shadow-[inset_2px_0_0_0_#1a1a2e]"
                           : "hover:-translate-y-px hover:bg-[#f7f8f9] hover:shadow-[0_1px_4px_-2px_rgba(16,24,40,0.1)] active:translate-y-0"

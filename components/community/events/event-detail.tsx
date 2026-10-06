@@ -209,7 +209,7 @@ export function EventDetail({ event: initial, eventsHref, aboutHref }: EventDeta
     <article data-event-page={event.id} className="pb-10">
       <div className="mb-4 flex items-center justify-between gap-3">
         <EventBack href={eventsHref} />
-        <button type="button" onClick={() => void shareEvent()} data-event-share="" className="inline-flex h-10 items-center gap-1.5 rounded-full border border-[#e4e7ec] bg-white px-3.5 text-[14px] font-medium text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.05)] hover:bg-[#f7f8fa]">
+        <button type="button" onClick={() => void shareEvent()} data-event-share="" className="inline-flex h-9 items-center gap-1.5 rounded-full px-2.5 text-[13px] font-medium text-[#6b7280] transition-colors hover:bg-[#f3f4f6] hover:text-[#1a1a2e]">
           <Share2 className="h-4 w-4" aria-hidden />
           Share
         </button>

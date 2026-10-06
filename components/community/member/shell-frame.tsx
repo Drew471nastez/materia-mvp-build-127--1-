@@ -335,7 +335,7 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
   const goTo = useCallback((key: TabKey) => setGoing({ key, from: pathRef.current }), [])
   const about = current === "about"
   /** Lesson player: the middle column takes the right column's room (like About), so the video is not squeezed beside the curriculum. */
-  const wideCenter = about || isLearnLessonPath(pathname) || isLearnLibraryPath(pathname) || isEventsListPath(pathname)
+  const wideCenter = about || isLearnLessonPath(pathname) || isLearnLibraryPath(pathname) || isEventsListPath(pathname) || isEventDetailPath(pathname)
   const tab = going?.key ?? tabFor(current)
   /* Moved to another place since the visit began: pages that arrive from now on land (ARRIVE). Set in the render that brings the new page. */
   const firstTab = useRef(tabFor(current))

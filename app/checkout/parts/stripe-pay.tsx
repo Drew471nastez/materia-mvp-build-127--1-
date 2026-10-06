@@ -340,7 +340,7 @@ function StripePayInner({
                 buttonHeight: 44,
                 buttonType: { applePay: "plain", googlePay: "plain" },
                 buttonTheme: { applePay: "black", googlePay: "black" },
-                layout: { maxColumns: 3, maxRows: 1, overflow: "auto" },
+                layout: { maxColumns: 2, maxRows: 1, overflow: "auto" },
                 emailRequired: true,
                 business: { name: creatorName },
                 paymentMethods: { applePay: "auto", googlePay: "auto", link: "never", paypal: "never", amazonPay: "never", klarna: "never" },

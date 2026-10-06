@@ -275,7 +275,7 @@ async function main() {
     check("Learn and a program inside it mark the Learn tab", sectionFromPath("/community/makers/learn", "makers") === "classroom" && sectionFromPath(`/community/makers/learn/${PAID}`, "makers") === "classroom")
     check("a lesson player address is known for the wide layout", isLearnLessonPath(`/community/makers/learn/${PAID}`) && isLearnLessonPath(`/community/makers/classroom/${PAID}`) && !isLearnLessonPath("/community/makers/learn"))
     check("the learn library index hides the right column too", isLearnLibraryPath("/community/makers/learn") && !isLearnLibraryPath(`/community/makers/learn/${PAID}`) && !isLearnLibraryPath("/community/makers"))
-    check("the calendar list hides the right column; an event page keeps feed spacing", isEventsListPath("/community/makers/events") && isEventDetailPath("/community/makers/events/e1") && isEventsLibraryPath("/community/makers/events/e1") && !isEventsListPath("/community/makers/events/e1") && !isEventsLibraryPath("/community/makers"))
+    check("the calendar list and an event page are known apart from the feed", isEventsListPath("/community/makers/events") && isEventDetailPath("/community/makers/events/e1") && !isEventsListPath("/community/makers/events/e1") && !isEventsLibraryPath("/community/makers"))
   }
 
   console.log("\nSERVER: reading and cards")

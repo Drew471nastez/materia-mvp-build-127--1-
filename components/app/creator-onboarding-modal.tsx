@@ -2674,7 +2674,9 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
               data-onboarding-scroller=""
               style={{ maskImage: SCROLL_EDGE_MASK, WebkitMaskImage: SCROLL_EDGE_MASK }}
               className={cn(
-                "flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 sm:px-12 pt-5 sm:pt-6",
+                "flex-1 min-h-0 overscroll-contain px-4 pt-5 sm:overflow-hidden sm:px-12 sm:pt-6",
+                /* A profile step fits. Anything taller may scroll on a phone only, never inside the card on a large screen. */
+                isJoinStep(currentStep) ? "overflow-hidden" : "max-sm:overflow-y-auto",
                 (currentStep === 1 || currentStep === 3 || isJoinStep(currentStep)) && "max-sm:pb-4",
                 currentStep === 2 && "max-sm:pb-2",
                 currentStep === 4 && "pb-4 sm:pb-6",
@@ -2769,8 +2771,8 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
               {isJoinStep(currentStep) && currentStep !== JOIN_DONE ? (
                 <div
                   className={cn(
-                    "grid w-full min-w-0 items-center transition-[grid-template-columns,gap] duration-[340ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
-                    backFrom(currentStep) !== null ? "grid-cols-[auto_minmax(0,1fr)] gap-3" : "grid-cols-[minmax(0,1fr)] gap-0",
+                    "flex w-full min-w-0 items-center gap-3 max-sm:grid motion-reduce:transition-none sm:mx-auto sm:max-w-[440px] sm:justify-end",
+                    backFrom(currentStep) !== null ? "max-sm:grid-cols-[auto_minmax(0,1fr)]" : "max-sm:grid-cols-[minmax(0,1fr)]",
                   )}
                 >
                   <button
@@ -2799,7 +2801,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                     disabled={!canProceed() && !(joinSaving || askingPush)}
                     style={{ transition: `background-color 220ms ${MOTION_EASE}, transform 220ms ${MOTION_EASE}, box-shadow 220ms ${MOTION_EASE}` }}
                     className={cn(
-                      "min-h-[50px] w-full min-w-0 rounded-xl font-semibold text-[15px] motion-reduce:!transition-none active:scale-[0.98] sm:min-h-0 sm:px-8 sm:py-3",
+                      "min-h-[50px] w-full min-w-0 rounded-xl font-semibold text-[15px] motion-reduce:!transition-none active:scale-[0.98] sm:h-12 sm:w-auto sm:min-w-[200px] sm:px-10 sm:py-0",
                       canProceed() || joinSaving || askingPush ? NEXT_ON : "bg-gray-200 text-gray-400 cursor-not-allowed",
                     )}
                   >
