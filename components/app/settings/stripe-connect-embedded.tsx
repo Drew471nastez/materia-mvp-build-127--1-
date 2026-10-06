@@ -201,7 +201,7 @@ export function StripeConnectEmbedded({
           <WaitingArea className="h-16 sm:h-24" size={18} label="Loading" />
         </div>
       ) : null}
-      <div ref={host} className="w-full pb-10 [&_iframe]:w-full [&_iframe]:min-h-[680px]" />
+      <div ref={host} className="w-full max-w-full pb-8 [&_iframe]:block [&_iframe]:h-auto [&_iframe]:w-full [&_iframe]:max-w-full [&_iframe]:min-h-[max(520px,calc(100dvh-8.5rem))]" />
     </div>
   )
 }

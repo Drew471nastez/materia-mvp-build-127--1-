@@ -105,11 +105,15 @@ async function post<T>(path: string, body: unknown): Promise<T> {
 function usePhone(): boolean {
   const [phone, setPhone] = React.useState(false)
   React.useEffect(() => {
-    const mq = window.matchMedia("(max-width: 639px)")
+    const mq = window.matchMedia("(max-width: 639px), (max-height: 520px) and (pointer: coarse)")
     const on = () => setPhone(mq.matches)
     on()
     mq.addEventListener("change", on)
-    return () => mq.removeEventListener("change", on)
+    window.addEventListener("orientationchange", on)
+    return () => {
+      mq.removeEventListener("change", on)
+      window.removeEventListener("orientationchange", on)
+    }
   }, [])
   return phone
 }
@@ -237,7 +241,7 @@ function Panel({
       data-leaving={leaving ? "" : undefined}
       style={{ zIndex: PANEL_Z }}
       className={cn(
-        "fixed inset-0 flex h-[100dvh] flex-col bg-white pb-[max(12px,env(safe-area-inset-bottom))] ease-sheet [backface-visibility:hidden] sm:bg-[#f6f7f9] sm:pb-4",
+        "fixed inset-0 flex h-[100dvh] max-h-[100dvh] w-full flex-col overflow-hidden bg-white pb-[max(12px,env(safe-area-inset-bottom))] ease-sheet [backface-visibility:hidden] sm:bg-[#f6f7f9] sm:pb-4",
         phone
           ? leaving
             ? "animate-out slide-out-to-right duration-200 [will-change:transform]"
@@ -788,7 +792,7 @@ export function PaymentsSetupFlow({
       <div data-setup-scroll="" className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         {/* One narrow column: 560px of card on a computer, the whole width on a phone,
             where it fills the screen so Cancel and Continue sit at the bottom. */}
-        <div className="mx-auto w-full max-w-[560px] px-0 pb-16 max-sm:flex max-sm:min-h-full max-sm:flex-col sm:px-6 sm:pb-24 sm:pt-10">
+        <div className="mx-auto w-full max-w-[560px] px-0 pb-[max(4.5rem,env(safe-area-inset-bottom))] max-sm:flex max-sm:min-h-full max-sm:flex-col sm:px-6 sm:pb-24 sm:pt-10 [@media(max-height:540px)]:px-3 [@media(max-height:540px)]:pb-8 [@media(max-height:540px)]:pt-3">
           {phone ? (
             mode === "setup" && ending ? (
               <div className="px-5 pt-4">
@@ -796,7 +800,7 @@ export function PaymentsSetupFlow({
               </div>
             ) : null
           ) : (
-            <div className="mb-6 px-1">
+            <div className="mb-6 px-1 [@media(max-height:540px)]:mb-3">
               <h2 className="text-[22px] font-semibold leading-7 tracking-[-0.01em] text-[#1a1a2e]">{title}</h2>
               <p className="mt-1 text-[14px] leading-5 text-[#6b7280]">{subtitle}</p>
               {mode === "setup" && ending ? (
@@ -808,7 +812,7 @@ export function PaymentsSetupFlow({
           )}
 
           <div data-setup-card="" className="overflow-visible bg-white max-sm:flex max-sm:flex-col sm:rounded-2xl sm:border sm:border-[#e5e7eb]/80 sm:shadow-[0_1px_3px_rgba(16,24,40,0.05),0_12px_32px_-16px_rgba(16,24,40,0.10)]">
-            <div key={`${mode}-${step}-${ending ?? ""}-${openCount}`} className={cn("flex flex-col overflow-visible pt-5 animate-in fade-in-0 duration-300 ease-sheet sm:pt-7", slide)}>
+            <div key={`${mode}-${step}-${ending ?? ""}-${openCount}`} className={cn("flex flex-col overflow-visible pt-4 animate-in fade-in-0 duration-300 ease-sheet sm:pt-7 [@media(max-height:540px)]:pt-3", slide)}>
               {body}
             </div>
           </div>
@@ -867,6 +871,7 @@ function SetupEmbed({ data, onData, onExit, bankOnly = false }: { data: Overview
     // The account is opened once, from the profile already on file.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [attempt])
+  useWhenPayoutsOn(ready, onData, onExit)
   if (error) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center px-6 py-10 text-center">
@@ -892,6 +897,32 @@ function SetupEmbed({ data, onData, onExit, bankOnly = false }: { data: Overview
       />
     </div>
   )
+}
+
+function useWhenPayoutsOn(ready: boolean, onData: (next: Overview) => void, onExit: () => void | Promise<void>) {
+  const tell = React.useRef(onData)
+  const leave = React.useRef(onExit)
+  tell.current = onData
+  leave.current = onExit
+  React.useEffect(() => {
+    if (!ready) return
+    let gone = false
+    const look = async () => {
+      try {
+        const next = await post<Overview>("refresh")
+        if (gone) return
+        tell.current(next)
+        if (outcomeOf(statusOf(next)) === "done") void leave.current()
+      } catch {
+        /* The form stays up. The next check asks again. */
+      }
+    }
+    const timer = window.setInterval(() => void look(), 4000)
+    return () => {
+      gone = true
+      window.clearInterval(timer)
+    }
+  }, [ready])
 }
 
 /* ── step 1: account ───────────────────────────────────────────────────── */
