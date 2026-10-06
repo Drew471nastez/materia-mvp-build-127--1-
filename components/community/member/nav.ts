@@ -15,6 +15,12 @@ export function isLearnLessonPath(pathname: string | null | undefined): boolean 
   return /^\/community\/[^/]+\/(?:learn|classroom)\/[^/]+/.test(path)
 }
 
+/** Learn library index only: /community/<slug>/learn (not a program page). */
+export function isLearnLibraryPath(pathname: string | null | undefined): boolean {
+  const path = (pathname || "").split(/[?#]/)[0].replace(/\/+$/, "")
+  return /^\/community\/[^/]+\/learn$/.test(path)
+}
+
 export function sectionFromPath(pathname: string | null | undefined, slug: string): ShellSection {
   const base = `/community/${slug}`
   const path = (pathname || "").split(/[?#]/)[0].replace(/\/+$/, "")

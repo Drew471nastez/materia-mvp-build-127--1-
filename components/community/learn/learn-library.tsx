@@ -22,6 +22,8 @@ import { Check, Lock } from "lucide-react"
 import { lengthInWords } from "@/lib/courses/progress"
 import { PlaceEmpty } from "@/components/community/member/place-empty"
 import { PlaceIcon } from "@/components/community/member/place-icons"
+import { CARD_RAISED } from "@/components/community/member/ui"
+import { cn } from "@/lib/utils"
 import { lessonsLabel, lockHint, opensOnLabel, type ProgramCard } from "./model"
 
 export function LearnLibrary({ programs, timeZone, manageHref = null }: { programs: ProgramCard[]; timeZone?: string; /** The builder, for somebody who may change it; null for everybody else. */ manageHref?: string | null }) {
@@ -47,7 +49,15 @@ export function LearnLibrary({ programs, timeZone, manageHref = null }: { progra
           action={manageHref ? { href: manageHref, label: "Make a program" } : null}
         />
       ) : (
-        <ul className="grid grid-cols-1 gap-3 min-[520px]:grid-cols-2 sm:gap-4 xl:grid-cols-3" data-program-grid>
+        <ul
+          className={cn(
+            "grid gap-4 sm:gap-5",
+            programs.length === 1
+              ? "grid-cols-1 max-w-[min(100%,440px)]"
+              : "grid-cols-1 min-[520px]:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3",
+          )}
+          data-program-grid
+        >
           {programs.map((p) => (
             <li key={p.id}>
               <ProgramTile program={p} timeZone={timeZone} />
@@ -77,7 +87,10 @@ function ProgramTile({ program: p, timeZone }: { program: ProgramCard; timeZone?
       prefetch
       data-program-card={p.id}
       data-locked={lock ? (p.locked?.reason ?? "yes") : "no"}
-      className="group/card flex h-full flex-row gap-3 overflow-hidden rounded-2xl border border-[#e4e7ec]/80 bg-white p-3 shadow-[0_1px_2px_rgba(16,24,40,0.04),0_3px_8px_-2px_rgba(16,24,40,0.05)] transition-[border-color,box-shadow] duration-150 hover:border-[#d5d9e0] hover:shadow-[0_1px_2px_rgba(16,24,40,0.05),0_8px_20px_-6px_rgba(16,24,40,0.12)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 min-[520px]:flex-col min-[520px]:gap-0 min-[520px]:p-0"
+      className={cn(
+        CARD_RAISED,
+        "group/card flex h-full flex-row gap-3 overflow-hidden p-3 transition-[border-color,box-shadow,translate] duration-200 ease-out hover:border-[#d5d9e0] hover:shadow-[0_1px_0_rgba(16,24,40,0.04),0_2px_6px_rgba(16,24,40,0.08),0_12px_28px_-10px_rgba(16,24,40,0.14),inset_0_-1px_0_rgba(16,24,40,0.05)] hover:-translate-y-0.5 motion-reduce:transition-none motion-reduce:hover:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 min-[520px]:flex-col min-[520px]:gap-0 min-[520px]:p-0 active:scale-[0.995] motion-reduce:active:scale-100",
+      )}
     >
       <div className="relative aspect-[16/9] w-[116px] shrink-0 self-start overflow-hidden rounded-lg bg-[#f1f2f4] min-[520px]:w-full min-[520px]:rounded-none">
         {p.coverUrl ? (

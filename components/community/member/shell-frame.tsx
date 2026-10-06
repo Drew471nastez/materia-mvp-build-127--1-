@@ -92,7 +92,7 @@ import { useLightChrome } from "@/lib/ui/light-chrome"
 import { useCommunityTheme } from "@/components/community/use-community-theme"
 import "../community-theme.css"
 import { MessagesPanel, MESSAGES_EVENT, useUnreadMessages } from "./messages"
-import { FULL_ON_HOVER, isLearnLessonPath, navEntries, sectionFromPath, tabFor, TABS_STILL_MS, tabsFollowTarget, type NavEntry, type TabKey } from "./nav"
+import { FULL_ON_HOVER, isLearnLessonPath, isLearnLibraryPath, navEntries, sectionFromPath, tabFor, TABS_STILL_MS, tabsFollowTarget, type NavEntry, type TabKey } from "./nav"
 import { PersonCardLayer } from "./person-card"
 import { toast, Toasts } from "./toast"
 import { CommunityTopBar } from "./top-bar"
@@ -335,7 +335,7 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
   const goTo = useCallback((key: TabKey) => setGoing({ key, from: pathRef.current }), [])
   const about = current === "about"
   /** Lesson player: the middle column takes the right column's room (like About), so the video is not squeezed beside the curriculum. */
-  const wideCenter = about || isLearnLessonPath(pathname)
+  const wideCenter = about || isLearnLessonPath(pathname) || isLearnLibraryPath(pathname)
   const tab = going?.key ?? tabFor(current)
   /* Moved to another place since the visit began: pages that arrive from now on land (ARRIVE). Set in the render that brings the new page. */
   const firstTab = useRef(tabFor(current))
@@ -414,7 +414,7 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
         <div className="mx-auto w-full max-w-[1360px] px-4 sm:px-6 lg:px-8">
           <div
             data-community-columns="three"
-            data-community-place={about ? "about" : wideCenter && !about ? "lesson" : undefined}
+            data-community-place={about ? "about" : isLearnLessonPath(pathname) ? "lesson" : isLearnLibraryPath(pathname) ? "learn" : undefined}
             className={`pb-16 pt-4 lg:grid lg:grid-cols-[260px_minmax(0,1fr)] lg:grid-rows-[auto_1fr] lg:items-start lg:gap-x-6 lg:pt-6 ${onLeaderboard ? "xl:grid-cols-[280px_minmax(0,1fr)]" : "xl:grid-cols-[280px_minmax(0,1fr)_300px]"}`}
           >
             {/* LEFT: the community card, and the places right under it (round 9). */}
