@@ -41,7 +41,7 @@ import { CommunityFixedFootWatch } from "@/components/community/fixed-foot-watch
 const ARRIVE = "[&>*]:animate-[fade-in_200ms_cubic-bezier(0.32,0.72,0,1)] motion-reduce:[&>*]:animate-none"
 
 /** The member frame's own scrollbar room (shell-frame.tsx GUTTER), so the two frames centre on the same line. */
-const GUTTER = "html{scrollbar-gutter:stable}"
+const GUTTER = "@media (min-width:1024px){html{scrollbar-gutter:stable}}html{overscroll-behavior-y:none}"
 
 export interface PublicFrameCard {
   community: ShellCommunity

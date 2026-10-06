@@ -39,6 +39,7 @@ export const NAV: { group: string | null; items: NavItem[] }[] = [
       { id: "audience", label: "Audience" },
       { id: "people", label: "People" },
       { href: "/admin/communities", label: "Communities" },
+      { href: "/admin/onboarding", label: "Onboarding" },
     ],
   },
   {

@@ -91,10 +91,10 @@ export async function POST(request: Request) {
     const copyHref = `${STORELIB_ORIGIN}/signup/verify?userId=${encodeURIComponent(userId)}&email=${encodeURIComponent(email)}&code=${encodeURIComponent(code)}`
     const letter = codeEmail({
       heading: "Your verification code",
-      lead: "Enter this code on Storelib to finish creating your account. Tap the code to copy it.",
+      lead: "Use this code to verify your email and finish creating your Storelib account. You can copy it and paste it on the verification page.",
       code,
       minutes: VERIFICATION_CODE_EXPIRY_MINUTES,
-      footer: "If you did not sign up for Storelib, you can ignore this email.",
+      footer: "Storelib will never ask you to share this code. If you did not try to create an account, you can ignore this email.",
       copyHref,
     })
 

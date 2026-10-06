@@ -36,6 +36,9 @@ export function communityPullRouterScope(pathname: string | null, slug: string):
 
 /** Community home only; a space's feed keeps its own wrapper (chat spaces have no feed pull). */
 export function communityPullUsesFeed(pathname: string | null, slug: string): boolean {
+  const path = (pathname || "").split(/[?#]/)[0]
+  /* A post is its own page. A pull there translates the post and snaps, which reads as a scroll glitch. */
+  if (/\/post\//.test(path)) return false
   return sectionFromPath(pathname, slug) === "home"
 }
 

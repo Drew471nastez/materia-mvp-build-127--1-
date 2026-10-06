@@ -170,7 +170,7 @@ const LAND_LATE = "motion-safe:animate-[fade-in_260ms_cubic-bezier(0.22,1,0.36,1
 const ABOUT_BOX = "max-sm:-mx-4 max-sm:-mt-4 [&>[data-community-sales]]:bg-transparent"
 
 /** The scrollbar's room kept on every page of the frame, so a short page and a long one centre the frame on the same line. */
-const GUTTER = "html{scrollbar-gutter:stable}"
+const GUTTER = "@media (min-width:1024px){html{scrollbar-gutter:stable}}html{overscroll-behavior-y:none}"
 
 /** What ?dm= may carry: an id's characters and nothing else. The server checks it is somebody here. */
 const DM_TARGET = /^[0-9a-z-]{1,64}$/i
