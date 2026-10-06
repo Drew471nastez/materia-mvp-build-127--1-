@@ -120,7 +120,7 @@ function main() {
   {
     const rows = walletRows(registered)
     check("one row per wallet, in one order", rows.map((r) => r.id).join(",") === "apple_pay,google_pay,link,paypal")
-    check("the express row asks for three of them", rows.filter((r) => r.checkout).map((r) => r.label).join(", ") === "Apple Pay, Google Pay, Link")
+    check("the express row asks for two of them", rows.filter((r) => r.checkout).map((r) => r.label).join(", ") === "Apple Pay, Google Pay")
     check("active reads as active", rows[0].state === "active" && rows[0].message === null)
     check("Stripe's error message is carried through as it came", walletRows(halfDone)[0].message?.startsWith("The domain is not registered with Apple") === true)
     check("an unregistered domain knows nothing rather than claiming inactive", walletRows(null).every((r) => r.state === "unknown" && r.message === null))
@@ -148,7 +148,7 @@ function main() {
     const all = [registered, { id: "pmd_9", domain_name: "theirdomain.store", enabled: false, livemode: true, apple_pay: { status: "inactive" } }]
     const done = buildReport({ domain: "storelib.com", record: registered, all, association: none })
     check("a registered domain says so", done.registered && done.enabled && done.recordId === "pmd_1Abc")
-    check("its summary names the wallets that are live", done.summary.includes("Apple Pay, Google Pay, Link are all active"))
+    check("its summary names the wallets that are live", done.summary.includes("Apple Pay, Google Pay are all active"))
     check("the registration date comes back as a date", done.registeredAt === new Date(1_764_000_000_000).toISOString())
     check("every domain on the account is listed", done.allDomains.length === 2 && done.allDomains[1].domain === "theirdomain.store" && done.allDomains[1].enabled === false)
     check("the button would re-check", done.nextStep === "validate")
@@ -162,7 +162,7 @@ function main() {
     check("a registration that is switched off is not a working one", off.registered && !off.enabled && off.summary.includes("switched off"))
 
     const partial = buildReport({ domain: "storelib.com", record: halfDone, all: [halfDone], association: none })
-    check("a half-done domain names both sides", partial.summary.includes("Google Pay, Link active") && partial.summary.includes("Apple Pay not yet"))
+    check("a half-done domain names both sides", partial.summary.includes("Google Pay active") && partial.summary.includes("Apple Pay not yet"))
 
     const empty = buildReport({ domain: "storelib.com", record: { id: "pmd_5", domain_name: "storelib.com", enabled: true }, all: [], association: none })
     check("registered with nothing active yet says exactly that", empty.summary.includes("no wallet active on it yet"))
@@ -219,10 +219,10 @@ function main() {
     check("served as text/plain, so Apple's fetch reads it", new RegExp(`source: '${ASSOCIATION_PATH}'`).test(config) && /text\/plain/.test(config))
   }
 
-  console.log("\nThe checkout still asks for the three wallets\n")
+  console.log("\nThe checkout still asks for Apple Pay and Google Pay\n")
   {
     const pay = readFileSync("app/checkout/parts/stripe-pay.tsx", "utf8")
-    check("the express row asks for Apple Pay, Google Pay and Link", /applePay: "auto", googlePay: "auto", link: "auto"/.test(pay))
+    check("the express row asks for Apple Pay and Google Pay, not Link", /applePay: "auto", googlePay: "auto", link: "never"/.test(pay))
     check("and the card form does not draw the wallets a second time", /wallets: \{ applePay: "never", googlePay: "never" \}/.test(pay))
   }
 

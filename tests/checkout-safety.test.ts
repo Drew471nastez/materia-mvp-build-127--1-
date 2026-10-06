@@ -204,7 +204,7 @@ async function main() {
       />Add a tip<\/span>/.test(summary) && /<span className="text-\[#6b7280\]"> for \{creatorName\}<\/span>/.test(summary) && /const TIPS = \[0, 100, 300, 500\] as const/.test(summary) && /Enter discount code/.test(summary),
     )
   }
-  check("Link, wallets and PayPal come from Stripe's own elements", /ExpressCheckoutElement/.test(read("app/checkout/parts/stripe-pay.tsx")) && /LinkAuthenticationElement/.test(read("app/checkout/parts/stripe-pay.tsx")))
+  check("wallets come from Stripe's express element; Link is off", /ExpressCheckoutElement/.test(read("app/checkout/parts/stripe-pay.tsx")) && /link: "never"/.test(read("app/checkout/parts/stripe-pay.tsx")) && !/LinkAuthenticationElement/.test(read("app/checkout/parts/stripe-pay.tsx")))
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed) {

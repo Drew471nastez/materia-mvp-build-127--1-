@@ -4,7 +4,7 @@
  * ===========================================================================
  * Stripe only draws a wallet button on a domain that is registered with the
  * account as a payment method domain. Until storelib.com is on that list the
- * Express Checkout Element asks for Apple Pay, Google Pay and Link, Stripe
+ * Express Checkout Element asks for Apple Pay and Google Pay, Stripe
  * answers that none is available, and the row is not drawn at all
  * (app/checkout/parts/stripe-pay.tsx hides it when nothing can pay).
  *
@@ -32,7 +32,7 @@
 export const WALLETS = [
   { id: "apple_pay", label: "Apple Pay", checkout: true },
   { id: "google_pay", label: "Google Pay", checkout: true },
-  { id: "link", label: "Link", checkout: true },
+  { id: "link", label: "Link", checkout: false },
   { id: "paypal", label: "PayPal", checkout: false },
 ] as const
 

@@ -19,14 +19,13 @@
 
 export type CheckoutMethod = "card" | "link"
 
-/** Tried in this order. The last is card alone, which every account can take. */
+/** Tried in this order. Card alone is what every Connect account can take. */
 /*
   Measured against the live account, by mounting the Payment Element with each
-  list: automatic is refused (the `transfers` capability), Klarna is refused
-  for US dollars, card with Link loads, card alone loads.
+  list: automatic is refused (the `transfers` capability). Link is off in
+  checkout; card alone loads.
 */
 export const METHOD_SETS: readonly (readonly CheckoutMethod[])[] = [
-  ["card", "link"],
   ["card"],
 ]
 

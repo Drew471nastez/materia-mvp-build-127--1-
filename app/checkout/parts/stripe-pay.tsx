@@ -6,11 +6,10 @@
  * ===========================================================================
  * Three of Stripe's own elements, drawn the way Stripe Checkout draws them:
  *
- *   Express Checkout  Apple Pay, Google Pay and Link as buttons across the
- *                     top, whichever this browser and the account can offer.
+ *   Express Checkout  Apple Pay and Google Pay as buttons across the top,
+ *                     whichever this browser and the account can offer.
  *                     None at all, and the row and its "OR" are not drawn.
- *   Link              the email box. A buyer with a Link account gets a code
- *                     and their saved cards, filled in for them.
+ *   Contact email     a Storelib field, styled like the card form.
  *   Payment           the ways to pay as a list of radio rows, the card
  *                     open first, in Stripe's fields, which the browser's own
  *                     saved cards (Chrome, Safari) fill.
@@ -30,13 +29,13 @@
  */
 
 import * as React from "react"
-import { Elements, ExpressCheckoutElement, LinkAuthenticationElement, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js"
+import { Elements, ExpressCheckoutElement, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js"
 import type { Appearance, StripeElementsOptions, StripeError } from "@stripe/stripe-js"
 import { RefreshCw, WifiOff } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { getStripePromise, resetStripePromise } from "./stripe-loader"
 import { METHOD_SETS, type CheckoutMethod } from "@/lib/checkout/payment-methods"
-import { FIELD_SHADOW, OrDivider, PayButton, SectionTitle } from "./ui"
+import { FIELD_SHADOW, OrDivider, PayButton, SectionTitle, TextInput } from "./ui"
 
 /** A phone's own keyboard zooms into any field set under 16px. */
 function touchScreen(): boolean {
@@ -237,10 +236,6 @@ function StripePayInner({
   const [paymentReady, setPaymentReady] = React.useState(false)
   /** The form could not be drawn: Stripe.js did not arrive, refused every list, or took too long. */
   const [failed, setFailed] = React.useState(false)
-  /* Set once. The email is the element's own after that: passing it back on
-     every keystroke asked Stripe to update an option that cannot change. */
-  const [linkOptions] = React.useState(() => ({ defaultValues: { email } }))
-
   /* Stripe.js itself failing to load (blocked, offline) rejects this. */
   React.useEffect(() => {
     let live = true
@@ -348,7 +343,7 @@ function StripePayInner({
                 layout: { maxColumns: 3, maxRows: 1, overflow: "auto" },
                 emailRequired: true,
                 business: { name: creatorName },
-                paymentMethods: { applePay: "auto", googlePay: "auto", link: "auto", paypal: "never", amazonPay: "never", klarna: "never" },
+                paymentMethods: { applePay: "auto", googlePay: "auto", link: "never", paypal: "never", amazonPay: "never", klarna: "never" },
               }}
               onReady={(e) => {
                 const available = e.availablePaymentMethods
@@ -433,7 +428,18 @@ function StripePayInner({
           <span id="checkout-contact">Contact information</span>
         </SectionTitle>
         <div className="min-h-[70px]">
-          <LinkAuthenticationElement options={linkOptions} onChange={(e) => onEmail(e.value.email)} />
+          <TextInput
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            autoCapitalize="none"
+            spellCheck={false}
+            placeholder="you@example.com"
+            value={email}
+            onChange={(e) => onEmail(e.target.value.slice(0, 254))}
+            aria-label="Email"
+            data-checkout-email=""
+          />
         </div>
         <div className="mt-3.5">{contactExtra}</div>
       </section>

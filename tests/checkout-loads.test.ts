@@ -33,8 +33,8 @@ function main() {
   check("the checkout's loader no longer switches it on by importing it", !/import "@\/lib\/stripe-nav-guard"/.test(loader))
 
   console.log("\nThe ways to pay are named, the same on both sides")
-  check("card with Link first, card alone last", JSON.stringify(METHOD_SETS) === JSON.stringify([["card", "link"], ["card"]]))
-  check("a request names one of the lists, or gets card alone", JSON.stringify(methodsFrom(["card", "link"])) === '["card","link"]' && JSON.stringify(methodsFrom(["card", "klarna"])) === '["card"]' && JSON.stringify(methodsFrom(undefined)) === '["card"]' && JSON.stringify(methodsFrom(["link"])) === '["card"]')
+  check("card alone is the only list checkout asks for", JSON.stringify(METHOD_SETS) === JSON.stringify([["card"]]))
+  check("a request names the card list, or gets card alone", JSON.stringify(methodsFrom(["card"])) === '["card"]' && JSON.stringify(methodsFrom(["card", "link"])) === '["card"]' && JSON.stringify(methodsFrom(["card", "klarna"])) === '["card"]' && JSON.stringify(methodsFrom(undefined)) === '["card"]' && JSON.stringify(methodsFrom(["link"])) === '["card"]')
   const route = read("app/api/checkout/stripe-session/route.ts")
   check("the PaymentIntent is made for the methods the form loaded with", /payment_method_types: methodsFrom\(body\.paymentMethods\)/.test(route) && !/automatic_payment_methods/.test(route))
   const pay = read("app/checkout/parts/stripe-pay.tsx")
