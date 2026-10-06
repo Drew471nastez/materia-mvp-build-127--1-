@@ -34,6 +34,7 @@ function VerifyContent() {
   const email = searchParams.get("email") ?? ""
 
   const sent = searchParams.get("sent") === "1"
+  const mailCode = (searchParams.get("code") ?? "").replace(/\D/g, "").slice(0, 6)
   /* Sell on Storelib, and the page to go back to, from the signup or login that sent them here. */
   const carry = readCarry(searchParams, getMainDomain())
 
@@ -44,7 +45,7 @@ function VerifyContent() {
     await goOnAfterAuth(carry, data.session)
   }
 
-  const [code, setCode] = useState("")
+  const [code, setCode] = useState(mailCode.length === 6 ? mailCode : "")
   const [error, setError] = useState<string | null>(null)
   const [isVerifying, setIsVerifying] = useState(false)
   const [isRedirecting, setIsRedirecting] = useState(false)
@@ -74,6 +75,12 @@ function VerifyContent() {
         }
       })
   }, [userId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (mailCode.length !== 6) return
+    setCode(mailCode)
+    void navigator.clipboard?.writeText(mailCode).catch(() => null)
+  }, [mailCode])
 
   // Auto-send email on mount if not already sent (e.g. direct navigation to this URL)
   useEffect(() => {

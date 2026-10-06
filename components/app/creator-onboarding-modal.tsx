@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useState, useEffect, useLayoutEffect, useRef, type CSSProperties } from "react"
+import { useCallback, useState, useEffect, useLayoutEffect, useRef, type CSSProperties, type ReactNode } from "react"
 import { confirmUpload } from "@/lib/storage/confirm-upload"
 import { createPortal } from "react-dom"
 import { Dialog, DialogContent } from "@/components/ui/dialog"
@@ -32,7 +32,7 @@ import { TextSwap } from "@/components/ui/text-swap"
 import { AvatarMark } from "@/components/app/app-avatar"
 import type { OnboardingResume } from "@/lib/account/onboarding-resume"
 import { cleanName } from "@/lib/profile/display-name"
-import { normalizeHandle } from "@/lib/profile/username-rules"
+import { baseHandleFrom, normalizeHandle, slugifyHandle } from "@/lib/profile/username-rules"
 import { cleanBio, welcomeDone } from "@/lib/account/welcome"
 import { askPushPermission, inNativeApp, nativePlatform, phoneSettingsPath, type PushPermission } from "@/lib/native-push"
 import { startRouteLoading } from "@/components/navigation/route-loading-bar"
@@ -103,6 +103,20 @@ const TikTokIcon = ({ className }: { className?: string }) => (
     <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-5.2 1.74 2.89 2.89 0 012.31-4.64 2.93 2.93 0 01.88.13V9.4a6.84 6.84 0 00-1-.05A6.33 6.33 0 005 20.1a6.34 6.34 0 0010.86-4.43v-7a8.16 8.16 0 004.77 1.52v-3.4a4.85 4.85 0 01-1-.1z" />
   </svg>
 )
+
+/** Social logos in a soft tile: a little depth, Storelib matte. */
+function SocialIconTile({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <span
+      className={cn(
+        "flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-[#f4f4f5] shadow-[inset_0_0_0_1px_rgba(17,24,39,0.06),0_1px_2px_rgba(17,24,39,0.05)]",
+        className,
+      )}
+    >
+      {children}
+    </span>
+  )
+}
 
 // Primary categories (first 16)
 const PRIMARY_CATEGORIES = [
@@ -561,7 +575,13 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
     photo, the same picker and crop as the store's step 3.
   */
   const [joinName, setJoinName] = useState(start?.name ?? "")
-  const [joinHandle, setJoinHandle] = useState(start?.username ?? "")
+  const [joinHandle, setJoinHandle] = useState(() => {
+    const fromAccount = normalizeHandle(start?.username ?? "")
+    if (fromAccount) return fromAccount
+    return slugifyHandle(start?.name ?? "") || baseHandleFrom({ displayName: start?.name ?? "" })
+  })
+  const joinHandleEdited = useRef(!!normalizeHandle(start?.username ?? ""))
+  const joinPhotoRef = useRef<HTMLButtonElement>(null)
   const [joinBio, setJoinBio] = useState(start?.bio ?? "")
   const [joinHandleState, setJoinHandleState] = useState<"same" | "checking" | "free" | "taken" | "empty">("same")
   const [joinHandleError, setJoinHandleError] = useState<string | null>(null)
@@ -579,6 +599,27 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
     setJoinNotify(inNativeApp())
   }, [])
   const joinSteps = [JOIN_NAME, JOIN_SOCIAL, ...(joinNotify ? [JOIN_NOTIFY] : []), JOIN_DONE]
+
+  useEffect(() => {
+    if (joinHandleEdited.current) return
+    const next = slugifyHandle(joinName) || baseHandleFrom({ displayName: joinName })
+    if (next) setJoinHandle(next)
+  }, [joinName])
+
+  const bumpJoinPhoto = useCallback(() => {
+    const el = joinPhotoRef.current
+    if (!el || reducedMotion()) return
+    el.animate(
+      [
+        { transform: "translate3d(0,0,0) scale(1)" },
+        { transform: "translate3d(0,-3px,0) scale(1.03)" },
+        { transform: "translate3d(0,1px,0) scale(0.99)" },
+        { transform: "translate3d(0,0,0) scale(1)" },
+      ],
+      { duration: 380, easing: MOTION_EASE },
+    )
+  }, [])
+
   useEffect(() => {
     if (!start) return
     const handle = normalizeHandle(joinHandle)
@@ -700,7 +741,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
     if (currentStep !== JOIN_DONE) return
     const t = window.setTimeout(() => {
       void finishJoinRef.current()
-    }, 1500)
+    }, 2200)
     return () => window.clearTimeout(t)
   }, [currentStep])
 
@@ -986,10 +1027,73 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
     return displayName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
   }
 
+  const uploadAvatarBlob = async (blob: Blob, previewUrl?: string) => {
+    setUploadingAvatar(true)
+    try {
+      const preview = previewUrl ?? URL.createObjectURL(blob)
+      setAvatarUrl(preview)
+
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error("Not authenticated")
+
+      const fileName = `${user.id}/creator-avatar-${Date.now()}.png`
+      const { error: uploadError } = await supabase.storage.from("avatars").upload(fileName, blob, { upsert: true })
+      if (uploadError) throw uploadError
+      confirmUpload("avatars", fileName)
+
+      const { data: { publicUrl } } = supabase.storage.from("avatars").getPublicUrl(fileName)
+      await fetch("/api/account/avatar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: publicUrl }),
+      }).catch(() => null)
+      announceAvatar(publicUrl)
+      setAvatarUrl(publicUrl)
+      if (previewUrl) URL.revokeObjectURL(preview)
+    } catch (e) {
+      console.error("Error uploading avatar:", e)
+      setAvatarUrl(null)
+    } finally {
+      setUploadingAvatar(false)
+      if (avatarInputRef.current) avatarInputRef.current.value = ""
+    }
+  }
+
+  const squareCropFile = async (file: File): Promise<Blob> => {
+    const url = URL.createObjectURL(file)
+    try {
+      const img = new Image()
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve()
+        img.onerror = () => reject(new Error("Failed to load image"))
+        img.src = url
+      })
+      const side = Math.min(img.naturalWidth, img.naturalHeight)
+      const sx = (img.naturalWidth - side) / 2
+      const sy = (img.naturalHeight - side) / 2
+      const canvas = document.createElement("canvas")
+      canvas.width = 512
+      canvas.height = 512
+      const ctx = canvas.getContext("2d")
+      if (!ctx) throw new Error("No canvas")
+      ctx.drawImage(img, sx, sy, side, side, 0, 0, 512, 512)
+      return await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("Failed to create blob"))), "image/jpeg", 0.92)
+      })
+    } finally {
+      URL.revokeObjectURL(url)
+    }
+  }
+
   // Handle avatar file selection
   const handleAvatarSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+
+    if (isJoinStep(currentStep)) {
+      void squareCropFile(file).then((blob) => uploadAvatarBlob(blob))
+      return
+    }
 
     const url = URL.createObjectURL(file)
     setTempImageUrl(url)
@@ -1163,8 +1267,8 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
       )
       stepEnterRef.current?.querySelectorAll<HTMLElement>("[data-join-done-rise]").forEach((el, i) => {
         el.animate(
-          [{ opacity: 0, translate: "0 12px", scale: "0.94" }, { opacity: 1, translate: "0 0", scale: "1" }],
-          { duration: SETUP_RISE_MS, delay: 80 + i * 70, easing: MOTION_EASE, fill: "backwards" },
+          [{ opacity: 0, translate: "0 8px", scale: "0.97" }, { opacity: 1, translate: "0 0", scale: "1" }],
+          { duration: 680, delay: 60 + i * 85, easing: MOTION_EASE, fill: "backwards" },
         )
       })
       if (stepTimerRef.current) clearTimeout(stepTimerRef.current)
@@ -1217,6 +1321,10 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
         return
       }
       if (currentStep === JOIN_SOCIAL) {
+        if (!avatarUrl) {
+          bumpJoinPhoto()
+          return
+        }
         await saveJoinSocials()
         goToStep(joinNotify || inNativeApp() ? JOIN_NOTIFY : JOIN_DONE, "right")
         return
@@ -1253,7 +1361,13 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
   const handleSkip = () => {
     if (!canSkip()) return
     if (isJoinStep(currentStep)) {
-      if (currentStep === JOIN_SOCIAL) void saveJoinSocials()
+      if (currentStep === JOIN_SOCIAL) {
+        if (!avatarUrl) {
+          bumpJoinPhoto()
+          return
+        }
+        void saveJoinSocials()
+      }
       if (currentStep === JOIN_NOTIFY) {
         goToStep(JOIN_DONE, "right")
         return
@@ -1651,7 +1765,10 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                   <input
                     type="text"
                     value={joinHandle}
-                    onChange={(e) => setJoinHandle(e.target.value.toLowerCase().replace(/^@+/, "").replace(/[\s_.]+/g, "-").replace(/[^a-z0-9-]/g, ""))}
+                    onChange={(e) => {
+                    joinHandleEdited.current = true
+                    setJoinHandle(e.target.value.toLowerCase().replace(/^@+/, "").replace(/[\s_.]+/g, "-").replace(/[^a-z0-9-]/g, ""))
+                  }}
                     placeholder="username"
                     maxLength={30}
                     autoCapitalize="none"
@@ -1693,25 +1810,28 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
         */}
         {/* Slide 2: the OnePage socials slide. Handles only, photo beside them. */}
         {step === JOIN_SOCIAL && (
-          <div className="flex flex-col items-center" data-onboarding-join="socials">
+          <div className="flex w-full flex-col items-center" data-onboarding-join="socials">
             <div className={HEADING_BLOCK}>
               <h1 className={HEADING}>Add your socials</h1>
               <p className={SUBHEADING}>Optional. Just the name, the same way it is on your profile.</p>
             </div>
-            <div className="flex w-full max-w-[600px] flex-col gap-4 sm:flex-row sm:gap-8">
-              <div className="flex shrink-0 flex-col items-center">
+            <div className="flex w-full max-w-[600px] flex-col items-center gap-5 sm:flex-row sm:items-start sm:gap-8">
+              <div className="mx-auto flex w-full max-w-[120px] shrink-0 flex-col items-center sm:mx-0">
                 <button
+                  ref={joinPhotoRef}
                   type="button"
                   onClick={() => avatarInputRef.current?.click()}
                   disabled={uploadingAvatar}
                   data-onboarding-join-photo=""
                   aria-label={avatarUrl ? "Change photo" : "Add a photo"}
-                  className="relative grid h-20 w-20 place-items-center overflow-hidden rounded-full bg-[#F3F3F3] shadow-[inset_0_0_0_1px_rgba(17,24,39,0.08)] [-webkit-tap-highlight-color:transparent] sm:h-24 sm:w-24"
+                  className="relative mx-auto grid h-20 w-20 place-items-center overflow-hidden rounded-full bg-[#f4f4f5] shadow-[inset_0_0_0_1px_rgba(17,24,39,0.08)] transition-transform duration-200 [-webkit-tap-highlight-color:transparent] sm:h-[88px] sm:w-[88px]"
                 >
                   {avatarUrl ? (
-                    <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
+                    <img src={avatarUrl} alt="" className="h-full w-full object-cover motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-300" />
                   ) : (
-                    <AvatarMark name={joinName} size={96} />
+                    <span className="flex h-full w-full items-center justify-center">
+                      <AvatarMark name={joinName} size={88} />
+                    </span>
                   )}
                   {uploadingAvatar ? (
                     <span className="absolute inset-0 grid place-items-center bg-white/55">
@@ -1730,16 +1850,18 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                 </button>
                 <input ref={avatarInputRef} type="file" accept="image/*" onChange={handleAvatarSelect} className="hidden" />
               </div>
-              <div className="min-w-0 flex-1 space-y-3">
+              <div className="min-w-0 w-full flex-1 space-y-3">
                 <label className={cn("flex h-[52px] items-center gap-3 rounded-[14px] px-4 sm:h-[56px] sm:px-5", FIELD_WELL)}>
-                  <Instagram className="h-5 w-5 shrink-0 text-pink-500" />
+                  <SocialIconTile>
+                    <Instagram className="h-[18px] w-[18px] text-[#e1306c]" strokeWidth={2} />
+                  </SocialIconTile>
                   <span className="sr-only">Instagram</span>
                   <span className="-mr-2 shrink-0 select-none text-sm text-gray-500 sm:text-base">@</span>
                   <input
                     type="text"
                     value={socials.instagram}
                     onChange={(e) => setSocials({ ...socials, instagram: e.target.value.replace(/@/g, "") })}
-                    placeholder="yourname"
+                    placeholder="e.g. mariacreates"
                     autoCapitalize="none"
                     autoCorrect="off"
                     spellCheck={false}
@@ -1748,14 +1870,16 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                   />
                 </label>
                 <label className={cn("flex h-[52px] items-center gap-3 rounded-[14px] px-4 sm:h-[56px] sm:px-5", FIELD_WELL)}>
-                  <TikTokIcon className="h-5 w-5 shrink-0" />
+                  <SocialIconTile>
+                    <TikTokIcon className="h-[18px] w-[18px] text-[#111827]" />
+                  </SocialIconTile>
                   <span className="sr-only">TikTok</span>
                   <span className="-mr-2 shrink-0 select-none text-sm text-gray-500 sm:text-base">@</span>
                   <input
                     type="text"
                     value={socials.tiktok}
                     onChange={(e) => setSocials({ ...socials, tiktok: e.target.value.replace(/@/g, "") })}
-                    placeholder="yourname"
+                    placeholder="e.g. mariacreates"
                     autoCapitalize="none"
                     autoCorrect="off"
                     spellCheck={false}
@@ -1764,14 +1888,16 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                   />
                 </label>
                 <label className={cn("flex h-[52px] items-center gap-3 rounded-[14px] px-4 sm:h-[56px] sm:px-5", FIELD_WELL)}>
-                  <Youtube className="h-5 w-5 shrink-0 text-red-500" />
+                  <SocialIconTile>
+                    <Youtube className="h-[18px] w-[18px] text-[#ff0000]" strokeWidth={2} />
+                  </SocialIconTile>
                   <span className="sr-only">YouTube</span>
                   <span className="-mr-2 shrink-0 select-none text-sm text-gray-500 sm:text-base">@</span>
                   <input
                     type="text"
                     value={socials.youtube}
                     onChange={(e) => setSocials({ ...socials, youtube: e.target.value.replace(/@/g, "") })}
-                    placeholder="yourchannel"
+                    placeholder="e.g. mariastudio"
                     autoCapitalize="none"
                     autoCorrect="off"
                     spellCheck={false}
@@ -1810,16 +1936,17 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
 
         {step === JOIN_DONE && (
           <div data-onboarding-join="done" className="flex h-full min-h-[300px] flex-col items-center justify-center px-4 pb-6 text-center sm:min-h-[360px]">
-            <span data-join-done-rise="" className="block rounded-[7px] shadow-[0_10px_22px_-10px_rgba(26,26,46,0.30),0_3px_8px_-4px_rgba(26,26,46,0.12)]">
+            <span data-join-done-rise="" className="relative block rounded-[7px] shadow-[0_10px_22px_-10px_rgba(26,26,46,0.22),0_3px_8px_-4px_rgba(26,26,46,0.08)]">
               <StorelibLogo size={62} fluid className="block h-[54px] w-[54px] sm:h-[62px] sm:w-[62px]" />
+              <span className="pointer-events-none absolute -inset-1 rounded-[9px] bg-[#8b5cf6]/[0.06] motion-safe:animate-pulse motion-reduce:hidden" aria-hidden />
             </span>
-            <h1 data-join-done-rise="" className={cn(SETUP_LINE, "mt-6 inline-flex items-center gap-2.5")}>
+            <h1 data-join-done-rise="" className={cn(SETUP_LINE, "mt-6")}>
               You&apos;re all set
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#16a34a] shadow-[0_1px_2px_rgba(22,163,74,0.35)]">
-                <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} />
-              </span>
             </h1>
-            <p data-join-done-rise="" className="mt-2 text-[15px] leading-[21px] text-[#6b7280]">Taking you there</p>
+            <p data-join-done-rise="" className="mt-2 inline-flex items-center justify-center gap-2 text-[15px] leading-[21px] text-[#6b7280]">
+              <ActivitySpinner className="h-4 w-4 text-[#8b5cf6]" />
+              <span>Taking you there</span>
+            </p>
           </div>
         )}
 

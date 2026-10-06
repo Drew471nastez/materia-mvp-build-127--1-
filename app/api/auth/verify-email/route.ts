@@ -4,6 +4,7 @@ import { sendEmail, isSmtpConfigured, EMAIL_FROM, EMAIL_REPLY_TO } from "@/lib/m
 import { claimVerificationSend, generateVerificationCode, VERIFICATION_CODE_EXPIRY_MINUTES, verificationLimitPaused } from "@/lib/security"
 import { maskEmail } from "@/lib/privacy/mask-email"
 import { codeEmail } from "@/lib/account/code-email"
+import { STORELIB_ORIGIN } from "@/lib/brand/logo"
 
 export const runtime = "nodejs"
 
@@ -87,12 +88,14 @@ export async function POST(request: Request) {
 
     console.log("[verify-email] Verification code saved to database, sending email...")
 
+    const copyHref = `${STORELIB_ORIGIN}/signup/verify?userId=${encodeURIComponent(userId)}&email=${encodeURIComponent(email)}&code=${encodeURIComponent(code)}`
     const letter = codeEmail({
       heading: "Your verification code",
-      lead: "Enter this code on Storelib to finish creating your account.",
+      lead: "Enter this code on Storelib to finish creating your account. Tap the code to copy it.",
       code,
       minutes: VERIFICATION_CODE_EXPIRY_MINUTES,
       footer: "If you did not sign up for Storelib, you can ignore this email.",
+      copyHref,
     })
 
     try {

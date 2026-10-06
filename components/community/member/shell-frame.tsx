@@ -290,7 +290,7 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
       /* A broken address still shows the community. */
     }
     if (!fromStore && !fromAddress) return
-    const t = window.setTimeout(() => toast(`Welcome to ${community.name}`), 280)
+    const t = window.setTimeout(() => toast(`Welcome to ${community.name}`), 120)
     return () => window.clearTimeout(t)
   }, [community.slug, community.name])
 
