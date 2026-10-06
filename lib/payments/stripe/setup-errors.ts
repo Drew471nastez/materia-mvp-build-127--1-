@@ -4,6 +4,12 @@
  * already know the sentence is about the creator's own country or email.
  */
 
+/** Stripe will not open an account in this country at all. A refused card_payments or recipient agreement is a different account shape, not this. */
+export function countryIsUnsupported(message: string): boolean {
+  if (/recipient|card_payments|capability/i.test(message)) return false
+  return /\bcountry\b.*\b(not supported|is invalid|unknown)\b|\b(not|isn't|is not) supported\b.*\bcountry\b/i.test(message)
+}
+
 export function paymentsSetupErrorMessage(error: unknown): string {
   const message = stripeErrorMessage(error)
   if (/cannot create new accounts because your account has been rejected/i.test(message)) {
@@ -12,9 +18,7 @@ export function paymentsSetupErrorMessage(error: unknown): string {
   if (/account has been rejected/i.test(message)) {
     return "This payments account cannot be opened from here. Write to support@storelib.com and we will sort out your payouts."
   }
-  /* Only a country Stripe itself will not open. A card_payments or recipient
-     agreement refusal is a different account shape, not "Romania is unsupported". */
-  if (/\bcountry\b.*\b(not supported|is invalid|unknown)\b|\b(not|isn't|is not) supported\b.*\bcountry\b/i.test(message) && !/recipient|card_payments|capability/i.test(message)) {
+  if (countryIsUnsupported(message)) {
     return "Payments are not available for that country yet. Choose another country, or write to support@storelib.com."
   }
   if (/email/i.test(message) && /invalid|required/i.test(message)) {

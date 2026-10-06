@@ -17,6 +17,14 @@ check(
   paymentsSetupErrorMessage({ message: "The country RO is not supported for this account" }).includes("country"),
 )
 check(
+  "a card payments refusal is not a closed country",
+  !paymentsSetupErrorMessage({ message: "You cannot request the card_payments capability for accounts in country DE" }).includes("Choose another country"),
+)
+check(
+  "a recipient agreement refusal is not a closed country",
+  !paymentsSetupErrorMessage({ message: "recipient ToS is not supported for platforms in FR creating accounts in FR" }).includes("Choose another country"),
+)
+check(
   "controller refusals are retried",
   shouldRetryExpressAsController({ message: "You must specify the controller parameter instead of type" }),
 )

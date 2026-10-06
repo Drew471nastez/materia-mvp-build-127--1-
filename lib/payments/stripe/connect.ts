@@ -6,7 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { countryCode } from "@/lib/checkout/countries"
 import { ownerAddress } from "@/lib/businesses/email-alias"
 import { logStripeRefusal, stripeRefusal } from "@/lib/stripe/refusal"
-import { paymentsSetupErrorMessage, stripeErrorMessage } from "./setup-errors"
+import { countryIsUnsupported, paymentsSetupErrorMessage, stripeErrorMessage } from "./setup-errors"
 import { canAcceptPayments, sellerFactsOfAccount } from "./readiness"
 import { parsePersonal } from "./onboarding-steps"
 import { STRIPE_REQUESTED_CAPABILITIES } from "./config"
@@ -410,6 +410,7 @@ async function createConnectedAccount(
     ? [
         { ...recipient, controller: inStorelib },
         { ...paidOut, controller: inStorelib },
+        { ...merchant, controller: inStorelib },
       ]
     : [
         { ...merchant, controller: inStorelib },
@@ -433,6 +434,10 @@ async function createConnectedAccount(
      real reason none of the attempts can land; a later attempt's own refusal
      is noise, so this is thrown ahead of `last`. */
   let blocker: unknown
+  /* Set only when the transfers-only account, the one every supported country
+     can hold, was refused because of the country itself. A card_payments or
+     recipient refusal is not that. */
+  let countryBlocked: unknown
   for (const params of attempts) {
     try {
       return await stripe.accounts.create(params)
@@ -442,9 +447,11 @@ async function createConnectedAccount(
       console.error("[stripe connect] create attempt", msg.replace(/\s+/g, " ").slice(0, 180))
       if (/account has been rejected|invalid email/i.test(msg)) throw error
       if (!blocker && /temporarily restricted your ability to create|suspicious activity|confirm that you intended/i.test(msg)) blocker = error
+      const transfersOnlyShape = !params.capabilities?.card_payments && params.tos_acceptance?.service_agreement !== "recipient"
+      if (transfersOnlyShape && countryIsUnsupported(msg)) countryBlocked = error
     }
   }
-  throw blocker ?? last
+  throw blocker ?? countryBlocked ?? last
 }
 
 export async function syncStripeAccount(creatorId: string, actor: "webhook" | "creator" | "system"): Promise<StripeCreatorSnapshot> {
