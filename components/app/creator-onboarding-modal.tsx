@@ -2011,7 +2011,6 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                     ["instagram", "Instagram"],
                     ["twitter", "X"],
                     ["youtube", "YouTube"],
-                    ["bluesky", "Bluesky"],
                   ] as const
                 ).map(([id, label]) => {
                   const on = openSocial === id

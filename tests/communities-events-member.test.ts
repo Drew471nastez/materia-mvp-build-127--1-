@@ -353,7 +353,7 @@ async function main() {
     check("outside the window the policy words stand in for the button", /!canGiveUpSeat[\s\S]{0,120}refundPolicyText/.test(detail))
     check("a reader with no ticket is given plain words, never html", /gate\.open \?[\s\S]{0,200}dangerouslySetInnerHTML/.test(detail))
     check("a cancelled paid event says where the money went", /on its way back to the card you paid with/.test(detail))
-    check("on a large screen the event is one column, not a second stack of buttons", /data-event-layout="stack"/.test(detail) && !/lg:grid-cols-\[minmax\(0,1fr\)_300px\]/.test(detail))
+    check("on a large screen the event stays a readable width with a modest cover", /data-event-layout="stack"/.test(detail) && /lg:max-w-\[720px\]/.test(detail) && /data-event-cover/.test(detail) && /lg:max-h-\[220px\]/.test(detail))
     check("an event can be shared, and its picture follows the cover, title and description", /data-event-share=""/.test(detail) && /eventMetadata\(facts\)/.test(code("app/(marketing)/community/[slug]/(member)/events/[eventId]/page.tsx")) && /coverSrc/.test(code("app/(marketing)/community/[slug]/(member)/events/[eventId]/share.png/route.tsx")) && /f\.event\.coverUrl/.test(code("app/(marketing)/community/[slug]/(member)/events/[eventId]/event-seo.ts")) && /f\.event\.description/.test(code("app/(marketing)/community/[slug]/(member)/events/[eventId]/event-seo.ts")))
 
     const sheet = code("components/community/events/ticket-checkout.tsx")

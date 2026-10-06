@@ -206,7 +206,7 @@ export function EventDetail({ event: initial, eventsHref, aboutHref }: EventDeta
   }
 
   return (
-    <article data-event-page={event.id} className="pb-10">
+    <article data-event-page={event.id} className="pb-10 lg:mx-auto lg:w-full lg:max-w-[720px]">
       <div className="mb-4 flex items-center justify-between gap-3">
         <EventBack href={eventsHref} />
         <button type="button" onClick={() => void shareEvent()} data-event-share="" className="inline-flex h-10 items-center gap-1.5 rounded-full border border-[#e4e7ec] bg-white px-3.5 text-[14px] font-medium text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.05)] hover:bg-[#f7f8fa]">
@@ -224,7 +224,12 @@ export function EventDetail({ event: initial, eventsHref, aboutHref }: EventDeta
             </div>
           ) : event.coverUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={event.coverUrl} alt="" className="mb-5 aspect-[2/1] w-full rounded-2xl border border-[#e4e7ec]/80 object-cover" data-event-cover />
+            <img
+              src={event.coverUrl}
+              alt=""
+              className="mb-5 aspect-[21/9] w-full max-h-[min(52vw,200px)] rounded-2xl border border-[#e4e7ec]/80 object-cover sm:max-h-[min(44vw,240px)] lg:max-h-[220px] lg:aspect-[2.35/1]"
+              data-event-cover
+            />
           ) : null}
 
           <p className="flex flex-wrap items-center gap-x-2 text-[13px] font-medium text-[#6b7280]">
@@ -232,7 +237,7 @@ export function EventDetail({ event: initial, eventsHref, aboutHref }: EventDeta
             {live ? <span className="font-semibold text-[#b42318]">Live now</span> : null}
             {event.cancelled ? <span className="font-semibold text-[#b42318]">Cancelled</span> : over ? <span>Ended</span> : null}
           </p>
-          <h1 className={`mt-1 text-[24px] font-bold leading-tight tracking-[-0.01em] sm:text-[28px] ${event.cancelled ? "text-[#6b7280]" : "text-[#1a1a2e]"}`}>{event.title}</h1>
+          <h1 className={`mt-1 text-[22px] font-bold leading-tight tracking-[-0.01em] sm:text-[26px] lg:text-[24px] ${event.cancelled ? "text-[#6b7280]" : "text-[#1a1a2e]"}`}>{event.title}</h1>
 
           <ul className="mt-4 space-y-3" data-event-facts>
             <li className="flex gap-3">
@@ -277,7 +282,7 @@ export function EventDetail({ event: initial, eventsHref, aboutHref }: EventDeta
         </div>
 
         {/* What to do: beside the event on a computer, under its facts on a phone. */}
-        <aside className={`${CARD} p-4 sm:p-5`} data-event-actions aria-label="Your answer">
+        <aside className={`${CARD} p-4 sm:p-5 lg:p-4`} data-event-actions aria-label="Your answer">
           {event.cancelled ? (
             <div>
               <p className="text-[15px] font-semibold text-[#1a1a2e]">This event was cancelled.</p>
@@ -356,7 +361,7 @@ export function EventDetail({ event: initial, eventsHref, aboutHref }: EventDeta
                 </p>
               )}
 
-              <div className="mt-3 flex flex-col gap-2">
+              <div className="mt-3 flex flex-col gap-2 lg:max-w-[300px]">
                 {event.meetingUrl ? (
                   <a href={event.meetingUrl} target="_blank" rel="noopener noreferrer" className={`${PRIMARY} w-full`} data-join-now>
                     <Video className="h-4 w-4" aria-hidden />
