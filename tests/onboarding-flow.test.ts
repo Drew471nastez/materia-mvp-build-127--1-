@@ -91,7 +91,7 @@ const rules = readFileSync("lib/payments/stripe/own-form-rules.ts", "utf8")
   want storelib's own, very simple, clean, not so many steps". So it is gone,
   and the fields it took are drawn here.
 */
-check("setup is Storelib's own form, with no Stripe screen inside it at all", /function DetailsStep/.test(flow) && /function BankForm/.test(flow) && !/StripeConnectEmbedded|BusinessDetailsStep/.test(flow))
+check("personal info and the bank are Storelib's forms; Verify ID is Stripe's form inside this page", /function DetailsStep/.test(flow) && /function BankForm/.test(flow) && /function IdEmbedStep/.test(flow) && /StripeConnectEmbedded/.test(flow) && !/BusinessDetailsStep/.test(flow))
 check("the server keeps none of it: no table write and no value in a log", !/createAdminClient|\.from\("|\.insert\(|\.upsert\(/.test(own) && /replace\(\/\\d\{2,\}\/g, "#"\)/.test(own) && !/console\.(log|error)\([^)]*(iban|idNumber|id_number|account_number|dob)\b/i.test(own))
 check("the account is always the signed-in creator's own, never one from the browser", /readCreatorStripe\(creator\.id\)/.test(own) && !/body\.(account|stripeAccount|accountId)/.test(route))
 /* The owner, October 2026: identity verification is part of setup, required to continue, not left for later. */
@@ -141,11 +141,11 @@ check("  the next step reads the overview the write returned, with no second syn
 /* The owner, October 2026: "it says well notify you in 2 days, that should not be the case once users set up and uploaded their KYC". */
 check("  the checking screen waits with them instead of promising days", /function Outcome\([\s\S]*?"Checking your ID"/.test(flow) && !/line:[^\n]*business days/.test(flow))
 check("    and it asks again while it is open, becoming active by itself", /outcome !== "checking"\) return[\s\S]*?post<Overview>\("refresh"/.test(flow) && /onChecked/.test(flow))
-/* The owner, October 2026: the ID check "takes me outside to Stripe" and it should not. Photograph the ID here, then send the file to Stripe. */
+/* The owner, October 2026: Stripe does not take the photo we send. Verify ID is Stripe's own embedded check, on this page, and it never leaves for Stripe's site. */
 const idClient = readFileSync("lib/payments/identity-client.ts", "utf8")
-check("Stripe's hosted check still exists for a return, and is not what the step opens", /openHostedVerification/.test(idClient) && !/openHostedVerification|openIdentity/.test(flow))
-check("  a phone opens Storelib's camera and sends the photo to Stripe", /IdCamera/.test(flow) && /data-id-camera-open/.test(flow) && /sendIdPhoto/.test(flow) && /\/api\/payments\/document/.test(flow))
-check("  a computer shows a code for that same step on the phone", /data-id-phone-scan/.test(flow) && /IdHandoffQr/.test(flow) && /\/app\/payouts\?setup=1&id=1/.test(flow) && /params\.get\("id"\) === "1"/.test(flow) && /toId && mode === "setup" \? 2/.test(flow))
+check("Stripe's hosted page still exists, and the step does not open it", /openHostedVerification/.test(idClient) && !/openHostedVerification|openIdentity/.test(flow))
+check("  Verify ID is Stripe's embedded component, inside the page", /data-id-embed/.test(flow) && /purpose="stripe_onboarding"/.test(flow) && /StripeConnectEmbedded/.test(flow))
+check("  it asks only for the ID, not the kind of seller or an extra address document", /const ID_COLLECTION = \{[\s\S]*?only: \["individual\.verification\.document", "individual\.verification\.proof_of_liveness"\]/.test(flow))
 check("  and the step never leaves for Stripe", !/location\.assign|window\.open|Verify with Stripe|Opening Stripe|openHostedVerification/.test(flow))
 /*
   Round 14, the owner with a screenshot of step two: "Stripe would not start

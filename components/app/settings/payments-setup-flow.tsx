@@ -41,6 +41,7 @@ import { setupStepOf, type StorelibPaymentsStatus } from "@/lib/payments/stripe/
 import type { Overview } from "@/components/app/settings/payments-hub-shared"
 import { isNativeApp, openInApp } from "@/lib/native-bridge"
 import { armCameraSounds, IdCamera, sendIdPhoto, shrinkPhoto, type IdSide } from "@/components/app/settings/id-camera"
+import { StripeConnectEmbedded } from "@/components/app/settings/stripe-connect-embedded"
 import { readsLikeStripe, verifyLine } from "@/lib/payments/verify-id"
 import { playAskSound } from "@/lib/website-builder/ask-sounds"
 import { cn } from "@/lib/utils"
@@ -746,14 +747,18 @@ export function PaymentsSetupFlow({
     )
   } else if (step === 2) {
     body = (
-      <DetailsStep
+      <IdEmbedStep
         key={`id-${openCount}`}
-        only="id"
         onBack={() => go(stepBefore(2))}
-        onEmpty={() => setIdEmpty(true)}
-        onAsking={() => setIdNeeded(true)}
-        onNext={(left, sent) => void settle(sent ?? data, left)}
-        onData={onData}
+        onDone={async () => {
+          const next = await post<Overview>("refresh")
+          const form = await post<DetailsForm>("details-form", {}).catch(() => null)
+          const still = !!form && form.needs.fields.includes("document") && !form.needs.given?.includes("document")
+          if (still) return false
+          if (form?.needs.given?.includes("document")) idSent.current = true
+          void settle(next, form)
+          return true
+        }}
       />
     )
   } else {
@@ -841,6 +846,63 @@ export function PaymentsSetupFlow({
     </Panel>
   )
 }
+/*
+ * VERIFY ID, INSIDE THIS PAGE. Stripe's own embedded check, not a photo we
+ * send and not a page on Stripe's site. Only the identity document (and a
+ * liveness check where Stripe lists one). What kind of seller you are, and
+ * any extra address document, are not in the list, so those steps are not
+ * drawn. Personal info and the bank stay Storelib's own forms.
+ */
+const ID_COLLECTION = {
+  fields: "eventually_due" as const,
+  futureRequirements: "omit" as const,
+  requirements: {
+    only: ["individual.verification.document", "individual.verification.proof_of_liveness"],
+  },
+}
+
+function IdEmbedStep({ onBack, onDone }: { onBack: () => void; onDone: () => Promise<boolean> }) {
+  const [busy, setBusy] = React.useState(false)
+  const [note, setNote] = React.useState<string | null>(null)
+  const going = React.useRef(false)
+  const finish = async () => {
+    if (going.current) return
+    going.current = true
+    setBusy(true)
+    setNote(null)
+    try {
+      const left = await onDone()
+      if (!left) {
+        setNote("Finish the ID check above. It stays on this page.")
+        going.current = false
+        setBusy(false)
+      }
+    } catch {
+      setNote("That didn't finish. Try again in a moment.")
+      going.current = false
+      setBusy(false)
+    }
+  }
+  return (
+    <div className="flex min-h-full flex-1 flex-col">
+      <div className="flex-1 px-5 sm:px-7">
+        <StepIntro title="Verify your ID" line="Stripe checks your ID to confirm you are who you say you are. It goes straight to Stripe, and Storelib never sees or keeps the document." />
+        <div className="mt-4" data-id-embed="">
+          <StripeConnectEmbedded purpose="stripe_onboarding" collection={ID_COLLECTION} onExit={() => void finish()} />
+        </div>
+        {note ? <p className="mt-3 text-[13px] leading-5 text-[#6b7280]">{note}</p> : null}
+      </div>
+      <Footer>
+        <button type="button" className={SECONDARY} onClick={onBack}>Back</button>
+        <button type="button" className={PRIMARY} disabled={busy} onClick={() => void finish()}>
+          {busy ? <Spinner /> : null}
+          Continue
+        </button>
+      </Footer>
+    </div>
+  )
+}
+
 /* ── step 1: account ───────────────────────────────────────────────────── */
 
 function AccountStep({ data, onBack, onDone }: { data: Overview; onBack: () => void; onDone: (next: Overview) => void }) {

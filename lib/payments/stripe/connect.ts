@@ -696,6 +696,18 @@ export async function createStripeAccountSession(creatorId: string, purpose: Str
     await releaseConnectedAccount(creatorId, row.stripe_account_id, "legacy_platform")
     throw new PaymentsProblem("Your payments need to be set up again. Close this and choose Reconnect payments. Your orders and payout history are safe.", 409)
   }
+  /*
+   * The embedded ID check must not open on "individual or company". Setup
+   * never asks that. An account with no type yet is a person, which is how
+   * every new account is made. A company account is left as it is.
+   */
+  if (purpose === "onboarding" && !account.business_type) {
+    try {
+      account = await stripe.accounts.update(account.id, { business_type: "individual" })
+    } catch (error) {
+      console.error("[stripe connect] business type", stripeErrorMessage(error).slice(0, 160))
+    }
+  }
   const components = accountSessionComponents(purpose, runsInStorelib(account))
   const session = await stripe.accountSessions.create({ account: row.stripe_account_id, components })
   if (!session.client_secret) throw new PaymentsProblem("We couldn't load payments right now. Try again in a moment.", 502)
