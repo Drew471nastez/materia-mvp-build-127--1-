@@ -10,7 +10,6 @@
  */
 import Link from "next/link"
 import { useCallback, useEffect, useRef, useState } from "react"
-import { ChevronDown } from "lucide-react"
 import { MemberAvatar, warmMemberFaces } from "./member-avatar"
 import { api, apiBase } from "./api"
 import { PageTitle } from "./headers"
@@ -32,28 +31,10 @@ function periodLabel(p: Period): string {
   return PERIODS.find((x) => x.key === p)?.label ?? ""
 }
 
-function PeriodSelectDesktop({ period, onChoose }: { period: Period; onChoose: (p: Period) => void }) {
+/** The period, as one small segmented control at every width (round 15: the select was too big for what it does). */
+function PeriodSwitch({ period, onChoose }: { period: Period; onChoose: (p: Period) => void }) {
   return (
-    <label className="relative shrink-0">
-      <span className="sr-only">Time period</span>
-      <select
-        value={period}
-        onChange={(e) => onChoose(e.target.value as Period)}
-        className="h-10 min-w-[9.5rem] cursor-pointer appearance-none rounded-[10px] border border-[#e3e4e8] bg-white pl-3 pr-9 text-[14px] font-medium text-[#1a1a2e] shadow-[0_1px_1px_rgba(16,24,40,0.04)] outline-none transition-[border-color,box-shadow] hover:border-[#d5d8de] focus-visible:border-[#1a1a2e]/25 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/10 disabled:cursor-wait disabled:opacity-60"
-        data-leaderboard-period-select=""
-      >
-        {PERIODS.map((p) => (
-          <option key={p.key} value={p.key}>{p.label}</option>
-        ))}
-      </select>
-      <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6b7280]" strokeWidth={2} aria-hidden />
-    </label>
-  )
-}
-
-function PeriodSegmentsMobile({ period, onChoose }: { period: Period; onChoose: (p: Period) => void }) {
-  return (
-    <div className="flex rounded-[10px] border border-[#e3e4e8] bg-[#f6f7f8] p-0.5" role="tablist" aria-label="Time period" data-leaderboard-period-tabs="">
+    <div className="inline-flex shrink-0 rounded-[9px] bg-[#eef0f2] p-0.5" role="tablist" aria-label="Time period" data-leaderboard-period-tabs="">
       {PERIODS.map((p) => {
         const on = period === p.key
         return (
@@ -62,8 +43,9 @@ function PeriodSegmentsMobile({ period, onChoose }: { period: Period; onChoose: 
             type="button"
             role="tab"
             aria-selected={on}
+            title={p.label}
             onClick={() => onChoose(p.key)}
-            className={`h-9 min-w-0 flex-1 touch-manipulation rounded-[8px] text-[13px] font-semibold transition-[background-color,color,box-shadow] duration-200 ${on ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.08)]" : "text-[#6b7280]"}`}
+            className={`h-7 min-w-[44px] touch-manipulation rounded-[7px] px-2.5 text-[12.5px] font-semibold outline-none transition-[background-color,color,box-shadow] duration-200 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 ${on ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.1)]" : "text-[#6b7280] hover:text-[#1a1a2e]"}`}
           >
             {p.short}
           </button>
@@ -144,47 +126,31 @@ export function Leaderboard({
   }, [read])
   useCommunityPullListener(COMMUNITY_LEADERBOARD_REFRESH_SCOPE, pullRefresh)
   const myLevel = levels.find((l) => l.level === me.level)
+  const nextLevel = levels.find((l) => l.level === me.level + 1) ?? null
   const myRow = me.userId ? rows.find((r) => r.userId === me.userId) : null
   return (
     <div className="flex flex-col" data-leaderboard="">
       <PageTitle title="Leaderboard" detail="Points come from likes on your posts and comments.">
-        <div className="hidden sm:block">
-          <PeriodSelectDesktop period={period} onChoose={choose} />
-        </div>
+        <PeriodSwitch period={period} onChoose={choose} />
       </PageTitle>
-      <div className="mb-3 sm:hidden">
-        <PeriodSegmentsMobile period={period} onChoose={choose} />
-      </div>
-      <section className={`${CARD} mb-4 px-4 py-3.5 sm:px-5`} data-leaderboard-you="">
-        <div className="flex items-baseline justify-between gap-3">
-          <p className="min-w-0 truncate text-[15px] font-semibold text-[#1a1a2e]">
-            <span className="mr-2 text-[12.5px] font-medium text-[#8a8f98]">You</span>
+      {/* Where you stand, in one line: your level, your points in this period, and the level after yours (round 15). */}
+      <section className={`${CARD} mb-3 flex items-center gap-3 px-4 py-3 sm:px-5`} data-leaderboard-you="">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1a1a2e] text-[14px] font-semibold tabular-nums text-white" aria-hidden>
+          {me.level}
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[14.5px] font-semibold text-[#1a1a2e]">
             Level {me.level}
             {myLevel ? ` · ${myLevel.name}` : ""}
           </p>
-          <p className="shrink-0 text-[14px] font-semibold tabular-nums text-[#1a1a2e]">
-            {myRow ? myRow.points : me.points}
-            <span className="ml-1 text-[12px] font-medium text-[#8a8f98]">{myRow ? `pts in ${periodLabel(period).toLowerCase()}` : "pts total"}</span>
+          <p className="truncate text-[12.5px] text-[#6b7280]" data-leaderboard-next="">
+            {nextLevel ? `Next: ${nextLevel.name}` : levels.length ? "The top level" : "Your level"}
           </p>
         </div>
-        {levels.length ? (
-          <ol className="mt-3 flex flex-wrap gap-1.5" aria-label="Levels" data-leaderboard-levels="">
-            {levels.map((l) => {
-              const mine = l.level === me.level
-              const passed = l.level < me.level
-              return (
-                <li
-                  key={l.level}
-                  aria-current={mine ? "step" : undefined}
-                  className={`inline-flex h-7 items-center gap-1.5 rounded-full px-2.5 text-[12.5px] ${mine ? "bg-[#1a1a2e] font-semibold text-white" : passed ? "bg-[#f1f2f4] text-[#4b5563]" : "border border-[#e5e7eb] text-[#8a8f98]"}`}
-                >
-                  <span className="tabular-nums">{l.level}</span>
-                  <span>{l.name}</span>
-                </li>
-              )
-            })}
-          </ol>
-        ) : null}
+        <p className="shrink-0 text-right text-[15px] font-semibold tabular-nums text-[#1a1a2e]">
+          {myRow ? myRow.points : me.points}
+          <span className="block text-[11.5px] font-medium text-[#8a8f98]">{myRow ? periodLabel(period).toLowerCase() : "points in all"}</span>
+        </p>
       </section>
       <ol className={`${CARD} divide-y divide-[#f0f1f3] overflow-hidden transition-opacity duration-200 ${loading ? "opacity-60" : ""}`} data-leaderboard-list="" aria-busy={loading}>
         {rows.map((r) => (

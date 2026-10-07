@@ -296,7 +296,7 @@ export function CommunitySalesPage({ data }: { data: SalesPageData }) {
           300px, 24px apart, so About lines up with every other page of the community.
         */}
         <div className="w-full pb-10 lg:pb-20" data-community-sales-columns="">
-          <div className="xl:grid xl:grid-cols-[minmax(0,1fr)_300px] xl:gap-6">
+          <div className="xl:mx-auto xl:grid xl:max-w-[1120px] xl:grid-cols-[minmax(0,1fr)_320px] xl:gap-7">
             <main className="min-w-0">
               <article className="overflow-hidden border-b border-[#e5e7eb]/70 bg-white sm:rounded-2xl sm:border sm:shadow-[0_1px_3px_rgba(0,0,0,0.04)]" data-community-sheet="">
                 <header className={cn(PAD, "pt-6 sm:pt-8")}>
