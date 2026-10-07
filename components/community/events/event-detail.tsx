@@ -216,8 +216,9 @@ export function EventDetail({ event: initial, eventsHref, aboutHref }: EventDeta
       </div>
       {shareNote ? <p className="mb-3 text-[13px] text-[#4b5563]" data-event-share-note="">{shareNote}</p> : null}
 
-      <div className="flex flex-col gap-6" data-event-layout="stack">
-        <div className="min-w-0">
+      {/* A phone: one column. From 1024px the event on the left and what to do on the right, staying in view (round 15). */}
+      <div className="flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start lg:gap-x-8 lg:gap-y-7" data-event-layout="stack">
+        <div className="min-w-0 lg:col-start-1 lg:row-start-1">
           {event.replayVideoId ? (
             <div className="-mx-4 mb-5 sm:mx-0" data-event-replay>
               <StorelibVideo communityId={event.communityId} videoId={event.replayVideoId} poster={event.coverUrl} title={`${event.title} replay`} eager />
@@ -227,7 +228,7 @@ export function EventDetail({ event: initial, eventsHref, aboutHref }: EventDeta
             <img
               src={event.coverUrl}
               alt=""
-              className="mb-5 aspect-[16/9] w-full max-w-[640px] rounded-2xl border border-[#e4e7ec]/80 object-cover"
+              className="mb-5 aspect-[16/9] w-full max-w-[640px] rounded-2xl border border-[#e4e7ec]/80 object-cover lg:max-w-none"
               data-event-cover
             />
           ) : null}
@@ -237,7 +238,7 @@ export function EventDetail({ event: initial, eventsHref, aboutHref }: EventDeta
             {live ? <span className="font-semibold text-[#b42318]">Live now</span> : null}
             {event.cancelled ? <span className="font-semibold text-[#b42318]">Cancelled</span> : over ? <span>Ended</span> : null}
           </p>
-          <h1 className={`mt-1 text-[22px] font-bold leading-tight tracking-[-0.01em] sm:text-[26px] lg:text-[24px] ${event.cancelled ? "text-[#6b7280]" : "text-[#1a1a2e]"}`}>{event.title}</h1>
+          <h1 className={`mt-1 text-[22px] font-bold leading-tight tracking-[-0.01em] sm:text-[26px] lg:text-[28px] ${event.cancelled ? "text-[#6b7280]" : "text-[#1a1a2e]"}`}>{event.title}</h1>
 
           <ul className="mt-4 space-y-3" data-event-facts>
             <li className="flex gap-3">
@@ -282,7 +283,7 @@ export function EventDetail({ event: initial, eventsHref, aboutHref }: EventDeta
         </div>
 
         {/* What to do: beside the event on a computer, under its facts on a phone. */}
-        <aside className={`${CARD} p-4 sm:p-5 lg:p-4`} data-event-actions aria-label="Your answer">
+        <aside className={`${CARD} p-4 sm:p-5 lg:sticky lg:top-[calc(var(--community-top,65px)+24px)] lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:p-5`} data-event-actions aria-label="Your answer">
           {event.cancelled ? (
             <div>
               <p className="text-[15px] font-semibold text-[#1a1a2e]">This event was cancelled.</p>
@@ -439,7 +440,7 @@ export function EventDetail({ event: initial, eventsHref, aboutHref }: EventDeta
         </aside>
 
         {event.description ? (
-          <div className="min-w-0" data-event-description>
+          <div className="min-w-0 lg:col-start-1 lg:row-start-2" data-event-description>
             <h2 className="mb-2 text-[15px] font-semibold text-[#1a1a2e]">About this event</h2>
             {/* With no ticket the server sends plain teaser words, not html. */}
             {event.gate.open ? (
