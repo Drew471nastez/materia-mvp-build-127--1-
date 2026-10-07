@@ -44,6 +44,10 @@ type Play =
 const BTN = "inline-flex h-10 items-center justify-center gap-1.5 rounded-lg px-3.5 text-[14px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8b5cf6]/50"
 const PRIMARY = `${BTN} bg-[#8b5cf6] text-white hover:bg-[#7c3aed]`
 const QUIET = `${BTN} border border-[#e5e7eb] bg-white text-[#1a1a2e] hover:bg-[#f8f9fa]`
+/* In a community the action is the community's ink, and Completed is the quiet face with the check filled. */
+const INK_BOX = "inline-flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-[14px] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/25"
+const INK = `${INK_BOX} bg-[#1a1a2e] text-white transition-[background-color,color,box-shadow] duration-200 hover:bg-[#2a2a40] active:bg-[#0f0f1c] touch-manipulation`
+const INK_DONE = `${INK_BOX} border border-[#e5e7eb] bg-white text-[#1a1a2e] transition-[background-color,color,box-shadow] duration-200 hover:bg-[#f8f9fa] active:bg-[#f1f2f4] touch-manipulation`
 
 async function fetchPlay(lessonId: string): Promise<Play> {
   try {
@@ -210,7 +214,7 @@ export function CoursePlayer({
   const panel = "overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
   const notesWrap = embedded ? "mt-5 border-t border-[#f0f1f3] pt-5" : "mt-6 rounded-2xl border border-[#e5e7eb]/60 bg-white px-4 py-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:px-5 sm:py-5"
   const grid = embedded
-    ? "xl:grid xl:grid-cols-[minmax(0,1fr)_232px] xl:items-start xl:gap-8"
+    ? "lg:grid lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start lg:gap-6 xl:grid-cols-[minmax(0,1fr)_340px] xl:gap-8"
     : "lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start lg:gap-6"
   const shell = embedded ? "w-full min-w-0" : ""
 
@@ -240,16 +244,24 @@ export function CoursePlayer({
         </div>
         {keeps ? (
           embedded ? (
-            <p className="mt-1 shrink-0 text-[13px] font-medium tabular-nums text-[#6b7280]" data-progress-label="">
-              {summary.percent >= 100 ? (
-                <span className="inline-flex items-center gap-1.5 text-[#1a1a2e]">
-                  <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
-                  Completed
-                </span>
-              ) : (
-                `${summary.completed} of ${summary.total}`
-              )}
-            </p>
+            <div className="mt-1 w-[104px] shrink-0 sm:w-[160px]" data-progress-label="">
+              <p className="flex items-center justify-end gap-1.5 text-[12.5px] font-medium tabular-nums text-[#6b7280]">
+                {summary.percent >= 100 ? (
+                  <>
+                    <Check className="h-3.5 w-3.5 text-[#1a1a2e]" strokeWidth={2.5} />
+                    <span className="text-[#1a1a2e]">Completed</span>
+                  </>
+                ) : (
+                  `${summary.completed} of ${summary.total} done`
+                )}
+              </p>
+              <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-[#eceef1]" data-progress-bar="">
+                <div
+                  className="h-full origin-left rounded-full bg-[#1a1a2e] motion-safe:transition-[scale] motion-safe:duration-[600ms] motion-safe:ease-[cubic-bezier(0.22,1,0.36,1)]"
+                  style={{ scale: `${Math.max(0, Math.min(100, summary.percent)) / 100} 1` }}
+                />
+              </div>
+            </div>
           ) : (
             <ProgressRing percent={summary.percent} />
           )
@@ -302,9 +314,15 @@ export function CoursePlayer({
                     data-mark-complete
                     aria-pressed={done}
                     onClick={() => setComplete(lesson.id, !done)}
-                    className={`${done ? `${BTN} border border-[#8b5cf6]/30 bg-[#f5f3ff] text-[#6d28d9] hover:bg-[#ede9fe]` : PRIMARY} max-sm:flex-1`}
+                    className={`${embedded ? (done ? INK_DONE : INK) : done ? `${BTN} border border-[#8b5cf6]/30 bg-[#f5f3ff] text-[#6d28d9] hover:bg-[#ede9fe]` : PRIMARY} max-sm:flex-1`}
                   >
-                    <Check className="h-4 w-4" />
+                    {embedded ? (
+                      <span className={`flex h-[18px] w-[18px] items-center justify-center rounded-full transition-colors duration-200 ${done ? "bg-[#1a1a2e] text-white" : "border-[1.5px] border-white/70"}`}>
+                        <Check className={`h-3 w-3 transition-[opacity,scale] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] ${done ? "scale-100 opacity-100" : "scale-50 opacity-0"}`} strokeWidth={3} />
+                      </span>
+                    ) : (
+                      <Check className="h-4 w-4" />
+                    )}
                     {done ? "Completed" : "Mark as complete"}
                   </button>
                 ) : null}
@@ -324,7 +342,7 @@ export function CoursePlayer({
                 type="button"
                 onClick={() => setSheet(true)}
                 data-open-lessons
-                className={`mt-3 flex h-12 w-full items-center gap-3 rounded-lg border border-[#e5e7eb] bg-white px-3.5 text-left transition-[background-color,box-shadow,transform] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:bg-[#f8f9fa] hover:shadow-[0_2px_8px_-4px_rgba(16,24,40,0.12)] active:translate-y-0 motion-reduce:transition-none xl:hidden ${embedded ? "" : "lg:hidden"} ${lessons.length < 2 ? "hidden" : ""}`}
+                className={`mt-3 flex h-12 w-full items-center gap-3 rounded-xl border border-[#e5e7eb] bg-white px-3.5 text-left transition-colors duration-200 hover:bg-[#f8f9fa] active:bg-[#f1f2f4] motion-reduce:transition-none lg:hidden ${lessons.length < 2 ? "hidden" : ""}`}
               >
                 <ListVideo className="h-4 w-4 shrink-0 text-[#6b7280]" />
                 <span className="flex-1 text-[14px] font-semibold text-[#1a1a2e]">All lessons</span>
@@ -351,7 +369,7 @@ export function CoursePlayer({
 
         {/* The curriculum: beside the lesson on a computer (community shell uses the wide middle column). */}
         <aside
-          className={`sticky hidden ${embedded ? "top-[calc(var(--community-top,65px)+20px)] xl:block" : "top-4 lg:block"}`}
+          className={`sticky hidden ${embedded ? "top-[calc(var(--community-top,65px)+20px)]" : "top-4"} lg:block`}
           aria-label="Lessons"
         >
           <div className={panel}>

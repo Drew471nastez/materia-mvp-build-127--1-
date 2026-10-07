@@ -53,8 +53,8 @@ export function LearnLibrary({ programs, timeZone, manageHref = null }: { progra
           className={cn(
             "grid gap-3 sm:gap-4",
             programs.length === 1
-              ? "grid-cols-1 max-w-[min(100%,340px)]"
-              : "mx-auto grid-cols-1 max-w-[min(100%,920px)] min-[520px]:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3",
+              ? "grid-cols-1 max-w-[min(100%,300px)]"
+              : "grid-cols-1 max-w-[min(100%,820px)] min-[520px]:grid-cols-2",
           )}
           data-program-grid
         >
@@ -89,12 +89,12 @@ function ProgramTile({ program: p, timeZone }: { program: ProgramCard; timeZone?
       data-locked={lock ? (p.locked?.reason ?? "yes") : "no"}
       className={cn(
         CARD_RAISED,
-        "group/card flex h-full flex-row gap-3 overflow-hidden p-3 transition-[border-color,box-shadow,transform] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-[#d5d9e0] hover:shadow-[0_1px_0_rgba(16,24,40,0.04),0_2px_6px_rgba(16,24,40,0.08),0_12px_28px_-10px_rgba(16,24,40,0.14),inset_0_-1px_0_rgba(16,24,40,0.05)] hover:-translate-y-0.5 motion-reduce:transition-none motion-reduce:hover:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 min-[520px]:flex-col min-[520px]:gap-0 min-[520px]:p-0 active:scale-[0.995] motion-reduce:active:scale-100",
+        "group/card flex h-full flex-row gap-3 overflow-hidden p-3 transition-[border-color,box-shadow] duration-[400ms] ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-[#d5d9e0] hover:shadow-[0_1px_0_rgba(16,24,40,0.04),0_2px_6px_rgba(16,24,40,0.06),0_10px_24px_-12px_rgba(16,24,40,0.14)] motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 min-[520px]:flex-col min-[520px]:gap-0 min-[520px]:p-0 touch-manipulation [-webkit-tap-highlight-color:transparent]",
       )}
     >
       <div className="relative aspect-[16/9] w-[116px] shrink-0 self-start overflow-hidden rounded-lg bg-[#f1f2f4] min-[520px]:w-full min-[520px]:rounded-none">
         {p.coverUrl ? (
-          <Image src={p.coverUrl} alt="" fill sizes="(min-width: 1280px) 320px, (min-width: 520px) 50vw, 116px" className={`object-cover ${lock && !paid ? "saturate-[0.6]" : ""}`} />
+          <Image src={p.coverUrl} alt="" fill sizes="(min-width: 1280px) 400px, (min-width: 520px) 45vw, 116px" className={`object-cover transition-[scale] duration-[700ms] ease-[cubic-bezier(0.22,1,0.36,1)] [will-change:scale] group-hover/card:scale-[1.04] motion-reduce:transition-none motion-reduce:group-hover/card:scale-100 ${lock && !paid ? "saturate-[0.6]" : ""}`} />
         ) : (
           <span className="flex h-full w-full items-center justify-center">
             <PlaceIcon place="classroom" className="h-5 w-5 text-[#b0b4bb] min-[520px]:h-7 min-[520px]:w-7" />
@@ -119,8 +119,8 @@ function ProgramTile({ program: p, timeZone }: { program: ProgramCard; timeZone?
         ) : null}
       </div>
 
-      <div className="flex min-w-0 flex-1 flex-col min-[520px]:px-3.5 min-[520px]:pb-3.5 min-[520px]:pt-3">
-        <h2 className="line-clamp-2 text-[15px] font-semibold leading-5 text-[#1a1a2e]">
+      <div className="flex min-w-0 flex-1 flex-col min-[520px]:px-3 min-[520px]:pb-3 min-[520px]:pt-2.5">
+        <h2 className="line-clamp-2 text-[14.5px] font-semibold leading-5 text-[#1a1a2e]">
           {p.draft ? <span className="mr-1.5 inline-block rounded bg-[#eef0f3] px-1 align-[1px] text-[11px] font-semibold text-[#4b5563] min-[520px]:hidden">Draft</span> : null}
           {p.title}
         </h2>
@@ -141,7 +141,7 @@ function ProgramTile({ program: p, timeZone }: { program: ProgramCard; timeZone?
           ) : (
             <div className="flex items-center gap-2.5" data-progress={p.percent}>
               <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[#eceef1]" role="progressbar" aria-valuenow={p.percent} aria-valuemin={0} aria-valuemax={100} aria-label={`${p.title} progress`}>
-                <div className="h-full rounded-full bg-[#1a1a2e]" style={{ width: `${p.percent}%` }} />
+                <div className="h-full origin-left rounded-full bg-[#1a1a2e]" style={{ scale: `${Math.max(0, Math.min(100, p.percent)) / 100} 1` }} />
               </div>
               <span className="w-9 shrink-0 text-right text-[12px] font-semibold tabular-nums text-[#1a1a2e]">{p.percent}%</span>
             </div>

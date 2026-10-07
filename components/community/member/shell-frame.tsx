@@ -336,6 +336,8 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
   const about = current === "about"
   /** Lesson player: the middle column takes the right column's room (like About), so the video is not squeezed beside the curriculum. */
   const wideCenter = about || isLearnLessonPath(pathname) || isLearnLibraryPath(pathname) || isEventsListPath(pathname) || isEventDetailPath(pathname)
+  /** A lesson is the whole page: no community card or places beside it, the player across every column. */
+  const lessonPage = isLearnLessonPath(pathname)
   const tab = going?.key ?? tabFor(current)
   /* Moved to another place since the visit began: pages that arrive from now on land (ARRIVE). Set in the render that brings the new page. */
   const firstTab = useRef(tabFor(current))
@@ -415,10 +417,10 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
           <div
             data-community-columns="three"
             data-community-place={about ? "about" : isLearnLessonPath(pathname) ? "lesson" : isLearnLibraryPath(pathname) ? "learn" : isEventsListPath(pathname) ? "events" : isEventDetailPath(pathname) ? "event" : undefined}
-            className={`pb-16 pt-4 lg:grid lg:grid-cols-[260px_minmax(0,1fr)] lg:grid-rows-[auto_1fr] lg:items-start lg:gap-x-6 lg:pt-6 ${onLeaderboard ? "xl:grid-cols-[280px_minmax(0,1fr)]" : "xl:grid-cols-[280px_minmax(0,1fr)_300px]"}`}
+            className="pb-16 pt-4 lg:grid lg:grid-cols-[260px_minmax(0,1fr)] lg:grid-rows-[auto_1fr] lg:items-start lg:gap-x-6 lg:pt-6 xl:grid-cols-[280px_minmax(0,1fr)_300px]"
           >
             {/* LEFT: the community card, and the places right under it (round 9). */}
-            <div className={`hidden min-w-0 space-y-3 lg:col-start-1 lg:row-start-1 lg:block ${LAND}`} data-community-left="">
+            <div className={`hidden min-w-0 space-y-3 lg:col-start-1 lg:row-start-1 ${lessonPage ? "" : "lg:block"} ${LAND}`} data-community-left="">
               {wall ? <WallCommunityCard community={community} card={wall.card} membersHref={membersHref} /> : null}
               <WallPlaces entries={entries} />
             </div>
@@ -431,7 +433,7 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
                 </div>
               ) : null}
             </aside>
-            <div className={`min-w-0 lg:row-span-2 lg:row-start-1 ${wideCenter ? "lg:col-start-2 xl:col-span-2" : "lg:col-start-2"} ${LAND_LATE}`} data-community-main="">
+            <div className={`min-w-0 lg:row-span-2 lg:row-start-1 ${lessonPage ? "lg:col-span-full lg:col-start-1" : wideCenter ? "lg:col-start-2 xl:col-span-2" : "lg:col-start-2"} ${LAND_LATE}`} data-community-main="">
               <div className={`${moved ? ARRIVE : ""} ${about ? ABOUT_BOX : ""}`} data-community-body="" data-community-moved={moved ? "" : undefined}>
                 <CommunityPullRefresh slug={community.slug}>{children}</CommunityPullRefresh>
               </div>
