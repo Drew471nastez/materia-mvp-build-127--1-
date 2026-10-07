@@ -549,7 +549,7 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
               ? "fixed inset-x-0 z-[80] border-t border-[#f0f1f3] bg-white px-4 pt-2 shadow-[0_-8px_24px_-16px_rgba(16,24,40,0.18)]"
               : "relative"
             : pinComposer
-              ? "sticky bottom-0 z-[3] -mx-4 border-t border-[#f0f1f3] bg-white px-4 pt-2 shadow-[0_-10px_28px_-18px_rgba(16,24,40,0.14)] sm:mx-0"
+              ? "sticky bottom-0 z-[3] -mx-4 mt-auto border-t border-[#f0f1f3] bg-white px-4 pt-2 shadow-[0_-10px_28px_-18px_rgba(16,24,40,0.14)] sm:mx-0"
               : "relative"
         }
         style={
@@ -560,7 +560,7 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
               }
             : pinComposer
               ? {
-                  paddingBottom: "max(env(safe-area-inset-bottom, 0px), 12px)",
+                  paddingBottom: "max(calc(env(safe-area-inset-bottom, 0px) - var(--kb-inset, 0px)), 10px)",
                 }
               : undefined
         }
@@ -583,7 +583,8 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
     <div
       data-comments-list=""
       data-comments-composer-pin={pinComposer || (dockComposer && dockPhone) ? "" : undefined}
-      className={`${pinComposer ? "max-sm:pb-28" : ""} ${dockComposer && dockPhone ? "max-sm:[padding-bottom:var(--comments-dock-pad)]" : ""}`}
+      /* Pinned in a post's sheet the box sits at the foot of the sheet, under the last comment, with nothing below it (round 15: no band of white under "Write a comment"). */
+      className={`${pinComposer ? "flex min-h-full flex-1 flex-col" : ""} ${dockComposer && dockPhone ? "max-sm:[padding-bottom:var(--comments-dock-pad)]" : ""}`}
       style={dockComposer && dockPhone ? ({ ["--comments-dock-pad" as string]: COMMENT_COMPOSER_DOCK_SCROLL_PAD } as React.CSSProperties) : undefined}
     >
       {composerInColumn ? composer : null}

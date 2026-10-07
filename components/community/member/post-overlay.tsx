@@ -255,7 +255,7 @@ const OverlayContent = memo(function OverlayContent({ drawn, settled, post, slug
       <div className="[&>article]:mx-0 [&>article]:w-auto [&>article]:overflow-visible [&>article]:rounded-none [&>article]:border-0 [&>article]:shadow-none" data-post-overlay-post="">
         {drawn}
       </div>
-      <section id="comments" className="mt-1 border-t border-[#f0f1f3] px-4 pb-6 pt-4 sm:px-5" aria-label="Comments" data-comments="">
+      <section id="comments" className={`mt-1 border-t border-[#f0f1f3] px-4 pt-4 sm:px-5 ${pinComposer ? "flex flex-1 flex-col pb-0" : "pb-6"}`} aria-label="Comments" data-comments="">
         {settled ? (
           <CommentsSection
             post={post}
@@ -307,7 +307,7 @@ function OverlayFrame({ phone, post, open, phase, setPhase, close, onGone, conte
           ref={contentRef}
           data-post-overlay="phone"
           data-post-overlay-phase={phase}
-          className="min-h-0 bg-white"
+          className="flex min-h-full flex-col bg-white"
         >
           {content}
         </div>
