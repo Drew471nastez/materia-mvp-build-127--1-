@@ -47,6 +47,7 @@ import { BusinessFields } from "./parts/business-fields"
 import { EMPTY_CARD, NativeCardFields, nativeCardComplete, type NativeCard } from "./parts/native-card"
 import { PaidOverlay, holdPaidScreen } from "./parts/success"
 import { StripePay, type IntentResult } from "./parts/stripe-pay"
+import { NativeWalletButtons } from "./parts/native-wallets"
 import { RETURN_PARAM, forgetSecret, redirectToAirwallex, takeSecret } from "./parts/airwallex-redirect"
 import { HtmlClass } from "@/components/platform/html-class"
 import { AppAvatar } from "@/components/app/app-avatar"
@@ -1127,6 +1128,22 @@ export default function CheckoutPageClient({
           <h2 id="checkout-payment-app" className="mb-3 text-[16px] font-semibold text-[#1a1a2e]">
             Payment method
           </h2>
+          <NativeWalletButtons
+            busy={busy}
+            disabled={!!paid || settled}
+            onError={setError}
+            onPaid={async (paymentIntentId, clientSecret) => {
+              secretRef.current = clientSecret
+              await finish(paymentIntentId, clientSecret)
+            }}
+            start={async () => {
+              const problem = check("card")
+              if (problem) throw new Error(problem)
+              const res = await postJson<{ url?: string; sessionId?: string }>("/api/checkout/stripe-session", { ...orderBody(), walletSheet: true })
+              if (!res.ok || !res.data.url || !res.data.sessionId) throw new Error(res.data.error || "Apple Pay and Google Pay could not be opened. Nothing was charged.")
+              return { url: res.data.url, sessionId: res.data.sessionId }
+            }}
+          />
           <NativeCardFields value={card} onChange={setCard} />
         </section>
         <div className="mt-7 space-y-4">{beforePay}</div>

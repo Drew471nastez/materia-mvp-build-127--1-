@@ -43,6 +43,7 @@ export function StorelibPaymentsSettings({
   statementDescriptorSlot,
   compact,
   manageRequest = 0,
+  openAs = null,
   panelOnly,
   onPanelShown,
 }: {
@@ -50,6 +51,8 @@ export function StorelibPaymentsSettings({
   compact?: boolean
   /** Raised by the page (Payouts' Update bank, its notices) to open the setup panel from outside. */
   manageRequest?: number
+  /** A notice that Stripe still wants something: open the embedded setup, not the finished-account bank form. */
+  openAs?: "setup" | null
   /** Only the panel, for a page that draws its own dashboard around it. */
   panelOnly?: boolean
   /** The panel is on screen: the button that asked for it can stop waiting. */
@@ -116,16 +119,16 @@ export function StorelibPaymentsSettings({
     place without the panel closing or moving.
   */
   React.useEffect(() => {
-    if (manageRequest > 0) setPanel({ open: true, mode: data ? modeFor(view?.action) : "bank" })
+    if (manageRequest > 0) setPanel({ open: true, mode: openAs === "setup" ? "setup" : data ? modeFor(view?.action) : "bank" })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [manageRequest])
 
-  /* The answer landed while it was open: the mode it really wanted. */
+  /* The answer landed while it was open: the mode it really wanted. A notice that more is due stays in Stripe's setup. */
   React.useEffect(() => {
     if (!data || manageRequest === 0) return
-    setPanel((p) => (p.open ? { ...p, mode: modeFor(view?.action) } : p))
+    setPanel((p) => (p.open ? { ...p, mode: openAs === "setup" ? "setup" : modeFor(view?.action) } : p))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [!!data, manageRequest])
+  }, [!!data, manageRequest, openAs])
 
   React.useEffect(() => {
     if (panel.open) onPanelShown?.()

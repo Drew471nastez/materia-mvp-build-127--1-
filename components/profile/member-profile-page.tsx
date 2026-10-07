@@ -248,6 +248,7 @@ export function MemberProfilePage({ profile, viewerId, viewerFollowing, extras }
         bio={profile.bio}
         location={extras.location ?? null}
         communities={shownCommunities}
+        socials={profile.socials}
         chrome={chrome}
       />
 

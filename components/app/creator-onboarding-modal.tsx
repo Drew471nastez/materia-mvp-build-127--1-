@@ -483,6 +483,12 @@ interface CreatorOnboardingModalProps {
    * name, bio and category typed last time, and the step it was left on.
    */
   resume?: OnboardingResume | null
+  /**
+   * The account they already have, for Name your store: the name in the
+   * field and their handle on username.storelib.com, until they type a
+   * different store name.
+   */
+  seed?: { name?: string | null; username?: string | null } | null
 }
 
 /** What /onboarding/start hands the onboarding: where it ends, and whatever Google or Apple already gave. */
@@ -509,7 +515,7 @@ const JOIN_NOTIFY = 13
 const JOIN_DONE = 14
 const isJoinStep = (step: number) => step === JOIN_NAME || step === JOIN_SOCIAL || step === JOIN_NOTIFY || step === JOIN_DONE
 
-export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switchBack = null, leave = null, resume = null, start = null, preview = false, onPreviewComplete = undefined }: CreatorOnboardingModalProps) {
+export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switchBack = null, leave = null, resume = null, start = null, preview = false, onPreviewComplete = undefined, seed = null }: CreatorOnboardingModalProps) {
   const router = useRouter()
   /*
     FULL SCREEN IN THE APP, AT EVERY WIDTH. Below 640px the onboarding has
@@ -584,7 +590,10 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
   }, [open, currentStep, updateScrollEdges])
 
   // Step 1: Profile
-  const [displayName, setDisplayName] = useState("")
+  const [displayName, setDisplayName] = useState(() => (resume?.displayName || seed?.name || "").trim())
+  /** Their handle on the store address, until they type a different store name. */
+  const slugFollowsName = useRef(!normalizeHandle(seed?.username || ""))
+  const seededSlug = useRef(normalizeHandle(seed?.username || ""))
   const [bio, setBio] = useState("")
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null)
   const [checkingUsername, setCheckingUsername] = useState(false)
@@ -1247,9 +1256,17 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
         chosen: user.user_metadata?.[AVATAR_CHOSEN] === true,
       })
       if (start) setAvatarUrl(start)
-      /* The sign in's name is only a starting point: never over a store name read back from a setup begun before. */
-      if (user?.user_metadata?.full_name && !resume?.displayName) {
-        setDisplayName(user.user_metadata.full_name)
+      /* The sign in's name is only a starting point: never over a store name read back from a setup begun before, or one already filled from their profile. */
+      const { data: named } = await supabase.from("profiles").select("display_name, username").eq("id", user.id).maybeSingle()
+      const profileName = ((named as { display_name?: string | null } | null)?.display_name || "").trim()
+      const profileHandle = normalizeHandle((named as { username?: string | null } | null)?.username || "")
+      const fromAccount = profileName || (user.user_metadata?.full_name as string | undefined) || (user.user_metadata?.name as string | undefined) || ""
+      if (fromAccount && !resume?.displayName) {
+        setDisplayName((cur) => cur.trim() || fromAccount.trim())
+      }
+      if (profileHandle && !seededSlug.current) {
+        seededSlug.current = profileHandle
+        slugFollowsName.current = false
       }
     }
     if (open) {
@@ -1259,7 +1276,9 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
 
   // Check username availability
   useEffect(() => {
-    const slug = displayName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
+    const slug = !slugFollowsName.current && seededSlug.current
+      ? seededSlug.current
+      : displayName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
     if (!slug) {
       setUsernameAvailable(null)
       return
@@ -1289,6 +1308,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
 
   // Get slug from display name
   const getSlug = () => {
+    if (!slugFollowsName.current && seededSlug.current) return seededSlug.current
     return displayName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")
   }
 
@@ -2281,7 +2301,10 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                   <input
                     type="text"
                     value={displayName}
-                    onChange={(e) => setDisplayName(e.target.value)}
+                    onChange={(e) => {
+                      slugFollowsName.current = true
+                      setDisplayName(e.target.value)
+                    }}
                     onFocus={() => setUsernameFocused(true)}
                     onBlur={() => setUsernameFocused(false)}
                     placeholder="Your store name"

@@ -45,6 +45,7 @@ import { CookieConsentBanner } from "@/components/cookie-consent-banner"
 import { NativeCookieKillSwitch } from "@/components/native-cookie-killswitch"
 import { SWRProvider } from "@/lib/swr-config"
 import { PrefetchLinks } from "@/components/shared/prefetch-links"
+import { WarmBehind } from "@/components/navigation/warm-behind"
 import NativeOAuthBridge from "@/app/NativeOAuthBridge"
 import { CapacitorBounceGuard } from "@/components/platform/capacitor-bounce-guard"
 import { ElasticOverscroll } from "@/components/ui/elastic-overscroll"
@@ -262,6 +263,7 @@ export default function RootLayout({
             sixty cards must not mount sixty subpages to serve one tap. They all
             open this. It renders nothing until one of them does. */}
         <PrefetchLinks />
+        <WarmBehind />
         <BodyScrollRestorer />
         {/* One publisher of the visible viewport, at the root, so a route's
             loading skeleton and the screen that replaces it are sized from the

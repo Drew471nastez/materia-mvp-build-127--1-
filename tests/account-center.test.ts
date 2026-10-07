@@ -109,9 +109,9 @@ console.log("\nThe cover, Edit profile, and the person under them (round 5)")
   check("no Joined line under the name", !/Joined/.test(hero) && !/memberSince/.test(hero))
   check("a lighter ring on the photo: 2px, a softer shadow", /ring-2 ring-\[#f8f9fa\]/.test(hero) && !/ring-4/.test(hero))
   /* Round 13: the same button, on a sticky row so it never slides under the bar, and "Edit" under sm so it clears the centred photo at 320px (tests/profile-page-s.test.ts). */
-  check("Edit profile is a Storelib button on the cover, to /account/settings", EDIT_PROFILE_HREF === "/account/settings" && /<Link\s+href=\{EDIT_PROFILE_HREF\}[\s\S]{0,200}className=\{cn\(secondaryDepth, "pointer-events-auto h-10 rounded-\[10px\] px-4 text-\[14px\]"\)\}\s*>[\s\S]{0,200}Edit profile/.test(hero))
-  /* Round 8, changed on purpose: "Remove the camera icon button next to Edit profile on the profile cover." The cover is changed in Settings, which Edit profile opens. */
-  check("  and nothing beside it: no camera button for the cover", !/<Camera|COVER_SETTINGS_HREF|data-profile-cover-edit|iconDepth/.test(hero) && cover.indexOf("EDIT_PROFILE_HREF") > 0)
+  check("Edit profile is a Storelib button on the cover, opening over the page", EDIT_PROFILE_HREF === "/account/settings" && /<EditProfileDoor/.test(hero) && /data-profile-edit=""/.test(code("components/account/edit-profile-door.tsx")) && /data-edit-profile-sheet=""/.test(code("components/account/edit-profile-door.tsx")) && /Edit profile/.test(code("components/account/edit-profile-door.tsx")))
+  /* Round 8, changed on purpose: "Remove the camera icon button next to Edit profile on the profile cover." */
+  check("  and nothing beside it: no camera button for the cover", !/<Camera|COVER_SETTINGS_HREF|data-profile-cover-edit|iconDepth/.test(hero) && cover.indexOf("EditProfileDoor") > 0)
   check("  only on your own page", /\{isSelf \? \([\s\S]{0,400}data-profile-cover-actions="">/.test(hero) && !/absolute inset-x-0 top-3 sm:bottom-4 sm:top-auto/.test(hero))
 }
 

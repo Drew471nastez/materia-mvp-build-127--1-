@@ -2654,7 +2654,7 @@ function PayoutMethodCard({
   available,
   pending,
 }: {
-  onManage: () => void;
+  onManage: (mode?: "setup") => void;
   /** The account panel was asked for and is not on screen yet. */
   opening: boolean;
   onDisconnected: () => void;
@@ -2689,8 +2689,6 @@ function PayoutMethodCard({
     };
   }, [loadData]);
 
-  const openManageSettings = onManage;
-
   const bank = data?.bankAccount;
   const needsBank = data && !bank;
   // Requirements straight from Stripe: a notice only when something is actually due
@@ -2704,19 +2702,25 @@ function PayoutMethodCard({
   ];
   const friendlyReqs = allRequirements.length > 0 ? friendlyRequirements(allRequirements) : [];
 
-  /* The one thing Stripe wants first, in the order the old banners stood. */
-  const notice: { title: string; body?: string; action: string } | null = loading
+  /*
+    Stripe asked for something after setup, or before payouts can start. One
+    short line, including while payouts are still on: the email says the same
+    thing once, and Continue opens Stripe's setup for whatever is left.
+  */
+  const moreDue = !!data?.detailsSubmitted && friendlyReqs.length > 0
+  const notice: { title: string; body?: string; action: string; setup?: boolean } | null = loading
     ? null
-    : hasVerificationNeeded && friendlyReqs.length > 0
+    : moreDue
       ? {
-          title: hasPastDueRequirements ? "More information is needed to keep payouts on" : "More information is needed before payouts start",
-          body: `${friendlyReqs.slice(0, 3).join(", ")}${friendlyReqs.length > 3 ? `, and ${friendlyReqs.length - 3} more` : ""}`,
-          action: "Complete verification",
+          title: !data?.payoutsEnabled || hasPastDueRequirements ? "More information is needed for payouts" : "Stripe needs a little more",
+          body: friendlyReqs.slice(0, 2).join(" · ") + (friendlyReqs.length > 2 ? ` · +${friendlyReqs.length - 2}` : ""),
+          action: "Continue",
+          setup: true,
         }
       : needsOnboarding && !needsBank
-        ? { title: "Finish your account setup to receive payouts", action: "Finish setup" }
+        ? { title: "Finish your account setup to receive payouts", action: "Continue", setup: true }
         : hasVerificationNeeded
-          ? { title: "Complete verification to receive payouts", action: "Finish setup" }
+          ? { title: "Complete verification to receive payouts", action: "Continue", setup: true }
           : null;
 
   const meta = bank
@@ -2730,24 +2734,20 @@ function PayoutMethodCard({
   return (
     <section aria-label="Payout account" data-payout-account="" className={cn(card, "overflow-hidden")}>
       {notice ? (
-        <div className="flex flex-col gap-3 border-b border-[#f3e3b3] bg-[#fffaeb] px-4 py-3 sm:flex-row sm:items-center">
-          <div className="flex min-w-0 flex-1 items-start gap-2.5">
-            <span aria-hidden className="mt-[7px] h-[7px] w-[7px] shrink-0 rounded-full bg-[#d9a400]" />
-            <div className="min-w-0">
-              <p className="text-[13px] font-medium leading-5 text-[#1a1a2e]">{notice.title}</p>
-              {notice.body ? <p className="mt-0.5 text-[13px] leading-5 text-[#4b5563]">{notice.body}</p> : null}
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={openManageSettings}
-            disabled={opening}
-            className={cn(secondaryDepth, "h-11 w-full gap-1.5 rounded-xl px-4 text-[14px] sm:h-8 sm:w-auto sm:rounded-lg sm:px-3 sm:text-[13px]")}
-          >
-            {opening ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-            {notice.action}
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => onManage(notice.setup ? "setup" : undefined)}
+          disabled={opening}
+          data-payout-notice=""
+          className="flex w-full items-center gap-2 border-b border-[#f3e3b3] bg-[#fffaeb] px-4 py-2 text-left [-webkit-tap-highlight-color:transparent]"
+        >
+          <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#d9a400]" />
+          <span className="min-w-0 flex-1 truncate text-[12px] leading-5 text-[#1a1a2e]">
+            <span className="font-medium">{notice.title}</span>
+            {notice.body ? <span className="text-[#4b5563]"> · {notice.body}</span> : null}
+          </span>
+          <span className="shrink-0 text-[12px] font-semibold text-[#1a1a2e]">{opening ? "Opening" : notice.action}</span>
+        </button>
       ) : null}
 
       <div className="flex flex-col gap-3 px-4 py-3.5 sm:flex-row sm:items-center">
@@ -2780,7 +2780,7 @@ function PayoutMethodCard({
         {/* The press says so at once: the panel it opens has to be fetched first. */}
         <button
           type="button"
-          onClick={openManageSettings}
+          onClick={() => onManage()}
           disabled={loading || opening}
           aria-busy={opening || undefined}
           className={cn(secondaryDepth, "h-11 gap-1.5 rounded-xl px-4 text-[14px] sm:h-8 sm:rounded-lg sm:px-3 sm:text-[13px]")}
@@ -3162,9 +3162,12 @@ export function PayoutsClient({
   const [refreshKey, setRefreshKey] = useState(0);
   /* Raised by a notice or Update bank: opens the Storelib Payments card's account form on this page. */
   const [manageRequest, setManageRequest] = useState(0);
+  /* A notice opens Stripe's setup for what is still due. Update bank does not. */
+  const [openAs, setOpenAs] = useState<"setup" | null>(null);
   /* The press is waiting for the panel to appear: the button it came from says so. */
   const [opening, setOpening] = useState(false);
-  const openAccountPanel = useCallback(() => {
+  const openAccountPanel = useCallback((mode?: "setup") => {
+    setOpenAs(mode ?? null);
     setOpening(true);
     setManageRequest((n) => n + 1);
   }, []);
@@ -3597,7 +3600,7 @@ export function PayoutsClient({
       {actionsInBar}
 
       {/* Update bank and the notices open the setup panel over the dashboard: no second card. */}
-      {manageRequest > 0 ? <StorelibPaymentsInline panelOnly manageRequest={manageRequest} onPanelShown={() => setOpening(false)} /> : null}
+      {manageRequest > 0 ? <StorelibPaymentsInline panelOnly manageRequest={manageRequest} openAs={openAs} onPanelShown={() => setOpening(false)} /> : null}
 
       {notice}
 

@@ -55,16 +55,14 @@
  * component already (the lightbox, the counts and Follow).
  */
 import { personName } from "@/lib/profile/display-name"
-import Link from "next/link"
 import type { ReactNode } from "react"
+import { EditProfileDoor } from "@/components/account/edit-profile-door"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { AvatarLightbox } from "@/components/storefront/avatar-lightbox"
-import { secondaryDepth } from "@/components/ui/depth-button"
 import { ACCOUNT_GUTTER_LEFT, ACCOUNT_GUTTER_RIGHT } from "@/lib/account/account-tabs"
 import { optimizedImageUrl } from "@/lib/images/optimized-url"
 import { coverCropStyle } from "@/lib/images/cover-crop"
 import { parseProfileCover } from "@/lib/profile/cover"
-import { EDIT_PROFILE_HREF } from "@/lib/profile/owner-pills"
 import { cn } from "@/lib/utils"
 import { ProfileChromeVar, PROFILE_CHROME_VAR } from "./profile-chrome-var"
 import { ProfileCoverImage } from "./profile-cover-image"
@@ -125,11 +123,14 @@ export function ProfileHero({
   isSelf,
   avatar,
   className,
+  usernameEditable = true,
 }: {
   person: ProfileHeroPerson
   viewerFollowing?: boolean
   signedIn: boolean
   isSelf: boolean
+  /** A store's handle is also its address, so it is not changed from here. */
+  usernameEditable?: boolean
   /** The photo, when the caller draws its own (the account keeps its live copy of a just changed photo). */
   avatar?: ReactNode
   className?: string
@@ -168,25 +169,13 @@ export function ProfileHero({
             <div className="pointer-events-none absolute inset-x-0 bottom-1 top-3" data-profile-cover-actions="">
               <div className="sticky" style={{ top: EDIT_PIN_TOP }} data-profile-edit-pin="">
                 <div className={cn(COLUMN, "flex items-center justify-end gap-2")} style={GUTTERS}>
-                  <Link
-                    href={EDIT_PROFILE_HREF}
-                    prefetch={false}
-                    aria-label="Edit profile"
-                    data-profile-edit=""
-                    className={cn(secondaryDepth, "pointer-events-auto h-10 rounded-[10px] px-4 text-[14px]")}
-                  >
-                    {/*
-                      "Edit profile" everywhere it fits, which is every phone
-                      from 390px up. Narrower than that the centred 125px
-                      photo and a 106px button cannot both clear the gutters
-                      for the whole of the pinned travel: the collision is at
-                      viewport < 369px + margin, so 390 is the first common
-                      width with room to spare (about 10px at 390, 30 at 430).
-                      The accessible name is "Edit profile" at every width.
-                    */}
-                    <span className="min-[390px]:hidden">Edit</span>
-                    <span className="hidden min-[390px]:inline">Edit profile</span>
-                  </Link>
+                  <EditProfileDoor
+                    userId={person.userId}
+                    name={person.name}
+                    username={person.username}
+                    bio={person.bio}
+                    usernameEditable={usernameEditable}
+                  />
                 </div>
               </div>
             </div>

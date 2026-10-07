@@ -33,6 +33,8 @@
  */
 import type { StorefrontChrome } from "@/lib/store-builder/storefront-chrome"
 import { personFacts } from "@/lib/profile/person-facts"
+import { JoinSocialBrandIcon } from "@/components/onboarding/join-social-brands"
+import type { ProfileSocialLink } from "@/lib/profile/social-links"
 
 function Fact({ label, value, ink }: { label: string; value: string; ink: string }) {
   return (
@@ -53,6 +55,7 @@ export function PersonAbout({
   bio = null,
   location = null,
   communities,
+  socials = [],
   chrome,
   inset = true,
 }: {
@@ -64,6 +67,8 @@ export function PersonAbout({
   location?: string | null
   /** How many communities they are in, null when they keep that private (or communities are off). */
   communities: number | null
+  /** Handles from Create a profile, the same marks as that step. */
+  socials?: ProfileSocialLink[]
   chrome: Pick<StorefrontChrome, "text">
   /**
    * Whether the block brings the creator page's own column with it. False
@@ -91,6 +96,23 @@ export function PersonAbout({
                 <div className="flex flex-wrap gap-x-8 gap-y-5">
                   {facts.map((f) => (
                     <Fact key={f.label} label={f.label} value={f.value} ink={ink} />
+                  ))}
+                </div>
+              ) : null}
+              {socials.length ? (
+                <div className="mt-6 flex flex-wrap gap-2" data-person-socials="">
+                  {socials.map((s) => (
+                    <a
+                      key={s.id}
+                      href={s.href}
+                      target="_blank"
+                      rel="noreferrer"
+                      aria-label={s.label}
+                      className="grid h-10 w-10 place-items-center rounded-full bg-[#f4f4f5] shadow-[inset_0_1px_0_rgba(255,255,255,0.65),inset_0_0_0_1px_rgba(17,24,39,0.07),0_1px_3px_rgba(17,24,39,0.07)]"
+                      style={{ color: ink }}
+                    >
+                      <JoinSocialBrandIcon id={s.id} className="h-[18px] w-[18px]" />
+                    </a>
                   ))}
                 </div>
               ) : null}

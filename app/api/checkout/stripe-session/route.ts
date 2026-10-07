@@ -258,6 +258,40 @@ export async function POST(request: Request) {
   }
 
   try {
+    /*
+      THE APP'S APPLE PAY AND GOOGLE PAY. The Capacitor webview cannot show
+      those wallets itself (Stripe's controller frame would navigate the app
+      away). A Checkout Session on Stripe's own page can, inside the in-app
+      browser. The PaymentIntent it creates carries the same metadata as the
+      card path, so the same webhook makes the order.
+    */
+    if (body.walletSheet === true) {
+      const originHost = new URL(request.url).origin
+      const session = await stripe.checkout.sessions.create({
+        mode: "payment",
+        customer_email: email,
+        success_url: `${originHost}/pay/wallet-return?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${originHost}/pay/wallet-return?canceled=1`,
+        line_items: [
+          {
+            quantity: 1,
+            price_data: {
+              currency: chargeCurrency,
+              unit_amount: totals.totalCents,
+              product_data: { name: String(product.title || "Storelib").slice(0, 120) },
+            },
+          },
+        ],
+        payment_intent_data: {
+          application_fee_amount: fee.platformFeeCents,
+          transfer_data: { destination: account },
+          metadata,
+          ...(params.statement_descriptor_suffix ? { statement_descriptor_suffix: params.statement_descriptor_suffix } : {}),
+        },
+      })
+      return NextResponse.json({ url: session.url, sessionId: session.id })
+    }
+
     let intent: Stripe.PaymentIntent
     try {
       intent = await stripe.paymentIntents.create(params)

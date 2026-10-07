@@ -26,6 +26,7 @@ import { communitiesEnabled } from "@/lib/communities/flag"
 import { locationLine, readProfileLocation } from "@/lib/profile/location"
 import { profileCommunities } from "@/lib/profile/profile-communities"
 import { PersonAbout } from "@/components/profile/person-about"
+import { profileSocialLinks } from "@/lib/profile/social-links"
 
 /** The account's own ink, not a storefront scheme's: the profile centre is a Storelib page. */
 const ACCOUNT_INK = "#1a1a2e"
@@ -41,12 +42,28 @@ async function readBio(userId: string): Promise<string | null> {
   }
 }
 
+async function readSocials(userId: string) {
+  try {
+    const db = createAdminClient()
+    const { data, error } = await db
+      .from("profiles")
+      .select("instagram_url, tiktok_url, youtube_url, twitter_url, linkedin_url, bluesky_url")
+      .eq("id", userId)
+      .maybeSingle()
+    if (error || !data) return []
+    return profileSocialLinks(data as Record<string, unknown>)
+  } catch {
+    return []
+  }
+}
+
 export async function AccountAbout({ userId, name, joinedAt }: { userId: string; name: string; joinedAt: string | null }) {
   const db = createAdminClient()
-  const [place, bio, communitiesOn] = await Promise.all([
+  const [place, bio, communitiesOn, socials] = await Promise.all([
     readProfileLocation(db, userId).catch(() => null),
     readBio(userId),
     communitiesEnabled().catch(() => false),
+    readSocials(userId),
   ])
   /* The count the page shows is the count the page lists: the ones they run and the ones they are in. */
   const lists = communitiesOn
@@ -59,6 +76,7 @@ export async function AccountAbout({ userId, name, joinedAt }: { userId: string;
       bio={bio}
       location={locationLine(place)}
       communities={lists ? lists.owned.length + lists.member.length : null}
+      socials={socials}
       chrome={{ text: ACCOUNT_INK }}
       inset={false}
     />

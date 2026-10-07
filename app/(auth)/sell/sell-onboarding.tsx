@@ -23,6 +23,7 @@ export function SellOnboarding({
   resumePlan,
   firstBusiness,
   resume = null,
+  seed = null,
 }: {
   /** Where the way out goes: the page they came from, else Discover. */
   leaveHref: string
@@ -32,6 +33,8 @@ export function SellOnboarding({
   firstBusiness: SwitchedTo | null
   /** A setup begun and not finished: what was typed, and the step to open on (lib/account/onboarding-resume). */
   resume?: OnboardingResume | null
+  /** Their current name and handle, so Name your store does not open blank. */
+  seed?: { name: string; username: string | null } | null
 }) {
   /* Opened after the first paint, so the dialog's own fade runs from the spinner rather than popping in with the HTML. */
   const [open, setOpen] = useState(false)
@@ -68,6 +71,7 @@ export function SellOnboarding({
         resume={resumePlan ? null : resume}
         switchBack={switchBack}
         leave={{ label: "Not now", href: leaveHref }}
+        seed={seed}
       />
     </>
   )

@@ -8,6 +8,7 @@ import { withPriceIntervals } from "@/lib/memberships/intervals"
 import { followCounts } from "@/lib/profile/follows"
 import { excludingCommunityProducts } from "@/lib/communities/listing"
 import { readPrivacy, type ProfilePrivacy } from "@/lib/profile/privacy"
+import { profileSocialLinks, type ProfileSocialLink } from "@/lib/profile/social-links"
 
 export type MemberPublicReview = {
   id: string
@@ -49,6 +50,7 @@ export type MemberProfileData = {
   productCount: number
   reviews: MemberPublicReview[]
   privacy: ProfilePrivacy
+  socials: ProfileSocialLink[]
 }
 
 const memberSince = (createdAt: string | undefined) => {
@@ -134,13 +136,25 @@ export const loadMemberProfile = cache(async (username: string): Promise<MemberP
   const creator = await loadCreatorForUser(profile.id)
   const storefront = hasActiveStorefront(creator) && creator?.id
   const admin = createAdminClient()
-  const [counts, reviews, catalog, privacy, cover] = await Promise.all([
+  const [counts, reviews, catalog, privacy, cover, socialRow] = await Promise.all([
     /* The follow graph is `follows`, the one the creator page and the Follow button use. */
     followCounts(admin, profile.id),
     publicReviews(profile.id),
     storefront ? storefrontProducts(creator.id) : Promise.resolve({ items: [], total: 0 }),
     readPrivacy(admin, profile.id),
     ownCover(admin, profile.id),
+    (async () => {
+      try {
+        const { data } = await admin
+          .from("profiles")
+          .select("instagram_url, tiktok_url, youtube_url, twitter_url, linkedin_url, bluesky_url")
+          .eq("id", profile.id)
+          .maybeSingle()
+        return data
+      } catch {
+        return null
+      }
+    })(),
   ])
   const handle = profile.username.toLowerCase()
   const creatorRow = creator as { cover_url?: string | null } | null
@@ -163,6 +177,7 @@ export const loadMemberProfile = cache(async (username: string): Promise<MemberP
     productCount: catalog.total,
     reviews,
     privacy,
+    socials: profileSocialLinks((socialRow as Record<string, unknown> | null) ?? null),
   }
   } catch {
     return null

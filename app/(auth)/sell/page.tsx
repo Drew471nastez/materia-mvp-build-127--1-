@@ -114,5 +114,16 @@ export default async function SellPage({ searchParams }: { searchParams: Promise
     }
   }
 
-  return <SellOnboarding leaveHref={leaveHref} resumePlan={resumePlan} firstBusiness={firstBusiness} resume={resume} />
+  return (
+    <SellOnboarding
+      leaveHref={leaveHref}
+      resumePlan={resumePlan}
+      firstBusiness={firstBusiness}
+      resume={resume}
+      seed={{
+        name: (profile?.display_name || user?.user_metadata?.full_name || user?.user_metadata?.name || "").trim(),
+        username: profile?.username?.trim() || null,
+      }}
+    />
+  )
 }

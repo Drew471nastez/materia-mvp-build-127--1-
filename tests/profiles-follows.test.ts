@@ -718,7 +718,7 @@ async function main() {
     check("visitors see it: the page reads it with the service role", /select\("cover_url"\)/.test(read("lib/profile/member-profile-data.ts")) && /coverUrl: cover \|\| creatorRow\?\.cover_url/.test(read("lib/profile/member-profile-data.ts")))
     /* Round 8: "Remove the camera icon button next to Edit profile on the profile cover." Edit profile alone, only on your own band; the cover is changed in Settings. */
     /* Round 13: the row is sticky, pinned under the measured header, so it no longer slides under the bar (components/profile/profile-chrome-var.tsx). Still one button, still only on your own band. */
-    check("the owner's band offers Edit profile alone, nobody else's does", /isSelf \? \([\s\S]{0,1600}data-profile-cover-actions="">[\s\S]{0,400}<Link\s+href=\{EDIT_PROFILE_HREF\}/.test(read("components/profile/profile-hero.tsx")) && !/<Camera|COVER_SETTINGS_HREF|data-profile-cover-edit/.test(read("components/profile/profile-hero.tsx")))
+    check("the owner's band offers Edit profile alone, nobody else's does", /isSelf \? \([\s\S]{0,1600}data-profile-cover-actions="">[\s\S]{0,400}<EditProfileDoor/.test(read("components/profile/profile-hero.tsx")) && !/<Camera|COVER_SETTINGS_HREF|data-profile-cover-edit/.test(read("components/profile/profile-hero.tsx")))
   }
 
   /*
