@@ -95,6 +95,8 @@ import { decimalsOf } from "@/lib/payments/money";
 import { pickBalance } from "@/lib/payments/display-currency";
 import { forgetOverview, warmOverview } from "@/lib/payments/overview-cache";
 import { RowMenuButton, StatusBadge, card, iconButton } from "@/app/app/orders/order-parts";
+import { PullToRefresh } from "@/components/ui/pull-to-refresh";
+import { useRouter } from "next/navigation";
 import { viewerTimeZone } from "@/lib/orders/time-zone";
 import { boundsOf, resolveValue, todayIn, type RangeValue } from "@/lib/date-range/range";
 import { useToast } from "@/hooks/use-toast";
@@ -948,6 +950,7 @@ function BalanceCard({
   inTransit,
   negativeBalance,
   balanceReady,
+  payoutsRead,
   currency,
   upcoming,
   settleDays,
@@ -960,6 +963,8 @@ function BalanceCard({
   inTransit: number;
   negativeBalance: number;
   balanceReady: boolean;
+  /** "On the way" is the payouts list's, read after the page lands. */
+  payoutsRead: boolean;
   currency: string;
   upcoming: Upcoming[];
   settleDays: number | null;
@@ -1029,7 +1034,7 @@ function BalanceCard({
           label="On the way"
           value={fmt(inTransit, currency)}
           foot={inTransit > 0 ? "Due in 1 to 3 days" : "Nothing in transit"}
-          loading={!balanceReady}
+          loading={!payoutsRead}
         />
       </div>
 
@@ -3176,7 +3181,10 @@ export function PayoutsClient({
     forgetOverview();
     window.location.reload();
   }, []);
-  const [balanceReady, setBalanceReady] = useState(false);
+  /* Stripe's balance came with the page: the figures are drawn sharp at once, and the read on mount only freshens them. */
+  const [balanceReady, setBalanceReady] = useState(!!initialData.stripeRead);
+  /* The payouts list and what is arriving come only from the read on mount. */
+  const [payoutsRead, setPayoutsRead] = useState(false);
   const [availableBalance, setAvailableBalance] = useState(
     initialData.availableBalance,
   );
@@ -3260,9 +3268,11 @@ export function PayoutsClient({
         setTaxData(json.taxData);
       }
       setBalanceReady(true);
+      setPayoutsRead(true);
     } catch {
       // On error, still show values so the figures do not stay soft forever
       setBalanceReady(true);
+      setPayoutsRead(true);
     }
   }, []);
 
@@ -3319,6 +3329,30 @@ export function PayoutsClient({
       window.removeEventListener("focus", onVisible);
     };
   }, [hasStripe, refreshBalances]);
+
+  /*
+    PULL TO REFRESH: Stripe's figures and the sales list, both read again,
+    and the spinner waits for the two answers (the list's is the server's
+    page arriving with new orders), or 8 seconds.
+  */
+  const router = useRouter();
+  const ordersArrived = useRef<(() => void) | null>(null);
+  useEffect(() => {
+    ordersArrived.current?.();
+    ordersArrived.current = null;
+  }, [initialOrders]);
+  const onPullRefresh = useCallback(
+    () =>
+      Promise.all([
+        refreshBalances(),
+        new Promise<void>((resolve) => {
+          ordersArrived.current = resolve;
+          router.refresh();
+          window.setTimeout(resolve, 8000);
+        }),
+      ]),
+    [refreshBalances, router],
+  );
 
   /* ── The cash out ─────────────────────────────────────────────────────── */
   const onWithdrawn = useCallback(() => {
@@ -3554,8 +3588,8 @@ export function PayoutsClient({
     }
 
     // 6. First payout: the account is ready but has never cashed out.
-    // Only once the balance is read (balanceReady), so the payout count is real
-    if (balanceReady && latestPayoutStatus.totalPayouts === 0 && (availableBalance > 0 || pendingBalance > 0)) {
+    // Only once the payouts are read (payoutsRead), so the payout count is real
+    if (payoutsRead && latestPayoutStatus.totalPayouts === 0 && (availableBalance > 0 || pendingBalance > 0)) {
       return (
         <Notice
           tone="neutral"
@@ -3594,6 +3628,7 @@ export function PayoutsClient({
   const to = Math.min((recentPage + 1) * PAGE_SIZE, listLength);
 
   return (
+    <PullToRefresh onRefresh={onPullRefresh}>
     <div className="space-y-4 pt-2" data-payouts="">
       {/* Where the page has no bar to hold them, the actions lead the page. */}
       {slot === null && actions ? <div className="flex justify-end gap-2">{actions}</div> : null}
@@ -3612,6 +3647,7 @@ export function PayoutsClient({
         inTransit={inTransit}
         negativeBalance={negativeBalance}
         balanceReady={balanceReady}
+        payoutsRead={payoutsRead}
         currency={balanceCurrency}
         upcoming={upcoming}
         settleDays={settleDays}
@@ -3865,7 +3901,7 @@ export function PayoutsClient({
         inTransit={inTransit}
         currency={balanceCurrency}
         upcoming={upcoming}
-        upcomingLoading={!balanceReady}
+        upcomingLoading={!payoutsRead}
         settleDays={settleDays}
         bank={detailsBank}
         bankLoading={detailsLoading}
@@ -3899,5 +3935,6 @@ export function PayoutsClient({
         }}
       />
     </div>
+    </PullToRefresh>
   );
 }

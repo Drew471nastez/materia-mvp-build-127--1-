@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { stripe } from "@/lib/stripe"
+import type Stripe from "stripe"
 import { pickBalance, upcomingByDay } from "@/lib/payments/display-currency"
 import { getStorelibPaymentsStatus, statusFactsOf } from "@/lib/payments/stripe/status"
 
@@ -39,20 +40,28 @@ export async function GET() {
       holds it in (lib/payments/display-currency), and "Arriving soon" is
       Stripe's pending transactions with the day each becomes available.
     */
+    /*
+      STRIPE AND THE DATABASE AT ONCE. The dispute and tax figures need only
+      the creator row, so they are read while Stripe answers instead of after
+      it (lib below: storelibFigures). And no Stripe read holds the page past
+      STRIPE_WAIT_MS: a slow one answers as if Stripe had nothing, and the
+      page's next tick (30s, or the next visit) reads it again.
+    */
+    const figuresRead = storelibFigures(adminSupabase, creator.id)
     const [payoutsResult, balanceResult, accountResult, pendingResult] = await Promise.all([
-      stripe.payouts.list(
+      inTime(stripe.payouts.list(
         { limit: 100, expand: ["data.destination"] },
         { stripeAccount: stripeAccountId }
-      ).catch(() => ({ data: [] })),
-      stripe.balance.retrieve(
+      ), { data: [] as Stripe.Payout[] }),
+      inTime(stripe.balance.retrieve(
         {},
         { stripeAccount: stripeAccountId }
-      ).catch(() => null),
-      stripe.accounts.retrieve(stripeAccountId).catch(() => null),
-      stripe.balanceTransactions.list(
+      ), null),
+      inTime(stripe.accounts.retrieve(stripeAccountId), null),
+      inTime(stripe.balanceTransactions.list(
         { limit: 100 },
         { stripeAccount: stripeAccountId }
-      ).catch(() => ({ data: [] })),
+      ), { data: [] as Stripe.BalanceTransaction[] }),
     ])
 
     // The payout schedule Stripe keeps for the account (payouts stay manual: Cash out)
@@ -127,97 +136,7 @@ export async function GET() {
         )
       : null
 
-    // Fetch dispute data from ledger + active disputes from Stripe
-    let disputeData: {
-      negativeBalance: number
-      activeDisputes: number
-      totalDisputedAmount: number
-      hasActiveDisputes: boolean
-    } = { negativeBalance: 0, activeDisputes: 0, totalDisputedAmount: 0, hasActiveDisputes: false }
-
-    try {
-      const { data: ledger } = await adminSupabase
-        .from("seller_ledger")
-        .select("negative_balance")
-        .eq("creator_id", creator.id)
-        .maybeSingle()
-
-      const negativeBalance = ledger?.negative_balance || 0
-
-      // Count active (open) disputed orders
-      const { data: products } = await adminSupabase
-        .from("products")
-        .select("id")
-        .eq("creator_id", creator.id)
-      const pIds = (products || []).map((p) => p.id)
-      let activeDisputes = 0
-      let totalDisputedAmount = 0
-
-      if (pIds.length > 0) {
-        const { data: disputedOrders } = await adminSupabase
-          .from("orders")
-          .select("amount_cents")
-          .in("product_id", pIds)
-          .eq("status", "disputed")
-        activeDisputes = disputedOrders?.length || 0
-        totalDisputedAmount = (disputedOrders || []).reduce((s, o) => s + (o.amount_cents || 0), 0)
-      }
-
-      disputeData = {
-        negativeBalance,
-        activeDisputes,
-        totalDisputedAmount,
-        hasActiveDisputes: activeDisputes > 0,
-      }
-    } catch { /* non-fatal */ }
-
-    // ── 1099-K Tax Data ────────────────────────────────────────────────────────
-    // Calculate gross earnings + transaction count for current and previous tax year
-    // Federal threshold: $20,000 AND 200+ transactions
-    let taxData: {
-      currentYear: { year: number; grossCents: number; transactionCount: number; isEligible: boolean }
-      previousYear: { year: number; grossCents: number; transactionCount: number; isEligible: boolean }
-      stripeExpressDashboardUrl: string | null
-    } = {
-      currentYear: { year: new Date().getFullYear(), grossCents: 0, transactionCount: 0, isEligible: false },
-      previousYear: { year: new Date().getFullYear() - 1, grossCents: 0, transactionCount: 0, isEligible: false },
-      stripeExpressDashboardUrl: null,
-    }
-
-    try {
-      const { data: allProducts } = await adminSupabase
-        .from("products")
-        .select("id")
-        .eq("creator_id", creator.id)
-      const allProdIds = (allProducts || []).map((p) => p.id)
-
-      if (allProdIds.length > 0) {
-        const currentYear = new Date().getFullYear()
-        const previousYear = currentYear - 1
-
-        // Fetch completed orders for both years (gross amount for 1099-K = total charged, not net)
-        const { data: taxOrders } = await adminSupabase
-          .from("orders")
-          .select("amount_cents, created_at, status")
-          .in("product_id", allProdIds)
-          .in("status", ["completed", "refunded", "disputed"])
-          .gte("created_at", `${previousYear}-01-01T00:00:00Z`)
-
-        for (const order of taxOrders || []) {
-          const orderYear = new Date(order.created_at).getFullYear()
-          const bucket = orderYear === currentYear ? taxData.currentYear : orderYear === previousYear ? taxData.previousYear : null
-          if (bucket) {
-            bucket.grossCents += order.amount_cents || 0
-            bucket.transactionCount += 1
-          }
-        }
-
-        taxData.currentYear.isEligible = taxData.currentYear.grossCents >= 2000000 && taxData.currentYear.transactionCount >= 200
-        taxData.previousYear.isEligible = taxData.previousYear.grossCents >= 2000000 && taxData.previousYear.transactionCount >= 200
-      }
-
-      /* Tax forms stay in email. The Express dashboard is not opened from here. */
-    } catch { /* non-fatal */ }
+    const { disputeData, taxData } = await figuresRead
 
     return NextResponse.json({ payouts, balance, balanceCurrency, upcoming, payoutScheduleInterval, payoutScheduleDelay, accountStatus, paymentsStatus, disputeData, taxData })
   } catch (error: any) {
@@ -227,4 +146,75 @@ export async function GET() {
       { status: 500 }
     )
   }
+}
+
+/** The longest one Stripe read may hold this answer. */
+const STRIPE_WAIT_MS = 6_000
+
+/** A Stripe read, or `fallback` if it fails or takes longer than STRIPE_WAIT_MS. */
+function inTime<T, F>(read: Promise<T>, fallback: F): Promise<T | F> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  return Promise.race([
+    read.catch(() => fallback),
+    new Promise<F>((resolve) => {
+      timer = setTimeout(() => resolve(fallback), STRIPE_WAIT_MS)
+    }),
+  ]).finally(() => clearTimeout(timer))
+}
+
+type TaxYear = { year: number; grossCents: number; transactionCount: number; isEligible: boolean }
+
+/**
+ * Storelib's own figures for the page: the negative balance and open
+ * disputes, and the 1099-K totals for this year and last. One read of the
+ * product ids, then the ledger and both order reads together. A failed read
+ * leaves its figures at nothing rather than failing the answer.
+ */
+async function storelibFigures(admin: ReturnType<typeof createAdminClient>, creatorId: string) {
+  const currentYear = new Date().getFullYear()
+  const previousYear = currentYear - 1
+  const disputeData = { negativeBalance: 0, activeDisputes: 0, totalDisputedAmount: 0, hasActiveDisputes: false }
+  const taxData: { currentYear: TaxYear; previousYear: TaxYear; stripeExpressDashboardUrl: string | null } = {
+    currentYear: { year: currentYear, grossCents: 0, transactionCount: 0, isEligible: false },
+    previousYear: { year: previousYear, grossCents: 0, transactionCount: 0, isEligible: false },
+    /* Tax forms stay in email. The Express dashboard is not opened from here. */
+    stripeExpressDashboardUrl: null,
+  }
+  try {
+    const [ledgerRead, productsRead] = await Promise.all([
+      admin.from("seller_ledger").select("negative_balance").eq("creator_id", creatorId).maybeSingle(),
+      admin.from("products").select("id").eq("creator_id", creatorId),
+    ])
+    disputeData.negativeBalance = (ledgerRead.data as { negative_balance?: number | null } | null)?.negative_balance || 0
+    const ids = ((productsRead.data as { id: string }[] | null) || []).map((p) => p.id)
+    if (ids.length > 0) {
+      const [disputedRead, taxRead] = await Promise.all([
+        admin.from("orders").select("amount_cents").in("product_id", ids).eq("status", "disputed"),
+        admin
+          .from("orders")
+          .select("amount_cents, created_at, status")
+          .in("product_id", ids)
+          .in("status", ["completed", "refunded", "disputed"])
+          .gte("created_at", `${previousYear}-01-01T00:00:00Z`),
+      ])
+      const disputed = (disputedRead.data as { amount_cents: number | null }[] | null) || []
+      disputeData.activeDisputes = disputed.length
+      disputeData.totalDisputedAmount = disputed.reduce((sum, o) => sum + (o.amount_cents || 0), 0)
+      for (const order of (taxRead.data as { amount_cents: number | null; created_at: string }[] | null) || []) {
+        const orderYear = new Date(order.created_at).getFullYear()
+        const bucket = orderYear === currentYear ? taxData.currentYear : orderYear === previousYear ? taxData.previousYear : null
+        if (bucket) {
+          bucket.grossCents += order.amount_cents || 0
+          bucket.transactionCount += 1
+        }
+      }
+      /* Federal threshold: $20,000 AND 200+ transactions. */
+      taxData.currentYear.isEligible = taxData.currentYear.grossCents >= 2000000 && taxData.currentYear.transactionCount >= 200
+      taxData.previousYear.isEligible = taxData.previousYear.grossCents >= 2000000 && taxData.previousYear.transactionCount >= 200
+    }
+    disputeData.hasActiveDisputes = disputeData.activeDisputes > 0
+  } catch {
+    /* non-fatal */
+  }
+  return { disputeData, taxData }
 }

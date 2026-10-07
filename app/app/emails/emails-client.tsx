@@ -43,7 +43,8 @@ import * as React from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { TryProStrip } from "@/components/app/announcement-bar-mobile"
 import { ComposeDialog } from "@/components/email/compose/ui"
-import { peek, prefetch, refresh, useCached, write } from "@/components/email/emails-cache"
+import { load, peek, prefetch, refresh, useCached, write } from "@/components/email/emails-cache"
+import { PullToRefresh } from "@/components/ui/pull-to-refresh"
 import { createClient } from "@/lib/supabase/client"
 import { sourceView } from "@/lib/contacts/contact-source"
 import { viewerTimeZone } from "@/lib/orders/time-zone"
@@ -135,6 +136,11 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
   const loaderFor = React.useCallback((t: EmailsTab) => () => loadTab(t, rangeQuery), [rangeQuery])
 
   const current = useCached<unknown>(keyFor(tab), loaderFor(tab))
+  /* Pull to refresh: the open tab is read again and the spinner waits for it; the other tabs are marked old, read when next opened. */
+  const onPullRefresh = React.useCallback(async () => {
+    await load(keyFor(tab), loaderFor(tab))
+    refresh(...TABS.filter((t) => t !== tab).map(keyFor))
+  }, [tab, keyFor, loaderFor])
 
   /* Once the open tab has what it needs, the others are read while the browser is idle. */
   const warmed = React.useRef(false)
@@ -188,6 +194,22 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
     const saved = scrolls.current.get(tab)
     if (pane.scrollTop >= stick && stick >= 0) pane.scrollTop = Math.max(saved ?? stick, stick)
   }, [tab])
+
+  /*
+    THE PANE'S HEIGHT, MEASURED ONCE. A tab's content is at least a pane
+    tall (emails-home), so the point where the bar sticks can always be
+    reached. A percentage cannot say that through the pull's wrapper, which
+    is as tall as what it holds, so the pane says it as --pane-h.
+  */
+  React.useLayoutEffect(() => {
+    const pane = listRef.current
+    if (!pane || typeof ResizeObserver === "undefined") return
+    const put = () => pane.style.setProperty("--pane-h", `${pane.clientHeight}px`)
+    put()
+    const ro = new ResizeObserver(put)
+    ro.observe(pane)
+    return () => ro.disconnect()
+  }, [])
 
   /* ── What the list shows ─────────────────────────────────────────────── */
   const subscribersData = (tab === "subscribers" ? current.data : peek(keyFor("subscribers"))) as SubscribersData | undefined
@@ -563,6 +585,8 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
       >
         <TryProStrip />
 
+        {/* The strip stays put; what is under it is what a pull moves (components/ui/pull-to-refresh). */}
+        <PullToRefresh onRefresh={onPullRefresh}>
         <EmailsHome
           tab={tab}
           onTab={setTab}
@@ -596,6 +620,7 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
           onPeriod={setPeriod}
           today={today}
         />
+        </PullToRefresh>
       </div>
 
       {displayedId ? (

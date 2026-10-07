@@ -3,7 +3,7 @@
 import { announceChange } from "@/lib/seo/announce-client"
 import type React from "react"
 import { BottomSheet, SHEET_CLOSE_MS, SHEET_EASE, SHEET_OPEN_MS } from "@/components/ui/bottom-sheet"
-import { useState, useRef, useEffect, useCallback } from "react"
+import { useState, useRef, useEffect, useCallback, useDeferredValue } from "react"
 import { useRouter } from "next/navigation"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
 import { nativeLogOut } from "@/lib/native-bridge"
@@ -363,6 +363,15 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
   const formRef = useRef<HTMLFormElement>(null)
   const activeTabRef = useRef<HTMLButtonElement>(null)
   const [panelEntrance, setPanelEntrance] = useState(false)
+  /*
+    THE PILL FIRST, THE PANEL AFTER. A press used to change the pill and swap
+    the whole panel in one render, so the pill's fill could not start until
+    General's hundreds of fields had been built: the press sat still, then
+    the fill, the icon and the words all changed in one late frame. The pill
+    reads activeTab and is drawn at once; the panel reads this deferred copy,
+    built just after, with the old panel on screen until the new one is ready.
+  */
+  const panelTab = useDeferredValue(activeTab)
   const [isLoading, setIsLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [showSaveToast, setShowSaveToast] = useState(false)
@@ -653,11 +662,12 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
     THE SELECTED TAB CHANGES IN PLACE. NOTHING TRAVELS ACROSS THE ROW.
     The owner asked twice for a calmer switch, and the second time for no
     slide at all. Every tab carries its own fill (grey and a hairline). The
-    pressed tab's fill fades in and grows from 96% on the spot, the old tab's
-    fades out where it is, and the words ease from grey to ink, all over
-    150ms on one ease out. Only opacity and scale move, so the compositor
-    carries it. A press also dips the tab to 97%, so the finger is answered
-    before anything else happens. Nothing moves when less motion is asked for.
+    pressed tab's fill fades in on the spot, the old tab's fades out where it
+    is, and the words ease from grey to ink, all over 150ms on one ease out.
+    NOTHING IS SCALED: a tab and its fill used to grow from 96% and dip to
+    97% under the finger, and a scaled icon and label are drawn again at the
+    end of the move, which read as the icon and the words flashing. Only
+    opacity moves now. Nothing moves when less motion is asked for.
   */
 
   // fetchDomains moved above the URL params useEffect to avoid TDZ
@@ -1178,7 +1188,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                   data-settings-tab={tab.id}
                   aria-current={activeTab === tab.id ? "page" : undefined}
                   style={{ transitionDuration: `${TAB_FADE_MS}ms`, transitionTimingFunction: TAB_EASE }}
-                  className={`relative flex items-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 rounded-full text-[13px] sm:text-[14px] font-medium transition-[color,background-color,scale] active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100 whitespace-nowrap cursor-pointer border border-transparent [-webkit-tap-highlight-color:transparent] ${
+                  className={`relative flex items-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 rounded-full text-[13px] sm:text-[14px] font-medium transition-[color,background-color] motion-reduce:transition-none whitespace-nowrap cursor-pointer border border-transparent [-webkit-tap-highlight-color:transparent] ${
                     activeTab === tab.id
                       ? "text-[#1a1a2e]"
                       : "text-[#6b7280] hover:text-[#374151] hover:bg-[#f3f4f6]/70"
@@ -1189,8 +1199,8 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                     aria-hidden
                     data-settings-tab-fill=""
                     style={{ transitionDuration: `${TAB_FADE_MS}ms`, transitionTimingFunction: TAB_EASE }}
-                    className={`pointer-events-none absolute -inset-px rounded-full border border-[#d1d5db] bg-[#f3f4f6] shadow-[0_1px_2px_rgba(0,0,0,0.04)] ${panelEntrance ? "transition-[opacity,scale]" : "transition-none"} motion-reduce:transition-none ${
-                      activeTab === tab.id ? "opacity-100 scale-100" : "opacity-0 scale-[0.96]"
+                    className={`pointer-events-none absolute -inset-px rounded-full border border-[#d1d5db] bg-[#f3f4f6] shadow-[0_1px_2px_rgba(0,0,0,0.04)] ${panelEntrance ? "transition-opacity" : "transition-none"} motion-reduce:transition-none ${
+                      activeTab === tab.id ? "opacity-100" : "opacity-0"
                     }`}
                   />
                   <Icon className="relative h-4 w-4" />
@@ -1214,7 +1224,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
             by the address on load are simply there, and a re-render never
             replays it: the key, and so the element, only changes with the tab.
           */}
-          <div key={activeTab} data-settings-panel={activeTab} className={panelEntrance ? "settings-panel" : undefined}>
+          <div key={panelTab} data-settings-panel={panelTab} className={panelEntrance ? "settings-panel" : undefined}>
           {/*
             NO SKELETON BETWEEN TABS.
             There used to be one here: forty-five lines of shimmering grey
@@ -1229,7 +1239,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
             `handleTabChange`.
           */}
           {/* Billing Tab */}
-          {activeTab === "billing" && (
+          {panelTab === "billing" && (
             <div className="space-y-4 sm:space-y-6">
               {billingData ? (
                 <BillingPageClient initialData={billingData as never} embedded />
@@ -1266,7 +1276,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
           )}
 
           {/* General Tab */}
-          {activeTab === "general" && (
+          {panelTab === "general" && (
             <div className="space-y-4 sm:space-y-6">
               {/* Purple announcement bar: Connect Stripe (only after status confirmed) */}
               {!stripeStatus.connected && (
@@ -1633,7 +1643,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
           )}
 
           {/* Security Tab: components/app/settings/account-panels.tsx */}
-          {activeTab === "security" && (
+          {panelTab === "security" && (
             <SecurityPanel
               email={currentEmail}
               createdAt={profile.created_at}
@@ -1645,7 +1655,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
           )}
 
           {/* Privacy Tab: every switch saved where it is read (account-panels.tsx) */}
-          {activeTab === "privacy" && (
+          {panelTab === "privacy" && (
             <PrivacyPanel
               email={currentEmail}
               initialPersonalized={(profile as { personalized_recommendations?: boolean }).personalized_recommendations !== false}
@@ -1654,12 +1664,12 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
           )}
 
           {/* Notifications Tab: which notifications, by email and in app (notification-preferences.tsx) */}
-          {activeTab === "notifications" && <NotificationPreferencesPanel />}
+          {panelTab === "notifications" && <NotificationPreferencesPanel />}
 
-          {activeTab === "shipping" && physicalCommerce && <ShippingSettings />}
+          {panelTab === "shipping" && physicalCommerce && <ShippingSettings />}
 
           {/* Payments Tab */}
-          {activeTab === "payments" && (
+          {panelTab === "payments" && (
             <PaymentsHub
               statementDescriptorSlot={
                 paymentsProvider === "stripe" ? (
@@ -1721,7 +1731,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
           )}
 
           {/* Domains Tab */}
-          {activeTab === "domains" && (
+          {panelTab === "domains" && (
             <DomainsPanel
               data={domainsData}
               loading={domainsLoading}

@@ -294,7 +294,7 @@ section("No page draws a picture of itself while it loads, inside or out")
   check("no grey bar pulses in Settings either", !/animate-pulse/.test(code("components/app/settings-form-new.tsx")))
   const payoutsPage = code("app/app/payouts/page.tsx")
   check("Payouts' heading lands on the press; Stripe streams in behind it, in a waiting room rather than an outline",
-    /<Suspense fallback=\{<PayoutsWaiting \/>\}>\s*(\{\}\s*)?\{PayoutsBody\(\{ creator \}\)\}\s*<\/Suspense>/.test(payoutsPage)
+    /<Suspense fallback=\{<PayoutsWaiting \/>\}>\s*(\{\}\s*)?\{PayoutsBody\(\{ creator, paymentsReady \}\)\}\s*<\/Suspense>/.test(payoutsPage)
       && /function PayoutsWaiting\(\) \{\s*return \(\s*<Shimmer className="space-y-4 pt-2" label="Loading payouts">/.test(payoutsPage)
       && /async function PayoutsBody\(/.test(payoutsPage)
       && !/stripe\./.test(payoutsPage.slice(payoutsPage.indexOf("export default async function PayoutsPage"), payoutsPage.indexOf("async function PayoutsBody")))

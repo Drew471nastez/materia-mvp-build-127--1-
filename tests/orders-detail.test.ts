@@ -385,7 +385,8 @@ async function main() {
     check("  and from the menu on a phone they wait for its sheet to leave", /later\.current = window\.setTimeout\(\(\) => setDialogNow\(next\), MENU_SHEET_LEFT_MS\)/.test(detail))
     check("the cards: items, payment, then the customer and details beside them, the timeline under",
       /lg:grid-cols-\[minmax\(0,2fr\)_minmax\(0,1fr\)\] lg:grid-rows-\[auto_auto_auto_1fr\]/.test(detail) && /lg:col-start-2 lg:row-span-4 lg:row-start-1/.test(detail))
-    check("an action updates the rows from the server's answer, without reloading every order", !/router\.refresh\(\)/.test(client) && /applyDelivery\(data\?\.lines\)/.test(client))
+    /* Changed on purpose: a pull to refresh reads the page again, and that is the one router.refresh in the file. */
+    check("an action updates the rows from the server's answer, without reloading every order", (client.match(/router\.refresh\(\)/g) ?? []).length === 1 && /rowsArrived\.current = resolve\s+router\.refresh\(\)/.test(client) && /applyDelivery\(data\?\.lines\)/.test(client))
     const list = code("app/app/orders/orders-list.tsx")
     check("Export is the violet action, and off with no orders", /className=\{cn\(buttonAccent, [^}]*\)\}\s*onClick=\{\(\) => props\.onExport\(\)\}\s*disabled=\{allOrders\.length === 0\}/.test(list))
     check("  44px to tap on a phone, 32px to see", /cn\(buttonAccent, "relative before:absolute before:-inset-y-1\.5 before:inset-x-0 before:content-\[''\] sm:before:hidden"\)/.test(list))

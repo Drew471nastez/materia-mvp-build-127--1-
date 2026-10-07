@@ -256,7 +256,7 @@ export function EmailsHome(props: EmailsHomeProps) {
         <Tabs tab={tab} onTab={props.onTab} onIntent={props.onTabIntent} counts={{ messages: props.messages.filter((m) => !m.read_at).length }} />
       </PaneBar>
 
-      <div className={cn("mx-auto min-h-full pb-24 md:pb-8", LIST_WIDTH, GUTTER)} data-tab-content={tab}>
+      <div className={cn("mx-auto min-h-full pb-24 md:pb-8", LIST_WIDTH, GUTTER)} style={{ minHeight: "var(--pane-h, 100%)" }} data-tab-content={tab}>
         <Metrics {...props} />
 
         <section aria-label={TABS.find((t) => t.id === tab)?.label ?? "Emails"} className={cn(card, "mt-4 overflow-hidden")}>

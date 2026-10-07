@@ -54,7 +54,7 @@ export default async function PayoutsPage() {
             <div data-payouts-actions="" className="flex shrink-0 items-center gap-1.5 md:gap-2" />
           </PaneBar>
           <div className="mx-auto max-w-[1200px] app-gutter pb-8">
-            <Suspense fallback={<PayoutsWaiting />}>{PayoutsBody({ creator })}</Suspense>
+            <Suspense fallback={<PayoutsWaiting />}>{PayoutsBody({ creator, paymentsReady })}</Suspense>
           </div>
         </>
       ) : (
@@ -138,7 +138,10 @@ function PayoutsWaiting() {
 /** The client's card (app/app/orders/order-parts `card`), written out: this is a server file. */
 const WAIT_CARD = "overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]";
 
-async function PayoutsBody({ creator }: { creator: any }) {
+/** The longest Stripe's balance may hold the page's first draw. */
+const STRIPE_WAIT_MS = 2_500;
+
+async function PayoutsBody({ creator, paymentsReady }: { creator: any; paymentsReady: boolean }) {
   const adminSupabase = createAdminClient();
 
   /*
@@ -172,13 +175,19 @@ async function PayoutsBody({ creator }: { creator: any }) {
   const [{ data: productsData }, stripeRead, ledger] = await Promise.all([
     adminSupabase.from("products").select("*").eq("creator_id", creator.id),
     stripeAccount
-      ? Promise.all([
-          stripe.balance.retrieve({}, { stripeAccount }),
-          stripe.accounts.retrieve(stripeAccount),
-        ]).then(
-          (value) => ({ ok: true as const, value }),
-          (error: unknown) => ({ ok: false as const, error }),
-        )
+      ? Promise.race([
+          Promise.all([
+            stripe.balance.retrieve({}, { stripeAccount }),
+            stripe.accounts.retrieve(stripeAccount),
+          ]).then(
+            (value) => ({ ok: true as const, value }),
+            (error: unknown) => ({ ok: false as const, error }),
+          ),
+          /* Stripe does not hold the page: past this the page draws without its balance and the client reads it (PayoutsClient refreshBalances). */
+          new Promise<{ ok: false; error: unknown }>((resolve) =>
+            setTimeout(() => resolve({ ok: false as const, error: new Error("Stripe took too long") }), STRIPE_WAIT_MS),
+          ),
+        ])
       : Promise.resolve(null),
     Promise.resolve(
       adminSupabase
@@ -299,8 +308,6 @@ async function PayoutsBody({ creator }: { creator: any }) {
   const disputed = (disputedRead.data as { amount_cents: number | null }[] | null) || [];
   const activeDisputeCount = disputed.length;
   const totalDisputedAmount = disputed.reduce((s, o) => s + (o.amount_cents || 0), 0);
-
-  const paymentsReady = await checkoutReadyForCreator(creator.id)
 
   return (
     <PayoutsClient

@@ -3,7 +3,7 @@
 import { announceChange } from "@/lib/seo/announce-client"
 import { forgetProduct } from "@/lib/products/forget-client"
 import { deleteProduct, deleteQuestion, isStale, previewProductDelete, rememberDeleted, rememberStatus, takeNotice, withChanges, type DeleteKind } from "@/lib/products/delete-client"
-import { forwardRef, memo, useState, useRef, useEffect, useLayoutEffect, useMemo, type ButtonHTMLAttributes, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent } from "react"
+import { forwardRef, memo, useCallback, useState, useRef, useEffect, useLayoutEffect, useMemo, type ButtonHTMLAttributes, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent } from "react"
 import Link from "next/link"
 import { ArrowUpDown, ChevronLeft, ChevronRight, ChevronsUpDown, Download, Search, X } from "lucide-react"
 import { getProductUrl } from "@/lib/url-helpers"
@@ -24,6 +24,7 @@ import { ActivitySpinner } from "@/components/ui/activity-spinner"
 import { playList, shootList, type ListShot } from "./list-motion"
 import { LAYER_LEAVE_MS, LAYER_PRESS_WAIT_MS } from "@/components/app/page-layer"
 import { createClient } from "@/lib/supabase/client"
+import { PullToRefresh } from "@/components/ui/pull-to-refresh"
 import { useLanguage } from "@/lib/i18n"
 import { STORELIB_LOGO, STORELIB_LOGO_SHADOW, storelibAssetUrl } from "@/lib/brand/logo"
 import { PORTRAIT_QUALITY, optimizedImageUrl, optimizedSrcSet } from "@/lib/images/optimized-url"
@@ -756,6 +757,35 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
     if (notice) showNotification(notice)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once, for the copy the list first drew
   }, [])
+  /*
+    PULL TO REFRESH READS THE ROWS ITSELF. The spinner waits for the
+    database's answer, not for a router refresh it cannot see the end of; the
+    router's kept copy is dropped behind it so the next visit is fresh too.
+    The creator comes from a row already on the page when there is one.
+  */
+  const productsRef = useRef(products)
+  productsRef.current = products
+  const refreshList = useCallback(async () => {
+    const supabase = createClient()
+    let creatorId = productsRef.current[0]?.creator_id as string | undefined
+    if (!creatorId) {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.user) return
+      const { data: creator } = await supabase.from("creators").select("id").eq("user_id", session.user.id).maybeSingle()
+      creatorId = (creator as { id: string } | null)?.id
+    }
+    if (!creatorId) return
+    const { data } = await supabase.from("products").select("*").eq("creator_id", creatorId).order("created_at", { ascending: false })
+    if (data) setProducts(withChanges((data as (Product & { community_id?: string | null })[]).filter((p) => !p.community_id)))
+    router.refresh()
+  }, [router])
+  /* A refresh from anywhere (a save, an archive, the pull) hands the list new rows: drawn, with this tab's own changes kept. */
+  const firstRows = useRef(initialProducts)
+  useEffect(() => {
+    if (firstRows.current === initialProducts) return
+    firstRows.current = initialProducts
+    setProducts(withChanges(initialProducts))
+  }, [initialProducts])
   const warmed = useRef(new Map<string, number>())
   /* Once a minute at most per product (WARM_AGAIN_MS), not once per visit. */
   const due = (key: string) => {
@@ -1056,6 +1086,8 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
         ) : null}
       </PaneBar>
 
+      {/* The bar stays put; the list under it is what a pull moves (components/ui/pull-to-refresh). */}
+      <PullToRefresh onRefresh={refreshList}>
       <div className={cn("mx-auto pb-2 md:pb-8", PAGE_WIDTH, GUTTER, PAGE_GUTTER)}>
         <section
           ref={sectionRef}
@@ -1293,6 +1325,7 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
           ) : null}
         </section>
       </div>
+      </PullToRefresh>
 
       {deleteModalOpen && productToDelete && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">

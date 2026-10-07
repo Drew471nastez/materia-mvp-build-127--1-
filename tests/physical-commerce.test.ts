@@ -378,7 +378,7 @@ console.log("\nThe switch, in the app")
   check("the sidebar adds Inventory only while it is on; Collections are every shop's", /\.\.\.\(physicalCommerce \? \[\{ href: "\/app\/inventory", label: "Inventory" \}\] : \[\]\),\s*\{ href: "\/app\/products\/collections", label: "Collections" \}/.test(code("components/app/sidebar.tsx")))
   check("Collections are not behind the switch: any kind of product, any shop", !/requirePhysicalPage/.test(code("app/app/products/collections/page.tsx")) && !/isPhysicalCommerceEnabled/.test(code("app/app/products/collections/page.tsx")) && /shopCaller\(\)/.test(code("app/api/collections/route.ts")) && !/physicalCaller/.test(code("app/api/collections/[id]/route.ts")))
   const settings = code("components/app/settings-form-new.tsx")
-  check("Settings shows the Shipping tab only while it is on", /TABS\.filter\(\(tab\) => tab\.id !== "shipping" \|\| physicalCommerce\)/.test(settings) && /activeTab === "shipping" && physicalCommerce && <ShippingSettings \/>/.test(settings))
+  check("Settings shows the Shipping tab only while it is on", /TABS\.filter\(\(tab\) => tab\.id !== "shipping" \|\| physicalCommerce\)/.test(settings) && /panelTab === "shipping" && physicalCommerce && <ShippingSettings \/>/.test(settings))
   for (const page of ["app/app/inventory/page.tsx", "app/checkout/physical/page.tsx"]) {
     check(`${page} is a 404 while it is off`, /await requirePhysicalPage\(\)/.test(code(page)))
   }

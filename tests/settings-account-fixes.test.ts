@@ -144,7 +144,7 @@ console.log("\n4. Tooltips are never cut off")
   check("drawn on the body, kept 12px inside the screen", /<TooltipPrimitive\.Portal>/.test(tip) && /collisionPadding = TOOLTIP_EDGE/.test(tip) && /export const TOOLTIP_EDGE = 12/.test(tip) && /avoidCollisions/.test(tip))
   check("and wrapping at 280px, or the screen less 24px", /max-w-\[min\(280px,calc\(100vw-24px\)\)\]/.test(tip) && /whitespace-normal/.test(tip))
   check("a tap opens it on a touch screen", /pointerType === 'touch'/.test(tip) && /e\.preventDefault\(\)/.test(tip))
-  const general = form.slice(form.indexOf('{activeTab === "general" && ('), form.indexOf('{activeTab === "security" && ('))
+  const general = form.slice(form.indexOf('{panelTab === "general" && ('), form.indexOf('{panelTab === "security" && ('))
   check("Settings' Support Email note is the shared tooltip, not a nowrap box in the card", /<InfoTip label="About the support email">/.test(general) && !/whitespace-nowrap z-50/.test(general) && !/group-hover:visible/.test(general))
   check("and so is the statement descriptor's", /<InfoTip label="About statement descriptor">/.test(form))
 }

@@ -78,8 +78,9 @@ check(
   !/Skeleton Card 1/.test(settings) && !/animate-\[shimmer_1\.5s_ease-in-out_infinite\]/.test(settings),
 )
 check(
+  /* The panel reads a deferred copy of the tab (panelTab), so the pill changes first. */
   "the panel is keyed on the tab, so one replaces another instead of being edited into it",
-  /<div key=\{activeTab\} data-settings-panel=\{activeTab\} className=\{panelEntrance \? "settings-panel" : undefined\}>/.test(settings),
+  /const panelTab = useDeferredValue\(activeTab\)/.test(settings) && /<div key=\{panelTab\} data-settings-panel=\{panelTab\} className=\{panelEntrance \? "settings-panel" : undefined\}>/.test(settings),
 )
 {
   /* The fade is put on by a press and nothing else: not the first paint, not ?tab= on load, not a re-render. */
@@ -143,15 +144,16 @@ check(
     !/data-settings-tab-ring|tabRingRef|ring\.animate\(|TAB_SLIDE_MS/.test(settings),
   )
   check(
-    "each tab carries its own fill, faded and scaled in place on opacity and scale only, 150ms on a plain ease out",
+    /* Changed on purpose: a scaled icon and label are drawn again when the move ends, the flash the owner saw. Opacity only. */
+    "each tab carries its own fill, faded in place on opacity only, 150ms on a plain ease out",
     /data-settings-tab-fill=""/.test(settings)
-      && /pointer-events-none absolute -inset-px rounded-full border border-\[#d1d5db\] bg-\[#f3f4f6\][^`]*\$\{panelEntrance \? "transition-\[opacity,scale\]" : "transition-none"\} motion-reduce:transition-none/.test(settings)
-      && /activeTab === tab\.id \? "opacity-100 scale-100" : "opacity-0 scale-\[0\.96\]"/.test(settings)
+      && /pointer-events-none absolute -inset-px rounded-full border border-\[#d1d5db\] bg-\[#f3f4f6\][^`]*\$\{panelEntrance \? "transition-opacity" : "transition-none"\} motion-reduce:transition-none/.test(settings)
+      && /activeTab === tab\.id \? "opacity-100" : "opacity-0"/.test(settings)
       && /const TAB_FADE_MS = 150/.test(settings) && /const TAB_EASE = "cubic-bezier\(0\.33, 1, 0\.68, 1\)"/.test(settings),
   )
   check(
-    "a press is answered by a small dip, and the selected tab is announced",
-    /active:scale-\[0\.97\] motion-reduce:transition-none motion-reduce:active:scale-100/.test(settings)
+    "no tab is scaled under the finger, and the selected tab is announced",
+    !/active:scale-\[0\.97\]/.test(settings)
       && /aria-current=\{activeTab === tab\.id \? "page" : undefined\}/.test(settings),
   )
   /* The Notifications tab's rows used to load as 48px grey bars and grow to their real height when they landed: a jump after the fade. */

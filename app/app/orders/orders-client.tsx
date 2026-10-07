@@ -40,7 +40,8 @@
  */
 
 import * as React from "react"
-import { useSearchParams } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
+import { PullToRefresh } from "@/components/ui/pull-to-refresh"
 import {
   COLUMNS_COOKIE,
   filterOrders,
@@ -158,7 +159,24 @@ export function OrdersClient(props: OrdersClientProps) {
 
   /* ── Data ─────────────────────────────────────────────────────────────── */
   const [rows, setRows] = React.useState(props.rows)
-  React.useEffect(() => setRows(props.rows), [props.rows])
+  /* A pull waits for this: the server's new rows, drawn. */
+  const rowsArrived = React.useRef<(() => void) | null>(null)
+  React.useEffect(() => {
+    setRows(props.rows)
+    rowsArrived.current?.()
+    rowsArrived.current = null
+  }, [props.rows])
+  /* Pull to refresh: the page reads its orders again, and the spinner stays until they are on the screen (or 8s). */
+  const router = useRouter()
+  const onPullRefresh = React.useCallback(
+    () =>
+      new Promise<void>((resolve) => {
+        rowsArrived.current = resolve
+        router.refresh()
+        window.setTimeout(resolve, 8000)
+      }),
+    [router],
+  )
   const orders = React.useMemo(() => groupOrders(rows), [rows])
 
   /* ── Clock and zone: the server's first, then the viewer's ─────────────── */
@@ -530,6 +548,7 @@ export function OrdersClient(props: OrdersClientProps) {
         inert={listCovered}
         aria-hidden={listCovered || undefined}
       >
+        <PullToRefresh onRefresh={onPullRefresh}>
         <OrdersListMemo
           allOrders={orders}
           pageOrders={page.items}
@@ -556,6 +575,7 @@ export function OrdersClient(props: OrdersClientProps) {
           now={now}
           timeZone={timeZone}
         />
+        </PullToRefresh>
       </div>
 
       {displayed ? (
