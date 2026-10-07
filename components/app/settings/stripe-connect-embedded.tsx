@@ -197,11 +197,17 @@ export function StripeConnectEmbedded({
   return (
     <div className={cn("relative w-full", className)}>
       {!ready ? (
-        <div className="absolute inset-x-0 top-0 z-10 flex min-h-[240px] items-center justify-center bg-white" aria-live="polite">
-          <WaitingArea className="h-16 sm:h-24" size={18} label="Loading" />
+        <div className="flex min-h-[220px] items-center justify-center" aria-live="polite">
+          <WaitingArea className="h-16" size={18} label="Loading" />
         </div>
       ) : null}
-      <div ref={host} className="w-full max-w-full pb-8 [&_iframe]:block [&_iframe]:h-auto [&_iframe]:w-full [&_iframe]:max-w-full [&_iframe]:min-h-[max(520px,calc(100dvh-8.5rem))]" />
+      <div
+        ref={host}
+        className={cn(
+          "w-full max-w-full [&>*]:block [&>*]:w-full [&>*]:max-w-full [&_iframe]:block [&_iframe]:w-full [&_iframe]:max-w-full",
+          ready ? "pb-6" : "pointer-events-none absolute inset-x-0 top-0 opacity-0",
+        )}
+      />
     </div>
   )
 }

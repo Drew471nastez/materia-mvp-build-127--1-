@@ -789,7 +789,7 @@ export function PaymentsSetupFlow({
         </div>
       </div>
 
-      <div data-setup-scroll="" className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+      <div data-setup-scroll="" className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain">
         {/* One narrow column: 560px of card on a computer, the whole width on a phone,
             where it fills the screen so Cancel and Continue sit at the bottom. */}
         <div className="mx-auto w-full max-w-[560px] px-0 pb-[max(4.5rem,env(safe-area-inset-bottom))] max-sm:flex max-sm:min-h-full max-sm:flex-col sm:px-6 sm:pb-24 sm:pt-10 [@media(max-height:540px)]:px-3 [@media(max-height:540px)]:pb-8 [@media(max-height:540px)]:pt-3">

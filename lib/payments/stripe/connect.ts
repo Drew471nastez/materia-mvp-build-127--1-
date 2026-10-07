@@ -698,21 +698,25 @@ export function publishableKeyForSession(): string {
   return pk
 }
 
-export async function createStripeAccountSession(creatorId: string, purpose: StripeAccountSessionPurpose): Promise<{ clientSecret: string; publishableKey: string }> {
+export async function createStripeAccountSession(creatorId: string, purpose: StripeAccountSessionPurpose, known?: Stripe.Account | null): Promise<{ clientSecret: string; publishableKey: string }> {
   const publishableKey = publishableKeyForSession()
   const row = await readCreatorStripe(creatorId)
   if (!row?.stripe_account_id) throw new PaymentsProblem("Start setup first.")
 
   let account: Stripe.Account
-  try {
-    account = await stripe.accounts.retrieve(row.stripe_account_id)
-  } catch (error) {
-    if (!accountIsGone(error)) {
-      console.error("[stripe connect] session account check", stripeErrorMessage(error).slice(0, 160))
-      throw new PaymentsProblem("We couldn't load payments right now. Try again in a moment.", 502)
+  if (known && known.id === row.stripe_account_id) {
+    account = known
+  } else {
+    try {
+      account = await stripe.accounts.retrieve(row.stripe_account_id)
+    } catch (error) {
+      if (!accountIsGone(error)) {
+        console.error("[stripe connect] session account check", stripeErrorMessage(error).slice(0, 160))
+        throw new PaymentsProblem("We couldn't load payments right now. Try again in a moment.", 502)
+      }
+      await releaseConnectedAccount(creatorId, row.stripe_account_id, "legacy_platform")
+      throw new PaymentsProblem("Your payments need to be set up again. Close this and choose Reconnect payments. Your orders and payout history are safe.", 409)
     }
-    await releaseConnectedAccount(creatorId, row.stripe_account_id, "legacy_platform")
-    throw new PaymentsProblem("Your payments need to be set up again. Close this and choose Reconnect payments. Your orders and payout history are safe.", 409)
   }
   /*
    * The embedded ID check must not open on "individual or company". Setup
