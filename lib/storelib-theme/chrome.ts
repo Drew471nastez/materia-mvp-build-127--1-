@@ -2,23 +2,23 @@
  * ===========================================================================
  *  WHICH SECTION IS THE HEADER, AND WHICH THE FOOTER
  * ===========================================================================
- * Every Storelib site draws one header and one footer. Usually they are the
- * built-in `header` and `footer` sections, which carry the parts of a shop a
- * section file does not rebuild on its own: the cart drawer and its count,
- * the search, the account and wishlist links, the phone menu, sticky and
- * transparent behaviour, the logo from Theme settings, the menus from
- * Website settings, policy links, payment and social icons.
+ * Every Storelib site draws one header and one footer. They may be the
+ * built-in `header` and `footer` sections, or a section the creator coded,
+ * with whatever layout, icons, buttons, motion and logo size they want.
+ * What stays live is Storelib data: the cart drawer, search, account, the
+ * menu from a link_list, the logo from Theme settings.
  *
- * A creator who asks for a header of their own gets ONE section that says
- * `"kind": "header"`, which replaces the built-in one: see declaredKind
- * below. Saving one is not refused; saving a header that does not say so is,
- * with what to write instead (lib/website-builder/save-theme-file.ts).
+ * `"kind": "header"` (or "footer") replaces the built-in one: see declaredKind
+ * below. A file under any other name is saved. Only the reserved filenames
+ * sections/header.storelib and sections/footer.storelib are refused, because
+ * they would shadow the built-in sections (lib/website-builder/save-theme-file.ts).
  *
  * A header file that is already there (an imported theme, a site saved
  * before this) is never dropped: it is placed where a header goes, in the
  * Header group as THE header, with the built-in one hidden rather than drawn
  * twice (lib/storelib-theme/section-groups.ts). That placement asks this
- * module "is this file a header or a footer".
+ * module "is this file a header or a footer". Recognition is placement, not a
+ * save refusal.
  *
  * HOW A FILE IS RECOGNISED, strongest signal first:
  *
@@ -95,11 +95,10 @@ function roleFromGroup(schema: Record<string, unknown>): ChromeRole | null {
  *  A HEADER OF ITS OWN, SAID OUT LOUD
  * ===========================================================================
  * `"kind": "header"` (or "footer") is a section that says it IS the site's
- * header, written because the creator asked for a header of their own. It
- * is not refused: the builder puts it in the header group in place of the
- * built-in one, on every page. One per theme, which the save holds
- * (lib/website-builder/save-theme-file.ts). What is refused is a header
- * that does not say so: a nav bar dropped into a page under the real one.
+ * header. The builder puts it in the header group in place of the built-in
+ * one, on every page. One per theme, which the save holds
+ * (lib/website-builder/save-theme-file.ts). A header that does not say so
+ * is still saved; this module only recognises it so an import can place it.
  */
 export function declaredKind(schema: Record<string, unknown> | null | undefined): ChromeRole | null {
   const k = schema?.kind
@@ -160,22 +159,7 @@ export const CHROME_TYPES: Record<ChromeRole, string> = { header: "header", foot
  * to writing the same file under another name.
  */
 export function chromeRefusal(role: ChromeRole): string {
-  if (role === "header") {
-    return [
-      "A Storelib site has one header, shared by every page, and a section file cannot be another one.",
-      "Change the site's header instead: it is the section of type \"header\".",
-      "Its settings cover the logo and store name (Theme settings), the menu links (its nav_link blocks, or a menu from Website settings, Navigation), the desktop and phone layouts, sticky, sticky on scroll up and transparent, the search, account, wishlist and cart icons with their drawers, a call to action button, its colour scheme and its border.",
-      "In the editor that is Sections, Header. In the builder's AI it is update_section on the header, with add_block and update_block for its nav_link links. Over MCP it is storelib_create_safe_patch with those same operations, or storelib_update_styles for its colours.",
-      "Only if the creator asked for a header of their own: write ONE section with \"kind\": \"header\" in its schema, a link_list setting for the menu (default \"main-menu\") and an image_picker for the logo. It replaces the built-in header on every page, and opens the site's own drawers by attribute: data-storelib-menu on its menu button, data-storelib-cart on its bag with data-storelib-cart-count for the count, and data-storelib-search on its search.",
-    ].join(" ")
-  }
-  return [
-    "A Storelib site has one footer, shared by every page, and a section file cannot be another one.",
-    "Change the site's footer instead: it is the section of type \"footer\".",
-    "Its settings cover the logo, tagline and copyright, two menus from Website settings, Navigation, its own link columns (footer_column and footer_link blocks), the policy and contact links, a newsletter sign up, social and payment icons, its layout and its colour scheme.",
-    "In the editor that is Sections, Footer. In the builder's AI it is update_section on the footer; over MCP, storelib_create_safe_patch with update_section, or storelib_update_styles for its colours.",
-    "Only if the creator asked for a footer of their own: write ONE section with \"kind\": \"footer\" in its schema, with link_list settings for its menus. It replaces the built-in footer on every page.",
-  ].join(" ")
+  return `sections/${role}.storelib is the built-in ${role}. Write the creator's own as sections/<name>.storelib. Design it however the page needs. Wire Storelib's live values: a link_list for the menu and its sub links, theme.logo for the logo (size and colour are settings the creator can change), and the drawer attributes when it shows a cart, search or menu (data-storelib-cart, data-storelib-cart-count, data-storelib-search, data-storelib-menu). "kind": "${role}" makes it the site's ${role}.`
 }
 
 /** Said when a second section declares the same kind. */

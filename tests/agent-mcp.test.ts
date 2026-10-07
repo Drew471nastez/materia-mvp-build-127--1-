@@ -92,7 +92,7 @@ async function main() {
   check("a request that matches nothing still gets a skill", selectSkills("hello there").length === 1)
   check("the checks come from the skills chosen, each once", checksFor(selectSkills("make the FAQ buttons darker")).join(",") === [...new Set(checksFor(selectSkills("make the FAQ buttons darker")))].join(","))
   const forAgent = skillsForRequest("change the colour of the hero button")
-  check("an MCP agent gets the steps, the tools and the framework facts once", /Steps:/.test(forAgent) && /storelib_update_styles/.test(forAgent) && /COLOUR COMES FROM THE SCHEME/.test(forAgent) && forAgent.split("COLOUR COMES FROM THE SCHEME").length === 2)
+  check("an MCP agent gets the steps, the tools and the framework facts once", /Steps:/.test(forAgent) && /storelib_update_styles/.test(forAgent) && /COLOURS MAY FOLLOW THE SCHEME/.test(forAgent) && forAgent.split("COLOURS MAY FOLLOW THE SCHEME").length === 2)
   const forBuilder = skillContext("change the colour of the hero button")
   check("Storelib AI gets the short form, with the reference", /TASK NOTES/.test(forBuilder) && /STORELIB REFERENCE/.test(forBuilder) && forBuilder.length < forAgent.length)
   check("every skill's tools are real MCP tools", SKILLS.every((s) => s.tools.every((t) => [...TOOLS, ...PROJECT_TOOLS].some((x) => x.name === t))), SKILLS.flatMap((s) => s.tools).filter((t) => ![...TOOLS, ...PROJECT_TOOLS].some((x) => x.name === t)).join(","))

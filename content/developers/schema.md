@@ -104,6 +104,8 @@ A section enters the page the way Theme settings, Animations says. A section tha
 
 `theme` follows the theme. Any other value **overrides the theme's animation for this section**, including `none` on a site whose theme animates everything. The page reads the setting itself, so the template does not print it and the compile does not warn that it is unread. A value other than these five plays as `theme`, and the compile warns about it.
 
+This select is optional. A section may also animate itself in CSS, however the design needs, and that is not refused. `prefers-reduced-motion` is a courtesy.
+
 ### Showing a setting only when it matters
 
 A setting that only means something in one mode can say so, and the panel leaves it out until the section is in that mode:

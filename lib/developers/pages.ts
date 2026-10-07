@@ -103,9 +103,9 @@ export const DEV_PAGES: readonly DevPage[] = [
     slug: "header-and-footer",
     title: "The header and footer",
     nav: "Header and footer",
-    summary: "One of each on every site: what they do and every setting.",
+    summary: "One of each on every site. Design is yours; live values stay connected.",
     description:
-      "The one header and one footer every Storelib website has: the cart drawer, search, menus, sticky and transparent modes, every setting they take, how to change them from the editor, Ask AI or an agent, and why a section file can never be another one.",
+      "The one header and one footer every Storelib website draws. Layout, icons, buttons, motion and logo size are yours. Menus, sub links, the logo, cart, search, account, products, prices and checkout stay live Storelib data.",
     group: "Themes",
   },
   {

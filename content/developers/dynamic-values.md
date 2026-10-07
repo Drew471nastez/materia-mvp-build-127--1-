@@ -195,6 +195,8 @@ What a Shopify theme reads as `settings.logo` and the other general settings, a 
 {% for link in shop.socials %}<a href="{{ link.url | url }}">{{ link.label }}</a>{% endfor %}
 ```
 
+`theme.logo.width` is the width stored in Theme settings. A section may ignore it and size the logo with its own setting, or with CSS. The height in the example is the section's choice, not a required size. Colour of the wordmark is the section's too.
+
 The same values reach CSS as custom properties on the page, `var(--theme-page-width)`, `var(--theme-button-radius)`, `var(--theme-spacing-scale)` and the rest, listed in [Styling](/developers/styling#the-page-a-section-sees).
 
 `theme.settings` has every theme setting exactly as stored: `theme.settings.brand_name`, `theme.settings.logo_url`, `theme.settings.tagline`, `theme.settings.social_instagram`. A key a website has never set is absent there, so prefer the paths above, or give it a fallback:

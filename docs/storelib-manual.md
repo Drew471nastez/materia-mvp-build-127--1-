@@ -1322,39 +1322,30 @@ a cart drawer's title is not the section's heading.
 
 ### 12.1 One header, one footer
 
-A site has exactly one header and one footer, the built-in `header` and
-`footer` sections, and they are changed, never replaced. They carry what a
-section file cannot rebuild: the cart drawer and its count, the search, the
-account and wishlist links, the phone menu with sub-menus, sticky and
-hide-on-scroll behaviour, the transparent header over a hero, the logo from
-Theme settings and the menus from Website settings.
+A site draws one header and one footer. How they look is the section's:
+layout, icons, buttons, type, motion and logo size are not fixed. The live
+values are. A menu is a `link_list` (default `main-menu`) with sub links in
+`link.links`. The logo is `theme.logo.{url, width, mobile_url, text}`, and
+size and colour are settings the creator can change. Cart, search and the
+menu drawer are `data-storelib-cart`, `data-storelib-cart-count`,
+`data-storelib-search` and `data-storelib-menu`. Account is
+`routes.account_url`. A buy button is the product's `checkout_url`.
 
-A section file that IS a header or a footer, and does not say so with
-`kind`, is refused at every door (the code editor, Ask AI, MCP, the agent
-API, a GitHub push) and left out of an imported theme, with its uses taken
-off the pages. It is recognised by `"group": "header"`, by its type or name
-(Header, Site header, Navbar, Navigation bar, Top bar, Footer), or by an
-outermost `<header>` holding a `<nav>`. The rule is
-lib/storelib-theme/chrome.ts. Shopify's `enabled_on.groups` says where a
+A header of the creator's own is any section file except the reserved names
+`sections/header.storelib` and `sections/footer.storelib`. `"kind": "header"`
+(or `"footer"`) replaces the built-in one on every page. A theme holds at
+most one of each kind; the save refuses a second. Recognition in
+lib/storelib-theme/chrome.ts places an imported header as the site's header.
+It does not refuse a save. Shopify's `enabled_on.groups` says where a
 section may go, not what it is: an announcement bar with
 `"enabled_on": { "groups": ["header"] }` (or `"category": "announcement"`)
 sits in the header group above the header and is saved like any section.
 
-A creator who asks for a header of their own gets ONE section whose schema
-says `"kind": "header"` (or `"footer"`). It replaces the built-in one on
-every page and never sits in a page's own sections. A theme holds at most one
-of each kind; the save refuses a second. Its menu is a `link_list` setting
-defaulting to `main-menu`, its logo an `image_picker` or `theme.logo.url`.
 The schema keys are validated by lib/storelib-theme/schema/validate.ts, and
 lib/storelib-theme/schema/normalise.ts (`sectionGroupsOf`) says which group
-a schema belongs to.
-
-To make a site's header look like a reference, change the real one: its
-layout settings, `header_sticky_enabled` and `header_sticky_on_scroll_up`,
-`header_transparent`, the icon toggles, the button, its colour scheme, and
-its links as `nav_link` blocks (`label`, `url`, and `parent_id` for a
-sub-link). Every setting is listed, from the file itself, on the developer
-hub's page The header and footer.
+a schema belongs to. The built-in header's own settings, for when that
+instance is the one being edited, are listed on the developer hub's page
+The header and footer. They are not a list a new header has to copy.
 
 A template may hold at most 60 sections.
 

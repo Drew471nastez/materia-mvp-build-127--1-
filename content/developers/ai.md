@@ -26,9 +26,9 @@ These are the mistakes that produce a file which looks right and is not. Check e
 2. **The template language is not Vue, React, JSX or Liquid.** `v-if`, `@click`, `:class`, `{% assign %}` and JSX braces are refused. It is `{{ }}`, `{% if %}`, `{% for %}`, `{# #}` and filters, and nothing else.
 3. **Every name must be declared.** `{{ settings.subtitle }}` does not compile unless the schema declares `subtitle`. Check every path your template and CSS read against your schema.
 4. **Repeated content is blocks.** Never `feature_1`, `feature_2`, `feature_3`.
-5. **Colour comes from the scheme.** Declare a `color_scheme` setting and read `var(--scheme-*)`, and give each element a `color` setting whose default names a scheme colour. A hex code for anything the scheme answers stops responding to the creator's theme.
+5. **Colour may follow the scheme, and may be overwritten.** A `color_scheme` setting and a `color` setting per element let the sidebar change a colour. A fixed colour is allowed.
 6. **Container queries, not media queries.** The builder's phone preview is not the width of the window. A width-only media query is rewritten for you, but say what you mean.
-7. **The header is configured, not written.** Change the built-in header's settings, its links and the theme's logo. Only a creator who asks for a header of their own gets one section with `"kind": "header"`. See [The header and footer](/developers/header-and-footer).
+7. **The header and footer are designed freely.** Layout, icons, buttons, type, motion and logo size are yours. Write a section with `"kind": "header"` or `"kind": "footer"` when they should replace the built-in ones. Keep menus, the logo, cart, search, account, products and checkout live. See [The header and footer](/developers/header-and-footer).
 8. **The type is what the value is.** A picture is `image_picker`, never text holding an address; a menu is one `link_list`, never `link_1_label` and `link_1_url`. Both are refused for an agent. See [Choosing the type](/developers/schema#choosing-the-type).
 
 ## Know the website before you write for it
@@ -37,7 +37,7 @@ A section written without knowing the site is a section from another website: th
 
 - **What it sells.** The published products, with their real titles and prices. Never invent a product, a price or a review. A connected agent reads them with `storelib_site`; the builder's AI is given them.
 - **What it is called and what it says about itself.** The brand name, tagline, site title and description. Write copy in the same voice and the site's language.
-- **How it looks.** The colour schemes and fonts. Use `var(--scheme-*)` and the theme's type styles, never a new palette.
+- **How it looks.** Colour schemes and fonts are there to follow, and a section may set its own. A colour setting lets the creator overwrite one.
 - **What is already on the page.** The sections each page has, so a new one does not repeat the one above it.
 
 Then read [Selling](/developers/selling) if the section shows a product, a price or a Buy button.

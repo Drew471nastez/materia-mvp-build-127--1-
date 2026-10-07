@@ -12,6 +12,14 @@ A file written for a newer version is **refused, not misread**: a schema declari
 
 Every change since 1.0 has been additive. Nothing a section could do on 11 September 2026 has stopped working since, which is why every version above is still 1.
 
+## 7 October 2026
+
+**Changed**
+
+- A header, footer, menu, icon set, button, animation or logo size is the section's design. It is not refused. Write `sections/<name>.storelib` with `"kind": "header"` or `"kind": "footer"` and design it freely. `sections/header.storelib` and `sections/footer.storelib` stay reserved.
+- What a save still refuses is a live Storelib value typed in by hand: menus and sub links (`link_list`, `link.links`), the logo (`theme.logo`), cart, search and menu drawers, account, buy buttons (`checkout_url`), products and prices, and email forms.
+- Colours may follow the scheme and may be overwritten. Motion is the section's own. `prefers-reduced-motion` is a courtesy, not a reason to refuse a file.
+
 ## 5 October 2026
 
 **Added**
@@ -62,7 +70,7 @@ Every change since 1.0 has been additive. Nothing a section could do on 11 Septe
 
 **Changed**
 
-- A section file that is a header, a navigation bar or a footer is refused when it is saved, by the code editor, Ask AI, an agent or a GitHub push, and left out of an imported theme. Recognised by `"group"`, by Shopify's `enabled_on.groups`, by its name, or by an outermost `<header>` holding a `<nav>`. A site has one of each, and they are changed through their settings.
+- A section file that is a header, a navigation bar or a footer was refused on save. As of 7 October 2026 that refusal is gone: design it freely and keep the live values. Only the filenames `sections/header.storelib` and `sections/footer.storelib` stay reserved.
 - The YouTube and Vimeo video section's link is a `video_url` setting, which checks the link as it is pasted.
 - A section's 50 blocks are counted at every depth, and saving a page keeps the blocks inside blocks, whether they are hidden and whether the template placed them.
 - Adding the same preset twice gives each section its own block ids. Before, the two shared them, and a click on a block in either selected the first.

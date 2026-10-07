@@ -1,22 +1,30 @@
 # The header and footer
 
-Every Storelib website has exactly **one header and one footer**. They are the built-in sections of type `header` and `footer`, the same on every page, and they are the parts of a shop that a section file cannot rebuild on its own: the cart drawer and its count, the search, the account and wishlist links for a signed-in visitor, the phone menu with its sub-menus, sticky behaviour, the logo from Theme settings and the menus from Website settings.
+Every Storelib website draws **one header and one footer**, the same on every page. How they look is yours: layout, icons, buttons, type, motion and logo size. Code them however the page needs.
 
-So they are **configured, not rebuilt**. This page lists everything they do and every setting that changes them, for a person in the editor and for an AI writing code.
+What is not yours to invent is the **live Storelib data**, the same way a shop platform keeps a cart and a menu in sync with the shop:
 
-> **Warning** Do not write a section file that is a header, a navigation bar or a footer, and do not put one in a page. It is refused when it is saved, by a person or an agent. It would be a second header under the real one, with a cart icon that opens nothing and a menu that is a typed copy of the real one. Change the real header's settings instead. The one exception is a creator who asks for a header of their own: see [A header of your own](#a-header-of-your-own).
+- **Menus and sub links.** A `link_list` setting, default `main-menu`, looped `{% for link in settings.menu.links %}` with `{% for child in link.links %}` for the links under it. Footer columns that are the site's menus are `link_list` settings too.
+- **Logo.** `theme.logo.url`, `theme.logo.width`, `theme.logo.mobile_url` and `theme.logo.text`. Size and colour are settings the creator can change. `theme.logo.width` is a starting width, not a rule.
+- **Cart, search, menu drawer.** `data-storelib-cart`, `data-storelib-cart-count`, `data-storelib-search`, `data-storelib-menu`. See [The site's drawers](#the-sites-drawers).
+- **Account, sign in, sign up.** `routes.account_url`. Sign in and a new account are the same page.
+- **Buy, products, prices, checkout.** A buy button uses the product's `checkout_url`. Titles and prices come from `products`, already formatted.
+- **Email.** `data-storelib-form="subscribe"` on a form. `shop.email` is the support address when the section asks for it.
+- **A map or an address** is a text or url setting the creator edits. There is no map object to fetch. Do not paste an analytics script; analytics are the platform's.
+
+The built-in `header` and `footer` sections already do this. Their settings are listed below for when you are editing those. They are not a list you have to copy. A header of your own is [A header of your own](#a-header-of-your-own).
 
 ## The right way, in short
 
 | To change | Do this |
 | --- | --- |
-| The logo | Theme settings › Branding, `logo_url` (an image). The header and footer both show it. The header's own `logo_url` overrides it in the header only. |
-| The store name beside or instead of the logo | Theme settings › Branding, `brand_name`. |
-| The links | The header's `nav_link` blocks, or its `menu` setting set to one of the menus in Website settings › Navigation. |
-| Social links | Theme settings › Social. The footer shows them, and the header when `social_show_in_header` is on. |
-| Layout, sticky, icons, button, colours | The header's own settings. |
+| The logo | `theme.logo.url`. Size and colour are settings on the section. Theme settings › Branding sets the shared picture. |
+| The store name | `shop.name` or `theme.logo.text`. |
+| The links | A `link_list` (default `main-menu`), including sub links in `link.links`. Edit the menu in Website settings › Navigation. |
+| Social links | `shop.socials`. |
+| Layout, icons, buttons, motion, colours | The section's own design. Colours may follow the scheme and may be overwritten. |
 
-A section of your own that needs the same things reads them rather than asking again: `theme.logo.url`, `shop.name`, `shop.socials`, and a `link_list` setting for a menu. See [Dynamic values](/developers/dynamic-values#the-themes-general-settings).
+A section reads `theme.logo.url`, `shop.name`, `shop.socials` and a `link_list` rather than asking the creator to type them again. See [Dynamic values](/developers/dynamic-values#the-themes-general-settings).
 
 ## Where they live
 
@@ -57,10 +65,10 @@ The logo, tagline and copyright line; two menu columns chosen from the site's me
 
 | You are | Do this |
 | --- | --- |
-| In the editor | Sections › Header (or Footer). Links and menus are also in Website settings › Navigation. |
-| Ask AI in the builder | Ask in words: "make the header sticky", "add a Courses link with three sub-links". It reads the header and changes its settings and `nav_link` blocks. |
-| An agent over MCP | `storelib_create_safe_patch` with `update_section` on the section of type `header` or `footer`, and `add_block`, `update_block`, `move_block` or `remove_block` for the header's `nav_link` links (a sub-link names its parent in `parent_id`). `storelib_update_styles` with scope `section` for its colours. |
-| Editing an exported theme | Change the `header` and `footer` entries in `templates/*.json`: their `settings` and `blocks`. Do not add a `sections/*.storelib` file for either. |
+| In the editor | Sections › Header (or Footer), or replace it with a section of your own. Links are in Website settings › Navigation. |
+| Ask AI in the builder | Ask for the header you want, including a new layout, new icons or your own markup. It designs it and keeps the live values above. |
+| An agent over MCP | Write `sections/<name>.storelib` with `"kind": "header"` or `"kind": "footer"`, or change the one on the page. Change menu links with `edit_menu`, not by typing label and address pairs. |
+| Editing an exported theme | A header file under any name but `header` or `footer` is kept. `"kind": "header"` makes it the site's header. |
 
 A `nav_link` block:
 
@@ -76,7 +84,7 @@ and a sub-link under it:
 
 ## A header of your own
 
-When the creator asks for a header (or footer) that the built-in one cannot be configured into, and says so, write **one** section whose schema says what it is:
+When the header or footer should be designed differently, write **one** section whose schema says what it is. Layout, icons, buttons, type, motion and logo size are yours. Do not copy the built-in setting list.
 
 ```json
 {
@@ -96,16 +104,17 @@ When the creator asks for a header (or footer) that the built-in one cannot be c
 }
 ```
 
-- `"kind": "header"` makes it the site's header. It replaces the built-in one on every page, sits in the header group, and is never placed among a page's own sections. `"kind": "footer"` does the same for the footer.
-- **One per theme.** A second file of the same kind is refused when it is saved. Never two headers.
-- Its menu is a `link_list` setting, defaulting to `main-menu`, so the creator keeps editing links in Website settings › Navigation. Never `link_1_label`, `link_1_url` pairs.
-- Its logo is an `image_picker` setting, or `theme.logo.url` with `{{ theme.logo.text }}` when there is no picture. Never a text box holding an address.
-- Each element it draws has a colour setting that follows the scheme. See [Styling](/developers/styling#a-colour-setting-for-each-element).
-- It has what you build into it, and it reaches the site's own drawers by attribute: see [The site's drawers](#the-sites-drawers) below. The built-in header is still the first answer: everything above is already in it.
+- `"kind": "header"` makes it the site's header. It replaces the built-in one on every page and sits in the header group. `"kind": "footer"` does the same for the footer.
+- **One of each kind.** A second file that declares the same `kind` is refused. Change the existing file, or take `kind` off one of them.
+- `sections/header.storelib` and `sections/footer.storelib` are reserved. Use another file name, such as `sections/studio_header.storelib`.
+- Its menu is a `link_list` setting, defaulting to `main-menu`, so the creator keeps editing links in Website settings › Navigation. Sub links are `link.links`. Never `link_1_label`, `link_1_url` pairs.
+- Its logo is `theme.logo.url` or an `image_picker`. Size and colour are settings. Never a text box holding an address.
+- Colours may follow the scheme and may be `color` settings the creator overwrites. See [Styling](/developers/styling#a-colour-setting-for-each-element).
+- Cart, search and the menu drawer are attributes on the buttons you design: see [The site's drawers](#the-sites-drawers) below.
 
 ### The site's drawers
 
-A header of your own draws its own buttons, and the page opens the same cart, search window and menu drawer the built-in header does, with the same motion, in the builder and on the live site. Mark the element and the page handles it. A section's script is not needed and could not do it: it runs in a sandbox with no access to the visitor's cart.
+A header of your own draws its own buttons, icons and motion. The page opens the cart, the search window and the menu drawer when the markup asks, in the builder and on the live site. Mark the element and the page handles the data. A section's script is not needed and could not do it: it runs in a sandbox with no access to the visitor's cart. The drawer's own motion is the page's; the header's motion is yours.
 
 | Attribute | On | Does |
 | --- | --- | --- |
@@ -161,13 +170,16 @@ An announcement bar, or anything else that belongs above the header on every pag
 
 ## How a file is recognised as a header or footer
 
-The rule is in `lib/storelib-theme/chrome.ts` and runs at every door a file comes through: the code editor's save, Ask AI, the MCP and agent tools, a GitHub push and a theme import. A file that does not declare `"kind"` is a header or footer when any of these holds:
+Recognition places a header, it does not refuse one. The rule is in `lib/storelib-theme/chrome.ts`. An imported theme that brings a header file keeps it and draws it as the site's header, with the built-in one hidden. A save of any file except the two reserved names goes through.
 
-1. Its schema says so in a key Storelib does not use: `"group": "header"` or `"footer"`. (`enabled_on` is where a section may go, not what it is: an announcement bar in the header group is not a header.)
-2. Its type or name is one: Header, Site header, Navbar, Navigation bar, Top bar, Footer, with a word like Main or Custom in front or a version after. A heading band called "Page header" or "Collection header" is not.
-3. Its markup is one: the outermost element is a `<header>` holding a `<nav>`, a `<nav>`, or a `<footer>`, and its name says header, nav, menu or footer.
+A file is treated as a header or footer, for that placement, when any of these holds:
 
-Saved, it is refused with what to change instead, and with how to declare `"kind"` if the creator really asked for a header of their own. In an imported theme it is left out, its uses are taken off the pages, and the import says so; the site keeps its own header and footer. A file that declares `"kind"` is not refused.
+1. Its schema says `"kind": "header"` or `"kind": "footer"`.
+2. Its schema says so in a key Storelib does not use: `"group": "header"` or `"footer"`. (`enabled_on` is where a section may go, not what it is: an announcement bar in the header group is not a header.)
+3. Its type or name is one: Header, Site header, Navbar, Navigation bar, Top bar, Footer, with a word like Main or Custom in front or a version after. A heading band called "Page header" or "Collection header" is not.
+4. Its markup is one: the outermost element is a `<header>` holding a `<nav>`, a `<nav>`, or a `<footer>`, and its name says header, nav, menu or footer.
+
+Only `sections/header.storelib` and `sections/footer.storelib` are refused, because those names are the built-in sections. Save a header of your own as `sections/studio_header.storelib` (any other name) and set `"kind"`.
 
 ## The rest of a shop
 

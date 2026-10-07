@@ -115,15 +115,19 @@ async function main() {
   check("white text and a dark scrim over a picture are allowed", ids(NATIVE.replace("color: var(--s-heading); }", "color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.4); }")).length === 0)
   check("a colour that is only a var() fallback is allowed", ids(NATIVE.replace("color: var(--s-heading); }", "color: var(--s-heading, color-mix(in srgb, var(--s-text) 90%, #000)); }")).length === 0)
 
-  console.log("\nAgents are held to it, a person's own editor is not")
-  const bad = NATIVE.replace("color: var(--s-heading); }", "color: #6366f1; }")
-  const strict = validateSection(bad, { path: "sections/native_band.storelib", expectType: "native_band", strict: true })
-  check("strict: refused, with the rule in the feedback", strict.ok === false && strict.reason === "quality" && /fixed colour/.test(strict.feedback))
-  check("not strict: saved as before", validateSection(bad, { path: "sections/native_band.storelib", expectType: "native_band" }).ok === true)
+  console.log("\nLive values are refused; a look is not")
+  const coloured = NATIVE.replace("color: var(--s-heading); }", "color: #6366f1; }")
+  const colourFindings = checkSectionIntegration(coloured)
+  const colourSave = validateSection(coloured, { path: "sections/native_band.storelib", expectType: "native_band", strict: true })
+  check("a fixed colour is a warning, not a refusal", colourSave.ok === true && colourFindings.some((f) => f.id === "integration-colour" && f.severity === "warning"))
+  const linked = NATIVE.replace("{{ settings.button_url | default: '#' | url }}", "https://example.com/buy")
+  const strict = validateSection(linked, { path: "sections/native_band.storelib", expectType: "native_band", strict: true })
+  check("strict: a typed link is refused, with the fix", strict.ok === false && strict.reason === "quality" && /url setting/.test(strict.feedback))
+  check("not strict: a person's editor saves it", validateSection(linked, { path: "sections/native_band.storelib", expectType: "native_band" }).ok === true)
   let touched = 0
   const db = { from: () => { touched++; throw new Error("the database was reached") } }
-  const r = await writeSection(db, { installId: "i", tokenId: "t", name: "Claude Code", creatorId: "c" }, "sections/native_band.storelib", bad)
-  check("an agent write over MCP or HTTP is refused before the database", r.ok === false && r.status === 422 && touched === 0 && /fixed colour/.test(r.error))
+  const r = await writeSection(db, { installId: "i", tokenId: "t", name: "Claude Code", creatorId: "c" }, "sections/native_band.storelib", linked)
+  check("an agent write over MCP or HTTP is refused before the database", r.ok === false && r.status === 422 && touched === 0 && /url setting/.test(r.error))
 
   console.log("\nEvery agent path goes through it")
   check("MCP and the agent API (writeSection)", /validateSection\(source, \{ path, expectType: [^}]*strict: true \}\)/.test(read("lib/agent-access/operations.ts")))

@@ -45,10 +45,10 @@ const say = (errors: ThemeError[]) =>
 /**
  * `strict` is for a file an AGENT wrote: Storelib AI, Claude Code or Codex
  * over MCP, the agent API, a push from a linked repository. It adds the
- * integration rules (./integration.ts), which say a section takes its
- * colours, type, buttons, spacing, words and links from the theme and the
- * creator, the way the built-in ones do. A person saving in the code editor
- * is not held to them.
+ * integration rules (./integration.ts), which refuse a live Storelib value
+ * typed in by hand (a menu, a picture, a link, a product, a price) and only
+ * note a look (colour, type, buttons, spacing, motion). A person saving in
+ * the code editor is not held to them.
  */
 export function validateSection(source: string, opts: { path?: string; expectType?: string; strict?: boolean } = {}): Validation {
   /* A theme block is held to a block's compile rules, which are its whole contract: it has no scheme or spacing of its own, it reads its section's. */
