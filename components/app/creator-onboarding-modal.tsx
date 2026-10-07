@@ -51,7 +51,6 @@ function suggestedJoinHandle(name: string): string {
   return joinHandleFromDisplayName(name)
 }
 import { askPushPermission, inNativeApp, nativePlatform, phoneSettingsPath, type PushPermission } from "@/lib/native-push"
-import { startRouteLoading } from "@/components/navigation/route-loading-bar"
 
 /*
   ONE CLOCK FOR EVERY MOVE IN THE ONBOARDING. A step change is a crossfade:
@@ -696,9 +695,10 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
   useEffect(() => {
     if (!open || !start) return
     const href = welcomeDone(start.next)
-    router.prefetch(href)
+    /* In full (the page, not only up to its loading screen), so the hand off from "You're all set" is one swap. */
+    router.prefetch(href, { kind: "full" as never })
     const path = href.split("?")[0]
-    if (path && path !== href) router.prefetch(path)
+    if (path && path !== href) router.prefetch(path, { kind: "full" as never })
   }, [open, start?.next, router])
 
   /* Same device: restore fields if they left mid-flow without finishing. */
@@ -991,7 +991,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
       }).catch(() => null),
       new Promise((r) => setTimeout(r, 4000)),
     ])
-    startRouteLoading({ cover: true })
+    /* No route surface over "You're all set": its line is the wait, and it stays until the page it opens has painted (round 14). */
     router.replace(done)
     window.setTimeout(() => {
       if (window.location.pathname.startsWith("/onboarding")) window.location.replace(done)
@@ -1069,9 +1069,17 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
       setRedirectFailed(true)
     }, 12000)
 
-    // Use hard navigation so the server-side layout always reads fresh DB state
-    // after onboarding_completed is written — avoids bouncing back to /signup/success
-    window.location.replace("/app")
+    /*
+      IN PLACE, NOT A NEW DOCUMENT (round 14). A hard load dropped this screen for an empty white document and then the
+      dashboard's own first screen: "white space, then it takes me there abruptly". The router's kept copies are dropped first
+      (refresh), so /app is read fresh from the server with onboarding done, and this screen stays until the dashboard is ready
+      to replace it. A hard load is only the fallback when the dashboard has not opened in a few seconds.
+    */
+    router.refresh()
+    router.replace("/app")
+    window.setTimeout(() => {
+      if (!window.location.pathname.startsWith("/app")) window.location.replace("/app")
+    }, 5000)
   }
 
   useEffect(() => {
