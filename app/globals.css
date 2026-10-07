@@ -5758,6 +5758,11 @@ html[data-ghost-tap-guard] [data-buyer-tab-bar] {
   pointer-events: none;
 }
 
+/* Desktop settings: reserve scrollbar width so section changes do not shift the page. */
+html:has([data-account-settings]) {
+  scrollbar-gutter: stable;
+}
+
 /*
  * ===========================================================================
  *  THE EDITOR'S SHEET IS READ AND PRESSED WITH A THUMB

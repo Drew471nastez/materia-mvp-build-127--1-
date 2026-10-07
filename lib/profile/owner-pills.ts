@@ -9,7 +9,7 @@
  *   Activity       /account                 what everybody sees first
  *   Communities    /account/communities     the ones you run and are in
  *   Library        /account/library/...     what you bought, its own page
- *   Settings       /account/settings?section=account
+ *   Settings       /account/settings?section=profile (same tab as Edit profile)
  *
  * EDIT PROFILE IS NOT A PILL ANY MORE. The owner asked for it as a real
  * button on the cover, beside the cover's own camera button
@@ -44,7 +44,7 @@ export function ownerPillLinks(communities: boolean, creator = false): OwnerPill
     ...(creator ? [] : [{ key: "activity" as const, label: "Activity", href: "/account" }]),
     ...(communities ? [{ key: "communities" as const, label: "Communities", href: creator ? "/account" : ACCOUNT_COMMUNITIES }] : []),
     { key: "library", label: "Library", href: LIBRARY_HOME },
-    { key: "settings", label: "Settings", href: "/account/settings?section=account" },
+    { key: "settings", label: "Settings", href: "/account/settings?section=profile" },
   ]
 }
 

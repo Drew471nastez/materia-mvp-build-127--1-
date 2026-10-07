@@ -33,7 +33,7 @@ import { usePathname, useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { EDIT_PROFILE_HREF, ownerPillFor, ownerPillLinks, type OwnerPillKey } from "@/lib/profile/owner-pills"
 import { prefetchHref, prefetchOnIdle } from "@/lib/nav/prefetch-policy"
-import { openSettingsSubpage, sectionFromSettingsHref, settingsStaysHere, warmSettings } from "@/components/account/settings-subpage"
+import { openSettingsSubpage, settingsStaysHere, warmSettings } from "@/components/account/settings-subpage"
 import { cn } from "@/lib/utils"
 
 export { ownerPillLinks } from "@/lib/profile/owner-pills"
@@ -43,8 +43,9 @@ const FADE_MS = 150
 const EASE = "cubic-bezier(0.33, 1, 0.68, 1)"
 
 const PILL =
-  "relative inline-flex h-10 shrink-0 select-none items-center whitespace-nowrap rounded-full border bg-white px-4 text-[14px] font-medium outline-none " +
-  "transition-[color,scale] active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 motion-reduce:transition-none motion-reduce:active:scale-100 [-webkit-tap-highlight-color:transparent]"
+  "relative inline-flex h-10 shrink-0 touch-manipulation select-none items-center whitespace-nowrap rounded-full border bg-white px-4 text-[14px] font-medium outline-none " +
+  "transition-[color,background-color,border-color] duration-150 ease-out focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 motion-reduce:transition-none [-webkit-tap-highlight-color:transparent] " +
+  "before:absolute before:-inset-2 before:rounded-full before:content-['']"
 
 export function ProfileOwnerPills({ communities, creator = false, active: fixed, className }: { communities: boolean; /** A live store: no Activity pill, /account is their Communities. */ creator?: boolean; active?: OwnerPillKey | null; className?: string }) {
   const pathname = usePathname()
@@ -94,7 +95,7 @@ export function ProfileOwnerPills({ communities, creator = false, active: fixed,
                   /* In the app and on a phone, Settings is a layer over the profile, not another address. */
                   if (p.key === "settings" && settingsStaysHere()) {
                     e.preventDefault()
-                    openSettingsSubpage(sectionFromSettingsHref(p.href))
+                    openSettingsSubpage("profile")
                     return
                   }
                   if (p.key !== fromPath) setPressed(p.key)
@@ -108,7 +109,7 @@ export function ProfileOwnerPills({ communities, creator = false, active: fixed,
                   style={{ transitionDuration: `${FADE_MS}ms`, transitionTimingFunction: EASE }}
                   className={cn(
                     "pointer-events-none absolute -inset-px rounded-full border border-[#d7dadf] bg-[#e2e4e8] shadow-[inset_0_1px_1.5px_rgba(15,23,42,0.07),inset_0_-1px_0_rgba(255,255,255,0.45)] transition-[opacity,scale] motion-reduce:transition-none",
-                    on ? "scale-100 opacity-100" : "scale-[0.96] opacity-0",
+                    on ? "opacity-100" : "opacity-0",
                   )}
                 />
                 <span className="relative">{p.label}</span>

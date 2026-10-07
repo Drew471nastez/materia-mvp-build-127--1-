@@ -129,8 +129,9 @@ type SectionKey = (typeof SECTIONS)[number]["key"]
 const PILL_FADE_MS = 150
 const PILL_EASE = "cubic-bezier(0.33, 1, 0.68, 1)"
 const PILL =
-  "relative inline-flex h-9 shrink-0 cursor-pointer select-none items-center whitespace-nowrap rounded-full border bg-white px-3.5 text-[14px] font-medium outline-none " +
-  "transition-[color,scale] active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 motion-reduce:transition-none motion-reduce:active:scale-100 [-webkit-tap-highlight-color:transparent]"
+  "relative inline-flex h-9 shrink-0 cursor-pointer touch-manipulation select-none items-center whitespace-nowrap rounded-full border bg-white px-3.5 text-[14px] font-medium outline-none " +
+  "transition-[color,background-color,border-color] duration-150 ease-out focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 motion-reduce:transition-none [-webkit-tap-highlight-color:transparent] " +
+  "before:absolute before:-inset-2 before:rounded-full before:content-['']"
 
 function SectionPills({ active, onPick }: { active: SectionKey; onPick: (key: SectionKey) => void }) {
   return (
@@ -159,7 +160,7 @@ function SectionPills({ active, onPick }: { active: SectionKey; onPick: (key: Se
                     "pointer-events-none absolute -inset-px rounded-full border border-[#d7dadf] bg-[#e2e4e8]",
                     "shadow-[inset_0_1px_1.5px_rgba(15,23,42,0.07),inset_0_-1px_0_rgba(255,255,255,0.45)]",
                     "transition-[opacity,scale] motion-reduce:transition-none",
-                    on ? "scale-100 opacity-100" : "scale-[0.96] opacity-0",
+                    on ? "opacity-100" : "opacity-0",
                   )}
                 />
                 <span className="relative">{section.label}</span>
@@ -1049,6 +1050,9 @@ export function AccountSettings({
   /* Edit profile lands on the profile's own fields, which is what it promised. */
   const [section, setSection] = useState<SectionKey>(initialSection)
   const router = useRouter()
+  useEffect(() => {
+    setSection(initialSection)
+  }, [initialSection])
 
   /*
     THE WAY BACK IS WARM BEFORE IT IS PRESSED (round 11: "the destination
@@ -1064,7 +1068,7 @@ export function AccountSettings({
 
   return (
     /* One readable column on a computer (round 14): the fields, and the cover in the profile band's own shape, at a settings width rather than across the whole screen. */
-    <div data-account-page="" data-account-settings="" className="mx-auto w-full max-w-[720px] lg:max-w-[940px]">
+    <div data-account-page="" data-account-settings="" className="mx-auto w-full max-w-[720px] [scrollbar-gutter:stable] lg:max-w-[940px]">
       <div
         className="flex items-center gap-2.5"
         data-account-settings-top=""
