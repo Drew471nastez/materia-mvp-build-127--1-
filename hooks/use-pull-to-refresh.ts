@@ -283,10 +283,7 @@ export function usePullToRefresh(
       if (!node) return
       node.setAttribute("data-ptr-phase", phaseRef.current)
       const y = offsetRef.current
-      if (y > 0 || phaseRef.current === "refreshing") {
-        node.style.transform = "none"
-        node.style.paddingTop = `${y > 0 ? y : 0}px`
-      }
+      if (y > 0 || phaseRef.current === "refreshing") paintContentRef.current(y > 0 ? y : 0)
     },
     [],
   )
@@ -343,13 +340,29 @@ export function usePullToRefresh(
      overflow scroller paints it twice on iOS: the header stays in the gap
      and is drawn again below it (/app home, Analytics). Padding moves the
      content in layout, one paint, still without a React render. */
+  /*
+     BUT A PAGE THAT IS THE DOCUMENT'S OWN SCROLL MOVES ON THE COMPOSITOR (round 14). Padding lays the whole page out again on
+     every frame of the pull: a community feed, the account or Explore on a slow phone dropped frames under the finger. The
+     double paint above only happens inside an overflow scroller, so the document's pages are translated while they move and
+     have no transform at rest; padding stays for the pages inside a scroll box (/app).
+  */
   const paintContent = useCallback((y: number) => {
     const el = contentRef.current
     if (!el) return
+    const box = containerRef.current
+    const onDocument = !box || box === document.scrollingElement || box === document.documentElement || box === document.body
+    if (onDocument) {
+      el.style.paddingTop = ""
+      el.style.transform = y === 0 ? "" : `translate3d(0, ${y}px, 0)`
+      el.style.willChange = y === 0 ? "" : "transform"
+      return
+    }
     el.style.transform = "none"
     el.style.willChange = ""
     el.style.paddingTop = y > 0 ? `${y}px` : ""
-  }, [])
+  }, [containerRef])
+  const paintContentRef = useRef(paintContent)
+  paintContentRef.current = paintContent
 
   const paintRing = useCallback(
     (o: { y: number; opacity: number; scale: number; turn: number; dash: number }) => {
