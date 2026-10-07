@@ -176,10 +176,18 @@ export function CommunityFeed({ communityId, slug, viewer, spaces, start, initia
     return () => window.removeEventListener("popstate", on)
   }, [])
   const livePath = typeof window === "undefined" ? pathname : window.location.pathname
-  const fromPath = targetFromPath(livePath || pathname, slug, spaces, start)
-  /* A click marks its list at once; the address catching up clears the mark. */
+  /*
+    A POST OPENED OVER THE FEED IS NOT ANOTHER LIST (round 15). Its address (/community/<slug>/post/<id>) read as the community's
+    home, so opening a post from a space switched the list under the sheet to All, and closing it switched it back: the post
+    "glitched again on the feed and flashed". While a post's address is up, the list is the one it was opened from.
+  */
+  const onPost = /\/post\//.test(livePath || pathname || "")
+  const lastList = useRef<FeedTarget>(start)
+  const fromPath = onPost ? lastList.current : targetFromPath(livePath || pathname, slug, spaces, start)
+  if (!onPost) lastList.current = fromPath
+  /* A click marks its list at once; the address catching up clears the mark (never a post opened over it). */
   const [picked, setPicked] = useState<{ target: FeedTarget; from: string } | null>(null)
-  if (picked && picked.from !== (livePath || pathname)) setPicked(null)
+  if (picked && !onPost && picked.from !== (livePath || pathname)) setPicked(null)
   const [sort, setSort] = useState<FeedSortValue>("default")
 
   /*
