@@ -65,7 +65,7 @@ root.querySelector("a")?.addEventListener("click", () => {
 - `<style>` and `<style scoped>` mean the same thing in a section: both are
   scoped to the section. There is no way to write a section rule that is not,
   so the word is optional. Global CSS lives in `layout/theme.storelib`.
-- The file is at most 512 KB (`LIMITS.sourceBytes`).
+- The file is at most 5000 KB (`LIMITS.sourceBytes`).
 
 Every error carries the file path and a 1-based line in that file, including
 errors inside the schema's JSON, which are mapped from the JSON's line to the

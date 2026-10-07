@@ -609,8 +609,8 @@ export const LIMITS = {
   packageBytes: 50 * 1024 * 1024,
   /** Bytes. One asset. */
   assetBytes: 15 * 1024 * 1024,
-  /** Bytes. One source file. */
-  sourceBytes: 512 * 1024,
+  /** Bytes. One source file, including a section such as sections/flux_header.storelib. */
+  sourceBytes: 5000 * 1024,
   /** Bytes. A section's compiled script. */
   scriptBytes: 64 * 1024,
   /** Bytes. A section's CSS. */

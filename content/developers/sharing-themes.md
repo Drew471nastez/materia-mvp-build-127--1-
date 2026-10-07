@@ -32,7 +32,7 @@ Before anything is written, the whole package is checked, and **one failure refu
 
 1. The library has room for another website. It holds five: one live and four drafts.
 2. The file is a zip, and 50 MB or less.
-3. It holds 2000 files or fewer. By the sizes the zip declares, before anything is unpacked, each text file is 512 KB or less, each asset 15 MB or less, and the whole 200 MB or less.
+3. It holds 2000 files or fewer. By the sizes the zip declares, before anything is unpacked, each text file is 5000 KB or less, each asset 15 MB or less, and the whole 200 MB or less.
 4. Every path is `theme.json`, `manifest.json`, or inside `config`, `layout`, `templates`, `sections`, `blocks`, `snippets`, `assets` or `locales`. The files sit at the root of the zip, not inside a folder.
 5. `theme.json` has `"format": "storelib-theme"`, a name, and asks for no newer engine than this one.
 6. Every file and asset is in `manifest.json`, and every SHA-256 and asset size matches.

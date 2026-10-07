@@ -16,7 +16,7 @@ A section is one file, `sections/<type>.storelib`, that describes a section type
 - A block that is never closed is refused at the line it opened.
 - A file without `<template>` or `<schema>` is refused.
 - Outside the four blocks, only blank lines, `{# … #}` comments and lines starting `<!--` may appear. A `{# #}` comment above the blocks is where a section explains itself; it never reaches a page.
-- A file is at most 512 KB.
+- A file is at most 5000 KB.
 - There is no unscoped CSS in a section, and no stylesheet for the whole site that you can write yet.
 
 ## The template language

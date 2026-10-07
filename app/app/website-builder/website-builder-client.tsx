@@ -130,6 +130,20 @@ export interface WebsiteSummary {
 
 export type EditorView = "preview" | "code" | "settings"
 
+function dragHasFiles(e: React.DragEvent): boolean {
+  return Array.from(e.dataTransfer?.types ?? []).includes("Files")
+}
+
+/** The first dropped zip or .storelib-theme. Other files are not a theme. */
+function droppedThemeFile(list: FileList | null): File | null {
+  if (!list || list.length === 0) return null
+  for (const file of Array.from(list)) {
+    const name = file.name.toLowerCase()
+    if (name.endsWith(".zip") || name.endsWith(".storelib-theme")) return file
+  }
+  return null
+}
+
 /**
  * The editor's canonical URL — Shopify-shaped, with the creator's slug in it.
  * The legacy path stays as the fallback for the brief window before a new
@@ -1062,6 +1076,47 @@ export function WebsiteBuilderClient({
   }
 
   /**
+   * A theme file dropped on Import theme, or anywhere in the library, takes
+   * the same path as the file picker. Leaving only counts when the pointer
+   * has gone outside the section, so crossing a row does not flicker.
+   */
+  const [libraryDrop, setLibraryDrop] = React.useState(false)
+  React.useEffect(() => {
+    const reset = () => setLibraryDrop(false)
+    window.addEventListener("dragend", reset)
+    return () => window.removeEventListener("dragend", reset)
+  }, [])
+  const onLibraryDragEnter = (e: React.DragEvent) => {
+    if (!dragHasFiles(e) || importing) return
+    e.preventDefault()
+    setLibraryDrop(true)
+  }
+  const onLibraryDragOver = (e: React.DragEvent) => {
+    if (!dragHasFiles(e)) return
+    e.preventDefault()
+    e.dataTransfer.dropEffect = importing ? "none" : "copy"
+  }
+  const onLibraryDragLeave = (e: React.DragEvent) => {
+    if (!dragHasFiles(e)) return
+    const next = e.relatedTarget
+    if (next instanceof Node && e.currentTarget.contains(next)) return
+    setLibraryDrop(false)
+  }
+  const onLibraryDrop = (e: React.DragEvent) => {
+    if (!dragHasFiles(e)) return
+    e.preventDefault()
+    e.stopPropagation()
+    setLibraryDrop(false)
+    if (importing) return
+    const file = droppedThemeFile(e.dataTransfer.files)
+    if (!file) {
+      toast({ title: "Drop a .storelib-theme.zip file", variant: "destructive" })
+      return
+    }
+    void importZip(file)
+  }
+
+  /**
    * THE MORE MENU, in Shopify's action list shape: groups, a hairline
    * between them, and what cannot be undone last and in red.
    *
@@ -1430,7 +1485,19 @@ export function WebsiteBuilderClient({
         </section>
 
         {/* ── Library ────────────────────────────────────────────── */}
-        <section aria-labelledby="library-heading" className="space-y-3" data-page-block>
+        <section
+          aria-labelledby="library-heading"
+          data-page-block
+          data-library-drop={libraryDrop ? "over" : "idle"}
+          onDragEnter={onLibraryDragEnter}
+          onDragOver={onLibraryDragOver}
+          onDragLeave={onLibraryDragLeave}
+          onDrop={onLibraryDrop}
+          className={cn(
+            "space-y-3 rounded-2xl transition-[background-color,box-shadow] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
+            libraryDrop && "bg-[#f4f5f7] shadow-[inset_0_0_0_1.5px_rgba(26,26,46,0.55)]",
+          )}
+        >
           <SectionHeading
             title="Library"
             /**
@@ -1472,9 +1539,12 @@ export function WebsiteBuilderClient({
               onClick={() => (slotsLeft === 0 ? setFull("import") : fileInput.current?.click())}
               disabled={importing}
               aria-haspopup={slotsLeft === 0 ? "dialog" : undefined}
-              data-import-button={importing ? incoming?.phase : "idle"}
+              data-import-button={importing ? incoming?.phase : libraryDrop ? "drop" : "idle"}
               /* As wide as "Uploading 100%", so Add theme beside it does not move while it counts. */
-              className="h-11 min-w-[140px] rounded-xl px-3 text-[13px] font-medium tabular-nums text-[#4b5563] hover:bg-[#eef0f3] hover:text-[#1a1a2e] disabled:opacity-100"
+              className={cn(
+                "h-11 min-w-[140px] rounded-xl px-3 text-[13px] font-medium tabular-nums text-[#4b5563] hover:bg-[#eef0f3] hover:text-[#1a1a2e] disabled:opacity-100",
+                libraryDrop && "bg-white text-[#1a1a2e] ring-2 ring-[#1a1a2e]/25",
+              )}
             >
               {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
               {importing && incoming ? (incoming.phase === "uploading" ? `Uploading ${Math.round(incoming.progress * 100)}%` : "Importing") : "Import theme"}
@@ -1508,6 +1578,19 @@ export function WebsiteBuilderClient({
               that line up down the page, then what you can do. A phone has
               no room for columns, so the facts fold under the name. */}
           <div ref={libraryCard} className="relative overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+            <div
+              aria-hidden
+              data-library-drop-veil=""
+              className={cn(
+                "pointer-events-none absolute inset-0 z-20 flex items-center justify-center rounded-2xl bg-white/88 transition-opacity duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                libraryDrop ? "opacity-100" : "opacity-0",
+              )}
+            >
+              <span className={cn("inline-flex items-center gap-2 rounded-full border border-[#e5e7eb] bg-white px-4 py-2 text-[13.5px] font-semibold text-[#1a1a2e] shadow-[0_10px_30px_-16px_rgba(17,24,39,0.45)] transition-transform duration-200", libraryDrop ? "scale-100" : "scale-95")}>
+                <Upload className="h-4 w-4" />
+                Drop to import
+              </span>
+            </div>
             {ringed && (
               <div
                 aria-hidden

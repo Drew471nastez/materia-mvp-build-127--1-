@@ -59,7 +59,7 @@ Four blocks, each opening and closing on its own line, in any order:
 A block's closing tag must start its own line. That is what lets a template
 contain the text `</style>` without ending the style block.
 
-The file is at most 512 KB. Anything at the top level that is not one of the
+The file is at most 5000 KB. Anything at the top level that is not one of the
 four blocks is refused with the line it is on.
 
 ## 3. The template language
@@ -392,7 +392,7 @@ editor, where somebody can fix it.
 ## 9. Limits
 
 A page holds 60 sections; a section holds 50 blocks and 120 settings; a file
-is at most 512 KB, its CSS 128 KB, its script 64 KB; a theme holds 2000 files.
+is at most 5000 KB, its CSS 128 KB, its script 64 KB; a theme holds 2000 files.
 These are refused at the point of saving, not only when a theme is exported.
 
 ## 10. Error boundaries

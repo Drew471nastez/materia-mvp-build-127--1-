@@ -45,7 +45,7 @@ On the live website, Publish is in the builder's top bar. A website that is not 
 From the code editor, Ask AI, a connected agent or a GitHub push:
 
 - **It compiles.** Parse, schema, template, CSS and script, each error with its file and line. A file that does not compile is not stored. See [Sections](/developers/sections#errors).
-- **It is not too big.** A file saved from the code editor or an agent is 1 MB at most, and a section file 512 KB, which the compiler checks.
+- **It is not too big.** A file saved from the code editor or an agent is 1 MB at most, and a section file 5000 KB, which the compiler checks.
 - **No other section has its name.** The `name` in the schema is what Add Section and the Sections panel show, so two sections called FAQ are refused, drafts included.
 - **It has not moved underneath you.** The code editor sends the time it read the file, and an agent can, and a file saved somewhere else since then is refused rather than overwritten.
 - **A new file fits.** A website holds 2000 files.

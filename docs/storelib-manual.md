@@ -1447,7 +1447,7 @@ CSS that is not scoped to a section.
 | --- | --- |
 | Package | 50 MB |
 | One asset | 15 MB |
-| One source file | 512 KB |
+| One source file | 5000 KB |
 | A section's CSS | 128 KB |
 | A section's script | 64 KB |
 | Files per package | 2000 |
