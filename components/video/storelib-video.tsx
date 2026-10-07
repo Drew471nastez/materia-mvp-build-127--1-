@@ -144,7 +144,21 @@ export function StorelibVideo({ communityId, videoId, poster, durationSeconds, t
   const [posterUrl, setPosterUrl] = useState<string | null>(poster ?? null)
   const me = useId()
   const live = useRef({ position: 0, duration: 0 })
+  const box = useRef<HTMLDivElement>(null)
   const ratio = boxRatio(width, height)
+
+  /* The play address, asked as the poster nears the screen, at the same quality a press uses. The press then starts from a file that is already on its way. */
+  useEffect(() => {
+    const el = box.current
+    if (!el || typeof IntersectionObserver === "undefined") return
+    const io = new IntersectionObserver((entries) => {
+      if (!entries.some((e) => e.isIntersecting)) return
+      io.disconnect()
+      void fetchPlayback(communityId, videoId, { light: wantsLight() })
+    }, { rootMargin: "240px" })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [communityId, videoId])
 
   const load = useCallback(
     async (autoPlay: boolean) => {
@@ -195,7 +209,7 @@ export function StorelibVideo({ communityId, videoId, poster, durationSeconds, t
 
   if (state.kind === "playing") {
     return (
-      <div data-storelib-video={videoId} data-video-state="playing" onPointerDownCapture={() => window.dispatchEvent(new CustomEvent(ACTIVATE, { detail: me }))}>
+      <div ref={box} data-storelib-video={videoId} data-video-state="playing" onPointerDownCapture={() => window.dispatchEvent(new CustomEvent(ACTIVATE, { detail: me }))}>
         <VideoPlayer source={state.source} startAt={state.startAt} autoPlay={autoPlay} poster={posterUrl} title={title} ratio={ratio} renew={renew} onPlace={onPlace} live={live} />
       </div>
     )
@@ -205,6 +219,7 @@ export function StorelibVideo({ communityId, videoId, poster, durationSeconds, t
   const srcSet = posterUrl ? optimizedSrcSet(posterUrl, [384, 640, 828, 1080, 1200]) : ""
   return (
     <div
+      ref={box}
       data-storelib-video={videoId}
       data-video-state={state.kind}
       className="relative w-full overflow-hidden rounded-xl bg-[#0f0f17] [dynamic-range-limit:standard]"

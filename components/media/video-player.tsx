@@ -90,6 +90,8 @@ function typing(target: EventTarget | null): boolean {
 
 type Vid = HTMLVideoElement & {
   webkitEnterFullscreen?: () => void
+  webkitExitFullscreen?: () => void
+  webkitDisplayingFullscreen?: boolean
   webkitSetPresentationMode?: (m: string) => void
   webkitPresentationMode?: string
   webkitSupportsPresentationMode?: (m: string) => boolean
@@ -295,8 +297,22 @@ export function VideoPlayer({ source, poster, startAt = 0, autoPlay = false, tit
     const box = wrap.current as (HTMLDivElement & { webkitRequestFullscreen?: () => void }) | null
     const el = video.current
     const doc = document as Document & { webkitFullscreenElement?: Element; webkitExitFullscreen?: () => void }
+    const native = document.documentElement.classList.contains("capacitor")
+    if (el?.webkitDisplayingFullscreen) {
+      el.webkitExitFullscreen?.()
+      return
+    }
     if (document.fullscreenElement || doc.webkitFullscreenElement) {
       void (document.exitFullscreen?.() ?? doc.webkitExitFullscreen?.())
+      return
+    }
+    /*
+      In the iOS app, fullscreen of the box AND the system player is two
+      layers, and the second one stays over the rest of Storelib. The system
+      player is the one screen.
+    */
+    if (native && el?.webkitEnterFullscreen) {
+      el.webkitEnterFullscreen()
       return
     }
     if (box?.requestFullscreen) void box.requestFullscreen().catch(() => el?.webkitEnterFullscreen?.())
@@ -468,7 +484,7 @@ export function VideoPlayer({ source, poster, startAt = 0, autoPlay = false, tit
         playsInline
         webkit-playsinline="true"
         x-webkit-airplay="allow"
-        preload="metadata"
+        preload="auto"
         aria-label={title}
         onLoadedMetadata={onLoaded}
         onDurationChange={() => setDuration(video.current?.duration || 0)}

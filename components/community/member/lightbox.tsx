@@ -716,7 +716,7 @@ function Slide({ item, communityId, active, autoplay, zoom, zooming }: { item: V
       <div className={`${box} flex items-center justify-center`} data-lightbox-media-control="" data-lightbox-media="">
         {active ? (
           // eslint-disable-next-line jsx-a11y/media-has-caption
-          <video src={item.url} poster={item.poster} controls playsInline preload="metadata" autoPlay={first} className="max-h-[calc(100dvh-140px)] w-full bg-black" data-lightbox-clip="" />
+          <video src={item.url} poster={item.poster} controls playsInline preload="auto" autoPlay={first} className="max-h-[calc(100dvh-140px)] w-full bg-black" data-lightbox-clip="" />
         ) : null}
       </div>
     )

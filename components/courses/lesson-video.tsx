@@ -372,10 +372,20 @@ export function LessonVideo({ source, startAt, autoPlay, poster, next, renew, on
 
   const toggleFullscreen = useCallback(() => {
     const wrap = wrapRef.current as (HTMLDivElement & { webkitRequestFullscreen?: () => void }) | null
-    const el = v() as (HTMLVideoElement & { webkitEnterFullscreen?: () => void }) | null
+    const el = v() as (HTMLVideoElement & { webkitEnterFullscreen?: () => void; webkitExitFullscreen?: () => void; webkitDisplayingFullscreen?: boolean }) | null
     const doc = document as Document & { webkitFullscreenElement?: Element; webkitExitFullscreen?: () => void }
+    const native = document.documentElement.classList.contains("capacitor")
+    if (el?.webkitDisplayingFullscreen) {
+      el.webkitExitFullscreen?.()
+      return
+    }
     if (document.fullscreenElement || doc.webkitFullscreenElement) {
       void (document.exitFullscreen?.() ?? doc.webkitExitFullscreen?.())
+      return
+    }
+    /* The app: the system player only. Fullscreen of the box as well stacks a second layer over Storelib. */
+    if (native && el?.webkitEnterFullscreen) {
+      el.webkitEnterFullscreen()
       return
     }
     if (wrap?.requestFullscreen) void wrap.requestFullscreen().catch(() => el?.webkitEnterFullscreen?.())
@@ -567,7 +577,7 @@ export function LessonVideo({ source, startAt, autoPlay, poster, next, renew, on
         playsInline
         webkit-playsinline="true"
         x-webkit-airplay="allow"
-        preload="metadata"
+        preload="auto"
         onLoadedMetadata={onLoaded}
         onDurationChange={() => setDuration(v()?.duration || 0)}
         onTimeUpdate={onTimeUpdate}

@@ -4023,6 +4023,17 @@ html.capacitor::before {
   z-index: 9999;
   pointer-events: none;
 }
+/* A video's own full screen on iOS is the system player. The status band and
+   the bars are fixed layers, and iOS copies them into that player as a second
+   screen over the video, then leaves them there for every other full screen
+   in the app. Stood down for as long as the player is up. */
+html.capacitor.video-fullscreen::before {
+  display: none;
+}
+html.capacitor.video-fullscreen [data-shell-chrome],
+html.capacitor.video-fullscreen [data-buyer-tab-bar] {
+  visibility: hidden;
+}
 
 /* ── The builder reaches the top of the screen ───────────────────────────
    The shield above is a FIXED, PURE BLACK layer at z-9999 over the safe

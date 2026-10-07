@@ -87,5 +87,35 @@ export function NativeChrome() {
     // Once per landing: hideSplashOnce remembers it was done.
   }, [pathname])
 
+  /*
+    iOS's video player is a system screen. Opening it also used to leave the
+    page's own fullscreen element up, a second layer over the whole app.
+    The class hides the status band while the player is up, and coming back
+    drops any fullscreen element that outlived the player.
+  */
+  useEffect(() => {
+    if (!isNativeShell()) return
+    const root = document.documentElement
+    const begin = () => root.classList.add("video-fullscreen")
+    const end = () => {
+      root.classList.remove("video-fullscreen")
+      const doc = document as Document & { webkitFullscreenElement?: Element; webkitExitFullscreen?: () => void }
+      if (document.fullscreenElement || doc.webkitFullscreenElement) {
+        void (document.exitFullscreen?.() ?? doc.webkitExitFullscreen?.())
+      }
+      root.style.transform = "translateZ(0)"
+      requestAnimationFrame(() => {
+        root.style.transform = ""
+      })
+    }
+    document.addEventListener("webkitbeginfullscreen", begin, true)
+    document.addEventListener("webkitendfullscreen", end, true)
+    return () => {
+      root.classList.remove("video-fullscreen")
+      document.removeEventListener("webkitbeginfullscreen", begin, true)
+      document.removeEventListener("webkitendfullscreen", end, true)
+    }
+  }, [])
+
   return null
 }
