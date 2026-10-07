@@ -4226,6 +4226,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       case "missing":
         setMissingPath(decision.path)
         return
+
+      /* A button to one product's checkout: that product's real checkout, beside the editor, so the creator sees exactly where the buyer lands. */
+      case "checkout":
+        window.open(decision.href, "_blank", "noopener")
+        return
     }
     /* Every branch returns, and the switch is exhaustive over the decision's
        kinds, so a kind added later is a type error here rather than a link

@@ -12,8 +12,11 @@
  * account-pages), so they are always offered.
  */
 import type { LinkTarget } from "@/components/website-builder/link-picker"
+import { productCheckoutHref } from "./new-tab"
 
 export interface LinkTargetProduct {
+  /** With an id, the product's checkout is offered as a place too (Checkout). */
+  id?: string
   slug: string
   title: string
   thumbnail_url?: string | null
@@ -47,5 +50,7 @@ export function storeLinkTargets({
     ...(collections.length > 0 ? [{ href: "/collections", label: "All collections", kind: "page" as const }] : []),
     ...collections.map((c) => ({ href: `/collections/${c.handle}`, label: c.title, kind: "collection" as const, image: c.image || undefined })),
     ...products.map((p) => ({ href: `/products/${p.slug}`, label: p.title, kind: "product" as const, image: p.thumbnail_url || undefined })),
+    /* Straight to a product's checkout: not its page, not the cart (lib/website-builder/new-tab productCheckoutHref). */
+    ...products.flatMap((p) => (p.id ? [{ href: productCheckoutHref(p.id), label: p.title, kind: "checkout" as const, context: "Checkout", image: p.thumbnail_url || undefined }] : [])),
   ]
 }

@@ -23,6 +23,8 @@
  * for "/" from every page there is.
  */
 
+import { checkoutProductOf, productCheckoutHref, withoutNewTab } from "./new-tab"
+
 export type EditorNavDecision =
   /** Nothing to do, and the reason, which is worth having in a test. */
   | { kind: "ignore"; why: "empty" | "external" | "inspector" | "placeholder" }
@@ -36,6 +38,8 @@ export type EditorNavDecision =
   | { kind: "product"; slug: string }
   /** No page answers this address, and the builder offers to make one. */
   | { kind: "missing"; path: string }
+  /** Straight to one product's checkout: the editor opens that real checkout beside it. */
+  | { kind: "checkout"; productId: string; href: string }
 
 export interface EditorNavContext {
   /** The page open in the canvas right now, read at the moment of the click. */
@@ -92,8 +96,11 @@ export function editorPageKeyOf(path: string, ctx: Pick<EditorNavContext, "shopP
   return d.kind === "page" ? d.key : null
 }
 
-export function resolveEditorHref(href: string, ctx: EditorNavContext): EditorNavDecision {
+export function resolveEditorHref(rawHref: string, ctx: EditorNavContext): EditorNavDecision {
+  /* "Open in a new tab" is a mark on the address, not a place on the page (lib/website-builder/new-tab). */
+  const href = withoutNewTab(rawHref ?? "")
   const decision = resolvePath(href, ctx)
+  if (decision.kind === "checkout") return decision
   const at = (href ?? "").indexOf("#")
   const hash = at >= 0 ? (href ?? "").slice(at + 1).trim() : ""
   if (!hash || hash === "!" || (href ?? "").trim().startsWith("#")) return decision
@@ -155,6 +162,12 @@ function resolvePath(href: string, ctx: EditorNavContext): EditorNavDecision {
     const under = noSlash.startsWith("/products/") ? "/products/" : `${ctx.shopPath}/`
     const slug = noSlash.slice(under.length).split("/")[0]
     return slug ? { kind: "product", slug } : { kind: "ignore", why: "empty" }
+  }
+
+  /* A product's checkout is not a page of the site: the editor opens the real one for that product. */
+  if (noSlash === "/checkout") {
+    const productId = checkoutProductOf(trimmed)
+    return productId ? { kind: "checkout", productId, href: productCheckoutHref(productId) } : { kind: "ignore", why: "external" }
   }
 
   if (noSlash === ctx.shopPath) return { kind: "page", key: "products" }

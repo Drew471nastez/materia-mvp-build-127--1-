@@ -82,7 +82,7 @@ function main() {
   check("Back sits above the rows and does not scroll away", /\{back && \(/.test(picker) && picker.indexOf("{back && (") < picker.indexOf("data-float-scroll"))
   check("with the count on its right", /\{resultCount\(back\.count\)\}/.test(picker))
   check("Escape inside a kind goes back before it closes", /onEscape=\{onEscape\}/.test(picker) && /if \(onEscape\?\.\(\)\) return/.test(popover))
-  check("a product row draws its picture, and a collection row its own", /image=\{t\.kind === "product" \|\| t\.kind === "collection" \? t\.image : undefined\}/.test(picker))
+  check("a product row draws its picture, and a collection row its own", /image=\{t\.kind === "product" \|\| t\.kind === "collection" \|\| t\.kind === "checkout" \? t\.image : undefined\}/.test(picker))
   check("the list's scrollbar is the drawn thumb, taking no width", /cp-overlay-scroll min-h-0 overflow-y-auto/.test(picker) && /<OverlayRail scrollerRef=\{listRef\} \/>/.test(picker))
   check("the panel opens under the field or over it, and keeps its side while it fits",
     /s = below >= want \? "below" : above >= want \? "above" : below >= above \? "below" : "above"/.test(popover) && /if \(!s \|\| \(s === "below" \? below : above\) < want\)/.test(popover))

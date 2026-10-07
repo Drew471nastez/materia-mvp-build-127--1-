@@ -144,6 +144,12 @@ export function MenusEditor({
   const [confirming, setConfirming] = React.useState(false)
   const [adding, setAdding] = React.useState(false)
   const [name, setName] = React.useState("")
+  /* Which way the last move went: into a menu slides in from the right, back to the list from the left. */
+  const [dir, setDir] = React.useState<"in" | "out" | null>(null)
+  const go = (handle: string | null) => {
+    setDir(handle ? "in" : "out")
+    setOpen(handle)
+  }
 
   /* Asked to open at one menu: the header's Edit, a section's menu picker. */
   const request = env?.menuRequest
@@ -165,26 +171,32 @@ export function MenusEditor({
     const title = name.trim()
     if (!title || Object.keys(clean).length >= MENU_LIMITS.menus) return
     const handle = handleFor(title, new Set([...Object.keys(menus), MAIN_MENU]))
-    onChange({ ...menus, [handle]: { title, links: [] } })
+    /* A new menu opens with its first link waiting, the way Shopify's does: the next thing anyone does with a menu is add a link to it. */
+    onChange({ ...menus, [handle]: { title, links: [{ title: NEW_LINK_LABEL, url: "/" }] } })
     setName("")
     setAdding(false)
+    setDir("in")
     setOpen(handle)
   }
   const remove = (handle: string) => {
     const next = { ...menus }
     delete next[handle]
     onChange(next)
-    setOpen(null)
+    go(null)
   }
 
   if (open && (open === MAIN_MENU || menus[open])) {
     const menu = menuOf(open)
     const isMain = open === MAIN_MENU
     return (
-      <div className="space-y-4" data-menus-editor="" data-menu-open={open}>
+      <div
+        className={cn("space-y-4", dir === "in" && "animate-in fade-in-0 slide-in-from-right-2 duration-200 motion-reduce:animate-none")}
+        data-menus-editor=""
+        data-menu-open={open}
+      >
         <button
           type="button"
-          onClick={() => setOpen(null)}
+          onClick={() => go(null)}
           className="-ml-1 inline-flex h-7 items-center gap-0.5 rounded-md pl-0.5 pr-2 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/15 max-sm:h-10 max-sm:text-[13px]"
           data-menu-back=""
         >
@@ -230,7 +242,7 @@ export function MenusEditor({
   const rows = [MAIN_MENU, ...others]
   const roomForMore = Object.keys(clean).filter((h) => h !== MAIN_MENU).length + 1 < MENU_LIMITS.menus
   return (
-    <div className="space-y-2" data-menus-editor="">
+    <div className={cn("space-y-2", dir === "out" && "animate-in fade-in-0 slide-in-from-left-2 duration-200 motion-reduce:animate-none")} data-menus-editor="">
       <div className={cn("overflow-hidden", BOX)} data-menu-list="">
         {rows.map((handle, i) => {
           const menu = menuOf(handle)
@@ -241,7 +253,7 @@ export function MenusEditor({
               key={handle}
               type="button"
               data-menu-row={handle}
-              onClick={() => setOpen(handle)}
+              onClick={() => go(handle)}
               className={cn(
                 "group/menu flex min-h-[52px] w-full items-center gap-2 py-2",
                 plain ? "px-0" : "px-3",
@@ -267,13 +279,8 @@ export function MenusEditor({
       </div>
       {roomForMore ? (
         adding ? (
-          <form
-            className="flex items-center gap-2"
-            onSubmit={(e) => {
-              e.preventDefault()
-              add()
-            }}
-          >
+          /* Not a <form>: Website Settings is one already, and a form in a form sent Enter to the wrong one. */
+          <div className="flex items-center gap-2 animate-in fade-in-0 duration-150 motion-reduce:animate-none" data-menu-new="">
             <input
               aria-label="New menu name"
               className={FIELD}
@@ -283,20 +290,31 @@ export function MenusEditor({
               maxLength={MENU_LIMITS.titleLength}
               onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault()
+                  add()
+                }
                 if (e.key === "Escape") {
+                  e.preventDefault()
                   setAdding(false)
                   setName("")
                 }
               }}
+              onBlur={() => {
+                /* Left empty: nothing was being made. */
+                if (!name.trim()) setAdding(false)
+              }}
             />
             <button
-              type="submit"
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={add}
               disabled={!name.trim()}
               className="h-8 max-sm:h-11 shrink-0 rounded-md bg-[#1a1a2e] px-3 text-[13px] max-sm:text-[15px] font-medium text-white transition-colors hover:bg-[#2d2d4e] disabled:opacity-40 dark:bg-white dark:text-[#0f0f0f] dark:hover:bg-white/90"
             >
               Add
             </button>
-          </form>
+          </div>
         ) : (
           <button
             type="button"

@@ -80,7 +80,7 @@ function main() {
 
   console.log("\nThe field uses it, and the list under it has no address box")
   const picker = read("components/website-builder/link-picker.tsx")
-  check("the field saves what the rules say, never the raw text", /const r = normalizeLinkAddress\(text\)/.test(picker) && /if \(r\.ok === false\) \{\s*setError\(r\.reason\)\s*setDraft\(value\)/.test(picker))
+  check("the field saves what the rules say, never the raw text", /const r = normalizeLinkAddress\(text\)/.test(picker) && /if \(r\.ok === false\) \{[\s\S]{0,240}setError\(r\.reason\)\s*return/.test(picker))
   check("a picked page is saved as its path, as before", /if \(t\.href !== value\) onChange\(t\.href\)/.test(picker))
   check("arrows, Enter and Escape", /e\.key === "ArrowDown" \|\| e\.key === "ArrowUp"/.test(picker) && /e\.key === "Enter"/.test(picker) && /e\.key === "Escape"/.test(picker))
   check("a combobox a screen reader can follow", /role="combobox"/.test(picker) && /role="listbox"/.test(picker) && /role="option"/.test(picker) && /aria-activedescendant=/.test(picker))

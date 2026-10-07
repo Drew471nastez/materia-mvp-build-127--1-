@@ -33,7 +33,7 @@ import {
   type SectionLike,
 } from "./section-anchors"
 
-export type LinkCategoryKey = "sections" | "home" | "shop" | "products" | "collections" | "pages" | "accounts" | "policies" | "search"
+export type LinkCategoryKey = "sections" | "home" | "shop" | "products" | "checkout" | "collections" | "pages" | "accounts" | "policies" | "search"
 
 export interface LinkCategory {
   key: LinkCategoryKey
@@ -49,6 +49,8 @@ export const LINK_CATEGORIES: readonly LinkCategory[] = [
   { key: "shop", label: "Shop", single: true },
   { key: "products", label: "Products", single: false },
   { key: "collections", label: "Collections", single: false },
+  /* A button that takes the buyer straight to paying for one product. */
+  { key: "checkout", label: "Checkout for a product", single: false },
   { key: "pages", label: "Pages", single: false },
   { key: "accounts", label: "Customer accounts", single: false },
   { key: "policies", label: "Policies", single: false },
@@ -64,6 +66,7 @@ const POLICY_HREFS: readonly string[] = POLICY_PAGE_KEYS.map((k) => `/${k}`)
 export function linkCategoryOf(t: Pick<LinkTarget, "href" | "kind">): LinkCategoryKey {
   if (t.kind === "section") return "sections"
   if (t.kind === "product") return "products"
+  if (t.kind === "checkout" || t.href.startsWith("/checkout?")) return "checkout"
   if (t.kind === "collection" || t.href === "/collections" || t.href.startsWith("/collections/")) return "collections"
   if (t.href === "/") return "home"
   if (t.href === "/products") return "shop"

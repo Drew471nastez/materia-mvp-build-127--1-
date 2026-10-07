@@ -16,6 +16,7 @@ import {
   Rows3,
   ScrollText,
   Search,
+  ShoppingBag,
   Store,
   UserRound,
   LayoutGrid,
@@ -23,6 +24,8 @@ import {
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { switchKnob, switchTrack } from "@/components/ui/switch-style"
+import { opensNewTab, withNewTab, withoutNewTab } from "@/lib/website-builder/new-tab"
 import { OverlayRail } from "@/components/storefront/overlay-scroll"
 import { FieldPopover, usePhoneLayout } from "@/components/website-builder/field-popover"
 import { linkKind, normalizeLinkAddress } from "@/lib/website-builder/link-address"
@@ -83,7 +86,7 @@ export interface LinkTarget {
   /** What goes in the field. */
   href: string
   label: string
-  kind: "page" | "product" | "collection" | "section"
+  kind: "page" | "product" | "collection" | "section" | "checkout"
   /** A product's picture, drawn small beside its name. */
   image?: string
   /**
@@ -116,6 +119,7 @@ const CATEGORY_ICON: Record<LinkCategoryKey, LucideIcon> = {
   home: House,
   shop: Store,
   products: Package,
+  checkout: ShoppingBag,
   collections: LayoutGrid,
   pages: FileText,
   accounts: UserRound,
@@ -157,7 +161,50 @@ type Row =
   | { type: "open"; entry: LinkMenuEntry }
   | { type: "pick"; target: LinkTarget; icon: LucideIcon }
 
+/**
+ * THE FIELD, AND WHETHER IT OPENS IN A NEW TAB. The choice travels with the
+ * address as a mark at its end (lib/website-builder/new-tab.ts), so every
+ * link field and every section that prints a link gets it without a setting
+ * of its own. The field works on the address alone; the switch under it
+ * puts the mark on and takes it off. Shown once there is a link.
+ */
 export function LinkPicker({
+  value,
+  onChange,
+  targets,
+  placeholder,
+}: {
+  value: string
+  onChange: (href: string) => void
+  targets: LinkTarget[]
+  placeholder?: string
+}) {
+  const bare = withoutNewTab(value ?? "")
+  const newTab = opensNewTab(value)
+  const switchId = React.useId()
+  return (
+    <div>
+      <LinkAddressField value={bare} onChange={(href) => onChange(withNewTab(href, newTab))} targets={targets} placeholder={placeholder} />
+      {bare ? (
+        <label htmlFor={switchId} data-link-new-tab="" className="mt-2 flex cursor-pointer items-center justify-between gap-3 text-[12.5px] text-muted-foreground">
+          Open in a new tab
+          <button
+            id={switchId}
+            type="button"
+            role="switch"
+            aria-checked={newTab}
+            onClick={() => onChange(withNewTab(bare, !newTab))}
+            className={cn(switchTrack(newTab), "cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#111113]/30 focus-visible:ring-offset-2")}
+          >
+            <span className={switchKnob(newTab)} />
+          </button>
+        </label>
+      ) : null}
+    </div>
+  )
+}
+
+function LinkAddressField({
   value,
   onChange,
   targets,
@@ -399,9 +446,8 @@ export function LinkPicker({
     if (named) return pick(named)
     const r = normalizeLinkAddress(text)
     if (r.ok === false) {
+      /* What was typed stays in the box to be finished, and the saved link stays as it was. It used to be wiped back to the old link, which read as the field refusing to take www. */
       setError(r.reason)
-      setDraft(value)
-      setTyped(false)
       return
     }
     setError(null)
@@ -479,7 +525,9 @@ export function LinkPicker({
    * which page first ("About · Pricing"), never `#section-…`.
    */
   const knownLabel = known ? (known.context ? `${known.context} · ${known.label}` : known.label) : ""
-  const shown = focused ? draft : known ? knownLabel : value
+  /* An address that was refused stays on show, with its reason, until it is finished or put back. */
+  const unfinished = typed && !!error
+  const shown = focused || unfinished ? draft : known ? knownLabel : value
 
   const rowH = phone ? "h-11" : "h-9"
   const optionClass = (i: number) =>
@@ -507,7 +555,7 @@ export function LinkPicker({
         onClick={() => pick(t)}
         className={optionClass(i)}
       >
-        <RowMark icon={row.icon} image={t.kind === "product" || t.kind === "collection" ? t.image : undefined} />
+        <RowMark icon={row.icon} image={t.kind === "product" || t.kind === "collection" || t.kind === "checkout" ? t.image : undefined} />
         {/**
           * THE NAME, NOT THE ADDRESS. Nobody picks a link by its
           * slug; the address is still there as the row's title.
@@ -655,8 +703,14 @@ export function LinkPicker({
                   e.currentTarget.blur()
                   return
                 }
-                if (known) selectAll.current = true
                 setFocused(true)
+                /* Back to an address that was refused: carry on typing it. */
+                if (unfinished) {
+                  setLevel(null)
+                  if (!phone) setOpen(true)
+                  return
+                }
+                if (known) selectAll.current = true
                 setDraft(value)
                 setTyped(false)
                 setLevel(null)

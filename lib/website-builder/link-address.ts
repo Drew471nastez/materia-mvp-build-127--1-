@@ -100,10 +100,10 @@ export function normalizeLinkAddress(input: string): LinkAddress {
     return { ok: true, href: `tel:${raw.replace(/[\s().-]/g, "")}` }
   }
   if (/\s/.test(raw)) {
-    return { ok: false, reason: "Pick a page or a product, or type a full address like https://example.com." }
+    return { ok: false, reason: "An address cannot have spaces in it. Type one like www.example.com, or pick a page." }
   }
   if (looksLikeHost(raw)) return normalizeLinkAddress(`https://${raw}`)
-  return { ok: false, reason: "Pick a page or a product, or type a full address like https://example.com." }
+  return { ok: false, reason: "Finish the address, like www.example.com, or pick a page or a product." }
 }
 
 /** What an address is, for the one mark the field draws beside it. */

@@ -4,6 +4,7 @@ import { CheckoutLinkOrigin } from "@/components/website-builder/checkout-link-o
 import { CaptureTouch } from "@/components/attribution/capture-touch"
 import { CheckoutReturnNotice } from "@/components/website-builder/checkout-return-notice"
 import { SiteDocument } from "@/components/website-builder/site-document"
+import { NewTabLinks } from "@/components/website-builder/new-tab-links"
 
 /**
  * A CREATOR'S WEBSITE DOES NOT SAY IT IS STORELIB'S. The root layout names
@@ -55,6 +56,8 @@ export default function SiteLayout({ children }: { children: React.ReactNode }) 
       <CheckoutReturnNotice />
       {/* Marks <html> as a website, so the app shell's guards stand down. */}
       <SiteDocument />
+      {/* A link marked "Open in a new tab" in the builder opens in one (lib/website-builder/new-tab). */}
+      <NewTabLinks />
     </>
   )
 }
