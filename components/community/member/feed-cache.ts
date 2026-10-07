@@ -92,8 +92,8 @@ export function firstPage(page: FeedPageData, at = Date.now()): CachedView {
   return { posts, cursor: page.nextCursor ?? null, at, pages: 1 }
 }
 
-/** A read that has not answered by then is given up, so a stuck request cannot hold the spinner (and every later read of that list) forever. */
-const LOAD_GIVE_UP_MS = 12_000
+/** A read that has not answered by then is given up, so a stuck request cannot hold the spinner. */
+const LOAD_GIVE_UP_MS = 4_000
 
 /**
  * The first page of a view from the server, into the cache. A view already
@@ -135,24 +135,35 @@ export function prefetchView(communityId: string, target: FeedTarget, sort: Feed
 
 /** Spaces read ahead at most, on one visit to a feed (a community with dozens of spaces does not ask for all of them). */
 export const AHEAD_MAX = 12
+/** How many of those reads run together. One at a time left the later spaces cold for many seconds. */
+export const AHEAD_AT_ONCE = 4
 
 /**
- * THE FIRST PAGE OF EVERY SPACE, READ AHEAD WHILE NOTHING ELSE IS GOING ON
- * (round 9: "prefetch all places and the first page of each space on
- * idle"). One at a time, not in a burst, each skipped when it is cached and
+ * THE FIRST PAGE OF EVERY SPACE, READ AHEAD (round 9). A few at a time, not
+ * in one long queue: a chip pressed while its space is still waiting on the
+ * ones before it sat on the spinner. Each is skipped when it is cached and
  * fresh or already on its way; `stop` ends the run (the feed went away).
  * Resolves with how many were asked for.
  */
 export async function prefetchViews(communityId: string, targets: FeedTarget[], sort: FeedSortValue, stopped: () => boolean = () => false): Promise<number> {
+  const queue = targets.slice(0, AHEAD_MAX)
   let asked = 0
-  for (const target of targets.slice(0, AHEAD_MAX)) {
-    if (stopped()) break
-    const key = viewKey(communityId, target, sort)
-    const have = views.get(key)
-    if (pending.has(key) || (have && Date.now() - have.at < FRESH_MS)) continue
-    asked++
-    await loadView(communityId, target, sort)
+  let i = 0
+  const worker = async () => {
+    while (true) {
+      if (stopped()) return
+      const index = i++
+      if (index >= queue.length) return
+      const target = queue[index]
+      const key = viewKey(communityId, target, sort)
+      const have = views.get(key)
+      if (pending.has(key) || (have && Date.now() - have.at < FRESH_MS)) continue
+      asked++
+      await loadView(communityId, target, sort)
+    }
   }
+  const n = Math.min(AHEAD_AT_ONCE, queue.length)
+  await Promise.all(Array.from({ length: n }, () => worker()))
   return asked
 }
 

@@ -56,7 +56,6 @@ import {
   readView,
   viewKey,
   viewUrl,
-  whenIdle,
   writeView,
   type CachedView,
   type FeedPageData,
@@ -146,13 +145,14 @@ export function targetFromPath(pathname: string | null | undefined, slug: string
   return fallback
 }
 
-/** The Storelib app, or a phone's browser (a touch screen narrower than a tablet): spaces switch without an address of their own. */
+/**
+ * A space chip never loads the space's page. That page's own wait is the
+ * iOS spinner that sat there for seconds. The list swaps here, from the
+ * cache when the space was read ahead. The address still follows on a
+ * computer, for Back and a shared link, but the list does not wait on it.
+ */
 function spaceKeepsAddress(): boolean {
-  if (typeof window === "undefined") return false
-  if (document.documentElement.classList.contains("capacitor")) return true
-  const cap = (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor
-  if (cap?.isNativePlatform?.() === true) return true
-  return !!window.matchMedia?.("(pointer: coarse) and (max-width: 767px)").matches
+  return typeof window !== "undefined"
 }
 
 function sameTarget(a: FeedTarget, b: FeedTarget): boolean {
@@ -214,6 +214,8 @@ export function CommunityFeed({ communityId, slug, viewer, spaces, start, initia
   useLayoutEffect(() => {
     if (!behind) return
     const next = { id: targetId, sort }
+    /* Already read: the posts are here, so the list changes with the chip. No spinner, no wait. */
+    if (readView(viewKey(communityId, targetFromId(targetId), sort))) return setList(next)
     if (typeof requestAnimationFrame !== "function" || document.visibilityState !== "visible") return setList(next)
     let second = 0
     const first = requestAnimationFrame(() => {
@@ -225,7 +227,7 @@ export function CommunityFeed({ communityId, slug, viewer, spaces, start, initia
       cancelAnimationFrame(second)
       window.clearTimeout(backup)
     }
-  }, [behind, targetId, sort])
+  }, [behind, targetId, sort, communityId])
   const listTarget = useMemo(() => targetFromId(list.id), [list.id])
   const listSort = list.sort
   const key = viewKey(communityId, listTarget, listSort)
@@ -283,15 +285,11 @@ export function CommunityFeed({ communityId, slug, viewer, spaces, start, initia
     }
     setFailedKey(null)
     let live = true
-    void (async () => {
-      let fresh = await loadView(communityId, listTarget, listSort)
-      if (!live || keyRef.current !== key) return
-      /* One more try. A single miss (a blip, a request that was given up) must not leave the spinner up. */
-      if (!fresh) fresh = await loadView(communityId, listTarget, listSort)
+    void loadView(communityId, listTarget, listSort).then((fresh) => {
       if (!live || keyRef.current !== key) return
       if (fresh) setShown({ key, view: fresh })
       else setFailedKey(key)
-    })()
+    })
     return () => {
       live = false
     }
@@ -344,26 +342,27 @@ export function CommunityFeed({ communityId, slug, viewer, spaces, start, initia
   })
 
   /*
-    EVERY SPACE'S FIRST PAGE, READ AHEAD ONCE THE FEED IS IDLE (round 9). All and each feed space in the order on screen (the one
-    shown already is cached), one at a time, in the sort in force; a chat space is a page of its own and is not read here.
+    EVERY SPACE'S FIRST PAGE, READ AHEAD AT ONCE (round 9, and not one after
+    another). All and each feed space, a few at a time, as soon as the feed
+    is on screen. A chat space is a page of its own and is not read here.
+    A chip then finds its list already here.
   */
   const aheadTargets = useMemo<FeedTarget[]>(() => (spaces ? [{ kind: "all" as const }, ...spaces.filter((s) => s.kind !== "chat").map((s) => ({ kind: "space" as const, id: s.id }))] : []), [spaces])
   useEffect(() => {
     if (!aheadTargets.length) return
     let stopped = false
-    /* And the faces on each list's first screenful, so a list switched to is drawn with its pictures, not filled in after. */
-    const cancel = whenIdle(() =>
+    const id = requestAnimationFrame(() => {
       void prefetchViews(communityId, aheadTargets, "default", () => stopped).then(() => {
         if (stopped) return
         for (const t of aheadTargets) {
           const v = readView(viewKey(communityId, t, "default"))
           if (v) warmPostFaces(v.posts.slice(0, SWAP_CARDS + 2), 12)
         }
-      }),
-    )
+      })
+    })
     return () => {
       stopped = true
-      cancel()
+      cancelAnimationFrame(id)
     }
   }, [communityId, aheadTargets])
 
@@ -391,6 +390,8 @@ export function CommunityFeed({ communityId, slug, viewer, spaces, start, initia
     if (!next) return
     const href = hrefOf(p)
     if (sameTarget(next, target)) return
+    /* The list is asked for on the press itself, so a cache miss has already started before the chip paints. */
+    prefetchView(communityId, next, next.kind === "saved" ? "default" : sort)
     snapOnList.current = true
     /*
       IN THE APP AND ON A PHONE A SPACE IS NOT AN ADDRESS (round 15). The owner: "the spaces are URL pages, which is why they
