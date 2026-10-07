@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useLayoutEffect, useRef } from "react"
 import { usePathname } from "next/navigation"
 import { showsLibraryTabs } from "@/components/library/library-tab-list"
 import { LANDING_CLASS, useLandingOnMove } from "@/lib/ui/landing"
@@ -48,10 +49,15 @@ export function navFadeKey(pathname: string | null): string {
  */
 export function AccountNavFade({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  useTopOnArrival(navFadeKey(pathname))
   const onLibrary = showsLibraryTabs(pathname)
   const landingOnMove = useLandingOnMove(navFadeKey(pathname))
-  /* The library cross fades under its own pills (library-panel.tsx); a second fade here was empty flashes between tabs and the first paint. */
-  const landing = onLibrary ? false : landingOnMove
+  /*
+    The library cross fades under its own pills (library-panel.tsx), and they share one key, so this lands nothing between them.
+    Arriving at the library from another account page is a new key, and it lands the way every other page does (round 15: "the
+    transition to the library is too direct").
+  */
+  const landing = landingOnMove
 
   return (
     <div
@@ -62,4 +68,34 @@ export function AccountNavFade({ children }: { children: React.ReactNode }) {
       {children}
     </div>
   )
+}
+
+/*
+  EVERY ACCOUNT PAGE OPENS AT ITS TOP (round 15). Moving between the account's own pages, the layout stays and the router only
+  scrolls the part that changed into view, which is below the profile's cover: /account opened half way down the page, at the
+  scroll the page before had. A move to another page (not Back or Forward, which keep their place, and not the library's own
+  pills, which share one key) puts the window at the top, before the frame is painted and again on the next one, after the
+  router's own scroll.
+*/
+function useTopOnArrival(key: string) {
+  const traversal = useRef(false)
+  const last = useRef(key)
+  useEffect(() => {
+    const onPop = () => {
+      traversal.current = true
+    }
+    window.addEventListener("popstate", onPop)
+    return () => window.removeEventListener("popstate", onPop)
+  }, [])
+  useLayoutEffect(() => {
+    if (last.current === key) return
+    last.current = key
+    if (traversal.current) {
+      traversal.current = false
+      return
+    }
+    window.scrollTo(0, 0)
+    const id = requestAnimationFrame(() => window.scrollTo(0, 0))
+    return () => cancelAnimationFrame(id)
+  }, [key])
 }

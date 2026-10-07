@@ -435,8 +435,7 @@ html.capacitor body {
   .library-content-enter {
     animation: skeleton-reveal 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
   }
-  /* The library stage dissolves between pills; no second opacity pass on top. */
-  html.with-page-library [data-account-nav-fade="library"],
+  /* The library stage dissolves between pills; no second opacity pass on top. Arriving at the library lands once, on its wrapper (account-nav-fade.tsx). */
   html.with-page-library [data-library-panel] {
     animation: none !important;
   }
