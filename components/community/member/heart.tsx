@@ -11,8 +11,9 @@
  * icon moves, never the button around it, and only by scale and opacity on
  * the compositor; the count beside it stays where it is.
  *
- * THE BURST (round 11). A like also sends eight tiny hearts out from the
- * icon, in the like's own red, each on its own line a little off an even
+ * THE BURST (round 11, a confetti in round 15). A like sends a soft ring
+ * out from the icon, eighteen tiny hearts in two waves (in the like's red
+ * and two pinks) and ten round sparks with them, each on its own line a little off an even
  * ring, rising and shrinking as they fade: translate, scale, rotate and opacity
  * only (the compositor's), every
  * one gone within BURST_MS, and taken out of the page when done. One burst
@@ -29,10 +30,15 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react"
 const BEAT_MS = 460
 const FILL_MS = 400
 const UNFILL_MS = 240
-export const BURST_MS = 560
-export const BURST_COUNT = 14
+export const BURST_MS = 820
+export const BURST_COUNT = 18
+/** The sparks thrown with the hearts: small round dots, further out, a little later. */
+export const SPARK_COUNT = 10
 /** The like's own red, set on the tiny hearts rather than taken from the button, whose colour is still settling when they leave. */
 const BURST_COLOR = "#c4290c"
+/* A confetti of the like's colours (round 15: "lots of hearts, sparkling like confetti"): its red, a warm pink, a soft coral, and gold for the sparks. */
+const HEART_COLORS = [BURST_COLOR, "#e8476a", "#ff7a8a", BURST_COLOR, "#f0567a"]
+const SPARK_COLORS = ["#f5b324", "#ff7a8a", BURST_COLOR, "#ffcf5c", "#e8476a"]
 
 /** The small heart a burst throws, as one path (lucide's heart, filled). */
 const HEART_PATH = "M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"
@@ -53,15 +59,30 @@ export interface BurstPath {
 export function burstPaths(size: number, count = BURST_COUNT): BurstPath[] {
   const out: BurstPath[] = []
   for (let i = 0; i < count; i++) {
-    const a = (i / count) * Math.PI * 2 - Math.PI / 2 + (i % 2 ? 0.18 : -0.12)
-    const reach = size * (i % 3 === 0 ? 1.0 : i % 3 === 1 ? 0.86 : 1.12)
+    /* Two waves: the first half close and quick, the second further and a beat later, so it reads as confetti, not a ring. */
+    const outer = i >= count / 2
+    const k = outer ? i - count / 2 : i
+    const n = outer ? count - count / 2 : count / 2
+    const a = (k / n) * Math.PI * 2 - Math.PI / 2 + (outer ? Math.PI / n : 0) + (k % 2 ? 0.16 : -0.1)
+    const reach = size * (outer ? (k % 3 === 0 ? 2.05 : k % 3 === 1 ? 1.75 : 2.3) : k % 3 === 0 ? 1.15 : k % 3 === 1 ? 0.98 : 1.3)
     out.push({
       x: Math.cos(a) * reach,
-      y: Math.sin(a) * reach - size * 0.14,
-      s: i % 3 === 0 ? 0.7 : i % 3 === 1 ? 0.92 : 1.08,
-      r: (i % 2 ? 1 : -1) * (8 + (i % 4) * 5),
-      delay: (i % 5) * 10,
+      y: Math.sin(a) * reach - size * 0.18,
+      s: outer ? (k % 3 === 0 ? 0.62 : k % 3 === 1 ? 0.8 : 0.95) : k % 3 === 0 ? 0.78 : k % 3 === 1 ? 1 : 1.15,
+      r: (k % 2 ? 1 : -1) * (10 + (k % 4) * 7),
+      delay: outer ? 60 + (k % 4) * 14 : (k % 5) * 8,
     })
+  }
+  return out
+}
+
+/** The sparks: round dots on a ring between the two waves, each a little off it. */
+export function sparkPaths(size: number, count = SPARK_COUNT): BurstPath[] {
+  const out: BurstPath[] = []
+  for (let i = 0; i < count; i++) {
+    const a = (i / count) * Math.PI * 2 - Math.PI / 2 + 0.31 + (i % 2 ? 0.12 : -0.08)
+    const reach = size * (i % 2 ? 1.6 : 1.85)
+    out.push({ x: Math.cos(a) * reach, y: Math.sin(a) * reach - size * 0.1, s: i % 3 === 0 ? 1.2 : 0.85, r: 0, delay: 30 + (i % 3) * 18 })
   }
   return out
 }
@@ -72,9 +93,14 @@ export function burstPaths(size: number, count = BURST_COUNT): BurstPath[] {
   svg, none on a box), so each one is a small box in the like's red, cut to
   the heart's shape by a mask drawn once.
 */
-const HEART_MASK = `url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="${HEART_PATH}"/></svg>`)}") center / contain no-repeat`
-const particleStyle = (dot: number) =>
-  `position:absolute;left:${-dot / 2}px;top:${-dot / 2}px;width:${dot}px;height:${dot}px;background:${BURST_COLOR};-webkit-mask:${HEART_MASK};mask:${HEART_MASK};opacity:0`
+/* Single quotes: this is written inside a style="..." attribute, and a double quote there ended the attribute, so the hearts never drew (round 15). */
+const HEART_MASK = `url('data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="${HEART_PATH}"/></svg>`)}') center / contain no-repeat`
+const particleStyle = (dot: number, color: string) =>
+  `position:absolute;left:${-dot / 2}px;top:${-dot / 2}px;width:${dot}px;height:${dot}px;background:${color};-webkit-mask:${HEART_MASK};mask:${HEART_MASK};opacity:0`
+const sparkStyle = (dot: number, color: string) =>
+  `position:absolute;left:${-dot / 2}px;top:${-dot / 2}px;width:${dot}px;height:${dot}px;border-radius:999px;background:${color};opacity:0`
+const ringStyle = (d: number) =>
+  `position:absolute;left:${-d / 2}px;top:${-d / 2}px;width:${d}px;height:${d}px;border-radius:999px;border:2px solid ${BURST_COLOR};opacity:0`
 
 /* The burst in the air for each heart, so a like pressed again (or an unlike) takes it away. */
 const flying = new WeakMap<HTMLElement, HTMLElement>()
@@ -100,12 +126,33 @@ function burst(host: HTMLElement, size: number) {
   layer.setAttribute("data-heart-burst", "")
   layer.setAttribute("aria-hidden", "true")
   layer.style.cssText = `position:fixed;left:${(r.left + r.width / 2).toFixed(1)}px;top:${(r.top + r.height / 2).toFixed(1)}px;width:0;height:0;pointer-events:none;z-index:2147483000;contain:layout style`
-  const dot = Math.max(5, Math.round(size * 0.34))
+  const dot = Math.max(5, Math.round(size * 0.36))
+  const spark = Math.max(3, Math.round(size * 0.16))
   const paths = burstPaths(size)
-  layer.innerHTML = paths.map(() => `<i data-heart-particle="" style="${particleStyle(dot)}"></i>`).join("")
+  const sparks = sparkPaths(size)
+  layer.innerHTML =
+    `<i data-heart-ring="" style="${ringStyle(size * 1.1)}"></i>` +
+    paths.map((_, i) => `<i data-heart-particle="" style="${particleStyle(dot, HEART_COLORS[i % HEART_COLORS.length])}"></i>`).join("") +
+    sparks.map((_, i) => `<i data-heart-spark="" style="${sparkStyle(spark, SPARK_COLORS[i % SPARK_COLORS.length])}"></i>`).join("")
   const runs: Animation[] = []
+  /* A soft ring out from the heart under the confetti: one pulse, gone before the hearts. */
+  runs.push((layer.children[0] as HTMLElement).animate([{ scale: "0.35", opacity: 0.55 }, { scale: "1.9", opacity: 0 }], { duration: 460, easing: "cubic-bezier(0.22, 1, 0.36, 1)", fill: "both" }))
+  sparks.forEach((p, i) => {
+    const el = layer.children[1 + paths.length + i] as HTMLElement
+    const at = (k: number, lift = 0) => `${(p.x * k).toFixed(1)}px ${(p.y * k - lift).toFixed(1)}px`
+    runs.push(
+      el.animate(
+        [
+          { translate: at(0.3), scale: `${0.4 * p.s}`, opacity: 0, easing: "cubic-bezier(0.22, 1, 0.36, 1)" },
+          { translate: at(0.8), scale: `${1.2 * p.s}`, opacity: 1, offset: 0.35, easing: "ease-out" },
+          { translate: at(1, size * 0.12), scale: `${0.2 * p.s}`, opacity: 0 },
+        ],
+        { duration: BURST_MS - 160 - p.delay, delay: p.delay, easing: "linear", fill: "both" },
+      ),
+    )
+  })
   paths.forEach((p, i) => {
-    const el = layer.children[i] as HTMLElement
+    const el = layer.children[1 + i] as HTMLElement
     /* Out fast, a short float at full strength, then a soft fade as it drifts up: easing per stretch, the whole run linear. */
     const at = (k: number, lift = 0) => `${(p.x * k).toFixed(1)}px ${(p.y * k - lift).toFixed(1)}px`
     runs.push(
