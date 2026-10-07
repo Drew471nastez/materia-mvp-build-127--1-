@@ -54,6 +54,7 @@ import { ProfileOwnerPills } from "@/components/profile/profile-owner-pills"
 import { AccountColumn } from "@/components/account/account-column"
 import { RouterPullToRefresh } from "@/components/ui/pull-to-refresh"
 import { ACCOUNT_REFRESH_SCOPE } from "@/lib/profile/refresh-scope"
+import { SettingsWarm } from "@/components/account/settings-subpage"
 
 export interface AccountIdentity {
   /** Whose profile: Settings uploads a new photo under this folder. */
@@ -80,6 +81,16 @@ export function AccountHub({ identity, communities = false, children }: { identi
 
   return (
     <RouterPullToRefresh scope={ACCOUNT_REFRESH_SCOPE}>
+    <SettingsWarm
+      seed={{
+        userId: identity.userId,
+        name,
+        username: identity.username,
+        bio: identity.bio ?? null,
+        avatarUrl: shown,
+        coverUrl: identity.coverUrl ?? null,
+      }}
+    />
     <div data-account-hub="">
       <ProfileHero
         person={{

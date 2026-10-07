@@ -66,6 +66,10 @@ export function ProfileOwnerPills({ communities, creator = false, active: fixed,
     return prefetchOnIdle(router, ahead.split(" "))
   }, [ahead, router])
 
+  useEffect(() => {
+    if (settingsStaysHere()) void warmSettings("profile")
+  }, [])
+
   return (
     <nav aria-label="Your pages" className={cn("-mx-4 sm:mx-0", className)} data-profile-owner-pills="">
       <div className="overflow-x-auto overscroll-x-contain px-4 py-0.5 scrollbar-hide sm:px-0">

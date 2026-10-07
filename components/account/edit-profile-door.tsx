@@ -6,22 +6,38 @@
  * Android apps it is a layer over this page (settings-subpage.tsx), so
  * nothing loads and back returns here.
  */
+import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { secondaryDepth } from "@/components/ui/depth-button"
 import { cn } from "@/lib/utils"
-import { openSettingsSubpage, settingsStaysHere, warmSettings } from "@/components/account/settings-subpage"
+import { openSettingsSubpage, primeSettingsFromProfile, settingsStaysHere, warmSettings } from "@/components/account/settings-subpage"
 
 /** Settings, opened on its Profile tab. */
 const SETTINGS_PROFILE = "/account/settings?section=profile"
 
-export function EditProfileDoor(_props: {
+export function EditProfileDoor({
+  userId,
+  name,
+  username,
+  bio,
+  avatarUrl = null,
+  coverUrl = null,
+}: {
   userId: string
   name: string
   username: string | null
   bio: string | null
   usernameEditable: boolean
+  avatarUrl?: string | null
+  coverUrl?: string | null
 }) {
   const router = useRouter()
+
+  useEffect(() => {
+    if (!settingsStaysHere()) return
+    primeSettingsFromProfile({ userId, name, username, bio, avatarUrl, coverUrl })
+    void warmSettings("profile")
+  }, [userId, name, username, bio, avatarUrl, coverUrl])
 
   return (
     <button

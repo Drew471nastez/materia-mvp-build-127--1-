@@ -15,16 +15,22 @@ import { displayEmail } from "@/lib/businesses/email-alias"
 import { isNativeApp } from "@/lib/platform-utils"
 
 const EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
-const IN_MS = 380
-const OUT_MS = 420
+const IN_MS = 340
+const OUT_MS = 360
+const CACHE_MS = 5 * 60_000
 
 export type SettingsSection = "profile" | "account" | "privacy" | "notifications" | "preferences"
 
 type Open = { section: SettingsSection; id: number; data: Loaded | null }
 
+type Loaded = React.ComponentProps<typeof AccountSettings>
+
+type Cache = { data: Loaded; at: number; complete: boolean }
+
 let listen: ((open: Open) => void) | null = null
 let seq = 0
-let warm: Promise<Loaded | null> | null = null
+let cached: Cache | null = null
+let inflight: Promise<Loaded | null> | null = null
 
 /** Phones, tablets and the native apps. A mouse on a wide screen keeps the settings address. */
 export function settingsStaysHere(): boolean {
@@ -34,19 +40,68 @@ export function settingsStaysHere(): boolean {
   return !!window.matchMedia?.("(pointer: coarse) and (max-width: 1180px)").matches
 }
 
+/** What the profile page already knows, so Edit profile can open filled on the first frame. */
+export function primeSettingsFromProfile(seed: {
+  userId: string
+  name: string
+  username: string | null
+  bio: string | null
+  avatarUrl?: string | null
+  coverUrl?: string | null
+}) {
+  if (typeof window === "undefined") return
+  const base = cached?.data
+  const data: Loaded = {
+    userId: seed.userId,
+    email: base?.email ?? "",
+    name: seed.name,
+    bio: (seed.bio || "").trim(),
+    bioSupported: true,
+    avatarUrl: seed.avatarUrl ?? base?.avatarUrl ?? null,
+    createdAt: base?.createdAt ?? new Date().toISOString(),
+    hasPassword: base?.hasPassword ?? true,
+    via: base?.via ?? "",
+    isSeller: false,
+    newsletter: base?.newsletter ?? false,
+    personalized: base?.personalized ?? true,
+    username: seed.username || "",
+    usernameEditable: true,
+    privacy: base?.privacy ?? { showActivity: true, showCommunities: true, supported: false },
+    creator: false,
+    cover: { url: (seed.coverUrl || base?.cover?.url || "").trim() || null, supported: true },
+    location: base?.location ?? { city: null, country: null, supported: false },
+    initialSection: "profile",
+  }
+  cached = { data, at: Date.now(), complete: cached?.complete ?? false }
+}
+
+function peekCache(section: SettingsSection): Loaded | null {
+  if (!cached || Date.now() - cached.at > CACHE_MS) return null
+  return { ...cached.data, initialSection: section }
+}
+
 /** Start the settings read before the finger lifts, so the screen can arrive whole. */
-export function warmSettings() {
-  if (!warm) warm = loadOwnSettings("profile")
-  return warm
+export function warmSettings(section: SettingsSection = "profile") {
+  if (!inflight) {
+    inflight = loadOwnSettings(section).then((data) => {
+      inflight = null
+      if (data) cached = { data, at: Date.now(), complete: true }
+      return data
+    })
+  }
+  return inflight
 }
 
 export function openSettingsSubpage(section: SettingsSection = "profile") {
-  const open: Open = { section, id: ++seq, data: null }
-  const load = warmSettings()
+  const id = ++seq
+  const data = peekCache(section)
+  const open: Open = { section, id, data }
   if (listen) listen(open)
   else window.dispatchEvent(new CustomEvent("storelib:settings-subpage", { detail: open }))
-  void load.then((data) => {
-    const filled = { ...open, data }
+  if (cached?.complete && data) return
+  void warmSettings(section).then((fresh) => {
+    if (!fresh) return
+    const filled: Open = { section, id, data: { ...fresh, initialSection: section } }
     if (listen) listen(filled)
     else window.dispatchEvent(new CustomEvent("storelib:settings-subpage", { detail: filled }))
   })
@@ -57,18 +112,21 @@ export function sectionFromSettingsHref(href: string): SettingsSection {
   return (m?.[1] as SettingsSection) || "account"
 }
 
-type Loaded = React.ComponentProps<typeof AccountSettings>
-
 async function loadOwnSettings(section: SettingsSection): Promise<Loaded | null> {
   const supabase = createClient()
   const { data: auth } = await supabase.auth.getUser()
   const user = auth.user
   if (!user) return null
-  const full = await supabase
-    .from("profiles")
-    .select("display_name, bio, avatar_url, cover_url, username, location_city, location_country, personalized_recommendations")
-    .eq("id", user.id)
-    .maybeSingle()
+  const [full, prefs] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("display_name, bio, avatar_url, cover_url, username, location_city, location_country, personalized_recommendations")
+      .eq("id", user.id)
+      .maybeSingle(),
+    fetch("/api/account/preferences", { credentials: "same-origin" })
+      .then((r) => (r.ok ? (r.json() as Promise<{ newsletter?: boolean; personalizedRecommendations?: boolean }>) : null))
+      .catch(() => null),
+  ])
   const slim = full.error
     ? await supabase.from("profiles").select("display_name, avatar_url, username").eq("id", user.id).maybeSingle()
     : null
@@ -83,9 +141,6 @@ async function loadOwnSettings(section: SettingsSection): Promise<Loaded | null>
     location_country?: string | null
     personalized_recommendations?: boolean | null
   } | null
-  const prefs = await fetch("/api/account/preferences", { credentials: "same-origin" })
-    .then((r) => (r.ok ? (r.json() as Promise<{ newsletter?: boolean; personalizedRecommendations?: boolean }>) : null))
-    .catch(() => null)
   const providers = ((user.app_metadata?.providers as string[] | undefined) ?? [user.app_metadata?.provider as string | undefined]).filter(Boolean) as string[]
   const names: Record<string, string> = { google: "Google", apple: "Apple", github: "GitHub", facebook: "Facebook" }
   const via = providers.filter((p) => p !== "email").map((p) => names[p] ?? p).join(" or ")
@@ -117,53 +172,57 @@ async function loadOwnSettings(section: SettingsSection): Promise<Loaded | null>
   }
 }
 
-function clearSettingsChrome() {
-  document.documentElement.removeAttribute("data-settings-subpage")
+function setSettingsChrome(on: boolean) {
+  if (on) document.documentElement.setAttribute("data-settings-subpage", "")
+  else document.documentElement.removeAttribute("data-settings-subpage")
 }
 
 function SettingsLayer({ section, data, onClose }: { section: SettingsSection; data: Loaded | null; onClose: () => void }) {
   const panel = useRef<HTMLDivElement>(null)
   const closing = useRef(false)
+  const slidIn = useRef(false)
+  const bodyOverflow = useRef("")
+
+  const slideIn = () => {
+    if (slidIn.current) return
+    slidIn.current = true
+    const el = panel.current
+    if (!el || typeof el.animate !== "function") return
+    el.style.transform = "translate3d(100%, 0, 0)"
+    el.animate([{ transform: "translate3d(100%, 0, 0)" }, { transform: "translate3d(0, 0, 0)" }], { duration: IN_MS, easing: EASE, fill: "forwards" })
+  }
 
   useLayoutEffect(() => {
-    const root = document.documentElement
-    root.setAttribute("data-settings-subpage", "")
-    const el = panel.current
-    const prev = document.body.style.overflow
+    setSettingsChrome(true)
+    bodyOverflow.current = document.body.style.overflow
     document.body.style.overflow = "hidden"
-    if (el) {
-      el.style.transform = "translate3d(100%, 0, 0)"
-      const a = el.animate([{ transform: "translate3d(100%, 0, 0)" }, { transform: "translate3d(0, 0, 0)" }], { duration: IN_MS, easing: EASE, fill: "forwards" })
-      return () => {
-        a.cancel()
-        clearSettingsChrome()
-        document.body.style.overflow = prev
-      }
-    }
+    if (data) slideIn()
     return () => {
-      clearSettingsChrome()
-      document.body.style.overflow = prev
+      document.body.style.overflow = bodyOverflow.current
+      if (!closing.current) setSettingsChrome(false)
     }
   }, [])
+
+  useLayoutEffect(() => {
+    if (data) slideIn()
+  }, [data])
 
   const close = () => {
     if (closing.current) return
     closing.current = true
     const el = panel.current
-    if (!el || typeof el.animate !== "function") {
-      clearSettingsChrome()
-      document.body.style.overflow = ""
+    const finish = () => {
+      document.body.style.overflow = bodyOverflow.current
       onClose()
+      requestAnimationFrame(() => setSettingsChrome(false))
+    }
+    if (!el || typeof el.animate !== "function") {
+      finish()
       return
     }
     const a = el.animate([{ transform: "translate3d(0, 0, 0)" }, { transform: "translate3d(100%, 0, 0)" }], { duration: OUT_MS, easing: EASE, fill: "forwards" })
-    const done = () => {
-      clearSettingsChrome()
-      document.body.style.overflow = ""
-      onClose()
-    }
-    a.onfinish = done
-    window.setTimeout(done, OUT_MS + 80)
+    a.onfinish = finish
+    window.setTimeout(finish, OUT_MS + 60)
   }
 
   return (
@@ -171,7 +230,6 @@ function SettingsLayer({ section, data, onClose }: { section: SettingsSection; d
       ref={panel}
       className="fixed inset-0 z-[300] overflow-y-auto bg-white"
       data-edit-profile-sheet=""
-      data-settings-subpage=""
       role="dialog"
       aria-modal="true"
       aria-label="Settings"
@@ -196,6 +254,20 @@ function SettingsLayer({ section, data, onClose }: { section: SettingsSection; d
   )
 }
 
+/** Keep settings data warm on pages that open it as a layer (account, profile). */
+export function SettingsWarm({
+  seed,
+}: {
+  seed?: { userId: string; name: string; username: string | null; bio: string | null; avatarUrl?: string | null; coverUrl?: string | null }
+}) {
+  useEffect(() => {
+    if (!settingsStaysHere()) return
+    if (seed) primeSettingsFromProfile(seed)
+    void warmSettings("profile")
+  }, [seed?.userId, seed?.name, seed?.username, seed?.bio, seed?.avatarUrl, seed?.coverUrl])
+  return null
+}
+
 export function SettingsSubpageHost() {
   const [open, setOpen] = useState<Open | null>(null)
   useEffect(() => {
@@ -209,6 +281,7 @@ export function SettingsSubpageHost() {
     return () => {
       listen = null
       window.removeEventListener("storelib:settings-subpage", on)
+      setSettingsChrome(false)
     }
   }, [])
   if (!open || typeof document === "undefined") return null
