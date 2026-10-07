@@ -2053,38 +2053,45 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
           <div className="mx-auto flex w-full max-w-[min(100%,600px)] flex-col items-center text-center font-sans" data-onboarding-join="profile">
             <h1 className="text-[28px] font-bold leading-[1.15] tracking-[-0.03em] text-[#1a1a2e] sm:text-[30px]">Create a profile</h1>
             <p className="mt-1.5 text-[15px] leading-6 text-[#6b7280]">Add a name, photo and links to get started.</p>
-            <div className="mt-5 flex flex-col items-center gap-2.5 sm:flex-row sm:items-center sm:justify-center sm:gap-3">
-              <button
-                type="button"
-                onClick={openJoinPhoto}
-                disabled={uploadingAvatar}
-                data-onboarding-join-photo=""
-                aria-label={avatarUrl ? "Change photo" : "Add a photo"}
-                className={cn(
-                  "relative block h-[84px] w-[84px] shrink-0 overflow-hidden rounded-full bg-[#eceef1] text-[#9ca3af] transition-[box-shadow,transform] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-[0.98] motion-reduce:transition-none",
-                  AVATAR_RING,
-                  "[-webkit-tap-highlight-color:transparent]",
-                )}
-              >
-                {avatarUrl ? (
-                  <img src={avatarUrl} alt="" className="absolute inset-0 h-full w-full object-cover motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200" />
-                ) : (
-                  <span className="absolute inset-0 text-[#b0b5bd]">
-                    <DefaultAvatarGlyph fill />
-                  </span>
-                )}
-                {uploadingAvatar ? (
-                  <span className="absolute inset-0 grid place-items-center bg-white/70 backdrop-blur-[1px]">
-                    <ActivitySpinner size={22} className="text-[#4b5563]" />
-                  </span>
-                ) : null}
-              </button>
+            {/* Avatar stays on the column centerline; photo control sits to its right on sm+ without shifting the circle. */}
+            <div className="relative mt-5 w-full">
+              <div className="flex justify-center">
+                <button
+                  type="button"
+                  onClick={openJoinPhoto}
+                  disabled={uploadingAvatar}
+                  data-onboarding-join-photo=""
+                  aria-label={avatarUrl ? "Change photo" : "Add a photo"}
+                  className={cn(
+                    "relative block h-[84px] w-[84px] shrink-0 overflow-hidden rounded-full bg-[#eceef1] text-[#9ca3af] transition-[box-shadow,transform] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-[0.98] motion-reduce:transition-none",
+                    AVATAR_RING,
+                    "[-webkit-tap-highlight-color:transparent]",
+                  )}
+                >
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt="" className="absolute inset-0 h-full w-full object-cover motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200" />
+                  ) : (
+                    <span className="absolute inset-0 text-[#b0b5bd]">
+                      <DefaultAvatarGlyph fill />
+                    </span>
+                  )}
+                  {uploadingAvatar ? (
+                    <span className="absolute inset-0 grid place-items-center bg-white/70 backdrop-blur-[1px]">
+                      <ActivitySpinner size={22} className="text-[#4b5563]" />
+                    </span>
+                  ) : null}
+                </button>
+              </div>
               <button
                 type="button"
                 onClick={openJoinPhoto}
                 disabled={uploadingAvatar}
                 data-onboarding-join-photo-add=""
-                className={cn(secondaryDepth, "h-8 rounded-full px-2.5 text-[12px]")}
+                className={cn(
+                  secondaryDepth,
+                  "mx-auto mt-2.5 h-8 rounded-full px-2.5 text-[12px]",
+                  "sm:absolute sm:left-[calc(50%+54px)] sm:top-[42px] sm:mx-0 sm:mt-0 sm:-translate-y-1/2",
+                )}
               >
                 <ImagePlus className="h-3 w-3" strokeWidth={2} aria-hidden />
                 {avatarUrl ? "Change photo" : "Add photo"}
