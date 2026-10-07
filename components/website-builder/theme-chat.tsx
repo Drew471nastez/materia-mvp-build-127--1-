@@ -1715,7 +1715,8 @@ function ThemeChatPanel({
             settings: live.current.settings,
             sectionTypes: [...new Set(live.current.sections.map((s) => s.type))].slice(0, 40),
             provider: live.current.engine.provider,
-            tier: live.current.engine.tier,
+            /* Code uses the stronger ChatGPT (Terra) unless a non-OpenAI engine was chosen. */
+            tier: live.current.engine.provider === "openai" ? "strong" : live.current.engine.tier,
             /* Code a section's own Strength: Deep unless the creator chose otherwise. */
             effort: live.current.codeEffort,
             conversationId: live.current.conversation.id,
