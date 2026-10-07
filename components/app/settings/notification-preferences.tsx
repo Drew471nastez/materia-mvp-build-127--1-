@@ -1,7 +1,6 @@
 "use client"
 
 import { useCallback, useEffect, useRef, useState } from "react"
-import { ChevronDown } from "lucide-react"
 
 import { Saved, Switch } from "@/components/app/settings/account-panels"
 import { secondaryDepth } from "@/components/ui/depth-button"
@@ -30,8 +29,8 @@ import { cn } from "@/lib/utils"
  *   REQUIRED    payouts and payments, account, security: "Always on" in
  *               muted type where the switches would be, and one line at the
  *               foot of the card says why.
- *   SALES       its email is a small menu, "Every sale" or "Off": the one
- *               preference a sales email reads.
+ *   SALES       its email is a switch like the rest: on is an email for
+ *               every sale, the one preference a sales email reads.
  *   SAVING      a change shows at once and saves behind it. If the save
  *               fails that one control goes back to what was saved and the
  *               row says so. Several presses on one control end on the last
@@ -237,11 +236,8 @@ function PreferenceRow({
       ) : (
         <div className="flex shrink-0 items-center">
           <span className={EMAIL_COL}>
-            {row.category === "sales" ? (
-              <SaleEmails value={row.channels.email.enabled} onChange={(v) => onChange(row.category, "email", v)} />
-            ) : (
-              <Switch label={`${row.label} by email`} checked={row.channels.email.enabled} onChange={(v) => onChange(row.category, "email", v)} />
-            )}
+            {/* Sales too: its email was a small "Every sale" menu wider than the column, which ran into the In app switch. On is every sale. */}
+            <Switch label={`${row.label} by email`} checked={row.channels.email.enabled} onChange={(v) => onChange(row.category, "email", v)} />
           </span>
           <span className={APP_COL}>
             <Switch label={`${row.label} in app`} checked={row.channels.in_app.enabled} onChange={(v) => onChange(row.category, "in_app", v)} />
@@ -249,24 +245,5 @@ function PreferenceRow({
         </div>
       )}
     </li>
-  )
-}
-
-/** New sale emails: every sale, or off. A native menu, so a phone shows its own picker. */
-function SaleEmails({ value, onChange }: { value: boolean; onChange: (on: boolean) => void }) {
-  return (
-    <span className="relative inline-flex">
-      <select
-        aria-label="New sale emails"
-        value={value ? "every" : "off"}
-        onChange={(e) => onChange(e.target.value === "every")}
-        data-sale-emails=""
-        className="h-9 cursor-pointer appearance-none rounded-lg border border-[#e5e7eb] bg-white pl-2.5 pr-7 text-[13px] font-medium text-[#1a1a2e] outline-none transition-colors hover:border-[#d1d5db] focus-visible:ring-2 focus-visible:ring-[#111113]/25"
-      >
-        <option value="every">Every sale</option>
-        <option value="off">Off</option>
-      </select>
-      <ChevronDown aria-hidden="true" className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#6b7280]" strokeWidth={2} />
-    </span>
   )
 }

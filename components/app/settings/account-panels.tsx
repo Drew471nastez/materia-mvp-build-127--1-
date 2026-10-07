@@ -1,5 +1,6 @@
 "use client"
 
+import { askPushPermission, inNativeApp, nativePlatform, openPhoneSettings, phoneSettingsPath, readPushPermission, type PushPermission } from "@/lib/native-push"
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react"
 import { Check, Loader2 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
@@ -327,7 +328,7 @@ export function PrivacyPanel({
             detail="Counts visits and page speed in this browser. Off stores nothing."
             control={<Switch label="Analytics on this device" checked={analytics} onChange={changeAnalytics} />}
           />
-          <BrowserNotificationsRow />
+          <DeviceNotificationsRow />
         </div>
       </section>
     </div>
@@ -351,6 +352,86 @@ export const NOTIFICATION_WORDS: Record<"blocked" | "unsupported" | "iphone" | "
   unsupported: "This browser cannot show notifications.",
   iphone: "Safari on iPhone does not show website notifications. The Storelib app for iPhone does.",
   idle: "A notification on this computer when you make a sale or a payout is ready.",
+}
+
+/**
+ * THIS DEVICE'S NOTIFICATIONS: the browser's own in a browser, the phone's
+ * in the Storelib app. The app's web view is not a browser for this: an
+ * Android web view has no web push, so the browser switch there could be
+ * pressed and did nothing at all. In the app the switch is the phone's
+ * permission (lib/native-push): on asks the phone, and since only the
+ * phone's own settings can take a yes back (or undo a no), those open
+ * from here.
+ */
+function DeviceNotificationsRow() {
+  const [inApp, setInApp] = useState<boolean | null>(null)
+  useEffect(() => {
+    setInApp(inNativeApp())
+  }, [])
+  if (inApp === null) return null
+  return inApp ? <PhoneNotificationsRow /> : <BrowserNotificationsRow />
+}
+
+function PhoneNotificationsRow() {
+  const [permission, setPermission] = useState<PushPermission | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [savedAt, setSavedAt] = useState(0)
+  const platform = nativePlatform()
+
+  useEffect(() => {
+    let live = true
+    const read = () => {
+      if (document.visibilityState !== "visible") return
+      void readPushPermission().then((p) => live && setPermission(p))
+    }
+    read()
+    /* Back from the phone's settings with the answer changed. */
+    document.addEventListener("visibilitychange", read)
+    return () => {
+      live = false
+      document.removeEventListener("visibilitychange", read)
+    }
+  }, [])
+
+  if (permission === null || permission === "unsupported") return null
+
+  const change = async (next: boolean) => {
+    if (busy) return
+    if (!next || permission === "denied") {
+      /* Only the phone's settings can turn it off, or back on after a no. */
+      openPhoneSettings()
+      return
+    }
+    setBusy(true)
+    try {
+      const answer = await askPushPermission()
+      setPermission(answer)
+      if (answer === "granted") setSavedAt(Date.now())
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const detail =
+    permission === "granted"
+      ? "A notification on this phone when you make a sale or a payout is ready. Turn it off in your phone's settings."
+      : permission === "denied"
+        ? `Off in your phone's settings. Turn this on to open ${phoneSettingsPath(platform)}.`
+        : "A notification on this phone when you make a sale or a payout is ready."
+
+  return (
+    <PrivacyRow
+      id="phone-notifications"
+      title={
+        <>
+          Notifications on this phone
+          <Saved at={savedAt} />
+        </>
+      }
+      detail={<span data-notifications-detail="">{detail}</span>}
+      control={<Switch label="Notifications on this phone" checked={permission === "granted"} busy={busy} onChange={(v) => void change(v)} />}
+    />
+  )
 }
 
 function BrowserNotificationsRow() {
