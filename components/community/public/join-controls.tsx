@@ -46,6 +46,7 @@ import { Spinner } from "@/components/community/member/place-spinner"
 import { LENGTHS } from "@/lib/communities/limits"
 import { LEAVE_NOTE_MAX, LEAVE_REASONS, type LeaveReason } from "@/lib/communities/leave-reasons"
 import { memberCountLabel } from "@/lib/communities/format"
+import { optimizedImageUrl } from "@/lib/images/optimized-url"
 import { money, pricePer, yearlySaving } from "@/lib/memberships/state"
 import { cn } from "@/lib/utils"
 import { CheckDot } from "./check-dot"
@@ -532,9 +533,24 @@ export function JoinCard({ facts = null }: { facts?: React.ReactNode }) {
     <aside data-join-card="" className="hidden xl:block">
       <div className="sticky top-[calc(var(--community-top,65px)+24px)]" data-join-card-sticky="">
         <div className="overflow-hidden rounded-2xl border border-[#e5e7eb]/80 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04),0_8px_24px_-12px_rgba(16,24,40,0.10)]">
+          {/* The community's cover and picture, here rather than in a second card on the left (round 15). */}
+          {community.coverUrl ? (
+            <div className="relative aspect-[16/9] w-full bg-[#f1f2f4]" data-join-card-cover="">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={optimizedImageUrl(community.coverUrl, 640)} alt="" className="absolute inset-0 h-full w-full object-cover" decoding="async" />
+            </div>
+          ) : null}
           <div className="p-5">
-            <p className="text-[18px] font-semibold leading-snug tracking-[-0.005em] text-[#1a1a2e] [overflow-wrap:anywhere]">{community.name}</p>
-            <p className="mt-0.5 truncate text-[13px] text-[#8a8f98]">{community.address}</p>
+            <div className="flex items-center gap-3">
+              {community.logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={optimizedImageUrl(community.logoUrl, 96)} alt="" width={44} height={44} className="h-11 w-11 shrink-0 rounded-[10px] object-cover shadow-[0_0_0_1px_rgba(16,24,40,0.07),0_1px_2px_rgba(16,24,40,0.1)]" decoding="async" />
+              ) : null}
+              <div className="min-w-0">
+                <p className="text-[18px] font-semibold leading-snug tracking-[-0.005em] text-[#1a1a2e] [overflow-wrap:anywhere]">{community.name}</p>
+                <a href={community.url} className="mt-0.5 block truncate text-[13px] text-[#8a8f98] hover:text-[#4b5563]">{community.address}</a>
+              </div>
+            </div>
             {join.kind === "open" ? (
               <p className="mt-3 text-[14px] text-[#4b5563]">{join.isOwner ? "You run this community." : "You're a member."}</p>
             ) : (

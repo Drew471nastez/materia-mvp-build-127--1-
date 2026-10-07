@@ -89,10 +89,11 @@ export function CommunityPublicFrame({ topBar, card = null, children }: { topBar
       <CommunityTopBar data={topBar} wide />
       <div className="mx-auto w-full max-w-[1360px] px-4 sm:px-6 lg:px-8">
         <div data-community-columns="public" className="pb-16 pt-4 lg:grid lg:grid-cols-[260px_minmax(0,1fr)] lg:items-start lg:gap-x-6 lg:pt-6 xl:grid-cols-[280px_minmax(0,1fr)_300px]">
-          <div className="hidden min-w-0 lg:col-start-1 lg:row-start-1 lg:block" data-community-left="">
+          {/* From 1280px the page's own card on the right carries the cover and the way in, so this one steps aside (round 15). */}
+          <div className="hidden min-w-0 lg:col-start-1 lg:row-start-1 lg:block xl:hidden" data-community-left="">
             {card ? <WallCommunityCard community={card.community} card={card.card} membersHref={null} /> : null}
           </div>
-          <div className="min-w-0 lg:col-start-2 lg:row-start-1 xl:col-span-2" data-community-main="">
+          <div className="min-w-0 lg:col-start-2 lg:row-start-1 xl:col-span-full xl:col-start-1" data-community-main="">
             <div className={`${ARRIVE} max-sm:-mx-4 max-sm:-mt-4`} data-community-body="">
               <CommunityPullRefresh slug={slug}>{children}</CommunityPullRefresh>
             </div>

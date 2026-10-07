@@ -68,7 +68,7 @@ console.log("\nPLACES: a fade and a rise, and nothing fixed rides it")
 {
   const f = code("components/community/member/shell-frame.tsx")
   check("ARRIVE is the 260ms fade and 6px rise, none for reduced motion", /export const ARRIVE = "\[&>\*\]:animate-\[community-place-in_260ms_cubic-bezier\(0\.22,1,0\.36,1\)\] motion-reduce:\[&>\*\]:animate-none"/.test(f) && /@keyframes community-place-in\{from\{opacity:0;translate:0 6px\}to\{opacity:1;translate:0 0\}\}/.test(f))
-  check("only once the member has moved to another place (the first page and a space switch do not land again)", /if \(!moved && tabFor\(current\) !== firstTab\.current\) setMoved\(true\)/.test(f) && /\$\{moved \? ARRIVE : ""\}/.test(f))
+  check("only once the member has moved to another place (the first page and a space switch do not land again)", /if \(!moved && tabFor\(current\) !== firstTab\.current\) setMoved\(true\)/.test(f) && /\$\{moved && !quietArrival \? ARRIVE : ""\}/.test(f))
   const j = code("components/community/public/join-controls.tsx")
   check("the phone's join bar is portalled to the body once the page is in the browser", /const onClient = React\.useSyncExternalStore\(noSubscribe, \(\) => true, \(\) => false\)/.test(j) && /return onClient \? createPortal\(bar, document\.body\) : bar/.test(j) && /\}, \[onClient\]\)/.test(j))
 }
@@ -150,12 +150,12 @@ console.log("\nBADGE: red again")
 console.log("\nABOUT: the same columns")
 {
   const pub = code("components/community/public/public-frame.tsx")
-  check("the visitor's frame is the member frame's grid, the bar wide, the card on the left", /<CommunityTopBar data=\{topBar\} wide \/>/.test(pub) && /lg:grid-cols-\[260px_minmax\(0,1fr\)\][^"]*xl:grid-cols-\[280px_minmax\(0,1fr\)_300px\]/.test(pub) && /<WallCommunityCard community=\{card\.community\} card=\{card\.card\} membersHref=\{null\} \/>/.test(pub) && /xl:col-span-2/.test(pub))
+  check("the visitor's frame is the member frame's grid, the bar wide, the card on the left until 1280px (round 15: About's own card carries it from there)", /<CommunityTopBar data=\{topBar\} wide \/>/.test(pub) && /lg:grid-cols-\[260px_minmax\(0,1fr\)\][^"]*xl:grid-cols-\[280px_minmax\(0,1fr\)_300px\]/.test(pub) && /<WallCommunityCard community=\{card\.community\} card=\{card\.card\} membersHref=\{null\} \/>/.test(pub) && /lg:block xl:hidden/.test(pub) && /xl:col-span-full xl:col-start-1/.test(pub))
   const sales = code("components/community/public/sales-page.tsx")
-  check("the sheet no longer centres or pads itself; from 1280px its columns are the frame's (1fr and 300px, 24px apart)", !/max-w-\[1080px\]/.test(sales) && /xl:grid xl:grid-cols-\[minmax\(0,1fr\)_300px\] xl:gap-6/.test(sales))
+  check("round 15: from 1280px About is one centred page of 1120px, the sheet and its 320px card", /xl:mx-auto xl:grid xl:max-w-\[1120px\] xl:grid-cols-\[minmax\(0,1fr\)_320px\] xl:gap-7/.test(sales))
   const shell = readSource("components/community/member/shell.tsx")
   check("a visitor's card says nothing a member alone may see (no faces, no online, no admins)", /stats: \{ members: community\.member_count \?\? 0, online: null, admins: null \}, faces: \[\], more: 0, settingsHref: null/.test(shell))
-  check("the side card is the right column's from 1280px, without a second cover", /<aside data-join-card="" className="hidden xl:block">/.test(code("components/community/public/join-controls.tsx")) && !/optimizedImageUrl/.test(code("components/community/public/join-controls.tsx")))
+  check("round 15: the side card from 1280px carries the cover, the picture and the address (the left card steps aside there)", /<aside data-join-card="" className="hidden xl:block">/.test(code("components/community/public/join-controls.tsx")) && /data-join-card-cover=""/.test(code("components/community/public/join-controls.tsx")))
 }
 
 console.log("\nGALLERY: depth and sizes")
