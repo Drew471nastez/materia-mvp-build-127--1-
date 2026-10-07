@@ -90,6 +90,7 @@ export function ProjectSettings({
   productCount = null,
   onAddPage = () => {},
   onEditMenu = () => {},
+  onOpenThemeGroup = () => {},
   onOpenCode = () => {},
   onPublish = () => {},
   onUnpublished = () => {},
@@ -122,6 +123,7 @@ export function ProjectSettings({
   productCount?: number | null
   onAddPage?: () => void
   onEditMenu?: (handle?: string) => void
+  onOpenThemeGroup?: (group: string) => void
   onOpenCode?: () => void
   onPublish?: () => void
   onAddressChanged?: (handle: string) => void
@@ -263,6 +265,10 @@ export function ProjectSettings({
     onEditMenu: (handle?: string) => {
       onClose()
       onEditMenu(handle)
+    },
+    onOpenThemeGroup: (group: string) => {
+      onClose()
+      onOpenThemeGroup(group)
     },
     onOpenCode: thenClose(onOpenCode),
     onPublish: thenClose(onPublish),

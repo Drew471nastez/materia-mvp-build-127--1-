@@ -86,6 +86,8 @@ export interface SettingsContext {
   onAddPage: () => void
   /** Opens the builder's Navigation panel, at one menu when a handle is given. */
   onEditMenu: (handle?: string) => void
+  /** Closes Website settings on one group of the builder's Theme settings, e.g. "cookies". */
+  onOpenThemeGroup: (group: string) => void
   onOpenCode: () => void
   onPublish: () => void
   onUnpublished: () => void

@@ -31,11 +31,19 @@ check("and with no answer, nothing optional loads: analytics wait for a yes", /c
 check("the site says so from its own setting, on unless switched off", /const hidden = t\.cookie_banner_show === false/.test(page) && /setSiteConsentTheme\(\{\s*hidden,/.test(page))
 check("a creator's site speaks in its own default sentence, not storelib.com's", /\|\| SITE_COOKIE_TEXT/.test(page) && !/creators can see/.test(SITE_COOKIE_TEXT))
 check("colours only when the creator asked for their own", /const bg = ownColours \? str\(t\.cookie_bg, ""\) : ""/.test(page))
-check("Website Settings shows and hides the banner with the switch it names", /onChange=\{\(on\) => ctx\.onSettingChange\("cookie_banner_show", on\)\} label="Show the cookie banner"/.test(settings) && /const showBanner = ctx\.settings\.cookie_banner_show !== false/.test(settings))
-check("and its words are there to edit from the start", /: SITE_COOKIE_TEXT\}/.test(settings) && /: COOKIE_ACCEPT_TEXT\}/.test(settings) && /: COOKIE_DECLINE_TEXT\}/.test(settings))
-/* One place for the banner: Website Settings › Policies. General settings showed the same seven controls a second time. */
+/*
+  Changed on purpose: the owner asked for the banner to be "a theme settings
+  thing", so it is set in Theme settings › Cookie banner, and Policies is one
+  line that opens it there. Still one place for the controls, not two.
+*/
 const ids = THEME_SETTINGS_GROUPS.flatMap((g) => g.fields.map((f) => f.id))
-check("the cookie banner is set in Policies only, not twice", !THEME_SETTINGS_GROUPS.some((g) => g.id === "cookies") && !ids.some((id) => id.startsWith("cookie_")) && /cookie_banner_enabled/.test(settings), ids.filter((id) => id.startsWith("cookie_")).join(", "))
+const cookies = THEME_SETTINGS_GROUPS.find((g) => g.id === "cookies")
+const cookieIds = ["cookie_banner_show", "cookie_banner_text", "cookie_accept_text", "cookie_decline_text", "cookie_banner_enabled", "cookie_bg", "cookie_text_color"]
+check("Theme settings has a Cookie banner group with every key the page reads", !!cookies && cookieIds.every((id) => cookies.fields.some((f) => f.id === id)) && cookieIds.every((id) => page.includes(id)))
+check("its words start as the site's default sentence and buttons", cookies?.fields.find((f) => f.id === "cookie_banner_text")?.default === SITE_COOKIE_TEXT)
+check("the colours ask only once own colours are on", /cookie_banner_enabled/.test(String(cookies?.fields.find((f) => f.id === "cookie_bg")?.visible_if ?? "")))
+check("and no cookie key is in two groups", ids.filter((id) => id.startsWith("cookie_")).length === cookieIds.length)
+check("Policies does not draw the controls a second time, it opens the group", !/cookie_banner_enabled/.test(settings) && /onOpenThemeGroup\("cookies"\)/.test(settings))
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }

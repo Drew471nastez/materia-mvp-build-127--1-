@@ -6,7 +6,7 @@ import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import {
   ArrowLeft, Plug, Monitor, Smartphone, Maximize2, Loader2, Code2, ChevronDown, Plus, Eye, EyeOff, Trash2, Copy, Settings, Check, Layers, X, RotateCcw, Layout, AlignLeft, Image, MessageSquare, HelpCircle, Megaphone, BarChart2, Grid, Award, LayoutGrid, DollarSign, LayoutTemplate, Video, Users, MapPin, Mail, Clock, BookOpen, Shirt, Columns, Play, Star, Timer, Shield, Rss, SlidersHorizontal, Code, Bell, ChevronRight, Menu as MenuIcon, Package, Undo2, Redo2, ExternalLink, Search, FileText, ArrowRight, FolderOpen, MoreHorizontal, Upload, Info, Crop, CheckCircle, Type, Square, Rows3, Grid3x3, MousePointerClick, MoveHorizontal, Hash, Columns2, LayoutDashboard, Badge as BadgeIcon, ArrowUp, ArrowDown,
-  Palette, ShoppingBag, ShoppingCart, Share2,
+  Palette, ShoppingBag, ShoppingCart, Share2, Cookie,
 } from "lucide-react"
 import { arrayMove } from "@dnd-kit/sortable"
 import { Button } from "@/components/ui/button"
@@ -516,6 +516,7 @@ const THEME_GROUP_ICONS: Record<string, typeof Image> = {
   product_cards: ShoppingBag,
   cart: ShoppingCart,
   social: Share2,
+  cookies: Cookie,
   animations: Play,
   announcement: Megaphone,
   menus: MenuIcon,
@@ -6138,7 +6139,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                     {group.id === "social" && (
                       <SocialLinksEditor values={settingsDraft as Record<string, unknown>} onChange={(key, v) => updateSetting(key, v)} />
                     )}
-                    {group.fields.filter(field => group.id !== "branding" || !BRANDING_PANEL_FIELDS.has(field.id)).filter(field => group.id !== "social" || !SOCIAL_FIELD_IDS.has(field.id)).map(field => {
+                    {visibleFields(group.fields, settingsDraft as Record<string, unknown>).filter(field => group.id !== "branding" || !BRANDING_PANEL_FIELDS.has(field.id)).filter(field => group.id !== "social" || !SOCIAL_FIELD_IDS.has(field.id)).map(field => {
                       const val = settingsDraft[field.id as keyof ThemeSettingsValues] ?? field.default
                       return (
                         <div key={field.id}>
@@ -6688,7 +6689,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                         group.id === "social" ? (
                           <SocialLinksEditor key="social-links" values={settingsDraft as Record<string, unknown>} onChange={(key, v) => updateSetting(key, v)} />
                         ) : null,
-                        ...group.fields.filter(field => group.id !== "social" || !SOCIAL_FIELD_IDS.has(field.id)).map(field => {
+                        ...visibleFields(group.fields, settingsDraft as Record<string, unknown>).filter(field => group.id !== "social" || !SOCIAL_FIELD_IDS.has(field.id)).map(field => {
                         const val = settingsDraft[field.id as keyof ThemeSettingsValues] ?? field.default
                         return (
                           <div key={field.id}>
@@ -8132,6 +8133,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           setSidebarMode("sections")
           setPageBrowserOpen(false)
           openMenus(handle)
+        }}
+        /* The cookie banner is a theme setting: Policies opens it there. */
+        onOpenThemeGroup={(group) => {
+          setSidebarMode("settings")
+          setPageBrowserOpen(false)
+          setSelectedPanel({ type: "theme_settings" })
+          setExpandedSettings(group)
+          if (isMobileViewRef.current) setMobileSidebarOpen(true)
         }}
         onOpenCode={() => void openCode()}
         onPublish={() => setPublishOpen(true)}

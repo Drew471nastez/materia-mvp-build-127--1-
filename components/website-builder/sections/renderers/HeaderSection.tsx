@@ -26,6 +26,7 @@ import { followSectionLink } from "@/lib/website-builder/section-motion"
 import { useSiteCart } from "../../site-cart"
 import { useStorefront } from "../../theme/storefront-context"
 import { lineKey } from "@/lib/website-builder/cart"
+import { drawerCheckout } from "@/lib/website-builder/cart-checkout"
 import { headerIconOn } from "@/lib/website-builder/header-icons"
 import { headerGap, headerPad } from "@/lib/website-builder/header-spacing"
 import { useSiteWishlist } from "../../site-wishlist"
@@ -783,7 +784,25 @@ function CartDrawerInner({
   positionClass: string
   frameStyle: CSSProperties
 }) {
-  const { lines, setQty, remove, subtotalCents, count } = useSiteCart()
+  const { lines, setQty, remove, subtotalCents, count, shopId, clear } = useSiteCart()
+  /* Check out goes straight to the checkout (lib/website-builder/cart-checkout). */
+  const [leaving, setLeaving] = useState(false)
+  /* Back from the checkout, the page can come out of the back/forward cache with the spinner still on. */
+  useEffect(() => {
+    const back = () => setLeaving(false)
+    window.addEventListener("pageshow", back)
+    return () => window.removeEventListener("pageshow", back)
+  }, [])
+  const checkOut = async (e: React.MouseEvent) => {
+    e.preventDefault()
+    if (onEditorNavigate) { e.stopPropagation(); return }
+    if (leaving) return
+    setLeaving(true)
+    const next = await drawerCheckout(lines, shopId)
+    if (next.go === null) { window.location.href = "/cart"; return }
+    if (next.free) clear()
+    window.location.href = next.go
+  }
   /*
     THE SLIDE AND THE FADE ARE WRITTEN TO THE NODES, ON THE FRAME THEY BEGIN.
 
@@ -957,11 +976,21 @@ function CartDrawerInner({
             </div>
             <a
               href="/cart"
-              onClick={stop}
-              className="mt-3 flex h-11 items-center justify-center rounded-full text-[15px] font-semibold"
-              style={{ background: scheme.primary_btn_bg, color: scheme.primary_btn_text }}
+              onClick={checkOut}
+              aria-busy={leaving || undefined}
+              data-cart-checkout=""
+              className="mt-3 flex h-11 items-center justify-center gap-2 rounded-full text-[15px] font-semibold transition-opacity"
+              style={{ background: scheme.primary_btn_bg, color: scheme.primary_btn_text, opacity: leaving ? 0.7 : 1 }}
             >
+              {leaving && <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden />}
               Check out
+            </a>
+            <a
+              href="/cart"
+              onClick={stop}
+              className="mt-1 flex h-11 items-center justify-center text-[14px] font-medium underline-offset-4 hover:underline"
+            >
+              View cart
             </a>
           </div>
         )}

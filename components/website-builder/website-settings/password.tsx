@@ -97,7 +97,13 @@ export function PasswordCard({ ctx }: { ctx: SettingsContext }) {
       >
         <Row
           label="Password protect"
-          hint={unavailable ? "Not set up on Storelib yet." : "Visitors see your password page until they type the password."}
+          hint={
+            unavailable
+              ? "Not available yet. Try again in a little while."
+              : ctx.live
+                ? "Visitors see your password page until they type the password."
+                : "Covers whichever of your websites is live, and this one from the moment you publish it."
+          }
           inline
         >
           {state === null ? (

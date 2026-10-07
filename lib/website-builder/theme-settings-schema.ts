@@ -12,7 +12,6 @@
  * stays in a saved theme and is still read where it was read:
  *
  *   SEO (seo_*)                 Website settings › SEO & Social.
- *   Cookie banner (cookie_*)    Website settings › Policies.
  *   Announcement bar            The Announcement bar section, in the Header
  *     (announcement_bar_*)      group. A site that still has the old bar on
  *                               sees the Old announcement bar switch below,
@@ -25,6 +24,7 @@
  *   container_radius,           Layout › Card corner radius and Card
  *     container_shadow          shadow, which reach the same boxes.
  */
+import { COOKIE_ACCEPT_TEXT, COOKIE_DECLINE_TEXT, SITE_COOKIE_TEXT } from "@/lib/consent/copy"
 import { SOCIAL_PLATFORMS } from "./social-links"
 import type { SelectOption, ThemeSettingsGroup } from "./types"
 
@@ -396,6 +396,28 @@ export const THEME_SETTINGS_GROUPS: ThemeSettingsGroup[] = [
       })),
       { id: "social_show_in_footer", label: "Show icons in footer", type: "toggle", default: true },
       { id: "social_show_in_header", label: "Show icons in header", type: "toggle", default: false },
+    ],
+  },
+  {
+    /*
+      THE COOKIE BANNER, A THEME SETTING. It is part of how the site looks
+      and reads, so it is set beside the colours and fonts, with the page
+      drawn next to it, rather than in Website settings › Policies, which
+      now opens this group. Same keys as before, read by ThemePage
+      (SiteCookieStyle) into the one consent banner. The colours only show
+      once "Use my own colours" is on (visible_if).
+    */
+    id: "cookies",
+    label: "Cookie banner",
+    icon: "cookie",
+    fields: [
+      { id: "cookie_banner_show", label: "Show the cookie banner", type: "toggle", default: true, info: "Off: no banner, and nothing optional is stored for your visitors." },
+      { id: "cookie_banner_text", label: "Message", type: "textarea", default: SITE_COOKIE_TEXT, visible_if: "{{ section.settings.cookie_banner_show }}" },
+      { id: "cookie_accept_text", label: "Accept button", type: "text", default: COOKIE_ACCEPT_TEXT, visible_if: "{{ section.settings.cookie_banner_show }}" },
+      { id: "cookie_decline_text", label: "Reject button", type: "text", default: COOKIE_DECLINE_TEXT, visible_if: "{{ section.settings.cookie_banner_show }}" },
+      { id: "cookie_banner_enabled", label: "Use my own colours", type: "toggle", default: false, info: "Off: white with dark text.", visible_if: "{{ section.settings.cookie_banner_show }}" },
+      { id: "cookie_bg", label: "Background", type: "color", default: "#0f172a", visible_if: "{{ section.settings.cookie_banner_show and section.settings.cookie_banner_enabled }}" },
+      { id: "cookie_text_color", label: "Text", type: "color", default: "#ffffff", visible_if: "{{ section.settings.cookie_banner_show and section.settings.cookie_banner_enabled }}" },
     ],
   },
   {

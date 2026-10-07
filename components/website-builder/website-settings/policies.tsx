@@ -14,13 +14,9 @@ import {
   withPolicyBody,
 } from "@/lib/website-builder/policy-editing"
 import type { SectionInstance } from "@/lib/website-builder/types"
-import { COOKIE_ACCEPT_TEXT, COOKIE_DECLINE_TEXT, SITE_COOKIE_TEXT } from "@/lib/consent/copy"
 import { cn } from "@/lib/utils"
-import { Card, GOES_LIVE, Lead, PageTitle, Row, Toggle, buttonClass, inputClass, textAreaClass, textLinkClass } from "./parts"
+import { Card, Lead, PageTitle, Row, buttonClass, textLinkClass } from "./parts"
 import type { SettingsContext } from "./types"
-
-/** A stored colour the colour input can show, or its default. */
-const colourOr = (v: unknown, fallback: string) => (typeof v === "string" && /^#[0-9a-f]{6}$/i.test(v) ? v : fallback)
 
 /** How long typing rests before the policy is saved. */
 const SAVE_AFTER_MS = 700
@@ -28,7 +24,6 @@ const SAVE_AFTER_MS = 700
 export function PolicySettings({ ctx }: { ctx: SettingsContext }) {
   /* Shown unless switched off; a site saved before the switch existed shows it. */
   const showBanner = ctx.settings.cookie_banner_show !== false
-  const ownColours = ctx.settings.cookie_banner_enabled === true
 
   return (
     <>
@@ -48,68 +43,17 @@ export function PolicySettings({ ctx }: { ctx: SettingsContext }) {
       <PolicyCard ctx={ctx} page={SHIPPING_POLICY} optional />
 
       {/*
-        THE BANNER, ON OR OFF, IN THE SITE'S OWN WORDS. The switch here used
-        to be "use my own words", labelled as if it showed the banner, so
-        turning it off changed the wording and the banner stayed. It shows
-        and hides the banner now. The words are there to edit from the start,
-        with the site's default sentence already in them, and the colours are
-        a choice of their own. The same settings are in the builder's theme
-        settings, under Cookie & privacy.
+        THE COOKIE BANNER LIVES IN THEME SETTINGS now, beside the colours and
+        fonts, with the page drawn next to it while it is set. Asked for as
+        "simpler, as a theme settings thing". Here it is one line that says
+        whether it shows and opens it there.
       */}
-      <Card title="Cookie banner" footer={GOES_LIVE}>
-        <Row label="Show the cookie banner" hint="Off: no banner, and nothing optional is stored for your visitors." inline>
-          <Toggle checked={showBanner} onChange={(on) => ctx.onSettingChange("cookie_banner_show", on)} label="Show the cookie banner" />
+      <Card title="Cookie banner">
+        <Row label={showBanner ? "Shown to visitors" : "Turned off"} hint="Its words and colours are set in Theme settings." inline>
+          <button type="button" className={buttonClass} onClick={() => ctx.onOpenThemeGroup("cookies")}>
+            Edit banner
+          </button>
         </Row>
-        <Reveal open={showBanner} className="border-t border-white/[0.07]" innerClassName="divide-y divide-white/[0.07]">
-          <Row label="Message" stack htmlFor="wb-cookie-text">
-            <textarea
-              id="wb-cookie-text"
-              rows={3}
-              value={typeof ctx.settings.cookie_banner_text === "string" ? ctx.settings.cookie_banner_text : SITE_COOKIE_TEXT}
-              onChange={(e) => ctx.onSettingChange("cookie_banner_text", e.target.value)}
-              className={textAreaClass}
-            />
-          </Row>
-          <Row label="Accept button" htmlFor="wb-cookie-accept">
-            <input
-              id="wb-cookie-accept"
-              value={typeof ctx.settings.cookie_accept_text === "string" ? ctx.settings.cookie_accept_text : COOKIE_ACCEPT_TEXT}
-              onChange={(e) => ctx.onSettingChange("cookie_accept_text", e.target.value)}
-              className={inputClass}
-            />
-          </Row>
-          <Row label="Reject button" htmlFor="wb-cookie-decline">
-            <input
-              id="wb-cookie-decline"
-              value={typeof ctx.settings.cookie_decline_text === "string" ? ctx.settings.cookie_decline_text : COOKIE_DECLINE_TEXT}
-              onChange={(e) => ctx.onSettingChange("cookie_decline_text", e.target.value)}
-              className={inputClass}
-            />
-          </Row>
-          <Row label="Use my own colours" hint="Off: the banner is white with dark text." inline>
-            <Toggle checked={ownColours} onChange={(on) => ctx.onSettingChange("cookie_banner_enabled", on)} label="Use my own colours" />
-          </Row>
-          <Reveal open={ownColours} className="border-t border-white/[0.07]">
-            <Row label="Colours" hint="Background, then text." inline>
-              <div className="flex items-center gap-2">
-                <input
-                  type="color"
-                  aria-label="Banner background"
-                  value={colourOr(ctx.settings.cookie_bg, "#0f172a")}
-                  onChange={(e) => ctx.onSettingChange("cookie_bg", e.target.value)}
-                  className="h-11 w-12 cursor-pointer rounded-lg border border-white/12 bg-transparent p-1 md:h-10"
-                />
-                <input
-                  type="color"
-                  aria-label="Banner text"
-                  value={colourOr(ctx.settings.cookie_text_color, "#ffffff")}
-                  onChange={(e) => ctx.onSettingChange("cookie_text_color", e.target.value)}
-                  className="h-11 w-12 cursor-pointer rounded-lg border border-white/12 bg-transparent p-1 md:h-10"
-                />
-              </div>
-            </Row>
-          </Reveal>
-        </Reveal>
       </Card>
     </>
   )

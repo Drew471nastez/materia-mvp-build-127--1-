@@ -167,6 +167,12 @@ One address per platform. The footer draws an icon for each one that is filled i
 
 @[theme-settings:social]
 
+### Cookie banner
+
+The banner a visitor sees until they answer: whether it shows, its message, its two buttons, and its colours. One banner and one answer for the whole site, kept by the platform, so a section never draws its own. Website settings › Policies opens this group.
+
+@[theme-settings:cookies]
+
 ### Animations
 
 @[theme-settings:animations]

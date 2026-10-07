@@ -59,16 +59,18 @@ console.log("\nThe groups")
 {
   /* What General Settings draws: not the page colours (inside Colors), not Menus (Navigation), not a retired group. */
   const drawn = THEME_SETTINGS_GROUPS.filter((g) => g.id !== "colors" && g.id !== "menus" && !g.shownWhen)
-  /* Ten since Products and cart became Product cards and Cart and checkout. */
-  check("ten groups, down from twenty-four", drawn.length === 10, drawn.map((g) => g.label))
+  /* Ten since Products and cart became Product cards and Cart and checkout;
+     eleven since the cookie banner came back as a theme setting (changed on
+     purpose, asked for by the owner). */
+  check("eleven groups, down from twenty-four", drawn.length === 11, drawn.map((g) => g.label))
   check(
     "in the order a creator works through them",
-    drawn.map((g) => g.label).join(" | ") === "Logo and brand | Colors | Typography | Buttons and inputs | Layout | Product cards | Cart and checkout | Social links | Animations | Custom CSS",
+    drawn.map((g) => g.label).join(" | ") === "Logo and brand | Colors | Typography | Buttons and inputs | Layout | Product cards | Cart and checkout | Social links | Cookie banner | Animations | Custom CSS",
     drawn.map((g) => g.label).join(" | "),
   )
   check("no setting is in two groups", new Set(ids).size === ids.length)
   check("every sub-heading inside a group has an id of its own", fields.filter((f) => f.type === "header").every((f) => f.id.startsWith("hdr_")))
-  for (const gone of ["seo", "cookies", "variant_pills", "inputs", "collection_cards", "content_containers", "media", "popups", "badges", "brand", "currency", "breadcrumbs"]) {
+  for (const gone of ["seo", "variant_pills", "inputs", "collection_cards", "content_containers", "media", "popups", "badges", "brand", "currency", "breadcrumbs"]) {
     check(`"${gone}" is not a group of its own any more`, !group(gone))
   }
   check("the general page colours are three", (group("colors")?.fields ?? []).map((f) => f.id).join(",") === "background_color,text_color,primary_color")
@@ -88,10 +90,10 @@ console.log("\nTaken out of the panel")
   check("and the live page still reads the share image and title", /seo_og_image/.test(read("lib/website-builder/theme-metadata.ts")) && /seo_title/.test(read("app/(site)/w/[username]/render-site.tsx")))
 
   const cookieIds = ["cookie_banner_show", "cookie_banner_text", "cookie_accept_text", "cookie_decline_text", "cookie_banner_enabled", "cookie_bg", "cookie_text_color"]
-  check("the cookie banner is not a General setting", cookieIds.every((id) => !ids.includes(id)))
   const policies = read("components/website-builder/website-settings/policies.tsx")
   const page = read("components/website-builder/theme/ThemePage.tsx")
-  check("Policies writes every one of them, and the page reads them", cookieIds.every((id) => policies.includes(id) && page.includes(id)))
+  // Changed on purpose: the cookie banner is a theme setting again, and Policies opens it.
+  check("the cookie banner is a theme setting, and the page reads every key", cookieIds.every((id) => ids.includes(id) && page.includes(id)) && /onOpenThemeGroup\("cookies"\)/.test(policies))
 
   const old = group("announcement")
   check("the old announcement bar shows only to a site that has it on", old?.shownWhen === "announcement_bar_enabled")
@@ -179,6 +181,7 @@ console.log("\nEvery setting is read by something")
     menus: "lib/website-builder/sanitize-sections.ts",
     custom_css: "lib/website-builder/theme-css.ts",
   }
+  for (const id of ["cookie_banner_show", "cookie_banner_text", "cookie_accept_text", "cookie_decline_text", "cookie_banner_enabled", "cookie_bg", "cookie_text_color"]) READERS[id] = "components/website-builder/theme/ThemePage.tsx"
   for (const p of SOCIAL_PLATFORMS) READERS[p.key] = "lib/website-builder/social-links.ts"
   for (const kind of ["product", "collection"]) {
     for (const part of ["style", "image_padding", "align", "radius", "border", "shadow"]) READERS[`${kind}_card_${part}`] = "lib/website-builder/theme-css.ts"

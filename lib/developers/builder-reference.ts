@@ -275,6 +275,13 @@ export const THEME_SETTING_DOCS: Record<string, { does: string; as?: Partial<Spe
   social_website: { does: "Another website of yours, drawn as a globe." },
   social_email: { does: "An email address, drawn as an envelope that opens the visitor's mail app. Type the address; `mailto:` is added for you." },
   social_show_in_header: { does: "Shows the same icons in the header." },
+  cookie_banner_show: { does: "Shows the cookie banner to a visitor who has not answered yet. Off: no banner, and nothing optional is stored." },
+  cookie_banner_text: { does: "The banner's message. It starts as the site's default sentence." },
+  cookie_accept_text: { does: "The words on the button that accepts every cookie." },
+  cookie_decline_text: { does: "The words on the button that keeps only the necessary ones." },
+  cookie_banner_enabled: { does: "Paints the banner in the two colours below. Off: white with dark text." },
+  cookie_bg: { does: "The banner's background, once your own colours are on." },
+  cookie_text_color: { does: "The banner's text, once your own colours are on." },
   social_show_in_footer: { does: "Shows an icon for each filled-in link in the footer, in the footer's text colour, each named for its platform for screen readers. On unless switched off." },
 
   cart_type: { does: "What Add to cart does: open the cart drawer, go to the cart page, or show a short notice. Read as `theme.cart.type` and as `data-cart-type` on the page." },
