@@ -172,14 +172,13 @@ async function loadOwnSettings(section: SettingsSection): Promise<Loaded | null>
   }
 }
 
-function setSettingsChrome(on: boolean) {
-  if (on) document.documentElement.setAttribute("data-settings-subpage", "")
-  else document.documentElement.removeAttribute("data-settings-subpage")
-}
+/** Above the platform header (z-40), phone search (z-60) and buyer tab bar (z-50). */
+const SHEET_Z = 420
 
 function SettingsLayer({ section, data, onClose }: { section: SettingsSection; data: Loaded | null; onClose: () => void }) {
   const panel = useRef<HTMLDivElement>(null)
   const closing = useRef(false)
+  const closed = useRef(false)
   const slidIn = useRef(false)
   const bodyOverflow = useRef("")
 
@@ -193,13 +192,11 @@ function SettingsLayer({ section, data, onClose }: { section: SettingsSection; d
   }
 
   useLayoutEffect(() => {
-    setSettingsChrome(true)
     bodyOverflow.current = document.body.style.overflow
     document.body.style.overflow = "hidden"
     if (data) slideIn()
     return () => {
       document.body.style.overflow = bodyOverflow.current
-      if (!closing.current) setSettingsChrome(false)
     }
   }, [])
 
@@ -212,9 +209,10 @@ function SettingsLayer({ section, data, onClose }: { section: SettingsSection; d
     closing.current = true
     const el = panel.current
     const finish = () => {
+      if (closed.current) return
+      closed.current = true
       document.body.style.overflow = bodyOverflow.current
       onClose()
-      requestAnimationFrame(() => setSettingsChrome(false))
     }
     if (!el || typeof el.animate !== "function") {
       finish()
@@ -228,13 +226,20 @@ function SettingsLayer({ section, data, onClose }: { section: SettingsSection; d
   return (
     <div
       ref={panel}
-      className="fixed inset-0 z-[300] overflow-y-auto bg-white"
+      className="fixed inset-0 overflow-y-auto bg-white overscroll-contain"
       data-edit-profile-sheet=""
+      data-settings-subpage=""
       role="dialog"
       aria-modal="true"
       aria-label="Settings"
       data-sheet-root=""
-      style={{ transform: "translate3d(100%, 0, 0)", willChange: "transform", zIndex: 300, paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}
+      style={{
+        transform: "translate3d(100%, 0, 0)",
+        willChange: "transform",
+        zIndex: SHEET_Z,
+        paddingTop: "env(safe-area-inset-top)",
+        paddingBottom: "env(safe-area-inset-bottom)",
+      }}
     >
       <div className="px-4 pb-10 pt-3 sm:px-6">
         {data ? (
@@ -281,7 +286,6 @@ export function SettingsSubpageHost() {
     return () => {
       listen = null
       window.removeEventListener("storelib:settings-subpage", on)
-      setSettingsChrome(false)
     }
   }, [])
   if (!open || typeof document === "undefined") return null

@@ -3732,17 +3732,11 @@ html.capacitor .app-content-scroll {
    * own root `data-sheet-root` so the rule for other dialogs leaves it out.
    */
   /*
-    SETTINGS OVER THE PROFILE. The header (and its hamburger: Discover,
-    Communities, Explore) and the phone's tab bar stay out of the layer.
-    A tap there was opening that menu over Settings, or through it.
+    SETTINGS OVER THE PROFILE. The sheet is fixed inset-0 at z-index above the
+    header and the phone's tab bar (components/account/settings-subpage.tsx),
+    so it covers them and takes every tap. Hiding them with visibility used to
+    make the header and tab bar pop back in when the sheet closed.
   */
-  html[data-settings-subpage] #platform-header-root,
-  html[data-settings-subpage] [data-buyer-tab-bar],
-  html[data-settings-subpage] [data-app-sheet],
-  html[data-settings-subpage] [data-mobile-menu] {
-    visibility: hidden !important;
-    pointer-events: none !important;
-  }
 
   html[data-app-sheet-up] [data-app-nav-pill],
   html:has([role="dialog"][aria-modal="true"]:not([data-mobile-menu], [aria-hidden="true"], [data-sheet-root])) [data-app-nav-pill],
