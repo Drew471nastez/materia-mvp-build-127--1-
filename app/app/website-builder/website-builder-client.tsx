@@ -1493,10 +1493,7 @@ export function WebsiteBuilderClient({
           onDragOver={onLibraryDragOver}
           onDragLeave={onLibraryDragLeave}
           onDrop={onLibraryDrop}
-          className={cn(
-            "space-y-3 rounded-2xl transition-[background-color,box-shadow] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
-            libraryDrop && "bg-[#f4f5f7] shadow-[inset_0_0_0_1.5px_rgba(26,26,46,0.55)]",
-          )}
+          className="space-y-3"
         >
           <SectionHeading
             title="Library"
@@ -1541,10 +1538,7 @@ export function WebsiteBuilderClient({
               aria-haspopup={slotsLeft === 0 ? "dialog" : undefined}
               data-import-button={importing ? incoming?.phase : libraryDrop ? "drop" : "idle"}
               /* As wide as "Uploading 100%", so Add theme beside it does not move while it counts. */
-              className={cn(
-                "h-11 min-w-[140px] rounded-xl px-3 text-[13px] font-medium tabular-nums text-[#4b5563] hover:bg-[#eef0f3] hover:text-[#1a1a2e] disabled:opacity-100",
-                libraryDrop && "bg-white text-[#1a1a2e] ring-2 ring-[#1a1a2e]/25",
-              )}
+              className="h-11 min-w-[140px] rounded-xl px-3 text-[13px] font-medium tabular-nums text-[#4b5563] hover:bg-[#eef0f3] hover:text-[#1a1a2e] disabled:opacity-100"
             >
               {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
               {importing && incoming ? (incoming.phase === "uploading" ? `Uploading ${Math.round(incoming.progress * 100)}%` : "Importing") : "Import theme"}
@@ -1582,7 +1576,7 @@ export function WebsiteBuilderClient({
               aria-hidden
               data-library-drop-veil=""
               className={cn(
-                "pointer-events-none absolute inset-0 z-20 flex items-center justify-center rounded-2xl bg-white/88 transition-opacity duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                "pointer-events-none absolute inset-0 z-20 flex items-center justify-center rounded-2xl bg-white/80 transition-opacity duration-200 ease-[cubic-bezier(0.22,1,0.36,1)]",
                 libraryDrop ? "opacity-100" : "opacity-0",
               )}
             >

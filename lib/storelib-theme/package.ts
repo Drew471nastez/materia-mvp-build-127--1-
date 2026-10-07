@@ -399,11 +399,23 @@ export async function readPackage(bytes: Uint8Array, opts: ReadOptions = {}): Pr
       if (!read.bytes) { errors.push(err(read.reason === "too_large" ? `${f.name} is over ${LIMITS.assetBytes / 1024 / 1024} MB` : `${f.name} could not be read`, f.name)); continue }
       const data = read.bytes
       const hash = f.name.slice("assets/".length).split(".")[0]
-      const rec = manifest.assets?.[hash]
-      if (!rec) { errors.push(err(`${f.name} is not in the manifest`, f.name)); continue }
+      const ext = f.name.includes(".") ? f.name.split(".").pop()!.toLowerCase() : "bin"
+      /*
+        An asset is an asset whether the manifest listed it under assets or,
+        as generated themes do, as a file path `assets/<hash>.<ext>`. The
+        bytes are what matter. A hash that is not the file's own is still
+        refused: that is a package that does not contain what it names.
+      */
+      const listed = manifest.assets?.[hash]
+      const asFile = manifest.files[f.name]
       if (sha256(data) !== hash) { errors.push(err(`${f.name}: its bytes do not hash to its name`, f.name)); continue }
-      if (rec.size !== data.byteLength) { errors.push(err(`${f.name}: ${data.byteLength} bytes, the manifest says ${rec.size}`, f.name)); continue }
-      assets[hash] = { bytes: data, filename: rec.filename, mime_type: rec.mime_type, width: rec.width, height: rec.height, alt_text: rec.alt_text }
+      if (listed && listed.size !== data.byteLength) { errors.push(err(`${f.name}: ${data.byteLength} bytes, the manifest says ${listed.size}`, f.name)); continue }
+      if (!listed && asFile && asFile.bytes !== data.byteLength) { errors.push(err(`${f.name}: ${data.byteLength} bytes, the manifest says ${asFile.bytes}`, f.name)); continue }
+      const filename = listed?.filename || f.name.slice("assets/".length)
+      const mime = listed?.mime_type || mimeForExt(ext)
+      assets[hash] = { bytes: data, filename, mime_type: mime, width: listed?.width, height: listed?.height, alt_text: listed?.alt_text }
+      if (!manifest.assets) manifest.assets = {}
+      if (!listed) manifest.assets[hash] = { filename, mime_type: mime, size: data.byteLength }
       continue
     }
     const read = await readEntryTextCapped(f, LIMITS.sourceBytes)
@@ -414,11 +426,46 @@ export async function readPackage(bytes: Uint8Array, opts: ReadOptions = {}): Pr
     if (rec.sha256 !== sha256(text)) { errors.push(err(`${f.name}: sha256 does not match the manifest`, f.name)); continue }
     files[f.name] = text
   }
-  for (const path of Object.keys(manifest.files)) if (!(path in files) && !errors.some((e) => e.file === path)) errors.push(err(`${path} is in the manifest but not in the package`, path))
-  for (const hash of Object.keys(manifest.assets ?? {})) if (!(hash in assets) && !errors.some((e) => e.file?.startsWith(`assets/${hash}`))) errors.push(err(`asset ${hash} is in the manifest but not in the package`))
-  if (errors.length) return { ok: false, errors }
-
+  /*
+    A LISTING WITHOUT BYTES IS LEFT OUT, NOT A REASON TO REFUSE THE THEME.
+    Generated themes write `assets/<hash>.svg` into the manifest and then
+    never put the file in the zip. That used to fail the whole import with
+    "is in the manifest but not in the package". The picture is simply not
+    there: the listing goes, and a section that pointed at it shows nothing,
+    the same as an empty image setting. A source file that is listed and
+    missing is still a broken package.
+  */
   const warnings: ThemeError[] = []
+  const leftOut = new Set<string>()
+  for (const path of Object.keys(manifest.files)) {
+    if (path in files) continue
+    if (path.startsWith("assets/")) {
+      const hash = path.slice("assets/".length).split(".")[0]
+      delete manifest.files[path]
+      if (!(hash in assets)) {
+        leftOut.add(hash)
+        warnings.push(err(`${path} was listed and is not in the package, so it was left out`, path))
+      }
+      continue
+    }
+    if (!errors.some((e) => e.file === path)) errors.push(err(`${path} is in the manifest but not in the package`, path))
+  }
+  for (const hash of Object.keys(manifest.assets ?? {})) {
+    if (hash in assets) continue
+    if (errors.some((e) => e.file?.startsWith(`assets/${hash}`))) continue
+    delete manifest.assets![hash]
+    leftOut.add(hash)
+    warnings.push(err(`assets/${hash} was listed and is not in the package, so it was left out`))
+  }
+  /* A section that still names the missing picture would print the address. It shows nothing instead. */
+  if (leftOut.size) {
+    for (const [path, text] of Object.entries(files)) {
+      let next = text
+      for (const hash of leftOut) next = next.split(`asset://${hash}`).join("")
+      if (next !== text) files[path] = next
+    }
+  }
+  if (errors.length) return { ok: false, errors }
   const types = new Set<string>(opts.knownTypes ?? [])
   /**
    * A HEADER OR FOOTER WRITTEN AS A SECTION FILE IS KEPT, and placed.

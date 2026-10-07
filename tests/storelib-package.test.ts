@@ -130,6 +130,25 @@ async function main() {
     const tampered = await readPackage(await zip.generateAsync({ type: "uint8array" }))
     check("a file that no longer matches its manifest hash refuses the package", tampered.ok === false && /sha256 does not match/.test(errText(tampered as never)))
 
+    const zipAsset = await JSZip.loadAsync(await buildPackage(loadFixture("minimal")))
+    const listed = JSON.parse(await zipAsset.file("manifest.json")!.async("string"))
+    const ghostAsset = "assets/0d4169102865f69d5cd76c4b74b8cc56f42ee9af30b09fe8cd5d5815a5bb916f.svg"
+    listed.files[ghostAsset] = { sha256: "0d4169102865f69d5cd76c4b74b8cc56f42ee9af30b09fe8cd5d5815a5bb916f", bytes: 24 }
+    zipAsset.file("manifest.json", JSON.stringify(listed))
+    const withoutBytes = await readPackage(await zipAsset.generateAsync({ type: "uint8array" }))
+    check("an asset the manifest names and the zip does not contain is left out, and the theme still reads", withoutBytes.ok === true && withoutBytes.ok && withoutBytes.value.warnings.some((w) => w.message.includes(ghostAsset)) && !(ghostAsset in withoutBytes.value.manifest.files), withoutBytes.ok === false ? errText(withoutBytes) : "")
+
+    const svg = "<svg xmlns=\"http://www.w3.org/2000/svg\"/>"
+    const svgHash = sha256(svg)
+    const svgPath = `assets/${svgHash}.svg`
+    const zipKept = await JSZip.loadAsync(await buildPackage(loadFixture("minimal")))
+    const keptManifest = JSON.parse(await zipKept.file("manifest.json")!.async("string"))
+    keptManifest.files[svgPath] = { sha256: svgHash, bytes: Buffer.byteLength(svg) }
+    zipKept.file(svgPath, svg)
+    zipKept.file("manifest.json", JSON.stringify(keptManifest))
+    const withBytes = await readPackage(await zipKept.generateAsync({ type: "uint8array" }))
+    check("an asset listed as a file, and present in the zip, is kept", withBytes.ok === true && withBytes.ok && svgHash in withBytes.value.assets, withBytes.ok === false ? errText(withBytes) : "")
+
     const zip2 = await JSZip.loadAsync(await buildPackage(loadFixture("minimal")))
     zip2.file("../escape.txt", "x")
     const escaped = await readPackage(await zip2.generateAsync({ type: "uint8array" }))
