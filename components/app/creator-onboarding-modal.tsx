@@ -2089,12 +2089,12 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                 data-onboarding-join-photo-add=""
                 className={cn(
                   secondaryDepth,
-                  "mx-auto mt-2.5 h-8 rounded-full px-2.5 text-[12px]",
+                  "mx-auto mt-2.5 h-7 gap-1 rounded-full px-2 text-[11px] font-medium text-[#4b5563]",
                   "sm:absolute sm:left-[calc(50%+54px)] sm:top-[42px] sm:mx-0 sm:mt-0 sm:-translate-y-1/2",
                 )}
               >
-                <ImagePlus className="h-3 w-3" strokeWidth={2} aria-hidden />
-                {avatarUrl ? "Change photo" : "Add photo"}
+                <ImagePlus className="h-2.5 w-2.5" strokeWidth={2} aria-hidden />
+                {avatarUrl ? "Change" : "Add"}
               </button>
             </div>
             <label className={cn("mt-5 flex h-[52px] w-full items-center rounded-[14px] px-4 text-left", FIELD_WELL)}>
