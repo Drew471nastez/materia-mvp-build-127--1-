@@ -85,7 +85,7 @@ import { ReportSheet } from "./report-sheet"
 import { spaceGlyph } from "./space-glyph"
 import type { ComposerSpace } from "./view-types"
 import { LikeHeart, likeSound } from "./heart"
-import { CardMedia, PostMediaGrid, PostThumb } from "./media"
+import { CardMedia, PostMediaGrid, PostThumb, warmPostMedia } from "./media"
 import { REOPEN, actOnContent, actOnMember, moderationMenu, muteUntil } from "./moderation"
 import { PollBlock, pollFitsInline } from "./poll"
 import { postPath } from "@/lib/communities/post-url"
@@ -341,6 +341,7 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
     if (inner && !inner.hasAttribute("data-post-open")) return
     if (window.getSelection?.()?.toString()) return
     e.preventDefault()
+    warmPostMedia(media, post.communityId, post.id)
     setOpened(true)
   }
 
@@ -563,7 +564,9 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
         onClick={editing ? undefined : openPost}
         /* The comments are asked for as the finger lands, so they are usually here before the post has finished opening. */
         onPointerDown={(e) => {
-          if (e.button === 0 && !(e.target as HTMLElement).closest("button, [role=menu]")) void readAheadComments(post.communityId, post.id)
+          if (e.button !== 0 || (e.target as HTMLElement).closest("button, [role=menu]")) return
+          warmPostMedia(media, post.communityId, post.id)
+          void readAheadComments(post.communityId, post.id)
         }}
       >
         {pinnedLine}
@@ -674,7 +677,7 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
           {post.kind === "announcement" ? <div className="mb-1 text-[12.5px] font-medium text-[#6b7280]">Announcement</div> : null}
           {post.title ? <h1 className="pr-8 text-[19px] font-semibold leading-snug text-[#1a1a2e] [overflow-wrap:anywhere] sm:text-[21px]">{post.title}</h1> : null}
           {post.bodyText ? <BodyText text={post.bodyText} clamp={false} className={post.title ? "mt-1.5" : ""} /> : null}
-          <PostMediaGrid media={media} communityId={post.communityId} postId={post.id} />
+          <PostMediaGrid media={media} communityId={post.communityId} postId={post.id} priority />
           {post.poll ? (
             <PollBlock poll={post.poll} communityId={post.communityId} canVote={!readOnly && !!viewer.can.react} onChange={(poll: PollView) => update(post.id, (p) => ({ ...p, poll }))} />
           ) : null}

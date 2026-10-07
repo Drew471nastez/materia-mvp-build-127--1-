@@ -737,9 +737,10 @@ export function BottomSheet({
       /* A kept sheet opens at the top of its content, as a new one would. */
       if (fresh && keepRef.current && bodyRef.current) bodyRef.current.scrollTop = 0
       const from = fresh ? goneRef.current : readY(sheet)
-      const pictures = waitRef.current && fresh
-        ? Array.from(sheet.querySelectorAll("img")).filter((img) => img.loading !== "lazy" && typeof img.decode === "function")
-        : []
+      const pictures =
+        waitRef.current && fresh
+          ? Array.from(sheet.querySelectorAll("img[src]")).filter((img) => img.src && typeof img.decode === "function")
+          : []
       const opened = () => {
         /* Settled: from here a keyboard may move it, with its own curve. */
         setSettled(true)

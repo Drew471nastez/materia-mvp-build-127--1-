@@ -77,6 +77,35 @@ export const SDR = "[dynamic-range-limit:standard]"
 export const PICTURE_EDGE = "pointer-events-none absolute inset-0 rounded-[inherit] ring-1 ring-inset ring-black/[0.06]"
 const FADE_MS = 250
 
+function preloadPicture(url: string) {
+  if (!url || typeof window === "undefined") return
+  const img = new Image()
+  img.decoding = "async"
+  img.src = url
+  void img.decode().catch(() => undefined)
+}
+
+/** Ask for the pictures an opened post will draw, while the finger is still down. */
+export function warmPostMedia(media: PostMedia[], communityId: string, postId: string) {
+  if (typeof window === "undefined" || !media.length) return
+  const items = viewerItems(media).filter((i) => i.kind !== "embed")
+  for (const item of items.slice(0, 6)) {
+    if (item.kind === "image") {
+      const url = item.raw ? item.url : optimizedImageUrl(item.url, 720)
+      preloadPicture(url)
+    } else if (item.kind === "gif") {
+      preloadPicture(item.still)
+      preloadPicture(item.url)
+    } else if (item.kind === "video" && item.poster) {
+      preloadPicture(optimizedImageUrl(item.poster, 720))
+    }
+  }
+  for (const f of media.filter((m): m is Extract<PostMedia, { type: "file" }> => m.type === "file").slice(0, 2)) {
+    const kind = mediaKindOf(f.name)
+    if (kind === "image") preloadPicture(`${apiBase(communityId)}/posts/${postId}/files/${f.assetId}`)
+  }
+}
+
 /** The placeholder's copy: the optimizer's smallest file, for our own pictures only. */
 export function blurSrc(url: string, local: boolean): string | null {
   if (!local || !url || /^(data|blob):/.test(url)) return null
@@ -100,6 +129,7 @@ export function SoftImg({
   className = "",
   onError,
   eager = false,
+  fetchPriority,
 }: {
   src: string
   srcSet?: string
@@ -112,6 +142,7 @@ export function SoftImg({
   className?: string
   onError?: () => void
   eager?: boolean
+  fetchPriority?: "high" | "low" | "auto"
 }) {
   const ref = useRef<HTMLImageElement>(null)
   /* "cached": drawn at once; "wait": transparent until it loads; "in": fading in. */
@@ -119,8 +150,7 @@ export function SoftImg({
   useLayoutEffect(() => {
     const el = ref.current
     if (el?.complete && el.naturalWidth > 0) setState("cached")
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [src, eager])
   const shown = state !== "wait"
   return (
     <>
@@ -137,7 +167,8 @@ export function SoftImg({
         height={height}
         alt={alt}
         loading={eager ? "eager" : "lazy"}
-        decoding="async"
+        decoding={eager ? "sync" : "async"}
+        fetchPriority={fetchPriority}
         referrerPolicy={referrerPolicy}
         onLoad={() => setState((s) => (s === "wait" ? "in" : s))}
         onError={onError}
@@ -191,18 +222,39 @@ function watchOnScreen(el: Element, cb: (on: boolean) => void): () => void {
   }
 }
 
-export function GifImg({ still, motion, className = "", alt = "", width, height }: { still: string; motion: string; className?: string; alt?: string; width?: number; height?: number }) {
+export function GifImg({ still, motion, className = "", alt = "", width, height, eager = false }: { still: string; motion: string; className?: string; alt?: string; width?: number; height?: number; eager?: boolean }) {
   const ref = useRef<HTMLImageElement>(null)
   const [moving, setMoving] = useState(false)
+  const [motionReady, setMotionReady] = useState(false)
+  useEffect(() => {
+    if (!eager || !motion || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
+    const img = new Image()
+    img.src = motion
+    const done = () => setMotionReady(true)
+    if (img.complete) done()
+    else {
+      img.onload = done
+      img.onerror = done
+    }
+    return () => {
+      img.onload = null
+      img.onerror = null
+    }
+  }, [eager, motion])
   useEffect(() => {
     const el = ref.current
     if (!el) return
+    if (eager) {
+      if (motionReady) setMoving(true)
+      return
+    }
     if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
     return watchOnScreen(el, setMoving)
-  }, [])
+  }, [eager, motionReady])
+  const src = moving && (eager ? motionReady : true) ? motion : still
   return (
     // eslint-disable-next-line @next/next/no-img-element
-    <img ref={ref} src={moving ? motion : still} alt={alt} width={width} height={height} loading="lazy" decoding="async" referrerPolicy="no-referrer" className={`${className} ${SDR}`} data-gif-state={moving ? "playing" : "paused"} />
+    <img ref={ref} src={src} alt={alt} width={width} height={height} loading={eager ? "eager" : "lazy"} decoding={eager ? "sync" : "async"} referrerPolicy="no-referrer" className={`${className} ${SDR}`} data-gif-state={moving ? "playing" : "paused"} />
   )
 }
 
@@ -338,7 +390,7 @@ const SIZES: Record<Fit, { widths: number[]; sizes: string; display: number }> =
 const isMotion = (item: ViewerItem) => item.kind === "video" || item.kind === "embed" || item.kind === "clip"
 
 /** Everything a post carries, as the opened post draws it. Pass media with the words' videos added (withBodyEmbeds). */
-export function PostMediaGrid({ media, communityId, postId }: { media: PostMedia[]; communityId: string; postId: string }) {
+export function PostMediaGrid({ media, communityId, postId, priority = false }: { media: PostMedia[]; communityId: string; postId: string; priority?: boolean }) {
   const [open, setOpen] = useState<{ at: number; play: boolean } | null>(null)
   const rootRef = useRef<HTMLDivElement>(null)
   if (!media.length) return null
@@ -355,13 +407,15 @@ export function PostMediaGrid({ media, communityId, postId }: { media: PostMedia
     const kind = mediaKindOf(f.name)
     return kind ? [{ assetId: f.assetId, item: (kind === "image" ? { kind: "image", url: fileUrl(f.assetId), raw: true } : { kind: "clip", url: fileUrl(f.assetId) }) as ViewerItem }] : []
   })
-  const tile = (i: number, fit: Fit, shape: string, more = 0) => <Tile key={i} index={i} item={items[i]} fit={fit} shape={shape} more={more} onOpen={() => setOpen({ at: i, play: isMotion(items[i]) })} />
+  const tile = (i: number, fit: Fit, shape: string, more = 0) => (
+    <Tile key={i} index={i} item={items[i]} fit={fit} shape={shape} more={more} priority={priority} onOpen={() => setOpen({ at: i, play: isMotion(items[i]) })} />
+  )
   const motionPair = layout.kind === "pair" && items.every(isMotion)
 
   return (
     <div ref={rootRef} className="mt-3 space-y-2.5" data-post-media="">
       {layout.kind === "single" ? (
-        <Single item={items[0]} communityId={communityId} onOpen={() => setOpen({ at: 0, play: false })} />
+        <Single item={items[0]} communityId={communityId} priority={priority} onOpen={() => setOpen({ at: 0, play: false })} />
       ) : layout.kind === "pair" ? (
         <div className="grid grid-cols-2 gap-1 overflow-hidden rounded-xl" data-post-media-grid="pair">
           {tile(0, "half", motionPair ? "aspect-[4/3]" : "aspect-square")}
@@ -548,7 +602,7 @@ function ratioOf(item: ViewerItem): number {
 }
 
 /** One thing alone: large, at the post's full width. */
-function Single({ item, communityId, onOpen }: { item: ViewerItem; communityId: string; onOpen: () => void }) {
+function Single({ item, communityId, priority = false, onOpen }: { item: ViewerItem; communityId: string; priority?: boolean; onOpen: () => void }) {
   if (item.kind === "video") {
     return (
       <div className="overflow-hidden rounded-2xl bg-black shadow-[0_8px_28px_-14px_rgba(0,0,0,0.35)] ring-1 ring-black/10 [&_[data-storelib-video]]:rounded-none" data-media-tile="video" data-post-media-grid="single">
@@ -558,12 +612,12 @@ function Single({ item, communityId, onOpen }: { item: ViewerItem; communityId: 
   }
   return (
     <div data-post-media-grid="single">
-      <Tile index={0} item={item} fit="single" shape="" onOpen={onOpen} />
+      <Tile index={0} item={item} fit="single" shape="" priority={priority} onOpen={onOpen} />
     </div>
   )
 }
 
-function Tile({ index, item, fit, shape, more = 0, onOpen }: { index: number; item: ViewerItem; fit: Fit; shape: string; more?: number; onOpen: () => void }) {
+function Tile({ index, item, fit, shape, more = 0, priority = false, onOpen }: { index: number; item: ViewerItem; fit: Fit; shape: string; more?: number; priority?: boolean; onOpen: () => void }) {
   const picture = item.kind === "image" ? item.url : item.kind === "gif" ? item.url : item.kind === "video" ? item.poster : item.kind === "embed" ? item.thumb : item.poster
   const local = (item.kind === "image" && !item.raw) || item.kind === "video"
   const size = SIZES[fit]
@@ -583,7 +637,7 @@ function Tile({ index, item, fit, shape, more = 0, onOpen }: { index: number; it
       style={single ? { aspectRatio: String(ratioOf(item)) } : undefined}
     >
       {item.kind === "gif" ? (
-        <GifImg still={item.still} motion={item.url} width={item.w} height={item.h} className={`absolute inset-0 h-full w-full transition-[scale] duration-300 ease-out group-hover/tile:scale-[1.015] motion-reduce:transition-none ${single ? "object-contain" : "object-cover"}`} />
+        <GifImg still={item.still} motion={item.url} width={item.w} height={item.h} eager={priority} className={`absolute inset-0 h-full w-full transition-[scale] duration-300 ease-out group-hover/tile:scale-[1.015] motion-reduce:transition-none ${single ? "object-contain" : "object-cover"}`} />
       ) : picture ? (
         <SoftImg
           src={local ? optimizedImageUrl(picture, size.display) : picture}
@@ -593,7 +647,9 @@ function Tile({ index, item, fit, shape, more = 0, onOpen }: { index: number; it
           width={"w" in item ? item.w : undefined}
           height={"h" in item ? item.h : undefined}
           referrerPolicy={local ? undefined : "no-referrer"}
-          className={`absolute inset-0 h-full w-full transition-[scale,opacity] duration-300 ease-out group-hover/tile:scale-[1.015] motion-reduce:transition-none ${single ? "object-contain" : "object-cover"}`}
+          eager={priority}
+          fetchPriority={priority ? "high" : undefined}
+          className={`absolute inset-0 h-full w-full transition-[scale,opacity] duration-300 ease-out group-hover/tile:scale-[1.015] motion-reduce:transition-none ${single ? "object-contain" : "object-cover"} ${priority ? "!opacity-100" : ""}`}
         />
       ) : (
         <span className="absolute inset-0 bg-[#1f2230]" aria-hidden />

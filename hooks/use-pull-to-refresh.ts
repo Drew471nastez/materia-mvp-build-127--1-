@@ -61,7 +61,7 @@ export const PULL_TO_REFRESH = {
    */
   tension: 0.94,
   /** The gap held open while the refresh runs. */
-  refreshHold: 34,
+  refreshHold: 32,
   /** The ring's diameter. */
   ringSize: 20,
   /**
@@ -69,7 +69,7 @@ export const PULL_TO_REFRESH = {
    * 20ms and a spinner that appears and vanishes inside one frame reads as a
    * glitch rather than as work.
    */
-  minSpin: 450,
+  minSpin: 300,
 } as const
 
 /**
@@ -149,7 +149,7 @@ const PULL_SCALE_RANGE = 0.16
 /** How long the arc takes to open from a full ring into a spinner's arc. */
 const PIN_TWEEN_MS = 220
 /** How long the ring takes to fade out once the refresh is done. */
-const EXIT_FADE_MS = 260
+const EXIT_FADE_MS = 200
 
 /* ── The spokes ────────────────────────────────────────────────────────────
    Round 11 (components/ui/pull-to-refresh.tsx): the shared component's

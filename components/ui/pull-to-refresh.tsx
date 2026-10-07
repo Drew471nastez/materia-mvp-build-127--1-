@@ -157,7 +157,7 @@ function PullSpokes({ ref }: { ref: React.Ref<HTMLDivElement> }) {
       aria-hidden
       data-ptr-indicator=""
       data-keep-transform=""
-      className="pointer-events-none absolute left-1/2 top-0 z-20 -ml-[12px] origin-center text-[#8a8f98]"
+      className="pointer-events-none absolute left-1/2 -top-1 z-20 -ml-[12px] origin-center text-[#8a8f98]"
       style={{ width: SPOKES_SIZE, height: SPOKES_SIZE, transform: "translate3d(0, 0, 0) scale(0)", opacity: 0 }}
     >
       <span data-ptr-turn="" data-keep-transform="" className="block h-full w-full">
