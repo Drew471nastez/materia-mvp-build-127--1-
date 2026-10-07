@@ -9,7 +9,7 @@
 import { useRouter } from "next/navigation"
 import { secondaryDepth } from "@/components/ui/depth-button"
 import { cn } from "@/lib/utils"
-import { openSettingsSubpage, settingsStaysHere } from "@/components/account/settings-subpage"
+import { openSettingsSubpage, settingsStaysHere, warmSettings } from "@/components/account/settings-subpage"
 
 /** Settings, opened on its Profile tab. */
 const SETTINGS_PROFILE = "/account/settings?section=profile"
@@ -26,7 +26,13 @@ export function EditProfileDoor(_props: {
   return (
     <button
       type="button"
-      onPointerEnter={() => router.prefetch(SETTINGS_PROFILE)}
+      onPointerEnter={() => {
+        router.prefetch(SETTINGS_PROFILE)
+        if (settingsStaysHere()) void warmSettings()
+      }}
+      onPointerDown={() => {
+        if (settingsStaysHere()) void warmSettings()
+      }}
       onClick={() => {
         /* A phone, a tablet or the app: Settings' Profile tab over this page. A computer: the same tab at its address. */
         if (settingsStaysHere() || !window.matchMedia?.("(min-width: 768px)").matches) {

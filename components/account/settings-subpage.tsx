@@ -19,10 +19,11 @@ const OUT_MS = 420
 
 export type SettingsSection = "profile" | "account" | "privacy" | "notifications" | "preferences"
 
-type Open = { section: SettingsSection; id: number }
+type Open = { section: SettingsSection; id: number; data: Loaded | null }
 
 let listen: ((open: Open) => void) | null = null
 let seq = 0
+let warm: Promise<Loaded | null> | null = null
 
 /** Phones, tablets and the native apps. A mouse on a wide screen keeps the settings address. */
 export function settingsStaysHere(): boolean {
@@ -32,10 +33,18 @@ export function settingsStaysHere(): boolean {
   return !!window.matchMedia?.("(pointer: coarse) and (max-width: 1180px)").matches
 }
 
+/** Start the settings read before the finger lifts, so the screen can arrive whole. */
+export function warmSettings() {
+  if (!warm) warm = loadOwnSettings("profile")
+  return warm
+}
+
 export function openSettingsSubpage(section: SettingsSection = "profile") {
-  const open = { section, id: ++seq }
-  if (listen) listen(open)
-  else window.dispatchEvent(new CustomEvent("storelib:settings-subpage", { detail: open }))
+  void warmSettings().then((data) => {
+    const open = { section, id: ++seq, data }
+    if (listen) listen(open)
+    else window.dispatchEvent(new CustomEvent("storelib:settings-subpage", { detail: open }))
+  })
 }
 
 export function sectionFromSettingsHref(href: string): SettingsSection {
@@ -103,36 +112,30 @@ async function loadOwnSettings(section: SettingsSection): Promise<Loaded | null>
   }
 }
 
-function SettingsLayer({ section, onClose }: { section: SettingsSection; onClose: () => void }) {
+function SettingsLayer({ section, data, onClose }: { section: SettingsSection; data: Loaded | null; onClose: () => void }) {
   const panel = useRef<HTMLDivElement>(null)
-  const [ready, setReady] = useState<Loaded | null>(null)
-  const [failed, setFailed] = useState(false)
   const closing = useRef(false)
 
   useLayoutEffect(() => {
+    const root = document.documentElement
+    root.setAttribute("data-settings-subpage", "")
     const el = panel.current
-    if (!el) return
     const prev = document.body.style.overflow
     document.body.style.overflow = "hidden"
-    el.style.transform = "translate3d(100%, 0, 0)"
-    const a = el.animate([{ transform: "translate3d(100%, 0, 0)" }, { transform: "translate3d(0, 0, 0)" }], { duration: IN_MS, easing: EASE, fill: "forwards" })
+    if (el) {
+      el.style.transform = "translate3d(100%, 0, 0)"
+      const a = el.animate([{ transform: "translate3d(100%, 0, 0)" }, { transform: "translate3d(0, 0, 0)" }], { duration: IN_MS, easing: EASE, fill: "forwards" })
+      return () => {
+        a.cancel()
+        root.removeAttribute("data-settings-subpage")
+        document.body.style.overflow = prev
+      }
+    }
     return () => {
-      a.cancel()
+      root.removeAttribute("data-settings-subpage")
       document.body.style.overflow = prev
     }
   }, [])
-
-  useEffect(() => {
-    let live = true
-    void loadOwnSettings(section).then((data) => {
-      if (!live) return
-      if (!data) setFailed(true)
-      else setReady(data)
-    })
-    return () => {
-      live = false
-    }
-  }, [section])
 
   const close = () => {
     if (closing.current) return
@@ -151,27 +154,25 @@ function SettingsLayer({ section, onClose }: { section: SettingsSection; onClose
   return (
     <div
       ref={panel}
-      className="fixed inset-0 z-[200] overflow-y-auto bg-white"
+      className="fixed inset-0 z-[300] overflow-y-auto bg-white"
       data-edit-profile-sheet=""
       data-settings-subpage=""
       role="dialog"
       aria-modal="true"
       aria-label="Settings"
-      style={{ transform: "translate3d(100%, 0, 0)", willChange: "transform", paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}
+      data-sheet-root=""
+      style={{ transform: "translate3d(100%, 0, 0)", willChange: "transform", zIndex: 300, paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}
     >
-      {ready ? (
+      {data ? (
         <div className="px-4 pb-10 pt-3 sm:px-6">
-          <AccountSettings {...ready} onBack={close} />
+          <AccountSettings {...data} initialSection={section} onBack={close} />
         </div>
       ) : (
         <div className="px-4 pt-3 sm:px-6">
-          <div className="flex items-center gap-2.5">
-            <button type="button" onClick={close} aria-label="Back to profile" className="grid h-11 w-11 place-items-center rounded-[10px] border border-[#e4e7ec] bg-white text-[#1a1a2e]">
-              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><path d="M15 6 9 12l6 6" /></svg>
-            </button>
-            <h1 className="text-[24px] font-bold tracking-[-0.01em] text-[#1a1a2e]">Settings</h1>
-          </div>
-          {failed ? <p className="mt-8 text-[14px] text-[#6b7280]">Settings did not open. Go back and try again.</p> : null}
+          <button type="button" onClick={close} aria-label="Back to profile" className="grid h-11 w-11 place-items-center rounded-[10px] border border-[#e4e7ec] bg-white text-[#1a1a2e]">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><path d="M15 6 9 12l6 6" /></svg>
+          </button>
+          <p className="mt-8 text-[14px] text-[#6b7280]">Settings did not open. Go back and try again.</p>
         </div>
       )}
     </div>
@@ -193,5 +194,5 @@ export function SettingsSubpageHost() {
     }
   }, [])
   if (!open || typeof document === "undefined") return null
-  return createPortal(<SettingsLayer key={open.id} section={open.section} onClose={() => setOpen(null)} />, document.body)
+  return createPortal(<SettingsLayer key={open.id} section={open.section} data={open.data} onClose={() => setOpen(null)} />, document.body)
 }

@@ -54,6 +54,7 @@ import {
   prefetchView,
   prefetchViews,
   readView,
+  subscribeViews,
   viewKey,
   viewUrl,
   writeView,
@@ -264,11 +265,15 @@ export function CommunityFeed({ communityId, slug, viewer, spaces, start, initia
   const keyRef = useRef(key)
   keyRef.current = key
 
-  /* The list for this key: the one in state, else the cache (on this very frame). A switch to a list that is not here yet does not keep the previous space's posts, even for the frames before the list id catches the chip. */
-  const switchingAway = behind && !readView(viewKey(communityId, target, sort))
-  const cached = switchingAway ? null : shown.key === key ? shown.view : (readView(key) ?? null)
+  /* A space already read is drawn on this frame, with the chip. One that is still on its way keeps the posts already on screen until it arrives. A switch does not turn into the iOS spinner. */
+  const [cacheRev, setCacheRev] = useState(0)
+  useEffect(() => subscribeViews(() => setCacheRev((n) => n + 1)), [])
+  void cacheRev
+  const wanted = readView(viewKey(communityId, target, sort))
+  const listed = shown.key === key ? shown.view : (readView(key) ?? null)
+  const cached = wanted ?? listed ?? (shown.view.posts.length ? shown.view : null)
   const view = cached ?? EMPTY_LIST
-  const waiting = !cached && failedKey !== key
+  const waiting = !wanted && !(cached && cached.posts.length > 0) && failedKey !== viewKey(communityId, target, sort)
 
   /* Bring the list for a new key: from the cache (and quietly again when it is over a minute old), or from the server. */
   useEffect(() => {

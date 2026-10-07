@@ -10,7 +10,7 @@
 import Link from "next/link"
 import { Pencil } from "lucide-react"
 import { OWNER_CONTROL_DEPTH } from "@/components/storefront/owner-actions-menu"
-import { openSettingsSubpage, settingsStaysHere } from "@/components/account/settings-subpage"
+import { openSettingsSubpage, settingsStaysHere, warmSettings } from "@/components/account/settings-subpage"
 
 export const PERSON_EDIT_HREF = "/account/settings?section=profile"
 
@@ -18,6 +18,9 @@ export function PersonOwnerActions() {
   return (
     <Link
       href={PERSON_EDIT_HREF}
+      onPointerDown={() => {
+        if (settingsStaysHere()) void warmSettings()
+      }}
       onClick={(e) => {
         if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return
         if (!settingsStaysHere()) return

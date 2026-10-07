@@ -33,7 +33,7 @@ import { usePathname, useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { EDIT_PROFILE_HREF, ownerPillFor, ownerPillLinks, type OwnerPillKey } from "@/lib/profile/owner-pills"
 import { prefetchHref, prefetchOnIdle } from "@/lib/nav/prefetch-policy"
-import { openSettingsSubpage, sectionFromSettingsHref, settingsStaysHere } from "@/components/account/settings-subpage"
+import { openSettingsSubpage, sectionFromSettingsHref, settingsStaysHere, warmSettings } from "@/components/account/settings-subpage"
 import { cn } from "@/lib/utils"
 
 export { ownerPillLinks } from "@/lib/profile/owner-pills"
@@ -83,6 +83,7 @@ export function ProfileOwnerPills({ communities, creator = false, active: fixed,
                 data-active={on ? "true" : "false"}
                 onPointerDown={() => {
                   if (p.key !== fromPath) prefetchHref(router, p.href, "press")
+                  if (p.key === "settings" && settingsStaysHere()) void warmSettings()
                 }}
                 onClick={(e) => {
                   if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return

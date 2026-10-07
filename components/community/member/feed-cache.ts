@@ -50,6 +50,17 @@ export const MAX_VIEWS = 24
 
 const views = new Map<string, CachedView>()
 const pending = new Map<string, Promise<CachedView | null>>()
+const listeners = new Set<() => void>()
+
+/** The feed draws a space the moment it is written, without waiting for another render of its own. */
+export function subscribeViews(fn: () => void): () => void {
+  listeners.add(fn)
+  return () => listeners.delete(fn)
+}
+
+function notifyViews() {
+  for (const fn of listeners) fn()
+}
 
 export function viewKey(communityId: string, target: FeedTarget, sort: FeedSortValue): string {
   const where = target.kind === "space" ? `space:${target.id}` : target.kind
@@ -83,6 +94,7 @@ export function writeView(key: string, view: CachedView) {
     if (oldest === undefined) break
     views.delete(oldest)
   }
+  notifyViews()
 }
 
 /** A first page as the list draws it: pinned first, each post once. */
