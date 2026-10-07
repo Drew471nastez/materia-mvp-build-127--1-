@@ -9,13 +9,10 @@ import { pushTapTarget } from "./tap"
  *
  * Call once after the user is authenticated (e.g. inside AppLayoutWrapper).
  *
- * NEVER ASKS. The iOS and Android permission prompt appears only when the
- * person turns push on in Settings, Notifications (lib/native-push.ts
- * askPushPermission, from that tap). Here the permission is only read: if
- * it was already given, the device is registered (a new token after a
- * reinstall reaches us); if not, nothing happens and nothing is shown. An
- * app that opens with a system prompt before the person has seen anything
- * is asking for a "Don't Allow" it can never take back.
+ * Only reads. The iOS and Android prompt is asked on the first launch after
+ * an install (components/platform/notifications-ask.tsx) and from Settings,
+ * Notifications. Here the permission is only read: if it was already given,
+ * the device is registered (a new token after a reinstall reaches us).
  *
  * iOS token flow:
  *   1. Capacitor registers with APNs  → 'registration' event fires with raw APNs hex token
@@ -52,6 +49,16 @@ export async function initPushNotifications(): Promise<void> {
 
 let deviceRegistered = false
 
+async function hasSession(): Promise<boolean> {
+  try {
+    const { createClient } = await import("@/lib/supabase/client")
+    const { data } = await createClient().auth.getSession()
+    return !!data.session
+  } catch {
+    return false
+  }
+}
+
 /**
  * Listeners, then register(), once per app launch: after a permission that
  * was already given (above), or right after the person allowed it in
@@ -59,6 +66,9 @@ let deviceRegistered = false
  */
 export async function registerDevice(): Promise<void> {
   if (!Capacitor.isNativePlatform() || deviceRegistered) return
+  /* A yes before signing in has nobody to belong to yet; NativePushInit registers on sign in. */
+  if (!(await hasSession())) return
+  if (deviceRegistered) return
   deviceRegistered = true
   const { PushNotifications } = await import("@capacitor/push-notifications")
   console.log("[push] Permission granted: attaching listeners before register()")

@@ -37,7 +37,7 @@ import { Check, ChevronDown } from "lucide-react"
 import { PrivacyRow, Saved, Switch } from "@/components/app/settings/account-panels"
 import { PUSH_ROUTE, PushSwitchRow } from "@/components/account/push-switch-row"
 import { pushStateFrom } from "@/lib/account/push-state"
-import { askPushPermission, inNativeApp, nativePlatform, phoneSettingsPath, readPushPermission, type PushPermission } from "@/lib/native-push"
+import { askPushPermission, inNativeApp, nativePlatform, openPhoneSettings, phoneSettingsPath, readPushPermission, type PushPermission } from "@/lib/native-push"
 import { DAILY_PUSH_CAP, DIGEST_HOUR } from "@/lib/notifications/push-budget"
 import { COMMUNITY_KIND_KEYS, PUSH_KINDS, clockText, type CommunityKindKey, type PushKindKey, type QuietHours } from "@/lib/notifications/push-kinds"
 import { WebPushError, disableWebPush, enableWebPush, readWebPush, type WebPushState } from "@/lib/push/web-client"
@@ -723,9 +723,14 @@ function PhoneRow({ phone, on }: { phone: Phone; on: boolean }) {
           <p className="mt-1 text-[13px] leading-[1.5] text-[#6b7280]">
             To get them, open {phoneSettingsPath(platform)} on your {platform === "android" ? "phone" : "iPhone"} and turn on {platform === "android" ? "notifications" : "Allow Notifications"}. Then come back here.
           </p>
-          <button type="button" onClick={phone.recheck} className={cn(QUIET_BUTTON, "mt-3 bg-white shadow-[0_0_0_1px_#e5e7eb,0_1px_2px_rgba(15,23,42,0.05)] hover:bg-[#f9fafb]")} data-phone-recheck="">
-            Check again
-          </button>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button type="button" onClick={() => openPhoneSettings()} className={INK} data-phone-open-settings="">
+              Open Settings
+            </button>
+            <button type="button" onClick={phone.recheck} className={cn(QUIET_BUTTON, "bg-white shadow-[0_0_0_1px_#e5e7eb,0_1px_2px_rgba(15,23,42,0.05)] hover:bg-[#f9fafb]")} data-phone-recheck="">
+              Check again
+            </button>
+          </div>
         </div>
       </div>
     )

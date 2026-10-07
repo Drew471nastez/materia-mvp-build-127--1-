@@ -5,12 +5,12 @@
  *  ASKING THE PHONE FOR PERMISSION TO NOTIFY
  * ===========================================================================
  * The Storelib app (Capacitor) can only show a notification once iOS or
- * Android said yes. That question is asked ONCE by the system, and a "Don't
- * Allow" can only be undone in the phone's own settings, so it is asked at
- * the one moment it makes sense: the person turned push on in Settings,
- * Notifications (components/account/notification-settings.tsx), with their
- * own tap. Never on launch (lib/push/client.ts only reads the answer), and
- * never on the web: a browser has its own notifications, under Privacy.
+ * Android said yes. The system asks that question once per install, and a
+ * "Don't Allow" can only be undone in the phone's own settings. The app asks
+ * it on the first launch after every install, signed in or not
+ * (components/platform/notifications-ask.tsx), and Settings, Notifications
+ * asks or opens the phone's settings from a tap. Never on the web: a browser
+ * has its own notifications, under Privacy.
  *
  *   readPushPermission()   what the phone says now, without asking
  *   askPushPermission()    asks (the system prompt), then registers the
@@ -66,10 +66,10 @@ export async function readPushPermission(): Promise<PushPermission> {
 }
 
 /**
- * Asks the phone. Call it only from the person's own tap: iOS shows its
- * prompt once in the app's life, Android 13 and later the same. A yes
- * registers this device for pushes at once (lib/push/client.ts
- * registerDevice), so the next notification already arrives.
+ * Asks the phone. iOS shows its prompt once per install, Android 13 and
+ * later the same. A yes registers this device for pushes at once when
+ * someone is signed in (lib/push/client.ts registerDevice), so the next
+ * notification already arrives; otherwise it registers on sign in.
  */
 export async function askPushPermission(): Promise<PushPermission> {
   if (!inNativeApp()) return "unsupported"
@@ -83,6 +83,31 @@ export async function askPushPermission(): Promise<PushPermission> {
   } catch {
     return "unsupported"
   }
+}
+
+/**
+ * Opens Storelib's page in the phone's own Settings, the only place a "Don't
+ * Allow" can be undone. iOS: `app-settings:` is the system's address for it,
+ * and Capacitor hands any address that is not the app's to iOS. Android: the
+ * App info page, through StorelibNative.openAppSettings (MainActivity).
+ */
+export function openPhoneSettings(): boolean {
+  const p = nativePlatform()
+  if (p === "ios") {
+    window.location.href = "app-settings:"
+    return true
+  }
+  if (p === "android") {
+    const bridge = (window as unknown as { StorelibNative?: { openAppSettings?: () => void } }).StorelibNative
+    if (typeof bridge?.openAppSettings !== "function") return false
+    try {
+      bridge.openAppSettings()
+      return true
+    } catch {
+      return false
+    }
+  }
+  return false
 }
 
 /** Where to allow notifications again after a no, in the phone's own words. */

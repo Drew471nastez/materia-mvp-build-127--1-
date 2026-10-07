@@ -1,23 +1,17 @@
 /**
- * WHEN THE APP ASKS FOR NOTIFICATIONS ON ITS OWN.
+ * HOW OFTEN THE APP SAYS NOTIFICATIONS ARE OFF.
  *
- * A reinstall resets the phone: the permission goes back to "not asked" and
- * the device token changes, so somebody whose account still says push is on
- * silently stops receiving anything. The app asks again
- * (components/platform/notifications-ask.tsx), and this is the rule for how
- * often, kept apart from the sheet so it can be read back on its own.
- *
- * A "not now" is honoured for a week and asked three times in all, then
- * never again: Settings, Notifications is always there for somebody who
- * changes their mind, and nagging for a permission is how an app earns a
- * "Don't Allow" it can never undo.
+ * The phone's own prompt is asked on every install
+ * (components/platform/notifications-ask.tsx). After a "Don't Allow" only the
+ * phone's settings can turn them back on, so a sheet that opens those
+ * settings comes back every few days, a limited number of times per install.
  */
 
-export const ASK_AGAIN_AFTER_MS = 7 * 24 * 3600 * 1000
-export const ASK_AT_MOST = 3
+export const ASK_AGAIN_AFTER_MS = 4 * 24 * 3600 * 1000
+export const ASK_AT_MOST = 8
 
 export interface AskRecord {
-  /** When they were last asked. */
+  /** When they were last reminded. */
   at: number
   /** How many times in all, on this install. */
   count: number

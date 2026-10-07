@@ -403,20 +403,20 @@ async function main() {
   }
 
   /* ── The phone's permission ──────────────────────────────────────────── */
-  console.log("\nThe permission prompt: only from a tap, only in the app")
+  console.log("\nThe permission prompt: only in the app")
   {
     check("off the app nothing is asked or read", !inNativeApp() && (await askPushPermission()) === "unsupported" && (await readPushPermission()) === "unsupported")
     check("the plugin's words as ours (Android 13's rationale is still a question)", permissionFrom("granted") === "granted" && permissionFrom("denied") === "denied" && permissionFrom("prompt") === "prompt" && permissionFrom("prompt-with-rationale") === "prompt" && permissionFrom(undefined) === "unsupported")
     const init = code("lib/push/client.ts")
-    check("the launch init only reads the permission, never asks", !/requestPermissions/.test(init) && /checkPermissions\(\)/.test(init) && /if \(permResult\.receive !== "granted"\)[\s\S]*?return[\s\S]*?await registerDevice\(\)/.test(init))
+    check("the push init only reads the permission; the ask lives in one place", !/requestPermissions/.test(init) && /checkPermissions\(\)/.test(init) && /if \(permResult\.receive !== "granted"\)[\s\S]*?return[\s\S]*?await registerDevice\(\)/.test(init))
     const nativePush = code("lib/native-push.ts")
     check("asking checks for the app before it touches the plugin", /export async function askPushPermission\(\)[^{]*\{\s*if \(!inNativeApp\(\)\) return "unsupported"/.test(nativePush) && (nativePush.match(/requestPermissions\(\)/g) || []).length === 1)
     const settings = code("components/account/notification-settings.tsx")
     check("Settings asks only from the Allow tap or turning push on", /onClick=\{phone\.ask\}/.test(settings) && /onTurnedOn=\{phone\.askIfNeeded\}/.test(settings) && (settings.match(/askPushPermission\(/g) || []).length === 1 && /const ask = useCallback\(\(\) => \{\s*if \(!inApp \|\| asking\) return/.test(settings))
     check("  turning push on asks straight from the switch's own tap", /if \(v\) onTurnedOn\?\.\(\)/.test(code("components/account/push-switch-row.tsx")))
-    check("  a no says where to turn it on in the phone's settings", /Notifications are off for Storelib on this phone/.test(settings) && /phoneSettingsPath\(platform\)/.test(settings) && /Check again/.test(settings))
-    const anyAsk = ["components/native-push-init.tsx", "components/app/app-layout-wrapper.tsx", "app/layout.tsx"].some((f) => /askPushPermission|requestPermissions/.test(code(f)))
-    check("nothing that runs on load asks", !anyAsk)
+    check("  a no says where to turn it on, and opens the phone's settings", /Notifications are off for Storelib on this phone/.test(settings) && /phoneSettingsPath\(platform\)/.test(settings) && /Check again/.test(settings) && /openPhoneSettings\(\)/.test(settings))
+    const launchAsks = ["components/native-push-init.tsx", "components/app/app-layout-wrapper.tsx", "app/layout.tsx"].filter((f) => /askPushPermission|requestPermissions/.test(code(f)))
+    check("the launch ask is the one sheet (components/platform/notifications-ask.tsx), not the layouts", launchAsks.length === 0 && /askPushPermission\(\)/.test(code("components/platform/notifications-ask.tsx")))
   }
 
   /* ── Settings and the route ──────────────────────────────────────────── */
