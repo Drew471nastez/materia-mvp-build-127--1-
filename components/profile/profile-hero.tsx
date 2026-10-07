@@ -142,15 +142,16 @@ export function ProfileHero({
       {/* The clipping is the picture's own box, not this one: a sticky child of
           an overflow:hidden box takes that box as its scrollport and never
           sticks, and the button on the band has to stick. */}
-      <div className="relative w-full bg-[#eceef1]" data-profile-cover={cover.url ? "image" : "plain"}>
-        <div className="relative h-[157px] sm:h-[233px] lg:h-[264px] overflow-hidden" data-profile-cover-band="">
-          {cover.url ? (
-            /* Fades in on the band's grey when the page is opened in the app, rather than landing in one frame. */
+      {/* No cover, no grey placeholder (round 15): a short strip in the page's own colour holds Edit profile, and the photo sits under it. */}
+      <div className={cn("relative w-full", cover.url ? "bg-[#eceef1]" : "")} data-profile-cover={cover.url ? "image" : "plain"}>
+        {cover.url ? (
+          <div className="relative h-[157px] sm:h-[233px] lg:h-[264px] overflow-hidden" data-profile-cover-band="">
+            {/* Fades in on the band's grey when the page is opened in the app, rather than landing in one frame. */}
             <ProfileCoverImage src={optimizedImageUrl(cover.url, 1600)} style={coverCropStyle(cover.crop)} />
-          ) : (
-            <div aria-hidden className="absolute inset-0 bg-[radial-gradient(120%_140%_at_50%_0%,#f4f5f7_0%,#e7e9ed_100%)]" />
-          )}
-        </div>
+          </div>
+        ) : (
+          <div className={cn("relative overflow-hidden", isSelf ? "h-16 sm:h-[72px]" : "h-6 sm:h-8")} data-profile-cover-band="" />
+        )}
         {isSelf ? (
           <>
             <ProfileChromeVar />
@@ -186,7 +187,7 @@ export function ProfileHero({
       </div>
 
       {/* Half the photo over the band's lower edge, at both sizes. */}
-      <header className={cn(COLUMN, "relative -mt-[62.5px] flex flex-col items-center text-center sm:-mt-[71px]")} style={GUTTERS} data-profile-header="">
+      <header className={cn(COLUMN, "relative flex flex-col items-center text-center", cover.url ? "-mt-[62.5px] sm:-mt-[71px]" : "")} style={GUTTERS} data-profile-header="">
         {avatar ?? (
           <AvatarLightbox src={person.avatarUrl} name={person.name}>
             <AppAvatar
