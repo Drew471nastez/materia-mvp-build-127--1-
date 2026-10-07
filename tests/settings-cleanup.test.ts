@@ -62,7 +62,7 @@ console.log("\nThe groups")
   check("nine groups, down from twenty-four", drawn.length === 9, drawn.map((g) => g.label))
   check(
     "in the order a creator works through them",
-    drawn.map((g) => g.label).join(" | ") === "Logo and brand | Colors | Typography | Buttons and inputs | Layout | Products and cart | Social links | Animations | Custom CSS",
+    drawn.map((g) => g.label).join(" | ") === "Logo and brand | Colors | Typography | Buttons and inputs | Layout | Product cards | Cart and checkout | Social links | Animations | Custom CSS",
     drawn.map((g) => g.label).join(" | "),
   )
   check("no setting is in two groups", new Set(ids).size === ids.length)

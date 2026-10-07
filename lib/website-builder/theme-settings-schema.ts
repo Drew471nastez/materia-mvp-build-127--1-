@@ -1,6 +1,6 @@
 /**
  * ===========================================================================
- *  GENERAL SETTINGS, IN NINE GROUPS
+ *  GENERAL SETTINGS, IN TEN GROUPS
  * ===========================================================================
  * Every control here is read by something a visitor sees: the theme
  * stylesheet (lib/website-builder/theme-css.ts), the `theme` object a
@@ -303,7 +303,7 @@ export const THEME_SETTINGS_GROUPS: ThemeSettingsGroup[] = [
      * what Add to cart does.
      */
     id: "product_cards",
-    label: "Products and cart",
+    label: "Product cards",
     icon: "shopping-bag",
     fields: [
       { id: "hdr_product_cards", label: "Product cards", type: "header" },
@@ -334,6 +334,20 @@ export const THEME_SETTINGS_GROUPS: ThemeSettingsGroup[] = [
       { id: "badge_sale_color", label: "Sale text", type: "color", default: "#ffffff" },
       { id: "badge_soldout_bg", label: "Sold out background", type: "color", default: "#1a1a2e" },
       { id: "badge_soldout_color", label: "Sold out text", type: "color", default: "#ffffff" },
+      /* Shopify's Currency format: "$48.00 USD" rather than "$48.00", on every price a section draws. */
+      { id: "currency_code_enabled", label: "Show currency codes", type: "toggle", default: false },
+    ],
+  },
+  {
+    /*
+      CART AND CHECKOUT, A GROUP OF ITS OWN. It shared one group with the
+      product cards, so what a card looks like and what Add to cart does sat
+      in one long list. Same keys, read where they always were.
+    */
+    id: "cart",
+    label: "Cart and checkout",
+    icon: "shopping-cart",
+    fields: [
       /*
         WHAT ADD TO CART DOES, as Shopify asks it: open the cart drawer, go
         to the cart page, or show a short notice and stay. The value is the
@@ -341,22 +355,19 @@ export const THEME_SETTINGS_GROUPS: ThemeSettingsGroup[] = [
         `data-cart-type`; SiteCartProvider (site-cart.tsx) does it on Add to
         cart. The free shipping bar reads the same cart's subtotal.
       */
-      { id: "hdr_cart", label: "Cart", type: "header" },
       {
         id: "cart_type",
-        label: "Cart type",
+        label: "When someone adds to cart",
         type: "select",
         default: "drawer",
         options: [
-          { label: "Drawer", value: "drawer" },
-          { label: "Page", value: "page" },
-          { label: "Notification", value: "notification" },
+          { label: "Open the cart drawer", value: "drawer" },
+          { label: "Go to the cart page", value: "page" },
+          { label: "Show a short notice", value: "notification" },
         ],
       },
       { id: "free_shipping_threshold", label: "Free shipping threshold ($)", type: "number", min: 0, default: 0, unit: "$" },
       { id: "free_shipping_bar", label: "Show free shipping progress bar", type: "toggle", default: false },
-      /* Shopify's Currency format: "$48.00 USD" rather than "$48.00", on every price a section draws. */
-      { id: "currency_code_enabled", label: "Show currency codes", type: "toggle", default: false },
     ],
   },
   {

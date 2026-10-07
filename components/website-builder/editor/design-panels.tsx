@@ -81,6 +81,24 @@ const LABEL = "text-[11px] font-semibold text-muted-foreground uppercase trackin
 const INPUT =
   "w-full h-8 px-2.5 text-[13px] border border-border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-colors"
 
+/** The app's one switch (components/ui/switch-style), for an on or off setting in these panels. No square checkboxes. */
+function SettingSwitch({ checked, onChange, label }: { checked: boolean; onChange: (on: boolean) => void; label: string }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      onClick={() => onChange(!checked)}
+      className="group relative -m-1.5 inline-flex shrink-0 cursor-pointer items-center p-1.5 outline-none"
+    >
+      <span className={cn(switchTrack(checked), "group-focus-visible:ring-2 group-focus-visible:ring-[#111113]/30 group-focus-visible:ring-offset-2")}>
+        <span className={switchKnob(checked)} />
+      </span>
+    </button>
+  )
+}
+
 function Select({
   label,
   value,
@@ -921,15 +939,17 @@ export function ColorsPanel({
             onBlur={(e) => { if (!e.target.value.trim()) save({ ...current, name: base.name }) }}
           />
         </div>
-        <label className="flex items-center justify-between gap-3 text-[13px] text-foreground">
-          <span>Default for new sections</span>
-          <input
-            type="checkbox"
-            className="h-4 w-4 accent-[#1a1a2e]"
+        <div className="flex items-center justify-between gap-3 text-[13px] text-foreground">
+          <span>
+            Default for new sections
+            <span className="block text-[11px] text-muted-foreground">A section you add starts on this scheme.</span>
+          </span>
+          <SettingSwitch
+            label="Default for new sections"
             checked={defaultKey === activeKey}
-            onChange={(e) => updateSetting("default_color_scheme", e.target.checked ? activeKey : FALLBACK_SCHEME_KEY)}
+            onChange={(on) => updateSetting("default_color_scheme", on ? activeKey : FALLBACK_SCHEME_KEY)}
           />
-        </label>
+        </div>
 
         {SCHEME_COLOR_GROUPS.map((group) => (
           <div key={group.label} className="space-y-1">
@@ -949,15 +969,14 @@ export function ColorsPanel({
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Gradient</p>
-            <label className="flex items-center gap-2 text-[12px] text-muted-foreground">
-              <input
-                type="checkbox"
-                className="h-3.5 w-3.5 accent-[#1a1a2e]"
-                checked={!!current.gradient}
-                onChange={(e) => save({ ...current, gradient: e.target.checked ? GRADIENT_PRESETS[0].value : "" })}
-              />
+            <span className="flex items-center gap-2 text-[12px] text-muted-foreground">
               Over the background
-            </label>
+              <SettingSwitch
+                label="Gradient over the background"
+                checked={!!current.gradient}
+                onChange={(on) => save({ ...current, gradient: on ? GRADIENT_PRESETS[0].value : "" })}
+              />
+            </span>
           </div>
           {current.gradient && (
             /* A gradient you make by looking at it: direction, stops and

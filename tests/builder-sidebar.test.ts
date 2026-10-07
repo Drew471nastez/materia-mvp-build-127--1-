@@ -156,10 +156,12 @@ function main() {
     where it is going, so the groups under it move instead of jumping, and
     the content fades with it.
   */
-  const groups = editor.match(/<Collapse open=\{expandedSettings === group\.id\}/g) ?? []
-  check("both lists of groups open and close by height", groups.length === 2, groups.length)
-  check("and each group says whether it is open, for the probe and a screen reader",
-    (editor.match(/data-theme-group=\{group\.id\}/g) ?? []).length === 2 && (editor.match(/aria-expanded=\{expandedSettings === group\.id\}/g) ?? []).length === 2)
+  /* Changed on purpose: the owner did not like the accordion's turning arrows and the groups sliding under an opened one. A group opens as its own panel, with Back. */
+  check("both lists of groups open a group as its own panel, with Back",
+    (editor.match(/<ThemeGroupRow key=\{group\.id\} group=\{group\} onOpen=\{\(\) => setExpandedSettings\(group\.id\)\} \/>/g) ?? []).length === 2
+      && (editor.match(/<PanelBack onBack=\{\(\) => setExpandedSettings\(null\)\}>/g) ?? []).length === 2)
+  check("and the open group says which it is, for the probe",
+    (editor.match(/data-theme-group=\{group\.id\}/g) ?? []).length === 2 && (editor.match(/data-theme-group-open=\{group\.id\}/g) ?? []).length === 2)
   check("about a quarter of a second open, a little less shut", COLLAPSE_OPEN_MS === 240 && COLLAPSE_CLOSE_MS === 200)
   check("on the iOS curve", /const EASE = "cubic-bezier\(0\.32, 0\.72, 0, 1\)"/.test(collapse))
   check("measured, from the height it has now: an interrupted open closes from where it got to",

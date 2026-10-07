@@ -6,6 +6,7 @@ import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import {
   ArrowLeft, Plug, Monitor, Smartphone, Maximize2, Loader2, Code2, ChevronDown, Plus, Eye, EyeOff, Trash2, Copy, Settings, Check, Layers, X, RotateCcw, Layout, AlignLeft, Image, MessageSquare, HelpCircle, Megaphone, BarChart2, Grid, Award, LayoutGrid, DollarSign, LayoutTemplate, Video, Users, MapPin, Mail, Clock, BookOpen, Shirt, Columns, Play, Star, Timer, Shield, Rss, SlidersHorizontal, Code, Bell, ChevronRight, Menu as MenuIcon, Package, Undo2, Redo2, ExternalLink, Search, FileText, ArrowRight, FolderOpen, MoreHorizontal, Upload, Info, Crop, CheckCircle, Type, Square, Rows3, Grid3x3, MousePointerClick, MoveHorizontal, Hash, Columns2, LayoutDashboard, Badge as BadgeIcon, ArrowUp, ArrowDown,
+  Palette, ShoppingBag, ShoppingCart, Share2, Sparkles,
 } from "lucide-react"
 import { arrayMove } from "@dnd-kit/sortable"
 import { Button } from "@/components/ui/button"
@@ -498,6 +499,47 @@ function EchoTextInput({ value, onChange, placeholder }: { value: string; onChan
  * `label` is absent for a control that names itself: see
  * fieldCarriesOwnLabel.
  */
+/** Each General Settings group's mark, by the group's id. */
+const THEME_GROUP_ICONS: Record<string, typeof Image> = {
+  branding: Image,
+  color_schemes: Palette,
+  colors: Palette,
+  typography: Type,
+  buttons: MousePointerClick,
+  layout: LayoutDashboard,
+  product_cards: ShoppingBag,
+  cart: ShoppingCart,
+  social: Share2,
+  animations: Sparkles,
+  announcement: Megaphone,
+  menus: MenuIcon,
+  custom_css: Code,
+}
+
+/**
+ * One group in General Settings: its mark, its name, and a chevron that
+ * says it opens. Pressing it opens the group as its own panel.
+ */
+function ThemeGroupRow({ group, onOpen }: { group: (typeof THEME_SETTINGS_GROUPS)[number]; onOpen: () => void }) {
+  const Icon = THEME_GROUP_ICONS[group.id] ?? null
+  return (
+    <button
+      type="button"
+      data-theme-group-row={group.id}
+      onClick={onOpen}
+      className="group/row mb-0.5 flex h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-[13.5px] font-medium text-foreground transition-colors duration-100 hover:bg-muted/60 active:bg-muted max-sm:h-12 max-sm:text-[15px]"
+    >
+      {Icon ? (
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted/70 text-muted-foreground transition-colors group-hover/row:text-foreground">
+          <Icon className="h-3.5 w-3.5" strokeWidth={1.9} />
+        </span>
+      ) : null}
+      <span className="min-w-0 flex-1 truncate">{group.label}</span>
+      <ChevronRight aria-hidden className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60 transition-transform duration-150 group-hover/row:translate-x-0.5 group-hover/row:text-foreground" />
+    </button>
+  )
+}
+
 function FieldEditor({ label, ...props }: Parameters<typeof FieldControl>[0] & { label?: string }) {
   return (
     <DynamicSourceField field={props.field} value={props.value ?? props.field.default} onChange={props.onChange} label={label}>
@@ -6020,149 +6062,148 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         // This will fall through to the existing SECTION panel code below
       } else {
         // Global theme settings
+        /*
+          A LIST OF GROUPS, AND A GROUP OPENS AS ITS OWN PANEL. It was an
+          accordion: a chevron turning on every row and the groups under an
+          opened one sliding down by its height, which is the movement the
+          owner did not like. Now, as Shopify's theme settings do, the list is
+          still and a group replaces it, with Back to return, sliding in from
+          the side. `expandedSettings` names the open group, as it did.
+        */
+        const generalGroups = THEME_SETTINGS_GROUPS.filter(group => group.id !== "colors" && group.id !== "menus").filter(group => !group.shownWhen || settingsDraft[group.shownWhen as keyof ThemeSettingsValues] === true)
+        const openGeneral = generalGroups.find(g => g.id === expandedSettings) ?? null
+        if (openGeneral) {
+          const group = openGeneral
+          return (
+            <div className="flex flex-col h-full" data-theme-group-open={group.id}>
+              <PanelBack onBack={() => setExpandedSettings(null)}>
+                <p className="truncate text-[15px] font-semibold md:text-sm">{group.label}</p>
+              </PanelBack>
+              <div key={group.id} data-sheet-scroll data-theme-group={group.id} className="flex-1 overflow-y-auto wb-slim-scroll px-3.5 py-3.5 space-y-4 animate-in fade-in-0 slide-in-from-right-2 duration-200 motion-reduce:animate-none">
+
+                <>
+                  {/* Custom Color Schemes editor */}
+                  {group.id === "color_schemes" ? (
+                    <ColorsPanel
+                      theme={settingsDraft}
+                      updateSetting={updateSetting}
+                      onRemapSections={(from, to) => {
+                        debouncedPushUndo()
+                        setSections(prev => remapScheme(prev, from, to))
+                        setIsDirty(true)
+                      }}
+                      initialActive={editSchemeKey}
+                      onInitialActiveConsumed={() => setEditSchemeKey(null)}
+                      advanced={THEME_SETTINGS_GROUPS.find(g => g.id === "colors")?.fields.map(field => (
+                        <div key={field.id}>
+                          <FieldEditor
+                            label={fieldCarriesOwnLabel(field) ? undefined : field.label}
+                            field={field}
+                            value={settingsDraft[field.id as keyof ThemeSettingsValues] ?? field.default}
+                            onChange={v => updateSetting(field.id, v)}
+                          />
+                        </div>
+                      ))}
+                    />
+                  ) : group.id === "typography" ? (
+                    <TypographyPanel
+                      theme={settingsDraft}
+                      updateSetting={updateSetting}
+                      fonts={group.fields.map(field => (
+                        <WbSelect
+                          key={field.id}
+                          label={field.label}
+                          value={settingsDraft[field.id as keyof ThemeSettingsValues] ?? field.default}
+                          onChange={v => updateSetting(field.id, v)}
+                          options={field.options ?? []}
+                        />
+                      ))}
+                    />
+                  ) : (
+                    <>
+                    {group.id === "branding" && (
+                      <BrandingTabPanel
+                        settingsDraft={settingsDraft}
+                        updateSetting={updateSetting}
+                      />
+                    )}
+                    {/* All other groups, and the branding group's fields BrandingTabPanel does not draw, use modern Wb* components */}
+                    {group.fields.filter(field => group.id !== "branding" || !BRANDING_PANEL_FIELDS.has(field.id)).map(field => {
+                      const val = settingsDraft[field.id as keyof ThemeSettingsValues] ?? field.default
+                      return (
+                        <div key={field.id}>
+                          {field.type === "toggle" ? (
+                            <WbToggle
+                              label={field.label}
+                              value={val}
+                              onChange={v => updateSetting(field.id, v)}
+                              info={field.info}
+                            />
+                          ) : field.type === "range" ? (
+                            <WbSlider
+                              label={field.label}
+                              value={val}
+                              onChange={v => updateSetting(field.id, v)}
+                              min={field.min ?? 0}
+                              max={field.max ?? 100}
+                              step={field.step ?? 1}
+                              unit={field.unit ?? ""}
+                              defaultValue={typeof field.default === "number" ? field.default : 0}
+                            />
+                          ) : field.type === "select" || field.type === "font" ? (
+                            <WbSelect
+                              label={field.label}
+                              value={val}
+                              onChange={v => updateSetting(field.id, v)}
+                              options={field.options ?? []}
+                            />
+                          ) : field.type === "radio" ? (
+                            <WbRadioSegment
+                              label={field.label}
+                              value={val}
+                              onChange={v => updateSetting(field.id, v)}
+                              options={field.options ?? []}
+                            />
+                          ) : field.type === "image" ? (
+                            <>
+                              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{field.label}</label>
+                              <ImagePickerControl
+                                value={typeof val === "string" ? val : ""}
+                                onChange={url => updateSetting(field.id, url)}
+                                label={field.label}
+                              />
+                            </>
+                          ) : field.type === "color" ? (
+                            /* No label here: fieldCarriesOwnLabel(field) is true for a
+                               colour, because ColorField's own row is the label. */
+                            <FieldEditor field={field} value={val} onChange={v => updateSetting(field.id, v)} />
+                          ) : field.type === "header" || field.type === "paragraph" || field.type === "menus" ? (
+                            <FieldEditor field={field} value={val} onChange={v => updateSetting(field.id, v)} />
+                          ) : (
+                            <FieldEditor label={field.label} field={field} value={val} onChange={v => updateSetting(field.id, v)} />
+                          )}
+                          {field.type !== "toggle" && field.info && (
+                            <p className="text-[11px] text-muted-foreground mt-1">{field.info}</p>
+                          )}
+                        </div>
+                      )
+                    })}
+                    </>
+                  )}
+                </>
+
+              </div>
+            </div>
+          )
+        }
         return (
           <div className="flex flex-col h-full">
             <div className="px-4 py-3 border-b border-border shrink-0">
               <p className="text-sm font-semibold">General Settings</p>
               <p className="text-xs text-muted-foreground mt-0.5">Colors, fonts, buttons, spacing</p>
             </div>
-            <div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll p-2">
-              {THEME_SETTINGS_GROUPS.filter(group => group.id !== "colors" && group.id !== "menus").filter(group => !group.shownWhen || settingsDraft[group.shownWhen as keyof ThemeSettingsValues] === true).map(group => (
-                <div key={group.id} data-theme-group={group.id} className="mb-0.5">
-                  <button
-                    aria-expanded={expandedSettings === group.id}
-                    className={cn(
-                      "w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150",
-                      expandedSettings === group.id ? "bg-muted/80 text-foreground" : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"
-                    )}
-                    onClick={() => setExpandedSettings(expandedSettings === group.id ? null : group.id)}
-                  >
-                    {group.label}
-                    <ChevronDown className={cn("h-3.5 w-3.5 transition-transform duration-200", expandedSettings === group.id && "rotate-180")} />
-                  </button>
-                  {/*
-                    OPENS AND CLOSES BY HEIGHT (editor/collapse.tsx): 240ms open
-                    and 200ms shut on the iOS curve, the content fading with it,
-                    so the groups under it move rather than jump. A group left
-                    open is drawn open when Theme is shown again, without playing
-                    its opening a second time. Reduced motion gets the end state.
-                  */}
-                  <Collapse open={expandedSettings === group.id} onlyVisible innerClassName="px-3 py-3 space-y-4">
-                    {() => (
-                    <>
-                      {/* Custom Color Schemes editor */}
-                      {group.id === "color_schemes" ? (
-                        <ColorsPanel
-                          theme={settingsDraft}
-                          updateSetting={updateSetting}
-                          onRemapSections={(from, to) => {
-                            debouncedPushUndo()
-                            setSections(prev => remapScheme(prev, from, to))
-                            setIsDirty(true)
-                          }}
-                          initialActive={editSchemeKey}
-                          onInitialActiveConsumed={() => setEditSchemeKey(null)}
-                          advanced={THEME_SETTINGS_GROUPS.find(g => g.id === "colors")?.fields.map(field => (
-                            <div key={field.id}>
-                              <FieldEditor
-                                label={fieldCarriesOwnLabel(field) ? undefined : field.label}
-                                field={field}
-                                value={settingsDraft[field.id as keyof ThemeSettingsValues] ?? field.default}
-                                onChange={v => updateSetting(field.id, v)}
-                              />
-                            </div>
-                          ))}
-                        />
-                      ) : group.id === "typography" ? (
-                        <TypographyPanel
-                          theme={settingsDraft}
-                          updateSetting={updateSetting}
-                          fonts={group.fields.map(field => (
-                            <WbSelect
-                              key={field.id}
-                              label={field.label}
-                              value={settingsDraft[field.id as keyof ThemeSettingsValues] ?? field.default}
-                              onChange={v => updateSetting(field.id, v)}
-                              options={field.options ?? []}
-                            />
-                          ))}
-                        />
-                      ) : (
-                        <>
-                        {group.id === "branding" && (
-                          <BrandingTabPanel
-                            settingsDraft={settingsDraft}
-                            updateSetting={updateSetting}
-                          />
-                        )}
-                        {/* All other groups, and the branding group's fields BrandingTabPanel does not draw, use modern Wb* components */}
-                        {group.fields.filter(field => group.id !== "branding" || !BRANDING_PANEL_FIELDS.has(field.id)).map(field => {
-                          const val = settingsDraft[field.id as keyof ThemeSettingsValues] ?? field.default
-                          return (
-                            <div key={field.id}>
-                              {field.type === "toggle" ? (
-                                <WbToggle
-                                  label={field.label}
-                                  value={val}
-                                  onChange={v => updateSetting(field.id, v)}
-                                  info={field.info}
-                                />
-                              ) : field.type === "range" ? (
-                                <WbSlider
-                                  label={field.label}
-                                  value={val}
-                                  onChange={v => updateSetting(field.id, v)}
-                                  min={field.min ?? 0}
-                                  max={field.max ?? 100}
-                                  step={field.step ?? 1}
-                                  unit={field.unit ?? ""}
-                                  defaultValue={typeof field.default === "number" ? field.default : 0}
-                                />
-                              ) : field.type === "select" || field.type === "font" ? (
-                                <WbSelect
-                                  label={field.label}
-                                  value={val}
-                                  onChange={v => updateSetting(field.id, v)}
-                                  options={field.options ?? []}
-                                />
-                              ) : field.type === "radio" ? (
-                                <WbRadioSegment
-                                  label={field.label}
-                                  value={val}
-                                  onChange={v => updateSetting(field.id, v)}
-                                  options={field.options ?? []}
-                                />
-                              ) : field.type === "image" ? (
-                                <>
-                                  <label className="text-xs font-medium text-muted-foreground mb-1.5 block">{field.label}</label>
-                                  <ImagePickerControl
-                                    value={typeof val === "string" ? val : ""}
-                                    onChange={url => updateSetting(field.id, url)}
-                                    label={field.label}
-                                  />
-                                </>
-                              ) : field.type === "color" ? (
-                                /* No label here: fieldCarriesOwnLabel(field) is true for a
-                                   colour, because ColorField's own row is the label. */
-                                <FieldEditor field={field} value={val} onChange={v => updateSetting(field.id, v)} />
-                              ) : field.type === "header" || field.type === "paragraph" || field.type === "menus" ? (
-                                <FieldEditor field={field} value={val} onChange={v => updateSetting(field.id, v)} />
-                              ) : (
-                                <FieldEditor label={field.label} field={field} value={val} onChange={v => updateSetting(field.id, v)} />
-                              )}
-                              {field.type !== "toggle" && field.info && (
-                                <p className="text-[11px] text-muted-foreground mt-1">{field.info}</p>
-                              )}
-                            </div>
-                          )
-                        })}
-                        </>
-                      )}
-                    </>
-                    )}
-                  </Collapse>
-                </div>
-              ))}
+            <div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll p-2 animate-in fade-in-0 duration-150 motion-reduce:animate-none">
+              {generalGroups.map(group => <ThemeGroupRow key={group.id} group={group} onOpen={() => setExpandedSettings(group.id)} />)}
             </div>
           </div>
         )
@@ -6607,28 +6648,18 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
     // THEME SETTINGS panel
     if (selectedPanel.type === "theme_settings") {
-      return (
-        <div className="flex flex-col h-full">
-          <PanelBack onBack={() => setSelectedPanel({ type: "pages" })}>
-            <span className="text-[15px] font-semibold md:text-sm">Theme settings</span>
-          </PanelBack>
-          <div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll p-3">
-            {THEME_SETTINGS_GROUPS.filter(group => group.id !== "menus" && (!group.shownWhen || settingsDraft[group.shownWhen as keyof ThemeSettingsValues] === true)).map(group => (
-              <div key={group.id} data-theme-group={group.id} className="mb-1">
-                <button
-                  aria-expanded={expandedSettings === group.id}
-                  className={cn(
-                    "w-full flex items-center justify-between py-2.5 px-3 rounded-lg text-left transition-colors",
-                    expandedSettings === group.id ? "bg-muted" : "hover:bg-muted/50"
-                  )}
-                  onClick={() => setExpandedSettings(expandedSettings === group.id ? null : group.id)}
-                >
-                  <span className="text-sm font-medium">{group.label}</span>
-                  <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform", expandedSettings === group.id && "rotate-180")} />
-                </button>
-                {/* By height, the same as General Settings' groups (editor/collapse.tsx). */}
-                <Collapse open={expandedSettings === group.id} onlyVisible innerClassName="px-3 pb-4 space-y-4">
-                  {() => (
+      /* The same list and panels as General Settings above. */
+      const panelGroups = THEME_SETTINGS_GROUPS.filter(group => group.id !== "menus" && (!group.shownWhen || settingsDraft[group.shownWhen as keyof ThemeSettingsValues] === true))
+      const openPanelGroup = panelGroups.find(g => g.id === expandedSettings) ?? null
+      if (openPanelGroup) {
+        const group = openPanelGroup
+        return (
+          <div className="flex flex-col h-full" data-theme-group-open={group.id}>
+            <PanelBack onBack={() => setExpandedSettings(null)}>
+              <span className="text-[15px] font-semibold md:text-sm">{group.label}</span>
+            </PanelBack>
+            <div key={group.id} data-sheet-scroll data-theme-group={group.id} className="flex-1 overflow-y-auto wb-slim-scroll px-3.5 py-3.5 space-y-4 animate-in fade-in-0 slide-in-from-right-2 duration-200 motion-reduce:animate-none">
+
                   <>
                     {group.id === "branding" ? (
                       <BrandingTabPanel
@@ -6698,10 +6729,18 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                       })
                     )}
                   </>
-                  )}
-                </Collapse>
-              </div>
-            ))}
+
+            </div>
+          </div>
+        )
+      }
+      return (
+        <div className="flex flex-col h-full">
+          <PanelBack onBack={() => setSelectedPanel({ type: "pages" })}>
+            <span className="text-[15px] font-semibold md:text-sm">Theme settings</span>
+          </PanelBack>
+          <div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll p-2 animate-in fade-in-0 duration-150 motion-reduce:animate-none">
+            {panelGroups.map(group => <ThemeGroupRow key={group.id} group={group} onOpen={() => setExpandedSettings(group.id)} />)}
           </div>
         </div>
       )
