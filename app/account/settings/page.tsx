@@ -7,6 +7,9 @@ import { profileForRequest, sellerAccessForRequest } from "@/lib/auth/request-sc
 import { readNewsletter } from "@/lib/account/preferences"
 import { accountLoginPath } from "@/lib/account/account-tabs"
 import { AccountSettings } from "@/components/account/account-settings"
+import { RouterPullToRefresh } from "@/components/ui/pull-to-refresh"
+
+const ACCOUNT_SETTINGS_REFRESH_SCOPE = "account-settings"
 import { ensureUsername } from "@/lib/profile/ensure-username"
 import { readPrivacy } from "@/lib/profile/privacy"
 import { accountIsCreator } from "@/lib/profile/account-creator"
@@ -117,6 +120,8 @@ export default async function AccountSettingsRoute({ searchParams }: { searchPar
   const via = providers.filter((p) => p !== "email").map((p) => PROVIDER_NAMES[p] ?? p).join(" or ")
 
   return (
+    /* Pull to refresh in the app, as on the account's other pages: the server reads again, and what is being typed stays. */
+    <RouterPullToRefresh scope={ACCOUNT_SETTINGS_REFRESH_SCOPE}>
     <AccountSettings
       userId={user.id}
       /* Never the "+slb-" tag a second business carries (lib/businesses/email-alias.ts). */
@@ -142,5 +147,6 @@ export default async function AccountSettingsRoute({ searchParams }: { searchPar
       location={await locationRead}
       initialSection={sectionFrom(section)}
     />
+    </RouterPullToRefresh>
   )
 }

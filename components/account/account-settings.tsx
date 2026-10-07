@@ -1030,7 +1030,8 @@ export function AccountSettings({
   useEffect(() => prefetchOnIdle(router, [BACK_TO]), [router])
 
   return (
-    <div data-account-page="" data-account-settings="">
+    /* One readable column on a computer (round 14): the fields, and the cover in the profile band's own shape, at a settings width rather than across the whole screen. */
+    <div data-account-page="" data-account-settings="" className="mx-auto w-full max-w-[720px]">
       <div
         className="flex items-center gap-2.5"
         data-account-settings-top=""
