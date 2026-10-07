@@ -77,7 +77,9 @@ check("the file check is the server's, when the upload completes: the editor ask
 check("reduced motion drops every movement", /motion-reduce:transition-none/.test(uploads) && /if \(reducedMotion\(\)\)/.test(uploads))
 
 console.log("\nPricing (app/app/products/new/editor-controls.tsx)")
-check("fixed price, pay what you want and free, as one segmented control", /<Segmented\s+label="Pricing"\s+fit="content"\s+value=\{priceMode\}\s+onChange=\{choosePriceMode\}/.test(editor) && /\{ value: "fixed", label: "Fixed price" \}[\s\S]{0,80}\{ value: "pwyw", label: "Pay what you want" \}[\s\S]{0,80}\{ value: "free", label: "Free" \}/.test(editor))
+/* Changed on purpose: the three tabs took a row of their own, so how it is sold is a menu at the end of the card's title row. */
+check("fixed price, pay what you want and free, as one menu in the title row", /<ResponsiveActionMenu\s+title="How it is sold"/.test(editor) && /onClick: \(\) => choosePriceMode\(m\.value\)/.test(editor) && /\{ value: "fixed", label: "Fixed price" \},\s*\{ value: "pwyw", label: "Pay what you want" \},\s*\{ value: "free", label: "Free" \}/.test(editor) && !/<Segmented/.test(editor))
+check("every included line can be reworded or removed, the defaults too", !/isDefaultItem/.test(editor) && /aria-label=\{`Included item \$\{index \+ 1\}`\}/.test(editor))
 check("no switch row for pay what you want any more", !/title="Pay what you want"/.test(editor))
 check("a tick on a phone when it changes", /hapticTap\("soft"\)\s+if \(mode === "free"\)/.test(editor))
 check("the white slides on transform, 200ms on iOS's curve, and is never scaled at rest",

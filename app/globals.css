@@ -3734,6 +3734,16 @@ html.capacitor .app-content-scroll {
   body[data-scroll-locked] [data-app-nav-pill] {
     z-index: 39;
   }
+  /* Over a layer that keeps the pill (the product editor, at 52), 39 is
+     under the layer itself, and the pill vanished the moment the category
+     sheet or any other sheet opened over the editor. There it steps down to
+     53 instead: still over the layer, still under every sheet (60 and up),
+     so the sheet covers it and its scrim dims it, as everywhere else. */
+  html:has([data-page-layer="pill"])[data-app-sheet-up] [data-app-nav-pill],
+  html:has([data-page-layer="pill"]):has([role="dialog"][aria-modal="true"]:not([data-mobile-menu], [aria-hidden="true"], [data-sheet-root])) [data-app-nav-pill],
+  html:has([data-page-layer="pill"]) body[data-scroll-locked] [data-app-nav-pill] {
+    z-index: 53;
+  }
   html[data-app-sheet-up="open"] [data-app-nav-pill] .pointer-events-auto,
   html:has([role="dialog"][aria-modal="true"]:not([data-mobile-menu], [aria-hidden="true"], [data-sheet-root])) [data-app-nav-pill] .pointer-events-auto,
   body[data-scroll-locked] [data-app-nav-pill] .pointer-events-auto {

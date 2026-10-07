@@ -39,12 +39,10 @@ import { descriptionTooLong } from "@/lib/rich-text/policy"
 import { uploadDescriptionImage } from "@/lib/rich-text/upload-image"
 import { CSS } from "@dnd-kit/utilities"
 import { avoidReservedProductSlug } from "@/lib/commerce/reserved-slugs"
-import { SWITCH_GROUP, Segmented, SwapPanels, SwitchRow } from "./editor-controls"
+import { SWITCH_GROUP, SwapPanels, SwitchRow } from "./editor-controls"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { cn } from "@/lib/utils"
 import {
-  COURSE_WHATS_INCLUDED,
-  DEFAULT_WHATS_INCLUDED,
   initialForm,
   parseYouTubeUrl,
   snapshotOf,
@@ -89,6 +87,18 @@ type SectionId = "about" | "media" | "content" | "files" | "variants" | "categor
 /* Sideways padding from --app-card-x (app/globals.css), as every /app card takes it. */
 const CARD = "scroll-mt-4 space-y-4 rounded-2xl border border-[#e5e7eb]/60 bg-white app-card-x py-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:space-y-5 sm:py-6"
 const CARD_TITLE = "text-[16px] font-semibold leading-6 text-[#1a1a2e] sm:text-[17px]"
+
+/** How a download can be sold, in the order the menu lists them. */
+const PRICE_MODES = [
+  { value: "fixed", label: "Fixed price" },
+  { value: "pwyw", label: "Pay what you want" },
+  { value: "free", label: "Free" },
+] as const
+const PRICE_MODE_HINT = {
+  fixed: "One price for every buyer.",
+  pwyw: "Buyers choose what to pay, from your minimum.",
+  free: "No payment needed.",
+} as const
 
 /**
  * A PRICE AS IT IS TYPED. The price fields are text with a decimal keyboard,
@@ -2308,46 +2318,36 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                 </div>
 
                 <div className="space-y-2">
-                  {whatsIncluded.map((item, index) => {
-                    const isDefaultItem = DEFAULT_WHATS_INCLUDED[index] === item || COURSE_WHATS_INCLUDED[index] === item
-                    return (
-                      <div
-                        key={index}
-                        data-included-row=""
-                        className="flex items-center gap-2.5 rounded-xl border border-[#eceef1] bg-[#fafafb] p-2.5 sm:p-3"
+                  {/* Every line is the creator's to reword or remove, the starting three included. */}
+                  {whatsIncluded.map((item, index) => (
+                    <div
+                      key={index}
+                      data-included-row=""
+                      className="group flex items-center gap-2.5 rounded-xl border border-[#eceef1] bg-[#fafafb] py-1.5 pl-3 pr-1.5 transition-colors focus-within:border-[#d9dce1] focus-within:bg-white"
+                    >
+                      {/* One plain mark for every line: a thin grey check, as the product page draws it. */}
+                      <Check aria-hidden strokeWidth={2} className="h-4 w-4 shrink-0 text-[#6b7280]" />
+                      <Input
+                        value={item}
+                        aria-label={`Included item ${index + 1}`}
+                        onChange={(e) => {
+                          setWhatsIncluded(prev => prev.map((it, i) =>
+                            i === index ? e.target.value : it
+                          ))
+                        }}
+                        className="h-8 flex-1 border-0 bg-transparent px-1 text-[15px] shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 sm:text-sm"
+                        placeholder="Enter item..."
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setWhatsIncluded(prev => prev.filter((_, i) => i !== index))}
+                        className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-[#9ca3af] transition-colors hover:bg-[#f1f2f4] hover:text-[#1a1a2e] [-webkit-tap-highlight-color:transparent]"
+                        aria-label="Remove item"
                       >
-                        {/* One plain mark for every line, default or typed: a thin grey check, as the product page draws it. */}
-                        <Check aria-hidden strokeWidth={2} className="h-4 w-4 shrink-0 text-[#6b7280]" />
-                        {isDefaultItem ? (
-                          <span className="flex-1 text-sm text-gray-700">{item}</span>
-                        ) : (
-                          <Input
-                            value={item}
-                            onChange={(e) => {
-                              setWhatsIncluded(prev => prev.map((it, i) =>
-                                i === index ? e.target.value : it
-                              ))
-                            }}
-                            className="flex-1 h-8 text-sm border-0 bg-transparent shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 px-1"
-                            placeholder="Enter item..."
-                          />
-                        )}
-                        {!isDefaultItem && (
-                          <button
-                            type="button"
-                            onClick={() => setWhatsIncluded(prev => prev.filter((_, i) => i !== index))}
-                            className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
-                            title="Remove item"
-                          >
-                            <X className="h-3.5 w-3.5" />
-                          </button>
-                        )}
-                        {isDefaultItem && (
-                          <span className="rounded-[6px] border border-[#e3e5e8] bg-white px-1.5 py-0.5 text-[11px] font-medium text-[#6b7280]">Default</span>
-                        )}
-                      </div>
-                    )
-                  })}
+                        <X className="h-3.5 w-3.5" aria-hidden />
+                      </button>
+                    </div>
+                  ))}
                 </div>
 
                 {whatsIncluded.length < MAX_WHATS_INCLUDED && (
@@ -2672,26 +2672,43 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
               <div
                 className={CARD}
               >
-                <div>
-                  <h2 className={CARD_TITLE}>Pricing</h2>
-                  <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">
-                    How buyers pay for it.
-                  </p>
-                </div>
-
-                {/* The way it is sold slides; the fields under it change in place (./editor-controls). A physical product has a fixed price. */}
-                <div className="sm:max-w-[440px]" hidden={productType === "physical"}>
-                  <Segmented
-                    label="Pricing"
-                    fit="content"
-                    value={priceMode}
-                    onChange={choosePriceMode}
-                    options={[
-                      { value: "fixed", label: "Fixed price" },
-                      { value: "pwyw", label: "Pay what you want" },
-                      { value: "free", label: "Free" },
-                    ]}
-                  />
+                {/*
+                  How it is sold is one quiet choice at the end of the title
+                  row: the price is what the card is for, so it is not given a
+                  track of three tabs above it. A menu on a computer, the shared
+                  sheet on a phone. A physical product has a fixed price.
+                */}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h2 className={CARD_TITLE}>Pricing</h2>
+                    <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">
+                      {PRICE_MODE_HINT[priceMode]}
+                    </p>
+                  </div>
+                  {productType === "physical" ? null : (
+                    <ResponsiveActionMenu
+                      title="How it is sold"
+                      menuWidth="w-[13.5rem]"
+                      items={PRICE_MODES.map((m) => ({
+                        label: m.label,
+                        icon: m.value === priceMode
+                          ? <Check strokeWidth={2.25} aria-hidden />
+                          : <span aria-hidden className="block h-4 w-4" />,
+                        onClick: () => choosePriceMode(m.value),
+                      }))}
+                      trigger={
+                        <button
+                          type="button"
+                          data-price-mode=""
+                          aria-label={`How it is sold: ${PRICE_MODES.find((m) => m.value === priceMode)?.label}`}
+                          className="-mr-1 inline-flex h-9 shrink-0 items-center gap-1 rounded-lg px-2.5 text-[14px] font-medium text-[#1a1a2e] transition-colors hover:bg-[#f1f2f4] active:bg-[#e9eaed] data-[state=open]:bg-[#f1f2f4] sm:h-8 sm:text-[13px] [-webkit-tap-highlight-color:transparent]"
+                        >
+                          {PRICE_MODES.find((m) => m.value === priceMode)?.label}
+                          <ChevronDown className="h-4 w-4 text-[#6b7280]" aria-hidden />
+                        </button>
+                      }
+                    />
+                  )}
                 </div>
 
                 <SwapPanels

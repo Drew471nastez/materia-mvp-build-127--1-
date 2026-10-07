@@ -1071,8 +1071,9 @@ async function main() {
         && !/^\s*aria-modal="true"\s*$/m.test(search))
     /* ... nor the shared sheet's own root (data-sheet-root), which says it is up on <html> instead of through :has()
        (components/ui/bottom-sheet.tsx showSheetState; scripts/check-app-sheets-frames.mjs). */
+    /* Three, not two: the product editor's layer has its own step down, to 53, so the pill stays over the layer and under the sheet. */
     check("and the pill never counts a dialog that says it is hidden",
-      (css.match(/\[role="dialog"\]\[aria-modal="true"\]:not\(\[data-mobile-menu\], \[aria-hidden="true"\], \[data-sheet-root\]\)\) \[data-app-nav-pill\]/g) ?? []).length === 2
+      (css.match(/\[role="dialog"\]\[aria-modal="true"\]:not\(\[data-mobile-menu\], \[aria-hidden="true"\], \[data-sheet-root\]\)\) \[data-app-nav-pill\]/g) ?? []).length === 3
         && !/\[aria-modal="true"\]:not\(\[data-mobile-menu\]\)\)/.test(css))
   }
 
