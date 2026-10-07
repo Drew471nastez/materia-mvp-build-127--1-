@@ -139,7 +139,7 @@ export function numberedLinkPairs(list: { id?: unknown; type?: unknown }[]): num
  * settings › Animations; anything else is this section's own, whatever the
  * theme says. The runtime that plays them reads the setting by this id.
  */
-export const SECTION_ANIMATIONS = ["theme", "none", "fade", "fade_up", "zoom"] as const
+export const SECTION_ANIMATIONS = ["theme", "none", "fade", "fade_up", "zoom", "slide_left", "slide_right", "blur", "rise"] as const
 export type SectionAnimation = (typeof SECTION_ANIMATIONS)[number]
 
 /** The setting id the runtime reads a section's animation from. */

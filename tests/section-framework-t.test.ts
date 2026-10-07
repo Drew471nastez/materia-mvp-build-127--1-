@@ -364,7 +364,8 @@ function main() {
     check("and is not called unread: the page reads it", r.ok === true && !(r.warnings ?? []).some((w) => /settings\.animation/.test(w.message)), r.ok === true ? r.warnings : "")
     const odd = compileSection(ANIM.replace('"value": "zoom"', '"value": "slide"'), { file: "sections/anim_band.storelib" })
     check("a value the page does not play is a warning, not an error", odd.ok === true && (odd.warnings ?? []).some((w) => /"slide" plays as "theme"/.test(w.message)), odd.ok === true ? odd.warnings : odd.errors)
-    check("the values are theme, none, fade, fade_up, zoom", SECTION_ANIMATIONS.join() === "theme,none,fade,fade_up,zoom")
+    /* Changed on purpose: a section can also come in from either side, blur in or rise. */
+    check("the values are theme, none, fade, fade_up, zoom, both sides, blur and rise", SECTION_ANIMATIONS.join() === "theme,none,fade,fade_up,zoom,slide_left,slide_right,blur,rise")
     const docs = DEVELOPER_DOCS.schema ?? ""
     check("documented: it overrides the theme", /### A section's own animation/.test(docs) && /overrides the theme's animation/.test(docs))
     check("taught: the skills and the rules", /id animation/.test(skillsForRequest("animate this section with a fade")) && /id animation/.test(agentRulesText()))

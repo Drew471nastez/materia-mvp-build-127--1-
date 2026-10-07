@@ -279,10 +279,15 @@ export function scrollDurationMs(distance: number): number {
 
 // ── Entrance animation ──────────────────────────────────────────────────────
 
-export const SECTION_ANIMATIONS = ["theme", "none", "fade", "fade_up", "zoom"] as const
+export const SECTION_ANIMATIONS = ["theme", "none", "fade", "fade_up", "zoom", "slide_left", "slide_right", "blur", "rise"] as const
 export type SectionAnimationSetting = (typeof SECTION_ANIMATIONS)[number]
-/** The two slides are the theme's older choices, kept for the sites that chose them. */
-export type SectionAnimation = "none" | "fade" | "fade_up" | "zoom" | "slide_left" | "slide_right"
+/**
+ * How a section arrives. `slide_left` moves towards the left (it comes in
+ * from the right) and `slide_right` the other way, the names the theme has
+ * always stored. `blur` comes into focus as it fades and rises a little;
+ * `rise` travels further up, for a page with few, tall sections.
+ */
+export type SectionAnimation = "none" | "fade" | "fade_up" | "zoom" | "slide_left" | "slide_right" | "blur" | "rise"
 
 /** A section's own choice, for the panel: "Same as theme" and the four the owner listed. */
 export const SECTION_ANIMATION_OPTIONS: { value: SectionAnimationSetting; label: string }[] = [
@@ -290,7 +295,11 @@ export const SECTION_ANIMATION_OPTIONS: { value: SectionAnimationSetting; label:
   { value: "none", label: "None" },
   { value: "fade", label: "Fade" },
   { value: "fade_up", label: "Fade up" },
+  { value: "rise", label: "Rise" },
+  { value: "slide_right", label: "From the left" },
+  { value: "slide_left", label: "From the right" },
   { value: "zoom", label: "Zoom" },
+  { value: "blur", label: "Blur in" },
 ]
 
 /** The theme's stored style, in this file's words. */
@@ -300,6 +309,8 @@ const THEME_STYLE: Record<string, SectionAnimation> = {
   "zoom-in": "zoom",
   "slide-left": "slide_left",
   "slide-right": "slide_right",
+  "blur-in": "blur",
+  rise: "rise",
   fade_up: "fade_up",
   fade: "fade",
   zoom: "zoom",
@@ -316,8 +327,14 @@ export function themeAnimation(theme: Record<string, unknown> | null | undefined
 
 /** A section's `animation` setting over the theme's. Anything unknown is "theme". */
 export function resolveSectionAnimation(own: unknown, theme: Record<string, unknown> | null | undefined): SectionAnimation {
-  if (own === "none" || own === "fade" || own === "fade_up" || own === "zoom") return own
+  if (typeof own === "string" && own !== "theme" && (SECTION_ANIMATIONS as readonly string[]).includes(own)) return own as SectionAnimation
   return themeAnimation(theme)
+}
+
+/** Theme settings › Animations › Alternate sides: sections come in from the left and the right in turn. */
+export function themeAlternates(theme: Record<string, unknown> | null | undefined): boolean {
+  const t = theme ?? {}
+  return !!t.animations_enabled && t.animation_style === "alternate"
 }
 
 function num(v: unknown, fallback: number, min: number, max: number): number {
@@ -332,16 +349,19 @@ export function revealTiming(theme: Record<string, unknown> | null | undefined):
 }
 
 /** Where each animation starts. Opacity and transforms only, so nothing is laid out again. */
-export const REVEAL_FROM: Record<Exclude<SectionAnimation, "none">, { opacity: string; translate?: string; scale?: string }> = {
+export const REVEAL_FROM: Record<Exclude<SectionAnimation, "none">, { opacity: string; translate?: string; scale?: string; filter?: string }> = {
   fade: { opacity: "0" },
-  fade_up: { opacity: "0", translate: "0 24px" },
-  zoom: { opacity: "0", scale: "0.96" },
-  slide_left: { opacity: "0", translate: "24px 0" },
-  slide_right: { opacity: "0", translate: "-24px 0" },
+  fade_up: { opacity: "0", translate: "0 28px" },
+  rise: { opacity: "0", translate: "0 64px" },
+  zoom: { opacity: "0", scale: "0.94" },
+  /* Far enough to read as coming from the side, short of the edge of a phone. */
+  slide_left: { opacity: "0", translate: "48px 0" },
+  slide_right: { opacity: "0", translate: "-48px 0" },
+  blur: { opacity: "0", translate: "0 12px", filter: "blur(12px)" },
 }
 
-/** A deceleration with no overshoot. */
-export const REVEAL_EASING = "cubic-bezier(0.22, 1, 0.36, 1)"
+/** A long deceleration with no overshoot (an expo out): quick to start, soft to land. */
+export const REVEAL_EASING = "cubic-bezier(0.16, 1, 0.3, 1)"
 
 /** One section box as the reveal sees it. */
 export interface RevealBox {
@@ -361,6 +381,7 @@ export interface RevealBox {
  */
 export function revealPlan(boxes: readonly RevealBox[], theme: Record<string, unknown> | null | undefined): (Exclude<SectionAnimation, "none"> | null)[] {
   let seenBody = false
+  let side = false
   return boxes.map((b) => {
     if (b.chrome || isChromeType(b.type)) return null
     const first = !seenBody
@@ -368,7 +389,13 @@ export function revealPlan(boxes: readonly RevealBox[], theme: Record<string, un
     if (first) return null
     if (b.ownMotion) return null
     const a = resolveSectionAnimation(b.animation, theme)
-    return a === "none" ? null : a
+    if (a === "none") return null
+    /* Alternate sides: only for a section that follows the theme; one with its own choice keeps it. */
+    if (themeAlternates(theme) && (b.animation == null || b.animation === "theme")) {
+      side = !side
+      return side ? "slide_right" : "slide_left"
+    }
+    return a
   })
 }
 

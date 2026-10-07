@@ -399,13 +399,23 @@ export const THEME_SETTINGS_GROUPS: ThemeSettingsGroup[] = [
         label: "Animation style",
         type: "select",
         default: "fade-up",
+        /*
+          The page's default; each section can choose its own in its panel
+          (Animation), so a page can have one section from the left, the next
+          from the right and another that zooms. Alternate sides does that
+          turn by turn on its own.
+        */
         options: [
           { label: "Fade up", value: "fade-up" },
           { label: "Fade", value: "fade-in" },
-          { label: "Slide left", value: "slide-left" },
-          { label: "Slide right", value: "slide-right" },
+          { label: "Rise", value: "rise" },
+          { label: "Blur in", value: "blur-in" },
           { label: "Zoom", value: "zoom-in" },
+          { label: "From the right", value: "slide-left" },
+          { label: "From the left", value: "slide-right" },
+          { label: "Alternate sides", value: "alternate" },
         ],
+        info: "Each section can pick its own in its settings.",
       },
       { id: "animation_duration", label: "Duration (ms)", type: "range", min: 200, max: 1200, step: 50, default: 600, unit: "ms" },
       { id: "animation_stagger", label: "Stagger delay (ms)", type: "range", min: 0, max: 200, step: 10, default: 80, unit: "ms" },

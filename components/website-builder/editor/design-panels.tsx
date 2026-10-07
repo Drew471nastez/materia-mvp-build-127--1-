@@ -68,8 +68,10 @@ const THEME_MOTION_LABEL: Record<SectionAnimation, string> = {
   fade: "fade",
   fade_up: "fade up",
   zoom: "zoom",
-  slide_left: "slide left",
-  slide_right: "slide right",
+  slide_left: "from the right",
+  slide_right: "from the left",
+  blur: "blur in",
+  rise: "rise",
 }
 
 type Theme = ThemeSettingsValues

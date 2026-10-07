@@ -98,11 +98,15 @@ A section enters the page the way Theme settings, Animations says. A section tha
     { "label": "None", "value": "none" },
     { "label": "Fade", "value": "fade" },
     { "label": "Fade up", "value": "fade_up" },
-    { "label": "Zoom", "value": "zoom" }
+    { "label": "Rise", "value": "rise" },
+    { "label": "From the left", "value": "slide_right" },
+    { "label": "From the right", "value": "slide_left" },
+    { "label": "Zoom", "value": "zoom" },
+    { "label": "Blur in", "value": "blur" }
   ] }
 ```
 
-`theme` follows the theme. Any other value **overrides the theme's animation for this section**, including `none` on a site whose theme animates everything. The page reads the setting itself, so the template does not print it and the compile does not warn that it is unread. A value other than these five plays as `theme`, and the compile warns about it.
+`theme` follows the theme. Any other value **overrides the theme's animation for this section**, including `none` on a site whose theme animates everything. The page reads the setting itself, so the template does not print it and the compile does not warn that it is unread. A value other than these nine plays as `theme`, and the compile warns about it.
 
 ### Showing a setting only when it matters
 

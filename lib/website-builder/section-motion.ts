@@ -439,6 +439,7 @@ function keyframesFor(style: Exclude<SectionAnimation, "none">): Keyframe[] {
   const start: Keyframe = { opacity: from.opacity }
   if (from.translate) { start.translate = from.translate; to.translate = "0 0" }
   if (from.scale) { start.scale = from.scale; to.scale = "1" }
+  if (from.filter) { start.filter = from.filter; to.filter = "blur(0px)" }
   return [start, to]
 }
 
