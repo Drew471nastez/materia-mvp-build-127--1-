@@ -457,6 +457,12 @@ function Tile({ item }: { item: TrayItem }) {
             </>
           ) : (
             <span className="text-[12px] font-semibold tabular-nums">{Math.round(item.progress)}%</span>
+            {item.kind === "video" ? (
+              <span className="text-[11px] font-medium leading-tight">
+                Uploading
+                {item.size > 0 ? <span className="mt-0.5 block font-normal tabular-nums opacity-90">{fileSizeLabel(Math.round((item.size * item.progress) / 100))} of {fileSizeLabel(item.size)}</span> : null}
+              </span>
+            ) : null}
           )}
           {!processing ? (
             <span className="absolute inset-x-2 bottom-2 h-[3px] overflow-hidden rounded-full bg-white/30">

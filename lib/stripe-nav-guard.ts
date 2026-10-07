@@ -59,7 +59,7 @@ const CONTROLLER_IFRAME_RE = /js\.stripe\.com[^#?]*controller/
  * safe and also covers Stripe Link popup URLs (which use different patterns
  * like js.stripe.com/v3/link-*).
  */
-const STRIPE_NAV_RE = /^https?:\/\/js\.stripe\.com\//
+const STRIPE_NAV_RE = /^https?:\/\/(?:js\.stripe\.com|connect-js\.stripe\.com|connect\.stripe\.com)\//
 
 function isController(url: unknown): boolean {
   return CONTROLLER_IFRAME_RE.test(String(url ?? ""))

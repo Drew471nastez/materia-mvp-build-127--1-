@@ -357,7 +357,7 @@ async function main() {
     const db = classroomDb({ media_videos: [] })
     const c = community()
     const huge = await prepareVideoUpload(db, { community: c, staff: false, fileName: "big.mp4", contentType: "video/mp4", fileSize: MEMBER_VIDEO_MAX_BYTES + 1, origin: null, env: {} })
-    check("a member's video over 500 MB is refused before a byte moves", !huge.ok && (huge as any).status === 413)
+    check("a member's video over 1 GB is refused before a byte moves", !huge.ok && (huge as any).status === 413)
     const notVideo = await prepareVideoUpload(db, { community: c, staff: true, fileName: "x.exe", contentType: "application/x-msdownload", fileSize: 1000, origin: null, env: {} })
     check("a program is refused", !notVideo.ok && (notVideo as any).status === 415)
     const made = await prepareVideoUpload(db, { community: c, staff: true, fileName: "Intro Video.mp4", contentType: "video/mp4", fileSize: 4096, origin: null, env: {} })

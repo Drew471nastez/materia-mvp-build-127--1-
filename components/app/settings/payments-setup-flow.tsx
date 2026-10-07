@@ -40,6 +40,7 @@ import { personalIssues } from "@/lib/payments/stripe/onboarding-steps"
 import { setupStepOf, type StorelibPaymentsStatus } from "@/lib/payments/stripe/status"
 import type { Overview } from "@/components/app/settings/payments-hub-shared"
 import { isNativeApp, openInApp } from "@/lib/native-bridge"
+import "@/lib/stripe-nav-guard"
 import { armCameraSounds, IdCamera, sendIdPhoto, shrinkPhoto, type IdSide } from "@/components/app/settings/id-camera"
 import { StripeConnectEmbedded } from "@/components/app/settings/stripe-connect-embedded"
 import { readsLikeStripe, verifyLine } from "@/lib/payments/verify-id"
@@ -677,15 +678,22 @@ export function PaymentsSetupFlow({
   }
 
   const title = mode === "bank" ? (data.payoutDestination ? "Payout account" : "Add bank account") : mode === "details" ? "Account details" : "Set up payouts"
+  /*
+   * THE PHONE APP NEVER LOADS STRIPE'S EMBEDDED FORM. That script's frame
+   * navigates the web view to js.stripe.com, and Capacitor opens the system
+   * browser. Setup here is Storelib's own steps, on this page.
+   */
+  const inApp = isNativeApp()
   /* Back walks past a step that had nothing to ask, so it never lands somewhere that sends it forward again. */
   const stepBefore = (from: Step): Step => (from === 3 ? (idEmpty ? (detailsEmpty ? 0 : 1) : 2) : from === 2 ? (detailsEmpty ? 0 : 1) : 0)
-  const onBack = mode === "setup" || !!ending || step === 0 ? onClose : () => go(stepBefore(step))
+  const backCloses = !(inApp && mode === "setup" && !ending && step !== 0) && (mode === "setup" || !!ending || step === 0)
+  const onBack = backCloses ? onClose : () => go(stepBefore(step))
   const slide = back ? "slide-in-from-left-4" : "slide-in-from-right-4"
   /* The ID step is only a step once Stripe has asked for a document. */
   const labels = idNeeded ? STEP_LABELS : STEP_LABELS_NO_ID
   const last = labels.length - 1
-  /* Stripe draws its own steps inside the form. Ours only marks the result. */
-  const shownStep = ending ? last : 0
+  /* On the web Stripe draws its own steps. In the app these are ours, so the marks follow them. */
+  const shownStep = inApp && mode === "setup" && !ending ? (step === 3 ? last : step === 2 && idNeeded ? 1 : 0) : ending ? last : 0
 
   let body: React.ReactNode
   if (ending) {
@@ -720,6 +728,28 @@ export function PaymentsSetupFlow({
           }
           setEnding(now)
         }}
+      />
+    )
+  } else if (inApp) {
+    body = (
+      <InAppSetup
+        mode={mode}
+        step={step}
+        data={data}
+        openCount={openCount}
+        onClose={onClose}
+        onData={onData}
+        go={go}
+        settle={(sent, left) => void settle(sent, left)}
+        skipDetails={() => {
+          setDetailsEmpty(true)
+          go(2)
+        }}
+        skipId={() => {
+          setIdEmpty(true)
+          go(3)
+        }}
+        askId={() => setIdNeeded(true)}
       />
     )
   } else {
@@ -759,7 +789,7 @@ export function PaymentsSetupFlow({
             <>
               <button
                 type="button"
-                aria-label={mode === "setup" || !!ending || step === 0 ? "Close" : "Back"}
+                aria-label={backCloses ? "Close" : "Back"}
                 onClick={onBack}
                 className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full text-[#1a1a2e] outline-none transition-colors active:bg-[#f1f2f4] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20"
               >
@@ -794,7 +824,7 @@ export function PaymentsSetupFlow({
             where it fills the screen so Cancel and Continue sit at the bottom. */}
         <div className="mx-auto w-full max-w-[560px] px-0 pb-[max(4.5rem,env(safe-area-inset-bottom))] max-sm:flex max-sm:min-h-full max-sm:flex-col sm:px-6 sm:pb-24 sm:pt-10 [@media(max-height:540px)]:px-3 [@media(max-height:540px)]:pb-8 [@media(max-height:540px)]:pt-3">
           {phone ? (
-            mode === "setup" && ending ? (
+            mode === "setup" && (ending || inApp) ? (
               <div className="px-5 pt-4">
                 <Stepper step={shownStep} labels={labels} done={ending === "done" || ending === "checking"} />
               </div>
@@ -803,7 +833,7 @@ export function PaymentsSetupFlow({
             <div className="mb-6 px-1 [@media(max-height:540px)]:mb-3">
               <h2 className="text-[22px] font-semibold leading-7 tracking-[-0.01em] text-[#1a1a2e]">{title}</h2>
               <p className="mt-1 text-[14px] leading-5 text-[#6b7280]">{subtitle}</p>
-              {mode === "setup" && ending ? (
+              {mode === "setup" && (ending || inApp) ? (
                 <div className="mt-5">
                   <Stepper step={shownStep} labels={labels} done={ending === "done" || ending === "checking"} />
                 </div>
@@ -923,6 +953,98 @@ function useWhenPayoutsOn(ready: boolean, onData: (next: Overview) => void, onEx
       window.clearInterval(timer)
     }
   }, [ready])
+}
+
+/**
+ * SETUP INSIDE THE PHONE APP. Storelib's own steps, never Stripe's embedded
+ * form: that form's script navigates the web view out to the system browser.
+ */
+function InAppSetup({
+  mode,
+  step,
+  data,
+  openCount,
+  onClose,
+  onData,
+  go,
+  settle,
+  skipDetails,
+  skipId,
+  askId,
+}: {
+  mode: SetupMode
+  step: Step
+  data: Overview
+  openCount: number
+  onClose: () => void
+  onData: (next: Overview) => void
+  go: (next: Step) => void
+  settle: (sent: Overview, left: DetailsForm | null) => void
+  skipDetails: () => void
+  skipId: () => void
+  askId: () => void
+}) {
+  if (mode === "bank") {
+    return <BankForm onBack={onClose} onData={onData} onDone={(sent) => settle(sent, null)} />
+  }
+  const fieldsOnly = mode !== "setup"
+  if (fieldsOnly) {
+    return (
+      <DetailsStep
+        key={`native-fields-${openCount}`}
+        only="details"
+        onBack={onClose}
+        onData={onData}
+        onNext={(left, sent) => {
+          if (sent) settle(sent, left)
+        }}
+      />
+    )
+  }
+  if (step === 0) {
+    return (
+      <AccountStep
+        key={`native-account-${openCount}`}
+        data={data}
+        onBack={onClose}
+        onDone={(next) => {
+          onData(next)
+          go(1)
+        }}
+      />
+    )
+  }
+  if (step === 2) {
+    return (
+      <DetailsStep
+        key={`native-id-${openCount}`}
+        only="id"
+        onBack={() => go(1)}
+        onData={onData}
+        onAsking={askId}
+        onEmpty={skipId}
+        onNext={(left, sent) => {
+          if (sent) settle(sent, left)
+          else go(3)
+        }}
+      />
+    )
+  }
+  if (step === 3) {
+    return <BankForm key={`native-bank-${openCount}`} onBack={() => go(2)} onData={onData} onDone={(sent) => settle(sent, null)} />
+  }
+  return (
+    <DetailsStep
+      key={`native-about-${openCount}`}
+      only="details"
+      onBack={() => go(0)}
+      onData={onData}
+      onEmpty={skipDetails}
+      onNext={(left, sent) => {
+        if (sent) settle(sent, left)
+      }}
+    />
+  )
 }
 
 /* ── step 1: account ───────────────────────────────────────────────────── */

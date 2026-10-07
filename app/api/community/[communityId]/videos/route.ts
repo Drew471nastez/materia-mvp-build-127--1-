@@ -19,7 +19,7 @@ const noStore = { "Cache-Control": "private, no-store" }
  *     -> { video: VideoStatusView }
  *
  * For an active member who may upload (can(role, "upload"): not muted, the
- * community not archived). Members send up to 500 MB, staff up to 2 GB; the
+ * community not archived). Members send up to 1 GB, staff up to 2 GB; the
  * file is checked before a byte moves and again where it landed, and it is
  * counted against the community creator's storage. Rate limited like every
  * upload on Storelib. A video plays only where it is used (a post, an

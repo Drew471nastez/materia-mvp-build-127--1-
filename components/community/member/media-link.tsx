@@ -21,7 +21,7 @@ import { EMBED_NAMES, postEmbedFromUrl, type PostEmbedRef } from "@/lib/communit
 import { api, apiBase } from "./api"
 import { hostOf } from "./media"
 import { ProviderMark } from "./media-providers"
-import { BTN_PRIMARY, BTN_SECONDARY, ICON_BTN } from "./ui"
+import { BTN_PRIMARY, ICON_BTN } from "./ui"
 import type { LinkPreview } from "./view-types"
 
 export type LinkMode = "link" | "video"
@@ -126,6 +126,18 @@ export function LinkField({
   const thumb = embed?.thumb ?? preview?.image ?? null
   return (
     <div className={className} data-link-field={mode}>
+      {mode === "video" && onUpload ? (
+        <button
+          type="button"
+          onClick={onUpload}
+          data-composer-video-upload=""
+          className="mb-2 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#1a1a2e] px-4 text-[14px] font-semibold text-white transition-colors hover:bg-[#2a2a44] active:bg-[#11111c]"
+        >
+          <Upload className="h-4 w-4" aria-hidden />
+          Upload a video
+          <span className="font-medium text-white/70">up to 1 GB</span>
+        </button>
+      ) : null}
       <form
         className="flex items-center gap-2"
         onSubmit={(e) => {
@@ -173,12 +185,6 @@ export function LinkField({
         <button type="submit" className={BTN_PRIMARY} disabled={!url || wrong} data-link-add="">
           Add
         </button>
-        {mode === "video" && onUpload ? (
-          <button type="button" className={`${BTN_SECONDARY} gap-1.5 px-3`} onClick={onUpload} data-composer-video-upload="">
-            <Upload className="h-4 w-4" aria-hidden />
-            <span className="max-sm:sr-only">Upload</span>
-          </button>
-        ) : null}
         <button type="button" aria-label="Close" className={`${ICON_BTN} -ml-1`} onClick={onClose} data-link-close="">
           <X className="h-[18px] w-[18px]" />
         </button>

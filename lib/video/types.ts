@@ -62,7 +62,7 @@ export interface VideoStatusView {
 export const PLAYBACK_SECONDS = 60 * 60
 
 /** The biggest video a member who is not staff may send to a community. */
-export const MEMBER_VIDEO_MAX_BYTES = 500 * 1024 * 1024
+export const MEMBER_VIDEO_MAX_BYTES = 1024 * 1024 * 1024
 
 /** The biggest video staff may send: the upload pipeline's own ceiling for video. */
 export const STAFF_VIDEO_MAX_BYTES = 2_000_000_000

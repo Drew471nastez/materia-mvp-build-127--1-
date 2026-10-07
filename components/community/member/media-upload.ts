@@ -35,7 +35,7 @@ const PICTURE_TYPES = /^image\/(jpeg|png|webp|gif|heic|heif|avif)$/i
 /** What a picked file becomes in a post. SVG is a file, not a picture: it can carry script. */
 export function uploadKindOf(file: Pick<File, "type" | "name">): UploadKind {
   if (PICTURE_TYPES.test(file.type) || (!file.type && /\.(jpe?g|png|webp|gif|heic|heif|avif)$/i.test(file.name))) return "image"
-  if (/^video\/(mp4|quicktime|webm)$/i.test(file.type)) return "video"
+  if (/^video\/(mp4|quicktime|webm|x-m4v)$/i.test(file.type) || (!file.type && /\.(mp4|mov|m4v|webm)$/i.test(file.name))) return "video"
   return "file"
 }
 

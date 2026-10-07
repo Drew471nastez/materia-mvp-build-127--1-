@@ -126,6 +126,7 @@ import { spaceGlyph } from "./space-glyph"
 import { toast } from "./toast"
 import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, CARD, DEPTH, DEPTH_PRESS, ICON_BTN } from "./ui"
 import { hapticTap } from "@/lib/native-bridge"
+import { MEMBER_VIDEO_MAX_BYTES } from "@/lib/video/types"
 import type { ComposerSpace, LinkPreview } from "./view-types"
 
 export interface ComposerProps {
@@ -541,7 +542,10 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
   const addVideo = async (file: File | undefined) => {
     if (!file) return
     if (!room()) return toast(`Up to ${MAX_MEDIA_PER_POST} things in one post.`)
-    if (!file.type.startsWith("video/")) return toast("That file is not a video.")
+    const looksVideo = file.type.startsWith("video/") || /\.(mp4|mov|m4v|webm)$/i.test(file.name)
+    if (!looksVideo) return toast("That file is not a video.")
+    if (file.size > MEMBER_VIDEO_MAX_BYTES) return toast("That video is over 1 GB.")
+    setLinkField(null)
     const k = newKey()
     add({ key: k, kind: "video", name: file.name, size: file.size, progress: 0 })
     try {
@@ -937,7 +941,7 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
   const pickers = (
     <>
       <input ref={fileInput} type="file" multiple hidden onChange={(e) => (void addFiles(e.target.files), (e.target.value = ""))} data-composer-file-input="" />
-      <input ref={videoInput} type="file" accept="video/mp4,video/quicktime,video/webm" hidden onChange={(e) => (void addVideo(e.target.files?.[0]), (e.target.value = ""))} data-composer-video-input="" />
+      <input ref={videoInput} type="file" accept="video/mp4,video/quicktime,video/webm,video/*,.mp4,.mov,.m4v,.webm" hidden onChange={(e) => (void addVideo(e.target.files?.[0]), (e.target.value = ""))} data-composer-video-input="" />
     </>
   )
 
@@ -1072,7 +1076,22 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
       <button type="button" aria-label="Add a link" title="Add a link" aria-pressed={linkField === "link"} className={TOOL} onClick={() => setLinkField((f) => (f === "link" ? null : "link"))} data-composer-tool="link">
         <Link2 className="h-5 w-5" strokeWidth={1.75} />
       </button>
-      <button type="button" aria-label="Add a video" title="Add a video" aria-pressed={linkField === "video"} className={TOOL} onClick={() => setLinkField((f) => (f === "video" ? null : "video"))} data-composer-tool="video">
+      <button
+        type="button"
+        aria-label="Add a video"
+        title="Add a video"
+        aria-pressed={linkField === "video"}
+        className={TOOL}
+        data-composer-tool="video"
+        onClick={() => {
+          if (linkField === "video") {
+            setLinkField(null)
+            return
+          }
+          setLinkField("video")
+          videoInput.current?.click()
+        }}
+      >
         <Clapperboard className="h-5 w-5" strokeWidth={1.75} />
       </button>
       <button type="button" aria-label="Add a poll" title="Add a poll" aria-pressed={!!poll} className={TOOL} onClick={() => setPoll((p) => (p ? null : { question: "", options: ["", ""], multiple: false, closesIn: "" }))} data-composer-tool="poll">

@@ -77,9 +77,6 @@ const APPEARANCE = {
 
 const FONTS = [{ cssSrc: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" }]
 
-/** Start the Connect script as soon as this file loads, so opening setup does not wait on it. */
-const connectJs = import("@stripe/connect-js/pure")
-
 /**
  * Stripe's embedded onboarding, account management or payouts, drawn inside
  * Storelib. The caller says what to collect: setup asks for everything the
@@ -123,7 +120,12 @@ export function StripeConnectEmbedded({
     setFailed(null)
     ;(async () => {
       try {
-        const [first, { loadConnectAndInitialize }] = await Promise.all([openSession(purpose), connectJs])
+        /*
+          Loaded here, not when this file is imported. On the phone app a
+          module-level import started Stripe.js as soon as Payouts opened,
+          and its controller frame navigated the web view out to the browser.
+        */
+        const [first, { loadConnectAndInitialize }] = await Promise.all([openSession(purpose), import("@stripe/connect-js/pure")])
         if (gone) return
         let pending: string | null = first.clientSecret
         const connect = loadConnectAndInitialize({
