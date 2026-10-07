@@ -776,7 +776,7 @@ the compiler emits this:
   `animation-name` that uses one is rewritten. Write `animation`, not
   `-webkit-animation`, or the rename will miss it.
 - `@import` is refused. There is no fetching from a stylesheet.
-- Over 128 KB is refused.
+- Over 5000 KB is refused.
 
 ### 6.2 Settings in CSS
 
@@ -1448,7 +1448,7 @@ CSS that is not scoped to a section.
 | Package | 50 MB |
 | One asset | 15 MB |
 | One source file | 5000 KB |
-| A section's CSS | 128 KB |
+| A section's CSS | 5000 KB |
 | A section's script | 64 KB |
 | Files per package | 2000 |
 | Sections per template | 60 |

@@ -392,7 +392,7 @@ editor, where somebody can fix it.
 ## 9. Limits
 
 A page holds 60 sections; a section holds 50 blocks and 120 settings; a file
-is at most 5000 KB, its CSS 128 KB, its script 64 KB; a theme holds 2000 files.
+is at most 5000 KB, its CSS 5000 KB, its script 64 KB; a theme holds 2000 files.
 These are refused at the point of saving, not only when a theme is exported.
 
 ## 10. Error boundaries

@@ -613,8 +613,8 @@ export const LIMITS = {
   sourceBytes: 5000 * 1024,
   /** Bytes. A section's compiled script. */
   scriptBytes: 64 * 1024,
-  /** Bytes. A section's CSS. */
-  cssBytes: 128 * 1024,
+  /** Bytes. A section's CSS. Same ceiling as a source file, so a large generated stylesheet still imports. */
+  cssBytes: 5000 * 1024,
   filesPerPackage: 2000,
   sectionsPerTemplate: 60,
   blocksPerSection: 50,

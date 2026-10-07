@@ -37,7 +37,7 @@ and at render time `__SECTION_ID__` becomes the instance's id.
 - `@keyframes` names are prefixed with the section type (`sl-<type>-<name>`)
   and every `animation` / `animation-name` that uses one is rewritten.
 - `@import` is refused. There is no fetching from a stylesheet.
-- Over 128 KB (`LIMITS.cssBytes`) is refused.
+- Over 5000 KB (`LIMITS.cssBytes`) is refused.
 - A syntax error carries the file line.
 
 ## Settings in CSS
