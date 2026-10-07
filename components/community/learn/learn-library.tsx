@@ -53,7 +53,7 @@ export function LearnLibrary({ programs, timeZone, manageHref = null }: { progra
           className={cn(
             "grid gap-3 sm:gap-4",
             programs.length === 1
-              ? "grid-cols-1 max-w-[min(100%,300px)]"
+              ? "grid-cols-1 min-[520px]:max-w-[300px]"
               : "grid-cols-1 max-w-[min(100%,820px)] min-[520px]:grid-cols-2",
           )}
           data-program-grid
@@ -89,12 +89,18 @@ function ProgramTile({ program: p, timeZone }: { program: ProgramCard; timeZone?
       data-locked={lock ? (p.locked?.reason ?? "yes") : "no"}
       className={cn(
         CARD_RAISED,
-        "group/card flex h-full flex-row gap-3 overflow-hidden p-3 transition-[border-color,box-shadow] duration-[400ms] ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-[#d5d9e0] hover:shadow-[0_1px_0_rgba(16,24,40,0.04),0_2px_6px_rgba(16,24,40,0.06),0_10px_24px_-12px_rgba(16,24,40,0.14)] motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 min-[520px]:flex-col min-[520px]:gap-0 min-[520px]:p-0 touch-manipulation [-webkit-tap-highlight-color:transparent]",
+        "group/card relative flex h-full flex-row gap-3 p-3 transition-[border-color] duration-[400ms] ease-[cubic-bezier(0.22,1,0.36,1)] hover:border-[#d9dce1] motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 min-[520px]:flex-col min-[520px]:gap-0 min-[520px]:p-0 touch-manipulation [-webkit-tap-highlight-color:transparent]",
+        /*
+          THE LIFT IS ITS OWN LAYER (round 15). The card's resting shadow has an inset line and a lifted shadow cannot, and the
+          browser cannot blend two shadows of different kinds: the hover jumped from one to the other halfway through. The lift
+          is a layer of its own now that only fades, in and out over the same 400ms, so the hover is the same smooth both ways.
+        */
+        "after:pointer-events-none after:absolute after:-inset-px after:rounded-[inherit] after:opacity-0 after:shadow-[0_2px_6px_rgba(16,24,40,0.06),0_12px_28px_-12px_rgba(16,24,40,0.16)] after:transition-opacity after:duration-[400ms] after:ease-[cubic-bezier(0.22,1,0.36,1)] hover:after:opacity-100 motion-reduce:after:transition-none",
       )}
     >
-      <div className="relative aspect-[16/9] w-[116px] shrink-0 self-start overflow-hidden rounded-lg bg-[#f1f2f4] min-[520px]:w-full min-[520px]:rounded-none">
+      <div className="relative aspect-[16/9] w-[116px] shrink-0 self-start overflow-hidden rounded-lg bg-[#f1f2f4] isolate min-[520px]:w-full min-[520px]:rounded-b-none min-[520px]:rounded-t-[15px]">
         {p.coverUrl ? (
-          <Image src={p.coverUrl} alt="" fill sizes="(min-width: 1280px) 400px, (min-width: 520px) 45vw, 116px" className={`object-cover transition-[scale] duration-[700ms] ease-[cubic-bezier(0.22,1,0.36,1)] [will-change:scale] group-hover/card:scale-[1.04] motion-reduce:transition-none motion-reduce:group-hover/card:scale-100 ${lock && !paid ? "saturate-[0.6]" : ""}`} />
+          <Image src={p.coverUrl} alt="" fill sizes="(min-width: 1280px) 400px, (min-width: 520px) 45vw, 116px" className={`object-cover transition-[scale] duration-[600ms] ease-[cubic-bezier(0.22,1,0.36,1)] [will-change:scale] group-hover/card:scale-[1.03] motion-reduce:transition-none motion-reduce:group-hover/card:scale-100 ${lock && !paid ? "saturate-[0.6]" : ""}`} />
         ) : (
           <span className="flex h-full w-full items-center justify-center">
             <PlaceIcon place="classroom" className="h-5 w-5 text-[#b0b4bb] min-[520px]:h-7 min-[520px]:w-7" />
