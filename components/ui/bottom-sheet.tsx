@@ -358,6 +358,20 @@ function canScroll(scroller: HTMLElement | null, dy: number): boolean {
   return scroller.scrollTop < scroller.scrollHeight - scroller.clientHeight - 1
 }
 
+/** How far everything that scrolls between the finger and the sheet is scrolled, summed: 0 is all of it at its top. */
+function scrolledAbove(target: EventTarget | null, stop: HTMLElement): number {
+  let sum = 0
+  let el = target as HTMLElement | null
+  while (el && el !== stop) {
+    if (el.scrollHeight > el.clientHeight + 1) {
+      const oy = getComputedStyle(el).overflowY
+      if (oy === "auto" || oy === "scroll") sum += Math.max(0, el.scrollTop)
+    }
+    el = el.parentElement
+  }
+  return sum
+}
+
 /** The nearest thing between the finger and the sheet that scrolls vertically. */
 function scrollerAt(target: EventTarget | null, stop: HTMLElement): HTMLElement | null {
   let el = target as HTMLElement | null
@@ -963,14 +977,20 @@ export function BottomSheet({
         if (Math.abs(dx) > Math.abs(dy)) return
         const scroller = scrollerRef.current
         /*
-          A list keeps the finger, including the overscroll at its ends.
-          Handing that pull to the sheet closed the post while the person was
-          only scrolling, and the history step behind it then jumped the page.
-          Only the handle dismisses by drag.
+          A list keeps the finger, except for the one pull it can not take: a
+          pull down that starts with everything under the finger already at
+          its top. That pull is the sheet's, as on an iOS sheet and the
+          website builder's (sheet-gestures.ts dragIntent), so a post closes
+          from anywhere on it, not only from the handle. Decided once, here,
+          on the first move: a scroll that reaches the top mid-gesture stays
+          a scroll, and a field being typed in keeps its own finger.
         */
         if (!fromHandleRef.current && scroller) {
-          if (!canScroll(scroller, dy) && e.cancelable && Math.abs(dy) >= Math.abs(dx)) e.preventDefault()
-          return
+          const pullFromTop = dy > 0 && scrolledAbove(e.target, sheet) <= 0 && !(e.target as HTMLElement | null)?.closest?.("textarea, input, [contenteditable='true']")
+          if (!pullFromTop) {
+            if (!canScroll(scroller, dy) && e.cancelable && Math.abs(dy) >= Math.abs(dx)) e.preventDefault()
+            return
+          }
         }
         draggingRef.current = true
         sheet.style.willChange = "transform"
