@@ -11,8 +11,9 @@ export type StripeAccountSessionPurpose = "onboarding" | "management" | "payouts
  * an older account Stripe collects for, both stay at Stripe's defaults.
  * Payout buttons stay off: Storelib's own Cash out moves money.
  */
-export function accountSessionComponents(purpose: StripeAccountSessionPurpose, storelibCollects: boolean): Stripe.AccountSessionCreateParams.Components {
-  const features = storelibCollects ? { external_account_collection: true, disable_stripe_user_authentication: true } : {}
+export function accountSessionComponents(purpose: StripeAccountSessionPurpose, storelibCollects: boolean, options: { bank?: boolean } = {}): Stripe.AccountSessionCreateParams.Components {
+  /* `bank: false`: the phone app's Account details, whose bank is changed in Storelib's own form (payments-setup-flow ownForms). */
+  const features = storelibCollects ? { external_account_collection: options.bank !== false, disable_stripe_user_authentication: true } : {}
   const noMoney = { instant_payouts: false, standard_payouts: false, edit_payout_schedule: false }
   if (purpose === "onboarding") return { account_onboarding: { enabled: true, features } }
   if (purpose === "management") return { account_management: { enabled: true, features } }

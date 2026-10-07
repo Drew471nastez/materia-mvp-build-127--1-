@@ -5,7 +5,7 @@ import { recordCheckoutStart } from "@/lib/automations/abandoned"
 import { contactSourceOfOrder } from "@/lib/contacts/contact-source"
 import { recordCheckoutContactAndWelcome } from "@/lib/contacts/checkout-welcome"
 import { stripe } from "@/lib/stripe"
-import { getValidatedPlatformStatementDescriptor, statementDescriptorSuffix } from "@/lib/payments/platform-descriptor"
+import { getValidatedPlatformStatementDescriptor, statementParams } from "@/lib/payments/platform-descriptor"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { nanoid } from "nanoid"
@@ -247,12 +247,17 @@ export async function POST(request: Request) {
     transfer_data: { destination: account },
   }
 
-  /* "SELLER NAME" after the platform's own descriptor on the statement.
-     Only the suffix: a full `statement_descriptor` is refused for cards. */
+  /* The seller's name on the buyer's statement: on its own when the sale is
+     made on the seller's behalf, after STORELIB* otherwise
+     (lib/payments/platform-descriptor statementParams). Only a suffix, never
+     a full `statement_descriptor`, which Stripe refuses for cards. */
   try {
     getValidatedPlatformStatementDescriptor()
-    const suffix = statementDescriptorSuffix(creator.statement_descriptor || creator.display_name || "")
-    if (suffix.length >= 2) params.statement_descriptor_suffix = suffix
+    Object.assign(params, statementParams({
+      account,
+      descriptor: creator.statement_descriptor || creator.display_name || "",
+      chargesEnabled: creator.charges_enabled,
+    }))
   } catch {
     /* no platform descriptor configured: Stripe's account default is used */
   }
@@ -287,6 +292,7 @@ export async function POST(request: Request) {
           transfer_data: { destination: account },
           metadata,
           ...(params.statement_descriptor_suffix ? { statement_descriptor_suffix: params.statement_descriptor_suffix } : {}),
+          ...(params.on_behalf_of ? { on_behalf_of: params.on_behalf_of } : {}),
         },
       })
       return NextResponse.json({ url: session.url, sessionId: session.id })
@@ -296,8 +302,14 @@ export async function POST(request: Request) {
     try {
       intent = await stripe.paymentIntents.create(params)
     } catch (e) {
-      if (!params.statement_descriptor_suffix || !String((e as Error)?.message || "").toLowerCase().includes("statement_descriptor")) throw e
+      /* Stripe refused the statement's part (a suffix it will not take, or an
+         account it will not charge on behalf of): the sale goes through with
+         Storelib's own line rather than not at all. */
+      const message = String((e as Error)?.message || "").toLowerCase()
+      const statementPart = (params.statement_descriptor_suffix && message.includes("statement_descriptor")) || (params.on_behalf_of && message.includes("on_behalf_of"))
+      if (!statementPart) throw e
       delete params.statement_descriptor_suffix
+      delete params.on_behalf_of
       intent = await stripe.paymentIntents.create(params)
     }
     /* The checkout reached Pay: written down after the answer goes back, so

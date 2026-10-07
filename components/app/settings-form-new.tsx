@@ -4,6 +4,7 @@ import { announceChange } from "@/lib/seo/announce-client"
 import type React from "react"
 import { BottomSheet, SHEET_CLOSE_MS, SHEET_EASE, SHEET_OPEN_MS } from "@/components/ui/bottom-sheet"
 import { useState, useRef, useEffect, useCallback, useDeferredValue } from "react"
+import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
 import { useRouter } from "next/navigation"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
 import { nativeLogOut } from "@/lib/native-bridge"
@@ -38,7 +39,7 @@ import { DomainsPanel, type DomainsData } from "@/components/app/settings/domain
 import { creatorPageHostFrom, websiteHostFrom } from "@/lib/custom-domains/client"
 import { AddressList, type SettingsWebsite } from "@/components/app/settings/addresses"
 import { WaitingArea } from "@/components/ui/activity-spinner"
-import { bankStatementLine, statementDescriptorSuffix } from "@/lib/payments/platform-descriptor"
+import { STATEMENT_NAME_MAX, bankStatementLine, statementDescriptorSuffix } from "@/lib/payments/platform-descriptor"
 import { ShareStorelib } from "@/components/app/share/share-storelib"
 import type { ConnectedPlatform, ShareAddress } from "@/components/app/share/share-data"
 import { EmailChangeFlow, PrivacyPanel, SecurityPanel } from "@/components/app/settings/account-panels"
@@ -920,6 +921,14 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
       initialTimezone.current = selectedTimezone
       initialSupportEmail.current = supportEmail
       initialPayoutCurrency.current = payoutCurrency
+      /* A new name for the bank statement is written to the creator's Stripe account as well (app/api/settings/statement-descriptor). */
+      if (statementDescriptor !== initialStatementDescriptor.current && statementDescriptor.trim()) {
+        void fetch("/api/settings/statement-descriptor", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ descriptor: statementDescriptor }),
+        }).catch(() => {})
+      }
       initialStatementDescriptor.current = statementDescriptor
 
       // If language changed, apply it and reload the page
@@ -1677,7 +1686,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
               <div className="bg-white rounded-2xl app-card-x py-4 sm:py-5 shadow-sm border border-[#e5e7eb]">
                 <div className="space-y-1.5 max-w-[420px]">
                   <div className="flex items-center gap-2">
-                    <Label htmlFor="statement-descriptor" className="text-[13px] font-medium text-[#374151]">Statement Descriptor</Label>
+                    <Label htmlFor="statement-descriptor" className="text-[13px] font-medium text-[#374151]">Name on bank statements</Label>
                     <InfoTip label="About statement descriptor">
                       This text appears on your customer&apos;s bank statement to identify who charged them.
                     </InfoTip>
@@ -1689,7 +1698,17 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                     placeholder={defaultStatementDescriptor}
                     className="h-10 rounded-xl border-[#e5e7eb] text-[13px] focus-visible:border-[#8b5cf6] focus-visible:ring-[#8b5cf6]/20"
                   />
-                  <p className="text-[12px] text-[#9ca3af]">Bank apps show {bankStatementLine(statementDescriptor || defaultStatementDescriptor)}. The whole line is at most 22 characters.</p>
+                  {/* The line as the buyer's bank app will draw it, on a small statement row. */}
+                  <div data-statement-preview="" className="mt-2 flex items-center gap-3 rounded-xl border border-[#eceef1] bg-[#fafafb] px-3 py-2.5">
+                    <span aria-hidden className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-[#1a1a2e] text-[12px] font-semibold text-white">
+                      {(statementDescriptor || defaultStatementDescriptor).charAt(0) || "S"}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-mono text-[13px] font-medium text-[#1a1a2e]">{bankStatementLine(statementDescriptor || defaultStatementDescriptor)}</p>
+                      <p className="text-[12px] text-[#6b7280]">How a sale reads in your buyer&apos;s bank app</p>
+                    </div>
+                  </div>
+                  <p className="text-[12px] text-[#9ca3af]">Letters, numbers and spaces. Up to {STATEMENT_NAME_MAX} characters.</p>
                 </div>
               </div>
 
@@ -1749,77 +1768,68 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
 
           </div>
         </form>
+        {/* Room for the save bar while it is up, so the page's last row can scroll clear of it. */}
+        {hasUnsavedChanges ? <div aria-hidden className="h-16" /> : null}
       </div>
 
-      {/* Sticky Save Bar - Smooth fade animation */}
+      {/*
+        THE SAVE BAR. A floating card, not a strip across the foot of the
+        screen: white, a hairline and a soft shadow like the app's other
+        cards, the change on the left and Discard and Save on the right. On a
+        phone it rides just above the navigation pill, which stays where it
+        is (it used to be pushed off the screen while there was something to
+        save, and the strip covered the page's last rows). It rises in on
+        transform and opacity only, over 260ms on iOS's curve.
+      */}
       {(() => {
         const barUp = hasUnsavedChanges && !showEmailChangeModal && !showDeleteModal
+        const discard = () => {
+          setFirstName(initialValues.current.firstName)
+          setLastName(initialValues.current.lastName)
+          setUsername(initialValues.current.username)
+          setAddressLine1(initialValues.current.addressLine1)
+          setCity(initialValues.current.city)
+          setState(initialValues.current.state)
+          setPostalCode(initialValues.current.postalCode)
+          setCountry(initialValues.current.country)
+          setSelectedLanguage(initialLanguage.current)
+          setSelectedTimezone(initialTimezone.current)
+          setSupportEmail(initialSupportEmail.current)
+          /* Payments' two fields: Cancel used to leave them as typed, so the bar never went away there. */
+          setPayoutCurrency(initialPayoutCurrency.current)
+          setStatementDescriptor(initialStatementDescriptor.current)
+          setError(null)
+        }
         return (
       <div
-        /*
-          On a phone the navigation is a pill floating over the foot of the
-          screen, and this bar wants the same strip. Saying so here is enough:
-          app/globals.css moves the pill out of the way while this is up, and
-          neither surface has to hold any state about the other.
-        */
-        data-app-bottom-bar={barUp ? "visible" : "hidden"}
-        className={`fixed bottom-0 left-0 right-0 md:left-[240px] z-40 bg-white/95 backdrop-blur-sm border-t border-[#e5e7eb]/60 pb-[env(safe-area-inset-bottom)] transition-all duration-300 ease-out ${
-          barUp
-            ? "translate-y-0 opacity-100"
-            : "translate-y-full opacity-0 pointer-events-none"
-        }`}
+        data-settings-save-bar={barUp ? "up" : "down"}
+        aria-hidden={!barUp || undefined}
+        className="pointer-events-none fixed inset-x-0 z-40 flex justify-center px-3 md:left-[240px] md:px-6 bottom-[calc(var(--app-nav-top)+10px)] md:bottom-[max(16px,env(safe-area-inset-bottom))]"
       >
-        <div className="max-w-4xl mx-auto app-gutter py-4 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2.5 min-w-0">
-            {error ? (
-              <>
-                <div className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
-                <span className="text-[14px] text-red-600 truncate">{error}</span>
-              </>
-            ) : (
-              <>
-                <div className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
-                <span className="text-[14px] text-[#6b7280]">{t("settings.unsavedChanges")}</span>
-              </>
-            )}
+        <div
+          role="region"
+          aria-label="Unsaved changes"
+          className={`flex w-full max-w-[560px] items-center gap-3 rounded-2xl border border-[#e5e7eb] bg-white py-2 pl-4 pr-2 shadow-[0_18px_40px_-18px_rgba(17,24,39,0.35),0_4px_12px_-4px_rgba(17,24,39,0.12)] transition-[transform,opacity] duration-[260ms] ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none ${
+            barUp ? "pointer-events-auto translate-y-0 opacity-100" : "translate-y-[calc(100%+24px)] opacity-0"
+          }`}
+        >
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <span aria-hidden className={`h-2 w-2 shrink-0 rounded-full ${error ? "bg-[#c4290c]" : "bg-[#e8a400]"}`} />
+            <span className={`truncate text-[14px] ${error ? "text-[#b42318]" : "text-[#4b5563]"}`}>{error || t("settings.unsavedChanges")}</span>
           </div>
-          <div className="flex items-center gap-2.5">
-            <button
-              type="button"
-              onClick={() => {
-                // Reset to initial values
-                setFirstName(initialValues.current.firstName)
-                setLastName(initialValues.current.lastName)
-                setUsername(initialValues.current.username)
-                setAddressLine1(initialValues.current.addressLine1)
-                setCity(initialValues.current.city)
-                setState(initialValues.current.state)
-                setPostalCode(initialValues.current.postalCode)
-                setCountry(initialValues.current.country)
-                setSelectedLanguage(initialLanguage.current)
-                setSelectedTimezone(initialTimezone.current)
-                setSupportEmail(initialSupportEmail.current)
-              }}
-              className="px-4 h-10 text-[14px] font-medium text-[#6b7280] hover:text-[#374151] hover:bg-[#f3f4f6] rounded-lg transition-colors cursor-pointer"
-            >
-              {t("common.cancel")}
-            </button>
-            <button
-              type="button"
-              onClick={() => handleSubmit()}
-              disabled={isLoading}
-              className="px-5 h-10 text-[14px] font-medium rounded-lg transition-colors flex items-center gap-2 bg-[#8b5cf6] hover:bg-[#7c3aed] text-white cursor-pointer"
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  {t("common.loading")}
-                </>
-              ) : (
-                t("settings.save")
-              )}
-            </button>
-          </div>
+          <button type="button" onClick={discard} tabIndex={barUp ? 0 : -1} className={`${secondaryDepth} h-9 rounded-xl px-3.5 text-[14px]`}>
+            {t("common.cancel")}
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSubmit()}
+            disabled={isLoading}
+            tabIndex={barUp ? 0 : -1}
+            className={`${primaryDepth} h-9 gap-2 rounded-xl px-4 text-[14px] disabled:opacity-70`}
+          >
+            {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            {isLoading ? "Saving" : t("settings.save")}
+          </button>
         </div>
       </div>
         )

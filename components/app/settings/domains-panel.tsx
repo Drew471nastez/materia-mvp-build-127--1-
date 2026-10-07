@@ -50,6 +50,7 @@ import { REGISTRARS, hostFor, registrarById, type RecordCheck, type Registrar, t
 import { cn } from "@/lib/utils"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { RegistrarMark } from "@/components/app/settings/registrar-mark"
+import { secondaryDepth } from "@/components/ui/depth-button"
 
 export interface DomainItem {
   id: string
@@ -634,33 +635,41 @@ export function DomainsPanel({
     const p = purposeOf(d)
     /* Before the database knows creator page domains, every domain is the website's. */
     if (!creatorPageOn) return <p className="text-[12px] text-[#6b7280]">Connects to your website</p>
+    /*
+      CONNECTS TO, AS A ROW OF ITS OWN: the question on the left, the two
+      answers on the right, on a quiet ground so it reads as one setting of
+      this domain. On a phone the answers take the row's width in two equal
+      halves, under the question.
+    */
     return (
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-        <span id={`domain-connects-${d.id}`} className="text-[13px] text-[#6b7280] sm:text-[12px]">
-          Connects to
-        </span>
-        <div role="radiogroup" aria-labelledby={`domain-connects-${d.id}`} className="inline-flex rounded-xl bg-[#f3f4f6] p-0.5 sm:p-1" data-domain-connects={d.domain}>
-          {(["website", "creator_page"] as DomainPurpose[]).map((option) => {
-            const on = p === option
-            return (
-              <button
-                key={option}
-                type="button"
-                role="radio"
-                aria-checked={on}
-                disabled={locked || (busy === d.id && !on)}
-                onClick={() => void setPurposeOf(d, option)}
-                className={cn(
-                  "h-11 cursor-pointer rounded-[10px] sm:rounded-lg px-3.5 text-[13px] font-medium transition-[background-color,color,box-shadow] duration-150 disabled:cursor-not-allowed sm:h-8 sm:px-3",
-                  on ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(15,23,42,0.08),0_0_0_1px_rgba(15,23,42,0.04)]" : "text-[#6b7280] hover:text-[#1a1a2e]",
-                )}
-              >
-                {PURPOSE_NAME[option]}
-              </button>
-            )
-          })}
+      <div className="rounded-xl bg-[#f7f8f9] p-2.5 sm:px-3.5 sm:py-2.5" data-domain-connects-row="">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+          <span id={`domain-connects-${d.id}`} className="text-[13px] font-medium text-[#1a1a2e]">
+            Connects to
+          </span>
+          <div role="radiogroup" aria-labelledby={`domain-connects-${d.id}`} className="grid grid-cols-2 rounded-[11px] bg-[#eceef1] p-0.5 sm:inline-grid" data-domain-connects={d.domain}>
+            {(["website", "creator_page"] as DomainPurpose[]).map((option) => {
+              const on = p === option
+              return (
+                <button
+                  key={option}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  disabled={locked || (busy === d.id && !on)}
+                  onClick={() => void setPurposeOf(d, option)}
+                  className={cn(
+                    "h-10 cursor-pointer rounded-[9px] px-3.5 text-[14px] font-medium transition-[background-color,color,box-shadow] duration-150 disabled:cursor-not-allowed sm:h-8 sm:px-3 sm:text-[13px] [-webkit-tap-highlight-color:transparent]",
+                    on ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(15,23,42,0.1),0_0_0_0.5px_rgba(15,23,42,0.06)]" : "text-[#4b5563] hover:text-[#1a1a2e]",
+                  )}
+                >
+                  {PURPOSE_NAME[option]}
+                </button>
+              )
+            })}
+          </div>
         </div>
-        {p === "creator_page" ? <span className="basis-full text-[12px] text-[#9ca3af]">With your products, and your OnePage at /links.</span> : null}
+        {p === "creator_page" ? <p className="mt-1.5 text-[12px] text-[#6b7280]">With your products, and your OnePage at /links.</p> : null}
       </div>
     )
   }
@@ -675,50 +684,57 @@ export function DomainsPanel({
     return (
       <div className={cn("space-y-3", waiting ? "pt-3" : "pt-1")} data-dns-domain={d.domain}>
         {waiting ? (
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-2 text-[13px] text-[#374151]">
-            <label htmlFor={`domains-registrar-${d.id}`}>Add these at</label>
-            {/* A real list rather than the system's, so each provider shows its own mark beside its name. */}
-            <Select value={registrar.id} onValueChange={(v) => setRegistrarId(v as RegistrarId)}>
-              <SelectTrigger
-                id={`domains-registrar-${d.id}`}
-                data-dns-registrar=""
-                className="h-11 data-[size=default]:h-11 sm:data-[size=default]:h-8 w-auto min-w-[168px] cursor-pointer gap-2 rounded-lg border-[#e5e7eb] bg-white pl-3 pr-2.5 text-[14px] text-[#1a1a2e] shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-colors hover:border-[#d1d5db] focus-visible:border-[#8b5cf6] focus-visible:ring-2 focus-visible:ring-[#8b5cf6]/30 data-[state=open]:border-[#d1d5db] sm:h-8 sm:text-[13px] [&>svg:last-child]:text-[#6b7280] [&>svg:last-child]:opacity-100"
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent
-                align="start"
-                className="rounded-xl border-[#e5e7eb] bg-white p-0 text-[#1a1a2e] shadow-[0_12px_32px_-8px_rgba(17,24,39,0.18),0_2px_6px_rgba(17,24,39,0.06)]"
-              >
-                {REGISTRARS.map((r) => (
-                  <SelectItem
-                    key={r.id}
-                    value={r.id}
-                    data-registrar-option={r.id}
-                    className="h-11 cursor-pointer gap-2.5 rounded-lg pl-2.5 text-[14px] text-[#1a1a2e] focus:bg-[#f3f4f6] focus:text-[#1a1a2e] data-[state=checked]:font-medium sm:h-9 sm:text-[13px] [&>span:first-child_svg]:text-[#1a1a2e]"
-                  >
-                    <RegistrarMark id={r.id} />
-                    {r.id === "other" ? "another provider" : r.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {registrar.dnsUrl ? (
-              <a
-                href={registrar.dnsUrl(apex)}
-                target="_blank"
-                rel="noopener noreferrer"
-                data-dns-open=""
-                aria-label={`Open ${registrar.name} DNS`}
-                className="inline-flex h-11 items-center gap-1.5 text-[13px] font-medium text-[#7c3aed] hover:text-[#6d28d9] sm:ml-auto sm:h-8 sm:text-[12px]"
-              >
-                <RegistrarMark id={registrar.id} className="size-3.5" />
-                <span>
-                  Open<span className="sr-only sm:not-sr-only"> {registrar.name}</span>
-                </span>
-                <ExternalLink className="h-3 w-3" />
-              </a>
-            ) : null}
+          /*
+            WHERE THE RECORDS GO: the provider, and a way to its DNS page. The
+            provider's mark is drawn once, in the list; the button beside it
+            says its name and nothing else. It used to carry the mark too, so
+            a row read "GoDaddy  GoDaddy Open".
+          */
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center" data-dns-where="">
+            <label htmlFor={`domains-registrar-${d.id}`} className="text-[13px] text-[#4b5563] sm:shrink-0">
+              Add these records at
+            </label>
+            <div className="flex min-w-0 items-center gap-2 sm:flex-1">
+              {/* A real list rather than the system's, so each provider shows its own mark beside its name. */}
+              <Select value={registrar.id} onValueChange={(v) => setRegistrarId(v as RegistrarId)}>
+                <SelectTrigger
+                  id={`domains-registrar-${d.id}`}
+                  data-dns-registrar=""
+                  className="h-11 data-[size=default]:h-11 sm:data-[size=default]:h-9 min-w-0 flex-1 sm:w-auto sm:flex-none sm:min-w-[180px] cursor-pointer gap-2 rounded-xl border-[#e3e5e8] bg-white pl-3 pr-2.5 text-[14px] text-[#1a1a2e] shadow-[inset_0_-1px_0_rgba(0,0,0,0.05),0_1px_0_rgba(0,0,0,0.04)] transition-colors hover:border-[#d1d5db] focus-visible:border-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 data-[state=open]:border-[#d1d5db] sm:h-9 sm:text-[13px] [&>svg:last-child]:text-[#6b7280] [&>svg:last-child]:opacity-100"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent
+                  align="start"
+                  className="rounded-xl border-[#e5e7eb] bg-white p-1 text-[#1a1a2e] shadow-[0_12px_32px_-8px_rgba(17,24,39,0.18),0_2px_6px_rgba(17,24,39,0.06)]"
+                >
+                  {REGISTRARS.map((r) => (
+                    <SelectItem
+                      key={r.id}
+                      value={r.id}
+                      data-registrar-option={r.id}
+                      className="h-11 cursor-pointer gap-2.5 rounded-lg pl-2.5 text-[14px] text-[#1a1a2e] focus:bg-[#f3f4f6] focus:text-[#1a1a2e] data-[state=checked]:font-medium sm:h-9 sm:text-[13px] [&>span:first-child_svg]:text-[#1a1a2e]"
+                    >
+                      <RegistrarMark id={r.id} />
+                      {r.id === "other" ? "Another provider" : r.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {registrar.dnsUrl ? (
+                <a
+                  href={registrar.dnsUrl(apex)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  data-dns-open=""
+                  aria-label={`Open ${registrar.name} DNS settings`}
+                  className={cn(secondaryDepth, "h-11 shrink-0 rounded-xl px-3.5 text-[14px] no-underline sm:ml-auto sm:h-9 sm:text-[13px]")}
+                >
+                  Open {registrar.name}
+                  <ExternalLink className="h-3.5 w-3.5 text-[#6b7280]" aria-hidden />
+                </a>
+              ) : null}
+            </div>
           </div>
         ) : null}
 

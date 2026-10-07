@@ -1,3 +1,4 @@
+import { statementParams } from "@/lib/payments/platform-descriptor"
 import { NextResponse } from "next/server"
 import type Stripe from "stripe"
 import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
@@ -134,7 +135,7 @@ export async function POST(request: Request) {
 
   const { data: creator } = await admin
     .from("creators")
-    .select("id, user_id, display_name, stripe_account_id, stripe_onboarding_status, charges_enabled, payouts_enabled")
+    .select("id, user_id, display_name, stripe_account_id, stripe_onboarding_status, charges_enabled, payouts_enabled, statement_descriptor")
     .eq("id", creatorId)
     .single()
 
@@ -247,6 +248,12 @@ export async function POST(request: Request) {
       payment_intent_data: {
         application_fee_amount: fee.platformFeeCents,
         transfer_data: { destination: creator.stripe_account_id },
+        /* The seller's name on the statement, as on the single product checkout (lib/payments/platform-descriptor). */
+        ...statementParams({
+          account: String(creator.stripe_account_id),
+          descriptor: (creator as { statement_descriptor?: string | null }).statement_descriptor || creator.display_name || "",
+          chargesEnabled: creator.charges_enabled,
+        }),
       },
       /* Fulfilment happens on the platform, whichever host the shop is on:
          the session cookie, the admin client and the receipt all live there.
@@ -285,12 +292,20 @@ export async function POST(request: Request) {
     try {
       session = await stripe.checkout.sessions.create(params)
     } catch (e) {
-      /* A Stripe account that will not take tax number collection still
-         sells: the page is made again without the business box. */
-      if (!/tax_id_collection/i.test(String((e as Error)?.message || ""))) throw e
-      console.error("[checkout/cart] tax ID collection refused, the page opens without it:", (e as { code?: string })?.code ?? "")
-      delete params.tax_id_collection
-      session = await stripe.checkout.sessions.create(params)
+      const message = String((e as Error)?.message || "")
+      /* The statement's part refused (lib/payments/platform-descriptor): the basket sells with Storelib's own line. */
+      if (/statement_descriptor|on_behalf_of/i.test(message) && params.payment_intent_data) {
+        delete params.payment_intent_data.statement_descriptor_suffix
+        delete params.payment_intent_data.on_behalf_of
+        session = await stripe.checkout.sessions.create(params)
+      } else {
+        /* A Stripe account that will not take tax number collection still
+           sells: the page is made again without the business box. */
+        if (!/tax_id_collection/i.test(message)) throw e
+        console.error("[checkout/cart] tax ID collection refused, the page opens without it:", (e as { code?: string })?.code ?? "")
+        delete params.tax_id_collection
+        session = await stripe.checkout.sessions.create(params)
+      }
     }
 
     return NextResponse.json({
