@@ -59,7 +59,13 @@ const CONTROLLER_IFRAME_RE = /js\.stripe\.com[^#?]*controller/
  * safe and also covers Stripe Link popup URLs (which use different patterns
  * like js.stripe.com/v3/link-*).
  */
-const STRIPE_NAV_RE = /^https?:\/\/(?:js\.stripe\.com|connect-js\.stripe\.com|connect\.stripe\.com)\//
+/*
+ * js.stripe.com is the controller page that replaces the app. connect.stripe.com
+ * is Stripe's hosted setup, which Capacitor opens in the system browser because
+ * it is not one of the web view's allowed hosts. connect-js.stripe.com is the
+ * embedded form itself and must stay reachable.
+ */
+const STRIPE_NAV_RE = /^https?:\/\/(?:js\.stripe\.com|connect\.stripe\.com)\//
 
 function isController(url: unknown): boolean {
   return CONTROLLER_IFRAME_RE.test(String(url ?? ""))

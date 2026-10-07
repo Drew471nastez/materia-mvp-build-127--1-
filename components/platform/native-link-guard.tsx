@@ -93,6 +93,8 @@ export function NativeLinkGuard() {
         sheet.__storelibSheet = undefined
         return before.call(window, url as string, target, features)
       }
+      /* Payout setup's embedded form must not pop the system browser. */
+      if (href && /https?:\/\/(?:js\.stripe\.com|connect\.stripe\.com)\//.test(href)) return window
       if (href) {
         const link = nativeLinkFor(href)
         if ((link.kind === "path" || link.kind === "host") && navigateInApp(link.kind === "path" ? link.path : link.url, routerRef.current)) return window
