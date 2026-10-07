@@ -49,7 +49,7 @@ import { CompassIcon } from "@solar-icons/react/linear/compass"
 import { ShopIcon } from "@solar-icons/react/linear/shop"
 import { UsersGroupRoundedIcon } from "@solar-icons/react/linear/users-group-rounded"
 
-import { AppAvatar } from "@/components/app/app-avatar"
+import { AppAvatar, preloadAvatar } from "@/components/app/app-avatar"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { cn } from "@/lib/utils"
 import { prefetchHref } from "@/lib/nav/prefetch-policy"
@@ -323,6 +323,20 @@ export function PlaceNavigator({ current, className, onNavigate }: PlaceNavigato
   navigateRef.current = onNavigate
 
   /*
+    EVERY PICTURE DECODED BEFORE IT IS NEEDED. Once the list is here, each row's picture is fetched and decoded at the size the
+    row draws it, and a community's logo also at the size its own bar draws it (40px, 36px on a phone: the same files), so the
+    rows open with their pictures and a community switched to shows its logo on the first frame, never its initials first.
+  */
+  useEffect(() => {
+    if (!places) return
+    for (const r of model.recent) {
+      if (!r.item.imageUrl) continue
+      preloadAvatar(r.item.imageUrl, phone ? 36 : 32)
+      if (r.item.kind === "community") preloadAvatar(r.item.imageUrl, 40)
+    }
+  }, [places, model, phone])
+
+  /*
     THE ROWS ARE READ AHEAD WHILE THE PANEL OPENS. A recent product, course
     or community is what this panel is for, and the finger is on its way to
     one of them: their pages are read whole now (as far as the device and
@@ -491,7 +505,7 @@ const NavigatorBody = memo(function NavigatorBody({
                 data-current={r.current ? "" : undefined}
                 className={cn(row, phone ? "min-h-[56px] py-1.5" : "min-h-[48px] py-1", r.current && CURRENT_ROW)}
               >
-                <AppAvatar src={r.item.imageUrl} name={r.item.title} alt="" size={pic} className={cn("shrink-0", r.item.kind === "community" ? "rounded-[9px]" : "rounded-[8px]")} markWhileLoading />
+                <AppAvatar src={r.item.imageUrl} name={r.item.title} alt="" size={pic} className={cn("shrink-0 bg-[#f1f2f4]", r.item.kind === "community" ? "rounded-[9px]" : "rounded-[8px]")} kind="mark" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate font-medium leading-[1.3] text-[#1a1a2e]" data-navigator-title="">{r.item.title}</span>
                   <span className={cn("block truncate leading-[1.35]", r.current ? "text-[#6b7280]" : "text-[#9ca3af]", phone ? "text-[13px]" : "text-[12px]")} data-navigator-hint="">{r.hint}</span>

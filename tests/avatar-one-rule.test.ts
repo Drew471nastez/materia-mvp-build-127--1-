@@ -203,6 +203,11 @@ console.log("\nNo face is a question mark")
     readCode("components/app/business-switcher.tsx") +
     readCode("components/app/shell-header-still.tsx")
   check("no avatar in the /app shell draws its mark from the first frame", !/markWhileLoading/.test(shell))
+  {
+    const mark = readCode("components/community/member/community-mark.tsx")
+    const nav = readCode("components/nav/place-navigator.tsx")
+    check("a community's mark and the navigator's rows never show initials first, and their pictures are decoded once the list is here", !/markWhileLoading/.test(mark) && !/markWhileLoading/.test(nav) && /preloadAvatar\(r\.item\.imageUrl, 40\)/.test(nav))
+  }
 }
 
 /*

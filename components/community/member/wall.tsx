@@ -141,7 +141,7 @@ function WallCommunityCardInner({ community, card, membersHref }: { community: S
       ) : null}
       <div className="px-4 pb-4 pt-3.5">
         <div className="flex min-w-0 items-center gap-3">
-          {community.coverUrl ? null : <CommunityMark community={community} size={40} />}
+          {community.coverUrl ? null : <CommunityMark community={community} size={40} priority />}
           <div className="min-w-0 flex-1">
             <Link href={base} className="block truncate text-[16px] font-semibold leading-snug text-[#1a1a2e] hover:underline" data-wall-name="">
               {community.name}
