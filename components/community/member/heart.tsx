@@ -195,8 +195,8 @@ export function LikeHeart({ on, size = 20, strokeWidth = 1.75 }: { on: boolean; 
  *  THE LIKE'S SOUND (round 12)
  * ===========================================================================
  * A like plays a tiny sound made on the spot with Web Audio (no file to
- * load): a soft rising "pop" a little under a fifth of a second long, very
- * quiet; an unlike is a lower, softer, shorter falling one. One sound per
+ * load): a soft "bubble pop" about a tenth of a second long, very quiet;
+ * an unlike is a lower, softer, shorter falling tap (likeSound below). One sound per
  * press, made in the press itself (a browser lets a page start audio only
  * from a press). Never when the page is hidden, never with reduced motion
  * (a person who asked for a calmer screen gets a quieter one too), and
@@ -366,23 +366,35 @@ export function postSound(): boolean {
   }
 }
 
-/** The like's sound, or the unlike's. Answers whether one was played. */
+/**
+ * The like's sound, or the unlike's. Answers whether one was played.
+ *
+ * A like is a bubble pop: a sine that leaps up an octave in its first 30ms
+ * and is gone by 110ms, through a low pass so it is round rather than
+ * bright, with a faint glassy overtone a moment after. An unlike is a
+ * quieter, shorter tap that falls.
+ */
 export function likeSound(on: boolean): boolean {
   const ctx = soundContext()
   if (!ctx) return false
   try {
     const t = ctx.currentTime + 0.004
-    const tone = (from: number, to: number, peak: number, length: number, at = t) => {
+    const soften = ctx.createBiquadFilter()
+    soften.type = "lowpass"
+    soften.frequency.setValueAtTime(on ? 3200 : 1800, t)
+    soften.Q.setValueAtTime(0.7, t)
+    soften.connect(ctx.destination)
+    const tone = (type: OscillatorType, from: number, to: number, bend: number, peak: number, length: number, at = t) => {
       const osc = ctx.createOscillator()
       const gain = ctx.createGain()
-      osc.type = "sine"
+      osc.type = type
       osc.frequency.setValueAtTime(from, at)
-      osc.frequency.exponentialRampToValueAtTime(to, at + length * 0.55)
+      osc.frequency.exponentialRampToValueAtTime(to, at + bend)
       gain.gain.setValueAtTime(0.0001, at)
-      gain.gain.exponentialRampToValueAtTime(peak, at + 0.008)
+      gain.gain.exponentialRampToValueAtTime(peak, at + 0.005)
       gain.gain.exponentialRampToValueAtTime(0.0001, at + length)
       osc.connect(gain)
-      gain.connect(ctx.destination)
+      gain.connect(soften)
       osc.start(at)
       osc.stop(at + length + 0.02)
       osc.onended = () => {
@@ -391,13 +403,12 @@ export function likeSound(on: boolean): boolean {
       }
     }
     if (on) {
-      tone(392, 587, 0.048, 0.16)
-      tone(659, 988, 0.038, 0.13, t + 0.012)
-      tone(1046, 1318, 0.022, 0.1, t + 0.024)
+      tone("sine", 520, 1080, 0.03, 0.06, 0.11)
+      tone("triangle", 2160, 2600, 0.04, 0.012, 0.07, t + 0.028)
     } else {
-      tone(440, 349, 0.022, 0.1)
-      tone(262, 196, 0.012, 0.08, t + 0.05)
+      tone("sine", 480, 300, 0.05, 0.026, 0.08)
     }
+    window.setTimeout(() => soften.disconnect(), 300)
     return true
   } catch {
     return false

@@ -99,7 +99,7 @@ async function main() {
   /* ── 19: the like's sound ───────────────────────────────────────────── */
   console.log("\n19. The like's sound")
   const heart = code("components/community/member/heart.tsx")
-  check("made with Web Audio on the spot (no file), the like louder than the unlike, both very quiet", /\.createOscillator\(\)/.test(heart) && /tone\(660, 990, 0\.045, 0\.16\)/.test(heart) && /else tone\(560, 420, 0\.02, 0\.11\)/.test(heart))
+  check("made with Web Audio on the spot (no file), the like louder than the unlike, both very quiet", /\.createOscillator\(\)/.test(heart) && /tone\("sine", 520, 1080, 0\.03, 0\.06, 0\.11\)/.test(heart) && /tone\("sine", 480, 300, 0\.05, 0\.026, 0\.08\)/.test(heart))
   check("never when the page is hidden, with reduced motion, or with Sounds off", /document\.visibilityState !== "visible" \|\| !soundsOn\(\) \|\| window\.matchMedia\?\.\("\(prefers-reduced-motion: reduce\)"\)\.matches\) return (false|null)/.test(heart))
   check("Sounds is kept in this browser, on unless turned off, with its own switch", /SOUNDS_KEY = "storelib:sounds"/.test(heart) && /getItem\(SOUNDS_KEY\) !== "off"/.test(heart) && /export function SoundsSwitch/.test(heart) && /role="switch"/.test(heart))
   check("one sound per press, in the press, for a post and for a comment", /likeSound\(!now\.on\)\s*press\(`like:\$\{post\.id\}`/.test(code("components/community/member/post-card.tsx")) && /likeSound\(!reacted\)\s*press\(`comment-like:\$\{c\.id\}`/.test(code("components/community/member/comments.tsx")))

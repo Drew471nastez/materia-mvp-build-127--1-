@@ -14,10 +14,10 @@
  * IT ANSWERS THE FINGER, NOT THE SERVER, AND NOTHING MOVES.
  *   pointerdown  the face takes its pressed shade on that very frame: set on
  *                the element directly, no React render in between
- *   click        the state flips at once: the two faces (the solid Follow
- *                and the quiet Following) and their labels crossfade over
- *                220ms, opacity only, so the compositor does all of it and
- *                the main thread is free
+ *   click        the state flips at once, with a light tap in the app: the
+ *                solid Follow fades over the quiet Following (ONE FACE
+ *                FADES below) and the labels crossfade over 260ms, opacity
+ *                only, so the compositor does all of it
  *   and after    the face that arrived settles: it lands a shade off its
  *                own colour (Following on the grey a press leaves, Follow a
  *                touch lighter) and eases to it over 420ms, and on
@@ -75,6 +75,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react"
 import { cn } from "@/lib/utils"
+import { hapticTap } from "@/lib/native-bridge"
 
 export type FollowTone = "platform" | "storefront"
 
@@ -239,6 +240,17 @@ export function schemeVars(scheme: ActionScheme | null | undefined): React.CSSPr
 const SWAP = "transition-opacity duration-[260ms] [transition-delay:-28ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
 
 /**
+ * ONE FACE FADES, NEVER TWO. Following is drawn under Follow and is solid
+ * the moment it is the state, so only the dark face fades over it: halfway
+ * through a switch the button is half dark over white, never two half
+ * transparent faces with the page showing through as a grey flash. Going
+ * back to Follow, Following stays under the dark face until that face is
+ * whole again, then goes.
+ */
+const QUIET_UNDER = "opacity-100 transition-none"
+const QUIET_AWAY = "opacity-0 transition-opacity duration-0 delay-[260ms] motion-reduce:delay-0"
+
+/**
  * THE SETTLE. A layer over the arriving face, a shade off its colour, that
  * eases away (420ms) once its face is there; put back with no fade 240ms
  * after its face has started to go, by when the face is no longer seen.
@@ -357,7 +369,10 @@ export function FollowButton({
       onPointerUp={release}
       onPointerCancel={release}
       onPointerLeave={release}
-      onClick={onClick}
+      onClick={() => {
+        hapticTap("light")
+        onClick()
+      }}
       aria-pressed={following}
       aria-label={name ? `${following ? "Following" : "Follow"} ${name}` : undefined}
       aria-busy={busy || undefined}
@@ -374,11 +389,11 @@ export function FollowButton({
     >
       {/* The face: one box for both states; a press shades it and a switch crossfades it. */}
       <span className={FACE_BOX} data-follow-face="">
+        <span aria-hidden className={join(look.quiet, following ? QUIET_UNDER : QUIET_AWAY)} data-follow-fill="following">
+          <span className={join(SETTLE, look.quietSettle, following ? SETTLING : UNSETTLED)} data-follow-settle="following" />
+        </span>
         <span aria-hidden className={join(solid, SWAP, following ? "opacity-0" : "opacity-100")} data-follow-fill="follow">
           <span className={join(SETTLE, solidSettle, following ? UNSETTLED : SETTLING)} data-follow-settle="follow" />
-        </span>
-        <span aria-hidden className={join(look.quiet, SWAP, following ? "opacity-100" : "opacity-0")} data-follow-fill="following">
-          <span className={join(SETTLE, look.quietSettle, following ? SETTLING : UNSETTLED)} data-follow-settle="following" />
         </span>
         {/* Both labels in one cell, always laid out: the button is the width of the wider one in both states. */}
         <span

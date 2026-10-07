@@ -567,7 +567,7 @@ export async function loadSalesPage(slug: string, userId: string | null, given?:
     })
 
   const [reviews, gallery, stats] = opts?.light
-    ? ([[], [] as GalleryItemView[], { members: Math.max(0, community.member_count ?? 0), online: null, admins: null }] as const)
+    ? ([null, [] as GalleryItemView[], { members: Math.max(0, community.member_count ?? 0), online: null, admins: null }] as const)
     : await Promise.all([
         readReviews(db, community.id, tierProductIds.map((id) => products.get(id)).filter((p): p is ProductLite => !!p && p.status === "published")),
         communityGallery(db, community),
