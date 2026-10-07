@@ -66,6 +66,11 @@ import { curveCss, releaseVelocity, rubberBand, snapMotion, snapTarget, type Sam
 /** True while this layer is putting the address back, so that pop is not a second close. */
 let historyLayerRestoring = false
 
+/** Route loading must ignore popstate while a layer is stepping back over its entry. */
+export function isHistoryLayerRestoring(): boolean {
+  return historyLayerRestoring
+}
+
 export function useHistoryLayer(open: boolean, onClose: () => void, url?: string | null): void {
   const close = useRef(onClose)
   useEffect(() => {

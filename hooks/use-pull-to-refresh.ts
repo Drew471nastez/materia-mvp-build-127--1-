@@ -449,6 +449,16 @@ export function usePullToRefresh(
   const holdScroller = useCallback((on: boolean) => {
     const el = containerRef.current
     if (!el) return
+    /* The window scrolls on transform during a pull; locking overflow on <html> stuck the feed. */
+    if (el === document.scrollingElement || el === document.documentElement || el === document.body) {
+      if (!on && overflowHold.current) {
+        const held = overflowHold.current
+        overflowHold.current = null
+        held.el.style.overflowY = held.overflowY
+        held.el.style.overscrollBehavior = held.overscroll
+      }
+      return
+    }
     if (on) {
       if (overflowHold.current) return
       overflowHold.current = { el, overflowY: el.style.overflowY, overscroll: el.style.overscrollBehavior }

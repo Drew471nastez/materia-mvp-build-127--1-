@@ -41,6 +41,13 @@ export function EditProfileDoor(_props: {
         }
         router.push(SETTINGS_PROFILE)
       }}
+      onKeyDown={(e) => {
+        if (e.key !== "Enter" && e.key !== " ") return
+        if (settingsStaysHere() || !window.matchMedia?.("(min-width: 768px)").matches) {
+          e.preventDefault()
+          openSettingsSubpage("profile")
+        }
+      }}
       aria-label="Edit profile"
       data-profile-edit=""
       className={cn(secondaryDepth, "pointer-events-auto h-10 rounded-[10px] px-4 text-[14px]")}

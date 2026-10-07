@@ -98,9 +98,6 @@ function composerSpacesOf(spaces: SpaceView[]) {
   return spaces.filter((s) => s.canPost && s.kind !== "chat").map((s) => ({ id: s.id, name: s.name, kind: s.kind, icon: s.icon }))
 }
 
-/** How an arriving list eases in: from nothing after the spinner. */
-const ARRIVE_MS = 200
-const ARRIVE_EASE = "cubic-bezier(0.22, 1, 0.36, 1)"
 /** No posts, for a list that is not here yet. Not the previous space's posts. */
 const EMPTY_LIST: CachedView = { posts: [], cursor: null, at: 0, pages: 0 }
 /** Cards drawn on the frame a switched list comes in (the rest stand in at their height and follow in a transition): a phone's screenful and a little more. */
@@ -207,20 +204,9 @@ export function CommunityFeed({ communityId, slug, viewer, spaces, start, initia
   useLayoutEffect(() => {
     if (!behind) return
     const next = { id: targetId, sort }
-    /* Already read: the posts are here, so the list changes with the chip. No spinner, no wait. */
-    if (readView(viewKey(communityId, targetFromId(targetId), sort))) return setList(next)
-    if (typeof requestAnimationFrame !== "function" || document.visibilityState !== "visible") return setList(next)
-    let second = 0
-    const first = requestAnimationFrame(() => {
-      second = requestAnimationFrame(() => flushSync(() => setList(next)))
-    })
-    const backup = window.setTimeout(() => setList(next), 80)
-    return () => {
-      cancelAnimationFrame(first)
-      cancelAnimationFrame(second)
-      window.clearTimeout(backup)
-    }
-  }, [behind, targetId, sort, communityId])
+    /* The chip and the list stay together: no queued frames that leave the peel lit on the wrong space. */
+    flushSync(() => setList(next))
+  }, [behind, targetId, sort])
   const listTarget = useMemo(() => targetFromId(list.id), [list.id])
   const listSort = list.sort
   const key = viewKey(communityId, listTarget, listSort)
@@ -332,11 +318,7 @@ export function CommunityFeed({ communityId, slug, viewer, spaces, start, initia
     onScreen.current = new Set(Array.from(el?.querySelectorAll<HTMLElement>(":scope > [data-post]") ?? [], (x) => x.dataset.post ?? "").filter(Boolean))
     if (lastDrawn.current === drawnKey) return
     lastDrawn.current = drawnKey
-    /* Only a list that takes the place of the spinner comes up from nothing; a list that replaces a list is simply there. */
-    const fromSpinner = afterSpinner.current
     afterSpinner.current = false
-    if (!fromSpinner || !el || typeof el.animate !== "function" || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
-    el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: ARRIVE_MS, easing: ARRIVE_EASE })
   })
 
   /*

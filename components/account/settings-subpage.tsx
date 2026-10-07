@@ -9,6 +9,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { AccountSettings } from "@/components/account/account-settings"
+import { PageSpinner } from "@/components/ui/activity-spinner"
 import { createClient } from "@/lib/supabase/client"
 import { displayEmail } from "@/lib/businesses/email-alias"
 import { isNativeApp } from "@/lib/platform-utils"
@@ -40,10 +41,14 @@ export function warmSettings() {
 }
 
 export function openSettingsSubpage(section: SettingsSection = "profile") {
-  void warmSettings().then((data) => {
-    const open = { section, id: ++seq, data }
-    if (listen) listen(open)
-    else window.dispatchEvent(new CustomEvent("storelib:settings-subpage", { detail: open }))
+  const open: Open = { section, id: ++seq, data: null }
+  const load = warmSettings()
+  if (listen) listen(open)
+  else window.dispatchEvent(new CustomEvent("storelib:settings-subpage", { detail: open }))
+  void load.then((data) => {
+    const filled = { ...open, data }
+    if (listen) listen(filled)
+    else window.dispatchEvent(new CustomEvent("storelib:settings-subpage", { detail: filled }))
   })
 }
 
@@ -112,6 +117,10 @@ async function loadOwnSettings(section: SettingsSection): Promise<Loaded | null>
   }
 }
 
+function clearSettingsChrome() {
+  document.documentElement.removeAttribute("data-settings-subpage")
+}
+
 function SettingsLayer({ section, data, onClose }: { section: SettingsSection; data: Loaded | null; onClose: () => void }) {
   const panel = useRef<HTMLDivElement>(null)
   const closing = useRef(false)
@@ -127,12 +136,12 @@ function SettingsLayer({ section, data, onClose }: { section: SettingsSection; d
       const a = el.animate([{ transform: "translate3d(100%, 0, 0)" }, { transform: "translate3d(0, 0, 0)" }], { duration: IN_MS, easing: EASE, fill: "forwards" })
       return () => {
         a.cancel()
-        root.removeAttribute("data-settings-subpage")
+        clearSettingsChrome()
         document.body.style.overflow = prev
       }
     }
     return () => {
-      root.removeAttribute("data-settings-subpage")
+      clearSettingsChrome()
       document.body.style.overflow = prev
     }
   }, [])
@@ -142,11 +151,17 @@ function SettingsLayer({ section, data, onClose }: { section: SettingsSection; d
     closing.current = true
     const el = panel.current
     if (!el || typeof el.animate !== "function") {
+      clearSettingsChrome()
+      document.body.style.overflow = ""
       onClose()
       return
     }
     const a = el.animate([{ transform: "translate3d(0, 0, 0)" }, { transform: "translate3d(100%, 0, 0)" }], { duration: OUT_MS, easing: EASE, fill: "forwards" })
-    const done = () => onClose()
+    const done = () => {
+      clearSettingsChrome()
+      document.body.style.overflow = ""
+      onClose()
+    }
     a.onfinish = done
     window.setTimeout(done, OUT_MS + 80)
   }
@@ -163,18 +178,20 @@ function SettingsLayer({ section, data, onClose }: { section: SettingsSection; d
       data-sheet-root=""
       style={{ transform: "translate3d(100%, 0, 0)", willChange: "transform", zIndex: 300, paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}
     >
-      {data ? (
-        <div className="px-4 pb-10 pt-3 sm:px-6">
+      <div className="px-4 pb-10 pt-3 sm:px-6">
+        {data ? (
           <AccountSettings {...data} initialSection={section} onBack={close} />
-        </div>
-      ) : (
-        <div className="px-4 pt-3 sm:px-6">
-          <button type="button" onClick={close} aria-label="Back to profile" className="grid h-11 w-11 place-items-center rounded-[10px] border border-[#e4e7ec] bg-white text-[#1a1a2e]">
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><path d="M15 6 9 12l6 6" /></svg>
-          </button>
-          <p className="mt-8 text-[14px] text-[#6b7280]">Settings did not open. Go back and try again.</p>
-        </div>
-      )}
+        ) : (
+          <>
+            <button type="button" onClick={close} aria-label="Back to profile" className="grid h-11 w-11 place-items-center rounded-[10px] border border-[#e4e7ec] bg-white text-[#1a1a2e]">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><path d="M15 6 9 12l6 6" /></svg>
+            </button>
+            <div className="flex min-h-[min(52vh,420px)] items-center justify-center" aria-busy="true">
+              <PageSpinner />
+            </div>
+          </>
+        )}
+      </div>
     </div>
   )
 }
@@ -184,9 +201,10 @@ export function SettingsSubpageHost() {
   useEffect(() => {
     const on = (e: Event) => {
       const detail = (e as CustomEvent<Open>).detail
-      if (detail?.section) setOpen(detail)
+      if (!detail?.section) return
+      setOpen((cur) => (cur && cur.id === detail.id ? { ...cur, ...detail } : detail))
     }
-    listen = (next) => setOpen(next)
+    listen = (next) => setOpen((cur) => (cur && cur.id === next.id ? { ...cur, ...next } : next))
     window.addEventListener("storelib:settings-subpage", on)
     return () => {
       listen = null
