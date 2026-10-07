@@ -18,6 +18,7 @@ import { MobileEditorSheet, sheetMoveMs } from "@/components/website-builder/mob
 import { SliderNumberControl } from "@/components/website-builder/editor/slider-number-control"
 import { WbImagePicker } from "@/components/website-builder/editor/image-picker"
 import { ImagePickerControl } from "@/components/website-builder/editor/controls/image-picker-control"
+import { FontPreviewPicker } from "@/components/website-builder/editor/font-preview-picker"
 import { Collapse } from "@/components/website-builder/editor/collapse"
 import { BlockTreeLevel, TreeAddBlock } from "@/components/website-builder/editor/block-tree-rows"
 import { afterAddSettles, measureSectionTops, playArrival, sheetCoverAbovePeek } from "@/lib/website-builder/section-arrival"
@@ -6110,7 +6111,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                       theme={settingsDraft}
                       updateSetting={updateSetting}
                       fonts={group.fields.map(field => (
-                        <WbSelect
+                        <FontPreviewPicker
                           key={field.id}
                           label={field.label}
                           value={settingsDraft[field.id as keyof ThemeSettingsValues] ?? field.default}
@@ -6150,7 +6151,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                               unit={field.unit ?? ""}
                               defaultValue={typeof field.default === "number" ? field.default : 0}
                             />
-                          ) : field.type === "select" || field.type === "font" ? (
+                          ) : (field.type === "select" || field.type === "font") && /^font_(heading|body|accent)$/.test(field.id) ? (
+                                <FontPreviewPicker
+                                  label={field.label}
+                                  value={val}
+                                  onChange={v => updateSetting(field.id, v)}
+                                  options={field.options ?? []}
+                                />
+                              ) : field.type === "select" || field.type === "font" ? (
                             <WbSelect
                               label={field.label}
                               value={val}
@@ -6689,7 +6697,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                                 unit={field.unit ?? ""}
                                 defaultValue={typeof field.default === "number" ? field.default : 0}
                               />
-                            ) : field.type === "select" || field.type === "font" ? (
+                            ) : (field.type === "select" || field.type === "font") && /^font_(heading|body|accent)$/.test(field.id) ? (
+                                <FontPreviewPicker
+                                  label={field.label}
+                                  value={val}
+                                  onChange={v => updateSetting(field.id, v)}
+                                  options={field.options ?? []}
+                                />
+                              ) : field.type === "select" || field.type === "font" ? (
                               <WbSelect
                                 label={field.label}
                                 value={val}

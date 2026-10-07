@@ -1,5 +1,5 @@
 <template>
-<nav class="s bc" aria-label="Breadcrumb" data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --s-para: {{ scheme.paragraph }}; --s-border: {{ scheme.border }}; --s-pt: {{ settings.padding_top }}px; --s-pb: {{ settings.padding_bottom }}px; --bc-size: {{ settings.size }}px;">
+<nav class="s bc bc--{{ settings.style }}" aria-label="Breadcrumb" data-scheme="{{ settings.color_scheme }}" style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --s-para: {{ scheme.paragraph }}; --s-border: {{ scheme.border }}; --s-pt: {{ settings.padding_top }}px; --s-pb: {{ settings.padding_bottom }}px; --bc-size: {{ settings.size }}px;">
   <div class="s__in s__in--{{ settings.max_width }} bc__in bc__in--{{ settings.align }}">
     {# The trail is the page's own (lib/products/breadcrumbs.ts): Home > Shop >
        the product on a product page, Home > the title on any other. The
@@ -9,11 +9,11 @@
         {% for c in page.breadcrumbs %}
           <li class="bc__item">
             {% if c.url %}
-              <a class="bc__link" href="{{ c.url | url }}">{% if forloop.first and settings.home_label %}{{ settings.home_label }}{% elsif c.url == '/products' and settings.shop_label %}{{ settings.shop_label }}{% else %}{{ c.label }}{% endif %}</a>
+              <a class="bc__link" href="{{ c.url | url }}"{% if forloop.first and settings.home_icon %} aria-label="{{ settings.home_label | default: 'Home' }}"{% endif %}>{% if forloop.first and settings.home_icon %}<svg class="bc__home" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5"/></svg>{% elsif forloop.first and settings.home_label %}{{ settings.home_label }}{% elsif c.url == '/products' and settings.shop_label %}{{ settings.shop_label }}{% else %}{{ c.label }}{% endif %}</a>
             {% else %}
               <span class="bc__here" aria-current="page">{% if c.label == 'Shop' and settings.shop_label %}{{ settings.shop_label }}{% else %}{{ c.label }}{% endif %}</span>
             {% endif %}
-            {% if forloop.last %}{% else %}<span class="bc__sep" aria-hidden="true">{% if settings.separator == 'chevron' %}›{% elsif settings.separator == 'dot' %}·{% else %}/{% endif %}</span>{% endif %}
+            {% if forloop.last %}{% else %}<span class="bc__sep" aria-hidden="true">{% if settings.separator == 'chevron' %}›{% elsif settings.separator == 'dot' %}·{% elsif settings.separator == 'arrow' %}→{% elsif settings.separator == 'pipe' %}|{% elsif settings.separator == 'line' %}<svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m6 3.5 4.5 4.5L6 12.5"/></svg>{% else %}/{% endif %}</span>{% endif %}
           </li>
         {% endfor %}
       </ol>
@@ -46,6 +46,16 @@
 .bc__here { color: var(--s-heading); font-weight: 500; max-width: 60cqi; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bc__sep { color: var(--s-para); opacity: 0.55; }
 .bc__note { margin: 0; font-size: 13px; color: var(--s-para); opacity: 0.7; }
+.bc__sep svg, .bc__home { display: block; }
+.bc__link { display: inline-flex; align-items: center; transition: color 150ms ease, background-color 150ms ease; }
+/* Pill: each step on a soft ground, the current page a step stronger, the way current shops draw a trail. */
+.bc--pill .bc__list { gap: 6px; }
+.bc--pill .bc__item { gap: 6px; }
+.bc--pill .bc__link,
+.bc--pill .bc__here { padding: 4px 10px; border-radius: 999px; background: color-mix(in srgb, var(--s-text) 6%, transparent); }
+.bc--pill .bc__link:hover { text-decoration: none; background: color-mix(in srgb, var(--s-text) 11%, transparent); }
+.bc--pill .bc__here { background: color-mix(in srgb, var(--s-text) 12%, transparent); }
+.bc--pill .bc__sep { opacity: 0.4; }
 </style>
 
 <schema>
@@ -82,10 +92,29 @@
       "label": "Separator",
       "default": "slash",
       "options": [
-        { "label": "/", "value": "slash" },
-        { "label": "›", "value": "chevron" },
-        { "label": "·", "value": "dot" }
+        { "label": "/  Slash", "value": "slash" },
+        { "label": "›  Chevron", "value": "chevron" },
+        { "label": "Thin chevron", "value": "line" },
+        { "label": "→  Arrow", "value": "arrow" },
+        { "label": "·  Dot", "value": "dot" },
+        { "label": "|  Line", "value": "pipe" }
       ]
+    },
+    {
+      "type": "select",
+      "id": "style",
+      "label": "Style",
+      "default": "plain",
+      "options": [
+        { "label": "Plain", "value": "plain" },
+        { "label": "Pill", "value": "pill" }
+      ]
+    },
+    {
+      "type": "checkbox",
+      "id": "home_icon",
+      "label": "Home as an icon",
+      "default": false
     },
     {
       "type": "header",

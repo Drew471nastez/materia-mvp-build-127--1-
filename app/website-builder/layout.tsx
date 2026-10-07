@@ -5,6 +5,7 @@ import { currentUserForRequest } from "@/lib/auth/request-scope"
 import { SessionRecovery } from "@/components/auth/session-recovery"
 import { EditorToaster } from "@/components/ui/editor-toaster"
 import { EditorFrame } from "@/components/website-builder/editor-frame"
+import { SlimScrollRail } from "@/components/website-builder/editor/slim-scroll-rail"
 
 /**
  * One signed in person's own screens: never in a search index. robots.txt
@@ -35,6 +36,8 @@ export default async function WebsiteBuilderEditorLayout({
       {children}
       {/* Compact on a phone and clear of the home indicator: see the file. */}
       <EditorToaster />
+      {/* The panels' scrollbar, drawn over them so it takes no width. */}
+      <SlimScrollRail />
     </EditorFrame>
   )
 }

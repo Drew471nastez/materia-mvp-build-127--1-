@@ -73,7 +73,9 @@ export function withThemeBreadcrumbs(
     type: "breadcrumbs",
     name: "Breadcrumbs",
     settings: {
-      separator: pick(theme?.breadcrumbs_separator, ["slash", "chevron", "dot"], "slash"),
+      separator: pick(theme?.breadcrumbs_separator, ["slash", "chevron", "line", "arrow", "dot", "pipe"], "slash"),
+      style: pick(theme?.breadcrumbs_style, ["plain", "pill"], "plain"),
+      home_icon: theme?.breadcrumbs_home_icon === true,
       align: pick(theme?.breadcrumbs_align, ["left", "center", "right"], "left"),
       home_label: "Home",
       shop_label: "Shop",

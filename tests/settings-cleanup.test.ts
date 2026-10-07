@@ -151,6 +151,8 @@ console.log("\nEvery setting is read by something")
     popup_shadow: "lib/website-builder/theme-css.ts",
     breadcrumbs_enabled: "lib/website-builder/theme-breadcrumbs.ts",
     breadcrumbs_separator: "lib/website-builder/theme-breadcrumbs.ts",
+    breadcrumbs_style: "lib/website-builder/theme-breadcrumbs.ts",
+    breadcrumbs_home_icon: "lib/website-builder/theme-breadcrumbs.ts",
     badge_position: "lib/website-builder/theme-css.ts",
     badge_radius: "lib/website-builder/theme-css.ts",
     badge_sale_show: "lib/storelib-theme/resolve.ts",

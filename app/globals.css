@@ -1021,6 +1021,16 @@ html.capacitor body {
    * is the look of the reference. The slim bar below stays for the editor's
    * own light panels, where a reserved column is invisible.
    */
+  /* On a pointer screen the bar takes no width: it is hidden and drawn over
+     the content instead (components/website-builder/editor/slim-scroll-rail). */
+  @media (pointer: fine) {
+    html.slim-rail .wb-slim-scroll {
+      scrollbar-width: none !important;
+    }
+    html.slim-rail .wb-slim-scroll::-webkit-scrollbar {
+      display: none !important;
+    }
+  }
   .wb-slim-scroll {
     scrollbar-width: thin;
     /* Firefox has no hover selector for the thumb, so it gets the resting

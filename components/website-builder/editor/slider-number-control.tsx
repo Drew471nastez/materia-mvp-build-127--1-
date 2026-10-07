@@ -314,7 +314,9 @@ export function SliderNumberControl({
           ref={inputRef}
           type="text"
           inputMode="numeric"
-          className="h-8 w-[58px] px-2 text-xs text-center border border-neutral-200 rounded-md bg-white text-foreground tabular-nums focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-neutral-400 transition-colors"
+          className="h-8 px-2 text-xs text-center border border-neutral-200 rounded-md bg-white text-foreground tabular-nums focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-neutral-400 transition-colors"
+          /* As wide as the longest value this slider can hold, with its unit: "1800px" ran out of a fixed 58px box on both sides. */
+          style={{ width: `max(58px, calc(${Math.max(String(max).length, String(min).length, String(step).length) + (unit ?? "").length}ch + 22px))` }}
           value={inputStr + (focusedRef.current ? "" : unit ?? "")}
           onFocus={e => {
             focusedRef.current = true
