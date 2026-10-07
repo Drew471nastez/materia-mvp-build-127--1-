@@ -95,7 +95,8 @@ These were in General settings and are not any more. A saved value is kept, neve
 
 | Keys | Where they are now |
 | --- | --- |
-| `seo_title`, `seo_description`, `seo_og_image`, `seo_twitter_card`, `seo_robots` | Website settings › SEO & Social, which writes the same keys. |
+| `seo_title`, `seo_description`, `seo_og_image`, `seo_robots` | Website settings › SEO & Social, which writes the same keys. |
+| `seo_twitter_card` | Nothing writes it now. A saved `summary` is still read; everything else is the large card. |
 | `cookie_banner_show`, `cookie_banner_text`, `cookie_accept_text`, `cookie_decline_text`, `cookie_banner_enabled`, `cookie_bg`, `cookie_text_color` | Website settings › Policies, which writes the same keys. |
 | `announcement_bar_*` | The Announcement bar section, in the Header group. The page still draws the old bar while `announcement_bar_enabled` is `true`, and only then does the panel show its switch, as **Old announcement bar**. |
 | `primary_hover_color`, `secondary_color`, `accent_color`, `surface_color`, `surface_alt_color`, `text_secondary_color`, `text_muted_color`, `border_color`, `link_color`, `link_hover_color`, `success_color`, `error_color` | A section paints with its colour scheme. These are still written to the page root as `--theme-*` properties, for custom CSS that uses them. |

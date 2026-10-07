@@ -81,7 +81,10 @@ console.log("\nTaken out of the panel")
     check(`${id} is not a General setting`, !ids.includes(id))
   }
   const seo = read("components/website-builder/website-settings/seo.tsx")
-  check("SEO & Social still writes the same keys", ["seo_og_image", "seo_twitter_card", "seo_robots"].every((k) => seo.includes(k)))
+  check("SEO & Social still writes the same keys", ["seo_og_image", "seo_robots"].every((k) => seo.includes(k)))
+  // Changed on purpose: the Share card select was removed from SEO & Social
+  // (every network draws the large card). A value saved before is still read.
+  check("the Share card is no longer offered, and a saved one is still read", !seo.includes("seo_twitter_card") && /seo_twitter_card/.test(read("lib/website-builder/theme-metadata.ts")))
   check("and the live page still reads the share image and title", /seo_og_image/.test(read("lib/website-builder/theme-metadata.ts")) && /seo_title/.test(read("app/(site)/w/[username]/render-site.tsx")))
 
   const cookieIds = ["cookie_banner_show", "cookie_banner_text", "cookie_accept_text", "cookie_decline_text", "cookie_banner_enabled", "cookie_bg", "cookie_text_color"]

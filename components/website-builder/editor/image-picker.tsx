@@ -142,6 +142,32 @@ export function WbImagePicker({
     return () => clearTimeout(timer)
   }, [ready, faded, url])
 
+  /*
+    A STORED COPY THAT WILL NOT LOAD. Reported as a broken picture in SEO &
+    Social: the box settled on the browser's broken image icon, which says
+    nothing about what to do. A copy asked for the moment its upload finished
+    can miss once on its way through /media, so it is asked for again, once,
+    a moment later. A second miss is a picture that is not there: the box
+    says so in words and offers Replace and Remove, and the local copy is not
+    passed off as saved.
+  */
+  const [miss, setMiss] = useState<{ url: string; tries: number } | null>(null)
+  const tries = url !== null && miss?.url === url ? miss.tries : 0
+  const broken = tries > 1
+  const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => { if (retryTimer.current) clearTimeout(retryTimer.current) }, [])
+  const storedSrc = url && tries === 1 ? `${url}${url.includes("?") ? "&" : "?"}r=1` : url
+  const storedFailed = () => {
+    if (!url) return
+    if (tries === 0) {
+      if (retryTimer.current) clearTimeout(retryTimer.current)
+      retryTimer.current = setTimeout(() => setMiss({ url, tries: 1 }), 1200)
+      return
+    }
+    setMiss({ url, tries: 2 })
+    showFile(null)
+  }
+
   /* Once it is, the file is no longer holding anything up. */
   useEffect(() => {
     if (faded && previewRef.current) showFile(null)
@@ -258,20 +284,24 @@ export function WbImagePicker({
               data-wb-image-box
               className="relative h-14 w-14 shrink-0 overflow-hidden rounded-md border border-black/[0.06] bg-[#f4f4f5] dark:bg-white/[0.06]"
             >
-              {!faded && (
+              {broken ? (
+                <span data-wb-image-layer="missing" className="absolute inset-0 flex items-center justify-center text-muted-foreground/60" aria-hidden>
+                  <ImageIcon className="h-[18px] w-[18px]" />
+                </span>
+              ) : !faded && (
                 preview
                   ? <img src={preview} alt="" data-wb-image-layer="local" className="absolute inset-0 h-full w-full object-cover" />
                   : <span data-wb-image-layer="waiting" className="wb-image-skeleton absolute inset-0" aria-hidden />
               )}
-              {url && (
+              {url && !broken && (
                 <img
-                  key={url}
-                  src={url}
+                  key={`${url}#${tries}`}
+                  src={storedSrc ?? url}
                   alt=""
                   data-wb-image-layer="stored"
                   ref={el => { if (el?.complete && el.naturalWidth > 0) setReadyUrl(url) }}
                   onLoad={() => setReadyUrl(url)}
-                  onError={() => setReadyUrl(url)}
+                  onError={storedFailed}
                   className={cn("wb-image-fade relative h-full w-full object-cover", ready ? "opacity-100" : "opacity-0")}
                 />
               )}
@@ -282,7 +312,9 @@ export function WbImagePicker({
               )}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[12.5px] font-medium text-foreground" title={name}>{name}</p>
+              <p className="truncate text-[12.5px] font-medium text-foreground" title={broken ? undefined : name}>
+                {broken ? "This picture could not be loaded" : name}
+              </p>
               <div className="mt-1 flex items-center gap-1">
                 <button
                   type="button"
@@ -360,23 +392,29 @@ export function WbImagePicker({
             file. `!faded` rather than `!ready`, so it is still there through
             the fade that covers it.
           */}
-          {!faded && (
+          {broken ? (
+            <span data-wb-image-layer="missing" className="flex flex-col items-center gap-1.5 px-4 text-center">
+              <ImageIcon className="h-5 w-5 text-muted-foreground/50" aria-hidden />
+              <span className="text-[12.5px] text-muted-foreground">This picture could not be loaded. Replace it or remove it.</span>
+            </span>
+          ) : !faded && (
             preview
               ? <img src={preview} alt="" data-wb-image-layer="local" className="absolute inset-0 h-full w-full object-contain p-2" />
               : <span data-wb-image-layer="waiting" className="wb-image-skeleton absolute inset-0" aria-hidden />
           )}
           {/* And the stored copy, which fades over it once it has decoded. */}
-          {url && (
+          {url && !broken && (
             <img
-              key={url}
-              src={url}
+              key={`${url}#${tries}`}
+              src={storedSrc ?? url}
               alt=""
               data-wb-image-layer="stored"
               ref={el => { if (el?.complete && el.naturalWidth > 0) setReadyUrl(url) }}
               onLoad={() => setReadyUrl(url)}
               /* A picture that will not load must not leave a sweep running
-                 for ever; the box settles on the broken image instead. */
-              onError={() => setReadyUrl(url)}
+                 for ever, nor settle on the browser's broken image: one
+                 retry, then words (storedFailed). */
+              onError={storedFailed}
               className={cn(
                 "wb-image-fade relative h-full w-full object-contain p-2",
                 ready ? "opacity-100" : "opacity-0",

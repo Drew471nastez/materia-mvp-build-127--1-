@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import { WbImagePicker } from "@/components/website-builder/editor/image-picker"
 import { Card, Counter, GOES_LIVE, PageTitle, Row, Toggle, inputClass, textAreaClass } from "./parts"
 import type { SettingsContext } from "./types"
@@ -31,7 +32,6 @@ export function SeoSettings({ ctx }: { ctx: SettingsContext }) {
   const title = str(ctx.settings.seo_title)
   const description = str(ctx.settings.seo_description)
   const image = str(ctx.settings.seo_og_image) || undefined
-  const card = str(ctx.settings.seo_twitter_card) || "summary_large_image"
   const listed = indexable(ctx.settings.seo_robots)
   const preview = previewOf(ctx)
 
@@ -75,21 +75,21 @@ export function SeoSettings({ ctx }: { ctx: SettingsContext }) {
             <Counter value={description} max={160} />
           </div>
         </Row>
+        {/*
+          WHAT A SHARED LINK LOOKS LIKE. The picture on top, then the address,
+          title and description, the way Messages, WhatsApp and X draw a
+          link. "Share card" (large or small picture) is gone: every network
+          that matters draws the large one, and a choice nobody can judge
+          from here is a choice to remove. A value saved before still reads
+          (theme-metadata.ts).
+        */}
         <Row label="Social image" hint="Shown when a link to your website is shared. 1200 × 630 works everywhere." stack>
-          <div className="dark max-w-[360px]">
-            <WbImagePicker value={image} onChange={(url) => ctx.onSettingChange("seo_og_image", url ?? "")} aspectRatio="video" folder="logos" />
+          <div className="flex max-w-[420px] flex-col gap-3">
+            <SharePreview image={image} title={preview.title} description={preview.description} address={ctx.websiteUrlDisplay} />
+            <div className="dark">
+              <WbImagePicker value={image} onChange={(url) => ctx.onSettingChange("seo_og_image", url ?? "")} layout="row" folder="logos" />
+            </div>
           </div>
-        </Row>
-        <Row label="Share card" htmlFor="wb-seo-card">
-          <select
-            id="wb-seo-card"
-            value={card}
-            onChange={(e) => ctx.onSettingChange("seo_twitter_card", e.target.value)}
-            className={inputClass}
-          >
-            <option value="summary_large_image">Large image</option>
-            <option value="summary">Small image</option>
-          </select>
         </Row>
         <Row
           label="Search engines"
@@ -100,5 +100,33 @@ export function SeoSettings({ ctx }: { ctx: SettingsContext }) {
         </Row>
       </Card>
     </>
+  )
+}
+
+/**
+ * A link as a messaging app draws it. Without a picture of its own the live
+ * site sends the logo, a hero picture or the creator's avatar
+ * (render-site.tsx), so the empty box says that rather than looking broken.
+ */
+function SharePreview({ image, title, description, address }: { image?: string; title: string; description: string; address: string }) {
+  const [failed, setFailed] = useState<string | null>(null)
+  const shown = image && failed !== image ? image : null
+  return (
+    <div className="overflow-hidden rounded-2xl bg-white text-left" aria-label="Shared link preview">
+      <div className="relative aspect-[1200/630] w-full bg-[#f1f2f4]">
+        {shown ? (
+          <img src={shown} alt="" className="absolute inset-0 h-full w-full object-cover" onError={() => setFailed(shown)} />
+        ) : (
+          <p className="absolute inset-0 flex items-center justify-center px-6 text-center text-[12.5px] text-[#6b7280]">
+            No picture yet. Your logo or first hero picture is used instead.
+          </p>
+        )}
+      </div>
+      <div className="border-t border-black/[0.06] px-4 py-3">
+        <p className="truncate text-[11.5px] uppercase tracking-wide text-[#6b7280]">{address || "yourname.storelib.com"}</p>
+        <p className="mt-0.5 truncate text-[14px] font-semibold text-[#1a1a2e]">{title}</p>
+        <p className="mt-0.5 line-clamp-2 text-[12.5px] leading-snug text-[#6b7280]">{description}</p>
+      </div>
+    </div>
   )
 }

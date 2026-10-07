@@ -75,8 +75,10 @@ function main() {
   check("a cached picture counts as decoded even though onLoad already fired",
     /ref=\{el => \{ if \(el\?\.complete && el\.naturalWidth > 0\) setReadyUrl\(url\) \}\}/.test(picker),
     "React attaches onLoad after mount; an image out of cache is complete before that")
+  // Changed on purpose: a picture that will not load is asked for once more,
+  // then the box says so in words instead of the browser's broken image.
   check("and one that will not load does not leave the box waiting for ever",
-    /onError=\{\(\) => setReadyUrl\(url\)\}/.test(picker))
+    /onError=\{storedFailed\}/.test(picker) && /setMiss\(\{ url, tries: 2 \}\)/.test(picker) && /This picture could not be loaded/.test(picker))
   /*
     THE GLITCH AT THE END OF AN UPLOAD, which was this component's own. The
     layer underneath was removed the moment `ready` turned true, and `ready`
@@ -86,7 +88,7 @@ function main() {
   */
   check("what is underneath outlives the fade that covers it",
     /const faded = url !== null && fadedUrl === url/.test(picker)
-      && /\{!faded && \(/.test(picker),
+      && /\{!faded && \(|\) : !faded && \(/.test(picker),
     "removing it when the fade STARTS puts an empty box under an image at zero opacity")
   check("with the end of the fade timed from the picture, not from a mount",
     /const timer = setTimeout\(\(\) => setFadedUrl\(url\), IMAGE_FADE_MS\)/.test(picker)

@@ -15,14 +15,27 @@ export const SETTINGS_SECTIONS = [
   { id: "general", label: "General", group: "site" },
   { id: "domains", label: "Domains", group: "site" },
   { id: "seo", label: "SEO & Social", group: "site" },
-  { id: "pages", label: "Pages", group: "site" },
-  { id: "navigation", label: "Navigation", group: "site" },
-  { id: "commerce", label: "Commerce", group: "site" },
-  { id: "policies", label: "Policies", group: "site" },
-  { id: "publishing", label: "Publishing", group: "site" },
-  { id: "backups", label: "Backups & Versions", group: "site" },
+  { id: "pages", label: "Pages", group: "content" },
+  { id: "navigation", label: "Navigation", group: "content" },
+  { id: "commerce", label: "Commerce", group: "content" },
+  { id: "policies", label: "Policies", group: "content" },
+  { id: "publishing", label: "Publishing", group: "live" },
+  { id: "backups", label: "Backups & Versions", group: "live" },
   { id: "connections", label: "Connections", group: "code" },
 ] as const
+
+/**
+ * The headings the list is read under. Ten rows in one column read as one
+ * long list where Domains and Backups weigh the same; four short groups say
+ * what each is for: the site and its address, what is on it, getting it
+ * live, and the code tools.
+ */
+export const SETTINGS_GROUP_LABELS: Record<(typeof SETTINGS_SECTIONS)[number]["group"], string> = {
+  site: "Website",
+  content: "Content",
+  live: "Going live",
+  code: "Code",
+}
 
 export type SettingsSection = (typeof SETTINGS_SECTIONS)[number]["id"]
 

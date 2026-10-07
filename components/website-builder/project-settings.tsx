@@ -16,6 +16,7 @@ import { PolicySettings } from "@/components/website-builder/website-settings/po
 import { PublishingSettings } from "@/components/website-builder/website-settings/publishing"
 import { SeoSettings } from "@/components/website-builder/website-settings/seo"
 import {
+  SETTINGS_GROUP_LABELS,
   SETTINGS_SECTIONS,
   type ConnectVia,
   type SettingsContext,
@@ -316,17 +317,20 @@ export function ProjectSettings({
             Back to editor
           </button>
         </div>
-        <p className="px-5 pb-2 pt-5 text-[12px] font-medium uppercase tracking-wider text-white/40 md:px-6 md:pt-6">Website Settings</p>
+        <p className="px-5 pt-5 text-[20px] font-semibold text-white md:px-6 md:pt-6 md:text-[17px]">Website settings</p>
         <nav aria-label="Website settings" className="flex flex-col px-3 pb-6">
           {SETTINGS_SECTIONS.map(({ id, label, group }, i) => {
             const active = section === id
-            /* Connections is how code reaches the site, not a setting of it,
-               so it stands under its own heading after the site's pages. */
-            const startsGroup = group === "code" && SETTINGS_SECTIONS[i - 1]?.group !== "code"
+            /* Each group under its own heading: the site, what is on it,
+               going live, and Connections, which is how code reaches the
+               site rather than a setting of it. */
+            const startsGroup = SETTINGS_SECTIONS[i - 1]?.group !== group
             return (
               <Fragment key={id}>
               {startsGroup && (
-                <p className="mt-4 border-t border-white/10 px-3 pb-2 pt-5 text-[12px] font-medium uppercase tracking-wider text-white/40">Code</p>
+                <p className={cn("px-3 pb-1.5 text-[12px] font-medium uppercase tracking-wider text-white/40", i === 0 ? "pt-4" : "pt-5")}>
+                  {SETTINGS_GROUP_LABELS[group]}
+                </p>
               )}
               <button
                 type="button"

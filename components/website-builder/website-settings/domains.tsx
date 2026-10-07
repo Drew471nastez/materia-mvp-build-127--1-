@@ -259,6 +259,11 @@ export function DomainSettings({ ctx }: { ctx: SettingsContext }) {
                 {confirming ? "Replace" : "Connect"}
               </button>
             </div>
+            {!current && !confirming && (
+              <p className="text-[13px] leading-snug text-white/45">
+                Type the domain and press Connect. You get the records to add where you bought it, and the site answers there once they are in, usually within the hour.
+              </p>
+            )}
             {confirming && current && (
               <p className="text-[13.5px] leading-snug text-amber-200">
                 This replaces {current.domain}. For 30 days {current.domain} sends its visitors on to {clean}, then it stops. Press Replace to go ahead.

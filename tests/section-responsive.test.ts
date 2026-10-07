@@ -1557,8 +1557,10 @@ check(
   (() => {
     const types = settingsFiles[0]
     const list = types.slice(types.indexOf("SETTINGS_SECTIONS = ["), types.indexOf("] as const"))
-    return !/Analytics|Knowledge|Skills/.test(list) && /\{ id: "backups", label: "Backups & Versions", group: "site" \}/.test(list) &&
-      /\{ id: "navigation", label: "Navigation", group: "site" \}/.test(list) &&
+    // Changed on purpose: the list is grouped (Website, Content, Going live,
+    // Code), so Backups and Navigation sit under their own headings.
+    return !/Analytics|Knowledge|Skills/.test(list) && /\{ id: "backups", label: "Backups & Versions", group: "live" \}/.test(list) &&
+      /\{ id: "navigation", label: "Navigation", group: "content" \}/.test(list) &&
       (list.match(/\{ id: "/g) ?? []).length === 10
   })(),
 )
