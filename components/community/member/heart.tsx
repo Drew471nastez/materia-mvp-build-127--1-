@@ -11,13 +11,13 @@
  * icon moves, never the button around it, and only by scale and opacity on
  * the compositor; the count beside it stays where it is.
  *
- * THE BURST (round 11, a confetti in round 15). A like sends a soft ring
- * out from the icon, eighteen tiny hearts in two waves (in the like's red
- * and two pinks) and ten round sparks with them, each on its own line a little off an even
- * ring, rising and shrinking as they fade: translate, scale, rotate and opacity
- * only (the compositor's), every
- * one gone within BURST_MS, and taken out of the page when done. One burst
- * per like (a like pressed again while one is in the air replaces it). An
+ * THE BURST (round 11, a confetti in round 15, quieter since). A like sends a
+ * soft ring out from the icon, a few small hearts in two waves (in the like's
+ * red and a pink) and a few sparks with them, each a little off an even ring,
+ * rising and shrinking as they fade: translate, scale, rotate and opacity
+ * only (the compositor's), every one gone within BURST_MS, and taken out of
+ * the page when done. One burst per like (a like pressed again while one is
+ * in the air replaces it). An
  * unlike is only the quiet un-fill: the filled heart fades as it settles a
  * little smaller, nothing thrown, no beat. Nothing moves with reduced motion.
  *
@@ -30,13 +30,13 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react"
 const BEAT_MS = 460
 const FILL_MS = 400
 const UNFILL_MS = 240
-export const BURST_MS = 820
-export const BURST_COUNT = 18
-/** The sparks thrown with the hearts: small round dots, further out, a little later. */
-export const SPARK_COUNT = 10
+export const BURST_MS = 720
+export const BURST_COUNT = 8
+/** The sparks thrown with the hearts: a few small dots, not a second ring of hearts. */
+export const SPARK_COUNT = 3
 /** The like's own red, set on the tiny hearts rather than taken from the button, whose colour is still settling when they leave. */
 const BURST_COLOR = "#c4290c"
-/* A confetti of the like's colours (round 15: "lots of hearts, sparkling like confetti"): its red, a warm pink, a soft coral, and gold for the sparks. */
+/* A few of the like's colours, kept quiet: its red, a warm pink, and a little gold for the sparks. */
 const HEART_COLORS = [BURST_COLOR, "#e8476a", "#ff7a8a", BURST_COLOR, "#f0567a"]
 const SPARK_COLORS = ["#f5b324", "#ff7a8a", BURST_COLOR, "#ffcf5c", "#e8476a"]
 
@@ -64,11 +64,11 @@ export function burstPaths(size: number, count = BURST_COUNT): BurstPath[] {
     const k = outer ? i - count / 2 : i
     const n = outer ? count - count / 2 : count / 2
     const a = (k / n) * Math.PI * 2 - Math.PI / 2 + (outer ? Math.PI / n : 0) + (k % 2 ? 0.16 : -0.1)
-    const reach = size * (outer ? (k % 3 === 0 ? 2.05 : k % 3 === 1 ? 1.75 : 2.3) : k % 3 === 0 ? 1.15 : k % 3 === 1 ? 0.98 : 1.3)
+    const reach = size * (outer ? (k % 3 === 0 ? 1.45 : k % 3 === 1 ? 1.25 : 1.6) : k % 3 === 0 ? 0.85 : k % 3 === 1 ? 0.72 : 0.95)
     out.push({
       x: Math.cos(a) * reach,
       y: Math.sin(a) * reach - size * 0.18,
-      s: outer ? (k % 3 === 0 ? 0.62 : k % 3 === 1 ? 0.8 : 0.95) : k % 3 === 0 ? 0.78 : k % 3 === 1 ? 1 : 1.15,
+      s: outer ? (k % 3 === 0 ? 0.42 : k % 3 === 1 ? 0.52 : 0.6) : k % 3 === 0 ? 0.5 : k % 3 === 1 ? 0.62 : 0.72,
       r: (k % 2 ? 1 : -1) * (10 + (k % 4) * 7),
       delay: outer ? 60 + (k % 4) * 14 : (k % 5) * 8,
     })
@@ -126,8 +126,8 @@ function burst(host: HTMLElement, size: number) {
   layer.setAttribute("data-heart-burst", "")
   layer.setAttribute("aria-hidden", "true")
   layer.style.cssText = `position:fixed;left:${(r.left + r.width / 2).toFixed(1)}px;top:${(r.top + r.height / 2).toFixed(1)}px;width:0;height:0;pointer-events:none;z-index:2147483000;contain:layout style`
-  const dot = Math.max(5, Math.round(size * 0.36))
-  const spark = Math.max(3, Math.round(size * 0.16))
+  const dot = Math.max(4, Math.round(size * 0.26))
+  const spark = Math.max(2, Math.round(size * 0.1))
   const paths = burstPaths(size)
   const sparks = sparkPaths(size)
   layer.innerHTML =
@@ -144,7 +144,7 @@ function burst(host: HTMLElement, size: number) {
       el.animate(
         [
           { translate: at(0.3), scale: `${0.4 * p.s}`, opacity: 0, easing: "cubic-bezier(0.22, 1, 0.36, 1)" },
-          { translate: at(0.8), scale: `${1.2 * p.s}`, opacity: 1, offset: 0.35, easing: "ease-out" },
+          { translate: at(0.8), scale: `${1.2 * p.s}`, opacity: 0.55, offset: 0.35, easing: "ease-out" },
           { translate: at(1, size * 0.12), scale: `${0.2 * p.s}`, opacity: 0 },
         ],
         { duration: BURST_MS - 160 - p.delay, delay: p.delay, easing: "linear", fill: "both" },
@@ -159,9 +159,9 @@ function burst(host: HTMLElement, size: number) {
       el.animate(
         [
           { translate: at(0), scale: `${0.2 * p.s}`, rotate: "0deg", opacity: 0, easing: "cubic-bezier(0.22, 1, 0.36, 1)" },
-          { translate: at(0.35), scale: `${0.72 * p.s}`, rotate: `${p.r * 0.25}deg`, opacity: 0.85, offset: 0.18, easing: "cubic-bezier(0.22, 1, 0.36, 1)" },
-          { translate: at(0.62), scale: `${1.08 * p.s}`, rotate: `${p.r * 0.5}deg`, opacity: 1, offset: 0.38, easing: "cubic-bezier(0.22, 1, 0.36, 1)" },
-          { translate: at(0.82, size * 0.04), scale: `${p.s}`, rotate: `${p.r * 0.72}deg`, opacity: 1, offset: 0.58, easing: "ease-out" },
+          { translate: at(0.35), scale: `${0.72 * p.s}`, rotate: `${p.r * 0.25}deg`, opacity: 0.45, offset: 0.18, easing: "cubic-bezier(0.22, 1, 0.36, 1)" },
+          { translate: at(0.62), scale: `${1.08 * p.s}`, rotate: `${p.r * 0.5}deg`, opacity: 0.62, offset: 0.38, easing: "cubic-bezier(0.22, 1, 0.36, 1)" },
+          { translate: at(0.82, size * 0.04), scale: `${p.s}`, rotate: `${p.r * 0.72}deg`, opacity: 0.5, offset: 0.58, easing: "ease-out" },
           { translate: at(1, size * 0.22), scale: `${0.28 * p.s}`, rotate: `${p.r}deg`, opacity: 0, easing: "cubic-bezier(0.4, 0, 0.2, 1)" },
         ],
         { duration: BURST_MS - p.delay, delay: p.delay, easing: "linear", fill: "both" },

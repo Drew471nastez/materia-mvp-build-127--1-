@@ -198,8 +198,15 @@ export function PostOverlay({ post: given, slug, viewer, readOnly = false, updat
       const like = intentOf(`like:${given.id}`)
       const save = intentOf(`save:${given.id}`)
       const fresh: FeedPostView = { ...r.data.post, ...(like ? { reacted: like.on, reactionCount: like.count } : {}), ...(save ? { bookmarked: save.on } : {}) }
-      setPost(fresh)
-      update(given.id, (p) => ({ ...p, ...fresh }))
+      /* After the slide, and when the page is idle, so the swap does not hitch a finger that is still on the sheet. */
+      const apply = () => {
+        if (stop) return
+        setPost(fresh)
+        update(given.id, (p) => ({ ...p, ...fresh }))
+      }
+      const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }
+      if (w.requestIdleCallback) w.requestIdleCallback(apply, { timeout: 400 })
+      else window.setTimeout(apply, 32)
     })()
     return () => {
       stop = true
@@ -289,6 +296,8 @@ function OverlayFrame({ phone, post, open, phase, setPhase, close, onGone, conte
         hideFrom="sm"
         zIndex={130}
         aboveKeyboard
+        /* Pictures decode before the slide, so the post does not flash white while it rises. */
+        waitForImages
         /* Nearly the whole screen, short of the top by the status bar and a little more, as an iOS sheet stands. */
         height="calc(var(--vv-h, 100dvh) - max(env(safe-area-inset-top), 12px) - 8px)"
         maxHeight="calc(var(--vv-h, 100dvh) - max(env(safe-area-inset-top), 12px) - 8px)"

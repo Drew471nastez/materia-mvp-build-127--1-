@@ -541,6 +541,8 @@ export function BottomSheet({
   const lastYRef = useRef(0)
   const draggingRef = useRef(false)
   const pendingRef = useRef(false)
+  /* The finger is scrolling the list. If that scroll runs out at the top and the finger keeps going down, the sheet takes the rest. */
+  const scrollingRef = useRef(false)
   /* A finger that came down on this sheet and has not lifted: the window's touchend is only this sheet's then. */
   const touchingRef = useRef(false)
   const fromHandleRef = useRef(false)
@@ -659,10 +661,6 @@ export function BottomSheet({
     /* The backdrop lightens as the sheet leaves, so the two move together. */
     if (scrim) scrim.style.opacity = String(Math.max(0, Math.min(1, 1 - offsetRef.current / (heightRef.current || 1))))
   }, [])
-
-  const schedule = useCallback(() => {
-    if (rafRef.current == null) rafRef.current = requestAnimationFrame(paint)
-  }, [paint])
 
   /**
    * Move from wherever the sheet is to `to`, on the compositor.
@@ -932,6 +930,7 @@ export function BottomSheet({
         return
       }
       touchingRef.current = true
+      scrollingRef.current = false
       fromHandleRef.current = !!target?.closest?.("[data-sheet-handle]")
       scrollerRef.current = fromHandleRef.current ? null : scrollerAt(target, sheet)
       /* Mid-animation: take the sheet from exactly where it is. */
@@ -940,9 +939,9 @@ export function BottomSheet({
         stopMotion()
         offsetRef.current = y
         sheet.style.transform = translate(y)
-        schedule()
       }
-      sizeUp(sheet)
+      /* Measuring the sheet forces layout. Once an open has measured it, a new finger does not measure it again. */
+      if (!heightRef.current) sizeUp(sheet)
       pendingRef.current = true
       draggingRef.current = false
       startYRef.current = e.touches[0].clientY - offsetRef.current
@@ -953,8 +952,20 @@ export function BottomSheet({
     }
 
     const onMove = (e: TouchEvent) => {
-      if (!touchingRef.current || (!pendingRef.current && !draggingRef.current)) return
+      if (!touchingRef.current || (!pendingRef.current && !draggingRef.current && !scrollingRef.current)) return
       const y = e.touches[0].clientY
+      /* A list that has come back to its top hands the rest of the same downward finger to the sheet, the way the editor's sheet does. */
+      if (scrollingRef.current && !draggingRef.current) {
+        const step = y - lastYRef.current
+        lastYRef.current = y
+        const scroller = scrollerRef.current
+        const field = (e.target as HTMLElement | null)?.closest?.("textarea, input, [contenteditable='true']")
+        if (!(scroller && step > 0 && scroller.scrollTop <= 0 && !field)) return
+        scrollingRef.current = false
+        draggingRef.current = true
+        sheet.style.willChange = "transform"
+        startYRef.current = y - offsetRef.current
+      }
       if (pendingRef.current) {
         const dy = y - lastYRef.current
         const dx = e.touches[0].clientX - startXRef.current
@@ -982,12 +993,13 @@ export function BottomSheet({
           its top. That pull is the sheet's, as on an iOS sheet and the
           website builder's (sheet-gestures.ts dragIntent), so a post closes
           from anywhere on it, not only from the handle. Decided once, here,
-          on the first move: a scroll that reaches the top mid-gesture stays
-          a scroll, and a field being typed in keeps its own finger.
+          on the first move. A scroll that later runs out at the top hands the
+          rest of that finger to the sheet, and a field being typed in keeps its own finger.
         */
         if (!fromHandleRef.current && scroller) {
           const pullFromTop = dy > 0 && scrolledAbove(e.target, sheet) <= 0 && !(e.target as HTMLElement | null)?.closest?.("textarea, input, [contenteditable='true']")
           if (!pullFromTop) {
+            scrollingRef.current = true
             if (!canScroll(scroller, dy) && e.cancelable && Math.abs(dy) >= Math.abs(dx)) e.preventDefault()
             return
           }
@@ -1013,7 +1025,8 @@ export function BottomSheet({
       if (samples.length > MAX_SAMPLES) samples.shift()
       lastYRef.current = y
       offsetRef.current = next
-      schedule()
+      /* Written on the event, not the next frame: a frame of lag is what makes the sheet trail the finger. */
+      paint()
     }
 
     /* `null` is a gesture cut short (a second finger): no speed, no flick. */
@@ -1023,6 +1036,7 @@ export function BottomSheet({
       if (e && e.type === "touchend" && e.touches.length > 0) return
       touchingRef.current = false
       pendingRef.current = false
+      scrollingRef.current = false
       if (!draggingRef.current) {
         /* Touched mid-animation and let go without dragging: finish the move. */
         if (!closingRef.current && Math.abs(offsetRef.current - restRef.current) > 0.5 && !animsRef.current.length) springBack(0)
@@ -1068,7 +1082,7 @@ export function BottomSheet({
       window.removeEventListener("touchend", onLift)
       window.removeEventListener("touchcancel", onLift)
     }
-  }, [mounted, present, dismiss, glide, paint, schedule, stopMotion, springBack, sizeUp])
+  }, [mounted, present, dismiss, glide, paint, stopMotion, springBack, sizeUp])
 
   /* The scrim takes no scroll: a drag on it must not move the page behind. */
   useEffect(() => {
@@ -1162,7 +1176,8 @@ export function BottomSheet({
           transform: "translate3d(0, 100%, 0)",
           /* See SAFARI'S FLOATING BAR: a hair under 1, so the layer is drawn on past the bar's edge. Not while it rests below the screen. */
           ...(atRest ? null : { opacity: 0.999 }),
-          willChange: keepMounted ? "transform" : undefined,
+          /* Its own layer for the whole time it is on screen, so the first pixel of a drag does not have to build one. */
+          willChange: keepMounted || !atRest ? "transform" : undefined,
           /* The sheet owns every touch on it: the browser must not decide
              half way through that this was a scroll. */
           touchAction: "none",

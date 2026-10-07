@@ -47,6 +47,7 @@ export function BackControl({
   fallback,
   label = "Back",
   skipBack,
+  onBack,
   className,
   ...data
 }: {
@@ -54,11 +55,17 @@ export function BackControl({
   label?: string
   /** The page behind, when it is one this control must not go back to. */
   skipBack?: (path: string) => boolean
+  /** When set, the tap closes in place instead of changing the address. */
+  onBack?: () => void
   className?: string
 } & { [key: `data-${string}`]: string | undefined }) {
   const router = useRouter()
   const press = usePressFeedback<HTMLAnchorElement>()
   const tap = useFirstTap<HTMLAnchorElement>(() => {
+    if (onBack) {
+      onBack()
+      return
+    }
     const behind = previousPath() ?? referrerPath()
     if (behind && skipBack?.(behind)) {
       pushBackOnce(fallback, (to) => router.push(to))

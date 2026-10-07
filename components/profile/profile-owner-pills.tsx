@@ -33,6 +33,7 @@ import { usePathname, useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { EDIT_PROFILE_HREF, ownerPillFor, ownerPillLinks, type OwnerPillKey } from "@/lib/profile/owner-pills"
 import { prefetchHref, prefetchOnIdle } from "@/lib/nav/prefetch-policy"
+import { openSettingsSubpage, sectionFromSettingsHref, settingsStaysHere } from "@/components/account/settings-subpage"
 import { cn } from "@/lib/utils"
 
 export { ownerPillLinks } from "@/lib/profile/owner-pills"
@@ -85,6 +86,12 @@ export function ProfileOwnerPills({ communities, creator = false, active: fixed,
                 }}
                 onClick={(e) => {
                   if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return
+                  /* In the app and on a phone, Settings is a layer over the profile, not another address. */
+                  if (p.key === "settings" && settingsStaysHere()) {
+                    e.preventDefault()
+                    openSettingsSubpage(sectionFromSettingsHref(p.href))
+                    return
+                  }
                   if (p.key !== fromPath) setPressed(p.key)
                 }}
                 style={{ transitionDuration: `${FADE_MS}ms`, transitionTimingFunction: EASE }}

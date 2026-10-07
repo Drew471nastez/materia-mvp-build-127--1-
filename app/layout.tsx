@@ -59,6 +59,7 @@ import { AppLinkOpener } from "@/components/platform/app-link-opener"
 import { OpenInAppCard } from "@/components/platform/open-in-app-card"
 import { NativePlaceKeeper } from "@/components/platform/native-place-keeper"
 import { NativeChrome } from "@/components/platform/native-chrome"
+import { SettingsSubpageHost } from "@/components/account/settings-subpage"
 import { EdgeSwipeBack } from "@/components/platform/edge-swipe-back"
 import { NativePushInit } from "@/components/native-push-init"
 import { NotificationsAsk } from "@/components/platform/notifications-ask"
@@ -288,6 +289,8 @@ export default function RootLayout({
         <NativePlaceKeeper />
         {/* The strip under the clock, the browser's bar and the status bar's text in the page's own top colour; the launch screen down on the first steady frame. */}
         <NativeChrome />
+        {/* Settings over the profile on a phone, an iPad and in the apps: no address of its own. */}
+        <SettingsSubpageHost />
         {/* In the iPhone app only: a swipe from the left edge drags the page and goes back (lib/navigation/edge-swipe). */}
         <EdgeSwipeBack />
         <NativePushInit /> 
