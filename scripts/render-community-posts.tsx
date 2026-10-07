@@ -393,7 +393,9 @@ function Screen() {
           const more = params.get("more") === "1"
           const cursor = new URL(url, location.href).searchParams.get("cursor")
           const n = cursor ? Number(cursor.slice(1)) : 0
-          const page = more && cursor ? Array.from({ length: 20 }, (_, i) => ({ ...list[i % list.length], id: `p-more-${n}-${i}`, pinned: false })) : list
+          /* Round 14: Critique holds other posts (the same ones, newest last), so a switch to it is a list that really changes. */
+          const crit = new URL(url, location.href).searchParams.get("space") === "s-crit"
+          const page = more && cursor ? Array.from({ length: 20 }, (_, i) => ({ ...list[i % list.length], id: `p-more-${n}-${i}`, pinned: false })) : crit ? [...list].reverse().map((x) => ({ ...x, id: `${x.id}-crit` })) : list
           const body = { pinned: cursor ? [] : POSTS.filter((p) => p.pinned), posts: page, nextCursor: more ? `c${n + 1}` : null }
           ;(window as unknown as { __pages?: number }).__pages = ((window as unknown as { __pages?: number }).__pages ?? 0) + (cursor ? 1 : 0)
           return new Promise((done) => setTimeout(() => done(new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } })), 120))

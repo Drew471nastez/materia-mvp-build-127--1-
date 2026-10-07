@@ -50,8 +50,9 @@ async function main() {
   {
     const feed = code("components/community/member/feed.tsx")
     check("the chips follow `target`, the list follows its own state (`list`)", /const \[list, setList\] = useState\(\{ id: targetId, sort \}\)/.test(feed) && /active=\{chipSpace\?\.slug \?\? null\}/.test(feed))
-    check("the list takes the new value two animation frames later, drawn in one go", /requestAnimationFrame\(\(\) => \{\s*second = requestAnimationFrame\(\(\) => flushSync\(\(\) => setList\(next\)\)\)/.test(feed))
-    check("a newer tap cancels the handover of an older one", /cancelAnimationFrame\(first\)\s*cancelAnimationFrame\(second\)/.test(feed))
+    check("round 14: the body under the chips fades out, the list is drawn in one go once it is out, then fades and rises in", /const OUT_MS = 110/.test(feed) && /fill: "forwards"/.test(feed) && /window\.setTimeout\(\(\) => flushSync\(\(\) => setList\(next\)\), OUT_MS\)/.test(feed) && /\{ opacity: 0, translate: "0 6px" \}, \{ opacity: 1, translate: "0 0" \}/.test(feed))
+    check("a newer tap cancels the handover of an older one, and the body stays out for it", /window\.clearTimeout\(swapTimer\)/.test(feed) && /if \(!outAnim\.current\)/.test(feed))
+    check("  a list with the same posts swaps with no fade; one not here yet is waited for a moment before anything moves", /const DECIDE_MS = 180/.test(feed) && /sameAsNow\(coming\.posts\) \? swapStill : swapFaded/.test(feed) && /v && sameAsNow\(v\.posts\) \? swapStill : swapFaded/.test(feed))
     check("everything under the chips is one memoised block", /const FeedBody = memo\(/.test(feed) && /<FeedBody/.test(feed))
     check("the list, the composer, the empty words read the list's target, not the chip's", /viewKey\(communityId, listTarget, listSort\)/.test(feed) && !/viewKey\(communityId, target, sort\)/.test(feed))
     check("a switched list draws a phone's screenful first", /const SWAP_CARDS = 4/.test(feed) && /i < firstCards \|\| whole/.test(feed))
