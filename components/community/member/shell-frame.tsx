@@ -101,6 +101,7 @@ import { InviteSheet } from "./invite-sheet"
 import { preloadSearchIndex } from "./search"
 import { PRESS_PROPS, TAB, TAB_OFF, TAB_ON } from "./ui"
 import type { ShellCommunity, ShellSection, TopBarData, WallData } from "./view-types"
+import { onCommunityUpdated } from "@/lib/communities/updated-signal"
 import { PlaceContext, plainClick, WallCommunityCard, WallContributorsCard, WallPlaces, WallUpcoming, type PlaceState } from "./wall"
 import { useCommunityLanding } from "./landing"
 import { useReturnScroll, useSectionTop } from "./return-scroll"
@@ -393,6 +394,25 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
     more, so the router holds a fresh copy for its five minutes (next.config.mjs staleTimes) and Home, Back or a link into the
     community swaps it in on the next frame with no spinner. The feed's own lists stay in memory for the visit (feed-cache.ts).
   */
+  /*
+    THE COMMUNITY'S OWN LOOK, KEPT CURRENT (round 15: "a cover I update in the admin should change here"). Saved in another tab,
+    the frame reads itself again at once (lib/communities/updated-signal.ts); come back to after half a minute away (another
+    app, the admin on a computer), it reads itself again too, so its cover, picture and name are the admin's latest.
+  */
+  useEffect(() => {
+    const off = onCommunityUpdated(community.id, () => router.refresh())
+    let hiddenAt = 0
+    const onVisible = () => {
+      if (document.visibilityState === "hidden") hiddenAt = Date.now()
+      else if (hiddenAt && Date.now() - hiddenAt > 30_000) router.refresh()
+    }
+    document.addEventListener("visibilitychange", onVisible)
+    return () => {
+      off()
+      document.removeEventListener("visibilitychange", onVisible)
+    }
+  }, [community.id, router])
+
   const homeHref = `/community/${community.slug}`
   useEffect(
     () => () => {
