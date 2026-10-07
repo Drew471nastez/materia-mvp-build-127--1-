@@ -107,6 +107,11 @@ function RouteLoadingBarInner() {
       }
       if (url.origin !== window.location.origin) return
       if (url.pathname === window.location.pathname && url.search === window.location.search) return
+      /* A community space chip switches the list in place and moves the
+         address itself. It is not a page load. Starting the cover here left
+         the iOS spinner up until the give-up, because the router never
+         reported a landing. */
+      if (anchor.closest("[data-space-chips]")) return
       setCover(false)
       setPendingSince(Date.now())
     }
@@ -145,6 +150,9 @@ function RouteLoadingBarInner() {
     const onPop = () => {
       const landed = `${window.location.pathname}?${new URLSearchParams(window.location.search).toString()}`
       if (landed === committed.current) return
+      /* Back and forward between a community's own feed addresses (home, a
+         space, Saved) is the same list swapping. Nothing is fetched. */
+      if (sameCommunityFeed(committed.current.split("?")[0], window.location.pathname)) return
       setCover(false)
       setPendingSince(Date.now())
     }
@@ -255,6 +263,17 @@ function RouteLoadingBarInner() {
  * has its own surface and never mounts this at all.
  */
 const DRAWS_ITS_OWN_WAIT = /^\/(account\/library|checkout)(\/|$)/
+
+/** /community/<slug>, /community/<slug>/space/<space>, or /community/<slug>/saved: one feed, switched in place. */
+function communityFeedSlug(path: string): string | null {
+  const m = path.match(/^\/community\/([^/]+)(?:\/space\/[^/]+|\/saved)?$/)
+  return m ? m[1] : null
+}
+
+function sameCommunityFeed(a: string, b: string): boolean {
+  const left = communityFeedSlug(a)
+  return !!left && left === communityFeedSlug(b)
+}
 
 function SlowPage({ pendingSince, from, cover }: { pendingSince: number | null; from: string; cover: boolean }) {
   const [shown, setShown] = useState(false)

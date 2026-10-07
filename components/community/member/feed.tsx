@@ -17,18 +17,20 @@
  * Saved, in each of the four sorts (Default, New, Top, Unread: sort-menu.tsx),
  * are lists of the same feed. Choosing one does not load a page: the list is
  * taken from the client cache when it is there (feed-cache.ts: on the next
- * frame, no skeleton). One that is not cached does not keep the previous
- * space's posts up as if they were its own: the spinner stands in (round 9,
- * place-spinner.tsx), never a skeleton, and the list that arrives is that
- * space. A read that fails is asked once more, then a retry is offered, so
- * the spinner cannot sit there with the space never arriving.
- * The address moves with it (history.pushState, which Next's router follows),
- * so Back, a reload and a shared link all land on the same list. A list is
- * asked for ahead when a pointer rests on its chip or a finger lands on it,
- * and once the feed is idle the first page of every space is read ahead,
- * one after another (feed-cache.ts prefetchViews), so a chip usually finds
- * its list already here. A list read over a minute ago is shown at once and
- * read again quietly.
+ * frame, no skeleton). One that is not cached yet keeps the posts already
+ * on screen until its own list arrives, then swaps. The iOS spinner is only
+ * when the feed has nothing to show. A read that fails is asked once more,
+ * then a retry is offered.
+ * The address moves with it (history.pushState), so Back, a reload and a
+ * shared link all land on the same list: /community/<slug>/space/<space>.
+ * That push does not load the space's page. The list swaps here. A list
+ * already read is the one on screen with the chip. One that is not read yet
+ * keeps the posts already showing until its own arrive. The iOS spinner is
+ * only for a feed that has nothing to show. A list is asked for ahead when
+ * a pointer rests on its chip or a finger lands on it, and once the feed is
+ * on screen the first page of every space is read ahead, a few at a time
+ * (feed-cache.ts prefetchViews). A list read over a minute ago is shown at
+ * once and read again quietly.
  *
  * A like, a save, an edit or a delete in one list is carried into every
  * other cached list holding that post; a new post goes to the top of the
@@ -146,16 +148,6 @@ export function targetFromPath(pathname: string | null | undefined, slug: string
   return fallback
 }
 
-/**
- * A space chip never loads the space's page. That page's own wait is the
- * iOS spinner that sat there for seconds. The list swaps here, from the
- * cache when the space was read ahead. The address still follows on a
- * computer, for Back and a shared link, but the list does not wait on it.
- */
-function spaceKeepsAddress(): boolean {
-  return typeof window !== "undefined"
-}
-
 function sameTarget(a: FeedTarget, b: FeedTarget): boolean {
   return a.kind === b.kind && (a.kind !== "space" || a.id === (b as { id: string }).id)
 }
@@ -208,9 +200,9 @@ export function CommunityFeed({ communityId, slug, viewer, spaces, start, initia
   const behind = list.id !== targetId || list.sort !== sort
   /*
     NO FADE (round 15, the owner: "still a flash, a fade in between switching, which should not be"). The chip changes on the
-    next frame and the list follows on the frame after it. A list already here is simply there. One that is not here does
-    not keep the previous space's posts: the spinner stands in until that space arrives. A backup timer applies the list if
-    the frames never run, so a switch cannot stay on the previous space.
+    next frame and the list follows on the frame after it. A list already here is simply there. One that is not here yet
+    keeps the posts already on screen. A backup timer applies the list if the frames never run, so a switch cannot stay
+    on the previous space's chip.
   */
   useLayoutEffect(() => {
     if (!behind) return
@@ -265,15 +257,16 @@ export function CommunityFeed({ communityId, slug, viewer, spaces, start, initia
   const keyRef = useRef(key)
   keyRef.current = key
 
-  /* A space already read is drawn on this frame, with the chip. One that is still on its way keeps the posts already on screen until it arrives. A switch does not turn into the iOS spinner. */
+  /* The space asked for, when it has been read. Otherwise the posts already on screen. A switch never clears the feed into the spinner. */
   const [cacheRev, setCacheRev] = useState(0)
   useEffect(() => subscribeViews(() => setCacheRev((n) => n + 1)), [])
   void cacheRev
-  const wanted = readView(viewKey(communityId, target, sort))
+  const asked = readView(viewKey(communityId, target, sort))
+  const held = shown.view.posts.length ? shown.view : null
   const listed = shown.key === key ? shown.view : (readView(key) ?? null)
-  const cached = wanted ?? listed ?? (shown.view.posts.length ? shown.view : null)
+  const cached = asked ?? listed ?? held
   const view = cached ?? EMPTY_LIST
-  const waiting = !wanted && !(cached && cached.posts.length > 0) && failedKey !== viewKey(communityId, target, sort)
+  const waiting = !asked && view.posts.length === 0 && failedKey !== viewKey(communityId, target, sort)
 
   /* Bring the list for a new key: from the cache (and quietly again when it is over a minute old), or from the server. */
   useEffect(() => {
@@ -399,15 +392,13 @@ export function CommunityFeed({ communityId, slug, viewer, spaces, start, initia
     prefetchView(communityId, next, next.kind === "saved" ? "default" : sort)
     snapOnList.current = true
     /*
-      IN THE APP AND ON A PHONE A SPACE IS NOT AN ADDRESS (round 15). The owner: "the spaces are URL pages, which is why they
-      load hard; in the iOS and Android app they should be sub pages with no URL". There the list switches and the address
-      stays the community's, so nothing is asked of the router at all. On a computer's browser the address still follows, for
-      Back, a reload and a shared link.
+      THE ADDRESS IS THE SPACE'S, on every device. /community/<slug>/space/<space>
+      (All is the community, Saved is /saved). pushState lets Back, a reload and
+      a copied link land on it. Next copies its own history onto that entry and
+      does not fetch the space page, so the space's loading screen never stands
+      in. The route bar ignores these chips (route-loading-bar.tsx): a click
+      that does not navigate must not start the iOS cover.
     */
-    if (spaceKeepsAddress()) {
-      setPicked({ target: next, from: window.location.pathname })
-      return
-    }
     setPicked({ target: next, from: href })
     if (typeof window !== "undefined" && window.location.pathname !== href) window.history.pushState(null, "", href)
   }
