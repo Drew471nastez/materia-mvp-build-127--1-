@@ -5752,6 +5752,12 @@ html.pop-in-flight #platform-header-root {
   top: 0;
 }
 
+/* After a sliding settings sheet closes, iOS may echo the back tap onto the header menu (lib/navigation/swallow-ghost-taps.ts). */
+html[data-ghost-tap-guard] #platform-header-root,
+html[data-ghost-tap-guard] [data-buyer-tab-bar] {
+  pointer-events: none;
+}
+
 /*
  * ===========================================================================
  *  THE EDITOR'S SHEET IS READ AND PRESSED WITH A THUMB

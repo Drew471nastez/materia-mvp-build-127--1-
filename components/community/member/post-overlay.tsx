@@ -57,6 +57,7 @@ import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useStat
 import { createPortal } from "react-dom"
 import { X } from "lucide-react"
 import { BottomSheet, SHEET_CLOSE_EASE, SHEET_EASE } from "@/components/ui/bottom-sheet"
+import { CLICK_ECHO_MS } from "@/lib/navigation/first-tap"
 import { swallowGhostTaps } from "@/lib/navigation/swallow-ghost-taps"
 import type { FeedPostView, ViewerView } from "@/lib/communities/types"
 import { api, apiBase } from "./api"
@@ -135,7 +136,7 @@ export function PostOverlay({ post: given, slug, viewer, readOnly = false, updat
   /* Open as far as the history and the sheet are concerned; false starts the way out. */
   const [open, setOpen] = useState(true)
   const close = useCallback(() => {
-    swallowGhostTaps()
+    swallowGhostTaps(CLICK_ECHO_MS + 420)
     setOpen(false)
   }, [])
   useEffect(() => {

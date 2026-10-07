@@ -52,6 +52,7 @@ import { UsersGroupRoundedIcon } from "@solar-icons/react/linear/users-group-rou
 import { AppAvatar, preloadAvatar } from "@/components/app/app-avatar"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { cn } from "@/lib/utils"
+import { ghostTapGuardActive } from "@/lib/navigation/swallow-ghost-taps"
 import { prefetchHref } from "@/lib/nav/prefetch-policy"
 import { ENDS_COMMUNITY_CONTEXT, endCommunityContext } from "@/lib/nav/community-context"
 import { navigatorModel, parsePlaces, PLACES_URL, SIGNED_OUT_PLACES, type NavigatorCurrent, type NavigatorModel, type PlacesResponse } from "@/lib/nav/places-shared"
@@ -258,6 +259,7 @@ export function PlaceNavigator({ current, className, onNavigate }: PlaceNavigato
   }, [])
 
   const toggle = () => {
+    if (ghostTapGuardActive()) return
     if (open) return close()
     void refresh()
     setOpen(true)

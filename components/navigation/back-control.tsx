@@ -28,6 +28,7 @@ import { useRouter } from "next/navigation"
 import { ChevronLeft } from "lucide-react"
 
 import { useFirstTap } from "@/lib/navigation/first-tap"
+import { swallowGhostTaps } from "@/lib/navigation/swallow-ghost-taps"
 import { goBackOr, pushBackOnce } from "@/lib/navigation/go-back"
 import { previousPath } from "@/lib/navigation/in-app-history"
 import { usePressFeedback } from "@/lib/navigation/press-feedback"
@@ -63,6 +64,7 @@ export function BackControl({
   const press = usePressFeedback<HTMLAnchorElement>()
   const tap = useFirstTap<HTMLElement>(() => {
     if (onBack) {
+      swallowGhostTaps()
       onBack()
       return true
     }
