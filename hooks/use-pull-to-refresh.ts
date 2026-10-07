@@ -352,11 +352,15 @@ export function usePullToRefresh(
     const box = containerRef.current
     const onDocument = !box || box === document.scrollingElement || box === document.documentElement || box === document.body
     if (onDocument) {
+      /* The shift mark is what lets this move win (app/globals.css). Without it the rule forces none, the page never moves, and the spinner draws on the first row. */
       el.style.paddingTop = ""
+      if (y === 0) el.removeAttribute("data-ptr-shift")
+      else el.setAttribute("data-ptr-shift", "transform")
       el.style.transform = y === 0 ? "" : `translate3d(0, ${y}px, 0)`
       el.style.willChange = y === 0 ? "" : "transform"
       return
     }
+    el.removeAttribute("data-ptr-shift")
     el.style.transform = "none"
     el.style.willChange = ""
     el.style.paddingTop = y > 0 ? `${y}px` : ""

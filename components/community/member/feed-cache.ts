@@ -92,22 +92,35 @@ export function firstPage(page: FeedPageData, at = Date.now()): CachedView {
   return { posts, cursor: page.nextCursor ?? null, at, pages: 1 }
 }
 
+/** A read that has not answered by then is given up, so a stuck request cannot hold the spinner (and every later read of that list) forever. */
+const LOAD_GIVE_UP_MS = 12_000
+
 /**
  * The first page of a view from the server, into the cache. A view already
  * on its way is not asked for twice; the answer is null when it failed (the
- * cache keeps what it had).
+ * cache keeps what it had). A request that never answers is aborted, and the
+ * next ask starts a new one.
  */
 export function loadView(communityId: string, target: FeedTarget, sort: FeedSortValue): Promise<CachedView | null> {
   const key = viewKey(communityId, target, sort)
   const going = pending.get(key)
   if (going) return going
   const run = (async () => {
-    const r = await api<FeedPageData>(viewUrl(communityId, target, sort))
-    if (!r.ok) return null
-    const view = firstPage({ pinned: r.data.pinned ?? [], posts: r.data.posts ?? [], nextCursor: r.data.nextCursor ?? null })
-    writeView(key, view)
-    return view
-  })().finally(() => pending.delete(key))
+    const ctrl = new AbortController()
+    const timer = setTimeout(() => ctrl.abort(), LOAD_GIVE_UP_MS)
+    try {
+      const r = await api<FeedPageData>(viewUrl(communityId, target, sort), { signal: ctrl.signal })
+      if (!r.ok) return null
+      const view = firstPage({ pinned: r.data.pinned ?? [], posts: r.data.posts ?? [], nextCursor: r.data.nextCursor ?? null })
+      writeView(key, view)
+      return view
+    } finally {
+      clearTimeout(timer)
+    }
+  })()
+  void run.finally(() => {
+    if (pending.get(key) === run) pending.delete(key)
+  })
   pending.set(key, run)
   return run
 }

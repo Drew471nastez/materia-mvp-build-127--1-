@@ -579,11 +579,14 @@ html.capacitor body {
   }
 
   /*
-    PULL TO REFRESH: the sliding wrapper is moved with padding, never a
-    transform. A transform inside an overflow scroller paints the top of the
-    page twice on iOS (the greeting left in the gap and again below it).
+    PULL TO REFRESH. Inside an overflow scroller the page moves with padding:
+    a transform there paints the top twice on iOS (the greeting left in the
+    gap and again below it). A page that scrolls the document moves on the
+    compositor instead, and the hook marks that with data-ptr-shift. Forcing
+    none on every pull wrapper left that spinner sitting on the first row,
+    on every page that scrolls the window.
   */
-  [data-pull-content] {
+  [data-pull-content]:not([data-ptr-shift="transform"]) {
     transform: none !important;
     will-change: auto !important;
   }

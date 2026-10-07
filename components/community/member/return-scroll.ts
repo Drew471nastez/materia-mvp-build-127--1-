@@ -59,6 +59,76 @@ export function returnScrollFor(path: string): number | null {
   return typeof y === "number" && Number.isFinite(y) && y > 0 ? y : null
 }
 
+/** The window, and /app's scroller when the page lives in one, back to the top. */
+export function snapPageTop() {
+  if (typeof window === "undefined") return
+  const box = document.querySelector<HTMLElement>(".app-content-scroll")
+  if (box && box.scrollTop !== 0) box.scrollTop = 0
+  if (window.scrollY !== 0) window.scrollTo(0, 0)
+}
+
+/** Community, Learn, Calendar, Members, Leaderboards, About: the section itself, not a post or a lesson under it. */
+export function isCommunitySectionRoot(pathname: string, slug: string): boolean {
+  const base = `/community/${slug}`.replace(/\/+$/, "")
+  const path = (pathname || "").split(/[?#]/)[0].replace(/\/+$/, "")
+  if (!base || path === base) return path === base && base.length > 0
+  return ["/learn", "/classroom", "/events", "/members", "/leaderboard", "/about"].some((s) => path === `${base}${s}`)
+}
+
+/**
+ * Landing on one of those sections puts the page at the top. A tap on
+ * Community, Learn, Calendar, Members, Leaderboards or About is a new page,
+ * and the frame stays mounted, so the window would otherwise stay where the
+ * last section left it. Back and Forward still return to the saved place
+ * (useReturnScroll). A reload keeps the browser's own place.
+ */
+export function useSectionTop(pathname: string, slug: string) {
+  const seen = useRef(false)
+  useLayoutEffect(() => {
+    const first = !seen.current
+    seen.current = true
+    if (first) {
+      if (performance.now() - poppedAt <= BACK_WINDOW_MS) return
+      /* A reload or a document Back of THIS page keeps the browser's place. A client arrival from somewhere else does not: that scroll belonged to the page before. */
+      try {
+        const nav = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined
+        if (nav && (nav.type === "reload" || nav.type === "back_forward")) {
+          const loaded = new URL(nav.name).pathname.replace(/\/+$/, "")
+          const here = (pathname || "").replace(/\/+$/, "")
+          if (loaded === here) return
+        }
+      } catch {
+        /* A browser without the entry still starts at the top. */
+      }
+    }
+    if (!isCommunitySectionRoot(pathname, slug)) return
+    if (performance.now() - poppedAt <= BACK_WINDOW_MS) return
+    snapPageTop()
+    let frames = 0
+    let id = 0
+    let over = false
+    const end = () => {
+      if (over) return
+      over = true
+      cancelAnimationFrame(id)
+      for (const t of inputs) window.removeEventListener(t, end, true)
+    }
+    const inputs = ["touchstart", "wheel", "keydown"] as const
+    for (const t of inputs) window.addEventListener(t, end, { capture: true, passive: true })
+    const watch = () => {
+      if (over) return
+      snapPageTop()
+      if (++frames >= 12) return end()
+      id = requestAnimationFrame(watch)
+    }
+    id = requestAnimationFrame(watch)
+    return () => {
+      end()
+      for (const t of inputs) window.removeEventListener(t, end, true)
+    }
+  }, [pathname, slug])
+}
+
 /** Notes the scroll of the community's pages, and puts a page reached by Back where it was left. */
 export function useReturnScroll(pathname: string) {
   const pathRef = useRef(pathname)

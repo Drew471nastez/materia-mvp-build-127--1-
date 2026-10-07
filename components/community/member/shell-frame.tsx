@@ -103,7 +103,7 @@ import { PRESS_PROPS, TAB, TAB_OFF, TAB_ON } from "./ui"
 import type { ShellCommunity, ShellSection, TopBarData, WallData } from "./view-types"
 import { PlaceContext, plainClick, WallCommunityCard, WallContributorsCard, WallPlaces, WallUpcoming, type PlaceState } from "./wall"
 import { useCommunityLanding } from "./landing"
-import { useReturnScroll } from "./return-scroll"
+import { useReturnScroll, useSectionTop } from "./return-scroll"
 import { JOINED_KEY } from "@/components/community/public/paths"
 import { readAuthSnapshot, writeAuthSnapshot } from "@/lib/auth/auth-snapshot"
 import { CommunityPullRefresh } from "./community-pull-refresh"
@@ -247,7 +247,8 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
       isSeller: snap?.isSeller ?? !!viewer.isCreatorAccount,
     })
   }, [viewer.userId, viewer.signedIn, viewer.isCreatorAccount])
-  /* Back from a creator's page (or any page outside) lands where the community was left (return-scroll.ts, round 12). */
+  /* A section tab lands at the top. Back from a creator's page (or any page outside) lands where the community was left (return-scroll.ts, round 12). */
+  useSectionTop(pathname || "", community.slug)
   useReturnScroll(pathname || "")
   /* The bar is white, so the browser's bar and the phone's status bar are too. */
   const appearance = community.appearance === "dark" ? "dark" : "light"

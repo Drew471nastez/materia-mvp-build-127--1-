@@ -17,10 +17,11 @@
  * Saved, in each of the four sorts (Default, New, Top, Unread: sort-menu.tsx),
  * are lists of the same feed. Choosing one does not load a page: the list is
  * taken from the client cache when it is there (feed-cache.ts: on the next
- * frame, no skeleton). One that is not cached keeps the list on screen for a
- * moment (WAIT_MS) and then, still waiting, gives its place to a small
- * spinner (round 9, place-spinner.tsx), never a skeleton; whatever list
- * arrives eases in (opacity), so a swap reads as a crossfade, not a cut.
+ * frame, no skeleton). One that is not cached does not keep the previous
+ * space's posts up as if they were its own: the spinner stands in (round 9,
+ * place-spinner.tsx), never a skeleton, and the list that arrives is that
+ * space. A read that fails is asked once more, then a retry is offered, so
+ * the spinner cannot sit there with the space never arriving.
  * The address moves with it (history.pushState, which Next's router follows),
  * so Back, a reload and a shared link all land on the same list. A list is
  * asked for ahead when a pointer rests on its chip or a finger lands on it,
@@ -63,7 +64,8 @@ import {
   type FeedTarget,
 } from "./feed-cache"
 import { sectionFromPath } from "./nav"
-import { PlaceSpinner, Spinner, WAIT_MS } from "./place-spinner"
+import { PlaceSpinner, WAIT_MS } from "./place-spinner"
+import { snapPageTop } from "./return-scroll"
 import { warmPostFaces } from "./member-avatar"
 import { EditSpacesContext, FIRST_CARDS, PostCard, PostCardPlaceholder, type PostUpdate } from "./post-card"
 import { SortMenu } from "./sort-menu"
@@ -94,11 +96,11 @@ function composerSpacesOf(spaces: SpaceView[]) {
   return spaces.filter((s) => s.canPost && s.kind !== "chat").map((s) => ({ id: s.id, name: s.name, kind: s.kind, icon: s.icon }))
 }
 
-/** How an arriving list eases in: from a little under full when it replaces another list, from nothing after the spinner. */
+/** How an arriving list eases in: from nothing after the spinner. */
 const ARRIVE_MS = 200
 const ARRIVE_EASE = "cubic-bezier(0.22, 1, 0.36, 1)"
-/** How long to wait before marking a list swap as slow when posts are still on screen (stale list stays visible). */
-const LIST_SPIN_MS = 320
+/** No posts, for a list that is not here yet. Not the previous space's posts. */
+const EMPTY_LIST: CachedView = { posts: [], cursor: null, at: 0, pages: 0 }
 /** Cards drawn on the frame a switched list comes in (the rest stand in at their height and follow in a transition): a phone's screenful and a little more. */
 const SWAP_CARDS = 4
 /**
@@ -205,8 +207,9 @@ export function CommunityFeed({ communityId, slug, viewer, spaces, start, initia
   const behind = list.id !== targetId || list.sort !== sort
   /*
     NO FADE (round 15, the owner: "still a flash, a fade in between switching, which should not be"). The chip changes on the
-    next frame and the list follows on the frame after it, as it is: a list already here is simply there, and one on its way
-    keeps the current list on screen until it lands (the spinner only when it is slow, below). Nothing dips, nothing fades.
+    next frame and the list follows on the frame after it. A list already here is simply there. One that is not here does
+    not keep the previous space's posts: the spinner stands in until that space arrives. A backup timer applies the list if
+    the frames never run, so a switch cannot stay on the previous space.
   */
   useLayoutEffect(() => {
     if (!behind) return
@@ -216,9 +219,11 @@ export function CommunityFeed({ communityId, slug, viewer, spaces, start, initia
     const first = requestAnimationFrame(() => {
       second = requestAnimationFrame(() => flushSync(() => setList(next)))
     })
+    const backup = window.setTimeout(() => setList(next), 80)
     return () => {
       cancelAnimationFrame(first)
       cancelAnimationFrame(second)
+      window.clearTimeout(backup)
     }
   }, [behind, targetId, sort])
   const listTarget = useMemo(() => targetFromId(list.id), [list.id])
@@ -257,9 +262,10 @@ export function CommunityFeed({ communityId, slug, viewer, spaces, start, initia
   const keyRef = useRef(key)
   keyRef.current = key
 
-  /* The list for this key: the one in state, else the cache (on this very frame), else the one still on screen while it comes. */
-  const cached = shown.key === key ? shown.view : (readView(key) ?? null)
-  const view = cached ?? shown.view
+  /* The list for this key: the one in state, else the cache (on this very frame). A switch to a list that is not here yet does not keep the previous space's posts, even for the frames before the list id catches the chip. */
+  const switchingAway = behind && !readView(viewKey(communityId, target, sort))
+  const cached = switchingAway ? null : shown.key === key ? shown.view : (readView(key) ?? null)
+  const view = cached ?? EMPTY_LIST
   const waiting = !cached && failedKey !== key
 
   /* Bring the list for a new key: from the cache (and quietly again when it is over a minute old), or from the server. */
@@ -277,11 +283,15 @@ export function CommunityFeed({ communityId, slug, viewer, spaces, start, initia
     }
     setFailedKey(null)
     let live = true
-    void loadView(communityId, listTarget, listSort).then((fresh) => {
+    void (async () => {
+      let fresh = await loadView(communityId, listTarget, listSort)
+      if (!live || keyRef.current !== key) return
+      /* One more try. A single miss (a blip, a request that was given up) must not leave the spinner up. */
+      if (!fresh) fresh = await loadView(communityId, listTarget, listSort)
       if (!live || keyRef.current !== key) return
       if (fresh) setShown({ key, view: fresh })
       else setFailedKey(key)
-    })
+    })()
     return () => {
       live = false
     }
@@ -294,17 +304,16 @@ export function CommunityFeed({ communityId, slug, viewer, spaces, start, initia
 
   /* The spinner, only when the next list is slow to come: a quick answer swaps the lists and nothing else. */
   const [slow, setSlow] = useState(false)
-  /* Whether the spinner stood in for the list, so the list that follows comes in from nothing rather than from 35%. */
+  /* Whether the spinner stood in for the list, so the list that follows comes in from nothing. */
   const afterSpinner = useRef(false)
   useEffect(() => {
     if (!waiting) return setSlow(false)
-    const empty = view.posts.length === 0
     const t = window.setTimeout(() => {
-      afterSpinner.current = empty
+      afterSpinner.current = true
       setSlow(true)
-    }, empty ? WAIT_MS : LIST_SPIN_MS)
+    }, WAIT_MS)
     return () => window.clearTimeout(t)
-  }, [waiting, key, view.posts.length])
+  }, [waiting, key])
 
   /*
     THE SWAP EASES IN. The list drawn changes (another space, another sort, or the one that was waited for): it comes in by opacity
@@ -368,12 +377,21 @@ export function CommunityFeed({ communityId, slug, viewer, spaces, start, initia
   )
   const hrefOf = (pick: ChipPick) => (pick.kind === "all" ? base : pick.kind === "saved" ? `${base}/saved` : `${base}/space/${encodeURIComponent(pick.slug)}`)
 
+  /* A chip the member pressed: once that list is the one on screen, the page is at its top. Not on Back. */
+  const snapOnList = useRef(false)
+  useLayoutEffect(() => {
+    if (!snapOnList.current || list.id !== targetId) return
+    snapOnList.current = false
+    snapPageTop()
+  }, [list.id, targetId])
+
   /* A chip: the list switches here and the address follows; a list already on screen only scrolls the feed back into view. */
   const pick = (p: ChipPick) => {
     const next = targetOf(p)
     if (!next) return
     const href = hrefOf(p)
     if (sameTarget(next, target)) return
+    snapOnList.current = true
     /*
       IN THE APP AND ON A PHONE A SPACE IS NOT AN ADDRESS (round 15). The owner: "the spaces are URL pages, which is why they
       load hard; in the iOS and Android app they should be sub pages with no URL". There the list switches and the address
@@ -612,24 +630,15 @@ const FeedBody = memo(
           ) : spinner && posts.length === 0 ? (
             <PlaceSpinner compact label="Loading posts" />
           ) : (
-            <div className="relative">
-              {waiting && spinner ? (
-                <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center pt-0.5" aria-hidden data-feed-loading="">
-                  <Spinner size={20} label="Loading posts" />
-                </div>
-              ) : null}
-              <div
-                ref={listRef}
-                className="space-y-3 transition-opacity duration-200 motion-reduce:transition-none"
-                style={waiting && spinner && posts.length > 0 ? { opacity: 0.88 } : undefined}
-                aria-busy={waiting || undefined}
-                data-feed-list=""
-                data-feed-list-stale={waiting && posts.length > 0 ? "" : undefined}
-              >
-                {posts.map((p, i) =>
-                  i < firstCards || whole || onScreen.current.has(p.id) ? <PostCard key={p.id} post={p} slug={slug} viewer={viewer} update={update} readOnly={readOnly} /> : <PostCardPlaceholder key={p.id} post={p} />,
-                )}
-              </div>
+            <div
+              ref={listRef}
+              className="space-y-3"
+              aria-busy={waiting || undefined}
+              data-feed-list=""
+            >
+              {posts.map((p, i) =>
+                i < firstCards || whole || onScreen.current.has(p.id) ? <PostCard key={p.id} post={p} slug={slug} viewer={viewer} update={update} readOnly={readOnly} /> : <PostCardPlaceholder key={p.id} post={p} />,
+              )}
             </div>
           )}
 

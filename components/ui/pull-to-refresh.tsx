@@ -156,11 +156,12 @@ function PullSpokes({ ref }: { ref: React.Ref<HTMLDivElement> }) {
       ref={ref}
       aria-hidden
       data-ptr-indicator=""
+      data-keep-transform=""
       className="pointer-events-none absolute left-1/2 top-0 z-20 -ml-[12px] origin-center text-[#8a8f98]"
       style={{ width: SPOKES_SIZE, height: SPOKES_SIZE, transform: "translate3d(0, 0, 0) scale(0)", opacity: 0 }}
     >
-      <span data-ptr-turn="" className="block h-full w-full">
-        <span data-ptr-spin="" className="block h-full w-full">
+      <span data-ptr-turn="" data-keep-transform="" className="block h-full w-full">
+        <span data-ptr-spin="" data-keep-transform="" className="block h-full w-full">
           <svg viewBox="0 0 24 24" width={SPOKES_SIZE} height={SPOKES_SIZE} className="block">
             {SPINNER_SPOKES.map((l, i) => (
               <line key={i} data-ptr-spoke="" data-rest={l.opacity} x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} stroke="currentColor" strokeWidth="2" strokeLinecap="round" style={{ opacity: 0 }} />
