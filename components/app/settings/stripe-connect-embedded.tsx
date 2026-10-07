@@ -19,11 +19,11 @@ function shownError(message: string): string {
  * server resolves the account from the session cookie; nothing here names it.
  * The secret lives only in this closure until Stripe.js takes it.
  */
-async function openSession(purpose: EmbeddedPurpose, bank = true): Promise<{ clientSecret: string; publishableKey: string }> {
+async function openSession(purpose: EmbeddedPurpose): Promise<{ clientSecret: string; publishableKey: string }> {
   const res = await fetch("/api/payments/component", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify(bank ? { purpose } : { purpose, bank: false }),
+    body: JSON.stringify({ purpose }),
     cache: "no-store",
   })
   const data = (await res.json().catch(() => ({}))) as { clientSecret?: unknown; publishableKey?: unknown; error?: unknown }
@@ -91,11 +91,8 @@ export function StripeConnectEmbedded({
   onStep,
   fallback,
   className,
-  bank = true,
 }: {
   purpose: EmbeddedPurpose
-  /** False: the form leaves the bank out (the app changes it in Storelib's own form). */
-  bank?: boolean
   collection?: CollectionOptions
   failedTitle?: string
   onExit?: () => void | Promise<void>
@@ -128,7 +125,7 @@ export function StripeConnectEmbedded({
           module-level import started Stripe.js as soon as Payouts opened,
           and its controller frame navigated the web view out to the browser.
         */
-        const [first, { loadConnectAndInitialize }] = await Promise.all([openSession(purpose, bank), import("@stripe/connect-js/pure")])
+        const [first, { loadConnectAndInitialize }] = await Promise.all([openSession(purpose), import("@stripe/connect-js/pure")])
         if (gone) return
         let pending: string | null = first.clientSecret
         const connect = loadConnectAndInitialize({
@@ -139,7 +136,7 @@ export function StripeConnectEmbedded({
               pending = null
               return secret
             }
-            const next = await openSession(purpose, bank)
+            const next = await openSession(purpose)
             if (next.publishableKey !== first.publishableKey) throw new Error(LOAD_FAILED)
             return next.clientSecret
           },
@@ -180,7 +177,7 @@ export function StripeConnectEmbedded({
       el?.remove()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [purpose, collectionKey, attempt, bank])
+  }, [purpose, collectionKey, attempt])
 
   if (failed) {
     return (

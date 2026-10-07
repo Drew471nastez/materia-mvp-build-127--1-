@@ -154,7 +154,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
             ? body.purpose
             : null
         if (!purpose) return NextResponse.json({ error: "Not found." }, { status: 404, headers: NO_STORE })
-        return NextResponse.json(await componentAuth(creator, purpose, { bank: body.bank !== false }), { headers: NO_STORE })
+        return NextResponse.json(await componentAuth(creator, purpose), { headers: NO_STORE })
       }
       case "form-status": {
         await noteFormStatus(creator, body.status)

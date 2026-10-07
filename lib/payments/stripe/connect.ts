@@ -698,7 +698,7 @@ export function publishableKeyForSession(): string {
   return pk
 }
 
-export async function createStripeAccountSession(creatorId: string, purpose: StripeAccountSessionPurpose, known?: Stripe.Account | null, options: { bank?: boolean } = {}): Promise<{ clientSecret: string; publishableKey: string }> {
+export async function createStripeAccountSession(creatorId: string, purpose: StripeAccountSessionPurpose, known?: Stripe.Account | null): Promise<{ clientSecret: string; publishableKey: string }> {
   const publishableKey = publishableKeyForSession()
   const row = await readCreatorStripe(creatorId)
   if (!row?.stripe_account_id) throw new PaymentsProblem("Start setup first.")
@@ -730,7 +730,7 @@ export async function createStripeAccountSession(creatorId: string, purpose: Str
       console.error("[stripe connect] business type", stripeErrorMessage(error).slice(0, 160))
     }
   }
-  const components = accountSessionComponents(purpose, runsInStorelib(account), options)
+  const components = accountSessionComponents(purpose, runsInStorelib(account))
   const session = await stripe.accountSessions.create({ account: row.stripe_account_id, components })
   if (!session.client_secret) throw new PaymentsProblem("We couldn't load payments right now. Try again in a moment.", 502)
   return { clientSecret: session.client_secret, publishableKey }

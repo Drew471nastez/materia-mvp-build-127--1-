@@ -193,7 +193,7 @@ export async function stripeStartOnboarding(creator: CreatorRef, input: { kind: 
   return stripeOverview(creator)
 }
 
-export async function stripeAccountSession(creator: CreatorRef, purpose: "onboarding" | "management" | "payouts" | "balances", options: { bank?: boolean } = {}) {
+export async function stripeAccountSession(creator: CreatorRef, purpose: "onboarding" | "management" | "payouts" | "balances") {
   const prepared = purpose === "onboarding" || purpose === "management" ? await prepareStorelibAccount(creator) : null
-  return createStripeAccountSession(creator.id, purpose, prepared, options)
+  return createStripeAccountSession(creator.id, purpose, prepared)
 }

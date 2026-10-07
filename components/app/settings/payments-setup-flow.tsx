@@ -544,21 +544,6 @@ export function PaymentsSetupFlow({
   onFinished: () => void
 }) {
   const phone = usePhone()
-  /*
-    IN THE PHONE APP, A BANK OR DETAILS CHANGE NEVER LEAVES STORELIB. Stripe's
-    account management opens its bank step (linking a bank through Stripe's
-    Financial Connections) in a window of its own, and inside the app's web
-    view a window can only open in the phone's browser: the creator was sent
-    out of the app to Stripe's site. For an account Storelib runs
-    (payoutHint.inStorelib) the app changes the bank in Storelib's own form,
-    which writes to the same Stripe account (lib/payments/stripe/own-form),
-    and Account details is Stripe's form without its bank part. An older
-    Express account still needs Stripe's own form for both.
-  */
-  const [ownForms, setOwnForms] = React.useState(false)
-  React.useEffect(() => {
-    setOwnForms(isNativeApp() && !!data.payoutHint?.inStorelib)
-  }, [data.payoutHint?.inStorelib])
   const status = statusOf(data)
   const [step, setStep] = React.useState<Step>(() => firstStep(status))
   const [back, setBack] = React.useState(false)
@@ -738,17 +723,12 @@ export function PaymentsSetupFlow({
         }}
       />
     )
-  } else if (ownForms && mode === "bank") {
-    /* In the app, Storelib's own bank form: nothing of Stripe's to open a window out of the app. */
-    body = <BankForm key={`bank-${openCount}`} onBack={onClose} backLabel="Cancel" onData={onData} onDone={(sent) => void settle(sent, null)} />
   } else {
     body = (
       <SetupEmbed
         key={`id-${openCount}`}
         data={data}
         bankOnly={mode === "bank"}
-        /* Account details in the app: Stripe's form without its bank part, which is the one that opens a window. The bank is the Payout account form. */
-        withoutBank={ownForms && mode === "details"}
         onData={onData}
         onExit={async () => {
           /* Stripe's own back and Continue stay in charge until payouts are actually on. */
@@ -864,7 +844,7 @@ const SETUP_COLLECTION = {
   },
 }
 
-function SetupEmbed({ data, onData, onExit, bankOnly = false, withoutBank = false }: { data: Overview; onData: (next: Overview) => void; onExit: () => void | Promise<void>; bankOnly?: boolean; withoutBank?: boolean }) {
+function SetupEmbed({ data, onData, onExit, bankOnly = false }: { data: Overview; onData: (next: Overview) => void; onExit: () => void | Promise<void>; bankOnly?: boolean }) {
   const existed = React.useRef((data.beat ?? "personal") !== "personal")
   const [ready, setReady] = React.useState(existed.current)
   const [error, setError] = React.useState<string | null>(null)
@@ -912,9 +892,8 @@ function SetupEmbed({ data, onData, onExit, bankOnly = false, withoutBank = fals
     <div className="flex min-h-full w-full flex-1 flex-col" data-id-embed="">
       <StripeConnectEmbedded
         className="w-full px-3 sm:px-5"
-        purpose={bankOnly || withoutBank ? "stripe_management" : "stripe_onboarding"}
-        bank={!withoutBank}
-        collection={withoutBank ? { fields: "currently_due", futureRequirements: "omit" } : bankOnly ? { fields: "currently_due", futureRequirements: "omit", requirements: { only: ["external_account"] } } : SETUP_COLLECTION}
+        purpose={bankOnly ? "stripe_management" : "stripe_onboarding"}
+        collection={bankOnly ? { fields: "currently_due", futureRequirements: "omit", requirements: { only: ["external_account"] } } : SETUP_COLLECTION}
         onExit={() => void onExit()}
       />
     </div>

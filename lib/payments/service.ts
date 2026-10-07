@@ -392,7 +392,6 @@ export async function hostedFlowUrl(creator: CreatorRef, origin: string): Promis
 export async function componentAuth(
   creator: CreatorRef,
   purpose: "onboarding" | "payout_form" | "rfi" | "stripe_onboarding" | "stripe_management" | "stripe_payouts",
-  options: { bank?: boolean } = {},
 ): Promise<
   | { authCode: string; codeVerifier: string; clientId: string; env: "sandbox" | "prod" }
   | { clientSecret: string; publishableKey: string }
@@ -407,7 +406,7 @@ export async function componentAuth(
           : purpose === "stripe_payouts" || purpose === "payout_form"
             ? "payouts"
             : "balances"
-    const session = await stripeAccountSession(creator, stripePurpose, options)
+    const session = await stripeAccountSession(creator, stripePurpose)
     return { clientSecret: session.clientSecret, publishableKey: session.publishableKey }
   }
   const cfg = requireConfigured()
