@@ -56,7 +56,7 @@ const header = code("components/platform/platform-header-client.tsx")
 check("asks the tab bar's own question", /const tabsHere = useBuyerTabsHere\(pathname\)/.test(header) && /from "@\/lib\/nav\/use-buyer-tabs-where"/.test(read("components/platform/platform-header-client.tsx")))
 check("the tab bar asks it the same way", /const where = useBuyerTabsWhere\(pathname\)/.test(code("components/nav/buyer-tab-bar.tsx")))
 check("no Library icon in the phone row there", /\{user && !tabsHere && \(\s*<Link\s+href=\{getCanonicalOrRelativePath\("\/account\/library"\)\}/.test(header))
-check("the heart and the photo stay (the photo opens the account sheet)", /aria-label="Wishlist"/.test(header) && /onClick=\{\(\) => setMobileProfileOpen\(true\)\}/.test(header))
+check("the photo stays (it opens the account sheet), the heart is gone", !/data-header-wishlist/.test(header) && /onClick=\{\(\) => setMobileProfileOpen\(true\)\}/.test(header))
 /* Round 3: Explore's hamburger is the navigator now, which carries no Library row and no search link, so there is nothing of the tab bar's to drop. */
 check("the menu there is the navigator: no My Library row and no search link to repeat the tab bar", /<PlaceNavigator\b/.test(header) && !/<MenuRow href="\/(account\/)?library"/.test(header) && !/isDiscoverProductContext && !tabsHere/.test(header))
 check("the search strip under the header: not with the tab bar, never on the library or the account", /\{searchInHeader && !tabsHere && !isOwnPages && !isCommunityRoute && \(/.test(header) && /const isOwnPages = pathname === "\/account\/library" \|\| pathname\.startsWith\("\/account\/library\/"\) \|\| pathname === "\/account" \|\| pathname\.startsWith\("\/account\/"\)/.test(header))

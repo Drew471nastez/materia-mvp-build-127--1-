@@ -291,7 +291,7 @@ function main() {
   /* One badge, drawn by CountBadge, on the phone's heart and the computer's. */
   const badges = header.match(/<CountBadge count=\{wishlistCount\} className="absolute -top-1\.5 -right-2" \/>/g) ?? []
   const badge = /export function CountBadge[\s\S]*?\n}\n/.exec(header)?.[0] ?? ""
-  check("both badges were reworked, not just the one on screen", badges.length === 2, `${badges.length} found`)
+  check("the header draws no wishlist heart or its badge", badges.length === 0, `${badges.length} found`)
   check("no white ring around the red count", !/ring-2|ringClass/.test(badge) && !/wishlistRing/.test(header))
   check("and the digits do not shift the disc", /tabular-nums/.test(badge))
   /* "The number is not centred": the box that is centred is the figures (cap height to baseline), on an even disc. */

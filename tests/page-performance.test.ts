@@ -471,7 +471,7 @@ check(
 )
 
 check(
-  "the badge hangs off the heart, not off the tap target",
+  "no wishlist heart in the header, and the count badge keeps its one ink tone",
   (() => {
     // The link is a 44px tap target with a 20px heart centred in it, so a badge
     // positioned against the LINK sat ~12px clear of the glyph and read as
@@ -481,7 +481,7 @@ check(
     const wrappers = src.match(/<span className="relative inline-flex">\s*<Heart[^>]*\/>\s*\{wishlistCount > 0 && \(\s*(?:\/\*[\s\S]*?\*\/\s*)?<CountBadge /g)?.length ?? 0
     // Round 8: the count is ink, not red, and its one colour lives in COUNT_BADGE_TONE.
     const tone = src.match(/COUNT_BADGE_TONE = "bg-\[#1a1a2e\] text-white/g)?.length ?? 0
-    return wrappers === 2 && tone === 1 && !/bg-red-500/.test(src)
+    return wrappers === 0 && !/data-header-wishlist/.test(src) && tone === 1 && !/bg-red-500/.test(src)
   })(),
   "        components/platform/platform-header-client.tsx",
 )

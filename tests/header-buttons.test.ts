@@ -58,7 +58,7 @@ console.log("\n1 and 2. the logged out row on a computer")
   check("the marketing pages carry Log in", (header.match(/<GuestHeaderActions withLogin link=\{headerLink\}/g) ?? []).length === 2)
   check("Explore's header leaves it out", (header.match(/<GuestHeaderActions withLogin=\{false\} link=\{headerLink\}/g) ?? []).length === 2)
   check("no Start selling anywhere in the header", !/start[ _]selling/i.test(header), (header.match(/.{0,40}start[ _]selling.{0,40}/gi) ?? []).join(" | "))
-  check("the wishlist and library icons are still on Explore's bar", /aria-label=\{t\("wishlist"\)\}/.test(header) && /aria-label=\{t\("library"\)\}/.test(header))
+  check("the library icon is still on Explore's bar, the heart is not", !/data-header-wishlist/.test(header) && /aria-label=\{t\("library"\)\}/.test(header))
   check("a single place defines the corner: --radius-action is 8px", /--radius-action: 8px;/.test(readSource("app/globals.css")))
 }
 

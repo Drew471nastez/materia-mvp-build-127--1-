@@ -64,7 +64,7 @@ check("the results component is a client module importing nothing from the serve
 check("and communities are asked of Storelib's public route, never the database", /fetch\(`\/api\/explore\/communities\?q=/.test(readCode("lib/nav/quick-search.ts")))
 
 console.log("\n4. No heart on Explore")
-check("the wishlist icon is drawn only off Explore, on both rows", /const showWishlistIcon = !isExploreSurface/.test(header) && (header.match(/\{showWishlistIcon && \(/g) ?? []).length === 2)
+check("no wishlist icon in the header, on Explore or anywhere else", !/data-header-wishlist/.test(header) && !/showWishlistIcon/.test(header))
 
 console.log("\n5. Ink counts")
 check("the heart's count", /COUNT_BADGE_TONE = "bg-\[#1a1a2e\] text-white \[\[data-header-tone=dark\]_&\]:bg-white \[\[data-header-tone=dark\]_&\]:text-\[#1a1a2e\]"/.test(header))

@@ -25,7 +25,7 @@ import { NotificationBell } from "@/components/notifications/notification-bell"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 
-import { Heart, Library, Search, LayoutDashboard, Settings, LogOut, X, ChevronRight, LifeBuoy, Store, Share2, ArrowRight, User as UserIcon, Compass, Globe, MoreHorizontal, Check } from "lucide-react"
+import { Library, Search, LayoutDashboard, Settings, LogOut, X, ChevronRight, LifeBuoy, Store, Share2, ArrowRight, User as UserIcon, Compass, Globe, MoreHorizontal, Check } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
 import { LanguageModal } from "@/components/platform/language-modal"
 import { readAuthSnapshot, writeAuthSnapshot, clearAuthSnapshot } from "@/lib/auth/auth-snapshot"
@@ -1042,7 +1042,7 @@ export function PlatformHeaderClient({
    * second and is a far smaller wrong than a control that moves after you have
    * started reading the page.
    */
-  const [wishlistCount, setWishlistCount] = useState(initialWishlistCount)
+  const [, setWishlistCount] = useState(initialWishlistCount)
 
   /**
    * One writer for the badge, so the stored value cannot drift from what is
@@ -1439,9 +1439,6 @@ export function PlatformHeaderClient({
   }, [fetchWishlistCount])
 
 
-  const wishlistHref = useMemo(() => {
-    return user ? "/account/library/wishlist" : "/wishlist"
-  }, [user])
 
   // profiles.avatar_url is the single source of truth (lib/account/avatar): no
   // fallback to the Google picture, so a photo removed in Settings stays removed.
@@ -1492,21 +1489,7 @@ export function PlatformHeaderClient({
    */
   const isExploreSurface =
     exploreMarketplaceOn && (pathname === "/explore" || pathname.startsWith("/explore/") || pathname === "/wishlist")
-  /*
-    NO HEART ON EXPLORE. "Remove the wishlist icon from the Storelib header
-    on /explore (desktop and phone)": the marketplace's bar is the search,
-    the library, the bell and the photo. The wishlist is still one tap away
-    in the account (Library, then Wishlist), and the other pages that share
-    this bar (a product, a creator's page) keep their heart.
-  */
-  /*
-    AND NO HEART OVER THE LIBRARY. "On the web, the library pages
-    (/account/library/**) show no wishlist icon in the header either": the
-    wishlist is one of the library's own pills there, so the heart was a
-    second door to the page under it.
-  */
-  const isLibraryPages = pathname === "/account/library" || pathname.startsWith("/account/library/")
-  const showWishlistIcon = !isExploreSurface && !isLibraryPages
+  /* No wishlist heart in the header, on any page: the wishlist is a pill in the library. */
   /*
     ═══════════════════════════════════════════════════════════════════════
      IN THE APP THE HEADER HAS NO LIBRARY AND NO HEART
@@ -2307,43 +2290,6 @@ export function PlatformHeaderClient({
                 </Link>
               )}
 
-              {/* Wishlist: h-[42px] w-[42px] = 44px tap target. Not on Explore (round 8, see NO HEART ON EXPLORE). */}
-              {showWishlistIcon && (
-              <Link
-                href={getCanonicalOrRelativePath(wishlistHref)} onClick={(e) => onCanonicalNav(e, wishlistHref)}
-                data-header-wishlist=""
-                className={cn("relative flex h-[42px] w-[42px] items-center justify-center rounded-full transition cursor-pointer", chrome.iconBtn, appHidden)}
-                aria-label="Wishlist"
-              >
-                {/* The badge is anchored to the ICON, not to the link.
-                    The link is a 44px tap target and the heart is 20px inside
-                    it, so a badge positioned against the link sat roughly 12px
-                    clear of the glyph — it read as floating loose rather than
-                    attached. It was always so; shrinking the bubble is what made
-                    the gap obvious. This wrapper is the size of the heart, so
-                    -top/-right land on the heart's own corner. */}
-                <span className="relative inline-flex">
-                  <Heart className="h-5 w-5" />
-                  {wishlistCount > 0 && (
-                    /*
-                        A BADGE, NOT A BLISTER ON THE ICON.
-
-                        It was 14px with 7px type, pushed half off the heart's
-                        top-right corner, so the number was barely legible and
-                        the disc read as part of the outline rather than as a
-                        count sitting on top of it.
-
-                        Bigger, and ringed in the header's own black: the ring
-                        punches a gap between the disc and the heart, which is
-                        what makes a notification badge read as a separate
-                        object on every app that has one. tabular-nums so 7
-                        and 77 do not shift the disc sideways.
-                      */
-                      <CountBadge count={wishlistCount} className="absolute -top-1.5 -right-2" />
-                  )}
-                </span>
-              </Link>
-              )}
 
               {/* The person's notifications: a full screen sheet on a phone. */}
               {user ? <NotificationBell className={chrome.iconBtn} /> : null}
@@ -2400,29 +2346,6 @@ export function PlatformHeaderClient({
             Library button: the icon beside it already is one.
           */}
           <div className="hidden md:flex items-center gap-2.5 shrink-0">
-                {/* Wishlist, not on Explore (NO HEART ON EXPLORE). */}
-                {showWishlistIcon && (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Link
-                      href={getCanonicalOrRelativePath(wishlistHref)} onClick={(e) => onCanonicalNav(e, wishlistHref)}
-                      data-header-wishlist=""
-                      className={cn("relative flex h-[42px] w-[42px] items-center justify-center rounded-full transition cursor-pointer", chrome.iconBtn, appHidden)}
-                      aria-label={t("wishlist")}
-                    >
-                      <span className="relative inline-flex">
-                        <Heart className="h-[22px] w-[22px]" />
-                        {wishlistCount > 0 && (
-                          <CountBadge count={wishlistCount} className="absolute -top-1.5 -right-2" />
-                        )}
-                      </span>
-                    </Link>
-                  </TooltipTrigger>
-                  <TooltipContent className="bg-neutral-900 text-white text-xs px-2 py-1" sideOffset={8}>
-                    Wishlist
-                  </TooltipContent>
-                </Tooltip>
-                )}
 
                 {/* Library */}
                 <Tooltip>
