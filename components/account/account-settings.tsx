@@ -172,6 +172,36 @@ function SectionPills({ active, onPick }: { active: SectionKey; onPick: (key: Se
   )
 }
 
+/** The sections as a list on a computer: the one open is filled, the rest are words; it stays in view as the section scrolls. */
+function SectionList({ active, onPick }: { active: SectionKey; onPick: (key: SectionKey) => void }) {
+  return (
+    <nav aria-label="Settings" className="sticky top-24 hidden lg:block" data-account-section-list="">
+      <ul className="space-y-0.5">
+        {SECTIONS.map((section) => {
+          const on = section.key === active
+          return (
+            <li key={section.key}>
+              <button
+                type="button"
+                onClick={() => onPick(section.key)}
+                aria-current={on ? "page" : undefined}
+                data-account-section={section.key}
+                data-active={on ? "true" : "false"}
+                className={cn(
+                  "flex h-10 w-full cursor-pointer items-center rounded-[10px] px-3 text-left text-[14.5px] outline-none transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15",
+                  on ? "bg-[#eceef1] font-semibold text-[#1a1a2e]" : "font-medium text-[#6b7280] hover:bg-[#f3f4f6] hover:text-[#1a1a2e]",
+                )}
+              >
+                {section.label}
+              </button>
+            </li>
+          )
+        })}
+      </ul>
+    </nav>
+  )
+}
+
 /** How much of a field's room is used. Quiet until it is all gone. */
 function Counter({ used, max }: { used: number; max: number }) {
   return (
@@ -1031,7 +1061,7 @@ export function AccountSettings({
 
   return (
     /* One readable column on a computer (round 14): the fields, and the cover in the profile band's own shape, at a settings width rather than across the whole screen. */
-    <div data-account-page="" data-account-settings="" className="mx-auto w-full max-w-[720px]">
+    <div data-account-page="" data-account-settings="" className="mx-auto w-full max-w-[720px] lg:max-w-[940px]">
       <div
         className="flex items-center gap-2.5"
         data-account-settings-top=""
@@ -1055,11 +1085,17 @@ export function AccountSettings({
           (components/navigation/back-control.tsx). Opened cold, it opens the
           profile.
         */}
-        <BackControl fallback={BACK_TO} label="Back to profile" data-account-settings-close="" />
+        <BackControl fallback={BACK_TO} label="Back to profile" className="h-9 w-9 rounded-[9px]" data-account-settings-close="" />
         <h1 className="min-w-0 truncate text-[24px] font-bold tracking-[-0.01em] text-[#1a1a2e] sm:text-[28px]">Settings</h1>
       </div>
 
-      <SectionPills active={section} onPick={setSection} />
+      {/* A phone and a tablet: the pills in a row. A computer: the sections as a list beside the one open (round 15). */}
+      <div className="lg:mt-7 lg:grid lg:grid-cols-[188px_minmax(0,1fr)] lg:items-start lg:gap-10">
+      <div className="lg:hidden">
+        <SectionPills active={section} onPick={setSection} />
+      </div>
+      <SectionList active={section} onPick={setSection} />
+      <div className="min-w-0">
 
       {/*
         ONE SECTION DISSOLVES INTO THE NEXT. It used to fade the arriving
@@ -1094,6 +1130,8 @@ export function AccountSettings({
         {section === "notifications" ? <NotificationSettings /> : null}
         {section === "preferences" ? <PreferencesSection email={email} newsletter={newsletter} personalized={personalized} /> : null}
       </SectionSwap>
+      </div>
+      </div>
     </div>
   )
 }
@@ -1156,7 +1194,7 @@ function SectionSwap({ section, children }: { section: SectionKey; children: Rea
   }, [drawn])
 
   return (
-    <div ref={ref} data-account-panel={drawn} data-account-panel-swap="" className="mt-5 space-y-4 sm:space-y-5">
+    <div ref={ref} data-account-panel={drawn} data-account-panel-swap="" className="mt-5 space-y-4 sm:space-y-5 lg:mt-0">
       {held}
     </div>
   )

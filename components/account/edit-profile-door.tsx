@@ -1,8 +1,9 @@
 "use client"
 
 /**
- * Edit profile on /account, as a subpage over the profile rather than a
- * trip to Settings. The name, handle and bio are already on the page, so
+ * Edit profile on /account: on a phone a subpage over the profile, on a
+ * computer (768px and wider) Settings' Profile tab, where the photo and the
+ * cover are too. The name, handle and bio are already on the page, so
  * opening it does not wait on another document.
  *
  * The sheet is portaled to document.body. It used to render inside the
@@ -14,12 +15,16 @@
  */
 import { useEffect, useState } from "react"
 import { createPortal } from "react-dom"
+import { useRouter } from "next/navigation"
 import { ChevronLeft } from "lucide-react"
 import { secondaryDepth } from "@/components/ui/depth-button"
 import { createClient } from "@/lib/supabase/client"
 import { normalizeHandle } from "@/lib/profile/username-rules"
 import { readAuthSnapshot, writeAuthSnapshot } from "@/lib/auth/auth-snapshot"
 import { cn } from "@/lib/utils"
+
+/** Settings, opened on its Profile tab. */
+const SETTINGS_PROFILE = "/account/settings?section=profile"
 
 export function EditProfileDoor({
   userId,
@@ -34,6 +39,7 @@ export function EditProfileDoor({
   bio: string | null
   usernameEditable: boolean
 }) {
+  const router = useRouter()
   const [open, setOpen] = useState(false)
   const [shown, setShown] = useState(false)
   const [name, setName] = useState(initialName)
@@ -96,7 +102,13 @@ export function EditProfileDoor({
     <>
       <button
         type="button"
+        onPointerEnter={() => router.prefetch(SETTINGS_PROFILE)}
         onClick={() => {
+          /* On a computer, Settings' Profile tab: the photo, the cover and every field, in one place (round 15). */
+          if (window.matchMedia?.("(min-width: 768px)").matches) {
+            router.push(SETTINGS_PROFILE)
+            return
+          }
           setName(initialName)
           setHandle(initialUsername || "")
           setBio(initialBio || "")

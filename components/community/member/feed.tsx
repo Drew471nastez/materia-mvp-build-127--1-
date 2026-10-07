@@ -96,11 +96,6 @@ function composerSpacesOf(spaces: SpaceView[]) {
 
 /** How an arriving list eases in: from a little under full when it replaces another list, from nothing after the spinner. */
 const ARRIVE_MS = 200
-/** A chip's switch: the body under the row fades out this fast, then the new list fades and rises in over IN_MS. */
-const OUT_MS = 110
-const IN_MS = 240
-/** A list not cached yet: how long the one on screen stays while it comes, before the body fades out for it. */
-const DECIDE_MS = 180
 const ARRIVE_EASE = "cubic-bezier(0.22, 1, 0.36, 1)"
 /** How long to wait before marking a list swap as slow when posts are still on screen (stale list stays visible). */
 const LIST_SPIN_MS = 320
@@ -149,6 +144,15 @@ export function targetFromPath(pathname: string | null | undefined, slug: string
   return fallback
 }
 
+/** The Storelib app, or a phone's browser (a touch screen narrower than a tablet): spaces switch without an address of their own. */
+function spaceKeepsAddress(): boolean {
+  if (typeof window === "undefined") return false
+  if (document.documentElement.classList.contains("capacitor")) return true
+  const cap = (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor
+  if (cap?.isNativePlatform?.() === true) return true
+  return !!window.matchMedia?.("(pointer: coarse) and (max-width: 767px)").matches
+}
+
 function sameTarget(a: FeedTarget, b: FeedTarget): boolean {
   return a.kind === b.kind && (a.kind !== "space" || a.id === (b as { id: string }).id)
 }
@@ -192,67 +196,22 @@ export function CommunityFeed({ communityId, slug, viewer, spaces, start, initia
   const [list, setList] = useState({ id: targetId, sort })
   const behind = list.id !== targetId || list.sort !== sort
   /*
-    ONE CROSSFADE, NOT A CUT (round 14). The chip changes on the next frame; everything under the row fades out (OUT_MS, opacity
-    on the compositor), the new list is drawn while nothing of it shows, and it fades and rises into place (IN_MS, THE SWAP EASES
-    IN below). Cards never pop in one by one over a list at 35%. A second tap while the body is out keeps it out and swaps once.
+    NO FADE (round 15, the owner: "still a flash, a fade in between switching, which should not be"). The chip changes on the
+    next frame and the list follows on the frame after it, as it is: a list already here is simply there, and one on its way
+    keeps the current list on screen until it lands (the spinner only when it is slow, below). Nothing dips, nothing fades.
   */
-  const bodyRef = useRef<HTMLDivElement>(null)
-  /* The ids of the posts drawn now, in order (written as the list renders). */
-  const shownIdsRef = useRef<string[]>([])
-  const outAnim = useRef<Animation | null>(null)
-  const [out, setOut] = useState(false)
   useLayoutEffect(() => {
     if (!behind) return
     const next = { id: targetId, sort }
-    const el = bodyRef.current
-    const still = typeof requestAnimationFrame !== "function" || document.visibilityState !== "visible" || !el || typeof el.animate !== "function" || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
-    if (still || !el) return setList(next)
-    /*
-      THE SAME POSTS DO NOT MOVE (below): a list whose first screenful is the one on screen swaps on the frame after the chip's, with
-      no fade. A list not here yet is waited for a moment (DECIDE_MS) with the current one on screen, so that is known before
-      anything moves; past that the body fades out and the list follows when it comes.
-    */
-    const nextTarget = targetFromId(targetId)
-    const sameAsNow = (posts: { id: string }[]) => {
-      const now = shownIdsRef.current
-      return now.length > 0 && posts.length > 0 && posts.slice(0, SWAP_CARDS).every((p, i) => p.id === now[i])
-    }
-    let cancelled = false
-    let swapTimer = 0
-    let waitTimer = 0
-    let first = 0
+    if (typeof requestAnimationFrame !== "function" || document.visibilityState !== "visible") return setList(next)
     let second = 0
-    const swapStill = () => {
-      first = requestAnimationFrame(() => {
-        second = requestAnimationFrame(() => flushSync(() => setList(next)))
-      })
-    }
-    const swapFaded = () => {
-      if (!outAnim.current) {
-        outAnim.current = el.animate([{ opacity: Number(getComputedStyle(el).opacity) || 1 }, { opacity: 0 }], { duration: OUT_MS, easing: "cubic-bezier(0.4, 0, 1, 1)", fill: "forwards" })
-        setOut(true)
-      }
-      swapTimer = window.setTimeout(() => flushSync(() => setList(next)), OUT_MS)
-    }
-    const coming = readView(viewKey(communityId, nextTarget, sort))
-    if (outAnim.current) swapFaded()
-    else if (coming) (sameAsNow(coming.posts) ? swapStill : swapFaded)()
-    else {
-      waitTimer = window.setTimeout(() => !cancelled && swapFaded(), DECIDE_MS)
-      void loadView(communityId, nextTarget, sort).then((v) => {
-        if (cancelled || outAnim.current) return
-        window.clearTimeout(waitTimer)
-        ;(v && sameAsNow(v.posts) ? swapStill : swapFaded)()
-      })
-    }
+    const first = requestAnimationFrame(() => {
+      second = requestAnimationFrame(() => flushSync(() => setList(next)))
+    })
     return () => {
-      cancelled = true
-      window.clearTimeout(swapTimer)
-      window.clearTimeout(waitTimer)
       cancelAnimationFrame(first)
       cancelAnimationFrame(second)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [behind, targetId, sort])
   const listTarget = useMemo(() => targetFromId(list.id), [list.id])
   const listSort = list.sort
@@ -357,38 +316,14 @@ export function CommunityFeed({ communityId, slug, viewer, spaces, start, initia
   const onScreen = useRef<Set<string>>(new Set())
   useLayoutEffect(() => {
     const el = listRef.current
-    const before = onScreen.current
     onScreen.current = new Set(Array.from(el?.querySelectorAll<HTMLElement>(":scope > [data-post]") ?? [], (x) => x.dataset.post ?? "").filter(Boolean))
-    const arrived = lastDrawn.current !== drawnKey
-    if (arrived) lastDrawn.current = drawnKey
-    const body = bodyRef.current
-    const faded = outAnim.current
-    /* The body comes back once the list it went out for is here (or the tap went back to the list already drawn). */
-    if (faded && !behind && !waiting) {
-      outAnim.current = null
-      setOut(false)
-      afterSpinner.current = false
-      if (body && typeof body.animate === "function") body.animate([{ opacity: 0, translate: "0 6px" }, { opacity: 1, translate: "0 0" }], { duration: IN_MS, easing: ARRIVE_EASE })
-      faded.cancel()
-      return
-    }
-    if (!arrived || faded) return
-    /* A list swapped without a fade out (its first screenful was already on screen): only a card that was not there eases in. */
-    const from = afterSpinner.current ? 0 : 0.35
-    const whole = afterSpinner.current || before.size === 0
+    if (lastDrawn.current === drawnKey) return
+    lastDrawn.current = drawnKey
+    /* Only a list that takes the place of the spinner comes up from nothing; a list that replaces a list is simply there. */
+    const fromSpinner = afterSpinner.current
     afterSpinner.current = false
-    if (!el || typeof el.animate !== "function" || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
-    if (whole) {
-      el.animate([{ opacity: from }, { opacity: 1 }], { duration: ARRIVE_MS, easing: ARRIVE_EASE })
-      return
-    }
-    const bottom = window.innerHeight
-    for (const card of el.querySelectorAll<HTMLElement>(":scope > [data-post], :scope > [data-post-placeholder]")) {
-      const id = card.dataset.post ?? card.dataset.postPlaceholder ?? ""
-      if (before.has(id)) continue
-      if (card.getBoundingClientRect().top > bottom) break
-      card.animate([{ opacity: from }, { opacity: 1 }], { duration: ARRIVE_MS, easing: ARRIVE_EASE })
-    }
+    if (!fromSpinner || !el || typeof el.animate !== "function" || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
+    el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: ARRIVE_MS, easing: ARRIVE_EASE })
   })
 
   /*
@@ -399,7 +334,16 @@ export function CommunityFeed({ communityId, slug, viewer, spaces, start, initia
   useEffect(() => {
     if (!aheadTargets.length) return
     let stopped = false
-    const cancel = whenIdle(() => void prefetchViews(communityId, aheadTargets, "default", () => stopped))
+    /* And the faces on each list's first screenful, so a list switched to is drawn with its pictures, not filled in after. */
+    const cancel = whenIdle(() =>
+      void prefetchViews(communityId, aheadTargets, "default", () => stopped).then(() => {
+        if (stopped) return
+        for (const t of aheadTargets) {
+          const v = readView(viewKey(communityId, t, "default"))
+          if (v) warmPostFaces(v.posts.slice(0, SWAP_CARDS + 2), 12)
+        }
+      }),
+    )
     return () => {
       stopped = true
       cancel()
@@ -422,6 +366,16 @@ export function CommunityFeed({ communityId, slug, viewer, spaces, start, initia
     if (!next) return
     const href = hrefOf(p)
     if (sameTarget(next, target)) return
+    /*
+      IN THE APP AND ON A PHONE A SPACE IS NOT AN ADDRESS (round 15). The owner: "the spaces are URL pages, which is why they
+      load hard; in the iOS and Android app they should be sub pages with no URL". There the list switches and the address
+      stays the community's, so nothing is asked of the router at all. On a computer's browser the address still follows, for
+      Back, a reload and a shared link.
+    */
+    if (spaceKeepsAddress()) {
+      setPicked({ target: next, from: window.location.pathname })
+      return
+    }
     setPicked({ target: next, from: href })
     if (typeof window !== "undefined" && window.location.pathname !== href) window.history.pushState(null, "", href)
   }
@@ -534,7 +488,6 @@ export function CommunityFeed({ communityId, slug, viewer, spaces, start, initia
   const lead = listSort === "default" && listTarget.kind !== "saved"
   const posts = useMemo(() => (lead ? [...view.posts.filter((p) => p.pinned), ...view.posts.filter((p) => !p.pinned)] : view.posts), [lead, view.posts])
 
-  shownIdsRef.current = view.posts.map((p) => p.id)
   useEffect(() => {
     warmPostFaces(posts)
   }, [posts])
@@ -555,12 +508,7 @@ export function CommunityFeed({ communityId, slug, viewer, spaces, start, initia
       ) : null}
 
       <FeedLive communityId={communityId} viewerId={viewer.userId} feedKey={key} target={listTarget} sort={listSort} onView={onLive} />
-      {out && waiting && slow ? (
-        <div className="pointer-events-none flex justify-center py-6" data-feed-loading="">
-          <Spinner size={20} label="Loading posts" />
-        </div>
-      ) : null}
-      <div ref={bodyRef} data-feed-body="" className={out && waiting && slow ? "pointer-events-none" : undefined}>
+      <div data-feed-body="">
       <FeedBody
         line={spaces ? (space?.description ? { kind: "space", text: space.description } : listTarget.kind === "saved" ? { kind: "saved" } : null) : null}
         saved={listTarget.kind === "saved"}

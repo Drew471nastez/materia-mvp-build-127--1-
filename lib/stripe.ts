@@ -2,7 +2,23 @@ import "server-only"
 import Stripe from "stripe"
 import { createAdminClient } from "@/lib/supabase/admin"
 
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
+/*
+  MADE ON FIRST USE, NOT WHEN THE FILE LOADS. A build reads every route to collect its page data, and a Preview environment
+  without STRIPE_SECRET_KEY failed the whole build there ("Neither apiKey nor config.authenticator provided"). Production,
+  where the key is set, behaves exactly as before: the first call makes the client and every call after uses it.
+*/
+let client: Stripe | null = null
+function stripeClient(): Stripe {
+  client ??= new Stripe(process.env.STRIPE_SECRET_KEY as string)
+  return client
+}
+export const stripe: Stripe = new Proxy({} as Stripe, {
+  get(_target, prop) {
+    const real = stripeClient()
+    const value = Reflect.get(real as object, prop, real)
+    return typeof value === "function" ? value.bind(real) : value
+  },
+})
 
 /**
  * Validates an existing Stripe customer ID, or creates a new one if it's

@@ -68,6 +68,8 @@ export function tabScrollFor(href: string): number {
  */
 export function prepareTabArrival(href: string): number | null {
   const at = pathOnly(href)
+  /* Profile and the library open at their top (round 15: "when I land on /account it should take me to the top of the page"). */
+  if (opensAtTop(at)) return 0
   const y = tabScrollFor(at)
   if (isExplore(at)) {
     try {
@@ -83,6 +85,11 @@ export function prepareTabArrival(href: string): number | null {
     return y > 0 ? null : 0
   }
   return y
+}
+
+/** The account's pages, which always open at their top from a tab. */
+export function opensAtTop(path: string): boolean {
+  return path === "/account" || path.startsWith("/account/")
 }
 
 /**

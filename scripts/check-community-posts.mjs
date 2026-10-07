@@ -3711,39 +3711,35 @@ try {
     }
 
     /*
-      ── R14 CROSSFADE: a chip to a space whose posts are different. The body under the chips fades out, the list changes only
-      while it cannot be seen, and it fades back in: read every frame for 900ms after the press ──
+      ── R15 NO FADE: a chip to a space whose posts are different. The list changes, and nothing under the chips dips or fades
+      on the way (round 15: "still a flash, a fade in between switching, which should not be"): read every frame for 900ms ──
     */
-    if (want("r14crossfade")) {
+    if (want("r15nofade")) {
       const { p, errors } = await open("switch", "/community/studio-notes", vp)
       await sleep(400)
       await p.evaluate(() => {
-        window.__frames14 = []
+        window.__frames15 = []
         const t0 = performance.now()
         const read = () => {
           const body = document.querySelector("[data-feed-body]")
+          const list = document.querySelector("[data-feed-list]")
           const first = document.querySelector("[data-feed-list] > [data-post]:not([data-pinned])")?.getAttribute("data-post") ?? null
-          window.__frames14.push({ t: Math.round(performance.now() - t0), o: body ? Number(getComputedStyle(body).opacity) : null, first })
+          const o = Math.min(body ? Number(getComputedStyle(body).opacity) : 1, list ? Number(getComputedStyle(list).opacity) : 1)
+          window.__frames15.push({ t: Math.round(performance.now() - t0), o, first })
           if (performance.now() - t0 < 900) requestAnimationFrame(read)
         }
         requestAnimationFrame(read)
       })
       await press(p, '[data-space-chip="critique"]')
       await sleep(1100)
-      const frames = await p.evaluate(() => window.__frames14)
+      const frames = await p.evaluate(() => window.__frames15)
       const firstOf = frames[0]?.first
       const changed = frames.findIndex((f) => f.first && f.first !== firstOf)
-      const atChange = changed >= 0 ? frames[changed] : null
       const minO = Math.min(...frames.map((f) => f.o ?? 1))
       const end = frames[frames.length - 1]
-      /* The biggest step between two frames while it moves: a smooth fade has no jump. */
-      let jump = 0
-      for (let i = 1; i < frames.length; i++) jump = Math.max(jump, Math.abs((frames[i].o ?? 1) - (frames[i - 1].o ?? 1)))
-      const summary = { frames: frames.length, minOpacity: +minO.toFixed(3), changedAt: atChange?.t ?? null, opacityAtChange: atChange?.o ?? null, endOpacity: end?.o, endFirst: end?.first, biggestStep: +jump.toFixed(3) }
-      expect(atChange && end?.first?.endsWith("-crit"), "R14 CROSSFADE: the list really changed to Critique's posts", summary)
-      expect(minO < 0.05 && (atChange?.o ?? 1) < 0.05, "  and it changed while the body could not be seen", summary)
-      expect(end?.o === 1, "  and the body is whole again within 900ms", summary)
-      expect(jump <= 0.45, "  with no jump between frames (a fade, not a cut)", summary)
+      const summary = { frames: frames.length, changedAt: changed >= 0 ? frames[changed].t : null, minOpacity: +minO.toFixed(3), endFirst: end?.first }
+      expect(changed >= 0 && end?.first?.endsWith("-crit"), "R15 NO FADE: the list really changed to Critique's posts", summary)
+      expect(minO >= 0.99, "  and nothing under the chips dipped or faded on any frame", summary)
       expect(errors.length === 0, "no page error", errors)
       await p.close()
     }

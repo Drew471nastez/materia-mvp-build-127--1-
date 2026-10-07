@@ -49,6 +49,29 @@ const INK_BOX = "inline-flex h-10 items-center justify-center gap-2 rounded-xl p
 const INK = `${INK_BOX} bg-[#1a1a2e] text-white transition-[background-color,color,box-shadow] duration-200 hover:bg-[#2a2a40] active:bg-[#0f0f1c] touch-manipulation`
 const INK_DONE = `${INK_BOX} border border-[#e5e7eb] bg-white text-[#1a1a2e] transition-[background-color,color,box-shadow] duration-200 hover:bg-[#f8f9fa] active:bg-[#f1f2f4] touch-manipulation`
 
+/*
+  EVERY LESSON'S MEDIA ASKED FOR ONCE (round 15: "the media loads too hard"). What a lesson plays is kept for the visit: a
+  lesson opened again, or the next one read ahead while this one is watched, starts with no wait. A video's address is
+  signed and expires, so it is used again only while it has more than a minute left.
+*/
+const playKept = new Map<string, Play>()
+function keptPlay(lessonId: string): Play | null {
+  const p = playKept.get(lessonId)
+  if (!p) return null
+  if (p.state === "video" && p.source.expiresAt - Date.now() < 60_000) {
+    playKept.delete(lessonId)
+    return null
+  }
+  return p.state === "video" || p.state === "external" || p.state === "text" ? p : null
+}
+async function readPlay(lessonId: string): Promise<Play> {
+  const kept = keptPlay(lessonId)
+  if (kept) return kept
+  const p = await fetchPlay(lessonId)
+  if (p.state === "video" || p.state === "external" || p.state === "text") playKept.set(lessonId, p)
+  return p
+}
+
 async function fetchPlay(lessonId: string): Promise<Play> {
   try {
     const res = await fetch(`/api/courses/lessons/${lessonId}/play`, { cache: "no-store", credentials: "same-origin" })
@@ -123,13 +146,14 @@ export function CoursePlayer({
   useEffect(() => {
     if (!lesson) return
     let cancelled = false
-    setPlay({ state: "loading" })
     live.current = { position: 0, duration: 0 }
     if (lesson.locked) {
       setPlay({ state: "locked" })
       return
     }
-    void fetchPlay(lesson.id).then((p) => !cancelled && setPlay(p))
+    const kept = keptPlay(lesson.id)
+    setPlay(kept ?? { state: "loading" })
+    if (!kept) void readPlay(lesson.id).then((p) => !cancelled && setPlay(p))
     if (keeps) void sendPlace({ lessonId: lesson.id, opened: true })
     const url = new URL(window.location.href)
     const base = slugifyHandle(lesson.title, 60) || "lesson"
@@ -144,6 +168,13 @@ export function CoursePlayer({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lesson?.id])
+
+  /* The next lesson's media, read once this one has what it plays, so Next starts at once. */
+  useEffect(() => {
+    if (play.state === "loading" || !next || next.locked) return
+    const t = window.setTimeout(() => void readPlay(next.id), 800)
+    return () => window.clearTimeout(t)
+  }, [play.state, next])
 
   /* Hidden or closed: the place goes as a beacon, which the browser sends even as the page goes. */
   useEffect(() => {
@@ -199,7 +230,8 @@ export function CoursePlayer({
 
   const renew = useCallback(async () => {
     if (!lesson) return null
-    const p = await fetchPlay(lesson.id)
+    playKept.delete(lesson.id)
+    const p = await readPlay(lesson.id)
     return p.state === "video" ? p.source : null
   }, [lesson])
 
@@ -214,12 +246,12 @@ export function CoursePlayer({
   const panel = "overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
   const notesWrap = embedded ? "mt-5 border-t border-[#f0f1f3] pt-5" : "mt-6 rounded-2xl border border-[#e5e7eb]/60 bg-white px-4 py-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:px-5 sm:py-5"
   const grid = embedded
-    ? "lg:grid lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start lg:gap-6 xl:grid-cols-[minmax(0,1fr)_340px] xl:gap-8"
+    ? "lg:grid lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start lg:gap-6 xl:grid-cols-[minmax(0,1fr)_320px] xl:gap-7"
     : "lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start lg:gap-6"
   const shell = embedded ? "w-full min-w-0" : ""
 
   return (
-    <div data-course-player={embedded ? "embedded" : ""} className={`pb-8 sm:pb-10 ${shell}`}>
+    <div data-course-player={embedded ? "embedded" : ""} className={`pb-8 sm:pb-10 ${shell} ${embedded ? "mx-auto max-w-[1120px]" : ""}`}>
       {/* The course, who made it, how far through */}
       <div className="mb-4 flex items-start gap-3 sm:mb-5">
         <Link
@@ -411,9 +443,16 @@ function Stage(props: {
     return <Panel title="This course has no lessons yet" body="The creator is still adding them. They will be here when they are ready." />
   }
   if (play.state === "loading") {
+    /* The course's own picture while the lesson's media is asked for, with a small spinner over it: never a bare black box. */
     return (
-      <div className={`flex aspect-video w-full items-center justify-center bg-black ${stageRound}`}>
-        <Loader2 className="h-8 w-8 animate-spin text-white/70" aria-label="Loading" />
+      <div className={`relative flex aspect-video w-full items-center justify-center overflow-hidden bg-[#111318] ${stageRound}`} data-stage-loading="">
+        {props.poster ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={props.poster} alt="" aria-hidden className="absolute inset-0 h-full w-full object-cover opacity-60" decoding="async" />
+        ) : null}
+        <span className="relative flex h-10 w-10 items-center justify-center rounded-full bg-black/45">
+          <Loader2 className="h-5 w-5 animate-spin text-white/85" aria-label="Loading" />
+        </span>
       </div>
     )
   }
@@ -516,19 +555,19 @@ function CurriculumHead({ summary, keeps }: { summary: ReturnType<typeof summari
   const length = lengthInWords(summary.totalSeconds)
   const doneLabel = keeps ? `${summary.completed} of ${summary.total}` : `${summary.total}`
   return (
-    <div className="border-b border-[#f3f4f6] px-4 py-4">
+    <div className="px-4 pb-3 pt-4">
       <div className="flex items-baseline justify-between gap-3">
-        <p className="text-[13px] font-semibold tracking-[-0.01em] text-[#1a1a2e]">Lessons</p>
-        <p className="text-[12px] tabular-nums text-[#9ca3af]">
-          {doneLabel}
+        <p className="text-[15px] font-semibold tracking-[-0.01em] text-[#1a1a2e]">Lessons</p>
+        <p className="text-[12.5px] tabular-nums text-[#6b7280]">
+          {keeps ? `${doneLabel} done` : doneLabel}
           {length ? <span className="text-[#9ca3af]"> · {length}</span> : null}
         </p>
       </div>
       {keeps ? (
-        <div className="mt-2.5 h-1 overflow-hidden rounded-full bg-[#eceef1]" data-progress-bar>
+        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[#eceef1]" data-progress-bar>
           <div
-            className="h-full rounded-full bg-[#1a1a2e] motion-safe:transition-[width] motion-safe:duration-[520ms] motion-safe:ease-[cubic-bezier(0.22,1,0.36,1)]"
-            style={{ width: `${summary.percent}%` }}
+            className="h-full origin-left rounded-full bg-[#1a1a2e] motion-safe:transition-[scale] motion-safe:duration-[600ms] motion-safe:ease-[cubic-bezier(0.22,1,0.36,1)]"
+            style={{ scale: `${Math.max(0, Math.min(100, summary.percent)) / 100} 1` }}
           />
         </div>
       ) : null}
@@ -537,19 +576,18 @@ function CurriculumHead({ summary, keeps }: { summary: ReturnType<typeof summari
 }
 
 function Curriculum({ data, progress, currentId, onPick }: { data: PlayerData; progress: Map<string, LessonProgress>; currentId: string | null; onPick: (l: PlayerLesson) => void }) {
-  const totalLessons = data.modules.reduce((n, m) => n + m.lessons.length, 0)
   const multiModule = data.modules.length > 1
   let n = 0
   return (
-    <ol className="space-y-1 px-2.5 pb-4 pt-2" data-curriculum>
+    <ol className="space-y-1 px-2 pb-3 pt-1" data-curriculum>
       {data.modules.map((m) => {
         const showModule = multiModule || m.lessons.length > 1
         const doneCount = m.lessons.filter((l) => isDone(progress.get(l.id))).length
         return (
           <li key={m.id}>
             {showModule ? (
-              <div className="flex items-center justify-between gap-2 px-2 pb-1 pt-2.5">
-                <p className="min-w-0 truncate text-[12px] font-medium text-[#6b7280]">{m.title}</p>
+              <div className="flex items-center justify-between gap-2 px-2.5 pb-1.5 pt-3">
+                <p className="min-w-0 truncate text-[12.5px] font-semibold text-[#6b7280]">{m.title}</p>
                 {data.access !== "preview" && m.lessons.length > 1 ? (
                   <span className="shrink-0 text-[11px] tabular-nums text-[#9ca3af]">{doneCount}/{m.lessons.length}</span>
                 ) : null}
@@ -560,7 +598,7 @@ function Curriculum({ data, progress, currentId, onPick }: { data: PlayerData; p
                 n += 1
                 const current = l.id === currentId
                 const finished = isDone(progress.get(l.id))
-                const label = totalLessons > 1 ? `${n}. ${l.title}` : l.title
+                const number = n
                 return (
                   <li key={l.id}>
                     <button
@@ -570,34 +608,38 @@ function Curriculum({ data, progress, currentId, onPick }: { data: PlayerData; p
                       aria-current={current ? "true" : undefined}
                       data-lesson-row={l.id}
                       data-lesson-current={current ? "" : undefined}
-                      className={`flex w-full items-center gap-2.5 rounded-[12px] px-2.5 py-3 text-left transition-[background-color] duration-200 ease-out motion-reduce:transition-none ${
-                        current
-                          ? "bg-[#f4f4f5] shadow-[inset_2px_0_0_0_#1a1a2e]"
-                          : "hover:bg-[#f7f8f9]"
-                      } ${l.locked ? "cursor-default opacity-70" : ""}`}
+                      className={`group/lesson flex w-full items-center gap-3 rounded-xl px-2.5 py-2.5 text-left outline-none transition-colors duration-200 ease-out focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 motion-reduce:transition-none ${
+                        current ? "bg-[#f3f4f6]" : "hover:bg-[#f8f9fa] active:bg-[#f3f4f6]"
+                      } ${l.locked ? "cursor-default" : "cursor-pointer"}`}
                     >
-                      <span className="flex h-5 w-5 shrink-0 items-center justify-center">
-                        {l.locked ? (
-                          <Lock className="h-3.5 w-3.5 text-[#9ca3af]" />
-                        ) : finished ? (
-                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#1a1a2e] text-white" data-done>
-                            <Check className="h-3 w-3" strokeWidth={3} />
-                          </span>
-                        ) : current ? (
-                          <span className="flex h-5 w-5 items-center justify-center rounded-full border-2 border-[#1a1a2e]">
-                            <Play className="ml-px h-2.5 w-2.5 text-[#1a1a2e]" fill="currentColor" />
-                          </span>
-                        ) : (
-                          <span className="h-5 w-5 rounded-full border-2 border-[#d1d5db]" />
-                        )}
+                      {/* The lesson's place in the course: its number, a check once done, a lock while closed. */}
+                      <span
+                        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[12px] font-semibold tabular-nums transition-colors duration-200 ${
+                          l.locked
+                            ? "bg-[#f3f4f6] text-[#9ca3af]"
+                            : finished
+                              ? "bg-[#1a1a2e] text-white"
+                              : current
+                                ? "bg-white text-[#1a1a2e] shadow-[0_0_0_1.5px_#1a1a2e]"
+                                : "bg-white text-[#6b7280] shadow-[0_0_0_1px_#e3e5e9]"
+                        }`}
+                        data-done={finished ? "" : undefined}
+                      >
+                        {l.locked ? <Lock className="h-3.5 w-3.5" /> : finished ? <Check className="h-3.5 w-3.5" strokeWidth={3} /> : number}
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className={`line-clamp-2 text-[13.5px] leading-5 ${current ? "font-semibold text-[#1a1a2e]" : l.locked ? "text-[#9ca3af]" : "text-[#374151]"}`}>
-                          {label}
+                        <span className={`line-clamp-2 text-[14px] leading-5 ${current ? "font-semibold text-[#1a1a2e]" : l.locked ? "text-[#9ca3af]" : "font-medium text-[#374151]"}`}>
+                          {l.title}
                         </span>
-                        {l.isPreview && data.access !== "owner" ? <span className="mt-0.5 block text-[11px] font-medium text-[#6b7280]">Preview</span> : null}
+                        {l.durationSeconds || (l.isPreview && data.access !== "owner") ? (
+                          <span className="mt-0.5 block text-[12px] tabular-nums text-[#9ca3af]">
+                            {l.durationSeconds ? clock(l.durationSeconds) : null}
+                            {l.durationSeconds && l.isPreview && data.access !== "owner" ? " · " : null}
+                            {l.isPreview && data.access !== "owner" ? "Preview" : null}
+                          </span>
+                        ) : null}
                       </span>
-                      {l.durationSeconds ? <span className="shrink-0 text-[11px] tabular-nums text-[#9ca3af]">{clock(l.durationSeconds)}</span> : null}
+                      {current ? <Play className="h-3.5 w-3.5 shrink-0 text-[#1a1a2e]" fill="currentColor" aria-hidden /> : null}
                     </button>
                   </li>
                 )

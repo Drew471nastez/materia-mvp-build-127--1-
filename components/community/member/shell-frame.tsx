@@ -338,6 +338,18 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
   const wideCenter = about || isLearnLessonPath(pathname) || isLearnLibraryPath(pathname) || isEventsListPath(pathname) || isEventDetailPath(pathname)
   /** A lesson is the whole page: no community card or places beside it, the player across every column. */
   const lessonPage = isLearnLessonPath(pathname)
+  /*
+    INTO A LESSON AND BACK OUT, NO LANDING (round 15: "the back icon should take me back very smooth, with no fades"). The page
+    that arrives from or into a lesson is simply there; the fade stays for moving between the community's other places. Kept for
+    the whole time on that address, so the class never comes back later and starts the fade late.
+  */
+  const lastPath = useRef(pathname)
+  const quietPath = useRef<string | null>(null)
+  if (lastPath.current !== pathname) {
+    quietPath.current = isLearnLessonPath(lastPath.current) || lessonPage ? pathname : null
+    lastPath.current = pathname
+  }
+  const quietArrival = quietPath.current === pathname
   const tab = going?.key ?? tabFor(current)
   /* Moved to another place since the visit began: pages that arrive from now on land (ARRIVE). Set in the render that brings the new page. */
   const firstTab = useRef(tabFor(current))
@@ -434,7 +446,7 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
               ) : null}
             </aside>
             <div className={`min-w-0 lg:row-span-2 lg:row-start-1 ${lessonPage ? "lg:col-span-full lg:col-start-1" : wideCenter ? "lg:col-start-2 xl:col-span-2" : "lg:col-start-2"} ${LAND_LATE}`} data-community-main="">
-              <div className={`${moved ? ARRIVE : ""} ${about ? ABOUT_BOX : ""}`} data-community-body="" data-community-moved={moved ? "" : undefined}>
+              <div className={`${moved && !quietArrival ? ARRIVE : ""} ${about ? ABOUT_BOX : ""}`} data-community-body="" data-community-moved={moved ? "" : undefined}>
                 <CommunityPullRefresh slug={community.slug}>{children}</CommunityPullRefresh>
               </div>
             </div>

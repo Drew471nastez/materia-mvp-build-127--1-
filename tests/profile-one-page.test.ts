@@ -246,10 +246,10 @@ async function main() {
   check("  the crop sheet is gone from the repository", (() => { try { readCode("components/account/photo-crop.tsx"); return false } catch { return true } })())
 
   console.log("\nThe cover in /account and in Settings, taller")
-  check("157 / 233 / 312 (128 / 192 / 256 plus fifteen percent, then about six percent more)", PROFILE_COVER_HEIGHTS.phone === 157 && PROFILE_COVER_HEIGHTS.sm === 233 && PROFILE_COVER_HEIGHTS.lg === 312)
+  check("157 / 233 / 264 (128 / 192 / 256 plus fifteen percent, then about six percent more)", PROFILE_COVER_HEIGHTS.phone === 157 && PROFILE_COVER_HEIGHTS.sm === 233 && PROFILE_COVER_HEIGHTS.lg === 264)
   /* Round 12: /@handle draws the creator header, so only /account's band holds these heights; the profile's skeleton is the creator page's (its colour and its top bar). */
-  check("the band draws those heights", /relative h-\[157px\] sm:h-\[233px\] lg:h-\[312px\]/.test(readCode("components/profile/profile-hero.tsx")))
-  check("Settings' frame takes the new shape on its own", profileBandAspect(390) === Math.round((390 / 157) * 1000) / 1000 && profileBandAspect(1440) === Math.round((1440 / 312) * 1000) / 1000)
+  check("the band draws those heights", /relative h-\[157px\] sm:h-\[233px\] lg:h-\[264px\]/.test(readCode("components/profile/profile-hero.tsx")))
+  check("Settings' frame takes the new shape on its own", profileBandAspect(390) === Math.round((390 / 157) * 1000) / 1000 && profileBandAspect(1440) === Math.round((1440 / 264) * 1000) / 1000)
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) {

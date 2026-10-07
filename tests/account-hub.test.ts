@@ -120,7 +120,7 @@ console.log("\nNo light bar of the profile's own: one header on the screen")
     are done here" about a screen reached from the profile and returned to.
     "Make sure the thing there is not an X, it is a back icon basically."
   */
-  check("Settings' top row is the way back and the word Settings, and never sticky", /data-account-settings-top=""/.test(settings) && /data-account-settings-close=""/.test(settings) && !/sticky/.test(settings))
+  check("Settings' top row is the way back and the word Settings, and never sticky", /data-account-settings-top=""/.test(settings) && /data-account-settings-close=""/.test(settings) && !/className="[^"]*sticky[^"]*"\s*data-account-settings-top/.test(settings) && !/data-account-settings-top=""[^>]*sticky/.test(settings))
   check("  and it is a chevron that says where it goes, not an X: the shared back control, first tap and a real back", /<BackControl fallback=\{BACK_TO\} label="Back to profile"/.test(settings) && /const BACK_TO = "\/account"/.test(settings) && /<ChevronLeft className="h-5 w-5"/.test(read("components/navigation/back-control.tsx")) && !/<X /.test(settings))
   /*
     ONE SECTION DISSOLVES INTO THE NEXT: the one leaving fades out, then
