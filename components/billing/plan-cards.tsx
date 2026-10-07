@@ -349,9 +349,9 @@ export function PlanCards({
   lead?: OfferedPlanId
   /**
    * A section heading. Given one, the cards sit in a section of a page (the
-   * Billing tab): the heading at the left of one row with a small pill at
-   * its right, and the cards as wide as the section. Without one they are
-   * the page's subject: the pill centred above two cards in a 720px row.
+   * Billing tab): the heading on its own row, then the pill centred above
+   * two cards in a 720px row, as on the plans page. Without one they are the
+   * page's subject, and the same pill and row with no heading.
    */
   heading?: React.ReactNode
   className?: string
@@ -366,11 +366,20 @@ export function PlanCards({
   return (
     <>
       {inSection ? (
-        /* On one row when they fit; on a narrow phone the pill wraps under the heading, flush left. */
-        <div data-plan-heading-row="" className="mb-4 flex flex-wrap items-center justify-between gap-x-3 gap-y-2.5">
-          {heading}
-          <IntervalSwitch value={interval} onChange={pick} size="small" />
-        </div>
+        /*
+          IN A SECTION THE HEADING HAS ITS OWN ROW, AND THE PILL IS CENTRED
+          OVER THE CARDS. It used to sit small at the heading's right and wrap
+          under it flush left on a phone, which read as a stray control; and
+          the two cards stretched to the section's full width, so the plan's
+          words sat small in a wide card. Now the section reads like the
+          plans page: the pill centred, the pair in the same 720px row.
+        */
+        <>
+          <div data-plan-heading-row="" className="mb-4">{heading}</div>
+          <div data-plan-interval-row="" className="flex justify-center mb-5 sm:mb-6">
+            <IntervalSwitch value={interval} onChange={pick} />
+          </div>
+        </>
       ) : (
         /*
           IN THE ONBOARDING (compact) THE PILL HAS ROOM UNDER IT and the cards
@@ -385,7 +394,7 @@ export function PlanCards({
       )}
       <div
         data-plan-cards
-        className={`${inSection ? "" : compact ? "mx-auto max-w-[668px] max-md:px-1.5" : "mx-auto max-w-[720px]"} grid w-full grid-cols-1 md:grid-cols-2 items-stretch ${compact ? "gap-3" : "gap-5"} ${className}`}
+        className={`${compact ? "mx-auto max-w-[668px] max-md:px-1.5" : "mx-auto max-w-[720px]"} grid w-full grid-cols-1 md:grid-cols-2 items-stretch ${compact ? "gap-3" : "gap-5"} ${className}`}
       >
         {OFFERED_PLANS.map((plan) => (
           <div key={plan.id} data-plan-slot={plan.id} className={`flex ${lead === plan.id ? "order-first md:order-none" : ""}`}>
@@ -395,7 +404,7 @@ export function PlanCards({
               label={labels?.[plan.id]}
               compact={compact}
               interval={interval}
-              sizes={inSection ? PLAN_PICTURE_SIZES_FILL : PLAN_PICTURE_SIZES}
+              sizes={PLAN_PICTURE_SIZES}
             />
           </div>
         ))}

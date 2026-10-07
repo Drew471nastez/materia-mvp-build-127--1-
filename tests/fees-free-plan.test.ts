@@ -76,7 +76,8 @@ check("an old Growth plan id is charged as Pro", computeApplicationFee({ unitAmo
 check("calculateFeeWithPlan ignores a stale fee_percent on the plan row", calculateFeeWithPlan(1000, { id: "free", name: "Free", fee_percent: 0.06, fee_fixed_cents: 30 }, "USD").platformFeeCents === 75)
 check("an unknown plan is Free", calculateFeeWithPlan(1000, { id: "enterprise", name: "?", fee_percent: 0, fee_fixed_cents: 0 }, "USD").platformFeeCents === 75)
 check("the preview matches", getFeePreview(100, "free", "USD").platformFeeCents === 11 && getFeePreview(1000, "free", "USD").platformFeeCents === 75)
-check("the plan description says 5% and 11.25%", getFeeDescription("free") === "5% + $0.25 per sale ($4+); 11.25% under $4" && getFeeDescription("pro") === "3% + $0.25 per sale ($4+); 9.25% under $4")
+/* Changed on purpose: a plan card says the rate and the $0.25 only; the under $4 rule lives in the help article and the terms. */
+check("the plan description says 5% and 3%, with no under $4 tier", getFeeDescription("free") === "5% + $0.25 per sale" && getFeeDescription("pro") === "3% + $0.25 per sale")
 check("checkout keeps the fee and rule it charged on the order", /fee_percent: String\(fee\.feePercent\)/.test(read("app/api/checkout/stripe-session/route.ts")) && /fee_percent: String\(fee\.feePercent\)/.test(read("app/api/checkout/cart/route.ts")))
 
 console.log("\nThe database says the same")

@@ -23,7 +23,7 @@ const GROWTH_PLAN = {
   billing_period: "month",
   fee_percent: 0.03,
   fee_fixed_cents: 25,
-  features: ["3% + $0.25 per transaction (on orders $4+)", "Advanced analytics & reports", "Priority email support", "Custom domain support"],
+  features: ["3% + $0.25 per sale", "Advanced analytics & reports", "Priority email support", "Custom domain support"],
   is_active: true,
 }
 
@@ -35,7 +35,7 @@ const PRO_PLAN = {
   billing_period: "month",
   fee_percent: 0.015,
   fee_fixed_cents: 25,
-  features: ["1.5% + $0.25 per transaction (on orders $4+)", "Premium analytics & reports", "Dedicated support", "White-label options", "API access"],
+  features: ["1.5% + $0.25 per sale", "Premium analytics & reports", "Dedicated support", "White-label options", "API access"],
   is_active: true,
 }
 

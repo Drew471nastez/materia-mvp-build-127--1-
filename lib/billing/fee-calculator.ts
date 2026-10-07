@@ -227,11 +227,18 @@ export function formatCentsToDollars(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`
 }
 
+/*
+ * THE FEE AS A PLAN CARD SAYS IT: the rate and the $0.25, nothing more.
+ * Orders under $4 pay the micro rate with no $0.25 (above), so a small order
+ * never pays more than one at $4. That is a rule of the fee, written out in
+ * the help article and the terms; a plan card naming two tiers read as fine
+ * print, so the cards say only what almost every sale pays.
+ */
 export function getFeeDescription(planId: string): string {
   const descriptions: Record<string, string> = {
-    free: `${ratePercentLabel(FREE_STANDARD_RATE)} + $0.25 per sale ($4+); ${ratePercentLabel(FREE_MICRO_RATE)} under $4`,
-    growth: `${ratePercentLabel(PAID_STANDARD_RATE)} + $0.25 per sale ($4+); ${ratePercentLabel(PAID_MICRO_RATE)} under $4`,
-    pro: `${ratePercentLabel(PAID_STANDARD_RATE)} + $0.25 per sale ($4+); ${ratePercentLabel(PAID_MICRO_RATE)} under $4`,
+    free: `${ratePercentLabel(FREE_STANDARD_RATE)} + $0.25 per sale`,
+    growth: `${ratePercentLabel(PAID_STANDARD_RATE)} + $0.25 per sale`,
+    pro: `${ratePercentLabel(PAID_STANDARD_RATE)} + $0.25 per sale`,
   }
   return descriptions[planId] || descriptions.free
 }

@@ -14,6 +14,9 @@ import { useLanguage } from "@/lib/i18n"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { PlanCards, type PlanCardAction } from "@/components/billing/plan-cards"
 import { PLAN_FOOTNOTE, formatPlanPrice, offeredPlan, withPlanLabel, type OfferedPlanId, type PlanId } from "@/lib/billing/plans"
+import { StatusBadge, card as CARD } from "@/app/app/orders/order-parts"
+import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
+import { cn } from "@/lib/utils"
 
 const TABS = [
   { id: "general", label: "General", icon: Settings },
@@ -260,13 +263,13 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "paid":
-        return <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full"><CheckCircle className="h-3 w-3" />Paid</span>
+        return <StatusBadge tone="success">Paid</StatusBadge>
       case "open":
-        return <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full"><Clock className="h-3 w-3" />Pending</span>
+        return <StatusBadge tone="attention">Pending</StatusBadge>
       case "void": case "uncollectible":
-        return <span className="inline-flex items-center gap-1 text-[11px] font-medium text-red-700 bg-red-50 px-2.5 py-1 rounded-full"><XCircle className="h-3 w-3" />Failed</span>
+        return <StatusBadge tone="critical">Failed</StatusBadge>
       default:
-        return <span className="text-[11px] font-medium text-gray-700 bg-gray-100 px-2.5 py-1 rounded-full">{status.charAt(0).toUpperCase() + status.slice(1)}</span>
+        return <StatusBadge tone="neutral">{status.charAt(0).toUpperCase() + status.slice(1)}</StatusBadge>
     }
   }
 
@@ -276,7 +279,8 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
   const subscription = liveSubscription
   const isSubscribed = subscription && (subscription.status === "active" || subscription.status === "trialing" || subscription.status === "past_due")
   const planPrice = formatPlanPrice(currentPlan.price_cents || 0)
-  const feeDisplay = `${(currentPlan.fee_percent * 100).toFixed(currentPlan.fee_percent >= 0.01 ? 1 : 2)}% + $${(currentPlan.fee_fixed_cents / 100).toFixed(2)} per transaction`
+  /* "3% + $0.25": the rate as the plan cards write it, with no trailing zero. */
+  const feeDisplay = `${Number((currentPlan.fee_percent * 100).toFixed(2))}% + $${(currentPlan.fee_fixed_cents / 100).toFixed(2)}`
 
   // Detect pending downgrade (scheduled plan change)
   const pendingPlanId = subscription?.pending_plan_id || null
@@ -332,165 +336,130 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
 
         <div className="space-y-6">
 
-          {/* ---- SECTION 1: Subscription Overview ---- */}
+          {/*
+            ---- SECTION 1: Subscription Overview ----
+            Two cards in Storelib's own surface (the white card, a hairline
+            and a 1px shade), side by side from 1024px and stacked under it:
+            the plan and what it costs, then the card it is paid with. The
+            buttons are the app's depth buttons, near black for the one step
+            forward and white for the rest. No uppercase labels, no badge
+            for a plan that is simply on.
+          */}
           <div>
             <h2 className="text-[17px] font-bold text-[#1a1a2e] mb-4">Subscription Overview</h2>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5">
 
               {/* Left: Current Plan */}
-              <div className="bg-white rounded-2xl app-card-x py-5 sm:py-6 shadow-sm border border-[#e5e7eb]">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-[15px] font-semibold text-[#1a1a2e]">Current Plan</h3>
+              <div data-billing-plan="" className={cn(CARD, "flex flex-col app-card-x py-5")}>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-[13px] font-medium text-[#6b7280]">Current plan</p>
+                    <p className="mt-1 text-[22px] font-bold leading-7 text-[#1a1a2e]">{currentPlan.name}</p>
+                  </div>
                   {subscription?.status === "canceled" ? (
-                    <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full text-red-700 bg-red-50 border border-red-200">
-                      <XCircle className="h-3 w-3" />
-                      Canceled
-                    </span>
+                    <StatusBadge tone="critical">Canceled</StatusBadge>
                   ) : subscription?.cancel_at_period_end ? (
-                    <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full text-amber-700 bg-amber-50 border border-amber-200">
-                      <AlertCircle className="h-3 w-3" />
-                      Canceling
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full text-white bg-[#1a1a2e]">
-                      <CheckCircle className="h-3 w-3" />
-                      {currentPlan.name}
-                    </span>
-                  )}
+                    <StatusBadge tone="attention">Canceling</StatusBadge>
+                  ) : isSubscribed ? (
+                    <StatusBadge tone="success">Active</StatusBadge>
+                  ) : null}
                 </div>
 
-                {/* Pending downgrade info */}
-                {pendingPlan && subscription?.current_period_end && (
-                  <p className="text-[12px] text-[#6b7280] mb-3">
-                    Switching to {pendingPlan.name} on {formatDate(subscription.current_period_end)} &middot; {formatPlanPrice(pendingPlan.price_cents)}/month
-                  </p>
-                )}
+                <div className="mt-4 flex items-baseline gap-1">
+                  <span className="text-[34px] font-bold leading-none tracking-[-0.02em] text-[#1a1a2e] tabular-nums">{planPrice}</span>
+                  {currentPlan.price_cents > 0 && <span className="text-[14px] text-[#6b7280]">/month</span>}
+                </div>
 
-                <div className="mb-4">
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-[36px] font-bold text-[#1a1a2e] leading-none">{planPrice}</span>
-                    {currentPlan.price_cents > 0 && <span className="text-[14px] text-[#6b7280]">/month</span>}
+                <dl className="mt-4 divide-y divide-[#f0f1f3] border-y border-[#f0f1f3] text-[14px]">
+                  <div className="flex items-center justify-between gap-3 py-2.5">
+                    <dt className="text-[#6b7280]">Fee per sale</dt>
+                    <dd className="font-medium text-[#1a1a2e] tabular-nums">{feeDisplay}</dd>
                   </div>
-                </div>
-
-                <ul className="space-y-2 mb-5">
-                  {/* What each plan includes is on the plan cards under this, the same cards the plans page shows. */}
-                  {subscription?.current_period_end && subscription.status !== "canceled" && (
-                    <li className={`flex items-center gap-2.5 text-[13px] ${subscription.cancel_at_period_end ? "text-amber-700 font-medium" : "text-[#6b7280]"}`}>
-                      <div className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 ${subscription.cancel_at_period_end ? "bg-amber-100" : "bg-gray-100"}`}>
-                        <Clock className={`h-2.5 w-2.5 ${subscription.cancel_at_period_end ? "text-amber-500" : "text-gray-500"}`} />
-                      </div>
-                      {subscription.cancel_at_period_end ? "Cancels on" : "Renews"}: {formatDate(subscription.current_period_end)}
-                    </li>
-                  )}
-                </ul>
-
-                <div className="flex flex-wrap gap-3">
-                  {/* Free plan -> Upgrade link */}
-                  {currentPlan.id === "free" && (
-                    <Link href="/app/settings/billing/upgrade" className="h-10 px-5 text-[13px] font-semibold text-white bg-[#7c3aed] rounded-xl hover:bg-[#6d28d9] active:bg-[#5b21b6] transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-2 no-underline cursor-pointer">
-                      Upgrade
-                    </Link>
-                  )}
-                  {/* Pro (id "growth") is the top plan on sale, so there is nothing to upgrade to from it. */}
-                  {/* If cancel_at_period_end, show upgrade option to reactivate */}
-                  {isSubscribed && subscription.cancel_at_period_end && (
-                    <Link href="/app/settings/billing/upgrade" className="h-10 px-5 text-[13px] font-semibold text-white bg-[#7c3aed] rounded-xl hover:bg-[#6d28d9] active:bg-[#5b21b6] transition-all duration-200 shadow-sm hover:shadow-md flex items-center gap-2 no-underline cursor-pointer">
-                      Upgrade
-                    </Link>
-                  )}
-                  {/* Always show Manage Subscription for any active paid plan */}
-                  {isSubscribed && (
-                    <button onClick={openCustomerPortal} disabled={portalLoading} className="h-10 px-5 text-[13px] font-medium text-[#7c3aed] border border-[#7c3aed] rounded-xl hover:bg-[#f5f3ff] transition-colors flex items-center gap-2 cursor-pointer">
-                      {portalLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ExternalLink className="h-3.5 w-3.5" />}
-                      Manage Subscription
-                    </button>
-                  )}
-                </div>
-                {/* Cancel-at-period-end notice — subscription active but will expire */}
-                {isSubscribed && subscription.cancel_at_period_end && (
-                  <div className="flex items-start gap-3 p-3.5 bg-amber-50 border border-amber-200 rounded-xl mt-3">
-                    <AlertCircle className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
-                    <div>
-                      <p className="text-[13px] font-semibold text-amber-800">Subscription canceling</p>
-                      <p className="text-[12px] text-amber-700 mt-0.5">
-                        Your plan remains active until {formatDate(subscription.current_period_end)}. No further charges will be made.
-                      </p>
+                  {subscription?.current_period_end && subscription.status !== "canceled" ? (
+                    <div className="flex items-center justify-between gap-3 py-2.5">
+                      <dt className="text-[#6b7280]">{subscription.cancel_at_period_end ? "Ends" : "Renews"}</dt>
+                      <dd className={cn("font-medium tabular-nums", subscription.cancel_at_period_end ? "text-[#8a5a00]" : "text-[#1a1a2e]")}>{formatDate(subscription.current_period_end)}</dd>
                     </div>
-                  </div>
+                  ) : null}
+                  {pendingPlan && subscription?.current_period_end ? (
+                    <div className="flex items-center justify-between gap-3 py-2.5">
+                      <dt className="text-[#6b7280]">Then</dt>
+                      <dd className="font-medium text-[#1a1a2e]">{pendingPlan.name}, {formatPlanPrice(pendingPlan.price_cents)}/month</dd>
+                    </div>
+                  ) : null}
+                </dl>
+
+                {/* Cancel-at-period-end notice: the plan is on until its last day. */}
+                {isSubscribed && subscription.cancel_at_period_end && (
+                  <p className="mt-4 rounded-xl bg-[#fff8e6] px-3.5 py-3 text-[13px] leading-5 text-[#7a5200]">
+                    Your plan stays on until {formatDate(subscription.current_period_end)}. Nothing more is charged.
+                  </p>
                 )}
                 {/* Fully canceled subscription notice */}
                 {subscription?.status === "canceled" && (
-                  <div className="flex items-start gap-3 p-3.5 bg-red-50 border border-red-200 rounded-xl mt-3">
-                    <XCircle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[13px] font-semibold text-red-800">Subscription canceled</p>
-                      <p className="text-[12px] text-red-700 mt-0.5">
-                        {subscription.canceled_at
-                          ? `Your ${plans.find((p: any) => p.id === subscription.plan_id)?.name || "paid"} plan was canceled on ${formatDate(subscription.canceled_at)}.`
-                          : `Your paid plan has been canceled.`}{" "}
-                        You are now on the Free plan.
-                      </p>
-                      <Link href="/app/settings/billing/upgrade" className="inline-flex items-center gap-1 text-[12px] font-semibold text-red-700 hover:text-red-900 underline underline-offset-2 mt-1.5">
-                        Reactivate a plan
-                      </Link>
-                    </div>
-                  </div>
+                  <p className="mt-4 rounded-xl bg-[#fef3f2] px-3.5 py-3 text-[13px] leading-5 text-[#8a1c0f]">
+                    {subscription.canceled_at
+                      ? `Your ${plans.find((p: any) => p.id === subscription.plan_id)?.name || "paid"} plan was canceled on ${formatDate(subscription.canceled_at)}.`
+                      : "Your paid plan was canceled."}{" "}
+                    You are on Free now.
+                  </p>
                 )}
+
+                <div className="mt-auto flex flex-wrap gap-2.5 pt-5">
+                  {(currentPlan.id === "free" || (isSubscribed && subscription.cancel_at_period_end) || subscription?.status === "canceled") && (
+                    <Link href="/app/settings/billing/upgrade" className={cn(primaryDepth, "h-10 rounded-xl px-4 text-[14px] no-underline max-sm:flex-1")}>
+                      {subscription?.status === "canceled" || subscription?.cancel_at_period_end ? "Keep Pro" : "Upgrade to Pro"}
+                    </Link>
+                  )}
+                  {/* Pro (id "growth") is the top plan on sale, so there is nothing to upgrade to from it. */}
+                  {isSubscribed && (
+                    <button type="button" onClick={openCustomerPortal} disabled={portalLoading} className={cn(secondaryDepth, "h-10 rounded-xl px-4 text-[14px] max-sm:flex-1")}>
+                      {portalLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                      Manage subscription
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Right: Payment Details */}
-              <div className="bg-white rounded-2xl app-card-x py-5 sm:py-6 shadow-sm border border-[#e5e7eb]">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-[15px] font-semibold text-[#1a1a2e]">Payment Details</h3>
-                  <div className="flex items-center gap-1.5 text-[11px] text-[#9ca3af]">
-                    <Lock className="h-3 w-3" />
-                    Secured
-                  </div>
+              <div data-billing-card="" className={cn(CARD, "flex flex-col app-card-x py-5")}>
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-[13px] font-medium text-[#6b7280]">Payment method</p>
+                  <span className="inline-flex items-center gap-1 text-[12px] text-[#9ca3af]">
+                    <Lock className="h-3 w-3" aria-hidden />
+                    Kept by Stripe
+                  </span>
                 </div>
 
                 {livePaymentMethod ? (
-                  <div className="space-y-4">
-                    <div className="bg-[#f9fafb] rounded-xl p-4">
-                      <span className="text-[12px] font-medium text-[#6b7280] uppercase tracking-wider block mb-3">Card Number</span>
-                      <div className="text-[16px] font-mono font-medium text-[#1a1a2e] tracking-widest mb-4">
-                        &bull;&bull;&bull;&bull; &bull;&bull;&bull;&bull; &bull;&bull;&bull;&bull; {livePaymentMethod.card_last4}
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <span className="text-[11px] font-medium text-[#6b7280] uppercase tracking-wider block mb-1">Brand</span>
-                          <span className="text-[13px] font-medium text-[#1a1a2e] capitalize">{livePaymentMethod.card_brand || "Card"}</span>
-                        </div>
-                        <div>
-                          <span className="text-[11px] font-medium text-[#6b7280] uppercase tracking-wider block mb-1">Expires</span>
-                          <span className="text-[13px] font-medium text-[#1a1a2e]">{String(livePaymentMethod.card_exp_month).padStart(2, "0")}/{livePaymentMethod.card_exp_year}</span>
-                        </div>
-                      </div>
+                  /* The card on file, drawn as a card: its brand, its last four and when it ends, on the app's ink. */
+                  <div className="relative mt-4 overflow-hidden rounded-[14px] bg-[#1a1a2e] px-4 pb-4 pt-3.5 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_10px_24px_-14px_rgba(17,17,40,0.6),0_2px_6px_rgba(17,17,40,0.18)]">
+                    <span aria-hidden className="pointer-events-none absolute -right-10 -top-14 h-36 w-36 rounded-full bg-white/[0.06]" />
+                    <div className="flex items-center justify-between">
+                      <span className="text-[14px] font-semibold capitalize">{livePaymentMethod.card_brand || "Card"}</span>
+                      <CreditCard className="h-4 w-4 text-white/60" aria-hidden />
                     </div>
-                    <TrustBadges />
-                    <div className="flex gap-3">
-                      <button onClick={handleAddPaymentMethod} disabled={portalLoading} className="h-10 px-5 text-[13px] font-medium text-[#7c3aed] border border-[#7c3aed] rounded-xl hover:bg-[#f5f3ff] transition-colors flex items-center gap-2 cursor-pointer">
-                        {portalLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Pencil className="h-3.5 w-3.5" />}
-                        Edit Payment
-                      </button>
-                    </div>
+                    <p className="mt-6 font-mono text-[16px] tracking-[0.18em] tabular-nums">&bull;&bull;&bull;&bull; {livePaymentMethod.card_last4}</p>
+                    <p className="mt-1.5 text-[12px] text-white/65">Expires {String(livePaymentMethod.card_exp_month).padStart(2, "0")}/{String(livePaymentMethod.card_exp_year).slice(-2)}</p>
                   </div>
                 ) : (
-                  <div className="space-y-4">
-                    <div className="bg-[#f9fafb] rounded-xl p-6 text-center">
-                      <CreditCard className="h-10 w-10 text-[#d1d5db] mx-auto mb-3" />
-                      <p className="text-[13px] text-[#6b7280] mb-1">No payment method on file</p>
-                      <p className="text-[12px] text-[#9ca3af]">
-                        Add a payment method to subscribe to paid plans
-                      </p>
-                    </div>
-                    <TrustBadges />
-                    <button onClick={handleAddPaymentMethod} disabled={portalLoading} className="h-10 px-5 text-[13px] font-medium text-[#7c3aed] border border-[#7c3aed] rounded-xl hover:bg-[#f5f3ff] transition-colors flex items-center gap-2 cursor-pointer">
-                      {portalLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CreditCard className="h-4 w-4" />}
-                      Add Payment Method
-                    </button>
+                  <div className="mt-4 rounded-[14px] border border-dashed border-[#d9dbe0] bg-[#fafafb] px-4 py-6 text-center">
+                    <CreditCard className="mx-auto h-6 w-6 text-[#9ca3af]" aria-hidden />
+                    <p className="mt-2 text-[14px] font-medium text-[#1a1a2e]">No card on file</p>
+                    <p className="mt-0.5 text-[13px] text-[#6b7280]">Add one to pay for Pro.</p>
                   </div>
                 )}
+
+                <div className="mt-4">
+                  <TrustBadges />
+                </div>
+
+                <div className="mt-auto flex pt-5">
+                  <button type="button" onClick={handleAddPaymentMethod} disabled={portalLoading} className={cn(secondaryDepth, "h-10 rounded-xl px-4 text-[14px] max-sm:flex-1")}>
+                    {portalLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                    {livePaymentMethod ? "Update card" : "Add card"}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -498,135 +467,92 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
           {/*
             ---- SECTION 2: Billing History ----
             Above the plans: what has been paid first, then what can be
-            bought.
+            bought. One list on every width: the date and what it was for,
+            the amount, its status, and a download at the end on a computer.
+            A row opens the invoice.
           */}
-          <div className="bg-white rounded-2xl app-card-x py-5 sm:py-6 shadow-sm border border-[#e5e7eb]">
-            <div className="flex items-center justify-between mb-2">
+          <div data-billing-history="" className={cn(CARD, "overflow-hidden")}>
+            <div className="flex items-center justify-between gap-3 app-card-x pb-2 pt-5">
               <h2 className="text-[17px] font-bold text-[#1a1a2e]">Billing History</h2>
               {liveInvoices.length > 0 && (
-                <button onClick={openCustomerPortal} disabled={portalLoading} className="flex items-center gap-1.5 h-8 px-3 text-[12px] font-medium text-[#6b7280] border border-[#e5e7eb] rounded-lg hover:bg-[#f9fafb] transition-colors cursor-pointer">
-                  <ExternalLink className="h-3.5 w-3.5" />
-                  View All
+                <button type="button" onClick={openCustomerPortal} disabled={portalLoading} className={cn(secondaryDepth, "h-8 rounded-lg px-3 text-[13px]")}>
+                  View all
                 </button>
               )}
             </div>
 
-            {/* Next billing date */}
-            {subscription?.current_period_end && isSubscribed && !subscription.cancel_at_period_end && (
-              <div className="mb-4 space-y-1">
+            <div className="app-card-x pb-3">
+              {subscription?.current_period_end && isSubscribed && !subscription.cancel_at_period_end ? (
                 <p className="text-[13px] text-[#6b7280]">
-                  Your next billing date is <span className="font-medium text-[#374151]">{formatDateLong(subscription.current_period_end)}</span>.
+                  Next charge on <span className="font-medium text-[#374151]">{formatDateLong(subscription.current_period_end)}</span>
+                  {pendingPlan ? <>, then {pendingPlan.name} at {formatPlanPrice(pendingPlan.price_cents)}/month</> : null}.
                 </p>
-                {pendingPlan && (
-                  <p className="text-[13px] text-[#6b7280]">
-                    Your plan will change to <span className="font-medium text-[#374151]">{pendingPlan.name}</span> ({formatPlanPrice(pendingPlan.price_cents)}/month).
-                  </p>
-                )}
-              </div>
-            )}
-            {subscription?.current_period_end && subscription.cancel_at_period_end && (
-              <div className="flex items-start gap-2.5 p-3 bg-amber-50 border border-amber-200 rounded-xl mb-4">
-                <AlertCircle className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
-                <p className="text-[13px] text-amber-700">
-                  Plan cancelled — active until <span className="font-semibold text-amber-800">{formatDateLong(subscription.current_period_end)}</span>. No further charges.
+              ) : subscription?.current_period_end && subscription.cancel_at_period_end ? (
+                <p className="text-[13px] text-[#7a5200]">No more charges. Pro ends on {formatDateLong(subscription.current_period_end)}.</p>
+              ) : subscription?.status === "canceled" ? (
+                <p className="text-[13px] text-[#6b7280]">
+                  Your subscription was canceled.{" "}
+                  <Link href="/app/settings/billing/upgrade" className="font-medium text-[#1a1a2e] underline underline-offset-2">Start Pro again</Link>
                 </p>
-              </div>
-            )}
-            {subscription?.status === "canceled" && (
-              <div className="flex items-start gap-2.5 p-3 bg-red-50 border border-red-200 rounded-xl mb-4">
-                <XCircle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
-                <p className="text-[13px] text-red-700">
-                  Your subscription has been canceled.{" "}
-                  <Link href="/app/settings/billing/upgrade" className="font-semibold text-red-700 hover:text-red-900 underline underline-offset-2">Reactivate a plan</Link>
-                </p>
-              </div>
-            )}
-            {!isSubscribed && subscription?.status !== "canceled" && !subscription?.cancel_at_period_end && (
-              <p className="text-[13px] text-[#6b7280] mb-4">No active subscription.</p>
-            )}
+              ) : (
+                <p className="text-[13px] text-[#6b7280]">No subscription. Free has no monthly charge.</p>
+              )}
+            </div>
 
             {liveInvoices.length === 0 ? (
-              <div className="bg-[#f9fafb] rounded-xl p-8 text-center">
-                <FileText className="h-10 w-10 text-[#d1d5db] mx-auto mb-3" />
-                <p className="text-[13px] text-[#6b7280] mb-1">No invoices yet</p>
-                <p className="text-[12px] text-[#9ca3af]">Your billing history will appear here</p>
+              <div className="border-t border-[#f0f1f3] app-card-x py-8 text-center">
+                <FileText className="mx-auto h-6 w-6 text-[#c4c7cc]" aria-hidden />
+                <p className="mt-2 text-[14px] font-medium text-[#1a1a2e]">No invoices yet</p>
+                <p className="mt-0.5 text-[13px] text-[#6b7280]">Each charge lands here with its invoice.</p>
               </div>
             ) : (
               <>
-                {/* Mobile view - cards, clickable, max 3 with See More */}
-                <div className="block sm:hidden">
-                  <div className="relative space-y-3">
-                    {(showAllInvoices ? liveInvoices : liveInvoices.slice(0, 3)).map((invoice: any, idx: number) => {
-                      const isLastVisible = !showAllInvoices && idx === 2 && liveInvoices.length > 3
-                      return (
-                        <button key={invoice.id} onClick={() => setSelectedInvoice(invoice)} className={`w-full text-left bg-[#f9fafb] rounded-xl p-4 border border-[#e5e7eb] hover:border-[#d1d5db] hover:shadow-sm transition-all duration-300 cursor-pointer ${isLastVisible ? "opacity-40" : ""}`}>
-                          <div className="flex items-start justify-between mb-2">
-                            <div>
-                              <div className="text-[14px] font-semibold text-[#1a1a2e]">{formatAmount(invoice.amount_cents)}</div>
-                              <div className="text-[12px] text-[#6b7280] mt-0.5">{formatDate(invoice.created_at)}</div>
-                            </div>
-                            {getStatusBadge(invoice.status)}
-                          </div>
-                          <p className="text-[12px] text-[#6b7280]">{invoice.description || "Subscription"}</p>
-                        </button>
-                      )
-                    })}
-                  </div>
-                  {liveInvoices.length > 3 && (
-                    <button
-                      onClick={() => setShowAllInvoices(!showAllInvoices)}
-                      className="w-full mt-3 flex items-center justify-center gap-1.5 h-10 text-[13px] font-medium text-[#6b7280] bg-[#f3f4f6] hover:bg-[#e5e7eb] rounded-xl transition-colors cursor-pointer"
-                    >
-                      {showAllInvoices ? "Show Less" : `See More (${liveInvoices.length - 3})`}
-                      <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${showAllInvoices ? "rotate-180" : ""}`} />
-                    </button>
-                  )}
-                </div>
-
-                {/* Desktop table view - rows clickable, max 3 with See More */}
-                <div className="hidden sm:block overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-[#e5e7eb]">
-                        <th className="text-left text-[12px] font-semibold text-[#6b7280] uppercase tracking-wider pb-3">Date</th>
-                        <th className="text-left text-[12px] font-semibold text-[#6b7280] uppercase tracking-wider pb-3">Description</th>
-                        <th className="text-left text-[12px] font-semibold text-[#6b7280] uppercase tracking-wider pb-3">Amount</th>
-                        <th className="text-left text-[12px] font-semibold text-[#6b7280] uppercase tracking-wider pb-3">Status</th>
-                        <th className="text-right text-[12px] font-semibold text-[#6b7280] uppercase tracking-wider pb-3">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(showAllInvoices ? liveInvoices : liveInvoices.slice(0, 3)).map((invoice: any, idx: number) => {
-                        const isLastVisible = !showAllInvoices && idx === 2 && liveInvoices.length > 3
-                        return (
-                          <tr key={invoice.id} onClick={() => setSelectedInvoice(invoice)} className={`border-b border-[#f3f4f6] last:border-0 hover:bg-[#f9fafb] transition-all duration-300 cursor-pointer ${isLastVisible ? "opacity-40" : ""}`}>
-                            <td className="py-4 text-[13px] text-[#374151]">{formatDate(invoice.created_at)}</td>
-                            <td className="py-4 text-[13px] text-[#374151]">{invoice.description || (invoice.period_start && invoice.period_end ? `${formatDate(invoice.period_start)} - ${formatDate(invoice.period_end)}` : "Subscription")}</td>
-                            <td className="py-4 text-[13px] font-medium text-[#1a1a2e]">{formatAmount(invoice.amount_cents)}</td>
-                            <td className="py-4">{getStatusBadge(invoice.status)}</td>
-                            <td className="py-4 text-right">
-                              {invoice.invoice_pdf_url && (
-                                <a href={invoice.invoice_pdf_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="inline-flex items-center gap-1.5 text-[12px] font-medium text-[#7c3aed] hover:text-[#6d28d9] transition-colors cursor-pointer">
-                                  <Download className="h-3.5 w-3.5" />
-                                  Download
-                                </a>
-                              )}
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                  {liveInvoices.length > 3 && (
-                    <button
-                      onClick={() => setShowAllInvoices(!showAllInvoices)}
-                      className="w-full mt-3 flex items-center justify-center gap-1.5 h-10 text-[13px] font-medium text-[#6b7280] bg-[#f3f4f6] hover:bg-[#e5e7eb] rounded-xl transition-colors cursor-pointer"
-                    >
-                      {showAllInvoices ? "Show Less" : `See More (${liveInvoices.length - 3})`}
-                      <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${showAllInvoices ? "rotate-180" : ""}`} />
-                    </button>
-                  )}
-                </div>
+                <ul className="divide-y divide-[#f0f1f3] border-t border-[#f0f1f3]">
+                  {(showAllInvoices ? liveInvoices : liveInvoices.slice(0, 4)).map((invoice: any) => (
+                    <li key={invoice.id}>
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => setSelectedInvoice(invoice)}
+                        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSelectedInvoice(invoice) } }}
+                        className="flex min-h-[60px] cursor-pointer items-center gap-3 app-card-x py-3 transition-colors duration-100 hover:bg-[#fafafb] active:bg-[#f4f5f7] [-webkit-tap-highlight-color:transparent]"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-[14px] font-medium text-[#1a1a2e]">
+                            {invoice.description || (invoice.period_start && invoice.period_end ? `${formatDate(invoice.period_start)} to ${formatDate(invoice.period_end)}` : "Subscription")}
+                          </p>
+                          <p className="mt-0.5 text-[13px] text-[#6b7280] tabular-nums">{formatDate(invoice.created_at)}</p>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-3">
+                          <span className="text-[14px] font-medium text-[#1a1a2e] tabular-nums">{formatAmount(invoice.amount_cents)}</span>
+                          <span className="max-sm:hidden">{getStatusBadge(invoice.status)}</span>
+                          {invoice.invoice_pdf_url ? (
+                            <a
+                              href={invoice.invoice_pdf_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              aria-label="Download invoice"
+                              className="hidden h-8 w-8 items-center justify-center rounded-lg text-[#6b7280] transition-colors hover:bg-[#f1f2f4] hover:text-[#1a1a2e] sm:inline-flex"
+                            >
+                              <Download className="h-4 w-4" aria-hidden />
+                            </a>
+                          ) : null}
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+                {liveInvoices.length > 4 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllInvoices(!showAllInvoices)}
+                    className="flex h-11 w-full cursor-pointer items-center justify-center gap-1.5 border-t border-[#f0f1f3] text-[13px] font-medium text-[#4b5563] transition-colors hover:bg-[#fafafb]"
+                  >
+                    {showAllInvoices ? "Show fewer" : `Show all ${liveInvoices.length}`}
+                    <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${showAllInvoices ? "rotate-180" : ""}`} />
+                  </button>
+                )}
               </>
             )}
           </div>
@@ -750,9 +676,9 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
    ============================================================ */
 function TrustBadges() {
   return (
-    <div className="flex items-center gap-3 flex-wrap">
+    <div className="flex items-center gap-1.5 flex-wrap">
       {/* Visa */}
-      <svg viewBox="0 -9 58 58" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-8 w-auto">
+      <svg viewBox="0 -9 58 58" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-6 w-auto">
         <rect x="0.5" y="0.5" width="57" height="39" rx="3.5" fill="white" stroke="#E5E7EB" />
         <path d="M25.7516 27.4332H21.8901L24.3054 13.4325H28.1667L25.7516 27.4332Z" fill="#15195A" />
         <path d="M39.7499 13.7748C38.9882 13.4915 37.7802 13.1787 36.2865 13.1787C32.4731 13.1787 29.7878 15.0851 29.7713 17.8106C29.7396 19.8215 31.6939 20.9384 33.1556 21.6089C34.6495 22.2941 35.1574 22.7413 35.1574 23.352C35.1422 24.29 33.9502 24.7223 32.8384 24.7223C31.2967 24.7223 30.4707 24.4994 29.2153 23.9776L28.7069 23.7539L28.1665 26.8967C29.0722 27.2835 30.7408 27.6268 32.4731 27.6419C36.5249 27.6419 39.1627 25.765 39.1939 22.8605C39.2093 21.2667 38.1774 20.0454 35.9526 19.0475C34.602 18.4069 33.7749 17.9749 33.7749 17.3195C33.7908 16.7236 34.4745 16.1133 35.9991 16.1133C37.2544 16.0834 38.1768 16.3663 38.8755 16.6494L39.2247 16.7981L39.7499 13.7748Z" fill="#15195A" />
@@ -760,19 +686,19 @@ function TrustBadges() {
         <path fillRule="evenodd" clipRule="evenodd" d="M5.1589 13.4325H11.3716C12.2138 13.462 12.8971 13.7152 13.1194 14.6094L14.4696 21.0422C14.4697 21.0426 14.4699 21.043 14.47 21.0434L14.8832 22.9796L18.6649 13.4325H22.7481L16.6785 27.4184H12.5951L9.15337 15.253C7.96587 14.6021 6.6106 14.0786 5.09534 13.7154L5.1589 13.4325Z" fill="#15195A" />
       </svg>
       {/* Mastercard */}
-      <svg viewBox="0 -9 58 58" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-8 w-auto">
+      <svg viewBox="0 -9 58 58" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-6 w-auto">
         <rect x="0.5" y="0.5" width="57" height="39" rx="3.5" fill="white" stroke="#E5E7EB" />
         <path d="M34.3102 28.9765H23.9591V10.5122H34.3102V28.9765Z" fill="#FF5F00" />
         <path d="M24.6223 19.7429C24.6223 15.9973 26.3891 12.6608 29.1406 10.5107C27.1285 8.93843 24.5892 7.99998 21.8294 7.99998C15.2961 7.99998 10 13.2574 10 19.7429C10 26.2283 15.2961 31.4857 21.8294 31.4857C24.5892 31.4857 27.1285 30.5473 29.1406 28.975C26.3891 26.8249 24.6223 23.4884 24.6223 19.7429" fill="#EB001B" />
         <path d="M48.2706 19.7429C48.2706 26.2283 42.9745 31.4857 36.4412 31.4857C33.6814 31.4857 31.1421 30.5473 29.1293 28.975C31.8815 26.8249 33.6483 23.4884 33.6483 19.7429C33.6483 15.9973 31.8815 12.6608 29.1293 10.5107C31.1421 8.93843 33.6814 7.99998 36.4412 7.99998C42.9745 7.99998 48.2706 13.2574 48.2706 19.7429" fill="#F79E1B" />
       </svg>
       {/* Apple Pay */}
-      <svg viewBox="0 -9 58 58" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-8 w-auto">
+      <svg viewBox="0 -9 58 58" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-6 w-auto">
         <rect x="0.5" y="0.5" width="57" height="39" rx="3.5" fill="white" stroke="#E5E7EB" />
         <path fillRule="evenodd" clipRule="evenodd" d="M17.5771 14.9265C17.1553 15.4313 16.4803 15.8294 15.8053 15.7725C15.7209 15.09 16.0513 14.3649 16.4381 13.9171C16.8599 13.3981 17.5982 13.0284 18.1959 13C18.2662 13.7109 17.992 14.4076 17.5771 14.9265ZM18.1888 15.9076C17.5942 15.873 17.0516 16.0884 16.6133 16.2624C16.3313 16.3744 16.0924 16.4692 15.9107 16.4692C15.7068 16.4692 15.4581 16.3693 15.1789 16.2571C14.813 16.1102 14.3947 15.9422 13.956 15.9502C12.9506 15.9645 12.0154 16.5403 11.5021 17.4573C10.4474 19.2915 11.2279 22.0071 12.2474 23.5C12.7467 24.2393 13.3443 25.0498 14.1318 25.0213C14.4783 25.0081 14.7275 24.9012 14.9854 24.7905C15.2823 24.6631 15.5908 24.5308 16.0724 24.5308C16.5374 24.5308 16.8324 24.6597 17.1155 24.7834C17.3847 24.9011 17.6433 25.014 18.0271 25.0071C18.8428 24.9929 19.356 24.2678 19.8553 23.5284C20.394 22.7349 20.6307 21.9605 20.6667 21.843L20.6709 21.8294C20.67 21.8285 20.6634 21.8254 20.6516 21.82C20.4715 21.7366 19.095 21.0995 19.0818 19.391C19.0686 17.957 20.1736 17.2304 20.3476 17.116C20.3582 17.109 20.3653 17.1043 20.3685 17.1019C19.6654 16.0498 18.5685 15.936 18.1888 15.9076ZM23.8349 24.9289V13.846H27.9482C30.0717 13.846 31.5553 15.3246 31.5553 17.4858C31.5553 19.6469 30.0435 21.1398 27.892 21.1398H25.5365V24.9289H23.8349ZM25.5365 15.2962H27.4982C28.9748 15.2962 29.8185 16.0924 29.8185 17.4929C29.8185 18.8934 28.9748 19.6967 27.4912 19.6967H25.5365V15.2962ZM37.1732 23.5995C36.7232 24.4668 35.7318 25.0142 34.6631 25.0142C33.081 25.0142 31.9771 24.0616 31.9771 22.6256C31.9771 21.2038 33.0459 20.3863 35.0217 20.2654L37.1451 20.1374V19.5261C37.1451 18.6232 36.5615 18.1327 35.5209 18.1327C34.6631 18.1327 34.0373 18.5806 33.9107 19.263H32.3779C32.4271 17.827 33.7631 16.782 35.5701 16.782C37.5177 16.782 38.7834 17.8128 38.7834 19.4123V24.9289H37.2084V23.5995H37.1732ZM35.1201 23.6991C34.2131 23.6991 33.6365 23.2583 33.6365 22.5829C33.6365 21.8863 34.192 21.481 35.2537 21.4171L37.1451 21.2962V21.9218C37.1451 22.9597 36.2732 23.6991 35.1201 23.6991ZM44.0076 25.3626C43.3256 27.3033 42.5451 27.9431 40.8857 27.9431C40.7592 27.9431 40.3373 27.9289 40.2388 27.9005V26.5711C40.3443 26.5853 40.6045 26.5995 40.7381 26.5995C41.4904 26.5995 41.9123 26.2796 42.1724 25.4479L42.3271 24.9573L39.4443 16.8886H41.2232L43.2271 23.436H43.2623L45.2662 16.8886H46.9959L44.0076 25.3626Z" fill="#000000" />
       </svg>
       {/* Google Pay */}
-      <svg viewBox="0 -9 58 58" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-8 w-auto">
+      <svg viewBox="0 -9 58 58" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-6 w-auto">
         <rect x="0.5" y="0.5" width="57" height="39" rx="3.5" fill="white" stroke="#E5E7EB" />
         <path fillRule="evenodd" clipRule="evenodd" d="M27.9174 24.1182V19.6071V19.6062H30.3578C31.3639 19.6068 32.2095 19.2907 32.8945 18.6578C33.5868 18.0571 33.9738 17.1935 33.9541 16.2934C33.9678 15.3982 33.5815 14.541 32.8945 13.9422C32.2155 13.3059 31.3023 12.9587 30.3578 12.9778H26.4404V24.1182H27.9174ZM27.9174 18.2382V14.3494V14.3485H30.3945C30.9466 14.3334 31.4788 14.5487 31.856 14.9396C32.2355 15.2971 32.4496 15.7881 32.4496 16.3009C32.4496 16.8137 32.2355 17.3048 31.856 17.6622C31.4741 18.0449 30.9436 18.254 30.3945 18.2382H27.9174Z" fill="#5F6368" />
         <path fillRule="evenodd" clipRule="evenodd" d="M39.9431 17.0951C39.3113 16.5297 38.4496 16.2471 37.3578 16.2471C35.9554 16.2471 34.8963 16.7448 34.1807 17.7404L35.4817 18.5342C35.9624 17.8598 36.6153 17.5226 37.4404 17.5226C37.9664 17.5167 38.4755 17.703 38.8661 18.0444C39.2555 18.3564 39.4795 18.8215 39.4762 19.3111V19.6382C38.9086 19.3271 38.1863 19.1715 37.3092 19.1715C36.2817 19.1727 35.4603 19.4062 34.845 19.872C34.2297 20.3377 33.922 20.965 33.922 21.7537C33.9086 22.4719 34.2302 23.1577 34.7973 23.6204C35.3807 24.1182 36.1058 24.3671 36.9725 24.3671C37.9878 24.3671 38.8012 23.9315 39.4129 23.0604H39.4771V24.1182H40.8899V19.4204C40.8905 18.4355 40.5749 17.6604 39.9431 17.0951ZM35.9367 22.7182C35.6273 22.5021 35.4448 22.1544 35.4468 21.7848C35.4468 21.3697 35.6477 21.024 36.0523 20.7395C36.4529 20.4592 36.9532 20.3191 37.5532 20.3191C38.3771 20.3191 39.0193 20.4968 39.4798 20.8524C39.4798 21.4533 39.2352 21.9768 38.7459 22.4231C38.3052 22.8501 37.7077 23.0905 37.0844 23.0915C36.6689 23.099 36.2634 22.9672 35.9367 22.7182Z" fill="#5F6368" />
@@ -783,7 +709,7 @@ function TrustBadges() {
         <path fillRule="evenodd" clipRule="evenodd" d="M15.6055 14.6223C16.5475 14.6073 17.4577 14.9522 18.1395 15.5823L20.0248 13.7556C18.8293 12.6677 17.2455 12.0704 15.6055 12.0889C13.1085 12.089 10.8249 13.4534 9.70367 15.6151L11.8973 17.264C12.4202 15.7476 13.8826 14.6223 15.6055 14.6223Z" fill="#EA4335" />
       </svg>
       {/* Maestro */}
-      <svg viewBox="0 -9 58 58" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-8 w-auto">
+      <svg viewBox="0 -9 58 58" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-6 w-auto">
         <rect x="0.5" y="0.5" width="57" height="39" rx="3.5" fill="white" stroke="#E5E7EB" />
         <path d="M34.3102 28.9765H23.9591V10.5122H34.3102V28.9765Z" fill="#6C6BBD" />
         <path d="M24.6223 19.7429C24.6223 15.9973 26.3891 12.6608 29.1406 10.5107C27.1285 8.93843 24.5892 7.99998 21.8294 7.99998C15.2961 7.99998 10 13.2574 10 19.7429C10 26.2283 15.2961 31.4857 21.8294 31.4857C24.5892 31.4857 27.1285 30.5473 29.1406 28.975C26.3891 26.8249 24.6223 23.4884 24.6223 19.7429" fill="#EB001B" />
@@ -1011,7 +937,7 @@ function PricingTiers({ plans, currentPlan, subscription, loading, setLoading, s
 
   return (
     <div>
-      {/* Plans at the left of its row, the same size as the tab's other section headings, and the Monthly and Yearly pill small at its right. */}
+      {/* Plans on its own row, the same size as the tab's other section headings; the Monthly and Yearly pill centred over the cards (components/billing/plan-cards). */}
       <PlanCards
         heading={<h2 className="text-[17px] font-bold text-[#1a1a2e]">Plans</h2>}
         actions={{ free: actionFor("free"), growth: actionFor("growth") }}

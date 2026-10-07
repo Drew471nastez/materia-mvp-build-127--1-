@@ -244,7 +244,7 @@ function main() {
   /* Grain in overlay all but vanished over the dark pictures, and a blended layer is one a phone composites against the picture under every animation. */
   check("a film grain over each picture, drawn as a tile, not fetched, and not blended", /data-plan-grain/.test(cards) && /feTurbulence/.test(cards) && /backgroundImage: PLAN_GRAIN/.test(cards) && !/mix-blend/.test(cards))
   check("monthly and yearly are both laid out, so switching never resizes a card", /<TextSwap value=\{interval\} items=\{\{ monthly: monthly\.price, yearly: yearly\.price \}\} \/>/.test(cards) && !/key=\{priced\.price\}/.test(cards))
-  check("the header pictures go through next/image, sized to the card", /import Image from "next\/image"/.test(cards) && /<Image[\s\S]*?fill[\s\S]*?sizes=\{sizes\}/.test(cards) && /sizes=\{inSection \? PLAN_PICTURE_SIZES_FILL : PLAN_PICTURE_SIZES\}/.test(cards) && /PLAN_PICTURE_SIZES = "\(min-width: 768px\) 360px, calc\(100vw - 32px\)"/.test(cards))
+  check("the header pictures go through next/image, sized to the card", /import Image from "next\/image"/.test(cards) && /<Image[\s\S]*?fill[\s\S]*?sizes=\{sizes\}/.test(cards) && /sizes=\{PLAN_PICTURE_SIZES\}/.test(cards) && /PLAN_PICTURE_SIZES = "\(min-width: 768px\) 360px, calc\(100vw - 32px\)"/.test(cards))
   /* Storelib's own address for the pictures (lib/storage/media-url.ts), a host next.config lets the optimizer fetch under /media/. */
   check("both pictures are on the host next.config lets the optimizer fetch", (cards.match(/https:\/\/storelib\.com\/media\//g) ?? []).length === 1 && !/supabase\.co/.test(cards) && /hostname: process\.env\.NEXT_PUBLIC_MAIN_DOMAIN \|\| 'storelib\.com',\s*pathname: '\/media\/\*\*'/.test(readSource("next.config.mjs")))
   check("the billing tab no longer upsells from Pro to the $99 plan", !/nextUpgradePlan/.test(readCode("components/app/billing/billing-page-client.tsx")))
@@ -319,8 +319,9 @@ function main() {
         && /<h2 className="text-\[17px\] font-bold text-\[#1a1a2e\]">Billing History<\/h2>/.test(billing))
     check("inside Settings the tab adds no second column, gutter or clip of its own", /<div className=\{embedded \? "" : "max-w-4xl mx-auto/.test(billing))
 
-    check("with a heading, the pill is small and at the right of the heading's row, wrapping under it flush left when it must",
-      /data-plan-heading-row="" className="mb-4 flex flex-wrap items-center justify-between/.test(cards) && /<IntervalSwitch value=\{interval\} onChange=\{pick\} size="small" \/>/.test(cards))
+    /* Changed on purpose: beside the heading the pill wrapped flush left on a phone and the cards stretched the section's width. */
+    check("with a heading, the heading has its own row and the pill is centred over cards in the same 720px row",
+      /<div data-plan-heading-row="" className="mb-4">\{heading\}<\/div>/.test(cards) && (cards.match(/<div data-plan-interval-row="" className="flex justify-center mb-5 sm:mb-6">/g) ?? []).length === 2 && !/inSection \? "" :/.test(cards))
     check("the small pill is 32px (26px options in 3px of padding) with 13px words, each option a 44px press",
       /small \? "p-\[3px\]"/.test(cards) && /"h-\[26px\] gap-1\.5 px-3 after:absolute after:inset-x-0 after:-inset-y-\[9px\]/.test(cards) && /text-\[13px\] font-semibold/.test(cards))
     check("without one, the pill stays centred over the cards (upgrade page, landing page, onboarding)", /<div data-plan-interval-row="" className="flex justify-center mb-5 sm:mb-6">/.test(cards))
