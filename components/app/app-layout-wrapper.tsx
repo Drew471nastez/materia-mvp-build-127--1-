@@ -21,7 +21,10 @@ export function AppLayoutWrapper({ children }: { children: React.ReactNode }) {
   // Hide html-level scrollbar on /app pages
   useEffect(() => {
     document.documentElement.classList.add("app-layout")
+    /* The shell is on the screen now: the canvas the head script painted for the document's first frames goes (app/globals.css html.app-arriving). */
+    const frame = requestAnimationFrame(() => document.documentElement.classList.remove("app-arriving"))
     return () => {
+      cancelAnimationFrame(frame)
       document.documentElement.classList.remove("app-layout")
     }
   }, [])

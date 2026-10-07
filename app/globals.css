@@ -211,6 +211,32 @@ html.switch-arriving {
   }
 }
 
+/*
+  AN /app DOCUMENT NEVER OPENS WHITE. When an /app page arrives as a whole
+  document (a navigation that stalled and is loaded again as a page, the
+  app's web view reloading, a link opened fresh) the browser paints the
+  canvas before React has run, and the canvas was white: the "page goes
+  completely white, then the page" the owner saw in the app. The head script
+  (app/layout.tsx) marks <html> before the body is parsed, and the canvas is
+  the shell's own frame, as app/app/cold-start.tsx draws it: the header's
+  colour under the clock and the page's #f8f9fa below. AppLayoutWrapper takes
+  the mark off once the shell is on the screen. Unlayered, like the switch's,
+  so it beats html.app-layout's #111111.
+*/
+html.app-arriving {
+  min-height: 100svh;
+  background-color: #f8f9fa;
+  background-image: linear-gradient(#111111 0, #111111 calc(68px + env(safe-area-inset-top, 0px)), #f8f9fa calc(68px + env(safe-area-inset-top, 0px)));
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  background-size: 100% 100%;
+}
+@media (min-width: 768px) {
+  html.app-arriving {
+    background-image: linear-gradient(#131316 0, #131316 calc(58px + env(safe-area-inset-top, 0px)), #f8f9fa calc(58px + env(safe-area-inset-top, 0px)));
+  }
+}
+
 /* The body's own white would cover the bar's colour on the frames where the
    canvas is all there is. The screen's surface is opaque, so nothing under
    it changes. */
