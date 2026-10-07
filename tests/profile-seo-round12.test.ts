@@ -109,7 +109,7 @@ async function main() {
 
   const pm = postMetadata(base)
   const pog = pm.openGraph as { type: string; url: string; images: Array<{ url: string; width: number; height: number }>; publishedTime: string; authors: string[]; section: string }
-  const pmTitle = typeof pm.title === "string" ? pm.title : pm.title?.absolute
+  const pmTitle = typeof pm.title === "string" ? pm.title : (pm.title as { absolute?: string } | null | undefined)?.absolute
   check("its own title (the post's, then the community), a description from its words", pmTitle === "First bowl that did not collapse · Clay Studio" && typeof pm.description === "string" && pm.description.startsWith("Three weeks of practice"))
   check("canonical /community/<slug>/post/<slug>-<shortId>, indexed with a large picture", (pm.alternates as { canonical: string }).canonical === "https://storelib.com/community/clay-studio/post/first-bowl-that-did-not-collapse-11111111" && JSON.stringify(pm.robots).includes('"index":true') && JSON.stringify(pm.robots).includes('"max-image-preview":"large"'))
   check("an article, with its date, author and space", pog.type === "article" && pog.publishedTime === "2026-10-03T09:00:00Z" && pog.authors[0] === "https://storelib.com/@maya" && pog.section === "Wins")
