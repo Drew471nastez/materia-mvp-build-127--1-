@@ -23,6 +23,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react"
 import { Check, ChevronDown, Info, Plus, RotateCcw, Trash2 } from "lucide-react"
+import { switchKnob, switchTrack } from "@/components/ui/switch-style"
 import { cn } from "@/lib/utils"
 import {
   DEFAULT_COLOR_SCHEMES,

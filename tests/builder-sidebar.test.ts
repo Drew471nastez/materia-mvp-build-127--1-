@@ -184,8 +184,9 @@ function main() {
   check("a group left open is drawn open when Theme comes back, without its opening again", /if \(first\.current\) \{\s*first\.current = false\s*return/.test(collapse))
   check("the panels inside a group move the same way: Advanced colors, Page colors and each text style",
     /<Collapse open=\{customizeOpen\} onlyVisible>/.test(panels) && /<Collapse open=\{advancedOpen\} onlyVisible/.test(panels) && /<Collapse open=\{isOpen\} onlyVisible>/.test(panels))
+  /* The groups themselves are panels now (Back, not a Collapse); the disclosures inside them still move only what is on screen. */
   check("and every one of them in the sidebar moves only what is on screen",
-    (editor.match(/<Collapse open=\{expandedSettings === group\.id\} onlyVisible /g) ?? []).length === 2 && (panels.match(/<Collapse [^>]*onlyVisible/g) ?? []).length === 3)
+    (editor.match(/<Collapse open=\{expandedSettings === group\.id\}/g) ?? []).length === 0 && (panels.match(/<Collapse [^>]*onlyVisible/g) ?? []).length === 3)
   check("while a Collapse elsewhere moves its whole height, as the Connections list expects when it scrolls a line into view",
     /onlyVisible = false/.test(collapse) && /onlyVisible \? visibleRoom\(el\) : \{ room: Infinity, slack: 0 \}/.test(collapse) &&
       !/onlyVisible/.test(read("components/website-builder/website-settings/connection-row.tsx")))

@@ -739,7 +739,7 @@ export function BottomSheet({
       const from = fresh ? goneRef.current : readY(sheet)
       const pictures =
         waitRef.current && fresh
-          ? Array.from(sheet.querySelectorAll("img[src]")).filter((img) => img.src && typeof img.decode === "function")
+          ? Array.from(sheet.querySelectorAll<HTMLImageElement>("img[src]")).filter((img) => img.src && typeof img.decode === "function")
           : []
       const opened = () => {
         /* Settled: from here a keyboard may move it, with its own curve. */

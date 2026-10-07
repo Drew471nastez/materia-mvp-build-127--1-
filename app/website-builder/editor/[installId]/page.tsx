@@ -6,7 +6,7 @@ import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import {
   ArrowLeft, Plug, Monitor, Smartphone, Maximize2, Loader2, Code2, ChevronDown, Plus, Eye, EyeOff, Trash2, Copy, Settings, Check, Layers, X, RotateCcw, Layout, AlignLeft, Image, MessageSquare, HelpCircle, Megaphone, BarChart2, Grid, Award, LayoutGrid, DollarSign, LayoutTemplate, Video, Users, MapPin, Mail, Clock, BookOpen, Shirt, Columns, Play, Star, Timer, Shield, Rss, SlidersHorizontal, Code, Bell, ChevronRight, Menu as MenuIcon, Package, Undo2, Redo2, ExternalLink, Search, FileText, ArrowRight, FolderOpen, MoreHorizontal, Upload, Info, Crop, CheckCircle, Type, Square, Rows3, Grid3x3, MousePointerClick, MoveHorizontal, Hash, Columns2, LayoutDashboard, Badge as BadgeIcon, ArrowUp, ArrowDown,
-  Palette, ShoppingBag, ShoppingCart, Share2, Sparkles,
+  Palette, ShoppingBag, ShoppingCart, Share2,
 } from "lucide-react"
 import { arrayMove } from "@dnd-kit/sortable"
 import { Button } from "@/components/ui/button"
@@ -18,6 +18,8 @@ import { MobileEditorSheet, sheetMoveMs } from "@/components/website-builder/mob
 import { SliderNumberControl } from "@/components/website-builder/editor/slider-number-control"
 import { WbImagePicker } from "@/components/website-builder/editor/image-picker"
 import { ImagePickerControl } from "@/components/website-builder/editor/controls/image-picker-control"
+import { SocialLinksEditor } from "@/components/website-builder/editor/social-links-editor"
+import { SOCIAL_PLATFORMS } from "@/lib/website-builder/social-links"
 import { FontPreviewPicker } from "@/components/website-builder/editor/font-preview-picker"
 import { Collapse } from "@/components/website-builder/editor/collapse"
 import { BlockTreeLevel, TreeAddBlock } from "@/components/website-builder/editor/block-tree-rows"
@@ -500,6 +502,9 @@ function EchoTextInput({ value, onChange, placeholder }: { value: string; onChan
  * `label` is absent for a control that names itself: see
  * fieldCarriesOwnLabel.
  */
+/** The per-platform fields the social links editor draws as one list. */
+const SOCIAL_FIELD_IDS: ReadonlySet<string> = new Set(SOCIAL_PLATFORMS.map((p) => p.key))
+
 /** Each General Settings group's mark, by the group's id. */
 const THEME_GROUP_ICONS: Record<string, typeof Image> = {
   branding: Image,
@@ -511,7 +516,7 @@ const THEME_GROUP_ICONS: Record<string, typeof Image> = {
   product_cards: ShoppingBag,
   cart: ShoppingCart,
   social: Share2,
-  animations: Sparkles,
+  animations: Play,
   announcement: Megaphone,
   menus: MenuIcon,
   custom_css: Code,
@@ -6129,7 +6134,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                       />
                     )}
                     {/* All other groups, and the branding group's fields BrandingTabPanel does not draw, use modern Wb* components */}
-                    {group.fields.filter(field => group.id !== "branding" || !BRANDING_PANEL_FIELDS.has(field.id)).map(field => {
+                    {/* Social links: the platforms as a list you add to (editor/social-links-editor), the two placement switches after it. */}
+                    {group.id === "social" && (
+                      <SocialLinksEditor values={settingsDraft as Record<string, unknown>} onChange={(key, v) => updateSetting(key, v)} />
+                    )}
+                    {group.fields.filter(field => group.id !== "branding" || !BRANDING_PANEL_FIELDS.has(field.id)).filter(field => group.id !== "social" || !SOCIAL_FIELD_IDS.has(field.id)).map(field => {
                       const val = settingsDraft[field.id as keyof ThemeSettingsValues] ?? field.default
                       return (
                         <div key={field.id}>
@@ -6675,7 +6684,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                         updateSetting={updateSetting}
                       />
                     ) : (
-                      group.fields.map(field => {
+                      [
+                        group.id === "social" ? (
+                          <SocialLinksEditor key="social-links" values={settingsDraft as Record<string, unknown>} onChange={(key, v) => updateSetting(key, v)} />
+                        ) : null,
+                        ...group.fields.filter(field => group.id !== "social" || !SOCIAL_FIELD_IDS.has(field.id)).map(field => {
                         const val = settingsDraft[field.id as keyof ThemeSettingsValues] ?? field.default
                         return (
                           <div key={field.id}>
@@ -6741,7 +6754,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                             )}
                           </div>
                         )
-                      })
+                      }),
+                      ]
                     )}
                   </>
 

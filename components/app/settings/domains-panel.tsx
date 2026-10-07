@@ -635,12 +635,10 @@ export function DomainsPanel({
     const p = purposeOf(d)
     /* Before the database knows creator page domains, every domain is the website's. */
     if (!creatorPageOn) return <p className="text-[12px] text-[#6b7280]">Connects to your website</p>
-    /*
-      CONNECTS TO, AS A ROW OF ITS OWN: the question on the left, the two
-      answers on the right, on a quiet ground so it reads as one setting of
-      this domain. On a phone the answers take the row's width in two equal
-      halves, under the question.
-    */
+    // CONNECTS TO, AS A ROW OF ITS OWN: the question on the left, the two
+    // answers on the right, on a quiet ground so it reads as one setting of
+    // this domain. On a phone the answers take the row's width in two equal
+    // halves, under the question.
     return (
       <div className="rounded-xl bg-[#f7f8f9] p-2.5 sm:px-3.5 sm:py-2.5" data-domain-connects-row="">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">

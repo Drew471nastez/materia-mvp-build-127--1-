@@ -59,7 +59,8 @@ console.log("\nThe groups")
 {
   /* What General Settings draws: not the page colours (inside Colors), not Menus (Navigation), not a retired group. */
   const drawn = THEME_SETTINGS_GROUPS.filter((g) => g.id !== "colors" && g.id !== "menus" && !g.shownWhen)
-  check("nine groups, down from twenty-four", drawn.length === 9, drawn.map((g) => g.label))
+  /* Ten since Products and cart became Product cards and Cart and checkout. */
+  check("ten groups, down from twenty-four", drawn.length === 10, drawn.map((g) => g.label))
   check(
     "in the order a creator works through them",
     drawn.map((g) => g.label).join(" | ") === "Logo and brand | Colors | Typography | Buttons and inputs | Layout | Product cards | Cart and checkout | Social links | Animations | Custom CSS",
@@ -67,7 +68,7 @@ console.log("\nThe groups")
   )
   check("no setting is in two groups", new Set(ids).size === ids.length)
   check("every sub-heading inside a group has an id of its own", fields.filter((f) => f.type === "header").every((f) => f.id.startsWith("hdr_")))
-  for (const gone of ["seo", "cookies", "variant_pills", "inputs", "collection_cards", "content_containers", "media", "popups", "badges", "brand", "cart", "currency", "breadcrumbs"]) {
+  for (const gone of ["seo", "cookies", "variant_pills", "inputs", "collection_cards", "content_containers", "media", "popups", "badges", "brand", "currency", "breadcrumbs"]) {
     check(`"${gone}" is not a group of its own any more`, !group(gone))
   }
   check("the general page colours are three", (group("colors")?.fields ?? []).map((f) => f.id).join(",") === "background_color,text_color,primary_color")

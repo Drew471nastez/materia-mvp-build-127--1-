@@ -90,3 +90,42 @@ export function socialLinks(
   }
   return out
 }
+
+/**
+ * A HANDLE IS ENOUGH. What a person knows about their own account is
+ * usually "@name", not the address of its profile page. Typed into a
+ * platform's field, a handle becomes that platform's profile address; an
+ * address, or anything for a platform with no handle (Spotify, Discord,
+ * WhatsApp, a website), is left as it was typed.
+ */
+const PROFILE_BY_HANDLE: Partial<Record<SocialKey, (h: string) => string>> = {
+  social_instagram: (h) => `https://instagram.com/${h}`,
+  social_tiktok: (h) => `https://tiktok.com/@${h}`,
+  social_youtube: (h) => `https://youtube.com/@${h}`,
+  social_twitter: (h) => `https://x.com/${h}`,
+  social_facebook: (h) => `https://facebook.com/${h}`,
+  social_linkedin: (h) => `https://linkedin.com/in/${h}`,
+  social_pinterest: (h) => `https://pinterest.com/${h}`,
+  social_threads: (h) => `https://threads.net/@${h}`,
+  social_soundcloud: (h) => `https://soundcloud.com/${h}`,
+  social_snapchat: (h) => `https://snapchat.com/add/${h}`,
+  social_bluesky: (h) => `https://bsky.app/profile/${h}`,
+  social_twitch: (h) => `https://twitch.tv/${h}`,
+  social_github: (h) => `https://github.com/${h}`,
+}
+
+/** Whether a platform's field takes a handle. */
+export function takesHandle(key: string): boolean {
+  return key in PROFILE_BY_HANDLE
+}
+
+/** What is saved for what was typed: a handle made into its profile address, anything else as typed. */
+export function socialFromInput(key: string, typed: string): string {
+  const raw = (typed ?? "").trim()
+  const make = PROFILE_BY_HANDLE[key as SocialKey]
+  if (!make) return raw
+  /* "@name" or "name": letters, digits, dots, underscores and dashes, nothing that reads as an address. */
+  const m = /^@?([a-z0-9._-]{1,60})$/i.exec(raw)
+  if (m && !/\.[a-z]{2,}$/i.test(m[1])) return make(m[1])
+  return raw
+}

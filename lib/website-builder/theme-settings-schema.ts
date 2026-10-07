@@ -88,7 +88,7 @@ export const THEME_SETTINGS_GROUPS: ThemeSettingsGroup[] = [
        * (`{{ shop.brand_headline }}`), and a section reads them as
        * `theme.brand`.
        */
-      { id: "hdr_brand", label: "Brand information", type: "header" },
+      { id: "hdr_brand", label: "Brand information", type: "header", info: "Not drawn anywhere by itself. A section shows it where you insert it: in any text box, Insert shop data › Brand headline, Brand description or Brand image. Store name, logo and favicon above are the header's and the browser tab's." },
       { id: "brand_headline", label: "Headline", type: "text", placeholder: "Small batch candles, poured in Leeds" },
       { id: "brand_description", label: "Description", type: "textarea", placeholder: "A few lines about what you make and why" },
       { id: "brand_image", label: "Image", type: "image" },
