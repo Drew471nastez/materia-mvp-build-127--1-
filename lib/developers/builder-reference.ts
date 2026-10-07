@@ -202,7 +202,9 @@ export const THEME_SETTING_DOCS: Record<string, { does: string; as?: Partial<Spe
   image_border_radius: { does: "How round the corners of pictures and videos in sections are, on every `[data-media]`." },
 
   breadcrumbs_enabled: { does: "A Home > Shop > product trail under the header on every page but the home page. A page with breadcrumbs of its own keeps those instead." },
-  breadcrumbs_separator: { does: "What sits between the steps of the trail: a slash, a chevron or a dot." },
+  breadcrumbs_separator: { does: "What sits between the steps of the trail: a slash, a chevron, a thin chevron, an arrow, a dot or a line." },
+  breadcrumbs_style: { does: "Plain text, or Pill: each step on a soft ground, the current page a step stronger." },
+  breadcrumbs_home_icon: { does: "The first step drawn as a house rather than the word Home, still named Home for screen readers." },
 
   animations_enabled: { does: "Sections ease in as they scroll into view. Visitors who ask their device for less motion never see it." },
   animation_style: { does: "How a section arrives: rising, fading, sliding or growing." },

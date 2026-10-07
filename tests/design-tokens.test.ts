@@ -228,7 +228,9 @@ section("Typography compiles to tokens at three widths")
     .map((sel) => (sel.startsWith(":where(") && sel.endsWith(")") ? sel.slice(7, -1) : sel))
     .filter((sel) => !sel.split(",").every((part) => part.trim().startsWith(`[${THEME_ROOT_ATTRIBUTE}]`)))
   check("every typography rule is under the page root", unscoped.length === 0, unscoped.join(" | "))
-  check("the header's and footer's headings are left alone", /\[data-section\]:not\(\[data-chrome\]\) h1\)/.test(css))
+  /* The h1 rule also skips code marked data-theme-styles="off" (OWN_STYLES). */
+  check("the header's and footer's headings are left alone", /\[data-section\]:not\(\[data-chrome\]\) h1(:not\(\[data-theme-styles="off"\] \*\))?\)/.test(css))
+  check("code marked data-theme-styles=\"off\" keeps its own headings and text boxes", /h1:not\(\[data-theme-styles="off"\] \*\)/.test(css))
 
   /*
     ── A LINK IS NOT A BUTTON ──────────────────────────────────────────────
@@ -263,7 +265,7 @@ section("Typography compiles to tokens at three widths")
       && !/\[data-section\] a\[href\]:hover/.test(themeCss))
   check("measured against a loud button style rather than the defaults",
     existsSync("scripts/check-link-vs-button.mjs") && existsSync("scripts/render-link-vs-button.tsx"))
-  check("h3 and h4 keep the size a section gave them", !/h3\)\{[^}]*font-size/.test(css) && /h3\)\{[^}]*font-weight/.test(css))
+  check("h3 and h4 keep the size a section gave them", !/h3(:not\([^)]*\))?\)\{[^}]*font-size/.test(css) && /h3(:not\(\[data-theme-styles="off"\] \*\))?\)\{[^}]*font-weight/.test(css))
 
   const t = sectionTypography({ heading_style: "h3", body_style: "body_large" })
   check("a section picks a heading style and a body style", t.heading === "h3" && t.body === "body_large" && Object.keys(t.vars).length === 0)

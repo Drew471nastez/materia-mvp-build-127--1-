@@ -138,22 +138,28 @@ The page's frame: how wide the content gets, the space at its sides, the space b
 - **Cards**: the corner radius every section's cards and boxes use, a shadow and an outline for the boxes a section marks as cards (a feature card, a plan).
 - **Images and video**: corners, outline and shadow of pictures and videos in sections.
 - **Dropdowns and pop-ups**: menus that drop down from the header, and boxes that open over the page.
-- **Breadcrumbs**: Home > Shop > the product, Home > Search, a bar under the header on every page except the home page, on the colours of the section under it. A page that already shows breadcrumbs (a Breadcrumbs section, or the product section's Breadcrumbs block) keeps its own and gets no second bar. In the editor, clicking the bar opens this group.
+- **Breadcrumbs**: Home > Shop > the product, Home > Search, a bar under the header on every page except the home page, on the colours of the section under it. Six separators, a Plain or Pill style, and Home as a word or an icon. A page that already shows breadcrumbs (a Breadcrumbs section, or the product section's Breadcrumbs block) keeps its own and gets no second bar. In the editor, clicking the bar opens this group.
 
 @[theme-settings:layout]
 
 Card shadow, card border, the image outline and shadow, and the dropdown settings change a page only once a value is chosen: a site that never opens them looks as it always did.
 
-### Products and cart
+### Product cards
 
 - **Product cards**: a product in a grid, a featured collection, the 404 page's suggestions. **Standard** puts the corners, outline and shadow on the picture; **Card** puts them round the whole card, on a faint fill of its own text colour, with the words inset.
 - **Collection cards**: the same choices, for a collection in a Collection list.
 - **Badges**: the Sale label on a product with a price to compare against, and the Sold out label on one whose stock has run out.
-- **Cart**: what Add to cart does, the free shipping bar, which counts down from the threshold as the cart fills, and whether prices show their currency code.
+- **Show currency codes**: prices read $48.00 USD rather than $48.00.
 
 @[theme-settings:product_cards]
 
 The card and badge settings change a page only once a value is chosen.
+
+### Cart and checkout
+
+What Add to cart does (open the cart drawer, go to the cart page, or show a short notice), and the free shipping bar, which counts down from the threshold as the cart fills.
+
+@[theme-settings:cart]
 
 ### Social links
 

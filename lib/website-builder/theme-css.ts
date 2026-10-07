@@ -284,7 +284,8 @@ function parityRules(t: Record<string, unknown>, root: string): string[] {
   const rules: string[] = []
 
   // ── Inputs ──────────────────────────────────────────────────────────────
-  const field = ":is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=hidden]):not([type=color]):not([type=file]):not([type=submit]):not([type=button]),select,textarea)"
+  /* Not inside code that keeps its own look: `data-theme-styles="off"` on any element of a section (lib/storelib-theme/typography OWN_STYLES). */
+  const field = ":is(input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=hidden]):not([type=color]):not([type=file]):not([type=submit]):not([type=button]),select,textarea):not([data-theme-styles=off] *)"
   const input: string[] = []
   if (has("--theme-input-radius")) input.push("border-radius:var(--theme-input-radius)")
   if (has("--theme-input-border-width")) input.push("border-width:var(--theme-input-border-width)", "border-style:solid")

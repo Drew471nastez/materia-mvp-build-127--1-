@@ -256,6 +256,21 @@ Name a font family inside a section only as a fallback after the theme's variabl
 
 Set `"supports_typography_overrides": false` on a section that has its own size control, such as a hero with a heading size slider, so the builder does not offer two controls for one thing.
 
+### Keeping your own look
+
+The theme's heading styles reach a section's `h1` to `h4` only where the section wrote nothing of its own, and Theme settings › Buttons and inputs reaches buttons a section marks as buttons. Text boxes are the exception: once a creator sets their corners or borders, every `input`, `select` and `textarea` in a section takes them.
+
+Markup written for its own design, by hand, by an agent or imported whole, can opt out. Put `data-theme-styles="off"` on any element and the theme's heading styles and text box rules stay off everything inside it:
+
+```html
+<section class="pricing" data-theme-styles="off">
+  <h2 class="pricing__title">Plans</h2>
+  <input class="pricing__email" type="email">
+</section>
+```
+
+Colour schemes, fonts read through `var(--theme-font-*)` and everything else a section reads on purpose keep working inside it.
+
 ## Layout conventions
 
 These are what the library's sections do, and what makes a new section sit beside them without looking out of place:

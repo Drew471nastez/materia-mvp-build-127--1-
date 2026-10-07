@@ -32,6 +32,9 @@
  * same as it always did.
  */
 
+/** The mark code puts on an element to keep the theme's type styles and text boxes off what is inside it. */
+export const OWN_STYLES = '[data-theme-styles="off"]'
+
 export const TYPE_STYLE_KEYS = ["h1", "h2", "h3", "h4", "body_large", "body", "body_small", "button", "caption"] as const
 export type TypeStyleKey = (typeof TYPE_STYLE_KEYS)[number]
 
@@ -400,15 +403,22 @@ export function typographyStylesheet(root: string, typo: ThemeTypography): strin
   // Not the header or the footer: their headings are a cart drawer's title
   // and a column label, not the section's heading.
   const content = "[data-section]:not([data-chrome])"
-  rules.push(`${root} :where(${content} h1){${heading("type-h1")}}`)
+  /*
+    CODE THAT KEEPS ITS OWN LOOK. A section written by hand, by an agent or
+    imported whole can put `data-theme-styles="off"` on any element, and the
+    theme's type styles and text boxes stay off everything inside it, so
+    Theme settings never restyles markup that was not written for it. The
+    attribute is the whole contract: nothing else changes for the section.
+  */
+  rules.push(`${root} :where(${content} h1:not(${OWN_STYLES} *)){${heading("type-h1")}}`)
   /**
    * A section's H1 follows the CHOSEN heading style when there is one, and
    * its own H1 size when there is not. Same correction as above: the
    * attribute is inside the section root, not outside it.
    */
-  rules.push(`${root} :where(${content} h2),${root} ${content} :where([data-heading-style] h1),${root} [data-heading-style] :where(${content} h1){${heading("section-heading")}}`)
+  rules.push(`${root} :where(${content} h2:not(${OWN_STYLES} *)),${root} ${content} :where([data-heading-style] h1:not(${OWN_STYLES} *)),${root} [data-heading-style] :where(${content} h1:not(${OWN_STYLES} *)){${heading("section-heading")}}`)
   for (const key of ["h3", "h4"] as const) {
-    rules.push(`${root} :where(${content} ${key}){font-family:var(--type-${key}-font);font-weight:var(--type-${key}-weight);letter-spacing:var(--type-${key}-tracking);text-transform:var(--type-${key}-transform);}`)
+    rules.push(`${root} :where(${content} ${key}:not(${OWN_STYLES} *)){font-family:var(--type-${key}-font);font-weight:var(--type-${key}-weight);letter-spacing:var(--type-${key}-tracking);text-transform:var(--type-${key}-transform);}`)
   }
   /**
    * A chosen body style lands on the section root, where unstyled text
