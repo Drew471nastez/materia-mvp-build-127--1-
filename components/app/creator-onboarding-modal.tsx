@@ -16,6 +16,8 @@ import {
   ChevronLeft,
   Instagram,
   Youtube,
+  AtSign,
+  ImagePlus,
   Loader2,
   Minus,
   Pencil,
@@ -32,6 +34,7 @@ import { STORELIB_LOGO_SHADOW_JOIN } from "@/lib/brand/logo"
 import { isNativeApp } from "@/lib/native-bridge"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { ActivitySpinner } from "@/components/ui/activity-spinner"
+import { secondaryDepth } from "@/components/ui/depth-button"
 import { pickPhoto } from "@/lib/native-camera"
 import { TextSwap } from "@/components/ui/text-swap"
 import { AvatarMark, DefaultAvatarGlyph } from "@/components/app/app-avatar"
@@ -110,7 +113,13 @@ const JOIN_STEP_SHIFT = 10
 
 type JoinSocialId = "tiktok" | "instagram" | "youtube" | "bluesky" | "twitter" | "linkedin"
 
-const SOCIAL_MORPH_MS = 380
+const SOCIAL_MORPH_MS = 460
+
+/** A phone, including one turned sideways: the photo choice is a sheet, not a desktop file dialog. */
+function isPhoneViewport(): boolean {
+  if (typeof window === "undefined") return false
+  return window.matchMedia("(max-width: 639px), (max-height: 520px) and (pointer: coarse)").matches
+}
 
 function restoreJoinSocials(raw: Record<string, string> | undefined) {
   if (!raw) return { instagram: "", tiktok: "", youtube: "", bluesky: "", twitter: "", linkedin: "" }
@@ -599,8 +608,10 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
   const [openSocial, setOpenSocial] = useState<null | JoinSocialId>(null)
   const [socialPanel, setSocialPanel] = useState<null | JoinSocialId>(null)
   const [socialPanelShown, setSocialPanelShown] = useState(false)
+  const [photoSheet, setPhotoSheet] = useState(false)
   const socialInputRef = useRef<HTMLInputElement>(null)
   const avatarInputRef = useRef<HTMLInputElement>(null)
+  const joinPhotoInputRef = useRef<HTMLInputElement>(null)
   const [showCropModal, setShowCropModal] = useState(false)
   const [tempImageUrl, setTempImageUrl] = useState<string | null>(null)
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
@@ -634,14 +645,17 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
   */
   const [joinName, setJoinName] = useState(start?.name ?? "")
   const [joinHandle, setJoinHandle] = useState(() => {
-    const fromAccount = normalizeHandle(start?.username ?? "")
-    if (fromAccount) return fromAccount
-    return suggestedJoinHandle(start?.name ?? "")
+    const fromName = suggestedJoinHandle(start?.name ?? "")
+    if (fromName.length >= 3) return fromName
+    return normalizeHandle(start?.username ?? "")
   })
-  const joinHandleEdited = useRef(!!normalizeHandle(start?.username ?? ""))
+  /* Only a handle they typed themselves sticks. The name on the previous slide keeps suggesting until then. */
+  const joinHandleEdited = useRef(false)
   const [joinNote, setJoinNote] = useState<string | null>(null)
   const [joinBio, setJoinBio] = useState(start?.bio ?? "")
   const [joinHandleState, setJoinHandleState] = useState<"same" | "checking" | "free" | "taken" | "empty">("same")
+  const joinHandleStateRef = useRef(joinHandleState)
+  joinHandleStateRef.current = joinHandleState
   const [joinHandleError, setJoinHandleError] = useState<string | null>(null)
   const [joinError, setJoinError] = useState<string | null>(null)
   const [joinSaving, setJoinSaving] = useState(false)
@@ -653,6 +667,11 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
   */
   const [joinNotify, setJoinNotify] = useState(false)
   const finishOnce = useRef(false)
+  const joinSaveRef = useRef<Promise<boolean>>(Promise.resolve(true))
+  const previewCompleteRef = useRef(onPreviewComplete)
+  previewCompleteRef.current = onPreviewComplete
+  const startRef = useRef(start)
+  startRef.current = start
   useLayoutEffect(() => {
     setJoinNotify(inNativeApp())
   }, [])
@@ -663,6 +682,15 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
     const next = suggestedJoinHandle(joinName)
     if (next.length >= 3) setJoinHandle(next)
   }, [joinName])
+
+  /* The page they came from, loaded while they are still on these slides, so finishing does not start from a cold document. */
+  useEffect(() => {
+    if (!open || !start) return
+    const href = welcomeDone(start.next)
+    router.prefetch(href)
+    const path = href.split("?")[0]
+    if (path && path !== href) router.prefetch(path)
+  }, [open, start?.next, router])
 
   /* Same device: restore fields if they left mid-flow without finishing. */
   useEffect(() => {
@@ -682,7 +710,8 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
       if (saved.joinBio) setJoinBio(saved.joinBio)
       if (saved.socials) setSocials(restoreJoinSocials(saved.socials as Record<string, string>))
       if (saved.joinHandle) {
-        joinHandleEdited.current = true
+        const suggested = suggestedJoinHandle(saved.joinName ?? "")
+        if (normalizeHandle(saved.joinHandle) !== suggested) joinHandleEdited.current = true
         setJoinHandle(saved.joinHandle)
       }
     } catch {
@@ -725,15 +754,50 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
     setOpenSocial((cur) => (cur === id ? null : id))
   }
 
-  const openJoinPhoto = async () => {
-    if (uploadingAvatar) return
-    const picked = await pickPhoto("PHOTOS")
-    if (!picked) return
+  const applyJoinPhoto = async (blob: Blob, dataUrl?: string) => {
     if (preview) {
-      setAvatarUrl(picked.dataUrl)
+      setAvatarUrl(dataUrl ?? URL.createObjectURL(blob))
       return
     }
-    await uploadAvatarBlob(picked.blob)
+    let square = blob
+    if (blob instanceof File) {
+      try {
+        square = await squareCropFile(blob)
+      } catch {
+        square = blob
+      }
+    }
+    await uploadAvatarBlob(square)
+  }
+
+  /**
+   * The profile picture. On a phone the choice is our sheet with Photo
+   * Library only (not Take photo, not Choose File). The app's own library
+   * opens straight away. A computer opens the file dialog from the same tap.
+   */
+  const openJoinPhoto = () => {
+    if (uploadingAvatar) return
+    if (isNativeApp()) {
+      void pickPhoto("PHOTOS").then((picked) => {
+        if (picked) void applyJoinPhoto(picked.blob, picked.dataUrl)
+      })
+      return
+    }
+    if (isPhoneViewport()) {
+      setPhotoSheet(true)
+      return
+    }
+    joinPhotoInputRef.current?.click()
+  }
+
+  const chooseJoinLibrary = () => {
+    joinPhotoInputRef.current?.click()
+    setPhotoSheet(false)
+  }
+
+  const onJoinPhotoFile = (file: File | undefined) => {
+    if (!file) return
+    void applyJoinPhoto(file)
   }
 
   useEffect(() => {
@@ -772,7 +836,6 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
     const name = cleanName(joinName)
     if (!name) return false
     if (preview) return true
-    setJoinSaving(true)
     setJoinError(null)
     try {
       const handle = normalizeHandle(joinHandle)
@@ -800,8 +863,6 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
     } catch {
       setJoinError("Could not reach Storelib. Check your connection and try again.")
       return false
-    } finally {
-      setJoinSaving(false)
     }
   }
 
@@ -809,11 +870,11 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
   const saveJoinUsername = async (): Promise<boolean> => {
     if (preview) return true
     const handle = normalizeHandle(joinHandle)
-    if (!handle || joinHandleState === "taken") return false
-    setJoinSaving(true)
+    const state = joinHandleStateRef.current
+    if (!handle || state === "taken" || state === "checking" || state === "empty") return false
     setJoinError(null)
     try {
-      if (start && handle && joinHandleState === "free") {
+      if (start && handle && state === "free") {
         const res = await fetch("/api/profile/username", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: handle }) })
         if (!res.ok) {
           const data = (await res.json().catch(() => ({}))) as { error?: string }
@@ -833,28 +894,16 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
     } catch {
       setJoinError("Could not reach Storelib. Check your connection and try again.")
       return false
-    } finally {
-      setJoinSaving(false)
     }
   }
 
-  /** Leave without a done screen: the card fades, then the page they came from opens. */
-  const exitJoin = async () => {
-    if (preview) {
-      const dest = welcomeDone(start?.next ?? null)
-      if (onPreviewComplete) {
-        onPreviewComplete(dest)
-        return
-      }
-      setJoinNote("Preview only. Nothing was saved.")
-      window.setTimeout(() => setJoinNote(null), 2200)
-      setCurrentStep(JOIN_NAME)
+  /** The last slide, then the page they came from. The card stays up until that page is ready. */
+  const exitJoin = () => {
+    if (currentStep === JOIN_DONE) {
+      if (!preview) void finishJoin()
       return
     }
-    const card = document.querySelector<HTMLElement>("[data-onboarding-card]")
-    card?.animate([{ opacity: 1 }, { opacity: 0, translate: "0 8px" }], { duration: 320, easing: MOTION_EASE, fill: "forwards" })
-    await new Promise((r) => window.setTimeout(r, 280))
-    await finishJoin()
+    goToStep(JOIN_DONE, "right")
   }
 
   /** Social handles, just the name. Empty is fine. Saved before the done moment. */
@@ -877,17 +926,26 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
     }).catch(() => null)
   }
 
-  /** The last step: the question is answered, and they go where they were going. */
+  /**
+   * The last step. The slides stay on screen while the welcome is saved and
+   * the page they came from (already prefetched) is opened in place. A hard
+   * load is only the fallback if that handoff does not land, so the screen
+   * never drops to an empty white document first.
+   */
   const finishJoin = async () => {
     if (preview) return
-    if (joinSaving || finishOnce.current) return
+    if (finishOnce.current) return
     finishOnce.current = true
-    setJoinSaving(true)
-    await Promise.race([
-      fetch("/api/account/welcome", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ done: true }) }).catch(() => null),
-      new Promise((r) => setTimeout(r, 2500)),
+    const saved = await Promise.race([
+      joinSaveRef.current,
+      new Promise<boolean>((r) => setTimeout(() => r(true), 1600)),
     ])
-    const done = welcomeDone(start?.next ?? null)
+    if (!saved) {
+      finishOnce.current = false
+      showStep(JOIN_SOCIAL, "left")
+      return
+    }
+    const done = welcomeDone(startRef.current?.next ?? null)
     try {
       const { data } = await createClient().auth.getSession().catch(() => ({ data: { session: null } }))
       const id = data.session?.user?.id
@@ -915,18 +973,41 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
     } catch {
       /* ignore */
     }
-    /* A full load, so the community is the server's frame: tab bar, section row and columns, not whatever the onboarding left on the page. */
-    window.location.replace(done)
+    await Promise.race([
+      fetch("/api/account/welcome", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ done: true }),
+        keepalive: true,
+      }).catch(() => null),
+      new Promise((r) => setTimeout(r, 4000)),
+    ])
+    startRouteLoading({ cover: true })
+    router.replace(done)
+    window.setTimeout(() => {
+      if (window.location.pathname.startsWith("/onboarding")) window.location.replace(done)
+    }, 8000)
   }
 
   const finishJoinRef = useRef(finishJoin)
   finishJoinRef.current = finishJoin
   useEffect(() => {
-    if (preview || currentStep !== JOIN_DONE) return
-    const t = window.setTimeout(() => {
-      void finishJoinRef.current()
-    }, 2200)
-    return () => window.clearTimeout(t)
+    if (currentStep !== JOIN_DONE) return
+    if (preview) {
+      const t = window.setTimeout(() => {
+        const dest = welcomeDone(startRef.current?.next ?? null)
+        const done = previewCompleteRef.current
+        if (done) {
+          done(dest)
+          return
+        }
+        setJoinNote("Preview only. Nothing was saved.")
+        window.setTimeout(() => setJoinNote(null), 2200)
+        setCurrentStep(JOIN_NAME)
+      }, 680)
+      return () => window.clearTimeout(t)
+    }
+    void finishJoinRef.current()
   }, [currentStep, preview])
 
   /**
@@ -1384,7 +1465,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
       case JOIN_NAME:
         return !!cleanName(joinName) && !joinSaving
       case JOIN_SOCIAL:
-        return !!normalizeHandle(joinHandle) && !joinSaving && (joinHandleState === "same" || joinHandleState === "free")
+        return !!normalizeHandle(joinHandle) && !joinSaving && (joinHandleState === "same" || joinHandleState === "free" || joinHandleState === "checking")
       case JOIN_DONE:
         return false
       /* Turn on notifications asks; Not now skips. Neither waits on a second press. */
@@ -1508,25 +1589,48 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
 
   // Handle next step
   const handleNext = async () => {
-    if (!canProceed()) return
+    if (joinSaving || askingPush) return
+    if (currentStep === JOIN_SOCIAL && joinHandleState === "checking" && normalizeHandle(joinHandle)) {
+      setJoinSaving(true)
+      const state = await new Promise<"same" | "checking" | "free" | "taken" | "empty">((resolve) => {
+        const started = Date.now()
+        const tick = () => {
+          const now = joinHandleStateRef.current
+          if (now !== "checking" || Date.now() - started > 2000) {
+            resolve(now)
+            return
+          }
+          window.setTimeout(tick, 40)
+        }
+        tick()
+      })
+      setJoinSaving(false)
+      if (state !== "same" && state !== "free") return
+    } else if (!canProceed()) return
     if (isJoinStep(currentStep)) {
       if (currentStep === JOIN_NAME) {
-        if (!(await saveJoinName())) return
+        if (!joinHandleEdited.current) {
+          const nextHandle = suggestedJoinHandle(joinName)
+          if (nextHandle.length >= 3) setJoinHandle(nextHandle)
+        }
+        const save = saveJoinName()
+        joinSaveRef.current = Promise.all([joinSaveRef.current, save]).then(([prev, ok]) => prev && ok)
         goToStep(JOIN_SOCIAL, "right")
+        void save.then((ok) => {
+          if (ok || finishOnce.current) return
+          window.setTimeout(() => showStep(JOIN_NAME, "left"), JOIN_STEP_IN_MS + 40)
+        })
         return
       }
       if (currentStep === JOIN_SOCIAL) {
-        if (!(await saveJoinUsername())) return
-        if (joinNotify || inNativeApp()) {
-          goToStep(JOIN_NOTIFY, "right")
-          return
-        }
-        await exitJoin()
+        const save = saveJoinUsername()
+        joinSaveRef.current = Promise.all([joinSaveRef.current, save]).then(([prev, ok]) => prev && ok)
+        goToStep(joinNotify || inNativeApp() ? JOIN_NOTIFY : JOIN_DONE, "right")
         return
       }
       if (currentStep === JOIN_NOTIFY) {
         await allowNotifications()
-        await exitJoin()
+        goToStep(JOIN_DONE, "right")
         return
       }
       return
@@ -1929,31 +2033,43 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
           <div className="mx-auto flex w-full max-w-[min(100%,600px)] flex-col items-center text-center font-sans" data-onboarding-join="profile">
             <h1 className="text-[28px] font-bold leading-[1.15] tracking-[-0.03em] text-[#1a1a2e] sm:text-[30px]">Create a profile</h1>
             <p className="mt-1.5 text-[15px] leading-6 text-[#6b7280]">Add a name, photo and links to get started.</p>
-            <button
-              type="button"
-              onClick={() => void openJoinPhoto()}
-              disabled={uploadingAvatar}
-              data-onboarding-join-photo=""
-              aria-label={avatarUrl ? "Change photo" : "Add a photo"}
-              className={cn(
-                "relative mx-auto mt-5 block h-[84px] w-[84px] overflow-hidden rounded-full bg-[#eceef1] text-[#9ca3af] transition-[box-shadow,transform] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-[0.98] motion-reduce:transition-none",
-                AVATAR_RING,
-                "[-webkit-tap-highlight-color:transparent]",
-              )}
-            >
-              {avatarUrl ? (
-                <img src={avatarUrl} alt="" className="absolute inset-0 h-full w-full object-cover motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200" />
-              ) : (
-                <span className="absolute inset-0 text-[#b0b5bd]">
-                  <DefaultAvatarGlyph fill />
-                </span>
-              )}
-              {uploadingAvatar ? (
-                <span className="absolute inset-0 grid place-items-center bg-white/70 backdrop-blur-[1px]">
-                  <ActivitySpinner size={22} className="text-[#4b5563]" />
-                </span>
-              ) : null}
-            </button>
+            <div className="mt-5 flex flex-col items-center gap-3">
+              <button
+                type="button"
+                onClick={openJoinPhoto}
+                disabled={uploadingAvatar}
+                data-onboarding-join-photo=""
+                aria-label={avatarUrl ? "Change photo" : "Add a photo"}
+                className={cn(
+                  "relative block h-[84px] w-[84px] overflow-hidden rounded-full bg-[#eceef1] text-[#9ca3af] transition-[box-shadow,transform] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-[0.98] motion-reduce:transition-none",
+                  AVATAR_RING,
+                  "[-webkit-tap-highlight-color:transparent]",
+                )}
+              >
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt="" className="absolute inset-0 h-full w-full object-cover motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200" />
+                ) : (
+                  <span className="absolute inset-0 text-[#b0b5bd]">
+                    <DefaultAvatarGlyph fill />
+                  </span>
+                )}
+                {uploadingAvatar ? (
+                  <span className="absolute inset-0 grid place-items-center bg-white/70 backdrop-blur-[1px]">
+                    <ActivitySpinner size={22} className="text-[#4b5563]" />
+                  </span>
+                ) : null}
+              </button>
+              <button
+                type="button"
+                onClick={openJoinPhoto}
+                disabled={uploadingAvatar}
+                data-onboarding-join-photo-add=""
+                className={cn(secondaryDepth, "h-9 rounded-full px-3.5 text-[13px]")}
+              >
+                <ImagePlus className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+                {avatarUrl ? "Change photo" : "Add photo"}
+              </button>
+            </div>
             <label className={cn("mt-5 flex h-[52px] w-full items-center rounded-[14px] px-4 text-left", FIELD_WELL)}>
               <span className="sr-only">Your name</span>
               <input
@@ -1967,20 +2083,20 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                 className="min-w-0 flex-1 bg-transparent text-[16px] outline-none placeholder:text-[#9ca3af]"
               />
             </label>
-            <div className="mt-5" data-onboarding-social-row="">
+            <div className="mt-5 w-full min-w-0" data-onboarding-social-row="">
               <div
                 className={cn(
-                  "grid transition-[grid-template-rows,opacity,margin] duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+                  "grid w-full min-w-0 transition-[grid-template-rows,opacity,margin] duration-[460ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
                   socialPanelShown ? "mb-3 grid-rows-[1fr] opacity-100" : "mb-0 grid-rows-[0fr] opacity-0",
                 )}
               >
-                <div className="min-h-0 overflow-hidden">
+                <div className="min-h-0 w-full min-w-0 overflow-hidden">
                   {socialPanel ? (
                     <label
                       className={cn(
-                        "flex h-[52px] items-center gap-1 rounded-[14px] px-4 transition-[opacity,transform] duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
+                        "flex h-[52px] w-full min-w-0 items-center gap-1 rounded-[14px] px-4 transition-[opacity,transform] duration-[460ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
                         FIELD_WELL,
-                        socialPanelShown ? "translate-y-0 opacity-100" : "-translate-y-1 opacity-0",
+                        socialPanelShown ? "translate-y-0 scale-100 opacity-100" : "translate-y-1 scale-[0.985] opacity-0",
                       )}
                     >
                       <span className="sr-only">{socialPanel}</span>
@@ -2053,8 +2169,9 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
             </span>
             <h1 className="text-[28px] font-bold leading-[1.15] tracking-[-0.03em] text-[#1a1a2e] sm:text-[32px]">Pick a username</h1>
             <p className="mt-1.5 text-[15px] leading-6 text-[#6b7280]">Claim your unique Storelib link.</p>
-            <label className={cn("mt-4 flex h-[52px] w-full items-center gap-1 rounded-[14px] px-4 text-left", FIELD_WELL)}>
+            <label className={cn("mt-4 flex h-[52px] w-full items-center gap-1.5 rounded-[14px] px-4 text-left", FIELD_WELL)}>
               <span className="sr-only">Username</span>
+              <AtSign className="h-[18px] w-[18px] shrink-0 text-[#9ca3af]" strokeWidth={2} aria-hidden />
               <input
                 type="text"
                 value={joinHandle}
@@ -2805,7 +2922,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                     disabled={!canProceed() && !(joinSaving || askingPush)}
                     style={{ transition: `background-color 220ms ${MOTION_EASE}, transform 220ms ${MOTION_EASE}, box-shadow 220ms ${MOTION_EASE}` }}
                     className={cn(
-                      "min-h-[50px] w-full min-w-0 rounded-xl font-semibold text-[15px] motion-reduce:!transition-none active:scale-[0.98] sm:h-12 sm:w-auto sm:min-w-[220px] sm:px-10 sm:py-0 min-[1440px]:min-w-[280px]",
+                      "inline-flex min-h-[50px] w-full min-w-0 items-center justify-center rounded-xl font-semibold text-[15px] motion-reduce:!transition-none active:scale-[0.98] sm:h-12 sm:w-auto sm:min-w-[220px] sm:px-10 sm:py-0 min-[1440px]:min-w-[280px]",
                       canProceed() || joinSaving || askingPush ? NEXT_ON : "bg-gray-200 text-gray-400 cursor-not-allowed",
                     )}
                   >
@@ -2876,6 +2993,29 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
               )}
             </div>
           </div>
+          {photoSheet ? (
+            <div className="absolute inset-0 z-30 flex items-end" data-onboarding-photo-sheet="">
+              <button
+                type="button"
+                aria-label="Close"
+                className="absolute inset-0 bg-black/40 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200"
+                onClick={() => setPhotoSheet(false)}
+              />
+              <div className="relative z-10 w-full rounded-t-[20px] bg-white px-4 pb-[max(16px,env(safe-area-inset-bottom))] pt-2.5 shadow-[0_-8px_30px_-12px_rgba(17,24,39,0.28)] motion-safe:animate-in motion-safe:slide-in-from-bottom-6 motion-safe:fade-in-0 motion-safe:duration-300 motion-safe:ease-[cubic-bezier(0.22,1,0.36,1)]">
+                <div className="mx-auto mb-3 h-1 w-9 rounded-full bg-neutral-300" />
+                <p className="px-1 pb-3 text-[15px] font-semibold text-[#1a1a2e]">Photo Library</p>
+                <button
+                  type="button"
+                  onClick={chooseJoinLibrary}
+                  data-onboarding-photo-library=""
+                  className={cn(secondaryDepth, "mb-1 h-12 w-full rounded-xl px-4 text-[15px]")}
+                >
+                  <ImagePlus className="h-4 w-4" strokeWidth={2} aria-hidden />
+                  Photo Library
+                </button>
+              </div>
+            </div>
+          ) : null}
         </DialogContent>
       </Dialog>
 
@@ -3142,6 +3282,19 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
         spinner 40% down (components/ui/activity-spinner PageSpinner's rows)
         with one plain line under it, on the white the setup was on.
       */}
+      <input
+        ref={joinPhotoInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif"
+        className="hidden"
+        tabIndex={-1}
+        data-onboarding-join-photo-input=""
+        onChange={(e) => {
+          const file = e.target.files?.[0]
+          e.target.value = ""
+          onJoinPhotoFile(file)
+        }}
+      />
       {isRedirecting && (
         <div
           data-onboarding-redirect=""
