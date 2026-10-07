@@ -2053,7 +2053,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
           <div className="mx-auto flex w-full max-w-[min(100%,600px)] flex-col items-center text-center font-sans" data-onboarding-join="profile">
             <h1 className="text-[28px] font-bold leading-[1.15] tracking-[-0.03em] text-[#1a1a2e] sm:text-[30px]">Create a profile</h1>
             <p className="mt-1.5 text-[15px] leading-6 text-[#6b7280]">Add a name, photo and links to get started.</p>
-            <div className="mt-5 flex flex-col items-center gap-3">
+            <div className="mt-5 flex flex-col items-center gap-2.5 sm:flex-row sm:items-center sm:justify-center sm:gap-3">
               <button
                 type="button"
                 onClick={openJoinPhoto}
@@ -2061,7 +2061,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                 data-onboarding-join-photo=""
                 aria-label={avatarUrl ? "Change photo" : "Add a photo"}
                 className={cn(
-                  "relative block h-[84px] w-[84px] overflow-hidden rounded-full bg-[#eceef1] text-[#9ca3af] transition-[box-shadow,transform] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-[0.98] motion-reduce:transition-none",
+                  "relative block h-[84px] w-[84px] shrink-0 overflow-hidden rounded-full bg-[#eceef1] text-[#9ca3af] transition-[box-shadow,transform] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] active:scale-[0.98] motion-reduce:transition-none",
                   AVATAR_RING,
                   "[-webkit-tap-highlight-color:transparent]",
                 )}
@@ -2084,9 +2084,9 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                 onClick={openJoinPhoto}
                 disabled={uploadingAvatar}
                 data-onboarding-join-photo-add=""
-                className={cn(secondaryDepth, "h-9 rounded-full px-3.5 text-[13px]")}
+                className={cn(secondaryDepth, "h-8 rounded-full px-2.5 text-[12px]")}
               >
-                <ImagePlus className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+                <ImagePlus className="h-3 w-3" strokeWidth={2} aria-hidden />
                 {avatarUrl ? "Change photo" : "Add photo"}
               </button>
             </div>
