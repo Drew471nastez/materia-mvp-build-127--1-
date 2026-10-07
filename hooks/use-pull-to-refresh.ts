@@ -225,6 +225,8 @@ interface Options {
    * must stay theirs.
    */
   axisFirst?: boolean
+  /** Extra px added to the spokes' vertical position (Explore: a little lower). */
+  spinnerYOffset?: number
 }
 
 const reducedMotion = () => {
@@ -273,7 +275,11 @@ export function usePullToRefresh(
     onPhaseChange,
     listenOn,
     axisFirst = false,
+    spinnerYOffset = 0,
   } = options
+
+  const spinnerYOffsetRef = useRef(spinnerYOffset)
+  spinnerYOffsetRef.current = spinnerYOffset
 
   /** The element that slides down. The caller attaches this. */
   const contentRef = useRef<HTMLDivElement | null>(null)
@@ -392,7 +398,7 @@ export function usePullToRefresh(
       if (!p?.spokes) return
       const at = spokesAt(gap, threshold)
       const scale = at.scale
-      p.root.style.transform = `translate3d(0, ${at.y}px, 0) scale(${scale})`
+      p.root.style.transform = `translate3d(0, ${at.y + spinnerYOffsetRef.current}px, 0) scale(${scale})`
       p.root.style.opacity = String(scale > 0.02 ? 1 - fade : 0)
       const shown = spinning ? 8 : at.shown
       p.spokes.lines.forEach((l, i) => {

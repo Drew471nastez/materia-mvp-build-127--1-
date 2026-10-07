@@ -77,6 +77,9 @@ export const SDR = "[dynamic-range-limit:standard]"
 export const PICTURE_EDGE = "pointer-events-none absolute inset-0 rounded-[inherit] ring-1 ring-inset ring-black/[0.06]"
 const FADE_MS = 250
 
+/** Pictures this tab has already drawn: remounts and space switches stay opaque. */
+const painted = new Set<string>()
+
 function preloadPicture(url: string) {
   if (!url || typeof window === "undefined") return
   const img = new Image()
@@ -146,10 +149,19 @@ export function SoftImg({
 }) {
   const ref = useRef<HTMLImageElement>(null)
   /* "cached": drawn at once; "wait": transparent until it loads; "in": fading in. */
-  const [state, setState] = useState<"cached" | "wait" | "in">("wait")
+  const [state, setState] = useState<"cached" | "wait" | "in">(() => (src && painted.has(src) ? "cached" : "wait"))
+  const [prevSrc, setPrevSrc] = useState(src)
+  if (src !== prevSrc) {
+    setPrevSrc(src)
+    setState(src && painted.has(src) ? "cached" : "wait")
+  }
   useLayoutEffect(() => {
     const el = ref.current
-    if (el?.complete && el.naturalWidth > 0) setState("cached")
+    if (!el) return
+    if (el.complete && el.naturalWidth > 0) {
+      painted.add(src)
+      setState("cached")
+    }
   }, [src, eager])
   const shown = state !== "wait"
   return (
@@ -170,7 +182,10 @@ export function SoftImg({
         decoding={eager ? "sync" : "async"}
         fetchPriority={fetchPriority}
         referrerPolicy={referrerPolicy}
-        onLoad={() => setState((s) => (s === "wait" ? "in" : s))}
+        onLoad={() => {
+          painted.add(src)
+          setState((s) => (s === "wait" ? "in" : s === "in" ? "in" : "cached"))
+        }}
         onError={onError}
         className={`${className} ${SDR} ${state === "cached" ? "" : "transition-opacity ease-out motion-reduce:transition-none"} ${shown ? "opacity-100" : "opacity-0"}`}
         style={state === "in" ? { transitionDuration: `${FADE_MS}ms` } : undefined}

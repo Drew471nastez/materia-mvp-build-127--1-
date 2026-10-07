@@ -48,7 +48,7 @@ export function BackControl({
   label = "Back",
   skipBack,
   onBack,
-  className,
+  className: extraClassName,
   ...data
 }: {
   fallback: string
@@ -61,10 +61,10 @@ export function BackControl({
 } & { [key: `data-${string}`]: string | undefined }) {
   const router = useRouter()
   const press = usePressFeedback<HTMLAnchorElement>()
-  const tap = useFirstTap<HTMLAnchorElement>(() => {
+  const tap = useFirstTap<HTMLElement>(() => {
     if (onBack) {
       onBack()
-      return
+      return true
     }
     const behind = previousPath() ?? referrerPath()
     if (behind && skipBack?.(behind)) {
@@ -73,28 +73,7 @@ export function BackControl({
     }
     goBackOr(fallback, (to) => router.push(to))
   })
-  return (
-    <Link
-      href={fallback}
-      prefetch={false}
-      aria-label={label}
-      {...data}
-      {...tap}
-      onPointerDown={(e) => {
-        press.onPointerDown(e)
-        tap.onPointerDown(e)
-      }}
-      onPointerUp={(e) => {
-        press.onPointerUp()
-        tap.onPointerUp(e)
-      }}
-      onPointerCancel={() => {
-        press.onPointerUp()
-        tap.onPointerCancel()
-      }}
-      onPointerLeave={press.onPointerUp}
-      data-back-control=""
-      className={cn(
+  const className = cn(
         "relative flex h-11 w-11 shrink-0 select-none items-center justify-center rounded-[10px]",
         "border border-[#e4e7ec] bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.05)]",
         "touch-manipulation [-webkit-tap-highlight-color:transparent]",
@@ -112,9 +91,42 @@ export function BackControl({
         "[@media(hover:hover)_and_(pointer:fine)]:hover:bg-[#f7f8fa]",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20",
         "print:hidden",
-        className,
-      )}
-    >
+        extraClassName,
+      )
+  const handlers = {
+    ...tap,
+    onPointerDown: (e: React.PointerEvent<HTMLElement>) => {
+      press.onPointerDown(e as React.PointerEvent<HTMLAnchorElement>)
+      tap.onPointerDown(e)
+    },
+    onPointerUp: (e: React.PointerEvent<HTMLElement>) => {
+      press.onPointerUp()
+      tap.onPointerUp(e)
+    },
+    onPointerCancel: () => {
+      press.onPointerUp()
+      tap.onPointerCancel()
+    },
+    onPointerLeave: press.onPointerUp,
+  }
+
+  if (onBack) {
+    return (
+      <button
+        type="button"
+        aria-label={label}
+        {...data}
+        {...handlers}
+        data-back-control=""
+        className={className}
+      >
+        <ChevronLeft className="h-5 w-5" strokeWidth={2} aria-hidden />
+      </button>
+    )
+  }
+
+  return (
+    <Link href={fallback} prefetch={false} aria-label={label} {...data} {...handlers} data-back-control="" className={className}>
       <ChevronLeft className="h-5 w-5" strokeWidth={2} aria-hidden />
     </Link>
   )

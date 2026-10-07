@@ -57,6 +57,7 @@ import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useStat
 import { createPortal } from "react-dom"
 import { X } from "lucide-react"
 import { BottomSheet, SHEET_CLOSE_EASE, SHEET_EASE } from "@/components/ui/bottom-sheet"
+import { swallowGhostTaps } from "@/lib/navigation/swallow-ghost-taps"
 import type { FeedPostView, ViewerView } from "@/lib/communities/types"
 import { api, apiBase } from "./api"
 import { CommentsPlaceholder, CommentsSection, readAheadComments } from "./comments"
@@ -133,7 +134,10 @@ export function PostOverlay({ post: given, slug, viewer, readOnly = false, updat
   })
   /* Open as far as the history and the sheet are concerned; false starts the way out. */
   const [open, setOpen] = useState(true)
-  const close = useCallback(() => setOpen(false), [])
+  const close = useCallback(() => {
+    swallowGhostTaps()
+    setOpen(false)
+  }, [])
   useEffect(() => {
     if (!open) setPhase("out")
   }, [open])
@@ -299,8 +303,8 @@ function OverlayFrame({ phone, post, open, phase, setPhase, close, onGone, conte
         /* Pictures decode before the slide, so the post does not flash white while it rises. */
         waitForImages
         /* Nearly the whole screen, short of the top by the status bar and a little more, as an iOS sheet stands. */
-        height="calc(var(--vv-h, 100dvh) - max(env(safe-area-inset-top), 12px) - 8px)"
-        maxHeight="calc(var(--vv-h, 100dvh) - max(env(safe-area-inset-top), 12px) - 8px)"
+        height="calc((var(--vv-h, 100dvh) - max(env(safe-area-inset-top), 12px) - 8px) * 0.95)"
+        maxHeight="calc((var(--vv-h, 100dvh) - max(env(safe-area-inset-top), 12px) - 8px) * 0.95)"
         header={
           <div className="flex h-11 items-center gap-1 border-b border-[#f0f1f3] px-1.5" data-post-overlay-bar="">
             <span className="w-10 shrink-0" aria-hidden />

@@ -75,12 +75,15 @@ export function PullToRefresh({
   children,
   className,
   fill = false,
+  spinnerYOffset = 0,
 }: {
   onRefresh: () => Promise<unknown> | void
   children: ReactNode
   className?: string
   /** For a page that is its own scroll box at full height (h-full): the wrapper passes the height through. */
   fill?: boolean
+  /** Nudge the iOS spokes indicator down (px). */
+  spinnerYOffset?: number
 }) {
   const rootRef = useRef<HTMLDivElement>(null)
   const scrollerRef = useRef<HTMLElement | null>(null)
@@ -110,6 +113,7 @@ export function PullToRefresh({
     listenOn: rootRef,
     /* Whatever is inside is somebody else's: a sideways row keeps its swipe without having to be named. */
     axisFirst: true,
+    spinnerYOffset,
   })
 
   const pathname = usePathname()
@@ -201,10 +205,22 @@ export function dispatchPullRefresh(scope: string): Promise<void> {
 }
 
 /** A page whose data a listener owns: the pull is the event, and the ring waits for the listener. */
-export function PullToRefreshEvent({ scope, children, className, fill }: { scope: string; children: ReactNode; className?: string; fill?: boolean }) {
+export function PullToRefreshEvent({
+  scope,
+  children,
+  className,
+  fill,
+  spinnerYOffset,
+}: {
+  scope: string
+  children: ReactNode
+  className?: string
+  fill?: boolean
+  spinnerYOffset?: number
+}) {
   const onRefresh = useCallback(() => dispatchPullRefresh(scope), [scope])
   return (
-    <PullToRefresh onRefresh={onRefresh} className={className} fill={fill}>
+    <PullToRefresh onRefresh={onRefresh} className={className} fill={fill} spinnerYOffset={spinnerYOffset}>
       {children}
     </PullToRefresh>
   )
@@ -220,7 +236,19 @@ export function PullToRefreshEvent({ scope, children, className, fill }: { scope
  * translated down for the spinner that read as two copies of the same header
  * stacked on each other (/app home, Analytics, account).
  */
-export function RouterPullToRefresh({ scope, children, className, fill }: { scope: string; children: ReactNode; className?: string; fill?: boolean }) {
+export function RouterPullToRefresh({
+  scope,
+  children,
+  className,
+  fill,
+  spinnerYOffset,
+}: {
+  scope: string
+  children: ReactNode
+  className?: string
+  fill?: boolean
+  spinnerYOffset?: number
+}) {
   const router = useRouter()
   const onRefresh = useCallback(() => {
     const server = new Promise<void>((resolve) => {
@@ -232,7 +260,7 @@ export function RouterPullToRefresh({ scope, children, className, fill }: { scop
     return Promise.all([server, dispatchPullRefresh(scope)])
   }, [router, scope])
   return (
-    <PullToRefresh onRefresh={onRefresh} className={className} fill={fill}>
+    <PullToRefresh onRefresh={onRefresh} className={className} fill={fill} spinnerYOffset={spinnerYOffset}>
       {children}
     </PullToRefresh>
   )

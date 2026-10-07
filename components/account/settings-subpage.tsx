@@ -13,6 +13,7 @@ import { PageSpinner } from "@/components/ui/activity-spinner"
 import { createClient } from "@/lib/supabase/client"
 import { displayEmail } from "@/lib/businesses/email-alias"
 import { isNativeApp } from "@/lib/platform-utils"
+import { swallowGhostTaps } from "@/lib/navigation/swallow-ghost-taps"
 
 const EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
 const IN_MS = 340
@@ -206,6 +207,7 @@ function SettingsLayer({ section, data, onClose }: { section: SettingsSection; d
 
   const close = () => {
     if (closing.current) return
+    swallowGhostTaps()
     closing.current = true
     const el = panel.current
     const finish = () => {
