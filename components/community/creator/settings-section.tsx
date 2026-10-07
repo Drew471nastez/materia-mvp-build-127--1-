@@ -33,6 +33,7 @@
 import * as React from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import { announceCommunityUpdated } from "@/lib/communities/updated-signal"
 import { Plus, Trash2, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { StatusBadge } from "@/app/app/orders/order-parts"
@@ -206,6 +207,8 @@ function PageSettings({ head, data }: { head: CommunityHead; data: SettingsData 
     setSaved(JSON.stringify(s))
     toast("Saved")
     router.refresh()
+    /* The community open in another tab picks up the new cover, picture and name at once. */
+    announceCommunityUpdated(head.id)
   }
 
   /*

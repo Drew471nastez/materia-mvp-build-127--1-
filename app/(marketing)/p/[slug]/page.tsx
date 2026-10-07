@@ -1806,7 +1806,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
 
         {/* The buy bar's reserve is at the END of the page, not here — see the
             note on the other branch's wrapper. */}
-        <div className="mx-auto w-full max-w-[1200px] px-3 sm:px-4 lg:px-6 py-6 sm:py-12">
+        <div className="mx-auto w-full max-w-[1200px] px-3 sm:px-4 lg:px-6 py-6 sm:py-12 lg:pt-6">
           {AlertsBlock}
           {MainProductContent}
         </div>
@@ -1990,7 +1990,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
       */}
       {/* 1200, like the block above it and like every section below it. It
           was 1100 here, so the page changed width halfway down. */}
-      <div className="mx-auto w-full max-w-[1200px] px-3 sm:px-4 lg:px-6 py-6 sm:py-12">
+      <div className="mx-auto w-full max-w-[1200px] px-3 sm:px-4 lg:px-6 py-6 sm:py-12 lg:pt-6">
         {AlertsBlock}
         {MainProductContent}
       </div>
