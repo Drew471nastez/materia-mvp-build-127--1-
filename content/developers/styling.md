@@ -84,7 +84,7 @@ Put `container-type: inline-size` on the outermost element, write the phone layo
 
 A section must never scroll sideways. `minmax(0, 1fr)` instead of `1fr`, `min-width: 0` on flex children, and `overflow-wrap: anywhere` on long headings are what stop it.
 
-The one place `@media` is right is **the visitor's own motion setting**, which is about them rather than about width:
+`@media` for width asks the window, and the builder measures the section, so `@container` is the reliable way to change a layout by width. Motion is the section's own. `@media (prefers-reduced-motion: reduce)` is a courtesy for a visitor who asked for less movement, not a rule that refuses a file:
 
 ```css
 .card { transition: transform 200ms ease; }
@@ -97,7 +97,7 @@ The one place `@media` is right is **the visitor's own motion setting**, which i
 
 ## Colour schemes
 
-A section does not choose colours. It chooses a **colour scheme**, and the creator decides what the scheme looks like in Theme settings. Change a scheme and every section on it changes, at once, in the builder and on the live site.
+A section may follow a **colour scheme**, which the creator edits in Theme settings, and may set its own colours. A `color` setting lets the creator overwrite one colour from the sidebar without changing the scheme. A fixed colour is allowed. Change a scheme and every section that reads it changes, at once, in the builder and on the live site.
 
 Declare a `color_scheme` setting, then read the scheme. In CSS, read the custom properties the renderer sets on the section's root. In the template, read `scheme.<key>`.
 

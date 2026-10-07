@@ -45,7 +45,7 @@ export { INTEGRATION_CONTRACT, checkSectionIntegration } from "./integration"
  * A rule stated and not checked is a rule that is followed about half the
  * time, and nobody can tell which half.
  */
-export const SECTION_CONTRACT = `BEFORE YOU CALL A SECTION FINISHED, it must: compile; declare every name its template reads; take the site's colour scheme rather than hardcoded colours; inherit the theme's type and buttons; be laid out for a phone on purpose and not by shrinking; have no sideways scroll; work when the section is on the page twice, which means no fixed id="…" in the markup and no query outside the script's own root; keep its CSS to itself; use real elements for anything interactive, with alt text on images; and stop animating for anyone who has asked for reduced motion. Those are checked after you write, and you will be shown what failed.`
+export const SECTION_CONTRACT = `BEFORE YOU CALL A SECTION FINISHED, it must: compile; declare every name its template reads; keep every word, link and picture the creator should change as a setting or a block; read a shared menu from a link_list and products, prices and checkout_url from the store; work when the section is on the page twice, which means no fixed id="…" in the markup and no query outside the script's own root; keep its CSS to itself; use real elements for anything interactive, with alt text on images. Colours, type, buttons, spacing, motion and logo size are the section's own design. A colour may follow the scheme or a color setting the creator overwrites. What is checked, and sent back if it fails, is a file that compiles and live Storelib values, not the look.`
 
 /**
  * The page assistant: tools, a page, and a creator having a conversation.

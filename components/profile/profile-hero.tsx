@@ -174,6 +174,8 @@ export function ProfileHero({
                     name={person.name}
                     username={person.username}
                     bio={person.bio}
+                    avatarUrl={person.avatarUrl}
+                    coverUrl={person.coverUrl}
                     usernameEditable={usernameEditable}
                   />
                 </div>

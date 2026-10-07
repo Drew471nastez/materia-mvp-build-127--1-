@@ -129,18 +129,19 @@ async function main() {
       !idsOf(variant([['<details data-block-id', '<details id="{{ section.id }}-panel" data-block-id']])).includes("literal-id"),
     )
 
+    const moving = checkSectionQuality(variant([["@media (prefers-reduced-motion: reduce) { .a { transition: none; } }", ""]]))
     check(
-      "motion with no reduced-motion escape is caught",
-      idsOf(variant([["@media (prefers-reduced-motion: reduce) { .a { transition: none; } }", ""]])).includes("reduced-motion"),
+      "motion with no reduced-motion escape is a warning, not a refusal",
+      moving.some((f) => f.id === "reduced-motion" && f.severity === "warning") && !idsOf(variant([["@media (prefers-reduced-motion: reduce) { .a { transition: none; } }", ""]])).includes("reduced-motion"),
     )
     check(
       "a section that does not move is not asked for a reduced-motion rule",
-      !idsOf(
+      !checkSectionQuality(
         variant([
           ["  .a { transition: opacity 200ms ease; }\n", ""],
           ["@media (prefers-reduced-motion: reduce) { .a { transition: none; } }", ""],
         ]),
-      ).includes("reduced-motion"),
+      ).some((f) => f.id === "reduced-motion"),
     )
 
     check(
@@ -224,15 +225,20 @@ async function main() {
       broken.ok === false && broken.feedback.includes("headng"),
     )
 
-    const poor = validateSection(variant([["@media (prefers-reduced-motion: reduce) { .a { transition: none; } }", ""]]), {
+    const poor = validateSection(variant([["<details data-block-id", '<details id="panel" data-block-id']]), {
       path: "sections/questions.storelib",
       expectType: "questions",
     })
     check("a section that compiles and would still be wrong fails", poor.ok === false && poor.reason === "quality")
     check(
       "and the feedback says what to do about it",
-      poor.ok === false && /prefers-reduced-motion/.test(poor.feedback),
+      poor.ok === false && /id/.test(poor.feedback),
     )
+    const motionOk = validateSection(variant([["@media (prefers-reduced-motion: reduce) { .a { transition: none; } }", ""]]), {
+      path: "sections/questions.storelib",
+      expectType: "questions",
+    })
+    check("a section's own animation still saves", motionOk.ok === true)
 
     check("three attempts, not one", MAX_REPAIR_ATTEMPTS === 3)
   }
@@ -469,15 +475,19 @@ async function main() {
     check("and what was stored is what the model sent", /320ms/.test(good.files.get("faq") ?? ""))
     check("the run reports that source was rewritten", good.result.wroteCode === true)
 
-    // The same edit, minus the thing that makes motion optional.
-    const bad = await run(
+    // The same edit, with the section's own motion and no reduced-motion rule. That is allowed.
+    const motion = await run(
       BASE,
       BASE.replace("@media (prefers-reduced-motion: reduce) { .a { transition: none; } }", "").replace(
         "transition: opacity 200ms ease",
         "transition: opacity 320ms ease",
       ),
     )
-    check("a write that would animate at somebody who asked it not to is refused", !bad.calls.includes("faq"))
+    check("a section's own animation is saved", motion.calls.includes("faq") && /320ms/.test(motion.files.get("faq") ?? ""))
+
+    // A new fixed id is still a real fault, and the write does not land.
+    const bad = await run(BASE, BASE.replace("<details data-block-id", '<details id="q" data-block-id'))
+    check("a write that adds a fixed id is refused", !bad.calls.includes("faq"))
     check("and the stored file is untouched", (bad.files.get("faq") ?? "") === BASE)
 
     // A file that ALREADY had a fixed id: an unrelated fix must still land.
@@ -569,7 +579,7 @@ async function main() {
       check(`${name} stays under ~${Math.round(maxChars / 4 / 100) / 10}k tokens`, text.length <= maxChars, `${text.length} chars`)
     /* Blocks only for a list the creator grows; single-purpose sections are plain settings, and arrive with the theme's motion. */
     check("the writer is told a hero is plain settings, not blocks", /One of each thing \(a hero, a banner, a call to action\) is plain settings, NO blocks/.test(writeSectionRules()))
-    check("  and that sections already fade in, so it writes no entrance of its own", /Sections already fade in from the theme/.test(writeSectionRules()))
+    check("  and that motion is the section's own, not a required fade", /Motion is the section's own CSS/.test(writeSectionRules()))
     budget("the page assistant's shared rules", pageAgentRules(), 10_000)
     /* 11,000 until the framework's own lists grew: eight setting types and the
        `lines` filter, which CORE_FORMAT names from the registry. Still a budget. */

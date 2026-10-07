@@ -53,13 +53,13 @@ BLOCKS are the repeated content: each block type is {"type", "name", "limit", "s
 
 PRESETS are what Add Section offers: {"name", "settings", "blocks": [{"type": "question"}, ...]}. A section with no preset is not offered. A preset arrives filled with real looking content from the defaults, and a second preset is usually the same section on a dark scheme.
 
-COLOUR SCHEME: a color_scheme setting (default "white"; the built-in keys are white, light, dark, black and highlight, named Light, Soft, Dark, Brand and Accent). The section's outermost element carries data-scheme="{{ settings.color_scheme }}" and the scheme as variables in its style: --s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --s-para: {{ scheme.paragraph }}; --s-border: {{ scheme.border }}; --s-accent: {{ scheme.accent }}; --s-btn: {{ scheme.primary_btn_bg }}; --s-btn-text: {{ scheme.primary_btn_text }}; --s-btn-hover: {{ scheme.primary_btn_hover_bg }}; --s-btn-hover-text: {{ scheme.primary_btn_hover_text }}; --s-btn2: {{ scheme.secondary_btn_bg }}; --s-btn2-text: {{ scheme.secondary_btn_text }}; --s-btn2-border: {{ scheme.secondary_btn_border }}; --s-btn2-hover: {{ scheme.secondary_btn_hover_bg }}; --s-btn2-hover-text: {{ scheme.secondary_btn_hover_text }}. The CSS paints only with var(--s-*). The scheme's semantic keys are ${SCHEME_COLOR_KEYS.join(", ")}.
+COLOUR SCHEME: a color_scheme setting (default "white"; the built-in keys are white, light, dark, black and highlight, named Light, Soft, Dark, Brand and Accent). The section's outermost element carries data-scheme="{{ settings.color_scheme }}" and the scheme as variables in its style: --s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; --s-heading: {{ scheme.heading }}; --s-para: {{ scheme.paragraph }}; --s-border: {{ scheme.border }}; --s-accent: {{ scheme.accent }}; --s-btn: {{ scheme.primary_btn_bg }}; --s-btn-text: {{ scheme.primary_btn_text }}; --s-btn-hover: {{ scheme.primary_btn_hover_bg }}; --s-btn-hover-text: {{ scheme.primary_btn_hover_text }}; --s-btn2: {{ scheme.secondary_btn_bg }}; --s-btn2-text: {{ scheme.secondary_btn_text }}; --s-btn2-border: {{ scheme.secondary_btn_border }}; --s-btn2-hover: {{ scheme.secondary_btn_hover_bg }}; --s-btn2-hover-text: {{ scheme.secondary_btn_hover_text }}. The CSS may paint with var(--s-*). The scheme's semantic keys are ${SCHEME_COLOR_KEYS.join(", ")}.
 
-TYPE TOKENS: a section heading is font-size: var(--section-heading-size, 32px); line-height: var(--section-heading-line-height, 1.15); font-weight: var(--section-heading-weight, 700); letter-spacing: var(--section-heading-tracking, -0.01em); text-transform: var(--section-heading-transform, none); font-family: var(--theme-font-heading, {{ theme.typography.heading }}), ui-sans-serif, system-ui, sans-serif. Body text is var(--section-text-size, 17px) at var(--section-text-line-height, 1.6). An h3 inside a section is a card title at the size the section gives it. Never name a font.
+TYPE TOKENS: a section heading is font-size: var(--section-heading-size, 32px); line-height: var(--section-heading-line-height, 1.15); font-weight: var(--section-heading-weight, 700); letter-spacing: var(--section-heading-tracking, -0.01em); text-transform: var(--section-heading-transform, none); font-family: var(--theme-font-heading, {{ theme.typography.heading }}), ui-sans-serif, system-ui, sans-serif. Body text is var(--section-text-size, 17px) at var(--section-text-line-height, 1.6). An h3 inside a section is a card title at the size the section gives it. Naming a font is allowed.
 
 SPACING: padding_top and padding_bottom are range settings, 0 to 160 px in steps of 4, usually 72; the root sets --s-pt: {{ settings.padding_top }}px; --s-pb: {{ settings.padding_bottom }}px and the inner wrapper pads calc(var(--s-pt) * var(--theme-spacing-scale, 1)) top, var(--theme-padding-x, 24px) at the sides. Content width is a max_width select: narrow 720px, medium 960px, wide var(--theme-page-width, 1280px), full. Inside, gaps sit on the 4px scale (8, 12, 16, 24, 32, 40) and the same kind of gap is the same everywhere.
 
-BUTTONS: a link with its words in a text setting and its address in a url setting beside it, painted from the scheme: background var(--s-btn), color var(--s-btn-text), corners var(--s-radius) (--s-radius: {{ theme.radius.medium }}px on the root), and a :hover from var(--s-btn-hover) and var(--s-btn-hover-text), never an opacity change. A second action is the secondary button (the --s-btn2 keys) or a plain link. data-sl-button on a link lets the theme paint it instead.
+BUTTONS: a link with its words in a text setting and its address in a url setting beside it. It may be painted from the scheme: background var(--s-btn), color var(--s-btn-text), corners var(--s-radius) (--s-radius: {{ theme.radius.medium }}px on the root), and a :hover from var(--s-btn-hover) and var(--s-btn-hover-text). Its own paint is allowed. A second action is the secondary button (the --s-btn2 keys) or a plain link. data-sl-button on a link lets the theme paint it instead.
 
 LINKS: every href is a url setting through the url filter: href="{{ settings.button_url | default: '#' | url }}". Button words name what happens.
 
@@ -69,11 +69,11 @@ IMAGES: an image_picker setting (never text holding an address), printed behind 
 
 MENUS: one link_list setting, default "main-menu", looped {% for link in settings.menu.links %}, sub links in link.links. Never link_1_label, link_1_url pairs.
 
-HEADER: built in; change its settings, never write one. Only a creator who asks for a header of their own gets ONE section with "kind": "header".
+HEADER AND FOOTER: design them freely, with "kind": "header" or "kind": "footer". Keep link_list, link.links, theme.logo and data-storelib-cart, data-storelib-search, data-storelib-menu live.
 
 PRODUCTS: {% for block in products %} holds the creator's published products, newest first: block.id, block.settings.title, .price and .compare_price (already formatted: print them, never compute), .image, .images, .url (its page on the site), .checkout_url (Storelib checkout; empty when it cannot be bought), .available, .tag, .variants, .category and .options. A section offers the shop's products with a source select (shop, or blocks the creator fills). A product page has page.product; its main product section is blocks. {% if products.size == 0 %} is the store with none.
 
-RESPONSIVE: container-type: inline-size on the root; the phone layout is the base CSS, widened with @container (min-width: 640px) and (min-width: 1024px), never @media for width. Nothing wider than a phone without a container query around it; tap targets 44px; motion stops inside @media (prefers-reduced-motion: reduce).
+RESPONSIVE: the builder measures the section, not the window, so container-type: inline-size and @container (min-width: 640px) are how a phone layout stays honest. The layout itself is the section's. Motion is the section's own; prefers-reduced-motion is a courtesy.
 
 EDITOR ONLY: a line asking the creator to add something sits behind {% if page.in_editor %} and never reaches a visitor.`
 
@@ -82,7 +82,7 @@ export const QUALITY_CHECKLIST = `A GOOD SECTION, CHECKED BEFORE YOU CALL ONE FI
 2. Spacing rhythm: the page's own padding values on padding_top and padding_bottom, gaps on the 4px scale, the same gap between the same kind of thing.
 3. One clear action: at most one primary button, its words naming what happens (Buy the preset pack, See the course); anything else is a secondary button or a link.
 4. Mobile first: one column that reads top to bottom on a phone, 44px taps, no sideways scroll; wider layouts added with @container.
-5. Scheme tokens, not raw colours: every colour a var(--s-*) from the section's colour scheme, each element with its own color setting defaulting to a scheme colour; white or black only over a photograph.
+5. Colours may follow the scheme (var(--s-*)) or be color settings the creator overwrites. A fixed colour is allowed.
 6. Real content: the creator's products (products, or the store you are shown), their names, prices and words; no lorem ipsum, no invented review, statistic, logo or customer count.
 7. Native: every word, link and picture a setting or a block, a preset that arrives filled, and nothing that breaks when the section is on the page twice.`
 
@@ -203,7 +203,7 @@ function referenceSections(types: readonly string[]): string {
     })
     .filter(Boolean)
   return [
-    `${COUNT[shown.length] ?? shown.length} OF STORELIB'S OWN SECTIONS, WHOLE (comments taken out, and the reduced motion rule your sections must have added where one was missing). Read them for the shape: how the root takes the scheme, how the head, the content and the action are laid out and spaced, how blocks${types.includes("product_featured") ? " and products are" : " are"} looped, how the schema is ordered and what the presets arrive with. Never copy their words: write about this creator.`,
+    `${COUNT[shown.length] ?? shown.length} OF STORELIB'S OWN SECTIONS, WHOLE (comments taken out; a reduced-motion courtesy is added where one was missing). Read them for the shape: how the root takes the scheme, how the head, the content and the action are laid out and spaced, how blocks${types.includes("product_featured") ? " and products are" : " are"} looped, how the schema is ordered and what the presets arrive with. Never copy their words: write about this creator.`,
     ...shown,
   ].join("\n\n")
 }

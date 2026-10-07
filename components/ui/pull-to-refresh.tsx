@@ -75,12 +75,15 @@ export function PullToRefresh({
   children,
   className,
   fill = false,
+  spinnerYOffset = 0,
 }: {
   onRefresh: () => Promise<unknown> | void
   children: ReactNode
   className?: string
   /** For a page that is its own scroll box at full height (h-full): the wrapper passes the height through. */
   fill?: boolean
+  /** Nudge the iOS spokes indicator down (px). */
+  spinnerYOffset?: number
 }) {
   const rootRef = useRef<HTMLDivElement>(null)
   const scrollerRef = useRef<HTMLElement | null>(null)
@@ -110,6 +113,7 @@ export function PullToRefresh({
     listenOn: rootRef,
     /* Whatever is inside is somebody else's: a sideways row keeps its swipe without having to be named. */
     axisFirst: true,
+    spinnerYOffset,
   })
 
   const pathname = usePathname()
@@ -156,11 +160,12 @@ function PullSpokes({ ref }: { ref: React.Ref<HTMLDivElement> }) {
       ref={ref}
       aria-hidden
       data-ptr-indicator=""
-      className="pointer-events-none absolute left-1/2 top-0 z-20 -ml-[12px] origin-center text-[#8a8f98]"
+      data-keep-transform=""
+      className="pointer-events-none absolute left-1/2 -top-1 z-20 -ml-[12px] origin-center text-[#8a8f98]"
       style={{ width: SPOKES_SIZE, height: SPOKES_SIZE, transform: "translate3d(0, 0, 0) scale(0)", opacity: 0 }}
     >
-      <span data-ptr-turn="" className="block h-full w-full">
-        <span data-ptr-spin="" className="block h-full w-full">
+      <span data-ptr-turn="" data-keep-transform="" className="block h-full w-full">
+        <span data-ptr-spin="" data-keep-transform="" className="block h-full w-full">
           <svg viewBox="0 0 24 24" width={SPOKES_SIZE} height={SPOKES_SIZE} className="block">
             {SPINNER_SPOKES.map((l, i) => (
               <line key={i} data-ptr-spoke="" data-rest={l.opacity} x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} stroke="currentColor" strokeWidth="2" strokeLinecap="round" style={{ opacity: 0 }} />
@@ -200,10 +205,22 @@ export function dispatchPullRefresh(scope: string): Promise<void> {
 }
 
 /** A page whose data a listener owns: the pull is the event, and the ring waits for the listener. */
-export function PullToRefreshEvent({ scope, children, className, fill }: { scope: string; children: ReactNode; className?: string; fill?: boolean }) {
+export function PullToRefreshEvent({
+  scope,
+  children,
+  className,
+  fill,
+  spinnerYOffset,
+}: {
+  scope: string
+  children: ReactNode
+  className?: string
+  fill?: boolean
+  spinnerYOffset?: number
+}) {
   const onRefresh = useCallback(() => dispatchPullRefresh(scope), [scope])
   return (
-    <PullToRefresh onRefresh={onRefresh} className={className} fill={fill}>
+    <PullToRefresh onRefresh={onRefresh} className={className} fill={fill} spinnerYOffset={spinnerYOffset}>
       {children}
     </PullToRefresh>
   )
@@ -219,7 +236,19 @@ export function PullToRefreshEvent({ scope, children, className, fill }: { scope
  * translated down for the spinner that read as two copies of the same header
  * stacked on each other (/app home, Analytics, account).
  */
-export function RouterPullToRefresh({ scope, children, className, fill }: { scope: string; children: ReactNode; className?: string; fill?: boolean }) {
+export function RouterPullToRefresh({
+  scope,
+  children,
+  className,
+  fill,
+  spinnerYOffset,
+}: {
+  scope: string
+  children: ReactNode
+  className?: string
+  fill?: boolean
+  spinnerYOffset?: number
+}) {
   const router = useRouter()
   const onRefresh = useCallback(() => {
     const server = new Promise<void>((resolve) => {
@@ -231,7 +260,7 @@ export function RouterPullToRefresh({ scope, children, className, fill }: { scop
     return Promise.all([server, dispatchPullRefresh(scope)])
   }, [router, scope])
   return (
-    <PullToRefresh onRefresh={onRefresh} className={className} fill={fill}>
+    <PullToRefresh onRefresh={onRefresh} className={className} fill={fill} spinnerYOffset={spinnerYOffset}>
       {children}
     </PullToRefresh>
   )

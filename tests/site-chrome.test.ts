@@ -7,8 +7,9 @@
  * cart drawer, the search or a working menu. And a section could not offer a
  * colour of its own, because the panel hid every colour setting.
  *
- * A new header file that does not say "kind": "header" is still refused at
- * every door. One that is already there (an imported theme, a site saved
+ * A header file under any name but sections/header.storelib is saved. Those
+ * two reserved filenames are refused so they do not shadow the built-in
+ * sections. A header that is already there (an imported theme, a site saved
  * before) is kept and placed in the Header group as the one header, with the
  * built-in hidden (tests/section-groups.test.ts drives that).
  *
@@ -85,30 +86,31 @@ async function main() {
   check("but a <header> around a heading is a heading",
     chromeRoleOf({ schema: { name: "Intro" }, template: "<header class='x'><h1>Title</h1></header>" }) === null)
 
-  console.log("\nThe save door refuses a header that does not say so, for everybody")
+  console.log("\nThe save door reserves the built-in filenames, and saves a header of your own")
   const untouched = { from: () => { throw new Error("the database was reached") } }
-  const asHeader = await saveThemeFile(untouched, "install-1", "sections/site_header.storelib", renamed("site_header", "Site header"))
-  check("a section file named Site header is refused, before the database", asHeader.ok === false && asHeader.status === 422, asHeader)
-  check("and the refusal says what to change instead",
-    asHeader.ok === false && /one header/.test(asHeader.error) && /nav_link/.test(asHeader.error) && /sticky/.test(asHeader.error))
+  let customThrew = ""
+  try {
+    await saveThemeFile(untouched, "install-1", "sections/site_header.storelib", renamed("site_header", "Site header"))
+  } catch (e) {
+    customThrew = e instanceof Error ? e.message : String(e)
+  }
+  check("a section file named Site header is not refused as chrome; it reaches the database", /database was reached/.test(customThrew), customThrew)
   const atHeaderPath = await saveThemeFile(untouched, "install-1", "sections/header.storelib", renamed("header", "Brand strip"))
-  check("so is any file at sections/header.storelib, whatever it calls itself", atHeaderPath.ok === false && atHeaderPath.status === 422)
-  const footer = await saveThemeFile(untouched, "install-1", "sections/site_footer.storelib", renamed("site_footer", "Site footer"))
-  check("and a footer", footer.ok === false && /one footer/.test(footer.ok === false ? footer.error : ""))
+  check("sections/header.storelib is reserved, before the database", atHeaderPath.ok === false && atHeaderPath.status === 422)
+  check("and the message says to use another name and keep the live values",
+    atHeaderPath.ok === false && /sections\/<name>/.test(atHeaderPath.error) && /link_list/.test(atHeaderPath.error) && /data-storelib-cart/.test(atHeaderPath.error))
+  const footer = await saveThemeFile(untouched, "install-1", "sections/footer.storelib", renamed("footer", "Site footer"))
+  check("and sections/footer.storelib", footer.ok === false && footer.status === 422 && /link_list/.test(footer.ok === false ? footer.error : ""))
 
-  console.log("\nAn agent is told, first and alone")
+  console.log("\nAn agent is told to design it and keep the live values")
   const findings = checkSectionIntegration(renamed("navbar", "Navbar"))
-  check("the integration check names it and nothing else", findings.length === 1 && findings[0].id === "integration-chrome" && findings[0].severity === "error", findings.map((f) => f.id))
-  check("the builder's AI is told the same", /THERE IS ONE HEADER AND ONE FOOTER/.test(read("lib/website-builder/agent/loop.ts")))
-  check("and so is every agent over MCP", /There is ONE header and ONE footer/.test(read("lib/agent-rules/index.ts")))
+  check("a navbar is not refused for being a header", !findings.some((f) => f.id === "integration-chrome" || f.severity === "error"), findings.map((f) => `${f.id}:${f.severity}`))
+  check("the builder's AI is told design is free", /HEADER AND FOOTER ARE DESIGNED FREELY/.test(read("lib/website-builder/agent/loop.ts")))
+  check("and so is every agent over MCP", /Design it freely/.test(read("lib/agent-rules/index.ts")))
   const chromeTopic = ALL_TOPICS.find((t) => t.id === "site-chrome")
   check("the AI's reference for the header is retrieved by a header request", !!chromeTopic && chromeTopic.triggers.test("make my header sticky like this screenshot"))
-  const headerIds = new Set((SECTION_SCHEMAS.header.fields ?? []).map((f) => f.id))
-  const footerIds = new Set((SECTION_SCHEMAS.footer.fields ?? []).map((f) => f.id))
-  /* Block and schema names, the setting types a header of the creator's own uses, the theme setting the logo's name is, a logo_mode value and the two menu tools are not header settings. */
-  const named = [...(chromeTopic?.text ?? "").matchAll(/\b([a-z]+(?:_[a-z0-9]+)+)\b/g)].map((m) => m[1]).filter((id) => !["nav_link", "link_type", "parent_id", "footer_column", "footer_link", "link_list", "image_picker", "enabled_on", "brand_name", "image_text", "read_menus", "edit_menu"].includes(id))
-  const unknown = named.filter((id) => !headerIds.has(id) && !footerIds.has(id))
-  check("and every setting it names is one the header or footer really has", named.length > 15 && unknown.length === 0, unknown)
+  const topic = chromeTopic?.text ?? ""
+  check("and it names the live hooks, not a ban on writing one", /link_list/.test(topic) && /theme\.logo/.test(topic) && /data-storelib-cart/.test(topic) && /data-storelib-search/.test(topic) && /data-storelib-menu/.test(topic) && /checkout_url/.test(topic) && !/NEVER write/.test(topic) && !/refused on save/.test(topic))
 
   console.log("\nA theme back from ChatGPT keeps its header file, and draws one header")
   const pkgFiles: Record<string, string> = {

@@ -230,16 +230,9 @@ export function commentsRoom(expected: number): number {
   return 44 + 24 + (n ? n * (narrow ? 112 : 100) + (n - 1) * 16 : 20)
 }
 
-/** The kept room while comments are read: still, no shimmer, the comment box's outline where it will be. */
+/** The kept room while comments are read: the same white as the sheet, no grey shapes that pop in and out. */
 export function CommentsPlaceholder({ expected }: { expected: number }) {
-  return (
-    <div style={{ minHeight: commentsRoom(expected) }} aria-hidden data-comments-loading="">
-      <div className="flex items-start gap-2.5">
-        <span className="mt-1 h-8 w-8 shrink-0 rounded-full bg-[#f1f2f4]" />
-        <span className="h-[42px] flex-1 rounded-[10px] border border-[#eceef1]" />
-      </div>
-    </div>
-  )
+  return <div style={{ minHeight: commentsRoom(expected) }} aria-hidden data-comments-loading="" />
 }
 
 export function CommentsSection({ post, slug, viewer, initial, me: givenMe = null, readOnly = false, commentsEnabled: givenEnabled = true, boxRef, onCount, expected = 0, fadeIn = false, visitor = false, pinComposer = false, dockComposer = false }: CommentsSectionProps) {
@@ -549,7 +542,7 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
               ? "fixed inset-x-0 z-[80] border-t border-[#f0f1f3] bg-white px-4 pt-2 shadow-[0_-8px_24px_-16px_rgba(16,24,40,0.18)]"
               : "relative"
             : pinComposer
-              ? "sticky bottom-0 z-[3] -mx-4 mt-auto border-t border-[#f0f1f3] bg-white px-4 pt-2 shadow-[0_-10px_28px_-18px_rgba(16,24,40,0.14)] sm:mx-0"
+              ? "sticky bottom-0 z-[3] -mx-4 mt-auto border-t border-[#eceef1] bg-white px-4 pt-3 shadow-[0_-1px_0_#fff] sm:mx-0"
               : "relative"
         }
         style={
@@ -615,8 +608,12 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
           ))}
         </ul>
       ) : (
-        <p className={`${listGap} text-[14px] text-[#8a8f98] ${arrived ? "animate-in fade-in-0 duration-200 ease-out motion-reduce:animate-none" : ""}`} data-comments-empty="">
-          No comments yet.{open ? " Say something first." : ""}
+        <p
+          className={`${pinComposer ? "flex flex-1 flex-col items-center justify-center px-8 py-10 text-center" : listGap} text-[14px] leading-relaxed text-[#8a8f98] ${arrived ? "animate-in fade-in-0 duration-200 ease-out motion-reduce:animate-none" : ""}`}
+          data-comments-empty=""
+        >
+          <span>No comments yet.</span>
+          {open ? <span className="mt-1 block text-[13px] text-[#a3a8b0]">Say something first.</span> : null}
         </p>
       )}
       {cursor ? (

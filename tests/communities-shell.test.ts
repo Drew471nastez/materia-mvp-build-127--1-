@@ -79,7 +79,7 @@ import { communityGallery, loadSalesPage, topBarData } from "@/lib/communities/s
 import { adminCount, communityStats, HEARTBEAT_MS, onlineCount, ONLINE_WINDOW_MS, touchPresence } from "@/lib/communities/server/presence"
 import { RATE_LIMITS, rateBucket } from "@/lib/communities/limits"
 import { FEED_SORTS, cursorAfter, decodeCursor, encodeCursor, feedSort, keysetCondition, listFeed, unreadSince } from "@/lib/communities/server/feed"
-import { AHEAD_MAX, FRESH_MS, addPost, clearViews, dropSaved, firstPage, loadView, patchPost, prefetchView, prefetchViews, readView, viewKey, viewUrl, writeView } from "@/components/community/member/feed-cache"
+import { AHEAD_AT_ONCE, AHEAD_MAX, FRESH_MS, addPost, clearViews, dropSaved, firstPage, loadView, patchPost, prefetchView, prefetchViews, readView, viewKey, viewUrl, writeView } from "@/components/community/member/feed-cache"
 
 let passed = 0
 let failed = 0
@@ -853,10 +853,10 @@ async function main() {
     check("a chat space stays a page of its own", /s\.kind === "chat" \? \{\} : switching\(/.test(chips))
     check("and the switching chips are not prefetched as pages (the list comes from the API, once)", /prefetch: false/.test(chips))
     check("the address follows with pushState (Next's router keeps up), and Back is read from it", /window\.history\.pushState\(null, "", href\)/.test(feed) && /window\.addEventListener\("popstate", on\)/.test(feed) && /targetFromPath\(livePath \|\| pathname, slug, spaces, start\)/.test(feed))
-    check("a cached list on the very next render (read during render, not after an effect)", /const cached = shown\.key === key \? shown\.view : \(readView\(key\) \?\? null\)/.test(feed))
-    check("round 9, ask 22: the list on screen stays while the next one loads; only an empty list gives way to the spinner (never a skeleton)", /const view = cached \?\? shown\.view/.test(feed) && /afterSpinner\.current = empty/.test(feed) && /spinner=\{slow && waiting\}/.test(feed) && /spinner && posts\.length === 0 \? \(\s*<PlaceSpinner compact label="Loading posts" \/>/.test(feed) && /data-feed-list-stale/.test(feed) && !/Skeleton/.test(feed))
+    check("a cached list on the very next render (read during render, not after an effect)", /shown\.key === key \? shown\.view : \(readView\(key\) \?\? null\)/.test(feed))
+    check("an uncached space keeps the posts on screen; the spinner is only when nothing is there", /const held = shown\.view\.posts\.length \? shown\.view : null/.test(feed) && /const cached = asked \?\? listed \?\? held/.test(feed) && /const view = cached \?\? EMPTY_LIST/.test(feed) && /const waiting = !asked && view\.posts\.length === 0/.test(feed) && /readView\(viewKey\(communityId, targetFromId\(targetId\), sort\)\)/.test(feed) && /spinner && posts\.length === 0 \? \(\s*<PlaceSpinner compact label="Loading posts" \/>/.test(feed) && !/data-feed-list-stale/.test(feed) && !/Skeleton/.test(feed))
     check("round 15: only the list that takes the spinner's place eases in (from 0); a list over another list is simply there", /const drawnKey = cached \? key : shown\.key/.test(feed) && /if \(!fromSpinner \|\| !el/.test(feed) && /el\.animate\(\[\{ opacity: 0 \}, \{ opacity: 1 \}\], \{ duration: ARRIVE_MS, easing: ARRIVE_EASE \}\)/.test(feed) && /prefers-reduced-motion: reduce/.test(feed))
-    check("round 9: once idle the feed reads the first page of All and every feed space ahead, one at a time, never a chat space", /whenIdle\(\(\) =>\s*void prefetchViews\(communityId, aheadTargets, "default", \(\) => stopped\)/.test(feed) && /spaces\.filter\(\(s\) => s\.kind !== "chat"\)/.test(feed))
+    check("round 9: the feed reads the first page of All and every feed space ahead as soon as it is on screen, a few at a time, never a chat space", /requestAnimationFrame\(\(\) => \{\s*void prefetchViews\(communityId, aheadTargets, "default", \(\) => stopped\)/.test(feed) && /spaces\.filter\(\(s\) => s\.kind !== "chat"\)/.test(feed))
     check("asked for ahead: a pointer resting on a chip, a finger landing, the keyboard", /onPointerEnter: onIntent \? \(e: React\.PointerEvent\) => e\.pointerType === "mouse" && onIntent\(pick\)/.test(chips) && /* Round 10: the finger landing also marks the chip pressed (ui.ts press). */ /onPointerDown: \(e: React\.PointerEvent<HTMLAnchorElement>\) => \{\s*press\(e\)\s*onIntent\?\.\(pick\)/.test(chips) && /onFocus: onIntent/.test(chips) && /prefetchView\(communityId, next/.test(feed))
     check("a stale list (over a minute) is shown at once and read again quietly", /Date\.now\(\) - have\.at > FRESH_MS && have\.pages <= 1/.test(feed) && FRESH_MS === 60_000)
     check("pinned posts lead only in Default", /const lead = listSort === "default" && listTarget\.kind !== "saved"/.test(feed))
@@ -918,7 +918,7 @@ async function main() {
         writeView(viewKey("c", { kind: "all" }, "default"), { posts: [], cursor: null, at: Date.now(), pages: 1 })
         const targets = [{ kind: "all" as const }, ...Array.from({ length: 15 }, (_, i) => ({ kind: "space" as const, id: `s${i}` }))]
         const asked = await prefetchViews("c", targets, "default")
-        check("reading ahead: one ask at a time, the list already fresh skipped, at most AHEAD_MAX lists", most === 1 && asked === AHEAD_MAX - 1 && urls.length === AHEAD_MAX - 1 && !urls.some((u) => !/space=/.test(u)) && AHEAD_MAX === 12, { most, asked, n: urls.length })
+        check("reading ahead: a few at a time, the list already fresh skipped, at most AHEAD_MAX lists", most === AHEAD_AT_ONCE && asked === AHEAD_MAX - 1 && urls.length === AHEAD_MAX - 1 && !urls.some((u) => !/space=/.test(u)) && AHEAD_MAX === 12 && AHEAD_AT_ONCE === 4, { most, asked, n: urls.length })
         const again = await prefetchViews("c", targets, "default")
         let stopAfter = 0
         clearViews()

@@ -1015,6 +1015,7 @@ export function AccountSettings({
   cover = { url: null, supported: false },
   location,
   initialSection = "profile",
+  onBack,
 }: {
   userId: string
   email: string
@@ -1042,6 +1043,8 @@ export function AccountSettings({
   location?: ProfileLocation & { supported: boolean }
   /** From ?section=, so the profile's Settings pill lands on Account. */
   initialSection?: SectionKey
+  /** Set when Settings is a layer over the profile: the chevron closes it instead of leaving the address. */
+  onBack?: () => void
 }) {
   /* Edit profile lands on the profile's own fields, which is what it promised. */
   const [section, setSection] = useState<SectionKey>(initialSection)
@@ -1085,7 +1088,7 @@ export function AccountSettings({
           (components/navigation/back-control.tsx). Opened cold, it opens the
           profile.
         */}
-        <BackControl fallback={BACK_TO} label="Back to profile" className="h-9 w-9 rounded-[9px]" data-account-settings-close="" />
+        <BackControl fallback={BACK_TO} label="Back to profile" onBack={onBack} className="h-9 w-9 rounded-[9px]" data-account-settings-close="" />
         <h1 className="min-w-0 truncate text-[24px] font-bold tracking-[-0.01em] text-[#1a1a2e] sm:text-[28px]">Settings</h1>
       </div>
 

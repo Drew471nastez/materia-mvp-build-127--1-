@@ -221,6 +221,20 @@ export function applyStripeNavGuard(): void {
       _replace(String(url))
     }
   } catch { /* ignore */ }
+
+  /*
+    location.href cannot be replaced on iOS, but a top-level navigation to
+    Stripe's site can still be cancelled where the browser allows it. That is
+    the hop that opens the system browser from payout setup.
+  */
+  try {
+    const nav = (window as unknown as { navigation?: { addEventListener: (type: string, fn: (e: Event) => void) => void } }).navigation
+    nav?.addEventListener("navigate", (event) => {
+      const e = event as Event & { destination?: { url?: string }; cancelable: boolean; preventDefault: () => void }
+      const url = e.destination?.url
+      if (url && isStripeTopLevelNav(url) && e.cancelable) e.preventDefault()
+    })
+  } catch { /* ignore */ }
 }
 
 /**

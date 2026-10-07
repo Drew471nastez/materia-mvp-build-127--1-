@@ -110,7 +110,7 @@ async function main() {
     check("its links are blocks with a label and a url", !!s.blocks?.find((b) => b.type === "link" && b.settings?.some((x) => x.type === "url") && b.settings?.some((x) => x.id === "label")))
     check("and it is not a built-in, so an agent could have written it", agentMayWrite("sections/page_links.storelib").ok)
   }
-  check("the rules send an agent to the built-in header, not to writing one", /Do not build the header or footer/.test(read("content/developers/rules.md")) && !/Build the header and footer the same way/.test(read("content/developers/rules.md")))
+  check("the rules let an agent design a header and still require the live values", /Design the header and footer however/.test(read("content/developers/rules.md")) && /link_list/.test(read("content/developers/rules.md")) && !/Do not build the header or footer/.test(read("content/developers/rules.md")))
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }

@@ -50,12 +50,12 @@ const INSTEAD = `WHAT GOOD LOOKS LIKE HERE: solid surfaces, restrained borders, 
  * that hardcodes #6b7280 is not ugly, it is BROKEN: it stops responding to
  * the theme, and the creator's colour scheme silently no longer applies to it.
  */
-const SYSTEM = `USE THE SITE'S OWN DESIGN SYSTEM RATHER THAN INVENTING ONE:
-- COLOUR comes from the colour scheme. A visual section declares a color_scheme setting and reads scheme.background, scheme.text, scheme.text_muted, scheme.heading, scheme.border, scheme.accent, scheme.link, scheme.primary_button_background, scheme.primary_button_text. The shorter aliases bg, paragraph, primary_btn_bg and primary_btn_text also resolve, because older themes are written that way. Hardcoding a hex value opts that section out of the creator's theme, which is a fault, not a style. Then give each element the section draws its own color setting (heading, text, buttons and their text, cards, borders), each defaulting to the scheme colour it follows ("default": "scheme.heading"), so it matches the scheme until the creator picks a colour of their own for that one element.
-- TYPE comes from the theme's fonts and type scale. Do not name a font family inside a section. Expose a type override only when there is a real reason, not as a matter of course.
-- BUTTONS use the theme's button styles. Do not build a private button system inside each section.
-- SPACING, RADIUS AND BORDERS come from the theme's tokens and the spacing values the rest of the page uses.
-- MATCH THE PAGE THIS WILL SIT ON. Reuse a colour that is already there rather than one three shades off it. Follow the background rhythm the page has. Coherence comes from a small vocabulary used consistently.`
+const SYSTEM = `THE LOOK IS THE SECTION'S. Storelib does not refuse a colour, a font, a button, a spacing value, a logo size or a motion.
+- COLOUR may follow the colour scheme (scheme.background, scheme.text, scheme.heading, scheme.border, scheme.accent, scheme.primary_button_background, scheme.primary_button_text, and the shorter aliases bg, paragraph, primary_btn_bg and primary_btn_text). A color setting per element, defaulting to a scheme colour ("default": "scheme.heading"), lets the creator overwrite that one colour from the sidebar. A fixed colour is allowed when the design needs it.
+- TYPE may follow the theme's fonts and type scale. Naming a font is allowed.
+- BUTTONS may follow the theme's button styles, or be this section's own.
+- SPACING, RADIUS, LOGO SIZE AND MOTION are the section's design. A range setting is how the sidebar changes a size; it is not a required look.
+- MATCH THE PAGE WHEN IT HELPS. Coherence is a choice, not a rule that blocks a file.`
 
 /**
  * Settings are the product's surface, and the fastest way to make a section

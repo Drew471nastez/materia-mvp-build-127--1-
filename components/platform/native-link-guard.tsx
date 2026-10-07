@@ -42,6 +42,27 @@ function sameHost(href: string): boolean {
   }
 }
 
+/** Stripe's hosted pages. Opening one is what sends payout setup to the system browser. */
+function stripeLeavesApp(href: string): boolean {
+  return /^https?:\/\/(?:js\.stripe\.com|connect\.stripe\.com)\//.test(href)
+}
+
+/** Not null (Stripe would then navigate this page) and not this window (Stripe would set its address). */
+function fakeStripeWindow(url: string): Window {
+  const stub = {
+    closed: false,
+    close() {
+      stub.closed = true
+    },
+    focus() {},
+    blur() {},
+    postMessage() {},
+    location: { href: url },
+    opener: null as Window | null,
+  }
+  return stub as unknown as Window
+}
+
 export function NativeLinkGuard() {
   const router = useRouter()
   /* The router the listeners use, kept current without reinstalling them. */
@@ -55,6 +76,11 @@ export function NativeLinkGuard() {
       if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
       const a = (e.target as Element | null)?.closest?.("a[href]") as HTMLAnchorElement | null
       if (!a || a.hasAttribute("download")) return
+      /* A tap that would leave for Stripe's site stays on this page. The embedded form is the iframe. */
+      if (stripeLeavesApp(a.href)) {
+        e.preventDefault()
+        return
+      }
       const link = nativeLinkFor(a.href)
       if (link.kind === "none" || link.kind === "external") return
       const newWindow = !!a.target && !["_self", "_top", "_parent"].includes(a.target)
@@ -93,8 +119,8 @@ export function NativeLinkGuard() {
         sheet.__storelibSheet = undefined
         return before.call(window, url as string, target, features)
       }
-      /* Payout setup's embedded form must not pop the system browser. */
-      if (href && /https?:\/\/(?:js\.stripe\.com|connect\.stripe\.com)\//.test(href)) return window
+      /* A popup of Stripe's site is not this window, or the app would follow it out to the browser. */
+      if (href && stripeLeavesApp(href)) return fakeStripeWindow(href)
       if (href) {
         const link = nativeLinkFor(href)
         if ((link.kind === "path" || link.kind === "host") && navigateInApp(link.kind === "path" ? link.path : link.url, routerRef.current)) return window

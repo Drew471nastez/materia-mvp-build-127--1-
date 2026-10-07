@@ -2,14 +2,13 @@
 
 Eight complete sections. Each is a real `.storelib` file that the test suite compiles, and runs through the same quality checks the builder applies to AI-written sections, on every change to the platform. If one of these stopped compiling, the change that broke it would not ship. Copy any of them into the code editor as `sections/<type>.storelib` and it works as shown.
 
-Every example follows the same conventions, which are the library's own:
+The examples below are written one way. That way is not a rule. A section may use other colours, other type, other motion and another layout. What they do share, and what a save still checks, is live values and editable content:
 
-- The root reads the colour scheme with `data-scheme="{{ settings.color_scheme }}"`, and every colour comes from a `--scheme-*` variable.
-- Spacing is two `range` settings, passed to CSS as custom properties on the root.
-- `container-type: inline-size` on the root, a phone layout as the base, and `@container` for wider.
 - Ids are built from `{{ section.id }}`, so each section can appear on a page twice.
-- Anything that moves stops under `prefers-reduced-motion`.
+- Words, links and pictures are settings or blocks.
 - Empty states sit behind `page.in_editor`.
+
+These particular files also happen to read a colour scheme, use `padding_top` and `padding_bottom`, lay out with `@container`, and stop motion under `prefers-reduced-motion`. Copy that when it helps. It is not required.
 
 ## Sign-up card
 

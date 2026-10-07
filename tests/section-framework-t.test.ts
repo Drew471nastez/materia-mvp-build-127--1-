@@ -339,7 +339,8 @@ function main() {
     check("an announcement bar in the header group is not refused as a header", chromeRoleOf({ schema: { name: "Announcement bar", enabled_on: { groups: ["header"] } } }) === null)
     check("a section that declares kind header is not refused", chromeRoleOf({ schema: { name: "Header", kind: "header" }, type: "studio_header" }) === null && declaredKind({ kind: "header" }) === "header")
     check("a header that does not say so still is", chromeRoleOf({ schema: { name: "Site header" } }) === "header")
-    check("and the refusal says how to ask for one", /"kind": "header"/.test(checkSectionIntegration(LUCA_HEADER.replace('"name": "Luca top"', '"name": "Header"')).map((f) => f.message).join(" ")))
+    const namedHeader = checkSectionIntegration(LUCA_HEADER.replace('"name": "Luca top"', '"name": "Header"'))
+    check("a file named Header is not refused for being a header", !namedHeader.some((f) => f.id === "integration-chrome"), namedHeader.map((f) => f.id))
 
     const OWN = LUCA_HEADER
       .replace('"name": "Luca top",', '"name": "Luca header",\n  "kind": "header",')
@@ -372,20 +373,21 @@ function main() {
   }
 
   /* ── 7. the header, taught everywhere ─────────────────────────────── */
-  console.log("\n7. Every AI path says: configure the built-in header")
+  console.log("\n7. Every AI path says: design the header, keep the live values")
   {
     const builder = builderAgentRules()
     const loop = read("lib/website-builder/agent/loop.ts")
-    check("Storelib AI: connect to the built-in header, one kind header only on request", /CONNECT TO THEM/.test(loop) && /"kind": "header"/.test(loop) && /Never two headers/.test(loop))
+    check("Storelib AI: a header is designed freely and keeps live values", /HEADER AND FOOTER ARE DESIGNED FREELY/.test(loop) && /"kind": "header"/.test(loop) && /link_list/.test(loop) && /data-storelib-cart/.test(loop))
     check("Storelib AI: pictures, menus and colours, through the shared rules in its prompt", /never a text or url setting holding an address/.test(builder) && /one link_list setting/.test(builder) && /colour setting for every element/.test(builder) && /builderAgentRules\(\)/.test(loop))
     check("the shared rules reach the builder too", /link_list/.test(builder) && /image_picker/.test(builder))
     const outside = agentRulesText()
-    check("MCP and AGENTS.md: configure, and the kind exception", /Connect to them; do not rebuild them/.test(outside) && /"kind": "header"/.test(outside) && /announcement/.test(outside))
-    check("the MCP brief says it on connect", /HEADER AND FOOTER: configure the built-in ones/.test(agentRulesBrief({ siteName: "S", agentName: "A" })))
+    check("MCP and AGENTS.md: design freely, keep live values", /Design it freely/.test(outside) && /"kind": "header"/.test(outside) && /link_list/.test(outside) && /announcement/.test(outside))
+    check("the MCP brief says it on connect", /HEADER AND FOOTER: design them however/.test(agentRulesBrief({ siteName: "S", agentName: "A" })))
     const skills = selectSkills("make my header look like this, with my logo", { fallback: false }).map((s) => s.id)
     check("a header request selects the header skill first", skills[0] === "site-header", skills)
-    check("the header skill says not to write a file", /Do NOT write a section file/.test(skillsForRequest("redesign the header")))
-    check("the framework reference has menus, images and the header", /MENUS: one link_list setting/.test(pageAgentReference()) && /HEADER: built in/.test(pageAgentReference()))
+    const headerSkill = skillsForRequest("redesign the header")
+    check("the header skill says to design it and wire live values", /Design the header or footer however/.test(headerSkill) && /link_list/.test(headerSkill) && /data-storelib-cart/.test(headerSkill))
+    check("the framework reference has menus, images and a free header", /MENUS: one link_list setting/.test(pageAgentReference()) && /HEADER AND FOOTER: design them freely/.test(pageAgentReference()))
     const hf = DEVELOPER_DOCS["header-and-footer"] ?? ""
     check("the docs: a header of your own, and above the header", /## A header of your own/.test(hf) && /## Above the header/.test(hf) && /"kind": "header"/.test(hf))
     const manual = read("docs/storelib-manual.md")

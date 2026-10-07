@@ -61,7 +61,7 @@ export const PULL_TO_REFRESH = {
    */
   tension: 0.94,
   /** The gap held open while the refresh runs. */
-  refreshHold: 34,
+  refreshHold: 32,
   /** The ring's diameter. */
   ringSize: 20,
   /**
@@ -69,7 +69,7 @@ export const PULL_TO_REFRESH = {
    * 20ms and a spinner that appears and vanishes inside one frame reads as a
    * glitch rather than as work.
    */
-  minSpin: 450,
+  minSpin: 300,
 } as const
 
 /**
@@ -149,7 +149,7 @@ const PULL_SCALE_RANGE = 0.16
 /** How long the arc takes to open from a full ring into a spinner's arc. */
 const PIN_TWEEN_MS = 220
 /** How long the ring takes to fade out once the refresh is done. */
-const EXIT_FADE_MS = 260
+const EXIT_FADE_MS = 200
 
 /* ── The spokes ────────────────────────────────────────────────────────────
    Round 11 (components/ui/pull-to-refresh.tsx): the shared component's
@@ -225,6 +225,8 @@ interface Options {
    * must stay theirs.
    */
   axisFirst?: boolean
+  /** Extra px added to the spokes' vertical position (Explore: a little lower). */
+  spinnerYOffset?: number
 }
 
 const reducedMotion = () => {
@@ -273,7 +275,11 @@ export function usePullToRefresh(
     onPhaseChange,
     listenOn,
     axisFirst = false,
+    spinnerYOffset = 0,
   } = options
+
+  const spinnerYOffsetRef = useRef(spinnerYOffset)
+  spinnerYOffsetRef.current = spinnerYOffset
 
   /** The element that slides down. The caller attaches this. */
   const contentRef = useRef<HTMLDivElement | null>(null)
@@ -352,11 +358,15 @@ export function usePullToRefresh(
     const box = containerRef.current
     const onDocument = !box || box === document.scrollingElement || box === document.documentElement || box === document.body
     if (onDocument) {
+      /* The shift mark is what lets this move win (app/globals.css). Without it the rule forces none, the page never moves, and the spinner draws on the first row. */
       el.style.paddingTop = ""
+      if (y === 0) el.removeAttribute("data-ptr-shift")
+      else el.setAttribute("data-ptr-shift", "transform")
       el.style.transform = y === 0 ? "" : `translate3d(0, ${y}px, 0)`
       el.style.willChange = y === 0 ? "" : "transform"
       return
     }
+    el.removeAttribute("data-ptr-shift")
     el.style.transform = "none"
     el.style.willChange = ""
     el.style.paddingTop = y > 0 ? `${y}px` : ""
@@ -388,7 +398,7 @@ export function usePullToRefresh(
       if (!p?.spokes) return
       const at = spokesAt(gap, threshold)
       const scale = at.scale
-      p.root.style.transform = `translate3d(0, ${at.y}px, 0) scale(${scale})`
+      p.root.style.transform = `translate3d(0, ${at.y + spinnerYOffsetRef.current}px, 0) scale(${scale})`
       p.root.style.opacity = String(scale > 0.02 ? 1 - fade : 0)
       const shown = spinning ? 8 : at.shown
       p.spokes.lines.forEach((l, i) => {
@@ -445,6 +455,16 @@ export function usePullToRefresh(
   const holdScroller = useCallback((on: boolean) => {
     const el = containerRef.current
     if (!el) return
+    /* The window scrolls on transform during a pull; locking overflow on <html> stuck the feed. */
+    if (el === document.scrollingElement || el === document.documentElement || el === document.body) {
+      if (!on && overflowHold.current) {
+        const held = overflowHold.current
+        overflowHold.current = null
+        held.el.style.overflowY = held.overflowY
+        held.el.style.overscrollBehavior = held.overscroll
+      }
+      return
+    }
     if (on) {
       if (overflowHold.current) return
       overflowHold.current = { el, overflowY: el.style.overflowY, overscroll: el.style.overscrollBehavior }

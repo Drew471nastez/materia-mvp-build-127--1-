@@ -15,8 +15,7 @@
  */
 import { LIMITS, type ThemeError } from "@/lib/storelib-theme/types"
 import { compileSection, compileThemeFile } from "@/lib/storelib-theme/storelib/compile"
-import { CHROME_TYPES, chromeRefusal, chromeRoleOf, declaredKind, kindTaken } from "@/lib/storelib-theme/chrome"
-import { parseStorelib } from "@/lib/storelib-theme/storelib/parse"
+import { CHROME_TYPES, chromeRefusal, declaredKind, kindTaken } from "@/lib/storelib-theme/chrome"
 import { recordVersion, saveDraft, sourceMap, type FileRow } from "./theme-file-drafts"
 import { DEFAULT_THEME_SOURCES } from "../../themes/default/sources.generated"
 
@@ -125,23 +124,16 @@ export async function saveThemeFile(
      */
     if (/^sections\/[a-z0-9_-]+\.storelib$/.test(path)) {
       /**
-       * NOT A SECOND HEADER OR FOOTER. The site has one of each, built in,
-       * and a file that is another one is a copy without the cart drawer,
-       * the search, the menus or the sticky behaviour, put in the page body
-       * under the real one. Refused for everybody, with what to change
-       * instead: lib/storelib-theme/chrome.ts.
+       * THE NAMES header AND footer ARE THE BUILT-IN SECTIONS. A header or
+       * footer of the creator's own is any other file, designed however they
+       * like. Only these two filenames are refused, so they do not shadow
+       * the built-in sections every page's chrome settings are stored for.
        */
       const fileType = path.slice("sections/".length, -".storelib".length)
-      const parsed = parseStorelib(content, path)
-      const role =
-        (Object.values(CHROME_TYPES) as string[]).includes(fileType)
-          ? (fileType as "header" | "footer")
-          : chromeRoleOf({
-              schema: r.value.schema as unknown as Record<string, unknown>,
-              type: fileType,
-              template: parsed.ok ? parsed.value.template.text : undefined,
-            })
-      if (role) return { ok: false, status: 422, error: chromeRefusal(role) }
+      /* A header or footer of the creator's own is any other file, designed however they like, and placed as the site's header or footer when it says so or reads as one. */
+      if ((Object.values(CHROME_TYPES) as string[]).includes(fileType)) {
+        return { ok: false, status: 422, error: chromeRefusal(fileType as "header" | "footer") }
+      }
 
       const taken = await sectionNamesInUse(db, installId, path)
       /* A header of the creator's own is one file: a second would be two headers. */

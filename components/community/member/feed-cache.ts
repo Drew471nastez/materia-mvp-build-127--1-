@@ -50,6 +50,17 @@ export const MAX_VIEWS = 24
 
 const views = new Map<string, CachedView>()
 const pending = new Map<string, Promise<CachedView | null>>()
+const listeners = new Set<() => void>()
+
+/** The feed draws a space the moment it is written, without waiting for another render of its own. */
+export function subscribeViews(fn: () => void): () => void {
+  listeners.add(fn)
+  return () => listeners.delete(fn)
+}
+
+function notifyViews() {
+  for (const fn of listeners) fn()
+}
 
 export function viewKey(communityId: string, target: FeedTarget, sort: FeedSortValue): string {
   const where = target.kind === "space" ? `space:${target.id}` : target.kind
@@ -83,6 +94,7 @@ export function writeView(key: string, view: CachedView) {
     if (oldest === undefined) break
     views.delete(oldest)
   }
+  notifyViews()
 }
 
 /** A first page as the list draws it: pinned first, each post once. */
@@ -92,22 +104,35 @@ export function firstPage(page: FeedPageData, at = Date.now()): CachedView {
   return { posts, cursor: page.nextCursor ?? null, at, pages: 1 }
 }
 
+/** A read that has not answered by then is given up, so a stuck request cannot hold the spinner. */
+const LOAD_GIVE_UP_MS = 4_000
+
 /**
  * The first page of a view from the server, into the cache. A view already
  * on its way is not asked for twice; the answer is null when it failed (the
- * cache keeps what it had).
+ * cache keeps what it had). A request that never answers is aborted, and the
+ * next ask starts a new one.
  */
 export function loadView(communityId: string, target: FeedTarget, sort: FeedSortValue): Promise<CachedView | null> {
   const key = viewKey(communityId, target, sort)
   const going = pending.get(key)
   if (going) return going
   const run = (async () => {
-    const r = await api<FeedPageData>(viewUrl(communityId, target, sort))
-    if (!r.ok) return null
-    const view = firstPage({ pinned: r.data.pinned ?? [], posts: r.data.posts ?? [], nextCursor: r.data.nextCursor ?? null })
-    writeView(key, view)
-    return view
-  })().finally(() => pending.delete(key))
+    const ctrl = new AbortController()
+    const timer = setTimeout(() => ctrl.abort(), LOAD_GIVE_UP_MS)
+    try {
+      const r = await api<FeedPageData>(viewUrl(communityId, target, sort), { signal: ctrl.signal })
+      if (!r.ok) return null
+      const view = firstPage({ pinned: r.data.pinned ?? [], posts: r.data.posts ?? [], nextCursor: r.data.nextCursor ?? null })
+      writeView(key, view)
+      return view
+    } finally {
+      clearTimeout(timer)
+    }
+  })()
+  void run.finally(() => {
+    if (pending.get(key) === run) pending.delete(key)
+  })
   pending.set(key, run)
   return run
 }
@@ -122,24 +147,35 @@ export function prefetchView(communityId: string, target: FeedTarget, sort: Feed
 
 /** Spaces read ahead at most, on one visit to a feed (a community with dozens of spaces does not ask for all of them). */
 export const AHEAD_MAX = 12
+/** How many of those reads run together. One at a time left the later spaces cold for many seconds. */
+export const AHEAD_AT_ONCE = 4
 
 /**
- * THE FIRST PAGE OF EVERY SPACE, READ AHEAD WHILE NOTHING ELSE IS GOING ON
- * (round 9: "prefetch all places and the first page of each space on
- * idle"). One at a time, not in a burst, each skipped when it is cached and
+ * THE FIRST PAGE OF EVERY SPACE, READ AHEAD (round 9). A few at a time, not
+ * in one long queue: a chip pressed while its space is still waiting on the
+ * ones before it sat on the spinner. Each is skipped when it is cached and
  * fresh or already on its way; `stop` ends the run (the feed went away).
  * Resolves with how many were asked for.
  */
 export async function prefetchViews(communityId: string, targets: FeedTarget[], sort: FeedSortValue, stopped: () => boolean = () => false): Promise<number> {
+  const queue = targets.slice(0, AHEAD_MAX)
   let asked = 0
-  for (const target of targets.slice(0, AHEAD_MAX)) {
-    if (stopped()) break
-    const key = viewKey(communityId, target, sort)
-    const have = views.get(key)
-    if (pending.has(key) || (have && Date.now() - have.at < FRESH_MS)) continue
-    asked++
-    await loadView(communityId, target, sort)
+  let i = 0
+  const worker = async () => {
+    while (true) {
+      if (stopped()) return
+      const index = i++
+      if (index >= queue.length) return
+      const target = queue[index]
+      const key = viewKey(communityId, target, sort)
+      const have = views.get(key)
+      if (pending.has(key) || (have && Date.now() - have.at < FRESH_MS)) continue
+      asked++
+      await loadView(communityId, target, sort)
+    }
   }
+  const n = Math.min(AHEAD_AT_ONCE, queue.length)
+  await Promise.all(Array.from({ length: n }, () => worker()))
   return asked
 }
 

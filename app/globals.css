@@ -605,11 +605,14 @@ html.capacitor body {
   }
 
   /*
-    PULL TO REFRESH: the sliding wrapper is moved with padding, never a
-    transform. A transform inside an overflow scroller paints the top of the
-    page twice on iOS (the greeting left in the gap and again below it).
+    PULL TO REFRESH. Inside an overflow scroller the page moves with padding:
+    a transform there paints the top twice on iOS (the greeting left in the
+    gap and again below it). A page that scrolls the document moves on the
+    compositor instead, and the hook marks that with data-ptr-shift. Forcing
+    none on every pull wrapper left that spinner sitting on the first row,
+    on every page that scrolls the window.
   */
-  [data-pull-content] {
+  [data-pull-content]:not([data-ptr-shift="transform"]) {
     transform: none !important;
     will-change: auto !important;
   }
@@ -3764,6 +3767,13 @@ html.capacitor .app-content-scroll {
    * <html> instead, which restyles the pill and nothing else, and marks its
    * own root `data-sheet-root` so the rule for other dialogs leaves it out.
    */
+  /*
+    SETTINGS OVER THE PROFILE. The sheet is fixed inset-0 at z-index above the
+    header and the phone's tab bar (components/account/settings-subpage.tsx),
+    so it covers them and takes every tap. Hiding them with visibility used to
+    make the header and tab bar pop back in when the sheet closed.
+  */
+
   html[data-app-sheet-up] [data-app-nav-pill],
   html:has([role="dialog"][aria-modal="true"]:not([data-mobile-menu], [aria-hidden="true"], [data-sheet-root])) [data-app-nav-pill],
   body[data-scroll-locked] [data-app-nav-pill] {
@@ -5786,6 +5796,12 @@ html.with-page-library {
 html.pop-in-flight #platform-header-root {
   position: sticky;
   top: 0;
+}
+
+/* After a sliding settings sheet closes, iOS may echo the back tap onto the header menu (lib/navigation/swallow-ghost-taps.ts). */
+html[data-ghost-tap-guard] #platform-header-root,
+html[data-ghost-tap-guard] [data-buyer-tab-bar] {
+  pointer-events: none;
 }
 
 /*

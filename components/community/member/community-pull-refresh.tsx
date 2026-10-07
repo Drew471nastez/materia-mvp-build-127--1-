@@ -18,28 +18,35 @@ import {
   COMMUNITY_LEARN_REFRESH_SCOPE,
   COMMUNITY_MEMBERS_REFRESH_SCOPE,
 } from "@/lib/communities/refresh-scope"
-import { sectionFromPath } from "./nav"
 
-/** Router refresh scopes for tab roots; null means no pull on this path. */
-export function communityPullRouterScope(pathname: string | null, slug: string): string | null {
+/** The path under /community/<slug>, or null when this address is another community. "/" is the home feed. */
+function communityTail(pathname: string | null, slug: string): string | null {
   const base = `/community/${slug}`
   const path = (pathname || "").split(/[?#]/)[0].replace(/\/+$/, "")
   if (!path.startsWith(base)) return null
-  const tail = path.slice(base.length) || "/"
-  if (tail === "/members") return COMMUNITY_MEMBERS_REFRESH_SCOPE
-  if (tail === "/learn") return COMMUNITY_LEARN_REFRESH_SCOPE
-  if (tail === "/events") return COMMUNITY_EVENTS_REFRESH_SCOPE
-  if (tail === "/leaderboard") return COMMUNITY_LEADERBOARD_REFRESH_SCOPE
-  if (tail === "/about") return COMMUNITY_ABOUT_REFRESH_SCOPE
+  const rest = path.slice(base.length)
+  return rest || "/"
+}
+
+/** Router refresh scopes for the section pages; null means this path is not one of them. */
+export function communityPullRouterScope(pathname: string | null, slug: string): string | null {
+  const tail = communityTail(pathname, slug)
+  if (!tail || tail === "/") return null
+  /* A post is its own page. A pull there moves the post and snaps. A space and Membership bring their own pull. */
+  if (tail.startsWith("/post/") || tail.startsWith("/space/") || tail === "/membership" || tail.startsWith("/membership/")) return null
+  if (tail === "/members" || tail.startsWith("/members/")) return COMMUNITY_MEMBERS_REFRESH_SCOPE
+  if (tail === "/learn" || tail.startsWith("/learn/") || tail === "/classroom" || tail.startsWith("/classroom/")) return COMMUNITY_LEARN_REFRESH_SCOPE
+  if (tail === "/events" || tail.startsWith("/events/")) return COMMUNITY_EVENTS_REFRESH_SCOPE
+  if (tail === "/leaderboard" || tail.startsWith("/leaderboard/")) return COMMUNITY_LEADERBOARD_REFRESH_SCOPE
+  if (tail === "/about" || tail.startsWith("/about/")) return COMMUNITY_ABOUT_REFRESH_SCOPE
+  if (tail === "/notifications" || tail.startsWith("/notifications/")) return "community-notifications"
   return null
 }
 
-/** Community home only; a space's feed keeps its own wrapper (chat spaces have no feed pull). */
+/** The home feed and Saved. A space's page brings its own wrapper, so this does not wrap it again. */
 export function communityPullUsesFeed(pathname: string | null, slug: string): boolean {
-  const path = (pathname || "").split(/[?#]/)[0]
-  /* A post is its own page. A pull there translates the post and snaps, which reads as a scroll glitch. */
-  if (/\/post\//.test(path)) return false
-  return sectionFromPath(pathname, slug) === "home"
+  const tail = communityTail(pathname, slug)
+  return tail === "/" || tail === "/saved"
 }
 
 export function CommunityPullRefresh({ slug, children }: { slug: string; children: React.ReactNode }) {

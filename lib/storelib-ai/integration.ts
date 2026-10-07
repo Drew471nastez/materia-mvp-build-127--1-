@@ -2,19 +2,15 @@
  * ===========================================================================
  *  A SECTION AN AGENT WRITES MUST PLUG INTO THE THEME LIKE A NATIVE ONE
  * ===========================================================================
- * quality.ts catches files that are broken: a fixed id, a width media query,
- * motion that ignores the visitor. A file can pass all of that and still be
- * a stranger on the page: its own blue, its own font, a button that ignores
- * the theme's button colours and has no hover, padding nobody can change,
- * a heading typed into the markup, a link to a URL the creator cannot edit.
- * It looks fine the day it is written and wrong the day the creator changes
- * their theme, because it never listened to the theme.
+ * quality.ts catches files that are broken: a fixed id, a width media query.
+ * What a save refuses here is a live Storelib value typed in by hand: a menu
+ * as numbered link pairs, a picture as text, a link or a sentence the creator
+ * cannot change, a header that does not read the site's menu.
  *
- * These checks are what "native" means, written down as the built-in
- * sections already do it (themes/default/sections/*.storelib; cta_simple is
- * the short one to read). Every built-in section passes them, and
- * tests/section-integration.test.ts holds that, so a rule here can never
- * refuse something Storelib itself ships.
+ * Look is not a refusal. Colours, fonts, heading size, button paint, padding,
+ * motion and logo size are the section's design. Those checks are warnings,
+ * so a creator or an outside AI can code a header, a footer or a section the
+ * way they want, and the sidebar can still overwrite a colour.
  *
  * WHO IS HELD TO THEM: every section written by an agent. Storelib AI, Claude
  * Code and Codex over MCP, the agent HTTP API and a push from a linked GitHub
@@ -25,7 +21,7 @@
  */
 
 import { parseStorelib } from "@/lib/storelib-theme/storelib/parse"
-import { chromeRefusal, chromeRoleOf, declaredKind } from "@/lib/storelib-theme/chrome"
+import { declaredKind } from "@/lib/storelib-theme/chrome"
 import { resolveControlType } from "@/lib/storelib-theme/controls/registry"
 import { isImageInDisguise, numberedLinkPairs } from "@/lib/storelib-theme/schema/normalise"
 import type { QualityFinding } from "./quality"
@@ -134,11 +130,9 @@ export function checkSectionIntegration(source: string): QualityFinding[] {
   const frame = FRAME.test(schema.category ?? "") || !!declaredKind(schema as Record<string, unknown>)
   const out: QualityFinding[] = []
   const err = (id: string, message: string) => out.push({ id, severity: "error", message })
+  const note = (id: string, message: string) => out.push({ id, severity: "warning", message })
 
-  /* ── the site's header and footer are not section files ─────────── */
-  /* Alone, and first: nothing else about the file matters if it should not exist (lib/storelib-theme/chrome.ts). */
-  const chrome = chromeRoleOf({ schema: schema as Record<string, unknown>, template: parsed.value.template.text })
-  if (chrome) return [{ id: "integration-chrome", severity: "error", message: chromeRefusal(chrome) }]
+  /* A header or footer is designed freely. What is required is the live menu, not a particular look. */
 
   /* ── a header of the creator's own reads the site's menu ───────────── */
   const kind = declaredKind(schema as Record<string, unknown>)
@@ -153,18 +147,18 @@ export function checkSectionIntegration(source: string): QualityFinding[] {
     err("integration-image-setting", `"${disguised.id}" holds a picture but is declared as "${disguised.type}". A picture is { "type": "image_picker", "id": "${disguised.id}" }, so the creator chooses it from the media library or pastes an address under the picker; print it with {{ settings.${disguised.id} | asset }}.`)
   }
   if (numberedLinkPairs(settings as { id?: unknown }[]) >= 2) {
-    err("integration-menu", `The links are typed out as numbered label and address settings. A menu is one link_list setting, { "type": "link_list", "id": "menu", "label": "Menu", "default": "main-menu" }, which the creator points at one of the site's menus; loop {% for link in settings.menu.links %}. For the site's own navigation, change the built-in header instead of writing one.`)
+    err("integration-menu", `The links are typed out as numbered label and address settings. A menu the site shares is one link_list setting, { "type": "link_list", "id": "menu", "label": "Menu", "default": "main-menu" }; loop {% for link in settings.menu.links %} and {% for child in link.links %} for sub links. How the menu looks is the section's own.`)
   }
 
   /* ── colour scheme ─────────────────────────────────────────────── */
   /* Whatever the scheme setting is called, the root must name it. */
   const schemeId = settings.find((st) => st?.type === "color_scheme")?.id ?? (ids.has("color_scheme") ? "color_scheme" : null)
   if (!schemeId) {
-    err("integration-scheme", `Add a color_scheme setting, and put data-scheme="{{ settings.color_scheme }}" on the section's outermost element. That is how a section takes the site's colours and changes with them.`)
+    note("integration-scheme", `A color_scheme setting and data-scheme="{{ settings.color_scheme }}" on the outermost element let the creator recolour this section from the sidebar. Colours may also be color settings they overwrite. Neither is required.`)
   } else if (!new RegExp(`data-scheme\\s*=\\s*"\\{\\{\\s*settings\\.${schemeId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\}\\}"`).test(template)) {
-    err("integration-scheme-root", `The section declares a colour scheme setting but never applies it. Put data-scheme="{{ settings.${schemeId} }}" on its outermost element.`)
+    note("integration-scheme-root", `The section declares a colour scheme setting but never applies it. Put data-scheme="{{ settings.${schemeId} }}" on its outermost element if the scheme should paint it.`)
   } else if (!/\bscheme\.|--scheme-|--sl-btn/.test(template + css)) {
-    err("integration-scheme-read", `The section never reads its scheme. Take colours from it, as the built-in sections do: style="--s-bg: {{ scheme.bg }}; --s-text: {{ scheme.text }}; ..." on the root, then var(--s-bg) in the CSS.`)
+    note("integration-scheme-read", `The section declares a scheme and does not read it. Colours may come from the scheme, or from color settings the creator overwrites.`)
   }
 
   const literal = declarations(css).filter((d) => COLOUR_PROPS.test(d.prop) && !onlyNeutrals(withoutVarFallbacks(d.value)))
@@ -172,17 +166,17 @@ export function checkSectionIntegration(source: string): QualityFinding[] {
   const inlineLiteral = [...template.matchAll(/style\s*=\s*"([^"]*)"/g)].flatMap((m) => declarations(m[1])).filter((d) => COLOUR_PROPS.test(d.prop) && !onlyNeutrals(withoutVarFallbacks(d.value.replace(/\{\{[^}]*\}\}/g, ""))))
   if (literal.length || inlineLiteral.length) {
     const first = literal[0] ?? inlineLiteral[0]
-    err("integration-colour", `"${first.prop}: ${first.value}" is a fixed colour. It will not change when the creator changes their theme. Use the scheme: var(--s-text), var(--s-heading), var(--s-bg), var(--s-border), var(--s-accent), or a color setting the creator can change.`)
+    note("integration-colour", `"${first.prop}: ${first.value}" is a fixed colour. That is allowed. A color setting, or the scheme (var(--s-text), var(--s-heading), var(--s-bg)), lets the creator overwrite it from the sidebar.`)
   }
 
   /* ── typography ────────────────────────────────────────────────── */
   const fonts = declarations(css).filter((d) => d.prop === "font-family" || (d.prop === "font" && /[a-z]/i.test(d.value)))
   const foreignFont = fonts.find((d) => !/var\(--theme-font|theme\.typography|inherit/.test(d.value))
   if (foreignFont) {
-    err("integration-font", `"${foreignFont.prop}: ${foreignFont.value}" names a font. Type comes from the theme: font-family: var(--theme-font-heading, {{ theme.typography.heading }}) for headings, var(--theme-font-body, {{ theme.typography.body }}) or inherit for text.`)
+    note("integration-font", `"${foreignFont.prop}: ${foreignFont.value}" names a font. That is allowed. The theme's fonts are var(--theme-font-heading, {{ theme.typography.heading }}) and var(--theme-font-body, {{ theme.typography.body }}), if this section should follow them.`)
   }
   if (/<h[1-3][\s>]/i.test(template) && !/--section-heading-|--theme-heading|--type-h[1-6]|theme\.typography/.test(css)) {
-    err("integration-heading", `The headings do not take the theme's heading style. Size and weight them with var(--section-heading-size, 32px), var(--section-heading-weight, 700) and var(--section-heading-line-height, 1.15), so a change in Theme settings, Typography reaches them.`)
+    note("integration-heading", `The headings set their own size. That is allowed. var(--section-heading-size), var(--section-heading-weight) and var(--section-heading-line-height) follow Theme settings, Typography, when this section should.`)
   }
 
   /* ── buttons ───────────────────────────────────────────────────── */
@@ -191,9 +185,9 @@ export function checkSectionIntegration(source: string): QualityFinding[] {
   if (hasButtons) {
     const fromScheme = /primary_btn|secondary_btn|--s-btn|--scheme-button|data-sl-button|--sl-btn/.test(template + css)
     if (!fromScheme) {
-      err("integration-button", `The buttons do not take the scheme's button colours. Put --s-btn: {{ scheme.primary_btn_bg }}; --s-btn-text: {{ scheme.primary_btn_text }} on the root and paint the button with them, so Theme settings, Buttons and the section's colour scheme apply.`)
+      note("integration-button", `The buttons paint themselves. That is allowed. The scheme's button colours are --s-btn: {{ scheme.primary_btn_bg }} and --s-btn-text: {{ scheme.primary_btn_text }}, if this section should follow Theme settings, Buttons.`)
     } else if (!/:hover/.test(css) && !/data-sl-button/.test(template)) {
-      err("integration-button-hover", `The buttons have no hover. Add :hover rules painted from the scheme's hover keys: --s-btn-hover: {{ scheme.primary_btn_hover_bg }} and --s-btn-hover-text: {{ scheme.primary_btn_hover_text }}.`)
+      note("integration-button-hover", `The buttons have no hover. A hover is the section's own, from the scheme (--s-btn-hover: {{ scheme.primary_btn_hover_bg }}) or from whatever the design uses.`)
     }
   }
 
@@ -201,9 +195,9 @@ export function checkSectionIntegration(source: string): QualityFinding[] {
   if (!frame) {
     const pad = ["padding_top", "padding_bottom"].filter((id) => !ids.has(id))
     if (pad.length) {
-      err("integration-spacing", `Add range settings ${pad.join(" and ")} (px, 0 to 160) and use them for the section's vertical padding, so the creator can space it like every other section.`)
+      note("integration-spacing", `padding_top and padding_bottom range settings let the creator space this section from the sidebar. Spacing in the CSS is allowed.`)
     } else if (!/settings\.padding_top/.test(template + css) || !/settings\.padding_bottom/.test(template + css)) {
-      err("integration-spacing-use", `padding_top and padding_bottom are declared but never used. Set --s-pt: {{ settings.padding_top }}px and --s-pb: {{ settings.padding_bottom }}px on the root and pad with them.`)
+      note("integration-spacing-use", `padding_top and padding_bottom are declared but never used. Set --s-pt: {{ settings.padding_top }}px and --s-pb: {{ settings.padding_bottom }}px on the root if the sidebar should space it.`)
     }
   }
 
@@ -247,7 +241,7 @@ export function checkSectionIntegration(source: string): QualityFinding[] {
   /* ── phones ────────────────────────────────────────────────────── */
   const wide = declarations(css).find((d) => /^(width|min-width|flex-basis|grid-template-columns)$/.test(d.prop) && [...d.value.matchAll(/(\d{3,})px/g)].some((m) => Number(m[1]) >= 420))
   if (wide && !/@container/.test(css)) {
-    err("integration-responsive", `"${wide.prop}: ${wide.value}" is wider than a phone and nothing changes it on one. Lay it out for a phone first and widen it inside @container (min-width: 640px), with container-type: inline-size on the root.`)
+    note("integration-responsive", `"${wide.prop}: ${wide.value}" is wider than a phone and nothing changes it on one. The builder measures the section, not the window, so @container (min-width: 640px) with container-type: inline-size is how a phone layout is reliable. The layout itself is the section's.`)
   }
 
   return out
@@ -304,4 +298,4 @@ export function sectionAdvice(source: string): QualityFinding[] {
 }
 
 /** A short statement of the same rules, for a model to read before it writes. */
-export const INTEGRATION_CONTRACT = `NATIVE, NOT PASTED IN: a section takes everything from the theme. data-scheme="{{ settings.color_scheme }}" on the root with its scheme colours as variables and no fixed colours or fonts; a color setting per element drawn, defaulting to a scheme colour ("scheme.heading"); headings sized from var(--section-heading-size); buttons painted from the scheme's button keys with a :hover from its hover keys; padding_top and padding_bottom range settings for its spacing; every word, link and picture a setting or block, a picture an image_picker, a menu one link_list; phone layout first, widened with @container.`
+export const INTEGRATION_CONTRACT = `LIVE VALUES, NOT A LOOK. A save refuses Storelib data typed in by hand: words, links and pictures are settings; a picture is an image_picker; a menu is one link_list with link.links; a header ("kind": "header") reads that menu; the logo is theme.logo or an image_picker; cart, search and menu are data-storelib-cart, data-storelib-search and data-storelib-menu; account is routes.account_url; buy is checkout_url; products and prices come from products; email is data-storelib-form="subscribe". Colours, type, buttons, spacing, motion and logo size are the section's design, not a refusal.`

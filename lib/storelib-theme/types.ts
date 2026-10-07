@@ -307,9 +307,9 @@ export interface SectionSchema {
   disabled_on?: SectionPlacement
   /**
    * "header" or "footer": this section IS the site's header (or footer), and
-   * replaces the built-in one wherever it is used. One per theme. Only for a
-   * creator who asked for a header of their own: the built-in one is
-   * configured, not rebuilt.
+   * replaces the built-in one wherever it is used. One per theme. The look
+   * is the section's; the live values (menu, logo, cart, search, account)
+   * stay connected.
    */
   kind?: "header" | "footer"
   /** What the script may reach. Absent means nothing beyond `root`. */

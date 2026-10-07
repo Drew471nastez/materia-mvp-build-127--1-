@@ -107,7 +107,7 @@ The `popover` attribute gives a panel the browser opens, closes and dismisses, w
 
 ### Motion
 
-CSS transitions and `@keyframes`, on `opacity` and `transform`, which are cheap to animate. Height from `0` to `auto` does not transition; animate `grid-template-rows` from `0fr` to `1fr` instead. Every animation stops for a visitor who has asked for reduced motion; see [Styling](/developers/styling#responsive).
+Motion is the section's own CSS: transitions and `@keyframes` however the design needs them. `@media (prefers-reduced-motion: reduce)` is a courtesy, not a rule that refuses a file. See [Styling](/developers/styling#responsive).
 
 ## Forms
 

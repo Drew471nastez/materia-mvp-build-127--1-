@@ -37,7 +37,7 @@ Before anything is written, the whole package is checked, and **one failure refu
 5. `theme.json` has `"format": "storelib-theme"`, a name, and asks for no newer engine than this one.
 6. Every file and asset that is in the zip is in `manifest.json`, and every SHA-256 and asset size matches. An asset the manifest names and the zip does not contain is left out: the theme still imports, and a section that pointed at it shows nothing.
 7. Every `sections/<type>.storelib` compiles, and every `blocks/<type>.storelib` compiles as a theme block. The file name is the type.
-8. A section file that is a header or a footer is not refused: it is **left out**, with every use of it on a page, and the import says so. The website keeps its own header and footer; change theirs in the `header` and `footer` entries of the templates instead. See [The header and footer](/developers/header-and-footer).
+8. Only a file named exactly `sections/header.storelib` or `sections/footer.storelib` is left out, because those names are the built-in sections. A header or footer under any other name is kept. `"kind": "header"` or `"kind": "footer"` makes it the site's header or footer. See [The header and footer](/developers/header-and-footer).
 9. Every `templates/*.json` has `sections` and `order`, holds 60 sections or fewer with 50 blocks or fewer each, and every section on it is a type the package has or a type Storelib has.
 
 Then the import writes a **new draft website** with the name in `theme.json`:

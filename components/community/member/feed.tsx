@@ -17,17 +17,20 @@
  * Saved, in each of the four sorts (Default, New, Top, Unread: sort-menu.tsx),
  * are lists of the same feed. Choosing one does not load a page: the list is
  * taken from the client cache when it is there (feed-cache.ts: on the next
- * frame, no skeleton). One that is not cached keeps the list on screen for a
- * moment (WAIT_MS) and then, still waiting, gives its place to a small
- * spinner (round 9, place-spinner.tsx), never a skeleton; whatever list
- * arrives eases in (opacity), so a swap reads as a crossfade, not a cut.
- * The address moves with it (history.pushState, which Next's router follows),
- * so Back, a reload and a shared link all land on the same list. A list is
- * asked for ahead when a pointer rests on its chip or a finger lands on it,
- * and once the feed is idle the first page of every space is read ahead,
- * one after another (feed-cache.ts prefetchViews), so a chip usually finds
- * its list already here. A list read over a minute ago is shown at once and
- * read again quietly.
+ * frame, no skeleton). One that is not cached yet keeps the posts already
+ * on screen until its own list arrives, then swaps. The iOS spinner is only
+ * when the feed has nothing to show. A read that fails is asked once more,
+ * then a retry is offered.
+ * The address moves with it (history.pushState), so Back, a reload and a
+ * shared link all land on the same list: /community/<slug>/space/<space>.
+ * That push does not load the space's page. The list swaps here. A list
+ * already read is the one on screen with the chip. One that is not read yet
+ * keeps the posts already showing until its own arrive. The iOS spinner is
+ * only for a feed that has nothing to show. A list is asked for ahead when
+ * a pointer rests on its chip or a finger lands on it, and once the feed is
+ * on screen the first page of every space is read ahead, a few at a time
+ * (feed-cache.ts prefetchViews). A list read over a minute ago is shown at
+ * once and read again quietly.
  *
  * A like, a save, an edit or a delete in one list is carried into every
  * other cached list holding that post; a new post goes to the top of the
@@ -53,9 +56,9 @@ import {
   prefetchView,
   prefetchViews,
   readView,
+  subscribeViews,
   viewKey,
   viewUrl,
-  whenIdle,
   writeView,
   type CachedView,
   type FeedPageData,
@@ -63,7 +66,8 @@ import {
   type FeedTarget,
 } from "./feed-cache"
 import { sectionFromPath } from "./nav"
-import { PlaceSpinner, Spinner, WAIT_MS } from "./place-spinner"
+import { PlaceSpinner, WAIT_MS } from "./place-spinner"
+import { snapPageTop } from "./return-scroll"
 import { warmPostFaces } from "./member-avatar"
 import { EditSpacesContext, FIRST_CARDS, PostCard, PostCardPlaceholder, type PostUpdate } from "./post-card"
 import { SortMenu } from "./sort-menu"
@@ -94,11 +98,8 @@ function composerSpacesOf(spaces: SpaceView[]) {
   return spaces.filter((s) => s.canPost && s.kind !== "chat").map((s) => ({ id: s.id, name: s.name, kind: s.kind, icon: s.icon }))
 }
 
-/** How an arriving list eases in: from a little under full when it replaces another list, from nothing after the spinner. */
-const ARRIVE_MS = 200
-const ARRIVE_EASE = "cubic-bezier(0.22, 1, 0.36, 1)"
-/** How long to wait before marking a list swap as slow when posts are still on screen (stale list stays visible). */
-const LIST_SPIN_MS = 320
+/** No posts, for a list that is not here yet. Not the previous space's posts. */
+const EMPTY_LIST: CachedView = { posts: [], cursor: null, at: 0, pages: 0 }
 /** Cards drawn on the frame a switched list comes in (the rest stand in at their height and follow in a transition): a phone's screenful and a little more. */
 const SWAP_CARDS = 4
 /**
@@ -142,15 +143,6 @@ export function targetFromPath(pathname: string | null | undefined, slug: string
     if (space && space.kind !== "chat") return { kind: "space", id: space.id }
   }
   return fallback
-}
-
-/** The Storelib app, or a phone's browser (a touch screen narrower than a tablet): spaces switch without an address of their own. */
-function spaceKeepsAddress(): boolean {
-  if (typeof window === "undefined") return false
-  if (document.documentElement.classList.contains("capacitor")) return true
-  const cap = (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor
-  if (cap?.isNativePlatform?.() === true) return true
-  return !!window.matchMedia?.("(pointer: coarse) and (max-width: 767px)").matches
 }
 
 function sameTarget(a: FeedTarget, b: FeedTarget): boolean {
@@ -205,21 +197,15 @@ export function CommunityFeed({ communityId, slug, viewer, spaces, start, initia
   const behind = list.id !== targetId || list.sort !== sort
   /*
     NO FADE (round 15, the owner: "still a flash, a fade in between switching, which should not be"). The chip changes on the
-    next frame and the list follows on the frame after it, as it is: a list already here is simply there, and one on its way
-    keeps the current list on screen until it lands (the spinner only when it is slow, below). Nothing dips, nothing fades.
+    next frame and the list follows on the frame after it. A list already here is simply there. One that is not here yet
+    keeps the posts already on screen. A backup timer applies the list if the frames never run, so a switch cannot stay
+    on the previous space's chip.
   */
   useLayoutEffect(() => {
     if (!behind) return
     const next = { id: targetId, sort }
-    if (typeof requestAnimationFrame !== "function" || document.visibilityState !== "visible") return setList(next)
-    let second = 0
-    const first = requestAnimationFrame(() => {
-      second = requestAnimationFrame(() => flushSync(() => setList(next)))
-    })
-    return () => {
-      cancelAnimationFrame(first)
-      cancelAnimationFrame(second)
-    }
+    /* The chip and the list stay together: no queued frames that leave the peel lit on the wrong space. */
+    flushSync(() => setList(next))
   }, [behind, targetId, sort])
   const listTarget = useMemo(() => targetFromId(list.id), [list.id])
   const listSort = list.sort
@@ -257,10 +243,16 @@ export function CommunityFeed({ communityId, slug, viewer, spaces, start, initia
   const keyRef = useRef(key)
   keyRef.current = key
 
-  /* The list for this key: the one in state, else the cache (on this very frame), else the one still on screen while it comes. */
-  const cached = shown.key === key ? shown.view : (readView(key) ?? null)
-  const view = cached ?? shown.view
-  const waiting = !cached && failedKey !== key
+  /* The space asked for, when it has been read. Otherwise the posts already on screen. A switch never clears the feed into the spinner. */
+  const [cacheRev, setCacheRev] = useState(0)
+  useEffect(() => subscribeViews(() => setCacheRev((n) => n + 1)), [])
+  void cacheRev
+  const asked = readView(viewKey(communityId, target, sort))
+  const held = shown.view.posts.length ? shown.view : null
+  const listed = shown.key === key ? shown.view : (readView(key) ?? null)
+  const cached = asked ?? listed ?? held
+  const view = cached ?? EMPTY_LIST
+  const waiting = !asked && view.posts.length === 0 && failedKey !== viewKey(communityId, target, sort)
 
   /* Bring the list for a new key: from the cache (and quietly again when it is over a minute old), or from the server. */
   useEffect(() => {
@@ -294,17 +286,16 @@ export function CommunityFeed({ communityId, slug, viewer, spaces, start, initia
 
   /* The spinner, only when the next list is slow to come: a quick answer swaps the lists and nothing else. */
   const [slow, setSlow] = useState(false)
-  /* Whether the spinner stood in for the list, so the list that follows comes in from nothing rather than from 35%. */
+  /* Whether the spinner stood in for the list, so the list that follows comes in from nothing. */
   const afterSpinner = useRef(false)
   useEffect(() => {
     if (!waiting) return setSlow(false)
-    const empty = view.posts.length === 0
     const t = window.setTimeout(() => {
-      afterSpinner.current = empty
+      afterSpinner.current = true
       setSlow(true)
-    }, empty ? WAIT_MS : LIST_SPIN_MS)
+    }, WAIT_MS)
     return () => window.clearTimeout(t)
-  }, [waiting, key, view.posts.length])
+  }, [waiting, key])
 
   /*
     THE SWAP EASES IN. The list drawn changes (another space, another sort, or the one that was waited for): it comes in by opacity
@@ -327,34 +318,31 @@ export function CommunityFeed({ communityId, slug, viewer, spaces, start, initia
     onScreen.current = new Set(Array.from(el?.querySelectorAll<HTMLElement>(":scope > [data-post]") ?? [], (x) => x.dataset.post ?? "").filter(Boolean))
     if (lastDrawn.current === drawnKey) return
     lastDrawn.current = drawnKey
-    /* Only a list that takes the place of the spinner comes up from nothing; a list that replaces a list is simply there. */
-    const fromSpinner = afterSpinner.current
     afterSpinner.current = false
-    if (!fromSpinner || !el || typeof el.animate !== "function" || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
-    el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: ARRIVE_MS, easing: ARRIVE_EASE })
   })
 
   /*
-    EVERY SPACE'S FIRST PAGE, READ AHEAD ONCE THE FEED IS IDLE (round 9). All and each feed space in the order on screen (the one
-    shown already is cached), one at a time, in the sort in force; a chat space is a page of its own and is not read here.
+    EVERY SPACE'S FIRST PAGE, READ AHEAD AT ONCE (round 9, and not one after
+    another). All and each feed space, a few at a time, as soon as the feed
+    is on screen. A chat space is a page of its own and is not read here.
+    A chip then finds its list already here.
   */
   const aheadTargets = useMemo<FeedTarget[]>(() => (spaces ? [{ kind: "all" as const }, ...spaces.filter((s) => s.kind !== "chat").map((s) => ({ kind: "space" as const, id: s.id }))] : []), [spaces])
   useEffect(() => {
     if (!aheadTargets.length) return
     let stopped = false
-    /* And the faces on each list's first screenful, so a list switched to is drawn with its pictures, not filled in after. */
-    const cancel = whenIdle(() =>
+    const id = requestAnimationFrame(() => {
       void prefetchViews(communityId, aheadTargets, "default", () => stopped).then(() => {
         if (stopped) return
         for (const t of aheadTargets) {
           const v = readView(viewKey(communityId, t, "default"))
           if (v) warmPostFaces(v.posts.slice(0, SWAP_CARDS + 2), 12)
         }
-      }),
-    )
+      })
+    })
     return () => {
       stopped = true
-      cancel()
+      cancelAnimationFrame(id)
     }
   }, [communityId, aheadTargets])
 
@@ -368,22 +356,31 @@ export function CommunityFeed({ communityId, slug, viewer, spaces, start, initia
   )
   const hrefOf = (pick: ChipPick) => (pick.kind === "all" ? base : pick.kind === "saved" ? `${base}/saved` : `${base}/space/${encodeURIComponent(pick.slug)}`)
 
+  /* A chip the member pressed: once that list is the one on screen, the page is at its top. Not on Back. */
+  const snapOnList = useRef(false)
+  useLayoutEffect(() => {
+    if (!snapOnList.current || list.id !== targetId) return
+    snapOnList.current = false
+    snapPageTop()
+  }, [list.id, targetId])
+
   /* A chip: the list switches here and the address follows; a list already on screen only scrolls the feed back into view. */
   const pick = (p: ChipPick) => {
     const next = targetOf(p)
     if (!next) return
     const href = hrefOf(p)
     if (sameTarget(next, target)) return
+    /* The list is asked for on the press itself, so a cache miss has already started before the chip paints. */
+    prefetchView(communityId, next, next.kind === "saved" ? "default" : sort)
+    snapOnList.current = true
     /*
-      IN THE APP AND ON A PHONE A SPACE IS NOT AN ADDRESS (round 15). The owner: "the spaces are URL pages, which is why they
-      load hard; in the iOS and Android app they should be sub pages with no URL". There the list switches and the address
-      stays the community's, so nothing is asked of the router at all. On a computer's browser the address still follows, for
-      Back, a reload and a shared link.
+      THE ADDRESS IS THE SPACE'S, on every device. /community/<slug>/space/<space>
+      (All is the community, Saved is /saved). pushState lets Back, a reload and
+      a copied link land on it. Next copies its own history onto that entry and
+      does not fetch the space page, so the space's loading screen never stands
+      in. The route bar ignores these chips (route-loading-bar.tsx): a click
+      that does not navigate must not start the iOS cover.
     */
-    if (spaceKeepsAddress()) {
-      setPicked({ target: next, from: window.location.pathname })
-      return
-    }
     setPicked({ target: next, from: href })
     if (typeof window !== "undefined" && window.location.pathname !== href) window.history.pushState(null, "", href)
   }
@@ -612,24 +609,15 @@ const FeedBody = memo(
           ) : spinner && posts.length === 0 ? (
             <PlaceSpinner compact label="Loading posts" />
           ) : (
-            <div className="relative">
-              {waiting && spinner ? (
-                <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center pt-0.5" aria-hidden data-feed-loading="">
-                  <Spinner size={20} label="Loading posts" />
-                </div>
-              ) : null}
-              <div
-                ref={listRef}
-                className="space-y-3 transition-opacity duration-200 motion-reduce:transition-none"
-                style={waiting && spinner && posts.length > 0 ? { opacity: 0.88 } : undefined}
-                aria-busy={waiting || undefined}
-                data-feed-list=""
-                data-feed-list-stale={waiting && posts.length > 0 ? "" : undefined}
-              >
-                {posts.map((p, i) =>
-                  i < firstCards || whole || onScreen.current.has(p.id) ? <PostCard key={p.id} post={p} slug={slug} viewer={viewer} update={update} readOnly={readOnly} /> : <PostCardPlaceholder key={p.id} post={p} />,
-                )}
-              </div>
+            <div
+              ref={listRef}
+              className="space-y-3"
+              aria-busy={waiting || undefined}
+              data-feed-list=""
+            >
+              {posts.map((p, i) =>
+                i < firstCards || whole || onScreen.current.has(p.id) ? <PostCard key={p.id} post={p} slug={slug} viewer={viewer} update={update} readOnly={readOnly} /> : <PostCardPlaceholder key={p.id} post={p} />,
+              )}
             </div>
           )}
 

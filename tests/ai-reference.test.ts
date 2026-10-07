@@ -136,7 +136,7 @@ async function main() {
       ["spacing rhythm", /Spacing rhythm:/],
       ["one clear action", /One clear action:/],
       ["mobile first", /Mobile first:/],
-      ["scheme tokens, not raw colours", /Scheme tokens, not raw colours:/],
+      ["colours that may follow the scheme", /Colours may follow the scheme/],
       ["real content from the creator's products", /Real content: the creator's products/],
     ] as const) {
       check(`it names ${point}`, words.test(QUALITY_CHECKLIST))

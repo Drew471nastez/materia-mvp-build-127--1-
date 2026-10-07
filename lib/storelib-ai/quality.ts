@@ -111,7 +111,7 @@ export function checkSectionQuality(source: string): QualityFinding[] {
   if (motion && !reduced) {
     out.push({
       id: "reduced-motion",
-      severity: "error",
+      severity: "warning",
       message: `This section animates but never checks whether the visitor asked it not to. Add @media (prefers-reduced-motion: reduce) and set the transition or animation to none inside it. That media query is about the visitor's setting, not about width, so it is the one @media that belongs in a section.`,
     })
   }

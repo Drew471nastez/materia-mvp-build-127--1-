@@ -31,7 +31,7 @@ function ExplorePullSync() {
 /** Pull at the top refreshes Explore the same way as the community feed (router.refresh + haptics). */
 export function ExplorePullRefresh({ children }: { children: ReactNode }) {
   return (
-    <RouterPullToRefresh scope={EXPLORE_REFRESH_SCOPE} className="min-h-screen">
+    <RouterPullToRefresh scope={EXPLORE_REFRESH_SCOPE} className="min-h-screen" spinnerYOffset={6}>
       <ExplorePullSync />
       {children}
     </RouterPullToRefresh>

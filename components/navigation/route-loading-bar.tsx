@@ -3,7 +3,10 @@
 import { usePathname, useSearchParams } from "next/navigation"
 import { Suspense, useEffect, useLayoutEffect, useRef, useState } from "react"
 
+import { settingsStaysHere } from "@/components/account/settings-subpage"
+import { isHistoryLayerRestoring } from "@/components/community/member/lightbox"
 import { PageSpinner } from "@/components/ui/activity-spinner"
+import { pullRefreshVisualActive } from "@/hooks/use-pull-to-refresh"
 import { isPhoneShell, NAV_PHONE_SPINNER_AFTER_MS, NAV_SPINNER_AFTER_MS, NAV_SPINNER_FADE_MS, NAV_SPINNER_OUT_MS } from "@/lib/ui/app-navigation"
 
 /**
@@ -107,6 +110,15 @@ function RouteLoadingBarInner() {
       }
       if (url.origin !== window.location.origin) return
       if (url.pathname === window.location.pathname && url.search === window.location.search) return
+      /* A community space chip switches the list in place and moves the
+         address itself. It is not a page load. Starting the cover here left
+         the iOS spinner up until the give-up, because the router never
+         reported a landing. */
+      if (anchor.closest("[data-space-chips]")) return
+      /* A post opens over the feed at its own address; a settings pill on a phone is a layer, not a fetch. */
+      if (anchor.closest("[data-community-tabs]")) return
+      if (anchor.hasAttribute("data-post-open") || anchor.closest("[data-post-open]")) return
+      if (settingsStaysHere() && /\/account\/settings/.test(url.pathname)) return
       setCover(false)
       setPendingSince(Date.now())
     }
@@ -143,8 +155,14 @@ function RouteLoadingBarInner() {
   committed.current = `${pathname}?${searchParams?.toString() ?? ""}`
   useEffect(() => {
     const onPop = () => {
+      if (isHistoryLayerRestoring() || pullRefreshVisualActive()) return
       const landed = `${window.location.pathname}?${new URLSearchParams(window.location.search).toString()}`
       if (landed === committed.current) return
+      /* Back and forward between a community's own feed addresses (home, a
+         space, Saved) is the same list swapping. Nothing is fetched. */
+      const from = committed.current.split("?")[0]
+      const to = window.location.pathname
+      if (sameCommunityFeed(from, to) || sameCommunityPlace(from, to)) return
       setCover(false)
       setPendingSince(Date.now())
     }
@@ -256,6 +274,24 @@ function RouteLoadingBarInner() {
  */
 const DRAWS_ITS_OWN_WAIT = /^\/(account\/library|checkout)(\/|$)/
 
+/** /community/<slug>, a feed space, Saved, or a post opened over the feed: one member area, not a page fetch. */
+function communityFeedSlug(path: string): string | null {
+  const m = path.match(/^\/community\/([^/]+)(?:\/(?:space\/[^/]+|saved|post\/[^/]+))?$/)
+  return m ? m[1] : null
+}
+
+function sameCommunityFeed(a: string, b: string): boolean {
+  const left = communityFeedSlug(a)
+  return !!left && left === communityFeedSlug(b)
+}
+
+/** Any two addresses under the same /community/<slug>: tabs, feed, posts over the feed. */
+function sameCommunityPlace(a: string, b: string): boolean {
+  const m = a.match(/^\/community\/([^/]+)/)
+  const n = b.match(/^\/community\/([^/]+)/)
+  return !!m && !!n && m[1] === n[1]
+}
+
 function SlowPage({ pendingSince, from, cover }: { pendingSince: number | null; from: string; cover: boolean }) {
   const [shown, setShown] = useState(false)
   const [look, setLook] = useState<{ top: number; background: string }>({ top: 0, background: "#ffffff" })
@@ -266,7 +302,7 @@ function SlowPage({ pendingSince, from, cover }: { pendingSince: number | null; 
     /* `cover` is a push that left the page rather than a link inside it.
        The library draws its own wait for its own screens; a tab leaving it
        does not, and saying nothing there was the five quiet seconds. */
-    if (pendingSince == null || (DRAWS_ITS_OWN_WAIT.test(from) && !cover)) return
+    if (pendingSince == null || pullRefreshVisualActive() || (DRAWS_ITS_OWN_WAIT.test(from) && !cover)) return
     const wait = isPhoneShell() ? NAV_PHONE_SPINNER_AFTER_MS : NAV_SPINNER_AFTER_MS
     const t = window.setTimeout(() => {
       /* Measured now, not at mount: the header is sticky and the ground under it is the page's own. */
