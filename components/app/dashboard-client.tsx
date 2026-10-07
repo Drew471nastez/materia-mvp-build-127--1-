@@ -969,13 +969,15 @@ export function DashboardClient({
   // Read the period when it changes, or when an order comes in. Not when the tab does.
   useEffect(() => {
     // Safety net: if the answer hangs (slow network, a busy database), stop
-    // the chart's wait after 15 s rather than never. The answer still lands
-    // when it comes; until then the figures stay soft.
+    // the chart's wait after 8 s rather than never. A stuck request is asked
+    // again beside itself after 4 s (lib/analytics/report-cache hedged), so
+    // this is the rare case. The answer still lands when it comes; until
+    // then the figures stay soft.
     const safetyTimer = window.setTimeout(() => {
       setIsChartLoading(false)
       setChartStale(false)
       isFirstLoadRef.current = false
-    }, 15000)
+    }, 8000)
     fetchPeriodEvents().finally(() => window.clearTimeout(safetyTimer))
     return () => window.clearTimeout(safetyTimer)
   }, [periodKey, creatorId, ordersChanged]) // eslint-disable-line react-hooks/exhaustive-deps

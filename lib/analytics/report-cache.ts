@@ -8,7 +8,7 @@
  * the phone's pill; components/shared/prefetch-links, Home when it is idle).
  *
  * THE LAST NUMBERS AT ONCE. Every complete answer is kept, per question, in
- * memory and in this tab's sessionStorage. Coming back to Analytics shows the
+ * memory and in this browser's storage. Coming back to Analytics shows the
  * last numbers for the period on the first frame, sharp, and the page asks
  * again behind them; when the new ones land they move to it as any refresh
  * does. An answer older than KEEP_MS is not shown: numbers from this morning
@@ -99,14 +99,28 @@ const STORE = "storelib.analytics.answers.v2"
 const MAX_KEPT = 8
 let memory: Map<string, Kept> | null = null
 
+/*
+  KEPT ACROSS A RESTART OF THE APP. sessionStorage ends with the tab, and the
+  phone app's web view is a new tab every time it is opened, so Home and
+  Analytics opened soft every time, waiting on the server. The answers are
+  kept in localStorage as well; the KEEP_MS rule is the same either way.
+*/
+function readStore(storage: Storage | undefined): Kept[] {
+  try {
+    return storage ? (JSON.parse(storage.getItem(STORE) || "[]") as Kept[]) : []
+  } catch {
+    return []
+  }
+}
+
 function kept(): Map<string, Kept> {
   if (memory) return memory
   memory = new Map()
-  try {
-    const saved = JSON.parse(sessionStorage.getItem(STORE) || "[]") as Kept[]
-    for (const k of saved) if (k && typeof k.key === "string" && Date.now() - k.at < KEEP_MS) memory.set(questionOf(k.key), k)
-  } catch {
+  const local = typeof localStorage === "undefined" ? undefined : localStorage
+  const session = typeof sessionStorage === "undefined" ? undefined : sessionStorage
+  for (const k of [...readStore(local), ...readStore(session)].sort((a, b) => (a?.at ?? 0) - (b?.at ?? 0))) {
     /* nothing kept, or storage closed: the page asks as it always did */
+    if (k && typeof k.key === "string" && Date.now() - k.at < KEEP_MS) memory.set(questionOf(k.key), k)
   }
   return memory
 }
@@ -125,10 +139,16 @@ export function keepAnswer(key: string, answer: Kept["answer"]) {
   all.delete(question)
   all.set(question, { key, at: Date.now(), answer })
   while (all.size > MAX_KEPT) all.delete(all.keys().next().value as string)
+  const saved = JSON.stringify([...all.values()])
   try {
-    sessionStorage.setItem(STORE, JSON.stringify([...all.values()]))
+    sessionStorage.setItem(STORE, saved)
   } catch {
     /* full or closed: memory still has it for this visit */
+  }
+  try {
+    localStorage.setItem(STORE, saved)
+  } catch {
+    /* the same */
   }
 }
 
@@ -156,7 +176,8 @@ export function askReport(key: string, onFigures?: (figures: Line) => void): { p
   if (!f) {
     const ctrl = new AbortController()
     const flight: Flight = { promise: Promise.resolve({}), figures: null, listeners: new Set(), holders: 0, done: false, ctrl }
-    flight.promise = read(key, ctrl.signal, (figures) => {
+    flight.promise = hedged(key, ctrl.signal, (figures) => {
+      if (flight.figures) return
       flight.figures = figures
       for (const l of flight.listeners) l(figures)
     })
@@ -191,6 +212,64 @@ export function askReport(key: string, onFigures?: (figures: Line) => void): { p
       }
     },
   }
+}
+
+/**
+ * HEDGED, SO A STUCK REQUEST IS NOT A 15 SECOND BLUR. A phone coming back
+ * from the background often sends the first request down a connection that
+ * is already dead, and a server waking from cold can sit on one: the page's
+ * figures stayed soft until the page's own safety net gave up. If no figures
+ * have come by HEDGE_MS a second request is sent beside the first (the first
+ * is not dropped: it may still be the quicker), and a request that fails
+ * early is asked once more at once. The first complete answer wins and the
+ * other is cancelled. Never more than two.
+ */
+const HEDGE_MS = 4_000
+function hedged(key: string, signal: AbortSignal, onFigures: (figures: Line) => void): Promise<Kept["answer"]> {
+  return new Promise((resolve, reject) => {
+    const tries: AbortController[] = []
+    let failed = 0
+    let settled = false
+    let gotFigures = false
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const finish = () => {
+      settled = true
+      clearTimeout(timer)
+      for (const t of tries) t.abort()
+    }
+    const start = () => {
+      const ctrl = new AbortController()
+      tries.push(ctrl)
+      read(key, ctrl.signal, (figures) => {
+        gotFigures = true
+        onFigures(figures)
+      }).then(
+        (answer) => {
+          if (settled) return
+          finish()
+          resolve(answer)
+        },
+        (error) => {
+          if (settled) return
+          failed++
+          if (tries.length < 2 && !signal.aborted) return start()
+          if (failed >= tries.length) {
+            finish()
+            reject(error)
+          }
+        },
+      )
+    }
+    signal.addEventListener("abort", () => {
+      if (settled) return
+      finish()
+      reject(new DOMException("Aborted", "AbortError"))
+    }, { once: true })
+    start()
+    timer = setTimeout(() => {
+      if (!settled && !gotFigures && tries.length < 2) start()
+    }, HEDGE_MS)
+  })
 }
 
 /** One request, read line by line as it arrives. */
