@@ -249,6 +249,36 @@ export const SKILLS: Skill[] = [
     examples: ["https://storelib.com/developers/examples"],
   },
   {
+    id: "redesign-site",
+    title: "A new site, or a new direction for one",
+    summary: "Rethink a whole site from a brief: decide what this business's site should contain and how it should feel, then rebuild it rather than recolour it.",
+    triggers: [
+      /\b(redesign|rebuild|revamp|overhaul|rebrand|rethink|redo)\b.{0,30}\b(everything|site|website|whole|entire)\b/i,
+      /\b(make|turn)\b.{0,30}\b(whole|entire|complete)\s+(site|website)\b/i,
+      /\blook(s)? like an? (real|proper|premium|luxury|professional)\b/i,
+      /\b(new|complete|full|brand new) (web)?site\b|\bwebsite for\b|\bfrom scratch\b|\bnew (creative )?direction\b/i,
+    ],
+    steps: [
+      "Read the site and the business first (storelib_read_project, storelib_site): what it sells, to whom, and what is on the page now.",
+      "Write a short brief for yourself: purpose, audience, personality, what real sites in this category do, the sections in order, palette, type, imagery, motion, interactions and the one action. Say it to the creator in a few lines before building.",
+      "Decide what stays. Keep a section only if it does a job the new site needs and its content is real. Hide sections with the creator's own words; remove generic preset ones.",
+      "Set the design system first: colour schemes (storelib_update_styles), the two fonts from the theme's list, the header's layout. Then build the sections in the brief's order, a built-in one where it fits and a new section file for the moments that make the site recognisable (an immersive hero, a marquee, an event poster, a lineup).",
+      "storelib_run_tests on the page, then storelib_run_preview at phone and desktop width, and look at it as the designer who will sign it. Fix what is weak.",
+    ],
+    tools: ["storelib_read_project", "storelib_site", "storelib_search_components", "storelib_update_styles", "storelib_create_section", "storelib_create_safe_patch", "storelib_run_tests", "storelib_run_preview"],
+    topics: ["color-scheme", "responsive", "animation"],
+    pitfalls: [
+      "The old page with new colours and words. A new direction means a new structure.",
+      "A centred badge, heading, paragraph and two buttons as the hero of every kind of business.",
+      "Every section the same shape, or huge bands of text with no picture slots.",
+      "Invented testimonials, numbers or logos. Leave the slot, or ask.",
+    ],
+    builder: [
+      "A plan is made for you before the first turn; build it in order. set_color_scheme for the palette, update_theme for fonts, create_section for what no built-in type draws, remove_section for what the plan drops. The finished page is checked against the plan and drawn in a browser at two widths before you may finish.",
+    ],
+    checks: ["page-types", "page-settings", "contrast", "limits"],
+  },
+  {
     id: "compose-page",
     title: "Pages and page structure",
     summary: "Create a page, add sections to it, reorder, hide or rename them.",

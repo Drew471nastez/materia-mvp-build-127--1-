@@ -3668,7 +3668,7 @@ section("Asking for something good has to get the good model")
   )
   check(
     "and is given room to write a filled section in one turn",
-    /maxOutputTokens: input\.ambitious \? 16_000 : 8_000/.test(loop),
+    /maxOutputTokens: bigIntent \? 24_000 : input\.ambitious \? 16_000 : 8_000/.test(loop),
   )
   check(
     "a type says how many entries finished means, before its controls are listed",
@@ -3682,11 +3682,11 @@ section("Asking for something good has to get the good model")
   const route = readFileSync(join(root, "app/api/website-builder/themes/[installId]/agent/route.ts"), "utf8")
   check(
     "the endpoint lifts an ambitious run to the stronger model, never lowers their choice, and says so",
-    /shape\.ambitious && body\.tier !== "strong" \? "strong" : body\.tier/.test(route) &&
+    /\(shape\.ambitious \|\| bigIntent \|\| intent\.kind === "SECTION_REDESIGN"\) && body\.tier !== "strong" \? "strong" : body\.tier/.test(route) &&
       /wantsTier !== body\.tier/.test(route) &&
       /Using the stronger model for this one/.test(route),
   )
-  check("and hands the run its ambition and its thinking depth", /ambitious: shape\.ambitious/.test(route) && /shape\.wholePage \? "xhigh"/.test(route))
+  check("and hands the run its ambition and its thinking depth", /ambitious: shape\.ambitious \|\| bigIntent/.test(route) && /shape\.wholePage \|\| bigIntent \? "xhigh"/.test(route))
 }
 
 check(
@@ -3698,7 +3698,7 @@ check(
     )
     return (
       /classifyRequest\(body\.prompt\)/.test(route) &&
-      /maxTurns: shape\.maxTurns/.test(route) &&
+      /maxTurns: bigIntent \? Math\.max\(shape\.maxTurns, 56\) : shape\.maxTurns/.test(route) &&
       !/chooseModel/.test(route)
     )
   })(),
@@ -3834,7 +3834,7 @@ section("A setting is one way to make a change, not the limit of what is possibl
   )
   check(
     "the code tools are offered whenever the run is given a way to read sections, and the route always gives one",
-    /tools: toolSpecs\(addable, schemas, !!input\.code\)/.test(loop) &&
+    /tools: toolSpecs\(addable, schemas, !!input\.code(, \{[^}]*\})?\)/.test(loop) &&
       /code\?: \{[\s\S]{0,200}read\(sectionType: string\): string \| null/.test(loop) &&
       /const code = \{\s*\n\s*read\(sectionType: string\): string \| null/.test(route),
   )

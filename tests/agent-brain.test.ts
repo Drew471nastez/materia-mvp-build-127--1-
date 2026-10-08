@@ -261,8 +261,12 @@ async function main() {
       about 400 to the tools. Tools 6,000: with every T and U round tool
       merged (copy_section_to_code, read_menus, edit_menu, the picture
       fields) they measured 5,935.
+      14,000 with the rulebook's "Small change or new direction" group, the
+      rule every agent reads before deciding how much of a site may change
+      (lib/agent-rules, scope): about 300 tokens, cached. The tools stay
+      under 6,000 with set_color_scheme and the two read tools added.
     */
-    check("the first request stays inside its budget", tokens(first.system) <= 13_600 && tokens(JSON.stringify(first.tools)) <= 6_000 && tokens(turn.content) <= 2_000, `system ${tokens(first.system)}, tools ${tokens(JSON.stringify(first.tools))}, turn ${tokens(turn.content)}`)
+    check("the first request stays inside its budget", tokens(first.system) <= 14_000 && tokens(JSON.stringify(first.tools)) <= 6_000 && tokens(turn.content) <= 2_000, `system ${tokens(first.system)}, tools ${tokens(JSON.stringify(first.tools))}, turn ${tokens(turn.content)}`)
     check("every request carries a cache breakpoint on its last block, so the transcript is read back cheaply", sent.every((r) => {
       const msgs = requestMessages(r.turns) as Array<{ content: unknown }>
       const last = msgs[msgs.length - 1].content as Array<{ cache_control?: unknown }>

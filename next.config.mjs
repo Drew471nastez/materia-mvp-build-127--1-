@@ -43,6 +43,10 @@ const nextConfig = {
     '/api/website-builder/themes/*/export': [
       './node_modules/.pnpm/@sparticuz+chromium@*/node_modules/@sparticuz/chromium/bin/**',
     ],
+    /* Storelib AI looks at the page it built, at two widths (lib/website-builder/agent/visual-check.ts). */
+    '/api/website-builder/themes/*/agent': [
+      './node_modules/.pnpm/@sparticuz+chromium@*/node_modules/@sparticuz/chromium/bin/**',
+    ],
     /*
       THE INVOICE'S TYPEFACE. lib/checkout/invoice.ts reads Inter from
       lib/checkout/fonts by path, which tracing cannot see, for every route

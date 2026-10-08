@@ -30,7 +30,7 @@ export interface CoverShots {
   ms: number
 }
 
-async function launch() {
+export async function launch() {
   const puppeteer = (await import("puppeteer-core")).default
   const local = process.env.CHROMIUM_PATH
   if (local) {

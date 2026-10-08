@@ -47,6 +47,10 @@ import { getWebsiteShareUrl } from "@/lib/url-helpers"
 import { CodeJournal } from "@/lib/website-builder/agent/code-journal"
 import { resolveSelectedSection, SECTION_TYPE, type SectionOrigin } from "@/lib/website-builder/agent/selected-section"
 import { DEFAULT_THEME_SOURCES } from "@/themes/default/sources.generated"
+import { classifyIntent } from "@/lib/website-builder/agent/intent"
+import { visualCheck } from "@/lib/website-builder/agent/visual-check"
+import { schemaMapFor } from "@/lib/website-builder/agent/schemas"
+import type { TraceEntry } from "@/lib/website-builder/agent/loop"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -294,6 +298,22 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
          * got the strong one. Ambition was being penalised.
          */
         const shape = classifyRequest(body.prompt)
+        /**
+         * AND WHAT KIND OF CHANGE IT IS (lib/website-builder/agent/intent.ts):
+         * a small edit that preserves everything else, or a new direction
+         * that does not. Internal: it decides the plan, the budget and how
+         * the finished page is judged, and the creator never sees the label.
+         */
+        const bodySections = body.sections.filter((s) => s.type !== "header" && s.type !== "footer" && !s.group).length
+        const intent = classifyIntent(body.prompt, {
+          selected: !!body.selectedSectionId,
+          locked: body.lockToSelection === true && !!body.selectedSectionId,
+          codeFocus: body.codeFocus === true && !!body.selectedSectionId,
+          bodySections,
+          images: images.length > 0,
+          hasHistory: history.length > 0,
+        })
+        const bigIntent = intent.plan
 
         /**
          * The creator's switch, honoured where the deployment can honour it.
@@ -314,7 +334,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
          * badly costs more than the difference between the two models. A
          * tweak, a question and a chat all stay on what they chose.
          */
-        const wantsTier = shape.ambitious && body.tier !== "strong" ? "strong" : body.tier
+        const wantsTier = (shape.ambitious || bigIntent || intent.kind === "SECTION_REDESIGN") && body.tier !== "strong" ? "strong" : body.tier
         const resolved = await resolveForCreator((creator as { id: string }).id, { requested: body.provider, tier: wantsTier })
         /* Whose account answers, so the chat can say "On your OpenAI key" and not count it as Storelib AI. */
         send({ type: "account", own: resolved.own })
@@ -460,21 +480,30 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
          * is kept and summarised, and the answer arrives.
          */
         const deadline = AbortSignal.timeout((maxDuration - 15) * 1000)
+        /**
+         * THE RUN'S LOG, for whoever debugs it: the intent, the plan, every
+         * tool call, what the checks found and what was repaired, the model
+         * and the tokens. Structured, one JSON line per run in the function
+         * log; never on the creator's screen and never the model's reasoning.
+         */
+        const runLog: TraceEntry[] = []
+        const startedAt = Date.now()
         const loop = themeAgent({
           provider: resolved.provider,
           sources: agentSources,
           code,
           model: resolved.model,
-          maxTurns: shape.maxTurns,
+          /* A whole site is a plan, eight to twelve sections and a look at them: room for it. The deadline still ends it in time. */
+          maxTurns: bigIntent ? Math.max(shape.maxTurns, 56) : shape.maxTurns,
           /* Reads the catalogue up front and gives the model room to write a filled section (lib/website-builder/agent/loop). */
-          ambitious: shape.ambitious,
+          ambitious: shape.ambitious || bigIntent,
           /**
            * Thinking depth: the creator's Strength when they sent one, which
            * is theirs to choose like the model. Without one (an older
            * client), from the request: a build is the case that repays it, a
            * one word change is not. The provider sends what its model takes.
            */
-          effort: body.effort ?? (shape.wholePage ? "xhigh" : shape.scope === "build" ? "high" : "medium"),
+          effort: body.effort ?? (shape.wholePage || bigIntent ? "xhigh" : shape.scope === "build" ? "high" : "medium"),
           prompt: body.prompt,
           images,
           page: body.page,
@@ -492,6 +521,16 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
           codeFocus: body.codeFocus === true && !!selected,
           /* Read its work back against the request once before finishing, for anything built, coded or from a picture. */
           selfCheck: "auto",
+          /* The agentic layer: what kind of request, a plan for a big one, the site's memory, the whole page checked, and a look at it in a browser. */
+          intent,
+          plan: true,
+          memory: true,
+          projectCheck: true,
+          maxReviews: bigIntent ? 3 : undefined,
+          visualCheck: (state, sources, opts) => visualCheck({ state, sources, schemas: schemaMapFor(sources), shots: opts.shots }),
+          trace: (entry) => {
+            if (runLog.length < 400) runLog.push(entry)
+          },
           /**
            * READ THROUGH THE USER'S OWN CLIENT, so RLS decides what the model
            * is shown. The service role would read every creator's catalogue
@@ -591,6 +630,27 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
         }
 
         const result = step.value
+        console.info(
+          "[storelib ai] run",
+          JSON.stringify({
+            installId,
+            page: body.page,
+            model: resolved.model,
+            provider: resolved.provider.id,
+            own: resolved.own,
+            status: result.status,
+            intent: intent.kind,
+            ms: Date.now() - startedAt,
+            usage: result.usage,
+            ops: result.ops.length,
+            wroteCode: !!result.wroteCode,
+            files: journal.size,
+            unresolved: result.unresolved ?? [],
+            visual: result.visual,
+            plan: result.plan ? result.plan.sections.map((s) => s.use) : null,
+            log: runLog,
+          }).slice(0, 60_000),
+        )
         /**
          * =====================================================================
          *  THE CODE IS SAVED NOW, ALL OF IT OR NONE OF IT

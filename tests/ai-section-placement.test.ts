@@ -135,7 +135,7 @@ function main() {
 
   const operations = read("lib/website-builder/agent/operations.ts")
   check("applyOp builds the section with the lookup it was given",
-    /const section = buildSection\(op\.id, op\.sectionType, schemas\)/.test(operations))
+    /const built = buildSection\(op\.id, op\.sectionType, schemas\)/.test(operations))
   const loop = read("lib/website-builder/agent/loop.ts")
   check("the loop checks an added section's settings against its own schema",
     /checkSettings\(fieldsFor\(sectionType, schemas\), settings, sectionType\)/.test(loop)

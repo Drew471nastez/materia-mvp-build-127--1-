@@ -44,6 +44,7 @@ import {
   describeStore,
   describeTheme,
   describeThemeSettings,
+  fieldIds,
   fieldsFor,
   maxBlocks,
   themeFieldsFor,
@@ -72,8 +73,18 @@ import { COMPILE_CHECK_LABEL, fileLabel, toolStepLabel, type StepNames } from ".
 import { MAX_CODE_ATTEMPTS, checkSectionSource, outOfAttempts } from "./compile-feedback"
 import { describeSelectedCode, resolveSelectedSection, SECTION_TYPE, type SectionOrigin, type SelectedSectionContext } from "./selected-section"
 import { makeCodedCopy } from "./coded-copy"
+import { kindOfSource } from "@/lib/storelib-theme/section-groups"
 import { CREATIVE_BRIEF, IMAGE_FIDELITY_RULES, editingSubject, newSectionSubject } from "./creative-section"
 import { MENU_TOOLS, describeMenus, editMenu } from "./menu-edits"
+import { intentGuidance, type Intent } from "./intent"
+import { PLANNER_SYSTEM, describeCreativePlan, extractJson, planForCreator, planTurn, readCreativePlan, archetypesFor, type CreativePlan } from "./creative-plan"
+import { BRIEF_KEY, briefOp, describeProject, readBrief, updateBrief } from "./project-state"
+import { THEME_FINDING, checkProject } from "./project-check"
+import { SET_COLOR_SCHEME_TOOL, setColorScheme } from "./scheme-edit"
+import { DESIGN_DEFAULTS, describePatterns, patternById } from "@/lib/storelib-ai/patterns"
+import { archetypeById, describeArchetype } from "@/lib/storelib-ai/archetypes"
+import { knowledgeBlock, topicsById } from "@/lib/storelib-ai/knowledge"
+import { OFFERED_FAMILIES } from "../font-link"
 import type {
   AgentProvider,
   AgentTurn,
@@ -196,7 +207,25 @@ export interface ThemeAgentResult {
   wroteCode?: boolean
   /** The question the run stopped on, when it asked one. */
   asked?: AgentQuestion | null
+  /** What kind of request it was read as (./intent.ts), when the caller classified it. */
+  intent?: Intent | null
+  /** The creative plan it built to, when it made one (./creative-plan.ts). */
+  plan?: CreativePlan | null
+  /** Checks still failing when the run ended (review, project check, visual), for the log and the reply. */
+  unresolved?: string[]
+  /** What the browser check found, and whether it ran. */
+  visual?: { ran: number; findings: number; ms: number }
 }
+
+/** A finding from the browser check (./visual-check.ts), as the loop needs it. Kept here so the loop never imports a server-only module. */
+export interface VisualCheckReport {
+  findings: { sectionId: string; width: number; kind: string; message: string }[]
+  shots: AgentImage[]
+  ms: number
+}
+
+/** One line of the run's structured log: what happened, never what the model thought. */
+export type TraceEntry = { at: number; kind: string } & Record<string, unknown>
 
 const SYSTEM_PROMPT = `You edit a website in a visual theme editor. The page is a list of SECTIONS, each with settings defined by a schema, and each KIND of section is a file you can read and rewrite: its markup, its CSS, its script and that schema. You change the page by calling tools.
 
@@ -245,7 +274,7 @@ ${builderAgentRules()}
 
 ${pageAgentReference()}`
 
-function toolSpecs(addable: string[], schemas?: SchemaMap, code?: boolean): ToolSpec<string>[] {
+function toolSpecs(addable: string[], schemas?: SchemaMap, code?: boolean, opts: { memory?: boolean } = {}): ToolSpec<string>[] {
   return [
     {
       name: "read_section",
@@ -269,7 +298,7 @@ function toolSpecs(addable: string[], schemas?: SchemaMap, code?: boolean): Tool
           settingsJson: {
             type: "string",
             description:
-              'A JSON OBJECT AS A STRING: field id → new value, only the fields you are changing. e.g. {"heading":"Questions, answered","style":"boxed"}',
+              'A JSON OBJECT AS A STRING: field id → new value, only the fields you are changing. e.g. {"heading":"Questions, answered","style":"boxed"}. null clears a setting the section holds that its schema no longer declares.',
           },
         },
         required: ["id", "settingsJson"],
@@ -480,6 +509,22 @@ function toolSpecs(addable: string[], schemas?: SchemaMap, code?: boolean): Tool
             },
           },
           {
+            name: "create_section",
+            description:
+              "Write a NEW section of your own and put it on the page: a whole sections/<type>.storelib file (template, style, optional script, schema with presets) under a new lowercase type. Use it for what no built-in type draws well: an immersive hero, a marquee, an event poster with a countdown, a lineup, a schedule, a before and after slider, a header of your own (\"kind\": \"header\"). It is compiled, checked and drawn with its preset before it is kept; a refusal says what to fix. Give it real settings a creator would change (colour scheme, layout, spacing, the words, the pictures as image_picker) and a preset that arrives finished. Read one close built-in section first (read_section_code) and keep its setting ids for the same jobs.",
+            parameters: {
+              type: "object" as const,
+              properties: {
+                sectionType: { type: "string", description: "The new type: lowercase letters, digits and underscores, not a type that exists, e.g. \"bandidos_hero\"." },
+                source: { type: "string", description: "The whole file." },
+                index: { type: "number", description: "Where on the page, as add_section takes it. -1 for the end, above the footer." },
+                settingsJson: { type: "string", description: 'A JSON OBJECT AS A STRING merged over its preset, e.g. {"heading":"Bandidos"}. "{}" for none.' },
+              },
+              required: ["sectionType", "source", "index", "settingsJson"],
+              additionalProperties: false,
+            },
+          },
+          {
             name: "write_section_code",
             description:
               "Replace the source of a kind of section with a new one. Send the WHOLE file. Only for a new layout: for a change to part of it, edit_section_code. It is compiled before it is stored and refused if it does not compile, so keep every part you were not asked to change exactly as it was: the schema, the settings it reads, the blocks, the classes the rest of the theme uses. Changes every place this kind of section is used.",
@@ -516,6 +561,44 @@ function toolSpecs(addable: string[], schemas?: SchemaMap, code?: boolean): Tool
         additionalProperties: false,
       },
     },
+    SET_COLOR_SCHEME_TOOL as unknown as ToolSpec<string>,
+    {
+      name: "read_design_patterns",
+      description:
+        "Read Storelib's design knowledge: a pattern (hero_immersive, marquee, event_spotlight, schedule, gallery, team, tickets, pricing, testimonials, before_after, stats, venue, menu, cta_final and more) with the built-in types that draw it and how to write it yourself; a kind of site (nightlife, course, photographer, luxury_fashion, ecommerce, creator, coach, restaurant, saas, digital_products, music, community) with its usual structure, type, palette, imagery and motion; or \"defaults\" for spacing, type, rhythm and motion defaults. \"\" lists every pattern.",
+      parameters: {
+        type: "object",
+        properties: { topic: { type: "string", description: "A pattern id, a kind of site, \"defaults\", or \"\"." } },
+        required: ["topic"],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: "read_storelib_docs",
+      description:
+        "Read the Storelib section format on one subject before writing code that depends on it: blocks, theme blocks, colour schemes, theme globals, typography, CSS scoping, responsive layout, scripts, forms, embeds, animation, assets, editor state, settings, multiple instances, accessibility. Say the subject in a few words.",
+      parameters: {
+        type: "object",
+        properties: { topic: { type: "string", description: 'e.g. "animation", "script and countdown", "colour scheme"' } },
+        required: ["topic"],
+        additionalProperties: false,
+      },
+    },
+    ...(opts.memory
+      ? [
+          {
+            name: "remember",
+            description:
+              "Keep one decision or preference about this website for later messages: something the creator said they want or do not want (\"no gradients\", \"prices in euros\", \"the events part is the main thing\"). Not for what you changed; that is kept anyway.",
+            parameters: {
+              type: "object" as const,
+              properties: { note: { type: "string", description: "One short sentence." } },
+              required: ["note"],
+              additionalProperties: false,
+            },
+          },
+        ]
+      : []),
     /* The site's navigation: the Main menu the header shows (./menu-edits). */
     ...MENU_TOOLS,
     /* Last, so every tool above it keeps its place in the cached prefix. */
@@ -547,6 +630,7 @@ function summarise(done: string[]): string {
  * no operation did not do what it set out to do, whatever its message says.
  */
 const WRITE_TOOLS = new Set([
+  "set_color_scheme",
   "add_section",
   "remove_section",
   "move_section",
@@ -581,7 +665,7 @@ function labelFor(op: ThemeOp, state: ThemeState, schemas?: SchemaMap): string {
     case "set_section_type":
       return `Made ${nameOf(op.id)} editable`
     case "update_theme":
-      return "Updated the theme"
+      return "color_schemes" in op.settings ? "Changed the colours" : BRIEF_KEY in op.settings ? "Kept notes on this website" : "Updated the theme"
     case "add_block":
       return `Added to ${nameOf(op.sectionId)}`
     case "update_block":
@@ -734,6 +818,27 @@ export interface ThemeAgentInput {
   selfCheck?: boolean | "auto"
   /** Ids for new sections. Injected so a test gets stable ones. */
   newId?: (type: string) => string
+  /**
+   * WHAT KIND OF REQUEST THIS IS (./intent.ts), classified by the caller
+   * before the run. With it the run is told what that kind permits, and the
+   * project check judges a redesign as a redesign. Absent: the run is the run
+   * it always was.
+   */
+  intent?: Intent | null
+  /** Make a creative plan first when the intent calls for one (./creative-plan.ts). One extra call with no tools. */
+  plan?: boolean
+  /** Read and keep the project's memory in the theme settings (./project-state.ts). */
+  memory?: boolean
+  /** Hold the finished page to the whole-project check before finishing (./project-check.ts). */
+  projectCheck?: boolean
+  /**
+   * Draw the page in a browser and measure it (./visual-check.ts), injected
+   * because that needs Chromium and this loop runs in tests without one.
+   * Returns null when it could not check, which is never read as clean.
+   */
+  visualCheck?: (state: ThemeState, sources: Record<string, string>, opts: { shots: boolean }) => Promise<VisualCheckReport | null>
+  /** Structured log of the run, for developers: tool calls, findings, repairs, the plan. */
+  trace?: (entry: TraceEntry) => void
 }
 
 export async function* themeAgent(
@@ -839,6 +944,32 @@ export async function* themeAgent(
   const history = input.history ?? []
 
   /**
+   * WHAT KIND OF REQUEST, AND WHAT THE SITE ALREADY DECIDED. Both are the
+   * caller's to switch on (./intent.ts, ./project-state.ts); a caller that
+   * passes neither gets the run it always got.
+   */
+  const intent = input.intent ?? null
+  const bigIntent = !!intent && (intent.kind === "FULL_SITE_REDESIGN" || intent.kind === "NEW_SITE_GENERATION" || intent.kind === "PAGE_REDESIGN")
+  const brief = input.memory ? readBrief(input.state.settings) : null
+  /** Decisions the model asked to keep (the remember tool). */
+  const notes: string[] = []
+  const t0 = Date.now()
+  const trace = (kind: string, data: Record<string, unknown> = {}) => {
+    try {
+      input.trace?.({ at: Date.now() - t0, kind, ...data })
+    } catch {
+      /* the log never stops a run */
+    }
+  }
+  if (intent) trace("intent", { kind: intent.kind, also: intent.also, scope: intent.scope, reasons: intent.reasons })
+  /** Section types whose code this run wrote or created: the project check holds their instances to the new schema. */
+  const rewrittenTypes = new Set<string>()
+  /** The browser check: how many times it ran, what it found, how long it took. */
+  const visual = { ran: 0, findings: 0, ms: 0 }
+  /** Findings still standing when the review budget ran out, said in the reply rather than hidden. */
+  let unresolved: string[] = []
+
+  /**
    * WHAT THE RUN IS ABOUT, said plainly: "Editing Pricing" from the start
    * when the open section is the only thing it may change (or the change is
    * to its code), else from the first section it writes to (`about`, below).
@@ -875,11 +1006,86 @@ export async function* themeAgent(
     store = await input.readStore()
   }
 
+  /** The opening turn is the plan; everything after it is commentary. */
+  let plannedYet = false
+
+  /**
+   * =========================================================================
+   *  THE CREATIVE PLAN, BEFORE ANY TOOL (./creative-plan.ts)
+   * =========================================================================
+   * Only for a new site, a new direction or a page rethought. One call, no
+   * tools, its own instructions: the brief, the page, the store and the
+   * knowledge for this kind of business go in; a checked plan comes out. A
+   * plan that cannot be read is asked for once more, then the run goes on
+   * without one, told the archetype instead, and the project check still
+   * refuses the old page recoloured.
+   */
+  let plan: CreativePlan | null = null
+  if (input.plan && intent?.plan && !signal?.aborted) {
+    yield progress("planning", "Planning the site")
+    const memoryText = brief ? describeProject(state, brief, schemas) : ""
+    const planContext = {
+      prompt,
+      intent,
+      state,
+      page,
+      schemas,
+      addable,
+      store: store ? `STORE\n${describeStore(store)}` : "",
+      memory: memoryText,
+      recent: describeRecent(history),
+    }
+    const planTurns: AgentTurn[] = [{ role: "user", content: planTurn(planContext), images: images.length ? images : undefined }]
+    for (let tryNo = 0; tryNo < 2 && !plan; tryNo++) {
+      try {
+        const answer = await completeOnce(provider, {
+          model,
+          system: PLANNER_SYSTEM,
+          turns: [...planTurns],
+          tools: [],
+          maxOutputTokens: 8_000,
+          cacheKey: input.cacheKey,
+          effort: input.effort,
+          signal,
+        })
+        usage = addUsage(usage, answer.usage)
+        plan = readCreativePlan(extractJson(answer.text), { state, schemas, addable, prompt })
+        if (!plan) {
+          planTurns.push({ role: "assistant", content: answer.text, toolCalls: [], raw: answer.raw })
+          planTurns.push({ role: "user", content: "That was not the JSON object asked for. Answer with the one JSON object only, in the shape given." })
+        }
+      } catch (thrown) {
+        if (thrown instanceof Error && thrown.name === "AbortError") throw thrown
+        trace("plan-failed", { error: plainRunError(thrown, "theme agent planner", "planner failed") })
+        break
+      }
+    }
+    trace(plan ? "plan" : "plan-missing", plan ? { archetype: plan.archetype, sections: plan.sections.map((s) => s.use), remove: plan.remove, corrections: plan.corrections } : {})
+    if (plan) {
+      plannedYet = true
+      yield { type: "plan", text: planForCreator(plan, schemas) }
+    }
+  }
+  /* Without a plan, a big request still gets the knowledge for its kind of business. */
+  const fallbackKnowledge =
+    bigIntent && !plan
+      ? [
+          archetypesFor(prompt, store ? describeStore(store) : "", brief ? JSON.stringify(brief) : "")
+            .map(describeArchetype)
+            .join("\n\n"),
+          DESIGN_DEFAULTS,
+        ]
+          .filter(Boolean)
+          .join("\n\n")
+      : ""
+
   const turns: AgentTurn[] = [
     {
       role: "user",
       content: [
         describeTheme(state, page, schemas),
+        /* What the page cannot say: the business, the direction, what each section is for. */
+        brief ? describeProject(state, brief, schemas) : "",
         /**
          * BEFORE the theme settings and before the request, because it is the
          * frame everything else is read in. A model told what the page has
@@ -915,6 +1121,10 @@ export async function* themeAgent(
          * caches, and the cached prefix is most of what a run costs.
          */
         skillContext(prompt, { images: images.length > 0 }),
+        fallbackKnowledge,
+        /* Right beside the request: what kind of request it is, and the plan it is built to. */
+        intent ? intentGuidance(intent) : "",
+        plan ? describeCreativePlan(plan, state, schemas) : "",
         `REQUEST\n${prompt}`,
       ]
         .filter(Boolean)
@@ -923,8 +1133,6 @@ export async function* themeAgent(
     },
   ]
 
-  /** The opening turn is the plan; everything after it is commentary. */
-  let plannedYet = false
   /** SELF_CHECK has been asked for, once, and the step that says so while the model answers it. */
   let selfChecked = false
   let checkingStep: { id: string; label: string } | null = null
@@ -944,9 +1152,9 @@ export async function* themeAgent(
         model,
         system: SYSTEM_PROMPT,
         turns: [...turns],
-        tools: toolSpecs(addable, schemas, !!input.code),
-        /* A filled section is a lot of copy in one turn; cut off, it arrives half written. See `ambitious`. */
-        maxOutputTokens: input.ambitious ? 16_000 : 8_000,
+        tools: toolSpecs(addable, schemas, !!input.code, { memory: !!input.memory }),
+        /* A filled section is a lot of copy in one turn; cut off, it arrives half written. See `ambitious`. A new section file is more. */
+        maxOutputTokens: bigIntent ? 24_000 : input.ambitious ? 16_000 : 8_000,
         cacheKey: input.cacheKey,
         effort: input.effort,
         signal,
@@ -954,6 +1162,7 @@ export async function* themeAgent(
 
       // Accumulated FIRST: a turn that then throws still cost money.
       usage = addUsage(usage, turn.usage)
+      trace("turn", { n: attempt, tools: turn.toolCalls.map((c) => c.name), input: turn.usage.inputTokens, output: turn.usage.outputTokens })
       /* The self check was answered: its step is over, and whatever it fixes is its own steps. */
       if (checkingStep) {
         yield { type: "step", id: checkingStep.id, label: checkingStep.label, state: "done" }
@@ -985,34 +1194,94 @@ export async function* themeAgent(
          * are fixed or the review budget is spent. See MAX_REVIEWS for why the
          * budget is small.
          */
-        const reviewing = ops.length > 0 && reviews < maxReviews
+        const reviewing = (ops.length > 0 || (!!input.projectCheck && wroteCode)) && reviews < maxReviews
         if (reviewing) {
-          const checking = trail.next(progress("checking", PROGRESS_LABELS.checking))
+          const checking = trail.next(progress("checking", input.projectCheck ? "Validating the theme" : PROGRESS_LABELS.checking))
           if (checking) yield checking
         }
         const findings = reviewing
-          ? reviewSections({
-              state,
-              schemas,
-              touched: [...touched],
-              added: [...added],
-              filled: [...filled],
-              written: Object.fromEntries([...written].map(([id, set]) => [id, [...set]])),
-              writtenBlocks: Object.fromEntries([...blockWrites].map(([id, set]) => [id, [...set]])),
-            })
+          ? [
+              ...reviewSections({
+                state,
+                schemas,
+                touched: [...touched],
+                added: [...added],
+                filled: [...filled],
+                written: Object.fromEntries([...written].map(([id, set]) => [id, [...set]])),
+                writtenBlocks: Object.fromEntries([...blockWrites].map(([id, set]) => [id, [...set]])),
+              }),
+              /* The page as it will be saved, whole: settings the schemas still declare, schemes and fonts that exist, the plan built. */
+              ...(input.projectCheck
+                ? checkProject({ before: input.state, after: state, schemas, rewrittenTypes, touched, added, intent, plan })
+                : []),
+            ]
           : []
 
         if (findings.length > 0) {
           reviews++
+          unresolved = findings.map((f) => f.message)
+          trace("findings", { round: reviews, findings: findings.map((f) => `${f.sectionId}: ${f.message}`.slice(0, 240)) })
           yield {
             type: "thinking",
             text:
               findings.length === 1
-                ? "Checking the change — one thing to fix."
-                : `Checking the changes — ${findings.length} things to fix.`,
+                ? "Checking the change: one thing to fix."
+                : `Checking the changes: ${findings.length} things to fix.`,
           }
+          yield progress("checking", "Fixing an issue")
           turns.push({ role: "user", content: describeFindings(findings, state) })
           continue
+        }
+        if (reviewing) unresolved = []
+
+        /**
+         * =====================================================================
+         *  AND IT LOOKS AT THE PAGE, IN A BROWSER, AT TWO WIDTHS
+         * =====================================================================
+         * The checks above read values. This one draws the page and measures
+         * it (./visual-check.ts): sideways scroll, collapsed sections, clipped
+         * and overlapping text, empty bands. For a build, the photographs go
+         * with it so the model judges the design too. Twice at most: once
+         * after the work, once after the fixes.
+         */
+        const wantsVisual =
+          !!input.visualCheck &&
+          visual.ran < 2 &&
+          (ops.length > 0 || wroteCode) &&
+          attempt < maxTurns - 1 &&
+          !signal?.aborted &&
+          (bigIntent || wroteCode || added.size > 0 || ops.length >= 4 || intent?.kind === "SECTION_REDESIGN")
+        if (wantsVisual) {
+          const shots = visual.ran === 0 && (bigIntent || intent?.kind === "SECTION_REDESIGN" || wroteCode)
+          yield progress("checking", "Checking mobile layout")
+          const report = await input.visualCheck!(state, sourcesNow, { shots }).catch(() => null)
+          visual.ran++
+          if (report) {
+            visual.ms += report.ms
+            visual.findings += report.findings.length
+            trace("visual", { round: visual.ran, findings: report.findings.map((f) => `${f.sectionId}@${f.width}: ${f.kind} ${f.message}`.slice(0, 200)), ms: report.ms, shots: report.shots.length })
+            const nameOfSection = (id: string) => {
+              const found = state.sections.find((x) => x.id === id)
+              return found ? `${found.name?.trim() || typeName(schemas, found.type)} [${id}]` : `[${id}]`
+            }
+            const lines = report.findings.slice(0, 14).map((f) => `- ${nameOfSection(f.sectionId)}${f.width ? ` at ${f.width}px` : ""}: ${f.message}`)
+            if (lines.length || report.shots.length) {
+              if (report.shots.length) selfChecked = true
+              turns.push({
+                role: "user",
+                content: [
+                  lines.length ? `YOUR PAGE, DRAWN IN A BROWSER AT 1440 AND 390 WIDE. These are wrong and must be fixed:\n${lines.join("\n")}` : "YOUR PAGE, DRAWN IN A BROWSER AT 1440 AND 390 WIDE. The measurements found nothing broken.",
+                  report.shots.length
+                    ? `The two pictures attached are the page at a laptop's width and a phone's. Look at them as the designer who will put their name on this: hierarchy, rhythm down the page, spacing, whether every section looks finished, whether the phone layout is designed, whether it looks like ${plan?.brand.name || "this business"} and not like any site.${intent ? " And against the request: every part asked for is there." : ""} Fix what is weak with the tools. If it is genuinely good, reply with your one closing sentence.`
+                    : "Fix them with the tools, then reply with your one closing sentence.",
+                ].join("\n\n"),
+                images: report.shots.length ? report.shots : undefined,
+              })
+              continue
+            }
+          } else {
+            trace("visual-skipped", {})
+          }
         }
 
         /**
@@ -1183,6 +1452,73 @@ export async function* themeAgent(
           continue
         }
 
+        /*
+          THE SITE'S PALETTE (./scheme-edit). A whole-site change, so the
+          lock refuses it like update_theme. Checked for contrast before it
+          is applied; a refusal says the ratios.
+        */
+        if (call.name === "set_color_scheme") {
+          if (locked) {
+            results.push({ id: call.id, output: "Only the open section may change in this edit, and a colour scheme is the whole site's. Change this section's own colours, and say that the palette needs the lock cleared." })
+            yield { type: "step", id: call.id, label: stepLabel, state: "failed" }
+            continue
+          }
+          const said = trail.next(progress("writing", "Setting the colours"))
+          if (said) yield said
+          const set = setColorScheme(call.argumentsJson, state)
+          results.push({ id: call.id, output: set.output })
+          if (set.op) {
+            const label = labelFor(set.op, state, schemas)
+            state = applyOp(state, set.op, schemas)
+            ops.push(set.op)
+            done.push(label)
+            forget("read_section:")
+            yield { type: "op", op: set.op, label }
+          }
+          trace("tool", { name: call.name, ok: !!set.op })
+          yield { type: "step", id: call.id, label: stepLabel, state: set.op ? "done" : "failed" }
+          continue
+        }
+        /* Design knowledge and the format, read on demand rather than sent with every request. */
+        if (call.name === "read_design_patterns" || call.name === "read_storelib_docs") {
+          let topic = ""
+          try {
+            topic = String((JSON.parse(call.argumentsJson || "{}") as { topic?: unknown }).topic ?? "").trim()
+          } catch {
+            /* an empty topic lists everything */
+          }
+          const key = topic.toLowerCase().replace(/[\s-]+/g, "_")
+          let output: string
+          if (call.name === "read_design_patterns") {
+            const pattern = patternById(key)
+            const archetype = archetypeById(key)
+            output = pattern
+              ? describePatterns([pattern.id])
+              : archetype
+                ? describeArchetype(archetype)
+                : key === "defaults"
+                  ? DESIGN_DEFAULTS
+                  : `${describePatterns()}\n\n${DESIGN_DEFAULTS}`
+          } else {
+            output = knowledgeBlock(topic, { limit: 3 }) || topicsById(["color-scheme", "responsive", "animation"])
+          }
+          results.push({ id: call.id, output })
+          yield { type: "step", id: call.id, label: stepLabel, state: "done" }
+          continue
+        }
+        if (call.name === "remember") {
+          let note = ""
+          try {
+            note = String((JSON.parse(call.argumentsJson || "{}") as { note?: unknown }).note ?? "").replace(/\s+/g, " ").trim().slice(0, 200)
+          } catch {
+            /* nothing to keep */
+          }
+          if (note && input.memory) notes.push(note)
+          results.push({ id: call.id, output: note ? "Kept. It will be shown to you on later messages about this website." : "Send the note as one sentence." })
+          yield { type: "step", id: call.id, label: stepLabel, state: note ? "done" : "failed" }
+          continue
+        }
+
         /* A read of something this run already read, unchanged since: a note, not the text again. */
         const readKey = READ_TOOLS.has(call.name) ? `${call.name}:${readTarget(call.argumentsJson)}` : ""
         if (readKey && reads.has(readKey)) {
@@ -1213,6 +1549,71 @@ export async function* themeAgent(
             results.push({ id: call.id, output: read.output })
             if (read.ok) reads.set(readKey, read.output)
             yield { type: "step", id: call.id, label: stepLabel, state: read.ok ? "done" : "failed" }
+            continue
+          }
+
+          /*
+            A NEW SECTION OF THE MODEL'S OWN, written, checked and placed in
+            one step: compiled, held to the integration rules, drawn with its
+            own preset, then kept (staged by the route, saved only if the run
+            ends well) and added to the page. The add carries the built
+            section, because the editor learns a new type's schema a render
+            after the stream tells it (./operations, add_section `section`).
+          */
+          if (call.name === "create_section") {
+            const said = trail.next(progress("writing", writingLabel(fileLabel(codeType))))
+            if (said) yield said
+            if (locked) {
+              results.push({ id: call.id, output: "Only the open section may change in this edit, so no section can be added. Do what you can inside it." })
+              yield { type: "step", id: call.id, label: stepLabel, state: "failed" }
+              continue
+            }
+            const failures = codeFailures.get(codeType) ?? 0
+            if (failures >= MAX_CODE_ATTEMPTS) {
+              results.push({ id: call.id, output: outOfAttempts(`sections/${codeType}.storelib`) })
+              yield { type: "step", id: call.id, label: stepLabel, state: "failed", ...on }
+              continue
+            }
+            const created = await createSection(call.argumentsJson, {
+              state,
+              code,
+              schemas,
+              sources: sourcesNow,
+              newId,
+              lenient: (codeRefusals.get(codeType) ?? 0) >= QUALITY_REFUSALS,
+            })
+            if (created.ok === false) {
+              if (created.reason === "quality") codeRefusals.set(codeType, (codeRefusals.get(codeType) ?? 0) + 1)
+              else if (created.reason !== "args") codeFailures.set(codeType, failures + 1)
+              results.push({ id: call.id, output: created.output })
+              trace("repair", { tool: call.name, type: codeType, reason: created.reason, feedback: created.output.slice(0, 400) })
+              yield { type: "step", id: call.id, label: stepLabel, state: "failed" }
+              continue
+            }
+            sourcesNow[created.path] = created.source
+            schemas = schemaMapFor(sourcesNow)
+            rewrittenTypes.add(codeType)
+            wroteCode = true
+            forget("read_section_type:")
+            yield { type: "code", path: created.path, source: created.source }
+            const label = `Added ${typeName(schemas, codeType)}`
+            state = applyOp(state, created.op, schemas)
+            ops.push(created.op)
+            done.push(label)
+            touched.add(created.op.id)
+            added.add(created.op.id)
+            if (created.op.settings) written.set(created.op.id, new Set(Object.keys(created.op.settings)))
+            yield { type: "op", op: created.op, label }
+            for (const more of created.extra) {
+              const moreLabel = labelFor(more, state, schemas)
+              state = applyOp(state, more, schemas)
+              ops.push(more)
+              if ("id" in more) touched.add(more.id)
+              yield { type: "op", op: more, label: moreLabel }
+            }
+            results.push({ id: call.id, output: created.output })
+            trace("tool", { name: call.name, ok: true, type: codeType })
+            yield { type: "step", id: call.id, label: stepLabel, state: "done", sections: [created.op.id] }
             continue
           }
 
@@ -1280,6 +1681,7 @@ export async function* themeAgent(
           if (checked.ok === false) {
             if (checked.reason === "quality") codeRefusals.set(codeType, qualitySent + 1)
             else codeFailures.set(codeType, failures + 1)
+            trace("repair", { tool: call.name, type: codeType, reason: checked.reason, feedback: checked.feedback.slice(0, 400) })
             const spent = checked.reason !== "quality" && failures + 1 >= MAX_CODE_ATTEMPTS
             results.push({
               id: call.id,
@@ -1309,6 +1711,7 @@ export async function* themeAgent(
           yield progress("saving", savingLabel(fileLabel(codeType)))
           done.push(`Rewrote ${fileLabel(codeType)}`)
           wroteCode = true
+          rewrittenTypes.add(codeType)
           for (const instance of state.sections) if (instance.type === codeType) touched.add(instance.id)
           sourcesNow[path] = prepared.source
           schemas = schemaMapFor(sourcesNow)
@@ -1456,6 +1859,44 @@ export async function* themeAgent(
   }
 
   /**
+   * WHAT IS STILL WRONG IS SAID, NOT HIDDEN. A finding the run could not fix
+   * within its budget stays in the reply, in a sentence, so "done" never
+   * stands in front of a check that failed.
+   */
+  if (input.projectCheck && status === "succeeded" && unresolved.length && (ops.length > 0 || wroteCode)) {
+    const first = unresolved[0].replace(/\s+/g, " ").split(/(?<=[.!?])\s/)[0].slice(0, 200)
+    message = `${message ? `${message} ` : ""}One thing is still not right: ${first}${unresolved.length > 1 ? ` (and ${unresolved.length - 1} more)` : ""}`
+  }
+
+  /**
+   * THE PROJECT'S MEMORY, written after the work (./project-state.ts): the
+   * plan and its direction, what each section is for, the change itself.
+   * An ordinary update_theme the editor applies and the Save button saves.
+   * Streamed, but not recorded with the run's changes: it is notes, not an
+   * edit somebody made.
+   */
+  if (brief && status === "succeeded" && (ops.length > 0 || wroteCode || notes.length || plan)) {
+    const next = updateBrief(brief, {
+      request: prompt,
+      intent: intent ?? { kind: "LOCAL_EDIT", also: [], scope: "element", plan: false, preserveStructure: true, followUp: false, wantsMotion: false, reasons: [] },
+      changed: changedSections(state, input.state, touched, schemas),
+      state,
+      added,
+      plan,
+      page,
+      schemas,
+      notes,
+    })
+    const op = briefOp(brief, next)
+    if (op) {
+      state = applyOp(state, op, schemas)
+      yield { type: "op", op, label: "Kept notes on this website" }
+      trace("memory", { bytes: JSON.stringify(next).length })
+    }
+  }
+  trace("end", { status, ops: ops.length, wroteCode, unresolved: unresolved.length, visual, usage })
+
+  /**
    * DONE, with what changed: one sentence and the sections, by the names the
    * sidebar uses. Not after a question (the question is the ending) and not
    * after a failure (the error is).
@@ -1467,7 +1908,7 @@ export async function* themeAgent(
     })
   }
 
-  return { status, message, error, usage, ops, wroteCode, asked }
+  return { status, message, error, usage, ops, wroteCode, asked, intent, plan, unresolved, visual }
 }
 
 /**
@@ -1661,6 +2102,8 @@ function compactSettings(settings: Record<string, unknown>): string {
   const kept: Record<string, unknown> = {}
   for (const [key, value] of Object.entries(settings)) {
     if (value === null || value === undefined || value === "") continue
+    /* The project's memory is shown as PROJECT STATE, described; never twice. */
+    if (key === BRIEF_KEY) continue
     if (typeof value === "string" && value.length > 300) continue
     kept[key] = value
   }
@@ -1699,7 +2142,7 @@ function compactSettings(settings: Record<string, unknown>): string {
 const QUALITY_REFUSALS = 2
 
 /** The tools that read or write a section's file. */
-const CODE_TOOLS = new Set(["read_section_code", "write_section_code", "edit_section_code", "copy_section_to_code"])
+const CODE_TOOLS = new Set(["read_section_code", "write_section_code", "edit_section_code", "copy_section_to_code", "create_section"])
 
 /**
  * The sections on the page a step is about, for the canvas's shimmer. A
@@ -1861,6 +2304,92 @@ async function copyToCode(
   }
 }
 
+/**
+ * create_section: a new file of the model's own, checked the way every write
+ * is (./compile-feedback), then kept and placed. A file declaring "kind":
+ * "header" or "footer" goes in that group and takes the place of the one
+ * drawn there, which is hidden, never removed: the editor's own Add section
+ * does exactly that (lib/storelib-theme/section-groups.ts, placeSection).
+ */
+async function createSection(
+  argumentsJson: string,
+  ctx: {
+    state: ThemeState
+    code: NonNullable<ThemeAgentInput["code"]>
+    schemas: SchemaMap
+    sources: Record<string, string>
+    newId: (type: string) => string
+    lenient: boolean
+  },
+): Promise<
+  | { ok: true; path: string; source: string; op: Extract<ThemeOp, { kind: "add_section" }>; extra: ThemeOp[]; output: string }
+  | { ok: false; reason: "args" | "compile" | "quality" | "render" | "kept"; output: string }
+> {
+  let args: Record<string, unknown> = {}
+  try {
+    args = JSON.parse(argumentsJson || "{}") as Record<string, unknown>
+  } catch {
+    return { ok: false, reason: "args", output: "The arguments were not JSON. Send sectionType, source, index and settingsJson." }
+  }
+  const type = typeof args.sectionType === "string" ? args.sectionType.trim() : ""
+  if (!SECTION_TYPE.test(type) || type === "header" || type === "footer") {
+    return { ok: false, reason: "args", output: 'Give the new section a lowercase type of its own, e.g. "event_poster". "header" and "footer" are taken.' }
+  }
+  if (schemaOf(ctx.schemas, type)) {
+    return { ok: false, reason: "args", output: `"${type}" already exists. Pick a new type for a new section, or change that one with edit_section_code.` }
+  }
+  const source = typeof args.source === "string" ? args.source : ""
+  if (!source.trim()) return { ok: false, reason: "args", output: "Send the whole file in `source`." }
+  const path = `sections/${type}.storelib`
+  const first = checkSectionSource({ path, type, source, before: null, instances: [], theme: ctx.state.settings, sources: ctx.sources, strict: true, lenient: ctx.lenient })
+  if (first.ok === false) return { ok: false, reason: first.reason, output: `${first.feedback}\n\nNothing was saved. Fix exactly that and send create_section again.` }
+
+  const tentative = schemaMapFor({ ...ctx.sources, [path]: source })
+  const id = ctx.newId(type)
+  const built = buildSection(id, type, tentative)
+  if (!built) return { ok: false, reason: "compile", output: `${path} compiled but its schema could not be read as a section. Check its <schema> has "name" and "settings".` }
+  const wanted = parseSettings(args.settingsJson) ?? {}
+  let notes: string[] = []
+  if (Object.keys(wanted).length) {
+    const checked = checkSettings(fieldsFor(type, tentative), wanted, type)
+    if (checked.error) return { ok: false, reason: "args", output: `${checked.error}\n\nNothing was saved. Use the settings your schema declares.` }
+    built.settings = { ...built.settings, ...checked.settings }
+    notes = checked.notes
+  }
+  const kind = kindOfSource(source, type)
+  if (kind) built.group = kind
+  /* Drawn with the settings it will have on the page, so a value the template cannot handle is found now. */
+  const drawn = checkSectionSource({ path, type, source, before: null, instances: [built], theme: ctx.state.settings, sources: ctx.sources, strict: false, lenient: true })
+  if (drawn.ok === false) return { ok: false, reason: drawn.reason, output: `${drawn.feedback}\n\nNothing was saved.` }
+
+  const kept = await ctx.code.write(type, source, { create: true })
+  if (kept.ok === false) return { ok: false, reason: "kept", output: `That file was refused and NOTHING was saved: ${kept.error}` }
+
+  const index = typeof args.index === "number" && args.index >= 0 ? args.index : undefined
+  const op: Extract<ThemeOp, { kind: "add_section" }> = { kind: "add_section", id, sectionType: type, index, settings: built.settings, section: built }
+  /* A header of its own takes the drawn header's place; that one is hidden, so the eye in the sidebar brings it back. */
+  const extra: ThemeOp[] = kind
+    ? ctx.state.sections
+        .filter((sec) => !sec.hidden && (sec.type === kind || kindOfSource(ctx.sources[`sections/${sec.type}.storelib`] ?? "", sec.type) === kind))
+        .map((sec) => ({ kind: "set_section_visibility" as const, id: sec.id, hidden: true }))
+    : []
+  const advice = sectionAdvice(source)
+  return {
+    ok: true,
+    path,
+    source,
+    op,
+    extra,
+    output: [
+      `Created ${path} and added it as [${id}]${kind ? ` in the ${kind} group, in place of the ${kind} that was drawn (now hidden)` : ""}.${notes.length ? ` (${notes.join("; ")})` : ""}`,
+      describeSection(built, tentative),
+      advice.length ? `Still worth doing in this file:\n${describeQuality(advice)}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n\n"),
+  }
+}
+
 function execute(
   name: string,
   argumentsJson: string,
@@ -1957,14 +2486,26 @@ function execute(
        * here, with the control's own description, is the only place anybody
        * finds out.
        */
-      const checked = checkSettings(fieldsFor(found.type, schemas), settings, found.type)
+      /*
+        NULL CLEARS A SETTING THE SCHEMA NO LONGER HAS, and only that. A
+        section file rewritten without a setting leaves its value on every
+        instance; this is how it is taken off (./project-check.ts says which).
+      */
+      const declared = new Set(fieldIds(found.type, schemas))
+      const unset = Object.keys(settings).filter((k) => settings[k] === null && !declared.has(k) && k in (found.settings ?? {}))
+      for (const k of unset) delete settings[k]
+      const nulled = Object.keys(settings).filter((k) => settings[k] === null)
+      if (nulled.length) {
+        return { output: `${nulled.map((k) => `"${k}"`).join(", ")} ${nulled.length === 1 ? "is a setting" : "are settings"} this section has, so null cannot clear ${nulled.length === 1 ? "it" : "them"}: send a value. null only clears a setting its schema no longer declares.`, failed: true }
+      }
+      const checked = Object.keys(settings).length ? checkSettings(fieldsFor(found.type, schemas), settings, found.type) : { settings: {}, notes: [] as string[] }
       if (checked.error) return { output: checked.error }
 
       return {
-        output: `Updated ${found.type} [${id}]: ${Object.keys(checked.settings!).join(", ")}.${
+        output: `Updated ${found.type} [${id}]: ${[...Object.keys(checked.settings!), ...unset.map((k) => `${k} cleared`)].join(", ")}.${
           checked.notes.length > 0 ? ` (${checked.notes.join("; ")})` : ""
         }`,
-        op: { kind: "update_section", id, settings: checked.settings! },
+        op: { kind: "update_section", id, settings: checked.settings!, ...(unset.length ? { unset } : {}) },
       }
     }
 
@@ -2229,6 +2770,18 @@ function execute(
        */
       const checked = checkSettings(themeFieldsFor(), settings, "The theme")
       if (checked.error) return { output: checked.error }
+      /*
+        A FONT IS A FAMILY THE THEME CAN LOAD. The control takes any string,
+        and "Fraunces" merges, saves and then draws as the fallback on every
+        visitor's screen, because only the panel's families are ever fetched
+        (lib/website-builder/font-link.ts).
+      */
+      const badFont = (["font_heading", "font_body", "font_accent"] as const).find(
+        (k) => typeof checked.settings![k] === "string" && (checked.settings![k] as string).trim() !== "" && !OFFERED_FAMILIES.has((checked.settings![k] as string).trim()),
+      )
+      if (badFont) {
+        return { output: `${badFont} "${checked.settings![badFont]}" is not a family the theme can load, so visitors would see a fallback. Nothing was changed. Use one of: ${[...OFFERED_FAMILIES].join(", ")}.` }
+      }
 
       return {
         output: `Updated the theme: ${Object.keys(checked.settings!).join(", ")}.${

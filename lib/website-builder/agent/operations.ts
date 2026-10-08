@@ -52,8 +52,22 @@ export type ThemeOp =
       /** Where in the list. Clamped between header and footer on apply. */
       index?: number
       settings?: Record<string, unknown>
+      /**
+       * THE SECTION, BUILT, for a type written in the same run (create_section
+       * in ./loop.ts). The editor learns the new file from the `code` event a
+       * moment earlier, but its schema lookup is a render behind the stream,
+       * so an add that relied on it would find no schema and do nothing.
+       * Used only when the type cannot be built here.
+       */
+      section?: SectionInstance
     }
-  | { kind: "update_section"; id: string; settings: Record<string, unknown> }
+  /**
+   * `unset`: settings the section holds that its schema no longer declares,
+   * cleared. Only those: a declared setting is changed, never removed. It is
+   * how a value left behind by a rewritten section file stops being carried
+   * on the page (./project-check.ts names them).
+   */
+  | { kind: "update_section"; id: string; settings: Record<string, unknown>; unset?: string[] }
   | { kind: "move_section"; id: string; index: number }
   | { kind: "remove_section"; id: string }
   | { kind: "rename_section"; id: string; name: string }
@@ -152,7 +166,9 @@ export function applyOp(state: ThemeState, op: ThemeOp, schemas?: SchemaMap): Th
   switch (op.kind) {
     case "add_section": {
       /* With the lookup: a section the creator wrote is added like any other. */
-      const section = buildSection(op.id, op.sectionType, schemas)
+      const built = buildSection(op.id, op.sectionType, schemas)
+      const shipped = !built && op.section && op.section.id === op.id && op.section.type === op.sectionType ? (JSON.parse(JSON.stringify(op.section)) as SectionInstance) : null
+      const section = built ?? shipped
       if (!section) return state
       if (op.settings) section.settings = { ...section.settings, ...op.settings }
 
@@ -167,7 +183,7 @@ export function applyOp(state: ThemeState, op: ThemeOp, schemas?: SchemaMap): Th
       return {
         ...state,
         sections: state.sections.map((s) =>
-          s.id === op.id ? { ...s, settings: { ...s.settings, ...op.settings } } : s,
+          s.id === op.id ? { ...s, settings: withoutKeys({ ...s.settings, ...op.settings }, op.unset) } : s,
         ),
       }
     }
@@ -271,6 +287,14 @@ export function applyOp(state: ThemeState, op: ThemeOp, schemas?: SchemaMap): Th
     default:
       return state
   }
+}
+
+/** A copy without the named keys. */
+function withoutKeys(settings: Record<string, unknown>, keys?: string[]): Record<string, unknown> {
+  if (!keys?.length) return settings
+  const out = { ...settings }
+  for (const k of keys) delete out[k]
+  return out
 }
 
 /**

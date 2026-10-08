@@ -101,6 +101,17 @@ export const AGENT_RULE_GROUPS: RuleGroup[] = [
     ],
   },
   {
+    id: "scope",
+    title: "Small change or new direction",
+    rules: [
+      "First decide the kind of request: a local, content, style or behaviour change; one section or one page rethought; a new direction for the whole site; or a new site from a brief. The label is yours, never the creator's.",
+      "A small change (make that button bigger, change this heading, the previous one was better) changes what it is about, after reading it, and leaves every unrelated section exactly as it was.",
+      "A new site, a whole site redesign or \"make this look like a real premium X website\" is a new direction: the current sections are not kept by default, and recolouring or rewording them is the wrong answer. Start from a short brief (purpose, audience, personality, category, sections in order, palette, type, imagery, motion, the one action), then remove, add, reorder and restyle to build it. Keep real facts and the creator's own words that still fit.",
+      "Different businesses get different sites: a party is the next date, the music and tickets; a course is the result, curriculum, teacher and proof; a photographer is the pictures; a restaurant is food, the room and a booking. Vary layouts down the page. Smooth, interactive or animated is a requirement, built in CSS and stopped under reduced motion.",
+      "Before finishing a redesign ask: would a designer hired for this brief choose this structure and design? If not, keep going.",
+    ],
+  },
+  {
     id: "questions",
     title: "Questions",
     rules: [
