@@ -43,13 +43,13 @@ export const MAX_SCHEMES = 8
 export const SET_COLOR_SCHEME_TOOL = {
   name: "set_color_scheme",
   description:
-    "Set the colours of one of the site's colour schemes, or add a new one. Every section that uses the scheme changes with it, so this is how a palette is applied to a whole site. Built-in keys: white (Light), light (Soft), dark (Dark), black (Brand), highlight (Accent). Send only the colours you are setting; the rest keep their values. Keys: background, background_secondary, text, text_muted, heading, accent, link, border, primary_button_background, primary_button_text, primary_button_border, secondary_button_background, secondary_button_text, secondary_button_border, input_background, input_text, input_border. Text must be readable on the background (4.5:1, headings 3:1) and button text on the button. Then point sections at it with update_section color_scheme.",
+    "Set one colour scheme's colours, or add a scheme. Every section on it changes with it: this is how a palette reaches the whole site. Built in: white, light, dark, black, highlight. Send only what changes; text must read on the background (4.5:1) and button text on the button. Then set sections' color_scheme to it.",
   parameters: {
     type: "object",
     properties: {
       scheme: { type: "string", description: 'The scheme key: a built-in one, or a new lowercase key like "night".' },
       name: { type: "string", description: 'What the creator sees it called, e.g. "Night". "" to keep the current name.' },
-      colorsJson: { type: "string", description: 'A JSON OBJECT AS A STRING: scheme key → hex colour, e.g. {"background":"#0b0b0f","heading":"#f5f1ea"}' },
+      colorsJson: { type: "string", description: 'JSON object as a string, key → hex. Keys: background, background_secondary, text, text_muted, heading, accent, link, border, primary_button_background, primary_button_text, primary_button_border, secondary_button_background, secondary_button_text, secondary_button_border, input_background, input_text, input_border.' },
     },
     required: ["scheme", "name", "colorsJson"],
     additionalProperties: false,

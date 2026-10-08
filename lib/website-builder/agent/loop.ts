@@ -565,7 +565,7 @@ function toolSpecs(addable: string[], schemas?: SchemaMap, code?: boolean, opts:
     {
       name: "read_design_patterns",
       description:
-        "Read Storelib's design knowledge: a pattern (hero_immersive, marquee, event_spotlight, schedule, gallery, team, tickets, pricing, testimonials, before_after, stats, venue, menu, cta_final and more) with the built-in types that draw it and how to write it yourself; a kind of site (nightlife, course, photographer, luxury_fashion, ecommerce, creator, coach, restaurant, saas, digital_products, music, community) with its usual structure, type, palette, imagery and motion; or \"defaults\" for spacing, type, rhythm and motion defaults. \"\" lists every pattern.",
+        "Read design knowledge: a pattern id (hero_immersive, marquee, event_spotlight, schedule, gallery, team, tickets, before_after, stats, venue, menu, cta_final...), a kind of site (nightlife, course, photographer, luxury_fashion, ecommerce, creator, coach, restaurant, saas, digital_products, music, community), \"defaults\", or \"\" for every pattern.",
       parameters: {
         type: "object",
         properties: { topic: { type: "string", description: "A pattern id, a kind of site, \"defaults\", or \"\"." } },
@@ -576,7 +576,7 @@ function toolSpecs(addable: string[], schemas?: SchemaMap, code?: boolean, opts:
     {
       name: "read_storelib_docs",
       description:
-        "Read the Storelib section format on one subject before writing code that depends on it: blocks, theme blocks, colour schemes, theme globals, typography, CSS scoping, responsive layout, scripts, forms, embeds, animation, assets, editor state, settings, multiple instances, accessibility. Say the subject in a few words.",
+        "Read the section format on one subject before code that depends on it: blocks, colour schemes, typography, CSS scoping, responsive, scripts, forms, embeds, animation, assets, settings.",
       parameters: {
         type: "object",
         properties: { topic: { type: "string", description: 'e.g. "animation", "script and countdown", "colour scheme"' } },
