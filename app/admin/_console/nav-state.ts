@@ -7,7 +7,7 @@ import type { ViewId } from "@/lib/admin/types"
  */
 export type Route = { view: ViewId; q: string; filter: string; page: number; id: string }
 
-export const VIEWS: ViewId[] = ["overview", "creators", "creator", "products", "orders", "payouts", "websites", "email", "audience", "people", "audit", "system"]
+export const VIEWS: ViewId[] = ["overview", "ops", "creators", "creator", "products", "orders", "payouts", "websites", "email", "audience", "people", "audit", "system"]
 
 export function parseRoute(get: (k: string) => string | null | undefined): Route {
   const view = (get("view") ?? "overview") as ViewId

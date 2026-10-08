@@ -59,7 +59,7 @@ async function sqlPartChecks(r: Reader): Promise<SqlPartCheck[]> {
  * there is work waiting that is older than the schedule allows, the job is
  * late. When there is no trace to read, it says so rather than guessing.
  */
-async function cronChecks(r: Reader): Promise<CronCheck[]> {
+export async function cronChecks(r: Reader): Promise<CronCheck[]> {
   const [lastFlowSend, lateFlows, lastRelease, overdueHolds, lastRollup, lastNotify, lateNotifyJobs] = await Promise.all([
     r.rows<{ sent_at: string | null }>("cron: flow sends", "scheduled_flow_emails", "sent_at", (q) => q.not("sent_at", "is", null).order("sent_at", { ascending: false }).limit(1)),
     r.count("cron: late flow emails", "scheduled_flow_emails", (q) => q.eq("status", "pending").lt("scheduled_for", isoMinutesAgo(120))),

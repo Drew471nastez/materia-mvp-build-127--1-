@@ -10,6 +10,7 @@ import { Shell } from "./shell"
 import { Banner, Button, Delayed, Placeholder } from "./ui"
 import { CreatorView, CreatorsView, OrdersView, PayoutsView, ProductsView } from "./view-commerce"
 import { OverviewView } from "./view-overview"
+import { OpsView } from "./view-ops"
 import { AudienceView, AuditView, EmailView, PeopleView, SystemView, WebsitesView } from "./view-platform"
 
 /**
@@ -60,6 +61,8 @@ export function renderView(route: Route, data: Data, props: { go: (r: Partial<Ro
       return <AuditView data={data as never} {...common} />
     case "system":
       return <SystemView data={data as never} {...common} />
+    case "ops":
+      return <OpsView data={data as never} />
   }
 }
 
@@ -164,12 +167,12 @@ export function AdminConsole({ initial }: { initial: Route }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, tick])
 
-  /* The overview, once a minute while it is being looked at. */
+  /* The overview once a minute, and Operations every 30 seconds, while it is being looked at. */
   React.useEffect(() => {
-    if (route.view !== "overview") return
+    if (route.view !== "overview" && route.view !== "ops") return
     const id = setInterval(() => {
       if (document.visibilityState === "visible") setTick((t) => t + 1)
-    }, 60_000)
+    }, route.view === "ops" ? 30_000 : 60_000)
     return () => clearInterval(id)
   }, [route.view])
 

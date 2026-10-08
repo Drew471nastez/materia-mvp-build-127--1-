@@ -20,7 +20,7 @@ import { cx } from "./ui"
 export type NavItem = { id: ViewId; label: string } | { href: string; label: string }
 
 export const NAV: { group: string | null; items: NavItem[] }[] = [
-  { group: null, items: [{ id: "overview", label: "Overview" }] },
+  { group: null, items: [{ id: "overview", label: "Overview" }, { id: "ops", label: "Operations" }] },
   {
     group: "Commerce",
     items: [

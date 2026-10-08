@@ -26,6 +26,7 @@ const SUITES = [
   "tests/lean-images.test.ts",
   "tests/buy-buttons-checkout.test.ts",
   "tests/integrations-settings-sheet.test.ts",
+  "tests/admin-ops.test.ts",
   "tests/native-app-links-inapp.test.ts",
   "tests/merge-markers.test.ts",
   "tests/imports-resolve.test.ts",

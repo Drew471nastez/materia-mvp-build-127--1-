@@ -53,6 +53,10 @@ export const EXPECTED_SCHEMA: Record<string, { columns: string[]; later?: boolea
   rate_limit_hits: { columns: ["id", "created_at"] },
   admin_actions: { columns: ["id", "created_at", "action", "target_type", "target_id", "target_label", "reason", "detail", "actor"], later: true },
   admin_moderation_log: { columns: ["id", "action", "creator_id", "user_id", "username", "reason", "products_affected", "created_at"], later: true },
+  /* Read by the Operations view (lib/admin/views/ops.ts). */
+  error_events: { columns: ["fingerprint", "source", "location", "message", "count", "first_seen", "last_seen"], later: true },
+  commerce_jobs: { columns: ["id", "status", "run_after"], later: true },
+  commerce_integrations: { columns: ["id", "status"], later: true },
 }
 
 /** The database functions the admin calls, all from RUN_ADMIN_CONSOLE.sql. */
@@ -116,6 +120,9 @@ export const ENV_CHECKS: { name: string; group: string; optional?: boolean }[] =
   { name: "GITHUB_APP_ID", group: "GitHub sync" },
   { name: "GITHUB_APP_PRIVATE_KEY", group: "GitHub sync" },
   { name: "GITHUB_WEBHOOK_SECRET", group: "GitHub sync" },
+  /* Connect Supabase by signing in (Website settings › Connections): off until an OAuth app is made. */
+  { name: "SUPABASE_OAUTH_CLIENT_ID", group: "Supabase sign in (optional)", optional: true },
+  { name: "SUPABASE_OAUTH_CLIENT_SECRET", group: "Supabase sign in (optional)", optional: true },
   /* Optional: Storelib's built-in file checks need nothing. "Not set" here is
      the normal state and reads as Off, not as a problem (lib/security/uploads). */
   { name: "SECURITY_MALWARE_PROVIDER", group: "Malware engine (optional)", optional: true },

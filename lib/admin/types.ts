@@ -298,6 +298,7 @@ export type SystemPayload = Base & {
 
 export type ViewId =
   | "overview"
+  | "ops"
   | "creators"
   | "creator"
   | "products"
