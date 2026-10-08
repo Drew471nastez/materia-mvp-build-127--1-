@@ -230,18 +230,21 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
          */
         const origin = originOf(request)
         const started = await startVerification(creator, {
-          returnUrl: body.inApp === true ? `${origin}/app/payouts/identity-done` : `${origin}/app/payouts?setup=1`,
+          returnUrl: body.inApp === true ? `${origin}/stripe-done` : `${origin}/app/payouts?setup=1`,
           refreshUrl: `${origin}/app/payouts?setup=1`,
         })
         return NextResponse.json(started, { headers: NO_STORE })
       }
       case "hosted-setup": {
         if (provider !== "stripe") return NextResponse.json({ error: "Not found." }, { status: 404, headers: NO_STORE })
-        /* The app's sheet comes back to the page it closes; anywhere else comes back to setup. */
+        /*
+          The app's sheet comes back to /stripe-done, outside /app: the sheet is the system browser's, without the app's
+          sign in, and an /app address there was sent to the log in page. Anywhere else comes back to setup.
+        */
         const origin = originOf(request)
         const started = await startHostedSetup(creator, {
-          returnUrl: body.inApp === true ? `${origin}/app/payouts/identity-done` : `${origin}/app/payouts?setup=1`,
-          refreshUrl: `${origin}/app/payouts?setup=1`,
+          returnUrl: body.inApp === true ? `${origin}/stripe-done` : `${origin}/app/payouts?setup=1`,
+          refreshUrl: body.inApp === true ? `${origin}/stripe-done?again=1` : `${origin}/app/payouts?setup=1`,
         })
         return NextResponse.json(started, { headers: NO_STORE })
       }

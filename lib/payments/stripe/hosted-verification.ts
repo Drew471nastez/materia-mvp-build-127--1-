@@ -19,7 +19,7 @@ import "server-only"
  * COMING BACK. `return_url` is Storelib's own payouts page with ?setup=1, so
  * the panel reopens on whatever step is left (the bank, usually). The phone
  * app runs the page in the sheet over the app instead, and comes back to
- * /app/payouts/identity-done, which the app closes. `refresh_url` is the same
+ * /stripe-done (outside /app, so the sheet needs no sign in). `refresh_url` is the same
  * page: a link that has expired, or a page reloaded hours later, lands on
  * Storelib rather than on a Stripe error.
  */
@@ -147,13 +147,17 @@ export async function startVerification(creator: PaymentsCreatorRef, where: Veri
  * own. That window is opened from inside Stripe's frame, and an app built
  * before it could hold such windows sends it to Safari. There the setup is
  * this page instead, in the sheet that slides over the app, and the sheet
- * comes back to /app/payouts/identity-done. `account_onboarding` until the
+ * comes back to /stripe-done. `account_onboarding` until the
  * details are in, `account_update` after; the same fields the embedded form
  * asks for (payments-setup-flow.tsx SETUP_COLLECTION, eventually due).
  */
 export async function startHostedSetup(creator: PaymentsCreatorRef, where: VerifyReturn): Promise<{ ok: true; url: string } | VerifyStop> {
   const account = await accountOf(creator)
   if ("ok" in account) return account
+  /* Setup never asks "individual or company": an account with no type yet is a person, as the embedded form opens it (connect.ts createStripeAccountSession). */
+  if (!account.business_type) {
+    await stripe.accounts.update(account.id, { business_type: "individual" }).catch((error) => console.error("[hosted setup] business type", quiet(error)))
+  }
   try {
     const link = await stripe.accountLinks.create(
       {

@@ -38,18 +38,20 @@ async function openSession(purpose: EmbeddedPurpose): Promise<{ clientSecret: st
 }
 
 /*
-  WHEN THE FORM WOULD LEAVE THE APP. On an account Stripe collects for, the
-  embedded form first asks the creator to sign in to Stripe, in a window it
-  opens from inside its own frame. No script on this page can reach that
-  window, and an app built before it could hold one hands it to Safari: the
-  creator was thrown out of Storelib the moment setup opened, and the sign
-  in never came back to the form. In that app the same setup runs on
-  Stripe's page in the sheet that slides over Storelib instead, and closes
-  back here. An app that holds Stripe's windows itself says so in its user
-  agent (capacitor.config.ts appendUserAgent) and keeps the embedded form.
+  WHEN THE FORM WOULD LEAVE THE APP. Stripe's embedded form opens windows of
+  its own from inside its frame (connect-js.stripe.com): the sign in to
+  Stripe on an account Stripe collects for, and on every account its own
+  steps (the ID, the bank). No script on this page can reach those windows,
+  and an app built before it could hold one hands each to Safari or Chrome:
+  the creator was thrown out of Storelib in the middle of setup, and what
+  they did there never reached the form. Round 17: in that app the embedded
+  form is never drawn at all. The same setup runs on Stripe's page in the
+  sheet that slides over Storelib, and the sheet closes itself once Stripe
+  is satisfied. An app that holds Stripe's windows itself says so in its
+  user agent (capacitor.config.ts appendUserAgent) and keeps the form.
 */
-function needsSheet(stripeSignIn: boolean): boolean {
-  return stripeSignIn && isNativeApp() && !appHoldsStripeWindows()
+function needsSheet(): boolean {
+  return isNativeApp() && !appHoldsStripeWindows()
 }
 
 async function openHostedSetup(): Promise<boolean> {
@@ -147,6 +149,8 @@ export function StripeConnectEmbedded({
   React.useEffect(() => {
     let gone = false
     let el: HTMLElement | null = null
+    /* The sheet is over the app: taken away with the form (setup finished behind it), so it never outlives the setup. */
+    let sheetUp = false
     setReady(false)
     setFailed(null)
     setSheet("off")
@@ -157,18 +161,20 @@ export function StripeConnectEmbedded({
           module-level import started Stripe.js as soon as Payouts opened,
           and its controller frame navigated the web view out to the browser.
         */
-        const [first, { loadConnectAndInitialize }] = await Promise.all([openSession(purpose), import("@stripe/connect-js/pure")])
-        if (gone) return
-        if (needsSheet(first.stripeSignIn)) {
-          /* The one loader stays up while the sheet is over the app. */
+        if (needsSheet()) {
+          /* Stripe's frame is never loaded here; the one loader stays up while the sheet is over the app. */
           setSheet("open")
+          sheetUp = true
           const opened = await openHostedSetup().catch(() => false)
+          sheetUp = false
           if (gone) return
           if (!opened) return setFailed(LOAD_FAILED)
           setSheet("closed")
           void handlers.current.onExit?.()
           return
         }
+        const [first, { loadConnectAndInitialize }] = await Promise.all([openSession(purpose), import("@stripe/connect-js/pure")])
+        if (gone) return
         let pending: string | null = first.clientSecret
         const connect = loadConnectAndInitialize({
           publishableKey: first.publishableKey,
@@ -217,6 +223,7 @@ export function StripeConnectEmbedded({
     return () => {
       gone = true
       el?.remove()
+      if (sheetUp) void import("@capacitor/browser").then(({ Browser }) => Browser.close()).catch(() => undefined)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [purpose, collectionKey, attempt])
