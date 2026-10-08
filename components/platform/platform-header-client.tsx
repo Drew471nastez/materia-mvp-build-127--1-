@@ -44,6 +44,8 @@ import { addRecent, cleanTerm, clearRecent, DEBOUNCE_MS as QUICK_DEBOUNCE_MS, qu
 import { HeaderSearchResults, SLIM_SCROLL, hasPanel, optionCount, optionId } from "@/components/platform/header-search-results"
 import { useCommunitiesEnabled } from "@/lib/platform/use-flags"
 import { showsProfileHeader } from "@/lib/profile/owner-pills"
+import { useCommunityContextMeta } from "@/lib/nav/community-context"
+import { CommunityAccountMenu } from "@/components/community/member/account-menu"
 import { profileShareUrl, shareProfile } from "@/lib/profile/share-profile"
 
 
@@ -1542,7 +1544,10 @@ export function PlatformHeaderClient({
     md:hidden the rest of the phone row uses, so a computer's bar is the bar
     it always was.
   */
-  const profileBar = showsProfileHeader(pathname)
+  const ctx = useCommunityContextMeta()
+  const profileInCommunity = !!ctx.slug && showsProfileHeader(pathname)
+  const profileBar = showsProfileHeader(pathname) && !ctx.slug
+  const navCurrent = ctx.id ? { kind: "community" as const, id: ctx.id } : { kind: "storelib" as const }
   useEffect(() => {
     if (!shareNote) return
     const t = window.setTimeout(() => setShareNote(null), 2200)
@@ -2102,15 +2107,26 @@ export function PlatformHeaderClient({
                   <span className={chrome.wordmark}>Storelib</span>
                 </Link>
                 <PlaceNavigator
-                  current={{ kind: "storelib" }}
+                  current={navCurrent}
                   onNavigate={(e, href) => onCanonicalNav(e, href)}
                   /* On a phone the slack runs left to the screen's edge and up and down, where a thumb undershoots; not right, where the logo is a target of its own. A computer's pointer needs none. */
                   className={cn("z-10 before:absolute before:-left-3 before:-top-2 before:-bottom-2 before:right-0 before:content-[''] md:before:content-none", chrome.navigator)}
                 />
-                <Link href={buyerLogoHref} onClick={(e) => onCanonicalNav(e, buyerLogoHref)} className="shrink-0 flex items-center gap-1.5 md:hidden" data-header-logo="phone">
-                  <StorelibLogo size={HEADER_LOGO.phone} priority />
-                  <span className={chrome.wordmarkPhone}>Storelib</span>
-                </Link>
+                {profileInCommunity ? (
+                  <Link
+                    href={`/community/${ctx.slug}`}
+                    onClick={(e) => onCanonicalNav(e, `/community/${ctx.slug}`)}
+                    className="flex min-w-0 max-w-[46vw] shrink items-center gap-1.5 md:hidden"
+                    data-header-community-title=""
+                  >
+                    <span className={cn("truncate font-semibold", chrome.wordmarkPhone)}>{ctx.name ?? ctx.slug}</span>
+                  </Link>
+                ) : (
+                  <Link href={buyerLogoHref} onClick={(e) => onCanonicalNav(e, buyerLogoHref)} className="shrink-0 flex items-center gap-1.5 md:hidden" data-header-logo="phone">
+                    <StorelibLogo size={HEADER_LOGO.phone} priority />
+                    <span className={chrome.wordmarkPhone}>Storelib</span>
+                  </Link>
+                )}
               </div>
 
           {/* Desktop Search - Centered with Modal (10% larger) */}
@@ -2292,13 +2308,24 @@ export function PlatformHeaderClient({
 
 
               {/* The person's notifications: a full screen sheet on a phone. */}
-              {user ? <NotificationBell className={chrome.iconBtn} /> : null}
+              {user && !profileBar ? <NotificationBell className={chrome.iconBtn} /> : null}
 
               {/* Mobile Avatar or Sign In button — use h-[42px] w-[42px] wrapper for 44px tap target.
                   ROUND 11: 34px (it was 32) with Storelib's light depth, a hairline drawn as a 1px ring
                   in the shadow and a 1px soft drop under it, so the photo keeps its full circle (the old
                   border took a pixel off every side) and the circle sits on the bar rather than in it. */}
-              {user ? (
+              {user && profileInCommunity ? (
+                <CommunityAccountMenu
+                  me={{
+                    name: (displayName || "").trim() || "You",
+                    avatarUrl: avatarUrl ?? null,
+                    username: profile?.username ?? null,
+                    seller: hasCompletedSellerOnboarding,
+                  }}
+                  savedHref={`/community/${ctx.slug}/saved`}
+                  membershipHref={`/community/${ctx.slug}/membership`}
+                />
+              ) : user ? (
                 <button
                   type="button"
                   onClick={() => setMobileProfileOpen(true)}

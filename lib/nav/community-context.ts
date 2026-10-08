@@ -23,11 +23,15 @@
 import { useSyncExternalStore } from "react"
 
 export const COMMUNITY_CONTEXT_KEY = "storelib:community-context"
+const COMMUNITY_CONTEXT_ID_KEY = "storelib:community-context-id"
+const COMMUNITY_CONTEXT_NAME_KEY = "storelib:community-context-name"
 
 const SLUG = /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/
 
 /** undefined: not read from the tab yet; null: no community. */
 let held: string | null | undefined
+let heldId: string | null | undefined
+let heldName: string | null | undefined
 const listeners = new Set<() => void>()
 
 function read(): string | null {
@@ -42,12 +46,45 @@ function read(): string | null {
   return held
 }
 
-function write(next: string | null) {
-  if (read() === next) return
-  held = next
+function readId(): string | null {
+  if (heldId !== undefined) return heldId
+  if (typeof window === "undefined") return null
   try {
-    if (next) window.sessionStorage.setItem(COMMUNITY_CONTEXT_KEY, next)
-    else window.sessionStorage.removeItem(COMMUNITY_CONTEXT_KEY)
+    heldId = window.sessionStorage.getItem(COMMUNITY_CONTEXT_ID_KEY)
+  } catch {
+    heldId = null
+  }
+  return heldId
+}
+
+function readName(): string | null {
+  if (heldName !== undefined) return heldName
+  if (typeof window === "undefined") return null
+  try {
+    heldName = window.sessionStorage.getItem(COMMUNITY_CONTEXT_NAME_KEY)
+  } catch {
+    heldName = null
+  }
+  return heldName
+}
+
+function write(next: string | null, meta?: { id?: string; name?: string }) {
+  if (read() === next && (!meta?.id || readId() === meta.id)) return
+  held = next
+  if (meta?.id) heldId = meta.id
+  if (meta?.name) heldName = meta.name
+  try {
+    if (next) {
+      window.sessionStorage.setItem(COMMUNITY_CONTEXT_KEY, next)
+      if (meta?.id) window.sessionStorage.setItem(COMMUNITY_CONTEXT_ID_KEY, meta.id)
+      if (meta?.name) window.sessionStorage.setItem(COMMUNITY_CONTEXT_NAME_KEY, meta.name)
+    } else {
+      window.sessionStorage.removeItem(COMMUNITY_CONTEXT_KEY)
+      window.sessionStorage.removeItem(COMMUNITY_CONTEXT_ID_KEY)
+      window.sessionStorage.removeItem(COMMUNITY_CONTEXT_NAME_KEY)
+      heldId = null
+      heldName = null
+    }
   } catch {
     /* No storage (a private window): the page's memory still has it. */
   }
@@ -60,8 +97,24 @@ export function communityContext(): string | null {
 }
 
 /** Inside a community: it becomes the context (another one replaces it). */
-export function enterCommunityContext(slug: string | null | undefined) {
-  if (slug && SLUG.test(slug)) write(slug)
+export function enterCommunityContext(slug: string | null | undefined, meta?: { id?: string; name?: string }) {
+  if (slug && SLUG.test(slug)) write(slug, meta)
+}
+
+export function communityContextId(): string | null {
+  return readId()
+}
+
+export function communityContextName(): string | null {
+  return readName()
+}
+
+export function useCommunityContextMeta(): { slug: string | null; id: string | null; name: string | null } {
+  return useSyncExternalStore(
+    subscribe,
+    () => ({ slug: read(), id: readId(), name: readName() }),
+    () => ({ slug: null, id: null, name: null }),
+  )
 }
 
 /** Explore, Discover communities or Dashboard chosen in the navigator: Home is Storelib's again. */

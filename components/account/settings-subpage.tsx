@@ -10,15 +10,13 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { AccountSettings } from "@/components/account/account-settings"
 import { PageSpinner } from "@/components/ui/activity-spinner"
-import { createClient } from "@/lib/supabase/client"
-import { displayEmail } from "@/lib/businesses/email-alias"
 import { isNativeApp } from "@/lib/platform-utils"
 import { CLICK_ECHO_MS } from "@/lib/navigation/first-tap"
 import { swallowGhostTaps } from "@/lib/navigation/swallow-ghost-taps"
 
 const EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
 const IN_MS = 340
-const OUT_MS = 360
+const OUT_MS = 440
 const CACHE_MS = 5 * 60_000
 
 export type SettingsSection = "profile" | "account" | "privacy" | "notifications" | "preferences"
@@ -58,7 +56,7 @@ export function primeSettingsFromProfile(seed: {
     email: base?.email ?? "",
     name: seed.name,
     bio: (seed.bio || "").trim(),
-    bioSupported: true,
+    bioSupported: base?.bioSupported ?? true,
     avatarUrl: seed.avatarUrl ?? base?.avatarUrl ?? null,
     createdAt: base?.createdAt ?? new Date().toISOString(),
     hasPassword: base?.hasPassword ?? true,
@@ -115,72 +113,12 @@ export function sectionFromSettingsHref(href: string): SettingsSection {
 }
 
 async function loadOwnSettings(section: SettingsSection): Promise<Loaded | null> {
-  const supabase = createClient()
-  const { data: auth } = await supabase.auth.getUser()
-  const user = auth.user
-  if (!user) return null
-  const [full, prefs, creatorRow, pageRow] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select(
-        "display_name, bio, avatar_url, cover_url, username, location_city, location_country, personalized_recommendations, show_activity, show_communities",
-      )
-      .eq("id", user.id)
-      .maybeSingle(),
-    fetch("/api/account/preferences", { credentials: "same-origin" })
-      .then((r) => (r.ok ? (r.json() as Promise<{ newsletter?: boolean; personalizedRecommendations?: boolean }>) : null))
-      .catch(() => null),
-    supabase.from("creators").select("onboarding_completed").eq("user_id", user.id).maybeSingle(),
-    supabase.from("onepages").select("id").eq("owner_id", user.id).limit(1).maybeSingle(),
-  ])
-  const slim = full.error
-    ? await supabase.from("profiles").select("display_name, avatar_url, username").eq("id", user.id).maybeSingle()
-    : null
-  const row = ((full.error ? slim?.data : full.data) ?? null) as {
-    display_name?: string | null
-    bio?: string | null
-    avatar_url?: string | null
-    cover_url?: string | null
-    username?: string | null
-    location_city?: string | null
-    country?: string | null
-    location_country?: string | null
-    personalized_recommendations?: boolean | null
-    show_activity?: boolean | null
-    show_communities?: boolean | null
-  } | null
-  const providers = ((user.app_metadata?.providers as string[] | undefined) ?? [user.app_metadata?.provider as string | undefined]).filter(Boolean) as string[]
-  const names: Record<string, string> = { google: "Google", apple: "Apple", github: "GitHub", facebook: "Facebook" }
-  const via = providers.filter((p) => p !== "email").map((p) => names[p] ?? p).join(" or ")
-  const meta = (user.user_metadata ?? {}) as { full_name?: string; name?: string; personalized_recommendations?: boolean }
-  return {
-    userId: user.id,
-    email: displayEmail(user.email) || "",
-    name: row?.display_name || meta.full_name || meta.name || "",
-    bio: (row?.bio || "").trim(),
-    bioSupported: !(full.error && (full.error.code === "PGRST204" || full.error.code === "42703")),
-    avatarUrl: row?.avatar_url || null,
-    createdAt: user.created_at,
-    hasPassword: providers.length === 0 || providers.includes("email"),
-    via,
-    isSeller: creatorRow.data?.onboarding_completed === true,
-    newsletter: prefs?.newsletter === true,
-    personalized: typeof prefs?.personalizedRecommendations === "boolean" ? prefs.personalizedRecommendations : row?.personalized_recommendations !== false && meta.personalized_recommendations !== false,
-    username: row?.username || "",
-    usernameEditable: true,
-    privacy: {
-      showActivity: row?.show_activity !== false,
-      showCommunities: row?.show_communities !== false,
-      supported: !full.error && row != null && full.data != null && "show_activity" in (full.data as object),
-    },
-    creator: !!(pageRow.data?.length ?? 0) || creatorRow.data?.onboarding_completed === true,
-    cover: { url: (row?.cover_url || "").trim() || null, supported: !full.error && row != null && "cover_url" in (full.data as object) },
-    location: {
-      city: row?.location_city ?? null,
-      country: row?.location_country ?? null,
-      supported: !full.error && row != null && "location_city" in (full.data as object),
-    },
-    initialSection: section,
+  try {
+    const res = await fetch(`/api/account/settings-bundle?section=${section}`, { credentials: "same-origin" })
+    if (!res.ok) return null
+    return (await res.json()) as Loaded
+  } catch {
+    return null
   }
 }
 
@@ -234,7 +172,13 @@ function SettingsLayer({ section, data, onClose }: { section: SettingsSection; d
       finish()
       return
     }
-    const a = el.animate([{ transform: "translate3d(0, 0, 0)" }, { transform: "translate3d(100%, 0, 0)" }], { duration: OUT_MS, easing: EASE, fill: "forwards" })
+    const a = el.animate(
+      [
+        { transform: "translate3d(0, 0, 0)", opacity: 1 },
+        { transform: "translate3d(100%, 0, 0)", opacity: 0.98 },
+      ],
+      { duration: OUT_MS, easing: EASE, fill: "forwards" },
+    )
     a.onfinish = finish
     window.setTimeout(finish, OUT_MS + 60)
   }
@@ -242,7 +186,7 @@ function SettingsLayer({ section, data, onClose }: { section: SettingsSection; d
   return (
     <div
       ref={panel}
-      className="fixed inset-0 overflow-y-auto bg-white overscroll-contain"
+      className="fixed inset-0 overflow-y-auto overflow-x-hidden bg-white overscroll-contain"
       data-edit-profile-sheet=""
       data-settings-subpage=""
       role="dialog"

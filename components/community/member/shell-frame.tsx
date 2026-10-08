@@ -97,6 +97,7 @@ import { PersonCardLayer } from "./person-card"
 import { toast, Toasts } from "./toast"
 import { CommunityTopBar } from "./top-bar"
 import { whenIdle } from "./feed-cache"
+import { enterCommunityContext } from "@/lib/nav/community-context"
 import { InviteSheet } from "./invite-sheet"
 import { preloadSearchIndex } from "./search"
 import { PRESS_PROPS, TAB, TAB_OFF, TAB_ON } from "./ui"
@@ -229,6 +230,9 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
   const manageInvites = canInvite && (viewer.isOwner || viewer.isCreatorAccount) ? `/app/community/${community.id}/members` : null
 
   usePresenceHeartbeat(community.id, viewer.userId)
+  useEffect(() => {
+    enterCommunityContext(community.slug, { id: community.id, name: community.name })
+  }, [community.slug, community.id, community.name])
   /*
     A brand-new account lands here straight from signup. The platform header
     (the thing that usually writes who is signed in) is not on a community

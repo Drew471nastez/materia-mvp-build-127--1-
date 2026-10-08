@@ -5763,6 +5763,15 @@ html:has([data-account-settings]) {
   scrollbar-gutter: stable;
 }
 
+/* Pill rows scroll sideways only; vertical drift clips the fills (settings, profile, spaces). */
+[data-account-sections],
+[data-profile-owner-pills] > div,
+[data-space-chips-track] {
+  overflow-y: hidden !important;
+  overscroll-behavior-y: none;
+  touch-action: pan-x;
+}
+
 /*
  * ===========================================================================
  *  THE EDITOR'S SHEET IS READ AND PRESSED WITH A THUMB
