@@ -42,7 +42,7 @@ import { isNativeApp } from "@/lib/platform-utils"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { HtmlClass } from "@/components/platform/html-class"
 import { money as moneyOf, yearlySaving, type BillingInterval } from "@/lib/memberships/state"
-import { CheckRow, ErrorBanner, Field, PayButton, PoweredByStripe, SectionTitle, TextInput } from "./parts/ui"
+import { CheckRow, ErrorBanner, Field, PayButton, PoweredByStripe, SectionTitle, TextInput, PayDock } from "./parts/ui"
 import { EMPTY_CARD, NativeCardFields, nativeCardComplete, type NativeCard } from "./parts/native-card"
 import { StripePay, type IntentResult } from "./parts/stripe-pay"
 import { CommunityRefundPolicy, waiverSentence, type CommunityCheckoutTerms } from "@/components/community/membership/checkout-policy"
@@ -352,11 +352,11 @@ export default function MembershipCheckout({ product, creator, plan, userEmail, 
           <NativeCardFields value={card} onChange={setCard} />
         </section>
         <div className="mt-7 space-y-4">{beforePay}</div>
-        <div className="mt-5">
+        <PayDock>
           <PayButton onClick={() => void payNative()} busy={busy} disabled={!!done}>
             {busy ? "Processing" : payLabel}
           </PayButton>
-        </div>
+        </PayDock>
       </div>
     )
   } else {

@@ -55,7 +55,7 @@ async function main() {
     check("round 15: no fade on a switch; only a list that takes the spinner's place comes up from nothing", !/OUT_MS|outAnim/.test(feed) && /if \(!fromSpinner \|\| !el/.test(feed))
     check("a space has its own address on every device, and the list still switches here", /window\.history\.pushState\(null, "", href\)/.test(feed) && /setPicked\(\{ target: next, from: href \}\)/.test(feed) && !/spaceKeepsAddress/.test(feed))
     check("everything under the chips is one memoised block", /const FeedBody = memo\(/.test(feed) && /<FeedBody/.test(feed))
-    check("the composer and the posts follow the list (round 16: never the chip's own render)", /viewKey\(communityId, listTarget, listSort\)/.test(feed) && /fixedSpaceId: space\.id/.test(feed) && /const asked = readView\(key\)/.test(feed))
+    check("the composer and the posts follow the list (round 16: never the chip's own render)", /viewKey\(communityId, listTarget, listSort\)/.test(feed) && /fixedSpaceId: space\.id/.test(feed) && /const asked = listed \?\? readView\(key\)/.test(feed))
     check("a switched list draws a phone's screenful first", /const SWAP_CARDS = 4/.test(feed) && /i < firstCards \|\| whole/.test(feed))
     const chips = code("components/community/member/space-chips.tsx")
     check("a chip is touch-action: manipulation (no double tap to zoom swallowing a quick second tap)", /const CHIP =\s*[`"][^`"]*touch-manipulation/.test(chips))
@@ -88,7 +88,7 @@ async function main() {
     const frame = code("components/community/member/shell-frame.tsx")
     check("the frame keeps the scrollbar's room on every page", /html\{scrollbar-gutter:stable\}/.test(frame) && /<style>\{GUTTER \+ PLACE_KEYFRAMES\}<\/style>/.test(frame))
     check("About sits in the same columns under the same bar (no narrower frame, no tabs on a computer)", !/tabsOnDesktop=\{about\}/.test(frame) && /lg:\[--community-top:65px\]/.test(frame) && !/lg:\[--community-top:105px\]/.test(frame) && /about \? "lg:col-start-2 xl:col-span-2"/.test(frame) && /lg:col-start-1 lg:row-start-1 lg:block \$\{LAND\}/.test(frame))
-    check("entering, the side columns and then the middle come in by opacity", /const LAND = "motion-safe:animate-\[fade-in_/.test(frame) && /const LAND_LATE = "motion-safe:animate-\[fade-in_[^"]*_60ms_both\]"/.test(frame))
+    check("entering from outside, the side columns come in by opacity; the middle never fades (round 19: no flash on the first post)", /const LAND = "motion-safe:animate-\[fade-in_/.test(frame) && /\$\{landing \? LAND : ""\}/.test(frame) && !/LAND_LATE/.test(frame))
   }
 
   console.log("\nICONS")

@@ -45,13 +45,14 @@ import { flushSync } from "react-dom"
 import type { FeedPostView, ViewerView } from "@/lib/communities/types"
 import { api, apiBase } from "./api"
 import { Composer, type ComposerProps } from "./composer"
-import { FeedLive } from "./feed-live"
+import { FeedLive, FRESH_POSTS_EVENT } from "./feed-live"
 import {
   FRESH_MS,
   addPost,
   dropSaved,
   firstPage,
   loadView,
+  mergeQuiet,
   patchPost,
   prefetchView,
   prefetchViews,
@@ -279,6 +280,9 @@ export function CommunityFeed({ communityId, slug, viewer: givenViewer, spaces: 
   const [more, setMore] = useState<"idle" | "loading" | "failed">("idle")
   const keyRef = useRef(key)
   keyRef.current = key
+  /* The list on screen, for work that finishes after a render (QUIET). */
+  const shownRef = useRef(shown)
+  shownRef.current = shown
 
   /* The space asked for, when it has been read. Otherwise the posts already on screen. A switch never clears the feed into the spinner. */
   const [cacheRev, setCacheRev] = useState(0)
@@ -288,10 +292,17 @@ export function CommunityFeed({ communityId, slug, viewer: givenViewer, spaces: 
     The posts follow the LIST, not the chip (round 16): read by `key`, so the chip's own render hands FeedBody the same posts
     and costs a row of chips; the new posts come with the list two frames later (THE CHIP FIRST, above).
   */
-  const asked = readView(key)
+  /*
+    THE LIST ON SCREEN CHANGES ONLY WHEN THE FEED CHANGES IT (round 21, the owner: "the feed reloads randomly, doubles,
+    big slices, posts flash"). The cache is written by more than this feed: the read ahead of every space (prefetchViews),
+    a stale list read again. Read straight from the cache, any such write swapped the list under the reader in one frame.
+    Now the list on screen is the feed's own copy (`shown`), changed by the feed alone: a like, a post, a pull, the next
+    page, a live post, and a quiet refresh merged in place (QUIET, below). The cache is read for a list not on screen yet.
+  */
+  const listed = shown.key === key ? shown.view : null
+  const asked = listed ?? readView(key)
   const held = shown.view.posts.length ? shown.view : null
-  const listed = shown.key === key ? shown.view : (readView(key) ?? null)
-  const cached = asked ?? listed ?? held
+  const cached = asked ?? held
   const view = cached ?? EMPTY_LIST
   const waiting = !asked && view.posts.length === 0 && failedKey !== key
 
@@ -300,10 +311,25 @@ export function CommunityFeed({ communityId, slug, viewer: givenViewer, spaces: 
     setMore("idle")
     const have = readView(key)
     if (have) {
-      setShown((s) => (s.key === key && s.view === have ? s : { key, view: have }))
+      setShown((s) => (s.key === key ? s : { key, view: have }))
       if (Date.now() - have.at > FRESH_MS && have.pages <= 1) {
+        /*
+          QUIET: a list read over a minute ago is read again, and the new copy is merged into the one on screen rather than
+          put in its place. The posts already there keep their places and take their new counts and words; posts new to
+          it go to FeedLive, which slides them in at the top for a reader there, or holds them under its "new posts" pill
+          for a reader further down. Nothing moves under the reader's eyes.
+        */
         void loadView(communityId, listTarget, listSort).then((fresh) => {
-          if (fresh && keyRef.current === key) setShown({ key, view: fresh })
+          if (!fresh || keyRef.current !== key) return
+          const now = shownRef.current.key === key ? shownRef.current.view : have
+          const merged = mergeQuiet(now, fresh)
+          writeView(key, merged.view)
+          setShown({ key, view: merged.view })
+          if (merged.added.length) {
+            window.setTimeout(() => {
+              if (keyRef.current === key) window.dispatchEvent(new CustomEvent(FRESH_POSTS_EVENT, { detail: { key, posts: merged.added } }))
+            }, 0)
+          }
         })
       }
       return

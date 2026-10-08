@@ -171,6 +171,11 @@ export interface CommentsSectionProps {
    */
   pinComposer?: boolean
   /**
+   * With pinComposer, a post opened full screen on a phone (post-fullscreen.tsx, round 19): the box is a frosted pill
+   * floating at the foot of the page, with the comments scrolling under it, not a white band with a hairline.
+   */
+  floatComposer?: boolean
+  /**
    * The post's own page on a phone: the composer is fixed to the visual
    * viewport, above the keyboard, instead of sitting in a card that leaves
    * a blank band under the field.
@@ -287,7 +292,15 @@ export function CommentsPlaceholder({ expected, pinComposer = false }: { expecte
   )
 }
 
-export function CommentsSection({ post, slug, viewer, initial, me: givenMe = null, readOnly = false, commentsEnabled: givenEnabled = true, boxRef, onCount, expected = 0, fadeIn = false, visitor = false, pinComposer = false, dockComposer = false }: CommentsSectionProps) {
+/*
+  THE FLOATING BOX (floatComposer, round 19). Sticky at the foot of the full screen post's scroll, with no ground of its own
+  so the comments show through as they pass under it: the box's row (avatar and field) is one frosted pill, the field inside
+  it plain. Its first line sits on the keyboard when the keyboard is up (the page is the height of what is on screen).
+*/
+const FLOAT_COMPOSER =
+  "sticky bottom-0 z-[3] -mx-4 mt-auto px-3 pt-3 [&_[data-comment-box=comment]]:items-center [&_[data-comment-box=comment]]:rounded-[26px] [&_[data-comment-box=comment]]:border [&_[data-comment-box=comment]]:border-[#e6e8eb]/80 [&_[data-comment-box=comment]]:bg-white/80 [&_[data-comment-box=comment]]:py-1 [&_[data-comment-box=comment]]:pl-1.5 [&_[data-comment-box=comment]]:pr-1 [&_[data-comment-box=comment]]:shadow-[0_10px_30px_-14px_rgba(16,24,40,0.32),0_1px_2px_rgba(16,24,40,0.06)] [&_[data-comment-box=comment]]:backdrop-blur-xl [&_[data-comment-box=comment]>[data-app-avatar]]:mt-0 [&_[data-comment-box=comment]_[data-comment-field]]:border-transparent [&_[data-comment-box=comment]_[data-comment-field]]:bg-transparent [&_[data-comment-box=comment]_[data-comment-field]]:!shadow-none"
+
+export function CommentsSection({ post, slug, viewer, initial, me: givenMe = null, readOnly = false, commentsEnabled: givenEnabled = true, boxRef, onCount, expected = 0, fadeIn = false, visitor = false, pinComposer = false, floatComposer = false, dockComposer = false }: CommentsSectionProps) {
   /* Handed a first page, or one read ahead (COMMENTS READ AHEAD): drawn on the first frame, no waiting state. */
   const [ahead] = useState(() => (initial ? null : aheadOf(post.communityId, post.id)))
   const first = initial ?? ahead?.data ?? null
@@ -602,9 +615,11 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
             ? dockPhone
               ? "fixed inset-x-0 z-[80] border-t border-[#f0f1f3] bg-white px-4 pt-2 shadow-[0_-8px_24px_-16px_rgba(16,24,40,0.18)]"
               : "relative"
-            : pinComposer
-              ? "sticky bottom-0 z-[3] -mx-4 mt-auto border-t border-[#eceef1] bg-white px-4 pt-3 shadow-[0_-1px_0_#fff] sm:mx-0"
-              : "relative"
+            : pinComposer && floatComposer
+              ? FLOAT_COMPOSER
+              : pinComposer
+                ? "sticky bottom-0 z-[3] -mx-4 mt-auto border-t border-[#eceef1] bg-white px-4 pt-3 shadow-[0_-1px_0_#fff] sm:mx-0"
+                : "relative"
         }
         style={
           dockComposer && dockPhone
@@ -614,11 +629,13 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
               }
             : pinComposer
               ? {
-                  paddingBottom: "max(calc(env(safe-area-inset-bottom, 0px) - var(--kb-inset, 0px)), 10px)",
+                  paddingBottom: floatComposer
+                    ? "max(calc(env(safe-area-inset-bottom, 0px) - var(--kb-inset, 0px)), 8px)"
+                    : "max(calc(env(safe-area-inset-bottom, 0px) - var(--kb-inset, 0px)), 10px)",
                 }
               : undefined
         }
-        data-comments-composer={dockComposer ? (dockPhone ? "dock" : "top") : pinComposer ? "pin" : "top"}
+        data-comments-composer={dockComposer ? (dockPhone ? "dock" : "top") : pinComposer ? (floatComposer ? "float" : "pin") : "top"}
       >
         <CommentBox communityId={post.communityId} postId={post.id} me={me} author={author} handleRef={boxRef} sending={sending} placeholder="Write a comment..." canUpload={!!viewer.can.upload} media={mediaReady} nearby={nearby} />
         <TypingLine names={typing.writers.map((w) => w.name)} />

@@ -662,6 +662,7 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
             readOnly={readOnly}
             update={update}
             onClose={() => setOpened(false)}
+            origin={() => cardRef.current}
             renderPost={(p, u, focus) => <PostCard post={p} slug={slug} viewer={viewer} update={u} full readOnly={readOnly} onComment={focus} />}
           />
         ) : null}

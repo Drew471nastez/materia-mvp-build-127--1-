@@ -22,6 +22,7 @@ import { useEffect, useLayoutEffect, useRef } from "react"
 import { restoreTabScroll, tabScrollFor } from "@/lib/navigation/tab-scroll"
 import { tabStorageGet, tabStorageSet } from "@/lib/nav/tab-session-persist"
 import { pageScrollFor, rememberPageScroll } from "@/lib/native-resume"
+import { isLayerBack } from "@/lib/nav/layer-back"
 
 export const RETURN_SCROLL_KEY = "storelib:community-scroll"
 /** How long after a Back the page that arrives counts as reached by it (a cold page can take a moment). */
@@ -30,7 +31,8 @@ export const BACK_WINDOW_MS = 4000
 const KEPT = 40
 
 let poppedAt = -Infinity
-if (typeof window !== "undefined") window.addEventListener("popstate", () => (poppedAt = performance.now()))
+/* A layer closing (a post, the viewer) steps back too; the page under it never moved, so that is not a Back to restore (lib/nav/layer-back.ts). */
+if (typeof window !== "undefined") window.addEventListener("popstate", () => void (isLayerBack() || (poppedAt = performance.now())))
 
 function readAll(): Record<string, number> {
   try {
@@ -91,9 +93,14 @@ export function useSectionTop(pathname: string, slug: string) {
     const first = !seen.current
     seen.current = true
     if (first) {
+      /*
+        A PAGE UNDER A SECTION (a post, a lesson) arriving fresh goes back where it was left. The sections themselves (the feed,
+        Learn, Calendar...) land at their top (round 19, the owner: "when I land on the community feed it is not at the top,
+        it is a bit down, and it glitches"): coming from the profile or reopening the app put the feed back part way down.
+        Back still returns to the place it was left (useReturnScroll).
+      */
       const saved = Math.max(tabScrollFor(pathname), returnScrollFor(pathname) ?? 0, pageScrollFor(pathname))
-      /* Profile → Home, and a killed app reopening the community: put the feed back. Snapping here is what reset it. */
-      if (saved > 0) return restoreTabScroll(saved, 50)
+      if (saved > 0 && !isCommunitySectionRoot(pathname, slug)) return restoreTabScroll(saved, 50)
       if (performance.now() - poppedAt <= BACK_WINDOW_MS) return
       /* A reload or a document Back of THIS page keeps the browser's place. A client arrival from somewhere else does not: that scroll belonged to the page before. */
       try {

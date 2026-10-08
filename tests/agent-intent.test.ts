@@ -34,6 +34,7 @@ import { schemaMapFor } from "@/lib/website-builder/agent/schemas"
 import { composePageDocument } from "@/lib/website-builder/agent/page-document"
 import { visualCheck } from "@/lib/website-builder/agent/visual-check"
 import { ARCHETYPES, matchArchetypes } from "@/lib/storelib-ai/archetypes"
+import { contrastRatio } from "@/lib/website-builder/agent/review"
 import { DESIGN_PATTERNS, patternById } from "@/lib/storelib-ai/patterns"
 import { CREATIVE_EXAMPLE } from "@/lib/website-builder/agent/creative-section"
 import { ADDABLE_SECTIONS } from "@/lib/website-builder/section-schemas"
@@ -171,6 +172,12 @@ async function main() {
     ["Give the FAQ a smoother opening animation", { bodySections: 4 }, "FUNCTIONAL_CHANGE"],
     ["what can you do?", { bodySections: 4 }, "QUESTION"],
     ["make the site look premium", { bodySections: 4, locked: true, selected: true }, "SECTION_REDESIGN"],
+    ["from my current theme create a full whole complete clothing brand website", { bodySections: 5 }, "FULL_SITE_REDESIGN"],
+    ["make me a clothing brand website", { bodySections: 5 }, "FULL_SITE_REDESIGN"],
+    ["turn this into a streetwear store", { bodySections: 5 }, "FULL_SITE_REDESIGN"],
+    ["i want a clothing store", { bodySections: 5 }, "FULL_SITE_REDESIGN"],
+    ["build a skincare brand store", { bodySections: 0 }, "NEW_SITE_GENERATION"],
+    ["make the shop section bigger", { bodySections: 5 }, "LOCAL_EDIT"],
   ]
   for (const [prompt, ctx, kind] of table) {
     const got = classifyIntent(prompt, ctx)
@@ -346,23 +353,19 @@ async function main() {
       visualCheck,
       script: [
         { text: "```json\n" + JSON.stringify(planJson) + "\n```" },
+        /* The structure is already built by code: it writes the headings, then stops too early. */
         {
-          text: "Building the Bandidos site from the plan.",
+          text: "Writing the Bandidos sections.",
           calls: [
-            ["set_color_scheme", { scheme: "black", name: "Night", colorsJson: JSON.stringify({ background: "#0b0b0f", heading: "#fafafa", text: "#d4d4d8", primary_button_background: "#e11d48", primary_button_text: "#ffffff" }) }],
-            ["update_theme", { settingsJson: JSON.stringify({ font_heading: "Bebas Neue", font_body: "DM Sans" }) }],
-            ["remove_section", { id: "hero-1" }],
-            ["remove_section", { id: "cards-1" }],
-            ["remove_section", { id: "cta-1" }],
-            ["add_section", { sectionType: "promo_countdown", index: 1, settingsJson: JSON.stringify({ heading: "Saturday at Sala Luna" }) }],
+            ["update_section", { id: "promo_countdown-n1", settingsJson: JSON.stringify({ heading: "Saturday at Sala Luna" }) }],
+            ["update_section", { id: "media_collage-n2", settingsJson: JSON.stringify({ heading: "Saturday nights at Sala Luna" }) }],
+            ["update_section", { id: "pricing_table-n3", settingsJson: JSON.stringify({ heading: "Entry" }) }],
           ],
         },
-        /* It stops early: the plan is not built. The check must send it back. */
         { text: "Done." },
+        /* Sent back over the demo entries, it writes them. */
         {
           calls: [
-            ["add_section", { sectionType: "media_collage", index: 2, settingsJson: JSON.stringify({ heading: "Saturday nights at Sala Luna" }) }],
-            ["add_section", { sectionType: "pricing_table", index: 3, settingsJson: JSON.stringify({ heading: "Entry" }) }],
             ["update_block", { sectionId: "media_collage-n2", blockId: "media_collage-n2-b1", settingsJson: JSON.stringify({ alt: "Couples dancing bachata under red light" }) }],
             ["update_block", { sectionId: "pricing_table-n3", blockId: "pricing_table-n3-b1", settingsJson: JSON.stringify({ name: "Party only", price: "€15", summary: "From 22:00 until close." }) }],
           ],
@@ -377,8 +380,11 @@ async function main() {
     check("the planner is called first, with no tools and its own instructions", sent[0].tools.length === 0 && /creative director/.test(sent[0].system))
     check("and is given the archetype for this kind of business", /NIGHTLIFE, DANCE CLUB OR PARTY/.test(users[0]))
     check("the plan is shown in the chat before any change", events.findIndex((e) => e.type === "plan") < events.findIndex((e) => e.type === "op"))
-    check("the build turn carries the plan and the redesign guidance", /CREATIVE PLAN/.test(users[1]) && /NEW CREATIVE DIRECTION/.test(users[1]))
-    check("stopping early is refused: the missing planned sections are named", users.some((u) => /The plan is not built yet/.test(u) && /media_collage/.test(u)))
+    const beforeModel = events.findIndex((e) => e.type === "step")
+    const structural = events.slice(0, beforeModel).filter((e): e is Extract<ThemeAgentEvent, { type: "op" }> => e.type === "op").map((e) => e.op.kind)
+    check("the structure is built by code before the model's first tool call: removals, additions, palette, fonts", structural.filter((k) => k === "remove_section").length === 3 && structural.filter((k) => k === "add_section").length === 3 && structural.includes("update_theme"), structural.join(","))
+    check("the build turn carries the plan, what was built and the redesign guidance", /CREATIVE PLAN/.test(users[1]) && /ALREADY ON THE PAGE/.test(users[1]) && /NEW CREATIVE DIRECTION/.test(users[1]))
+    check("stopping with demo entries is refused, by name", users.some((u) => /exactly as the preset ships them/.test(u)))
     check("the page is drawn in a browser, with pictures the first time", visualCalls[0] === true)
     check("and what it found goes back to the model with the pictures", sent.some((r) => r.turns.some((t) => t.role === "user" && (t as { images?: unknown[] }).images?.length && /sticks out 40px/.test((t as { content: string }).content))))
     check("the run ends healthy", result.status === "succeeded" && (result.unresolved ?? []).length === 0, JSON.stringify(result.unresolved))
@@ -386,7 +392,10 @@ async function main() {
     const types = final.sections.map((s) => s.type)
     check("the old generic sections are gone", !types.includes("hero_centered") && !types.includes("features_cards") && !types.includes("cta_simple"))
     check("the planned ones are on the page, in order", JSON.stringify(types) === JSON.stringify(["header", "promo_countdown", "media_collage", "pricing_table", "faq_accordion", "footer"]), types.join(","))
-    check("the palette and the fonts were set where they live", (final.settings.color_schemes as Record<string, { background: string }>).black.background === "#0b0b0f" && final.settings.font_heading === "Bebas Neue")
+    const schemesNow = final.settings.color_schemes as Record<string, { background: string; text: string; heading: string }>
+    check("the palette is written into the built-in dark scheme the header can use", schemesNow.black.background === "#0b0b0f" && final.settings.font_heading === "Bebas Neue")
+    check("with text that reads on it, though the plan gave none", (contrastRatio(schemesNow.black.text, "#0b0b0f") ?? 0) >= 4.5 && (contrastRatio(schemesNow.black.heading, "#0b0b0f") ?? 0) >= 4.5)
+    check("and the header and footer are on the new colours", final.sections.find((x) => x.type === "header")?.settings.color_scheme === "black" && final.sections.find((x) => x.type === "footer")?.settings.color_scheme === "dark")
     const memoryOp = events.find((e): e is Extract<ThemeAgentEvent, { type: "op" }> => e.type === "op" && e.op.kind === "update_theme" && BRIEF_KEY in (e.op as { settings: Record<string, unknown> }).settings)
     check("the project's memory is written at the end, as an ordinary operation", !!memoryOp)
     const memory = readBrief(memoryOp ? (memoryOp.op as { settings: Record<string, unknown> }).settings : {})
@@ -406,6 +415,60 @@ async function main() {
     const turn = userTexts(second.sent)[0]
     check("a follow up is told which section is the events part", /\[promo_countdown-n1\] is the Event spotlight/.test(turn), turn.slice(0, 600))
     check("and is a section redesign, not a new site", /ONE SECTION is to be rethought/.test(turn) && !/CREATIVE PLAN/.test(turn))
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  section("\"Create a full complete clothing brand website\": the whole site changes, the header is kept")
+  // ═══════════════════════════════════════════════════════════════════════
+  {
+    const prompt = "from my current theme create a full whole complete clothing brand website"
+    const state = genericPage()
+    const intent = classifyIntent(prompt, { bodySections: 4 })
+    check("it is read as a new direction for the whole site", intent.kind === "FULL_SITE_REDESIGN" && intent.plan)
+    check("and as a clothing store, the Shopify way", matchArchetypes(prompt)[0]?.id === "apparel")
+    const planJson = {
+      brand: { name: "North Thread", tagline: "Made to be worn" },
+      archetype: "apparel",
+      palette: { direction: "white with black type", colors: { background: "#ffffff", text: "#3f3f46", heading: "#0a0a0a", button: "#0a0a0a", button_text: "#ffffff" } },
+      typography: { heading: "Montserrat", body: "Inter" },
+      sections: [
+        { pattern: "hero_immersive", use: "hero_centered", scheme: "dark" },
+        { pattern: "product_grid", use: "product_grid" },
+        { pattern: "collection_grid", use: "collections_grid" },
+        { pattern: "image_with_text", use: "text_image" },
+        { pattern: "features", use: "features_grid" },
+        { pattern: "newsletter", use: "promo_newsletter" },
+      ],
+      remove: [],
+    }
+    const files: Record<string, string> = {}
+    const chromeHeader = POSTER.replace('"type": "event_poster"', '"type": "brand_header"').replace('"name": "Event poster"', '"name": "Brand header"').replace('"type": "brand_header",', '"type": "brand_header",\n  "kind": "header",')
+    const { result, sent, events } = await drive({
+      prompt,
+      state,
+      intent,
+      plan: true,
+      memory: true,
+      projectCheck: true,
+      code: fakeCode(files),
+      sources: {},
+      maxTurns: 6,
+      script: [
+        { text: JSON.stringify(planJson) },
+        { calls: [["create_section", { sectionType: "brand_header", source: chromeHeader, index: 0, settingsJson: "{}" }]] },
+        { text: "Done." },
+      ],
+    })
+    const final = applyOps(state, result.ops)
+    const types = final.sections.map((s) => s.type)
+    check("every old section is gone, though the plan's remove list was empty", !types.includes("features_cards") && !types.includes("faq_accordion") && !types.includes("cta_simple"), types.join(","))
+    check("the store's sections are on the page, in the plan's order", JSON.stringify(types) === JSON.stringify(["header", "hero_centered", "product_grid", "collections_grid", "text_image", "features_grid", "promo_newsletter", "footer"]), types.join(","))
+    check("the hero is on the dark band the plan gave it, in the brand's own black", final.sections.find((x) => x.type === "hero_centered")?.settings.color_scheme === "dark" && (final.settings.color_schemes as Record<string, { background: string }>).dark.background === "#0a0a0a")
+    check("a header of its own is refused when nobody asked for one", !files["sections/brand_header.storelib"] && /did not ask for that/.test(toolOutputs(sent).join(" ")), toolOutputs(sent).join(" || ").slice(0, 600))
+    check("the built-in header is still the one drawn, on the new colours", final.sections.some((x) => x.type === "header" && !x.hidden && x.settings.color_scheme === "white"))
+    check("the new fonts are set", final.settings.font_heading === "Montserrat")
+    check("and the chat shows the sections being built", events.some((e) => e.type === "progress" && e.label === "Building the sections"))
+    void sent
   }
 
   // ═══════════════════════════════════════════════════════════════════════

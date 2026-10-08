@@ -43,6 +43,7 @@
  *   decoded on the main thread, and the picture mounted after a slide is not
  *   the next one in line but the one after it.
  */
+import { markLayerBack } from "@/lib/nav/layer-back"
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { ChevronLeft, ChevronRight, Play, X } from "lucide-react"
@@ -108,6 +109,7 @@ export function useHistoryLayer(open: boolean, onClose: () => void, url?: string
       if (!mine) return
       if ((window.history.state as { storelibLayer?: string } | null)?.storelibLayer !== marker) return
       historyLayerRestoring = true
+      markLayerBack()
       window.history.back()
       window.setTimeout(() => {
         historyLayerRestoring = false

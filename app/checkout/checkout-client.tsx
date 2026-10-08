@@ -41,7 +41,7 @@ import { checkoutOrigin } from "@/lib/orders/checkout-origin-browser"
 import { adoptCarriedTouches } from "@/lib/attribution/browser"
 import { paidReturnUrl, returnHostLabel } from "@/lib/checkout/return-url"
 import { EMPTY_BUSINESS, checkBusiness, type BusinessDetails } from "@/lib/checkout/business"
-import { CheckRow, ErrorBanner, Field, PayButton, PoweredByStripe, Reveal, SectionTitle, Spinner, TextInput, money } from "./parts/ui"
+import { CheckRow, ErrorBanner, Field, PayButton, PoweredByStripe, Reveal, SectionTitle, Spinner, TextInput, money, PayDock } from "./parts/ui"
 import { DiscountForm, LineItem, TipPicker, Totals, type SummaryVariant } from "./parts/order-summary"
 import { BusinessFields } from "./parts/business-fields"
 import { EMPTY_CARD, NativeCardFields, nativeCardComplete, type NativeCard } from "./parts/native-card"
@@ -131,6 +131,23 @@ async function postJson<T>(url: string, body: unknown): Promise<{ ok: boolean; s
   return { ok: res.ok, status: res.status, data }
 }
 
+/**
+ * Glides the page to `el`, centred on the screen, and when `focus`, puts the caret in it. The focus comes first, inside
+ * the press, so a phone brings its keyboard up (a focus after a timer would not), and without a scroll of its own, so the
+ * only movement is the glide. Reduced motion jumps.
+ */
+function bringIntoView(el: HTMLElement, focus = false) {
+  const reduce = typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+  if (focus) {
+    try {
+      el.focus({ preventScroll: true })
+    } catch {
+      el.focus()
+    }
+  }
+  el.scrollIntoView({ block: "center", behavior: reduce ? "auto" : "smooth" })
+}
+
 export default function CheckoutPageClient({
   product,
   creator,
@@ -191,6 +208,18 @@ export default function CheckoutPageClient({
 
   /* ── The page's own state ────────────────────────────────────────── */
   const [error, setError] = React.useState<string | null>(null)
+  /*
+    WHAT IS MISSING, AT ITS FIELD (round 21, the owner: "when something like my name is missing, scroll smoothly to it").
+    Pay used to say what was missing in the line under the form only, wherever the field was. Now the field itself says
+    it, in red, and the page glides to it with the field ready to type in.
+  */
+  const [fieldError, setFieldError] = React.useState<{ field: "email" | "name"; message: string } | null>(null)
+  const missing = (field: "email" | "name", message: string) => {
+    setFieldError({ field, message })
+    const el = document.getElementById(field === "email" ? "checkout-email" : "checkout-name")
+    if (el) bringIntoView(el, true)
+    return message
+  }
   const [busy, setBusy] = React.useState(false)
   const [paid, setPaid] = React.useState<{ total: number; free: boolean } | null>(null)
   /** Paid (or processing) and no longer payable, whatever happens next. */
@@ -739,25 +768,32 @@ export default function CheckoutPageClient({
       return null
     }
     setBusinessErrors({ [r.field]: r.error })
-    document.getElementById(`business-${r.field === "postalCode" ? "postal" : r.field === "taxId" ? "tax" : r.field}`)?.focus()
+    const field = document.getElementById(`business-${r.field === "postalCode" ? "postal" : r.field === "taxId" ? "tax" : r.field}`)
+    if (field) bringIntoView(field, true)
     return r.error
   }
 
   const check = (mode: "card" | "express" | "free"): string | null => {
     if (paid || settled) return "This order is already paid."
-    /* Stripe's smallest charge: said before a wallet sheet opens, not after. */
-    if (mode !== "free" && total > 0 && total < MIN_CHARGE_CENTS) return "The smallest card payment is $0.50. Add to the tip or remove the code."
+    setFieldError(null)
+    /* Stripe's smallest charge: said before a wallet sheet opens, not after. The tip is where it can be changed. */
+    if (mode !== "free" && total > 0 && total < MIN_CHARGE_CENTS) {
+      const tip = document.querySelector<HTMLElement>("[data-tip-label]")?.closest<HTMLElement>("section, div") ?? null
+      if (tip) bringIntoView(tip)
+      return "The smallest card payment is $0.50. Add to the tip or remove the code."
+    }
     if (mode !== "express") {
-      if (!EMAIL.test(email.trim())) return "Enter a valid email address."
+      if (!EMAIL.test(email.trim())) return missing("email", "Enter a valid email address.")
       /* A last name is not required: some people have one name. */
-      if (!firstName.trim()) return "Enter your name."
+      if (!firstName.trim()) return missing("name", "Enter your name.")
     }
     if (mode !== "free") {
       const b = checkBusinessNow()
       if (b) return b
     }
     if (!agreed) {
-      document.getElementById("checkout-terms")?.scrollIntoView({ block: "center", behavior: "smooth" })
+      const terms = document.getElementById("checkout-terms")
+      if (terms) bringIntoView(terms)
       return "Tick the box to agree to the Terms and Conditions."
     }
     return null
@@ -939,8 +975,19 @@ export default function CheckoutPageClient({
   /* ── Pieces ──────────────────────────────────────────────────────── */
   const namesAndNews = (
     <div className="space-y-3">
-      <Field id="checkout-name" label="Full name">
-        <TextInput id="checkout-name" autoComplete="name" placeholder="Jane Smith" value={fullName} onChange={(e) => setFullName(e.target.value.slice(0, 121))} />
+      <Field id="checkout-name" label="Full name" error={fieldError?.field === "name" ? fieldError.message : null}>
+        <TextInput
+          id="checkout-name"
+          autoComplete="name"
+          placeholder="Jane Smith"
+          value={fullName}
+          invalid={fieldError?.field === "name"}
+          aria-describedby={fieldError?.field === "name" ? "checkout-name-error" : undefined}
+          onChange={(e) => {
+            setFullName(e.target.value.slice(0, 121))
+            if (fieldError?.field === "name") setFieldError(null)
+          }}
+        />
       </Field>
       <CheckRow id="checkout-news" checked={emailOptIn} onChange={setEmailOptIn}>
         Email me news and offers from {creator.name}
@@ -949,9 +996,11 @@ export default function CheckoutPageClient({
   )
 
   const emailField = (
-    <Field id="checkout-email" label="Email">
+    <Field id="checkout-email" label="Email" error={fieldError?.field === "email" ? fieldError.message : null}>
       <TextInput
         id="checkout-email"
+        invalid={fieldError?.field === "email"}
+        aria-describedby={fieldError?.field === "email" ? "checkout-email-error" : undefined}
         type="email"
         inputMode="email"
         autoComplete="email"
@@ -959,7 +1008,10 @@ export default function CheckoutPageClient({
         spellCheck={false}
         placeholder="you@example.com"
         value={email}
-        onChange={(e) => setEmail(e.target.value.slice(0, 254))}
+        onChange={(e) => {
+          setEmail(e.target.value.slice(0, 254))
+          if (fieldError?.field === "email") setFieldError(null)
+        }}
       />
     </Field>
   )
@@ -1060,7 +1112,7 @@ export default function CheckoutPageClient({
         </section>
       ) : null}
       {consent}
-      {error ? <ErrorBanner>{error}</ErrorBanner> : null}
+      {error && error !== fieldError?.message ? <ErrorBanner>{error}</ErrorBanner> : null}
     </>
   )
 
@@ -1080,11 +1132,11 @@ export default function CheckoutPageClient({
           </div>
         </section>
         <div className="mt-7 space-y-4">{beforePay}</div>
-        <div className="mt-5">
+        <PayDock>
           <PayButton onClick={() => void takeFree()} busy={busy} disabled={!!paid || settled}>
             {busy ? "Processing" : "Get it free"}
           </PayButton>
-        </div>
+        </PayDock>
       </div>
     )
   } else if (paymentProvider === "airwallex") {
@@ -1102,11 +1154,11 @@ export default function CheckoutPageClient({
         </section>
         <div className="mt-7 space-y-4">{beforePay}</div>
         <p className="mt-5 text-[13px] leading-snug text-[#6b7280]">You enter your card on the next page, run by Airwallex.</p>
-        <div className="mt-3">
+        <PayDock className="mt-3">
           <PayButton onClick={() => void payAirwallex()} busy={busy} disabled={!!paid || settled}>
             {busy ? "Opening" : payLabel}
           </PayButton>
-        </div>
+        </PayDock>
       </div>
     )
   } else if (nativeApp === null) {
@@ -1154,11 +1206,11 @@ export default function CheckoutPageClient({
           <NativeCardFields value={card} onChange={setCard} />
         </section>
         <div className="mt-7 space-y-4">{beforePay}</div>
-        <div className="mt-5">
+        <PayDock>
           <PayButton onClick={() => void payNative()} busy={busy} disabled={!!paid || settled}>
             {busy ? "Processing" : payLabel}
           </PayButton>
-        </div>
+        </PayDock>
       </div>
     )
   } else {
