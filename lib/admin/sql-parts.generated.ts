@@ -60,7 +60,7 @@ export const SQL_PARTS: ReadonlyArray<{ part: string; file: string; sha256: stri
   { part: "58", file: "58_onepage_old_addresses.sql", sha256: "ad3eebdba9f013b747f4996566505c65b2a329bf698f69e934530749ca37954a" },
   { part: "59", file: "59_file_security_events.sql", sha256: "f2fe128eea11df50d95ef8c42ed1bb00d1e0171a283c4af8e23ae70f56e5a0aa" },
   { part: "60", file: "60_attribution.sql", sha256: "d4c55cc65182810480882ef852e6983e282a65d579c0826afe081484c41b10ca" },
-  { part: "61", file: "61_analytics_one_pipeline.sql", sha256: "857b11a2b0a1584c5991588f6bbb3b9067f660f18f4b7587148e6c1178d8a4b1" },
+  { part: "61", file: "61_analytics_one_pipeline.sql", sha256: "376d5017517a0abc39564d9b08d6171ee083a3dd105ecbff775a61a0ae4b3551" },
   { part: "62", file: "62_money_rows_server_only.sql", sha256: "60d76b7f686af5f1d5899b59d6ee780398832a20d55cc4c51ffe79003e16ad77" },
   { part: "63", file: "63_private_columns.sql", sha256: "bead2309f2d218b66274c1bed02fa8191bdb5d067d180d1dfd68beb372901525" },
   { part: "64", file: "64_ledger_once_and_atomic.sql", sha256: "6db5fdf4f88574dae5720a435336b9fda6b43324e2e3bd991c010f5d7deee874" },
