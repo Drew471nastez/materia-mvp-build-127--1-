@@ -126,7 +126,7 @@ check("and the touch's end gives the field the focus again, for a WebKit that di
 check("the bar mounts the screen beside itself, so a result leading off the bar's pages does not unmount it mid fade", /<SearchOverlay \/>/.test(bar))
 check("the tab you are on scrolls to the top", /window\.scrollTo\(\{ top: 0/.test(bar))
 /* A phone cancels the touch's click, so the loading line never heard a tab. The push says so itself. */
-check("a tab's push tells the loading line, because the click is cancelled", /startRouteLoading\(\{ cover: true \}\)\s*router\.push\(href, \{ scroll: false \}\)/.test(bar))
+check("a tab's push tells the loading line, because the click is cancelled", /startRouteLoading\(\{ lineOnly: true \}\)\s*router\.push\(href, \{ scroll: false \}\)/.test(bar))
 check("its hooks are never behind a return: the question is asked where it is mounted", /buyerTabsBelongOn\(pathname, whereWithExplore\)/.test(bar) && /exploreMarketplaceEnabled=\{exploreMarketplaceEnabled\}/.test(bar))
 /* A creator's page is read from the address, so the bar is gone on the frame
    the product opens: nothing is carried between pages and nothing blinks. */

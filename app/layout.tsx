@@ -60,6 +60,7 @@ import { OpenInAppCard } from "@/components/platform/open-in-app-card"
 import { NativePlaceKeeper } from "@/components/platform/native-place-keeper"
 import { NativeChrome } from "@/components/platform/native-chrome"
 import { SettingsSubpageHost } from "@/components/account/settings-subpage"
+import { AccountCommunityChrome } from "@/components/account/account-community-chrome"
 import { EdgeSwipeBack } from "@/components/platform/edge-swipe-back"
 import { NativePushInit } from "@/components/native-push-init"
 import { NotificationsAsk } from "@/components/platform/notifications-ask"
@@ -252,6 +253,8 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: EXPLORE_SCROLL_BOOT_SCRIPT }} />
       </head>
       <body className={`${inter.variable} ${communityTitle.variable} font-sans antialiased bg-background text-foreground`}>
+        {/* Community bar for /account, already mounted, so a tab to Profile does not paint the page and then the header. */}
+        <AccountCommunityChrome />
         <SWRProvider>
           <LocaleProvider>
             <ExploreMarketplaceRoot>{children}</ExploreMarketplaceRoot>

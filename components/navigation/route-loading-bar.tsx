@@ -21,9 +21,9 @@ import { isPhoneShell, NAV_PHONE_SPINNER_AFTER_MS, NAV_SPINNER_AFTER_MS, NAV_SPI
  * leaving a page that draws its own wait for its own links (the library):
  * this push is not one of those links.
  */
-export function startRouteLoading(opts?: { cover?: boolean }) {
+export function startRouteLoading(opts?: { cover?: boolean; lineOnly?: boolean }) {
   if (typeof window === "undefined") return
-  window.dispatchEvent(new CustomEvent("storelib-route-loading", { detail: { cover: !!opts?.cover } }))
+  window.dispatchEvent(new CustomEvent("storelib-route-loading", { detail: { cover: !!opts?.cover, lineOnly: !!opts?.lineOnly } }))
 }
 
 /**
@@ -80,6 +80,8 @@ function RouteLoadingBarInner() {
   const [pendingSince, setPendingSince] = useState<number | null>(null)
   /** A push that asked to cover the page, even where this page draws its own wait for its own links. */
   const [cover, setCover] = useState(false)
+  /** Tab switches keep the page that is showing. A full-screen spinner there is the lag. */
+  const [lineOnly, setLineOnly] = useState(false)
   const [visible, setVisible] = useState(false)
 
   /*
@@ -120,6 +122,7 @@ function RouteLoadingBarInner() {
       if (anchor.hasAttribute("data-post-open") || anchor.closest("[data-post-open]")) return
       if (settingsStaysHere() && /\/account\/settings/.test(url.pathname)) return
       setCover(false)
+      setLineOnly(false)
       setPendingSince(Date.now())
     }
     /* Capture, so a handler that stops propagation on its way to calling the
@@ -164,6 +167,7 @@ function RouteLoadingBarInner() {
       const to = window.location.pathname
       if (sameCommunityFeed(from, to) || sameCommunityPlace(from, to)) return
       setCover(false)
+      setLineOnly(false)
       setPendingSince(Date.now())
     }
     window.addEventListener("popstate", onPop)
@@ -173,8 +177,9 @@ function RouteLoadingBarInner() {
   /* A push that never became a click (the phone's tab bar). */
   useEffect(() => {
     const onStart = (e: Event) => {
-      const detail = (e as CustomEvent<{ cover?: boolean }>).detail
+      const detail = (e as CustomEvent<{ cover?: boolean; lineOnly?: boolean }>).detail
       setCover(!!detail?.cover)
+      setLineOnly(!!detail?.lineOnly)
       setPendingSince(Date.now())
     }
     window.addEventListener("storelib-route-loading", onStart)
@@ -214,7 +219,7 @@ function RouteLoadingBarInner() {
              decorative line. aria-hidden keeps it out of the way entirely. */
         />
       ) : null}
-      <SlowPage pendingSince={pendingSince} from={pathname} cover={cover} />
+      <SlowPage pendingSince={pendingSince} from={pathname} cover={cover} lineOnly={lineOnly} />
     </>
   )
 }
@@ -292,7 +297,7 @@ function sameCommunityPlace(a: string, b: string): boolean {
   return !!m && !!n && m[1] === n[1]
 }
 
-function SlowPage({ pendingSince, from, cover }: { pendingSince: number | null; from: string; cover: boolean }) {
+function SlowPage({ pendingSince, from, cover, lineOnly = false }: { pendingSince: number | null; from: string; cover: boolean; lineOnly?: boolean }) {
   const [shown, setShown] = useState(false)
   const [look, setLook] = useState<{ top: number; background: string }>({ top: 0, background: "#ffffff" })
   const ref = useRef<HTMLDivElement | null>(null)
@@ -302,7 +307,7 @@ function SlowPage({ pendingSince, from, cover }: { pendingSince: number | null; 
     /* `cover` is a push that left the page rather than a link inside it.
        The library draws its own wait for its own screens; a tab leaving it
        does not, and saying nothing there was the five quiet seconds. */
-    if (pendingSince == null || pullRefreshVisualActive() || (DRAWS_ITS_OWN_WAIT.test(from) && !cover)) return
+    if (lineOnly || pendingSince == null || pullRefreshVisualActive() || (DRAWS_ITS_OWN_WAIT.test(from) && !cover)) return
     const wait = isPhoneShell() ? NAV_PHONE_SPINNER_AFTER_MS : NAV_SPINNER_AFTER_MS
     const t = window.setTimeout(() => {
       /* Measured now, not at mount: the header is sticky and the ground under it is the page's own. */
@@ -318,7 +323,7 @@ function SlowPage({ pendingSince, from, cover }: { pendingSince: number | null; 
       setShown(true)
     }, Math.max(0, wait - (Date.now() - pendingSince)))
     return () => window.clearTimeout(t)
-  }, [pendingSince, from, cover])
+  }, [pendingSince, from, cover, lineOnly])
 
   /* The page landed, or the cap gave up: fade out over the page already painted under it. */
   useEffect(() => {

@@ -212,7 +212,7 @@ function CommunityTopBarInner({ data, messages = null, messagesOpen = false, onM
 
         {children ? (
           /* The tabs are their own row under the bar, edge to edge, below 1024px; from 1024px the right column has the places, so the row is only drawn where there is none. */
-          <div className={cn("order-last -mx-4 mt-2 min-w-0 basis-[calc(100%+2rem)] pb-1 pt-2 sm:-mx-6 sm:basis-[calc(100%+3rem)] lg:-mx-8 lg:basis-[calc(100%+4rem)]", !tabsOnDesktop && "lg:hidden")} data-community-top-tabs="">
+          <div className={cn("order-last -mx-4 mt-0 min-w-0 basis-[calc(100%+2rem)] pb-0 pt-0.5 sm:-mx-6 sm:basis-[calc(100%+3rem)] lg:-mx-8 lg:mt-2 lg:basis-[calc(100%+4rem)] lg:pb-1 lg:pt-2", !tabsOnDesktop && "lg:hidden")} data-community-top-tabs="">
             {children}
           </div>
         ) : null}

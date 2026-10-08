@@ -377,6 +377,12 @@ function TabBar({
       */
       noteTabScroll(pathname)
       arrival.current = { href: href.split(/[?#]/)[0], y: prepareTabArrival(href) }
+      /* Profile inside a community: hold a bar-shaped space before the page
+         arrives, so Storelib's header cannot flash in and the community bar
+         can take that place on the first paint. */
+      if (tab.key === "profile" && communityContext()) {
+        document.documentElement.setAttribute("data-account-community-pending", "")
+      }
       /*
         THE CLICK NEVER ARRIVES ON A PHONE. The touch's end below is
         cancelled so it cannot fall through onto the page, and cancelling
@@ -386,7 +392,10 @@ function TabBar({
         there. The line and, past half a second, the page's own spinner are
         what say the tap landed.
       */
-      startRouteLoading({ cover: true })
+      /* Keep the page that is showing. A full-screen spinner on every tab
+         made Profile and Home feel stuck. The hairline still appears if the
+         next page is actually slow. */
+      startRouteLoading({ lineOnly: true })
       router.push(href, { scroll: false })
     },
     onPress: (index) => {
@@ -414,6 +423,10 @@ function TabBar({
   useEffect(() => {
     if (!window.matchMedia?.("(max-width: 767px)").matches) return
     const hrefs = tabs.flatMap((tab, i) => (tab.key === "search" || i === current ? [] : [hrefOf(i)]))
+    /* The page you are about to open, whole, as soon as this bar is up.
+       Idle-only reads were still in flight when Home or Profile was tapped,
+       so the router fetched again and the spinner sat on a blank page. */
+    for (const href of hrefs) prefetchHref(router, href, "press")
     return prefetchOnIdle(router, hrefs)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prefetchKey, current, router])

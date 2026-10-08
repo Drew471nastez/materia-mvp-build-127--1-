@@ -4,10 +4,11 @@
  * When the buyer tab bar's community context is set, /account shows the same
  * CommunityTopBar as the feed — not Storelib's header with a community title.
  *
- * The bar is remembered while you are in the community (community-chrome-cache),
- * so landing on the profile paints it with the page. A cold start with no
- * copy yet keeps a white bar of the same height (the boot script) until the
- * read returns, instead of a blank gap or the Storelib header popping in late.
+ * Mounted from the root layout, so it is already alive when the tab bar
+ * opens the profile. The bar is the copy remembered in the community
+ * (community-chrome-cache), read during render, not after a fetch. A cold
+ * start with no copy yet keeps a white bar of the same height (the boot
+ * script) until the read returns.
  */
 import { useEffect, useLayoutEffect, useState, useSyncExternalStore } from "react"
 import { usePathname } from "next/navigation"
@@ -31,55 +32,52 @@ export function AccountCommunityChrome() {
   const pathname = usePathname()
   const ctx = useCommunityContextMeta()
   const active = !!ctx.slug && showsProfileHeader(pathname)
-  const [topBar, setTopBar] = useState<TopBarData | null>(null)
+  const cached = active && ctx.slug ? readCommunityChrome(ctx.slug) : null
+  const [fresh, setFresh] = useState<TopBarData | null>(null)
+  const topBar = fresh && ctx.slug && fresh.community.slug === ctx.slug ? fresh : cached
 
   useLayoutEffect(() => {
     if (!active || !ctx.slug) {
-      setTopBar(null)
       publishAccountChrome(null, null)
       clearPending()
       return
     }
-    const cached = readCommunityChrome(ctx.slug)
-    if (!cached) return
-    setTopBar(cached)
-    publishAccountChrome(ctx.slug, cached)
-  }, [active, ctx.slug])
-
-  useLayoutEffect(() => {
-    if (topBar) clearPending()
-  }, [topBar])
+    if (topBar) {
+      publishAccountChrome(ctx.slug, topBar)
+      clearPending()
+    }
+  }, [active, ctx.slug, topBar])
 
   useEffect(() => {
     if (!active || !ctx.slug) return
     let live = true
-    void fetch(`/api/community/by-slug/${encodeURIComponent(ctx.slug)}/member-chrome`, { credentials: "same-origin" })
+    const slug = ctx.slug
+    void fetch(`/api/community/by-slug/${encodeURIComponent(slug)}/member-chrome`, { credentials: "same-origin" })
       .then((r) => (r.ok ? r.json() : null))
       .then((json: { topBar?: TopBarData } | null) => {
-        if (!live || !json?.topBar || !ctx.slug) return
-        rememberCommunityChrome(ctx.slug, json.topBar)
-        setTopBar(json.topBar)
-        publishAccountChrome(ctx.slug, json.topBar)
+        if (!live || !json?.topBar) return
+        rememberCommunityChrome(slug, json.topBar)
+        setFresh(json.topBar)
+        publishAccountChrome(slug, json.topBar)
         clearPending()
       })
       .catch(() => {
-        if (live) clearPending()
+        if (live && !readCommunityChrome(slug)) clearPending()
       })
     return () => {
       live = false
     }
   }, [active, ctx.slug])
 
-  if (!active || !topBar) return null
+  if (!topBar) return null
 
   /*
-    The community bar is sticky and in the document flow, same as inside a
-    community (shell-frame.tsx). Do not add native-header-spacer here: that
-    block is only for the fixed Storelib header in the app and would leave a
-    blank band between the bar and the profile cover.
+    Above the page, in normal flow, so the cover starts under it. Sticky,
+    same as inside a community. No native-header-spacer: that is only for
+    the fixed Storelib header and leaves a blank band here.
   */
   return (
-    <div className="w-full" data-account-community-chrome="">
+    <div className="sticky top-0 z-40 w-full" data-account-community-chrome="">
       <CommunityTopBar data={topBar} wide />
     </div>
   )
@@ -90,6 +88,5 @@ export function useAccountCommunityChromeActive(): boolean {
   const pathname = usePathname()
   const ctx = useCommunityContextMeta()
   const slug = !!ctx.slug && showsProfileHeader(pathname) ? ctx.slug : null
-  const ready = useSyncExternalStore(subscribeAccountChrome, () => accountChromeReady(slug), () => false)
-  return ready
+  return useSyncExternalStore(subscribeAccountChrome, () => accountChromeReady(slug), () => false)
 }
