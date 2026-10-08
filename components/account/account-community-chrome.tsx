@@ -56,7 +56,12 @@ export function AccountCommunityChrome() {
   */
   return (
     <div className="w-full" data-account-community-chrome="">
-      <CommunityTopBar data={topBar} wide />
+      <CommunityTopBar
+        data={topBar}
+        wide
+        search={{ communityId: topBar.community.id }}
+        menu={{ onInvite: null, savedHref: `/community/${ctx.slug}/saved`, membershipHref: `/community/${ctx.slug}/membership` }}
+      />
     </div>
   )
 }

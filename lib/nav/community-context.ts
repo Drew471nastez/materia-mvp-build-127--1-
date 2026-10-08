@@ -1,5 +1,7 @@
 "use client"
 
+import { COMMUNITY_CONTEXT_COOKIE } from "./community-cookie"
+
 /**
  * ===========================================================================
  *  THE COMMUNITY THE TAB BAR'S HOME BELONGS TO
@@ -125,9 +127,32 @@ export function communityContext(): string | null {
   return read()
 }
 
+/**
+ * THE SAME CONTEXT, FOR THE SERVER. The tab's community lives in session
+ * storage, which the server cannot read, so /account was drawn with
+ * Storelib's header and swapped for the community's bar after a fetch: a
+ * flash, then a jump. A session cookie holds the slug too, and
+ * app/account/layout.tsx draws the community's bar from it on the first
+ * paint. Only the slug, which is in the community's own address anyway.
+ */
+function writeCookie(slug: string | null) {
+  if (typeof document === "undefined") return
+  try {
+    const secure = location.protocol === "https:" ? "; secure" : ""
+    document.cookie = slug
+      ? `${COMMUNITY_CONTEXT_COOKIE}=${slug}; path=/; samesite=lax${secure}`
+      : `${COMMUNITY_CONTEXT_COOKIE}=; path=/; max-age=0; samesite=lax${secure}`
+  } catch {
+    /* No cookies: the client bar still follows the tab's storage. */
+  }
+}
+
 /** Inside a community: it becomes the context (another one replaces it). */
 export function enterCommunityContext(slug: string | null | undefined, meta?: { id?: string; name?: string }) {
-  if (slug && SLUG.test(slug)) write(slug, meta)
+  if (slug && SLUG.test(slug)) {
+    write(slug, meta)
+    writeCookie(slug)
+  }
 }
 
 export function communityContextId(): string | null {
@@ -150,6 +175,7 @@ export function useCommunityContextMeta(): { slug: string | null; id: string | n
 /** Explore, Discover communities or Dashboard chosen in the navigator: Home is Storelib's again. */
 export function endCommunityContext() {
   write(null)
+  writeCookie(null)
 }
 
 /** The navigator's rows that end the context. */

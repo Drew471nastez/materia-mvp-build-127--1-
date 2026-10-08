@@ -319,6 +319,15 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
   */
   const search = useSearchParams()
   const dm = search?.get("dm") ?? null
+  /* `?chat=1`: Messages pressed on a page outside the frame (the community's bar on /account), the panel opens here. */
+  const chatAsked = search?.get("chat") === "1"
+  useEffect(() => {
+    if (!chatAsked) return
+    const url = new URL(window.location.href)
+    url.searchParams.delete("chat")
+    window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash)
+    if (canMessage) setChat({})
+  }, [chatAsked, canMessage])
   useEffect(() => {
     if (!dm) return
     const url = new URL(window.location.href)
