@@ -34,7 +34,10 @@ export function AccountCommunityChrome() {
   const active = !!ctx.slug && showsProfileHeader(pathname)
   const cached = active && ctx.slug ? readCommunityChrome(ctx.slug) : null
   const [fresh, setFresh] = useState<TopBarData | null>(null)
-  const topBar = fresh && ctx.slug && fresh.community.slug === ctx.slug ? fresh : cached
+  /* Only on the profile's own pages. Mounted at the root, a bar kept from an
+     earlier visit drew on the feed (a second header) and on the library (an
+     empty band, hidden under Storelib's fixed header but still taking room). */
+  const topBar = !active ? null : fresh && ctx.slug && fresh.community.slug === ctx.slug ? fresh : cached
 
   useLayoutEffect(() => {
     if (!active || !ctx.slug) {

@@ -1,6 +1,6 @@
 "use client"
 
-import { useLayoutEffect } from "react"
+import { useEffect, useLayoutEffect } from "react"
 import { usePathname } from "next/navigation"
 import { showsLibraryTabs } from "@/components/library/library-tab-list"
 import { accountPinnedScroll, accountScrollPinPaused, opensAtTop, scrollPageToTop } from "@/lib/navigation/tab-scroll"
@@ -82,6 +82,22 @@ export function AccountNavFade({ children }: { children: React.ReactNode }) {
 let lastAccountKey: string | null = null
 
 function useTopOnArrival(key: string) {
+  /*
+    LEAVING THE ACCOUNT FORGETS IT. The key above outlived the account's
+    layout, so Profile, Home, Profile again found the same key, counted it as
+    no move and kept the feed's scroll: the profile opened half way down, or
+    at its foot where the feed was longer than it. Gone once the address is
+    no longer an account page; a remount that stays on one (a refresh) keeps it.
+  */
+  useEffect(
+    () => () => {
+      window.setTimeout(() => {
+        const p = window.location.pathname
+        if (p !== "/account" && !p.startsWith("/account/")) lastAccountKey = null
+      }, 0)
+    },
+    [],
+  )
   useLayoutEffect(() => {
     if (!opensAtTop(key)) {
       lastAccountKey = key
