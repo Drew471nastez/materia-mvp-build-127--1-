@@ -154,7 +154,7 @@ const FULL = "full" as never
  * reduced motion.
  *
  * ONLY ONCE THE MEMBER HAS MOVED. The first page of a visit is drawn with
- * the frame, which lands on its own (LAND, LAND_LATE), and in the server's
+ * the frame (its side columns land on an arrival, LAND; the middle never fades), and in the server's
  * HTML before anything is hydrated; it gets no second landing. From the
  * first move to another place (Classroom, Members...) every page that
  * arrives lands this way. A space switched in place is not a move.
@@ -164,9 +164,13 @@ export const ARRIVE = "[&>*]:animate-[community-place-in_260ms_cubic-bezier(0.22
 /** The landing's keyframes, printed with the frame (and the visitor's frame, public-frame.tsx), so no stylesheet has to carry them. */
 export const PLACE_KEYFRAMES = "@keyframes community-place-in{from{opacity:0;translate:0 6px}to{opacity:1;translate:0 0}}"
 
-/** The side columns' landing, once per visit (opacity only); the middle follows a beat later (LAND_LATE). */
+/**
+ * The side columns' landing (opacity only), on an arrival from outside the community only (useCommunityLanding).
+ * ROUND 19, the owner: "when I land on the community feed the first post flashes". The middle column used to fade in a
+ * beat later on every mount of the frame, the server's own HTML included: the posts were drawn, hidden for 60ms and faded
+ * back in. The middle is simply there now, on every arrival; on a phone it is the whole page.
+ */
 const LAND = "motion-safe:animate-[fade-in_260ms_cubic-bezier(0.22,1,0.36,1)_both]"
-const LAND_LATE = "motion-safe:animate-[fade-in_260ms_cubic-bezier(0.22,1,0.36,1)_60ms_both]"
 
 /**
  * About's sheet is edge to edge on a phone (as it always was): its box steps out of the column's padding there. From 640px it sits in
@@ -269,8 +273,8 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
   /*
     Opened from Discover or anywhere outside (landing.ts): the middle
     column's spinner waits as the app's slow page does. The frame itself
-    gets no second fade here: its columns already land (LAND, LAND_LATE),
-    and a fade on the frame as well would multiply the two.
+    gets no fade of its own: only its side columns land (LAND), and the
+    middle, the posts, is simply there.
   */
   const landing = useCommunityLanding()
 
@@ -474,12 +478,12 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
             className="pb-16 pt-4 lg:grid lg:grid-cols-[260px_minmax(0,1fr)] lg:grid-rows-[auto_1fr] lg:items-start lg:gap-x-6 lg:pt-6 xl:grid-cols-[280px_minmax(0,1fr)_300px]"
           >
             {/* LEFT: the community card, and the places right under it (round 9). */}
-            <div className={`hidden min-w-0 space-y-3 lg:col-start-1 lg:row-start-1 ${lessonPage ? "" : about ? "lg:block xl:hidden" : "lg:block"} ${LAND}`} data-community-left="">
+            <div className={`hidden min-w-0 space-y-3 lg:col-start-1 lg:row-start-1 ${lessonPage ? "" : about ? "lg:block xl:hidden" : "lg:block"} ${landing ? LAND : ""}`} data-community-left="">
               {wall ? <WallCommunityCard community={community} card={wall.card} membersHref={membersHref} /> : null}
               <WallPlaces entries={entries} />
             </div>
             {/* RIGHT from 1280px (under the places from 1024px): the next event, then who takes part, sticking under the bar. About and the lesson player use the extra width instead. */}
-            <aside className={`hidden min-w-0 lg:col-start-1 lg:row-start-2 lg:mt-3 xl:col-start-3 xl:row-span-2 xl:row-start-1 xl:mt-0 xl:self-stretch ${wideCenter ? "" : "lg:block"} ${LAND}`} data-community-right="" data-leaderboard-page={onLeaderboard ? "" : undefined}>
+            <aside className={`hidden min-w-0 lg:col-start-1 lg:row-start-2 lg:mt-3 xl:col-start-3 xl:row-span-2 xl:row-start-1 xl:mt-0 xl:self-stretch ${wideCenter ? "" : "lg:block"} ${landing ? LAND : ""}`} data-community-right="" data-leaderboard-page={onLeaderboard ? "" : undefined}>
               {upcoming || (contributors && !onLeaderboard) ? (
                 <div className="space-y-3 xl:sticky xl:top-[calc(var(--community-top,65px)+24px)]" data-community-right-cards="">
                   {upcoming ? <WallUpcoming slug={community.slug} event={upcoming} /> : null}
@@ -487,7 +491,7 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
                 </div>
               ) : null}
             </aside>
-            <div className={`min-w-0 lg:row-span-2 lg:row-start-1 ${lessonPage ? "lg:col-span-full lg:col-start-1" : about ? "lg:col-start-2 xl:col-span-full xl:col-start-1" : wideCenter ? "lg:col-start-2 xl:col-span-2" : "lg:col-start-2"} ${LAND_LATE}`} data-community-main="">
+            <div className={`min-w-0 lg:row-span-2 lg:row-start-1 ${lessonPage ? "lg:col-span-full lg:col-start-1" : about ? "lg:col-start-2 xl:col-span-full xl:col-start-1" : wideCenter ? "lg:col-start-2 xl:col-span-2" : "lg:col-start-2"}`} data-community-main="">
               <div className={`${moved && !quietArrival ? ARRIVE : ""} ${about ? ABOUT_BOX : ""}`} data-community-body="" data-community-moved={moved ? "" : undefined}>
                 <CommunityPullRefresh slug={community.slug}>{children}</CommunityPullRefresh>
               </div>

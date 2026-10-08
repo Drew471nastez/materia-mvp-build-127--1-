@@ -67,6 +67,22 @@ import { intentOf } from "./post-intent"
 import { markSeen } from "./post-seen"
 import { postPath } from "@/lib/communities/post-url"
 
+/*
+  THE PHONE'S CLOSE (round 19, the owner: "closing a post should feel simpler, cleaner, more satisfying, not laggy"). The
+  close button and Back used the app's shared close: 340ms that eases in, so the sheet sat still for its first frames and
+  then went. The post leaves in 280ms on a curve that moves on the first frame and settles softly at the bottom, the way
+  an iOS sheet is dismissed. A pull keeps the finger's own speed. And the post's teardown (every comment and picture taken
+  out of the page, the address stepped back) waits until the slide is over and the page is idle, so it never lands in
+  the slide's last frames or the first scroll after it.
+*/
+const POST_CLOSE_MS = 280
+const POST_CLOSE_EASE = "cubic-bezier(0.2, 0.7, 0.2, 1)"
+function whenIdle(run: () => void) {
+  const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }
+  if (w.requestIdleCallback) w.requestIdleCallback(run, { timeout: 180 })
+  else window.setTimeout(run, 32)
+}
+
 const IN_MS = 240
 const OUT_MS = 180
 /** After the move has arrived, a moment before the comments are drawn, so their first frame is not the move's last. */
@@ -296,7 +312,10 @@ function OverlayFrame({ phone, post, open, phase, setPhase, close, onGone, conte
         isOpen={open}
         onClose={close}
         onOpened={() => setPhase((p) => (p === "in" ? "shown" : p))}
-        onClosed={onGone}
+        closeMs={POST_CLOSE_MS}
+        closeEase={POST_CLOSE_EASE}
+        /* The post and its comments are taken down, and the history step given back, once the slide is over and the page is idle. */
+        onClosed={() => whenIdle(onGone)}
         label={post.title || "Post"}
         hideFrom="sm"
         zIndex={130}

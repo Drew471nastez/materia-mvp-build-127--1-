@@ -422,6 +422,8 @@ export function BottomSheet({
   scrollKey,
   scrim = "dim",
   waitForImages = false,
+  closeMs,
+  closeEase,
   onClosed,
   onOpened,
   dismissible = true,
@@ -464,6 +466,13 @@ export function BottomSheet({
   scrim?: "dim" | "clear"
   /** Hold a fresh open until the pictures inside have decoded (at most IMAGE_WAIT_MS). */
   waitForImages?: boolean
+  /**
+   * A close nobody is dragging (the close button, a tap outside, Escape, Back), when a sheet wants its own: the post's
+   * sheet leaves quicker, on a curve that starts at once and lands softly (post-overlay.tsx). Defaults to CLOSE_MS and
+   * CLOSE_EASE. A release keeps the finger's speed either way.
+   */
+  closeMs?: number
+  closeEase?: string
   /** Runs once the sheet has finished leaving and is out of the document (or, kept, at rest). */
   onClosed?: () => void
   /** Runs once the sheet has finished arriving: the moment for work that should not share its frames. */
@@ -565,6 +574,8 @@ export function BottomSheet({
   const openTokenRef = useRef(0)
   const onCloseRef = useRef(onClose)
   const onClosedRef = useRef(onClosed)
+  const closeTimingRef = useRef({ ms: closeMs, ease: closeEase })
+  closeTimingRef.current = { ms: closeMs, ease: closeEase }
   /**
    * ONLY A KEYBOARD MOVES IT, AND ONLY ONCE IT HAS ARRIVED. `bottom` carries
    * a 250ms transition so a keyboard lifts the sheet rather than teleporting
@@ -869,7 +880,7 @@ export function BottomSheet({
     const travel = Math.max(1, h - from)
     /* A release keeps the finger's speed; a tap outside or Escape eases in and out over what is left. */
     const motion = velocity > 0 ? snapMotion(travel, velocity) : null
-    const ms = motion ? motion.ms : Math.max(200, CLOSE_MS * Math.min(1, travel / h))
+    const ms = motion ? motion.ms : Math.max(200, (closeTimingRef.current.ms ?? CLOSE_MS) * Math.min(1, travel / h))
     /* A leaving sheet takes no taps, from now, not from the parent's answer. */
     if (rootRef.current) rootRef.current.style.pointerEvents = "none"
     const settled = () => {
@@ -890,7 +901,7 @@ export function BottomSheet({
       /* Arrived before the parent was told (a background tab draws no frames): tell it, and give it a moment to answer. */
       if (tellNow()) window.setTimeout(settled, 50)
       else settled()
-    }, motion ? curveCss(motion.curve) : CLOSE_EASE)
+    }, motion ? curveCss(motion.curve) : (closeTimingRef.current.ease ?? CLOSE_EASE))
     /**
      * THE PARENT IS TOLD ONCE THE SLIDE HAS HAD A FRAME. Told here, React
      * would render the parent before the browser paints, and the slide
