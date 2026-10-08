@@ -193,8 +193,21 @@ export function PostOverlay({ post: given, slug, viewer, readOnly = false, updat
   const [settled, setSettled] = useState(false)
   useEffect(() => {
     if (phase !== "shown") return
-    const t = window.setTimeout(() => setSettled(true), reducedMotion() ? 0 : SETTLE_MS)
-    return () => window.clearTimeout(t)
+    if (reducedMotion()) {
+      setSettled(true)
+      return
+    }
+    /* After the move, and when the page is idle: the comments' first draw (the box, the rows) never lands in the move's last frames. */
+    let idle = 0
+    const t = window.setTimeout(() => {
+      const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void }
+      if (w.requestIdleCallback) idle = w.requestIdleCallback(() => setSettled(true), { timeout: 250 })
+      else setSettled(true)
+    }, SETTLE_MS)
+    return () => {
+      window.clearTimeout(t)
+      ;(window as Window & { cancelIdleCallback?: (id: number) => void }).cancelIdleCallback?.(idle)
+    }
   }, [phase])
   /* THE COMMENTS ALWAYS COME: arrived at the latest after SETTLE_LATEST_MS, whatever happened to the move. */
   useEffect(() => {

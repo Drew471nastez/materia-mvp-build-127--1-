@@ -12,7 +12,11 @@
  *   PAGE       open, it covers the screen, with the back button at the top
  *              and the comment box floating at the foot (data-comments-composer="float")
  *   BLUR       the blur under the status bar is clear at rest and comes in
- *              with the scroll, all the way by 56px
+ *              with the scroll, softly (85% at most, all the way by 80px)
+ *   GROUND     open, a white ground is behind the page (no feed behind a
+ *              keyboard); a swipe takes it away so the feed shows
+ *   FADES      the page comes in over the card at the start of the open and
+ *              gives way to it at the end of the close (no snap)
  *   BACK       the back button closes it back into the card, over several
  *              frames, and it leaves the page
  *   SWIPE      a finger pulling down from the top takes the page with it,
@@ -143,6 +147,8 @@ export const isNativePlatform = () => false
   const firstInset = clips[0] || ""
   expect(/inset\(/.test(firstInset) && !/inset\(0px( 0px)*( round 0px)?\)/.test(firstInset), "MORPH: the first frame is clipped to the card's box", firstInset)
   expect(new Set(clips).size >= 4, "and the clip opens over several frames", { distinct: new Set(clips).size })
+  const opsIn = opening.map((f) => Number(f.op))
+  expect(opsIn[0] < 0.5 && opsIn.some((o) => o > 0.05 && o < 0.95) && opsIn.at(-1) === 1, "FADES: the page comes in over the card", opsIn.slice(0, 8).map((o) => o.toFixed(2)))
   await p.screenshot({ path: join(shots, "2-open.png") })
   const open = await p.evaluate(() => {
     const page = document.querySelector("[data-post-fullscreen] [role=dialog]").getBoundingClientRect()
@@ -154,10 +160,12 @@ export const isNativePlatform = () => false
   expect(open.back !== null && open.back < 80, "with the back button at the top", open.back)
   expect(open.composer === "float" && open.composerBottom !== null && open.composerBottom > 760, "and the comment box floating at the foot", open)
   expect(open.blur === "0", "BLUR: clear at rest", open.blur)
+  const ground = await p.evaluate(() => getComputedStyle(document.querySelector("[data-post-fullscreen-ground]")).opacity)
+  expect(ground === "1", "GROUND: open, a white ground is behind the page", ground)
   await p.evaluate(() => { document.querySelector("[data-post-fullscreen] [data-post-overlay-scroll]").scrollTop = 220 })
   await sleep(150)
   const blurIn = await p.evaluate(() => ({ opacity: Number(getComputedStyle(document.querySelector("[data-post-fullscreen-blur]")).opacity), scrolled: document.querySelector("[data-post-fullscreen] [data-post-overlay-scroll]").scrollTop }))
-  expect(blurIn.scrolled > 0 && Math.abs(blurIn.opacity - Math.min(1, blurIn.scrolled / 56)) < 0.02, "and comes in with the scroll (all the way by 56px)", blurIn)
+  expect(blurIn.scrolled > 0 && Math.abs(blurIn.opacity - Math.min(1, blurIn.scrolled / 80) * 0.85) < 0.02, "and comes in with the scroll, softly (85% at most, all the way by 80px)", blurIn)
   await p.screenshot({ path: join(shots, "3-scrolled.png") })
   await p.evaluate(() => { document.querySelector("[data-post-fullscreen] [data-post-overlay-scroll]").scrollTop = 0 })
 
@@ -169,6 +177,8 @@ export const isNativePlatform = () => false
   const closing = (await stop()).filter(Boolean)
   const gone = await p.evaluate(() => !document.querySelector("[data-post-fullscreen]"))
   expect(new Set(closing.map((f) => f.clip)).size >= 4, "BACK: it goes back into the card over several frames", { distinct: new Set(closing.map((f) => f.clip)).size })
+  const opsOut = closing.map((f) => Number(f.op))
+  expect(opsOut.some((o) => o > 0.05 && o < 0.95) && opsOut.at(-1) < 0.1, "and gives way to the card at the end, by a fade", opsOut.slice(-8).map((o) => o.toFixed(2)))
   expect(gone, "and leaves the page", gone)
 
   /* Open again, and pull it down from the top. */
@@ -180,6 +190,8 @@ export const isNativePlatform = () => false
     await sleep(16)
   }
   const dragged = await p.evaluate(() => getComputedStyle(document.querySelector("[data-post-fullscreen] [role=dialog]")).transform)
+  const groundDragged = await p.evaluate(() => getComputedStyle(document.querySelector("[data-post-fullscreen-ground]")).opacity)
+  expect(groundDragged === "0", "and a swipe takes the ground away, so the feed shows behind", groundDragged)
   await p.screenshot({ path: join(shots, "5-swiping.png") })
   await touch("touchEnd", 0, 0)
   await sleep(900)

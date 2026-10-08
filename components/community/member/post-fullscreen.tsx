@@ -28,9 +28,9 @@
  * it never scrolls the feed under the page.
  *
  * THE TOP. A strip as tall as the status bar and the back button, with a
- * backdrop blur that fades out downwards (a mask), whose opacity follows the
- * scroll over the first 56px: nothing over the post at rest, the soft iOS
- * blur under the clock once it moves.
+ * light backdrop blur (6px, a thin white) that fades out downwards (a mask),
+ * whose opacity follows the scroll over the first 80px and stops at 85%:
+ * nothing over the post at rest, a soft hint under the clock once it moves.
  *
  * THE BOTTOM. The comment box is the comments section's own (comments.tsx
  * floatComposer): sticky at the foot of the page's scroll, a frosted pill,
@@ -46,6 +46,8 @@ import { createPortal } from "react-dom"
 import { ChevronLeft } from "lucide-react"
 
 const OPEN_MS = 420
+/** How long the open waits for the post's pictures to decode before it moves anyway. */
+const DECODE_WAIT_MS = 140
 const CLOSE_MS = 340
 const EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
 /** The back button's row under the status bar. */
@@ -56,7 +58,9 @@ const CARD_RADIUS_FALLBACK = 16
 const CLOSE_PULL = 120
 const CLOSE_FLICK = 0.5
 /** How far the scroll goes before the top blur is all the way in. */
-const BLUR_IN_PX = 56
+const BLUR_IN_PX = 80
+/** All the way in, the blur is this strong: a hint under the clock, not a frosted bar (round 20, the owner: "too heavy"). */
+const BLUR_MAX = 0.85
 
 function reduced(): boolean {
   return typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
@@ -112,6 +116,8 @@ export function PostFullscreen({ open, label, title, origin, onRequestClose, onS
   const innerRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const scrimRef = useRef<HTMLDivElement>(null)
+  /* A white ground behind the page once it has arrived (see IN), dropped for a swipe and a close. */
+  const groundRef = useRef<HTMLDivElement>(null)
   const topRef = useRef<HTMLDivElement>(null)
   const blurRef = useRef<HTMLDivElement>(null)
   const done = useRef({ onShown, onGone, onRequestClose })
@@ -122,34 +128,77 @@ export function PostFullscreen({ open, label, title, origin, onRequestClose, onS
   const pulled = useRef(0)
   const closing = useRef(false)
 
-  /* ── IN ── on the frame it is drawn, from the card. */
+  /* ── IN ── drawn as the card on its first frame; moves once its pictures are decoded (at most DECODE_WAIT_MS). */
   useLayoutEffect(() => {
     const page = pageRef.current
     const inner = innerRef.current
     const scrim = scrimRef.current
     const top = topRef.current
-    if (!page || !inner || !scrim || !top) return
-    if (reduced() || typeof page.animate !== "function") {
+    const ground = groundRef.current
+    if (!page || !inner || !scrim || !top || !ground) return
+    const shown = () => {
+      /* Arrived: the white ground behind the page is up, so a keyboard or iOS moving the screen never shows the feed. */
+      ground.style.opacity = "1"
       done.current.onShown()
+    }
+    if (reduced() || typeof page.animate !== "function") {
+      shown()
       return
     }
     const card = cardBox(origin)
     const pageBox = page.getBoundingClientRect()
     const bar = topBarPx()
-    const anims: Animation[] = []
-    if (card) {
-      const from = insetFor(card.rect, card.radius, pageBox.top, pageBox.height)
-      anims.push(page.animate([{ clipPath: from }, { clipPath: "inset(0px 0px 0px 0px round 0px)" }], { duration: OPEN_MS, easing: EASE }))
-      /* The post's first line where the card's was: the card's top, less the bar the page keeps above it. */
-      const shift = card.rect.top - pageBox.top - bar
-      anims.push(inner.animate([{ transform: `translateY(${shift}px)` }, { transform: "translateY(0)" }], { duration: OPEN_MS, easing: EASE }))
+    const from = card ? insetFor(card.rect, card.radius, pageBox.top, pageBox.height) : null
+    const shift = card ? card.rect.top - pageBox.top - bar : 0
+    /* The first frame, before anything moves: the card's shape, the post where the card's words are, and see-through over the card. */
+    if (from) {
+      page.style.clipPath = from
+      inner.style.transform = `translateY(${shift}px)`
     } else {
-      anims.push(page.animate([{ opacity: 0, transform: "translateY(24px)" }, { opacity: 1, transform: "translateY(0)" }], { duration: OPEN_MS, easing: EASE }))
+      page.style.transform = "translateY(24px)"
     }
-    anims.push(scrim.animate([{ opacity: 0 }, { opacity: 1 }], { duration: OPEN_MS, easing: "ease-out" }))
-    anims.push(top.animate([{ opacity: 0 }, { opacity: 1 }], { duration: OPEN_MS * 0.7, delay: OPEN_MS * 0.3, easing: "ease-out", fill: "backwards" }))
-    anims[0].onfinish = () => done.current.onShown()
-    return () => anims.forEach((a) => a.cancel())
+    page.style.opacity = "0"
+    scrim.style.opacity = "0"
+    top.style.opacity = "0"
+    const anims: Animation[] = []
+    let cancelled = false
+    let started = false
+    const start = () => {
+      if (cancelled || started) return
+      started = true
+      page.style.clipPath = ""
+      page.style.transform = ""
+      page.style.opacity = ""
+      inner.style.transform = ""
+      scrim.style.opacity = ""
+      top.style.opacity = ""
+      const opts: KeyframeAnimationOptions = { duration: OPEN_MS, easing: EASE }
+      if (from) {
+        anims.push(page.animate([{ clipPath: from }, { clipPath: "inset(0px 0px 0px 0px round 0px)" }], opts))
+        anims.push(inner.animate([{ transform: `translateY(${shift}px)` }, { transform: "translateY(0)" }], opts))
+        /* The whole post comes in over the card in the first third, so the card never snaps into it. */
+        anims.push(page.animate([{ opacity: 0 }, { opacity: 1, offset: 0.32 }, { opacity: 1 }], { duration: OPEN_MS, easing: "linear" }))
+      } else {
+        anims.push(page.animate([{ opacity: 0, transform: "translateY(24px)" }, { opacity: 1, transform: "translateY(0)" }], opts))
+      }
+      anims.push(scrim.animate([{ opacity: 0 }, { opacity: 1 }], { duration: OPEN_MS, easing: "ease-out" }))
+      anims.push(top.animate([{ opacity: 0 }, { opacity: 1 }], { duration: OPEN_MS * 0.6, delay: OPEN_MS * 0.4, easing: "ease-out", fill: "backwards" }))
+      anims[0].onfinish = shown
+    }
+    /* A picture decoding in the middle of the move is a dropped frame: the post's own pictures first, never long. */
+    const pictures = Array.from(page.querySelectorAll("img")).filter((img) => !img.complete || !img.naturalWidth)
+    if (!pictures.length) start()
+    else {
+      const t = window.setTimeout(start, DECODE_WAIT_MS)
+      void Promise.allSettled(pictures.map((img) => img.decode?.() ?? Promise.resolve())).then(() => {
+        window.clearTimeout(t)
+        start()
+      })
+    }
+    return () => {
+      cancelled = true
+      anims.forEach((a) => a.cancel())
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -176,6 +225,7 @@ export function PostFullscreen({ open, label, title, origin, onRequestClose, onS
     const fromTransform = now.transform === "none" ? "translateY(0px)" : now.transform
     const fromClip = now.clipPath && now.clipPath !== "none" ? now.clipPath : "inset(0px 0px 0px 0px round 0px)"
     const fromDim = Number(getComputedStyle(scrim).opacity)
+    if (groundRef.current) groundRef.current.style.opacity = "0"
     for (const el of [page, inner, scrim, top]) for (const a of el.getAnimations()) a.cancel()
     page.style.transform = ""
     page.style.clipPath = ""
@@ -191,6 +241,12 @@ export function PostFullscreen({ open, label, title, origin, onRequestClose, onS
       /* Scrolled down into the comments, the post's top is above the page: brought down to the card's place with the rest. */
       const shift = card.rect.top - pageBox.top - bar + scroller.scrollTop
       inner.animate([{ transform: "translateY(0)" }, { transform: `translateY(${shift}px)` }], opts)
+      /*
+        THE CARD COMES BACK UNDER IT. The page holds the whole post (every line, every picture) and the card a shorter
+        version of it, so the page gave way to the card in one frame at the end: a snap. Over the last stretch of the
+        move the page fades out over the card, which is already where the page is going.
+      */
+      page.animate([{ opacity: 1 }, { opacity: 1, offset: 0.55 }, { opacity: 0 }], { duration: CLOSE_MS, easing: "linear", fill: "forwards" })
     } else {
       /* The card is not on screen any more: a short drop from where the page is, and gone. */
       main = page.animate([{ transform: fromTransform, opacity: 1 }, { transform: `translateY(${pulled.current + 40}px)`, opacity: 0 }], { ...opts, duration: 240 })
@@ -212,7 +268,7 @@ export function PostFullscreen({ open, label, title, origin, onRequestClose, onS
     let frame = 0
     const paint = () => {
       frame = 0
-      blur.style.opacity = String(Math.max(0, Math.min(1, scroller.scrollTop / BLUR_IN_PX)))
+      blur.style.opacity = String(Math.max(0, Math.min(1, scroller.scrollTop / BLUR_IN_PX)) * BLUR_MAX)
     }
     const onScroll = () => {
       if (!frame) frame = requestAnimationFrame(paint)
@@ -276,6 +332,7 @@ export function PostFullscreen({ open, label, title, origin, onRequestClose, onS
         }
         if (dy > 0 && atTop) {
           decided = "drag"
+          if (groundRef.current) groundRef.current.style.opacity = "0"
           frozenOverflow = scroller.style.overflowY
           scroller.style.overflowY = "hidden"
           page.style.willChange = "transform"
@@ -314,9 +371,15 @@ export function PostFullscreen({ open, label, title, origin, onRequestClose, onS
       page.style.transform = ""
       page.style.clipPath = ""
       scrim.style.opacity = ""
-      if (reduced() || typeof page.animate !== "function") return
+      if (reduced() || typeof page.animate !== "function") {
+        if (groundRef.current) groundRef.current.style.opacity = "1"
+        return
+      }
       page.animate([{ transform: `translateY(${from}px)`, clipPath: `inset(0px 0px 0px 0px round ${Math.min(28, from / 5)}px)` }, { transform: "translateY(0px)", clipPath: "inset(0px 0px 0px 0px round 0px)" }], { duration: 300, easing: EASE })
-      scrim.animate([{ opacity: Math.max(0, 1 - (from / (page.offsetHeight || 1)) * 1.2) }, { opacity: 1 }], { duration: 300, easing: EASE })
+      const back = scrim.animate([{ opacity: Math.max(0, 1 - (from / (page.offsetHeight || 1)) * 1.2) }, { opacity: 1 }], { duration: 300, easing: EASE })
+      back.onfinish = () => {
+        if (!closing.current && groundRef.current) groundRef.current.style.opacity = "1"
+      }
     }
     scroller.addEventListener("touchstart", onStart, { passive: true })
     scroller.addEventListener("touchmove", onMove, { passive: false })
@@ -347,6 +410,8 @@ export function PostFullscreen({ open, label, title, origin, onRequestClose, onS
   return createPortal(
     <div className="fixed inset-0 z-[130]" data-post-fullscreen="" style={open ? undefined : { pointerEvents: "none" }}>
       <div ref={scrimRef} aria-hidden className="absolute inset-0 bg-[#0f1115]/30" data-post-fullscreen-scrim="" />
+      {/* Past the screen's edges both ways, so iOS sliding the screen for the keyboard never shows the feed. */}
+      <div ref={groundRef} aria-hidden className="absolute inset-x-0 -bottom-[100vh] -top-[100vh] bg-white" style={{ opacity: 0 }} data-post-fullscreen-ground="" />
       <div
         ref={pageRef}
         role="dialog"
@@ -373,7 +438,7 @@ export function PostFullscreen({ open, label, title, origin, onRequestClose, onS
           <div
             ref={blurRef}
             aria-hidden
-            className="absolute inset-0 bg-white/70 backdrop-blur-[14px] [-webkit-backdrop-filter:blur(14px)] [mask-image:linear-gradient(to_bottom,#000_58%,transparent)] [-webkit-mask-image:linear-gradient(to_bottom,#000_58%,transparent)]"
+            className="absolute inset-0 bg-white/60 backdrop-blur-[6px] [-webkit-backdrop-filter:blur(6px)] [mask-image:linear-gradient(to_bottom,#000_40%,rgba(0,0,0,0.6)_70%,transparent)] [-webkit-mask-image:linear-gradient(to_bottom,#000_40%,rgba(0,0,0,0.6)_70%,transparent)]"
             style={{ opacity: 0 }}
             data-post-fullscreen-blur=""
           />
