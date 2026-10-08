@@ -19,6 +19,8 @@
  * Kept for the tab in sessionStorage, like Explore's.
  */
 
+import { tabStorageGet, tabStorageSet } from "@/lib/nav/tab-session-persist"
+
 const KEY = "storelib:tab-scroll"
 /* Explore's own keys (lib/explore/use-explore-scroll.ts): it restores itself when these say so. */
 const EXPLORE_Y = "explore-scroll-position"
@@ -34,7 +36,7 @@ function pathOnly(href: string): string {
 
 function readAll(): Record<string, number> {
   try {
-    const raw = sessionStorage.getItem(KEY)
+    const raw = tabStorageGet(KEY)
     const v = raw ? (JSON.parse(raw) as unknown) : null
     return v && typeof v === "object" ? (v as Record<string, number>) : {}
   } catch {
@@ -48,7 +50,7 @@ export function noteTabScroll(path: string, y: number = typeof window === "undef
   const all = readAll()
   all[at] = Math.max(0, Math.round(y))
   try {
-    sessionStorage.setItem(KEY, JSON.stringify(all))
+    tabStorageSet(KEY, JSON.stringify(all))
     if (isExplore(at)) sessionStorage.setItem(EXPLORE_Y, String(all[at]))
   } catch {
     /* no storage: the tab opens at the top, as it did */

@@ -19,7 +19,8 @@
  * restoreTabScroll, which lets go the moment a finger or a wheel moves).
  */
 import { useEffect, useLayoutEffect, useRef } from "react"
-import { restoreTabScroll } from "@/lib/navigation/tab-scroll"
+import { restoreTabScroll, tabScrollFor } from "@/lib/navigation/tab-scroll"
+import { tabStorageGet, tabStorageSet } from "@/lib/nav/tab-session-persist"
 
 export const RETURN_SCROLL_KEY = "storelib:community-scroll"
 /** How long after a Back the page that arrives counts as reached by it (a cold page can take a moment). */
@@ -32,7 +33,7 @@ if (typeof window !== "undefined") window.addEventListener("popstate", () => (po
 
 function readAll(): Record<string, number> {
   try {
-    const raw = window.sessionStorage.getItem(RETURN_SCROLL_KEY)
+    const raw = tabStorageGet(RETURN_SCROLL_KEY)
     const v = raw ? (JSON.parse(raw) as unknown) : null
     return v && typeof v === "object" ? (v as Record<string, number>) : {}
   } catch {
@@ -47,7 +48,7 @@ function write(path: string, y: number) {
     all[path] = Math.max(0, Math.round(y))
     const keys = Object.keys(all)
     for (const k of keys.slice(0, Math.max(0, keys.length - KEPT))) delete all[k]
-    window.sessionStorage.setItem(RETURN_SCROLL_KEY, JSON.stringify(all))
+    tabStorageSet(RETURN_SCROLL_KEY, JSON.stringify(all))
   } catch {
     /* No storage: Back lands at the top, as before. */
   }
@@ -88,6 +89,8 @@ export function useSectionTop(pathname: string, slug: string) {
     const first = !seen.current
     seen.current = true
     if (first) {
+      /* Tab Home from Profile still has a saved feed position (lib/navigation/tab-scroll.ts); do not snap over it. */
+      if (tabScrollFor(pathname) > 0) return
       if (performance.now() - poppedAt <= BACK_WINDOW_MS) return
       /* A reload or a document Back of THIS page keeps the browser's place. A client arrival from somewhere else does not: that scroll belonged to the page before. */
       try {

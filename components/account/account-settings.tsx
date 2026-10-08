@@ -78,7 +78,7 @@ import { AccountAvatar, useAccountPhoto } from "@/components/account/account-pho
 import { NotificationSettings } from "@/components/account/notification-settings"
 import { CoverField } from "@/components/account/cover-field"
 import { SaveBar, SAVE_BAR_MS } from "@/components/account/save-bar"
-import { primeSettingsFromProfile } from "@/components/account/settings-subpage"
+import { primeSettingsFromProfile, SETTINGS_SHEET_OUT_MS } from "@/components/account/settings-subpage"
 import { useShellAvatar } from "@/lib/account/avatar-store"
 import { isValidUsername } from "@/lib/reserved-words"
 import { normalizeHandle } from "@/lib/profile/username-rules"
@@ -389,13 +389,18 @@ function ProfileSection({
         avatarUrl,
         coverUrl: cover.url,
       })
-      router.refresh()
       if (onCloseAfterSave) {
-        window.setTimeout(() => onCloseAfterSave(), SAVE_BAR_MS + 180)
+        window.setTimeout(() => {
+          setBusy(false)
+          onCloseAfterSave()
+          window.setTimeout(() => router.refresh(), SETTINGS_SHEET_OUT_MS + 60)
+        }, SAVE_BAR_MS + 200)
+      } else {
+        router.refresh()
+        setBusy(false)
       }
     } catch {
       setError("That did not save. Try again in a moment.")
-    } finally {
       setBusy(false)
     }
   }

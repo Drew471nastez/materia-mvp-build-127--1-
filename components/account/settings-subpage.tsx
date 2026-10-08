@@ -15,11 +15,11 @@ import { CLICK_ECHO_MS } from "@/lib/navigation/first-tap"
 import { ACCOUNT_SETTINGS_SHEET_Z } from "@/lib/account/settings-sheet"
 import { BackControl } from "@/components/navigation/back-control"
 import { swallowGhostTaps } from "@/lib/navigation/swallow-ghost-taps"
-import { scrollPageToTop } from "@/lib/navigation/tab-scroll"
 
 const EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
 const IN_MS = 340
-const OUT_MS = 440
+export const SETTINGS_SHEET_OUT_MS = 440
+const OUT_MS = SETTINGS_SHEET_OUT_MS
 const CACHE_MS = 5 * 60_000
 
 export type SettingsSection = "profile" | "account" | "privacy" | "notifications" | "preferences"
@@ -168,7 +168,6 @@ function SettingsLayer({ section, data, onClose }: { section: SettingsSection; d
       document.documentElement.removeAttribute("data-app-sheet-up")
       document.body.style.overflow = bodyOverflow.current
       swallowGhostTaps(OUT_MS + CLICK_ECHO_MS + 80)
-      scrollPageToTop({ smooth: true, frames: 5 })
       onClose()
     }
     if (!el || typeof el.animate !== "function") {

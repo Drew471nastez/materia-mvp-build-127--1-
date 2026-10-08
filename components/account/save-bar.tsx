@@ -17,7 +17,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
-import { Loader2 } from "lucide-react"
+import { ActivitySpinner } from "@/components/ui/activity-spinner"
 import { ACCOUNT_GUTTER_LEFT, ACCOUNT_GUTTER_RIGHT } from "@/lib/account/account-tabs"
 import { ACCOUNT_SAVE_BAR_Z } from "@/lib/account/settings-sheet"
 import { useFirstTap } from "@/lib/navigation/first-tap"
@@ -255,7 +255,11 @@ export function SaveBar({
           className={INK}
           data-account-save=""
         >
-          {busy && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+          {busy ? (
+            <span className="inline-flex shrink-0" aria-hidden="true">
+              <ActivitySpinner size={16} label="Saving" className="text-white/90" />
+            </span>
+          ) : null}
           Save changes
         </button>
       </div>
