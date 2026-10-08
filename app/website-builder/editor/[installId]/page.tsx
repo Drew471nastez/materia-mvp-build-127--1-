@@ -864,8 +864,9 @@ function FieldControl({
     )
   }
 
-  if (kind === "page_picker" || kind === "product_picker") {
-    const want = kind === "page_picker" ? "page" : "product"
+  /* A product is chosen in ProductPickerControl (controls/product-list-control.tsx), registered above. */
+  if (kind === "page_picker") {
+    const want = "page"
     const options = targets.filter(t => t.kind === want)
     const current = typeof raw === "string" ? raw : ""
     return (

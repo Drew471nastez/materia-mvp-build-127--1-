@@ -44,7 +44,9 @@ const ASPECT: Record<string, string> = {
   landscape: "aspect-[4/3]",
 }
 
-export function ProductListSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
+export function ProductListSection({ section, theme, isEditing, isSelected, onClick, insideEditor }: SectionProps) {
+  /* It never receives the store, so a visitor sees nothing rather than products that do not exist. */
+  if (!insideEditor) return null
   const s = section.settings
   const c = sectionColors(section, theme)
 
@@ -62,15 +64,16 @@ export function ProductListSection({ section, theme, isEditing, isSelected, onCl
    */
   const count = Math.max(1, Math.min(24, num(s.products_count, 8)))
 
-  const NAMES = ["Digital Template Pack", "Course Bundle", "Icon Set Pro"]
-  const PRICES = ["$29", "$99", "$49"]
-  const WAS = ["$49", "$149", "$79"]
+  /* Empty cards in the editor: the layout and its controls, never invented products. Product Grid shows the real ones. */
+  const NAMES = [""]
+  const PRICES = [""]
+  const WAS = [""]
   const placeholders = Array.from({ length: count }, (_, i) => ({
     id: i,
     name: NAMES[i % NAMES.length],
     price: PRICES[i % PRICES.length],
     was: WAS[i % WAS.length],
-    reviews: 12 + ((i * 7) % 40),
+    reviews: 0,
   }))
 
   const card: CSSProperties =
@@ -174,7 +177,7 @@ export function ProductListSection({ section, theme, isEditing, isSelected, onCl
                 )}
                 {bool(s.show_reviews_count) && (
                   <div className="mt-1 text-[11px]" style={{ color: paraColor, opacity: 0.75 }}>
-                    ★★★★★ ({p.reviews})
+                    ★★★★★
                   </div>
                 )}
                 {bool(s.show_quick_add, true) && (

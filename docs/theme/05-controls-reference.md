@@ -578,7 +578,7 @@ These Shopify types have nothing to point at on Storelib and are refused with th
 
 ## product_picker
 
-**Product.** One of the creator's products. Printed on its own it is the product's address, so `href="{{ settings.product | url }}"` works as it always has; it also carries the product's live `title`, `price`, `compare_price`, `image`, `url` and `id`, read as `settings.product.title`, whenever the page knows that product.
+**Product.** One of the creator's products. Printed on its own it is the product's address, so `href="{{ settings.product | url }}"` works as it always has; it also carries the product's live `title`, `price`, `compare_price`, `image`, `url` and `id`, read as `settings.product.title`, whenever the page knows that product. It holds the product's address, id or handle (an imported Shopify theme's `waxed-tote` works). Set to `@current` it is the product the page is about: on the product page, that product, with its checkout; on any other page, empty.
 
 - Value: string
 - Default when the schema gives none: `""`
@@ -649,7 +649,7 @@ These Shopify types have nothing to point at on Storelib and are refused with th
 
 ## collection_picker
 
-**Collection.** One of the creator's own collections, from Products › Collections, stored by id. Printed on its own it is the collection's address, `/collections/<handle>`, so `href="{{ settings.collection | url }}"` works; it also carries `title`, `handle`, `description`, `image`, `url`, `products_count` and `products`, the first twelve of its published products block-shaped like `products`, read as `settings.collection.title`. Only a published collection of this creator's: any other id is empty, so `{% if settings.collection.title %}` draws nothing for it.
+**Collection.** One of the creator's own collections, from Products › Collections, stored by id. Printed on its own it is the collection's address, `/collections/<handle>`, so `href="{{ settings.collection | url }}"` works; it also carries `title`, `handle`, `description`, `image`, `url`, `products_count` and `products`, the first twelve of its published products block-shaped like `products`, read as `settings.collection.title`. Only a published collection of this creator's: any other id is empty, so `{% if settings.collection.title %}` draws nothing for it. It also takes the collection's handle or `/collections/<handle>`, and `@current` is the collection a collection page is about.
 
 - Value: string
 - Default when the schema gives none: `""`

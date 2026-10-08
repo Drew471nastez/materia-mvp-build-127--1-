@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils"
 import { sectionColors, str, bool, SectionWrapper, type SectionProps } from "../_shared"
 
 // ── Collection list — grid of collection cards ───────────────
-export function CollectionListSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
+export function CollectionListSection({ section, theme, isEditing, isSelected, onClick, insideEditor }: SectionProps) {
   const s = section.settings
   const c = sectionColors(section, theme)
   const blocks = section.blocks ?? []
@@ -19,12 +19,9 @@ export function CollectionListSection({ section, theme, isEditing, isSelected, o
   const displayMode = str(s.display_mode, "grid")
   const colsClass: Record<number, string> = { 2: "grid-cols-2", 3: "grid-cols-2 @[768px]:grid-cols-3", 4: "grid-cols-2 @[768px]:grid-cols-4", 5: "grid-cols-2 @[768px]:grid-cols-5", 6: "grid-cols-2 @[768px]:grid-cols-6" }
 
-  const demoBlocks = blocks.length > 0 ? blocks : [
-    { id: "d1", type: "collection", settings: { collection_title: "New arrivals", product_count: 24 } },
-    { id: "d2", type: "collection", settings: { collection_title: "Best sellers", product_count: 18 } },
-    { id: "d3", type: "collection", settings: { collection_title: "Accessories", product_count: 12 } },
-    { id: "d4", type: "collection", settings: { collection_title: "Sale", product_count: 32 } },
-  ]
+  /* Collections the creator filled in, never invented ones ("New arrivals", 24 products). None yet: nothing on a live page, empty tiles in the editor. */
+  if (blocks.length === 0 && !insideEditor) return null
+  const demoBlocks = blocks.length > 0 ? blocks : [1, 2, 3, 4].map((n) => ({ id: `d${n}`, type: "collection", settings: { collection_title: "", product_count: 0 } as Record<string, unknown> }))
 
   return (
     <SectionWrapper bgColor={c.bg} isEditing={isEditing} isSelected={isSelected} onClick={onClick}>

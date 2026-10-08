@@ -7,10 +7,11 @@
     </div>
     <div class="spot__copy">
       {% if settings.eyebrow %}<p class="s__eyebrow">{{ settings.eyebrow }}</p>{% endif %}
-      {% if settings.heading %}<h2 class="s__h">{{ settings.heading }}</h2>{% endif %}
+      {# The product chosen for the button fills the name and price; what is typed here overrides it. #}
+      {% if settings.heading or settings.button_url.title %}<h2 class="s__h">{{ settings.heading | default: settings.button_url.title }}</h2>{% endif %}
       {% if settings.subheading %}<p class="s__sub">{{ settings.subheading }}</p>{% endif %}
-      {% if settings.price %}
-        <p class="spot__price">{{ settings.price }}{% if settings.compare_price %}<s class="card__was">{{ settings.compare_price }}</s>{% endif %}</p>
+      {% if settings.price or settings.button_url.price %}
+        <p class="spot__price">{{ settings.price | default: settings.button_url.price }}{% if settings.compare_price %}<s class="card__was">{{ settings.compare_price }}</s>{% elsif settings.button_url.compare_price %}<s class="card__was">{{ settings.button_url.compare_price }}</s>{% endif %}</p>
       {% endif %}
       {% if blocks.size > 0 %}
         <ul class="spot__points">
@@ -136,19 +137,21 @@
       "type": "text",
       "id": "heading",
       "label": "Name",
-      "default": "The linen apron"
+      "info": "Leave empty to use the product's.",
+      "default": ""
     },
     {
       "type": "textarea",
       "id": "subheading",
       "label": "Description",
-      "default": "Cut long, washed soft, and made to get better with use."
+      "default": ""
     },
     {
       "type": "text",
       "id": "price",
       "label": "Price",
-      "default": "$64"
+      "info": "Leave empty to use the product's.",
+      "default": ""
     },
     {
       "type": "text",

@@ -39,20 +39,25 @@
       {% else %}
         <div class="grid">
           {% for block in blocks %}
+          {# The product chosen in "Product" fills the card; a name, price or photo typed on the block overrides it. #}
+          {% if block.settings.title or block.settings.url.title %}
           <article class="card feat" data-card="product" data-block-id="{{ block.id }}">
             <div class="card__media" data-card-media style="aspect-ratio: {{ settings.shape }};">
-              {% if block.settings.image %}<img src="{{ block.settings.image | asset }}" alt="{{ block.settings.title }}" loading="lazy" decoding="async">{% endif %}
+              {% if block.settings.image %}<img src="{{ block.settings.image | asset }}" alt="{{ block.settings.title | default: block.settings.url.title }}" loading="lazy" decoding="async">{% elsif block.settings.url.image %}<img src="{{ block.settings.url.image | asset }}" alt="{{ block.settings.title | default: block.settings.url.title }}" loading="lazy" decoding="async">{% endif %}
             </div>
             <div class="feat__body">
               {% if block.settings.tag %}<p class="feat__tag">{{ block.settings.tag }}</p>{% endif %}
-              <h3 class="card__title">{{ block.settings.title }}</h3>
+              <h3 class="card__title">{{ block.settings.title | default: block.settings.url.title }}</h3>
               {% if block.settings.text %}<p class="card__text">{{ block.settings.text }}</p>{% endif %}
-              {% if block.settings.price %}
-                <p class="card__price">{{ block.settings.price }}{% if block.settings.compare_price %}<s class="card__was">{{ block.settings.compare_price }}</s>{% endif %}</p>
+              {% if block.settings.price or block.settings.url.price %}
+                <p class="card__price">{{ block.settings.price | default: block.settings.url.price }}{% if block.settings.compare_price %}<s class="card__was">{{ block.settings.compare_price }}</s>{% elsif block.settings.url.compare_price %}<s class="card__was">{{ block.settings.url.compare_price }}</s>{% endif %}</p>
               {% endif %}
               {% if block.settings.url %}<a class="feat__go" href="{{ block.settings.url | url }}">{{ settings.link_text }}</a>{% endif %}
             </div>
           </article>
+          {% elsif page.in_editor %}
+          <p class="empty" data-block-id="{{ block.id }}">Choose a product for this card</p>
+          {% endif %}
           {% endfor %}
         </div>
       {% endif %}
@@ -145,7 +150,7 @@
       "type": "select",
       "id": "source",
       "label": "Products",
-      "info": "Your shop stays in step on its own. Picked products are whatever you type here.",
+      "info": "Your shop stays in step on its own. Picked shows the products you choose, in your order.",
       "default": "picked",
       "options": [
         {
@@ -309,22 +314,31 @@
       "name": "Product",
       "settings": [
         {
+          "type": "product_picker",
+          "id": "url",
+          "label": "Product",
+          "default": ""
+        },
+        {
           "type": "image_picker",
           "id": "image",
           "label": "Photo",
+          "info": "Leave empty to use the product's.",
           "default": ""
         },
         {
           "type": "text",
           "id": "title",
           "label": "Name",
-          "default": "Product name"
+          "info": "Leave empty to use the product's.",
+          "default": ""
         },
         {
           "type": "text",
           "id": "price",
           "label": "Price",
-          "default": "$29"
+          "info": "Leave empty to use the product's.",
+          "default": ""
         },
         {
           "type": "text",
@@ -336,12 +350,6 @@
           "type": "text",
           "id": "tag",
           "label": "Corner label",
-          "default": ""
-        },
-        {
-          "type": "product_picker",
-          "id": "url",
-          "label": "Goes to",
           "default": ""
         },
         {
@@ -357,36 +365,8 @@
   "presets": [
     {
       "name": "Featured Products",
-      "settings": {},
-      "blocks": [
-        {
-          "id": "p1",
-          "type": "product",
-          "settings": {
-            "title": "Everyday tote",
-            "price": "$48",
-            "text": "Waxed canvas, leather handles, fits a laptop."
-          }
-        },
-        {
-          "id": "p2",
-          "type": "product",
-          "settings": {
-            "title": "Linen apron",
-            "price": "$64",
-            "text": "Cut long and washed soft, in four colours."
-          }
-        },
-        {
-          "id": "p3",
-          "type": "product",
-          "settings": {
-            "title": "Card wallet",
-            "price": "$29",
-            "text": "Four cards and a folded note, nothing more."
-          }
-        }
-      ]
+      "settings": { "source": "shop" },
+      "blocks": []
     }
   ]
 }

@@ -76,7 +76,16 @@ export interface ResolveOptions {
    * (somebody else's, unpublished, deleted), and the setting is empty.
    */
   collections?: Record<string, StorefrontCollection>
+  /**
+   * What the page itself is about, for a picker set to CURRENT (`@current`,
+   * Shopify's "dynamic source"): the product on a product page, the
+   * collection on a collection page. Elsewhere a CURRENT picker is empty.
+   */
+  current?: { product?: CatalogItem | null; collection?: StorefrontCollection | null }
 }
+
+/** The value a product or collection picker holds to mean "whatever this page is about". */
+export const CURRENT_REF = "@current"
 
 /** A product as a section is handed it: `{ id, type, settings: { title, price, … } }`. */
 export interface CatalogItem {
@@ -264,6 +273,9 @@ function lookupIn(catalog: CatalogItem[] | undefined): Map<string, CatalogItem> 
     map.set(item.id, item)
     const url = item.settings?.url
     if (typeof url === "string" && url) map.set(url, item)
+    /* A handle on its own ("waxed-tote"), as a Shopify theme stores a product, names the same product. */
+    const slug = typeof item.settings?.slug === "string" && item.settings.slug ? item.settings.slug : typeof url === "string" ? (url.match(/^\/products\/([^/?#]+)$/)?.[1] ?? "") : ""
+    if (slug && !map.has(slug)) map.set(slug, item)
   }
   catalogIndex.set(catalog, map)
   return map
@@ -278,6 +290,14 @@ function lookupIn(catalog: CatalogItem[] | undefined): Map<string, CatalogItem> 
 function productRef(v: string, opts: ResolveOptions): unknown {
   const key = v.trim()
   if (key === "") return ""
+  if (key === CURRENT_REF) {
+    /* The page's own product, at its fullest: the catalogue's card when it has one (price, variants, checkout), else what the page knows. */
+    const page = opts.current?.product
+    if (!page) return ""
+    const full = lookupIn(opts.catalog).get(page.id) ?? (typeof page.settings.url === "string" ? lookupIn(opts.catalog).get(page.settings.url) : undefined)
+    const item = full ? { ...full, settings: { ...page.settings, ...full.settings } } : page
+    return new Linked(safeHref(typeof item.settings.url === "string" ? item.settings.url : "#"), { id: item.id, ...item.settings })
+  }
   const item = lookupIn(opts.catalog).get(key)
   if (!item) return safeHref(key)
   const href = safeHref(typeof item.settings.url === "string" ? item.settings.url : key)
@@ -313,8 +333,12 @@ function collectionRef(v: string, opts: ResolveOptions): unknown {
 
 function collectionById(v: string, opts: ResolveOptions): StorefrontCollection | undefined {
   const key = v.trim().toLowerCase()
+  if (key === CURRENT_REF) return opts.current?.collection ?? undefined
   if (key === "" || !opts.collections) return undefined
-  return Object.prototype.hasOwnProperty.call(opts.collections, key) ? opts.collections[key] : undefined
+  if (Object.prototype.hasOwnProperty.call(opts.collections, key)) return opts.collections[key]
+  /* A handle ("summer") or its address ("/collections/summer"), as a Shopify theme stores one, names the same collection. */
+  const handle = key.replace(/^\/collections\//, "")
+  return Object.values(opts.collections).find((c) => c.handle.toLowerCase() === handle)
 }
 
 /** What a template reads off a collection: plain values, its address made safe. */

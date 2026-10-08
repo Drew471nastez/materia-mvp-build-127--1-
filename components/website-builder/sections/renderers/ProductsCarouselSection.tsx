@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils"
 import { sectionColors, str, bool, SectionWrapper, type SectionProps } from "../_shared"
 
 // ── Products carousel (horizontal scroll) ────────────────────
-export function ProductsCarouselSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
+export function ProductsCarouselSection({ section, theme, isEditing, isSelected, onClick, insideEditor }: SectionProps) {
   const s = section.settings
   const c = sectionColors(section, theme)
   const itemsToShow = Math.max(2, Math.min(20, Number(s.items_to_show ?? 8)))
@@ -45,10 +45,12 @@ export function ProductsCarouselSection({ section, theme, isEditing, isSelected,
     el.scrollBy({ left: dir === "left" ? -amount : amount, behavior: "smooth" })
   }
 
+  /* It never receives the store: nothing for a visitor, empty cards in the editor, never "Product 1, $29.99". Product Grid shows the real ones. */
+  if (!insideEditor) return null
   const placeholders = Array.from({ length: itemsToShow }).map((_, i) => ({
     id: `p${i}`,
-    title: `Product ${i + 1}`,
-    price: `$${(29.99 + i * 10).toFixed(2)}`,
+    title: "",
+    price: "",
   }))
 
   const itemBasis = `calc((100% - ${(perRow - 1) * gap}px) / ${perRow})`

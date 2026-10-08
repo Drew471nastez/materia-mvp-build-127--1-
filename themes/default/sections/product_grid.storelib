@@ -154,18 +154,23 @@
       {% else %}
         <div class="grid">
           {% for block in blocks %}
+          {# The product chosen in "Product" fills the card; a name, price or photo typed on the block overrides it. #}
+          {% if block.settings.title or block.settings.url.title %}
           <article class="card card__wrap" data-card="product" data-block-id="{{ block.id }}">
             <div class="card__media" data-card-media style="aspect-ratio: {{ settings.shape }};">
               {# No photo of its own: the photo of the product the card goes to. #}
-              {% if block.settings.image %}<img src="{{ block.settings.image | asset }}" alt="{{ block.settings.title }}" loading="lazy" decoding="async">{% elsif block.settings.url.image %}<img src="{{ block.settings.url.image | asset }}" alt="{{ block.settings.title }}" loading="lazy" decoding="async">{% endif %}
+              {% if block.settings.image %}<img src="{{ block.settings.image | asset }}" alt="{{ block.settings.title | default: block.settings.url.title }}" loading="lazy" decoding="async">{% elsif block.settings.url.image %}<img src="{{ block.settings.url.image | asset }}" alt="{{ block.settings.title | default: block.settings.url.title }}" loading="lazy" decoding="async">{% endif %}
               {# Theme settings › Badges: Sale on a discounted product, then the card's own tag (Sold out on the shop's). #}{% if block.settings.tag or theme.badges.sale and block.settings.compare_price %}<span class="badges" data-badges>{% if theme.badges.sale and block.settings.compare_price %}<span class="tag" data-badge="sale">{{ theme.badges.sale_text }}</span>{% endif %}{% if block.settings.tag %}<span class="tag" data-badge="{% if block.settings.tag == 'Sold out' %}soldout{% else %}tag{% endif %}">{{ block.settings.tag }}</span>{% endif %}</span>{% endif %}
             </div>
-            <h3 class="card__title">{{ block.settings.title }}</h3>
-            {% if settings.show_price and block.settings.price %}
-              <p class="card__price">{{ block.settings.price }}{% if block.settings.compare_price %}<s class="card__was">{{ block.settings.compare_price }}</s>{% endif %}</p>
+            <h3 class="card__title">{{ block.settings.title | default: block.settings.url.title }}</h3>
+            {% if settings.show_price and (block.settings.price or block.settings.url.price) %}
+              <p class="card__price">{{ block.settings.price | default: block.settings.url.price }}{% if block.settings.compare_price %}<s class="card__was">{{ block.settings.compare_price }}</s>{% elsif block.settings.url.compare_price %}<s class="card__was">{{ block.settings.url.compare_price }}</s>{% endif %}</p>
             {% endif %}
-            {% if block.settings.url %}<a class="card__link" href="{{ block.settings.url | url }}"><span class="sr">{{ block.settings.title }}</span></a>{% endif %}
+            {% if block.settings.url %}<a class="card__link" href="{{ block.settings.url | url }}"><span class="sr">{{ block.settings.title | default: block.settings.url.title }}</span></a>{% endif %}
           </article>
+          {% elsif page.in_editor %}
+          <p class="empty" data-block-id="{{ block.id }}">Choose a product for this card</p>
+          {% endif %}
           {% endfor %}
         </div>
       {% endif %}
@@ -347,11 +352,11 @@
       "type": "select",
       "id": "source",
       "label": "Products",
-      "info": "Products you choose, a collection and your shop stay in step with Products on their own. Cards you fill in show whatever you type.",
+      "info": "Products you choose, a collection and your shop stay in step with Products on their own. Cards show the product each one is set to.",
       "default": "picked",
       "options": [
         {
-          "label": "Cards I fill in",
+          "label": "Cards, one product each",
           "value": "picked"
         },
         {
@@ -474,13 +479,52 @@
       "default": true,
       "info": "On your shop's products. Saved ones are listed on the Wishlist page."
     },
-    {"type": "header", "id": "hdr_filters", "label": "Filters"},
-    {"type": "toggle", "id": "show_filters", "label": "Show filters", "default": false},
-    {"type": "text", "id": "filter_label", "label": "Filter button", "default": "Filter", "visible_if": "{{ section.settings.show_filters }}"},
-    {"type": "text", "id": "sort_label", "label": "Sort label", "default": "Sort by", "visible_if": "{{ section.settings.show_filters }}"},
-    {"type": "text", "id": "apply_label", "label": "Apply button", "default": "Apply", "visible_if": "{{ section.settings.show_filters }}"},
-    {"type": "text", "id": "clear_label", "label": "Clear link", "default": "Clear all", "visible_if": "{{ section.settings.show_filters }}"},
-    {"type": "text", "id": "no_match", "label": "When nothing matches the filters", "default": "No products match these filters.", "visible_if": "{{ section.settings.show_filters }}"},
+    {
+      "type": "header",
+      "id": "hdr_filters",
+      "label": "Filters"
+    },
+    {
+      "type": "toggle",
+      "id": "show_filters",
+      "label": "Show filters",
+      "default": false
+    },
+    {
+      "type": "text",
+      "id": "filter_label",
+      "label": "Filter button",
+      "default": "Filter",
+      "visible_if": "{{ section.settings.show_filters }}"
+    },
+    {
+      "type": "text",
+      "id": "sort_label",
+      "label": "Sort label",
+      "default": "Sort by",
+      "visible_if": "{{ section.settings.show_filters }}"
+    },
+    {
+      "type": "text",
+      "id": "apply_label",
+      "label": "Apply button",
+      "default": "Apply",
+      "visible_if": "{{ section.settings.show_filters }}"
+    },
+    {
+      "type": "text",
+      "id": "clear_label",
+      "label": "Clear link",
+      "default": "Clear all",
+      "visible_if": "{{ section.settings.show_filters }}"
+    },
+    {
+      "type": "text",
+      "id": "no_match",
+      "label": "When nothing matches the filters",
+      "default": "No products match these filters.",
+      "visible_if": "{{ section.settings.show_filters }}"
+    },
     {
       "type": "text",
       "id": "button_text",
@@ -561,22 +605,31 @@
       "name": "Product",
       "settings": [
         {
+          "type": "product_picker",
+          "id": "url",
+          "label": "Product",
+          "default": ""
+        },
+        {
           "type": "image_picker",
           "id": "image",
           "label": "Photo",
+          "info": "Leave empty to use the product's.",
           "default": ""
         },
         {
           "type": "text",
           "id": "title",
           "label": "Name",
-          "default": "Product name"
+          "info": "Leave empty to use the product's.",
+          "default": ""
         },
         {
           "type": "text",
           "id": "price",
           "label": "Price",
-          "default": "$29"
+          "info": "Leave empty to use the product's.",
+          "default": ""
         },
         {
           "type": "text",
@@ -589,12 +642,6 @@
           "id": "tag",
           "label": "Corner label",
           "default": ""
-        },
-        {
-          "type": "product_picker",
-          "id": "url",
-          "label": "Goes to",
-          "default": ""
         }
       ]
     }
@@ -603,58 +650,10 @@
   "presets": [
     {
       "name": "Product Grid",
-      "settings": {},
-      "blocks": [
-        {
-          "id": "p1",
-          "type": "product",
-          "settings": {
-            "title": "Everyday tote",
-            "price": "$48"
-          }
-        },
-        {
-          "id": "p2",
-          "type": "product",
-          "settings": {
-            "title": "Linen apron",
-            "price": "$64"
-          }
-        },
-        {
-          "id": "p3",
-          "type": "product",
-          "settings": {
-            "title": "Card wallet",
-            "price": "$29"
-          }
-        },
-        {
-          "id": "p4",
-          "type": "product",
-          "settings": {
-            "title": "Wash bag",
-            "price": "$38",
-            "tag": "Low stock"
-          }
-        },
-        {
-          "id": "p5",
-          "type": "product",
-          "settings": {
-            "title": "Pencil roll",
-            "price": "$22"
-          }
-        },
-        {
-          "id": "p6",
-          "type": "product",
-          "settings": {
-            "title": "Notebook cover",
-            "price": "$34"
-          }
-        }
-      ]
+      "settings": {
+        "source": "shop"
+      },
+      "blocks": []
     },
     {
       "name": "Product Grid, four across",
@@ -663,75 +662,10 @@
           "desktop": 4,
           "tablet": 2,
           "mobile": 1
-        }
+        },
+        "source": "shop"
       },
-      "blocks": [
-        {
-          "id": "p1",
-          "type": "product",
-          "settings": {
-            "title": "Everyday tote",
-            "price": "$48"
-          }
-        },
-        {
-          "id": "p2",
-          "type": "product",
-          "settings": {
-            "title": "Linen apron",
-            "price": "$64"
-          }
-        },
-        {
-          "id": "p3",
-          "type": "product",
-          "settings": {
-            "title": "Card wallet",
-            "price": "$29"
-          }
-        },
-        {
-          "id": "p4",
-          "type": "product",
-          "settings": {
-            "title": "Wash bag",
-            "price": "$38",
-            "tag": "Low stock"
-          }
-        },
-        {
-          "id": "p5",
-          "type": "product",
-          "settings": {
-            "title": "Pencil roll",
-            "price": "$22"
-          }
-        },
-        {
-          "id": "p6",
-          "type": "product",
-          "settings": {
-            "title": "Notebook cover",
-            "price": "$34"
-          }
-        },
-        {
-          "id": "p7",
-          "type": "product",
-          "settings": {
-            "title": "Everyday tote",
-            "price": "$48"
-          }
-        },
-        {
-          "id": "p8",
-          "type": "product",
-          "settings": {
-            "title": "Linen apron",
-            "price": "$64"
-          }
-        }
-      ]
+      "blocks": []
     }
   ]
 }

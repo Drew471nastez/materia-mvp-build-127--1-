@@ -171,7 +171,8 @@ async function main() {
   {
     const schema = SECTION_SCHEMAS["product_grid"]
     const preset = schema.presets?.[0]
-    const blocks = (preset?.blocks ?? []).map((b, i) => ({ id: `b${i}`, type: b.type, settings: b.settings ?? {} }))
+    /* The preset now starts from the shop (no invented cards), so the typed cards are the test's own. */
+    const blocks = [{ id: "b0", type: "product", settings: { title: "Everyday tote", price: "$48" } }]
     const products = [
       toCard({ ...ROW, id: "a", title: "Real Tote", slug: "real-tote" }),
       toCard({ ...ROW, id: "b", title: "Sold Out Thing", slug: "sold", compare_at_cents: null, inventory_count: 0 }),

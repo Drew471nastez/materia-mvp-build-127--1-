@@ -119,7 +119,12 @@ export function renderSection(input: RenderInput): Rendered {
     : handed
   if (showCode) input = { ...input, products: codedList(input.products) }
   const blockOf = input.blocks ?? (() => null)
-  const resolveOpts = { assets, catalog: data.catalog, menus: data.menus, communities: data.communities, collections: data.collections }
+  /* What this page is about, for a picker set to the page's own product or collection (resolve.ts CURRENT_REF). */
+  const current = {
+    product: data.product?.id ? { id: data.product.id, type: "product", settings: data.product as Record<string, unknown> } : null,
+    collection: data.collection ?? null,
+  }
+  const resolveOpts = { assets, catalog: data.catalog, menus: data.menus, communities: data.communities, collections: data.collections, current }
   const { settings, blocks, statics } = resolveInstance(compiled.schema, instance, {
     ...resolveOpts,
     themeBlock: (type) => blockOf(type)?.schema ?? null,
@@ -168,6 +173,7 @@ export function renderSection(input: RenderInput): Rendered {
     wishlist: (input.globals?.wishlist ?? null) as unknown as Record<string, unknown> | null,
     creator: data.creator,
     product: data.product ?? null,
+    collection: data.collection ?? null,
   }
   /**
    * ═════════════════════════════════════════════════════════════════════════

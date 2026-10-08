@@ -23,7 +23,7 @@ Status:
 | color, color_scheme, font_picker, image_picker, url | same names | Had | |
 | text_alignment | alignment | Had | alias added |
 | page | page_picker | Had | alias added |
-| product | product_picker | Had, extended | now a Linked value: prints as the address, carries title, price, image |
+| product | product_picker | Had, extended | a Linked value: prints as the address, carries title, price, image, checkout; by address, id or handle; `@current` is the product page's own (dynamic source); searchable picker with pictures |
 | video | video_picker | Had | |
 | inline_richtext | inline_richtext | Built | own inline sanitiser in the engine |
 | html | html | Built | sanitize-html embed allow list |
@@ -33,7 +33,7 @@ Status:
 | link_list | link_list | Built | menus are the store's (Navigation, shared by every theme) with a generated `main-menu` |
 | none | datetime | Built | read as written, never shifted by a time zone; `date` filter |
 | image focal point | focal_point | Built | beside the image setting, tap to choose |
-| collection, collection_list | none | N/A | no collections; refused with the reason |
+| collection, collection_list | collection_picker, collection_list | Built | Products › Collections; by id or handle; `@current` on a collection page |
 | blog, article, article_list | none | N/A | no blog model |
 | metaobject, metaobject_list | none | N/A | no metaobjects |
 | liquid | none | N/A | the template is the code; custom sections |
@@ -56,7 +56,7 @@ Status:
 | Shopify | Storelib | Status |
 | --- | --- | --- |
 | index, product, page | home, product, about, contact, custom pages | Had |
-| collection | shop at /products, generated | Had |
+| collection | /collections/<handle>, generated, `collection` in context | Built |
 | search | search, generated | Had |
 | cart | /cart, chrome around the cart | Had (not section-editable, by design) |
 | 404 | 404 page, generated, editable, real 404 status | Built |

@@ -154,19 +154,36 @@ Every page but home has `page.breadcrumbs`, a list of `{ label, url }`: Home, th
 
 ## One product, chosen in the sidebar
 
-To let the creator pick which product a section shows, give it a `product_picker` setting. It holds the product's page address, so keep the product in `products` whose `url` matches it:
+To let the creator pick which product a section shows, give it a `product_picker` setting. The sidebar lists their products with a picture, a name and a price, searchable. The setting reads as the product itself, whether it is among the newest 24 or not:
 
 ```storelib
-{% for block in products %}
-  {% if block.settings.url == settings.product or block.id == settings.product %}
-    <h2>{{ block.settings.title }}</h2>
-    <p>{{ block.settings.price }}</p>
-    <a class="buy" href="{{ block.settings.checkout_url | url }}">{{ settings.button_label }}</a>
-  {% endif %}
-{% endfor %}
+{% if settings.product.title %}
+  <h2>{{ settings.product.title }}</h2>
+  <p>{{ settings.product.price }}{% if settings.product.compare_price %} <s>{{ settings.product.compare_price }}</s>{% endif %}</p>
+  {% if settings.product.image %}<img src="{{ settings.product.image | asset }}" alt="{{ settings.product.title }}">{% endif %}
+  <a class="buy" href="{{ settings.product.checkout_url | default: settings.product | url }}">{{ settings.button_label }}</a>
+{% elsif page.in_editor %}
+  <p>Choose a product in the sidebar</p>
+{% endif %}
 ```
 
-`products` is the newest 24. A product older than that is not in it; link to its page instead.
+Printed on its own, `{{ settings.product | url }}` is still the product's page address. The setting holds the address, the id or the handle, so a Shopify theme's `waxed-tote` resolves too.
+
+### This page's product: `@current`
+
+On the product page the first choice in the picker is **This page's product**, stored as `@current`. One section set once then shows each product on its own page, the way a Shopify setting with a dynamic source does. On any other page `@current` is empty, never another product.
+
+### Several products, in the creator's order
+
+A `product_list` setting is looped exactly like `products`: `{% for block in settings.featured %}` with the same `block.settings` fields.
+
+### Collections
+
+A `collection_picker` reads as the collection: `settings.collection.title`, `.url`, `.products_count`, and `.products` to loop. A `collection_list` is several, `{% for block in settings.collections %}`. On `/collections/<handle>` the page's own collection is `collection` in every section, and a collection picker set to `@current` is that collection. Every member is on the page, not only the newest 24.
+
+### Typed values only override
+
+A card the creator fills in starts from its product and lets them override a word: `{{ block.settings.title | default: block.settings.product.title }}`. Defaults and presets never invent a product or a price. The section checker refuses a typed price, invented products in a default or a preset, and a product array in a script (`integration-products`), so the AI's sections follow this as well.
 
 ## Buy buttons and checkout
 

@@ -435,7 +435,7 @@ export const CONTROLS: Record<ControlType, ControlDefinition> = {
   product_picker: def({
     type: "product_picker",
     label: "Product",
-    description: "One of the creator's products. Printed on its own it is the product's address, so `href=\"{{ settings.product | url }}\"` works as it always has; it also carries the product's live `title`, `price`, `compare_price`, `image`, `url` and `id`, read as `settings.product.title`, whenever the page knows that product.",
+    description: "One of the creator's products. Printed on its own it is the product's address, so `href=\"{{ settings.product | url }}\"` works as it always has; it also carries the product's live `title`, `price`, `compare_price`, `image`, `url` and `id`, read as `settings.product.title`, whenever the page knows that product. It holds the product's address, id or handle (an imported Shopify theme's `waxed-tote` works). Set to `@current` it is the product the page is about: on the product page, that product, with its checkout; on any other page, empty.",
     value: "string",
     schema: z.string().max(200),
     fallback: "",
@@ -483,7 +483,7 @@ export const CONTROLS: Record<ControlType, ControlDefinition> = {
   collection_picker: def({
     type: "collection_picker",
     label: "Collection",
-    description: "One of the creator's own collections, from Products › Collections, stored by id. Printed on its own it is the collection's address, `/collections/<handle>`, so `href=\"{{ settings.collection | url }}\"` works; it also carries `title`, `handle`, `description`, `image`, `url`, `products_count` and `products`, the first twelve of its published products block-shaped like `products`, read as `settings.collection.title`. Only a published collection of this creator's: any other id is empty, so `{% if settings.collection.title %}` draws nothing for it.",
+    description: "One of the creator's own collections, from Products › Collections, stored by id. Printed on its own it is the collection's address, `/collections/<handle>`, so `href=\"{{ settings.collection | url }}\"` works; it also carries `title`, `handle`, `description`, `image`, `url`, `products_count` and `products`, the first twelve of its published products block-shaped like `products`, read as `settings.collection.title`. Only a published collection of this creator's: any other id is empty, so `{% if settings.collection.title %}` draws nothing for it. It also takes the collection's handle or `/collections/<handle>`, and `@current` is the collection a collection page is about.",
     value: "string",
     schema: z.string().max(120),
     fallback: "",

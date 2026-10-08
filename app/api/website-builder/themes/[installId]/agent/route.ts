@@ -615,8 +615,18 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
                   .map((o) => ({ name: o.name ?? "Option", priceCents: o.price_cents ?? 0 })),
               }))
 
+              /* The creator's collections, for a collection picker; none when the table is not there. */
+              const { data: collectionRows } = await supabase
+                .from("product_collections")
+                .select("id, title, slug, published")
+                .eq("creator_id", (creator as { id: string }).id)
+                .order("created_at", { ascending: false })
+                .limit(30)
+              const collections = ((collectionRows as { id: string; title: string; slug: string; published: boolean }[] | null) ?? []).map((c) => ({ id: c.id, title: c.title, handle: c.slug, published: c.published === true }))
+
               const slug = (profile as { slug?: string } | null)?.slug ?? null
               return {
+                collections,
                 storeName: slug ?? "this store",
                 live: (profile as { store_published?: boolean } | null)?.store_published === true,
                 totalProducts: count ?? products.length,

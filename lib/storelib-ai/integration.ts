@@ -249,6 +249,46 @@ export function checkSectionIntegration(source: string): QualityFinding[] {
     err("integration-text", `"${stranded.slice(0, 60)}" is typed into the markup, so the creator cannot change it. Make it a text setting (or a block setting for repeated items) and print it: {{ settings.heading }}.`)
   }
 
+  /* ── products come from the store, never from the section ──────── */
+  /*
+    A product grid with three invented products at $29 looks finished in the
+    editor and sells nothing: the creator's real products never appear, and the
+    buy button goes nowhere. A section that shows products reads them: the
+    `products` loop, `page.product` on a product page, a product_picker or
+    product_list, a collection_picker or collection_list. Each check names the
+    fix, so the model's next attempt is the right one.
+  */
+  {
+    const RESOURCE_TYPES = new Set(["product_picker", "product_list", "collection_picker", "collection_list", "product", "collection"])
+    const blockDefs = schema.blocks ?? []
+    const productBlocks = blockDefs.filter((bl) => /product|item|card/i.test(String((bl as { type?: unknown }).type ?? "")))
+    const readsStore =
+      /\{%-?\s*for\s+\w+\s+in\s+(products|page\.product|settings\.\w+)\b/.test(parsed.value.template.text) ||
+      /\{\{[^}]*\b(products|page\.product|page\.collection)\b/.test(parsed.value.template.text) ||
+      allSettings.some((st) => RESOURCE_TYPES.has(String(st.type)))
+    const productSection = /product|shop|collection|catalog/i.test(String(schema.category ?? "")) || /product/i.test(String((schema as { type?: unknown }).type ?? ""))
+    const MONEY = /(?:[$€£¥₹]\s?\d+(?:[.,]\d{1,2})?)|(?:\d+(?:[.,]\d{2})?\s?(?:USD|EUR|GBP|CAD|AUD)\b)/
+    const priced = (st: SchemaSetting & { default?: unknown }) => /price|cost|amount/i.test(String(st.id ?? "")) && typeof st.default === "string" && MONEY.test(st.default)
+    const typedPrice = (text.match(new RegExp(MONEY.source)) ?? [])[0]
+    if (productSection && !readsStore) {
+      err("integration-products", `This section shows products but never reads the store. Loop the store's own: {% for block in products %} with block.settings.title, block.settings.price, block.settings.image and block.settings.checkout_url, or give it a product_list / collection_picker setting and loop that. Never type products in.`)
+    } else if (typedPrice && (productSection || productBlocks.length > 0)) {
+      err("integration-products", `"${typedPrice}" is a price typed into the markup. Print the product's own: {{ block.settings.price }} from products, or {{ settings.product.price }} from a product_picker.`)
+    }
+    const fakeDefault = productBlocks.flatMap((bl) => (bl.settings ?? []) as (SchemaSetting & { default?: unknown })[]).find(priced)
+    if (fakeDefault) {
+      err("integration-products", `The ${String(fakeDefault.id)} setting defaults to "${String(fakeDefault.default)}", an invented price. Leave it empty and fall back to the chosen product's: give the block a product_picker and print {{ block.settings.price | default: block.settings.product.price }}.`)
+    }
+    const presets = Array.isArray((schema as { presets?: unknown }).presets) ? ((schema as { presets: { blocks?: { type?: string; settings?: Record<string, unknown> }[] }[] }).presets) : []
+    const fakePreset = presets.flatMap((pr) => pr.blocks ?? []).find((b) => /product|item|card/i.test(String(b.type ?? "")) && Object.entries(b.settings ?? {}).some(([k, v]) => /price|cost|amount/i.test(k) && typeof v === "string" && MONEY.test(v)))
+    if (fakePreset) {
+      err("integration-products", `A preset fills a ${String(fakePreset.type)} block with an invented product and price. Presets for product sections start from the store: set the source to the shop, or leave the product blocks empty for the creator to choose.`)
+    }
+    if (/\[\s*\{[^\]]*\bprice\s*:[^\]]*\}\s*,\s*\{[^\]]*\bprice\s*:/s.test(parsed.value.script?.text ?? "")) {
+      err("integration-products", `The script holds a list of products of its own. Products come from the template (products, page.product, a product_list), never from an array in the script; read them from the markup with data- attributes if the script needs them.`)
+    }
+  }
+
   /* ── phones ────────────────────────────────────────────────────── */
   const wide = declarations(css).find((d) => /^(width|min-width|flex-basis|grid-template-columns)$/.test(d.prop) && [...d.value.matchAll(/(\d{3,})px/g)].some((m) => Number(m[1]) >= 420))
   if (wide && !/@container/.test(css)) {

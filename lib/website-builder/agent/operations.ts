@@ -779,6 +779,8 @@ export interface StoreFacts {
   }>
   /** The site's address, when known, for copy that names it. */
   address?: string | null
+  /** The creator's collections, for a collection_picker or collection_list (Products › Collections). */
+  collections?: Array<{ id: string; title: string; handle: string; published: boolean }>
 }
 
 export function describeStore(facts: StoreFacts): string {
@@ -806,6 +808,11 @@ export function describeStore(facts: StoreFacts): string {
     facts.products.length < facts.totalProducts
       ? `  …and ${facts.totalProducts - facts.products.length} more.`
       : "",
+    facts.collections?.length
+      ? ["COLLECTIONS (a collection_picker or collection_list takes the id)", ...facts.collections.map((c) => `  ${c.title} [id ${c.id}, /collections/${c.handle}]${c.published ? "" : " (hidden)"}`)].join("\n")
+      : "",
+    /* How these become a section's products: never copied in as text. */
+    "BIND, NEVER COPY: a product section shows these through the store, not as typed text. product_grid or product_featured with source shop, chosen (a product_list of ids) or collection (a collection id); a single product through a product_picker set to its address, or to @current on the product page. A section you write loops products or reads a product_picker / product_list / collection_picker; never type a name, price or picture from this list into a setting, a block or the markup.",
   ]
     .filter(Boolean)
     .join("\n")

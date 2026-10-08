@@ -9,6 +9,7 @@ import { collectionSections } from "@/lib/website-builder/shop-page"
 import { catalogPage } from "@/lib/products/catalog-filters"
 import { productsInCollection } from "@/lib/physical/collections-server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { MAX_PICKED_PRODUCTS, pickedProducts } from "@/lib/website-builder/storefront-data-server"
 import { siteMetadata } from "../../render-site"
 import { SiteVitals } from "@/components/website-builder/site-vitals"
 import { TrackView } from "@/components/analytics/track-view"
@@ -55,12 +56,23 @@ export default async function SiteCollectionPage({ params, searchParams }: PageP
   const inIt = await productsInCollection(createAdminClient(), site.creatorId, handle).catch(() => null)
   if (!inIt) notFound()
 
-  /* The shop's cards, only the collection's, in its order. */
+  /*
+    The shop's cards, only the collection's, in its order. The shop list is
+    the newest 24, so a member older than that was missing from its own
+    collection: those are read by id (pickedProducts, this creator's
+    published products only).
+  */
   const order = new Map(inIt.productIds.map((id, i) => [id, i]))
-  const cards = (products ?? []).filter((p) => order.has(p.id)).sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0))
+  const have = new Set((products ?? []).map((p) => p.id))
+  const older = inIt.productIds.filter((id) => !have.has(id)).slice(0, MAX_PICKED_PRODUCTS)
+  const extra = older.length ? await pickedProducts(createAdminClient() as never, site.creatorId, { ids: older, slugs: [] }) : []
+  const cards = [...(products ?? []).filter((p) => order.has(p.id)), ...extra].sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0))
 
   const arranged = collectionSections(site.pages.home ?? site.sections, site.themeSettings, inIt.collection)
-  const { sections, data } = await dressPage(site, arranged, products, productCount, "collection", inIt.collection.title)
+  const dressed = await dressPage(site, arranged, products, productCount, "collection", inIt.collection.title)
+  const sections = dressed.sections
+  /* The page's own collection, as `collection` in a template and for a picker set to the current collection. */
+  const data = { ...dressed.data, collection: dressed.data?.collections?.[inIt.collection.id] ?? null }
   const { listed, filters } = catalogPage(cards, asked, `/collections/${handle}`)
   const prerendered = renderWithSources(site.sources, sections, site.themeSettings, "collection", listed, { filters }, data)
 

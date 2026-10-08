@@ -496,6 +496,12 @@ export interface RenderContext {
   /** The product this page is about. Present on the product template only. */
   product?: StorefrontData["product"]
   /**
+   * The collection this page is about, on /collections/<handle>: title,
+   * handle, description, image, url, products_count and its products,
+   * block-shaped. Null on every other page.
+   */
+  collection?: StorefrontCollection | null
+  /**
    * Inside a theme block's template: the block being drawn. `settings` and
    * `blocks` are then the block's own, and `section` is still the section
    * it sits in, so `{{ section.settings.x }}` reads the section.
@@ -599,6 +605,8 @@ export interface StorefrontData {
     /** "What's included", one line each. */
     includes?: string[]
   } | null
+  /** The collection the page is about, on a collection page only. */
+  collection?: StorefrontCollection | null
 }
 
 // ── Limits ──────────────────────────────────────────────────────────────────

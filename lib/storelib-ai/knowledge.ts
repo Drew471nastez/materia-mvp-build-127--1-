@@ -82,6 +82,16 @@ const TOPICS: Topic[] = [
   },
   {
     /*
+      PRODUCTS AND COLLECTIONS, BOUND TO THE STORE. Every product section the
+      model writes reads the catalogue; the checker refuses the rest
+      (lib/storelib-ai/integration.ts, integration-products).
+    */
+    id: "store-binding",
+    triggers: /product|shop|store|catalog|collection|price|buy|cart|checkout|carousel|grid|featured|recommend|bestsell|merch|cloth|apparel|course|membership|download/i,
+    text: `PRODUCTS COME FROM THE STORE, NEVER FROM THE SECTION. The shop: {% for block in products %} with block.settings.title, price, compare_price, image, images, url, available, tag, checkout_url and variants (each with name, price, available, checkout_url). One product: a product_picker setting, printed as settings.product.title, .price, .image, .checkout_url (on the product page set it to @current for the page's own product, and page.product is there too). Several in the creator's order: a product_list setting, looped {% for block in settings.featured %} exactly like products. A collection: a collection_picker, with settings.collection.title, .url, .products_count and .products to loop; several: a collection_list. On a collection page, collection is the page's own. A buy button is the product's checkout_url (a variant's for one option); "Sold out" when available is false. Cards typed by the creator are optional overrides that fall back to the chosen product: {{ block.settings.title | default: block.settings.product.title }}. Defaults and presets never invent a product or a price; an empty product setting draws a short note only when page.in_editor. Filtering and sorting are the shop page's (page.filters), not a script's.`,
+  },
+  {
+    /*
       RICH SETTINGS, the way a Shopify theme's schema reads. The format
       lists every control by name (CORE_FORMAT); this says which one fits
       what, so a section is not all text and range boxes.

@@ -143,6 +143,7 @@ interface ProductRow {
   thumbnail_url: string | null
   status: string | null
   inventory_count?: number | null
+  track_inventory?: boolean | null
   gallery_urls?: unknown
   type?: string | null
   pay_what_you_want?: boolean | null
@@ -218,7 +219,9 @@ export function toVariant(productId: string, v: VariantRow, available: boolean):
  * out. One rule for the card's tag and for the availability a search result
  * is told, on the website's product page and storelib.com's alike.
  */
-export function soldOut(row: { inventory_count?: number | null }): boolean {
+export function soldOut(row: { inventory_count?: number | null; track_inventory?: boolean | null }): boolean {
+  /* A product set not to track stock is never sold out, whatever its count says. */
+  if (row.track_inventory === false) return false
   return typeof row.inventory_count === "number" && row.inventory_count <= 0
 }
 
@@ -337,6 +340,8 @@ type Db = { from: (table: string) => { select: (cols: string) => Filter & Partia
 
 /** Everything the data API reads, and what an older database can answer. */
 /* With the column that marks a product selling a community tier, which the shop does not list (lib/communities/listing). */
+/* And with stock, so a sold out product says so on its card (soldOut); a database without the columns falls back to the next. */
+const PRODUCT_COLUMNS_WITH_STOCK = "id, title, slug, price_cents, compare_at_cents, thumbnail_url, status, gallery_urls, type, pay_what_you_want, pwyw_min_price_cents, community_id, category, inventory_count, track_inventory"
 /* And with the category the shop's filters read. */
 const PRODUCT_COLUMNS_WITH_CATEGORY = "id, title, slug, price_cents, compare_at_cents, thumbnail_url, status, gallery_urls, type, pay_what_you_want, pwyw_min_price_cents, community_id, category"
 const PRODUCT_COLUMNS_WITH_COMMUNITY = "id, title, slug, price_cents, compare_at_cents, thumbnail_url, status, gallery_urls, type, pay_what_you_want, pwyw_min_price_cents, community_id"
@@ -383,7 +388,7 @@ export async function shopProducts(db: Db, creatorId: string, limit = MAX_SHOP_P
   const n = Math.max(1, Math.min(MAX_SHOP_PRODUCTS, Math.floor(limit) || MAX_SHOP_PRODUCTS))
   try {
     let rows: ProductRow[] | null = null
-    for (const cols of [PRODUCT_COLUMNS_WITH_CATEGORY, PRODUCT_COLUMNS_WITH_COMMUNITY, PRODUCT_COLUMNS, PRODUCT_COLUMNS_MINIMAL]) {
+    for (const cols of [PRODUCT_COLUMNS_WITH_STOCK, PRODUCT_COLUMNS_WITH_CATEGORY, PRODUCT_COLUMNS_WITH_COMMUNITY, PRODUCT_COLUMNS, PRODUCT_COLUMNS_MINIMAL]) {
       const { data, error } = await db
         .from("products")
         .select(cols)

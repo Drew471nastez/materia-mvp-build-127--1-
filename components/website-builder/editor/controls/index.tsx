@@ -29,7 +29,7 @@ import { ImagePickerControl } from "./image-picker-control"
 import { InlineRichTextControl } from "./inline-richtext-control"
 import { MenuPickerControl } from "./menu-picker-control"
 import { MenusEditor } from "./menus-editor"
-import { ProductListControl } from "./product-list-control"
+import { ProductListControl, ProductPickerControl } from "./product-list-control"
 import { VideoPickerControl } from "./video-picker-control"
 import { VideoUrlControl } from "./video-url-control"
 
@@ -38,7 +38,7 @@ export { EditorFieldProvider, SiblingSettingsProvider, type EditorFieldEnv, type
 
 /** The types this folder draws, for FieldEditor's label rule and the docs. */
 export const REGISTERED_CONTROLS = [
-  "inline_richtext", "html", "color_background", "datetime", "focal_point", "image_picker", "file_picker", "video_url", "video_picker", "product_list", "link_list", "menus", "community_picker",
+  "inline_richtext", "html", "color_background", "datetime", "focal_point", "image_picker", "file_picker", "video_url", "video_picker", "product_list", "product_picker", "link_list", "menus", "community_picker",
   "collection_picker", "collection_list", "number", "font_picker", "css",
 ] as const
 
@@ -78,6 +78,8 @@ export function renderRegisteredControl(
       return <VideoUrlControl value={str} onChange={onChange} accept={field.accept} placeholder={field.placeholder} label={field.label} />
     case "product_list":
       return <ProductListControl value={value} onChange={onChange} limit={field.limit} label={field.label} />
+    case "product_picker":
+      return <ProductPickerControl value={str} onChange={onChange} label={field.label} />
     case "link_list":
       return <MenuPickerControl value={str} onChange={onChange} label={field.label} />
     case "menus":
