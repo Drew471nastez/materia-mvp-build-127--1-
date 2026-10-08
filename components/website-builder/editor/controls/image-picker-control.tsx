@@ -10,15 +10,16 @@
  *
  * The picker box, then an address box under it. Typing or pasting an
  * address sets the picture; choosing a file in the picker replaces whatever
- * address was there, and the box under it then shows the chosen file's own
- * address. One value, two ways in, the way the video control already works.
+ * address was there. The box never shows the picture's address back (round
+ * 22, the owner: "I don't want them to display the url"): the picture above
+ * is what is chosen, and the box is only a way in. It empties once a link
+ * typed into it has been taken.
  *
  * An address is sent on as soon as it reads as one (https://..., or a path
  * on this site), so the canvas follows the typing. Half an address is kept
  * in the box and not sent, and leaving the box with one says why.
  */
 import * as React from "react"
-import { isOwnMedia } from "@/lib/storage/media-url"
 
 import { useEchoedValue } from "@/components/website-builder/echo-field"
 import { WbImagePicker } from "@/components/website-builder/editor/image-picker"
@@ -41,13 +42,13 @@ export function ImagePickerControl({
   /* The value as this control last set it, ahead of the editor's echo (echo-field.ts). */
   const [shown, commit] = useEchoedValue(typeof value === "string" ? value : "", onChange)
   /* What is in the address box. Follows the value whenever that changes from outside: a file chosen, an undo. */
-  /* A file Storelib holds is shown by name in the picker, never as an address here (lib/storage/media-url.ts). */
-  const [draft, setDraft] = React.useState(isOwnMedia(shown) ? "" : shown)
+  /* Only what is being typed: never the chosen picture's address, whoever chose it. */
+  const [draft, setDraft] = React.useState("")
   const [seen, setSeen] = React.useState(shown)
   const [left, setLeft] = React.useState(false)
   if (seen !== shown) {
     setSeen(shown)
-    setDraft(isOwnMedia(shown) ? "" : shown)
+    setDraft("")
     setLeft(false)
   }
   const typed = draft.trim()
@@ -77,7 +78,11 @@ export function ImagePickerControl({
             commit(t)
           }
         }}
-        onBlur={() => setLeft(true)}
+        onBlur={() => {
+          /* A link that was taken has done its job: the picture above shows it, and the box goes back to empty. */
+          if (typed !== "" && !unusable) setDraft("")
+          else setLeft(true)
+        }}
       />
       {left && unusable && (
         <p className={PROBLEM} role="alert">

@@ -54,7 +54,7 @@ check("the header asks the phone search's questions, communities while they are 
 check("and shows the five most relevant together", /setSearchResults\(topHits\(answer\)\)/.test(header))
 check("a stale answer is dropped", /if \(seq !== searchSeq\.current\) return/.test(header))
 check("no category pills in the dropdown, nor the old Start typing line", !/SEARCH_CATEGORIES|Start typing to search products|>Categories</.test(header))
-check("View all goes to Explore in the mode being browsed", /navigateReliably\(viewAllHref\(word, searchMode\)\)/.test(header) && /searchParams\.get\("type"\) === "communities" \? "communities" : "products"/.test(header))
+check("View all goes to Explore in the mode being browsed", /navigateReliably\(viewAllHref\(word, searchMode\)\)/.test(header) && /searchType === "communities" \? "communities" : "products"/.test(header))
 check("nothing typed: recent searches, and no panel when there are none", /export function hasPanel\(query: string, recents: string\[\]\): boolean \{\s*return query\.trim\(\) !== "" \|\| recents\.length > 0/.test(results) && /const panelShown = searchModalOpen && hasPanel\(query, recents\)/.test(header))
 check("the keyboard: a combobox, arrows, Enter", /role: "combobox" as const/.test(header) && /"aria-activedescendant": panelShown && activeOption >= 0/.test(header) && /e\.key === "ArrowDown" \|\| e\.key === "ArrowUp"/.test(header) && /onKeyDown=\{onSearchKey\}/.test(header))
 check("a slim scrollbar", /\[scrollbar-width:thin\]/.test(results) && /SLIM_SCROLL/.test(header))

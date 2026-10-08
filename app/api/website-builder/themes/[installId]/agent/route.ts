@@ -50,7 +50,10 @@ import { resolveSelectedSection, SECTION_TYPE, type SectionOrigin } from "@/lib/
 import { DEFAULT_THEME_SOURCES } from "@/themes/default/sources.generated"
 import { classifyIntent } from "@/lib/website-builder/agent/intent"
 import { visualCheck } from "@/lib/website-builder/agent/visual-check"
+import { describeComparison, MATCH_THRESHOLD } from "@/lib/website-builder/agent/reference-diff"
 import { schemaMapFor } from "@/lib/website-builder/agent/schemas"
+import { sitePages } from "@/lib/website-builder/agent/page-builder-server"
+import { recordRun } from "@/lib/website-builder/agent/run-ledger"
 import type { TraceEntry } from "@/lib/website-builder/agent/loop"
 
 export const dynamic = "force-dynamic"
@@ -539,7 +542,15 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
           accountMemory,
           projectCheck: true,
           maxReviews: bigIntent ? 3 : undefined,
-          visualCheck: (state, sources, opts) => visualCheck({ state, sources, schemas: schemaMapFor(sources), shots: opts.shots }),
+          visualCheck: async (state, sources, opts) => {
+            const report = await visualCheck({ state, sources, schemas: schemaMapFor(sources), shots: opts.shots, reference: opts.reference ?? null })
+            if (!report) return null
+            /* The likeness to their picture, in words, for the loop (lib/website-builder/agent/reference-diff.ts). */
+            return {
+              ...report,
+              comparison: report.comparison ? { score: report.comparison.score, text: describeComparison(report.comparison), threshold: MATCH_THRESHOLD } : null,
+            }
+          },
           trace: (entry) => {
             if (runLog.length < 400) runLog.push(entry)
           },
@@ -638,6 +649,11 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
               return null
             }
           },
+          /*
+            THE SITE'S OTHER PAGES, through the creator's own client: a request for a whole site builds the shop, the product
+            page, About, Contact and the rest as drafts (lib/website-builder/agent/page-builder-server.ts). Not in a locked edit.
+          */
+          pages: body.lockToSelection === true || body.codeFocus === true ? undefined : sitePages(supabase, installId, body.page),
           history,
           // Groups this theme's requests for the provider's prompt cache. A
           // theme id, never anything about the person.
@@ -673,6 +689,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
             wroteCode: !!result.wroteCode,
             files: journal.size,
             unresolved: result.unresolved ?? [],
+            pages: (result.pages ?? []).map((p) => p.key),
             visual: result.visual,
             plan: result.plan ? result.plan.sections.map((s) => s.use) : null,
             log: runLog,
@@ -752,10 +769,28 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
             (components/website-builder/theme-chat.tsx, CONTINUE_PROMPT), with this conversation as its memory, so a
             task of ten or fifteen minutes runs as one request from where the creator sits.
           */
-          const outOfTime = deadline.aborted && !request.signal.aborted && (result.ops.length > 0 || !!result.wroteCode)
+          const outOfTime = deadline.aborted && !request.signal.aborted && (result.ops.length > 0 || !!result.wroteCode || (result.pages?.length ?? 0) > 0)
           if (outOfTime) send({ type: "continue", reason: "time" })
           send({ type: "message", text: (result.message || "Done.") + (outOfTime ? " Carrying on with the rest." : "") })
         }
+
+        /* One row of facts per run (lib/website-builder/agent/run-ledger.ts): never in the way of the reply. */
+        await recordRun(supabase, {
+          installId,
+          creatorId,
+          pageKey: body.page,
+          status: result.status,
+          intent,
+          ops: result.ops.length,
+          wroteCode: !!result.wroteCode,
+          pages: (result.pages ?? []).map((p) => p.key),
+          unresolved: result.unresolved ?? [],
+          ms: Date.now() - startedAt,
+          model: resolved.model,
+          provider: resolved.provider.id,
+          inputTokens: result.usage?.inputTokens ?? 0,
+          outputTokens: result.usage?.outputTokens ?? 0,
+        })
 
         /**
          * Recorded from the RESULT, not from what was streamed. The two agree

@@ -181,7 +181,7 @@ function main() {
   )
   check(
     "the same transform is not written twice",
-    /if \(hide === shownHide && pinned === shownPinned\) return/.test(header),
+    /if \(px === shown && transition === shownTransition\) return/.test(header),
   )
   check(
     "the header's rectangle is only read where the answer can still change",

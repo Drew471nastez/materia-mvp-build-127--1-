@@ -432,3 +432,69 @@ export function describeArchetype(a: Archetype): string {
     `Avoid: ${a.avoid}`,
   ].join("\n")
 }
+
+/**
+ * ===========================================================================
+ *  THE PAGES A KIND OF SITE USUALLY HAS, BEYOND ITS HOME PAGE
+ * ===========================================================================
+ * "Build a full website for my clothing brand" is a site, and a site of one
+ * page is not what was asked for: a real apparel store has a shop, a product
+ * page, collections, a story, sizing and shipping answers and a way to get
+ * in touch. Each line is "key: what the page is for and what it holds". A
+ * STARTING POINT the brief overrides in both directions: a one page landing
+ * for a launch stays one page, and a brief that names a page gets it.
+ *
+ * The store's own pages ("products", "product", "collections") draw the real
+ * catalogue: a build adds sections around the product section, never a
+ * product typed in by hand.
+ */
+export const ARCHETYPE_PAGES: Record<string, string[]> = {
+  apparel: [
+    "products: the shop, every product from the store with a short header naming the range",
+    "product: the template every product uses, built around its product section: fit and size guide, materials and care, shipping and returns, related products",
+    "collections: every collection as large images",
+    "about: the brand's story, the people and how the clothes are made, with strong photos",
+    "lookbook: the current collection worn, as an editorial gallery",
+    "faq: sizing, shipping, returns and exchanges, payment, as real questions",
+    "contact: how to reach the brand, with the contact form",
+  ],
+  luxury_fashion: [
+    "products: the collection in a clean grid",
+    "product: around its product section: materials, craft, care, delivery",
+    "collections",
+    "about: the house or the atelier",
+    "lookbook: the campaign",
+    "contact: client services",
+  ],
+  ecommerce: [
+    "products: the shop, every product",
+    "product: around its product section: what is in it, how to use it, shipping and returns, related products",
+    "collections",
+    "about: why the brand exists and how it is made",
+    "faq: shipping, returns, the product's own questions",
+    "contact",
+  ],
+  digital_products: [
+    "products: every product with what you get",
+    "product: around its product section: what is inside, who it is for, a preview, the questions",
+    "about: who made them and why",
+    "faq: delivery of files, licence, refunds",
+    "contact",
+  ],
+  course: ["about: the teacher and their credentials", "faq: access, length, refunds", "contact"],
+  coach: ["about: the coach's story and method", "services: what working together looks like and what it costs", "faq", "contact: a booking or enquiry form"],
+  creator: ["about: the person behind it", "products: what they sell", "contact"],
+  photographer: ["work: the portfolio, by series", "about", "services: what a shoot includes and costs", "contact: an enquiry form"],
+  restaurant: ["menu: the full menu", "about: the kitchen and the people", "contact: address, hours, a map and reservations"],
+  saas: ["pricing: the plans and what each includes", "about: the team and why", "faq", "contact"],
+  music: ["music: releases", "tour: the dates", "about", "contact: bookings and press"],
+  nightlife: ["events: every upcoming date", "gallery: the nights", "about: the residents and the venue", "contact: bookings and the address"],
+  community: ["about: who it is for and what happens in it", "faq", "contact"],
+}
+
+/** The page set for an archetype, as the model reads it, or "" when there is none. */
+export function describeArchetypePages(id: string | null | undefined): string {
+  const pages = id ? ARCHETYPE_PAGES[id] : undefined
+  if (!pages?.length) return ""
+  return `THE PAGES THIS KIND OF SITE USUALLY HAS BESIDE HOME (a starting point; the brief wins):\n${pages.map((p) => `  - ${p}`).join("\n")}`
+}

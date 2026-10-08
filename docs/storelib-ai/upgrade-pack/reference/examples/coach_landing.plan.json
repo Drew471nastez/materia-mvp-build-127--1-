@@ -1,0 +1,79 @@
+{
+  "schema_version": "storelib-siteplan-v1",
+  "source_request": "Make me a beautiful one-page landing site for an executive performance coach",
+  "site_type": "service_landing",
+  "working_title": "North Method",
+  "assumptions": [
+    "Sample only: names/media/copy are editable and not merchant-supplied data.",
+    "Never invent real products, prices, stock, reviews, integrations, client stories or service availability.",
+    "All dynamic data and actions must use verified Storelib APIs in implementation."
+  ],
+  "creative_direction": {
+    "label": "Editorial personal branding",
+    "palette": {
+      "paper": "#F4F1E9",
+      "ink": "#1B2326",
+      "accent": "#D8D0B1"
+    },
+    "layout": "typographic columns, portraits and restrained line work",
+    "motion": "reduced-motion-aware context-specific transitions"
+  },
+  "global_components": {
+    "header": "custom AI-generated responsive navigation, bound to real menu/store logo when available",
+    "footer": "category-appropriate footer, privacy/contact and real internal links"
+  },
+  "project_notes": "One page intentionally; no shop/cart, fake testimonials or booking slots.",
+  "pages": [
+    {
+      "id": "home",
+      "route": "/",
+      "kind": "landing",
+      "title": "Home | Sample",
+      "goal": "Convert the right coaching inquiries",
+      "sections": [
+        {
+          "id": "home-intro",
+          "type": "intro",
+          "purpose": "Clear genuine differentiation and service identity",
+          "layout": "oversized disciplined typography + asymmetrical portrait"
+        },
+        {
+          "id": "home-approach",
+          "type": "approach",
+          "purpose": "Explain actual approach",
+          "layout": "editorial timeline with numbered steps"
+        },
+        {
+          "id": "home-offers",
+          "type": "offers",
+          "purpose": "Explain genuine offers/pricing only when supplied",
+          "layout": "three distinct service tiers"
+        },
+        {
+          "id": "home-audience",
+          "type": "audience",
+          "purpose": "Qualify interested leads",
+          "layout": "clear whom-this-is-for split"
+        },
+        {
+          "id": "home-results",
+          "type": "results",
+          "purpose": "Use only approved documented examples",
+          "layout": "case study tiles"
+        },
+        {
+          "id": "home-faq",
+          "type": "faq",
+          "purpose": "Address questions without false claims",
+          "layout": "lightweight expanding Q&A"
+        },
+        {
+          "id": "home-contact",
+          "type": "contact",
+          "purpose": "Real submission endpoint or honest availability",
+          "layout": "beautiful brief intake form"
+        }
+      ]
+    }
+  ]
+}

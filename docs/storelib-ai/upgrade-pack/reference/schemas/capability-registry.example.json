@@ -1,0 +1,46 @@
+{
+  "$schema_note": "Example of runtime introspection, not a statement about Storelib current features",
+  "version": 1,
+  "capabilities": [
+    {
+      "id": "theme.custom_component",
+      "status": "unknown",
+      "uiImplemented": false,
+      "apiImplemented": false,
+      "previewLiveParity": "unknown",
+      "lastTest": null
+    },
+    {
+      "id": "commerce.cart",
+      "status": "unknown",
+      "uiImplemented": false,
+      "apiImplemented": false,
+      "previewLiveParity": "unknown",
+      "lastTest": null
+    },
+    {
+      "id": "commerce.shipping.zones",
+      "status": "unknown",
+      "uiImplemented": false,
+      "apiImplemented": false,
+      "previewLiveParity": "unknown",
+      "lastTest": null
+    },
+    {
+      "id": "webapp.authenticated_routes",
+      "status": "unknown",
+      "uiImplemented": false,
+      "apiImplemented": false,
+      "previewLiveParity": "unknown",
+      "lastTest": null
+    },
+    {
+      "id": "ai.reference_image_analysis",
+      "status": "unknown",
+      "uiImplemented": false,
+      "apiImplemented": false,
+      "previewLiveParity": "unknown",
+      "lastTest": null
+    }
+  ]
+}

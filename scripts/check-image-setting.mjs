@@ -176,7 +176,8 @@ for (const vp of [{ name: "computer", width: 1280, height: 900, phone: false }, 
     check(`${wrap}: it says what it is for`, m.placeholder === "Or paste an image link", m.placeholder)
   }
   const filled = await p.js(READ("filled"))
-  check("filled: the box shows the picture's address", filled.state === "filled" && filled.inputValue === "https://cdn.test/brand/logo-ld.png", filled)
+  /* Round 22, the owner: "I don't want them to display the url". The picture is shown; its address is not. */
+  check("filled: the picture is shown and its address is not", filled.state === "filled" && filled.inputValue === "" && filled.box.w >= 90, filled)
   await p.shot(`${vp.name}-rest`)
 
   /* Typing an address sets the picture. */
@@ -220,7 +221,7 @@ for (const vp of [{ name: "computer", width: 1280, height: 900, phone: false }, 
     await sleep(50)
   }
   check("choosing a file replaces the address in the setting", !!chosen.value && /\/storage\/v1\/object\/public\/store-builder-images\/u1\/sections\/\d+\.png$/.test(chosen.value), chosen.value)
-  check("and the box under the picker shows the file's address", chosen.inputValue === chosen.value, { box: chosen.inputValue, value: chosen.value })
+  check("and the box under the picker stays empty: the picture is what was chosen", chosen.inputValue === "", { box: chosen.inputValue, value: chosen.value })
   check("and the old complaint is gone", chosen.problem === null, chosen.problem)
   await p.shot(`${vp.name}-chosen`)
 }

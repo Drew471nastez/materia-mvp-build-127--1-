@@ -1,0 +1,356 @@
+{
+  "schema_version": "storelib-siteplan-v1",
+  "source_request": "Build me a beautiful website for selling sneakers",
+  "site_type": "physical_ecommerce",
+  "working_title": "Stride Supply",
+  "assumptions": [
+    "Brand name, product catalog, policies and imagery must be confirmed or kept editable; Stride Supply is a sample brand.",
+    "All product cards, pricing, stock and collection views must bind to real Storelib data.",
+    "Newsletter and contact forms only activate when their real integrations are supported.",
+    "Cart is intentionally NOT assumed; use configured buy-now / checkout where available."
+  ],
+  "creative_direction": {
+    "label": "Independent editorial streetwear",
+    "palette": {
+      "ink": "#171716",
+      "paper": "#F3F0E9",
+      "accent": "#DDF05A"
+    },
+    "type": "bold grotesk display + readable neutral body, subject to available fonts",
+    "image_direction": "large honest product photography, outdoor concrete/city lifestyle detail, deliberate close crops",
+    "layout": "offset editorial rhythm with restrained high-contrast structure",
+    "motion": "subtle product hover and scroll reveal, respect reduced motion"
+  },
+  "global_components": {
+    "header": "responsive category-aware navigation, logo, search only if supported, persistent shop link",
+    "footer": "collections, about, contact, FAQ, merchant-configured legal/policy links"
+  },
+  "commerce_requirements": [
+    "enabled physical-commerce capability",
+    "real product and collection binding",
+    "actual variant inventory and price",
+    "enabled checkout or honest disabled state",
+    "merchant-configured shipping details"
+  ],
+  "pages": [
+    {
+      "id": "home",
+      "route": "/",
+      "kind": "home",
+      "title": "Stride Supply — Fresh movement, bold design",
+      "goal": "lead into collections and featured products",
+      "meta_description": "Shop a curated range of footwear with bold everyday style.",
+      "sections": [
+        {
+          "id": "home-hero",
+          "type": "editorial_hero",
+          "purpose": "Lead with distinctive product-driven imagery and shopping CTA",
+          "layout": "asymmetric full-bleed image + offset oversized type",
+          "headline": "Made to move different",
+          "cta": {
+            "text": "Shop all sneakers",
+            "destination": "/shop"
+          },
+          "media_requirement": "provided licensed sneaker photography, not a fabricated SKU"
+        },
+        {
+          "id": "home-category-tiles",
+          "type": "category_discovery",
+          "purpose": "Help visitors browse by use/style",
+          "layout": "3-up photographic tiles / swipe on mobile",
+          "headline": "Find your lane",
+          "binding": "collections",
+          "cta": {
+            "text": "Browse all",
+            "destination": "/shop"
+          }
+        },
+        {
+          "id": "home-new",
+          "type": "product_rail",
+          "purpose": "Show newest available catalog products",
+          "layout": "horizontal product cards with quick variant affordance only if supported",
+          "headline": "Just landed",
+          "binding": "products:latest",
+          "cta": {
+            "text": "Shop new releases",
+            "destination": "/shop"
+          }
+        },
+        {
+          "id": "home-campaign",
+          "type": "editorial_story",
+          "purpose": "Differentiate the brand with meaningful lifestyle storytelling",
+          "layout": "oversized split editorial; product image opposite concise story",
+          "headline": "Built for the everyday",
+          "media_requirement": "user brand/editorial assets"
+        },
+        {
+          "id": "home-featured",
+          "type": "product_grid",
+          "purpose": "Show selected bestsellers if metadata exists",
+          "layout": "4-column editorial grid; 2 mobile",
+          "headline": "The current rotation",
+          "binding": "products:featured",
+          "cta": {
+            "text": "Explore the shop",
+            "destination": "/shop"
+          }
+        },
+        {
+          "id": "home-guide",
+          "type": "fit_education",
+          "purpose": "Reduce uncertainty with fit guidance if available",
+          "layout": "minimal text/image steps",
+          "headline": "Find the right fit",
+          "cta": {
+            "text": "Read common questions",
+            "destination": "/faq"
+          }
+        },
+        {
+          "id": "home-email",
+          "type": "newsletter",
+          "purpose": "Capture interest if mailing system wired",
+          "layout": "high contrast typographic band",
+          "headline": "Don’t miss the next drop"
+        },
+        {
+          "id": "home-last",
+          "type": "collection_callout",
+          "purpose": "Close with focused collection CTA",
+          "layout": "single wide campaign visual",
+          "headline": "Your next pair is here",
+          "cta": {
+            "text": "Explore collections",
+            "destination": "/collections/:slug"
+          }
+        }
+      ]
+    },
+    {
+      "id": "shop",
+      "route": "/shop",
+      "kind": "catalog",
+      "title": "All sneakers — Stride Supply",
+      "goal": "Browse and narrow products",
+      "sections": [
+        {
+          "id": "shop-head",
+          "type": "catalog_intro",
+          "purpose": "Explain what is in this collection",
+          "layout": "title plus compact intro",
+          "headline": "Shop all sneakers"
+        },
+        {
+          "id": "shop-tools",
+          "type": "catalog_controls",
+          "purpose": "Enable real filtering and sort if backend supports",
+          "layout": "toolbar with accessible controls",
+          "binding": "catalog:sort_filter_if_supported"
+        },
+        {
+          "id": "shop-grid",
+          "type": "product_grid",
+          "purpose": "Show actual available products",
+          "layout": "responsive 4/3/2 column grid",
+          "binding": "products:catalog"
+        }
+      ]
+    },
+    {
+      "id": "collections",
+      "route": "/collections/:slug",
+      "kind": "collection_template",
+      "title": "Collection — Stride Supply",
+      "goal": "Discover category-specific products",
+      "sections": [
+        {
+          "id": "col-hero",
+          "type": "collection_intro",
+          "purpose": "Use actual collection description and image",
+          "layout": "editorial title + collection image",
+          "binding": "collection:current"
+        },
+        {
+          "id": "col-filter",
+          "type": "collection_filters",
+          "purpose": "Narrow based on supported facets",
+          "layout": "compact sort and filters",
+          "binding": "collection:facets_if_supported"
+        },
+        {
+          "id": "col-grid",
+          "type": "product_grid",
+          "purpose": "List real products for the collection",
+          "layout": "responsive variable grid",
+          "binding": "collection:products"
+        }
+      ]
+    },
+    {
+      "id": "product",
+      "route": "/products/:slug",
+      "kind": "product_template",
+      "title": "Product details — Stride Supply",
+      "goal": "Select true variant and buy or view checkout restrictions",
+      "sections": [
+        {
+          "id": "pdp-core",
+          "type": "product_purchase",
+          "purpose": "Gallery, facts, actual price/stock, selectors and working buy action",
+          "layout": "gallery left, structured purchase column right",
+          "binding": "product:current"
+        },
+        {
+          "id": "pdp-details",
+          "type": "product_information",
+          "purpose": "Material, details and specs when present",
+          "layout": "tabs or accordion",
+          "headline": "Details that matter",
+          "binding": "product:description_and_attributes"
+        },
+        {
+          "id": "pdp-fit",
+          "type": "product_fit",
+          "purpose": "Sizing information if brand supplies it",
+          "layout": "fit helper block",
+          "headline": "Fit and feel"
+        },
+        {
+          "id": "pdp-shipping",
+          "type": "shipping_info",
+          "purpose": "Show accurate configured shipping information",
+          "layout": "minimal disclosure / FAQ link",
+          "binding": "shipping:configured_policy",
+          "cta": {
+            "text": "Questions?",
+            "destination": "/faq"
+          }
+        },
+        {
+          "id": "pdp-related",
+          "type": "related_products",
+          "purpose": "Cross-sell eligible products",
+          "layout": "editorial product card row",
+          "headline": "More to explore",
+          "binding": "products:related"
+        }
+      ]
+    },
+    {
+      "id": "about",
+      "route": "/about",
+      "kind": "about",
+      "title": "About — Stride Supply",
+      "goal": "Explain the brand without inventing its history",
+      "sections": [
+        {
+          "id": "about-intro",
+          "type": "statement",
+          "purpose": "Present brand positioning; no fake founding year",
+          "layout": "typographic opening",
+          "headline": "An independent point of view on everyday footwear"
+        },
+        {
+          "id": "about-image",
+          "type": "brand_image",
+          "purpose": "Show supplied real brand images",
+          "layout": "wide campaign image",
+          "media_requirement": "user supplied brand photography"
+        },
+        {
+          "id": "about-values",
+          "type": "brand_values",
+          "purpose": "Explain editable values without false historical facts",
+          "layout": "spacious 3-column copy",
+          "headline": "What matters here"
+        },
+        {
+          "id": "about-next",
+          "type": "collection_callout",
+          "purpose": "Lead visitor back to catalog",
+          "layout": "image and statement",
+          "cta": {
+            "text": "Shop the collection",
+            "destination": "/shop"
+          }
+        }
+      ]
+    },
+    {
+      "id": "faq",
+      "route": "/faq",
+      "kind": "faq",
+      "title": "FAQs — Stride Supply",
+      "goal": "Answer product and ordering questions truthfully",
+      "sections": [
+        {
+          "id": "faq-intro",
+          "type": "intro",
+          "purpose": "Help visitors find order and fit answers",
+          "layout": "clean simple heading",
+          "headline": "Good questions, clear answers"
+        },
+        {
+          "id": "faq-items",
+          "type": "faq_accordion",
+          "purpose": "Use only verified merchant-supplied answers; unconfigured fields omitted",
+          "layout": "accessible accordion",
+          "binding": "policies:verified_faq"
+        },
+        {
+          "id": "faq-contact",
+          "type": "contact_callout",
+          "purpose": "Provide next step for unresolved questions",
+          "layout": "small contact band",
+          "cta": {
+            "text": "Contact us",
+            "destination": "/contact"
+          }
+        }
+      ]
+    },
+    {
+      "id": "contact",
+      "route": "/contact",
+      "kind": "contact",
+      "title": "Contact — Stride Supply",
+      "goal": "Help customers reach seller",
+      "sections": [
+        {
+          "id": "contact-head",
+          "type": "contact_intro",
+          "purpose": "Clarify how support works",
+          "layout": "typographic hero",
+          "headline": "Get in touch"
+        },
+        {
+          "id": "contact-form",
+          "type": "contact_form",
+          "purpose": "Use wired contact delivery if supported; do not fake submissions",
+          "layout": "labelled accessible form",
+          "binding": "forms:contact_if_supported"
+        },
+        {
+          "id": "contact-help",
+          "type": "faq_link",
+          "purpose": "Offer fast self-service alternative",
+          "layout": "minimal link and support info",
+          "cta": {
+            "text": "See FAQs",
+            "destination": "/faq"
+          }
+        }
+      ]
+    }
+  ],
+  "quality_gates": [
+    "theme schema passes",
+    "all local routes valid",
+    "assets exist in manifest",
+    "no fake ratings/prices/stock",
+    "mobile 375/768/1440 inspected if browser available",
+    "preview and published routes consistent"
+  ]
+}

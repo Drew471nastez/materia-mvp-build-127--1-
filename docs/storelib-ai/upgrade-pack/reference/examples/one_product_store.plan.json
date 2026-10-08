@@ -1,0 +1,141 @@
+{
+  "schema_version": "storelib-siteplan-v1",
+  "source_request": "Build me a premium one-product wellness device store with an editorial aesthetic",
+  "site_type": "physical_ecommerce",
+  "working_title": "Form Atelier",
+  "assumptions": [
+    "Sample only: names/media/copy are editable and not merchant-supplied data.",
+    "Never invent real products, prices, stock, reviews, integrations, client stories or service availability.",
+    "All dynamic data and actions must use verified Storelib APIs in implementation."
+  ],
+  "creative_direction": {
+    "label": "Quiet premium editorial",
+    "palette": {
+      "paper": "#F1F0EA",
+      "ink": "#25231E",
+      "accent": "#AAB68F"
+    },
+    "layout": "Uneven grid, intimate product photography",
+    "motion": "reduced-motion-aware context-specific transitions"
+  },
+  "global_components": {
+    "header": "custom AI-generated responsive navigation, bound to real menu/store logo when available",
+    "footer": "category-appropriate footer, privacy/contact and real internal links"
+  },
+  "project_notes": "Do not assert medical benefits; additional compliance review required for device health claims.",
+  "pages": [
+    {
+      "id": "home",
+      "route": "/",
+      "kind": "home",
+      "title": "Home | Sample",
+      "goal": "Explain offer, answer objections and lead to working product CTA",
+      "sections": [
+        {
+          "id": "home-hero",
+          "type": "hero",
+          "purpose": "Distinctive product-led hero",
+          "layout": "image-led asymmetrical editorial",
+          "cta": {
+            "text": "Explore the device",
+            "destination": "/product"
+          }
+        },
+        {
+          "id": "home-features",
+          "type": "features",
+          "purpose": "Explain actual product features without health claims",
+          "layout": "3 large image-led product details"
+        },
+        {
+          "id": "home-gallery",
+          "type": "gallery",
+          "purpose": "Present real product imagery",
+          "layout": "interactive product detail closeups",
+          "binding": "product.current.gallery"
+        },
+        {
+          "id": "home-explainer",
+          "type": "explainer",
+          "purpose": "Explain usage steps from verified merchant copy",
+          "layout": "interleaved copy and media"
+        },
+        {
+          "id": "home-comparison",
+          "type": "comparison",
+          "purpose": "Show only evidence-backed product differences",
+          "layout": "structured factual comparison"
+        },
+        {
+          "id": "home-faq",
+          "type": "faq",
+          "purpose": "Address merchant-provided common questions",
+          "layout": "custom accordion and supporting text"
+        },
+        {
+          "id": "home-purchase",
+          "type": "purchase",
+          "purpose": "Show actual price/variants/availability",
+          "layout": "sticky custom add-to-cart/buy-now component",
+          "binding": "product.current"
+        }
+      ]
+    },
+    {
+      "id": "product",
+      "route": "/product",
+      "kind": "product_template",
+      "title": "Product | Sample",
+      "goal": "Display purchase-ready catalog item",
+      "sections": [
+        {
+          "id": "product-gallery",
+          "type": "gallery",
+          "purpose": "Show media for selected variant",
+          "layout": "scroll/sticky editorial photography",
+          "binding": "product.current.gallery"
+        },
+        {
+          "id": "product-details",
+          "type": "details",
+          "purpose": "Dynamic product facts and purchase options",
+          "layout": "specification and trust content",
+          "binding": "product.current"
+        },
+        {
+          "id": "product-shipping",
+          "type": "shipping",
+          "purpose": "Read actual shipping policies and availability",
+          "layout": "delivery information panel"
+        },
+        {
+          "id": "product-faqs",
+          "type": "faqs",
+          "purpose": "Answer real product questions",
+          "layout": "product-specific accordion"
+        }
+      ]
+    },
+    {
+      "id": "contact",
+      "route": "/contact",
+      "kind": "contact",
+      "title": "Contact | Sample",
+      "goal": "Offer working support and honest policies",
+      "sections": [
+        {
+          "id": "contact-support",
+          "type": "support",
+          "purpose": "Direct customers to actual merchant support",
+          "layout": "support header with help options"
+        },
+        {
+          "id": "contact-form",
+          "type": "form",
+          "purpose": "Use configured real contact endpoint",
+          "layout": "validated form and success/error state"
+        }
+      ]
+    }
+  ]
+}

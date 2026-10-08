@@ -73,7 +73,8 @@ async function run() {
   check("/media/ is the bucket's public objects, passed straight through", /source: "\/media\/:path\*", destination: `\$\{storage\}\/storage\/v1\/object\/public\/:path\*`/.test(config))
   check("  on every host, never a page of a site", /if \(pathname\.startsWith\("\/media\/"\)\) return NextResponse\.next\(\)/.test(read("proxy.ts")))
   check("pictures, files and videos never show one of Storelib's own files as an address",
-    /isOwnMedia\(shown\) \? "" : shown/.test(read("components/website-builder/editor/controls/image-picker-control.tsx")) &&
+    /* Round 22: a picture's address is never shown back at all, Storelib's own or anybody's. */
+    /if \(seen !== shown\) \{\s*setSeen\(shown\)\s*setDraft\(""\)/.test(read("components/website-builder/editor/controls/image-picker-control.tsx")) &&
       /isOwnMedia\(shown\) \? "" : shown/.test(read("components/website-builder/editor/controls/file-picker-control.tsx")) &&
       /!isOwnMedia\(shown\)/.test(read("components/website-builder/editor/controls/video-picker-control.tsx")))
   check("emails carry Storelib's addresses", /mediaUrlsIn\(finalizeEmailHtml\(html, subject\)\)/.test(read("lib/mailgun.ts")))

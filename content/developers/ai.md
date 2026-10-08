@@ -76,6 +76,21 @@ Some reference is added only when a request is about it. These topics are includ
 
 @[ai-topics-extra]
 
+## What the builder's AI does on a request
+
+The Storelib AI in the website builder reads what kind of change a request is before it looks at the page, and works to that:
+
+- **A whole site** ("build a full website for my clothing brand"). It finishes the open page first, because that page sets the fonts, colours and buttons, then builds every other page the site needs as a draft with `build_page`, in one call each: the shop (`products`), the product page (`product`, built around its product section), `collections`, About, a FAQ, Contact, a lookbook. Each page is checked (section types, settings, contrast, limits) and refused with the reason when something is wrong. A backup of the site is taken before the first page is written, and nothing is live until the creator publishes. It then puts the pages in the menu. How many pages follows the brief: a one page landing stays one page.
+- **Made again, or adjusted.** "Make the FAQ completely different, much more modern" is a rebuild: a new section of its own, with new markup, layout, motion and a full set of controls, put where the old one was, carrying over the real questions and answers. "Make the FAQ a bit cleaner" keeps the section and moves its look.
+- **A new page** ("add a size guide page") is built with `build_page` and linked in the menu.
+- **Left alone.** "Keep the header", "don't touch the pricing" are kept, even inside a redesign.
+- **One value, everywhere.** "Update my logo everywhere" is changed once where it lives (the theme's logo, the store's name, the socials), never typed into each section.
+- **A picture to match.** "Make it exactly like this screenshot" with a picture is measured: the page is photographed at the picture's width (a phone, a tablet or a computer) and scored against it out of 100, on tone, layout and colour, region by region. Below 82 the AI is told where it differs, with both pictures, and repairs, up to three rounds. A score that stays low is said in the reply. It is a measure of likeness, not a promise of pixel identity: their own photographs and copy are theirs to supply.
+- **Three widths.** Every big change is drawn in a browser at 1440, 834 and 390 wide and measured for sideways scroll, collapsed and clipped sections, overlapping text and empty bands, then fixed.
+- **Its own cart, menus and search.** It may draw a cart drawer, navigation and product cards of its own design ([A cart of your own](/developers/header-and-footer)), on the site's live cart, menus and products.
+
+Every run is recorded as one row of facts in `storelib_ai_runs`, read by the owner at /admin/ai-runs, (kind of request, changes, pages built, checks still failing, time, model), never the words of the request: `supabase/sql/RUN_STORELIB_AI_BUILDER.sql` creates it, and `CHECK_STORELIB_AI_BUILDER.sql` says whether a database has everything the builder needs.
+
 ## The models Storelib AI runs on
 
 Storelib AI in the builder runs on ChatGPT. The model menu beside the message box offers two, each with a line on what it is for:

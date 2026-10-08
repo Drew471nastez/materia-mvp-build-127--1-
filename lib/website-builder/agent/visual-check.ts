@@ -38,6 +38,8 @@ import { composePageDocument } from "./page-document"
 import type { ThemeState } from "./operations"
 import type { SchemaMap } from "./schemas"
 import type { AgentImage } from "@/lib/sites/agent/attachments"
+import sharp from "sharp"
+import { compareWithReference, widthForReference, type ReferenceComparison } from "./reference-diff"
 
 export interface VisualFinding {
   sectionId: string
@@ -51,11 +53,19 @@ export interface VisualReport {
   /** Desktop then phone, as JPEG, for the model to look at. Empty when not asked for. */
   shots: AgentImage[]
   ms: number
+  /** With a reference picture: the page measured against it (./reference-diff.ts), and the shot that was measured. */
+  comparison?: ReferenceComparison | null
+  referenceShot?: AgentImage
 }
 
+/*
+  A TABLET TOO (round 22). A layout that is right at 1440 and at 390 can still break between them: two columns that
+  never stack, a grid of four at 834. Measured at the three widths; photographed at the two the model reads (`shot`).
+*/
 export const VIEWPORTS = [
-  { width: 1440, height: 900, mobile: false },
-  { width: 390, height: 844, mobile: true },
+  { width: 1440, height: 900, mobile: false, scale: 0.5, shot: true, name: "desktop" },
+  { width: 834, height: 1112, mobile: true, scale: 0.75, shot: false, name: "tablet" },
+  { width: 390, height: 844, mobile: true, scale: 1, shot: true, name: "phone" },
 ] as const
 
 /** How tall a screenshot may be, in CSS pixels, before it is cut. */
@@ -157,6 +167,8 @@ export async function visualCheck(input: {
   schemas?: SchemaMap
   /** Attach the two photographs for the model to look at. */
   shots?: boolean
+  /** A picture the creator asked the page to match: the page is photographed at its width and measured against it. */
+  reference?: AgentImage | null
   timeoutMs?: number
 }): Promise<VisualReport | null> {
   const t0 = Date.now()
@@ -164,7 +176,7 @@ export async function visualCheck(input: {
   const findings: VisualFinding[] = doc.failed.map((f) => ({ sectionId: f.id, width: 0, kind: "not-drawn" as const, message: `could not be drawn: ${f.error}` }))
   if (doc.drawn.length === 0) return { findings, shots: [], ms: Date.now() - t0 }
 
-  const timeoutMs = input.timeoutMs ?? 25_000
+  const timeoutMs = input.timeoutMs ?? (input.reference ? 40_000 : 32_000)
   let browser: Awaited<ReturnType<typeof launch>> | null = null
   const work = (async () => {
     browser = await launch()
@@ -172,26 +184,48 @@ export async function visualCheck(input: {
     await page.emulateMediaFeatures([{ name: "prefers-reduced-motion", value: "reduce" }])
     const shots: AgentImage[] = []
     for (const view of VIEWPORTS) {
-      await page.setViewport({ width: view.width, height: view.height, deviceScaleFactor: view.mobile ? 1 : 0.5, isMobile: view.mobile, hasTouch: view.mobile })
+      await page.setViewport({ width: view.width, height: view.height, deviceScaleFactor: view.scale, isMobile: view.mobile, hasTouch: view.mobile })
       /* Pictures and fonts get a moment; a slow one is not worth the run waiting for. */
       await page.setContent(doc.html, { waitUntil: "load", timeout: 12_000 }).catch(() => undefined)
       await page.evaluate(() => (document as Document & { fonts?: { ready: Promise<unknown> } }).fonts?.ready).catch(() => undefined)
       const measured = (await page.evaluate(MEASURE)) as { out: { id: string; kind: VisualFinding["kind"]; message: string }[]; height: number }
       for (const f of measured.out) findings.push({ sectionId: f.id, width: view.width, kind: f.kind, message: f.message })
-      if (input.shots) {
+      if (input.shots && view.shot) {
         const height = Math.min(measured.height, view.mobile ? SHOT_MAX_HEIGHT.phone : SHOT_MAX_HEIGHT.desktop)
         const shot = await page.screenshot({ type: "jpeg", quality: 55, clip: { x: 0, y: 0, width: view.width, height }, captureBeyondViewport: true })
-        shots.push({ mediaType: "image/jpeg", data: Buffer.from(shot).toString("base64"), name: view.mobile ? "phone.jpg" : "desktop.jpg" })
+        shots.push({ mediaType: "image/jpeg", data: Buffer.from(shot).toString("base64"), name: `${view.name}.jpg` })
       }
     }
-    return shots
+    /*
+      THE PICTURE THEY SENT, MEASURED. The page at the width the picture is a screenshot of, photographed at one CSS pixel
+      to one, and scored against it (./reference-diff.ts).
+    */
+    let comparison: ReferenceComparison | null = null
+    let referenceShot: AgentImage | undefined
+    if (input.reference) {
+      const refBuf = Buffer.from(input.reference.data, "base64")
+      const meta = await sharp(refBuf, { failOn: "none" }).metadata().catch(() => null)
+      if (meta?.width && meta.height) {
+        const w = widthForReference(meta.width, meta.height)
+        const view = VIEWPORTS.find((v) => v.width === w) ?? VIEWPORTS[0]
+        await page.setViewport({ width: view.width, height: view.height, deviceScaleFactor: 1, isMobile: view.mobile, hasTouch: view.mobile })
+        await page.setContent(doc.html, { waitUntil: "load", timeout: 12_000 }).catch(() => undefined)
+        await page.evaluate(() => (document as Document & { fonts?: { ready: Promise<unknown> } }).fonts?.ready).catch(() => undefined)
+        const pageHeight = (await page.evaluate("document.documentElement.scrollHeight")) as number
+        const height = Math.max(200, Math.min(pageHeight || view.height, Math.round((view.width * meta.height) / meta.width), 6000))
+        const shot = Buffer.from(await page.screenshot({ type: "jpeg", quality: 70, clip: { x: 0, y: 0, width: view.width, height }, captureBeyondViewport: true }))
+        comparison = await compareWithReference(refBuf, shot, view.width)
+        referenceShot = { mediaType: "image/jpeg", data: shot.toString("base64"), name: `yours-${view.width}.jpg` }
+      }
+    }
+    return { shots, comparison, referenceShot }
   })()
   try {
-    const shots = await Promise.race([
+    const done = await Promise.race([
       work,
       new Promise<never>((_, reject) => setTimeout(() => reject(new Error("the visual check ran out of time")), timeoutMs)),
     ])
-    return { findings: dedupe(findings), shots, ms: Date.now() - t0 }
+    return { findings: dedupe(findings), shots: done.shots, ms: Date.now() - t0, comparison: done.comparison, referenceShot: done.referenceShot }
   } catch (thrown) {
     console.warn("[storelib ai] visual check skipped:", thrown instanceof Error ? thrown.message : thrown)
     return null
@@ -218,5 +252,5 @@ function dedupe(findings: VisualFinding[]): VisualFinding[] {
 export function describeVisual(report: VisualReport, names: (id: string) => string): string {
   if (!report.findings.length) return ""
   const lines = report.findings.slice(0, 14).map((f) => `- ${names(f.sectionId)}${f.width ? ` at ${f.width}px` : ""}: ${f.message}`)
-  return `DRAWN IN A BROWSER AT 1440 AND 390 WIDE, these are wrong:\n${lines.join("\n")}`
+  return `DRAWN IN A BROWSER AT 1440, 834 AND 390 WIDE, these are wrong:\n${lines.join("\n")}`
 }

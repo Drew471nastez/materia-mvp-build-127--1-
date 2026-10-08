@@ -1,0 +1,14 @@
+{
+  "checked_on": "2026-10-08",
+  "upstream_code": [
+    {"name":"UI/UX Pro Max", "repository":"https://github.com/nextlevelbuilder/ui-ux-pro-max-skill", "license":"MIT", "included_in_zip":false, "download_script":"tools/fetch_public_skills.py"},
+    {"name":"Impeccable", "repository":"https://github.com/pbakaus/impeccable", "license":"Apache-2.0", "included_in_zip":false, "download_script":"tools/fetch_public_skills.py"}
+  ],
+  "read_only_reference": [
+    "https://github.com/anthropics/claude-code/blob/main/plugins/frontend-design/skills/frontend-design/SKILL.md",
+    "https://github.com/vercel-labs/agent-skills",
+    "https://lovable.dev/build/website-builder",
+    "https://academy.lovable.app/academy/prompting",
+    "https://shopify.dev/docs/storefronts/themes/best-practices/design"
+  ]
+}

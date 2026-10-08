@@ -123,7 +123,7 @@ export const EMPTY_ACTIVITY: Activity = {
 }
 
 /** Lines the chat handles itself: never steps, whatever they carry. */
-const NOT_ACTIVITY = new Set(["conversation", "recorded", "unsaved", "message", "error", "sources-changed"])
+const NOT_ACTIVITY = new Set(["conversation", "recorded", "unsaved", "message", "error", "sources-changed", "page"])
 
 /** A progress line of a kind this file does not know may say itself in `text` instead of `label`. */
 const TEXT_IS_LABEL = /^(status|stage|phase|progress|activity|tool|task)$/

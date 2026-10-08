@@ -86,6 +86,8 @@ import { SET_COLOR_SCHEME_TOOL, setColorScheme } from "./scheme-edit"
 import { DESIGN_DEFAULTS, describePatterns, patternById } from "@/lib/storelib-ai/patterns"
 import { archetypeById, describeArchetype } from "@/lib/storelib-ai/archetypes"
 import { knowledgeBlock, topicsById } from "@/lib/storelib-ai/knowledge"
+import type { SitePageTools } from "./page-builder"
+import { describeArchetypePages, matchArchetypes } from "@/lib/storelib-ai/archetypes"
 import { OFFERED_FAMILIES } from "../font-link"
 import type {
   AgentProvider,
@@ -173,6 +175,13 @@ export type ThemeAgentEvent =
     }
   /** A section's source, the moment it is written. */
   | { type: "code"; path: string; source: string }
+  /**
+   * ANOTHER PAGE OF THE SITE WAS WRITTEN, as a draft (build_page,
+   * ./page-builder-server.ts). The editor adds it to its page list and marks
+   * the site as having unpublished changes; the page loads from the server
+   * when the creator opens it.
+   */
+  | { type: "page"; key: string; title: string; created: boolean }
   | { type: "message"; text: string }
   /** A section's source was rewritten: whoever is drawing it should reload. */
   | { type: "sources-changed" }
@@ -215,10 +224,12 @@ export interface ThemeAgentResult {
   plan?: CreativePlan | null
   /** Checks still failing when the run ended (review, project check, visual), for the log and the reply. */
   unresolved?: string[]
-  /** What the browser check found, and whether it ran. */
-  visual?: { ran: number; findings: number; ms: number }
+  /** What the browser check found, whether it ran, and the likeness to a reference picture when there was one. */
+  visual?: { ran: number; findings: number; ms: number; score?: number }
   /** Notes the creator wants kept on every website (remember, scope "everywhere"): the caller keeps them (lib/ai-memory). */
   remembered?: string[]
+  /** Other pages of the site written as drafts in this run (build_page). */
+  pages?: { key: string; title: string; created: boolean }[]
 }
 
 /** A finding from the browser check (./visual-check.ts), as the loop needs it. Kept here so the loop never imports a server-only module. */
@@ -226,6 +237,9 @@ export interface VisualCheckReport {
   findings: { sectionId: string; width: number; kind: string; message: string }[]
   shots: AgentImage[]
   ms: number
+  /** With a reference picture: the measured likeness (0 to 100), said in words, and the shot that was measured. */
+  comparison?: { score: number; text: string; threshold: number } | null
+  referenceShot?: AgentImage
 }
 
 /** One line of the run's structured log: what happened, never what the model thought. */
@@ -240,7 +254,7 @@ Rules:
 - EVERY SETTING IS A CONTROL, and the control decides what it will take. A select takes one of its listed choices and nothing else. A toggle takes true or false. A slider takes a number inside its range. A colour takes a hex value like "#1a1a1a". A field id that does not exist, and a value the control cannot take, are BOTH silently ignored by the renderer — the change would look like it worked and do nothing. read_section lists every control on a section and what each one accepts; read_section_type does the same for a type you have not added yet.
 - The header and footer cannot be moved, removed, or inserted around. They are the same on every page.
 - HEADER AND FOOTER ARE DESIGNED FREELY. Layout, icons, buttons, type, motion and logo size are the section's own. "Make my header like this" means design it: update the one on the page, or write sections/<name>.storelib with "kind": "header" or "kind": "footer" when they want one of their own. It replaces the built-in one. Do not copy the built-in header's setting list. sections/header.storelib and sections/footer.storelib are reserved names. What stays live: the menu from a link_list (default "main-menu"), looped with link.links for sub links; the logo from theme.logo.url or an image_picker, size and colour as settings; cart, search and the menu drawer through data-storelib-cart, data-storelib-cart-count, data-storelib-search and data-storelib-menu; account through routes.account_url. A buy button uses checkout_url. Products and prices come from products. One kind per theme.
-- LINKS IN A MENU ARE THE SITE'S MENU (Website settings, Navigation), as in Shopify. "Add a Pricing link", "rename Shop to Store", "move About", "take Blog out" mean read_menus, then edit_menu on the menu that header or footer shows (usually "main-menu"), one link per call. A header you write reads that menu with link_list. Do not type link_1_label pairs. Link a page by its path ("/pages/pricing").
+- THE HEADER'S NAVIGATION IS THE MAIN MENU. Never add, change or remove nav_link blocks for this. LINKS IN A MENU ARE THE SITE'S MENU (Website settings, Navigation), as in Shopify. "Add a Pricing link", "rename Shop to Store", "move About", "take Blog out" mean read_menus, then edit_menu on the menu that header or footer shows (usually "main-menu"), one link per call. A header you write reads that menu with link_list. Do not type link_1_label pairs. Link a page by its path ("/pages/pricing").
 - DELETE MEANS DELETE. "Delete", "remove", "get rid of" mean remove_section (or remove_block), and they mean every one that matches: "delete the testimonials" removes every testimonials section on the page, "remove the empty blocks" removes each empty block. Hiding is for "hide", "for now", "until launch", "I don't want this here yet": set_section_visibility. Say what was removed by name.
 - WHEN A SECTION IS SELECTED, act on it. "Make this section better" means that section, and it is not a question — look at what it is, decide what is weak about it, and change it. A FAQ with five thin questions gets better questions and better answers; a hero with a generic headline gets a specific one; a pricing table with unnamed tiers gets named tiers.
 - THE SELECTED SECTION IS EDITED IN PLACE: its settings, blocks or own code, never a new section beside it. A built in one whose change needs code: ask once, then copy_section_to_code and edit the copy.
@@ -278,7 +292,7 @@ ${builderAgentRules()}
 
 ${pageAgentReference()}`
 
-function toolSpecs(addable: string[], schemas?: SchemaMap, code?: boolean, opts: { memory?: boolean; everywhere?: boolean } = {}): ToolSpec<string>[] {
+function toolSpecs(addable: string[], schemas?: SchemaMap, code?: boolean, opts: { memory?: boolean; everywhere?: boolean; pages?: boolean } = {}): ToolSpec<string>[] {
   return [
     {
       name: "read_section",
@@ -611,10 +625,68 @@ function toolSpecs(addable: string[], schemas?: SchemaMap, code?: boolean, opts:
       : []),
     /* The site's navigation: the Main menu the header shows (./menu-edits). */
     ...MENU_TOOLS,
+    /* The site's other pages (./page-builder-server.ts): after the menus, so the tools above keep their place in the cached prefix. */
+    ...(opts.pages ? PAGE_TOOLS : []),
     /* Last, so every tool above it keeps its place in the cached prefix. */
     ASK_TOOL,
   ]
 }
+
+/**
+ * A WHOLE SITE, NOT A HOME PAGE. Said beside the request when it asks for a
+ * site and the run can reach the other pages. The page set is the
+ * archetype's (lib/storelib-ai/archetypes.ts ARCHETYPE_PAGES), a starting
+ * point the brief overrides; the order is the one that keeps the site
+ * coherent: the open page first, because it sets the look the others follow.
+ */
+export function wholeSiteGuidance(archetype: string | null, openPage: string): string {
+  const pages = describeArchetypePages(archetype)
+  return [
+    "A WHOLE SITE IS ASKED FOR, so it is more than this page. The size follows the brief: a one page landing for a launch stays one page; a brand, a store or a business site gets the pages a real one has.",
+    `1. Finish the open page ("${openPage}") first. It sets the look (fonts, colour schemes, buttons, spacing) every other page follows.`,
+    "2. list_pages, then build_page for each page the site needs that is not the open one, one call per page, in the order a visitor would meet them. Each page gets the sections its purpose needs, every one filled with real content about this business: an About with the real story, a FAQ with real questions as blocks, a contact page with the form. Reuse the colour schemes and section styles of the open page so the site reads as one.",
+    `3. The store's own pages ("products", "product", "collections") draw the real catalogue: build sections around the product section, never a product, price or stock level typed in by hand.`,
+    "4. edit_menu so the header's menu reaches every page you made (and the footer's, for the policies and contact).",
+    "5. list_pages once more to check every page is there and filled. A page with only a header and footer is not done.",
+    pages,
+  ]
+    .filter(Boolean)
+    .join("\n")
+}
+
+/**
+ * THE SITE'S OTHER PAGES. The open page is changed with the tools above and
+ * streamed into the editor; every other page is built here in one call, as a
+ * draft, with its sections, their settings and their blocks.
+ */
+const PAGE_TOOLS: ToolSpec<string>[] = [
+  {
+    name: "list_pages",
+    description:
+      "List the site's pages: each one's key, address and sections, and which one is open in the editor. Read it before building a site of several pages, so you build the ones that are missing and keep the ones the creator made.",
+    parameters: { type: "object", properties: {}, required: [], additionalProperties: false },
+  },
+  {
+    name: "build_page",
+    description:
+      'Build or rebuild ONE page that is NOT the open page, as a draft, in one call: its sections in order, each with its settings and its blocks (blocks may hold blocks: a group\'s children). The site\'s header and footer are kept. Use it for every page a whole site needs beyond the open one: the shop ("products"), the product template ("product", built around its product section, which is kept), "collections", "about", "contact", a FAQ, a size guide, a lookbook, a landing page. Same section types and setting ids as add_section (read_section_type first for a type you have not used). Fill every section with real content the way you would on the open page: a FAQ with its questions as blocks, a story with real paragraphs, never a preset left as it came. A section type you wrote this run with create_section can be used here. Each call is checked, and refused with the reason if a type, setting or block is wrong: nothing is written then, so fix it and call again.',
+    parameters: {
+      type: "object",
+      properties: {
+        page: { type: "string", description: 'The page key: "about", "contact", "products", "product", "collections", "search", "404", an existing page of the creator\'s, or a new one ("faq", "size-guide", "lookbook"). Never the open page.' },
+        title: { type: "string", description: 'The page\'s name, for a new page ("Size guide"). "" to keep the name from the key.' },
+        replace: { type: "boolean", description: "true removes the page's current sections first (its essential store section stays); false adds after what is there." },
+        sectionsJson: {
+          type: "string",
+          description:
+            'A JSON ARRAY AS A STRING, the sections in order: [{"type":"hero_split","name":"Our story","settings":{...},"blocks":[{"type":"...","settings":{...},"blocks":[...]}]}]. Leave out header and footer.',
+        },
+      },
+      required: ["page", "title", "replace", "sectionsJson"],
+      additionalProperties: false,
+    },
+  },
+]
 
 /**
  * The closing sentence, from the work rather than from the model.
@@ -783,6 +855,12 @@ export interface ThemeAgentInput {
    */
   readStore?: () => Promise<StoreFacts | null>
   /**
+   * THE SITE'S OTHER PAGES (./page-builder-server.ts): list them, and build
+   * one that is not open as a draft. Absent (a test, a locked edit), the run
+   * works on the open page only, as it always did.
+   */
+  pages?: SitePageTools
+  /**
    * THE LAST FEW MESSAGES OF THIS CONVERSATION, oldest first, before this
    * request (./memory.ts). What makes "I meant the animation" and a tapped
    * answer to its own question mean something. Absent: the request stands
@@ -851,7 +929,7 @@ export interface ThemeAgentInput {
    * because that needs Chromium and this loop runs in tests without one.
    * Returns null when it could not check, which is never read as clean.
    */
-  visualCheck?: (state: ThemeState, sources: Record<string, string>, opts: { shots: boolean }) => Promise<VisualCheckReport | null>
+  visualCheck?: (state: ThemeState, sources: Record<string, string>, opts: { shots: boolean; reference?: AgentImage | null }) => Promise<VisualCheckReport | null>
   /** Structured log of the run, for developers: tool calls, findings, repairs, the plan. */
   trace?: (entry: TraceEntry) => void
 }
@@ -970,6 +1048,8 @@ export async function* themeAgent(
   const notes: string[] = []
   /** The ones the creator wants on every website, for the caller to keep. */
   const remembered: string[] = []
+  /* Other pages written as drafts in this run (build_page): work, like an operation on the open page. */
+  const pagesWritten: { key: string; title: string; created: boolean }[] = []
   const everywhere = !!input.memory && Array.isArray(input.accountMemory)
   const t0 = Date.now()
   const trace = (kind: string, data: Record<string, unknown> = {}) => {
@@ -983,7 +1063,7 @@ export async function* themeAgent(
   /** Section types whose code this run wrote or created: the project check holds their instances to the new schema. */
   const rewrittenTypes = new Set<string>()
   /** The browser check: how many times it ran, what it found, how long it took. */
-  const visual = { ran: 0, findings: 0, ms: 0 }
+  const visual: { ran: number; findings: number; ms: number; score?: number } = { ran: 0, findings: 0, ms: 0 }
   /** Findings still standing when the review budget ran out, said in the reply rather than hidden. */
   let unresolved: string[] = []
 
@@ -1171,6 +1251,10 @@ export async function* themeAgent(
         /* Right beside the request: what kind of request it is, and the plan it is built to. */
         intent ? intentGuidance(intent) : "",
         plan ? describeCreativePlan(plan, state, schemas, applied?.placed) : "",
+        /* A whole site is more than its home page: the pages it needs, built with build_page and linked (./page-builder-server.ts). */
+        intent && input.pages && !locked && (intent.kind === "NEW_SITE_GENERATION" || intent.kind === "FULL_SITE_REDESIGN")
+          ? wholeSiteGuidance(plan?.archetype ?? matchArchetypes(`${prompt}\n${store ? describeStore(store) : ""}`, 1)[0]?.id ?? null, page)
+          : "",
         plan && applied ? describeApplied(applied, plan, schemas) : "",
         `REQUEST\n${prompt}`,
       ]
@@ -1199,7 +1283,7 @@ export async function* themeAgent(
         model,
         system: SYSTEM_PROMPT,
         turns: [...turns],
-        tools: toolSpecs(addable, schemas, !!input.code, { memory: !!input.memory, everywhere }),
+        tools: toolSpecs(addable, schemas, !!input.code, { memory: !!input.memory, everywhere, pages: !!input.pages && !locked && !input.codeFocus }),
         /* A filled section is a lot of copy in one turn; cut off, it arrives half written. See `ambitious`. A new section file is more. */
         maxOutputTokens: bigIntent ? 24_000 : input.ambitious ? 16_000 : 8_000,
         cacheKey: input.cacheKey,
@@ -1291,17 +1375,19 @@ export async function* themeAgent(
          * with it so the model judges the design too. Twice at most: once
          * after the work, once after the fixes.
          */
+        /* A picture to match: measured after the work and after each repair, three times at most (./reference-diff.ts). */
+        const reference = intent?.recreate && images.length ? images[0] : null
         const wantsVisual =
           !!input.visualCheck &&
-          visual.ran < 2 &&
+          visual.ran < (reference ? 3 : 2) &&
           (ops.length > 0 || wroteCode) &&
           attempt < maxTurns - 1 &&
           !signal?.aborted &&
-          (bigIntent || wroteCode || added.size > 0 || ops.length >= 4 || intent?.kind === "SECTION_REDESIGN")
+          (bigIntent || wroteCode || added.size > 0 || ops.length >= 4 || intent?.kind === "SECTION_REDESIGN" || !!reference)
         if (wantsVisual) {
           const shots = visual.ran === 0 && (bigIntent || intent?.kind === "SECTION_REDESIGN" || wroteCode)
           yield progress("checking", "Checking mobile layout")
-          const report = await input.visualCheck!(state, sourcesNow, { shots }).catch(() => null)
+          const report = await input.visualCheck!(state, sourcesNow, { shots, reference }).catch(() => null)
           visual.ran++
           if (report) {
             visual.ms += report.ms
@@ -1312,12 +1398,27 @@ export async function* themeAgent(
               return found ? `${found.name?.trim() || typeName(schemas, found.type)} [${id}]` : `[${id}]`
             }
             const lines = report.findings.slice(0, 14).map((f) => `- ${nameOfSection(f.sectionId)}${f.width ? ` at ${f.width}px` : ""}: ${f.message}`)
+            /* Measured against their picture: said with the number, and repaired until close or out of rounds. */
+            if (report.comparison) {
+              visual.score = report.comparison.score
+              trace("reference", { round: visual.ran, score: report.comparison.score })
+              const close = report.comparison.score >= report.comparison.threshold
+              if (!close || lines.length) {
+                if (!close && visual.ran >= 3) unresolved.push(`The page measures ${report.comparison.score}/100 against the picture they sent; say so plainly.`)
+                turns.push({
+                  role: "user",
+                  content: [report.comparison.text, lines.length ? `Also, drawn in a browser at 1440, 834 and 390 wide, these are wrong:\n${lines.join("\n")}` : ""].filter(Boolean).join("\n\n"),
+                  images: [reference!, ...(report.referenceShot ? [report.referenceShot] : [])],
+                })
+                continue
+              }
+            }
             if (lines.length || report.shots.length) {
               if (report.shots.length) selfChecked = true
               turns.push({
                 role: "user",
                 content: [
-                  lines.length ? `YOUR PAGE, DRAWN IN A BROWSER AT 1440 AND 390 WIDE. These are wrong and must be fixed:\n${lines.join("\n")}` : "YOUR PAGE, DRAWN IN A BROWSER AT 1440 AND 390 WIDE. The measurements found nothing broken.",
+                  lines.length ? `YOUR PAGE, DRAWN IN A BROWSER AT 1440, 834 AND 390 WIDE. These are wrong and must be fixed:\n${lines.join("\n")}` : "YOUR PAGE, DRAWN IN A BROWSER AT 1440, 834 AND 390 WIDE. The measurements found nothing broken.",
                   report.shots.length
                     ? `The two pictures attached are the page at a laptop's width and a phone's. Look at them as the designer who will put their name on this: hierarchy, rhythm down the page, spacing, whether every section looks finished, whether the phone layout is designed, whether it looks like ${plan?.brand.name || "this business"} and not like any site.${intent ? " And against the request: every part asked for is there." : ""} Fix what is weak with the tools. If it is genuinely good, reply with your one closing sentence.`
                     : "Fix them with the tools, then reply with your one closing sentence.",
@@ -1465,6 +1566,58 @@ export async function* themeAgent(
             })
           }
           yield { type: "step", id: call.id, label: stepLabel, state: store ? "done" : "failed" }
+          continue
+        }
+
+        /*
+          THE SITE'S OTHER PAGES (./page-builder-server.ts). Server work, like
+          read_store, so handled here rather than in the synchronous executor.
+          A page written is streamed as a "page" event: the editor adds it to
+          its list, and loads it from the server when it is opened.
+        */
+        if (call.name === "list_pages" || call.name === "build_page") {
+          if (!input.pages || locked || input.codeFocus) {
+            results.push({ id: call.id, output: "Only the open page may change in this edit. Say in your reply that building other pages needs a request about the whole site." })
+            yield { type: "step", id: call.id, label: stepLabel, state: "failed" }
+            continue
+          }
+          if (call.name === "list_pages") {
+            let listed: string
+            try {
+              listed = await input.pages.list()
+            } catch {
+              listed = "The site's pages could not be read just now. Work on the open page, and say so in your reply."
+            }
+            results.push({ id: call.id, output: listed })
+            yield { type: "step", id: call.id, label: stepLabel, state: "done" }
+            continue
+          }
+          let args: Record<string, unknown> = {}
+          try {
+            args = JSON.parse(call.argumentsJson || "{}") as Record<string, unknown>
+          } catch {
+            /* refused below as a page with no sections */
+          }
+          let sections: unknown = undefined
+          try {
+            sections = typeof args.sectionsJson === "string" ? JSON.parse(args.sectionsJson) : args.sections
+          } catch {
+            results.push({ id: call.id, output: "sectionsJson is not valid JSON. Send a JSON array as a string. Nothing was written." })
+            yield { type: "step", id: call.id, label: stepLabel, state: "failed" }
+            continue
+          }
+          const written = await input.pages.build({ page: args.page, title: args.title, replace: args.replace, sections }, schemas).catch(() => ({ ok: false as const, text: "The page could not be written just now. Nothing reached visitors. Say so in your reply." }))
+          results.push({ id: call.id, output: written.text })
+          if (written.ok && written.key) {
+            const page = { key: written.key, title: written.title ?? written.key, created: !!written.created }
+            const at = pagesWritten.findIndex((p) => p.key === page.key)
+            if (at >= 0) pagesWritten[at] = { ...page, created: pagesWritten[at].created || page.created }
+            else pagesWritten.push(page)
+            done.push(`${page.created ? "Made" : "Rebuilt"} the ${page.title} page`)
+            trace("page", { key: page.key, created: page.created })
+            yield { type: "page", ...page }
+          }
+          yield { type: "step", id: call.id, label: stepLabel, state: written.ok ? "done" : "failed" }
           continue
         }
 
@@ -1890,7 +2043,7 @@ export async function* themeAgent(
    */
   if (status !== "refused") {
     /* A section file it wrote and kept is work too: it is saved when the run ends (./code-journal). */
-    if (ops.length > 0 || wroteCode) {
+    if (ops.length > 0 || wroteCode || pagesWritten.length > 0) {
       // Work was done. Whatever stopped the loop, this edit happened.
       status = "succeeded"
       error = null
@@ -1961,14 +2114,14 @@ export async function* themeAgent(
    * sidebar uses. Not after a question (the question is the ending) and not
    * after a failure (the error is).
    */
-  if (status === "succeeded" && !asked && (ops.length > 0 || wroteCode)) {
+  if (status === "succeeded" && !asked && (ops.length > 0 || wroteCode || pagesWritten.length > 0)) {
     yield progress("done", PROGRESS_LABELS.done, {
       detail: firstSentence(message),
       sections: changedSections(state, input.state, touched, schemas),
     })
   }
 
-  return { status, message, error, usage, ops, wroteCode, asked, intent, plan, unresolved, visual, remembered }
+  return { status, message, error, usage, ops, wroteCode, asked, intent, plan, unresolved, visual, remembered, pages: pagesWritten }
 }
 
 /**

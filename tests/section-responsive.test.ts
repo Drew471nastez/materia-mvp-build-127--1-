@@ -226,7 +226,7 @@ check(
 )
 
 check(
-  "phone, desktop and Large are one segmented switch",
+  "phone and desktop are one switch, and Large is no longer a stop (round 22: \"keep only mobile and desktop\")",
   /**
    * It was a toggle between two devices, with full screen as a separate
    * button parked beside it. The owner asked for full screen to be the
@@ -234,7 +234,7 @@ check(
    * switching phone, desktop, large, not a separate icon"), because all
    * three answer one question: how am I looking at the page.
    */
-  /aria-label=\{`Preview size: \$\{now\.label\}/.test(editor) && /setDevice\(key\)/.test(editor) && /key: "full", label: "Large"/.test(editor),
+  /aria-label=\{`Preview size: \$\{now\.label\}/.test(editor) && /setDevice\(key\)/.test(editor) && !/key: "full", label: "Large"/.test(editor),
 )
 
 /**

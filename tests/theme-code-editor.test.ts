@@ -519,12 +519,13 @@ section("Save compiles, errors carry lines, the canvas finds out")
   // The sidebar reads the library, which is the theme's sections and this
   // creator's own together — see librarySchemas in the editor.
   /* And the shop's own facts since dynamic sources: the canvas draws a page the way the live site does. */
-  check("and hands them to the canvas and the sidebar", /<StorelibLiveProvider sources=\{sources\} page=\{\{ template: pageTemplate \}\} inEditor products=\{shopCards\} data=\{canvasStorefrontData\}>/.test(editor) && (editor.match(/schemaFor\(section\.type, storelibSources, librarySchemas\)/g) ?? []).length >= 2)
+  check("and hands them to the canvas and the sidebar", /<StorelibLiveProvider sources=\{sources\} page=\{\{ template: pageTemplate \}\} inEditor products=\{shopCards\} data=\{canvasStorefrontData\}( headerLogo=\{canvasHeaderLogo\})?>/.test(editor) && (editor.match(/schemaFor\(section\.type, storelibSources, librarySchemas\)/g) ?? []).length >= 2)
   check("a section this creator wrote is in the library too", /customSectionSchemas\(storelibSources\)/.test(editor) && /customAddableSections\(customSchemas\)/.test(editor) && /addable=\{libraryAddable\}/.test(editor))
   // The call grew a products argument when sections learned to draw the
   // shop. What this guard is about is unchanged: the SAVED sources are what
   // the canvas renders from.
-  check("a section renders from the saved source when there is one", /renderStorelibSection\(section, theme, \{ (\.\.\.extras, )?template, in_editor: inEditor === true \}, sources, products(, data)?(, globals)?\)/.test(readFileSync(join(root, "components/website-builder/sections/storelib-live.tsx"), "utf8")))
+  check("a section renders from the saved source when there is one", /* The theme with the built-in header's logo where Branding has none (lib/website-builder/chrome-logo.ts), round 22. */
+    /renderStorelibSection\(section, (theme|themeWithHeaderLogo\(theme, headerLogo \?\? null\)), \{ (\.\.\.extras, )?template, in_editor: inEditor === true \}, sources, products(, data)?(, globals)?\)/.test(readFileSync(join(root, "components/website-builder/sections/storelib-live.tsx"), "utf8")))
   // Done in one place now, for every public route rather than the storefront
   // alone: see prerenderStorelibSections, and the route list in
   // tests/website-builder.test.ts.
@@ -534,7 +535,7 @@ section("Save compiles, errors carry lines, the canvas finds out")
     /\.from\("store_theme_custom_files"\)/.test(prerender)
       /* The page object is built once per page now (with the breadcrumb trail), from the same extras and template. */
       && (/renderStorelibSection\(section, theme, \{ \.\.\.pageExtras, template \}, sources, products(, data)?(, globals)?\)/.test(prerender)
-        || (/renderStorelibSection\(section, theme, page, sources, products(, data)?(, globals)?\)/.test(prerender) && /\.\.\.pageExtras,\s*template,/.test(prerender)))
+        || (/renderStorelibSection\(section, (theme|drawnTheme), page, sources, products(, data)?(, globals)?\)/.test(prerender) && /\.\.\.pageExtras,\s*template,/.test(prerender)))
       && (/prerenderStorelibSections\(/.test(creator) || /renderWithSources\(owner\.sources,/.test(creator)),
   )
   check("a new section file starts as one that compiles", /const starterFor = \(path: string\)/.test(codePage) && /"<template>",/.test(codePage) && /"<schema>",/.test(codePage))

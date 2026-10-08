@@ -668,6 +668,9 @@ export function themeGlobals(settings: Record<string, unknown>): Record<string, 
       width: num("logo_width", 120),
       mobile_url: mobileLogo || logo,
       mobile_width: num("mobile_logo_width", num("logo_width", 120)),
+      /* The height the built-in header draws it at, for a coded header that sizes by height (0 when nobody set one). */
+      height: num("logo_height", 0),
+      mobile_height: num("mobile_logo_height", num("logo_height", 0)),
       /* What a header prints when there is no picture: the store's name. */
       text: str("brand_name"),
     },

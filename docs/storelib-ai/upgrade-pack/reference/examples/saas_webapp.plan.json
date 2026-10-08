@@ -1,0 +1,161 @@
+{
+  "schema_version": "storelib-siteplan-v1",
+  "source_request": "Build a SaaS marketing website with an authenticated kanban project dashboard",
+  "site_type": "webapp",
+  "working_title": "Tempo Platform",
+  "assumptions": [
+    "Sample only: names/media/copy are editable and not merchant-supplied data.",
+    "Never invent real products, prices, stock, reviews, integrations, client stories or service availability.",
+    "All dynamic data and actions must use verified Storelib APIs in implementation."
+  ],
+  "creative_direction": {
+    "label": "Productive minimal software",
+    "palette": {
+      "surface": "#F8F8F9",
+      "ink": "#13171D",
+      "signal": "#00A896"
+    },
+    "layout": "data-focused UI, purposeful dense information design",
+    "motion": "reduced-motion-aware context-specific transitions"
+  },
+  "global_components": {
+    "header": "custom AI-generated responsive navigation, bound to real menu/store logo when available",
+    "footer": "category-appropriate footer, privacy/contact and real internal links"
+  },
+  "project_notes": "Requires backend auth, persistence, permission policies and safe custom-code runtime; mark blocked rather than simulate if unavailable.",
+  "pages": [
+    {
+      "id": "home",
+      "route": "/",
+      "kind": "home",
+      "title": "Home | Sample",
+      "goal": "Explain tool and onboard users",
+      "sections": [
+        {
+          "id": "home-hero",
+          "type": "hero",
+          "purpose": "Clear product promise",
+          "layout": "UI screenshot-led SaaS opening",
+          "cta": {
+            "text": "Open workspace",
+            "destination": "/app"
+          }
+        },
+        {
+          "id": "home-showcase",
+          "type": "showcase",
+          "purpose": "Demonstrate actual supported workflows",
+          "layout": "interactive UI glimpses"
+        },
+        {
+          "id": "home-features",
+          "type": "features",
+          "purpose": "Communicate differentiated abilities",
+          "layout": "workflow-focused editorial sections"
+        },
+        {
+          "id": "home-pricing",
+          "type": "pricing",
+          "purpose": "Real configured pricing, or omit unavailable checkout",
+          "layout": "accurate plan cards"
+        },
+        {
+          "id": "home-faq",
+          "type": "faq",
+          "purpose": "Answer common product questions",
+          "layout": "simple accordion"
+        }
+      ]
+    },
+    {
+      "id": "signin",
+      "route": "/login",
+      "kind": "auth",
+      "title": "Signin | Sample",
+      "goal": "Authenticate user via Storelib or supported provider",
+      "sections": [
+        {
+          "id": "signin-auth",
+          "type": "auth",
+          "purpose": "Actual user auth and session controls",
+          "layout": "accessible login form"
+        }
+      ]
+    },
+    {
+      "id": "app",
+      "route": "/app",
+      "kind": "app_view",
+      "title": "App | Sample",
+      "goal": "Authenticated overview",
+      "sections": [
+        {
+          "id": "app-nav",
+          "type": "nav",
+          "purpose": "App navigation with real routes",
+          "layout": "application sidebar and project context"
+        },
+        {
+          "id": "app-overview",
+          "type": "overview",
+          "purpose": "Protected project summaries",
+          "layout": "dashboard activity, empty/loading states"
+        },
+        {
+          "id": "app-recent",
+          "type": "recent",
+          "purpose": "Show authorized projects",
+          "layout": "linked project list"
+        }
+      ]
+    },
+    {
+      "id": "board",
+      "route": "/app/board/:slug",
+      "kind": "app_view",
+      "title": "Board | Sample",
+      "goal": "Interactive task board",
+      "sections": [
+        {
+          "id": "board-workspace",
+          "type": "workspace",
+          "purpose": "Real CRUD backed task state",
+          "layout": "Kanban drag-drop with keyboard alternative"
+        },
+        {
+          "id": "board-filters",
+          "type": "filters",
+          "purpose": "Filter authorized tasks",
+          "layout": "search/filters and status UI"
+        },
+        {
+          "id": "board-taskmodal",
+          "type": "taskmodal",
+          "purpose": "CRUD with validation and optimistic update",
+          "layout": "task detail modal"
+        }
+      ]
+    },
+    {
+      "id": "settings",
+      "route": "/app/settings",
+      "kind": "app_view",
+      "title": "Settings | Sample",
+      "goal": "User account preferences",
+      "sections": [
+        {
+          "id": "settings-account",
+          "type": "account",
+          "purpose": "Real authenticated settings persistence",
+          "layout": "profile/editor fields"
+        },
+        {
+          "id": "settings-preferences",
+          "type": "preferences",
+          "purpose": "Save existing configurable preferences",
+          "layout": "notification settings"
+        }
+      ]
+    }
+  ]
+}

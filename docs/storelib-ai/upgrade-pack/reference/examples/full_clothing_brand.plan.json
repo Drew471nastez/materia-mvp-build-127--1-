@@ -1,0 +1,339 @@
+{
+  "schema_version": "storelib-siteplan-v1",
+  "source_request": "Build a complete high-end streetwear clothing brand website with full shop",
+  "site_type": "physical_ecommerce",
+  "working_title": "Night Shift Supply",
+  "assumptions": [
+    "Sample only: names/media/copy are editable and not merchant-supplied data.",
+    "Never invent real products, prices, stock, reviews, integrations, client stories or service availability.",
+    "All dynamic data and actions must use verified Storelib APIs in implementation."
+  ],
+  "creative_direction": {
+    "label": "Dark editorial fashion house",
+    "palette": {
+      "black": "#0C0C0C",
+      "bone": "#EFEDE6",
+      "red": "#AC3A32"
+    },
+    "layout": "large type, cinematic grids, minimal chrome",
+    "motion": "reduced-motion-aware context-specific transitions"
+  },
+  "global_components": {
+    "header": "custom AI-generated responsive navigation, bound to real menu/store logo when available",
+    "footer": "category-appropriate footer, privacy/contact and real internal links"
+  },
+  "project_notes": "No forced header/footer: AI creates its own while pulling real menu and logo data.",
+  "pages": [
+    {
+      "id": "home",
+      "route": "/",
+      "kind": "home",
+      "title": "Home | Sample",
+      "goal": "Brand vision + merchandise discovery",
+      "sections": [
+        {
+          "id": "home-hero",
+          "type": "hero",
+          "purpose": "Art directed brand drop with CTA",
+          "layout": "typographic image-first editorial",
+          "cta": {
+            "text": "Shop collection",
+            "destination": "/shop"
+          }
+        },
+        {
+          "id": "home-marquee",
+          "type": "marquee",
+          "purpose": "Category-specific motion",
+          "layout": "ultra minimal typography ticker"
+        },
+        {
+          "id": "home-new_arrivals",
+          "type": "new_arrivals",
+          "purpose": "Live inventory",
+          "layout": "asymmetrical product gallery",
+          "binding": "catalog.new"
+        },
+        {
+          "id": "home-campaign",
+          "type": "campaign",
+          "purpose": "Brand image/story",
+          "layout": "full-width editorial campaign"
+        },
+        {
+          "id": "home-collections",
+          "type": "collections",
+          "purpose": "Real collections",
+          "layout": "category image tiles",
+          "binding": "collections.all"
+        },
+        {
+          "id": "home-craft",
+          "type": "craft",
+          "purpose": "Merchant-provided construction details",
+          "layout": "production detail collage"
+        },
+        {
+          "id": "home-feature",
+          "type": "feature",
+          "purpose": "Featured real collection",
+          "layout": "collection feature",
+          "binding": "collection.featured"
+        },
+        {
+          "id": "home-newsletter",
+          "type": "newsletter",
+          "purpose": "Real subscription collection",
+          "layout": "form with disabled fallback"
+        }
+      ]
+    },
+    {
+      "id": "shop",
+      "route": "/shop",
+      "kind": "catalog",
+      "title": "Shop | Sample",
+      "goal": "Full catalog",
+      "sections": [
+        {
+          "id": "shop-intro",
+          "type": "intro",
+          "purpose": "Offer browsing context",
+          "layout": "compact masthead"
+        },
+        {
+          "id": "shop-filters",
+          "type": "filters",
+          "purpose": "Use real catalog filtering",
+          "layout": "facets/sort controls"
+        },
+        {
+          "id": "shop-grid",
+          "type": "grid",
+          "purpose": "Bind actual catalog",
+          "layout": "responsive product grid",
+          "binding": "products.all"
+        },
+        {
+          "id": "shop-lookbook",
+          "type": "lookbook",
+          "purpose": "Campaign content",
+          "layout": "editorial image break"
+        }
+      ]
+    },
+    {
+      "id": "collection",
+      "route": "/collections/:slug",
+      "kind": "collection_template",
+      "title": "Collection | Sample",
+      "goal": "Dynamic collection",
+      "sections": [
+        {
+          "id": "collection-hero",
+          "type": "hero",
+          "purpose": "Read collection fields",
+          "layout": "collection title/media",
+          "binding": "collection.current"
+        },
+        {
+          "id": "collection-grid",
+          "type": "grid",
+          "purpose": "Read collection products",
+          "layout": "commerce grid",
+          "binding": "collection.current.products"
+        },
+        {
+          "id": "collection-editorial",
+          "type": "editorial",
+          "purpose": "Real merchant editorial",
+          "layout": "optional collection narrative"
+        },
+        {
+          "id": "collection-cta",
+          "type": "cta",
+          "purpose": "Continue shopping",
+          "layout": "linked discovery CTA",
+          "cta": {
+            "text": "See all",
+            "destination": "/shop"
+          }
+        }
+      ]
+    },
+    {
+      "id": "product",
+      "route": "/products/:slug",
+      "kind": "product_template",
+      "title": "Product | Sample",
+      "goal": "Dynamic PDP",
+      "sections": [
+        {
+          "id": "product-gallery",
+          "type": "gallery",
+          "purpose": "Selected product and variants",
+          "layout": "image gallery thumbnails/mobile swipe",
+          "binding": "product.current"
+        },
+        {
+          "id": "product-purchase",
+          "type": "purchase",
+          "purpose": "Price/variant/cart actions",
+          "layout": "independent custom-designed buy area",
+          "binding": "product.current.variants"
+        },
+        {
+          "id": "product-details",
+          "type": "details",
+          "purpose": "Real descriptions",
+          "layout": "fabric/care details"
+        },
+        {
+          "id": "product-delivery",
+          "type": "delivery",
+          "purpose": "Real shipping data",
+          "layout": "configured shipping/policies"
+        },
+        {
+          "id": "product-related",
+          "type": "related",
+          "purpose": "Related live products",
+          "layout": "recommendation rail",
+          "binding": "catalog.related"
+        }
+      ]
+    },
+    {
+      "id": "about",
+      "route": "/about",
+      "kind": "about",
+      "title": "About | Sample",
+      "goal": "Brand story",
+      "sections": [
+        {
+          "id": "about-hero",
+          "type": "hero",
+          "purpose": "Company narrative",
+          "layout": "campaign portrait"
+        },
+        {
+          "id": "about-timeline",
+          "type": "timeline",
+          "purpose": "Founding evolution",
+          "layout": "visual story panels"
+        },
+        {
+          "id": "about-values",
+          "type": "values",
+          "purpose": "Authentic details",
+          "layout": "manufacturing photos"
+        },
+        {
+          "id": "about-shop_cta",
+          "type": "shop_cta",
+          "purpose": "Shop",
+          "layout": "narrative CTA",
+          "cta": {
+            "text": "Shop all",
+            "destination": "/shop"
+          }
+        }
+      ]
+    },
+    {
+      "id": "faq",
+      "route": "/faq",
+      "kind": "faq",
+      "title": "Faq | Sample",
+      "goal": "Customer help",
+      "sections": [
+        {
+          "id": "faq-hero",
+          "type": "hero",
+          "purpose": "Help topics",
+          "layout": "practical helpful intro"
+        },
+        {
+          "id": "faq-faq_groups",
+          "type": "faq_groups",
+          "purpose": "Actual policies and questions",
+          "layout": "nested topic accordion"
+        },
+        {
+          "id": "faq-help",
+          "type": "help",
+          "purpose": "Contact link",
+          "layout": "support channels",
+          "cta": {
+            "text": "Contact us",
+            "destination": "/contact"
+          }
+        },
+        {
+          "id": "faq-shipping",
+          "type": "shipping",
+          "purpose": "Configured merchant rates/policy",
+          "layout": "shipping summary"
+        }
+      ]
+    },
+    {
+      "id": "contact",
+      "route": "/contact",
+      "kind": "contact",
+      "title": "Contact | Sample",
+      "goal": "Merchant customer contact",
+      "sections": [
+        {
+          "id": "contact-hero",
+          "type": "hero",
+          "purpose": "Support route",
+          "layout": "strong typographic support header"
+        },
+        {
+          "id": "contact-contact_methods",
+          "type": "contact_methods",
+          "purpose": "Never invent addresses",
+          "layout": "actual support methods"
+        },
+        {
+          "id": "contact-form",
+          "type": "form",
+          "purpose": "Real support request backend",
+          "layout": "validated form"
+        },
+        {
+          "id": "contact-faq",
+          "type": "faq",
+          "purpose": "Link to questions",
+          "layout": "FAQ cross-link",
+          "cta": {
+            "text": "Read FAQ",
+            "destination": "/faq"
+          }
+        }
+      ]
+    },
+    {
+      "id": "policies",
+      "route": "/policies",
+      "kind": "policy",
+      "title": "Policies | Sample",
+      "goal": "Actual merchant policies",
+      "sections": [
+        {
+          "id": "policies-intro",
+          "type": "intro",
+          "purpose": "List configured policies",
+          "layout": "legibility-first policy nav"
+        },
+        {
+          "id": "policies-policy_content",
+          "type": "policy_content",
+          "purpose": "Merchant-provided legal policy only",
+          "layout": "body text optimized for reading"
+        }
+      ]
+    }
+  ]
+}

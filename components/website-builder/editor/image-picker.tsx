@@ -266,15 +266,11 @@ export function WbImagePicker({
    * picture loads) is the same component underneath, unchanged.
    */
   if (layout === "row") {
-    const name = (() => {
-      if (!url) return "Uploading"
-      try {
-        const last = decodeURIComponent(new URL(url, "https://x.invalid").pathname.split("/").pop() || "")
-        return last || "Image"
-      } catch {
-        return "Image"
-      }
-    })()
+    /*
+      THE PICTURE, NOT ITS NAME (round 22, the owner: "I don't want them to display the url, only the photos"). A file
+      name like 1791487228371-a0tzff.png says nothing a creator can use, so the row is the picture itself, a little wider
+      than square so a landscape photo reads as one, with Replace and Remove beside it.
+    */
     if (url || preview) {
       return (
         <div className="space-y-2" data-wb-image-picker="filled">
@@ -282,7 +278,7 @@ export function WbImagePicker({
           <div className="flex items-center gap-3 rounded-lg border border-border bg-white p-1.5 pr-2 dark:bg-white/[0.04]">
             <div
               data-wb-image-box
-              className="relative h-14 w-14 shrink-0 overflow-hidden rounded-md border border-black/[0.06] bg-[#f4f4f5] dark:bg-white/[0.06]"
+              className="relative h-16 w-24 shrink-0 overflow-hidden rounded-md border border-black/[0.06] bg-[#f4f4f5] dark:bg-white/[0.06]"
             >
               {broken ? (
                 <span data-wb-image-layer="missing" className="absolute inset-0 flex items-center justify-center text-muted-foreground/60" aria-hidden>
@@ -312,10 +308,8 @@ export function WbImagePicker({
               )}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[12.5px] font-medium text-foreground" title={broken ? undefined : name}>
-                {broken ? "This picture could not be loaded" : name}
-              </p>
-              <div className="mt-1 flex items-center gap-1">
+              {broken ? <p className="text-[12.5px] font-medium text-foreground">This picture could not be loaded</p> : null}
+              <div className={cn("flex flex-wrap items-center gap-1", broken && "mt-1")}>
                 <button
                   type="button"
                   disabled={uploading}

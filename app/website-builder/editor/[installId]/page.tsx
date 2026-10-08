@@ -6,7 +6,7 @@ import { ownOpen, useOwnMarker } from "@/lib/analytics/own-site"
 import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import {
-  ArrowLeft, Plug, Monitor, Smartphone, Maximize2, Loader2, Code2, ChevronDown, Plus, Eye, EyeOff, Trash2, Copy, Settings, Check, Layers, X, RotateCcw, Layout, AlignLeft, Image, MessageSquare, HelpCircle, Megaphone, BarChart2, Grid, Award, LayoutGrid, DollarSign, LayoutTemplate, Video, Users, MapPin, Mail, Clock, BookOpen, Shirt, Columns, Play, Star, Timer, Shield, Rss, SlidersHorizontal, Code, Bell, ChevronRight, Menu as MenuIcon, Package, Undo2, Redo2, ExternalLink, Search, FileText, ArrowRight, FolderOpen, MoreHorizontal, Upload, Info, Crop, CheckCircle, Type, Square, Rows3, Grid3x3, MousePointerClick, MoveHorizontal, Hash, Columns2, LayoutDashboard, Badge as BadgeIcon, ArrowUp, ArrowDown,
+  ArrowLeft, Plug, Monitor, Smartphone, Loader2, Code2, ChevronDown, Plus, Eye, EyeOff, Trash2, Copy, Settings, Check, Layers, X, RotateCcw, Layout, AlignLeft, Image, MessageSquare, HelpCircle, Megaphone, BarChart2, Grid, Award, LayoutGrid, DollarSign, LayoutTemplate, Video, Users, MapPin, Mail, Clock, BookOpen, Shirt, Columns, Play, Star, Timer, Shield, Rss, SlidersHorizontal, Code, Bell, ChevronRight, Menu as MenuIcon, Package, Undo2, Redo2, ExternalLink, Search, FileText, ArrowRight, FolderOpen, MoreHorizontal, Upload, Info, Crop, CheckCircle, Type, Square, Rows3, Grid3x3, MousePointerClick, MoveHorizontal, Hash, Columns2, LayoutDashboard, Badge as BadgeIcon, ArrowUp, ArrowDown,
   Palette, ShoppingBag, ShoppingCart, Share2, Cookie,
 } from "lucide-react"
 import { arrayMove } from "@dnd-kit/sortable"
@@ -118,6 +118,7 @@ import {
 import { WritingSection } from "@/components/website-builder/editor/writing-section"
 import { AiWorkingOverlay, SETTLE_MS } from "@/components/website-builder/editor/ai-working-overlay"
 import { StorelibLiveProvider } from "@/components/website-builder/sections/storelib-live"
+import { headerLogoOf } from "@/lib/website-builder/chrome-logo"
 import { bodyGapToListIndex } from "@/lib/website-builder/section-order"
 import { IconPicker } from "@/components/website-builder/icon-picker"
 import { LinkPicker, LinkTargetsProvider, useLinkTargets, type LinkTarget, type SectionLinkSource } from "@/components/website-builder/link-picker"
@@ -7596,6 +7597,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     setAiOpen(false)
     rememberAskDockClosed(true)
   }, [])
+  /*
+    THE ASSISTANT BUILT ANOTHER PAGE (build_page): it is a draft on the server, so the site has unpublished changes and the
+    page belongs in the list. Its sections load from the server when it is opened, as every page's do.
+  */
+  const aiPageWritten = useCallback((key: string, title: string) => {
+    setUnpublished(true)
+    if (key === "home" || key in PAGE_META) return
+    setCustomPages((prev) => (prev.some((p) => p.key === key) ? prev : [...prev, { id: key, name: title || pageTitleFromKey(key), key: key as PageKey }]))
+  }, [])
   const reloadAiSources = useCallback(() => {
     void loadStorelibSources()
   }, [loadStorelibSources])
@@ -7820,29 +7830,21 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         */}
         <div className="flex flex-1 items-center justify-center gap-1.5 min-w-0">
           {/*
-            HOW YOU ARE LOOKING: ONE ICON, THREE SIZES. It shows the size you
-            are looking at, and each click moves to the next: desktop, then
-            phone, then large (the page full screen, the sidebar folded away),
-            then desktop again. Three buttons side by side read as three
-            different tools; this is one choice, so it is one control, the way
-            it was before. A phone has no room for it, and its canvas is
-            already the screen.
+            HOW YOU ARE LOOKING: ONE ICON, TWO SIZES (round 22, the owner: "keep only mobile and desktop"). It shows the size
+            you are looking at, and a click moves to the other. Large (the page full screen with the sidebar folded) is no
+            longer one of the stops: the desktop canvas already takes the room the editor has, and the live site is one
+            click to the right. A session that was left in Large comes back to Desktop on the first click or Escape. A
+            phone has no room for it, and its canvas is already the screen.
           */}
           {!isMobileView && (() => {
             const SIZES = [
               { key: "desktop", label: "Desktop", Icon: Monitor },
               { key: "mobile", label: `Phone (${DEVICE_WIDTH.mobile}px)`, Icon: Smartphone },
-              { key: "full", label: "Large", Icon: Maximize2 },
             ] as const
-            const at = fullView ? 2 : device === "mobile" ? 1 : 0
+            const at = fullView || device !== "mobile" ? 0 : 1
             const now = SIZES[at]
-            const next = SIZES[(at + 1) % SIZES.length]
+            const next = fullView ? SIZES[0] : SIZES[(at + 1) % SIZES.length]
             const go = (key: (typeof SIZES)[number]["key"]) => {
-              if (key === "full") {
-                if (previewMode !== "preview") setPreviewMode("preview")
-                setFullScreen(true)
-                return
-              }
               if (fullView) setFullScreen(false)
               setDevice(key)
             }
@@ -7854,16 +7856,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                     aria-label={`Preview size: ${now.label}. Switch to ${next.label}`}
                     data-wb-device-switch=""
                     data-wb-device={now.key}
-                    /* The probes still find Large by its old name. */
-                    data-wb-full-screen-switch=""
-                    aria-pressed={fullView}
                     onClick={() => go(next.key)}
                     className="hidden sm:flex h-8 w-8 aspect-square shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-[var(--wb-chrome-fg)] transition-[background-color,color] duration-150 hover:bg-white/[0.1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/25"
                   >
                     <now.Icon key={now.key} className="h-[15px] w-[15px] animate-in fade-in zoom-in-90 duration-150" strokeWidth={1.75} />
                   </button>
                 </TooltipTrigger>
-                <TooltipContent side="bottom">{fullView ? `${now.label} · Esc to leave` : `${now.label} · click for ${next.label}`}</TooltipContent>
+                <TooltipContent side="bottom">{`${now.label} · click for ${next.label}`}</TooltipContent>
               </Tooltip>
             )
           })()}
@@ -8459,6 +8458,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               onClose={closeAiSheet}
               onConnectAi={connectAiFromChat}
               onSourcesChanged={reloadAiSources}
+              onPageWritten={aiPageWritten}
               onSourceWritten={aiSourceWritten}
               onWorkingChange={aiWorkingChange}
               onRunFinished={aiRunFinished}
@@ -9072,6 +9072,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               onClose={closeAiDock}
               onConnectAi={connectAiFromChat}
               onSourcesChanged={reloadAiSources}
+              onPageWritten={aiPageWritten}
               onSourceWritten={aiSourceWritten}
               onWorkingChange={aiWorkingChange}
               onRunFinished={aiRunFinished}
@@ -9621,8 +9622,10 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   /* One object per install. Inline, it was a new storefront context on every
      canvas render, and every section reading it rendered again past its memo. */
   const storefront = useMemo(() => ({ inEditor: true, installId }), [installId])
+  /* The built-in header's logo, for a coded header or footer that reads theme.logo (lib/website-builder/chrome-logo.ts). */
+  const canvasHeaderLogo = useMemo(() => headerLogoOf(sections), [sections])
   return (
-    <StorelibLiveProvider sources={sources} page={{ template: pageTemplate }} inEditor products={shopCards} data={canvasStorefrontData}>
+    <StorelibLiveProvider sources={sources} page={{ template: pageTemplate }} inEditor products={shopCards} data={canvasStorefrontData} headerLogo={canvasHeaderLogo}>
     <ThemePage
       theme={theme}
       sections={sections}
