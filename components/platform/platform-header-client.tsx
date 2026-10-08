@@ -25,7 +25,7 @@ import { NotificationBell } from "@/components/notifications/notification-bell"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 
-import { Library, Search, LayoutDashboard, Settings, LogOut, X, ChevronRight, LifeBuoy, Store, Share2, ArrowRight, User as UserIcon, Compass, Globe, MoreHorizontal, Check } from "lucide-react"
+import { Library, Search, LayoutDashboard, Settings, LogOut, X, ChevronRight, LifeBuoy, Store, Share2, ArrowRight, User as UserIcon, Compass, Globe, MoreHorizontal, Check, Bookmark, IdCard } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
 import { LanguageModal } from "@/components/platform/language-modal"
 import { readAuthSnapshot, writeAuthSnapshot, clearAuthSnapshot } from "@/lib/auth/auth-snapshot"
@@ -45,7 +45,6 @@ import { HeaderSearchResults, SLIM_SCROLL, hasPanel, optionCount, optionId } fro
 import { useCommunitiesEnabled } from "@/lib/platform/use-flags"
 import { showsProfileHeader } from "@/lib/profile/owner-pills"
 import { useCommunityContextMeta } from "@/lib/nav/community-context"
-import { CommunityAccountMenu } from "@/components/community/member/account-menu"
 import { profileShareUrl, shareProfile } from "@/lib/profile/share-profile"
 
 
@@ -1160,6 +1159,7 @@ export function PlatformHeaderClient({
   const [mobileProfileOpen, setMobileProfileOpen] = useState(false)
   /* The "..." sheet of the phone's profile bar, and what its Share profile row last did (see PROFILE BAR below). */
   const [profileBarOpen, setProfileBarOpen] = useState(false)
+  const [communityAccountOpen, setCommunityAccountOpen] = useState(false)
   const [shareNote, setShareNote] = useState<"copied" | "failed" | null>(null)
   /* Below 768px, where the header opens sheets rather than dropdowns. */
   const belowMd = useBelowMd()
@@ -1548,6 +1548,13 @@ export function PlatformHeaderClient({
   const profileInCommunity = !!ctx.slug && showsProfileHeader(pathname)
   const profileBar = showsProfileHeader(pathname) && !ctx.slug
   const navCurrent = ctx.id ? { kind: "community" as const, id: ctx.id } : { kind: "storelib" as const }
+  const communityAccountExtra = useMemo((): AccountExtraRow[] | undefined => {
+    if (!ctx.slug) return undefined
+    return [
+      { item: "saved", label: "Saved posts", icon: Bookmark, href: `/community/${ctx.slug}/saved` },
+      { item: "membership", label: "Membership", icon: IdCard, href: `/community/${ctx.slug}/membership` },
+    ]
+  }, [ctx.slug])
   useEffect(() => {
     if (!shareNote) return
     const t = window.setTimeout(() => setShareNote(null), 2200)
@@ -2315,16 +2322,17 @@ export function PlatformHeaderClient({
                   in the shadow and a 1px soft drop under it, so the photo keeps its full circle (the old
                   border took a pixel off every side) and the circle sits on the bar rather than in it. */}
               {user && profileInCommunity ? (
-                <CommunityAccountMenu
-                  me={{
-                    name: (displayName || "").trim() || "You",
-                    avatarUrl: avatarUrl ?? null,
-                    username: profile?.username ?? null,
-                    seller: hasCompletedSellerOnboarding,
-                  }}
-                  savedHref={`/community/${ctx.slug}/saved`}
-                  membershipHref={`/community/${ctx.slug}/membership`}
-                />
+                <button
+                  type="button"
+                  onClick={() => setCommunityAccountOpen(true)}
+                  aria-label="Your account"
+                  aria-haspopup="dialog"
+                  aria-expanded={communityAccountOpen}
+                  data-account-more=""
+                  className={cn("relative flex h-[42px] w-[42px] touch-manipulation items-center justify-center rounded-full transition-[background-color,scale] duration-150 active:scale-[0.94] cursor-pointer [-webkit-tap-highlight-color:transparent] before:absolute before:-inset-1 before:content-['']", chrome.iconBtn)}
+                >
+                  <MoreHorizontal className="h-[22px] w-[22px]" strokeWidth={2} aria-hidden />
+                </button>
               ) : user ? (
                 <button
                   type="button"
@@ -2616,6 +2624,22 @@ export function PlatformHeaderClient({
         onLanguage={() => setLanguageOpen(true)}
         onLogout={handleLogout}
       />
+      {profileInCommunity ? (
+        <AccountSheet
+          open={communityAccountOpen}
+          onClose={() => setCommunityAccountOpen(false)}
+          keepMounted={!!user && belowMd}
+          rows="community"
+          avatarUrl={avatarUrl}
+          name={displayName || ""}
+          username={profile?.username}
+          seller={hasCompletedSellerOnboarding}
+          link={headerLink}
+          onLanguage={() => setLanguageOpen(true)}
+          onLogout={handleLogout}
+          extra={communityAccountExtra}
+        />
+      ) : null}
 
       {/* Rendered outside both menus on purpose: each closes itself on the
           click that opens this, so it cannot be a child of either. */}
