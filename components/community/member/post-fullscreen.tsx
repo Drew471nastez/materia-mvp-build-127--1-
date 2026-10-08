@@ -66,14 +66,13 @@ function reduced(): boolean {
   return typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
 }
 
-/** The height of the bar at the top, status bar included, in px. */
-function topBarPx(): number {
-  const probe = document.createElement("div")
-  probe.style.cssText = "position:fixed;top:0;height:env(safe-area-inset-top,0px);visibility:hidden;pointer-events:none"
-  document.body.appendChild(probe)
-  const inset = probe.getBoundingClientRect().height
-  probe.remove()
-  return Math.max(inset, 12) + BAR_PX
+/**
+ * The height of the bar at the top, status bar included, in px: the inner box's own top padding, read from its computed
+ * style. No element is added to the page to measure it (round 21: a probe appended on the open forced a second layout of
+ * the whole page in the tap's first frame).
+ */
+function topBarPx(inner: HTMLElement): number {
+  return parseFloat(getComputedStyle(inner).paddingTop) || BAR_PX
 }
 
 /** Where the card is now, if it is on screen at all. */
@@ -87,11 +86,11 @@ function cardBox(origin: (() => HTMLElement | null) | undefined): { rect: DOMRec
 }
 
 /** The page clipped to `r` (viewport coordinates; the page is at the visual viewport's top). */
-function insetFor(r: DOMRect, radius: number, pageTop: number, pageH: number): string {
+function insetFor(r: DOMRect, radius: number, pageTop: number, pageH: number, pageW: number): string {
   const top = Math.max(0, r.top - pageTop)
   const bottom = Math.max(0, pageTop + pageH - r.bottom)
   const left = Math.max(0, r.left)
-  const right = Math.max(0, window.innerWidth - r.right)
+  const right = Math.max(0, pageW - r.right)
   return `inset(${top}px ${right}px ${bottom}px ${left}px round ${radius}px)`
 }
 
@@ -147,8 +146,8 @@ export function PostFullscreen({ open, label, title, origin, onRequestClose, onS
     }
     const card = cardBox(origin)
     const pageBox = page.getBoundingClientRect()
-    const bar = topBarPx()
-    const from = card ? insetFor(card.rect, card.radius, pageBox.top, pageBox.height) : null
+    const bar = topBarPx(inner)
+    const from = card ? insetFor(card.rect, card.radius, pageBox.top, pageBox.height, pageBox.width) : null
     const shift = card ? card.rect.top - pageBox.top - bar : 0
     /* The first frame, before anything moves: the card's shape, the post where the card's words are, and see-through over the card. */
     if (from) {
@@ -232,11 +231,11 @@ export function PostFullscreen({ open, label, title, origin, onRequestClose, onS
     scrim.style.opacity = ""
     const card = cardBox(origin)
     const pageBox = page.getBoundingClientRect()
-    const bar = topBarPx()
+    const bar = topBarPx(inner)
     const opts: KeyframeAnimationOptions = { duration: CLOSE_MS, easing: EASE, fill: "forwards" }
     let main: Animation
     if (card) {
-      const to = insetFor(card.rect, card.radius, pageBox.top, pageBox.height)
+      const to = insetFor(card.rect, card.radius, pageBox.top, pageBox.height, pageBox.width)
       main = page.animate([{ transform: fromTransform, clipPath: fromClip }, { transform: "translateY(0px)", clipPath: to }], opts)
       /* Scrolled down into the comments, the post's top is above the page: brought down to the card's place with the rest. */
       const shift = card.rect.top - pageBox.top - bar + scroller.scrollTop
