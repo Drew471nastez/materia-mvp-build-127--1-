@@ -140,6 +140,38 @@ export async function startVerification(creator: PaymentsCreatorRef, where: Veri
   return { ok: true, way: "connect", url, clientSecret: null, publishableKey: "" }
 }
 
+/**
+ * THE WHOLE SETUP ON STRIPE'S PAGE, FOR THE PHONE APP ONLY WHEN IT HAS TO BE.
+ * An account Stripe collects for (requirement_collection "stripe") makes
+ * the embedded form ask the creator to sign in to Stripe in a window of its
+ * own. That window is opened from inside Stripe's frame, and an app built
+ * before it could hold such windows sends it to Safari. There the setup is
+ * this page instead, in the sheet that slides over the app, and the sheet
+ * comes back to /app/payouts/identity-done. `account_onboarding` until the
+ * details are in, `account_update` after; the same fields the embedded form
+ * asks for (payments-setup-flow.tsx SETUP_COLLECTION, eventually due).
+ */
+export async function startHostedSetup(creator: PaymentsCreatorRef, where: VerifyReturn): Promise<{ ok: true; url: string } | VerifyStop> {
+  const account = await accountOf(creator)
+  if ("ok" in account) return account
+  try {
+    const link = await stripe.accountLinks.create(
+      {
+        account: account.id,
+        type: account.details_submitted ? "account_update" : "account_onboarding",
+        collection_options: { fields: "eventually_due", future_requirements: "omit" },
+        return_url: where.returnUrl,
+        refresh_url: where.refreshUrl,
+      },
+      { timeout: 20_000, maxNetworkRetries: 1 },
+    )
+    return link.url ? { ok: true, url: link.url } : { ok: false, reason: "link_failed" }
+  } catch (error) {
+    console.error("[hosted setup] account link", quiet(error))
+    return { ok: false, reason: "link_failed" }
+  }
+}
+
 export interface VerifyView {
   status: IdentityStatus
   /** Why Stripe could not finish, in words a creator can act on. Never Stripe's own. */

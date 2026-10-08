@@ -116,6 +116,10 @@ public class MainActivity extends BridgeActivity {
         // ── Replace the default WebViewClient with ours ─────────────
         getBridge().setWebViewClient(new StorelibWebViewClient(getBridge()));
 
+        // ── Stripe's own windows open inside the app (StorelibChromeClient) ─
+        getBridge().getWebView().getSettings().setSupportMultipleWindows(true);
+        getBridge().getWebView().setWebChromeClient(new StorelibChromeClient(getBridge()));
+
         // ── Loading overlay: light gray + logo + spinner ─────────────
         setupLoadingOverlay();
 

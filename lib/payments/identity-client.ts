@@ -39,8 +39,8 @@ export interface IdentityOpening {
 
 export type IdentityOpened = "closed" | "sent" | "no_way"
 
-/** Stripe's hosted check in the app's own sheet. Settles when the sheet closes. */
-async function openSheet(url: string): Promise<IdentityOpened> {
+/** Stripe's hosted page in the app's own sheet. Settles when the sheet closes. */
+export async function openSheet(url: string): Promise<IdentityOpened> {
   try {
     /* The link guard lets this one window through (components/platform/native-link-guard.tsx). */
     ;(window as unknown as { __storelibSheet?: string }).__storelibSheet = url

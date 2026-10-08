@@ -698,7 +698,11 @@ export function publishableKeyForSession(): string {
   return pk
 }
 
-export async function createStripeAccountSession(creatorId: string, purpose: StripeAccountSessionPurpose, known?: Stripe.Account | null): Promise<{ clientSecret: string; publishableKey: string }> {
+export async function createStripeAccountSession(
+  creatorId: string,
+  purpose: StripeAccountSessionPurpose,
+  known?: Stripe.Account | null,
+): Promise<{ clientSecret: string; publishableKey: string; stripeSignIn: boolean }> {
   const publishableKey = publishableKeyForSession()
   const row = await readCreatorStripe(creatorId)
   if (!row?.stripe_account_id) throw new PaymentsProblem("Start setup first.")
@@ -730,10 +734,18 @@ export async function createStripeAccountSession(creatorId: string, purpose: Str
       console.error("[stripe connect] business type", stripeErrorMessage(error).slice(0, 160))
     }
   }
-  const components = accountSessionComponents(purpose, runsInStorelib(account))
+  const storelibCollects = runsInStorelib(account)
+  const components = accountSessionComponents(purpose, storelibCollects)
   const session = await stripe.accountSessions.create({ account: row.stripe_account_id, components })
   if (!session.client_secret) throw new PaymentsProblem("We couldn't load payments right now. Try again in a moment.", 502)
-  return { clientSecret: session.client_secret, publishableKey }
+  /*
+   * stripeSignIn: Stripe will ask the creator to sign in to Stripe in a
+   * window of its own before the form goes on. That window is opened from
+   * inside Stripe's frame, where no script of ours can reach it, and the
+   * phone app sends it to Safari. The form uses this to choose another way
+   * in the app (stripe-connect-embedded.tsx).
+   */
+  return { clientSecret: session.client_secret, publishableKey, stripeSignIn: !storelibCollects }
 }
 
 export async function beginStripeOnboarding(

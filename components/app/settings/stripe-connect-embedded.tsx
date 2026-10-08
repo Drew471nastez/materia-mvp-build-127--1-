@@ -3,6 +3,8 @@
 import * as React from "react"
 import type { CollectionOptions } from "@stripe/connect-js"
 import { WaitingArea } from "@/components/ui/activity-spinner"
+import { openSheet } from "@/lib/payments/identity-client"
+import { appHoldsStripeWindows, isNativeApp } from "@/lib/native-bridge"
 import { cn } from "@/lib/utils"
 
 export type EmbeddedPurpose = "stripe_onboarding" | "stripe_management" | "stripe_payouts"
@@ -19,20 +21,47 @@ function shownError(message: string): string {
  * server resolves the account from the session cookie; nothing here names it.
  * The secret lives only in this closure until Stripe.js takes it.
  */
-async function openSession(purpose: EmbeddedPurpose): Promise<{ clientSecret: string; publishableKey: string }> {
+async function openSession(purpose: EmbeddedPurpose): Promise<{ clientSecret: string; publishableKey: string; stripeSignIn: boolean }> {
   const res = await fetch("/api/payments/component", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ purpose }),
     cache: "no-store",
   })
-  const data = (await res.json().catch(() => ({}))) as { clientSecret?: unknown; publishableKey?: unknown; error?: unknown }
+  const data = (await res.json().catch(() => ({}))) as { clientSecret?: unknown; publishableKey?: unknown; stripeSignIn?: unknown; error?: unknown }
   const clientSecret = typeof data.clientSecret === "string" ? data.clientSecret.trim() : ""
   const publishableKey = typeof data.publishableKey === "string" ? data.publishableKey.trim() : ""
   if (!res.ok || !clientSecret.startsWith("accs_") || !publishableKey.startsWith("pk_")) {
     throw new Error(shownError(typeof data.error === "string" ? data.error : ""))
   }
-  return { clientSecret, publishableKey }
+  return { clientSecret, publishableKey, stripeSignIn: data.stripeSignIn === true }
+}
+
+/*
+  WHEN THE FORM WOULD LEAVE THE APP. On an account Stripe collects for, the
+  embedded form first asks the creator to sign in to Stripe, in a window it
+  opens from inside its own frame. No script on this page can reach that
+  window, and an app built before it could hold one hands it to Safari: the
+  creator was thrown out of Storelib the moment setup opened, and the sign
+  in never came back to the form. In that app the same setup runs on
+  Stripe's page in the sheet that slides over Storelib instead, and closes
+  back here. An app that holds Stripe's windows itself says so in its user
+  agent (capacitor.config.ts appendUserAgent) and keeps the embedded form.
+*/
+function needsSheet(stripeSignIn: boolean): boolean {
+  return stripeSignIn && isNativeApp() && !appHoldsStripeWindows()
+}
+
+async function openHostedSetup(): Promise<boolean> {
+  const res = await fetch("/api/payments/hosted-setup", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ inApp: true }),
+    cache: "no-store",
+  })
+  const data = (await res.json().catch(() => ({}))) as { ok?: unknown; url?: unknown }
+  if (!res.ok || data.ok !== true || typeof data.url !== "string" || !data.url.startsWith("https://")) return false
+  return (await openSheet(data.url)) === "closed"
 }
 
 /*
@@ -109,6 +138,8 @@ export function StripeConnectEmbedded({
   const [ready, setReady] = React.useState(false)
   const [failed, setFailed] = React.useState<string | null>(null)
   const [attempt, setAttempt] = React.useState(0)
+  /* The setup runs in the sheet over the app (needsSheet): "open" while it is up, "closed" after. */
+  const [sheet, setSheet] = React.useState<"off" | "open" | "closed">("off")
   const handlers = React.useRef({ onExit, onStep })
   handlers.current = { onExit, onStep }
   const collectionKey = JSON.stringify(collection ?? null)
@@ -118,6 +149,7 @@ export function StripeConnectEmbedded({
     let el: HTMLElement | null = null
     setReady(false)
     setFailed(null)
+    setSheet("off")
     ;(async () => {
       try {
         /*
@@ -127,6 +159,16 @@ export function StripeConnectEmbedded({
         */
         const [first, { loadConnectAndInitialize }] = await Promise.all([openSession(purpose), import("@stripe/connect-js/pure")])
         if (gone) return
+        if (needsSheet(first.stripeSignIn)) {
+          setReady(true)
+          setSheet("open")
+          const opened = await openHostedSetup().catch(() => false)
+          if (gone) return
+          if (!opened) return setFailed(LOAD_FAILED)
+          setSheet("closed")
+          void handlers.current.onExit?.()
+          return
+        }
         let pending: string | null = first.clientSecret
         const connect = loadConnectAndInitialize({
           publishableKey: first.publishableKey,
@@ -192,6 +234,28 @@ export function StripeConnectEmbedded({
           Try again
         </button>
         {fallback ? <div className="mt-3">{fallback}</div> : null}
+      </div>
+    )
+  }
+
+  if (sheet !== "off") {
+    return (
+      <div data-embedded-sheet={sheet} className={cn("flex min-h-[260px] flex-col items-center justify-center px-6 text-center", className)}>
+        {sheet === "open" ? (
+          <WaitingArea className="h-16" size={18} label="Setting up with Stripe" />
+        ) : (
+          <>
+            <p className="text-[15px] font-semibold text-[#1a1a2e]">Finish setup with Stripe</p>
+            <p className="mt-1 max-w-[300px] text-[14px] leading-5 text-[#6b7280]">Stripe opens over Storelib and brings you back here when you are done.</p>
+            <button
+              type="button"
+              onClick={() => setAttempt((n) => n + 1)}
+              className="mt-4 inline-flex h-11 items-center justify-center rounded-[10px] bg-[#1a1a2e] px-5 text-[14px] font-medium text-white transition-opacity active:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/30 sm:h-10"
+            >
+              Continue setup
+            </button>
+          </>
+        )}
       </div>
     )
   }

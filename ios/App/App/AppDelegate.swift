@@ -98,6 +98,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     func applicationDidBecomeActive(_ application: UIApplication) {
         if let vc = window?.rootViewController as? CAPBridgeViewController, let webView = vc.bridge?.webView {
             StorelibDownloads.shared.attach(to: webView)
+            StorelibPopups.shared.attach(to: webView)
         }
     }
 
@@ -262,5 +263,153 @@ final class StorelibDownloads: NSObject, WKScriptMessageHandler, URLSessionDownl
             name = String(stem.prefix(max(1, 119 - ext.count))) + (ext.isEmpty ? "" : ".\(ext)")
         }
         return name
+    }
+}
+
+// MARK: - Stripe's own windows, inside the app
+
+/// Stripe's embedded payout setup opens windows of its own from inside its
+/// frame: the sign in to Stripe, a bank's login while linking the payout
+/// account. Capacitor answers every new window by handing its address to
+/// Safari, so the creator was thrown out of Storelib the moment setup
+/// opened, and whatever they did there never reached the form. A window
+/// opened by a Stripe page (or to one) is drawn here instead, in a sheet
+/// over the app built from the configuration WebKit hands us, so it keeps
+/// its opener and can answer the form that asked for it. It goes away when
+/// Stripe closes it or the creator taps Done. Every other new window goes
+/// on to Capacitor's own handling, as before.
+///
+/// Capacitor's UI delegate stays in charge of everything else: this
+/// answers only for a new window and a window closing, and hands every
+/// other call on (responds(to:) and forwardingTarget(for:)).
+final class StorelibPopups: NSObject, WKUIDelegate, UIAdaptivePresentationControllerDelegate {
+    static let shared = StorelibPopups()
+
+    private weak var inner: WKUIDelegate?
+    private weak var popup: WKWebView?
+    private weak var sheet: UIViewController?
+
+    func attach(to webView: WKWebView) {
+        if webView.uiDelegate === self { return }
+        inner = webView.uiDelegate
+        webView.uiDelegate = self
+    }
+
+    override func responds(to aSelector: Selector!) -> Bool {
+        if super.responds(to: aSelector) { return true }
+        return inner?.responds(to: aSelector) ?? false
+    }
+
+    override func forwardingTarget(for aSelector: Selector!) -> Any? {
+        if let inner = inner, inner.responds(to: aSelector) { return inner }
+        return super.forwardingTarget(for: aSelector)
+    }
+
+    static func isStripe(_ host: String?) -> Bool {
+        guard let host = host?.lowercased(), !host.isEmpty else { return false }
+        return host == "stripe.com" || host.hasSuffix(".stripe.com") || host == "stripe.network" || host.hasSuffix(".stripe.network")
+    }
+
+    func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration, for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
+        let target = navigationAction.request.url
+        /// sourceFrame is declared non optional but WebKit can hand over none.
+        let source = (navigationAction.sourceFrame as WKFrameInfo?)?.securityOrigin.host
+        guard Self.isStripe(target?.host) || Self.isStripe(source) else {
+            return inner?.webView?(webView, createWebViewWith: configuration, for: navigationAction, windowFeatures: windowFeatures)
+        }
+        guard var top = webView.window?.rootViewController else { return nil }
+        while let next = top.presentedViewController { top = next }
+        if let open = popup { open.evaluateJavaScript("window.close()", completionHandler: nil) }
+
+        let web = WKWebView(frame: .zero, configuration: configuration)
+        web.uiDelegate = self
+        web.allowsBackForwardNavigationGestures = true
+        let controller = StorelibPopupController(web: web)
+        controller.modalPresentationStyle = .pageSheet
+        controller.presentationController?.delegate = self
+        popup = web
+        sheet = controller
+        top.present(controller, animated: true)
+        return web
+    }
+
+    func webViewDidClose(_ webView: WKWebView) {
+        if webView === popup {
+            popup = nil
+            if let shown = sheet, !shown.isBeingDismissed, shown.presentingViewController != nil { shown.dismiss(animated: true) }
+            sheet = nil
+            return
+        }
+        inner?.webViewDidClose?(webView)
+    }
+
+    /// Swiped down: the window is closed for the page that opened it too.
+    func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
+        popup?.evaluateJavaScript("window.close()", completionHandler: nil)
+        popup = nil
+        sheet = nil
+    }
+}
+
+/// The sheet a Stripe window is drawn in: Done at the top, the page under it.
+final class StorelibPopupController: UIViewController {
+    let web: WKWebView
+
+    init(web: WKWebView) {
+        self.web = web
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) is not used")
+    }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.backgroundColor = .white
+
+        let bar = UIView()
+        bar.backgroundColor = .white
+        bar.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(bar)
+
+        let line = UIView()
+        line.backgroundColor = UIColor(red: 0.925, green: 0.933, blue: 0.945, alpha: 1)
+        line.translatesAutoresizingMaskIntoConstraints = false
+        bar.addSubview(line)
+
+        let done = UIButton(type: .system)
+        done.setTitle("Done", for: .normal)
+        done.titleLabel?.font = .systemFont(ofSize: 17, weight: .semibold)
+        done.tintColor = UIColor(red: 0.102, green: 0.102, blue: 0.180, alpha: 1)
+        done.translatesAutoresizingMaskIntoConstraints = false
+        done.addTarget(self, action: #selector(close), for: .touchUpInside)
+        bar.addSubview(done)
+
+        web.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(web)
+
+        NSLayoutConstraint.activate([
+            bar.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            bar.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            bar.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            bar.heightAnchor.constraint(equalToConstant: 52),
+            line.leadingAnchor.constraint(equalTo: bar.leadingAnchor),
+            line.trailingAnchor.constraint(equalTo: bar.trailingAnchor),
+            line.bottomAnchor.constraint(equalTo: bar.bottomAnchor),
+            line.heightAnchor.constraint(equalToConstant: 1),
+            done.trailingAnchor.constraint(equalTo: bar.trailingAnchor, constant: -16),
+            done.centerYAnchor.constraint(equalTo: bar.centerYAnchor),
+            web.topAnchor.constraint(equalTo: bar.bottomAnchor),
+            web.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            web.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            web.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+        ])
+    }
+
+    /// Done closes the window the way a page would, so the form that opened it hears it close.
+    @objc private func close() {
+        web.evaluateJavaScript("window.close()", completionHandler: nil)
+        dismiss(animated: true)
     }
 }

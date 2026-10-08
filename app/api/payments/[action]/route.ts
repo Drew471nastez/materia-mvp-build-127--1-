@@ -29,6 +29,8 @@
  *                        hosted verification, or Stripe Identity where it is there
  *                        (lib/payments/stripe/hosted-verification)
  *   POST identity-status where that check has got to
+ *   POST hosted-setup    { inApp } Stripe's own setup page for this account, for the
+ *                        phone app when the embedded form would ask for a Stripe sign in
  *
  * Errors are one sentence for the creator. Airwallex's own codes and
  * messages stay in the server log.
@@ -38,7 +40,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { LIMITS, callerAddress, rateLimit } from "@/lib/api/rate-limit"
 import { addBank, detailsForm, submitDetails, uploadDocument } from "@/lib/payments/stripe/own-form"
-import { startVerification, verificationStatus } from "@/lib/payments/stripe/hosted-verification"
+import { startHostedSetup, startVerification, verificationStatus } from "@/lib/payments/stripe/hosted-verification"
 import {
   addPayoutAccount,
   componentAuth,
@@ -114,7 +116,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
 
   const moves = action === "payout"
   /* Reads the flow makes on its own (polling for Stripe's answer) must not spend the budget for writes. */
-  const reads = action === "details-form" || action === "identity-status" || action === "refresh" || action === "component"
+  const reads = action === "details-form" || action === "identity-status" || action === "refresh" || action === "component" || action === "hosted-setup"
   const limited = await rateLimit({
     bucket: moves ? "payout" : reads ? "payments-read" : "payments-setup",
     subjects: [creator.id],
@@ -228,6 +230,16 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
          */
         const origin = originOf(request)
         const started = await startVerification(creator, {
+          returnUrl: body.inApp === true ? `${origin}/app/payouts/identity-done` : `${origin}/app/payouts?setup=1`,
+          refreshUrl: `${origin}/app/payouts?setup=1`,
+        })
+        return NextResponse.json(started, { headers: NO_STORE })
+      }
+      case "hosted-setup": {
+        if (provider !== "stripe") return NextResponse.json({ error: "Not found." }, { status: 404, headers: NO_STORE })
+        /* The app's sheet comes back to the page it closes; anywhere else comes back to setup. */
+        const origin = originOf(request)
+        const started = await startHostedSetup(creator, {
           returnUrl: body.inApp === true ? `${origin}/app/payouts/identity-done` : `${origin}/app/payouts?setup=1`,
           refreshUrl: `${origin}/app/payouts?setup=1`,
         })

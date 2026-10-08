@@ -394,7 +394,7 @@ export async function componentAuth(
   purpose: "onboarding" | "payout_form" | "rfi" | "stripe_onboarding" | "stripe_management" | "stripe_payouts",
 ): Promise<
   | { authCode: string; codeVerifier: string; clientId: string; env: "sandbox" | "prod" }
-  | { clientSecret: string; publishableKey: string }
+  | { clientSecret: string; publishableKey: string; stripeSignIn: boolean }
 > {
   const provider = await providerFor(creator.id)
   if (provider === "stripe") {
@@ -407,7 +407,7 @@ export async function componentAuth(
             ? "payouts"
             : "balances"
     const session = await stripeAccountSession(creator, stripePurpose)
-    return { clientSecret: session.clientSecret, publishableKey: session.publishableKey }
+    return { clientSecret: session.clientSecret, publishableKey: session.publishableKey, stripeSignIn: session.stripeSignIn }
   }
   const cfg = requireConfigured()
   if (!cfg.embeddedComponents) throw new PaymentsProblem("This is not switched on for Storelib yet.", 503)
