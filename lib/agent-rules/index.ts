@@ -194,7 +194,7 @@ export const AGENT_RULE_GROUPS: RuleGroup[] = [
     title: "Storelib commerce",
     rules: [
       "Storelib creators sell digital products (presets, templates, courses, ebooks, memberships) and physical ones. Their published products reach a section as products, each with id, title, price, compare_price, currency, image, images, url, slug, available, tag, checkout_url and variants; a product page gets its product as page.product. The fields are in the docs (storelib.com/developers/selling).",
-      "Show the store's real products through its setting types: products, product_picker (@current on the product page), product_list, collection_picker or collection_list. A typed name or price only overrides the product's; never invent one in markup, a default or a preset.",
+      "Show real products: products, product_picker (@current on a product page), product_list, collection_picker. Never type a product, price or picture into markup, a default or a preset.",
       "A buy button links to the product's checkout_url, or a variant's own checkout_url for one option. Storelib checkout takes the payment and sends the buyer back to this site afterwards. Never build a payment form or load a payment script.",
       "A product that is not available shows its tag and no buy button. A store with no products gets no product section.",
       "A product page is the main product section's blocks (title, price, variant_picker, buy_buttons and the rest), never a new section that redraws the product.",

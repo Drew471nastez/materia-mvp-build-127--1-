@@ -159,11 +159,18 @@ const rendered = new Map<string, string>()
   }
 
   check("not one of them throws", threw.length === 0, threw.slice(0, 6).join("\n        "))
+  /*
+    Retired React sections that never receive the store (product_list,
+    products_carousel): a visitor gets nothing rather than invented products.
+    Everything else still draws something.
+  */
+  const STORELESS = new Set(["product_list", "products_carousel"])
   check(
     "and not one of them renders an empty box",
-    empty.length === 0,
+    empty.filter((t) => !STORELESS.has(t)).length === 0,
     empty.join(", "),
   )
+  check("the retired product sections draw nothing at all for a visitor, never invented products", [...STORELESS].every((t) => !/Digital Template Pack|Product 1|\$29\.99/.test(rendered.get(t) ?? "")))
 }
 
 // ===========================================================================

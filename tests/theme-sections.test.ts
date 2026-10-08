@@ -198,6 +198,8 @@ section("The product grid can show products somebody chose")
   grid.settings = { ...grid.settings, chosen: [] }
   check("none chosen: the editor asks, a visitor sees nothing", draw(grid, { catalog: CATALOG, inEditor: true }).includes("Choose products in the sidebar") && !/class="card /.test(draw(grid, { catalog: CATALOG })))
   const typed = fromPreset("product_grid")
+  /* The preset starts from the shop now; cards are the picked source. */
+  typed.settings = { ...typed.settings, source: "picked" }
   typed.blocks = [{ id: "b", type: "product", settings: { title: "Tote", price: "$48", url: "/products/tote" } }] as never
   check("a typed card with no photo shows the photo of the product it links to", /<img src="https:\/\/cdn\.example\/tote\.jpg"/.test(draw(typed, { catalog: CATALOG })))
   check("the picked cards are still the default", SECTION_SCHEMAS.product_grid.fields.find((f) => f.id === "source")?.default === "picked")
