@@ -197,6 +197,22 @@ check(
   [...proof].filter((f) => f.startsWith("app/")).join(", ") || "no app/ route reached",
 )
 
+/*
+  THE ROOT LAYOUT'S OWN CHILDREN. Whatever app/layout.tsx draws beside the
+  providers instead of inside them gets no locale. The /account community
+  bar was mounted there and its account menu calls useLocale, so /account
+  in a community read "Something went wrong". It renders inside them.
+*/
+const root = read.get("app/layout.tsx") || ""
+const localeOpen = root.indexOf("<LocaleProvider>")
+const localeClose = root.indexOf("</LocaleProvider>")
+const chrome = root.indexOf("<AccountCommunityChrome")
+check(
+  "the /account community bar is mounted inside LocaleProvider",
+  chrome === -1 || (localeOpen !== -1 && chrome > localeOpen && chrome < localeClose),
+  `LocaleProvider ${localeOpen}..${localeClose}, AccountCommunityChrome at ${chrome}`,
+)
+
 console.log(`\n  ${passed} passed, ${failed} failed`)
 if (failed) {
   console.log(`  failing: ${failures.join(", ")}`)

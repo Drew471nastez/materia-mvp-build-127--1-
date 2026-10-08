@@ -253,11 +253,14 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: EXPLORE_SCROLL_BOOT_SCRIPT }} />
       </head>
       <body className={`${inter.variable} ${communityTitle.variable} font-sans antialiased bg-background text-foreground`}>
-        {/* Community bar for /account, already mounted, so a tab to Profile does not paint the page and then the header. */}
-        <AccountCommunityChrome />
         <SWRProvider>
           <LocaleProvider>
-            <ExploreMarketplaceRoot>{children}</ExploreMarketplaceRoot>
+            <ExploreMarketplaceRoot>
+              {/* Community bar for /account, already mounted, so a tab to Profile does not paint the page and then the header.
+                  Inside the providers: its account menu reads the locale, and outside LocaleProvider it threw and took /account down. */}
+              <AccountCommunityChrome />
+              {children}
+            </ExploreMarketplaceRoot>
           </LocaleProvider>
         </SWRProvider>
         {/* ONE buyer-protection subpage for the whole application.
