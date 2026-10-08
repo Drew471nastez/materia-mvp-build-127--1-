@@ -95,7 +95,7 @@ console.log("\nCONTEXT: the community stays Home")
   check("the tab bar enters the context inside a community and reads it outside", /useEffect\(\(\) => enterCommunityContext\(community\), \[community\]\)/.test(bar) && /const homeCommunity = community \? null : context/.test(bar) && /buyerTabsAt\(pathname, exploreMarketplaceEnabled, homeCommunity\)/.test(bar))
   const nav = code("components/nav/place-navigator.tsx")
   check("the navigator's rows end it as they are pressed", /if \(key && ENDS_COMMUNITY_CONTEXT\.has\(key\)\) endCommunityContext\(\)/.test(nav) && /onClick=\{go\(r\.href, r\.key\)\}/.test(nav) && /onClick=\{go\(a\.href, a\.key\)\}/.test(nav))
-  check("kept in sessionStorage for the tab", /window\.sessionStorage\.setItem\(COMMUNITY_CONTEXT_KEY, next\)/.test(code("lib/nav/community-context.ts")) && communityOf("/community/clay-studio") === "clay-studio")
+  check("kept for the tab (and mirrored on the native app)", /tabStorageSet\(COMMUNITY_CONTEXT_KEY, next\)/.test(code("lib/nav/community-context.ts")) && communityOf("/community/clay-studio") === "clay-studio")
 }
 
 console.log("\nNAVIGATOR: the current row")
