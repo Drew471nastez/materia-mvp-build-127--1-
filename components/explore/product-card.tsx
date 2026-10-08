@@ -2,7 +2,7 @@
 
 import { personName } from "@/lib/profile/display-name"
 import { listPrice } from "@/lib/pricing/list-price"
-import { memo, useRef, useCallback } from "react"
+import { memo, useRef, useCallback, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { Badge } from "@/components/ui/badge"
@@ -10,6 +10,7 @@ import { getProductUrl, getStoreUrl } from "@/lib/url-helpers"
 import { SmartLink } from "@/components/smart-link"
 import { saveExploreScrollNow } from "@/lib/explore/use-explore-scroll"
 import { Star } from "lucide-react"
+import { leanImages, leanSizes, previewUrl } from "@/lib/images/lean"
 import { AppAvatar } from "@/components/app/app-avatar"
 
 interface ProductCardProps {
@@ -143,6 +144,23 @@ export const ProductCard = memo(function ProductCard({
   // Scroll guard: track touch movement (both axes) to cancel accidental clicks during scroll.
   // Hooks must be declared before any early return (React rules).
   const router = useRouter()
+  /*
+    THE COVER ON A SLOW CONNECTION (lib/images/lean.ts). A 32px copy paints
+    blurred at once and the cover fades in over it when it has arrived. On
+    3G, data saver or a 2 GB phone, a cover that has not started loading yet
+    asks for a 1x file: a cover already on its way is left alone, so nothing
+    is fetched twice.
+  */
+  const coverRef = useRef<HTMLImageElement>(null)
+  const [coverShown, setCoverShown] = useState(false)
+  const [leanSizesValue, setLeanSizesValue] = useState<string | null>(null)
+  useEffect(() => {
+    const img = coverRef.current
+    if (img?.complete && img.naturalWidth > 0) setCoverShown(true)
+    if (priority || !leanImages() || img?.currentSrc) return
+    setLeanSizesValue(leanSizes(sizes, window.devicePixelRatio || 1))
+  }, [priority, sizes])
+  const preview = product.thumbnail_url ? previewUrl(product.thumbnail_url) : null
   /**
    * ═════════════════════════════════════════════════════════════════════════
    *  PREFETCHED ON INTENT, NOT ON SIGHT
@@ -269,15 +287,32 @@ export const ProductCard = memo(function ProductCard({
         className="relative aspect-video bg-muted overflow-hidden transition-[filter] duration-100 active:brightness-95"
       >
         {product.thumbnail_url ? (
-          <Image
-            src={product.thumbnail_url}
-            alt={product.title || "Product"}
-            fill
-            sizes={sizes}
-            className="object-cover transition-transform duration-500 ease-out [@media(hover:hover)]:group-hover:scale-[1.03]"
-            priority={priority}
-            loading={priority ? undefined : "lazy"}
-          />
+          <>
+            {preview && !coverShown && (
+              <span
+                aria-hidden
+                className="absolute inset-0 scale-110 bg-cover bg-center blur-[10px]"
+                style={{ backgroundImage: `url("${preview}")` }}
+              />
+            )}
+            <Image
+              ref={coverRef}
+              src={product.thumbnail_url}
+              alt={product.title || "Product"}
+              fill
+              sizes={leanSizesValue ?? sizes}
+              className={
+                "object-cover transition-[transform,opacity] duration-500 ease-out [@media(hover:hover)]:group-hover:scale-[1.03] " +
+                (coverShown || priority ? "opacity-100" : "opacity-0")
+              }
+              priority={priority}
+              loading={priority ? undefined : "lazy"}
+              fetchPriority={priority ? undefined : "low"}
+              decoding="async"
+              onLoad={() => setCoverShown(true)}
+              onError={() => setCoverShown(true)}
+            />
+          </>
         ) : (
           <div className="flex h-full items-center justify-center text-muted-foreground">
             <span className="text-4xl">
