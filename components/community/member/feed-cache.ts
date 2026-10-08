@@ -244,6 +244,19 @@ export function addPost(communityId: string, post: FeedPostView) {
   }
 }
 
+/**
+ * A list read again, merged into the copy on screen (feed.tsx QUIET): the posts on screen keep their order and take the
+ * fresh copy's facts; the cursor and the pages already read are kept. `added` is what the fresh copy has that the screen
+ * does not (pinned posts aside), newest first, for FeedLive to bring in.
+ */
+export function mergeQuiet(current: CachedView, fresh: CachedView): { view: CachedView; added: FeedPostView[] } {
+  const byId = new Map(fresh.posts.map((p) => [p.id, p]))
+  const have = new Set(current.posts.map((p) => p.id))
+  const posts = current.posts.map((p) => byId.get(p.id) ?? p)
+  const added = fresh.posts.filter((p) => !have.has(p.id) && !p.pinned)
+  return { view: { ...current, posts, at: fresh.at }, added }
+}
+
 /** For tests and probes: forget everything. */
 export function clearViews() {
   views.clear()

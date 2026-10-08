@@ -46,6 +46,8 @@ import { intentOf } from "./post-intent"
 import { COMMUNITY_FEED_REFRESH_SCOPE } from "@/lib/communities/refresh-scope"
 
 export const PULL_EVENT = "storelib:pull-refresh"
+/** Posts a quiet refresh found that the list on screen did not have (feed.tsx QUIET): `{ key, posts }`. */
+export const FRESH_POSTS_EVENT = "storelib:feed-fresh-posts"
 export const PULL_SCOPE = COMMUNITY_FEED_REFRESH_SCOPE
 
 /** A reader whose first post is further above the bar than this is "scrolled down": new posts wait under the pill. */
@@ -205,6 +207,20 @@ export function FeedLive({ communityId, viewerId, feedKey, target, sort, onView 
       })()
     })
   }, [communityId])
+
+  /* A QUIET REFRESH's new posts: in at the top for a reader there, under the pill for one further down. */
+  useEffect(() => {
+    const on = (e: Event) => {
+      const detail = (e as CustomEvent<{ key?: string; posts?: FeedPostView[] }>).detail
+      if (!detail?.posts?.length || detail.key !== now.current.feedKey) return
+      const fresh = detail.posts.filter((p) => !(readView(detail.key!)?.posts.some((q) => q.id === p.id)) && !waitingRef.current.some((q) => q.id === p.id))
+      if (!fresh.length) return
+      if (atTop()) putRef.current(fresh)
+      else setWaiting((w) => [...fresh, ...w])
+    }
+    window.addEventListener(FRESH_POSTS_EVENT, on)
+    return () => window.removeEventListener(FRESH_POSTS_EVENT, on)
+  }, [])
 
   /* Back up to the top on their own: what waited goes in. */
   useEffect(() => {

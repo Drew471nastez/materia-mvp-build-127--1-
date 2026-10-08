@@ -55,7 +55,7 @@ async function main() {
     check("round 15: no fade on a switch; only a list that takes the spinner's place comes up from nothing", !/OUT_MS|outAnim/.test(feed) && /if \(!fromSpinner \|\| !el/.test(feed))
     check("a space has its own address on every device, and the list still switches here", /window\.history\.pushState\(null, "", href\)/.test(feed) && /setPicked\(\{ target: next, from: href \}\)/.test(feed) && !/spaceKeepsAddress/.test(feed))
     check("everything under the chips is one memoised block", /const FeedBody = memo\(/.test(feed) && /<FeedBody/.test(feed))
-    check("the composer and the posts follow the list (round 16: never the chip's own render)", /viewKey\(communityId, listTarget, listSort\)/.test(feed) && /fixedSpaceId: space\.id/.test(feed) && /const asked = readView\(key\)/.test(feed))
+    check("the composer and the posts follow the list (round 16: never the chip's own render)", /viewKey\(communityId, listTarget, listSort\)/.test(feed) && /fixedSpaceId: space\.id/.test(feed) && /const asked = listed \?\? readView\(key\)/.test(feed))
     check("a switched list draws a phone's screenful first", /const SWAP_CARDS = 4/.test(feed) && /i < firstCards \|\| whole/.test(feed))
     const chips = code("components/community/member/space-chips.tsx")
     check("a chip is touch-action: manipulation (no double tap to zoom swallowing a quick second tap)", /const CHIP =\s*[`"][^`"]*touch-manipulation/.test(chips))
