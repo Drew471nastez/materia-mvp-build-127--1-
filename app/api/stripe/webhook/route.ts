@@ -1234,6 +1234,12 @@ async function handleStripeEvent(request: Request) {
     try {
       const done = await syncChargeRefund(supabaseAdmin, stripe, charge)
       console.log("[Webhook] charge.refunded", charge.id, "applied:", done.applied, "already applied:", done.skipped)
+      /* A physical order's own status and refunded total, so the order list agrees with Stripe (lib/physical/orders-server.ts). */
+      const intent = typeof charge.payment_intent === "string" ? charge.payment_intent : charge.payment_intent?.id
+      if (intent) {
+        const { syncCheckoutRefunds } = await import("@/lib/physical/orders-server")
+        await syncCheckoutRefunds(supabaseAdmin as never, intent).catch((e) => console.error("[Webhook] physical refund restate:", e instanceof Error ? e.message : e))
+      }
     } catch (error) {
       console.error("[Webhook] Error processing charge.refunded:", error instanceof Error ? error.message : error)
       /* A 500 makes Stripe retry, and a retry skips what was applied. */

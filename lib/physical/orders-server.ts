@@ -496,6 +496,38 @@ export async function noteRefund(db: Db, creatorId: string, checkoutId: string, 
   return fresh ? { ok: true, order: fresh } : { ok: false, error: "Order not found." }
 }
 
+/**
+ * A REFUND MADE ANYWHERE, ON THE ORDER. Stripe's charge.refunded writes each
+ * line's refund (lib/stripe/refund-sync.ts); the order list reads the
+ * checkout's own status and refunded total, which only Storelib's own Refund
+ * button used to restate. So a refund made in the Stripe dashboard showed on
+ * the order page and not in the list. Called by the webhook after the lines
+ * are written: every checkout the payment paid for is restated, with one
+ * timeline line per new total (the key makes a retried delivery a no-op).
+ */
+export async function syncCheckoutRefunds(db: Db, paymentIntentId: string): Promise<number> {
+  const { data } = await db.from("orders").select("checkout_id").eq("stripe_payment_intent_id", paymentIntentId)
+  const ids = [...new Set(((data ?? []) as { checkout_id: string | null }[]).map((r) => r.checkout_id).filter((x): x is string => !!x))]
+  let done = 0
+  for (const checkoutId of ids) {
+    const { data: co } = await db.from("commerce_checkouts").select("creator_id").eq("id", checkoutId).maybeSingle()
+    const creatorId = (co as { creator_id?: string } | null)?.creator_id
+    if (!creatorId) continue
+    const updated = await restate(db, creatorId, checkoutId)
+    if (!updated || updated.refundedCents <= 0) continue
+    await addOrderEvent(db, {
+      checkoutId,
+      creatorId,
+      kind: "payment.refunded",
+      message: `${updated.refundedCents >= updated.totalCents ? "Refunded in full" : "Partly refunded"}: ${(updated.refundedCents / 100).toFixed(2)} ${updated.currency}`,
+      actor: "webhook",
+      key: `refund_total:${checkoutId}:${updated.refundedCents}`,
+    })
+    done++
+  }
+  return done
+}
+
 /* ── returns ──────────────────────────────────────────────────────────── */
 
 const RETURN_REASONS = ["size", "damaged", "defective", "not_as_described", "wrong_item", "changed_mind", "other"]

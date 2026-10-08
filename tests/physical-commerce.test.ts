@@ -405,5 +405,14 @@ console.log("\nThe switch, in the app")
   check("the checkout link names the shop", physicalCheckoutHref(id, []).startsWith(`/checkout/physical?shop=${id}`))
 }
 
+console.log("\nA refund made in the Stripe dashboard reaches the order\n")
+{
+  const hook = read("app/api/stripe/webhook/route.ts")
+  const orders = read("lib/physical/orders-server.ts")
+  check("charge.refunded restates every physical checkout the payment paid for", /syncCheckoutRefunds\(supabaseAdmin as never, intent\)/.test(hook) && /export async function syncCheckoutRefunds/.test(orders))
+  check("  after the lines are written, not before", hook.indexOf("syncChargeRefund(supabaseAdmin") < hook.indexOf("syncCheckoutRefunds(supabaseAdmin"))
+  check("  with one timeline line per new total, so a retried delivery adds nothing", /syncCheckoutRefunds[\s\S]{0,1400}key: `refund_total:\$\{checkoutId\}:\$\{updated\.refundedCents\}`/.test(orders))
+}
+
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) process.exit(1)
