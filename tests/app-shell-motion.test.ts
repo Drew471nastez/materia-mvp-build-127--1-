@@ -515,7 +515,7 @@ section("One scrollbar track on a computer, always there, never moving")
   /* "When landing on the settings page, the content drifts toward the right." Its wrapper was overflow-x: hidden, so a scroller; the rise overflowed it by 2px, a scrollbar came for 180ms and went, and the page slid 7.5px right (scripts/check-settings-landing). */
   const settingsForm = code("components/app/settings-form-new.tsx")
   check("Settings is not a scroller of its own either: its wrappers clip sideways, so the landing's rise raises no bar and nothing slides",
-    /<div data-settings-page="" className="overflow-x-clip bg-\[#fafafa\]">\s*<div className="max-w-4xl mx-auto [^"]*overflow-x-clip">/.test(settingsForm) && !/overflow-x-hidden bg-\[#fafafa\]/.test(settingsForm))
+    /<div data-settings-page="" className="overflow-x-clip bg-\[#fafafa\]">\s*<div className="max-w-4xl [^"]*mx-auto [^"]*overflow-x-clip">/.test(settingsForm) && !/overflow-x-hidden bg-\[#fafafa\]/.test(settingsForm))
 }
 
 section("The way back")

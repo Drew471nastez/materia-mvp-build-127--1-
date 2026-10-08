@@ -1,4 +1,5 @@
 import { SettingsFormNew } from "@/components/app/settings-form-new"
+import { SettingsSheet } from "@/components/app/settings-sheet"
 import type { Metadata } from "next"
 import { loadSettingsData } from "./_server"
 
@@ -10,7 +11,9 @@ export default async function SettingsPage() {
   const data = await loadSettingsData()
   if (!data) return null
 
+  /* Drawn as one large sheet over the dashboard (components/app/settings-sheet.tsx), at the same address. */
   return (
+    <SettingsSheet>
     <SettingsFormNew
       profile={data.profile}
       creator={data.creator}
@@ -24,5 +27,6 @@ export default async function SettingsPage() {
       paymentsProvider={data.paymentsProvider}
       initialTab="general"
     />
+    </SettingsSheet>
   )
 }

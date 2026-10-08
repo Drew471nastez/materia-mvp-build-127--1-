@@ -861,14 +861,14 @@ check(
   )
   check(
     "every /app page shell wears it: Settings, Home, Analytics, and the list pages through orders/order-parts GUTTER",
-    /className="max-w-4xl mx-auto app-gutter py-6 sm:py-8/.test(code("components/app/settings-form-new.tsx"))
+    /* Changed on purpose: Settings is wider from 1024px, where its groups stand beside the open section. */ /className="max-w-4xl lg:max-w-\[1120px\] mx-auto app-gutter py-6 sm:py-8/.test(code("components/app/settings-form-new.tsx"))
       && /className="app-gutter py-6 max-w-\[1200px\] mx-auto"/.test(code("components/app/dashboard-client.tsx"))
       && /className="app-gutter py-6 max-w-\[1200px\] mx-auto space-y-6"/.test(code("app/app/analytics/analytics-client.tsx"))
       && /export const GUTTER = "app-gutter"/.test(code("app/app/orders/order-parts.tsx")),
   )
   check(
     "the Settings tab strip still reaches the glass, out by whatever the shell put in rather than by its own copy of 16px",
-    /data-settings-tabs="" className="mb-6 sm:mb-8 overflow-x-auto app-gutter-bleed sm:mx-0 sm:px-0/.test(code("components/app/settings-form-new.tsx")),
+    /* Changed on purpose: the pill row is for under 1024px; the grouped column takes over from there. */ /data-settings-tabs="" className="mb-6 sm:mb-8 lg:hidden overflow-x-auto app-gutter-bleed sm:mx-0 sm:px-0/.test(code("components/app/settings-form-new.tsx")),
   )
   check(
     "no Settings or billing card writes its own sideways padding any more: `p-4 sm:p-6` is gone from both",

@@ -30,7 +30,6 @@ import { deliveryEstimate } from "@/lib/physical/rates"
 import { PICKUP_READY_SHORT } from "@/lib/physical/pickup"
 import { REGIONS, regionLabel, regionsOf } from "@/lib/physical/regions"
 import { fromGrams, toGrams, weightUnitFor, type UnitSystem } from "@/lib/physical/units"
-import { CATEGORY_LABEL, PROVIDERS, type ProviderCategory } from "@/lib/physical/providers"
 import { PICKUP_READY, type FulfillmentModel, type Location, type LocationKind, type PickupReady, type RateKind, type RateTier, type ShippingProfile, type ShippingRate, type ShippingZone } from "@/lib/physical/types"
 import { BTN_DANGER, BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, Card, CountryPicker, DecimalInput, Empty, FIELD, Field, MoneyInput, MUTED, Notice, NumberInput, Pill, SelectInput, TextInput, Toggle, api, centsOf, dollarsOf, money } from "./ui"
 
@@ -259,7 +258,12 @@ export function ShippingSettings() {
         <div className="space-y-4">
           <Returns data={data} reload={load} />
           <Packages data={data} setData={setData} />
-          <Integrations data={data} setData={setData} />
+          {/* Integrations have their own section now (Settings › Integrations, components/physical/integrations-marketplace.tsx). */}
+          <Card title="Integrations" description="Shippo, Printful, Gelato and the other services that ship or make your orders.">
+            <a href="/app/settings?tab=integrations" className={BTN_SECONDARY}>
+              Open Integrations
+            </a>
+          </Card>
         </div>
       ) : null}
     </div>
@@ -1352,107 +1356,3 @@ function Returns({ data, reload }: { data: Data; reload: () => void }) {
   )
 }
 
-/* ── Integrations ──────────────────────────────────────────────────────── */
-
-function Integrations({ data, setData }: { data: Data; setData: React.Dispatch<React.SetStateAction<Data | null>> }) {
-  const groups = (Object.keys(CATEGORY_LABEL) as ProviderCategory[]).map((c) => ({ category: c, list: PROVIDERS.filter((p) => p.category === c) })).filter((g) => g.list.length)
-  return (
-    <div className="space-y-4">
-      {groups.map((g) => (
-        <Card key={g.category} title={CATEGORY_LABEL[g.category]}>
-          <ul className="space-y-2">
-            {g.list.map((p) => (
-              <IntegrationRow key={p.id} provider={p} state={data.integrations.find((i) => i.provider === p.id) ?? null} onSaved={(integrations) => setData((d) => (d ? { ...d, integrations } : d))} />
-            ))}
-          </ul>
-        </Card>
-      ))}
-    </div>
-  )
-}
-
-function IntegrationRow({ provider, state, onSaved }: { provider: (typeof PROVIDERS)[number]; state: Integration | null; onSaved: (i: Integration[]) => void }) {
-  const [open, setOpen] = React.useState(false)
-  const [url, setUrl] = React.useState(state?.url ?? "")
-  const [secret, setSecret] = React.useState("")
-  const [key, setKey] = React.useState("")
-  const [error, setError] = React.useState<string | null>(null)
-  const connectable = provider.fields.some((f) => f === "api_key" || f === "url")
-  const pill =
-    provider.id === "manual" || provider.id === "csv" || provider.id === "supplier_email" ? (
-      <Pill tone="green">Ready</Pill>
-    ) : state?.status === "connected" ? (
-      <Pill tone="green">Connected</Pill>
-    ) : state?.status === "needs_setup" ? (
-      <Pill tone="amber">Key saved, not live yet</Pill>
-    ) : state?.status === "error" ? (
-      <Pill tone="red">Error</Pill>
-    ) : provider.availability === "needs_setup" ? (
-      <Pill tone="gray">Not available yet</Pill>
-    ) : (
-      <Pill tone="gray">Not connected</Pill>
-    )
-  const save = async (disconnect = false) => {
-    setError(null)
-    const r = await api<{ integrations: Integration[] }>(`/api/physical/integrations/${provider.id}`, { method: "PUT", body: disconnect ? { disconnect: true } : { url, webhookSecret: secret, apiKey: key } })
-    if (!r.ok) return setError(r.error)
-    onSaved(r.data.integrations)
-    setSecret("")
-    setKey("")
-    setOpen(false)
-  }
-  return (
-    <li className="rounded-xl border border-[#eceef1] px-3 py-3">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="flex flex-wrap items-center gap-2 text-[14px] font-semibold text-[#1a1a2e]">
-            {provider.name}
-            {pill}
-          </p>
-          <p className="mt-0.5 text-[13px] leading-[18px] text-[#6b7280]">{provider.description}</p>
-          {state?.lastError ? <p className="mt-1 text-[12.5px] text-[#b42318]">{state.lastError}</p> : null}
-        </div>
-        {provider.id === "csv" ? (
-          <a href="/api/physical/orders/export" className={cn(BTN_SECONDARY, "shrink-0")}>
-            Download
-          </a>
-        ) : connectable ? (
-          <button type="button" className={cn(BTN_SECONDARY, "shrink-0")} onClick={() => setOpen((v) => !v)}>
-            {state && state.status !== "disconnected" ? "Manage" : "Set up"}
-          </button>
-        ) : null}
-      </div>
-      {open ? (
-        <div className="mt-3 space-y-3 border-t border-[#eceef1] pt-3">
-          {provider.fields.includes("url") ? (
-            <Field label="Webhook address" hint="A public https address">
-              <TextInput value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://example.com/storelib/orders" inputMode="url" />
-            </Field>
-          ) : null}
-          {provider.fields.includes("webhook_secret") ? (
-            <Field label="Signing secret" hint={state?.secretHint ? `Saved, ends in ${state.secretHint}. Leave empty to keep it.` : "16 characters or more. Check X-Storelib-Signature against it."}>
-              <TextInput type="password" autoComplete="off" value={secret} onChange={(e) => setSecret(e.target.value)} />
-            </Field>
-          ) : null}
-          {provider.fields.includes("api_key") ? (
-            <Field label="API key" hint={state?.keyHint ? `Saved, ends in ${state.keyHint}. Leave empty to keep it.` : "Stored encrypted. Never shown again."}>
-              <TextInput type="password" autoComplete="off" value={key} onChange={(e) => setKey(e.target.value)} />
-            </Field>
-          ) : null}
-          {provider.availability === "needs_setup" ? <Notice tone="amber">Storelib doesn't send orders to {provider.name} yet. Saving a key gets you ready for when it does.</Notice> : null}
-          {error ? <Notice>{error}</Notice> : null}
-          <div className="flex flex-wrap justify-end gap-2">
-            {state && state.status !== "disconnected" ? (
-              <button type="button" className={BTN_DANGER} onClick={() => save(true)}>
-                Disconnect
-              </button>
-            ) : null}
-            <button type="button" className={BTN_PRIMARY} onClick={() => save(false)}>
-              Save
-            </button>
-          </div>
-        </div>
-      ) : null}
-    </li>
-  )
-}

@@ -8085,3 +8085,16 @@ html.nav-landing:not(.explore-scroll-restoring):not(.explore-scroll-settling) .e
     animation: none;
   }
 }
+
+/*
+ * SETTINGS AS A SHEET (components/app/settings-sheet.tsx). The save bar was placed for the shell: beside the 240px rail and
+ * under the sheet's layer. Over the sheet it is the sheet's: across its width and above it. The page under the sheet does
+ * not scroll while it is up.
+ */
+html[data-settings-sheet-up] [data-settings-save-bar] {
+  z-index: 57;
+  left: 0;
+}
+html[data-settings-sheet-up] .app-content-scroll {
+  overflow: hidden;
+}

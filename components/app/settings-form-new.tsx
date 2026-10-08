@@ -19,8 +19,9 @@ import {
   CreditCard, Shield, Settings, Wallet, Landmark, Truck,
   ExternalLink, ChevronRight, Globe,
   User, FileText, ChevronLeft,
-  ToggleLeft, Bell, LogOut, Trash2, Languages, Info, ChevronDown, CheckCircle, Clock, Copy, Plus
+  ToggleLeft, Bell, LogOut, Trash2, Languages, Info, ChevronDown, CheckCircle, Clock, Copy, Plus, Plug
 } from "lucide-react"
+import { IntegrationsMarketplace } from "@/components/physical/integrations-marketplace"
 import type { Profile, Creator } from "@/lib/types"
 import { isValidUsername } from "@/lib/reserved-words"
 import { getLinksShareUrl, getLinksUrlDisplay, getStoreShareUrl, getStoreUrl, getStoreUrlDisplay, getWebsiteShareUrl, getWebsiteUrlDisplay } from "@/lib/url-helpers"
@@ -56,15 +57,29 @@ import { PaymentsHub } from "@/components/app/settings/payments-hub"
 
 
 const TABS = [
-  { id: "general", label: "General", icon: Settings },
-  { id: "security", label: "Security", icon: Shield },
-  { id: "payments", label: "Payments", icon: Wallet },
-  { id: "billing", label: "Billing", icon: CreditCard },
-  { id: "domains", label: "Domains", icon: Globe },
-  { id: "notifications", label: "Notifications", icon: Bell },
-  { id: "privacy", label: "Privacy", icon: ToggleLeft },
-  /* Shipping and delivery, locations, taxes, returns and integrations: only while physical commerce is on in /admin. */
-  { id: "shipping", label: "Shipping", icon: Truck },
+  { id: "general", label: "General", icon: Settings, group: "account" },
+  { id: "security", label: "Security", icon: Shield, group: "account" },
+  { id: "privacy", label: "Privacy", icon: ToggleLeft, group: "account" },
+  { id: "notifications", label: "Notifications", icon: Bell, group: "account" },
+  { id: "billing", label: "Billing", icon: CreditCard, group: "account" },
+  { id: "payments", label: "Payments", icon: Wallet, group: "store" },
+  { id: "domains", label: "Domains", icon: Globe, group: "store" },
+  /* Shipping and delivery, locations, taxes and returns: only while physical commerce is on in /admin. */
+  { id: "shipping", label: "Shipping", icon: Truck, group: "commerce" },
+  /* Shippo, Printful, Gelato and the rest: the commerce integrations, while physical commerce is on. */
+  { id: "integrations", label: "Integrations", icon: Plug, group: "integrations" },
+] as const
+
+/*
+  THE SECTIONS IN GROUPS (the owner's reference: Account, Store, Commerce, Integrations, each a heading over its sections in
+  the sheet's left column). Nothing was removed or renamed: the same tabs, the same ?tab= addresses, in an order that says
+  what each is for.
+*/
+const TAB_GROUPS = [
+  { id: "account", label: "Account" },
+  { id: "store", label: "Store" },
+  { id: "commerce", label: "Commerce" },
+  { id: "integrations", label: "Integrations" },
 ] as const
 /*
   NO STORES TAB. "Get rid of the Stores tab in Settings. It doesn't make any
@@ -79,7 +94,9 @@ type TabId = typeof TABS[number]["id"]
 /** The selected fill fading in on its own tab, and the words' colour: one short time, one plain ease out. */
 const TAB_FADE_MS = 150
 const TAB_EASE = "cubic-bezier(0.33, 1, 0.68, 1)"
-const TAB_IDS: TabId[] = ["general", "security", "payments", "billing", "domains", "notifications", "privacy", "shipping"]
+const TAB_IDS: TabId[] = ["general", "security", "privacy", "notifications", "billing", "payments", "domains", "shipping", "integrations"]
+/** Tabs that exist only while physical commerce is on in /admin. */
+const COMMERCE_TABS = new Set<string>(["shipping", "integrations"])
 
 interface SettingsFormProps {
   profile: Profile & {
@@ -323,7 +340,19 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
 
   /* A tab that no longer exists (an old ?tab=stores) is General. */
   const physicalCommerce = usePhysicalCommerceEnabled()
-  const [activeTab, setActiveTab] = useState<TabId>(() => (TAB_IDS.includes(initialTab) && (initialTab !== "shipping" || physicalCommerce) ? initialTab : "general"))
+  const [activeTab, setActiveTab] = useState<TabId>(() => (TAB_IDS.includes(initialTab) && (!COMMERCE_TABS.has(initialTab) || physicalCommerce) ? initialTab : "general"))
+  /* The sections this account has: Shipping and Integrations only while physical commerce is on. */
+  const shownTabs = TABS.filter((tab) => !COMMERCE_TABS.has(tab.id) || physicalCommerce)
+  const labelOf = (id: TabId): string =>
+    id === "general" ? t("settings.general") :
+    id === "security" ? t("settings.security") :
+    id === "privacy" ? t("settings.privacy") :
+    id === "notifications" ? t("settings.notifications") :
+    id === "billing" ? t("settings.billing") :
+    id === "payments" ? t("settings.payments") :
+    id === "shipping" ? "Shipping" :
+    id === "integrations" ? "Integrations" :
+    "Domains"
   /**
    * Billing's own data, fetched the first time the tab is opened and kept.
    *
@@ -561,7 +590,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
       url.searchParams.set("tab", "notifications")
       url.hash = ""
       window.history.replaceState({}, "", url.pathname + url.search)
-    } else if (tab && TAB_IDS.includes(tab as TabId) && (tab !== "shipping" || physicalCommerce)) {
+    } else if (tab && TAB_IDS.includes(tab as TabId) && (!COMMERCE_TABS.has(tab) || physicalCommerce)) {
       setActiveTab(tab as TabId)
       if (tab === "domains") fetchDomains()
     } else if (tab) {
@@ -709,7 +738,8 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
      * is. The new tab appears directly under the bar, and anything short of
      * the screen's foot is left as page.
      */
-    const scroller = formRef.current?.closest(".app-content-scroll") as HTMLElement | null
+    /* The settings sheet's own scroller when settings is drawn in it (components/app/settings-sheet.tsx), else the shell's. */
+    const scroller = formRef.current?.closest("[data-settings-sheet-scroll], .app-content-scroll") as HTMLElement | null
     const form = formRef.current
     if (scroller && form) {
       const formTop = form.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop
@@ -1156,7 +1186,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
         page rises inside the shell's scroller, whose track is always there.
       */}
       <div data-settings-page="" className="overflow-x-clip bg-[#fafafa]">
-        <div className="max-w-4xl mx-auto app-gutter py-6 sm:py-8 pb-16 sm:pb-32 overflow-x-clip">
+        <div className="max-w-4xl lg:max-w-[1120px] mx-auto app-gutter py-6 sm:py-8 pb-16 sm:pb-32 overflow-x-clip">
         {/*
           THE HEADER AND THE ADDRESS PILL. On a phone the pill took the right
           half of the row the title and the subtitle shared, and "Manage your
@@ -1176,19 +1206,50 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
           <p className="col-span-2 row-start-2 text-[14px] text-[#6b7280] sm:col-span-1 sm:col-start-1 sm:mt-1">{t("settings.subtitle")}</p>
         </div>
 
+        {/*
+          FROM 1024px, THE SECTIONS ARE A COLUMN OF GROUPS beside the one open (the owner's reference: Account, Store,
+          Commerce, Integrations). Below it, the same sections are the pill row above, in the same order.
+        */}
+        <div className="lg:grid lg:grid-cols-[220px_minmax(0,1fr)] lg:items-start lg:gap-10">
+        <nav aria-label="Settings" data-settings-groups="" className="sticky top-2 hidden lg:block">
+          <div className="rounded-2xl border border-[#e5e7eb]/60 bg-white p-2 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+            {TAB_GROUPS.map((group) => {
+              const list = shownTabs.filter((tab) => tab.group === group.id)
+              if (list.length === 0) return null
+              return (
+                <div key={group.id} className="mb-1 last:mb-0" data-settings-group={group.id}>
+                  <p className="px-3 pb-1.5 pt-3 text-[11.5px] font-semibold uppercase tracking-[0.06em] text-[#6b7280]">{group.label}</p>
+                  {list.map((tab) => {
+                    const Icon = tab.icon
+                    const on = activeTab === tab.id
+                    return (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        onClick={() => handleTabChange(tab.id)}
+                        aria-current={on ? "page" : undefined}
+                        data-settings-side-tab={tab.id}
+                        className={`flex h-10 w-full cursor-pointer items-center gap-2.5 rounded-[10px] px-3 text-left text-[14px] outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 [-webkit-tap-highlight-color:transparent] ${
+                          on ? "bg-[#eceef1] font-semibold text-[#1a1a2e]" : "font-medium text-[#4b5563] hover:bg-[#f3f4f6] hover:text-[#1a1a2e]"
+                        }`}
+                      >
+                        <Icon className="h-4 w-4 shrink-0" aria-hidden />
+                        {labelOf(tab.id)}
+                      </button>
+                    )
+                  })}
+                </div>
+              )
+            })}
+          </div>
+        </nav>
+        <div className="min-w-0">
         {/* Pill-shaped Tab Navigation - Hidden scrollbar, fixed height to prevent layout shift */}
-        <div ref={tabNavRef} data-settings-tabs="" className="mb-6 sm:mb-8 overflow-x-auto app-gutter-bleed sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+        <div ref={tabNavRef} data-settings-tabs="" className="mb-6 sm:mb-8 lg:hidden overflow-x-auto app-gutter-bleed sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
           <div className="relative flex gap-1 p-1 w-fit h-[44px] sm:h-[48px] items-center">
-            {TABS.filter((tab) => tab.id !== "shipping" || physicalCommerce).map((tab) => {
+            {shownTabs.map((tab) => {
               const Icon = tab.icon
-              const tabLabel = tab.id === "general" ? t("settings.general") :
-                              tab.id === "security" ? t("settings.security") :
-                              tab.id === "privacy" ? t("settings.privacy") :
-                              tab.id === "notifications" ? t("settings.notifications") :
-                              tab.id === "billing" ? t("settings.billing") :
-                              tab.id === "payments" ? t("settings.payments") :
-                              tab.id === "shipping" ? "Shipping" :
-                              "Domains"
+              const tabLabel = labelOf(tab.id)
               return (
                 <button
                   key={tab.id}
@@ -1677,6 +1738,9 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
 
           {panelTab === "shipping" && physicalCommerce && <ShippingSettings />}
 
+          {/* Integrations: shipping, print on demand, dropshipping and fulfillment services (components/physical/integrations-marketplace.tsx). */}
+          {panelTab === "integrations" && physicalCommerce && <IntegrationsMarketplace />}
+
           {/* Payments Tab */}
           {panelTab === "payments" && (
             <PaymentsHub
@@ -1768,6 +1832,8 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
 
           </div>
         </form>
+        </div>
+        </div>
         {/* Room for the save bar while it is up, so the page's last row can scroll clear of it. */}
         {hasUnsavedChanges ? <div aria-hidden className="h-16" /> : null}
       </div>
