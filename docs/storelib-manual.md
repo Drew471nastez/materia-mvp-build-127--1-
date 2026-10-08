@@ -302,6 +302,7 @@ All 27 of them.
 | `raw` | Emit unescaped. For `richtext`, `inline_richtext`, `html` and `product.description_html` only. |
 | `url` | Makes a link safe. See below. |
 | `embed` | Turns a video URL into a player URL. See section 11.3. |
+| `map` | Turns an address, or a Google Maps link, into a Google map for `embed`. |
 | `asset` | Turns `asset://<hash>` into the URL this account serves it from. |
 | `alpha: 0.5` | The same colour at the given alpha. Hex only. |
 | `date: "short"` | A `datetime` for people to read: `long` (14 March 2026), `short`, `time`, `long_time`, `iso`. Read as written, never moved to another time zone. |

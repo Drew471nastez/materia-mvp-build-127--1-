@@ -38,7 +38,8 @@
  * goes in the section's own <script> block, where it is checked and scoped.
  */
 import type { RenderContext, Result, ThemeError } from "../types"
-import { Linked, formatDatetime, plainText, safeHref } from "../values"
+import { Linked, formatDatetime, parseVideoUrl, plainText, safeHref } from "../values"
+import { mapEmbedSrc } from "@/lib/website-builder/map-embed"
 import { guardRawHtml, isScriptScheme } from "./raw-html"
 import { markFor, stripMarks } from "./marks"
 
@@ -357,21 +358,24 @@ export function stripDocumentMarkup(html: string): string {
  * rather than from a blank rectangle.
  */
 const EMBED_HOSTS: { test: RegExp; to: (m: RegExpMatchArray) => string }[] = [
-  { test: /^https?:\/\/(?:www\.)?youtube(?:-nocookie)?\.com\/embed\/([\w-]{6,})/i, to: (m) => `https://www.youtube-nocookie.com/embed/${m[1]}` },
-  { test: /^https?:\/\/(?:www\.)?youtube\.com\/watch\?v=([\w-]{6,})/i, to: (m) => `https://www.youtube-nocookie.com/embed/${m[1]}` },
-  { test: /^https?:\/\/youtu\.be\/([\w-]{6,})/i, to: (m) => `https://www.youtube-nocookie.com/embed/${m[1]}` },
   { test: /^https?:\/\/player\.vimeo\.com\/video\/(\d+)/i, to: (m) => `https://player.vimeo.com/video/${m[1]}` },
   { test: /^https?:\/\/vimeo\.com\/(\d+)/i, to: (m) => `https://player.vimeo.com/video/${m[1]}` },
   { test: /^https?:\/\/open\.spotify\.com\/embed\/([\w/]+)/i, to: (m) => `https://open.spotify.com/embed/${m[1]}` },
   { test: /^https?:\/\/w\.soundcloud\.com\/player\/\?url=(.+)$/i, to: (m) => `https://w.soundcloud.com/player/?url=${encodeURIComponent(decodeURIComponent(m[1]))}` },
+  /* A Google map: the embed address Share › Embed a map gives, or the keyless search the `map` filter writes. */
+  { test: /^https:\/\/(?:www\.)?google\.com\/maps\/embed\?([^"<>\s]+)$/i, to: (m) => `https://www.google.com/maps/embed?${m[1]}` },
+  { test: /^https:\/\/(?:www\.)?google\.com\/maps\?(q=[^"<>\s&]+)&output=embed$/i, to: (m) => `https://www.google.com/maps?${m[1]}&output=embed` },
 ]
 
 /** The hosts the `embed` filter will hand back, for the docs and the editor. */
-export const EMBED_ALLOWED = ["youtube.com", "youtube-nocookie.com", "youtu.be", "vimeo.com", "player.vimeo.com", "open.spotify.com", "w.soundcloud.com"] as const
+export const EMBED_ALLOWED = ["youtube.com", "youtube-nocookie.com", "youtu.be", "vimeo.com", "player.vimeo.com", "open.spotify.com", "w.soundcloud.com", "google.com/maps"] as const
 
 export function embedUrl(raw: unknown): string {
   const v = typeof raw === "string" ? raw.trim() : ""
   if (!v) return ""
+  /* Every YouTube shape a video_url setting accepts (watch, youtu.be, shorts, live, m.youtube), so a link the field took never draws an empty frame. */
+  const video = parseVideoUrl(v, ["youtube"])
+  if (video) return video.embed
   for (const { test, to } of EMBED_HOSTS) {
     const m = v.match(test)
     if (m) return to(m)
@@ -671,6 +675,12 @@ const FILTERS: Record<string, Filter> = {
   url: (v) => safeHref(str(v)),
   /** A player address, or nothing. See EMBED_HOSTS. */
   embed: (v) => embedUrl(v),
+  /**
+   * A Google map for an address, typed the way a person writes it ("12 Rue
+   * Oberkampf, Paris"), or for a Google Maps link they pasted. No key and no
+   * embed code: {{ settings.address | map | embed }}.
+   */
+  map: (v) => { const s = str(v).trim(); return /^https?:\/\//i.test(s) ? mapEmbedSrc(s, []) : mapEmbedSrc("", [s]) },
   /** asset://… → the URL this account serves it from; a plain URL passes through. */
   asset: (v, _a, ctx) => { const s = str(v); return s.startsWith("asset://") ? (ctx.assets[s] ?? "") : s },
   /** A `datetime` for people to read: "long" (the default), "short", "time", "long_time" or "iso". */

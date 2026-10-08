@@ -179,6 +179,7 @@ read the ends of a list or a string.
 | `asset` | turns `asset://name.jpg` into this account's real URL |
 | `alpha: 0.4` | a colour with opacity |
 | `embed` | the only way a URL may reach an `<iframe>` |
+| `map` | a Google map for a typed address or a pasted Google Maps link: `src="{{ settings.address \| map \| embed }}"` |
 | `upcase` `downcase` `capitalize` `strip` | text |
 | `append: "…"` `prepend: "…"` `replace: "a", "b"` `truncate: 40` | text |
 | `size` `first` `last` `join: ", "` | lists |
@@ -200,7 +201,7 @@ a template is given it.
 
 Refused, unless the schema declares the `embed` capability **and** the src is
 written `src="{{ settings.video | embed }}"`. `embed` only passes URLs on a
-known list of players. A section that shows somebody else's player says so in
+known list of players and Google Maps. A section that shows somebody else's player says so in
 its schema.
 
 ## 4. The schema
