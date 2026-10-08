@@ -104,7 +104,23 @@ export function SaveBar({
   const ref = useRef<HTMLDivElement>(null)
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
-  const { phone, tabs } = usePhoneTabs()
+  const { phone, tabs: tabsUp } = usePhoneTabs()
+  /*
+    INSIDE THE SETTINGS LAYER (settings-subpage.tsx: Edit profile and the
+    Settings pill on a phone, a tablet and in the app). This bar is drawn into
+    <body> at z-40 and the layer is a full screen sheet at z 420, so there it
+    was drawn UNDER the layer: changes were made and nothing on screen could
+    save them. Found from where the bar is written (a marker that is not
+    portalled), it goes above the layer, ends at the screen's foot (the tab
+    bar is under the layer too), pads the layer rather than the page, and
+    scrolls the layer, which is what scrolls there.
+  */
+  const marker = useRef<HTMLSpanElement>(null)
+  const [layer, setLayer] = useState<HTMLElement | null>(null)
+  useLayoutEffect(() => {
+    if (mounted) setLayer(marker.current?.closest<HTMLElement>("[data-settings-subpage]") ?? null)
+  }, [mounted])
+  const tabs = layer ? true : tabsUp
 
   /*
     THE ROOM IT TAKES, AT THE END OF THE DOCUMENT, while it is up (the join
@@ -116,6 +132,15 @@ export function SaveBar({
   useLayoutEffect(() => {
     const el = ref.current
     if (!el || !mounted) return
+    if (layer) {
+      /* The layer is what scrolls: its own foot makes the room, so the last field clears the bar. */
+      const sync = () => void (layer.style.paddingBottom = shown ? `calc(env(safe-area-inset-bottom) + ${el.offsetHeight}px)` : "env(safe-area-inset-bottom)")
+      sync()
+      if (!shown) return
+      const ro = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(sync)
+      ro?.observe(el)
+      return () => ro?.disconnect()
+    }
     const body = document.body
     if (!shown) {
       const room = parseFloat(body.style.paddingBottom) || 0
@@ -137,7 +162,7 @@ export function SaveBar({
       ro?.disconnect()
       window.removeEventListener("resize", sync)
     }
-  }, [shown, mounted])
+  }, [shown, mounted, layer])
   useEffect(() => () => void (document.body.style.paddingBottom = ""), [])
 
   /*
@@ -153,31 +178,37 @@ export function SaveBar({
     if (!field || field === document.body || !field.closest("[data-account-settings]")) return
     const vv = window.visualViewport
     if (vv && vv.height < window.innerHeight - 120) return
-    const lowered = phone && !tabsShown() ? px("--buyer-tabs-bar") : 0
+    const lowered = !layer && phone && !tabsShown() ? px("--buyer-tabs-bar") : 0
     const top = window.innerHeight - el.offsetHeight + lowered
     const over = field.getBoundingClientRect().bottom + 12 - top
     if (over > 0) {
       const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
-      window.scrollBy({ top: over, behavior: reduce ? "auto" : "smooth" })
+      ;(layer ?? window).scrollBy({ top: over, behavior: reduce ? "auto" : "smooth" })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shown])
 
-  if (!mounted) return null
+  if (!mounted) return <span ref={marker} hidden />
 
   /* Up: at rest, or lowered by the tab bar's row while the tab bar is away on a phone. Down: past the foot of the screen, its shadow too. */
   const translate = !shown ? "0 calc(100% + 16px)" : phone && !tabs ? "0 var(--buyer-tabs-bar)" : "0 0"
 
-  return createPortal(
+  return (
+    <>
+    <span ref={marker} hidden />
+    {createPortal(
     <div
       ref={ref}
       data-account-save-bar={shown ? "shown" : "hidden"}
+      data-account-save-bar-layer={layer ? "" : undefined}
       aria-hidden={!shown || undefined}
       inert={!shown}
       className={cn(
-        "fixed inset-x-0 bottom-0 z-40 border-t border-[#e5e7eb] bg-white pt-3 shadow-[0_-4px_16px_-8px_rgba(16,24,40,0.12)]",
-        /* Down to the screen's foot: the tab bar's room under the row on a phone, the home indicator's wider up. */
-        "pb-[calc(12px+var(--buyer-tabs-room))] md:pb-[calc(12px+env(safe-area-inset-bottom,0px))]",
+        "fixed inset-x-0 bottom-0 border-t border-[#e5e7eb] bg-white pt-3 shadow-[0_-4px_16px_-8px_rgba(16,24,40,0.12)]",
+        /* Above the settings layer (z 420) when it is in one; above the page's own content otherwise. */
+        layer ? "z-[430]" : "z-40",
+        /* Down to the screen's foot: the tab bar's room under the row on a phone, the home indicator's wider up (and always in the layer, which covers the tab bar). */
+        layer ? "pb-[calc(12px+env(safe-area-inset-bottom,0px))]" : "pb-[calc(12px+var(--buyer-tabs-room))] md:pb-[calc(12px+env(safe-area-inset-bottom,0px))]",
         "motion-reduce:transition-none!",
       )}
       style={{
@@ -206,5 +237,7 @@ export function SaveBar({
       </div>
     </div>,
     document.body,
+    )}
+    </>
   )
 }

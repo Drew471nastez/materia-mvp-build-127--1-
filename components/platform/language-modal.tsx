@@ -52,7 +52,7 @@ function englishName(code: string): string | undefined {
   }
 }
 
-export function LanguageModal({ open, onOpenChange }: Props) {
+export function LanguageModal({ open, onOpenChange, sheetZIndex }: Props & { sheetZIndex?: number }) {
   const { language, languages, setLanguage, t } = useLocale()
   const choices = React.useMemo(
     () =>
@@ -77,6 +77,7 @@ export function LanguageModal({ open, onOpenChange }: Props) {
       value={language}
       placeholder="Search languages"
       onPick={(code) => setLanguage(code as typeof language)}
+      sheetZIndex={sheetZIndex}
     />
   )
 }

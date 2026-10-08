@@ -32,12 +32,25 @@ let seq = 0
 let cached: Cache | null = null
 let inflight: Promise<Loaded | null> | null = null
 
-/** Phones, tablets and the native apps. A mouse on a wide screen keeps the settings address. */
+/*
+  WHAT WAS JUST SAVED, IN THE KEPT COPY. The layer reopens from `cached` for five minutes, and nothing told it about a save, so
+  Edit profile opened again on the values from before it: "things cannot be saved at all". A save in the Profile section says
+  what it wrote (account-settings.tsx), and the copy takes it.
+*/
+if (typeof window !== "undefined") {
+  window.addEventListener("storelib:settings-saved", (e) => {
+    const saved = (e as CustomEvent<Partial<Loaded>>).detail
+    if (cached && saved) cached = { ...cached, data: { ...cached.data, ...saved }, at: Date.now() }
+  })
+}
+
+/** Phones, tablets, narrow windows and the native apps. A mouse on a wide screen keeps the settings address. */
 export function settingsStaysHere(): boolean {
   if (typeof window === "undefined") return false
   if (isNativeApp()) return true
   if (document.documentElement.classList.contains("capacitor")) return true
-  return !!window.matchMedia?.("(pointer: coarse) and (max-width: 1180px)").matches
+  /* A window under 768px is a phone's layout whatever points at it; Edit profile already opened the layer there, so the Settings pill does too. */
+  return !!window.matchMedia?.("(pointer: coarse) and (max-width: 1180px), (max-width: 767px)").matches
 }
 
 /** What the profile page already knows, so Edit profile can open filled on the first frame. */
@@ -107,6 +120,27 @@ export function openSettingsSubpage(section: SettingsSection = "profile") {
   })
 }
 
+/** Settings' own address, on one section. */
+export function settingsHref(section: SettingsSection = "profile"): string {
+  return `/account/settings?section=${section}`
+}
+
+/**
+ * ===========================================================================
+ *  EDIT PROFILE AND THE SETTINGS PILL OPEN THE SAME THING
+ * ===========================================================================
+ * Every way into Settings (Edit profile on the cover, the Settings pill, the
+ * pencil on a person's page) asks here, so they open the same screen in the
+ * same way: the layer over the page where settingsStaysHere() says so, the
+ * settings address everywhere else. Each used to decide for itself, and a
+ * narrow window on a computer got the layer from one and the page from the
+ * other. Both are the one AccountSettings either way.
+ */
+export function openSettings(section: SettingsSection, push: (href: string) => void): void {
+  if (settingsStaysHere()) openSettingsSubpage(section)
+  else push(settingsHref(section))
+}
+
 export function sectionFromSettingsHref(href: string): SettingsSection {
   const m = /section=(profile|account|privacy|notifications|preferences)/.exec(href)
   return (m?.[1] as SettingsSection) || "account"
@@ -131,6 +165,13 @@ function SettingsLayer({ section, data, onClose }: { section: SettingsSection; d
   const closed = useRef(false)
   const slidIn = useRef(false)
   const bodyOverflow = useRef("")
+  const lastData = useRef(data)
+  const version = useRef(0)
+  if (data !== lastData.current) {
+    lastData.current = data
+    version.current += 1
+  }
+  const dataVersion = version.current
 
   const slideIn = () => {
     if (slidIn.current) return
@@ -203,7 +244,8 @@ function SettingsLayer({ section, data, onClose }: { section: SettingsSection; d
     >
       <div className="px-4 pb-10 pt-3 sm:px-6">
         {data ? (
-          <AccountSettings {...data} initialSection={section} onBack={close} />
+          /* Built again when the full read replaces the profile's first copy (email, location, a creator's handle), not kept on the guesses. */
+          <AccountSettings key={dataVersion} {...data} initialSection={section} onBack={close} />
         ) : (
           <>
             <button

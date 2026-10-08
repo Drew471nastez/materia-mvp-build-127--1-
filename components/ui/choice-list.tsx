@@ -589,6 +589,7 @@ export function ChoiceDialog({
   onPick,
   placeholder,
   name,
+  sheetZIndex,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -599,6 +600,8 @@ export function ChoiceDialog({
   placeholder: string
   /** data-choice-dialog, for the probes. */
   name: string
+  /** The phone sheet's layer, when it opens over something already above the page (the settings layer, z 420). */
+  sheetZIndex?: number
 }) {
   const phone = usePhoneWidth()
   const pick = (v: string) => {
@@ -606,7 +609,7 @@ export function ChoiceDialog({
     onPick(v)
   }
   if (phone) {
-    return <ChoiceSheet open={open} onClose={() => onOpenChange(false)} title={title} choices={choices} value={value} onPick={pick} placeholder={placeholder} />
+    return <ChoiceSheet open={open} onClose={() => onOpenChange(false)} title={title} choices={choices} value={value} onPick={pick} placeholder={placeholder} sheetZIndex={sheetZIndex} />
   }
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

@@ -377,6 +377,12 @@ function ProfileSection({
         setCountry(nextCountry ?? "")
       }
       setSavedAt(Date.now())
+      /* The settings layer's kept copy takes the saved values, so opening it again shows them, not the ones from before (settings-subpage.tsx). */
+      window.dispatchEvent(
+        new CustomEvent("storelib:settings-saved", {
+          detail: { name: nextName, bio: nextBio, username: normalizeHandle(handle) || savedHandle, ...(placeChanged ? { location: { ...location, city: nextCity, country: nextCountry } } : {}) },
+        }),
+      )
       router.refresh()
     } catch {
       setError("That did not save. Try again in a moment.")
@@ -989,7 +995,12 @@ function PreferencesSection({ email, newsletter: initialNewsletter, personalized
         {/* Round 13: the community Sounds switch (kept in this browser, so it saves on the press with nothing to wait for). */}
         <PrivacyRow id="sounds" title="Sounds" detail={SOUNDS_DETAIL} control={<Switch label="Sounds" checked={sounds} onChange={setSounds} />} />
       </div>
-      <LanguageModal open={languageOpen} onOpenChange={setLanguageOpen} />
+      {/*
+        ABOVE THE SETTINGS LAYER. On a phone the language list is a sheet at z 200 and the layer this section is drawn in on a
+        phone is z 420, so Change opened it UNDER the layer: unseen, but up as far as the page knew, which hid the nav pill and
+        the cookie banner everywhere and left a ghost when the layer closed ("the preferences pill bugs the whole website").
+      */}
+      <LanguageModal open={languageOpen} onOpenChange={setLanguageOpen} sheetZIndex={440} />
     </section>
   )
 }

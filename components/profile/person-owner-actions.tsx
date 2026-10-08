@@ -10,9 +10,9 @@
 import Link from "next/link"
 import { Pencil } from "lucide-react"
 import { OWNER_CONTROL_DEPTH } from "@/components/storefront/owner-actions-menu"
-import { openSettingsSubpage, settingsStaysHere, warmSettings } from "@/components/account/settings-subpage"
+import { openSettingsSubpage, settingsHref, settingsStaysHere, warmSettings } from "@/components/account/settings-subpage"
 
-export const PERSON_EDIT_HREF = "/account/settings?section=profile"
+export const PERSON_EDIT_HREF = settingsHref("profile")
 
 export function PersonOwnerActions() {
   return (

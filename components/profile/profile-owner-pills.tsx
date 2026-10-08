@@ -33,7 +33,7 @@ import { usePathname, useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { EDIT_PROFILE_HREF, ownerPillFor, ownerPillLinks, type OwnerPillKey } from "@/lib/profile/owner-pills"
 import { prefetchHref, prefetchOnIdle } from "@/lib/nav/prefetch-policy"
-import { openSettingsSubpage, settingsStaysHere, warmSettings } from "@/components/account/settings-subpage"
+import { openSettings, settingsStaysHere, warmSettings } from "@/components/account/settings-subpage"
 import { PillGlider } from "@/components/ui/pill-glider"
 import { cn } from "@/lib/utils"
 
@@ -99,10 +99,10 @@ export function ProfileOwnerPills({ communities, creator = false, active: fixed,
                 }}
                 onClick={(e) => {
                   if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return
-                  /* In the app and on a phone, Settings is a layer over the profile, not another address. */
-                  if (p.key === "settings" && settingsStaysHere()) {
+                  /* Settings opens exactly what Edit profile opens (settings-subpage.tsx openSettings). */
+                  if (p.key === "settings") {
                     e.preventDefault()
-                    openSettingsSubpage("profile")
+                    openSettings("profile", (href) => router.push(href, { scroll: false }))
                     return
                   }
                   if (p.key !== fromPath) setPressed(p.key)
