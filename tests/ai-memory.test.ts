@@ -193,6 +193,9 @@ function wiringChecks() {
   check("a long task is carried on in parts: the route says when time ran out", /send\(\{ type: "continue", reason: "time" \}\)/.test(route))
   check("  and the chat sends the next part on its own, a few times at most", /CONTINUE_PROMPT/.test(chat) && /MAX_CONTINUES = 3/.test(chat))
   const loop = read("lib/website-builder/agent/loop.ts")
+  const code = read("app/api/website-builder/themes/[installId]/sections/code/route.ts")
+  check("Code a section reads the same memory, through the creator's own client", /listMemories\(supabase as unknown as MemoryDb/.test(code) && /accountMemory: accountMemory\.ready/.test(code))
+  check("  and the writer shows it before the request", /describeAccountMemory\(opts\.accountMemory \?\? \[\]\)/.test(read("lib/website-builder/agent/write-section.ts")))
   check("delete means every match, not hiding", /DELETE MEANS DELETE/.test(loop) && !/PREFER HIDING TO DELETING/.test(loop))
 }
 

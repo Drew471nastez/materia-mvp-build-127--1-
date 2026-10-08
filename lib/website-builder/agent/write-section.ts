@@ -40,6 +40,7 @@
  * review all look at it (tests/ask-images-u.test.ts reads every request a
  * mock provider receives).
  */
+import { describeAccountMemory } from "@/lib/ai-memory/store"
 import { INTEGRATION_CONTRACT } from "@/lib/storelib-ai/integration"
 import {
   MAX_REPAIR_ATTEMPTS,
@@ -315,6 +316,8 @@ export async function writeSection(opts: {
   onStage?: (stage: WriteStage, attempt: number) => void
   /** The steps, in the page assistant's line shapes. */
   onEvent?: (event: WriteEvent) => void
+  /** What the creator asked Storelib AI to remember on every website (lib/ai-memory/store.ts). */
+  accountMemory?: string[]
 }): Promise<WriteResult> {
   const system = writeSectionSystem()
   const images = opts.images ?? []
@@ -334,6 +337,7 @@ export async function writeSection(opts: {
      * told afterwards what the colours are has already chosen them.
      */
     opts.theme ? describeThemeForAuthoring(opts.theme) : "",
+    describeAccountMemory(opts.accountMemory ?? []),
     describeImages(images, asked.length > 0, {
       ask: "answer REPLY: with one short question",
       content: "the site described above and the creator's own business",

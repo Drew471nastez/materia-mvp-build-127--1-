@@ -13,6 +13,7 @@
  * a version row beside it. Nothing reaches a visitor until the creator
  * publishes, and nothing reaches the account at all unless it compiles.
  */
+import { MEMORY_IN_TURN, listMemories, type MemoryDb } from "@/lib/ai-memory/store"
 import { NextResponse, after, type NextRequest } from "next/server"
 import { mirrorToGitHub } from "@/lib/github-sync/mirror"
 import { z } from "zod"
@@ -185,6 +186,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
    * so it can still say why.
    */
   const deadline = AbortSignal.timeout((maxDuration - 15) * 1000)
+  const accountMemory = await listMemories(supabase as unknown as MemoryDb, (creator as { id: string }).id, MEMORY_IN_TURN)
   const run = async (
     onStage?: (stage: WriteStage, attempt: number) => void,
     onEvent?: (event: WriteEvent) => void,
@@ -199,6 +201,8 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
       cacheKey: `theme:${installId}`,
       deadlineAt: Date.now() + (maxDuration - 15) * 1000,
       onEvent,
+      /* What the creator asked to keep on every website, read through their own client (lib/ai-memory/store.ts). */
+      accountMemory: accountMemory.ready ? accountMemory.memories.map((m) => m.content) : [],
       takenTypes,
       takenNames,
       theme: {
