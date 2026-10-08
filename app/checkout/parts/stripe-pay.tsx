@@ -35,7 +35,7 @@ import { RefreshCw, WifiOff } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { getStripePromise, resetStripePromise } from "./stripe-loader"
 import { METHOD_SETS, type CheckoutMethod } from "@/lib/checkout/payment-methods"
-import { FIELD_SHADOW, OrDivider, PayButton, SectionTitle, TextInput } from "./ui"
+import { FIELD_SHADOW, OrDivider, PayButton, SectionTitle, TextInput, PayDock } from "./ui"
 
 /** A phone's own keyboard zooms into any field set under 16px. */
 function touchScreen(): boolean {
@@ -477,11 +477,11 @@ function StripePayInner({
         </p>
       ) : null}
 
-      <div className="mt-5">
+      <PayDock>
         <PayButton onClick={() => void pay()} busy={busy} disabled={!stripe || !elements || !online}>
           {busy ? "Processing" : payLabel}
         </PayButton>
-      </div>
+      </PayDock>
     </div>
   )
 }
