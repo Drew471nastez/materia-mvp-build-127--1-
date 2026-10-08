@@ -57,8 +57,6 @@ import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useStat
 import { createPortal } from "react-dom"
 import { X } from "lucide-react"
 import { BottomSheet, SHEET_CLOSE_EASE, SHEET_EASE } from "@/components/ui/bottom-sheet"
-import { CLICK_ECHO_MS } from "@/lib/navigation/first-tap"
-import { swallowGhostTaps } from "@/lib/navigation/swallow-ghost-taps"
 import type { FeedPostView, ViewerView } from "@/lib/communities/types"
 import { api, apiBase } from "./api"
 import { CommentsPlaceholder, CommentsSection, readAheadComments } from "./comments"
@@ -136,7 +134,6 @@ export function PostOverlay({ post: given, slug, viewer, readOnly = false, updat
   /* Open as far as the history and the sheet are concerned; false starts the way out. */
   const [open, setOpen] = useState(true)
   const close = useCallback(() => {
-    swallowGhostTaps(CLICK_ECHO_MS + 420)
     setOpen(false)
   }, [])
   useEffect(() => {
@@ -438,9 +435,10 @@ function PostPanel({
     return () => window.removeEventListener("keydown", onKey)
   }, [open, close])
 
+  const live = open && phase !== "out"
   return createPortal(
-    <div ref={rootRef} className="fixed inset-0 z-[130]" data-post-overlay-root="" style={open ? undefined : { pointerEvents: "none" }}>
-      <div ref={scrimRef} aria-hidden className="absolute inset-0 bg-[#0f1115]/35" onClick={close} data-post-overlay-scrim="" />
+    <div ref={rootRef} className="fixed inset-0 z-[130]" data-post-overlay-root="" style={live ? undefined : { pointerEvents: "none" }}>
+      <div ref={scrimRef} aria-hidden className="absolute inset-0 bg-[#0f1115]/35" onClick={live ? close : undefined} data-post-overlay-scrim="" style={live ? undefined : { pointerEvents: "none" }} />
       <div className="pointer-events-none absolute inset-0 flex justify-center overflow-hidden px-6 pt-10 sm:pt-12">
         <div
           ref={panelRef}
@@ -449,7 +447,7 @@ function PostPanel({
           aria-label={title || "Post"}
           data-post-overlay="panel"
           data-post-overlay-phase={phase}
-          className="pointer-events-auto relative flex max-h-[calc(100dvh-72px)] w-full max-w-[760px] flex-col self-start overflow-hidden rounded-2xl border border-[#e5e7eb]/80 bg-white shadow-[0_24px_64px_-20px_rgba(17,24,39,0.35),0_2px_8px_rgba(17,24,39,0.06)]"
+          className={`relative flex max-h-[calc(100dvh-72px)] w-full max-w-[760px] flex-col self-start overflow-hidden rounded-2xl border border-[#e5e7eb]/80 bg-white shadow-[0_24px_64px_-20px_rgba(17,24,39,0.35),0_2px_8px_rgba(17,24,39,0.06)] ${live ? "pointer-events-auto" : "pointer-events-none"}`}
         >
           <div className="flex h-12 shrink-0 items-center justify-between border-b border-[#f0f1f3] pl-5 pr-2">
             <span className="min-w-0 truncate text-[13.5px] font-medium text-[#6b7280]">{space ? `Posted in ${space}` : "Post"}</span>

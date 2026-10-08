@@ -9,6 +9,7 @@
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { secondaryDepth } from "@/components/ui/depth-button"
+import { useFirstTap } from "@/lib/navigation/first-tap"
 import { cn } from "@/lib/utils"
 import { openSettingsSubpage, primeSettingsFromProfile, settingsStaysHere, warmSettings } from "@/components/account/settings-subpage"
 
@@ -39,24 +40,30 @@ export function EditProfileDoor({
     void warmSettings("profile")
   }, [userId, name, username, bio, avatarUrl, coverUrl])
 
+  const open = () => {
+    if (settingsStaysHere() || !window.matchMedia?.("(min-width: 768px)").matches) {
+      openSettingsSubpage("profile")
+      return true
+    }
+    router.push(SETTINGS_PROFILE)
+    return true
+  }
+  const tap = useFirstTap(() => open())
+
   return (
     <button
       type="button"
+      onClick={tap.onClick}
       onPointerEnter={() => {
         router.prefetch(SETTINGS_PROFILE)
-        if (settingsStaysHere()) void warmSettings()
+        if (settingsStaysHere()) void warmSettings("profile")
       }}
-      onPointerDown={() => {
-        if (settingsStaysHere()) void warmSettings()
+      onPointerDown={(e) => {
+        tap.onPointerDown(e)
+        if (settingsStaysHere()) void warmSettings("profile")
       }}
-      onClick={() => {
-        /* A phone, a tablet or the app: Settings' Profile tab over this page. A computer: the same tab at its address. */
-        if (settingsStaysHere() || !window.matchMedia?.("(min-width: 768px)").matches) {
-          openSettingsSubpage("profile")
-          return
-        }
-        router.push(SETTINGS_PROFILE)
-      }}
+      onPointerUp={tap.onPointerUp}
+      onPointerCancel={tap.onPointerCancel}
       onKeyDown={(e) => {
         if (e.key !== "Enter" && e.key !== " ") return
         if (settingsStaysHere() || !window.matchMedia?.("(min-width: 768px)").matches) {
@@ -66,7 +73,11 @@ export function EditProfileDoor({
       }}
       aria-label="Edit profile"
       data-profile-edit=""
-      className={cn(secondaryDepth, "pointer-events-auto h-10 rounded-[10px] px-4 text-[14px]")}
+      className={cn(
+        secondaryDepth,
+        "pointer-events-auto relative min-h-[44px] touch-manipulation rounded-[10px] px-4 text-[14px] [-webkit-tap-highlight-color:transparent]",
+        "before:absolute before:-inset-2 before:rounded-[12px] before:content-['']",
+      )}
     >
       <span className="min-[390px]:hidden">Edit</span>
       <span className="hidden min-[390px]:inline">Edit profile</span>

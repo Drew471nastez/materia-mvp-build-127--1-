@@ -119,15 +119,19 @@ async function loadOwnSettings(section: SettingsSection): Promise<Loaded | null>
   const { data: auth } = await supabase.auth.getUser()
   const user = auth.user
   if (!user) return null
-  const [full, prefs] = await Promise.all([
+  const [full, prefs, creatorRow, pageRow] = await Promise.all([
     supabase
       .from("profiles")
-      .select("display_name, bio, avatar_url, cover_url, username, location_city, location_country, personalized_recommendations")
+      .select(
+        "display_name, bio, avatar_url, cover_url, username, location_city, location_country, personalized_recommendations, show_activity, show_communities",
+      )
       .eq("id", user.id)
       .maybeSingle(),
     fetch("/api/account/preferences", { credentials: "same-origin" })
       .then((r) => (r.ok ? (r.json() as Promise<{ newsletter?: boolean; personalizedRecommendations?: boolean }>) : null))
       .catch(() => null),
+    supabase.from("creators").select("onboarding_completed").eq("user_id", user.id).maybeSingle(),
+    supabase.from("onepages").select("id").eq("owner_id", user.id).limit(1).maybeSingle(),
   ])
   const slim = full.error
     ? await supabase.from("profiles").select("display_name, avatar_url, username").eq("id", user.id).maybeSingle()
@@ -142,6 +146,8 @@ async function loadOwnSettings(section: SettingsSection): Promise<Loaded | null>
     country?: string | null
     location_country?: string | null
     personalized_recommendations?: boolean | null
+    show_activity?: boolean | null
+    show_communities?: boolean | null
   } | null
   const providers = ((user.app_metadata?.providers as string[] | undefined) ?? [user.app_metadata?.provider as string | undefined]).filter(Boolean) as string[]
   const names: Record<string, string> = { google: "Google", apple: "Apple", github: "GitHub", facebook: "Facebook" }
@@ -152,18 +158,22 @@ async function loadOwnSettings(section: SettingsSection): Promise<Loaded | null>
     email: displayEmail(user.email) || "",
     name: row?.display_name || meta.full_name || meta.name || "",
     bio: (row?.bio || "").trim(),
-    bioSupported: !full.error,
+    bioSupported: !(full.error && (full.error.code === "PGRST204" || full.error.code === "42703")),
     avatarUrl: row?.avatar_url || null,
     createdAt: user.created_at,
     hasPassword: providers.length === 0 || providers.includes("email"),
     via,
-    isSeller: false,
+    isSeller: creatorRow.data?.onboarding_completed === true,
     newsletter: prefs?.newsletter === true,
     personalized: typeof prefs?.personalizedRecommendations === "boolean" ? prefs.personalizedRecommendations : row?.personalized_recommendations !== false && meta.personalized_recommendations !== false,
     username: row?.username || "",
     usernameEditable: true,
-    privacy: { showActivity: true, showCommunities: true, supported: false },
-    creator: false,
+    privacy: {
+      showActivity: row?.show_activity !== false,
+      showCommunities: row?.show_communities !== false,
+      supported: !full.error && row != null && full.data != null && "show_activity" in (full.data as object),
+    },
+    creator: !!(pageRow.data?.length ?? 0) || creatorRow.data?.onboarding_completed === true,
     cover: { url: (row?.cover_url || "").trim() || null, supported: !full.error && row != null && "cover_url" in (full.data as object) },
     location: {
       city: row?.location_city ?? null,
