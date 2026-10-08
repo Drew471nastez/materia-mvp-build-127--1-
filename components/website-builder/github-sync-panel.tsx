@@ -138,11 +138,14 @@ export function GitHubSyncPanel({
   returned,
   open,
   onToggle,
+  recommended = false,
 }: {
   installId: string
   returned?: string | null
   open: boolean
   onToggle: () => void
+  /** First on Connections, marked Recommended: one repository every coding tool can work in. */
+  recommended?: boolean
 }) {
   const [status, setStatus] = useState<Status | null>(null)
   const [error, setError] = useState<string | null>(returned && RETURNED[returned] ? RETURNED[returned] : null)
@@ -446,6 +449,8 @@ export function GitHubSyncPanel({
       id="github"
       mark={<GitHubMark className="h-5 w-5" />}
       name="GitHub"
+      badge={recommended ? "Recommended" : undefined}
+      featured={recommended}
       tone={line.tone}
       status={line.status}
       detail={line.detail}

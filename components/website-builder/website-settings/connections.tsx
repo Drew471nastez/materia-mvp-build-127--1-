@@ -52,18 +52,28 @@ export function ConnectionsSettings({ ctx }: { ctx: SettingsContext }) {
       <OwnAiSettings />
 
       <h2 className="mt-8 text-[15px] font-semibold text-white md:mt-9 md:text-[14.5px]">Or code in your own tools</h2>
+      <p className="mt-1 text-[13.5px] leading-snug text-white/50 md:text-[13px]">
+        Connect GitHub and Claude Code or Codex can work on this website from a repository, with every change in its history.
+      </p>
       <section
         aria-label="Connections"
         className="mt-3 divide-y divide-white/[0.07] overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]"
       >
-        <AgentConnectionRow tool="claude" agents={agents} open={open === "claude"} onOpen={onOpen} onGitHub={() => setOpen("github")} />
-        <AgentConnectionRow tool="codex" agents={agents} open={open === "codex"} onOpen={onOpen} onGitHub={() => setOpen("github")} />
+        {/*
+          GITHUB FIRST, AND SAID SO. One repository is what Claude Code,
+          Codex and a person all work in, on a computer or on the web, with
+          the history of every change, so it is the line to start with. The
+          direct connections follow for whoever already runs one of the two.
+        */}
         <GitHubSyncPanel
           installId={ctx.installId}
           returned={ctx.githubReturned}
           open={open === "github"}
           onToggle={() => setOpen(open === "github" ? null : "github")}
+          recommended
         />
+        <AgentConnectionRow tool="claude" agents={agents} open={open === "claude"} onOpen={onOpen} onGitHub={() => setOpen("github")} />
+        <AgentConnectionRow tool="codex" agents={agents} open={open === "codex"} onOpen={onOpen} onGitHub={() => setOpen("github")} />
         {showOther && <AgentConnectionRow tool="other" agents={agents} open={open === "other"} onOpen={onOpen} onGitHub={() => setOpen("github")} />}
       </section>
       {!showOther && (

@@ -65,7 +65,15 @@ console.log("\nThe setting\n")
 {
   const ui = read("components/website-builder/website-settings/own-database.tsx")
   check("Connections has the row, after Code", /<OwnDatabaseSettings ctx=\{ctx\} \/>/.test(read("components/website-builder/website-settings/connections.tsx")))
-  check("  it checks both before saving anything", ui.indexOf("checkDatabaseUrl(url)") < ui.indexOf("ctx.onSettingChange(OWN_DB_URL") && ui.indexOf("checkPublicKey(") < ui.indexOf("ctx.onSettingChange(OWN_DB_KEY"))
+  // Changed on purpose: Connect Supabase signs in and picks a project, and its
+  // key is checked on the server (lib/website-builder/supabase-connect.ts,
+  // checkPublicKey). The typed form, kept for a Storelib with no OAuth app,
+  // still checks both before saving.
+  const typed = ui.slice(ui.indexOf("const save = () =>"))
+  check("  it checks both before saving anything", typed.indexOf("checkDatabaseUrl(url)") < typed.indexOf("ctx.onSettingChange(OWN_DB_URL") && typed.indexOf("checkPublicKey(") < typed.indexOf("ctx.onSettingChange(OWN_DB_KEY"))
+  const server = read("lib/website-builder/supabase-connect.ts")
+  check("  a picked project's key goes through checkPublicKey on the server", /const checked = checkPublicKey\(k\.api_key\)/.test(server))
+  check("  and the Supabase token never reaches the browser", /httpOnly: true/.test(read("app/api/website-builder/supabase/callback/route.ts")) && !/token/.test(ui.replace(/csrf/g, "")))
   check("  and the saved key is never shown back", /placeholder=\{connected \? "Leave empty to keep the current key"/.test(ui) && /useState\(""\)/.test(ui))
 }
 

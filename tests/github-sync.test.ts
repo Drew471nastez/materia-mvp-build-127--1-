@@ -201,9 +201,10 @@ function main() {
   {
     const advanced = read("components/website-builder/website-settings/connections.tsx")
     const direct = read("components/website-builder/agent-connections-panel.tsx")
-    check("Website settings › Connections has GitHub as one line of the list, after Claude Code and Codex",
+    // Changed on purpose: GitHub is first and marked Recommended, as the owner asked.
+    check("Website settings › Connections has GitHub as one line of the list, first and recommended",
       /<GitHubSyncPanel\s+installId=\{ctx\.installId\}/.test(advanced) && (advanced.match(/<GitHubSyncPanel/g) ?? []).length === 1 &&
-        advanced.indexOf('tool="codex"') < advanced.indexOf("<GitHubSyncPanel"))
+        advanced.indexOf("<GitHubSyncPanel") < advanced.indexOf('tool="claude"') && /\brecommended\b/.test(advanced))
     check("and the tools that work on a repository are sent to it from their own lines",
       /web: "Codex in ChatGPT"/.test(direct) && /web: "Claude Code on the web"/.test(direct) && /onGitHub=\{\(\) => setOpen\("github"\)\}/.test(advanced))
     check("the GitHub button and a return from GitHub open that line",

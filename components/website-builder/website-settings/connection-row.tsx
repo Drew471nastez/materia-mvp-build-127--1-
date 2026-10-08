@@ -52,10 +52,16 @@ export function ConnectionRow({
   open,
   onToggle,
   children,
+  badge,
+  featured = false,
 }: {
   id: string
   mark: ReactNode
   name: string
+  /** A word beside the name: "Recommended". */
+  badge?: string
+  /** The line to start with: a faint lift so the eye lands on it first. */
+  featured?: boolean
   /** A word or two: "Connected", "Not connected". */
   status?: ReactNode
   /** After the status, quieter: "used 2 hours ago", a repository's name. */
@@ -90,13 +96,18 @@ export function ConnectionRow({
     return () => window.clearTimeout(t)
   }, [open])
   return (
-    <div ref={ref} data-connection={id} data-open={open ? "" : undefined} className="scroll-mt-16 md:scroll-mt-6">
+    <div ref={ref} data-connection={id} data-open={open ? "" : undefined} className={cn("scroll-mt-16 md:scroll-mt-6", featured && "bg-white/[0.035]")}>
       <div className="flex min-h-[72px] items-center gap-3.5 px-4 py-3 md:min-h-[68px] md:gap-4 md:px-5">
         <span aria-hidden className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[11px] bg-white/[0.07] text-white/90">
           {mark}
         </span>
         <div className="min-w-0 flex-1">
-          <h3 className="text-[15.5px] font-medium leading-snug text-white md:text-[15px]">{name}</h3>
+          <h3 className="flex items-center gap-2 text-[15.5px] font-medium leading-snug text-white md:text-[15px]">
+            {name}
+            {badge && (
+              <span className="rounded-full bg-emerald-400/[0.14] px-2 py-[1px] text-[11.5px] font-medium text-emerald-200">{badge}</span>
+            )}
+          </h3>
           {loading ? (
             <span aria-hidden className="mt-1.5 block h-3 w-28 rounded-[4px] bg-white/[0.07]" />
           ) : (

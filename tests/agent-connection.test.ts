@@ -244,7 +244,8 @@ async function main() {
       /const agents = useAgentConnections\(ctx\.installId\)/.test(advanced))
   check("which is a list of the tools, Claude Code, Codex and GitHub, not a question to answer first",
     /<AgentConnectionRow tool="claude"/.test(advanced) && /<AgentConnectionRow tool="codex"/.test(advanced) &&
-      advanced.indexOf('tool="codex"') < advanced.indexOf("<GitHubSyncPanel") && !/How to connect/.test(advanced))
+      // Changed on purpose: GitHub comes first now, recommended.
+      advanced.indexOf("<GitHubSyncPanel") < advanced.indexOf('tool="claude"') && !/How to connect/.test(advanced))
   check("  and another tool that speaks MCP only once it is asked for, or has a key",
     /const showOther = open === "other" \|\| \(agents\.connections !== null && agents\.byTool\.other\.length > 0\)/.test(advanced))
   check("  one line open at a time", /useState<ConnectionId \| null>/.test(advanced) && /open=\{open === "claude"\}/.test(advanced) && /open=\{open === "github"\}/.test(advanced))
