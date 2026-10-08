@@ -15,6 +15,7 @@ import {
   type Reveal,
 } from "@/lib/website-builder/section-motion"
 import { isChromeType } from "@/lib/website-builder/section-anchors"
+import { installMediaFade } from "@/lib/website-builder/media-fade"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 
 export function useSiteMotion(
@@ -52,6 +53,13 @@ export function useSiteMotion(
       window.removeEventListener("resize", update)
     }
   }, [rootRef, headerId])
+
+  /* Pictures and videos fade in as they load, never snap (lib/website-builder/media-fade.ts). */
+  useEffect(() => {
+    const root = rootRef.current
+    if (!root) return
+    return installMediaFade(root)
+  }, [rootRef])
 
   /* Section links and an arriving hash: the live page only. */
   useEffect(() => {

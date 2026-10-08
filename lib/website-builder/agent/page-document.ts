@@ -72,7 +72,9 @@ export function composePageDocument(state: ThemeState, sources: Record<string, s
         continue
       }
       drawn.push(section.id)
-      parts.push(`<div data-check-section="${escapeAttr(section.id)}" data-check-type="${escapeAttr(section.type)}"${skipEmpty}>${out.css ? `<style>${out.css}</style>` : ""}${out.html}</div>`)
+      /* The optimizer's addresses are the site's own (/_next/image): outside the site they resolve nowhere, so the original is drawn. */
+      const html = out.html.replace(/\s(srcset|sizes)="[^"]*"/g, "")
+      parts.push(`<div data-check-section="${escapeAttr(section.id)}" data-check-type="${escapeAttr(section.type)}"${skipEmpty}>${out.css ? `<style>${out.css}</style>` : ""}${html}</div>`)
     } catch (thrown) {
       failed.push({ id: section.id, error: thrown instanceof Error ? thrown.message.slice(0, 300) : "it threw while drawing" })
     }

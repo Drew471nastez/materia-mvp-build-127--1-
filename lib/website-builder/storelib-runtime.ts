@@ -31,6 +31,7 @@ import type { CompiledBlock, CompiledSection, RenderContext, SectionInstanceData
 import type { StorefrontGlobals } from "@/lib/storelib-theme/globals"
 import { DEFAULT_THEME_SOURCES } from "../../themes/default/sources.generated"
 import type { SectionInstance, ThemeSettingsValues } from "./types"
+import { optimizeSectionMedia } from "./media-pass"
 
 /** `sections/<type>.storelib`, the path a section's source lives at. */
 export function sectionSourcePath(type: string): string {
@@ -186,7 +187,8 @@ export function renderStorelibSection(
   })
   return {
     ok: true,
-    html: r.html,
+    /* Every picture and video sized, lazy and faded in, whoever wrote the section: ./media-pass.ts. */
+    html: optimizeSectionMedia(r.html),
     css: r.css,
     script: c.value.script ?? null,
     capabilities: c.value.schema.capabilities ?? [],

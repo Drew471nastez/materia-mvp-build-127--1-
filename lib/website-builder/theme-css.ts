@@ -534,8 +534,15 @@ export function themeStylesheet(theme: ThemeSettingsValues): string {
   rules.push(
     `${root} [data-section-box],${root} [data-section-box] [id]{scroll-margin-top:var(--sl-anchor-offset,0px);}`,
     `${root} [data-reveal="pending"]{opacity:0;}`,
+    /*
+      PICTURES ARRIVE (lib/website-builder/media-pass.ts, media-fade.ts):
+      faded from nothing once loaded, and only once the page's script is
+      running (data-sl-fade), so without it nothing is ever hidden.
+    */
+    `${root}[data-sl-fade] [data-sl-media]:not([data-sl-loaded]){opacity:0;}`,
+    `${root} [data-sl-media]{transition:opacity .45s cubic-bezier(.2,.7,.2,1);}`,
     // Somebody who has asked their system for less motion has asked.
-    `@media (prefers-reduced-motion:reduce){${root} [data-reveal]{opacity:1;}}`,
+    `@media (prefers-reduced-motion:reduce){${root} [data-reveal]{opacity:1;}${root} [data-sl-media]{transition:none;}}`,
   )
 
   return rules.join("\n")
