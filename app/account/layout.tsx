@@ -8,7 +8,8 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { ensureUsername } from "@/lib/profile/ensure-username"
 import { isBuyerHeaderLight } from "@/lib/platform/buyer-header-theme"
 import { isPlatformDomain, readWishlistCount } from "@/lib/platform/header-props"
-import { ConditionalHeader } from "@/components/marketing/conditional-header"
+import { AccountCommunityChrome } from "@/components/account/account-community-chrome"
+import { AccountHeaderSwitch } from "@/components/account/account-header-switch"
 import { ConditionalFooter } from "@/components/marketing/conditional-footer"
 import { BuyerTabBar } from "@/components/nav/buyer-tab-bar"
 import { RouteLoadingBar } from "@/components/navigation/route-loading-bar"
@@ -130,7 +131,8 @@ export default async function AccountLayout({ children }: { children: React.Reac
           another tab says so when the next page is slow. */}
       <RouteLoadingBar />
       <LibraryBgFix />
-      <ConditionalHeader initialWishlistCount={initialWishlistCount} onPlatformDomain={onPlatformDomain} buyerHeaderLight={buyerHeaderLight} />
+      <AccountHeaderSwitch initialWishlistCount={initialWishlistCount} onPlatformDomain={onPlatformDomain} buyerHeaderLight={buyerHeaderLight} />
+      <AccountCommunityChrome />
       {/* overflow-x-CLIP, not hidden: the cover runs edge to edge and must not
           open a sideways scroll, and `hidden` does that by making this a
           scroll box -- which also makes it the scrollport of anything sticky

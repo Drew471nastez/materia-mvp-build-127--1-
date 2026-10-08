@@ -37,6 +37,7 @@
  * starts with (space-glyph.ts), so a chip shows what the dashboard shows.
  */
 import Link from "next/link"
+import { feedListHref } from "@/lib/community/feed-space-address"
 import { spaceGlyph } from "./space-glyph"
 import { press, PRESS_PROPS } from "./ui"
 import type { SpaceView } from "./view-types"
@@ -154,7 +155,7 @@ export function SpaceChips({ slug, spaces, active, savedOn = false, onPick, onIn
             return (
               <Link
                 key={s.id}
-                href={`${base}/space/${s.slug}`}
+                href={feedListHref(base, { kind: "space", slug: s.slug })}
                 aria-current={on ? "page" : undefined}
                 data-space-chip={s.slug}
                 className={`${CHIP} ${on ? CHIP_ON : CHIP_OFF}`}

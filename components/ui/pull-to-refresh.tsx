@@ -49,7 +49,7 @@
  *   a vibration on Android, and nothing in Safari (lib/native-bridge.ts).
  */
 
-import { useCallback, useEffect, useLayoutEffect, useRef, type ReactNode, type RefObject } from "react"
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react"
 import { usePathname, useRouter } from "next/navigation"
 
 import { SPINNER_SPOKES } from "@/components/community/member/place-spinner"
@@ -87,9 +87,18 @@ export function PullToRefresh({
 }) {
   const rootRef = useRef<HTMLDivElement>(null)
   const scrollerRef = useRef<HTMLElement | null>(null)
+  const [nestedPtr, setNestedPtr] = useState(false)
   /* Found before the gesture's own effect runs (layout effects come first), once per mount. */
   useLayoutEffect(() => {
     if (rootRef.current) scrollerRef.current = scrollerFor(rootRef.current)
+  }, [])
+
+  /* Only one visible spinner: an inner pull wrapper still listens but does not paint a second ring. */
+  useLayoutEffect(() => {
+    const root = rootRef.current
+    if (!root) return
+    const outer = root.parentElement?.closest("[data-pull-to-refresh]")
+    setNestedPtr(!!outer && outer !== root)
   }, [])
 
   const refreshRef = useRef(onRefresh)
@@ -132,8 +141,8 @@ export function PullToRefresh({
   }, [])
 
   return (
-    <div ref={rootRef} data-pull-to-refresh="" className={cn("relative", fill && "h-full", className)}>
-      <PullSpokes ref={indicatorRef} />
+    <div ref={rootRef} data-pull-to-refresh="" data-ptr-nested={nestedPtr ? "" : undefined} className={cn("relative", fill && "h-full", className)}>
+      {nestedPtr ? <div ref={indicatorRef} aria-hidden className="hidden" /> : <PullSpokes ref={indicatorRef} />}
       <div ref={contentRef} data-pull-content="" data-keep-transform="" className={fill ? "h-full" : undefined}>
         {children}
       </div>

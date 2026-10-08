@@ -1169,20 +1169,32 @@ function SectionSwap({ section, children }: { section: SectionKey; children: Rea
   const entered = useRef(false)
 
   useEffect(() => {
-    if (section === drawn) { setHeld(children); return }
+    if (section === drawn) {
+      setHeld(children)
+      return
+    }
     const el = ref.current
     const still = !el || typeof el.animate !== "function" || (typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches)
-    if (still) { setDrawn(section); setHeld(children); return }
+    if (still) {
+      setDrawn(section)
+      setHeld(children)
+      return
+    }
     let done = false
-    const land = () => { if (!done) { done = true; setDrawn(section); setHeld(children) } }
+    const land = () => {
+      if (!done) {
+        done = true
+        setDrawn(section)
+        setHeld(children)
+      }
+    }
     const out = el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: SWAP_OUT_MS, easing: "ease-in", fill: "both" })
     out.onfinish = land
-    /* A fade that never finishes (a tab in the background, a cancel) still lands. */
     window.setTimeout(land, SWAP_OUT_MS + 160)
-    return () => { out.cancel() }
-    /* `children` is a new element every render; the section is what decides a move. */
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [section])
+    return () => {
+      out.cancel()
+    }
+  }, [section, children, drawn])
 
   /* Brought up from nothing on the frame the new section is first painted. */
   useLayoutEffect(() => {

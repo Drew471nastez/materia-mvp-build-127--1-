@@ -65,6 +65,7 @@ import {
   type FeedSortValue,
   type FeedTarget,
 } from "./feed-cache"
+import { feedListHref } from "@/lib/community/feed-space-address"
 import { sectionFromPath } from "./nav"
 import { PlaceSpinner, WAIT_MS } from "./place-spinner"
 import { snapPageTop } from "./return-scroll"
@@ -132,9 +133,15 @@ export interface CommunityFeedProps {
 }
 
 /** The list an address shows: /community/<slug> All, /space/<feed space> that space, /saved Saved; anything else keeps `fallback`. */
-export function targetFromPath(pathname: string | null | undefined, slug: string, spaces: SpaceView[] | undefined, fallback: FeedTarget): FeedTarget {
+export function targetFromPath(
+  pathname: string | null | undefined,
+  slug: string,
+  spaces: SpaceView[] | undefined,
+  fallback: FeedTarget,
+  search?: string | null,
+): FeedTarget {
   if (!spaces) return fallback
-  const section = sectionFromPath(pathname, slug)
+  const section = sectionFromPath(pathname, slug, search)
   if (section === "home") return { kind: "all" }
   if (section === "saved") return { kind: "saved" }
   if (section.startsWith("space:")) {
@@ -168,6 +175,7 @@ export function CommunityFeed({ communityId, slug, viewer, spaces, start, initia
     return () => window.removeEventListener("popstate", on)
   }, [])
   const livePath = typeof window === "undefined" ? pathname : window.location.pathname
+  const liveSearch = typeof window === "undefined" ? "" : window.location.search
   /*
     A POST OPENED OVER THE FEED IS NOT ANOTHER LIST (round 15). Its address (/community/<slug>/post/<id>) read as the community's
     home, so opening a post from a space switched the list under the sheet to All, and closing it switched it back: the post
@@ -175,7 +183,7 @@ export function CommunityFeed({ communityId, slug, viewer, spaces, start, initia
   */
   const onPost = /\/post\//.test(livePath || pathname || "")
   const lastList = useRef<FeedTarget>(start)
-  const fromPath = onPost ? lastList.current : targetFromPath(livePath || pathname, slug, spaces, start)
+  const fromPath = onPost ? lastList.current : targetFromPath(livePath || pathname, slug, spaces, start, liveSearch)
   if (!onPost) lastList.current = fromPath
   /* A click marks its list at once; the address catching up clears the mark (never a post opened over it). */
   const [picked, setPicked] = useState<{ target: FeedTarget; from: string } | null>(null)
@@ -354,7 +362,7 @@ export function CommunityFeed({ communityId, slug, viewer, spaces, start, initia
     },
     [spaces],
   )
-  const hrefOf = (pick: ChipPick) => (pick.kind === "all" ? base : pick.kind === "saved" ? `${base}/saved` : `${base}/space/${encodeURIComponent(pick.slug)}`)
+  const hrefOf = (pick: ChipPick) => feedListHref(base, pick)
 
   /* A chip the member pressed: once that list is the one on screen, the page is at its top. Not on Back. */
   const snapOnList = useRef(false)
@@ -374,15 +382,16 @@ export function CommunityFeed({ communityId, slug, viewer, spaces, start, initia
     prefetchView(communityId, next, next.kind === "saved" ? "default" : sort)
     snapOnList.current = true
     /*
-      THE ADDRESS IS THE SPACE'S, on every device. /community/<slug>/space/<space>
-      (All is the community, Saved is /saved). pushState lets Back, a reload and
-      a copied link land on it. Next copies its own history onto that entry and
-      does not fetch the space page, so the space's loading screen never stands
-      in. The route bar ignores these chips (route-loading-bar.tsx): a click
-      that does not navigate must not start the iOS cover.
+      THE ADDRESS FOLLOWS THE LIST. On a phone it is ?space=<slug> on the home
+      feed; on a computer it is /community/<slug>/space/<space> (All is the
+      community, Saved is /saved). pushState lets Back, a reload and a copied
+      link land on it without loading another page.
     */
     setPicked({ target: next, from: href })
-    if (typeof window !== "undefined" && window.location.pathname !== href) window.history.pushState(null, "", href)
+    if (typeof window !== "undefined") {
+      const cur = window.location.pathname + window.location.search
+      if (cur !== href) window.history.pushState(null, "", href)
+    }
   }
   /* The sort menu: an order while on Saved goes back to All in that order; its Saved posts row toggles Saved. */
   const onSort = (next: FeedSortValue) => {

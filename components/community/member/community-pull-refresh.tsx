@@ -59,7 +59,12 @@ export function CommunityPullRefresh({ slug, children }: { slug: string; childre
   }, [pathname, scope])
 
   if (feed) {
-    return <PullToRefreshEvent key={`feed-${slug}`} scope={COMMUNITY_FEED_REFRESH_SCOPE}>{children}</PullToRefreshEvent>
+    /* One spinner: nested feed pages must not wrap again (space/[space]/page.tsx). */
+    return (
+      <PullToRefreshEvent key={`feed-${slug}`} scope={COMMUNITY_FEED_REFRESH_SCOPE} spinnerYOffset={4}>
+        {children}
+      </PullToRefreshEvent>
+    )
   }
   if (!scope) return children
   return <RouterPullToRefresh key={`${scope}-${slug}`} scope={scope}>{children}</RouterPullToRefresh>

@@ -39,12 +39,23 @@ export function isEventDetailPath(pathname: string | null | undefined): boolean 
   return /^\/community\/[^/]+\/events\/[^/]+$/.test(path)
 }
 
-export function sectionFromPath(pathname: string | null | undefined, slug: string): ShellSection {
+export function sectionFromPath(pathname: string | null | undefined, slug: string, search?: string | null): ShellSection {
   const base = `/community/${slug}`
   const path = (pathname || "").split(/[?#]/)[0].replace(/\/+$/, "")
   if (!path.startsWith(base)) return "home"
   const [first, second] = path.slice(base.length).split("/").filter(Boolean)
-  if (!first) return "home"
+  if (!first) {
+    /* Phones keep the feed on /community/<slug>?space=<slug> (lib/community/feed-space-address.ts). */
+    if (search) {
+      try {
+        const q = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search).get("space")
+        if (q) return `space:${decodeURIComponent(q)}`
+      } catch {
+        /* ignore */
+      }
+    }
+    return "home"
+  }
   if (first === "space" && second) return `space:${decodeURIComponent(second)}`
   /* Learn (round 13) is the place once called the Classroom: its key stays "classroom", like the switch that turns it on. */
   if (first === "learn") return "classroom"

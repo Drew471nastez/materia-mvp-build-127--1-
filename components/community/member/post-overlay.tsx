@@ -190,7 +190,7 @@ export function PostOverlay({ post: given, slug, viewer, readOnly = false, updat
 
   /* The post again from the server, and seen. */
   useEffect(() => {
-    if (!settled) return
+    if (!settled || phase === "out" || !open) return
     markSeen(given.communityId, viewer.userId, given)
     let stop = false
     void (async () => {
@@ -214,7 +214,7 @@ export function PostOverlay({ post: given, slug, viewer, readOnly = false, updat
       stop = true
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [given.id, settled])
+  }, [given.id, settled, phase, open])
 
   /*
     THE PAGE UNDER IT STAYS STILL. On a phone, held for as long as the sheet is open, before the first frame is painted (set

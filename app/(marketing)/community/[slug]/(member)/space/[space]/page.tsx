@@ -8,6 +8,7 @@ import { ChatView } from "@/components/community/member/chat"
 import { eventHrefFor, fileProductFor, meOf, memberPage, shellData } from "@/components/community/member/data"
 import { CommunityFeed } from "@/components/community/member/feed"
 import { SpaceChips } from "@/components/community/member/space-chips"
+import { SpaceFeedRedirect } from "@/components/community/member/space-feed-redirect"
 
 /**
  * /community/<slug>/space/<space>: one space's feed, or its chat when the
@@ -44,20 +45,22 @@ export default async function CommunitySpacePage({ params }: { params: Promise<{
     meOf(community.id, viewer),
     fileProductFor(community, viewer),
   ])
-  /* A space's feed refreshes on a pull as the community's does (components/ui/pull-to-refresh.tsx, scope "community-feed"). */
   return (
-    <PullToRefreshEvent scope="community-feed">
-    <CommunityFeed
-      communityId={community.id}
-      slug={community.slug}
-      viewer={view}
-      spaces={shell.spaces}
-      start={{ kind: "space", id: space.id }}
-      initial={feed}
-      servedAt={Date.now()}
-      readOnly={readOnly}
-      compose={viewer.userId ? { userId: viewer.userId, me, fileProductId, eventHref: eventHrefFor(community, viewer) } : null}
-    />
-    </PullToRefreshEvent>
+    <>
+      <SpaceFeedRedirect slug={community.slug} spaceSlug={space.slug} />
+      <PullToRefreshEvent scope="community-feed">
+      <CommunityFeed
+        communityId={community.id}
+        slug={community.slug}
+        viewer={view}
+        spaces={shell.spaces}
+        start={{ kind: "space", id: space.id }}
+        initial={feed}
+        servedAt={Date.now()}
+        readOnly={readOnly}
+        compose={viewer.userId ? { userId: viewer.userId, me, fileProductId, eventHref: eventHrefFor(community, viewer) } : null}
+      />
+      </PullToRefreshEvent>
+    </>
   )
 }
