@@ -90,6 +90,7 @@ import { SECTION_SCHEMAS, ADDABLE_SECTIONS } from "@/lib/website-builder/section
 import { controlFor, resolveControlType } from "@/lib/storelib-theme/controls/registry"
 import { fillResponsive } from "@/lib/storelib-theme/resolve"
 import { toCard, type ProductCard } from "@/lib/website-builder/shop-products"
+import { createUndoRun } from "@/lib/website-builder/undo-run"
 import { sectionDisplayName } from "@/lib/website-builder/section-name"
 import { PIN_AFTER_SELECT_MS, PIN_WHILE_OPENING_MS, pinScroll, resetClippedAncestors, revealWithin, reviveScroller } from "@/lib/website-builder/canvas-scroll"
 import { scrollToHash, themeRootOf } from "@/lib/website-builder/section-motion"
@@ -151,7 +152,6 @@ type BuilderCommunities = { choices: PickerCommunity[]; cards: Record<string, St
 type BuilderCollections = { choices: PickerCollection[]; cards: Record<string, StorefrontCollection> }
 /** The sections that show the creator's collections, offered only while collections are on. */
 const COLLECTION_SECTIONS: ReadonlySet<string> = new Set(["collections_grid", "collection_featured"])
-import { formatPrice } from "@/lib/website-builder/shop-products"
 import { visibleFields } from "@/lib/storelib-theme/visible-if"
 
 /** Ask Storelib on a phone: half, and the whole screen below the status bar. A constant so the sheet's memo holds. */
@@ -3267,18 +3267,19 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }, [snapshotNow])
 
   /**
-   * One step for a run of edits. Typing into a field fires on every
-   * keystroke, and thirty keystrokes should not fill a thirty-step history.
+   * One step for a run of edits, and the step is what came BEFORE the run
+   * (lib/website-builder/undo-run.ts): taken half a second after the typing
+   * stopped, it was the page after the edit, and Undo did nothing.
    *
    * Declared here, beside `pushUndo`, because callers above it in the file
    * need it in their dependency list and a `const` cannot be named before it
    * exists.
    */
-  const undoPushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const debouncedPushUndo = useCallback(() => {
-    if (undoPushTimerRef.current) clearTimeout(undoPushTimerRef.current)
-    undoPushTimerRef.current = setTimeout(() => pushUndo(), 500)
-  }, [pushUndo])
+  const pushUndoLatest = useRef(pushUndo)
+  pushUndoLatest.current = pushUndo
+  const [undoRun] = useState(() => createUndoRun(() => pushUndoLatest.current()))
+  const endUndoRun = undoRun.end
+  const debouncedPushUndo = undoRun.step
 
   /**
    * THE STACK BELONGS TO THE PAGE IT WAS RECORDED ON.
@@ -3296,31 +3297,35 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   pushUndoRef.current = debouncedPushUndo
 
   const clearHistory = useCallback(() => {
+    endUndoRun()
     setUndoStack([])
     setRedoStack([])
-  }, [])
+  }, [endUndoRun])
 
   const handleUndo = useCallback(() => {
     const stack = undoRef.current
     if (stack.length === 0) return
+    /* An edit after an Undo is a step of its own, not the end of the run before it. */
+    endUndoRun()
     const last = stack[stack.length - 1]
     setRedoStack(prev => [...prev, snapshotNow()])
     setSections(last.sections)
     setSettingsDraft(last.settings)
     setUndoStack(prev => prev.slice(0, -1))
     setIsDirty(true)
-  }, [snapshotNow])
+  }, [snapshotNow, endUndoRun])
 
   const handleRedo = useCallback(() => {
     const stack = redoRef.current
     if (stack.length === 0) return
+    endUndoRun()
     const last = stack[stack.length - 1]
     setUndoStack(prev => [...prev, snapshotNow()])
     setSections(last.sections)
     setSettingsDraft(last.settings)
     setRedoStack(prev => prev.slice(0, -1))
     setIsDirty(true)
-  }, [snapshotNow])
+  }, [snapshotNow, endUndoRun])
 
   /**
    * Bring a section into the CANVAS, and only when none of it is on screen.
@@ -3721,16 +3726,54 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }, [isDirty, codeDirty, saving, publishing])
 
   /**
-   * THE SAME LIST THE PUBLISHED PAGE IS GIVEN. The canvas draws a section
-   * set to "my shop" from this, and the storefront draws it from
-   * `shopProducts`; both go through `toCard`, so the two surfaces cannot
-   * disagree about a price or a sold-out label. Mapped rather than passed
-   * raw for exactly that reason.
+   * THE SAME CARDS THE PUBLISHED PAGE IS GIVEN. The canvas draws a section
+   * that reads `products`, a product picker, a product list or a collection
+   * from these, and they come from the functions the live site calls
+   * (`shopProducts` and `catalogCards` in lib/website-builder/shop-products.ts,
+   * through /api/website-builder/products?cards=1). They were mapped here from
+   * the page browser's list, which has no kind, no options, no gallery beyond
+   * the first picture and no community filter, so the canvas drew cards the
+   * site does not: an add button that read no kind, a second picture that was
+   * never there, a count of products the shop does not list.
    *
-   * `slug || id` above means a product with no slug gets a link to an id
-   * that is not a page, so the card is drawn without one here.
+   * Until they arrive the page browser's list stands in, through the same
+   * `toCard`, so a product grid is never empty for the length of a request.
+   * They are read again when the builder's tab comes back into view, because
+   * a price or a photo is usually changed in another tab, and kept as the
+   * same objects when nothing changed, so a section does not draw again for a
+   * read that found what it already had.
    */
-  const shopCards = useMemo(
+  const [liveCards, setLiveCards] = useState<{ shop: ProductCard[]; catalog: ProductCard[] } | null>(null)
+  const liveCardsKey = useRef("")
+  const loadCards = useCallback(async () => {
+    try {
+      const res = await fetch("/api/website-builder/products?cards=1", { cache: "no-store" })
+      if (!res.ok) return
+      const data = await res.json()
+      const shop = Array.isArray(data?.shop) ? (data.shop as ProductCard[]) : []
+      const catalog = Array.isArray(data?.catalog) ? (data.catalog as ProductCard[]) : shop
+      const key = JSON.stringify([shop, catalog])
+      if (key === liveCardsKey.current) return
+      liveCardsKey.current = key
+      setLiveCards({ shop, catalog })
+    } catch {}
+  }, [])
+  useEffect(() => {
+    void loadCards()
+    let last = Date.now()
+    const again = () => {
+      if (document.visibilityState !== "visible" || Date.now() - last < 15_000) return
+      last = Date.now()
+      void loadCards()
+    }
+    document.addEventListener("visibilitychange", again)
+    window.addEventListener("focus", again)
+    return () => {
+      document.removeEventListener("visibilitychange", again)
+      window.removeEventListener("focus", again)
+    }
+  }, [loadCards])
+  const standIn = useMemo(
     () => products.map((p) => toCard({
       id: p.id,
       title: p.title,
@@ -3743,6 +3786,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     })),
     [products],
   )
+  /* What a section reads as `products`, and what a picker may name. */
+  const shopCards = liveCards?.shop ?? standIn
+  const catalogCardsForCanvas = liveCards?.catalog ?? standIn
 
   // Fetch products and collections for page browser
   const loadProducts = useCallback(async () => {
@@ -6805,9 +6851,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * heading holding `{{ shop.name }}` reads as the shop's name here too,
    * and on the product page as the product being previewed.
    */
+  /* The pickers list the products the canvas draws: the same cards, so a picture, a price and an address in the sidebar are the ones on the page. */
   const pickerProducts = useMemo(
-    () => products.map((p) => ({ id: p.id, title: p.title, price: formatPrice(p.price_cents), image: p.thumbnail_url, url: p.slug ? `/products/${p.slug}` : "" })),
-    [products],
+    () => catalogCardsForCanvas.map((c) => ({ id: c.id, title: c.settings.title, price: c.settings.price, image: c.settings.image, url: c.settings.url })),
+    [catalogCardsForCanvas],
   )
   const canvasMenus = useMemo(() => siteMenus(activeThemeSettings, sections), [activeThemeSettings, sections])
   /** Which menu Menus opens at, when something asked for one (the header's Edit, a section's menu picker). */
@@ -6921,8 +6968,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     [activeThemeSettings, creatorFacts, websiteUrl, products.length, previewedProduct, currentPage],
   )
   const canvasData = useMemo(
-    () => storefrontData({ dynamic: canvasDynamic, catalog: shopCards, menus: canvasMenus, communities: builderCommunities?.cards, collections: builderCollections?.cards }),
-    [canvasDynamic, shopCards, canvasMenus, builderCommunities, builderCollections],
+    () => storefrontData({ dynamic: canvasDynamic, catalog: catalogCardsForCanvas, menus: canvasMenus, communities: builderCommunities?.cards, collections: builderCollections?.cards }),
+    [canvasDynamic, catalogCardsForCanvas, canvasMenus, builderCommunities, builderCollections],
   )
   /* What the canvas draws: the page with its placeholders filled. Never saved. */
   const drawnSections = useMemo(

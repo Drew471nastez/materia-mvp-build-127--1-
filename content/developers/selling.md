@@ -29,6 +29,50 @@ A Storelib website sells the creator's products, and the part that takes the mon
 
 Templates do not do money: never compute, round or convert a price. Show the text you are given.
 
+## Products are read, never typed
+
+A product on a Storelib website is always a real one. A section never holds a product's name, price, photo or stock as text: not in its markup, not in a setting's default, not in a block, not in a preset. Typed, the product is wrong the day its price changes, it never sells out, and its buy button buys nothing.
+
+A section written by Storelib AI, an agent over MCP, the agent API or a push from GitHub is held to it when it is saved:
+
+| Refused | Because |
+| --- | --- |
+| A price that is a setting on a product (a `product` block or a product section with a `price` text setting), unless it is only the fallback for a `product_picker` beside it, printed after the product's own: `{{ settings.product.price \| default: settings.price }}` | The shop already has the price. Loop `products`, a `product_list` or a collection, or pick one with a `product_picker`. |
+| A section about products (its type or category says so) that reads none of the shop's | It would draw nothing real. |
+| A price written into the markup, a default or a preset, such as `$48.00`, or a list of products in a script | Prices are printed from the product they belong to. |
+
+A pricing table, a menu of dishes, an event's tickets or a service's rates are priced by hand on purpose, and are left alone. A person writing in the builder's code editor is not held to it.
+
+## Which products: the sidebar decides
+
+The way a Shopify section offers products, and the way Storelib's own product sections do: a `source` select, and a picker for each source that needs one, shown only when it is chosen.
+
+```json
+{ "type": "select", "id": "source", "label": "Products", "default": "shop", "options": [
+  { "label": "All products, newest first", "value": "shop" },
+  { "label": "A collection", "value": "collection" },
+  { "label": "Products I choose", "value": "chosen" } ] },
+{ "type": "collection_picker", "id": "collection", "label": "Collection", "visible_if": "{{ section.settings.source == 'collection' }}" },
+{ "type": "product_list", "id": "chosen", "label": "Products", "limit": 12, "visible_if": "{{ section.settings.source == 'chosen' }}" },
+{ "type": "range", "id": "product_count", "label": "Products to show", "min": 1, "max": 24, "step": 1, "default": 8, "visible_if": "{{ section.settings.source != 'chosen' }}" }
+```
+
+```storelib
+{% if settings.source == 'collection' %}
+  {% for block in settings.collection.products limit: settings.product_count %} …the card… {% endfor %}
+{% elsif settings.source == 'chosen' %}
+  {% for block in settings.chosen %} …the card… {% endfor %}
+{% else %}
+  {% for block in products limit: settings.product_count %} …the card… {% else %}
+    {% if page.in_editor %}<p>Your published products appear here</p>{% endif %}
+  {% endfor %}
+{% endif %}
+```
+
+Each list is block-shaped, so the card is the same markup in every branch. `settings.collection.products` is the collection's own order, up to twelve; `settings.chosen` is the creator's order, and a product that is unpublished or deleted is left out. `limit:`, `offset:` and `reversed` work on any loop, each a number or a setting.
+
+An empty state says what to do, behind `page.in_editor`, so a visitor never sees it. Nothing stands in for a product: with none published, the section draws nothing on the live site.
+
 ## A product's options: `variants`
 
 A product with options is bought as one of them. Each entry in `block.settings.variants` has:
@@ -181,9 +225,9 @@ A `product_list` setting is looped exactly like `products`: `{% for block in set
 
 A `collection_picker` reads as the collection: `settings.collection.title`, `.url`, `.products_count`, and `.products` to loop. A `collection_list` is several, `{% for block in settings.collections %}`. On `/collections/<handle>` the page's own collection is `collection` in every section, and a collection picker set to `@current` is that collection. Every member is on the page, not only the newest 24.
 
-### Typed values only override
+### A card's own words, never its price
 
-A card the creator fills in starts from its product and lets them override a word: `{{ block.settings.title | default: block.settings.product.title }}`. Defaults and presets never invent a product or a price. The section checker refuses a typed price, invented products in a default or a preset, and a product array in a script (`integration-products`), so the AI's sections follow this as well.
+A card the creator fills in starts from its product and may change a word or the picture: `{{ block.settings.title | default: block.settings.product.title }}`. Its price is always the product's, so it is never a setting. Defaults and presets never invent a product or a price. The section checker refuses a price setting on a product (`integration-product-typed`), a typed price, invented products in a default or a preset, and a product array in a script (`integration-products`), so the AI's sections follow this as well.
 
 ## Buy buttons and checkout
 
@@ -205,7 +249,7 @@ A card the creator fills in starts from its product and lets them override a wor
 
 ## The cart
 
-A website has a cart. The header's bag opens it, the product page's **Add to cart** fills it (with the variant, the quantity and, for pay what you want, the amount named) and opens it, and `/cart` shows it and sends it to checkout as one payment, after which the buyer comes back to the website's home page. It is kept in the visitor's browser, per shop, and every price in it is read again at checkout. A section cannot add to it: link to the product's page, where the button is.
+A website has a cart. The header's bag opens it, the product page's **Add to cart** fills it (with the variant, the quantity and, for pay what you want, the amount named) and opens it, and `/cart` shows it and sends it to checkout as one payment, after which the buyer comes back to the website's home page. It is kept in the visitor's browser, per shop, and every price in it is read again at checkout. A section adds to it with a button marked `data-storelib-add-to-cart`, and may draw a cart drawer of its own: see [Header and footer](/developers/header-and-footer).
 
 ## What a section may not do
 

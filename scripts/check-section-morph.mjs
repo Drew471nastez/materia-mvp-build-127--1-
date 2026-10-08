@@ -80,6 +80,21 @@ expect(kept.text === "Film presets", "typing into the heading changes the headin
 expect(kept.img && kept.video, "and the picture and the video are the same elements, not rebuilt", JSON.stringify({ img: kept.img, video: kept.video }))
 expect(kept.h1 && kept.link && kept.animRunning, "the heading's entrance animation carries on rather than starting again", JSON.stringify(kept))
 
+console.log("\nwhat the page wrote onto the section stays (PAGE_OWNED_ATTRIBUTES)")
+const owned = await p.evaluate(() => {
+  const host = document.getElementById("host")
+  const grid = (cols) => `<ul style="--cols: ${cols}"><li><img src="/p1.png" alt="One" data-sl-media=""><h3>One</h3></li></ul>`
+  host.innerHTML = grid(3)
+  const img = host.querySelector("img")
+  img.setAttribute("data-sl-loaded", "")
+  M.morphInto(host, grid(4))
+  const kept = img.hasAttribute("data-sl-loaded") && host.querySelector("img") === img
+  M.morphInto(host, `<ul style="--cols: 4"><li><img src="/p1.png" alt="One" data-sl-media="" data-sl-loaded="yes"><h3>One</h3></li></ul>`)
+  return { kept, stated: img.getAttribute("data-sl-loaded") }
+})
+expect(owned.kept, "a layout change keeps a loaded picture's mark, so the theme does not fade it to nothing")
+expect(owned.stated === "yes", "and markup that states the attribute itself still wins", owned.stated)
+
 await browser.close()
 console.log(failed ? `\n${failed} check(s) failed.` : "\nA section's edit changes only what it changed.")
 process.exit(failed ? 1 : 0)

@@ -1133,7 +1133,8 @@ section("Undo cannot reach a page you are not on")
    */
   check(
     "there is one place that clears the history",
-    /const clearHistory = useCallback\(\(\) => \{\s*\n\s*setUndoStack\(\[\]\)\s*\n\s*setRedoStack\(\[\]\)/.test(editor),
+    /* It ends the run of edits too, so the next edit is a step of its own (lib/website-builder/undo-run.ts). */
+    /const clearHistory = useCallback\(\(\) => \{\s*\n(?:\s*endUndoRun\(\)\s*\n)?\s*setUndoStack\(\[\]\)\s*\n\s*setRedoStack\(\[\]\)/.test(editor),
   )
   check(
     "a page change clears it",

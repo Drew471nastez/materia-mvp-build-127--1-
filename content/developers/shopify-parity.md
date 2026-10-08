@@ -100,6 +100,9 @@ Shopify's theme-facing commerce, as Storelib provides it to a `.storelib` sectio
 | Cart and checkout | Storelib checkout | Have | One payment for the basket. A basket with something shipped goes to the physical checkout. Prices are read again from the database; nothing in the browser can change a charge. |
 | Product options and variants | `product_variants`, `product_options` | Have | A section reads `block.settings.variants` and, for shipped products, `options`. |
 | Collections | `product_collections` | Have | `collection_picker`, `collection_list`, the collections page. A collection's own page is still missing (above). |
+| A section's products chosen in the editor (all, a collection, hand-picked) | a `source` select with `collection_picker` and `product_list` | Have | Product Grid and Featured Products start on the shop. A section an agent writes with typed products is refused when saved. See [Selling](/developers/selling). |
+| Featured product | `product_picker`, read as `settings.product.title`, `.price`, `.image` | Have | Product Hero and Product Spotlight take the name, price and photo from the chosen product. |
+| `{% for … limit: offset: reversed %}` | the same | Have | A number or a setting. |
 | Inventory and locations | `inventory_locations`, `inventory_levels` | Have | Stock per location, movements and transfers (`lib/physical/inventory-server.ts`). A section is told "Sold out", never a count. |
 | Shipping profiles, zones and rates | `shipping_profiles`, `shipping_zones`, `shipping_rates` | Have | Flat and tiered rates, carriers, packages, pickup (`lib/physical/rates.ts`, `pickup.ts`). |
 | Taxes | `commerce_tax_rates` | Have | Rates the creator sets (`lib/physical`). |

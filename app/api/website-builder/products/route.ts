@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { productSectionData, type ProductSectionRow } from "@/lib/products/product-section-data"
+import { catalogCards, shopProducts } from "@/lib/website-builder/shop-products"
 
 // GET - Fetch creator's products for the website builder editor
 export async function GET(request: Request) {
@@ -48,6 +49,23 @@ export async function GET(request: Request) {
          has just been shown to be this creator's. */
       const data = await productSectionData(createAdminClient(), product as ProductSectionRow, { files: true })
       return NextResponse.json({ product: { ...data, status: (product as { status?: string }).status ?? null } })
+    }
+
+    /*
+      THE CARDS THE LIVE PAGE DRAWS, for the canvas. `shop` is the list a
+      section reads as `products` (lib/website-builder/shop-products.ts,
+      shopProducts: the newest published, without a product that sells a
+      community tier), `catalog` every published product a picker, a product
+      list or a collection may name. Made by the same functions the published
+      site calls, so the builder cannot draw a card the site would not: the
+      same pictures, kind, options and buy link. Read with the server's
+      client once this creator is known, as the single product above is,
+      because a product's options sit in tables only the server reads.
+    */
+    if (searchParams.get("cards") === "1") {
+      const admin = createAdminClient() as never
+      const [shop, catalog] = await Promise.all([shopProducts(admin, creator.id), catalogCards(admin, creator.id)])
+      return NextResponse.json({ shop, catalog }, { headers: { "Cache-Control": "private, no-store" } })
     }
 
     // List all published products

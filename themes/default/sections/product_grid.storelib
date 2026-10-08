@@ -164,7 +164,7 @@
             </div>
             <h3 class="card__title">{{ block.settings.title | default: block.settings.url.title }}</h3>
             {% if settings.show_price and (block.settings.price or block.settings.url.price) %}
-              <p class="card__price">{{ block.settings.price | default: block.settings.url.price }}{% if block.settings.compare_price %}<s class="card__was">{{ block.settings.compare_price }}</s>{% elsif block.settings.url.compare_price %}<s class="card__was">{{ block.settings.url.compare_price }}</s>{% endif %}</p>
+              <p class="card__price">{{ block.settings.url.price | default: block.settings.price }}{% if block.settings.url.title %}{% if block.settings.url.compare_price %}<s class="card__was">{{ block.settings.url.compare_price }}</s>{% endif %}{% elsif block.settings.compare_price %}<s class="card__was">{{ block.settings.compare_price }}</s>{% endif %}</p>
             {% endif %}
             {% if block.settings.url %}<a class="card__link" href="{{ block.settings.url | url }}"><span class="sr">{{ block.settings.title | default: block.settings.url.title }}</span></a>{% endif %}
           </article>

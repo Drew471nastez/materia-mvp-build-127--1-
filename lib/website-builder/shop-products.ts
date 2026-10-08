@@ -134,7 +134,7 @@ export const MAX_SHOP_PRODUCTS = 24
 /** Pictures a card carries at most. A product page shows a gallery, not an archive. */
 const MAX_IMAGES = 12
 
-interface ProductRow {
+export interface ProductRow {
   id: string
   title: string | null
   slug: string | null
@@ -371,6 +371,23 @@ export async function productVariants(db: Db, productIds: string[]): Promise<Var
 }
 
 /**
+ * Every column a card is made from, most first. A database that does not have
+ * a column yet answers with an error, and the next set is asked for, so the
+ * cards lose a field rather than the page losing its products. One list for
+ * the shop's newest products and for the ones a section picked, so a product
+ * reached either way is the same card: its gallery, its kind, its options.
+ */
+export const PRODUCT_COLUMN_SETS = [PRODUCT_COLUMNS_WITH_STOCK, PRODUCT_COLUMNS_WITH_CATEGORY, PRODUCT_COLUMNS_WITH_COMMUNITY, PRODUCT_COLUMNS, PRODUCT_COLUMNS_MINIMAL] as const
+
+/** Rows to cards, with their options (variants) and a shipped product's Size and Colour. Never throws. */
+export async function cardsFromRows(db: unknown, rows: ProductRow[]): Promise<ProductCard[]> {
+  if (rows.length === 0) return []
+  const physical = rows.filter((r) => r.type === "physical").map((r) => r.id)
+  const [variants, options] = await Promise.all([productVariants(db as Db, rows.map((r) => r.id)), productOptions(db as Db, physical)])
+  return rows.map((r) => toCard(r, variants, options))
+}
+
+/**
  * ONE CREATOR'S published products, newest first, with their options.
  *
  * `creator_id` is not optional and not a convenience: it is the whole of
@@ -384,11 +401,30 @@ export async function productVariants(db: Db, productIds: string[]): Promise<Var
  * cards lose a field rather than the page losing its products.
  */
 export async function shopProducts(db: Db, creatorId: string, limit = MAX_SHOP_PRODUCTS): Promise<ProductCard[]> {
-  if (!creatorId) return []
   const n = Math.max(1, Math.min(MAX_SHOP_PRODUCTS, Math.floor(limit) || MAX_SHOP_PRODUCTS))
+  return readCards(db, creatorId, n, true)
+}
+
+/** Most products the builder's pickers are offered, newest first. */
+export const MAX_CATALOG_PRODUCTS = 100
+
+/**
+ * EVERY published product a picker may name, as cards: what the builder's
+ * canvas resolves a product picker, a product list and a collection against.
+ * The shop's own list (`shopProducts`) leaves out a product that sells a
+ * community tier; a picker may still name one, as on the live page, where a
+ * picked product is read by id whatever it sells.
+ */
+export async function catalogCards(db: Db, creatorId: string, limit = MAX_CATALOG_PRODUCTS): Promise<ProductCard[]> {
+  const n = Math.max(1, Math.min(MAX_CATALOG_PRODUCTS, Math.floor(limit) || MAX_CATALOG_PRODUCTS))
+  return readCards(db, creatorId, n, false)
+}
+
+async function readCards(db: Db, creatorId: string, n: number, listedOnly: boolean): Promise<ProductCard[]> {
+  if (!creatorId) return []
   try {
     let rows: ProductRow[] | null = null
-    for (const cols of [PRODUCT_COLUMNS_WITH_STOCK, PRODUCT_COLUMNS_WITH_CATEGORY, PRODUCT_COLUMNS_WITH_COMMUNITY, PRODUCT_COLUMNS, PRODUCT_COLUMNS_MINIMAL]) {
+    for (const cols of PRODUCT_COLUMN_SETS) {
       const { data, error } = await db
         .from("products")
         .select(cols)
@@ -397,13 +433,11 @@ export async function shopProducts(db: Db, creatorId: string, limit = MAX_SHOP_P
         .order("created_at", { ascending: false })
         .limit(n)
       if (error) continue
-      rows = withoutCommunityProducts((data ?? []) as ProductRow[])
+      rows = listedOnly ? withoutCommunityProducts((data ?? []) as ProductRow[]) : ((data ?? []) as ProductRow[])
       break
     }
     if (!rows) return []
-    const physical = rows.filter((r) => r.type === "physical").map((r) => r.id)
-    const [variants, options] = await Promise.all([productVariants(db, rows.map((r) => r.id)), productOptions(db, physical)])
-    return rows.map((r) => toCard(r, variants, options))
+    return await cardsFromRows(db, rows)
   } catch {
     return []
   }

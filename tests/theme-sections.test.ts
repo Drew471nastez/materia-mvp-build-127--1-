@@ -197,12 +197,22 @@ section("The product grid can show products somebody chose")
   check("with the shop's own prices and links", html.includes("$29.00") && /href="\/products\/wallet"/.test(html))
   grid.settings = { ...grid.settings, chosen: [] }
   check("none chosen: the editor asks, a visitor sees nothing", draw(grid, { catalog: CATALOG, inEditor: true }).includes("Choose products in the sidebar") && !/class="card /.test(draw(grid, { catalog: CATALOG })))
+  /* A grid saved before the shop was the preset: no source of its own, so the default, and the cards typed in it. */
   const typed = fromPreset("product_grid")
   /* The preset starts from the shop now; cards are the picked source. */
   typed.settings = { ...typed.settings, source: "picked" }
   typed.blocks = [{ id: "b", type: "product", settings: { title: "Tote", price: "$48", url: "/products/tote" } }] as never
   check("a typed card with no photo shows the photo of the product it links to", /<img src="https:\/\/cdn\.example\/tote\.jpg"/.test(draw(typed, { catalog: CATALOG })))
-  check("the picked cards are still the default", SECTION_SCHEMAS.product_grid.fields.find((f) => f.id === "source")?.default === "picked")
+  check("the picked cards are still the default, so a grid saved with them draws them", SECTION_SCHEMAS.product_grid.fields.find((f) => f.id === "source")?.default === "picked")
+  for (const type of ["product_grid", "product_featured"]) {
+    const fresh = fromPreset(type)
+    check(`a new ${type} starts on the shop's real products, with no typed cards`, fresh.settings.source === "shop" && (fresh.blocks ?? []).length === 0, fresh.settings)
+  }
+  for (const type of ["hero_product", "product_spotlight"]) {
+    const fresh = fromPreset(type)
+    const start = (id: string) => fresh.settings[id] ?? SECTION_SCHEMAS[type].fields.find((f) => f.id === id)?.default
+    check(`a new ${type} types no product: its name and price come from the one chosen`, start("heading") === "" && start("price") === "", { heading: start("heading"), price: start("price") })
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

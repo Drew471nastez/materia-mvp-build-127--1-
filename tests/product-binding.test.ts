@@ -68,7 +68,8 @@ console.log("\nCards read the product they are set to\n")
     )
     const html = r.ok === true ? r.html : ""
     check(`${type}: a card shows the chosen product's name, price, old price and photo`, html.includes("Waxed tote") && html.includes("$52.00") && html.includes("$60.00") && html.includes("cdn.example/tote.jpg"), html.slice(0, 400))
-    check(`${type}: a name and price typed on the card override the product's`, html.includes("My own name") && html.includes("$40"))
+    /* A card's own words win; its price never does: checkout charges the product's, so the card shows the product's (tests/product-source.test.ts). */
+    check(`${type}: a name typed on the card overrides the product's, its price does not`, html.includes("My own name") && !html.includes("$40"))
     check(`${type}: no invented product is drawn`, !/Everyday tote|Linen apron|Product name/.test(html))
     const src = (DEFAULT_THEME_SOURCES as Record<string, string>)[`sections/${type}.storelib`]
     check(`${type}: new sections start from the shop, with no typed products`, /"source": "shop"/.test(src.slice(src.indexOf('"presets"'))) && !/Everyday tote/.test(src))

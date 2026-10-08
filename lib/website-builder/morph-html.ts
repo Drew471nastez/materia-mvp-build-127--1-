@@ -21,7 +21,8 @@
  * which is what `innerHTML` did for all of them.
  *
  * The result is exactly the markup asked for: after `morphInto(el, html)`,
- * `el.innerHTML` is what a template given `html` would hold.
+ * `el.innerHTML` is what a template given `html` would hold, apart from the
+ * few attributes the page itself wrote (PAGE_OWNED_ATTRIBUTES below).
  * scripts/check-section-morph.mjs holds that, and that unchanged nodes stay.
  */
 
@@ -36,12 +37,30 @@ function sameKind(a: Node, b: Node): boolean {
   return ea.tagName === eb.tagName && (ea.getAttribute("id") ?? "") === (eb.getAttribute("id") ?? "")
 }
 
+/**
+ * WHAT THE PAGE WROTE, NOT THE MARKUP. Attributes the page sets on a
+ * section's elements after they are drawn, and that no template states. The
+ * new markup never has them, so a plain sync took them off every element on
+ * every edit:
+ *
+ *   data-sl-loaded   the picture has loaded (./media-fade.ts). Taken off, the
+ *                    theme's stylesheet faded every picture in the section
+ *                    to nothing, and nothing put it back: a product grid
+ *                    kept its names and prices and lost every photo the
+ *                    moment a setting moved in the sidebar.
+ *
+ * Kept unless the markup states the attribute itself. A picture whose
+ * address changes is still loaded again and faded in: media-fade.ts takes the
+ * mark off when `src` or `srcset` changes.
+ */
+export const PAGE_OWNED_ATTRIBUTES: ReadonlySet<string> = new Set(["data-sl-loaded"])
+
 function syncAttributes(have: Element, want: Element): void {
   for (const { name, value } of Array.from(want.attributes)) {
     if (have.getAttribute(name) !== value) have.setAttribute(name, value)
   }
   for (const { name } of Array.from(have.attributes)) {
-    if (!want.hasAttribute(name)) have.removeAttribute(name)
+    if (!want.hasAttribute(name) && !PAGE_OWNED_ATTRIBUTES.has(name)) have.removeAttribute(name)
   }
 }
 

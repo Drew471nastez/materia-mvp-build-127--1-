@@ -10,6 +10,9 @@ What the customer-facing Storelib AI and the website builder can do today, with 
 
 | Feature | Status | Files | Evidence |
 | --- | --- | --- | --- |
+| Products read from the shop, never typed: a refused save for typed product cards, a product section that reads nothing, or a typed price | verified | `lib/storelib-ai/integration.ts` (`integration-products`, `integration-product-typed`), `lib/storelib-ai/knowledge.ts` (products), `lib/storelib-ai/reference.ts` | `tests/product-source.test.ts` |
+| The canvas draws the live site's own cards (gallery, kind, options), re-read when the tab comes back | verified | `app/api/website-builder/products/route.ts` (`?cards=1`), `lib/website-builder/shop-products.ts` (`catalogCards`) | `tests/product-source.test.ts` |
+| A setting changed in the sidebar keeps every product photo shown, a section's own cart keeps its lines | verified in Chromium | `lib/website-builder/morph-html.ts`, `media-fade.ts`, `components/website-builder/sections/StorelibSection.tsx` | `scripts/check-canvas-stability.mjs` (fails on the code before the fix) |
 | Tool loop, streamed to the editor as operations | verified | `lib/website-builder/agent/loop.ts`, `app/api/website-builder/themes/[installId]/agent/route.ts` | `tests/agent-intent.test.ts` drives it with a scripted provider |
 | Intent read before the page (local edit, content, style, behaviour, section/page/site redesign, new site, question) | verified | `lib/website-builder/agent/intent.ts` | `tests/agent-intent.test.ts` |
 | Rebuild vs adjust ("completely different" vs "a bit") | verified | `intent.ts` (`rebuild`, `light`) | `tests/agent-site-pages.test.ts` INTENT |

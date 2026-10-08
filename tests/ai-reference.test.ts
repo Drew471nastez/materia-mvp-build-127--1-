@@ -23,9 +23,8 @@ import {
   FRAMEWORK_REFERENCE,
   QUALITY_CHECKLIST,
   REFERENCE_SECTION_TYPES,
-  compactSection,
   pageAgentReference,
-  withReducedMotion,
+  promptCopy,
   writerReference,
 } from "@/lib/storelib-ai/reference"
 import { CORE_FORMAT, INTEGRATION_CONTRACT, validateSection } from "@/lib/storelib-ai"
@@ -77,7 +76,7 @@ async function pageAgentSystem(prompt: string): Promise<string> {
 
 async function main() {
   /* Each example as the prompt carries it: comments out, and the reduced motion rule added where the built-in lacks it. */
-  const examples = REFERENCE_SECTION_TYPES.map(({ type }) => ({ type, compact: withReducedMotion(compactSection(DEFAULT_THEME_SOURCES[`sections/${type}.storelib`] ?? "")) }))
+  const examples = REFERENCE_SECTION_TYPES.map(({ type }) => ({ type, compact: promptCopy(DEFAULT_THEME_SOURCES[`sections/${type}.storelib`] ?? "") }))
 
   // ═══════════════════════════════════════════════════════════════════════
   section("Both builder AIs are sent it")
@@ -175,7 +174,8 @@ async function main() {
     /* 23,000 until the framework said how to type a picture, a menu and a colour per element, and that the header is configured: 600 characters. */
     /* 23,600 until the control list gained collection_picker and collection_list (about 10 tokens). */
     check(`the page assistant's reference stays under ~5.9k tokens (${Math.round(page / 4)})`, page <= 23_650, `${page} chars`)
-    check(`Code section's reference stays under ~8.25k tokens (${Math.round(writer / 4)})`, writer <= 33_000, `${writer} chars`)
+    /* 33,000 until the product reference drew a collection and products chosen in the sidebar, the way a shop theme does, beside the shop: two more card loops, about 300 tokens. */
+    check(`Code section's reference stays under ~8.5k tokens (${Math.round(writer / 4)})`, writer <= 34_000, `${writer} chars`)
     check("the framework itself stays short", FRAMEWORK_REFERENCE.length <= 6_600 && QUALITY_CHECKLIST.length <= 1_400, `${FRAMEWORK_REFERENCE.length} / ${QUALITY_CHECKLIST.length}`)
   }
 
