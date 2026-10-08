@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useRef } from "react"
 import { usePathname } from "next/navigation"
 import { showsLibraryTabs } from "@/components/library/library-tab-list"
+import { opensAtTop } from "@/lib/navigation/tab-scroll"
 import { LANDING_CLASS, useLandingOnMove } from "@/lib/ui/landing"
 
 /**
@@ -77,9 +78,15 @@ export function AccountNavFade({ children }: { children: React.ReactNode }) {
   pills, which share one key) puts the window at the top, before the frame is painted and again on the next one, after the
   router's own scroll.
 */
+function scrollWindowTop() {
+  window.scrollTo(0, 0)
+  const id = requestAnimationFrame(() => window.scrollTo(0, 0))
+  return () => cancelAnimationFrame(id)
+}
+
 function useTopOnArrival(key: string) {
   const traversal = useRef(false)
-  const last = useRef(key)
+  const last = useRef<string | null>(null)
   useEffect(() => {
     const onPop = () => {
       traversal.current = true
@@ -88,14 +95,19 @@ function useTopOnArrival(key: string) {
     return () => window.removeEventListener("popstate", onPop)
   }, [])
   useLayoutEffect(() => {
+    const atTop = opensAtTop(key)
+    if (last.current === null) {
+      last.current = key
+      if (!traversal.current && atTop) return scrollWindowTop()
+      return
+    }
     if (last.current === key) return
     last.current = key
     if (traversal.current) {
       traversal.current = false
       return
     }
-    window.scrollTo(0, 0)
-    const id = requestAnimationFrame(() => window.scrollTo(0, 0))
-    return () => cancelAnimationFrame(id)
+    if (!atTop) return
+    return scrollWindowTop()
   }, [key])
 }

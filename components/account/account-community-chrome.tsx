@@ -48,13 +48,16 @@ export function AccountCommunityChrome() {
 
   if (!active || !topBar) return null
 
+  /*
+    The community bar is sticky and in the document flow, same as inside a
+    community (shell-frame.tsx). Do not add native-header-spacer here: that
+    block is only for the fixed Storelib header in the app and would leave a
+    blank band between the bar and the profile cover.
+  */
   return (
-    <>
-      <div className="sticky top-0 z-40 w-full" data-account-community-chrome="">
-        <CommunityTopBar data={topBar} wide />
-      </div>
-      <div aria-hidden className="native-header-spacer" data-native-header-spacer="" />
-    </>
+    <div className="w-full" data-account-community-chrome="">
+      <CommunityTopBar data={topBar} wide />
+    </div>
   )
 }
 

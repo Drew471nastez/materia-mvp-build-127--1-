@@ -30,11 +30,19 @@ export const PROFILE_CHROME_VAR = "--profile-chrome"
 
 /** The height of the bar that stays over the page, or 0 when nothing does. */
 export function stickyChromeHeight(doc: Document = document): number {
-  const bar = doc.getElementById("platform-header-root")
-  if (!bar) return 0
-  const position = doc.defaultView?.getComputedStyle(bar).position
-  if (position !== "sticky" && position !== "fixed") return 0
-  return Math.round(bar.getBoundingClientRect().height)
+  const win = doc.defaultView
+  const measure = (el: HTMLElement | null) => {
+    if (!el || !win) return 0
+    const position = win.getComputedStyle(el).position
+    if (position !== "sticky" && position !== "fixed") return 0
+    return Math.round(el.getBoundingClientRect().height)
+  }
+  const platform = doc.getElementById("platform-header-root")
+  const platformH = measure(platform)
+  if (platformH) return platformH
+  /* /account with community context: CommunityTopBar instead of Storelib's header. */
+  const community = doc.querySelector<HTMLElement>("[data-account-community-chrome] [data-community-top]")
+  return measure(community)
 }
 
 export function ProfileChromeVar() {
@@ -43,7 +51,9 @@ export function ProfileChromeVar() {
     let observer: ResizeObserver | null = null
     const apply = () => {
       document.documentElement.style.setProperty(PROFILE_CHROME_VAR, `${stickyChromeHeight()}px`)
-      const bar = document.getElementById("platform-header-root")
+      const bar =
+        document.getElementById("platform-header-root") ??
+        document.querySelector<HTMLElement>("[data-account-community-chrome] [data-community-top]")
       if (bar && bar !== watching && typeof ResizeObserver !== "undefined") {
         observer?.disconnect()
         observer = new ResizeObserver(() => {
