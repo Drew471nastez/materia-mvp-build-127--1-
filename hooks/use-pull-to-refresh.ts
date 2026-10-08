@@ -374,6 +374,37 @@ export function usePullToRefresh(
   const paintContentRef = useRef(paintContent)
   paintContentRef.current = paintContent
 
+  /** The page scrolls the document: it moves by transform (paintContent), so its settle can run on the compositor. */
+  const onDocumentNow = useCallback(() => {
+    const box = containerRef.current
+    return !box || box === document.scrollingElement || box === document.documentElement || box === document.body
+  }, [containerRef])
+
+  /*
+    THE SETTLE ON THE COMPOSITOR (round 20, the owner: "the pull to refresh is still not smooth"). A document page's spring
+    back used to be stepped in requestAnimationFrame on the main thread, and the refresh it had just started redraws the
+    feed on that same thread: the page stalled on its way up, then jumped. On a document page the page and the spokes now
+    settle as Web Animations of transform and opacity, which the compositor runs whatever the page is doing.
+  */
+  const compositorRef = useRef<Animation[]>([])
+  /** Stops a compositor settle where it is, and returns the page's offset at that moment (or null when none was running). */
+  const stopCompositor = useCallback((): number | null => {
+    const running = compositorRef.current
+    if (!running.length) return null
+    const el = contentRef.current
+    let y: number | null = null
+    if (el) {
+      try {
+        y = Math.max(0, new DOMMatrixReadOnly(getComputedStyle(el).transform).m42)
+      } catch {
+        y = null
+      }
+    }
+    compositorRef.current = []
+    for (const a of running) a.cancel()
+    return y
+  }, [])
+
   const paintRing = useCallback(
     (o: { y: number; opacity: number; scale: number; turn: number; dash: number }) => {
       const p = parts()
@@ -531,6 +562,37 @@ export function usePullToRefresh(
         return
       }
 
+      const content = contentRef.current
+      const ring = parts()
+      if (onDocumentNow() && content && typeof content.animate === "function" && ring?.spokes) {
+        stopCompositor()
+        const ms = mode === "pin" ? 360 : mode === "exit" ? 420 : 340
+        const easing = "cubic-bezier(0.32, 0.72, 0, 1)"
+        /* The final place is written first and the move plays over it; the shift mark stays on for the whole move (app/globals.css). */
+        content.setAttribute("data-ptr-shift", "transform")
+        content.style.willChange = "transform"
+        content.style.transform = `translate3d(0, ${to}px, 0)`
+        offsetRef.current = to
+        const moves: Animation[] = [content.animate([{ transform: `translate3d(0, ${from}px, 0)` }, { transform: `translate3d(0, ${to}px, 0)` }], { duration: ms, easing })]
+        const at = spokesAt(to, threshold)
+        const fromT = ring.root.style.transform || "translate3d(0, 0, 0) scale(0)"
+        const fromO = ring.root.style.opacity || "0"
+        const toT = `translate3d(0, ${at.y + spinnerYOffsetRef.current}px, 0) scale(${at.scale})`
+        const toO = mode === "pin" ? (at.scale > 0.02 ? "1" : "0") : "0"
+        if (mode === "pin") ring.spokes.lines.forEach((l, i) => { l.style.opacity = String(ring.spokes!.rest[i]) })
+        ring.root.style.transform = toT
+        ring.root.style.opacity = toO
+        moves.push(ring.root.animate([{ transform: fromT, opacity: fromO }, { transform: toT, opacity: toO }], { duration: mode === "exit" ? Math.min(ms, EXIT_FADE_MS + 120) : ms, easing }))
+        compositorRef.current = moves
+        moves[0].onfinish = () => {
+          if (compositorRef.current !== moves) return
+          compositorRef.current = []
+          paintContent(to)
+          done?.()
+        }
+        return
+      }
+
       let x = from
       let v = 0
       let last = 0
@@ -594,7 +656,7 @@ export function usePullToRefresh(
       }
       frameRef.current = requestAnimationFrame(step)
     },
-    [cancelFrame, paintContent, paintRing, paintSpokes, ringAt, restingY, spokesDrawn, threshold]
+    [cancelFrame, paintContent, paintRing, paintSpokes, ringAt, restingY, spokesDrawn, threshold, parts, onDocumentNow, stopCompositor]
   )
 
   /* ── Refresh ───────────────────────────────────────────────────────────── */
@@ -636,6 +698,7 @@ export function usePullToRefresh(
 
   const forceIdle = useCallback(() => {
     cancelFrame()
+    stopCompositor()
     if (spinTimerRef.current) {
       window.clearTimeout(spinTimerRef.current)
       spinTimerRef.current = null
@@ -659,7 +722,7 @@ export function usePullToRefresh(
       if (c) c.setAttribute("data-ptr-phase", "idle")
       phaseCbRef.current?.("idle")
     }
-  }, [cancelFrame, holdScroller, paintContent, parts, setLifted])
+  }, [cancelFrame, holdScroller, paintContent, parts, setLifted, stopCompositor])
 
   /* ── Touch ─────────────────────────────────────────────────────────────── */
   useEffect(() => {
@@ -732,6 +795,13 @@ export function usePullToRefresh(
          the start, so the first move continues the curve instead of jumping to
          the top of it. */
       cancelFrame()
+      /* Caught in a compositor settle: from where the page is on screen now. */
+      const caught = stopCompositor()
+      if (caught !== null) {
+        offsetRef.current = caught
+        paintContent(caught)
+        if (spokesDrawn()) paintSpokes(caught, false)
+      }
       const held = offsetRef.current
       downX = e.touches[0].clientX
       downY = e.touches[0].clientY
@@ -800,8 +870,13 @@ export function usePullToRefresh(
         setPhase("pulling")
       }
       pendingDy = dy
-      /* Many moves can arrive inside one frame. One write per frame. */
-      if (!queued) queued = requestAnimationFrame(draw)
+      /*
+        A DOCUMENT PAGE IS PAINTED ON THE MOVE ITSELF (round 20): its offset is a transform, which costs nothing to write,
+        and waiting for the next frame left the page a frame behind the finger. A page inside a scroll box moves by
+        padding (a layout), so its moves are still gathered into one write per frame.
+      */
+      if (isDocument) draw()
+      else if (!queued) queued = requestAnimationFrame(draw)
     }
 
     const onTouchEnd = () => {
@@ -901,6 +976,10 @@ export function usePullToRefresh(
     holdScroller,
     cancelFrame,
     forceIdle,
+    stopCompositor,
+    paintContent,
+    paintSpokes,
+    spokesDrawn,
   ])
 
   return { contentRef: syncContentRef, indicatorRef, phaseRef }
