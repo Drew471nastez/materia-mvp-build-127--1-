@@ -139,6 +139,17 @@ export function checkSectionIntegration(source: string): QualityFinding[] {
   const allTypes = [...settings, ...(schema.blocks ?? []).flatMap((bl) => bl.settings ?? [])].map((st) => resolveControlType(String(st?.type ?? "")))
   if (kind === "header" && !allTypes.includes("link_list")) {
     err("integration-header-menu", `A header of your own shows the site's menu, so the creator edits it in Website settings, Navigation. Add { "type": "link_list", "id": "menu", "label": "Menu", "default": "main-menu" } and loop {% for link in settings.menu.links %}, with {% for child in link.links %} for its sub links.`)
+  } else if (kind === "header") {
+    /* Declaring the menu is not enough: the links drawn have to be its links, as a shop theme's header draws linklists, or a change in Navigation never reaches the site. */
+    const menuIds = settings.filter((st) => resolveControlType(String(st?.type ?? "")) === "link_list" && st.id).map((st) => String(st.id))
+    const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+    const reads = (id: string) => new RegExp(`settings\\.${escape(id)}\\.links\\b|settings\\[\\s*["']${escape(id)}["']\\s*\\]\\.links\\b`).test(template)
+    const menuId = menuIds[0]
+    if (menuId && !menuIds.some(reads)) {
+      err("integration-header-menu-read", `The header declares the menu "${menuId}" but never draws it, so a change in Website settings, Navigation does not reach the site. Loop {% for link in settings.${menuId}.links %} for the links, with {% for child in link.links %} for sub links.`)
+    } else if (menuId && !/\{%-?\s*for\s+\w+\s+in\s+(?!settings\.)\w+\.links\b/.test(template)) {
+      note("integration-header-sublinks", `The menu's sub links are not drawn. A link in Website settings, Navigation can hold links under it; loop {% for child in link.links %} inside the menu loop so they show as a dropdown or in the drawer.`)
+    }
   }
 
   /* ── pictures are pictures, menus are menus ────────────────────────── */

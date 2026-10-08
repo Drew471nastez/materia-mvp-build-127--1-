@@ -1143,6 +1143,13 @@ export default function CheckoutPageClient({
               if (!res.ok || !res.data.url || !res.data.sessionId) throw new Error(res.data.error || "Apple Pay and Google Pay could not be opened. Nothing was charged.")
               return { url: res.data.url, sessionId: res.data.sessionId }
             }}
+            payIntent={async () => {
+              const problem = check("card")
+              if (problem) throw new Error(problem)
+              return createIntent()
+            }}
+            amountCents={total}
+            label={product.title}
           />
           <NativeCardFields value={card} onChange={setCard} />
         </section>
