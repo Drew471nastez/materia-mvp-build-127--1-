@@ -146,14 +146,20 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
 
   // Check if user is logged in and already owns this specific product/variant
   const existingEntitlements = ownedRead.data as { id: string; variant_id: string | null }[] | null
+  /*
+    ALREADY YOURS: OPEN IT. A buyer who owns the product was sent to the creator's product page on storelib.com, so a Buy
+    button on the creator's own website landed somewhere that is neither the checkout nor the site. It opens the product in
+    their library now, where it is used.
+  */
+  const OWNED = `/account/library/products/${encodeURIComponent(product.id)}`
   if (user && existingEntitlements && existingEntitlements.length > 0) {
     if (variantId) {
       // Check if user specifically owns THIS variant
-      if (existingEntitlements.some((e) => e.variant_id === variantId)) redirect(getProductUrl(creatorUsername, product.slug))
+      if (existingEntitlements.some((e) => e.variant_id === variantId)) redirect(OWNED)
       // User owns other variants but not this one - allow purchase
     } else {
       // No variant specified: for non-variant products, any entitlement without a variant means they own it
-      if (existingEntitlements.some((e) => !e.variant_id)) redirect(getProductUrl(creatorUsername, product.slug))
+      if (existingEntitlements.some((e) => !e.variant_id)) redirect(OWNED)
       // User owns specific variants but not the base product - allow purchase
     }
   }

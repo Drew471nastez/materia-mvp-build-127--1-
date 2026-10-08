@@ -24,6 +24,7 @@ const SUITES = [
   "tests/profile-display-name.test.ts",
   "tests/new-tab-links.test.ts",
   "tests/lean-images.test.ts",
+  "tests/buy-buttons-checkout.test.ts",
   "tests/native-app-links-inapp.test.ts",
   "tests/merge-markers.test.ts",
   "tests/imports-resolve.test.ts",

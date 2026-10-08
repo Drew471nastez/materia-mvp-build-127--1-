@@ -18,7 +18,7 @@
         </ul>
       {% endif %}
       {% if settings.button_text %}
-        <div class="s__btns"><a class="s__btn s__btn--primary" href="{{ settings.button_url | default: '#' | url }}">{{ settings.button_text }}</a></div>
+        <div class="s__btns"><a class="s__btn s__btn--primary" href="{{ settings.button_url.checkout_url | default: settings.button_url | default: '#' | url }}">{{ settings.button_text }}</a></div>
       {% endif %}
     </div>
   </div>
@@ -165,7 +165,7 @@
     {
       "type": "product_picker",
       "id": "button_url",
-      "label": "Goes to",
+      "label": "Product", "info": "The button opens this product's checkout.",
       "default": ""
     },
     {

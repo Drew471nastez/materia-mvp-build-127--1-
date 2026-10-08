@@ -5300,6 +5300,12 @@ function PublicBlockRenderer({
       const quickCheckoutContext = useContext(QuickCheckoutModalContext)
 
       const productUrl = data.product_slug ? `/p/${data.product_slug}` : '#'
+      /*
+        THE BUTTON IS A BUY BUTTON: it opens the product's checkout, not its page (the owner: "buy buttons must open the
+        product's checkout directly, never redirect to the creator's product page"). A shipped product keeps its page, where
+        its options and delivery are chosen. Back from checkout returns here: the OnePage is the page behind it.
+      */
+      const buyUrl = data.product_id && (data.product_type as string | undefined) !== 'physical' ? `/checkout?productId=${encodeURIComponent(data.product_id)}` : productUrl
       /* A membership's price is per month or year, "$9.00/month", as on its own page (lib/pricing/list-price). */
       const priceDisplay = data.product_price_cents && data.product_price_cents > 0
         ? perInterval(`$${(data.product_price_cents / 100).toFixed(2)}`, intervalOf({ type: data.product_type, price_interval: data.product_price_interval }))
@@ -5461,8 +5467,8 @@ function PublicBlockRenderer({
 
         return (
           <a
-            href={productUrl}
-            onClick={() => trackClick(block.id, productUrl)}
+            href={buyUrl}
+            onClick={() => trackClick(block.id, buyUrl)}
             className={cn(
               "w-full font-medium flex items-center justify-center gap-2 sm:gap-3 py-3 sm:py-4 px-4 sm:px-5 text-sm sm:text-base transition-all cursor-pointer",
               hoverEffect,
@@ -5544,8 +5550,8 @@ function PublicBlockRenderer({
 
         return (
           <a
-            href={productUrl}
-            onClick={() => trackClick(block.id, productUrl)}
+            href={buyUrl}
+            onClick={() => trackClick(block.id, buyUrl)}
             className={cn(
               "w-full block overflow-hidden transition-all cursor-pointer",
               hoverEffect,
@@ -5628,8 +5634,8 @@ function PublicBlockRenderer({
 
       return (
         <a
-          href={productUrl}
-          onClick={() => trackClick(block.id, productUrl)}
+          href={buyUrl}
+          onClick={() => trackClick(block.id, buyUrl)}
           className={cn(
             "w-full block overflow-hidden transition-all cursor-pointer",
             hoverEffect,
