@@ -56,6 +56,7 @@ const chat = read("components/website-builder/theme-chat.tsx")
 const plist = read("ios/App/App/Info.plist")
 const manifest = read("android/app/src/main/AndroidManifest.xml")
 const activity = read("android/app/src/main/java/com/storelib/app/MainActivity.java")
+const chrome = read("android/app/src/main/java/com/storelib/app/StorelibChromeClient.java")
 
 // ---------------------------------------------------------------------------
 section("Which format each browser records in")
@@ -189,7 +190,8 @@ section("The apps")
   check("Android declares RECORD_AUDIO and MODIFY_AUDIO_SETTINGS", /android\.permission\.RECORD_AUDIO/.test(manifest) && /android\.permission\.MODIFY_AUDIO_SETTINGS/.test(manifest))
   check(
     "and keeps Capacitor's BridgeWebChromeClient, whose onPermissionRequest turns the page's request into the runtime prompt",
-    !/setWebChromeClient/.test(activity) && !/onPermissionRequest/.test(activity) && /extends BridgeActivity/.test(activity),
+    /* Round 16: the activity sets StorelibChromeClient (Stripe's windows in the app), which extends it and leaves permissions to it. */
+    !/onPermissionRequest/.test(activity) && /extends BridgeActivity/.test(activity) && (!/setWebChromeClient/.test(activity) || (/setWebChromeClient\(new StorelibChromeClient\(/.test(activity) && /extends BridgeWebChromeClient/.test(chrome) && !/onPermissionRequest/.test(chrome))),
   )
 }
 

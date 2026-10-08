@@ -282,7 +282,7 @@ const OverlayContent = memo(function OverlayContent({ drawn, settled, post, slug
             onCount={(d) => local(post.id, (p) => ({ ...p, commentCount: Math.max(0, p.commentCount + d) }))}
           />
         ) : (
-          <CommentsPlaceholder expected={post.commentCount} />
+          <CommentsPlaceholder expected={post.commentCount} pinComposer={pinComposer} />
         )}
       </section>
     </>

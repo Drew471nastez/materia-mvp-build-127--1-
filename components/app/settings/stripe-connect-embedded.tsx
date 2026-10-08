@@ -160,7 +160,7 @@ export function StripeConnectEmbedded({
         const [first, { loadConnectAndInitialize }] = await Promise.all([openSession(purpose), import("@stripe/connect-js/pure")])
         if (gone) return
         if (needsSheet(first.stripeSignIn)) {
-          setReady(true)
+          /* The one loader stays up while the sheet is over the app. */
           setSheet("open")
           const opened = await openHostedSetup().catch(() => false)
           if (gone) return
@@ -238,24 +238,18 @@ export function StripeConnectEmbedded({
     )
   }
 
-  if (sheet !== "off") {
+  if (sheet === "closed") {
     return (
       <div data-embedded-sheet={sheet} className={cn("flex min-h-[260px] flex-col items-center justify-center px-6 text-center", className)}>
-        {sheet === "open" ? (
-          <WaitingArea className="h-16" size={18} label="Setting up with Stripe" />
-        ) : (
-          <>
-            <p className="text-[15px] font-semibold text-[#1a1a2e]">Finish setup with Stripe</p>
-            <p className="mt-1 max-w-[300px] text-[14px] leading-5 text-[#6b7280]">Stripe opens over Storelib and brings you back here when you are done.</p>
-            <button
-              type="button"
-              onClick={() => setAttempt((n) => n + 1)}
-              className="mt-4 inline-flex h-11 items-center justify-center rounded-[10px] bg-[#1a1a2e] px-5 text-[14px] font-medium text-white transition-opacity active:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/30 sm:h-10"
-            >
-              Continue setup
-            </button>
-          </>
-        )}
+        <p className="text-[15px] font-semibold text-[#1a1a2e]">Finish setup with Stripe</p>
+        <p className="mt-1 max-w-[300px] text-[14px] leading-5 text-[#6b7280]">Stripe opens over Storelib and brings you back here when you are done.</p>
+        <button
+          type="button"
+          onClick={() => setAttempt((n) => n + 1)}
+          className="mt-4 inline-flex h-11 items-center justify-center rounded-[10px] bg-[#1a1a2e] px-5 text-[14px] font-medium text-white transition-opacity active:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/30 sm:h-10"
+        >
+          Continue setup
+        </button>
       </div>
     )
   }

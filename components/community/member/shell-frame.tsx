@@ -112,6 +112,9 @@ import { readAuthSnapshot, writeAuthSnapshot } from "@/lib/auth/auth-snapshot"
 import { CommunityPullRefresh } from "./community-pull-refresh"
 import { CommunityFixedFootWatch } from "@/components/community/fixed-foot-watch"
 
+/** Away this long (another app, a locked phone), the community reads itself again when it comes back (NOT EVERY TIME THE APP COMES BACK). */
+const AWAY_REFRESH_MS = 5 * 60_000
+
 export { CommunityMark } from "./top-bar"
 
 export interface ShellFrameProps {
@@ -407,12 +410,22 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
     the frame reads itself again at once (lib/communities/updated-signal.ts); come back to after half a minute away (another
     app, the admin on a computer), it reads itself again too, so its cover, picture and name are the admin's latest.
   */
+  /*
+    NOT EVERY TIME THE APP COMES BACK (round 16, the owner: "the posts reload and refresh randomly"). Half a minute in another
+    app was enough to read the whole community again the moment it came forward, while the member was already scrolling.
+    Now it is after five minutes away, and only once the page is idle, so the first frames back are the member's.
+  */
   useEffect(() => {
     const off = onCommunityUpdated(community.id, () => router.refresh())
     let hiddenAt = 0
+    const idle = (run: () => void) => {
+      const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }
+      if (w.requestIdleCallback) w.requestIdleCallback(run, { timeout: 2000 })
+      else window.setTimeout(run, 600)
+    }
     const onVisible = () => {
       if (document.visibilityState === "hidden") hiddenAt = Date.now()
-      else if (hiddenAt && Date.now() - hiddenAt > 30_000) router.refresh()
+      else if (hiddenAt && Date.now() - hiddenAt > AWAY_REFRESH_MS) idle(() => router.refresh())
     }
     document.addEventListener("visibilitychange", onVisible)
     return () => {

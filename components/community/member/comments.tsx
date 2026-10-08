@@ -230,9 +230,61 @@ export function commentsRoom(expected: number): number {
   return 44 + 24 + (n ? n * (narrow ? 112 : 100) + (n - 1) * 16 : 20)
 }
 
-/** The kept room while comments are read: the same white as the sheet, no grey shapes that pop in and out. */
-export function CommentsPlaceholder({ expected }: { expected: number }) {
-  return <div style={{ minHeight: commentsRoom(expected) }} aria-hidden data-comments-loading="" />
+/*
+  WHILE THE COMMENTS ARE READ (round 16, the owner: "the comments show empty, then load abruptly"). The kept room used to be
+  plain white, so a post with comments read as one with none until they all landed in a single frame. Now the room holds the
+  comments' own outline: a face and a bubble per comment the post has (three at most), in the faintest grey, still (no
+  shimmer, nothing that pops). It eases in only when the read is slow (SKELETON_DELAY_MS), so a quick answer goes straight
+  from the post to its comments, and the comments rise into the same places (ARRIVE).
+*/
+const SKELETON_DELAY_MS = 140
+const BUBBLE_WIDTHS = ["78%", "56%", "68%"]
+
+/** Opacity (and a 4px rise when `rise`) on the compositor as `el` comes on screen, after `delay`. Nothing with reduced motion. */
+function useEaseIn(ref: React.RefObject<HTMLElement | null>, on: boolean, opts: { delay?: number; rise?: boolean; duration?: number } = {}) {
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!on || !el || typeof el.animate !== "function" || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
+    const from: Keyframe = opts.rise ? { opacity: 0, translate: "0 4px" } : { opacity: 0 }
+    const to: Keyframe = opts.rise ? { opacity: 1, translate: "0 0" } : { opacity: 1 }
+    const a = el.animate([from, to], { duration: opts.duration ?? 240, delay: opts.delay ?? 0, easing: "cubic-bezier(0.32, 0.72, 0, 1)", fill: "backwards" })
+    return () => a.cancel()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [on])
+}
+
+/** The outline of `expected` comments (three at most): a face and a bubble each, as the rows will stand. */
+function CommentsSkeleton({ expected, className = "", instant = false }: { expected: number; className?: string; instant?: boolean }) {
+  const ref = useRef<HTMLDivElement>(null)
+  /* `instant`: it takes over from the placeholder's outline, already on screen, so it does not fade in a second time. */
+  useEaseIn(ref, !instant, { delay: SKELETON_DELAY_MS, duration: 220 })
+  const n = Math.min(Math.max(0, expected), 3)
+  if (!n) return null
+  return (
+    <div ref={ref} aria-hidden className={`space-y-4 ${className}`} data-comments-skeleton="">
+      {Array.from({ length: n }, (_, i) => (
+        <div key={i} className="flex items-start gap-2.5">
+          <span className="mt-0.5 h-8 w-8 shrink-0 rounded-full bg-[#f1f2f4]" />
+          <div className="min-w-0 flex-1">
+            <div className="h-[62px] rounded-[14px] border border-[#f0f1f3] bg-[#f7f8f9] sm:h-[54px]" style={{ width: BUBBLE_WIDTHS[i] }} />
+            <div className="ml-3 mt-2.5 h-2.5 w-24 rounded-full bg-[#f3f4f6]" />
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/**
+ * The kept room while a post's sheet or panel is still moving (post-overlay.tsx), before the section is drawn: the outline of
+ * the comments where the rows will stand (under the box's room, or from the top when the box is pinned to the sheet's foot).
+ */
+export function CommentsPlaceholder({ expected, pinComposer = false }: { expected: number; pinComposer?: boolean }) {
+  return (
+    <div style={{ minHeight: commentsRoom(expected) }} aria-hidden data-comments-loading="">
+      <CommentsSkeleton expected={expected} className={pinComposer ? "mt-4" : "pt-[92px]"} />
+    </div>
+  )
 }
 
 export function CommentsSection({ post, slug, viewer, initial, me: givenMe = null, readOnly = false, commentsEnabled: givenEnabled = true, boxRef, onCount, expected = 0, fadeIn = false, visitor = false, pinComposer = false, dockComposer = false }: CommentsSectionProps) {
@@ -248,6 +300,14 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
   const [failed, setFailed] = useState(false)
   /* The list fades in only when it arrives after the room for it was drawn. */
   const [arrived, setArrived] = useState(fadeIn)
+  /* ARRIVE: the rows (or the line saying there are none) rise into the outline's place; the box fades in where its room was. */
+  const rowsRef = useRef<HTMLUListElement>(null)
+  const emptyRef = useRef<HTMLParagraphElement>(null)
+  const composerRef = useRef<HTMLDivElement>(null)
+  const listOn = arrived && comments !== null
+  useEaseIn(rowsRef, listOn, { rise: true, duration: 280 })
+  useEaseIn(emptyRef, listOn, { duration: 220 })
+  useEaseIn(composerRef, fadeIn, { duration: 200 })
   const base = apiBase(post.communityId)
   const open = !visitor && enabled && !readOnly && !!viewer.can.comment && (!post.locked || !!viewer.can.lock)
 
@@ -536,6 +596,7 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
   const composer =
     open ? (
       <div
+        ref={composerRef}
         className={
           dockComposer
             ? dockPhone
@@ -596,11 +657,13 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
             </button>
           </div>
         ) : (
-          /* The room the comments will take, kept still (no shimmer); they fade into it. */
-          <div style={{ minHeight: pinComposer ? commentsRoom(expected) : commentsRoom(expected) - 44 }} aria-label="Loading comments" data-comments-loading="" />
+          /* The room the comments will take, with their outline in it (CommentsSkeleton); they rise into it. */
+          <div style={{ minHeight: pinComposer ? commentsRoom(expected) : commentsRoom(expected) - 44 }} aria-label="Loading comments" data-comments-loading="">
+            <CommentsSkeleton expected={expected} className={listGap} instant={fadeIn} />
+          </div>
         )
       ) : comments.length ? (
-        <ul className={`${listGap} space-y-4 ${arrived ? "animate-in fade-in-0 duration-200 ease-out motion-reduce:animate-none" : ""}`} data-comments-rows="">
+        <ul ref={rowsRef} className={`${listGap} space-y-4`} data-comments-rows="">
           {comments.map((c) => (
             <li key={rows.keyOf(c.id)}>
               <CommentItem c={c} slug={slug} communityId={post.communityId} postId={post.id} viewer={viewer} me={me} author={author} update={update} canReply={open} sending={sending} rows={rows} />
@@ -609,7 +672,8 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
         </ul>
       ) : (
         <p
-          className={`${pinComposer ? "flex flex-1 flex-col items-center justify-center px-8 py-10 text-center" : listGap} text-[14px] leading-relaxed text-[#8a8f98] ${arrived ? "animate-in fade-in-0 duration-200 ease-out motion-reduce:animate-none" : ""}`}
+          ref={emptyRef}
+          className={`${pinComposer ? "flex flex-1 flex-col items-center justify-center px-8 py-10 text-center" : listGap} text-[14px] leading-relaxed text-[#8a8f98]`}
           data-comments-empty=""
         >
           <span>No comments yet.</span>

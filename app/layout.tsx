@@ -251,6 +251,13 @@ export default function RootLayout({
           }}
         />
         <script dangerouslySetInnerHTML={{ __html: EXPLORE_SCROLL_BOOT_SCRIPT }} />
+        {/* ONE PAGE INTO THE NEXT, INSIDE THE APP (app/globals.css, round 16): a page load between /app and the rest crossfades
+            in the app; a browser keeps its plain load. Read before the first frame, as pagereveal must be heard. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{var _sw=function(){var u=navigator.userAgent||'';return !!((window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform())||/StorelibApp|Capacitor/.test(u))};addEventListener('pageswap',function(e){if(e.viewTransition&&!_sw())e.viewTransition.skipTransition()});addEventListener('pagereveal',function(e){var t=e.viewTransition;if(!t)return;if(!_sw()||(window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches)){t.skipTransition();return}var h=document.documentElement;h.setAttribute('data-page-swap','');t.finished.finally(function(){h.removeAttribute('data-page-swap')})})}catch(e){}`,
+          }}
+        />
       </head>
       <body className={`${inter.variable} ${communityTitle.variable} font-sans antialiased bg-background text-foreground`}>
         <SWRProvider>

@@ -164,7 +164,24 @@ function targetFromId(id: string): FeedTarget {
   return id.startsWith("space:") ? { kind: "space", id: id.slice(6) } : id === "saved" ? { kind: "saved" } : { kind: "all" }
 }
 
-export function CommunityFeed({ communityId, slug, viewer, spaces, start, initial, servedAt, readOnly = false, onboarding = null, compose = null, composer = null, emptyText }: CommunityFeedProps) {
+/*
+  THE SAME FACTS, THE SAME OBJECT (round 16). A refresh of the page (the community read again after a while away, a cover saved
+  in another tab) hands the feed new arrays and objects that say exactly what the old ones said, and each new one redrew every
+  post on screen (the spaces feed the post cards' context, the welcome is compared by its object): the feed looked as if it
+  reloaded. A value equal to the last one keeps the last one.
+*/
+function useSameFacts<T>(value: T): T {
+  const kept = useRef<{ key: string; value: T } | null>(null)
+  const key = JSON.stringify(value ?? null)
+  if (!kept.current || kept.current.key !== key) kept.current = { key, value }
+  return kept.current.value
+}
+
+export function CommunityFeed({ communityId, slug, viewer: givenViewer, spaces: givenSpaces, start, initial, servedAt, readOnly = false, onboarding: givenOnboarding = null, compose: givenCompose = null, composer = null, emptyText }: CommunityFeedProps) {
+  const spaces = useSameFacts(givenSpaces)
+  const viewer = useSameFacts(givenViewer)
+  const onboarding = useSameFacts(givenOnboarding)
+  const compose = useSameFacts(givenCompose)
   const base = `/community/${slug}`
   const pathname = usePathname()
   /* Back and Forward between lists switched in place: the address is the truth, so read it again when it moves. */

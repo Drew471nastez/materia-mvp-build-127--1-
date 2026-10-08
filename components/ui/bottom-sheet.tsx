@@ -547,6 +547,8 @@ export function BottomSheet({
   const touchingRef = useRef(false)
   const fromHandleRef = useRef(false)
   const scrollerRef = useRef<HTMLElement | null>(null)
+  /* The list frozen while a scroll that reached its top is the sheet's drag (A SCROLL HANDED TO THE SHEET STOPS), with its own overflow to give back. */
+  const frozenRef = useRef<{ el: HTMLElement; overflowY: string } | null>(null)
   const offsetRef = useRef(0)
   /** The column: what the sheet looks like it is (panelLift). */
   const heightRef = useRef(0)
@@ -964,6 +966,19 @@ export function BottomSheet({
         if (!(scroller && step > 0 && scroller.scrollTop <= 0 && !field)) return
         scrollingRef.current = false
         draggingRef.current = true
+        /**
+         * A SCROLL HANDED TO THE SHEET STOPS. iOS does not let a page cancel
+         * a scroll it has already begun, so the list went on with its own
+         * pull past the top (the bounce) while the sheet followed the same
+         * finger: both moved, and the post jumped under the thumb. The list
+         * is frozen for the rest of the gesture, which ends its scroll, and
+         * whatever it had bounced past its top is taken on by the sheet in
+         * the same frame, so the words stay exactly where the finger has them.
+         */
+        const bounce = Math.max(0, -scroller.scrollTop)
+        if (!frozenRef.current) frozenRef.current = { el: scroller, overflowY: scroller.style.overflowY }
+        scroller.style.overflowY = "hidden"
+        offsetRef.current += bounce
         sheet.style.willChange = "transform"
         startYRef.current = y - offsetRef.current
       }
@@ -1030,12 +1045,21 @@ export function BottomSheet({
       paint()
     }
 
+    /* The list frozen for a handed over drag scrolls again. */
+    function thaw() {
+      const frozen = frozenRef.current
+      if (!frozen) return
+      frozenRef.current = null
+      frozen.el.style.overflowY = frozen.overflowY
+    }
+
     /* `null` is a gesture cut short (a second finger): no speed, no flick. */
     function onEnd(e: TouchEvent | null) {
       /* Heard on the window, so only a gesture that began on this sheet is this sheet's. */
       if (!touchingRef.current) return
       if (e && e.type === "touchend" && e.touches.length > 0) return
       touchingRef.current = false
+      thaw()
       pendingRef.current = false
       scrollingRef.current = false
       if (!draggingRef.current) {
@@ -1078,6 +1102,7 @@ export function BottomSheet({
     window.addEventListener("touchend", onLift)
     window.addEventListener("touchcancel", onLift)
     return () => {
+      thaw()
       sheet.removeEventListener("touchstart", onStart)
       sheet.removeEventListener("touchmove", onMove)
       window.removeEventListener("touchend", onLift)
