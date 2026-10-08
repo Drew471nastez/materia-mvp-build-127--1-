@@ -398,6 +398,55 @@ export const THEME_SETTINGS_GROUPS: ThemeSettingsGroup[] = [
       },
       { id: "animation_duration", label: "Duration (ms)", type: "range", min: 200, max: 1200, step: 50, default: 600, unit: "ms" },
       { id: "animation_stagger", label: "Stagger delay (ms)", type: "range", min: 0, max: 200, step: 10, default: 80, unit: "ms" },
+      /*
+        THE INTRO: a screen with the creator's own mark that plays as a
+        visitor arrives, then lifts away. Drawn on the live site only
+        (components/website-builder/theme/site-intro.tsx).
+      */
+      { id: "hdr_intro", label: "Intro", type: "header" },
+      { id: "intro_enabled", label: "Show an intro when someone opens the site", type: "toggle", default: false },
+      { id: "intro_video", label: "Video", type: "video_picker", info: "Plays muted, then the site opens. Leave empty to use a picture." },
+      { id: "intro_image", label: "Picture or GIF", type: "image", info: "Empty uses your logo, or your store name when there is no logo." },
+      { id: "intro_background", label: "Background", type: "color", default: "#ffffff" },
+      {
+        id: "intro_style",
+        label: "Arrives by",
+        type: "select",
+        default: "grow",
+        options: [
+          { label: "Growing in", value: "grow" },
+          { label: "Fading in", value: "fade" },
+          { label: "Rising", value: "rise" },
+          { label: "Fading in, then lifting away", value: "reveal" },
+        ],
+      },
+      { id: "intro_duration", label: "On screen for (ms)", type: "range", min: 800, max: 6000, step: 100, default: 1800, unit: "ms" },
+      { id: "intro_size", label: "Size (px)", type: "range", min: 60, max: 480, step: 10, default: 160, unit: "px" },
+      {
+        id: "intro_repeat",
+        label: "Shows",
+        type: "select",
+        default: "session",
+        options: [
+          { label: "Once per visit", value: "session" },
+          { label: "On every page load", value: "always" },
+        ],
+      },
+      /* Between two pages of the site: the browser's own view transition (site-intro.tsx). */
+      { id: "hdr_page_transition", label: "Page transitions", type: "header" },
+      {
+        id: "page_transition",
+        label: "Between pages",
+        type: "select",
+        default: "none",
+        options: [
+          { label: "None", value: "none" },
+          { label: "Fade", value: "fade" },
+          { label: "Slide", value: "slide" },
+          { label: "Rise", value: "rise" },
+        ],
+      },
+      { id: "page_transition_duration", label: "Transition length (ms)", type: "range", min: 150, max: 800, step: 50, default: 300, unit: "ms" },
     ],
   },
   {

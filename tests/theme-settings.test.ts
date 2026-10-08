@@ -89,6 +89,8 @@ const CONSUMERS = [
   "lib/storelib-theme/render.ts",
   /* The Animations group, read by the runtime that reveals sections as they scroll in. */
   "lib/website-builder/section-anchors.ts",
+  /* The Animations group's intro screen and page transition, drawn by ThemePage on a live page. */
+  "components/website-builder/theme/site-intro.tsx",
   /* Breadcrumbs: the bar under the header on every page but home. */
   "lib/website-builder/theme-breadcrumbs.ts",
 ]
