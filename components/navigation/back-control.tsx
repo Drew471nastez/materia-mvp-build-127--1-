@@ -64,7 +64,6 @@ export function BackControl({
   const press = usePressFeedback<HTMLAnchorElement>()
   const tap = useFirstTap<HTMLElement>(() => {
     if (onBack) {
-      swallowGhostTaps()
       onBack()
       return true
     }

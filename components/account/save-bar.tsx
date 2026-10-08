@@ -42,6 +42,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { Loader2 } from "lucide-react"
 import { ACCOUNT_GUTTER_LEFT, ACCOUNT_GUTTER_RIGHT } from "@/lib/account/account-tabs"
+import { ACCOUNT_SAVE_BAR_Z } from "@/lib/account/settings-sheet"
 import { cn } from "@/lib/utils"
 
 /** The phone tab bar's own curve (components/nav/buyer-tab-bar.tsx), so the two move together. */
@@ -84,6 +85,15 @@ function px(name: string): number {
   return Number.isFinite(v) ? v : 0
 }
 
+/** Scroll container that should pad for the save bar (settings sheet scrolls itself, not body). */
+function padTarget(): HTMLElement {
+  return document.querySelector<HTMLElement>("[data-edit-profile-sheet]") ?? document.body
+}
+
+function settingsSheetOpen(): boolean {
+  return !!document.querySelector("[data-edit-profile-sheet]")
+}
+
 export function SaveBar({
   shown,
   busy,
@@ -103,8 +113,18 @@ export function SaveBar({
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const [mounted, setMounted] = useState(false)
+  const [overSheet, setOverSheet] = useState(false)
   useEffect(() => setMounted(true), [])
   const { phone, tabs } = usePhoneTabs()
+
+  useLayoutEffect(() => {
+    if (!mounted) return
+    const sync = () => setOverSheet(settingsSheetOpen())
+    sync()
+    const mo = new MutationObserver(sync)
+    mo.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["data-edit-profile-sheet"] })
+    return () => mo.disconnect()
+  }, [mounted])
 
   /*
     THE ROOM IT TAKES, AT THE END OF THE DOCUMENT, while it is up (the join
@@ -116,18 +136,22 @@ export function SaveBar({
   useLayoutEffect(() => {
     const el = ref.current
     if (!el || !mounted) return
-    const body = document.body
+    const target = padTarget()
     if (!shown) {
-      const room = parseFloat(body.style.paddingBottom) || 0
+      const room = parseFloat(target.style.paddingBottom) || 0
       if (!room) return
-      const inRoom = window.scrollY + window.innerHeight > document.documentElement.scrollHeight - room - 1
-      if (!inRoom) body.style.paddingBottom = ""
+      const scrollEl = target === document.body ? document.documentElement : target
+      const inRoom =
+        target === document.body
+          ? window.scrollY + window.innerHeight > scrollEl.scrollHeight - room - 1
+          : target.scrollTop + target.clientHeight > target.scrollHeight - room - 1
+      if (!inRoom) target.style.paddingBottom = ""
       return
     }
     const sync = () => {
       const spacer = document.querySelector<HTMLElement>("[data-buyer-tabs-room]")
       const under = spacer && spacer.offsetHeight > 0 ? spacer.offsetHeight : 0
-      body.style.paddingBottom = `${Math.max(0, el.offsetHeight - under)}px`
+      target.style.paddingBottom = `${Math.max(0, el.offsetHeight - under)}px`
     }
     sync()
     const ro = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(sync)
@@ -138,7 +162,10 @@ export function SaveBar({
       window.removeEventListener("resize", sync)
     }
   }, [shown, mounted])
-  useEffect(() => () => void (document.body.style.paddingBottom = ""), [])
+  useEffect(() => () => {
+    document.body.style.paddingBottom = ""
+    document.querySelector<HTMLElement>("[data-edit-profile-sheet]")?.style.removeProperty("padding-bottom")
+  }, [])
 
   /*
     RISING OVER THE FIELD BEING TYPED IN: the page moves that field into the
@@ -158,7 +185,9 @@ export function SaveBar({
     const over = field.getBoundingClientRect().bottom + 12 - top
     if (over > 0) {
       const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
-      window.scrollBy({ top: over, behavior: reduce ? "auto" : "smooth" })
+      const scrollRoot = padTarget()
+      if (scrollRoot === document.body) window.scrollBy({ top: over, behavior: reduce ? "auto" : "smooth" })
+      else scrollRoot.scrollBy({ top: over, behavior: reduce ? "auto" : "smooth" })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shown])
@@ -175,15 +204,17 @@ export function SaveBar({
       aria-hidden={!shown || undefined}
       inert={!shown}
       className={cn(
-        "fixed inset-x-0 bottom-0 z-40 border-t border-[#e5e7eb] bg-white pt-3 shadow-[0_-4px_16px_-8px_rgba(16,24,40,0.12)]",
+        "fixed inset-x-0 bottom-0 border-t border-[#e5e7eb] bg-white pt-3 shadow-[0_-4px_16px_-8px_rgba(16,24,40,0.12)]",
         /* Down to the screen's foot: the tab bar's room under the row on a phone, the home indicator's wider up. */
         "pb-[calc(12px+var(--buyer-tabs-room))] md:pb-[calc(12px+env(safe-area-inset-bottom,0px))]",
         "motion-reduce:transition-none!",
       )}
       style={{
         translate,
+        zIndex: overSheet ? ACCOUNT_SAVE_BAR_Z : 40,
         transition: `translate ${SAVE_BAR_MS}ms ${EASE}, visibility 0s linear ${shown ? 0 : SAVE_BAR_MS}ms`,
         visibility: shown ? "visible" : "hidden",
+        pointerEvents: shown ? "auto" : "none",
       }}
     >
       <div className="mx-auto flex w-full max-w-[960px] items-center gap-2" style={{ paddingLeft: ACCOUNT_GUTTER_LEFT, paddingRight: ACCOUNT_GUTTER_RIGHT }} data-account-save-row="">

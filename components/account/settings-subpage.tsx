@@ -12,6 +12,8 @@ import { AccountSettings } from "@/components/account/account-settings"
 import { PageSpinner } from "@/components/ui/activity-spinner"
 import { isNativeApp } from "@/lib/platform-utils"
 import { CLICK_ECHO_MS } from "@/lib/navigation/first-tap"
+import { ACCOUNT_SETTINGS_SHEET_Z } from "@/lib/account/settings-sheet"
+import { BackControl } from "@/components/navigation/back-control"
 import { swallowGhostTaps } from "@/lib/navigation/swallow-ghost-taps"
 
 const EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
@@ -122,9 +124,6 @@ async function loadOwnSettings(section: SettingsSection): Promise<Loaded | null>
   }
 }
 
-/** Above the platform header (z-40), phone search (z-60) and buyer tab bar (z-50). */
-const SHEET_Z = 420
-
 function SettingsLayer({ section, data, onClose }: { section: SettingsSection; data: Loaded | null; onClose: () => void }) {
   const panel = useRef<HTMLDivElement>(null)
   const closing = useRef(false)
@@ -142,10 +141,13 @@ function SettingsLayer({ section, data, onClose }: { section: SettingsSection; d
   }
 
   useLayoutEffect(() => {
+    const html = document.documentElement
+    html.setAttribute("data-app-sheet-up", "open")
     bodyOverflow.current = document.body.style.overflow
     document.body.style.overflow = "hidden"
     if (data) slideIn()
     return () => {
+      html.removeAttribute("data-app-sheet-up")
       document.body.style.overflow = bodyOverflow.current
     }
   }, [])
@@ -155,17 +157,15 @@ function SettingsLayer({ section, data, onClose }: { section: SettingsSection; d
   }, [data])
 
   const close = () => {
-    if (closing.current) return
-    /* Cover the slide-out: the top-left opens over the header hamburger before the layer unmounts. */
-    swallowGhostTaps(OUT_MS + CLICK_ECHO_MS + 80)
+    if (closing.current || closed.current) return
     closing.current = true
     const el = panel.current
     const finish = () => {
       if (closed.current) return
       closed.current = true
+      document.documentElement.removeAttribute("data-app-sheet-up")
       document.body.style.overflow = bodyOverflow.current
-      /* iOS may still deliver a click to the hamburger after the sheet is gone. */
-      swallowGhostTaps(CLICK_ECHO_MS + 160)
+      swallowGhostTaps(OUT_MS + CLICK_ECHO_MS + 80)
       onClose()
     }
     if (!el || typeof el.animate !== "function") {
@@ -180,7 +180,7 @@ function SettingsLayer({ section, data, onClose }: { section: SettingsSection; d
       { duration: OUT_MS, easing: EASE, fill: "forwards" },
     )
     a.onfinish = finish
-    window.setTimeout(finish, OUT_MS + 60)
+    window.setTimeout(finish, OUT_MS + 100)
   }
 
   return (
@@ -196,7 +196,7 @@ function SettingsLayer({ section, data, onClose }: { section: SettingsSection; d
       style={{
         transform: "translate3d(100%, 0, 0)",
         willChange: "transform",
-        zIndex: SHEET_Z,
+        zIndex: ACCOUNT_SETTINGS_SHEET_Z,
         paddingTop: "env(safe-area-inset-top)",
         paddingBottom: "env(safe-area-inset-bottom)",
       }}
@@ -206,21 +206,7 @@ function SettingsLayer({ section, data, onClose }: { section: SettingsSection; d
           <AccountSettings {...data} initialSection={section} onBack={close} />
         ) : (
           <>
-            <button
-              type="button"
-              onPointerUp={(e) => {
-                if (e.pointerType === "mouse" || !e.isPrimary) return
-                close()
-              }}
-              onClick={(e) => {
-                if (e.detail === 0) return
-                close()
-              }}
-              aria-label="Back to profile"
-              className="grid h-11 w-11 touch-manipulation place-items-center rounded-[10px] border border-[#e4e7ec] bg-white text-[#1a1a2e] [-webkit-tap-highlight-color:transparent]"
-            >
-              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><path d="M15 6 9 12l6 6" /></svg>
-            </button>
+            <BackControl fallback="/account" label="Back to profile" onBack={close} className="h-11 w-11 rounded-[10px]" />
             <div className="flex min-h-[min(52vh,420px)] items-center justify-center" aria-busy="true">
               <PageSpinner />
             </div>

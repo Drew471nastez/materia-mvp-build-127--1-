@@ -335,6 +335,7 @@ function ProfileSection({
         const data = (await res.json().catch(() => ({}))) as { username?: string; error?: string }
         if (!res.ok || !data.username) {
           setError(data.error || "That did not save. Try again in a moment.")
+          setBusy(false)
           return
         }
         setSavedHandle(data.username)
