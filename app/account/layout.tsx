@@ -8,8 +8,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { ensureUsername } from "@/lib/profile/ensure-username"
 import { isBuyerHeaderLight } from "@/lib/platform/buyer-header-theme"
 import { isPlatformDomain, readWishlistCount } from "@/lib/platform/header-props"
-import { AccountCommunityChrome } from "@/components/account/account-community-chrome"
-import { AccountCommunityBar, accountCommunityBar } from "@/components/account/account-community-bar"
+import { ACCOUNT_COMMUNITY_HEADER_BOOT } from "@/lib/nav/account-community-header-boot"
 import { AccountHeaderSwitch } from "@/components/account/account-header-switch"
 import { ConditionalFooter } from "@/components/marketing/conditional-footer"
 import { BuyerTabBar } from "@/components/nav/buyer-tab-bar"
@@ -91,7 +90,7 @@ async function readBio(userId: string): Promise<string | null> {
  * route handler and draws none of this.
  */
 export default async function AccountLayout({ children }: { children: React.ReactNode }) {
-  const [isNative, current, initialWishlistCount, onPlatformDomain, buyerHeaderLight, communities, communityBarRead] = await Promise.all([
+  const [isNative, current, initialWishlistCount, onPlatformDomain, buyerHeaderLight, communities] = await Promise.all([
     isCapacitorWebView(),
     currentUserForRequest(),
     readWishlistCount(),
@@ -99,11 +98,8 @@ export default async function AccountLayout({ children }: { children: React.Reac
     isBuyerHeaderLight(),
     /* The Communities pill is drawn only while communities are on. */
     communitiesEnabled().catch(() => false),
-    /* Entered from a community: its own bar, drawn now (components/account/account-community-bar.tsx). Null for anybody else. */
-    accountCommunityBar(),
   ])
   const user = current.user
-  const communityBar = user && communities ? communityBarRead : null
 
   /* Signed out for certain: the page's own redirect (see above). */
   if (!user && !isNative && current.state !== "indeterminate") return <>{children}</>
@@ -131,18 +127,12 @@ export default async function AccountLayout({ children }: { children: React.Reac
 
   const shell = (
     <div className="flex min-h-svh flex-col bg-[#fafafa]" data-page="account">
+      <script dangerouslySetInnerHTML={{ __html: ACCOUNT_COMMUNITY_HEADER_BOOT }} />
       {/* The same line the library and Explore carry, so leaving Profile for
           another tab says so when the next page is slow. */}
       <RouteLoadingBar />
       <LibraryBgFix />
-      {communityBar ? (
-        <AccountCommunityBar data={communityBar} />
-      ) : (
-        <>
-          <AccountHeaderSwitch initialWishlistCount={initialWishlistCount} onPlatformDomain={onPlatformDomain} buyerHeaderLight={buyerHeaderLight} />
-          <AccountCommunityChrome />
-        </>
-      )}
+      <AccountHeaderSwitch initialWishlistCount={initialWishlistCount} onPlatformDomain={onPlatformDomain} buyerHeaderLight={buyerHeaderLight} />
       {/* overflow-x-CLIP, not hidden: the cover runs edge to edge and must not
           open a sideways scroll, and `hidden` does that by making this a
           scroll box -- which also makes it the scrollport of anything sticky

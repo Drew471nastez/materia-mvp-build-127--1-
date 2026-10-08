@@ -16,18 +16,58 @@
 import { useEffect } from "react"
 import { usePathname } from "next/navigation"
 import { isNativeApp } from "@/lib/platform-utils"
-import { forgetLastPlace, rememberPlace, resumablePlace } from "@/lib/native-resume"
+import { forgetLastPlace, rememberPageScroll, rememberPlace, resumablePlace } from "@/lib/native-resume"
+import { noteTabScroll } from "@/lib/navigation/tab-scroll"
+
+let historyHooked = false
+function hookHistory() {
+  if (historyHooked || typeof window === "undefined") return
+  historyHooked = true
+  const wrap = (orig: History["pushState"]) =>
+    function (this: History, ...args: Parameters<History["pushState"]>) {
+      const result = orig.apply(this, args)
+      queueMicrotask(() => savePlace(false))
+      return result
+    }
+  history.pushState = wrap(history.pushState)
+  history.replaceState = wrap(history.replaceState)
+}
+
+function savePlace(forceScroll = false) {
+  if (!isNativeApp()) return
+  const path = window.location.pathname
+  if (path === "/welcome") {
+    forgetLastPlace()
+    return
+  }
+  const place = resumablePlace(path, window.location.search)
+  if (place) rememberPlace(place)
+  /* A fresh mount is still at 0 until the feed is put back. Writing that 0 would erase the place they left. */
+  if (path.startsWith("/community/") && (forceScroll || window.scrollY > 8)) {
+    rememberPageScroll(path, window.scrollY)
+    noteTabScroll(path, window.scrollY)
+  }
+}
 
 export function NativePlaceKeeper() {
   const pathname = usePathname()
   useEffect(() => {
     if (!pathname || !isNativeApp()) return
-    if (pathname === "/welcome") {
-      forgetLastPlace()
-      return
+    hookHistory()
+    savePlace()
+    const onHide = () => {
+      if (document.visibilityState === "hidden") savePlace(true)
     }
-    const place = resumablePlace(pathname, window.location.search)
-    if (place) rememberPlace(place)
+    const onPageHide = () => savePlace(true)
+    const onPop = () => savePlace(false)
+    document.addEventListener("visibilitychange", onHide)
+    window.addEventListener("pagehide", onPageHide)
+    window.addEventListener("popstate", onPop)
+    return () => {
+      document.removeEventListener("visibilitychange", onHide)
+      window.removeEventListener("pagehide", onPageHide)
+      window.removeEventListener("popstate", onPop)
+    }
   }, [pathname])
   return null
 }

@@ -1,10 +1,9 @@
 "use client"
 
-import { useEffect, useLayoutEffect, useRef } from "react"
+import { useLayoutEffect } from "react"
 import { usePathname } from "next/navigation"
 import { showsLibraryTabs } from "@/components/library/library-tab-list"
-import { opensAtTop } from "@/lib/navigation/tab-scroll"
-import { showsProfileHeader } from "@/lib/profile/owner-pills"
+import { accountPinnedScroll, accountScrollPinPaused, opensAtTop, scrollPageToTop } from "@/lib/navigation/tab-scroll"
 import { LANDING_CLASS, useLandingOnMove } from "@/lib/ui/landing"
 
 /**
@@ -17,14 +16,7 @@ import { LANDING_CLASS, useLandingOnMove } from "@/lib/ui/landing"
  * the flash and the jump the owner saw. Every other address keeps its own.
  */
 export function navFadeKey(pathname: string | null): string {
-  if (showsLibraryTabs(pathname)) return "library-tabs"
-  /*
-    THE PROFILE'S OWN PILLS ARE ONE PAGE TOO. Activity and Communities share the cover, the name and the pills, and keyed by the
-    address every pill press built all of it again and faded it in from blank: the cover blinked and the pills jumped. They share
-    a key now, so only what is under the pills changes, in place, and the window stays where it was.
-  */
-  if (showsProfileHeader(pathname)) return "profile"
-  return pathname || ""
+  return showsLibraryTabs(pathname) ? "library-tabs" : pathname || ""
 }
 
 /**
@@ -86,36 +78,25 @@ export function AccountNavFade({ children }: { children: React.ReactNode }) {
   pills, which share one key) puts the window at the top, before the frame is painted and again on the next one, after the
   router's own scroll.
 */
-function scrollWindowTop() {
-  window.scrollTo(0, 0)
-  const id = requestAnimationFrame(() => window.scrollTo(0, 0))
-  return () => cancelAnimationFrame(id)
-}
+/** Survives a refresh remount, which a ref does not: closing edit profile must not count as a new landing. */
+let lastAccountKey: string | null = null
 
 function useTopOnArrival(key: string) {
-  const traversal = useRef(false)
-  const last = useRef<string | null>(null)
-  useEffect(() => {
-    const onPop = () => {
-      traversal.current = true
-    }
-    window.addEventListener("popstate", onPop)
-    return () => window.removeEventListener("popstate", onPop)
-  }, [])
   useLayoutEffect(() => {
-    const atTop = key === "profile" || opensAtTop(key)
-    if (last.current === null) {
-      last.current = key
-      if (!traversal.current && atTop) return scrollWindowTop()
+    if (!opensAtTop(key)) {
+      lastAccountKey = key
       return
     }
-    if (last.current === key) return
-    last.current = key
-    if (traversal.current) {
-      traversal.current = false
+    if (accountScrollPinPaused()) {
+      const y = accountPinnedScroll()
+      lastAccountKey = key
+      if (y != null && Math.abs(window.scrollY - y) > 2) window.scrollTo(0, y)
       return
     }
-    if (!atTop) return
-    return scrollWindowTop()
+    if (lastAccountKey === key) return
+    const prev = lastAccountKey
+    lastAccountKey = key
+    /* First paint of this address: snap, and keep pinning so the router cannot restore a mid-page scroll. Later arrivals ease up. */
+    return scrollPageToTop({ smooth: prev !== null, frames: 14 })
   }, [key])
 }

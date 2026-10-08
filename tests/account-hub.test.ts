@@ -128,10 +128,9 @@ console.log("\nNo light bar of the profile's own: one header on the screen")
     while the other was taken away in the same frame, which the eye reads
     as a cut ("not so direct, smooth clean").
   */
-  // Changed on purpose: no fade between sections; each is kept once opened and simply shown (KeptSections).
-  check("a section opened is kept and simply shown, no fade", /function KeptSections/.test(settings) && /hidden=\{key !== section\}/.test(settings) && !/function SectionSwap/.test(settings))
+  check("the sections dissolve rather than cut", /function SectionSwap/.test(settings) && /const SWAP_OUT_MS = \d+/.test(settings) && /const SWAP_IN_MS = \d+/.test(settings) && /<SectionSwap section=\{section\}>/.test(settings))
   check("  the whole move is under a quarter of a second", (Number(settings.match(/SWAP_OUT_MS = (\d+)/)?.[1] ?? 0) + Number(settings.match(/SWAP_IN_MS = (\d+)/)?.[1] ?? 0)) <= 250)
-  check("  and the chosen pill's fill glides, standing still under reduced motion", /<PillGlider/.test(settings) && /prefers-reduced-motion: reduce/.test(read("components/ui/pill-glider.tsx")))
+  check("  a fade that never finishes still lands, and reduced motion just changes", /window\.setTimeout\(land, SWAP_OUT_MS \+ 160\)/.test(settings) && /prefers-reduced-motion: reduce/.test(settings))
   /* "The photo icon there is too big in the profile avatar circle in the settings." */
   const avatarPhoto = code("components/account/account-photo.tsx")
   check("the camera badge is a badge, not a second button", /h-\[26px\] w-\[26px\][^"]*ring-\[2\.5px\]/.test(avatarPhoto) && /<Camera className="h-\[13px\] w-\[13px\]"/.test(avatarPhoto))

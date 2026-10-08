@@ -87,6 +87,17 @@ export function isNativeApp(): boolean {
   return /StorelibApp|Capacitor/.test(ua) || (/wv/.test(ua) && /Android/.test(ua))
 }
 
+/**
+ * True in an app build that opens Stripe's own windows (its sign in, a
+ * bank's login) inside the app rather than in Safari or Chrome
+ * (ios/App/App/AppDelegate.swift StorelibPopups, android StorelibChromeClient).
+ * Such a build says so in its user agent (capacitor.config.ts appendUserAgent).
+ */
+export function appHoldsStripeWindows(): boolean {
+  if (typeof navigator === "undefined") return false
+  return /StorelibWindows\//.test(navigator.userAgent || "")
+}
+
 // ── Native home route cache ───────────────────────────────────────────────────
 // Persisted in Capacitor Preferences so NativeStartupRouter can route the user
 // to /app or /library on cold start without a DB round-trip on every launch.

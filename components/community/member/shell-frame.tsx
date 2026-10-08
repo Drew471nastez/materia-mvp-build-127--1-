@@ -98,6 +98,7 @@ import { toast, Toasts } from "./toast"
 import { CommunityTopBar } from "./top-bar"
 import { whenIdle } from "./feed-cache"
 import { enterCommunityContext } from "@/lib/nav/community-context"
+import { rememberCommunityChrome } from "@/lib/nav/community-chrome-cache"
 import { InviteSheet } from "./invite-sheet"
 import { preloadSearchIndex } from "./search"
 import { PRESS_PROPS, TAB, TAB_OFF, TAB_ON } from "./ui"
@@ -233,6 +234,9 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
   useEffect(() => {
     enterCommunityContext(community.slug, { id: community.id, name: community.name })
   }, [community.slug, community.id, community.name])
+  useLayoutEffect(() => {
+    rememberCommunityChrome(community.slug, topBar)
+  }, [community.slug, topBar])
   /*
     A brand-new account lands here straight from signup. The platform header
     (the thing that usually writes who is signed in) is not on a community
@@ -319,15 +323,6 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
   */
   const search = useSearchParams()
   const dm = search?.get("dm") ?? null
-  /* `?chat=1`: Messages pressed on a page outside the frame (the community's bar on /account), the panel opens here. */
-  const chatAsked = search?.get("chat") === "1"
-  useEffect(() => {
-    if (!chatAsked) return
-    const url = new URL(window.location.href)
-    url.searchParams.delete("chat")
-    window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash)
-    if (canMessage) setChat({})
-  }, [chatAsked, canMessage])
   useEffect(() => {
     if (!dm) return
     const url = new URL(window.location.href)

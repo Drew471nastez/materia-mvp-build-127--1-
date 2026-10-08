@@ -204,16 +204,28 @@ export function CommunityFeed({ communityId, slug, viewer, spaces, start, initia
   const [list, setList] = useState({ id: targetId, sort })
   const behind = list.id !== targetId || list.sort !== sort
   /*
-    NO FADE (round 15, the owner: "still a flash, a fade in between switching, which should not be"). The chip changes on the
-    next frame and the list follows on the frame after it. A list already here is simply there. One that is not here yet
-    keeps the posts already on screen. A backup timer applies the list if the frames never run, so a switch cannot stay
-    on the previous space's chip.
+    NO FADE (round 15, the owner: "still a flash, a fade in between switching, which should not be"), AND THE CHIP FIRST
+    (round 16, the owner: "the pill fill is too direct, it glitches and bumps"). Drawing the chip and the new list in one
+    synchronous piece of work held the chip's fill back until eight post cards were built, so the fill never eased: it
+    snapped. The chip's fill is an opacity layer (space-chips.tsx), which the compositor animates by itself, so it starts on
+    the frame after the tap; the list is drawn in one go two frames later, while the fill is already easing, and a list
+    already here is simply there. One that is not here yet keeps the posts already on screen. A newer tap cancels an older
+    one's handover. A backup timer applies the list if the frames never run (a hidden tab), so a switch cannot stay on the
+    previous space's posts.
   */
-  useLayoutEffect(() => {
+  useEffect(() => {
     if (!behind) return
     const next = { id: targetId, sort }
-    /* The chip and the list stay together: no queued frames that leave the peel lit on the wrong space. */
-    flushSync(() => setList(next))
+    let second = 0
+    const first = requestAnimationFrame(() => {
+      second = requestAnimationFrame(() => flushSync(() => setList(next)))
+    })
+    const backup = window.setTimeout(() => setList(next), 160)
+    return () => {
+      cancelAnimationFrame(first)
+      cancelAnimationFrame(second)
+      window.clearTimeout(backup)
+    }
   }, [behind, targetId, sort])
   const listTarget = useMemo(() => targetFromId(list.id), [list.id])
   const listSort = list.sort
@@ -255,12 +267,16 @@ export function CommunityFeed({ communityId, slug, viewer, spaces, start, initia
   const [cacheRev, setCacheRev] = useState(0)
   useEffect(() => subscribeViews(() => setCacheRev((n) => n + 1)), [])
   void cacheRev
-  const asked = readView(viewKey(communityId, target, sort))
+  /*
+    The posts follow the LIST, not the chip (round 16): read by `key`, so the chip's own render hands FeedBody the same posts
+    and costs a row of chips; the new posts come with the list two frames later (THE CHIP FIRST, above).
+  */
+  const asked = readView(key)
   const held = shown.view.posts.length ? shown.view : null
   const listed = shown.key === key ? shown.view : (readView(key) ?? null)
   const cached = asked ?? listed ?? held
   const view = cached ?? EMPTY_LIST
-  const waiting = !asked && view.posts.length === 0 && failedKey !== viewKey(communityId, target, sort)
+  const waiting = !asked && view.posts.length === 0 && failedKey !== key
 
   /* Bring the list for a new key: from the cache (and quietly again when it is over a minute old), or from the server. */
   useEffect(() => {

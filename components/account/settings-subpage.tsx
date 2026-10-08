@@ -12,11 +12,15 @@ import { AccountSettings } from "@/components/account/account-settings"
 import { PageSpinner } from "@/components/ui/activity-spinner"
 import { isNativeApp } from "@/lib/platform-utils"
 import { CLICK_ECHO_MS } from "@/lib/navigation/first-tap"
+import { ACCOUNT_SETTINGS_SHEET_Z } from "@/lib/account/settings-sheet"
+import { BackControl } from "@/components/navigation/back-control"
 import { swallowGhostTaps } from "@/lib/navigation/swallow-ghost-taps"
+import { pauseAccountScrollPin } from "@/lib/navigation/tab-scroll"
 
 const EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
 const IN_MS = 340
-const OUT_MS = 440
+export const SETTINGS_SHEET_OUT_MS = 440
+const OUT_MS = SETTINGS_SHEET_OUT_MS
 const CACHE_MS = 5 * 60_000
 
 export type SettingsSection = "profile" | "account" | "privacy" | "notifications" | "preferences"
@@ -32,24 +36,15 @@ let seq = 0
 let cached: Cache | null = null
 let inflight: Promise<Loaded | null> | null = null
 
-/*
-  WHAT WAS JUST SAVED, IN THE KEPT COPY. The layer reopens from `cached` for five minutes, and nothing told it about a save, so
-  Edit profile opened again on the values from before it: "things cannot be saved at all". A save in the Profile section says
-  what it wrote (account-settings.tsx), and the copy takes it.
-*/
-if (typeof window !== "undefined") {
-  window.addEventListener("storelib:settings-saved", (e) => {
-    const saved = (e as CustomEvent<Partial<Loaded>>).detail
-    if (cached && saved) cached = { ...cached, data: { ...cached.data, ...saved }, at: Date.now() }
-  })
-}
-
-/** Phones, tablets, narrow windows and the native apps. A mouse on a wide screen keeps the settings address. */
+/** Phones, tablets and the native apps. A mouse on a wide screen keeps the settings address. */
 export function settingsStaysHere(): boolean {
   if (typeof window === "undefined") return false
   if (isNativeApp()) return true
   if (document.documentElement.classList.contains("capacitor")) return true
-  /* A window under 768px is a phone's layout whatever points at it; Edit profile already opened the layer there, so the Settings pill does too. */
+  /*
+    A window under 768px too, whatever points at it. Edit profile already opened the layer there and the Settings pill did not,
+    so a narrow window on a computer got two different screens from the two buttons. One rule for both now.
+  */
   return !!window.matchMedia?.("(pointer: coarse) and (max-width: 1180px), (max-width: 767px)").matches
 }
 
@@ -120,27 +115,6 @@ export function openSettingsSubpage(section: SettingsSection = "profile") {
   })
 }
 
-/** Settings' own address, on one section. */
-export function settingsHref(section: SettingsSection = "profile"): string {
-  return `/account/settings?section=${section}`
-}
-
-/**
- * ===========================================================================
- *  EDIT PROFILE AND THE SETTINGS PILL OPEN THE SAME THING
- * ===========================================================================
- * Every way into Settings (Edit profile on the cover, the Settings pill, the
- * pencil on a person's page) asks here, so they open the same screen in the
- * same way: the layer over the page where settingsStaysHere() says so, the
- * settings address everywhere else. Each used to decide for itself, and a
- * narrow window on a computer got the layer from one and the page from the
- * other. Both are the one AccountSettings either way.
- */
-export function openSettings(section: SettingsSection, push: (href: string) => void): void {
-  if (settingsStaysHere()) openSettingsSubpage(section)
-  else push(settingsHref(section))
-}
-
 export function sectionFromSettingsHref(href: string): SettingsSection {
   const m = /section=(profile|account|privacy|notifications|preferences)/.exec(href)
   return (m?.[1] as SettingsSection) || "account"
@@ -156,78 +130,63 @@ async function loadOwnSettings(section: SettingsSection): Promise<Loaded | null>
   }
 }
 
-/** Above the platform header (z-40), phone search (z-60) and buyer tab bar (z-50). */
-const SHEET_Z = 420
-
 function SettingsLayer({ section, data, onClose }: { section: SettingsSection; data: Loaded | null; onClose: () => void }) {
   const panel = useRef<HTMLDivElement>(null)
   const closing = useRef(false)
   const closed = useRef(false)
-  const slidIn = useRef(false)
-  const bodyOverflow = useRef("")
-  const lastData = useRef(data)
-  const version = useRef(0)
-  if (data !== lastData.current) {
-    lastData.current = data
-    version.current += 1
-  }
-  const dataVersion = version.current
-
-  const slideIn = () => {
-    if (slidIn.current) return
-    slidIn.current = true
-    const el = panel.current
-    if (!el || typeof el.animate !== "function") return
-    el.style.transform = "translate3d(100%, 0, 0)"
-    el.animate([{ transform: "translate3d(100%, 0, 0)" }, { transform: "translate3d(0, 0, 0)" }], { duration: IN_MS, easing: EASE, fill: "forwards" })
-  }
+  const scrollY = useRef(0)
+  const [entered, setEntered] = useState(false)
 
   useLayoutEffect(() => {
-    bodyOverflow.current = document.body.style.overflow
-    document.body.style.overflow = "hidden"
-    if (data) slideIn()
+    const html = document.documentElement
+    const y = window.scrollY
+    scrollY.current = y
+    html.setAttribute("data-app-sheet-up", "open")
+    /* Do not set overflow:hidden on body. On iOS that throws the page to the top and it stays there when the sheet leaves. */
+    const block = (e: TouchEvent) => {
+      const n = e.target as Node | null
+      if (n && panel.current?.contains(n)) return
+      e.preventDefault()
+    }
+    document.addEventListener("touchmove", block, { passive: false })
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+    const id = requestAnimationFrame(() => {
+      requestAnimationFrame(() => setEntered(true))
+    })
+    if (reduce) setEntered(true)
     return () => {
-      document.body.style.overflow = bodyOverflow.current
+      cancelAnimationFrame(id)
+      html.removeAttribute("data-app-sheet-up")
+      document.removeEventListener("touchmove", block)
+      if (Math.abs(window.scrollY - y) > 2) window.scrollTo(0, y)
     }
   }, [])
 
-  useLayoutEffect(() => {
-    if (data) slideIn()
-  }, [data])
-
   const close = () => {
-    if (closing.current) return
-    /* Cover the slide-out: the top-left opens over the header hamburger before the layer unmounts. */
-    swallowGhostTaps(OUT_MS + CLICK_ECHO_MS + 80)
+    if (closing.current || closed.current) return
     closing.current = true
-    const el = panel.current
+    const y = scrollY.current
+    if (Math.abs(window.scrollY - y) > 1) window.scrollTo(0, y)
+    pauseAccountScrollPin(OUT_MS + 1400, y)
+    setEntered(false)
     const finish = () => {
       if (closed.current) return
       closed.current = true
-      document.body.style.overflow = bodyOverflow.current
-      /* iOS may still deliver a click to the hamburger after the sheet is gone. */
-      swallowGhostTaps(CLICK_ECHO_MS + 160)
+      document.documentElement.removeAttribute("data-app-sheet-up")
+      if (Math.abs(window.scrollY - y) > 1) window.scrollTo(0, y)
+      swallowGhostTaps(OUT_MS + CLICK_ECHO_MS + 80)
       onClose()
     }
-    if (!el || typeof el.animate !== "function") {
-      finish()
-      return
-    }
-    const a = el.animate(
-      [
-        { transform: "translate3d(0, 0, 0)", opacity: 1 },
-        { transform: "translate3d(100%, 0, 0)", opacity: 0.98 },
-      ],
-      { duration: OUT_MS, easing: EASE, fill: "forwards" },
-    )
-    a.onfinish = finish
-    window.setTimeout(finish, OUT_MS + 60)
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+    window.setTimeout(finish, reduce ? 20 : OUT_MS + 50)
   }
+
+  const reduce = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
 
   return (
     <div
       ref={panel}
-      className="fixed inset-0 overflow-y-auto overflow-x-hidden bg-white overscroll-contain"
+      className="fixed inset-0 flex flex-col overflow-hidden bg-white overscroll-contain"
       data-edit-profile-sheet=""
       data-settings-subpage=""
       role="dialog"
@@ -235,40 +194,31 @@ function SettingsLayer({ section, data, onClose }: { section: SettingsSection; d
       aria-label="Settings"
       data-sheet-root=""
       style={{
-        transform: "translate3d(100%, 0, 0)",
+        transform: entered ? "translate3d(0, 0, 0)" : "translate3d(100%, 0, 0)",
+        transition: reduce ? "none" : `transform ${entered ? IN_MS : OUT_MS}ms ${EASE}`,
         willChange: "transform",
-        zIndex: SHEET_Z,
+        zIndex: ACCOUNT_SETTINGS_SHEET_Z,
         paddingTop: "env(safe-area-inset-top)",
-        paddingBottom: "env(safe-area-inset-bottom)",
       }}
     >
-      <div className="px-4 pb-10 pt-3 sm:px-6">
-        {data ? (
-          /* Built again when the full read replaces the profile's first copy (email, location, a creator's handle), not kept on the guesses. */
-          <AccountSettings key={dataVersion} {...data} initialSection={section} onBack={close} />
-        ) : (
-          <>
-            <button
-              type="button"
-              onPointerUp={(e) => {
-                if (e.pointerType === "mouse" || !e.isPrimary) return
-                close()
-              }}
-              onClick={(e) => {
-                if (e.detail === 0) return
-                close()
-              }}
-              aria-label="Back to profile"
-              className="grid h-11 w-11 touch-manipulation place-items-center rounded-[10px] border border-[#e4e7ec] bg-white text-[#1a1a2e] [-webkit-tap-highlight-color:transparent]"
-            >
-              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><path d="M15 6 9 12l6 6" /></svg>
-            </button>
-            <div className="flex min-h-[min(52vh,420px)] items-center justify-center" aria-busy="true">
-              <PageSpinner />
-            </div>
-          </>
-        )}
+      <div
+        className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain"
+        data-settings-sheet-scroll=""
+      >
+        <div className="px-4 pb-8 pt-3 sm:px-6" data-settings-sheet-body="">
+          {data ? (
+            <AccountSettings {...data} initialSection={section} onBack={close} />
+          ) : (
+            <>
+              <BackControl fallback="/account" label="Back to profile" onBack={close} className="h-11 w-11 rounded-[10px]" />
+              <div className="flex min-h-[min(52vh,420px)] items-center justify-center" aria-busy="true">
+                <PageSpinner />
+              </div>
+            </>
+          )}
+        </div>
       </div>
+      <div data-sheet-save-dock="" className="shrink-0" />
     </div>
   )
 }

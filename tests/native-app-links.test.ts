@@ -107,6 +107,7 @@ const keep: Array<[string, string, string | null]> = [
   ["/explore", "?q=presets&category=design&utm_source=x&token=abc", "/explore?q=presets&category=design"],
   ["/explore/search", "", "/explore/search"],
   ["/community/mara-club", "", "/community/mara-club"],
+  ["/community/mara-club", "?space=general&utm_source=x", "/community/mara-club?space=general"],
   ["/community/mara-club/post/42", "", "/community/mara-club/post/42"],
   ["/community/mara-club/classroom", "?lesson=3", "/community/mara-club/classroom"],
   ["/account/library", "", "/account/library"],
@@ -139,8 +140,8 @@ check("a kept place passes the redirect's own check, anything else is a home or 
 check("only a start opens the kept page: the logo's '/' from inside the app goes home", /function documentOpenedHere\(\)/.test(start) && /new URL\(nav\.name\)\.pathname === "\/native-start"/.test(start) && /const kept = !startUsed && documentOpenedHere\(\) && !startedJustNow\(\)/.test(start) && /startUsed = true/.test(start))
 check("and a start that comes straight back is not tried twice", /const RETRY_MS = 8000/.test(start) && /startedAgain = Date\.now\(\) - at < RETRY_MS/.test(start))
 const keeper = code("components/platform/native-place-keeper.tsx")
-check("the place is kept on every navigation, in the app only", /if \(!pathname \|\| !isNativeApp\(\)\) return/.test(keeper) && /const place = resumablePlace\(pathname, window\.location\.search\)/.test(keeper) && /\}, \[pathname\]\)/.test(keeper) && /<NativePlaceKeeper \/>/.test(read("app/layout.tsx")))
-check("and forgotten on log out: /welcome, and both log out helpers", /if \(pathname === "\/welcome"\) \{\s*forgetLastPlace\(\)/.test(keeper) && (bridge.match(/forgetLastPlace\(\)/g) ?? []).length === 2)
+check("the place is kept on every navigation, in the app only", /if \(!pathname \|\| !isNativeApp\(\)\) return/.test(keeper) && /resumablePlace\(path, window\.location\.search\)/.test(keeper) && /\}, \[pathname\]\)/.test(keeper) && /<NativePlaceKeeper \/>/.test(read("app/layout.tsx")))
+check("and forgotten on log out: /welcome, and both log out helpers", /if \(path === "\/welcome"\) \{\s*forgetLastPlace\(\)/.test(keeper) && (bridge.match(/forgetLastPlace\(\)/g) ?? []).length === 2)
 
 /* ── 4. The tab bar in a community ────────────────────────────────────── */
 console.log("\nThe tab bar inside a community")

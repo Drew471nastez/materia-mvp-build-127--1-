@@ -33,8 +33,7 @@ import { usePathname, useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import { EDIT_PROFILE_HREF, ownerPillFor, ownerPillLinks, type OwnerPillKey } from "@/lib/profile/owner-pills"
 import { prefetchHref, prefetchOnIdle } from "@/lib/nav/prefetch-policy"
-import { openSettings, settingsStaysHere, warmSettings } from "@/components/account/settings-subpage"
-import { PillGlider } from "@/components/ui/pill-glider"
+import { openSettingsSubpage, settingsStaysHere, warmSettings } from "@/components/account/settings-subpage"
 import { cn } from "@/lib/utils"
 
 export { ownerPillLinks } from "@/lib/profile/owner-pills"
@@ -75,13 +74,7 @@ export function ProfileOwnerPills({ communities, creator = false, active: fixed,
   return (
     <nav aria-label="Your pages" className={cn("-mx-4 sm:mx-0", className)} data-profile-owner-pills="">
       <div className="overflow-x-auto overflow-y-hidden overscroll-x-contain overscroll-y-none px-4 py-0 scrollbar-hide touch-pan-x sm:px-0">
-        <div className="group/pills relative mx-auto flex w-max items-center gap-2">
-          {/* One fill that glides to the chosen pill (components/ui/pill-glider.tsx), over the white pills and under the labels. */}
-          <PillGlider
-            active={active ?? "none"}
-            selector='[data-active="true"]'
-            className="border border-[#d7dadf] bg-[#e2e4e8] shadow-[inset_0_1px_1.5px_rgba(15,23,42,0.07),inset_0_-1px_0_rgba(255,255,255,0.45)]"
-          />
+        <div className="mx-auto flex w-max items-center gap-2">
           {pills.map((p) => {
             const on = p.key === active
             return (
@@ -99,10 +92,10 @@ export function ProfileOwnerPills({ communities, creator = false, active: fixed,
                 }}
                 onClick={(e) => {
                   if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return
-                  /* Settings opens exactly what Edit profile opens (settings-subpage.tsx openSettings). */
-                  if (p.key === "settings") {
+                  /* In the app and on a phone, Settings is a layer over the profile, not another address. */
+                  if (p.key === "settings" && settingsStaysHere()) {
                     e.preventDefault()
-                    openSettings("profile", (href) => router.push(href, { scroll: false }))
+                    openSettingsSubpage("profile")
                     return
                   }
                   if (p.key !== fromPath) setPressed(p.key)
@@ -110,15 +103,16 @@ export function ProfileOwnerPills({ communities, creator = false, active: fixed,
                 style={{ transitionDuration: `${FADE_MS}ms`, transitionTimingFunction: EASE }}
                 className={cn(PILL, on ? "border-[#d7dadf] text-[#1a1a2e]" : "border-[#e4e7ec] text-[#4b5563] hover:text-[#1a1a2e]")}
               >
-                {/* This pill's own fill, until the row's one gliding fill has measured (data-glide); then only the glider is drawn. */}
+                {/* This pill's own fill: it fades in where it is, never slides over from the last one. */}
                 <span
                   aria-hidden
+                  style={{ transitionDuration: `${FADE_MS}ms`, transitionTimingFunction: EASE }}
                   className={cn(
-                    "pointer-events-none absolute -inset-px rounded-full border border-[#d7dadf] bg-[#e2e4e8] shadow-[inset_0_1px_1.5px_rgba(15,23,42,0.07),inset_0_-1px_0_rgba(255,255,255,0.45)] group-data-[glide]/pills:hidden",
+                    "pointer-events-none absolute -inset-px rounded-full border border-[#d7dadf] bg-[#e2e4e8] shadow-[inset_0_1px_1.5px_rgba(15,23,42,0.07),inset_0_-1px_0_rgba(255,255,255,0.45)] transition-[opacity,scale] motion-reduce:transition-none",
                     on ? "opacity-100" : "opacity-0",
                   )}
                 />
-                <span className="relative z-[2]">{p.label}</span>
+                <span className="relative">{p.label}</span>
               </Link>
             )
           })}

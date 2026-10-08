@@ -3,72 +3,90 @@
 /**
  * When the buyer tab bar's community context is set, /account shows the same
  * CommunityTopBar as the feed — not Storelib's header with a community title.
+ *
+ * Mounted from the root layout, so it is already alive when the tab bar
+ * opens the profile. The bar is the copy remembered in the community
+ * (community-chrome-cache), read during render, not after a fetch. A cold
+ * start with no copy yet keeps a white bar of the same height (the boot
+ * script) until the read returns.
  */
-import { useEffect, useState } from "react"
+import { useEffect, useLayoutEffect, useState, useSyncExternalStore } from "react"
 import { usePathname } from "next/navigation"
 import { CommunityTopBar } from "@/components/community/member/top-bar"
 import type { TopBarData } from "@/components/community/member/view-types"
 import { useCommunityContextMeta } from "@/lib/nav/community-context"
+import {
+  accountChromeReady,
+  publishAccountChrome,
+  readCommunityChrome,
+  rememberCommunityChrome,
+  subscribeAccountChrome,
+} from "@/lib/nav/community-chrome-cache"
 import { showsProfileHeader } from "@/lib/profile/owner-pills"
 
-let cache: { slug: string; data: TopBarData; at: number } | null = null
-const CACHE_MS = 60_000
+function clearPending() {
+  document.documentElement.removeAttribute("data-account-community-pending")
+}
 
 export function AccountCommunityChrome() {
   const pathname = usePathname()
   const ctx = useCommunityContextMeta()
   const active = !!ctx.slug && showsProfileHeader(pathname)
-  const [topBar, setTopBar] = useState<TopBarData | null>(() => {
-    if (!active || !ctx.slug || !cache || cache.slug !== ctx.slug || Date.now() - cache.at > CACHE_MS) return null
-    return cache.data
-  })
+  const cached = active && ctx.slug ? readCommunityChrome(ctx.slug) : null
+  const [fresh, setFresh] = useState<TopBarData | null>(null)
+  const topBar = fresh && ctx.slug && fresh.community.slug === ctx.slug ? fresh : cached
+
+  useLayoutEffect(() => {
+    if (!active || !ctx.slug) {
+      publishAccountChrome(null, null)
+      clearPending()
+      return
+    }
+    if (topBar) {
+      publishAccountChrome(ctx.slug, topBar)
+      clearPending()
+    }
+  }, [active, ctx.slug, topBar])
 
   useEffect(() => {
-    if (!active || !ctx.slug) {
-      setTopBar(null)
-      return
-    }
-    if (cache && cache.slug === ctx.slug && Date.now() - cache.at < CACHE_MS) {
-      setTopBar(cache.data)
-      return
-    }
+    if (!active || !ctx.slug) return
     let live = true
-    void fetch(`/api/community/by-slug/${encodeURIComponent(ctx.slug)}/member-chrome`, { credentials: "same-origin" })
+    const slug = ctx.slug
+    void fetch(`/api/community/by-slug/${encodeURIComponent(slug)}/member-chrome`, { credentials: "same-origin" })
       .then((r) => (r.ok ? r.json() : null))
       .then((json: { topBar?: TopBarData } | null) => {
         if (!live || !json?.topBar) return
-        cache = { slug: ctx.slug!, data: json.topBar, at: Date.now() }
-        setTopBar(json.topBar)
+        rememberCommunityChrome(slug, json.topBar)
+        setFresh(json.topBar)
+        publishAccountChrome(slug, json.topBar)
+        clearPending()
       })
-      .catch(() => {})
+      .catch(() => {
+        if (live && !readCommunityChrome(slug)) clearPending()
+      })
     return () => {
       live = false
     }
   }, [active, ctx.slug])
 
-  if (!active || !topBar) return null
+  if (!topBar) return null
 
   /*
-    The community bar is sticky and in the document flow, same as inside a
-    community (shell-frame.tsx). Do not add native-header-spacer here: that
-    block is only for the fixed Storelib header in the app and would leave a
-    blank band between the bar and the profile cover.
+    Above the page, in normal flow, so the cover starts under it. Sticky,
+    same as inside a community. No native-header-spacer: that is only for
+    the fixed Storelib header and leaves a blank band here.
   */
   return (
-    <div className="w-full" data-account-community-chrome="">
-      <CommunityTopBar
-        data={topBar}
-        wide
-        search={{ communityId: topBar.community.id }}
-        menu={{ onInvite: null, savedHref: `/community/${ctx.slug}/saved`, membershipHref: `/community/${ctx.slug}/membership` }}
-      />
+    <div className="sticky top-0 z-40 w-full" data-account-community-chrome="">
+      <CommunityTopBar data={topBar} wide />
     </div>
   )
 }
 
-/** Hide Storelib's header when the community bar is shown instead. */
+/** True once the community bar is actually drawn, so Storelib's header can leave without a gap. */
 export function useAccountCommunityChromeActive(): boolean {
   const pathname = usePathname()
   const ctx = useCommunityContextMeta()
-  return !!ctx.slug && showsProfileHeader(pathname)
+  const slug = !!ctx.slug && showsProfileHeader(pathname) ? ctx.slug : null
+  return useSyncExternalStore(subscribeAccountChrome, () => accountChromeReady(slug), () => false)
 }

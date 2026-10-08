@@ -32,7 +32,12 @@ const config: CapacitorConfig = {
     // server (proxy.ts) can detect native requests and redirect "/" → "/native-start"
     // as a safety net. Without this, the default WKWebView UA is a plain
     // Safari-like string with no way to distinguish native from browser.
-    appendUserAgent: 'Capacitor',
+    // StorelibWindows/1: this build opens Stripe's own windows (its sign in,
+    // a bank's login) in a window inside the app (AppDelegate.swift
+    // StorelibPopups, StorelibChromeClient.java), so the web layer keeps the
+    // embedded payout setup rather than sending it to the in-app sheet
+    // (lib/native-bridge.ts appHoldsStripeWindows).
+    appendUserAgent: 'Capacitor StorelibWindows/1',
     // js.stripe.com  — must be listed so that IF the controller somehow escapes
     //   the three-layer guard (advancedFraudSignals: false + CSP frame-src +
     //   stripe-nav-guard.ts), any navigation stays INSIDE the WKWebView rather

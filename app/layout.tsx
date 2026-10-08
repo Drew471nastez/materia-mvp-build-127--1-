@@ -60,6 +60,7 @@ import { OpenInAppCard } from "@/components/platform/open-in-app-card"
 import { NativePlaceKeeper } from "@/components/platform/native-place-keeper"
 import { NativeChrome } from "@/components/platform/native-chrome"
 import { SettingsSubpageHost } from "@/components/account/settings-subpage"
+import { AccountCommunityChrome } from "@/components/account/account-community-chrome"
 import { EdgeSwipeBack } from "@/components/platform/edge-swipe-back"
 import { NativePushInit } from "@/components/native-push-init"
 import { NotificationsAsk } from "@/components/platform/notifications-ask"
@@ -254,7 +255,12 @@ export default function RootLayout({
       <body className={`${inter.variable} ${communityTitle.variable} font-sans antialiased bg-background text-foreground`}>
         <SWRProvider>
           <LocaleProvider>
-            <ExploreMarketplaceRoot>{children}</ExploreMarketplaceRoot>
+            <ExploreMarketplaceRoot>
+              {/* Community bar for /account, already mounted, so a tab to Profile does not paint the page and then the header.
+                  Inside the providers: its account menu reads the locale, and outside LocaleProvider it threw and took /account down. */}
+              <AccountCommunityChrome />
+              {children}
+            </ExploreMarketplaceRoot>
           </LocaleProvider>
         </SWRProvider>
         {/* ONE buyer-protection subpage for the whole application.

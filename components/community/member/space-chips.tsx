@@ -30,8 +30,7 @@
  * (a thumb, a trackpad, or Tab, which scrolls the focused chip into view),
  * and their last 24px fade out, over padding when everything fits, so the
  * fade only ever shows when there is more. No hooks, so the server pages
- * draw it; the one fill that glides to the chosen chip is its own client
- * part (chip-glider.tsx).
+ * draw it.
  *
  * EVERY CHIP CARRIES ITS SPACE'S ICON (round 12): the emoji the admin set,
  * or its kind's when the space still has the word name every community
@@ -39,19 +38,33 @@
  */
 import Link from "next/link"
 import { feedListHref } from "@/lib/community/feed-space-address"
-import { ChipGlider } from "./chip-glider"
 import { spaceGlyph } from "./space-glyph"
 import { press, PRESS_PROPS } from "./ui"
 import type { SpaceView } from "./view-types"
 
+/*
+  THE FILL EASES IN WHERE IT IS (round 16, the owner: "the pill fill is too direct, make it fill smooth and clean, like the
+  Settings tabs"). The ink of the chosen chip is its own layer (FILL), the size of the chip's outer edge, faded by opacity over
+  the same 150ms and curve as Settings' tabs (settings-form-new.tsx TAB_FADE_MS, TAB_EASE). Opacity is the compositor's: it
+  keeps easing while the list under the chips is drawn (feed.tsx THE CHIP FIRST), where a background colour change waits for
+  the main thread and lands in one late frame. The words turn white over the same time, so the chip changes as one piece. The
+  chip itself stays white on its hairline; a pointer resting on another chip tints it a soft grey, and a press sinks it.
+*/
+const EASE = "ease-[cubic-bezier(0.33,1,0.68,1)]"
 const CHIP =
-  "relative inline-flex h-10 shrink-0 touch-manipulation select-none items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 text-[14px] font-medium outline-none transition-[color,background-color,border-color,box-shadow] duration-[160ms] ease-[cubic-bezier(0.32,0.72,0,1)] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 motion-reduce:transition-none sm:h-9 sm:text-[13.5px] [-webkit-tap-highlight-color:transparent] active:duration-[70ms] data-[pressed]:duration-[70ms]"
-/* Its own fill until the glider has measured (chip-glider.tsx), then the glider's: `data-glide` on the row. */
-const CHIP_ON =
-  "border-[#1a1a2e] bg-[#1a1a2e] text-white shadow-[0_1px_2px_rgba(16,24,40,0.2),0_2px_5px_-2px_rgba(16,24,40,0.22),inset_0_1px_0_rgba(255,255,255,0.09)] group-data-[glide]/chips:border-transparent group-data-[glide]/chips:bg-transparent group-data-[glide]/chips:shadow-none"
+  `relative isolate inline-flex h-10 shrink-0 touch-manipulation select-none items-center gap-1.5 whitespace-nowrap rounded-full border border-[#e1e4e8] bg-white px-3.5 text-[14px] font-medium outline-none transition-[color,background-color,box-shadow] duration-150 ${EASE} focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 motion-reduce:transition-none sm:h-9 sm:text-[13.5px] [-webkit-tap-highlight-color:transparent] active:duration-[70ms] data-[pressed]:duration-[70ms]`
+/* The chosen chip: white words over the fill, no shadow of its own (the fill carries it). */
+const CHIP_ON = "text-white shadow-none"
 /* Pressed, a chip sinks on the first frame (no easing in), so the finger sees it took (round 10), and eases back when it lifts. */
 const CHIP_OFF =
-  "border-[#e1e4e8] bg-white text-[#4b5563] shadow-[0_1px_2px_rgba(16,24,40,0.07),0_1px_1px_rgba(16,24,40,0.03)] [@media(hover:hover)]:hover:bg-[#fafbfc] [@media(hover:hover)]:hover:text-[#1a1a2e] active:bg-[#f0f1f3] active:shadow-[inset_0_1px_2px_rgba(16,24,40,0.1)] data-[pressed]:bg-[#f0f1f3] data-[pressed]:text-[#1a1a2e] data-[pressed]:shadow-[inset_0_1px_2px_rgba(16,24,40,0.1)]"
+  "text-[#4b5563] shadow-[0_1px_2px_rgba(16,24,40,0.07),0_1px_1px_rgba(16,24,40,0.03)] [@media(hover:hover)]:hover:bg-[#f3f4f6] [@media(hover:hover)]:hover:text-[#1a1a2e] active:bg-[#eceef1] active:shadow-[inset_0_1px_2px_rgba(16,24,40,0.1)] data-[pressed]:bg-[#eceef1] data-[pressed]:text-[#1a1a2e] data-[pressed]:shadow-[inset_0_1px_2px_rgba(16,24,40,0.1)]"
+/* The ink, over the hairline (-inset-px) and under the words (-z-10 in the chip's own stacking context). */
+const FILL = `pointer-events-none absolute -inset-px -z-10 rounded-full bg-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.2),0_2px_5px_-2px_rgba(16,24,40,0.22),inset_0_1px_0_rgba(255,255,255,0.09)] transition-opacity duration-150 ${EASE} motion-reduce:transition-none`
+
+/** The chosen chip's ink, faded in and out where it is. */
+function Fill({ on }: { on: boolean }) {
+  return <span aria-hidden data-chip-fill="" className={`${FILL} ${on ? "opacity-100" : "opacity-0"}`} />
+}
 
 /** What a chip (or the sort menu's Saved posts) opens, for a feed that switches in place: All, one feed space, or Saved. */
 export type ChipPick = { kind: "all" } | { kind: "space"; slug: string } | { kind: "saved" }
@@ -149,10 +162,10 @@ export function SpaceChips({ slug, spaces, active, savedOn = false, onPick, onIn
         {...(onPick ? { onScroll: (e: React.UIEvent<HTMLDivElement>) => void (e.currentTarget.dataset.scrolledAt = String(performance.now())) } : {})}
       >
         {/* 2px above and below, so a chip's one pixel shadow is not cut by the scrolling track. */}
-        <div className="group/chips relative flex w-max items-center gap-2 py-0.5 pl-4 pr-6 sm:pl-0">
-          <ChipGlider active={active ?? (savedOn ? "saved" : "all")} />
+        <div className="flex w-max items-center gap-2 py-0.5 pl-4 pr-6 sm:pl-0">
           <Link href={base} aria-current={allOn ? "page" : undefined} data-space-chip="all" className={`${CHIP} ${allOn ? CHIP_ON : CHIP_OFF}`} {...switching({ kind: "all" })}>
-            <span className="relative z-[2]">All</span>
+            <Fill on={allOn} />
+            All
           </Link>
           {spaces.map((s) => {
             const on = active === s.slug
@@ -166,11 +179,12 @@ export function SpaceChips({ slug, spaces, active, savedOn = false, onPick, onIn
                 className={`${CHIP} ${on ? CHIP_ON : CHIP_OFF}`}
                 {...(s.kind === "chat" ? {} : switching({ kind: "space", slug: s.slug }))}
               >
+                <Fill on={on} />
                 {/* The icon the admin set, or the kind's, as their own list shows it (space-glyph.ts, round 12). */}
-                <span aria-hidden className="relative z-[2] text-[14px] leading-none" data-space-glyph="">{glyph}</span>
-                <span className="relative z-[2] max-w-[180px] truncate">{s.name}</span>
+                <span aria-hidden className="text-[14px] leading-none" data-space-glyph="">{glyph}</span>
+                <span className="max-w-[180px] truncate">{s.name}</span>
                 {/* Kept, unseen, on the chosen chip: taking it away made the chip narrower and moved every chip after it. */}
-                {s.unread > 0 ? <span aria-label={on ? undefined : `${s.unread} unread`} aria-hidden={on || undefined} className={`relative z-[2] h-1.5 w-1.5 rounded-full bg-[#1a1a2e] ${on ? "opacity-0" : ""}`} /> : null}
+                {s.unread > 0 ? <span aria-label={on ? undefined : `${s.unread} unread`} aria-hidden={on || undefined} className={`h-1.5 w-1.5 rounded-full bg-[#1a1a2e] ${on ? "opacity-0" : ""}`} /> : null}
               </Link>
             )
           })}

@@ -1,7 +1,5 @@
 "use client"
 
-import { COMMUNITY_CONTEXT_COOKIE } from "./community-cookie"
-
 /**
  * ===========================================================================
  *  THE COMMUNITY THE TAB BAR'S HOME BELONGS TO
@@ -23,6 +21,7 @@ import { COMMUNITY_CONTEXT_COOKIE } from "./community-cookie"
  * (lib/nav/buyer-tabs.ts communityOf), so nothing else is ever put in a link.
  */
 import { useSyncExternalStore } from "react"
+import { tabStorageGet, tabStorageRemove, tabStorageSet } from "@/lib/nav/tab-session-persist"
 
 export const COMMUNITY_CONTEXT_KEY = "storelib:community-context"
 const COMMUNITY_CONTEXT_ID_KEY = "storelib:community-context-id"
@@ -40,7 +39,7 @@ function read(): string | null {
   if (held !== undefined) return held
   if (typeof window === "undefined") return null
   try {
-    const raw = window.sessionStorage.getItem(COMMUNITY_CONTEXT_KEY)
+    const raw = tabStorageGet(COMMUNITY_CONTEXT_KEY)
     held = raw && SLUG.test(raw) ? raw : null
   } catch {
     held = null
@@ -52,7 +51,7 @@ function readId(): string | null {
   if (heldId !== undefined) return heldId
   if (typeof window === "undefined") return null
   try {
-    heldId = window.sessionStorage.getItem(COMMUNITY_CONTEXT_ID_KEY)
+    heldId = tabStorageGet(COMMUNITY_CONTEXT_ID_KEY)
   } catch {
     heldId = null
   }
@@ -63,7 +62,7 @@ function readName(): string | null {
   if (heldName !== undefined) return heldName
   if (typeof window === "undefined") return null
   try {
-    heldName = window.sessionStorage.getItem(COMMUNITY_CONTEXT_NAME_KEY)
+    heldName = tabStorageGet(COMMUNITY_CONTEXT_NAME_KEY)
   } catch {
     heldName = null
   }
@@ -103,15 +102,15 @@ function write(next: string | null, meta?: { id?: string; name?: string }) {
   }
   try {
     if (next) {
-      window.sessionStorage.setItem(COMMUNITY_CONTEXT_KEY, next)
-      if (meta?.id) window.sessionStorage.setItem(COMMUNITY_CONTEXT_ID_KEY, meta.id)
-      if (meta?.name) window.sessionStorage.setItem(COMMUNITY_CONTEXT_NAME_KEY, meta.name)
-      else if (heldId) window.sessionStorage.setItem(COMMUNITY_CONTEXT_ID_KEY, heldId)
-      else if (heldName) window.sessionStorage.setItem(COMMUNITY_CONTEXT_NAME_KEY, heldName)
+      tabStorageSet(COMMUNITY_CONTEXT_KEY, next)
+      if (meta?.id) tabStorageSet(COMMUNITY_CONTEXT_ID_KEY, meta.id)
+      if (meta?.name) tabStorageSet(COMMUNITY_CONTEXT_NAME_KEY, meta.name)
+      else if (heldId) tabStorageSet(COMMUNITY_CONTEXT_ID_KEY, heldId)
+      else if (heldName) tabStorageSet(COMMUNITY_CONTEXT_NAME_KEY, heldName)
     } else {
-      window.sessionStorage.removeItem(COMMUNITY_CONTEXT_KEY)
-      window.sessionStorage.removeItem(COMMUNITY_CONTEXT_ID_KEY)
-      window.sessionStorage.removeItem(COMMUNITY_CONTEXT_NAME_KEY)
+      tabStorageRemove(COMMUNITY_CONTEXT_KEY)
+      tabStorageRemove(COMMUNITY_CONTEXT_ID_KEY)
+      tabStorageRemove(COMMUNITY_CONTEXT_NAME_KEY)
       heldId = null
       heldName = null
     }
@@ -127,32 +126,9 @@ export function communityContext(): string | null {
   return read()
 }
 
-/**
- * THE SAME CONTEXT, FOR THE SERVER. The tab's community lives in session
- * storage, which the server cannot read, so /account was drawn with
- * Storelib's header and swapped for the community's bar after a fetch: a
- * flash, then a jump. A session cookie holds the slug too, and
- * app/account/layout.tsx draws the community's bar from it on the first
- * paint. Only the slug, which is in the community's own address anyway.
- */
-function writeCookie(slug: string | null) {
-  if (typeof document === "undefined") return
-  try {
-    const secure = location.protocol === "https:" ? "; secure" : ""
-    document.cookie = slug
-      ? `${COMMUNITY_CONTEXT_COOKIE}=${slug}; path=/; samesite=lax${secure}`
-      : `${COMMUNITY_CONTEXT_COOKIE}=; path=/; max-age=0; samesite=lax${secure}`
-  } catch {
-    /* No cookies: the client bar still follows the tab's storage. */
-  }
-}
-
 /** Inside a community: it becomes the context (another one replaces it). */
 export function enterCommunityContext(slug: string | null | undefined, meta?: { id?: string; name?: string }) {
-  if (slug && SLUG.test(slug)) {
-    write(slug, meta)
-    writeCookie(slug)
-  }
+  if (slug && SLUG.test(slug)) write(slug, meta)
 }
 
 export function communityContextId(): string | null {
@@ -175,7 +151,6 @@ export function useCommunityContextMeta(): { slug: string | null; id: string | n
 /** Explore, Discover communities or Dashboard chosen in the navigator: Home is Storelib's again. */
 export function endCommunityContext() {
   write(null)
-  writeCookie(null)
 }
 
 /** The navigator's rows that end the context. */
@@ -222,7 +197,7 @@ export const ENDS_COMMUNITY_CONTEXT: ReadonlySet<string> = new Set(["explore", "
 export const COMMUNITY_HOME_BOOT_FLAG = "__storelibCommunityHome"
 /** Raised by the bar while it is mounted; the listener yields to it (AND IT STANDS DOWN, above). */
 export const COMMUNITY_HOME_LIVE_FLAG = "__storelibTabBarLive"
-export const COMMUNITY_HOME_BOOT = `(function(){try{var w=window;if(w.${COMMUNITY_HOME_BOOT_FLAG})return;w.${COMMUNITY_HOME_BOOT_FLAG}=1;var K=${JSON.stringify(COMMUNITY_CONTEXT_KEY)},S=/^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/;addEventListener("click",function(e){if(w.${COMMUNITY_HOME_LIVE_FLAG})return;if(e.defaultPrevented||e.button||e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return;var t=e.target,a=t&&t.closest?t.closest('a[data-buyer-tab="home"]'):null;if(!a)return;var h=a.getAttribute("href")||"";if(h.indexOf("/community/")===0)return;var s=null;try{s=sessionStorage.getItem(K)}catch(x){}if(!s||!S.test(s))return;e.preventDefault();location.href="/community/"+s},true)}catch(x){}})();`
+export const COMMUNITY_HOME_BOOT = `(function(){try{var w=window;if(w.${COMMUNITY_HOME_BOOT_FLAG})return;w.${COMMUNITY_HOME_BOOT_FLAG}=1;var K=${JSON.stringify(COMMUNITY_CONTEXT_KEY)},S=/^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$/;function ctx(){var s=null;try{s=sessionStorage.getItem(K)}catch(x){}if(!s){try{s=localStorage.getItem(K)}catch(x){}}return s}addEventListener("click",function(e){if(w.${COMMUNITY_HOME_LIVE_FLAG})return;if(e.defaultPrevented||e.button||e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return;var t=e.target,a=t&&t.closest?t.closest('a[data-buyer-tab="home"]'):null;if(!a)return;var h=a.getAttribute("href")||"";if(h.indexOf("/community/")===0)return;var s=ctx();if(!s||!S.test(s))return;e.preventDefault();location.href="/community/"+s},true)}catch(x){}})();`
 
 function subscribe(f: () => void) {
   listeners.add(f)

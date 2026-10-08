@@ -26,6 +26,7 @@
 import { isReservedRootSegment } from "@/lib/routes/reserved-segments"
 
 export const NATIVE_LAST_PLACE_KEY = "sb-native-last-place"
+const NATIVE_SCROLL_KEY = "sb-native-last-scroll"
 
 const under = (path: string, base: string) => path === base || path.startsWith(`${base}/`)
 
@@ -79,10 +80,16 @@ export function resumablePlace(pathname: string | null | undefined, search = "")
     const q = kept.toString()
     return q ? `${path}?${q}` : path
   }
-  /* A community, any page of it but the join door (an invite's landing). */
+  /* A community, any page of it but the join door (an invite's landing).
+     The feed's space is ?space= on a phone (lib/community/feed-space-address.ts). Keep that one word so a cold start opens the same feed, not All. */
   if (segs[0] === "community") {
     if (!segs[1] || !SLUG.test(segs[1])) return null
     if (segs[2] === "join") return null
+    if (segs.length === 2) {
+      const params = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search)
+      const space = params.get("space")
+      if (space && SLUG.test(space)) return `${path}?space=${space}`
+    }
     return path
   }
   if (under(path, "/account") || under(path, "/wishlist")) return path
@@ -150,7 +157,37 @@ export function readLastPlace(): string | null {
 export function forgetLastPlace(): void {
   try {
     localStorage.removeItem(NATIVE_LAST_PLACE_KEY)
+    localStorage.removeItem(NATIVE_SCROLL_KEY)
   } catch {
     /* Nothing to forget. */
+  }
+}
+
+/** Feed position for a community address, kept across a killed app. */
+export function rememberPageScroll(path: string, y: number) {
+  if (typeof window === "undefined") return
+  const key = path.split(/[?#]/)[0]
+  if (!key.startsWith("/community/")) return
+  try {
+    const raw = localStorage.getItem(NATIVE_SCROLL_KEY)
+    const all = raw ? (JSON.parse(raw) as Record<string, number>) : {}
+    all[key] = Math.max(0, Math.round(y))
+    const keys = Object.keys(all)
+    for (const k of keys.slice(0, Math.max(0, keys.length - 30))) delete all[k]
+    localStorage.setItem(NATIVE_SCROLL_KEY, JSON.stringify(all))
+  } catch {
+    /* */
+  }
+}
+
+export function pageScrollFor(path: string): number {
+  if (typeof window === "undefined") return 0
+  try {
+    const raw = localStorage.getItem(NATIVE_SCROLL_KEY)
+    const all = raw ? (JSON.parse(raw) as Record<string, number>) : {}
+    const y = all[path.split(/[?#]/)[0]]
+    return typeof y === "number" && y > 0 ? y : 0
+  } catch {
+    return 0
   }
 }

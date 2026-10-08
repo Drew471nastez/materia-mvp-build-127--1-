@@ -11,10 +11,10 @@ import { useRouter } from "next/navigation"
 import { secondaryDepth } from "@/components/ui/depth-button"
 import { useFirstTap } from "@/lib/navigation/first-tap"
 import { cn } from "@/lib/utils"
-import { openSettings, primeSettingsFromProfile, settingsHref, settingsStaysHere, warmSettings } from "@/components/account/settings-subpage"
+import { openSettingsSubpage, primeSettingsFromProfile, settingsStaysHere, warmSettings } from "@/components/account/settings-subpage"
 
-/** Settings, opened on its Profile tab: the same address the Settings pill opens. */
-const SETTINGS_PROFILE = settingsHref("profile")
+/** Settings, opened on its Profile tab. */
+const SETTINGS_PROFILE = "/account/settings?section=profile"
 
 export function EditProfileDoor({
   userId,
@@ -40,9 +40,12 @@ export function EditProfileDoor({
     void warmSettings("profile")
   }, [userId, name, username, bio, avatarUrl, coverUrl])
 
-  /* The Settings pill's own opener (settings-subpage.tsx openSettings): one screen, opened one way. */
   const open = () => {
-    openSettings("profile", (href) => router.push(href))
+    if (settingsStaysHere() || !window.matchMedia?.("(min-width: 768px)").matches) {
+      openSettingsSubpage("profile")
+      return true
+    }
+    router.push(SETTINGS_PROFILE)
     return true
   }
   const tap = useFirstTap(() => open())
@@ -63,8 +66,10 @@ export function EditProfileDoor({
       onPointerCancel={tap.onPointerCancel}
       onKeyDown={(e) => {
         if (e.key !== "Enter" && e.key !== " ") return
-        e.preventDefault()
-        open()
+        if (settingsStaysHere() || !window.matchMedia?.("(min-width: 768px)").matches) {
+          e.preventDefault()
+          openSettingsSubpage("profile")
+        }
       }}
       aria-label="Edit profile"
       data-profile-edit=""

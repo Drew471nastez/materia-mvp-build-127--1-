@@ -3150,6 +3150,20 @@ html.keyboard-open [data-community-shell] [data-community-body] {
   from { transform: rotate(0deg) }
   to { transform: rotate(360deg) }
 }
+/* Save changes: the spoke spinner as iOS draws it. The spokes stay put and
+   the light steps round them (steps(8), one spoke a tick), which is what
+   UIActivityIndicatorView does; a smooth turn of eight spokes is what read
+   as a judder inside a 44px button. It fades in with the label fading out. */
+.save-changes-spin {
+  animation: save-changes-in 150ms ease-out both;
+}
+.save-changes-spin .activity-spinner {
+  animation: activity-spin 800ms steps(8, end) infinite;
+}
+@keyframes save-changes-in {
+  from { opacity: 0 }
+  to { opacity: 1 }
+}
 @media (prefers-reduced-motion: reduce) {
   /* Slower, never still: a spinner that has stopped reads as a frozen screen. */
   .activity-spinner {
@@ -5796,6 +5810,27 @@ html.with-page-library {
 html.pop-in-flight #platform-header-root {
   position: sticky;
   top: 0;
+}
+
+/*
+  Profile with a community context: the boot script hides Storelib's header
+  before paint and this bar holds its height until CommunityTopBar is ready
+  (components/account/account-community-chrome.tsx). Without it the header
+  arrives late and the cover jumps.
+*/
+html[data-account-community-pending] #platform-header-root,
+html[data-account-community-pending] .native-header-spacer {
+  display: none !important;
+}
+html[data-account-community-pending] [data-page="account"]::before {
+  content: "";
+  display: block;
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  height: calc(56px + env(safe-area-inset-top, 0px));
+  background: #fff;
+  border-bottom: 1px solid #e6e8ec;
 }
 
 /* After a sliding settings sheet closes, iOS may echo the back tap onto the header menu (lib/navigation/swallow-ghost-taps.ts). */

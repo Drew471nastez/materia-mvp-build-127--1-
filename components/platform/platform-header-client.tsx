@@ -5,7 +5,7 @@ import { hasConsent } from "@/lib/consent/client"
 import type React from "react"
 
 import Link from "next/link"
-import { usePathname, useRouter, useSearchParams } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback } from "react"
 import { createPortal } from "react-dom"
 import type { User } from "@supabase/supabase-js"
@@ -978,7 +978,7 @@ export function PlatformHeaderClient({
 }) {
   const router = useRouter()
   const pathname = usePathname()
-  const searchParams = useSearchParams()
+  /* Not useSearchParams: that suspends the whole bar, so the account page painted an empty header and the real one arrived late. */
   const { t } = useLocale()
   const exploreMarketplaceOn = useExploreMarketplaceEnabled()
   const buyerHeaderLight = buyerHeaderLightProp ?? useBuyerHeaderLight()
@@ -1095,7 +1095,8 @@ export function PlatformHeaderClient({
 
   const mountedRef = useRef(true)
 
-  const [query, setQuery] = useState(() => searchParams.get("q") ?? "")
+  const [query, setQuery] = useState("")
+  const [searchType, setSearchType] = useState<string | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const [searchModalOpen, setSearchModalOpen] = useState(false)
   const [searchModalPresent, setSearchModalPresent] = useState(false)
@@ -1174,8 +1175,10 @@ export function PlatformHeaderClient({
   const [languageOpen, setLanguageOpen] = useState(false)
 
   useEffect(() => {
-    setQuery(searchParams.get("q") ?? "")
-  }, [searchParams])
+    const params = new URLSearchParams(window.location.search)
+    setQuery(params.get("q") ?? "")
+    setSearchType(params.get("type"))
+  }, [pathname])
 
   // Close modals on route change
   useEffect(() => {
@@ -1246,7 +1249,7 @@ export function PlatformHeaderClient({
     else setActiveOption(-1)
   }, [searchModalOpen])
   /* Explore's mode, so View all stays in communities when that is what is being browsed. */
-  const searchMode: "products" | "communities" = pathname.startsWith("/explore") && searchParams.get("type") === "communities" ? "communities" : "products"
+  const searchMode: "products" | "communities" = pathname.startsWith("/explore") && searchType === "communities" ? "communities" : "products"
 
   // Cleanup search timeout on unmount
   useEffect(() => {
