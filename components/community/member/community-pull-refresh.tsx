@@ -59,9 +59,9 @@ export function CommunityPullRefresh({ slug, children }: { slug: string; childre
   }, [pathname, scope])
 
   if (feed) {
-    /* One spinner: nested feed pages must not wrap again (space/[space]/page.tsx). */
+    /* One spinner: nested feed pages must not wrap again (space/[space]/page.tsx). Round 17: its circle a few pixels higher in the gap (-2, was 4). */
     return (
-      <PullToRefreshEvent key={`feed-${slug}`} scope={COMMUNITY_FEED_REFRESH_SCOPE} spinnerYOffset={4}>
+      <PullToRefreshEvent key={`feed-${slug}`} scope={COMMUNITY_FEED_REFRESH_SCOPE} spinnerYOffset={-2}>
         {children}
       </PullToRefreshEvent>
     )
