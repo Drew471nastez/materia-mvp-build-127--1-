@@ -15,6 +15,7 @@ import { CLICK_ECHO_MS } from "@/lib/navigation/first-tap"
 import { ACCOUNT_SETTINGS_SHEET_Z } from "@/lib/account/settings-sheet"
 import { BackControl } from "@/components/navigation/back-control"
 import { swallowGhostTaps } from "@/lib/navigation/swallow-ghost-taps"
+import { pauseAccountScrollPin } from "@/lib/navigation/tab-scroll"
 
 const EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
 const IN_MS = 340
@@ -129,59 +130,54 @@ function SettingsLayer({ section, data, onClose }: { section: SettingsSection; d
   const panel = useRef<HTMLDivElement>(null)
   const closing = useRef(false)
   const closed = useRef(false)
-  const bodyOverflow = useRef("")
+  const scrollY = useRef(0)
+  const [entered, setEntered] = useState(false)
 
   useLayoutEffect(() => {
     const html = document.documentElement
-    const el = panel.current
+    const y = window.scrollY
+    scrollY.current = y
     html.setAttribute("data-app-sheet-up", "open")
-    bodyOverflow.current = document.body.style.overflow
-    document.body.style.overflow = "hidden"
-    if (!el) return () => {
-      html.removeAttribute("data-app-sheet-up")
-      document.body.style.overflow = bodyOverflow.current
+    /* Do not set overflow:hidden on body. On iOS that throws the page to the top and it stays there when the sheet leaves. */
+    const block = (e: TouchEvent) => {
+      const n = e.target as Node | null
+      if (n && panel.current?.contains(n)) return
+      e.preventDefault()
     }
-    el.querySelector<HTMLElement>("[data-settings-sheet-scroll]")?.scrollTo(0, 0)
-    if (typeof el.animate !== "function") return
-    el.style.transform = "translate3d(100%, 0, 0)"
-    requestAnimationFrame(() => {
-      el.animate([{ transform: "translate3d(100%, 0, 0)" }, { transform: "translate3d(0, 0, 0)" }], {
-        duration: IN_MS,
-        easing: EASE,
-        fill: "forwards",
-      })
+    document.addEventListener("touchmove", block, { passive: false })
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+    const id = requestAnimationFrame(() => {
+      requestAnimationFrame(() => setEntered(true))
     })
+    if (reduce) setEntered(true)
     return () => {
+      cancelAnimationFrame(id)
       html.removeAttribute("data-app-sheet-up")
-      document.body.style.overflow = bodyOverflow.current
+      document.removeEventListener("touchmove", block)
+      if (Math.abs(window.scrollY - y) > 2) window.scrollTo(0, y)
     }
   }, [])
 
   const close = () => {
     if (closing.current || closed.current) return
     closing.current = true
-    const el = panel.current
-    el?.querySelector<HTMLElement>("[data-settings-sheet-scroll]")?.scrollTo({ top: 0, behavior: "auto" })
+    const y = scrollY.current
+    if (Math.abs(window.scrollY - y) > 1) window.scrollTo(0, y)
+    pauseAccountScrollPin(OUT_MS + 1400, y)
+    setEntered(false)
     const finish = () => {
       if (closed.current) return
       closed.current = true
       document.documentElement.removeAttribute("data-app-sheet-up")
-      document.body.style.overflow = bodyOverflow.current
+      if (Math.abs(window.scrollY - y) > 1) window.scrollTo(0, y)
       swallowGhostTaps(OUT_MS + CLICK_ECHO_MS + 80)
       onClose()
     }
-    if (!el || typeof el.animate !== "function") {
-      finish()
-      return
-    }
-    const a = el.animate(
-      [{ transform: "translate3d(0, 0, 0)" }, { transform: "translate3d(100%, 0, 0)" }],
-      { duration: OUT_MS, easing: EASE, fill: "forwards" },
-    )
-    a.onfinish = () => finish()
-    a.oncancel = () => finish()
-    window.setTimeout(() => finish(), OUT_MS + 150)
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+    window.setTimeout(finish, reduce ? 20 : OUT_MS + 50)
   }
+
+  const reduce = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
 
   return (
     <div
@@ -194,7 +190,8 @@ function SettingsLayer({ section, data, onClose }: { section: SettingsSection; d
       aria-label="Settings"
       data-sheet-root=""
       style={{
-        transform: "translate3d(100%, 0, 0)",
+        transform: entered ? "translate3d(0, 0, 0)" : "translate3d(100%, 0, 0)",
+        transition: reduce ? "none" : `transform ${entered ? IN_MS : OUT_MS}ms ${EASE}`,
         willChange: "transform",
         zIndex: ACCOUNT_SETTINGS_SHEET_Z,
         paddingTop: "env(safe-area-inset-top)",

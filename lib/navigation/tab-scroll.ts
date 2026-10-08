@@ -89,8 +89,12 @@ export function prepareTabArrival(href: string): number | null {
   return y
 }
 
-/** The account's pages, which always open at their top from a tab. */
+/**
+ * Profile and settings open at the top. The library keeps its own place
+ * (a tab remembers how far down a list was).
+ */
 export function opensAtTop(path: string): boolean {
+  if (path === "/account/library" || path.startsWith("/account/library/")) return false
   return path === "/account" || path.startsWith("/account/")
 }
 
@@ -100,30 +104,80 @@ export function opensAtTop(path: string): boolean {
  * for a short while until the document is tall enough, then stops. Returns
  * the cancel, for a press that moves on before it is done.
  */
-/** Put the window (and any account sheet scroll) at the top; repeat for a few frames so Next cannot restore mid-scroll. */
+let pinPausedUntil = 0
+let pinnedY: number | null = null
+
+/** After the edit-profile sheet closes, do not yank /account to the top (a refresh remounts the page). */
+export function pauseAccountScrollPin(ms = 1600, y?: number) {
+  pinPausedUntil = typeof performance === "undefined" ? Date.now() + ms : performance.now() + ms
+  if (typeof y === "number") pinnedY = y
+  else if (typeof window !== "undefined") pinnedY = window.scrollY
+}
+
+export function accountScrollPinPaused(): boolean {
+  const now = typeof performance === "undefined" ? Date.now() : performance.now()
+  return now < pinPausedUntil
+}
+
+/**
+ * Put the window at the top. A smooth call is one scroll, not a smooth scroll
+ * cancelled on the next frame (that read as a jump). An instant call pins for
+ * a few frames so the router cannot put a mid-page scroll back.
+ */
 export function scrollPageToTop(opts?: { smooth?: boolean; frames?: number }): () => void {
   if (typeof window === "undefined") return () => {}
+  if (document.querySelector("[data-edit-profile-sheet]")) return () => {}
   const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
-  const behavior = opts?.smooth && !reduce ? "smooth" : "auto"
-  const max = Math.max(1, opts?.frames ?? 4)
-  const apply = () => {
-    window.scrollTo({ top: 0, left: 0, behavior })
-    document.documentElement.scrollTop = 0
-    document.body.scrollTop = 0
-    document.querySelector<HTMLElement>("[data-settings-sheet-scroll]")?.scrollTo({ top: 0, behavior: "auto" })
+  const smooth = !!opts?.smooth && !reduce && window.scrollY > 8
+  let cancelled = false
+  const stop = () => {
+    cancelled = true
   }
-  apply()
-  let frame = 0
-  let id = 0
-  const tick = () => {
+  window.addEventListener("touchstart", stop, { once: true, passive: true })
+  window.addEventListener("wheel", stop, { once: true, passive: true })
+  const clear = () => {
+    window.removeEventListener("touchstart", stop)
+    window.removeEventListener("wheel", stop)
+  }
+  if (smooth) {
+    window.scrollTo({ top: 0, left: 0, behavior: "smooth" })
+    const t = window.setTimeout(() => {
+      if (!cancelled && window.scrollY > 2) window.scrollTo(0, 0)
+      clear()
+    }, 680)
+    return () => {
+      cancelled = true
+      window.clearTimeout(t)
+      clear()
+    }
+  }
+  const pin = () => {
+    if (cancelled) return
     window.scrollTo(0, 0)
     document.documentElement.scrollTop = 0
     document.body.scrollTop = 0
-    frame++
-    if (frame < max) id = requestAnimationFrame(tick)
+  }
+  pin()
+  let n = 0
+  const max = Math.max(1, opts?.frames ?? 12)
+  let id = 0
+  const tick = () => {
+    if (cancelled) return clear()
+    pin()
+    if (++n >= max) return clear()
+    id = requestAnimationFrame(tick)
   }
   id = requestAnimationFrame(tick)
-  return () => cancelAnimationFrame(id)
+  return () => {
+    cancelled = true
+    cancelAnimationFrame(id)
+    clear()
+  }
+}
+
+/** Where a paused pin should stay (the profile under the edit sheet). */
+export function accountPinnedScroll(): number | null {
+  return pinnedY
 }
 
 export function restoreTabScroll(y: number, maxFrames = 30): () => void {

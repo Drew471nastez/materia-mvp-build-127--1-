@@ -98,7 +98,7 @@ import { openCommunitySearch, refocusCommunitySearch } from "@/lib/nav/community
 import { COMMUNITY_HOME_BOOT, COMMUNITY_HOME_LIVE_FLAG, communityContext, enterCommunityContext, useCommunityContext } from "@/lib/nav/community-context"
 import { useBuyerTabsWhere } from "@/lib/nav/use-buyer-tabs-where"
 import { prefetchHref, prefetchOnIdle } from "@/lib/nav/prefetch-policy"
-import { noteTabScroll, prepareTabArrival, restoreTabScroll } from "@/lib/navigation/tab-scroll"
+import { noteTabScroll, prepareTabArrival, restoreTabScroll, scrollPageToTop } from "@/lib/navigation/tab-scroll"
 
 /* ── The look ────────────────────────────────────────────────────────────── */
 
@@ -424,12 +424,7 @@ function TabBar({
     if (!a || a.href !== pathname) return
     arrival.current = null
     if (a.y === null) return
-    if (a.y === 0) {
-      const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
-      window.scrollTo({ top: 0, left: 0, behavior: reduce ? "auto" : "smooth" })
-      requestAnimationFrame(() => window.scrollTo(0, 0))
-      return
-    }
+    if (a.y === 0) return scrollPageToTop({ smooth: true, frames: 10 })
     return restoreTabScroll(a.y)
   }, [pathname])
 

@@ -17,7 +17,6 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
-import { ActivitySpinner } from "@/components/ui/activity-spinner"
 import { ACCOUNT_GUTTER_LEFT, ACCOUNT_GUTTER_RIGHT } from "@/lib/account/account-tabs"
 import { ACCOUNT_SAVE_BAR_Z } from "@/lib/account/settings-sheet"
 import { useFirstTap } from "@/lib/navigation/first-tap"
@@ -187,13 +186,7 @@ export function SaveBar({
   if (!mounted) return null
 
   const sheet = docked || settingsSheetOpen()
-  const translate = docked
-    ? "0 0"
-    : !shown
-      ? "0 calc(100% + 16px)"
-      : phone && !tabs
-        ? "0 var(--buyer-tabs-bar)"
-        : "0 0"
+  const translate = docked ? "0 0" : !shown ? "0 calc(100% + 16px)" : phone && !tabs ? "0 var(--buyer-tabs-bar)" : "0 0"
 
   const portalTarget = saveDock() ?? document.body
 
@@ -205,25 +198,25 @@ export function SaveBar({
       inert={!shown}
       className={cn(
         docked
-          ? "w-full overflow-hidden border-t border-[#e5e7eb] bg-white shadow-[0_-4px_16px_-8px_rgba(16,24,40,0.12)]"
+          ? "grid w-full bg-white shadow-[0_-4px_16px_-8px_rgba(16,24,40,0.12)]"
           : "fixed inset-x-0 bottom-0 z-40 border-t border-[#e5e7eb] bg-white pt-3 shadow-[0_-4px_16px_-8px_rgba(16,24,40,0.12)]",
-        docked ? (shown ? "max-h-[120px] opacity-100 pt-3" : "max-h-0 border-transparent pt-0 pb-0 opacity-0 shadow-none") : "pt-3",
-        docked
-          ? "pb-[calc(12px+env(safe-area-inset-bottom,0px))]"
-          : "pb-[calc(12px+var(--buyer-tabs-room))] md:pb-[calc(12px+env(safe-area-inset-bottom,0px))]",
+        docked ? (shown ? "grid-rows-[1fr] border-t border-[#e5e7eb] opacity-100" : "grid-rows-[0fr] border-transparent opacity-0 shadow-none") : "pt-3",
+        !docked && "pb-[calc(12px+var(--buyer-tabs-room))] md:pb-[calc(12px+env(safe-area-inset-bottom,0px))]",
         "motion-reduce:transition-none!",
       )}
       style={{
         translate: docked ? undefined : translate,
         zIndex: sheet ? ACCOUNT_SAVE_BAR_Z : 40,
         transition: docked
-          ? `max-height ${SAVE_BAR_MS}ms ${EASE}, opacity ${SAVE_BAR_MS}ms ${EASE}, padding ${SAVE_BAR_MS}ms ${EASE}`
+          ? `grid-template-rows ${SAVE_BAR_MS}ms ${EASE}, opacity ${SAVE_BAR_MS}ms ${EASE}`
           : `translate ${SAVE_BAR_MS}ms ${EASE}, visibility 0s linear ${shown ? 0 : SAVE_BAR_MS}ms`,
-        visibility: shown ? "visible" : "hidden",
+        visibility: docked || shown ? "visible" : "hidden",
         pointerEvents: shown ? "auto" : "none",
+        paddingTop: docked ? (shown ? 8 : 0) : undefined,
+        paddingBottom: docked ? (shown ? "max(8px, env(safe-area-inset-bottom, 0px))" : 0) : undefined,
       }}
     >
-      <div className="mx-auto flex w-full max-w-[960px] items-center gap-2" style={{ paddingLeft: ACCOUNT_GUTTER_LEFT, paddingRight: ACCOUNT_GUTTER_RIGHT }} data-account-save-row="">
+      <div className={cn("mx-auto flex w-full max-w-[960px] items-center gap-2", docked && "min-h-0 overflow-hidden")} style={{ paddingLeft: ACCOUNT_GUTTER_LEFT, paddingRight: ACCOUNT_GUTTER_RIGHT }} data-account-save-row="">
         <p className="min-w-0 flex-1 text-[13px] leading-[1.4] text-[#6b7280]" aria-live="polite" data-account-save-note="">
           {error ? (
             <span role="alert" className="line-clamp-2 text-[#b42318]">
@@ -252,15 +245,16 @@ export function SaveBar({
           onPointerUp={saveTap.onPointerUp}
           onPointerCancel={saveTap.onPointerCancel}
           disabled={busy || disabled}
-          className={INK}
+          className={cn(INK, "relative", busy && "disabled:opacity-100")}
           data-account-save=""
+          aria-busy={busy || undefined}
         >
+          <span className={busy ? "opacity-0" : undefined}>Save changes</span>
           {busy ? (
-            <span className="inline-flex shrink-0" aria-hidden="true">
-              <ActivitySpinner size={16} label="Saving" className="text-white/90" />
+            <span className="absolute inset-0 grid place-items-center" aria-hidden="true">
+              <span className="save-changes-spin" />
             </span>
           ) : null}
-          Save changes
         </button>
       </div>
     </div>,

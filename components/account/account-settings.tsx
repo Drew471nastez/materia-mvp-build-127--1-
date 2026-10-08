@@ -77,8 +77,9 @@ import { secondaryDepth } from "@/components/ui/depth-button"
 import { AccountAvatar, useAccountPhoto } from "@/components/account/account-photo"
 import { NotificationSettings } from "@/components/account/notification-settings"
 import { CoverField } from "@/components/account/cover-field"
-import { SaveBar, SAVE_BAR_MS } from "@/components/account/save-bar"
+import { SaveBar } from "@/components/account/save-bar"
 import { primeSettingsFromProfile, SETTINGS_SHEET_OUT_MS } from "@/components/account/settings-subpage"
+import { pauseAccountScrollPin } from "@/lib/navigation/tab-scroll"
 import { useShellAvatar } from "@/lib/account/avatar-store"
 import { isValidUsername } from "@/lib/reserved-words"
 import { normalizeHandle } from "@/lib/profile/username-rules"
@@ -390,11 +391,13 @@ function ProfileSection({
         coverUrl: cover.url,
       })
       if (onCloseAfterSave) {
+        const y = window.scrollY
+        pauseAccountScrollPin(SETTINGS_SHEET_OUT_MS + 1600, y)
+        onCloseAfterSave()
         window.setTimeout(() => {
-          setBusy(false)
-          onCloseAfterSave()
-          window.setTimeout(() => router.refresh(), SETTINGS_SHEET_OUT_MS + 60)
-        }, SAVE_BAR_MS + 200)
+          pauseAccountScrollPin(1200)
+          router.refresh()
+        }, SETTINGS_SHEET_OUT_MS + 80)
       } else {
         router.refresh()
         setBusy(false)

@@ -1,9 +1,9 @@
 "use client"
 
-import { useEffect, useLayoutEffect, useRef } from "react"
+import { useLayoutEffect } from "react"
 import { usePathname } from "next/navigation"
 import { showsLibraryTabs } from "@/components/library/library-tab-list"
-import { opensAtTop, scrollPageToTop } from "@/lib/navigation/tab-scroll"
+import { accountPinnedScroll, accountScrollPinPaused, opensAtTop, scrollPageToTop } from "@/lib/navigation/tab-scroll"
 import { LANDING_CLASS, useLandingOnMove } from "@/lib/ui/landing"
 
 /**
@@ -78,17 +78,25 @@ export function AccountNavFade({ children }: { children: React.ReactNode }) {
   pills, which share one key) puts the window at the top, before the frame is painted and again on the next one, after the
   router's own scroll.
 */
+/** Survives a refresh remount, which a ref does not: closing edit profile must not count as a new landing. */
+let lastAccountKey: string | null = null
+
 function useTopOnArrival(key: string) {
-  const last = useRef<string | null>(null)
   useLayoutEffect(() => {
     if (!opensAtTop(key)) {
-      last.current = key
+      lastAccountKey = key
       return
     }
-    const prev = last.current
-    last.current = key
-    if (prev === key) return
-    /* First paint: snap. Any move onto an account page (including Back): smooth to the top. */
-    return scrollPageToTop({ smooth: prev !== null, frames: 5 })
+    if (accountScrollPinPaused()) {
+      const y = accountPinnedScroll()
+      lastAccountKey = key
+      if (y != null && Math.abs(window.scrollY - y) > 2) window.scrollTo(0, y)
+      return
+    }
+    if (lastAccountKey === key) return
+    const prev = lastAccountKey
+    lastAccountKey = key
+    /* First paint of this address: snap, and keep pinning so the router cannot restore a mid-page scroll. Later arrivals ease up. */
+    return scrollPageToTop({ smooth: prev !== null, frames: 14 })
   }, [key])
 }

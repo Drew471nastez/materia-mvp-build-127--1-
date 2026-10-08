@@ -2,14 +2,13 @@ import { isNativeApp } from "@/lib/platform-utils"
 
 /** sessionStorage for the tab; on the native app also mirror to localStorage so a process kill keeps community context and scroll. */
 export function tabStorageGet(key: string): string | null {
-  if (typeof window === "undefined") return null
   try {
     const v = sessionStorage.getItem(key)
     if (v != null && v !== "") return v
   } catch {
-    /* private mode */
+    /* private mode, or no sessionStorage (a test without a window still stubs it) */
   }
-  if (!isNativeApp()) return null
+  if (typeof window === "undefined" || !isNativeApp()) return null
   try {
     return localStorage.getItem(key)
   } catch {

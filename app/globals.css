@@ -3150,6 +3150,22 @@ html.keyboard-open [data-community-shell] [data-community-body] {
   from { transform: rotate(0deg) }
   to { transform: rotate(360deg) }
 }
+/* Save changes: a ring, not the spoke spinner. The spokes judder inside a 44px button. */
+.save-changes-spin {
+  display: block;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.28);
+  border-top-color: #fff;
+  animation: activity-spin 0.7s linear infinite;
+  will-change: transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  .save-changes-spin {
+    animation-duration: 2.2s;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   /* Slower, never still: a spinner that has stopped reads as a frozen screen. */
   .activity-spinner {
