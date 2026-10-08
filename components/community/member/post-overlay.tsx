@@ -56,7 +56,8 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { X } from "lucide-react"
-import { BottomSheet, SHEET_CLOSE_EASE, SHEET_EASE } from "@/components/ui/bottom-sheet"
+import { SHEET_CLOSE_EASE, SHEET_EASE } from "@/components/ui/bottom-sheet"
+import { PostFullscreen } from "./post-fullscreen"
 import type { FeedPostView, ViewerView } from "@/lib/communities/types"
 import { api, apiBase } from "./api"
 import { CommentsPlaceholder, CommentsSection, readAheadComments } from "./comments"
@@ -68,15 +69,10 @@ import { markSeen } from "./post-seen"
 import { postPath } from "@/lib/communities/post-url"
 
 /*
-  THE PHONE'S CLOSE (round 19, the owner: "closing a post should feel simpler, cleaner, more satisfying, not laggy"). The
-  close button and Back used the app's shared close: 340ms that eases in, so the sheet sat still for its first frames and
-  then went. The post leaves in 280ms on a curve that moves on the first frame and settles softly at the bottom, the way
-  an iOS sheet is dismissed. A pull keeps the finger's own speed. And the post's teardown (every comment and picture taken
-  out of the page, the address stepped back) waits until the slide is over and the page is idle, so it never lands in
-  the slide's last frames or the first scroll after it.
+  THE TEARDOWN WAITS (round 19). The post's teardown (every comment and picture taken out of the page, the address stepped
+  back) waits until the close has finished and the page is idle, so it never lands in the move's last frames or in the
+  first scroll after it.
 */
-const POST_CLOSE_MS = 280
-const POST_CLOSE_EASE = "cubic-bezier(0.2, 0.7, 0.2, 1)"
 function whenIdle(run: () => void) {
   const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }
   if (w.requestIdleCallback) w.requestIdleCallback(run, { timeout: 180 })
@@ -127,9 +123,11 @@ export interface PostOverlayProps {
    * post page again.
    */
   history?: boolean
+  /** The card the post was opened from: on a phone the post grows out of it and goes back into it (post-fullscreen.tsx). */
+  origin?: () => HTMLElement | null
 }
 
-export function PostOverlay({ post: given, slug, viewer, readOnly = false, update, onClose, renderPost, history = true }: PostOverlayProps) {
+export function PostOverlay({ post: given, slug, viewer, readOnly = false, update, onClose, renderPost, history = true, origin }: PostOverlayProps) {
   const phone = usePhone()
   const [post, setPost] = useState(given)
   /* "in" while it arrives, "shown" once it has, "out" from the moment it starts to leave. */
@@ -254,7 +252,7 @@ export function PostOverlay({ post: given, slug, viewer, readOnly = false, updat
     }
   }, [phone])
 
-  /* On a phone the composer is pinned to the sheet foot (comments.tsx pinComposer); desktop panel still scrolls the field into view. */
+  /* On a phone the composer floats at the page's foot (comments.tsx floatComposer); the computer's panel still scrolls the field into view. */
   useKeepFieldInSight(!phone, () => contentRef.current?.closest<HTMLElement>("[data-post-overlay-scroll]") ?? contentRef.current?.closest<HTMLElement>("[data-sheet-scroll]") ?? null)
 
   const onComment = useCallback(() => {
@@ -268,7 +266,7 @@ export function PostOverlay({ post: given, slug, viewer, readOnly = false, updat
   const drawn = useMemo(() => renderPost(post, local, onComment), [post, local, onComment])
   if (typeof document === "undefined") return null
 
-  return <OverlayFrame phone={phone} post={post} open={open} phase={phase} setPhase={setPhase} close={close} onGone={() => onCloseRef.current()} contentRef={contentRef} content={<OverlayContent drawn={drawn} settled={settled} post={post} slug={slug} viewer={viewer} readOnly={readOnly} box={box} local={local} pinComposer={phone} />} />
+  return <OverlayFrame phone={phone} post={post} open={open} phase={phase} setPhase={setPhase} close={close} onGone={() => onCloseRef.current()} contentRef={contentRef} origin={origin} content={<OverlayContent drawn={drawn} settled={settled} post={post} slug={slug} viewer={viewer} readOnly={readOnly} box={box} local={local} pinComposer={phone} />} />
 }
 
 /*
@@ -295,6 +293,7 @@ const OverlayContent = memo(function OverlayContent({ drawn, settled, post, slug
             expected={post.commentCount}
             fadeIn
             pinComposer={pinComposer}
+            floatComposer={pinComposer}
             onCount={(d) => local(post.id, (p) => ({ ...p, commentCount: Math.max(0, p.commentCount + d) }))}
           />
         ) : (
@@ -305,46 +304,23 @@ const OverlayContent = memo(function OverlayContent({ drawn, settled, post, slug
   )
 })
 
-function OverlayFrame({ phone, post, open, phase, setPhase, close, onGone, contentRef, content }: { phone: boolean; post: FeedPostView; open: boolean; phase: "in" | "shown" | "out"; setPhase: React.Dispatch<React.SetStateAction<"in" | "shown" | "out">>; close: () => void; onGone: () => void; contentRef: React.RefObject<HTMLDivElement | null>; content: React.ReactNode }) {
+function OverlayFrame({ phone, post, open, phase, setPhase, close, onGone, contentRef, content, origin }: { phone: boolean; post: FeedPostView; open: boolean; phase: "in" | "shown" | "out"; setPhase: React.Dispatch<React.SetStateAction<"in" | "shown" | "out">>; close: () => void; onGone: () => void; contentRef: React.RefObject<HTMLDivElement | null>; content: React.ReactNode; origin?: () => HTMLElement | null }) {
   if (phone) {
+    /* A phone: the card grows into a full screen page and goes back into it (post-fullscreen.tsx, round 19). */
     return (
-      <BottomSheet
-        isOpen={open}
-        onClose={close}
-        onOpened={() => setPhase((p) => (p === "in" ? "shown" : p))}
-        closeMs={POST_CLOSE_MS}
-        closeEase={POST_CLOSE_EASE}
-        /* The post and its comments are taken down, and the history step given back, once the slide is over and the page is idle. */
-        onClosed={() => whenIdle(onGone)}
+      <PostFullscreen
+        open={open}
         label={post.title || "Post"}
-        hideFrom="sm"
-        zIndex={130}
-        aboveKeyboard
-        /* Pictures decode before the slide, so the post does not flash white while it rises. */
-        waitForImages
-        /* Nearly the whole screen, short of the top by the status bar and a little more, as an iOS sheet stands. */
-        height="calc((var(--vv-h, 100dvh) - max(env(safe-area-inset-top), 12px) - 8px) * 0.95)"
-        maxHeight="calc((var(--vv-h, 100dvh) - max(env(safe-area-inset-top), 12px) - 8px) * 0.95)"
-        header={
-          <div className="flex h-11 items-center gap-1 border-b border-[#f0f1f3] px-1.5" data-post-overlay-bar="">
-            <span className="w-10 shrink-0" aria-hidden />
-            <span className="min-w-0 flex-1 truncate text-center text-[15px] font-semibold text-[#1a1a2e]">{post.space?.name ?? "Post"}</span>
-            {/* `data-sheet-close`: the sheet starts its own slide first, then the page hears (bottom-sheet.tsx). */}
-            <button type="button" aria-label="Close post" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[#6b7280] outline-none active:bg-[#f1f2f4] [-webkit-tap-highlight-color:transparent]" data-sheet-close="" data-post-overlay-close="">
-              <X className="h-5 w-5" strokeWidth={2} />
-            </button>
-          </div>
-        }
+        title={post.space?.name ?? "Post"}
+        origin={origin}
+        onRequestClose={close}
+        onShown={() => setPhase((p) => (p === "in" ? "shown" : p))}
+        /* The post and its comments are taken down, and the history step given back, once the morph is over and the page is idle. */
+        onGone={() => whenIdle(onGone)}
+        contentRef={contentRef}
       >
-        <div
-          ref={contentRef}
-          data-post-overlay="phone"
-          data-post-overlay-phase={phase}
-          className="flex min-h-full flex-col bg-white"
-        >
-          {content}
-        </div>
-      </BottomSheet>
+        {content}
+      </PostFullscreen>
     )
   }
 

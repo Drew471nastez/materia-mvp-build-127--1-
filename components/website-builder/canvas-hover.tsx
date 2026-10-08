@@ -42,6 +42,33 @@ function clip(a: DOMRect, b: DOMRect): DOMRect | null {
 }
 
 /**
+ * THE AI PANEL STAYS ON TOP. Storelib AI's panel floats over the canvas
+ * (theme-chat.tsx, data-ask-dock), in the canvas pane's own stacking, while
+ * the outline and the chip are on the body above everything: a heading
+ * under the open panel drew its blue outline straight across the chat. The
+ * panel's box is cut out of the outline, and a chip that would sit on the
+ * panel is not drawn.
+ */
+function panelBoxes(): DOMRect[] {
+  return Array.from(document.querySelectorAll<HTMLElement>("[data-ask-dock]"), (el) => el.getBoundingClientRect()).filter((r) => r.width > 0 && r.height > 0)
+}
+
+/** A clip-path for `box` with every panel that crosses it cut out, or undefined when none does. */
+function holesFor(box: DOMRect, panels: DOMRect[]): string | undefined {
+  const holes = panels.map((p) => clip(p, box)).filter((r): r is DOMRect => !!r)
+  if (!holes.length) return undefined
+  /* The outline's ring is drawn just outside its box (a 1.5px spread): the clip reaches 2px past it so the ring is kept. */
+  const o = 2
+  const outer = `M${-o} ${-o}H${box.width + o}V${box.height + o}H${-o}Z`
+  const cut = holes.map((h) => `M${h.left - box.left} ${h.top - box.top}H${h.right - box.left}V${h.bottom - box.top}H${h.left - box.left}Z`).join("")
+  return `path(evenodd, "${outer}${cut}")`
+}
+
+function overlaps(a: DOMRect, panels: DOMRect[]): boolean {
+  return panels.some((p) => !!clip(a, p))
+}
+
+/**
  * ===========================================================================
  *  WHAT A CLICK HERE WOULD OPEN
  * ===========================================================================
@@ -58,7 +85,7 @@ function clip(a: DOMRect, b: DOMRect): DOMRect | null {
  * hover, and a tap goes straight to the field.
  */
 export function CanvasHover({ enabled, nameOf }: { enabled: boolean; nameOf: (sectionId: string) => string }) {
-  const [box, setBox] = useState<{ el: DOMRect | null; section: DOMRect; area: DOMRect; name: string } | null>(null)
+  const [box, setBox] = useState<{ el: DOMRect | null; section: DOMRect; area: DOMRect; name: string; panels: DOMRect[] } | null>(null)
   const nameRef = useRef(nameOf)
   nameRef.current = nameOf
   const [mounted, setMounted] = useState(false)
@@ -104,7 +131,7 @@ export function CanvasHover({ enabled, nameOf }: { enabled: boolean; nameOf: (se
       /* Two pixels out from the element, as before, and then cut to the preview. */
       const raw = inside ? inside.getBoundingClientRect() : null
       const el = raw ? clip(new DOMRect(raw.left - 2, raw.top - 2, raw.width + 4, raw.height + 4), area) : null
-      setBox({ el, section, area, name: nameRef.current(id) })
+      setBox({ el, section, area, name: nameRef.current(id), panels: panelBoxes() })
     }
     const schedule = () => {
       if (!frame) frame = requestAnimationFrame(measure)
@@ -139,10 +166,10 @@ export function CanvasHover({ enabled, nameOf }: { enabled: boolean; nameOf: (se
           aria-hidden
           className="wb-hover-outline"
           data-wb-hover-outline=""
-          style={{ left: box.el.left, top: box.el.top, width: box.el.width, height: box.el.height }}
+          style={{ left: box.el.left, top: box.el.top, width: box.el.width, height: box.el.height, clipPath: holesFor(box.el, box.panels) }}
         />
       )}
-      {box.section.height > 24 && (
+      {box.section.height > 24 && !overlaps(new DOMRect(box.section.left + 8, box.section.top + 8, 220, 24), box.panels) && (
         <span
           aria-hidden
           className="wb-hover-chip"
