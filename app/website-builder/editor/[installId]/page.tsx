@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState, useLayoutEffect, useCallback, useDeferredValue, useMemo, useRef, use, memo, startTransition } from "react"
+import { installSteadyFocus } from "@/lib/website-builder/steady-focus"
 import { ownOpen, useOwnMarker } from "@/lib/analytics/own-site"
 import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
@@ -4465,6 +4466,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }, [sidebarMode, selectedPanel, sections])
   const desktopPanelRef = useRef<HTMLDivElement>(null)
   const desktopScrollRef = useRef<HTMLDivElement>(null)
+  /* Clicking into a field the sidebar already shows never moves the sidebar (lib/website-builder/steady-focus.ts). */
+  useEffect(() => installSteadyFocus(), [])
   const lastTabRef = useRef(committedTab)
   useLayoutEffect(() => {
     if (lastTabRef.current === committedTab) return
