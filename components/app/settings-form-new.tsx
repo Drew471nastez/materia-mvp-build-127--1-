@@ -1199,14 +1199,22 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
           640px it is as it was: the title over the subtitle on the left, the
           pill at the top right.
         */}
-        <div data-settings-header="" className="mb-6 grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-1 sm:items-start sm:gap-y-0">
-          <h1 className="col-start-1 row-start-1 text-[22px] font-bold text-[#1a1a2e] sm:text-[28px]">{t("settings.title")}</h1>
-          <div data-settings-pill="" className="col-start-2 row-start-1 flex min-w-0 justify-end sm:row-span-2 sm:max-w-[300px] sm:justify-self-end sm:pt-1">
-            {/* On a phone the pill is 10% narrower than it was, so the title keeps its room. A short address is left whole. */}
-            <ShareStorelib size="sm" className="md:hidden max-w-[min(calc((100vw-32px)*0.522),184px)] sm:max-w-[270px]" addresses={shareAddresses} platforms={sharePlatforms} />
-            <ShareStorelib className="hidden md:inline-flex" addresses={shareAddresses} platforms={sharePlatforms} />
+        {/*
+          NOTHING IN IT IS CUT. The title and the line under it wrap rather
+          than clip, and the address pill (its address and its Published
+          mark) has a row of its own on a phone instead of a squeezed half of
+          the title's. From 640px the pill sits at the top right, as wide as
+          its address needs, up to 360px.
+        */}
+        <div data-settings-header="" className="mb-5 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+          <div className="min-w-0">
+            <h1 className="text-[22px] font-bold leading-tight text-[#1a1a2e] [overflow-wrap:anywhere] sm:text-[26px]">{t("settings.title")}</h1>
+            <p className="mt-1 text-[14px] leading-snug text-[#6b7280]">{t("settings.subtitle")}</p>
           </div>
-          <p className="col-span-2 row-start-2 text-[14px] text-[#6b7280] sm:col-span-1 sm:col-start-1 sm:mt-1">{t("settings.subtitle")}</p>
+          <div data-settings-pill="" className="flex min-w-0 shrink-0 sm:max-w-[360px] sm:justify-end sm:pt-0.5">
+            <ShareStorelib size="sm" className="md:hidden max-w-full" addresses={shareAddresses} platforms={sharePlatforms} />
+            <ShareStorelib className="hidden md:inline-flex max-w-full" addresses={shareAddresses} platforms={sharePlatforms} />
+          </div>
         </div>
 
         {/*
@@ -1214,14 +1222,15 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
           Commerce, Integrations). Below it, the same sections are the pill row above, in the same order.
         */}
         <div className="lg:grid lg:grid-cols-[220px_minmax(0,1fr)] lg:items-start lg:gap-10">
-        <nav aria-label="Settings" data-settings-groups="" className="sticky top-2 hidden lg:block">
-          <div className="rounded-2xl border border-[#e5e7eb]/60 bg-white p-2 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+        {/* A plain list, not a card in the sheet: the groups' names and their sections, the open one filled. */}
+        <nav aria-label="Settings" data-settings-groups="" className="sticky top-4 hidden lg:block">
+          <div className="py-1">
             {TAB_GROUPS.map((group) => {
               const list = shownTabs.filter((tab) => tab.group === group.id)
               if (list.length === 0) return null
               return (
                 <div key={group.id} className="mb-1 last:mb-0" data-settings-group={group.id}>
-                  <p className="px-3 pb-1.5 pt-3 text-[11.5px] font-semibold uppercase tracking-[0.06em] text-[#6b7280]">{group.label}</p>
+                  <p className="px-3 pb-1 pt-4 text-[12px] font-medium text-[#9ca3af] first:pt-1">{group.label}</p>
                   {list.map((tab) => {
                     const Icon = tab.icon
                     const on = activeTab === tab.id
@@ -1232,11 +1241,11 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                         onClick={() => handleTabChange(tab.id)}
                         aria-current={on ? "page" : undefined}
                         data-settings-side-tab={tab.id}
-                        className={`flex h-10 w-full cursor-pointer items-center gap-2.5 rounded-[10px] px-3 text-left text-[14px] outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 [-webkit-tap-highlight-color:transparent] ${
-                          on ? "bg-[#eceef1] font-semibold text-[#1a1a2e]" : "font-medium text-[#4b5563] hover:bg-[#f3f4f6] hover:text-[#1a1a2e]"
+                        className={`flex h-9 w-full cursor-pointer items-center gap-2.5 rounded-lg px-3 text-left text-[14px] outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 [-webkit-tap-highlight-color:transparent] ${
+                          on ? "bg-[#eceef1] font-medium text-[#1a1a2e]" : "font-normal text-[#4b5563] hover:bg-[#f0f1f3] hover:text-[#1a1a2e]"
                         }`}
                       >
-                        <Icon className="h-4 w-4 shrink-0" aria-hidden />
+                        <Icon className={`h-4 w-4 shrink-0 ${on ? "text-[#1a1a2e]" : "text-[#9ca3af]"}`} aria-hidden />
                         {labelOf(tab.id)}
                       </button>
                     )
@@ -1880,8 +1889,9 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
         <div
           role="region"
           aria-label="Unsaved changes"
-          className={`flex w-full max-w-[560px] items-center gap-3 rounded-2xl border border-[#e5e7eb] bg-white py-2 pl-4 pr-2 shadow-[0_18px_40px_-18px_rgba(17,24,39,0.35),0_4px_12px_-4px_rgba(17,24,39,0.12)] transition-[transform,opacity] duration-[260ms] ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none ${
-            barUp ? "pointer-events-auto translate-y-0 opacity-100" : "translate-y-[calc(100%+24px)] opacity-0"
+          /* Rises 16px and fades in over 320ms on the iOS curve, on the compositor; leaves the same way, a little quicker. */
+          className={`flex w-full max-w-[520px] items-center gap-2.5 rounded-[14px] border border-[#e5e7eb]/80 bg-white/95 py-1.5 pl-3.5 pr-1.5 shadow-[0_10px_30px_-16px_rgba(17,24,39,0.30),0_2px_6px_-2px_rgba(17,24,39,0.08)] will-change-transform transition-[transform,opacity] ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none ${
+            barUp ? "pointer-events-auto translate-y-0 opacity-100 duration-[320ms]" : "translate-y-4 opacity-0 duration-[220ms]"
           }`}
         >
           <div className="flex min-w-0 flex-1 items-center gap-2">

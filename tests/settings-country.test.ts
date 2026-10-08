@@ -102,9 +102,9 @@ check("and it never reaches under the clock's safe area", /export const SHEET_UN
 
 console.log("\n6. The header on a phone")
 const header = form.slice(form.indexOf('data-settings-header=""'), form.indexOf("data-settings-tabs"))
-check("the title and the pill share the first row, the subtitle spans both columns under them",
-  /grid grid-cols-\[auto_minmax\(0,1fr\)\] items-center/.test(header) && /col-start-1 row-start-1[^"]*font-bold/.test(header) && /col-span-2 row-start-2[^"]*sm:col-span-1 sm:col-start-1/.test(header))
-check("from 640px the pill is at the top right beside both, as it was", /sm:row-span-2 sm:max-w-\[300px\] sm:justify-self-end sm:pt-1/.test(header) && /sm:items-start/.test(header))
+check("nothing in the header is cut: the title and its line wrap, the pill has a row of its own on a phone",
+  /flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-start sm:justify-between/.test(header) && /font-bold[^"]*\[overflow-wrap:anywhere\]/.test(header) && !/truncate/.test(header) && /md:hidden max-w-full/.test(header))
+check("from 640px the pill is at the top right beside both, as wide as its address up to 360px", /sm:max-w-\[360px\] sm:justify-end/.test(header))
 check("the pill no longer takes a share of the row it cannot give back", !/max-w-\[58%\]/.test(header))
 
 console.log(`\n${passed} passed, ${failed} failed`)
