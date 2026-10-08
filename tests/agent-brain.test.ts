@@ -263,10 +263,12 @@ async function main() {
       fields) they measured 5,935.
       14,000 with the rulebook's "Small change or new direction" group, the
       rule every agent reads before deciding how much of a site may change
-      (lib/agent-rules, scope): about 300 tokens, cached. The tools stay
-      under 6,000 with set_color_scheme and the two read tools added.
+      (lib/agent-rules, scope): about 300 tokens, cached. Tools 6,400:
+      set_color_scheme, read_design_patterns and read_storelib_docs add
+      about 300 to a list main already measured at the old 6,000 once the
+      cookie banner and the branded intro joined Theme settings.
     */
-    check("the first request stays inside its budget", tokens(first.system) <= 14_000 && tokens(JSON.stringify(first.tools)) <= 6_000 && tokens(turn.content) <= 2_000, `system ${tokens(first.system)}, tools ${tokens(JSON.stringify(first.tools))}, turn ${tokens(turn.content)}`)
+    check("the first request stays inside its budget", tokens(first.system) <= 14_000 && tokens(JSON.stringify(first.tools)) <= 6_400 && tokens(turn.content) <= 2_000, `system ${tokens(first.system)}, tools ${tokens(JSON.stringify(first.tools))}, turn ${tokens(turn.content)}`)
     check("every request carries a cache breakpoint on its last block, so the transcript is read back cheaply", sent.every((r) => {
       const msgs = requestMessages(r.turns) as Array<{ content: unknown }>
       const last = msgs[msgs.length - 1].content as Array<{ cache_control?: unknown }>
