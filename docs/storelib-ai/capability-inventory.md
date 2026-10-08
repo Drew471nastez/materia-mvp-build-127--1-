@@ -21,13 +21,14 @@ What the customer-facing Storelib AI and the website builder can do today, with 
 | Rules retrieved per request, not one long prompt | verified | `lib/storelib-ai/knowledge.ts` `knowledgeFor`, `lib/agent-skills`, `read_storelib_docs` tool | `tests/agent-brain.test.ts`, `tests/agent-site-pages.test.ts` (own-cart topic) |
 | Section files compiled and quality-checked before they are kept | verified | `lib/storelib-ai/validate.ts`, `quality.ts`, `integration.ts`, `code-journal.ts` | `tests/section-integration.test.ts`, `tests/agent-intent.test.ts` |
 | Whole-page check before "done" (contrast, empty text, demo copy, repeated entries) | verified | `project-check.ts`, `review.ts` | `tests/agent-intent.test.ts` |
-| Browser check of its own page at 1440 and 390 | present | `visual-check.ts`, `page-document.ts` | runs in `tests/agent-intent.test.ts` only with `CHROMIUM_PATH` set |
+| Browser check of its own page at 1440, 834 and 390 | verified | `visual-check.ts`, `page-document.ts` | `tests/reference-diff.test.ts` (with `CHROMIUM_PATH`); deployed via `@sparticuz/chromium` (`lib/website-builder/cover-shot.ts`) |
+| A picture to match, measured (0 to 100, by region) and repaired up to three rounds | verified | `reference-diff.ts`, `visual-check.ts`, `intent.ts` (`recreate`), `loop.ts` | `tests/reference-diff.test.ts`: same 99, moved 60, inverted 54; in Chromium a page against its own shot 99, against another design 42 |
 | Pictures sent with a request | present | `lib/sites/agent/attachments.ts`, `attachment-store.ts`, `IMAGE_FIDELITY_RULES` | not re-run in this pass |
 | Memory: last messages of the conversation | verified | `memory.ts` | `tests/agent-intent.test.ts` |
 | Memory: notes on this website (plan, direction, what each section is for) | verified | `project-state.ts` (kept in theme settings) | `tests/agent-intent.test.ts` |
 | Memory: notes on every website of the creator | present | `lib/ai-memory/store.ts` (`ai_memories`) | |
 | Asking one question when a fact is missing | verified | `ask.ts` | `tests/agent-intent.test.ts` |
-| Run log (facts per run) | verified (SQL) | `run-ledger.ts`, `supabase/sql/RUN_STORELIB_AI_BUILDER.sql` | RLS tested on Postgres 16 for this report: own rows only, no update or delete |
+| Run log (facts per run), read at /admin/ai-runs | verified | `run-ledger.ts`, `supabase/sql/RUN_STORELIB_AI_BUILDER.sql` | RLS tested on Postgres 16 for this report: own rows only, no update or delete |
 | Undo of a run, backups | present | editor `undoAiRun`, `lib/website-builder/backups.ts` | |
 | Long tasks continue past the five minute limit | present | route `continue` event, `theme-chat.tsx` `CONTINUE_PROMPT` | |
 
@@ -36,6 +37,7 @@ What the customer-facing Storelib AI and the website builder can do today, with 
 | Feature | Status | Files | Evidence |
 | --- | --- | --- | --- |
 | Header, footer, navigation of its own | verified | `lib/storelib-theme/chrome.ts`, `storefront-hooks.ts`, `site-chrome-hooks.tsx` | `tests/site-chrome.test.ts`, `tests/header-flex.test.ts` |
+| A coded header placed as the header on every page, with the logo uploaded in the built-in header | verified, fixed round 22 | `operations.ts` (`declaredChromeKind`), `chrome-logo.ts`, `storefront-render.ts`, `storelib-live.tsx` | `tests/coded-chrome.test.ts` |
 | Built-in cart drawer, search window, menu drawer from any section | verified | `storefront-hooks.ts`, `site-chrome-hooks.tsx` | `tests/header-flex.test.ts` |
 | Add to cart from any section | verified, new in this pass | `storefront-hooks.ts` `addToCartLine`, `site-chrome-hooks.tsx` | `scripts/check-own-cart.mjs` (Chromium), `tests/agent-site-pages.test.ts` |
 | A cart drawer of the section's own | verified, new in this pass | same | `scripts/check-own-cart.mjs`: add, lines, quantity, subtotal, storage, close, Escape, checkout |
@@ -66,11 +68,10 @@ What the customer-facing Storelib AI and the website builder can do today, with 
 
 ## Not met yet
 
-Truthfully open against the pack's acceptance list:
+Truthfully open:
 
-1. **Pixel comparison against an attached screenshot.** The AI reads pictures and the browser check photographs its own page, but nothing measures the difference between the two. A "match this 1:1" request is an attempt, not a measured match.
-2. **Two separate visual passes on tablet.** The browser check runs at 1440 and 390, not at a tablet width, and only when Chromium is available to the server.
-3. **The run log is written but not shown.** No admin page reads `storelib_ai_runs` yet; the readiness SQL has the query.
-4. **A live, signed-in end to end run** of "build a full clothing brand site" against OpenAI was not run from this environment (no credentials here). The scripted runs prove the tools, the checks and the instructions; the model's own output on a real brief is to be judged in the product.
-5. **The open builder tab** lists pages the AI built; a second open tab of the same site sees them on reload, not live.
-6. The Shopify gaps in the commerce table above.
+1. **A live, signed-in end to end run against OpenAI** (a full clothing brand site, a SaaS page, a coaching site, a dashboard, a redesign of an existing site) was not run from this environment: there are no OpenAI credentials here. The tools, checks, measurements and instructions are proven with scripted runs and real browsers; what the model builds on a real brief is to be judged in the product, and /admin/ai-runs now shows how those runs go.
+2. **Interactive web apps with a backend of their own.** A section's script runs in a sandbox with capabilities; Storelib's platform actions (cart, forms, search, menus) are reachable by attribute. There is no per-site database or server code for a generated app; a dashboard can be built with state in the page, not with stored data of its own.
+3. **The open builder tab** lists pages the AI built; a second open tab of the same site sees them on reload, not live.
+4. **Commerce gaps against Shopify:** metafields (custom product fields a theme binds), gift cards, draft orders, several currencies. Each is a feature of its own (data model, admin, checkout), not a setting, and none is faked.
+5. **The test suite** has 134 failing checks across 57 suites on `main` (an earlier report said 390, which counted passing checks whose names contain FAILED). None is in the AI builder; most are source-text checks in communities, accounts and mobile navigation that other work changed, listed by suite in the round 22 report.

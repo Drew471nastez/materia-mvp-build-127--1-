@@ -50,6 +50,7 @@ import { resolveSelectedSection, SECTION_TYPE, type SectionOrigin } from "@/lib/
 import { DEFAULT_THEME_SOURCES } from "@/themes/default/sources.generated"
 import { classifyIntent } from "@/lib/website-builder/agent/intent"
 import { visualCheck } from "@/lib/website-builder/agent/visual-check"
+import { describeComparison, MATCH_THRESHOLD } from "@/lib/website-builder/agent/reference-diff"
 import { schemaMapFor } from "@/lib/website-builder/agent/schemas"
 import { sitePages } from "@/lib/website-builder/agent/page-builder-server"
 import { recordRun } from "@/lib/website-builder/agent/run-ledger"
@@ -541,7 +542,15 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
           accountMemory,
           projectCheck: true,
           maxReviews: bigIntent ? 3 : undefined,
-          visualCheck: (state, sources, opts) => visualCheck({ state, sources, schemas: schemaMapFor(sources), shots: opts.shots }),
+          visualCheck: async (state, sources, opts) => {
+            const report = await visualCheck({ state, sources, schemas: schemaMapFor(sources), shots: opts.shots, reference: opts.reference ?? null })
+            if (!report) return null
+            /* The likeness to their picture, in words, for the loop (lib/website-builder/agent/reference-diff.ts). */
+            return {
+              ...report,
+              comparison: report.comparison ? { score: report.comparison.score, text: describeComparison(report.comparison), threshold: MATCH_THRESHOLD } : null,
+            }
+          },
           trace: (entry) => {
             if (runLog.length < 400) runLog.push(entry)
           },

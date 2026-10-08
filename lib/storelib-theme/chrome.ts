@@ -159,7 +159,7 @@ export const CHROME_TYPES: Record<ChromeRole, string> = { header: "header", foot
  * to writing the same file under another name.
  */
 export function chromeRefusal(role: ChromeRole): string {
-  return `sections/${role}.storelib is the built-in ${role}. Write the creator's own as sections/<name>.storelib. Design it however the page needs. Wire Storelib's live values: a link_list for the menu and its sub links, theme.logo for the logo (size and colour are settings the creator can change), and the drawer attributes when it shows a cart, search or menu (data-storelib-cart, data-storelib-cart-count, data-storelib-search, data-storelib-menu). "kind": "${role}" makes it the site's ${role}.`
+  return `sections/${role}.storelib is the built-in ${role}. Write the creator's own as sections/<name>.storelib. Design it however the page needs. Wire Storelib's live values: a link_list for the menu and its sub links, theme.logo for the logo (size and colour are settings the creator can change), and the drawer attributes when it shows a cart, search or menu: data-storelib-menu on its menu button, data-storelib-cart on its bag (or a cart panel of its own, data-storelib-cart-panel), data-storelib-cart-count on the count, data-storelib-search on its search. "kind": "${role}" makes it the site's ${role}.`
 }
 
 /** Said when a second section declares the same kind. */

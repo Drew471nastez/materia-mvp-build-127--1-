@@ -129,6 +129,8 @@ export const THEME_TOKEN_DOCS: Record<string, string> = {
   "logo.width": "Branding › Logo width, `logo_width`, in px",
   "logo.mobile_url": "The phone logo, `mobile_logo_url`, when `use_mobile_logo` is on; otherwise the logo",
   "logo.mobile_width": "`mobile_logo_width`, else the logo width",
+  "logo.height": "the height the built-in header draws the logo at (`logo_height`), 0 when none was set",
+  "logo.mobile_height": "`mobile_logo_height`, else the logo height",
   "logo.text": "Branding › Store name, `brand_name`",
   favicon: "Branding › Favicon, `favicon_url`",
   "buttons.style": "Buttons › Default style, `button_style`: `filled`, `outline` or `ghost`",

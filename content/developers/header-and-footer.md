@@ -5,7 +5,8 @@ Every Storelib website draws **one header and one footer**, the same on every pa
 What is not yours to invent is the **live Storelib data**, the same way a shop platform keeps a cart and a menu in sync with the shop:
 
 - **Menus and sub links.** A `link_list` setting, default `main-menu`, looped `{% for link in settings.menu.links %}` with `{% for child in link.links %}` for the links under it. Footer columns that are the site's menus are `link_list` settings too. A header that declares a menu but draws other links is refused, because a change in Website settings › Navigation would never reach the site.
-- **Logo.** `theme.logo.url`, `theme.logo.width`, `theme.logo.mobile_url` and `theme.logo.text`. Size and colour are settings the creator can change. `theme.logo.width` is a starting width, not a rule.
+- **Logo.** `theme.logo.url`, `theme.logo.width`, `theme.logo.height`, `theme.logo.mobile_url` and `theme.logo.text`. Size and colour are settings the creator can change. `theme.logo.width` is a starting width, not a rule. When Theme settings › Branding has no logo, these are the logo uploaded in the built-in header's panel, its height and its words, so a header of your own shows the logo the creator already has, in the builder and on the live site alike.
+- **One header.** A section whose schema says `"kind": "header"` (or `"footer"`) is placed in the Header group (or the Footer group) when it is added, on every page, and the header that was showing is hidden, never deleted: its eye brings it back.
 - **Cart, search, menu drawer.** `data-storelib-cart`, `data-storelib-cart-count`, `data-storelib-search`, `data-storelib-menu`. See [The site's drawers](#the-sites-drawers).
 - **Account, sign in, sign up.** `routes.account_url`. Sign in and a new account are the same page.
 - **Buy, products, prices, checkout.** A buy button uses the product's `checkout_url`. Titles and prices come from `products`, already formatted.

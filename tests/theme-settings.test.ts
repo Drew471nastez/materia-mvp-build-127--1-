@@ -495,7 +495,8 @@ section("The header, the announcement bar, and the space between them")
      * guarantee that an unpinned header is never translated — the first still
      * leaves a frame where a stale flag paints the broken state.
      */
-    /apply\(hidden && mayMove, mayMove\)/.test(source) &&
+    /* Round 22: below the clearance line the header is written untranslated, with no transition, every frame. */
+    /if \(y < settled\) \{\s*offset = 0\s*write\(0, "none"\)/.test(source) &&
       /**
        * And a HEADER'S HEIGHT of clearance, not one pixel. Un-pinning is the
        * browser's job and happens with the scroll; the transform is ours and
@@ -516,7 +517,7 @@ section("The header, the announcement bar, and the space between them")
       /const settled = origin \+ height/.test(source) &&
       /height = el\.offsetHeight/.test(source) &&
       /new ResizeObserver\(sampleOrigin\)/.test(source) &&
-      /const mayMove = y >= settled/.test(source) &&
+      /if \(y < settled\)/.test(source) &&
       !/y >= originOf\(\) - 1/.test(source) &&
       /**
        * Measured from RECTS, not by walking `offsetParent`. That walk skips
@@ -532,7 +533,7 @@ section("The header, the announcement bar, and the space between them")
       // And it is written to the node, not to React state — a render is a
       // reconcile and a commit after the scroll that caused it, and those
       // frames are the white flash.
-      /el\.style\.transform = hide \?/.test(source) &&
+      /el\.style\.transform = `translate3d\(0, \$\{-px\}px, 0\)`/.test(source) &&
       !/setStickyVisible|setUnpinned/.test(source),
   )
   check(

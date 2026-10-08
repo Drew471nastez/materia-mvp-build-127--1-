@@ -1948,7 +1948,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
       is the behaviour the creator switched on — it simply arrives instead of
       travelling.
     */
-    const REVEAL = prefersStill() ? "none" : "transform 350ms cubic-bezier(0.22, 0.61, 0.36, 1)"
+    const REVEAL = prefersStill() ? "none" : "transform 260ms cubic-bezier(0.32, 0.72, 0, 1)"
     /*
       AND IT IS ONLY WRITTEN WHEN IT CHANGES.
 
@@ -1963,21 +1963,48 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
       than something lost among forty identical writes. That is the check
       scripts/check-header-motion.mjs reports as `headerMoves`.
     */
-    let shownHide: boolean | null = null
-    let shownPinned: boolean | null = null
-    const apply = (hide: boolean, pinned: boolean) => {
-      if (hide === shownHide && pinned === shownPinned) return
-      shownHide = hide
-      shownPinned = pinned
-      el.style.transition = pinned ? REVEAL : "none"
-      el.style.transform = hide ? "translateY(-100%)" : "translateY(0)"
-      el.style.pointerEvents = hide ? "none" : ""
+    /*
+      ═══════════════════════════════════════════════════════════════════════
+       THE HEADER GOES WITH THE SCROLL, PIXEL FOR PIXEL (round 22)
+      ═══════════════════════════════════════════════════════════════════════
+      The owner: "as I start scrolling it feels too direct and bumpy, instead
+      of going smoothly through the scroll." It was a switch: past the
+      clearance line a scroll down of 4px set off a 350ms slide, whatever the
+      finger was doing, so a slow scroll got a fast hide and a header that
+      left on its own clock. Now the header moves with the page by exactly
+      the distance scrolled, up to its own height, the way Safari's and the
+      native apps' bars do: scrolling down takes it away as far as the page
+      went, scrolling up brings it back as far. When the scroll stops halfway,
+      it settles to whichever end is nearer (shown, after scrolling up), on
+      the reveal's curve. Only translate, written once per frame and only
+      when it changes. Reduced motion: it still follows the finger (that is
+      the visitor moving it), and settles without travelling.
+    */
+    let shown = -1
+    let shownTransition = ""
+    const write = (off: number, transition: string) => {
+      const px = Math.round(off * 2) / 2
+      if (px === shown && transition === shownTransition) return
+      shown = px
+      shownTransition = transition
+      el.style.transition = transition
+      el.style.transform = `translate3d(0, ${-px}px, 0)`
+      el.style.pointerEvents = px >= height - 1 && height > 0 ? "none" : ""
     }
 
     let lastY = getY()
-    let hidden = false
-    apply(false, false)
+    let offset = 0
+    let lastDir: 1 | -1 = 1
+    let settleTimer = 0
+    write(0, "none")
     sampleOrigin()
+    /* Where a scroll that has stopped leaves it: all the way in or all the way out. */
+    const settle = () => {
+      settleTimer = 0
+      if (drawerOverPage.current || offset <= 0 || offset >= height) return
+      offset = lastDir < 0 || offset < height / 2 ? 0 : height
+      write(offset, REVEAL)
+    }
 
     /*
       ═══════════════════════════════════════════════════════════════════════
@@ -2045,13 +2072,21 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
       */
       if (y <= origin + height + 1) sampleOrigin()
       const settled = origin + height
-      const mayMove = y >= settled
-
-      if (!mayMove) hidden = false
-      else if (y > lastY + 4) hidden = true
-      else if (y < lastY - 4) hidden = false
+      const dy = y - lastY
       lastY = y
-      apply(hidden && mayMove, mayMove)
+      if (dy !== 0) lastDir = dy > 0 ? 1 : -1
+      if (settleTimer) window.clearTimeout(settleTimer)
+      settleTimer = 0
+      /* Below the clearance line the browser is still placing the header itself: no transform at all. */
+      if (y < settled) {
+        offset = 0
+        write(0, "none")
+        return
+      }
+      /* Past it, the header goes exactly as far as the page did, never further than its own height. */
+      offset = Math.min(height, Math.max(0, offset + dy))
+      write(offset, "none")
+      settleTimer = window.setTimeout(settle, 140)
     }
 
     const onScroll = () => {
@@ -2072,6 +2107,7 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
       window.removeEventListener("resize", sampleOrigin)
       ro?.disconnect()
       if (pendingFrame) cancelAnimationFrame(pendingFrame)
+      if (settleTimer) window.clearTimeout(settleTimer)
       clear()
     }
   }, [renderingInsideEditor, headerStickyEnabled, headerStickyOnScrollUp])

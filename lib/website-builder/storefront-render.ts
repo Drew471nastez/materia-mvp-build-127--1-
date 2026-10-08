@@ -1,5 +1,6 @@
 import { breadcrumbTrail } from "@/lib/products/breadcrumbs"
 import { isStorelibSection, renderStorelibSection } from "@/lib/website-builder/storelib-runtime"
+import { headerLogoOf, themeWithHeaderLogo } from "./chrome-logo"
 import type { RenderedSection } from "@/components/website-builder/sections/storelib-sources"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 import type { ProductCard } from "@/lib/website-builder/shop-products"
@@ -152,9 +153,11 @@ export function renderWithSources(
     ...pageExtras,
     template,
   }
+  /* A coded header or footer reads the logo uploaded in the built-in header's panel when Branding has none (./chrome-logo.ts). */
+  const drawnTheme = themeWithHeaderLogo(theme, headerLogoOf(sections))
   for (const section of sections) {
     if (!isStorelibSection(section.type, sources)) continue
-    const out = renderStorelibSection(section, theme, page, sources, products, data, globals)
+    const out = renderStorelibSection(section, drawnTheme, page, sources, products, data, globals)
     if (out.ok) {
       prerendered[section.id] = { html: out.html, css: out.css, script: out.script, capabilities: out.capabilities }
     }

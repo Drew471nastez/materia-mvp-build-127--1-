@@ -153,6 +153,12 @@ export function buildSection(id: string, type: string, schemas?: SchemaMap): Sec
   }
 }
 
+/** "kind": "header" or "footer" written in a section's schema. Only an explicit kind: an announcement bar in the header group is not the header. */
+export function declaredChromeKind(schema: unknown): "header" | "footer" | null {
+  const kind = (schema as { kind?: unknown } | undefined)?.kind
+  return kind === "header" || kind === "footer" ? kind : null
+}
+
 /**
  * Apply one operation. Pure: never mutates what it is given.
  *
@@ -171,6 +177,28 @@ export function applyOp(state: ThemeState, op: ThemeOp, schemas?: SchemaMap): Th
       const section = built ?? shipped
       if (!section) return state
       if (op.settings) section.settings = { ...section.settings, ...op.settings }
+
+      /*
+        A SECTION THAT SAYS IT IS THE HEADER (or the footer), "kind": "header" in its schema, IS the header: it goes in the
+        header group at the top (the footer group at the end) and the one that was showing is hidden, never removed. Added
+        as a body section, it was the header on the home page only after a repair at render, and missing (or doubled) on
+        the shop, search, account and 404 pages, which take the header from home without one: the owner's "coded headers
+        disappear". The built-in stays, hidden, so its logo still reaches theme.logo (../chrome-logo.ts) and undo has it.
+      */
+      const chromeKind = declaredChromeKind(schemaOf(schemas, op.sectionType))
+      if (chromeKind) {
+        const placed = { ...section, group: chromeKind } as SectionInstance
+        /* Whatever was the header (the built-in, or a coded one before this), hidden. One header, one footer. */
+        const sameKind = (s: SectionInstance) => s.type === chromeKind || declaredChromeKind(schemaOf(schemas, s.type)) === chromeKind
+        const rest = state.sections.map((s) => (!s.hidden && sameKind(s) ? { ...s, hidden: true } : s))
+        if (chromeKind === "header") {
+          const lastHeader = rest.reduce((n, s, i) => ((s as { group?: string }).group === "header" || s.type === "header" ? i : n), -1)
+          return { ...state, sections: [...rest.slice(0, lastHeader + 1), placed, ...rest.slice(lastHeader + 1)] }
+        }
+        const firstFooter = rest.findIndex((s) => (s as { group?: string }).group === "footer" || s.type === "footer")
+        const at = firstFooter < 0 ? rest.length : firstFooter
+        return { ...state, sections: [...rest.slice(0, at), placed, ...rest.slice(at)] }
+      }
 
       const sections = [...state.sections]
       const at = op.index === undefined ? clampIndex(sections, sections.length) : clampIndex(sections, op.index)

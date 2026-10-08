@@ -10,6 +10,7 @@
  */
 import { useCallback, useMemo, type ReactNode } from "react"
 import { renderStorelibSection } from "@/lib/website-builder/storelib-runtime"
+import { themeWithHeaderLogo, type HeaderLogo } from "@/lib/website-builder/chrome-logo"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 import type { RenderContext, StorefrontData } from "@/lib/storelib-theme/types"
 import { StorelibRenderProvider, type SectionRenderFn } from "./storelib-sources"
@@ -94,6 +95,7 @@ export function StorelibLiveProvider({
   inEditor,
   products,
   data,
+  headerLogo,
   children,
 }: {
   /** Saved `.storelib` files, path to source. The bundled theme is the fallback. */
@@ -122,6 +124,11 @@ export function StorelibLiveProvider({
    * live site draws with (lib/website-builder/storefront-data.ts).
    */
   data?: StorefrontData
+  /**
+   * The built-in header's logo on the page being drawn (lib/website-builder/chrome-logo.ts), so a coded header shows the
+   * logo the creator uploaded in the header's panel, as the live page does.
+   */
+  headerLogo?: HeaderLogo | null
   children: ReactNode
 }) {
   const template = page?.template ?? "index"
@@ -141,8 +148,8 @@ export function StorelibLiveProvider({
   const extras = useMemo(() => editorPageExtras(template, products ?? [], data), [template, products, data])
   const render = useCallback<SectionRenderFn>(
     (section: SectionInstance, theme: ThemeSettingsValues) =>
-      renderStorelibSection(section, theme, { ...extras, template, in_editor: inEditor === true }, sources, products, data, globals),
-    [sources, template, inEditor, products, data, globals, extras],
+      renderStorelibSection(section, themeWithHeaderLogo(theme, headerLogo ?? null), { ...extras, template, in_editor: inEditor === true }, sources, products, data, globals),
+    [sources, template, inEditor, products, data, globals, extras, headerLogo],
   )
   /* The same object while the template is the same. Inline, it was a new
      context value on every render of the canvas, and every section that reads

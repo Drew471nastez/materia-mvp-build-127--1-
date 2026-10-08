@@ -85,9 +85,11 @@ The Storelib AI in the website builder reads what kind of change a request is be
 - **A new page** ("add a size guide page") is built with `build_page` and linked in the menu.
 - **Left alone.** "Keep the header", "don't touch the pricing" are kept, even inside a redesign.
 - **One value, everywhere.** "Update my logo everywhere" is changed once where it lives (the theme's logo, the store's name, the socials), never typed into each section.
+- **A picture to match.** "Make it exactly like this screenshot" with a picture is measured: the page is photographed at the picture's width (a phone, a tablet or a computer) and scored against it out of 100, on tone, layout and colour, region by region. Below 82 the AI is told where it differs, with both pictures, and repairs, up to three rounds. A score that stays low is said in the reply. It is a measure of likeness, not a promise of pixel identity: their own photographs and copy are theirs to supply.
+- **Three widths.** Every big change is drawn in a browser at 1440, 834 and 390 wide and measured for sideways scroll, collapsed and clipped sections, overlapping text and empty bands, then fixed.
 - **Its own cart, menus and search.** It may draw a cart drawer, navigation and product cards of its own design ([A cart of your own](/developers/header-and-footer)), on the site's live cart, menus and products.
 
-Every run is recorded as one row of facts in `storelib_ai_runs` (kind of request, changes, pages built, checks still failing, time, model), never the words of the request: `supabase/sql/RUN_STORELIB_AI_BUILDER.sql` creates it, and `CHECK_STORELIB_AI_BUILDER.sql` says whether a database has everything the builder needs.
+Every run is recorded as one row of facts in `storelib_ai_runs`, read by the owner at /admin/ai-runs, (kind of request, changes, pages built, checks still failing, time, model), never the words of the request: `supabase/sql/RUN_STORELIB_AI_BUILDER.sql` creates it, and `CHECK_STORELIB_AI_BUILDER.sql` says whether a database has everything the builder needs.
 
 ## The models Storelib AI runs on
 

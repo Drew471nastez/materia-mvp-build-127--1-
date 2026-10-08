@@ -79,6 +79,8 @@ export interface Intent {
   keep?: string[]
   /** A value every page reads (the logo, the store name, the socials), to be changed once where it lives. */
   global?: boolean
+  /** A picture came with it and the words ask for the page to look like it: measured against it (./reference-diff.ts). */
+  recreate?: boolean
 }
 
 export interface IntentContext {
@@ -160,6 +162,8 @@ const REBUILD = /\b(complete(?:ly)?|total(?:ly)?|entire(?:ly)?|fully|from scratc
 const LIGHT = /\b(a (?:little|bit|touch|tad)|slightly|a little bit|just a bit|subtly|minor|small tweak|tweak)\b/i
 /* "Add an About page", "build another landing page", "I need a size guide page". Not "this page", which is the open one. */
 const NEW_PAGE = /\b(?:add|create|build|make|give me|set up|i (?:need|want)|we (?:need|want))\b[^.?!]{0,24}\b(?:an?|another|new|one more|a new|an extra|separate)\b[^.?!]{0,32}\bpages?\b/i
+/* "Exactly like this", "1:1", "recreate this", "copy this design": the picture is the target, not a mood. */
+const RECREATE = /\b(exact(?:ly)?|1:1|one to one|pixel|recreate|replicate|clone|copy (?:this|it|that|the design|the layout)|match (?:this|it|the|my)|same as (?:this|the)|identical|like (?:this|the|my) (?:screenshot|image|picture|photo|design|mockup|reference)|look(?:s)? like (?:this|it)|make (?:it|this) like this|from (?:this|my|the) (?:screenshot|design|mockup|figma))\b/i
 /* "Keep the header", "leave the pricing alone", "don't touch checkout", "without changing the footer". */
 const KEEP = /\b(?:keep|leave|preserve|don'?t (?:touch|change|remove|move|edit)|do not (?:touch|change|remove|move|edit)|never (?:touch|change)|without (?:touching|changing|removing))\s+(?:the |my |our |all (?:the |my )?|every |any )?([a-z][a-z0-9 /&'-]{1,40}?)(?=\s*(?:[.,;!?]|$)|\s+(?:as (?:it is|is|they are)|the same|alone|unchanged|intact|exactly|and\b|but\b|while\b|though\b|please\b))/gi
 /* A value every page reads, asked to change everywhere at once. */
@@ -211,6 +215,7 @@ export function classifyIntent(prompt: string, ctx: IntentContext = {}): Intent 
       newPage: kind !== "QUESTION" && kind !== "NEW_SITE_GENERATION" && kind !== "FULL_SITE_REDESIGN" && NEW_PAGE.test(text),
       keep,
       global: kind !== "QUESTION" && GLOBAL.test(text) && EVERYWHERE.test(text),
+      recreate: !!ctx.images && kind !== "QUESTION" && (RECREATE.test(text) || text.length === 0),
     }
   }
 
@@ -385,6 +390,11 @@ export function intentGuidance(intent: Intent): string {
   if (intent.global) {
     lines.push(
       "A VALUE EVERY PAGE READS. The logo, the store name, the socials and the currency live in the theme and the store: change them once (update_theme, or the store's own setting), never by typing them into each section. A section that hard codes one is fixed to read theme.logo / shop.name / shop.socials instead.",
+    )
+  }
+  if (intent.recreate) {
+    lines.push(
+      "MATCH THE PICTURE. They sent a picture to be built, not a mood board. Recreate its layout, proportions, type sizes and weights, spacing and colours as closely as Storelib allows, in sections of your own where no built-in one has that layout. When you are done the page is photographed at the picture's width and measured against it, and you are told where it differs: change the page until it is close. Their copy and photographs are theirs to supply: put editable placeholders where a photograph goes, and never claim it is identical.",
     )
   }
   if (intent.keep?.length) {
