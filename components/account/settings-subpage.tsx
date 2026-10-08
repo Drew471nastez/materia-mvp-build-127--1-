@@ -201,7 +201,7 @@ function SettingsLayer({ section, data, onClose }: { section: SettingsSection; d
         paddingBottom: "env(safe-area-inset-bottom)",
       }}
     >
-      <div className="px-4 pb-10 pt-3 sm:px-6">
+      <div className="px-4 pb-6 pt-3 sm:px-6" data-settings-sheet-body="">
         {data ? (
           <AccountSettings {...data} initialSection={section} onBack={close} />
         ) : (

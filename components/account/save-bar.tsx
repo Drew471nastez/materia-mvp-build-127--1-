@@ -85,9 +85,16 @@ function px(name: string): number {
   return Number.isFinite(v) ? v : 0
 }
 
-/** Scroll container that should pad for the save bar (settings sheet scrolls itself, not body). */
-function padTarget(): HTMLElement {
+/** The element that scrolls (settings sheet root, or the document). */
+function scrollRoot(): HTMLElement {
   return document.querySelector<HTMLElement>("[data-edit-profile-sheet]") ?? document.body
+}
+
+/** Inner content that gets bottom padding so fields clear the bar — not the full-viewport scroll box (that would show a tall empty band). */
+function padTarget(): HTMLElement {
+  const inner = document.querySelector<HTMLElement>("[data-settings-sheet-body]")
+  if (inner) return inner
+  return document.body
 }
 
 function settingsSheetOpen(): boolean {
@@ -136,22 +143,23 @@ export function SaveBar({
   useLayoutEffect(() => {
     const el = ref.current
     if (!el || !mounted) return
-    const target = padTarget()
+    const padEl = padTarget()
+    const root = scrollRoot()
     if (!shown) {
-      const room = parseFloat(target.style.paddingBottom) || 0
+      const room = parseFloat(padEl.style.paddingBottom) || 0
       if (!room) return
-      const scrollEl = target === document.body ? document.documentElement : target
+      const scrollEl = root === document.body ? document.documentElement : root
       const inRoom =
-        target === document.body
+        root === document.body
           ? window.scrollY + window.innerHeight > scrollEl.scrollHeight - room - 1
-          : target.scrollTop + target.clientHeight > target.scrollHeight - room - 1
-      if (!inRoom) target.style.paddingBottom = ""
+          : root.scrollTop + root.clientHeight > root.scrollHeight - room - 1
+      if (!inRoom) padEl.style.paddingBottom = ""
       return
     }
     const sync = () => {
       const spacer = document.querySelector<HTMLElement>("[data-buyer-tabs-room]")
       const under = spacer && spacer.offsetHeight > 0 ? spacer.offsetHeight : 0
-      target.style.paddingBottom = `${Math.max(0, el.offsetHeight - under)}px`
+      padEl.style.paddingBottom = `${Math.max(0, el.offsetHeight - under)}px`
     }
     sync()
     const ro = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(sync)
@@ -163,8 +171,8 @@ export function SaveBar({
     }
   }, [shown, mounted])
   useEffect(() => () => {
-    document.body.style.paddingBottom = ""
-    document.querySelector<HTMLElement>("[data-edit-profile-sheet]")?.style.removeProperty("padding-bottom")
+    document.body.style.removeProperty("padding-bottom")
+    document.querySelector<HTMLElement>("[data-settings-sheet-body]")?.style.removeProperty("padding-bottom")
   }, [])
 
   /*
@@ -185,9 +193,9 @@ export function SaveBar({
     const over = field.getBoundingClientRect().bottom + 12 - top
     if (over > 0) {
       const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
-      const scrollRoot = padTarget()
-      if (scrollRoot === document.body) window.scrollBy({ top: over, behavior: reduce ? "auto" : "smooth" })
-      else scrollRoot.scrollBy({ top: over, behavior: reduce ? "auto" : "smooth" })
+      const root = scrollRoot()
+      if (root === document.body) window.scrollBy({ top: over, behavior: reduce ? "auto" : "smooth" })
+      else root.scrollBy({ top: over, behavior: reduce ? "auto" : "smooth" })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shown])

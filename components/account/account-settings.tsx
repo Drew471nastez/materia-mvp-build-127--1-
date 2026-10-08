@@ -77,7 +77,8 @@ import { secondaryDepth } from "@/components/ui/depth-button"
 import { AccountAvatar, useAccountPhoto } from "@/components/account/account-photo"
 import { NotificationSettings } from "@/components/account/notification-settings"
 import { CoverField } from "@/components/account/cover-field"
-import { SaveBar } from "@/components/account/save-bar"
+import { SaveBar, SAVE_BAR_MS } from "@/components/account/save-bar"
+import { primeSettingsFromProfile } from "@/components/account/settings-subpage"
 import { useShellAvatar } from "@/lib/account/avatar-store"
 import { isValidUsername } from "@/lib/reserved-words"
 import { normalizeHandle } from "@/lib/profile/username-rules"
@@ -268,6 +269,7 @@ function ProfileSection({
   usernameEditable,
   cover,
   location = { city: null, country: null, supported: false },
+  onCloseAfterSave,
 }: {
   userId: string
   name: string
@@ -282,6 +284,8 @@ function ProfileSection({
   username: string
   /** False for somebody with a store or a OnePage: their handle is also those addresses and moves from /app Settings. */
   usernameEditable: boolean
+  /** Settings opened as a sheet over the profile: slide away after a successful save. */
+  onCloseAfterSave?: () => void
 }) {
   const router = useRouter()
   const shown = useShellAvatar(avatarUrl)
@@ -325,6 +329,7 @@ function ProfileSection({
     setBusy(true)
     setError(null)
     try {
+      let usernameAfter = savedHandle
       /* The handle first: a name taken in the meantime stops the save before anything else moves. */
       if (handleChanged) {
         const res = await fetch("/api/profile/username", {
@@ -338,6 +343,7 @@ function ProfileSection({
           setBusy(false)
           return
         }
+        usernameAfter = data.username
         setSavedHandle(data.username)
         setHandle(data.username)
       }
@@ -375,7 +381,18 @@ function ProfileSection({
         setCountry(nextCountry ?? "")
       }
       setSavedAt(Date.now())
+      primeSettingsFromProfile({
+        userId,
+        name: nextName,
+        username: usernameAfter,
+        bio: nextBio,
+        avatarUrl,
+        coverUrl: cover.url,
+      })
       router.refresh()
+      if (onCloseAfterSave) {
+        window.setTimeout(() => onCloseAfterSave(), SAVE_BAR_MS + 180)
+      }
     } catch {
       setError("That did not save. Try again in a moment.")
     } finally {
@@ -1125,6 +1142,7 @@ export function AccountSettings({
             usernameEditable={usernameEditable}
             cover={cover}
             location={location}
+            onCloseAfterSave={onBack}
           />
         ) : null}
         {section === "account" ? (
