@@ -7,8 +7,12 @@
  * post-fullscreen.tsx; every frame of the open is sampled and pictures are
  * taken on the way (SHOTS_DIR):
  *
- *   MORPH      the first frame is clipped to the card's box, and the clip
- *              opens over several frames to the whole screen
+ *   MORPH      the first frame's page box is the card's box, and it grows
+ *              over several frames to the whole screen, by transform alone:
+ *              no frame carries a clip-path (WebKit repaints those on the
+ *              main thread every frame, round 22)
+ *   NO STRETCH the post's title keeps its own height on every frame: the
+ *              page's scale is undone on the post inside it
  *   PAGE       open, it covers the screen, with the back button at the top
  *              and the comment box floating at the foot (data-comments-composer="float")
  *   BLUR       the blur under the status bar is clear at rest and comes in
@@ -130,7 +134,9 @@ export const isNativePlatform = () => false
       window.__run = true
       const tick = () => {
         const page = document.querySelector("[data-post-fullscreen] [role=dialog]")
-        window.__f.push(page ? { clip: getComputedStyle(page).clipPath, t: getComputedStyle(page).transform, op: getComputedStyle(page).opacity } : null)
+        const title = page?.querySelector("[data-post-overlay-phase] h1, [data-post-overlay-phase] h2, [data-post-overlay-phase] h3")
+        const box = page?.getBoundingClientRect()
+        window.__f.push(page ? { clip: getComputedStyle(page).clipPath, t: `${getComputedStyle(page).translate} ${getComputedStyle(page).scale}`, op: getComputedStyle(page).opacity, box: [box.left, box.top, box.width, box.height], th: title ? title.getBoundingClientRect().height : null } : null)
         if (window.__run) requestAnimationFrame(tick)
       }
       requestAnimationFrame(tick)
@@ -143,10 +149,17 @@ export const isNativePlatform = () => false
   await p.screenshot({ path: join(shots, "1-opening.png") })
   await sleep(600)
   const opening = (await stop()).filter(Boolean)
-  const clips = opening.map((f) => f.clip)
-  const firstInset = clips[0] || ""
-  expect(/inset\(/.test(firstInset) && !/inset\(0px( 0px)*( round 0px)?\)/.test(firstInset), "MORPH: the first frame is clipped to the card's box", firstInset)
-  expect(new Set(clips).size >= 4, "and the clip opens over several frames", { distinct: new Set(clips).size })
+  const card = await p.evaluate(() => {
+    const r = document.querySelectorAll("[data-community-feed] article[data-post]")[1].getBoundingClientRect()
+    return [r.left, r.top, r.width, r.height]
+  })
+  const first = opening[0]?.box || []
+  expect(first.length === 4 && first.every((v, i) => Math.abs(v - card[i]) < 3), "MORPH: the first frame's page box is the card's box", { first: first.map(Math.round), card: card.map(Math.round) })
+  expect(new Set(opening.map((f) => f.t)).size >= 4, "and it grows over several frames", { distinct: new Set(opening.map((f) => f.t)).size })
+  expect(opening.every((f) => f.clip === "none"), "by transform alone: no frame carries a clip-path", [...new Set(opening.map((f) => f.clip))])
+  const heights = opening.map((f) => f.th).filter((h) => h !== null)
+  const finalH = heights.at(-1)
+  expect(heights.length > 4 && heights.every((h) => Math.abs(h - finalH) < 1), "NO STRETCH: the post's title keeps its height on every frame", { min: Math.min(...heights).toFixed(1), max: Math.max(...heights).toFixed(1) })
   const opsIn = opening.map((f) => Number(f.op))
   expect(opsIn[0] < 0.5 && opsIn.some((o) => o > 0.05 && o < 0.95) && opsIn.at(-1) === 1, "FADES: the page comes in over the card", opsIn.slice(0, 8).map((o) => o.toFixed(2)))
   await p.screenshot({ path: join(shots, "2-open.png") })
@@ -176,7 +189,10 @@ export const isNativePlatform = () => false
   await sleep(900)
   const closing = (await stop()).filter(Boolean)
   const gone = await p.evaluate(() => !document.querySelector("[data-post-fullscreen]"))
-  expect(new Set(closing.map((f) => f.clip)).size >= 4, "BACK: it goes back into the card over several frames", { distinct: new Set(closing.map((f) => f.clip)).size })
+  expect(new Set(closing.map((f) => f.t)).size >= 4, "BACK: it goes back into the card over several frames", { distinct: new Set(closing.map((f) => f.t)).size })
+  expect(closing.every((f) => f.clip === "none"), "by transform alone", [...new Set(closing.map((f) => f.clip))])
+  const closeH = closing.map((f) => f.th).filter((h) => h !== null)
+  expect(closeH.every((h) => Math.abs(h - finalH) < 1), "and the post's words are never stretched on the way", { min: Math.min(...closeH).toFixed(1), max: Math.max(...closeH).toFixed(1) })
   const opsOut = closing.map((f) => Number(f.op))
   expect(opsOut.some((o) => o > 0.05 && o < 0.95) && opsOut.at(-1) < 0.1, "and gives way to the card at the end, by a fade", opsOut.slice(-8).map((o) => o.toFixed(2)))
   expect(gone, "and leaves the page", gone)
@@ -189,14 +205,19 @@ export const isNativePlatform = () => false
     await touch("touchMove", 200, 300 + i * 18)
     await sleep(16)
   }
-  const dragged = await p.evaluate(() => getComputedStyle(document.querySelector("[data-post-fullscreen] [role=dialog]")).transform)
+  const dragged = await p.evaluate(() => {
+    const cs = getComputedStyle(document.querySelector("[data-post-fullscreen] [role=dialog]"))
+    return { translate: cs.translate, scale: cs.scale }
+  })
   const groundDragged = await p.evaluate(() => getComputedStyle(document.querySelector("[data-post-fullscreen-ground]")).opacity)
   expect(groundDragged === "0", "and a swipe takes the ground away, so the feed shows behind", groundDragged)
   await p.screenshot({ path: join(shots, "5-swiping.png") })
   await touch("touchEnd", 0, 0)
   await sleep(900)
   const swipedAway = await p.evaluate(() => !document.querySelector("[data-post-fullscreen]"))
-  expect(/matrix\(1, 0, 0, 1, 0, (\d+)/.test(dragged) && Number(dragged.match(/, (\d+(\.\d+)?)\)$/)?.[1]) > 150, "SWIPE: the page follows the finger down", dragged)
+  const down = parseFloat(dragged.translate.split(" ")[1] || "0")
+  const smaller = parseFloat(dragged.scale)
+  expect(down > 150 && smaller < 1 && smaller >= 0.9, "SWIPE: the page follows the finger down, a little smaller as it goes", dragged)
   expect(swipedAway, "and let go far enough, it closes", swipedAway)
   const after = await p.evaluate(() => window.scrollY)
   expect(Math.abs(after - feedY) < 2, "STILL: the feed under it has not moved", { before: feedY, after })

@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useLayoutEffect } from "react"
+import { useEffect, useLayoutEffect, useRef } from "react"
+import { tabSwapInProgress } from "@/lib/nav/tab-swap"
 import { usePathname } from "next/navigation"
 import { showsLibraryTabs } from "@/components/library/library-tab-list"
 import { accountPinnedScroll, accountScrollPinPaused, opensAtTop, scrollPageToTop } from "@/lib/navigation/tab-scroll"
@@ -59,11 +60,19 @@ export function AccountNavFade({ children }: { children: React.ReactNode }) {
     transition to the library is too direct").
   */
   const landing = landingOnMove
+  /*
+    ARRIVING UNDER A TAB SWAP (lib/nav/tab-swap.ts), the swap already fades the whole page in. The profile's own fade inside
+    it drew the community bar solid and the profile under it fading after, a second fade that read as the page arriving in
+    pieces. Read once, on the first render of this layout: on the server and while hydrating there is no swap.
+  */
+  const arrival = useRef<{ key: string; swapped: boolean } | null>(null)
+  if (arrival.current === null) arrival.current = { key: navFadeKey(pathname), swapped: tabSwapInProgress() }
+  const enter = !onLibrary && !(arrival.current.swapped && arrival.current.key === navFadeKey(pathname))
 
   return (
     <div
       key={navFadeKey(pathname)}
-      className={`min-w-0${onLibrary ? "" : " library-content-enter"}${landing ? ` ${LANDING_CLASS}` : ""}`}
+      className={`min-w-0${enter ? " library-content-enter" : ""}${landing ? ` ${LANDING_CLASS}` : ""}`}
       data-account-nav-fade={onLibrary ? "library" : "profile"}
     >
       {children}

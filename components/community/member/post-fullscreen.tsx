@@ -11,21 +11,31 @@
  * up, and the comments scroll under it. At the top, as you scroll, a soft
  * blur comes in under the status bar."
  *
- * THE MORPH. The page is drawn full screen from the first frame, clipped to
- * the card's own box (clip-path inset, rounded like the card) with its
- * content moved down to where the card's content was, so the first frame
- * looks like the card. The clip opens to the screen and the content rises to
- * its place, together, on iOS's curve. Closing runs the same backwards, to
- * wherever the card is now; a card no longer on screen gets a short drop
- * and fade instead. The feed under it dims a little and comes back.
+ * THE MORPH (round 22, the owner: "I don't like the morph, it glitches").
+ * It was a clip-path opening from the card's box. WebKit does not run a
+ * clip-path animation on the compositor: every frame repainted the whole
+ * screen of post and pictures on the main thread, so it stuttered whenever
+ * the page was busy, and the corner rounding the swipe wrote per touch move
+ * repainted again. Now only translate, scale and opacity move. The page is a white
+ * box that grows from the card's box to the screen (translate and scale),
+ * and the post inside it is scaled back by the inverse on the same frame,
+ * so the words never stretch: they ride from where the card's words were
+ * to their place. Both are sampled from iOS's curve into keyframes (an
+ * inverse of an eased scale is not itself an eased scale, so one easing on
+ * each would wobble), played linear. The post fades in over the card in the
+ * first quarter; closing runs the same backwards to wherever the card is
+ * now, the post fading out over the card in the last stretch. A card no
+ * longer on screen gets a short drop and fade instead. The feed dims a
+ * little and comes back.
  *
  * THE SWIPE. With the post at its top, a finger pulling down takes the page
  * with it from the first pixel (the browser's own scroll is refused for that
- * gesture, so iOS cannot bounce the content under the finger), its corners
- * round and the dim lifts. Let go far enough, or moving down fast enough,
- * and it morphs back into the card from where it was let go; otherwise it
- * springs back. A pull that reaches the end of the comments is held too, so
- * it never scrolls the feed under the page.
+ * gesture, so iOS cannot bounce the content under the finger). It shrinks a
+ * little as it goes, as an iOS card does, and the dim lifts: a move and a
+ * scale per touch move, nothing repainted. Let go far enough, or moving down fast
+ * enough, and it morphs back into the card from where it was let go;
+ * otherwise it springs back. A pull that reaches the end of the comments is
+ * held too, so it never scrolls the feed under the page.
  *
  * THE TOP. A strip as tall as the status bar and the back button, with a
  * light backdrop blur (6px, a thin white) that fades out downwards (a mask),
@@ -37,7 +47,7 @@
  * with the comments scrolling under it. The page is the height of what is
  * on screen (--vv-h, --vv-top), so with the keyboard up the pill sits on it.
  *
- * Everything that moves is clip-path, transform and opacity, written by Web
+ * Everything that moves is translate, scale and opacity, written by Web
  * Animations or once per touch event: nothing goes through React while it
  * moves. Reduced motion: it appears and goes, no morph.
  */
@@ -52,8 +62,6 @@ const CLOSE_MS = 340
 const EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
 /** The back button's row under the status bar. */
 const BAR_PX = 52
-/** The card's corner (ui.ts CARD rounded-2xl); 0 on a phone, where the card runs edge to edge (PHONE_ROW), so it is read from the card. */
-const CARD_RADIUS_FALLBACK = 16
 /** Pulled this far, or let go moving down this fast (px/ms), it closes. */
 const CLOSE_PULL = 120
 const CLOSE_FLICK = 0.5
@@ -76,22 +84,114 @@ function topBarPx(inner: HTMLElement): number {
 }
 
 /** Where the card is now, if it is on screen at all. */
-function cardBox(origin: (() => HTMLElement | null) | undefined): { rect: DOMRect; radius: number } | null {
+function cardBox(origin: (() => HTMLElement | null) | undefined): DOMRect | null {
   const el = origin?.()
   if (!el || !el.isConnected) return null
   const rect = el.getBoundingClientRect()
   if (rect.width < 40 || rect.height < 40 || rect.bottom < 0 || rect.top > window.innerHeight) return null
-  const radius = parseFloat(getComputedStyle(el).borderTopLeftRadius) || 0
-  return { rect, radius: Number.isFinite(radius) ? radius : CARD_RADIUS_FALLBACK }
+  return rect
 }
 
-/** The page clipped to `r` (viewport coordinates; the page is at the visual viewport's top). */
-function insetFor(r: DOMRect, radius: number, pageTop: number, pageH: number, pageW: number): string {
-  const top = Math.max(0, r.top - pageTop)
-  const bottom = Math.max(0, pageTop + pageH - r.bottom)
-  const left = Math.max(0, r.left)
-  const right = Math.max(0, pageW - r.right)
-  return `inset(${top}px ${right}px ${bottom}px ${left}px round ${radius}px)`
+/** cubic-bezier(x1, y1, x2, y2) as a function of time, solved for x by Newton then bisection. */
+function bezier(x1: number, y1: number, x2: number, y2: number): (t: number) => number {
+  const ax = 3 * x1 - 3 * x2 + 1, bx = 3 * x2 - 6 * x1, cx = 3 * x1
+  const ay = 3 * y1 - 3 * y2 + 1, by = 3 * y2 - 6 * y1, cy = 3 * y1
+  const x = (u: number) => ((ax * u + bx) * u + cx) * u
+  const y = (u: number) => ((ay * u + by) * u + cy) * u
+  const dx = (u: number) => (3 * ax * u + 2 * bx) * u + cx
+  return (t) => {
+    if (t <= 0) return 0
+    if (t >= 1) return 1
+    let u = t
+    for (let i = 0; i < 6; i++) {
+      const d = dx(u)
+      if (Math.abs(d) < 1e-6) break
+      const next = u - (x(u) - t) / d
+      if (next < 0 || next > 1) break
+      u = next
+    }
+    if (Math.abs(x(u) - t) > 1e-4) {
+      let lo = 0, hi = 1
+      u = t
+      for (let i = 0; i < 24; i++) {
+        if (x(u) < t) lo = u
+        else hi = u
+        u = (lo + hi) / 2
+      }
+    }
+    return y(u)
+  }
+}
+const ease = bezier(0.32, 0.72, 0, 1)
+/** Keyframes per morph: enough that the counter-scale stays exact between them. */
+const STEPS = 24
+
+/** The page's box (page coordinates: 0,0 is the page's own top left) and how large its post is drawn. */
+type Shape = { left: number; top: number; right: number; bottom: number; scale: number; anchorX: number; anchorY: number }
+
+/**
+ * Where the page goes, and its post, for one shape. The page is drawn W by H and moved and scaled onto the shape's box
+ * (origin top left); the post (`inner`, inside the page's scroll, which is at `scrollTop`) is scaled back by the inverse
+ * and moved so its point (0, `bar`), the top of the post, lands on (anchorX, anchorY) at `scale`.
+ */
+type Move = { translate: string; scale: string }
+function placement(sh: Shape, W: number, H: number, bar: number, scrollTop: number): { page: Move; inner: Move } {
+  const sx = Math.max(0.001, (sh.right - sh.left) / W)
+  const sy = Math.max(0.001, (sh.bottom - sh.top) / H)
+  const ax = sh.scale / sx
+  const ay = sh.scale / sy
+  /* translate and scale as their own properties: scale applies first, about the top left, then the move. */
+  const ix = (sh.anchorX - sh.left) / sx
+  const iy = (sh.anchorY - sh.top) / sy + scrollTop - ay * bar
+  return {
+    page: { translate: `${sh.left}px ${sh.top}px`, scale: `${sx} ${sy}` },
+    inner: { translate: `${ix}px ${iy}px`, scale: `${ax} ${ay}` },
+  }
+}
+const REST: Move = { translate: "0px 0px", scale: "1" }
+function put(el: HTMLElement | null, m: Move | null) {
+  if (!el) return
+  el.style.translate = m ? m.translate : ""
+  el.style.scale = m ? m.scale : ""
+}
+
+function mix(a: Shape, b: Shape, k: number): Shape {
+  const m = (x: number, y: number) => x + (y - x) * k
+  return { left: m(a.left, b.left), top: m(a.top, b.top), right: m(a.right, b.right), bottom: m(a.bottom, b.bottom), scale: m(a.scale, b.scale), anchorX: m(a.anchorX, b.anchorX), anchorY: m(a.anchorY, b.anchorY) }
+}
+
+/** The page whole and in place. */
+function fullShape(W: number, H: number, bar: number, scrollTop: number): Shape {
+  return { left: 0, top: 0, right: W, bottom: H, scale: 1, anchorX: 0, anchorY: bar - scrollTop }
+}
+
+/** The page on the card: its box the card's, its post's top on the card's top. */
+function cardShape(card: DOMRect, pageTop: number): Shape {
+  return { left: card.left, top: card.top - pageTop, right: card.right, bottom: card.bottom - pageTop, scale: 1, anchorX: card.left, anchorY: card.top - pageTop }
+}
+
+/** Where a swipe has the page: down by `dy`, shrunk by `s` about its top centre. */
+function pulledShape(dy: number, s: number, W: number, H: number, bar: number, scrollTop: number): Shape {
+  const left = (W * (1 - s)) / 2
+  return { left, top: dy, right: left + W * s, bottom: dy + H * s, scale: s, anchorX: left, anchorY: dy + s * (bar - scrollTop) }
+}
+
+/** How much a pull of `dy` shrinks the page (an iOS card: a little, never below 0.9). */
+function pullScale(dy: number, H: number): number {
+  return 1 - Math.min(1, Math.max(0, dy) / Math.max(1, H)) * 0.1
+}
+
+/** Keyframes for page and post from `a` to `b` on iOS's curve, to be played linear. */
+function morphFrames(a: Shape, b: Shape, W: number, H: number, bar: number, scrollTop: number): { page: Keyframe[]; inner: Keyframe[] } {
+  const page: Keyframe[] = []
+  const inner: Keyframe[] = []
+  for (let i = 0; i <= STEPS; i++) {
+    const t = i / STEPS
+    const f = placement(mix(a, b, ease(t)), W, H, bar, scrollTop)
+    page.push({ ...f.page, offset: t })
+    inner.push({ ...f.inner, offset: t })
+  }
+  return { page, inner }
 }
 
 export interface PostFullscreenProps {
@@ -127,7 +227,16 @@ export function PostFullscreen({ open, label, title, origin, onRequestClose, onS
   const pulled = useRef(0)
   const closing = useRef(false)
 
-  /* ── IN ── drawn as the card on its first frame; moves once its pictures are decoded (at most DECODE_WAIT_MS). */
+  /** The page's size and the numbers every frame of a morph is worked out from, read once per move. */
+  const measure = () => {
+    const page = pageRef.current!
+    const inner = innerRef.current!
+    const box = page.getBoundingClientRect()
+    /* The layout box, not the moved one: offsetWidth/Height ignore translate and scale. */
+    return { W: page.offsetWidth || box.width, H: page.offsetHeight || box.height, pageTop: page.offsetTop, bar: topBarPx(inner), scrollTop: scrollRef.current?.scrollTop ?? 0 }
+  }
+
+  /* ── IN ── drawn on the card on its first frame; moves once its pictures are decoded (at most DECODE_WAIT_MS). */
   useLayoutEffect(() => {
     const page = pageRef.current
     const inner = innerRef.current
@@ -138,6 +247,8 @@ export function PostFullscreen({ open, label, title, origin, onRequestClose, onS
     const shown = () => {
       /* Arrived: the white ground behind the page is up, so a keyboard or iOS moving the screen never shows the feed. */
       ground.style.opacity = "1"
+      page.style.willChange = ""
+      inner.style.willChange = ""
       done.current.onShown()
     }
     if (reduced() || typeof page.animate !== "function") {
@@ -145,16 +256,17 @@ export function PostFullscreen({ open, label, title, origin, onRequestClose, onS
       return
     }
     const card = cardBox(origin)
-    const pageBox = page.getBoundingClientRect()
-    const bar = topBarPx(inner)
-    const from = card ? insetFor(card.rect, card.radius, pageBox.top, pageBox.height, pageBox.width) : null
-    const shift = card ? card.rect.top - pageBox.top - bar : 0
-    /* The first frame, before anything moves: the card's shape, the post where the card's words are, and see-through over the card. */
-    if (from) {
-      page.style.clipPath = from
-      inner.style.transform = `translateY(${shift}px)`
+    const m = measure()
+    const from = card ? cardShape(card, m.pageTop) : null
+    const frames = from ? morphFrames(from, fullShape(m.W, m.H, m.bar, 0), m.W, m.H, m.bar, 0) : null
+    /* The first frame, before anything moves: on the card, and see-through over it. */
+    page.style.willChange = "translate, scale, opacity"
+    inner.style.willChange = "translate, scale"
+    if (frames) {
+      put(page, { translate: String(frames.page[0].translate), scale: String(frames.page[0].scale) })
+      put(inner, { translate: String(frames.inner[0].translate), scale: String(frames.inner[0].scale) })
     } else {
-      page.style.transform = "translateY(24px)"
+      put(page, { translate: "0px 24px", scale: "1" })
     }
     page.style.opacity = "0"
     scrim.style.opacity = "0"
@@ -165,23 +277,21 @@ export function PostFullscreen({ open, label, title, origin, onRequestClose, onS
     const start = () => {
       if (cancelled || started) return
       started = true
-      page.style.clipPath = ""
-      page.style.transform = ""
+      put(page, null)
       page.style.opacity = ""
-      inner.style.transform = ""
+      put(inner, null)
       scrim.style.opacity = ""
       top.style.opacity = ""
-      const opts: KeyframeAnimationOptions = { duration: OPEN_MS, easing: EASE }
-      if (from) {
-        anims.push(page.animate([{ clipPath: from }, { clipPath: "inset(0px 0px 0px 0px round 0px)" }], opts))
-        anims.push(inner.animate([{ transform: `translateY(${shift}px)` }, { transform: "translateY(0)" }], opts))
-        /* The whole post comes in over the card in the first third, so the card never snaps into it. */
-        anims.push(page.animate([{ opacity: 0 }, { opacity: 1, offset: 0.32 }, { opacity: 1 }], { duration: OPEN_MS, easing: "linear" }))
+      if (frames) {
+        anims.push(page.animate(frames.page, { duration: OPEN_MS, easing: "linear" }))
+        anims.push(inner.animate(frames.inner, { duration: OPEN_MS, easing: "linear" }))
+        /* The post comes in over the card in the first quarter, while the two are still nearly the same box. */
+        anims.push(page.animate([{ opacity: 0 }, { opacity: 1, offset: 0.24 }, { opacity: 1 }], { duration: OPEN_MS, easing: "linear" }))
       } else {
-        anims.push(page.animate([{ opacity: 0, transform: "translateY(24px)" }, { opacity: 1, transform: "translateY(0)" }], opts))
+        anims.push(page.animate([{ opacity: 0, translate: "0px 24px" }, { opacity: 1, translate: "0px 0px" }], { duration: OPEN_MS, easing: EASE }))
       }
       anims.push(scrim.animate([{ opacity: 0 }, { opacity: 1 }], { duration: OPEN_MS, easing: "ease-out" }))
-      anims.push(top.animate([{ opacity: 0 }, { opacity: 1 }], { duration: OPEN_MS * 0.6, delay: OPEN_MS * 0.4, easing: "ease-out", fill: "backwards" }))
+      anims.push(top.animate([{ opacity: 0 }, { opacity: 1 }], { duration: OPEN_MS * 0.5, delay: OPEN_MS * 0.5, easing: "ease-out", fill: "backwards" }))
       anims[0].onfinish = shown
     }
     /* A picture decoding in the middle of the move is a dropped frame: the post's own pictures first, never long. */
@@ -196,12 +306,12 @@ export function PostFullscreen({ open, label, title, origin, onRequestClose, onS
     }
     return () => {
       cancelled = true
-      anims.forEach((a) => a.cancel())
+      anims.forEach((x) => x.cancel())
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  /* ── OUT ── from wherever it is (a swipe's let go included), back into the card. */
+  /* ── OUT ── from wherever it is (mid open, or a swipe's let go), back into the card. */
   useLayoutEffect(() => {
     if (open) return
     closing.current = true
@@ -220,38 +330,37 @@ export function PostFullscreen({ open, label, title, origin, onRequestClose, onS
       end()
       return
     }
-    const now = getComputedStyle(page)
-    const fromTransform = now.transform === "none" ? "translateY(0px)" : now.transform
-    const fromClip = now.clipPath && now.clipPath !== "none" ? now.clipPath : "inset(0px 0px 0px 0px round 0px)"
+    const m = measure()
+    /* Where the page is now: pulled by a swipe, or whole. A close in the middle of the open starts from the whole page. */
+    const dy = pulled.current
+    const now: Shape = dy > 0 ? pulledShape(dy, pullScale(dy, m.H), m.W, m.H, m.bar, m.scrollTop) : fullShape(m.W, m.H, m.bar, m.scrollTop)
     const fromDim = Number(getComputedStyle(scrim).opacity)
+    const fromTop = Number(getComputedStyle(top).opacity)
     if (groundRef.current) groundRef.current.style.opacity = "0"
-    for (const el of [page, inner, scrim, top]) for (const a of el.getAnimations()) a.cancel()
-    page.style.transform = ""
-    page.style.clipPath = ""
-    scrim.style.opacity = ""
+    for (const el of [page, inner, scrim, top]) for (const x of el.getAnimations()) x.cancel()
+    page.style.willChange = "translate, scale, opacity"
+    inner.style.willChange = "translate, scale"
     const card = cardBox(origin)
-    const pageBox = page.getBoundingClientRect()
-    const bar = topBarPx(inner)
-    const opts: KeyframeAnimationOptions = { duration: CLOSE_MS, easing: EASE, fill: "forwards" }
     let main: Animation
     if (card) {
-      const to = insetFor(card.rect, card.radius, pageBox.top, pageBox.height, pageBox.width)
-      main = page.animate([{ transform: fromTransform, clipPath: fromClip }, { transform: "translateY(0px)", clipPath: to }], opts)
-      /* Scrolled down into the comments, the post's top is above the page: brought down to the card's place with the rest. */
-      const shift = card.rect.top - pageBox.top - bar + scroller.scrollTop
-      inner.animate([{ transform: "translateY(0)" }, { transform: `translateY(${shift}px)` }], opts)
+      const frames = morphFrames(now, cardShape(card, m.pageTop), m.W, m.H, m.bar, m.scrollTop)
+      /* The last frame stays on the nodes (fill), so nothing can snap back for a frame before the parent takes it out. */
+      main = page.animate(frames.page, { duration: CLOSE_MS, easing: "linear", fill: "forwards" })
+      inner.animate(frames.inner, { duration: CLOSE_MS, easing: "linear", fill: "forwards" })
+      put(top, null)
       /*
-        THE CARD COMES BACK UNDER IT. The page holds the whole post (every line, every picture) and the card a shorter
-        version of it, so the page gave way to the card in one frame at the end: a snap. Over the last stretch of the
-        move the page fades out over the card, which is already where the page is going.
+        THE CARD COMES BACK UNDER IT. The page holds the whole post and the card a shorter version of it, so over the
+        last stretch the page fades out over the card, which is already where the page is going.
       */
-      page.animate([{ opacity: 1 }, { opacity: 1, offset: 0.55 }, { opacity: 0 }], { duration: CLOSE_MS, easing: "linear", fill: "forwards" })
+      page.animate([{ opacity: 1 }, { opacity: 1, offset: 0.5 }, { opacity: 0 }], { duration: CLOSE_MS, easing: "ease-in", fill: "forwards" })
     } else {
       /* The card is not on screen any more: a short drop from where the page is, and gone. */
-      main = page.animate([{ transform: fromTransform, opacity: 1 }, { transform: `translateY(${pulled.current + 40}px)`, opacity: 0 }], { ...opts, duration: 240 })
+      const f = placement(now, m.W, m.H, m.bar, m.scrollTop)
+      const drop = placement({ ...now, top: now.top + 40, bottom: now.bottom + 40, anchorY: now.anchorY + 40 }, m.W, m.H, m.bar, m.scrollTop)
+      main = page.animate([{ ...f.page, opacity: 1 }, { ...drop.page, opacity: 0 }], { duration: 240, easing: EASE, fill: "forwards" })
     }
-    scrim.animate([{ opacity: fromDim }, { opacity: 0 }], opts)
-    top.animate([{ opacity: 1 }, { opacity: 0 }], { duration: CLOSE_MS * 0.5, easing: "ease-out", fill: "forwards" })
+    scrim.animate([{ opacity: fromDim }, { opacity: 0 }], { duration: CLOSE_MS, easing: EASE, fill: "forwards" })
+    top.animate([{ opacity: fromTop }, { opacity: 0 }], { duration: CLOSE_MS * 0.4, easing: "ease-out", fill: "forwards" })
     main.onfinish = end
     /* A tab in the background draws no frames: it still goes. */
     const t = window.setTimeout(end, CLOSE_MS + 250)
@@ -293,13 +402,19 @@ export function PostFullscreen({ open, label, title, origin, onRequestClose, onS
     let atTop = false
     let atEnd = false
     let frozenOverflow = ""
+    /* One move for the page and the bar over it, per touch move: the compositor's, nothing repainted. */
+    const pullMove = (dy: number): Move => {
+      const s = pullScale(dy, page.offsetHeight || window.innerHeight)
+      return { translate: `${((page.offsetWidth || window.innerWidth) * (1 - s)) / 2}px ${dy}px`, scale: String(s) }
+    }
     const set = (dy: number) => {
       pulled.current = dy
       const h = page.offsetHeight || window.innerHeight
       const p = Math.min(1, dy / h)
-      page.style.transform = `translateY(${dy}px)`
-      page.style.clipPath = `inset(0px 0px 0px 0px round ${Math.min(28, dy / 5)}px)`
-      scrim.style.opacity = String(1 - p * 1.2)
+      const mv = pullMove(dy)
+      put(page, mv)
+      put(topRef.current, mv)
+      scrim.style.opacity = String(Math.max(0, 1 - p * 1.2))
     }
     const onStart = (e: TouchEvent) => {
       if (closing.current || e.touches.length > 1) {
@@ -334,8 +449,10 @@ export function PostFullscreen({ open, label, title, origin, onRequestClose, onS
           if (groundRef.current) groundRef.current.style.opacity = "0"
           frozenOverflow = scroller.style.overflowY
           scroller.style.overflowY = "hidden"
-          page.style.willChange = "transform"
+          page.style.willChange = "translate, scale"
           for (const a of page.getAnimations()) a.cancel()
+          for (const a of innerRef.current?.getAnimations() ?? []) a.cancel()
+          put(innerRef.current, null)
         } else {
           /* At the end of the comments, a push further is refused, so it cannot scroll the feed under the page. */
           if (dy < 0 && atEnd && e.cancelable) e.preventDefault()
@@ -366,15 +483,18 @@ export function PostFullscreen({ open, label, title, origin, onRequestClose, onS
       }
       /* Back up, at about the speed it was let go. */
       const from = pulled.current
+      const fromMove = pullMove(from)
       pulled.current = 0
-      page.style.transform = ""
-      page.style.clipPath = ""
+      put(page, null)
+      put(topRef.current, null)
       scrim.style.opacity = ""
       if (reduced() || typeof page.animate !== "function") {
         if (groundRef.current) groundRef.current.style.opacity = "1"
         return
       }
-      page.animate([{ transform: `translateY(${from}px)`, clipPath: `inset(0px 0px 0px 0px round ${Math.min(28, from / 5)}px)` }, { transform: "translateY(0px)", clipPath: "inset(0px 0px 0px 0px round 0px)" }], { duration: 300, easing: EASE })
+      const springBack: Keyframe[] = [{ ...fromMove }, { ...REST }]
+      page.animate(springBack, { duration: 300, easing: EASE })
+      topRef.current?.animate(springBack, { duration: 300, easing: EASE })
       const back = scrim.animate([{ opacity: Math.max(0, 1 - (from / (page.offsetHeight || 1)) * 1.2) }, { opacity: 1 }], { duration: 300, easing: EASE })
       back.onfinish = () => {
         if (!closing.current && groundRef.current) groundRef.current.style.opacity = "1"
@@ -417,7 +537,7 @@ export function PostFullscreen({ open, label, title, origin, onRequestClose, onS
         aria-modal="true"
         aria-label={label}
         data-post-overlay="phone"
-        className="absolute inset-x-0 top-[var(--vv-top,0px)] flex h-[var(--vv-h,100dvh)] flex-col overflow-hidden bg-white"
+        className="absolute inset-x-0 top-[var(--vv-top,0px)] flex h-[var(--vv-h,100dvh)] origin-top-left flex-col overflow-hidden bg-white"
       >
         <div
           ref={scrollRef}
@@ -425,34 +545,33 @@ export function PostFullscreen({ open, label, title, origin, onRequestClose, onS
           data-sheet-scroll=""
           className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain [-webkit-overflow-scrolling:touch]"
         >
-          <div ref={innerRef} className="flex min-h-full flex-col" style={{ paddingTop: `calc(max(env(safe-area-inset-top, 0px), 12px) + ${BAR_PX}px)` }}>
+          <div ref={innerRef} className="flex min-h-full origin-top-left flex-col" style={{ paddingTop: `calc(max(env(safe-area-inset-top, 0px), 12px) + ${BAR_PX}px)` }}>
             <div ref={contentRef} className="flex min-h-full flex-1 flex-col bg-white" data-post-overlay-phase="">
               {children}
             </div>
           </div>
         </div>
-
-        {/* THE TOP: a soft blur under the status bar once the post moves, and the way back. */}
-        <div ref={topRef} className="pointer-events-none absolute inset-x-0 top-0 z-[5]" style={{ height: `calc(max(env(safe-area-inset-top, 0px), 12px) + ${BAR_PX + 18}px)` }}>
-          <div
-            ref={blurRef}
-            aria-hidden
-            className="absolute inset-0 bg-white/60 backdrop-blur-[6px] [-webkit-backdrop-filter:blur(6px)] [mask-image:linear-gradient(to_bottom,#000_40%,rgba(0,0,0,0.6)_70%,transparent)] [-webkit-mask-image:linear-gradient(to_bottom,#000_40%,rgba(0,0,0,0.6)_70%,transparent)]"
-            style={{ opacity: 0 }}
-            data-post-fullscreen-blur=""
-          />
-          <div className="relative flex items-center px-3" style={{ height: BAR_PX, marginTop: "max(env(safe-area-inset-top, 0px), 12px)" }}>
-            <button
-              type="button"
-              aria-label="Back"
-              onClick={() => done.current.onRequestClose()}
-              className="pointer-events-auto flex h-10 w-10 touch-manipulation items-center justify-center rounded-full border border-[#e6e8eb] bg-white/85 text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.08),0_4px_12px_-6px_rgba(16,24,40,0.18)] outline-none backdrop-blur-md transition-[background-color,opacity] duration-150 active:bg-[#f1f2f4] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 [-webkit-tap-highlight-color:transparent]"
-              data-post-overlay-close=""
-            >
-              <ChevronLeft className="h-[22px] w-[22px] -translate-x-px" strokeWidth={2.2} />
-            </button>
-            <span className="pointer-events-none absolute inset-x-16 truncate text-center text-[16px] font-semibold text-[#1a1a2e]">{title}</span>
-          </div>
+      </div>
+      {/* THE TOP: a soft blur under the status bar once the post moves, and the way back. Beside the page, not in it, so the morph's scale never squeezes it; a swipe moves it with the page. */}
+      <div ref={topRef} className="pointer-events-none absolute inset-x-0 top-[var(--vv-top,0px)] z-[5] origin-top-left" style={{ height: `calc(max(env(safe-area-inset-top, 0px), 12px) + ${BAR_PX + 18}px)` }}>
+        <div
+          ref={blurRef}
+          aria-hidden
+          className="absolute inset-0 bg-white/60 backdrop-blur-[6px] [-webkit-backdrop-filter:blur(6px)] [mask-image:linear-gradient(to_bottom,#000_40%,rgba(0,0,0,0.6)_70%,transparent)] [-webkit-mask-image:linear-gradient(to_bottom,#000_40%,rgba(0,0,0,0.6)_70%,transparent)]"
+          style={{ opacity: 0 }}
+          data-post-fullscreen-blur=""
+        />
+        <div className="relative flex items-center px-3" style={{ height: BAR_PX, marginTop: "max(env(safe-area-inset-top, 0px), 12px)" }}>
+          <button
+            type="button"
+            aria-label="Back"
+            onClick={() => done.current.onRequestClose()}
+            className="pointer-events-auto flex h-10 w-10 touch-manipulation items-center justify-center rounded-full border border-[#e6e8eb] bg-white/85 text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.08),0_4px_12px_-6px_rgba(16,24,40,0.18)] outline-none backdrop-blur-md transition-[background-color,opacity] duration-150 active:bg-[#f1f2f4] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 [-webkit-tap-highlight-color:transparent]"
+            data-post-overlay-close=""
+          >
+            <ChevronLeft className="h-[22px] w-[22px] -translate-x-px" strokeWidth={2.2} />
+          </button>
+          <span className="pointer-events-none absolute inset-x-16 truncate text-center text-[16px] font-semibold text-[#1a1a2e]">{title}</span>
         </div>
       </div>
     </div>,
