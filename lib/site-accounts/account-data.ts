@@ -237,7 +237,11 @@ export async function customerOrders(db: Db, scope: { creatorId: string; email: 
     )
     const physical = types.some((t) => t === "physical")
     const open = state === "open"
-    const action_label = !open
+    /* An order that ships is followed on its own page: status, carrier and tracking (app/checkout/physical/order), the way a shop's own account does it. */
+    const shipsOnly = physical && types.every((t) => t === "physical")
+    const action_label = shipsOnly
+      ? "Track order"
+      : !open
       ? "View order"
       : types.some((t) => t === "digital" || t === null)
         ? "Download"
@@ -259,7 +263,7 @@ export async function customerOrders(db: Db, scope: { creatorId: string; email: 
         items,
         item_count: items.length,
         action_label,
-        action_url: token ? `${platform}/receipt/${encodeURIComponent(token)}` : "",
+        action_url: token ? `${platform}/${shipsOnly ? "checkout/physical/order" : "receipt"}/${encodeURIComponent(token)}` : "",
         title: label,
         image: items.find((i) => i.image)?.image ?? "",
         url: items[0]?.url ?? "",

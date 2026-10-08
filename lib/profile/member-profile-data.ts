@@ -67,6 +67,7 @@ async function storefrontProducts(creatorId: string): Promise<{ items: MemberSto
       .select("id, title, slug, thumbnail_url, price_cents, pay_what_you_want, pwyw_min_price_cents, type", { count: "exact" })
       .eq("creator_id", creatorId)
       .eq("status", "published")
+      .neq("type", "physical")
     if (exclude) q = q.is("community_id", null)
     return q.order("created_at", { ascending: false }).limit(8)
   })

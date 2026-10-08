@@ -39,6 +39,7 @@ const SUITES = [
   "tests/agent-brain.test.ts",
   "tests/agent-intent.test.ts",
   "tests/site-media.test.ts",
+  "tests/physical-separation.test.ts",
   "tests/section-integration.test.ts",
   "tests/section-framework-t.test.ts",
   "tests/shopify-parity-u.test.ts",

@@ -220,7 +220,9 @@ async function main() {
     check("Ana on B sees B's order only", anaOnB.length === 1 && anaOnB[0].items[0].title === "Oak spoon")
     const sneaky = await customerOrders(db, { creatorId: A, email: "%@mail.test" }, "https://storelib.com")
     check("a wildcard in an email matches nobody's orders", sneaky.length === 0)
-    check("the download is the order's own receipt on storelib.com", anaOnA.every((o) => o.action_url.startsWith("https://storelib.com/receipt/tok-0a")))
+    const ships = (o: (typeof anaOnA)[number]) => o.items.every((i) => i.title === "Wash bag")
+    check("the download is the order's own receipt on storelib.com", anaOnA.filter((o) => !ships(o)).every((o) => o.action_url.startsWith("https://storelib.com/receipt/tok-0a")))
+    check("an order that ships is followed on its own order page, with tracking, as a shop's account does", anaOnA.filter(ships).length > 0 && anaOnA.filter(ships).every((o) => o.action_url.startsWith("https://storelib.com/checkout/physical/order/tok-0a") && o.action_label === "Track order"), anaOnA.map((o) => `${o.items.map((i) => i.title).join("+")} ${o.action_label} ${o.action_url}`).join(" | "))
 
     const addresses = await customerAddresses(db, { creatorId: A, email: ANA })
     check("her addresses on A: the one her A orders went to, once", addresses.length === 1 && addresses[0].lines.join(" | ") === "Ana Pop | 9 Elm Row | Cluj, CJ 400000 | Romania", addresses)

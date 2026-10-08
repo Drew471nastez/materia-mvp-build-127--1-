@@ -186,7 +186,7 @@ export async function quickSearch(client: Client, query: string, opts: { communi
   const ordinary = (q: any, exclude: boolean) => (exclude ? q.is("community_id", null) : q)
   const [byText, byCreator] = await Promise.all([
     excludingCommunityProducts<{ data: Row[] | null; error: unknown }>((exclude) =>
-      ordinary(client.from("products").select(SELECT).or(`title.ilike.%${term}%,description.ilike.%${term}%`).eq("status", "published"), exclude).limit(PRODUCT_LIMIT + 2),
+      ordinary(client.from("products").select(SELECT).or(`title.ilike.%${term}%,description.ilike.%${term}%`).eq("status", "published").neq("type", "physical"), exclude).limit(PRODUCT_LIMIT + 2),
     ),
     excludingCommunityProducts<{ data: Row[] | null; error: unknown }>((exclude) =>
       ordinary(
@@ -194,7 +194,8 @@ export async function quickSearch(client: Client, query: string, opts: { communi
           .from("products")
           .select(SELECT)
           .or(`display_name.ilike.%${term}%,username.ilike.%${term}%,slug.ilike.%${term}%`, { referencedTable: "creators" })
-          .eq("status", "published"),
+          .eq("status", "published")
+          .neq("type", "physical"),
         exclude,
       ).limit(12),
     ),

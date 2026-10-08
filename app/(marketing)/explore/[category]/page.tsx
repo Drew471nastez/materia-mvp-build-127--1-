@@ -122,6 +122,7 @@ export default async function CategoryPage({ params, searchParams }: Props) {
       .from("products")
       .select("id, title, slug, description, price_cents, compare_at_cents, pay_what_you_want, pwyw_min_price_cents, thumbnail_url, type, category, creator_id, created_at, sales_count, reviews_count, reviews_average")
       .eq("status", "published")
+      .neq("type", "physical")
     if (exclude) q = q.is("community_id", null)
     return q.order("created_at", { ascending: false }).limit(100)
   })

@@ -42,7 +42,13 @@ export async function getLibraryExtras(userId: string, db?: Db): Promise<Library
       admin.from("creators").select("id").eq("user_id", userId).maybeSingle(),
     ])
 
-    const rawOrders = (ordersRes?.error ? [] : ordersRes?.data ?? []) as Array<ExtrasOrder & { product?: any }>
+    /*
+      AN ORDER THAT SHIPS IS NOT A LIBRARY ITEM. It is followed on its own
+      order page (status, carrier, tracking) and in the customer account on
+      the shop's website, the way Shopify does it; the Library is what was
+      bought to download, watch or join.
+    */
+    const rawOrders = ((ordersRes?.error ? [] : ordersRes?.data ?? []) as Array<ExtrasOrder & { product?: any }>).filter((o) => o.product?.type !== "physical")
     const reviews = (reviewsRes?.error ? [] : reviewsRes?.data ?? []) as ExtrasReview[]
     const ownCreatorId: string | null = ownRes?.data?.id ?? null
 

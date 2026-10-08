@@ -233,7 +233,7 @@ async function productSource(db: Db, creatorId: string, handle: string | null, a
   const fetch = limit + 1
   type Row = { id: string; title: string | null; slug: string | null; thumbnail_url: string | null; created_at: string }
   const base = (exclude: boolean) => {
-    let q = db.from("products").select("id, title, slug, thumbnail_url, created_at").eq("creator_id", creatorId).eq("status", "published")
+    let q = db.from("products").select("id, title, slug, thumbnail_url, created_at").eq("creator_id", creatorId).eq("status", "published").neq("type", "physical")
     if (exclude) q = q.is("community_id", null)
     return keyset(q, "pr", after).order("created_at", { ascending: false }).order("id", { ascending: false }).limit(fetch)
   }

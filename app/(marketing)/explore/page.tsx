@@ -107,7 +107,7 @@ type Supabase = Awaited<ReturnType<typeof createClient>>
 async function readCatalog(supabase: Supabase, searchQuery: string): Promise<any[]> {
   const read = (columns: string) =>
     excludingCommunityProducts((exclude) => {
-      let query = supabase.from("products").select(columns).eq("status", "published")
+      let query = supabase.from("products").select(columns).eq("status", "published").neq("type", "physical")
       /* A product that sells a community tier is found through its community, not in this list (lib/communities/listing). */
       if (exclude) query = query.is("community_id", null)
       query = query.order("created_at", { ascending: false }).limit(100)

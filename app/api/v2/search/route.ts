@@ -69,6 +69,7 @@ export async function GET(request: Request) {
         .from("products")
         .select("*, creator:creators(id, slug, display_name, avatar_url)")
         .eq("status", "published")
+        .neq("type", "physical")
         .or(`title.ilike.%${query}%,description.ilike.%${query}%`)
         .limit(limit)
 
@@ -94,6 +95,8 @@ export async function GET(request: Request) {
     } else {
       results = Array.isArray(ftsResults) ? ftsResults : []
     }
+    /* Physical products are sold on the creator's own website, not found in Storelib's search. */
+    results = results.filter((r) => (r as { type?: unknown } | null)?.type !== "physical")
 
     return NextResponse.json({
       results,
