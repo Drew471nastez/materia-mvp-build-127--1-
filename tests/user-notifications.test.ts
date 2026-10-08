@@ -221,11 +221,12 @@ async function main() {
   check("joins realtime only when the publication is there and ours", /FROM pg_publication WHERE pubname = 'supabase_realtime'[\s\S]*pg_has_role\(current_user, v_owner, 'MEMBER'\)[\s\S]*ALTER PUBLICATION supabase_realtime ADD TABLE public\.user_notifications/.test(sql))
 
   console.log("\nThe job queue keeps every kind and takes two more")
-  const kinds = sql.match(/ALTER TABLE public\.community_jobs DROP CONSTRAINT IF EXISTS community_jobs_kind_check, ADD CONSTRAINT community_jobs_kind_check CHECK \(kind IN \(([^)]+)\)\);/)?.[1] ?? ""
+  const kinds = sql.match(/ALTER TABLE public\.community_jobs DROP CONSTRAINT IF EXISTS community_jobs_kind_check, ADD CONSTRAINT community_jobs_kind_check CHECK \(kind IN \(([^)]+)\)\)(?: NOT VALID)?;/)?.[1] ?? ""
   const p81 = read("supabase/sql/run-now/81_communities.sql").match(/CONSTRAINT community_jobs_kind_check CHECK \(kind IN \(([^)]+)\)\)/)?.[1] ?? ""
   check("every kind part 81 allowed is still allowed", p81.length > 0 && p81.split(", ").every((k) => kinds.split(", ").includes(k)), p81)
-  /* Part 86 (push_digest, tests/push-bridge.test.ts) is the newest CHECK; this one is every kind JOB_KINDS had then. */
-  check("the CHECK and JOB_KINDS are the same list, push_digest apart (part 86 adds it)", kinds === JOB_KINDS.filter((k) => k !== "push_digest").map((k) => `'${k}'`).join(", "), kinds)
+  /* The whole list, push_digest included: run again after part 86, a shorter one refused the rows 86 had queued. NOT VALID so an old row is never re-checked. */
+  check("the CHECK is JOB_KINDS exactly, so running it again after part 86 keeps push_digest", kinds === JOB_KINDS.map((k) => `'${k}'`).join(", "), kinds)
+  check("  and it is NOT VALID, so rows already queued are never re-checked", /ADD CONSTRAINT community_jobs_kind_check CHECK \(kind IN \([^)]+\)\) NOT VALID;/.test(sql))
   check("fanout_followers and fanout_membership_post are platform kinds (and push_digest, part 86)", PLATFORM_JOB_KINDS.join() === "fanout_followers,fanout_membership_post,push_digest" && PLATFORM_JOB_KINDS.every((k) => (JOB_KINDS as readonly string[]).includes(k)))
 
   console.log("\nProfiles, follows, communities")
