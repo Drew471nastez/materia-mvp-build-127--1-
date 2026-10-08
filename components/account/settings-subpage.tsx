@@ -128,33 +128,28 @@ function SettingsLayer({ section, data, onClose }: { section: SettingsSection; d
   const panel = useRef<HTMLDivElement>(null)
   const closing = useRef(false)
   const closed = useRef(false)
-  const slidIn = useRef(false)
   const bodyOverflow = useRef("")
-
-  const slideIn = () => {
-    if (slidIn.current) return
-    slidIn.current = true
-    const el = panel.current
-    if (!el || typeof el.animate !== "function") return
-    el.style.transform = "translate3d(100%, 0, 0)"
-    el.animate([{ transform: "translate3d(100%, 0, 0)" }, { transform: "translate3d(0, 0, 0)" }], { duration: IN_MS, easing: EASE, fill: "forwards" })
-  }
 
   useLayoutEffect(() => {
     const html = document.documentElement
+    const el = panel.current
     html.setAttribute("data-app-sheet-up", "open")
     bodyOverflow.current = document.body.style.overflow
     document.body.style.overflow = "hidden"
-    if (data) slideIn()
+    if (!el || typeof el.animate !== "function") return
+    el.style.transform = "translate3d(100%, 0, 0)"
+    requestAnimationFrame(() => {
+      el.animate([{ transform: "translate3d(100%, 0, 0)" }, { transform: "translate3d(0, 0, 0)" }], {
+        duration: IN_MS,
+        easing: EASE,
+        fill: "forwards",
+      })
+    })
     return () => {
       html.removeAttribute("data-app-sheet-up")
       document.body.style.overflow = bodyOverflow.current
     }
   }, [])
-
-  useLayoutEffect(() => {
-    if (data) slideIn()
-  }, [data])
 
   const close = () => {
     if (closing.current || closed.current) return
@@ -173,20 +168,18 @@ function SettingsLayer({ section, data, onClose }: { section: SettingsSection; d
       return
     }
     const a = el.animate(
-      [
-        { transform: "translate3d(0, 0, 0)", opacity: 1 },
-        { transform: "translate3d(100%, 0, 0)", opacity: 0.98 },
-      ],
+      [{ transform: "translate3d(0, 0, 0)" }, { transform: "translate3d(100%, 0, 0)" }],
       { duration: OUT_MS, easing: EASE, fill: "forwards" },
     )
-    a.onfinish = finish
-    window.setTimeout(finish, OUT_MS + 100)
+    a.onfinish = () => finish()
+    a.oncancel = () => finish()
+    window.setTimeout(() => finish(), OUT_MS + 150)
   }
 
   return (
     <div
       ref={panel}
-      className="fixed inset-0 overflow-y-auto overflow-x-hidden bg-white overscroll-contain"
+      className="fixed inset-0 flex flex-col overflow-hidden bg-white overscroll-contain"
       data-edit-profile-sheet=""
       data-settings-subpage=""
       role="dialog"
@@ -198,21 +191,26 @@ function SettingsLayer({ section, data, onClose }: { section: SettingsSection; d
         willChange: "transform",
         zIndex: ACCOUNT_SETTINGS_SHEET_Z,
         paddingTop: "env(safe-area-inset-top)",
-        paddingBottom: "env(safe-area-inset-bottom)",
       }}
     >
-      <div className="px-4 pb-6 pt-3 sm:px-6" data-settings-sheet-body="">
-        {data ? (
-          <AccountSettings {...data} initialSection={section} onBack={close} />
-        ) : (
-          <>
-            <BackControl fallback="/account" label="Back to profile" onBack={close} className="h-11 w-11 rounded-[10px]" />
-            <div className="flex min-h-[min(52vh,420px)] items-center justify-center" aria-busy="true">
-              <PageSpinner />
-            </div>
-          </>
-        )}
+      <div
+        className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain"
+        data-settings-sheet-scroll=""
+      >
+        <div className="px-4 pb-8 pt-3 sm:px-6" data-settings-sheet-body="">
+          {data ? (
+            <AccountSettings {...data} initialSection={section} onBack={close} />
+          ) : (
+            <>
+              <BackControl fallback="/account" label="Back to profile" onBack={close} className="h-11 w-11 rounded-[10px]" />
+              <div className="flex min-h-[min(52vh,420px)] items-center justify-center" aria-busy="true">
+                <PageSpinner />
+              </div>
+            </>
+          )}
+        </div>
       </div>
+      <div data-sheet-save-dock="" className="shrink-0 pb-[env(safe-area-inset-bottom,0px)]" />
     </div>
   )
 }
