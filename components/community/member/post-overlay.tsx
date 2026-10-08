@@ -147,7 +147,7 @@ export function PostOverlay({ post: given, slug, viewer, readOnly = false, updat
     hear the address change), and that work belongs after the slide, not in
     its first frames.
   */
-  useHistoryLayer(history, close, postPath(slug, given))
+  useHistoryLayer(history, close, postPath(slug, given), open)
 
   /* The comments are asked for now, while the post slides in; they are drawn once it has. */
   useEffect(() => {
@@ -221,16 +221,19 @@ export function PostOverlay({ post: given, slug, viewer, readOnly = false, updat
     after it, the page's restyle landed on the second frame of the move, 50ms at 4x CPU). On a computer the page's scrollbar
     stays where it is (THE PAGE NEVER SHIFTS): the panel takes the wheel over the scrim (PostPanel).
   */
+  /*
+    NO OVERFLOW LOCK ON <html>. It was `overflow: hidden` on the document for as long as the sheet was up, and on iOS a document
+    whose overflow is turned off and back on keeps its scroll view stuck for a moment after: the feed would not move for a few
+    seconds after a swipe down closed a post (the pull to refresh found the same and stopped doing it, hooks/use-pull-
+    to-refresh.ts). Nothing needs it: the sheet covers the page, its scrim refuses a drag (bottom-sheet.tsx), and its own
+    scroller does not chain. Only the overscroll is held, so a pull past the sheet's top cannot become the browser's Back.
+  */
   useLayoutEffect(() => {
     if (!phone) return
     const html = document.documentElement
-    const prev = html.style.overflow
     const prevOverscroll = html.style.overscrollBehavior
-    html.style.overflow = "hidden"
-    /* A scroll that runs past the sheet must not chain into the page or the browser's Back. */
     html.style.overscrollBehavior = "none"
     return () => {
-      html.style.overflow = prev
       html.style.overscrollBehavior = prevOverscroll
     }
   }, [phone])
@@ -445,6 +448,8 @@ function PostPanel({
           role="dialog"
           aria-modal="true"
           aria-label={title || "Post"}
+          /* A sheet's mark: the document's `:has([role=dialog][aria-modal])` rules leave it out, so opening and closing a post no longer restyles the whole page. */
+          data-sheet-root=""
           data-post-overlay="panel"
           data-post-overlay-phase={phase}
           className={`relative flex max-h-[calc(100dvh-72px)] w-full max-w-[760px] flex-col self-start overflow-hidden rounded-2xl border border-[#e5e7eb]/80 bg-white shadow-[0_24px_64px_-20px_rgba(17,24,39,0.35),0_2px_8px_rgba(17,24,39,0.06)] ${live ? "pointer-events-auto" : "pointer-events-none"}`}

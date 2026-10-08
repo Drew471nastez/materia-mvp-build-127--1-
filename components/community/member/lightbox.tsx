@@ -71,13 +71,20 @@ export function isHistoryLayerRestoring(): boolean {
   return historyLayerRestoring
 }
 
-export function useHistoryLayer(open: boolean, onClose: () => void, url?: string | null): void {
+/**
+ * `stillOpen`: whether the layer is still on screen as far as its owner is concerned. The entry is stepped back over when the
+ * layer goes away after its owner closed it. Both callers passed `true` as `open` for their whole life, so `openRef` was always
+ * true, the step back never ran, and every post or picture opened left a stale entry behind: the address stayed on the post
+ * after it closed, and Back walked through posts already closed (reloading the feed under them). The owner's own open state,
+ * passed here, is what tells a close (step back) from the page leaving on its own (leave the history alone).
+ */
+export function useHistoryLayer(open: boolean, onClose: () => void, url?: string | null, stillOpen?: boolean): void {
   const close = useRef(onClose)
   useEffect(() => {
     close.current = onClose
   })
   const openRef = useRef(open)
-  openRef.current = open
+  openRef.current = stillOpen ?? open
   useEffect(() => {
     if (!open || typeof window === "undefined") return
     const marker = `layer-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
@@ -333,7 +340,7 @@ export function Lightbox({
     stage.animate([{ opacity: 1, ...fromP }, { opacity: 0, ...(down ? pose(0, Math.max(drag.current.y, 0) + 160, 0.9) : pose(0, 0, 0.96)) }], { duration: CLOSE_MS, easing: SHEET_CLOSE_EASE }).onfinish = end
   }, [])
 
-  useHistoryLayer(true, finish)
+  useHistoryLayer(true, finish, null, phase !== "closing")
 
   /* The way in: out of the thumbnail, from the very first frame. */
   useLayoutEffect(() => {

@@ -80,10 +80,15 @@ const FADE_MS = 250
 /** Pictures this tab has already drawn: remounts and space switches stay opaque. */
 const painted = new Set<string>()
 
-function preloadPicture(url: string) {
+function preloadPicture(url: string, srcSet?: string, sizes?: string) {
   if (!url || typeof window === "undefined") return
   const img = new Image()
   img.decoding = "async"
+  /* The same srcset and sizes the opened post draws with, so the browser picks the same file and it is in the cache when the sheet rises. */
+  if (srcSet && sizes) {
+    img.sizes = sizes
+    img.srcset = srcSet
+  }
   img.src = url
   void img.decode().catch(() => undefined)
 }
@@ -92,17 +97,19 @@ function preloadPicture(url: string) {
 export function warmPostMedia(media: PostMedia[], communityId: string, postId: string) {
   if (typeof window === "undefined" || !media.length) return
   const items = viewerItems(media).filter((i) => i.kind !== "embed")
-  for (const item of items.slice(0, 6)) {
+  items.slice(0, 6).forEach((item, i) => {
+    /* The first picture is drawn at the post's full width, the rest half of it (PostMediaGrid's fits). */
+    const fit = SIZES[i === 0 || items.length === 1 ? "single" : "half"]
     if (item.kind === "image") {
-      const url = item.raw ? item.url : optimizedImageUrl(item.url, 720)
-      preloadPicture(url)
+      if (item.raw) preloadPicture(item.url)
+      else preloadPicture(optimizedImageUrl(item.url, fit.display), optimizedSrcSet(item.url, fit.widths), fit.sizes)
     } else if (item.kind === "gif") {
       preloadPicture(item.still)
       preloadPicture(item.url)
     } else if (item.kind === "video" && item.poster) {
-      preloadPicture(optimizedImageUrl(item.poster, 720))
+      preloadPicture(optimizedImageUrl(item.poster, fit.display), optimizedSrcSet(item.poster, fit.widths), fit.sizes)
     }
-  }
+  })
   for (const f of media.filter((m): m is Extract<PostMedia, { type: "file" }> => m.type === "file").slice(0, 2)) {
     const kind = mediaKindOf(f.name)
     if (kind === "image") preloadPicture(`${apiBase(communityId)}/posts/${postId}/files/${f.assetId}`)
@@ -179,7 +186,8 @@ export function SoftImg({
         height={height}
         alt={alt}
         loading={eager ? "eager" : "lazy"}
-        decoding={eager ? "sync" : "async"}
+        /* A picture already drawn decodes with the frame it is painted in: a card scrolled away and back (content-visibility skips it while it is off screen) does not show an empty box for a frame. */
+        decoding={eager || state === "cached" ? "sync" : "async"}
         fetchPriority={fetchPriority}
         referrerPolicy={referrerPolicy}
         onLoad={() => {
@@ -237,39 +245,51 @@ function watchOnScreen(el: Element, cb: (on: boolean) => void): () => void {
   }
 }
 
+/** Moving files already fetched in this tab: coming back on screen, the swap is the same frame. */
+const motionLoaded = new Set<string>()
+
 export function GifImg({ still, motion, className = "", alt = "", width, height, eager = false }: { still: string; motion: string; className?: string; alt?: string; width?: number; height?: number; eager?: boolean }) {
   const ref = useRef<HTMLImageElement>(null)
-  const [moving, setMoving] = useState(false)
-  const [motionReady, setMotionReady] = useState(false)
+  /* On screen (or eager), and whether the moving file has arrived. */
+  const [wanted, setWanted] = useState(false)
+  const [motionReady, setMotionReady] = useState(() => motionLoaded.has(motion))
   useEffect(() => {
-    if (!eager || !motion || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
+    const el = ref.current
+    if (!el || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
+    if (eager) {
+      setWanted(true)
+      return
+    }
+    return watchOnScreen(el, setWanted)
+  }, [eager])
+  /*
+    THE STILL STAYS UNTIL THE MOVING FILE IS HERE. The <img> used to take the moving file's address the moment it came on
+    screen, and while that loaded the box was empty: every GIF blinked as the feed scrolled onto it. It is fetched beside the
+    still now and swapped in once it has arrived, and once fetched it is swapped at once every time after.
+  */
+  useEffect(() => {
+    if (!wanted || !motion || motionReady) return
     const img = new Image()
     img.src = motion
-    const done = () => setMotionReady(true)
-    if (img.complete) done()
+    const done = () => {
+      motionLoaded.add(motion)
+      setMotionReady(true)
+    }
+    if (img.complete && img.naturalWidth > 0) done()
     else {
       img.onload = done
-      img.onerror = done
+      img.onerror = () => setMotionReady(false)
     }
     return () => {
       img.onload = null
       img.onerror = null
     }
-  }, [eager, motion])
-  useEffect(() => {
-    const el = ref.current
-    if (!el) return
-    if (eager) {
-      if (motionReady) setMoving(true)
-      return
-    }
-    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
-    return watchOnScreen(el, setMoving)
-  }, [eager, motionReady])
-  const src = moving && (eager ? motionReady : true) ? motion : still
+  }, [wanted, motion, motionReady])
+  const moving = wanted && motionReady
+  const src = moving ? motion : still
   return (
     // eslint-disable-next-line @next/next/no-img-element
-    <img ref={ref} src={src} alt={alt} width={width} height={height} loading={eager ? "eager" : "lazy"} decoding={eager ? "sync" : "async"} referrerPolicy="no-referrer" className={`${className} ${SDR}`} data-gif-state={moving ? "playing" : "paused"} />
+    <img ref={ref} src={src} alt={alt} width={width} height={height} loading={eager ? "eager" : "lazy"} decoding={eager || moving ? "sync" : "async"} referrerPolicy="no-referrer" className={`${className} ${SDR}`} data-gif-state={moving ? "playing" : "paused"} />
   )
 }
 

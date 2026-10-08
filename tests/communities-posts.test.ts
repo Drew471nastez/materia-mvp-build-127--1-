@@ -265,7 +265,7 @@ async function main() {
   check("pressing the card opens the post over the feed; links and buttons inside do their own thing", /onClick=\{openPost\}/.test(card) && /closest\("a, button, input, textarea, select, label/.test(card) && /<PostOverlay/.test(card))
   check("a press with a modifier key is a plain link", /e\.metaKey \|\| e\.ctrlKey \|\| e\.shiftKey \|\| e\.altKey/.test(card))
   const overlay = code("components/community/member/post-overlay.tsx")
-  check("the opened post takes the post's own address without loading a page; Back closes it", /useHistoryLayer\(history, close, postPath\(slug, given\)\)/.test(overlay))
+  check("the opened post takes the post's own address without loading a page; Back closes it", /* Changed on purpose: the overlay's own open state, so the entry is stepped back over once it has closed. */ /useHistoryLayer\(history, close, postPath\(slug, given\), open\)/.test(overlay))
   /* Round 9 changed this on purpose (the owner asked): the phone's sheet is the app's own draggable one. */
   check("the opened post: a panel on a computer, the app's draggable sheet on a phone", /data-post-overlay="panel"/.test(overlay) && /data-post-overlay="phone"/.test(overlay) && /<BottomSheet\s[\s\S]{0,200}isOpen=\{open\}/.test(overlay))
   check("it reads the comments itself and passes changes to the card underneath", /<CommentsSection\s+post=\{post\}\s+slug=\{slug\}\s+viewer=\{viewer\}\s+initial=\{null\}/.test(overlay) && /update\(id, fn\)/.test(overlay))
@@ -402,7 +402,7 @@ async function main() {
   check("Back is one step of history for as long as it is on screen; stepping back waits until it has gone", /useHistoryLayer\(history, close,/.test(overlay9) && /onClosed=\{onGone\}/.test(overlay9))
   check("closing does not draw the post and its comments again", /const OverlayContent = memo\(function OverlayContent/.test(overlay9))
   const comments9 = code("components/community/member/comments.tsx")
-  check("comments are asked for when the card is pressed and when the post opens, once", /onPointerDown=\{[\s\S]{0,200}readAheadComments\(post\.communityId, post\.id\)/.test(card9) && /void readAheadComments\(given\.communityId, given\.id\)/.test(overlay9) && /if \(have\?\.promise\) return have\.promise/.test(comments9))
+  check("comments are asked for when the card is pressed and when the post opens, once", /onPointerDown=\{[\s\S]{0,360}readAheadComments\(post\.communityId, post\.id\)/.test(card9) && /void readAheadComments\(given\.communityId, given\.id\)/.test(overlay9) && /if \(have\?\.promise\) return have\.promise/.test(comments9))
   check("their room is kept from the post's count, still (no shimmer), and they fade into it", /export function commentsRoom\(expected: number\)/.test(comments9) && /<CommentsPlaceholder expected=\{post\.commentCount\} \/>/.test(overlay9) && /expected=\{post\.commentCount\}\s+fadeIn/.test(overlay9) && /animate-in fade-in-0 duration-200/.test(comments9) && !/animate-pulse/.test(comments9))
   const composer9 = code("components/community/member/composer.tsx")
   check("EDITOR: the phone's screen slides as a Web Animation on the app's sheet curves, from its first frame", /el\.animate\(\[\{ translate: "0 100%" \}, \{ translate: "0 0" \}\], \{ duration: SHEET_OPEN_MS, easing: SHEET_EASE \}\)/.test(composer9) && /duration: SHEET_CLOSE_MS, easing: SHEET_CLOSE_EASE/.test(composer9) && !/transition: "translate 280ms/.test(composer9))

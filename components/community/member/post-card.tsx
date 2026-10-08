@@ -336,6 +336,8 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
   /* The card opens its post over the feed; a link or a button inside it does its own thing. */
   const openPost = (e: React.MouseEvent) => {
     if (full || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
+    /* A press inside the opened post (portalled, so not inside this card) or on its scrim is the overlay's, never a second open. */
+    if (!e.currentTarget.contains(e.target as Node)) return
     const target = e.target as HTMLElement
     const inner = target.closest("a, button, input, textarea, select, label, [role=menu], [role=menuitem], [role=dialog], [data-no-open]")
     if (inner && !inner.hasAttribute("data-post-open")) return
@@ -564,6 +566,8 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
         onClick={editing ? undefined : openPost}
         /* The comments are asked for as the finger lands, so they are usually here before the post has finished opening. */
         onPointerDown={(e) => {
+          /* The opened post is portalled, but its presses still bubble here through React: only the card's own read ahead. */
+          if (!e.currentTarget.contains(e.target as Node)) return
           if (e.button !== 0 || (e.target as HTMLElement).closest("button, [role=menu]")) return
           warmPostMedia(media, post.communityId, post.id)
           void readAheadComments(post.communityId, post.id)

@@ -91,7 +91,7 @@ async function main() {
   const media = code("components/community/member/media.tsx")
   check("one shared IntersectionObserver, a margin ahead of the screen", /screenWatch \?\?= new IntersectionObserver\(/.test(media) && /rootMargin: "120px 0px"/.test(media))
   check("the moving picture on screen, the still off it, in the same <img>", /src=\{moving \? motion : still\}/.test(media) && /data-gif-state=\{moving \? "playing" : "paused"\}/.test(media))
-  check("reduced motion keeps the still", /prefers-reduced-motion: reduce\)"\)\.matches\) return\s*return watchOnScreen\(el, setMoving\)/.test(media))
+  check("reduced motion keeps the still", /* Changed on purpose: the moving file is fetched before it is swapped in. */ /prefers-reduced-motion: reduce\)"\)\.matches\) return[\s\S]{0,120}return watchOnScreen\(el, setWanted\)/.test(media))
   check("the card's thumbnail, the card's pictures, the opened post's tile and a comment's tile all play", (media.match(/<GifImg /g) ?? []).length >= 4)
   const gif = { type: "gif" as const, url: "https://media2.giphy.com/media/a/200w.gif", still: "https://media2.giphy.com/media/a/200w_s.gif", w: 200, h: 150 }
   check("the card knows a GIF's moving picture as well as its still", cardThumb([gif])?.motion === gif.url && cardThumb([gif])?.url === gif.still && cardPictures([gif])[0].motion === gif.url)
