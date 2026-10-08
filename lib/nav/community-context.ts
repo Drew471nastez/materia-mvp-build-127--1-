@@ -68,16 +68,44 @@ function readName(): string | null {
   return heldName
 }
 
+const EMPTY_META: { slug: string | null; id: string | null; name: string | null } = { slug: null, id: null, name: null }
+let metaCache = EMPTY_META
+
+function syncMetaCache() {
+  const slug = held === undefined ? read() : held
+  const id = heldId === undefined ? readId() : heldId
+  const name = heldName === undefined ? readName() : heldName
+  if (metaCache.slug === slug && metaCache.id === id && metaCache.name === name) return
+  metaCache = { slug, id, name }
+}
+
 function write(next: string | null, meta?: { id?: string; name?: string }) {
-  if (read() === next && (!meta?.id || readId() === meta.id)) return
-  held = next
-  if (meta?.id) heldId = meta.id
-  if (meta?.name) heldName = meta.name
+  const curSlug = read()
+  const curId = readId()
+  const curName = readName()
+  const sameSlug = curSlug === next
+  const sameId = !meta?.id || curId === meta.id
+  const sameName = !meta?.name || curName === meta.name
+  if (sameSlug && sameId && sameName && (!meta || (sameId && sameName))) {
+    if (meta?.id && curId !== meta.id) {
+      heldId = meta.id
+    } else if (meta?.name && curName !== meta.name) {
+      heldName = meta.name
+    } else {
+      return
+    }
+  } else {
+    held = next
+    if (meta?.id) heldId = meta.id
+    if (meta?.name) heldName = meta.name
+  }
   try {
     if (next) {
       window.sessionStorage.setItem(COMMUNITY_CONTEXT_KEY, next)
       if (meta?.id) window.sessionStorage.setItem(COMMUNITY_CONTEXT_ID_KEY, meta.id)
       if (meta?.name) window.sessionStorage.setItem(COMMUNITY_CONTEXT_NAME_KEY, meta.name)
+      else if (heldId) window.sessionStorage.setItem(COMMUNITY_CONTEXT_ID_KEY, heldId)
+      else if (heldName) window.sessionStorage.setItem(COMMUNITY_CONTEXT_NAME_KEY, heldName)
     } else {
       window.sessionStorage.removeItem(COMMUNITY_CONTEXT_KEY)
       window.sessionStorage.removeItem(COMMUNITY_CONTEXT_ID_KEY)
@@ -88,6 +116,7 @@ function write(next: string | null, meta?: { id?: string; name?: string }) {
   } catch {
     /* No storage (a private window): the page's memory still has it. */
   }
+  syncMetaCache()
   listeners.forEach((f) => f())
 }
 
@@ -109,12 +138,13 @@ export function communityContextName(): string | null {
   return readName()
 }
 
+function readMeta() {
+  syncMetaCache()
+  return metaCache
+}
+
 export function useCommunityContextMeta(): { slug: string | null; id: string | null; name: string | null } {
-  return useSyncExternalStore(
-    subscribe,
-    () => ({ slug: read(), id: readId(), name: readName() }),
-    () => ({ slug: null, id: null, name: null }),
-  )
+  return useSyncExternalStore(subscribe, readMeta, () => EMPTY_META)
 }
 
 /** Explore, Discover communities or Dashboard chosen in the navigator: Home is Storelib's again. */
