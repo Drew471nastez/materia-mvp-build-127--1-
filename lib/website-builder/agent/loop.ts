@@ -79,6 +79,7 @@ import { MENU_TOOLS, describeMenus, editMenu } from "./menu-edits"
 import { intentGuidance, type Intent } from "./intent"
 import { PLANNER_SYSTEM, describeCreativePlan, extractJson, planForCreator, planTurn, readCreativePlan, archetypesFor, type CreativePlan } from "./creative-plan"
 import { BRIEF_KEY, briefOp, describeProject, readBrief, updateBrief } from "./project-state"
+import { describeAccountMemory } from "@/lib/ai-memory/store"
 import { THEME_FINDING, checkProject } from "./project-check"
 import { SET_COLOR_SCHEME_TOOL, setColorScheme } from "./scheme-edit"
 import { DESIGN_DEFAULTS, describePatterns, patternById } from "@/lib/storelib-ai/patterns"
@@ -215,6 +216,8 @@ export interface ThemeAgentResult {
   unresolved?: string[]
   /** What the browser check found, and whether it ran. */
   visual?: { ran: number; findings: number; ms: number }
+  /** Notes the creator wants kept on every website (remember, scope "everywhere"): the caller keeps them (lib/ai-memory). */
+  remembered?: string[]
 }
 
 /** A finding from the browser check (./visual-check.ts), as the loop needs it. Kept here so the loop never imports a server-only module. */
@@ -237,7 +240,7 @@ Rules:
 - The header and footer cannot be moved, removed, or inserted around. They are the same on every page.
 - HEADER AND FOOTER ARE DESIGNED FREELY. Layout, icons, buttons, type, motion and logo size are the section's own. "Make my header like this" means design it: update the one on the page, or write sections/<name>.storelib with "kind": "header" or "kind": "footer" when they want one of their own. It replaces the built-in one. Do not copy the built-in header's setting list. sections/header.storelib and sections/footer.storelib are reserved names. What stays live: the menu from a link_list (default "main-menu"), looped with link.links for sub links; the logo from theme.logo.url or an image_picker, size and colour as settings; cart, search and the menu drawer through data-storelib-cart, data-storelib-cart-count, data-storelib-search and data-storelib-menu; account through routes.account_url. A buy button uses checkout_url. Products and prices come from products. One kind per theme.
 - LINKS IN A MENU ARE THE SITE'S MENU (Website settings, Navigation), as in Shopify. "Add a Pricing link", "rename Shop to Store", "move About", "take Blog out" mean read_menus, then edit_menu on the menu that header or footer shows (usually "main-menu"), one link per call. A header you write reads that menu with link_list. Do not type link_1_label pairs. Link a page by its path ("/pages/pricing").
-- PREFER HIDING TO DELETING. "Take this off for now", "hide it until launch", "I don't want this here yet" all mean set_section_visibility, not remove_section. A hidden section keeps its settings and its content and comes back in one call; a removed one is gone, and whoever wrote that content wrote it once. Remove only when somebody clearly wants it gone for good.
+- DELETE MEANS DELETE. "Delete", "remove", "get rid of" mean remove_section (or remove_block), and they mean every one that matches: "delete the testimonials" removes every testimonials section on the page, "remove the empty blocks" removes each empty block. Hiding is for "hide", "for now", "until launch", "I don't want this here yet": set_section_visibility. Say what was removed by name.
 - WHEN A SECTION IS SELECTED, act on it. "Make this section better" means that section, and it is not a question — look at what it is, decide what is weak about it, and change it. A FAQ with five thin questions gets better questions and better answers; a hero with a generic headline gets a specific one; a pricing table with unnamed tiers gets named tiers.
 - THE SELECTED SECTION IS EDITED IN PLACE: its settings, blocks or own code, never a new section beside it. A built in one whose change needs code: ask once, then copy_section_to_code and edit the copy.
 - MOST SECTIONS KEEP THEIR CONTENT IN BLOCKS, not in settings. A FAQ's questions, a pricing table's tiers, a testimonial's quotes, a gallery's images are all blocks. Changing a section's settings alone will not touch any of them, so if a request is about content, use the block tools. read_section lists the block types a section takes and the blocks it currently has. Some sections take theme blocks (heading, text, button, image, video, spacer, group): a group holds blocks of its own, so to build a row, add a group and then add blocks inside it with parentBlockId. A block inside another is addressed by its path, outer/inner. A block marked static is placed by the template: change it, never remove it.
@@ -274,7 +277,7 @@ ${builderAgentRules()}
 
 ${pageAgentReference()}`
 
-function toolSpecs(addable: string[], schemas?: SchemaMap, code?: boolean, opts: { memory?: boolean } = {}): ToolSpec<string>[] {
+function toolSpecs(addable: string[], schemas?: SchemaMap, code?: boolean, opts: { memory?: boolean; everywhere?: boolean } = {}): ToolSpec<string>[] {
   return [
     {
       name: "read_section",
@@ -589,10 +592,16 @@ function toolSpecs(addable: string[], schemas?: SchemaMap, code?: boolean, opts:
           {
             name: "remember",
             description:
-              "Keep one decision or preference about this website for later messages: something the creator said they want or do not want (\"no gradients\", \"prices in euros\", \"the events part is the main thing\"). Not for what you changed; that is kept anyway.",
+              "Keep one decision or preference for later messages: something the creator said they want or do not want (\"no gradients\", \"prices in euros\", \"the events part is the main thing\"). Not for what you changed; that is kept anyway." +
+              (opts.everywhere
+                ? ' scope "everywhere" is for what is true of the creator on every website (their brand, currency, tone, a style they always want or never want), and only when they said so or asked you to remember it; "website" (the default) is for this site.'
+                : ""),
             parameters: {
               type: "object" as const,
-              properties: { note: { type: "string", description: "One short sentence." } },
+              properties: {
+                note: { type: "string", description: "One short sentence." },
+                ...(opts.everywhere ? { scope: { type: "string", enum: ["website", "everywhere"], description: 'Where it applies. "website" when unsure.' } } : {}),
+              },
               required: ["note"],
               additionalProperties: false,
             },
@@ -829,6 +838,11 @@ export interface ThemeAgentInput {
   plan?: boolean
   /** Read and keep the project's memory in the theme settings (./project-state.ts). */
   memory?: boolean
+  /**
+   * What the creator asked Storelib AI to remember on every website (lib/ai-memory/store.ts), newest first. Shown in the
+   * turn, and passing it (even empty) lets remember keep a note "everywhere", which comes back in result.remembered.
+   */
+  accountMemory?: string[]
   /** Hold the finished page to the whole-project check before finishing (./project-check.ts). */
   projectCheck?: boolean
   /**
@@ -953,6 +967,9 @@ export async function* themeAgent(
   const brief = input.memory ? readBrief(input.state.settings) : null
   /** Decisions the model asked to keep (the remember tool). */
   const notes: string[] = []
+  /** The ones the creator wants on every website, for the caller to keep. */
+  const remembered: string[] = []
+  const everywhere = !!input.memory && Array.isArray(input.accountMemory)
   const t0 = Date.now()
   const trace = (kind: string, data: Record<string, unknown> = {}) => {
     try {
@@ -1086,6 +1103,8 @@ export async function* themeAgent(
         describeTheme(state, page, schemas),
         /* What the page cannot say: the business, the direction, what each section is for. */
         brief ? describeProject(state, brief, schemas) : "",
+        /* What the creator asked to keep on every website of theirs (lib/ai-memory). */
+        everywhere ? describeAccountMemory(input.accountMemory ?? []) : "",
         /**
          * BEFORE the theme settings and before the request, because it is the
          * frame everything else is read in. A model told what the page has
@@ -1152,7 +1171,7 @@ export async function* themeAgent(
         model,
         system: SYSTEM_PROMPT,
         turns: [...turns],
-        tools: toolSpecs(addable, schemas, !!input.code, { memory: !!input.memory }),
+        tools: toolSpecs(addable, schemas, !!input.code, { memory: !!input.memory, everywhere }),
         /* A filled section is a lot of copy in one turn; cut off, it arrives half written. See `ambitious`. A new section file is more. */
         maxOutputTokens: bigIntent ? 24_000 : input.ambitious ? 16_000 : 8_000,
         cacheKey: input.cacheKey,
@@ -1508,13 +1527,24 @@ export async function* themeAgent(
         }
         if (call.name === "remember") {
           let note = ""
+          let scope = "website"
           try {
-            note = String((JSON.parse(call.argumentsJson || "{}") as { note?: unknown }).note ?? "").replace(/\s+/g, " ").trim().slice(0, 200)
+            const args = JSON.parse(call.argumentsJson || "{}") as { note?: unknown; scope?: unknown }
+            note = String(args.note ?? "").replace(/\s+/g, " ").trim().slice(0, 200)
+            scope = args.scope === "everywhere" && everywhere ? "everywhere" : "website"
           } catch {
             /* nothing to keep */
           }
-          if (note && input.memory) notes.push(note)
-          results.push({ id: call.id, output: note ? "Kept. It will be shown to you on later messages about this website." : "Send the note as one sentence." })
+          if (note && scope === "everywhere") remembered.push(note)
+          else if (note && input.memory) notes.push(note)
+          results.push({
+            id: call.id,
+            output: !note
+              ? "Send the note as one sentence."
+              : scope === "everywhere"
+                ? "Kept in the creator's AI Memory. It will be shown to you on every website of theirs, and they can see and delete it in Settings."
+                : "Kept. It will be shown to you on later messages about this website.",
+          })
           yield { type: "step", id: call.id, label: stepLabel, state: note ? "done" : "failed" }
           continue
         }
@@ -1908,7 +1938,7 @@ export async function* themeAgent(
     })
   }
 
-  return { status, message, error, usage, ops, wroteCode, asked, intent, plan, unresolved, visual }
+  return { status, message, error, usage, ops, wroteCode, asked, intent, plan, unresolved, visual, remembered }
 }
 
 /**

@@ -27,9 +27,13 @@ export interface RecentMessage {
   changed?: string[]
 }
 
-/** Exchanges kept, oldest first. Two is "what you just did and what came before it". */
-export const MEMORY_MESSAGES = 4
-const MAX_CHARS = 400
+/**
+ * Messages kept, oldest first. Twelve is six exchanges: enough for "do what I said earlier", for a long task carried on
+ * in parts (theme-chat CONTINUE_PROMPT) to see its own plan, and for a correction three messages back to still hold.
+ * Each is cut to MAX_CHARS, so the block stays under about 3,500 tokens however long the conversation is.
+ */
+export const MEMORY_MESSAGES = 12
+const MAX_CHARS = 1200
 
 type Db = {
   from: (table: string) => {

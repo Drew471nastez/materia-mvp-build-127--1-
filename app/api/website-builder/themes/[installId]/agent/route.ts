@@ -43,6 +43,7 @@ import { completeThemeExchange, openThemeConversation, startThemeExchange } from
 import { keepImages } from "@/lib/website-builder/agent/attachment-store"
 import { withPictureNote } from "@/lib/website-builder/ask-attach"
 import { recentMessages } from "@/lib/website-builder/agent/memory"
+import { MEMORY_IN_TURN, addMemory, listMemories, type MemoryDb } from "@/lib/ai-memory/store"
 import { getWebsiteShareUrl } from "@/lib/url-helpers"
 import { CodeJournal } from "@/lib/website-builder/agent/code-journal"
 import { resolveSelectedSection, SECTION_TYPE, type SectionOrigin } from "@/lib/website-builder/agent/selected-section"
@@ -89,6 +90,8 @@ type RecordedEvent =
   | { type: "unsaved"; what: "chat" | "pictures"; reason: "not_set_up" | "failed"; kept?: number; of?: number }
   /** Whose account this run is on: null for Storelib AI, else the creator's own connection. */
   | { type: "account"; own: "anthropic" | "openai" | null }
+  /** The run stopped on the time limit with work left: the chat sends the next part itself (theme-chat CONTINUE_PROMPT). */
+  | { type: "continue"; reason: "time" }
 
 /* The whole tree, blocks inside blocks included: lib/website-builder/block-tree.ts. */
 const BlockSchema = BlockInstanceSchema
@@ -251,6 +254,14 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
    * question, mean what it meant (lib/website-builder/agent/memory.ts).
    */
   const history = await recentMessages(supabase as never, installId, conversationId)
+  /**
+   * WHAT THE CREATOR ASKED TO KEEP ON EVERY WEBSITE (lib/ai-memory/store.ts),
+   * through their own client. Not ready (part 106 not run) is undefined, so
+   * the run keeps only this website's own notes, as before.
+   */
+  const creatorId = (creator as { id: string }).id
+  const account = await listMemories(supabase as unknown as MemoryDb, creatorId, MEMORY_IN_TURN)
+  const accountMemory = account.ready ? account.memories.map((m) => m.content) : undefined
   const recorded = await startThemeExchange({ installId, pageKey: body.page, prompt: noted, conversationId })
   const messageId = recorded.id
   /**
@@ -525,6 +536,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
           intent,
           plan: true,
           memory: true,
+          accountMemory,
           projectCheck: true,
           maxReviews: bigIntent ? 3 : undefined,
           visualCheck: (state, sources, opts) => visualCheck({ state, sources, schemas: schemaMapFor(sources), shots: opts.shots }),
@@ -630,6 +642,11 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
         }
 
         const result = step.value
+        /* Kept on every website, as the creator asked; one that fails to keep is in the log, not in the way. */
+        for (const note of result.remembered ?? []) {
+          const kept = await addMemory(supabase as unknown as MemoryDb, creatorId, note, "assistant")
+          if (!kept.ok) console.warn("[storelib ai] memory not kept", kept.error)
+        }
         console.info(
           "[storelib ai] run",
           JSON.stringify({
@@ -719,7 +736,15 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
                 : result.error ?? "The edit failed.",
           })
         } else {
-          send({ type: "message", text: result.message || "Done." })
+          /*
+            OUT OF TIME, NOT OUT OF WORK. A function here lives 300 seconds, and a whole site takes longer. A run the
+            deadline stopped after it had changed things says so, and the chat sends the next part on its own
+            (components/website-builder/theme-chat.tsx, CONTINUE_PROMPT), with this conversation as its memory, so a
+            task of ten or fifteen minutes runs as one request from where the creator sits.
+          */
+          const outOfTime = deadline.aborted && !request.signal.aborted && (result.ops.length > 0 || !!result.wroteCode)
+          if (outOfTime) send({ type: "continue", reason: "time" })
+          send({ type: "message", text: (result.message || "Done.") + (outOfTime ? " Carrying on with the rest." : "") })
         }
 
         /**

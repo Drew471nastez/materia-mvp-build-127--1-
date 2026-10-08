@@ -19,9 +19,10 @@ import {
   CreditCard, Shield, Settings, Wallet, Landmark, Truck,
   ExternalLink, ChevronRight, Globe,
   User, FileText, ChevronLeft,
-  ToggleLeft, Bell, LogOut, Trash2, Languages, Info, ChevronDown, CheckCircle, Clock, Copy, Plus, Plug
+  ToggleLeft, Bell, LogOut, Trash2, Languages, Info, ChevronDown, CheckCircle, Clock, Copy, Plus, Plug, Brain
 } from "lucide-react"
 import { IntegrationsMarketplace } from "@/components/physical/integrations-marketplace"
+import { AiMemoryPanel } from "@/components/app/settings/ai-memory-panel"
 import type { Profile, Creator } from "@/lib/types"
 import { isValidUsername } from "@/lib/reserved-words"
 import { getLinksShareUrl, getLinksUrlDisplay, getStoreShareUrl, getStoreUrl, getStoreUrlDisplay, getWebsiteShareUrl, getWebsiteUrlDisplay } from "@/lib/url-helpers"
@@ -64,6 +65,8 @@ const TABS = [
   { id: "billing", label: "Billing", icon: CreditCard, group: "account" },
   { id: "payments", label: "Payments", icon: Wallet, group: "store" },
   { id: "domains", label: "Domains", icon: Globe, group: "store" },
+  /* What Storelib AI keeps for the creator on every website (components/app/settings/ai-memory-panel.tsx). */
+  { id: "ai_memory", label: "AI Memory", icon: Brain, group: "store" },
   /* Shipping and delivery, locations, taxes and returns: only while physical commerce is on in /admin. */
   { id: "shipping", label: "Shipping", icon: Truck, group: "commerce" },
   /* Shippo, Printful, Gelato and the rest: the commerce integrations, while physical commerce is on. */
@@ -94,7 +97,7 @@ type TabId = typeof TABS[number]["id"]
 /** The selected fill fading in on its own tab, and the words' colour: one short time, one plain ease out. */
 const TAB_FADE_MS = 150
 const TAB_EASE = "cubic-bezier(0.33, 1, 0.68, 1)"
-const TAB_IDS: TabId[] = ["general", "security", "privacy", "notifications", "billing", "payments", "domains", "shipping", "integrations"]
+const TAB_IDS: TabId[] = ["general", "security", "privacy", "notifications", "billing", "payments", "domains", "ai_memory", "shipping", "integrations"]
 /** Tabs that exist only while physical commerce is on in /admin. */
 const COMMERCE_TABS = new Set<string>(["shipping", "integrations"])
 
@@ -1735,6 +1738,8 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
 
           {/* Notifications Tab: which notifications, by email and in app (notification-preferences.tsx) */}
           {panelTab === "notifications" && <NotificationPreferencesPanel />}
+
+          {panelTab === "ai_memory" && <AiMemoryPanel />}
 
           {panelTab === "shipping" && physicalCommerce && <ShippingSettings />}
 

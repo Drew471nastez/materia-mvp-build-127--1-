@@ -566,6 +566,14 @@ const ExchangeItem = React.memo(function ExchangeItem({
  * needs to when something it is given has changed. What it types, streams
  * and shows is its own state, so none of that re-renders the editor.
  */
+/**
+ * A LONG TASK RUNS IN PARTS. One request lives 300 seconds; when the server says a run stopped for time with work done
+ * (`continue`), this is sent next, quietly, with the conversation as its memory. MAX_CONTINUES parts at most, so a run
+ * that keeps finding more to do still ends, and a press on Stop ends it at once.
+ */
+export const CONTINUE_PROMPT = "Continue where you stopped: finish the rest of what I asked, without redoing what is already done."
+export const MAX_CONTINUES = 3
+
 export const ThemeChat = React.memo(ThemeChatPanel)
 
 function ThemeChatPanel({
@@ -761,6 +769,8 @@ function ThemeChatPanel({
    * goes the instant the run ends.
    */
   const [queued, setQueued] = React.useState<{ text: string; mode: AskMode } | null>(null)
+  /* How many parts in a row the current long task has run (the `continue` event); a message of the creator's own starts again. */
+  const continues = React.useRef(0)
   /**
    * ONLY THE OPEN SECTION MAY CHANGE.
    *
@@ -1365,6 +1375,7 @@ function ThemeChatPanel({
        * uploads an image, it should try to replicate it."
        */
       if ((!prompt && images.length === 0) || busy || writing) return
+      if (prompt !== CONTINUE_PROMPT) continues.current = 0
 
       const id = crypto.randomUUID()
       const runId = crypto.randomUUID()
@@ -1430,6 +1441,9 @@ function ThemeChatPanel({
       let uploadStep = -1
       /** The run has said its last word: the chime has played, or an error made it unnecessary. */
       let finished = false
+      /* Set by a `continue` event: this run stopped for time with the task not done. */
+      let carryOn = false
+      let abortedByPerson = false
 
       /**
        * THE RUN BELONGS TO THE PAGE IT STARTED ON.
@@ -1571,6 +1585,10 @@ function ThemeChatPanel({
                 if (!finished) playAskSound("question")
                 finished = true
                 return
+              } else if (type === "continue") {
+                /* The run stopped for time with work done: the next part is sent when this one has closed (CONTINUE_PROMPT). */
+                carryOn = true
+                return
               } else if (type === "message") {
                 const reply = typeof event.text === "string" ? event.text : ""
                 patch((e) => ({ ...e, reply, running: false, activity: settleActivity(e.activity) }))
@@ -1606,6 +1624,7 @@ function ThemeChatPanel({
         if (snapshotTaken) onRunEnd?.(prompt)
       } catch (thrown) {
         const stopped = thrown instanceof DOMException && thrown.name === "AbortError"
+        abortedByPerson = stopped
         /* A stop is chosen, and silent; a lost connection is a failure. */
         if (!stopped && !finished) playAskSound("error")
         patch((e) => ({
@@ -1623,6 +1642,13 @@ function ThemeChatPanel({
         }))
       } finally {
         abortRef.current = null
+        /* A long task, in parts: up to MAX_CONTINUES more runs, each picking up from the conversation. A stop ends it. */
+        if (carryOn && !abortedByPerson && continues.current < MAX_CONTINUES) {
+          continues.current += 1
+          setQueued({ text: CONTINUE_PROMPT, mode: "change" })
+        } else if (!carryOn) {
+          continues.current = 0
+        }
         setBusy(false)
         /* The sheen goes; what changed is brought into view and marked once. */
         working.clear()

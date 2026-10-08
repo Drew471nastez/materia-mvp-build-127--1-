@@ -2331,10 +2331,10 @@ section("Hiding a section is not deleting it")
 }
 
 check(
-  "the model is told to prefer hiding, in the system prompt, not just given the tool",
-  /PREFER HIDING TO DELETING/.test(
-    readFileSync(join(root, "lib/website-builder/agent/loop.ts"), "utf8"),
-  ),
+  "the model is told delete means delete (every match), and hiding is for when they say hide, in the system prompt",
+  /DELETE MEANS DELETE/.test(readFileSync(join(root, "lib/website-builder/agent/loop.ts"), "utf8")) &&
+    /every one that matches/.test(readFileSync(join(root, "lib/website-builder/agent/loop.ts"), "utf8")) &&
+    /set_section_visibility/.test(readFileSync(join(root, "lib/website-builder/agent/loop.ts"), "utf8")),
 )
 
 /**
